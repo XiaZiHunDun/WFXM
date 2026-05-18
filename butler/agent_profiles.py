@@ -1,9 +1,8 @@
-"""Agent role profiles for Butler v3.
+"""Agent role profiles for Butler.
 
 Each profile defines a role-specific system prompt and toolset hint.
-When Butler spawns a project-level Hermes AIAgent, the profile's
-prompt is injected as ``ephemeral_system_prompt`` and the toolsets
-are passed as ``enabled_toolsets``.
+When Butler spawns a project-level AgentLoop, the profile's prompt
+is used as the system prompt and toolsets guide tool filtering.
 """
 
 from __future__ import annotations

@@ -1,8 +1,8 @@
-"""Butler Orchestrator — bridges Butler product layer with Hermes AIAgent engine.
+"""Butler Orchestrator — bridges Butler product layer with the Agent Loop.
 
 Provides:
 - Butler-scoped system prompt injection (project context, memory, model config)
-- Project-aware agent spawning via hermes delegate_task
+- LLMClient and AgentLoop factory methods for butler and project agents
 - Report collection from delegated tasks
 """
 
@@ -74,7 +74,7 @@ def _combined_skill_manager(settings: ButlerSettings, project_workspace: Path | 
 
 
 class ButlerOrchestrator:
-    """Bridge Butler configuration and memories into Hermes ``AIAgent`` kwargs."""
+    """Bridge Butler configuration/memories into AgentLoop instances."""
 
     def __init__(self, user_id: str = "owner", channel: str = "cli") -> None:
         self.user_id = user_id
@@ -195,7 +195,7 @@ class ButlerOrchestrator:
         return rendered.rstrip() + appendix
 
     def get_agent_kwargs(self) -> dict[str, Any]:
-        """Return kwargs to configure Hermes ``AIAgent``."""
+        """Return kwargs dict (kept for backward compat)."""
         mc = self._model_credentials("butler")
         return {
             "model": mc.get("model", ""),
@@ -207,6 +207,100 @@ class ButlerOrchestrator:
             "platform": self.channel,
             "ephemeral_system_prompt": self.build_system_prompt(),
         }
+
+    def create_llm_client(self, role: str = "butler") -> "LLMClient":
+        """Create an LLMClient for the given role."""
+        from butler.transport.llm_client import LLMClient
+        mc = self._model_credentials(role)
+        return LLMClient(
+            provider=mc.get("provider") or "",
+            model=mc.get("model") or "",
+            api_key=mc.get("api_key") or None,
+            base_url=mc.get("base_url") or None,
+            max_tokens=mc.get("max_tokens"),
+        )
+
+    def create_agent_loop(
+        self,
+        role: str = "butler",
+        *,
+        tools: list[dict] | None = None,
+        tool_dispatcher: Any = None,
+        callbacks: Any = None,
+    ) -> "AgentLoop":
+        """Create a fully configured AgentLoop for the given role."""
+        from butler.core.agent_loop import AgentLoop, LoopConfig
+
+        client = self.create_llm_client(role)
+        system_prompt = self.build_system_prompt() if role == "butler" else ""
+
+        if role != "butler":
+            from butler.agent_profiles import get_profile
+            profile = get_profile(role.replace("_agent", ""))
+            if profile:
+                system_prompt = profile.system_prompt
+                from butler.agent_profiles import get_model_aware_prompt_extra
+                extra = get_model_aware_prompt_extra(client.provider_name or "")
+                if extra:
+                    system_prompt += "\n\n" + extra
+
+        return AgentLoop(
+            client=client,
+            system_prompt=system_prompt,
+            tools=tools or [],
+            tool_dispatcher=tool_dispatcher,
+            config=LoopConfig(),
+            callbacks=callbacks,
+        )
+
+    def create_project_agent_loop(
+        self,
+        role: str = "dev",
+        *,
+        tools: list[dict] | None = None,
+        tool_dispatcher: Any = None,
+        callbacks: Any = None,
+    ) -> "AgentLoop":
+        """Create an AgentLoop configured for a project-level agent."""
+        from butler.core.agent_loop import AgentLoop, LoopConfig
+        from butler.agent_profiles import get_profile, get_model_aware_prompt_extra
+
+        normalized_role = _normalize_butler_role(role)
+        kw = self.get_project_agent_kwargs(role)
+
+        from butler.transport.llm_client import LLMClient
+        client = LLMClient(
+            provider=kw.get("provider") or "",
+            model=kw.get("model") or "",
+            api_key=kw.get("api_key") or None,
+            base_url=kw.get("base_url") or None,
+            max_tokens=kw.get("max_tokens"),
+        )
+
+        profile = get_profile(role)
+        system_parts = []
+        if profile:
+            system_parts.append(profile.system_prompt)
+        system_parts.append(kw.get("ephemeral_system_prompt", ""))
+
+        extra = get_model_aware_prompt_extra(client.provider_name or "")
+        if extra:
+            system_parts.append(extra)
+
+        skill_ctx = ""
+        if self._skill_router:
+            skill_ctx = self.inject_skill_context("", top_k=3)
+
+        system_prompt = "\n\n".join(p for p in system_parts if p)
+
+        return AgentLoop(
+            client=client,
+            system_prompt=system_prompt,
+            tools=tools or [],
+            tool_dispatcher=tool_dispatcher,
+            config=LoopConfig(),
+            callbacks=callbacks,
+        )
 
     def get_project_agent_kwargs(self, role: str) -> dict[str, Any]:
         """Return kwargs for project-level agents (dev/content/review)."""

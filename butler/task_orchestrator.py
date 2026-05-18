@@ -1,21 +1,28 @@
-"""DAG task orchestration engine for Butler v3.
+"""Butler Task Orchestrator — DAG-based multi-agent task execution.
 
-Manages multi-agent workflows: spawn single/parallel/sequential/background
-tasks, execute DAG graphs with conditional routing and approval gates.
+Uses Butler's own AgentLoop for sub-agent spawning. Every sub-agent
+goes through Butler's orchestrator, inheriting the correct model
+config, memory, skills, and agent profile.
 
-Unlike v1 which used a custom AgentRunner, v3 spawns Hermes AIAgent
-instances for each task, getting the full Hermes tool ecosystem.
+Key improvements over v3:
+  - AgentSpawnConfig includes tools and model_config fields
+  - AgentResult includes AgentReport and tokens_used
+  - Real parallel execution via asyncio.to_thread
+  - Sub-agents use Butler profiles and toolsets
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Awaitable, Callable
+from typing import Any, Callable, Optional
+
+from butler.report import AgentReport, cache_report
 
 logger = logging.getLogger(__name__)
 
@@ -25,35 +32,37 @@ class AgentStatus(str, Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
-    CANCELLED = "cancelled"
-    WAITING_APPROVAL = "waiting_approval"
 
 
 @dataclass
 class AgentSpawnConfig:
-    """Configuration for spawning a project-level agent."""
-    role: str
+    """Configuration for spawning a sub-agent."""
+    role: str  # dev, content, review
     task: str
-    project_name: str = ""
-    max_iterations: int = 90
     context: str = ""
-    output_format: str = ""
+    tools: list[str] | None = None
+    model_config: dict[str, Any] | None = None
+    max_iterations: int = 30
+    output_format: str = "text"
+    project_name: str | None = None
 
 
 @dataclass
 class AgentResult:
-    """Structured output from a completed agent."""
-    success: bool = True
+    """Result from a sub-agent execution, including structured report."""
+    success: bool
     response: str = ""
-    summary: str = ""
-    artifacts: list[str] = field(default_factory=list)
-    turns_used: int = 0
+    report: AgentReport | None = None
+    tokens_used: int = 0
+    iterations: int = 0
+    tool_calls: int = 0
+    elapsed_seconds: float = 0.0
     error: str = ""
+    artifacts: list[str] = field(default_factory=list)
 
 
 @dataclass
 class AgentTask:
-    """Tracks a running or completed agent task."""
     id: str
     config: AgentSpawnConfig
     status: AgentStatus = AgentStatus.PENDING
@@ -64,76 +73,65 @@ class AgentTask:
 
 @dataclass
 class TaskNode:
-    """A node in a task execution graph."""
+    """Node in a task DAG."""
     id: str
     config: AgentSpawnConfig
     depends_on: list[str] = field(default_factory=list)
-    router: Callable[[AgentResult], str] | None = None
+    router: Callable[[AgentResult], str | None] | None = None
     requires_approval: bool = False
-    retry_count: int = 0
     max_retries: int = 1
 
 
 @dataclass
 class TaskGraphResult:
-    """Result of executing a task graph."""
-    success: bool = True
-    node_results: dict[str, AgentResult] = field(default_factory=dict)
+    nodes: dict[str, AgentResult] = field(default_factory=dict)
     execution_order: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-    waiting_approval: str = ""
+    success: bool = True
+    error: str = ""
 
 
 class TaskOrchestrator:
-    """Manages agent lifecycle using Hermes AIAgent as the execution engine."""
+    """Execute multi-agent workflows using Butler's AgentLoop."""
 
-    def __init__(self, orchestrator: Any = None):
+    def __init__(self) -> None:
         self._tasks: dict[str, AgentTask] = {}
-        self._checkpoints: dict[str, dict[str, AgentResult]] = {}
-        self._orchestrator = orchestrator
 
-    def _spawn_hermes_agent(self, config: AgentSpawnConfig) -> Any:
-        """Create a Hermes AIAgent for the given config."""
-        from butler.main import _ensure_hermes_env, _create_project_agent
+    def _create_agent_loop(self, config: AgentSpawnConfig):
+        """Create a Butler AgentLoop for the given config."""
+        from butler.orchestrator import ButlerOrchestrator
+        from butler.tools.registry import get_tool_definitions, dispatch_tool
+        from butler.core.agent_loop import LoopConfig
 
-        _ensure_hermes_env()
-        if self._orchestrator is None:
-            from butler.orchestrator import ButlerOrchestrator
-            self._orchestrator = ButlerOrchestrator()
+        orch = ButlerOrchestrator(user_id="owner", channel="orchestrator")
 
-        if config.project_name:
-            self._orchestrator.project_manager.switch_project(config.project_name)
+        if config.model_config:
+            from butler.config import ModelConfig
+            mc = ModelConfig(**config.model_config)
+            orch._settings.set_runtime_model_override(config.role, mc)
 
-        from butler.agent_profiles import get_profile, get_model_aware_prompt_extra
-        profile = get_profile(config.role)
+        tools = get_tool_definitions()
+        delegated_tools = [t for t in tools if t["function"]["name"] != "delegate_task"]
 
-        agent = _create_project_agent(
-            self._orchestrator,
-            config.role,
-            session_id=f"task-{uuid.uuid4().hex[:8]}",
-            quiet_mode=True,
+        if config.tools:
+            tool_names = set(config.tools)
+            delegated_tools = [t for t in delegated_tools
+                               if t["function"]["name"] in tool_names]
+
+        agent = orch.create_project_agent_loop(
+            role=config.role,
+            tools=delegated_tools,
+            tool_dispatcher=dispatch_tool,
         )
 
-        if profile:
-            provider = getattr(agent, "provider", "") or ""
-            extra = get_model_aware_prompt_extra(provider)
-            if extra and hasattr(agent, "ephemeral_system_prompt"):
-                current = getattr(agent, "ephemeral_system_prompt", "") or ""
-                agent.ephemeral_system_prompt = current + extra
-
+        agent.config.max_iterations = config.max_iterations
         return agent
 
     async def spawn_agent(
         self,
         config: AgentSpawnConfig,
-        on_progress: Callable[[int, str, str], None] | None = None,
+        on_progress: Callable[[str, str, str], None] | None = None,
     ) -> AgentResult:
-        """Spawn a Hermes AIAgent and run the task.
-
-        Uses asyncio.to_thread so that the blocking run_conversation()
-        call does not starve the event loop — enabling real parallelism
-        when called via spawn_parallel / asyncio.gather.
-        """
+        """Spawn a Butler AgentLoop and run the task."""
         task_id = uuid.uuid4().hex[:8]
         task = AgentTask(id=task_id, config=config)
         self._tasks[task_id] = task
@@ -143,25 +141,33 @@ class TaskOrchestrator:
         logger.info("Spawning %s agent [%s]: %s", config.role, task_id, config.task[:80])
 
         try:
-            agent = self._spawn_hermes_agent(config)
+            agent = self._create_agent_loop(config)
 
             user_message = config.task
             if config.context:
                 user_message = f"## 上下文\n{config.context}\n\n## 任务\n{config.task}"
 
-            raw_result = await asyncio.to_thread(
-                agent.run_conversation, user_message=user_message
-            )
+            loop_result = await asyncio.to_thread(agent.run, user_message)
 
-            response = ""
-            if isinstance(raw_result, dict):
-                response = raw_result.get("final_response", "")
-            else:
-                response = str(raw_result)
+            report = AgentReport(
+                headline=f"{config.role} 代理完成任务",
+                summary=loop_result.final_response or "",
+                success=loop_result.status.value == "completed",
+                iterations=loop_result.iterations,
+                tool_calls=loop_result.tool_calls_made,
+                tokens_used=loop_result.total_tokens,
+                elapsed_seconds=loop_result.elapsed_seconds,
+            )
+            cache_report(report)
 
             result = AgentResult(
                 success=True,
-                response=response,
+                response=loop_result.final_response or "",
+                report=report,
+                tokens_used=loop_result.total_tokens,
+                iterations=loop_result.iterations,
+                tool_calls=loop_result.tool_calls_made,
+                elapsed_seconds=loop_result.elapsed_seconds,
             )
         except Exception as exc:
             logger.error("Agent [%s] failed: %s", task_id, exc)
@@ -177,7 +183,7 @@ class TaskOrchestrator:
         return result
 
     async def spawn_parallel(self, configs: list[AgentSpawnConfig]) -> list[AgentResult]:
-        """Spawn multiple agents in parallel."""
+        """Spawn multiple agents in true parallel via asyncio.to_thread."""
         tasks = [self.spawn_agent(cfg) for cfg in configs]
         return list(await asyncio.gather(*tasks, return_exceptions=False))
 
@@ -186,165 +192,152 @@ class TaskOrchestrator:
         configs: list[AgentSpawnConfig],
         pass_context: bool = True,
     ) -> list[AgentResult]:
-        """Spawn agents sequentially with optional context passing."""
+        """Execute agents sequentially, optionally passing context."""
         results: list[AgentResult] = []
         accumulated_context = ""
+
         for cfg in configs:
             if pass_context and accumulated_context:
-                cfg.context = (cfg.context + "\n\n前序 Agent 输出:\n" + accumulated_context).strip()
+                cfg.context = (cfg.context or "") + "\n\n" + accumulated_context
+
             result = await self.spawn_agent(cfg)
             results.append(result)
-            if result.success:
-                accumulated_context = result.response[:2000]
-            else:
+
+            if result.success and result.response:
+                accumulated_context += f"\n[{cfg.role} 结果]: {result.response[:2000]}"
+
+            if not result.success:
+                logger.warning("Sequential chain broken at role=%s", cfg.role)
                 break
+
         return results
-
-    async def spawn_background(
-        self,
-        config: AgentSpawnConfig,
-        on_complete: Callable[[AgentResult], Any] | None = None,
-    ) -> str:
-        """Spawn an agent in background, return task ID."""
-        task_id = uuid.uuid4().hex[:8]
-
-        async def _run():
-            result = await self.spawn_agent(config)
-            if on_complete:
-                if asyncio.iscoroutinefunction(on_complete):
-                    await on_complete(result)
-                else:
-                    on_complete(result)
-
-        asyncio.create_task(_run())
-        return task_id
-
-    def get_task(self, task_id: str) -> AgentTask | None:
-        return self._tasks.get(task_id)
-
-    def list_tasks(self, status: AgentStatus | None = None) -> list[AgentTask]:
-        tasks = list(self._tasks.values())
-        if status:
-            tasks = [t for t in tasks if t.status == status]
-        return sorted(tasks, key=lambda t: t.started_at, reverse=True)
-
-    def _topological_sort(self, nodes: list[TaskNode]) -> list[list[str]]:
-        """Returns layers of node IDs for parallel execution."""
-        node_ids = {n.id for n in nodes}
-        in_deg: dict[str, int] = {nid: 0 for nid in node_ids}
-        children: dict[str, list[str]] = {nid: [] for nid in node_ids}
-
-        for n in nodes:
-            inc = sum(1 for d in n.depends_on if d in node_ids)
-            in_deg[n.id] = inc
-            for d in n.depends_on:
-                if d in node_ids:
-                    children[d].append(n.id)
-
-        layers: list[list[str]] = []
-        current = sorted(nid for nid in node_ids if in_deg[nid] == 0)
-
-        while current:
-            layers.append(list(current))
-            nxt: list[str] = []
-            for u in current:
-                for v in children[u]:
-                    in_deg[v] -= 1
-                    if in_deg[v] == 0:
-                        nxt.append(v)
-            current = sorted(nxt)
-
-        if sum(len(layer) for layer in layers) != len(node_ids):
-            return []
-        return layers
 
     async def execute_graph(
         self,
         nodes: list[TaskNode],
-        on_progress: Callable[[str, AgentStatus], None] | None = None,
-        approval_callback: Callable[[str, AgentSpawnConfig], Awaitable[bool]] | None = None,
+        on_approval: Callable[[TaskNode], bool] | None = None,
     ) -> TaskGraphResult:
-        """Execute a DAG of tasks with conditional routing and approval gates."""
+        """Execute a DAG of tasks with dependency resolution."""
+        graph_result = TaskGraphResult()
         node_map = {n.id: n for n in nodes}
-        node_results: dict[str, AgentResult] = {}
-        execution_order: list[str] = []
-        errors: list[str] = []
-        cancelled: set[str] = set()
+        completed: dict[str, AgentResult] = {}
 
-        layers = self._topological_sort(nodes)
-        if not layers and nodes:
-            return TaskGraphResult(
-                success=False, errors=["Cycle detected in task graph"]
-            )
+        order = _topological_sort(nodes)
+
+        layers = _group_into_layers(order, node_map)
 
         for layer in layers:
-            runnable = [
-                node_map[nid] for nid in sorted(layer)
-                if nid not in cancelled and nid not in node_results
-            ]
-            if not runnable:
-                continue
+            layer_tasks = []
+            for node_id in layer:
+                node = node_map[node_id]
 
-            for n in runnable:
-                if n.requires_approval and approval_callback:
-                    try:
-                        approved = bool(await approval_callback(n.id, n.config))
-                    except Exception as e:
-                        approved = False
-                        errors.append(f"approval error for {n.id}: {e}")
-                    if not approved:
-                        return TaskGraphResult(
-                            success=False,
-                            node_results=node_results,
-                            execution_order=execution_order,
-                            errors=errors,
-                            waiting_approval=n.id,
+                if node.depends_on:
+                    dep_contexts = []
+                    for dep_id in node.depends_on:
+                        dep_result = completed.get(dep_id)
+                        if dep_result and dep_result.response:
+                            dep_contexts.append(f"[{dep_id} 结果]: {dep_result.response[:1500]}")
+                    if dep_contexts:
+                        node.config.context = (
+                            (node.config.context or "") + "\n\n" + "\n".join(dep_contexts)
                         )
 
-            async def _run_node(node: TaskNode) -> tuple[str, AgentResult]:
-                if on_progress:
-                    on_progress(node.id, AgentStatus.RUNNING)
-                last_res = AgentResult(success=False, error="not executed")
-                for attempt in range(node.max_retries + 1):
-                    last_res = await self.spawn_agent(node.config)
-                    if last_res.success:
-                        break
-                if on_progress:
-                    status = AgentStatus.COMPLETED if last_res.success else AgentStatus.FAILED
-                    on_progress(node.id, status)
-                return node.id, last_res
+                if node.requires_approval and on_approval:
+                    if not on_approval(node):
+                        completed[node_id] = AgentResult(
+                            success=False, error="Approval denied"
+                        )
+                        continue
 
-            results = await asyncio.gather(*[_run_node(n) for n in runnable])
+                layer_tasks.append((node_id, node))
 
-            for nid, res in results:
-                node_results[nid] = res
-                execution_order.append(nid)
-                if not res.success:
-                    for dep in node_map.values():
-                        if nid in dep.depends_on:
-                            cancelled.add(dep.id)
+            if not layer_tasks:
+                continue
 
-                if res.success and node_map[nid].router:
-                    try:
-                        next_id = node_map[nid].router(res)
-                        if next_id:
-                            direct_deps = [
-                                d.id for d in node_map.values()
-                                if nid in d.depends_on and d.id != next_id
-                            ]
-                            cancelled.update(direct_deps)
-                    except Exception as e:
-                        errors.append(f"router error for {nid}: {e}")
+            if len(layer_tasks) == 1:
+                nid, node = layer_tasks[0]
+                result = await self._run_with_retry(node)
+                completed[nid] = result
+                graph_result.execution_order.append(nid)
+            else:
+                parallel_results = await asyncio.gather(
+                    *[self._run_with_retry(node) for _, node in layer_tasks]
+                )
+                for (nid, _), result in zip(layer_tasks, parallel_results):
+                    completed[nid] = result
+                    graph_result.execution_order.append(nid)
 
-        all_ok = all(
-            node_results[nid].success
-            for nid in node_map
-            if nid not in cancelled and nid in node_results
-        )
+            for nid in [lid for lid, _ in layer_tasks]:
+                node = node_map[nid]
+                result = completed[nid]
+                if node.router and result.success:
+                    next_id = node.router(result)
+                    if next_id and next_id in node_map and next_id not in completed:
+                        extra_result = await self._run_with_retry(node_map[next_id])
+                        completed[next_id] = extra_result
+                        graph_result.execution_order.append(next_id)
 
-        return TaskGraphResult(
-            success=all_ok,
-            node_results=node_results,
-            execution_order=execution_order,
-            errors=errors,
-        )
+        graph_result.nodes = completed
+        graph_result.success = all(r.success for r in completed.values())
+        return graph_result
+
+    async def _run_with_retry(self, node: TaskNode) -> AgentResult:
+        last_result = AgentResult(success=False, error="No attempts")
+        for attempt in range(node.max_retries):
+            last_result = await self.spawn_agent(node.config)
+            if last_result.success:
+                return last_result
+            logger.warning(
+                "Node %s attempt %d/%d failed",
+                node.id, attempt + 1, node.max_retries,
+            )
+        return last_result
+
+
+def _topological_sort(nodes: list[TaskNode]) -> list[str]:
+    """Kahn's algorithm for topological ordering."""
+    graph: dict[str, list[str]] = {n.id: [] for n in nodes}
+    in_degree: dict[str, int] = {n.id: 0 for n in nodes}
+
+    for n in nodes:
+        for dep in n.depends_on:
+            if dep in graph:
+                graph[dep].append(n.id)
+                in_degree[n.id] += 1
+
+    queue = [nid for nid, deg in in_degree.items() if deg == 0]
+    result = []
+
+    while queue:
+        nid = queue.pop(0)
+        result.append(nid)
+        for neighbor in graph.get(nid, []):
+            in_degree[neighbor] -= 1
+            if in_degree[neighbor] == 0:
+                queue.append(neighbor)
+
+    if len(result) != len(nodes):
+        raise ValueError("Task graph contains a cycle")
+
+    return result
+
+
+def _group_into_layers(
+    order: list[str],
+    node_map: dict[str, TaskNode],
+) -> list[list[str]]:
+    """Group topologically sorted nodes into parallel layers."""
+    depth: dict[str, int] = {}
+    for nid in order:
+        node = node_map[nid]
+        if not node.depends_on:
+            depth[nid] = 0
+        else:
+            depth[nid] = max(depth.get(d, 0) for d in node.depends_on) + 1
+
+    max_depth = max(depth.values()) if depth else 0
+    layers: list[list[str]] = [[] for _ in range(max_depth + 1)]
+    for nid in order:
+        layers[depth[nid]].append(nid)
+
+    return [layer for layer in layers if layer]

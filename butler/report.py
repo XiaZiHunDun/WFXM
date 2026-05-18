@@ -20,6 +20,11 @@ class AgentReport:
     decisions: list[str] = field(default_factory=list)
     issues: list[str] = field(default_factory=list)
     summary: str = ""
+    success: bool = True
+    iterations: int = 0
+    tool_calls: int = 0
+    tokens_used: int = 0
+    elapsed_seconds: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -193,7 +198,36 @@ def format_detail(report: AgentReport, section: str = "") -> str:
         for issue in report.issues:
             parts.append(f"  ! {issue}")
 
+    stats = []
+    if report.iterations > 0:
+        stats.append(f"{report.iterations} 轮")
+    if report.tool_calls > 0:
+        stats.append(f"{report.tool_calls} 工具调用")
+    if report.tokens_used > 0:
+        stats.append(f"{report.tokens_used:,} tokens")
+    if report.elapsed_seconds > 0:
+        stats.append(f"{report.elapsed_seconds:.1f}s")
+    if stats:
+        parts.append("")
+        parts.append(f"执行统计: {' | '.join(stats)}")
+
     return "\n".join(parts)
 
 
-__all__ = ["AgentReport", "Change", "format_detail", "format_for_butler_tool_result", "format_for_cli", "format_for_wechat"]
+_last_report: AgentReport | None = None
+
+
+def cache_report(report: AgentReport) -> None:
+    global _last_report
+    _last_report = report
+
+
+def get_last_report() -> AgentReport | None:
+    return _last_report
+
+
+__all__ = [
+    "AgentReport", "Change",
+    "format_detail", "format_for_butler_tool_result", "format_for_cli", "format_for_wechat",
+    "cache_report", "get_last_report",
+]
