@@ -1,77 +1,128 @@
-"""Skill consolidator — merge multiple similar skills into one via LLM."""
+"""LLM-driven merge of multiple similar skills into one."""
+
 from __future__ import annotations
 
 import json
 import logging
 import re
-from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine, Optional
+from datetime import date
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-LLMCallFn = Callable[[str], Coroutine[Any, Any, str]]
+LLMFn = Callable[[str], str]
 
-_MERGE_PROMPT = """你是一个 Skill 合并专家。以下是 {count} 个被判定为高度相似的 Skill，请将它们合并为 1 个更完整的 Skill。
+_MERGE_PROMPT = """You are a skill consolidator. Merge the following skills into ONE skill.
+Rules:
+- name: kebab-case, filesystem-safe (lowercase letters, digits, dots, hyphens, underscores)
+- description: concise, max 1024 chars
+- triggers: union of all triggers, deduplicated, as a JSON array of strings
+- content: merged markdown body with clear steps; remove duplication; keep distinct procedures
 
-## 合并规则
-1. triggers: 取所有 skill 的 triggers 并集，去重
-2. tools: 取所有 skill 的 tools 并集，去重
-3. description: 写一个更概括的描述
-4. name: kebab-case，能覆盖所有原 skill 含义
-5. body: 合并所有工作流程步骤，保留独特流程，消除重复
+Input skills:
+{blocks}
 
-## 原始 Skills
-{skills_content}
-
-输出 JSON:
-{{"name": "merged-name", "description": "...", "triggers": [...], "tools": [...], "body": "..."}}"""
+Output ONLY valid JSON:
+{{"name": "...", "description": "...", "triggers": ["..."], "content": "..."}}
+"""
 
 
-@dataclass
-class MergeResult:
-    success: bool
-    merged_skill: Optional[dict[str, Any]] = None
-    old_names: list[str] = field(default_factory=list)
-    error: str = ""
+def _extract_json_object(text: str) -> Optional[dict[str, Any]]:
+    text = text.strip()
+    for pattern in (r"\{[^{}]*\}", r"\{.*\}"):
+        m = re.search(pattern, text, re.DOTALL)
+        if m:
+            try:
+                return json.loads(m.group())
+            except json.JSONDecodeError:
+                continue
+    return None
 
 
 class SkillConsolidator:
-    def __init__(self, llm_call: Optional[LLMCallFn] = None):
-        self._llm_call = llm_call
+    def __init__(self, llm_fn: Optional[LLMFn] = None) -> None:
+        self._llm_fn = llm_fn
 
-    def set_llm_call(self, fn: LLMCallFn) -> None:
-        self._llm_call = fn
+    def set_llm_fn(self, fn: Optional[LLMFn]) -> None:
+        self._llm_fn = fn
 
-    async def merge(self, skills: list[dict]) -> MergeResult:
+    def consolidate(self, skills: list[dict[str, Any]]) -> dict[str, Any]:
+        """Merge skills into one dict. Passthrough if len<=1 or no LLM."""
         if not skills:
-            return MergeResult(success=False, error="No skills to merge")
+            raise ValueError("consolidate requires at least one skill")
         if len(skills) == 1:
-            return MergeResult(success=True, merged_skill=skills[0], old_names=[skills[0].get("name", "")])
-        if not self._llm_call:
-            return MergeResult(success=False, error="LLM call not configured")
-        old_names = [s.get("name", "") for s in skills]
-        parts = []
-        for i, skill in enumerate(skills, 1):
-            part = f"### Skill {i}: {skill.get('name', '?')}\n"
-            part += f"描述: {skill.get('description', '')}\n"
-            part += f"触发词: {', '.join(skill.get('triggers', []))}\n"
-            body = skill.get("body", "")[:3000]
-            part += f"内容:\n{body}\n"
-            parts.append(part)
-        prompt = _MERGE_PROMPT.format(count=len(skills), skills_content="\n---\n".join(parts))
+            return dict(skills[0])
+        if self._llm_fn is None:
+            return _fallback_merge(skills)
+
+        blocks: list[str] = []
+        for i, s in enumerate(skills, 1):
+            body = str(s.get("content", s.get("body", "")))
+            if len(body) > 4000:
+                body = body[:4000] + "\n..."
+            part = (
+                f"### Skill {i}: {s.get('name', '')}\n"
+                f"description: {s.get('description', '')}\n"
+                f"triggers: {s.get('triggers', [])}\n"
+                f"content:\n{body}\n"
+            )
+            blocks.append(part)
+        prompt = _MERGE_PROMPT.format(blocks="\n---\n".join(blocks))
         try:
-            response = await self._llm_call(prompt)
-            json_match = re.search(r'\{.*\}', response.strip(), re.DOTALL)
-            if not json_match:
-                return MergeResult(success=False, old_names=old_names, error="No valid JSON from LLM")
-            data = json.loads(json_match.group())
-            merged = {
-                "name": str(data.get("name", "")),
-                "description": str(data.get("description", ""))[:1024],
-                "triggers": [str(t) for t in data.get("triggers", [])] if isinstance(data.get("triggers"), list) else [],
-                "tools": [str(t) for t in data.get("tools", [])] if isinstance(data.get("tools"), list) else [],
-                "body": str(data.get("body", "")),
+            raw = self._llm_fn(prompt)
+            data = _extract_json_object(raw)
+            if not data:
+                logger.warning("Consolidator: no JSON from LLM, using fallback merge")
+                return _fallback_merge(skills)
+            name = str(data.get("name", skills[0].get("name", "merged-skill"))).strip()
+            desc = str(data.get("description", ""))[:1024]
+            triggers_raw = data.get("triggers", [])
+            if isinstance(triggers_raw, str):
+                triggers = [triggers_raw]
+            elif isinstance(triggers_raw, list):
+                triggers = [str(t) for t in triggers_raw]
+            else:
+                triggers = []
+            content = str(data.get("content", ""))
+            out = {
+                "name": name,
+                "description": desc,
+                "triggers": triggers,
+                "content": content,
+                "version": int(skills[0].get("version", 1) or 1),
+                "created": str(skills[0].get("created", date.today().isoformat())),
             }
-            return MergeResult(success=True, merged_skill=merged, old_names=old_names)
+            return out
         except Exception as e:
-            return MergeResult(success=False, old_names=old_names, error=str(e))
+            logger.warning("Consolidator LLM error: %s — using fallback merge", e)
+            return _fallback_merge(skills)
+
+
+def _fallback_merge(skills: list[dict[str, Any]]) -> dict[str, Any]:
+    """Deterministic merge when LLM is unavailable."""
+    names = [str(s.get("name", "")) for s in skills if s.get("name")]
+    base = names[0] if names else "merged-skill"
+    name = base if len(skills) == 1 else f"{base}-merged"
+
+    triggers_set: set[str] = set()
+    for s in skills:
+        for t in s.get("triggers") or []:
+            triggers_set.add(str(t).strip())
+    descs = [str(s.get("description", "")).strip() for s in skills if s.get("description")]
+    description = descs[0] if descs else "Merged skill."
+    if len(descs) > 1:
+        description = description[:900] + " (merged)"
+
+    parts: list[str] = []
+    for s in skills:
+        parts.append(f"## {s.get('name', 'skill')}\n\n{str(s.get('content', s.get('body', '')))}")
+    content = "\n\n---\n\n".join(parts)
+
+    return {
+        "name": name,
+        "description": description[:1024],
+        "triggers": sorted(triggers_set),
+        "content": content,
+        "version": int(skills[0].get("version", 1) or 1),
+        "created": str(skills[0].get("created", date.today().isoformat())),
+    }

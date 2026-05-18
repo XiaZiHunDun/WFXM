@@ -1,33 +1,13 @@
-"""Skill engine — reusable workflow management for Butler agents."""
+"""Butler v2 skill system — similarity, merge, routing, and lifecycle."""
 
-from butler.skills.consolidator import MergeResult, SkillConsolidator
-from butler.skills.extractor import SkillExtractor
-from butler.skills.loader import SkillInfo, SkillLoader
+from butler.skills.consolidator import SkillConsolidator
 from butler.skills.manager import SkillManager
 from butler.skills.router import SkillRouter
-from butler.skills.similarity import (
-    SimilarityJudgment,
-    SimilarityResult,
-    SkillSimilarity,
-    llm_judge,
-    tfidf_cosine,
-    trigger_jaccard,
-)
-from butler.skills.usage import UsageTracker
+from butler.skills.similarity import SkillSimilarity
 
 __all__ = [
-    "MergeResult",
-    "SimilarityJudgment",
-    "SimilarityResult",
     "SkillConsolidator",
-    "SkillExtractor",
-    "SkillInfo",
-    "SkillLoader",
     "SkillManager",
     "SkillRouter",
     "SkillSimilarity",
-    "UsageTracker",
-    "llm_judge",
-    "tfidf_cosine",
-    "trigger_jaccard",
 ]

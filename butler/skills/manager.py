@@ -1,8 +1,4 @@
-"""SkillManager — runtime skill creation, editing, deletion, and merging.
-
-Provides lifecycle management with automatic similarity detection and
-consolidation on create. Supports project vs global skill directories.
-"""
+"""Butler skill lifecycle: flat `name.md` files with YAML frontmatter."""
 
 from __future__ import annotations
 
@@ -10,272 +6,281 @@ import logging
 import re
 import shutil
 import time
+from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
+
+import yaml
 
 from butler.skills.consolidator import SkillConsolidator
-from butler.skills.loader import SkillLoader
 from butler.skills.similarity import SkillSimilarity
 from butler.skills.usage import UsageTracker
 
 logger = logging.getLogger(__name__)
 
-VALID_NAME_RE = re.compile(r'^[a-z0-9][a-z0-9._-]*$')
+VALID_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 MAX_NAME_LEN = 64
 MAX_DESC_LEN = 1024
 
+_LLMFn = Optional[Callable[[str], str]]
 
-def _render_skill_md(
-    name: str,
-    description: str,
-    triggers: list[str],
-    tools: list[str],
-    body: str,
-    scope: str,
-) -> str:
-    """Render a SKILL.md file from components."""
-    lines = ["---"]
-    lines.append(f"name: {name}")
-    lines.append(f"description: {description}")
-    if triggers:
-        lines.append("triggers:")
-        for t in triggers:
-            lines.append(f"  - \"{t}\"")
-    if tools:
-        lines.append("tools:")
-        for t in tools:
-            lines.append(f"  - {t}")
-    lines.append(f"scope: {scope}")
-    lines.append("---")
-    lines.append("")
-    lines.append(body)
-    return "\n".join(lines)
+_FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n(.*)\Z", re.DOTALL)
+
+
+def _validate_name(name: str) -> Optional[str]:
+    if not name:
+        return "Skill name is required."
+    if len(name) > MAX_NAME_LEN:
+        return f"Skill name exceeds {MAX_NAME_LEN} characters."
+    if not VALID_NAME_RE.match(name):
+        return (
+            "Invalid skill name — use lowercase letters, digits, dots, hyphens, "
+            "underscores; must start with a letter or digit."
+        )
+    return None
+
+
+def _parse_skill_md(text: str, path: Path, source: str) -> Optional[dict[str, Any]]:
+    m = _FRONTMATTER_RE.match(text)
+    if not m:
+        logger.warning("Skill file missing YAML frontmatter: %s", path)
+        return None
+    try:
+        fm = yaml.safe_load(m.group(1)) or {}
+    except yaml.YAMLError as e:
+        logger.warning("Bad YAML frontmatter in %s: %s", path, e)
+        return None
+    if not isinstance(fm, dict):
+        return None
+    body = m.group(2).lstrip("\n")
+    name = str(fm.get("name") or path.stem)
+    triggers = fm.get("triggers") or []
+    if isinstance(triggers, str):
+        triggers = [triggers]
+    triggers = [str(t) for t in triggers]
+    return {
+        "name": name,
+        "description": str(fm.get("description", "")),
+        "triggers": triggers,
+        "version": fm.get("version", 1),
+        "created": str(fm.get("created", "")),
+        "content": body,
+        "_path": path,
+        "_source": source,
+    }
+
+
+def _render_skill_md(skill: dict[str, Any]) -> str:
+    fm = {
+        "name": skill["name"],
+        "description": skill["description"],
+        "triggers": list(skill.get("triggers") or []),
+        "version": int(skill.get("version", 1) or 1),
+        "created": str(skill.get("created", date.today().isoformat())),
+    }
+    body = str(skill.get("content", skill.get("body", "")))
+    fm_yaml = yaml.safe_dump(
+        fm,
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=False,
+    ).strip()
+    return f"---\n{fm_yaml}\n---\n{body}"
 
 
 class SkillManager:
-    """Manages skill lifecycle with similarity detection and auto-merge."""
+    """Manage `name.md` skills under *skills_dir* with optional global overlay."""
 
     def __init__(
         self,
-        skill_loader: SkillLoader,
-        similarity: SkillSimilarity,
-        consolidator: SkillConsolidator,
-        usage_tracker: UsageTracker,
-    ):
-        self._loader = skill_loader
-        self._similarity = similarity
-        self._consolidator = consolidator
-        self._usage = usage_tracker
+        skills_dir: str | Path,
+        global_skills_dir: str | Path | None = None,
+        llm_fn: _LLMFn = None,
+    ) -> None:
+        self._skills_dir = Path(skills_dir)
+        self._global_skills_dir = Path(global_skills_dir) if global_skills_dir else None
+        self._skills_dir.mkdir(parents=True, exist_ok=True)
+        if self._global_skills_dir is not None:
+            self._global_skills_dir.mkdir(parents=True, exist_ok=True)
 
-    def _validate_name(self, name: str) -> str | None:
-        if not name:
-            return "Name is required."
-        if len(name) > MAX_NAME_LEN:
-            return f"Name too long (max {MAX_NAME_LEN} chars)."
-        if not VALID_NAME_RE.match(name):
-            return "Name must be kebab-case (lowercase letters, digits, hyphens, dots)."
+        self._usage = UsageTracker(self._skills_dir / ".butler_skill_usage.json")
+        self._similarity = SkillSimilarity(llm_fn=llm_fn)
+        self._consolidator = SkillConsolidator(llm_fn=llm_fn)
+
+    def set_llm_fn(self, fn: _LLMFn) -> None:
+        self._similarity.set_llm_fn(fn)
+        self._consolidator.set_llm_fn(fn)
+
+    def _archive_path(self) -> Path:
+        p = self._skills_dir / ".archive"
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def _archive_file(self, path: Path) -> None:
+        if not path.is_file():
+            return
+        dest_dir = self._archive_path()
+        ts = int(time.time())
+        dest = dest_dir / f"{path.stem}_{ts}.md"
+        shutil.move(str(path), str(dest))
+        logger.info("Archived skill file %s -> %s", path, dest)
+
+    def _iter_skill_files(self) -> list[tuple[Path, str]]:
+        out: list[tuple[Path, str]] = []
+        if self._global_skills_dir is not None:
+            for p in sorted(self._global_skills_dir.glob("*.md")):
+                if p.name.startswith("."):
+                    continue
+                out.append((p, "global"))
+        for p in sorted(self._skills_dir.glob("*.md")):
+            if p.name.startswith(".") or p.parent.name == ".archive":
+                continue
+            out.append((p, "project"))
+        return out
+
+    def _load_all(self) -> list[dict[str, Any]]:
+        seen: dict[str, dict[str, Any]] = {}
+        order: list[str] = []
+        for path, source in self._iter_skill_files():
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError as e:
+                logger.warning("Could not read %s: %s", path, e)
+                continue
+            sk = _parse_skill_md(text, path, source)
+            if not sk:
+                continue
+            name = sk["name"]
+            if name not in seen:
+                order.append(name)
+            # Project shadows global for the same skill name.
+            if name in seen and source == "global" and seen[name].get("_source") == "project":
+                continue
+            seen[name] = sk
+        return [seen[k] for k in order if k in seen]
+
+    def list_skills(self) -> list[dict[str, Any]]:
+        """Metadata summaries (no full body)."""
+        summaries: list[dict[str, Any]] = []
+        for sk in self._load_all():
+            summaries.append(
+                {
+                    "name": sk["name"],
+                    "description": sk.get("description", ""),
+                    "triggers": list(sk.get("triggers") or []),
+                    "version": sk.get("version", 1),
+                    "created": sk.get("created", ""),
+                    "source": sk.get("_source", "project"),
+                }
+            )
+        return summaries
+
+    def get_skill(self, name: str) -> Optional[dict[str, Any]]:
+        for sk in self._load_all():
+            if sk.get("name") == name:
+                self._usage.on_view(name)
+                out = {k: v for k, v in sk.items() if not str(k).startswith("_")}
+                return out
         return None
 
-    def _skills_base_dir(self, scope: str) -> Path | None:
-        if scope == "global":
-            return self._loader.global_skills_dir
-        return self._loader.project_skills_dir
-
-    def _resolve_archive_root(self, skill_dir: Path) -> Path:
-        return skill_dir.parent / ".archive"
-
-    def _get_existing_skills_as_dicts(self) -> list[dict[str, Any]]:
-        return [
-            {
-                "name": s.name,
-                "description": s.description,
-                "triggers": s.triggers,
-                "tools": s.tools,
-                "body": s.body,
-                "scope": s.scope,
-            }
-            for s in self._loader.list_skills(scope="all")
-        ]
-
-    async def create(
+    def create(
         self,
         name: str,
         description: str,
-        triggers: list[str] | None,
-        tools: list[str] | None,
-        body: str,
-        scope: str = "project",
-        source: str = "manual",
-    ) -> dict[str, Any]:
-        error = self._validate_name(name)
-        if error:
-            return {"success": False, "error": error}
+        triggers: list[str],
+        content: str,
+        *,
+        similarity_threshold: float = 0.6,
+    ) -> str:
+        """Return ``\"created\"`` or ``\"merged\"``."""
+        err = _validate_name(name)
+        if err:
+            raise ValueError(err)
         if not description:
-            return {"success": False, "error": "Description is required."}
+            raise ValueError("Description is required.")
         if len(description) > MAX_DESC_LEN:
-            return {"success": False, "error": f"Description too long (max {MAX_DESC_LEN})."}
-        if not body:
-            return {"success": False, "error": "Body is required."}
+            raise ValueError(f"Description exceeds {MAX_DESC_LEN} characters.")
+        if not content or not str(content).strip():
+            raise ValueError("Content is required.")
 
-        if scope not in ("project", "global"):
-            return {"success": False, "error": "scope must be 'project' or 'global'."}
-
-        base = self._skills_base_dir(scope)
-        if base is None:
-            return {"success": False, "error": f"No skills directory configured for scope '{scope}'."}
-
+        today = date.today().isoformat()
         new_skill: dict[str, Any] = {
             "name": name,
-            "description": description,
-            "triggers": triggers or [],
-            "tools": tools or [],
-            "body": body,
-            "scope": scope,
+            "description": description.strip(),
+            "triggers": [str(t).strip() for t in triggers if str(t).strip()],
+            "version": 1,
+            "created": today,
+            "content": content,
         }
 
-        existing = self._get_existing_skills_as_dicts()
-        similar_results = await self._similarity.find_similar(new_skill, existing)
+        existing = self._load_all()
+        stripped = [{k: v for k, v in s.items() if not str(k).startswith("_")} for s in existing]
 
-        if similar_results:
-            similar_skills: list[dict[str, Any]] = []
-            for r in similar_results:
-                for s in existing:
-                    if s["name"] == r.skill_name:
-                        similar_skills.append(s)
-                        break
+        similar = self._similarity.find_similar(new_skill, stripped, threshold=similarity_threshold)
 
-            all_skills = [new_skill] + similar_skills
-            merge_result = await self._consolidator.merge(all_skills)
+        if similar:
+            to_merge_raw = [new_skill] + [s for s, _ in similar]
+            merged = self._consolidator.consolidate(to_merge_raw)
 
-            if merge_result.success and merge_result.merged_skill:
-                merged = merge_result.merged_skill
+            old_names = {s["name"] for s in to_merge_raw if s.get("name")}
+            for sk in existing:
+                if sk.get("name") in old_names and isinstance(sk.get("_path"), Path):
+                    self._archive_file(sk["_path"])
 
-                for s in similar_skills:
-                    self._archive_skill(s["name"])
+            out_path = self._skills_dir / f"{merged['name']}.md"
+            if out_path.exists():
+                self._archive_file(out_path)
 
-                self._write_skill(
-                    merged["name"],
-                    merged["description"],
-                    merged["triggers"],
-                    merged["tools"],
-                    merged["body"],
-                    scope=scope,
-                )
-                self._loader.reload()
-                self._usage.on_merge(
-                    merged["name"],
-                    [s["name"] for s in similar_skills],
-                    source="merged",
-                )
+            merged.setdefault("created", today)
+            merged.setdefault("version", 1)
+            out_path.write_text(_render_skill_md(merged), encoding="utf-8")
 
-                return {
-                    "success": True,
-                    "action": "merged",
-                    "name": merged["name"],
-                    "scope": scope,
-                    "merged_from": [s["name"] for s in all_skills],
-                    "message": f"Merged {len(all_skills)} similar skills into '{merged['name']}'.",
-                }
-            logger.warning("Merge failed: %s. Creating as standalone.", merge_result.error)
+            self._usage.on_merge(list(old_names), merged["name"])
+            self._usage.on_create(merged["name"])
 
-        if self._loader.get_skill(name):
-            return {"success": False, "error": f"Skill '{name}' already exists. Use 'edit' to modify."}
+            logger.info("Merged skills %s -> %s", sorted(old_names), merged["name"])
+            return "merged"
 
-        self._write_skill(name, description, triggers, tools, body, scope=scope)
-        self._loader.reload()
-        self._usage.on_create(name, source=source)
+        dest = self._skills_dir / f"{name}.md"
+        if dest.exists():
+            raise ValueError(f"Skill '{name}' already exists.")
 
-        return {
-            "success": True,
-            "action": "created",
-            "name": name,
-            "scope": scope,
-            "message": f"Skill '{name}' created successfully.",
-        }
+        dest.write_text(_render_skill_md(new_skill), encoding="utf-8")
+        self._usage.on_create(name)
+        logger.info("Created skill '%s'", name)
+        return "created"
 
-    async def edit(
-        self,
-        name: str,
-        description: str | None = None,
-        triggers: list[str] | None = None,
-        tools: list[str] | None = None,
-        body: str | None = None,
-    ) -> dict[str, Any]:
-        skill = self._loader.get_skill(name)
-        if not skill:
-            return {"success": False, "error": f"Skill '{name}' not found."}
+    def edit(self, name: str, content: str) -> None:
+        sk = None
+        for s in self._load_all():
+            if s.get("name") == name:
+                sk = s
+                break
+        if not sk:
+            raise ValueError(f"Skill '{name}' not found.")
 
-        new_desc = description if description is not None else skill.description
-        new_triggers = triggers if triggers is not None else skill.triggers
-        new_tools = tools if tools is not None else skill.tools
-        new_body = body if body is not None else skill.body
+        path = sk.get("_path")
+        if not isinstance(path, Path):
+            raise ValueError(f"Skill '{name}' has no writable path.")
 
-        self._write_skill(
-            name, new_desc, new_triggers, new_tools, new_body, scope=skill.scope,
-        )
-        self._loader.reload()
+        text = path.read_text(encoding="utf-8")
+        m = _FRONTMATTER_RE.match(text)
+        if not m:
+            raise ValueError(f"Skill '{name}' is missing YAML frontmatter.")
+        new_text = f"---\n{m.group(1)}\n---\n{content.lstrip()}"
+        path.write_text(new_text, encoding="utf-8")
+        logger.info("Edited skill '%s'", name)
 
-        return {"success": True, "action": "edited", "name": name, "message": f"Skill '{name}' updated."}
-
-    async def delete(self, name: str) -> dict[str, Any]:
-        skill = self._loader.get_skill(name)
-        if not skill:
-            return {"success": False, "error": f"Skill '{name}' not found."}
-
-        self._archive_skill(name)
-        self._loader.reload()
+    def delete(self, name: str) -> None:
+        sk = None
+        for s in self._load_all():
+            if s.get("name") == name:
+                sk = s
+                break
+        if not sk:
+            raise ValueError(f"Skill '{name}' not found.")
+        path = sk.get("_path")
+        if isinstance(path, Path) and path.is_file():
+            self._archive_file(path)
         self._usage.on_delete(name)
-
-        return {"success": True, "action": "deleted", "name": name, "message": f"Skill '{name}' archived and removed."}
-
-    async def patch(self, name: str, old_text: str, new_text: str) -> dict[str, Any]:
-        skill = self._loader.get_skill(name)
-        if not skill:
-            return {"success": False, "error": f"Skill '{name}' not found."}
-        if not old_text:
-            return {"success": False, "error": "old_text is required for patch."}
-
-        if old_text not in skill.body:
-            return {"success": False, "error": f"old_text not found in skill '{name}'."}
-
-        new_body = skill.body.replace(old_text, new_text, 1)
-        self._write_skill(
-            name, skill.description, skill.triggers, skill.tools, new_body, scope=skill.scope,
-        )
-        self._loader.reload()
-
-        return {"success": True, "action": "patched", "name": name, "message": f"Skill '{name}' patched."}
-
-    def _write_skill(
-        self,
-        name: str,
-        description: str,
-        triggers: list[str] | None,
-        tools: list[str] | None,
-        body: str,
-        scope: str,
-    ) -> None:
-        base = self._skills_base_dir(scope)
-        if base is None:
-            raise ValueError(f"No directory for scope {scope}")
-        skill_dir = base / name.replace("-", "_")
-        skill_dir.mkdir(parents=True, exist_ok=True)
-        content = _render_skill_md(
-            name, description, list(triggers or []), list(tools or []), body, scope,
-        )
-        (skill_dir / "SKILL.md").write_text(content, encoding="utf-8")
-
-    def _archive_skill(self, name: str) -> None:
-        skill = self._loader.get_skill(name)
-        if not skill or not skill.path:
-            return
-        skill_path = Path(skill.path)
-        skill_dir = skill_path.parent
-        if not skill_dir.exists():
-            return
-        archive_dir = self._resolve_archive_root(skill_dir)
-        archive_dir.mkdir(parents=True, exist_ok=True)
-        archive_name = f"{name}_{int(time.time())}"
-        dest = archive_dir / archive_name
-        shutil.move(str(skill_dir), str(dest))
-        logger.info("Archived skill '%s' -> %s", name, dest)
+        logger.info("Deleted skill '%s'", name)

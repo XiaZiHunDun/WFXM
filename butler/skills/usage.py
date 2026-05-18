@@ -1,7 +1,6 @@
-"""UsageTracker — lightweight skill usage tracking via .usage.json.
+"""Persisted usage statistics for Butler skills."""
 
-Tracks views, uses, creation time, and source for each skill.
-"""
+from __future__ import annotations
 
 import json
 import logging
@@ -9,28 +8,28 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class UsageTracker:
-    """Track skill usage statistics in a JSON file."""
+    """Track create/view/use/delete/merge events per skill."""
 
-    def __init__(self, usage_file: Path):
-        self._path = usage_file
-        self._data: Dict[str, Dict[str, Any]] = {}
+    def __init__(self, usage_file: Path) -> None:
+        self._path = Path(usage_file)
+        self._data: dict[str, dict[str, Any]] = {}
         self._load()
 
-    def _load(self):
+    def _load(self) -> None:
         if self._path.exists():
             try:
                 self._data = json.loads(self._path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError) as e:
-                logger.warning("Failed to load usage data: %s", e)
+                logger.warning("Failed to load skill usage: %s", e)
                 self._data = {}
 
-    def _save(self):
+    def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=str(self._path.parent), suffix=".tmp")
         try:
@@ -46,62 +45,68 @@ class UsageTracker:
                 pass
             raise
 
-    def _ensure_entry(self, name: str) -> Dict[str, Any]:
+    def _ensure(self, name: str) -> dict[str, Any]:
         if name not in self._data:
             self._data[name] = {
+                "creates": 0,
                 "views": 0,
                 "uses": 0,
-                "created_at": None,
-                "last_used_at": None,
-                "last_viewed_at": None,
-                "source": "manual",
+                "deletes": 0,
+                "merges_in": 0,
+                "last_event": None,
+                "last_event_at": None,
             }
         return self._data[name]
 
+    def on_create(self, name: str) -> None:
+        e = self._ensure(name)
+        e["creates"] = int(e.get("creates", 0)) + 1
+        e["last_event"] = "create"
+        e["last_event_at"] = time.time()
+        self._save()
+
     def on_view(self, name: str) -> None:
-        entry = self._ensure_entry(name)
-        entry["views"] = entry.get("views", 0) + 1
-        entry["last_viewed_at"] = time.time()
+        e = self._ensure(name)
+        e["views"] = int(e.get("views", 0)) + 1
+        e["last_event"] = "view"
+        e["last_event_at"] = time.time()
         self._save()
 
     def on_use(self, name: str) -> None:
-        entry = self._ensure_entry(name)
-        entry["uses"] = entry.get("uses", 0) + 1
-        entry["last_used_at"] = time.time()
-        self._save()
-
-    def on_create(self, name: str, source: str = "manual") -> None:
-        entry = self._ensure_entry(name)
-        entry["created_at"] = time.time()
-        entry["source"] = source
+        e = self._ensure(name)
+        e["uses"] = int(e.get("uses", 0)) + 1
+        e["last_event"] = "use"
+        e["last_event_at"] = time.time()
         self._save()
 
     def on_delete(self, name: str) -> None:
+        """Remove persisted stats for a deleted skill."""
         self._data.pop(name, None)
         self._save()
 
-    def on_merge(self, new_name: str, old_names: list[str], source: str = "merged") -> None:
-        """Record a merge: create entry for new, remove old entries."""
-        total_views = 0
-        total_uses = 0
+    def on_merge(self, old_names: list[str], new_name: str) -> None:
+        """Fold prior stats into *new_name* and drop merged skills."""
+        merged_views = 0
+        merged_uses = 0
         for old in old_names:
-            old_entry = self._data.get(old, {})
-            total_views += old_entry.get("views", 0)
-            total_uses += old_entry.get("uses", 0)
-            self._data.pop(old, None)
-
-        entry = self._ensure_entry(new_name)
-        entry["views"] = entry.get("views", 0) + total_views
-        entry["uses"] = entry.get("uses", 0) + total_uses
-        entry["created_at"] = time.time()
-        entry["source"] = source
+            if old == new_name:
+                continue
+            prev = self._data.pop(old, None)
+            if prev:
+                merged_views += int(prev.get("views", 0))
+                merged_uses += int(prev.get("uses", 0))
+        ne = self._ensure(new_name)
+        ne["views"] = int(ne.get("views", 0)) + merged_views
+        ne["uses"] = int(ne.get("uses", 0)) + merged_uses
+        ne["merges_in"] = int(ne.get("merges_in", 0)) + len(
+            [o for o in old_names if o and o != new_name]
+        )
+        ne["last_event"] = "merge"
+        ne["last_event_at"] = time.time()
         self._save()
 
-    def get_stats(self, name: str) -> Optional[Dict[str, Any]]:
-        return self._data.get(name)
+    def get_stats(self, name: str) -> dict[str, Any]:
+        return dict(self._data.get(name, {}))
 
-    def get_all_stats(self) -> Dict[str, Dict[str, Any]]:
-        return dict(self._data)
-
-    def reload(self) -> None:
-        self._load()
+    def get_all_stats(self) -> dict[str, dict[str, Any]]:
+        return {k: dict(v) for k, v in self._data.items()}
