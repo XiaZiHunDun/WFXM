@@ -1,0 +1,27 @@
+name: 灵文
+type: content
+description: 小说工厂 - 工业化多 Agent 小说创作流水线
+status: active
+workspace: projects/LingWen
+models:
+  dev_agent:
+    provider: minimax
+    model: MiniMax-M2.7
+  content_agent:
+    provider: minimax
+    model: MiniMax-M2.7
+  review_agent:
+    provider: minimax
+    model: MiniMax-M2.7
+workflows:
+- name: novel-factory
+  description: 小说生产流水线 - 从灵感到发布的闭环
+tools:
+- read_file
+- write_file
+- edit_file
+- search_code
+- run_shell
+- list_directory
+- skill_list
+- skill_view
