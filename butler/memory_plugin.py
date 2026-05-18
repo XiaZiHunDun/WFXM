@@ -261,7 +261,7 @@ class ButlerMemoryProvider(MemoryProvider):
                         orch = ButlerOrchestrator()
                         agent = _create_butler_agent(orch, quiet_mode=True)
                         result = agent.run_conversation(user_message=prompt)
-                        return result.get("response", "") if isinstance(result, dict) else str(result)
+                        return result.get("final_response", "") if isinstance(result, dict) else str(result)
                     except Exception as exc:
                         logger.warning("Background LLM call failed: %s", exc)
                         return ""

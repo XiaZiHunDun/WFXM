@@ -128,7 +128,12 @@ class TaskOrchestrator:
         config: AgentSpawnConfig,
         on_progress: Callable[[int, str, str], None] | None = None,
     ) -> AgentResult:
-        """Spawn a Hermes AIAgent and run the task."""
+        """Spawn a Hermes AIAgent and run the task.
+
+        Uses asyncio.to_thread so that the blocking run_conversation()
+        call does not starve the event loop — enabling real parallelism
+        when called via spawn_parallel / asyncio.gather.
+        """
         task_id = uuid.uuid4().hex[:8]
         task = AgentTask(id=task_id, config=config)
         self._tasks[task_id] = task
@@ -144,11 +149,13 @@ class TaskOrchestrator:
             if config.context:
                 user_message = f"## 上下文\n{config.context}\n\n## 任务\n{config.task}"
 
-            raw_result = agent.run_conversation(user_message=user_message)
+            raw_result = await asyncio.to_thread(
+                agent.run_conversation, user_message=user_message
+            )
 
             response = ""
             if isinstance(raw_result, dict):
-                response = raw_result.get("response", "")
+                response = raw_result.get("final_response", "")
             else:
                 response = str(raw_result)
 

@@ -121,7 +121,7 @@ class PostSessionProcessor:
         async def _llm_call(prompt: str) -> str:
             result = agent.run_conversation(user_message=prompt)
             if isinstance(result, dict):
-                return result.get("response", "")
+                return result.get("final_response", "")
             return str(result)
 
         proc = cls()

@@ -157,7 +157,7 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
                 user_message=augmented,
                 conversation_history=conversation_history,
             )
-            response_text = result.get("response", "") if isinstance(result, dict) else str(result)
+            response_text = result.get("final_response", "") if isinstance(result, dict) else str(result)
             if response_text:
                 console.print()
                 console.print(Markdown(response_text))
@@ -277,7 +277,7 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
     augmented = orch.inject_skill_context(ns.message)
     try:
         result = agent.run_conversation(user_message=augmented)
-        response = result.get("response", "") if isinstance(result, dict) else str(result)
+        response = result.get("final_response", "") if isinstance(result, dict) else str(result)
         if response:
             print(response)
         return 0
@@ -311,12 +311,28 @@ def _cmd_create(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _ensure_butler_plugins_enabled() -> None:
+    """Ensure 'butler' and 'memory/butler' are in Hermes plugins.enabled."""
+    try:
+        from hermes_cli.plugins_cmd import _get_enabled_set, _save_enabled_set
+        enabled = _get_enabled_set()
+        changed = False
+        for name in ("butler", "memory/butler"):
+            if name not in enabled:
+                enabled.add(name)
+                changed = True
+        if changed:
+            _save_enabled_set(enabled)
+            logger.info("Auto-enabled Butler plugins in Hermes config: %s", enabled)
+    except Exception as exc:
+        logger.warning("Could not auto-enable Butler plugins: %s", exc)
+
+
 def _cmd_gateway(ns: argparse.Namespace) -> int:
     """Start Hermes gateway with Butler plugin active."""
     _ensure_hermes_env()
+    _ensure_butler_plugins_enabled()
     os.environ["BUTLER_GATEWAY_ACTIVE"] = "1"
-    from butler.config import get_butler_settings
-    settings = get_butler_settings()
     os.environ.setdefault("HERMES_MEMORY_PROVIDER", "butler")
 
     import subprocess, shutil

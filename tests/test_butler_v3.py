@@ -110,21 +110,33 @@ class TestButlerPlugin:
 
     def test_slash_command_projects(self):
         from plugins.butler import _handle_butler_gateway_command
-        result = _handle_butler_gateway_command("/projects", {})
+        result = _handle_butler_gateway_command("/projects")
         assert result is not None
         assert isinstance(result, str)
 
     def test_slash_command_status(self):
         from plugins.butler import _handle_butler_gateway_command
-        result = _handle_butler_gateway_command("/status", {})
+        result = _handle_butler_gateway_command("/status")
         assert result is not None
         assert "Butler" in result
 
     def test_slash_command_model_view(self):
         from plugins.butler import _handle_butler_gateway_command
-        result = _handle_butler_gateway_command("/model", {})
+        result = _handle_butler_gateway_command("/model")
         assert result is not None
         assert "butler" in result.lower()
+
+    def test_hook_with_dataclass_event(self):
+        """Verify hook works with dataclass-like event objects."""
+        from plugins.butler import _extract_text
+
+        class FakeEvent:
+            text = "/projects"
+            source = None
+
+        assert _extract_text(FakeEvent()) == "/projects"
+        assert _extract_text({"text": "/status"}) == "/status"
+        assert _extract_text(None) == ""
 
     def test_non_slash_returns_none(self):
         from plugins.butler import _is_butler_command
@@ -272,7 +284,7 @@ class TestPostSessionProcessor:
     def test_from_hermes_agent_factory(self):
         from butler.post_session import PostSessionProcessor
         mock_agent = MagicMock()
-        mock_agent.run_conversation.return_value = {"response": "{}"}
+        mock_agent.run_conversation.return_value = {"final_response": "{}"}
         proc = PostSessionProcessor.from_hermes_agent(mock_agent)
         assert proc._llm_call is not None
 
