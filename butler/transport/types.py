@@ -6,8 +6,11 @@ Zero external dependencies — pure dataclasses + stdlib.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+
+_THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
 
 
 @dataclass
@@ -48,6 +51,24 @@ class NormalizedResponse:
     reasoning: Optional[str] = None
     usage: Optional[Usage] = None
     provider_data: Optional[Dict[str, Any]] = None
+
+    def __post_init__(self):
+        self._extract_inline_thinking()
+
+
+    def _extract_inline_thinking(self):
+        """Extract <think>...</think> blocks from content into reasoning."""
+        if not self.content or "<think>" not in self.content:
+            return
+        parts = _THINK_RE.findall(self.content)
+        if parts:
+            extracted = "\n".join(p.strip() for p in parts if p.strip())
+            if extracted:
+                self.reasoning = (
+                    (self.reasoning + "\n" + extracted) if self.reasoning
+                    else extracted
+                )
+            self.content = _THINK_RE.sub("", self.content).strip() or None
 
 
 def build_tool_call(

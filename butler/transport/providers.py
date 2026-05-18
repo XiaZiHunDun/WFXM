@@ -68,8 +68,8 @@ def _register_builtin() -> None:
         ProviderProfile(
             name="minimax",
             aliases=("mini-max",),
-            api_mode="anthropic_messages",
-            base_url="https://api.minimax.io/anthropic",
+            api_mode="chat_completions",
+            base_url="https://api.minimax.chat/v1",
             env_vars=("MINIMAX_API_KEY",),
             default_model="MiniMax-M2.7",
             default_max_tokens=4096,
@@ -77,8 +77,8 @@ def _register_builtin() -> None:
         ProviderProfile(
             name="minimax-cn",
             aliases=("minimax-china", "minimax_cn"),
-            api_mode="anthropic_messages",
-            base_url="https://api.minimaxi.com/anthropic",
+            api_mode="chat_completions",
+            base_url="https://api.minimaxi.com/v1",
             env_vars=("MINIMAX_CN_API_KEY",),
             default_model="MiniMax-M2.7",
             default_max_tokens=4096,

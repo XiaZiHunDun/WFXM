@@ -17,11 +17,6 @@ os.environ.setdefault("BUTLER_HOME", str(Path(tempfile.mkdtemp()) / ".butler"))
 # ── Integration bridge ──────────────────────────────────────────────
 
 class TestIntegrationBridge:
-    def test_ensure_hermes_env(self):
-        from butler.main import _ensure_hermes_env
-        _ensure_hermes_env()
-        assert os.environ.get("HERMES_HOME")
-
     def test_orchestrator_agent_kwargs(self):
         from butler.orchestrator import ButlerOrchestrator
         orch = ButlerOrchestrator(user_id="test", channel="cli")
@@ -42,13 +37,19 @@ class TestIntegrationBridge:
         from run_agent import AIAgent
         assert AIAgent is not None
 
-    def test_create_butler_agent_constructs(self):
-        from butler.main import _create_butler_agent, _ensure_hermes_env
+    def test_create_agent_loop(self):
+        """v4: AgentLoop replaces direct AIAgent construction."""
         from butler.orchestrator import ButlerOrchestrator
-        _ensure_hermes_env()
+        from butler.tools.registry import get_tool_definitions, dispatch_tool
         orch = ButlerOrchestrator()
-        agent = _create_butler_agent(orch, quiet_mode=True)
-        assert hasattr(agent, "run_conversation")
+        loop = orch.create_agent_loop(
+            role="butler",
+            tools=get_tool_definitions(),
+            tool_dispatcher=dispatch_tool,
+        )
+        assert loop is not None
+        assert loop.system_prompt
+        assert len(loop.tools) > 0
 
 
 # ── Memory Plugin ─────────────────────────────────────────────────
@@ -293,43 +294,36 @@ class TestPostSessionProcessor:
 
 class TestTaskOrchestrator:
     def test_topological_sort_linear(self):
-        from butler.task_orchestrator import TaskOrchestrator, TaskNode, AgentSpawnConfig
-        orch = TaskOrchestrator()
+        from butler.task_orchestrator import _topological_sort, TaskNode, AgentSpawnConfig
         nodes = [
             TaskNode(id="a", config=AgentSpawnConfig(role="dev", task="step1")),
             TaskNode(id="b", config=AgentSpawnConfig(role="dev", task="step2"), depends_on=["a"]),
             TaskNode(id="c", config=AgentSpawnConfig(role="dev", task="step3"), depends_on=["b"]),
         ]
-        layers = orch._topological_sort(nodes)
-        assert len(layers) == 3
-        assert layers[0] == ["a"]
-        assert layers[1] == ["b"]
-        assert layers[2] == ["c"]
+        order = _topological_sort(nodes)
+        assert order == ["a", "b", "c"]
 
     def test_topological_sort_parallel(self):
-        from butler.task_orchestrator import TaskOrchestrator, TaskNode, AgentSpawnConfig
-        orch = TaskOrchestrator()
+        from butler.task_orchestrator import _topological_sort, TaskNode, AgentSpawnConfig
         nodes = [
             TaskNode(id="root", config=AgentSpawnConfig(role="dev", task="root")),
             TaskNode(id="a", config=AgentSpawnConfig(role="dev", task="a"), depends_on=["root"]),
             TaskNode(id="b", config=AgentSpawnConfig(role="dev", task="b"), depends_on=["root"]),
             TaskNode(id="end", config=AgentSpawnConfig(role="dev", task="end"), depends_on=["a", "b"]),
         ]
-        layers = orch._topological_sort(nodes)
-        assert len(layers) == 3
-        assert layers[0] == ["root"]
-        assert set(layers[1]) == {"a", "b"}
-        assert layers[2] == ["end"]
+        order = _topological_sort(nodes)
+        assert order[0] == "root"
+        assert order[-1] == "end"
+        assert set(order[1:3]) == {"a", "b"}
 
     def test_topological_sort_cycle(self):
-        from butler.task_orchestrator import TaskOrchestrator, TaskNode, AgentSpawnConfig
-        orch = TaskOrchestrator()
+        from butler.task_orchestrator import _topological_sort, TaskNode, AgentSpawnConfig
         nodes = [
             TaskNode(id="a", config=AgentSpawnConfig(role="dev", task="a"), depends_on=["b"]),
             TaskNode(id="b", config=AgentSpawnConfig(role="dev", task="b"), depends_on=["a"]),
         ]
-        layers = orch._topological_sort(nodes)
-        assert layers == []
+        with pytest.raises(ValueError, match="cycle"):
+            _topological_sort(nodes)
 
 
 # ── Orchestrator Prompt + Skills ──────────────────────────────

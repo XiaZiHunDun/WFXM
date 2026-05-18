@@ -159,7 +159,7 @@ class TestProviderRegistry:
         from butler.transport.providers import get_provider
         p = get_provider("minimax")
         assert p is not None
-        assert p.api_mode == "anthropic_messages"
+        assert p.api_mode == "chat_completions"
 
     def test_alias_resolution(self):
         from butler.transport.providers import get_provider
