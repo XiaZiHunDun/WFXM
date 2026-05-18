@@ -230,9 +230,70 @@ class ButlerMemoryProvider(MemoryProvider):
         return proj_root.name
 
     def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
-        del user_content
-        del assistant_content
-        del session_id
+        """Accumulate turn pairs; trigger background extraction when threshold reached."""
+        if not user_content and not assistant_content:
+            return
+        if not hasattr(self, "_turn_buffer"):
+            self._turn_buffer: list[dict] = []
+        self._turn_buffer.append({"role": "user", "content": user_content})
+        self._turn_buffer.append({"role": "assistant", "content": assistant_content})
+
+        if len(self._turn_buffer) >= 8:
+            self._trigger_background_extraction()
+
+    def _trigger_background_extraction(self) -> None:
+        """Run PostSessionProcessor in background thread to avoid blocking."""
+        import threading
+        messages = list(self._turn_buffer)
+        self._turn_buffer.clear()
+
+        def _run():
+            import asyncio
+            try:
+                from butler.post_session import PostSessionProcessor
+                processor = PostSessionProcessor()
+
+                async def _llm_stub(prompt: str) -> str:
+                    try:
+                        from butler.main import _ensure_hermes_env, _create_butler_agent
+                        from butler.orchestrator import ButlerOrchestrator
+                        _ensure_hermes_env()
+                        orch = ButlerOrchestrator()
+                        agent = _create_butler_agent(orch, quiet_mode=True)
+                        result = agent.run_conversation(user_message=prompt)
+                        return result.get("response", "") if isinstance(result, dict) else str(result)
+                    except Exception as exc:
+                        logger.warning("Background LLM call failed: %s", exc)
+                        return ""
+
+                processor.set_llm_call(_llm_stub)
+
+                skill_mgr = None
+                try:
+                    from butler.config import get_butler_settings
+                    from butler.skills.manager import SkillManager
+                    settings = get_butler_settings()
+                    skill_mgr = SkillManager(skills_dir=settings.butler_home / "skills")
+                except Exception:
+                    pass
+
+                result = asyncio.run(processor.process(
+                    messages=messages,
+                    butler_memory=self._butler_global,
+                    project_memory=self._project_memory,
+                    skill_manager=skill_mgr,
+                ))
+                if result.get("memory_updates") or result.get("skills_extracted"):
+                    logger.info(
+                        "Background extraction: %d memory updates, %d skills",
+                        result.get("memory_updates", 0),
+                        result.get("skills_extracted", 0),
+                    )
+            except Exception as exc:
+                logger.warning("Background extraction failed: %s", exc)
+
+        thread = threading.Thread(target=_run, daemon=True)
+        thread.start()
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
         return [_REMEMBER_SCHEMA, _RECALL_SCHEMA]

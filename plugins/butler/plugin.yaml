@@ -1,0 +1,5 @@
+name: butler
+description: Butler AI 管家编排插件 — 项目管理、模型配置、Slash 命令
+version: "1.0.0"
+hooks:
+  - pre_gateway_dispatch
