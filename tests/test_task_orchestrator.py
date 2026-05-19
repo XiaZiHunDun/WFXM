@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -45,6 +45,7 @@ def _mock_agent_loop(result: LoopResult | None = None, run_side_effect=None):
     else:
         loop.run.return_value = result or _completed_loop_result()
     loop.config = MagicMock(max_iterations=30)
+    loop._butler_orchestrator = None
     return loop
 
 
@@ -92,6 +93,47 @@ class TestTopology:
 
 @pytest.mark.integration
 class TestSpawnAgent:
+    def test_create_agent_loop_reuses_execution_context_orchestrator(self):
+        from butler.execution_context import use_execution_context
+
+        orch = TaskOrchestrator()
+        mock_loop = _mock_agent_loop()
+        current_orch = MagicMock()
+        current_orch.create_project_agent_loop.return_value = mock_loop
+
+        with use_execution_context(current_orch):
+            with patch("butler.orchestrator.ButlerOrchestrator") as mock_orch_cls:
+                loop = orch._create_agent_loop(_spawn_config(task="run tests"))
+
+        assert loop is mock_loop
+        mock_orch_cls.assert_not_called()
+        current_orch.create_project_agent_loop.assert_called_once()
+
+    def test_create_agent_loop_restores_runtime_model_override(self):
+        from butler.config import ModelConfig
+        from butler.execution_context import use_execution_context
+
+        orch = TaskOrchestrator()
+        mock_loop = _mock_agent_loop()
+        previous = ModelConfig(provider="old", model="old-model")
+        current_orch = MagicMock()
+        current_orch._settings._runtime_model_overrides = {"dev": previous}
+        current_orch.create_project_agent_loop.return_value = mock_loop
+
+        config = AgentSpawnConfig(
+            role="dev",
+            task="run tests",
+            model_config={"provider": "new", "model": "new-model"},
+        )
+        with use_execution_context(current_orch):
+            loop = orch._create_agent_loop(config)
+
+        assert loop is mock_loop
+        assert current_orch._settings.set_runtime_model_override.call_args_list[-1] == call(
+            "dev",
+            previous,
+        )
+
     @pytest.mark.asyncio
     async def test_spawn_agent_creates_loop_and_calls_run(self):
         orch = TaskOrchestrator()
@@ -102,6 +144,55 @@ class TestSpawnAgent:
 
         mock_loop.run.assert_called_once()
         assert "run tests" in mock_loop.run.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_spawn_agent_applies_skill_and_memory_lifecycle(self):
+        from butler.execution_context import use_execution_context
+
+        orch = TaskOrchestrator()
+        mock_loop = _mock_agent_loop()
+        current_orch = MagicMock()
+        current_orch.inject_skill_context.side_effect = lambda text, **_: (
+            f"## 相关知识（Butler Skill）\nUse pytest\n\n{text}"
+        )
+        mock_loop._butler_orchestrator = current_orch
+
+        with use_execution_context(current_orch, session_key="s1"):
+            with patch.object(orch, "_create_agent_loop", return_value=mock_loop):
+                with patch("butler.session_lifecycle.attach_turn_memory_prefetch") as prefetch:
+                    with patch(
+                        "butler.session_lifecycle.sync_turn_memory",
+                        return_value={"skipped": False},
+                    ) as sync:
+                        result = await orch.spawn_agent(_spawn_config(task="run python tests"))
+
+        assert result.success is True
+        assert "Use pytest" in mock_loop.run.call_args.args[0]
+        prefetch.assert_called_once()
+        assert prefetch.call_args.args[1] is current_orch
+        sync.assert_called_once()
+        assert sync.call_args.args[1] == "run python tests"
+        assert sync.call_args.kwargs["session_id"] == "s1"
+
+    @pytest.mark.asyncio
+    async def test_spawn_agent_binds_context_during_run(self):
+        from butler.execution_context import get_current_orchestrator
+
+        orch = TaskOrchestrator()
+        current_orch = MagicMock()
+        current_orch.inject_skill_context.side_effect = lambda text, **_: text
+
+        def _run(_message: str) -> LoopResult:
+            assert get_current_orchestrator() is current_orch
+            return _completed_loop_result()
+
+        mock_loop = _mock_agent_loop(run_side_effect=_run)
+        mock_loop._butler_orchestrator = current_orch
+
+        with patch.object(orch, "_create_agent_loop", return_value=mock_loop):
+            result = await orch.spawn_agent(_spawn_config(task="run tests"))
+
+        assert result.success is True
 
     @pytest.mark.asyncio
     async def test_agent_result_success_fields(self):

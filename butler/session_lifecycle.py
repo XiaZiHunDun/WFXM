@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from typing import Any
 
 logger = logging.getLogger(__name__)
+_SYNC_TURN_LOCK = threading.Lock()
 
 
 _EMPTY_MEMORY_MARKERS = {
@@ -230,25 +232,26 @@ def sync_turn_memory(
     try:
         if not (user_msg and assistant_msg):
             return {"skipped": True, "reason": "empty_turn", "experience_updates": 0}
-        bm = orchestrator.butler_memory
-        updates = 0
-        if bm and hasattr(bm, "experience") and bm.experience:
-            bm.experience.add(
-                project=_current_project(orchestrator),
-                category="conversation",
-                content=f"Q: {user_msg[:200]} → A: {assistant_msg[:300]}",
-            )
-            updates += 1
-        provider = getattr(orchestrator, "memory_provider", None) or getattr(orchestrator, "_memory_provider", None)
-        provider_synced = False
-        provider_error = ""
-        if provider is not None and hasattr(provider, "sync_turn"):
-            try:
-                provider.sync_turn(user_msg, assistant_msg, session_id=session_id)
-                provider_synced = True
-            except Exception as exc:
-                provider_error = str(exc)
-                logger.debug("Provider memory sync skipped: %s", exc)
+        with _SYNC_TURN_LOCK:
+            bm = orchestrator.butler_memory
+            updates = 0
+            if bm and hasattr(bm, "experience") and bm.experience:
+                bm.experience.add(
+                    project=_current_project(orchestrator),
+                    category="conversation",
+                    content=f"Q: {user_msg[:200]} → A: {assistant_msg[:300]}",
+                )
+                updates += 1
+            provider = getattr(orchestrator, "memory_provider", None) or getattr(orchestrator, "_memory_provider", None)
+            provider_synced = False
+            provider_error = ""
+            if provider is not None and hasattr(provider, "sync_turn"):
+                try:
+                    provider.sync_turn(user_msg, assistant_msg, session_id=session_id)
+                    provider_synced = True
+                except Exception as exc:
+                    provider_error = str(exc)
+                    logger.debug("Provider memory sync skipped: %s", exc)
         result = {
             "skipped": False,
             "experience_updates": updates,

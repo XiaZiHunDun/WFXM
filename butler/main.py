@@ -103,19 +103,22 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
 
         try:
             with patch_stdout():
+                from butler.execution_context import use_execution_context
                 from butler.session_lifecycle import attach_turn_memory_prefetch
 
                 attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
-                result = agent_loop.run(augmented)
+                with use_execution_context(orchestrator, session_key="cli"):
+                    result = agent_loop.run(augmented)
             ui.finish_turn(result, stream)
 
-            _sync_memory(
-                orchestrator,
-                user_input,
-                result.final_response or "",
-                interrupted=result.status == LoopStatus.INTERRUPTED,
-                status=result.status,
-            )
+            with use_execution_context(orchestrator, session_key="cli"):
+                _sync_memory(
+                    orchestrator,
+                    user_input,
+                    result.final_response or "",
+                    interrupted=result.status == LoopStatus.INTERRUPTED,
+                    status=result.status,
+                )
 
         except KeyboardInterrupt:
             console.print("\n[dim]已中断[/dim]")
@@ -145,8 +148,16 @@ def _sync_memory(
     status: Any = None,
 ) -> None:
     """Sync conversation turn to butler memory for experience tracking."""
+    from butler.execution_context import get_current_session_key
     from butler.session_lifecycle import sync_turn_memory
-    sync_turn_memory(orchestrator, user_msg, assistant_msg, interrupted=interrupted, status=status)
+    sync_turn_memory(
+        orchestrator,
+        user_msg,
+        assistant_msg,
+        interrupted=interrupted,
+        status=status,
+        session_id=get_current_session_key(),
+    )
 
 
 def _trigger_session_end(
@@ -301,16 +312,20 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
     try:
         from butler.session_lifecycle import attach_turn_memory_prefetch
 
+        from butler.execution_context import use_execution_context
+
         attach_turn_memory_prefetch(agent_loop, orch, ns.message, role="butler")
-        result = agent_loop.run(augmented)
+        with use_execution_context(orch, session_key="cli"):
+            result = agent_loop.run(augmented)
         ui.finish_turn(result, stream)
-        _sync_memory(
-            orch,
-            ns.message,
-            result.final_response or "",
-            interrupted=result.status == LoopStatus.INTERRUPTED,
-            status=result.status,
-        )
+        with use_execution_context(orch, session_key="cli"):
+            _sync_memory(
+                orch,
+                ns.message,
+                result.final_response or "",
+                interrupted=result.status == LoopStatus.INTERRUPTED,
+                status=result.status,
+            )
         return 0 if result.status.value == "completed" else 1
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)

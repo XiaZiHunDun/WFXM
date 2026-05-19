@@ -377,9 +377,7 @@ def _tool_list_directory(path: str = ".", **_) -> str:
 
 def _tool_skills_list(**_) -> str:
     try:
-        from butler.config import get_butler_settings
-        from butler.orchestrator import ButlerOrchestrator
-        orch = ButlerOrchestrator(channel="tool")
+        orch = _orchestrator_for_tool(channel="tool")
         mgr = orch._skill_manager
         if mgr is None:
             return json.dumps({"skills": []})
@@ -394,8 +392,7 @@ def _tool_skills_list(**_) -> str:
 
 def _tool_skill_view(name: str, **_) -> str:
     try:
-        from butler.orchestrator import ButlerOrchestrator
-        orch = ButlerOrchestrator(channel="tool")
+        orch = _orchestrator_for_tool(channel="tool")
         mgr = orch._skill_manager
         if mgr is None:
             return json.dumps({"error": "Skill manager unavailable"})
@@ -415,12 +412,11 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
     """Delegate to a project-level agent through Butler's orchestrator."""
     try:
         from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS, MAX_DELEGATE_DEPTH
-        from butler.orchestrator import ButlerOrchestrator
 
         if depth >= MAX_DELEGATE_DEPTH:
             return json.dumps({"error": f"Maximum delegation depth ({MAX_DELEGATE_DEPTH}) exceeded"})
 
-        orch = ButlerOrchestrator(user_id="owner", channel="cli")
+        orch = _orchestrator_for_tool(channel="cli")
         tools = get_tool_definitions()
 
         delegated_tools = [
@@ -439,13 +435,27 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
         )
         agent.reset()
 
-        user_msg = task
-        if context:
-            user_msg = f"## 上下文\n{context}\n\n## 任务\n{task}"
+        raw_user_msg = _project_agent_raw_message(task=task, context=context)
+        user_msg = _inject_project_agent_skills(orch, raw_user_msg)
 
-        result = agent.run(user_msg)
+        from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
+        from butler.execution_context import get_current_session_key, use_execution_context
 
-        from butler.report import AgentReport, Change
+        attach_turn_memory_prefetch(agent, orch, raw_user_msg, role=role)
+
+        session_key = get_current_session_key()
+        with use_execution_context(orch, session_key=session_key):
+            result = agent.run(user_msg)
+        sync_turn_memory(
+            orch,
+            raw_user_msg,
+            result.final_response or "",
+            interrupted=result.status.value == "interrupted",
+            status=result.status,
+            session_id=session_key,
+        )
+
+        from butler.report import AgentReport
         changes = _extract_changes_from_messages(result.messages)
         report = AgentReport(
             headline=f"{role} 代理完成任务",
@@ -473,6 +483,32 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
     except Exception as exc:
         logger.error("Delegation to %s failed: %s", role, exc)
         return json.dumps({"error": f"Delegation failed: {exc}"})
+
+
+def _orchestrator_for_tool(*, channel: str):
+    from butler.execution_context import get_current_orchestrator
+
+    orch = get_current_orchestrator()
+    if orch is not None:
+        return orch
+
+    from butler.orchestrator import ButlerOrchestrator
+
+    return ButlerOrchestrator(user_id="owner", channel=channel)
+
+
+def _project_agent_raw_message(*, task: str, context: str = "") -> str:
+    user_msg = task
+    if context:
+        user_msg = f"## 上下文\n{context}\n\n## 任务\n{task}"
+    return user_msg
+
+
+def _inject_project_agent_skills(orch: Any, user_msg: str) -> str:
+    inject = getattr(orch, "inject_skill_context", None)
+    if callable(inject):
+        return inject(user_msg)
+    return user_msg
 
 
 def _safe_dispatch(name: str, args: dict, depth: int) -> str:

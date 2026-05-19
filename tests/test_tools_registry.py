@@ -251,6 +251,7 @@ class TestDelegateTask:
         )
         mock_orch = MagicMock()
         mock_orch.create_project_agent_loop.return_value = mock_agent
+        mock_orch.inject_skill_context.side_effect = lambda text, **_: text
         mock_orch_cls.return_value = mock_orch
 
         result = dispatch_tool(
@@ -263,3 +264,94 @@ class TestDelegateTask:
         mock_orch.create_project_agent_loop.assert_called_once()
         mock_agent.run.assert_called_once()
         assert "auth module" in mock_agent.run.call_args[0][0]
+
+    @patch("butler.session_lifecycle.sync_turn_memory", return_value={"skipped": False})
+    @patch("butler.session_lifecycle.attach_turn_memory_prefetch")
+    @patch("butler.report.cache_report")
+    @patch("butler.orchestrator.ButlerOrchestrator")
+    def test_delegate_task_reuses_execution_context_orchestrator(
+        self,
+        mock_orch_cls,
+        mock_cache,
+        mock_prefetch,
+        mock_sync,
+    ):
+        from butler.core.agent_loop import LoopResult, LoopStatus
+        from butler.execution_context import use_execution_context
+
+        mock_agent = MagicMock()
+        mock_agent.run.return_value = LoopResult(
+            status=LoopStatus.COMPLETED,
+            final_response="delegation done",
+        )
+        current_orch = MagicMock()
+        current_orch.create_project_agent_loop.return_value = mock_agent
+        current_orch.inject_skill_context.side_effect = lambda text, **_: (
+            f"## 相关知识（Butler Skill）\nUse pytest\n\n{text}"
+        )
+
+        with use_execution_context(current_orch, session_key="gateway-session"):
+            result = dispatch_tool("delegate_task", {"role": "dev", "task": "run python tests"})
+
+        data = json.loads(result)
+        assert data["success"] is True
+        mock_orch_cls.assert_not_called()
+        current_orch.create_project_agent_loop.assert_called_once()
+        current_orch.inject_skill_context.assert_called_once()
+        assert "Use pytest" in mock_agent.run.call_args.args[0]
+        mock_prefetch.assert_called_once()
+        assert mock_prefetch.call_args.args[1] is current_orch
+        mock_sync.assert_called_once()
+        assert mock_sync.call_args.args[1] == "run python tests"
+        assert mock_sync.call_args.kwargs["session_id"] == "gateway-session"
+
+    @patch("butler.session_lifecycle.sync_turn_memory", return_value={"skipped": False})
+    @patch("butler.session_lifecycle.attach_turn_memory_prefetch")
+    @patch("butler.report.cache_report")
+    @patch("butler.orchestrator.ButlerOrchestrator")
+    def test_delegate_task_binds_context_during_agent_run(
+        self,
+        mock_orch_cls,
+        mock_cache,
+        mock_prefetch,
+        mock_sync,
+    ):
+        from butler.core.agent_loop import LoopResult, LoopStatus
+        from butler.execution_context import get_current_orchestrator
+
+        mock_orch = MagicMock()
+        mock_orch.inject_skill_context.side_effect = lambda text, **_: text
+
+        def _run(_message: str) -> LoopResult:
+            assert get_current_orchestrator() is mock_orch
+            return LoopResult(status=LoopStatus.COMPLETED, final_response="delegation done")
+
+        mock_agent = MagicMock()
+        mock_agent.run.side_effect = _run
+        mock_orch.create_project_agent_loop.return_value = mock_agent
+        mock_orch_cls.return_value = mock_orch
+
+        result = dispatch_tool("delegate_task", {"role": "dev", "task": "run tests"})
+
+        assert json.loads(result)["success"] is True
+
+
+@pytest.mark.module_test
+class TestSkillTools:
+    @patch("butler.orchestrator.ButlerOrchestrator")
+    def test_skills_list_reuses_execution_context_orchestrator(self, mock_orch_cls):
+        from butler.execution_context import use_execution_context
+
+        manager = MagicMock()
+        manager.list_skills.return_value = [
+            {"name": "python-dev", "description": "Python development" * 20},
+        ]
+        current_orch = MagicMock()
+        current_orch._skill_manager = manager
+
+        with use_execution_context(current_orch):
+            result = dispatch_tool("skills_list", {})
+
+        data = json.loads(result)
+        assert data["skills"][0]["name"] == "python-dev"
+        mock_orch_cls.assert_not_called()

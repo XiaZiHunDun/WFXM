@@ -71,54 +71,57 @@ class ButlerMessageHandler:
             if response is not None:
                 return response
 
+        from butler.execution_context import use_execution_context
         from butler.gateway.hooks import apply_pre_llm_context
-        health: dict[str, Any] = {
-            "session_key": session_key,
-            "platform": platform,
-        }
-        augmented = apply_pre_llm_context(
-            self._orchestrator.inject_skill_context(text, diagnostics=health),
-            session_key=session_key,
-        )
 
-        loop = self._get_or_create_loop(session_key)
+        with use_execution_context(self._orchestrator, session_key=session_key):
+            health: dict[str, Any] = {
+                "session_key": session_key,
+                "platform": platform,
+            }
+            augmented = apply_pre_llm_context(
+                self._orchestrator.inject_skill_context(text, diagnostics=health),
+                session_key=session_key,
+            )
 
-        try:
+            loop = self._get_or_create_loop(session_key)
+
             try:
-                hygiene_compressed = loop.hygiene_compress_if_needed()
-                health["hygiene_compressed"] = hygiene_compressed
-                health.update({
-                    k: v for k, v in getattr(loop, "diagnostics", {}).items()
-                    if str(k).startswith("hygiene_")
-                })
+                try:
+                    hygiene_compressed = loop.hygiene_compress_if_needed()
+                    health["hygiene_compressed"] = hygiene_compressed
+                    health.update({
+                        k: v for k, v in getattr(loop, "diagnostics", {}).items()
+                        if str(k).startswith("hygiene_")
+                    })
+                except Exception as exc:
+                    health["hygiene_error"] = str(exc)
+                    logger.warning("Gateway hygiene compression skipped: %s", exc)
+                attach_turn_memory_prefetch(
+                    loop,
+                    self._orchestrator,
+                    text,
+                    role="butler",
+                    diagnostics=health,
+                )
+                result = loop.run(augmented)
+                health["loop"] = dict(getattr(result, "diagnostics", {}) or {})
+                sync_result = sync_turn_memory(
+                    self._orchestrator,
+                    text,
+                    result.final_response or "",
+                    interrupted=result.status == LoopStatus.INTERRUPTED,
+                    status=result.status,
+                    session_id=session_key,
+                )
+                health["memory_sync"] = sync_result
+                self._health_by_session[session_key] = dict(health)
+                return self._format_response(result, platform)
             except Exception as exc:
-                health["hygiene_error"] = str(exc)
-                logger.warning("Gateway hygiene compression skipped: %s", exc)
-            attach_turn_memory_prefetch(
-                loop,
-                self._orchestrator,
-                text,
-                role="butler",
-                diagnostics=health,
-            )
-            result = loop.run(augmented)
-            health["loop"] = dict(getattr(result, "diagnostics", {}) or {})
-            sync_result = sync_turn_memory(
-                self._orchestrator,
-                text,
-                result.final_response or "",
-                interrupted=result.status == LoopStatus.INTERRUPTED,
-                status=result.status,
-                session_id=session_key,
-            )
-            health["memory_sync"] = sync_result
-            self._health_by_session[session_key] = dict(health)
-            return self._format_response(result, platform)
-        except Exception as exc:
-            health["error"] = str(exc)
-            self._health_by_session[session_key] = dict(health)
-            logger.error("Message handling failed: %s", exc)
-            return f"处理失败: {exc}"
+                health["error"] = str(exc)
+                self._health_by_session[session_key] = dict(health)
+                logger.error("Message handling failed: %s", exc)
+                return f"处理失败: {exc}"
 
     def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
         """Return the latest best-effort runtime diagnostics for a session."""

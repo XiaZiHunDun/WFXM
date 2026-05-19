@@ -152,6 +152,38 @@ class TestCmdExec:
         assert code == 0
         loop.run.assert_called_once()
 
+    def test_cmd_exec_binds_execution_context(self):
+        from butler.execution_context import get_current_orchestrator, get_current_session_key
+
+        orch = MagicMock()
+        loop = MagicMock()
+
+        def _run(_message: str) -> LoopResult:
+            assert get_current_orchestrator() is orch
+            assert get_current_session_key() == "cli"
+            return LoopResult(status=LoopStatus.COMPLETED, final_response="exec output")
+
+        loop.run.side_effect = _run
+        orch.inject_skill_context.side_effect = lambda x: x
+        orch.create_agent_loop.return_value = loop
+
+        ns = MagicMock(message="run this task")
+        with patch("butler.orchestrator.ButlerOrchestrator", return_value=orch):
+            with patch("butler.session_lifecycle.sync_turn_memory") as sync:
+                code = _cmd_exec(ns)
+        assert code == 0
+        assert sync.call_args.kwargs["session_id"] == "cli"
+
+    def test_sync_memory_uses_current_session_key(self):
+        orch = _mock_orchestrator()
+        from butler.execution_context import use_execution_context
+
+        with patch("butler.session_lifecycle.sync_turn_memory") as sync:
+            with use_execution_context(orch, session_key="cli"):
+                _sync_memory(orch, "user", "assistant", status=LoopStatus.COMPLETED)
+
+        assert sync.call_args.kwargs["session_id"] == "cli"
+
     def test_cmd_exec_exception_returns_one(self):
         orch = MagicMock()
         orch.inject_skill_context.side_effect = lambda x: x

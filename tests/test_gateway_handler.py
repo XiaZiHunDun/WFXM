@@ -229,6 +229,19 @@ class TestHandleMessage:
         assert health["loop"]["schema_recovered"] is True
         assert health["memory_sync"]["provider_synced"] is True
 
+    def test_normal_message_binds_execution_context(self, handler, mock_loop):
+        from butler.execution_context import get_current_orchestrator, get_current_session_key
+
+        def _run(_message: str) -> LoopResult:
+            assert get_current_orchestrator() is handler._orchestrator
+            assert get_current_session_key() == "s1"
+            return LoopResult(status=LoopStatus.COMPLETED, final_response="assistant reply")
+
+        mock_loop.run.side_effect = _run
+        with patch.object(handler, "_get_or_create_loop", return_value=mock_loop):
+            with patch("butler.gateway.message_handler.sync_turn_memory", return_value={"skipped": True}):
+                assert handler.handle_message("hello", session_key="s1") == "assistant reply"
+
     def test_empty_message_returns_empty(self, handler):
         assert handler.handle_message("") == ""
         assert handler.handle_message("   ") == ""

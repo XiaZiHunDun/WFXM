@@ -14,8 +14,9 @@ Key improvements over v3:
 from __future__ import annotations
 
 import asyncio
-import json
+from contextvars import copy_context
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ from typing import Any, Callable, Optional
 from butler.report import AgentReport, cache_report
 
 logger = logging.getLogger(__name__)
+_MODEL_OVERRIDE_LOCK = threading.RLock()
 
 
 class AgentStatus(str, Enum):
@@ -98,16 +100,25 @@ class TaskOrchestrator:
 
     def _create_agent_loop(self, config: AgentSpawnConfig):
         """Create a Butler AgentLoop for the given config."""
-        from butler.orchestrator import ButlerOrchestrator
-        from butler.tools.registry import get_tool_definitions, dispatch_tool
-        from butler.core.agent_loop import LoopConfig
-
-        orch = ButlerOrchestrator(user_id="owner", channel="orchestrator")
+        orch = _orchestrator_for_task()
 
         if config.model_config:
             from butler.config import ModelConfig
             mc = ModelConfig(**config.model_config)
-            orch._settings.set_runtime_model_override(config.role, mc)
+            settings = orch._settings
+            with _MODEL_OVERRIDE_LOCK:
+                previous = getattr(settings, "_runtime_model_overrides", {}).get(config.role)
+                settings.set_runtime_model_override(config.role, mc)
+                try:
+                    return self._create_agent_loop_with_orchestrator(config, orch)
+                finally:
+                    settings.set_runtime_model_override(config.role, previous)
+
+        return self._create_agent_loop_with_orchestrator(config, orch)
+
+    def _create_agent_loop_with_orchestrator(self, config: AgentSpawnConfig, orch: Any):
+        """Create a Butler AgentLoop using an already-selected orchestrator."""
+        from butler.tools.registry import get_tool_definitions, dispatch_tool
 
         from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
 
@@ -132,6 +143,7 @@ class TaskOrchestrator:
         )
 
         agent.config.max_iterations = config.max_iterations
+        agent._butler_orchestrator = orch
         return agent
 
     async def spawn_agent(
@@ -151,12 +163,39 @@ class TaskOrchestrator:
         try:
             agent = self._create_agent_loop(config)
 
-            user_message = config.task
+            raw_user_message = config.task
             if config.context:
-                user_message = f"## 上下文\n{config.context}\n\n## 任务\n{config.task}"
+                raw_user_message = f"## 上下文\n{config.context}\n\n## 任务\n{config.task}"
 
             agent.reset()
-            loop_result = await asyncio.to_thread(agent.run, user_message)
+            orch = getattr(agent, "_butler_orchestrator", None)
+            user_message = raw_user_message
+            if orch is not None and hasattr(orch, "inject_skill_context"):
+                user_message = orch.inject_skill_context(raw_user_message)
+                from butler.session_lifecycle import attach_turn_memory_prefetch
+
+                attach_turn_memory_prefetch(agent, orch, raw_user_message, role=config.role)
+            if orch is not None:
+                from butler.execution_context import get_current_session_key, use_execution_context
+
+                session_key = get_current_session_key()
+                with use_execution_context(orch, session_key=session_key):
+                    run_context = copy_context()
+                    loop_result = await asyncio.to_thread(run_context.run, agent.run, user_message)
+            else:
+                session_key = ""
+                loop_result = await asyncio.to_thread(agent.run, user_message)
+            if orch is not None:
+                from butler.session_lifecycle import sync_turn_memory
+
+                sync_turn_memory(
+                    orch,
+                    raw_user_message,
+                    loop_result.final_response or "",
+                    interrupted=loop_result.status.value == "interrupted",
+                    status=loop_result.status,
+                    session_id=session_key,
+                )
 
             from butler.tools.registry import _extract_changes_from_messages
             changes = _extract_changes_from_messages(loop_result.messages)
@@ -332,6 +371,18 @@ def _topological_sort(nodes: list[TaskNode]) -> list[str]:
         raise ValueError("Task graph contains a cycle")
 
     return result
+
+
+def _orchestrator_for_task():
+    from butler.execution_context import get_current_orchestrator
+
+    orch = get_current_orchestrator()
+    if orch is not None:
+        return orch
+
+    from butler.orchestrator import ButlerOrchestrator
+
+    return ButlerOrchestrator(user_id="owner", channel="orchestrator")
 
 
 def _group_into_layers(

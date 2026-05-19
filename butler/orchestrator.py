@@ -331,10 +331,6 @@ class ButlerOrchestrator:
         if extra:
             system_parts.append(extra)
 
-        skill_ctx = ""
-        if self._skill_router:
-            skill_ctx = self.inject_skill_context("", top_k=3)
-
         system_prompt = "\n\n".join(p for p in system_parts if p)
 
         from butler.config import ModelConfig
