@@ -89,6 +89,11 @@ include = ["agent", "agent.*", "tools", "tools.*", "hermes_cli", "gateway", "gat
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "integration: marks tests requiring external services",
+    "unit: L1 unit tests (fast, no I/O)",
+    "module_test: L2 module tests (mocked I/O)",
+    "integration: L3 integration tests (cross-module)",
+    "e2e: L4 end-to-end tests (full pipeline)",
+    "slow: tests taking > 5s",
+    "live_llm: requires real LLM API key (skip in CI)",
 ]
-addopts = "-m 'not integration'"
+addopts = "-m 'not live_llm'"

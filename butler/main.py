@@ -182,11 +182,11 @@ def _sync_memory(
         if not (user_msg and assistant_msg):
             return
         bm = orchestrator.butler_memory
-        if bm and hasattr(bm, "experience_store") and bm.experience_store:
-            bm.experience_store.add_interaction(
-                user_message=user_msg,
-                assistant_message=assistant_msg[:500],
+        if bm and hasattr(bm, "experience") and bm.experience:
+            bm.experience.add(
                 project=orchestrator.project_manager.current_project or "",
+                category="conversation",
+                content=f"Q: {user_msg[:200]} → A: {assistant_msg[:300]}",
             )
     except Exception as exc:
         logger.debug("Memory sync skipped: %s", exc)

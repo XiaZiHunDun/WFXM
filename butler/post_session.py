@@ -17,6 +17,24 @@ logger = logging.getLogger(__name__)
 
 LLMCallFn = Callable[[str], Coroutine[Any, Any, str]]
 
+_PROJECT_SECTION_MAP = {
+    "架构与设计": "Architecture",
+    "架构": "Architecture",
+    "设计": "Architecture",
+    "关键决策": "Decisions",
+    "决策": "Decisions",
+    "代码模式与约定": "Patterns",
+    "代码模式": "Patterns",
+    "约定": "Patterns",
+    "API": "API",
+    "接口": "API",
+    "已知问题": "Notes",
+    "问题": "Notes",
+    "当前状态": "Notes",
+    "状态": "Notes",
+}
+_PROJECT_CANONICAL_SECTIONS = {"Architecture", "Decisions", "Patterns", "API", "Notes", "Pending"}
+
 _MEMORY_REVIEW_PROMPT = """分析以下对话记录，提取需要长期记住的信息。
 
 ## 提取规则
@@ -101,6 +119,14 @@ def _parse_json_from_response(text: str) -> dict | None:
         return json.loads(text[start:end])
     except json.JSONDecodeError:
         return None
+
+
+def _normalize_project_section(section: str) -> str:
+    """Map LLM-facing Chinese section names to MEMORY.md's canonical sections."""
+    section = str(section or "").strip()
+    if section in _PROJECT_CANONICAL_SECTIONS:
+        return section
+    return _PROJECT_SECTION_MAP.get(section, "Notes")
 
 
 class PostSessionProcessor:
@@ -205,13 +231,15 @@ class PostSessionProcessor:
 
             try:
                 if target == "butler" and butler_memory:
-                    butler_memory.add_profile(content)
+                    butler_memory.profile.add(content)
                     applied += 1
                 elif target == "project" and project_memory and section:
-                    project_memory.append_with_classification(section, content)
+                    project_memory.markdown.append(_normalize_project_section(section), content)
                     applied += 1
                 elif target == "experience" and butler_memory:
-                    butler_memory.add_experience(content, project=project_name)
+                    butler_memory.experience.add(
+                        project=project_name, category="experience", content=content,
+                    )
                     applied += 1
             except Exception as e:
                 logger.warning("Memory update error: %s", e)
@@ -258,7 +286,12 @@ class PostSessionProcessor:
                     "content": str(s["body"]),
                     "triggers": s.get("triggers", []),
                 }
-                skill_manager.save_skill(skill_data)
+                skill_manager.create(
+                    name=skill_data["name"],
+                    description=skill_data["description"],
+                    triggers=skill_data.get("triggers", []),
+                    content=skill_data["content"],
+                )
                 created += 1
                 logger.info("Extracted skill: %s", s["name"])
             except Exception as e:

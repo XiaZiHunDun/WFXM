@@ -252,9 +252,7 @@ class TestPostSessionProcessor:
         async def _dummy(p): return ""
         proc.set_llm_call(_dummy)
 
-        result = asyncio.get_event_loop().run_until_complete(
-            proc.process(messages=[{"role": "user", "content": "hi"}])
-        )
+        result = asyncio.run(proc.process(messages=[{"role": "user", "content": "hi"}]))
         assert result["memory_updates"] == 0
         assert result["skills_extracted"] == 0
 
@@ -269,7 +267,7 @@ class TestPostSessionProcessor:
 
         mock_memory = MagicMock()
         mock_memory.get_system_context.return_value = ""
-        mock_memory.add_profile.return_value = {"success": True}
+        mock_memory.profile.add.return_value = {"success": True}
 
         messages = [
             {"role": "user", "content": "我喜欢Python"},
@@ -277,9 +275,7 @@ class TestPostSessionProcessor:
             {"role": "user", "content": "帮我写代码"},
             {"role": "assistant", "content": "好的，马上"},
         ]
-        result = asyncio.get_event_loop().run_until_complete(
-            proc.process(messages=messages, butler_memory=mock_memory)
-        )
+        result = asyncio.run(proc.process(messages=messages, butler_memory=mock_memory))
         assert result["memory_updates"] >= 0  # depends on transcript length threshold
 
     def test_from_hermes_agent_factory(self):

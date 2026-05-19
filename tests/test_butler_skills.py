@@ -156,3 +156,79 @@ class TestUsageTracker:
             tracker.on_merge(["old-1", "old-2"], "merged")
             stats = tracker.get_stats("merged")
             assert stats is not None
+
+
+@pytest.mark.module_test
+class TestSkillManagerMergePath:
+    def test_two_similar_skills_second_triggers_merge(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SkillManager(td, llm_fn=None)
+            mgr.create(
+                "python-debug",
+                "Debug Python applications",
+                ["python", "debug", "error", "traceback"],
+                "Step 1: read traceback\nStep 2: fix",
+            )
+            result = mgr.create(
+                "python-troubleshoot",
+                "Troubleshoot Python errors and exceptions",
+                ["python", "error", "fix", "debug"],
+                "Step 1: reproduce\nStep 2: patch",
+                similarity_threshold=0.3,
+            )
+            assert result == "merged"
+            skills = mgr.list_skills()
+            assert len(skills) == 1
+
+    def test_validate_name_invalid_characters_raises(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SkillManager(td)
+            with pytest.raises(ValueError, match="Invalid skill name"):
+                mgr.create("Bad Name!", "desc", ["t"], "body")
+
+    def test_empty_description_raises(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SkillManager(td)
+            with pytest.raises(ValueError, match="Description is required"):
+                mgr.create("valid-name", "", ["t"], "body")
+
+    def test_empty_content_raises(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SkillManager(td)
+            with pytest.raises(ValueError, match="Content is required"):
+                mgr.create("valid-name", "desc", ["t"], "   ")
+
+
+@pytest.mark.module_test
+class TestConsolidatorWithLLM:
+    def test_mock_llm_returns_merged_content(self):
+        def llm_fn(prompt):
+            return (
+                '{"name": "merged-skill", "description": "Merged", '
+                '"triggers": ["a", "b"], "content": "# Merged workflow"}'
+            )
+
+        cons = SkillConsolidator(llm_fn=llm_fn)
+        skills = [
+            {"name": "a", "description": "A", "triggers": ["a"], "content": "Body A"},
+            {"name": "b", "description": "B", "triggers": ["b"], "content": "Body B"},
+        ]
+        merged = cons.consolidate(skills)
+        assert merged["name"] == "merged-skill"
+        assert merged["content"] == "# Merged workflow"
+        assert set(merged["triggers"]) == {"a", "b"}
+
+    def test_fallback_when_llm_fails(self):
+        def llm_fn(prompt):
+            raise RuntimeError("llm unavailable")
+
+        cons = SkillConsolidator(llm_fn=llm_fn)
+        skills = [
+            {"name": "x", "description": "X", "triggers": ["t1"], "content": "Body X"},
+            {"name": "y", "description": "Y", "triggers": ["t2"], "content": "Body Y"},
+        ]
+        merged = cons.consolidate(skills)
+        assert merged["name"] == "x-merged"
+        assert "Body X" in merged["content"]
+        assert "Body Y" in merged["content"]
+        assert "t1" in merged["triggers"] and "t2" in merged["triggers"]

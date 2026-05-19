@@ -137,3 +137,120 @@ class TestProjectMemory:
             pm.markdown.append("Notes", "Important note about the project")
             ctx = pm.get_full_context(max_lines=40)
             assert "note" in ctx.lower() or len(ctx) > 0
+
+
+@pytest.mark.module_test
+class TestProjectFactsStore:
+    def test_auto_extract_with_pyproject_toml(self, tmp_path):
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "demo"\ndependencies = ["fastapi"]\n',
+            encoding="utf-8",
+        )
+        store = ProjectFactsStore(tmp_path / ".butler" / "facts.json")
+        facts = store.auto_extract(tmp_path)
+        assert facts["build_system"] == "python"
+        assert "FastAPI" in facts.get("frameworks", [])
+
+    def test_auto_extract_with_package_json(self, tmp_path):
+        (tmp_path / "package.json").write_text(
+            '{"dependencies": {"react": "^18.0.0", "next": "^14.0.0"}}',
+            encoding="utf-8",
+        )
+        store = ProjectFactsStore(tmp_path / ".butler" / "facts.json")
+        facts = store.auto_extract(tmp_path)
+        assert facts["build_system"] == "node"
+        frameworks = facts.get("frameworks", [])
+        assert "React" in frameworks
+        assert "Next.js" in frameworks
+
+    def test_auto_extract_empty_directory(self, tmp_path):
+        store = ProjectFactsStore(tmp_path / "facts.json")
+        facts = store.auto_extract(tmp_path)
+        assert "extracted_at" in facts
+        assert "directory_structure" in facts
+        assert "file_counts" in facts
+
+    def test_format_for_prompt(self, tmp_path):
+        store = ProjectFactsStore(tmp_path / "facts.json")
+        store.auto_extract(tmp_path)
+        (tmp_path / "pyproject.toml").write_text("[project]\n", encoding="utf-8")
+        store.auto_extract(tmp_path)
+        text = store.format_for_prompt()
+        assert "Build:" in text or "Top-level dirs:" in text or "Approx file counts:" in text
+
+
+@pytest.mark.module_test
+class TestExperienceStoreEdgeCases:
+    def test_empty_query_search(self):
+        with tempfile.TemporaryDirectory() as td:
+            es = ExperienceStore(Path(td) / "exp.db")
+            es.add("P", "dev", "some content")
+            assert es.search("") == []
+            assert es.search("   ") == []
+
+    def test_add_with_tags_list(self):
+        with tempfile.TemporaryDirectory() as td:
+            es = ExperienceStore(Path(td) / "exp.db")
+            row_id = es.add("P", "dev", "tagged item", tags=["python", "api"])
+            assert row_id > 0
+            recent = es.get_recent(1)
+            assert recent[0]["tags"] == "python,api"
+
+    def test_add_with_tags_string(self):
+        with tempfile.TemporaryDirectory() as td:
+            es = ExperienceStore(Path(td) / "exp.db")
+            es.add("P", "dev", "string tags", tags="deploy,ci")
+            recent = es.get_recent(1)
+            assert recent[0]["tags"] == "deploy,ci"
+
+    def test_get_recent_with_limit_zero(self):
+        with tempfile.TemporaryDirectory() as td:
+            es = ExperienceStore(Path(td) / "exp.db")
+            es.add("P", "dev", "item")
+            assert es.get_recent(0) == []
+
+
+@pytest.mark.module_test
+class TestMarkdownMemoryPending:
+    def test_list_pending_returns_pending_items(self):
+        with tempfile.TemporaryDirectory() as td:
+            mm = MarkdownMemory(Path(td) / "MEMORY.md")
+            mm.append("Decisions", "Maybe use Redis", classification="pending")
+            pending = mm.list_pending()
+            assert len(pending) >= 1
+            assert any("Redis" in p["content"] for p in pending)
+
+    def test_approve_pending_approves_specific_item(self):
+        with tempfile.TemporaryDirectory() as td:
+            mm = MarkdownMemory(Path(td) / "MEMORY.md")
+            mm.append("Decisions", "Consider Kafka", classification="pending")
+            assert len(mm.list_pending()) >= 1
+            assert mm.approve_pending(0) is True
+            assert len(mm.list_pending()) == 0
+            decisions = mm.get_section("Decisions")
+            assert "Kafka" in decisions
+
+    def test_approve_all_approves_all(self):
+        with tempfile.TemporaryDirectory() as td:
+            mm = MarkdownMemory(Path(td) / "MEMORY.md")
+            mm.append("Notes", "TBD option A", classification="pending")
+            mm.append("Notes", "TBD option B", classification="pending")
+            count = mm.approve_all()
+            assert count >= 2
+            assert mm.list_pending() == []
+
+    def test_get_section_returns_specific_section(self):
+        with tempfile.TemporaryDirectory() as td:
+            mm = MarkdownMemory(Path(td) / "MEMORY.md")
+            mm.append("API", "REST endpoints documented")
+            section = mm.get_section("API")
+            assert "REST endpoints" in section
+
+
+@pytest.mark.module_test
+class TestButlerMemoryDefault:
+    def test_default_creates_instance(self):
+        bm = ButlerMemory.default()
+        assert isinstance(bm, ButlerMemory)
+        assert bm.profile is not None
+        assert bm.experience is not None
