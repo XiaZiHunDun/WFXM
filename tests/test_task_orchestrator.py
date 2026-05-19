@@ -93,6 +93,34 @@ class TestTopology:
 
 @pytest.mark.integration
 class TestSpawnAgent:
+    def test_create_agent_loop_uses_depth_aware_dispatcher(self):
+        from butler.execution_context import use_execution_context
+
+        orch = TaskOrchestrator()
+        mock_loop = _mock_agent_loop()
+        current_orch = MagicMock()
+        current_orch.create_project_agent_loop.return_value = mock_loop
+        config = AgentSpawnConfig(role="dev", task="run tests", delegate_depth=1)
+
+        with use_execution_context(current_orch):
+            orch._create_agent_loop(config)
+
+        dispatcher = current_orch.create_project_agent_loop.call_args.kwargs["tool_dispatcher"]
+        with patch("butler.task_orchestrator.dispatch_tool_safely", return_value="ok") as safe:
+            assert dispatcher("read_file", {"path": "x"}) == "ok"
+
+        safe.assert_called_once_with("read_file", {"path": "x"}, depth=2)
+
+    @pytest.mark.asyncio
+    async def test_spawn_agent_rejects_max_delegate_depth(self):
+        orch = TaskOrchestrator()
+        result = await orch.spawn_agent(
+            AgentSpawnConfig(role="dev", task="too deep", delegate_depth=2)
+        )
+
+        assert result.success is False
+        assert "Maximum delegation depth" in result.error
+
     def test_create_agent_loop_reuses_execution_context_orchestrator(self):
         from butler.execution_context import use_execution_context
 
@@ -224,6 +252,24 @@ class TestSpawnAgent:
         assert result.success is False
         assert "LLM down" in result.error
 
+    @pytest.mark.asyncio
+    async def test_non_completed_loop_status_success_false(self):
+        orch = TaskOrchestrator()
+        mock_loop = _mock_agent_loop(
+            LoopResult(
+                status=LoopStatus.ERROR,
+                final_response="partial",
+                error="provider failed",
+            )
+        )
+
+        with patch.object(orch, "_create_agent_loop", return_value=mock_loop):
+            result = await orch.spawn_agent(_spawn_config())
+
+        assert result.success is False
+        assert result.response == "partial"
+        assert "provider failed" in result.error
+
 
 @pytest.mark.integration
 class TestSpawnParallel:
@@ -259,6 +305,25 @@ class TestSpawnParallel:
 
         assert out[0].success is True
         assert out[1].success is False
+
+    @pytest.mark.asyncio
+    async def test_spawn_parallel_converts_unhandled_exception_to_result(self):
+        orch = TaskOrchestrator()
+
+        with patch.object(
+            orch,
+            "spawn_agent",
+            new_callable=AsyncMock,
+            side_effect=[
+                AgentResult(success=True, response="ok"),
+                RuntimeError("worker crashed"),
+            ],
+        ):
+            out = await orch.spawn_parallel([_spawn_config(), _spawn_config(role="review")])
+
+        assert out[0].success is True
+        assert out[1].success is False
+        assert "worker crashed" in out[1].error
 
 
 @pytest.mark.integration
@@ -347,3 +412,174 @@ class TestExecuteGraph:
 
         assert graph.success is True
         assert len(captured_contexts) >= 1
+
+    @pytest.mark.asyncio
+    async def test_dependency_failure_marks_dependents_skipped(self):
+        orch = TaskOrchestrator()
+        nodes = [
+            TaskNode(id="root", config=_spawn_config(task="root")),
+            TaskNode(id="child", config=_spawn_config(task="child"), depends_on=["root"]),
+        ]
+
+        with patch.object(
+            orch,
+            "spawn_agent",
+            new_callable=AsyncMock,
+            return_value=AgentResult(success=False, error="root failed"),
+        ):
+            graph = await orch.execute_graph(nodes)
+
+        assert graph.success is False
+        assert graph.nodes["root"].error == "root failed"
+        assert graph.nodes["child"].success is False
+        assert "dependency" in graph.nodes["child"].error
+        assert graph.execution_order == ["root"]
+
+    @pytest.mark.asyncio
+    async def test_dependency_failure_marks_transitive_dependents_skipped(self):
+        orch = TaskOrchestrator()
+        nodes = [
+            TaskNode(id="root", config=_spawn_config(task="root")),
+            TaskNode(id="child", config=_spawn_config(task="child"), depends_on=["root"]),
+            TaskNode(
+                id="grandchild",
+                config=_spawn_config(task="grandchild"),
+                depends_on=["child"],
+            ),
+        ]
+
+        with patch.object(
+            orch,
+            "spawn_agent",
+            new_callable=AsyncMock,
+            return_value=AgentResult(success=False, error="root failed"),
+        ):
+            graph = await orch.execute_graph(nodes)
+
+        assert graph.success is False
+        assert set(graph.nodes) == {"root", "child", "grandchild"}
+        assert "failed dependency" in graph.nodes["child"].error
+        assert "failed dependency" in graph.nodes["grandchild"].error
+
+    @pytest.mark.asyncio
+    async def test_router_unknown_target_records_error(self):
+        orch = TaskOrchestrator()
+        nodes = [
+            TaskNode(
+                id="root",
+                config=_spawn_config(task="root"),
+                router=lambda _result: "missing",
+            ),
+        ]
+
+        with patch.object(
+            orch,
+            "spawn_agent",
+            new_callable=AsyncMock,
+            return_value=AgentResult(success=True, response="ok"),
+        ):
+            graph = await orch.execute_graph(nodes)
+
+        assert graph.success is False
+        assert "unknown" in graph.error
+
+    @pytest.mark.asyncio
+    async def test_router_target_must_be_direct_dependent(self):
+        orch = TaskOrchestrator()
+        nodes = [
+            TaskNode(
+                id="root",
+                config=_spawn_config(task="root"),
+                router=lambda _result: "grandchild",
+            ),
+            TaskNode(id="child", config=_spawn_config(task="child"), depends_on=["root"]),
+            TaskNode(id="grandchild", config=_spawn_config(task="grandchild"), depends_on=["child"]),
+        ]
+
+        with patch.object(
+            orch,
+            "spawn_agent",
+            new_callable=AsyncMock,
+            return_value=AgentResult(success=True, response="ok"),
+        ) as mock_spawn:
+            graph = await orch.execute_graph(nodes)
+
+        assert graph.success is False
+        assert "direct dependent" in graph.error
+        assert mock_spawn.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_router_selected_node_runs_once(self):
+        orch = TaskOrchestrator()
+        nodes = [
+            TaskNode(
+                id="root",
+                config=_spawn_config(task="root"),
+                router=lambda _result: "selected",
+            ),
+            TaskNode(id="selected", config=_spawn_config(task="selected"), depends_on=["root"]),
+            TaskNode(id="other", config=_spawn_config(task="other"), depends_on=["root"]),
+        ]
+
+        async def _spawn(cfg: AgentSpawnConfig) -> AgentResult:
+            return AgentResult(success=True, response=f"resp-{cfg.task}")
+
+        with patch.object(orch, "spawn_agent", side_effect=_spawn) as mock_spawn:
+            graph = await orch.execute_graph(nodes)
+
+        assert graph.success is True
+        assert graph.execution_order == ["root", "selected"]
+        assert "selected" in graph.nodes
+        assert "other" not in graph.nodes
+        assert mock_spawn.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_router_none_fans_out_all_dependents(self):
+        orch = TaskOrchestrator()
+        nodes = [
+            TaskNode(
+                id="root",
+                config=_spawn_config(task="root"),
+                router=lambda _result: None,
+            ),
+            TaskNode(id="a", config=_spawn_config(task="a"), depends_on=["root"]),
+            TaskNode(id="b", config=_spawn_config(task="b"), depends_on=["root"]),
+        ]
+
+        async def _spawn(cfg: AgentSpawnConfig) -> AgentResult:
+            return AgentResult(success=True, response=f"resp-{cfg.task}")
+
+        with patch.object(orch, "spawn_agent", side_effect=_spawn):
+            graph = await orch.execute_graph(nodes)
+
+        assert graph.success is True
+        assert graph.execution_order == ["root", "a", "b"]
+
+    @pytest.mark.asyncio
+    async def test_router_cancelled_branch_does_not_hide_join_node(self):
+        orch = TaskOrchestrator()
+        nodes = [
+            TaskNode(
+                id="root",
+                config=_spawn_config(task="root"),
+                router=lambda _result: "selected",
+            ),
+            TaskNode(id="selected", config=_spawn_config(task="selected"), depends_on=["root"]),
+            TaskNode(id="other", config=_spawn_config(task="other"), depends_on=["root"]),
+            TaskNode(
+                id="join",
+                config=_spawn_config(task="join"),
+                depends_on=["selected", "other"],
+            ),
+        ]
+
+        async def _spawn(cfg: AgentSpawnConfig) -> AgentResult:
+            return AgentResult(success=True, response=f"resp-{cfg.task}")
+
+        with patch.object(orch, "spawn_agent", side_effect=_spawn):
+            graph = await orch.execute_graph(nodes)
+
+        assert graph.success is False
+        assert graph.execution_order == ["root", "selected"]
+        assert "join" in graph.nodes
+        assert "cancelled dependency" in graph.nodes["join"].error

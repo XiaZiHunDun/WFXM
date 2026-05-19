@@ -47,6 +47,7 @@ class AgentSpawnConfig:
     max_iterations: int = 30
     output_format: str = "text"
     project_name: str | None = None
+    delegate_depth: int = 0
 
 
 @dataclass
@@ -79,6 +80,7 @@ class TaskNode:
     id: str
     config: AgentSpawnConfig
     depends_on: list[str] = field(default_factory=list)
+    # Return a direct dependent id to choose one branch; return None to fan out all dependents.
     router: Callable[[AgentResult], str | None] | None = None
     requires_approval: bool = False
     max_retries: int = 1
@@ -118,7 +120,7 @@ class TaskOrchestrator:
 
     def _create_agent_loop_with_orchestrator(self, config: AgentSpawnConfig, orch: Any):
         """Create a Butler AgentLoop using an already-selected orchestrator."""
-        from butler.tools.registry import get_tool_definitions, dispatch_tool
+        from butler.tools.registry import get_tool_definitions
 
         from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
 
@@ -138,7 +140,11 @@ class TaskOrchestrator:
         agent = orch.create_project_agent_loop(
             role=config.role,
             tools=delegated_tools,
-            tool_dispatcher=dispatch_tool,
+            tool_dispatcher=lambda name, args: dispatch_tool_safely(
+                name,
+                args,
+                depth=config.delegate_depth + 1,
+            ),
             callbacks=child_callbacks(get_parent_callbacks()),
         )
 
@@ -161,6 +167,11 @@ class TaskOrchestrator:
         logger.info("Spawning %s agent [%s]: %s", config.role, task_id, config.task[:80])
 
         try:
+            from butler.delegate_policy import MAX_DELEGATE_DEPTH
+
+            if config.delegate_depth >= MAX_DELEGATE_DEPTH:
+                raise ValueError(f"Maximum delegation depth ({MAX_DELEGATE_DEPTH}) exceeded")
+
             agent = self._create_agent_loop(config)
 
             raw_user_message = config.task
@@ -210,15 +221,17 @@ class TaskOrchestrator:
                 elapsed_seconds=loop_result.elapsed_seconds,
             )
             cache_report(report)
+            success = loop_result.status.value == "completed"
 
             result = AgentResult(
-                success=True,
+                success=success,
                 response=loop_result.final_response or "",
                 report=report,
                 tokens_used=loop_result.total_tokens,
                 iterations=loop_result.iterations,
                 tool_calls=loop_result.tool_calls_made,
                 elapsed_seconds=loop_result.elapsed_seconds,
+                error="" if success else (loop_result.error or loop_result.status.value),
             )
         except Exception as exc:
             logger.error("Agent [%s] failed: %s", task_id, exc)
@@ -236,7 +249,8 @@ class TaskOrchestrator:
     async def spawn_parallel(self, configs: list[AgentSpawnConfig]) -> list[AgentResult]:
         """Spawn multiple agents in true parallel via asyncio.to_thread."""
         tasks = [self.spawn_agent(cfg) for cfg in configs]
-        return list(await asyncio.gather(*tasks, return_exceptions=False))
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        return [_coerce_agent_result(result) for result in results]
 
     async def spawn_sequential(
         self,
@@ -272,6 +286,8 @@ class TaskOrchestrator:
         graph_result = TaskGraphResult()
         node_map = {n.id: n for n in nodes}
         completed: dict[str, AgentResult] = {}
+        cancelled: set[str] = set()
+        errors: list[str] = []
 
         order = _topological_sort(nodes)
 
@@ -281,6 +297,24 @@ class TaskOrchestrator:
             layer_tasks = []
             for node_id in layer:
                 node = node_map[node_id]
+                if node_id in completed or node_id in cancelled:
+                    continue
+
+                cancelled_dep = _first_cancelled_dependency(node, cancelled)
+                if cancelled_dep:
+                    completed[node_id] = AgentResult(
+                        success=False,
+                        error=f"Skipped due to cancelled dependency: {cancelled_dep}",
+                    )
+                    continue
+
+                failed_dep = _first_failed_dependency(node, completed)
+                if failed_dep:
+                    completed[node_id] = AgentResult(
+                        success=False,
+                        error=f"Skipped due to failed dependency: {failed_dep}",
+                    )
+                    continue
 
                 if node.depends_on:
                     dep_contexts = []
@@ -307,29 +341,60 @@ class TaskOrchestrator:
 
             if len(layer_tasks) == 1:
                 nid, node = layer_tasks[0]
-                result = await self._run_with_retry(node)
+                result = _coerce_agent_result(await self._run_with_retry(node))
                 completed[nid] = result
                 graph_result.execution_order.append(nid)
             else:
                 parallel_results = await asyncio.gather(
-                    *[self._run_with_retry(node) for _, node in layer_tasks]
+                    *[self._run_with_retry(node) for _, node in layer_tasks],
+                    return_exceptions=True,
                 )
                 for (nid, _), result in zip(layer_tasks, parallel_results):
-                    completed[nid] = result
+                    completed[nid] = _coerce_agent_result(result)
                     graph_result.execution_order.append(nid)
 
             for nid in [lid for lid, _ in layer_tasks]:
                 node = node_map[nid]
                 result = completed[nid]
                 if node.router and result.success:
-                    next_id = node.router(result)
-                    if next_id and next_id in node_map and next_id not in completed:
-                        extra_result = await self._run_with_retry(node_map[next_id])
-                        completed[next_id] = extra_result
-                        graph_result.execution_order.append(next_id)
+                    try:
+                        next_id = node.router(result)
+                    except Exception as exc:
+                        errors.append(f"Router for {nid!r} failed: {exc}")
+                        _cancel_direct_dependents(node_map, nid, cancelled)
+                        continue
+                    if not next_id:
+                        continue
+                    if next_id not in node_map:
+                        errors.append(f"Router for {nid!r} returned unknown target {next_id!r}")
+                        _cancel_direct_dependents(node_map, nid, cancelled)
+                        continue
+                    direct_dependents = _direct_dependents(node_map, nid)
+                    if next_id not in {dependent.id for dependent in direct_dependents}:
+                        errors.append(
+                            f"Router for {nid!r} returned non-direct dependent {next_id!r}"
+                        )
+                        _cancel_direct_dependents(node_map, nid, cancelled)
+                        continue
+                    for dependent in direct_dependents:
+                        if dependent.id != next_id:
+                            cancelled.add(dependent.id)
+
+        for node_id in order:
+            if node_id in completed or node_id in cancelled:
+                continue
+            cancelled_dep = _first_cancelled_dependency(node_map[node_id], cancelled)
+            if cancelled_dep:
+                completed[node_id] = AgentResult(
+                    success=False,
+                    error=f"Skipped due to cancelled dependency: {cancelled_dep}",
+                )
+            else:
+                errors.append(f"Node {node_id!r} was not executed")
 
         graph_result.nodes = completed
-        graph_result.success = all(r.success for r in completed.values())
+        graph_result.error = "; ".join(errors)
+        graph_result.success = not errors and all(r.success for r in completed.values())
         return graph_result
 
     async def _run_with_retry(self, node: TaskNode) -> AgentResult:
@@ -383,6 +448,47 @@ def _orchestrator_for_task():
     from butler.orchestrator import ButlerOrchestrator
 
     return ButlerOrchestrator(user_id="owner", channel="orchestrator")
+
+
+def dispatch_tool_safely(name: str, args: dict, *, depth: int) -> str:
+    """Dispatch a tool call with delegate depth propagated consistently."""
+    from butler.tools.registry import _safe_dispatch
+
+    return _safe_dispatch(name, args, depth)
+
+
+def _coerce_agent_result(result: AgentResult | BaseException) -> AgentResult:
+    if isinstance(result, AgentResult):
+        return result
+    return AgentResult(success=False, error=str(result))
+
+
+def _first_failed_dependency(node: TaskNode, completed: dict[str, AgentResult]) -> str:
+    for dep_id in node.depends_on:
+        dep_result = completed.get(dep_id)
+        if dep_result is not None and not dep_result.success:
+            return dep_id
+    return ""
+
+
+def _first_cancelled_dependency(node: TaskNode, cancelled: set[str]) -> str:
+    for dep_id in node.depends_on:
+        if dep_id in cancelled:
+            return dep_id
+    return ""
+
+
+def _direct_dependents(node_map: dict[str, TaskNode], parent_id: str) -> list[TaskNode]:
+    return [node for node in node_map.values() if parent_id in node.depends_on]
+
+
+def _cancel_direct_dependents(
+    node_map: dict[str, TaskNode],
+    parent_id: str,
+    cancelled: set[str],
+) -> None:
+    for child in _direct_dependents(node_map, parent_id):
+        cancelled.add(child.id)
 
 
 def _group_into_layers(
