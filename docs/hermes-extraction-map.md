@@ -85,8 +85,23 @@
 | `butler/cli/session_ui.py` | `HermesCLI` 回调 | 统一 `LoopCallbacks` 接线 |
 | `butler/main.py` | v1 `cli_adapter.py` | `patch_stdout`、历史自动建议 |
 
+## Sprint E：国产模型加固
+
+| Butler 模块 | Hermes 参考 | 能力 | 状态 |
+|-------------|-------------|------|------|
+| `butler/transport/reasoning_replay.py` | `run_agent.py` L9734+ | DeepSeek/Kimi `reasoning_content` 出站回放与占位 | ✅ |
+| `butler/core/json_repair.py` | L666–L802 | 工具参数 JSON 深度修复（尾逗号、未闭合、控制符） | ✅ |
+| `butler/transport/think_scrubber.py` | `agent/think_scrubber.py` | 流式 think 状态机（跨 chunk 边界） | ✅ |
+| `butler/transport/chat_completions.py` | `_copy_reasoning_content_for_api` | `convert_messages` / `build_kwargs` 注入回放 | ✅ |
+| `butler/transport/llm_client.py` | `_fire_stream_delta` | 流式 `StreamingThinkScrubber` + provider 上下文 | ✅ |
+| `butler/core/agent_loop.py` | `_build_assistant_message` | 会话内持久化 `reasoning` / `reasoning_content` | ✅ |
+
+测试：`tests/test_cn_model_hardening.py`。
+
 ## 后续可选
 
+- 抖动退避（`agent/retry_utils.py`）接入 `agent_loop._call_llm_with_retry`
+- `tools/schema_sanitizer.py`（strict / 本地后端）
 - Gateway 空闲 85% 阈值卫生压缩（Hermes `gateway/run.py` 模式）
 - `MemoryManager` 完整 prefetch/sync 接口与 Honcho 插件对齐
 - metadata-only Skill 索引与 `SkillRouter` 动态切换策略

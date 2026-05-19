@@ -196,7 +196,11 @@ class AgentLoop:
                 ):
                     self._truncation_retries += 1
                     if final_text:
-                        self._messages.append({"role": "assistant", "content": final_text})
+                        msg = {"role": "assistant", "content": final_text}
+                        from butler.transport.reasoning_replay import store_reasoning_on_message
+
+                        store_reasoning_on_message(msg, final_reasoning)
+                        self._messages.append(msg)
                     self._messages.append({"role": "user", "content": truncation_continue_message()})
                     final_text = None
                     continue
@@ -206,7 +210,11 @@ class AgentLoop:
                 status = LoopStatus.TOOL_LIMIT
 
             if final_text:
-                self._messages.append({"role": "assistant", "content": final_text})
+                msg = {"role": "assistant", "content": final_text}
+                from butler.transport.reasoning_replay import store_reasoning_on_message
+
+                store_reasoning_on_message(msg, final_reasoning)
+                self._messages.append(msg)
 
         finally:
             self._restore_primary_client()
@@ -359,7 +367,10 @@ class AgentLoop:
         if not response.tool_calls:
             return
 
+        from butler.transport.reasoning_replay import store_reasoning_on_message
+
         assistant_msg: dict[str, Any] = {"role": "assistant", "content": response.content}
+        store_reasoning_on_message(assistant_msg, response.reasoning)
         tool_call_records = []
         for tc in response.tool_calls:
             tc_id = tc.id or f"call_{uuid.uuid4().hex[:8]}"

@@ -125,7 +125,6 @@ class LLMClient:
         if transport is None:
             raise ValueError(f"No transport for api_mode={self.api_mode}")
 
-        converted_messages = transport.convert_messages(messages)
         converted_tools = transport.convert_tools(tools) if tools else None
 
         params = {
@@ -133,12 +132,14 @@ class LLMClient:
             "max_tokens": kwargs.get("max_tokens", self.max_tokens),
             "timeout": kwargs.get("timeout", self.timeout),
             "stream": False,
+            "provider": self.provider_name,
+            "base_url": self._base_url,
         }
         params = {k: v for k, v in params.items() if v is not None}
 
         api_kwargs = transport.build_kwargs(
             model=self.model,
-            messages=converted_messages,
+            messages=messages,
             tools=converted_tools,
             **params,
         )
@@ -173,7 +174,6 @@ class LLMClient:
         if transport is None:
             raise ValueError(f"No transport for api_mode={self.api_mode}")
 
-        converted_messages = transport.convert_messages(messages)
         converted_tools = transport.convert_tools(tools) if tools else None
 
         params = {
@@ -181,33 +181,42 @@ class LLMClient:
             "max_tokens": kwargs.get("max_tokens", self.max_tokens),
             "timeout": kwargs.get("timeout", self.timeout),
             "stream": True,
+            "provider": self.provider_name,
+            "base_url": self._base_url,
         }
         params = {k: v for k, v in params.items() if v is not None}
 
         api_kwargs = transport.build_kwargs(
             model=self.model,
-            messages=converted_messages,
+            messages=messages,
             tools=converted_tools,
             **params,
         )
 
-        from butler.transport.content_sanitize import sanitize_stream_delta
         from butler.transport.interruptible_client import run_interruptible
+        from butler.transport.think_scrubber import StreamingThinkScrubber
 
         stale = stale_timeout if stale_timeout is not None else min(float(self.timeout or 120), 90.0)
+        scrubber = StreamingThinkScrubber()
 
         def _wrapped_delta(delta: str) -> None:
             if on_delta:
-                cleaned = sanitize_stream_delta(delta)
-                if cleaned:
-                    on_delta(cleaned)
+                visible = scrubber.feed(delta)
+                if visible:
+                    on_delta(visible)
 
         def _do() -> NormalizedResponse:
-            return self._stream_call(
-                api_kwargs,
-                on_delta=_wrapped_delta if on_delta else None,
-                transport=transport,
-            )
+            try:
+                return self._stream_call(
+                    api_kwargs,
+                    on_delta=_wrapped_delta if on_delta else None,
+                    transport=transport,
+                )
+            finally:
+                if on_delta:
+                    tail = scrubber.flush()
+                    if tail:
+                        on_delta(tail)
 
         return run_interruptible(
             _do,
@@ -245,6 +254,7 @@ class LLMClient:
         api_kwargs["stream"] = True
 
         collected_content = []
+        collected_reasoning = []
         collected_tool_calls: dict[int, dict] = {}
         finish_reason = "stop"
         usage = None
@@ -270,6 +280,10 @@ class LLMClient:
                     collected_content.append(text)
                     if on_delta:
                         on_delta(text)
+
+                reasoning = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
+                if isinstance(reasoning, str) and reasoning:
+                    collected_reasoning.append(reasoning)
 
                 tcs = getattr(delta, "tool_calls", None)
                 if tcs:
@@ -321,6 +335,7 @@ class LLMClient:
             content="".join(collected_content) or None,
             tool_calls=tool_calls or None,
             finish_reason=finish_reason,
+            reasoning="".join(collected_reasoning) or None,
             usage=usage,
         )
 

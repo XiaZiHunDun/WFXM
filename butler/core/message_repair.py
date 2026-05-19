@@ -91,6 +91,8 @@ def repair_message_sequence(messages: list[dict]) -> tuple[list[dict], int]:
 
 def repair_tool_arguments(messages: list[dict]) -> int:
     """Fix invalid JSON in assistant tool_call arguments."""
+    from butler.core.json_repair import repair_tool_call_arguments
+
     fixes = 0
     for msg in messages:
         if msg.get("role") != "assistant":
@@ -104,9 +106,13 @@ def repair_tool_arguments(messages: list[dict]) -> int:
             raw = fn.get("arguments", "{}")
             if isinstance(raw, dict):
                 continue
+            raw_str = raw if isinstance(raw, str) else str(raw)
             try:
-                json.loads(raw or "{}")
+                json.loads(raw_str or "{}")
             except (json.JSONDecodeError, TypeError):
-                fn["arguments"] = "{}"
-                fixes += 1
+                name = fn.get("name", "?")
+                repaired = repair_tool_call_arguments(raw_str, tool_name=name)
+                if repaired != raw_str:
+                    fn["arguments"] = repaired
+                    fixes += 1
     return fixes

@@ -26,6 +26,12 @@ class ChatCompletionsTransport(ProviderTransport):
     def convert_messages(
         self, messages: List[Dict[str, Any]], **kwargs
     ) -> List[Dict[str, Any]]:
+        from butler.transport.reasoning_replay import apply_reasoning_for_api
+
+        provider = kwargs.get("provider", "")
+        model = kwargs.get("model", "")
+        base_url = kwargs.get("base_url")
+
         result = []
         for msg in messages:
             m = dict(msg)
@@ -39,6 +45,12 @@ class ChatCompletionsTransport(ProviderTransport):
                               if k not in ("call_id", "response_item_id", "extra_content")}
                     cleaned.append(tc)
                 m["tool_calls"] = cleaned
+            apply_reasoning_for_api(
+                msg, m, provider=provider, model=model, base_url=base_url,
+            )
+            # ``reasoning`` is Butler's internal normalized field; providers
+            # that need it receive ``reasoning_content`` instead.
+            m.pop("reasoning", None)
             result.append(m)
         return result
 
@@ -49,7 +61,14 @@ class ChatCompletionsTransport(ProviderTransport):
         tools: Optional[Any] = None,
         **params,
     ) -> Dict[str, Any]:
-        sanitized = self.convert_messages(messages)
+        provider = params.pop("provider", "")
+        base_url = params.pop("base_url", None)
+        sanitized = self.convert_messages(
+            messages,
+            provider=provider,
+            model=model,
+            base_url=base_url,
+        )
 
         kwargs: Dict[str, Any] = {
             "model": model,
