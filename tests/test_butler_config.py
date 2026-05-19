@@ -46,12 +46,13 @@ class TestModelConfig:
         assert mc.temperature == 0.5
 
     def test_roundtrip(self):
-        mc = ModelConfig(provider="qwen", model="qwen-max", max_tokens=4096)
+        mc = ModelConfig(provider="qwen", model="qwen-max", max_tokens=4096, context_length=32768)
         d = mc.to_dict()
         mc2 = ModelConfig.from_dict(d)
         assert mc2.provider == mc.provider
         assert mc2.model == mc.model
         assert mc2.max_tokens == mc.max_tokens
+        assert mc2.context_length == mc.context_length
 
 
 class TestLayeredModelConfig:

@@ -90,6 +90,9 @@ def _convert_tools_to_anthropic(
     tools: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """Convert OpenAI function-calling tools to Anthropic tool format."""
+    from butler.transport.schema_sanitizer import sanitize_tool_schemas
+
+    tools = sanitize_tool_schemas(tools, keep_nullable_hint=False) or []
     result = []
     for tool in tools:
         fn = tool.get("function", tool)

@@ -54,6 +54,11 @@ class ChatCompletionsTransport(ProviderTransport):
             result.append(m)
         return result
 
+    def convert_tools(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        from butler.transport.schema_sanitizer import sanitize_tool_schemas
+
+        return sanitize_tool_schemas(tools) or []
+
     def build_kwargs(
         self,
         model: str,
@@ -76,7 +81,7 @@ class ChatCompletionsTransport(ProviderTransport):
         }
 
         if tools:
-            kwargs["tools"] = tools
+            kwargs["tools"] = self.convert_tools(tools)
 
         temperature = params.get("temperature")
         if temperature is not None:

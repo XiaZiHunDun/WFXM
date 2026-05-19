@@ -89,6 +89,73 @@ class TestRouter:
         matches = router.match("common trigger", top_k=3)
         assert len(matches) <= 3
 
+    def test_lazy_loads_content_only_for_matches(self):
+        loaded: list[str] = []
+
+        def loader(name: str):
+            loaded.append(name)
+            return {
+                "name": name,
+                "description": "loaded",
+                "triggers": [name],
+                "content": f"content for {name}",
+            }
+
+        router = SkillRouter(
+            [
+                {"name": "python-dev", "description": "Python development", "triggers": ["python"]},
+                {"name": "docker-ops", "description": "Docker operations", "triggers": ["docker"]},
+            ],
+            content_loader=loader,
+        )
+
+        matches = router.match("please run python tests", top_k=1)
+
+        assert [m["name"] for m in matches] == ["python-dev"]
+        assert matches[0]["content"] == "content for python-dev"
+        assert loaded == ["python-dev"]
+
+    def test_batch_lazy_loader_loads_top_k_once(self):
+        calls: list[list[str]] = []
+
+        def batch_loader(names: list[str]):
+            calls.append(list(names))
+            return {
+                name: {
+                    "name": name,
+                    "description": "loaded",
+                    "triggers": [name],
+                    "content": f"content for {name}",
+                }
+                for name in names
+            }
+
+        router = SkillRouter(
+            [
+                {"name": "python-dev", "description": "Python development", "triggers": ["python", "common"]},
+                {"name": "python-test", "description": "Python testing", "triggers": ["pytest", "common"]},
+                {"name": "docker-ops", "description": "Docker operations", "triggers": ["docker"]},
+            ],
+            batch_content_loader=batch_loader,
+        )
+
+        matches = router.match("python pytest common", top_k=2)
+
+        assert [m["name"] for m in matches] == ["python-dev", "python-test"]
+        assert calls == [["python-dev", "python-test"]]
+        assert all(m["content"] for m in matches)
+
+    def test_lazy_loader_failure_keeps_metadata_match(self):
+        router = SkillRouter(
+            [{"name": "python-dev", "description": "Python development", "triggers": ["python"]}],
+            content_loader=lambda _name: None,
+        )
+
+        matches = router.match("python", top_k=1)
+
+        assert matches[0]["name"] == "python-dev"
+        assert matches[0]["content"] == ""
+
 
 class TestSkillManager:
     def test_create_and_list(self):
@@ -107,6 +174,18 @@ class TestSkillManager:
             skill = mgr.get_skill("my-skill")
             assert skill is not None
             assert skill["content"] == "Full body here"
+
+    def test_get_skills_loads_multiple_names(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SkillManager(td)
+            mgr.create("skill-a", "Skill A", ["a"], "Body A")
+            mgr.create("skill-b", "Skill B", ["b"], "Body B", similarity_threshold=1.1)
+
+            skills = mgr.get_skills(["skill-a", "missing", "skill-b"])
+
+            assert set(skills) == {"skill-a", "skill-b"}
+            assert skills["skill-a"]["content"] == "Body A"
+            assert skills["skill-b"]["content"] == "Body B"
 
     def test_edit_skill(self):
         with tempfile.TemporaryDirectory() as td:

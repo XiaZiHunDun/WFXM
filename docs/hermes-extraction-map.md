@@ -95,13 +95,10 @@
 | `butler/transport/chat_completions.py` | `_copy_reasoning_content_for_api` | `convert_messages` / `build_kwargs` 注入回放 | ✅ |
 | `butler/transport/llm_client.py` | `_fire_stream_delta` | 流式 `StreamingThinkScrubber` + provider 上下文 | ✅ |
 | `butler/core/agent_loop.py` | `_build_assistant_message` | 会话内持久化 `reasoning` / `reasoning_content` | ✅ |
+| `butler/transport/schema_sanitizer.py` | `tools/schema_sanitizer.py` | strict / 本地后端工具 schema 清洗、`pattern`/`format` 失败后降级 | ✅ |
+| `butler/transport/retry_utils.py` | `agent/retry_utils.py` | transient API 失败的指数退避 + jitter + 上限 | ✅ |
+| `butler/gateway/message_handler.py` + `butler/transport/model_context.py` | `gateway/run.py` L7113+ | Gateway 常驻会话 85% 卫生压缩、模型上下文推断 | ✅ |
+| `butler/session_lifecycle.py` | `memory_provider` / post-session hooks | turn 前记忆预取、turn 后同步、session end 抽取 | ✅ |
+| `butler/skills/router.py` + `butler/orchestrator.py` | Skill metadata 路由模式 | metadata-only Skill 索引、命中后动态加载正文 | ✅ |
 
-测试：`tests/test_cn_model_hardening.py`。
-
-## 后续可选
-
-- 抖动退避（`agent/retry_utils.py`）接入 `agent_loop._call_llm_with_retry`
-- `tools/schema_sanitizer.py`（strict / 本地后端）
-- Gateway 空闲 85% 阈值卫生压缩（Hermes `gateway/run.py` 模式）
-- `MemoryManager` 完整 prefetch/sync 接口与 Honcho 插件对齐
-- metadata-only Skill 索引与 `SkillRouter` 动态切换策略
+测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。

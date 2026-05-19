@@ -130,6 +130,18 @@ class TestFactoryMethods:
         client = orch_no_projects.create_llm_client("butler")
         assert client.model == "MiniMax-Test" or client.provider_name == "minimax"
 
+    def test_orchestrator_initializes_memory_provider(self, tmp_butler_home, monkeypatch):
+        _reset_singletons()
+        provider = MagicMock()
+
+        with patch("butler.memory_plugin.ButlerMemoryProvider", return_value=provider):
+            from butler.orchestrator import ButlerOrchestrator
+
+            orch = ButlerOrchestrator(user_id="u1", channel="test")
+
+        assert orch.memory_provider is provider
+        provider.initialize.assert_called_once()
+
     def test_create_agent_loop_has_system_prompt_and_seven_tools(
         self, orch_no_projects, mock_llm_client
     ):
@@ -145,6 +157,32 @@ class TestFactoryMethods:
         tool_names = {t["function"]["name"] for t in loop.tools}
         assert "delegate_task" in tool_names
         assert "read_file" in tool_names
+
+    def test_create_agent_loop_uses_configured_context_length(
+        self, orch_no_projects, mock_llm_client
+    ):
+        override = ModelConfig(
+            provider="openai",
+            model="small-context",
+            context_length=32000,
+        )
+        orch_no_projects._settings.set_runtime_model_override("butler", override)
+
+        with patch.object(orch_no_projects, "create_llm_client", return_value=mock_llm_client):
+            loop = orch_no_projects.create_agent_loop(role="butler")
+
+        assert loop.config.max_context_tokens == 32000
+
+    def test_create_agent_loop_infers_deepseek_context_length(
+        self, orch_no_projects, mock_llm_client
+    ):
+        override = ModelConfig(provider="deepseek", model="deepseek-chat")
+        orch_no_projects._settings.set_runtime_model_override("butler", override)
+
+        with patch.object(orch_no_projects, "create_llm_client", return_value=mock_llm_client):
+            loop = orch_no_projects.create_agent_loop(role="butler")
+
+        assert loop.config.max_context_tokens == 64000
 
     def test_create_project_agent_loop_has_profile_prompt(
         self, orch_with_project, mock_llm_client
@@ -187,6 +225,16 @@ class TestProjectSwitch:
         assert isinstance(orch._project_memory, ProjectMemory)
         assert orch._skill_router is not None
 
+    def test_project_switch_refreshes_memory_provider(self, orch_no_projects):
+        provider = MagicMock()
+        provider._turn_buffer = [{"role": "user", "content": "old"}]
+        orch_no_projects.memory_provider = provider
+
+        orch_no_projects.on_project_switch("old", "new")
+
+        assert provider._turn_buffer == []
+        provider._reload_project_branch.assert_called_once()
+
 
 @pytest.mark.integration
 class TestSkillInjection:
@@ -198,6 +246,49 @@ class TestSkillInjection:
     def test_empty_string_returns_empty(self, orch_no_projects):
         assert orch_no_projects.inject_skill_context("") == ""
         assert orch_no_projects.inject_skill_context("   ") == "   "
+
+    def test_skill_router_builds_from_metadata_only(self, orch_no_projects):
+        manager = MagicMock()
+        manager.list_skills.return_value = [
+            {"name": "python-dev", "description": "Python development", "triggers": ["python"]},
+            {"name": "docker-ops", "description": "Docker operations", "triggers": ["docker"]},
+        ]
+        manager.get_skill.return_value = {
+            "name": "python-dev",
+            "description": "Python development",
+            "triggers": ["python"],
+            "content": "Use pytest",
+        }
+        manager.get_skills.return_value = {
+            "python-dev": {
+                "name": "python-dev",
+                "description": "Python development",
+                "triggers": ["python"],
+                "content": "Use pytest",
+            }
+        }
+
+        with patch("butler.orchestrator._combined_skill_manager", return_value=manager):
+            orch_no_projects._rebuild_skill_router()
+
+        manager.get_skill.assert_not_called()
+        result = orch_no_projects.inject_skill_context("please run python tests")
+        assert "Use pytest" in result
+        manager.get_skills.assert_called_once_with(["python-dev"])
+
+    def test_skill_injection_skips_empty_lazy_loaded_content(self, orch_no_projects):
+        manager = MagicMock()
+        manager.list_skills.return_value = [
+            {"name": "python-dev", "description": "Python development", "triggers": ["python"]},
+        ]
+        manager.get_skills.return_value = {}
+
+        with patch("butler.orchestrator._combined_skill_manager", return_value=manager):
+            orch_no_projects._rebuild_skill_router()
+
+        result = orch_no_projects.inject_skill_context("python task")
+
+        assert result == "python task"
 
 
 @pytest.mark.integration

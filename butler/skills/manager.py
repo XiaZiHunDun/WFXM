@@ -183,6 +183,19 @@ class SkillManager:
                 return out
         return None
 
+    def get_skills(self, names: list[str]) -> dict[str, dict[str, Any]]:
+        wanted = {str(name) for name in names if str(name)}
+        if not wanted:
+            return {}
+
+        found: dict[str, dict[str, Any]] = {}
+        for sk in self._load_all():
+            name = str(sk.get("name", ""))
+            if name in wanted:
+                self._usage.on_view(name)
+                found[name] = {k: v for k, v in sk.items() if not str(k).startswith("_")}
+        return found
+
     def create(
         self,
         name: str,

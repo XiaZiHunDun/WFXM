@@ -85,8 +85,10 @@ class ButlerOrchestrator:
         self._project_memory: ProjectMemory | None = None
         self._skill_router: SkillRouter | None = None
         self._skill_manager: SkillManager | None = None
+        self.memory_provider = None
         self._reload_project_memory()
         self._rebuild_skill_router()
+        self._initialize_memory_provider()
         self.project_manager.on_switch(self._pm_switch)
 
     def _pm_switch(self, old_project: str, new_project: str) -> None:
@@ -102,12 +104,38 @@ class ButlerOrchestrator:
     def _rebuild_skill_router(self) -> None:
         mgr = _combined_skill_manager(self._settings, self._project_workspace())
         self._skill_manager = mgr
-        payloads: list[dict[str, Any]] = []
-        for meta in mgr.list_skills():
-            full = mgr.get_skill(str(meta.get("name", "")))
-            if full:
-                payloads.append(full)
-        self._skill_router = SkillRouter(payloads)
+        payloads = mgr.list_skills()
+        self._skill_router = SkillRouter(
+            payloads,
+            content_loader=mgr.get_skill,
+            batch_content_loader=mgr.get_skills,
+        )
+
+    def _initialize_memory_provider(self) -> None:
+        try:
+            from butler.memory_plugin import ButlerMemoryProvider
+
+            provider = ButlerMemoryProvider()
+            provider.initialize(
+                session_id=f"{self.channel}:{self.user_id}",
+                user_id=self.user_id,
+            )
+            self.memory_provider = provider
+        except Exception as exc:
+            logger.debug("Butler memory provider unavailable: %s", exc)
+            self.memory_provider = None
+
+    def _refresh_memory_provider_for_project_switch(self) -> None:
+        provider = getattr(self, "memory_provider", None)
+        if provider is None:
+            return
+        try:
+            if hasattr(provider, "_turn_buffer"):
+                provider._turn_buffer.clear()
+            if hasattr(provider, "_reload_project_branch"):
+                provider._reload_project_branch()
+        except Exception as exc:
+            logger.debug("Butler memory provider refresh skipped: %s", exc)
 
     def _project_workspace(self) -> Path | None:
         p = self.project_manager.get_current()
@@ -128,6 +156,8 @@ class ButlerOrchestrator:
         }
         if mc.max_tokens is not None:
             out["max_tokens"] = mc.max_tokens
+        if mc.context_length is not None:
+            out["context_length"] = mc.context_length
         return out
 
     def build_memory_context(self, *, for_role: str = "default") -> str:
@@ -232,6 +262,7 @@ class ButlerOrchestrator:
         from butler.config import ModelConfig
         from butler.core.agent_loop import AgentLoop, LoopConfig
         from butler.transport.fallback import build_fallback_chain
+        from butler.transport.model_context import infer_context_length
 
         client = self.create_llm_client(role)
         mc = self._model_credentials(role)
@@ -255,7 +286,14 @@ class ButlerOrchestrator:
             system_prompt=system_prompt,
             tools=tools or [],
             tool_dispatcher=tool_dispatcher,
-            config=LoopConfig(fallback_entries=fallback_chain),
+            config=LoopConfig(
+                fallback_entries=fallback_chain,
+                max_context_tokens=infer_context_length(
+                    provider=mc.get("provider") or "",
+                    model=mc.get("model") or "",
+                    configured=mc.get("context_length"),
+                ),
+            ),
             callbacks=callbacks,
         )
 
@@ -301,10 +339,12 @@ class ButlerOrchestrator:
 
         from butler.config import ModelConfig
         from butler.transport.fallback import build_fallback_chain
+        from butler.transport.model_context import infer_context_length
 
         primary = ModelConfig(
             provider=kw.get("provider") or "",
             model=kw.get("model") or "",
+            context_length=kw.get("context_length"),
         )
         fallback_chain = build_fallback_chain(primary)
 
@@ -313,7 +353,14 @@ class ButlerOrchestrator:
             system_prompt=system_prompt,
             tools=tools or [],
             tool_dispatcher=tool_dispatcher,
-            config=LoopConfig(fallback_entries=fallback_chain),
+            config=LoopConfig(
+                fallback_entries=fallback_chain,
+                max_context_tokens=infer_context_length(
+                    provider=kw.get("provider") or "",
+                    model=kw.get("model") or "",
+                    configured=kw.get("context_length"),
+                ),
+            ),
             callbacks=callbacks,
         )
 
@@ -342,6 +389,8 @@ class ButlerOrchestrator:
             }
             if resolved.max_tokens is not None:
                 mcreds["max_tokens"] = resolved.max_tokens
+            if resolved.context_length is not None:
+                mcreds["context_length"] = resolved.context_length
 
             proj_mem = ProjectMemory(proj.workspace)
             mem_txt = proj_mem.get_context_for_agent(r)
@@ -358,6 +407,7 @@ class ButlerOrchestrator:
             "base_url": mcreds.get("base_url") or "",
             "api_key": mcreds.get("api_key") or "",
             "max_tokens": mcreds.get("max_tokens"),
+            "context_length": mcreds.get("context_length"),
             "user_id": self.user_id,
             "platform": self.channel,
             "ephemeral_system_prompt": extra_prompt,
@@ -371,6 +421,7 @@ class ButlerOrchestrator:
         )
         self._reload_project_memory()
         self._rebuild_skill_router()
+        self._refresh_memory_provider_for_project_switch()
 
     def inject_skill_context(self, task_description: str, top_k: int = 3) -> str:
         """Augment ``task_description`` with bodies from :class:`~butler.skills.router.SkillRouter`."""
@@ -388,11 +439,17 @@ class ButlerOrchestrator:
             "> 以下内容来自与本任务相关的 Butler 技能，仅作上下文参考。",
         ]
         for sk in matched:
+            content = str(sk.get("content") or "").strip()
+            if not content:
+                continue
             name = sk.get("name", "skill")
             score = sk.get("match_score")
             hdr = f"### `{name}`" + (f" (相关性 {score})" if score is not None else "")
             sections.append(hdr)
-            sections.append(str(sk.get("content") or "").strip())
+            sections.append(content)
+
+        if len(sections) == 3:
+            return task_description
 
         sections.append("")
         sections.append(task_description.strip())

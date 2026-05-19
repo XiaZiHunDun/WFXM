@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
-from butler.core.context_compressor import compress_messages
+from butler.core.context_compressor import _estimate_tokens, compress_messages
 from butler.core.delegate_context import child_callbacks, set_parent_callbacks
 from butler.core.loop_response import (
     empty_retry_message,
@@ -38,6 +38,7 @@ from butler.transport.error_classifier import classify_api_error
 from butler.transport.fallback import FallbackEntry, build_fallback_chain, create_client_from_entry
 from butler.transport.interruptible_client import StaleApiCallError
 from butler.transport.llm_client import LLMClient
+from butler.transport.retry_utils import compute_retry_delay
 from butler.transport.types import NormalizedResponse, ToolCall
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,8 @@ class LoopConfig:
     max_iterations: int = 30
     max_retries: int = 3
     retry_delay: float = 1.0
+    retry_max_delay: float = 30.0
+    retry_jitter_ratio: float = 0.25
     max_context_tokens: int = 128000
     stream: bool = True
     enable_guardrails: bool = True
@@ -238,20 +241,71 @@ class AgentLoop:
             self._fallback_index = 0
 
     def _estimate_tokens(self, messages: list[dict]) -> int:
-        total = 0
-        for m in messages:
-            total += len(str(m.get("content") or "")) // 4
-        return total
+        return _estimate_tokens(messages)
 
-    def _compress_context(self, messages: list[dict]) -> list[dict]:
+    def _compress_context(
+        self,
+        messages: list[dict],
+        *,
+        threshold_ratio: float = 0.5,
+        min_messages_to_compress: int = 12,
+        head_count: int = 3,
+        max_tail_messages: int = 12,
+        min_tail_messages: int = 4,
+    ) -> list[dict]:
         compressed, summary, did = compress_messages(
             messages,
             max_tokens=self.config.max_context_tokens,
+            threshold_ratio=threshold_ratio,
             previous_summary=self._compression_summary,
+            min_messages_to_compress=min_messages_to_compress,
+            head_count=head_count,
+            max_tail_messages=max_tail_messages,
+            min_tail_messages=min_tail_messages,
         )
         if did and summary:
             self._compression_summary = summary
         return compressed
+
+    def hygiene_compress_if_needed(
+        self,
+        *,
+        threshold_ratio: float = 0.85,
+        hard_message_limit: int = 400,
+    ) -> bool:
+        """Preflight compression for long-lived gateway sessions."""
+        messages = list(self._messages)
+        if len(messages) < 4:
+            return False
+
+        estimated = self._estimate_tokens(messages)
+        threshold = int(self.config.max_context_tokens * threshold_ratio)
+        token_limit_hit = estimated >= threshold
+        hard_limit_hit = len(messages) >= hard_message_limit
+        if not token_limit_hit and not hard_limit_hit:
+            return False
+
+        compression_threshold = threshold_ratio if token_limit_hit else 0.0
+        compressed = self._compress_context(
+            messages,
+            threshold_ratio=compression_threshold,
+            min_messages_to_compress=4,
+            head_count=1,
+            max_tail_messages=1,
+            min_tail_messages=1,
+        )
+        if compressed == messages:
+            return False
+
+        self._messages[:] = compressed
+        logger.info(
+            "Gateway hygiene compressed %d->%d messages (~%d tokens, threshold=%d)",
+            len(messages),
+            len(compressed),
+            estimated,
+            threshold,
+        )
+        return True
 
     def _prepare_messages_for_api(self) -> list[dict]:
         messages = self._compress_context(list(self._messages))
@@ -287,6 +341,8 @@ class AgentLoop:
 
         last_error: Exception | None = None
         compress_attempted = False
+        schema_recovery_attempted = False
+        tools_to_send = self.tools if self.tools else None
 
         for attempt in range(self.config.max_retries):
             if self._interrupt_check():
@@ -295,7 +351,7 @@ class AgentLoop:
             try:
                 common = {
                     "messages": messages_to_send,
-                    "tools": self.tools if self.tools else None,
+                    "tools": tools_to_send,
                     "check_interrupt": self._interrupt_check,
                     "stale_timeout": self.config.api_stale_timeout,
                 }
@@ -342,8 +398,26 @@ class AgentLoop:
 
                 if isinstance(exc, StaleApiCallError) and classified.retryable:
                     if attempt < self.config.max_retries - 1:
-                        time.sleep(self.config.retry_delay)
+                        time.sleep(self._retry_delay(attempt))
                         continue
+
+                if tools_to_send and not schema_recovery_attempted:
+                    from butler.transport.schema_sanitizer import (
+                        is_schema_grammar_error,
+                        sanitize_tool_schemas,
+                        strip_pattern_and_format,
+                    )
+
+                    if is_schema_grammar_error(exc):
+                        schema_recovery_attempted = True
+                        recovered = sanitize_tool_schemas(tools_to_send) or []
+                        tools_to_send, stripped = strip_pattern_and_format(recovered)
+                        if stripped and attempt < self.config.max_retries - 1:
+                            logger.info(
+                                "Retrying LLM call after stripping %d schema pattern/format keywords",
+                                stripped,
+                            )
+                            continue
 
                 if classified.should_compress and not compress_attempted:
                     compress_attempted = True
@@ -358,10 +432,18 @@ class AgentLoop:
                     break
 
                 if attempt < self.config.max_retries - 1:
-                    time.sleep(self.config.retry_delay * (attempt + 1))
+                    time.sleep(self._retry_delay(attempt))
 
         logger.error("All LLM attempts failed: %s", last_error)
         return None
+
+    def _retry_delay(self, attempt_index: int) -> float:
+        return compute_retry_delay(
+            attempt_index,
+            base_delay=self.config.retry_delay,
+            max_delay=self.config.retry_max_delay,
+            jitter_ratio=self.config.retry_jitter_ratio,
+        )
 
     def _process_tool_calls(self, response: NormalizedResponse) -> None:
         if not response.tool_calls:

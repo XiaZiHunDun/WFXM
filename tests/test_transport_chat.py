@@ -79,7 +79,11 @@ class TestBuildKwargs:
             messages=[{"role": "user", "content": "hi"}],
             tools=tools,
         )
-        assert kwargs["tools"] == tools
+        assert kwargs["tools"][0]["function"]["name"] == "read_file"
+        assert kwargs["tools"][0]["function"]["parameters"] == {
+            "type": "object",
+            "properties": {},
+        }
 
     def test_with_temperature_max_tokens_stream_timeout(self, transport):
         kwargs = transport.build_kwargs(

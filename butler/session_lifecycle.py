@@ -9,13 +9,155 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-def trigger_session_end(orchestrator: Any, agent_loop: Any | None) -> None:
+_EMPTY_MEMORY_MARKERS = {
+    "(No Butler-level memory yet.)",
+    "(No project memory yet.)",
+}
+
+
+def _current_project(orchestrator: Any) -> str:
+    pm = getattr(orchestrator, "project_manager", None)
+    return str(getattr(pm, "current_project", "") or "")
+
+
+def prefetch_turn_memory(
+    orchestrator: Any,
+    query: str,
+    *,
+    role: str = "default",
+    limit: int = 5,
+) -> str:
+    """Collect query-relevant Butler/project memory for the next turn."""
+    parts: list[str] = []
+    current_project = _current_project(orchestrator)
+
+    bm = getattr(orchestrator, "butler_memory", None)
+    if bm is not None:
+        try:
+            ctx = bm.get_system_context(current_project)
+            if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
+                parts.append(str(ctx).strip())
+        except Exception as exc:
+            logger.debug("Butler memory prefetch skipped: %s", exc)
+
+        try:
+            exp = getattr(bm, "experience", None)
+            if exp is not None and (query or "").strip():
+                hits = exp.search(query, project=current_project or None, limit=limit)
+                if hits:
+                    lines = [
+                        f"- [{h.get('project', '') or 'global'}] {h.get('content', '')}".strip()
+                        for h in hits
+                        if h.get("content")
+                    ]
+                    if lines:
+                        parts.append("## Query-aligned experience\n" + "\n".join(lines))
+        except Exception as exc:
+            logger.debug("Experience prefetch skipped: %s", exc)
+
+    pmem = getattr(orchestrator, "_project_memory", None)
+    if pmem is not None:
+        try:
+            ctx = pmem.get_context_for_agent(role)
+            if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
+                parts.append(str(ctx).strip())
+        except Exception as exc:
+            logger.debug("Project memory prefetch skipped: %s", exc)
+
+    return "\n\n".join(p for p in parts if p.strip())
+
+
+def inject_turn_memory(
+    orchestrator: Any,
+    user_msg: str,
+    *,
+    role: str = "default",
+    max_chars: int = 3000,
+) -> str:
+    """Prepend relevant memory context to a user turn."""
+    if not (user_msg or "").strip():
+        return user_msg
+    ctx = prefetch_turn_memory(orchestrator, user_msg, role=role)
+    if not ctx.strip():
+        return user_msg
+    return _render_turn_memory_context(ctx, user_msg, max_chars=max_chars)
+
+
+def _render_turn_memory_context(ctx: str, user_msg: str, *, max_chars: int = 3000) -> str:
+    clipped = (ctx or "")[:max_chars]
+    return (
+        "## 相关记忆（Butler）\n"
+        "> 以下为长期记忆与当前输入的相关片段，仅作背景参考。\n\n"
+        f"{clipped}\n\n"
+        "## 当前用户输入\n"
+        f"{user_msg.strip()}"
+    )
+
+
+def build_memory_pre_llm_transform(
+    orchestrator: Any,
+    query: str,
+    *,
+    role: str = "default",
+    max_chars: int = 3000,
+):
+    """Build an API-time memory injection transform that does not mutate history."""
+
+    def _transform(messages: list[dict]) -> list[dict]:
+        ctx = prefetch_turn_memory(orchestrator, query, role=role)
+        if not ctx.strip():
+            return [dict(m) if isinstance(m, dict) else m for m in messages]
+
+        out = [dict(m) if isinstance(m, dict) else m for m in messages]
+        for idx in range(len(out) - 1, -1, -1):
+            msg = out[idx]
+            if isinstance(msg, dict) and msg.get("role") == "user":
+                content = str(msg.get("content") or "")
+                msg["content"] = _render_turn_memory_context(
+                    ctx,
+                    content,
+                    max_chars=max_chars,
+                )
+                break
+        return out
+
+    return _transform
+
+
+def attach_turn_memory_prefetch(
+    agent_loop: Any,
+    orchestrator: Any,
+    query: str,
+    *,
+    role: str = "default",
+) -> None:
+    """Attach ephemeral memory prefetch to an AgentLoop callback chain."""
+    callbacks = getattr(agent_loop, "callbacks", None)
+    if callbacks is None:
+        return
+    existing = getattr(callbacks, "pre_llm_transform", None)
+    if getattr(existing, "_butler_memory_transform", False):
+        existing = getattr(existing, "_butler_base_transform", None)
+    memory_transform = build_memory_pre_llm_transform(orchestrator, query, role=role)
+
+    def _composed(messages: list[dict]) -> list[dict]:
+        prepared = memory_transform(messages)
+        if existing:
+            return existing(prepared)
+        return prepared
+
+    callbacks.pre_llm_transform = _composed
+    callbacks.pre_llm_transform._butler_memory_transform = True
+    callbacks.pre_llm_transform._butler_base_transform = existing
+
+
+def trigger_session_end(orchestrator: Any, agent_loop: Any | None) -> dict[str, Any]:
     """Run post-session memory/skill extraction when conversation is long enough."""
     try:
         if not agent_loop or not hasattr(agent_loop, "messages"):
-            return
+            return {"skipped": True, "reason": "no_agent_loop"}
         if len(agent_loop.messages) <= 4:
-            return
+            return {"skipped": True, "reason": "short_history"}
 
         from butler.post_session import PostSessionProcessor
         from butler.transport.auxiliary_client import auxiliary_llm_call_factory
@@ -38,8 +180,10 @@ def trigger_session_end(orchestrator: Any, agent_loop: Any | None) -> None:
                 result.get("memory_updates", 0),
                 result.get("skills_extracted", 0),
             )
+        return result
     except Exception as exc:
         logger.debug("Session end processing failed: %s", exc)
+        return {"skipped": True, "reason": "error", "error": str(exc)}
 
 
 def sync_turn_memory(
@@ -48,19 +192,46 @@ def sync_turn_memory(
     assistant_msg: str,
     *,
     interrupted: bool = False,
-) -> None:
+    status: Any = None,
+    session_id: str = "",
+) -> dict[str, Any]:
     """Sync one conversation turn to experience store."""
     if interrupted:
-        return
+        return {"skipped": True, "reason": "interrupted", "experience_updates": 0}
+    if status is not None and str(status) not in {"completed", "LoopStatus.COMPLETED"}:
+        value = getattr(status, "value", status)
+        if value != "completed":
+            return {"skipped": True, "reason": "not_completed", "experience_updates": 0}
     try:
         if not (user_msg and assistant_msg):
-            return
+            return {"skipped": True, "reason": "empty_turn", "experience_updates": 0}
         bm = orchestrator.butler_memory
+        updates = 0
         if bm and hasattr(bm, "experience") and bm.experience:
             bm.experience.add(
-                project=orchestrator.project_manager.current_project or "",
+                project=_current_project(orchestrator),
                 category="conversation",
                 content=f"Q: {user_msg[:200]} → A: {assistant_msg[:300]}",
             )
+            updates += 1
+        provider = getattr(orchestrator, "memory_provider", None) or getattr(orchestrator, "_memory_provider", None)
+        provider_synced = False
+        provider_error = ""
+        if provider is not None and hasattr(provider, "sync_turn"):
+            try:
+                provider.sync_turn(user_msg, assistant_msg, session_id=session_id)
+                provider_synced = True
+            except Exception as exc:
+                provider_error = str(exc)
+                logger.debug("Provider memory sync skipped: %s", exc)
+        result = {
+            "skipped": False,
+            "experience_updates": updates,
+            "provider_synced": provider_synced,
+        }
+        if provider_error:
+            result["provider_error"] = provider_error
+        return result
     except Exception as exc:
         logger.debug("Memory sync skipped: %s", exc)
+        return {"skipped": True, "reason": "error", "error": str(exc), "experience_updates": 0}

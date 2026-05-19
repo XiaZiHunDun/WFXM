@@ -31,7 +31,7 @@ _MIN_MESSAGES_TO_COMPRESS = 12
 def _estimate_tokens(messages: list[dict]) -> int:
     total = 0
     for m in messages:
-        total += len(str(m.get("content") or "")) // 4
+        total += len(json.dumps(m, ensure_ascii=False, default=str)) // 4
     return total
 
 
@@ -58,11 +58,12 @@ def _split_head_tail(
     head_count: int = 3,
     tail_token_budget: int = 8000,
     max_tail_messages: int = 12,
+    min_tail_messages: int = 4,
 ) -> tuple[list[dict], list[dict], list[dict]]:
     system = [m for m in messages if m.get("role") == "system"]
     rest = [m for m in messages if m.get("role") != "system"]
 
-    if len(rest) <= head_count + 4:
+    if len(rest) <= head_count + min_tail_messages:
         return system, [], rest
 
     head = rest[:head_count]
@@ -137,15 +138,24 @@ def compress_messages(
     max_tokens: int = 128000,
     threshold_ratio: float = 0.5,
     previous_summary: str = "",
+    min_messages_to_compress: int = _MIN_MESSAGES_TO_COMPRESS,
+    head_count: int = 3,
+    max_tail_messages: int = 12,
+    min_tail_messages: int = 4,
 ) -> tuple[list[dict], str, bool]:
     """Compress messages if over threshold. Returns (messages, summary, did_compress)."""
     estimated = _estimate_tokens(messages)
     threshold = int(max_tokens * threshold_ratio)
-    if estimated <= threshold or len(messages) < _MIN_MESSAGES_TO_COMPRESS:
+    if estimated <= threshold or len(messages) < min_messages_to_compress:
         return messages, previous_summary, False
 
     pruned = _prune_tool_outputs(messages)
-    system, middle, head_tail = _split_head_tail(pruned)
+    system, middle, head_tail = _split_head_tail(
+        pruned,
+        head_count=head_count,
+        max_tail_messages=max_tail_messages,
+        min_tail_messages=min_tail_messages,
+    )
 
     if not middle:
         return pruned, previous_summary, False

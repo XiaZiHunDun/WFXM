@@ -56,6 +56,8 @@ class TestAgentLoopConstruction:
         assert loop.config.max_iterations == 30
         assert loop.config.max_retries == 3
         assert loop.config.retry_delay == 1.0
+        assert loop.config.retry_max_delay == 30.0
+        assert loop.config.retry_jitter_ratio == 0.25
         assert loop.config.max_context_tokens == 128000
         assert loop.config.stream is True
 
@@ -197,6 +199,25 @@ class TestAgentLoopRun:
             result = loop.run("retry me")
         assert result.status == LoopStatus.COMPLETED
         assert result.final_response == "recovered"
+
+    def test_retry_sleep_uses_exponential_backoff(self, mock_llm_client):
+        mock_llm_client.complete.side_effect = RuntimeError("api down")
+        loop = AgentLoop(
+            mock_llm_client,
+            config=LoopConfig(
+                max_retries=3,
+                retry_delay=0.5,
+                retry_max_delay=10,
+                retry_jitter_ratio=0,
+                stream=False,
+            ),
+        )
+
+        with patch("butler.core.agent_loop.time.sleep") as sleep:
+            result = loop.run("fail")
+
+        assert result.status == LoopStatus.ERROR
+        assert [call.args[0] for call in sleep.call_args_list] == [0.5, 1.0]
 
     def test_content_and_tool_calls_tool_calls_priority(self, mock_llm_client):
         from butler.transport.types import NormalizedResponse
@@ -370,16 +391,151 @@ class TestAgentLoopContext:
             SUMMARY_PREFIX[:20] in str(m.get("content", "")) for m in compressed
         )
 
+    def test_hygiene_compress_skips_below_threshold(self, mock_llm_client):
+        loop = AgentLoop(
+            mock_llm_client,
+            config=LoopConfig(max_context_tokens=1000, stream=False),
+        )
+        loop.messages = [{"role": "user", "content": "short"} for _ in range(20)]
+
+        with patch.object(loop, "_compress_context", wraps=loop._compress_context) as compress:
+            did = loop.hygiene_compress_if_needed()
+
+        assert did is False
+        compress.assert_not_called()
+
+    def test_hygiene_compress_uses_85_percent_threshold(self, mock_llm_client):
+        loop = AgentLoop(
+            mock_llm_client,
+            config=LoopConfig(max_context_tokens=100, stream=False),
+        )
+        loop.messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
+        compressed = [{"role": "user", "content": "summary"}]
+
+        with patch.object(loop, "_compress_context", return_value=compressed) as compress:
+            did = loop.hygiene_compress_if_needed()
+
+        assert did is True
+        assert loop.messages == compressed
+        compress.assert_called_once()
+        assert compress.call_args.kwargs["threshold_ratio"] == 0.85
+
+    def test_hygiene_compress_hard_message_limit(self, mock_llm_client):
+        loop = AgentLoop(
+            mock_llm_client,
+            config=LoopConfig(max_context_tokens=100000, stream=False),
+        )
+        loop.messages = [{"role": "user", "content": f"short {i}"} for i in range(20)]
+
+        with patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"):
+            did = loop.hygiene_compress_if_needed(hard_message_limit=5)
+
+        assert did is True
+        assert len(loop.messages) < 20
+
+    def test_hygiene_estimate_counts_tool_calls(self, mock_llm_client):
+        loop = AgentLoop(
+            mock_llm_client,
+            config=LoopConfig(max_context_tokens=100, stream=False),
+        )
+        loop.messages = [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": f"call-{i}",
+                        "type": "function",
+                        "function": {"name": "big", "arguments": "x" * 1000},
+                    }
+                ],
+            }
+            for i in range(20)
+        ]
+
+        with patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"):
+            did = loop.hygiene_compress_if_needed()
+
+        assert did is True
+        assert len(loop.messages) < 20
+
+    def test_hygiene_compresses_short_high_token_history(self, mock_llm_client):
+        loop = AgentLoop(
+            mock_llm_client,
+            config=LoopConfig(max_context_tokens=100, stream=False),
+        )
+        loop.messages = [
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": f"call-{i}",
+                        "type": "function",
+                        "function": {"name": "big", "arguments": "x" * 1000},
+                    }
+                ],
+            }
+            for i in range(6)
+        ]
+
+        with patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"):
+            did = loop.hygiene_compress_if_needed()
+
+        assert did is True
+        assert len(loop.messages) < 6
+
+    def test_hygiene_compresses_gateway_system_plus_three_large_tool_calls(self, mock_llm_client):
+        loop = AgentLoop(
+            mock_llm_client,
+            system_prompt="sys",
+            config=LoopConfig(max_context_tokens=100, stream=False),
+        )
+        loop.messages = [
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "please call tool"},
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "type": "function",
+                        "function": {"name": "big", "arguments": "x" * 1000},
+                    }
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": None,
+                "tool_calls": [
+                    {
+                        "id": "call-2",
+                        "type": "function",
+                        "function": {"name": "big", "arguments": "y" * 1000},
+                    }
+                ],
+            },
+        ]
+
+        before_tokens = loop._estimate_tokens(loop.messages)
+
+        with patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"):
+            did = loop.hygiene_compress_if_needed()
+
+        assert did is True
+        assert loop._estimate_tokens(loop.messages) < before_tokens
+
     def test_estimate_tokens_english(self, mock_llm_client):
         loop = AgentLoop(mock_llm_client)
         msgs = [{"role": "user", "content": "hello world"}]
-        assert loop._estimate_tokens(msgs) == len("hello world") // 4
+        assert loop._estimate_tokens(msgs) >= len("hello world") // 4
 
     def test_estimate_tokens_chinese(self, mock_llm_client):
         loop = AgentLoop(mock_llm_client)
         text = "你好世界测试"
         msgs = [{"role": "user", "content": text}]
-        assert loop._estimate_tokens(msgs) == len(text) // 4
+        assert loop._estimate_tokens(msgs) >= len(text) // 4
 
 
 @pytest.mark.module_test

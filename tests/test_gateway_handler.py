@@ -127,9 +127,15 @@ class TestSlashCommands:
 class TestHandleMessage:
     def test_normal_message_returns_response(self, handler, mock_loop):
         with patch.object(handler, "_get_or_create_loop", return_value=mock_loop):
-            text = handler.handle_message("hello", session_key="s1")
+            with patch("butler.gateway.message_handler.attach_turn_memory_prefetch") as prefetch:
+                with patch("butler.gateway.message_handler.sync_turn_memory") as sync:
+                    text = handler.handle_message("hello", session_key="s1")
         assert text == "assistant reply"
+        prefetch.assert_called_once()
         mock_loop.run.assert_called_once()
+        assert mock_loop.run.call_args.args[0] == "hello"
+        mock_loop.hygiene_compress_if_needed.assert_called_once()
+        sync.assert_called_once()
 
     def test_empty_message_returns_empty(self, handler):
         assert handler.handle_message("") == ""

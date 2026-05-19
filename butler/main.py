@@ -103,6 +103,9 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
 
         try:
             with patch_stdout():
+                from butler.session_lifecycle import attach_turn_memory_prefetch
+
+                attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
                 result = agent_loop.run(augmented)
             ui.finish_turn(result, stream)
 
@@ -111,6 +114,7 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
                 user_input,
                 result.final_response or "",
                 interrupted=result.status == LoopStatus.INTERRUPTED,
+                status=result.status,
             )
 
         except KeyboardInterrupt:
@@ -138,10 +142,11 @@ def _sync_memory(
     assistant_msg: str,
     *,
     interrupted: bool = False,
+    status: Any = None,
 ) -> None:
     """Sync conversation turn to butler memory for experience tracking."""
     from butler.session_lifecycle import sync_turn_memory
-    sync_turn_memory(orchestrator, user_msg, assistant_msg, interrupted=interrupted)
+    sync_turn_memory(orchestrator, user_msg, assistant_msg, interrupted=interrupted, status=status)
 
 
 def _trigger_session_end(
@@ -275,6 +280,7 @@ def _cmd_chat(_ns: argparse.Namespace) -> int:
 
 def _cmd_exec(ns: argparse.Namespace) -> int:
     from butler.cli.session_ui import ChatSessionUI
+    from butler.core.agent_loop import LoopStatus
     from butler.orchestrator import ButlerOrchestrator
     from butler.tools.registry import dispatch_tool, get_tool_definitions
     from rich.console import Console
@@ -293,8 +299,18 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
     )
 
     try:
+        from butler.session_lifecycle import attach_turn_memory_prefetch
+
+        attach_turn_memory_prefetch(agent_loop, orch, ns.message, role="butler")
         result = agent_loop.run(augmented)
         ui.finish_turn(result, stream)
+        _sync_memory(
+            orch,
+            ns.message,
+            result.final_response or "",
+            interrupted=result.status == LoopStatus.INTERRUPTED,
+            status=result.status,
+        )
         return 0 if result.status.value == "completed" else 1
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)

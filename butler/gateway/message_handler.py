@@ -14,7 +14,8 @@ import logging
 from typing import Any, Optional
 
 from butler.orchestrator import ButlerOrchestrator
-from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopConfig, LoopResult
+from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopConfig, LoopResult, LoopStatus
+from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
 from butler.tools.registry import get_tool_definitions, dispatch_tool
 from butler.report import AgentReport, format_for_wechat, format_for_cli, cache_report
 
@@ -78,7 +79,20 @@ class ButlerMessageHandler:
         loop = self._get_or_create_loop(session_key)
 
         try:
+            try:
+                loop.hygiene_compress_if_needed()
+            except Exception as exc:
+                logger.warning("Gateway hygiene compression skipped: %s", exc)
+            attach_turn_memory_prefetch(loop, self._orchestrator, text, role="butler")
             result = loop.run(augmented)
+            sync_turn_memory(
+                self._orchestrator,
+                text,
+                result.final_response or "",
+                interrupted=result.status == LoopStatus.INTERRUPTED,
+                status=result.status,
+                session_id=session_key,
+            )
             return self._format_response(result, platform)
         except Exception as exc:
             logger.error("Message handling failed: %s", exc)

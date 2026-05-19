@@ -48,6 +48,7 @@ class ModelConfig:
     model: str = ""
     temperature: float | None = None
     max_tokens: int | None = None
+    context_length: int | None = None
 
     def is_empty(self) -> bool:
         return not self.provider and not self.model
@@ -60,12 +61,14 @@ class ModelConfig:
                 model=self.model,
                 temperature=self.temperature,
                 max_tokens=self.max_tokens,
+                context_length=self.context_length,
             )
         return ModelConfig(
             provider=override.provider or self.provider,
             model=override.model or self.model,
             temperature=override.temperature if override.temperature is not None else self.temperature,
             max_tokens=override.max_tokens if override.max_tokens is not None else self.max_tokens,
+            context_length=override.context_length if override.context_length is not None else self.context_length,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -78,6 +81,8 @@ class ModelConfig:
             d["temperature"] = self.temperature
         if self.max_tokens is not None:
             d["max_tokens"] = self.max_tokens
+        if self.context_length is not None:
+            d["context_length"] = self.context_length
         return d
 
     @classmethod
@@ -89,6 +94,7 @@ class ModelConfig:
             model=str(data.get("model", "") or ""),
             temperature=data.get("temperature"),
             max_tokens=data.get("max_tokens"),
+            context_length=data.get("context_length"),
         )
 
 
