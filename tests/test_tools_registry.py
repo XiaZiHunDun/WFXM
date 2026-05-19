@@ -224,6 +224,50 @@ class TestWriteFile:
         assert data["success"] is True
         assert (workspace / "nested" / "out.txt").read_text(encoding="utf-8") == "ok"
 
+    def test_write_file_rejects_symlink_target(self, tmp_path):
+        outside = tmp_path / "outside.txt"
+        link = tmp_path / "link.txt"
+        outside.write_text("secret", encoding="utf-8")
+        link.symlink_to(outside)
+
+        result = dispatch_tool("write_file", {"path": str(link), "content": "nope"})
+
+        data = json.loads(result)
+        assert "symlink" in data["error"].lower()
+        assert outside.read_text(encoding="utf-8") == "secret"
+
+    def test_write_file_atomic_replace_failure_preserves_original(self, tmp_path):
+        target = tmp_path / "existing.txt"
+        target.write_text("old", encoding="utf-8")
+
+        with patch("butler.tools.registry.os.replace", side_effect=OSError("replace failed")):
+            result = dispatch_tool("write_file", {"path": str(target), "content": "new"})
+
+        data = json.loads(result)
+        assert "replace failed" in data["error"]
+        assert target.read_text(encoding="utf-8") == "old"
+
+    def test_write_file_rejects_target_replaced_before_atomic_replace(self, tmp_path):
+        target = tmp_path / "existing.txt"
+        swapped = tmp_path / "swapped.txt"
+        target.write_text("old", encoding="utf-8")
+        swapped.write_text("swapped", encoding="utf-8")
+        original_fsync = os.fsync
+        swapped_once = {"done": False}
+
+        def _swap_before_replace(fd):
+            if not swapped_once["done"]:
+                swapped_once["done"] = True
+                swapped.replace(target)
+            return original_fsync(fd)
+
+        with patch("butler.tools.registry.os.fsync", side_effect=_swap_before_replace):
+            result = dispatch_tool("write_file", {"path": str(target), "content": "new"})
+
+        data = json.loads(result)
+        assert "changed during validation" in data["error"]
+        assert target.read_text(encoding="utf-8") == "swapped"
+
 
 @pytest.mark.module_test
 class TestPatch:
@@ -273,6 +317,59 @@ class TestPatch:
         data = json.loads(result)
         assert "outside workspace" in data["error"]
         assert outside.read_text(encoding="utf-8") == "replace me"
+
+    def test_patch_rejects_symlink_target(self, tmp_path):
+        outside = tmp_path / "outside.txt"
+        link = tmp_path / "link.txt"
+        outside.write_text("replace me", encoding="utf-8")
+        link.symlink_to(outside)
+
+        result = dispatch_tool(
+            "patch",
+            {"path": str(link), "old_string": "replace", "new_string": "blocked"},
+        )
+
+        data = json.loads(result)
+        assert "symlink" in data["error"].lower()
+        assert outside.read_text(encoding="utf-8") == "replace me"
+
+    def test_patch_atomic_replace_failure_preserves_original(self, tmp_path):
+        target = tmp_path / "patchme.txt"
+        target.write_text("replace me", encoding="utf-8")
+
+        with patch("butler.tools.registry.os.replace", side_effect=OSError("replace failed")):
+            result = dispatch_tool(
+                "patch",
+                {"path": str(target), "old_string": "replace", "new_string": "done"},
+            )
+
+        data = json.loads(result)
+        assert "replace failed" in data["error"]
+        assert target.read_text(encoding="utf-8") == "replace me"
+
+    def test_patch_rejects_target_replaced_before_atomic_replace(self, tmp_path):
+        target = tmp_path / "patchme.txt"
+        swapped = tmp_path / "swapped.txt"
+        target.write_text("replace me", encoding="utf-8")
+        swapped.write_text("swapped content", encoding="utf-8")
+        original_fsync = os.fsync
+        swapped_once = {"done": False}
+
+        def _swap_before_replace(fd):
+            if not swapped_once["done"]:
+                swapped_once["done"] = True
+                swapped.replace(target)
+            return original_fsync(fd)
+
+        with patch("butler.tools.registry.os.fsync", side_effect=_swap_before_replace):
+            result = dispatch_tool(
+                "patch",
+                {"path": str(target), "old_string": "replace", "new_string": "done"},
+            )
+
+        data = json.loads(result)
+        assert "changed during validation" in data["error"]
+        assert target.read_text(encoding="utf-8") == "swapped content"
 
 
 @pytest.mark.module_test

@@ -256,14 +256,6 @@ def _register_builtin_tools() -> None:
 # ── Tool Implementations ─────────────────────────────────────
 
 def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
-    from butler.tools.path_safety import check_tool_path, tool_safe_root
-
-    safety = check_tool_path(path)
-    if not safety.allowed:
-        return json.dumps({"error": safety.error})
-    p = safety.path
-    if not p.exists():
-        return json.dumps({"error": f"File not found: {path}"})
     try:
         try:
             offset = int(offset)
@@ -277,51 +269,10 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
         if offset < 1:
             return json.dumps({"error": "read_file offset must be >= 1"})
 
-        expected_stat = p.stat()
-        raw_open_path = _raw_tool_path(path, tool_safe_root())
-        flags = (
-            os.O_RDONLY
-            | getattr(os, "O_NOFOLLOW", 0)
-            | getattr(os, "O_NONBLOCK", 0)
-        )
-        try:
-            fd = os.open(raw_open_path, flags)
-        except OSError as exc:
-            if "Too many levels of symbolic links" in str(exc):
-                return json.dumps({"error": "Access denied: symlinks are not allowed"})
-            return json.dumps({"error": str(exc)})
-
-        try:
-            stat_result = os.fstat(fd)
-            if (stat_result.st_dev, stat_result.st_ino) != (
-                expected_stat.st_dev,
-                expected_stat.st_ino,
-            ):
-                return json.dumps({"error": "Access denied: file changed during validation"})
-            if not stat_module.S_ISREG(stat_result.st_mode):
-                return json.dumps({"error": "Access denied: only regular files can be read"})
-            if stat_result.st_nlink > 1:
-                return json.dumps({"error": "Access denied: hardlinked files are not allowed"})
-            if stat_result.st_size > MAX_READ_FILE_BYTES:
-                return json.dumps({
-                    "error": f"File too large: maximum is {MAX_READ_FILE_BYTES} bytes"
-                })
-            chunks: list[bytes] = []
-            total = 0
-            while True:
-                chunk = os.read(fd, min(65536, MAX_READ_FILE_BYTES + 1 - total))
-                if not chunk:
-                    break
-                chunks.append(chunk)
-                total += len(chunk)
-                if total > MAX_READ_FILE_BYTES:
-                    return json.dumps({
-                        "error": f"File too large: maximum is {MAX_READ_FILE_BYTES} bytes"
-                    })
-        finally:
-            os.close(fd)
-
-        text = b"".join(chunks).decode("utf-8", errors="replace")
+        data, _p, _stat, error = _read_regular_file_bytes(path)
+        if error:
+            return json.dumps({"error": error})
+        text = data.decode("utf-8", errors="replace")
         lines = text.splitlines()
         start = offset - 1
         end = start + limit
@@ -339,39 +290,265 @@ def _raw_tool_path(path: str | os.PathLike[str], root: Path) -> Path:
     return raw_path
 
 
-def _tool_write_file(path: str, content: str, **_) -> str:
-    from butler.tools.path_safety import check_tool_path
+def _read_regular_file_bytes(
+    path: str | os.PathLike[str],
+    *,
+    for_write: bool = False,
+) -> tuple[bytes, Path | None, os.stat_result | None, str]:
+    from butler.tools.path_safety import check_tool_path, tool_safe_root
 
+    root = tool_safe_root()
+    safety = check_tool_path(path, for_write=for_write)
+    if not safety.allowed:
+        return b"", None, None, safety.error
+    p = safety.path
+    if not p.exists():
+        return b"", p, None, f"File not found: {path}"
+
+    raw_path = _raw_tool_path(path, root)
+    symlink_error = _symlink_component_error(raw_path, root, include_final=True)
+    if symlink_error:
+        return b"", p, None, symlink_error
+
+    expected_stat = p.stat()
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    try:
+        fd = os.open(raw_path, flags)
+    except OSError as exc:
+        return b"", p, None, _format_open_error(exc)
+
+    try:
+        stat_result = os.fstat(fd)
+        validation_error = _validate_regular_file_stat(stat_result, expected_stat)
+        if validation_error:
+            return b"", p, None, validation_error
+        data, read_error = _read_limited_fd(fd)
+        if read_error:
+            return b"", p, None, read_error
+        return data, p, stat_result, ""
+    finally:
+        os.close(fd)
+
+
+def _atomic_write_text(
+    path: str | os.PathLike[str],
+    content: str,
+    *,
+    expected_stat: os.stat_result | None = None,
+) -> tuple[Path | None, str]:
+    from butler.tools.path_safety import check_tool_path, tool_safe_root
+
+    root = tool_safe_root()
     safety = check_tool_path(path, for_write=True)
     if not safety.allowed:
-        return json.dumps({"error": safety.error})
+        return None, safety.error
     p = safety.path
+    raw_path = _raw_tool_path(path, root)
+    symlink_error = _symlink_component_error(raw_path, root, include_final=raw_path.exists())
+    if symlink_error:
+        return None, symlink_error
+
+    p.parent.mkdir(parents=True, exist_ok=True)
+    raw_parent = raw_path.parent
+    symlink_error = _symlink_component_error(raw_parent, root, include_final=True)
+    if symlink_error:
+        return None, symlink_error
     try:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
+        parent_stat = raw_parent.stat()
+    except OSError as exc:
+        return None, str(exc)
+    if not stat_module.S_ISDIR(parent_stat.st_mode):
+        return None, "Access denied: parent path is not a directory"
+
+    if raw_path.exists():
+        try:
+            current_stat = raw_path.lstat()
+        except OSError as exc:
+            return None, str(exc)
+        if stat_module.S_ISLNK(current_stat.st_mode):
+            return None, "Access denied: symlinks are not allowed"
+        if not stat_module.S_ISREG(current_stat.st_mode):
+            return None, "Access denied: only regular files can be written"
+        if current_stat.st_nlink > 1:
+            return None, "Access denied: hardlinked files are not allowed"
+        if expected_stat is None:
+            expected_stat = current_stat
+        elif (
+            current_stat.st_dev,
+            current_stat.st_ino,
+        ) != (expected_stat.st_dev, expected_stat.st_ino):
+            return None, "Access denied: file changed during validation"
+
+    parent_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        dir_fd = os.open(raw_parent, parent_flags)
+    except OSError as exc:
+        return None, _format_open_error(exc)
+
+    temp_name = f".{raw_path.name}.butler-tmp-{os.getpid()}-{time.monotonic_ns()}"
+    temp_created = False
+    try:
+        dir_stat = os.fstat(dir_fd)
+        if (dir_stat.st_dev, dir_stat.st_ino) != (parent_stat.st_dev, parent_stat.st_ino):
+            return None, "Access denied: parent directory changed during validation"
+        fd = os.open(
+            temp_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+            0o600,
+            dir_fd=dir_fd,
+        )
+        temp_created = True
+        try:
+            data = content.encode("utf-8")
+            _write_all_fd(fd, data)
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+        if expected_stat is not None:
+            current_error = _validate_existing_target_unchanged(dir_fd, raw_path.name, expected_stat)
+            if current_error:
+                return None, current_error
+        os.replace(temp_name, raw_path.name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        temp_created = False
+        return p, ""
+    except OSError as exc:
+        return None, str(exc)
+    finally:
+        if temp_created:
+            try:
+                os.unlink(temp_name, dir_fd=dir_fd)
+            except OSError:
+                pass
+        os.close(dir_fd)
+
+
+def _read_limited_fd(fd: int) -> tuple[bytes, str]:
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = os.read(fd, min(65536, MAX_READ_FILE_BYTES + 1 - total))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > MAX_READ_FILE_BYTES:
+            return b"", f"File too large: maximum is {MAX_READ_FILE_BYTES} bytes"
+    return b"".join(chunks), ""
+
+
+def _write_all_fd(fd: int, data: bytes) -> None:
+    view = memoryview(data)
+    written = 0
+    while written < len(data):
+        n = os.write(fd, view[written:])
+        if n == 0:
+            raise OSError("short write while writing tool file")
+        written += n
+
+
+def _validate_existing_target_unchanged(
+    dir_fd: int,
+    name: str,
+    expected_stat: os.stat_result,
+) -> str:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        fd = os.open(name, flags, dir_fd=dir_fd)
+    except FileNotFoundError:
+        return "Access denied: file changed during validation"
+    except OSError as exc:
+        return _format_open_error(exc)
+    try:
+        current_stat = os.fstat(fd)
+        if not stat_module.S_ISREG(current_stat.st_mode):
+            return "Access denied: only regular files can be written"
+        if current_stat.st_nlink > 1:
+            return "Access denied: hardlinked files are not allowed"
+        if (current_stat.st_dev, current_stat.st_ino) != (
+            expected_stat.st_dev,
+            expected_stat.st_ino,
+        ):
+            return "Access denied: file changed during validation"
+        return ""
+    finally:
+        os.close(fd)
+
+
+def _validate_regular_file_stat(
+    stat_result: os.stat_result,
+    expected_stat: os.stat_result,
+) -> str:
+    if (stat_result.st_dev, stat_result.st_ino) != (
+        expected_stat.st_dev,
+        expected_stat.st_ino,
+    ):
+        return "Access denied: file changed during validation"
+    if not stat_module.S_ISREG(stat_result.st_mode):
+        return "Access denied: only regular files can be read"
+    if stat_result.st_nlink > 1:
+        return "Access denied: hardlinked files are not allowed"
+    if stat_result.st_size > MAX_READ_FILE_BYTES:
+        return f"File too large: maximum is {MAX_READ_FILE_BYTES} bytes"
+    return ""
+
+
+def _symlink_component_error(
+    raw_path: Path,
+    root: Path,
+    *,
+    include_final: bool,
+) -> str:
+    try:
+        relative = raw_path.relative_to(root)
+    except ValueError:
+        return ""
+    current = root
+    parts = relative.parts if include_final else relative.parts[:-1]
+    for part in parts:
+        current = current / part
+        try:
+            if current.is_symlink():
+                return "Access denied: symlinks are not allowed"
+        except OSError:
+            return "Access denied: path could not be validated"
+    return ""
+
+
+def _format_open_error(exc: OSError) -> str:
+    if "Too many levels of symbolic links" in str(exc):
+        return "Access denied: symlinks are not allowed"
+    return str(exc)
+
+
+def _tool_write_file(path: str, content: str, **_) -> str:
+    try:
+        p, error = _atomic_write_text(path, content)
+        if error:
+            return json.dumps({"error": error})
         return json.dumps({"success": True, "path": str(p), "bytes": len(content.encode("utf-8"))})
     except Exception as exc:
         return json.dumps({"error": str(exc)})
 
 
 def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
-    from butler.tools.path_safety import check_tool_path
-
-    safety = check_tool_path(path, for_write=True)
-    if not safety.allowed:
-        return json.dumps({"error": safety.error})
-    p = safety.path
-    if not p.exists():
-        return json.dumps({"error": f"File not found: {path}"})
     try:
-        text = p.read_text(encoding="utf-8")
+        data, _p, expected_stat, error = _read_regular_file_bytes(path, for_write=True)
+        if error:
+            return json.dumps({"error": error})
+        text = data.decode("utf-8", errors="replace")
         count = text.count(old_string)
         if count == 0:
             return json.dumps({"error": "old_string not found in file"})
         if count > 1:
             return json.dumps({"error": f"old_string found {count} times; must be unique"})
         new_text = text.replace(old_string, new_string, 1)
-        p.write_text(new_text, encoding="utf-8")
+        _written_path, write_error = _atomic_write_text(path, new_text, expected_stat=expected_stat)
+        if write_error:
+            return json.dumps({"error": write_error})
         return json.dumps({"success": True, "replacements": 1})
     except Exception as exc:
         return json.dumps({"error": str(exc)})
