@@ -15,12 +15,24 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
+from butler.core.context_compressor import compress_messages
+from butler.core.message_repair import repair_message_sequence, repair_tool_arguments
+from butler.core.parallel_tools import execute_tools_parallel
+from butler.tool_guardrails import (
+    ToolCallGuardrailController,
+    append_guidance,
+    synthetic_result,
+)
+from butler.tools.interrupt import clear_interrupt, is_interrupted, set_interrupt
+from butler.transport.error_classifier import classify_api_error
+from butler.transport.fallback import FallbackEntry, build_fallback_chain, create_client_from_entry
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse, ToolCall
 
@@ -43,6 +55,9 @@ class LoopConfig:
     retry_delay: float = 1.0
     max_context_tokens: int = 128000
     stream: bool = True
+    enable_guardrails: bool = True
+    enable_parallel_tools: bool = True
+    fallback_entries: list | None = None
 
 
 @dataclass
@@ -107,12 +122,21 @@ class AgentLoop:
         self._interrupted = False
         self._total_tokens = 0
         self._tool_calls_count = 0
+        self._guardrails = ToolCallGuardrailController() if self.config.enable_guardrails else None
+        self._compression_summary = ""
+        self._thread_id: int | None = None
+        self._fallback_chain: list[FallbackEntry] = list(self.config.fallback_entries or [])
+        self._fallback_index = 0
 
     def interrupt(self) -> None:
         self._interrupted = True
+        if self._thread_id is not None:
+            set_interrupt(True, self._thread_id)
 
     def clear_interrupt(self) -> None:
         self._interrupted = False
+        if self._thread_id is not None:
+            clear_interrupt(self._thread_id)
 
     def run(self, user_message: str) -> LoopResult:
         """Execute a full conversation turn.
@@ -122,6 +146,10 @@ class AgentLoop:
         """
         start_time = time.time()
         self._interrupted = False
+        self._thread_id = threading.get_ident() if hasattr(threading, "get_ident") else None
+        clear_interrupt(self._thread_id)
+        if self._guardrails:
+            self._guardrails.reset_for_turn()
 
         if not self._messages:
             if self.system_prompt:
@@ -195,42 +223,45 @@ class AgentLoop:
         return total
 
     def _compress_context(self, messages: list[dict]) -> list[dict]:
-        """Drop middle messages when context exceeds budget, keeping system + recent."""
-        estimated = self._estimate_tokens(messages)
-        if estimated <= self.config.max_context_tokens:
-            return messages
-
-        system_msgs = [m for m in messages if m.get("role") == "system"]
-        non_system = [m for m in messages if m.get("role") != "system"]
-
-        keep_recent = max(6, len(non_system) // 3)
-        compressed = system_msgs + non_system[-keep_recent:]
-
-        notice = {
-            "role": "system",
-            "content": f"[上下文已压缩: 移除了 {len(non_system) - keep_recent} 条历史消息以适应 token 上限]",
-        }
-        compressed.insert(len(system_msgs), notice)
-
-        logger.info(
-            "Context compressed: %d→%d messages (est. %d→%d tokens)",
-            len(messages), len(compressed), estimated, self._estimate_tokens(compressed),
+        """LLM-backed compression when over token budget."""
+        compressed, summary, did = compress_messages(
+            messages,
+            max_tokens=self.config.max_context_tokens,
+            previous_summary=self._compression_summary,
         )
+        if did and summary:
+            self._compression_summary = summary
         return compressed
 
-    def _call_llm_with_retry(self) -> Optional[NormalizedResponse]:
-        """Call LLM with retry logic."""
-        messages_to_send = self._compress_context(list(self._messages))
-
+    def _prepare_messages_for_api(self) -> list[dict]:
+        messages = self._compress_context(list(self._messages))
+        messages, _ = repair_message_sequence(messages)
+        repair_tool_arguments(messages)
         if self.callbacks.pre_llm_transform:
-            messages_to_send = self.callbacks.pre_llm_transform(messages_to_send)
+            messages = self.callbacks.pre_llm_transform(messages)
+        return messages
+
+    def _try_activate_fallback(self) -> bool:
+        if not self._fallback_chain or self._fallback_index >= len(self._fallback_chain) - 1:
+            return False
+        self._fallback_index += 1
+        entry = self._fallback_chain[self._fallback_index]
+        self.client = create_client_from_entry(entry)
+        logger.info("Fallback activated: %s/%s", entry.provider, entry.model)
+        return True
+
+    def _call_llm_with_retry(self) -> Optional[NormalizedResponse]:
+        """Call LLM with classified retry, compression, and provider fallback."""
+        messages_to_send = self._prepare_messages_for_api()
 
         if self.callbacks.on_llm_start:
             self.callbacks.on_llm_start(messages_to_send)
 
-        last_error = None
+        last_error: Exception | None = None
+        compress_attempted = False
+
         for attempt in range(self.config.max_retries):
-            if self._interrupted:
+            if self._interrupted or (self._thread_id and is_interrupted(self._thread_id)):
                 return None
 
             try:
@@ -253,61 +284,110 @@ class AgentLoop:
 
             except Exception as exc:
                 last_error = exc
+                classified = classify_api_error(
+                    exc,
+                    provider=getattr(self.client, "provider_name", ""),
+                    model=getattr(self.client, "model", ""),
+                )
                 logger.warning(
-                    "LLM call attempt %d/%d failed: %s",
-                    attempt + 1, self.config.max_retries, exc,
+                    "LLM attempt %d/%d failed [%s]: %s",
+                    attempt + 1, self.config.max_retries, classified.reason.value, exc,
                 )
                 if self.callbacks.on_error:
                     self.callbacks.on_error(exc, attempt + 1)
+
+                if classified.should_compress and not compress_attempted:
+                    compress_attempted = True
+                    self._messages[:] = self._compress_context(list(self._messages))
+                    messages_to_send = self._prepare_messages_for_api()
+                    continue
+
+                if classified.should_fallback and self._try_activate_fallback():
+                    continue
+
+                if not classified.retryable:
+                    break
+
                 if attempt < self.config.max_retries - 1:
                     time.sleep(self.config.retry_delay * (attempt + 1))
 
-        logger.error("All %d LLM attempts failed: %s", self.config.max_retries, last_error)
+        logger.error("All LLM attempts failed: %s", last_error)
         return None
 
     def _process_tool_calls(self, response: NormalizedResponse) -> None:
-        """Dispatch tool calls and append results to messages."""
-        assistant_msg: dict[str, Any] = {"role": "assistant"}
-        if response.content:
-            assistant_msg["content"] = response.content
-        else:
-            assistant_msg["content"] = None
+        """Dispatch tool calls (parallel when safe) with guardrails."""
+        if not response.tool_calls:
+            return
 
-        assistant_msg["tool_calls"] = [
-            {
-                "id": tc.id or f"call_{uuid.uuid4().hex[:8]}",
+        assistant_msg: dict[str, Any] = {"role": "assistant", "content": response.content}
+        tool_call_records = []
+        for tc in response.tool_calls:
+            tc_id = tc.id or f"call_{uuid.uuid4().hex[:8]}"
+            if not tc.id:
+                tc.id = tc_id
+            tool_call_records.append({
+                "id": tc_id,
                 "type": "function",
-                "function": {
-                    "name": tc.name,
-                    "arguments": tc.arguments,
-                },
-            }
-            for tc in response.tool_calls
-        ]
+                "function": {"name": tc.name, "arguments": tc.arguments},
+            })
+        assistant_msg["tool_calls"] = tool_call_records
         self._messages.append(assistant_msg)
 
-        for tc in response.tool_calls:
-            if self._interrupted:
-                break
+        if self._guardrails and self._guardrails.halt_decision:
+            return
 
+        def _dispatch_one(name: str, args: dict) -> str:
+            if self._guardrails:
+                before = self._guardrails.before_call(name, args)
+                if before.should_halt:
+                    return synthetic_result(before)
+            result = self._dispatch_tool(name, args)
+            if self._guardrails:
+                after = self._guardrails.after_call(name, args, result)
+                result = append_guidance(result, after)
+                if after.should_halt:
+                    self._guardrails._halt_decision = after
+            return result
+
+        def _on_start(name: str, args: dict) -> None:
             self._tool_calls_count += 1
-            tool_name = tc.name
-            try:
-                args = tc.args_dict()
-            except Exception:
-                args = {}
-
             if self.callbacks.on_tool_start:
-                self.callbacks.on_tool_start(tool_name, args)
+                self.callbacks.on_tool_start(name, args)
 
-            result = self._dispatch_tool(tool_name, args)
-
+        def _on_complete(name: str, result: str) -> None:
             if self.callbacks.on_tool_complete:
-                self.callbacks.on_tool_complete(tool_name, result)
+                self.callbacks.on_tool_complete(name, result)
 
+        check = lambda: self._interrupted or (
+            self._thread_id is not None and is_interrupted(self._thread_id)
+        )
+
+        if self.config.enable_parallel_tools and len(response.tool_calls) > 1:
+            pairs = execute_tools_parallel(
+                response.tool_calls,
+                _dispatch_one,
+                on_start=_on_start,
+                on_complete=_on_complete,
+                check_interrupt=check,
+            )
+        else:
+            pairs = []
+            for tc in response.tool_calls:
+                if check():
+                    break
+                try:
+                    args = tc.args_dict()
+                except Exception:
+                    args = {}
+                _on_start(tc.name, args)
+                result = _dispatch_one(tc.name, args)
+                _on_complete(tc.name, result)
+                pairs.append((tc, result))
+
+        for tc, result in pairs:
             self._messages.append({
                 "role": "tool",
-                "tool_call_id": tc.id or f"call_{uuid.uuid4().hex[:8]}",
+                "tool_call_id": tc.id,
                 "content": result,
             })
 

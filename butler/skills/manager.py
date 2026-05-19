@@ -196,6 +196,11 @@ class SkillManager:
         err = _validate_name(name)
         if err:
             raise ValueError(err)
+
+        from butler.skills.guard import scan_skill_text
+        guard_issues = scan_skill_text(content)
+        if guard_issues:
+            raise ValueError(f"Skill content failed security scan: {', '.join(guard_issues)}")
         if not description:
             raise ValueError("Description is required.")
         if len(description) > MAX_DESC_LEN:

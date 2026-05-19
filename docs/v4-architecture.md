@@ -27,7 +27,7 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 |------|----|----|
 | Agent Loop | Hermes AIAgent (import) | Butler 自建 (~300 行) |
 | LLM 调用 | 通过 AIAgent.run_conversation | 通过 LLMClient + Transport |
-| 工具系统 | Hermes 50+ 工具 | Butler 自建 7 核心工具 |
+| 工具系统 | Hermes 50+ 工具 | Butler 自建 9 核心工具 |
 | 子 Agent | Hermes delegate_task (绕过 Butler) | Butler 编排器全控 |
 | 编排控制力 | 低（只能通过 prompt/hook 间接影响）| 完全（每一步可插手）|
 | Hermes 升级风险 | 高（依赖内部 API）| 低（仅 Gateway subprocess）|
@@ -54,17 +54,39 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 | Provider 注册 | `butler/transport/providers.py` | 9 家主流厂商配置 |
 | LLM Client | `butler/transport/llm_client.py` | 实际 HTTP 调用、流式/非流式 |
 
-### 工具系统 (~400 行)
+### 工具系统 (~500 行)
 
 | 工具 | 说明 |
 |------|------|
 | `read_file` | 文件读取（行号标注、偏移/限制）|
 | `write_file` | 文件写入/创建 |
 | `patch` | 精确字符串替换 |
-| `terminal` | Shell 命令执行 |
+| `terminal` | Shell 命令执行（可中断）|
 | `search_files` | 基于 ripgrep 的全文搜索 |
 | `list_directory` | 目录列表 |
-| `delegate_task` | 委派任务给项目级 Agent（经过 Butler 编排）|
+| `skills_list` | Skill 元数据索引（降 token）|
+| `skill_view` | 按需加载 Skill 全文 |
+| `delegate_task` | 委派任务给项目级 Agent（深度限制 + 隔离历史）|
+
+### Hermes 提炼层（模块化复用）
+
+从 `reference/hermes-agent` 提炼的运行时机制，**不** import `AIAgent`：
+
+| 模块 | 说明 |
+|------|------|
+| `butler/core/context_compressor.py` | 五阶段上下文压缩（工具裁剪、头尾保护、LLM 摘要）|
+| `butler/core/message_repair.py` | API 前消息序列修复 |
+| `butler/core/parallel_tools.py` | 安全并行工具批 |
+| `butler/transport/error_classifier.py` | API 错误分类 |
+| `butler/transport/fallback.py` | Provider failover 链 |
+| `butler/transport/auxiliary_client.py` | 压缩/post-session 辅助模型 |
+| `butler/tool_guardrails.py` | 工具循环检测与阻断 |
+| `butler/delegate_policy.py` | 委派深度与阻断工具 |
+| `butler/session_lifecycle.py` | 会话边界记忆提交 |
+| `butler/gateway/hooks.py` | 轻量 HookBus |
+| `butler/skills/guard.py` | Skill 静态安全扫描 |
+
+完整对照见 [`docs/hermes-extraction-map.md`](hermes-extraction-map.md)。
 
 ### Gateway 层
 
@@ -118,7 +140,7 @@ while not done and iterations < budget:
 
 ## 测试覆盖
 
-47 项测试全部通过，覆盖：
+492+ 项测试全部通过，覆盖：
 - Transport 层（types、registry、chat_completions、anthropic）
 - Provider 注册表（列表、查询、别名解析）
 - Agent Loop（构造、消息管理、中断）

@@ -57,12 +57,23 @@ class ButlerMessageHandler:
         if not text.strip():
             return ""
 
+        from butler.gateway.hooks import apply_pre_gateway_dispatch
+        rewritten = apply_pre_gateway_dispatch(text, session_key=session_key, platform=platform)
+        if rewritten is not None:
+            if not rewritten.strip():
+                return ""
+            text = rewritten
+
         if text.startswith("/"):
             response = self._handle_command(text)
             if response is not None:
                 return response
 
-        augmented = self._orchestrator.inject_skill_context(text)
+        from butler.gateway.hooks import apply_pre_llm_context
+        augmented = apply_pre_llm_context(
+            self._orchestrator.inject_skill_context(text),
+            session_key=session_key,
+        )
 
         loop = self._get_or_create_loop(session_key)
 
@@ -133,6 +144,9 @@ class ButlerMessageHandler:
             )
 
         if cmd in ("/new", "/新对话"):
+            from butler.session_lifecycle import trigger_session_end
+            for loop in self._sessions.values():
+                trigger_session_end(self._orchestrator, loop)
             self._sessions.clear()
             return "已清空对话历史。"
 

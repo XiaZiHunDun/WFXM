@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -193,6 +194,28 @@ def _register_builtin_tools() -> None:
 
     # ── delegate_task (Butler-native) ─────────────────────────
     register(
+        name="skills_list",
+        description="List available skills (metadata only). Use skill_view to load full content.",
+        schema={"type": "object", "properties": {}},
+        handler=_tool_skills_list,
+        toolset="skills",
+    )
+
+    register(
+        name="skill_view",
+        description="Load full content of a skill by name.",
+        schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Skill name (kebab-case)"},
+            },
+            "required": ["name"],
+        },
+        handler=_tool_skill_view,
+        toolset="skills",
+    )
+
+    register(
         name="delegate_task",
         description="Delegate a task to a project-level agent (dev/content/review). Butler orchestrates the sub-agent.",
         schema={
@@ -259,26 +282,50 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
 
 
 def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) -> str:
+    import threading
+    from butler.tools.interrupt import is_interrupted
+
+    thread_id = threading.get_ident()
+    proc: subprocess.Popen[str] | None = None
+    interrupted = False
+
+    def _watch() -> None:
+        nonlocal interrupted
+        while proc is not None and proc.poll() is None:
+            if is_interrupted(thread_id):
+                interrupted = True
+                proc.kill()
+                return
+            time.sleep(0.2)
+
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             command,
             shell=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
             cwd=workdir,
         )
-        output = result.stdout
-        if result.stderr:
-            output += "\n[stderr]\n" + result.stderr
+        watcher = threading.Thread(target=_watch, daemon=True)
+        watcher.start()
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            stdout, stderr = proc.communicate(timeout=1)
+            return json.dumps({"error": f"Command timed out after {timeout}s"})
+        if interrupted:
+            return json.dumps({"error": "interrupted", "output": ""})
+        output = stdout or ""
+        if stderr:
+            output += "\n[stderr]\n" + stderr
         if len(output) > 50000:
             output = output[:50000] + "\n... (truncated)"
         return json.dumps({
-            "exit_code": result.returncode,
+            "exit_code": proc.returncode,
             "output": output,
         })
-    except subprocess.TimeoutExpired:
-        return json.dumps({"error": f"Command timed out after {timeout}s"})
     except Exception as exc:
         return json.dumps({"error": str(exc)})
 
@@ -328,22 +375,65 @@ def _tool_list_directory(path: str = ".", **_) -> str:
         return json.dumps({"error": str(exc)})
 
 
-def _tool_delegate_task(role: str, task: str, context: str = "", **_) -> str:
-    """Delegate to a project-level agent through Butler's orchestrator."""
+def _tool_skills_list(**_) -> str:
+    try:
+        from butler.config import get_butler_settings
+        from butler.orchestrator import ButlerOrchestrator
+        orch = ButlerOrchestrator(channel="tool")
+        mgr = orch._skill_manager
+        if mgr is None:
+            return json.dumps({"skills": []})
+        skills = [
+            {"name": s.get("name"), "description": s.get("description", "")[:200]}
+            for s in mgr.list_skills()
+        ]
+        return json.dumps({"skills": skills}, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"error": str(exc)})
+
+
+def _tool_skill_view(name: str, **_) -> str:
     try:
         from butler.orchestrator import ButlerOrchestrator
-        from butler.core.agent_loop import LoopResult
+        orch = ButlerOrchestrator(channel="tool")
+        mgr = orch._skill_manager
+        if mgr is None:
+            return json.dumps({"error": "Skill manager unavailable"})
+        skill = mgr.get_skill(name)
+        if not skill:
+            return json.dumps({"error": f"Skill not found: {name}"})
+        return json.dumps({
+            "name": skill.get("name"),
+            "description": skill.get("description"),
+            "content": skill.get("content", ""),
+        }, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"error": str(exc)})
+
+
+def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0, **_) -> str:
+    """Delegate to a project-level agent through Butler's orchestrator."""
+    try:
+        from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS, MAX_DELEGATE_DEPTH
+        from butler.orchestrator import ButlerOrchestrator
+
+        if depth >= MAX_DELEGATE_DEPTH:
+            return json.dumps({"error": f"Maximum delegation depth ({MAX_DELEGATE_DEPTH}) exceeded"})
 
         orch = ButlerOrchestrator(user_id="owner", channel="cli")
         tools = get_tool_definitions()
 
-        delegated_tools = [t for t in tools if t["function"]["name"] != "delegate_task"]
+        delegated_tools = [
+            t for t in tools
+            if t["function"]["name"] not in DELEGATE_BLOCKED_TOOLS
+        ]
 
         agent = orch.create_project_agent_loop(
             role=role,
             tools=delegated_tools,
-            tool_dispatcher=dispatch_tool,
+            tool_dispatcher=lambda name, args: _safe_dispatch(name, args, depth + 1),
         )
+        agent.reset()
 
         user_msg = task
         if context:
@@ -351,10 +441,12 @@ def _tool_delegate_task(role: str, task: str, context: str = "", **_) -> str:
 
         result = agent.run(user_msg)
 
-        from butler.report import AgentReport
+        from butler.report import AgentReport, Change
+        changes = _extract_changes_from_messages(result.messages)
         report = AgentReport(
             headline=f"{role} 代理完成任务",
             summary=result.final_response or "(无输出)",
+            changes=changes,
             success=result.status.value == "completed",
             iterations=result.iterations,
             tool_calls=result.tool_calls_made,
@@ -377,3 +469,25 @@ def _tool_delegate_task(role: str, task: str, context: str = "", **_) -> str:
     except Exception as exc:
         logger.error("Delegation to %s failed: %s", role, exc)
         return json.dumps({"error": f"Delegation failed: {exc}"})
+
+
+def _safe_dispatch(name: str, args: dict, depth: int) -> str:
+    from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
+    if name in DELEGATE_BLOCKED_TOOLS:
+        return json.dumps({"error": f"Tool '{name}' is blocked in delegated agents"})
+    if name == "delegate_task":
+        args = {**args, "depth": depth}
+    return dispatch_tool(name, args)
+
+
+def _extract_changes_from_messages(messages: list) -> list:
+    from butler.report import Change
+    changes: list[Change] = []
+    for msg in messages or []:
+        if msg.get("role") != "tool":
+            continue
+        content = str(msg.get("content") or "")
+        if "write_file" in content or "patch" in content:
+            if '"success": true' in content.lower() or '"success":true' in content.lower():
+                changes.append(Change(file="(tool)", action="modified", description=content[:120]))
+    return changes[:10]

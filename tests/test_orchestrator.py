@@ -141,7 +141,7 @@ class TestFactoryMethods:
                 tools=get_tool_definitions(),
             )
         assert loop.system_prompt
-        assert len(loop.tools) == 7
+        assert len(loop.tools) == 9
         tool_names = {t["function"]["name"] for t in loop.tools}
         assert "delegate_task" in tool_names
         assert "read_file" in tool_names

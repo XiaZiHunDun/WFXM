@@ -19,7 +19,7 @@ from butler.tools.registry import (
 class TestToolDefinitions:
     def test_get_tool_definitions_returns_seven_tools(self):
         tools = get_tool_definitions()
-        assert len(tools) == 7
+        assert len(tools) == 9
 
     def test_each_tool_has_valid_function_schema(self):
         tools = get_tool_definitions()
@@ -41,6 +41,8 @@ class TestToolDefinitions:
             "terminal",
             "search_files",
             "list_directory",
+            "skills_list",
+            "skill_view",
             "delegate_task",
         }
 

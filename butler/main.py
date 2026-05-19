@@ -155,7 +155,12 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             elif result.status == LoopStatus.TOOL_LIMIT:
                 console.print(f"[yellow]提示:[/yellow] 已达到最大迭代次数 ({result.iterations})，任务可能未完成")
 
-            _sync_memory(orchestrator, user_input, result.final_response or "")
+            _sync_memory(
+                orchestrator,
+                user_input,
+                result.final_response or "",
+                interrupted=result.status == LoopStatus.INTERRUPTED,
+            )
 
         except KeyboardInterrupt:
             console.print("\n[dim]已中断[/dim]")
@@ -176,20 +181,12 @@ def _sync_memory(
     orchestrator: "ButlerOrchestrator",
     user_msg: str,
     assistant_msg: str,
+    *,
+    interrupted: bool = False,
 ) -> None:
     """Sync conversation turn to butler memory for experience tracking."""
-    try:
-        if not (user_msg and assistant_msg):
-            return
-        bm = orchestrator.butler_memory
-        if bm and hasattr(bm, "experience") and bm.experience:
-            bm.experience.add(
-                project=orchestrator.project_manager.current_project or "",
-                category="conversation",
-                content=f"Q: {user_msg[:200]} → A: {assistant_msg[:300]}",
-            )
-    except Exception as exc:
-        logger.debug("Memory sync skipped: %s", exc)
+    from butler.session_lifecycle import sync_turn_memory
+    sync_turn_memory(orchestrator, user_msg, assistant_msg, interrupted=interrupted)
 
 
 def _trigger_session_end(
@@ -197,36 +194,8 @@ def _trigger_session_end(
     agent_loop: Any,
 ) -> None:
     """Trigger post-session processing (memory/skill extraction)."""
-    try:
-        if agent_loop and hasattr(agent_loop, "messages") and len(agent_loop.messages) > 4:
-            from butler.post_session import PostSessionProcessor
-            processor = PostSessionProcessor()
-
-            async def _llm_call(prompt: str) -> str:
-                client = orchestrator.create_llm_client("butler")
-                resp = client.complete([
-                    {"role": "system", "content": "你是一个记忆和技能提取助手。"},
-                    {"role": "user", "content": prompt},
-                ])
-                return resp.content or ""
-
-            processor.set_llm_call(_llm_call)
-
-            import asyncio
-            result = asyncio.run(processor.process(
-                messages=agent_loop.messages,
-                butler_memory=orchestrator.butler_memory,
-                project_memory=orchestrator._project_memory,
-                skill_manager=orchestrator._skill_manager,
-            ))
-            if result.get("memory_updates") or result.get("skills_extracted"):
-                logger.info(
-                    "Session end extraction: %d memory, %d skills",
-                    result.get("memory_updates", 0),
-                    result.get("skills_extracted", 0),
-                )
-    except Exception as exc:
-        logger.debug("Session end processing failed: %s", exc)
+    from butler.session_lifecycle import trigger_session_end
+    trigger_session_end(orchestrator, agent_loop)
 
 
 def _handle_slash_command(

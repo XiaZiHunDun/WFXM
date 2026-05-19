@@ -229,9 +229,15 @@ class ButlerOrchestrator:
         callbacks: Any = None,
     ) -> "AgentLoop":
         """Create a fully configured AgentLoop for the given role."""
+        from butler.config import ModelConfig
         from butler.core.agent_loop import AgentLoop, LoopConfig
+        from butler.transport.fallback import build_fallback_chain
 
         client = self.create_llm_client(role)
+        mc = self._model_credentials(role)
+        primary = ModelConfig(provider=mc.get("provider") or "", model=mc.get("model") or "")
+        fallback_chain = build_fallback_chain(primary)
+
         system_prompt = self.build_system_prompt() if role == "butler" else ""
 
         if role != "butler":
@@ -249,7 +255,7 @@ class ButlerOrchestrator:
             system_prompt=system_prompt,
             tools=tools or [],
             tool_dispatcher=tool_dispatcher,
-            config=LoopConfig(),
+            config=LoopConfig(fallback_entries=fallback_chain),
             callbacks=callbacks,
         )
 
@@ -293,12 +299,21 @@ class ButlerOrchestrator:
 
         system_prompt = "\n\n".join(p for p in system_parts if p)
 
+        from butler.config import ModelConfig
+        from butler.transport.fallback import build_fallback_chain
+
+        primary = ModelConfig(
+            provider=kw.get("provider") or "",
+            model=kw.get("model") or "",
+        )
+        fallback_chain = build_fallback_chain(primary)
+
         return AgentLoop(
             client=client,
             system_prompt=system_prompt,
             tools=tools or [],
             tool_dispatcher=tool_dispatcher,
-            config=LoopConfig(),
+            config=LoopConfig(fallback_entries=fallback_chain),
             callbacks=callbacks,
         )
 

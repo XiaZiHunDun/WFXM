@@ -1,6 +1,6 @@
 # 管家系统（Butler System）完整设计方案
 
-> 版本: v0.7 | 更新日期: 2026-05-18
+> 版本: v0.8 | 更新日期: 2026-05-19
 
 ## 目录
 
@@ -17,6 +17,7 @@
 - [十一、v0.5 深度优化升级](#十一v05-深度优化升级)
 - [十二、v0.6 评审意见驱动的稳健性升级](#十二v06-评审意见驱动的稳健性升级)
 - [十三、v0.7 分层记忆与 Skill 系统](#十三v07-分层记忆与-skill-系统)
+- [十四、v0.8 Hermes 提炼路线图](#十四v08-hermes-提炼路线图)
 
 ---
 
@@ -721,6 +722,21 @@ class ToolEntry:
 
 - **记忆通道**：LLM 分析对话记录，提取用户偏好 → ButlerMemory，项目技术细节 → ProjectMemory（事实直接写，决策待审核），跨项目经验 → ExperienceStore
 - **Skill 通道**：LLM 识别可复用工作流 → `skill_create` → `SkillManager`（触发自动合并检测）
+
+---
+
+## 十四、v0.8 Hermes 提炼路线图
+
+基于 `reference/hermes-agent` 源码深读，按「高 ROI、低耦合」分 4 个 Sprint 接入 Butler v4（详见 [`docs/hermes-extraction-map.md`](hermes-extraction-map.md)）：
+
+| Sprint | 内容 | 状态 |
+|--------|------|------|
+| 1 | Loop 生产化：guardrails、error_classifier、message_repair、fallback | ✅ 已完成 |
+| 2 | 上下文压缩 + auxiliary_client | ✅ 已完成 |
+| 3 | 并行工具、interrupt、delegate 安全信封 | ✅ 已完成 |
+| 4 | 会话边界、HookBus、skills_guard 混合策略 | ✅ 已完成 |
+
+**不移植**：`run_agent.py` 单体、`gateway/run.py`、Hermes 50+ 工具生态、SessionDB。
 
 ---
 

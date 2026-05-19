@@ -109,8 +109,13 @@ class TaskOrchestrator:
             mc = ModelConfig(**config.model_config)
             orch._settings.set_runtime_model_override(config.role, mc)
 
+        from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
+
         tools = get_tool_definitions()
-        delegated_tools = [t for t in tools if t["function"]["name"] != "delegate_task"]
+        delegated_tools = [
+            t for t in tools
+            if t["function"]["name"] not in DELEGATE_BLOCKED_TOOLS
+        ]
 
         if config.tools:
             tool_names = set(config.tools)
@@ -147,11 +152,15 @@ class TaskOrchestrator:
             if config.context:
                 user_message = f"## 上下文\n{config.context}\n\n## 任务\n{config.task}"
 
+            agent.reset()
             loop_result = await asyncio.to_thread(agent.run, user_message)
 
+            from butler.tools.registry import _extract_changes_from_messages
+            changes = _extract_changes_from_messages(loop_result.messages)
             report = AgentReport(
                 headline=f"{config.role} 代理完成任务",
                 summary=loop_result.final_response or "",
+                changes=changes,
                 success=loop_result.status.value == "completed",
                 iterations=loop_result.iterations,
                 tool_calls=loop_result.tool_calls_made,
