@@ -83,6 +83,83 @@ class TestSlashCommands:
         assert "Butler" in text
         assert "当前项目" in text
 
+    def test_health_returns_empty_message_without_summary(self, handler):
+        assert handler._handle_command("/health") == "暂无诊断信息。"
+        assert handler._handle_command("/诊断") == "暂无诊断信息。"
+
+    def test_health_formats_latest_summary(self, handler):
+        handler._health_by_session["default"] = {
+            "session_key": "default",
+            "platform": "test",
+            "hygiene_compressed": True,
+            "schema_recovered": True,
+            "schema_keywords_stripped": 2,
+            "skill_context_injected": True,
+            "skill_matches": ["python-dev"],
+            "memory_context_injected": True,
+            "memory_sync": {
+                "skipped": False,
+                "experience_updates": 1,
+                "provider_synced": True,
+            },
+        }
+
+        text = handler._handle_command("/health")
+
+        assert "Butler 诊断" in text
+        assert "会话: default" in text
+        assert "压缩: 是" in text
+        assert "Schema 降级: 是" in text
+        assert "剥离关键字: 2" in text
+        assert "Skill: 已注入" in text
+        assert "python-dev" in text
+        assert "记忆上下文: 已注入" in text
+        assert "记忆同步: 已同步" in text
+
+    def test_health_command_uses_current_session_key(self, handler):
+        handler._health_by_session["default"] = {"session_key": "default"}
+        handler._health_by_session["s1"] = {
+            "session_key": "s1",
+            "hygiene_compressed": False,
+        }
+
+        text = handler.handle_message("/health", session_key="s1")
+
+        assert "会话: s1" in text
+        assert "会话: default" not in text
+
+    def test_health_command_does_not_read_other_session_by_arg(self, handler):
+        handler._health_by_session["default"] = {"session_key": "default"}
+        handler._health_by_session["s1"] = {"session_key": "s1"}
+
+        text = handler._handle_command("/health s1")
+
+        assert "会话: default" in text
+        assert "会话: s1" not in text
+
+    def test_health_command_does_not_read_other_session_by_arg_from_gateway(self, handler):
+        handler._health_by_session["default"] = {"session_key": "default"}
+        handler._health_by_session["s1"] = {"session_key": "s1"}
+
+        text = handler.handle_message("/health s1", session_key="default")
+
+        assert "会话: default" in text
+        assert "会话: s1" not in text
+
+    def test_health_redacts_error_details(self, handler):
+        handler._health_by_session["default"] = {
+            "session_key": "default",
+            "error": "provider failed with api_key=secret-token",
+            "hygiene_error": "/tmp/private/path failed",
+        }
+
+        text = handler._handle_command("/health")
+
+        assert "错误: 有（查看日志）" in text
+        assert "压缩错误: 有（查看日志）" in text
+        assert "secret-token" not in text
+        assert "/tmp/private/path" not in text
+
     def test_model_returns_model_config(self, handler):
         text = handler._handle_command("/model")
         assert "butler" in text
