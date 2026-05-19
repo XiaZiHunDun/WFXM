@@ -33,6 +33,7 @@ class ButlerMessageHandler:
         self.channel = channel
         self._orchestrator = ButlerOrchestrator(user_id="owner", channel=channel)
         self._sessions: dict[str, AgentLoop] = {}
+        self._health_by_session: dict[str, dict[str, Any]] = {}
 
     def _get_or_create_loop(self, session_key: str) -> AgentLoop:
         if session_key not in self._sessions:
@@ -71,8 +72,12 @@ class ButlerMessageHandler:
                 return response
 
         from butler.gateway.hooks import apply_pre_llm_context
+        health: dict[str, Any] = {
+            "session_key": session_key,
+            "platform": platform,
+        }
         augmented = apply_pre_llm_context(
-            self._orchestrator.inject_skill_context(text),
+            self._orchestrator.inject_skill_context(text, diagnostics=health),
             session_key=session_key,
         )
 
@@ -80,12 +85,25 @@ class ButlerMessageHandler:
 
         try:
             try:
-                loop.hygiene_compress_if_needed()
+                hygiene_compressed = loop.hygiene_compress_if_needed()
+                health["hygiene_compressed"] = hygiene_compressed
+                health.update({
+                    k: v for k, v in getattr(loop, "diagnostics", {}).items()
+                    if str(k).startswith("hygiene_")
+                })
             except Exception as exc:
+                health["hygiene_error"] = str(exc)
                 logger.warning("Gateway hygiene compression skipped: %s", exc)
-            attach_turn_memory_prefetch(loop, self._orchestrator, text, role="butler")
+            attach_turn_memory_prefetch(
+                loop,
+                self._orchestrator,
+                text,
+                role="butler",
+                diagnostics=health,
+            )
             result = loop.run(augmented)
-            sync_turn_memory(
+            health["loop"] = dict(getattr(result, "diagnostics", {}) or {})
+            sync_result = sync_turn_memory(
                 self._orchestrator,
                 text,
                 result.final_response or "",
@@ -93,10 +111,18 @@ class ButlerMessageHandler:
                 status=result.status,
                 session_id=session_key,
             )
+            health["memory_sync"] = sync_result
+            self._health_by_session[session_key] = dict(health)
             return self._format_response(result, platform)
         except Exception as exc:
+            health["error"] = str(exc)
+            self._health_by_session[session_key] = dict(health)
             logger.error("Message handling failed: %s", exc)
             return f"处理失败: {exc}"
+
+    def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
+        """Return the latest best-effort runtime diagnostics for a session."""
+        return dict(self._health_by_session.get(session_key, {}))
 
     def _handle_command(self, text: str) -> Optional[str]:
         """Handle Butler slash commands. Returns response or None."""
@@ -121,6 +147,7 @@ class ButlerMessageHandler:
             ok = self._orchestrator.project_manager.switch_project(arg)
             if ok:
                 self._sessions.clear()
+                self._health_by_session.clear()
                 return f"已切换到项目: {self._orchestrator.project_manager.current_project}"
             return f"未找到项目: {arg}"
 
@@ -144,6 +171,7 @@ class ButlerMessageHandler:
                     cfg = ModelConfig(model=model_spec)
                 self._orchestrator._settings.set_runtime_model_override(role_name, cfg)
                 self._sessions.clear()
+                self._health_by_session.clear()
                 return f"已设置 {role_name} → {model_spec}"
             return "用法: /model <角色> <provider/model>"
 
@@ -162,6 +190,7 @@ class ButlerMessageHandler:
             for loop in self._sessions.values():
                 trigger_session_end(self._orchestrator, loop)
             self._sessions.clear()
+            self._health_by_session.clear()
             return "已清空对话历史。"
 
         if cmd in ("/detail", "/详细"):

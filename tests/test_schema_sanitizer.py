@@ -209,3 +209,5 @@ def test_agent_loop_retries_llamacpp_schema_error_with_stripped_schema():
     assert len(client.calls) == 2
     assert "pattern" in client.calls[0][0]["function"]["parameters"]["properties"]["date"]
     assert "pattern" not in client.calls[1][0]["function"]["parameters"]["properties"]["date"]
+    assert result.diagnostics["schema_recovered"] is True
+    assert result.diagnostics["schema_keywords_stripped"] == 1

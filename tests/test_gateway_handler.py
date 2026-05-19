@@ -89,21 +89,27 @@ class TestSlashCommands:
         assert "dev_agent" in text
 
     def test_model_with_args_sets_model(self, handler):
+        handler._health_by_session["default"] = {"stale": True}
         text = handler._handle_command("/model butler openai/gpt-4o")
         assert "已设置" in text
         assert "openai/gpt-4o" in text
+        assert handler.last_health_summary("default") == {}
 
     def test_switch_without_arg_usage_message(self, handler):
         assert handler._handle_command("/switch") == "用法: /switch <项目名称>"
 
     def test_switch_valid_project_success(self, handler_with_project):
+        handler_with_project._health_by_session["default"] = {"stale": True}
         text = handler_with_project._handle_command("/switch test-project")
         assert "已切换到项目" in text
+        assert handler_with_project.last_health_summary("default") == {}
 
     def test_new_clears_sessions_message(self, handler, mock_loop):
         handler._sessions["default"] = mock_loop
+        handler._health_by_session["default"] = {"stale": True}
         assert handler._handle_command("/new") == "已清空对话历史。"
         assert handler._sessions == {}
+        assert handler.last_health_summary("default") == {}
 
     def test_detail_no_report(self, handler):
         with patch("butler.report.get_last_report", return_value=None):
@@ -126,9 +132,14 @@ class TestSlashCommands:
 @pytest.mark.integration
 class TestHandleMessage:
     def test_normal_message_returns_response(self, handler, mock_loop):
+        mock_loop.hygiene_compress_if_needed.return_value = True
+        mock_loop.run.return_value.diagnostics = {"schema_recovered": True}
         with patch.object(handler, "_get_or_create_loop", return_value=mock_loop):
             with patch("butler.gateway.message_handler.attach_turn_memory_prefetch") as prefetch:
-                with patch("butler.gateway.message_handler.sync_turn_memory") as sync:
+                with patch(
+                    "butler.gateway.message_handler.sync_turn_memory",
+                    return_value={"skipped": False, "provider_synced": True},
+                ) as sync:
                     text = handler.handle_message("hello", session_key="s1")
         assert text == "assistant reply"
         prefetch.assert_called_once()
@@ -136,6 +147,10 @@ class TestHandleMessage:
         assert mock_loop.run.call_args.args[0] == "hello"
         mock_loop.hygiene_compress_if_needed.assert_called_once()
         sync.assert_called_once()
+        health = handler.last_health_summary("s1")
+        assert health["hygiene_compressed"] is True
+        assert health["loop"]["schema_recovered"] is True
+        assert health["memory_sync"]["provider_synced"] is True
 
     def test_empty_message_returns_empty(self, handler):
         assert handler.handle_message("") == ""

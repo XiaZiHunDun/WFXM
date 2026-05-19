@@ -423,15 +423,32 @@ class ButlerOrchestrator:
         self._rebuild_skill_router()
         self._refresh_memory_provider_for_project_switch()
 
-    def inject_skill_context(self, task_description: str, top_k: int = 3) -> str:
+    def inject_skill_context(
+        self,
+        task_description: str,
+        top_k: int = 3,
+        *,
+        diagnostics: dict[str, Any] | None = None,
+    ) -> str:
         """Augment ``task_description`` with bodies from :class:`~butler.skills.router.SkillRouter`."""
         if not task_description.strip():
+            if diagnostics is not None:
+                diagnostics["skill_context_injected"] = False
+                diagnostics["skill_matches"] = []
             return task_description
         if self._skill_router is None:
+            if diagnostics is not None:
+                diagnostics["skill_context_injected"] = False
+                diagnostics["skill_matches"] = []
             return task_description
         matched = self._skill_router.match(task_description, top_k=top_k)
         if not matched:
+            if diagnostics is not None:
+                diagnostics["skill_context_injected"] = False
+                diagnostics["skill_matches"] = []
             return task_description
+        if diagnostics is not None:
+            diagnostics["skill_matches"] = [str(sk.get("name")) for sk in matched if sk.get("name")]
 
         sections: list[str] = [
             "## 相关知识（Butler Skill）",
@@ -449,10 +466,15 @@ class ButlerOrchestrator:
             sections.append(content)
 
         if len(sections) == 3:
+            if diagnostics is not None:
+                diagnostics["skill_context_injected"] = False
+                diagnostics["skill_empty_matches"] = [str(sk.get("name")) for sk in matched if sk.get("name")]
             return task_description
 
         sections.append("")
         sections.append(task_description.strip())
+        if diagnostics is not None:
+            diagnostics["skill_context_injected"] = True
         return "\n".join(sections).strip()
 
 

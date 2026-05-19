@@ -42,13 +42,16 @@ def test_memory_pre_llm_transform_does_not_mutate_history_messages():
         {"role": "system", "content": "sys"},
         {"role": "user", "content": "run tests"},
     ]
+    diagnostics: dict[str, object] = {}
 
-    transform = build_memory_pre_llm_transform(orch, "run tests", role="dev")
+    transform = build_memory_pre_llm_transform(orch, "run tests", role="dev", diagnostics=diagnostics)
     out = transform(original)
 
     assert out is not original
     assert out[-1]["content"].startswith("## 相关记忆（Butler）")
     assert original[-1]["content"] == "run tests"
+    assert diagnostics["memory_context_injected"] is True
+    assert diagnostics["memory_context_chars"] > 0
 
 
 def test_attach_turn_memory_prefetch_composes_existing_transform():

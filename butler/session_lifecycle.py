@@ -26,6 +26,7 @@ def prefetch_turn_memory(
     *,
     role: str = "default",
     limit: int = 5,
+    diagnostics: dict[str, Any] | None = None,
 ) -> str:
     """Collect query-relevant Butler/project memory for the next turn."""
     parts: list[str] = []
@@ -37,7 +38,11 @@ def prefetch_turn_memory(
             ctx = bm.get_system_context(current_project)
             if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
                 parts.append(str(ctx).strip())
+                if diagnostics is not None:
+                    diagnostics["memory_butler_context"] = True
         except Exception as exc:
+            if diagnostics is not None:
+                diagnostics["memory_butler_error"] = str(exc)
             logger.debug("Butler memory prefetch skipped: %s", exc)
 
         try:
@@ -52,7 +57,11 @@ def prefetch_turn_memory(
                     ]
                     if lines:
                         parts.append("## Query-aligned experience\n" + "\n".join(lines))
+                        if diagnostics is not None:
+                            diagnostics["memory_experience_hits"] = len(lines)
         except Exception as exc:
+            if diagnostics is not None:
+                diagnostics["memory_experience_error"] = str(exc)
             logger.debug("Experience prefetch skipped: %s", exc)
 
     pmem = getattr(orchestrator, "_project_memory", None)
@@ -61,7 +70,11 @@ def prefetch_turn_memory(
             ctx = pmem.get_context_for_agent(role)
             if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
                 parts.append(str(ctx).strip())
+                if diagnostics is not None:
+                    diagnostics["memory_project_context"] = True
         except Exception as exc:
+            if diagnostics is not None:
+                diagnostics["memory_project_error"] = str(exc)
             logger.debug("Project memory prefetch skipped: %s", exc)
 
     return "\n\n".join(p for p in parts if p.strip())
@@ -100,12 +113,15 @@ def build_memory_pre_llm_transform(
     *,
     role: str = "default",
     max_chars: int = 3000,
+    diagnostics: dict[str, Any] | None = None,
 ):
     """Build an API-time memory injection transform that does not mutate history."""
 
     def _transform(messages: list[dict]) -> list[dict]:
-        ctx = prefetch_turn_memory(orchestrator, query, role=role)
+        ctx = prefetch_turn_memory(orchestrator, query, role=role, diagnostics=diagnostics)
         if not ctx.strip():
+            if diagnostics is not None:
+                diagnostics["memory_context_injected"] = False
             return [dict(m) if isinstance(m, dict) else m for m in messages]
 
         out = [dict(m) if isinstance(m, dict) else m for m in messages]
@@ -118,6 +134,9 @@ def build_memory_pre_llm_transform(
                     content,
                     max_chars=max_chars,
                 )
+                if diagnostics is not None:
+                    diagnostics["memory_context_injected"] = True
+                    diagnostics["memory_context_chars"] = min(len(ctx), max_chars)
                 break
         return out
 
@@ -130,6 +149,7 @@ def attach_turn_memory_prefetch(
     query: str,
     *,
     role: str = "default",
+    diagnostics: dict[str, Any] | None = None,
 ) -> None:
     """Attach ephemeral memory prefetch to an AgentLoop callback chain."""
     callbacks = getattr(agent_loop, "callbacks", None)
@@ -138,7 +158,12 @@ def attach_turn_memory_prefetch(
     existing = getattr(callbacks, "pre_llm_transform", None)
     if getattr(existing, "_butler_memory_transform", False):
         existing = getattr(existing, "_butler_base_transform", None)
-    memory_transform = build_memory_pre_llm_transform(orchestrator, query, role=role)
+    memory_transform = build_memory_pre_llm_transform(
+        orchestrator,
+        query,
+        role=role,
+        diagnostics=diagnostics,
+    )
 
     def _composed(messages: list[dict]) -> list[dict]:
         prepared = memory_transform(messages)

@@ -100,5 +100,6 @@
 | `butler/gateway/message_handler.py` + `butler/transport/model_context.py` | `gateway/run.py` L7113+ | Gateway 常驻会话 85% 卫生压缩、模型上下文推断 | ✅ |
 | `butler/session_lifecycle.py` | `memory_provider` / post-session hooks | turn 前记忆预取、turn 后同步、session end 抽取 | ✅ |
 | `butler/skills/manager.py` + `butler/skills/router.py` + `butler/orchestrator.py` | Skill metadata 路由模式 | frontmatter-only Skill 索引、mtime cache、命中后动态加载正文 | ✅ |
+| `butler/core/agent_loop.py` + `butler/gateway/message_handler.py` | Gateway/Loop health summary | runtime diagnostics 聚合（压缩、schema 降级、Skill、记忆同步） | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。

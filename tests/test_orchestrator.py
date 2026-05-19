@@ -272,9 +272,12 @@ class TestSkillInjection:
             orch_no_projects._rebuild_skill_router()
 
         manager.get_skill.assert_not_called()
-        result = orch_no_projects.inject_skill_context("please run python tests")
+        diagnostics: dict[str, object] = {}
+        result = orch_no_projects.inject_skill_context("please run python tests", diagnostics=diagnostics)
         assert "Use pytest" in result
         manager.get_skills.assert_called_once_with(["python-dev"])
+        assert diagnostics["skill_context_injected"] is True
+        assert diagnostics["skill_matches"] == ["python-dev"]
 
     def test_skill_injection_skips_empty_lazy_loaded_content(self, orch_no_projects):
         manager = MagicMock()

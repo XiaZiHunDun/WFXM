@@ -94,6 +94,7 @@ class LoopResult:
     tool_calls_made: int = 0
     error: Optional[str] = None
     elapsed_seconds: float = 0.0
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 class AgentLoop:
@@ -128,6 +129,7 @@ class AgentLoop:
         self._primary_client: LLMClient | None = None
         self._empty_retries = 0
         self._truncation_retries = 0
+        self.diagnostics: dict[str, Any] = {}
 
     def interrupt(self) -> None:
         self._interrupted = True
@@ -141,6 +143,11 @@ class AgentLoop:
 
     def run(self, user_message: str) -> LoopResult:
         start_time = time.time()
+        pre_run_diagnostics = {
+            k: v for k, v in self.diagnostics.items()
+            if str(k).startswith("hygiene_")
+        }
+        self.diagnostics = dict(pre_run_diagnostics)
         self._interrupted = False
         self._thread_id = threading.get_ident() if hasattr(threading, "get_ident") else None
         clear_interrupt(self._thread_id)
@@ -233,6 +240,7 @@ class AgentLoop:
             total_tokens=self._total_tokens,
             tool_calls_made=self._tool_calls_count,
             elapsed_seconds=elapsed,
+            diagnostics=dict(self.diagnostics),
         )
 
     def _restore_primary_client(self) -> None:
@@ -275,11 +283,23 @@ class AgentLoop:
     ) -> bool:
         """Preflight compression for long-lived gateway sessions."""
         messages = list(self._messages)
+        for key in list(self.diagnostics):
+            if str(key).startswith("hygiene_"):
+                self.diagnostics.pop(key, None)
+        self.diagnostics.update({
+            "hygiene_checked": True,
+            "hygiene_compressed": False,
+            "hygiene_messages_before": len(messages),
+        })
         if len(messages) < 4:
             return False
 
         estimated = self._estimate_tokens(messages)
         threshold = int(self.config.max_context_tokens * threshold_ratio)
+        self.diagnostics.update({
+            "hygiene_estimated_tokens": estimated,
+            "hygiene_threshold_tokens": threshold,
+        })
         token_limit_hit = estimated >= threshold
         hard_limit_hit = len(messages) >= hard_message_limit
         if not token_limit_hit and not hard_limit_hit:
@@ -298,6 +318,10 @@ class AgentLoop:
             return False
 
         self._messages[:] = compressed
+        self.diagnostics.update({
+            "hygiene_compressed": True,
+            "hygiene_messages_after": len(compressed),
+        })
         logger.info(
             "Gateway hygiene compressed %d->%d messages (~%d tokens, threshold=%d)",
             len(messages),
@@ -413,6 +437,10 @@ class AgentLoop:
                         recovered = sanitize_tool_schemas(tools_to_send) or []
                         tools_to_send, stripped = strip_pattern_and_format(recovered)
                         if stripped and attempt < self.config.max_retries - 1:
+                            self.diagnostics.update({
+                                "schema_recovered": True,
+                                "schema_keywords_stripped": stripped,
+                            })
                             logger.info(
                                 "Retrying LLM call after stripping %d schema pattern/format keywords",
                                 stripped,

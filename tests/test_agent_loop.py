@@ -404,6 +404,25 @@ class TestAgentLoopContext:
         assert did is False
         compress.assert_not_called()
 
+    def test_hygiene_diagnostics_do_not_keep_stale_fields(self, mock_llm_client):
+        loop = AgentLoop(
+            mock_llm_client,
+            config=LoopConfig(max_context_tokens=1000, stream=False),
+        )
+        loop.diagnostics = {
+            "hygiene_compressed": True,
+            "hygiene_estimated_tokens": 900,
+            "hygiene_messages_after": 1,
+        }
+        loop.messages = [{"role": "user", "content": "short"}]
+
+        did = loop.hygiene_compress_if_needed()
+
+        assert did is False
+        assert loop.diagnostics["hygiene_compressed"] is False
+        assert "hygiene_estimated_tokens" not in loop.diagnostics
+        assert "hygiene_messages_after" not in loop.diagnostics
+
     def test_hygiene_compress_uses_85_percent_threshold(self, mock_llm_client):
         loop = AgentLoop(
             mock_llm_client,
@@ -419,6 +438,9 @@ class TestAgentLoopContext:
         assert loop.messages == compressed
         compress.assert_called_once()
         assert compress.call_args.kwargs["threshold_ratio"] == 0.85
+        assert loop.diagnostics["hygiene_compressed"] is True
+        assert loop.diagnostics["hygiene_messages_before"] == 20
+        assert loop.diagnostics["hygiene_messages_after"] == 1
 
     def test_hygiene_compress_hard_message_limit(self, mock_llm_client):
         loop = AgentLoop(
