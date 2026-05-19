@@ -122,10 +122,13 @@ class TaskOrchestrator:
             delegated_tools = [t for t in delegated_tools
                                if t["function"]["name"] in tool_names]
 
+        from butler.core.delegate_context import child_callbacks, get_parent_callbacks
+
         agent = orch.create_project_agent_loop(
             role=config.role,
             tools=delegated_tools,
             tool_dispatcher=dispatch_tool,
+            callbacks=child_callbacks(get_parent_callbacks()),
         )
 
         agent.config.max_iterations = config.max_iterations

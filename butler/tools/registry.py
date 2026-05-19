@@ -428,10 +428,14 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             if t["function"]["name"] not in DELEGATE_BLOCKED_TOOLS
         ]
 
+        from butler.core.delegate_context import child_callbacks, get_parent_callbacks
+
+        parent_cb = get_parent_callbacks()
         agent = orch.create_project_agent_loop(
             role=role,
             tools=delegated_tools,
             tool_dispatcher=lambda name, args: _safe_dispatch(name, args, depth + 1),
+            callbacks=child_callbacks(parent_cb),
         )
         agent.reset()
 

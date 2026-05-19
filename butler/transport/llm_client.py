@@ -114,6 +114,8 @@ class LLMClient:
         self,
         messages: list[dict],
         tools: Optional[list[dict]] = None,
+        check_interrupt: Optional[Callable[[], bool]] = None,
+        stale_timeout: Optional[float] = None,
         **kwargs,
     ) -> NormalizedResponse:
         """Non-streaming completion."""
@@ -141,14 +143,27 @@ class LLMClient:
             **params,
         )
 
-        response = self._raw_call(api_kwargs)
-        return transport.normalize_response(response)
+        from butler.transport.interruptible_client import run_interruptible
+
+        stale = stale_timeout if stale_timeout is not None else min(float(self.timeout or 120), 90.0)
+
+        def _do() -> NormalizedResponse:
+            response = self._raw_call(api_kwargs)
+            return transport.normalize_response(response)
+
+        return run_interruptible(
+            _do,
+            check_interrupt=check_interrupt,
+            stale_timeout=stale,
+        )
 
     def stream(
         self,
         messages: list[dict],
         tools: Optional[list[dict]] = None,
         on_delta: Optional[Callable[[str], None]] = None,
+        check_interrupt: Optional[Callable[[], bool]] = None,
+        stale_timeout: Optional[float] = None,
         **kwargs,
     ) -> NormalizedResponse:
         """Streaming completion with delta callback."""
@@ -176,7 +191,29 @@ class LLMClient:
             **params,
         )
 
-        return self._stream_call(api_kwargs, on_delta=on_delta, transport=transport)
+        from butler.transport.content_sanitize import sanitize_stream_delta
+        from butler.transport.interruptible_client import run_interruptible
+
+        stale = stale_timeout if stale_timeout is not None else min(float(self.timeout or 120), 90.0)
+
+        def _wrapped_delta(delta: str) -> None:
+            if on_delta:
+                cleaned = sanitize_stream_delta(delta)
+                if cleaned:
+                    on_delta(cleaned)
+
+        def _do() -> NormalizedResponse:
+            return self._stream_call(
+                api_kwargs,
+                on_delta=_wrapped_delta if on_delta else None,
+                transport=transport,
+            )
+
+        return run_interruptible(
+            _do,
+            check_interrupt=check_interrupt,
+            stale_timeout=stale,
+        )
 
     def _raw_call(self, api_kwargs: dict) -> Any:
         """Execute the actual API call."""

@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING
+
+from butler.transport.content_sanitize import sanitize_stream_delta
 
 if TYPE_CHECKING:
     from rich.console import Console
 
 _ACCENT = "cyan"
-_LEAKED_TAGS = re.compile(
-    r"</?redacted_thinking>|</?think>|</?tool_call>",
-    re.IGNORECASE,
-)
 
 
 class StreamRenderer:
@@ -43,7 +40,7 @@ class StreamRenderer:
             return
         if not delta:
             return
-        cleaned = _LEAKED_TAGS.sub("", delta)
+        cleaned = sanitize_stream_delta(delta)
         if not cleaned:
             return
         self._full_text.append(cleaned)

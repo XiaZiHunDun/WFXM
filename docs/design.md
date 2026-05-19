@@ -18,6 +18,7 @@
 - [十二、v0.6 评审意见驱动的稳健性升级](#十二v06-评审意见驱动的稳健性升级)
 - [十三、v0.7 分层记忆与 Skill 系统](#十三v07-分层记忆与-skill-系统)
 - [十四、v0.8 Hermes 提炼路线图](#十四v08-hermes-提炼路线图)
+- [十五、v0.9 run_agent 二次提炼](#十五v09-run_agent-二次提炼)
 
 ---
 
@@ -740,6 +741,19 @@ class ToolEntry:
 
 ---
 
+## 十五、v0.9 run_agent 二次提炼
+
+针对 [`reference/hermes-agent/run_agent.py`](reference/hermes-agent/run_agent.py) 中 `AIAgent` 控制平面，已完成第二轮模块化提炼（详见 [`docs/hermes-extraction-map.md`](hermes-extraction-map.md)「run_agent 二次提炼」表）：
+
+| Sprint | 内容 | 状态 |
+|--------|------|------|
+| A | 输出/消息卫生、工具归一化、空内容重试 | ✅ |
+| B | 可中断 API、steer、failover 回合恢复 | ✅ |
+| C | 委派回调透传、截断续写 | ✅ |
+| D | 文档更新 | ✅ |
+
+---
+
 ## 附录：命令速查
 
 | 命令 | 说明 |
@@ -755,4 +769,5 @@ class ToolEntry:
 | `/detail log` | 查看执行步骤日志 |
 | `/new` | 新会话（自动提炼旧会话记忆） |
 | `/status` | 查看系统状态 |
+| `/steer <文本>` | 向运行中 Agent 插入指引（不打断工具）|
 | `/help` | 显示帮助 |

@@ -1,15 +1,4 @@
-"""Butler Agent Loop — the core LLM conversation engine.
-
-This is the heart of the Butler system. Unlike importing an external
-agent engine, Butler controls every step: message construction,
-LLM calls, tool dispatch, error handling, and context management.
-
-Key design principles:
-  - Every step is hookable and overridable
-  - Tool dispatch goes through Butler's own registry
-  - Sub-agent spawning goes through Butler's orchestrator
-  - Memory and skills are injected per-turn, not just at init
-"""
+"""Butler Agent Loop — the core LLM conversation engine."""
 
 from __future__ import annotations
 
@@ -23,8 +12,22 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
 from butler.core.context_compressor import compress_messages
+from butler.core.delegate_context import child_callbacks, set_parent_callbacks
+from butler.core.loop_response import (
+    empty_retry_message,
+    needs_empty_content_retry,
+    needs_truncation_continue,
+    sanitize_response,
+    truncation_continue_message,
+)
 from butler.core.message_repair import repair_message_sequence, repair_tool_arguments
+from butler.core.message_sanitize import (
+    drop_thinking_only_assistants,
+    sanitize_api_messages,
+    sanitize_surrogates,
+)
 from butler.core.parallel_tools import execute_tools_parallel
+from butler.core.steer import apply_steer_to_tool_results, clear_steer
 from butler.tool_guardrails import (
     ToolCallGuardrailController,
     append_guidance,
@@ -33,6 +36,7 @@ from butler.tool_guardrails import (
 from butler.tools.interrupt import clear_interrupt, is_interrupted, set_interrupt
 from butler.transport.error_classifier import classify_api_error
 from butler.transport.fallback import FallbackEntry, build_fallback_chain, create_client_from_entry
+from butler.transport.interruptible_client import StaleApiCallError
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse, ToolCall
 
@@ -49,7 +53,6 @@ class LoopStatus(str, Enum):
 
 @dataclass
 class LoopConfig:
-    """Configuration for the agent loop."""
     max_iterations: int = 30
     max_retries: int = 3
     retry_delay: float = 1.0
@@ -58,11 +61,13 @@ class LoopConfig:
     enable_guardrails: bool = True
     enable_parallel_tools: bool = True
     fallback_entries: list | None = None
+    api_stale_timeout: float = 90.0
+    max_empty_content_retries: int = 1
+    max_truncation_continues: int = 1
 
 
 @dataclass
 class LoopCallbacks:
-    """Hooks into every phase of the agent loop."""
     on_llm_start: Optional[Callable[[list[dict]], None]] = None
     on_llm_complete: Optional[Callable[[NormalizedResponse], None]] = None
     on_stream_delta: Optional[Callable[[str], None]] = None
@@ -70,13 +75,13 @@ class LoopCallbacks:
     on_tool_complete: Optional[Callable[[str, str], None]] = None
     on_error: Optional[Callable[[Exception, int], None]] = None
     on_iteration: Optional[Callable[[int, LoopStatus], None]] = None
+    on_fallback: Optional[Callable[[str, str], None]] = None
     pre_llm_transform: Optional[Callable[[list[dict]], list[dict]]] = None
     should_continue: Optional[Callable[[int, NormalizedResponse], bool]] = None
 
 
 @dataclass
 class LoopResult:
-    """Complete result of an agent loop execution."""
     status: LoopStatus
     final_response: Optional[str] = None
     reasoning: Optional[str] = None
@@ -89,17 +94,7 @@ class LoopResult:
 
 
 class AgentLoop:
-    """Self-contained LLM conversation loop with tool calling.
-
-    This is Butler's own agent engine — not a wrapper around any
-    external agent. Butler controls the full lifecycle:
-      1. Build messages (system + memory + skill + history)
-      2. Call LLM (via Transport layer)
-      3. Parse response (text / tool_calls / errors)
-      4. Dispatch tools (via Butler's tool registry)
-      5. Manage context (compression when too long)
-      6. Repeat until done
-    """
+    """Self-contained LLM conversation loop with tool calling."""
 
     def __init__(
         self,
@@ -127,6 +122,9 @@ class AgentLoop:
         self._thread_id: int | None = None
         self._fallback_chain: list[FallbackEntry] = list(self.config.fallback_entries or [])
         self._fallback_index = 0
+        self._primary_client: LLMClient | None = None
+        self._empty_retries = 0
+        self._truncation_retries = 0
 
     def interrupt(self) -> None:
         self._interrupted = True
@@ -139,15 +137,16 @@ class AgentLoop:
             clear_interrupt(self._thread_id)
 
     def run(self, user_message: str) -> LoopResult:
-        """Execute a full conversation turn.
-
-        Sends the user message to the LLM, handles tool calls in a
-        loop, and returns the final result.
-        """
         start_time = time.time()
         self._interrupted = False
         self._thread_id = threading.get_ident() if hasattr(threading, "get_ident") else None
         clear_interrupt(self._thread_id)
+        clear_steer()
+        self._primary_client = self.client
+        self._fallback_index = 0
+        self._empty_retries = 0
+        self._truncation_retries = 0
+        set_parent_callbacks(self.callbacks)
         if self._guardrails:
             self._guardrails.reset_for_turn()
 
@@ -155,54 +154,65 @@ class AgentLoop:
             if self.system_prompt:
                 self._messages.append({"role": "system", "content": self.system_prompt})
 
-        self._messages.append({"role": "user", "content": user_message})
+        self._messages.append({"role": "user", "content": sanitize_surrogates(user_message)})
 
         final_text = None
         final_reasoning = None
         status = LoopStatus.RUNNING
         iteration = 0
 
-        while status == LoopStatus.RUNNING and iteration < self.config.max_iterations:
-            if self._interrupted:
-                status = LoopStatus.INTERRUPTED
-                break
+        try:
+            while status == LoopStatus.RUNNING and iteration < self.config.max_iterations:
+                if self._interrupted or (self._thread_id and is_interrupted(self._thread_id)):
+                    status = LoopStatus.INTERRUPTED
+                    break
 
-            iteration += 1
+                iteration += 1
+                if self.callbacks.on_iteration:
+                    self.callbacks.on_iteration(iteration, status)
 
-            if self.callbacks.on_iteration:
-                self.callbacks.on_iteration(iteration, status)
+                response = self._call_llm_with_retry()
+                if response is None:
+                    status = LoopStatus.INTERRUPTED if self._interrupted else LoopStatus.ERROR
+                    break
 
-            response = self._call_llm_with_retry()
+                if response.usage:
+                    self._total_tokens += response.usage.total_tokens
 
-            if response is None:
-                status = LoopStatus.ERROR
-                break
+                if response.tool_calls:
+                    self._process_tool_calls(response)
+                    if self.callbacks.should_continue:
+                        if not self.callbacks.should_continue(iteration, response):
+                            final_text = response.content
+                            status = LoopStatus.COMPLETED
+                            break
+                    continue
 
-            if response.usage:
-                self._total_tokens += response.usage.total_tokens
+                final_text = response.content
+                final_reasoning = response.reasoning
+                if (
+                    needs_truncation_continue(response)
+                    and self._truncation_retries < self.config.max_truncation_continues
+                ):
+                    self._truncation_retries += 1
+                    if final_text:
+                        self._messages.append({"role": "assistant", "content": final_text})
+                    self._messages.append({"role": "user", "content": truncation_continue_message()})
+                    final_text = None
+                    continue
+                status = LoopStatus.COMPLETED
 
-            if response.tool_calls:
-                self._process_tool_calls(response)
+            if status == LoopStatus.RUNNING:
+                status = LoopStatus.TOOL_LIMIT
 
-                if self.callbacks.should_continue:
-                    if not self.callbacks.should_continue(iteration, response):
-                        final_text = response.content
-                        status = LoopStatus.COMPLETED
-                        break
-                continue
+            if final_text:
+                self._messages.append({"role": "assistant", "content": final_text})
 
-            final_text = response.content
-            final_reasoning = response.reasoning
-            status = LoopStatus.COMPLETED
-
-        if status == LoopStatus.RUNNING:
-            status = LoopStatus.TOOL_LIMIT
-
-        if final_text:
-            self._messages.append({"role": "assistant", "content": final_text})
+        finally:
+            self._restore_primary_client()
+            set_parent_callbacks(None)
 
         elapsed = time.time() - start_time
-
         return LoopResult(
             status=status,
             final_response=final_text,
@@ -214,16 +224,18 @@ class AgentLoop:
             elapsed_seconds=elapsed,
         )
 
+    def _restore_primary_client(self) -> None:
+        if self._primary_client is not None:
+            self.client = self._primary_client
+            self._fallback_index = 0
+
     def _estimate_tokens(self, messages: list[dict]) -> int:
-        """Rough token estimate: ~4 chars per token."""
         total = 0
         for m in messages:
-            content = m.get("content") or ""
-            total += len(str(content)) // 4
+            total += len(str(m.get("content") or "")) // 4
         return total
 
     def _compress_context(self, messages: list[dict]) -> list[dict]:
-        """LLM-backed compression when over token budget."""
         compressed, summary, did = compress_messages(
             messages,
             max_tokens=self.config.max_context_tokens,
@@ -237,6 +249,8 @@ class AgentLoop:
         messages = self._compress_context(list(self._messages))
         messages, _ = repair_message_sequence(messages)
         repair_tool_arguments(messages)
+        messages, _ = sanitize_api_messages(messages)
+        messages, _ = drop_thinking_only_assistants(messages)
         if self.callbacks.pre_llm_transform:
             messages = self.callbacks.pre_llm_transform(messages)
         return messages
@@ -248,12 +262,18 @@ class AgentLoop:
         entry = self._fallback_chain[self._fallback_index]
         self.client = create_client_from_entry(entry)
         logger.info("Fallback activated: %s/%s", entry.provider, entry.model)
+        if self.callbacks.on_fallback:
+            self.callbacks.on_fallback(entry.provider, entry.model)
         return True
 
-    def _call_llm_with_retry(self) -> Optional[NormalizedResponse]:
-        """Call LLM with classified retry, compression, and provider fallback."""
-        messages_to_send = self._prepare_messages_for_api()
+    def _interrupt_check(self) -> bool:
+        return bool(
+            self._interrupted
+            or (self._thread_id is not None and is_interrupted(self._thread_id))
+        )
 
+    def _call_llm_with_retry(self) -> Optional[NormalizedResponse]:
+        messages_to_send = self._prepare_messages_for_api()
         if self.callbacks.on_llm_start:
             self.callbacks.on_llm_start(messages_to_send)
 
@@ -261,26 +281,42 @@ class AgentLoop:
         compress_attempted = False
 
         for attempt in range(self.config.max_retries):
-            if self._interrupted or (self._thread_id and is_interrupted(self._thread_id)):
+            if self._interrupt_check():
                 return None
 
             try:
+                common = {
+                    "messages": messages_to_send,
+                    "tools": self.tools if self.tools else None,
+                    "check_interrupt": self._interrupt_check,
+                    "stale_timeout": self.config.api_stale_timeout,
+                }
                 if self.config.stream and self.callbacks.on_stream_delta:
                     response = self.client.stream(
-                        messages=messages_to_send,
-                        tools=self.tools if self.tools else None,
                         on_delta=self.callbacks.on_stream_delta,
+                        **common,
                     )
                 else:
-                    response = self.client.complete(
-                        messages=messages_to_send,
-                        tools=self.tools if self.tools else None,
-                    )
+                    response = self.client.complete(**common)
+
+                response = sanitize_response(response)
+
+                if (
+                    needs_empty_content_retry(response)
+                    and self._empty_retries < self.config.max_empty_content_retries
+                ):
+                    self._empty_retries += 1
+                    self._messages.append({"role": "user", "content": empty_retry_message()})
+                    messages_to_send = self._prepare_messages_for_api()
+                    continue
 
                 if self.callbacks.on_llm_complete:
                     self.callbacks.on_llm_complete(response)
-
                 return response
+
+            except InterruptedError:
+                self._interrupted = True
+                return None
 
             except Exception as exc:
                 last_error = exc
@@ -295,6 +331,11 @@ class AgentLoop:
                 )
                 if self.callbacks.on_error:
                     self.callbacks.on_error(exc, attempt + 1)
+
+                if isinstance(exc, StaleApiCallError) and classified.retryable:
+                    if attempt < self.config.max_retries - 1:
+                        time.sleep(self.config.retry_delay)
+                        continue
 
                 if classified.should_compress and not compress_attempted:
                     compress_attempted = True
@@ -315,7 +356,6 @@ class AgentLoop:
         return None
 
     def _process_tool_calls(self, response: NormalizedResponse) -> None:
-        """Dispatch tool calls (parallel when safe) with guardrails."""
         if not response.tool_calls:
             return
 
@@ -358,9 +398,7 @@ class AgentLoop:
             if self.callbacks.on_tool_complete:
                 self.callbacks.on_tool_complete(name, result)
 
-        check = lambda: self._interrupted or (
-            self._thread_id is not None and is_interrupted(self._thread_id)
-        )
+        check = self._interrupt_check
 
         if self.config.enable_parallel_tools and len(response.tool_calls) > 1:
             pairs = execute_tools_parallel(
@@ -391,15 +429,15 @@ class AgentLoop:
                 "content": result,
             })
 
+        apply_steer_to_tool_results(self._messages, len(pairs))
+
     def _dispatch_tool(self, name: str, args: dict) -> str:
-        """Dispatch a tool call through Butler's registry."""
         if self.tool_dispatcher:
             try:
                 return self.tool_dispatcher(name, args)
             except Exception as exc:
                 logger.error("Tool %s failed: %s", name, exc)
                 return json.dumps({"error": f"Tool execution failed: {exc}"})
-
         return json.dumps({"error": f"No tool dispatcher configured, cannot run '{name}'"})
 
     @property

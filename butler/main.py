@@ -174,6 +174,7 @@ def _handle_slash_command(
             "  /new            — 新建对话（清空历史）\n"
             "  /status         — 当前状态\n"
             "  /detail         — 上一次委派的详细报告\n"
+            "  /steer <文本>   — 向运行中的 Agent 插入指引（不打断工具）\n"
             "  /quit           — 退出\n"
         )
         return "handled"
@@ -239,6 +240,15 @@ def _handle_slash_command(
             f"  模型: {mc.get('provider', '?')}/{mc.get('model', '?')}\n"
             f"  Butler Home: {settings.butler_home}\n"
         )
+        return "handled"
+
+    if command == "/steer":
+        if not arg:
+            console.print("[yellow]用法: /steer <指引文本>[/yellow]")
+            return "handled"
+        from butler.core.steer import steer
+        if steer(arg):
+            console.print("[dim]已加入指引，将在下一批工具结果后生效[/dim]")
         return "handled"
 
     if command == "/detail":

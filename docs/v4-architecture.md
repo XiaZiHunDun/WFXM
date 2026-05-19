@@ -85,8 +85,26 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 | `butler/session_lifecycle.py` | 会话边界记忆提交 |
 | `butler/gateway/hooks.py` | 轻量 HookBus |
 | `butler/skills/guard.py` | Skill 静态安全扫描 |
+| `butler/transport/content_sanitize.py` | 国产模型 think/XML 输出清洗 |
+| `butler/core/message_sanitize.py` | API 前消息卫生（stub tool、thinking-only）|
+| `butler/core/tool_call_normalize.py` | 工具去重、名称修复、delegate 上限 |
+| `butler/transport/interruptible_client.py` | 可中断 LLM 调用 + stale 超时 |
+| `butler/core/steer.py` | 运行中用户指引（`/steer`）|
+| `butler/core/delegate_context.py` | 委派子 Agent 回调透传 |
 
 完整对照见 [`docs/hermes-extraction-map.md`](hermes-extraction-map.md)。
+
+### Agent Loop 数据流（含二次提炼）
+
+```
+用户消息 → sanitize_surrogates
+    → 主循环:
+        prepare: compress → repair → sanitize_api → drop_thinking_only
+        LLM: interruptible complete/stream → sanitize_response
+             → 空内容重试 / 截断续写 / failover（回合末恢复主模型）
+        工具: normalize_tool_calls → parallel/sequential → steer 注入
+    → LoopResult
+```
 
 ### Gateway 层
 
@@ -140,7 +158,7 @@ while not done and iterations < budget:
 
 ## 测试覆盖
 
-492+ 项测试全部通过，覆盖：
+505+ 项测试全部通过，覆盖：
 - Transport 层（types、registry、chat_completions、anthropic）
 - Provider 注册表（列表、查询、别名解析）
 - Agent Loop（构造、消息管理、中断）

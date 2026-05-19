@@ -46,6 +46,16 @@ class ChatSessionUI:
             on_tool_complete=self._on_tool_complete,
             on_error=self._on_error,
             on_iteration=self._on_iteration,
+            on_fallback=self.notify_fallback,
+        )
+
+    def notify_fallback(self, provider: str, model: str) -> None:
+        self.notify_fallback_once(provider, model)
+
+    def notify_fallback_once(self, provider: str, model: str) -> None:
+        self.console.print(
+            f"  [yellow]↻ 已切换备用模型: {provider}/{model}[/yellow]",
+            highlight=False,
         )
 
     def finish_turn(self, result: LoopResult, stream: StreamRenderer) -> None:

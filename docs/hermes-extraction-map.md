@@ -51,13 +51,29 @@
 | 3 工具与委派 | 并行批、interrupt、delegate 信封 | `test_hermes_extraction.py`, `test_tools_registry.py` |
 | 4 记忆/Gateway/Skills | session 边界、HookBus、skills_guard | `test_gateway_handler.py`, `test_main_cli.py` |
 
-全量测试目标：**492+ passed**（`pytest tests/`）。
+全量测试目标：**505+ passed**（`pytest tests/`）。
 
 ## 架构约束
 
-- `butler/core/agent_loop.py` 保持 **< 600 行**（当前 ~417 行）。
+- `butler/core/agent_loop.py` 保持 **< 600 行**（当前 ~470 行，编排为主）。
 - 业务逻辑不得回灌到单体 `run_agent.py` 风格文件。
 - 新增 Hermes 能力优先新建 `butler/core/*` 或 `butler/transport/*` 模块。
+
+## run_agent.py 二次提炼（AIAgent L1028–L15213）
+
+| Butler 模块 | Hermes 行号 | 能力 | 状态 |
+|-------------|-------------|------|------|
+| `butler/transport/content_sanitize.py` | L3539–L3615 | think/XML 泄漏清理、流式 delta 过滤 | ✅ |
+| `butler/core/message_sanitize.py` | L5837–L5905 | 角色白名单、stub tool result、thinking-only 丢弃 | ✅ |
+| `butler/core/tool_call_normalize.py` | L6047–L6115 | 去重、工具名修复、delegate 并发上限 | ✅ |
+| `butler/core/loop_response.py` | L3516, empty retry | 空响应/截断续写判定 | ✅ |
+| `butler/transport/interruptible_client.py` | L7166–L7484 | 可中断 API + stale 超时 | ✅ |
+| `butler/core/steer.py` | L5180–L5293 | `/steer` 不打断插话 | ✅ |
+| `butler/core/delegate_context.py` | L10225 回调传播 | 子 loop 工具进度回调 | ✅ |
+| `butler/core/iteration_budget.py` | L283–L325 | 迭代预算（可选） | ✅ |
+| `butler/core/agent_loop.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写 | ✅ |
+
+测试：`tests/test_run_agent_extraction.py`；全量 **505+ passed**。
 
 ## CLI 提炼层（2026-05 增补）
 

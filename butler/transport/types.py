@@ -6,12 +6,8 @@ Zero external dependencies — pure dataclasses + stdlib.
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-
-_THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
-
 
 @dataclass
 class ToolCall:
@@ -57,18 +53,14 @@ class NormalizedResponse:
 
 
     def _extract_inline_thinking(self):
-        """Extract <think>...</think> blocks from content into reasoning."""
-        if not self.content or "<think>" not in self.content:
+        """Extract thinking blocks into reasoning; strip leaked tags from content."""
+        from butler.transport.content_sanitize import extract_thinking_to_reasoning
+
+        if not self.content:
             return
-        parts = _THINK_RE.findall(self.content)
-        if parts:
-            extracted = "\n".join(p.strip() for p in parts if p.strip())
-            if extracted:
-                self.reasoning = (
-                    (self.reasoning + "\n" + extracted) if self.reasoning
-                    else extracted
-                )
-            self.content = _THINK_RE.sub("", self.content).strip() or None
+        visible, reasoning = extract_thinking_to_reasoning(self.content, self.reasoning)
+        self.content = visible
+        self.reasoning = reasoning
 
 
 def build_tool_call(
