@@ -14,6 +14,8 @@ import pytest
 from butler.tools.registry import (
     dispatch_tool,
     get_tool_definitions,
+    get_tool_audit_events,
+    reset_tool_audit_events,
 )
 from butler.execution_context import use_execution_context
 
@@ -87,6 +89,88 @@ class TestToolDefinitions:
         assert read_limit["minimum"] == 1
         assert timeout["maximum"] == 120
         assert timeout["minimum"] == 1
+
+
+@pytest.mark.module_test
+class TestToolResultEnvelope:
+    def test_unknown_tool_returns_standard_error_envelope(self):
+        reset_tool_audit_events()
+
+        result = dispatch_tool("missing_tool", {})
+
+        data = json.loads(result)
+        assert data["error"] == "Unknown tool: missing_tool"
+        assert data["ok"] is False
+        assert data["tool"] == "missing_tool"
+        assert data["code"] == "TOOL_NOT_FOUND"
+        events = get_tool_audit_events()
+        assert events[-1]["tool"] == "missing_tool"
+        assert events[-1]["ok"] is False
+        assert events[-1]["code"] == "TOOL_NOT_FOUND"
+
+    def test_security_denial_error_is_coded_and_audited(self, tmp_path):
+        reset_tool_audit_events()
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        outside = tmp_path / "outside.txt"
+        outside.write_text("secret", encoding="utf-8")
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("read_file", {"path": str(outside)})
+
+        data = json.loads(result)
+        assert data["ok"] is False
+        assert data["tool"] == "read_file"
+        assert data["code"] == "TOOL_SECURITY_DENIED"
+        assert "outside workspace" in data["error"]
+        event = get_tool_audit_events()[-1]
+        assert event["tool"] == "read_file"
+        assert event["code"] == "TOOL_SECURITY_DENIED"
+        assert event["session_key"] == ""
+        assert "outside.txt" not in json.dumps(event)
+
+    def test_plain_text_success_is_audited_without_changing_result(self, tmp_path):
+        reset_tool_audit_events()
+        target = tmp_path / "hello.txt"
+        target.write_text("hello\n", encoding="utf-8")
+
+        result = dispatch_tool("read_file", {"path": str(target)})
+
+        assert "hello" in result
+        assert not result.lstrip().startswith("{")
+        event = get_tool_audit_events()[-1]
+        assert event["tool"] == "read_file"
+        assert event["ok"] is True
+        assert event["code"] == "TOOL_OK"
+
+    def test_nonzero_terminal_exit_is_coded_as_failure(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_ENABLE_TERMINAL", "1")
+        reset_tool_audit_events()
+
+        result = dispatch_tool("terminal", {"command": "false"})
+
+        data = json.loads(result)
+        assert data["exit_code"] != 0
+        assert data["ok"] is False
+        assert data["code"] == "TOOL_EXIT_NONZERO"
+        event = get_tool_audit_events()[-1]
+        assert event["ok"] is False
+        assert event["code"] == "TOOL_EXIT_NONZERO"
+
+    def test_patch_missing_old_string_is_generic_tool_error(self, tmp_path):
+        reset_tool_audit_events()
+        target = tmp_path / "patchme.txt"
+        target.write_text("hello", encoding="utf-8")
+
+        result = dispatch_tool(
+            "patch",
+            {"path": str(target), "old_string": "missing", "new_string": "x"},
+        )
+
+        data = json.loads(result)
+        assert data["code"] == "TOOL_ERROR"
+        event = get_tool_audit_events()[-1]
+        assert event["code"] == "TOOL_ERROR"
 
 
 @pytest.mark.module_test

@@ -185,6 +185,7 @@ class ButlerMessageHandler:
             ok = self._orchestrator.project_manager.switch_project(arg)
             if ok:
                 self._session_registry.reset_all()
+                _reset_tool_audit_events()
                 return f"已切换到项目: {self._orchestrator.project_manager.current_project}"
             return f"未找到项目: {arg}"
 
@@ -208,6 +209,7 @@ class ButlerMessageHandler:
                     cfg = ModelConfig(model=model_spec)
                 self._orchestrator._settings.set_runtime_model_override(role_name, cfg)
                 self._session_registry.reset_all()
+                _reset_tool_audit_events()
                 return f"已设置 {role_name} → {model_spec}"
             return "用法: /model <角色> <provider/model>"
 
@@ -226,6 +228,7 @@ class ButlerMessageHandler:
 
         if cmd in ("/new", "/新对话"):
             self._session_registry.reset(session_key)
+            _reset_tool_audit_events(session_key)
             return "已清空对话历史。"
 
         if cmd in ("/detail", "/详细"):
@@ -270,6 +273,13 @@ class ButlerMessageHandler:
             f"记忆同步: {'已同步' if not memory_sync.get('skipped', True) else '跳过'}",
             f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
         ]
+        tool_summary = _tool_audit_summary(session_key)
+        if tool_summary["total"]:
+            lines.extend([
+                f"工具调用: {tool_summary['total']}",
+                f"工具失败: {tool_summary['failed']}",
+                f"工具错误码: {', '.join(tool_summary['codes']) if tool_summary['codes'] else '-'}",
+            ])
         if health.get("error"):
             lines.append("错误: 有（查看日志）")
         if health.get("hygiene_error"):
@@ -335,3 +345,22 @@ def _is_sessionless_command(text: str) -> bool:
         "/detail",
         "/详细",
     }
+
+
+def _tool_audit_summary(session_key: str) -> dict[str, Any]:
+    try:
+        from butler.tools.registry import get_tool_audit_events
+    except Exception:
+        return {"total": 0, "failed": 0, "codes": []}
+    events = get_tool_audit_events(limit=50, session_key=session_key)
+    failed = [event for event in events if not event.get("ok", False)]
+    codes = sorted({str(event.get("code")) for event in failed if event.get("code")})
+    return {"total": len(events), "failed": len(failed), "codes": codes}
+
+
+def _reset_tool_audit_events(session_key: str | None = None) -> None:
+    try:
+        from butler.tools.registry import reset_tool_audit_events
+    except Exception:
+        return
+    reset_tool_audit_events(session_key)

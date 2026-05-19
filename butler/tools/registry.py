@@ -11,7 +11,9 @@ import logging
 import os
 import stat as stat_module
 import subprocess
+import threading
 import time
+from collections import deque
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -20,6 +22,9 @@ MAX_READ_FILE_BYTES = 1024 * 1024
 MAX_READ_FILE_LINES = 1000
 MAX_TERMINAL_TIMEOUT_SECONDS = 120
 MAX_TERMINAL_OUTPUT_CHARS = 50000
+_TOOL_AUDIT_EVENTS: deque[dict[str, Any]] = deque(maxlen=200)
+_TOOL_AUDIT_EVENTS_BY_SESSION: dict[str, deque[dict[str, Any]]] = {}
+_TOOL_AUDIT_LOCK = threading.RLock()
 
 
 class ToolEntry:
@@ -74,15 +79,169 @@ def dispatch_tool(name: str, args: dict) -> str:
     _ensure_builtins()
     entry = _REGISTRY.get(name)
     if entry is None:
-        return json.dumps({"error": f"Unknown tool: {name}"})
+        return _finalize_tool_result(
+            name,
+            args,
+            {"error": f"Unknown tool: {name}"},
+            started_at=time.monotonic(),
+        )
+    started_at = time.monotonic()
     try:
         result = entry.handler(**args)
-        if isinstance(result, str):
-            return result
-        return json.dumps(result, ensure_ascii=False, default=str)
+        return _finalize_tool_result(name, args, result, started_at=started_at)
     except Exception as exc:
         logger.error("Tool %s failed: %s", name, exc)
-        return json.dumps({"error": f"Tool '{name}' failed: {exc}"})
+        return _finalize_tool_result(
+            name,
+            args,
+            {"error": f"Tool '{name}' failed: {exc}"},
+            started_at=started_at,
+        )
+
+
+def get_tool_audit_events(
+    limit: int | None = None,
+    *,
+    session_key: str | None = None,
+) -> list[dict[str, Any]]:
+    """Return recent tool audit events with redacted arguments."""
+    with _TOOL_AUDIT_LOCK:
+        if session_key is None:
+            events = list(_TOOL_AUDIT_EVENTS)
+        else:
+            events = list(_TOOL_AUDIT_EVENTS_BY_SESSION.get(session_key, ()))
+    if limit is not None:
+        events = events[-max(0, int(limit)):]
+    return [dict(event) for event in events]
+
+
+def reset_tool_audit_events(session_key: str | None = None) -> None:
+    """Clear in-memory tool audit events. Intended for tests and diagnostics reset."""
+    with _TOOL_AUDIT_LOCK:
+        if session_key is None:
+            _TOOL_AUDIT_EVENTS.clear()
+            _TOOL_AUDIT_EVENTS_BY_SESSION.clear()
+            return
+        _TOOL_AUDIT_EVENTS_BY_SESSION.pop(session_key, None)
+        retained = [
+            event for event in _TOOL_AUDIT_EVENTS
+            if event.get("session_key") != session_key
+        ]
+        _TOOL_AUDIT_EVENTS.clear()
+        _TOOL_AUDIT_EVENTS.extend(retained[-_TOOL_AUDIT_EVENTS.maxlen:])
+
+
+def _finalize_tool_result(
+    name: str,
+    args: dict,
+    result: Any,
+    *,
+    started_at: float,
+) -> str:
+    if isinstance(result, str):
+        payload = _parse_json_object(result)
+        if payload is None:
+            ok = True
+            code = "TOOL_OK"
+            _record_tool_audit(name, args, ok=ok, code=code, started_at=started_at)
+            return result
+    elif isinstance(result, dict):
+        payload = dict(result)
+    else:
+        payload = result
+
+    if isinstance(payload, dict):
+        ok = _tool_result_ok(payload)
+        code = _tool_result_code(name, payload, ok=ok)
+        if not ok:
+            payload.setdefault("ok", False)
+            payload.setdefault("tool", name)
+            payload.setdefault("code", code)
+        _record_tool_audit(name, args, ok=ok, code=code, started_at=started_at)
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+    _record_tool_audit(name, args, ok=True, code="TOOL_OK", started_at=started_at)
+    return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+def _parse_json_object(text: str) -> dict[str, Any] | None:
+    try:
+        parsed = json.loads(text)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def _tool_result_ok(payload: dict[str, Any]) -> bool:
+    if payload.get("ok") is False:
+        return False
+    if "error" in payload:
+        return False
+    if payload.get("success") is False:
+        return False
+    exit_code = payload.get("exit_code")
+    if isinstance(exit_code, int) and exit_code != 0:
+        return False
+    return True
+
+
+def _tool_result_code(name: str, payload: dict[str, Any], *, ok: bool) -> str:
+    if ok:
+        return "TOOL_OK"
+    if payload.get("code"):
+        return str(payload["code"])
+    error = str(payload.get("error") or "")
+    if isinstance(payload.get("exit_code"), int) and payload["exit_code"] != 0:
+        return "TOOL_EXIT_NONZERO"
+    if name not in _REGISTRY:
+        return "TOOL_NOT_FOUND"
+    lowered = error.lower()
+    if (
+        "access denied" in lowered
+        or "outside workspace" in lowered
+        or "sensitive" in lowered
+        or "symlink" in lowered
+        or "hardlinked" in lowered
+    ):
+        return "TOOL_SECURITY_DENIED"
+    if lowered.startswith("file not found") or lowered.startswith("unknown tool"):
+        return "TOOL_NOT_FOUND"
+    if "timeout" in lowered or "timed out" in lowered:
+        return "TOOL_TIMEOUT"
+    if "too large" in lowered or "limit" in lowered:
+        return "TOOL_RESOURCE_LIMIT"
+    return "TOOL_ERROR"
+
+
+def _record_tool_audit(
+    name: str,
+    args: dict,
+    *,
+    ok: bool,
+    code: str,
+    started_at: float,
+) -> None:
+    try:
+        from butler.execution_context import get_current_session_key
+
+        session_key = get_current_session_key()
+    except Exception:
+        session_key = ""
+    event = {
+        "tool": name,
+        "ok": ok,
+        "code": code,
+        "session_key": session_key or "",
+        "elapsed_ms": round((time.monotonic() - started_at) * 1000, 2),
+        "arg_keys": sorted(str(key) for key in (args or {}).keys()),
+    }
+    with _TOOL_AUDIT_LOCK:
+        _TOOL_AUDIT_EVENTS.append(event)
+        bucket = _TOOL_AUDIT_EVENTS_BY_SESSION.setdefault(
+            event["session_key"],
+            deque(maxlen=200),
+        )
+        bucket.append(event)
 
 
 _builtins_loaded = False

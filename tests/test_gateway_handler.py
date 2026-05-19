@@ -10,6 +10,7 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.core.agent_loop import LoopResult, LoopStatus
+from butler.execution_context import use_execution_context
 from butler.gateway.message_handler import (
     ButlerMessageHandler,
     _is_global_session_command,
@@ -164,26 +165,116 @@ class TestSlashCommands:
         assert "secret-token" not in text
         assert "/tmp/private/path" not in text
 
+    def test_health_includes_tool_audit_summary(self, handler):
+        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        handler._health_by_session["default"] = {"session_key": "default"}
+        with use_execution_context(handler._orchestrator, session_key="default"):
+            dispatch_tool("missing_tool", {})
+
+        text = handler._handle_command("/health")
+
+        assert "工具调用: 1" in text
+        assert "工具失败: 1" in text
+        assert "TOOL_NOT_FOUND" in text
+
+    def test_health_tool_audit_is_session_scoped(self, handler):
+        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        handler._health_by_session["alice"] = {"session_key": "alice"}
+        with use_execution_context(handler._orchestrator, session_key="alice"):
+            dispatch_tool("missing_tool", {})
+        with use_execution_context(handler._orchestrator, session_key="bob"):
+            dispatch_tool("missing_tool", {})
+        dispatch_tool("missing_tool", {})
+
+        text = handler._format_health_summary("alice")
+
+        assert "工具调用: 1" in text
+        assert "工具失败: 1" in text
+
+    def test_health_tool_audit_filters_session_before_windowing(self, handler):
+        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        handler._health_by_session["alice"] = {"session_key": "alice"}
+        with use_execution_context(handler._orchestrator, session_key="alice"):
+            dispatch_tool("missing_tool", {})
+        for _ in range(55):
+            with use_execution_context(handler._orchestrator, session_key="bob"):
+                dispatch_tool("missing_tool", {})
+
+        text = handler._format_health_summary("alice")
+
+        assert "工具调用: 1" in text
+        assert "工具失败: 1" in text
+
+    def test_health_tool_audit_uses_session_bucket_not_global_capacity(self, handler):
+        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        handler._health_by_session["alice"] = {"session_key": "alice"}
+        with use_execution_context(handler._orchestrator, session_key="alice"):
+            dispatch_tool("missing_tool", {})
+        for _ in range(205):
+            with use_execution_context(handler._orchestrator, session_key="bob"):
+                dispatch_tool("missing_tool", {})
+
+        text = handler._format_health_summary("alice")
+
+        assert "工具调用: 1" in text
+        assert "工具失败: 1" in text
+
+    def test_new_clears_current_session_tool_audit(self, handler):
+        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        handler._health_by_session["alice"] = {"session_key": "alice"}
+        with use_execution_context(handler._orchestrator, session_key="alice"):
+            dispatch_tool("missing_tool", {})
+
+        handler._handle_command("/new", session_key="alice")
+        handler._health_by_session["alice"] = {"session_key": "alice"}
+        text = handler._format_health_summary("alice")
+
+        assert "工具调用:" not in text
+
     def test_model_returns_model_config(self, handler):
         text = handler._handle_command("/model")
         assert "butler" in text
         assert "dev_agent" in text
 
     def test_model_with_args_sets_model(self, handler):
+        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+
+        reset_tool_audit_events()
         handler._health_by_session["default"] = {"stale": True}
+        with use_execution_context(handler._orchestrator, session_key="default"):
+            dispatch_tool("missing_tool", {})
         text = handler._handle_command("/model butler openai/gpt-4o")
         assert "已设置" in text
         assert "openai/gpt-4o" in text
         assert handler.last_health_summary("default") == {}
+        handler._health_by_session["default"] = {"session_key": "default"}
+        assert "工具调用:" not in handler._format_health_summary("default")
 
     def test_switch_without_arg_usage_message(self, handler):
         assert handler._handle_command("/switch") == "用法: /switch <项目名称>"
 
     def test_switch_valid_project_success(self, handler_with_project):
+        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+
+        reset_tool_audit_events()
         handler_with_project._health_by_session["default"] = {"stale": True}
+        with use_execution_context(handler_with_project._orchestrator, session_key="default"):
+            dispatch_tool("missing_tool", {})
         text = handler_with_project._handle_command("/switch test-project")
         assert "已切换到项目" in text
         assert handler_with_project.last_health_summary("default") == {}
+        handler_with_project._health_by_session["default"] = {"session_key": "default"}
+        assert "工具调用:" not in handler_with_project._format_health_summary("default")
 
     def test_new_clears_sessions_message(self, handler, mock_loop):
         handler._sessions["default"] = mock_loop
