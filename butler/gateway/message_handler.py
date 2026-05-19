@@ -11,6 +11,7 @@ Information flow:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Optional
 
 from butler.orchestrator import ButlerOrchestrator
@@ -18,6 +19,7 @@ from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopConfig, LoopRes
 from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
 from butler.tools.registry import get_tool_definitions, dispatch_tool
 from butler.report import AgentReport, format_for_wechat, format_for_cli, cache_report
+from butler.gateway.session_registry import GatewaySessionRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -32,17 +34,31 @@ class ButlerMessageHandler:
     def __init__(self, channel: str = "gateway"):
         self.channel = channel
         self._orchestrator = ButlerOrchestrator(user_id="owner", channel=channel)
-        self._sessions: dict[str, AgentLoop] = {}
-        self._health_by_session: dict[str, dict[str, Any]] = {}
+        self._session_registry = GatewaySessionRegistry(
+            self._create_loop_for_session,
+            finalize=self._finalize_session,
+            max_sessions=_env_int("BUTLER_GATEWAY_MAX_SESSIONS", 128),
+            idle_ttl_seconds=_env_float("BUTLER_GATEWAY_SESSION_IDLE_TTL_SECONDS", 3600),
+        )
+        self._sessions: dict[str, AgentLoop] = self._session_registry.sessions
+        self._health_by_session: dict[str, dict[str, Any]] = self._session_registry.health_by_session
+
+    def _create_loop_for_session(self, session_key: str) -> AgentLoop:
+        del session_key
+        return self._orchestrator.create_agent_loop(
+            role="butler",
+            tools=get_tool_definitions(),
+            tool_dispatcher=dispatch_tool,
+        )
+
+    def _finalize_session(self, loop: AgentLoop) -> None:
+        from butler.session_lifecycle import trigger_session_end
+
+        trigger_session_end(self._orchestrator, loop)
 
     def _get_or_create_loop(self, session_key: str) -> AgentLoop:
-        if session_key not in self._sessions:
-            self._sessions[session_key] = self._orchestrator.create_agent_loop(
-                role="butler",
-                tools=get_tool_definitions(),
-                tool_dispatcher=dispatch_tool,
-            )
-        return self._sessions[session_key]
+        self._session_registry.evict_idle()
+        return self._session_registry.get_or_create(session_key)
 
     def handle_message(
         self,
@@ -65,6 +81,25 @@ class ButlerMessageHandler:
             if not rewritten.strip():
                 return ""
             text = rewritten
+
+        if _is_sessionless_command(text):
+            return self._handle_message_locked(text, session_key=session_key, platform=platform)
+
+        session_lock = self._session_registry.enter_session(session_key)
+        try:
+            return self._handle_message_locked(text, session_key=session_key, platform=platform)
+        finally:
+            self._session_registry.exit_session(session_key, session_lock)
+
+    def _handle_message_locked(
+        self,
+        text: str,
+        *,
+        session_key: str = "default",
+        platform: str = "unknown",
+    ) -> str:
+        if not text.strip():
+            return ""
 
         if text.startswith("/"):
             response = self._handle_command(text, session_key=session_key)
@@ -115,17 +150,17 @@ class ButlerMessageHandler:
                     session_id=session_key,
                 )
                 health["memory_sync"] = sync_result
-                self._health_by_session[session_key] = dict(health)
+                self._session_registry.set_health(session_key, health)
                 return self._format_response(result, platform)
             except Exception as exc:
                 health["error"] = str(exc)
-                self._health_by_session[session_key] = dict(health)
+                self._session_registry.set_health(session_key, health)
                 logger.error("Message handling failed: %s", exc)
                 return f"处理失败: {exc}"
 
     def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
         """Return the latest best-effort runtime diagnostics for a session."""
-        return dict(self._health_by_session.get(session_key, {}))
+        return self._session_registry.get_health(session_key)
 
     def _handle_command(self, text: str, *, session_key: str = "default") -> Optional[str]:
         """Handle Butler slash commands. Returns response or None."""
@@ -149,8 +184,7 @@ class ButlerMessageHandler:
                 return "用法: /switch <项目名称>"
             ok = self._orchestrator.project_manager.switch_project(arg)
             if ok:
-                self._sessions.clear()
-                self._health_by_session.clear()
+                self._session_registry.reset_all()
                 return f"已切换到项目: {self._orchestrator.project_manager.current_project}"
             return f"未找到项目: {arg}"
 
@@ -173,8 +207,7 @@ class ButlerMessageHandler:
                 else:
                     cfg = ModelConfig(model=model_spec)
                 self._orchestrator._settings.set_runtime_model_override(role_name, cfg)
-                self._sessions.clear()
-                self._health_by_session.clear()
+                self._session_registry.reset_all()
                 return f"已设置 {role_name} → {model_spec}"
             return "用法: /model <角色> <provider/model>"
 
@@ -192,11 +225,7 @@ class ButlerMessageHandler:
             return self._format_health_summary(session_key)
 
         if cmd in ("/new", "/新对话"):
-            from butler.session_lifecycle import trigger_session_end
-            for loop in self._sessions.values():
-                trigger_session_end(self._orchestrator, loop)
-            self._sessions.clear()
-            self._health_by_session.clear()
+            self._session_registry.reset(session_key)
             return "已清空对话历史。"
 
         if cmd in ("/detail", "/详细"):
@@ -259,3 +288,50 @@ class ButlerMessageHandler:
             return text
 
         return result.final_response
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, "").strip() or default)
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, "").strip() or default)
+    except ValueError:
+        return default
+
+
+def _is_global_session_command(text: str) -> bool:
+    stripped = (text or "").strip()
+    if not stripped.startswith("/"):
+        return False
+    parts = stripped.split(maxsplit=1)
+    cmd = parts[0].lower()
+    return cmd in {"/switch", "/切换", "/model", "/模型"}
+
+
+def _is_sessionless_command(text: str) -> bool:
+    stripped = (text or "").strip()
+    if not stripped.startswith("/"):
+        return False
+    parts = stripped.split(maxsplit=1)
+    cmd = parts[0].lower()
+    return cmd in {
+        "/projects",
+        "/项目",
+        "/switch",
+        "/切换",
+        "/model",
+        "/模型",
+        "/status",
+        "/状态",
+        "/health",
+        "/诊断",
+        "/new",
+        "/新对话",
+        "/detail",
+        "/详细",
+    }

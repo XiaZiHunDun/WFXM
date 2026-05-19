@@ -1,0 +1,233 @@
+"""Per-session AgentLoop lifecycle registry for Gateway handlers."""
+
+from __future__ import annotations
+
+import time
+import threading
+from collections.abc import Callable
+from typing import Any
+
+
+class _TrackedSessionDict(dict[str, Any]):
+    def __init__(self, registry: "GatewaySessionRegistry", initial: dict[str, Any] | None = None) -> None:
+        self._registry = registry
+        super().__init__()
+        if initial:
+            self.update(initial)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        normalized = str(key or "default")
+        with self._registry._lock:
+            super().__setitem__(normalized, value)
+            self._registry._last_active_at[normalized] = self._registry._now()
+
+    def update(self, other=(), /, **kwargs) -> None:  # type: ignore[override]
+        items = dict(other, **kwargs)
+        for key, value in items.items():
+            self[key] = value
+
+
+class GatewaySessionRegistry:
+    """Track Gateway AgentLoop instances, health, and lifecycle finalization."""
+
+    def __init__(
+        self,
+        loop_factory: Callable[[str], Any],
+        *,
+        finalize: Callable[[Any], Any] | None = None,
+        max_sessions: int = 128,
+        idle_ttl_seconds: float = 3600,
+        now: Callable[[], float] | None = None,
+    ) -> None:
+        self._loop_factory = loop_factory
+        self._finalize = finalize
+        self.max_sessions = max(1, int(max_sessions or 1))
+        self.idle_ttl_seconds = max(0.0, float(idle_ttl_seconds or 0))
+        self._now = now or time.monotonic
+        self._lock = threading.RLock()
+        self.sessions: dict[str, Any] = _TrackedSessionDict(self)
+        self.health_by_session: dict[str, dict[str, Any]] = {}
+        self._last_active_at: dict[str, float] = {}
+        self._session_locks: dict[str, threading.RLock] = {}
+        self._active_sessions: set[str] = set()
+        self._pending_session_entries = 0
+        self._resetting_all = False
+        self._reset_condition = threading.Condition(self._lock)
+
+    def get_or_create(self, session_key: str) -> Any:
+        key = str(session_key or "default")
+        with self._lock:
+            self._wait_for_reset_all_locked(key)
+            if key not in self.sessions:
+                self.sessions[key] = self._loop_factory(key)
+            self.touch(key)
+            loop = self.sessions[key]
+        self.enforce_lru()
+        return loop
+
+    def session_lock(self, session_key: str) -> threading.RLock:
+        key = str(session_key or "default")
+        with self._lock:
+            self._wait_for_reset_all_locked()
+            lock = self._session_locks.get(key)
+            if lock is None:
+                lock = threading.RLock()
+                self._session_locks[key] = lock
+            return lock
+
+    def enter_session(self, session_key: str) -> threading.RLock:
+        """Enter a session turn and mark it active before work begins."""
+        key = str(session_key or "default")
+        while True:
+            with self._lock:
+                self._wait_for_reset_all_locked()
+                lock = self._session_locks.get(key)
+                if lock is None:
+                    lock = threading.RLock()
+                    self._session_locks[key] = lock
+                self._pending_session_entries += 1
+            lock.acquire()
+            with self._lock:
+                self._pending_session_entries -= 1
+                self._reset_condition.notify_all()
+                if not self._resetting_all:
+                    self._active_sessions.add(key)
+                    return lock
+            lock.release()
+
+    def exit_session(self, session_key: str, lock: threading.RLock) -> None:
+        key = str(session_key or "default")
+        try:
+            with self._lock:
+                self._active_sessions.discard(key)
+                self._reset_condition.notify_all()
+        finally:
+            lock.release()
+
+    def mark_active(self, session_key: str) -> None:
+        with self._lock:
+            self._wait_for_reset_all_locked()
+            self._active_sessions.add(str(session_key or "default"))
+
+    def mark_inactive(self, session_key: str) -> None:
+        with self._lock:
+            self._active_sessions.discard(str(session_key or "default"))
+            self._reset_condition.notify_all()
+
+    def touch(self, session_key: str) -> None:
+        with self._lock:
+            self._last_active_at[str(session_key or "default")] = self._now()
+
+    def last_active_at(self, session_key: str) -> float:
+        with self._lock:
+            return self._last_active_at.get(str(session_key or "default"), 0.0)
+
+    def set_health(self, session_key: str, health: dict[str, Any]) -> None:
+        with self._lock:
+            self.health_by_session[str(session_key or "default")] = dict(health)
+
+    def get_health(self, session_key: str) -> dict[str, Any]:
+        with self._lock:
+            return dict(self.health_by_session.get(str(session_key or "default"), {}))
+
+    def reset(self, session_key: str) -> None:
+        key = str(session_key or "default")
+        with self.session_lock(key):
+            with self._lock:
+                loop = self.sessions.pop(key, None)
+                self.health_by_session.pop(key, None)
+                self._last_active_at.pop(key, None)
+                self._active_sessions.discard(key)
+                self._session_locks.pop(key, None)
+        self._finalize_loop(loop)
+
+    def reset_all(self) -> None:
+        finalized: set[int] = set()
+        with self._lock:
+            self._wait_for_reset_all_locked()
+            self._resetting_all = True
+        try:
+            with self._lock:
+                while self._active_sessions or self._pending_session_entries:
+                    self._reset_condition.wait()
+                items = list(self.sessions.items())
+                self.sessions.clear()
+                self.health_by_session.clear()
+                self._last_active_at.clear()
+                self._active_sessions.clear()
+                self._session_locks.clear()
+        finally:
+            with self._lock:
+                self._resetting_all = False
+                self._reset_condition.notify_all()
+        for _key, loop in items:
+            if id(loop) in finalized:
+                continue
+            finalized.add(id(loop))
+            self._finalize_loop(loop)
+
+    def evict_idle(self) -> list[str]:
+        with self._lock:
+            if self.idle_ttl_seconds <= 0 or self._resetting_all:
+                return []
+            cutoff = self._now() - self.idle_ttl_seconds
+            expired = [
+                key for key in self.sessions
+                if key not in self._active_sessions
+                and self._last_active_at.get(key, 0.0) < cutoff
+            ]
+        evicted: list[str] = []
+        for key in expired:
+            if self._reset_if_still_idle(key, cutoff):
+                evicted.append(key)
+        return evicted
+
+    def enforce_lru(self) -> list[str]:
+        loops_to_finalize: list[Any] = []
+        with self._lock:
+            if self._resetting_all:
+                return []
+            evicted: list[str] = []
+            while len(self.sessions) > self.max_sessions:
+                candidates = [key for key in self.sessions if key not in self._active_sessions]
+                if not candidates:
+                    break
+                oldest = min(candidates, key=lambda key: self._last_active_at.get(key, 0.0))
+                evicted.append(oldest)
+                loop = self.sessions.pop(oldest, None)
+                self.health_by_session.pop(oldest, None)
+                self._last_active_at.pop(oldest, None)
+                self._session_locks.pop(oldest, None)
+                loops_to_finalize.append(loop)
+        for loop in loops_to_finalize:
+            self._finalize_loop(loop)
+        return evicted
+
+    def _finalize_loop(self, loop: Any) -> None:
+        if loop is None or self._finalize is None:
+            return
+        self._finalize(loop)
+
+    def _wait_for_reset_all_locked(self, session_key: str | None = None) -> None:
+        while self._resetting_all and (
+            session_key is None or session_key not in self._active_sessions
+        ):
+            self._reset_condition.wait()
+
+    def _reset_if_still_idle(self, session_key: str, cutoff: float) -> bool:
+        key = str(session_key or "default")
+        loop = None
+        with self.session_lock(key):
+            with self._lock:
+                if (
+                    self._resetting_all
+                    or key in self._active_sessions
+                    or self._last_active_at.get(key, 0.0) >= cutoff
+                ):
+                    return False
+                loop = self.sessions.pop(key, None)
+                self.health_by_session.pop(key, None)
+                self._last_active_at.pop(key, None)
+                self._session_locks.pop(key, None)
+        self._finalize_loop(loop)
+        return loop is not None

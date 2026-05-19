@@ -10,7 +10,11 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.core.agent_loop import LoopResult, LoopStatus
-from butler.gateway.message_handler import ButlerMessageHandler
+from butler.gateway.message_handler import (
+    ButlerMessageHandler,
+    _is_global_session_command,
+    _is_sessionless_command,
+)
 from butler.project_manager import ProjectManager
 from butler.report import AgentReport, cache_report
 
@@ -188,6 +192,26 @@ class TestSlashCommands:
         assert handler._sessions == {}
         assert handler.last_health_summary("default") == {}
 
+    def test_new_only_clears_current_session(self, handler):
+        loop_a = MagicMock(messages=[{"role": "user"}] * 6)
+        loop_b = MagicMock(messages=[{"role": "user"}] * 6)
+        handler._sessions["a"] = loop_a
+        handler._sessions["b"] = loop_b
+        handler._session_registry.touch("a")
+        handler._session_registry.touch("b")
+        handler._health_by_session["a"] = {"stale": "a"}
+        handler._health_by_session["b"] = {"keep": "b"}
+
+        with patch("butler.session_lifecycle.trigger_session_end", return_value={}) as finalize:
+            text = handler.handle_message("/new", session_key="a")
+
+        assert text == "已清空对话历史。"
+        finalize.assert_called_once_with(handler._orchestrator, loop_a)
+        assert "a" not in handler._sessions
+        assert handler._sessions["b"] is loop_b
+        assert handler.last_health_summary("a") == {}
+        assert handler.last_health_summary("b") == {"keep": "b"}
+
     def test_detail_no_report(self, handler):
         with patch("butler.report.get_last_report", return_value=None):
             text = handler._handle_command("/detail")
@@ -204,6 +228,46 @@ class TestSlashCommands:
 
     def test_non_command_returns_none(self, handler):
         assert handler._handle_command("/unknowncmd") is None
+
+    def test_global_session_commands_are_detected(self):
+        assert _is_global_session_command("/switch test-project") is True
+        assert _is_global_session_command("/模型 butler minimax/test") is True
+        assert _is_global_session_command("/new") is False
+        assert _is_global_session_command("hello") is False
+        assert _is_sessionless_command("/status") is True
+        assert _is_sessionless_command("/unknowncmd") is False
+
+    def test_hook_rewrite_to_global_command_bypasses_session_lock(self, handler):
+        with patch(
+            "butler.gateway.hooks.apply_pre_gateway_dispatch",
+            return_value="/model",
+        ):
+            with patch.object(
+                handler._session_registry,
+                "enter_session",
+                side_effect=AssertionError("session lock should not be acquired"),
+            ):
+                text = handler.handle_message("hello", session_key="s1")
+
+        assert "当前模型配置" in text
+
+    def test_slash_command_bypasses_session_entry(self, handler):
+        with patch.object(
+            handler._session_registry,
+            "enter_session",
+            side_effect=AssertionError("slash commands should not enter a session turn"),
+        ):
+            text = handler.handle_message("/status", session_key="s1")
+
+        assert "Butler 状态" in text
+
+    def test_unknown_slash_command_enters_session_turn(self, handler, mock_loop):
+        with patch.object(handler, "_get_or_create_loop", return_value=mock_loop):
+            with patch("butler.gateway.message_handler.sync_turn_memory", return_value={"skipped": True}):
+                text = handler.handle_message("/unknowncmd", session_key="s1")
+
+        assert text == "assistant reply"
+        assert mock_loop.run.call_args.args[0] == "/unknowncmd"
 
 
 @pytest.mark.integration
@@ -297,12 +361,52 @@ class TestSessionManagement:
                 assert handler._get_or_create_loop("b") is loop_b
                 assert handler._get_or_create_loop("a") is not handler._get_or_create_loop("b")
 
-    def test_new_clears_all_sessions(self, handler, mock_loop):
-        handler._sessions = {"a": mock_loop, "b": mock_loop}
+    def test_new_keeps_other_sessions(self, handler, mock_loop):
+        other_loop = MagicMock()
+        handler._sessions["default"] = mock_loop
+        handler._sessions["other"] = other_loop
+        handler._session_registry.touch("default")
+        handler._session_registry.touch("other")
+
         handler.handle_message("/new")
-        assert handler._sessions == {}
+
+        assert "default" not in handler._sessions
+        assert handler._sessions["other"] is other_loop
 
     def test_switch_clears_all_sessions(self, handler_with_project, mock_loop):
-        handler_with_project._sessions = {"default": mock_loop}
+        handler_with_project._sessions["default"] = mock_loop
+        handler_with_project._session_registry.touch("default")
         handler_with_project.handle_message("/switch test-project")
         assert handler_with_project._sessions == {}
+
+    def test_get_or_create_loop_evicts_idle_sessions(self, handler):
+        now = {"value": 0.0}
+        handler._session_registry.idle_ttl_seconds = 10
+        handler._session_registry._now = lambda: now["value"]
+        old_loop = MagicMock(messages=[{"role": "user"}] * 6)
+        new_loop = MagicMock()
+        handler._sessions["old"] = old_loop
+        handler._session_registry.touch("old")
+        now["value"] = 20.0
+
+        with patch.object(handler._orchestrator, "create_agent_loop", return_value=new_loop):
+            with patch("butler.session_lifecycle.trigger_session_end", return_value={}) as finalize:
+                loop = handler._get_or_create_loop("new")
+
+        assert loop is new_loop
+        assert "old" not in handler._sessions
+        assert "new" in handler._sessions
+        finalize.assert_called_once_with(handler._orchestrator, old_loop)
+
+    def test_get_or_create_loop_enforces_lru_limit(self, handler):
+        now = {"value": 0.0}
+        handler._session_registry.max_sessions = 2
+        handler._session_registry._now = lambda: now["value"]
+        loops = [MagicMock(name=f"loop-{i}") for i in range(3)]
+
+        with patch.object(handler._orchestrator, "create_agent_loop", side_effect=loops):
+            for key in ("a", "b", "c"):
+                now["value"] += 1.0
+                handler._get_or_create_loop(key)
+
+        assert set(handler._sessions) == {"b", "c"}
