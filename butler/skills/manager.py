@@ -25,6 +25,7 @@ MAX_DESC_LEN = 1024
 _LLMFn = Optional[Callable[[str], str]]
 
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n(.*)\Z", re.DOTALL)
+_MetadataSignature = tuple[int, int]
 
 
 def _validate_name(name: str) -> Optional[str]:
@@ -70,6 +71,53 @@ def _parse_skill_md(text: str, path: Path, source: str) -> Optional[dict[str, An
     }
 
 
+def _parse_skill_frontmatter(frontmatter: str, path: Path, source: str) -> Optional[dict[str, Any]]:
+    try:
+        fm = yaml.safe_load(frontmatter) or {}
+    except yaml.YAMLError as e:
+        logger.warning("Bad YAML frontmatter in %s: %s", path, e)
+        return None
+    if not isinstance(fm, dict):
+        return None
+    name = str(fm.get("name") or path.stem)
+    triggers = fm.get("triggers") or []
+    if isinstance(triggers, str):
+        triggers = [triggers]
+    triggers = [str(t) for t in triggers]
+    return {
+        "name": name,
+        "description": str(fm.get("description", "")),
+        "triggers": triggers,
+        "version": fm.get("version", 1),
+        "created": str(fm.get("created", "")),
+        "_path": path,
+        "_source": source,
+    }
+
+
+def _read_frontmatter_only(path: Path) -> Optional[str]:
+    try:
+        with path.open("rb") as f:
+            first = f.readline()
+            if first.strip() != b"---":
+                logger.warning("Skill file missing YAML frontmatter: %s", path)
+                return None
+            lines: list[bytes] = []
+            for line in f:
+                if line.strip() == b"---":
+                    return b"".join(lines).decode("utf-8")
+                lines.append(line)
+    except UnicodeDecodeError as e:
+        logger.warning("Bad YAML frontmatter encoding in %s: %s", path, e)
+        return None
+    except OSError as e:
+        logger.warning("Could not read %s: %s", path, e)
+        return None
+
+    logger.warning("Skill file missing YAML frontmatter: %s", path)
+    return None
+
+
 def _render_skill_md(skill: dict[str, Any]) -> str:
     fm = {
         "name": skill["name"],
@@ -106,6 +154,7 @@ class SkillManager:
         self._usage = UsageTracker(self._skills_dir / ".butler_skill_usage.json")
         self._similarity = SkillSimilarity(llm_fn=llm_fn)
         self._consolidator = SkillConsolidator(llm_fn=llm_fn)
+        self._metadata_cache: dict[tuple[str, str], tuple[_MetadataSignature, dict[str, Any]]] = {}
 
     def set_llm_fn(self, fn: _LLMFn) -> None:
         self._similarity.set_llm_fn(fn)
@@ -159,10 +208,63 @@ class SkillManager:
             seen[name] = sk
         return [seen[k] for k in order if k in seen]
 
+    def _metadata_signature(self, path: Path) -> _MetadataSignature | None:
+        try:
+            st = path.stat()
+        except OSError as e:
+            logger.warning("Could not stat %s: %s", path, e)
+            return None
+        return (st.st_mtime_ns, st.st_size)
+
+    def _load_metadata(self, path: Path, source: str) -> Optional[dict[str, Any]]:
+        sig = self._metadata_signature(path)
+        if sig is None:
+            return None
+
+        key = (str(path), source)
+        cached = self._metadata_cache.get(key)
+        if cached and cached[0] == sig:
+            return dict(cached[1])
+
+        frontmatter = _read_frontmatter_only(path)
+        if frontmatter is None:
+            self._metadata_cache.pop(key, None)
+            return None
+
+        sk = _parse_skill_frontmatter(frontmatter, path, source)
+        if not sk:
+            self._metadata_cache.pop(key, None)
+            return None
+
+        self._metadata_cache[key] = (sig, dict(sk))
+        return sk
+
+    def _load_metadata_all(self) -> list[dict[str, Any]]:
+        seen: dict[str, dict[str, Any]] = {}
+        order: list[str] = []
+        active_keys: set[tuple[str, str]] = set()
+        for path, source in self._iter_skill_files():
+            active_keys.add((str(path), source))
+            sk = self._load_metadata(path, source)
+            if not sk:
+                continue
+            name = sk["name"]
+            if name not in seen:
+                order.append(name)
+            # Project shadows global for the same skill name.
+            if name in seen and source == "global" and seen[name].get("_source") == "project":
+                continue
+            seen[name] = sk
+
+        for key in list(self._metadata_cache):
+            if key not in active_keys:
+                self._metadata_cache.pop(key, None)
+        return [seen[k] for k in order if k in seen]
+
     def list_skills(self) -> list[dict[str, Any]]:
         """Metadata summaries (no full body)."""
         summaries: list[dict[str, Any]] = []
-        for sk in self._load_all():
+        for sk in self._load_metadata_all():
             summaries.append(
                 {
                     "name": sk["name"],

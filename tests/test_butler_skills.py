@@ -215,6 +215,82 @@ class TestSkillManager:
             skills = mgr.list_skills()
             assert any(s["name"] == "shared" for s in skills)
 
+    def test_list_skills_reads_frontmatter_without_decoding_body(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "binary-body.md"
+            path.write_bytes(
+                b"---\n"
+                b"name: binary-body\n"
+                b"description: Metadata only\n"
+                b"triggers:\n"
+                b"  - binary\n"
+                b"version: 1\n"
+                b"created: '2026-05-19'\n"
+                b"---\n"
+                b"\xff\xfe\xfd"
+            )
+            mgr = SkillManager(td)
+
+            skills = mgr.list_skills()
+
+            assert len(skills) == 1
+            assert skills[0]["name"] == "binary-body"
+            assert "content" not in skills[0]
+
+    def test_list_skills_reuses_unchanged_frontmatter_cache(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SkillManager(td)
+            mgr.create("cached", "Cached skill", ["cache"], "Body")
+
+            original_open = Path.open
+            opened: list[Path] = []
+
+            def counting_open(self, *args, **kwargs):
+                if self.suffix == ".md":
+                    opened.append(self)
+                return original_open(self, *args, **kwargs)
+
+            monkeypatch.setattr(Path, "open", counting_open)
+
+            assert mgr.list_skills()[0]["name"] == "cached"
+            assert mgr.list_skills()[0]["name"] == "cached"
+
+            assert opened == [Path(td) / "cached.md"]
+
+    def test_list_skills_refreshes_cache_when_frontmatter_changes(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "cached.md"
+            mgr = SkillManager(td)
+            mgr.create("cached", "Cached skill", ["cache"], "Body")
+
+            assert mgr.list_skills()[0]["description"] == "Cached skill"
+
+            text = path.read_text(encoding="utf-8")
+            path.write_text(text.replace("Cached skill", "Updated metadata"), encoding="utf-8")
+
+            assert mgr.list_skills()[0]["description"] == "Updated metadata"
+
+    def test_list_skills_prunes_cache_when_skill_is_deleted(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SkillManager(td)
+            mgr.create("cached", "Cached skill", ["cache"], "Body")
+            assert [s["name"] for s in mgr.list_skills()] == ["cached"]
+
+            mgr.delete("cached")
+
+            assert mgr.list_skills() == []
+
+    def test_get_skill_still_reads_body_after_metadata_cache_warmup(self):
+        with tempfile.TemporaryDirectory() as td:
+            mgr = SkillManager(td)
+            mgr.create("cached", "Cached skill", ["cache"], "Full body")
+            assert "content" not in mgr.list_skills()[0]
+
+            skill = mgr.get_skill("cached")
+
+            assert skill is not None
+            assert skill["content"] == "Full body"
+
 
 class TestUsageTracker:
     def test_tracking(self):
