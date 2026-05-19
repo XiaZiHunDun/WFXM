@@ -123,10 +123,14 @@ PYTHONPATH=. python -m butler.main chat
 
 #### 测试 2.2.5：终端命令执行
 
+> 默认安全配置下 terminal 工具关闭。若要测试本节，先设置 `BUTLER_ENABLE_TERMINAL=1`，
+> 并确保当前项目或 `BUTLER_TOOL_SAFE_ROOT` 指向可执行命令的工作区。启用后仍只允许基础命令 allowlist，
+> 不支持 shell 管道、重定向、变量展开或解释器入口。
+
 **操作：** 输入 `执行命令 ls -la butler/`
 
 **预期：**
-- 调用 terminal 工具
+- 调用 terminal 工具（启用时）
 - 返回目录列表结果
 
 **验证点：**
@@ -553,7 +557,7 @@ PYTHONPATH=. python -m butler.main gateway --platforms wechat
 2. **模型限制**：当前仅配置了 MiniMax 模型，切换到其他厂商需要额外配置 API key
 3. **推理模型延迟**：MiniMax-M2.7 是推理模型，首次响应可能较慢（含思考时间）
 4. **微信消息长度**：微信单条消息限 2000 字符，超长回复会被截断
-5. **工具超时**：terminal 工具默认 30 秒超时，长时间运行的命令会被终止
+5. **工具超时**：terminal 工具默认关闭；设置 `BUTLER_ENABLE_TERMINAL=1` 后，默认 30 秒超时，长时间运行的命令会被终止
 6. **delegate_task**：子代理委派功能需要在系统提示中触发，简单问答不会触发
 
 ---

@@ -57,8 +57,9 @@ class TestCLIE2E:
         assert len(result.final_response) > 0
         mock_complete.assert_called()
 
-    def test_tool_call_flow(self, butler_orchestrator, patch_llm, tmp_path):
+    def test_tool_call_flow(self, butler_orchestrator, patch_llm, tmp_path, monkeypatch):
         mock_complete, _mock_stream = patch_llm
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
         tmp_file = tmp_path / "e2e_read.txt"
         tmp_file.write_text("hello from e2e\nsecond line\n", encoding="utf-8")
 
@@ -79,6 +80,10 @@ class TestCLIE2E:
         assert result.iterations == 2
         assert result.tool_calls_made == 1
         assert result.final_response == "File contents reviewed."
+        assert any(
+            msg.get("role") == "tool" and "hello from e2e" in str(msg.get("content"))
+            for msg in result.messages
+        )
 
     def test_multi_turn_context(self, butler_orchestrator, patch_llm, mock_llm_response):
         mock_complete, mock_stream = patch_llm

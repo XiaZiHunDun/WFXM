@@ -214,21 +214,19 @@ class TestToolRegistry:
         assert "terminal" in names
         assert "delegate_task" in names
 
-    def test_dispatch_read_file(self):
+    def test_dispatch_read_file(self, tmp_path, monkeypatch):
         from butler.tools.registry import dispatch_tool
-        import tempfile, os
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
-            f.write("line1\nline2\nline3\n")
-            path = f.name
-        try:
-            result = dispatch_tool("read_file", {"path": path})
-            assert "line1" in result
-            assert "line2" in result
-        finally:
-            os.unlink(path)
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        path = tmp_path / "sample.txt"
+        path.write_text("line1\nline2\nline3\n", encoding="utf-8")
 
-    def test_dispatch_terminal(self):
+        result = dispatch_tool("read_file", {"path": str(path)})
+        assert "line1" in result
+        assert "line2" in result
+
+    def test_dispatch_terminal(self, monkeypatch):
         from butler.tools.registry import dispatch_tool
+        monkeypatch.setenv("BUTLER_ENABLE_TERMINAL", "1")
         result = dispatch_tool("terminal", {"command": "echo hello"})
         data = json.loads(result)
         assert data["exit_code"] == 0
@@ -240,27 +238,25 @@ class TestToolRegistry:
         data = json.loads(result)
         assert "error" in data
 
-    def test_dispatch_list_directory(self):
+    def test_dispatch_list_directory(self, tmp_path, monkeypatch):
         from butler.tools.registry import dispatch_tool
-        result = dispatch_tool("list_directory", {"path": "/tmp"})
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        result = dispatch_tool("list_directory", {"path": str(tmp_path)})
         data = json.loads(result)
         assert "entries" in data
 
-    def test_dispatch_write_and_patch(self):
-        import tempfile, os
+    def test_dispatch_write_and_patch(self, tmp_path, monkeypatch):
         from butler.tools.registry import dispatch_tool
-        path = tempfile.mktemp(suffix=".txt")
-        try:
-            dispatch_tool("write_file", {"path": path, "content": "hello world"})
-            assert Path(path).read_text() == "hello world"
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        path = tmp_path / "sample.txt"
 
-            result = dispatch_tool("patch", {"path": path, "old_string": "hello", "new_string": "goodbye"})
-            data = json.loads(result)
-            assert data["success"]
-            assert Path(path).read_text() == "goodbye world"
-        finally:
-            if os.path.exists(path):
-                os.unlink(path)
+        dispatch_tool("write_file", {"path": str(path), "content": "hello world"})
+        assert path.read_text() == "hello world"
+
+        result = dispatch_tool("patch", {"path": str(path), "old_string": "hello", "new_string": "goodbye"})
+        data = json.loads(result)
+        assert data["success"]
+        assert path.read_text() == "goodbye world"
 
 
 # ── Orchestrator ────────────────────────────────────────────

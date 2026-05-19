@@ -103,5 +103,6 @@
 | `butler/core/agent_loop.py` + `butler/gateway/message_handler.py` | Gateway/Loop health summary | runtime diagnostics 聚合与 `/health`/`/诊断` 命令（压缩、schema 降级、Skill、记忆同步） | ✅ |
 | `butler/core/hygiene_preflight.py` + `butler/core/schema_recovery.py` + `butler/core/retry_policy.py` | AgentLoop 策略拆分 | hygiene 预检、schema 恢复、retry delay 策略模块化 | ✅ |
 | `butler/execution_context.py` + `butler/tools/registry.py` + `butler/task_orchestrator.py` | 委派执行上下文 | Gateway/CLI/tool 子路径复用宿主 orchestrator，子代理对齐 Skill 注入与 turn memory lifecycle | ✅ |
+| `butler/tools/path_safety.py` + `butler/tools/registry.py` | 工具路径安全 | 项目 workspace sandbox、敏感路径 denylist、文件/搜索/terminal 路径与 workdir 统一校验 | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke tests 位于 `tests/test_real_api_smoke.py`，默认被 `live_llm` marker 排除；显式运行需使用 `pytest -m live_llm tests/test_real_api_smoke.py`，并设置 `BUTLER_RUN_REAL_API_SMOKE=1` 和对应 provider API key。

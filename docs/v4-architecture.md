@@ -61,7 +61,7 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 | `read_file` | 文件读取（行号标注、偏移/限制）|
 | `write_file` | 文件写入/创建 |
 | `patch` | 精确字符串替换 |
-| `terminal` | Shell 命令执行（可中断）|
+| `terminal` | 受限命令执行（默认关闭；需 `BUTLER_ENABLE_TERMINAL=1`，仅 allowlist argv，不支持 shell 管道/重定向）|
 | `search_files` | 基于 ripgrep 的全文搜索 |
 | `list_directory` | 目录列表 |
 | `skills_list` | Skill 元数据索引（降 token）|

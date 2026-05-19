@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,6 +15,18 @@ from butler.tools.registry import (
     dispatch_tool,
     get_tool_definitions,
 )
+from butler.execution_context import use_execution_context
+
+
+def _orchestrator_for_workspace(workspace: Path):
+    orch = MagicMock()
+    orch.project_manager.get_current.return_value = SimpleNamespace(workspace=workspace)
+    return orch
+
+
+@pytest.fixture(autouse=True)
+def _tool_safe_root(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
 
 
 @pytest.mark.module_test
@@ -93,6 +107,18 @@ class TestReadFile:
         result = dispatch_tool("read_file", {"path": str(f)})
         assert result == ""
 
+    def test_denies_file_outside_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        outside = tmp_path / "outside.txt"
+        outside.write_text("secret", encoding="utf-8")
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("read_file", {"path": str(outside)})
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"]
+
 
 @pytest.mark.module_test
 class TestWriteFile:
@@ -114,6 +140,29 @@ class TestWriteFile:
         dispatch_tool("write_file", {"path": str(target), "content": "nested content"})
         assert target.exists()
         assert target.read_text(encoding="utf-8") == "nested content"
+
+    def test_denies_write_outside_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        outside = tmp_path / "outside.txt"
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("write_file", {"path": str(outside), "content": "nope"})
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"]
+        assert not outside.exists()
+
+    def test_relative_write_targets_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("write_file", {"path": "nested/out.txt", "content": "ok"})
+
+        data = json.loads(result)
+        assert data["success"] is True
+        assert (workspace / "nested" / "out.txt").read_text(encoding="utf-8") == "ok"
 
 
 @pytest.mark.module_test
@@ -149,9 +198,37 @@ class TestPatch:
         )
         assert json.loads(result) == {"success": True, "replacements": 1}
 
+    def test_denies_patch_outside_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        outside = tmp_path / "patchme.txt"
+        outside.write_text("replace me", encoding="utf-8")
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool(
+                "patch",
+                {"path": str(outside), "old_string": "replace", "new_string": "blocked"},
+            )
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"]
+        assert outside.read_text(encoding="utf-8") == "replace me"
+
 
 @pytest.mark.module_test
 class TestTerminal:
+    @pytest.fixture(autouse=True)
+    def _enable_terminal(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_ENABLE_TERMINAL", "1")
+
+    def test_terminal_disabled_by_default(self, monkeypatch):
+        monkeypatch.delenv("BUTLER_ENABLE_TERMINAL", raising=False)
+
+        result = dispatch_tool("terminal", {"command": "echo blocked"})
+
+        data = json.loads(result)
+        assert "disabled by default" in data["error"]
+
     def test_echo_command_exit_code_zero(self):
         result = dispatch_tool("terminal", {"command": "echo hello-terminal"})
         data = json.loads(result)
@@ -179,6 +256,192 @@ class TestTerminal:
         data = json.loads(result)
         assert data["exit_code"] == 0
         assert len(data["output"]) <= 50050
+
+    def test_denies_workdir_outside_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "pwd", "workdir": str(outside)})
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"]
+
+    def test_relative_workdir_targets_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        nested = workspace / "nested"
+        nested.mkdir(parents=True)
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "pwd", "workdir": "nested"})
+
+        data = json.loads(result)
+        assert data["exit_code"] == 0
+        assert str(nested) in data["output"]
+
+    def test_default_workdir_is_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "pwd"})
+
+        data = json.loads(result)
+        assert data["exit_code"] == 0
+        assert data["output"].strip() == str(workspace)
+
+    def test_denies_command_paths_outside_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "cat /etc/passwd"})
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"] or "sensitive" in data["error"]
+
+    def test_denies_relative_command_paths_escaping_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "cat ../outside.txt"})
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"]
+
+    def test_denies_shell_metacharacter_escape(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "cd .. && pwd"})
+
+        data = json.loads(result)
+        assert "allowlist" in data["error"]
+
+    def test_denies_dynamic_interpreter_escape(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool(
+                "terminal",
+                {"command": "python -c \"open('../outside.txt').read()\""},
+            )
+
+        data = json.loads(result)
+        assert "allowlist" in data["error"]
+
+    def test_denies_shell_wrappers_even_when_terminal_enabled(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "dash -c 'cat ../outside.txt'"})
+
+        data = json.loads(result)
+        assert "allowlist" in data["error"]
+
+    def test_denies_executable_paths_even_when_terminal_enabled(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "/bin/echo hello"})
+
+        data = json.loads(result)
+        assert "allowlist" in data["error"]
+
+    def test_denies_search_commands_in_terminal_allowlist(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "rg --pre sh ."})
+
+        data = json.loads(result)
+        assert "allowlist" in data["error"]
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "grep --file=../outside.txt hit.txt"})
+
+        data = json.loads(result)
+        assert "allowlist" in data["error"]
+
+    def test_denies_symlink_argument_escaping_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        outside = tmp_path / "outside.txt"
+        workspace.mkdir()
+        outside.write_text("leaked", encoding="utf-8")
+        (workspace / "link.txt").symlink_to(outside)
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "cat link.txt"})
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"]
+
+    def test_denies_hardlink_argument_escaping_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        outside = tmp_path / "outside.txt"
+        hardlink = workspace / "hardlink.txt"
+        workspace.mkdir()
+        outside.write_text("leaked", encoding="utf-8")
+        try:
+            hardlink.hardlink_to(outside)
+        except OSError:
+            pytest.skip("hardlinks are not supported on this filesystem")
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "cat hardlink.txt"})
+
+        data = json.loads(result)
+        assert "hardlinked" in data["error"]
+
+    def test_terminal_uses_fixed_path_not_workspace_path(self, tmp_path, monkeypatch):
+        workspace = tmp_path / "workspace"
+        bin_dir = workspace / "bin"
+        workspace.mkdir()
+        bin_dir.mkdir()
+        fake_cat = bin_dir / "cat"
+        fake_cat.write_text("#!/bin/sh\necho PWNED_VIA_PATH\n", encoding="utf-8")
+        fake_cat.chmod(0o755)
+        target = workspace / "target.txt"
+        target.write_text("real content", encoding="utf-8")
+        monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ.get('PATH', '')}")
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("terminal", {"command": "cat target.txt"})
+
+        data = json.loads(result)
+        assert data["exit_code"] == 0
+        assert "real content" in data["output"]
+        assert "PWNED_VIA_PATH" not in data["output"]
+
+    def test_terminal_sanitizes_subprocess_env(self, tmp_path, monkeypatch):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        monkeypatch.setenv("LD_PRELOAD", str(tmp_path / "evil.so"))
+        monkeypatch.setenv("RIPGREP_CONFIG_PATH", str(tmp_path / "evil-rg-config"))
+
+        fake_proc = MagicMock()
+        fake_proc.poll.return_value = 0
+        fake_proc.communicate.return_value = ("ok\n", "")
+        fake_proc.returncode = 0
+
+        with patch("butler.tools.registry.subprocess.Popen", return_value=fake_proc) as mock_popen:
+            with use_execution_context(_orchestrator_for_workspace(workspace)):
+                result = dispatch_tool("terminal", {"command": "echo ok"})
+
+        data = json.loads(result)
+        assert data["exit_code"] == 0
+        env = mock_popen.call_args.kwargs["env"]
+        assert env["PATH"] == "/usr/bin:/bin"
+        assert "LD_PRELOAD" not in env
+        assert "RIPGREP_CONFIG_PATH" not in env
 
 
 @pytest.mark.module_test
@@ -215,6 +478,78 @@ class TestSearchFiles:
             pytest.skip(data["error"])
         assert data["total"] == 0
 
+    def test_denies_search_outside_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("search_files", {"pattern": "secret", "path": str(outside)})
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"]
+
+    def test_search_files_uses_fixed_path_not_workspace_path(self, tmp_path, monkeypatch):
+        workspace = tmp_path / "workspace"
+        bin_dir = workspace / "bin"
+        workspace.mkdir()
+        bin_dir.mkdir()
+        fake_rg = bin_dir / "rg"
+        fake_rg.write_text("#!/bin/sh\necho PWNED_RG\n", encoding="utf-8")
+        fake_rg.chmod(0o755)
+        target = workspace / "searchme.txt"
+        target.write_text("unique_fixed_path_marker\n", encoding="utf-8")
+        monkeypatch.setenv("PATH", f"{bin_dir}:{os.environ.get('PATH', '')}")
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool(
+                "search_files",
+                {"pattern": "unique_fixed_path_marker", "path": str(workspace)},
+            )
+
+        assert "PWNED_RG" not in result
+        data = json.loads(result)
+        if "error" in data:
+            pytest.skip(data["error"])
+        assert data["total"] >= 1
+
+    def test_search_files_treats_dash_prefixed_pattern_as_literal(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        (workspace / "safe.txt").write_text("ordinary text\n", encoding="utf-8")
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool(
+                "search_files",
+                {"pattern": "--pre=/bin/echo PWNED", "path": str(workspace)},
+            )
+
+        assert "PWNED" not in result
+        data = json.loads(result)
+        if "error" in data:
+            pytest.skip(data["error"])
+        assert data["total"] == 0
+
+    def test_search_files_disables_ripgrep_config_and_sanitizes_env(self, tmp_path, monkeypatch):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        monkeypatch.setenv("RIPGREP_CONFIG_PATH", str(tmp_path / "evil-rg-config"))
+        monkeypatch.setenv("LD_PRELOAD", str(tmp_path / "evil.so"))
+
+        completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+        with patch("butler.tools.registry.subprocess.run", return_value=completed) as mock_run:
+            with use_execution_context(_orchestrator_for_workspace(workspace)):
+                result = dispatch_tool("search_files", {"pattern": "needle", "path": str(workspace)})
+
+        data = json.loads(result)
+        assert data["total"] == 0
+        cmd = mock_run.call_args.args[0]
+        env = mock_run.call_args.kwargs["env"]
+        assert "--no-config" in cmd
+        assert "RIPGREP_CONFIG_PATH" not in env
+        assert "LD_PRELOAD" not in env
+
 
 @pytest.mark.module_test
 class TestListDirectory:
@@ -231,6 +566,16 @@ class TestListDirectory:
         result = dispatch_tool("list_directory", {"path": str(tmp_path / "missing")})
         data = json.loads(result)
         assert "error" in data
+
+    def test_denies_listing_outside_current_workspace(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+
+        with use_execution_context(_orchestrator_for_workspace(workspace)):
+            result = dispatch_tool("list_directory", {"path": str(tmp_path)})
+
+        data = json.loads(result)
+        assert "outside workspace" in data["error"]
 
 
 @pytest.mark.module_test

@@ -147,7 +147,7 @@ def _register_builtin_tools() -> None:
     # ── terminal ──────────────────────────────────────────────
     register(
         name="terminal",
-        description="Execute a shell command and return its output.",
+        description="Execute a restricted argv command when BUTLER_ENABLE_TERMINAL=1.",
         schema={
             "type": "object",
             "properties": {
@@ -239,7 +239,12 @@ def _register_builtin_tools() -> None:
 # ── Tool Implementations ─────────────────────────────────────
 
 def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
-    p = Path(path).expanduser()
+    from butler.tools.path_safety import check_tool_path
+
+    safety = check_tool_path(path)
+    if not safety.allowed:
+        return json.dumps({"error": safety.error})
+    p = safety.path
     if not p.exists():
         return json.dumps({"error": f"File not found: {path}"})
     try:
@@ -254,7 +259,12 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
 
 
 def _tool_write_file(path: str, content: str, **_) -> str:
-    p = Path(path).expanduser()
+    from butler.tools.path_safety import check_tool_path
+
+    safety = check_tool_path(path, for_write=True)
+    if not safety.allowed:
+        return json.dumps({"error": safety.error})
+    p = safety.path
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(content, encoding="utf-8")
@@ -264,7 +274,12 @@ def _tool_write_file(path: str, content: str, **_) -> str:
 
 
 def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
-    p = Path(path).expanduser()
+    from butler.tools.path_safety import check_tool_path
+
+    safety = check_tool_path(path, for_write=True)
+    if not safety.allowed:
+        return json.dumps({"error": safety.error})
+    p = safety.path
     if not p.exists():
         return json.dumps({"error": f"File not found: {path}"})
     try:
@@ -284,10 +299,34 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
 def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) -> str:
     import threading
     from butler.tools.interrupt import is_interrupted
+    from butler.tools.path_safety import (
+        check_tool_path,
+        default_tool_workdir,
+        prepare_shell_command,
+        safe_subprocess_env,
+    )
+
+    if os.getenv("BUTLER_ENABLE_TERMINAL", "").strip() != "1":
+        return json.dumps({
+            "error": "Terminal tool is disabled by default. Set BUTLER_ENABLE_TERMINAL=1 to enable restricted commands."
+        })
 
     thread_id = threading.get_ident()
     proc: subprocess.Popen[str] | None = None
     interrupted = False
+    command_safety = prepare_shell_command(command)
+    if not command_safety.allowed:
+        return json.dumps({"error": command_safety.error})
+
+    if workdir:
+        safety = check_tool_path(workdir)
+    else:
+        safety = default_tool_workdir()
+    if not safety.allowed:
+        return json.dumps({"error": safety.error})
+    if not safety.path.is_dir():
+        return json.dumps({"error": f"Not a directory: {workdir or safety.path}"})
+    resolved_workdir = str(safety.path)
 
     def _watch() -> None:
         nonlocal interrupted
@@ -300,12 +339,13 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
 
     try:
         proc = subprocess.Popen(
-            command,
-            shell=True,
+            command_safety.argv,
+            shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd=workdir,
+            cwd=resolved_workdir,
+            env=safe_subprocess_env(),
         )
         watcher = threading.Thread(target=_watch, daemon=True)
         watcher.start()
@@ -331,11 +371,23 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
 
 
 def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) -> str:
-    cmd = ["rg", "--json", "-m", "20", pattern, path]
+    from butler.tools.path_safety import check_tool_path, safe_subprocess_env
+
+    safety = check_tool_path(path)
+    if not safety.allowed:
+        return json.dumps({"error": safety.error})
+    cmd = ["rg", "--no-config", "--json", "-m", "20"]
     if include:
         cmd.extend(["--glob", include])
+    cmd.extend(["--", pattern, str(safety.path)])
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env=safe_subprocess_env(),
+        )
         matches = []
         for line in result.stdout.strip().split("\n"):
             if not line:
@@ -359,7 +411,12 @@ def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) 
 
 
 def _tool_list_directory(path: str = ".", **_) -> str:
-    p = Path(path).expanduser()
+    from butler.tools.path_safety import check_tool_path
+
+    safety = check_tool_path(path)
+    if not safety.allowed:
+        return json.dumps({"error": safety.error})
+    p = safety.path
     if not p.is_dir():
         return json.dumps({"error": f"Not a directory: {path}"})
     try:

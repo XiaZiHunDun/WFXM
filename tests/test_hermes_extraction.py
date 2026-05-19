@@ -70,11 +70,12 @@ class TestParallelTools:
 
 @pytest.mark.unit
 class TestTerminalInterrupt:
-    def test_terminal_respects_interrupt(self):
+    def test_terminal_respects_interrupt(self, monkeypatch):
         import threading
         from butler.tools.registry import _tool_terminal
         from butler.tools.interrupt import set_interrupt, clear_interrupt
 
+        monkeypatch.setenv("BUTLER_ENABLE_TERMINAL", "1")
         tid = threading.get_ident()
         clear_interrupt(tid)
         set_interrupt(True, tid)
