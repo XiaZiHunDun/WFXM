@@ -7,8 +7,6 @@ import logging
 import threading
 import time
 import uuid
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
 from butler.core.context_compressor import _estimate_tokens, compress_messages
@@ -20,6 +18,8 @@ from butler.core.loop_response import (
     sanitize_response,
     truncation_continue_message,
 )
+from butler.core.loop_types import LoopCallbacks, LoopConfig, LoopResult, LoopStatus
+from butler.core.hygiene_preflight import run_hygiene_preflight
 from butler.core.message_repair import repair_message_sequence, repair_tool_arguments
 from butler.core.message_sanitize import (
     drop_thinking_only_assistants,
@@ -27,6 +27,8 @@ from butler.core.message_sanitize import (
     sanitize_surrogates,
 )
 from butler.core.parallel_tools import execute_tools_parallel
+from butler.core.retry_policy import retry_delay_for_config
+from butler.core.schema_recovery import recover_schema_after_error
 from butler.core.steer import apply_steer_to_tool_results, clear_steer
 from butler.tool_guardrails import (
     ToolCallGuardrailController,
@@ -38,63 +40,9 @@ from butler.transport.error_classifier import classify_api_error
 from butler.transport.fallback import FallbackEntry, build_fallback_chain, create_client_from_entry
 from butler.transport.interruptible_client import StaleApiCallError
 from butler.transport.llm_client import LLMClient
-from butler.transport.retry_utils import compute_retry_delay
 from butler.transport.types import NormalizedResponse, ToolCall
 
 logger = logging.getLogger(__name__)
-
-
-class LoopStatus(str, Enum):
-    RUNNING = "running"
-    COMPLETED = "completed"
-    TOOL_LIMIT = "tool_limit"
-    ERROR = "error"
-    INTERRUPTED = "interrupted"
-
-
-@dataclass
-class LoopConfig:
-    max_iterations: int = 30
-    max_retries: int = 3
-    retry_delay: float = 1.0
-    retry_max_delay: float = 30.0
-    retry_jitter_ratio: float = 0.25
-    max_context_tokens: int = 128000
-    stream: bool = True
-    enable_guardrails: bool = True
-    enable_parallel_tools: bool = True
-    fallback_entries: list | None = None
-    api_stale_timeout: float = 90.0
-    max_empty_content_retries: int = 1
-    max_truncation_continues: int = 1
-
-
-@dataclass
-class LoopCallbacks:
-    on_llm_start: Optional[Callable[[list[dict]], None]] = None
-    on_llm_complete: Optional[Callable[[NormalizedResponse], None]] = None
-    on_stream_delta: Optional[Callable[[str], None]] = None
-    on_tool_start: Optional[Callable[[str, dict], None]] = None
-    on_tool_complete: Optional[Callable[[str, str], None]] = None
-    on_error: Optional[Callable[[Exception, int], None]] = None
-    on_iteration: Optional[Callable[[int, LoopStatus], None]] = None
-    on_fallback: Optional[Callable[[str, str], None]] = None
-    pre_llm_transform: Optional[Callable[[list[dict]], list[dict]]] = None
-    should_continue: Optional[Callable[[int, NormalizedResponse], bool]] = None
-
-
-@dataclass
-class LoopResult:
-    status: LoopStatus
-    final_response: Optional[str] = None
-    reasoning: Optional[str] = None
-    messages: list = field(default_factory=list)
-    iterations: int = 0
-    total_tokens: int = 0
-    tool_calls_made: int = 0
-    error: Optional[str] = None
-    elapsed_seconds: float = 0.0
-    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 class AgentLoop:
@@ -283,51 +231,25 @@ class AgentLoop:
     ) -> bool:
         """Preflight compression for long-lived gateway sessions."""
         messages = list(self._messages)
-        for key in list(self.diagnostics):
-            if str(key).startswith("hygiene_"):
-                self.diagnostics.pop(key, None)
-        self.diagnostics.update({
-            "hygiene_checked": True,
-            "hygiene_compressed": False,
-            "hygiene_messages_before": len(messages),
-        })
-        if len(messages) < 4:
-            return False
-
-        estimated = self._estimate_tokens(messages)
-        threshold = int(self.config.max_context_tokens * threshold_ratio)
-        self.diagnostics.update({
-            "hygiene_estimated_tokens": estimated,
-            "hygiene_threshold_tokens": threshold,
-        })
-        token_limit_hit = estimated >= threshold
-        hard_limit_hit = len(messages) >= hard_message_limit
-        if not token_limit_hit and not hard_limit_hit:
-            return False
-
-        compression_threshold = threshold_ratio if token_limit_hit else 0.0
-        compressed = self._compress_context(
+        result = run_hygiene_preflight(
             messages,
-            threshold_ratio=compression_threshold,
-            min_messages_to_compress=4,
-            head_count=1,
-            max_tail_messages=1,
-            min_tail_messages=1,
+            max_context_tokens=self.config.max_context_tokens,
+            diagnostics=self.diagnostics,
+            estimate_tokens=self._estimate_tokens,
+            compress=self._compress_context,
+            threshold_ratio=threshold_ratio,
+            hard_message_limit=hard_message_limit,
         )
-        if compressed == messages:
+        if not result.compressed:
             return False
 
-        self._messages[:] = compressed
-        self.diagnostics.update({
-            "hygiene_compressed": True,
-            "hygiene_messages_after": len(compressed),
-        })
+        self._messages[:] = result.messages
         logger.info(
             "Gateway hygiene compressed %d->%d messages (~%d tokens, threshold=%d)",
             len(messages),
-            len(compressed),
-            estimated,
-            threshold,
+            len(result.messages),
+            self.diagnostics.get("hygiene_estimated_tokens", 0),
+            self.diagnostics.get("hygiene_threshold_tokens", 0),
         )
         return True
 
@@ -426,24 +348,19 @@ class AgentLoop:
                         continue
 
                 if tools_to_send and not schema_recovery_attempted:
-                    from butler.transport.schema_sanitizer import (
-                        is_schema_grammar_error,
-                        sanitize_tool_schemas,
-                        strip_pattern_and_format,
+                    recovered = recover_schema_after_error(
+                        exc,
+                        tools_to_send,
+                        diagnostics=self.diagnostics,
                     )
-
-                    if is_schema_grammar_error(exc):
-                        schema_recovery_attempted = True
-                        recovered = sanitize_tool_schemas(tools_to_send) or []
-                        tools_to_send, stripped = strip_pattern_and_format(recovered)
-                        if stripped and attempt < self.config.max_retries - 1:
-                            self.diagnostics.update({
-                                "schema_recovered": True,
-                                "schema_keywords_stripped": stripped,
-                            })
+                    schema_recovery_attempted = schema_recovery_attempted or recovered.attempted
+                    if recovered.attempted and recovered.tools is not None:
+                        tools_to_send = recovered.tools
+                    if recovered.recovered:
+                        if attempt < self.config.max_retries - 1:
                             logger.info(
                                 "Retrying LLM call after stripping %d schema pattern/format keywords",
-                                stripped,
+                                recovered.stripped,
                             )
                             continue
 
@@ -466,12 +383,7 @@ class AgentLoop:
         return None
 
     def _retry_delay(self, attempt_index: int) -> float:
-        return compute_retry_delay(
-            attempt_index,
-            base_delay=self.config.retry_delay,
-            max_delay=self.config.retry_max_delay,
-            jitter_ratio=self.config.retry_jitter_ratio,
-        )
+        return retry_delay_for_config(self.config, attempt_index)
 
     def _process_tool_calls(self, response: NormalizedResponse) -> None:
         if not response.tool_calls:

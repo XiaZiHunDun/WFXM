@@ -55,7 +55,7 @@
 
 ## 架构约束
 
-- `butler/core/agent_loop.py` 保持 **< 600 行**（当前 ~470 行，编排为主）。
+- `butler/core/agent_loop.py` 保持 **< 600 行**（当前 ~487 行，编排为主）。
 - 业务逻辑不得回灌到单体 `run_agent.py` 风格文件。
 - 新增 Hermes 能力优先新建 `butler/core/*` 或 `butler/transport/*` 模块。
 
@@ -71,7 +71,7 @@
 | `butler/core/steer.py` | L5180–L5293 | `/steer` 不打断插话 | ✅ |
 | `butler/core/delegate_context.py` | L10225 回调传播 | 子 loop 工具进度回调 | ✅ |
 | `butler/core/iteration_budget.py` | L283–L325 | 迭代预算（可选） | ✅ |
-| `butler/core/agent_loop.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写 | ✅ |
+| `butler/core/agent_loop.py` + `butler/core/loop_types.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写、Loop 公共类型 | ✅ |
 
 测试：`tests/test_run_agent_extraction.py`；全量 **505+ passed**。
 
@@ -101,5 +101,6 @@
 | `butler/session_lifecycle.py` | `memory_provider` / post-session hooks | turn 前记忆预取、turn 后同步、session end 抽取 | ✅ |
 | `butler/skills/manager.py` + `butler/skills/router.py` + `butler/orchestrator.py` | Skill metadata 路由模式 | frontmatter-only Skill 索引、mtime cache、命中后动态加载正文 | ✅ |
 | `butler/core/agent_loop.py` + `butler/gateway/message_handler.py` | Gateway/Loop health summary | runtime diagnostics 聚合（压缩、schema 降级、Skill、记忆同步） | ✅ |
+| `butler/core/hygiene_preflight.py` + `butler/core/schema_recovery.py` + `butler/core/retry_policy.py` | AgentLoop 策略拆分 | hygiene 预检、schema 恢复、retry delay 策略模块化 | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke tests 位于 `tests/test_real_api_smoke.py`，默认被 `live_llm` marker 排除；显式运行需使用 `pytest -m live_llm tests/test_real_api_smoke.py`，并设置 `BUTLER_RUN_REAL_API_SMOKE=1` 和对应 provider API key。

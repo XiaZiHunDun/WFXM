@@ -1,0 +1,71 @@
+"""Tests for AgentLoop hygiene preflight extraction."""
+
+from unittest.mock import Mock
+
+from butler.core.hygiene_preflight import run_hygiene_preflight
+
+
+def test_hygiene_preflight_skips_short_history_and_clears_stale_diagnostics():
+    diagnostics = {
+        "hygiene_compressed": True,
+        "hygiene_estimated_tokens": 900,
+        "hygiene_messages_after": 1,
+    }
+    messages = [{"role": "user", "content": "short"}]
+
+    result = run_hygiene_preflight(
+        messages,
+        max_context_tokens=1000,
+        diagnostics=diagnostics,
+        estimate_tokens=lambda _: 1,
+        compress=Mock(),
+    )
+
+    assert result.compressed is False
+    assert result.messages == messages
+    assert diagnostics["hygiene_checked"] is True
+    assert diagnostics["hygiene_compressed"] is False
+    assert "hygiene_estimated_tokens" not in diagnostics
+    assert "hygiene_messages_after" not in diagnostics
+
+
+def test_hygiene_preflight_compresses_when_over_threshold():
+    diagnostics: dict[str, object] = {}
+    messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
+    compressed = [{"role": "user", "content": "summary"}]
+    compress = Mock(return_value=compressed)
+
+    result = run_hygiene_preflight(
+        messages,
+        max_context_tokens=100,
+        diagnostics=diagnostics,
+        estimate_tokens=lambda _: 100,
+        compress=compress,
+    )
+
+    assert result.compressed is True
+    assert result.messages == compressed
+    assert diagnostics["hygiene_compressed"] is True
+    assert diagnostics["hygiene_messages_before"] == 20
+    assert diagnostics["hygiene_messages_after"] == 1
+    assert compress.call_args.kwargs["threshold_ratio"] == 0.85
+
+
+def test_hygiene_preflight_uses_hard_message_limit_without_token_threshold():
+    diagnostics: dict[str, object] = {}
+    messages = [{"role": "user", "content": f"short {i}"} for i in range(10)]
+    compressed = [{"role": "user", "content": "summary"}]
+    compress = Mock(return_value=compressed)
+
+    result = run_hygiene_preflight(
+        messages,
+        max_context_tokens=100000,
+        diagnostics=diagnostics,
+        estimate_tokens=lambda _: 10,
+        compress=compress,
+        hard_message_limit=5,
+    )
+
+    assert result.compressed is True
+    assert result.messages == compressed
+    assert compress.call_args.kwargs["threshold_ratio"] == 0.0

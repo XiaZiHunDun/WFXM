@@ -211,3 +211,43 @@ def test_agent_loop_retries_llamacpp_schema_error_with_stripped_schema():
     assert "pattern" not in client.calls[1][0]["function"]["parameters"]["properties"]["date"]
     assert result.diagnostics["schema_recovered"] is True
     assert result.diagnostics["schema_keywords_stripped"] == 1
+
+
+def test_agent_loop_retries_schema_error_with_sanitized_schema_when_nothing_stripped():
+    class GrammarError(Exception):
+        status_code = 400
+
+    class FakeClient:
+        provider_name = "local"
+        model = "llama"
+
+        def __init__(self):
+            self.calls = []
+
+        def complete(self, *, messages, tools, **kwargs):
+            self.calls.append(copy.deepcopy(tools))
+            maybe_schema = tools[0]["function"]["parameters"]["properties"]["maybe"]
+            if "anyOf" in maybe_schema:
+                raise GrammarError("Unable to generate parser: json schema conversion failed")
+            return NormalizedResponse(content="ok")
+
+    client = FakeClient()
+    loop = AgentLoop(
+        client,
+        tools=[
+            _tool("t", {
+                "type": "object",
+                "properties": {
+                    "maybe": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                },
+            })
+        ],
+        config=LoopConfig(stream=False, max_retries=2, retry_delay=0),
+    )
+
+    result = loop.run("hi")
+
+    assert result.status == LoopStatus.COMPLETED
+    assert len(client.calls) == 2
+    assert "anyOf" in client.calls[0][0]["function"]["parameters"]["properties"]["maybe"]
+    assert client.calls[1][0]["function"]["parameters"]["properties"]["maybe"]["type"] == "string"
