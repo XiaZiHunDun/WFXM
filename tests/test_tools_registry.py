@@ -77,6 +77,17 @@ class TestToolDefinitions:
         for param in required:
             assert param in schema.get("required", [])
 
+    def test_tool_resource_limits_are_in_schema(self):
+        tools = {t["function"]["name"]: t for t in get_tool_definitions()}
+
+        read_limit = tools["read_file"]["function"]["parameters"]["properties"]["limit"]
+        timeout = tools["terminal"]["function"]["parameters"]["properties"]["timeout"]
+
+        assert read_limit["maximum"] == 1000
+        assert read_limit["minimum"] == 1
+        assert timeout["maximum"] == 120
+        assert timeout["minimum"] == 1
+
 
 @pytest.mark.module_test
 class TestReadFile:
@@ -118,6 +129,55 @@ class TestReadFile:
 
         data = json.loads(result)
         assert "outside workspace" in data["error"]
+
+    def test_denies_reading_oversized_file(self, tmp_path):
+        f = tmp_path / "huge.txt"
+        f.write_text("x" * (1024 * 1024 + 1), encoding="utf-8")
+
+        result = dispatch_tool("read_file", {"path": str(f)})
+
+        data = json.loads(result)
+        assert "too large" in data["error"].lower()
+
+    def test_denies_excessive_read_line_limit(self, tmp_path):
+        f = tmp_path / "many-lines.txt"
+        f.write_text("\n".join(f"line-{i}" for i in range(20)), encoding="utf-8")
+
+        result = dispatch_tool("read_file", {"path": str(f), "limit": 5000})
+
+        data = json.loads(result)
+        assert "limit" in data["error"].lower()
+
+    def test_read_file_rejects_non_integer_limit(self, tmp_path):
+        f = tmp_path / "lines.txt"
+        f.write_text("hello\n", encoding="utf-8")
+
+        result = dispatch_tool("read_file", {"path": str(f), "limit": "many"})
+
+        data = json.loads(result)
+        assert "integer" in data["error"].lower()
+
+    def test_read_file_rejects_symlinks(self, tmp_path):
+        target = tmp_path / "target.txt"
+        link = tmp_path / "link.txt"
+        target.write_text("safe\n", encoding="utf-8")
+        link.symlink_to(target)
+
+        result = dispatch_tool("read_file", {"path": str(link)})
+
+        data = json.loads(result)
+        assert "symlink" in data["error"].lower()
+
+    def test_read_file_rejects_non_regular_files(self, tmp_path):
+        fifo = tmp_path / "pipe"
+        if not hasattr(os, "mkfifo"):
+            pytest.skip("mkfifo is unavailable on this platform")
+        os.mkfifo(fifo)
+
+        result = dispatch_tool("read_file", {"path": str(fifo)})
+
+        data = json.loads(result)
+        assert "regular files" in data["error"]
 
 
 @pytest.mark.module_test
@@ -248,6 +308,37 @@ class TestTerminal:
         data = json.loads(result)
         assert "error" in data
         assert "timed out" in data["error"].lower()
+
+    def test_rejects_excessive_terminal_timeout(self):
+        result = dispatch_tool("terminal", {"command": "echo ok", "timeout": 9999})
+
+        data = json.loads(result)
+        assert "timeout" in data["error"].lower()
+
+    def test_rejects_non_positive_terminal_timeout(self):
+        result = dispatch_tool("terminal", {"command": "echo ok", "timeout": 0})
+
+        data = json.loads(result)
+        assert "timeout" in data["error"].lower()
+
+    def test_timeout_path_does_not_communicate_unbounded_output(self):
+        fake_proc = MagicMock()
+        fake_proc.poll.return_value = None
+        fake_proc.wait.return_value = -9
+        fake_proc.communicate.side_effect = AssertionError("communicate should not be used")
+        fake_proc.returncode = -9
+
+        with patch("butler.tools.registry.subprocess.Popen", return_value=fake_proc):
+            with patch(
+                "butler.tools.registry._communicate_limited",
+                side_effect=subprocess.TimeoutExpired(cmd="sleep 10", timeout=1),
+            ):
+                result = dispatch_tool("terminal", {"command": "sleep 10", "timeout": 1})
+
+        data = json.loads(result)
+        assert "timed out" in data["error"].lower()
+        fake_proc.kill.assert_called_once()
+        fake_proc.communicate.assert_not_called()
 
     def test_large_output_truncated(self, tmp_path):
         big = tmp_path / "big.txt"
@@ -549,6 +640,35 @@ class TestSearchFiles:
         assert "--no-config" in cmd
         assert "RIPGREP_CONFIG_PATH" not in env
         assert "LD_PRELOAD" not in env
+
+    def test_search_files_revalidates_result_paths(self, tmp_path):
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        outside = tmp_path / "outside.txt"
+        outside.write_text("needle\n", encoding="utf-8")
+        payload = {
+            "type": "match",
+            "data": {
+                "path": {"text": str(outside)},
+                "line_number": 1,
+                "lines": {"text": "needle\n"},
+            },
+        }
+        completed = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=json.dumps(payload),
+            stderr="",
+        )
+
+        with patch("butler.tools.registry.subprocess.run", return_value=completed):
+            with use_execution_context(_orchestrator_for_workspace(workspace)):
+                result = dispatch_tool("search_files", {"pattern": "needle", "path": str(workspace)})
+
+        data = json.loads(result)
+        assert data["total"] == 0
+        assert data["matches"] == []
+        assert str(outside) not in result
 
 
 @pytest.mark.module_test

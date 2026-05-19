@@ -9,12 +9,17 @@ from __future__ import annotations
 import json
 import logging
 import os
+import stat as stat_module
 import subprocess
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+MAX_READ_FILE_BYTES = 1024 * 1024
+MAX_READ_FILE_LINES = 1000
+MAX_TERMINAL_TIMEOUT_SECONDS = 120
+MAX_TERMINAL_OUTPUT_CHARS = 50000
 
 
 class ToolEntry:
@@ -103,7 +108,13 @@ def _register_builtin_tools() -> None:
             "properties": {
                 "path": {"type": "string", "description": "Absolute or relative file path"},
                 "offset": {"type": "integer", "description": "Line number to start from (1-indexed)", "default": 1},
-                "limit": {"type": "integer", "description": "Max lines to read", "default": 500},
+                "limit": {
+                    "type": "integer",
+                    "description": f"Max lines to read (1-{MAX_READ_FILE_LINES})",
+                    "default": 500,
+                    "minimum": 1,
+                    "maximum": MAX_READ_FILE_LINES,
+                },
             },
             "required": ["path"],
         },
@@ -152,7 +163,13 @@ def _register_builtin_tools() -> None:
             "type": "object",
             "properties": {
                 "command": {"type": "string", "description": "Shell command to execute"},
-                "timeout": {"type": "integer", "description": "Timeout in seconds", "default": 30},
+                "timeout": {
+                    "type": "integer",
+                    "description": f"Timeout in seconds (1-{MAX_TERMINAL_TIMEOUT_SECONDS})",
+                    "default": 30,
+                    "minimum": 1,
+                    "maximum": MAX_TERMINAL_TIMEOUT_SECONDS,
+                },
                 "workdir": {"type": "string", "description": "Working directory"},
             },
             "required": ["command"],
@@ -239,7 +256,7 @@ def _register_builtin_tools() -> None:
 # ── Tool Implementations ─────────────────────────────────────
 
 def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
-    from butler.tools.path_safety import check_tool_path
+    from butler.tools.path_safety import check_tool_path, tool_safe_root
 
     safety = check_tool_path(path)
     if not safety.allowed:
@@ -248,14 +265,78 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
     if not p.exists():
         return json.dumps({"error": f"File not found: {path}"})
     try:
-        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-        start = max(0, offset - 1)
+        try:
+            offset = int(offset)
+            limit = int(limit)
+        except (TypeError, ValueError):
+            return json.dumps({"error": "read_file offset and limit must be integers"})
+        if limit < 1 or limit > MAX_READ_FILE_LINES:
+            return json.dumps({
+                "error": f"read_file limit exceeds maximum ({MAX_READ_FILE_LINES} lines)"
+            })
+        if offset < 1:
+            return json.dumps({"error": "read_file offset must be >= 1"})
+
+        expected_stat = p.stat()
+        raw_open_path = _raw_tool_path(path, tool_safe_root())
+        flags = (
+            os.O_RDONLY
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0)
+        )
+        try:
+            fd = os.open(raw_open_path, flags)
+        except OSError as exc:
+            if "Too many levels of symbolic links" in str(exc):
+                return json.dumps({"error": "Access denied: symlinks are not allowed"})
+            return json.dumps({"error": str(exc)})
+
+        try:
+            stat_result = os.fstat(fd)
+            if (stat_result.st_dev, stat_result.st_ino) != (
+                expected_stat.st_dev,
+                expected_stat.st_ino,
+            ):
+                return json.dumps({"error": "Access denied: file changed during validation"})
+            if not stat_module.S_ISREG(stat_result.st_mode):
+                return json.dumps({"error": "Access denied: only regular files can be read"})
+            if stat_result.st_nlink > 1:
+                return json.dumps({"error": "Access denied: hardlinked files are not allowed"})
+            if stat_result.st_size > MAX_READ_FILE_BYTES:
+                return json.dumps({
+                    "error": f"File too large: maximum is {MAX_READ_FILE_BYTES} bytes"
+                })
+            chunks: list[bytes] = []
+            total = 0
+            while True:
+                chunk = os.read(fd, min(65536, MAX_READ_FILE_BYTES + 1 - total))
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                total += len(chunk)
+                if total > MAX_READ_FILE_BYTES:
+                    return json.dumps({
+                        "error": f"File too large: maximum is {MAX_READ_FILE_BYTES} bytes"
+                    })
+        finally:
+            os.close(fd)
+
+        text = b"".join(chunks).decode("utf-8", errors="replace")
+        lines = text.splitlines()
+        start = offset - 1
         end = start + limit
         selected = lines[start:end]
         numbered = [f"{i + start + 1:6}|{line}" for i, line in enumerate(selected)]
         return "\n".join(numbered)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
+
+
+def _raw_tool_path(path: str | os.PathLike[str], root: Path) -> Path:
+    raw_path = Path(str(path or ".")).expanduser()
+    if not raw_path.is_absolute():
+        raw_path = root / raw_path
+    return raw_path
 
 
 def _tool_write_file(path: str, content: str, **_) -> str:
@@ -314,6 +395,14 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
     thread_id = threading.get_ident()
     proc: subprocess.Popen[str] | None = None
     interrupted = False
+    try:
+        timeout = int(timeout)
+    except (TypeError, ValueError):
+        return json.dumps({"error": "Terminal timeout must be an integer number of seconds"})
+    if timeout < 1 or timeout > MAX_TERMINAL_TIMEOUT_SECONDS:
+        return json.dumps({
+            "error": f"Terminal timeout must be between 1 and {MAX_TERMINAL_TIMEOUT_SECONDS} seconds"
+        })
     command_safety = prepare_shell_command(command)
     if not command_safety.allowed:
         return json.dumps({"error": command_safety.error})
@@ -343,31 +432,115 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
             shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
             cwd=resolved_workdir,
             env=safe_subprocess_env(),
         )
         watcher = threading.Thread(target=_watch, daemon=True)
         watcher.start()
         try:
-            stdout, stderr = proc.communicate(timeout=timeout)
+            stdout, stderr, truncated = _communicate_limited(
+                proc,
+                timeout=timeout,
+                max_output_chars=MAX_TERMINAL_OUTPUT_CHARS,
+            )
         except subprocess.TimeoutExpired:
             proc.kill()
-            stdout, stderr = proc.communicate(timeout=1)
+            try:
+                proc.wait(timeout=1)
+            finally:
+                _close_pipe(proc.stdout)
+                _close_pipe(proc.stderr)
             return json.dumps({"error": f"Command timed out after {timeout}s"})
         if interrupted:
             return json.dumps({"error": "interrupted", "output": ""})
         output = stdout or ""
         if stderr:
             output += "\n[stderr]\n" + stderr
-        if len(output) > 50000:
-            output = output[:50000] + "\n... (truncated)"
+        if truncated or len(output) > MAX_TERMINAL_OUTPUT_CHARS:
+            output = output[:MAX_TERMINAL_OUTPUT_CHARS] + "\n... (truncated)"
         return json.dumps({
             "exit_code": proc.returncode,
             "output": output,
         })
     except Exception as exc:
         return json.dumps({"error": str(exc)})
+
+
+def _communicate_limited(
+    proc: subprocess.Popen,
+    *,
+    timeout: int,
+    max_output_chars: int,
+) -> tuple[str, str, bool]:
+    """Read process pipes incrementally so tool output cannot exhaust memory."""
+    if not (_is_selectable_pipe(proc.stdout) and _is_selectable_pipe(proc.stderr)):
+        stdout, stderr = proc.communicate(timeout=timeout)
+        return str(stdout or ""), str(stderr or ""), (
+            len(str(stdout or "")) + len(str(stderr or "")) > max_output_chars
+        )
+
+    import selectors
+
+    selector = selectors.DefaultSelector()
+    selector.register(proc.stdout, selectors.EVENT_READ, "stdout")
+    selector.register(proc.stderr, selectors.EVENT_READ, "stderr")
+    stdout_parts: list[bytes] = []
+    stderr_parts: list[bytes] = []
+    total = 0
+    truncated = False
+    deadline = time.monotonic() + timeout
+
+    try:
+        while selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(proc.args, timeout)
+            events = selector.select(timeout=min(0.2, remaining))
+            if not events:
+                if proc.poll() is not None:
+                    # Give pipes one final chance to report EOF.
+                    continue
+                continue
+            for key, _mask in events:
+                pipe = key.fileobj
+                chunk = pipe.read1(8192) if hasattr(pipe, "read1") else pipe.read(8192)
+                if not chunk:
+                    selector.unregister(pipe)
+                    continue
+                if isinstance(chunk, str):
+                    chunk = chunk.encode("utf-8", errors="replace")
+                room = max(0, max_output_chars - total)
+                if room:
+                    kept = chunk[:room]
+                    if key.data == "stdout":
+                        stdout_parts.append(kept)
+                    else:
+                        stderr_parts.append(kept)
+                    total += len(kept)
+                if len(chunk) > room:
+                    truncated = True
+        proc.wait(timeout=max(0, deadline - time.monotonic()))
+    finally:
+        selector.close()
+
+    stdout = b"".join(stdout_parts).decode("utf-8", errors="replace")
+    stderr = b"".join(stderr_parts).decode("utf-8", errors="replace")
+    return stdout, stderr, truncated
+
+
+def _is_selectable_pipe(pipe: Any) -> bool:
+    try:
+        return isinstance(pipe.fileno(), int)
+    except Exception:
+        return False
+
+
+def _close_pipe(pipe: Any) -> None:
+    try:
+        if pipe is not None:
+            pipe.close()
+    except Exception:
+        return
 
 
 def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) -> str:
@@ -396,8 +569,12 @@ def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) 
                 obj = json.loads(line)
                 if obj.get("type") == "match":
                     data = obj["data"]
+                    path_text = data["path"]["text"]
+                    match_safety = check_tool_path(path_text)
+                    if not match_safety.allowed:
+                        continue
                     matches.append({
-                        "path": data["path"]["text"],
+                        "path": str(match_safety.path),
                         "line": data["line_number"],
                         "text": data["lines"]["text"].rstrip(),
                     })

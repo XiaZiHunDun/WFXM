@@ -106,5 +106,6 @@
 | `butler/tools/path_safety.py` + `butler/tools/registry.py` | 工具路径安全 | 项目 workspace sandbox、敏感路径 denylist、文件/搜索/terminal 路径与 workdir 统一校验 | ✅ |
 | `butler/gateway/session_registry.py` + `butler/gateway/message_handler.py` | Gateway session registry | 按 `session_key` 管理 AgentLoop、health、idle TTL/LRU 驱逐和 session finalize | ✅ |
 | `butler/task_orchestrator.py` | TaskOrchestrator 调度/深度 | 子代理工具 dispatcher 继承委派深度，parallel/graph 异常转结构化结果，router 分支与依赖失败 fail-closed | ✅ |
+| `butler/tools/registry.py` | 工具安全收尾 | `read_file` 大小/行数上限、`search_files` 结果路径二次校验、terminal timeout/output 上限 | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke tests 位于 `tests/test_real_api_smoke.py`，默认被 `live_llm` marker 排除；显式运行需使用 `pytest -m live_llm tests/test_real_api_smoke.py`，并设置 `BUTLER_RUN_REAL_API_SMOKE=1` 和对应 provider API key。
