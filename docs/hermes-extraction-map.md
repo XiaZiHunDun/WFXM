@@ -59,6 +59,16 @@
 - 业务逻辑不得回灌到单体 `run_agent.py` 风格文件。
 - 新增 Hermes 能力优先新建 `butler/core/*` 或 `butler/transport/*` 模块。
 
+## CLI 提炼层（2026-05 增补）
+
+| Butler 模块 | 参考 | 能力 |
+|-------------|------|------|
+| `butler/cli/display.py` | `agent/display.py` | 工具预览、完成行、失败检测、write/patch 内联 diff |
+| `butler/cli/stream.py` | `cli.py` + v1 `_StreamBox` | 行缓冲流式输出、边框、流结束 Markdown 重渲染 |
+| `butler/cli/spinner.py` | `KawaiiSpinner`（简化） | LLM 等待指示 |
+| `butler/cli/session_ui.py` | `HermesCLI` 回调 | 统一 `LoopCallbacks` 接线 |
+| `butler/main.py` | v1 `cli_adapter.py` | `patch_stdout`、历史自动建议 |
+
 ## 后续可选
 
 - Gateway 空闲 85% 阈值卫生压缩（Hermes `gateway/run.py` 模式）

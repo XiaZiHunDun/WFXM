@@ -20,7 +20,6 @@ from butler.main import (
     _cmd_gateway,
     _cmd_projects,
     _handle_slash_command,
-    _on_stream,
     _run_interactive_chat,
     _sync_memory,
     _trigger_session_end,
@@ -196,12 +195,14 @@ class TestSessionEnd:
 
 @pytest.mark.integration
 class TestMainHelpers:
-    def test_on_stream_prints_and_buffers(self):
+    def test_stream_renderer_buffers_text(self):
+        from butler.cli.stream import StreamRenderer
+
         console = _mock_console()
-        buffer: list[str] = []
-        _on_stream("hello", console, buffer)
-        console.print.assert_called_once_with("hello", end="", highlight=False)
-        assert buffer == ["hello"]
+        stream = StreamRenderer(console)
+        stream.on_delta("hello ")
+        stream.on_delta("world")
+        assert "hello world" in stream.text
 
     def test_main_dispatches_command_and_exits_zero(self):
         with patch("butler.main._cmd_projects", return_value=0) as mock_cmd:

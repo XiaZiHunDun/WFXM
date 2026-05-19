@@ -21,19 +21,25 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     """Interactive chat loop using Butler's own AgentLoop."""
-    from rich.console import Console
-    from rich.markdown import Markdown
-    from rich.panel import Panel
-    from rich.live import Live
     from prompt_toolkit import PromptSession
+    from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
     from prompt_toolkit.history import FileHistory
-    from butler.core.agent_loop import LoopCallbacks, LoopStatus
+    from prompt_toolkit.patch_stdout import patch_stdout
+    from rich.console import Console
+    from rich.panel import Panel
+
+    from butler.cli.session_ui import ChatSessionUI
+    from butler.core.agent_loop import LoopStatus
+    from butler.tools.registry import dispatch_tool, get_tool_definitions
 
     console = Console()
     settings = orchestrator._settings
     history_file = settings.butler_home / "chat_history.txt"
     history_file.parent.mkdir(parents=True, exist_ok=True)
-    session = PromptSession(history=FileHistory(str(history_file)))
+    session = PromptSession(
+        history=FileHistory(str(history_file)),
+        auto_suggest=AutoSuggestFromHistory(),
+    )
 
     current_project = orchestrator.project_manager.current_project or "(无)"
     mc = orchestrator._model_credentials("butler")
@@ -42,55 +48,19 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     console.print(Panel(
         f"[bold]Butler AI 管家[/bold] — {settings.butler_name}\n"
         f"项目: [cyan]{current_project}[/cyan] | 模型: [green]{model_display}[/green]\n"
-        f"输入 /help 查看命令，Ctrl+D 退出",
+        f"输入 /help 查看命令，Ctrl+C 中断当前轮，Ctrl+D 退出",
         title="Butler v4",
         border_style="blue",
     ))
 
-    from butler.tools.registry import get_tool_definitions, dispatch_tool
     tools = get_tool_definitions()
-
+    ui = ChatSessionUI(console)
     agent_loop = None
-    stream_buffer: list[str] = []
 
     def _rebuild_loop():
-        nonlocal agent_loop, stream_buffer
-        stream_buffer.clear()
-
-        def _on_tool_start(name, args):
-            desc = ""
-            if name == "read_file":
-                desc = f" {args.get('path', '')}"
-            elif name == "terminal":
-                cmd = args.get("command", "")
-                desc = f" `{cmd[:60]}`" if cmd else ""
-            elif name == "write_file":
-                desc = f" {args.get('path', '')}"
-            elif name == "patch":
-                desc = f" {args.get('path', '')}"
-            elif name == "search_files":
-                desc = f" /{args.get('pattern', '')}/"
-            elif name == "delegate_task":
-                desc = f" → {args.get('role', '?')}"
-            console.print(f"  [dim]⚙ {name}{desc}[/dim]", highlight=False)
-
-        def _on_tool_complete(name, result):
-            if name == "delegate_task":
-                try:
-                    import json as _json
-                    data = _json.loads(result)
-                    if data.get("success"):
-                        console.print(f"  [green]✓ 委派完成[/green] ({data.get('iterations', '?')} 轮, {data.get('tool_calls', '?')} 工具调用)", highlight=False)
-                    else:
-                        console.print(f"  [red]✗ 委派失败[/red]", highlight=False)
-                except Exception:
-                    pass
-
-        callbacks = LoopCallbacks(
-            on_stream_delta=lambda delta: _on_stream(delta, console, stream_buffer),
-            on_tool_start=_on_tool_start,
-            on_tool_complete=_on_tool_complete,
-        )
+        nonlocal agent_loop
+        stream = ui.begin_turn()
+        callbacks = ui.build_callbacks(stream)
 
         agent_loop = orchestrator.create_agent_loop(
             role="butler",
@@ -104,8 +74,10 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
 
     while True:
         try:
-            prompt_prefix = f"[{orchestrator.project_manager.current_project or 'Butler'}] > "
-            user_input = session.prompt(prompt_prefix).strip()
+            project = orchestrator.project_manager.current_project or "Butler"
+            prompt_prefix = f"[{project}] > "
+            with patch_stdout():
+                user_input = session.prompt(prompt_prefix).strip()
         except (EOFError, KeyboardInterrupt):
             console.print("\n[dim]再见！[/dim]")
             _trigger_session_end(orchestrator, agent_loop)
@@ -126,34 +98,13 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
                 continue
 
         augmented = orchestrator.inject_skill_context(user_input)
-        stream_buffer.clear()
+        stream = ui.begin_turn()
+        agent_loop.callbacks = ui.build_callbacks(stream)
 
         try:
-            result = agent_loop.run(augmented)
-
-            if result.final_response and not stream_buffer:
-                console.print()
-                console.print(Markdown(result.final_response))
-
-            if stream_buffer or result.final_response:
-                console.print()
-
-            if result.tool_calls_made > 0 or result.iterations > 1:
-                stats_parts = []
-                if result.iterations > 1:
-                    stats_parts.append(f"{result.iterations} 轮")
-                if result.tool_calls_made > 0:
-                    stats_parts.append(f"{result.tool_calls_made} 工具调用")
-                if result.total_tokens > 0:
-                    stats_parts.append(f"{result.total_tokens:,} tokens")
-                stats_parts.append(f"{result.elapsed_seconds:.1f}s")
-                console.print(f"  [dim]{'  |  '.join(stats_parts)}[/dim]", highlight=False)
-                console.print()
-
-            if result.status == LoopStatus.ERROR:
-                console.print(f"[bold red]错误:[/bold red] LLM 调用失败，请检查网络或 API 密钥配置")
-            elif result.status == LoopStatus.TOOL_LIMIT:
-                console.print(f"[yellow]提示:[/yellow] 已达到最大迭代次数 ({result.iterations})，任务可能未完成")
+            with patch_stdout():
+                result = agent_loop.run(augmented)
+            ui.finish_turn(result, stream)
 
             _sync_memory(
                 orchestrator,
@@ -165,16 +116,20 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
         except KeyboardInterrupt:
             console.print("\n[dim]已中断[/dim]")
             agent_loop.interrupt()
+            from butler.core.agent_loop import LoopResult
+            ui.finish_turn(
+                LoopResult(
+                    status=LoopStatus.INTERRUPTED,
+                    final_response=stream.text.strip() or None,
+                ),
+                stream,
+            )
+
         except Exception as exc:
             console.print(f"\n[bold red]错误:[/bold red] {exc}\n")
             logger.exception("Agent loop error")
 
     return 0
-
-
-def _on_stream(delta: str, console: Any, buffer: list[str]) -> None:
-    console.print(delta, end="", highlight=False)
-    buffer.append(delta)
 
 
 def _sync_memory(
@@ -245,7 +200,7 @@ def _handle_slash_command(
             return "rebuild"
         else:
             console.print(f"[red]未找到项目: {arg}[/red]")
-            return "handled"
+        return "handled"
 
     if command == "/model":
         if not arg:
@@ -309,23 +264,28 @@ def _cmd_chat(_ns: argparse.Namespace) -> int:
 
 
 def _cmd_exec(ns: argparse.Namespace) -> int:
+    from butler.cli.session_ui import ChatSessionUI
     from butler.orchestrator import ButlerOrchestrator
-    from butler.tools.registry import get_tool_definitions, dispatch_tool
+    from butler.tools.registry import dispatch_tool, get_tool_definitions
+    from rich.console import Console
 
+    console = Console()
     orch = ButlerOrchestrator(user_id="owner", channel="cli")
     augmented = orch.inject_skill_context(ns.message)
+    ui = ChatSessionUI(console, stream_title="exec")
+    stream = ui.begin_turn()
 
     agent_loop = orch.create_agent_loop(
         role="butler",
         tools=get_tool_definitions(),
         tool_dispatcher=dispatch_tool,
+        callbacks=ui.build_callbacks(stream),
     )
 
     try:
         result = agent_loop.run(augmented)
-        if result.final_response:
-            print(result.final_response)
-        return 0
+        ui.finish_turn(result, stream)
+        return 0 if result.status.value == "completed" else 1
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -374,7 +334,8 @@ def _cmd_gateway(ns: argparse.Namespace) -> int:
     except Exception as exc:
         logger.warning("Could not auto-enable Butler plugins: %s", exc)
 
-    import subprocess, shutil
+    import subprocess
+    import shutil
     exe = shutil.which("hermes")
     if exe:
         argv = [exe, "gateway", "run"]
