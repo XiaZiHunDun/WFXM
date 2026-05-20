@@ -445,23 +445,27 @@ class AgentLoop:
             )
         else:
             pairs = []
+            batch_interrupted = False
             for tc in response.tool_calls:
                 try:
                     args = tc.args_dict()
                 except Exception:
                     args = {}
-                if check():
+                if batch_interrupted or check():
+                    batch_interrupted = True
                     result = _finalize_fallback_tool_result(
                         tc.name,
                         args,
                         {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
                     )
                     pairs.append((tc, result))
-                    break
+                    continue
                 _on_start(tc.name, args)
                 result = _dispatch_one(tc.name, args)
                 _on_complete(tc.name, result)
                 pairs.append((tc, result))
+                if check():
+                    batch_interrupted = True
 
         for tc, result in pairs:
             self._messages.append({

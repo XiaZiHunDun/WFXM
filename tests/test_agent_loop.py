@@ -388,6 +388,88 @@ class TestAgentLoopRun:
         assert halt_msg["guardrail"]["action"] == "halt"
         assert "Tool loop hard stop" not in json.dumps(halt_msg)
 
+    def test_sequential_multi_tool_batch_interrupt_fills_remaining_tool_messages_and_audit(
+        self, mock_llm_client
+    ):
+        from butler.transport.types import NormalizedResponse
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        tc1 = build_tool_call("c1", "tool_a", {})
+        tc2 = build_tool_call("c2", "tool_b", {})
+        tc3 = build_tool_call("c3", "tool_c", {})
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=lambda _n, _a: "should not run",
+            config=LoopConfig(stream=False, enable_parallel_tools=False),
+        )
+        llm_calls = {"count": 0}
+
+        def complete(**_kwargs):
+            llm_calls["count"] += 1
+            if llm_calls["count"] == 1:
+                loop._interrupt_check = lambda: True
+                return NormalizedResponse(tool_calls=[tc1, tc2, tc3], usage=_usage())
+            return _text_response("done")
+
+        mock_llm_client.complete.side_effect = complete
+
+        loop.run("multi interrupt before dispatch")
+        tool_msgs = [msg for msg in loop.messages if msg["role"] == "tool"]
+        assert len(tool_msgs) == 3
+        assert {json.loads(msg["content"])["code"] for msg in tool_msgs} == {"TOOL_INTERRUPTED"}
+        assert {msg["tool_call_id"] for msg in tool_msgs} == {"c1", "c2", "c3"}
+        events = get_tool_audit_events()
+        assert len(events) == 3
+        assert {event["tool"] for event in events} == {"tool_a", "tool_b", "tool_c"}
+
+    def test_sequential_multi_tool_batch_interrupt_after_first_completes(
+        self, mock_llm_client
+    ):
+        from butler.transport.types import NormalizedResponse
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        tc1 = build_tool_call("c1", "tool_a", {})
+        tc2 = build_tool_call("c2", "tool_b", {})
+        tc3 = build_tool_call("c3", "tool_c", {})
+        dispatched: list[str] = []
+
+        def dispatcher(name, _args):
+            dispatched.append(name)
+            return json.dumps({"ok": True})
+
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=dispatcher,
+            config=LoopConfig(stream=False, enable_parallel_tools=False),
+        )
+        llm_calls = {"count": 0}
+
+        def complete(**_kwargs):
+            llm_calls["count"] += 1
+            if llm_calls["count"] == 1:
+                loop._interrupt_check = lambda: len(dispatched) >= 1
+                return NormalizedResponse(tool_calls=[tc1, tc2, tc3], usage=_usage())
+            loop._interrupt_check = lambda: False
+            return _text_response("done")
+
+        mock_llm_client.complete.side_effect = complete
+
+        loop.run("multi interrupt after first")
+        tool_msgs = [msg for msg in loop.messages if msg["role"] == "tool"]
+        assert len(tool_msgs) == 3
+        assert dispatched == ["tool_a"]
+        first = json.loads(tool_msgs[0]["content"])
+        assert first.get("ok") is True
+        for msg in tool_msgs[1:]:
+            assert json.loads(msg["content"])["code"] == "TOOL_INTERRUPTED"
+        interrupted_events = [
+            event for event in get_tool_audit_events() if event["code"] == "TOOL_INTERRUPTED"
+        ]
+        assert len(interrupted_events) == 2
+        assert {event["tool"] for event in interrupted_events} == {"tool_b", "tool_c"}
+
     def test_sequential_interrupt_is_enveloped_and_audited(self, mock_llm_client):
         from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
 
