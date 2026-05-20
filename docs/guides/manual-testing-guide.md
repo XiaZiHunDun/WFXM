@@ -534,7 +534,10 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 2. 发送 `/新对话` 或 `/new`
 3. 发送 `我叫什么？`
 
-**预期：** 新对话中无法回忆之前内容
+**预期：**
+- 清空**本轮会话**的 AgentLoop 历史（回复「已清空对话历史」）
+- **身份/偏好**仍可由 Butler 记忆层召回（答出「赵六」为**通过**，符合产品设计）
+- 若问「上一轮我们具体聊了什么」类细节，应无法复述完整对话脉络
 
 #### 测试 3.5.7：/详细
 
@@ -644,7 +647,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 | 3.5.5 | /切换 | ☑ | 自动化 test-project |
 | 3.5.6 | /新对话 | ☑ | 自动化 |
 | 3.5.7 | /详细 | ☑ | 自动化 |
-| 3.x 真机抽测 | 建议 | ☐ | 微信再发一轮 `/状态`、`/new`、工具问句作 spot-check |
+| 3.x 真机抽测 | ☑ | `/状态`（莎丽/项目无/minimax）；`/new` 后仍记得身份；`__init__.py` 5 行 |
 
 ---
 
