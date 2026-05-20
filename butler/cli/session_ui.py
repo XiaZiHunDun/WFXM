@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from typing import TYPE_CHECKING
 
@@ -61,21 +62,23 @@ class ChatSessionUI:
     def finish_turn(self, result: LoopResult, stream: StreamRenderer) -> None:
         self._spinner.stop()
         stream.on_delta(None)
+        out = getattr(stream, "_console", self.console)
 
         streamed = bool(stream.text.strip())
-        if result.final_response:
-            if streamed:
-                stream.render_final_markdown()
-            else:
-                self.console.print()
-                from rich.markdown import Markdown
-                self.console.print(Markdown(result.final_response))
-        elif streamed:
-            stream.render_final_markdown()
+        if result.final_response and not streamed:
+            out.print()
+            from rich.markdown import Markdown
 
-        if result.reasoning and result.reasoning.strip():
-            self.console.print()
-            self.console.print(
+            out.print(Markdown(result.final_response))
+
+        show_reasoning = os.getenv("BUTLER_CLI_SHOW_REASONING", "").strip() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if show_reasoning and result.reasoning and result.reasoning.strip():
+            out.print()
+            out.print(
                 f"  [dim italic]推理: {result.reasoning.strip()[:500]}[/dim italic]",
                 highlight=False,
             )
@@ -89,20 +92,20 @@ class ChatSessionUI:
             if result.total_tokens > 0:
                 parts.append(f"{result.total_tokens:,} tokens")
             parts.append(f"{result.elapsed_seconds:.1f}s")
-            self.console.print(f"  [dim]{'  |  '.join(parts)}[/dim]", highlight=False)
+            out.print(f"  [dim]{'  |  '.join(parts)}[/dim]", highlight=False)
 
         if result.status == LoopStatus.ERROR:
             msg = result.error or "LLM 调用失败，请检查网络或 API 密钥"
-            self.console.print(f"[bold red]错误:[/bold red] {msg}")
+            out.print(f"[bold red]错误:[/bold red] {msg}")
         elif result.status == LoopStatus.TOOL_LIMIT:
-            self.console.print(
+            out.print(
                 f"[yellow]提示:[/yellow] 已达最大迭代次数 ({result.iterations})，任务可能未完成"
             )
         elif result.status == LoopStatus.INTERRUPTED:
-            self.console.print("[dim]本轮已中断[/dim]")
+            out.print("[dim]本轮已中断[/dim]")
 
-        if result.tool_calls_made > 0 or result.final_response:
-            self.console.print()
+        if result.tool_calls_made > 0 or result.final_response or streamed:
+            out.print()
 
     def _on_tool_start(self, name: str, args: dict) -> None:
         self._spinner.stop()

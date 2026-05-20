@@ -32,7 +32,7 @@ class StreamRenderer:
         self._open = True
         label = self._title
         pad = max(0, 48 - len(label))
-        self._console.print(f"[{_ACCENT}]╭─ {label} ─{'─' * pad}[/{_ACCENT}]")
+        self._console.print(f"╭─ {label} ─{'─' * pad}", style=_ACCENT, highlight=False)
 
     def on_delta(self, delta: str | None) -> None:
         if delta is None:
@@ -48,7 +48,7 @@ class StreamRenderer:
         self._line_buf += cleaned
         while "\n" in self._line_buf:
             line, self._line_buf = self._line_buf.split("\n", 1)
-            self._console.print(f"[{_ACCENT}]│[/{_ACCENT}] {line}", highlight=False)
+            self._console.print(f"│ {line}", style=_ACCENT, highlight=False)
 
     def close(self) -> None:
         if not self._open:
@@ -57,18 +57,8 @@ class StreamRenderer:
                 self._line_buf = ""
             return
         if self._line_buf:
-            self._console.print(f"[{_ACCENT}]│[/{_ACCENT}] {self._line_buf}", highlight=False)
+            self._console.print(f"│ {self._line_buf}", style=_ACCENT, highlight=False)
             self._full_text.append(self._line_buf)
             self._line_buf = ""
-        self._console.print(f"[{_ACCENT}]╰{'─' * 52}[/{_ACCENT}]")
+        self._console.print(f"╰{'─' * 52}", style=_ACCENT, highlight=False)
         self._open = False
-
-    def render_final_markdown(self) -> None:
-        """Re-render accumulated text as Markdown when streaming used."""
-        from rich.markdown import Markdown
-
-        body = self.text.strip()
-        if not body:
-            return
-        self._console.print()
-        self._console.print(Markdown(body))
