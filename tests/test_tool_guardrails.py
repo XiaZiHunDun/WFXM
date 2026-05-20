@@ -188,17 +188,40 @@ class TestClassifyToolFailure:
 
 @pytest.mark.unit
 class TestAppendGuidance:
-    def test_append_guidance_adds_warning_text(self):
+    def test_append_guidance_merges_warn_into_json_envelope(self):
+        decision = GuardrailDecision(
+            action="warn",
+            code="same_tool_failure_warning",
+            message="read_file failed 3 times this turn.",
+            tool_name="read_file",
+            count=3,
+        )
+        out = append_guidance(
+            '{"ok": true, "tool": "read_file", "code": "TOOL_OK", "content": "data"}',
+            decision,
+        )
+        data = json.loads(out)
+        assert data["ok"] is True
+        assert data["content"] == "data"
+        assert data["guardrail"] == {
+            "action": "warn",
+            "code": "same_tool_failure_warning",
+            "count": 3,
+            "message": "read_file failed 3 times this turn.",
+            "tool_name": "read_file",
+        }
+
+    def test_append_guidance_falls_back_to_text_suffix_for_non_json(self):
         decision = GuardrailDecision(
             action="warn",
             code="same_tool_failure_warning",
             message="read_file failed 3 times this turn.",
             count=3,
         )
-        out = append_guidance('{"ok": true}', decision)
+        out = append_guidance("plain tool output", decision)
         assert "Tool loop warning" in out
         assert "same_tool_failure_warning" in out
-        assert "read_file failed" in out
+        assert out.startswith("plain tool output")
 
     def test_append_guidance_unchanged_for_allow(self):
         decision = GuardrailDecision(action="allow")

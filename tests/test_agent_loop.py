@@ -318,6 +318,39 @@ class TestAgentLoopRun:
         assert event["tool"] == "custom_tool"
         assert event["code"] == "TOOL_ERROR"
 
+    def test_guardrail_warn_keeps_tool_result_json_envelope(self, mock_llm_client):
+        from butler.tool_guardrails import GuardrailConfig, ToolCallGuardrailController
+
+        mock_llm_client.complete.side_effect = [
+            _tool_response("read_file", {"path": "same.py"}),
+            _tool_response("read_file", {"path": "same.py"}),
+            _text_response("done"),
+        ]
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=lambda _n, _a: json.dumps({"error": "not found"}),
+            config=LoopConfig(stream=False, max_iterations=5),
+        )
+        loop._guardrails = ToolCallGuardrailController(
+            GuardrailConfig(
+                exact_failure_warn_after=2,
+                exact_failure_block_after=99,
+                same_tool_failure_warn_after=99,
+                same_tool_failure_halt_after=99,
+            )
+        )
+
+        loop.run("repeat failing read for warn")
+        warn_msgs = [
+            json.loads(msg["content"])
+            for msg in loop.messages
+            if msg["role"] == "tool"
+            and json.loads(msg["content"]).get("guardrail", {}).get("action") == "warn"
+        ]
+        assert len(warn_msgs) >= 1
+        assert warn_msgs[0]["guardrail"]["code"] == "repeated_exact_failure_warning"
+        assert warn_msgs[0]["tool"] == "read_file"
+
     def test_guardrail_block_is_enveloped_and_audited(self, mock_llm_client):
         from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
 

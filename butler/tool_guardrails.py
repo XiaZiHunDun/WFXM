@@ -296,21 +296,39 @@ class ToolCallGuardrailController:
         return tool_name in IDEMPOTENT_TOOLS
 
 
+def guardrail_metadata(decision: GuardrailDecision) -> dict[str, Any]:
+    """Structured guardrail payload for tool result envelopes."""
+    payload: dict[str, Any] = {
+        "action": decision.action,
+        "code": decision.code,
+        "count": decision.count,
+        "message": decision.message,
+    }
+    if decision.tool_name:
+        payload["tool_name"] = decision.tool_name
+    return payload
+
+
 def synthetic_result(decision: GuardrailDecision) -> str:
     """Build a synthetic tool result JSON for blocked calls."""
     return json.dumps({
         "error": decision.message,
-        "guardrail": {
-            "action": decision.action,
-            "code": decision.code,
-            "count": decision.count,
-        },
+        "guardrail": guardrail_metadata(decision),
     }, ensure_ascii=False)
 
 
 def append_guidance(result: str, decision: GuardrailDecision) -> str:
-    """Append warning or halt guidance to a tool result string."""
+    """Merge guardrail guidance into a tool result without breaking JSON envelopes."""
     if decision.action not in {"warn", "block", "halt"} or not decision.message:
         return result
+
+    parsed = _safe_json_loads(result or "")
+    if isinstance(parsed, dict):
+        payload = dict(parsed)
+        payload["guardrail"] = guardrail_metadata(decision)
+        if decision.action in {"block", "halt"}:
+            payload.setdefault("error", decision.message)
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
     label = "Tool loop hard stop" if decision.action in {"block", "halt"} else "Tool loop warning"
     return (result or "") + f"\n\n[{label}: {decision.code}; count={decision.count}; {decision.message}]"
