@@ -383,7 +383,7 @@ PYTHONPATH=. python -m butler.main exec "你好，请用一句话自我介绍"
 > 下文 §3.4–3.5 为分项清单；自动化见 `tests/test_gateway_acceptance.py`。
 
 > v4.1 起：`butler gateway` 默认走 `butler/gateway/runner.py` + iLink 适配器。  
-> 仅当需要 Telegram 等平台时使用 `butler gateway --hermes-fallback`。
+> Telegram 等平台：`pip install -e ".[hermes-gateway]"` 后执行 `butler gateway --platforms telegram`（自动 Hermes 子进程）。微信仍用 `butler gateway`。
 
 ### 3.1 前置条件
 

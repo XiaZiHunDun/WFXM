@@ -10,11 +10,13 @@ import signal
 from typing import Any
 
 from butler.gateway.message_handler import ButlerMessageHandler
+from butler.gateway.platform_policy import NATIVE_PLATFORMS, normalize_platforms, partition_platforms
 from butler.gateway.platforms.types import MessageEvent, PlatformConfig
 
 logger = logging.getLogger(__name__)
 
-NATIVE_PLATFORMS = frozenset({"wechat", "weixin", "微信"})
+# Re-export for tests / callers that imported from runner.
+__all__ = ["NATIVE_PLATFORMS", "normalize_platforms", "unsupported_platforms", "run_gateway_blocking", "run_gateway_async"]
 
 # Single worker: avoid ProjectManager / session registry races from concurrent to_thread calls.
 _HANDLER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
@@ -24,21 +26,9 @@ _HANDLER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
 _HANDLER_TIMEOUT_SECONDS = float(os.getenv("BUTLER_GATEWAY_HANDLER_TIMEOUT", "180"))
 
 
-def normalize_platforms(raw: str) -> list[str]:
-    if not (raw or "").strip():
-        return ["wechat"]
-    out: list[str] = []
-    for part in raw.replace(",", " ").split():
-        name = part.strip().lower()
-        if name in ("微信", "weixin"):
-            name = "wechat"
-        if name and name not in out:
-            out.append(name)
-    return out or ["wechat"]
-
-
 def unsupported_platforms(platforms: list[str]) -> list[str]:
-    return [p for p in platforms if p not in NATIVE_PLATFORMS]
+    _native, hermes = partition_platforms(platforms)
+    return hermes
 
 
 def _warmup_gateway_runtime(butler: ButlerMessageHandler) -> None:
@@ -58,6 +48,8 @@ def _warmup_gateway_runtime(butler: ButlerMessageHandler) -> None:
 async def _butler_message_handler(
     butler: ButlerMessageHandler,
     event: MessageEvent,
+    *,
+    platform: str = "wechat",
 ) -> str | None:
     text = (event.text or "").strip()
     if not text and event.media_urls:
@@ -77,7 +69,7 @@ async def _butler_message_handler(
         try:
             return butler.handle_message(
                 text,
-                platform="wechat",
+                platform=platform,
                 external_id=source.chat_id,
             )
         finally:
@@ -134,7 +126,8 @@ async def run_gateway_async(platforms: list[str]) -> int:
             adapter = WeChatAdapter(config)
 
             async def _handler(event: MessageEvent, _b: ButlerMessageHandler = butler) -> str | None:
-                return await _butler_message_handler(_b, event)
+                plat = (event.source.platform if event.source else None) or "wechat"
+                return await _butler_message_handler(_b, event, platform=plat)
 
             adapter.set_message_handler(_handler)
             adapters.append(adapter)

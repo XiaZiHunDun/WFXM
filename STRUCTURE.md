@@ -41,12 +41,14 @@ WFXM/
 ## 常用命令
 
 ```bash
-pip install -e .
-pip install -e ".[hermes-gateway]"   # Telegram 等多平台 fallback 依赖
+pip install -e .                     # 仅 butler-system
+pip install -e ".[dev]"              # 开发 + hermes-vendored（pytest 需要）
+pip install -e ".[hermes-gateway]"   # Telegram / Slack 等 Hermes 子进程
 PYTHONPATH=. pytest -q
 butler chat
-butler gateway --platforms wechat    # Butler 原生 iLink
-butler gateway --hermes-fallback     # 子进程 vendor/hermes-agent gateway
+butler gateway                       # 默认微信 Butler 原生
+butler gateway --platforms telegram  # 自动 Hermes 子进程（需 hermes-gateway）
+butler gateway --hermes-fallback     # 强制 Hermes（含微信也可）
 ```
 
 文档入口：[`docs/README.md`](docs/README.md) · 架构：[`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)

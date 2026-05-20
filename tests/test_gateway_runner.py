@@ -42,12 +42,22 @@ class TestGatewayCommand:
             assert _cmd_gateway(ns) == 5
         fallback.assert_called_once()
 
-    def test_cmd_gateway_rejects_unsupported_without_fallback(self, monkeypatch, capsys):
+    def test_cmd_gateway_telegram_requires_hermes_vendored(self, monkeypatch, capsys):
         from butler.main import _cmd_gateway
 
         ns = MagicMock(platforms="telegram", hermes_remainder=[])
-        assert _cmd_gateway(ns) == 2
-        assert "hermes-fallback" in capsys.readouterr().err
+        with patch("butler.gateway.platform_policy.hermes_vendored_installed", return_value=False):
+            assert _cmd_gateway(ns) == 2
+        assert "hermes-gateway" in capsys.readouterr().err
+
+    def test_cmd_gateway_telegram_auto_hermes_when_installed(self, monkeypatch):
+        from butler.main import _cmd_gateway
+
+        ns = MagicMock(platforms="telegram", hermes_remainder=[])
+        with patch("butler.gateway.platform_policy.hermes_vendored_installed", return_value=True):
+            with patch("butler.main._cmd_gateway_hermes_fallback", return_value=0) as fb:
+                assert _cmd_gateway(ns) == 0
+        fb.assert_called_once()
 
 
 class TestPlatformAdapterStubs:
