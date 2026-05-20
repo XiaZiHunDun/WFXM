@@ -256,7 +256,6 @@ class TestMainHelpers:
         buf = io.StringIO()
         stream = StreamRenderer(console, output=buf)
         stream.on_delta("你好！我是莎丽。")
-        stream.on_delta(None)
         ui.finish_turn(
             LoopResult(
                 status=LoopStatus.COMPLETED,
