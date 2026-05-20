@@ -1,0 +1,33 @@
+# Install (user systemd):
+#   mkdir -p ~/.config/systemd/user
+#   sed "s|@WFXM_ROOT@|$HOME/projects/WFXM|g; s|@PYTHON@|$(which python3)|g" \
+#     scripts/systemd/butler-gateway.service > ~/.config/systemd/user/butler-gateway.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now butler-gateway.service
+#
+# Logs: ~/projects/WFXM/logs/butler-gateway.log
+# Status: systemctl --user status butler-gateway.service
+
+[Unit]
+Description=Butler Native Gateway (WeChat iLink)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=@WFXM_ROOT@
+Environment=PYTHONPATH=@WFXM_ROOT@
+EnvironmentFile=-@WFXM_ROOT@/.env
+ExecStart=@PYTHON@ -m butler.main gateway --platforms wechat
+Restart=on-failure
+RestartSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=120
+StandardOutput=append:@WFXM_ROOT@/logs/butler-gateway.log
+StandardError=append:@WFXM_ROOT@/logs/butler-gateway.log
+
+[Install]
+WantedBy=default.target
