@@ -381,9 +381,13 @@ class ButlerMemory:
             parts.append("## Recent cross-project experience\n" + "\n".join(lines))
 
         if current_project.strip():
-            relevant = self.experience.search(
-                current_project.strip(), project=None, limit=5
-            )
+            relevant = [
+                r
+                for r in self.experience.search(
+                    current_project.strip(), project=None, limit=5
+                )
+                if (r.get("category") or "") != "conversation"
+            ]
             if relevant:
                 rel_lines = [
                     f"- [{r['project']}] {r['content']}" for r in relevant

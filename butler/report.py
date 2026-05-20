@@ -214,22 +214,41 @@ def format_detail(report: AgentReport, section: str = "") -> str:
     return "\n".join(parts)
 
 
-_last_report: AgentReport | None = None
+_reports: dict[str, AgentReport] = {}
 
 
-def cache_report(report: AgentReport) -> None:
-    global _last_report
-    _last_report = report
+def _resolve_report_key(session_key: str | None = None) -> str:
+    key = str(session_key or "").strip()
+    if key:
+        return key
+    try:
+        from butler.execution_context import get_current_session_key
+
+        ctx_key = str(get_current_session_key() or "").strip()
+        if ctx_key:
+            return ctx_key
+    except Exception:
+        pass
+    return "default"
 
 
-def get_last_report() -> AgentReport | None:
-    return _last_report
+def cache_report(report: AgentReport, *, session_key: str = "") -> None:
+    """Store the latest delegate/workflow report for a session."""
+    _reports[_resolve_report_key(session_key)] = report
 
 
-def clear_report_cache() -> None:
-    """Reset cached delegate report (tests and /new)."""
-    global _last_report
-    _last_report = None
+def get_last_report(session_key: str = "") -> AgentReport | None:
+    """Return the cached report for ``session_key`` (or current execution context)."""
+    return _reports.get(_resolve_report_key(session_key))
+
+
+def clear_report_cache(session_key: str = "") -> None:
+    """Reset cached report for one session, or all sessions when ``session_key`` is empty."""
+    key = str(session_key or "").strip()
+    if not key:
+        _reports.clear()
+        return
+    _reports.pop(_resolve_report_key(key), None)
 
 
 __all__ = [

@@ -43,7 +43,18 @@ def current_workspace_root() -> Path | None:
         if orch is None:
             return None
         manager = getattr(orch, "project_manager", None)
-        project = manager.get_current() if manager and hasattr(manager, "get_current") else None
+        session_key = ""
+        try:
+            from butler.execution_context import get_current_session_key
+
+            session_key = str(get_current_session_key() or "").strip()
+        except Exception:
+            session_key = ""
+        project = (
+            manager.get_current(session_key=session_key)
+            if manager and hasattr(manager, "get_current")
+            else None
+        )
         workspace = getattr(project, "workspace", None)
         if workspace:
             return Path(workspace).expanduser().resolve()

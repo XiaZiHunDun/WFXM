@@ -73,10 +73,12 @@ def get_tool_definitions_for_project(
 
 
 def get_current_project_tools(*, role: str = "butler") -> list[dict]:
+    from butler.execution_context import get_current_session_key
     from butler.project_manager import get_project_manager
 
     pm = get_project_manager()
-    project = pm.get_current() if pm.current_project else None
+    session_key = str(get_current_session_key() or "").strip()
+    project = pm.get_current(session_key=session_key)
     return get_tool_definitions_for_project(project, role=role)
 
 

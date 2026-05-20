@@ -73,6 +73,31 @@ sys.exit(0 if check_wechat_requirements() else 1)
   mkdir -p "$root/logs"
   _bg_ok "logs dir: $root/logs"
 
+  local dm_policy="${WECHAT_DM_POLICY:-open}"
+  if [[ "$dm_policy" == "open" ]]; then
+    _bg_warn "WECHAT_DM_POLICY=open — set allowlist + WECHAT_ALLOWED_USERS before exposing the Bot"
+  elif [[ "$dm_policy" == "allowlist" ]]; then
+    if [[ -z "${WECHAT_ALLOWED_USERS:-}" ]]; then
+      _bg_warn "WECHAT_DM_POLICY=allowlist but WECHAT_ALLOWED_USERS is empty"
+    else
+      _bg_ok "WeChat DM allowlist configured"
+    fi
+  else
+    _bg_ok "WeChat DM policy: $dm_policy"
+  fi
+
+  if [[ -z "${BUTLER_TOOL_SAFE_ROOT:-}" ]]; then
+    _bg_warn "BUTLER_TOOL_SAFE_ROOT unset — tools may fall back to process cwd without a project"
+  else
+    _bg_ok "BUTLER_TOOL_SAFE_ROOT set"
+  fi
+
+  if [[ -z "${BUTLER_DEFAULT_PROJECT:-}" ]]; then
+    _bg_warn "BUTLER_DEFAULT_PROJECT unset — new chats need /切换 before tool use"
+  else
+    _bg_ok "BUTLER_DEFAULT_PROJECT=${BUTLER_DEFAULT_PROJECT}"
+  fi
+
   if [[ "$errors" -gt 0 ]]; then
     echo "Preflight: $errors error(s), $warns warning(s)"
     return 1

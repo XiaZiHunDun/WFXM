@@ -106,7 +106,7 @@ class WorkflowRunner:
         progress_cb = _workflow_progress_callback(workflow.name, total_steps)
         with use_execution_context(orch, session_key=session_key or "workflow"):
             graph = await self._tasks.execute_graph(nodes, on_progress=progress_cb)
-        self._cache_workflow_report(workflow, graph)
+        self._cache_workflow_report(workflow, graph, session_key=session_key)
         return graph
 
     def run(
@@ -129,7 +129,12 @@ class WorkflowRunner:
         )
 
     @staticmethod
-    def _cache_workflow_report(workflow: WorkflowDef, graph: TaskGraphResult) -> None:
+    def _cache_workflow_report(
+        workflow: WorkflowDef,
+        graph: TaskGraphResult,
+        *,
+        session_key: str = "",
+    ) -> None:
         ok = sum(1 for r in graph.nodes.values() if r.success)
         total = len(graph.nodes)
         headline = (
@@ -152,7 +157,8 @@ class WorkflowRunner:
                 headline=headline,
                 summary="\n".join(summary_parts),
                 success=graph.success,
-            )
+            ),
+            session_key=session_key,
         )
 
     @staticmethod

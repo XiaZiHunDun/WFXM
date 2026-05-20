@@ -232,7 +232,7 @@ class TaskOrchestrator:
                 tokens_used=loop_result.total_tokens,
                 elapsed_seconds=loop_result.elapsed_seconds,
             )
-            cache_report(report)
+            cache_report(report, session_key=session_key)
             success = loop_result.status.value == "completed"
 
             result = AgentResult(
