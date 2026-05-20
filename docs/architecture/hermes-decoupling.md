@@ -1,7 +1,7 @@
 # Hermes 解耦路线图
 
 > 更新：2026-05-20  
-> 原则：**有用算法迁入 `butler/`，`reference/` 只读对照，运行时不再依赖 Hermes 黑盒 Agent。**
+> 原则：**有用算法迁入 `butler/`，`reference/` 只读对照，仓库内无 Hermes 运行时。**
 
 ## 当前真实依赖（诚实状态）
 
@@ -10,53 +10,40 @@
 | `butler/core/agent_loop.py` | ✅ 唯一 Loop | ✅ 经 `message_handler` | **不** import `AIAgent` |
 | `butler/transport/` | ✅ | ✅ | 自建 LLM 客户端 |
 | `butler/tools/` | ✅ | ✅ | 自建工具与审计 |
-| `vendor/hermes-agent/`（`agent/`、`run_agent.py`） | ❌ 不 import | ⚠️ Gateway 子进程内部 | Hermes Agent 黑盒 |
-| `gateway/` + `hermes_cli`（vendor 内） | ❌ | ⚠️ `subprocess` 启动 | 20+ 平台适配器仍在 Hermes |
-| `plugins/memory/butler/` | ❌ | ⚠️ Hermes 插件 ABI | 已通过 `hermes_bridge` 隔离 |
-| `reference/` | ❌ | ❌ | 仅提炼对照，**禁止改动** |
+| `butler/gateway/platforms/wechat_ilink.py` | ❌ | ✅ 唯一平台 | Butler 原生 iLink |
+| `reference/hermes-agent/` | ❌ | ❌ | 本地只读对照（gitignore），提炼 diff 用 |
 
-结论：**对话与网关均为微信单平台**；`vendor/hermes-agent/` 仅冻结对照，产品不启动 Hermes 子进程。
+结论：**产品路径已完全 Butler 化**；微信网关无 Hermes 子进程；仓库内不再包含 `vendor/` Hermes 树。
 
-## 目标架构
+## 目标架构（已达成）
 
 ```
-用户 → butler/gateway/platforms/*  → ButlerMessageHandler → AgentLoop
-                ↑
-         不再 subprocess hermes gateway run
+用户 → butler/gateway/platforms/wechat  → ButlerMessageHandler → AgentLoop
 ```
 
-`vendor/hermes-agent/` 中的 Gateway 平台最终应 **删除或冻结**，已迁入 `butler/gateway/platforms/` 的不再维护 Hermes 副本。
-
-`reference/hermes-agent` 始终保持只读，供提炼 diff，不参与 `pip install` 运行时。
+`reference/hermes-agent` 仅用于本地对照与历史提炼，不参与 `pip install` 与 CI。
 
 ## 分阶段计划
 
-### 阶段 A — Butler 零 Hermes import（进行中 / 大部分完成）
+### 阶段 A — Butler 零 Hermes import ✅
 
-- [x] Agent Loop、Transport、工具批次在 `butler/core` + `butler/transport`
-- [x] `butler/config` 不再 `import hermes_constants`
-- [x] `ButlerMemoryService` 与 `plugins/memory/butler/hermes_bridge` 分离
-- [x] 后台记忆提炼改用 `auxiliary_client`（修复旧 `_create_butler_agent` 死代码）
-- [x] `post_session.from_hermes_agent` 标为 deprecated（`DeprecationWarning`），测试迁出 v3 路径
-- [x] 根 `pyproject` 仅 `butler-system`；微信依赖见 `[wechat]` extra
+- [x] Agent Loop、Transport、工具在 `butler/core` + `butler/transport`
+- [x] `post_session.from_hermes_agent` deprecated；v3 测试在 `tests/archive/`
+- [x] 根 `pyproject` 仅 `butler-system`；微信见 `[wechat]` extra
 
-### 阶段 B — Butler 原生 Gateway（已完成 · 仅微信）
+### 阶段 B — 仅微信 Gateway ✅
 
-- [x] `butler gateway` → 仅微信 iLink（`butler/gateway/platforms/wechat_ilink.py`）
-- [x] 其它平台名（telegram 等）CLI 直接拒绝
-- [x] 已移除 `--hermes-fallback` 产品入口
-- [x] 原生网关用 `butler/gateway/hooks.py`（非 `plugins/butler`）
+- [x] `butler gateway` → 微信 iLink
+- [x] 其它平台 CLI 拒绝；无 `--hermes-fallback`
 
-### 阶段 C — 仓库物理整理
+### 阶段 C — 仓库整理 ✅
 
-- [x] Hermes 树移入 `vendor/hermes-agent/`（**不**动 `reference/`）
-- [x] `STRUCTURE.md` 更新；pytest 仍只测 `tests/`（`norecursedirs` 含 `vendor`）
-- [x] `hermes-vendored` 独立 `vendor/hermes-agent/pyproject.toml`；根包默认仅 `butler` + `butler` 脚本
+- [x] 曾迁 `vendor/hermes-agent/`；**已删除**（对照改 `reference/` 本地维护）
+- [x] 根包仅 `butler` 脚本
 
-### 阶段 D — 清理
+### 阶段 D — 清理 ✅
 
-- [x] `test_butler_v3` 移入 `tests/archive/`（默认 pytest 不收集）
-- [x] 文档统一：`STRUCTURE.md` / 本路线图反映 Butler 默认栈 + `--hermes-fallback` 逃生舱
+- [x] 文档与 `STRUCTURE.md` 反映微信单平台
 
 ## 提炼 vs 依赖对照
 
@@ -64,16 +51,12 @@
 |------|------|--------|
 | 从 `reference/` 读片段，实现进 `butler/` | ✅ | |
 | `import run_agent.AIAgent` 跑主对话 | | ❌ |
-| 复制算法到 `butler/core`，单测覆盖 | ✅ | |
-| 根目录 / vendor Hermes 当 Butler 主路径运行时库 | | ❌ |
-| Gateway 平台 **提炼** 到 `butler/gateway/platforms` | ✅ | |
-| 长期 `subprocess hermes gateway run` | | ❌ |
+| 仓库内 vendored Hermes 当运行时 | | ❌ |
 
 详见 [`hermes-extraction-map.md`](hermes-extraction-map.md)。
 
 ## 验收
 
 - `rg '^from (agent|run_agent)' butler/` 无匹配  
-- `butler chat` / `butler exec` 不启动 Hermes 子进程  
-- `butler gateway --platforms wechat` 仅走 Butler 栈（阶段 B 完成后）  
+- `butler gateway` 仅微信栈  
 - 默认 `pytest` 885+ 通过（`tests/archive/` 不收集）
