@@ -169,6 +169,12 @@ class ButlerMessageHandler:
         if not text.strip():
             return ""
 
+        detail_cmd = _normalize_detail_request(text)
+        if detail_cmd is not None:
+            response = self._handle_command(detail_cmd, session_key=session_key)
+            if response is not None:
+                return response
+
         if text.startswith("/"):
             response = self._handle_command(text, session_key=session_key)
             if response is not None:
@@ -413,6 +419,21 @@ class ButlerMessageHandler:
         if not result.final_response:
             return "（执行完成，无文字输出）"
         return result.final_response
+
+
+def _normalize_detail_request(text: str) -> str | None:
+    """Map WeChat-friendly「详细」to ``/详细`` without requiring a slash prefix."""
+    stripped = (text or "").strip()
+    if not stripped:
+        return None
+    lower = stripped.lower()
+    if lower in {"/详细", "/detail", "详细", "detail", "查看详细", "看详细", "完整报告"}:
+        return "/详细"
+    if stripped.startswith("详细 "):
+        return "/详细 " + stripped[3:].strip()
+    if lower.startswith("detail "):
+        return "/detail " + stripped[7:].strip()
+    return None
 
 
 def _gateway_run_callbacks() -> LoopCallbacks | None:
