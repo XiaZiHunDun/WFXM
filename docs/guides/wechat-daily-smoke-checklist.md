@@ -17,8 +17,10 @@ journalctl --user -u butler-gateway.service -n 30 --no-pager
 # 自动化守门（改 gateway/orchestrator 后）
 cd ~/projects/WFXM
 PYTHONPATH=. pytest \
+  tests/test_project_manager.py \
   tests/test_wechat_session_reset.py \
   tests/test_gateway_acceptance.py \
+  tests/test_wechat_ilink_inbound.py \
   tests/test_workflows.py \
   -q
 ```

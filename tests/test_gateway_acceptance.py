@@ -274,14 +274,22 @@ class TestManualGuide35Slash:
         assert "赵六" not in out or "不记得" in out or "不知道" in out
 
 
-def _setup_gateway_project(tmp_path: Path, monkeypatch, *, with_workflow: bool = False) -> Path:
+def _setup_gateway_project(
+    tmp_path: Path,
+    monkeypatch,
+    *,
+    with_workflow: bool = False,
+    project_folder: str = "test-project",
+    project_name: str = "test-project",
+    description: str = "Gateway smoke project",
+) -> Path:
     """Project workspace under tmp_path; returns project directory."""
     from butler.config import reload_butler_settings
     from tests.test_gateway_handler import _reset_singletons
 
     projects_dir = tmp_path / "projects"
     projects_dir.mkdir()
-    proj = projects_dir / "test-project"
+    proj = projects_dir / project_folder
     proj.mkdir()
     (proj / "docs").mkdir()
     (proj / "README.md").write_text(
@@ -289,9 +297,9 @@ def _setup_gateway_project(tmp_path: Path, monkeypatch, *, with_workflow: bool =
         encoding="utf-8",
     )
     spec: dict = {
-        "name": "test-project",
+        "name": project_name,
         "type": "software",
-        "description": "Gateway smoke project",
+        "description": description,
         "workspace": str(proj),
     }
     if with_workflow:
@@ -453,3 +461,193 @@ class TestWechatSmokeWorkflow:
 
         detail = handler.handle_message("/详细", session_key="wechat:u1", platform="wechat")
         assert "novel-factory" in detail or "draft" in detail or "验收" in detail
+
+
+@pytest.mark.integration
+class TestWechatSmokeSlashProjects:
+    """Maps to smoke steps 0–2: /状态, /切换 display name, /状态 again."""
+
+    def test_switch_lingwen_display_name_then_status(
+        self, tmp_path, monkeypatch, tmp_butler_home
+    ):
+        from tests.test_gateway_handler import _reset_singletons
+
+        _setup_gateway_project(
+            tmp_path,
+            monkeypatch,
+            project_folder="LingWen",
+            project_name="灵文",
+            description="小说工厂流水线验收",
+        )
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+        _reset_singletons()
+        handler = ButlerMessageHandler(channel="gateway")
+
+        switched = handler.handle_message(
+            "/切换 灵文",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+        assert "已切换到项目: 灵文" in switched
+
+        status = handler.handle_message("/状态", session_key="wechat:u1", platform="wechat")
+        assert "灵文" in status
+        assert "Butler 状态" in status
+
+
+@pytest.mark.integration
+class TestWechatSmokeDevDelegate:
+    """Maps to smoke step 5: dev agent read-only check via delegate_task."""
+
+    def test_dev_agent_check_without_write(
+        self, gateway_handler_project, patch_llm
+    ):
+        from butler.tools.registry import dispatch_tool
+
+        handler, proj = gateway_handler_project
+        smoke_rel = "docs/wechat-smoke.md"
+        (proj / smoke_rel).write_text("微信验收\n", encoding="utf-8")
+
+        mock_complete, mock_stream = patch_llm
+        mock_complete.side_effect = [
+            _tool_response(
+                "delegate_task",
+                {
+                    "role": "dev_agent",
+                    "task": f"只读检查 {smoke_rel} 是否存在并读前几行",
+                },
+            ),
+            _tool_response("read_file", {"path": smoke_rel}),
+            _text_response("开发代理确认：文件存在。"),
+            _text_response("已委派开发代理完成检查，文件存在。"),
+        ]
+        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
+            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
+        ]
+
+        handler._session_registry.reset_all()
+        with patch(
+            "butler.gateway.message_handler.dispatch_tool",
+            wraps=dispatch_tool,
+        ) as spy:
+            out = handler.handle_message(
+                "请委派开发代理：只检查 docs/wechat-smoke.md 是否存在并读前几行，不要改代码",
+                session_key="wechat:u1",
+                platform="wechat",
+            )
+            tool_names = [c[0][0] for c in spy.call_args_list if c[0]]
+            delegate_roles = [
+                c[0][1].get("role")
+                for c in spy.call_args_list
+                if c[0] and c[0][0] == "delegate_task"
+            ]
+
+        assert "delegate_task" in tool_names
+        assert any(r in ("dev_agent", "dev") for r in delegate_roles)
+        assert "write_file" not in tool_names
+        assert "开发代理" in out or "存在" in out or "检查" in out
+
+
+@pytest.mark.integration
+class TestWechatSmokeProjectMemory:
+    """Maps to smoke step 7: project context survives /new; chat secrets do not."""
+
+    def test_after_new_answers_project_purpose(
+        self, tmp_path, monkeypatch, tmp_butler_home, patch_llm
+    ):
+        from butler.core.agent_loop import LoopStatus
+        from butler.session_keys import build_session_key
+        from butler.session_lifecycle import sync_turn_memory
+        from tests.test_gateway_handler import _reset_singletons
+
+        desc = "小说工厂流水线验收专用描述"
+        _setup_gateway_project(
+            tmp_path,
+            monkeypatch,
+            project_folder="LingWen",
+            project_name="灵文",
+            description=desc,
+        )
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+        _reset_singletons()
+        handler = ButlerMessageHandler(channel="gateway")
+        handler.handle_message("/切换 灵文", session_key="wechat:u1", platform="wechat")
+
+        sk = build_session_key(platform="wechat", chat_id="u1", project="灵文")
+        sync_turn_memory(
+            handler._orchestrator,
+            "请读取 wechat-only-secret-42",
+            "已读完 secret 文件。",
+            status=LoopStatus.COMPLETED,
+            session_id=sk,
+        )
+        handler.handle_message("/新对话", session_key="wechat:u1", platform="wechat")
+
+        mock_complete, mock_stream = patch_llm
+        mock_complete.return_value = _text_response(
+            f"当前项目是灵文，用途：{desc}。"
+        )
+        mock_stream.return_value = mock_complete.return_value
+
+        out = handler.handle_message(
+            "当前是什么项目？灵文项目是做什么的？",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+        assert "灵文" in out
+        assert "小说工厂" in out or desc in out
+        assert "wechat-only-secret-42" not in out
+
+        call_args = mock_complete.call_args
+        messages = call_args.kwargs.get("messages") or call_args.args[0]
+        user_blob = " ".join(
+            str(m.get("content", ""))
+            for m in messages
+            if isinstance(m, dict) and m.get("role") == "user"
+        )
+        assert "wechat-only-secret-42" not in user_blob
+        assert "灵文" in user_blob or desc in user_blob
+
+
+@pytest.mark.integration
+class TestWechatSmokeDetailAlias:
+    """Maps to smoke step 4b: 「详细」without leading slash."""
+
+    def test_plain_detail_after_delegate(self, gateway_handler_project, patch_llm):
+        from butler.report import clear_report_cache, get_last_report
+
+        handler, proj = gateway_handler_project
+        clear_report_cache()
+        doc_rel = "docs/smoke-detail-alias.md"
+        (proj / "docs").mkdir(exist_ok=True)
+
+        mock_complete, mock_stream = patch_llm
+        mock_complete.side_effect = [
+            _tool_response(
+                "delegate_task",
+                {"role": "content_agent", "task": f"写 {doc_rel}"},
+            ),
+            _tool_response("write_file", {"path": doc_rel, "content": "ok\n"}),
+            _text_response("已完成。"),
+            _text_response("发「详细」可看报告。"),
+        ]
+        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
+            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
+        ]
+
+        handler.handle_message(
+            "请交给内容代理写 docs/smoke-detail-alias.md",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+        assert get_last_report() is not None
+
+        handler._session_registry.reset_all()
+        with patch.object(handler, "_get_or_create_loop") as mock_get:
+            detail = handler.handle_message(
+                "详细",
+                session_key="wechat:u1",
+                platform="wechat",
+            )
+        mock_get.assert_not_called()
+        assert "smoke-detail-alias" in detail or "变更" in detail
