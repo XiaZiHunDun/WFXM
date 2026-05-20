@@ -346,6 +346,41 @@ class TestAgentLoopRun:
         assert blocked_msg["tool"] == "read_file"
         assert blocked_msg["code"] == "TOOL_GUARDRAIL_BLOCKED"
 
+    def test_parallel_tools_with_guardrails_accumulate_failures_thread_safely(
+        self, mock_llm_client
+    ):
+        from butler.transport.types import NormalizedResponse
+        from butler.tool_guardrails import GuardrailConfig, ToolCallGuardrailController
+
+        tool_calls = [
+            build_tool_call(f"c{i}", "search_files", {"query": f"q{i}"})
+            for i in range(8)
+        ]
+        mock_llm_client.complete.side_effect = [
+            NormalizedResponse(tool_calls=tool_calls, usage=_usage()),
+            _text_response("done"),
+        ]
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=lambda _n, _a: json.dumps({"error": "parallel fail"}),
+            config=LoopConfig(stream=False, enable_parallel_tools=True),
+        )
+        loop._guardrails = ToolCallGuardrailController(
+            GuardrailConfig(
+                same_tool_failure_halt_after=8,
+                same_tool_failure_warn_after=99,
+                exact_failure_warn_after=99,
+                exact_failure_block_after=99,
+            )
+        )
+
+        loop.run("parallel guardrail failures")
+        assert loop._guardrails.halt_decision is not None
+        assert loop._guardrails.halt_decision.action == "halt"
+        assert loop._guardrails.halt_decision.tool_name == "search_files"
+        tool_msgs = [msg for msg in loop.messages if msg["role"] == "tool"]
+        assert len(tool_msgs) == 8
+
     def test_guardrail_halt_is_enveloped_and_audited(self, mock_llm_client):
         from butler.tool_guardrails import GuardrailConfig, ToolCallGuardrailController
         from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -131,19 +132,34 @@ class ToolCallGuardrailController:
 
     def __init__(self, config: GuardrailConfig | None = None):
         self.config = config or GuardrailConfig()
+        self._lock = threading.RLock()
         self.reset_for_turn()
 
     def reset_for_turn(self) -> None:
-        self._exact_failure_counts: dict[ToolCallSignature, int] = {}
-        self._same_tool_failure_counts: dict[str, int] = {}
-        self._no_progress: dict[ToolCallSignature, tuple[str, int]] = {}
-        self._halt_decision: GuardrailDecision | None = None
+        with self._lock:
+            self._exact_failure_counts: dict[ToolCallSignature, int] = {}
+            self._same_tool_failure_counts: dict[str, int] = {}
+            self._no_progress: dict[ToolCallSignature, tuple[str, int]] = {}
+            self._halt_decision: GuardrailDecision | None = None
 
     @property
     def halt_decision(self) -> GuardrailDecision | None:
-        return self._halt_decision
+        with self._lock:
+            return self._halt_decision
+
+    def set_halt_decision(self, decision: GuardrailDecision) -> None:
+        """Record a halt/block decision from tool execution (thread-safe)."""
+        with self._lock:
+            if self._halt_decision is None:
+                self._halt_decision = decision
 
     def before_call(self, tool_name: str, args: Mapping[str, Any] | None) -> GuardrailDecision:
+        with self._lock:
+            return self._before_call_locked(tool_name, args)
+
+    def _before_call_locked(
+        self, tool_name: str, args: Mapping[str, Any] | None
+    ) -> GuardrailDecision:
         signature = ToolCallSignature.from_call(tool_name, args)
         if not self.config.hard_stop_enabled:
             return GuardrailDecision(tool_name=tool_name)
@@ -184,6 +200,17 @@ class ToolCallGuardrailController:
         return GuardrailDecision(tool_name=tool_name)
 
     def after_call(
+        self,
+        tool_name: str,
+        args: Mapping[str, Any] | None,
+        result: str | None,
+        *,
+        failed: bool | None = None,
+    ) -> GuardrailDecision:
+        with self._lock:
+            return self._after_call_locked(tool_name, args, result, failed=failed)
+
+    def _after_call_locked(
         self,
         tool_name: str,
         args: Mapping[str, Any] | None,

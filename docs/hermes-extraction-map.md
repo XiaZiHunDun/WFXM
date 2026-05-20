@@ -113,5 +113,6 @@
 | `butler/core/agent_loop.py` + `butler/tools/registry.py` | guardrail halt 观测对齐 | `after_call` halt 使用 `TOOL_GUARDRAIL_HALT` envelope/审计，替换重复工具失败审计 | ✅ |
 | `butler/gateway/session_registry.py` + `butler/tools/registry.py` | 审计生命周期对齐 | session `reset`/`reset_all`/idle 驱逐/LRU 驱逐时通过 `on_session_removed` 清理对应 `session_key` 工具审计桶，避免陈旧 `/health` 数据 | ✅ |
 | `butler/core/agent_loop.py` | 顺序多工具批次中断补全 | 同轮多 `tool_call` 顺序执行中途中断时，为剩余 call 补齐 `TOOL_INTERRUPTED` tool 消息与审计，不再 `break` 留空 | ✅ |
+| `butler/tool_guardrails.py` + `butler/core/agent_loop.py` | 并行工具 + guardrails 线程安全 | `ToolCallGuardrailController` 使用 `RLock` 保护计数与 halt 状态；并行批次可安全启用 guardrails | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke tests 位于 `tests/test_real_api_smoke.py`，默认被 `live_llm` marker 排除；显式运行需使用 `pytest -m live_llm tests/test_real_api_smoke.py`，并设置 `BUTLER_RUN_REAL_API_SMOKE=1` 和对应 provider API key。

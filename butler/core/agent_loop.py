@@ -418,7 +418,7 @@ class AgentLoop:
             if self._guardrails:
                 after = self._guardrails.after_call(name, args, result)
                 if after.should_halt:
-                    self._guardrails._halt_decision = after
+                    self._guardrails.set_halt_decision(after)
                     result = _finalize_guardrail_halt_result(name, args, result, after)
                 elif after.action == "warn":
                     result = append_guidance(result, after)

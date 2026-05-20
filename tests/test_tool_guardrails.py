@@ -1,6 +1,8 @@
 """L1 unit tests for butler.tool_guardrails."""
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -74,6 +76,45 @@ class TestIdempotentNoProgress:
         decision = ctrl.before_call("read_file", args)
         assert decision.action == "block"
         assert decision.code == "idempotent_no_progress_block"
+
+
+@pytest.mark.unit
+class TestThreadSafety:
+    def test_concurrent_same_tool_failure_counts_are_exact(self):
+        ctrl = ToolCallGuardrailController(
+            config=GuardrailConfig(
+                same_tool_failure_halt_after=50,
+                same_tool_failure_warn_after=99,
+                exact_failure_warn_after=99,
+                exact_failure_block_after=99,
+            )
+        )
+        barrier = threading.Barrier(25)
+
+        def worker(idx: int) -> None:
+            barrier.wait()
+            ctrl.after_call(
+                "search_files",
+                {"query": str(idx)},
+                '{"error": "x"}',
+                failed=True,
+            )
+
+        with ThreadPoolExecutor(max_workers=25) as pool:
+            list(pool.map(worker, range(50)))
+
+        with ctrl._lock:
+            assert ctrl._same_tool_failure_counts["search_files"] == 50
+        assert ctrl.halt_decision is not None
+        assert ctrl.halt_decision.action == "halt"
+
+    def test_set_halt_decision_keeps_first_recorded_halt(self):
+        ctrl = ToolCallGuardrailController()
+        first = GuardrailDecision(action="block", code="first", message="first", tool_name="t")
+        second = GuardrailDecision(action="halt", code="second", message="second", tool_name="t")
+        ctrl.set_halt_decision(first)
+        ctrl.set_halt_decision(second)
+        assert ctrl.halt_decision == first
 
 
 @pytest.mark.unit
