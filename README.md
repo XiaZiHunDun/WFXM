@@ -56,7 +56,7 @@ butler create MyApp --type software --description "我的新应用"
 ### 4. 测试
 
 ```bash
-PYTHONPATH=. pytest -q          # 733 passed（默认排除 live_llm）
+PYTHONPATH=. pytest -q          # 925 passed（默认排除 live_llm）
 ```
 
 ## 项目结构（核心）
@@ -74,7 +74,7 @@ butler/
 ├── post_session.py
 └── main.py
 docs/                  # 架构与设计文档
-tests/                 # 733+ 自动化测试
+tests/                 # 925+ 自动化测试
 ```
 
 ## 支持的 LLM Provider

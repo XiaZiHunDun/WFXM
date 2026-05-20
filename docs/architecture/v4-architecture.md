@@ -197,7 +197,7 @@ while not done and iterations < budget:
 
 ## 测试覆盖
 
-**733+ passed**（默认 `pytest` 排除 8 项 `live_llm` 真实 API smoke），覆盖：
+**925+ passed**（默认 `pytest` 排除 13 项 `live_llm` 真实 API smoke），覆盖：
 - Transport 层（types、registry、chat_completions、anthropic、retry_utils）
 - Provider 注册表（列表、查询、别名解析）
 - Agent Loop 栈（`test_agent_loop.py`、`test_tool_batch.py`、`test_context_pipeline.py`）

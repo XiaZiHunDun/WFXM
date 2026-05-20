@@ -30,7 +30,7 @@ echo $MINIMAX_API_KEY | head -c 12
 cd ~/projects/WFXM
 PYTHONPATH=. python -c "from butler.main import main; print('OK')"
 
-# 运行自动化测试（应 733 passed，8 项 live_llm 默认 deselected）
+# 运行自动化测试（应 925 passed，13 项 live_llm 默认 deselected）
 PYTHONPATH=. python -m pytest tests/ -q
 
 # 可选：真实 API smoke（需 .env 中 API Key + BUTLER_RUN_REAL_API_SMOKE=1）

@@ -16,7 +16,7 @@ WFXM/
 │   └── main.py             #   `butler` 入口
 │
 ├── docs/                   # ★ Butler 文档（见 docs/README.md）
-├── tests/                  # ★ Butler 自动化测试（733+，pytest）
+├── tests/                  # ★ Butler 自动化测试（925+，pytest）
 ├── projects/               #   用户项目工作区（示例：LingWen）
 ├── archive/                #   历史代码（butler-v1），非主线
 ├── reference/              #   Hermes 上游只读对照（不改动）

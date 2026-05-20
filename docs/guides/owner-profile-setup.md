@@ -52,10 +52,12 @@
 
 ### 方式 B：直接编辑文件
 
+仓库内可复制模板：[`owner-profile.example.json`](./owner-profile.example.json)
+
 ```bash
 mkdir -p ~/.butler/tenants/default/memory
-nano ~/.butler/tenants/default/memory/profile.json
-# 粘贴上文 JSON，保存后无需重启 gateway（下一轮对话会加载）
+cp docs/guides/owner-profile.example.json ~/.butler/tenants/default/memory/profile.json
+# 按需改称呼/项目名；保存后无需重启 gateway（下一轮对话会加载）
 ```
 
 ### 方式 C：CLI 一次性写入（可选）
