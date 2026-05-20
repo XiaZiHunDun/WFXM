@@ -13,8 +13,9 @@ Butler v4 产品代码：自建 **Agent Loop** + 分层记忆 + Skill + Gateway 
 | `core/` | Loop 编排与子模块（`agent_loop`, `tool_batch`, `llm_retry`, `context_pipeline`）|
 | `transport/` | LLM 客户端与 Provider |
 | `gateway/` | 入站消息、`/health`、session 生命周期 |
+| `gateway/platforms/` | 微信 iLink（`wechat_ilink.py`） |
 | `tools/` | 工具注册、JSON envelope、审计 |
 | `memory/`, `skills/` | 记忆与 Skill |
 | `cli/` | CLI 展示与流式输出 |
 
-根目录 `agent/`、`gateway/`（Hermes）由 Gateway 子进程使用，非本包实现。
+微信生产部署：[`../docs/guides/wechat-gateway-ops.md`](../docs/guides/wechat-gateway-ops.md)

@@ -8,7 +8,7 @@
 
 - **只移植算法与小模块**，不 import `AIAgent`、不复制 `run_agent.py` / `gateway/run.py` 单体。
 - Butler 保留自建 `AgentLoop` + `Transport` + 产品层（记忆、Skill、DAG 编排）。
-- Gateway：**目标**为 Butler 原生平台适配器；**过渡态**仍可通过 Hermes subprocess（见 [`hermes-decoupling.md`](hermes-decoupling.md)）。
+- Gateway：**Butler 原生**微信 iLink（`butler/gateway/platforms/wechat_ilink.py`），无 Hermes subprocess（见 [`hermes-decoupling.md`](hermes-decoupling.md)）。
 
 ## 模块对照表
 
@@ -39,7 +39,7 @@
 | Hermes 路径 | 原因 |
 |-------------|------|
 | `run_agent.py` (~790KB) | 违背 v4 自建 Loop；维护成本极高 |
-| `gateway/run.py` (~16k 行) | Butler 已 subprocess 使用 |
+| `gateway/run.py` (~16k 行) | 不移植；微信由 `wechat_ilink.py` 原生实现 |
 | 50+ 工具 / MCP / 浏览器 / 沙箱 | 超出 Butler「9 核心工具 + 项目开发」定位 |
 | `hermes_state.SessionDB` | 与 Butler 项目记忆模型重复 |
 | 完整 Plugin 平台 / skills hub | 强依赖 Hermes 全局状态 |
@@ -54,7 +54,7 @@
 | 3 工具与委派 | 并行批、interrupt、delegate 信封 | `test_hermes_extraction.py`, `test_tools_registry.py` |
 | 4 记忆/Gateway/Skills | session 边界、HookBus、skills_guard | `test_gateway_handler.py`, `test_main_cli.py` |
 
-全量测试目标：**885+ passed**（默认排除 `live_llm` 与 `tests/archive/`）。
+全量测试目标：**931 passed**（默认排除 `live_llm` 与 `tests/archive/`）。
 
 ## 架构约束
 
@@ -83,7 +83,7 @@
 | `butler/core/iteration_budget.py` | L283–L325 | 迭代预算（可选） | ✅ |
 | `butler/core/agent_loop.py` + `butler/core/loop_types.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写、Loop 公共类型 | ✅ |
 
-测试：`tests/test_run_agent_extraction.py`；全量 **885+ passed**（默认排除 `live_llm` 与 `tests/archive/`）。
+测试：`tests/test_run_agent_extraction.py`；全量 **931 passed**（默认排除 `live_llm` 与 `tests/archive/`）。
 
 ## CLI 提炼层（2026-05 增补）
 
