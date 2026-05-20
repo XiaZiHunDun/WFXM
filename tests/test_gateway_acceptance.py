@@ -272,3 +272,184 @@ class TestManualGuide35Slash:
         out = gateway_handler.handle_message("我叫什么？", session_key=sk, platform="wechat")
 
         assert "赵六" not in out or "不记得" in out or "不知道" in out
+
+
+def _setup_gateway_project(tmp_path: Path, monkeypatch, *, with_workflow: bool = False) -> Path:
+    """Project workspace under tmp_path; returns project directory."""
+    from butler.config import reload_butler_settings
+    from tests.test_gateway_handler import _reset_singletons
+
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir()
+    proj = projects_dir / "test-project"
+    proj.mkdir()
+    (proj / "docs").mkdir()
+    (proj / "README.md").write_text(
+        "\n".join(f"README line {i}" for i in range(1, 16)),
+        encoding="utf-8",
+    )
+    spec: dict = {
+        "name": "test-project",
+        "type": "software",
+        "description": "Gateway smoke project",
+        "workspace": str(proj),
+    }
+    if with_workflow:
+        spec["workflows"] = [{"name": "novel-factory", "description": "demo wf"}]
+    import yaml
+
+    (proj / "project.yaml").write_text(
+        yaml.safe_dump(spec, allow_unicode=True),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
+    _reset_singletons()
+    reload_butler_settings()
+    return proj
+
+
+@pytest.fixture
+def gateway_handler_project(tmp_path, monkeypatch, tmp_butler_home):
+    from butler.report import clear_report_cache
+    from tests.test_gateway_handler import _reset_singletons
+
+    clear_report_cache()
+    proj = _setup_gateway_project(tmp_path, monkeypatch)
+    empty = tmp_path / "empty-hint"
+    empty.mkdir()
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+    _reset_singletons()
+    handler = ButlerMessageHandler(channel="gateway")
+    handler._orchestrator.project_manager.switch_project("test-project")
+    return handler, proj
+
+
+@pytest.mark.integration
+class TestWechatSmokeDelegate:
+    """Maps to wechat-daily-smoke steps 4–4c: delegate, compact reply, /detail."""
+
+    def test_delegate_compact_summary_and_detail(self, gateway_handler_project, patch_llm):
+        from butler.report import clear_report_cache, get_last_report
+
+        handler, proj = gateway_handler_project
+        clear_report_cache()
+        doc_rel = "docs/smoke-gw.md"
+        doc_path = proj / doc_rel
+
+        mock_complete, mock_stream = patch_llm
+        mock_complete.side_effect = [
+            _tool_response(
+                "delegate_task",
+                {
+                    "role": "content_agent",
+                    "task": f"在 {doc_rel} 写一行「微信验收」",
+                },
+            ),
+            _tool_response("write_file", {"path": doc_rel, "content": "微信验收\n"}),
+            _text_response("已写入 docs/smoke-gw.md"),
+            _text_response("内容代理已完成，发 /详细 可看变更。"),
+        ]
+        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
+            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
+        ]
+
+        out = handler.handle_message(
+            "请交给内容代理：在 docs 写 smoke-gw.md，正文写微信验收",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+
+        assert doc_path.is_file()
+        assert "微信验收" in doc_path.read_text(encoding="utf-8")
+        assert len(out) <= 2000
+        assert "详细" in out or get_last_report() is not None
+        report = get_last_report()
+        assert report is not None
+        assert report.headline
+
+        detail = handler.handle_message("/详细", session_key="wechat:u1", platform="wechat")
+        assert "smoke-gw" in detail or "变更" in detail or report.headline in detail
+
+    def test_read_readme_without_delegate(self, gateway_handler_project, patch_llm):
+        from butler.execution_context import use_execution_context
+        from butler.tools.registry import dispatch_tool
+
+        handler, _proj = gateway_handler_project
+        readme_rel = "README.md"
+        with use_execution_context(handler._orchestrator, session_key="wechat:u1"):
+            tool_out = dispatch_tool("read_file", {"path": readme_rel})
+        assert "error" not in tool_out.lower()[:80]
+
+        mock_complete, mock_stream = patch_llm
+        mock_complete.side_effect = [
+            _tool_response("read_file", {"path": readme_rel}),
+            _text_response("README 共 15 行左右。"),
+        ]
+        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
+            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
+        ]
+
+        handler._session_registry.reset_all()
+        with patch(
+            "butler.gateway.message_handler.dispatch_tool",
+            wraps=dispatch_tool,
+        ) as spy:
+            out = handler.handle_message(
+                "请读取当前项目 README 前 15 行，用纯文字摘要，不要委派",
+                session_key="wechat:u1",
+                platform="wechat",
+            )
+            tool_names = [c[0][0] for c in spy.call_args_list if c[0]]
+        assert "delegate_task" not in tool_names
+        assert "read_file" in tool_names
+        assert "15" in out or "README" in out
+
+
+@pytest.mark.integration
+class TestWechatSmokeWorkflow:
+    """Maps to smoke steps 8–8c (gateway path for /详细 after workflow)."""
+
+    def test_workflow_run_then_detail(self, tmp_path, monkeypatch, tmp_butler_home, patch_llm):
+        from butler.report import clear_report_cache
+        from butler.task_orchestrator import AgentResult, TaskGraphResult
+        from tests.test_gateway_handler import _reset_singletons
+
+        clear_report_cache()
+        _setup_gateway_project(tmp_path, monkeypatch, with_workflow=True)
+        _reset_singletons()
+        handler = ButlerMessageHandler(channel="gateway")
+        handler._orchestrator.project_manager.switch_project("test-project")
+
+        mock_complete, mock_stream = patch_llm
+        mock_complete.return_value = _text_response("好的")
+        mock_stream.return_value = mock_complete.return_value
+
+        listed = handler.handle_message("/工作流 list", session_key="wechat:u1", platform="wechat")
+        assert "novel-factory" in listed
+
+        graph = TaskGraphResult(
+            success=True,
+            nodes={
+                "draft": AgentResult(success=True, response="draft ok"),
+                "review": AgentResult(success=True, response="review ok"),
+            },
+            execution_order=["draft", "review"],
+        )
+        from butler.workflows.loader import resolve_workflow
+        from butler.workflows.runner import WorkflowRunner
+
+        project = handler._orchestrator.project_manager.get_current()
+        wf = resolve_workflow(project, "novel-factory")
+        assert wf is not None
+
+        with patch("butler.workflows.runner.WorkflowRunner.run", return_value=graph):
+            run_out = handler.handle_message(
+                "/工作流 run novel-factory 写一句验收说明",
+                session_key="wechat:u1",
+                platform="wechat",
+            )
+        WorkflowRunner._cache_workflow_report(wf, graph)
+        assert "novel-factory" in run_out
+
+        detail = handler.handle_message("/详细", session_key="wechat:u1", platform="wechat")
+        assert "novel-factory" in detail or "draft" in detail or "验收" in detail
