@@ -115,6 +115,14 @@ class TestSlashCommands:
     def test_unknown_returns_none(self):
         assert _handle_slash_command("/unknown", _mock_orchestrator(), _mock_console()) is None
 
+    def test_health_returns_handled(self):
+        orch = _mock_orchestrator()
+        loop = MagicMock()
+        loop.diagnostics = {"schema_recovered": False}
+        console = _mock_console()
+        assert _handle_slash_command("/health", orch, console, agent_loop=loop) == "handled"
+        console.print.assert_called()
+
 
 @pytest.mark.integration
 class TestSyncMemory:
