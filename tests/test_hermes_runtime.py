@@ -10,19 +10,17 @@ from butler.hermes_runtime import hermes_cli_main, hermes_repo_root
 
 
 @pytest.mark.unit
-def test_hermes_repo_root_points_at_repo_or_vendor():
+def test_hermes_repo_root_points_at_vendor():
     root = hermes_repo_root()
+    assert root.name == "hermes-agent"
+    assert "vendor" in root.parts
     assert (root / "hermes_cli").is_dir()
+    assert (root / "agent").is_dir()
     assert hermes_cli_main().name == "main.py"
-    assert hermes_cli_main().parent.name == "hermes_cli"
 
 
 @pytest.mark.unit
-def test_vendor_root_preferred_when_present(tmp_path, monkeypatch):
-    vendor = tmp_path / "vendor" / "hermes-agent"
-    (vendor / "hermes_cli").mkdir(parents=True)
-    (vendor / "hermes_cli" / "main.py").write_text("# stub\n", encoding="utf-8")
-    monkeypatch.setattr("butler.hermes_runtime._VENDOR_ROOT", vendor)
-    monkeypatch.setattr("butler.hermes_runtime._REPO_ROOT", tmp_path)
-    assert hermes_repo_root() == vendor
-    assert hermes_cli_main() == vendor / "hermes_cli" / "main.py"
+def test_hermes_repo_root_raises_when_tree_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr("butler.hermes_runtime._HERMES_ROOT", tmp_path / "vendor" / "hermes-agent")
+    with pytest.raises(FileNotFoundError, match="Hermes vendored tree missing"):
+        hermes_repo_root()

@@ -27,9 +27,8 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-pip install -e .                    # Butler + 仓库内 Hermes 树（editable）
-# Telegram 等 Hermes fallback 平台依赖：
-# pip install -e ".[hermes-gateway]"
+pip install -e .                    # Butler + vendor/hermes-agent（editable）
+pip install -e ".[hermes-gateway]"  # + Telegram 等多平台 fallback 依赖
 # 微信网关可选
 pip install -e ".[wechat]"
 ```

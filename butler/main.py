@@ -484,7 +484,10 @@ def _cmd_gateway_hermes_fallback(ns: argparse.Namespace) -> int:
     if ns.platforms:
         argv.extend(["--platforms", ns.platforms])
     argv.extend(ns.hermes_remainder or [])
-    result = subprocess.run(argv, cwd=str(hermes_root))
+    env = os.environ.copy()
+    root = str(hermes_root)
+    env["PYTHONPATH"] = root + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
+    result = subprocess.run(argv, cwd=root, env=env)
     return result.returncode
 
 
