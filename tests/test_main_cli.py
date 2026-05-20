@@ -244,17 +244,15 @@ class TestMainHelpers:
         stream.on_delta("world")
         assert "hello world" in stream.text
 
-    def test_finish_turn_does_not_duplicate_streamed_reply(self):
-        import io
-
+    def test_finish_turn_renders_panel_once(self):
         from butler.cli.session_ui import ChatSessionUI
         from butler.cli.stream import StreamRenderer
         from butler.core.agent_loop import LoopResult, LoopStatus
+        from rich.panel import Panel
 
         console = _mock_console()
         ui = ChatSessionUI(console)
-        buf = io.StringIO()
-        stream = StreamRenderer(console, output=buf)
+        stream = StreamRenderer(console, title="莎丽")
         stream.on_delta("你好！我是莎丽。")
         ui.finish_turn(
             LoopResult(
@@ -264,11 +262,14 @@ class TestMainHelpers:
             ),
             stream,
         )
-        streamed = buf.getvalue()
-        assert streamed.count("你好！我是莎丽。") == 1
-        bodies = [str(c.args[0]) if c.args else "" for c in console.print.call_args_list]
-        joined = "\n".join(bodies)
-        assert "你好！我是莎丽。" not in joined
+        panel_calls = [
+            c
+            for c in console.print.call_args_list
+            if c.args and isinstance(c.args[0], Panel)
+        ]
+        assert len(panel_calls) == 1
+        assert "你好！我是莎丽。" in str(panel_calls[0].args[0].renderable)
+        joined = "\n".join(str(c) for c in console.print.call_args_list)
         assert "推理:" not in joined
 
     def test_main_dispatches_command_and_exits_zero(self):
