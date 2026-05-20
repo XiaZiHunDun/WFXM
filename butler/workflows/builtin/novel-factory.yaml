@@ -1,0 +1,13 @@
+name: novel-factory
+description: 平台验收用两阶段流水线（内容撰写 → 审阅检查），非完整 25 步小说工厂
+steps:
+  - id: draft
+    role: content
+    task: |
+      根据用户目标撰写或更新项目 docs 下的 workflow-output.md：
+      标题「工作流产出」、正文含用户目标摘要与今日要点；只改该文件，勿动其它文件。
+  - id: review
+    role: review
+    depends_on: [draft]
+    task: |
+      只读检查 docs/workflow-output.md 是否存在，读取前几行并给出三条以内审阅结论；不要修改任何文件。

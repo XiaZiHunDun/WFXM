@@ -221,6 +221,22 @@ Session 以 `(platform, chat_id, project)` 为 key（实现：`butler/session_ke
 
 ---
 
+## 五点六、项目工作流（DAG）
+
+`project.yaml` → `workflows` 与 `TaskOrchestrator.execute_graph` 对接（实现：`butler/workflows/`）：
+
+| 来源 | 说明 |
+|------|------|
+| `project.yaml` | `name` + 可选内联 `steps[]`（`id` / `role` / `task` / `depends_on`） |
+| `.butler/workflows/<name>.yaml` | 项目 workspace 内覆盖/扩展步骤 |
+| `butler/workflows/builtin/` | 仅登记名称时合并内置模板（如 `novel-factory` 两阶段验收流） |
+
+**触发**：`/工作流 list`、`/工作流 run <名称> [说明]`（微信同义）；管家工具 `run_workflow`。执行后写入 `AgentReport` 缓存，可用 `/详细` 钻取。
+
+**钩子**：`project_switched` 在 HookBus 上广播（日志 + 可选上下文）；系统提示中附带「项目工作流」列表。
+
+---
+
 ## 六、信息回传分层压缩协议（v4）
 
 ### 6.1 问题

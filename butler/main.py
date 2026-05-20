@@ -240,6 +240,7 @@ def _handle_slash_command(
             "  /status         — 当前状态\n"
             "  /health         — 运行时诊断（压缩、工具审计等）\n"
             "  /detail         — 上一次委派的详细报告\n"
+            "  /workflow       — 列出或运行项目工作流 (DAG)\n"
             "  /steer <文本>   — 向运行中的 Agent 插入指引（不打断工具）\n"
             "  /quit           — 退出\n"
         )
@@ -361,6 +362,19 @@ def _handle_slash_command(
                 console.print("[dim]暂无可展示的详细报告[/dim]")
         except Exception:
             console.print("[dim]报告系统不可用[/dim]")
+        return "handled"
+
+    if command in ("/workflow", "/工作流"):
+        from butler.session_keys import build_session_key
+        from butler.workflows.commands import handle_workflow_command
+
+        cli_sk = build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        )
+        out = handle_workflow_command(orchestrator, arg, session_key=cli_sk)
+        console.print(out)
         return "handled"
 
     return None

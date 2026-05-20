@@ -19,6 +19,8 @@ from butler.project_manager import get_project_manager
 from butler.skills.manager import SkillManager
 from butler.skills.router import SkillRouter
 
+import butler.workflows  # noqa: F401 — register workflow hooks
+
 logger = logging.getLogger(__name__)
 
 _ROLE_ALIASES: dict[str, str] = {
@@ -234,6 +236,10 @@ class ButlerOrchestrator:
 
         memory_ctx = self.build_memory_context(for_role="default")
 
+        from butler.workflows.loader import format_workflows_for_prompt
+
+        workflows_block = format_workflows_for_prompt(self.project_manager.get_current())
+
         placeholders = {
             "butler_name": self._settings.butler_name,
             "owner_name": self._settings.owner_name,
@@ -252,7 +258,9 @@ class ButlerOrchestrator:
             "\n\n## Butler 模型\n"
             f"{model_block}\n\n"
             "## 可用技能概要\n"
-            f"{skills_block}"
+            f"{skills_block}\n\n"
+            "## 项目工作流\n"
+            f"{workflows_block}"
         )
         return rendered.rstrip() + appendix
 
@@ -450,6 +458,17 @@ class ButlerOrchestrator:
         self._reload_project_memory()
         self._rebuild_skill_router()
         self._refresh_memory_provider_for_project_switch()
+        try:
+            from butler.gateway.hooks import invoke_hook
+
+            invoke_hook(
+                "project_switched",
+                old_project=old_project,
+                new_project=new_project,
+                orchestrator=self,
+            )
+        except Exception as exc:
+            logger.debug("project_switched hooks skipped: %s", exc)
 
     def inject_skill_context(
         self,
