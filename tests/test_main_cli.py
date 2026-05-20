@@ -295,11 +295,21 @@ class TestProjectCommands:
 
 @pytest.mark.integration
 class TestGatewayCommand:
-    def test_cmd_gateway_uses_hermes_executable_and_platforms(self, monkeypatch):
-        monkeypatch.delenv("BUTLER_GATEWAY_ACTIVE", raising=False)
+    def test_cmd_gateway_native_default(self, monkeypatch):
+        from butler.main import _cmd_gateway
+
+        ns = MagicMock(platforms="", hermes_remainder=[])
+        with patch("butler.gateway.runner.run_gateway_blocking", return_value=0) as run:
+            assert _cmd_gateway(ns) == 0
+        run.assert_called_once_with(["wechat"])
+        assert os.environ["BUTLER_GATEWAY_ACTIVE"] == "1"
+
+    def test_cmd_gateway_hermes_fallback_subprocess(self, monkeypatch):
+        from butler.main import _cmd_gateway
+
         monkeypatch.delenv("HERMES_HOME", raising=False)
         mock_result = MagicMock(returncode=3)
-        ns = MagicMock(platforms="wechat", hermes_remainder=["--debug"])
+        ns = MagicMock(platforms="wechat", hermes_remainder=["--hermes-fallback", "--debug"])
         with patch("hermes_cli.plugins_cmd._get_enabled_set", return_value=set()) as get_enabled:
             with patch("hermes_cli.plugins_cmd._save_enabled_set") as save_enabled:
                 with patch("shutil.which", return_value="/usr/bin/hermes"):
@@ -315,21 +325,6 @@ class TestGatewayCommand:
             "wechat",
             "--debug",
         ]
-        assert os.environ["BUTLER_GATEWAY_ACTIVE"] == "1"
-
-    def test_cmd_gateway_falls_back_to_repo_script(self, monkeypatch):
-        monkeypatch.delenv("BUTLER_GATEWAY_ACTIVE", raising=False)
-        monkeypatch.delenv("HERMES_HOME", raising=False)
-        mock_result = MagicMock(returncode=0)
-        ns = MagicMock(platforms="", hermes_remainder=[])
-        with patch("hermes_cli.plugins_cmd._get_enabled_set", side_effect=RuntimeError("no config")):
-            with patch("shutil.which", return_value=None):
-                with patch("subprocess.run", return_value=mock_result) as run:
-                    assert _cmd_gateway(ns) == 0
-        argv = run.call_args.args[0]
-        assert argv[0] == sys.executable
-        assert argv[1].endswith("hermes_cli/main.py")
-        assert argv[2:] == ["gateway", "run"]
 
 
 @pytest.mark.integration

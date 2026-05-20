@@ -109,7 +109,7 @@ tests/                 # 733+ 自动化测试
 ## 使用场景
 
 - **CLI 对话开发**：终端与管家对话，委派 Dev / Content / Review 等角色 Agent。
-- **微信远程开发**：移动端发指令，后台执行后通知（需 wechat 可选依赖）。
+- **微信远程开发**：`butler gateway --platforms wechat`（Butler 原生 iLink 网关，需 `aiohttp` + `cryptography`）。
 
 ## 扩展
 

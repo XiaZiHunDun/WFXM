@@ -134,7 +134,7 @@ class TestFactoryMethods:
         _reset_singletons()
         provider = MagicMock()
 
-        with patch("butler.memory_plugin.ButlerMemoryProvider", return_value=provider):
+        with patch("butler.orchestrator.ButlerMemoryService", return_value=provider):
             from butler.orchestrator import ButlerOrchestrator
 
             orch = ButlerOrchestrator(user_id="u1", channel="test")

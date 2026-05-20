@@ -8,7 +8,7 @@ WFXM/
 ├── butler/                 # ★ Butler v4 产品（自建 Agent Loop）
 │   ├── core/               #   agent_loop、tool_batch、llm_retry、context_pipeline …
 │   ├── transport/          #   LLM 协议、Provider、schema 兼容
-│   ├── gateway/            #   消息处理、session 注册、/health
+│   ├── gateway/            #   消息处理、原生 runner、platforms/wechat
 │   ├── tools/              #   工具注册表、审计、路径安全
 │   ├── memory/             #   分层记忆
 │   ├── skills/             #   Skill 加载 / 路由 / 合并
@@ -21,8 +21,8 @@ WFXM/
 ├── archive/                #   历史代码（butler-v1），非主线
 ├── reference/              #   Hermes 上游只读对照（不改动）
 │
-├── agent/                  # Hermes 运行时：Agent / MemoryProvider 等
-├── gateway/                # Hermes 多平台 Gateway（subprocess）
+├── agent/                  # ⚠️ Hermes vendored（Butler 主路径不 import；Gateway 子进程用）
+├── gateway/                # ⚠️ Hermes Gateway（仅 `--hermes-fallback` 使用）
 ├── tools/                  # Hermes 工具生态
 ├── hermes_cli/             # `hermes` CLI
 ├── providers/              # Hermes Provider 配置
@@ -42,7 +42,8 @@ WFXM/
 |------|--------|------|
 | `butler/` | Butler 主线 | 新功能、硬化、观测默认改这里 |
 | `reference/` | 只读 | 提炼时对照，不直接 import |
-| `agent/`、`gateway/`、`run_agent.py` 等 | Hermes  vendored | 升级需谨慎；Butler Loop **不**依赖 `AIAgent` |
+| `agent/`、`gateway/`、`run_agent.py` 等 | Hermes vendored（**过渡态**） | 目标移入 `vendor/` 或删除；见 `docs/architecture/hermes-decoupling.md` |
+| `butler/` | Butler 主线 | **运行时零** `agent`/`run_agent` import（已达成） |
 | `archive/` | 冻结 | 仅回溯 v1，不接入 CI |
 
 ## 常用命令

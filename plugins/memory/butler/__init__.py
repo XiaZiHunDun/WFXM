@@ -9,9 +9,9 @@ agent turn — both as prefetch context and as ``butler_remember`` /
 ``butler_recall`` tool schemas.
 """
 
-from butler.memory_plugin import ButlerMemoryProvider
+from .hermes_bridge import HermesButlerMemoryProvider
 
 
 def register(ctx):
     """Standard Hermes plugin registration."""
-    ctx.register_memory_provider(ButlerMemoryProvider())
+    ctx.register_memory_provider(HermesButlerMemoryProvider())

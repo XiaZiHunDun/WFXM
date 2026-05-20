@@ -1,7 +1,5 @@
-"""Butler Gateway — message handling for external platforms.
+"""Butler Gateway — native message handling for external platforms.
 
-Currently uses Hermes gateway subprocess for platform adapters
-(Telegram, WeChat, etc.) with Butler plugins hooking into the
-message pipeline. The Butler gateway module provides the message
-processing logic that runs within those hooks.
+Default: ``butler gateway`` runs ``butler.gateway.runner`` (WeChat iLink + ``ButlerMessageHandler``).
+Use ``butler gateway --hermes-fallback`` for legacy Hermes subprocess (other platforms).
 """
