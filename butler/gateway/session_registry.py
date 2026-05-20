@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import time
 import threading
 from collections.abc import Callable
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class _TrackedSessionDict(dict[str, Any]):
@@ -144,15 +147,25 @@ class GatewaySessionRegistry:
         self._notify_session_removed(key)
         self._finalize_loop(loop)
 
-    def reset_all(self) -> None:
+    def reset_all(self, *, wait_timeout: float = 120.0) -> None:
         finalized: set[int] = set()
         with self._lock:
             self._wait_for_reset_all_locked()
             self._resetting_all = True
+        deadline = self._now() + max(1.0, float(wait_timeout))
         try:
             with self._lock:
-                while self._active_sessions or self._pending_session_entries:
-                    self._reset_condition.wait()
+                while (self._active_sessions or self._pending_session_entries) and self._now() < deadline:
+                    self._reset_condition.wait(timeout=1.0)
+                if self._active_sessions or self._pending_session_entries:
+                    logger.error(
+                        "reset_all timed out after %.0fs (active=%s pending=%d); forcing clear",
+                        wait_timeout,
+                        sorted(self._active_sessions),
+                        self._pending_session_entries,
+                    )
+                    self._active_sessions.clear()
+                    self._pending_session_entries = 0
                 items = list(self.sessions.items())
                 self.sessions.clear()
                 self.health_by_session.clear()

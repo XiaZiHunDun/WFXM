@@ -79,8 +79,18 @@ class AgentLoop:
         if self._thread_id is not None:
             clear_interrupt(self._thread_id)
 
-    def run(self, user_message: str) -> LoopResult:
+    def run(
+        self,
+        user_message: str,
+        *,
+        run_callbacks: Optional[LoopCallbacks] = None,
+    ) -> LoopResult:
         start_time = time.time()
+        saved_callbacks = self.callbacks
+        if run_callbacks is not None:
+            from butler.gateway.outbound_bridge import merge_loop_callbacks
+
+            self.callbacks = merge_loop_callbacks(saved_callbacks, run_callbacks)
         pre_run_diagnostics = {
             k: v for k, v in self.diagnostics.items()
             if str(k).startswith("hygiene_")
@@ -169,6 +179,8 @@ class AgentLoop:
         finally:
             self._restore_primary_client()
             set_parent_callbacks(None)
+            if run_callbacks is not None:
+                self.callbacks = saved_callbacks
 
         elapsed = time.time() - start_time
         return LoopResult(

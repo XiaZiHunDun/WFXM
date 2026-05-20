@@ -219,6 +219,8 @@ Session 以 `(platform, chat_id, project)` 为 key（实现：`butler/session_ke
 
 **行为**：`/切换` 到另一租户下的项目时，`ButlerOrchestrator.butler_memory` 与 Skill 路由自动切换到对应租户存储；不同租户的 experience 互不可见。
 
+**个人助手部署**：不必配置 `tenant` / `default_tenant`，全部使用 `default` 即可；多租户能力仅为未来多组织预留。
+
 ---
 
 ## 五点六、项目工作流（DAG）

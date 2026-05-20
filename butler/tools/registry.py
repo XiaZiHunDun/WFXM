@@ -1041,7 +1041,12 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
     """Execute a project workflow DAG via TaskOrchestrator."""
     try:
         from butler.execution_context import get_current_session_key
+        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
         from butler.workflows.runner import run_workflow_for_project
+
+        bridge = get_gateway_bridge_optional()
+        if bridge is not None:
+            bridge.notify_workflow_step(name, "start", step_index=0, step_total=0)
 
         orch = _orchestrator_for_tool(channel="cli")
         project = orch.project_manager.get_current()
@@ -1064,6 +1069,11 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
     """Delegate to a project-level agent through Butler's orchestrator."""
     try:
         from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS, MAX_DELEGATE_DEPTH
+        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+
+        bridge = get_gateway_bridge_optional()
+        if bridge is not None:
+            bridge.notify_delegate_start(role, preview=task[:80])
 
         if depth >= MAX_DELEGATE_DEPTH:
             return json.dumps({"error": f"Maximum delegation depth ({MAX_DELEGATE_DEPTH}) exceeded"})

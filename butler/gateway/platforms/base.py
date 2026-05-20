@@ -72,6 +72,23 @@ class ButlerPlatformAdapter(ABC):
             user_name=user_name or user_id,
         )
 
+    async def _ensure_typing_ticket_for_event(self, event: MessageEvent) -> None:
+        """Optional hook for platforms that need typing_ticket before send_typing."""
+
+    def _create_outbound_bridge(self, event: MessageEvent) -> Any | None:
+        from butler.gateway.outbound_bridge import GatewayOutboundBridge
+
+        if not event.source:
+            return None
+        loop = asyncio.get_running_loop()
+        ensure = lambda: self._ensure_typing_ticket_for_event(event)  # noqa: E731
+        return GatewayOutboundBridge.for_event(
+            self,
+            chat_id=event.source.chat_id,
+            loop=loop,
+            ensure_typing=ensure,
+        )
+
     async def handle_message(self, event: MessageEvent) -> None:
         """Run Butler handler and send text reply (per-chat serialized)."""
         if not self._message_handler:
@@ -79,20 +96,35 @@ class ButlerPlatformAdapter(ABC):
         if not event.source:
             return
 
+        chat_id = event.source.chat_id
+        bridge = self._create_outbound_bridge(event)
+        if bridge is not None:
+            event.gateway_bridge = bridge
+
         # Serialize per chat, not per project — one WeChat user may switch projects.
-        chat_lock_key = f"{self.platform_name}:{event.source.chat_id}"
+        chat_lock_key = f"{self.platform_name}:{chat_id}"
         lock = self._session_locks.setdefault(chat_lock_key, asyncio.Lock())
         async with lock:
+            if bridge is not None:
+                await bridge.start_turn()
             try:
                 response = await self._message_handler(event)
                 if response:
-                    await self.send(event.source.chat_id, response)
+                    if bridge is not None:
+                        bridge.mark_final_sent()
+                    await self.send(chat_id, response)
             except Exception as exc:
                 logger.error("[%s] handler failed: %s", self.name, exc, exc_info=True)
                 try:
-                    await self.send(event.source.chat_id, f"处理失败: {exc}")
+                    if bridge is not None:
+                        bridge.mark_final_sent()
+                    await self.send(chat_id, f"处理失败: {exc}")
                 except Exception:
                     pass
+            finally:
+                if bridge is not None:
+                    await bridge.end_turn()
+                    event.gateway_bridge = None
 
     def extract_media(self, content: str) -> tuple[list[str], str]:
         return [], content if isinstance(content, str) else ""

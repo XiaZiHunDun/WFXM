@@ -1379,7 +1379,8 @@ class WeChatAdapter(ButlerPlatformAdapter):
                     _save_sync_buf(self._data_home, self._account_id, sync_buf)
 
                 for message in response.get("msgs") or []:
-                    asyncio.create_task(self._process_message_safe(message))
+                    # Serialize within a poll batch — create_task caused registry races.
+                    await self._process_message_safe(message)
             except asyncio.CancelledError:
                 break
             except Exception as exc:
@@ -1582,6 +1583,23 @@ class WeChatAdapter(ButlerPlatformAdapter):
                 self._typing_cache.set(user_id, typing_ticket)
         except Exception as exc:
             logger.debug("[%s] getConfig failed for %s: %s", self.name, _safe_id(user_id), exc)
+
+    async def _ensure_typing_ticket_for_event(self, event: MessageEvent) -> None:
+        """Await typing ticket before first ``send_typing`` (avoids inbound race)."""
+        if not event.source:
+            return
+        chat_id = event.source.chat_id
+        timeout = float(os.getenv("BUTLER_GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS", "2") or "2")
+        context_token = ""
+        raw = event.raw_message if isinstance(event.raw_message, dict) else {}
+        context_token = str(raw.get("context_token") or "").strip()
+        try:
+            await asyncio.wait_for(
+                self._maybe_fetch_typing_ticket(chat_id, context_token or None),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.debug("[%s] typing ticket fetch timed out for %s", self.name, _safe_id(chat_id))
 
     def _split_text(self, content: str) -> List[str]:
         return _split_text_for_wechat_delivery(

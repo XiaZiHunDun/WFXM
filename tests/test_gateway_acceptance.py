@@ -182,8 +182,8 @@ class TestManualGuide35Slash:
             ("/模型", "butler"),
             ("/new", "已清空"),
             ("/新对话", "已清空"),
-            ("/detail", "暂无"),
-            ("/详细", "暂无"),
+            ("/detail", "暂无可展示"),
+            ("/详细", "暂无可展示"),
         ],
     )
     def test_slash_aliases(self, gateway_handler, cmd, needle):

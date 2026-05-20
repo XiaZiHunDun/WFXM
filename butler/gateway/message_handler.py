@@ -83,6 +83,19 @@ class ButlerMessageHandler:
             project=project,
         )
 
+    def _recover_registry_if_stale(self) -> None:
+        """Clear a stuck ``reset_all`` flag that would block ``enter_session`` forever."""
+        reg = self._session_registry
+        with reg._lock:
+            if (
+                reg._resetting_all
+                and not reg._active_sessions
+                and reg._pending_session_entries == 0
+            ):
+                logger.warning("Recovering stale gateway reset_all flag")
+                reg._resetting_all = False
+                reg._reset_condition.notify_all()
+
     def handle_message(
         self,
         text: str,
@@ -96,6 +109,17 @@ class ButlerMessageHandler:
         This is the main entry point for all platform messages.
         Returns formatted text appropriate for the platform.
         """
+        import time as _time
+
+        _t0 = _time.monotonic()
+        self._recover_registry_if_stale()
+        logger.info(
+            "Gateway handle_message start platform=%s external_id=%s preview=%r",
+            platform,
+            external_id,
+            (text or "")[:80],
+        )
+
         session_key = self.resolve_session_key(
             platform=platform,
             external_id=external_id,
@@ -112,11 +136,26 @@ class ButlerMessageHandler:
             text = rewritten
 
         if _is_sessionless_command(text):
-            return self._handle_message_locked(text, session_key=session_key, platform=platform)
+            out = self._handle_message_locked(text, session_key=session_key, platform=platform)
+            logger.info(
+                "Gateway handle_message done (slash) session=%s elapsed=%.1fs out_len=%d",
+                session_key,
+                _time.monotonic() - _t0,
+                len(out or ""),
+            )
+            return out
 
+        logger.info("Gateway enter_session session=%s", session_key)
         session_lock = self._session_registry.enter_session(session_key)
         try:
-            return self._handle_message_locked(text, session_key=session_key, platform=platform)
+            out = self._handle_message_locked(text, session_key=session_key, platform=platform)
+            logger.info(
+                "Gateway handle_message done session=%s elapsed=%.1fs out_len=%d",
+                session_key,
+                _time.monotonic() - _t0,
+                len(out or ""),
+            )
+            return out
         finally:
             self._session_registry.exit_session(session_key, session_lock)
 
@@ -137,6 +176,16 @@ class ButlerMessageHandler:
 
         from butler.execution_context import use_execution_context
         from butler.gateway.hooks import apply_pre_llm_context
+
+        import time as _time
+
+        _turn_started = _time.monotonic()
+        logger.info(
+            "Gateway turn start session=%s platform=%s preview=%r",
+            session_key,
+            platform,
+            text[:80],
+        )
 
         with use_execution_context(self._orchestrator, session_key=session_key):
             health: dict[str, Any] = {
@@ -168,7 +217,11 @@ class ButlerMessageHandler:
                     role="butler",
                     diagnostics=health,
                 )
-                result = loop.run(augmented)
+                run_callbacks = _gateway_run_callbacks()
+                if run_callbacks is not None:
+                    result = loop.run(augmented, run_callbacks=run_callbacks)
+                else:
+                    result = loop.run(augmented)
                 health["loop"] = dict(getattr(result, "diagnostics", {}) or {})
                 sync_result = sync_turn_memory(
                     self._orchestrator,
@@ -180,11 +233,24 @@ class ButlerMessageHandler:
                 )
                 health["memory_sync"] = sync_result
                 self._session_registry.set_health(session_key, health)
-                return self._format_response(result, platform)
+                out = self._format_response(result, platform)
+                logger.info(
+                    "Gateway turn done session=%s elapsed=%.1fs out_len=%d",
+                    session_key,
+                    _time.monotonic() - _turn_started,
+                    len(out or ""),
+                )
+                return out
             except Exception as exc:
                 health["error"] = str(exc)
                 self._session_registry.set_health(session_key, health)
-                logger.error("Message handling failed: %s", exc)
+                logger.error(
+                    "Message handling failed session=%s elapsed=%.1fs: %s",
+                    session_key,
+                    _time.monotonic() - _turn_started,
+                    exc,
+                    exc_info=True,
+                )
                 return f"处理失败: {exc}"
 
     def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
@@ -347,6 +413,18 @@ class ButlerMessageHandler:
         if not result.final_response:
             return "（执行完成，无文字输出）"
         return result.final_response
+
+
+def _gateway_run_callbacks() -> LoopCallbacks | None:
+    from butler.gateway.outbound_bridge import get_current_bridge
+
+    bridge = get_current_bridge()
+    if bridge is None:
+        return None
+    return LoopCallbacks(
+        on_tool_start=bridge.on_tool_start,
+        on_tool_complete=bridge.on_tool_complete,
+    )
 
 
 def _env_int(name: str, default: int) -> int:
