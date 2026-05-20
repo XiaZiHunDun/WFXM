@@ -104,15 +104,14 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
         stream = None
 
         try:
-            with patch_stdout() as patched_stdout:
-                from rich.console import Console
-
+            # patch_stdout hides libraries writing to stdout during the turn;
+            # Rich output must use stderr (same Console as the welcome panel).
+            with patch_stdout():
                 from butler.cli.stream import StreamRenderer
                 from butler.execution_context import use_execution_context
                 from butler.session_lifecycle import attach_turn_memory_prefetch
 
-                turn_console = Console(file=patched_stdout, force_terminal=True)
-                stream = StreamRenderer(turn_console, title=settings.butler_name or "Butler")
+                stream = StreamRenderer(console, title=settings.butler_name or "Butler")
                 agent_loop.callbacks = ui.build_callbacks(stream)
 
                 attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
