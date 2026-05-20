@@ -79,4 +79,4 @@
 - `rg '^from (agent|run_agent)' butler/` 无匹配  
 - `butler chat` / `butler exec` 不启动 Hermes 子进程  
 - `butler gateway --platforms wechat` 仅走 Butler 栈（阶段 B 完成后）  
-- 默认 `pytest` 733+ 通过
+- 默认 `pytest` 925+ 通过

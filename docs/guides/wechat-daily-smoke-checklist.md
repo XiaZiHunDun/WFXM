@@ -53,6 +53,8 @@ PYTHONPATH=. pytest \
 | 8b | `/工作流 run novel-factory 写一句个人助手验收说明` | 两步摘要（draft/review）；不刷屏 | ☐ | |
 | 8c | `/详细` | 工作流 headline / 各步 OK 或 FAIL | ☐ | |
 
+**Owner 画像**：见 `owner-profile-setup.md`，模板 `owner-profile.example.json`（冒烟通过后可微调）。
+
 **批次**：________ | **验收人**：________ | **日期**：________
 
 ---
