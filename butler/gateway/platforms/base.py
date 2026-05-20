@@ -40,6 +40,10 @@ class ButlerPlatformAdapter(ABC):
 
     def _mark_connected(self) -> None:
         self._running = True
+        self._fatal_error_message = None
+
+    def _mark_disconnected(self) -> None:
+        self._running = False
 
     def _set_fatal_error(self, code: str, message: str, *, retryable: bool = True) -> None:
         del code, retryable
@@ -48,6 +52,9 @@ class ButlerPlatformAdapter(ABC):
     def _acquire_platform_lock(self, scope: str, identity: str, label: str) -> bool:
         del scope, identity, label
         return True
+
+    def _release_platform_lock(self) -> None:
+        """No-op unless a platform overrides with real lock semantics."""
 
     def build_source(
         self,
@@ -87,15 +94,12 @@ class ButlerPlatformAdapter(ABC):
                     pass
 
     def extract_media(self, content: str) -> tuple[list[str], str]:
-        del content
         return [], content if isinstance(content, str) else ""
 
     def extract_images(self, content: str) -> tuple[list[str], str]:
-        del content
         return [], content if isinstance(content, str) else ""
 
     def extract_local_files(self, content: str) -> tuple[list[str], str]:
-        del content
         return [], content if isinstance(content, str) else ""
 
     @abstractmethod
