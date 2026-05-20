@@ -79,8 +79,9 @@ class ButlerPlatformAdapter(ABC):
         if not event.source:
             return
 
-        session_key = f"{self.platform_name}:{event.source.chat_id}"
-        lock = self._session_locks.setdefault(session_key, asyncio.Lock())
+        # Serialize per chat, not per project — one WeChat user may switch projects.
+        chat_lock_key = f"{self.platform_name}:{event.source.chat_id}"
+        lock = self._session_locks.setdefault(chat_lock_key, asyncio.Lock())
         async with lock:
             try:
                 response = await self._message_handler(event)

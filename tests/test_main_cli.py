@@ -88,7 +88,7 @@ class TestSlashCommands:
         orch = _mock_orchestrator()
         orch.project_manager.switch_project.return_value = True
         orch.project_manager.current_project = "test"
-        assert _handle_slash_command("/switch test", orch, _mock_console()) == "rebuild"
+        assert _handle_slash_command("/switch test", orch, _mock_console()) == "switch_project"
 
     def test_switch_invalid_project_handled(self):
         orch = _mock_orchestrator()

@@ -11,6 +11,7 @@ import pytest
 
 from butler.core.agent_loop import LoopStatus
 from butler.gateway.message_handler import ButlerMessageHandler
+from butler.session_keys import build_session_key
 from butler.session_lifecycle import (
     inject_turn_memory,
     prefetch_turn_memory,
@@ -50,7 +51,8 @@ def gateway_handler():
 class TestWechatCoreScenarioStep6:
     """Multi-turn chat logs → /new → ask about prior chat must not leak."""
 
-    SESSION = "wechat:core-step6"
+    PLATFORM = "wechat"
+    CHAT_ID = "core-step6"
 
     TURNS = [
         ("请读取当前项目 README 前三行并摘要", "README 介绍小说工厂流水线。"),
@@ -69,13 +71,14 @@ class TestWechatCoreScenarioStep6:
     def test_experience_stored_then_purged_on_new(self, gateway_handler):
         orch = gateway_handler._orchestrator
         exp = orch.butler_memory.experience
+        sk = build_session_key(platform=self.PLATFORM, chat_id=self.CHAT_ID, project="")
         for user, assistant in self.TURNS:
             sync_turn_memory(
                 orch,
                 user,
                 assistant,
                 status=LoopStatus.COMPLETED,
-                session_id=self.SESSION,
+                session_id=sk,
             )
 
         stored = exp.search("wechat-smoke")
@@ -83,8 +86,8 @@ class TestWechatCoreScenarioStep6:
 
         cleared = gateway_handler.handle_message(
             "/新对话",
-            session_key=self.SESSION,
-            platform="wechat",
+            platform=self.PLATFORM,
+            external_id=self.CHAT_ID,
         )
         assert "已清空" in cleared
         assert exp.search("wechat-smoke") == []
@@ -98,7 +101,7 @@ class TestWechatCoreScenarioStep6:
 
     def test_new_loop_has_no_prior_messages(self, gateway_handler, patch_llm):
         mock_complete, mock_stream = patch_llm
-        sk = self.SESSION
+        sk = build_session_key(platform=self.PLATFORM, chat_id=self.CHAT_ID, project="")
 
         mock_complete.side_effect = [
             _text_response("好的，已读取 README。"),
@@ -111,16 +114,20 @@ class TestWechatCoreScenarioStep6:
         ]
 
         for user, _ in self.TURNS:
-            gateway_handler.handle_message(user, session_key=sk, platform="wechat")
+            gateway_handler.handle_message(
+                user, platform=self.PLATFORM, external_id=self.CHAT_ID
+            )
 
-        gateway_handler.handle_message("/new", session_key=sk, platform="wechat")
+        gateway_handler.handle_message(
+            "/new", platform=self.PLATFORM, external_id=self.CHAT_ID
+        )
         loop = gateway_handler._get_or_create_loop(sk)
         assert loop.messages == []
 
         out = gateway_handler.handle_message(
             "我们刚才聊过什么？",
-            session_key=sk,
-            platform="wechat",
+            platform=self.PLATFORM,
+            external_id=self.CHAT_ID,
         )
         assert not any(m in out for m in self.SECRET_MARKERS)
 
@@ -131,7 +138,7 @@ class TestWechatCoreScenarioStep6:
         _setup_projects(tmp_path, monkeypatch)
         handler = ButlerMessageHandler(channel="gateway")
         handler._orchestrator.project_manager.switch_project("test-project")
-        sk = "wechat:core-step7"
+        sk = build_session_key(platform="wechat", chat_id="core-step7", project="test-project")
 
         sync_turn_memory(
             handler._orchestrator,
@@ -140,7 +147,7 @@ class TestWechatCoreScenarioStep6:
             status=LoopStatus.COMPLETED,
             session_id=sk,
         )
-        handler.handle_message("/new", session_key=sk, platform="wechat")
+        handler.handle_message("/new", platform="wechat", external_id="core-step7")
 
         ctx = prefetch_turn_memory(
             handler._orchestrator,

@@ -61,7 +61,7 @@ PYTHONPATH=. python -m pytest \
 | 项 | 内容 |
 |----|------|
 | 发送 | `/切换 灵文` 或 `/switch 灵文`（也可用 `/项目` 确认列表中有 `灵文`） |
-| 预期 | 「已切换到项目: 灵文」；再发 `/状态` 当前项目为 `灵文` |
+| 预期 | 「已切换到项目: 灵文」；再发 `/状态` 当前项目为 `灵文`；其它项目对话历史保留 |
 | 注意 | 项目名以 `project.yaml` 的 `name` 为准，不是目录名 `LingWen` |
 | 失败时查 | `projects/LingWen/project.yaml` 是否存在；`ProjectManager` 日志 |
 

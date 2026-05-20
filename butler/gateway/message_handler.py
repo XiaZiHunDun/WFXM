@@ -15,6 +15,7 @@ import os
 from typing import Any, Optional
 
 from butler.orchestrator import ButlerOrchestrator
+from butler.session_keys import normalize_session_key
 from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopConfig, LoopResult, LoopStatus
 from butler.session_lifecycle import (
     attach_turn_memory_prefetch,
@@ -65,18 +66,40 @@ class ButlerMessageHandler:
         self._session_registry.evict_idle()
         return self._session_registry.get_or_create(session_key)
 
+    def resolve_session_key(
+        self,
+        *,
+        platform: str = "unknown",
+        external_id: str | None = None,
+        session_key: str | None = None,
+    ) -> str:
+        """Resolve ``platform:chat_id:project`` from external id and current project."""
+        project = self._orchestrator.project_manager.current_project or ""
+        return normalize_session_key(
+            platform=platform,
+            external_id=external_id,
+            session_key=session_key,
+            project=project,
+        )
+
     def handle_message(
         self,
         text: str,
         *,
-        session_key: str = "default",
+        session_key: str | None = None,
         platform: str = "unknown",
+        external_id: str | None = None,
     ) -> str:
         """Process an incoming message and return the response.
 
         This is the main entry point for all platform messages.
         Returns formatted text appropriate for the platform.
         """
+        session_key = self.resolve_session_key(
+            platform=platform,
+            external_id=external_id,
+            session_key=session_key,
+        )
         if not text.strip():
             return ""
 
@@ -189,9 +212,10 @@ class ButlerMessageHandler:
                 return "用法: /switch <项目名称>"
             ok = self._orchestrator.project_manager.switch_project(arg)
             if ok:
-                self._session_registry.reset_all()
-                _reset_tool_audit_events()
-                return f"已切换到项目: {self._orchestrator.project_manager.current_project}"
+                return (
+                    f"已切换到项目: {self._orchestrator.project_manager.current_project}"
+                    "（该项目有独立对话历史，发送消息将继续上一轮。）"
+                )
             return f"未找到项目: {arg}"
 
         if cmd in ("/model", "/模型"):

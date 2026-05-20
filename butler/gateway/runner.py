@@ -45,12 +45,11 @@ async def _butler_message_handler(
     source = event.source
     if source is None:
         return None
-    session_key = f"wechat:{source.chat_id}"
     return await asyncio.to_thread(
         butler.handle_message,
         text,
-        session_key=session_key,
         platform="wechat",
+        external_id=source.chat_id,
     )
 
 

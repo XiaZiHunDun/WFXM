@@ -281,17 +281,13 @@ class TestSlashCommands:
         assert handler._handle_command("/switch") == "用法: /switch <项目名称>"
 
     def test_switch_valid_project_success(self, handler_with_project):
-        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+        from butler.session_keys import build_session_key
 
-        reset_tool_audit_events()
-        handler_with_project._health_by_session["default"] = {"stale": True}
-        with use_execution_context(handler_with_project._orchestrator, session_key="default"):
-            dispatch_tool("missing_tool", {})
-        text = handler_with_project._handle_command("/switch test-project")
+        sk = build_session_key(platform="test", chat_id="default", project="test-project")
+        text = handler_with_project._handle_command("/switch test-project", session_key=sk)
         assert "已切换到项目" in text
-        assert handler_with_project.last_health_summary("default") == {}
-        handler_with_project._health_by_session["default"] = {"session_key": "default"}
-        assert "工具调用:" not in handler_with_project._format_health_summary("default")
+        assert "独立对话" in text
+        assert handler_with_project._orchestrator.project_manager.current_project == "test-project"
 
     def test_new_clears_sessions_message(self, handler, mock_loop):
         handler._sessions["default"] = mock_loop
@@ -470,22 +466,29 @@ class TestSessionManagement:
                 assert handler._get_or_create_loop("a") is not handler._get_or_create_loop("b")
 
     def test_new_keeps_other_sessions(self, handler, mock_loop):
+        from butler.session_keys import build_session_key
+
+        sk_default = build_session_key(platform="unknown", chat_id="default", project="")
         other_loop = MagicMock()
-        handler._sessions["default"] = mock_loop
+        handler._sessions[sk_default] = mock_loop
         handler._sessions["other"] = other_loop
-        handler._session_registry.touch("default")
+        handler._session_registry.touch(sk_default)
         handler._session_registry.touch("other")
 
-        handler.handle_message("/new")
+        handler.handle_message("/new", session_key=sk_default)
 
-        assert "default" not in handler._sessions
+        assert sk_default not in handler._sessions
         assert handler._sessions["other"] is other_loop
 
-    def test_switch_clears_all_sessions(self, handler_with_project, mock_loop):
-        handler_with_project._sessions["default"] = mock_loop
-        handler_with_project._session_registry.touch("default")
-        handler_with_project.handle_message("/switch test-project")
-        assert handler_with_project._sessions == {}
+    def test_switch_preserves_other_project_sessions(self, handler_with_project, mock_loop):
+        from butler.session_keys import build_session_key
+
+        sk_other = build_session_key(platform="test", chat_id="default", project="other-proj")
+        handler_with_project._sessions[sk_other] = mock_loop
+        handler_with_project._session_registry.touch(sk_other)
+        handler_with_project.handle_message("/switch test-project", platform="test", external_id="default")
+        assert sk_other in handler_with_project._sessions
+        assert handler_with_project._sessions[sk_other] is mock_loop
 
     def test_get_or_create_loop_evicts_idle_sessions(self, handler):
         now = {"value": 0.0}
