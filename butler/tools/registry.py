@@ -1024,7 +1024,10 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             return json.dumps({"error": f"Maximum delegation depth ({MAX_DELEGATE_DEPTH}) exceeded"})
 
         orch = _orchestrator_for_tool(channel="cli")
-        tools = get_tool_definitions()
+        from butler.tools.project_tools import get_tool_definitions_for_project
+
+        project = orch.project_manager.get_current()
+        tools = get_tool_definitions_for_project(project, role=role)
 
         delegated_tools = [
             t for t in tools

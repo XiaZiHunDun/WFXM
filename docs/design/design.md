@@ -194,6 +194,12 @@ Session 以 `(platform, chat_id, project)` 为 key（实现：`butler/session_ke
 - 每个项目的对话历史完全独立（Gateway `session_registry` + CLI `loops_by_session`）
 - 不会出现跨项目 AgentLoop 历史混乱（Butler/项目记忆层仍共享，见租户隔离路线图）
 
+**项目工具白名单**（`project.yaml` → `tools`，实现：`butler/tools/project_tools.py`）：
+
+- 非空时过滤管家与 `delegate_task` 子 Agent 的 OpenAI tools 列表
+- 管家额外保留 `delegate_task`、`skills_list`、`skill_view`
+- 常见别名：`edit_file`→`patch`，`search_code`→`search_files`，`run_shell`→`terminal`
+
 ---
 
 ## 六、信息回传分层压缩协议（v4）
@@ -222,7 +228,7 @@ class AgentReport:
 |------|-----|--------|
 | 默认粒度 | headline + 变更列表 + 决策 | headline + 变更数 + issues |
 | 进度流 | 实时步骤显示 | 里程碑推送（>=30s 间隔） |
-| 钻取 | `/detail [section]` 命令 | 回复"详细"、"为什么" |
+| 钻取 | `/detail [section]`（`changes`/`decisions`/`issues`，中文别名） | `/详细` 或 `/详细 变更` 等；委派回合默认紧凑摘要 |
 
 ### 6.4 渐进式披露
 

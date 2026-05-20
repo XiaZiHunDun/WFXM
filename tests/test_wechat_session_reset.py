@@ -43,7 +43,13 @@ def patch_llm(mock_llm_response):
 
 
 @pytest.fixture
-def gateway_handler():
+def gateway_handler(monkeypatch, tmp_path, tmp_butler_home):
+    from tests.test_gateway_handler import _reset_singletons
+
+    empty_projects = tmp_path / "empty-projects"
+    empty_projects.mkdir()
+    monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(empty_projects))
+    _reset_singletons()
     return ButlerMessageHandler(channel="gateway")
 
 

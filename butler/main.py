@@ -31,7 +31,8 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     from butler.cli.session_ui import ChatSessionUI
     from butler.cli.slash_commands import build_slash_completer, is_known_slash_command
     from butler.core.agent_loop import LoopStatus
-    from butler.tools.registry import dispatch_tool, get_tool_definitions
+    from butler.tools.registry import dispatch_tool
+    from butler.tools.project_tools import get_current_project_tools
 
     # stderr: Rich output stays visible while prompt_toolkit patch_stdout() wraps prompts
     console = Console(stderr=True)
@@ -59,7 +60,7 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     from butler.session_keys import build_session_key
     from butler.session_lifecycle import clear_session_boundary_memory
 
-    tools = get_tool_definitions()
+    tools = get_current_project_tools(role="butler")
     ui = ChatSessionUI(console)
     loops_by_session: dict[str, Any] = {}
     agent_loop = None
@@ -350,11 +351,12 @@ def _handle_slash_command(
 
     if command == "/detail":
         from butler.report import get_last_report
+        from butler.report_format import parse_detail_section
         try:
             report = get_last_report()
             if report:
                 from butler.report import format_detail
-                console.print(format_detail(report))
+                console.print(format_detail(report, section=parse_detail_section(arg)))
             else:
                 console.print("[dim]暂无可展示的详细报告[/dim]")
         except Exception:
@@ -374,7 +376,8 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
     from butler.cli.session_ui import ChatSessionUI
     from butler.core.agent_loop import LoopStatus
     from butler.orchestrator import ButlerOrchestrator
-    from butler.tools.registry import dispatch_tool, get_tool_definitions
+    from butler.tools.registry import dispatch_tool
+    from butler.tools.project_tools import get_current_project_tools
     from rich.console import Console
 
     console = Console(stderr=True)
@@ -386,7 +389,7 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
 
     agent_loop = orch.create_agent_loop(
         role="butler",
-        tools=get_tool_definitions(),
+        tools=get_current_project_tools(role="butler"),
         tool_dispatcher=dispatch_tool,
         callbacks=ui.build_callbacks(stream),
     )

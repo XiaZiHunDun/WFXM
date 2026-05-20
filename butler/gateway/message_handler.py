@@ -22,7 +22,8 @@ from butler.session_lifecycle import (
     clear_session_boundary_memory,
     sync_turn_memory,
 )
-from butler.tools.registry import get_tool_definitions, dispatch_tool
+from butler.tools.registry import dispatch_tool
+from butler.tools.project_tools import get_current_project_tools
 from butler.report import AgentReport, format_for_wechat, format_for_cli, cache_report
 from butler.gateway.session_registry import GatewaySessionRegistry
 
@@ -53,7 +54,7 @@ class ButlerMessageHandler:
         del session_key
         return self._orchestrator.create_agent_loop(
             role="butler",
-            tools=get_tool_definitions(),
+            tools=get_current_project_tools(role="butler"),
             tool_dispatcher=dispatch_tool,
         )
 
@@ -263,9 +264,11 @@ class ButlerMessageHandler:
 
         if cmd in ("/detail", "/详细"):
             from butler.report import get_last_report, format_detail
+            from butler.report_format import parse_detail_section
+
             report = get_last_report()
             if report:
-                return format_detail(report)
+                return format_detail(report, section=parse_detail_section(arg))
             return "暂无可展示的详细报告。"
 
         return None
@@ -327,15 +330,13 @@ class ButlerMessageHandler:
 
     def _format_response(self, result: LoopResult, platform: str) -> str:
         """Format the response appropriately for the platform."""
+        if platform in ("wechat", "weixin"):
+            from butler.report_format import wechat_response_text
+
+            return wechat_response_text(result)
+
         if not result.final_response:
             return "（执行完成，无文字输出）"
-
-        if platform in ("wechat", "weixin"):
-            text = result.final_response
-            if len(text) > 2000:
-                text = text[:1997] + "..."
-            return text
-
         return result.final_response
 
 

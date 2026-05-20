@@ -121,20 +121,25 @@ class TaskOrchestrator:
 
     def _create_agent_loop_with_orchestrator(self, config: AgentSpawnConfig, orch: Any):
         """Create a Butler AgentLoop using an already-selected orchestrator."""
-        from butler.tools.registry import get_tool_definitions
-
         from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
+        from butler.tools.project_tools import (
+            canonical_tool_name,
+            get_tool_definitions_for_project,
+        )
 
-        tools = get_tool_definitions()
+        project = orch.project_manager.get_current()
+        tools = get_tool_definitions_for_project(project, role=config.role)
         delegated_tools = [
             t for t in tools
             if t["function"]["name"] not in DELEGATE_BLOCKED_TOOLS
         ]
 
         if config.tools:
-            tool_names = set(config.tools)
-            delegated_tools = [t for t in delegated_tools
-                               if t["function"]["name"] in tool_names]
+            tool_names = {canonical_tool_name(n) for n in config.tools}
+            delegated_tools = [
+                t for t in delegated_tools
+                if t["function"]["name"] in tool_names
+            ]
 
         from butler.core.delegate_context import child_callbacks, get_parent_callbacks
 
