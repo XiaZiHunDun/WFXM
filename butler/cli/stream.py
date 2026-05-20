@@ -48,6 +48,8 @@ class StreamRenderer:
         self._line_buf += cleaned
         while "\n" in self._line_buf:
             line, self._line_buf = self._line_buf.split("\n", 1)
+            if not line.strip():
+                continue
             self._console.print(f"│ {line}", style=_ACCENT, highlight=False)
 
     def close(self) -> None:
@@ -56,8 +58,11 @@ class StreamRenderer:
                 self._full_text.append(self._line_buf)
                 self._line_buf = ""
             return
-        if self._line_buf:
+        if self._line_buf.strip():
             self._console.print(f"│ {self._line_buf}", style=_ACCENT, highlight=False)
+            self._full_text.append(self._line_buf)
+            self._line_buf = ""
+        elif self._line_buf:
             self._full_text.append(self._line_buf)
             self._line_buf = ""
         self._console.print(f"╰{'─' * 52}", style=_ACCENT, highlight=False)
