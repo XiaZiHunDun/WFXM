@@ -100,18 +100,25 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
                 continue
 
         augmented = orchestrator.inject_skill_context(user_input)
-        stream = ui.begin_turn()
-        agent_loop.callbacks = ui.build_callbacks(stream)
+        ui.begin_turn()
+        stream = None
 
         try:
-            with patch_stdout():
+            with patch_stdout() as patched_stdout:
+                from rich.console import Console
+
+                from butler.cli.stream import StreamRenderer
                 from butler.execution_context import use_execution_context
                 from butler.session_lifecycle import attach_turn_memory_prefetch
+
+                turn_console = Console(file=patched_stdout, force_terminal=True)
+                stream = StreamRenderer(turn_console, title=settings.butler_name or "Butler")
+                agent_loop.callbacks = ui.build_callbacks(stream)
 
                 attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
                 with use_execution_context(orchestrator, session_key="cli"):
                     result = agent_loop.run(augmented)
-            ui.finish_turn(result, stream)
+                ui.finish_turn(result, stream)
 
             with use_execution_context(orchestrator, session_key="cli"):
                 _sync_memory(
@@ -126,13 +133,14 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             console.print("\n[dim]已中断[/dim]")
             agent_loop.interrupt()
             from butler.core.agent_loop import LoopResult
-            ui.finish_turn(
-                LoopResult(
-                    status=LoopStatus.INTERRUPTED,
-                    final_response=stream.text.strip() or None,
-                ),
-                stream,
-            )
+            if stream is not None:
+                ui.finish_turn(
+                    LoopResult(
+                        status=LoopStatus.INTERRUPTED,
+                        final_response=stream.text.strip() or None,
+                    ),
+                    stream,
+                )
 
         except Exception as exc:
             console.print(f"\n[bold red]错误:[/bold red] {exc}\n")
