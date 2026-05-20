@@ -271,6 +271,15 @@ class ButlerMessageHandler:
                 return format_detail(report, section=parse_detail_section(arg))
             return "暂无可展示的详细报告。"
 
+        if cmd in ("/workflow", "/工作流"):
+            from butler.workflows.commands import handle_workflow_command
+
+            return handle_workflow_command(
+                self._orchestrator,
+                arg,
+                session_key=session_key,
+            )
+
         return None
 
     def _format_health_summary(self, session_key: str = "default") -> str:
@@ -384,6 +393,8 @@ def _is_sessionless_command(text: str) -> bool:
         "/新对话",
         "/detail",
         "/详细",
+        "/workflow",
+        "/工作流",
     }
 
 

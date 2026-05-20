@@ -429,6 +429,28 @@ def _register_builtin_tools() -> None:
     )
 
     register(
+        name="run_workflow",
+        description=(
+            "Run a named project workflow (DAG of dev/content/review agents). "
+            "Workflows are declared in project.yaml or .butler/workflows/."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Workflow name (e.g. novel-factory)"},
+                "hint": {
+                    "type": "string",
+                    "description": "Optional user goal appended to each step",
+                    "default": "",
+                },
+            },
+            "required": ["name"],
+        },
+        handler=_tool_run_workflow,
+        toolset="delegation",
+    )
+
+    register(
         name="delegate_task",
         description="Delegate a task to a project-level agent (dev/content/review). Butler orchestrates the sub-agent.",
         schema={
@@ -1013,6 +1035,29 @@ def _tool_skill_view(name: str, **_) -> str:
         }, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
+
+
+def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
+    """Execute a project workflow DAG via TaskOrchestrator."""
+    try:
+        from butler.execution_context import get_current_session_key
+        from butler.workflows.runner import run_workflow_for_project
+
+        orch = _orchestrator_for_tool(channel="cli")
+        project = orch.project_manager.get_current()
+        if project is None:
+            return json.dumps({"error": "No active project; switch project first"}, ensure_ascii=False)
+        session_key = str(get_current_session_key() or "").strip()
+        text = run_workflow_for_project(
+            project,
+            name,
+            user_hint=hint or "",
+            session_key=session_key,
+            orchestrator=orch,
+        )
+        return json.dumps({"success": True, "summary": text}, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"error": str(exc)}, ensure_ascii=False)
 
 
 def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0, **_) -> str:
