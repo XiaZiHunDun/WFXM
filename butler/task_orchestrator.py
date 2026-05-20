@@ -172,6 +172,12 @@ class TaskOrchestrator:
 
         logger.info("Spawning %s agent [%s]: %s", config.role, task_id, config.task[:80])
 
+        if on_progress:
+            try:
+                on_progress(task_id, "start", config.role)
+            except Exception as exc:
+                logger.debug("on_progress start failed: %s", exc)
+
         try:
             from butler.delegate_policy import MAX_DELEGATE_DEPTH
 
@@ -250,6 +256,13 @@ class TaskOrchestrator:
         elapsed = task.completed_at - task.started_at
         logger.info("Agent [%s] %s in %.1fs", task_id, task.status.value, elapsed)
 
+        if on_progress:
+            try:
+                status_label = "done" if result.success else "failed"
+                on_progress(task_id, status_label, config.role)
+            except Exception as exc:
+                logger.debug("on_progress end failed: %s", exc)
+
         return result
 
     async def spawn_parallel(self, configs: list[AgentSpawnConfig]) -> list[AgentResult]:
@@ -287,6 +300,7 @@ class TaskOrchestrator:
         self,
         nodes: list[TaskNode],
         on_approval: Callable[[TaskNode], bool] | None = None,
+        on_progress: Callable[[str, str, str], None] | None = None,
     ) -> TaskGraphResult:
         """Execute a DAG of tasks with dependency resolution."""
         graph_result = TaskGraphResult()
@@ -294,10 +308,12 @@ class TaskOrchestrator:
         completed: dict[str, AgentResult] = {}
         cancelled: set[str] = set()
         errors: list[str] = []
+        total_steps = len(nodes)
 
         order = _topological_sort(nodes)
 
         layers = _group_into_layers(order, node_map)
+        step_index = 0
 
         for layer in layers:
             layer_tasks = []
@@ -347,12 +363,23 @@ class TaskOrchestrator:
 
             if len(layer_tasks) == 1:
                 nid, node = layer_tasks[0]
-                result = _coerce_agent_result(await self._run_with_retry(node))
+                step_index += 1
+                if on_progress:
+                    try:
+                        on_progress(nid, "start", node.config.role)
+                    except Exception as exc:
+                        logger.debug("graph on_progress start: %s", exc)
+                result = _coerce_agent_result(
+                    await self._run_with_retry(node, on_progress=on_progress)
+                )
                 completed[nid] = result
                 graph_result.execution_order.append(nid)
             else:
                 parallel_results = await asyncio.gather(
-                    *[self._run_with_retry(node) for _, node in layer_tasks],
+                    *[
+                        self._run_with_retry(node, on_progress=on_progress)
+                        for _, node in layer_tasks
+                    ],
                     return_exceptions=True,
                 )
                 for (nid, _), result in zip(layer_tasks, parallel_results):
@@ -403,10 +430,14 @@ class TaskOrchestrator:
         graph_result.success = not errors and all(r.success for r in completed.values())
         return graph_result
 
-    async def _run_with_retry(self, node: TaskNode) -> AgentResult:
+    async def _run_with_retry(
+        self,
+        node: TaskNode,
+        on_progress: Callable[[str, str, str], None] | None = None,
+    ) -> AgentResult:
         last_result = AgentResult(success=False, error="No attempts")
         for attempt in range(node.max_retries):
-            last_result = await self.spawn_agent(node.config)
+            last_result = await self.spawn_agent(node.config, on_progress=on_progress)
             if last_result.success:
                 return last_result
             logger.warning(

@@ -56,6 +56,11 @@ class TestPlatformAdapterStubs:
         from butler.gateway.platforms.types import PlatformConfig
 
         class _Stub(ButlerPlatformAdapter):
+            def __init__(self, config, platform: str) -> None:
+                super().__init__(config, platform)
+                self.typing_calls = 0
+                self.stop_calls = 0
+
             async def connect(self) -> bool:
                 return True
 
@@ -67,6 +72,14 @@ class TestPlatformAdapterStubs:
                 from butler.gateway.platforms.types import SendResult
 
                 return SendResult(success=True)
+
+            async def send_typing(self, chat_id: str, metadata=None) -> None:
+                del chat_id, metadata
+                self.typing_calls += 1
+
+            async def stop_typing(self, chat_id: str) -> None:
+                del chat_id
+                self.stop_calls += 1
 
         adapter = _Stub(PlatformConfig(), "wechat")
         media, text = adapter.extract_media("你好 Butler")
@@ -93,6 +106,55 @@ class TestPlatformAdapterStubs:
         assert adapter.is_connected is True
         adapter._mark_disconnected()
         assert adapter.is_connected is False
+
+    @pytest.mark.asyncio
+    async def test_handle_message_invokes_typing_lifecycle(self, monkeypatch):
+        from butler.gateway.platforms.base import ButlerPlatformAdapter
+        from butler.gateway.platforms.types import MessageEvent, MessageType, PlatformConfig, SessionSource
+
+        monkeypatch.setenv("BUTLER_GATEWAY_PROGRESS_ACK_ENABLED", "0")
+
+        class _Stub(ButlerPlatformAdapter):
+            def __init__(self, config, platform: str) -> None:
+                super().__init__(config, platform)
+                self.typing_calls = 0
+                self.stop_calls = 0
+
+            async def connect(self) -> bool:
+                return True
+
+            async def disconnect(self) -> None:
+                pass
+
+            async def send(self, chat_id: str, content: str, reply_to=None, metadata=None):
+                del chat_id, content, reply_to, metadata
+                from butler.gateway.platforms.types import SendResult
+
+                return SendResult(success=True)
+
+            async def send_typing(self, chat_id: str, metadata=None) -> None:
+                del chat_id, metadata
+                self.typing_calls += 1
+
+            async def stop_typing(self, chat_id: str) -> None:
+                del chat_id
+                self.stop_calls += 1
+
+        adapter = _Stub(PlatformConfig(), "wechat")
+
+        async def _handler(event: MessageEvent) -> str:
+            del event
+            return "pong"
+
+        adapter.set_message_handler(_handler)
+        event = MessageEvent(
+            text="ping",
+            message_type=MessageType.TEXT,
+            source=SessionSource(platform="wechat", chat_id="u1", user_id="u1"),
+        )
+        await adapter.handle_message(event)
+        assert adapter.typing_calls >= 1
+        assert adapter.stop_calls == 1
 
 
 @pytest.mark.module_test

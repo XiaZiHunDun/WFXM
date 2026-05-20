@@ -37,6 +37,7 @@ class MessageEvent:
     media_urls: list[str] = field(default_factory=list)
     media_types: list[str] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.now)
+    gateway_bridge: Any | None = None
 
 
 @dataclass

@@ -13,6 +13,33 @@ from butler.workflows.schema import WorkflowDef
 logger = logging.getLogger(__name__)
 
 
+def _workflow_progress_callback(
+    workflow_name: str,
+    total_steps: int,
+) -> Any:
+    """Forward DAG step events to the gateway outbound bridge when present."""
+    step_ids: list[str] = []
+
+    def _cb(step_id: str, phase: str, role: str) -> None:
+        del role
+        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+
+        bridge = get_gateway_bridge_optional()
+        if bridge is None:
+            return
+        if phase == "start" and step_id not in step_ids:
+            step_ids.append(step_id)
+        index = step_ids.index(step_id) + 1 if step_id in step_ids else len(step_ids)
+        bridge.notify_workflow_step(
+            workflow_name,
+            step_id,
+            step_index=index,
+            step_total=total_steps,
+        )
+
+    return _cb
+
+
 class WorkflowRunner:
     """Run a :class:`WorkflowDef` as a TaskOrchestrator DAG."""
 
@@ -75,8 +102,10 @@ class WorkflowRunner:
 
         orch = self._orch()
         nodes = self.build_nodes(workflow, user_hint=user_hint, session_key=session_key)
+        total_steps = len(nodes)
+        progress_cb = _workflow_progress_callback(workflow.name, total_steps)
         with use_execution_context(orch, session_key=session_key or "workflow"):
-            graph = await self._tasks.execute_graph(nodes)
+            graph = await self._tasks.execute_graph(nodes, on_progress=progress_cb)
         self._cache_workflow_report(workflow, graph)
         return graph
 
