@@ -32,6 +32,7 @@ PYTHONPATH=. pytest -q          # 默认 ~925 passed，排除 live_llm 与 tests
 
 ```bash
 PYTHONPATH=. pytest \
+  tests/test_project_manager.py \
   tests/test_project_session_isolation.py \
   tests/test_project_tools_filter.py \
   tests/test_report_format.py \
