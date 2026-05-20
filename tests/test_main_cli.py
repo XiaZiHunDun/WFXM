@@ -336,50 +336,18 @@ class TestGatewayCommand:
     def test_cmd_gateway_native_default(self, monkeypatch):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="", hermes_remainder=[])
+        ns = MagicMock(platforms="", gateway_remainder=[])
         with patch("butler.gateway.runner.run_gateway_blocking", return_value=0) as run:
             assert _cmd_gateway(ns) == 0
         run.assert_called_once_with(["wechat"])
         assert os.environ["BUTLER_GATEWAY_ACTIVE"] == "1"
 
-    def test_cmd_gateway_hermes_fallback_subprocess(self, monkeypatch):
+    def test_cmd_gateway_rejects_non_wechat_platform(self, capsys):
         from butler.main import _cmd_gateway
 
-        monkeypatch.delenv("HERMES_HOME", raising=False)
-        mock_result = MagicMock(returncode=3)
-        ns = MagicMock(platforms="wechat", hermes_remainder=["--hermes-fallback", "--debug"])
-        with patch("hermes_cli.plugins_cmd._get_enabled_set", return_value=set()) as get_enabled:
-            with patch("hermes_cli.plugins_cmd._save_enabled_set") as save_enabled:
-                with patch("shutil.which", return_value="/usr/bin/hermes"):
-                    with patch("subprocess.run", return_value=mock_result) as run:
-                        assert _cmd_gateway(ns) == 3
-        get_enabled.assert_called_once()
-        save_enabled.assert_called_once_with({"butler", "memory/butler"})
-        assert run.call_args.args[0] == [
-            "/usr/bin/hermes",
-            "gateway",
-            "run",
-            "--platforms",
-            "wechat",
-            "--debug",
-        ]
-
-    def test_cmd_gateway_auto_hermes_for_telegram(self, monkeypatch):
-        from butler.main import _cmd_gateway
-
-        ns = MagicMock(platforms="telegram", hermes_remainder=[])
-        with patch("butler.gateway.platform_policy.hermes_vendored_installed", return_value=True):
-            with patch("butler.main._cmd_gateway_hermes_fallback", return_value=0) as fallback:
-                assert _cmd_gateway(ns) == 0
-        fallback.assert_called_once()
-
-    def test_cmd_gateway_telegram_without_hermes_returns_two(self, monkeypatch, capsys):
-        from butler.main import _cmd_gateway
-
-        ns = MagicMock(platforms="telegram", hermes_remainder=[])
-        with patch("butler.gateway.platform_policy.hermes_vendored_installed", return_value=False):
-            assert _cmd_gateway(ns) == 2
-        assert "hermes-gateway" in capsys.readouterr().err
+        ns = MagicMock(platforms="telegram", gateway_remainder=[])
+        assert _cmd_gateway(ns) == 2
+        assert "仅支持微信" in capsys.readouterr().err
 
 
 @pytest.mark.integration

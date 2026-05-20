@@ -10,7 +10,9 @@ import signal
 from typing import Any
 
 from butler.gateway.message_handler import ButlerMessageHandler
-from butler.gateway.platform_policy import NATIVE_PLATFORMS, normalize_platforms, partition_platforms
+from butler.gateway.platform_policy import SUPPORTED_PLATFORMS, normalize_platforms
+
+NATIVE_PLATFORMS = SUPPORTED_PLATFORMS  # alias for tests / legacy imports
 from butler.gateway.platforms.types import MessageEvent, PlatformConfig
 
 logger = logging.getLogger(__name__)
@@ -27,8 +29,9 @@ _HANDLER_TIMEOUT_SECONDS = float(os.getenv("BUTLER_GATEWAY_HANDLER_TIMEOUT", "18
 
 
 def unsupported_platforms(platforms: list[str]) -> list[str]:
-    _native, hermes = partition_platforms(platforms)
-    return hermes
+    from butler.gateway.platform_policy import unsupported_platforms as _unsupported
+
+    return _unsupported(platforms)
 
 
 def _warmup_gateway_runtime(butler: ButlerMessageHandler) -> None:
@@ -99,11 +102,9 @@ async def run_gateway_async(platforms: list[str]) -> int:
     """Start native adapters; blocks until cancelled."""
     unsupported = unsupported_platforms(platforms)
     if unsupported:
-        logger.error(
-            "Platforms not supported by Butler native gateway: %s. "
-            "Use `butler gateway --hermes-fallback` for Hermes subprocess.",
-            ", ".join(unsupported),
-        )
+        from butler.gateway.platform_policy import format_unsupported_error
+
+        logger.error("%s", format_unsupported_error(unsupported))
         return 2
 
     butler = ButlerMessageHandler(channel="gateway")

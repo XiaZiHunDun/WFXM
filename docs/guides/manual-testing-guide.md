@@ -383,7 +383,7 @@ PYTHONPATH=. python -m butler.main exec "你好，请用一句话自我介绍"
 > 下文 §3.4–3.5 为分项清单；自动化见 `tests/test_gateway_acceptance.py`。
 
 > v4.1 起：`butler gateway` 默认走 `butler/gateway/runner.py` + iLink 适配器。  
-> Telegram 等平台：`pip install -e ".[hermes-gateway]"` 后执行 `butler gateway --platforms telegram`（自动 Hermes 子进程）。微信仍用 `butler gateway`。
+> 产品仅支持微信：`butler gateway`（无需 `--platforms`）。
 
 ### 3.1 前置条件
 
@@ -747,7 +747,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 
 ## 七、已知限制
 
-1. **微信网关**：默认 `butler gateway` 为 Butler 原生 iLink（`butler/gateway/platforms/wechat_ilink.py`）；仅 Telegram 等多平台需 `--hermes-fallback`
+1. **微信网关**：`butler gateway` 为 Butler 原生 iLink（`butler/gateway/platforms/wechat_ilink.py`）；不支持其它平台
 2. **模型限制**：当前仅配置了 MiniMax 模型，切换到其他厂商需要额外配置 API key
 3. **推理模型延迟**：MiniMax-M2.7 是推理模型，首次响应可能较慢（含思考时间）
 4. **微信消息长度**：微信单条消息限 2000 字符，超长回复会被截断
