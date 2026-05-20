@@ -44,6 +44,9 @@ PYTHONPATH=. pytest \
   tests/test_wechat_ilink_outbound.py \
   tests/test_wechat_ilink_media.py \
   tests/test_owner_profile_gateway.py \
+  tests/test_wechat_account_persistence.py \
+  tests/test_gateway_runner.py::TestButlerMessageHandlerRunner \
+  tests/test_main_cli.py::TestWechatSetupCommand \
   tests/test_session_lifecycle.py \
   tests/test_post_session.py \
   -q
@@ -61,12 +64,14 @@ PYTHONPATH=. pytest tests/test_cli_scenarios.py tests/test_cli_dimensions.py -q
 BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. pytest -m live_llm tests/test_cli_live_smoke.py -v
 ```
 
-**Gateway live（微信代码路径 + 真 LLM，可选）**：
+**Gateway live（微信代码路径 + 真 LLM，发版前可选）**：
 
 ```bash
 BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
   pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
 ```
+
+含：单轮问候、README 直读（步骤 3）、委派写文件（步骤 4–4c）、Owner 称呼。
 | `test_hermes_extraction.py`, `test_run_agent_extraction.py` | Hermes 提炼回归 |
 | `test_real_api_smoke*.py` | 可选真实 API smoke |
 

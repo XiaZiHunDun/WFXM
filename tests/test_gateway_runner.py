@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from asyncio import TimeoutError
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -163,6 +164,56 @@ class TestPlatformAdapterStubs:
         await adapter.handle_message(event)
         assert adapter.typing_calls >= 1
         assert adapter.stop_calls == 1
+
+
+@pytest.mark.integration
+class TestButlerMessageHandlerRunner:
+    @pytest.mark.asyncio
+    async def test_handler_timeout_returns_wechat_message(self):
+        from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
+        from butler.gateway.runner import _butler_message_handler
+
+        butler = MagicMock()
+        event = MessageEvent(
+            text="会超时的问题",
+            message_type=MessageType.TEXT,
+            source=SessionSource(platform="wechat", chat_id="u-timeout", user_id="u-timeout"),
+        )
+
+        async def _timeout_wait_for(awaitable, *args, **kwargs):
+            awaitable.close() if hasattr(awaitable, "close") else None
+            raise TimeoutError
+
+        with patch(
+            "butler.gateway.runner.asyncio.wait_for",
+            side_effect=_timeout_wait_for,
+        ):
+            out = await _butler_message_handler(butler, event)
+
+        assert out is not None
+        assert "处理超时" in out
+        assert "/health" in out or "health" in out.lower()
+        butler.handle_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_media_only_event_gets_placeholder_text(self):
+        from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
+        from butler.gateway.runner import _butler_message_handler
+
+        butler = MagicMock()
+        butler.handle_message.return_value = "收到"
+        event = MessageEvent(
+            text="",
+            message_type=MessageType.PHOTO,
+            source=SessionSource(platform="wechat", chat_id="u-media", user_id="u-media"),
+            media_urls=["/tmp/x.jpg"],
+            media_types=["image/jpeg"],
+        )
+
+        out = await _butler_message_handler(butler, event)
+        assert out == "收到"
+        sent = butler.handle_message.call_args.kwargs.get("text") or butler.handle_message.call_args[0][0]
+        assert "媒体消息" in sent
 
 
 @pytest.mark.module_test

@@ -24,16 +24,26 @@ PYTHONPATH=. pytest \
   tests/test_wechat_ilink_outbound.py \
   tests/test_wechat_ilink_media.py \
   tests/test_owner_profile_gateway.py \
+  tests/test_wechat_account_persistence.py \
+  tests/test_gateway_runner.py::TestButlerMessageHandlerRunner \
   tests/test_workflows.py \
+  tests/test_main_cli.py::TestWechatSetupCommand \
   -q
 ```
 
-**可选 live（真 MiniMax，耗额度）**：
+**可选 live（真 MiniMax，发版前建议跑）**：
 
 ```bash
 BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
   pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
 ```
+
+| live 用例 | 对应真机 |
+|-----------|----------|
+| `test_live_gateway_one_turn_minimax` | 网关能对话 |
+| `test_live_gateway_read_file_no_delegate` | 步骤 3 |
+| `test_live_gateway_delegate_writes_file` | 步骤 4–4c |
+| `test_live_gateway_owner_profile_nickname` | Owner 画像 |
 
 | 检查项 | 通过 |
 |--------|------|
