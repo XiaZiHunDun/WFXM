@@ -14,6 +14,7 @@ from typing import Any
 
 from butler.config import ButlerSettings, get_butler_settings, get_model_config
 from butler.memory import ButlerMemory, ProjectMemory
+from butler.memory_plugin import ButlerMemoryService
 from butler.project_manager import get_project_manager
 from butler.skills.manager import SkillManager
 from butler.skills.router import SkillRouter
@@ -113,9 +114,7 @@ class ButlerOrchestrator:
 
     def _initialize_memory_provider(self) -> None:
         try:
-            from butler.memory_plugin import ButlerMemoryProvider
-
-            provider = ButlerMemoryProvider()
+            provider = ButlerMemoryService()
             provider.initialize(
                 session_id=f"{self.channel}:{self.user_id}",
                 user_id=self.user_id,

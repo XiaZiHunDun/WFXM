@@ -8,7 +8,7 @@
 
 - **只移植算法与小模块**，不 import `AIAgent`、不复制 `run_agent.py` / `gateway/run.py` 单体。
 - Butler 保留自建 `AgentLoop` + `Transport` + 产品层（记忆、Skill、DAG 编排）。
-- Gateway 继续通过 Hermes **subprocess** 复用 20+ 平台。
+- Gateway：**目标**为 Butler 原生平台适配器；**过渡态**仍可通过 Hermes subprocess（见 [`hermes-decoupling.md`](hermes-decoupling.md)）。
 
 ## 模块对照表
 

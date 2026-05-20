@@ -3,8 +3,8 @@
 ## 架构概述
 
 Butler v4 采用**自建 Agent Loop + 模块化复用**方案 — Butler 完全控制自己的 Agent Loop，
-不再 import Hermes AIAgent。仅从 Hermes 复用 Gateway 平台适配器（通过 subprocess），
-Transport 层和 Provider Registry 均为 Butler 自建。
+不再 import Hermes AIAgent。Transport / 工具 / Loop 均在 `butler/` 内自建。  
+**微信网关**：`butler gateway` 默认走 Butler 原生 iLink 适配器 + `ButlerMessageHandler`（无 Hermes 子进程）。其它平台可用 `--hermes-fallback`。详见 [`hermes-decoupling.md`](hermes-decoupling.md)。
 
 ```
 用户 ─→ CLI / 微信 / 其他平台
@@ -34,7 +34,7 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 | 工具系统 | Hermes 50+ 工具 | Butler 自建 9 核心工具 |
 | 子 Agent | Hermes delegate_task (绕过 Butler) | Butler 编排器全控 |
 | 编排控制力 | 低（只能通过 prompt/hook 间接影响）| 完全（每一步可插手）|
-| Hermes 升级风险 | 高（依赖内部 API）| 低（仅 Gateway subprocess）|
+| Hermes 升级风险 | 高（依赖内部 API）| Loop 已隔离；Gateway 子进程待移除 |
 | 信息回传 | 未实现 | AgentReport 全链路 |
 
 ## 核心模块

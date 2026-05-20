@@ -4,7 +4,7 @@ After a conversation ends, runs two LLM-driven extraction channels:
 1. Memory channel: extract user prefs -> ButlerMemory, project facts -> ProjectMemory
 2. Skill channel: extract reusable workflows -> SkillManager
 
-Uses Hermes AIAgent for the LLM calls instead of a raw provider.
+Uses an injected LLM callable (default: ``auxiliary_client`` / Butler transport).
 """
 
 from __future__ import annotations

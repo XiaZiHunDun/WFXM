@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List
 
-from agent.memory_provider import MemoryProvider
+# Hermes ``MemoryProvider`` adapter lives in ``plugins/memory/butler/`` only.
 
 from butler.memory import ButlerMemory, ProjectMemory
 
@@ -96,8 +96,8 @@ def _project_root_discovery() -> Path | None:
     return None
 
 
-class ButlerMemoryProvider(MemoryProvider):
-    """Hermes plugin that surfaces Butler global + optional project memory."""
+class ButlerMemoryService:
+    """Butler layered memory (global + project) for prefetch, sync_turn, tools."""
 
     def __init__(self) -> None:
         self._session_id = ""
@@ -253,20 +253,15 @@ class ButlerMemoryProvider(MemoryProvider):
                 from butler.post_session import PostSessionProcessor
                 processor = PostSessionProcessor()
 
-                async def _llm_stub(prompt: str) -> str:
-                    try:
-                        from butler.main import _ensure_hermes_env, _create_butler_agent
-                        from butler.orchestrator import ButlerOrchestrator
-                        _ensure_hermes_env()
-                        orch = ButlerOrchestrator()
-                        agent = _create_butler_agent(orch, quiet_mode=True)
-                        result = agent.run_conversation(user_message=prompt)
-                        return result.get("final_response", "") if isinstance(result, dict) else str(result)
-                    except Exception as exc:
-                        logger.warning("Background LLM call failed: %s", exc)
-                        return ""
+                from butler.transport.auxiliary_client import auxiliary_llm_call_factory
 
-                processor.set_llm_call(_llm_stub)
+                async def _llm_async(prompt: str) -> str:
+                    import asyncio
+                    return await asyncio.to_thread(
+                        auxiliary_llm_call_factory("post_session"), prompt
+                    )
+
+                processor.set_llm_call(_llm_async)
 
                 skill_mgr = None
                 try:
@@ -398,4 +393,7 @@ class ButlerMemoryProvider(MemoryProvider):
         self._reload_project_branch()
 
 
-__all__ = ["ButlerMemoryProvider"]
+# Backward-compatible alias (tests, orchestrator).
+ButlerMemoryProvider = ButlerMemoryService
+
+__all__ = ["ButlerMemoryService", "ButlerMemoryProvider"]

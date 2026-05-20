@@ -14,7 +14,7 @@ from typing import Any, Final
 import yaml
 from dotenv import load_dotenv
 
-from hermes_constants import get_hermes_home
+from butler.paths import resolve_hermes_home
 
 load_dotenv()
 
@@ -308,8 +308,8 @@ def save_butler_config() -> None:
 
 
 def hermes_home_display() -> str:
-    """Convenience: resolved Hermes home (Butler complements Hermes, same machine)."""
-    return str(get_hermes_home().resolve())
+    """Resolved Hermes home path (Gateway legacy co-install only)."""
+    return str(resolve_hermes_home())
 
 
 def get_model_config(role: str) -> ModelConfig:

@@ -357,12 +357,8 @@ def _cmd_create(ns: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_gateway(ns: argparse.Namespace) -> int:
-    """Start Hermes gateway with Butler plugin active.
-
-    Gateway still uses Hermes subprocess since it manages platform
-    adapters. Butler hooks into it via plugins.
-    """
+def _cmd_gateway_hermes_fallback(ns: argparse.Namespace) -> int:
+    """Legacy: Hermes gateway subprocess (other platforms / escape hatch)."""
     os.environ["BUTLER_GATEWAY_ACTIVE"] = "1"
     os.environ.setdefault("HERMES_HOME", str(Path.home() / ".hermes"))
 
@@ -389,6 +385,29 @@ def _cmd_gateway(ns: argparse.Namespace) -> int:
     return result.returncode
 
 
+def _cmd_gateway(ns: argparse.Namespace) -> int:
+    """Start Butler-native gateway (WeChat via iLink; no Hermes AIAgent subprocess)."""
+    os.environ["BUTLER_GATEWAY_ACTIVE"] = "1"
+    remainder = list(ns.hermes_remainder or [])
+    if "--hermes-fallback" in remainder:
+        remainder = [x for x in remainder if x != "--hermes-fallback"]
+        ns.hermes_remainder = remainder
+        return _cmd_gateway_hermes_fallback(ns)
+
+    from butler.gateway.runner import normalize_platforms, run_gateway_blocking, unsupported_platforms
+
+    platforms = normalize_platforms(ns.platforms or "")
+    unsupported = unsupported_platforms(platforms)
+    if unsupported:
+        print(
+            f"平台 {', '.join(unsupported)} 尚未支持 Butler 原生网关。"
+            f"请使用: butler gateway --hermes-fallback --platforms ...",
+            file=sys.stderr,
+        )
+        return 2
+    return run_gateway_blocking(platforms)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="butler",
@@ -409,9 +428,13 @@ def _build_parser() -> argparse.ArgumentParser:
     ex.add_argument("message")
     ex.set_defaults(func=_cmd_exec)
 
-    gw = sub.add_parser("gateway", help="启动消息网关（通过 Hermes）")
-    gw.add_argument("--platforms", default="")
-    gw.add_argument("hermes_remainder", nargs=argparse.REMAINDER)
+    gw = sub.add_parser("gateway", help="启动 Butler 原生消息网关（默认微信 iLink）")
+    gw.add_argument("--platforms", default="", help="平台列表，如 wechat（默认 wechat）")
+    gw.add_argument(
+        "hermes_remainder",
+        nargs=argparse.REMAINDER,
+        help="附加参数；--hermes-fallback 回退 Hermes 子进程网关",
+    )
     gw.set_defaults(func=_cmd_gateway)
 
     return p
