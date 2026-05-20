@@ -95,9 +95,12 @@ py-modules = ["run_agent", "model_tools", "toolsets", "batch_runner", "trajector
 hermes_cli = ["web_dist/**/*"]
 gateway = ["assets/**/*"]
 
-# Hermes 包仍随仓库 editable 安装；运行时 Butler 不 import。拆包需 setuptools 支持
-# optional package find 或 vendor/hermes-agent 独立 pyproject（阶段 C）。
+[tool.setuptools.package-dir]
+"butler" = "butler"
+"" = "vendor/hermes-agent"
+
 [tool.setuptools.packages.find]
+where = [".", "vendor/hermes-agent"]
 include = [
   "butler", "butler.*",
   "agent", "agent.*",
