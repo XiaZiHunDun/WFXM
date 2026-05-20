@@ -462,6 +462,56 @@ class TestWechatSmokeWorkflow:
         detail = handler.handle_message("/详细", session_key="wechat:u1", platform="wechat")
         assert "novel-factory" in detail or "draft" in detail or "验收" in detail
 
+    def test_workflow_run_via_execute_graph_caches_detail(
+        self, tmp_path, monkeypatch, tmp_butler_home, patch_llm
+    ):
+        from unittest.mock import AsyncMock
+
+        from butler.report import clear_report_cache, get_last_report
+        from butler.task_orchestrator import AgentResult, TaskGraphResult
+        from butler.workflows.runner import TaskOrchestrator
+        from tests.test_gateway_handler import _reset_singletons
+
+        clear_report_cache()
+        _setup_gateway_project(tmp_path, monkeypatch, with_workflow=True)
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+        _reset_singletons()
+        handler = ButlerMessageHandler(channel="gateway")
+        handler._orchestrator.project_manager.switch_project("test-project")
+
+        mock_complete, mock_stream = patch_llm
+        mock_complete.return_value = _text_response("好的")
+        mock_stream.return_value = mock_complete.return_value
+
+        graph = TaskGraphResult(
+            success=True,
+            nodes={
+                "draft": AgentResult(success=True, response="draft via graph"),
+                "review": AgentResult(success=True, response="review via graph"),
+            },
+            execution_order=["draft", "review"],
+        )
+
+        with patch.object(
+            TaskOrchestrator,
+            "execute_graph",
+            new_callable=AsyncMock,
+            return_value=graph,
+        ):
+            run_out = handler.handle_message(
+                "/工作流 run novel-factory 写一句验收说明",
+                session_key="wechat:u1",
+                platform="wechat",
+            )
+
+        report = get_last_report()
+        assert report is not None
+        assert "novel-factory" in run_out
+        assert "draft" in report.summary or "draft via graph" in report.summary
+
+        detail = handler.handle_message("/详细", session_key="wechat:u1", platform="wechat")
+        assert "novel-factory" in detail or "draft" in detail
+
 
 @pytest.mark.integration
 class TestWechatSmokeSlashProjects:
@@ -651,3 +701,43 @@ class TestWechatSmokeDetailAlias:
             )
         mock_get.assert_not_called()
         assert "smoke-detail-alias" in detail or "变更" in detail
+
+
+@pytest.mark.integration
+class TestWechatSmokeDetailSections:
+    """P2: /详细 with section aliases (changes only)."""
+
+    def test_detail_changes_section_via_gateway(self, gateway_handler_project):
+        from butler.report import AgentReport, Change, cache_report, clear_report_cache
+
+        handler, _proj = gateway_handler_project
+        clear_report_cache()
+        cache_report(
+            AgentReport(
+                headline="内容代理已完成",
+                summary="完整摘要含决策与问题",
+                changes=[
+                    Change(file="docs/a.md", action="created", description="new"),
+                    Change(file="docs/b.md", action="modified", description="edit"),
+                ],
+                decisions=["采用方案 A"],
+                issues=["无阻塞问题"],
+            )
+        )
+
+        changes_only = handler.handle_message(
+            "/详细 变更",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+        assert "a.md" in changes_only
+        assert "b.md" in changes_only
+        assert "方案 A" not in changes_only
+
+        alias = handler.handle_message(
+            "详细 changes",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+        assert "a.md" in alias
+        assert "完整摘要" not in alias

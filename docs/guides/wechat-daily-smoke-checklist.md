@@ -21,6 +21,7 @@ PYTHONPATH=. pytest \
   tests/test_wechat_session_reset.py \
   tests/test_gateway_acceptance.py \
   tests/test_wechat_ilink_inbound.py \
+  tests/test_wechat_ilink_outbound.py \
   tests/test_workflows.py \
   -q
 ```
