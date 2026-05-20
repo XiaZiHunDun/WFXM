@@ -74,6 +74,9 @@ cp docs/guides/owner-profile.example.json ~/.butler/tenants/default/memory/profi
 
 若不符：检查文件路径是否为 `tenants/default/memory/profile.json`，并确认条目无「ignore previous」等误触过滤词。
 
+**自动化（mock LLM）**：`tests/test_owner_profile_gateway.py`  
+**可选 live**：`BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_wechat_gateway_live_smoke.py::test_live_gateway_owner_profile_nickname`
+
 ---
 
 ## 与「项目记忆」的区别
