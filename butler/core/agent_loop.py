@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
-import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from butler.core.context_compressor import _estimate_tokens, compress_messages
 from butler.core.delegate_context import child_callbacks, set_parent_callbacks
+from butler.core.llm_retry import call_llm_with_retry
 from butler.core.loop_response import (
-    empty_retry_message,
-    needs_empty_content_retry,
     needs_truncation_continue,
-    sanitize_response,
     truncation_continue_message,
 )
 from butler.core.loop_types import LoopCallbacks, LoopConfig, LoopResult, LoopStatus
@@ -26,21 +22,13 @@ from butler.core.message_sanitize import (
     sanitize_api_messages,
     sanitize_surrogates,
 )
-from butler.core.parallel_tools import execute_tools_parallel
-from butler.core.retry_policy import retry_delay_for_config
-from butler.core.schema_recovery import recover_schema_after_error
-from butler.core.steer import apply_steer_to_tool_results, clear_steer
-from butler.tool_guardrails import (
-    ToolCallGuardrailController,
-    append_guidance,
-    synthetic_result,
-)
+from butler.core.tool_batch import dispatch_tool_with_envelope, process_tool_calls
+from butler.tool_guardrails import ToolCallGuardrailController
 from butler.tools.interrupt import clear_interrupt, is_interrupted, set_interrupt
-from butler.transport.error_classifier import classify_api_error
+from butler.core.steer import clear_steer
 from butler.transport.fallback import FallbackEntry, build_fallback_chain, create_client_from_entry
-from butler.transport.interruptible_client import StaleApiCallError
 from butler.transport.llm_client import LLMClient
-from butler.transport.types import NormalizedResponse, ToolCall
+from butler.transport.types import NormalizedResponse
 
 logger = logging.getLogger(__name__)
 
@@ -281,224 +269,39 @@ class AgentLoop:
         )
 
     def _call_llm_with_retry(self) -> Optional[NormalizedResponse]:
-        messages_to_send = self._prepare_messages_for_api()
-        if self.callbacks.on_llm_start:
-            self.callbacks.on_llm_start(messages_to_send)
-
-        last_error: Exception | None = None
-        compress_attempted = False
-        schema_recovery_attempted = False
-        tools_to_send = self.tools if self.tools else None
-
-        for attempt in range(self.config.max_retries):
-            if self._interrupt_check():
-                return None
-
-            try:
-                common = {
-                    "messages": messages_to_send,
-                    "tools": tools_to_send,
-                    "check_interrupt": self._interrupt_check,
-                    "stale_timeout": self.config.api_stale_timeout,
-                }
-                if self.config.stream and self.callbacks.on_stream_delta:
-                    response = self.client.stream(
-                        on_delta=self.callbacks.on_stream_delta,
-                        **common,
-                    )
-                else:
-                    response = self.client.complete(**common)
-
-                response = sanitize_response(response)
-
-                if (
-                    needs_empty_content_retry(response)
-                    and self._empty_retries < self.config.max_empty_content_retries
-                ):
-                    self._empty_retries += 1
-                    self._messages.append({"role": "user", "content": empty_retry_message()})
-                    messages_to_send = self._prepare_messages_for_api()
-                    continue
-
-                if self.callbacks.on_llm_complete:
-                    self.callbacks.on_llm_complete(response)
-                return response
-
-            except InterruptedError:
-                self._interrupted = True
-                return None
-
-            except Exception as exc:
-                last_error = exc
-                classified = classify_api_error(
-                    exc,
-                    provider=getattr(self.client, "provider_name", ""),
-                    model=getattr(self.client, "model", ""),
-                )
-                logger.warning(
-                    "LLM attempt %d/%d failed [%s]: %s",
-                    attempt + 1, self.config.max_retries, classified.reason.value, exc,
-                )
-                if self.callbacks.on_error:
-                    self.callbacks.on_error(exc, attempt + 1)
-
-                if isinstance(exc, StaleApiCallError) and classified.retryable:
-                    if attempt < self.config.max_retries - 1:
-                        time.sleep(self._retry_delay(attempt))
-                        continue
-
-                if tools_to_send and not schema_recovery_attempted:
-                    recovered = recover_schema_after_error(
-                        exc,
-                        tools_to_send,
-                        diagnostics=self.diagnostics,
-                    )
-                    schema_recovery_attempted = schema_recovery_attempted or recovered.attempted
-                    if recovered.attempted and recovered.tools is not None:
-                        tools_to_send = recovered.tools
-                    if recovered.recovered:
-                        if attempt < self.config.max_retries - 1:
-                            logger.info(
-                                "Retrying LLM call after stripping %d schema pattern/format keywords",
-                                recovered.stripped,
-                            )
-                            continue
-
-                if classified.should_compress and not compress_attempted:
-                    compress_attempted = True
-                    self._messages[:] = self._compress_context(list(self._messages))
-                    messages_to_send = self._prepare_messages_for_api()
-                    continue
-
-                if classified.should_fallback and self._try_activate_fallback():
-                    continue
-
-                if not classified.retryable:
-                    break
-
-                if attempt < self.config.max_retries - 1:
-                    time.sleep(self._retry_delay(attempt))
-
-        logger.error("All LLM attempts failed: %s", last_error)
-        return None
-
-    def _retry_delay(self, attempt_index: int) -> float:
-        return retry_delay_for_config(self.config, attempt_index)
+        empty_retries = [self._empty_retries]
+        response, interrupted = call_llm_with_retry(
+            client=self.client,
+            config=self.config,
+            callbacks=self.callbacks,
+            tools=self.tools,
+            messages=self._messages,
+            diagnostics=self.diagnostics,
+            prepare_messages=self._prepare_messages_for_api,
+            compress_messages=self._compress_context,
+            interrupt_check=self._interrupt_check,
+            try_activate_fallback=self._try_activate_fallback,
+            empty_retries=empty_retries,
+        )
+        self._empty_retries = empty_retries[0]
+        if interrupted:
+            self._interrupted = True
+        return response
 
     def _process_tool_calls(self, response: NormalizedResponse) -> None:
-        if not response.tool_calls:
-            return
-
-        from butler.transport.reasoning_replay import store_reasoning_on_message
-
-        assistant_msg: dict[str, Any] = {"role": "assistant", "content": response.content}
-        store_reasoning_on_message(assistant_msg, response.reasoning)
-        tool_call_records = []
-        for tc in response.tool_calls:
-            tc_id = tc.id or f"call_{uuid.uuid4().hex[:8]}"
-            if not tc.id:
-                tc.id = tc_id
-            tool_call_records.append({
-                "id": tc_id,
-                "type": "function",
-                "function": {"name": tc.name, "arguments": tc.arguments},
-            })
-        assistant_msg["tool_calls"] = tool_call_records
-        self._messages.append(assistant_msg)
-
-        if self._guardrails and self._guardrails.halt_decision:
-            return
-
-        def _dispatch_one(name: str, args: dict) -> str:
-            if self._guardrails:
-                before = self._guardrails.before_call(name, args)
-                if before.should_halt:
-                    return _finalize_fallback_tool_result(name, args, synthetic_result(before))
-            result = self._dispatch_tool(name, args)
-            if self._guardrails:
-                after = self._guardrails.after_call(name, args, result)
-                if after.should_halt:
-                    self._guardrails.set_halt_decision(after)
-                    result = _finalize_guardrail_halt_result(name, args, result, after)
-                elif after.action == "warn":
-                    result = append_guidance(result, after)
-            return result
-
-        def _on_start(name: str, args: dict) -> None:
-            self._tool_calls_count += 1
-            if self.callbacks.on_tool_start:
-                self.callbacks.on_tool_start(name, args)
-
-        def _on_complete(name: str, result: str) -> None:
-            if self.callbacks.on_tool_complete:
-                self.callbacks.on_tool_complete(name, result)
-
-        check = self._interrupt_check
-
-        if self.config.enable_parallel_tools and len(response.tool_calls) > 1:
-            pairs = execute_tools_parallel(
-                response.tool_calls,
-                _dispatch_one,
-                on_start=_on_start,
-                on_complete=_on_complete,
-                check_interrupt=check,
-            )
-        else:
-            pairs = []
-            batch_interrupted = False
-            for tc in response.tool_calls:
-                try:
-                    args = tc.args_dict()
-                except Exception:
-                    args = {}
-                if batch_interrupted or check():
-                    batch_interrupted = True
-                    result = _finalize_fallback_tool_result(
-                        tc.name,
-                        args,
-                        {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
-                    )
-                    pairs.append((tc, result))
-                    continue
-                _on_start(tc.name, args)
-                result = _dispatch_one(tc.name, args)
-                _on_complete(tc.name, result)
-                pairs.append((tc, result))
-                if check():
-                    batch_interrupted = True
-
-        for tc, result in pairs:
-            self._messages.append({
-                "role": "tool",
-                "tool_call_id": tc.id,
-                "content": result,
-            })
-
-        apply_steer_to_tool_results(self._messages, len(pairs))
+        stats = process_tool_calls(
+            response=response,
+            messages=self._messages,
+            config=self.config,
+            callbacks=self.callbacks,
+            guardrails=self._guardrails,
+            dispatch_tool=self._dispatch_tool,
+            interrupt_check=self._interrupt_check,
+        )
+        self._tool_calls_count += stats.tools_started
 
     def _dispatch_tool(self, name: str, args: dict) -> str:
-        if self.tool_dispatcher:
-            try:
-                result = self.tool_dispatcher(name, args)
-                return _finalize_unenveloped_failure_result(name, args, result)
-            except Exception as exc:
-                logger.error("Tool %s failed: %s", name, exc)
-                return _finalize_fallback_tool_result(
-                    name,
-                    args,
-                    {
-                        "error": f"Tool execution failed: {exc}",
-                        "code": "TOOL_DISPATCH_ERROR",
-                    },
-                )
-        return _finalize_fallback_tool_result(
-            name,
-            args,
-            {
-                "error": f"No tool dispatcher configured, cannot run '{name}'",
-                "code": "TOOL_DISPATCH_ERROR",
-            },
-        )
+        return dispatch_tool_with_envelope(self.tool_dispatcher, name, args)
 
     @property
     def messages(self) -> list[dict]:
@@ -513,64 +316,3 @@ class AgentLoop:
         self._total_tokens = 0
         self._tool_calls_count = 0
         self._interrupted = False
-
-
-def _finalize_fallback_tool_result(name: str, args: dict, result: Any) -> str:
-    from butler.tools.registry import finalize_tool_result
-
-    return finalize_tool_result(name, args, result)
-
-
-def _finalize_guardrail_halt_result(
-    name: str,
-    args: dict,
-    result: str,
-    decision: Any,
-) -> str:
-    from butler.tools.registry import finalize_tool_result, pop_last_tool_audit_for_tool
-
-    pop_last_tool_audit_for_tool(name)
-    payload = _parse_tool_result_object(result)
-    if payload is None:
-        payload = {"error": result or decision.message}
-    else:
-        payload = dict(payload)
-    for key in ("ok", "tool", "code"):
-        payload.pop(key, None)
-    payload["error"] = decision.message
-    payload["guardrail"] = {
-        "action": decision.action,
-        "code": decision.code,
-        "count": decision.count,
-    }
-    return finalize_tool_result(name, args, payload)
-
-
-def _finalize_unenveloped_failure_result(name: str, args: dict, result: str) -> str:
-    payload = _parse_tool_result_object(result)
-    if not isinstance(payload, dict):
-        return result
-    if payload.get("ok") is False and payload.get("tool") and payload.get("code"):
-        return result
-    failed = (
-        "error" in payload
-        or payload.get("success") is False
-        or (isinstance(payload.get("exit_code"), int) and payload["exit_code"] != 0)
-    )
-    if failed:
-        payload = dict(payload)
-        payload.setdefault("code", "TOOL_ERROR")
-        return _finalize_fallback_tool_result(name, args, payload)
-    return result
-
-
-def _parse_tool_result_object(result: Any) -> dict[str, Any] | None:
-    if isinstance(result, dict):
-        return result
-    if not isinstance(result, str):
-        return None
-    try:
-        parsed = json.loads(result)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return None
-    return parsed if isinstance(parsed, dict) else None
