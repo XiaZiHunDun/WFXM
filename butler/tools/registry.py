@@ -99,6 +99,22 @@ def dispatch_tool(name: str, args: dict) -> str:
         )
 
 
+def finalize_tool_result(
+    name: str,
+    args: dict,
+    result: Any,
+    *,
+    started_at: float | None = None,
+) -> str:
+    """Apply Butler's tool result envelope and audit record to fallback paths."""
+    return _finalize_tool_result(
+        name,
+        args,
+        result,
+        started_at=started_at if started_at is not None else time.monotonic(),
+    )
+
+
 def get_tool_audit_events(
     limit: int | None = None,
     *,
@@ -191,6 +207,11 @@ def _tool_result_code(name: str, payload: dict[str, Any], *, ok: bool) -> str:
     if payload.get("code"):
         return str(payload["code"])
     error = str(payload.get("error") or "")
+    guardrail = payload.get("guardrail")
+    if isinstance(guardrail, dict) and guardrail.get("action") in {"block", "halt"}:
+        return "TOOL_GUARDRAIL_BLOCKED"
+    if error == "interrupted":
+        return "TOOL_INTERRUPTED"
     if isinstance(payload.get("exit_code"), int) and payload["exit_code"] != 0:
         return "TOOL_EXIT_NONZERO"
     if name not in _REGISTRY:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextvars import copy_context
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Callable
@@ -77,19 +78,30 @@ def execute_tools_parallel(
     """Execute tool calls in parallel; return list of (tool_call, result) in original order."""
 
     def _run_one(tc: Any) -> tuple[Any, str]:
-        if check_interrupt and check_interrupt():
-            return tc, json.dumps({"error": "interrupted"})
         name = tc.name if hasattr(tc, "name") else tc.get("name", "")
         try:
             args = tc.args_dict() if hasattr(tc, "args_dict") else {}
         except Exception:
             args = {}
+        if check_interrupt and check_interrupt():
+            return tc, _finalize_parallel_tool_result(
+                name,
+                args,
+                {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
+            )
         if on_start:
             on_start(name, args)
         try:
             result = dispatch_fn(name, args)
         except Exception as exc:
-            result = json.dumps({"error": str(exc)})
+            result = _finalize_parallel_tool_result(
+                name,
+                args,
+                {
+                    "error": f"Tool execution failed: {exc}",
+                    "code": "TOOL_DISPATCH_ERROR",
+                },
+            )
         if on_complete:
             on_complete(name, result)
         return tc, result
@@ -98,10 +110,20 @@ def execute_tools_parallel(
         return [_run_one(tc) for tc in tool_calls]
 
     results: dict[int, tuple[Any, str]] = {}
+    parent_context = copy_context()
     with ThreadPoolExecutor(max_workers=min(max_workers, len(tool_calls))) as pool:
-        futures = {pool.submit(_run_one, tc): i for i, tc in enumerate(tool_calls)}
+        futures = {
+            pool.submit(parent_context.copy().run, _run_one, tc): i
+            for i, tc in enumerate(tool_calls)
+        }
         for fut in as_completed(futures):
             idx = futures[fut]
             results[idx] = fut.result()
 
     return [results[i] for i in range(len(tool_calls))]
+
+
+def _finalize_parallel_tool_result(name: str, args: dict, result: Any) -> str:
+    from butler.tools.registry import finalize_tool_result
+
+    return finalize_tool_result(name, args, result)

@@ -413,7 +413,7 @@ class AgentLoop:
             if self._guardrails:
                 before = self._guardrails.before_call(name, args)
                 if before.should_halt:
-                    return synthetic_result(before)
+                    return _finalize_fallback_tool_result(name, args, synthetic_result(before))
             result = self._dispatch_tool(name, args)
             if self._guardrails:
                 after = self._guardrails.after_call(name, args, result)
@@ -444,12 +444,18 @@ class AgentLoop:
         else:
             pairs = []
             for tc in response.tool_calls:
-                if check():
-                    break
                 try:
                     args = tc.args_dict()
                 except Exception:
                     args = {}
+                if check():
+                    result = _finalize_fallback_tool_result(
+                        tc.name,
+                        args,
+                        {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
+                    )
+                    pairs.append((tc, result))
+                    break
                 _on_start(tc.name, args)
                 result = _dispatch_one(tc.name, args)
                 _on_complete(tc.name, result)
@@ -467,11 +473,26 @@ class AgentLoop:
     def _dispatch_tool(self, name: str, args: dict) -> str:
         if self.tool_dispatcher:
             try:
-                return self.tool_dispatcher(name, args)
+                result = self.tool_dispatcher(name, args)
+                return _finalize_unenveloped_failure_result(name, args, result)
             except Exception as exc:
                 logger.error("Tool %s failed: %s", name, exc)
-                return json.dumps({"error": f"Tool execution failed: {exc}"})
-        return json.dumps({"error": f"No tool dispatcher configured, cannot run '{name}'"})
+                return _finalize_fallback_tool_result(
+                    name,
+                    args,
+                    {
+                        "error": f"Tool execution failed: {exc}",
+                        "code": "TOOL_DISPATCH_ERROR",
+                    },
+                )
+        return _finalize_fallback_tool_result(
+            name,
+            args,
+            {
+                "error": f"No tool dispatcher configured, cannot run '{name}'",
+                "code": "TOOL_DISPATCH_ERROR",
+            },
+        )
 
     @property
     def messages(self) -> list[dict]:
@@ -486,3 +507,39 @@ class AgentLoop:
         self._total_tokens = 0
         self._tool_calls_count = 0
         self._interrupted = False
+
+
+def _finalize_fallback_tool_result(name: str, args: dict, result: Any) -> str:
+    from butler.tools.registry import finalize_tool_result
+
+    return finalize_tool_result(name, args, result)
+
+
+def _finalize_unenveloped_failure_result(name: str, args: dict, result: str) -> str:
+    payload = _parse_tool_result_object(result)
+    if not isinstance(payload, dict):
+        return result
+    if payload.get("ok") is False and payload.get("tool") and payload.get("code"):
+        return result
+    failed = (
+        "error" in payload
+        or payload.get("success") is False
+        or (isinstance(payload.get("exit_code"), int) and payload["exit_code"] != 0)
+    )
+    if failed:
+        payload = dict(payload)
+        payload.setdefault("code", "TOOL_ERROR")
+        return _finalize_fallback_tool_result(name, args, payload)
+    return result
+
+
+def _parse_tool_result_object(result: Any) -> dict[str, Any] | None:
+    if isinstance(result, dict):
+        return result
+    if not isinstance(result, str):
+        return None
+    try:
+        parsed = json.loads(result)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None

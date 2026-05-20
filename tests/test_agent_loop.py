@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import patch
 
 import pytest
@@ -262,6 +263,120 @@ class TestAgentLoopRun:
         )
         result = loop.run("tokens")
         assert result.total_tokens == 180
+
+    def test_dispatcher_exception_is_enveloped_and_audited(self, mock_llm_client):
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        mock_llm_client.complete.side_effect = [
+            _tool_response("explode", {"x": 1}),
+            _text_response("done"),
+        ]
+
+        def dispatcher(_name, _args):
+            raise RuntimeError("boom")
+
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=dispatcher,
+            config=LoopConfig(stream=False),
+        )
+        result = loop.run("run tool")
+
+        assert result.status == LoopStatus.COMPLETED
+        tool_msg = next(msg for msg in loop.messages if msg["role"] == "tool")
+        data = json.loads(tool_msg["content"])
+        assert data["ok"] is False
+        assert data["tool"] == "explode"
+        assert data["code"] == "TOOL_DISPATCH_ERROR"
+        event = get_tool_audit_events()[-1]
+        assert event["tool"] == "explode"
+        assert event["code"] == "TOOL_DISPATCH_ERROR"
+
+    def test_custom_dispatcher_error_json_is_enveloped_and_audited(self, mock_llm_client):
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        mock_llm_client.complete.side_effect = [
+            _tool_response("custom_tool", {"x": 1}),
+            _text_response("done"),
+        ]
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=lambda _n, _a: json.dumps({"error": "custom failed"}),
+            config=LoopConfig(stream=False),
+        )
+
+        loop.run("run custom")
+
+        tool_msg = next(msg for msg in loop.messages if msg["role"] == "tool")
+        data = json.loads(tool_msg["content"])
+        assert data["ok"] is False
+        assert data["tool"] == "custom_tool"
+        assert data["code"] == "TOOL_ERROR"
+        event = get_tool_audit_events()[-1]
+        assert event["tool"] == "custom_tool"
+        assert event["code"] == "TOOL_ERROR"
+
+    def test_guardrail_block_is_enveloped_and_audited(self, mock_llm_client):
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        mock_llm_client.complete.side_effect = [
+            *[_tool_response("read_file", {"path": "missing.py"}) for _ in range(6)],
+            _text_response("done"),
+        ]
+
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=lambda _n, _a: json.dumps({"error": "missing"}),
+            config=LoopConfig(stream=False, max_iterations=7),
+        )
+        result = loop.run("repeat failing read")
+
+        assert result.status == LoopStatus.COMPLETED
+        events = get_tool_audit_events()
+        assert any(event["code"] == "TOOL_GUARDRAIL_BLOCKED" for event in events)
+        blocked_msg = [
+            json.loads(msg["content"])
+            for msg in loop.messages
+            if msg["role"] == "tool" and "guardrail" in msg["content"]
+        ][-1]
+        assert blocked_msg["ok"] is False
+        assert blocked_msg["tool"] == "read_file"
+        assert blocked_msg["code"] == "TOOL_GUARDRAIL_BLOCKED"
+
+    def test_sequential_interrupt_is_enveloped_and_audited(self, mock_llm_client):
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=lambda _n, _a: "should not run",
+            config=LoopConfig(stream=False, enable_parallel_tools=False),
+        )
+        original_check = loop._interrupt_check
+        called = {"count": 0}
+
+        def complete(**_kwargs):
+            called["count"] += 1
+            if called["count"] == 1:
+                loop._interrupt_check = lambda: True
+                return _tool_response("read_file", {"path": "a.py"})
+            return _text_response("done")
+
+        mock_llm_client.complete.side_effect = complete
+        loop._interrupt_check = original_check
+
+        loop.run("interrupt tool")
+        tool_msg = next(msg for msg in loop.messages if msg["role"] == "tool")
+        data = json.loads(tool_msg["content"])
+        assert data["ok"] is False
+        assert data["tool"] == "read_file"
+        assert data["code"] == "TOOL_INTERRUPTED"
+        event = get_tool_audit_events()[-1]
+        assert event["tool"] == "read_file"
+        assert event["code"] == "TOOL_INTERRUPTED"
 
 
 @pytest.mark.module_test
@@ -563,6 +678,9 @@ class TestAgentLoopContext:
 @pytest.mark.module_test
 class TestAgentLoopToolDispatch:
     def test_no_dispatcher_returns_error_string(self, mock_llm_client):
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
         mock_llm_client.complete.side_effect = [
             _tool_response("missing", {}),
             _text_response(),
@@ -572,8 +690,16 @@ class TestAgentLoopToolDispatch:
         tool_msgs = [m for m in loop.messages if m["role"] == "tool"]
         assert len(tool_msgs) == 1
         assert "No tool dispatcher" in tool_msgs[0]["content"]
+        data = json.loads(tool_msgs[0]["content"])
+        assert data["ok"] is False
+        assert data["tool"] == "missing"
+        assert data["code"] == "TOOL_DISPATCH_ERROR"
+        assert get_tool_audit_events()[-1]["code"] == "TOOL_DISPATCH_ERROR"
 
     def test_dispatcher_exception_captured_as_tool_result(self, mock_llm_client):
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
         mock_llm_client.complete.side_effect = [
             _tool_response("bad", {}),
             _text_response(),
@@ -590,6 +716,11 @@ class TestAgentLoopToolDispatch:
         loop.run("boom")
         tool_msgs = [m for m in loop.messages if m["role"] == "tool"]
         assert "Tool execution failed" in tool_msgs[0]["content"]
+        data = json.loads(tool_msgs[0]["content"])
+        assert data["ok"] is False
+        assert data["tool"] == "bad"
+        assert data["code"] == "TOOL_DISPATCH_ERROR"
+        assert get_tool_audit_events()[-1]["code"] == "TOOL_DISPATCH_ERROR"
 
     def test_tool_call_missing_id_generates_uuid(self, mock_llm_client):
         from butler.transport.types import NormalizedResponse

@@ -109,5 +109,6 @@
 | `butler/tools/registry.py` | 工具安全收尾 | `read_file` 大小/行数上限、`search_files` 结果路径二次校验、terminal timeout/output 上限 | ✅ |
 | `butler/tools/registry.py` | 工具原子写入 | `write_file`/`patch` 拒绝 symlink、hardlink、非普通文件目标，并通过同目录临时文件原子替换 | ✅ |
 | `butler/tools/registry.py` + `butler/gateway/message_handler.py` | 工具输出与审计观测 | 工具错误兼容式 envelope、错误码分类、脱敏审计事件和 `/health` 工具摘要 | ✅ |
+| `butler/core/agent_loop.py` + `butler/core/parallel_tools.py` + `butler/tools/registry.py` | 工具护栏审计闭环 | guardrail block、dispatcher 异常、parallel interrupt 统一进入 envelope 与审计事件 | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke tests 位于 `tests/test_real_api_smoke.py`，默认被 `live_llm` marker 排除；显式运行需使用 `pytest -m live_llm tests/test_real_api_smoke.py`，并设置 `BUTLER_RUN_REAL_API_SMOKE=1` 和对应 provider API key。

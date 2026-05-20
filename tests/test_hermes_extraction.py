@@ -6,7 +6,7 @@ import json
 import pytest
 
 from butler.core.message_repair import repair_message_sequence, repair_tool_arguments
-from butler.core.parallel_tools import should_parallelize_tool_batch
+from butler.core.parallel_tools import execute_tools_parallel, should_parallelize_tool_batch
 from butler.transport.error_classifier import FailoverReason, classify_api_error
 from butler.transport.types import ToolCall
 from butler.tools.interrupt import clear_interrupt, is_interrupted, set_interrupt
@@ -66,6 +66,65 @@ class TestParallelTools:
             ToolCall(id="2", name="read_file", arguments='{"path": "/a"}'),
         ]
         assert not should_parallelize_tool_batch(tcs)
+
+    def test_parallel_interrupt_is_enveloped_and_audited(self):
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        tcs = [ToolCall(id="1", name="read_file", arguments='{"path": "a.py"}')]
+
+        pairs = execute_tools_parallel(
+            tcs,
+            lambda _name, _args: "should not run",
+            check_interrupt=lambda: True,
+        )
+
+        data = json.loads(pairs[0][1])
+        assert data["ok"] is False
+        assert data["tool"] == "read_file"
+        assert data["code"] == "TOOL_INTERRUPTED"
+        event = get_tool_audit_events()[-1]
+        assert event["tool"] == "read_file"
+        assert event["code"] == "TOOL_INTERRUPTED"
+
+    def test_parallel_audit_preserves_execution_session_key(self):
+        from butler.execution_context import use_execution_context
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        tcs = [
+            ToolCall(id="1", name="read_file", arguments='{"path": "a.py"}'),
+            ToolCall(id="2", name="read_file", arguments='{"path": "b.py"}'),
+        ]
+
+        with use_execution_context(object(), session_key="sess-parallel"):
+            execute_tools_parallel(
+                tcs,
+                lambda _name, _args: "should not run",
+                check_interrupt=lambda: True,
+            )
+
+        events = get_tool_audit_events(session_key="sess-parallel")
+        assert len(events) == 2
+        assert {event["code"] for event in events} == {"TOOL_INTERRUPTED"}
+
+    def test_parallel_dispatch_exception_uses_standard_error_text(self):
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        tcs = [ToolCall(id="1", name="read_file", arguments='{"path": "a.py"}')]
+
+        def dispatch(_name, _args):
+            raise RuntimeError("boom")
+
+        pairs = execute_tools_parallel(tcs, dispatch)
+
+        data = json.loads(pairs[0][1])
+        assert data["ok"] is False
+        assert data["code"] == "TOOL_DISPATCH_ERROR"
+        assert data["error"] == "Tool execution failed: boom"
+        event = get_tool_audit_events()[-1]
+        assert event["code"] == "TOOL_DISPATCH_ERROR"
 
 
 @pytest.mark.unit
