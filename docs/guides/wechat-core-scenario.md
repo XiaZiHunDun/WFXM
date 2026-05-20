@@ -30,7 +30,7 @@
 |----|------|
 | 网关 | `systemctl --user status butler-gateway` 或前台 `python -m butler.main gateway --platforms wechat` |
 | LLM | `.env` 中 `MINIMAX_API_KEY` 有效 |
-| 微信 | Butler 独立 iLink 凭证（`~/.butler/wechat/accounts/`），勿与 Hermes 抢 Bot |
+| 微信 | `butler wechat-setup` 扫码绑定；凭证在 `~/.butler/wechat/accounts/`，勿与 Hermes 抢 Bot |
 | 项目 | 仓库内存在 `projects/LingWen/project.yaml`，且 `name: 灵文` |
 
 **自动化守门（改 gateway/orchestrator 后必跑）：**

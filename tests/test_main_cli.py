@@ -19,7 +19,9 @@ from butler.main import (
     _cmd_exec,
     _cmd_gateway,
     _cmd_projects,
+    _cmd_wechat_setup,
     _handle_slash_command,
+    _merge_wechat_env_file,
     _run_interactive_chat,
     _sync_memory,
     _trigger_session_end,
@@ -61,6 +63,9 @@ class TestParser:
         assert p.parse_args(["projects"]).command == "projects"
         assert p.parse_args(["create", "myproj"]).command == "create"
         assert p.parse_args(["gateway"]).command == "gateway"
+        assert p.parse_args(["wechat-setup"]).command == "wechat-setup"
+        ns = p.parse_args(["wechat-setup", "--write-env"])
+        assert ns.write_env == ".env"
 
     def test_missing_subcommand_exits(self):
         p = _build_parser()
@@ -329,6 +334,72 @@ class TestProjectCommands:
         ns = SimpleNamespace(name="exists", type_="software", description="")
         with patch("butler.project_manager.get_project_manager", return_value=manager):
             assert _cmd_create(ns) == 1
+
+
+@pytest.mark.integration
+class TestWechatSetupCommand:
+    def test_cmd_wechat_setup_success(self, monkeypatch, capsys):
+        creds = {
+            "account_id": "bot-abc",
+            "token": "tok-secret",
+            "base_url": "https://ilinkai.weixin.qq.com",
+            "user_id": "u1",
+        }
+
+        async def _fake_qr_login(*_a, **_k):
+            return creds
+
+        monkeypatch.setattr(
+            "butler.gateway.platforms.wechat.check_wechat_requirements",
+            lambda: True,
+        )
+        monkeypatch.setattr(
+            "butler.gateway.platforms.wechat.qr_login",
+            _fake_qr_login,
+        )
+        ns = SimpleNamespace(bot_type="3", timeout=480, write_env=None)
+        assert _cmd_wechat_setup(ns) == 0
+        out = capsys.readouterr().out
+        assert "bot-abc" in out
+        assert "butler gateway" in out
+
+    def test_cmd_wechat_setup_missing_deps_returns_one(self, monkeypatch, capsys):
+        monkeypatch.setattr(
+            "butler.gateway.platforms.wechat.check_wechat_requirements",
+            lambda: False,
+        )
+        ns = SimpleNamespace(bot_type="3", timeout=480, write_env=None)
+        assert _cmd_wechat_setup(ns) == 1
+        assert "wechat" in capsys.readouterr().err.lower()
+
+    def test_cmd_wechat_setup_login_failed_returns_one(self, monkeypatch):
+        async def _fail(*_a, **_k):
+            return None
+
+        monkeypatch.setattr(
+            "butler.gateway.platforms.wechat.check_wechat_requirements",
+            lambda: True,
+        )
+        monkeypatch.setattr("butler.gateway.platforms.wechat.qr_login", _fail)
+        ns = SimpleNamespace(bot_type="3", timeout=60, write_env=None)
+        assert _cmd_wechat_setup(ns) == 1
+
+    def test_merge_wechat_env_file_upserts_keys(self, tmp_path):
+        env = tmp_path / ".env"
+        env.write_text("FOO=1\nWECHAT_TOKEN=old\n", encoding="utf-8")
+        _merge_wechat_env_file(
+            env,
+            {
+                "account_id": "acc-1",
+                "token": "new-tok",
+                "base_url": "https://ilinkai.weixin.qq.com",
+            },
+        )
+        text = env.read_text(encoding="utf-8")
+        assert "FOO=1" in text
+        assert "WECHAT_TOKEN=new-tok" in text
+        assert "WECHAT_ACCOUNT_ID=acc-1" in text
+        assert "WECHAT_TOKEN=old" not in text
 
 
 @pytest.mark.integration
