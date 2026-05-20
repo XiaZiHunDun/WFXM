@@ -49,13 +49,13 @@ PYTHONPATH=. pytest \
 | 6 | `/新对话` | 已清空对话历史 | ☐ | |
 | 6b | `我们刚才聊过什么？` | **不应**复述步骤 3–5 细节 | ☐ | |
 | 7 | `当前是什么项目？灵文项目是做什么的？` | 能答项目名与用途（项目记忆） | ☐ | |
-| 8 | `/工作流 list` | 列表含 `novel-factory`（可执行） | ☐ | |
-| 8b | `/工作流 run novel-factory 写一句个人助手验收说明` | 两步摘要（draft/review）；不刷屏 | ☐ | |
-| 8c | `/详细` | 工作流 headline / 各步 OK 或 FAIL | ☐ | |
+| 8 | `/工作流 list` | 列表含 `novel-factory`（可执行） | ☑ | 需先 `/切换 灵文` |
+| 8b | `/工作流 run novel-factory 写一句个人助手验收说明` | 两步摘要（draft/review）；不刷屏 | ☑ | |
+| 8c | `/详细` | 工作流 headline / 各步 OK 或 FAIL | ☑ | |
 
-**Owner 画像**：见 `owner-profile-setup.md`，模板 `owner-profile.example.json`（冒烟通过后可微调）。
+**Owner 画像**：已配置 `~/.butler/tenants/default/memory/profile.json`；模板见 `owner-profile.example.json`。
 
-**批次**：________ | **验收人**：________ | **日期**：________
+**批次**：2026-05-20 | **验收人**：真机 | **日期**：2026-05-20
 
 ---
 
@@ -73,6 +73,6 @@ PYTHONPATH=. pytest \
 
 ## 相关文档
 
-- [wechat-core-scenario.md](./wechat-core-scenario.md) — 七步详解与 FAQ  
-- [owner-profile-setup.md](./owner-profile-setup.md) — Owner 画像（冒烟通过后建议做）  
+- [wechat-core-scenario.md](./wechat-core-scenario.md) — 八步详解与 FAQ（步骤 1–8 已于 2026-05-20 真机通过）  
+- [owner-profile-setup.md](./owner-profile-setup.md) — Owner 画像  
 - [manual-testing-guide.md](./manual-testing-guide.md) — CLI + 微信完整手册

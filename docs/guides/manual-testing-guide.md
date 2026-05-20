@@ -741,7 +741,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 | 3.5.6 | /新对话 | ☑ | 自动化 |
 | 3.5.7 | /详细 | ☑ | 自动化 |
 | 3.x 真机抽测 | ☑ | `/状态`（莎丽/项目无/minimax）；`/new` 后仍记得身份；`__init__.py` 5 行 |
-| 3.6 核心场景（灵文七步） | ☑ | 2026-05-20 真机七步通过；自动化 `test_wechat_session_reset.py` |
+| 3.6 核心场景（灵文八步） | ☑ | 2026-05-20 真机步骤 1–8 通过（含 `/工作流`）；`test_wechat_session_reset.py` + `test_workflows.py` |
 
 ---
 
