@@ -741,3 +741,48 @@ class TestWechatSmokeDetailSections:
         )
         assert "a.md" in alias
         assert "完整摘要" not in alias
+
+    def test_detail_decisions_section_via_gateway(self, gateway_handler_project):
+        from butler.report import AgentReport, Change, cache_report, clear_report_cache
+
+        handler, _proj = gateway_handler_project
+        clear_report_cache()
+        cache_report(
+            AgentReport(
+                headline="完成",
+                changes=[Change(file="docs/x.md", action="created", description="")],
+                decisions=["采用方案 A", "暂缓方案 B"],
+                issues=["无阻塞"],
+            )
+        )
+
+        out = handler.handle_message(
+            "/详细 决策",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+        assert "方案 A" in out
+        assert "方案 B" in out
+        assert "x.md" not in out
+
+    def test_detail_issues_section_via_gateway(self, gateway_handler_project):
+        from butler.report import AgentReport, cache_report, clear_report_cache
+
+        handler, _proj = gateway_handler_project
+        clear_report_cache()
+        cache_report(
+            AgentReport(
+                headline="完成",
+                decisions=["某决策"],
+                issues=["磁盘空间不足", "待确认权限"],
+            )
+        )
+
+        out = handler.handle_message(
+            "详细 问题",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+        assert "磁盘空间" in out
+        assert "权限" in out
+        assert "某决策" not in out
