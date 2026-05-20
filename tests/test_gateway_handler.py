@@ -15,7 +15,9 @@ from butler.gateway.message_handler import (
     ButlerMessageHandler,
     _is_global_session_command,
     _is_sessionless_command,
+    _normalize_detail_request,
 )
+from butler.report import AgentReport, Change, cache_report, clear_report_cache
 from butler.project_manager import ProjectManager
 from butler.report import AgentReport, cache_report
 
@@ -320,6 +322,28 @@ class TestSlashCommands:
         with patch("butler.report.get_last_report", return_value=None):
             text = handler._handle_command("/detail")
         assert "暂无" in text
+
+    def test_normalize_detail_request_aliases(self):
+        assert _normalize_detail_request("详细") == "/详细"
+        assert _normalize_detail_request("detail") == "/详细"
+        assert _normalize_detail_request("详细 变更") == "/详细 变更"
+        assert _normalize_detail_request("你好") is None
+
+    def test_detail_plain_text_skips_llm(self, handler):
+        clear_report_cache()
+        cache_report(
+            AgentReport(
+                headline="内容代理已完成任务",
+                summary="已写入 docs/wechat-smoke.md",
+                changes=[
+                    Change(file="docs/wechat-smoke.md", action="created", description=""),
+                ],
+            )
+        )
+        with patch.object(handler, "_get_or_create_loop") as mock_get:
+            text = handler.handle_message("详细", session_key="s1", platform="wechat")
+        mock_get.assert_not_called()
+        assert "wechat-smoke.md" in text
 
     def test_chinese_alias_status(self, handler):
         assert handler._handle_command("/状态") is not None

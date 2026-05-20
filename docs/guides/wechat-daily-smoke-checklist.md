@@ -43,7 +43,7 @@ PYTHONPATH=. pytest \
 | 2 | `/状态` | 当前项目为 `灵文` | ☐ | |
 | 3 | `请读取当前项目 README 或 project.yaml 的前 15 行，用纯文字摘要` | 内容与磁盘一致；**不必**委派；约 20–40s 内出现「正在输入」后回复 | ☐ | 可疑时发 `/health` |
 | 4 | `请交给内容代理：在 docs 目录写 wechat-smoke.md，标题「微信验收」，正文写今天日期和一句说明，不要改其他文件` | 明确已委派；回复为**紧凑摘要**（非长文） | ☐ | |
-| 4b | `/详细` 或 `/详细 变更` | 有 headline；变更里可见 wechat-smoke.md | ☐ | |
+| 4b | `/详细` 或发「详细」（无需斜杠） | 有 headline；变更里可见 wechat-smoke.md | ☐ | |
 | 4c | （服务器）`ls projects/LingWen/docs/wechat-smoke.md` | 文件存在 | ☐ | |
 | 5 | `请委派开发代理：只检查 docs/wechat-smoke.md 是否存在并读前几行，不要改代码` | 结论含存在与否 | ☐ | |
 | 6 | `/新对话` | 已清空对话历史 | ☐ | |

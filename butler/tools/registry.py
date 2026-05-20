@@ -1122,8 +1122,9 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
 
         from butler.report import AgentReport
         changes = _extract_changes_from_messages(result.messages)
+        role_label = _delegate_role_label(role)
         report = AgentReport(
-            headline=f"{role} 代理完成任务",
+            headline=f"{role_label}已完成任务",
             summary=result.final_response or "(无输出)",
             changes=changes,
             success=result.status.value == "completed",
@@ -1185,14 +1186,52 @@ def _safe_dispatch(name: str, args: dict, depth: int) -> str:
     return dispatch_tool(name, args)
 
 
+def _delegate_role_label(role: str) -> str:
+    key = str(role or "").strip().lower()
+    labels = {
+        "content_agent": "内容代理",
+        "content": "内容代理",
+        "dev_agent": "开发代理",
+        "dev": "开发代理",
+        "review_agent": "审核代理",
+        "review": "审核代理",
+        "butler": "管家",
+    }
+    return labels.get(key, str(role or "代理"))
+
+
 def _extract_changes_from_messages(messages: list) -> list:
+    import json as _json
+
     from butler.report import Change
+
     changes: list[Change] = []
     for msg in messages or []:
         if msg.get("role") != "tool":
             continue
         content = str(msg.get("content") or "")
-        if "write_file" in content or "patch" in content:
-            if '"success": true' in content.lower() or '"success":true' in content.lower():
-                changes.append(Change(file="(tool)", action="modified", description=content[:120]))
+        lowered = content.lower()
+        if '"success": true' not in lowered and '"success":true' not in lowered:
+            continue
+        path = ""
+        action = "modified"
+        try:
+            payload = _json.loads(content)
+            if isinstance(payload, dict):
+                path = str(payload.get("path") or "").strip()
+                if payload.get("replacements"):
+                    action = "modified"
+        except _json.JSONDecodeError:
+            pass
+        if not path and "write_file" in lowered:
+            action = "created"
+        if not path:
+            path = "(文件变更)"
+        changes.append(
+            Change(
+                file=path,
+                action=action if action in {"created", "modified", "deleted"} else "modified",
+                description="",
+            )
+        )
     return changes[:10]
