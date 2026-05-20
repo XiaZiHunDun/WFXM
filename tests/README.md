@@ -35,6 +35,7 @@ PYTHONPATH=. pytest \
   tests/test_project_session_isolation.py \
   tests/test_project_tools_filter.py \
   tests/test_report_format.py \
+  tests/test_tenant_isolation.py \
   tests/test_wechat_session_reset.py \
   tests/test_gateway_acceptance.py \
   tests/test_session_lifecycle.py \

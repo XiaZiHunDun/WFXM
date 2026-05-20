@@ -202,6 +202,25 @@ Session 以 `(platform, chat_id, project)` 为 key（实现：`butler/session_ke
 
 ---
 
+## 五点五、租户（公司）边界
+
+多公司共用一台 Butler 时，**全局**记忆与技能按租户隔离（实现：`butler/tenant.py`）：
+
+| 资源 | 路径 / 规则 |
+|------|-------------|
+| Owner profile + experience | `~/.butler/tenants/{tenant}/memory/`（独立 SQLite） |
+| 租户级 Skill | `~/.butler/tenants/{tenant}/skills/`（项目 `.butler/skills` 仍可覆盖同名技能） |
+| 项目级记忆 | 仍在 `projects/<dir>/.butler/memory/`（随项目 workspace，不按租户再分库） |
+
+**配置**：
+
+- `project.yaml` → `tenant: acme`（可选；省略则继承 `~/.butler/config.yaml` 的 `default_tenant`，再否则为 `default`）
+- 首次启动会把旧版 `~/.butler/memory`、`~/.butler/skills` 自动迁到 `tenants/default/`
+
+**行为**：`/切换` 到另一租户下的项目时，`ButlerOrchestrator.butler_memory` 与 Skill 路由自动切换到对应租户存储；不同租户的 experience 互不可见。
+
+---
+
 ## 六、信息回传分层压缩协议（v4）
 
 ### 6.1 问题

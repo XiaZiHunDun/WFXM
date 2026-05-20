@@ -47,7 +47,7 @@ def _format_project_list(settings: ButlerSettings) -> str:
 
 def _format_skill_summaries(skills: list[dict[str, Any]], max_items: int = 20) -> str:
     if not skills:
-        return "(尚无技能文件 — 可在 ~/.butler/skills 或项目 `.butler/skills` 中添加)"
+        return "(尚无技能文件 — 可在 ~/.butler/tenants/<tenant>/skills 或项目 `.butler/skills` 中添加)"
     lines: list[str] = []
     for sk in skills[:max_items]:
         name = sk.get("name", "")
@@ -63,9 +63,16 @@ def _format_skill_summaries(skills: list[dict[str, Any]], max_items: int = 20) -
     return "\n".join(lines)
 
 
-def _combined_skill_manager(settings: ButlerSettings, project_workspace: Path | None) -> SkillManager:
-    """Project-local skills override Butler-global skills with the same name."""
-    global_dir = settings.butler_home / "skills"
+def _combined_skill_manager(
+    settings: ButlerSettings,
+    project_workspace: Path | None,
+    *,
+    tenant_id: str,
+) -> SkillManager:
+    """Project-local skills override tenant-global skills with the same name."""
+    from butler.tenant import tenant_skills_dir
+
+    global_dir = tenant_skills_dir(settings.butler_home, tenant_id)
     global_dir.mkdir(parents=True, exist_ok=True)
     if project_workspace is None:
         return SkillManager(skills_dir=global_dir, global_skills_dir=None)
@@ -81,7 +88,7 @@ class ButlerOrchestrator:
         self.user_id = user_id
         self.channel = channel
         self._settings = get_butler_settings()
-        self.butler_memory = ButlerMemory(self._settings.butler_home)
+        self._memory_by_tenant: dict[str, ButlerMemory] = {}
         self.project_manager = get_project_manager()
         self._project_memory: ProjectMemory | None = None
         self._skill_router: SkillRouter | None = None
@@ -102,8 +109,32 @@ class ButlerOrchestrator:
         else:
             self._project_memory = ProjectMemory(proj.workspace)
 
+    @property
+    def butler_memory(self) -> ButlerMemory:
+        from butler.tenant import resolve_tenant_for_project
+
+        tid = resolve_tenant_for_project(
+            self.project_manager.get_current(),
+            self._settings,
+        )
+        mem = self._memory_by_tenant.get(tid)
+        if mem is None:
+            mem = ButlerMemory(self._settings.butler_home, tenant_id=tid)
+            self._memory_by_tenant[tid] = mem
+        return mem
+
     def _rebuild_skill_router(self) -> None:
-        mgr = _combined_skill_manager(self._settings, self._project_workspace())
+        from butler.tenant import resolve_tenant_for_project
+
+        tid = resolve_tenant_for_project(
+            self.project_manager.get_current(),
+            self._settings,
+        )
+        mgr = _combined_skill_manager(
+            self._settings,
+            self._project_workspace(),
+            tenant_id=tid,
+        )
         self._skill_manager = mgr
         payloads = mgr.list_skills()
         self._skill_router = SkillRouter(
@@ -131,6 +162,8 @@ class ButlerOrchestrator:
         try:
             if hasattr(provider, "_turn_buffer"):
                 provider._turn_buffer.clear()
+            if hasattr(provider, "_reload_butler_global"):
+                provider._reload_butler_global()
             if hasattr(provider, "_reload_project_branch"):
                 provider._reload_project_branch()
         except Exception as exc:
