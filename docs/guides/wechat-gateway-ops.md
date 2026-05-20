@@ -48,6 +48,22 @@ MINIMAX_API_KEY=...
 
 `bash scripts/butler-gateway-ops.sh preflight` 会对 `open` DM、未设 safe root / 默认项目给出 **warn**。
 
+**长任务（单人推荐）**：
+
+```bash
+BUTLER_GATEWAY_HANDLER_TIMEOUT=600    # 默认已 600s，委派/工作流可再调大
+BUTLER_GATEWAY_HANDLER_WORKERS=2      # 长任务进行中仍可处理 /详细 等短命令（不同 worker）
+```
+
+---
+
+## 后续完善项（登记）
+
+| 项 | 说明 |
+|----|------|
+| DM pairing | Hermes 式陌生人配对码 + `butler pairing approve`；单人自用已用 allowlist |
+| 入站图片/语音 | OCR / STT，当前仅文字占位 |
+
 ---
 
 ## 发版节奏（推荐）

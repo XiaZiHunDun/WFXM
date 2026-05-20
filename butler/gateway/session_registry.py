@@ -135,6 +135,25 @@ class GatewaySessionRegistry:
         with self._lock:
             return dict(self.health_by_session.get(str(session_key or "default"), {}))
 
+    def reset_sessions_for_chat(self, *, platform: str, chat_id: str) -> list[str]:
+        """Drop all cached loops for ``platform:chat_id:*`` (e.g. after /切换 project)."""
+        plat = str(platform or "unknown").strip() or "unknown"
+        cid = str(chat_id or "default").strip() or "default"
+        prefix = f"{plat}:{cid}:"
+        with self._lock:
+            keys = [k for k in list(self.sessions.keys()) if k.startswith(prefix)]
+        cleared: list[str] = []
+        for key in keys:
+            self.reset(key)
+            cleared.append(key)
+        if cleared:
+            logger.info(
+                "Reset %d gateway session(s) for chat %s after project switch",
+                len(cleared),
+                prefix,
+            )
+        return cleared
+
     def reset(self, session_key: str) -> None:
         key = str(session_key or "default")
         with self.session_lock(key):

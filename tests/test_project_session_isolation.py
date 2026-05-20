@@ -71,7 +71,7 @@ class TestProjectSessionIsolation:
         assert build_session_key(platform="wechat", chat_id="u1", project="灵文") == "wechat:u1:灵文"
         assert build_session_key(platform="wechat", chat_id="u1", project="") == "wechat:u1:_"
 
-    def test_switch_keeps_separate_loops_per_project(self, tmp_path, monkeypatch, patch_llm):
+    def test_switch_rebuilds_loops_per_project(self, tmp_path, monkeypatch, patch_llm):
         _setup_two_projects(tmp_path, monkeypatch)
         mock_complete, mock_stream = patch_llm
         mock_complete.return_value = _text_response("ok")
@@ -85,19 +85,19 @@ class TestProjectSessionIsolation:
         loop_alpha = handler._sessions[sk_alpha]
 
         handler._handle_command("/switch beta", session_key=sk_alpha)
+        assert sk_alpha not in handler._sessions
+
         handler.handle_message("在 beta 说话", platform="wechat", external_id="user1")
         sk_beta = build_session_key(platform="wechat", chat_id="user1", project="beta")
         loop_beta = handler._sessions[sk_beta]
 
         assert loop_alpha is not loop_beta
-        assert sk_alpha in handler._sessions
-        assert sk_beta in handler._sessions
 
         handler._handle_command("/switch alpha", session_key=sk_beta)
         handler.handle_message("回到 alpha", platform="wechat", external_id="user1")
-        assert handler._sessions[sk_alpha] is loop_alpha
+        assert handler._sessions[sk_alpha] is not loop_alpha
 
-    def test_switch_does_not_reset_all_sessions(self, tmp_path, monkeypatch):
+    def test_switch_resets_all_sessions_for_chat(self, tmp_path, monkeypatch):
         _setup_two_projects(tmp_path, monkeypatch)
         handler = ButlerMessageHandler(channel="gateway")
         handler._orchestrator.project_manager.switch_project("alpha")
@@ -109,5 +109,4 @@ class TestProjectSessionIsolation:
 
         handler._handle_command("/switch beta", session_key=sk_alpha)
 
-        assert sk_alpha in handler._sessions
-        assert handler._sessions[sk_alpha] is loop_alpha
+        assert sk_alpha not in handler._sessions
