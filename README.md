@@ -2,18 +2,24 @@
 
 多项目 AI 协助系统 —— 通过 CLI 或微信指挥 AI 管家管理和推进多个项目。
 
-## 架构
+**当前版本：Butler v4** — 自建 Agent Loop + 模块化 Hermes 提炼，不再 `import` Hermes `AIAgent`。  
+架构与模块说明见 [`docs/v4-architecture.md`](docs/v4-architecture.md)，完整文档索引见 [`docs/README.md`](docs/README.md)。
+
+## 架构（v4 概要）
 
 ```
-用户 ─→ CLI / 微信 ─→ 管家(莎丽) ─→ 项目工作区
-                         │
-                    ┌────┴────┐
-                    ▼         ▼
-              Claude Code  轻量 Agent
-              (代码开发)   (内容/分析)
+用户 ─→ CLI / 微信 / Gateway 平台
+         │
+         ▼
+   Butler Orchestrator          ← 记忆、Skill、分层模型
+         │
+         ▼
+   Agent Loop (agent_loop.py)   ← 编排 ~300 行
+         ├─ context_pipeline     ← 压缩 / hygiene
+         ├─ llm_retry            ← 重试 / failover
+         ├─ tool_batch           ← 工具批次 / guardrails
+         └─ Transport + Tools    ← LLM 协议与工具注册表
 ```
-
-**核心理念**: 管家本身是一个 AI Agent，通过 tool calling 管理项目、调度执行器，不是硬编码路由。
 
 ## 快速开始
 
@@ -22,6 +28,8 @@
 ```bash
 cd /home/ailearn/projects/WFXM
 pip install -e .
+# 微信网关可选
+pip install -e ".[wechat]"
 ```
 
 ### 2. 配置
@@ -34,33 +42,39 @@ cp .env.example .env
 ### 3. 启动
 
 ```bash
-# 交互式 CLI 对话
+# 交互式 CLI
 butler chat
 
-# 执行单条指令
+# 单条指令
 butler exec "列出所有项目"
 
-# 查看项目列表
+# 项目列表 / 创建
 butler projects
-
-# 创建新项目
 butler create MyApp --type software --description "我的新应用"
 ```
 
-## 项目结构
+### 4. 测试
+
+```bash
+PYTHONPATH=. pytest -q          # 733 passed（默认排除 live_llm）
+```
+
+## 项目结构（核心）
 
 ```
 butler/
-├── core/           # 管家核心 (Butler, ProjectManager, TaskOrchestrator)
-├── gateway/        # 消息网关 (CLI, WeChat 适配器)
-├── executors/      # 执行引擎 (Claude Code, 轻量 Agent, 工作流)
-├── providers/      # LLM 提供者 (Claude, OpenAI, 国产模型)
-├── storage/        # 持久化 (Session, Memory, ProjectState)
-├── tools/          # 管家工具 (项目管理, 文件, Shell, 执行器, 记忆)
-├── config/         # 配置和 Prompt
-└── main.py         # 入口
-projects/
-└── LingWen/        # 灵文试点项目 (小说工厂)
+├── core/              # Agent Loop 栈（agent_loop, tool_batch, llm_retry, context_pipeline, …）
+├── transport/         # LLM 协议、Provider、重试与 schema 兼容
+├── gateway/           # 消息网关、session 注册、/health
+├── tools/             # 工具注册表、审计、路径安全
+├── memory/            # 分层记忆
+├── skills/            # Skill 加载 / 路由 / 合并
+├── task_orchestrator.py
+├── orchestrator.py
+├── post_session.py
+└── main.py
+docs/                  # 架构与设计文档
+tests/                 # 733+ 自动化测试
 ```
 
 ## 支持的 LLM Provider
@@ -73,31 +87,41 @@ projects/
 | 通义千问 | 中文内容 | `DASHSCOPE_API_KEY` |
 | 智谱 GLM | 中文内容 | `ZHIPUAI_API_KEY` |
 | Moonshot | 中文长文本 | `MOONSHOT_API_KEY` |
+| MiniMax | 中文、推理 | `MINIMAX_API_KEY` |
 
-## CLI 命令
+详见 [`butler/transport/providers.py`](butler/transport/providers.py) 与 [`.env.example`](.env.example)。
+
+## CLI 命令（节选）
 
 | 命令 | 说明 |
 |------|------|
 | `/projects` | 列出所有项目 |
 | `/switch <名称>` | 切换项目 |
-| `/status` | 查看系统状态 |
-| `/new` | 开始新会话 |
-| `/help` | 显示帮助 |
-| `/quit` | 退出 |
+| `/model` | 查看 / 设置分层模型 |
+| `/health`、`/诊断` | 运行时诊断与工具审计摘要 |
+| `/steer <文本>` | 向运行中 Agent 插入指引（不打断工具）|
+| `/new` | 新会话（自动提炼旧会话记忆）|
+| `/status` | 系统状态 |
+| `/help` | 帮助 |
 
-## 两大使用场景
+完整列表见 [`docs/design.md`](docs/design.md) 附录。
 
-### 场景 1: CLI 对话开发
+## 使用场景
 
-直接在终端与管家对话，管家可以调用 Claude Code 进行代码修改，或使用轻量 Agent 处理内容任务。
-
-### 场景 2: 微信远程开发
-
-通过微信发送指令给管家，管家在后台执行任务完成后主动通知。适合移动端远程管控。
+- **CLI 对话开发**：终端与管家对话，委派 Dev / Content / Review 等角色 Agent。
+- **微信远程开发**：移动端发指令，后台执行后通知（需 wechat 可选依赖）。
 
 ## 扩展
 
-- **添加新 Provider**: 在 `butler/providers/` 下创建新文件，实现 `LLMProvider` 接口
-- **添加新工具**: 在 `butler/tools/` 下创建新文件，使用 `@register_tool` 装饰器注册
-- **添加新执行器**: 在 `butler/executors/` 下创建新文件，实现 `BaseExecutor` 接口
-- **添加新网关**: 在 `butler/gateway/` 下创建新文件，实现 `BaseAdapter` 接口
+- **Provider**：在 `butler/transport/` 扩展协议与注册。
+- **工具**：`butler/tools/` + `@register_tool`。
+- **网关**：`butler/gateway/` 适配新平台。
+
+## 文档
+
+| 文档 | 内容 |
+|------|------|
+| [docs/v4-architecture.md](docs/v4-architecture.md) | v4 架构、数据流、观测 |
+| [docs/hermes-extraction-map.md](docs/hermes-extraction-map.md) | Hermes 提炼对照表 |
+| [docs/design.md](docs/design.md) | 产品设计全文 |
+| [docs/manual-testing-guide.md](docs/manual-testing-guide.md) | 人工测试手册 |

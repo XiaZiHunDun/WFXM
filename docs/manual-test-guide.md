@@ -1,5 +1,8 @@
 # Butler 系统人工测试手册
 
+> **已迁移**：请使用 [`manual-testing-guide.md`](manual-testing-guide.md)（v4.1，含 733+ 自动化测试与 `/health` 说明）。  
+> 下文为 v0.4 历史快照，仅作对照保留。
+
 > 版本: v0.4 | 日期: 2026-05-18 | 模型: MiniMax-M2.7
 
 ## 测试前准备

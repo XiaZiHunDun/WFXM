@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "butler-system"
 version = "2.0.0"
-description = "Butler AI 管家系统 - 基于 Hermes-Agent 的多项目 AI 协助平台"
+description = "Butler AI 管家系统 v4 - 自建 Agent Loop 的多项目 AI 协助平台"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

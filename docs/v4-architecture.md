@@ -29,7 +29,7 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 
 | 维度 | v3 | v4 |
 |------|----|----|
-| Agent Loop | Hermes AIAgent (import) | Butler 自建（编排 ~300 行 + 子模块 ~630 行）|
+| Agent Loop | Hermes AIAgent (import) | Butler 自建（编排 298 行 + 子模块 628 行）|
 | LLM 调用 | 通过 AIAgent.run_conversation | 通过 LLMClient + Transport |
 | 工具系统 | Hermes 50+ 工具 | Butler 自建 9 核心工具 |
 | 子 Agent | Hermes delegate_task (绕过 Butler) | Butler 编排器全控 |
@@ -39,7 +39,7 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 
 ## 核心模块
 
-### Butler Core（Loop 栈 ~930 行 + 编排层）
+### Butler Core（Loop 栈 ~926 行，2026-05-20 实测）
 
 | 模块 | 路径 | 说明 |
 |------|------|------|

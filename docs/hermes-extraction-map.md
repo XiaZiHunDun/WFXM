@@ -1,6 +1,6 @@
 # Hermes-Agent → Butler v4 提炼对照表
 
-> 版本: 2026-05-19 | 对应计划: Hermes 提炼优化
+> 版本: 2026-05-20 | 对应计划: Hermes 提炼优化 + v1.0 硬化观测
 
 本文档记录从 `reference/hermes-agent` 提炼到 Butler v4 的模块映射、复制边界与验收状态。
 

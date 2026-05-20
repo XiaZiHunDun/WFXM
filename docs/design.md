@@ -1,6 +1,7 @@
 # 管家系统（Butler System）完整设计方案
 
-> 版本: v0.8 | 更新日期: 2026-05-19
+> 版本: v1.0 | 更新日期: 2026-05-20  
+> 当前实现架构详见 [`v4-architecture.md`](v4-architecture.md)；Hermes 提炼状态见 [`hermes-extraction-map.md`](hermes-extraction-map.md)。
 
 ## 目录
 
@@ -19,6 +20,7 @@
 - [十三、v0.7 分层记忆与 Skill 系统](#十三v07-分层记忆与-skill-系统)
 - [十四、v0.8 Hermes 提炼路线图](#十四v08-hermes-提炼路线图)
 - [十五、v0.9 run_agent 二次提炼](#十五v09-run_agent-二次提炼)
+- [十六、v1.0 Loop 模块化与硬化观测](#十六v10-loop-模块化与硬化观测)
 
 ---
 
@@ -58,106 +60,57 @@
 
 ## 二、核心架构（v4）
 
-### 2.1 模块结构
+### 2.1 模块结构（v4 当前）
+
+> 下文第十一～十二章等历史章节中的 `butler/agent/`、`AgentRunner` 路径为早期设计；**当前实现**以本树与 [`v4-architecture.md`](v4-architecture.md) 为准。
 
 ```
 butler/
-├── config/
-│   ├── settings.py          # 全局配置 + ModelConfig + LayeredModelConfig
-│   └── prompts/butler.md    # 管家 system prompt 模板
-├── core/
-│   ├── butler.py            # Butler Agent 主类
-│   ├── project_manager.py   # 项目注册与生命周期
-│   ├── task_orchestrator.py  # SubAgent 编排引擎
-│   ├── memory_extractor.py  # 会话→项目记忆自动提炼
-│   ├── event_bus.py         # 轻量级异步事件总线
-│   └── report_formatter.py  # 渠道适配格式化
-├── executors/
-│   ├── agent_runner.py      # 通用 Agent Loop 运行器
-│   └── agent_profiles.py    # Dev/Content/Review 角色定义
-├── providers/
-│   ├── base.py              # LLMProvider 抽象基类
-│   ├── claude_provider.py   # Anthropic Claude
-│   ├── openai_provider.py   # OpenAI 兼容
-│   ├── domestic_provider.py # 国产模型（Qwen/GLM/DeepSeek/Doubao/MiniMax）
-│   └── registry.py          # Provider 注册与路由
-├── storage/
-│   ├── session_store.py     # SQLite 会话存储（项目隔离）
-│   ├── butler_memory.py     # 管家层记忆（OwnerProfile + ExperienceStore + CommPrefs）
-│   ├── project_memory.py    # 项目层记忆（MarkdownMemory + SemanticIndex + ProjectFacts）
-│   ├── memory_store.py      # 底层 SemanticMemoryIndex（被两层复用）
-│   └── project_state.py     # 项目配置读写
-├── skills/                   # Skill 引擎（可复用工作流管理）
-│   ├── __init__.py          # 公共导出
-│   ├── loader.py            # 双目录 Skill 加载器（project + global）
-│   ├── manager.py           # Skill 生命周期管理（创建/编辑/删除/合并）
-│   ├── extractor.py         # 会话后 Skill 自动提炼
-│   ├── similarity.py        # 三层漏斗相似度检测（Jaccard → TF-IDF → LLM）
-│   ├── consolidator.py      # LLM 驱动的 Skill 合并
-│   ├── usage.py             # Skill 使用统计
-│   └── router.py            # 运行时 Skill 匹配（热路径，无 LLM）
-├── tools/
-│   ├── registry.py          # 工具注册中心（含 scope/safety_level/read_only）
-│   ├── code_tools.py        # edit_file（模糊匹配）、search_code
-│   ├── fuzzy_match.py       # 9策略模糊匹配引擎（含置信度阈值）
-│   ├── git_tools.py         # Git 操作（status/diff/log/add/commit/branch）
-│   ├── file_tools.py        # 文件读写（窗口化视图）
-│   ├── shell_tools.py       # Shell 执行
-│   ├── executor_tools.py    # Agent 委派工具（按角色注入记忆）
-│   ├── memory_tools.py      # 分层记忆读写（butler/project/experience）
-│   ├── skill_tools.py       # Skill 管理工具（list/view/create）
-│   ├── project_tools.py     # 项目管理
-│   ├── patch_tool.py        # V4A 补丁格式工具
-│   ├── patch_parser.py      # V4A 格式解析器
-│   ├── file_state.py        # 线程安全文件状态注册表
-│   ├── output_limits.py     # 工具输出截断
-│   ├── schema_sanitizer.py  # 国产模型 Schema 兼容
-│   ├── command_safety.py    # 危险命令检测
-│   ├── checkpoint.py        # 文件快照回滚
-│   ├── code_graph.py        # AST 代码图谱（Tree-sitter/ast）
-│   └── worktree_tools.py    # Git Worktree 隔离
-├── agent/
-│   ├── tool_guardrails.py   # 两阶段循环检测与防护
-│   ├── context_compressor.py # 自动上下文压缩
-│   ├── subdirectory_hints.py # 渐进式子目录上下文
-│   ├── verify_loop.py       # 自我验证闭环（自动测试）
-│   ├── trace_store.py       # 结构化执行轨迹追踪（含自动清理）
-│   ├── tool_call_repair.py  # Tool Call JSON 修复与重试
-│   ├── agent_scheduler.py   # 并发调度器+LLM令牌桶限流
-│   ├── token_budget.py      # Token 预算控制
-│   ├── post_session.py      # 会话后双通道提炼（记忆 + Skill）
-│   └── context_security.py  # Prompt 注入检测
-├── providers/
-│   ├── circuit_breaker.py   # Provider 熔断器+自动降级
-│   └── ...                  # claude/openai/domestic providers
-├── mcp/
-│   ├── __init__.py          # MCP 模块
-│   └── server.py            # MCP Server + Client Bridge
+├── core/                      # Agent Loop 栈
+│   ├── agent_loop.py          # 主循环编排（~300 行）
+│   ├── tool_batch.py          # 工具批次、envelope、guardrails
+│   ├── llm_retry.py           # LLM 重试、schema 恢复、failover
+│   ├── context_pipeline.py    # 压缩、hygiene、API 消息准备
+│   ├── parallel_tools.py      # 并行批调度
+│   ├── context_compressor.py  # 上下文压缩
+│   ├── message_repair.py      # 消息序列修复
+│   └── steer.py               # /steer 运行中指引
+├── transport/                 # LLM 协议与 Provider（非 v1 executors/providers）
+│   ├── llm_client.py
+│   ├── chat_completions.py / anthropic_transport.py
+│   ├── providers.py / fallback.py / error_classifier.py
+│   └── schema_sanitizer.py
 ├── gateway/
-│   ├── cli_adapter.py       # CLI/TUI 适配器
-│   └── wechat_adapter.py    # 微信适配器
-└── main.py                  # 入口
+│   ├── message_handler.py     # 入站消息、斜杠命令、/health
+│   └── session_registry.py    # session 生命周期与审计桶清理
+├── tools/
+│   └── registry.py            # 工具注册、JSON envelope、审计
+├── memory/                    # ButlerMemory + ProjectMemory
+├── skills/                    # 加载、路由、合并、guard
+├── task_orchestrator.py       # DAG 子 Agent 编排
+├── orchestrator.py            # 管家编排入口
+├── tool_guardrails.py         # 循环检测 block/warn/halt
+├── post_session.py            # 会话后记忆 + Skill 提炼
+├── agent_profiles.py          # dev/content/review 角色
+├── report.py                  # AgentReport 渐进披露
+├── config.py
+└── main.py
 ```
 
-### 2.2 自建 DevAgent 替代 Claude Code
+### 2.2 自建 Agent Loop 替代 Claude Code / Hermes AIAgent
 
-核心决策：**不再依赖 Claude Code CLI 子进程**，自建完整的进程内 Agent Loop。
+核心决策：**进程内自建 `AgentLoop`**（`butler/core/agent_loop.py`），不 `import` Hermes `AIAgent`，不依赖 Claude Code 子进程。
 
-`AgentRunner` 是通用的 Agent 运行器，DevAgent / ContentAgent / ReviewAgent 只是不同的 `(model + tools + system_prompt)` 配置。
+DevAgent / ContentAgent / ReviewAgent 通过 `orchestrator.create_agent_loop(role=...)` 以不同 `(model, tools, system_prompt)` 配置运行同一 Loop 栈。
 
-```python
-class AgentRunner:
-    async def run(self, task, context, on_turn) -> AgentResult:
-        messages = [system_prompt, context, task]
-        for turn in range(max_turns):
-            result = await provider.complete(messages, tools)
-            if no tool_calls: return parse_report(result)
-            for tc in tool_calls:
-                output = await tool_registry.dispatch(tc)
-                messages.append(tool_result)
-```
+主循环（编排层）每轮大致为：
 
-DevAgent 工具集：`read_file`, `write_file`, `edit_file`（模糊匹配）, `search_code`, `run_shell`, `git_status`, `git_diff`, `git_log`, `git_add`, `git_commit`, `git_branch`
+1. `ContextPipeline.prepare_messages_for_api()` — 压缩、hygiene、repair  
+2. `call_llm_with_retry()` — Transport + failover  
+3. 有工具调用 → `process_tool_calls()` — 顺序/并行、guardrails、审计 envelope  
+4. 纯文本 → 截断续写或完成  
+
+DevAgent 工具集（节选）：`read_file`, `write_file`, `edit_file`, `search_code`, `run_shell`, Git 系列等 — 见 `butler/tools/`。
 
 ---
 
@@ -719,7 +672,7 @@ class ToolEntry:
 
 ### 13.4 会话后双通道提炼
 
-`PostSessionProcessor` (`butler/agent/post_session.py`) 在会话结束时运行：
+`PostSessionProcessor` (`butler/post_session.py`) 在会话结束时运行：
 
 - **记忆通道**：LLM 分析对话记录，提取用户偏好 → ButlerMemory，项目技术细节 → ProjectMemory（事实直接写，决策待审核），跨项目经验 → ExperienceStore
 - **Skill 通道**：LLM 识别可复用工作流 → `skill_create` → `SkillManager`（触发自动合并检测）
@@ -751,6 +704,24 @@ class ToolEntry:
 | B | 可中断 API、steer、failover 回合恢复 | ✅ |
 | C | 委派回调透传、截断续写 | ✅ |
 | D | 文档更新 | ✅ |
+| E | AgentLoop 模块化阶段 1–2 | `tool_batch` / `llm_retry` / `context_pipeline` 从 `agent_loop` 抽出 | ✅ |
+| F | 硬化与观测闭环 | 审计生命周期、顺序/并行 interrupt、guardrail JSON、无 context 审计归属、`/health`、真实 API smoke | ✅ |
+
+---
+
+## 十六、v1.0 Loop 模块化与硬化观测
+
+在 v0.9 控制平面提炼基础上，完成 Loop **编排与子模块拆分**及 **生产观测** 闭环（详见 [`hermes-extraction-map.md`](hermes-extraction-map.md) 表末行）：
+
+| 主题 | 要点 |
+|------|------|
+| 模块化 | `agent_loop.py` ~298 行编排；`tool_batch` / `llm_retry` / `context_pipeline` / `parallel_tools` 独立单测 |
+| 工具审计 | session 分桶；`on_session_removed` 与 reset/evict 对齐；`get_audit_session_key()` |
+| Guardrails | `RLock` 线程安全；warn 写入 JSON `guardrail` 字段；halt 后 `precheck_tool` 跳过后续 dispatch |
+| Gateway | `/health`、`/诊断`；无 health 快照时仍展示工具审计摘要 |
+| 测试 | **733 passed**（默认排除 8 项 `live_llm`）；可选 `BUTLER_RUN_REAL_API_SMOKE=1` |
+
+架构约束：`agent_loop.py` **< 400 行**；新能力优先落入子模块，避免回灌单体 `run_agent.py` 风格文件。
 
 ---
 
@@ -769,5 +740,6 @@ class ToolEntry:
 | `/detail log` | 查看执行步骤日志 |
 | `/new` | 新会话（自动提炼旧会话记忆） |
 | `/status` | 查看系统状态 |
+| `/health`、`/诊断` | 运行时诊断（压缩、schema、Skill、工具审计摘要）|
 | `/steer <文本>` | 向运行中 Agent 插入指引（不打断工具）|
 | `/help` | 显示帮助 |

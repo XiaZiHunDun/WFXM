@@ -1,6 +1,6 @@
 # Butler v4 人工测试手册
 
-> 版本: v4.0 | 更新日期: 2026-05-18
+> 版本: v4.1 | 更新日期: 2026-05-20
 > 
 > 本手册覆盖 CLI 和微信两个交互界面的完整功能测试流程。
 
@@ -30,8 +30,11 @@ echo $MINIMAX_API_KEY | head -c 12
 cd ~/projects/WFXM
 PYTHONPATH=. python -c "from butler.main import main; print('OK')"
 
-# 运行自动化测试（应 160 passed）
-PYTHONPATH=. python -m pytest tests/ -v
+# 运行自动化测试（应 733 passed，8 项 live_llm 默认 deselected）
+PYTHONPATH=. python -m pytest tests/ -q
+
+# 可选：真实 API smoke（需 .env 中 API Key + BUTLER_RUN_REAL_API_SMOKE=1）
+# BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py -v
 ```
 
 ### 1.3 可用模型
@@ -148,7 +151,7 @@ PYTHONPATH=. python -m butler.main chat
 **预期：** 列出所有可用命令
 
 **验证点：**
-- [ ] 列出 /projects、/switch、/model、/new、/status、/detail、/quit
+- [ ] 列出 /projects、/switch、/model、/new、/status、/health、/steer、/detail、/quit
 
 #### 测试 2.3.2：/status
 
@@ -161,6 +164,17 @@ PYTHONPATH=. python -m butler.main chat
 - [ ] 显示当前项目
 - [ ] 显示当前模型（minimax/MiniMax-M2.7）
 - [ ] 显示 Butler Home 路径
+
+#### 测试 2.3.2b：/health（或 /诊断）
+
+**操作：** 输入 `/health` 或 `/诊断`
+
+**预期：** 显示运行时诊断面板
+
+**验证点：**
+- [ ] 包含压缩 / schema 降级等 Loop 诊断（若有）
+- [ ] 包含当前 session 的工具审计摘要（调用次数、错误、guardrail 等）
+- [ ] 新会话或无轮次时仍可看到工具审计摘要（非空 session 时）
 
 #### 测试 2.3.3：/projects
 

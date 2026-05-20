@@ -1,5 +1,7 @@
 # Butler v1 vs v3 对比
 
+> **当前实现为 Butler v4**（自建 Loop，不 import Hermes AIAgent）。v4 与 v3 差异见 [`v4-architecture.md`](v4-architecture.md)「核心架构变更（v3 → v4）」表。
+
 ## 架构对比
 
 | 维度 | Butler v1 | Butler v3 |
