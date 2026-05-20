@@ -391,13 +391,31 @@ PY
 
 ### 3.3 启动网关
 
+**推荐：systemd 用户服务（重启后自动拉起）**
+
 ```bash
 cd ~/projects/WFXM
-# 加载 .env（若使用 dotenv）
-set -a && source .env && set +a
+bash scripts/install-butler-gateway-service.sh
+# 或手动安装：见 scripts/systemd/butler-gateway.service
 
+systemctl --user status butler-gateway.service
+tail -f logs/butler-gateway.log
+```
+
+常用命令：
+
+```bash
+systemctl --user restart butler-gateway.service
+systemctl --user stop butler-gateway.service
+journalctl --user -u butler-gateway.service -n 50 --no-pager
+```
+
+**前台调试（不用 systemd 时）：**
+
+```bash
+cd ~/projects/WFXM
+set -a && source .env && set +a
 PYTHONPATH=. python -m butler.main gateway --platforms wechat
-# 或: butler gateway
 ```
 
 **Hermes 网关勿与 Butler 抢同一 Bot（开发机已 disable）：**
