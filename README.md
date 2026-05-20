@@ -3,7 +3,7 @@
 多项目 AI 协助系统 —— 通过 CLI 或微信指挥 AI 管家管理和推进多个项目。
 
 **当前版本：Butler v4** — 自建 Agent Loop + 模块化 Hermes 提炼，不再 `import` Hermes `AIAgent`。  
-架构与模块说明见 [`docs/v4-architecture.md`](docs/v4-architecture.md)，完整文档索引见 [`docs/README.md`](docs/README.md)。
+架构见 [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)；文档索引 [`docs/README.md`](docs/README.md)；目录说明 [`STRUCTURE.md`](STRUCTURE.md)。
 
 ## 架构（v4 概要）
 
@@ -104,7 +104,7 @@ tests/                 # 733+ 自动化测试
 | `/status` | 系统状态 |
 | `/help` | 帮助 |
 
-完整列表见 [`docs/design.md`](docs/design.md) 附录。
+完整列表见 [`docs/design/design.md`](docs/design/design.md) 附录。
 
 ## 使用场景
 
@@ -121,7 +121,8 @@ tests/                 # 733+ 自动化测试
 
 | 文档 | 内容 |
 |------|------|
-| [docs/v4-architecture.md](docs/v4-architecture.md) | v4 架构、数据流、观测 |
-| [docs/hermes-extraction-map.md](docs/hermes-extraction-map.md) | Hermes 提炼对照表 |
-| [docs/design.md](docs/design.md) | 产品设计全文 |
-| [docs/manual-testing-guide.md](docs/manual-testing-guide.md) | 人工测试手册 |
+| [STRUCTURE.md](STRUCTURE.md) | 仓库目录与职责边界 |
+| [docs/architecture/v4-architecture.md](docs/architecture/v4-architecture.md) | v4 架构、数据流、观测 |
+| [docs/architecture/hermes-extraction-map.md](docs/architecture/hermes-extraction-map.md) | Hermes 提炼对照表 |
+| [docs/design/design.md](docs/design/design.md) | 产品设计全文 |
+| [docs/guides/manual-testing-guide.md](docs/guides/manual-testing-guide.md) | 人工测试手册 |

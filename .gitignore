@@ -32,6 +32,7 @@ Thumbs.db
 *.db
 *.db-journal
 *.db-wal
+projects/*/.butler/
 
 # Logs
 *.log
