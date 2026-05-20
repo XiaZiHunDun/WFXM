@@ -13,17 +13,28 @@ def handle_workflow_command(
     arg: str,
     *,
     session_key: str = "",
+    platform: str = "",
 ) -> str:
     """Parse ``/workflow`` / ``/工作流`` and return response text."""
     project = orchestrator.project_manager.get_current()
+    current_name = orchestrator.project_manager.current_project or ""
     if project is None:
-        return "请先 /切换 到一个项目，再运行工作流。"
+        return (
+            "当前未选择项目，无法列出工作流。\n"
+            "请先发送：/切换 灵文\n"
+            "然后再发：/工作流 list"
+        )
 
     parts = (arg or "").strip().split(maxsplit=1)
     sub = (parts[0].lower() if parts else "") or "list"
     hint = parts[1].strip() if len(parts) > 1 else ""
 
     if sub in {"list", "ls", "列表", ""}:
+        from butler.workflows.loader import format_workflows_for_wechat
+
+        if platform in ("wechat", "weixin", "微信"):
+            header = f"项目: {current_name}\n" if current_name else ""
+            return header + format_workflows_for_wechat(project)
         return format_workflows_for_prompt(project)
 
     if sub in {"run", "start", "执行", "运行"}:

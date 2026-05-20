@@ -127,8 +127,30 @@ def format_workflows_for_prompt(project: "Project | None") -> str:
     return "\n".join(lines)
 
 
+def format_workflows_for_wechat(project: "Project | None") -> str:
+    """Plain-text workflow list (no Markdown) for WeChat delivery."""
+    workflows = list_workflows_for_project(project)
+    if not workflows:
+        return (
+            "当前项目未配置工作流。\n"
+            "可在 project.yaml 的 workflows 中声明，或使用内置名 novel-factory。"
+        )
+    lines: list[str] = ["工作流列表："]
+    for wf in workflows:
+        status = "可执行" if wf.runnable else "未定义步骤"
+        lines.append(f"1. {wf.name}（{status}）")
+        if wf.description:
+            lines.append(f"   {wf.description}")
+        if wf.runnable:
+            step_bits = " → ".join(f"{s.id}({s.role})" for s in wf.steps)
+            lines.append(f"   步骤: {step_bits}")
+    lines.append("运行: /工作流 run <名称> [补充说明]")
+    return "\n".join(lines)
+
+
 __all__ = [
     "format_workflows_for_prompt",
+    "format_workflows_for_wechat",
     "list_workflows_for_project",
     "load_builtin_workflow",
     "load_workspace_workflow",

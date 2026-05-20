@@ -171,12 +171,16 @@ class ButlerMessageHandler:
 
         detail_cmd = _normalize_detail_request(text)
         if detail_cmd is not None:
-            response = self._handle_command(detail_cmd, session_key=session_key)
+            response = self._handle_command(
+                detail_cmd, session_key=session_key, platform=platform
+            )
             if response is not None:
                 return response
 
         if text.startswith("/"):
-            response = self._handle_command(text, session_key=session_key)
+            response = self._handle_command(
+                text, session_key=session_key, platform=platform
+            )
             if response is not None:
                 return response
 
@@ -263,7 +267,13 @@ class ButlerMessageHandler:
         """Return the latest best-effort runtime diagnostics for a session."""
         return self._session_registry.get_health(session_key)
 
-    def _handle_command(self, text: str, *, session_key: str = "default") -> Optional[str]:
+    def _handle_command(
+        self,
+        text: str,
+        *,
+        session_key: str = "default",
+        platform: str = "unknown",
+    ) -> Optional[str]:
         """Handle Butler slash commands. Returns response or None."""
         parts = text.strip().split(maxsplit=1)
         cmd = parts[0].lower()
@@ -286,8 +296,8 @@ class ButlerMessageHandler:
             ok = self._orchestrator.project_manager.switch_project(arg)
             if ok:
                 return (
-                    f"已切换到项目: {self._orchestrator.project_manager.current_project}"
-                    "（该项目有独立对话历史，发送消息将继续上一轮。）"
+                    f"已切换到项目: {self._orchestrator.project_manager.current_project}\n"
+                    "（独立对话历史；可发 /工作流 list 查看工作流。）"
                 )
             return f"未找到项目: {arg}"
 
@@ -350,6 +360,7 @@ class ButlerMessageHandler:
                 self._orchestrator,
                 arg,
                 session_key=session_key,
+                platform=platform,
             )
 
         return None
