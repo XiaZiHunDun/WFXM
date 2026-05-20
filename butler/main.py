@@ -472,15 +472,19 @@ def _cmd_gateway_hermes_fallback(ns: argparse.Namespace) -> int:
 
     import subprocess
     import shutil
+
+    from butler.hermes_runtime import hermes_cli_main, hermes_repo_root
+
+    hermes_root = hermes_repo_root()
     exe = shutil.which("hermes")
     if exe:
         argv = [exe, "gateway", "run"]
     else:
-        argv = [sys.executable, str(_REPO_ROOT / "hermes_cli" / "main.py"), "gateway", "run"]
+        argv = [sys.executable, str(hermes_cli_main()), "gateway", "run"]
     if ns.platforms:
         argv.extend(["--platforms", ns.platforms])
     argv.extend(ns.hermes_remainder or [])
-    result = subprocess.run(argv, cwd=str(_REPO_ROOT))
+    result = subprocess.run(argv, cwd=str(hermes_root))
     return result.returncode
 
 

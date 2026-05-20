@@ -40,8 +40,8 @@
 - [x] `butler/config` 不再 `import hermes_constants`
 - [x] `ButlerMemoryService` 与 `plugins/memory/butler/hermes_bridge` 分离
 - [x] 后台记忆提炼改用 `auxiliary_client`（修复旧 `_create_butler_agent` 死代码）
-- [ ] `post_session.from_hermes_agent` 标为 deprecated，测试迁出 v3 路径
-- [ ] `pyproject` 将 Hermes 包标为 optional extra（`butler-system[hermes-gateway]`）
+- [x] `post_session.from_hermes_agent` 标为 deprecated（`DeprecationWarning`），测试迁出 v3 路径
+- [x] `pyproject` 增加 `butler-system[hermes-gateway]` extra（平台依赖聚合）；物理拆包待阶段 C
 
 ### 阶段 B — Butler 原生 Gateway（高优先级）
 
@@ -58,8 +58,8 @@
 
 ### 阶段 D — 清理
 
-- [ ] 删除未使用的 `test_butler_v3` AIAgent 路径（或移入 `archive/`）
-- [ ] 文档统一：不再写「仅 Gateway subprocess」为终态
+- [x] `test_butler_v3` 移入 `tests/archive/`（默认 pytest 不收集）
+- [x] 文档统一：`STRUCTURE.md` / 本路线图反映 Butler 默认栈 + `--hermes-fallback` 逃生舱
 
 ## 提炼 vs 依赖对照
 
@@ -79,4 +79,4 @@
 - `rg '^from (agent|run_agent)' butler/` 无匹配  
 - `butler chat` / `butler exec` 不启动 Hermes 子进程  
 - `butler gateway --platforms wechat` 仅走 Butler 栈（阶段 B 完成后）  
-- 默认 `pytest` 925+ 通过
+- 默认 `pytest` 885+ 通过（`tests/archive/` 不收集）

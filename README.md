@@ -27,7 +27,9 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-pip install -e .
+pip install -e .                    # Butler + 仓库内 Hermes 树（editable）
+# Telegram 等 Hermes fallback 平台依赖：
+# pip install -e ".[hermes-gateway]"
 # 微信网关可选
 pip install -e ".[wechat]"
 ```
@@ -56,7 +58,7 @@ butler create MyApp --type software --description "我的新应用"
 ### 4. 测试
 
 ```bash
-PYTHONPATH=. pytest -q          # 925 passed（默认排除 live_llm）
+PYTHONPATH=. pytest -q          # ~885 passed（默认排除 live_llm 与 tests/archive/）
 ```
 
 ## 项目结构（核心）
@@ -74,7 +76,7 @@ butler/
 ├── post_session.py
 └── main.py
 docs/                  # 架构与设计文档
-tests/                 # 925+ 自动化测试
+tests/                 # ~885 自动化测试（archive 遗留另计）
 ```
 
 ## 支持的 LLM Provider

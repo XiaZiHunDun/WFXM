@@ -40,6 +40,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Legacy Hermes gateway subprocess + `hermes` CLI (agent/, gateway/, hermes_cli/).
+# Default install is Butler-only; use: pip install -e ".[hermes-gateway]"
+hermes-gateway = [
+  "butler-system[messaging]",
+  "butler-system[wechat]",
+  "butler-system[dingtalk]",
+  "butler-system[feishu]",
+  "butler-system[mcp]",
+  "butler-system[pty]",
+  "butler-system[honcho]",
+]
 messaging = ["python-telegram-bot[webhooks]>=22.6,<23", "discord.py[voice]>=2.7.1,<3", "aiohttp>=3.13.3,<4", "slack-bolt>=1.18.0,<2", "slack-sdk>=3.27.0,<4", "qrcode>=7.0,<8"]
 wechat = ["aiohttp>=3.9", "certifi", "qrcode>=7.0"]
 dev = ["debugpy>=1.8.0,<2", "pytest>=9.0.2,<10", "pytest-asyncio>=1.3.0,<2", "ruff"]
@@ -73,6 +84,7 @@ all = [
 
 [project.scripts]
 butler = "butler.main:main"
+# Hermes CLI scripts require optional packages: pip install -e ".[hermes-gateway]"
 hermes = "hermes_cli.main:main"
 hermes-agent = "run_agent:main"
 
@@ -83,11 +95,25 @@ py-modules = ["run_agent", "model_tools", "toolsets", "batch_runner", "trajector
 hermes_cli = ["web_dist/**/*"]
 gateway = ["assets/**/*"]
 
+# Hermes 包仍随仓库 editable 安装；运行时 Butler 不 import。拆包需 setuptools 支持
+# optional package find 或 vendor/hermes-agent 独立 pyproject（阶段 C）。
 [tool.setuptools.packages.find]
-include = ["agent", "agent.*", "tools", "tools.*", "hermes_cli", "gateway", "gateway.*", "tui_gateway", "tui_gateway.*", "cron", "acp_adapter", "plugins", "plugins.*", "providers", "providers.*", "butler", "butler.*"]
+include = [
+  "butler", "butler.*",
+  "agent", "agent.*",
+  "tools", "tools.*",
+  "hermes_cli",
+  "gateway", "gateway.*",
+  "tui_gateway", "tui_gateway.*",
+  "cron",
+  "acp_adapter",
+  "plugins", "plugins.*",
+  "providers", "providers.*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["archive", ".git", "node_modules", "venv", "vendor"]
 markers = [
     "unit: L1 unit tests (fast, no I/O)",
     "module_test: L2 module tests (mocked I/O)",
@@ -95,5 +121,6 @@ markers = [
     "e2e: L4 end-to-end tests (full pipeline)",
     "slow: tests taking > 5s",
     "live_llm: requires real LLM API key (skip in CI)",
+    "legacy_hermes: v3 / Hermes AIAgent integration (tests/archive only)",
 ]
 addopts = "-m 'not live_llm'"
