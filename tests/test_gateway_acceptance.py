@@ -53,8 +53,16 @@ def patch_llm(mock_llm_response):
 
 
 @pytest.fixture
-def gateway_handler():
-    return ButlerMessageHandler(channel="gateway")
+def gateway_handler(monkeypatch, tmp_path):
+    from tests.test_gateway_handler import _reset_singletons
+
+    empty_projects = tmp_path / "empty-projects"
+    empty_projects.mkdir()
+    monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(empty_projects))
+    _reset_singletons()
+    handler = ButlerMessageHandler(channel="gateway")
+    handler._orchestrator.project_manager.current_project = ""
+    return handler
 
 
 @pytest.fixture
@@ -217,16 +225,18 @@ class TestManualGuide35Slash:
 
     def test_356b_new_clears_chat_experience_recall(self, gateway_handler, patch_llm):
         from butler.core.agent_loop import LoopStatus
+        from butler.session_keys import build_session_key
         from butler.session_lifecycle import inject_turn_memory, sync_turn_memory
 
+        sk = build_session_key(platform="wechat", chat_id="u1", project="")
         sync_turn_memory(
             gateway_handler._orchestrator,
             "请读取 wechat-smoke 文件",
             "已读取并摘要完成。",
             status=LoopStatus.COMPLETED,
-            session_id="wechat:u1",
+            session_id=sk,
         )
-        gateway_handler.handle_message("/new", session_key="wechat:u1", platform="wechat")
+        gateway_handler.handle_message("/new", platform="wechat", external_id="u1")
 
         augmented = inject_turn_memory(
             gateway_handler._orchestrator,
@@ -239,8 +249,8 @@ class TestManualGuide35Slash:
         mock_stream.return_value = mock_complete.return_value
         out = gateway_handler.handle_message(
             "我们刚才聊过什么？",
-            session_key="wechat:u1",
             platform="wechat",
+            external_id="u1",
         )
         assert "wechat-smoke" not in out
 

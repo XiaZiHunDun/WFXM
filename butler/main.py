@@ -56,24 +56,50 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
         border_style="blue",
     ))
 
+    from butler.session_keys import build_session_key
+    from butler.session_lifecycle import clear_session_boundary_memory
+
     tools = get_tool_definitions()
     ui = ChatSessionUI(console)
+    loops_by_session: dict[str, Any] = {}
     agent_loop = None
 
-    def _rebuild_loop():
-        nonlocal agent_loop
+    def _cli_session_key() -> str:
+        return build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        )
+
+    def _create_loop():
         stream = ui.begin_turn()
         callbacks = ui.build_callbacks(stream)
-
-        agent_loop = orchestrator.create_agent_loop(
+        return orchestrator.create_agent_loop(
             role="butler",
             tools=tools,
             tool_dispatcher=dispatch_tool,
             callbacks=callbacks,
         )
+
+    def _get_or_create_loop():
+        sk = _cli_session_key()
+        loop = loops_by_session.get(sk)
+        if loop is None:
+            loop = _create_loop()
+            loops_by_session[sk] = loop
+        return loop
+
+    def _rebuild_loop():
+        nonlocal agent_loop
+        sk = _cli_session_key()
+        old = loops_by_session.pop(sk, None)
+        if old is not None:
+            _trigger_session_end(orchestrator, old)
+        agent_loop = _create_loop()
+        loops_by_session[sk] = agent_loop
         return agent_loop
 
-    agent_loop = _rebuild_loop()
+    agent_loop = _get_or_create_loop()
 
     while True:
         try:
@@ -99,6 +125,8 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             if handled == "rebuild":
                 _trigger_session_end(orchestrator, agent_loop)
                 agent_loop = _rebuild_loop()
+            elif handled == "switch_project":
+                agent_loop = _get_or_create_loop()
             if handled:
                 continue
             console.print(
@@ -120,13 +148,15 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             stream = StreamRenderer(console, title=settings.butler_name or "Butler")
             agent_loop.callbacks = ui.build_callbacks(stream)
 
+            agent_loop = _get_or_create_loop()
             attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
-            with use_execution_context(orchestrator, session_key="cli"):
+            cli_sk = _cli_session_key()
+            with use_execution_context(orchestrator, session_key=cli_sk):
                 result = agent_loop.run(augmented)
 
             ui.finish_turn(result, stream)
 
-            with use_execution_context(orchestrator, session_key="cli"):
+            with use_execution_context(orchestrator, session_key=cli_sk):
                 _sync_memory(
                     orchestrator,
                     user_input,
@@ -232,8 +262,11 @@ def _handle_slash_command(
         ok = orchestrator.project_manager.switch_project(arg)
         if ok:
             new = orchestrator.project_manager.current_project
-            console.print(f"[green]已切换到项目: {new}[/green]")
-            return "rebuild"
+            console.print(
+                f"[green]已切换到项目: {new}[/green] "
+                "[dim]（该项目有独立对话历史）[/dim]"
+            )
+            return "switch_project"
         else:
             console.print(f"[red]未找到项目: {arg}[/red]")
         return "handled"
@@ -261,9 +294,15 @@ def _handle_slash_command(
         return "handled"
 
     if command == "/new":
+        from butler.session_keys import build_session_key
         from butler.session_lifecycle import clear_session_boundary_memory
 
-        clear_session_boundary_memory(orchestrator, "cli")
+        cli_sk = build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        )
+        clear_session_boundary_memory(orchestrator, cli_sk)
         console.print("[dim]已清空对话历史[/dim]")
         return "rebuild"
 

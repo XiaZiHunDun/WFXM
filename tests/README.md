@@ -28,10 +28,11 @@ PYTHONPATH=. pytest -q          # 默认 733 passed，排除 live_llm
 | `cli_harness.py` | CLI 场景测试共用 harness（Rich 捕获、脚本化交互、`ScriptedChatRun`） |
 | `butler/cli/slash_commands.py` | 斜杠命令注册、Tab 补全、未知命令校验 |
 
-**微信核心场景（建议改 gateway / session / post_session 必跑）：**
+**微信核心场景 + 项目 Session 隔离（建议改 gateway / session 必跑）：**
 
 ```bash
 PYTHONPATH=. pytest \
+  tests/test_project_session_isolation.py \
   tests/test_wechat_session_reset.py \
   tests/test_gateway_acceptance.py \
   tests/test_session_lifecycle.py \

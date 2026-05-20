@@ -312,7 +312,7 @@ class TestCliSlashCommandMatrix:
         orch.project_manager.switch_project.return_value = True
         orch.project_manager.current_project = "demo"
         console, buf = _console()
-        assert _handle_slash_command("/switch demo", orch, console) == "rebuild"
+        assert _handle_slash_command("/switch demo", orch, console) == "switch_project"
         assert "已切换" in rendered_text(buf)
 
     def test_model_list_roles(self):

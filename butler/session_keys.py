@@ -1,0 +1,72 @@
+"""Canonical Butler session keys: (platform, chat_id, project)."""
+
+from __future__ import annotations
+
+_NO_PROJECT_SLUG = "_"
+
+
+def slug_project(project: str) -> str:
+    """Filesystem-safe project segment for session keys."""
+    name = str(project or "").strip()
+    return name if name else _NO_PROJECT_SLUG
+
+
+def build_session_key(
+    *,
+    platform: str,
+    chat_id: str,
+    project: str = "",
+) -> str:
+    """Build ``platform:chat_id:project`` session key (design §5)."""
+    plat = str(platform or "unknown").strip() or "unknown"
+    cid = str(chat_id or "default").strip() or "default"
+    return f"{plat}:{cid}:{slug_project(project)}"
+
+
+def project_from_session_key(session_key: str) -> str:
+    """Extract project name from a v2 session key; legacy two-part keys return ``\"\"``."""
+    parts = str(session_key or "").split(":", 2)
+    if len(parts) < 3:
+        return ""
+    slug = parts[2]
+    return "" if slug == _NO_PROJECT_SLUG else slug
+
+
+def chat_id_from_session_key(session_key: str) -> str:
+    """Extract chat/channel id from session key."""
+    parts = str(session_key or "").split(":", 2)
+    if len(parts) < 2:
+        return str(session_key or "default")
+    return parts[1]
+
+
+def normalize_session_key(
+    *,
+    platform: str,
+    external_id: str | None = None,
+    session_key: str | None = None,
+    project: str = "",
+) -> str:
+    """Resolve a session key from explicit key, external id + project, or legacy two-part key."""
+    if external_id is not None and str(external_id).strip():
+        return build_session_key(
+            platform=platform,
+            chat_id=str(external_id).strip(),
+            project=project,
+        )
+    raw = str(session_key or "").strip()
+    if not raw:
+        return build_session_key(platform=platform, chat_id="default", project=project)
+    parts = raw.split(":")
+    if len(parts) == 2:
+        return build_session_key(platform=parts[0], chat_id=parts[1], project=project)
+    return raw
+
+
+__all__ = [
+    "build_session_key",
+    "chat_id_from_session_key",
+    "normalize_session_key",
+    "project_from_session_key",
+    "slug_project",
+]
