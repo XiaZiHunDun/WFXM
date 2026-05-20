@@ -45,14 +45,15 @@
 - [x] `butler gateway` 默认进程内启动 `ButlerMessageHandler` + 平台 adapter（`butler/gateway/runner.py`）
 - [x] 首期平台：**微信 iLink**（`butler/gateway/platforms/wechat_ilink.py`，提炼自 Hermes `weixin` 适配器）
 - [x] `--hermes-fallback` 保留 Hermes 子进程路径（Telegram 等未迁入平台）
-- [ ] 迁入更多平台适配器（Telegram 优先）
-- [x] `plugins/butler` 标为遗留（仅 `--hermes-fallback`）；原生网关用 `butler/gateway/hooks.py`
+- [x] 非微信平台**简单解耦**：`butler gateway --platforms telegram` 等自动走 Hermes 子进程（`platform_policy.py`），不做全量提炼
+- [ ] 按需再提炼单平台到 `butler/gateway/platforms/`（当前仅微信）
+- [x] `plugins/butler` 标为遗留（仅 Hermes 子进程）；原生网关用 `butler/gateway/hooks.py`
 
 ### 阶段 C — 仓库物理整理
 
 - [x] Hermes 树移入 `vendor/hermes-agent/`（**不**动 `reference/`）
 - [x] `STRUCTURE.md` 更新；pytest 仍只测 `tests/`（`norecursedirs` 含 `vendor`）
-- [ ] 控制台 `hermes` / `hermes-agent` 与默认 wheel 解绑（独立子包或 optional scripts）
+- [x] `hermes-vendored` 独立 `vendor/hermes-agent/pyproject.toml`；根包默认仅 `butler` + `butler` 脚本
 
 ### 阶段 D — 清理
 

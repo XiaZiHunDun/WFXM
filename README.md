@@ -27,8 +27,8 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-pip install -e .                    # Butler + vendor/hermes-agent（editable）
-pip install -e ".[hermes-gateway]"  # + Telegram 等多平台 fallback 依赖
+pip install -e .                    # 仅 Butler（微信网关够用）
+pip install -e ".[hermes-gateway]"  # + hermes-vendored（Telegram 等自动走子进程）
 # 微信网关可选
 pip install -e ".[wechat]"
 ```

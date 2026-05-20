@@ -463,6 +463,13 @@ def _cmd_gateway_hermes_fallback(ns: argparse.Namespace) -> int:
 
     try:
         from hermes_cli.plugins_cmd import _get_enabled_set, _save_enabled_set
+    except ImportError as exc:
+        print(
+            "Hermes 未安装。请执行: pip install -e \".[hermes-gateway]\"",
+            file=sys.stderr,
+        )
+        return 1
+    try:
         enabled = _get_enabled_set()
         for name in ("butler", "memory/butler"):
             enabled.add(name)
@@ -492,25 +499,49 @@ def _cmd_gateway_hermes_fallback(ns: argparse.Namespace) -> int:
 
 
 def _cmd_gateway(ns: argparse.Namespace) -> int:
-    """Start Butler-native gateway (WeChat via iLink; no Hermes AIAgent subprocess)."""
+    """Start gateway: WeChat native; other platforms auto-route to Hermes subprocess."""
     os.environ["BUTLER_GATEWAY_ACTIVE"] = "1"
     remainder = list(ns.hermes_remainder or [])
-    if "--hermes-fallback" in remainder:
-        remainder = [x for x in remainder if x != "--hermes-fallback"]
-        ns.hermes_remainder = remainder
+    force_hermes = "--hermes-fallback" in remainder
+    native_only = "--native-only" in remainder
+    remainder = [x for x in remainder if x not in ("--hermes-fallback", "--native-only")]
+    ns.hermes_remainder = remainder
+
+    if force_hermes:
         return _cmd_gateway_hermes_fallback(ns)
 
-    from butler.gateway.runner import normalize_platforms, run_gateway_blocking, unsupported_platforms
+    from butler.gateway.platform_policy import (
+        format_hermes_install_hint,
+        format_mixed_platform_error,
+        hermes_vendored_installed,
+        normalize_platforms,
+        resolve_gateway_route,
+    )
+    from butler.gateway.runner import run_gateway_blocking
 
     platforms = normalize_platforms(ns.platforms or "")
-    unsupported = unsupported_platforms(platforms)
-    if unsupported:
+    route = resolve_gateway_route(platforms)
+
+    if route == "mixed_error":
+        print(format_mixed_platform_error(platforms), file=sys.stderr)
+        return 2
+
+    if route == "hermes":
+        if native_only:
+            print(
+                f"平台 {', '.join(platforms)} 非 Butler 原生；去掉 --native-only 或安装 Hermes 子进程依赖。",
+                file=sys.stderr,
+            )
+            return 2
+        if not hermes_vendored_installed():
+            print(format_hermes_install_hint(platforms), file=sys.stderr)
+            return 2
         print(
-            f"平台 {', '.join(unsupported)} 尚未支持 Butler 原生网关。"
-            f"请使用: butler gateway --hermes-fallback --platforms ...",
+            f"[butler] 平台 {', '.join(platforms)} → Hermes 子进程网关（微信请单独: butler gateway）",
             file=sys.stderr,
         )
-        return 2
+        return _cmd_gateway_hermes_fallback(ns)
+
     return run_gateway_blocking(platforms)
 
 
@@ -534,12 +565,15 @@ def _build_parser() -> argparse.ArgumentParser:
     ex.add_argument("message")
     ex.set_defaults(func=_cmd_exec)
 
-    gw = sub.add_parser("gateway", help="启动 Butler 原生消息网关（默认微信 iLink）")
-    gw.add_argument("--platforms", default="", help="平台列表，如 wechat（默认 wechat）")
+    gw = sub.add_parser(
+        "gateway",
+        help="消息网关：默认微信 Butler 原生；telegram 等自动走 Hermes 子进程",
+    )
+    gw.add_argument("--platforms", default="", help="平台列表，如 wechat（默认）、telegram")
     gw.add_argument(
         "hermes_remainder",
         nargs=argparse.REMAINDER,
-        help="附加参数；--hermes-fallback 回退 Hermes 子进程网关",
+        help="附加参数：--hermes-fallback 强制 Hermes；--native-only 禁止自动 Hermes",
     )
     gw.set_defaults(func=_cmd_gateway)
 

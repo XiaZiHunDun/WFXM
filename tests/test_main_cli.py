@@ -364,6 +364,23 @@ class TestGatewayCommand:
             "--debug",
         ]
 
+    def test_cmd_gateway_auto_hermes_for_telegram(self, monkeypatch):
+        from butler.main import _cmd_gateway
+
+        ns = MagicMock(platforms="telegram", hermes_remainder=[])
+        with patch("butler.gateway.platform_policy.hermes_vendored_installed", return_value=True):
+            with patch("butler.main._cmd_gateway_hermes_fallback", return_value=0) as fallback:
+                assert _cmd_gateway(ns) == 0
+        fallback.assert_called_once()
+
+    def test_cmd_gateway_telegram_without_hermes_returns_two(self, monkeypatch, capsys):
+        from butler.main import _cmd_gateway
+
+        ns = MagicMock(platforms="telegram", hermes_remainder=[])
+        with patch("butler.gateway.platform_policy.hermes_vendored_installed", return_value=False):
+            assert _cmd_gateway(ns) == 2
+        assert "hermes-gateway" in capsys.readouterr().err
+
 
 @pytest.mark.integration
 class TestInteractiveChat:
