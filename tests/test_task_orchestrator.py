@@ -479,7 +479,7 @@ class TestExecuteGraph:
         orch = TaskOrchestrator()
         captured_contexts: list[str] = []
 
-        async def _spawn(cfg: AgentSpawnConfig) -> AgentResult:
+        async def _spawn(cfg: AgentSpawnConfig, **_) -> AgentResult:
             captured_contexts.append(cfg.context)
             if cfg.task == "second":
                 assert "n1" in cfg.context or "结果" in cfg.context
@@ -604,7 +604,7 @@ class TestExecuteGraph:
             TaskNode(id="other", config=_spawn_config(task="other"), depends_on=["root"]),
         ]
 
-        async def _spawn(cfg: AgentSpawnConfig) -> AgentResult:
+        async def _spawn(cfg: AgentSpawnConfig, **_) -> AgentResult:
             return AgentResult(success=True, response=f"resp-{cfg.task}")
 
         with patch.object(orch, "spawn_agent", side_effect=_spawn) as mock_spawn:
@@ -629,7 +629,7 @@ class TestExecuteGraph:
             TaskNode(id="b", config=_spawn_config(task="b"), depends_on=["root"]),
         ]
 
-        async def _spawn(cfg: AgentSpawnConfig) -> AgentResult:
+        async def _spawn(cfg: AgentSpawnConfig, **_) -> AgentResult:
             return AgentResult(success=True, response=f"resp-{cfg.task}")
 
         with patch.object(orch, "spawn_agent", side_effect=_spawn):
@@ -656,7 +656,7 @@ class TestExecuteGraph:
             ),
         ]
 
-        async def _spawn(cfg: AgentSpawnConfig) -> AgentResult:
+        async def _spawn(cfg: AgentSpawnConfig, **_) -> AgentResult:
             return AgentResult(success=True, response=f"resp-{cfg.task}")
 
         with patch.object(orch, "spawn_agent", side_effect=_spawn):
