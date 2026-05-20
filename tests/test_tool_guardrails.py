@@ -103,6 +103,18 @@ class TestSyntheticResult:
         assert data["guardrail"]["action"] == "block"
         assert data["guardrail"]["count"] == 3
 
+    def test_synthetic_result_supports_halt_action(self):
+        decision = GuardrailDecision(
+            action="halt",
+            code="same_tool_failure_halt",
+            message="Stopped read_file: failed 3 times this turn.",
+            count=3,
+        )
+        raw = synthetic_result(decision)
+        data = json.loads(raw)
+        assert data["guardrail"]["action"] == "halt"
+        assert data["guardrail"]["code"] == "same_tool_failure_halt"
+
 
 @pytest.mark.unit
 class TestClassifyToolFailure:

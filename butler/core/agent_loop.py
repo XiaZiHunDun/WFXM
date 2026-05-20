@@ -417,9 +417,11 @@ class AgentLoop:
             result = self._dispatch_tool(name, args)
             if self._guardrails:
                 after = self._guardrails.after_call(name, args, result)
-                result = append_guidance(result, after)
                 if after.should_halt:
                     self._guardrails._halt_decision = after
+                    result = _finalize_guardrail_halt_result(name, args, result, after)
+                elif after.action == "warn":
+                    result = append_guidance(result, after)
             return result
 
         def _on_start(name: str, args: dict) -> None:
@@ -513,6 +515,31 @@ def _finalize_fallback_tool_result(name: str, args: dict, result: Any) -> str:
     from butler.tools.registry import finalize_tool_result
 
     return finalize_tool_result(name, args, result)
+
+
+def _finalize_guardrail_halt_result(
+    name: str,
+    args: dict,
+    result: str,
+    decision: Any,
+) -> str:
+    from butler.tools.registry import finalize_tool_result, pop_last_tool_audit_for_tool
+
+    pop_last_tool_audit_for_tool(name)
+    payload = _parse_tool_result_object(result)
+    if payload is None:
+        payload = {"error": result or decision.message}
+    else:
+        payload = dict(payload)
+    for key in ("ok", "tool", "code"):
+        payload.pop(key, None)
+    payload["error"] = decision.message
+    payload["guardrail"] = {
+        "action": decision.action,
+        "code": decision.code,
+        "count": decision.count,
+    }
+    return finalize_tool_result(name, args, payload)
 
 
 def _finalize_unenveloped_failure_result(name: str, args: dict, result: str) -> str:

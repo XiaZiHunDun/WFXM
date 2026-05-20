@@ -147,6 +147,18 @@ def reset_tool_audit_events(session_key: str | None = None) -> None:
         _TOOL_AUDIT_EVENTS.extend(retained[-_TOOL_AUDIT_EVENTS.maxlen:])
 
 
+def pop_last_tool_audit_for_tool(name: str) -> None:
+    """Remove the latest audit event for a tool when replacing it with guardrail halt."""
+    with _TOOL_AUDIT_LOCK:
+        if not _TOOL_AUDIT_EVENTS or _TOOL_AUDIT_EVENTS[-1].get("tool") != name:
+            return
+        last = _TOOL_AUDIT_EVENTS.pop()
+        session_key = str(last.get("session_key") or "")
+        bucket = _TOOL_AUDIT_EVENTS_BY_SESSION.get(session_key)
+        if bucket and bucket[-1].get("tool") == name:
+            bucket.pop()
+
+
 def _finalize_tool_result(
     name: str,
     args: dict,
@@ -204,12 +216,16 @@ def _tool_result_ok(payload: dict[str, Any]) -> bool:
 def _tool_result_code(name: str, payload: dict[str, Any], *, ok: bool) -> str:
     if ok:
         return "TOOL_OK"
+    guardrail = payload.get("guardrail")
+    if isinstance(guardrail, dict):
+        action = guardrail.get("action")
+        if action == "halt":
+            return "TOOL_GUARDRAIL_HALT"
+        if action == "block":
+            return "TOOL_GUARDRAIL_BLOCKED"
     if payload.get("code"):
         return str(payload["code"])
     error = str(payload.get("error") or "")
-    guardrail = payload.get("guardrail")
-    if isinstance(guardrail, dict) and guardrail.get("action") in {"block", "halt"}:
-        return "TOOL_GUARDRAIL_BLOCKED"
     if error == "interrupted":
         return "TOOL_INTERRUPTED"
     if isinstance(payload.get("exit_code"), int) and payload["exit_code"] != 0:

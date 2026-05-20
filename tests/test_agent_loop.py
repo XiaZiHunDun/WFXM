@@ -346,6 +346,48 @@ class TestAgentLoopRun:
         assert blocked_msg["tool"] == "read_file"
         assert blocked_msg["code"] == "TOOL_GUARDRAIL_BLOCKED"
 
+    def test_guardrail_halt_is_enveloped_and_audited(self, mock_llm_client):
+        from butler.tool_guardrails import GuardrailConfig, ToolCallGuardrailController
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        mock_llm_client.complete.side_effect = [
+            _tool_response("read_file", {"path": "missing.py"}),
+            _tool_response("read_file", {"path": "missing.py"}),
+            _tool_response("read_file", {"path": "missing.py"}),
+            _text_response("done"),
+        ]
+        loop = AgentLoop(
+            mock_llm_client,
+            tool_dispatcher=lambda _n, _a: json.dumps({"error": "missing"}),
+            config=LoopConfig(stream=False, max_iterations=5),
+        )
+        loop._guardrails = ToolCallGuardrailController(
+            GuardrailConfig(
+                same_tool_failure_halt_after=3,
+                same_tool_failure_warn_after=99,
+                exact_failure_warn_after=99,
+                exact_failure_block_after=99,
+            )
+        )
+
+        loop.run("repeat failing read until halt")
+
+        halt_events = [
+            event for event in get_tool_audit_events() if event["code"] == "TOOL_GUARDRAIL_HALT"
+        ]
+        assert len(halt_events) == 1
+        halt_msg = [
+            json.loads(msg["content"])
+            for msg in loop.messages
+            if msg["role"] == "tool" and '"action": "halt"' in msg["content"]
+        ][-1]
+        assert halt_msg["ok"] is False
+        assert halt_msg["tool"] == "read_file"
+        assert halt_msg["code"] == "TOOL_GUARDRAIL_HALT"
+        assert halt_msg["guardrail"]["action"] == "halt"
+        assert "Tool loop hard stop" not in json.dumps(halt_msg)
+
     def test_sequential_interrupt_is_enveloped_and_audited(self, mock_llm_client):
         from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
 
