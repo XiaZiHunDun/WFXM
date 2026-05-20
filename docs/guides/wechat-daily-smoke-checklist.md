@@ -1,17 +1,20 @@
 # 微信日常冒烟检查表（个人助手）
 
 > 推送代码或重启 `butler-gateway` 后，用本表在**微信私聊 Bot** 走一遍（约 15–25 分钟）。  
-> 完整剧本见 [wechat-core-scenario.md](./wechat-core-scenario.md)。
+> 完整剧本见 [wechat-core-scenario.md](./wechat-core-scenario.md)。  
+> **网关安装/发版/排障**见 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。
 
 ---
 
 ## 运维前置（终端，2 分钟）
 
 ```bash
-systemctl --user status butler-gateway.service   # 期望 active
-systemctl --user is-active butler-gateway.service
+cd ~/projects/WFXM
+bash scripts/butler-gateway-ops.sh status    # 或 preflight + systemctl --user status
+systemctl --user is-active butler-gateway.service   # 期望 active
 
 # 可选：看最近日志
+tail -20 logs/butler-gateway.log
 journalctl --user -u butler-gateway.service -n 30 --no-pager
 
 # 自动化守门（改 gateway/orchestrator 后）
