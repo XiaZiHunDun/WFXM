@@ -245,13 +245,16 @@ class TestMainHelpers:
         assert "hello world" in stream.text
 
     def test_finish_turn_does_not_duplicate_streamed_reply(self):
+        import io
+
         from butler.cli.session_ui import ChatSessionUI
         from butler.cli.stream import StreamRenderer
         from butler.core.agent_loop import LoopResult, LoopStatus
 
         console = _mock_console()
         ui = ChatSessionUI(console)
-        stream = StreamRenderer(console)
+        buf = io.StringIO()
+        stream = StreamRenderer(console, output=buf)
         stream.on_delta("你好！我是莎丽。")
         stream.on_delta(None)
         ui.finish_turn(
@@ -262,9 +265,11 @@ class TestMainHelpers:
             ),
             stream,
         )
+        streamed = buf.getvalue()
+        assert streamed.count("你好！我是莎丽。") == 1
         bodies = [str(c.args[0]) if c.args else "" for c in console.print.call_args_list]
         joined = "\n".join(bodies)
-        assert joined.count("你好！我是莎丽。") == 1
+        assert "你好！我是莎丽。" not in joined
         assert "推理:" not in joined
 
     def test_main_dispatches_command_and_exits_zero(self):

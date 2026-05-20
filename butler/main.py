@@ -117,7 +117,8 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
                 attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
                 with use_execution_context(orchestrator, session_key="cli"):
                     result = agent_loop.run(augmented)
-                ui.finish_turn(result, stream)
+
+            ui.finish_turn(result, stream)
 
             with use_execution_context(orchestrator, session_key="cli"):
                 _sync_memory(
