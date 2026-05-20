@@ -87,7 +87,9 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             continue
 
         if user_input.startswith("/"):
-            handled = _handle_slash_command(user_input, orchestrator, console)
+            handled = _handle_slash_command(
+                user_input, orchestrator, console, agent_loop=agent_loop
+            )
             if handled == "quit":
                 _trigger_session_end(orchestrator, agent_loop)
                 return 0
@@ -173,6 +175,8 @@ def _handle_slash_command(
     cmd: str,
     orchestrator: "ButlerOrchestrator",
     console: Any,
+    *,
+    agent_loop: Any | None = None,
 ) -> str | None:
     parts = cmd.strip().split(maxsplit=1)
     command = parts[0].lower()
@@ -189,6 +193,7 @@ def _handle_slash_command(
             "  /model [角色] [provider/model] — 查看或切换模型\n"
             "  /new            — 新建对话（清空历史）\n"
             "  /status         — 当前状态\n"
+            "  /health         — 运行时诊断（压缩、工具审计等）\n"
             "  /detail         — 上一次委派的详细报告\n"
             "  /steer <文本>   — 向运行中的 Agent 插入指引（不打断工具）\n"
             "  /quit           — 退出\n"
@@ -256,6 +261,26 @@ def _handle_slash_command(
             f"  模型: {mc.get('provider', '?')}/{mc.get('model', '?')}\n"
             f"  Butler Home: {settings.butler_home}\n"
         )
+        return "handled"
+
+    if command in ("/health", "/诊断"):
+        from butler.gateway.message_handler import ButlerMessageHandler
+
+        handler = ButlerMessageHandler(channel="cli")
+        if agent_loop is not None:
+            loop_diag = dict(getattr(agent_loop, "diagnostics", {}) or {})
+            handler._health_by_session["cli"] = {
+                "session_key": "cli",
+                "platform": "cli",
+                "hygiene_compressed": loop_diag.get("hygiene_compressed"),
+                "schema_recovered": loop_diag.get("schema_recovered"),
+                "schema_keywords_stripped": loop_diag.get("schema_keywords_stripped"),
+                "skill_context_injected": loop_diag.get("skill_context_injected"),
+                "skill_matches": loop_diag.get("skill_matches"),
+                "memory_context_injected": loop_diag.get("memory_context_injected"),
+                "loop": loop_diag,
+            }
+        console.print(handler._format_health_summary("cli"))
         return "handled"
 
     if command == "/steer":
