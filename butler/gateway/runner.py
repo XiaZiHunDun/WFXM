@@ -20,12 +20,20 @@ logger = logging.getLogger(__name__)
 # Re-export for tests / callers that imported from runner.
 __all__ = ["NATIVE_PLATFORMS", "normalize_platforms", "unsupported_platforms", "run_gateway_blocking", "run_gateway_async"]
 
-# Single worker: avoid ProjectManager / session registry races from concurrent to_thread calls.
+def _handler_worker_count() -> int:
+    raw = os.getenv("BUTLER_GATEWAY_HANDLER_WORKERS", "2")
+    try:
+        return max(1, min(8, int(raw)))
+    except ValueError:
+        return 2
+
+
+# Per-chat session locks serialize same user; >1 worker allows /详细 during long turns.
 _HANDLER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
-    max_workers=1,
+    max_workers=_handler_worker_count(),
     thread_name_prefix="butler-gw-handler",
 )
-_HANDLER_TIMEOUT_SECONDS = float(os.getenv("BUTLER_GATEWAY_HANDLER_TIMEOUT", "180"))
+_HANDLER_TIMEOUT_SECONDS = float(os.getenv("BUTLER_GATEWAY_HANDLER_TIMEOUT", "600"))
 
 
 def unsupported_platforms(platforms: list[str]) -> list[str]:

@@ -312,9 +312,17 @@ class ButlerMessageHandler:
             ok = pm.switch_project_for_chat(platform=plat, chat_id=cid, name=arg)
             if ok:
                 new_name = pm.get_project_name_for_chat(platform=plat, chat_id=cid)
+                cleared = self._session_registry.reset_sessions_for_chat(
+                    platform=plat,
+                    chat_id=cid,
+                )
+                extra = ""
+                if cleared:
+                    extra = f"\n已重建对话引擎（清理 {len(cleared)} 个旧项目会话）。"
                 return (
                     f"已切换到项目: {new_name}\n"
-                    "（本会话独立历史；下一条消息起使用新项目上下文。）"
+                    "（下一条消息起使用新项目工具与 workspace。）"
+                    f"{extra}"
                 )
             return f"未找到项目: {arg}（名称需精确或唯一匹配）"
 

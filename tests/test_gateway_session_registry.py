@@ -72,6 +72,29 @@ def test_reset_finalizes_only_target_session():
     assert registry.get_health("s2") == {"keep": True}
 
 
+def test_reset_sessions_for_chat_clears_all_project_loops():
+    loops = {
+        "wechat:u1:alpha": MagicMock(name="alpha"),
+        "wechat:u1:beta": MagicMock(name="beta"),
+        "wechat:u2:alpha": MagicMock(name="other-chat"),
+    }
+    finalized: list[object] = []
+    registry = GatewaySessionRegistry(
+        lambda key: loops[key],
+        finalize=lambda loop: finalized.append(loop),
+    )
+    for key in loops:
+        registry.get_or_create(key)
+
+    cleared = registry.reset_sessions_for_chat(platform="wechat", chat_id="u1")
+
+    assert set(cleared) == {"wechat:u1:alpha", "wechat:u1:beta"}
+    assert "wechat:u1:alpha" not in registry.sessions
+    assert "wechat:u1:beta" not in registry.sessions
+    assert "wechat:u2:alpha" in registry.sessions
+    assert len(finalized) == 2
+
+
 def test_evict_idle_clears_tool_audit_for_removed_session():
     from butler.execution_context import use_execution_context
     from butler.tools.registry import dispatch_tool, get_tool_audit_events, reset_tool_audit_events

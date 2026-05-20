@@ -288,7 +288,7 @@ class TestSlashCommands:
         sk = build_session_key(platform="test", chat_id="default", project="test-project")
         text = handler_with_project._handle_command("/switch test-project", session_key=sk)
         assert "已切换到项目" in text
-        assert "本会话" in text
+        assert "新项目工具" in text or "workspace" in text
         pm = handler_with_project._orchestrator.project_manager
         assert pm.get_project_name_for_chat(platform="test", chat_id="default") == "test-project"
 
@@ -514,15 +514,14 @@ class TestSessionManagement:
         assert sk_default not in handler._sessions
         assert handler._sessions["other"] is other_loop
 
-    def test_switch_preserves_other_project_sessions(self, handler_with_project, mock_loop):
+    def test_switch_clears_all_project_sessions_for_chat(self, handler_with_project, mock_loop):
         from butler.session_keys import build_session_key
 
         sk_other = build_session_key(platform="test", chat_id="default", project="other-proj")
         handler_with_project._sessions[sk_other] = mock_loop
         handler_with_project._session_registry.touch(sk_other)
         handler_with_project.handle_message("/switch test-project", platform="test", external_id="default")
-        assert sk_other in handler_with_project._sessions
-        assert handler_with_project._sessions[sk_other] is mock_loop
+        assert sk_other not in handler_with_project._sessions
 
     def test_get_or_create_loop_evicts_idle_sessions(self, handler):
         now = {"value": 0.0}
