@@ -1,5 +1,6 @@
 """Session lifecycle memory coordination tests."""
 
+import inspect
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +8,9 @@ from butler.core.agent_loop import LoopResult, LoopStatus
 from butler.session_lifecycle import (
     attach_turn_memory_prefetch,
     build_memory_pre_llm_transform,
+    clear_session_boundary_memory,
     inject_turn_memory,
+    session_experience_tag,
     sync_turn_memory,
     trigger_session_end,
 )
@@ -34,6 +37,19 @@ def test_inject_turn_memory_adds_relevant_context():
     assert "project memory" in out
     assert "use pytest -q" in out
     assert out.endswith("run tests")
+
+
+def test_prefetch_skips_conversation_experience():
+    orch = _orch()
+    orch.butler_memory.experience.search.return_value = [
+        {"project": "proj", "category": "conversation", "content": "Q: 秘密词XYZ → A: 好的"},
+        {"project": "proj", "category": "experience", "content": "use pytest -q"},
+    ]
+
+    out = inject_turn_memory(orch, "我们刚才聊过什么？")
+
+    assert "秘密词XYZ" not in out
+    assert "use pytest -q" in out
 
 
 def test_memory_pre_llm_transform_does_not_mutate_history_messages():
@@ -117,12 +133,20 @@ def test_sync_turn_memory_records_success_and_provider():
     provider = MagicMock()
     orch.memory_provider = provider
 
-    result = sync_turn_memory(orch, "question", "answer", status=LoopStatus.COMPLETED)
+    result = sync_turn_memory(
+        orch,
+        "question",
+        "answer",
+        status=LoopStatus.COMPLETED,
+        session_id="wechat:u1",
+    )
 
     assert result["experience_updates"] == 1
     assert result["provider_synced"] is True
     orch.butler_memory.experience.add.assert_called_once()
-    provider.sync_turn.assert_called_once_with("question", "answer", session_id="")
+    add_kwargs = orch.butler_memory.experience.add.call_args.kwargs
+    assert add_kwargs.get("tags") == session_experience_tag("wechat:u1")
+    provider.sync_turn.assert_called_once_with("question", "answer", session_id="wechat:u1")
 
 
 def test_sync_turn_memory_provider_failure_keeps_experience_success():
@@ -137,6 +161,24 @@ def test_sync_turn_memory_provider_failure_keeps_experience_success():
     assert result["experience_updates"] == 1
     assert result["provider_synced"] is False
     assert result["provider_error"] == "provider down"
+
+
+def test_clear_session_boundary_memory_removes_tagged_conversation(tmp_path):
+    from butler.memory.butler_memory import ButlerMemory
+
+    bm = ButlerMemory(tmp_path)
+    bm.experience.add("", "conversation", "Q: 步骤三细节 → A: 完成", tags="session:wechat:u1")
+    bm.experience.add("", "experience", "长期偏好", tags="")
+    orch = SimpleNamespace(
+        butler_memory=bm,
+        memory_provider=SimpleNamespace(clear_turn_buffer=lambda: None),
+    )
+
+    result = clear_session_boundary_memory(orch, "wechat:u1")
+
+    assert result["removed"] == 1
+    assert bm.experience.search("步骤三") == []
+    assert bm.experience.search("长期偏好") != []
 
 
 def test_trigger_session_end_returns_skipped_for_short_history():
@@ -167,3 +209,34 @@ def test_trigger_session_end_returns_processor_result():
 
     assert result["memory_updates"] == 1
     processor.set_llm_call.assert_called_once()
+
+
+def test_auxiliary_llm_call_factory_is_async():
+    from butler.transport.auxiliary_client import auxiliary_llm_call_factory
+
+    fn = auxiliary_llm_call_factory("post_session")
+    assert inspect.iscoroutinefunction(fn)
+
+
+def test_trigger_session_end_awaits_auxiliary_llm_call():
+    """Regression: sync factory caused 'object str can't be used in await'."""
+    orch = _orch()
+    filler = "x" * 80
+    loop = SimpleNamespace(
+        messages=[
+            {"role": "user", "content": filler},
+            {"role": "assistant", "content": filler},
+            {"role": "user", "content": filler},
+            {"role": "assistant", "content": filler},
+            {"role": "user", "content": filler},
+        ]
+    )
+
+    with patch(
+        "butler.transport.auxiliary_client.auxiliary_complete",
+        return_value='{"updates": []}',
+    ):
+        result = trigger_session_end(orch, loop)
+
+    assert result.get("skipped") is not True
+    assert result.get("errors", []) == []

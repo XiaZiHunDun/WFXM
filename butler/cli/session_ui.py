@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from butler.cli.display import (
     capture_edit_snapshot,
@@ -20,6 +20,7 @@ from butler.transport.error_classifier import classify_api_error
 
 if TYPE_CHECKING:
     from rich.console import Console
+    from rich.status import Status
 
 
 class ChatSessionUI:
@@ -29,20 +30,23 @@ class ChatSessionUI:
         self.console = console
         self._stream_title = stream_title
         self._spinner = WaitSpinner()
-        self._tool_times: list[tuple[float, str, dict]] = []
+        self._tool_stack: list[tuple[float, str, dict]] = []
         self._pending_edit: tuple[str, str] | None = None
+        self._llm_status: Status | None = None
 
     def begin_turn(self) -> StreamRenderer:
+        self._stop_llm_status()
         self._spinner.stop()
-        self._tool_times.clear()
+        self._tool_stack.clear()
         self._pending_edit = None
         return StreamRenderer(self.console, title=self._stream_title)
 
     def build_callbacks(self, stream: StreamRenderer) -> LoopCallbacks:
         return LoopCallbacks(
-            on_llm_start=lambda _msgs: self._spinner.start("思考中"),
-            on_llm_complete=lambda _resp: self._spinner.stop(),
+            on_llm_start=lambda _msgs: self._on_llm_start(),
+            on_llm_complete=self._on_llm_complete,
             on_stream_delta=stream.on_delta,
+            on_stream_boundary=stream.on_boundary,
             on_tool_start=self._on_tool_start,
             on_tool_complete=self._on_tool_complete,
             on_error=self._on_error,
@@ -60,24 +64,38 @@ class ChatSessionUI:
         )
 
     def finish_turn(self, result: LoopResult, stream: StreamRenderer) -> None:
+        self._stop_llm_status()
         self._spinner.stop()
+        stream.flush()
         out = getattr(stream, "_console", None) or self.console
 
         final = (result.final_response or "").strip()
         body = stream.text.strip() or final
-        if body:
+
+        if body and not stream.streamed_live:
+            from rich.markdown import Markdown
             from rich.panel import Panel
 
             out.print(
                 Panel(
-                    body,
+                    Markdown(body),
                     title=stream._title,
                     border_style="cyan",
                     expand=False,
                 )
             )
+        elif body and stream.streamed_live and stream.lines_emitted == 0:
+            from rich.markdown import Markdown
+            from rich.panel import Panel
 
-        streamed = bool(body)
+            out.print(
+                Panel(
+                    Markdown(body),
+                    title=stream._title,
+                    border_style="cyan",
+                    expand=False,
+                )
+            )
 
         show_reasoning = os.getenv("BUTLER_CLI_SHOW_REASONING", "").strip() in (
             "1",
@@ -112,12 +130,34 @@ class ChatSessionUI:
         elif result.status == LoopStatus.INTERRUPTED:
             out.print("[dim]本轮已中断[/dim]")
 
-        if result.tool_calls_made > 0 or result.final_response or streamed:
+        if result.tool_calls_made > 0 or result.final_response or body:
             out.print()
 
-    def _on_tool_start(self, name: str, args: dict) -> None:
+    def print_user_message(self, text: str) -> None:
+        line = (text or "").strip()
+        if not line:
+            return
+        self.console.print(f"\n[bold cyan]●[/bold cyan] {line}", highlight=False)
+
+    def _on_llm_start(self) -> None:
         self._spinner.stop()
-        self._tool_times.append((time.monotonic(), name, dict(args)))
+        self._stop_llm_status()
+        self._llm_status = self.console.status("[dim]思考中…[/dim]", spinner="dots")
+        self._llm_status.start()
+
+    def _on_llm_complete(self, _response: Any) -> None:
+        self._stop_llm_status()
+        self._spinner.stop()
+
+    def _stop_llm_status(self) -> None:
+        if self._llm_status is not None:
+            self._llm_status.stop()
+            self._llm_status = None
+
+    def _on_tool_start(self, name: str, args: dict) -> None:
+        self._stop_llm_status()
+        self._spinner.stop()
+        self._tool_stack.append((time.monotonic(), name, dict(args)))
         snap = capture_edit_snapshot(name, args)
         if snap:
             path, before = next(iter(snap.items()))
@@ -129,11 +169,12 @@ class ChatSessionUI:
     def _on_tool_complete(self, name: str, result: str) -> None:
         duration = 0.0
         args: dict = {}
-        if self._tool_times:
-            started, n, a = self._tool_times.pop(0)
-            duration = max(time.monotonic() - started, 0.0)
-            if n == name:
-                args = a
+        for idx, (started, tool_name, tool_args) in enumerate(self._tool_stack):
+            if tool_name == name:
+                duration = max(time.monotonic() - started, 0.0)
+                args = tool_args
+                del self._tool_stack[idx]
+                break
         self.console.print(
             format_tool_complete(name, args, duration, result),
             highlight=False,
@@ -170,6 +211,7 @@ class ChatSessionUI:
             )
 
     def _on_error(self, exc: Exception, attempt: int) -> None:
+        self._stop_llm_status()
         self._spinner.stop()
         classified = classify_api_error(exc)
         self.console.print(
@@ -179,4 +221,8 @@ class ChatSessionUI:
 
     def _on_iteration(self, iteration: int, status: LoopStatus) -> None:
         if iteration > 1 and status == LoopStatus.RUNNING:
-            self._spinner.start(f"第 {iteration} 轮")
+            self._stop_llm_status()
+            self._llm_status = self.console.status(
+                f"[dim]第 {iteration} 轮…[/dim]", spinner="dots"
+            )
+            self._llm_status.start()

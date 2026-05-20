@@ -127,7 +127,11 @@ class TestManualGuide34Dialog:
         out = gateway_handler._format_response(result, platform="wechat")
         assert len(out) <= 2000
 
-    def test_345_media_only_prompt(self, gateway_handler):
+    def test_345_media_only_prompt(self, gateway_handler, patch_llm):
+        mock_complete, mock_stream = patch_llm
+        mock_complete.return_value = _text_response("收到，请用文字说明需求。")
+        mock_stream.return_value = mock_complete.return_value
+
         event = MessageEvent(
             text="",
             message_type=MessageType.PHOTO,
@@ -142,7 +146,15 @@ class TestManualGuide34Dialog:
         out = asyncio.run(_run())
 
         assert out is not None
-        assert "媒体消息" in out
+        assert mock_complete.called
+        call_args = mock_complete.call_args
+        messages = call_args.kwargs.get("messages") or call_args.args[0]
+        user_contents = [
+            m.get("content", "")
+            for m in messages
+            if isinstance(m, dict) and m.get("role") == "user"
+        ]
+        assert any("收到媒体消息" in c for c in user_contents)
 
     def test_346_health_command(self, gateway_handler):
         out = gateway_handler.handle_message("/health", session_key="wechat:u1", platform="wechat")
@@ -202,6 +214,35 @@ class TestManualGuide35Slash:
             platform="wechat",
         )
         assert "已切换到项目" in out
+
+    def test_356b_new_clears_chat_experience_recall(self, gateway_handler, patch_llm):
+        from butler.core.agent_loop import LoopStatus
+        from butler.session_lifecycle import inject_turn_memory, sync_turn_memory
+
+        sync_turn_memory(
+            gateway_handler._orchestrator,
+            "请读取 wechat-smoke 文件",
+            "已读取并摘要完成。",
+            status=LoopStatus.COMPLETED,
+            session_id="wechat:u1",
+        )
+        gateway_handler.handle_message("/new", session_key="wechat:u1", platform="wechat")
+
+        augmented = inject_turn_memory(
+            gateway_handler._orchestrator,
+            "我们刚才聊过什么？",
+        )
+        assert "wechat-smoke" not in augmented
+
+        mock_complete, mock_stream = patch_llm
+        mock_complete.return_value = _text_response("上一轮对话已清空，无法复述具体细节。")
+        mock_stream.return_value = mock_complete.return_value
+        out = gateway_handler.handle_message(
+            "我们刚才聊过什么？",
+            session_key="wechat:u1",
+            platform="wechat",
+        )
+        assert "wechat-smoke" not in out
 
     def test_356_new_clears_memory(self, gateway_handler, patch_llm):
         mock_complete, mock_stream = patch_llm

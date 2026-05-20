@@ -12,3 +12,6 @@
 
 ## 当前状态
 
+## Architecture
+
+- [2026-05-20 15:01] 灵文项目：type=content，描述「小说工厂 - 工业化多Agent小说创作流水线」，workflow=novel-factory（灵感到发布的闭环）

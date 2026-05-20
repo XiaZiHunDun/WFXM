@@ -104,6 +104,7 @@ class TestSystemPrompt:
     def test_contains_delegate_task_mention(self, orch_no_projects):
         prompt = orch_no_projects.build_system_prompt()
         assert "delegate_task" in prompt
+        assert "必须委派" in prompt or "必须使用" in prompt
 
     def test_contains_project_info_when_projects_exist(self, orch_with_project):
         prompt = orch_with_project.build_system_prompt()

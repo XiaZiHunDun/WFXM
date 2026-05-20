@@ -29,16 +29,19 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     from rich.panel import Panel
 
     from butler.cli.session_ui import ChatSessionUI
+    from butler.cli.slash_commands import build_slash_completer, is_known_slash_command
     from butler.core.agent_loop import LoopStatus
     from butler.tools.registry import dispatch_tool, get_tool_definitions
 
-    console = Console()
+    # stderr: Rich output stays visible while prompt_toolkit patch_stdout() wraps prompts
+    console = Console(stderr=True)
     settings = orchestrator._settings
     history_file = settings.butler_home / "chat_history.txt"
     history_file.parent.mkdir(parents=True, exist_ok=True)
     session = PromptSession(
         history=FileHistory(str(history_file)),
         auto_suggest=AutoSuggestFromHistory(),
+        completer=build_slash_completer(),
     )
 
     current_project = orchestrator.project_manager.current_project or "(无)"
@@ -98,25 +101,28 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
                 agent_loop = _rebuild_loop()
             if handled:
                 continue
+            console.print(
+                f"[yellow]未知命令: {user_input.split(maxsplit=1)[0]}[/yellow]"
+            )
+            console.print("[dim]输入 /help 查看可用命令[/dim]")
+            continue
 
         augmented = orchestrator.inject_skill_context(user_input)
+        ui.print_user_message(user_input)
         ui.begin_turn()
         stream = None
 
         try:
-            # patch_stdout hides libraries writing to stdout during the turn;
-            # Rich output must use stderr (same Console as the welcome panel).
-            with patch_stdout():
-                from butler.cli.stream import StreamRenderer
-                from butler.execution_context import use_execution_context
-                from butler.session_lifecycle import attach_turn_memory_prefetch
+            from butler.cli.stream import StreamRenderer
+            from butler.execution_context import use_execution_context
+            from butler.session_lifecycle import attach_turn_memory_prefetch
 
-                stream = StreamRenderer(console, title=settings.butler_name or "Butler")
-                agent_loop.callbacks = ui.build_callbacks(stream)
+            stream = StreamRenderer(console, title=settings.butler_name or "Butler")
+            agent_loop.callbacks = ui.build_callbacks(stream)
 
-                attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
-                with use_execution_context(orchestrator, session_key="cli"):
-                    result = agent_loop.run(augmented)
+            attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
+            with use_execution_context(orchestrator, session_key="cli"):
+                result = agent_loop.run(augmented)
 
             ui.finish_turn(result, stream)
 
@@ -255,6 +261,9 @@ def _handle_slash_command(
         return "handled"
 
     if command == "/new":
+        from butler.session_lifecycle import clear_session_boundary_memory
+
+        clear_session_boundary_memory(orchestrator, "cli")
         console.print("[dim]已清空对话历史[/dim]")
         return "rebuild"
 
@@ -329,10 +338,11 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
     from butler.tools.registry import dispatch_tool, get_tool_definitions
     from rich.console import Console
 
-    console = Console()
+    console = Console(stderr=True)
     orch = ButlerOrchestrator(user_id="owner", channel="cli")
     augmented = orch.inject_skill_context(ns.message)
     ui = ChatSessionUI(console, stream_title="exec")
+    ui.print_user_message(ns.message)
     stream = ui.begin_turn()
 
     agent_loop = orch.create_agent_loop(

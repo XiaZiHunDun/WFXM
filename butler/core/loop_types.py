@@ -39,6 +39,7 @@ class LoopCallbacks:
     on_llm_start: Optional[Callable[[list[dict]], None]] = None
     on_llm_complete: Optional[Callable[[NormalizedResponse], None]] = None
     on_stream_delta: Optional[Callable[[str], None]] = None
+    on_stream_boundary: Optional[Callable[[], None]] = None
     on_tool_start: Optional[Callable[[str, dict], None]] = None
     on_tool_complete: Optional[Callable[[str, str], None]] = None
     on_error: Optional[Callable[[Exception, int], None]] = None

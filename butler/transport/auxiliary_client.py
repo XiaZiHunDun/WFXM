@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from butler.config import ModelConfig, get_butler_settings
 from butler.transport.llm_client import LLMClient
@@ -75,10 +77,12 @@ def auxiliary_complete(
     return resp.content or ""
 
 
-def auxiliary_llm_call_factory(task: str = "post_session") -> Callable[[str], str]:
-    """Sync callable for PostSessionProcessor."""
+def auxiliary_llm_call_factory(
+    task: str = "post_session",
+) -> Callable[[str], Awaitable[str]]:
+    """Async callable for PostSessionProcessor (blocking HTTP runs in a thread)."""
 
-    def _call(prompt: str) -> str:
-        return auxiliary_complete(prompt, task=task)
+    async def _call(prompt: str) -> str:
+        return await asyncio.to_thread(auxiliary_complete, prompt, task=task)
 
     return _call

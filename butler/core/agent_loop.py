@@ -116,6 +116,8 @@ class AgentLoop:
                     break
 
                 iteration += 1
+                if iteration > 1 and self.callbacks.on_stream_boundary:
+                    self.callbacks.on_stream_boundary()
                 if self.callbacks.on_iteration:
                     self.callbacks.on_iteration(iteration, status)
 

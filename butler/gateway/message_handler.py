@@ -16,7 +16,11 @@ from typing import Any, Optional
 
 from butler.orchestrator import ButlerOrchestrator
 from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopConfig, LoopResult, LoopStatus
-from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
+from butler.session_lifecycle import (
+    attach_turn_memory_prefetch,
+    clear_session_boundary_memory,
+    sync_turn_memory,
+)
 from butler.tools.registry import get_tool_definitions, dispatch_tool
 from butler.report import AgentReport, format_for_wechat, format_for_cli, cache_report
 from butler.gateway.session_registry import GatewaySessionRegistry
@@ -230,6 +234,7 @@ class ButlerMessageHandler:
         if cmd in ("/new", "/新对话"):
             self._session_registry.reset(session_key)
             _reset_tool_audit_events(session_key)
+            clear_session_boundary_memory(self._orchestrator, session_key)
             return "已清空对话历史。"
 
         if cmd in ("/detail", "/详细"):

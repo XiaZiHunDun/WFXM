@@ -252,7 +252,7 @@ class TestMainHelpers:
 
         console = _mock_console()
         ui = ChatSessionUI(console)
-        stream = StreamRenderer(console, title="莎丽")
+        stream = StreamRenderer(console, title="莎丽", mode="buffer")
         stream.on_delta("你好！我是莎丽。")
         ui.finish_turn(
             LoopResult(
@@ -267,8 +267,10 @@ class TestMainHelpers:
             for c in console.print.call_args_list
             if c.args and isinstance(c.args[0], Panel)
         ]
+        from rich.markdown import Markdown
+
         assert len(panel_calls) == 1
-        assert "你好！我是莎丽。" in str(panel_calls[0].args[0].renderable)
+        assert isinstance(panel_calls[0].args[0].renderable, Markdown)
         joined = "\n".join(str(c) for c in console.print.call_args_list)
         assert "推理:" not in joined
 

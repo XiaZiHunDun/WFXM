@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -195,3 +196,19 @@ def test_finalize_fallback_tool_result_records_audit():
     events = get_tool_audit_events(session_key="tool-batch")
     assert len(events) == 1
     assert events[0]["code"] == "TOOL_NOT_FOUND"
+
+
+@pytest.mark.unit
+def test_process_tool_calls_invokes_stream_boundary():
+    boundary = MagicMock()
+    tc = build_tool_call("c1", "echo", {"x": 1})
+    process_tool_calls(
+        response=NormalizedResponse(tool_calls=[tc], usage=_usage()),
+        messages=[],
+        config=LoopConfig(enable_parallel_tools=False),
+        callbacks=LoopCallbacks(on_stream_boundary=boundary),
+        guardrails=None,
+        dispatch_tool=lambda _n, _a: json.dumps({"ok": True}),
+        interrupt_check=lambda: False,
+    )
+    boundary.assert_called_once()

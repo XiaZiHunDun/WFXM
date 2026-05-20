@@ -294,6 +294,27 @@ class ExperienceStore:
                     for r in rows
                 ]
 
+    def delete_conversation_for_session(self, session_tag: str) -> int:
+        """Remove ephemeral per-session chat logs (used after /new)."""
+        tag = (session_tag or "").strip()
+        with self._lock:
+            with self._connect() as conn:
+                if tag:
+                    cur = conn.execute(
+                        """
+                        DELETE FROM experiences
+                        WHERE category = ? AND (tags = ? OR tags = '')
+                        """,
+                        ("conversation", tag),
+                    )
+                else:
+                    cur = conn.execute(
+                        "DELETE FROM experiences WHERE category = ?",
+                        ("conversation",),
+                    )
+                conn.commit()
+                return int(cur.rowcount or 0)
+
     def get_recent(self, limit: int = 5) -> list[dict[str, Any]]:
         with self._lock:
             with self._connect() as conn:
@@ -339,7 +360,10 @@ class ButlerMemory:
         if profile_text:
             parts.append(f"## Owner profile & preferences\n{profile_text}")
 
-        recent = self.experience.get_recent(limit=5)
+        recent = [
+            r for r in self.experience.get_recent(limit=20)
+            if (r.get("category") or "") != "conversation"
+        ][:5]
         if recent:
             lines = [
                 f"- [{r['project'] or 'global'}] ({r['category'] or 'general'}) {r['content']}"
