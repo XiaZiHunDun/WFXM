@@ -260,6 +260,15 @@ def json_dumps_skills():
 
 
 @pytest.mark.module_test
+class TestFromHermesAgentDeprecated:
+    def test_from_hermes_agent_emits_deprecation_warning(self):
+        mock_agent = MagicMock()
+        mock_agent.run_conversation.return_value = {"final_response": "ok"}
+        with pytest.warns(DeprecationWarning, match="from_hermes_agent"):
+            PostSessionProcessor.from_hermes_agent(mock_agent)
+
+
+@pytest.mark.module_test
 class TestProcess:
     def test_short_conversation_skipped(self):
         proc = PostSessionProcessor(llm_call=lambda p: asyncio.sleep(0))

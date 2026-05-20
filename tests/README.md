@@ -2,7 +2,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q          # 默认 925 passed，排除 live_llm
+PYTHONPATH=. pytest -q          # 默认 ~925 passed，排除 live_llm 与 tests/archive/
 ```
 
 ## 分层（`pyproject.toml` markers）
@@ -58,4 +58,4 @@ BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. pytest -m live_llm tests/test_cli_live_
 | `test_hermes_extraction.py`, `test_run_agent_extraction.py` | Hermes 提炼回归 |
 | `test_real_api_smoke*.py` | 可选真实 API smoke |
 
-v3 时代测试 `test_butler_v3.py` 仍保留用于历史对照；v4 主线以 `test_butler_v4.py` 及 Loop 栈测试为准。
+v3 遗留测试见 `tests/archive/test_butler_v3.py`（默认不收集）；v4 主线以 `test_butler_v4.py` 及 Loop 栈测试为准。

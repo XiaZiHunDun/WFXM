@@ -33,6 +33,7 @@ Thumbs.db
 *.db-journal
 *.db-wal
 projects/*/.butler/
+projects/*/docs/workflow-output.md
 
 # Logs
 *.log

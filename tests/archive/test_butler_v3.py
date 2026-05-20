@@ -1,4 +1,7 @@
-"""Comprehensive tests for Butler v3 (Route C — Embedded Hybrid)."""
+"""Butler v3 / Hermes AIAgent 遗留集成测试（默认 pytest 不收集）。
+
+手动回归：``PYTHONPATH=. pytest tests/archive/test_butler_v3.py -q``
+"""
 
 import asyncio
 import json
@@ -10,7 +13,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 os.environ.setdefault("BUTLER_HOME", str(Path(tempfile.mkdtemp()) / ".butler"))
 
 
