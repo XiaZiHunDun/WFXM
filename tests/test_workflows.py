@@ -147,6 +147,15 @@ class TestWorkflowSlash:
         listed = handle_workflow_command(orch, "list")
         assert "novel-factory" in listed
 
+        wechat_list = handle_workflow_command(orch, "list", platform="wechat")
+        assert "novel-factory" in wechat_list
+        assert "**" not in wechat_list
+
+        ProjectManager._instance = None
+        orch2 = ButlerOrchestrator(channel="test")
+        missing = handle_workflow_command(orch2, "list", platform="wechat")
+        assert "/切换" in missing
+
         with patch(
             "butler.workflows.runner.WorkflowRunner.run",
             return_value=TaskGraphResult(
