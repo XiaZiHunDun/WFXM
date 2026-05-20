@@ -432,8 +432,13 @@ class TestCliInteractiveFlow:
         trigger.assert_called_once()
 
     def test_switch_rebuilds_loop_twice(self, tmp_path):
-        orch = mock_orchestrator_for_chat(tmp_path)
-        orch.project_manager.switch_project.return_value = True
+        orch = mock_orchestrator_for_chat(tmp_path, project_name="alpha")
+
+        def _switch(name: str) -> bool:
+            orch.project_manager.current_project = name
+            return True
+
+        orch.project_manager.switch_project.side_effect = _switch
         run = run_scripted_interactive_chat(orch, ["/switch demo", "/quit"])
         assert run.orchestrator.create_agent_loop.call_count >= 2
         assert "已切换" in run.output
