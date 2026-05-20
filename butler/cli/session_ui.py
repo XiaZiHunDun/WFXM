@@ -62,7 +62,7 @@ class ChatSessionUI:
     def finish_turn(self, result: LoopResult, stream: StreamRenderer) -> None:
         self._spinner.stop()
         stream.on_delta(None)
-        out = getattr(stream, "_console", self.console)
+        out = getattr(stream, "_console", None) or self.console
 
         streamed = bool(stream.text.strip())
         if result.final_response and not streamed:

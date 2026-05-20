@@ -2,21 +2,31 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import sys
+from typing import TYPE_CHECKING, TextIO
 
 from butler.transport.content_sanitize import sanitize_stream_delta
 
 if TYPE_CHECKING:
     from rich.console import Console
 
-_ACCENT = "cyan"
-
 
 class StreamRenderer:
-    """Buffers stream tokens, prints line-by-line inside a light box."""
+    """Buffers stream tokens, prints line-by-line inside a light box.
 
-    def __init__(self, console: "Console", *, title: str = "Butler") -> None:
+    Uses plain ``stderr`` writes (no Rich ANSI) so output stays readable under
+    ``prompt_toolkit.patch_stdout`` and in terminals that mishandle escape codes.
+    """
+
+    def __init__(
+        self,
+        console: "Console | None" = None,
+        *,
+        title: str = "Butler",
+        output: TextIO | None = None,
+    ) -> None:
         self._console = console
+        self._out: TextIO = output or sys.stderr
         self._title = title
         self._open = False
         self._line_buf = ""
@@ -26,13 +36,17 @@ class StreamRenderer:
     def text(self) -> str:
         return "".join(self._full_text) + self._line_buf
 
+    def _writeln(self, text: str) -> None:
+        self._out.write(text + "\n")
+        self._out.flush()
+
     def _open_box(self) -> None:
         if self._open:
             return
         self._open = True
         label = self._title
         pad = max(0, 48 - len(label))
-        self._console.print(f"╭─ {label} ─{'─' * pad}", style=_ACCENT, highlight=False)
+        self._writeln(f"╭─ {label} ─{'─' * pad}")
 
     def on_delta(self, delta: str | None) -> None:
         if delta is None:
@@ -50,7 +64,7 @@ class StreamRenderer:
             line, self._line_buf = self._line_buf.split("\n", 1)
             if not line.strip():
                 continue
-            self._console.print(f"│ {line}", style=_ACCENT, highlight=False)
+            self._writeln(f"│ {line}")
 
     def close(self) -> None:
         if not self._open:
@@ -59,11 +73,11 @@ class StreamRenderer:
                 self._line_buf = ""
             return
         if self._line_buf.strip():
-            self._console.print(f"│ {self._line_buf}", style=_ACCENT, highlight=False)
+            self._writeln(f"│ {self._line_buf}")
             self._full_text.append(self._line_buf)
             self._line_buf = ""
         elif self._line_buf:
             self._full_text.append(self._line_buf)
             self._line_buf = ""
-        self._console.print(f"╰{'─' * 52}", style=_ACCENT, highlight=False)
+        self._writeln(f"╰{'─' * 52}")
         self._open = False
