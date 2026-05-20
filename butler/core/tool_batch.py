@@ -97,7 +97,20 @@ def process_tool_calls(
         if callbacks.on_tool_complete:
             callbacks.on_tool_complete(name, result)
 
-    check = interrupt_check
+    def _precheck_tool(name: str, args: dict) -> str | None:
+        if interrupt_check():
+            return finalize_fallback_tool_result(
+                name,
+                args,
+                {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
+            )
+        if guardrails and guardrails.halt_decision:
+            return finalize_fallback_tool_result(
+                name,
+                args,
+                synthetic_result(guardrails.halt_decision),
+            )
+        return None
 
     if config.enable_parallel_tools and len(response.tool_calls) > 1:
         pairs = execute_tools_parallel(
@@ -105,7 +118,8 @@ def process_tool_calls(
             _dispatch_one,
             on_start=_on_start,
             on_complete=_on_complete,
-            check_interrupt=check,
+            check_interrupt=interrupt_check,
+            precheck_tool=_precheck_tool,
         )
     else:
         pairs = []
@@ -115,7 +129,7 @@ def process_tool_calls(
                 args = tc.args_dict()
             except Exception:
                 args = {}
-            if batch_interrupted or check():
+            if batch_interrupted or interrupt_check():
                 batch_interrupted = True
                 result = finalize_fallback_tool_result(
                     tc.name,
@@ -124,11 +138,21 @@ def process_tool_calls(
                 )
                 pairs.append((tc, result))
                 continue
+            if guardrails and guardrails.halt_decision:
+                pairs.append((
+                    tc,
+                    finalize_fallback_tool_result(
+                        tc.name,
+                        args,
+                        synthetic_result(guardrails.halt_decision),
+                    ),
+                ))
+                continue
             _on_start(tc.name, args)
             result = _dispatch_one(tc.name, args)
             _on_complete(tc.name, result)
             pairs.append((tc, result))
-            if check():
+            if interrupt_check():
                 batch_interrupted = True
 
     for tc, result in pairs:
