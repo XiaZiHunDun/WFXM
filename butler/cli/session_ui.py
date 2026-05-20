@@ -61,19 +61,23 @@ class ChatSessionUI:
 
     def finish_turn(self, result: LoopResult, stream: StreamRenderer) -> None:
         self._spinner.stop()
-        stream.display()
         out = getattr(stream, "_console", None) or self.console
 
         final = (result.final_response or "").strip()
-        if final and not stream.had_body():
-            stream.emit_body(final)
+        body = stream.text.strip() or final
+        if body:
+            from rich.panel import Panel
 
-        streamed = stream.had_body()
-        if result.final_response and not streamed:
-            out.print()
-            from rich.markdown import Markdown
+            out.print(
+                Panel(
+                    body,
+                    title=stream._title,
+                    border_style="cyan",
+                    expand=False,
+                )
+            )
 
-            out.print(Markdown(result.final_response))
+        streamed = bool(body)
 
         show_reasoning = os.getenv("BUTLER_CLI_SHOW_REASONING", "").strip() in (
             "1",
