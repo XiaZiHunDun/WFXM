@@ -13,10 +13,14 @@ Transport 层和 Provider Registry 均为 Butler 自建。
    Butler Orchestrator          ← 分层配置、记忆注入、Skill 路由
          │
          ▼
-   Butler Agent Loop (自建)     ← 完全可控的 LLM 调用循环
+   Butler Agent Loop (自建)     ← 编排入口 agent_loop.py (~300 行)
          │
+         ├─→ context_pipeline   ← 压缩 / hygiene / API 消息准备
+         ├─→ llm_retry          ← LLM 重试、schema 恢复、failover
+         ├─→ tool_batch         ← 工具批次（顺序/并行、guardrails、envelope）
+         ├─→ parallel_tools     ← 并行批调度与路径冲突检测
          ├─→ Transport Layer    ← 独立的 LLM 协议转换（chat_completions / anthropic）
-         ├─→ Tool Registry      ← Butler 自建工具系统
+         ├─→ Tool Registry      ← Butler 自建工具系统 + 审计观测
          ├─→ Task Orchestrator  ← DAG 多 Agent 编排（真并行）
          └─→ Report Pipeline    ← 结构化报告 + 渐进披露
 ```
@@ -25,7 +29,7 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 
 | 维度 | v3 | v4 |
 |------|----|----|
-| Agent Loop | Hermes AIAgent (import) | Butler 自建 (~300 行) |
+| Agent Loop | Hermes AIAgent (import) | Butler 自建（编排 ~300 行 + 子模块 ~630 行）|
 | LLM 调用 | 通过 AIAgent.run_conversation | 通过 LLMClient + Transport |
 | 工具系统 | Hermes 50+ 工具 | Butler 自建 9 核心工具 |
 | 子 Agent | Hermes delegate_task (绕过 Butler) | Butler 编排器全控 |
@@ -35,13 +39,19 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 
 ## 核心模块
 
-### Butler Core (~1.2k 行)
+### Butler Core（Loop 栈 ~930 行 + 编排层）
 
 | 模块 | 路径 | 说明 |
 |------|------|------|
-| Agent Loop | `butler/core/agent_loop.py` | 自建 LLM 循环：消息构造→LLM 调用→工具分发→上下文管理 |
+| Agent Loop（编排） | `butler/core/agent_loop.py` | 主循环、`LoopResult`、fallback 切换、对外 API |
+| 上下文管线 | `butler/core/context_pipeline.py` | `ContextPipeline`：压缩摘要、hygiene preflight、API 前 repair/sanitize |
+| LLM 重试 | `butler/core/llm_retry.py` | `call_llm_with_retry`：空内容重试、schema 降级、压缩回退、中断 |
+| 工具批次 | `butler/core/tool_batch.py` | `process_tool_calls`、tool envelope、guardrails 接线、顺序中断补全 |
+| 并行工具批 | `butler/core/parallel_tools.py` | 安全并行执行、`precheck_tool`（interrupt/halt 跳过） |
+| Loop 类型 | `butler/core/loop_types.py` | `LoopConfig` / `LoopCallbacks` / `LoopResult` / `LoopStatus` |
 | Orchestrator | `butler/orchestrator.py` | 系统提示注入、模型配置、Skill 路由、AgentLoop 工厂 |
-| Task Orchestrator | `butler/task_orchestrator.py` | DAG 拓扑排序、真并行（asyncio.to_thread）、审批门控 |
+| Task Orchestrator | `butler/task_orchestrator.py` | DAG 拓扑排序、真并行（asyncio.to_thread）、委派深度、session 审计归属 |
+| Gateway Session | `butler/gateway/session_registry.py` | 按 `session_key` 管理 Loop 生命周期与 health；驱逐时清理工具审计 |
 
 ### Transport Layer (~800 行)
 
@@ -76,7 +86,14 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 |------|------|
 | `butler/core/context_compressor.py` | 五阶段上下文压缩（工具裁剪、头尾保护、LLM 摘要）|
 | `butler/core/message_repair.py` | API 前消息序列修复 |
-| `butler/core/parallel_tools.py` | 安全并行工具批 |
+| `butler/core/parallel_tools.py` | 安全并行工具批（含 halt/interrupt `precheck_tool`）|
+| `butler/core/tool_batch.py` | 工具批次执行与 JSON envelope _finalize |
+| `butler/core/llm_retry.py` | LLM 调用重试与 schema 恢复 |
+| `butler/core/context_pipeline.py` | 上下文压缩与 Gateway hygiene |
+| `butler/core/hygiene_preflight.py` | 长会话 85% token / 消息数预检压缩 |
+| `butler/core/schema_recovery.py` | 工具 schema `pattern`/`format` 剥离后重试 |
+| `butler/core/retry_policy.py` | 重试退避策略 |
+| `butler/gateway/session_registry.py` | Gateway 多会话 Loop 注册与 LRU/idle 驱逐 |
 | `butler/transport/error_classifier.py` | API 错误分类 |
 | `butler/transport/fallback.py` | Provider failover 链 |
 | `butler/transport/auxiliary_client.py` | 压缩/post-session 辅助模型 |
@@ -94,17 +111,32 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 
 完整对照见 [`docs/hermes-extraction-map.md`](hermes-extraction-map.md)。
 
-### Agent Loop 数据流（含二次提炼）
+### Agent Loop 数据流（模块化）
 
 ```
-用户消息 → sanitize_surrogates
-    → 主循环:
-        prepare: compress → repair → sanitize_api → drop_thinking_only
-        LLM: interruptible complete/stream → sanitize_response
-             → 空内容重试 / 截断续写 / failover（回合末恢复主模型）
-        工具: normalize_tool_calls → parallel/sequential → steer 注入
-    → LoopResult
+用户消息 → sanitize_surrogates (agent_loop)
+    → 主循环 (agent_loop):
+        prepare (context_pipeline):
+            compress_context → repair_message_sequence → sanitize_api → drop_thinking_only
+            → 可选 pre_llm_transform
+        LLM (llm_retry + interruptible_client):
+            complete/stream → sanitize_response
+            → 空内容重试 / schema 恢复 / 压缩回退 / failover
+        工具 (tool_batch + parallel_tools):
+            assistant tool_calls 消息
+            → guardrails before/after → dispatch (registry envelope)
+            → 并行: execute_tools_parallel + precheck_tool(halt/interrupt)
+            → 顺序: 中断/halt 后为剩余 call 补齐 tool 消息
+            → apply_steer
+        截断续写 (agent_loop + loop_response)
+    → LoopResult (+ diagnostics / tool 审计按 session_key)
 ```
+
+### Gateway 观测（`/health`）
+
+- 轮次诊断：压缩、schema 降级、Skill/记忆同步等写入 `health_by_session`
+- 工具审计：内存 deque 按 `session_key` 分桶；`/new`、session 驱逐与 registry `on_session_removed` 同步清理
+- 无轮次 health 快照时，仍展示当前 session 的工具调用/失败/错误码摘要
 
 ### Gateway 层
 
@@ -125,24 +157,29 @@ Transport 层和 Provider Registry 均为 Butler 自建。
 
 ## Agent Loop 设计
 
-Butler v4 的 Agent Loop 是系统的核心——完全自建，不依赖任何外部 agent 框架：
+Butler v4 的 Agent Loop 是系统的核心——完全自建，不依赖任何外部 agent 框架。  
+**`agent_loop.py` 仅保留编排**；压缩、重试、工具批次等逻辑在独立模块中，便于单测与演进。
 
 ```python
 while not done and iterations < budget:
-    1. 构造 messages（system + memory + skill + 对话历史）
-    2. 调用 LLM（通过 Transport 层，支持流式）
+    1. ContextPipeline.prepare_messages_for_api()
+    2. call_llm_with_retry()  # Transport + 重试/failover
     3. 解析响应：
-       a. 纯文本 → 返回给编排器
-       b. 工具调用 → 通过 Tool Registry 分发 → 结果追加到 messages
-       c. 异常 → 按策略重试/降级
-    4. 触发 callbacks（pre/post LLM、tool start/complete）
+       a. 纯文本 → 截断续写或完成
+       b. 工具调用 → process_tool_calls() → Tool Registry
+       c. 失败/中断 → LoopStatus + 审计事件
+    4. callbacks（iteration / LLM / tool）
 ```
 
+模块化约束（见 [`hermes-extraction-map.md`](hermes-extraction-map.md)）：
+- `agent_loop.py` 保持 **< 400 行**（当前 ~300 行，编排为主）
+- 新增能力优先落入 `tool_batch` / `llm_retry` / `context_pipeline` 等子模块，避免回灌单体文件
+
 核心价值：**Butler 完全控制每一步**：
-- 步骤 1 中可以自由注入/裁剪上下文
-- 步骤 2 中可以灵活切换模型（甚至根据任务类型动态选择）
-- 步骤 3b 中可以实现工具调用的 guardrails、权限控制
-- 步骤 4 中可以实现任意粒度的 hooks
+- 上下文管线可独立测试压缩与 hygiene
+- LLM 重试层统一 schema 恢复与 failover
+- 工具批次层统一 envelope、guardrails、并行 halt 提前终止
+- Gateway 层按 session 隔离 Loop、health 与审计
 
 ## 解决的设计痛点
 
@@ -155,17 +192,19 @@ while not done and iterations < budget:
 | 会话隔离 | ❌ CLI 用进程内列表 | ✅ Gateway 按 session_key |
 | Hermes 版本依赖风险 | ❌ 依赖内部 API | ✅ 仅 Gateway subprocess |
 | 结构化报告 + /detail | ❌ 占位返回 | ✅ 完整实现 |
+| 工具审计 / `/health` | ❌ 无 | ✅ session 分桶 + 生命周期对齐 |
+| Agent Loop 可维护性 | ❌ 单体 ~500+ 行 | ✅ 编排 + 4 个子模块拆分 |
 
 ## 测试覆盖
 
-505+ 项测试全部通过，覆盖：
-- Transport 层（types、registry、chat_completions、anthropic）
+**733+ passed**（默认 `pytest` 排除 8 项 `live_llm` 真实 API smoke），覆盖：
+- Transport 层（types、registry、chat_completions、anthropic、retry_utils）
 - Provider 注册表（列表、查询、别名解析）
-- Agent Loop（构造、消息管理、中断）
-- 工具系统（定义、dispatch、读写文件、终端命令、目录列表）
+- Agent Loop 栈（`test_agent_loop.py`、`test_tool_batch.py`、`test_context_pipeline.py`）
+- 工具系统（定义、dispatch、路径安全、envelope、审计）
+- Tool guardrails（线程安全、warn JSON、halt/block）
 - Orchestrator（系统提示、客户端创建、循环创建）
-- Task Orchestrator（配置字段、拓扑排序、环检测、层分组）
-- Report（新字段、缓存机制、CLI 格式化）
-- Gateway Handler（命令处理、状态查看、模型查看）
-- Agent Profiles（角色配置、模型感知提示）
-- Main CLI（命令处理、无 Hermes import 验证）
+- Task Orchestrator（DAG、委派深度、execution_context / 审计 session）
+- Gateway（`test_gateway_handler.py`、`test_gateway_session_registry.py`、hygiene）
+- Report / CLI / Session lifecycle
+- 真实 API smoke（可选）：`BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py`

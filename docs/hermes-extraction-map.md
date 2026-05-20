@@ -14,7 +14,10 @@
 
 | Butler 模块 | Hermes 参考 | 提炼内容 | 状态 |
 |-------------|-------------|----------|------|
-| `butler/core/agent_loop.py` | `run_agent.py`（片段） | guardrails 接线、并行工具、压缩入口、failover、interrupt | ✅ |
+| `butler/core/agent_loop.py` | `run_agent.py`（片段） | 主循环编排；guardrails/failover/interrupt 接线 | ✅ |
+| `butler/core/tool_batch.py` | `run_agent.py`（片段） | 工具批次、envelope、guardrails、顺序/并行 halt 跳过 | ✅ |
+| `butler/core/llm_retry.py` | `run_agent.py`（片段） | LLM 重试、schema 恢复、压缩回退 | ✅ |
+| `butler/core/context_pipeline.py` | `run_agent.py`（片段） | 压缩、hygiene、API 消息准备 | ✅ |
 | `butler/tool_guardrails.py` | `agent/tool_guardrails.py` | before/after 护栏 | ✅（已移植，已接线） |
 | `butler/core/message_repair.py` | `run_agent.py` `_repair_message_sequence` | role 交替、孤儿 tool、坏 JSON args | ✅ |
 | `butler/transport/error_classifier.py` | `agent/error_classifier.py` | 429/401/overflow 分类 | ✅ |
@@ -51,13 +54,20 @@
 | 3 工具与委派 | 并行批、interrupt、delegate 信封 | `test_hermes_extraction.py`, `test_tools_registry.py` |
 | 4 记忆/Gateway/Skills | session 边界、HookBus、skills_guard | `test_gateway_handler.py`, `test_main_cli.py` |
 
-全量测试目标：**505+ passed**（`pytest tests/`）。
+全量测试目标：**733+ passed**（默认排除 `live_llm`；`pytest tests/`）。
 
 ## 架构约束
 
-- `butler/core/agent_loop.py` 保持 **< 600 行**（当前 ~487 行，编排为主）。
+- `butler/core/agent_loop.py` 保持 **< 400 行**（当前 ~300 行，**仅编排**）。
+- Loop 实现分布在子模块（约行数，随演进浮动）：
+  - `tool_batch.py` — 工具批次与 envelope
+  - `llm_retry.py` — LLM 重试与 schema 恢复
+  - `context_pipeline.py` — 压缩与 hygiene
+  - `parallel_tools.py` — 并行调度
 - 业务逻辑不得回灌到单体 `run_agent.py` 风格文件。
 - 新增 Hermes 能力优先新建 `butler/core/*` 或 `butler/transport/*` 模块。
+
+详见 [`docs/v4-architecture.md`](v4-architecture.md) 中「Butler Core（Loop 栈）」与数据流图。
 
 ## run_agent.py 二次提炼（AIAgent L1028–L15213）
 
@@ -73,7 +83,7 @@
 | `butler/core/iteration_budget.py` | L283–L325 | 迭代预算（可选） | ✅ |
 | `butler/core/agent_loop.py` + `butler/core/loop_types.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写、Loop 公共类型 | ✅ |
 
-测试：`tests/test_run_agent_extraction.py`；全量 **505+ passed**。
+测试：`tests/test_run_agent_extraction.py`；全量 **733+ passed**（默认排除 `live_llm`）。
 
 ## CLI 提炼层（2026-05 增补）
 
@@ -123,4 +133,4 @@
 | `butler/core/context_pipeline.py` | AgentLoop 模块化（阶段 2） | 上下文压缩、hygiene preflight 与 API 消息准备抽到 `ContextPipeline` | ✅ |
 | `butler/core/parallel_tools.py` + `butler/core/tool_batch.py` | 并行批次 guardrail halt 提前终止 | halt 后通过 `precheck_tool` 跳过后续并行/顺序 dispatch，仍补齐 tool 消息 | ✅ |
 
-测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke：`pytest -m live_llm tests/test_real_api_smoke.py`（需 `BUTLER_RUN_REAL_API_SMOKE=1` 与对应 API key）；门控单测见 `tests/test_real_api_smoke_gates.py`。
+测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`、`tests/test_agent_loop.py`、`tests/test_tool_batch.py`、`tests/test_context_pipeline.py`、`tests/test_gateway_session_registry.py`。真实 API smoke：`pytest -m live_llm tests/test_real_api_smoke.py`（需 `BUTLER_RUN_REAL_API_SMOKE=1` 与对应 API key）；门控单测见 `tests/test_real_api_smoke_gates.py`。
