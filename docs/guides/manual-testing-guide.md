@@ -417,29 +417,36 @@ Butler 凭证目录：`~/.butler/wechat/accounts/`（与 Hermes 的 `~/.hermes/w
 - **不要**把 Hermes 的 json 复制到 Butler：避免混淆，也不应影响你继续用 `hermes gateway`。
 - Butler 验收应走 **Butler 自己的扫码**，写入 `~/.butler/`。
 
+**推荐：一条命令扫码（与 Hermes `wechat-setup` 同类）**
+
 ```bash
 cd ~/projects/WFXM
-set -a && source .env && set +a   # 加载 LLM 等配置
+pip install -e ".[wechat]"    # 首次需要 aiohttp、cryptography、qrcode
+set -a && source .env && set +a
 
-PYTHONPATH=. python <<'PY'
+butler wechat-setup
+# 可选：同时写入项目 .env
+butler wechat-setup --write-env
+```
+
+终端会显示二维码（或链接）；用微信扫码并在手机里确认。成功后凭证写入 `~/.butler/wechat/accounts/<account_id>.json`，并提示 `WECHAT_*` 环境变量。
+
+也可只设 `WECHAT_ACCOUNT_ID`，由网关从 accounts 目录自动读取 token。
+
+<details>
+<summary>备用：Python 直接调用 qr_login</summary>
+
+```bash
+PYTHONPATH=. python -c "
 import asyncio
 from butler.config import get_butler_home
 from butler.gateway.platforms.wechat import qr_login
-
-async def main():
-    creds = await qr_login(str(get_butler_home()))
-    if not creds:
-        raise SystemExit("登录失败或超时")
-    print("\n请写入 .env（或仅设 ACCOUNT_ID，token 已从 ~/.butler/wechat/accounts/ 持久化）：")
-    print(f"WECHAT_ACCOUNT_ID={creds['account_id']}")
-    print(f"WECHAT_TOKEN={creds['token']}")
-    print(f"WECHAT_BASE_URL={creds.get('base_url', 'https://ilinkai.weixin.qq.com')}")
-
-asyncio.run(main())
-PY
+creds = asyncio.run(qr_login(str(get_butler_home())))
+print(creds)
+"
 ```
 
-扫码成功后可将 `WECHAT_ACCOUNT_ID` / `WECHAT_TOKEN` 写入 `.env`；也可只设 `WECHAT_ACCOUNT_ID`，由适配器从 `~/.butler/wechat/accounts/<id>.json` 读取 token。
+</details>
 
 ### 3.3 启动网关
 

@@ -456,6 +456,106 @@ def _cmd_create(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _print_wechat_setup_success(creds: dict[str, str]) -> None:
+    """Human-readable next steps after QR login."""
+    account_id = creds["account_id"]
+    token = creds["token"]
+    base_url = creds.get("base_url") or "https://ilinkai.weixin.qq.com"
+    print("\n微信 iLink 绑定成功。")
+    print(f"  Account ID: {account_id}")
+    print(f"  Base URL:   {base_url}")
+    print(f"\n凭证已写入 ~/.butler/wechat/accounts/{account_id}.json")
+    print("\n启动网关:")
+    print("  butler gateway")
+    print("  # 或: systemctl --user restart butler-gateway.service")
+    print("\n可将以下内容加入项目 .env（也可只设 WECHAT_ACCOUNT_ID，token 会从 accounts 目录读取）:")
+    print(f"WECHAT_ACCOUNT_ID={account_id}")
+    print(f"WECHAT_TOKEN={token}")
+    if base_url != "https://ilinkai.weixin.qq.com":
+        print(f"WECHAT_BASE_URL={base_url}")
+    print("\n勿与 Hermes 共用同一 Bot；Hermes 凭证在 ~/.hermes/，Butler 在 ~/.butler/。")
+
+
+def _merge_wechat_env_file(env_path: Path, creds: dict[str, str]) -> None:
+    """Upsert WECHAT_* lines in a dotenv file."""
+    base_url = creds.get("base_url") or "https://ilinkai.weixin.qq.com"
+    updates = {
+        "WECHAT_ACCOUNT_ID": creds["account_id"],
+        "WECHAT_TOKEN": creds["token"],
+        "WEIXIN_ACCOUNT_ID": creds["account_id"],
+        "WEIXIN_TOKEN": creds["token"],
+    }
+    if base_url != "https://ilinkai.weixin.qq.com":
+        updates["WECHAT_BASE_URL"] = base_url
+        updates["WEIXIN_BASE_URL"] = base_url
+
+    lines: list[str] = []
+    if env_path.exists():
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for line in lines:
+        key = line.split("=", 1)[0].strip() if "=" in line and not line.lstrip().startswith("#") else ""
+        if key in updates:
+            if key not in seen:
+                out.append(f"{key}={updates[key]}")
+                seen.add(key)
+            continue
+        out.append(line)
+
+    for key, value in updates.items():
+        if key not in seen:
+            out.append(f"{key}={value}")
+
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+    print(f"\n已更新 {env_path}")
+
+
+def _cmd_wechat_setup(ns: argparse.Namespace) -> int:
+    """Interactive WeChat iLink QR login (Hermes-style setup wizard)."""
+    import asyncio
+
+    from butler.config import get_butler_home
+    from butler.gateway.platforms.wechat import check_wechat_requirements, qr_login
+
+    if not check_wechat_requirements():
+        print(
+            "微信扫码需要可选依赖: pip install -e \".[wechat]\"",
+            file=sys.stderr,
+        )
+        return 1
+
+    async def _run() -> dict[str, str] | None:
+        return await qr_login(
+            str(get_butler_home()),
+            bot_type=str(getattr(ns, "bot_type", "3") or "3"),
+            timeout_seconds=int(getattr(ns, "timeout", 480) or 480),
+        )
+
+    try:
+        creds = asyncio.run(_run())
+    except KeyboardInterrupt:
+        print("\n已取消。", file=sys.stderr)
+        return 130
+
+    if not creds:
+        print("登录失败或超时。", file=sys.stderr)
+        return 1
+
+    _print_wechat_setup_success(creds)
+
+    write_env = getattr(ns, "write_env", None)
+    if write_env is not None:
+        env_path = Path(write_env) if str(write_env).strip() else _REPO_ROOT / ".env"
+        if not env_path.is_absolute():
+            env_path = (_REPO_ROOT / env_path).resolve()
+        _merge_wechat_env_file(env_path, creds)
+
+    return 0
+
+
 def _cmd_gateway(ns: argparse.Namespace) -> int:
     """Start WeChat-only Butler gateway (iLink)."""
     os.environ["BUTLER_GATEWAY_ACTIVE"] = "1"
@@ -512,6 +612,31 @@ def _build_parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,
     )
     gw.set_defaults(func=_cmd_gateway)
+
+    wx = sub.add_parser(
+        "wechat-setup",
+        help="微信 iLink 扫码绑定 Bot（保存到 ~/.butler/wechat/accounts/）",
+    )
+    wx.add_argument(
+        "--timeout",
+        type=int,
+        default=480,
+        help="扫码等待秒数（默认 480）",
+    )
+    wx.add_argument(
+        "--bot-type",
+        default="3",
+        help="iLink bot_type 参数（默认 3）",
+    )
+    wx.add_argument(
+        "--write-env",
+        nargs="?",
+        const=".env",
+        default=None,
+        metavar="PATH",
+        help="将 WECHAT_ACCOUNT_ID/WECHAT_TOKEN 写入 .env（默认项目根 .env）",
+    )
+    wx.set_defaults(func=_cmd_wechat_setup)
 
     return p
 

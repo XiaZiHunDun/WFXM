@@ -39,7 +39,7 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 |--------|------|
 | 网关 `active` | ☑ |
 | `MINIMAX_API_KEY` 已配置 | ☑ |
-| 微信凭证在 `~/.butler/wechat/accounts/`（勿与 Hermes 抢 Bot） | ☑ |
+| 微信凭证在 `~/.butler/wechat/accounts/`（首次绑定：`butler wechat-setup`） | ☑ |
 | pytest 上述三条全绿 | ☑ |
 
 ---
