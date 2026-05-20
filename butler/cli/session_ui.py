@@ -61,10 +61,14 @@ class ChatSessionUI:
 
     def finish_turn(self, result: LoopResult, stream: StreamRenderer) -> None:
         self._spinner.stop()
-        stream.on_delta(None)
+        stream.display()
         out = getattr(stream, "_console", None) or self.console
 
-        streamed = bool(stream.text.strip())
+        final = (result.final_response or "").strip()
+        if final and not stream.had_body():
+            stream.emit_body(final)
+
+        streamed = stream.had_body()
         if result.final_response and not streamed:
             out.print()
             from rich.markdown import Markdown

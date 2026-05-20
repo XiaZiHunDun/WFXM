@@ -12,10 +12,11 @@ if TYPE_CHECKING:
 
 
 class StreamRenderer:
-    """Buffers stream tokens, prints line-by-line inside a light box.
+    """Buffers assistant stream text and renders a plain box after the turn.
 
-    Uses plain ``stderr`` writes (no Rich ANSI) so output stays readable under
-    ``prompt_toolkit.patch_stdout`` and in terminals that mishandle escape codes.
+    Tokens are accumulated during ``patch_stdout()`` (no live stderr writes).
+    ``display()`` flushes the box once, outside the patched stdout window, so
+    prompt_toolkit cannot corrupt or erase streamed lines.
     """
 
     def __init__(
@@ -29,12 +30,15 @@ class StreamRenderer:
         self._out: TextIO = output or sys.stderr
         self._title = title
         self._open = False
-        self._line_buf = ""
-        self._full_text: list[str] = []
+        self._displayed = False
+        self._buffer = ""
 
     @property
     def text(self) -> str:
-        return "".join(self._full_text) + self._line_buf
+        return self._buffer
+
+    def had_body(self) -> bool:
+        return bool(self._buffer.strip())
 
     def _writeln(self, text: str) -> None:
         self._out.write(text + "\n")
@@ -48,36 +52,48 @@ class StreamRenderer:
         pad = max(0, 48 - len(label))
         self._writeln(f"╭─ {label} ─{'─' * pad}")
 
+    def _close_box(self) -> None:
+        if not self._open:
+            return
+        self._writeln(f"╰{'─' * 52}")
+        self._open = False
+
+    def display(self) -> None:
+        """Render buffered text once (safe to call outside patch_stdout)."""
+        if self._displayed:
+            return
+        self._displayed = True
+
+        body = self._buffer.strip()
+        if not body:
+            self._open = False
+            return
+
+        self._open_box()
+        for line in body.splitlines():
+            if line.strip():
+                self._writeln(f"│ {line}")
+        self._close_box()
+
+    def emit_body(self, content: str) -> None:
+        """Fallback when streaming produced no visible body (e.g. thinking-only stream)."""
+        text = (content or "").strip()
+        if not text:
+            return
+        self._displayed = False
+        self._open = False
+        self._buffer = text
+        self.display()
+
     def on_delta(self, delta: str | None) -> None:
         if delta is None:
-            self.close()
+            self.display()
             return
         if not delta:
             return
         cleaned = sanitize_stream_delta(delta)
-        if not cleaned:
-            return
-        self._full_text.append(cleaned)
-        self._open_box()
-        self._line_buf += cleaned
-        while "\n" in self._line_buf:
-            line, self._line_buf = self._line_buf.split("\n", 1)
-            if not line.strip():
-                continue
-            self._writeln(f"│ {line}")
+        if cleaned:
+            self._buffer += cleaned
 
     def close(self) -> None:
-        if not self._open:
-            if self._line_buf:
-                self._full_text.append(self._line_buf)
-                self._line_buf = ""
-            return
-        if self._line_buf.strip():
-            self._writeln(f"│ {self._line_buf}")
-            self._full_text.append(self._line_buf)
-            self._line_buf = ""
-        elif self._line_buf:
-            self._full_text.append(self._line_buf)
-            self._line_buf = ""
-        self._writeln(f"╰{'─' * 52}")
-        self._open = False
+        self.display()
