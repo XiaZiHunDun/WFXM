@@ -5,28 +5,22 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
-from butler.core.context_compressor import _estimate_tokens, compress_messages
-from butler.core.delegate_context import child_callbacks, set_parent_callbacks
+from butler.core.context_pipeline import ContextPipeline
+from butler.core.delegate_context import set_parent_callbacks
 from butler.core.llm_retry import call_llm_with_retry
 from butler.core.loop_response import (
     needs_truncation_continue,
     truncation_continue_message,
 )
 from butler.core.loop_types import LoopCallbacks, LoopConfig, LoopResult, LoopStatus
-from butler.core.hygiene_preflight import run_hygiene_preflight
-from butler.core.message_repair import repair_message_sequence, repair_tool_arguments
-from butler.core.message_sanitize import (
-    drop_thinking_only_assistants,
-    sanitize_api_messages,
-    sanitize_surrogates,
-)
+from butler.core.message_sanitize import sanitize_surrogates
 from butler.core.tool_batch import dispatch_tool_with_envelope, process_tool_calls
 from butler.tool_guardrails import ToolCallGuardrailController
 from butler.tools.interrupt import clear_interrupt, is_interrupted, set_interrupt
 from butler.core.steer import clear_steer
-from butler.transport.fallback import FallbackEntry, build_fallback_chain, create_client_from_entry
+from butler.transport.fallback import FallbackEntry, create_client_from_entry
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse
 
@@ -58,7 +52,7 @@ class AgentLoop:
         self._total_tokens = 0
         self._tool_calls_count = 0
         self._guardrails = ToolCallGuardrailController() if self.config.enable_guardrails else None
-        self._compression_summary = ""
+        self._context = ContextPipeline(self.config)
         self._thread_id: int | None = None
         self._fallback_chain: list[FallbackEntry] = list(self.config.fallback_entries or [])
         self._fallback_index = 0
@@ -66,6 +60,14 @@ class AgentLoop:
         self._empty_retries = 0
         self._truncation_retries = 0
         self.diagnostics: dict[str, Any] = {}
+
+    @property
+    def _compression_summary(self) -> str:
+        return self._context.compression_summary
+
+    @_compression_summary.setter
+    def _compression_summary(self, value: str) -> None:
+        self._context.compression_summary = value
 
     def interrupt(self) -> None:
         self._interrupted = True
@@ -185,7 +187,7 @@ class AgentLoop:
             self._fallback_index = 0
 
     def _estimate_tokens(self, messages: list[dict]) -> int:
-        return _estimate_tokens(messages)
+        return self._context.estimate_tokens(messages)
 
     def _compress_context(
         self,
@@ -197,19 +199,14 @@ class AgentLoop:
         max_tail_messages: int = 12,
         min_tail_messages: int = 4,
     ) -> list[dict]:
-        compressed, summary, did = compress_messages(
+        return self._context.compress_context(
             messages,
-            max_tokens=self.config.max_context_tokens,
             threshold_ratio=threshold_ratio,
-            previous_summary=self._compression_summary,
             min_messages_to_compress=min_messages_to_compress,
             head_count=head_count,
             max_tail_messages=max_tail_messages,
             min_tail_messages=min_tail_messages,
         )
-        if did and summary:
-            self._compression_summary = summary
-        return compressed
 
     def hygiene_compress_if_needed(
         self,
@@ -218,38 +215,21 @@ class AgentLoop:
         hard_message_limit: int = 400,
     ) -> bool:
         """Preflight compression for long-lived gateway sessions."""
-        messages = list(self._messages)
-        result = run_hygiene_preflight(
-            messages,
-            max_context_tokens=self.config.max_context_tokens,
-            diagnostics=self.diagnostics,
-            estimate_tokens=self._estimate_tokens,
-            compress=self._compress_context,
+        compressed, messages = self._context.hygiene_compress_if_needed(
+            self._messages,
+            self.diagnostics,
             threshold_ratio=threshold_ratio,
             hard_message_limit=hard_message_limit,
         )
-        if not result.compressed:
-            return False
-
-        self._messages[:] = result.messages
-        logger.info(
-            "Gateway hygiene compressed %d->%d messages (~%d tokens, threshold=%d)",
-            len(messages),
-            len(result.messages),
-            self.diagnostics.get("hygiene_estimated_tokens", 0),
-            self.diagnostics.get("hygiene_threshold_tokens", 0),
-        )
-        return True
+        if compressed:
+            self._messages[:] = messages
+        return compressed
 
     def _prepare_messages_for_api(self) -> list[dict]:
-        messages = self._compress_context(list(self._messages))
-        messages, _ = repair_message_sequence(messages)
-        repair_tool_arguments(messages)
-        messages, _ = sanitize_api_messages(messages)
-        messages, _ = drop_thinking_only_assistants(messages)
-        if self.callbacks.pre_llm_transform:
-            messages = self.callbacks.pre_llm_transform(messages)
-        return messages
+        return self._context.prepare_messages_for_api(
+            self._messages,
+            pre_llm_transform=self.callbacks.pre_llm_transform,
+        )
 
     def _try_activate_fallback(self) -> bool:
         if not self._fallback_chain or self._fallback_index >= len(self._fallback_chain) - 1:

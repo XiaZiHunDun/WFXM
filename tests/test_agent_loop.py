@@ -705,7 +705,9 @@ class TestAgentLoopContext:
         )
         loop.messages = [{"role": "user", "content": "short"} for _ in range(20)]
 
-        with patch.object(loop, "_compress_context", wraps=loop._compress_context) as compress:
+        with patch.object(
+            loop._context, "compress_context", wraps=loop._context.compress_context
+        ) as compress:
             did = loop.hygiene_compress_if_needed()
 
         assert did is False
@@ -738,7 +740,7 @@ class TestAgentLoopContext:
         loop.messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
         compressed = [{"role": "user", "content": "summary"}]
 
-        with patch.object(loop, "_compress_context", return_value=compressed) as compress:
+        with patch.object(loop._context, "compress_context", return_value=compressed) as compress:
             did = loop.hygiene_compress_if_needed()
 
         assert did is True

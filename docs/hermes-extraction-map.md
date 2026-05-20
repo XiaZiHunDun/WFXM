@@ -120,5 +120,6 @@
 | `tests/test_real_api_smoke.py` | 真实 API smoke | DeepSeek/MiniMax/Qwen 直连与 AgentLoop 完成/工具回路；`live_llm` + `BUTLER_RUN_REAL_API_SMOKE=1` 门控 | ✅ |
 | `butler/gateway/message_handler.py` | `/health` 工具摘要兜底 | 无轮次 health 快照时仍展示当前 session 的工具审计摘要 | ✅ |
 | `butler/core/tool_batch.py` + `butler/core/llm_retry.py` | AgentLoop 模块化（阶段 1） | 工具批次执行与 LLM 重试逻辑从 `agent_loop.py` 抽出，行为保持不变 | ✅ |
+| `butler/core/context_pipeline.py` | AgentLoop 模块化（阶段 2） | 上下文压缩、hygiene preflight 与 API 消息准备抽到 `ContextPipeline` | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke：`pytest -m live_llm tests/test_real_api_smoke.py`（需 `BUTLER_RUN_REAL_API_SMOKE=1` 与对应 API key）；门控单测见 `tests/test_real_api_smoke_gates.py`。
