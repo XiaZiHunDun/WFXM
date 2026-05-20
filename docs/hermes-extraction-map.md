@@ -118,5 +118,6 @@
 | `butler/execution_context.py` + `butler/task_orchestrator.py` + `butler/tools/registry.py` | 无 execution_context 路径审计归属 | TaskOrchestrator spawn 始终绑定 session（继承宿主 / `config.session_key` / `task:{id}`）；审计空 key 回退 `unscoped` | ✅ |
 
 | `tests/test_real_api_smoke.py` | 真实 API smoke | DeepSeek/MiniMax/Qwen 直连与 AgentLoop 完成/工具回路；`live_llm` + `BUTLER_RUN_REAL_API_SMOKE=1` 门控 | ✅ |
+| `butler/gateway/message_handler.py` | `/health` 工具摘要兜底 | 无轮次 health 快照时仍展示当前 session 的工具审计摘要 | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke：`pytest -m live_llm tests/test_real_api_smoke.py`（需 `BUTLER_RUN_REAL_API_SMOKE=1` 与对应 API key）；门控单测见 `tests/test_real_api_smoke_gates.py`。

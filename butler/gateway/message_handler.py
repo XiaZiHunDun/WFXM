@@ -243,48 +243,57 @@ class ButlerMessageHandler:
 
     def _format_health_summary(self, session_key: str = "default") -> str:
         health = self.last_health_summary(session_key)
-        if not health:
+        tool_summary = _tool_audit_summary(session_key)
+
+        if not health and not tool_summary["total"]:
             return "暂无诊断信息。"
 
-        loop_health = health.get("loop") if isinstance(health.get("loop"), dict) else {}
-        memory_sync = health.get("memory_sync") if isinstance(health.get("memory_sync"), dict) else {}
+        if health:
+            loop_health = health.get("loop") if isinstance(health.get("loop"), dict) else {}
+            memory_sync = health.get("memory_sync") if isinstance(health.get("memory_sync"), dict) else {}
 
-        schema_recovered = bool(
-            health.get("schema_recovered") or loop_health.get("schema_recovered")
-        )
-        schema_keywords = (
-            health.get("schema_keywords_stripped")
-            or loop_health.get("schema_keywords_stripped")
-            or 0
-        )
-        skill_matches = health.get("skill_matches") or []
-        if not isinstance(skill_matches, list):
-            skill_matches = [str(skill_matches)]
+            schema_recovered = bool(
+                health.get("schema_recovered") or loop_health.get("schema_recovered")
+            )
+            schema_keywords = (
+                health.get("schema_keywords_stripped")
+                or loop_health.get("schema_keywords_stripped")
+                or 0
+            )
+            skill_matches = health.get("skill_matches") or []
+            if not isinstance(skill_matches, list):
+                skill_matches = [str(skill_matches)]
 
-        lines = [
-            "Butler 诊断",
-            f"会话: {health.get('session_key') or session_key}",
-            f"平台: {health.get('platform') or '-'}",
-            f"压缩: {'是' if health.get('hygiene_compressed') else '否'}",
-            f"Schema 降级: {'是' if schema_recovered else '否'}",
-            f"剥离关键字: {schema_keywords}",
-            f"Skill: {'已注入' if health.get('skill_context_injected') else '未注入'}",
-            f"命中 Skill: {', '.join(str(s) for s in skill_matches) if skill_matches else '-'}",
-            f"记忆上下文: {'已注入' if health.get('memory_context_injected') else '未注入'}",
-            f"记忆同步: {'已同步' if not memory_sync.get('skipped', True) else '跳过'}",
-            f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
-        ]
-        tool_summary = _tool_audit_summary(session_key)
+            lines = [
+                "Butler 诊断",
+                f"会话: {health.get('session_key') or session_key}",
+                f"平台: {health.get('platform') or '-'}",
+                f"压缩: {'是' if health.get('hygiene_compressed') else '否'}",
+                f"Schema 降级: {'是' if schema_recovered else '否'}",
+                f"剥离关键字: {schema_keywords}",
+                f"Skill: {'已注入' if health.get('skill_context_injected') else '未注入'}",
+                f"命中 Skill: {', '.join(str(s) for s in skill_matches) if skill_matches else '-'}",
+                f"记忆上下文: {'已注入' if health.get('memory_context_injected') else '未注入'}",
+                f"记忆同步: {'已同步' if not memory_sync.get('skipped', True) else '跳过'}",
+                f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
+            ]
+            if health.get("error"):
+                lines.append("错误: 有（查看日志）")
+            if health.get("hygiene_error"):
+                lines.append("压缩错误: 有（查看日志）")
+        else:
+            lines = [
+                "Butler 诊断",
+                f"会话: {session_key}",
+                "轮次诊断: 暂无（本会话尚无完整对话轮次）",
+            ]
+
         if tool_summary["total"]:
             lines.extend([
                 f"工具调用: {tool_summary['total']}",
                 f"工具失败: {tool_summary['failed']}",
                 f"工具错误码: {', '.join(tool_summary['codes']) if tool_summary['codes'] else '-'}",
             ])
-        if health.get("error"):
-            lines.append("错误: 有（查看日志）")
-        if health.get("hygiene_error"):
-            lines.append("压缩错误: 有（查看日志）")
         return "\n".join(lines)
 
     def _format_response(self, result: LoopResult, platform: str) -> str:

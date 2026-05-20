@@ -92,6 +92,23 @@ class TestSlashCommands:
         assert handler._handle_command("/health") == "暂无诊断信息。"
         assert handler._handle_command("/诊断") == "暂无诊断信息。"
 
+    def test_health_shows_tool_audit_without_health_snapshot(self, handler):
+        from butler.tools.registry import dispatch_tool, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        with use_execution_context(handler._orchestrator, session_key="default"):
+            dispatch_tool("missing_tool", {})
+
+        text = handler._handle_command("/health")
+
+        assert "Butler 诊断" in text
+        assert "会话: default" in text
+        assert "轮次诊断: 暂无" in text
+        assert "工具调用: 1" in text
+        assert "工具失败: 1" in text
+        assert "TOOL_NOT_FOUND" in text
+        assert "压缩:" not in text
+
     def test_health_formats_latest_summary(self, handler):
         handler._health_by_session["default"] = {
             "session_key": "default",
