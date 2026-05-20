@@ -27,7 +27,9 @@ def wechat_response_text(
     max_length: int = 2000,
 ) -> str:
     """Pick compact delegate report or plain assistant text for WeChat."""
-    report = get_last_report()
+    from butler.execution_context import get_current_session_key
+
+    report = get_last_report(get_current_session_key())
     if report and turn_used_delegate_task(result):
         text = format_for_wechat(report)
     elif result.final_response:

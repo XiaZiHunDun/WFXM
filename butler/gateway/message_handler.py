@@ -15,7 +15,7 @@ import os
 from typing import Any, Optional
 
 from butler.orchestrator import ButlerOrchestrator
-from butler.session_keys import normalize_session_key
+from butler.session_keys import chat_id_from_session_key, normalize_session_key
 from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopConfig, LoopResult, LoopStatus
 from butler.session_lifecycle import (
     attach_turn_memory_prefetch,
@@ -51,10 +51,14 @@ class ButlerMessageHandler:
         self._health_by_session: dict[str, dict[str, Any]] = self._session_registry.health_by_session
 
     def _create_loop_for_session(self, session_key: str) -> AgentLoop:
-        del session_key
+        pm = self._orchestrator.project_manager
+        project = pm.get_current(session_key=session_key)
+        from butler.tools.project_tools import get_tool_definitions_for_project
+
+        tools = get_tool_definitions_for_project(project, role="butler")
         return self._orchestrator.create_agent_loop(
             role="butler",
-            tools=get_current_project_tools(role="butler"),
+            tools=tools,
             tool_dispatcher=dispatch_tool,
         )
 
@@ -74,8 +78,12 @@ class ButlerMessageHandler:
         external_id: str | None = None,
         session_key: str | None = None,
     ) -> str:
-        """Resolve ``platform:chat_id:project`` from external id and current project."""
-        project = self._orchestrator.project_manager.current_project or ""
+        """Resolve ``platform:chat_id:project`` from external id and per-chat project."""
+        pm = self._orchestrator.project_manager
+        cid = str(external_id or "").strip()
+        if not cid and session_key:
+            cid = chat_id_from_session_key(session_key)
+        project = pm.get_project_name_for_chat(platform=platform, chat_id=cid or "default")
         return normalize_session_key(
             platform=platform,
             external_id=external_id,
@@ -261,7 +269,9 @@ class ButlerMessageHandler:
                     exc,
                     exc_info=True,
                 )
-                return f"处理失败: {exc}"
+                from butler.gateway.user_errors import format_gateway_user_error
+
+                return format_gateway_user_error(exc)
 
     def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
         """Return the latest best-effort runtime diagnostics for a session."""
@@ -283,7 +293,9 @@ class ButlerMessageHandler:
             projects = self._orchestrator.project_manager.list_projects()
             if not projects:
                 return "暂无项目。"
-            current = self._orchestrator.project_manager.current_project
+            current = self._orchestrator.project_manager.resolve_active_project_name(
+                session_key=session_key,
+            )
             lines = []
             for p in sorted(projects, key=lambda x: x.name):
                 mark = "* " if p.name == current else "  "
@@ -293,13 +305,18 @@ class ButlerMessageHandler:
         if cmd in ("/switch", "/切换"):
             if not arg:
                 return "用法: /switch <项目名称>"
-            ok = self._orchestrator.project_manager.switch_project(arg)
+            parts = session_key.split(":", 2)
+            plat = parts[0] if parts else platform
+            cid = parts[1] if len(parts) > 1 else "default"
+            pm = self._orchestrator.project_manager
+            ok = pm.switch_project_for_chat(platform=plat, chat_id=cid, name=arg)
             if ok:
+                new_name = pm.get_project_name_for_chat(platform=plat, chat_id=cid)
                 return (
-                    f"已切换到项目: {self._orchestrator.project_manager.current_project}\n"
-                    "（独立对话历史；可发 /工作流 list 查看工作流。）"
+                    f"已切换到项目: {new_name}\n"
+                    "（本会话独立历史；下一条消息起使用新项目上下文。）"
                 )
-            return f"未找到项目: {arg}"
+            return f"未找到项目: {arg}（名称需精确或唯一匹配）"
 
         if cmd in ("/model", "/模型"):
             if not arg:
@@ -320,14 +337,19 @@ class ButlerMessageHandler:
                 else:
                     cfg = ModelConfig(model=model_spec)
                 self._orchestrator._settings.set_runtime_model_override(role_name, cfg)
-                self._session_registry.reset_all()
-                _reset_tool_audit_events()
-                return f"已设置 {role_name} → {model_spec}"
+                self._session_registry.reset(session_key)
+                _reset_tool_audit_events(session_key)
+                return f"已设置 {role_name} → {model_spec}（已重置当前会话 Loop）"
             return "用法: /model <角色> <provider/model>"
 
         if cmd in ("/status", "/状态"):
             s = self._orchestrator._settings
-            current = self._orchestrator.project_manager.current_project or "(无)"
+            current = (
+                self._orchestrator.project_manager.resolve_active_project_name(
+                    session_key=session_key,
+                )
+                or "(无)"
+            )
             return (
                 f"Butler 状态\n"
                 f"  管家: {s.butler_name}\n"
@@ -342,13 +364,16 @@ class ButlerMessageHandler:
             self._session_registry.reset(session_key)
             _reset_tool_audit_events(session_key)
             clear_session_boundary_memory(self._orchestrator, session_key)
+            from butler.report import clear_report_cache
+
+            clear_report_cache(session_key)
             return "已清空对话历史。"
 
         if cmd in ("/detail", "/详细"):
             from butler.report import get_last_report, format_detail
             from butler.report_format import parse_detail_section
 
-            report = get_last_report()
+            report = get_last_report(session_key)
             if report:
                 return format_detail(report, section=parse_detail_section(arg))
             return "暂无可展示的详细报告。"

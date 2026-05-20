@@ -16,8 +16,9 @@ def handle_workflow_command(
     platform: str = "",
 ) -> str:
     """Parse ``/workflow`` / ``/工作流`` and return response text."""
-    project = orchestrator.project_manager.get_current()
-    current_name = orchestrator.project_manager.current_project or ""
+    pm = orchestrator.project_manager
+    project = pm.get_current(session_key=session_key)
+    current_name = pm.resolve_active_project_name(session_key=session_key) or ""
     if project is None:
         return (
             "当前未选择项目，无法列出工作流。\n"

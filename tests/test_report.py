@@ -7,6 +7,7 @@ from butler.report import (
     AgentReport,
     Change,
     cache_report,
+    clear_report_cache,
     format_detail,
     format_for_butler_tool_result,
     format_for_cli,
@@ -17,9 +18,9 @@ from butler.report import (
 
 @pytest.fixture(autouse=True)
 def _clear_report_cache():
-    report_mod._last_report = None
+    report_mod.clear_report_cache()
     yield
-    report_mod._last_report = None
+    report_mod.clear_report_cache()
 
 
 @pytest.mark.unit
@@ -115,3 +116,12 @@ class TestReportCache:
         cached = get_last_report()
         assert cached is sample_report
         assert cached.headline == sample_report.headline
+
+    def test_cache_isolated_by_session_key(self, sample_report):
+        clear_report_cache()
+        other = AgentReport(headline="other session")
+        cache_report(sample_report, session_key="wechat:user1:alpha")
+        cache_report(other, session_key="wechat:user2:beta")
+        assert get_last_report("wechat:user1:alpha") is sample_report
+        assert get_last_report("wechat:user2:beta") is other
+        assert get_last_report("wechat:user1:alpha").headline != other.headline

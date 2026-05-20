@@ -143,7 +143,11 @@ class TestWechatCoreScenarioStep6:
 
         _setup_projects(tmp_path, monkeypatch)
         handler = ButlerMessageHandler(channel="gateway")
-        handler._orchestrator.project_manager.switch_project("test-project")
+        handler._orchestrator.project_manager.switch_project_for_chat(
+            platform="wechat",
+            chat_id="core-step7",
+            name="test-project",
+        )
         sk = build_session_key(platform="wechat", chat_id="core-step7", project="test-project")
 
         sync_turn_memory(
@@ -155,9 +159,18 @@ class TestWechatCoreScenarioStep6:
         )
         handler.handle_message("/new", platform="wechat", external_id="core-step7")
 
-        ctx = prefetch_turn_memory(
-            handler._orchestrator,
-            "当前是什么项目？",
-        )
+        from butler.execution_context import use_execution_context
+
+        with use_execution_context(handler._orchestrator, session_key=sk):
+            ctx = prefetch_turn_memory(
+                handler._orchestrator,
+                "当前是什么项目？",
+            )
         assert "wechat-only-secret-42" not in ctx
-        assert "test-project" in ctx or handler._orchestrator.project_manager.current_project == "test-project"
+        assert (
+            "test-project" in ctx
+            or handler._orchestrator.project_manager.get_project_name_for_chat(
+                platform="wechat", chat_id="core-step7",
+            )
+            == "test-project"
+        )

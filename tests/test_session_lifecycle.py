@@ -19,6 +19,7 @@ from butler.session_lifecycle import (
 def _orch() -> MagicMock:
     orch = MagicMock()
     orch.project_manager.current_project = "proj"
+    orch.project_manager.resolve_active_project_name.return_value = "proj"
     orch.butler_memory.get_system_context.return_value = "global memory"
     orch.butler_memory.experience.search.return_value = [
         {"project": "proj", "content": "use pytest -q"}

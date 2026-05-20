@@ -34,6 +34,17 @@ def _filter_ephemeral_experience(hits: list[dict[str, Any]]) -> list[dict[str, A
 
 def _current_project(orchestrator: Any) -> str:
     pm = getattr(orchestrator, "project_manager", None)
+    if pm is None:
+        return ""
+    session_key = ""
+    try:
+        from butler.execution_context import get_current_session_key
+
+        session_key = str(get_current_session_key() or "").strip()
+    except Exception:
+        session_key = ""
+    if hasattr(pm, "resolve_active_project_name"):
+        return str(pm.resolve_active_project_name(session_key=session_key) or "")
     return str(getattr(pm, "current_project", "") or "")
 
 
@@ -254,7 +265,7 @@ def trigger_session_end(orchestrator: Any, agent_loop: Any | None) -> dict[str, 
             )
         return result
     except Exception as exc:
-        logger.debug("Session end processing failed: %s", exc)
+        logger.warning("Session end processing failed: %s", exc)
         return {"skipped": True, "reason": "error", "error": str(exc)}
 
 
@@ -298,7 +309,7 @@ def sync_turn_memory(
                     provider_synced = True
                 except Exception as exc:
                     provider_error = str(exc)
-                    logger.debug("Provider memory sync skipped: %s", exc)
+                    logger.warning("Provider memory sync failed: %s", exc)
         result = {
             "skipped": False,
             "experience_updates": updates,
@@ -308,5 +319,5 @@ def sync_turn_memory(
             result["provider_error"] = provider_error
         return result
     except Exception as exc:
-        logger.debug("Memory sync skipped: %s", exc)
+        logger.warning("Memory sync failed: %s", exc)
         return {"skipped": True, "reason": "error", "error": str(exc), "experience_updates": 0}

@@ -70,3 +70,19 @@ class TestProjectManagerSwitch:
         pm = ProjectManager()
         assert pm.switch_project("missing") is False
         assert pm.current_project == ""
+
+    def test_switch_ambiguous_substring_returns_false(self, projects_dir):
+        _write_project(projects_dir, "novel-a", name="novel-alpha")
+        _write_project(projects_dir, "novel-b", name="novel-beta")
+        pm = ProjectManager()
+        assert pm.switch_project("novel") is False
+
+    def test_switch_project_for_chat_isolated(self, projects_dir):
+        _write_project(projects_dir, "A", name="Alpha")
+        _write_project(projects_dir, "B", name="Beta")
+        pm = ProjectManager()
+        assert pm.switch_project_for_chat(platform="wechat", chat_id="u1", name="Alpha")
+        assert pm.switch_project_for_chat(platform="wechat", chat_id="u2", name="Beta")
+        assert pm.get_project_name_for_chat(platform="wechat", chat_id="u1") == "Alpha"
+        assert pm.get_project_name_for_chat(platform="wechat", chat_id="u2") == "Beta"
+        assert pm.current_project == ""

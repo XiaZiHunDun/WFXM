@@ -288,8 +288,9 @@ class TestSlashCommands:
         sk = build_session_key(platform="test", chat_id="default", project="test-project")
         text = handler_with_project._handle_command("/switch test-project", session_key=sk)
         assert "已切换到项目" in text
-        assert "独立对话" in text
-        assert handler_with_project._orchestrator.project_manager.current_project == "test-project"
+        assert "本会话" in text
+        pm = handler_with_project._orchestrator.project_manager
+        assert pm.get_project_name_for_chat(platform="test", chat_id="default") == "test-project"
 
     def test_new_clears_sessions_message(self, handler, mock_loop):
         handler._sessions["default"] = mock_loop
@@ -338,12 +339,21 @@ class TestSlashCommands:
                 changes=[
                     Change(file="docs/wechat-smoke.md", action="created", description=""),
                 ],
-            )
+            ),
+            session_key="wechat:s1:_",
         )
         with patch.object(handler, "_get_or_create_loop") as mock_get:
-            text = handler.handle_message("详细", session_key="s1", platform="wechat")
+            text = handler.handle_message("详细", session_key="wechat:s1:_", platform="wechat")
         mock_get.assert_not_called()
         assert "wechat-smoke.md" in text
+
+    def test_detail_report_scoped_to_session(self, handler):
+        clear_report_cache()
+        cache_report(AgentReport(headline="report-for-u1"), session_key="wechat:u1:_")
+        cache_report(AgentReport(headline="report-for-u2"), session_key="wechat:u2:_")
+        text = handler.handle_message("/详细", session_key="wechat:u1:_", platform="wechat")
+        assert "report-for-u1" in text
+        assert "report-for-u2" not in text
 
     def test_chinese_alias_status(self, handler):
         assert handler._handle_command("/状态") is not None
@@ -449,7 +459,7 @@ class TestHandleMessage:
         with patch.object(handler, "_get_or_create_loop", return_value=mock_loop):
             text = handler.handle_message("fail me", session_key="err")
         assert "处理失败" in text
-        assert "boom" in text
+        assert "boom" not in text
 
 
 @pytest.mark.integration

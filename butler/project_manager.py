@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Callable
 
 from butler.config import get_butler_settings
 from butler.project import Project
+from butler.session_keys import chat_id_from_session_key, project_from_session_key
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +39,12 @@ class ProjectManager:
         self.projects_dir = self.projects_dir.expanduser().resolve()
         self._projects: dict[str, Project] = {}
         self.current_project: str = ""
+        self._default_project: str = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+        self._chat_project: dict[str, str] = {}
         self._on_switch_callbacks: list[SwitchCallback] = []
         self._scan_projects()
+        if self._default_project and self._default_project in self._projects:
+            self.current_project = self._default_project
 
     # ------------------------------------------------------------------ scans
     def _scan_projects(self) -> None:
@@ -63,17 +69,32 @@ class ProjectManager:
     def on_switch(self, callback: SwitchCallback) -> None:
         self._on_switch_callbacks.append(callback)
 
-    def switch_project(self, name: str) -> bool:
-        matched: str | None = None
-        if name in self._projects:
-            matched = name
-        else:
-            lower = name.lower()
-            for proj_name in self._projects:
-                if lower in proj_name.lower():
-                    matched = proj_name
-                    break
+    @staticmethod
+    def chat_scope_key(*, platform: str, chat_id: str) -> str:
+        plat = str(platform or "unknown").strip() or "unknown"
+        cid = str(chat_id or "default").strip() or "default"
+        return f"{plat}:{cid}"
 
+    def resolve_project_name(self, name: str) -> str | None:
+        """Match a user-provided project name (exact, then unique case-insensitive, then unique substring)."""
+        raw = str(name or "").strip()
+        if not raw:
+            return None
+        if raw in self._projects:
+            return raw
+        lower = raw.lower()
+        ci = [p for p in self._projects if p.lower() == lower]
+        if len(ci) == 1:
+            return ci[0]
+        if len(ci) > 1:
+            return None
+        substr = [p for p in self._projects if lower in p.lower()]
+        if len(substr) == 1:
+            return substr[0]
+        return None
+
+    def switch_project(self, name: str) -> bool:
+        matched = self.resolve_project_name(name)
         if matched is None:
             return False
 
@@ -86,6 +107,64 @@ class ProjectManager:
                 logger.warning("Project switch callback error: %s", exc)
         return True
 
+    def switch_project_for_chat(self, *, platform: str, chat_id: str, name: str) -> bool:
+        """Gateway: bind project choice to ``platform:chat_id`` instead of process-global state."""
+        matched = self.resolve_project_name(name)
+        if matched is None:
+            return False
+        scope = self.chat_scope_key(platform=platform, chat_id=chat_id)
+        old = self._chat_project.get(scope, "")
+        self._chat_project[scope] = matched
+        for cb in self._on_switch_callbacks:
+            try:
+                cb(old, matched)
+            except Exception as exc:
+                logger.warning("Project switch callback error: %s", exc)
+        return True
+
+    def get_project_name_for_chat(self, *, platform: str, chat_id: str) -> str:
+        scope = self.chat_scope_key(platform=platform, chat_id=chat_id)
+        bound = self._chat_project.get(scope, "").strip()
+        if bound:
+            return bound
+        if self.current_project and self.current_project in self._projects:
+            return self.current_project
+        if self._default_project in self._projects:
+            return self._default_project
+        return ""
+
+    def resolve_active_project_name(self, *, session_key: str = "") -> str:
+        """Resolve project for CLI (global) or gateway (per-chat map + session key)."""
+        key = str(session_key or "").strip()
+        if key:
+            from_session = project_from_session_key(key)
+            if from_session:
+                return from_session
+            parts = key.split(":", 2)
+            if len(parts) >= 2:
+                chat_name = self.get_project_name_for_chat(
+                    platform=parts[0],
+                    chat_id=parts[1],
+                )
+                if chat_name:
+                    return chat_name
+        chat_only = ""
+        if key:
+            try:
+                chat_only = self.get_project_name_for_chat(
+                    platform=key.split(":", 1)[0],
+                    chat_id=chat_id_from_session_key(key),
+                )
+            except Exception:
+                chat_only = ""
+        if chat_only:
+            return chat_only
+        if self.current_project:
+            return self.current_project
+        if self._default_project in self._projects:
+            return self._default_project
+        return ""
+
     # ----------------------------------------------------------------- access
     def list_projects(self) -> list[Project]:
         return list(self._projects.values())
@@ -93,9 +172,10 @@ class ProjectManager:
     def get_project(self, name: str) -> Project | None:
         return self._projects.get(name)
 
-    def get_current(self) -> Project | None:
-        if self.current_project:
-            return self._projects.get(self.current_project)
+    def get_current(self, *, session_key: str = "") -> Project | None:
+        name = self.resolve_active_project_name(session_key=session_key)
+        if name:
+            return self._projects.get(name)
         return None
 
     # ---------------------------------------------------------------- lifecycle

@@ -328,7 +328,9 @@ def gateway_handler_project(tmp_path, monkeypatch, tmp_butler_home):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
-    handler._orchestrator.project_manager.switch_project("test-project")
+    pm = handler._orchestrator.project_manager
+    pm.switch_project_for_chat(platform="wechat", chat_id="u1", name="test-project")
+    pm.switch_project_for_chat(platform="wechat", chat_id="u2", name="test-project")
     return handler, proj
 
 
@@ -370,8 +372,9 @@ class TestWechatSmokeDelegate:
         assert doc_path.is_file()
         assert "微信验收" in doc_path.read_text(encoding="utf-8")
         assert len(out) <= 2000
-        assert "详细" in out or get_last_report() is not None
-        report = get_last_report()
+        sk = "wechat:u1:test-project"
+        assert "详细" in out or get_last_report(sk) is not None
+        report = get_last_report(sk)
         assert report is not None
         assert report.headline
 
@@ -426,7 +429,9 @@ class TestWechatSmokeWorkflow:
         _setup_gateway_project(tmp_path, monkeypatch, with_workflow=True)
         _reset_singletons()
         handler = ButlerMessageHandler(channel="gateway")
-        handler._orchestrator.project_manager.switch_project("test-project")
+        handler._orchestrator.project_manager.switch_project_for_chat(
+            platform="wechat", chat_id="u1", name="test-project",
+        )
 
         mock_complete, mock_stream = patch_llm
         mock_complete.return_value = _text_response("好的")
@@ -456,7 +461,7 @@ class TestWechatSmokeWorkflow:
                 session_key="wechat:u1",
                 platform="wechat",
             )
-        WorkflowRunner._cache_workflow_report(wf, graph)
+        WorkflowRunner._cache_workflow_report(wf, graph, session_key="wechat:u1:test-project")
         assert "novel-factory" in run_out
 
         detail = handler.handle_message("/详细", session_key="wechat:u1", platform="wechat")
@@ -477,7 +482,9 @@ class TestWechatSmokeWorkflow:
         monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
         _reset_singletons()
         handler = ButlerMessageHandler(channel="gateway")
-        handler._orchestrator.project_manager.switch_project("test-project")
+        handler._orchestrator.project_manager.switch_project_for_chat(
+            platform="wechat", chat_id="u1", name="test-project",
+        )
 
         mock_complete, mock_stream = patch_llm
         mock_complete.return_value = _text_response("好的")
@@ -504,7 +511,7 @@ class TestWechatSmokeWorkflow:
                 platform="wechat",
             )
 
-        report = get_last_report()
+        report = get_last_report("wechat:u1:test-project")
         assert report is not None
         assert "novel-factory" in run_out
         assert "draft" in report.summary or "draft via graph" in report.summary
@@ -690,9 +697,9 @@ class TestWechatSmokeDetailAlias:
             session_key="wechat:u1",
             platform="wechat",
         )
-        assert get_last_report() is not None
+        sk = "wechat:u1:test-project"
+        assert get_last_report(sk) is not None
 
-        handler._session_registry.reset_all()
         with patch.object(handler, "_get_or_create_loop") as mock_get:
             detail = handler.handle_message(
                 "详细",
@@ -722,7 +729,8 @@ class TestWechatSmokeDetailSections:
                 ],
                 decisions=["采用方案 A"],
                 issues=["无阻塞问题"],
-            )
+            ),
+            session_key="wechat:u1:test-project",
         )
 
         changes_only = handler.handle_message(
@@ -753,7 +761,8 @@ class TestWechatSmokeDetailSections:
                 changes=[Change(file="docs/x.md", action="created", description="")],
                 decisions=["采用方案 A", "暂缓方案 B"],
                 issues=["无阻塞"],
-            )
+            ),
+            session_key="wechat:u1:test-project",
         )
 
         out = handler.handle_message(
@@ -775,7 +784,8 @@ class TestWechatSmokeDetailSections:
                 headline="完成",
                 decisions=["某决策"],
                 issues=["磁盘空间不足", "待确认权限"],
-            )
+            ),
+            session_key="wechat:u1:test-project",
         )
 
         out = handler.handle_message(
