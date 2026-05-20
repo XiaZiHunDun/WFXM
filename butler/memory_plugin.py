@@ -126,8 +126,7 @@ class ButlerMemoryService:
 
         from butler.config import get_butler_settings
 
-        home = get_butler_settings().butler_home
-        self._butler_global = ButlerMemory(home)
+        self._reload_butler_global()
         self._project_root = _project_root_discovery()
         self._reload_project_branch()
 
@@ -138,6 +137,23 @@ class ButlerMemoryService:
             self._user_id,
             self._project_root,
         )
+
+    def _reload_butler_global(self) -> None:
+        from butler.config import get_butler_settings
+        from butler.project_manager import get_project_manager
+        from butler.tenant import resolve_tenant_for_project
+
+        settings = get_butler_settings()
+        try:
+            project = get_project_manager().get_current()
+        except Exception:
+            project = None
+        tid = resolve_tenant_for_project(project, settings)
+        if (
+            self._butler_global is None
+            or getattr(self._butler_global, "tenant_id", None) != tid
+        ):
+            self._butler_global = ButlerMemory(settings.butler_home, tenant_id=tid)
 
     def _reload_project_branch(self) -> None:
         root = self._project_root or _project_root_discovery()
@@ -167,10 +183,7 @@ class ButlerMemoryService:
             self._project_root = root
             self._reload_project_branch()
 
-        if self._butler_global is None:
-            from butler.config import get_butler_settings
-
-            self._butler_global = ButlerMemory(get_butler_settings().butler_home)
+        self._reload_butler_global()
 
         try:
             try:

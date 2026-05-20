@@ -19,6 +19,7 @@ class Project:
     type: str
     description: str
     status: str = "active"
+    tenant: str = ""
     workspace: Path = field(default_factory=lambda: Path("."))
     models: dict[str, ModelConfig] = field(default_factory=dict)
     workflows: list[Any] = field(default_factory=list)
@@ -36,11 +37,17 @@ class Project:
         models_raw = data.get("models", {}) or {}
         models = {str(k): ModelConfig.from_dict(v) for k, v in models_raw.items()} if models_raw else {}
 
+        from butler.tenant import normalize_tenant_id
+
+        tenant_raw = data.get("tenant")
+        tenant = "" if tenant_raw is None else normalize_tenant_id(str(tenant_raw))
+
         return cls(
             name=str(data.get("name", ws.name)),
             type=str(data.get("type", "software")),
             description=str(data.get("description", "")),
             status=str(data.get("status", "active")),
+            tenant=tenant,
             workspace=ws,
             models=models,
             workflows=list(data.get("workflows") or []),
@@ -73,6 +80,8 @@ class Project:
             "status": self.status,
             "workspace": str(ws_display).replace("\\", "/"),
         }
+        if self.tenant and self.tenant != "default":
+            d["tenant"] = self.tenant
 
         if self.models:
             d["models"] = {k: v.to_dict() for k, v in self.models.items() if not v.is_empty()}
@@ -92,6 +101,8 @@ class Project:
             "description": self.description,
             "status": self.status,
         }
+        if self.tenant and self.tenant != "default":
+            payload["tenant"] = self.tenant
         if self.models:
             payload["models"] = {k: v.to_dict() for k, v in self.models.items() if not v.is_empty()}
         if self.workflows:

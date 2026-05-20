@@ -341,18 +341,27 @@ class ExperienceStore:
 
 
 class ButlerMemory:
-    """Global Butler memory: profile + cross-project experience."""
+    """Tenant-scoped Butler memory: owner profile + cross-project experience."""
 
-    def __init__(self, butler_home: Path):
-        self.butler_home = Path(butler_home)
-        mem_dir = self.butler_home / "memory"
+    def __init__(self, butler_home: Path, *, tenant_id: str = "default"):
+        from butler.tenant import (
+            DEFAULT_TENANT,
+            migrate_legacy_memory_layout,
+            normalize_tenant_id,
+            tenant_memory_dir,
+        )
+
+        self.butler_home = Path(butler_home).expanduser().resolve()
+        self.tenant_id = normalize_tenant_id(tenant_id or DEFAULT_TENANT)
+        migrate_legacy_memory_layout(self.butler_home)
+        mem_dir = tenant_memory_dir(self.butler_home, self.tenant_id)
         mem_dir.mkdir(parents=True, exist_ok=True)
         self.profile = ProfileStore(mem_dir / "profile.json")
         self.experience = ExperienceStore(mem_dir / "experience.db")
 
     @classmethod
-    def default(cls) -> ButlerMemory:
-        return cls(Path.home() / ".butler")
+    def default(cls, *, tenant_id: str = "default") -> ButlerMemory:
+        return cls(Path.home() / ".butler", tenant_id=tenant_id)
 
     def get_system_context(self, current_project: str = "") -> str:
         parts: list[str] = []

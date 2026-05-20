@@ -159,6 +159,7 @@ class ButlerSettings:
     models: LayeredModelConfig = field(default_factory=LayeredModelConfig)
     butler_name: str = "莎丽"
     owner_name: str = "主公"
+    default_tenant: str = ""
     _runtime_model_overrides: dict[str, ModelConfig] = field(default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
@@ -257,6 +258,8 @@ class ButlerSettings:
             "owner_name": self.owner_name,
             "models": self.models.to_dict(),
         }
+        if self.default_tenant:
+            data["default_tenant"] = self.default_tenant
         if self.default_provider:
             data["default_provider"] = self.default_provider
         path = self.config_yaml_path
@@ -266,6 +269,7 @@ class ButlerSettings:
     def _apply_yaml_dict(self, data: dict[str, Any]) -> None:
         self.butler_name = str(data.get("butler_name", self.butler_name))
         self.owner_name = str(data.get("owner_name", self.owner_name))
+        self.default_tenant = str(data.get("default_tenant", self.default_tenant) or "")
         self.default_provider = str(data.get("default_provider", self.default_provider))
         if "models" in data and isinstance(data["models"], dict):
             self.models = LayeredModelConfig.from_dict(data["models"])
