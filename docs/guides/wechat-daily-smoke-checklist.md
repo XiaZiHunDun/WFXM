@@ -25,10 +25,10 @@ PYTHONPATH=. pytest \
 
 | 检查项 | 通过 |
 |--------|------|
-| 网关 `active` | ☐ |
-| `MINIMAX_API_KEY` 已配置 | ☐ |
-| 微信凭证在 `~/.butler/wechat/accounts/`（勿与 Hermes 抢 Bot） | ☐ |
-| pytest 上述三条全绿 | ☐ |
+| 网关 `active` | ☑ |
+| `MINIMAX_API_KEY` 已配置 | ☑ |
+| 微信凭证在 `~/.butler/wechat/accounts/`（勿与 Hermes 抢 Bot） | ☑ |
+| pytest 上述三条全绿 | ☑ |
 
 ---
 
@@ -38,17 +38,17 @@ PYTHONPATH=. pytest \
 
 | # | 发送内容 | 预期（摘要） | 通过 | 备注 |
 |---|----------|--------------|------|------|
-| 0 | `/状态` | 含莎丽/管家名、当前项目、Provider | ☐ | |
-| 1 | `/切换 灵文` | 已切换到项目: 灵文 | ☐ | |
-| 2 | `/状态` | 当前项目为 `灵文` | ☐ | |
-| 3 | `请读取当前项目 README 或 project.yaml 的前 15 行，用纯文字摘要` | 内容与磁盘一致；**不必**委派；约 20–40s 内出现「正在输入」后回复 | ☐ | 可疑时发 `/health` |
-| 4 | `请交给内容代理：在 docs 目录写 wechat-smoke.md，标题「微信验收」，正文写今天日期和一句说明，不要改其他文件` | 明确已委派；回复为**紧凑摘要**（非长文） | ☐ | |
-| 4b | `/详细` 或发「详细」（无需斜杠） | 有 headline；变更里可见 wechat-smoke.md | ☐ | |
-| 4c | （服务器）`ls projects/LingWen/docs/wechat-smoke.md` | 文件存在 | ☐ | |
-| 5 | `请委派开发代理：只检查 docs/wechat-smoke.md 是否存在并读前几行，不要改代码` | 结论含存在与否 | ☐ | |
-| 6 | `/新对话` | 已清空对话历史 | ☐ | |
-| 6b | `我们刚才聊过什么？` | **不应**复述步骤 3–5 细节 | ☐ | |
-| 7 | `当前是什么项目？灵文项目是做什么的？` | 能答项目名与用途（项目记忆） | ☐ | |
+| 0 | `/状态` | 含莎丽/管家名、当前项目、Provider | ☑ | |
+| 1 | `/切换 灵文` | 已切换到项目: 灵文 | ☑ | |
+| 2 | `/状态` | 当前项目为 `灵文` | ☑ | |
+| 3 | `请读取当前项目 README 或 project.yaml 的前 15 行，用纯文字摘要` | 内容与磁盘一致；**不必**委派；约 20–40s 内出现「正在输入」后回复 | ☑ | |
+| 4 | `请交给内容代理：在 docs 目录写 wechat-smoke.md，标题「微信验收」，正文写今天日期和一句说明，不要改其他文件` | 明确已委派；回复为**紧凑摘要**（非长文） | ☑ | |
+| 4b | `/详细` 或发「详细」（无需斜杠） | 有 headline；变更里可见 wechat-smoke.md | ☑ | |
+| 4c | （服务器）`ls projects/LingWen/docs/wechat-smoke.md` | 文件存在 | ☑ | |
+| 5 | `请委派开发代理：只检查 docs/wechat-smoke.md 是否存在并读前几行，不要改代码` | 结论含存在与否 | ☑ | |
+| 6 | `/新对话` | 已清空对话历史 | ☑ | |
+| 6b | `我们刚才聊过什么？` | **不应**复述步骤 3–5 细节 | ☑ | |
+| 7 | `当前是什么项目？灵文项目是做什么的？` | 能答项目名与用途（项目记忆） | ☑ | |
 | 8 | `/工作流 list` | 列表含 `novel-factory`（可执行） | ☑ | 需先 `/切换 灵文` |
 | 8b | `/工作流 run novel-factory 写一句个人助手验收说明` | 两步摘要（draft/review）；不刷屏 | ☑ | |
 | 8c | `/详细` | 工作流 headline / 各步 OK 或 FAIL | ☑ | |
@@ -73,6 +73,6 @@ PYTHONPATH=. pytest \
 
 ## 相关文档
 
-- [wechat-core-scenario.md](./wechat-core-scenario.md) — 八步详解与 FAQ（步骤 1–8 已于 2026-05-20 真机通过）  
+- [wechat-core-scenario.md](./wechat-core-scenario.md) — 八步详解与 FAQ（本表步骤 0–8c 已于 2026-05-20 真机通过）  
 - [owner-profile-setup.md](./owner-profile-setup.md) — Owner 画像  
 - [manual-testing-guide.md](./manual-testing-guide.md) — CLI + 微信完整手册
