@@ -34,6 +34,9 @@
 ```bash
 cd ~/projects/WFXM
 PYTHONPATH=. python -m pytest \
+  tests/test_project_session_isolation.py \
+  tests/test_project_tools_filter.py \
+  tests/test_report_format.py \
   tests/test_wechat_session_reset.py \
   tests/test_gateway_acceptance.py \
   tests/test_gateway_handler.py \
@@ -80,7 +83,7 @@ PYTHONPATH=. python -m pytest \
 |----|------|
 | 发送 | `请交给内容代理：在 docs 目录写一份 wechat-smoke.md，标题「微信验收」，正文写今天日期和一句说明，不要改其他文件` |
 | 预期 | 明确告知已委派；完成后 `projects/LingWen/docs/wechat-smoke.md` 存在 |
-| 验证 | 发 `/详细` 或 `/detail`，应有 headline/summary；磁盘上确认文件 |
+| 验证 | 委派完成后微信侧先收**紧凑摘要**（headline + 文件统计）；发 `/详细` 看全文，或 `/详细 changes` / `/详细 变更` 只看文件列表；磁盘上确认文件 |
 | 失败时查 | 模型是否未调用 `delegate_task`（见 §五）；API 超时；`read_file` 写权限 |
 
 ### 步骤 5：开发代理检查（dev 代理）
@@ -143,7 +146,11 @@ PYTHONPATH=. python -m pytest \
 
 ### 5.2 回复超过 2000 字
 
-网关会在 `message_handler._format_response` 截断为 1997+`...`。若关键信息丢失，要求管家「用三条以内要点总结」。
+委派回合默认走 `format_for_wechat` 紧凑摘要；其它回合在 `wechat_response_text` 中截断为 1997+`...`。需要全文时用 `/详细`；需要某一段时用 `/详细 changes|decisions|issues`（中文别名：`变更`、`决策`、`问题`）。
+
+### 5.2b 项目工具白名单
+
+`project.yaml` 的 `tools` 列表会限制管家/委派 Agent 可见工具（别名：`edit_file`→`patch`，`search_code`→`search_files`，`run_shell`→`terminal`，`skill_list`→`skills_list`）。管家层始终保留 `delegate_task`、`skills_list`、`skill_view`。列表为空表示不限制。
 
 ### 5.3 `/切换` 后行为异常
 

@@ -226,8 +226,14 @@ def get_last_report() -> AgentReport | None:
     return _last_report
 
 
+def clear_report_cache() -> None:
+    """Reset cached delegate report (tests and /new)."""
+    global _last_report
+    _last_report = None
+
+
 __all__ = [
     "AgentReport", "Change",
     "format_detail", "format_for_butler_tool_result", "format_for_cli", "format_for_wechat",
-    "cache_report", "get_last_report",
+    "cache_report", "clear_report_cache", "get_last_report",
 ]
