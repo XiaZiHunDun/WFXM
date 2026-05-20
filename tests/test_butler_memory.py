@@ -75,6 +75,16 @@ class TestExperienceStore:
             results = es.search("code review", project="Alpha")
             assert all(r["project"] == "Alpha" for r in results)
 
+    def test_delete_conversation_for_session(self):
+        with tempfile.TemporaryDirectory() as td:
+            es = ExperienceStore(Path(td) / "exp.db")
+            es.add("", "conversation", "Q: ephemeral → A: ok", tags="session:wechat:u1")
+            es.add("", "experience", "long-term fact", tags="")
+            removed = es.delete_conversation_for_session("session:wechat:u1")
+            assert removed == 1
+            assert es.search("ephemeral") == []
+            assert es.search("long-term") != []
+
 
 class TestButlerMemory:
     def test_system_context(self):
@@ -90,6 +100,15 @@ class TestButlerMemory:
             bm.experience.add("TestProj", "dev", "Implemented login feature")
             ctx = bm.get_system_context("TestProj")
             assert "concise" in ctx
+            assert "login" in ctx
+
+    def test_system_context_omits_conversation_recent(self):
+        with tempfile.TemporaryDirectory() as td:
+            bm = ButlerMemory(Path(td))
+            bm.experience.add("", "conversation", "Q: 刚才读了 README → A: 好的")
+            bm.experience.add("TestProj", "experience", "Implemented login feature")
+            ctx = bm.get_system_context("TestProj")
+            assert "README" not in ctx
             assert "login" in ctx
 
 

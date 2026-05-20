@@ -24,7 +24,32 @@ PYTHONPATH=. pytest -q          # 默认 733 passed，排除 live_llm
 | `test_gateway_*`, `test_session_lifecycle.py` | Gateway / Session |
 | `test_tools_registry.py`, `test_tool_guardrails.py`, `test_path_safety.py` | 工具与安全 |
 | `test_orchestrator.py`, `test_task_orchestrator.py`, `test_execution_context.py` | 编排 |
-| `test_butler_*.py`, `test_main_cli.py`, `test_e2e.py` | 产品集成 |
+| `test_butler_*.py`, `test_main_cli.py`, `test_cli_scenarios.py`, `test_cli_dimensions.py`, `test_e2e.py` | 产品集成 |
+| `cli_harness.py` | CLI 场景测试共用 harness（Rich 捕获、脚本化交互、`ScriptedChatRun`） |
+| `butler/cli/slash_commands.py` | 斜杠命令注册、Tab 补全、未知命令校验 |
+
+**微信核心场景（建议改 gateway / session / post_session 必跑）：**
+
+```bash
+PYTHONPATH=. pytest \
+  tests/test_wechat_session_reset.py \
+  tests/test_gateway_acceptance.py \
+  tests/test_session_lifecycle.py \
+  tests/test_post_session.py \
+  -q
+```
+
+**CLI 专项（建议改 CLI 必跑）：**
+
+```bash
+PYTHONPATH=. pytest tests/test_cli_scenarios.py tests/test_cli_dimensions.py -q
+```
+
+**CLI + 真实 MiniMax（本地有 Key 时）：**
+
+```bash
+BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. pytest -m live_llm tests/test_cli_live_smoke.py -v
+```
 | `test_hermes_extraction.py`, `test_run_agent_extraction.py` | Hermes 提炼回归 |
 | `test_real_api_smoke*.py` | 可选真实 API smoke |
 

@@ -9,13 +9,14 @@ Uses an injected LLM callable (default: ``auxiliary_client`` / Butler transport)
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable, Coroutine, Union
 
 logger = logging.getLogger(__name__)
 
-LLMCallFn = Callable[[str], Coroutine[Any, Any, str]]
+LLMCallFn = Callable[[str], Union[str, Coroutine[Any, Any, str]]]
 
 _PROJECT_SECTION_MAP = {
     "架构与设计": "Architecture",
@@ -141,6 +142,15 @@ class PostSessionProcessor:
     def set_llm_call(self, fn: LLMCallFn) -> None:
         self._llm_call = fn
 
+    async def _invoke_llm(self, prompt: str) -> str:
+        """Call injected LLM fn; accept sync or async implementations."""
+        if not self._llm_call:
+            return ""
+        result = self._llm_call(prompt)
+        if inspect.isawaitable(result):
+            return await result
+        return str(result)
+
     @classmethod
     def from_hermes_agent(cls, agent: Any) -> "PostSessionProcessor":
         """Create a processor that uses a Hermes AIAgent for LLM calls."""
@@ -212,7 +222,7 @@ class PostSessionProcessor:
             transcript=transcript,
         )
 
-        raw = await self._llm_call(prompt)
+        raw = await self._invoke_llm(prompt)
         data = _parse_json_from_response(raw)
         if not data:
             return 0
@@ -266,7 +276,7 @@ class PostSessionProcessor:
             transcript=transcript,
         )
 
-        raw = await self._llm_call(prompt)
+        raw = await self._invoke_llm(prompt)
         data = _parse_json_from_response(raw)
         if not data:
             return 0

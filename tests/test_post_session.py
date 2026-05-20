@@ -100,6 +100,29 @@ class TestNormalizeProjectSection:
 
 
 @pytest.mark.module_test
+class TestInvokeLlm:
+    def test_sync_llm_call_without_await_error(self):
+        """Regression: sync auxiliary_complete-style callables must not break process()."""
+
+        def sync_llm(prompt: str) -> str:
+            return '{"updates": [], "skills": []}'
+
+        filler = "x" * 80
+        messages = [
+            {"role": "user", "content": filler},
+            {"role": "assistant", "content": filler},
+            {"role": "user", "content": filler},
+            {"role": "assistant", "content": filler},
+        ]
+        proc = PostSessionProcessor()
+        proc.set_llm_call(sync_llm)
+
+        result = asyncio.run(proc.process(messages=messages))
+
+        assert result["errors"] == []
+
+
+@pytest.mark.module_test
 class TestExtractMemories:
     def _long_messages(self):
         filler = "x" * 80

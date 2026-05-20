@@ -65,6 +65,9 @@ def process_tool_calls(
     if not response.tool_calls:
         return ToolBatchStats()
 
+    if callbacks.on_stream_boundary:
+        callbacks.on_stream_boundary()
+
     append_assistant_tool_calls(messages, response)
 
     if guardrails and guardrails.halt_decision:

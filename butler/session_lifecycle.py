@@ -16,6 +16,21 @@ _EMPTY_MEMORY_MARKERS = {
     "(No project memory yet.)",
 }
 
+CONVERSATION_CATEGORY = "conversation"
+_SESSION_EXPERIENCE_TAG_PREFIX = "session:"
+
+
+def session_experience_tag(session_id: str) -> str:
+    """Tag ephemeral turn logs in the experience store."""
+    key = str(session_id or "").strip()
+    if not key:
+        return ""
+    return f"{_SESSION_EXPERIENCE_TAG_PREFIX}{key}"
+
+
+def _filter_ephemeral_experience(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [h for h in hits if (h.get("category") or "") != CONVERSATION_CATEGORY]
+
 
 def _current_project(orchestrator: Any) -> str:
     pm = getattr(orchestrator, "project_manager", None)
@@ -50,7 +65,9 @@ def prefetch_turn_memory(
         try:
             exp = getattr(bm, "experience", None)
             if exp is not None and (query or "").strip():
-                hits = exp.search(query, project=current_project or None, limit=limit)
+                hits = _filter_ephemeral_experience(
+                    exp.search(query, project=current_project or None, limit=limit)
+                )
                 if hits:
                     lines = [
                         f"- [{h.get('project', '') or 'global'}] {h.get('content', '')}".strip()
@@ -80,6 +97,34 @@ def prefetch_turn_memory(
             logger.debug("Project memory prefetch skipped: %s", exc)
 
     return "\n\n".join(p for p in parts if p.strip())
+
+
+def clear_session_boundary_memory(
+    orchestrator: Any,
+    session_id: str = "",
+) -> dict[str, Any]:
+    """Drop ephemeral chat echoes after /new (loop history is already reset)."""
+    removed = 0
+    tag = session_experience_tag(session_id)
+    bm = getattr(orchestrator, "butler_memory", None)
+    exp = getattr(bm, "experience", None) if bm is not None else None
+    if exp is not None and hasattr(exp, "delete_conversation_for_session"):
+        try:
+            removed = int(exp.delete_conversation_for_session(tag))
+        except Exception as exc:
+            logger.debug("Conversation experience purge skipped: %s", exc)
+            return {"removed": 0, "error": str(exc)}
+
+    provider = getattr(orchestrator, "memory_provider", None) or getattr(
+        orchestrator, "_memory_provider", None
+    )
+    if provider is not None and hasattr(provider, "clear_turn_buffer"):
+        try:
+            provider.clear_turn_buffer()
+        except Exception as exc:
+            logger.debug("Provider turn buffer clear skipped: %s", exc)
+
+    return {"removed": removed, "session_tag": tag}
 
 
 def inject_turn_memory(
@@ -236,10 +281,12 @@ def sync_turn_memory(
             bm = orchestrator.butler_memory
             updates = 0
             if bm and hasattr(bm, "experience") and bm.experience:
+                tag = session_experience_tag(session_id)
                 bm.experience.add(
                     project=_current_project(orchestrator),
-                    category="conversation",
+                    category=CONVERSATION_CATEGORY,
                     content=f"Q: {user_msg[:200]} → A: {assistant_msg[:300]}",
+                    tags=tag or None,
                 )
                 updates += 1
             provider = getattr(orchestrator, "memory_provider", None) or getattr(orchestrator, "_memory_provider", None)

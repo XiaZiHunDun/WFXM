@@ -170,5 +170,16 @@ def render_inline_diff(path: str, before: str, *, max_lines: int = 24) -> str | 
         return None
     if len(lines) > max_lines:
         lines = lines[:max_lines] + ["... (diff truncated)\n"]
-    body = "".join(lines).rstrip()
-    return f"  [dim]{body}[/dim]"
+    styled: list[str] = []
+    for line in lines:
+        text = line.rstrip("\n")
+        if text.startswith("+++") or text.startswith("---") or text.startswith("@@"):
+            styled.append(f"[dim]{text}[/dim]")
+        elif text.startswith("+"):
+            styled.append(f"[green]{text}[/green]")
+        elif text.startswith("-"):
+            styled.append(f"[red]{text}[/red]")
+        else:
+            styled.append(f"[dim]{text}[/dim]")
+    body = "\n".join(styled)
+    return f"  {body}"

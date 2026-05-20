@@ -241,6 +241,11 @@ class ButlerMemoryService:
         if len(self._turn_buffer) >= 8:
             self._trigger_background_extraction()
 
+    def clear_turn_buffer(self) -> None:
+        """Discard buffered turns after /new so post-session extraction does not replay old chat."""
+        if hasattr(self, "_turn_buffer"):
+            self._turn_buffer.clear()
+
     def _trigger_background_extraction(self) -> None:
         """Run PostSessionProcessor in background thread to avoid blocking."""
         import threading
@@ -255,13 +260,7 @@ class ButlerMemoryService:
 
                 from butler.transport.auxiliary_client import auxiliary_llm_call_factory
 
-                async def _llm_async(prompt: str) -> str:
-                    import asyncio
-                    return await asyncio.to_thread(
-                        auxiliary_llm_call_factory("post_session"), prompt
-                    )
-
-                processor.set_llm_call(_llm_async)
+                processor.set_llm_call(auxiliary_llm_call_factory("post_session"))
 
                 skill_mgr = None
                 try:

@@ -54,12 +54,51 @@ PYTHONPATH=. python -m pytest tests/ -q
 
 ## 二、CLI 测试
 
+> **定位（2026-05）**：CLI 交互体验已冻结；以 pytest 守门为主，产品验收以 **§三 / [wechat-core-scenario.md](./wechat-core-scenario.md)** 为准。
+
+> **人工用例清单（可选）**: [cli-manual-test-cases.md](./cli-manual-test-cases.md)  
+> 含 P0/P1/P2 分级、15 分钟冒烟路径、记录表、与自动化映射。下文保留逐步说明。
+
 **自动化回归（映射 §2.2–2.6 主体）：**
 
 ```bash
 cd ~/projects/WFXM
-PYTHONPATH=. python -m pytest tests/test_cli_acceptance.py tests/test_main_cli.py tests/test_e2e.py::TestCLIE2E -q
+PYTHONPATH=. python -m pytest \
+  tests/test_cli_scenarios.py \
+  tests/test_cli_acceptance.py \
+  tests/test_main_cli.py \
+  tests/test_e2e.py::TestCLIE2E \
+  -q
 ```
+
+**CLI 自动化维度（`test_cli_scenarios.py` + `test_cli_dimensions.py`，约 80+ 用例）：**
+
+| 维度 | 覆盖内容 |
+|------|----------|
+| 呈现层 | 欢迎面板、Rich Panel 正文、统计行、ERROR/TOOL_LIMIT/中断、备用模型提示 |
+| 流式输出 | 默认 **live** 逐行边框盒；`BUTLER_CLI_STREAM_MODE=buffer` 为旧 Panel 模式 |
+| 回合边界 | 工具批前 `on_stream_boundary` 关盒 |
+| 工具 UX | 工具起止行、预览、失败 hint、inline diff、工具计数统计 |
+| 斜杠命令 | `/help` `/status` `/health` `/projects` `/switch` `/model` `/new` `/steer` `/detail` `/quit` 及边界用法 |
+| 交互流 | 空输入跳过、未知 `/` 当普通消息、EOF/`/quit` 收尾、切换项目重建 Loop |
+| 会话生命周期 | 多轮上下文、`/new` + post-session 异步提炼、记忆 sync 契约 |
+| 异常恢复 | API 重试提示、Loop 异常不崩溃 |
+| Exec 模式 | 单次 `exec` 与 chat 共用 `finish_turn` |
+| 编排契约 | Callbacks 接线、stream/tool/LLM 钩子 |
+
+建议每次改 `butler/cli/*` 或 `butler/main.py` 交互循环后运行：
+
+```bash
+PYTHONPATH=. python -m pytest tests/test_cli_scenarios.py tests/test_cli_dimensions.py -q
+```
+
+**真实 MiniMax + 完整 CLI（可选，耗 API）：**
+
+```bash
+BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. pytest -m live_llm tests/test_cli_live_smoke.py -v
+```
+
+覆盖：`butler chat` 单轮对话、斜杠命令不额外调 LLM、`/new` 收尾、`butler exec` 单次执行。
 
 ### 2.1 启动交互式对话
 
@@ -340,6 +379,9 @@ PYTHONPATH=. python -m butler.main exec "你好，请用一句话自我介绍"
 
 ## 三、微信网关测试（Butler 原生，无 Hermes 子进程）
 
+> **P0 业务验收（推荐先做）**：[wechat-core-scenario.md](./wechat-core-scenario.md) — 七步真机剧本（`/状态` → `/切换 灵文` → 读写项目 → `delegate_task` → `/新对话` → 项目记忆）。  
+> 下文 §3.4–3.5 为分项清单；自动化见 `tests/test_gateway_acceptance.py`。
+
 > v4.1 起：`butler gateway` 默认走 `butler/gateway/runner.py` + iLink 适配器。  
 > 仅当需要 Telegram 等平台时使用 `butler gateway --hermes-fallback`。
 
@@ -564,14 +606,33 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 
 **预期：**
 - 清空**本轮会话**的 AgentLoop 历史（回复「已清空对话历史」）
-- **身份/偏好**仍可由 Butler 记忆层召回（答出「赵六」为**通过**，符合产品设计）
-- 若问「上一轮我们具体聊了什么」类细节，应无法复述完整对话脉络
+- 同时清除本会话的 `conversation` 经验条目，问「我们刚才聊过什么」**不应**复述上一轮文件/委派等细节
+- **项目记忆**（`MEMORY.md` / 非 conversation 经验）仍可回答「当前是什么项目」
+- 若用户只说「我叫赵六」且写入 profile/长期经验，问「我叫什么」仍可能答出——与「刚才聊过什么」不同
 
 #### 测试 3.5.7：/详细
 
 **操作：** 发送 `/详细` 或 `/detail`
 
 **预期：** 返回上次任务报告或 "暂无"
+
+---
+
+### 3.6 核心场景串联（真机 P0）
+
+完整步骤、记录表与排障见 **[wechat-core-scenario.md](./wechat-core-scenario.md)**。
+
+| 步骤 | 微信发送（示例） | 通过标准 |
+|------|------------------|----------|
+| 1 | `/状态` | 管家名 + 当前项目 + Provider |
+| 2 | `/切换 灵文` | 已切换到灵文 |
+| 3 | 读 README / project.yaml 摘要 | 内容与 `projects/LingWen` 一致 |
+| 4 | 交给内容代理写 `docs/wechat-smoke.md` | 文件存在；`/详细` 有报告 |
+| 5 | 委派开发代理检查该文件 | 结论正确 |
+| 6 | `/新对话` → 问刚才聊过什么 | 不记得上轮细节 |
+| 7 | 问当前项目与灵文用途 | 能答项目名与描述 |
+
+**记录：** 填 §六「微信核心场景」行（见该表新增行）或剧本内记录表。
 
 ---
 
@@ -680,6 +741,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 | 3.5.6 | /新对话 | ☑ | 自动化 |
 | 3.5.7 | /详细 | ☑ | 自动化 |
 | 3.x 真机抽测 | ☑ | `/状态`（莎丽/项目无/minimax）；`/new` 后仍记得身份；`__init__.py` 5 行 |
+| 3.6 核心场景（灵文七步） | ☑ | 2026-05-20 真机七步通过；自动化 `test_wechat_session_reset.py` |
 
 ---
 
@@ -690,7 +752,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 3. **推理模型延迟**：MiniMax-M2.7 是推理模型，首次响应可能较慢（含思考时间）
 4. **微信消息长度**：微信单条消息限 2000 字符，超长回复会被截断
 5. **工具超时**：terminal 工具默认关闭；设置 `BUTLER_ENABLE_TERMINAL=1` 后，默认 30 秒超时，长时间运行的命令会被终止
-6. **delegate_task**：子代理委派功能需要在系统提示中触发，简单问答不会触发
+6. **delegate_task**：须用明确委派措辞（见 [wechat-core-scenario.md](./wechat-core-scenario.md) §5.1）；简单只读可不委派
 
 ---
 
