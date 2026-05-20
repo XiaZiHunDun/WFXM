@@ -27,10 +27,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-pip install -e ".[wechat]"          # Butler + 微信网关依赖（推荐）
-# 或 pip install -e .  后自行 pip install aiohttp cryptography certifi
-# 微信网关可选
-pip install -e ".[wechat]"
+pip install -e ".[wechat]"          # Butler + 微信 iLink 依赖（推荐）
 ```
 
 ### 2. 配置
@@ -52,12 +49,20 @@ butler exec "列出所有项目"
 # 项目列表 / 创建
 butler projects
 butler create MyApp --type software --description "我的新应用"
+
+# 微信（个人助手主场景）
+butler wechat-setup                              # 扫码绑定
+bash scripts/install-butler-gateway-service.sh   # systemd 常驻网关
+bash scripts/butler-gateway-ops.sh status        # 运维状态
 ```
 
 ### 4. 测试
 
 ```bash
-PYTHONPATH=. pytest -q          # ~885 passed（默认排除 live_llm 与 tests/archive/）
+PYTHONPATH=. pytest -q          # ~931 passed（默认排除 live_llm 与 tests/archive/）
+
+# 微信改动的快守门（见 tests/README.md）
+PYTHONPATH=. pytest tests/test_gateway_acceptance.py tests/test_wechat_ilink_*.py -q
 ```
 
 ## 项目结构（核心）
@@ -74,8 +79,9 @@ butler/
 ├── orchestrator.py
 ├── post_session.py
 └── main.py
-docs/                  # 架构与设计文档
-tests/                 # ~885 自动化测试（archive 遗留另计）
+docs/                  # 架构与设计文档（索引 docs/README.md）
+tests/                 # ~931 自动化测试（archive 遗留另计）
+scripts/               # 网关安装与 butler-gateway-ops 运维
 ```
 
 ## 支持的 LLM Provider
@@ -123,7 +129,10 @@ tests/                 # ~885 自动化测试（archive 遗留另计）
 | 文档 | 内容 |
 |------|------|
 | [STRUCTURE.md](STRUCTURE.md) | 仓库目录与职责边界 |
+| [docs/README.md](docs/README.md) | 文档总索引 |
+| [docs/guides/README.md](docs/guides/README.md) | 微信运维与冒烟指南索引 |
 | [docs/architecture/v4-architecture.md](docs/architecture/v4-architecture.md) | v4 架构、数据流、观测 |
-| [docs/architecture/hermes-extraction-map.md](docs/architecture/hermes-extraction-map.md) | Hermes 提炼对照表 |
+| [docs/architecture/hermes-decoupling.md](docs/architecture/hermes-decoupling.md) | Hermes 解耦（已完成） |
+| [docs/guides/wechat-gateway-ops.md](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |
+| [docs/guides/wechat-daily-smoke-checklist.md](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟检查表 |
 | [docs/design/design.md](docs/design/design.md) | 产品设计全文 |
-| [docs/guides/manual-testing-guide.md](docs/guides/manual-testing-guide.md) | 人工测试手册 |

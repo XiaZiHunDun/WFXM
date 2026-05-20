@@ -30,7 +30,7 @@ echo $MINIMAX_API_KEY | head -c 12
 cd ~/projects/WFXM
 PYTHONPATH=. python -c "from butler.main import main; print('OK')"
 
-# 运行自动化测试（应 ~885 passed，13 项 live_llm 默认 deselected）
+# 运行自动化测试（应 ~931 passed，live_llm 默认 deselected）
 PYTHONPATH=. python -m pytest tests/ -q
 
 # 可选：真实 API smoke（需 .env 中 API Key + BUTLER_RUN_REAL_API_SMOKE=1）
@@ -452,21 +452,13 @@ print(creds)
 
 **推荐：systemd 用户服务（重启后自动拉起）**
 
+详见 [`wechat-gateway-ops.md`](./wechat-gateway-ops.md)。
+
 ```bash
 cd ~/projects/WFXM
 bash scripts/install-butler-gateway-service.sh
-# 或手动安装：见 scripts/systemd/butler-gateway.service
-
-systemctl --user status butler-gateway.service
-tail -f logs/butler-gateway.log
-```
-
-常用命令：
-
-```bash
-systemctl --user restart butler-gateway.service
-systemctl --user stop butler-gateway.service
-journalctl --user -u butler-gateway.service -n 50 --no-pager
+bash scripts/butler-gateway-ops.sh status
+bash scripts/butler-gateway-ops.sh logs      # tail -f logs/butler-gateway.log
 ```
 
 **前台调试（不用 systemd 时）：**

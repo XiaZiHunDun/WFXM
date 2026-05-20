@@ -59,4 +59,4 @@
 
 - `rg '^from (agent|run_agent)' butler/` 无匹配  
 - `butler gateway` 仅微信栈  
-- 默认 `pytest` 885+ 通过（`tests/archive/` 不收集）
+- 默认 `pytest` 931 passed（`tests/archive/` 不收集；`live_llm` 需显式 `-m`）

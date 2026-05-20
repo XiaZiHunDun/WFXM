@@ -2,7 +2,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q          # 默认 ~925 passed，排除 live_llm 与 tests/archive/
+PYTHONPATH=. pytest -q          # 默认 ~931 passed，排除 live_llm 与 tests/archive/
 ```
 
 ## 分层（`pyproject.toml` markers）
@@ -21,7 +21,9 @@ PYTHONPATH=. pytest -q          # 默认 ~925 passed，排除 live_llm 与 tests
 |-------------|-----|
 | `test_agent_loop.py`, `test_tool_batch.py`, `test_context_pipeline.py` | Agent Loop 栈 |
 | `test_transport_*`, `test_llm_client.py`, `test_retry_*` | Transport / LLM |
-| `test_gateway_*`, `test_session_lifecycle.py` | Gateway / Session |
+| `test_gateway_*`, `test_wechat_*`, `test_session_lifecycle.py` | Gateway / 微信 iLink / Session |
+| `test_hermes_extraction.py`, `test_run_agent_extraction.py` | Hermes 提炼回归 |
+| `test_real_api_smoke*.py`, `test_wechat_gateway_live_smoke.py` | 可选真实 API smoke（`live_llm`） |
 | `test_tools_registry.py`, `test_tool_guardrails.py`, `test_path_safety.py` | 工具与安全 |
 | `test_orchestrator.py`, `test_task_orchestrator.py`, `test_execution_context.py` | 编排 |
 | `test_butler_*.py`, `test_main_cli.py`, `test_cli_scenarios.py`, `test_cli_dimensions.py`, `test_e2e.py` | 产品集成 |
@@ -72,7 +74,5 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 ```
 
 含：单轮问候、README 直读（步骤 3）、委派写文件（步骤 4–4c）、Owner 称呼。
-| `test_hermes_extraction.py`, `test_run_agent_extraction.py` | Hermes 提炼回归 |
-| `test_real_api_smoke*.py` | 可选真实 API smoke |
 
 v3 遗留测试见 `tests/archive/test_butler_v3.py`（默认不收集）；v4 主线以 `test_butler_v4.py` 及 Loop 栈测试为准。
