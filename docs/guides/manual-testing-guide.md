@@ -328,47 +328,112 @@ PYTHONPATH=. python -m butler.main exec "你好，请用一句话自我介绍"
 
 ---
 
-## 三、微信网关测试
+## 三、微信网关测试（Butler 原生，无 Hermes 子进程）
+
+> v4.1 起：`butler gateway` 默认走 `butler/gateway/runner.py` + iLink 适配器。  
+> 仅当需要 Telegram 等平台时使用 `butler gateway --hermes-fallback`。
 
 ### 3.1 前置条件
 
-微信网关通过 Hermes 的 iLink Bot 实现，需要：
+| 项 | 要求 |
+|----|------|
+| Python 依赖 | `pip install aiohttp cryptography certifi`（微信可选：`pip install -e ".[wechat]"` 含 qrcode）|
+| LLM | `.env` 或 `~/.butler/config.yaml` 中至少一个 Provider 可用（如 `MINIMAX_API_KEY`）|
+| iLink 凭证 | `WECHAT_TOKEN` + `WECHAT_ACCOUNT_ID`（见 3.2）|
+| 网络 | 本机可访问 `https://ilinkai.weixin.qq.com` |
 
-1. Hermes 已正确安装和配置
-2. iLink Bot 服务可用
-3. Butler 插件已注册到 Hermes
-
-### 3.2 启动网关
+**启动前自检：**
 
 ```bash
 cd ~/projects/WFXM
-PYTHONPATH=. python -m butler.main gateway --platforms wechat
+PYTHONPATH=. python -c "
+from butler.gateway.platforms.wechat import check_wechat_requirements
+from butler.config import get_butler_settings
+import os
+assert check_wechat_requirements(), '缺少 aiohttp/cryptography'
+print('butler_home:', get_butler_settings().butler_home)
+print('provider:', get_butler_settings().default_provider)
+print('WECHAT_TOKEN:', bool(os.getenv('WECHAT_TOKEN') or os.getenv('WEIXIN_TOKEN')))
+print('WECHAT_ACCOUNT_ID:', bool(os.getenv('WECHAT_ACCOUNT_ID') or os.getenv('WEIXIN_ACCOUNT_ID')))
+"
 ```
 
-**预期：**
-- Butler 自动启用 "butler" 和 "memory/butler" 插件
-- Hermes gateway 启动
-- 如需扫码登录，终端显示二维码
+### 3.2 配置 iLink 凭证（Butler 独立，勿拷贝 Hermes）
+
+Butler 凭证目录：`~/.butler/wechat/accounts/`（与 Hermes 的 `~/.hermes/weixin/accounts/` **完全分离**）。
+
+- **不要**把 Hermes 的 json 复制到 Butler：避免混淆，也不应影响你继续用 `hermes gateway`。
+- Butler 验收应走 **Butler 自己的扫码**，写入 `~/.butler/`。
+
+```bash
+cd ~/projects/WFXM
+set -a && source .env && set +a   # 加载 LLM 等配置
+
+PYTHONPATH=. python <<'PY'
+import asyncio
+from butler.config import get_butler_home
+from butler.gateway.platforms.wechat import qr_login
+
+async def main():
+    creds = await qr_login(str(get_butler_home()))
+    if not creds:
+        raise SystemExit("登录失败或超时")
+    print("\n请写入 .env（或仅设 ACCOUNT_ID，token 已从 ~/.butler/wechat/accounts/ 持久化）：")
+    print(f"WECHAT_ACCOUNT_ID={creds['account_id']}")
+    print(f"WECHAT_TOKEN={creds['token']}")
+    print(f"WECHAT_BASE_URL={creds.get('base_url', 'https://ilinkai.weixin.qq.com')}")
+
+asyncio.run(main())
+PY
+```
+
+扫码成功后可将 `WECHAT_ACCOUNT_ID` / `WECHAT_TOKEN` 写入 `.env`；也可只设 `WECHAT_ACCOUNT_ID`，由适配器从 `~/.butler/wechat/accounts/<id>.json` 读取 token。
+
+### 3.3 启动网关
+
+```bash
+cd ~/projects/WFXM
+# 加载 .env（若使用 dotenv）
+set -a && source .env && set +a
+
+PYTHONPATH=. python -m butler.main gateway --platforms wechat
+# 或: butler gateway
+```
+
+**Hermes 网关勿与 Butler 抢同一 Bot（开发机已 disable）：**
+
+```bash
+systemctl --user stop hermes-gateway.service
+systemctl --user disable hermes-gateway.service   # 防止登录后自动拉起
+pgrep -af hermes_cli || true                      # 应无 gateway 进程
+```
+
+**预期日志（节选）：**
+
+- `Butler native gateway running (Wechat)`
+- `[Wechat] Connected account=... base=https://ilinkai.weixin.qq.com`
+- **不应**出现 `hermes gateway run` 或子进程拉起 Hermes
+
+**另开终端确认：**
+
+```bash
+pgrep -af 'butler.main gateway'
+```
 
 **验证点：**
-- [ ] 无启动报错
-- [ ] 插件自动加载成功
-- [ ] 如需登录，二维码正常显示
+- [x] 无 `WeChat requires: pip install...` 报错
+- [x] 无 `missing token` / `missing account` 报错
+- [x] 日志含 `Butler native gateway running`
+- [x] 无 Hermes gateway 子进程（systemd 已 disable）
 
-> **注意：** 如果 Hermes 未安装或 iLink Bot 服务不可用，gateway 会报错。
-> 这是预期行为，需要先确保 Hermes 环境就绪。
+**自动化回归（映射 §3.4–3.5）：**
 
-### 3.3 微信扫码登录
+```bash
+cd ~/projects/WFXM
+PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gateway_handler.py tests/test_gateway_runner.py -q
+```
 
-**操作：** 使用微信扫描终端显示的二维码
-
-**预期：** 登录成功，网关开始监听消息
-
-**验证点：**
-- [ ] 扫码后终端提示登录成功
-- [ ] 无异常报错
-
-### 3.4 微信对话测试
+### 3.4 微信对话测试（真机）
 
 #### 测试 3.4.1：基础对话
 
@@ -377,9 +442,9 @@ PYTHONPATH=. python -m butler.main gateway --platforms wechat
 **预期：** 管家回复问候
 
 **验证点：**
-- [ ] 收到回复
-- [ ] 回复中不包含 `<think>` 标签
-- [ ] 回复在 30 秒内返回
+- [x] 收到回复（2026-05-20 真机「你好」）
+- [x] 回复中不包含 `<think>` 标签（自动化 + 真机）
+- [x] 回复在 30 秒内返回
 
 #### 测试 3.4.2：多轮上下文
 
@@ -404,6 +469,20 @@ PYTHONPATH=. python -m butler.main gateway --platforms wechat
 **操作：** 发送一个会产生超长回复的请求，如 `请详细解释 Python 的 asyncio 模块`
 
 **预期：** 回复不超过 2000 字符（微信限制）
+
+---
+
+#### 测试 3.4.5：纯媒体消息
+
+**操作：** 只发一张图片/语音，不带文字
+
+**预期：** 收到提示「收到媒体消息…请用文字说明」（或后续版本支持媒体理解）
+
+#### 测试 3.4.6：/health
+
+**操作：** 发送 `/health` 或 `/诊断`
+
+**预期：** 返回 Butler 诊断（压缩、Skill、工具审计摘要等）
 
 ---
 
@@ -547,27 +626,31 @@ PYTHONPATH=. python -m butler.main gateway --platforms wechat
 
 ### 微信测试结果
 
+> **验收批次**：2026-05-20 | Butler 原生网关 | `tests/test_gateway_acceptance.py` **19 passed** + 真机 3.4.1
+
 | 编号 | 测试项 | 状态 | 备注 |
 |------|-------|------|------|
-| 3.2 | 启动网关 | ☐ | |
-| 3.3 | 扫码登录 | ☐ | |
-| 3.4.1 | 基础对话 | ☐ | |
-| 3.4.2 | 多轮上下文 | ☐ | |
-| 3.4.3 | 工具调用 | ☐ | |
-| 3.4.4 | 长文本截断 | ☐ | |
-| 3.5.1 | /状态 | ☐ | |
-| 3.5.2 | /项目 | ☐ | |
-| 3.5.3 | /模型 | ☐ | |
-| 3.5.4 | /模型切换 | ☐ | |
-| 3.5.5 | /切换 | ☐ | |
-| 3.5.6 | /新对话 | ☐ | |
-| 3.5.7 | /详细 | ☐ | |
+| 3.1–3.3 | 依赖/凭证/启动 | ☑ | Hermes 凭证开发复用；`hermes-gateway` disabled |
+| 3.4.1 | 基础对话 | ☑ | 真机「你好」有回复；曾修 `extract_media` 发送 bug |
+| 3.4.2 | 多轮上下文 | ☑ | 自动化 mock LLM |
+| 3.4.3 | 工具调用 | ☑ | 自动化 `read_file` + 行数回复 |
+| 3.4.4 | 长文本截断 | ☑ | 自动化 ≤2000 字 |
+| 3.4.5 | 纯媒体消息 | ☑ | 自动化提示文案 |
+| 3.4.6 | /health | ☑ | 自动化 |
+| 3.5.1 | /状态 | ☑ | 自动化（中英别名） |
+| 3.5.2 | /项目 | ☑ | 自动化 |
+| 3.5.3 | /模型 | ☑ | 自动化 |
+| 3.5.4 | /模型切换 | ☑ | 自动化 |
+| 3.5.5 | /切换 | ☑ | 自动化 test-project |
+| 3.5.6 | /新对话 | ☑ | 自动化 |
+| 3.5.7 | /详细 | ☑ | 自动化 |
+| 3.x 真机抽测 | 建议 | ☐ | 微信再发一轮 `/状态`、`/new`、工具问句作 spot-check |
 
 ---
 
 ## 七、已知限制
 
-1. **微信网关依赖 Hermes**：Gateway 模式需要 Hermes 的 iLink Bot 正常运行
+1. **微信网关**：默认 `butler gateway` 为 Butler 原生 iLink（`butler/gateway/platforms/wechat_ilink.py`）；仅 Telegram 等多平台需 `--hermes-fallback`
 2. **模型限制**：当前仅配置了 MiniMax 模型，切换到其他厂商需要额外配置 API key
 3. **推理模型延迟**：MiniMax-M2.7 是推理模型，首次响应可能较慢（含思考时间）
 4. **微信消息长度**：微信单条消息限 2000 字符，超长回复会被截断
@@ -582,7 +665,8 @@ PYTHONPATH=. python -m butler.main gateway --platforms wechat
 |------|---------|---------|
 | "LLM 调用失败" | API key 无效/过期 | 检查 `echo $MINIMAX_API_KEY` |
 | 回复为空 | 模型返回仅含 `<think>` | 检查日志中的 reasoning 内容 |
-| Gateway 启动失败 | Hermes 未安装 | 确保 hermes-agent 可用 |
+| Gateway 启动失败 | 缺 aiohttp/cryptography 或 WECHAT_* | `check_wechat_requirements()`；检查 `.env` |
 | 工具调用超时 | 命令执行过慢 | 使用更简单的命令测试 |
 | 提示符不更新 | 项目切换后未 rebuild | 重启 CLI |
-| 微信无回复 | Gateway 连接中断 | 检查终端输出日志 |
+| 微信无回复 | 发送阶段异常或 Hermes 抢线 | `tail logs/butler-gateway.log`；`systemctl --user stop hermes-gateway` |
+| 有 inbound 无 outbound | 曾见 `extract_media` UnboundLocalError | 已修；重启 `butler gateway` |

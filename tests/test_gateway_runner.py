@@ -50,6 +50,51 @@ class TestGatewayCommand:
         assert "hermes-fallback" in capsys.readouterr().err
 
 
+class TestPlatformAdapterStubs:
+    def test_extract_media_returns_content(self):
+        from butler.gateway.platforms.base import ButlerPlatformAdapter
+        from butler.gateway.platforms.types import PlatformConfig
+
+        class _Stub(ButlerPlatformAdapter):
+            async def connect(self) -> bool:
+                return True
+
+            async def disconnect(self) -> None:
+                pass
+
+            async def send(self, chat_id: str, content: str, reply_to=None, metadata=None):
+                del chat_id, content, reply_to, metadata
+                from butler.gateway.platforms.types import SendResult
+
+                return SendResult(success=True)
+
+        adapter = _Stub(PlatformConfig(), "wechat")
+        media, text = adapter.extract_media("你好 Butler")
+        assert media == []
+        assert text == "你好 Butler"
+
+    def test_mark_connected_disconnected(self):
+        from butler.gateway.platforms.base import ButlerPlatformAdapter
+        from butler.gateway.platforms.types import PlatformConfig, SendResult
+
+        class _Stub(ButlerPlatformAdapter):
+            async def connect(self) -> bool:
+                return True
+
+            async def disconnect(self) -> None:
+                self._mark_disconnected()
+
+            async def send(self, chat_id: str, content: str, reply_to=None, metadata=None):
+                del chat_id, content, reply_to, metadata
+                return SendResult(success=True)
+
+        adapter = _Stub(PlatformConfig(), "wechat")
+        adapter._mark_connected()
+        assert adapter.is_connected is True
+        adapter._mark_disconnected()
+        assert adapter.is_connected is False
+
+
 @pytest.mark.module_test
 class TestWeChatAdapterWiring:
     def test_butler_handler_wrapper(self):
