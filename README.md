@@ -110,7 +110,7 @@ tests/                 # ~885 自动化测试（archive 遗留另计）
 ## 使用场景
 
 - **CLI 对话开发**：终端与管家对话，委派 Dev / Content / Review 等角色 Agent。
-- **微信远程开发**：`butler gateway --platforms wechat`（Butler 原生 iLink 网关，需 `aiohttp` + `cryptography`）。
+- **微信远程开发**：`butler gateway --platforms wechat`（Butler 原生 iLink 网关，需 `aiohttp` + `cryptography`）。生产部署见 [`docs/guides/wechat-gateway-ops.md`](docs/guides/wechat-gateway-ops.md)。
 
 ## 扩展
 
