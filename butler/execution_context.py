@@ -32,15 +32,28 @@ def get_current_session_key() -> str:
 
 @contextmanager
 def use_execution_context(
-    orchestrator: "ButlerOrchestrator",
+    orchestrator: "ButlerOrchestrator | None" = None,
     *,
     session_key: str = "",
 ) -> Iterator[None]:
-    """Temporarily bind a Butler orchestrator for nested tools and delegates."""
-    orch_token = _current_orchestrator.set(orchestrator)
+    """Temporarily bind orchestrator and/or session key for nested tools and delegates."""
+    orch_token = None
+    if orchestrator is not None:
+        orch_token = _current_orchestrator.set(orchestrator)
     session_token = _current_session_key.set(session_key)
     try:
         yield
     finally:
         _current_session_key.reset(session_token)
-        _current_orchestrator.reset(orch_token)
+        if orch_token is not None:
+            _current_orchestrator.reset(orch_token)
+
+
+def get_audit_session_key(*, fallback: str = "unscoped") -> str:
+    """Session key for tool audit when no external session is bound."""
+    key = str(get_current_session_key() or "").strip()
+    if key:
+        return key
+    if get_current_orchestrator() is not None:
+        return ""
+    return fallback

@@ -48,6 +48,7 @@ class AgentSpawnConfig:
     output_format: str = "text"
     project_name: str | None = None
     delegate_depth: int = 0
+    session_key: str = ""
 
 
 @dataclass
@@ -180,22 +181,22 @@ class TaskOrchestrator:
 
             agent.reset()
             orch = getattr(agent, "_butler_orchestrator", None)
+            session_key = _resolve_spawn_session_key(config, task_id)
             user_message = raw_user_message
             if orch is not None and hasattr(orch, "inject_skill_context"):
                 user_message = orch.inject_skill_context(raw_user_message)
                 from butler.session_lifecycle import attach_turn_memory_prefetch
 
                 attach_turn_memory_prefetch(agent, orch, raw_user_message, role=config.role)
-            if orch is not None:
-                from butler.execution_context import get_current_session_key, use_execution_context
+            from butler.execution_context import use_execution_context
 
-                session_key = get_current_session_key()
-                with use_execution_context(orch, session_key=session_key):
-                    run_context = copy_context()
-                    loop_result = await asyncio.to_thread(run_context.run, agent.run, user_message)
-            else:
-                session_key = ""
-                loop_result = await asyncio.to_thread(agent.run, user_message)
+            with use_execution_context(orch, session_key=session_key):
+                run_context = copy_context()
+                loop_result = await asyncio.to_thread(
+                    run_context.run,
+                    agent.run,
+                    user_message,
+                )
             if orch is not None:
                 from butler.session_lifecycle import sync_turn_memory
 
@@ -436,6 +437,19 @@ def _topological_sort(nodes: list[TaskNode]) -> list[str]:
         raise ValueError("Task graph contains a cycle")
 
     return result
+
+
+def _resolve_spawn_session_key(config: AgentSpawnConfig, task_id: str) -> str:
+    """Pick a stable audit/session key for orchestrator spawns."""
+    explicit = str(config.session_key or "").strip()
+    if explicit:
+        return explicit
+    from butler.execution_context import get_current_session_key
+
+    inherited = str(get_current_session_key() or "").strip()
+    if inherited:
+        return inherited
+    return f"task:{task_id}"
 
 
 def _orchestrator_for_task():

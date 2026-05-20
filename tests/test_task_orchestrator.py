@@ -203,6 +203,89 @@ class TestSpawnAgent:
         assert sync.call_args.kwargs["session_id"] == "s1"
 
     @pytest.mark.asyncio
+    async def test_spawn_without_loop_orchestrator_still_attributes_tool_audit_session(self):
+        from butler.execution_context import get_current_session_key
+        from butler.tools.registry import dispatch_tool, get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        orch = TaskOrchestrator()
+        audit_keys: list[str] = []
+
+        def _run(_message: str) -> LoopResult:
+            dispatch_tool("missing_tool", {})
+            audit_keys.append(get_current_session_key())
+            return _completed_loop_result()
+
+        mock_loop = _mock_agent_loop(run_side_effect=_run)
+        mock_loop._butler_orchestrator = None
+
+        with patch.object(orch, "_create_agent_loop", return_value=mock_loop):
+            result = await orch.spawn_agent(_spawn_config(task="audit scope"))
+
+        assert result.success is True
+        assert audit_keys and audit_keys[0].startswith("task:")
+        events = get_tool_audit_events(session_key=audit_keys[0])
+        assert len(events) == 1
+        assert events[0]["session_key"] == audit_keys[0]
+
+    @pytest.mark.asyncio
+    async def test_spawn_agent_inherits_parent_session_key_for_audit(self):
+        from butler.execution_context import use_execution_context
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        orch = TaskOrchestrator()
+        current_orch = MagicMock()
+        current_orch.inject_skill_context.side_effect = lambda text, **_: text
+        mock_loop = _mock_agent_loop()
+
+        def _run(_message: str) -> LoopResult:
+            from butler.tools.registry import dispatch_tool
+
+            dispatch_tool("missing_tool", {})
+            return _completed_loop_result()
+
+        mock_loop.run.side_effect = _run
+        mock_loop._butler_orchestrator = current_orch
+
+        with use_execution_context(current_orch, session_key="parent-sess"):
+            with patch.object(orch, "_create_agent_loop", return_value=mock_loop):
+                await orch.spawn_agent(_spawn_config(task="inherit session"))
+
+        events = get_tool_audit_events(session_key="parent-sess")
+        assert len(events) == 1
+        assert events[0]["session_key"] == "parent-sess"
+
+    @pytest.mark.asyncio
+    async def test_spawn_agent_config_session_key_overrides_parent(self):
+        from butler.execution_context import use_execution_context
+        from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+
+        reset_tool_audit_events()
+        orch = TaskOrchestrator()
+        current_orch = MagicMock()
+        current_orch.inject_skill_context.side_effect = lambda text, **_: text
+        mock_loop = _mock_agent_loop()
+
+        def _run(_message: str) -> LoopResult:
+            from butler.tools.registry import dispatch_tool
+
+            dispatch_tool("missing_tool", {})
+            return _completed_loop_result()
+
+        mock_loop.run.side_effect = _run
+        mock_loop._butler_orchestrator = current_orch
+
+        cfg = AgentSpawnConfig(role="dev", task="explicit session", session_key="spawn-sess")
+        with use_execution_context(current_orch, session_key="parent-sess"):
+            with patch.object(orch, "_create_agent_loop", return_value=mock_loop):
+                await orch.spawn_agent(cfg)
+
+        assert get_tool_audit_events(session_key="parent-sess") == []
+        events = get_tool_audit_events(session_key="spawn-sess")
+        assert len(events) == 1
+
+    @pytest.mark.asyncio
     async def test_spawn_agent_binds_context_during_run(self):
         from butler.execution_context import get_current_orchestrator
 

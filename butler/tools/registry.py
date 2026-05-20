@@ -259,11 +259,11 @@ def _record_tool_audit(
     started_at: float,
 ) -> None:
     try:
-        from butler.execution_context import get_current_session_key
+        from butler.execution_context import get_audit_session_key
 
-        session_key = get_current_session_key()
+        session_key = get_audit_session_key()
     except Exception:
-        session_key = ""
+        session_key = "unscoped"
     event = {
         "tool": name,
         "ok": ok,
