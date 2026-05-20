@@ -35,12 +35,14 @@ class GatewaySessionRegistry:
         loop_factory: Callable[[str], Any],
         *,
         finalize: Callable[[Any], Any] | None = None,
+        on_session_removed: Callable[[str], None] | None = None,
         max_sessions: int = 128,
         idle_ttl_seconds: float = 3600,
         now: Callable[[], float] | None = None,
     ) -> None:
         self._loop_factory = loop_factory
         self._finalize = finalize
+        self._on_session_removed = on_session_removed
         self.max_sessions = max(1, int(max_sessions or 1))
         self.idle_ttl_seconds = max(0.0, float(idle_ttl_seconds or 0))
         self._now = now or time.monotonic
@@ -139,6 +141,7 @@ class GatewaySessionRegistry:
                 self._last_active_at.pop(key, None)
                 self._active_sessions.discard(key)
                 self._session_locks.pop(key, None)
+        self._notify_session_removed(key)
         self._finalize_loop(loop)
 
     def reset_all(self) -> None:
@@ -160,6 +163,8 @@ class GatewaySessionRegistry:
             with self._lock:
                 self._resetting_all = False
                 self._reset_condition.notify_all()
+        for key, _loop in items:
+            self._notify_session_removed(key)
         for _key, loop in items:
             if id(loop) in finalized:
                 continue
@@ -198,6 +203,7 @@ class GatewaySessionRegistry:
                 self.health_by_session.pop(oldest, None)
                 self._last_active_at.pop(oldest, None)
                 self._session_locks.pop(oldest, None)
+                self._notify_session_removed(oldest)
                 loops_to_finalize.append(loop)
         for loop in loops_to_finalize:
             self._finalize_loop(loop)
@@ -229,5 +235,15 @@ class GatewaySessionRegistry:
                 self.health_by_session.pop(key, None)
                 self._last_active_at.pop(key, None)
                 self._session_locks.pop(key, None)
+        if loop is not None:
+            self._notify_session_removed(key)
         self._finalize_loop(loop)
         return loop is not None
+
+    def _notify_session_removed(self, session_key: str) -> None:
+        if self._on_session_removed is None:
+            return
+        try:
+            self._on_session_removed(str(session_key or "default"))
+        except Exception:
+            return

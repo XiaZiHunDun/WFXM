@@ -26,6 +26,31 @@ def test_registry_reuses_loop_and_tracks_activity():
     assert registry.last_active_at("s1") == 12.0
 
 
+def test_reset_clears_tool_audit_for_removed_session():
+    from butler.execution_context import use_execution_context
+    from butler.tools.registry import dispatch_tool, get_tool_audit_events, reset_tool_audit_events
+    from types import SimpleNamespace
+
+    reset_tool_audit_events()
+    orch = SimpleNamespace()
+    registry = GatewaySessionRegistry(
+        lambda key: MagicMock(name=f"loop-{key}"),
+        on_session_removed=reset_tool_audit_events,
+    )
+
+    with use_execution_context(orch, session_key="alice"):
+        dispatch_tool("missing_tool", {})
+    with use_execution_context(orch, session_key="bob"):
+        dispatch_tool("missing_tool", {})
+
+    registry.get_or_create("alice")
+    registry.get_or_create("bob")
+    registry.reset("alice")
+
+    assert get_tool_audit_events(session_key="alice") == []
+    assert len(get_tool_audit_events(session_key="bob")) == 1
+
+
 def test_reset_finalizes_only_target_session():
     loops = {"s1": MagicMock(name="s1"), "s2": MagicMock(name="s2")}
     finalized: list[object] = []
@@ -47,6 +72,36 @@ def test_reset_finalizes_only_target_session():
     assert registry.get_health("s2") == {"keep": True}
 
 
+def test_evict_idle_clears_tool_audit_for_removed_session():
+    from butler.execution_context import use_execution_context
+    from butler.tools.registry import dispatch_tool, get_tool_audit_events, reset_tool_audit_events
+    from types import SimpleNamespace
+
+    reset_tool_audit_events()
+    now = {"value": 100.0}
+    orch = SimpleNamespace()
+    registry = GatewaySessionRegistry(
+        lambda key: MagicMock(name=f"loop-{key}"),
+        finalize=lambda loop: None,
+        idle_ttl_seconds=30,
+        now=lambda: now["value"],
+        on_session_removed=reset_tool_audit_events,
+    )
+
+    with use_execution_context(orch, session_key="idle"):
+        dispatch_tool("missing_tool", {})
+    with use_execution_context(orch, session_key="active"):
+        dispatch_tool("missing_tool", {})
+
+    registry.get_or_create("idle")
+    now["value"] = 140.0
+    registry.get_or_create("active")
+    registry.evict_idle()
+
+    assert get_tool_audit_events(session_key="idle") == []
+    assert len(get_tool_audit_events(session_key="active")) == 1
+
+
 def test_evict_idle_finalizes_expired_sessions_only():
     now = {"value": 100.0}
     loops = {"active": MagicMock(name="active"), "idle": MagicMock(name="idle")}
@@ -66,6 +121,37 @@ def test_evict_idle_finalizes_expired_sessions_only():
     assert evicted == ["idle"]
     assert finalized == [loops["idle"]]
     assert set(registry.sessions) == {"active"}
+
+
+def test_lru_eviction_clears_tool_audit_for_removed_session():
+    from butler.execution_context import use_execution_context
+    from butler.tools.registry import dispatch_tool, get_tool_audit_events, reset_tool_audit_events
+    from types import SimpleNamespace
+
+    reset_tool_audit_events()
+    now = {"value": 0.0}
+    orch = SimpleNamespace()
+    registry = GatewaySessionRegistry(
+        lambda key: MagicMock(name=f"loop-{key}"),
+        max_sessions=2,
+        now=lambda: now["value"],
+        on_session_removed=reset_tool_audit_events,
+    )
+
+    with use_execution_context(orch, session_key="a"):
+        dispatch_tool("missing_tool", {})
+    with use_execution_context(orch, session_key="b"):
+        dispatch_tool("missing_tool", {})
+    with use_execution_context(orch, session_key="c"):
+        dispatch_tool("missing_tool", {})
+
+    for key in ("a", "b", "c"):
+        now["value"] += 1.0
+        registry.get_or_create(key)
+
+    assert get_tool_audit_events(session_key="a") == []
+    assert len(get_tool_audit_events(session_key="b")) == 1
+    assert len(get_tool_audit_events(session_key="c")) == 1
 
 
 def test_lru_limit_evicts_oldest_session():
@@ -149,6 +235,30 @@ def test_idle_eviction_rechecks_last_active_before_reset():
 
     assert "old" in registry.sessions
     assert finalized == []
+
+
+def test_reset_all_clears_tool_audit_for_all_sessions():
+    from butler.execution_context import use_execution_context
+    from butler.tools.registry import dispatch_tool, get_tool_audit_events, reset_tool_audit_events
+    from types import SimpleNamespace
+
+    reset_tool_audit_events()
+    orch = SimpleNamespace()
+    registry = GatewaySessionRegistry(
+        lambda key: MagicMock(name=f"loop-{key}"),
+        on_session_removed=reset_tool_audit_events,
+    )
+
+    with use_execution_context(orch, session_key="alice"):
+        dispatch_tool("missing_tool", {})
+    with use_execution_context(orch, session_key="bob"):
+        dispatch_tool("missing_tool", {})
+
+    registry.get_or_create("alice")
+    registry.get_or_create("bob")
+    registry.reset_all()
+
+    assert get_tool_audit_events() == []
 
 
 def test_reset_all_finalizes_every_session():

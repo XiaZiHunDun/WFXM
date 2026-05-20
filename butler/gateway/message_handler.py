@@ -37,6 +37,7 @@ class ButlerMessageHandler:
         self._session_registry = GatewaySessionRegistry(
             self._create_loop_for_session,
             finalize=self._finalize_session,
+            on_session_removed=_reset_tool_audit_events,
             max_sessions=_env_int("BUTLER_GATEWAY_MAX_SESSIONS", 128),
             idle_ttl_seconds=_env_float("BUTLER_GATEWAY_SESSION_IDLE_TTL_SECONDS", 3600),
         )

@@ -111,5 +111,6 @@
 | `butler/tools/registry.py` + `butler/gateway/message_handler.py` | 工具输出与审计观测 | 工具错误兼容式 envelope、错误码分类、脱敏审计事件和 `/health` 工具摘要 | ✅ |
 | `butler/core/agent_loop.py` + `butler/core/parallel_tools.py` + `butler/tools/registry.py` | 工具护栏审计闭环 | guardrail block、dispatcher 异常、parallel interrupt 统一进入 envelope 与审计事件 | ✅ |
 | `butler/core/agent_loop.py` + `butler/tools/registry.py` | guardrail halt 观测对齐 | `after_call` halt 使用 `TOOL_GUARDRAIL_HALT` envelope/审计，替换重复工具失败审计 | ✅ |
+| `butler/gateway/session_registry.py` + `butler/tools/registry.py` | 审计生命周期对齐 | session `reset`/`reset_all`/idle 驱逐/LRU 驱逐时通过 `on_session_removed` 清理对应 `session_key` 工具审计桶，避免陈旧 `/health` 数据 | ✅ |
 
 测试：`tests/test_cn_model_hardening.py`、`tests/test_schema_sanitizer.py`、`tests/test_retry_utils.py`、`tests/test_model_context.py`、`tests/test_session_lifecycle.py`、`tests/test_butler_skills.py`、`tests/test_orchestrator.py`。真实 API smoke tests 位于 `tests/test_real_api_smoke.py`，默认被 `live_llm` marker 排除；显式运行需使用 `pytest -m live_llm tests/test_real_api_smoke.py`，并设置 `BUTLER_RUN_REAL_API_SMOKE=1` 和对应 provider API key。
