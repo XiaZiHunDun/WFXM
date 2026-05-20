@@ -1,4 +1,4 @@
-"""Hermes subprocess path helpers (gateway --hermes-fallback)."""
+"""Hermes vendored tree path helpers (frozen vendor/, not used by product gateway)."""
 
 from __future__ import annotations
 

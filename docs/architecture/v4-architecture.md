@@ -4,7 +4,7 @@
 
 Butler v4 采用**自建 Agent Loop + 模块化复用**方案 — Butler 完全控制自己的 Agent Loop，
 不再 import Hermes AIAgent。Transport / 工具 / Loop 均在 `butler/` 内自建。  
-**微信网关**：`butler gateway` 默认走 Butler 原生 iLink 适配器 + `ButlerMessageHandler`（无 Hermes 子进程）。其它平台可用 `--hermes-fallback`。详见 [`hermes-decoupling.md`](hermes-decoupling.md)。
+**微信网关**：`butler gateway` 为 Butler 原生 iLink + `ButlerMessageHandler`（无 Hermes 子进程，不支持其它平台）。详见 [`hermes-decoupling.md`](hermes-decoupling.md)。
 
 ```
 用户 ─→ CLI / 微信 / 其他平台

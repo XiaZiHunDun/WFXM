@@ -15,7 +15,7 @@
 | `plugins/memory/butler/` | ❌ | ⚠️ Hermes 插件 ABI | 已通过 `hermes_bridge` 隔离 |
 | `reference/` | ❌ | ❌ | 仅提炼对照，**禁止改动** |
 
-结论：**对话主路径已解耦 Loop**；Hermes 已迁入 `vendor/hermes-agent/`；**多平台 Gateway 提炼**仍是最大剩余债。
+结论：**对话与网关均为微信单平台**；`vendor/hermes-agent/` 仅冻结对照，产品不启动 Hermes 子进程。
 
 ## 目标架构
 
@@ -38,16 +38,14 @@
 - [x] `ButlerMemoryService` 与 `plugins/memory/butler/hermes_bridge` 分离
 - [x] 后台记忆提炼改用 `auxiliary_client`（修复旧 `_create_butler_agent` 死代码）
 - [x] `post_session.from_hermes_agent` 标为 deprecated（`DeprecationWarning`），测试迁出 v3 路径
-- [x] `pyproject` 增加 `butler-system[hermes-gateway]` extra（平台依赖聚合）
+- [x] 根 `pyproject` 仅 `butler-system`；微信依赖见 `[wechat]` extra
 
-### 阶段 B — Butler 原生 Gateway（高优先级）
+### 阶段 B — Butler 原生 Gateway（已完成 · 仅微信）
 
-- [x] `butler gateway` 默认进程内启动 `ButlerMessageHandler` + 平台 adapter（`butler/gateway/runner.py`）
-- [x] 首期平台：**微信 iLink**（`butler/gateway/platforms/wechat_ilink.py`，提炼自 Hermes `weixin` 适配器）
-- [x] `--hermes-fallback` 保留 Hermes 子进程路径（Telegram 等未迁入平台）
-- [x] 非微信平台**简单解耦**：`butler gateway --platforms telegram` 等自动走 Hermes 子进程（`platform_policy.py`），不做全量提炼
-- [ ] 按需再提炼单平台到 `butler/gateway/platforms/`（当前仅微信）
-- [x] `plugins/butler` 标为遗留（仅 Hermes 子进程）；原生网关用 `butler/gateway/hooks.py`
+- [x] `butler gateway` → 仅微信 iLink（`butler/gateway/platforms/wechat_ilink.py`）
+- [x] 其它平台名（telegram 等）CLI 直接拒绝
+- [x] 已移除 `--hermes-fallback` 产品入口
+- [x] 原生网关用 `butler/gateway/hooks.py`（非 `plugins/butler`）
 
 ### 阶段 C — 仓库物理整理
 

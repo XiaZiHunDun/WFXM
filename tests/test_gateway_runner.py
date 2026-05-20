@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from butler.gateway.runner import (
     normalize_platforms,
-    run_gateway_blocking,
     unsupported_platforms,
 )
 
@@ -29,35 +29,33 @@ class TestGatewayCommand:
     def test_cmd_gateway_native_wechat(self, monkeypatch):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="wechat", hermes_remainder=[])
+        ns = MagicMock(platforms="wechat", gateway_remainder=[])
         with patch("butler.gateway.runner.run_gateway_blocking", return_value=0) as run:
             assert _cmd_gateway(ns) == 0
         run.assert_called_once_with(["wechat"])
 
-    def test_cmd_gateway_hermes_fallback_flag(self, monkeypatch):
+    def test_cmd_gateway_default_is_wechat(self, monkeypatch):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="telegram", hermes_remainder=["--hermes-fallback"])
-        with patch("butler.main._cmd_gateway_hermes_fallback", return_value=5) as fallback:
-            assert _cmd_gateway(ns) == 5
-        fallback.assert_called_once()
+        ns = MagicMock(platforms="", gateway_remainder=[])
+        with patch("butler.gateway.runner.run_gateway_blocking", return_value=0) as run:
+            assert _cmd_gateway(ns) == 0
+        run.assert_called_once_with(["wechat"])
+        assert os.environ["BUTLER_GATEWAY_ACTIVE"] == "1"
 
-    def test_cmd_gateway_telegram_requires_hermes_vendored(self, monkeypatch, capsys):
+    def test_cmd_gateway_rejects_telegram(self, capsys):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="telegram", hermes_remainder=[])
-        with patch("butler.gateway.platform_policy.hermes_vendored_installed", return_value=False):
-            assert _cmd_gateway(ns) == 2
-        assert "hermes-gateway" in capsys.readouterr().err
+        ns = MagicMock(platforms="telegram", gateway_remainder=[])
+        assert _cmd_gateway(ns) == 2
+        assert "仅支持微信" in capsys.readouterr().err
 
-    def test_cmd_gateway_telegram_auto_hermes_when_installed(self, monkeypatch):
+    def test_cmd_gateway_rejects_hermes_fallback_flag(self, capsys):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="telegram", hermes_remainder=[])
-        with patch("butler.gateway.platform_policy.hermes_vendored_installed", return_value=True):
-            with patch("butler.main._cmd_gateway_hermes_fallback", return_value=0) as fb:
-                assert _cmd_gateway(ns) == 0
-        fb.assert_called_once()
+        ns = MagicMock(platforms="", gateway_remainder=["--hermes-fallback"])
+        assert _cmd_gateway(ns) == 2
+        assert "hermes-fallback" in capsys.readouterr().err
 
 
 class TestPlatformAdapterStubs:

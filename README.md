@@ -27,8 +27,8 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-pip install -e .                    # 仅 Butler（微信网关够用）
-pip install -e ".[hermes-gateway]"  # + hermes-vendored（Telegram 等自动走子进程）
+pip install -e ".[wechat]"          # Butler + 微信网关依赖（推荐）
+# 或 pip install -e .  后自行 pip install aiohttp cryptography certifi
 # 微信网关可选
 pip install -e ".[wechat]"
 ```
