@@ -429,7 +429,9 @@ class ButlerMessageHandler:
             format_memory_diagnostic_lines,
         )
 
-        mem_stats = collect_memory_layer_stats(self._orchestrator)
+        mem_stats = collect_memory_layer_stats(
+            self._orchestrator, session_key=session_key
+        )
         if health:
             if health.get("memory_prefetch_chars") is not None:
                 mem_stats["last_prefetch_chars"] = health.get("memory_prefetch_chars")
