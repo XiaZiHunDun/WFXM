@@ -42,8 +42,17 @@ BUTLER_TOOL_SAFE_ROOT=/path/to/workspace
 | 批量流水线 | `/运行` / `butler runtime due` |
 | 发版提交 | 本机可 `git_*`；远程网关建议人工 git |
 
+## P2 能力
+
+| 工具 / 配置 | 说明 |
+|-------------|------|
+| `list_runtime_jobs` | 列出当前项目 `jobs.yaml` 任务 |
+| `run_runtime_job` | 执行 **readonly** 任务（等同 `/运行`）；mutating 须 `/批准运行` |
+| `download_file` | `BUTLER_ENABLE_DOWNLOAD=1`，HTTPS + 域名白名单 |
+| `BUTLER_TOOL_AUDIT_JSONL=1` | 工具审计追加到 JSONL |
+
 ## 验收
 
 ```bash
-pytest tests/test_git_tools.py tests/test_tools_registry.py -q
+pytest tests/test_git_tools.py tests/test_dev_ops_p2.py tests/test_tools_registry.py -q
 ```

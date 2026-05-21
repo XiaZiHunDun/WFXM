@@ -108,9 +108,9 @@ flowchart TB
 | Git 只读（status/diff/log/branch list） | | ✅ | |
 | Git 写入（add/commit/branch 改） | | ✅ opt-in | |
 | patch 多匹配友好错误 | | ✅ | |
-| 工具审计 JSONL 落盘 | | | ✅ |
-| Agent→Runtime 桥接 | | | ✅ |
-| 受控下载 | | | ✅ |
+| 工具审计 JSONL 落盘 | | | ✅ 已实现 |
+| Agent→Runtime 桥接 | | | ✅ 已实现 |
+| 受控下载 | | | ✅ 已实现 |
 
 ---
 
@@ -252,6 +252,14 @@ BUTLER_ENABLE_GIT_WRITE=0          # add / commit / branch 变更
 
 # Workspace（网关生产推荐）
 BUTLER_TOOL_SAFE_ROOT=/path/to/repo
+
+# P2
+BUTLER_TOOL_AUDIT_JSONL=1
+BUTLER_TOOL_AUDIT_PATH=              # 默认 ~/.butler/audit/tools.jsonl
+BUTLER_ENABLE_DOWNLOAD=1
+BUTLER_DOWNLOAD_ALLOW_HOSTS=github.com,raw.githubusercontent.com,files.pythonhosted.org
+BUTLER_DOWNLOAD_MAX_BYTES=10485760
+BUTLER_RUNTIME_ENABLED=1             # list_runtime_jobs / run_runtime_job
 ```
 
 **WFXM 本地开发推荐**（`.env.local` 示例）：

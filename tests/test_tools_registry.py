@@ -36,7 +36,7 @@ class TestToolDefinitions:
     def test_get_tool_definitions_includes_memory_tools(self):
         tools = get_tool_definitions()
         names = {t["function"]["name"] for t in tools}
-        assert len(tools) >= 18
+        assert len(tools) >= 21
         assert "butler_remember" in names
         assert "butler_recall" in names
 
@@ -72,6 +72,9 @@ class TestToolDefinitions:
             "git_branch",
             "git_add",
             "git_commit",
+            "list_runtime_jobs",
+            "run_runtime_job",
+            "download_file",
         }
 
     @pytest.mark.parametrize(

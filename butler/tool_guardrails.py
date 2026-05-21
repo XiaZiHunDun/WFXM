@@ -27,6 +27,7 @@ IDEMPOTENT_TOOLS = frozenset({
     "skills_list",
     "skill_view",
     "butler_recall",
+    "list_runtime_jobs",
 })
 
 MUTATING_TOOLS = frozenset({
@@ -37,6 +38,8 @@ MUTATING_TOOLS = frozenset({
     "patch",
     "git_add",
     "git_commit",
+    "run_runtime_job",
+    "download_file",
 })
 
 

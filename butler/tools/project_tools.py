@@ -22,6 +22,8 @@ _BUTLER_EXTRA_TOOLS = frozenset({
     "skill_view",
     "butler_remember",
     "butler_recall",
+    "list_runtime_jobs",
+    "run_runtime_job",
 })
 
 # Project Lead: read-only + orchestration (no write/shell even if listed in project.yaml).
@@ -37,6 +39,8 @@ _LEAD_EXTRA_TOOLS = frozenset({
     "skill_view",
     "butler_remember",
     "butler_recall",
+    "list_runtime_jobs",
+    "run_runtime_job",
 })
 
 
