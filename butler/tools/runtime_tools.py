@@ -98,9 +98,14 @@ def _tool_run_runtime_job(
         "summary": out.get("summary"),
         "duration_seconds": out.get("duration_seconds"),
         "record_path": out.get("record_path"),
+        "returncode": out.get("returncode"),
+        "report_paths": out.get("report_paths") or [],
     }
+    if out.get("outcome"):
+        payload["outcome"] = out["outcome"]
     if out.get("error"):
         payload["error"] = out["error"]
+        payload["ok"] = False
     return json.dumps(payload, ensure_ascii=False)
 
 

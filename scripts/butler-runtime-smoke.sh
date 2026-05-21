@@ -28,6 +28,11 @@ echo ""
 echo "== run publish-preflight (readonly) =="
 python3 -m butler.main runtime run publish-preflight --project "$PROJECT"
 
+echo ""
+echo "== agent runtime bridge (list_runtime_jobs / run_runtime_job) =="
+export BUTLER_RUNTIME_ENABLED=1
+python3 -m pytest tests/test_dev_ops_p2.py::TestRuntimeBridgeTools -q --tb=line
+
 if [[ "${BUTLER_RUNTIME_RUN_CONSISTENCY:-0}" == "1" ]]; then
   echo ""
   echo "== run consistency-weekly (slow, opt-in) =="

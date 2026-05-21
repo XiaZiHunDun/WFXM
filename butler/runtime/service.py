@@ -146,13 +146,18 @@ def run_job(
     if not skip_notify:
         _maybe_notify(project_name, job, result, audit_path=str(record_path))
 
-    return {
+    out: dict[str, Any] = {
         "success": bool(result.get("success")),
         "job_id": job.id,
         "summary": record["summary"],
         "duration_seconds": result.get("duration_seconds"),
         "record_path": str(record_path),
+        "returncode": result.get("returncode"),
+        "report_paths": result.get("report_paths") or [],
     }
+    if result.get("outcome"):
+        out["outcome"] = result["outcome"]
+    return out
 
 
 def approve_and_run(

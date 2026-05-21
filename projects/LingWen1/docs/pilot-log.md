@@ -11,6 +11,7 @@
 | 2026-05-21 | **稳上线**（记忆增强 + 开发工具） | `git push` → `351d41f`；`memory-reindex`（向量 12 条）；`butler-memory-smoke` 全绿；gateway **restart**；待微信补验 M1b/O7/O8/`/记忆图谱` |
 | 2026-05-21 | **Runtime 运营 + 开发实战** | `butler-runtime-smoke.sh` 通过；timer enabled；`factory-status-daily` OK；`publish-preflight` 禁用拒绝；`consistency-weekly` 跑完 exit1（P1×3，有报告）；修复 runtime 微信推送 `PlatformConfig`；`butler-dev-tools-smoke.sh` patch/terminal/git 全绿 |
 | 2026-05-21 | **一致性 / 预检策略** | 人物仅报「死后复活」；脚本 exit0 当 P0=0；runner `passed_with_warnings`；`publish-preflight` 改为 readonly + `preflight` 子命令并默认启用 |
+| 2026-05-21 | **预检精度 + Agent Runtime** | preflight 第 7 步读最新 consistency JSON；Lead 可用 `run_runtime_job` / `list_runtime_jobs` |
 
 ## 稳上线后微信补验（待主公勾选）
 
