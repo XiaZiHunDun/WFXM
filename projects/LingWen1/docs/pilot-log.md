@@ -9,6 +9,7 @@
 | 2026-05-21 | 项目 Lead 阶段 2 | Lead AgentLoop + `/诊断` 对话引擎行；**微信验收通过**（切换厂长模式、多轮上下文、委派审计） |
 | 2026-05-21 | 项目 Lead 阶段 3 | 运行时自动化 **设计方案** + `runtime/jobs.yaml` 草案；实施待 3a 开发 |
 | 2026-05-21 | **稳上线**（记忆增强 + 开发工具） | `git push` → `351d41f`；`memory-reindex`（向量 12 条）；`butler-memory-smoke` 全绿；gateway **restart**；待微信补验 M1b/O7/O8/`/记忆图谱` |
+| 2026-05-21 | **Runtime 运营 + 开发实战** | `butler-runtime-smoke.sh` 通过；timer enabled；`factory-status-daily` OK；`publish-preflight` 禁用拒绝；`consistency-weekly` 跑完 exit1（P1×3，有报告）；修复 runtime 微信推送 `PlatformConfig`；`butler-dev-tools-smoke.sh` patch/terminal/git 全绿 |
 
 ## 稳上线后微信补验（待主公勾选）
 

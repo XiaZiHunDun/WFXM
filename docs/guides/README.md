@@ -11,6 +11,8 @@
 | [owner-profile-setup.md](./owner-profile-setup.md) | Owner 画像配置 |
 | [memory-ops.md](./memory-ops.md) | **记忆运维**：推荐 env、smoke/reindex、灵文检查表索引 |
 | [dev-tools-ops.md](./dev-tools-ops.md) | **开发操作工具**：terminal / git / env 与 Runtime 分工 |
+| `scripts/butler-runtime-smoke.sh` | Runtime 运维冒烟（灵文1号） |
+| `scripts/butler-dev-tools-smoke.sh` | 开发工具链实战冒烟 |
 | [manual-testing-guide.md](./manual-testing-guide.md) | CLI + 微信完整人工测试手册 |
 
 ## 推荐顺序
