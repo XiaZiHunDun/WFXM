@@ -82,8 +82,8 @@ tail -f logs/butler-runtime.log
 | id | mode | 默认 | 说明 |
 |----|------|------|------|
 | `factory-status-daily` | readonly | 开 | 08:00 UTC 日报；可 `/运行` |
-| `consistency-weekly` | readonly | 开 | 周一 09:00 UTC 一致性脚本（较慢） |
-| `publish-preflight` | mutating | **关** | 须 `enabled: true` + `/批准运行` |
+| `consistency-weekly` | readonly | 开 | 周一 09:00 UTC；**P0=0 即 runtime 成功**（P1 为有条件通过） |
+| `publish-preflight` | readonly | 开 | 周日 07:00 UTC；`run_publish.sh preflight`（只读，不 archive） |
 
 **不实施**（见 [`project-runtime-automation.md` §11](../architecture/project-runtime-automation.md)）：`workflow-report`；失败同日自动重试。流水线状态看 **`factory-status-daily`** 或问厂长 / `/工作流 run novel-factory-status`。
 
@@ -105,6 +105,6 @@ tail -f logs/butler-runtime.log
 
 - **3a**：`/定时`、`/运行 factory-status-daily` — 已通过（2026-05-21）
 - **3b**：timer 已 enable；`butler runtime due` / 定时扫 — **2026-05-21 CLI 冒烟通过**
-- **3c**：`publish-preflight` 未启用时 CLI 拒绝；`pytest test_approve_mutating_one_shot` 批准门通过
+- **3c**：`publish-preflight` 只读预检可 `/运行`；mutating 发布仍须 `/批准运行`（`pytest test_approve_mutating_one_shot`）
 
-**说明**：`consistency-weekly` 脚本若发现 P1 问题会以 **exit 1** 结束，runtime 记为失败但会写报告路径（属内容告警，非基础设施故障）。见 `~/.butler/runtime/runs/灵文1号/consistency-weekly/*.json`。
+**说明**：一致性脚本 **exit 0 当 P0=0**（仅 P1 时进程可能仍 exit 1，runner 会按 stdout/JSON 将 `success=true`、`outcome=passed_with_warnings`）。人物 **存活→死亡** 不再报 P1；仅 **死后复活** 报 `ALIVE_CONFLICT`。

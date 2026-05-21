@@ -33,17 +33,17 @@ jobs:
       on_failure: true
       max_summary_chars: 800
 
-  # 以下改盘类默认关闭；启用前须评审 run_publish.sh 行为
+  # 只读预检：run_publish.sh preflight（不 archive/merge）；改盘仍须 /批准运行 + 单独 mutating job
   - id: publish-preflight
-    description: 发布相关脚本（须微信批准后才执行）
-    mode: mutating
-    enabled: false
-    approval:
-      required: true
-      expires_hours: 48
+    description: 发布前只读预检（workflow 版本 + 目录检查，不写入）
+    mode: readonly
+    enabled: true
+    schedule: "0 7 * * 0"
     command:
       - bash
       - novel-factory/tools/publish/run_publish.sh
+      - preflight
     notify:
       on_success: true
       on_failure: true
+      max_summary_chars: 1000

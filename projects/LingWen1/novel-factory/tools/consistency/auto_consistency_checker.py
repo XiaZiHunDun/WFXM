@@ -289,8 +289,8 @@ def main():
     print(f"  P1: {results['by_severity']['P1']}")
     print(f"  P2: {results['by_severity']['P2']}")
 
-    # 返回码：有问题则失败
-    sys.exit(0 if results['total_issues'] == 0 else 1)
+    # 返回码：P0=0 视为通过（P1 为「有条件通过」）；仅 P0>0 失败
+    sys.exit(0 if results['by_severity']['P0'] == 0 else 1)
 
 
 if __name__ == "__main__":

@@ -154,11 +154,17 @@ def check_character_consistency(chapters_dir: str,
             if state_history[char]:
                 prev = state_history[char][-1]
 
-                # 生死状态变化检测（更严格）
+                # 仅报告「死后复活」类矛盾；「存活→死亡」为正常剧情，不报 P1
                 if state.alive is not None and prev.alive is not None:
-                    if state.alive != prev.alive:
-                        issues.append(("ALIVE_CONFLICT", i, char,
-                            f"{char}生死状态变化: {'存活' if prev.alive else '死亡'}→{'存活' if state.alive else '死亡'}"))
+                    if (not prev.alive) and state.alive:
+                        issues.append(
+                            (
+                                "ALIVE_CONFLICT",
+                                i,
+                                char,
+                                f"{char}生死状态矛盾: 前文已死亡，本章又出现明确存活表述",
+                            )
+                        )
 
         # 更新历史
         for char, state in current_states.items():
