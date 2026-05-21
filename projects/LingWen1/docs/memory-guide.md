@@ -34,7 +34,18 @@
 
 ## 路线图（待改进）
 
-**向量语义（可选）**：`.env` 设 `BUTLER_SEMANTIC_MEMORY=1` 后启用 `memory_vectors.db`（本地 hashing 向量，无需外网）；`butler_recall` / 每轮预取走 **FTS + 向量混合**。默认 `0` 仅 FTS。方案见 [`docs/architecture/memory-roadmap.md`](../../docs/architecture/memory-roadmap.md)。
+**向量语义（可选）**：`.env` 设 `BUTLER_SEMANTIC_MEMORY=1` 后启用 `memory_vectors.db`（本地 hashing 向量，**无云 API、无云存储**）；`butler_recall` / 每轮预取走 **FTS + 向量混合**。默认 `0` 仅 FTS。
+
+开启后建议重建索引（把已有 experience / MEMORY 写入向量表）：
+
+```bash
+cd ~/projects/WFXM
+# .env 中 BUTLER_SEMANTIC_MEMORY=1
+bash scripts/butler-memory-reindex.sh
+# 或: PYTHONPATH=. python3 -m butler.main memory-reindex
+```
+
+方案见 [`docs/architecture/memory-roadmap.md`](../../docs/architecture/memory-roadmap.md)。
 
 ## 微信命令（记忆）
 
