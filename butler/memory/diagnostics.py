@@ -31,6 +31,9 @@ def collect_memory_layer_stats(orchestrator: Any) -> dict[str, Any]:
         "experience_by_category": {},
         "experience_long_term": 0,
         "conversation_rows": 0,
+        "semantic_enabled": False,
+        "vector_rows": 0,
+        "vector_model": "",
         "project_name": "",
         "project_pending": 0,
         "project_bullets": 0,
@@ -48,6 +51,15 @@ def collect_memory_layer_stats(orchestrator: Any) -> dict[str, Any]:
             else:
                 text = prof.read() if hasattr(prof, "read") else ""
                 stats["profile_chars"] = len(text or "")
+
+        sem = getattr(bm, "semantic", None)
+        if sem is not None:
+            stats["semantic_enabled"] = True
+            try:
+                stats["vector_rows"] = sem.count_rows()
+                stats["vector_model"] = getattr(sem, "model_id", "") or ""
+            except Exception:
+                pass
 
         exp = getattr(bm, "experience", None)
         if exp is not None:
@@ -103,6 +115,13 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         f"  项目 MEMORY ({proj}): 正式条目 {stats.get('project_bullets', 0)} 条, "
         f"Pending {stats.get('project_pending', 0)} 条"
     )
+    if stats.get("semantic_enabled"):
+        lines.append(
+            f"  向量索引: {stats.get('vector_rows', 0)} 条 "
+            f"(model={stats.get('vector_model') or '?'})"
+        )
+    else:
+        lines.append("  向量索引: 关 (BUTLER_SEMANTIC_MEMORY=0)")
     injected = stats.get("last_prefetch_chars")
     if injected is not None:
         lines.append(f"  上轮预取注入: {injected} 字")

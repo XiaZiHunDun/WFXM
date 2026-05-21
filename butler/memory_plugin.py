@@ -79,6 +79,34 @@ def _project_root_explicit() -> Path | None:
     return Path(raw).expanduser().resolve()
 
 
+def _active_project_name() -> str:
+    """Resolve current Butler project name (string), never a Project object."""
+    pm = None
+    try:
+        from butler.execution_context import get_current_orchestrator
+
+        orch = get_current_orchestrator()
+        pm = getattr(orch, "project_manager", None) if orch is not None else None
+    except Exception:
+        pm = None
+    if pm is None:
+        try:
+            from butler.project_manager import get_project_manager
+
+            pm = get_project_manager()
+        except Exception:
+            return ""
+    try:
+        if hasattr(pm, "resolve_active_project_name"):
+            return str(pm.resolve_active_project_name() or "").strip()
+        cur = pm.get_current() if hasattr(pm, "get_current") else None
+        if cur is not None:
+            return str(getattr(cur, "name", "") or "").strip()
+        return str(getattr(pm, "current_project", "") or "").strip()
+    except Exception:
+        return ""
+
+
 def _project_root_discovery() -> Path | None:
     exp = _project_root_explicit()
     if exp:
@@ -339,17 +367,21 @@ class ButlerMemoryService:
             return json.dumps({"ok": ok, "scope": scope})
 
         if scope == "owner_experience":
-            proj = ""
-            try:
-                from butler.project_manager import get_project_manager
+            proj = _active_project_name()
 
-                proj = get_project_manager().current_project or ""
-            except Exception:
-                proj = ""
-
+            cat = category or "delegation_note"
             row_id = self._butler_global.experience.add(
                 project=proj,
-                category=category or "delegation_note",
+                category=cat,
+                content=content,
+            )
+            from butler.memory.semantic_index import index_experience_row
+
+            index_experience_row(
+                getattr(self._butler_global, "semantic", None),
+                row_id,
+                project=proj,
+                category=cat,
                 content=content,
             )
             return json.dumps({"ok": True, "id": row_id, "scope": scope})
@@ -391,26 +423,27 @@ class ButlerMemoryService:
         query = str(args.get("query", "") or "").strip()
         limit = max(1, int(args.get("limit", 8) or 8))
         project = str(args.get("project", "") or "").strip()
+        semantic = getattr(self._butler_global, "semantic", None)
+        proj_filter: str | None = (project or "").strip() or None
+        if proj_filter is None:
+            proj_filter = _active_project_name() or None
+
+        from butler.memory.semantic_index import hybrid_experience_search
+
         if not query:
             recent = self._butler_global.experience.get_recent(limit=limit * 4)
             rows = filter_non_conversation_experience(recent)[:limit]
-            return json.dumps({"ok": True, "results": rows})
-
-        proj_filter: str | None = project or None
-        if proj_filter is None:
-            try:
-                from butler.project_manager import get_project_manager
-
-                pn = get_project_manager().current_project or ""
-                proj_filter = pn or None
-            except Exception:
-                proj_filter = None
-
-        rows = self._butler_global.experience.search(
-            query, project=proj_filter, limit=limit * 4
-        )
-        rows = filter_non_conversation_experience(rows)[:limit]
-        return json.dumps({"ok": True, "results": rows})
+        else:
+            rows = filter_non_conversation_experience(
+                hybrid_experience_search(
+                    semantic,
+                    self._butler_global.experience.search,
+                    query,
+                    project=proj_filter,
+                    limit=limit,
+                )
+            )
+        return json.dumps({"ok": True, "results": rows, "semantic": semantic is not None})
 
     def on_session_switch(
         self,

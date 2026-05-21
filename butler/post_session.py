@@ -326,8 +326,17 @@ class PostSessionProcessor:
                     applied += 1
                     corpus = _build_existing_memory_corpus(butler_memory, project_memory)
                 elif target == "experience" and butler_memory:
-                    butler_memory.experience.add(
+                    row_id = butler_memory.experience.add(
                         project=project_name, category="experience", content=content,
+                    )
+                    from butler.memory.semantic_index import index_experience_row
+
+                    index_experience_row(
+                        getattr(butler_memory, "semantic", None),
+                        row_id,
+                        project=project_name,
+                        category="experience",
+                        content=content,
                     )
                     applied += 1
                     corpus = _build_existing_memory_corpus(butler_memory, project_memory)
