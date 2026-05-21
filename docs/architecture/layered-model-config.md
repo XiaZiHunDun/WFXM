@@ -151,7 +151,7 @@ models:
 | **M1 文档** | 本文 + `design.md` §3 修订 + `wechat-inbound-media` 交叉引用 | 团队不再用 project Agent 查识图 |
 | **M2 行为对齐** | `butler/model_resolve.py` + `_model_credentials` | ✅ 2026-05-21 |
 | **M3 `/model` 增强** | `handle_model_command`：列表 / 临时 / save / reset | ✅ 2026-05-21 |
-| **M4 可观测** | `/诊断` 增加「有效模型」块（butler + 三 Agent + auxiliary + gateway vision） | 微信发 `/诊断` 可见 |
+| **M4 可观测** | `/诊断` → `format_model_diagnostic_lines`（角色 + auxiliary + gateway） | ✅ 2026-05-21 真机通过 |
 | **M5（可选）** | workflow step `model:` 字段；novel-factory 只读步骤用便宜模型 | 单步可覆盖 |
 
 **不建议首期做**：给 MiniMax-M2.7 配 multimodal message；用 subprocess 调 MCP 识图（已有 HTTP VLM）。

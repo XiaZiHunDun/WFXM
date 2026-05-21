@@ -96,6 +96,8 @@ class TestSlashCommands:
         assert "轮次诊断: 暂无" in text
         assert "记忆分层" in text
         assert "Owner 画像" in text
+        assert "--- 有效模型 ---" in text
+        assert "gateway(识图)" in text or "gateway(入站媒体)" in text
 
     def test_health_shows_tool_audit_without_health_snapshot(self, handler):
         from butler.tools.registry import dispatch_tool, reset_tool_audit_events
@@ -405,7 +407,7 @@ class TestSlashCommands:
             ):
                 text = handler.handle_message("hello", session_key="s1")
 
-        assert "当前模型配置" in text
+        assert "当前有效模型" in text
 
     def test_slash_command_bypasses_session_entry(self, handler):
         with patch.object(
