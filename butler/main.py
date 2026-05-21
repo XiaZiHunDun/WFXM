@@ -294,6 +294,11 @@ def _handle_slash_command(
                 f"[green]已切换到项目: {new}[/green] "
                 "[dim]（该项目有独立对话历史）[/dim]"
             )
+            from butler.project_lead import lead_mode_switch_suffix
+
+            note = lead_mode_switch_suffix(new or "")
+            if note:
+                console.print(f"[dim]{note.strip()}[/dim]")
             return "switch_project"
         else:
             console.print(f"[red]未找到项目: {arg}[/red]")
@@ -316,25 +321,18 @@ def _handle_slash_command(
         console.print(reply)
         return "handled"
 
-        if command == "/new":
-            from butler.session_keys import build_session_key
-            from butler.session_lifecycle import clear_session_boundary_memory
+    if command == "/new":
+        from butler.session_keys import build_session_key
+        from butler.session_lifecycle import clear_session_boundary_memory
 
-            cli_sk = build_session_key(
-                platform="cli",
-                chat_id=orchestrator.user_id,
-                project=orchestrator.project_manager.current_project or "",
-            )
-            clear_session_boundary_memory(orchestrator, cli_sk)
-            console.print("[dim]已清空对话历史[/dim]")
-            return "rebuild"
-
-        if command in ("/switch", "/切换") and arg:
-            from butler.project_lead import lead_mode_switch_suffix
-
-            note = lead_mode_switch_suffix(orchestrator.project_manager.current_project or "")
-            if note:
-                console.print(f"[dim]{note.strip()}[/dim]")
+        cli_sk = build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        )
+        clear_session_boundary_memory(orchestrator, cli_sk)
+        console.print("[dim]已清空对话历史[/dim]")
+        return "rebuild"
 
     if command == "/status":
         settings = orchestrator._settings
