@@ -17,11 +17,11 @@ class TestCliNewSingleFinalize:
         """Regression: /new → rebuild only finalizes inside _rebuild_loop once."""
         src = Path(__file__).resolve().parents[1] / "butler" / "main.py"
         text = src.read_text(encoding="utf-8")
-        start = text.index('if handled == "rebuild":')
+        start = text.index('if handled == "rebuild_after_new":')
         end = text.index("elif handled ==", start)
         branch = text[start:end]
         assert branch.count("_trigger_session_end") == 0
-        assert "_rebuild_loop()" in branch
+        assert "skip_session_end=True" in branch
 
 
 @pytest.mark.module_test

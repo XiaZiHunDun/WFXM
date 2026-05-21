@@ -120,7 +120,7 @@ class TestNewCommandMemoryFeedback:
         ):
             text = handler._handle_command("/新对话", session_key="wechat:u1:_")
 
-        assert text.startswith("已清空对话历史。")
+        assert text.startswith("已清空本轮对话上下文。")
         assert "已提炼" in text
         assert "wechat:u1:_" not in handler._sessions
 

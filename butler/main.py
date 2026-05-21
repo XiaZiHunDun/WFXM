@@ -100,11 +100,11 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             loops_by_session[sk] = loop
         return loop
 
-    def _rebuild_loop():
+    def _rebuild_loop(*, skip_session_end: bool = False):
         nonlocal agent_loop
         sk = _cli_session_key()
         old = loops_by_session.pop(sk, None)
-        if old is not None:
+        if old is not None and not skip_session_end:
             _trigger_session_end(orchestrator, old)
         agent_loop = _create_loop()
         loops_by_session[sk] = agent_loop
@@ -133,8 +133,9 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             if handled == "quit":
                 _trigger_session_end(orchestrator, agent_loop)
                 return 0
-            if handled == "rebuild":
-                # _rebuild_loop() already runs post_session on the old loop once.
+            if handled == "rebuild_after_new":
+                agent_loop = _rebuild_loop(skip_session_end=True)
+            elif handled == "rebuild":
                 agent_loop = _rebuild_loop()
             elif handled == "switch_project":
                 agent_loop = _get_or_create_loop()
@@ -323,16 +324,16 @@ def _handle_slash_command(
 
     if command == "/new":
         from butler.session_keys import build_session_key
-        from butler.session_lifecycle import clear_session_boundary_memory
+        from butler.session_lifecycle import handle_new_session_command
 
         cli_sk = build_session_key(
             platform="cli",
             chat_id=orchestrator.user_id,
             project=orchestrator.project_manager.current_project or "",
         )
-        clear_session_boundary_memory(orchestrator, cli_sk)
-        console.print("[dim]已清空对话历史[/dim]")
-        return "rebuild"
+        msg = handle_new_session_command(orchestrator, cli_sk, agent_loop)
+        console.print(f"[dim]{msg}[/dim]")
+        return "rebuild_after_new"
 
     if command == "/status":
         settings = orchestrator._settings

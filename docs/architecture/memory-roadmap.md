@@ -107,6 +107,9 @@ flowchart TB
 | `BUTLER_PREFETCH_PROJECT_HITS` | 项目 MEMORY 向量预取条数（默认 5） |
 | `BUTLER_QUEUE_PREFETCH` | `1` 启用上轮结束后后台 warm |
 | `BUTLER_PREFETCH_CACHE_TTL` | warm 缓存秒数（默认 90） |
+| `BUTLER_PREFETCH_FACTS_MAX_CHARS` | facts 预取块上限（默认 400） |
+
+按角色收紧预取（代码内置，无需 env）：`lead` 偏 Architecture/Decisions/Notes；`content` 偏 Notes/Patterns；`dev` 含 API。query 命中后按 section 过滤；fallback 块长度 lead 800 / content 900 / dev 1200 字符。
 
 ---
 

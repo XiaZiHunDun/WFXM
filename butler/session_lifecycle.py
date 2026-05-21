@@ -228,6 +228,9 @@ def prefetch_turn_memory(
                     limit=project_hits_limit,
                     semantic_enabled=semantic_memory_enabled(),
                 )
+                from butler.memory.project_memory import filter_memory_hits_by_role
+
+                hits = filter_memory_hits_by_role(hits, role)
                 if hits:
                     lines = [
                         f"- {h.get('content', '')}".strip()
@@ -248,7 +251,11 @@ def prefetch_turn_memory(
                 ctx = pmem.get_context_for_agent(role)
                 if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
                     ctx_str = str(ctx).strip()
-                    max_proj = caps["project_max_chars"]
+                    from butler.memory.project_memory import project_prefetch_max_chars
+
+                    max_proj = project_prefetch_max_chars(
+                        role, default=caps["project_max_chars"]
+                    )
                     if max_proj and len(ctx_str) > max_proj:
                         ctx_str = ctx_str[:max_proj] + "\n…(项目记忆已截断)"
                     parts.append(ctx_str)
@@ -461,6 +468,39 @@ def trigger_session_end(orchestrator: Any, agent_loop: Any | None) -> dict[str, 
     except Exception as exc:
         logger.warning("Session end processing failed: %s", exc)
         return {"skipped": True, "reason": "error", "error": str(exc)}
+
+
+def format_new_session_user_message(
+    *,
+    extract_result: dict[str, Any] | None = None,
+    purge_result: dict[str, Any] | None = None,
+) -> str:
+    """User-facing copy for /new and /新对话 (CLI + WeChat)."""
+    lines = [
+        "已清空本轮对话上下文。",
+        "长期记忆（Owner 画像、项目 MEMORY、经验库）仍保留；上轮闲聊回声已移除。",
+    ]
+    extra = format_session_end_summary(extract_result)
+    if extra:
+        lines.append(extra.strip())
+    removed = int((purge_result or {}).get("removed") or 0)
+    if removed > 0:
+        lines.append(f"（已清理 {removed} 条会话回声）")
+    return "\n".join(lines)
+
+
+def handle_new_session_command(
+    orchestrator: Any,
+    session_id: str,
+    agent_loop: Any | None,
+) -> str:
+    """Post-session extract, purge ephemeral echoes, return user message."""
+    extract_result = trigger_session_end(orchestrator, agent_loop)
+    purge_result = clear_session_boundary_memory(orchestrator, session_id)
+    return format_new_session_user_message(
+        extract_result=extract_result,
+        purge_result=purge_result,
+    )
 
 
 def format_session_end_summary(result: dict[str, Any] | None) -> str:

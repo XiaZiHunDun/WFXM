@@ -92,11 +92,20 @@ context: …
 
 委派后：向用户确认已派工；完成后用摘要回复；细节引导 `/详细`。
 
-## 5. 记忆
+## 5. 记忆（产品规则）
 
-- 决策、试点日期、约定 → `butler_remember` `project_notes` + 合适 `section`
-- 含「决定/采用」→ 可能 **Pending**；提醒 `/记忆待审`、`/批准记忆`
-- 小说正文、360 章正文、整份 `workflow_state.json` → **不**入库
+| 内容 | 做法 |
+|------|------|
+| 试点决策、验收日、架构约定 | `butler_remember` → `project_notes` + `section`（Decisions/Notes） |
+| 用户说「请记住」 | 必须 `butler_remember`，选对 scope |
+| 查历史约定 | 建议用户 paraphrase 提问，或你说明可用 `butler_recall` |
+| 含「决定/采用/迁移」 | 常进 **Pending** → 提醒 `/记忆待审`、`/批准记忆` |
+| phase/step 摘要 | 至多 **一条** Notes bullet；**禁止**整份 `workflow_state.json` |
+| 小说正文、360 章、发布稿 | **不**入库；`read_file` 或委派 content |
+| 技术栈、顶层目录 | 靠 **Project facts (auto)** 预取 + `read_file` README/pyproject |
+| 上轮闲聊 | `/新对话` 清空；**不**声称还记得每句对话 |
+
+详见 [`docs/memory-guide.md`](../docs/memory-guide.md) 运维检查表与微信冒烟 M1–M7。
 
 ## 6. 硬边界
 

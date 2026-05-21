@@ -399,25 +399,15 @@ class ButlerMessageHandler:
             return self._format_health_summary(session_key)
 
         if cmd in ("/new", "/新对话"):
-            from butler.session_lifecycle import (
-                format_session_end_summary,
-                trigger_session_end,
-            )
+            from butler.session_lifecycle import handle_new_session_command
 
             loop = self._sessions.get(session_key)
-            extract_result = (
-                trigger_session_end(self._orchestrator, loop)
-                if loop is not None
-                else {"skipped": True, "reason": "no_agent_loop"}
-            )
             self._session_registry.reset(session_key, skip_finalize=True)
             _reset_tool_audit_events(session_key)
-            clear_session_boundary_memory(self._orchestrator, session_key)
             from butler.report import clear_report_cache
 
             clear_report_cache(session_key)
-            extra = format_session_end_summary(extract_result)
-            return "已清空对话历史。" + (f"\n{extra}" if extra else "")
+            return handle_new_session_command(self._orchestrator, session_key, loop)
 
         if cmd in ("/detail", "/详细"):
             from butler.report import get_last_report, format_detail

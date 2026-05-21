@@ -189,7 +189,7 @@ class TestScriptedInteractiveChat:
         assert "Butler v4" in out or "Butler AI" in out
         assert "你好" in out
         assert "测试员" in out
-        assert "已清空对话历史" in out
+        assert "已清空本轮对话上下文" in out
         assert "Memory extraction failed" not in out
         assert "Skill extraction failed" not in out
         assert "can't be used in 'await'" not in out
@@ -227,8 +227,8 @@ class TestCliScenarioSlashCommands:
     def test_new_prints_cleared_message(self):
         console, buf = capture_console()
         orch = MagicMock()
-        assert _handle_slash_command("/new", orch, console) == "rebuild"
-        assert "已清空对话历史" in rendered_text(buf)
+        assert _handle_slash_command("/new", orch, console) == "rebuild_after_new"
+        assert "已清空本轮对话上下文" in rendered_text(buf)
 
 
 @pytest.mark.integration
