@@ -90,8 +90,13 @@
 
 ---
 
-## 8. 修订记录
+## 8. 阶段 3（运行时自动化）
+
+设计见 [`docs/architecture/project-runtime-automation.md`](../../../docs/architecture/project-runtime-automation.md)；试点 job 清单 [`../runtime/jobs.yaml`](../runtime/jobs.yaml)。**未实施前**仍用 Lead 手动触发脚本。
+
+## 9. 修订记录
 
 | 日期 | 变更 |
 |------|------|
 | 2026-05-21 | 初版：五条能力、禁止项、与 novel-factory 边界 |
+| 2026-05-21 | 增加阶段 3 设计索引 |
