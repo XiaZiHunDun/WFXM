@@ -300,25 +300,20 @@ def _handle_slash_command(
         return "handled"
 
     if command == "/model":
-        if not arg:
-            from butler.config import get_model_config
-            for role in ("butler", "dev_agent", "content_agent", "review_agent"):
-                mc = get_model_config(role)
-                console.print(f"  {role:16} → {mc.provider or '-'}/{mc.model or '-'}")
-            return "handled"
-        role_and_model = arg.split(maxsplit=1)
-        if len(role_and_model) == 2:
-            from butler.config import ModelConfig
-            role_name, model_spec = role_and_model
-            provider_model = model_spec.split("/", 1)
-            if len(provider_model) == 2:
-                cfg = ModelConfig(provider=provider_model[0], model=provider_model[1])
-            else:
-                cfg = ModelConfig(model=model_spec)
-            orchestrator._settings.set_runtime_model_override(role_name, cfg)
-            console.print(f"[green]已设置 {role_name} → {model_spec}[/green]")
+        from butler.model_resolve import handle_model_command
+
+        proj = orchestrator.project_manager.get_current()
+        proj_name = orchestrator.project_manager.current_project or None
+        reply, reset_loop = handle_model_command(
+            arg,
+            settings=orchestrator._settings,
+            project=proj,
+            project_label=proj_name,
+        )
+        if reset_loop:
+            console.print(f"[green]{reply}[/green]")
             return "rebuild"
-        console.print("[yellow]用法: /model <角色> <provider/model>[/yellow]")
+        console.print(reply)
         return "handled"
 
         if command == "/new":

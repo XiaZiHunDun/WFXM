@@ -265,6 +265,7 @@ class TestSlashCommands:
 
     def test_model_returns_model_config(self, handler):
         text = handler._handle_command("/model")
+        assert "当前有效模型" in text
         assert "butler" in text
         assert "dev_agent" in text
 
@@ -276,7 +277,7 @@ class TestSlashCommands:
         with use_execution_context(handler._orchestrator, session_key="default"):
             dispatch_tool("missing_tool", {})
         text = handler._handle_command("/model butler openai/gpt-4o")
-        assert "已设置" in text
+        assert "临时" in text
         assert "openai/gpt-4o" in text
         assert handler.last_health_summary("default") == {}
         handler._health_by_session["default"] = {"session_key": "default"}

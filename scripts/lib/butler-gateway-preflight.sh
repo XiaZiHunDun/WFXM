@@ -98,6 +98,20 @@ sys.exit(0 if check_wechat_requirements() else 1)
     _bg_ok "BUTLER_DEFAULT_PROJECT=${BUTLER_DEFAULT_PROJECT}"
   fi
 
+  local inbound_media="${BUTLER_WECHAT_INBOUND_MEDIA:-1}"
+  if [[ "$inbound_media" =~ ^(1|true|yes|on)$ ]]; then
+    if [[ -z "${MINIMAX_API_KEY:-}" && -z "${MINIMAX_CN_API_KEY:-}" ]]; then
+      _bg_warn "入站识图需 MINIMAX_API_KEY（BUTLER_WECHAT_INBOUND_MEDIA=1）"
+    fi
+    if [[ "${BUTLER_WECHAT_STT_PROVIDER:-local}" == "local" ]]; then
+      if ! command -v ffmpeg >/dev/null 2>&1; then
+        _bg_warn "无 ffmpeg — 纯 .silk 语音无法转写（iLink 自带转写仍可用）"
+      else
+        _bg_ok "ffmpeg present (silk STT)"
+      fi
+    fi
+  fi
+
   if [[ "$errors" -gt 0 ]]; then
     echo "Preflight: $errors error(s), $warns warning(s)"
     return 1

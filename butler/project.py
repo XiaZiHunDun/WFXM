@@ -55,12 +55,10 @@ class Project:
         )
 
     def resolve_model(self, role: str, runtime_override: ModelConfig | None = None) -> ModelConfig:
-        """Three-level merge: global Butler settings → project.yaml → runtime override."""
-        settings = get_butler_settings()
-        base = settings.get_model_config(role)
-        merged = base
-        if (project_cfg := self.models.get(role)) is not None:
-            merged = merged.merge_with(project_cfg)
+        """Effective merge: system → global YAML → project.yaml → runtime."""
+        from butler.model_resolve import resolve_effective_model
+
+        merged = resolve_effective_model(role, project=self).config
         return merged.merge_with(runtime_override)
 
     def set_model(self, role: str, config: ModelConfig) -> None:

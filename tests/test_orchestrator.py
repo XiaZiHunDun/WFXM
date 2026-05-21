@@ -93,6 +93,41 @@ class TestModelCredentials:
         assert creds["model"] == "gpt-4o"
         assert creds["max_tokens"] == 4096
 
+    def test_butler_credentials_merge_project_yaml(
+        self, tmp_path, monkeypatch, tmp_butler_home
+    ):
+        projects_dir = tmp_path / "projects"
+        projects_dir.mkdir()
+        proj_dir = projects_dir / "vision-proj"
+        proj_dir.mkdir()
+        (proj_dir / "project.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "vision-proj",
+                    "type": "software",
+                    "description": "test",
+                    "workspace": str(proj_dir),
+                    "models": {
+                        "butler": {"provider": "qwen", "model": "qwen-max"},
+                    },
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
+        monkeypatch.setenv("MINIMAX_API_KEY", "k")
+        _reset_singletons()
+        from butler.orchestrator import ButlerOrchestrator
+
+        orch = ButlerOrchestrator(user_id="test", channel="test")
+        orch._settings = reload_butler_settings()
+        orch.project_manager.switch_project("vision-proj")
+
+        creds = orch._model_credentials("butler")
+        assert creds["provider"] == "qwen"
+        assert creds["model"] == "qwen-max"
+
 
 @pytest.mark.integration
 class TestSystemPrompt:

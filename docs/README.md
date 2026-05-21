@@ -13,6 +13,8 @@
 | [`architecture/project-lead-decision.md`](architecture/project-lead-decision.md) | **项目 Lead 架构决策**（莎丽门户 + 厂长主控，分阶段）|
 | [`architecture/project-runtime-automation.md`](architecture/project-runtime-automation.md) | **阶段 3** 定时脚本 / 运行时推送 |
 | [`guides/runtime-ops.md`](guides/runtime-ops.md) | **Runtime timer** 安装、due、审计与排障 |
+| [`architecture/wechat-inbound-media.md`](architecture/wechat-inbound-media.md) | **微信入站图片/语音** MiniMax VLM + 语音转写（已实施 P1+P2） |
+| [`architecture/layered-model-config.md`](architecture/layered-model-config.md) | **分层模型配置** 设计 vs 实现对照 + 完善路线（M1–M5） |
 | [`design/design.md`](design/design.md) | 完整产品设计（记忆、Skill、编排、命令速查） |
 | [`guides/README.md`](guides/README.md) | 微信运维 / 冒烟 / 人工测试索引 |
 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) | **微信网关 systemd 运维**（安装、发版、排障） |

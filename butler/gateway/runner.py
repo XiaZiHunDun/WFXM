@@ -62,9 +62,9 @@ async def _butler_message_handler(
     *,
     platform: str = "wechat",
 ) -> str | None:
-    text = (event.text or "").strip()
-    if not text and event.media_urls:
-        text = "（收到媒体消息；当前 Butler 网关会处理文字指令，请用文字说明需求。）"
+    from butler.gateway.inbound_media import build_inbound_user_text
+
+    text = build_inbound_user_text(event).strip()
     if not text:
         return None
     source = event.source
