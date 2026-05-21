@@ -12,6 +12,7 @@
 | 2026-05-21 | **Runtime 运营 + 开发实战** | `butler-runtime-smoke.sh` 通过；timer enabled；`factory-status-daily` OK；`publish-preflight` 禁用拒绝；`consistency-weekly` 跑完 exit1（P1×3，有报告）；修复 runtime 微信推送 `PlatformConfig`；`butler-dev-tools-smoke.sh` patch/terminal/git 全绿 |
 | 2026-05-21 | **一致性 / 预检策略** | 人物仅报「死后复活」；脚本 exit0 当 P0=0；runner `passed_with_warnings`；`publish-preflight` 改为 readonly + `preflight` 子命令并默认启用 |
 | 2026-05-21 | **预检精度 + Agent Runtime** | preflight 第 7 步读最新 consistency JSON；Lead 可用 `run_runtime_job` / `list_runtime_jobs` |
+| 2026-05-21 | **Live API + 推送限流** | live_llm 10/10 通过；runtime 推送冷却 + iLink 指数退避；`butler-wechat-push-verify.sh`（iLink 仍可能限流，宜间隔 15–30min 再验） |
 
 ## 稳上线后微信补验（待主公勾选）
 
