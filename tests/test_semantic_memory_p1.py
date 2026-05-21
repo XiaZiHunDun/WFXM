@@ -186,7 +186,7 @@ class TestProjectPrefetchAndFence:
         lines = format_memory_diagnostic_lines(
             {"memory_prefetch_cache_hit": True, "semantic_enabled": True, "vector_rows": 1}
         )
-        assert any("预取缓存" in ln and "命中" in ln for ln in lines)
+        assert any("上轮预取缓存" in ln and "命中" in ln for ln in lines)
 
     def test_prefetch_uses_project_query_hits(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")
