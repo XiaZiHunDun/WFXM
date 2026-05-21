@@ -93,7 +93,7 @@
 
 ---
 
-### 阶段 2 — 项目 Lead Loop（中期）✅ 已实现（待微信验收）
+### 阶段 2 — 项目 Lead Loop（中期）✅ 2026-05-21 真机通过
 
 **目标**：`/切换 灵文1号` 后，**会话主推理面**绑定 Lead（独立 system prompt + 工具策略），莎丽仅负责未切换时的门户行为。
 
@@ -106,11 +106,12 @@
 
 **验收（建议）**
 
-- [ ] 同项目连续 3 轮以上，Lead 能引用上一轮工厂结论（无需用户重复 phase）  
-- [ ] Lead 不直接 `write_file`；写操作 100% 经 delegate  
-- [ ] `/新对话` 后 Lead 会话历史清空，但 MEMORY / state 只读仍正确  
+- [x] 同项目连续 3 轮以上，Lead 能引用上一轮工厂结论（无需用户重复 phase）  
+- [x] Lead 不直接 `write_file`；写操作 100% 经 delegate  
+- [x] `/新对话` 后 Lead 会话历史清空，但 MEMORY / state 只读仍正确  
+- [x] `/诊断` 显示「对话引擎: 项目 Lead（厂长）」  
 
-**风险**：中 — Lead 与管家边界、记忆 scope、模型是否听 Lead 指令；需 `/health` 与工具审计。
+**风险**：中 — Lead 与管家边界、记忆 scope、模型是否听 Lead 指令；需 `/health` 与工具审计。（试点已验收）
 
 **代码落点**：`butler/project_lead.py`、`butler/prompts/lingwen_lead_system.md`、`orchestrator.build_lead_system_prompt`、`gateway/message_handler._create_loop_for_session`、`project_tools` Lead 白名单；`BUTLER_LEAD_PROJECTS` 可扩展厂长项目列表。
 
