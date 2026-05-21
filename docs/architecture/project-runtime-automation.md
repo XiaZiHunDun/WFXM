@@ -112,8 +112,8 @@ flowchart TB
 | id | mode | schedule | command 概要 | 说明 |
 |----|------|----------|--------------|------|
 | `consistency-weekly` | readonly | `0 9 * * 1` | `run_consistency_check.sh` | 周一生成报告，推送摘要 + 报告路径 |
-| `factory-status-daily` | readonly | `0 8 * * *` | 内置：读 `workflow_state.json` 摘要 | 不跑 shell，Python 只读 |
-| `workflow-report` | readonly | — | `run_workflow.sh status` | 仅 **手动** / 按需定时关闭 |
+| `factory-status-daily` | readonly | `0 8 * * *` | 内置：读 `workflow_state.json` 摘要 | 不跑 shell，Python 只读；**日报/完结态汇报以此为准** |
+| ~~`workflow-report`~~ | — | — | — | **不实施**（与日报 + 厂长读 state + `/工作流 novel-factory-status` 重复，见 §11） |
 | `publish-preflight` | mutating | — | `run_publish.sh`（若确认安全） | **默认 disabled**；启用后须批准 |
 
 > `fix_naming` / `fix_content_integrity` 等 **禁止** 进入自动 job（改盘）。
@@ -223,7 +223,7 @@ PYTHONPATH=. python3 -m butler.main runtime run consistency-weekly --project 灵
 - command **禁止** shell 元字符拼接；仅 argv 列表（`subprocess` 无 `shell=True`）
 - job 定义 **不得** 含 `..` 跳出 workspace
 - mutating job 默认 `enabled: false`，启用需改 yaml + 文档评审
-- 失败重试：同一 job 同日最多自动重试 1 次（可配置）
+- **失败自动重试**：不实施（见 §11）；失败后人工 `/运行` 或查 audit
 
 **回滚**
 
@@ -261,7 +261,9 @@ PYTHONPATH=. python3 -m butler.main runtime run consistency-weekly --project 灵
 - 25 步 `run_workflow.sh` 全自动无人值守  
 - 多项目并行调度中心 UI  
 - 运行时改 `MEMORY.md` / 向量（仍走 Lead/post_session）  
-- 替代 systemd 的 Butler 内置常驻 scheduler daemon（可二期再评估）
+- 替代 systemd 的 Butler 内置常驻 scheduler daemon（可二期再评估）  
+- **`workflow-report` job**：不实施。流水线状态已由 **`factory-status-daily`**（定时/手动）、**项目 Lead 读 `workflow_state.json`**、**`/工作流 run novel-factory-status`** 覆盖；完结态（如 `PHASE_COMPLETE`）无单独「步进完成喜报」需求。  
+- **失败同日自动重试 1 次**：不实施。定时/手动失败仅推送一次 + 写 audit；需要时再跑 `/运行 <id>`。
 
 ---
 
@@ -281,3 +283,4 @@ PYTHONPATH=. python3 -m butler.main runtime run consistency-weekly --project 灵
 | 日期 | 变更 |
 |------|------|
 | 2026-05-21 | 初稿：架构、job 表、模块落点、3a–3d 分期 |
+| 2026-05-21 | §11：明确不实施 `workflow-report`、失败自动重试；§5.2 标注日报为 state 汇报主路径 |

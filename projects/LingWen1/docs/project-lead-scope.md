@@ -98,7 +98,8 @@
 
 **已实施**：微信 `/定时`、`/运行`（只读）、`/批准运行`（改盘）；CLI `butler runtime …`；timer 每 15 分钟 `due`。  
 厂长对话中优先 **建议** 主公用 `/运行` / `/定时`，不自行跑 `novel-factory/tools` shell（见 Skill §3）。  
-3b/3c **定时与改盘批准** 真机验收主公按需进行。
+3b/3c **定时与改盘批准** 真机验收主公按需进行。  
+**不实施**：`workflow-report` job、runtime 失败自动重试（state 汇报以日报 + 本 Skill 读 `workflow_state.json` 为准）。
 
 ## 9. 修订记录
 
@@ -106,3 +107,4 @@
 |------|------|
 | 2026-05-21 | 初版：五条能力、禁止项、与 novel-factory 边界 |
 | 2026-05-21 | 增加阶段 3 设计索引 |
+| 2026-05-21 | 登记不实施 workflow-report、runtime 失败重试 |

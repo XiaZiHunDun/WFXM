@@ -81,6 +81,8 @@ tail -f logs/butler-runtime.log
 | `consistency-weekly` | readonly | 开 | 周一 09:00 UTC 一致性脚本（较慢） |
 | `publish-preflight` | mutating | **关** | 须 `enabled: true` + `/批准运行` |
 
+**不实施**（见 [`project-runtime-automation.md` §11](../architecture/project-runtime-automation.md)）：`workflow-report`；失败同日自动重试。流水线状态看 **`factory-status-daily`** 或问厂长 / `/工作流 run novel-factory-status`。
+
 ---
 
 ## 排障
