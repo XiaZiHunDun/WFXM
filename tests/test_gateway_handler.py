@@ -90,9 +90,12 @@ class TestSlashCommands:
         assert "Butler" in text
         assert "当前项目" in text
 
-    def test_health_returns_empty_message_without_summary(self, handler):
-        assert handler._handle_command("/health") == "暂无诊断信息。"
-        assert handler._handle_command("/诊断") == "暂无诊断信息。"
+    def test_health_shows_static_memory_layers_without_turn(self, handler):
+        text = handler._handle_command("/诊断")
+        assert "Butler 诊断" in text
+        assert "轮次诊断: 暂无" in text
+        assert "记忆分层" in text
+        assert "Owner 画像" in text
 
     def test_health_shows_tool_audit_without_health_snapshot(self, handler):
         from butler.tools.registry import dispatch_tool, reset_tool_audit_events
