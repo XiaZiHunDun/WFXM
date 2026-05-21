@@ -1,10 +1,11 @@
-"""Embedding backends for Butler semantic memory (P0: local hashing, no network)."""
+"""Embedding backends for Butler semantic memory (local + optional API)."""
 
 from __future__ import annotations
 
 import hashlib
 import logging
 import math
+import os
 import re
 from typing import Protocol
 
@@ -16,6 +17,9 @@ _TOKEN_RE = re.compile(r"[\w\u4e00-\u9fff]+", re.UNICODE)
 
 _JIEBA = None
 _JIEBA_TRIED = False
+
+_DEFAULT_OPENAI_MODEL = "text-embedding-3-small"
+_DEFAULT_MINIMAX_MODEL = "embo-01"
 
 
 def _tokenize(text: str) -> list[str]:
@@ -86,6 +90,74 @@ class HashingEmbedder:
         return _l2_normalize(vec)
 
 
+class OpenAIEmbedder:
+    """OpenAI-compatible embeddings API (OpenAI, DeepSeek-compatible gateways)."""
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        base_url: str = "https://api.openai.com/v1",
+    ) -> None:
+        self._api_key = api_key
+        self._model = model
+        self._base_url = base_url.rstrip("/")
+        self._dim = 0
+        self._model_id = f"openai/{model}"
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    @property
+    def dimension(self) -> int:
+        return self._dim or 1536
+
+    def embed(self, text: str) -> list[float]:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=self._api_key, base_url=self._base_url)
+        resp = client.embeddings.create(model=self._model, input=(text or "").strip())
+        vec = list(resp.data[0].embedding)
+        self._dim = len(vec)
+        return _l2_normalize(vec)
+
+
+class MinimaxEmbedder:
+    """MiniMax OpenAI-compatible embeddings endpoint."""
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        base_url: str = "https://api.minimax.chat/v1",
+    ) -> None:
+        self._api_key = api_key
+        self._model = model
+        self._base_url = base_url.rstrip("/")
+        self._dim = 0
+        self._model_id = f"minimax/{model}"
+
+    @property
+    def model_id(self) -> str:
+        return self._model_id
+
+    @property
+    def dimension(self) -> int:
+        return self._dim or 1024
+
+    def embed(self, text: str) -> list[float]:
+        from openai import OpenAI
+
+        client = OpenAI(api_key=self._api_key, base_url=self._base_url)
+        resp = client.embeddings.create(model=self._model, input=(text or "").strip())
+        vec = list(resp.data[0].embedding)
+        self._dim = len(vec)
+        return _l2_normalize(vec)
+
+
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     if len(a) != len(b) or not a:
         return 0.0
@@ -93,14 +165,50 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return max(-1.0, min(1.0, dot))
 
 
+def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
+    if provider == "openai":
+        key = os.getenv("OPENAI_API_KEY", "").strip()
+        if not key:
+            logger.warning("BUTLER_EMBEDDING_PROVIDER=openai but OPENAI_API_KEY unset")
+            return None
+        m = model if model and model != "hashing-v1" else _DEFAULT_OPENAI_MODEL
+        base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
+        return OpenAIEmbedder(api_key=key, model=m, base_url=base)
+
+    if provider == "minimax":
+        key = os.getenv("MINIMAX_API_KEY", "").strip()
+        if not key:
+            logger.warning("BUTLER_EMBEDDING_PROVIDER=minimax but MINIMAX_API_KEY unset")
+            return None
+        m = model if model and model != "hashing-v1" else _DEFAULT_MINIMAX_MODEL
+        base = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1").strip()
+        return MinimaxEmbedder(api_key=key, model=m, base_url=base)
+
+    return None
+
+
 def get_embedder() -> Embedder:
-    """Resolve embedder from env. P0 only implements ``local`` (hashing)."""
+    """Resolve embedder from env; API providers fall back to local hashing on failure."""
     provider = embedding_provider_name()
     model = embedding_model_name()
     if provider in ("local", "hash", "hashing", ""):
         return HashingEmbedder(model_id=model or "hashing-v1")
-    logger.warning(
-        "Embedding provider %r not implemented yet; falling back to local hashing",
-        provider,
-    )
+
+    api = _resolve_api_embedder(provider, model)
+    if api is not None:
+        try:
+            probe = api.embed("ping")
+            if probe:
+                return api
+        except Exception as exc:
+            logger.warning(
+                "Embedding provider %r failed (%s); falling back to local hashing",
+                provider,
+                exc,
+            )
+    else:
+        logger.warning(
+            "Embedding provider %r unavailable; falling back to local hashing",
+            provider,
+        )
     return HashingEmbedder(model_id="hashing-v1")

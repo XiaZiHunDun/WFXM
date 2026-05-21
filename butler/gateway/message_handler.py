@@ -424,8 +424,26 @@ class ButlerMessageHandler:
         health = self.last_health_summary(session_key)
         tool_summary = _tool_audit_summary(session_key)
 
+        from butler.memory.diagnostics import (
+            collect_memory_layer_stats,
+            format_memory_diagnostic_lines,
+        )
+
+        mem_stats = collect_memory_layer_stats(self._orchestrator)
+        if health:
+            if health.get("memory_prefetch_chars") is not None:
+                mem_stats["last_prefetch_chars"] = health.get("memory_prefetch_chars")
+            elif health.get("memory_context_chars") is not None:
+                mem_stats["last_prefetch_chars"] = health.get("memory_context_chars")
+
         if not health and not tool_summary["total"]:
-            return "暂无诊断信息。"
+            lines = [
+                "Butler 诊断",
+                f"会话: {session_key}",
+                "轮次诊断: 暂无（本会话尚无完整对话轮次）",
+            ]
+            lines.extend(format_memory_diagnostic_lines(mem_stats))
+            return "\n".join(lines)
 
         if health:
             loop_health = health.get("loop") if isinstance(health.get("loop"), dict) else {}
@@ -450,17 +468,6 @@ class ButlerMessageHandler:
                 aux_label = f"{aux.provider or '?'}/{aux.model or '?'}"
             except Exception:
                 aux_label = "未配置"
-
-            from butler.memory.diagnostics import (
-                collect_memory_layer_stats,
-                format_memory_diagnostic_lines,
-            )
-
-            mem_stats = collect_memory_layer_stats(self._orchestrator)
-            if health.get("memory_prefetch_chars") is not None:
-                mem_stats["last_prefetch_chars"] = health.get("memory_prefetch_chars")
-            elif health.get("memory_context_chars") is not None:
-                mem_stats["last_prefetch_chars"] = health.get("memory_context_chars")
 
             lines = [
                 "Butler 诊断",
@@ -487,6 +494,7 @@ class ButlerMessageHandler:
                 f"会话: {session_key}",
                 "轮次诊断: 暂无（本会话尚无完整对话轮次）",
             ]
+            lines.extend(format_memory_diagnostic_lines(mem_stats))
 
         if tool_summary["total"]:
             lines.extend([

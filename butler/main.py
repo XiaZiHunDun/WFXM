@@ -325,6 +325,7 @@ def _handle_slash_command(
         from butler.gateway.message_handler import ButlerMessageHandler
 
         handler = ButlerMessageHandler(channel="cli")
+        handler._orchestrator = orchestrator
         if agent_loop is not None:
             loop_diag = dict(getattr(agent_loop, "diagnostics", {}) or {})
             handler._health_by_session["cli"] = {
@@ -336,6 +337,8 @@ def _handle_slash_command(
                 "skill_context_injected": loop_diag.get("skill_context_injected"),
                 "skill_matches": loop_diag.get("skill_matches"),
                 "memory_context_injected": loop_diag.get("memory_context_injected"),
+                "memory_prefetch_chars": loop_diag.get("memory_prefetch_chars"),
+                "memory_context_chars": loop_diag.get("memory_context_chars"),
                 "loop": loop_diag,
             }
         console.print(handler._format_health_summary("cli"))

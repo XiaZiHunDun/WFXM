@@ -34,7 +34,7 @@
 
 ## 路线图（待改进）
 
-**向量语义（可选）**：`.env` 设 `BUTLER_SEMANTIC_MEMORY=1` 后启用 `memory_vectors.db`（本地 hashing 向量，**无云 API、无云存储**）；`butler_recall` / 每轮预取走 **FTS + 向量混合**。默认 `0` 仅 FTS。
+**向量语义（可选）**：`.env` 设 `BUTLER_SEMANTIC_MEMORY=1` 后启用 `memory_vectors.db`；默认 **本地 hashing**（无云）。可选 `BUTLER_EMBEDDING_PROVIDER=openai|minimax` 走对应 Embedding API（失败自动回退 hashing）。`butler_remember` 写入 fact/decision/Pending 会同步向量；`/批准记忆` 会移除待审向量并索引正式章节。`butler_recall` / 每轮预取走 **FTS + 向量混合**。默认 `BUTLER_SEMANTIC_MEMORY=0` 仅 FTS。
 
 开启后建议重建索引（把已有 experience / MEMORY 写入向量表）：
 
