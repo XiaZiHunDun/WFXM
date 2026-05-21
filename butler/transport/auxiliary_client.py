@@ -12,15 +12,9 @@ from butler.transport.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
-_TASK_DEFAULTS: dict[str, tuple[str, str]] = {
-    "compression": ("deepseek", "deepseek-chat"),
-    "post_session": ("deepseek", "deepseek-chat"),
-    "skill_consolidation": ("deepseek", "deepseek-chat"),
-}
-
 
 def resolve_auxiliary_config(task: str = "compression") -> ModelConfig:
-    """Pick auxiliary model: config auxiliary.* → deepseek → butler default."""
+    """Pick auxiliary model: ``config.yaml`` auxiliary.* → **default_provider** (MiniMax) → butler model."""
     settings = get_butler_settings()
     raw = {}
     try:
@@ -34,15 +28,18 @@ def resolve_auxiliary_config(task: str = "compression") -> ModelConfig:
     if raw and (raw.get("provider") or raw.get("model")):
         return ModelConfig.from_dict(raw if isinstance(raw, dict) else {})
 
-    default_provider, default_model = _TASK_DEFAULTS.get(task, _TASK_DEFAULTS["compression"])
-    if default_provider in settings.providers:
-        pc = settings.providers[default_provider]
-        return ModelConfig(provider=default_provider, model=pc.model or default_model)
+    preferred = (settings.default_provider or "minimax").strip()
+    if preferred and (pc := settings.providers.get(preferred)):
+        return ModelConfig(provider=preferred, model=pc.model or "")
 
     butler_cfg = settings.get_model_config("butler")
     if not butler_cfg.is_empty():
         return butler_cfg
-    return ModelConfig(provider=settings.default_provider or "minimax", model="")
+
+    for name in ("minimax", "deepseek", "openai", "claude"):
+        if (pc := settings.providers.get(name)):
+            return ModelConfig(provider=name, model=pc.model or "")
+    return ModelConfig(provider=preferred or "minimax", model="")
 
 
 def create_auxiliary_client(task: str = "compression", **kwargs: Any) -> LLMClient:

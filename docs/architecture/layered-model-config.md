@@ -152,7 +152,7 @@ models:
 | **M2 行为对齐** | `butler/model_resolve.py` + `_model_credentials` | ✅ 2026-05-21 |
 | **M3 `/model` 增强** | `handle_model_command`：列表 / 临时 / save / reset | ✅ 2026-05-21 |
 | **M4 可观测** | `/诊断` → `format_model_diagnostic_lines`（角色 + auxiliary + gateway） | ✅ 2026-05-21 真机通过 |
-| **M5** | workflow step `model:` → `AgentSpawnConfig.model_config`；`novel-factory-status` 读状态用 deepseek | ✅ 2026-05-21 |
+| **M5** | workflow step `model:` → `AgentSpawnConfig.model_config`（可选覆盖；默认跟项目/MiniMax） | ✅ 2026-05-21 |
 
 **不建议首期做**：给 MiniMax-M2.7 配 multimodal message；用 subprocess 调 MCP 识图（已有 HTTP VLM）。
 
@@ -183,7 +183,7 @@ steps:
 
 - 有 `model`：该步 spawn 时通过 `AgentSpawnConfig.model_config` 临时覆盖该 **role**（仅该 DAG 节点执行期间）。  
 - 无 `model`：沿用 `resolve_effective_model(role, project=…)` 项目/管家合并结果。  
-- 内置 `novel-factory-status` 的 `read-state` 已配 **deepseek-chat**（只读省 token）；`novel-factory` 两步仍走项目默认。
+- 内置 `novel-factory-status` **默认**与项目一致（MiniMax）；仅当 step 显式写 `model:` 时才用 DeepSeek 等。
 
 ### 5.5 与入站媒体的边界
 

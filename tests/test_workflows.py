@@ -56,13 +56,11 @@ class TestWorkflowLoader:
         assert wf.runnable
         assert {s.id for s in wf.steps} == {"draft", "review"}
 
-    def test_builtin_novel_factory_status_read_step_uses_deepseek(self):
+    def test_builtin_novel_factory_status_read_step_no_forced_model(self):
         wf = load_builtin_workflow("novel-factory-status")
         assert wf is not None
         read = next(s for s in wf.steps if s.id == "read-state")
-        assert read.model is not None
-        assert read.model.provider == "deepseek"
-        assert read.model.model == "deepseek-chat"
+        assert read.model is None
 
     def test_parse_step_model_string(self):
         from butler.workflows.schema import parse_step
