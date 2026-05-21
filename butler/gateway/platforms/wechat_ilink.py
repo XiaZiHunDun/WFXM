@@ -1693,7 +1693,24 @@ class WeChatAdapter(ButlerPlatformAdapter):
                             )
                             if attempt >= self._send_chunk_retries:
                                 break
-                            wait = self._send_chunk_retry_delay_seconds * 3  # 3x backoff for rate limit
+                            # Exponential backoff for iLink -2 (cap via env)
+                            cap = 90.0
+                            try:
+                                cap = max(
+                                    10.0,
+                                    float(
+                                        os.getenv(
+                                            "BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX",
+                                            "90",
+                                        )
+                                    ),
+                                )
+                            except ValueError:
+                                cap = 90.0
+                            wait = min(
+                                cap,
+                                self._send_chunk_retry_delay_seconds * (3 ** attempt),
+                            )
                             logger.warning(
                                 "[%s] rate limited for %s; backing off %.1fs before retry",
                                 self.name, _safe_id(chat_id), wait,

@@ -74,6 +74,10 @@ tail -f logs/butler-runtime.log
 | `BUTLER_RUNTIME_PUSH` | `0` 不推微信（CLI 仍写 audit） |
 | `BUTLER_OWNER_WECHAT_ID` | 推送目标；未设则用 `WECHAT_ALLOWED_USERS` 首项 |
 | `WECHAT_TOKEN` / `WECHAT_ACCOUNT_ID` | 推送必填 |
+| `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` | 两次 runtime 推送最小间隔（默认 **25s**，防 iLink 限流） |
+| `WECHAT_SEND_CHUNK_RETRIES` / `WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS` | 微信发送重试（验证脚本建议 6 / 2） |
+
+**推送真机验证**：`bash scripts/butler-wechat-push-verify.sh 灵文1号`（短 ping + factory-status，带冷却）。
 
 ---
 
@@ -94,7 +98,7 @@ tail -f logs/butler-runtime.log
 | 现象 | 处理 |
 |------|------|
 | timer 无输出 | `tail logs/butler-runtime.log`；非 cron 到点会显示「没有到期的任务」 |
-| 未收到推送 | 查 `WECHAT_TOKEN`、`BUTLER_OWNER_WECHAT_ID`；`BUTLER_RUNTIME_PUSH=1` |
+| 未收到推送 | 查 `WECHAT_TOKEN`、`BUTLER_OWNER_WECHAT_ID`；`BUTLER_RUNTIME_PUSH=1`；连跑多任务时加大 `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` 或跑 `butler-wechat-push-verify.sh` |
 | 一致性摘要无路径 | `consistency-weekly` 成功后会附 `novel-factory/06_意见仓库/07_一致性检查/*.md`；失败推送含 `审计: …json` |
 | `/运行` 改盘被拒 | 正常；用 `/批准运行` 或保持 job 关闭 |
 | 任务一直「运行中」 | 删锁：`~/.butler/runtime/locks/<项目>__<job_id>.lock`（或等 2h 过期） |

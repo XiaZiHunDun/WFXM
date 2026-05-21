@@ -12,6 +12,10 @@ if [[ -f .env ]]; then
   set +a
 fi
 export PYTHONPATH="${PYTHONPATH:-.}:."
+# 连续 runtime 推送间隔，减轻 iLink 限流（与 notify.py 冷却叠加）
+export BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS="${BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS:-30}"
+export WECHAT_SEND_CHUNK_RETRIES="${WECHAT_SEND_CHUNK_RETRIES:-6}"
+export WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS="${WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS:-2}"
 
 echo "== runtime unit tests (incl. mutating approval gate) =="
 python3 -m pytest tests/test_runtime.py -q --tb=line
@@ -23,6 +27,10 @@ python3 -m butler.main runtime list --project "$PROJECT"
 echo ""
 echo "== run factory-status-daily =="
 python3 -m butler.main runtime run factory-status-daily --project "$PROJECT"
+
+echo ""
+echo "== cooldown before next runtime push =="
+sleep "${BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS}"
 
 echo ""
 echo "== run publish-preflight (readonly) =="

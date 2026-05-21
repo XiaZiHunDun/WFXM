@@ -35,9 +35,17 @@ PYTHONPATH=. pytest tests/test_p0_memory_pilot.py tests/test_memory_p1_p2.py \
 **可选 live（真 MiniMax，发版前建议跑）**：
 
 ```bash
-BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
-  pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
+BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. \
+  pytest -m live_llm tests/test_cli_live_smoke.py tests/test_wechat_gateway_live_smoke.py -v
 ```
+
+**Runtime 推送真机（间隔发送，防限流）**：
+
+```bash
+bash scripts/butler-wechat-push-verify.sh 灵文1号
+```
+
+微信应收到：`[Butler] 推送验证 1/2` + `factory-status-daily` 摘要。
 
 | live 用例 | 对应真机 |
 |-----------|----------|
