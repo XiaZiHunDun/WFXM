@@ -116,7 +116,7 @@ def test_run_readonly_job_mock_notify(runtime_project, monkeypatch):
 
     bad = service.run_job("TestProj", "mut", skip_notify=True)
     assert bad.get("error")
-    assert "mutating" in bad["error"]
+    assert "批准" in bad["error"] or "改盘" in bad["error"]
 
 
 def test_disabled_job(runtime_project):
@@ -150,6 +150,33 @@ def test_format_jobs_list(runtime_project):
     text = service.format_jobs_list_text("TestProj")
     assert "a" in text
     assert "desc" in text
+
+
+def test_approve_mutating_one_shot(runtime_project, monkeypatch):
+    ws, _ = runtime_project
+    _write_jobs(
+        ws,
+        [
+            {
+                "id": "mut",
+                "mode": "mutating",
+                "enabled": True,
+                "command": ["echo", "approved-mut"],
+                "approval": {"required": True, "expires_hours": 1},
+            }
+        ],
+    )
+    monkeypatch.setenv("BUTLER_RUNTIME_ENABLED", "1")
+    with patch("butler.runtime.service._maybe_notify"):
+        denied = service.run_job("TestProj", "mut", skip_notify=True)
+    assert denied.get("error")
+
+    from butler.runtime import approval
+
+    with patch("butler.runtime.service._maybe_notify"):
+        out = service.approve_and_run("TestProj", "mut", run_now=True)
+    assert out.get("success") is True
+    assert not approval.is_approved("TestProj", "mut")
 
 
 def test_audit_latest(runtime_project):

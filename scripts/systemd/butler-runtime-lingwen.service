@@ -1,0 +1,19 @@
+# Install:
+#   bash scripts/install-butler-runtime-timer.sh
+# Runs due readonly jobs + mutating approval prompts for 灵文1号.
+
+[Unit]
+Description=Butler Runtime — due jobs (灵文1号)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@WFXM_ROOT@
+Environment=PYTHONPATH=@WFXM_ROOT@
+EnvironmentFile=-@WFXM_ROOT@/.env
+ExecStart=@PYTHON@ -m butler.main runtime due --project 灵文1号
+StandardOutput=append:@WFXM_ROOT@/logs/butler-runtime.log
+StandardError=append:@WFXM_ROOT@/logs/butler-runtime.log
+
+[Install]
+WantedBy=default.target

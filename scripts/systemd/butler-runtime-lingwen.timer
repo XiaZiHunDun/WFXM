@@ -1,0 +1,13 @@
+# Fires every 15 minutes; readonly jobs run when cron matches; mutating sends approval prompt.
+
+[Unit]
+Description=Butler Runtime timer (灵文1号, every 15 min)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=15min
+AccuracySec=1min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

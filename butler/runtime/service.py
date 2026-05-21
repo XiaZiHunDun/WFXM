@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from butler.project_manager import ProjectManager
-from butler.runtime import audit, loader, notify, runner, schedule
+from butler.runtime import approval, audit, loader, notify, runner, schedule
 from butler.runtime.schema import JobDef
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,7 @@ def list_jobs_status(project_name: str) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for job in loader.list_jobs(ws):
         last = audit.latest_run(project_name, job.id)
+        appr = approval.get_approval(project_name, job.id)
         rows.append(
             {
                 "id": job.id,
@@ -42,6 +43,8 @@ def list_jobs_status(project_name: str) -> list[dict[str, Any]]:
                 "mode": job.mode,
                 "enabled": job.enabled,
                 "schedule": schedule.format_schedule_hint(job.schedule),
+                "next_run": schedule.next_run_iso(job.schedule) if job.schedule else None,
+                "approved": appr is not None,
                 "last_success": last.get("success") if last else None,
                 "last_at": last.get("finished_at") if last else None,
             }
@@ -60,13 +63,19 @@ def format_jobs_list_text(project_name: str) -> str:
         if r.get("last_at"):
             ok = "成功" if r.get("last_success") else "失败"
             last = f" | 上次 {r['last_at']} ({ok})"
+        extra = ""
+        if r.get("next_run"):
+            extra += f" | 下次 {r['next_run']}"
+        if r["mode"] == "mutating" and r.get("approved"):
+            extra += " | 已批准待执行"
         lines.append(
-            f"• {r['id']} [{r['mode']}, {en}] {r['schedule']}{last}\n"
+            f"• {r['id']} [{r['mode']}, {en}] {r['schedule']}{last}{extra}\n"
             f"  {r['description']}"
         )
     lines.append("")
-    lines.append("手动运行（只读）: /运行 <任务id>")
-    lines.append("CLI: butler runtime run <id> --project " + project_name)
+    lines.append("只读: /运行 <任务id>")
+    lines.append("改盘: /批准运行 <任务id>（须 jobs.yaml enabled 或显式批准）")
+    lines.append("CLI: butler runtime run|due|approve --project " + project_name)
     return "\n".join(lines)
 
 
@@ -76,8 +85,9 @@ def run_job(
     *,
     skip_notify: bool = False,
     force: bool = False,
+    approved_run: bool = False,
 ) -> dict[str, Any]:
-    """Execute one job. Mutating jobs require enabled=true (3c adds approval gate)."""
+    """Execute one job. Mutating jobs need valid approval (or approved_run after grant)."""
     if not runtime_enabled():
         return {"success": False, "error": "BUTLER_RUNTIME_ENABLED=0"}
 
@@ -89,17 +99,20 @@ def run_job(
     if job is None:
         return {"success": False, "error": f"未知任务: {job_id}"}
 
-    if not job.enabled and not force:
+    if not job.enabled and not (force or approved_run):
         return {"success": False, "error": f"任务 {job_id} 已禁用（jobs.yaml enabled: false）"}
 
     if not job.is_readonly:
-        return {
-            "success": False,
-            "error": (
-                f"任务 {job_id} 为 mutating，阶段 3a 仅支持只读任务。"
-                "请使用 /批准运行（阶段 3c）或保持 enabled: false。"
-            ),
-        }
+        if approval.approval_required(job) and not (
+            approved_run or approval.is_approved(project_name, job_id)
+        ):
+            return {
+                "success": False,
+                "error": (
+                    f"任务 {job_id} 为改盘任务，须先 /批准运行 {job_id} "
+                    f"（有效期 {job.approval.expires_hours}h）"
+                ),
+            }
 
     if not audit.try_acquire_lock(project_name, job_id):
         return {"success": False, "error": f"任务 {job_id} 正在运行或锁未释放"}
@@ -109,6 +122,9 @@ def run_job(
         result = runner.execute_job(job, ws)
     finally:
         audit.release_lock(project_name, job_id)
+
+    if not job.is_readonly and approval.approval_required(job):
+        approval.consume_approval(project_name, job_id)
 
     finished_at = datetime.now(timezone.utc).isoformat()
     record = {
@@ -138,6 +154,50 @@ def run_job(
     }
 
 
+def approve_and_run(
+    project_name: str,
+    job_id: str,
+    *,
+    run_now: bool = True,
+    skip_notify: bool = False,
+) -> dict[str, Any]:
+    """Grant approval; optionally execute mutating job immediately."""
+    ws = _project_workspace(project_name)
+    if ws is None:
+        return {"success": False, "error": f"未知项目: {project_name}"}
+
+    job = loader.find_job(ws, job_id)
+    if job is None:
+        return {"success": False, "error": f"未知任务: {job_id}"}
+
+    if job.is_readonly:
+        return {
+            "success": False,
+            "error": f"任务 {job_id} 为只读，请用 /运行 {job_id}",
+        }
+
+    rec = approval.grant_approval(
+        project_name,
+        job_id,
+        expires_hours=job.approval.expires_hours,
+    )
+    if not run_now:
+        return {
+            "success": True,
+            "job_id": job_id,
+            "approved_until": rec.get("approved_until"),
+            "message": f"已批准 {job_id}，有效期至 {rec.get('approved_until')}",
+        }
+
+    return run_job(
+        project_name,
+        job_id,
+        skip_notify=skip_notify,
+        force=True,
+        approved_run=True,
+    )
+
+
 def _maybe_notify(project_name: str, job: JobDef, result: dict[str, Any]) -> None:
     ok = bool(result.get("success"))
     if ok and not job.notify.on_success:
@@ -150,7 +210,17 @@ def _maybe_notify(project_name: str, job: JobDef, result: dict[str, Any]) -> Non
     notify.push_runtime_message(title, body)
 
 
+def _notify_mutating_due(project_name: str, job: JobDef) -> dict[str, Any]:
+    if not approval.should_notify_mutating_due(project_name, job.id):
+        return {"job_id": job.id, "pending_approval": True, "notified": False}
+    body = approval.format_approval_hint(project_name, job)
+    notify.push_runtime_message(f"[Butler] {project_name} 待批准", body)
+    approval.mark_mutating_due_notified(project_name, job.id)
+    return {"job_id": job.id, "pending_approval": True, "notified": True}
+
+
 def list_due_jobs(project_name: str) -> list[str]:
+    """Readonly jobs due now (cron match)."""
     ws = _project_workspace(project_name)
     if ws is None:
         return []
@@ -163,12 +233,46 @@ def list_due_jobs(project_name: str) -> list[str]:
     return due
 
 
+def list_due_mutating_jobs(project_name: str) -> list[JobDef]:
+    ws = _project_workspace(project_name)
+    if ws is None:
+        return []
+    out: list[JobDef] = []
+    for job in loader.list_jobs(ws, enabled_only=True):
+        if job.is_readonly:
+            continue
+        if job.schedule and schedule.job_is_due(job.schedule):
+            out.append(job)
+    return out
+
+
 def run_due_jobs(
     project_name: str,
     *,
     skip_notify: bool = False,
 ) -> list[dict[str, Any]]:
-    results = []
+    """Run due readonly jobs; notify Owner for due mutating jobs awaiting approval."""
+    if not runtime_enabled():
+        return [{"success": False, "error": "BUTLER_RUNTIME_ENABLED=0"}]
+
+    results: list[dict[str, Any]] = []
     for jid in list_due_jobs(project_name):
         results.append(run_job(project_name, jid, skip_notify=skip_notify))
+
+    for job in list_due_mutating_jobs(project_name):
+        if approval.is_approved(project_name, job.id):
+            results.append(
+                run_job(
+                    project_name,
+                    job.id,
+                    skip_notify=skip_notify,
+                    approved_run=True,
+                )
+            )
+        else:
+            entry = _notify_mutating_due(project_name, job)
+            if not skip_notify:
+                pass
+            results.append(entry)
+
     return results

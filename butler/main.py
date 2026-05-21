@@ -674,7 +674,7 @@ def _cmd_runtime_due(ns: argparse.Namespace) -> int:
         skip_notify=bool(ns.no_notify),
     )
     if not results:
-        print("没有到期的只读任务。")
+        print("没有到期的任务。")
         return 0
     exit_code = 0
     for out in results:
@@ -683,11 +683,37 @@ def _cmd_runtime_due(ns: argparse.Namespace) -> int:
             print(f"{jid}: error — {out['error']}", file=sys.stderr)
             exit_code = 1
             continue
+        if out.get("pending_approval"):
+            note = "notified" if out.get("notified") else "skipped-notify-cooldown"
+            print(f"{jid}: [pending-approval] ({note})")
+            continue
         status = "ok" if out.get("success") else "failed"
         print(f"{jid}: [{status}]")
         if not out.get("success"):
             exit_code = 2
     return exit_code
+
+
+def _cmd_runtime_approve(ns: argparse.Namespace) -> int:
+    from butler.runtime.service import approve_and_run
+
+    out = approve_and_run(
+        ns.project.strip(),
+        ns.job_id.strip(),
+        run_now=not bool(ns.approve_only),
+        skip_notify=bool(ns.no_notify),
+    )
+    if out.get("error"):
+        print(out["error"], file=sys.stderr)
+        return 1
+    if out.get("message"):
+        print(out["message"])
+        return 0
+    status = "ok" if out.get("success") else "failed"
+    print(f"[{status}] {out.get('job_id')}")
+    if out.get("summary"):
+        print(out["summary"])
+    return 0 if out.get("success") else 2
 
 
 def _cmd_gateway(ns: argparse.Namespace) -> int:
@@ -798,14 +824,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     ri.set_defaults(func=_cmd_memory_reindex)
 
-    rt = sub.add_parser("runtime", help="项目定时任务（阶段 3a：只读 + 微信推送）")
+    rt = sub.add_parser("runtime", help="项目定时任务（cron/批准/微信推送）")
     rt_sub = rt.add_subparsers(dest="runtime_cmd", required=True)
 
     rt_list = rt_sub.add_parser("list", help="列出项目 runtime/jobs.yaml 任务")
     rt_list.add_argument("--project", required=True, help="项目名称，如 灵文1号")
     rt_list.set_defaults(func=_cmd_runtime_list)
 
-    rt_run = rt_sub.add_parser("run", help="执行单个只读任务")
+    rt_run = rt_sub.add_parser("run", help="执行单个任务（改盘须已批准）")
     rt_run.add_argument("job_id", help="jobs.yaml 中的 id")
     rt_run.add_argument("--project", required=True)
     rt_run.add_argument(
@@ -816,11 +842,11 @@ def _build_parser() -> argparse.ArgumentParser:
     rt_run.add_argument(
         "--force",
         action="store_true",
-        help="允许运行 enabled:false 的任务（仍拒绝 mutating）",
+        help="允许运行 enabled:false 的任务（改盘仍须批准）",
     )
     rt_run.set_defaults(func=_cmd_runtime_run)
 
-    rt_due = rt_sub.add_parser("due", help="执行当前到期的只读任务")
+    rt_due = rt_sub.add_parser("due", help="执行当前到期的任务（改盘仅推送待批准）")
     rt_due.add_argument("--project", required=True)
     rt_due.add_argument(
         "--no-notify",
@@ -828,6 +854,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="不推送微信摘要",
     )
     rt_due.set_defaults(func=_cmd_runtime_due)
+
+    rt_ap = rt_sub.add_parser("approve", help="批准改盘任务并可立即执行")
+    rt_ap.add_argument("job_id")
+    rt_ap.add_argument("--project", required=True)
+    rt_ap.add_argument(
+        "--approve-only",
+        action="store_true",
+        help="仅写入批准，不立即执行",
+    )
+    rt_ap.add_argument("--no-notify", action="store_true")
+    rt_ap.set_defaults(func=_cmd_runtime_approve)
 
     return p
 
