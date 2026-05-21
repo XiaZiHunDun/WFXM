@@ -23,10 +23,30 @@ _BASE_TERMINAL_COMMANDS = {
 
 # Pilot novel-factory scripts: enable with BUTLER_TERMINAL_ALLOWLIST_EXTRA=python3,bash
 _EXTRA_TERMINAL_ENV = "BUTLER_TERMINAL_ALLOWLIST_EXTRA"
+_PROFILE_ENV = "BUTLER_TERMINAL_PROFILE"
+
+_TERMINAL_PROFILES: dict[str, frozenset[str]] = {
+    "pilot": frozenset({"python3", "bash"}),
+    "dev": frozenset({
+        "python3",
+        "bash",
+        "pytest",
+        "git",
+        "rg",
+        "pip",
+        "pip3",
+        "npm",
+        "npx",
+        "make",
+    }),
+}
 
 
 def _allowed_terminal_commands() -> set[str]:
     allowed = set(_BASE_TERMINAL_COMMANDS)
+    profile = os.getenv(_PROFILE_ENV, "").strip().lower()
+    if profile in _TERMINAL_PROFILES:
+        allowed.update(_TERMINAL_PROFILES[profile])
     raw = os.getenv(_EXTRA_TERMINAL_ENV, "").strip()
     if raw:
         for part in raw.replace(";", ",").split(","):

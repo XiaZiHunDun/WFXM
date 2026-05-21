@@ -17,15 +17,26 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 IDEMPOTENT_TOOLS = frozenset({
-    "read_file", "search_code", "list_directory",
-    "git_status", "git_diff", "git_log", "git_branch",
-    "vision_analyze", "browser_snapshot",
+    "read_file",
+    "search_code",
+    "search_files",
+    "list_directory",
+    "git_status",
+    "git_diff",
+    "git_log",
+    "skills_list",
+    "skill_view",
+    "butler_recall",
 })
 
 MUTATING_TOOLS = frozenset({
-    "run_shell", "write_file", "edit_file", "patch",
-    "git_add", "git_commit",
-    "browser_navigate", "browser_click", "browser_type",
+    "run_shell",
+    "terminal",
+    "write_file",
+    "edit_file",
+    "patch",
+    "git_add",
+    "git_commit",
 })
 
 
@@ -92,7 +103,17 @@ def classify_tool_failure(tool_name: str, result: str | None) -> tuple[bool, str
     """Return (failed, suffix_hint) inferred from serialized tool output."""
     if result is None:
         return False, ""
-    if tool_name == "run_shell":
+    if tool_name in {"run_shell", "terminal"}:
+        data = _safe_json_loads(result)
+        if isinstance(data, dict):
+            if data.get("error"):
+                return True, " [error]"
+            exit_code = data.get("exit_code")
+            if exit_code is not None and exit_code != 0:
+                return True, f" [exit {exit_code}]"
+        return False, ""
+
+    if tool_name.startswith("git_"):
         data = _safe_json_loads(result)
         if isinstance(data, dict):
             if data.get("error"):
