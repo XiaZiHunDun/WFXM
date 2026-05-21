@@ -73,9 +73,12 @@ class WorkflowRunner:
         if user_hint.strip():
             hint_block = f"\n\n## 用户补充\n{user_hint.strip()}"
 
+        from butler.model_resolve import workflow_step_spawn_model_config
+
         nodes: list[TaskNode] = []
         for step in workflow.steps:
             task_text = step.task.rstrip() + hint_block
+            model_cfg = workflow_step_spawn_model_config(step.model)
             nodes.append(
                 TaskNode(
                     id=step.id,
@@ -83,6 +86,7 @@ class WorkflowRunner:
                         role=step.role,
                         task=task_text,
                         tools=step.tools,
+                        model_config=model_cfg,
                         session_key=session_key,
                     ),
                     depends_on=list(step.depends_on),
