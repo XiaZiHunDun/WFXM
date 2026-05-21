@@ -153,13 +153,26 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         )
     else:
         lines.append("  向量索引: 关 (BUTLER_SEMANTIC_MEMORY=0)")
+    from butler.memory.prefetch_cache import queue_prefetch_enabled
+
+    lines.append(
+        f"  预取 warm (QUEUE_PREFETCH): {'开' if queue_prefetch_enabled() else '关'}"
+    )
     injected = stats.get("last_prefetch_chars")
     if injected is not None:
         lines.append(f"  上轮预取注入: {injected} 字")
-    if stats.get("memory_prefetch_cache_hit"):
-        lines.append("  预取缓存: 命中 (queue_prefetch)")
-    elif stats.get("memory_prefetch_cache_hit") is False:
-        lines.append("  预取缓存: 未命中")
+    cache_hit = stats.get("memory_prefetch_cache_hit")
+    if cache_hit is True:
+        lines.append("  上轮预取缓存: 命中")
+    elif cache_hit is False:
+        lines.append("  上轮预取缓存: 未命中")
+    elif injected is not None:
+        lines.append("  上轮预取缓存: 未命中")
+    cache_ready = stats.get("memory_prefetch_cache_ready")
+    if cache_ready is True:
+        lines.append("  当前句缓存: 就绪（下轮同句可命中）")
+    elif cache_ready is False and stats.get("last_user_query"):
+        lines.append("  当前句缓存: 无")
     mode = stats.get("memory_project_prefetch_mode")
     if mode:
         lines.append(f"  项目预取模式: {mode}")

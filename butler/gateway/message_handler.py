@@ -209,6 +209,7 @@ class ButlerMessageHandler:
             health: dict[str, Any] = {
                 "session_key": session_key,
                 "platform": platform,
+                "last_user_query": text.strip()[:500],
             }
             augmented = apply_pre_llm_context(
                 self._orchestrator.inject_skill_context(text, diagnostics=health),
@@ -448,6 +449,14 @@ class ButlerMessageHandler:
             if "memory_prefetch_cache_hit" in health:
                 mem_stats["memory_prefetch_cache_hit"] = health.get(
                     "memory_prefetch_cache_hit"
+                )
+            last_q = str(health.get("last_user_query") or "").strip()
+            if last_q:
+                from butler.memory.prefetch_cache import get_cached_prefetch
+
+                mem_stats["last_user_query"] = last_q
+                mem_stats["memory_prefetch_cache_ready"] = (
+                    get_cached_prefetch(session_key, last_q) is not None
                 )
             if health.get("memory_project_prefetch_mode"):
                 mem_stats["memory_project_prefetch_mode"] = health.get(

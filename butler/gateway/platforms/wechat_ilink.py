@@ -112,7 +112,23 @@ RETRY_DELAY_SECONDS = 2
 BACKOFF_DELAY_SECONDS = 30
 SESSION_EXPIRED_ERRCODE = -14
 RATE_LIMIT_ERRCODE = -2  # iLink frequency limit — backoff and retry
-MESSAGE_DEDUP_TTL_SECONDS = 300
+MESSAGE_ID_DEDUP_TTL_SECONDS = 300
+# Short window: only suppress iLink duplicate delivery bursts, not intentional user resends (M4).
+CONTENT_DEDUP_TTL_SECONDS = 20
+
+
+def _message_id_dedup_ttl() -> float:
+    try:
+        return max(5.0, float(os.getenv("BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL", str(MESSAGE_ID_DEDUP_TTL_SECONDS))))
+    except ValueError:
+        return float(MESSAGE_ID_DEDUP_TTL_SECONDS)
+
+
+def _content_dedup_ttl() -> float:
+    try:
+        return max(2.0, float(os.getenv("BUTLER_WECHAT_CONTENT_DEDUP_TTL", str(CONTENT_DEDUP_TTL_SECONDS))))
+    except ValueError:
+        return float(CONTENT_DEDUP_TTL_SECONDS)
 
 
 def _is_stale_session_ret(
@@ -1211,7 +1227,8 @@ class WeChatAdapter(ButlerPlatformAdapter):
         self._poll_session: Optional[aiohttp.ClientSession] = None
         self._send_session: Optional[aiohttp.ClientSession] = None
         self._poll_task: Optional[asyncio.Task] = None
-        self._dedup = MessageDeduplicator(ttl_seconds=MESSAGE_DEDUP_TTL_SECONDS)
+        self._id_dedup = MessageDeduplicator(ttl_seconds=_message_id_dedup_ttl())
+        self._content_dedup = MessageDeduplicator(ttl_seconds=_content_dedup_ttl())
 
         self._account_id = str(extra.get("account_id") or os.getenv("WECHAT_ACCOUNT_ID", "")).strip()
         self._token = str(config.token or extra.get("token") or os.getenv("WECHAT_TOKEN", "")).strip()
@@ -1405,16 +1422,21 @@ class WeChatAdapter(ButlerPlatformAdapter):
             return
 
         message_id = str(message.get("message_id") or "").strip()
-        if message_id and self._dedup.is_duplicate(message_id):
+        if message_id and self._id_dedup.is_duplicate(message_id):
             return
 
-        # Secondary content-fingerprint dedup for text messages
+        # Secondary content-fingerprint dedup for text messages (short TTL — not user resend)
         item_list = message.get("item_list") or []
         text = _extract_text(item_list)
         if text:
             content_key = f"content:{sender_id}:{hashlib.md5(text.encode()).hexdigest()}"
-            if self._dedup.is_duplicate(content_key):
-                logger.debug("[%s] Content-dedup: skipping duplicate message from %s", self.name, sender_id)
+            if self._content_dedup.is_duplicate(content_key):
+                logger.info(
+                    "[%s] Content-dedup: skipping duplicate text from %s (same body within %.0fs)",
+                    self.name,
+                    sender_id,
+                    _content_dedup_ttl(),
+                )
                 return
 
         chat_type, effective_chat_id = _guess_chat_type(message, self._account_id)

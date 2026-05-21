@@ -134,5 +134,5 @@ class TestM4PrefetchCacheHit:
                 }
             )
         )
-        assert "预取缓存" in lines
+        assert "上轮预取缓存" in lines
         assert "命中" in lines

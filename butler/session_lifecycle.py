@@ -133,6 +133,8 @@ def prefetch_turn_memory(
             if diagnostics is not None:
                 diagnostics["memory_prefetch_cache_hit"] = True
             return cached
+        if diagnostics is not None:
+            diagnostics["memory_prefetch_cache_hit"] = False
 
     caps = prefetch_limits()
     hit_limit = limit if limit is not None else caps["experience_hits"]
