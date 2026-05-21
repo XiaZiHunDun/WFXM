@@ -137,13 +137,14 @@ def run_job(
         "duration_seconds": result.get("duration_seconds"),
         "summary": (result.get("summary") or "")[: job.notify.max_summary_chars],
         "returncode": result.get("returncode"),
+        "report_paths": result.get("report_paths") or [],
     }
     record_path = audit.write_run_record(
         project_name=project_name, job_id=job.id, payload=record
     )
 
     if not skip_notify:
-        _maybe_notify(project_name, job, result)
+        _maybe_notify(project_name, job, result, audit_path=str(record_path))
 
     return {
         "success": bool(result.get("success")),
@@ -198,7 +199,13 @@ def approve_and_run(
     )
 
 
-def _maybe_notify(project_name: str, job: JobDef, result: dict[str, Any]) -> None:
+def _maybe_notify(
+    project_name: str,
+    job: JobDef,
+    result: dict[str, Any],
+    *,
+    audit_path: str = "",
+) -> None:
     ok = bool(result.get("success"))
     if ok and not job.notify.on_success:
         return
@@ -207,6 +214,13 @@ def _maybe_notify(project_name: str, job: JobDef, result: dict[str, Any]) -> Non
     status = "成功" if ok else "失败"
     title = f"[Butler] {project_name} / {job.id} {status}"
     body = (result.get("summary") or result.get("stderr") or "")[: job.notify.max_summary_chars]
+    if not ok and audit_path:
+        tail = f"\n\n审计: {audit_path}"
+        room = job.notify.max_summary_chars - len(tail)
+        if room > 0:
+            body = body[:room] + tail
+        else:
+            body = f"审计: {audit_path}"
     notify.push_runtime_message(title, body)
 
 
