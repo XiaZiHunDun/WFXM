@@ -379,7 +379,7 @@ PYTHONPATH=. python -m butler.main exec "你好，请用一句话自我介绍"
 
 ## 三、微信网关测试（Butler 原生，无 Hermes 子进程）
 
-> **P0 业务验收（推荐先做）**：[wechat-core-scenario.md](./wechat-core-scenario.md) — 七步真机剧本（`/状态` → `/切换 灵文` → 读写项目 → `delegate_task` → `/新对话` → 项目记忆）。  
+> **P0 业务验收（推荐先做）**：[wechat-core-scenario.md](./wechat-core-scenario.md) — 七步真机剧本（`/状态` → `/切换 灵文1号` → 读写项目 → `delegate_task` → `/新对话` → 项目记忆）。  
 > 下文 §3.4–3.5 为分项清单；自动化见 `tests/test_gateway_acceptance.py`。
 
 > v4.1 起：`butler gateway` 默认走 `butler/gateway/runner.py` + iLink 适配器。  
@@ -624,12 +624,12 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 | 步骤 | 微信发送（示例） | 通过标准 |
 |------|------------------|----------|
 | 1 | `/状态` | 管家名 + 当前项目 + Provider |
-| 2 | `/切换 灵文` | 已切换到灵文 |
-| 3 | 读 README / project.yaml 摘要 | 内容与 `projects/LingWen` 一致 |
+| 2 | `/切换 灵文1号` | 已切换到灵文1号（或 `/状态` 已为灵文1号则跳过） |
+| 3 | 读 README / project.yaml 摘要 | 内容与 `projects/LingWen1` 一致 |
 | 4 | 交给内容代理写 `docs/wechat-smoke.md` | 文件存在；`/详细` 有报告 |
 | 5 | 委派开发代理检查该文件 | 结论正确 |
 | 6 | `/新对话` → 问刚才聊过什么 | 不记得上轮细节 |
-| 7 | 问当前项目与灵文用途 | 能答项目名与描述 |
+| 7 | 问当前项目与灵文1号用途 | 能答项目名与描述 |
 
 **记录：** 填 §六「微信核心场景」行（见该表新增行）或剧本内记录表。
 
@@ -703,7 +703,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 | 2.3.1 | /help | ☑ | 含 `/health` |
 | 2.3.2 | /status | ☑ | 自动化 |
 | 2.3.2b | /health | ☑ | 本次补齐 CLI `/health` |
-| 2.3.3 | /projects | ☑ | 自动化 + 真机 `projects` 列出灵文 |
+| 2.3.3 | /projects | ☑ | 自动化 + 真机 `projects` 列出灵文1号 |
 | 2.3.4 | /model 查看 | ☑ | 自动化 |
 | 2.3.5 | /model 切换 | ☑ | `test_main_cli` |
 | 2.3.6 | /new 新建对话 | ☑ | 自动化；身份可经记忆保留 |
@@ -740,7 +740,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 | 3.5.6 | /新对话 | ☑ | 自动化 |
 | 3.5.7 | /详细 | ☑ | 自动化 |
 | 3.x 真机抽测 | ☑ | `/状态`（莎丽/项目无/minimax）；`/new` 后仍记得身份；`__init__.py` 5 行 |
-| 3.6 核心场景（灵文八步） | ☑ | 2026-05-20 真机步骤 1–8 通过（含 `/工作流`）；`test_wechat_session_reset.py` + `test_workflows.py` |
+| 3.6 核心场景（灵文1号八步） | ☐ | 2026-05-20 曾用旧名灵文通过；2026-05-21 起按 `LingWen1` 复验 |
 
 ---
 

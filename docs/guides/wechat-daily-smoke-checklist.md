@@ -2,7 +2,8 @@
 
 > 推送代码或重启 `butler-gateway` 后，用本表在**微信私聊 Bot** 走一遍（约 15–25 分钟）。  
 > 完整剧本见 [wechat-core-scenario.md](./wechat-core-scenario.md)。  
-> **网关安装/发版/排障**见 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。
+> **网关安装/发版/排障**见 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。  
+> **验收项目**：WFXM 仓库内 **`灵文1号`**（`projects/LingWen1/`），与仓库外「正式灵文」隔离。
 
 ---
 
@@ -59,28 +60,29 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 
 ## 真机步骤（按顺序复制发送）
 
-**默认项目**：先 `/切换 灵文`（项目名以 `project.yaml` 的 `name` 为准）。
+**默认项目**：`灵文1号`（`project.yaml` 的 `name`；目录 `projects/LingWen1/`）。  
+若 `.env` 已设 `BUTLER_DEFAULT_PROJECT=灵文1号`，步骤 **1–2 可跳过**，以步骤 0 显示当前项目为准。
 
 | # | 发送内容 | 预期（摘要） | 通过 | 备注 |
 |---|----------|--------------|------|------|
-| 0 | `/状态` | 含莎丽/管家名、当前项目、Provider | ☑ | |
-| 1 | `/切换 灵文` | 已切换到项目: 灵文 | ☑ | |
-| 2 | `/状态` | 当前项目为 `灵文` | ☑ | |
-| 3 | `请读取当前项目 README 或 project.yaml 的前 15 行，用纯文字摘要` | 内容与磁盘一致；**不必**委派；约 20–40s 内出现「正在输入」后回复 | ☑ | |
-| 4 | `请交给内容代理：在 docs 目录写 wechat-smoke.md，标题「微信验收」，正文写今天日期和一句说明，不要改其他文件` | 明确已委派；回复为**紧凑摘要**（非长文） | ☑ | |
-| 4b | `/详细` 或发「详细」（无需斜杠） | 有 headline；变更里可见 wechat-smoke.md | ☑ | |
-| 4c | （服务器）`ls projects/LingWen/docs/wechat-smoke.md` | 文件存在 | ☑ | |
-| 5 | `请委派开发代理：只检查 docs/wechat-smoke.md 是否存在并读前几行，不要改代码` | 结论含存在与否 | ☑ | |
-| 6 | `/新对话` | 已清空对话历史 | ☑ | |
-| 6b | `我们刚才聊过什么？` | **不应**复述步骤 3–5 细节 | ☑ | |
-| 7 | `当前是什么项目？灵文项目是做什么的？` | 能答项目名与用途（项目记忆） | ☑ | |
-| 8 | `/工作流 list` | 列表含 `novel-factory`（可执行） | ☑ | 需先 `/切换 灵文` |
-| 8b | `/工作流 run novel-factory 写一句个人助手验收说明` | 两步摘要（draft/review）；不刷屏 | ☑ | |
-| 8c | `/详细` | 工作流 headline / 各步 OK 或 FAIL | ☑ | |
+| 0 | `/状态` | 含莎丽/管家名、当前项目为 `灵文1号`、Provider | ☐ | |
+| 1 | `/切换 灵文1号` | 已切换到项目: 灵文1号（未设默认项目时必做） | ☐ | |
+| 2 | `/状态` | 当前项目为 `灵文1号` | ☐ | |
+| 3 | `请读取当前项目 README 或 project.yaml 的前 15 行，用纯文字摘要` | 内容与磁盘一致；**不必**委派；约 20–40s 内出现「正在输入」后回复 | ☐ | |
+| 4 | `请交给内容代理：在 docs 目录写 wechat-smoke.md，标题「微信验收」，正文写今天日期和一句说明，不要改其他文件` | 明确已委派；回复为**紧凑摘要**（非长文） | ☐ | |
+| 4b | `/详细` 或发「详细」（无需斜杠） | 有 headline；变更里可见 wechat-smoke.md | ☐ | |
+| 4c | （服务器）`ls projects/LingWen1/docs/wechat-smoke.md` | 文件存在 | ☐ | |
+| 5 | `请委派开发代理：只检查 docs/wechat-smoke.md 是否存在并读前几行，不要改代码` | 结论含存在与否 | ☐ | |
+| 6 | `/新对话` | 已清空对话历史 | ☐ | |
+| 6b | `我们刚才聊过什么？` | **不应**复述步骤 3–5 细节 | ☐ | |
+| 7 | `当前是什么项目？灵文1号项目是做什么的？` | 能答「灵文1号」与试点/小说工厂描述（项目记忆） | ☐ | |
+| 8 | `/工作流 list` | 列表含 `novel-factory`（可执行） | ☐ | 需当前项目为灵文1号 |
+| 8b | `/工作流 run novel-factory 写一句个人助手验收说明` | 两步摘要（draft/review）；不刷屏 | ☐ | |
+| 8c | `/详细` | 工作流 headline / 各步 OK 或 FAIL | ☐ | |
 
-**Owner 画像**：已配置 `~/.butler/tenants/default/memory/profile.json`；模板见 `owner-profile.example.json`。
+**Owner 画像**：已配置 `~/.butler/tenants/default/memory/profile.json`；模板见 `owner-profile.example.json`（默认项目宜写灵文1号）。
 
-**批次**：2026-05-20 | **验收人**：真机 | **日期**：2026-05-20
+**批次**：2026-05-20 初验（项目名「灵文」）| **2026-05-21 起**：试点项目 **灵文1号** / `LingWen1`
 
 ---
 
@@ -98,6 +100,7 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 
 ## 相关文档
 
-- [wechat-core-scenario.md](./wechat-core-scenario.md) — 八步详解与 FAQ（本表步骤 0–8c 已于 2026-05-20 真机通过）  
+- [wechat-core-scenario.md](./wechat-core-scenario.md) — 八步详解与 FAQ（2026-05-20 真机通过；项目名已更新为灵文1号）  
+- [projects/LingWen1/docs/pilot-setup.md](../../projects/LingWen1/docs/pilot-setup.md) — 试点与工作副本说明  
 - [owner-profile-setup.md](./owner-profile-setup.md) — Owner 画像  
 - [manual-testing-guide.md](./manual-testing-guide.md) — CLI + 微信完整手册
