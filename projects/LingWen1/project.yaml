@@ -21,9 +21,12 @@ workflows:
 tools:
 - read_file
 - write_file
-- edit_file
-- search_code
-- run_shell
+- patch
+- search_files
+- terminal
 - list_directory
-- skill_list
+- git_status
+- git_diff
+- git_log
+- skills_list
 - skill_view

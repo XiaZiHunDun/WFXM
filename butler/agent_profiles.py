@@ -25,8 +25,9 @@ TOOL_USE_ENFORCEMENT = """
 你必须通过工具来执行所有操作，不要只是描述你打算做什么。
 
 - 当你需要查看文件内容时，调用 read_file，不要猜测文件内容
-- 当你需要修改文件时，先调用 read_file 阅读文件，然后立即调用 edit_file 进行修改
-- 当你需要验证修改时，调用 run_shell 运行测试或 read_file 确认内容
+- 当你需要修改文件时，先调用 read_file 阅读文件，然后立即调用 patch 进行修改（精确匹配 old_string）
+- 当你需要验证修改时，调用 terminal 运行测试（需环境开启）或 read_file 确认内容
+- Git 操作使用 git_status / git_diff / git_log（需 BUTLER_ENABLE_GIT=1）；提交用 git_add + git_commit（需 GIT_WRITE）
 - 不要说 "我会修改..."，直接调用工具去做
 - 不要在没有读取文件的情况下就假设文件内容
 - 每次修改后，思考是否需要验证修改是否正确
@@ -37,23 +38,23 @@ DEV_WORKFLOW_EXAMPLES = """
 
 ### 修改函数
 1. read_file → 理解当前代码
-2. edit_file → 修改
-3. run_shell → 运行测试验证
-4. git_status → 检查改动
+2. patch → 修改（old_string 须唯一）
+3. terminal → 运行 pytest 等验证（BUTLER_ENABLE_TERMINAL=1）
+4. git_status / git_diff → 检查改动（BUTLER_ENABLE_GIT=1）
 
 ### 新增模块
 1. list_directory → 了解项目结构
 2. read_file → 参考已有模块风格
 3. write_file → 创建文件
 4. read_file → 确认写入正确
-5. run_shell → 验证导入
+5. terminal → 验证导入
 
 ### 排查 Bug
-1. search_code → 定位相关代码
+1. search_files → 定位相关代码
 2. read_file → 阅读上下文
-3. run_shell → 复现问题
-4. edit_file → 修复
-5. run_shell → 验证修复
+3. terminal → 复现问题
+4. patch → 修复
+5. terminal → 验证修复
 """
 
 VERIFICATION_GUIDANCE = """
@@ -170,7 +171,7 @@ def get_model_aware_prompt_extra(provider_name: str) -> str:
         return (
             "\n\n## 额外提示\n"
             "- 你必须通过 function calling 来使用工具，不要在回复中描述工具调用的 JSON\n"
-            "- 当需要修改文件时，直接调用 edit_file，不要输出代码块让用户手动修改\n"
+            "- 当需要修改文件时，直接调用 patch，不要输出代码块让用户手动修改\n"
             "- 每次只做一个操作，等待结果后再决定下一步\n"
             "- 回复中不要包含 ``` 代码块来展示你打算做的修改，直接用工具去做\n"
         )

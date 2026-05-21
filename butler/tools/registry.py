@@ -474,6 +474,10 @@ def _register_builtin_tools() -> None:
 
     register_memory_tools(register)
 
+    from butler.tools.git_tools import register_git_tools
+
+    register_git_tools(register)
+
 
 # ── Tool Implementations ─────────────────────────────────────
 
@@ -766,7 +770,27 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
         if count == 0:
             return json.dumps({"error": "old_string not found in file"})
         if count > 1:
-            return json.dumps({"error": f"old_string found {count} times; must be unique"})
+            matches: list[dict[str, Any]] = []
+            start = 0
+            while len(matches) < 3:
+                idx = text.find(old_string, start)
+                if idx < 0:
+                    break
+                line_no = text.count("\n", 0, idx) + 1
+                line_start = text.rfind("\n", 0, idx) + 1
+                line_end = text.find("\n", idx)
+                if line_end < 0:
+                    line_end = len(text)
+                excerpt = text[line_start:line_end].strip()
+                if len(excerpt) > 120:
+                    excerpt = excerpt[:117] + "..."
+                matches.append({"line": line_no, "excerpt": excerpt})
+                start = idx + len(old_string)
+            return json.dumps({
+                "error": f"old_string found {count} times; must be unique",
+                "match_count": count,
+                "matches": matches,
+            })
         new_text = text.replace(old_string, new_string, 1)
         _written_path, write_error = _atomic_write_text(path, new_text, expected_stat=expected_stat)
         if write_error:
