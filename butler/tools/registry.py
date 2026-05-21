@@ -470,6 +470,10 @@ def _register_builtin_tools() -> None:
         toolset="delegation",
     )
 
+    from butler.tools.memory_tools import register_memory_tools
+
+    register_memory_tools(register)
+
 
 # ── Tool Implementations ─────────────────────────────────────
 

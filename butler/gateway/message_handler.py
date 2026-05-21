@@ -369,13 +369,25 @@ class ButlerMessageHandler:
             return self._format_health_summary(session_key)
 
         if cmd in ("/new", "/新对话"):
-            self._session_registry.reset(session_key)
+            from butler.session_lifecycle import (
+                format_session_end_summary,
+                trigger_session_end,
+            )
+
+            loop = self._sessions.get(session_key)
+            extract_result = (
+                trigger_session_end(self._orchestrator, loop)
+                if loop is not None
+                else {"skipped": True, "reason": "no_agent_loop"}
+            )
+            self._session_registry.reset(session_key, skip_finalize=True)
             _reset_tool_audit_events(session_key)
             clear_session_boundary_memory(self._orchestrator, session_key)
             from butler.report import clear_report_cache
 
             clear_report_cache(session_key)
-            return "已清空对话历史。"
+            extra = format_session_end_summary(extract_result)
+            return "已清空对话历史。" + (f"\n{extra}" if extra else "")
 
         if cmd in ("/detail", "/详细"):
             from butler.report import get_last_report, format_detail
@@ -421,10 +433,19 @@ class ButlerMessageHandler:
             if not isinstance(skill_matches, list):
                 skill_matches = [str(skill_matches)]
 
+            from butler.transport.auxiliary_client import resolve_auxiliary_config
+
+            try:
+                aux = resolve_auxiliary_config("post_session")
+                aux_label = f"{aux.provider or '?'}/{aux.model or '?'}"
+            except Exception:
+                aux_label = "未配置"
+
             lines = [
                 "Butler 诊断",
                 f"会话: {health.get('session_key') or session_key}",
                 f"平台: {health.get('platform') or '-'}",
+                f"记忆提炼模型(post_session): {aux_label}",
                 f"压缩: {'是' if health.get('hygiene_compressed') else '否'}",
                 f"Schema 降级: {'是' if schema_recovered else '否'}",
                 f"剥离关键字: {schema_keywords}",

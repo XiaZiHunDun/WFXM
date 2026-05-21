@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import threading
 from typing import Any
 
@@ -18,6 +19,30 @@ _EMPTY_MEMORY_MARKERS = {
 
 CONVERSATION_CATEGORY = "conversation"
 _SESSION_EXPERIENCE_TAG_PREFIX = "session:"
+
+_EXPLICIT_REMEMBER_RE = re.compile(
+    r"(请记住|记住|记下来|帮我记|写入记忆|记入|don'?t forget|remember this)",
+    re.IGNORECASE,
+)
+
+
+def conversation_sync_enabled() -> bool:
+    """Whether to append every turn to experience as ephemeral conversation rows."""
+    import os
+
+    return os.getenv("BUTLER_SYNC_CONVERSATION_MEMORY", "0").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def should_sync_conversation_turn(user_msg: str, assistant_msg: str) -> bool:
+    if conversation_sync_enabled():
+        return True
+    combined = f"{user_msg or ''}\n{assistant_msg or ''}"
+    return bool(_EXPLICIT_REMEMBER_RE.search(combined))
 
 
 def session_experience_tag(session_id: str) -> str:
@@ -269,6 +294,31 @@ def trigger_session_end(orchestrator: Any, agent_loop: Any | None) -> dict[str, 
         return {"skipped": True, "reason": "error", "error": str(exc)}
 
 
+def format_session_end_summary(result: dict[str, Any] | None) -> str:
+    """Human-readable WeChat line after post-session extraction on /new."""
+    if not result:
+        return ""
+    if result.get("skipped"):
+        reason = str(result.get("reason") or "")
+        if reason == "short_history":
+            return "（对话过短，未做长期记忆提炼）"
+        if reason == "no_agent_loop":
+            return ""
+        if reason == "error":
+            return "（记忆提炼失败，详见网关日志）"
+        return ""
+    memory_updates = int(result.get("memory_updates") or 0)
+    skills = int(result.get("skills_extracted") or 0)
+    parts: list[str] = []
+    if memory_updates:
+        parts.append(f"长期记忆 +{memory_updates} 条")
+    if skills:
+        parts.append(f"技能 +{skills} 个")
+    if parts:
+        return "已提炼：" + "，".join(parts) + "。"
+    return "（本轮无可写入的长期记忆）"
+
+
 def sync_turn_memory(
     orchestrator: Any,
     user_msg: str,
@@ -279,6 +329,12 @@ def sync_turn_memory(
     session_id: str = "",
 ) -> dict[str, Any]:
     """Sync one conversation turn to experience store."""
+    if not should_sync_conversation_turn(user_msg, assistant_msg):
+        return {
+            "skipped": True,
+            "reason": "conversation_sync_off",
+            "experience_updates": 0,
+        }
     if interrupted:
         return {"skipped": True, "reason": "interrupted", "experience_updates": 0}
     if status is not None and str(status) not in {"completed", "LoopStatus.COMPLETED"}:

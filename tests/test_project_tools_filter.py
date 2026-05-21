@@ -62,6 +62,8 @@ class TestProjectToolFilter:
         assert "patch" in allowed
         assert "delegate_task" in allowed
         assert "skills_list" in allowed
+        assert "butler_remember" in allowed
+        assert "butler_recall" in allowed
         assert "terminal" in allowed  # run_shell alias
 
     def test_dev_role_excludes_delegate(self, tmp_path):

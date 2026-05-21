@@ -154,7 +154,7 @@ class ButlerOrchestrator:
             )
             self.memory_provider = provider
         except Exception as exc:
-            logger.debug("Butler memory provider unavailable: %s", exc)
+            logger.warning("Butler memory provider unavailable: %s", exc)
             self.memory_provider = None
 
     def _refresh_memory_provider_for_project_switch(self) -> None:
