@@ -28,6 +28,28 @@ def handle_runtime_command(
             return "请先 /切换 到试点项目（如 灵文1号），再查看定时任务。"
         return format_jobs_list_text(name)
 
+    if cmd in ("/批准运行", "/approve-run", "/批准任务"):
+        job_id = (arg or "").strip()
+        if not job_id:
+            return "用法: /批准运行 <任务id>\n例: /批准运行 publish-preflight"
+        name = _active_project_name(orchestrator)
+        if not name:
+            return "请先 /切换 到试点项目。"
+        from butler.runtime.service import approve_and_run
+
+        out = approve_and_run(name, job_id, run_now=True)
+        if out.get("error"):
+            return f"批准/运行失败: {out['error']}"
+        if out.get("message") and not out.get("summary"):
+            return str(out["message"])
+        ok = "成功" if out.get("success") else "失败"
+        summary = (out.get("summary") or "").strip()
+        lines = [f"已批准并执行任务 {job_id}（{ok}）。"]
+        if summary:
+            lines.append("")
+            lines.append(summary[:1200])
+        return "\n".join(lines)
+
     if cmd not in ("/运行", "/run-job", "/运行任务"):
         return None
 
