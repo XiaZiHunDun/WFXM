@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 from butler.session_lifecycle import CONVERSATION_CATEGORY
@@ -36,7 +37,12 @@ def _resolve_project_memory(orchestrator: Any, session_key: str = ""):
     if proj is not None:
         from butler.memory.project_memory import ProjectMemory
 
-        return ProjectMemory(proj.workspace), proj.name
+        ws = getattr(proj, "workspace", None)
+        if ws is not None:
+            root = Path(ws).expanduser()
+            if root.is_dir():
+                name = str(getattr(proj, "name", "") or root.name)
+                return ProjectMemory(root), name
     if pm is not None:
         from butler.memory.semantic_project import resolve_project_display_name
 
