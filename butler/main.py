@@ -515,6 +515,8 @@ def _merge_wechat_env_file(env_path: Path, creds: dict[str, str]) -> None:
 
 
 def _cmd_memory_reindex(ns: argparse.Namespace) -> int:
+    from rich.console import Console
+
     from butler.config import get_butler_home
     from butler.memory.reindex import ensure_semantic_enabled_msg, reindex_semantic_memory
 
