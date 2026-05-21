@@ -44,6 +44,8 @@
 | M3 | 决策句 → `/记忆待审` → `/拒绝记忆 1` | pytest + 命令路径通过 |
 | M4 | 同句连发两遍 → `/诊断` | ✅ 真机通过（间隔 20–90s；见检查表 M4 话术） |
 
+**后续（2026-05-21）**：`/新对话` post_session 写入项目 MEMORY 后会同步 `memory_vectors.db`（与 `butler_remember` / `/批准记忆` 一致）。
+
 ## 机读 facts（暂缓）
 
 `projects/LingWen1/.butler/memory/facts.json` 由 `auto_extract` 从仓库扫描生成，**当前未接入** 每轮预取与 `butler_recall`。试点以 **MEMORY.md + Owner 画像 + experience** 为准；facts 仅保留代码占位，后续若接入会单独说明。

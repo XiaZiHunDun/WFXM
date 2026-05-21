@@ -61,6 +61,28 @@ def index_pending_memory_bullet(
         logger.warning("Pending memory vector upsert failed: %s", exc)
 
 
+def sync_project_append_vectors(
+    semantic: SemanticMemoryIndex | None,
+    project_name: str,
+    section: str,
+    content: str,
+    cls_result: str,
+) -> None:
+    """Upsert vectors after ProjectMemory.markdown.append (post_session, butler_remember, …)."""
+    text = (content or "").strip()
+    proj = (project_name or "").strip()
+    if not text or not proj:
+        return
+    sec = (section or "Notes").strip() or "Notes"
+    cls = (cls_result or "").strip().lower()
+    if cls == "pending":
+        index_pending_memory_bullet(semantic, proj, text)
+    elif cls == "decision":
+        index_project_memory_bullet(semantic, proj, "Decisions", text)
+    elif cls == "fact":
+        index_project_memory_bullet(semantic, proj, sec, text)
+
+
 def index_project_memory_bullet(
     semantic: SemanticMemoryIndex | None,
     project_name: str,

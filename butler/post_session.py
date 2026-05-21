@@ -322,7 +322,22 @@ class PostSessionProcessor:
                     applied += 1
                     corpus = _build_existing_memory_corpus(butler_memory, project_memory)
                 elif target == "project" and project_memory and section:
-                    project_memory.markdown.append(_normalize_project_section(section), content)
+                    canon = _normalize_project_section(section)
+                    cls_result = project_memory.markdown.append(canon, content)
+                    sem = (
+                        getattr(butler_memory, "semantic", None) if butler_memory else None
+                    )
+                    from butler.memory.semantic_project import (
+                        resolve_project_display_name,
+                        sync_project_append_vectors,
+                    )
+
+                    proj_name = (project_name or "").strip() or resolve_project_display_name(
+                        project_memory
+                    )
+                    sync_project_append_vectors(
+                        sem, proj_name, canon, content, cls_result
+                    )
                     applied += 1
                     corpus = _build_existing_memory_corpus(butler_memory, project_memory)
                 elif target == "experience" and butler_memory:

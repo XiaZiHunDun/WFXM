@@ -407,11 +407,11 @@ class ButlerMemoryService:
             action = str(args.get("action", "append") or "append").strip().lower()
             old_content = str(args.get("old_content", "") or "").strip()
             from butler.memory.semantic_project import (
-                index_pending_memory_bullet,
                 index_project_memory_bullet,
                 invalidate_pending_vector,
                 invalidate_project_memory_bullet,
                 resolve_project_display_name,
+                sync_project_append_vectors,
             )
 
             sem = getattr(self._butler_global, "semantic", None)
@@ -455,12 +455,9 @@ class ButlerMemoryService:
                 )
 
             cls_result = md.append(section, content, classification="auto")
-            if cls_result == "pending":
-                index_pending_memory_bullet(sem, proj_name, content)
-            elif cls_result == "decision":
-                index_project_memory_bullet(sem, proj_name, "Decisions", content)
-            elif cls_result == "fact":
-                index_project_memory_bullet(sem, proj_name, section, content)
+            sync_project_append_vectors(
+                sem, proj_name, section, content, cls_result
+            )
 
             payload: dict[str, Any] = {
                 "ok": True,
