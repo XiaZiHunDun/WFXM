@@ -106,15 +106,19 @@ class TestMemoryDiagnostics:
         pm = ProjectMemory(proj_dir)
         pm.markdown.append("Notes", "试点记录", classification="fact")
 
+        from butler.project import Project
+
+        proj = Project.from_yaml(proj_dir / "project.yaml")
         orch = MagicMock()
         orch.butler_memory = bm
         orch._project_memory = pm
-        orch.project_manager.current_project = "demo"
+        orch.project_manager.get_current.return_value = proj
 
-        stats = collect_memory_layer_stats(orch)
+        stats = collect_memory_layer_stats(orch, session_key="cli:owner:demo")
         assert stats["profile_entries"] >= 1
         assert stats["experience_long_term"] >= 1
         assert stats["project_bullets"] >= 1
+        assert stats["project_name"] == "demo"
 
         lines = format_memory_diagnostic_lines(stats)
         text = "\n".join(lines)
