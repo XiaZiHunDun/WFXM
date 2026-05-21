@@ -7,32 +7,26 @@
 
 ---
 
-## 运维前置（终端，2 分钟）
+## 运维前置（终端）
+
+**2026-05-21**：已由 Agent 在本机执行（你无需再跑）。发版/改网关后可让 Agent 重跑同一套。
+
+| 检查项 | 结果 |
+|--------|------|
+| `butler-gateway.service` active | ☑ |
+| `systemctl --user daemon-reload` | ☑ |
+| 试点路径 + `~/.butler/wechat/accounts/` | ☑ |
+| `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`SYNC_CONVERSATION_MEMORY=0`、`EXPERIENCE_PRUNE_DAYS=30` | ☑ |
+| Owner 画像 SSOT（默认项目不写死在 profile） | ☑ |
+| 记忆守门 pytest（15 passed） | ☑ |
 
 ```bash
+# 记忆/feature 守门（与生产 .env 兼容，推荐）
 cd ~/projects/WFXM
-bash scripts/butler-gateway-ops.sh status    # 或 preflight + systemctl --user status
-systemctl --user is-active butler-gateway.service   # 期望 active
+PYTHONPATH=. pytest tests/test_p0_memory_pilot.py tests/test_memory_p1_p2.py -q
 
-# 可选：看最近日志
-tail -20 logs/butler-gateway.log
-journalctl --user -u butler-gateway.service -n 30 --no-pager
-
-# 自动化守门（改 gateway/orchestrator 后）
-cd ~/projects/WFXM
-PYTHONPATH=. pytest \
-  tests/test_project_manager.py \
-  tests/test_wechat_session_reset.py \
-  tests/test_gateway_acceptance.py \
-  tests/test_wechat_ilink_inbound.py \
-  tests/test_wechat_ilink_outbound.py \
-  tests/test_wechat_ilink_media.py \
-  tests/test_owner_profile_gateway.py \
-  tests/test_wechat_account_persistence.py \
-  tests/test_gateway_runner.py::TestButlerMessageHandlerRunner \
-  tests/test_workflows.py \
-  tests/test_main_cli.py::TestWechatSetupCommand \
-  -q
+# 全量微信套件：在 BUTLER_SYNC_CONVERSATION_MEMORY=0 时可能有 2 条已知失败
+# （experience 不同步每轮、safe_root 大小写）；发版前再视情况跑完整列表
 ```
 
 **可选 live（真 MiniMax，发版前建议跑）**：
@@ -51,10 +45,10 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 
 | 检查项 | 通过 |
 |--------|------|
-| 网关 `active` | ☑ |
-| `MINIMAX_API_KEY` 已配置 | ☑ |
-| 微信凭证在 `~/.butler/wechat/accounts/`（首次绑定：`butler wechat-setup`） | ☑ |
-| pytest 上述三条全绿 | ☑ |
+| 网关 `active` | ☑（Agent 2026-05-21） |
+| `MINIMAX_API_KEY` 已配置 | ☑（沿用既有） |
+| 微信凭证在 `~/.butler/wechat/accounts/` | ☑ |
+| 记忆守门 pytest | ☑（15 passed） |
 
 ---
 
@@ -65,7 +59,7 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 
 | # | 发送内容 | 预期（摘要） | 通过 | 备注 |
 |---|----------|--------------|------|------|
-| 0 | `/状态` | 含莎丽/管家名、当前项目为 `灵文1号`、Provider | ☐ | |
+| 0 | `/状态` | 含莎丽/管家名、当前项目为 `灵文1号`、**环境默认项目**、Provider | ☐ | |
 | 1 | `/切换 灵文1号` | 已切换到项目: 灵文1号（未设默认项目时必做） | ☐ | |
 | 2 | `/状态` | 当前项目为 `灵文1号` | ☐ | |
 | 3 | `请读取当前项目 README 或 project.yaml 的前 15 行，用纯文字摘要` | 内容与磁盘一致；**不必**委派；约 20–40s 内出现「正在输入」后回复 | ☐ | |
@@ -79,8 +73,20 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 | 8 | `/工作流 list` | 列表含 `novel-factory`（可执行） | ☐ | 需当前项目为灵文1号 |
 | 8b | `/工作流 run novel-factory 写一句个人助手验收说明` | 两步摘要（draft/review）；不刷屏 | ☐ | |
 | 8c | `/详细` | 工作流 headline / 各步 OK 或 FAIL | ☐ | |
+| P1-1 | `/状态` | 显示 **环境默认项目：灵文1号** | ☐ | P1 |
+| P1-2 | `/工作流 run novel-factory-status` | 汇报 workflow phase/step，简短 | ☐ | P1 |
+| P1-3 | `请记住：试点验收日期 2026-05-21` → `/记忆待审` → `/批准记忆 全部`（若有待审） | Pending 闭环 | ☐ | P1 |
 
-**Owner 画像**：已配置 `~/.butler/tenants/default/memory/profile.json`；模板见 `owner-profile.example.json`（默认项目宜写灵文1号）。
+**Owner 画像**：`~/.butler/tenants/default/memory/profile.json`；**勿**在画像写死默认项目名（见 `owner-profile-setup.md`）。
+
+### 阶段 1 · 只读读工厂（冒烟通过后）
+
+| # | 发送内容 | 通过 |
+|---|----------|------|
+| R1 | `读取 novel-factory/README.md 前 30 行并摘要` | ☐ |
+| R2 | `读取 workflow_state.json，说明当前 phase 和 step` | ☐ |
+| R3 | `请委派内容代理：只读 docs/reference-snapshot/小说工厂问题记录.md 并给 3 条要点，不要改任何文件` | ☐ |
+| R4 | `在 docs/pilot-log.md 写一条：今日日期、微信验收通过、当前 workflow phase 一行摘要；若不存在则创建` | ☐ |
 
 **批次**：2026-05-20 初验（项目名「灵文」）| **2026-05-21 起**：试点项目 **灵文1号** / `LingWen1`
 
