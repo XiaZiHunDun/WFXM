@@ -1,0 +1,49 @@
+# 灵文1号 · Butler Runtime 任务注册表（阶段 3）
+# 执行：butler runtime run <id> --project 灵文1号
+# 定时：scripts/systemd/butler-runtime-lingwen.timer（实施后）或 crontab
+
+version: 1
+project: 灵文1号
+defaults:
+  timeout_seconds: 900
+  notify_wechat: true
+
+jobs:
+  - id: consistency-weekly
+    description: 小说工厂一致性检查（生成报告，不改盘）
+    schedule: "0 9 * * 1"
+    mode: readonly
+    enabled: true
+    command:
+      - bash
+      - novel-factory/tools/consistency/run_consistency_check.sh
+    notify:
+      on_success: true
+      on_failure: true
+      max_summary_chars: 1200
+
+  - id: factory-status-daily
+    description: workflow_state.json 日报摘要
+    schedule: "0 8 * * *"
+    mode: readonly
+    enabled: true
+    handler: builtin:workflow_state_digest
+    notify:
+      on_success: true
+      on_failure: true
+      max_summary_chars: 800
+
+  # 以下改盘类默认关闭；启用前须评审 run_publish.sh 行为
+  - id: publish-preflight
+    description: 发布相关脚本（须微信批准后才执行）
+    mode: mutating
+    enabled: false
+    approval:
+      required: true
+      expires_hours: 48
+    command:
+      - bash
+      - novel-factory/tools/publish/run_publish.sh
+    notify:
+      on_success: true
+      on_failure: true

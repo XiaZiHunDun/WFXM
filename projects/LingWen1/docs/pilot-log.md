@@ -7,3 +7,4 @@
 | 2026-05-21 | 记忆写入备忘 | `butler_remember` Notes：试点统一测试日 2026-05-22；流程：测试 → `/记忆待审` → `/批准记忆 全部` |
 | 2026-05-21 | 项目 Lead 阶段 1 | ADR + Skill `lingwen-project-lead` + 厂长 `pre_llm_call`；**微信验收通过**（读 phase/step、content 委派写 docs、不直接改盘） |
 | 2026-05-21 | 项目 Lead 阶段 2 | Lead AgentLoop + `/诊断` 对话引擎行；**微信验收通过**（切换厂长模式、多轮上下文、委派审计） |
+| 2026-05-21 | 项目 Lead 阶段 3 | 运行时自动化 **设计方案** + `runtime/jobs.yaml` 草案；实施待 3a 开发 |

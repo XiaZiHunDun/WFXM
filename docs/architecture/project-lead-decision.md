@@ -117,9 +117,15 @@
 
 ---
 
-### 阶段 3 — 可选自动化（远期）
+### 阶段 3 — 运行时自动化（设计稿 → 待实施）
 
-**目标**：局部 ③，不上升为全平台主句。
+**目标**：局部 ③，不上升为全平台主句。完整方案见 **[`project-runtime-automation.md`](project-runtime-automation.md)**。
+
+| 子阶段 | 交付 |
+|--------|------|
+| 3a | CLI `butler runtime run` + 只读 job + 微信推送 |
+| 3b | `jobs.yaml` + systemd timer + 日报 digest |
+| 3c | 批准闸门 + `/批准运行`（mutating 默认关） |
 
 | 项 | 条件 |
 |----|------|
@@ -127,9 +133,9 @@
 | 发布 / 汇总 | 必须 `requires_approval` + 人工确认 |
 | 失败告警 | 日志 + 微信摘要 |
 
-**验收**：脚本失败可通知；无未经批准的批量写。
+**验收**：见 [`project-runtime-automation.md`](project-runtime-automation.md) §10。
 
-**风险**：高 — 误操作、幂等、并发；**未满足阶段 2 前不启动**。
+**风险**：中高 — 用独立进程 + 批准闸门缓解；**阶段 2 已通过，可启动 3a**。
 
 ---
 
