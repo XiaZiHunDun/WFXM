@@ -78,7 +78,8 @@ tail -f logs/butler-runtime.log
 | `WECHAT_SEND_CHUNK_RETRIES` / `WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS` | 微信发送重试（验证脚本建议 6 / 2） |
 | `BUTLER_RUNTIME_PUSH_QUEUE` | `1` 时限流失败写入 `~/.butler/runtime/push_queue.jsonl`，`runtime due` 时重试 |
 
-**推送真机验证**：`bash scripts/butler-wechat-push-verify.sh 灵文1号`（短 ping + factory-status，带冷却）。
+**推送真机验证**：`bash scripts/butler-wechat-push-verify.sh 灵文1号`（短 ping + factory-status，带冷却）。  
+**队列重试**：`butler runtime drain-push` 或等待 `runtime due` 自动 drain。
 
 ---
 

@@ -9,5 +9,7 @@ steps:
   - id: review
     role: review
     depends_on: [draft]
+    # 可选逐步模型（覆盖项目 review_agent 默认）
+    model: minimax/MiniMax-M2.7
     task: |
       只读检查 docs/workflow-output.md 是否存在，读取前几行并给出三条以内审阅结论；不要修改任何文件。

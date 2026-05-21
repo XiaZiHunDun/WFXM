@@ -70,7 +70,9 @@ bash scripts/butler-dev-tools-smoke.sh
 
 ```bash
 bash scripts/butler-dev-tools-smoke.sh
+bash scripts/butler-dev-delegate-smoke.sh
 bash scripts/butler-wechat-memory-smoke.sh
 bash scripts/butler-wechat-gateway-smoke.sh
+bash scripts/butler-inbound-media-smoke.sh
 pytest tests/test_git_tools.py tests/test_dev_ops_p2.py tests/test_tools_registry.py -q
 ```

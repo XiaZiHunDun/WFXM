@@ -466,6 +466,12 @@ class ProjectFactsStore:
             json.dumps(self._facts, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        try:
+            from butler.memory.knowledge_db import sync_facts_json_to_knowledge_db
+
+            sync_facts_json_to_knowledge_db(self.path)
+        except Exception:
+            pass
 
     def auto_extract(self, project_dir: Path) -> dict[str, Any]:
         root = Path(project_dir).resolve()

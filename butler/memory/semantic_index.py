@@ -11,7 +11,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from butler.memory.embedding import Embedder, cosine_similarity, get_embedder
-from butler.memory.semantic_config import hybrid_vector_weight, semantic_search_limit
+from butler.memory.semantic_config import (
+    hybrid_fts_weight,
+    hybrid_vector_weight,
+    semantic_search_limit,
+)
 logger = logging.getLogger(__name__)
 
 _CONVERSATION = "conversation"
@@ -230,7 +234,7 @@ class SemanticMemoryIndex:
         """Merge vector top-K with FTS hits (RRF-style), dedupe by content."""
         cap = limit if limit is not None else semantic_search_limit()
         vec_weight = hybrid_vector_weight()
-        fts_weight = 1.0 - vec_weight
+        fts_weight = hybrid_fts_weight()
 
         vec_hits = self.search(query, project=project, limit=cap * 2)
         scores: dict[str, float] = {}
