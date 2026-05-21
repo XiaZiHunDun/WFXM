@@ -70,6 +70,13 @@ def _memory_service():
     except Exception:
         pass
     svc.initialize(session_id=session_key or "tool")
+    if orch is not None:
+        if getattr(orch, "butler_memory", None) is not None:
+            svc._butler_global = orch.butler_memory
+        pmem = getattr(orch, "_project_memory", None)
+        if pmem is not None:
+            svc._project_memory = pmem
+            svc._project_root = getattr(pmem, "project_dir", None)
     return svc
 
 
