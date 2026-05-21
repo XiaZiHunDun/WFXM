@@ -9,6 +9,7 @@ from butler.session_lifecycle import (
     attach_turn_memory_prefetch,
     build_memory_pre_llm_transform,
     clear_session_boundary_memory,
+    format_session_end_summary,
     inject_turn_memory,
     session_experience_tag,
     sync_turn_memory,
@@ -129,7 +130,36 @@ def test_sync_turn_memory_skips_interrupted_and_failed_status():
     orch.butler_memory.experience.add.assert_not_called()
 
 
-def test_sync_turn_memory_records_success_and_provider():
+def test_sync_turn_memory_skipped_when_conversation_sync_off(monkeypatch):
+    monkeypatch.delenv("BUTLER_SYNC_CONVERSATION_MEMORY", raising=False)
+    monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "0")
+    orch = _orch()
+
+    result = sync_turn_memory(orch, "question", "answer", status=LoopStatus.COMPLETED)
+
+    assert result["skipped"] is True
+    assert result["reason"] == "conversation_sync_off"
+    orch.butler_memory.experience.add.assert_not_called()
+
+
+def test_sync_turn_memory_records_on_explicit_remember(monkeypatch):
+    monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "0")
+    orch = _orch()
+
+    result = sync_turn_memory(
+        orch,
+        "请记住：默认用灵文1号",
+        "好的，已记住。",
+        status=LoopStatus.COMPLETED,
+        session_id="wechat:u1",
+    )
+
+    assert result["experience_updates"] == 1
+    orch.butler_memory.experience.add.assert_called_once()
+
+
+def test_sync_turn_memory_records_success_and_provider(monkeypatch):
+    monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
     orch = _orch()
     provider = MagicMock()
     orch.memory_provider = provider
@@ -150,7 +180,8 @@ def test_sync_turn_memory_records_success_and_provider():
     provider.sync_turn.assert_called_once_with("question", "answer", session_id="wechat:u1")
 
 
-def test_sync_turn_memory_provider_failure_keeps_experience_success():
+def test_sync_turn_memory_provider_failure_keeps_experience_success(monkeypatch):
+    monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
     orch = _orch()
     provider = MagicMock()
     provider.sync_turn.side_effect = RuntimeError("provider down")
@@ -180,6 +211,11 @@ def test_clear_session_boundary_memory_removes_tagged_conversation(tmp_path):
     assert result["removed"] == 1
     assert bm.experience.search("步骤三") == []
     assert bm.experience.search("长期偏好") != []
+
+
+def test_format_session_end_summary():
+    assert "长期记忆 +2" in format_session_end_summary({"memory_updates": 2, "skills_extracted": 0})
+    assert "对话过短" in format_session_end_summary({"skipped": True, "reason": "short_history"})
 
 
 def test_trigger_session_end_returns_skipped_for_short_history():

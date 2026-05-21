@@ -215,7 +215,13 @@ class ButlerMemoryService:
             except Exception:
                 pname = self._guess_project_slug(root)
 
-            hits = self._butler_global.experience.search(qr, project=pname if pname else None, limit=8)
+            from butler.session_lifecycle import _filter_ephemeral_experience
+
+            hits = _filter_ephemeral_experience(
+                self._butler_global.experience.search(
+                    qr, project=pname if pname else None, limit=8
+                )
+            )
             if hits:
                 lines = [f"- [{h.get('project', '')}] {h.get('content', '')}".strip() for h in hits]
                 qbits = "## Query-aligned Butler experience\n" + "\n".join(lines)

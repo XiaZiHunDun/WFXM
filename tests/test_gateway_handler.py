@@ -295,7 +295,13 @@ class TestSlashCommands:
     def test_new_clears_sessions_message(self, handler, mock_loop):
         handler._sessions["default"] = mock_loop
         handler._health_by_session["default"] = {"stale": True}
-        assert handler._handle_command("/new") == "已清空对话历史。"
+        with patch(
+            "butler.session_lifecycle.trigger_session_end",
+            return_value={"memory_updates": 1, "skills_extracted": 0},
+        ):
+            text = handler._handle_command("/new")
+        assert text.startswith("已清空对话历史。")
+        assert "已提炼" in text
         assert handler._sessions == {}
         assert handler.last_health_summary("default") == {}
 
@@ -309,10 +315,13 @@ class TestSlashCommands:
         handler._health_by_session["a"] = {"stale": "a"}
         handler._health_by_session["b"] = {"keep": "b"}
 
-        with patch("butler.session_lifecycle.trigger_session_end", return_value={}) as finalize:
+        with patch(
+            "butler.session_lifecycle.trigger_session_end",
+            return_value={"skipped": True, "reason": "short_history"},
+        ) as finalize:
             text = handler.handle_message("/new", session_key="a")
 
-        assert text == "已清空对话历史。"
+        assert text.startswith("已清空对话历史。")
         finalize.assert_called_once_with(handler._orchestrator, loop_a)
         assert "a" not in handler._sessions
         assert handler._sessions["b"] is loop_b
@@ -362,7 +371,12 @@ class TestSlashCommands:
         assert handler._handle_command("/项目") == "暂无项目。"
 
     def test_chinese_alias_new(self, handler):
-        assert handler._handle_command("/新对话") == "已清空对话历史。"
+        with patch(
+            "butler.session_lifecycle.trigger_session_end",
+            return_value={"skipped": True, "reason": "short_history"},
+        ):
+            text = handler._handle_command("/新对话")
+        assert text.startswith("已清空对话历史。")
 
     def test_non_command_returns_none(self, handler):
         assert handler._handle_command("/unknowncmd") is None

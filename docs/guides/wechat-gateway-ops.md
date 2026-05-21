@@ -51,6 +51,14 @@ MINIMAX_API_KEY=...
 
 **Owner 画像**（可选但推荐）：`~/.butler/tenants/default/memory/profile.json` 中默认项目条目宜写 **灵文1号**，模板见 [owner-profile.example.json](./owner-profile.example.json)。修改后无需重启网关，下一轮对话生效。
 
+**记忆（P0 试点）**：
+
+```bash
+BUTLER_SYNC_CONVERSATION_MEMORY=0   # 默认：不把每轮聊天写入 experience；用户说「请记住」仍会记该轮
+```
+
+管家工具 `butler_remember` / `butler_recall` 已进注册表；写入对照见 [projects/LingWen1/docs/memory-guide.md](../../projects/LingWen1/docs/memory-guide.md)。`/新对话` 结束时会尝试 LLM 提炼并回复「已提炼：…」；`/诊断` 可见 `记忆提炼模型(post_session)`。
+
 **长任务（单人推荐）**：
 
 ```bash

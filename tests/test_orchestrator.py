@@ -143,7 +143,7 @@ class TestFactoryMethods:
         assert orch.memory_provider is provider
         provider.initialize.assert_called_once()
 
-    def test_create_agent_loop_has_system_prompt_and_ten_tools(
+    def test_create_agent_loop_has_system_prompt_and_tools(
         self, orch_no_projects, mock_llm_client
     ):
         from butler.tools.registry import get_tool_definitions
@@ -154,10 +154,11 @@ class TestFactoryMethods:
                 tools=get_tool_definitions(),
             )
         assert loop.system_prompt
-        assert len(loop.tools) == 10
+        assert len(loop.tools) >= 12
         tool_names = {t["function"]["name"] for t in loop.tools}
         assert "delegate_task" in tool_names
         assert "read_file" in tool_names
+        assert "butler_remember" in tool_names
 
     def test_create_agent_loop_uses_configured_context_length(
         self, orch_no_projects, mock_llm_client

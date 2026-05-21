@@ -20,6 +20,8 @@ _BUTLER_EXTRA_TOOLS = frozenset({
     "delegate_task",
     "skills_list",
     "skill_view",
+    "butler_remember",
+    "butler_recall",
 })
 
 

@@ -154,7 +154,7 @@ class GatewaySessionRegistry:
             )
         return cleared
 
-    def reset(self, session_key: str) -> None:
+    def reset(self, session_key: str, *, skip_finalize: bool = False) -> None:
         key = str(session_key or "default")
         with self.session_lock(key):
             with self._lock:
@@ -164,7 +164,8 @@ class GatewaySessionRegistry:
                 self._active_sessions.discard(key)
                 self._session_locks.pop(key, None)
         self._notify_session_removed(key)
-        self._finalize_loop(loop)
+        if not skip_finalize:
+            self._finalize_loop(loop)
 
     def reset_all(self, *, wait_timeout: float = 120.0) -> None:
         finalized: set[int] = set()

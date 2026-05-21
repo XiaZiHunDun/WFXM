@@ -33,6 +33,10 @@ rsync -a --delete "$SRC/" "$DST/"
 
 不要从 `projects/` 回写 `reference/`。
 
+## 记忆试点
+
+见 [memory-guide.md](./memory-guide.md)（写入对照表、`butler_remember` / `butler_recall`、`.env` 中的 `BUTLER_SYNC_CONVERSATION_MEMORY`）。
+
 ## 微信试点（建议顺序）
 
 1. `/状态` — 默认项目应为「灵文1号」（`BUTLER_DEFAULT_PROJECT`）

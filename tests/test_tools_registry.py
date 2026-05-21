@@ -33,9 +33,12 @@ def _tool_safe_root(tmp_path, monkeypatch):
 
 @pytest.mark.module_test
 class TestToolDefinitions:
-    def test_get_tool_definitions_returns_ten_tools(self):
+    def test_get_tool_definitions_includes_memory_tools(self):
         tools = get_tool_definitions()
-        assert len(tools) == 10
+        names = {t["function"]["name"] for t in tools}
+        assert len(tools) >= 12
+        assert "butler_remember" in names
+        assert "butler_recall" in names
 
     def test_each_tool_has_valid_function_schema(self):
         tools = get_tool_definitions()
@@ -61,6 +64,8 @@ class TestToolDefinitions:
             "skill_view",
             "run_workflow",
             "delegate_task",
+            "butler_remember",
+            "butler_recall",
         }
 
     @pytest.mark.parametrize(
