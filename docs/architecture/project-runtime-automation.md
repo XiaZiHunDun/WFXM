@@ -239,7 +239,7 @@ PYTHONPATH=. python3 -m butler.main runtime run consistency-weekly --project 灵
 | **3a** | `runner` + `audit` + CLI `runtime run <id>` + 只读 consistency 手动跑 + 微信推送 | 命令行跑通；微信收到摘要 | 低 |
 | **3b** | `jobs.yaml` + `run --due` + `factory-status-daily` builtin + systemd timer | 到点自动推送；gateway 不重启也生效 | 低 |
 | **3c** | `approval` + `/批准运行` + mutating job 模板（默认 off） | 未批准不执行；批准后仅一次 | 中 |
-| **3d** | Lead Skill 补充「何时建议 /运行」；`/诊断` 显示最近 runtime run | 对话与自动化不打架 | 低 |
+| **3d** | Lead Skill 补充「何时建议 /运行」；`/诊断` 显示最近 runtime run | 对话与自动化不打架 | ✅ 2026-05-21 |
 
 **建议工期（实现时）**：3a+3b 为 MVP（可运营）；3c 按需开启 mutating。
 
