@@ -25,15 +25,8 @@ echo "== run factory-status-daily =="
 python3 -m butler.main runtime run factory-status-daily --project "$PROJECT"
 
 echo ""
-echo "== mutating disabled (publish-preflight) =="
-pf_out="$(python3 -m butler.main runtime run publish-preflight --project "$PROJECT" 2>&1)" || true
-echo "$pf_out"
-if echo "$pf_out" | grep -q "禁用"; then
-  echo "OK: publish-preflight rejected while disabled"
-else
-  echo "FAIL: expected disabled message" >&2
-  exit 1
-fi
+echo "== run publish-preflight (readonly) =="
+python3 -m butler.main runtime run publish-preflight --project "$PROJECT"
 
 if [[ "${BUTLER_RUNTIME_RUN_CONSISTENCY:-0}" == "1" ]]; then
   echo ""

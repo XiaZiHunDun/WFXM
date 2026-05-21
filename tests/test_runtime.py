@@ -141,6 +141,68 @@ def test_schedule_empty_not_due():
     assert schedule.format_schedule_hint("") == "（手动）"
 
 
+def test_consistency_success_policy_p0_zero_p1_warnings(runtime_project):
+    from butler.runtime.consistency_outcome import apply_consistency_success_policy
+    from butler.runtime.schema import JobDef
+
+    job = JobDef(id="consistency-weekly", description="一致性")
+    ws, _ = runtime_project
+    result = {
+        "success": False,
+        "returncode": 1,
+        "stdout": "P0: 0\nP1: 3\n",
+        "summary": "检查完成",
+    }
+    out = apply_consistency_success_policy(job, ws, result)
+    assert out["success"] is True
+    assert out.get("outcome") == "passed_with_warnings"
+    assert "P0=0" in out["summary"]
+
+
+def test_consistency_success_policy_p0_fails(runtime_project):
+    from butler.runtime.consistency_outcome import apply_consistency_success_policy
+    from butler.runtime.schema import JobDef
+
+    job = JobDef(id="consistency-weekly", description="一致性")
+    ws, _ = runtime_project
+    result = {
+        "success": False,
+        "returncode": 1,
+        "stdout": "P0: 2\nP1: 0\n",
+        "summary": "检查完成",
+    }
+    out = apply_consistency_success_policy(job, ws, result)
+    assert out["success"] is False
+    assert out.get("outcome") == "failed_p0"
+
+
+def test_consistency_success_policy_from_json_report(runtime_project):
+    import json
+
+    from butler.runtime.consistency_outcome import apply_consistency_success_policy
+    from butler.runtime.schema import JobDef
+
+    ws, _ = runtime_project
+    report_dir = ws / "novel-factory" / "06_意见仓库" / "07_一致性检查"
+    report_dir.mkdir(parents=True)
+    jp = report_dir / "consistency_check_smoke.json"
+    jp.write_text(
+        json.dumps({"by_severity": {"P0": 0, "P1": 1, "P2": 0}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    job = JobDef(id="consistency-weekly", description="一致性")
+    result = {
+        "success": False,
+        "returncode": 1,
+        "stdout": "",
+        "report_paths": [str(jp)],
+        "summary": "done",
+    }
+    out = apply_consistency_success_policy(job, ws, result)
+    assert out["success"] is True
+    assert out.get("outcome") == "passed_with_warnings"
+
+
 def test_summary_enrich_report_paths(runtime_project):
     ws, _ = runtime_project
     report_dir = ws / "novel-factory" / "06_意见仓库" / "07_一致性检查"

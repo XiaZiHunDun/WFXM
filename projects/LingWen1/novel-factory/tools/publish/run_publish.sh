@@ -27,6 +27,7 @@ show_help() {
     echo ""
     echo "命令:"
     echo "  check <版本>     发布前检查（例如: check v1.0）"
+    echo "  preflight        只读预检（读 workflow 版本，不创建目录）"
     echo "  check-naming     检查章节文件命名是否正确"
     echo "  archive <版本>   归档指定版本（例如: archive v1.0）"
     echo "  merge <版本>     合并360章正文为单文件（例如: merge v3.0）"
@@ -101,8 +102,12 @@ do_check() {
     # 检查已发布目录
     echo -e "${YELLOW}[5/8] 检查已发布目录...${NC}"
     if [[ ! -d "08_已发布" ]]; then
-        mkdir -p "08_已发布"
-        echo -e "${YELLOW}  ⚠ 已创建 08_已发布 目录${NC}"
+        if [[ "${READONLY_PREFLIGHT:-0}" == "1" ]]; then
+            echo -e "${YELLOW}  ⚠ 08_已发布 目录不存在（只读预检不创建）${NC}"
+        else
+            mkdir -p "08_已发布"
+            echo -e "${YELLOW}  ⚠ 已创建 08_已发布 目录${NC}"
+        fi
     else
         echo -e "${GREEN}  ✓ 08_已发布 目录存在${NC}"
     fi
@@ -141,6 +146,22 @@ do_check() {
     echo ""
     echo -e "${BLUE}=== 检查完成 ===${NC}"
     echo "如需发布，请确保上述检查全部通过后执行归档操作"
+}
+
+#-------------------------------------------------------------------------------
+# 只读预检（Runtime publish-preflight）
+#-------------------------------------------------------------------------------
+do_preflight() {
+    local version=""
+    if [[ -f "workflow_state.json" ]]; then
+        version=$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' workflow_state.json | head -1 | cut -d'"' -f4)
+    fi
+    if [[ -z "$version" ]]; then
+        version="v3.0"
+        echo -e "${YELLOW}未从 workflow_state.json 读取版本，默认 ${version}${NC}"
+    fi
+    echo -e "${BLUE}=== 发布前只读预检: ${version} ===${NC}"
+    READONLY_PREFLIGHT=1 do_check "$version"
 }
 
 #-------------------------------------------------------------------------------
@@ -614,6 +635,9 @@ PYTHON_SCRIPT
 # 主程序
 #-------------------------------------------------------------------------------
 case "${1:-}" in
+    preflight)
+        do_preflight
+        ;;
     check)
         do_check "$2"
         ;;
