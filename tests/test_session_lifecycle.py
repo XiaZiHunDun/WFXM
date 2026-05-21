@@ -22,6 +22,7 @@ def _orch() -> MagicMock:
     orch.project_manager.current_project = "proj"
     orch.project_manager.resolve_active_project_name.return_value = "proj"
     orch.butler_memory.get_system_context.return_value = "global memory"
+    orch.butler_memory.semantic = None
     orch.butler_memory.experience.search.return_value = [
         {"project": "proj", "content": "use pytest -q"}
     ]
@@ -108,7 +109,7 @@ def test_memory_transform_searches_with_clean_query_not_augmented_content():
     orch.butler_memory.experience.search.assert_called_with(
         "clean query",
         project="proj",
-        limit=5,
+        limit=10,
     )
 
 

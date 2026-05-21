@@ -126,9 +126,11 @@ def prefetch_turn_memory(
         try:
             exp = getattr(bm, "experience", None)
             if exp is not None and (query or "").strip():
-                from butler.memory.semantic_index import hybrid_experience_search
+                from butler.memory.semantic_index import SemanticMemoryIndex, hybrid_experience_search
 
                 semantic = getattr(bm, "semantic", None)
+                if not isinstance(semantic, SemanticMemoryIndex):
+                    semantic = None
                 hits = _filter_ephemeral_experience(
                     hybrid_experience_search(
                         semantic,
