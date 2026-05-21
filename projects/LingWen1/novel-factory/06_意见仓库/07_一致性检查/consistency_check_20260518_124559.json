@@ -1,0 +1,41 @@
+{
+  "started_at": "2026-05-18T12:45:59.808880",
+  "chapter_range": "1-5",
+  "checks": {
+    "naming": {
+      "issues": 0,
+      "details": []
+    },
+    "integrity": {
+      "issues": 0,
+      "details": []
+    },
+    "duplicates": {
+      "issues": 0,
+      "skipped": true
+    },
+    "character": {
+      "issues": 1,
+      "details": [
+        [
+          "ALIVE_CONFLICT",
+          5,
+          "林夜",
+          "林夜生死状态变化: 存活→死亡"
+        ]
+      ]
+    },
+    "timeline": {
+      "issues": 0,
+      "details": []
+    }
+  },
+  "total_issues": 1,
+  "by_severity": {
+    "P0": 0,
+    "P1": 1,
+    "P2": 0
+  },
+  "completed_at": "2026-05-18T12:45:59.810446",
+  "duration_seconds": 0.001566
+}

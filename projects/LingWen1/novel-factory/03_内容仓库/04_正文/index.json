@@ -1,0 +1,32 @@
+{
+  "version": "v1.0",
+  "updated": "2026-05-15",
+  "total_planned": 360,
+  "total_files": 352,
+  "correct_files": 352,
+  "naming_errors": 0,
+  "missing_files": [
+    78,
+    94,
+    169,
+    171,
+    172,
+    175,
+    180,
+    239,
+    326
+  ],
+  "missing_titles": [
+    78,
+    94,
+    169,
+    171,
+    172,
+    175,
+    180,
+    239,
+    326
+  ],
+  "naming_issues": [],
+  "chapter_count": 352
+}

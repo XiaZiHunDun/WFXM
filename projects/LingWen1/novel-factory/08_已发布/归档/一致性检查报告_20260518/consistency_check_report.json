@@ -1,0 +1,586 @@
+{
+  "started_at": "2026-05-18T13:03:43.762300",
+  "chapter_range": "1-360",
+  "checks": {
+    "naming": {
+      "issues": 0,
+      "details": []
+    },
+    "integrity": {
+      "issues": 0,
+      "details": []
+    },
+    "duplicates": {
+      "issues": 0,
+      "skipped": true
+    },
+    "character": {
+      "issues": 208,
+      "details": [
+        [
+          "ALIVE_CONFLICT",
+          5,
+          "林夜",
+          "林夜生死状态变化: 存活→死亡"
+        ],
+        [
+          "GENDER_CONFLICT",
+          8,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          9,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "ALIVE_CONFLICT",
+          9,
+          "苏琳",
+          "苏琳生死状态变化: 死亡→存活"
+        ],
+        [
+          "GENDER_CONFLICT",
+          10,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          12,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          13,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          18,
+          "小九",
+          "小九性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          18,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          19,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          22,
+          "小九",
+          "小九性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          23,
+          "小九",
+          "小九性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          24,
+          "小九",
+          "小九性别变化: male→female"
+        ],
+        [
+          "ALIVE_CONFLICT",
+          24,
+          "林夜",
+          "林夜生死状态变化: 死亡→存活"
+        ],
+        [
+          "GENDER_CONFLICT",
+          24,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          26,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          27,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          29,
+          "林夜",
+          "林夜性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          30,
+          "林夜",
+          "林夜性别变化: female→male"
+        ],
+        [
+          "ALIVE_CONFLICT",
+          32,
+          "林夜",
+          "林夜生死状态变化: 死亡→存活"
+        ],
+        [
+          "GENDER_CONFLICT",
+          32,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          34,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          35,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          36,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          37,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          40,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          45,
+          "林夜",
+          "林夜性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          47,
+          "林夜",
+          "林夜性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          52,
+          "铁蛋",
+          "铁蛋性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          53,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          55,
+          "星月",
+          "星月性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          55,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          57,
+          "小九",
+          "小九性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          58,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          62,
+          "星月",
+          "星月性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          64,
+          "小九",
+          "小九性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          64,
+          "铁蛋",
+          "铁蛋性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          64,
+          "苏琳",
+          "苏琳性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          69,
+          "林夜",
+          "林夜性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          69,
+          "苏琳",
+          "苏琳性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          70,
+          "林夜",
+          "林夜性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          71,
+          "林夜",
+          "林夜性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          73,
+          "林夜",
+          "林夜性别变化: female→male"
+        ],
+        [
+          "GENDER_CONFLICT",
+          74,
+          "小九",
+          "小九性别变化: female→male"
+        ],
+        [
+          "ALIVE_CONFLICT",
+          74,
+          "林夜",
+          "林夜生死状态变化: 存活→死亡"
+        ],
+        [
+          "GENDER_CONFLICT",
+          75,
+          "林夜",
+          "林夜性别变化: male→female"
+        ],
+        [
+          "GENDER_CONFLICT",
+          76,
+          "林夜",
+          "林夜性别变化: female→male"
+        ],
+        [
+          "ALIVE_CONFLICT",
+          77,
+          "小九",
+          "小九生死状态变化: 死亡→存活"
+        ],
+        [
+          "GENDER_CONFLICT",
+          79,
+          "林夜",
+          "林夜性别变化: male→female"
+        ],
+        [
+          "ALIVE_CONFLICT",
+          79,
+          "林夜",
+          "林夜生死状态变化: 存活→死亡"
+        ]
+      ]
+    },
+    "timeline": {
+      "issues": 106,
+      "details": [
+        [
+          "TIMELINE_ANOMALY",
+          6,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          6,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          8,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(年前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          10,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          10,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          14,
+          "时间尺度冲突: 同时存在瞬间类(眨眼)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          18,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前,很久以前,当初)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          20,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前,当初)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          21,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(年前,之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          21,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          24,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(年前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          24,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          36,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(年前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          40,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          40,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          41,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前,很久以前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          41,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          42,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(当初)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          42,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          59,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(很久以前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          72,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          74,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          78,
+          "时间尺度冲突: 同时存在瞬间类(眨眼)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          78,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(眨眼)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          79,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          81,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(昔日)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          82,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(年前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          82,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          86,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(年前,之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          86,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          101,
+          "时间尺度冲突: 同时存在瞬间类(眨眼)和往前类(年前,之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          102,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(很久以前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          107,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          108,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(年前,之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          109,
+          "时间尺度冲突: 同时存在瞬间类(瞬间,刹那间)和往前类(年前,之前,很久以前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          109,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(刹那间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          109,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          109,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          111,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          111,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          115,
+          "时间尺度冲突: 同时存在瞬间类(刹那间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          115,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(刹那间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          123,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(当初)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          123,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          125,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          127,
+          "时间尺度冲突: 同时存在瞬间类(刹那间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          127,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(刹那间)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          133,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(之前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          135,
+          "时间尺度冲突: 同时存在瞬间类(瞬间)和往前类(年前,很久以前)"
+        ],
+        [
+          "TIMELINE_ANOMALY",
+          135,
+          "时间线倒退: 在'年前'类描述后出现'瞬间'类(瞬间)"
+        ]
+      ]
+    }
+  },
+  "total_issues": 314,
+  "by_severity": {
+    "P0": 0,
+    "P1": 208,
+    "P2": 106
+  },
+  "completed_at": "2026-05-18T13:03:43.872038",
+  "duration_seconds": 0.109738
+}
