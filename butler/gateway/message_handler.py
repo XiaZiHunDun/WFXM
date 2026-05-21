@@ -451,6 +451,17 @@ class ButlerMessageHandler:
             except Exception:
                 aux_label = "未配置"
 
+            from butler.memory.diagnostics import (
+                collect_memory_layer_stats,
+                format_memory_diagnostic_lines,
+            )
+
+            mem_stats = collect_memory_layer_stats(self._orchestrator)
+            if health.get("memory_prefetch_chars") is not None:
+                mem_stats["last_prefetch_chars"] = health.get("memory_prefetch_chars")
+            elif health.get("memory_context_chars") is not None:
+                mem_stats["last_prefetch_chars"] = health.get("memory_context_chars")
+
             lines = [
                 "Butler 诊断",
                 f"会话: {health.get('session_key') or session_key}",
@@ -465,6 +476,7 @@ class ButlerMessageHandler:
                 f"记忆同步: {'已同步' if not memory_sync.get('skipped', True) else '跳过'}",
                 f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
             ]
+            lines.extend(format_memory_diagnostic_lines(mem_stats))
             if health.get("error"):
                 lines.append("错误: 有（查看日志）")
             if health.get("hygiene_error"):

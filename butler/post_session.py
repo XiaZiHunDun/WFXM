@@ -12,6 +12,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import re
 from typing import Any, Callable, Coroutine, Union
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ _MEMORY_REVIEW_PROMPT = """分析以下对话记录，提取需要长期记住�
 5. 不要把 novel-factory/workflow_state.json 整份写入记忆；至多一条「当前状态」摘要写入 project section「当前状态」/Notes
 6. 用户称呼/微信风格 → butler(profile)；项目决策 → project；勿把「默认项目名」写入 profile（由环境变量 BUTLER_DEFAULT_PROJECT 决定）
 7. 含「决定/采用/迁移」等决策语气 → project，系统会自动进入 Pending 待用户 /批准记忆
+8. 若与下方「现有管家记忆」「现有项目记忆」已实质相同（同义复述），不要输出该条 update
 
 ## 现有管家记忆
 {butler_memory}
@@ -131,6 +133,59 @@ def _normalize_project_section(section: str) -> str:
     if section in _PROJECT_CANONICAL_SECTIONS:
         return section
     return _PROJECT_SECTION_MAP.get(section, "Notes")
+
+
+_TS_BULLET_RE = re.compile(r"\[[\d\-:\s]+\]\s*")
+
+
+def _normalize_for_dedup(text: str) -> str:
+    t = _TS_BULLET_RE.sub("", str(text or ""))
+    t = re.sub(r"\s+", " ", t.strip().lower())
+    return t
+
+
+def _build_existing_memory_corpus(butler_memory: Any, project_memory: Any) -> str:
+    parts: list[str] = []
+    if butler_memory is not None:
+        if hasattr(butler_memory, "profile"):
+            try:
+                parts.append(str(butler_memory.profile.read() or ""))
+            except Exception:
+                pass
+        exp = getattr(butler_memory, "experience", None)
+        if exp is not None and hasattr(exp, "get_recent"):
+            try:
+                from butler.session_lifecycle import filter_non_conversation_experience
+
+                for row in filter_non_conversation_experience(exp.get_recent(limit=40)):
+                    parts.append(str(row.get("content") or ""))
+            except Exception:
+                pass
+    if project_memory is not None and hasattr(project_memory, "get_full_context"):
+        try:
+            parts.append(str(project_memory.get_full_context(max_lines=80) or ""))
+        except Exception:
+            pass
+    return "\n".join(p for p in parts if isinstance(p, str) and p.strip())
+
+
+def memory_update_is_duplicate(content: str, corpus: str, *, min_len: int = 14) -> bool:
+    """True when normalized content is already present in the memory corpus."""
+    norm = _normalize_for_dedup(content)
+    if len(norm) < min_len:
+        return False
+    corpus_norm = _normalize_for_dedup(corpus)
+    if not corpus_norm:
+        return False
+    if norm in corpus_norm:
+        return True
+    # Near-duplicate: same text after stripping common pilot prefixes
+    for prefix in ("试点进度：", "试点验收", "请记住：", "请记住:"):
+        if norm.startswith(_normalize_for_dedup(prefix)):
+            stripped = norm[len(_normalize_for_dedup(prefix)) :].strip()
+            if stripped and stripped in corpus_norm:
+                return True
+    return False
 
 
 class PostSessionProcessor:
@@ -246,7 +301,9 @@ class PostSessionProcessor:
         if not isinstance(updates, list):
             return 0
 
+        corpus = _build_existing_memory_corpus(butler_memory, project_memory)
         applied = 0
+        skipped_dup = 0
         for upd in updates:
             target = upd.get("target", "")
             content = upd.get("content", "")
@@ -254,21 +311,31 @@ class PostSessionProcessor:
             if not content:
                 continue
 
+            if memory_update_is_duplicate(content, corpus):
+                skipped_dup += 1
+                logger.debug("Post-session skip duplicate memory: %s", content[:80])
+                continue
+
             try:
                 if target == "butler" and butler_memory:
                     butler_memory.profile.add(content)
                     applied += 1
+                    corpus = _build_existing_memory_corpus(butler_memory, project_memory)
                 elif target == "project" and project_memory and section:
                     project_memory.markdown.append(_normalize_project_section(section), content)
                     applied += 1
+                    corpus = _build_existing_memory_corpus(butler_memory, project_memory)
                 elif target == "experience" and butler_memory:
                     butler_memory.experience.add(
                         project=project_name, category="experience", content=content,
                     )
                     applied += 1
+                    corpus = _build_existing_memory_corpus(butler_memory, project_memory)
             except Exception as e:
                 logger.warning("Memory update error: %s", e)
 
+        if skipped_dup:
+            logger.info("Post-session skipped %d duplicate memory update(s)", skipped_dup)
         return applied
 
     async def _extract_skills(self, messages, skill_manager, project_name) -> int:
