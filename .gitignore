@@ -47,3 +47,4 @@ reference/
 
 # Cursor
 .cursor/
+MagicMock/
