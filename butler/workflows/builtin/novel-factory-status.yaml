@@ -1,0 +1,15 @@
+name: novel-factory-status
+description: 只读汇报 novel-factory 流水线状态（workflow_state.json），不写入正文或整份 JSON 到记忆
+steps:
+  - id: read-state
+    role: content
+    task: |
+      只读读取 novel-factory/workflow_state.json（若不存在则说明）。
+      用纯文字摘要：项目名、current_phase、current_step、project_status 等关键字段。
+      不要修改任何文件；不要把整份 JSON 复制到 docs 或 MEMORY.md。
+  - id: advise
+    role: review
+    depends_on: [read-state]
+    task: |
+      基于上一步摘要，用三条以内说明流水线所处阶段与建议的下一步（只读建议）。
+      不要写入或修改任何文件。

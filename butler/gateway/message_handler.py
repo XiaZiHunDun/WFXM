@@ -351,6 +351,8 @@ class ButlerMessageHandler:
             return "用法: /model <角色> <provider/model>"
 
         if cmd in ("/status", "/状态"):
+            import os
+
             s = self._orchestrator._settings
             current = (
                 self._orchestrator.project_manager.resolve_active_project_name(
@@ -358,10 +360,12 @@ class ButlerMessageHandler:
                 )
                 or "(无)"
             )
+            default_proj = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip() or "(未设置)"
             return (
                 f"Butler 状态\n"
                 f"  管家: {s.butler_name}\n"
                 f"  当前项目: {current}\n"
+                f"  环境默认项目: {default_proj}\n"
                 f"  默认 Provider: {s.default_provider}"
             )
 
@@ -407,6 +411,12 @@ class ButlerMessageHandler:
                 session_key=session_key,
                 platform=platform,
             )
+
+        from butler.gateway.memory_commands import handle_memory_pending_command
+
+        mem_resp = handle_memory_pending_command(self._orchestrator, cmd, arg)
+        if mem_resp is not None:
+            return mem_resp
 
         return None
 
@@ -559,6 +569,11 @@ def _is_sessionless_command(text: str) -> bool:
         "/详细",
         "/workflow",
         "/工作流",
+        "/记忆待审",
+        "/pending-memory",
+        "/待审记忆",
+        "/批准记忆",
+        "/approve-memory",
     }
 
 

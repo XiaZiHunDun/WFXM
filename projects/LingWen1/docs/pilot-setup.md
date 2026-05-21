@@ -44,3 +44,5 @@ rsync -a --delete "$SRC/" "$DST/"
 3. `读取 workflow_state.json，说明当前 phase/step`
 4. 委派只读 `docs/reference-snapshot/小说工厂问题记录.md`
 5. 在 `docs/pilot-log.md` 记录进度（避免误改 `08_已发布/`）
+6. `/工作流 run novel-factory-status` — 只读流水线状态
+7. 工厂脚本（可选）：`.env` 设 `BUTLER_ENABLE_TERMINAL=1` 与 `BUTLER_TERMINAL_ALLOWLIST_EXTRA=python3,bash`
