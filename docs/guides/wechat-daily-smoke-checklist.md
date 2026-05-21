@@ -17,13 +17,16 @@
 | `systemctl --user daemon-reload` | ☑ |
 | 试点路径 + `~/.butler/wechat/accounts/` | ☑ |
 | `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`SYNC_CONVERSATION_MEMORY=0`、`EXPERIENCE_PRUNE_DAYS=30` | ☑ |
+| `.env` 记忆增强：`SEMANTIC_MEMORY=1`、`QUEUE_PREFETCH=1`、`PREFETCH_PROJECT_HITS=5` | ☑ 2026-05-21 |
 | Owner 画像 SSOT（默认项目不写死在 profile） | ☑ |
-| 记忆守门 pytest（15 passed） | ☑ |
+| 记忆守门 pytest（102+ passed，含 fixture/网关） | ☑ 2026-05-21 |
 
 ```bash
 # 记忆/feature 守门（与生产 .env 兼容，推荐）
 cd ~/projects/WFXM
-PYTHONPATH=. pytest tests/test_p0_memory_pilot.py tests/test_memory_p1_p2.py -q
+PYTHONPATH=. pytest tests/test_p0_memory_pilot.py tests/test_memory_p1_p2.py \
+  tests/test_memory_recall_fixtures.py tests/test_semantic_memory_p1.py \
+  tests/test_memory_reindex.py tests/test_gateway_handler.py -q
 
 # 全量微信套件：在 BUTLER_SYNC_CONVERSATION_MEMORY=0 时可能有 2 条已知失败
 # （experience 不同步每轮、safe_root 大小写）；发版前再视情况跑完整列表
@@ -77,6 +80,15 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 | P1-2 | `/工作流 run novel-factory-status` | 汇报 workflow phase/step，简短 | ☑ | |
 | P1-3 | `请记住：试点验收日期 2026-05-21` → `/记忆待审` → `/批准记忆 全部`（若有待审） | Pending 闭环 | ☑ | |
 
+### 记忆模块验收（P0–P2，2026-05-21 通过）
+
+| # | 发送内容 | 预期（摘要） | 通过 | 备注 |
+|---|----------|--------------|------|------|
+| M1 | `/诊断`（可无会话） | 记忆分层；项目 MEMORY **(灵文1号)**；向量 N 条 + model | ☑ | 2026-05-21：4 条 / hashing-v1 |
+| M2 | 「灵文试点统一测试是哪天？」（不说 2026-05-22） | 答 **2026-05-22**（项目 Notes 备忘） | ☑ | paraphrase + 向量/关键词预取 |
+| M3 | 决策句 → `/记忆待审` → `/拒绝记忆 1` | Pending 减、向量不增正式条 | ☐ | 可选 |
+| M4 | 同一问题连发两遍 → `/诊断` | 「预取缓存: 命中」 | ☐ | 需 `QUEUE_PREFETCH=1` |
+
 **Owner 画像**：`~/.butler/tenants/default/memory/profile.json`；**勿**在画像写死默认项目名（见 `owner-profile-setup.md`）。
 
 ### 阶段 1 · 只读读工厂（冒烟通过后）
@@ -88,7 +100,7 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 | R3 | `请委派内容代理：只读 docs/reference-snapshot/小说工厂问题记录.md 并给 3 条要点，不要改任何文件` | ☑ |
 | R4 | `在 docs/pilot-log.md 写一条：今日日期、微信验收通过、当前 workflow phase 一行摘要；若不存在则创建` | ☑ |
 
-**批次**：2026-05-20 初验（项目名「灵文」）| **2026-05-21**：灵文1号 冒烟 + P1 + 阶段1 只读 **全通过**（主公确认）
+**批次**：2026-05-20 初验（项目名「灵文」）| **2026-05-21**：灵文1号 冒烟 + P1 + 阶段1 只读 + **记忆 P0–P2（M1–M2）** **全通过**（主公确认）
 
 ---
 

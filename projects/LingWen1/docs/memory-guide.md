@@ -27,10 +27,21 @@
 | `BUTLER_TERMINAL_ALLOWLIST_EXTRA` | `python3,bash`（跑 novel-factory 脚本时需 `BUTLER_ENABLE_TERMINAL=1`） |
 | `BUTLER_EXPERIENCE_PRUNE_DAYS` | `30`（清理超过 N 天的 conversation 回声；`0` 关闭） |
 | `BUTLER_PREFETCH_*` | 预取长度上限（见 `.env.example`）；`/诊断` 可看分层条数 |
+| `BUTLER_SEMANTIC_MEMORY` | `1`（试点已开）：本地 `memory_vectors.db` + hybrid 召回 |
+| `BUTLER_QUEUE_PREFETCH` | `1`（试点已开）：上轮结束后后台 warm；`/诊断` 可看「预取缓存: 命中」 |
+| `BUTLER_PREFETCH_PROJECT_HITS` | 项目 MEMORY 向量/关键词预取条数（默认 5） |
 
 ## 诊断
 
-微信 `/诊断` 会显示：Owner 画像条数、Experience 长期/会话回声、项目 MEMORY 正式条目与 Pending 数量、上轮预取字数。
+微信 `/诊断` 会显示：Owner 画像条数、Experience 长期/会话回声、项目 MEMORY（**含项目名**）正式条目与 Pending、向量条数与 model；有上轮对话时还有预取注入字数、**预取缓存命中**、**项目预取模式**（vector/keyword）。
+
+## 验收记录（2026-05-21，主公确认）
+
+| 步骤 | 内容 | 结果 |
+|------|------|------|
+| M1 | `/诊断`（无会话） | 灵文1号 MEMORY 4 条、Pending 0、向量 4 条（hashing-v1） |
+| M2 | 「灵文试点统一测试是哪天？」（paraphrase） | 答 **2026-05-22** |
+| 可选 | `/拒绝记忆`、`预取缓存命中` | 未测；见 [wechat-daily-smoke-checklist.md](../../docs/guides/wechat-daily-smoke-checklist.md) |
 
 ## 机读 facts（暂缓）
 
@@ -60,6 +71,7 @@ bash scripts/butler-memory-reindex.sh
 | `/拒绝记忆 1` / `/拒绝记忆 全部` | 从 Pending 移除并清理待审向量 |
 
 `butler_remember` 的 `project_notes` 支持 `action`: `append`（默认）、`remove`、`replace`（`replace` 需 `old_content`），会同步更新向量索引。
+
 | `/工作流 run novel-factory-status` | 只读汇报 `workflow_state.json` |
 
 **分工**：`workflow_state.json` = 机读进度；`MEMORY.md` Notes = 人读摘要（勿整份 JSON 入库）。

@@ -39,7 +39,7 @@ rsync -a --delete "$SRC/" "$DST/"
 
 ## 微信试点
 
-**验收**：2026-05-21 冒烟（0–8c）、P1（记忆/状态工作流）、阶段 1 只读（R1–R4）均已通过。记录见 `docs/pilot-log.md`、`docs/wechat-smoke.md`。
+**验收**：2026-05-21 冒烟（0–8c）、P1（记忆/状态工作流）、阶段 1 只读（R1–R4）、**记忆模块 P0–P2**（`/诊断` 分层、paraphrase 统一测试日）均已通过。记录见 `docs/pilot-log.md`、`docs/memory-guide.md`、`docs/wechat-smoke.md`。
 
 ### 建议顺序（复测时）
 
