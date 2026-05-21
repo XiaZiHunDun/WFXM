@@ -137,6 +137,8 @@ flowchart TB
 2. `BUTLER_SEMANTIC_MEMORY=0` 无回归。
 3. `/诊断` 可见向量统计；`MEMORY.md` 仍为审批入口。
 
+**灵文1号试点微信验收（2026-05-21）**：M1 `/诊断`（4 MEMORY / 4 向量）、M2 paraphrase → 2026-05-22 **通过**。记录见 `projects/LingWen1/docs/pilot-log.md`、`memory-guide.md`。
+
 ---
 
 ## 8. 参考文件
