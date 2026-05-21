@@ -28,8 +28,9 @@ PYTHONPATH=. pytest tests/test_p0_memory_pilot.py tests/test_memory_p1_p2.py \
   tests/test_memory_recall_fixtures.py tests/test_semantic_memory_p1.py \
   tests/test_memory_reindex.py tests/test_gateway_handler.py -q
 
-# 全量微信套件：在 BUTLER_SYNC_CONVERSATION_MEMORY=0 时可能有 2 条已知失败
-# （experience 不同步每轮、safe_root 大小写）；发版前再视情况跑完整列表
+# 全量微信套件（SYNC_CONVERSATION_MEMORY=0，与生产一致）：
+#   bash scripts/butler-wechat-gateway-smoke.sh
+# 记忆守门：bash scripts/butler-wechat-memory-smoke.sh
 ```
 
 **可选 live（真 MiniMax，发版前建议跑）**：

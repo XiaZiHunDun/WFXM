@@ -128,8 +128,29 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
         if ok:
             _write_last_push_monotonic(time.monotonic())
         else:
-            logger.warning("Runtime wechat push failed: %s", result.get("error"))
+            err = result.get("error")
+            logger.warning("Runtime wechat push failed: %s", err)
+            if _should_enqueue_on_failure(err):
+                from butler.runtime.push_queue import enqueue_failed_push
+
+                enqueue_failed_push(title, body, chat_id=cid)
         return ok
     except Exception as exc:
         logger.exception("Runtime wechat push failed: %s", exc)
+        if _should_enqueue_on_failure(str(exc)):
+            from butler.runtime.push_queue import enqueue_failed_push
+
+            enqueue_failed_push(title, body, chat_id=cid)
         return False
+
+
+def _should_enqueue_on_failure(err: str | None) -> bool:
+    if os.getenv("BUTLER_RUNTIME_PUSH_QUEUE", "1").strip().lower() in (
+        "0",
+        "false",
+        "no",
+        "off",
+    ):
+        return False
+    msg = (err or "").lower()
+    return "rate limit" in msg or "rate limited" in msg

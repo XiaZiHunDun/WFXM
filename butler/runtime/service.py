@@ -274,6 +274,13 @@ def run_due_jobs(
     if not runtime_enabled():
         return [{"success": False, "error": "BUTLER_RUNTIME_ENABLED=0"}]
 
+    try:
+        from butler.runtime.push_queue import drain_push_queue
+
+        drain_push_queue(max_items=2)
+    except Exception as exc:
+        logger.debug("Push queue drain skipped: %s", exc)
+
     results: list[dict[str, Any]] = []
     for jid in list_due_jobs(project_name):
         results.append(run_job(project_name, jid, skip_notify=skip_notify))

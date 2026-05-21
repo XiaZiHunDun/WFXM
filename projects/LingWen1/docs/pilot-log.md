@@ -12,13 +12,14 @@
 | 2026-05-21 | **Runtime 运营 + 开发实战** | `butler-runtime-smoke.sh` 通过；timer enabled；`factory-status-daily` OK；`publish-preflight` 禁用拒绝；`consistency-weekly` 跑完 exit1（P1×3，有报告）；修复 runtime 微信推送 `PlatformConfig`；`butler-dev-tools-smoke.sh` patch/terminal/git 全绿 |
 | 2026-05-21 | **一致性 / 预检策略** | 人物仅报「死后复活」；脚本 exit0 当 P0=0；runner `passed_with_warnings`；`publish-preflight` 改为 readonly + `preflight` 子命令并默认启用 |
 | 2026-05-21 | **预检精度 + Agent Runtime** | preflight 第 7 步读最新 consistency JSON；Lead 可用 `run_runtime_job` / `list_runtime_jobs` |
-| 2026-05-21 | **Live API + 推送限流** | live_llm 10/10 通过；runtime 推送冷却 + iLink 指数退避；`butler-wechat-push-verify.sh`（iLink 仍可能限流，宜间隔 15–30min 再验） |
+| 2026-05-21 | **Live API + 推送限流** | live_llm 10/10 通过；runtime 推送冷却 + iLink 指数退避；`butler-wechat-push-verify.sh`；**真机收到 factory-status 摘要** |
+| 2026-05-21 | **P0/P1 技术债批次** | 推送失败入队+`due` 重试；preflight 读 review_queue；`publish-archive` mutating job；微信守门 32+201 pytest；`character_waivers.yaml` |
 
-## 稳上线后微信补验（待主公勾选）
+## 稳上线后微信补验（自动化已守门，真机可快速勾选）
 
-| 步骤 | 发送 | 期望 |
-|------|------|------|
-| M1 | `/诊断` | 含三元组条数、检索衰减、画像向量（若有） |
-| M1b | `/记忆图谱` | 列出三元组或空状态提示 |
-| M2 | 「灵文试点统一测试是哪天？」 | 仍答 **2026-05-22** |
-| M4 | 同句连发两遍 → `/诊断` | 「上轮预取缓存: 命中」 |
+| 步骤 | 发送 | 期望 | 守门 |
+|------|------|------|------|
+| M1 | `/诊断` | 含三元组条数、检索衰减、画像向量（若有） | `butler-wechat-memory-smoke.sh` |
+| M1b | `/记忆图谱` | 列出三元组或空状态提示 | `test_memory_graph_command` |
+| M2 | 「灵文试点统一测试是哪天？」 | 仍答 **2026-05-22** | recall fixtures |
+| M4 | 同句连发两遍 → `/诊断` | 「上轮预取缓存: 命中」 | `test_memory_m3_m4_smoke` |

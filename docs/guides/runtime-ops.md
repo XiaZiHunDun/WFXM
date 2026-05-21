@@ -76,6 +76,7 @@ tail -f logs/butler-runtime.log
 | `WECHAT_TOKEN` / `WECHAT_ACCOUNT_ID` | 推送必填 |
 | `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` | 两次 runtime 推送最小间隔（默认 **25s**，防 iLink 限流） |
 | `WECHAT_SEND_CHUNK_RETRIES` / `WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS` | 微信发送重试（验证脚本建议 6 / 2） |
+| `BUTLER_RUNTIME_PUSH_QUEUE` | `1` 时限流失败写入 `~/.butler/runtime/push_queue.jsonl`，`runtime due` 时重试 |
 
 **推送真机验证**：`bash scripts/butler-wechat-push-verify.sh 灵文1号`（短 ping + factory-status，带冷却）。
 

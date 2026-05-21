@@ -1,0 +1,5 @@
+# 本地复跑生成；入库请只提交里程碑报告（或手动 add）
+consistency_check_*.json
+consistency_check_*.md
+!consistency_check_20260521_223220.json
+!consistency_check_20260521_223220.md

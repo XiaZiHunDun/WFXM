@@ -112,17 +112,25 @@ do_check() {
         echo -e "${GREEN}  ✓ 08_已发布 目录存在${NC}"
     fi
 
-    # 检查未解决意见
-    echo -e "${YELLOW}[6/8] 检查未解决意见...${NC}"
-    if grep -q "unresolved_issues" workflow_state.json 2>/dev/null; then
-        local issues=$(grep -o '"unresolved_issues"[[:space:]]*:[[:space:]]*[0-9]*' workflow_state.json | grep -o '[0-9]*')
-        if [[ -n "$issues" && "$issues" -le 5 ]]; then
-            echo -e "${GREEN}  ✓ 未解决意见: $issues（≤5，通过）${NC}"
-        elif [[ -n "$issues" ]]; then
-            echo -e "${RED}  ✗ 未解决意见: $issues（>5，不通过）${NC}"
-        fi
+    # 检查未解决意见（review_queue.pending + in_review）
+    echo -e "${YELLOW}[6/8] 检查审核队列...${NC}"
+    local review_script="${SCRIPT_DIR}/read_workflow_review.py"
+    local review_line=""
+    if [[ -f "$review_script" && -f "workflow_state.json" ]]; then
+        review_line="$(python3 "$review_script" "$(pwd)" 2>/dev/null)" || true
+    fi
+    if [[ "$review_line" == "MISSING" || -z "$review_line" ]]; then
+        echo -e "${YELLOW}  ⚠ 无法读取 review_queue（缺少 workflow_state.json）${NC}"
     else
-        echo -e "${YELLOW}  ⚠ 无法读取未解决意见数量${NC}"
+        local pending_cnt in_review_cnt total_review
+        read -r pending_cnt in_review_cnt total_review <<< "$review_line"
+        if [[ "${total_review:-0}" -eq 0 ]]; then
+            echo -e "${GREEN}  ✓ 审核队列空（pending=0, in_review=0）${NC}"
+        elif [[ "${total_review:-0}" -le 5 ]]; then
+            echo -e "${YELLOW}  ⚠ 待审 ${pending_cnt} + 审阅中 ${in_review_cnt}（≤5，可接受）${NC}"
+        else
+            echo -e "${RED}  ✗ 待审 ${pending_cnt} + 审阅中 ${in_review_cnt}（>5，建议先清队列）${NC}"
+        fi
     fi
 
     # 检查 P0（读最新一致性 JSON，避免 grep「P0」误报）

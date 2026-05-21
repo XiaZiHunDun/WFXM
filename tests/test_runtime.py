@@ -266,6 +266,24 @@ def test_format_jobs_list(runtime_project):
     assert "desc" in text
 
 
+def test_mutating_job_disabled_without_approval(runtime_project):
+    ws, _ = runtime_project
+    _write_jobs(
+        ws,
+        [
+            {
+                "id": "publish-archive",
+                "mode": "mutating",
+                "enabled": False,
+                "approval": {"required": True, "expires_hours": 48},
+                "command": ["echo", "would-mutate"],
+            }
+        ],
+    )
+    r = service.run_job("TestProj", "publish-archive", skip_notify=True)
+    assert "禁用" in (r.get("error") or "")
+
+
 def test_approve_mutating_one_shot(runtime_project, monkeypatch):
     ws, _ = runtime_project
     _write_jobs(
