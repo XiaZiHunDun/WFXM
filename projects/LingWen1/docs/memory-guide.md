@@ -32,6 +32,10 @@
 
 微信 `/诊断` 会显示：Owner 画像条数、Experience 长期/会话回声、项目 MEMORY 正式条目与 Pending 数量、上轮预取字数。
 
+## 路线图（待改进）
+
+当前检索为 **FTS5 关键词**（非 embedding 向量）。**向量语义记忆**已纳入待办，方案见仓库 [`docs/architecture/memory-roadmap.md`](../../docs/architecture/memory-roadmap.md)（参考 Hermes 外部 Memory Provider 的 prefetch + hybrid 检索，Butler 侧本地化实现）。
+
 ## 微信命令（记忆）
 
 | 命令 | 作用 |
