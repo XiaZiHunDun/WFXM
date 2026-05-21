@@ -127,6 +127,7 @@ flowchart TB
 | P2 | MEMORY remove/replace 向量同步 | ✅ |
 | P2 | 项目预取关键词 fallback | ✅ |
 | P2 | /诊断 预取缓存命中 | ✅ |
+| P2 | post_session → 项目 MEMORY 向量同步 | ✅ |
 | P3 | 外部云记忆默认接入 | 不做 |
 
 ---
