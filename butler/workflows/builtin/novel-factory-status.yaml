@@ -3,9 +3,6 @@ description: 只读汇报 novel-factory 流水线状态（workflow_state.json）
 steps:
   - id: read-state
     role: content
-    model:
-      provider: deepseek
-      model: deepseek-chat
     task: |
       只读读取 novel-factory/workflow_state.json（若不存在则说明）。
       用纯文字摘要：项目名、current_phase、current_step、project_status 等关键字段。
