@@ -83,6 +83,31 @@ _PENDING_LINE_RE = re.compile(
     r"^-\s*\[PENDING\]\s*\[target:(?P<target>[^\]]+)\]\s*\[(?P<ts>[^\]]+)\]\s*(?P<body>.+)$"
 )
 
+# Chinese headers from legacy MEMORY.md / post_session → canonical sections
+_SECTION_ALIASES: dict[str, str] = {
+    "架构与设计": "Architecture",
+    "架构": "Architecture",
+    "设计": "Architecture",
+    "关键决策": "Decisions",
+    "决策": "Decisions",
+    "代码模式与约定": "Patterns",
+    "代码模式": "Patterns",
+    "约定": "Patterns",
+    "已知问题": "Notes",
+    "问题": "Notes",
+    "当前状态": "Notes",
+    "状态": "Notes",
+    "接口": "API",
+}
+
+
+def normalize_section_name(section: str) -> str:
+    """Map legacy Chinese headers and aliases to canonical section names."""
+    raw = (section or "Notes").strip()
+    if raw in _SECTION_ORDER:
+        return raw
+    return _SECTION_ALIASES.get(raw, raw)
+
 
 def _now_ts() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -129,6 +154,7 @@ class MarkdownMemory:
         content: str,
         classification: str = "auto",
     ) -> str:
+        section = normalize_section_name(section)
         raw_cls = (classification or "auto").strip().lower()
         if raw_cls == "auto":
             cls_in = self._auto_classify(content)

@@ -7,7 +7,7 @@
 | 你要记的内容 | 放哪 | 工具 / 操作 |
 |--------------|------|-------------|
 | 称呼、微信回复长短、默认灵文1号 | Owner 画像 | `butler_remember` → `owner_profile`，或编辑 `~/.butler/tenants/default/memory/profile.json` |
-| 灵文1号试点决策、架构、进度 | 项目记忆 | `butler_remember` → `project_notes` + `section`（Architecture/Decisions/Notes） |
+| 灵文1号试点决策、架构、进度 | 项目记忆 | `butler_remember` → `project_notes` + `section`；**决策语气**会进 Pending（与 `/新对话` 提炼一致），用 `/批准记忆` 落盘 |
 | 跨项目教训 | 全局经验库 | `butler_remember` → `owner_experience`；检索用 `butler_recall` |
 | 上轮聊天说了啥 | **不长期保存** | 靠当前会话；`/新对话` 清空 |
 | 《星陨纪元》章节、novel-factory 正文 | **文件本身** | `read_file` / 委派；**不要**写入 MEMORY.md |

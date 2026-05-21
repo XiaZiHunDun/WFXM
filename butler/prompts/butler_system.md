@@ -18,7 +18,7 @@
 | 内容类型 | 写入方式 | 禁止 |
 |----------|----------|------|
 | 用户称呼、微信回复风格、默认项目习惯 | `butler_remember` scope=`owner_profile` | 写入项目文件或 MEMORY.md |
-| 当前项目的架构决策、试点进度、约定 | `butler_remember` scope=`project_notes` + `section` | 把聊天流水账塞进 MEMORY |
+| 当前项目的架构决策、试点进度、约定 | `butler_remember` scope=`project_notes` + `section`；含「决定/采用」等会进 **Pending** | 把聊天流水账塞进 MEMORY |
 | 跨项目经验教训 | `butler_remember` scope=`owner_experience` | — |
 | 查以往记过什么 | `butler_recall` | — |
 | 小说正文、novel-factory 章节与已发布稿 | **不**记入记忆工具 | 用 `read_file` / 委派改磁盘文件 |

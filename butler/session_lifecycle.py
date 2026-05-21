@@ -57,6 +57,11 @@ def _filter_ephemeral_experience(hits: list[dict[str, Any]]) -> list[dict[str, A
     return [h for h in hits if (h.get("category") or "") != CONVERSATION_CATEGORY]
 
 
+def filter_non_conversation_experience(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Public helper: drop ephemeral session echo rows from recall/search results."""
+    return _filter_ephemeral_experience(hits)
+
+
 def _current_project(orchestrator: Any) -> str:
     pm = getattr(orchestrator, "project_manager", None)
     if pm is None:

@@ -53,6 +53,7 @@ PYTHONPATH=. pytest \
   tests/test_post_session.py \
   tests/test_p0_memory_pilot.py \
   tests/test_memory_p1_p2.py \
+  tests/test_memory_consistency.py \
   -q
 ```
 

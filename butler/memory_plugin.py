@@ -362,8 +362,18 @@ class ButlerMemoryService:
                     {"ok": False, "error": "No active Butler project path (BUTLER_PROJECT_ROOT unset)."}
                 )
             section = str(args.get("section", "Notes") or "Notes")
-            self._project_memory.markdown.append(section, content, classification="fact")
-            return json.dumps({"ok": True, "scope": scope, "section": section})
+            cls_result = self._project_memory.markdown.append(
+                section, content, classification="auto"
+            )
+            payload: dict[str, Any] = {
+                "ok": True,
+                "scope": scope,
+                "section": section,
+                "classification": cls_result,
+            }
+            if cls_result == "pending":
+                payload["hint"] = "已进入 Pending，可用 /记忆待审 与 /批准记忆 写入正式章节"
+            return json.dumps(payload)
 
         return json.dumps({"ok": False, "error": f"invalid scope {scope!r}"})
 
@@ -376,12 +386,15 @@ class ButlerMemoryService:
             text = self._butler_global.profile.read()
             return json.dumps({"ok": True, "profile": text})
 
+        from butler.session_lifecycle import filter_non_conversation_experience
+
         query = str(args.get("query", "") or "").strip()
-        limit = int(args.get("limit", 8) or 8)
+        limit = max(1, int(args.get("limit", 8) or 8))
         project = str(args.get("project", "") or "").strip()
         if not query:
-            recent = self._butler_global.experience.get_recent(limit=limit)
-            return json.dumps({"ok": True, "results": recent})
+            recent = self._butler_global.experience.get_recent(limit=limit * 4)
+            rows = filter_non_conversation_experience(recent)[:limit]
+            return json.dumps({"ok": True, "results": rows})
 
         proj_filter: str | None = project or None
         if proj_filter is None:
@@ -393,7 +406,10 @@ class ButlerMemoryService:
             except Exception:
                 proj_filter = None
 
-        rows = self._butler_global.experience.search(query, project=proj_filter, limit=limit)
+        rows = self._butler_global.experience.search(
+            query, project=proj_filter, limit=limit * 4
+        )
+        rows = filter_non_conversation_experience(rows)[:limit]
         return json.dumps({"ok": True, "results": rows})
 
     def on_session_switch(
