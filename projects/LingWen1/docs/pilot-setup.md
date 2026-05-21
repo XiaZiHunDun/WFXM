@@ -37,7 +37,11 @@ rsync -a --delete "$SRC/" "$DST/"
 
 见 [memory-guide.md](./memory-guide.md)（写入对照表、`butler_remember` / `butler_recall`、`.env` 中的 `BUTLER_SYNC_CONVERSATION_MEMORY`）。
 
-## 微信试点（建议顺序）
+## 微信试点
+
+**验收**：2026-05-21 冒烟（0–8c）、P1（记忆/状态工作流）、阶段 1 只读（R1–R4）均已通过。记录见 `docs/pilot-log.md`、`docs/wechat-smoke.md`。
+
+### 建议顺序（复测时）
 
 1. `/状态` — 默认项目应为「灵文1号」（`BUTLER_DEFAULT_PROJECT`）
 2. `读取 novel-factory/README.md 前 30 行并摘要`
