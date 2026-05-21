@@ -439,6 +439,12 @@ class ButlerMessageHandler:
                 platform=platform,
             )
 
+        from butler.gateway.runtime_commands import handle_runtime_command
+
+        rt_resp = handle_runtime_command(self._orchestrator, cmd, arg)
+        if rt_resp is not None:
+            return rt_resp
+
         from butler.gateway.memory_commands import handle_memory_pending_command
 
         mem_resp = handle_memory_pending_command(self._orchestrator, cmd, arg)
@@ -643,6 +649,12 @@ def _is_sessionless_command(text: str) -> bool:
         "/详细",
         "/workflow",
         "/工作流",
+        "/定时",
+        "/runtime",
+        "/定时任务",
+        "/运行",
+        "/run-job",
+        "/运行任务",
         "/记忆待审",
         "/pending-memory",
         "/待审记忆",

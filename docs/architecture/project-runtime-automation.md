@@ -1,6 +1,6 @@
 # 项目运行时自动化（阶段 3）设计方案
 
-> **状态**：设计稿（2026-05-21）— 灵文1号试点优先  
+> **状态**：**3a 已实现**（2026-05-20）— CLI + 只读任务 + Owner 微信推送 + `/定时` `/运行`；3b timer、3c 批准闸门待做  
 > **前置**：项目 Lead 阶段 1–2 已验收（[`project-lead-decision.md`](project-lead-decision.md)）  
 > **试点配置**：[`projects/LingWen1/runtime/jobs.yaml`](../../projects/LingWen1/runtime/jobs.yaml)（计划）
 
