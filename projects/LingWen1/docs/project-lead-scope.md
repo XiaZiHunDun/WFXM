@@ -1,7 +1,7 @@
 # 灵文1号 · 项目 Lead（厂长）范围说明
 
 > **平台决策**：[`docs/architecture/project-lead-decision.md`](../../../docs/architecture/project-lead-decision.md)  
-> **试点状态**：阶段 1 **已实施**（Skill + 厂长模式钩子）；待微信验收；阶段 2 为 Lead 专用 Loop  
+> **试点状态**：阶段 1 **真机验收通过**（2026-05-21）；阶段 2 为 Lead 专用 Loop  
 > **项目**：`灵文1号` · `projects/LingWen1/`
 
 ---
@@ -76,8 +76,7 @@
 - [x] **灵文 Skill**（git 源 [`../skills/lingwen-project-lead.md`](../skills/lingwen-project-lead.md)，部署：`bash scripts/sync-lingwen-project-skills.sh`）  
 - [x] **厂长模式钩子**：`butler/workflows/hooks.py` → 网关/CLI `pre_llm_call` 注入（`current_project=灵文1号`）  
 - [x] [`pilot-log.md`](pilot-log.md) 记录阶段 1 实施  
-- [ ] **微信验收**（见 §5 话术表）：读 phase/step、委派写 docs、不直接改盘  
-- [ ] 验收通过后在本节注明日期
+- [x] **微信验收**（§5 话术表）：读 phase/step、委派写 docs、不直接改盘 — **2026-05-21 主公确认通过**
 
 ---
 
