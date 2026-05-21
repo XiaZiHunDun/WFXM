@@ -131,6 +131,17 @@ REVIEW_AGENT = AgentProfile(
     max_iterations=30,
 )
 
+LEAD_AGENT = AgentProfile(
+    role="lead_agent",
+    description="项目 Lead — 统筹、读状态、委派工人，不直接改盘",
+    system_prompt=(
+        "你是项目 Lead（厂长）。统筹本项目：读 workflow_state、委派 dev/content/review。"
+        "不要直接 write_file / patch / terminal。"
+    ),
+    toolsets=["delegation", "file", "skills"],
+    max_iterations=60,
+)
+
 PROFILES: dict[str, AgentProfile] = {
     "dev_agent": DEV_AGENT,
     "dev": DEV_AGENT,
@@ -140,6 +151,8 @@ PROFILES: dict[str, AgentProfile] = {
     "review_agent": REVIEW_AGENT,
     "review": REVIEW_AGENT,
     "reviewer": REVIEW_AGENT,
+    "lead_agent": LEAD_AGENT,
+    "lead": LEAD_AGENT,
 }
 
 

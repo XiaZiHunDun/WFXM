@@ -24,6 +24,21 @@ _BUTLER_EXTRA_TOOLS = frozenset({
     "butler_recall",
 })
 
+# Project Lead: read-only + orchestration (no write/shell even if listed in project.yaml).
+_LEAD_READ_TOOLS = frozenset({
+    "read_file",
+    "list_directory",
+    "search_files",
+})
+_LEAD_EXTRA_TOOLS = frozenset({
+    "delegate_task",
+    "run_workflow",
+    "skills_list",
+    "skill_view",
+    "butler_remember",
+    "butler_recall",
+})
+
 
 def canonical_tool_name(name: str) -> str:
     """Map project.yaml tool name to registry tool name."""
@@ -45,7 +60,11 @@ def allowed_tool_names_for_project(
     mapped = {n for n in raw if n}
     if not mapped:
         return None
-    if role.replace("_agent", "") in {"butler", "default", ""} or role == "butler":
+    norm = role.replace("_agent", "").strip().lower()
+    if norm == "lead":
+        read_only = {n for n in mapped if n in _LEAD_READ_TOOLS}
+        return read_only | _LEAD_EXTRA_TOOLS
+    if norm in {"butler", "default", ""} or role == "butler":
         return mapped | _BUTLER_EXTRA_TOOLS
     return mapped
 

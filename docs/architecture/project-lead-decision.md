@@ -93,7 +93,7 @@
 
 ---
 
-### 阶段 2 — 项目 Lead Loop（中期）
+### 阶段 2 — 项目 Lead Loop（中期）✅ 已实现（待微信验收）
 
 **目标**：`/切换 灵文1号` 后，**会话主推理面**绑定 Lead（独立 system prompt + 工具策略），莎丽仅负责未切换时的门户行为。
 
@@ -112,7 +112,7 @@
 
 **风险**：中 — Lead 与管家边界、记忆 scope、模型是否听 Lead 指令；需 `/health` 与工具审计。
 
-**代码落点（预告）**：`orchestrator.py`、`gateway/message_handler.py`、`agent_profiles.py`、`session_registry.py`
+**代码落点**：`butler/project_lead.py`、`butler/prompts/lingwen_lead_system.md`、`orchestrator.build_lead_system_prompt`、`gateway/message_handler._create_loop_for_session`、`project_tools` Lead 白名单；`BUTLER_LEAD_PROJECTS` 可扩展厂长项目列表。
 
 ---
 

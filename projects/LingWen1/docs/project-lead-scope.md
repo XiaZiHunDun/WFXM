@@ -1,7 +1,7 @@
 # 灵文1号 · 项目 Lead（厂长）范围说明
 
 > **平台决策**：[`docs/architecture/project-lead-decision.md`](../../../docs/architecture/project-lead-decision.md)  
-> **试点状态**：阶段 1 **真机验收通过**（2026-05-21）；阶段 2 为 Lead 专用 Loop  
+> **试点状态**：阶段 1 真机通过（2026-05-21）；阶段 2 **已部署**（Lead Loop），待微信验收  
 > **项目**：`灵文1号` · `projects/LingWen1/`
 
 ---
@@ -80,12 +80,13 @@
 
 ---
 
-## 7. 阶段 2 验收清单（Lead Loop，预留）
+## 7. 阶段 2 验收清单（Lead Loop）
 
-- [ ] `/切换 灵文1号` 后回复标明厂长模式（仍同一 Bot）  
-- [ ] 连续多轮引用同一 phase/step 上下文  
-- [ ] 工具审计：Lead 无 write/shell；委派有记录  
-- [ ] `/新对话` 清空聊天但 state/MEMORY 只读仍正确  
+- [ ] `/切换 灵文1号` 后回复含 **「厂长模式」**（仍同一 Bot）  
+- [ ] `/诊断` 显示 **「对话引擎: 项目 Lead（厂长）」**  
+- [ ] 连续多轮可引用上轮工厂/委派结论（同 session_key）  
+- [ ] 工具审计：Lead 无 write/shell；委派有 `delegate_task` 记录  
+- [ ] `/新对话` 清空聊天但读 state / MEMORY 仍正确  
 
 ---
 

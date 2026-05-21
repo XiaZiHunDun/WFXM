@@ -60,7 +60,6 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     from butler.session_keys import build_session_key
     from butler.session_lifecycle import clear_session_boundary_memory
 
-    tools = get_current_project_tools(role="butler")
     ui = ChatSessionUI(console)
     loops_by_session: dict[str, Any] = {}
     agent_loop = None
@@ -72,14 +71,25 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             project=orchestrator.project_manager.current_project or "",
         )
 
+    def _cli_loop_role() -> str:
+        from butler.project_lead import gateway_loop_role
+
+        return gateway_loop_role(orchestrator.project_manager.current_project or "")
+
     def _create_loop():
+        from butler.tools.project_tools import get_current_project_tools
+
+        sk = _cli_session_key()
+        role = _cli_loop_role()
+        tools = get_current_project_tools(role=role)
         stream = ui.begin_turn()
         callbacks = ui.build_callbacks(stream)
         return orchestrator.create_agent_loop(
-            role="butler",
+            role=role,
             tools=tools,
             tool_dispatcher=dispatch_tool,
             callbacks=callbacks,
+            session_key=sk,
         )
 
     def _get_or_create_loop():
@@ -311,18 +321,25 @@ def _handle_slash_command(
         console.print("[yellow]用法: /model <角色> <provider/model>[/yellow]")
         return "handled"
 
-    if command == "/new":
-        from butler.session_keys import build_session_key
-        from butler.session_lifecycle import clear_session_boundary_memory
+        if command == "/new":
+            from butler.session_keys import build_session_key
+            from butler.session_lifecycle import clear_session_boundary_memory
 
-        cli_sk = build_session_key(
-            platform="cli",
-            chat_id=orchestrator.user_id,
-            project=orchestrator.project_manager.current_project or "",
-        )
-        clear_session_boundary_memory(orchestrator, cli_sk)
-        console.print("[dim]已清空对话历史[/dim]")
-        return "rebuild"
+            cli_sk = build_session_key(
+                platform="cli",
+                chat_id=orchestrator.user_id,
+                project=orchestrator.project_manager.current_project or "",
+            )
+            clear_session_boundary_memory(orchestrator, cli_sk)
+            console.print("[dim]已清空对话历史[/dim]")
+            return "rebuild"
+
+        if command in ("/switch", "/切换") and arg:
+            from butler.project_lead import lead_mode_switch_suffix
+
+            note = lead_mode_switch_suffix(orchestrator.project_manager.current_project or "")
+            if note:
+                console.print(f"[dim]{note.strip()}[/dim]")
 
     if command == "/status":
         settings = orchestrator._settings

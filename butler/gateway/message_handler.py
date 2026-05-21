@@ -53,13 +53,20 @@ class ButlerMessageHandler:
     def _create_loop_for_session(self, session_key: str) -> AgentLoop:
         pm = self._orchestrator.project_manager
         project = pm.get_current(session_key=session_key)
+        proj_name = (
+            str(getattr(project, "name", "") or "").strip()
+            or pm.resolve_active_project_name(session_key=session_key)
+        )
+        from butler.project_lead import gateway_loop_role
         from butler.tools.project_tools import get_tool_definitions_for_project
 
-        tools = get_tool_definitions_for_project(project, role="butler")
+        loop_role = gateway_loop_role(proj_name)
+        tools = get_tool_definitions_for_project(project, role=loop_role)
         return self._orchestrator.create_agent_loop(
-            role="butler",
+            role=loop_role,
             tools=tools,
             tool_dispatcher=dispatch_tool,
+            session_key=session_key,
         )
 
     def _finalize_session(self, loop: AgentLoop) -> None:
@@ -206,10 +213,17 @@ class ButlerMessageHandler:
         )
 
         with use_execution_context(self._orchestrator, session_key=session_key):
+            from butler.project_lead import gateway_loop_role
+
+            proj_name = self._orchestrator.project_manager.resolve_active_project_name(
+                session_key=session_key,
+            )
+            loop_role = gateway_loop_role(proj_name)
             health: dict[str, Any] = {
                 "session_key": session_key,
                 "platform": platform,
                 "last_user_query": text.strip()[:500],
+                "gateway_agent_role": loop_role,
             }
             augmented = apply_pre_llm_context(
                 self._orchestrator.inject_skill_context(text, diagnostics=health),
@@ -234,7 +248,7 @@ class ButlerMessageHandler:
                     loop,
                     self._orchestrator,
                     text,
-                    role="butler",
+                    role=loop_role,
                     diagnostics=health,
                 )
                 run_callbacks = _gateway_run_callbacks()
@@ -257,7 +271,7 @@ class ButlerMessageHandler:
                 queue_prefetch_after_turn(
                     self._orchestrator,
                     text,
-                    role="butler",
+                    role=loop_role,
                     session_id=session_key,
                 )
                 self._session_registry.set_health(session_key, health)
@@ -329,10 +343,13 @@ class ButlerMessageHandler:
                 extra = ""
                 if cleared:
                     extra = f"\n已重建对话引擎（清理 {len(cleared)} 个旧项目会话）。"
+                from butler.project_lead import lead_mode_switch_suffix
+
+                lead_note = lead_mode_switch_suffix(new_name)
                 return (
                     f"已切换到项目: {new_name}\n"
                     "（下一条消息起使用新项目工具与 workspace。）"
-                    f"{extra}"
+                    f"{extra}{lead_note}"
                 )
             return f"未找到项目: {arg}（名称需精确或唯一匹配）"
 
@@ -497,10 +514,19 @@ class ButlerMessageHandler:
             except Exception:
                 aux_label = "未配置"
 
+            from butler.project_lead import lead_mode_banner_line
+
+            agent_role = str(health.get("gateway_agent_role") or "butler")
+            engine_line = (
+                lead_mode_banner_line()
+                if agent_role == "lead"
+                else "对话引擎: 管家 Butler"
+            )
             lines = [
                 "Butler 诊断",
                 f"会话: {health.get('session_key') or session_key}",
                 f"平台: {health.get('platform') or '-'}",
+                engine_line,
                 f"记忆提炼模型(post_session): {aux_label}",
                 f"压缩: {'是' if health.get('hygiene_compressed') else '否'}",
                 f"Schema 降级: {'是' if schema_recovered else '否'}",
