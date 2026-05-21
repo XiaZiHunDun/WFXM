@@ -175,7 +175,7 @@ class TestManualGuide23Slash:
         assert "Schema 降级: 是" in handler._format_health_summary("cli") or "Butler 诊断" in text
 
     def test_236_new_rebuilds_loop(self):
-        assert _handle_slash_command("/new", MagicMock(), MagicMock()) == "rebuild"
+        assert _handle_slash_command("/new", MagicMock(), MagicMock()) == "rebuild_after_new"
 
     def test_236_memory_may_retain_identity(self, butler_orchestrator, patch_llm):
         """§2.3.6: /new clears loop; identity may remain via memory layer."""
