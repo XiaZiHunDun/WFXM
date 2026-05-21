@@ -133,6 +133,32 @@ class TestDiagnosticsNoSession:
         assert "Owner 画像" in text
         assert "向量索引" in text
 
+    def test_collect_stats_uses_session_project_name(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")
+        proj_dir = tmp_path / "lw"
+        proj_dir.mkdir()
+        (proj_dir / "project.yaml").write_text(
+            f"name: 灵文1号\nworkspace: {proj_dir}\n",
+            encoding="utf-8",
+        )
+        from butler.memory.diagnostics import collect_memory_layer_stats
+        from butler.memory.project_memory import ProjectMemory
+        from butler.project import Project
+
+        proj = Project.from_yaml(proj_dir / "project.yaml")
+        pm = ProjectMemory(proj_dir)
+        pm.markdown.append("Notes", "诊断测试条目", classification="fact")
+
+        orch = MagicMock()
+        orch.butler_memory = ButlerMemory(tmp_path / "home", tenant_id="default")
+        orch._project_memory = None
+        orch.project_manager.get_current.return_value = proj
+
+        sk = "wechat:user@im.wechat:灵文1号"
+        stats = collect_memory_layer_stats(orch, session_key=sk)
+        assert stats["project_name"] == "灵文1号"
+        assert stats["project_bullets"] >= 1
+
 
 @pytest.mark.module_test
 class TestApiEmbedders:

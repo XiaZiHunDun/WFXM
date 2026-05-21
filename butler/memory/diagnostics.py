@@ -23,7 +23,32 @@ def _experience_category_counts(db_path: Any) -> dict[str, int]:
         return {}
 
 
-def collect_memory_layer_stats(orchestrator: Any) -> dict[str, Any]:
+def _resolve_project_memory(orchestrator: Any, session_key: str = ""):
+    """Project MEMORY for diagnostics; prefers session_key over global _project_memory."""
+    pm = getattr(orchestrator, "_project_memory", None)
+    proj = None
+    pman = getattr(orchestrator, "project_manager", None)
+    if pman is not None:
+        try:
+            proj = pman.get_current(session_key=session_key or "")
+        except Exception:
+            proj = None
+    if proj is not None:
+        from butler.memory.project_memory import ProjectMemory
+
+        return ProjectMemory(proj.workspace), proj.name
+    if pm is not None:
+        from butler.memory.semantic_project import resolve_project_display_name
+
+        return pm, resolve_project_display_name(pm)
+    return None, ""
+
+
+def collect_memory_layer_stats(
+    orchestrator: Any,
+    *,
+    session_key: str = "",
+) -> dict[str, Any]:
     """Snapshot counts for owner profile, experience.db, and project MEMORY.md."""
     stats: dict[str, Any] = {
         "profile_entries": 0,
@@ -70,9 +95,9 @@ def collect_memory_layer_stats(orchestrator: Any) -> dict[str, Any]:
                 n for k, n in by_cat.items() if k != CONVERSATION_CATEGORY
             )
 
-    pm = getattr(orchestrator, "_project_memory", None)
+    pm, proj_name = _resolve_project_memory(orchestrator, session_key)
     if pm is not None:
-        stats["project_name"] = str(getattr(pm, "project_name", "") or "")
+        stats["project_name"] = proj_name
         md = getattr(pm, "markdown", None)
         if md is not None:
             try:
