@@ -89,6 +89,7 @@ tail -f logs/butler-runtime.log
 |------|------|
 | timer 无输出 | `tail logs/butler-runtime.log`；非 cron 到点会显示「没有到期的任务」 |
 | 未收到推送 | 查 `WECHAT_TOKEN`、`BUTLER_OWNER_WECHAT_ID`；`BUTLER_RUNTIME_PUSH=1` |
+| 一致性摘要无路径 | `consistency-weekly` 成功后会附 `novel-factory/06_意见仓库/07_一致性检查/*.md`；失败推送含 `审计: …json` |
 | `/运行` 改盘被拒 | 正常；用 `/批准运行` 或保持 job 关闭 |
 | 任务一直「运行中」 | 删锁：`~/.butler/runtime/locks/<项目>__<job_id>.lock`（或等 2h 过期） |
 

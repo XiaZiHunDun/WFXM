@@ -141,6 +141,45 @@ def test_schedule_empty_not_due():
     assert schedule.format_schedule_hint("") == "（手动）"
 
 
+def test_summary_enrich_report_paths(runtime_project):
+    ws, _ = runtime_project
+    report_dir = ws / "novel-factory" / "06_意见仓库" / "07_一致性检查"
+    report_dir.mkdir(parents=True)
+    report = report_dir / "consistency_check_test.md"
+    report.write_text("# report", encoding="utf-8")
+    from butler.runtime.schema import JobDef
+    from butler.runtime.summary_enrich import enrich_job_result
+
+    job = JobDef(id="consistency-weekly", description="一致性")
+    result = {
+        "success": True,
+        "stdout": f"报告: {report}\n报告目录: novel-factory/06_意见仓库/07_一致性检查\n",
+        "summary": "检查完成",
+    }
+    out = enrich_job_result(job, ws, result)
+    assert "报告路径" in out["summary"]
+    assert "consistency_check_test.md" in out["summary"]
+    assert out.get("report_paths")
+
+
+def test_failure_notify_includes_audit_path(runtime_project, monkeypatch):
+    ws, _ = runtime_project
+    _write_jobs(
+        ws,
+        [{"id": "fail", "mode": "readonly", "enabled": True, "command": ["false"]}],
+    )
+    pushed: list[str] = []
+
+    def _capture(title, body, **kwargs):
+        pushed.append(body)
+
+    monkeypatch.setenv("BUTLER_RUNTIME_ENABLED", "1")
+    with patch("butler.runtime.notify.push_runtime_message", side_effect=_capture):
+        service.run_job("TestProj", "fail", skip_notify=False)
+    if pushed:
+        assert "审计:" in pushed[0]
+
+
 def test_runtime_diagnostics_lines(runtime_project):
     ws, _ = runtime_project
     _write_jobs(

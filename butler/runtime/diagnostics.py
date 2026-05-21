@@ -49,6 +49,9 @@ def collect_runtime_stats(project_name: str, *, max_jobs: int = 6) -> dict[str, 
         if last:
             entry["last_at"] = last.get("finished_at")
             entry["last_success"] = last.get("success")
+            rpaths = last.get("report_paths")
+            if rpaths:
+                entry["report_paths"] = rpaths
         out["jobs"].append(entry)
     return out
 
@@ -66,6 +69,9 @@ def format_runtime_diagnostic_lines(project_name: str) -> list[str]:
         if j.get("last_at"):
             ok = "成功" if j.get("last_success") else "失败"
             last = f" | 上次 {j['last_at']} ({ok})"
+            rps = j.get("report_paths") or []
+            if rps:
+                last += f" | 报告 {rps[0]}"
         nxt = ""
         if j.get("next_run"):
             nxt = f" | 下次 {j['next_run']}"

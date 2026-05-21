@@ -10,6 +10,7 @@ from typing import Any
 
 from butler.runtime.builtin_handlers import run_builtin
 from butler.runtime.schema import JobDef
+from butler.runtime.summary_enrich import enrich_job_result
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ def execute_job(job: JobDef, workspace: Path) -> dict[str, Any]:
             result = _run_subprocess(job, ws)
 
     result["duration_seconds"] = round(time.monotonic() - started, 2)
+    if not job.is_builtin:
+        result = enrich_job_result(job, ws, result, run_started_monotonic=started)
     return result
 
 
