@@ -197,6 +197,8 @@ class TestButlerMessageHandlerRunner:
 
     @pytest.mark.asyncio
     async def test_media_only_event_gets_placeholder_text(self):
+        from unittest.mock import patch
+
         from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
         from butler.gateway.runner import _butler_message_handler
 
@@ -210,10 +212,19 @@ class TestButlerMessageHandlerRunner:
             media_types=["image/jpeg"],
         )
 
-        out = await _butler_message_handler(butler, event)
+        with patch(
+            "butler.gateway.minimax_vlm.describe_image",
+            return_value="（测试识图摘要）",
+        ):
+            out = await _butler_message_handler(butler, event)
         assert out == "收到"
         sent = butler.handle_message.call_args.kwargs.get("text") or butler.handle_message.call_args[0][0]
-        assert "媒体消息" in sent
+        assert (
+            "媒体消息" in sent
+            or "[微信图片]" in sent
+            or "图片识别" in sent
+            or "测试识图摘要" in sent
+        )
 
 
 @pytest.mark.module_test

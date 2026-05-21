@@ -38,12 +38,14 @@ class TestInboundMessage:
         monkeypatch.setattr(asyncio, "create_task", _fake_create_task)
         monkeypatch.setenv("BUTLER_GATEWAY_TYPING_ENABLED", "0")
         monkeypatch.setenv("BUTLER_GATEWAY_PROGRESS_ACK_ENABLED", "0")
+        monkeypatch.setenv("WECHAT_DM_POLICY", "open")
 
         adapter = WeChatAdapter(
             PlatformConfig(token="test-token", extra={"account_id": "bot-acc"}),
         )
         adapter._poll_session = MagicMock()
         adapter._account_id = "bot-acc"
+        adapter._dm_policy = "open"
 
         seen: list[MessageEvent] = []
 

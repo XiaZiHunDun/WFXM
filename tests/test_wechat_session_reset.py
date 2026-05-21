@@ -74,7 +74,8 @@ class TestWechatCoreScenarioStep6:
 
     SECRET_MARKERS = ("README", "wechat-smoke", "12 行", "内容代理", "开发代理")
 
-    def test_experience_stored_then_purged_on_new(self, gateway_handler):
+    def test_experience_stored_then_purged_on_new(self, gateway_handler, monkeypatch):
+        monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
         orch = gateway_handler._orchestrator
         exp = orch.butler_memory.experience
         sk = build_session_key(platform=self.PLATFORM, chat_id=self.CHAT_ID, project="")

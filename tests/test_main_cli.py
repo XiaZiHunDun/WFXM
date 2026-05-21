@@ -131,7 +131,8 @@ class TestSlashCommands:
 
 @pytest.mark.integration
 class TestSyncMemory:
-    def test_valid_messages_calls_experience_add(self):
+    def test_valid_messages_calls_experience_add(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
         orch = _mock_orchestrator()
         _sync_memory(orch, "user question", "assistant answer")
         orch.butler_memory.experience.add.assert_called_once()

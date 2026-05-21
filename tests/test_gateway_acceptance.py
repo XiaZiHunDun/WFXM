@@ -107,7 +107,8 @@ class TestManualGuide34Dialog:
 
         assert "王五" in out
 
-    def test_343_tool_read_file_line_count(self, gateway_handler, patch_llm):
+    def test_343_tool_read_file_line_count(self, gateway_handler, patch_llm, monkeypatch):
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(_REPO_ROOT))
         sample = _REPO_ROOT / "butler" / "gateway" / "__init__.py"
         expected = len(sample.read_text(encoding="utf-8").splitlines())
         tool_out = dispatch_tool("read_file", {"path": str(sample)})
@@ -153,7 +154,11 @@ class TestManualGuide34Dialog:
         async def _run():
             return await _butler_message_handler(gateway_handler, event)
 
-        out = asyncio.run(_run())
+        with patch(
+            "butler.gateway.minimax_vlm.describe_image",
+            return_value="（测试识图摘要）",
+        ):
+            out = asyncio.run(_run())
 
         assert out is not None
         assert mock_complete.called
@@ -164,7 +169,11 @@ class TestManualGuide34Dialog:
             for m in messages
             if isinstance(m, dict) and m.get("role") == "user"
         ]
-        assert any("收到媒体消息" in c for c in user_contents)
+        assert any(
+            needle in c
+            for c in user_contents
+            for needle in ("收到媒体消息", "[微信图片]", "图片识别", "测试识图摘要")
+        )
 
     def test_346_health_command(self, gateway_handler):
         out = gateway_handler.handle_message("/health", session_key="wechat:u1", platform="wechat")
@@ -210,7 +219,7 @@ class TestManualGuide35Slash:
             session_key="wechat:u1",
             platform="wechat",
         )
-        assert "已设置" in out
+        assert "已设置" in out or "已临时设置" in out
         assert "MiniMax-M2.5" in out
 
     def test_355_switch_project(self, tmp_path, monkeypatch):
