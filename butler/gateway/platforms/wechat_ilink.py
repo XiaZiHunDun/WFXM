@@ -2185,7 +2185,6 @@ async def send_wechat_direct(
     async with aiohttp.ClientSession(trust_env=True, connector=_make_ssl_connector()) as session:
         adapter = WeChatAdapter(
             PlatformConfig(
-                enabled=True,
                 token=resolved_token,
                 extra={
                     **dict(extra or {}),

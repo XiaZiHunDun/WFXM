@@ -51,8 +51,17 @@ BUTLER_TOOL_SAFE_ROOT=/path/to/workspace
 | `download_file` | `BUTLER_ENABLE_DOWNLOAD=1`，HTTPS + 域名白名单 |
 | `BUTLER_TOOL_AUDIT_JSONL=1` | 工具审计追加到 JSONL |
 
+## 开发实战冒烟
+
+```bash
+bash scripts/butler-dev-tools-smoke.sh
+```
+
+覆盖：`patch` → `terminal`（跑检查脚本）→ `git_status` → `git_add` → `git_commit`（隔离临时 git 仓库）。
+
 ## 验收
 
 ```bash
+bash scripts/butler-dev-tools-smoke.sh
 pytest tests/test_git_tools.py tests/test_dev_ops_p2.py tests/test_tools_registry.py -q
 ```

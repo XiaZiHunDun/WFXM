@@ -11,6 +11,10 @@
 ```bash
 cd ~/projects/WFXM
 
+# 运维冒烟（list + factory-status + 禁用 mutating 校验 + pytest）
+bash scripts/butler-runtime-smoke.sh
+# 含慢任务一致性：BUTLER_RUNTIME_RUN_CONSISTENCY=1 bash scripts/butler-runtime-smoke.sh
+
 # 安装/刷新 timer（每 15 分钟扫到期任务）
 bash scripts/install-butler-runtime-timer.sh
 
@@ -100,5 +104,7 @@ tail -f logs/butler-runtime.log
 ## 真机验收（按需）
 
 - **3a**：`/定时`、`/运行 factory-status-daily` — 已通过（2026-05-21）
-- **3b**：等到 08:00/周一 或手动 `butler runtime due` — 暂缓
-- **3c**：`/批准运行 publish-preflight` — 暂缓（job 默认 disabled）
+- **3b**：timer 已 enable；`butler runtime due` / 定时扫 — **2026-05-21 CLI 冒烟通过**
+- **3c**：`publish-preflight` 未启用时 CLI 拒绝；`pytest test_approve_mutating_one_shot` 批准门通过
+
+**说明**：`consistency-weekly` 脚本若发现 P1 问题会以 **exit 1** 结束，runtime 记为失败但会写报告路径（属内容告警，非基础设施故障）。见 `~/.butler/runtime/runs/灵文1号/consistency-weekly/*.json`。
