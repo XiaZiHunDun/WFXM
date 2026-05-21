@@ -86,7 +86,7 @@ flowchart TB
 - [x] **CLI `/记忆待审` / `/批准记忆`**（复用 gateway `memory_commands`）
 - [x] **`facts.json` / auto_extract** 切换项目 + reindex 刷新；预取 + recall scope=project
 - [x] 召回质量 fixture 测试（`tests/fixtures/memory_recall/cases.json`）
-- [ ] 可选：v1 三元组仅展示用
+- [x] 三元组仅展示（`/记忆图谱`）
 
 ### P3 — 不做或暂缓
 

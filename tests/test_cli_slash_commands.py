@@ -23,6 +23,13 @@ class TestSlashRegistry:
     def test_unknown_command(self):
         assert not is_known_slash_command("/not-a-command")
 
+    @pytest.mark.parametrize(
+        "cmd",
+        ["/记忆待审", "/记忆图谱", "/批准记忆", "/拒绝记忆"],
+    )
+    def test_memory_slash_commands(self, cmd):
+        assert is_known_slash_command(cmd)
+
     def test_model_with_args_is_known_prefix(self):
         assert is_known_slash_command("/model butler minimax/M2.7")
 

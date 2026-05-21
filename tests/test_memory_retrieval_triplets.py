@@ -92,6 +92,45 @@ def test_index_experience_row_triplets(tmp_path, monkeypatch):
     assert tri.count(project="p1") >= 1
 
 
+def test_profile_remove_syncs_vectors(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")
+    home = tmp_path / "butler_home_rm"
+    bm = ButlerMemory(home, tenant_id="t1")
+    bm.profile.add("称呼主公")
+    bm.sync_profile_vectors()
+    assert bm.semantic.count_by_source(SOURCE_OWNER_PROFILE) == 1
+    from butler.memory_plugin import ButlerMemoryProvider
+
+    prov = ButlerMemoryProvider()
+    prov._butler_global = bm
+    raw = prov._remember(
+        {
+            "scope": "owner_profile",
+            "action": "remove",
+            "content": "称呼主公",
+        }
+    )
+    import json
+
+    data = json.loads(raw)
+    assert data.get("ok") is True
+    assert bm.semantic.count_by_source(SOURCE_OWNER_PROFILE) == 0
+
+
+def test_pending_bullet_indexes_triplets(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")
+    from butler.memory.semantic_index import SemanticMemoryIndex
+    from butler.memory.semantic_project import index_pending_memory_bullet
+
+    db = tmp_path / "vec.db"
+    sem = SemanticMemoryIndex(db)
+    index_pending_memory_bullet(sem, "灵文1号", "试点模块采用 Redis 队列")
+    from butler.memory.triplets import TripletIndex
+
+    tri = TripletIndex(db)
+    assert tri.count(project="灵文1号") >= 1
+
+
 def test_memory_graph_command(tmp_path, monkeypatch):
     from butler.gateway.memory_commands import format_memory_triplet_graph
     from butler.orchestrator import ButlerOrchestrator

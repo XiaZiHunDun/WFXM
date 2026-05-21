@@ -24,6 +24,22 @@ BUILTIN_COMMANDS: tuple[str, ...] = (
     "q",
 )
 
+# Memory slash commands (Chinese; routed via gateway memory_commands in main.py)
+MEMORY_SLASH_COMMANDS: tuple[str, ...] = (
+    "/记忆待审",
+    "/pending-memory",
+    "/待审记忆",
+    "/记忆图谱",
+    "/memory-graph",
+    "/三元组",
+    "/批准记忆",
+    "/approve-memory",
+    "/批准",
+    "/拒绝记忆",
+    "/reject-memory",
+    "/拒绝",
+)
+
 # Aliases map to canonical names for matching only
 _ALIASES: dict[str, str] = {
     "诊断": "health",
@@ -49,7 +65,9 @@ def slash_first_token(text: str) -> str:
 
 
 _KNOWN_SLASH_TOKENS: frozenset[str] = frozenset(
-    {f"/{name}" for name in BUILTIN_COMMANDS} | {"/诊断"}
+    {f"/{name}" for name in BUILTIN_COMMANDS}
+    | {"/诊断"}
+    | set(MEMORY_SLASH_COMMANDS)
 )
 
 
@@ -62,6 +80,8 @@ def iter_completion_words() -> Iterable[str]:
         if cmd in _ALIASES.values() and cmd in ("quit", "exit", "health"):
             continue
         yield f"/{cmd}"
+    for mem_cmd in MEMORY_SLASH_COMMANDS:
+        yield mem_cmd
     for cmd, subs in _SUBCOMMANDS.items():
         for sub in subs:
             yield f"/{cmd} {sub}"

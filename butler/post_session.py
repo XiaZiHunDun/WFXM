@@ -319,6 +319,10 @@ class PostSessionProcessor:
             try:
                 if target == "butler" and butler_memory:
                     butler_memory.profile.add(content)
+                    try:
+                        butler_memory.sync_profile_vectors()
+                    except Exception as exc:
+                        logger.debug("Profile vector sync after post_session: %s", exc)
                     applied += 1
                     corpus = _build_existing_memory_corpus(butler_memory, project_memory)
                 elif target == "project" and project_memory and section:
