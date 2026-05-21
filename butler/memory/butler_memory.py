@@ -376,6 +376,15 @@ class ButlerMemory:
         mem_dir.mkdir(parents=True, exist_ok=True)
         self.profile = ProfileStore(mem_dir / "profile.json")
         self.experience = ExperienceStore(mem_dir / "experience.db")
+        self.semantic = None
+        try:
+            from butler.memory.semantic_config import semantic_memory_enabled
+            from butler.memory.semantic_index import SemanticMemoryIndex
+
+            if semantic_memory_enabled():
+                self.semantic = SemanticMemoryIndex(mem_dir / "memory_vectors.db")
+        except Exception as exc:
+            logger.warning("Semantic memory index disabled: %s", exc)
         self._maybe_prune_stale_conversations()
 
     def _maybe_prune_stale_conversations(self) -> None:

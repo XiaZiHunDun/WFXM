@@ -34,7 +34,7 @@
 
 ## 路线图（待改进）
 
-当前检索为 **FTS5 关键词**（非 embedding 向量）。**向量语义记忆**已纳入待办，方案见仓库 [`docs/architecture/memory-roadmap.md`](../../docs/architecture/memory-roadmap.md)（参考 Hermes 外部 Memory Provider 的 prefetch + hybrid 检索，Butler 侧本地化实现）。
+**向量语义（可选）**：`.env` 设 `BUTLER_SEMANTIC_MEMORY=1` 后启用 `memory_vectors.db`（本地 hashing 向量，无需外网）；`butler_recall` / 每轮预取走 **FTS + 向量混合**。默认 `0` 仅 FTS。方案见 [`docs/architecture/memory-roadmap.md`](../../docs/architecture/memory-roadmap.md)。
 
 ## 微信命令（记忆）
 

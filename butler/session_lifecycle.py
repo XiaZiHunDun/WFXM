@@ -126,8 +126,17 @@ def prefetch_turn_memory(
         try:
             exp = getattr(bm, "experience", None)
             if exp is not None and (query or "").strip():
+                from butler.memory.semantic_index import hybrid_experience_search
+
+                semantic = getattr(bm, "semantic", None)
                 hits = _filter_ephemeral_experience(
-                    exp.search(query, project=current_project or None, limit=hit_limit)
+                    hybrid_experience_search(
+                        semantic,
+                        exp.search,
+                        query,
+                        project=current_project or None,
+                        limit=hit_limit,
+                    )
                 )
                 if hits:
                     lines = [
@@ -139,6 +148,9 @@ def prefetch_turn_memory(
                         parts.append("## Query-aligned experience\n" + "\n".join(lines))
                         if diagnostics is not None:
                             diagnostics["memory_experience_hits"] = len(lines)
+                            diagnostics["memory_semantic_enabled"] = semantic is not None
+                            if semantic is not None:
+                                diagnostics["memory_vector_rows"] = semantic.count_rows()
         except Exception as exc:
             if diagnostics is not None:
                 diagnostics["memory_experience_error"] = str(exc)

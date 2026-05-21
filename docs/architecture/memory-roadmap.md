@@ -80,20 +80,23 @@ flowchart TB
 
 ## 4. 分阶段待办（纳入项目待改进）
 
-### P0 — 方案与接口（1–2 天，无强制外网）
+### P0 — 方案与接口（1–2 天，无强制外网） ✅ 2026-05-21
 
-- [ ] 在 `butler/memory/` 增加 `semantic_index.py`（或 `vector_store.py`）抽象：`upsert`、`delete`、`search(query, k)`、`hybrid_search`
-- [ ] 统一 embedding 后端接口：`BUTLER_EMBEDDING_PROVIDER` = `local` | `openai` | `minimax`（与现有 transport 配置并列）
-- [ ] 明确索引范围：**experience 非 conversation** + **项目 MEMORY 各 section 条目**（按 bullet 切分）
-- [ ] 文档：与 `memory-guide.md` 交叉引用本路线图
+- [x] `butler/memory/semantic_index.py`：`upsert`、`delete`、`search`、`hybrid_search`
+- [x] `butler/memory/embedding.py`：`local` hashing embedder；`openai`/`minimax` 占位回退
+- [x] 索引范围：**experience 非 conversation**（项目 MEMORY bullet 待 P1）
+- [x] 文档与 `memory-guide.md` 交叉引用
 
-### P1 — 最小可用（个人管家）
+### P1 — 最小可用（个人管家） — 部分已落地
 
-- [ ] 实现本地/云端 embedding（优先 **单租户、可关网降级**）
-- [ ] `prefetch_turn_memory` / `butler_recall` 走 **hybrid**，保留现 FTS 路径为 fallback
-- [ ] 写入路径：`butler_remember`、`post_session` 成功后 upsert 向量；删除/批准 Pending 时 invalidate
-- [ ] `/诊断` 增加：向量条数、上次 embed 模型、hybrid 命中数
-- [ ] 测试：fixture 向量（mock embedder）+ 「写入→语义 paraphrase 查询→命中」3 条
+- [x] 本地 hashing embedding（`BUTLER_SEMANTIC_MEMORY=1`）
+- [x] `prefetch_turn_memory` / `butler_recall` hybrid（`SYNC=0` 默认仍 FTS-only）
+- [x] 写入：`owner_experience` + post_session experience → upsert 向量
+- [x] `/诊断` 向量条数 + model
+- [x] 测试 `tests/test_semantic_memory.py`
+- [ ] `butler_remember` → project_notes 向量索引
+- [ ] Pending 批准/删除时 invalidate 向量
+- [ ] `openai` / `minimax` 真 embedding API
 
 ### P2 — 对齐 Hermes 体验
 
