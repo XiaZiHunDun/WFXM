@@ -48,3 +48,5 @@ reference/
 # Cursor
 .cursor/
 MagicMock/
+# Accidental pytest mock path leaks at repo root
+<MagicMock*

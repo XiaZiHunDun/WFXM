@@ -65,11 +65,15 @@ _REMEMBER_SCHEMA = {
 
 _RECALL_SCHEMA = {
     "name": "butler_recall",
-    "description": "Search Butler experience store (FTS) or read recent owner profile snippets.",
+    "description": "Search experience (FTS/hybrid), read owner profile, or project MEMORY+facts (scope=project).",
     "parameters": {
         "type": "object",
         "properties": {
-            "scope": {"type": "string", "enum": ["experience", "profile"], "default": "experience"},
+            "scope": {
+                "type": "string",
+                "enum": ["experience", "profile", "project"],
+                "default": "experience",
+            },
             "query": {"type": "string", "description": "Search query (experience scope)."},
             "limit": {"type": "integer", "description": "Max rows (experience).", "default": 8},
             "project": {
@@ -199,6 +203,10 @@ class ButlerMemoryService:
         if root:
             try:
                 self._project_memory = ProjectMemory(root)
+                try:
+                    self._project_memory.refresh_facts()
+                except Exception as exc:
+                    logger.debug("Project facts refresh skipped: %s", exc)
             except Exception as exc:
                 logger.warning("ButlerMemoryProvider ProjectMemory unavailable: %s", exc)
                 self._project_memory = None
@@ -480,6 +488,58 @@ class ButlerMemoryService:
         if scope == "profile":
             text = self._butler_global.profile.read()
             return json.dumps({"ok": True, "profile": text})
+
+        if scope == "project":
+            pm = self._project_memory
+            if pm is None:
+                root = _project_root_discovery()
+                if root:
+                    pm = ProjectMemory(root)
+                    try:
+                        pm.refresh_facts()
+                    except Exception as exc:
+                        logger.debug("Project facts refresh skipped: %s", exc)
+            if pm is None:
+                return json.dumps({"ok": False, "error": "no active project"})
+            query = str(args.get("query", "") or "").strip()
+            limit = max(1, int(args.get("limit", 8) or 8))
+            proj_name = _active_project_name()
+            facts_text = pm.facts_for_prefetch(max_chars=800)
+            hits: list[dict[str, Any]] = []
+            if query:
+                from butler.memory.semantic_config import semantic_memory_enabled
+                from butler.memory.semantic_index import SemanticMemoryIndex
+                from butler.memory.semantic_project import (
+                    prefetch_project_memory_hits,
+                    resolve_project_display_name,
+                )
+
+                sem = getattr(self._butler_global, "semantic", None)
+                if not isinstance(sem, SemanticMemoryIndex):
+                    sem = None
+                display = resolve_project_display_name(pm) or proj_name
+                raw_hits, mode = prefetch_project_memory_hits(
+                    pm,
+                    query,
+                    project_name=display,
+                    semantic=sem,
+                    limit=limit,
+                    semantic_enabled=semantic_memory_enabled(),
+                )
+                hits = [
+                    {"content": h.get("content", ""), "section": h.get("section", ""), "mode": mode}
+                    for h in raw_hits
+                    if h.get("content")
+                ]
+            return json.dumps(
+                {
+                    "ok": True,
+                    "scope": "project",
+                    "facts": facts_text,
+                    "results": hits,
+                    "project": proj_name,
+                }
+            )
 
         from butler.session_lifecycle import filter_non_conversation_experience
 

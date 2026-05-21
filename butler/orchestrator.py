@@ -114,6 +114,10 @@ class ButlerOrchestrator:
             self._project_memory = None
         else:
             self._project_memory = ProjectMemory(proj.workspace)
+            try:
+                self._project_memory.refresh_facts()
+            except Exception as exc:
+                logger.debug("Project facts refresh skipped: %s", exc)
 
     @property
     def butler_memory(self) -> ButlerMemory:

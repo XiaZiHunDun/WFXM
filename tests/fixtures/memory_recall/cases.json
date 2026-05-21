@@ -33,5 +33,17 @@
       "工作流状态汇报"
     ],
     "keyword_only": true
+  },
+  {
+    "id": "novel_factory_readonly",
+    "project": "recall-fixture",
+    "section": "Notes",
+    "stored": "novel-factory 流水线状态用 workflow_state.json 只读查询，勿整份写入 MEMORY",
+    "queries": [
+      "workflow_state 只读",
+      "小说工厂状态怎么查",
+      "novel-factory 状态文件"
+    ],
+    "min_score": 0.05
   }
 ]

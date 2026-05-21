@@ -141,6 +141,10 @@ def _index_project_dir(project_dir: Path, semantic: SemanticMemoryIndex) -> int:
 
         proj = Project.from_yaml(project_dir / "project.yaml")
         pm = ProjectMemory(project_dir)
+        try:
+            pm.refresh_facts()
+        except Exception as exc:
+            logger.debug("facts refresh during reindex skipped for %s: %s", project_dir, exc)
     except Exception as exc:
         logger.warning("Skip project %s: %s", project_dir, exc)
         return 0
