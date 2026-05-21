@@ -170,6 +170,7 @@ def prefetch_turn_memory(
                         query,
                         project=current_project or None,
                         limit=hit_limit,
+                        experience_store=exp,
                     )
                 )
                 if hits:
@@ -185,6 +186,25 @@ def prefetch_turn_memory(
                             diagnostics["memory_semantic_enabled"] = semantic is not None
                             if semantic is not None:
                                 diagnostics["memory_vector_rows"] = semantic.count_rows()
+                if semantic is not None and hasattr(bm, "search_profile_vectors"):
+                    try:
+                        prof_hits = bm.search_profile_vectors(query, limit=3)
+                        if prof_hits:
+                            plines = [
+                                f"- {h.get('content', '')}".strip()
+                                for h in prof_hits
+                                if h.get("content")
+                            ]
+                            if plines:
+                                parts.append(
+                                    "## Owner profile (vector)\n" + "\n".join(plines)
+                                )
+                                if diagnostics is not None:
+                                    diagnostics["memory_profile_vector_hits"] = len(
+                                        plines
+                                    )
+                    except Exception as exc:
+                        logger.debug("Profile vector prefetch skipped: %s", exc)
         except Exception as exc:
             if diagnostics is not None:
                 diagnostics["memory_experience_error"] = str(exc)

@@ -62,6 +62,9 @@ def reindex_semantic_memory(
 
     if clear_vectors:
         stats["cleared"] = _clear_vector_table(semantic)
+        tri_clear = bm.triplet_index()
+        if tri_clear is not None:
+            stats["cleared_triplets"] = tri_clear.clear_all()
 
     if index_experience:
         rows = bm.experience.get_recent(limit=10_000)
@@ -96,6 +99,18 @@ def reindex_semantic_memory(
         for proj_path in _iter_project_dirs(pdir, project_name):
             stats["projects_scanned"] += 1
             stats["indexed_project_bullets"] += _index_project_dir(proj_path, semantic)
+
+    try:
+        stats["indexed_profile_vectors"] = bm.sync_profile_vectors()
+    except Exception as exc:
+        logger.warning("Profile vector sync during reindex failed: %s", exc)
+        stats["indexed_profile_vectors"] = 0
+
+    tri = bm.triplet_index()
+    if tri is not None:
+        stats["triplet_rows"] = tri.count()
+    else:
+        stats["triplet_rows"] = 0
 
     stats["vector_rows"] = semantic.count_rows()
     return stats
@@ -170,6 +185,15 @@ def _index_project_dir(project_dir: Path, semantic: SemanticMemoryIndex) -> int:
                     content=content,
                     project=proj.name,
                     category="project_memory",
+                )
+                from butler.memory.semantic_index import index_triplets_for_content
+
+                index_triplets_for_content(
+                    semantic,
+                    content,
+                    project=proj.name,
+                    source=SOURCE_PROJECT,
+                    source_ref=source_id,
                 )
                 count += 1
             except Exception as exc:

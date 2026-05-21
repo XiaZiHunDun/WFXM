@@ -65,6 +65,8 @@ def collect_memory_layer_stats(
         "semantic_enabled": False,
         "vector_rows": 0,
         "vector_model": "",
+        "profile_vector_rows": 0,
+        "triplet_rows": 0,
         "project_name": "",
         "project_pending": 0,
         "project_bullets": 0,
@@ -89,6 +91,17 @@ def collect_memory_layer_stats(
             try:
                 stats["vector_rows"] = sem.count_rows()
                 stats["vector_model"] = getattr(sem, "model_id", "") or ""
+                from butler.memory.semantic_index import SOURCE_OWNER_PROFILE
+
+                stats["profile_vector_rows"] = sem.count_by_source(
+                    SOURCE_OWNER_PROFILE
+                )
+            except Exception:
+                pass
+        tri = bm.triplet_index() if hasattr(bm, "triplet_index") else None
+        if tri is not None:
+            try:
+                stats["triplet_rows"] = tri.count()
             except Exception:
                 pass
 
@@ -104,6 +117,14 @@ def collect_memory_layer_stats(
     pm, proj_name = _resolve_project_memory(orchestrator, session_key)
     if pm is not None:
         stats["project_name"] = proj_name
+        bm2 = getattr(orchestrator, "butler_memory", None)
+        if bm2 is not None and hasattr(bm2, "triplet_index"):
+            tri2 = bm2.triplet_index()
+            if tri2 is not None:
+                try:
+                    stats["triplet_rows"] = tri2.count(project=proj_name or None)
+                except Exception:
+                    pass
         md = getattr(pm, "markdown", None)
         if md is not None:
             try:
@@ -151,8 +172,26 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
             f"  向量索引: {stats.get('vector_rows', 0)} 条 "
             f"(model={stats.get('vector_model') or '?'})"
         )
+        pv = stats.get("profile_vector_rows", 0)
+        if pv:
+            lines.append(f"  Owner 画像向量: {pv} 条")
+        tri_n = stats.get("triplet_rows", 0)
+        if tri_n:
+            lines.append(f"  三元组（仅展示）: {tri_n} 条 — /记忆图谱")
     else:
         lines.append("  向量索引: 关 (BUTLER_SEMANTIC_MEMORY=0)")
+    try:
+        from butler.memory.retrieval_ranking import (
+            memory_access_boost,
+            memory_half_life_days,
+        )
+
+        lines.append(
+            f"  检索衰减: 半衰期 {memory_half_life_days():.0f} 天, "
+            f"访问加权 {memory_access_boost():.2f}"
+        )
+    except Exception:
+        pass
     from butler.memory.prefetch_cache import queue_prefetch_enabled
 
     lines.append(
