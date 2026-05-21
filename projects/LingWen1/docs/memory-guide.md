@@ -32,7 +32,11 @@
 
 微信 `/诊断` 会显示：Owner 画像条数、Experience 长期/会话回声、项目 MEMORY 正式条目与 Pending 数量、上轮预取字数。
 
-## 路线图（待改进）
+## 机读 facts（暂缓）
+
+`projects/LingWen1/.butler/memory/facts.json` 由 `auto_extract` 从仓库扫描生成，**当前未接入** 每轮预取与 `butler_recall`。试点以 **MEMORY.md + Owner 画像 + experience** 为准；facts 仅保留代码占位，后续若接入会单独说明。
+
+## 路线图
 
 **向量语义（可选）**：`.env` 设 `BUTLER_SEMANTIC_MEMORY=1` 后启用 `memory_vectors.db`；默认 **本地 hashing**（无云）。可选 `BUTLER_EMBEDDING_PROVIDER=openai|minimax` 走对应 Embedding API（失败自动回退 hashing）。`butler_remember` 写入 fact/decision/Pending 会同步向量；`/批准记忆` 会移除待审向量并索引正式章节。`butler_recall` / 每轮预取走 **FTS + 向量混合**。默认 `BUTLER_SEMANTIC_MEMORY=0` 仅 FTS。
 
@@ -47,11 +51,11 @@ bash scripts/butler-memory-reindex.sh
 
 方案见 [`docs/architecture/memory-roadmap.md`](../../docs/architecture/memory-roadmap.md)。
 
-## 微信命令（记忆）
+## 命令（记忆）
 
 | 命令 | 作用 |
 |------|------|
-| `/记忆待审` | 列出 MEMORY Pending 队列 |
+| `/记忆待审` | 列出 MEMORY Pending 队列（**微信与 CLI**） |
 | `/批准记忆 1` / `/批准记忆 全部` | 写入正式章节 |
 | `/工作流 run novel-factory-status` | 只读汇报 `workflow_state.json` |
 

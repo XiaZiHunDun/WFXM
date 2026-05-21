@@ -6,6 +6,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from typing import Any
+
 from butler.memory.semantic_index import SOURCE_PROJECT, SemanticMemoryIndex
 
 if TYPE_CHECKING:
@@ -98,6 +100,35 @@ def invalidate_pending_vector(
         semantic.delete(SOURCE_PROJECT, pending_source_id(project_name, text))
     except Exception as exc:
         logger.warning("Pending vector delete failed: %s", exc)
+
+
+def search_project_memory_vectors(
+    semantic: SemanticMemoryIndex | None,
+    query: str,
+    *,
+    project: str,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Vector search over formal project MEMORY bullets (excludes Pending drafts)."""
+    q = (query or "").strip()
+    proj = (project or "").strip()
+    if semantic is None or not q or not proj:
+        return []
+    try:
+        raw = semantic.search(q, project=proj, limit=max(limit * 2, limit))
+    except Exception as exc:
+        logger.warning("Project memory vector search failed: %s", exc)
+        return []
+    out: list[dict[str, Any]] = []
+    for hit in raw:
+        if hit.get("source") != SOURCE_PROJECT:
+            continue
+        if (hit.get("category") or "") == "project_pending":
+            continue
+        out.append(hit)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def invalidate_project_memory_bullet(

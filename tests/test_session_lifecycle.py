@@ -18,9 +18,13 @@ from butler.session_lifecycle import (
 
 
 def _orch() -> MagicMock:
+    from butler.memory.prefetch_cache import clear_prefetch_cache
+
+    clear_prefetch_cache()
     orch = MagicMock()
     orch.project_manager.current_project = "proj"
     orch.project_manager.resolve_active_project_name.return_value = "proj"
+    orch.project_manager.get_current.return_value = None
     orch.butler_memory.get_system_context.return_value = "global memory"
     orch.butler_memory.semantic = None
     orch.butler_memory.experience.search.return_value = [
@@ -35,7 +39,7 @@ def test_inject_turn_memory_adds_relevant_context():
 
     out = inject_turn_memory(orch, "run tests", role="dev")
 
-    assert "## 相关记忆（Butler）" in out
+    assert "<memory-context>" in out
     assert "global memory" in out
     assert "project memory" in out
     assert "use pytest -q" in out
@@ -67,7 +71,7 @@ def test_memory_pre_llm_transform_does_not_mutate_history_messages():
     out = transform(original)
 
     assert out is not original
-    assert out[-1]["content"].startswith("## 相关记忆（Butler）")
+    assert "<memory-context>" in out[-1]["content"]
     assert original[-1]["content"] == "run tests"
     assert diagnostics["memory_context_injected"] is True
     assert diagnostics["memory_context_chars"] > 0
@@ -81,7 +85,7 @@ def test_attach_turn_memory_prefetch_composes_existing_transform():
     attach_turn_memory_prefetch(loop, orch, "clean query", role="butler")
     out = loop.callbacks.pre_llm_transform([{"role": "user", "content": "clean query"}])
 
-    assert out[-2]["content"].startswith("## 相关记忆（Butler）")
+    assert "<memory-context>" in out[-2]["content"]
     assert out[-1]["content"] == "existing"
 
 
@@ -95,12 +99,15 @@ def test_attach_turn_memory_prefetch_replaces_previous_memory_transform():
     out = loop.callbacks.pre_llm_transform([{"role": "user", "content": "augmented"}])
 
     rendered = out[-1]["content"]
-    assert rendered.count("## 相关记忆（Butler）") == 1
+    assert rendered.count("<memory-context>") == 1
     search_queries = [call.args[0] for call in orch.butler_memory.experience.search.call_args_list]
     assert search_queries == ["second"]
 
 
 def test_memory_transform_searches_with_clean_query_not_augmented_content():
+    from butler.memory.prefetch_cache import clear_prefetch_cache
+
+    clear_prefetch_cache()
     orch = _orch()
     transform = build_memory_pre_llm_transform(orch, "clean query", role="butler")
 
