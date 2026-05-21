@@ -61,9 +61,16 @@ bash scripts/butler-dev-tools-smoke.sh
 
 覆盖：`patch` → `terminal`（跑检查脚本）→ `git_status` → `git_add` → `git_commit`（隔离临时 git 仓库）。
 
+## 委派 dev 真机链（验收模板）
+
+1. 微信：`请委派开发代理：修改 docs/… 并 git_status，跑 pytest tests/test_runtime.py -q，不要 commit`
+2. 本机：`BUTLER_ENABLE_GIT_WRITE=1` 时方可 `git_commit`；网关生产保持 `GIT_WRITE=0`
+
 ## 验收
 
 ```bash
 bash scripts/butler-dev-tools-smoke.sh
+bash scripts/butler-wechat-memory-smoke.sh
+bash scripts/butler-wechat-gateway-smoke.sh
 pytest tests/test_git_tools.py tests/test_dev_ops_p2.py tests/test_tools_registry.py -q
 ```

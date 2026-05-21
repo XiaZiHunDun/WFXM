@@ -1,0 +1,7 @@
+# 人物一致性白名单：匹配项不报 ALIVE_CONFLICT（死后复活误报）
+# 格式：char + chapter（该章出现「复活」表述时忽略）
+suppress_alive_conflict: []
+# 示例：
+#  - char: 小九
+#    chapter: 253
+#    note: 星灵形态，非生物学复活

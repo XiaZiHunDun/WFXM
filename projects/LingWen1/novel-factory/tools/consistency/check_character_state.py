@@ -7,7 +7,13 @@ import os
 import re
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+try:
+    import yaml
+except ImportError:
+    yaml = None  # type: ignore
 
 
 @dataclass
@@ -21,6 +27,29 @@ class CharacterState:
 
 # 人物追踪表
 CHARACTER_TRACKER = ["星月", "小九", "铁蛋", "林夜", "苏琳", "墨白"]
+
+_WAIVERS_PATH = Path(__file__).resolve().parent / "character_waivers.yaml"
+
+
+def _load_alive_waivers() -> set[tuple[str, int]]:
+    out: set[tuple[str, int]] = set()
+    if yaml is None or not _WAIVERS_PATH.is_file():
+        return out
+    try:
+        data = yaml.safe_load(_WAIVERS_PATH.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return out
+    for row in data.get("suppress_alive_conflict") or []:
+        if not isinstance(row, dict):
+            continue
+        char = str(row.get("char") or "").strip()
+        ch = row.get("chapter")
+        if char and ch is not None:
+            try:
+                out.add((char, int(ch)))
+            except (TypeError, ValueError):
+                pass
+    return out
 
 # 生死指示词（更严格：必须是主语死亡）
 ALIVE_PATTERNS = {
@@ -127,6 +156,7 @@ def check_character_consistency(chapters_dir: str,
         characters = CHARACTER_TRACKER
 
     issues = []
+    waivers = _load_alive_waivers()
     state_history: Dict[str, List[CharacterState]] = {c: [] for c in characters}
     start, end = chapter_range
 
@@ -157,6 +187,8 @@ def check_character_consistency(chapters_dir: str,
                 # 仅报告「死后复活」类矛盾；「存活→死亡」为正常剧情，不报 P1
                 if state.alive is not None and prev.alive is not None:
                     if (not prev.alive) and state.alive:
+                        if (char, i) in waivers:
+                            continue
                         issues.append(
                             (
                                 "ALIVE_CONFLICT",

@@ -47,3 +47,21 @@ jobs:
       on_success: true
       on_failure: true
       max_summary_chars: 1000
+
+  # 改盘：须 /批准运行 + enabled: true；默认关闭
+  - id: publish-archive
+    description: 归档当前 workflow 版本到 08_已发布（mutating）
+    mode: mutating
+    enabled: false
+    approval:
+      required: true
+      expires_hours: 48
+    command:
+      - bash
+      - novel-factory/tools/publish/run_publish.sh
+      - archive
+      - v3.0
+    notify:
+      on_success: true
+      on_failure: true
+      max_summary_chars: 800

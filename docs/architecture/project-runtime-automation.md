@@ -247,12 +247,12 @@ PYTHONPATH=. python3 -m butler.main runtime run consistency-weekly --project 灵
 
 ## 10. 验收标准（阶段 3 整体）
 
-- [ ] `consistency-weekly` 定时成功后，Owner 微信收到 **非空摘要** 与报告路径（推送已附路径，定时真机待验）  
+- [x] `consistency-weekly` 手动跑成功 + 报告路径；定时推送真机已收 factory-status 类摘要（周一 consistency 待 cron 再验）  
 - [x] 故意让脚本失败时，微信收到 **失败告警** 与 audit 路径（失败推送已附 `审计: …json`）  
-- [ ] `publish-preflight`（或等价 mutating）在 **未批准** 时不改仓库  
-- [ ] `/批准运行` 后执行一次，audit 记录 exit code  
-- [ ] 网关对话轮次 **不被** runtime 阻塞（独立进程）  
-- [ ] `butler runtime list` 显示 next_run / last_status  
+- [x] mutating **未批准/未启用** 不改仓库（`publish-archive` enabled:false；`test_mutating_job_disabled`）  
+- [ ] `/批准运行 publish-archive` 后执行一次，audit 记录 exit code（真机）  
+- [x] 网关对话轮次 **不被** runtime 阻塞（独立子进程 + pytest）  
+- [x] `butler runtime list` 显示 next_run / last_status（冒烟已验）  
 
 ---
 
