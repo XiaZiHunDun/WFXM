@@ -21,12 +21,25 @@ def _workspace_for_project(project_name: str) -> Path | None:
 def collect_runtime_stats(project_name: str, *, max_jobs: int = 6) -> dict[str, Any]:
     """Recent run summary per job for diagnostics."""
     name = (project_name or "").strip()
+    push_queue_pending = 0
+    try:
+        from butler.config import get_butler_home
+
+        qpath = get_butler_home() / "runtime" / "push_queue.jsonl"
+        if qpath.is_file():
+            push_queue_pending = sum(
+                1 for ln in qpath.read_text(encoding="utf-8").splitlines() if ln.strip()
+            )
+    except Exception:
+        pass
+
     out: dict[str, Any] = {
         "project": name,
         "enabled": os.getenv("BUTLER_RUNTIME_ENABLED", "1").strip().lower()
         in ("1", "true", "yes", "on"),
         "jobs": [],
         "has_jobs_file": False,
+        "push_queue_pending": push_queue_pending,
     }
     if not name:
         return out
@@ -60,9 +73,12 @@ def format_runtime_diagnostic_lines(project_name: str) -> list[str]:
     stats = collect_runtime_stats(project_name)
     if not stats.get("has_jobs_file"):
         return []
+    pq = int(stats.get("push_queue_pending") or 0)
     lines = [
         f"运行时(runtime): {'开' if stats.get('enabled') else '关'} (BUTLER_RUNTIME_ENABLED)",
     ]
+    if pq:
+        lines.append(f"  推送队列: {pq} 条待重试（runtime due / butler runtime drain-push）")
     for j in stats.get("jobs") or []:
         en = "开" if j.get("enabled") else "关"
         last = ""

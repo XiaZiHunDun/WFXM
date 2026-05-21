@@ -124,8 +124,8 @@
 | 子阶段 | 交付 | 状态 |
 |--------|------|------|
 | 3a | CLI `runtime run/list` + 只读 job + `/定时` `/运行` + 微信推送 | ✅ 微信验收 2026-05-21 |
-| 3b | `jobs.yaml` + `runtime due` + systemd timer（15min） | ✅ 已安装；定时真机验收暂缓 |
-| 3c | `approval` + `/批准运行`（mutating 默认关） | ✅ 已实现；改盘真机验收暂缓 |
+| 3b | `jobs.yaml` + `runtime due` + systemd timer（15min） | ✅ 已安装；factory-status 推送真机已通过 |
+| 3c | `approval` + `/批准运行`（mutating 默认关） | ✅ pytest 批准链；`publish-archive` 默认 disabled |
 | 3d | Lead Skill 建议 `/运行`；`/诊断` 显示最近 runtime | ✅ 2026-05-21 |
 
 | 项 | 条件 |

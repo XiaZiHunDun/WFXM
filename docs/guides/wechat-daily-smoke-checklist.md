@@ -143,6 +143,19 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 ---
 
+## 入站媒体（代码守门 + 可选真机）
+
+```bash
+bash scripts/butler-inbound-media-smoke.sh
+```
+
+| 步骤 | 发送 | 期望 |
+|------|------|------|
+| M-img | 发一张项目相关截图 | 管家能描述图中要点（VLM） |
+| M-voice | 发一段短语音（<30s） | 能转写并回复内容要点 |
+
+---
+
 ## 相关文档
 
 - [wechat-core-scenario.md](./wechat-core-scenario.md) — 八步详解与 FAQ（2026-05-20 真机通过；项目名已更新为灵文1号）  

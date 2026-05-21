@@ -71,6 +71,7 @@ def collect_memory_layer_stats(
         "project_pending": 0,
         "project_bullets": 0,
         "project_chars": 0,
+        "knowledge_db_keys": 0,
     }
 
     bm = getattr(orchestrator, "butler_memory", None)
@@ -146,6 +147,17 @@ def collect_memory_layer_stats(
                 stats["project_chars"] = chars
             except Exception:
                 pass
+        facts_store = getattr(pm, "facts", None)
+        if facts_store is not None:
+            try:
+                from butler.memory.knowledge_db import ProjectKnowledgeDb
+
+                kdb = ProjectKnowledgeDb(
+                    ProjectKnowledgeDb.path_for_memory_dir(facts_store.path.parent)
+                )
+                stats["knowledge_db_keys"] = kdb.count_keys()
+            except Exception:
+                pass
 
     return stats
 
@@ -178,6 +190,9 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         tri_n = stats.get("triplet_rows", 0)
         if tri_n:
             lines.append(f"  三元组（仅展示）: {tri_n} 条 — /记忆图谱")
+        kdb_n = stats.get("knowledge_db_keys", 0)
+        if kdb_n:
+            lines.append(f"  knowledge.db: {kdb_n} 键（与 facts.json 同步）")
     else:
         lines.append("  向量索引: 关 (BUTLER_SEMANTIC_MEMORY=0)")
     try:
@@ -189,6 +204,11 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         lines.append(
             f"  检索衰减: 半衰期 {memory_half_life_days():.0f} 天, "
             f"访问加权 {memory_access_boost():.2f}"
+        )
+        from butler.memory.semantic_config import hybrid_fts_weight, hybrid_vector_weight
+
+        lines.append(
+            f"  混合检索权重: 向量 {hybrid_vector_weight():.2f} / FTS {hybrid_fts_weight():.2f}"
         )
     except Exception:
         pass

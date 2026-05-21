@@ -3,3 +3,4 @@ consistency_check_*.json
 consistency_check_*.md
 !consistency_check_20260521_223220.json
 !consistency_check_20260521_223220.md
+# 已删除误报里程碑 220424；日常复跑勿 commit

@@ -62,7 +62,7 @@ flowchart TB
 | 6 | `/model` 写入 | 管家 → `config.yaml`；项目 → `project.yaml` | `save` 持久化；无 `save` 为 runtime 临时 | **已实施 M3** |
 | 7 | **auxiliary** | 压缩等用便宜模型 | `auxiliary_client` 读 `config.yaml` 的 `auxiliary.*` | **已实现**（与角色栈正交） |
 | 8 | **微信识图** | 辅助模型、不进主 Loop 工具轮 | `minimax_vlm` + `inbound_media`，env 配置 | **已实现**；勿配进 `project.yaml` 的 M2.7 |
-| 9 | **工作流逐步** | 未在 §3 细写 | `workflows/` 无 per-step model | **未做**（可二期） |
+| 9 | **工作流逐步** | `workflows/*.yaml` 的 `steps[].model` | `workflow_step_spawn_model_config` | ✅（builtin `novel-factory` review 步已示例） |
 | 10 | Provider 凭证 | 各 provider 一套 key | `ButlerSettings.providers` + env | **已实现** |
 
 ### 3.1 按「消费方」的有效配置路径

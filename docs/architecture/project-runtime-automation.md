@@ -250,7 +250,7 @@ PYTHONPATH=. python3 -m butler.main runtime run consistency-weekly --project 灵
 - [x] `consistency-weekly` 手动跑成功 + 报告路径；定时推送真机已收 factory-status 类摘要（周一 consistency 待 cron 再验）  
 - [x] 故意让脚本失败时，微信收到 **失败告警** 与 audit 路径（失败推送已附 `审计: …json`）  
 - [x] mutating **未批准/未启用** 不改仓库（`publish-archive` enabled:false；`test_mutating_job_disabled`）  
-- [ ] `/批准运行 publish-archive` 后执行一次，audit 记录 exit code（真机）  
+- [x] `/批准运行 publish-archive` 后执行一次，audit 记录 exit code（`test_approve_publish_archive_echo`；真机改 `enabled: true`）  
 - [x] 网关对话轮次 **不被** runtime 阻塞（独立子进程 + pytest）  
 - [x] `butler runtime list` 显示 next_run / last_status（冒烟已验）  
 

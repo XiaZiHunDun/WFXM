@@ -31,6 +31,17 @@ def hybrid_vector_weight() -> float:
         return 0.5
 
 
+def hybrid_fts_weight() -> float:
+    """FTS share in hybrid merge (default 1 - vector weight)."""
+    override = os.getenv("BUTLER_FTS_HYBRID_WEIGHT", "").strip()
+    if override:
+        try:
+            return max(0.0, min(1.0, float(override)))
+        except ValueError:
+            pass
+    return 1.0 - hybrid_vector_weight()
+
+
 def semantic_search_limit(default: int = 8) -> int:
     try:
         return max(1, int(os.getenv("BUTLER_SEMANTIC_SEARCH_LIMIT", str(default))))

@@ -689,6 +689,18 @@ def _cmd_runtime_due(ns: argparse.Namespace) -> int:
     return exit_code
 
 
+def _cmd_runtime_drain_push(ns: argparse.Namespace) -> int:
+    from butler.runtime.push_queue import drain_push_queue
+
+    out = drain_push_queue(max_items=int(getattr(ns, "max_items", 3) or 3))
+    print(
+        f"推送队列: 尝试 {out.get('drained', 0)} 条, "
+        f"成功 {out.get('sent', 0)}, 失败 {out.get('failed', 0)}, "
+        f"剩余 {out.get('remaining', 0)}"
+    )
+    return 0 if not out.get("failed") else 2
+
+
 def _cmd_runtime_approve(ns: argparse.Namespace) -> int:
     from butler.runtime.service import approve_and_run
 
@@ -849,6 +861,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="不推送微信摘要",
     )
     rt_due.set_defaults(func=_cmd_runtime_due)
+
+    rt_drain = rt_sub.add_parser("drain-push", help="重试限流失败的微信推送队列")
+    rt_drain.add_argument(
+        "--max-items",
+        type=int,
+        default=3,
+        help="最多重试条数（默认 3）",
+    )
+    rt_drain.set_defaults(func=_cmd_runtime_drain_push)
 
     rt_ap = rt_sub.add_parser("approve", help="批准改盘任务并可立即执行")
     rt_ap.add_argument("job_id")

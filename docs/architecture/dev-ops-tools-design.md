@@ -292,7 +292,7 @@ BUTLER_TOOL_SAFE_ROOT=/home/.../WFXM
 
 ### 真机（可选）
 
-- [ ] 委派 dev：改文件 → `git_status` → `terminal` 跑 pytest →（本机）`git_commit`
+- [x] 委派 dev：改文件 → `git_status` → `terminal` 跑 pytest → `git_commit`（`butler-dev-delegate-smoke.sh`）
 
 ---
 

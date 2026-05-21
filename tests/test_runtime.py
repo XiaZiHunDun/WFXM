@@ -284,6 +284,35 @@ def test_mutating_job_disabled_without_approval(runtime_project):
     assert "禁用" in (r.get("error") or "")
 
 
+def test_approve_publish_archive_echo(runtime_project, monkeypatch):
+    ws, _ = runtime_project
+    marker = ws / "archive_marker.txt"
+    _write_jobs(
+        ws,
+        [
+            {
+                "id": "publish-archive",
+                "mode": "mutating",
+                "enabled": True,
+                "command": ["bash", "-c", f"echo ok > {marker}"],
+                "approval": {"required": True, "expires_hours": 1},
+            }
+        ],
+    )
+    monkeypatch.setenv("BUTLER_RUNTIME_ENABLED", "1")
+    with patch("butler.runtime.service._maybe_notify"):
+        denied = service.run_job("TestProj", "publish-archive", skip_notify=True)
+    assert denied.get("error")
+
+    with patch("butler.runtime.service._maybe_notify"):
+        out = service.approve_and_run(
+            "TestProj", "publish-archive", run_now=True, skip_notify=True
+        )
+    assert out.get("success") is True
+    assert marker.is_file()
+    assert marker.read_text(encoding="utf-8").strip() == "ok"
+
+
 def test_approve_mutating_one_shot(runtime_project, monkeypatch):
     ws, _ = runtime_project
     _write_jobs(
