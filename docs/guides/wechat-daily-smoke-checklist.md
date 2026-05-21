@@ -88,6 +88,8 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 | M2 | 「灵文试点统一测试是哪天？」（不说 2026-05-22） | 答 **2026-05-22**（项目 Notes 备忘） | ☑ | paraphrase + 向量/关键词预取 |
 | M3 | 决策句 → `/记忆待审` → `/拒绝记忆 1` | Pending 减、向量不增正式条 | ☑ | 2026-05-21 pytest+命令路径；真机可复现下方话术 |
 | M4 | 同一问题连发两遍 → `/诊断` | 「上轮预取缓存: 命中」 | ☑ | 2026-05-21 真机通过（20s–90s 内复问；`QUEUE_PREFETCH=1`） |
+| M1b | `/记忆图谱` | 三元组展示（仅展示） | ☐ | 2026-05-21 发版后补验 |
+| O7/O8 | `/诊断` | 三元组条数 + 半衰期/访问加权行 | ☐ | 2026-05-21 发版后补验 |
 
 **Owner 画像**：`~/.butler/tenants/default/memory/profile.json`；**勿**在画像写死默认项目名（见 `owner-profile-setup.md`）。
 
