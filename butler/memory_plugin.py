@@ -397,6 +397,21 @@ class ButlerMemoryService:
             cls_result = self._project_memory.markdown.append(
                 section, content, classification="auto"
             )
+            from butler.memory.semantic_project import (
+                index_pending_memory_bullet,
+                index_project_memory_bullet,
+                resolve_project_display_name,
+            )
+
+            sem = getattr(self._butler_global, "semantic", None)
+            proj_name = resolve_project_display_name(self._project_memory)
+            if cls_result == "pending":
+                index_pending_memory_bullet(sem, proj_name, content)
+            elif cls_result == "decision":
+                index_project_memory_bullet(sem, proj_name, "Decisions", content)
+            elif cls_result == "fact":
+                index_project_memory_bullet(sem, proj_name, section, content)
+
             payload: dict[str, Any] = {
                 "ok": True,
                 "scope": scope,

@@ -50,7 +50,9 @@ def handle_memory_pending_command(
 
     key = (arg or "").strip().lower()
     if key in ("全部", "all", "*"):
+        pending_before = pmem.markdown.list_pending()
         count = pmem.markdown.approve_all()
+        _sync_vectors_after_approve(orchestrator, pending_before[:count])
         return f"已批准 {count} 条待审记忆，并移入对应章节。"
 
     if not arg.strip():
@@ -69,8 +71,36 @@ def handle_memory_pending_command(
 
     if pmem.markdown.approve_pending(idx):
         item = pending[idx]
+        _sync_vectors_after_approve(orchestrator, [item])
         return f"已批准第 {idx + 1} 条，写入章节: {item.get('target', 'Decisions')}"
     return "批准失败（条目可能已被处理）。"
+
+
+def _sync_vectors_after_approve(
+    orchestrator: "ButlerOrchestrator",
+    items: list[dict[str, str]],
+) -> None:
+    if not items:
+        return
+    bm = getattr(orchestrator, "butler_memory", None)
+    sem = getattr(bm, "semantic", None) if bm is not None else None
+    if sem is None:
+        return
+    proj = orchestrator.project_manager.get_current()
+    if proj is None:
+        return
+    from butler.memory.semantic_project import (
+        index_project_memory_bullet,
+        invalidate_pending_vector,
+    )
+
+    for item in items:
+        body = (item.get("content") or "").strip()
+        tgt = (item.get("target") or "Decisions").strip() or "Decisions"
+        if not body:
+            continue
+        invalidate_pending_vector(sem, proj.name, body)
+        index_project_memory_bullet(sem, proj.name, tgt, body)
 
 
 __all__ = [

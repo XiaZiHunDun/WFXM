@@ -95,9 +95,9 @@ flowchart TB
 - [x] `/诊断` 向量条数 + model
 - [x] 测试 `tests/test_semantic_memory.py`
 - [x] 本地 `butler memory-reindex` / `scripts/butler-memory-reindex.sh`
-- [ ] `butler_remember` → project_notes 向量索引（reindex 已覆盖 MEMORY 条目）
-- [ ] Pending 批准/删除时 invalidate 向量
-- [ ] `openai` / `minimax` 真 embedding API
+- [x] `butler_remember` → project_notes 向量索引（fact/decision 即时；pending 入队向量）
+- [x] Pending 批准时 invalidate 待审向量并写入正式章节向量
+- [x] `openai` / `minimax` 真 embedding API（缺 key 或失败时回退 hashing）
 
 ### P2 — 对齐 Hermes 体验
 
@@ -130,7 +130,7 @@ flowchart TB
 |--------|-----|
 | **P0** | **向量语义记忆（本路线图 P0→P1）** — 参考 Hermes Memory Provider 的 prefetch+hybrid，Butler 本地化实现 |
 | P1 | CLI `/new` 双次 post_session | ✅ 2026-05-21 |
-| P1 | `/诊断` 无会话时也展示静态记忆分层 |
+| P1 | `/诊断` 无会话时也展示静态记忆分层 | ✅ 2026-05-21 |
 | P2 | `facts.json` / auto_extract 接入或文档标明废弃 |
 | P2 | 召回质量 fixture 测试（与向量 P1 测试合并） |
 | P3 | CLI `/记忆待审` |

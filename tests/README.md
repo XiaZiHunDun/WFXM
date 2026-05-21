@@ -57,6 +57,7 @@ PYTHONPATH=. pytest \
   tests/test_memory_quality.py \
   tests/test_semantic_memory.py \
   tests/test_memory_reindex.py \
+  tests/test_semantic_memory_p1.py \
   -q
 ```
 
