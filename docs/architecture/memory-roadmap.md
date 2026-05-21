@@ -92,7 +92,9 @@ flowchart TB
 
 - 不接 Honcho/Mem0 等为默认
 - 不做全书正文向量
-- Owner 画像向量索引（可选，低优先）
+- [x] Owner 画像向量索引（`owner_profile` source + 预取向量命中）
+- [x] 三元组仅展示（`/记忆图谱`，不参与检索）
+- [x] Ebbinghaus 衰减 + 访问计数加权（`BUTLER_MEMORY_HALF_LIFE_DAYS` / `BUTLER_MEMORY_ACCESS_BOOST`）
 
 ---
 
@@ -108,6 +110,8 @@ flowchart TB
 | `BUTLER_QUEUE_PREFETCH` | `1` 启用上轮结束后后台 warm |
 | `BUTLER_PREFETCH_CACHE_TTL` | warm 缓存秒数（默认 90） |
 | `BUTLER_PREFETCH_FACTS_MAX_CHARS` | facts 预取块上限（默认 400） |
+| `BUTLER_MEMORY_HALF_LIFE_DAYS` | 检索时间衰减半衰期（默认 30 天） |
+| `BUTLER_MEMORY_ACCESS_BOOST` | 访问次数排序加权（默认 0.12） |
 
 按角色收紧预取（代码内置，无需 env）：`lead` 偏 Architecture/Decisions/Notes；`content` 偏 Notes/Patterns；`dev` 含 API。query 命中后按 section 过滤；fallback 块长度 lead 800 / content 900 / dev 1200 字符。
 

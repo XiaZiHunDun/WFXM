@@ -382,6 +382,11 @@ class ButlerMemoryService:
 
         if scope == "owner_profile":
             ok = self._butler_global.profile.add(content).get("success")
+            if ok:
+                try:
+                    self._butler_global.sync_profile_vectors()
+                except Exception as exc:
+                    logger.debug("Profile vector sync skipped: %s", exc)
             return json.dumps({"ok": ok, "scope": scope})
 
         if scope == "owner_experience":
@@ -564,6 +569,7 @@ class ButlerMemoryService:
                     query,
                     project=proj_filter,
                     limit=limit,
+                    experience_store=self._butler_global.experience,
                 )
             )
         return json.dumps({"ok": True, "results": rows, "semantic": semantic is not None})

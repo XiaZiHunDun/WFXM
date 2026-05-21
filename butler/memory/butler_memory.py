@@ -192,6 +192,37 @@ class ExperienceStore:
                         VALUES (new.id, new.content, new.category, new.tags, new.project);
                     END
                 """)
+                self._ensure_experience_columns(conn)
+                conn.commit()
+
+    def _ensure_experience_columns(self, conn: sqlite3.Connection) -> None:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(experiences)").fetchall()}
+        if "access_count" not in cols:
+            conn.execute(
+                "ALTER TABLE experiences ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0"
+            )
+        if "last_accessed_at" not in cols:
+            conn.execute(
+                "ALTER TABLE experiences ADD COLUMN last_accessed_at REAL NOT NULL DEFAULT 0"
+            )
+
+    def record_access(self, row_ids: list[int]) -> None:
+        ids = [int(x) for x in row_ids if x is not None]
+        if not ids:
+            return
+        now = time.time()
+        with self._lock:
+            with self._connect() as conn:
+                for rid in ids:
+                    conn.execute(
+                        """
+                        UPDATE experiences
+                        SET access_count = access_count + 1, last_accessed_at = ?
+                        WHERE id = ?
+                        """,
+                        (now, rid),
+                    )
+                conn.commit()
 
     def add(
         self,
@@ -238,6 +269,7 @@ class ExperienceStore:
                         rows = conn.execute(
                             """
                             SELECT e.id, e.project, e.category, e.content, e.tags, e.created_at,
+                                   e.access_count, e.last_accessed_at,
                                    bm25(experiences_fts) AS rank
                             FROM experiences e
                             JOIN experiences_fts ON experiences_fts.rowid = e.id
@@ -251,6 +283,7 @@ class ExperienceStore:
                         rows = conn.execute(
                             """
                             SELECT e.id, e.project, e.category, e.content, e.tags, e.created_at,
+                                   e.access_count, e.last_accessed_at,
                                    bm25(experiences_fts) AS rank
                             FROM experiences e
                             JOIN experiences_fts ON experiences_fts.rowid = e.id
@@ -265,7 +298,8 @@ class ExperienceStore:
                     if project is not None and str(project).strip() != "":
                         rows = conn.execute(
                             """
-                            SELECT id, project, category, content, tags, created_at, 0
+                            SELECT id, project, category, content, tags, created_at,
+                                   COALESCE(access_count, 0), COALESCE(last_accessed_at, 0), 0
                             FROM experiences
                             WHERE content LIKE ? AND project = ?
                             ORDER BY created_at DESC
@@ -276,7 +310,8 @@ class ExperienceStore:
                     else:
                         rows = conn.execute(
                             """
-                            SELECT id, project, category, content, tags, created_at, 0
+                            SELECT id, project, category, content, tags, created_at,
+                                   COALESCE(access_count, 0), COALESCE(last_accessed_at, 0), 0
                             FROM experiences
                             WHERE content LIKE ?
                             ORDER BY created_at DESC
@@ -285,8 +320,9 @@ class ExperienceStore:
                             (like, limit),
                         ).fetchall()
 
-                return [
-                    {
+                out: list[dict[str, Any]] = []
+                for r in rows:
+                    item: dict[str, Any] = {
                         "id": r[0],
                         "project": r[1],
                         "category": r[2],
@@ -294,8 +330,26 @@ class ExperienceStore:
                         "tags": r[4],
                         "created_at": r[5],
                     }
-                    for r in rows
-                ]
+                    if len(r) >= 9:
+                        item["access_count"] = int(r[6] or 0)
+                        item["last_accessed_at"] = float(r[7] or 0)
+                        rank = r[8]
+                    elif len(r) >= 7:
+                        item["access_count"] = 0
+                        item["last_accessed_at"] = 0.0
+                        rank = r[6]
+                    else:
+                        item["access_count"] = 0
+                        item["last_accessed_at"] = 0.0
+                        rank = 0
+                    try:
+                        item["score"] = 1.0 / (1.0 + abs(float(rank)))
+                    except (TypeError, ValueError):
+                        item["score"] = 0.5
+                    out.append(item)
+                from butler.memory.retrieval_ranking import rerank_memory_hits
+
+                return rerank_memory_hits(out)
 
     def delete_conversation_for_session(self, session_tag: str) -> int:
         """Remove ephemeral per-session chat logs (used after /new)."""
@@ -439,3 +493,40 @@ class ButlerMemory:
         if not parts:
             return "(No Butler-level memory yet.)"
         return "\n\n".join(parts)
+
+    def sync_profile_vectors(self) -> int:
+        """Rebuild owner_profile rows in the vector index from profile.json."""
+        sem = self.semantic
+        if sem is None:
+            return 0
+        from butler.memory.semantic_index import SOURCE_OWNER_PROFILE
+
+        cleared = sem.delete_source_prefix(SOURCE_OWNER_PROFILE)
+        indexed = 0
+        entries = list(getattr(self.profile, "_entries", []) or [])
+        for idx, entry in enumerate(entries):
+            text = str(entry).strip()
+            if not text:
+                continue
+            sem.upsert(
+                source=SOURCE_OWNER_PROFILE,
+                source_id=f"entry:{idx}",
+                content=text,
+                project="",
+                category="profile",
+            )
+            indexed += 1
+        logger.debug("Profile vectors: cleared %d, indexed %d", cleared, indexed)
+        return indexed
+
+    def search_profile_vectors(self, query: str, *, limit: int = 4) -> list[dict[str, Any]]:
+        if self.semantic is None:
+            return []
+        return self.semantic.search_owner_profile(query, limit=limit)
+
+    def triplet_index(self):
+        if self.semantic is None:
+            return None
+        from butler.memory.triplets import TripletIndex
+
+        return TripletIndex(self.semantic.db_path)

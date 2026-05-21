@@ -33,12 +33,47 @@ def format_pending_memory_list(orchestrator: "ButlerOrchestrator") -> str:
     return "\n".join(lines)
 
 
+def format_memory_triplet_graph(orchestrator: "ButlerOrchestrator") -> str:
+    bm = getattr(orchestrator, "butler_memory", None)
+    if bm is None:
+        return "Butler 记忆未初始化。"
+    tri = bm.triplet_index() if hasattr(bm, "triplet_index") else None
+    if tri is None:
+        return (
+            "记忆图谱（三元组仅展示）需要开启语义索引："
+            "在 .env 设置 BUTLER_SEMANTIC_MEMORY=1 后执行 memory-reindex。"
+        )
+    proj_name = ""
+    pman = getattr(orchestrator, "project_manager", None)
+    if pman is not None:
+        try:
+            cur = pman.get_current()
+            if cur is not None:
+                proj_name = str(getattr(cur, "name", "") or "")
+        except Exception:
+            pass
+    total = tri.count(project=proj_name or None)
+    lines = [
+        "记忆图谱（三元组仅展示，不参与检索排序）",
+        f"条目: {total} 条"
+        + (f"（含全局 + 项目 {proj_name}）" if proj_name else "（全局）"),
+        "",
+        tri.format_display(project=proj_name or None, limit=12),
+        "",
+        "写入 MEMORY / 经验 / 画像后自动从「A 采用 B」类句式提取。",
+    ]
+    return "\n".join(lines)
+
+
 def handle_memory_pending_command(
     orchestrator: "ButlerOrchestrator",
     cmd: str,
     arg: str,
 ) -> Optional[str]:
-    """Handle /记忆待审, /批准记忆, /拒绝记忆. Returns None if cmd not recognized."""
+    """Handle /记忆待审, /批准记忆, /拒绝记忆, /记忆图谱. Returns None if cmd not recognized."""
+    if cmd in ("/记忆图谱", "/memory-graph", "/三元组"):
+        return format_memory_triplet_graph(orchestrator)
+
     if cmd in ("/记忆待审", "/pending-memory", "/待审记忆"):
         return format_pending_memory_list(orchestrator)
 
@@ -163,5 +198,6 @@ def _sync_vectors_after_reject(
 
 __all__ = [
     "format_pending_memory_list",
+    "format_memory_triplet_graph",
     "handle_memory_pending_command",
 ]

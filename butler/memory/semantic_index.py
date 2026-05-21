@@ -18,6 +18,7 @@ _CONVERSATION = "conversation"
 
 SOURCE_EXPERIENCE = "experience"
 SOURCE_PROJECT = "project_memory"
+SOURCE_OWNER_PROFILE = "owner_profile"
 
 
 class SemanticMemoryIndex:
@@ -56,12 +57,36 @@ class SemanticMemoryIndex:
                     CREATE INDEX IF NOT EXISTS idx_mv_source ON memory_vectors(source);
                     """
                 )
+                self._ensure_vector_columns(conn)
                 conn.commit()
+
+    def _ensure_vector_columns(self, conn: sqlite3.Connection) -> None:
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(memory_vectors)").fetchall()}
+        if "access_count" not in cols:
+            conn.execute(
+                "ALTER TABLE memory_vectors ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0"
+            )
+        if "last_accessed_at" not in cols:
+            conn.execute(
+                "ALTER TABLE memory_vectors ADD COLUMN last_accessed_at REAL NOT NULL DEFAULT 0"
+            )
 
     def count_rows(self) -> int:
         with self._lock:
             with self._connect() as conn:
                 row = conn.execute("SELECT COUNT(*) FROM memory_vectors").fetchone()
+                return int(row[0] if row else 0)
+
+    def count_by_source(self, source: str) -> int:
+        src = (source or "").strip()
+        if not src:
+            return 0
+        with self._lock:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM memory_vectors WHERE source = ?",
+                    (src,),
+                ).fetchone()
                 return int(row[0] if row else 0)
 
     @property
@@ -97,7 +122,8 @@ class SemanticMemoryIndex:
                         content=excluded.content,
                         embedding_json=excluded.embedding_json,
                         model_id=excluded.model_id,
-                        updated_at=excluded.updated_at
+                        updated_at=excluded.updated_at,
+                        access_count=memory_vectors.access_count
                     """,
                     (
                         source,
@@ -134,7 +160,8 @@ class SemanticMemoryIndex:
                 if project is not None and str(project).strip():
                     rows = conn.execute(
                         """
-                        SELECT source, source_id, project, category, content, embedding_json
+                        SELECT source, source_id, project, category, content, embedding_json,
+                               updated_at, access_count, last_accessed_at
                         FROM memory_vectors
                         WHERE project = ? OR project = ''
                         """,
@@ -143,11 +170,23 @@ class SemanticMemoryIndex:
                 else:
                     rows = conn.execute(
                         """
-                        SELECT source, source_id, project, category, content, embedding_json
+                        SELECT source, source_id, project, category, content, embedding_json,
+                               updated_at, access_count, last_accessed_at
                         FROM memory_vectors
                         """
                     ).fetchall()
-        for source, source_id, proj, cat, content, emb_json in rows:
+        for row in rows:
+            (
+                source,
+                source_id,
+                proj,
+                cat,
+                content,
+                emb_json,
+                updated_at,
+                access_count,
+                last_accessed_at,
+            ) = row
             try:
                 vec = json.loads(emb_json)
             except json.JSONDecodeError:
@@ -166,11 +205,19 @@ class SemanticMemoryIndex:
                         "content": content,
                         "score": sim,
                         "retrieval": "vector",
+                        "created_at": float(updated_at or 0),
+                        "updated_at": float(updated_at or 0),
+                        "access_count": int(access_count or 0),
+                        "last_accessed_at": float(last_accessed_at or 0),
                     },
                 )
             )
         scored.sort(key=lambda x: x[0], reverse=True)
-        return [item for _, item in scored[:cap]]
+        hits = [item for _, item in scored[:cap]]
+        self._record_access_hits(hits)
+        from butler.memory.retrieval_ranking import rerank_memory_hits
+
+        return rerank_memory_hits(hits)
 
     def hybrid_search(
         self,
@@ -209,7 +256,91 @@ class SemanticMemoryIndex:
             item = dict(rows[key])
             item["score"] = round(score, 6)
             out.append(item)
-        return out
+        self._record_access_hits(out)
+        from butler.memory.retrieval_ranking import rerank_memory_hits
+
+        return rerank_memory_hits(out)
+
+    def _record_access_hits(self, hits: list[dict[str, Any]]) -> None:
+        if not hits:
+            return
+        now = time.time()
+        with self._lock:
+            with self._connect() as conn:
+                for hit in hits:
+                    src = str(hit.get("source") or "")
+                    sid = str(hit.get("source_id") or "")
+                    if not src or not sid:
+                        continue
+                    conn.execute(
+                        """
+                        UPDATE memory_vectors
+                        SET access_count = access_count + 1, last_accessed_at = ?
+                        WHERE source = ? AND source_id = ?
+                        """,
+                        (now, src, sid),
+                    )
+                conn.commit()
+
+    def delete_source_prefix(self, source: str) -> int:
+        with self._lock:
+            with self._connect() as conn:
+                cur = conn.execute(
+                    "DELETE FROM memory_vectors WHERE source = ?",
+                    (source,),
+                )
+                conn.commit()
+                return int(cur.rowcount or 0)
+
+    def search_owner_profile(self, query: str, *, limit: int = 4) -> list[dict[str, Any]]:
+        """Vector search limited to owner profile entries."""
+        q = (query or "").strip()
+        if not q:
+            return []
+        cap = max(1, min(int(limit), 12))
+        qvec = self.embedder.embed(q)
+        scored: list[tuple[float, dict[str, Any]]] = []
+        with self._lock:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT source_id, content, embedding_json, updated_at,
+                           access_count, last_accessed_at
+                    FROM memory_vectors
+                    WHERE source = ?
+                    """,
+                    (SOURCE_OWNER_PROFILE,),
+                ).fetchall()
+        for source_id, content, emb_json, updated_at, access_count, last_accessed_at in rows:
+            try:
+                vec = json.loads(emb_json)
+            except json.JSONDecodeError:
+                continue
+            sim = cosine_similarity(qvec, vec)
+            if sim <= 0.05:
+                continue
+            scored.append(
+                (
+                    sim,
+                    {
+                        "source": SOURCE_OWNER_PROFILE,
+                        "source_id": source_id,
+                        "project": "",
+                        "category": "profile",
+                        "content": content,
+                        "score": sim,
+                        "retrieval": "vector-profile",
+                        "created_at": float(updated_at or 0),
+                        "access_count": int(access_count or 0),
+                    },
+                )
+            )
+        scored.sort(key=lambda x: x[0], reverse=True)
+        hits = [item for _, item in scored[:cap]]
+        self._record_access_hits(hits)
+        from butler.memory.retrieval_ranking import rerank_memory_hits
+
+        return rerank_memory_hits(hits)
 
 
 def _hit_key(hit: dict[str, Any]) -> str:
@@ -240,8 +371,39 @@ def index_experience_row(
             project=project or "",
             category=category or "",
         )
+        index_triplets_for_content(
+            semantic,
+            content,
+            project=project or "",
+            source=SOURCE_EXPERIENCE,
+            source_ref=str(row_id),
+        )
     except Exception as exc:
         logger.warning("Semantic index upsert failed for experience %s: %s", row_id, exc)
+
+
+def index_triplets_for_content(
+    semantic: SemanticMemoryIndex | None,
+    content: str,
+    *,
+    project: str = "",
+    source: str = "",
+    source_ref: str = "",
+) -> int:
+    if semantic is None:
+        return 0
+    from butler.memory.triplets import TripletIndex
+
+    try:
+        return TripletIndex(semantic.db_path).upsert_from_content(
+            content=content,
+            project=project,
+            source=source,
+            source_ref=source_ref,
+        )
+    except Exception as exc:
+        logger.debug("Triplet index skipped: %s", exc)
+        return 0
 
 
 def hybrid_experience_search(
@@ -251,13 +413,39 @@ def hybrid_experience_search(
     *,
     project: str | None = None,
     limit: int = 8,
+    experience_store: Any | None = None,
 ) -> list[dict[str, Any]]:
     """FTS-only when semantic disabled; otherwise hybrid merge."""
     fts_hits = fts_search(query, project=project, limit=limit * 2)
     if semantic is None:
-        return fts_hits[:limit]
-    try:
-        return semantic.hybrid_search(query, fts_hits, project=project, limit=limit)
-    except Exception as exc:
-        logger.warning("Hybrid search failed, using FTS: %s", exc)
-        return fts_hits[:limit]
+        out = fts_hits[:limit]
+    else:
+        try:
+            out = semantic.hybrid_search(query, fts_hits, project=project, limit=limit)
+        except Exception as exc:
+            logger.warning("Hybrid search failed, using FTS: %s", exc)
+            out = fts_hits[:limit]
+    _record_experience_access_from_hits(experience_store, out)
+    return out
+
+
+def _record_experience_access_from_hits(
+    experience_store: Any | None,
+    hits: list[dict[str, Any]],
+) -> None:
+    if experience_store is None or not hits:
+        return
+    ids: list[int] = []
+    for hit in hits:
+        if (hit.get("source") or SOURCE_EXPERIENCE) not in (SOURCE_EXPERIENCE, "", None):
+            continue
+        raw = hit.get("id") or hit.get("source_id")
+        try:
+            ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    if ids and hasattr(experience_store, "record_access"):
+        try:
+            experience_store.record_access(ids)
+        except Exception as exc:
+            logger.debug("Experience access bump skipped: %s", exc)

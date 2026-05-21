@@ -96,12 +96,22 @@ def index_project_memory_bullet(
     if sec == "Pending":
         return
     try:
+        sid = project_bullet_source_id(project_name, sec, text)
         semantic.upsert(
             source=SOURCE_PROJECT,
-            source_id=project_bullet_source_id(project_name, sec, text),
+            source_id=sid,
             content=text,
             project=project_name,
             category="project_memory",
+        )
+        from butler.memory.semantic_index import index_triplets_for_content
+
+        index_triplets_for_content(
+            semantic,
+            text,
+            project=project_name,
+            source=SOURCE_PROJECT,
+            source_ref=sid,
         )
     except Exception as exc:
         logger.warning("Project memory vector upsert failed: %s", exc)
