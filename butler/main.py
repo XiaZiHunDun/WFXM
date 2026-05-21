@@ -124,7 +124,7 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
                 _trigger_session_end(orchestrator, agent_loop)
                 return 0
             if handled == "rebuild":
-                _trigger_session_end(orchestrator, agent_loop)
+                # _rebuild_loop() already runs post_session on the old loop once.
                 agent_loop = _rebuild_loop()
             elif handled == "switch_project":
                 agent_loop = _get_or_create_loop()
@@ -514,6 +514,42 @@ def _merge_wechat_env_file(env_path: Path, creds: dict[str, str]) -> None:
     print(f"\n已更新 {env_path}")
 
 
+def _cmd_memory_reindex(ns: argparse.Namespace) -> int:
+    from butler.config import get_butler_home
+    from butler.memory.reindex import ensure_semantic_enabled_msg, reindex_semantic_memory
+
+    hint = ensure_semantic_enabled_msg()
+    if hint:
+        console = Console()
+        console.print(f"[yellow]{hint}[/yellow]")
+        return 2
+
+    result = reindex_semantic_memory(
+        get_butler_home(),
+        tenant_id=str(ns.tenant or "default"),
+        project_name=(ns.project or "").strip() or None,
+        index_experience=True,
+        index_project_memory=not ns.experience_only,
+        clear_vectors=not ns.no_clear,
+    )
+    console = Console()
+    if not result.get("ok"):
+        console.print(f"[red]{result.get('error', 'reindex failed')}[/red]")
+        return 1
+    console.print(
+        "[bold]语义向量索引已重建[/bold]\n"
+        f"  租户: {result.get('tenant_id')}\n"
+        f"  模型: {result.get('model_id')}\n"
+        f"  清空旧条: {result.get('cleared', 0)}\n"
+        f"  experience: {result.get('indexed_experience', 0)} "
+        f"(跳过 conversation {result.get('skipped_conversation', 0)})\n"
+        f"  项目 MEMORY 条目: {result.get('indexed_project_bullets', 0)} "
+        f"(扫描项目 {result.get('projects_scanned', 0)})\n"
+        f"  向量表合计: {result.get('vector_rows', 0)}"
+    )
+    return 0
+
+
 def _cmd_wechat_setup(ns: argparse.Namespace) -> int:
     """Interactive WeChat iLink QR login (Hermes-style setup wizard)."""
     import asyncio
@@ -638,6 +674,32 @@ def _build_parser() -> argparse.ArgumentParser:
         help="将 WECHAT_ACCOUNT_ID/WECHAT_TOKEN 写入 .env（默认项目根 .env）",
     )
     wx.set_defaults(func=_cmd_wechat_setup)
+
+    ri = sub.add_parser(
+        "memory-reindex",
+        help="重建本地语义向量索引（需 BUTLER_SEMANTIC_MEMORY=1，无云存储）",
+    )
+    ri.add_argument(
+        "--tenant",
+        default="default",
+        help="租户 id（默认 default）",
+    )
+    ri.add_argument(
+        "--project",
+        default="",
+        help="仅重建指定项目名的 MEMORY.md 条目（空=扫描 BUTLER_PROJECTS_DIR 下全部）",
+    )
+    ri.add_argument(
+        "--experience-only",
+        action="store_true",
+        help="只索引 experience.db，跳过项目 MEMORY",
+    )
+    ri.add_argument(
+        "--no-clear",
+        action="store_true",
+        help="不清空现有向量表（增量 upsert，可能残留已删条目）",
+    )
+    ri.set_defaults(func=_cmd_memory_reindex)
 
     return p
 
