@@ -41,7 +41,8 @@
 |------|------|------|
 | M1 | `/诊断`（无会话） | 灵文1号 MEMORY 4 条、Pending 0、向量 4 条（hashing-v1） |
 | M2 | 「灵文试点统一测试是哪天？」（paraphrase） | 答 **2026-05-22** |
-| 可选 | `/拒绝记忆`、`预取缓存命中` | 未测；见 [wechat-daily-smoke-checklist.md](../../docs/guides/wechat-daily-smoke-checklist.md) |
+| M3 | 决策句 → `/记忆待审` → `/拒绝记忆 1` | pytest + 命令路径通过 |
+| M4 | 同句连发两遍 → `/诊断` | pytest：`预取缓存: 命中`；真机见检查表 M3/M4 话术 |
 
 ## 机读 facts（暂缓）
 
