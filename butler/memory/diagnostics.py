@@ -156,4 +156,11 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
     injected = stats.get("last_prefetch_chars")
     if injected is not None:
         lines.append(f"  上轮预取注入: {injected} 字")
+    if stats.get("memory_prefetch_cache_hit"):
+        lines.append("  预取缓存: 命中 (queue_prefetch)")
+    elif stats.get("memory_prefetch_cache_hit") is False:
+        lines.append("  预取缓存: 未命中")
+    mode = stats.get("memory_project_prefetch_mode")
+    if mode:
+        lines.append(f"  项目预取模式: {mode}")
     return lines

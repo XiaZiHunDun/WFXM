@@ -58,6 +58,8 @@ PYTHONPATH=. pytest \
   tests/test_semantic_memory.py \
   tests/test_memory_reindex.py \
   tests/test_semantic_memory_p1.py \
+  tests/test_memory_recall_fixtures.py \
+  tests/test_memory_bullet_edit.py \
   -q
 ```
 

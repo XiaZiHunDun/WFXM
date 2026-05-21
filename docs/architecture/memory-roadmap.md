@@ -85,7 +85,7 @@ flowchart TB
 - [x] **queue_prefetch**（`BUTLER_QUEUE_PREFETCH=1`，上轮结束后后台 warm，同 query 命中缓存）
 - [x] **CLI `/记忆待审` / `/批准记忆`**（复用 gateway `memory_commands`）
 - [x] **`facts.json` / auto_extract** 标明暂缓（不接预取链）
-- [ ] 召回质量 fixture 测试（固定 paraphrase 语料）
+- [x] 召回质量 fixture 测试（`tests/fixtures/memory_recall/cases.json`）
 - [ ] 可选：v1 三元组仅展示用
 
 ### P3 — 不做或暂缓
@@ -122,7 +122,11 @@ flowchart TB
 | P2 | queue_prefetch | ✅（需 env 开启） |
 | P2 | CLI 记忆待审 | ✅ |
 | P2 | facts.json | ⏸ 暂缓（文档） |
-| P2 | 召回 fixture 测试 | 📋 |
+| P2 | 召回 fixture 测试 | ✅ |
+| P2 | Pending 拒绝 + 向量清理 | ✅ |
+| P2 | MEMORY remove/replace 向量同步 | ✅ |
+| P2 | 项目预取关键词 fallback | ✅ |
+| P2 | /诊断 预取缓存命中 | ✅ |
 | P3 | 外部云记忆默认接入 | 不做 |
 
 ---

@@ -57,6 +57,9 @@ bash scripts/butler-memory-reindex.sh
 |------|------|
 | `/记忆待审` | 列出 MEMORY Pending 队列（**微信与 CLI**） |
 | `/批准记忆 1` / `/批准记忆 全部` | 写入正式章节 |
+| `/拒绝记忆 1` / `/拒绝记忆 全部` | 从 Pending 移除并清理待审向量 |
+
+`butler_remember` 的 `project_notes` 支持 `action`: `append`（默认）、`remove`、`replace`（`replace` 需 `old_content`），会同步更新向量索引。
 | `/工作流 run novel-factory-status` | 只读汇报 `workflow_state.json` |
 
 **分工**：`workflow_state.json` = 机读进度；`MEMORY.md` Notes = 人读摘要（勿整份 JSON 入库）。

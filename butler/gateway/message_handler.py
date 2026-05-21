@@ -445,6 +445,14 @@ class ButlerMessageHandler:
                 mem_stats["last_prefetch_chars"] = health.get("memory_prefetch_chars")
             elif health.get("memory_context_chars") is not None:
                 mem_stats["last_prefetch_chars"] = health.get("memory_context_chars")
+            if "memory_prefetch_cache_hit" in health:
+                mem_stats["memory_prefetch_cache_hit"] = health.get(
+                    "memory_prefetch_cache_hit"
+                )
+            if health.get("memory_project_prefetch_mode"):
+                mem_stats["memory_project_prefetch_mode"] = health.get(
+                    "memory_project_prefetch_mode"
+                )
 
         if not health and not tool_summary["total"]:
             lines = [
@@ -604,6 +612,9 @@ def _is_sessionless_command(text: str) -> bool:
         "/待审记忆",
         "/批准记忆",
         "/approve-memory",
+        "/拒绝记忆",
+        "/reject-memory",
+        "/拒绝",
     }
 
 

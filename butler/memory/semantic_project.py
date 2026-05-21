@@ -102,6 +102,46 @@ def invalidate_pending_vector(
         logger.warning("Pending vector delete failed: %s", exc)
 
 
+def _query_tokens(query: str) -> set[str]:
+    from butler.memory.embedding import _tokenize
+
+    return {t for t in _tokenize(query) if len(t) >= 2}
+
+
+def search_project_memory_keywords(
+    pmem: "ProjectMemory",
+    query: str,
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    """Lightweight token overlap on formal MEMORY bullets (no vectors)."""
+    tokens = _query_tokens(query)
+    if not tokens:
+        return []
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for item in pmem.markdown.list_formal_bullets():
+        body = item.get("content") or ""
+        body_tokens = _query_tokens(body)
+        if not body_tokens:
+            continue
+        overlap = len(tokens & body_tokens)
+        if overlap <= 0:
+            continue
+        scored.append(
+            (
+                overlap,
+                {
+                    "content": body,
+                    "section": item.get("section") or "Notes",
+                    "retrieval": "keyword",
+                    "score": overlap,
+                },
+            )
+        )
+    scored.sort(key=lambda x: (x[0], len(x[1].get("content") or "")), reverse=True)
+    return [item for _, item in scored[:limit]]
+
+
 def search_project_memory_vectors(
     semantic: SemanticMemoryIndex | None,
     query: str,
@@ -147,3 +187,33 @@ def invalidate_project_memory_bullet(
         )
     except Exception as exc:
         logger.warning("Project bullet vector delete failed: %s", exc)
+
+
+def prefetch_project_memory_hits(
+    pmem: "ProjectMemory",
+    query: str,
+    *,
+    project_name: str,
+    semantic: SemanticMemoryIndex | None,
+    limit: int = 5,
+    semantic_enabled: bool = True,
+) -> tuple[list[dict[str, Any]], str]:
+    """
+    Query-aligned project bullets: vectors first, then keyword fallback.
+
+    Returns (hits, mode) where mode is ``vector`` | ``keyword`` | ``none``.
+    """
+    q = (query or "").strip()
+    if not q or not project_name:
+        return [], "none"
+    hits: list[dict[str, Any]] = []
+    if semantic_enabled and semantic is not None:
+        hits = search_project_memory_vectors(
+            semantic, q, project=project_name, limit=limit
+        )
+        if hits:
+            return hits, "vector"
+    kw = search_project_memory_keywords(pmem, q, limit=limit)
+    if kw:
+        return kw, "keyword"
+    return [], "none"

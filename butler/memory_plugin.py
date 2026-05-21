@@ -48,6 +48,16 @@ _REMEMBER_SCHEMA = {
                 "description": "Markdown section header for project_notes when appending bullets.",
                 "default": "Notes",
             },
+            "action": {
+                "type": "string",
+                "enum": ["append", "remove", "replace"],
+                "description": "project_notes only: append (default), remove, or replace a bullet.",
+                "default": "append",
+            },
+            "old_content": {
+                "type": "string",
+                "description": "For remove/replace: exact existing bullet body to match.",
+            },
         },
         "required": ["scope", "content"],
     },
@@ -394,17 +404,57 @@ class ButlerMemoryService:
                     {"ok": False, "error": "No active Butler project path (BUTLER_PROJECT_ROOT unset)."}
                 )
             section = str(args.get("section", "Notes") or "Notes")
-            cls_result = self._project_memory.markdown.append(
-                section, content, classification="auto"
-            )
+            action = str(args.get("action", "append") or "append").strip().lower()
+            old_content = str(args.get("old_content", "") or "").strip()
             from butler.memory.semantic_project import (
                 index_pending_memory_bullet,
                 index_project_memory_bullet,
+                invalidate_pending_vector,
+                invalidate_project_memory_bullet,
                 resolve_project_display_name,
             )
 
             sem = getattr(self._butler_global, "semantic", None)
             proj_name = resolve_project_display_name(self._project_memory)
+            md = self._project_memory.markdown
+
+            if action == "remove":
+                old = old_content or content
+                if not md.remove_bullet(section, old):
+                    return json.dumps(
+                        {"ok": False, "error": f"未找到章节 {section} 中的条目: {old[:80]}"}
+                    )
+                invalidate_project_memory_bullet(sem, proj_name, section, old)
+                invalidate_pending_vector(sem, proj_name, old)
+                return json.dumps(
+                    {"ok": True, "scope": scope, "action": "remove", "section": section}
+                )
+
+            if action == "replace":
+                if not old_content:
+                    return json.dumps(
+                        {"ok": False, "error": "replace 需要 old_content（原条目正文）"}
+                    )
+                if not md.replace_bullet(section, old_content, content):
+                    return json.dumps(
+                        {
+                            "ok": False,
+                            "error": f"未找到章节 {section} 中的条目: {old_content[:80]}",
+                        }
+                    )
+                invalidate_project_memory_bullet(sem, proj_name, section, old_content)
+                invalidate_pending_vector(sem, proj_name, old_content)
+                index_project_memory_bullet(sem, proj_name, section, content)
+                return json.dumps(
+                    {
+                        "ok": True,
+                        "scope": scope,
+                        "action": "replace",
+                        "section": section,
+                    }
+                )
+
+            cls_result = md.append(section, content, classification="auto")
             if cls_result == "pending":
                 index_pending_memory_bullet(sem, proj_name, content)
             elif cls_result == "decision":
@@ -417,6 +467,7 @@ class ButlerMemoryService:
                 "scope": scope,
                 "section": section,
                 "classification": cls_result,
+                "action": "append",
             }
             if cls_result == "pending":
                 payload["hint"] = "已进入 Pending，可用 /记忆待审 与 /批准记忆 写入正式章节"
