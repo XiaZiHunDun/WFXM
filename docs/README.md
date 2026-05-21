@@ -10,6 +10,7 @@
 | [`architecture/v4-architecture.md`](architecture/v4-architecture.md) | **当前架构**：Loop 栈、Gateway、观测、测试规模 |
 | [`architecture/hermes-extraction-map.md`](architecture/hermes-extraction-map.md) | Hermes → Butler 提炼对照与验收状态 |
 | [`architecture/hermes-decoupling.md`](architecture/hermes-decoupling.md) | **解耦路线图**（目标：零 Hermes 黑盒依赖）|
+| [`architecture/project-lead-decision.md`](architecture/project-lead-decision.md) | **项目 Lead 架构决策**（莎丽门户 + 厂长主控，分阶段）|
 | [`design/design.md`](design/design.md) | 完整产品设计（记忆、Skill、编排、命令速查） |
 | [`guides/README.md`](guides/README.md) | 微信运维 / 冒烟 / 人工测试索引 |
 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) | **微信网关 systemd 运维**（安装、发版、排障） |

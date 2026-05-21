@@ -33,6 +33,18 @@ rsync -a --delete "$SRC/" "$DST/"
 
 不要从 `projects/` 回写 `reference/`。
 
+## 厂长（Project Lead）决策
+
+见 [project-lead-scope.md](./project-lead-scope.md)（五条能力、禁止项、阶段 1/2 清单）；平台 ADR 见 [`docs/architecture/project-lead-decision.md`](../../../docs/architecture/project-lead-decision.md)。
+
+发版或克隆后同步项目 Skill（`.butler/skills` 不入 git）：
+
+```bash
+cd ~/projects/WFXM
+bash scripts/sync-lingwen-project-skills.sh
+bash scripts/butler-gateway-ops.sh restart   # 网关加载 Skill
+```
+
 ## 记忆试点
 
 见 [memory-guide.md](./memory-guide.md)（写入对照表、`butler_remember` / `butler_recall`、`.env` 中的 `BUTLER_SYNC_CONVERSATION_MEMORY`）。
