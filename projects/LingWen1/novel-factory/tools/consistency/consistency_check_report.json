@@ -1,0 +1,53 @@
+{
+  "started_at": "2026-05-18T13:43:01.107239",
+  "chapter_range": "1-360",
+  "checks": {
+    "naming": {
+      "issues": 0,
+      "details": []
+    },
+    "integrity": {
+      "issues": 0,
+      "details": []
+    },
+    "duplicates": {
+      "issues": 0,
+      "details": []
+    },
+    "character": {
+      "issues": 3,
+      "details": [
+        [
+          "ALIVE_CONFLICT",
+          89,
+          "小九",
+          "小九生死状态变化: 存活→死亡"
+        ],
+        [
+          "ALIVE_CONFLICT",
+          111,
+          "苏琳",
+          "苏琳生死状态变化: 存活→死亡"
+        ],
+        [
+          "ALIVE_CONFLICT",
+          253,
+          "小九",
+          "小九生死状态变化: 存活→死亡"
+        ]
+      ]
+    },
+    "timeline": {
+      "issues": 0,
+      "details": []
+    }
+  },
+  "total_issues": 3,
+  "by_severity": {
+    "P0": 0,
+    "P1": 3,
+    "P2": 0
+  },
+  "completed_at": "2026-05-18T13:51:05.185255",
+  "duration_seconds": 484.078016
+}

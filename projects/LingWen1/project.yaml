@@ -1,8 +1,8 @@
-name: 灵文
+name: 灵文1号
 type: content
-description: 小说工厂 - 工业化多 Agent 小说创作流水线
+description: 灵文小说工厂试点（WFXM 仓库内工作副本，与正式灵文项目隔离）
 status: active
-workspace: projects/LingWen
+workspace: projects/LingWen1
 models:
   dev_agent:
     provider: minimax
