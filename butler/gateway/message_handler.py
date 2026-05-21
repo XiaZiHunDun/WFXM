@@ -494,6 +494,13 @@ class ButlerMessageHandler:
                 "轮次诊断: 暂无（本会话尚无完整对话轮次）",
             ]
             lines.extend(format_memory_diagnostic_lines(mem_stats))
+            proj = self._orchestrator.project_manager.get_current(
+                session_key=session_key
+            )
+            proj_name = str(getattr(proj, "name", "") or "") if proj else ""
+            from butler.runtime.diagnostics import format_runtime_diagnostic_lines
+
+            lines.extend(format_runtime_diagnostic_lines(proj_name))
             return "\n".join(lines)
 
         if health:
@@ -544,6 +551,16 @@ class ButlerMessageHandler:
                 f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
             ]
             lines.extend(format_memory_diagnostic_lines(mem_stats))
+            proj_name = str(mem_stats.get("project_name") or "").strip()
+            if not proj_name:
+                proj = self._orchestrator.project_manager.get_current(
+                    session_key=session_key
+                )
+                if proj is not None:
+                    proj_name = str(getattr(proj, "name", "") or "")
+            from butler.runtime.diagnostics import format_runtime_diagnostic_lines
+
+            lines.extend(format_runtime_diagnostic_lines(proj_name))
             if health.get("error"):
                 lines.append("错误: 有（查看日志）")
             if health.get("hygiene_error"):
@@ -555,6 +572,13 @@ class ButlerMessageHandler:
                 "轮次诊断: 暂无（本会话尚无完整对话轮次）",
             ]
             lines.extend(format_memory_diagnostic_lines(mem_stats))
+            proj = self._orchestrator.project_manager.get_current(
+                session_key=session_key
+            )
+            proj_name = str(getattr(proj, "name", "") or "") if proj else ""
+            from butler.runtime.diagnostics import format_runtime_diagnostic_lines
+
+            lines.extend(format_runtime_diagnostic_lines(proj_name))
 
         if tool_summary["total"]:
             lines.extend([

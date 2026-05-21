@@ -117,25 +117,24 @@
 
 ---
 
-### 阶段 3 — 运行时自动化（设计稿 → 待实施）
+### 阶段 3 — 运行时自动化（3a–3c 已实现，3d 已落地）
 
-**目标**：局部 ③，不上升为全平台主句。完整方案见 **[`project-runtime-automation.md`](project-runtime-automation.md)**。
+**目标**：局部 ③，不上升为全平台主句。完整方案见 **[`project-runtime-automation.md`](project-runtime-automation.md)**；运维见 **[`guides/runtime-ops.md`](../guides/runtime-ops.md)**。
 
-| 子阶段 | 交付 |
-|--------|------|
-| 3a | CLI `butler runtime run` + 只读 job + 微信推送 |
-| 3b | `jobs.yaml` + systemd timer + 日报 digest |
-| 3c | 批准闸门 + `/批准运行`（mutating 默认关） |
+| 子阶段 | 交付 | 状态 |
+|--------|------|------|
+| 3a | CLI `runtime run/list` + 只读 job + `/定时` `/运行` + 微信推送 | ✅ 微信验收 2026-05-21 |
+| 3b | `jobs.yaml` + `runtime due` + systemd timer（15min） | ✅ 已安装；定时真机验收暂缓 |
+| 3c | `approval` + `/批准运行`（mutating 默认关） | ✅ 已实现；改盘真机验收暂缓 |
+| 3d | Lead Skill 建议 `/运行`；`/诊断` 显示最近 runtime | ✅ 2026-05-21 |
 
 | 项 | 条件 |
 |----|------|
 | 定时一致性扫描 | 只读报告推微信；改盘须批准 |
-| 发布 / 汇总 | 必须 `requires_approval` + 人工确认 |
-| 失败告警 | 日志 + 微信摘要 |
+| 发布 / 汇总 | 必须批准 + `enabled: true` |
+| 失败告警 | audit + 微信（逻辑已有，可按需验） |
 
-**验收**：见 [`project-runtime-automation.md`](project-runtime-automation.md) §10。
-
-**风险**：中高 — 用独立进程 + 批准闸门缓解；**阶段 2 已通过，可启动 3a**。
+**验收**：见 [`project-runtime-automation.md`](project-runtime-automation.md) §10（部分项随 3b/3c 真机延后）。
 
 ---
 

@@ -141,6 +141,19 @@ def test_schedule_empty_not_due():
     assert schedule.format_schedule_hint("") == "（手动）"
 
 
+def test_runtime_diagnostics_lines(runtime_project):
+    ws, _ = runtime_project
+    _write_jobs(
+        ws,
+        [{"id": "a", "mode": "readonly", "enabled": True, "handler": "builtin:workflow_state_digest"}],
+    )
+    from butler.runtime.diagnostics import format_runtime_diagnostic_lines
+
+    lines = format_runtime_diagnostic_lines("TestProj")
+    assert any("runtime" in ln for ln in lines)
+    assert any("a" in ln for ln in lines)
+
+
 def test_format_jobs_list(runtime_project):
     ws, _ = runtime_project
     _write_jobs(

@@ -92,7 +92,13 @@
 
 ## 8. 阶段 3（运行时自动化）
 
-设计见 [`docs/architecture/project-runtime-automation.md`](../../../docs/architecture/project-runtime-automation.md)；试点 job 清单 [`../runtime/jobs.yaml`](../runtime/jobs.yaml)。**未实施前**仍用 Lead 手动触发脚本。
+- 设计：[`docs/architecture/project-runtime-automation.md`](../../../docs/architecture/project-runtime-automation.md)  
+- 运维：[`docs/guides/runtime-ops.md`](../../../docs/guides/runtime-ops.md)  
+- 任务表：[`../runtime/jobs.yaml`](../runtime/jobs.yaml)  
+
+**已实施**：微信 `/定时`、`/运行`（只读）、`/批准运行`（改盘）；CLI `butler runtime …`；timer 每 15 分钟 `due`。  
+厂长对话中优先 **建议** 主公用 `/运行` / `/定时`，不自行跑 `novel-factory/tools` shell（见 Skill §3）。  
+3b/3c **定时与改盘批准** 真机验收主公按需进行。
 
 ## 9. 修订记录
 

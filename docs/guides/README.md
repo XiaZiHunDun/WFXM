@@ -5,6 +5,7 @@
 | 文档 | 用途 |
 |------|------|
 | [wechat-gateway-ops.md](./wechat-gateway-ops.md) | **生产运维**：systemd 安装、发版、日志、排障 |
+| [runtime-ops.md](./runtime-ops.md) | **Runtime timer**：定时任务 due、审计、批准与排障 |
 | [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) | **发版后真机冒烟**（约 15–25 分钟） |
 | [wechat-core-scenario.md](./wechat-core-scenario.md) | 微信八步剧本详解与 FAQ |
 | [owner-profile-setup.md](./owner-profile-setup.md) | Owner 画像配置 |
