@@ -165,6 +165,14 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
                     interrupted=result.status == LoopStatus.INTERRUPTED,
                     status=result.status,
                 )
+                from butler.session_lifecycle import queue_prefetch_after_turn
+
+                queue_prefetch_after_turn(
+                    orchestrator,
+                    user_input,
+                    role="butler",
+                    session_id=cli_sk,
+                )
 
         except KeyboardInterrupt:
             console.print("\n[dim]已中断[/dim]")
@@ -242,6 +250,8 @@ def _handle_slash_command(
             "  /detail         — 上一次委派的详细报告\n"
             "  /workflow       — 列出或运行项目工作流 (DAG)\n"
             "  /steer <文本>   — 向运行中的 Agent 插入指引（不打断工具）\n"
+            "  /记忆待审       — 列出项目 MEMORY Pending 队列\n"
+            "  /批准记忆 <序号|全部> — 批准待审记忆\n"
             "  /quit           — 退出\n"
         )
         return "handled"
@@ -319,6 +329,13 @@ def _handle_slash_command(
             f"  模型: {mc.get('provider', '?')}/{mc.get('model', '?')}\n"
             f"  Butler Home: {settings.butler_home}\n"
         )
+        return "handled"
+
+    from butler.gateway.memory_commands import handle_memory_pending_command
+
+    mem_resp = handle_memory_pending_command(orchestrator, command, arg)
+    if mem_resp is not None:
+        console.print(mem_resp)
         return "handled"
 
     if command in ("/health", "/诊断"):

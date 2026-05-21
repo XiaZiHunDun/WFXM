@@ -1,7 +1,7 @@
 # 记忆模块路线图（含向量语义）
 
-> 版本：2026-05-21 | 个人管家 · 单租户 · 微信主场景  
-> 当前实现：`butler/memory/` + `session_lifecycle` + `post_session`（FTS5/BM25，**无 embedding 向量库**）
+> 版本：2026-05-22 | 个人管家 · 单租户 · 微信主场景  
+> 当前实现：`butler/memory/` + `session_lifecycle` + `post_session`（FTS5 + 可选本地向量 hybrid）
 
 ---
 
@@ -12,35 +12,28 @@
 | 层级 | Hermes 做法 | 是否向量语义 |
 |------|-------------|--------------|
 | **内置** | `MEMORY.md` + `USER.md`，有界文本，会话初注入快照；`memory` 工具 add/replace/remove | **否**（与 Butler `profile.json` 同类） |
-| **外部 Memory Provider** | `MemoryManager` 统一：`prefetch` 每轮召回、`sync` 每轮写入、`session end` 提炼；可选 Honcho / Mem0 / Supermemory / OpenViking / RetainDB 等 | **是**（各插件自建 embedding + 语义检索，常 **混合 BM25+向量+重排**） |
+| **外部 Memory Provider** | `MemoryManager` 统一：`prefetch` 每轮召回、`sync` 每轮写入、`session end` 提炼；可选 Honcho / Mem0 / Supermemory 等 | **是**（各插件 embedding + 混合检索） |
 
-要点（来自 `agent/memory_manager.py`、`website/docs/user-guide/features/memory-providers.md`）：
-
-1. **每轮 prefetch**：`prefetch_all(query)` 在用户消息进 LLM 前合并各 provider 召回（非阻塞 `queue_prefetch` 可选）。
-2. **上下文围栏**：`<memory-context>` + 清洗，避免模型把召回当成用户新输入。
-3. **内置与外部并存**：外部只做「增强召回」，不替代 MEMORY/USER 的可读快照。
-4. **实验验证在插件层**：Honcho `honcho_search`、Supermemory `search_mode: hybrid`、RetainDB「Vector + BM25 + Reranking」——说明 Hermes 主仓不把向量写进 core，而是 **可插拔语义层**。
-
-Butler 已对齐 **内置层 + prefetch/sync/post_session**（见 `butler/session_lifecycle.py`、`memory_plugin.py`）；**尚未**做本地向量语义索引。
+Butler 已对齐 **内置层 + prefetch/sync/post_session**；**P0/P1 向量层**已本地化（`memory_vectors.db`，默认 hashing，无云存储）。
 
 ---
 
 ## 2. Butler 现状 vs 设计文档
 
-| 能力 | 当前 v4 | 设计稿（`docs/design/design.md` §11/§13） | v1 存档 |
-|------|---------|----------------------------------------|---------|
-| Owner 画像 | `profile.json` | ProfileStore | 有 |
-| 跨项目经验 | `experience.db` + **FTS5** | ExperienceStore FTS | 有 |
-| 项目 MEMORY | `MEMORY.md` + Pending | MarkdownMemory | 有 |
-| 项目语义索引 | **未接入** | `SemanticMemoryIndex` + `knowledge.db` | `archive/.../memory_store.py`（**FTS5+三元组，无 embedding**） |
-| 每轮召回 | FTS + 全文注入 + 截断 | `get_relevant_context(query)` | 部分 |
-| 向量 / 混合检索 | **无** | 文稿写「BM25 语义」实为 FTS | 无 |
-
-结论：你要的 **向量语义记忆** 不能靠把 FTS 改名为 semantic；需要 **新增 embedding 管线**（可参考 Hermes 插件，而非仅 v1 `memory_store`）。
+| 能力 | 当前 v4（2026-05-22） | 设计稿（`docs/design/design.md` §11/§13） |
+|------|----------------------|----------------------------------------|
+| Owner 画像 | `profile.json` | ProfileStore ✅ |
+| 跨项目经验 | `experience.db` + **FTS5**；可选向量 hybrid | ExperienceStore ✅ |
+| 项目 MEMORY | `MEMORY.md` + Pending + 微信/CLI 待审命令 | MarkdownMemory ✅ |
+| 项目语义索引 | `memory_vectors.db`；`butler_remember` / 批准 / reindex 同步 | SemanticMemoryIndex ✅ |
+| 每轮召回 | experience hybrid + **项目 MEMORY query 向量预取** + 围栏注入 | get_relevant_context ✅ 部分 |
+| 向量 / 混合检索 | `BUTLER_SEMANTIC_MEMORY=1` 启用；`=0` 仅 FTS | 规划中 BM25+向量 ✅ P1 |
+| queue_prefetch | `BUTLER_QUEUE_PREFETCH=1` 上轮结束后后台 warm 缓存 | Hermes 可选 ✅ P2 |
+| 机读 facts | `facts.json` auto_extract **暂缓**（见 memory-guide） | knowledge.db 未接 |
 
 ---
 
-## 3. 建议目标架构（Butler 版，不依赖 Hermes 运行时）
+## 3. 目标架构（Butler 版）
 
 ```mermaid
 flowchart TB
@@ -49,109 +42,99 @@ flowchart TB
   end
   subgraph index [机读检索层]
     FTS[experience.db FTS5]
-    VEC[(memory_vectors.db 或 sqlite-vec)]
+    VEC[(memory_vectors.db)]
   end
   subgraph turn [每轮]
-    Q[用户 query] --> HY[混合检索 hybrid]
-    HY --> FTS
-    HY --> VEC
-    HY --> INJ[pre_llm_transform 注入]
+    Q[用户 query] --> HY[hybrid + 项目向量]
+    HY --> INJ["memory-context 围栏注入"]
   end
   subgraph write [写入]
     REM[butler_remember] --> MD
-    REM --> FTS
     REM --> VEC
     PS[post_session] --> MD
-    PS --> FTS
     PS --> VEC
   end
-  MD -.同步条目.-> FTS
-  MD -.同步条目.-> VEC
 ```
 
-原则（沿用 Hermes 实验结论，但 **本地化**）：
+原则：
 
 - **Markdown/JSON 仍为 SSOT**（微信可读、`/记忆待审` 不变）。
-- **向量索引是衍生层**：条目变更时异步/同步 re-embed（可失败降级到 FTS）。
-- **召回默认 hybrid**：向量 top-K ∪ FTS top-K → 去重 → 截断 → 注入（对齐 Supermemory/RetainDB 的 hybrid 思路）。
-- **conversation 类别永不进向量**（与现网一致）。
+- **向量索引是衍生层**；失败降级 FTS。
+- **conversation 永不进向量**。
 
 ---
 
-## 4. 分阶段待办（纳入项目待改进）
+## 4. 分阶段待办
 
-### P0 — 方案与接口（1–2 天，无强制外网） ✅ 2026-05-21
+### P0 — 方案与接口 ✅ 2026-05-21
 
-- [x] `butler/memory/semantic_index.py`：`upsert`、`delete`、`search`、`hybrid_search`
-- [x] `butler/memory/embedding.py`：`local` hashing embedder；`openai`/`minimax` 占位回退
-- [x] 索引范围：**experience 非 conversation**（项目 MEMORY bullet 待 P1）
-- [x] 文档与 `memory-guide.md` 交叉引用
+- [x] `semantic_index.py`、`embedding.py`（local + openai/minimax 回退）
+- [x] 文档与 `memory-guide.md`
 
-### P1 — 最小可用（个人管家） — 部分已落地
+### P1 — 最小可用 ✅ 2026-05-22
 
-- [x] 本地 hashing embedding（`BUTLER_SEMANTIC_MEMORY=1`）
-- [x] `prefetch_turn_memory` / `butler_recall` hybrid（`SYNC=0` 默认仍 FTS-only）
-- [x] 写入：`owner_experience` + post_session experience → upsert 向量
-- [x] `/诊断` 向量条数 + model
-- [x] 测试 `tests/test_semantic_memory.py`
-- [x] 本地 `butler memory-reindex` / `scripts/butler-memory-reindex.sh`
-- [x] `butler_remember` → project_notes 向量索引（fact/decision 即时；pending 入队向量）
-- [x] Pending 批准时 invalidate 待审向量并写入正式章节向量
-- [x] `openai` / `minimax` 真 embedding API（缺 key 或失败时回退 hashing）
+- [x] hashing hybrid、`prefetch` / `butler_recall`
+- [x] `butler_remember` / Pending 批准 → 向量
+- [x] `memory-reindex`、`/诊断` 无会话分层
+- [x] CLI `/new` 双次 post_session 修复
 
-### P2 — 对齐 Hermes 体验
+### P2 — 对齐 Hermes 体验（本轮）
 
-- [ ] **queue_prefetch**（上轮结束后后台 embed+索引，下轮更快）— 参考 `MemoryProvider.queue_prefetch`
-- [ ] 注入围栏文案与 Butler 中文场景统一（参考 `sanitize_context` / `<memory-context>` 语义）
-- [ ] 可选：恢复 v1 **三元组** 只作展示/图谱，不与向量混为一谈
+- [x] **项目 MEMORY query 对齐预取**（`search_project_memory_vectors` + `BUTLER_PREFETCH_PROJECT_HITS`）
+- [x] **记忆围栏**（`<memory-context>` + 中文说明，防误读为用户指令）
+- [x] **queue_prefetch**（`BUTLER_QUEUE_PREFETCH=1`，上轮结束后后台 warm，同 query 命中缓存）
+- [x] **CLI `/记忆待审` / `/批准记忆`**（复用 gateway `memory_commands`）
+- [x] **`facts.json` / auto_extract** 标明暂缓（不接预取链）
+- [ ] 召回质量 fixture 测试（固定 paraphrase 语料）
+- [ ] 可选：v1 三元组仅展示用
 
 ### P3 — 不做或暂缓
 
-- 不接 Honcho/Mem0 等 **外部** 云记忆为默认（与「个人管家、数据在 `~/.butler`」冲突，仅作可选插件调研）
-- 不做全库 360 章正文向量（正文仍 `read_file` / 工厂脚本）
+- 不接 Honcho/Mem0 等为默认
+- 不做全书正文向量
+- Owner 画像向量索引（可选，低优先）
 
 ---
 
-## 5. 环境变量（规划，P1 落地时写入 `.env.example`）
+## 5. 环境变量
 
 | 变量 | 用途 |
 |------|------|
-| `BUTLER_SEMANTIC_MEMORY` | `1` 启用向量层；`0` 仅 FTS（默认可先 `0`） |
+| `BUTLER_SEMANTIC_MEMORY` | `1` 启用向量；`0` 仅 FTS |
 | `BUTLER_EMBEDDING_PROVIDER` | `local` / `openai` / `minimax` |
 | `BUTLER_EMBEDDING_MODEL` | 模型 id |
-| `BUTLER_VECTOR_HYBRID_WEIGHT` | 向量 vs FTS 融合权重（或 RRF 参数） |
-| `BUTLER_EMBEDDING_BATCH_SIZE` | 批量 reindex |
+| `BUTLER_VECTOR_HYBRID_WEIGHT` | hybrid 向量权重 |
+| `BUTLER_PREFETCH_PROJECT_HITS` | 项目 MEMORY 向量预取条数（默认 5） |
+| `BUTLER_QUEUE_PREFETCH` | `1` 启用上轮结束后后台 warm |
+| `BUTLER_PREFETCH_CACHE_TTL` | warm 缓存秒数（默认 90） |
 
 ---
 
-## 6. 与自检「待改进」合并后的优先级
+## 6. 合并待改进清单
 
-| 优先级 | 项 |
-|--------|-----|
-| **P0** | **向量语义记忆（本路线图 P0→P1）** — 参考 Hermes Memory Provider 的 prefetch+hybrid，Butler 本地化实现 |
-| P1 | CLI `/new` 双次 post_session | ✅ 2026-05-21 |
-| P1 | `/诊断` 无会话时也展示静态记忆分层 | ✅ 2026-05-21 |
-| P2 | `facts.json` / auto_extract 接入或文档标明废弃 |
-| P2 | 召回质量 fixture 测试（与向量 P1 测试合并） |
-| P3 | CLI `/记忆待审` |
-
----
-
-## 7. 参考文件（Hermes）
-
-| 文件 | 借鉴点 |
-|------|--------|
-| `reference/hermes-agent/agent/memory_manager.py` | `prefetch_all` / `sync_all` / 单外部 provider |
-| `reference/hermes-agent/agent/memory_provider.py` | Provider 接口契约 |
-| `reference/hermes-agent/plugins/memory/supermemory/__init__.py` | hybrid search、session ingest、围栏 |
-| `reference/hermes-agent/plugins/memory/retaindb/README.md` | Vector + BM25 + Reranking |
-| `reference/hermes-agent/website/docs/user-guide/features/memory.md` | 内置 MEMORY/USER 边界 |
-| `archive/butler-v1/butler/storage/memory_store.py` | FTS5 + triplets（**非向量**，仅结构参考） |
+| 优先级 | 项 | 状态 |
+|--------|-----|------|
+| P0→P1 | 向量语义记忆本地化 | ✅ |
+| P1 | `/诊断` 无会话静态分层 | ✅ |
+| P1 | CLI `/new` 双次提炼 | ✅ |
+| P2 | 项目 MEMORY query 预取 | ✅ |
+| P2 | 记忆围栏 | ✅ |
+| P2 | queue_prefetch | ✅（需 env 开启） |
+| P2 | CLI 记忆待审 | ✅ |
+| P2 | facts.json | ⏸ 暂缓（文档） |
+| P2 | 召回 fixture 测试 | 📋 |
+| P3 | 外部云记忆默认接入 | 不做 |
 
 ---
 
-## 8. 验收标准（P1 完成时）
+## 7. 验收标准（P1，已满足）
 
-1. 用户 paraphrase 询问（未出现原词）仍能 `butler_recall` 或 prefetch 命中已写入经验。
-2. `BUTLER_SEMANTIC_MEMORY=0` 时行为与当前 **96 条** 记忆测试一致（无回归）。
-3. 微信 `/诊断` 可看到向量层统计；`MEMORY.md` 仍为审批与人工阅读入口。
+1. paraphrase 可经 `butler_recall` 或 prefetch 命中已写入经验/项目记忆。
+2. `BUTLER_SEMANTIC_MEMORY=0` 无回归。
+3. `/诊断` 可见向量统计；`MEMORY.md` 仍为审批入口。
+
+---
+
+## 8. 参考文件
+
+见历史版本 §7；Hermes `memory_manager.py`、`plugins/memory/supermemory` 仍作只读对照。

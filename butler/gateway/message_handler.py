@@ -250,6 +250,14 @@ class ButlerMessageHandler:
                     session_id=session_key,
                 )
                 health["memory_sync"] = sync_result
+                from butler.session_lifecycle import queue_prefetch_after_turn
+
+                queue_prefetch_after_turn(
+                    self._orchestrator,
+                    text,
+                    role="butler",
+                    session_id=session_key,
+                )
                 self._session_registry.set_health(session_key, health)
                 out = self._format_response(result, platform)
                 logger.info(

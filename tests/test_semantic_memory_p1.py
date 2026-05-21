@@ -161,6 +161,78 @@ class TestDiagnosticsNoSession:
 
 
 @pytest.mark.module_test
+class TestProjectPrefetchAndFence:
+    def test_search_project_memory_vectors(self, tmp_path):
+        idx = SemanticMemoryIndex(
+            tmp_path / "v.db", HashingEmbedder(dimension=64)
+        )
+        from butler.memory.semantic_project import (
+            index_project_memory_bullet,
+            search_project_memory_vectors,
+        )
+
+        index_project_memory_bullet(
+            idx, "灵文1号", "Notes", "试点统一测试日 2026-05-22"
+        )
+        hits = search_project_memory_vectors(
+            idx, "统一测试哪天", project="灵文1号", limit=3
+        )
+        assert hits
+        assert "2026-05-22" in hits[0]["content"]
+
+    def test_prefetch_uses_project_query_hits(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")
+        proj_dir = tmp_path / "lw"
+        proj_dir.mkdir()
+        (proj_dir / "project.yaml").write_text(
+            f"name: 灵文1号\nworkspace: {proj_dir}\n",
+            encoding="utf-8",
+        )
+        from butler.project import Project
+        from butler.session_lifecycle import prefetch_turn_memory
+
+        proj = Project.from_yaml(proj_dir / "project.yaml")
+        bm = ButlerMemory(tmp_path / "home", tenant_id="default")
+        pm = ProjectMemory(proj_dir)
+        pm.markdown.append("Notes", "试点统一测试日 2026-05-22", classification="fact")
+        from butler.memory.semantic_project import index_project_memory_bullet
+
+        index_project_memory_bullet(
+            bm.semantic, "灵文1号", "Notes", "试点统一测试日 2026-05-22"
+        )
+        orch = MagicMock()
+        orch.butler_memory = bm
+        orch._project_memory = pm
+        orch.project_manager.resolve_active_project_name.return_value = "灵文1号"
+        orch.project_manager.get_current.return_value = proj
+
+        ctx = prefetch_turn_memory(
+            orch, "灵文试点统一测试日期", role="butler", use_cache=False
+        )
+        assert "Query-aligned project memory" in ctx
+        assert "2026-05-22" in ctx
+
+    def test_memory_fence_wrapper(self):
+        from butler.session_lifecycle import _render_turn_memory_context
+
+        out = _render_turn_memory_context("记忆片段", "用户问题", max_chars=500)
+        assert "<memory-context>" in out
+        assert "记忆围栏" in out
+        assert "用户问题" in out
+
+    def test_prefetch_cache_hit(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_QUEUE_PREFETCH", "1")
+        from butler.memory.prefetch_cache import (
+            get_cached_prefetch,
+            set_cached_prefetch,
+        )
+
+        set_cached_prefetch("s1", "同一问题", "cached-body")
+        assert get_cached_prefetch("s1", "同一问题") == "cached-body"
+        assert get_cached_prefetch("s1", "另一问题") is None
+
+
+@pytest.mark.module_test
 class TestApiEmbedders:
     def test_get_embedder_openai_falls_back_without_key(self, monkeypatch):
         monkeypatch.setenv("BUTLER_EMBEDDING_PROVIDER", "openai")

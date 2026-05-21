@@ -87,7 +87,7 @@ class TestPrefetchLimits:
         orch._project_memory = None
 
         out = inject_turn_memory(orch, "hello")
-        assert "## 相关记忆" in out
+        assert "<memory-context>" in out
         assert len(out) < 400
 
 
