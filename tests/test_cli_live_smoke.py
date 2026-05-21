@@ -107,7 +107,7 @@ def test_live_cli_new_after_turn_minimax(tmp_butler_home):
     )
 
     assert run.exit_code == 0
-    assert "已清空对话历史" in run.output
+    assert "已清空本轮对话上下文" in run.output
     assert "Memory extraction failed" not in run.output
     assert "Skill extraction failed" not in run.output
 

@@ -45,5 +45,29 @@
       "novel-factory 状态文件"
     ],
     "min_score": 0.05
+  },
+  {
+    "id": "consistency_script",
+    "project": "recall-fixture",
+    "section": "Notes",
+    "stored": "一致性检查使用 novel-factory/tools/consistency/run_consistency_check.sh",
+    "queries": [
+      "一致性脚本路径",
+      "run_consistency_check 在哪",
+      "每周一致性检查怎么跑"
+    ],
+    "min_score": 0.05
+  },
+  {
+    "id": "pending_flow",
+    "project": "recall-fixture",
+    "section": "Decisions",
+    "stored": "灵文试点采用微信批准记忆流程后再落盘 Decisions",
+    "queries": [
+      "批准记忆流程",
+      "决策怎么写入正式章节",
+      "Pending 批准后"
+    ],
+    "min_score": 0.05
   }
 ]

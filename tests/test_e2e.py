@@ -132,7 +132,7 @@ class TestGatewayE2E:
         assert "Butler" in status
 
         cleared = handler.handle_message("/new")
-        assert "已清空对话历史" in cleared
+        assert "已清空本轮对话上下文" in cleared
 
         model_info = handler.handle_message("/model")
         assert "butler" in model_info or "模型" in model_info

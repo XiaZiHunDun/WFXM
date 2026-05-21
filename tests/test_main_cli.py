@@ -111,7 +111,10 @@ class TestSlashCommands:
         )
 
     def test_new_returns_rebuild(self):
-        assert _handle_slash_command("/new", _mock_orchestrator(), _mock_console()) == "rebuild"
+        assert (
+            _handle_slash_command("/new", _mock_orchestrator(), _mock_console())
+            == "rebuild_after_new"
+        )
 
     def test_detail_returns_handled(self):
         with patch("butler.report.get_last_report", return_value=None):

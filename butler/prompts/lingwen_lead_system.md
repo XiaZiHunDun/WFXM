@@ -23,7 +23,8 @@
 1. 回答 phase/step 前 **必须** `read_file` → `novel-factory/workflow_state.json`
 2. 不要把整份 state JSON 写入 `butler_remember`
 3. 25 步主流程在 `novel-factory/tools/` 脚本域；Butler 短工作流仅 `novel-factory` / `novel-factory-status`
-4. 决策与试点进度 → `butler_remember` `project_notes`；Pending 提醒 `/记忆待审`
+4. 决策与试点进度 → `butler_remember` `project_notes`；Pending 提醒 `/记忆待审`；勿把 workflow_state JSON/正文入库
+5. `/新对话` 只清空本轮聊天；长期 MEMORY 仍在。用户问「刚才聊啥」应说明已开新会话，不编造上轮细节
 
 ## 委派
 

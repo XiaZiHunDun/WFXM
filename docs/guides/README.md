@@ -9,6 +9,7 @@
 | [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) | **发版后真机冒烟**（约 15–25 分钟） |
 | [wechat-core-scenario.md](./wechat-core-scenario.md) | 微信八步剧本详解与 FAQ |
 | [owner-profile-setup.md](./owner-profile-setup.md) | Owner 画像配置 |
+| [memory-ops.md](./memory-ops.md) | **记忆运维**：推荐 env、smoke/reindex、灵文检查表索引 |
 | [manual-testing-guide.md](./manual-testing-guide.md) | CLI + 微信完整人工测试手册 |
 
 ## 推荐顺序

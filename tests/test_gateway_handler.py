@@ -306,7 +306,7 @@ class TestSlashCommands:
             return_value={"memory_updates": 1, "skills_extracted": 0},
         ):
             text = handler._handle_command("/new")
-        assert text.startswith("已清空对话历史。")
+        assert text.startswith("已清空本轮对话上下文。")
         assert "已提炼" in text
         assert handler._sessions == {}
         assert handler.last_health_summary("default") == {}
@@ -327,7 +327,7 @@ class TestSlashCommands:
         ) as finalize:
             text = handler.handle_message("/new", session_key="a")
 
-        assert text.startswith("已清空对话历史。")
+        assert text.startswith("已清空本轮对话上下文。")
         finalize.assert_called_once_with(handler._orchestrator, loop_a)
         assert "a" not in handler._sessions
         assert handler._sessions["b"] is loop_b
@@ -382,7 +382,7 @@ class TestSlashCommands:
             return_value={"skipped": True, "reason": "short_history"},
         ):
             text = handler._handle_command("/新对话")
-        assert text.startswith("已清空对话历史。")
+        assert text.startswith("已清空本轮对话上下文。")
 
     def test_non_command_returns_none(self, handler):
         assert handler._handle_command("/unknowncmd") is None

@@ -70,14 +70,68 @@ _PENDING_UNCERTAIN = frozenset(
 _ROLE_SECTIONS: dict[str, tuple[str, ...]] = {
     "dev": ("Architecture", "Patterns", "API", "Notes"),
     "developer": ("Architecture", "Patterns", "API", "Notes"),
+    "dev_agent": ("Architecture", "Patterns", "API", "Notes"),
     "impl": ("Architecture", "Patterns", "API"),
     "code": ("Architecture", "Patterns", "API"),
+    "content": ("Notes", "Patterns", "Decisions"),
+    "content_agent": ("Notes", "Patterns", "Decisions"),
     "review": ("Architecture", "Decisions", "Patterns"),
     "reviewer": ("Architecture", "Decisions", "Patterns"),
+    "review_agent": ("Architecture", "Decisions", "Patterns"),
+    "lead": ("Architecture", "Decisions", "Notes"),
+    "butler": ("Decisions", "Notes", "Architecture"),
     "plan": ("Architecture", "Decisions", "Notes"),
     "architect": ("Architecture", "Decisions", "Patterns", "API"),
     "default": ("Architecture", "Decisions", "Patterns", "API", "Notes"),
 }
+
+_ROLE_PREFETCH_PROJECT_MAX_CHARS: dict[str, int] = {
+    "lead": 800,
+    "butler": 900,
+    "content": 900,
+    "content_agent": 900,
+    "review": 1000,
+    "review_agent": 1000,
+    "dev": 1200,
+    "dev_agent": 1200,
+}
+
+
+def sections_for_agent_role(role: str) -> tuple[str, ...]:
+    """MEMORY.md sections to inject for a role (prefetch fallback + filtering)."""
+    key = (role or "default").strip().lower()
+    sections = _ROLE_SECTIONS.get(key)
+    if sections is not None:
+        return sections
+    for prefix, secs in _ROLE_SECTIONS.items():
+        if prefix != "default" and key.startswith(prefix):
+            return secs
+    return _ROLE_SECTIONS["default"]
+
+
+def project_prefetch_max_chars(role: str, *, default: int) -> int:
+    """Per-role cap on project MEMORY fallback block size."""
+    key = (role or "default").strip().lower()
+    if key in _ROLE_PREFETCH_PROJECT_MAX_CHARS:
+        return _ROLE_PREFETCH_PROJECT_MAX_CHARS[key]
+    for prefix, cap in _ROLE_PREFETCH_PROJECT_MAX_CHARS.items():
+        if key.startswith(prefix):
+            return cap
+    return default
+
+
+def filter_memory_hits_by_role(
+    hits: list[dict[str, Any]],
+    role: str,
+) -> list[dict[str, Any]]:
+    """Keep only query-aligned bullets whose section matches the active role."""
+    allowed = set(sections_for_agent_role(role))
+    out: list[dict[str, Any]] = []
+    for hit in hits:
+        sec = (hit.get("section") or "Notes").strip() or "Notes"
+        if sec in allowed:
+            out.append(hit)
+    return out
 
 _PENDING_LINE_RE = re.compile(
     r"^-\s*\[PENDING\]\s*\[target:(?P<target>[^\]]+)\]\s*\[(?P<ts>[^\]]+)\]\s*(?P<body>.+)$"
@@ -548,15 +602,7 @@ class ProjectMemory:
         return text
 
     def get_context_for_agent(self, role: str) -> str:
-        key = (role or "default").strip().lower()
-        sections = _ROLE_SECTIONS.get(key)
-        if sections is None:
-            for prefix, secs in _ROLE_SECTIONS.items():
-                if key.startswith(prefix):
-                    sections = secs
-                    break
-        if sections is None:
-            sections = _ROLE_SECTIONS["default"]
+        sections = sections_for_agent_role(role)
 
         parts: list[str] = []
         ft = self.facts.format_for_prompt()
