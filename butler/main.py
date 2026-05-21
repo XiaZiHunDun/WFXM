@@ -252,6 +252,7 @@ def _handle_slash_command(
             "  /steer <文本>   — 向运行中的 Agent 插入指引（不打断工具）\n"
             "  /记忆待审       — 列出项目 MEMORY Pending 队列\n"
             "  /批准记忆 <序号|全部> — 批准待审记忆\n"
+            "  /拒绝记忆 <序号|全部> — 拒绝待审记忆（清理 Pending 向量）\n"
             "  /quit           — 退出\n"
         )
         return "handled"

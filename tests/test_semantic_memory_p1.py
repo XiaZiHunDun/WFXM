@@ -180,6 +180,14 @@ class TestProjectPrefetchAndFence:
         assert hits
         assert "2026-05-22" in hits[0]["content"]
 
+    def test_format_diagnostics_shows_cache_hit(self):
+        from butler.memory.diagnostics import format_memory_diagnostic_lines
+
+        lines = format_memory_diagnostic_lines(
+            {"memory_prefetch_cache_hit": True, "semantic_enabled": True, "vector_rows": 1}
+        )
+        assert any("预取缓存" in ln and "命中" in ln for ln in lines)
+
     def test_prefetch_uses_project_query_hits(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")
         proj_dir = tmp_path / "lw"

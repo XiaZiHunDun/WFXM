@@ -61,6 +61,46 @@ class TestPendingMemoryCommands:
         assert "2" in out
         assert not pm.markdown.list_pending()
 
+    def test_reject_pending_clears_vector(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")
+        from butler.memory import ButlerMemory
+        from butler.memory.semantic_project import (
+            index_pending_memory_bullet,
+            pending_source_id,
+        )
+
+        proj_dir = tmp_path / "p3"
+        proj_dir.mkdir()
+        (proj_dir / "project.yaml").write_text(
+            f"name: p\nworkspace: {proj_dir}\n",
+            encoding="utf-8",
+        )
+        proj = Project.from_yaml(proj_dir / "project.yaml")
+        bm = ButlerMemory(tmp_path / "home", tenant_id="default")
+        pm = ProjectMemory(proj_dir)
+        pm.markdown.append("Decisions", "我们决定采用 Kafka", classification="pending")
+        index_pending_memory_bullet(bm.semantic, "p", "我们决定采用 Kafka")
+        pend_sid = pending_source_id("p", "我们决定采用 Kafka")
+
+        orch = MagicMock()
+        orch.butler_memory = bm
+        orch._project_memory = pm
+        orch.project_manager.get_current.return_value = proj
+        orch._reload_project_memory = MagicMock()
+
+        out = handle_memory_pending_command(orch, "/拒绝记忆", "1")
+        assert out and "已拒绝" in out
+        assert not pm.markdown.list_pending()
+        with bm.semantic._lock:
+            with bm.semantic._connect() as conn:
+                assert (
+                    conn.execute(
+                        "SELECT 1 FROM memory_vectors WHERE source_id = ?",
+                        (pend_sid,),
+                    ).fetchone()
+                    is None
+                )
+
 
 @pytest.mark.module_test
 class TestNovelFactoryStatusWorkflow:
@@ -105,6 +145,7 @@ class TestGatewayMemorySlashRegistration:
     def test_sessionless_includes_memory_commands(self):
         assert _is_sessionless_command("/记忆待审")
         assert _is_sessionless_command("/批准记忆 1")
+        assert _is_sessionless_command("/拒绝记忆 1")
 
     def test_status_shows_env_default_project(self, monkeypatch):
         monkeypatch.setenv("BUTLER_DEFAULT_PROJECT", "灵文1号")

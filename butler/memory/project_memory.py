@@ -286,6 +286,90 @@ class MarkdownMemory:
             count += 1
         return count
 
+    def reject_pending(self, idx: int) -> bool:
+        """Remove one Pending entry without promoting to a formal section."""
+        pending = self.list_pending()
+        if not (0 <= idx < len(pending)):
+            return False
+        item = pending[idx]
+        line = item["line"]
+        with self._lock:
+            text = self._read_unlocked()
+            pend_block = self._extract_section(text, "Pending")
+            if not any(ln.strip() == line.strip() for ln in pend_block.splitlines()):
+                return False
+            new_pend_lines = []
+            removed = False
+            for ln in pend_block.splitlines():
+                if not removed and ln.strip() == line.strip():
+                    removed = True
+                    continue
+                new_pend_lines.append(ln)
+            new_pend = "\n".join(new_pend_lines).strip()
+            self._replace_section_body_unlocked(text, "Pending", new_pend)
+        return True
+
+    def reject_all_pending(self) -> int:
+        count = 0
+        while self.list_pending():
+            if not self.reject_pending(0):
+                break
+            count += 1
+        return count
+
+    _FORMAL_BULLET_RE = re.compile(r"^-\s*\[[^\]]+\]\s*(.+)$")
+
+    def list_formal_bullets(self) -> list[dict[str, str]]:
+        """All non-Pending bullets: section + content body."""
+        out: list[dict[str, str]] = []
+        for section, body in self.get_all_sections().items():
+            if section == "Pending":
+                continue
+            for line in (body or "").splitlines():
+                m = self._FORMAL_BULLET_RE.match(line.strip())
+                if not m:
+                    continue
+                content = m.group(1).strip()
+                if content:
+                    out.append({"section": section, "content": content, "line": line.strip()})
+        return out
+
+    def remove_bullet(self, section: str, content: str) -> bool:
+        """Remove a formal bullet whose body exactly matches ``content``."""
+        section = normalize_section_name(section)
+        target = (content or "").strip()
+        if not target:
+            return False
+        with self._lock:
+            text = self._read_unlocked()
+            block = self._extract_section(text, section)
+            if not block:
+                return False
+            new_lines: list[str] = []
+            removed = False
+            for ln in block.splitlines():
+                m = self._FORMAL_BULLET_RE.match(ln.strip())
+                if not removed and m and m.group(1).strip() == target:
+                    removed = True
+                    continue
+                if ln.strip():
+                    new_lines.append(ln)
+            if not removed:
+                return False
+            self._replace_section_body_unlocked(text, section, "\n".join(new_lines).strip())
+        return True
+
+    def replace_bullet(self, section: str, old_content: str, new_content: str) -> bool:
+        """Replace bullet body; returns False if old line not found."""
+        old = (old_content or "").strip()
+        new = (new_content or "").strip()
+        if not old or not new:
+            return False
+        if not self.remove_bullet(section, old):
+            return False
+        self.append(section, new, classification="fact")
+        return True
+
     def _replace_section_body_unlocked(self, text: str, section: str, new_body: str) -> None:
         marker = f"## {section}"
         if marker not in text:

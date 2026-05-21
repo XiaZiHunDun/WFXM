@@ -29,6 +29,7 @@ def format_pending_memory_list(orchestrator: "ButlerOrchestrator") -> str:
         lines.append(f"{i}. → {tgt} | {body}")
     lines.append("")
     lines.append("批准: /批准记忆 <序号>  或  /批准记忆 全部")
+    lines.append("拒绝: /拒绝记忆 <序号>  或  /拒绝记忆 全部")
     return "\n".join(lines)
 
 
@@ -37,9 +38,12 @@ def handle_memory_pending_command(
     cmd: str,
     arg: str,
 ) -> Optional[str]:
-    """Handle /记忆待审 and /批准记忆. Returns None if cmd not recognized."""
+    """Handle /记忆待审, /批准记忆, /拒绝记忆. Returns None if cmd not recognized."""
     if cmd in ("/记忆待审", "/pending-memory", "/待审记忆"):
         return format_pending_memory_list(orchestrator)
+
+    if cmd in ("/拒绝记忆", "/reject-memory", "/拒绝"):
+        return _handle_reject_pending(orchestrator, arg)
 
     if cmd not in ("/批准记忆", "/approve-memory", "/批准"):
         return None
@@ -76,6 +80,39 @@ def handle_memory_pending_command(
     return "批准失败（条目可能已被处理）。"
 
 
+def _handle_reject_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str:
+    pmem = _project_memory(orchestrator)
+    if pmem is None:
+        return "请先 /切换 到已选项目。"
+
+    key = (arg or "").strip().lower()
+    if key in ("全部", "all", "*"):
+        pending_before = pmem.markdown.list_pending()
+        count = pmem.markdown.reject_all_pending()
+        _sync_vectors_after_reject(orchestrator, pending_before[:count])
+        return f"已拒绝 {count} 条待审记忆（未写入正式章节）。"
+
+    if not arg.strip():
+        return "用法: /拒绝记忆 <序号>  或  /拒绝记忆 全部\n先发送 /记忆待审 查看列表。"
+
+    try:
+        idx = int(arg.strip()) - 1
+    except ValueError:
+        return "序号必须是数字。例: /拒绝记忆 1"
+
+    pending = pmem.markdown.list_pending()
+    if not pending:
+        return "没有待拒绝条目。"
+    if not (0 <= idx < len(pending)):
+        return f"序号超出范围（1–{len(pending)}）。"
+
+    item = pending[idx]
+    if pmem.markdown.reject_pending(idx):
+        _sync_vectors_after_reject(orchestrator, [item])
+        return f"已拒绝第 {idx + 1} 条，已从 Pending 移除。"
+    return "拒绝失败（条目可能已被处理）。"
+
+
 def _sync_vectors_after_approve(
     orchestrator: "ButlerOrchestrator",
     items: list[dict[str, str]],
@@ -101,6 +138,27 @@ def _sync_vectors_after_approve(
             continue
         invalidate_pending_vector(sem, proj.name, body)
         index_project_memory_bullet(sem, proj.name, tgt, body)
+
+
+def _sync_vectors_after_reject(
+    orchestrator: "ButlerOrchestrator",
+    items: list[dict[str, str]],
+) -> None:
+    if not items:
+        return
+    bm = getattr(orchestrator, "butler_memory", None)
+    sem = getattr(bm, "semantic", None) if bm is not None else None
+    if sem is None:
+        return
+    proj = orchestrator.project_manager.get_current()
+    if proj is None:
+        return
+    from butler.memory.semantic_project import invalidate_pending_vector
+
+    for item in items:
+        body = (item.get("content") or "").strip()
+        if body:
+            invalidate_pending_vector(sem, proj.name, body)
 
 
 __all__ = [

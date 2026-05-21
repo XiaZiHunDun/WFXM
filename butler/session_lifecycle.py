@@ -196,33 +196,39 @@ def prefetch_turn_memory(
             if q_strip and current_project:
                 from butler.memory.semantic_config import semantic_memory_enabled
                 from butler.memory.semantic_index import SemanticMemoryIndex
-                from butler.memory.semantic_project import search_project_memory_vectors
+                from butler.memory.semantic_project import (
+                    prefetch_project_memory_hits,
+                    resolve_project_display_name,
+                )
 
                 sem = getattr(bm, "semantic", None) if bm is not None else None
-                if (
-                    semantic_memory_enabled()
-                    and isinstance(sem, SemanticMemoryIndex)
-                ):
-                    hits = search_project_memory_vectors(
-                        sem,
-                        q_strip,
-                        project=current_project,
-                        limit=project_hits_limit,
-                    )
-                    if hits:
-                        lines = [
-                            f"- {h.get('content', '')}".strip()
-                            for h in hits
-                            if h.get("content")
-                        ]
-                        if lines:
-                            parts.append(
-                                "## Query-aligned project memory\n" + "\n".join(lines)
-                            )
-                            injected_project = True
-                            if diagnostics is not None:
-                                diagnostics["memory_project_query_hits"] = len(lines)
-                                diagnostics["memory_project_semantic"] = True
+                if not isinstance(sem, SemanticMemoryIndex):
+                    sem = None
+                proj_name = resolve_project_display_name(pmem)
+                hits, mode = prefetch_project_memory_hits(
+                    pmem,
+                    q_strip,
+                    project_name=proj_name or current_project,
+                    semantic=sem,
+                    limit=project_hits_limit,
+                    semantic_enabled=semantic_memory_enabled(),
+                )
+                if hits:
+                    lines = [
+                        f"- {h.get('content', '')}".strip()
+                        for h in hits
+                        if h.get("content")
+                    ]
+                    if lines:
+                        title = "## Query-aligned project memory"
+                        if mode == "keyword":
+                            title = "## Query-aligned project memory (keyword)"
+                        parts.append(title + "\n" + "\n".join(lines))
+                        injected_project = True
+                        if diagnostics is not None:
+                            diagnostics["memory_project_query_hits"] = len(lines)
+                            diagnostics["memory_project_prefetch_mode"] = mode
+                            diagnostics["memory_project_semantic"] = mode == "vector"
             if not injected_project:
                 ctx = pmem.get_context_for_agent(role)
                 if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
