@@ -51,6 +51,7 @@ PYTHONPATH=. pytest \
   tests/test_main_cli.py::TestWechatSetupCommand \
   tests/test_session_lifecycle.py \
   tests/test_post_session.py \
+  tests/test_p0_memory_pilot.py \
   -q
 ```
 
