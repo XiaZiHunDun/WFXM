@@ -78,15 +78,35 @@ def _current_project(orchestrator: Any) -> str:
     return str(getattr(pm, "current_project", "") or "")
 
 
+def prefetch_limits() -> dict[str, int]:
+    """Env-tunable caps for per-turn memory injection (personal butler)."""
+    import os
+
+    def _int(name: str, default: int) -> int:
+        try:
+            return max(0, int(os.getenv(name, str(default)).strip() or default))
+        except ValueError:
+            return default
+
+    return {
+        "max_chars": _int("BUTLER_PREFETCH_MAX_CHARS", 3000),
+        "experience_hits": _int("BUTLER_PREFETCH_EXPERIENCE_HITS", 5),
+        "project_max_chars": _int("BUTLER_PREFETCH_PROJECT_MAX_CHARS", 1200),
+        "total_max_chars": _int("BUTLER_PREFETCH_TOTAL_MAX_CHARS", 3500),
+    }
+
+
 def prefetch_turn_memory(
     orchestrator: Any,
     query: str,
     *,
     role: str = "default",
-    limit: int = 5,
+    limit: int | None = None,
     diagnostics: dict[str, Any] | None = None,
 ) -> str:
     """Collect query-relevant Butler/project memory for the next turn."""
+    caps = prefetch_limits()
+    hit_limit = limit if limit is not None else caps["experience_hits"]
     parts: list[str] = []
     current_project = _current_project(orchestrator)
 
@@ -107,7 +127,7 @@ def prefetch_turn_memory(
             exp = getattr(bm, "experience", None)
             if exp is not None and (query or "").strip():
                 hits = _filter_ephemeral_experience(
-                    exp.search(query, project=current_project or None, limit=limit)
+                    exp.search(query, project=current_project or None, limit=hit_limit)
                 )
                 if hits:
                     lines = [
@@ -129,7 +149,11 @@ def prefetch_turn_memory(
         try:
             ctx = pmem.get_context_for_agent(role)
             if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
-                parts.append(str(ctx).strip())
+                ctx_str = str(ctx).strip()
+                max_proj = caps["project_max_chars"]
+                if max_proj and len(ctx_str) > max_proj:
+                    ctx_str = ctx_str[:max_proj] + "\n…(项目记忆已截断)"
+                parts.append(ctx_str)
                 if diagnostics is not None:
                     diagnostics["memory_project_context"] = True
         except Exception as exc:
@@ -137,7 +161,15 @@ def prefetch_turn_memory(
                 diagnostics["memory_project_error"] = str(exc)
             logger.debug("Project memory prefetch skipped: %s", exc)
 
-    return "\n\n".join(p for p in parts if p.strip())
+    merged = "\n\n".join(p for p in parts if p.strip())
+    total_cap = caps["total_max_chars"]
+    if total_cap and len(merged) > total_cap:
+        merged = merged[:total_cap] + "\n…(记忆预取已截断)"
+        if diagnostics is not None:
+            diagnostics["memory_prefetch_truncated"] = True
+    if diagnostics is not None:
+        diagnostics["memory_prefetch_chars"] = len(merged)
+    return merged
 
 
 def clear_session_boundary_memory(
@@ -173,7 +205,7 @@ def inject_turn_memory(
     user_msg: str,
     *,
     role: str = "default",
-    max_chars: int = 3000,
+    max_chars: int | None = None,
 ) -> str:
     """Prepend relevant memory context to a user turn."""
     if not (user_msg or "").strip():
@@ -181,7 +213,8 @@ def inject_turn_memory(
     ctx = prefetch_turn_memory(orchestrator, user_msg, role=role)
     if not ctx.strip():
         return user_msg
-    return _render_turn_memory_context(ctx, user_msg, max_chars=max_chars)
+    cap = max_chars if max_chars is not None else prefetch_limits()["max_chars"]
+    return _render_turn_memory_context(ctx, user_msg, max_chars=cap)
 
 
 def _render_turn_memory_context(ctx: str, user_msg: str, *, max_chars: int = 3000) -> str:
@@ -200,9 +233,10 @@ def build_memory_pre_llm_transform(
     query: str,
     *,
     role: str = "default",
-    max_chars: int = 3000,
+    max_chars: int | None = None,
     diagnostics: dict[str, Any] | None = None,
 ):
+    cap = max_chars if max_chars is not None else prefetch_limits()["max_chars"]
     """Build an API-time memory injection transform that does not mutate history."""
 
     def _transform(messages: list[dict]) -> list[dict]:
@@ -220,11 +254,11 @@ def build_memory_pre_llm_transform(
                 msg["content"] = _render_turn_memory_context(
                     ctx,
                     content,
-                    max_chars=max_chars,
+                    max_chars=cap,
                 )
                 if diagnostics is not None:
                     diagnostics["memory_context_injected"] = True
-                    diagnostics["memory_context_chars"] = min(len(ctx), max_chars)
+                    diagnostics["memory_context_chars"] = min(len(ctx), cap)
                 break
         return out
 

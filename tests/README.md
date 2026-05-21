@@ -54,6 +54,7 @@ PYTHONPATH=. pytest \
   tests/test_p0_memory_pilot.py \
   tests/test_memory_p1_p2.py \
   tests/test_memory_consistency.py \
+  tests/test_memory_quality.py \
   -q
 ```
 

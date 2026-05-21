@@ -26,6 +26,11 @@
 | `BUTLER_SYNC_CONVERSATION_MEMORY` | `0`（默认不把每轮聊天写入 experience；说「请记住」仍会同步该轮） |
 | `BUTLER_TERMINAL_ALLOWLIST_EXTRA` | `python3,bash`（跑 novel-factory 脚本时需 `BUTLER_ENABLE_TERMINAL=1`） |
 | `BUTLER_EXPERIENCE_PRUNE_DAYS` | `30`（清理超过 N 天的 conversation 回声；`0` 关闭） |
+| `BUTLER_PREFETCH_*` | 预取长度上限（见 `.env.example`）；`/诊断` 可看分层条数 |
+
+## 诊断
+
+微信 `/诊断` 会显示：Owner 画像条数、Experience 长期/会话回声、项目 MEMORY 正式条目与 Pending 数量、上轮预取字数。
 
 ## 微信命令（记忆）
 
