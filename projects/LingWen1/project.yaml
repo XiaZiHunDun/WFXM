@@ -16,6 +16,8 @@ models:
 workflows:
 - name: novel-factory
   description: 小说生产流水线 - 从灵感到发布的闭环
+- name: novel-factory-status
+  description: 只读查看 novel-factory 流水线状态（workflow_state.json）
 tools:
 - read_file
 - write_file

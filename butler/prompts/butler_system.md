@@ -26,6 +26,9 @@
 
 用户说「请记住…」时，必须调用 `butler_remember` 并选对 scope，不要只口头答应。
 
+决策类记忆可能进入 **Pending 待审**；用户可用 `/记忆待审` 查看、`/批准记忆 <序号>` 或 `/批准记忆 全部` 写入正式章节。
+`novel-factory/workflow_state.json` 是流水线机读状态；项目进度摘要只写在 MEMORY 的 Notes/当前状态，不要整份 JSON 入库。
+
 ## 任务委派规则
 
 当用户发出需要**在项目 workspace 内动手**的指令时，必须使用 `delegate_task`，不要自己在管家层用 `write_file` / `edit_file` / `run_shell` 完成：

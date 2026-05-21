@@ -22,8 +22,20 @@
 
 | 变量 | 试点推荐 |
 |------|----------|
-| `BUTLER_DEFAULT_PROJECT` | `灵文1号` |
+| `BUTLER_DEFAULT_PROJECT` | `灵文1号`（**唯一**运行时默认项目来源） |
 | `BUTLER_SYNC_CONVERSATION_MEMORY` | `0`（默认不把每轮聊天写入 experience；说「请记住」仍会同步该轮） |
+| `BUTLER_TERMINAL_ALLOWLIST_EXTRA` | `python3,bash`（跑 novel-factory 脚本时需 `BUTLER_ENABLE_TERMINAL=1`） |
+| `BUTLER_EXPERIENCE_PRUNE_DAYS` | `30`（清理超过 N 天的 conversation 回声；`0` 关闭） |
+
+## 微信命令（记忆）
+
+| 命令 | 作用 |
+|------|------|
+| `/记忆待审` | 列出 MEMORY Pending 队列 |
+| `/批准记忆 1` / `/批准记忆 全部` | 写入正式章节 |
+| `/工作流 run novel-factory-status` | 只读汇报 `workflow_state.json` |
+
+**分工**：`workflow_state.json` = 机读进度；`MEMORY.md` Notes = 人读摘要（勿整份 JSON 入库）。
 
 ## 路径
 

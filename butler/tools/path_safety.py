@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-_ALLOWED_TERMINAL_COMMANDS = {
+_BASE_TERMINAL_COMMANDS = {
     "cat",
     "echo",
     "false",
@@ -20,6 +20,20 @@ _ALLOWED_TERMINAL_COMMANDS = {
     "tail",
     "true",
 }
+
+# Pilot novel-factory scripts: enable with BUTLER_TERMINAL_ALLOWLIST_EXTRA=python3,bash
+_EXTRA_TERMINAL_ENV = "BUTLER_TERMINAL_ALLOWLIST_EXTRA"
+
+
+def _allowed_terminal_commands() -> set[str]:
+    allowed = set(_BASE_TERMINAL_COMMANDS)
+    raw = os.getenv(_EXTRA_TERMINAL_ENV, "").strip()
+    if raw:
+        for part in raw.replace(";", ",").split(","):
+            name = part.strip()
+            if name:
+                allowed.add(name)
+    return allowed
 
 
 @dataclass(frozen=True)
@@ -106,7 +120,7 @@ def prepare_shell_command(command: str) -> CommandSafetyResult:
     if not argv:
         return CommandSafetyResult(False, [], "Command is empty")
     command_name = Path(argv[0]).name
-    if "/" in argv[0] or command_name not in _ALLOWED_TERMINAL_COMMANDS:
+    if "/" in argv[0] or command_name not in _allowed_terminal_commands():
         return CommandSafetyResult(False, [], "Terminal command is not in the allowlist")
     if _has_shell_metacharacters(text):
         return CommandSafetyResult(False, [], "Shell metacharacters are not allowed in terminal commands")

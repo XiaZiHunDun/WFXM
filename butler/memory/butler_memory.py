@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -11,6 +12,8 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _INJECTION_PATTERNS = re.compile(
     r"(ignore previous|system prompt|you are now|forget everything|\[\[INST\]\])",
@@ -315,6 +318,21 @@ class ExperienceStore:
                 conn.commit()
                 return int(cur.rowcount or 0)
 
+    def prune_conversation_older_than(self, max_age_days: float = 30.0) -> int:
+        """Drop stale ephemeral conversation rows (personal butler hygiene)."""
+        cutoff = time.time() - max(1.0, float(max_age_days)) * 86400.0
+        with self._lock:
+            with self._connect() as conn:
+                cur = conn.execute(
+                    """
+                    DELETE FROM experiences
+                    WHERE category = ? AND created_at < ?
+                    """,
+                    ("conversation", cutoff),
+                )
+                conn.commit()
+                return int(cur.rowcount or 0)
+
     def get_recent(self, limit: int = 5) -> list[dict[str, Any]]:
         with self._lock:
             with self._connect() as conn:
@@ -358,6 +376,21 @@ class ButlerMemory:
         mem_dir.mkdir(parents=True, exist_ok=True)
         self.profile = ProfileStore(mem_dir / "profile.json")
         self.experience = ExperienceStore(mem_dir / "experience.db")
+        self._maybe_prune_stale_conversations()
+
+    def _maybe_prune_stale_conversations(self) -> None:
+        import os
+
+        raw = os.getenv("BUTLER_EXPERIENCE_PRUNE_DAYS", "30").strip()
+        if raw in ("0", "off", "false", "no"):
+            return
+        try:
+            days = float(raw)
+        except ValueError:
+            days = 30.0
+        removed = self.experience.prune_conversation_older_than(days)
+        if removed:
+            logger.info("Pruned %d stale conversation experience row(s)", removed)
 
     @classmethod
     def default(cls, *, tenant_id: str = "default") -> ButlerMemory:
