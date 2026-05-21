@@ -50,6 +50,10 @@
 
 `projects/LingWen1/.butler/memory/facts.json` 由 `auto_extract` 从仓库扫描生成，**当前未接入** 每轮预取与 `butler_recall`。试点以 **MEMORY.md + Owner 画像 + experience** 为准；facts 仅保留代码占位，后续若接入会单独说明。
 
+## 多智能体 / 厂长模式
+
+平台决策见 [`docs/architecture/project-lead-decision.md`](../../../docs/architecture/project-lead-decision.md)；灵文 Lead 五条能力与禁止项见 [`project-lead-scope.md`](project-lead-scope.md)。
+
 ## 路线图
 
 **向量语义（可选）**：`.env` 设 `BUTLER_SEMANTIC_MEMORY=1` 后启用 `memory_vectors.db`；默认 **本地 hashing**（无云）。可选 `BUTLER_EMBEDDING_PROVIDER=openai|minimax` 走对应 Embedding API（失败自动回退 hashing）。`butler_remember` 写入 fact/decision/Pending 会同步向量；`/批准记忆` 会移除待审向量并索引正式章节。`butler_recall` / 每轮预取走 **FTS + 向量混合**。默认 `BUTLER_SEMANTIC_MEMORY=0` 仅 FTS。

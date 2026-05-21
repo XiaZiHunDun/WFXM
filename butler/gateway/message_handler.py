@@ -214,6 +214,7 @@ class ButlerMessageHandler:
             augmented = apply_pre_llm_context(
                 self._orchestrator.inject_skill_context(text, diagnostics=health),
                 session_key=session_key,
+                orchestrator=self._orchestrator,
             )
 
             loop = self._get_or_create_loop(session_key)

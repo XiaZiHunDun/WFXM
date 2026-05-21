@@ -136,7 +136,12 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             console.print("[dim]输入 /help 查看可用命令[/dim]")
             continue
 
-        augmented = orchestrator.inject_skill_context(user_input)
+        from butler.gateway.hooks import apply_pre_llm_context
+
+        augmented = apply_pre_llm_context(
+            orchestrator.inject_skill_context(user_input),
+            orchestrator=orchestrator,
+        )
         ui.print_user_message(user_input)
         ui.begin_turn()
         stream = None
