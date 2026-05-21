@@ -280,6 +280,13 @@ def _record_tool_audit(
         )
         bucket.append(event)
 
+    try:
+        from butler.tools.audit_persist import persist_tool_audit_event
+
+        persist_tool_audit_event(event)
+    except Exception as exc:
+        logger.debug("Tool audit persist skipped: %s", exc)
+
 
 _builtins_loaded = False
 
@@ -477,6 +484,14 @@ def _register_builtin_tools() -> None:
     from butler.tools.git_tools import register_git_tools
 
     register_git_tools(register)
+
+    from butler.tools.runtime_tools import register_runtime_tools
+
+    register_runtime_tools(register)
+
+    from butler.tools.download_tools import register_download_tools
+
+    register_download_tools(register)
 
 
 # ── Tool Implementations ─────────────────────────────────────
