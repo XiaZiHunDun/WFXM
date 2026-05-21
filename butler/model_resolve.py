@@ -134,6 +134,52 @@ def format_effective_models(
     return "\n".join(lines)
 
 
+def format_model_diagnostic_lines(
+    *,
+    project: Project | None = None,
+    settings: ButlerSettings | None = None,
+) -> list[str]:
+    """Compact model block for ``/诊断`` (no /model usage footer)."""
+    import os
+
+    settings = settings or get_butler_settings()
+    lines = ["--- 有效模型 ---"]
+    for role in _LIST_ROLES:
+        em = resolve_effective_model(role, project=project, settings=settings)
+        c = em.config
+        spec = f"{c.provider or '-'}/{c.model or '-'}"
+        lines.append(f"  {role}: {spec} [{_format_sources(em.sources)}]")
+
+    try:
+        from butler.transport.auxiliary_client import resolve_auxiliary_config
+
+        for task in ("compression", "post_session"):
+            aux = resolve_auxiliary_config(task)
+            lines.append(
+                f"  auxiliary({task}): {aux.provider or '-'}/{aux.model or '-'}"
+            )
+    except Exception:
+        lines.append("  auxiliary: 未配置")
+
+    try:
+        from butler.gateway.inbound_media import inbound_media_enabled
+
+        if inbound_media_enabled():
+            from butler.gateway.minimax_vlm import _api_host
+
+            lines.append(
+                f"  gateway(识图): minimax VLM @ {_api_host()}/v1/coding_plan/vlm"
+            )
+            stt = os.getenv("BUTLER_WECHAT_STT_PROVIDER", "local").strip() or "local"
+            lines.append(f"  gateway(语音): iLink 优先; silk STT={stt}")
+        else:
+            lines.append("  gateway(入站媒体): 关")
+    except Exception:
+        lines.append("  gateway(入站媒体): 不可用")
+
+    return lines
+
+
 def _persist_global_role(settings: ButlerSettings, role: str, cfg: ModelConfig) -> None:
     role = normalize_role(role)
     settings.models.set(role, cfg)

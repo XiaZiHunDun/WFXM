@@ -500,6 +500,14 @@ class ButlerMessageHandler:
             from butler.runtime.diagnostics import format_runtime_diagnostic_lines
 
             lines.extend(format_runtime_diagnostic_lines(proj_name))
+            from butler.model_resolve import format_model_diagnostic_lines
+
+            lines.extend(
+                format_model_diagnostic_lines(
+                    project=proj,
+                    settings=self._orchestrator._settings,
+                )
+            )
             return "\n".join(lines)
 
         if health:
@@ -560,6 +568,17 @@ class ButlerMessageHandler:
             from butler.runtime.diagnostics import format_runtime_diagnostic_lines
 
             lines.extend(format_runtime_diagnostic_lines(proj_name))
+            proj = self._orchestrator.project_manager.get_current(
+                session_key=session_key
+            )
+            from butler.model_resolve import format_model_diagnostic_lines
+
+            lines.extend(
+                format_model_diagnostic_lines(
+                    project=proj,
+                    settings=self._orchestrator._settings,
+                )
+            )
             if health.get("error"):
                 lines.append("错误: 有（查看日志）")
             if health.get("hygiene_error"):
@@ -578,6 +597,14 @@ class ButlerMessageHandler:
             from butler.runtime.diagnostics import format_runtime_diagnostic_lines
 
             lines.extend(format_runtime_diagnostic_lines(proj_name))
+            from butler.model_resolve import format_model_diagnostic_lines
+
+            lines.extend(
+                format_model_diagnostic_lines(
+                    project=proj,
+                    settings=self._orchestrator._settings,
+                )
+            )
 
         if tool_summary["total"]:
             lines.extend([

@@ -9,6 +9,7 @@ import yaml
 
 from butler.config import ModelConfig, LayeredModelConfig, reload_butler_settings
 from butler.model_resolve import (
+    format_model_diagnostic_lines,
     handle_model_command,
     normalize_role,
     parse_model_spec,
@@ -127,6 +128,15 @@ class TestHandleModelCommand:
         assert reset is True
         em = resolve_effective_model("butler", settings=settings)
         assert em.config.model == "gpt-4o"
+
+    def test_diagnostic_lines_include_roles_and_gateway(self, tmp_butler_home, monkeypatch):
+        monkeypatch.setenv("MINIMAX_API_KEY", "k")
+        _reset()
+        lines = format_model_diagnostic_lines()
+        text = "\n".join(lines)
+        assert "--- 有效模型 ---" in text
+        assert "butler:" in text
+        assert "gateway(识图)" in text or "gateway(入站媒体)" in text
 
     def test_reset_clears_runtime(self, tmp_butler_home, monkeypatch):
         monkeypatch.setenv("MINIMAX_API_KEY", "k")
