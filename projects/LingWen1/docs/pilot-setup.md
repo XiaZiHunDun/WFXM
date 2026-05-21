@@ -42,8 +42,10 @@ rsync -a --delete "$SRC/" "$DST/"
 ```bash
 cd ~/projects/WFXM
 bash scripts/sync-lingwen-project-skills.sh
-bash scripts/butler-gateway-ops.sh restart   # 网关加载 Skill
+bash scripts/butler-gateway-ops.sh restart   # 网关加载 Skill + Lead Loop
 ```
+
+阶段 2：`/切换 灵文1号` 后会话使用 **项目 Lead** 引擎（非管家 Butler 主循环）；`/诊断` 可见「对话引擎: 项目 Lead」。
 
 ## 记忆试点
 

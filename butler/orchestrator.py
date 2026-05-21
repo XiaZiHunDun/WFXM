@@ -39,6 +39,10 @@ def _template_path() -> Path:
     return Path(__file__).resolve().parent / "prompts" / "butler_system.md"
 
 
+def _lead_template_path() -> Path:
+    return Path(__file__).resolve().parent / "prompts" / "lingwen_lead_system.md"
+
+
 def _format_project_list(settings: ButlerSettings) -> str:
     pm = get_project_manager()
     names = sorted(p.name for p in pm.list_projects())
@@ -264,6 +268,46 @@ class ButlerOrchestrator:
         )
         return rendered.rstrip() + appendix
 
+    def build_lead_system_prompt(self, *, session_key: str = "") -> str:
+        """System prompt for project Lead gateway loop (phase 2)."""
+        from butler.agent_profiles import get_profile
+
+        path = _lead_template_path()
+        try:
+            body = path.read_text(encoding="utf-8")
+        except OSError:
+            logger.warning("Lead system template missing at %s", path)
+            prof = get_profile("lead")
+            body = prof.system_prompt if prof else ""
+
+        current = self.project_manager.resolve_active_project_name(
+            session_key=session_key,
+        ) or self.project_manager.current_project or "(未选择)"
+        memory_ctx = self.build_memory_context(for_role="lead")
+        from butler.workflows.loader import format_workflows_for_prompt
+
+        workflows_block = format_workflows_for_prompt(
+            self.project_manager.get_current(session_key=session_key or "")
+        )
+        placeholders = {
+            "current_project": current,
+            "memory_context": memory_ctx or "(无)",
+            "workflows_block": workflows_block or "(无)",
+        }
+        rendered = body
+        for k, v in placeholders.items():
+            rendered = rendered.replace("{" + k + "}", v)
+        profile = get_profile("lead")
+        if profile:
+            from butler.agent_profiles import get_model_aware_prompt_extra
+
+            mc = self._model_credentials("butler")
+            prov = mc.get("provider") or ""
+            extra = get_model_aware_prompt_extra(str(prov))
+            if extra:
+                rendered += "\n\n" + extra
+        return rendered.rstrip()
+
     def get_agent_kwargs(self) -> dict[str, Any]:
         """Return kwargs dict (kept for backward compat)."""
         mc = self._model_credentials("butler")
@@ -297,6 +341,7 @@ class ButlerOrchestrator:
         tools: list[dict] | None = None,
         tool_dispatcher: Any = None,
         callbacks: Any = None,
+        session_key: str = "",
     ) -> "AgentLoop":
         """Create a fully configured AgentLoop for the given role."""
         from butler.config import ModelConfig
@@ -304,14 +349,18 @@ class ButlerOrchestrator:
         from butler.transport.fallback import build_fallback_chain
         from butler.transport.model_context import infer_context_length
 
-        client = self.create_llm_client(role)
-        mc = self._model_credentials(role)
+        llm_role = "butler" if role == "lead" else role
+        client = self.create_llm_client(llm_role)
+        mc = self._model_credentials(llm_role)
         primary = ModelConfig(provider=mc.get("provider") or "", model=mc.get("model") or "")
         fallback_chain = build_fallback_chain(primary)
 
-        system_prompt = self.build_system_prompt() if role == "butler" else ""
-
-        if role != "butler":
+        if role == "butler":
+            system_prompt = self.build_system_prompt()
+        elif role == "lead":
+            system_prompt = self.build_lead_system_prompt(session_key=session_key)
+        else:
+            system_prompt = ""
             from butler.agent_profiles import get_profile
             profile = get_profile(role.replace("_agent", ""))
             if profile:

@@ -84,7 +84,7 @@ def register_workflow_hooks() -> None:
     if _REGISTERED:
         return
     register_hook("project_switched", _on_project_switched)
-    register_hook("pre_llm_call", _pre_llm_lingwen_lead)
+    # Phase 2: 灵文1号 使用 Lead AgentLoop 系统提示，不再每轮 pre_llm 重复注入
     _REGISTERED = True
 
 

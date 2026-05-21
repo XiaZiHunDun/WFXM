@@ -6,3 +6,4 @@
 | 2026-05-21 | 记忆模块 P0–P2 微信验收 | M1–M4 **真机全通过**（M4：同句 20–90s 内复问 → `/诊断` 上轮预取缓存命中）；pytest `test_memory_m3_m4_smoke`；`.env`：`SEMANTIC_MEMORY=1`、`QUEUE_PREFETCH=1` |
 | 2026-05-21 | 记忆写入备忘 | `butler_remember` Notes：试点统一测试日 2026-05-22；流程：测试 → `/记忆待审` → `/批准记忆 全部` |
 | 2026-05-21 | 项目 Lead 阶段 1 | ADR + Skill `lingwen-project-lead` + 厂长 `pre_llm_call`；**微信验收通过**（读 phase/step、content 委派写 docs、不直接改盘） |
+| 2026-05-21 | 项目 Lead 阶段 2 | 灵文1号专用 **Lead AgentLoop**（`lingwen_lead_system.md`、工具白名单、切换文案）；待微信验收 |

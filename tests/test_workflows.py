@@ -170,30 +170,23 @@ class TestWorkflowSlash:
 
 @pytest.mark.module_test
 class TestLingwenLeadHooks:
-    def test_pre_llm_hook_for_lingwen_project(self):
-        from butler.workflows.hooks import _pre_llm_lingwen_lead
+    def test_project_switched_includes_workflows_for_lingwen(self):
+        from butler.workflows.hooks import _on_project_switched
 
         orch = MagicMock()
-        orch.project_manager.current_project = "灵文1号"
-        out = _pre_llm_lingwen_lead(orchestrator=orch)
+        proj = MagicMock()
+        proj.name = "灵文1号"
+        orch.project_manager.get_current.return_value = proj
+        from types import SimpleNamespace
+
+        with patch(
+            "butler.workflows.loader.list_workflows_for_project",
+            return_value=[SimpleNamespace(name="novel-factory")],
+        ):
+            out = _on_project_switched(
+                old_project="",
+                new_project="灵文1号",
+                orchestrator=orch,
+            )
         assert out is not None
-        assert "灵文厂长模式" in out["context"]
-        assert "workflow_state.json" in out["context"]
-
-    def test_pre_llm_hook_skips_other_projects(self):
-        from butler.workflows.hooks import _pre_llm_lingwen_lead
-
-        orch = MagicMock()
-        orch.project_manager.current_project = "Other"
-        assert _pre_llm_lingwen_lead(orchestrator=orch) is None
-
-    def test_apply_pre_llm_context_appends_lingwen(self):
-        from butler.gateway.hooks import apply_pre_llm_context, register_hook
-        from butler.workflows.hooks import _pre_llm_lingwen_lead, register_workflow_hooks
-
-        register_workflow_hooks()
-        orch = MagicMock()
-        orch.project_manager.current_project = "灵文1号"
-        text = apply_pre_llm_context("当前 phase 是什么", orchestrator=orch)
-        assert "当前 phase 是什么" in text
-        assert "灵文厂长模式" in text
+        assert "工作流" in out.get("context", "")
