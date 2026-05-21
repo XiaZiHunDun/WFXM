@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from butler.config import ModelConfig
+
 
 @dataclass
 class WorkflowStepDef:
@@ -14,6 +16,7 @@ class WorkflowStepDef:
     depends_on: list[str] = field(default_factory=list)
     tools: list[str] | None = None
     requires_approval: bool = False
+    model: ModelConfig | None = None
 
 
 @dataclass
@@ -43,6 +46,14 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
     tools = None
     if isinstance(tools_raw, list):
         tools = [str(t).strip() for t in tools_raw if str(t).strip()]
+    model_cfg: ModelConfig | None = None
+    model_raw = raw.get("model")
+    if isinstance(model_raw, str) and model_raw.strip():
+        from butler.model_resolve import parse_model_spec
+
+        model_cfg = parse_model_spec(model_raw.strip())
+    elif isinstance(model_raw, dict):
+        model_cfg = ModelConfig.from_dict(model_raw)
     return WorkflowStepDef(
         id=step_id,
         role=role,
@@ -50,6 +61,7 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         depends_on=[str(d).strip() for d in deps if str(d).strip()],
         tools=tools,
         requires_approval=bool(raw.get("requires_approval", False)),
+        model=model_cfg,
     )
 
 

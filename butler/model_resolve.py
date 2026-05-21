@@ -262,6 +262,16 @@ def handle_model_command(
     return f"已临时设置 {role} → {spec}（本会话 runtime，重启进程后丢失）", True
 
 
+def workflow_step_spawn_model_config(step_model: ModelConfig | None) -> dict[str, str] | None:
+    """Dict for :class:`~butler.task_orchestrator.AgentSpawnConfig.model_config`."""
+    if step_model is None or step_model.is_empty():
+        return None
+    d = step_model.to_dict()
+    if not d:
+        return None
+    return d
+
+
 def model_config_to_credentials(
     mc: ModelConfig,
     *,

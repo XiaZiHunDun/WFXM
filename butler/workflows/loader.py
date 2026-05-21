@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from butler.workflows.schema import WorkflowDef, parse_workflow_data
+from butler.workflows.schema import WorkflowDef, WorkflowStepDef, parse_workflow_data
+
+
+def _step_summary(step: WorkflowStepDef) -> str:
+    label = f"{step.id}({step.role})"
+    if step.model is not None and not step.model.is_empty():
+        label += f"[{step.model.provider or '-'}/{step.model.model or '-'}]"
+    return label
 
 if TYPE_CHECKING:
     from butler.project import Project
@@ -121,7 +128,7 @@ def format_workflows_for_prompt(project: "Project | None") -> str:
         status = "可执行" if wf.runnable else "未定义步骤"
         lines.append(f"- **{wf.name}** ({status}): {wf.description or '无描述'}")
         if wf.runnable:
-            step_bits = ", ".join(f"{s.id}({s.role})" for s in wf.steps)
+            step_bits = ", ".join(_step_summary(s) for s in wf.steps)
             lines.append(f"  步骤: {step_bits}")
     lines.append("用户可用 `/工作流 run <名称> [补充说明]` 或工具 `run_workflow` 触发 DAG 执行。")
     return "\n".join(lines)
@@ -142,7 +149,7 @@ def format_workflows_for_wechat(project: "Project | None") -> str:
         if wf.description:
             lines.append(f"   {wf.description}")
         if wf.runnable:
-            step_bits = " → ".join(f"{s.id}({s.role})" for s in wf.steps)
+            step_bits = " → ".join(_step_summary(s) for s in wf.steps)
             lines.append(f"   步骤: {step_bits}")
     lines.append("运行: /工作流 run <名称> [补充说明]")
     return "\n".join(lines)

@@ -56,6 +56,25 @@ class TestWorkflowLoader:
         assert wf.runnable
         assert {s.id for s in wf.steps} == {"draft", "review"}
 
+    def test_builtin_novel_factory_status_read_step_uses_deepseek(self):
+        wf = load_builtin_workflow("novel-factory-status")
+        assert wf is not None
+        read = next(s for s in wf.steps if s.id == "read-state")
+        assert read.model is not None
+        assert read.model.provider == "deepseek"
+        assert read.model.model == "deepseek-chat"
+
+    def test_parse_step_model_string(self):
+        from butler.workflows.schema import parse_step
+
+        step = parse_step(
+            {"id": "x", "role": "dev", "task": "do", "model": "openai/gpt-4o-mini"}
+        )
+        assert step is not None
+        assert step.model is not None
+        assert step.model.provider == "openai"
+        assert step.model.model == "gpt-4o-mini"
+
     def test_resolve_merges_builtin_when_project_has_name_only(self, tmp_path):
         proj = _project_dir(
             tmp_path,
@@ -124,6 +143,28 @@ class TestWorkflowRunner:
         summary = runner.format_graph_summary(wf, graph)
         assert "smoke" in summary
         assert "done a" in summary
+
+    def test_build_nodes_passes_step_model_config(self):
+        wf = parse_workflow_data(
+            {
+                "name": "priced",
+                "steps": [
+                    {
+                        "id": "cheap",
+                        "role": "content",
+                        "task": "read only",
+                        "model": "deepseek/deepseek-chat",
+                    },
+                ],
+            }
+        )
+        assert wf is not None
+        runner = WorkflowRunner(orchestrator=MagicMock())
+        nodes = runner.build_nodes(wf)
+        assert nodes[0].config.model_config == {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+        }
 
 
 @pytest.mark.integration

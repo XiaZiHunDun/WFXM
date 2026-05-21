@@ -152,7 +152,7 @@ models:
 | **M2 行为对齐** | `butler/model_resolve.py` + `_model_credentials` | ✅ 2026-05-21 |
 | **M3 `/model` 增强** | `handle_model_command`：列表 / 临时 / save / reset | ✅ 2026-05-21 |
 | **M4 可观测** | `/诊断` → `format_model_diagnostic_lines`（角色 + auxiliary + gateway） | ✅ 2026-05-21 真机通过 |
-| **M5（可选）** | workflow step `model:` 字段；novel-factory 只读步骤用便宜模型 | 单步可覆盖 |
+| **M5** | workflow step `model:` → `AgentSpawnConfig.model_config`；`novel-factory-status` 读状态用 deepseek | ✅ 2026-05-21 |
 
 **不建议首期做**：给 MiniMax-M2.7 配 multimodal message；用 subprocess 调 MCP 识图（已有 HTTP VLM）。
 
@@ -167,6 +167,23 @@ models:
 | `/model reset butler` | 清除 runtime；不改 YAML |
 
 微信与 CLI 共用 `message_handler` / `main` 同一套解析（避免双实现）。
+
+### 5.6 工作流逐步模型（M5）
+
+在 `.butler/workflows/<name>.yaml` 或 `project.yaml` 内联 `steps` 中，单步可选：
+
+```yaml
+steps:
+  - id: read-state
+    role: content
+    model: deepseek/deepseek-chat
+    # 或 model: { provider: deepseek, model: deepseek-chat }
+    task: 只读摘要 …
+```
+
+- 有 `model`：该步 spawn 时通过 `AgentSpawnConfig.model_config` 临时覆盖该 **role**（仅该 DAG 节点执行期间）。  
+- 无 `model`：沿用 `resolve_effective_model(role, project=…)` 项目/管家合并结果。  
+- 内置 `novel-factory-status` 的 `read-state` 已配 **deepseek-chat**（只读省 token）；`novel-factory` 两步仍走项目默认。
 
 ### 5.5 与入站媒体的边界
 
@@ -186,3 +203,4 @@ models:
 | 日期 | 变更 |
 |------|------|
 | 2026-05-21 | 初稿：四层栈、设计/实现对照、M1–M5 完善路线、`/model` 与微信识图边界 |
+| 2026-05-21 | M5：workflow step `model` 字段与 builtin novel-factory-status deepseek 只读步 |
