@@ -34,9 +34,18 @@
 | `BUTLER_EXPERIENCE_PRUNE_DAYS` | `30` | 清理历史 conversation 回声 |
 | `BUTLER_PREFETCH_*` | 见 `.env.example` | `/诊断` 可看预取字数与缓存命中 |
 | `BUTLER_PREFETCH_FACTS_MAX_CHARS` | `400` | facts 预取块上限 |
+| `BUTLER_MEMORY_HALF_LIFE_DAYS` | `30` | 检索时间衰减半衰期 |
+| `BUTLER_MEMORY_ACCESS_BOOST` | `0.12` | 访问次数排序加权 |
 | `BUTLER_TERMINAL_ALLOWLIST_EXTRA` | `python3,bash` | 跑 novel-factory 时需 `BUTLER_ENABLE_TERMINAL=1` |
 
-改 MEMORY / 批量 `/批准记忆` 后建议：
+**发版或升级记忆模块后**（不仅改 MEMORY 时）建议执行一次：
+
+```bash
+cd ~/projects/WFXM
+bash scripts/butler-memory-reindex.sh
+```
+
+改 MEMORY / 批量 `/批准记忆` 后亦建议：
 
 ```bash
 cd ~/projects/WFXM
@@ -53,6 +62,8 @@ bash scripts/butler-memory-reindex.sh
 | O4 | `/诊断` 静态 | 有项目名、MEMORY 条数、向量条数、embedding model |
 | O5 | Pending 不堆积 | `/记忆待审` 为空或已处理 |
 | O6 | MEMORY 无重复/过时大段 | 人工扫 Notes/Decisions，删重复 bullet |
+| O7 | 画像向量与三元组 | `/诊断` 有 Owner 画像向量条数；`/记忆图谱` 可列出三元组 |
+| O8 | 检索衰减参数 | `/诊断` 显示半衰期与访问加权（与 `.env` 一致） |
 
 ## 微信常用话术
 
@@ -64,7 +75,8 @@ bash scripts/butler-memory-reindex.sh
 
 | 步骤 | 发送 | 期望 |
 |------|------|------|
-| M1 | `/诊断`（无会话） | 灵文1号、MEMORY/向量条数、语义 model |
+| M1 | `/诊断`（无会话） | 灵文1号、MEMORY/向量条数、语义 model、三元组/衰减行 |
+| M1b | `/记忆图谱` | 展示最近三元组（仅展示，不参与检索） |
 | M2 | 「灵文试点统一测试是哪天？」（换说法） | 答出 MEMORY 中日期（如 2026-05-22） |
 | M3 | 决策句 → `/记忆待审` → `/批准记忆 1` 或 `/拒绝记忆 1` | Pending 行为正确 |
 | M4 | 同句连发两遍 → `/诊断` | **预取缓存: 命中**（间隔 20–90s） |
@@ -82,7 +94,7 @@ bash scripts/butler-memory-reindex.sh
 
 ## 诊断
 
-微信 `/诊断` 会显示：Owner 画像条数、Experience 长期/会话回声、项目 MEMORY（**含项目名**）正式条目与 Pending、向量条数与 model；有上轮对话时还有预取注入字数、**预取缓存命中**、**项目预取模式**（vector/keyword）。
+微信 `/诊断` 会显示：Owner 画像条数、Experience 长期/会话回声、项目 MEMORY（**含项目名**）正式条目与 Pending、向量条数与 model、**Owner 画像向量** / **三元组（仅展示）** / **检索衰减** 参数；有上轮对话时还有预取注入字数、**预取缓存命中**、**项目预取模式**（vector/keyword）。
 
 ## 验收记录（2026-05-21，主公确认）
 
@@ -112,10 +124,11 @@ bash scripts/butler-memory-reindex.sh
 | 命令 | 作用 |
 |------|------|
 | `/记忆待审` | 列出 MEMORY Pending 队列（**微信与 CLI**） |
+| `/记忆图谱` | 三元组只读展示（**微信与 CLI**） |
 | `/批准记忆 1` / `/批准记忆 全部` | 写入正式章节 |
 | `/拒绝记忆 1` / `/拒绝记忆 全部` | 从 Pending 移除并清理待审向量 |
 
-`butler_remember` 的 `project_notes` 支持 `action`: `append`（默认）、`remove`、`replace`。
+`butler_remember` 的 `action`：`project_notes` 与 `owner_profile` 均支持 `append`（默认）、`remove`、`replace`（画像 remove/replace 需 `old_content` 匹配原条目）。
 
 | `/工作流 run novel-factory-status` | 只读汇报 `workflow_state.json` |
 

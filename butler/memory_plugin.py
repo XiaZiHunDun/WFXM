@@ -51,7 +51,8 @@ _REMEMBER_SCHEMA = {
             "action": {
                 "type": "string",
                 "enum": ["append", "remove", "replace"],
-                "description": "project_notes only: append (default), remove, or replace a bullet.",
+                "description": "append (default); project_notes: remove/replace bullet; "
+                "owner_profile: remove by keyword (old_content), replace entry or full profile.",
                 "default": "append",
             },
             "old_content": {
@@ -381,13 +382,38 @@ class ButlerMemoryService:
         category = str(args.get("category", "") or "general")
 
         if scope == "owner_profile":
-            ok = self._butler_global.profile.add(content).get("success")
+            action = str(args.get("action", "append") or "append").strip().lower()
+            old_content = str(args.get("old_content", "") or "").strip()
+            prof = self._butler_global.profile
+            if action == "remove":
+                key = old_content or content
+                result = prof.remove(key)
+            elif action == "replace":
+                if old_content:
+                    rem = prof.remove(old_content)
+                    if not rem.get("success"):
+                        return json.dumps(
+                            {
+                                "ok": False,
+                                "scope": scope,
+                                "error": rem.get("error", "remove failed"),
+                            }
+                        )
+                    result = prof.add(content)
+                else:
+                    result = prof.replace(content)
+            else:
+                result = prof.add(content)
+            ok = bool(result.get("success"))
             if ok:
                 try:
                     self._butler_global.sync_profile_vectors()
                 except Exception as exc:
                     logger.debug("Profile vector sync skipped: %s", exc)
-            return json.dumps({"ok": ok, "scope": scope})
+            payload: dict[str, Any] = {"ok": ok, "scope": scope, "action": action}
+            if not ok:
+                payload["error"] = result.get("error", "profile write failed")
+            return json.dumps(payload)
 
         if scope == "owner_experience":
             proj = _active_project_name()
