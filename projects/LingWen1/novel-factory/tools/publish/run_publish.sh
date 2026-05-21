@@ -125,13 +125,27 @@ do_check() {
         echo -e "${YELLOW}  ⚠ 无法读取未解决意见数量${NC}"
     fi
 
-    # 检查P0问题
-    echo -e "${YELLOW}[7/8] 检查P0问题...${NC}"
-    local p0_issues=$(find 06_意见仓库 -name "*.md" -exec grep -l "P0" {} \; 2>/dev/null | wc -l)
-    if [[ "$p0_issues" -eq 0 ]]; then
-        echo -e "${GREEN}  ✓ 无未解决的P0问题${NC}"
+    # 检查 P0（读最新一致性 JSON，避免 grep「P0」误报）
+    echo -e "${YELLOW}[7/8] 检查一致性 P0（最新 JSON 报告）...${NC}"
+    local consistency_script="${SCRIPT_DIR}/../consistency/read_latest_report.py"
+    local sev_line=""
+    if [[ -f "$consistency_script" ]]; then
+        sev_line="$(python3 "$consistency_script" "$(pwd)" 2>/dev/null)" || true
+    fi
+    if [[ "$sev_line" == "MISSING" || -z "$sev_line" ]]; then
+        echo -e "${YELLOW}  ⚠ 无 consistency_check_*.json（可先运行 consistency-weekly）${NC}"
     else
-        echo -e "${RED}  ✗ 存在 $p0_issues 个可能含P0问题的文件${NC}"
+        local p0_count p1_count report_rel
+        read -r p0_count p1_count _ _ report_rel <<< "$sev_line"
+        if [[ "${p0_count:-0}" -eq 0 ]]; then
+            if [[ "${p1_count:-0}" -eq 0 ]]; then
+                echo -e "${GREEN}  ✓ P0=0 P1=0（报告: ${report_rel}）${NC}"
+            else
+                echo -e "${YELLOW}  ⚠ P0=0 P1=${p1_count} 有条件通过（报告: ${report_rel}）${NC}"
+            fi
+        else
+            echo -e "${RED}  ✗ P0=${p0_count}（报告: ${report_rel}）须修复后再发布${NC}"
+        fi
     fi
 
     # 检查版本文件是否存在

@@ -46,8 +46,10 @@ BUTLER_TOOL_SAFE_ROOT=/path/to/workspace
 
 | 工具 / 配置 | 说明 |
 |-------------|------|
-| `list_runtime_jobs` | 列出当前项目 `jobs.yaml` 任务 |
-| `run_runtime_job` | 执行 **readonly** 任务（等同 `/运行`）；mutating 须 `/批准运行` |
+| `list_runtime_jobs` | 列出当前项目 `jobs.yaml` 任务（Lead / 管家线程可用） |
+| `run_runtime_job` | 执行 **readonly** 任务（等同 `/运行`）；返回 `summary`、`report_paths`、`outcome`；mutating 须 `/批准运行` |
+
+**Lead 常用**：`publish-preflight`、`factory-status-daily`、`consistency-weekly`（后两者较慢）。需 `BUTLER_RUNTIME_ENABLED=1`。
 | `download_file` | `BUTLER_ENABLE_DOWNLOAD=1`，HTTPS + 域名白名单 |
 | `BUTLER_TOOL_AUDIT_JSONL=1` | 工具审计追加到 JSONL |
 

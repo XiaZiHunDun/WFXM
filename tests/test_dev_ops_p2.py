@@ -153,3 +153,53 @@ jobs:
             raw = dispatch_tool("run_runtime_job", {"job_id": "mut-job"})
         data = json.loads(raw)
         assert data.get("code") == "RUNTIME_MUTATING_REQUIRES_APPROVAL"
+
+    def test_readonly_job_via_agent_tool(self, tmp_path, monkeypatch):
+        from butler.config import reload_butler_settings
+        from butler.project_manager import ProjectManager
+
+        monkeypatch.setenv("BUTLER_RUNTIME_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(tmp_path / "projects"))
+        bh = tmp_path / "butler_home"
+        bh.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("BUTLER_HOME", str(bh))
+        reload_butler_settings()
+        ProjectManager._instance = None
+
+        proj_dir = tmp_path / "projects" / "P1"
+        proj_dir.mkdir(parents=True)
+        (proj_dir / "runtime").mkdir()
+        (proj_dir / "runtime" / "jobs.yaml").write_text(
+            """
+version: 1
+project: P1
+jobs:
+  - id: ro-echo
+    description: test
+    mode: readonly
+    enabled: true
+    command: [echo, runtime-ok]
+""".strip(),
+            encoding="utf-8",
+        )
+        (proj_dir / "project.yaml").write_text(
+            "name: P1\ntype: content\nworkspace: .\ntools: []\n",
+            encoding="utf-8",
+        )
+        pm = ProjectManager()
+        pm._scan_projects()
+        proj = pm.get_project("P1")
+        assert proj is not None
+
+        orch = MagicMock()
+        orch.project_manager.get_current.return_value = proj
+
+        with patch(
+            "butler.execution_context.get_current_orchestrator",
+            return_value=orch,
+        ):
+            raw = dispatch_tool("run_runtime_job", {"job_id": "ro-echo"})
+        data = json.loads(raw)
+        assert data.get("ok") is True
+        assert data.get("success") is True
+        assert "record_path" in data
