@@ -60,6 +60,7 @@ PYTHONPATH=. pytest \
   tests/test_semantic_memory_p1.py \
   tests/test_memory_recall_fixtures.py \
   tests/test_memory_bullet_edit.py \
+  tests/test_memory_m3_m4_smoke.py \
   -q
 ```
 
