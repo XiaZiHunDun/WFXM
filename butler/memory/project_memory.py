@@ -488,6 +488,11 @@ class ProjectFactsStore:
             self._save_unlocked()
         return facts
 
+    def refresh(self, project_dir: Path | None = None) -> dict[str, Any]:
+        """Scan project tree and persist facts.json (idempotent)."""
+        root = Path(project_dir or self.path.parent.parent.parent).resolve()
+        return self.auto_extract(root)
+
     def format_for_prompt(self) -> str:
         with self._lock:
             facts = dict(self._facts)
@@ -527,6 +532,20 @@ class ProjectMemory:
     @classmethod
     def for_project(cls, project: Path | str) -> ProjectMemory:
         return cls(Path(project))
+
+    def refresh_facts(self) -> dict[str, Any]:
+        """Re-scan workspace and update facts.json."""
+        return self.facts.refresh(self.project_dir)
+
+    def facts_for_prefetch(self, *, max_chars: int = 400) -> str:
+        """Compact auto-extracted facts for per-turn memory injection."""
+        text = self.facts.format_for_prompt()
+        if not text:
+            return ""
+        cap = max(0, int(max_chars))
+        if cap and len(text) > cap:
+            return text[:cap] + "\n…(项目 facts 已截断)"
+        return text
 
     def get_context_for_agent(self, role: str) -> str:
         key = (role or "default").strip().lower()

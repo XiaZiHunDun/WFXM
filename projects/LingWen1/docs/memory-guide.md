@@ -46,9 +46,9 @@
 
 **后续（2026-05-21）**：`/新对话` post_session 写入项目 MEMORY 后会同步 `memory_vectors.db`（与 `butler_remember` / `/批准记忆` 一致）。
 
-## 机读 facts（暂缓）
+## 机读 facts（auto）
 
-`projects/LingWen1/.butler/memory/facts.json` 由 `auto_extract` 从仓库扫描生成，**当前未接入** 每轮预取与 `butler_recall`。试点以 **MEMORY.md + Owner 画像 + experience** 为准；facts 仅保留代码占位，后续若接入会单独说明。
+`projects/LingWen1/.butler/memory/facts.json` 在 **切换项目**、**memory-reindex** 时由 `auto_extract` 刷新（扫描 `pyproject.toml` / 目录结构等）。每轮预取会注入 **Project facts (auto)** 块；`butler_recall` 可用 `scope=project` 查 MEMORY 向量/关键词 + facts 摘要。上限：`BUTLER_PREFETCH_FACTS_MAX_CHARS`（默认 400）。
 
 ## 多智能体 / 厂长模式
 

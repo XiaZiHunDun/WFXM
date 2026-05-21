@@ -29,7 +29,7 @@ Butler 已对齐 **内置层 + prefetch/sync/post_session**；**P0/P1 向量层*
 | 每轮召回 | experience hybrid + **项目 MEMORY query 向量预取** + 围栏注入 | get_relevant_context ✅ 部分 |
 | 向量 / 混合检索 | `BUTLER_SEMANTIC_MEMORY=1` 启用；`=0` 仅 FTS | 规划中 BM25+向量 ✅ P1 |
 | queue_prefetch | `BUTLER_QUEUE_PREFETCH=1` 上轮结束后后台 warm 缓存 | Hermes 可选 ✅ P2 |
-| 机读 facts | `facts.json` auto_extract **暂缓**（见 memory-guide） | knowledge.db 未接 |
+| 机读 facts | `facts.json` 切换项目/reindex 刷新；预取 + `butler_recall` scope=project | knowledge.db 未接 |
 
 ---
 
@@ -84,7 +84,7 @@ flowchart TB
 - [x] **记忆围栏**（`<memory-context>` + 中文说明，防误读为用户指令）
 - [x] **queue_prefetch**（`BUTLER_QUEUE_PREFETCH=1`，上轮结束后后台 warm，同 query 命中缓存）
 - [x] **CLI `/记忆待审` / `/批准记忆`**（复用 gateway `memory_commands`）
-- [x] **`facts.json` / auto_extract** 标明暂缓（不接预取链）
+- [x] **`facts.json` / auto_extract** 切换项目 + reindex 刷新；预取 + recall scope=project
 - [x] 召回质量 fixture 测试（`tests/fixtures/memory_recall/cases.json`）
 - [ ] 可选：v1 三元组仅展示用
 
@@ -121,7 +121,7 @@ flowchart TB
 | P2 | 记忆围栏 | ✅ |
 | P2 | queue_prefetch | ✅（需 env 开启） |
 | P2 | CLI 记忆待审 | ✅ |
-| P2 | facts.json | ⏸ 暂缓（文档） |
+| P2 | facts.json 预取 + recall | ✅ |
 | P2 | 召回 fixture 测试 | ✅ |
 | P2 | Pending 拒绝 + 向量清理 | ✅ |
 | P2 | MEMORY remove/replace 向量同步 | ✅ |

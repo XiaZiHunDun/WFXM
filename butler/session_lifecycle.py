@@ -93,6 +93,7 @@ def prefetch_limits() -> dict[str, int]:
         "experience_hits": _int("BUTLER_PREFETCH_EXPERIENCE_HITS", 5),
         "project_hits": _int("BUTLER_PREFETCH_PROJECT_HITS", 5),
         "project_max_chars": _int("BUTLER_PREFETCH_PROJECT_MAX_CHARS", 1200),
+        "facts_max_chars": _int("BUTLER_PREFETCH_FACTS_MAX_CHARS", 400),
         "total_max_chars": _int("BUTLER_PREFETCH_TOTAL_MAX_CHARS", 3500),
     }
 
@@ -194,6 +195,18 @@ def prefetch_turn_memory(
     project_hits_limit = caps.get("project_hits", 5)
     if pmem is not None:
         try:
+            facts_snip = ""
+            from butler.memory.project_memory import ProjectMemory
+
+            if isinstance(pmem, ProjectMemory):
+                facts_snip = pmem.facts_for_prefetch(
+                    max_chars=caps.get("facts_max_chars", 400)
+                )
+            if facts_snip:
+                parts.append("## Project facts (auto)\n" + facts_snip)
+                if diagnostics is not None:
+                    diagnostics["memory_facts_chars"] = len(facts_snip)
+
             injected_project = False
             if q_strip and current_project:
                 from butler.memory.semantic_config import semantic_memory_enabled
