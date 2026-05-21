@@ -180,23 +180,12 @@ class ButlerOrchestrator:
         return p.workspace if p else None
 
     def _model_credentials(self, role: str) -> dict[str, Any]:
-        mc = get_model_config(role)
-        prov_name = (mc.provider or self._settings.default_provider or "").strip()
-        pc = self._settings.providers.get(prov_name) if prov_name else None
-        api_key = getattr(pc, "api_key", "") or "" if pc else ""
-        base_url = getattr(pc, "base_url", "") or "" if pc else ""
-        model = (mc.model or (getattr(pc, "model", "") or "")) if pc else mc.model or ""
-        out: dict[str, Any] = {
-            "provider": prov_name or None,
-            "model": model or "",
-            "api_key": api_key,
-            "base_url": base_url,
-        }
-        if mc.max_tokens is not None:
-            out["max_tokens"] = mc.max_tokens
-        if mc.context_length is not None:
-            out["context_length"] = mc.context_length
-        return out
+        from butler.model_resolve import model_config_to_credentials, resolve_effective_model
+
+        role = _normalize_butler_role(role)
+        project = self.project_manager.get_current()
+        em = resolve_effective_model(role, project=project, settings=self._settings)
+        return model_config_to_credentials(em.config, settings=self._settings)
 
     def build_memory_context(self, *, for_role: str = "default") -> str:
         current = self.project_manager.current_project or ""
@@ -460,22 +449,10 @@ class ButlerOrchestrator:
                 "当前未选择 Butler 项目 — 使用全局模型配置。"
             )
         else:
-            resolved = proj.resolve_model(r)
-            prov_name = (resolved.provider or self._settings.default_provider or "").strip()
-            pc = self._settings.providers.get(prov_name) if prov_name else None
-            api_key = getattr(pc, "api_key", "") or "" if pc else ""
-            base_url = getattr(pc, "base_url", "") or "" if pc else ""
-            model = (resolved.model or (getattr(pc, "model", "") or "")) if pc else resolved.model or ""
-            mcreds = {
-                "provider": prov_name or None,
-                "model": model or "",
-                "api_key": api_key,
-                "base_url": base_url,
-            }
-            if resolved.max_tokens is not None:
-                mcreds["max_tokens"] = resolved.max_tokens
-            if resolved.context_length is not None:
-                mcreds["context_length"] = resolved.context_length
+            from butler.model_resolve import model_config_to_credentials, resolve_effective_model
+
+            em = resolve_effective_model(r, project=proj, settings=self._settings)
+            mcreds = model_config_to_credentials(em.config, settings=self._settings)
 
             proj_mem = ProjectMemory(proj.workspace)
             mem_txt = proj_mem.get_context_for_agent(r)

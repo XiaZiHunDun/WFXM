@@ -116,11 +116,17 @@ DevAgent 工具集（节选）：`read_file`, `write_file`, `edit_file`, `search
 
 ## 三、分层模型配置
 
-### 3.1 三级配置合并
+> **实现对照与完善路线**（设计 vs 代码、网关识图边界、`/model` 持久化）：[`architecture/layered-model-config.md`](../architecture/layered-model-config.md)
+
+### 3.1 三级配置合并（角色 LLM）
 
 ```
-系统默认 → 管家层(.env/CLI) → 项目层(project.yaml) → Agent层(运行时)
+系统默认 → 管家层(.env/CLI) → 项目层(project.yaml) → 运行时(/model 等)
 ```
+
+**正交层（不并入上式）**：`auxiliary.*`（压缩/记忆提取）、微信网关 VLM/STT（见 [`wechat-inbound-media.md`](../architecture/wechat-inbound-media.md)）。
+
+**实现备注（2026-05-21）**：`butler/model_resolve.resolve_effective_model` 统一合并；厂长/Lead 与委派均含项目层；`/model` 支持 save/reset——见 [`layered-model-config.md`](../architecture/layered-model-config.md)。
 
 每级非空字段覆盖上一级：
 
@@ -156,7 +162,9 @@ models:
 /model content qwen:qwen-max
 ```
 
-CLI 和微信均支持。项目级配置持久化到 `project.yaml`，管家级持久化到 `~/.butler/config.yaml`。
+CLI 和微信均支持。
+
+**实现（M3）**：`/model save butler …` → `~/.butler/config.yaml`；`/model save dev_agent …` → 当前项目 `project.yaml`；无 `save` 为 runtime 临时。详见 [`layered-model-config.md`](../architecture/layered-model-config.md) §5.4。
 
 ---
 

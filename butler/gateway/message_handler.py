@@ -354,28 +354,27 @@ class ButlerMessageHandler:
             return f"未找到项目: {arg}（名称需精确或唯一匹配）"
 
         if cmd in ("/model", "/模型"):
-            if not arg:
-                from butler.config import get_model_config
-                lines = ["当前模型配置:"]
-                for role in ("butler", "dev_agent", "content_agent", "review_agent"):
-                    mc = get_model_config(role)
-                    lines.append(f"  {role}: {mc.provider or '-'}/{mc.model or '-'}")
-                return "\n".join(lines)
+            from butler.model_resolve import handle_model_command
 
-            role_model = arg.split(maxsplit=1)
-            if len(role_model) == 2:
-                from butler.config import ModelConfig
-                role_name, model_spec = role_model
-                pm_parts = model_spec.split("/", 1)
-                if len(pm_parts) == 2:
-                    cfg = ModelConfig(provider=pm_parts[0], model=pm_parts[1])
-                else:
-                    cfg = ModelConfig(model=model_spec)
-                self._orchestrator._settings.set_runtime_model_override(role_name, cfg)
+            proj = self._orchestrator.project_manager.get_current(
+                session_key=session_key,
+            )
+            proj_name = (
+                self._orchestrator.project_manager.resolve_active_project_name(
+                    session_key=session_key,
+                )
+                or None
+            )
+            reply, reset_loop = handle_model_command(
+                arg,
+                settings=self._orchestrator._settings,
+                project=proj,
+                project_label=proj_name,
+            )
+            if reset_loop:
                 self._session_registry.reset(session_key)
                 _reset_tool_audit_events(session_key)
-                return f"已设置 {role_name} → {model_spec}（已重置当前会话 Loop）"
-            return "用法: /model <角色> <provider/model>"
+            return reply
 
         if cmd in ("/status", "/状态"):
             import os
