@@ -4,7 +4,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-PROJECT="${1:-灵文1号}"
+# 灵文 runtime 与 DemoPilot 分步冒烟；$1 保留兼容但不再覆盖灵文 runtime 步骤
+RUNTIME_PROJECT="灵文1号"
 
 if [[ -f .env ]]; then
   set -a
@@ -16,28 +17,28 @@ if [[ -f .env ]]; then
 fi
 export PYTHONPATH="${PYTHONPATH:-.}:."
 
-echo "== 1/7 gateway preflight =="
+echo "== 1/8 gateway preflight =="
 bash scripts/butler-gateway-ops.sh preflight
 
 echo ""
-echo "== 2/7 pytest (exclude live_llm) =="
+echo "== 2/8 pytest (exclude live_llm) =="
 python3 -m pytest -q --tb=line
 
 echo ""
-echo "== 3/7 wechat memory smoke =="
+echo "== 3/8 wechat memory smoke =="
 bash scripts/butler-wechat-memory-smoke.sh
 
 echo ""
-echo "== 4/7 wechat gateway smoke =="
+echo "== 4/8 wechat gateway smoke =="
 bash scripts/butler-wechat-gateway-smoke.sh
 
 echo ""
-echo "== 5/7 inbound media smoke =="
+echo "== 5/8 inbound media smoke =="
 bash scripts/butler-inbound-media-smoke.sh
 
 echo ""
-echo "== 6/7 runtime smoke ($PROJECT, default no push) =="
-bash scripts/butler-runtime-smoke.sh "$PROJECT"
+echo "== 6/8 runtime smoke ($RUNTIME_PROJECT, default no push) =="
+bash scripts/butler-runtime-smoke.sh "$RUNTIME_PROJECT"
 
 echo ""
 echo "== 7/8 dev delegate smoke =="
