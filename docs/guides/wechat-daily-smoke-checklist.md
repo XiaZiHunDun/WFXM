@@ -103,15 +103,15 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 | # | 发送内容 | 预期（摘要） | 通过 | 备注 |
 |---|----------|--------------|------|------|
-| M1 | `/诊断`（可无会话） | 记忆分层；**运维快照**；gateway 识图/语音；推送队列（若有） | ☐ | 2026-05-22 发版后 |
-| M2 | 「灵文试点统一测试是哪天？」（不说 2026-05-22） | 答 **2026-05-22**（项目 Notes 备忘） | ☐ | 需 `QUEUE_PREFETCH=1` 更佳 |
+| M1 | `/诊断`（可无会话） | 记忆分层；**运维快照**；gateway 识图/语音；推送队列（若有） | ☑ | 2026-05-22 13:45；推送队列 2 条已 drain |
+| M2 | 「灵文试点统一测试是哪天？」（不说 2026-05-22） | 答 **2026-05-22**（项目 Notes 备忘） | ☐ | 2026-05-22 13:51 答 **2026-05-21**（MEMORY 旧条，已修正见下） |
 | M3 | 决策句 → `/记忆待审` → `/拒绝记忆 1` | Pending 减、向量不增正式条 | ☐ | 话术见下方 |
 | M4 | 同一问题连发两遍 → `/诊断` | 「上轮预取缓存: 命中」 | ☐ | 间隔 20–90s |
 | M1b | `/记忆图谱` | 三元组或空状态提示 | ☐ | |
-| O7 | `/诊断` | knowledge.db 键数、混合检索权重、半衰期/访问加权 | ☐ | |
+| O7 | `/诊断` | knowledge.db 键数、混合检索权重、半衰期/访问加权 | ☑ | 含于 M1 |
 | Ops | `/开发状态` | 显示 terminal/git/git_write 开关（生产 git_write 宜 0） | ☐ | 可选 |
 | RT1 | `/定时` | 列出 jobs；含 consistency-weekly / factory-status | ☐ | |
-| RT2 | `/运行 factory-status-daily` | 收到摘要或 audit 路径 | ☐ | |
+| RT2 | `/运行 factory-status-daily` | 收到摘要或 audit 路径 | ☑ | M1 时段已收到 factory-status 推送摘要 |
 
 **Owner 画像**：`~/.butler/tenants/default/memory/profile.json`；**勿**在画像写死默认项目名（见 `owner-profile-setup.md`）。
 
