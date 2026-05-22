@@ -12,7 +12,7 @@
 
 | 项目 | 要求 |
 |------|------|
-| Python | 3.10+ |
+| Python | 3.11+（见 `pyproject.toml`） |
 | 操作系统 | Linux (已验证 Ubuntu 22.04) |
 | MiniMax API Key | 已设置 `MINIMAX_API_KEY` 环境变量 |
 | 依赖 | `pip install -e ".[wechat]"`（Python ≥3.11，见 `pyproject.toml`） |
