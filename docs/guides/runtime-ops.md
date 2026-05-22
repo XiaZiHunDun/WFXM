@@ -18,6 +18,9 @@ bash scripts/butler-runtime-smoke.sh
 # 安装/刷新 timer（每 15 分钟扫到期任务）
 bash scripts/install-butler-runtime-timer.sh
 
+# 推送队列守护（每 5 分钟 drain，减轻 iLink 限流积压）
+bash scripts/install-butler-push-drain.sh
+
 # 手动跑「当前到期」任务（只读执行；改盘仅推送待批准）
 bash scripts/butler-runtime-due.sh
 # 或
@@ -52,6 +55,7 @@ butler runtime list --project 灵文1号
 |----|------|
 | Service | `~/.config/systemd/user/butler-runtime-lingwen.service` |
 | Timer | `~/.config/systemd/user/butler-runtime-lingwen.timer` |
+| Push drain | `butler-push-drain.timer`（可选，`install-butler-push-drain.sh`） |
 | 日志 | `logs/butler-runtime.log` |
 | 审计 | `~/.butler/runtime/runs/<项目>/<job_id>/*.json` |
 | 批准 | `~/.butler/runtime/approvals/<项目>/<job_id>.json` |
@@ -79,7 +83,7 @@ tail -f logs/butler-runtime.log
 | `BUTLER_RUNTIME_PUSH_QUEUE` | `1` 时限流失败写入 `~/.butler/runtime/push_queue.jsonl`，`runtime due` 时重试 |
 
 **推送真机验证**：`bash scripts/butler-wechat-push-verify.sh 灵文1号`（短 ping + factory-status，带冷却）。  
-**队列重试**：`butler runtime drain-push` 或等待 `runtime due` 自动 drain。
+**队列重试**：`butler runtime drain-push`、**`butler-push-drain.timer`（每 5 分钟）**，或 `runtime due` 时顺带 drain。
 
 ---
 
@@ -90,6 +94,8 @@ tail -f logs/butler-runtime.log
 | `factory-status-daily` | readonly | 开 | 08:00 UTC 日报；可 `/运行` |
 | `consistency-weekly` | readonly | 开 | 周一 09:00 UTC；**P0=0 即 runtime 成功**（P1 为有条件通过） |
 | `publish-preflight` | readonly | 开 | 周日 07:00 UTC；`run_publish.sh preflight`（只读，不 archive） |
+| `publish-archive` | mutating | **关** | `/批准运行` + `enabled: true` 后归档 |
+| `publish-merge` | mutating | **关** | `/批准运行` + `enabled: true` 后 `run_publish.sh merge v3.0` |
 
 **不实施**（见 [`project-runtime-automation.md` §11](../architecture/project-runtime-automation.md)）：`workflow-report`；失败同日自动重试。流水线状态看 **`factory-status-daily`** 或问厂长 / `/工作流 run novel-factory-status`。
 

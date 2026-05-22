@@ -1,0 +1,36 @@
+# Copy to ~/.butler/config.yaml and adjust. Env vars override gateway fields.
+# See docs/architecture/layered-model-config.md
+
+default_provider: minimax
+butler_name: 莎丽
+owner_name: 主公
+
+models:
+  butler:
+    provider: minimax
+    model: MiniMax-M2.7
+  dev_agent:
+    provider: minimax
+    model: MiniMax-M2.7
+
+auxiliary:
+  compression:
+    provider: deepseek
+    model: deepseek-chat
+  post_session:
+    provider: deepseek
+    model: deepseek-chat
+
+gateway:
+  inbound_media:
+    enabled: true
+    max_chars: 3000
+    vision:
+      provider: minimax
+      api_host: ""          # empty = MINIMAX_BASE_URL
+      endpoint: coding_plan/vlm
+      timeout_seconds: 45
+    speech:
+      prefer_ilink_text: true
+      stt_provider: local   # local | off
+      whisper_model: small

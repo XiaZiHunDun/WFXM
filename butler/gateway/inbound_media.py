@@ -13,15 +13,15 @@ _PLACEHOLDER = "（收到媒体消息；当前 Butler 网关会处理文字指�
 
 
 def inbound_media_enabled() -> bool:
-    v = os.getenv("BUTLER_WECHAT_INBOUND_MEDIA", "1").strip().lower()
-    return v in ("1", "true", "yes", "on")
+    from butler.gateway_settings import resolve_gateway_inbound_config
+
+    return resolve_gateway_inbound_config().enabled
 
 
 def _max_chars() -> int:
-    try:
-        return max(500, int(os.getenv("BUTLER_WECHAT_MEDIA_MAX_CHARS", "3000")))
-    except ValueError:
-        return 3000
+    from butler.gateway_settings import resolve_gateway_inbound_config
+
+    return resolve_gateway_inbound_config().max_chars
 
 
 def _truncate(text: str) -> str:

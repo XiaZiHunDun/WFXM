@@ -20,16 +20,9 @@ _VISION_PROMPT = (
 
 def _api_host() -> str:
     """Align with main Butler LLM (``MINIMAX_BASE_URL``), not a separate global host."""
-    explicit = (
-        os.getenv("BUTLER_WECHAT_MINIMAX_API_HOST", "").strip()
-        or os.getenv("MINIMAX_API_HOST", "").strip()
-    )
-    if explicit:
-        return explicit.rstrip("/")
-    base = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1").strip().rstrip("/")
-    if base.endswith("/v1"):
-        return base[:-3].rstrip("/")
-    return base
+    from butler.gateway_settings import vision_api_host
+
+    return vision_api_host()
 
 
 def _api_key() -> str:
@@ -60,15 +53,17 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
     if not key:
         raise RuntimeError("MINIMAX_API_KEY 未配置，无法识图")
 
-    to = timeout if timeout is not None else float(
-        os.getenv("BUTLER_WECHAT_VISION_TIMEOUT", "45")
-    )
+    from butler.gateway_settings import resolve_gateway_inbound_config
+
+    to = timeout if timeout is not None else resolve_gateway_inbound_config().vision.timeout_seconds
     prompt = _VISION_PROMPT.format(caption=(caption or "").strip() or "（无）")
     payload = {
         "prompt": prompt,
         "image_url": _image_to_data_url(Path(path)),
     }
-    url = f"{_api_host()}/v1/coding_plan/vlm"
+    from butler.gateway_settings import vision_endpoint_path
+
+    url = f"{_api_host()}/v1/{vision_endpoint_path()}"
     resp = requests.post(
         url,
         headers={

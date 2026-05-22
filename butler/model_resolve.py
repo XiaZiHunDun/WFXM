@@ -165,13 +165,22 @@ def format_model_diagnostic_lines(
         from butler.gateway.inbound_media import inbound_media_enabled
 
         if inbound_media_enabled():
-            from butler.gateway.minimax_vlm import _api_host
-
-            lines.append(
-                f"  gateway(识图): minimax VLM @ {_api_host()}/v1/coding_plan/vlm"
+            from butler.gateway_settings import (
+                resolve_gateway_inbound_config,
+                vision_api_host,
+                vision_endpoint_path,
             )
-            stt = os.getenv("BUTLER_WECHAT_STT_PROVIDER", "local").strip() or "local"
-            lines.append(f"  gateway(语音): iLink 优先; silk STT={stt}")
+
+            gw = resolve_gateway_inbound_config()
+            lines.append(
+                f"  gateway(识图): {gw.vision.provider} VLM @ "
+                f"{vision_api_host()}/v1/{vision_endpoint_path()}"
+            )
+            ilink = "iLink 优先" if gw.speech.prefer_ilink_text else "本地 STT 优先"
+            lines.append(
+                f"  gateway(语音): {ilink}; STT={gw.speech.stt_provider}; "
+                f"whisper={gw.speech.whisper_model}"
+            )
         else:
             lines.append("  gateway(入站媒体): 关")
     except Exception:

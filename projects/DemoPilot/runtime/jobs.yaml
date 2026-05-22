@@ -1,0 +1,20 @@
+# 演示试点 · 轻量 runtime（无小说工厂脚本）
+version: 1
+project: 演示试点
+defaults:
+  timeout_seconds: 300
+  notify_wechat: false
+
+jobs:
+  - id: pilot-heartbeat
+    description: 试点心跳（只读 echo，用于 /定时 与 timer 冒烟）
+    schedule: "0 12 * * *"
+    mode: readonly
+    enabled: true
+    command:
+      - bash
+      - -c
+      - echo "DemoPilot heartbeat $(date -Iseconds)"
+    notify:
+      on_success: false
+      on_failure: false
