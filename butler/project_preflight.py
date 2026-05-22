@@ -370,22 +370,32 @@ def run_preflight(
                 + (" …" if len(skills) > 5 else ""),
             )
         )
-    elif project_name and is_lead_project(project_name):
+    elif project_name and is_lead_project(project_name, project=proj):
         items.append(
             PreflightItem(
                 CheckLevel.WARN,
                 "skills_missing_lead",
-                f"{project_name!r} 在 BUTLER_LEAD_PROJECTS 中但无 skills/*.md",
+                f"{project_name!r} 为 Lead 项目但无 skills/*.md",
                 "运行 sync 脚本或复制 *-project-lead.md 到 skills/",
             )
         )
 
-    if project_name and is_lead_project(project_name):
+    if project_name and is_lead_project(project_name, project=proj):
+        from butler.project_lead import lead_project_names
+
+        src = []
+        if proj and proj.lead is True:
+            src.append("project.yaml lead:true")
+        if project_name in lead_project_names():
+            src.append("BUTLER_LEAD_PROJECTS")
+        if proj and (proj.pack or "") == "novel-factory":
+            src.append("pack:novel-factory")
+        hint = ", ".join(src) if src else "Lead"
         items.append(
             PreflightItem(
                 CheckLevel.OK,
-                "lead_env",
-                f"已配置 Lead（BUTLER_LEAD_PROJECTS）: {project_name!r}",
+                "lead_enabled",
+                f"厂长模式已启用（{hint}）",
             )
         )
     elif pack or (proj and proj.type == "content"):

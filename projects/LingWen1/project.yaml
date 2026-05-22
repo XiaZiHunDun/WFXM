@@ -2,6 +2,9 @@ name: 灵文1号
 type: content
 description: 灵文小说工厂试点（WFXM 仓库内工作副本，与正式灵文项目隔离）
 status: active
+pack: novel-factory
+lifecycle: complete
+lead: true
 workspace: projects/LingWen1
 models:
   dev_agent:

@@ -9,7 +9,7 @@
 
 ## 一、目标与范围
 
-验证 Butler 能否在微信上完成「替代 Hermes + Claude Code」的核心闭环：
+验证 Butler 能否在微信上完成「替代 Hermes、承接主路径开发协作」的核心闭环（本机 Claude Code/Cursor 为**主机工具**，不登记为 Butler 项目类型）：
 
 1. 管家身份与状态可查  
 2. 项目切换后，读写落在**项目 workspace**  

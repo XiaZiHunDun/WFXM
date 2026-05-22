@@ -16,6 +16,8 @@
 
 {workflows_block}
 
+{lifecycle_block}
+
 ## 技能
 
 已注入 Skill `lingwen-project-lead` 时以其为准。核心规则：

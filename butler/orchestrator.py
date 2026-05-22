@@ -287,14 +287,22 @@ class ButlerOrchestrator:
         workflows_block = format_workflows_for_prompt(
             self.project_manager.get_current(session_key=session_key or "")
         )
+        proj = self.project_manager.get_current(session_key=session_key or "")
+        from butler.project_meta import lifecycle_operating_hint
+
+        lifecycle_block = lifecycle_operating_hint(proj)
+
         placeholders = {
             "current_project": current,
             "memory_context": memory_ctx or "(无)",
             "workflows_block": workflows_block or "(无)",
+            "lifecycle_block": lifecycle_block or "",
         }
         rendered = body
         for k, v in placeholders.items():
             rendered = rendered.replace("{" + k + "}", v)
+        if lifecycle_block and "{lifecycle_block}" not in body:
+            rendered = rendered.rstrip() + "\n\n" + lifecycle_block
         profile = get_profile("lead")
         if profile:
             from butler.agent_profiles import get_model_aware_prompt_extra

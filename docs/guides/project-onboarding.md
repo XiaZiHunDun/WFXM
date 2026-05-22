@@ -21,10 +21,12 @@
 ### A. Butler 新建（空项目）
 
 ```bash
-butler create MySlug --type software --description "说明"
-butler project preflight --path projects/MySlug
-butler memory-reindex --project "MySlug"   # 若 name 与目录名不同，用 project.yaml 的 name
+butler create MySlug --name "我的应用" --type software --description "说明"
+butler project preflight --project "我的应用"
+butler memory-reindex --project "我的应用"
 ```
+
+微信：`/项目 新建 MySlug` 或 `/项目 新建 MySlug 我的应用`
 
 模板也可从 [`docs/templates/project-archetypes/`](../templates/project-archetypes/) 复制后改 `name`。
 
@@ -40,9 +42,11 @@ butler memory-reindex --project "MySlug"   # 若 name 与目录名不同，用 p
 ### C. Git 仓库登记
 
 1. `git clone` 到 `projects/<slug>/`（Butler **不**自动 pull/push）。
-2. 若无 `project.yaml`，从 `software-default.project.yaml` 复制并改 `name`、`tools`。
-3. `butler project preflight --path projects/<slug>` 按建议补全。
+2. `butler project register projects/<slug> --name "显示名"`（无 yaml 时按模板生成）。
+3. `butler project preflight --project "显示名"` 按建议补全。
 4. §4 统一收尾。
+
+登记后若网关已运行：`butler projects --reload` 或重启 gateway。
 
 **Claude Code / Cursor**：不登记为项目类型；本机 IDE 改代码与 Butler 项目 workspace 可指向同一路径，协调方式见规划文档 §2.4。
 
@@ -75,8 +79,9 @@ butler project preflight --path projects/MySlug --json
 
 | 步骤 | 命令 / 动作 |
 |------|-------------|
-| 1 | `butler project preflight` 无 FAIL |
+| 1 | `butler project preflight` 无 FAIL（微信 `/项目 体检`） |
 | 2 | `butler memory-reindex --project "<name>"` |
+| 2b | 可选 `butler projects --reload`（热加载 project.yaml） |
 | 3 | 若改 Skill / `.env`：`bash scripts/butler-gateway-ops.sh restart` |
 | 4 | 微信：`/项目` → `/切换 <name>` → `/诊断` |
 | 5 | Lead 项目：确认「对话引擎: 项目 Lead（厂长）」 |

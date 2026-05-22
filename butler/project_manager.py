@@ -179,28 +179,103 @@ class ProjectManager:
         return None
 
     # ---------------------------------------------------------------- lifecycle
-    def create_project(self, name: str, proj_type: str, description: str) -> Project | None:
-        if name in self._projects:
-            return None
-        workspace = self.projects_dir / name
-        proj = Project(
-            name=name,
-            type=proj_type,
-            description=description,
-            status="active",
-            workspace=workspace,
-            tools=[
-                "read_file",
-                "write_file",
-                "edit_file",
-                "search_code",
-                "run_shell",
-                "list_directory",
-            ],
+    def create_project(
+        self,
+        slug: str,
+        proj_type: str = "software",
+        description: str = "",
+        *,
+        display_name: str = "",
+        pack: str = "",
+        template: str = "",
+    ) -> Project | None:
+        from butler.project_archetypes import (
+            ensure_memory_skeleton,
+            load_template,
+            validate_slug,
+            write_project_yaml,
         )
-        proj.save()
-        self._projects[name] = proj
+
+        ok, err = validate_slug(slug)
+        if not ok:
+            raise ValueError(err)
+
+        workspace = self.projects_dir / slug
+        if workspace.exists() and (workspace / "project.yaml").is_file():
+            return None
+        if any(p.workspace == workspace.resolve() for p in self._projects.values()):
+            return None
+
+        template_id = (template or pack or "software-default").strip()
+        if template_id in ("software", "content"):
+            template_id = "software-default"
+        data = load_template(template_id)
+        show_name = (display_name or data.get("name") or slug).strip()
+        if show_name in self._projects:
+            return None
+
+        data["name"] = show_name
+        if description:
+            data["description"] = description
+        if proj_type:
+            data["type"] = proj_type
+        if pack:
+            data["pack"] = pack
+        data.setdefault("lifecycle", "active")
+        if pack == "novel-factory" and data.get("lead") is None:
+            data["lead"] = True
+
+        workspace.mkdir(parents=True, exist_ok=True)
+        write_project_yaml(workspace, data, merge_existing=False)
+        ensure_memory_skeleton(workspace)
+        self.refresh()
+        proj = Project.from_yaml(workspace / "project.yaml")
+        self._projects[proj.name] = proj
         return proj
+
+    def register_workspace(
+        self,
+        path: Path,
+        *,
+        display_name: str = "",
+        pack: str = "",
+        template: str = "software-default",
+        merge_existing: bool = True,
+    ) -> Project:
+        from butler.project_archetypes import (
+            ensure_memory_skeleton,
+            load_template,
+            write_project_yaml,
+        )
+
+        ws = path.expanduser().resolve()
+        if not ws.is_dir():
+            raise ValueError(f"不是目录: {ws}")
+
+        cfg = ws / "project.yaml"
+        if cfg.is_file():
+            proj = Project.from_yaml(cfg)
+            if merge_existing and (pack or display_name):
+                if pack and not proj.pack:
+                    proj.pack = pack
+                if display_name and proj.name != display_name:
+                    proj.name = display_name
+                proj.save()
+            ensure_memory_skeleton(ws)
+            self.refresh()
+            return Project.from_yaml(ws / "project.yaml")
+
+        template_id = (template or pack or "software-default").strip()
+        data = load_template(template_id)
+        data["name"] = (display_name or ws.name).strip()
+        if pack:
+            data["pack"] = pack
+        if pack == "novel-factory" and data.get("lead") is None:
+            data["lead"] = True
+        write_project_yaml(ws, data, merge_existing=False)
+        ensure_memory_skeleton(ws)
+        self.refresh()
+        return Project.from_yaml(ws / "project.yaml")
 
     def refresh(self) -> None:
         self._scan_projects()

@@ -19,6 +19,9 @@ class Project:
     type: str
     description: str
     status: str = "active"
+    pack: str = ""
+    lifecycle: str = ""
+    lead: bool | None = None
     tenant: str = ""
     workspace: Path = field(default_factory=lambda: Path("."))
     models: dict[str, ModelConfig] = field(default_factory=dict)
@@ -42,11 +45,28 @@ class Project:
         tenant_raw = data.get("tenant")
         tenant = "" if tenant_raw is None else normalize_tenant_id(str(tenant_raw))
 
+        status = str(data.get("status", "active"))
+        lifecycle = str(data.get("lifecycle", "") or "").strip()
+        if not lifecycle and status.lower() in ("complete", "completed", "archived"):
+            lifecycle = "complete"
+        elif not lifecycle:
+            lifecycle = "active"
+
+        lead_raw = data.get("lead")
+        lead: bool | None
+        if lead_raw is None:
+            lead = None
+        else:
+            lead = bool(lead_raw)
+
         return cls(
             name=str(data.get("name", ws.name)),
             type=str(data.get("type", "software")),
             description=str(data.get("description", "")),
-            status=str(data.get("status", "active")),
+            status=status,
+            pack=str(data.get("pack", "") or "").strip(),
+            lifecycle=lifecycle,
+            lead=lead,
             tenant=tenant,
             workspace=ws,
             models=models,
@@ -78,6 +98,12 @@ class Project:
             "status": self.status,
             "workspace": str(ws_display).replace("\\", "/"),
         }
+        if self.pack:
+            d["pack"] = self.pack
+        if self.lifecycle:
+            d["lifecycle"] = self.lifecycle
+        if self.lead is not None:
+            d["lead"] = self.lead
         if self.tenant and self.tenant != "default":
             d["tenant"] = self.tenant
 
@@ -99,6 +125,12 @@ class Project:
             "description": self.description,
             "status": self.status,
         }
+        if self.pack:
+            payload["pack"] = self.pack
+        if self.lifecycle:
+            payload["lifecycle"] = self.lifecycle
+        if self.lead is not None:
+            payload["lead"] = self.lead
         if self.tenant and self.tenant != "default":
             payload["tenant"] = self.tenant
         if self.models:

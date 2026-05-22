@@ -76,6 +76,11 @@ class TestLeadToolAllowlist:
 @pytest.mark.module_test
 class TestLeadLoopFactory:
     def test_gateway_creates_lead_loop_for_lingwen_session(self, tmp_path, monkeypatch):
+        from butler.config import reload_butler_settings
+        from butler.project_manager import ProjectManager
+
+        ProjectManager._instance = None
+        reload_butler_settings()
         monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(tmp_path / "projects"))
         proj_dir = tmp_path / "projects" / "LingWen1"
         proj_dir.mkdir(parents=True)
@@ -83,8 +88,8 @@ class TestLeadLoopFactory:
             yaml.safe_dump(
                 {
                     "name": "灵文1号",
-                    "workspace": str(proj_dir),
-                    "tools": ["read_file", "delegate_task"],
+                    "lead": True,
+                    "tools": ["read_file", "write_file", "patch"],
                 },
                 allow_unicode=True,
             ),
@@ -112,6 +117,11 @@ class TestLeadLoopFactory:
         assert "write_file" not in names
 
     def test_build_lead_system_prompt(self, tmp_path, monkeypatch):
+        from butler.config import reload_butler_settings
+        from butler.project_manager import ProjectManager
+
+        ProjectManager._instance = None
+        reload_butler_settings()
         monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(tmp_path / "projects"))
         proj_dir = tmp_path / "projects" / "LingWen1"
         proj_dir.mkdir(parents=True)
