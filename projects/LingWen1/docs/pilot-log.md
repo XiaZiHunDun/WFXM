@@ -22,6 +22,32 @@
 | 2026-05-22 | **P1/P2 工程** | runtime smoke 默认不推送；CI smoke job；连续失败告警+`/诊断`；preflight config/OCR；`wechat-ocr` extra；`setup-butler-config.sh` |
 | 2026-05-22 | **可选打磨** | pytest 推送 mock；`validate_progress.py`；文档 1121、v4 信息回传表述、jieba 警告过滤 |
 | 2026-05-22 | **人工测试复验** | M1–M4、M1b、O7、Ops、RT1、RT2 ☑；M-img/M-voice 暂缓（场景未定，inbound pytest 已守门） |
+| 2026-05-22 | **试点验收结论** | 微信管家 **通过、可运营**；见下方 §验收结论 |
+
+## 验收结论（2026-05-22）
+
+**项目**：灵文1号（`projects/LingWen1/`）— WFXM 内 Butler 微信管家 + 小说工厂厂长（Lead）试点，与仓库外「正式灵文」隔离。
+
+**结论**：**通过，可运营。**
+
+| 维度 | 结果 |
+|------|------|
+| 微信对话 | 八步场景、委派、工作流、/新对话、项目记忆 — 已验（清单 0–8c ☑） |
+| 记忆 P0–P2 | M1–M4、M1b、O7 — 2026-05-22 真机 ☑（M2 经 MEMORY 补「统一测试日 2026-05-22」+ reindex 后通过） |
+| Runtime | `/定时`、`/运行`、推送队列 drain、factory-status 摘要 — ☑ |
+| 运维 | `/诊断` 运维快照、`/开发状态` git_write=0 — ☑ |
+| 自动化 | 1121 pytest；`butler-pre-release-smoke.sh` 全绿 |
+| 暂缓 | M-img / M-voice 真机（场景未定） |
+| 不纳入本期 | CLI 真机抽测；mutating 发布真机（`publish-archive` 默认关） |
+
+**备忘（日期勿混）**：
+
+- **首轮微信验收**：2026-05-21（P1-3 话术）
+- **统一测试日（M2 paraphrase）**：2026-05-22（`MEMORY.md` Notes + 向量召回）
+
+**运营观察（非阻塞）**：iLink 限流下推送可能延迟，依赖 `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` + push 队列 + `butler-push-drain.timer`；建议首周观察周一 `consistency-weekly` 定时摘要是否进微信。
+
+**索引**：[`docs/guides/wechat-daily-smoke-checklist.md`](../../../docs/guides/wechat-daily-smoke-checklist.md)
 
 ## 稳上线后微信补验（自动化已守门，真机可快速勾选）
 
