@@ -110,13 +110,19 @@ def _under_root(child: Path, root: Path | None) -> bool:
         return False
 
 
-def _skill_files(workspace: Path) -> list[Path]:
-    found: list[Path] = []
+def _skill_files(workspace: Path) -> tuple[list[Path], bool]:
+    """List project skills by basename (git ``skills/`` wins over ``.butler/skills/``)."""
+    by_name: dict[str, Path] = {}
+    had_dup_dirs = False
     for base in (workspace / "skills", workspace / ".butler" / "skills"):
         if not base.is_dir():
             continue
-        found.extend(sorted(base.glob("*.md")))
-    return found
+        for path in sorted(base.glob("*.md")):
+            if path.name in by_name and by_name[path.name] != path:
+                had_dup_dirs = True
+            elif path.name not in by_name:
+                by_name[path.name] = path
+    return sorted(by_name.values(), key=lambda p: p.name.lower()), had_dup_dirs
 
 
 def run_preflight(
@@ -360,14 +366,18 @@ def run_preflight(
             )
         )
 
-    skills = _skill_files(ws)
+    skills, skills_dup_dirs = _skill_files(ws)
     if skills:
+        hint = ""
+        if skills_dup_dirs and (ws / "skills").is_dir() and (ws / ".butler" / "skills").is_dir():
+            hint = "skills/ 与 .butler/skills/ 同名文件已去重；改 git 源后请 sync 脚本同步"
         items.append(
             PreflightItem(
                 CheckLevel.OK,
                 "skills",
                 f"发现项目 Skill: {', '.join(p.name for p in skills[:5])}"
                 + (" …" if len(skills) > 5 else ""),
+                hint,
             )
         )
     elif project_name and is_lead_project(project_name, project=proj):

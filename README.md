@@ -61,7 +61,7 @@ bash scripts/butler-gateway-ops.sh status        # 运维状态
 ### 4. 测试
 
 ```bash
-PYTHONPATH=. pytest -q          # ~1121 passed（默认排除 live_llm 与 tests/archive/）
+PYTHONPATH=. pytest -q          # ~1138 passed（默认排除 live_llm 与 tests/archive/）
 
 # 微信改动的快守门（见 tests/README.md）
 PYTHONPATH=. pytest tests/test_gateway_acceptance.py tests/test_wechat_ilink_*.py -q
@@ -82,7 +82,7 @@ butler/
 ├── post_session.py
 └── main.py
 docs/                  # 架构与设计文档（索引 docs/README.md）
-tests/                 # ~1121 自动化测试（archive 遗留另计）
+tests/                 # ~1138 自动化测试（archive 遗留另计）
 scripts/               # 网关安装与 butler-gateway-ops 运维
 ```
 

@@ -20,7 +20,7 @@
 | 2026-05-22 | **P2 运维/开发** | 运维快照；`/开发状态` `/开发验收`；ops-bundle；logrotate cron；模型展示统一 resolve |
 | 2026-05-22 | **人工测试前准备** | `butler-pre-release-smoke.sh`；清单/`env.example` 同步；ops-bundle + gateway restart |
 | 2026-05-22 | **P1/P2 工程** | runtime smoke 默认不推送；CI smoke job；连续失败告警+`/诊断`；preflight config/OCR；`wechat-ocr` extra；`setup-butler-config.sh` |
-| 2026-05-22 | **可选打磨** | pytest 推送 mock；`validate_progress.py`；文档 1121、v4 信息回传表述、jieba 警告过滤 |
+| 2026-05-22 | **可选打磨** | pytest 推送 mock；`validate_progress.py`；文档 1138、v4 信息回传表述、jieba 警告过滤 |
 | 2026-05-22 | **人工测试复验** | M1–M4、M1b、O7、Ops、RT1、RT2 ☑；M-img/M-voice 暂缓（场景未定，inbound pytest 已守门） |
 | 2026-05-22 | **试点验收结论** | 微信管家 **通过、可运营**；见下方 §验收结论 |
 
@@ -36,7 +36,7 @@
 | 记忆 P0–P2 | M1–M4、M1b、O7 — 2026-05-22 真机 ☑（M2 经 MEMORY 补「统一测试日 2026-05-22」+ reindex 后通过） |
 | Runtime | `/定时`、`/运行`、推送队列 drain、factory-status 摘要 — ☑ |
 | 运维 | `/诊断` 运维快照、`/开发状态` git_write=0 — ☑ |
-| 自动化 | 1121 pytest；`butler-pre-release-smoke.sh` 全绿 |
+| 自动化 | 1138 pytest；`butler-pre-release-smoke.sh` 全绿 |
 | 暂缓 | M-img / M-voice 真机（场景未定） |
 | 不纳入本期 | CLI 真机抽测；mutating 发布真机（`publish-archive` 默认关） |
 

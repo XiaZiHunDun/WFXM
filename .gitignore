@@ -42,8 +42,11 @@ projects/*/docs/workflow-output.md
 .pytest_cache/
 htmlcov/
 
-# Reference code (large, keep separate)
+# Reference code (large, keep separate — 主公维护，整理方案不修改)
 reference/
+
+# Local vendor copies (not part of product; use reference/ for Hermes diff)
+vendor/
 
 # Cursor
 .cursor/

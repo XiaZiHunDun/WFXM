@@ -12,6 +12,8 @@
 | [memory-ops.md](./memory-ops.md) | **记忆运维**：推荐 env、smoke/reindex、灵文检查表索引 |
 | [dev-tools-ops.md](./dev-tools-ops.md) | **开发操作工具**：terminal / git / env 与 Runtime 分工 |
 | [project-onboarding.md](./project-onboarding.md) | **项目接入**：preflight 体检、模板、登记收尾与微信验收 |
+| [../plans/consolidation-2026-05.md](../plans/consolidation-2026-05.md) | **仓库整理方案**（reference/ 不纳入） |
+| [../config/reference.md](../config/reference.md) | BUTLER_* 环境变量速查 |
 | `scripts/butler-pre-release-smoke.sh` | **人工测试前一键守门**（preflight + pytest + 各 smoke） |
 | `scripts/butler-runtime-smoke.sh` | Runtime 运维冒烟（灵文1号） |
 | `scripts/butler-demo-pilot-smoke.sh` | **演示试点** E2E（preflight + runtime + pytest 子集） |
