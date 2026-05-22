@@ -1,0 +1,201 @@
+# Developer assistant evaluation corpus (external design → Butler regression).
+# Analysis: docs/plans/dev-assistant-corpus-analysis-2026-05.md
+# Runner: tests/test_dev_assistant_corpus.py
+
+meta:
+  version: "2026-05-22"
+  dimensions:
+    - code_generation
+    - code_explanation
+    - debugging
+    - optimization
+    - sql
+    - git
+    - docker
+    - regex
+    - concepts
+    - frameworks
+    - multi_turn
+    - security
+
+cases:
+  - id: DA-01
+    dimension: code_generation
+    title: Python 读取 sales.csv 计算总销售额
+    user: |
+      用 Python 写一个函数，读取 `sales.csv` 文件，计算总销售额并打印。假设文件有 `amount` 列。
+    must_contain:
+      - csv
+      - amount
+    must_contain_any:
+      - total
+      - 总销售
+      - 销售额
+    must_not_contain: []
+    butler_lead_expect:
+      should_delegate: true
+      delegate_role: dev
+
+  - id: DA-02
+    dimension: code_explanation
+    title: 字典推导式解释
+    user: |
+      解释这行 Python 代码：
+      `result = {k: v**2 for k, v in zip(keys, values) if v > 0}`
+    must_contain:
+      - 字典
+      - zip
+      - v**2
+    must_not_contain: []
+
+  - id: DA-03
+    dimension: debugging
+    title: str 与 int 拼接 TypeError
+    user: |
+      运行这段代码时报错 `TypeError: can only concatenate str (not "int") to str`
+      代码：
+      ```python
+      age = 25
+      print("Age: " + age)
+      ```
+    must_contain:
+      - str
+      - f-string
+    must_contain_any:
+      - "str(age)"
+      - "{age}"
+    must_not_contain: []
+
+  - id: DA-04
+    dimension: optimization
+    title: 冒泡排序提前终止
+    user: |
+      下面的冒泡排序已经能工作，怎样优化让它提前终止？
+      ```java
+      void bubbleSort(int[] arr) {
+          int n = arr.length;
+          for (int i = 0; i < n-1; i++)
+              for (int j = 0; j < n-i-1; j++)
+                  if (arr[j] > arr[j+1]) {
+                      int temp = arr[j];
+                      arr[j] = arr[j+1];
+                      arr[j+1] = temp;
+                  }
+      }
+      ```
+    must_contain:
+      - swapped
+    must_contain_any:
+      - boolean
+      - flag
+    must_not_contain: []
+
+  - id: DA-05
+    dimension: sql
+    title: LEFT JOIN 用户订单汇总
+    user: |
+      有 `users` (id, name) 和 `orders` (id, user_id, amount) 两张表，查询每个用户的姓名及其订单总金额，包含没有订单的用户。
+    must_contain:
+      - LEFT JOIN
+      - GROUP BY
+    must_contain_any:
+      - COALESCE
+      - coalesce
+    must_not_contain: []
+
+  - id: DA-06
+    dimension: git
+    title: 撤销 commit 保留暂存区
+    user: |
+      我刚刚 `git commit` 了一个错误提交，现在想撤销这次 commit 但保留所有修改在暂存区，应该用什么命令？
+    must_contain:
+      - "git reset"
+      - soft
+      - HEAD~1
+    must_contain_any:
+      - 暂存
+      - staged
+    must_not_contain: []
+
+  - id: DA-07
+    dimension: docker
+    title: nginx 端口映射与卷挂载
+    user: |
+      我想用 Docker 运行 nginx，把本地 8080 映射到容器的 80 端口，并把当前目录的 `www` 文件夹挂载到 `/usr/share/nginx/html`，命令怎么写？
+    must_contain:
+      - docker run
+      - "8080:80"
+      - nginx
+    must_contain_any:
+      - "/usr/share/nginx/html"
+      - www
+    must_not_contain: []
+
+  - id: DA-08
+    dimension: regex
+    title: 邮箱正则与边界说明
+    user: 写一个匹配邮箱地址的正则表达式。
+    must_contain:
+      - "@"
+    must_contain_any:
+      - 验证
+      - 边界
+      - 合法
+    must_not_contain: []
+
+  - id: DA-09
+    dimension: concepts
+    title: RESTful API 原则
+    user: 什么是 RESTful API 设计原则？能简单举个例子吗？
+    must_contain:
+      - REST
+    must_contain_any:
+      - GET
+      - POST
+      - 无状态
+      - 资源
+    must_not_contain: []
+
+  - id: DA-10
+    dimension: frameworks
+    title: React useState 计数器
+    user: React 里 `useState` 怎么用？给一个函数组件的计数器例子。
+    must_contain:
+      - useState
+      - setCount
+    must_contain_any:
+      - Counter
+      - count
+    must_not_contain: []
+
+  - id: DA-11
+    dimension: multi_turn
+    title: unittest 转 pytest（两轮）
+    turns:
+      - user: |
+          用 Python 的 unittest 给这个函数写测试：
+          `def divide(a, b): return a / b`，测试除零时抛 ZeroDivisionError。
+        must_contain:
+          - unittest
+          - ZeroDivisionError
+      - user: 能用 pytest 改写一下吗？
+        must_contain:
+          - pytest
+        must_contain_any:
+          - pytest.raises
+          - raises
+        must_not_contain: []
+
+  - id: DA-12
+    dimension: security
+    title: PHP MySQL 硬编码密码警告
+    user: 用 PHP 连接 MySQL 的代码怎么写？我打算直接把用户名密码写在里面。
+    must_contain:
+      - PHP
+    must_contain_any:
+      - 环境变量
+      - getenv
+      - 硬编码
+      - 密码
+      - Git
+    must_not_contain: []
