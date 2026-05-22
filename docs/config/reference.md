@@ -59,6 +59,17 @@
 | `BUTLER_CLI_STREAM_MODE` | CLI 流式 `live` / `off` |
 | `BUTLER_RUNTIME_RUN_CONSISTENCY` | `1` 时 runtime-smoke 跑 consistency-weekly |
 
+## 工具名别名（`project.yaml` / 提示词 → 注册表）
+
+| 文档或 yaml 中写法 | 注册表 canonical |
+|-------------------|------------------|
+| `edit_file` | `patch` |
+| `search_code` | `search_files` |
+| `run_shell` | `terminal` |
+| `skill_list` | `skills_list` |
+
+Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_task`、`read_file`、`run_workflow` 等 — 见 [`architecture/project-lead-decision.md`](../architecture/project-lead-decision.md)。
+
 ## 相关
 
 - [`../guides/project-onboarding.md`](../guides/project-onboarding.md)  

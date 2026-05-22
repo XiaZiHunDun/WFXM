@@ -209,31 +209,6 @@ class PostSessionProcessor:
             return await result
         return str(result)
 
-    @classmethod
-    def from_hermes_agent(cls, agent: Any) -> "PostSessionProcessor":
-        """Create a processor that uses a Hermes AIAgent for LLM calls.
-
-        .. deprecated:: 4.1
-            Use :meth:`set_llm_call` with ``butler.transport.auxiliary_client`` instead.
-        """
-        import warnings
-
-        warnings.warn(
-            "PostSessionProcessor.from_hermes_agent is deprecated; "
-            "inject auxiliary_client via set_llm_call instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        async def _llm_call(prompt: str) -> str:
-            result = agent.run_conversation(user_message=prompt)
-            if isinstance(result, dict):
-                return result.get("final_response", "")
-            return str(result)
-
-        proc = cls()
-        proc.set_llm_call(_llm_call)
-        return proc
-
     async def process(
         self,
         messages: list[dict],

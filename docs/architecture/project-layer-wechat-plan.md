@@ -261,7 +261,7 @@ flowchart LR
 
 ### 5.3 工程项（可选）
 
-- `scripts/butler-lingwen-lead-smoke.sh`：Lead 工具集 + workflow-state 只读断言（**P1 待实现**，见整理方案）。
+- `scripts/butler-lingwen-lead-smoke.sh`：Lead 工具集 + workflow-state 只读断言（已纳入 `butler-pre-release-smoke.sh` 第 7 步）。
 - `project.yaml` 增加规划字段 `lifecycle: complete`（文档化即可，解析可后做）。
 
 ---

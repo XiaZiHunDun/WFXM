@@ -29,7 +29,7 @@
 
 | 脚本 | 步骤 |
 |------|------|
-| `butler-pre-release-smoke.sh` | 1 gateway preflight → 2 全量 pytest → 3–5 微信/媒体 → 6 灵文 runtime → 7 dev 委派 → 8 DemoPilot |
+| `butler-pre-release-smoke.sh` | 1 gateway → 2 pytest → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot |
 
 ## 分域冒烟（被 pre-release 或文档调用）
 
@@ -39,6 +39,7 @@
 | `butler-wechat-gateway-smoke.sh` | 网关核心 pytest |
 | `butler-inbound-media-smoke.sh` | 入站媒体 |
 | `butler-runtime-smoke.sh` | **灵文1号** runtime（factory-status、preflight 等） |
+| `butler-lingwen-lead-smoke.sh` | **灵文1号** Lead 工具白名单 + `workflow_state.json` 只读断言 |
 | `butler-demo-pilot-smoke.sh` | **演示试点** preflight + heartbeat + test-unit-smoke |
 | `butler-dev-delegate-smoke.sh` | 委派工作流 |
 | `butler-dev-tools-smoke.sh` | terminal / git / patch |
