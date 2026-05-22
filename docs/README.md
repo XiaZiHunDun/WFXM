@@ -31,7 +31,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q    # ~931 passed
+PYTHONPATH=. pytest -q    # ~1121 passed
 
 # 微信网关 live（发版前可选）
 BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v

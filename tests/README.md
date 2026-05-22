@@ -2,7 +2,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q          # 默认 ~931 passed，排除 live_llm 与 tests/archive/
+PYTHONPATH=. pytest -q          # 默认 ~1121 passed，排除 live_llm 与 tests/archive/
 ```
 
 ## 分层（`pyproject.toml` markers）

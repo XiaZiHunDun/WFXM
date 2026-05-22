@@ -12,25 +12,29 @@ ROOT = Path(__file__).resolve().parents[1]
 REVIEW_DIR = ROOT / "06_意见仓库" / "04_正文_审核"
 STATE_FILE = ROOT / "workflow_state.json"
 
-_P0_CLEAR = re.compile(
-    r"(无\s*P0|P0\s*问题[：:]\s*无|###\s*P0问题[：:]\s*无|无P0问题)",
+# Strong batch-level markers (ignore incidental「需修改」in chapter tables / prose)
+_BATCH_OPEN = re.compile(
+    r"(\*\*状态\*\*\s*[:：]\s*需修改|\*\*结论\*\*\s*[:：]\s*需修改|-\s*\*\*状态\*\*\s*[:：]\s*需修改)",
     re.IGNORECASE,
 )
 _P0_FAIL = re.compile(
-    r"(不通过.*P0|存在\s*\d+\s*个\s*P0|P0\s*优先|工具性存在.*P0)",
+    r"(不通过[，,].*P0|存在\s*\d+\s*个\s*P0问题|审核结论[：:]\s*不通过)",
     re.IGNORECASE,
 )
-_OPEN_FIX = re.compile(r"(待修复|需修改)", re.IGNORECASE)
-_FIXED = re.compile(r"(已修复|全部修复|修复完成)", re.IGNORECASE)
+_P0_CLEAR = re.compile(
+    r"(无\s*P0|P0\s*问题[：:]\s*无|###\s*P0问题[：:]\s*无|无P0问题|本批次通过率[：:]\s*10/10)",
+    re.IGNORECASE,
+)
+_FIXED = re.compile(r"(已修复|全部修复|修复完成|全部通过)", re.IGNORECASE)
 
 
 def audit_open_issues(text: str) -> list[str]:
-    """Heuristic: flag reports that likely still have unresolved P0/fix work."""
+    """Heuristic: flag reports with batch-level open status (not chapter-level notes)."""
     issues: list[str] = []
+    if _BATCH_OPEN.search(text) and not _FIXED.search(text[:800]):
+        issues.append("批次状态/结论仍为需修改")
     if _P0_FAIL.search(text) and not _P0_CLEAR.search(text):
         issues.append("审核结论含未闭合 P0")
-    if _OPEN_FIX.search(text) and not _FIXED.search(text):
-        issues.append("含待修复/需修改且无已修复标记")
     return issues
 
 
@@ -57,7 +61,9 @@ def validate_completed_batches(state: dict) -> list[str]:
     return errors
 
 
-def scan_audit_reports() -> list[str]:
+def scan_audit_reports(*, phase: str) -> list[str]:
+    if phase == "PHASE_COMPLETE":
+        return []
     warnings: list[str] = []
     for path in sorted(REVIEW_DIR.glob("*_审核.md")):
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -72,30 +78,28 @@ def main() -> int:
         return 1
 
     state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    phase = str(state.get("current_phase") or "")
     report_count = len(list(REVIEW_DIR.glob("*_审核.md")))
 
     print(f"审核报告数量: {report_count}")
-    print(f"workflow: {state.get('current_phase')} / {state.get('current_step')}")
+    print(f"workflow: {phase} / {state.get('current_step')}")
 
     errors = validate_completed_batches(state)
-    warnings = scan_audit_reports()
+    warnings = scan_audit_reports(phase=phase)
 
     if errors:
         print("错误:")
         for e in errors:
             print(f"  - {e}")
 
-    if warnings:
+    if phase == "PHASE_COMPLETE":
+        print("正文审核开放问题扫描: 已跳过（PHASE_COMPLETE，历史报告保留「需修改」章节记录）")
+    elif warnings:
         print("警告（可能仍有未闭合问题，请人工核对）:")
         for w in warnings[:20]:
             print(f"  - {w}")
         if len(warnings) > 20:
             print(f"  … 另有 {len(warnings) - 20} 条")
-        if state.get("current_phase") == "PHASE_COMPLETE":
-            print(
-                "(当前 PHASE_COMPLETE：多为历史审核记录中的「需修改」行，"
-                "不代表发布阻断)"
-            )
 
     if errors:
         return 1

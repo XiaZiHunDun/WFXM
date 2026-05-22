@@ -87,3 +87,6 @@ markers = [
     "legacy_hermes: v3 / Hermes AIAgent integration (tests/archive only)",
 ]
 addopts = "-m 'not live_llm'"
+filterwarnings = [
+    "ignore:pkg_resources is deprecated:UserWarning:jieba._compat",
+]

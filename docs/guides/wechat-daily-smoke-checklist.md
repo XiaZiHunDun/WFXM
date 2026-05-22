@@ -9,7 +9,7 @@
 
 ## 运维前置（终端）
 
-**人工测试前**（2026-05-22 发版 `9c94cb1` 后建议跑一遍）：
+**人工测试前**（`main` 最新，2026-05-22 `7ea224d` 起建议跑一遍）：
 
 ```bash
 cd ~/projects/WFXM
@@ -30,7 +30,7 @@ bash scripts/butler-pre-release-smoke.sh 灵文1号   # 一键守门（约 3–5
 | `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`SYNC_CONVERSATION_MEMORY=0` | ☑ |
 | `.env` 记忆：`SEMANTIC_MEMORY=1`、`QUEUE_PREFETCH=1`（推荐） | ☑ |
 | `~/.butler/config.yaml` 可选（`bash scripts/setup-butler-config.sh`） | ☐ |
-| `butler-pre-release-smoke.sh` 全绿 | ☑ 2026-05-22（1118 pytest + 各 smoke） |
+| `butler-pre-release-smoke.sh` 全绿 | ☑ 2026-05-22（1121 pytest + 各 smoke） |
 | Owner 画像 SSOT | ☑ |
 
 ```bash

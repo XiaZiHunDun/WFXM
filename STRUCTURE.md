@@ -21,7 +21,7 @@ WFXM/
 │   ├── architecture/            #   v4 架构、Hermes 解耦/提炼
 │   ├── design/                  #   产品设计
 │   └── guides/                  #   运维、微信冒烟、人工测试
-├── tests/                       #   默认 ~931 passed（排除 live_llm / archive）
+├── tests/                       #   默认 ~1121 passed（排除 live_llm / archive）
 ├── projects/                    #   用户项目工作区
 ├── logs/                        #   butler-gateway.log（gitignore *.log）
 ├── archive/                     #   Butler v1 快照
