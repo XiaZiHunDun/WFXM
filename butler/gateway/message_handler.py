@@ -536,8 +536,30 @@ def _normalize_detail_request(text: str) -> str | None:
     if not stripped:
         return None
     lower = stripped.lower()
-    if lower in {"/详细", "/detail", "详细", "detail", "查看详细", "看详细", "完整报告"}:
+    detail_aliases = {
+        "/详细",
+        "/detail",
+        "详细",
+        "detail",
+        "查看详细",
+        "看详细",
+        "完整报告",
+        "详细信息",
+        "查看详细信息",
+        "看一下详细",
+        "看一下详细信息",
+        "我要看一下详细信息",
+        "看详细信息",
+    }
+    if lower in detail_aliases or stripped in detail_aliases:
         return "/详细"
+    for prefix in ("详细", "详细信息", "看一下详细"):
+        if stripped.startswith(prefix) and len(stripped) > len(prefix):
+            rest = stripped[len(prefix) :].strip()
+            if rest.startswith("信息"):
+                rest = rest[2:].strip()
+            if rest:
+                return "/详细 " + rest
     if stripped.startswith("详细 "):
         return "/详细 " + stripped[3:].strip()
     if lower.startswith("detail "):

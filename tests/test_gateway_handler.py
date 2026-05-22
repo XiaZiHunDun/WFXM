@@ -344,6 +344,9 @@ class TestSlashCommands:
         assert _normalize_detail_request("详细") == "/详细"
         assert _normalize_detail_request("detail") == "/详细"
         assert _normalize_detail_request("详细 变更") == "/详细 变更"
+        assert _normalize_detail_request("详细信息") == "/详细"
+        assert _normalize_detail_request("我要看一下详细信息") == "/详细"
+        assert _normalize_detail_request("看一下详细") == "/详细"
         assert _normalize_detail_request("你好") is None
 
     def test_detail_plain_text_skips_llm(self, handler):

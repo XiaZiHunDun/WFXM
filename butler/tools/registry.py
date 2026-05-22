@@ -358,6 +358,23 @@ def _register_builtin_tools() -> None:
         toolset="file",
     )
 
+    register(
+        name="delete_file",
+        description=(
+            "Delete a regular file under the project workspace. "
+            "Prefer this over terminal rm. Does not remove directories."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "File path to delete"},
+            },
+            "required": ["path"],
+        },
+        handler=_tool_delete_file,
+        toolset="file",
+    )
+
     # ── terminal ──────────────────────────────────────────────
     register(
         name="terminal",
@@ -775,6 +792,35 @@ def _tool_write_file(path: str, content: str, **_) -> str:
         return json.dumps({"error": str(exc)})
 
 
+def _tool_delete_file(path: str, **_) -> str:
+    """Delete one regular file inside the tool-safe workspace."""
+    try:
+        _data, p, stat_result, error = _read_regular_file_bytes(path, for_write=True)
+        if error:
+            return json.dumps({"error": error})
+        if p is None or stat_result is None:
+            return json.dumps({"error": f"File not found: {path}"})
+        if not stat_module.S_ISREG(stat_result.st_mode):
+            return json.dumps({"error": "Only regular files can be deleted (not directories)"})
+
+        from butler.tools.path_safety import tool_safe_root
+
+        root = tool_safe_root()
+        raw_path = _raw_tool_path(path, root)
+        symlink_error = _symlink_component_error(raw_path, root, include_final=True)
+        if symlink_error:
+            return json.dumps({"error": symlink_error})
+
+        try:
+            os.unlink(raw_path)
+        except OSError as exc:
+            return json.dumps({"error": str(exc)})
+
+        return json.dumps({"success": True, "path": str(p), "action": "deleted"})
+    except Exception as exc:
+        return json.dumps({"error": str(exc)})
+
+
 def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
     try:
         data, _p, expected_stat, error = _read_regular_file_bytes(path, for_write=True)
@@ -1164,13 +1210,24 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
         )
 
         from butler.report import AgentReport
+
         changes = _extract_changes_from_messages(result.messages)
+        issues = _extract_issues_from_messages(result.messages)
+        success = _delegate_task_succeeded(result, changes, issues)
         role_label = _delegate_role_label(role)
+        headline = (
+            f"{role_label}已完成任务"
+            if success
+            else f"{role_label}未能完成任务"
+        )
+        task_preview = (task or "").strip()[:200]
         report = AgentReport(
-            headline=f"{role_label}已完成任务",
+            headline=headline,
             summary=result.final_response or "(无输出)",
             changes=changes,
-            success=result.status.value == "completed",
+            issues=issues,
+            success=success,
+            task_preview=task_preview,
             iterations=result.iterations,
             tool_calls=result.tool_calls_made,
             tokens_used=result.total_tokens,
@@ -1243,6 +1300,38 @@ def _delegate_role_label(role: str) -> str:
     return labels.get(key, str(role or "代理"))
 
 
+def _extract_issues_from_messages(messages: list) -> list[str]:
+    import json as _json
+
+    issues: list[str] = []
+    seen: set[str] = set()
+    for msg in messages or []:
+        if msg.get("role") != "tool":
+            continue
+        content = str(msg.get("content") or "")
+        err = ""
+        try:
+            payload = _json.loads(content)
+            if isinstance(payload, dict):
+                err = str(payload.get("error") or "").strip()
+        except _json.JSONDecodeError:
+            pass
+        if not err and '"error"' in content.lower():
+            err = content[:400].strip()
+        if err and err not in seen:
+            seen.add(err)
+            issues.append(err[:500])
+    return issues[:5]
+
+
+def _delegate_task_succeeded(result: Any, changes: list, issues: list) -> bool:
+    if result.status.value != "completed":
+        return False
+    if issues and not changes:
+        return False
+    return True
+
+
 def _extract_changes_from_messages(messages: list) -> list:
     import json as _json
 
@@ -1262,12 +1351,19 @@ def _extract_changes_from_messages(messages: list) -> list:
             payload = _json.loads(content)
             if isinstance(payload, dict):
                 path = str(payload.get("path") or "").strip()
-                if payload.get("replacements"):
+                raw_action = str(payload.get("action") or "").strip().lower()
+                if raw_action in {"created", "modified", "deleted"}:
+                    action = raw_action
+                elif payload.get("replacements"):
                     action = "modified"
+                elif payload.get("bytes") is not None and not payload.get("replacements"):
+                    action = "created"
         except _json.JSONDecodeError:
             pass
         if not path and "write_file" in lowered:
             action = "created"
+        if not path and "delete_file" in lowered:
+            action = "deleted"
         if not path:
             path = "(文件变更)"
         changes.append(

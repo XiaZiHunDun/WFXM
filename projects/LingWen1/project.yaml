@@ -24,6 +24,7 @@ workflows:
 tools:
 - read_file
 - write_file
+- delete_file
 - patch
 - search_files
 - terminal

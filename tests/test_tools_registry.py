@@ -56,6 +56,7 @@ class TestToolDefinitions:
         assert names == {
             "read_file",
             "write_file",
+            "delete_file",
             "patch",
             "terminal",
             "search_files",
@@ -82,6 +83,7 @@ class TestToolDefinitions:
         [
             ("read_file", ["path"]),
             ("write_file", ["path", "content"]),
+            ("delete_file", ["path"]),
             ("patch", ["path", "old_string", "new_string"]),
             ("terminal", ["command"]),
             ("search_files", ["pattern"]),
@@ -366,6 +368,33 @@ class TestWriteFile:
         data = json.loads(result)
         assert "changed during validation" in data["error"]
         assert target.read_text(encoding="utf-8") == "swapped"
+
+
+@pytest.mark.module_test
+class TestDeleteFile:
+    def test_delete_existing_file(self, tmp_path):
+        target = tmp_path / "remove-me.txt"
+        target.write_text("bye", encoding="utf-8")
+        result = dispatch_tool("delete_file", {"path": str(target)})
+        data = json.loads(result)
+        assert data["success"] is True
+        assert data["action"] == "deleted"
+        assert not target.exists()
+
+    def test_delete_missing_file_error(self, tmp_path):
+        target = tmp_path / "missing.txt"
+        result = dispatch_tool("delete_file", {"path": str(target)})
+        data = json.loads(result)
+        assert "error" in data
+        assert "not found" in data["error"].lower()
+
+    def test_delete_rejects_directory(self, tmp_path):
+        folder = tmp_path / "dir"
+        folder.mkdir()
+        result = dispatch_tool("delete_file", {"path": str(folder)})
+        data = json.loads(result)
+        assert "error" in data
+        assert "regular files" in data["error"].lower()
 
 
 @pytest.mark.module_test
@@ -995,6 +1024,66 @@ class TestDelegateTask:
         result = dispatch_tool("delegate_task", {"role": "dev", "task": "run tests"})
 
         assert json.loads(result)["success"] is True
+
+    @patch("butler.session_lifecycle.sync_turn_memory", return_value={"skipped": False})
+    @patch("butler.session_lifecycle.attach_turn_memory_prefetch")
+    @patch("butler.report.cache_report")
+    @patch("butler.orchestrator.ButlerOrchestrator")
+    def test_delegate_marks_failure_when_tools_error_without_changes(
+        self,
+        mock_orch_cls,
+        mock_cache,
+        mock_prefetch,
+        mock_sync,
+    ):
+        from butler.core.agent_loop import LoopResult, LoopStatus
+
+        mock_agent = MagicMock()
+        mock_agent.run.return_value = LoopResult(
+            status=LoopStatus.COMPLETED,
+            final_response="无法删除文件",
+            messages=[
+                {
+                    "role": "tool",
+                    "content": json.dumps({"error": "File not found: docs/missing.txt"}),
+                },
+            ],
+        )
+        mock_orch = MagicMock()
+        mock_orch.create_project_agent_loop.return_value = mock_agent
+        mock_orch.inject_skill_context.side_effect = lambda text, **_: text
+        mock_orch_cls.return_value = mock_orch
+
+        result = dispatch_tool(
+            "delegate_task",
+            {"role": "dev", "task": "删除 docs/missing.txt"},
+        )
+
+        data = json.loads(result)
+        assert data["success"] is False
+        cached = mock_cache.call_args[0][0]
+        assert "未能完成任务" in cached.headline
+        assert cached.issues
+        assert cached.task_preview == "删除 docs/missing.txt"
+
+
+@pytest.mark.module_test
+class TestDelegateExtractors:
+    def test_extract_changes_recognizes_delete_file(self):
+        from butler.tools.registry import _extract_changes_from_messages
+
+        messages = [
+            {
+                "role": "tool",
+                "content": json.dumps(
+                    {"success": True, "path": "docs/test_hello.txt", "action": "deleted"}
+                ),
+            },
+        ]
+        changes = _extract_changes_from_messages(messages)
+        assert len(changes) == 1
+        assert changes[0].action == "deleted"
+        assert changes[0].file == "docs/test_hello.txt"
 
 
 @pytest.mark.module_test

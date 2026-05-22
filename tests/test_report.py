@@ -50,6 +50,8 @@ class TestAgentReport:
         assert len(restored.changes) == len(sample_report.changes)
         assert restored.changes[0].file == "main.py"
         assert restored.decisions == sample_report.decisions
+        assert restored.success == sample_report.success
+        assert restored.task_preview == sample_report.task_preview
 
     def test_from_dict_accepts_desc_key(self):
         data = {
@@ -80,6 +82,25 @@ class TestFormatters:
     def test_format_for_wechat_contains_headline(self, sample_report):
         text = format_for_wechat(sample_report)
         assert sample_report.headline in text
+
+    def test_format_for_wechat_shows_issues_on_failure(self):
+        report = AgentReport(
+            headline="开发代理未能完成任务",
+            success=False,
+            issues=["File not found: docs/x.txt"],
+        )
+        text = format_for_wechat(report)
+        assert "未能完成任务" in text
+        assert "File not found" in text
+
+    def test_format_detail_includes_task_preview(self):
+        report = AgentReport(
+            headline="开发代理已完成任务",
+            task_preview="删除 docs/test_hello.txt",
+            summary="已删除",
+        )
+        text = format_detail(report)
+        assert "【本报告任务】删除 docs/test_hello.txt" in text
 
     def test_format_detail_contains_execution_stats(self, sample_report):
         text = format_detail(sample_report)

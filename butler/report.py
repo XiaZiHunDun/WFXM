@@ -21,6 +21,7 @@ class AgentReport:
     issues: list[str] = field(default_factory=list)
     summary: str = ""
     success: bool = True
+    task_preview: str = ""
     iterations: int = 0
     tool_calls: int = 0
     tokens_used: int = 0
@@ -36,6 +37,8 @@ class AgentReport:
             "decisions": list(self.decisions),
             "issues": list(self.issues),
             "summary": self.summary,
+            "success": self.success,
+            "task_preview": self.task_preview,
         }
 
     @classmethod
@@ -62,6 +65,8 @@ class AgentReport:
             decisions=[str(x) for x in (raw.get("decisions") or [])],
             issues=[str(x) for x in (raw.get("issues") or [])],
             summary=str(raw.get("summary", "") or ""),
+            success=bool(raw.get("success", True)),
+            task_preview=str(raw.get("task_preview", "") or ""),
         )
 
 
@@ -121,6 +126,9 @@ def format_for_wechat(report: AgentReport) -> str:
     """Compact WeChat format with drilldown hint."""
     parts: list[str] = [report.headline]
 
+    if not report.success:
+        parts[0] = report.headline or "任务未完成"
+
     if report.changes:
         action_counts: dict[str, int] = {}
         for c in report.changes:
@@ -137,8 +145,12 @@ def format_for_wechat(report: AgentReport) -> str:
 
     if report.issues:
         parts.append("")
-        for issue in report.issues:
+        for issue in report.issues[:3]:
             parts.append(f"⚠ {issue}")
+
+    if not report.success and not report.issues:
+        parts.append("")
+        parts.append("⚠ 工具执行未成功，请发 /详细 查看原因")
 
     parts.append("\n回复「/详细」或「详细」查看完整报告")
     return "\n".join(parts)
@@ -173,9 +185,15 @@ def format_detail(report: AgentReport, section: str = "") -> str:
         return "\n".join(lines)
 
     parts: list[str] = []
+    if report.task_preview:
+        parts.append(f"【本报告任务】{report.task_preview}")
+        parts.append("")
+    if not report.success:
+        parts.append(report.headline or "任务未完成")
+        parts.append("")
     if report.summary:
         parts.append(report.summary)
-    else:
+    elif report.headline:
         parts.append(report.headline)
 
     if report.changes:
