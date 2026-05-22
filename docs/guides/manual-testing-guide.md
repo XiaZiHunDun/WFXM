@@ -717,7 +717,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 | 2.6.2 | 未知命令 | ☑ | `test_main_cli` |
 | 2.6.3 | Ctrl+C 中断 | 待人工 | |
 | 2.6.4 | Ctrl+D 退出 | ☑ | 自动化 EOF |
-| CLI 真机抽测 | 建议 | ☐ | `butler chat` 跑 2.1/2.2.2/2.4.3/2.6.1–3 |
+| CLI 真机抽测 | 建议 | — | **暂缓**（试点以微信为主；见 §3 自动化） |
 
 ### 微信测试结果
 
@@ -740,7 +740,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 | 3.5.6 | /新对话 | ☑ | 自动化 |
 | 3.5.7 | /详细 | ☑ | 自动化 |
 | 3.x 真机抽测 | ☑ | `/状态`（莎丽/项目无/minimax）；`/new` 后仍记得身份；`__init__.py` 5 行 |
-| 3.6 核心场景（灵文1号八步） | ☐ | 2026-05-20 曾用旧名灵文通过；2026-05-21 起按 `LingWen1` 复验 |
+| 3.6 核心场景（灵文1号八步） | ☑ | 2026-05-22 与 [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) 对齐 |
 
 ---
 

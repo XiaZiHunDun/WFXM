@@ -9,7 +9,7 @@
 
 ## 运维前置（终端）
 
-**人工测试前**（`main` 最新，2026-05-22 `7ea224d` 起建议跑一遍）：
+**人工测试前**（2026-05-22 发版批次，`main` 至 `7d9e1b4` 起建议跑一遍）：
 
 ```bash
 cd ~/projects/WFXM
@@ -97,7 +97,7 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 | 8c | `/详细` | 工作流 headline / 各步 OK 或 FAIL | ☑ | |
 | P1-1 | `/状态` | 显示 **环境默认项目：灵文1号** | ☑ | |
 | P1-2 | `/工作流 run novel-factory-status` | 汇报 workflow phase/step，简短 | ☑ | |
-| P1-3 | `请记住：试点验收日期 2026-05-21` → `/记忆待审` → `/批准记忆 全部`（若有待审） | Pending 闭环 | ☑ | |
+| P1-3 | `请记住：首轮微信验收完成于 2026-05-21` → `/记忆待审` → `/批准记忆 全部`（若有待审） | Pending 闭环 | ☑ | 与 M2「统一测试日 **2026-05-22**」为不同备忘，勿混记 |
 
 ### 记忆模块验收（P0–P2，2026-05-21 通过）
 
@@ -140,7 +140,21 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 > 说明：2026-05-21 曾用 300s 正文去重导致「第 2 句无回复」；已改为 `BUTLER_WECHAT_CONTENT_DEDUP_TTL=20`（仅防 iLink 重复推送）。
 
-**批次**：2026-05-20 初验（项目名「灵文」）| **2026-05-21**：灵文1号 冒烟 + P1 + 阶段1 只读 + **记忆 P0–P2（M1–M4）** **全通过**（主公确认 + pytest）
+**批次**：2026-05-20 初验（项目名「灵文」）| 2026-05-21 灵文1号首轮 | **2026-05-22 复验**：记忆+Runtime+运维命令 **全通过**（M-img/M-voice 暂缓）
+
+---
+
+## 试点验收结论（2026-05-22）
+
+**范围**：WFXM 仓库 **灵文1号** 微信管家试点（Butler 原生网关 + 记忆 P0–P2 + Runtime 3a–3c）。
+
+**结论**：**通过，可运营。** 核心真机项（对话八步、记忆 M1–M4、诊断/图谱、开发状态、定时任务、推送）均已勾选；自动化守门 1121 pytest + `butler-pre-release-smoke.sh` 全绿。
+
+**暂缓**：入站截图/短语音真机（M-img/M-voice，场景未定；`butler-inbound-media-smoke.sh` 已覆盖代码路径）。
+
+**已知运营注意**：iLink 推送限流时需依赖冷却 + `push_queue` + `butler-push-drain.timer`；周一 `consistency-weekly` 定时摘要建议首周观察一次。
+
+**详细记录**：[`projects/LingWen1/docs/pilot-log.md`](../../projects/LingWen1/docs/pilot-log.md)
 
 ---
 
@@ -171,7 +185,7 @@ bash scripts/butler-inbound-media-smoke.sh
 
 ## 相关文档
 
-- [wechat-core-scenario.md](./wechat-core-scenario.md) — 八步详解与 FAQ（2026-05-20 真机通过；项目名已更新为灵文1号）  
+- [wechat-core-scenario.md](./wechat-core-scenario.md) — 八步详解与 FAQ（2026-05-22 与清单对齐 ☑）  
 - [projects/LingWen1/docs/pilot-setup.md](../../projects/LingWen1/docs/pilot-setup.md) — 试点与工作副本说明  
 - [owner-profile-setup.md](./owner-profile-setup.md) — Owner 画像  
 - [manual-testing-guide.md](./manual-testing-guide.md) — CLI + 微信完整手册

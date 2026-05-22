@@ -53,7 +53,7 @@ bash scripts/butler-gateway-ops.sh restart   # 网关加载 Skill + Lead Loop
 
 ## 微信试点
 
-**验收**：2026-05-21 冒烟（0–8c）、P1（记忆/状态工作流）、阶段 1 只读（R1–R4）、**记忆模块 P0–P2**（`/诊断` 分层、paraphrase 统一测试日）均已通过。记录见 `docs/pilot-log.md`、`docs/memory-guide.md`、`docs/wechat-smoke.md`。
+**验收**：**2026-05-22 结论 — 通过，可运营。** 冒烟（0–8c）、记忆 M1–M4/M1b、Runtime、运维命令已复验；M-img/M-voice 暂缓。见 `pilot-log.md` §验收结论、`docs/guides/wechat-daily-smoke-checklist.md`。
 
 ### 建议顺序（复测时）
 
