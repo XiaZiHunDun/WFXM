@@ -770,7 +770,7 @@ class ToolEntry:
 | 工具审计 | session 分桶；`on_session_removed` 与 reset/evict 对齐；`get_audit_session_key()` |
 | Guardrails | `RLock` 线程安全；warn 写入 JSON `guardrail` 字段；halt 后 `precheck_tool` 跳过后续 dispatch |
 | Gateway | `/health`、`/诊断`；无 health 快照时仍展示工具审计摘要 |
-| 测试 | **1100+ passed**（默认排除 `live_llm`）；CI 见 `.github/workflows/ci.yml` |
+| 测试 | **1121 passed**（默认排除 `live_llm`）；CI 见 `.github/workflows/ci.yml` |
 
 架构约束：`agent_loop.py` **< 400 行**；新能力优先落入子模块，避免回灌单体 `run_agent.py` 风格文件。
 

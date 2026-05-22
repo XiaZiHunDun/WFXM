@@ -54,7 +54,7 @@
 | 3 工具与委派 | 并行批、interrupt、delegate 信封 | `test_hermes_extraction.py`, `test_tools_registry.py` |
 | 4 记忆/Gateway/Skills | session 边界、HookBus、skills_guard | `test_gateway_handler.py`, `test_main_cli.py` |
 
-全量测试目标：**931 passed**（默认排除 `live_llm` 与 `tests/archive/`）。
+全量测试目标：**1121 passed**（默认排除 `live_llm` 与 `tests/archive/`）。
 
 ## 架构约束
 
@@ -83,7 +83,7 @@
 | `butler/core/iteration_budget.py` | L283–L325 | 迭代预算（可选） | ✅ |
 | `butler/core/agent_loop.py` + `butler/core/loop_types.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写、Loop 公共类型 | ✅ |
 
-测试：`tests/test_run_agent_extraction.py`；全量 **931 passed**（默认排除 `live_llm` 与 `tests/archive/`）。
+测试：`tests/test_run_agent_extraction.py`；全量 **1121 passed**（默认排除 `live_llm` 与 `tests/archive/`）。
 
 ## CLI 提炼层（2026-05 增补）
 
