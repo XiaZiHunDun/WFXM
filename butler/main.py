@@ -500,6 +500,7 @@ def _cmd_create(ns: argparse.Namespace) -> int:
             display_name=(ns.display_name or "").strip() or ns.slug,
             pack=(ns.pack or "").strip(),
             template=(ns.template or "").strip(),
+            with_runtime=not ns.no_runtime,
         )
     except (ValueError, FileNotFoundError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -509,7 +510,14 @@ def _cmd_create(ns: argparse.Namespace) -> int:
         return 1
     print(f"Created project {created.name!r} at {created.workspace}")
     print(f"Next: butler project preflight --project {created.name!r}")
+    if ns.reindex:
+        from butler.project_archetypes import reindex_project_memory
+
+        ok, msg = reindex_project_memory(created.name)
+        print(f"Reindex: {msg}")
+        return 0 if ok else 1
     print(f"      butler memory-reindex --project {created.name!r}")
+    print("      (或 create/register 加 --reindex)")
     return 0
 
 
@@ -526,6 +534,7 @@ def _cmd_project_register(ns: argparse.Namespace) -> int:
             pack=(ns.pack or "").strip(),
             template=(ns.template or "software-default").strip(),
             merge_existing=not ns.force_new_yaml,
+            with_runtime=not ns.no_runtime,
         )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -545,6 +554,13 @@ def _cmd_project_register(ns: argparse.Namespace) -> int:
         )
     print(f"Registered project {proj.name!r} at {proj.workspace}")
     print(f"Next: butler project preflight --project {proj.name!r}")
+    if ns.reindex:
+        from butler.project_archetypes import reindex_project_memory
+
+        ok, msg = reindex_project_memory(proj.name)
+        print(f"Reindex: {msg}")
+        return 0 if ok else 1
+    print("      butler projects --reload  # 若网关已运行")
     return 0
 
 
@@ -884,6 +900,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="模板 ID：software-default | novel-factory | knowledge-light",
     )
+    cr.add_argument(
+        "--no-runtime",
+        action="store_true",
+        help="不生成 runtime/jobs.yaml 模板",
+    )
+    cr.add_argument(
+        "--reindex",
+        action="store_true",
+        help="创建后重建该项目 MEMORY 语义向量索引",
+    )
     cr.set_defaults(func=_cmd_create)
 
     pr = sub.add_parser("project", help="项目接入与体检")
@@ -920,6 +946,8 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="已有 project.yaml 时不合并，仅补 MEMORY",
     )
+    reg.add_argument("--no-runtime", action="store_true", help="不生成 runtime/jobs.yaml")
+    reg.add_argument("--reindex", action="store_true", help="登记后重建该项目 MEMORY 向量索引")
     reg.set_defaults(func=_cmd_project_register)
 
     ex = sub.add_parser("exec", help="单次消息执行")

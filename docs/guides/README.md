@@ -14,6 +14,7 @@
 | [project-onboarding.md](./project-onboarding.md) | **项目接入**：preflight 体检、模板、登记收尾与微信验收 |
 | `scripts/butler-pre-release-smoke.sh` | **人工测试前一键守门**（preflight + pytest + 各 smoke） |
 | `scripts/butler-runtime-smoke.sh` | Runtime 运维冒烟（灵文1号） |
+| `scripts/butler-demo-pilot-smoke.sh` | **演示试点** E2E（preflight + runtime + pytest 子集） |
 | `scripts/butler-dev-tools-smoke.sh` | 开发工具链实战冒烟 |
 | [manual-testing-guide.md](./manual-testing-guide.md) | CLI + 微信完整人工测试手册 |
 

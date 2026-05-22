@@ -151,7 +151,12 @@ class ButlerMessageHandler:
             text = rewritten
 
         if _is_sessionless_command(text):
-            out = self._handle_message_locked(text, session_key=session_key, platform=platform)
+            out = self._handle_message_locked(
+                text,
+                session_key=session_key,
+                platform=platform,
+                external_id=external_id,
+            )
             logger.info(
                 "Gateway handle_message done (slash) session=%s elapsed=%.1fs out_len=%d",
                 session_key,
@@ -163,7 +168,12 @@ class ButlerMessageHandler:
         logger.info("Gateway enter_session session=%s", session_key)
         session_lock = self._session_registry.enter_session(session_key)
         try:
-            out = self._handle_message_locked(text, session_key=session_key, platform=platform)
+            out = self._handle_message_locked(
+                text,
+                session_key=session_key,
+                platform=platform,
+                external_id=external_id,
+            )
             logger.info(
                 "Gateway handle_message done session=%s elapsed=%.1fs out_len=%d",
                 session_key,
@@ -180,6 +190,7 @@ class ButlerMessageHandler:
         *,
         session_key: str = "default",
         platform: str = "unknown",
+        external_id: str | None = None,
     ) -> str:
         if not text.strip():
             return ""
@@ -187,14 +198,20 @@ class ButlerMessageHandler:
         detail_cmd = _normalize_detail_request(text)
         if detail_cmd is not None:
             response = self._handle_command(
-                detail_cmd, session_key=session_key, platform=platform
+                detail_cmd,
+                session_key=session_key,
+                platform=platform,
+                external_id=external_id,
             )
             if response is not None:
                 return response
 
         if text.startswith("/"):
             response = self._handle_command(
-                text, session_key=session_key, platform=platform
+                text,
+                session_key=session_key,
+                platform=platform,
+                external_id=external_id,
             )
             if response is not None:
                 return response
@@ -307,6 +324,7 @@ class ButlerMessageHandler:
         *,
         session_key: str = "default",
         platform: str = "unknown",
+        external_id: str | None = None,
     ) -> Optional[str]:
         """Handle Butler slash commands. Returns response or None."""
         parts = text.strip().split(maxsplit=1)
@@ -321,6 +339,8 @@ class ButlerMessageHandler:
                 cmd,
                 arg,
                 session_key=session_key,
+                platform=platform,
+                external_id=external_id,
             )
             if onboard is not None:
                 return onboard

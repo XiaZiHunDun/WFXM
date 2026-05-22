@@ -48,6 +48,19 @@ butler memory-reindex --project "我的应用"
 
 登记后若网关已运行：`butler projects --reload` 或重启 gateway。
 
+```bash
+butler project register projects/MySlug --name "显示名" --reindex
+butler create MySlug --name "显示名" --reindex   # 创建并索引 MEMORY
+```
+
+`software-default` 模板会自动生成 `runtime/jobs.yaml`（含 `test-unit-smoke`，默认 `enabled: false`，用 `/运行 test-unit-smoke` 或 `--force`）。
+
+### 微信 Owner 限制
+
+- `/项目 新建` 仅 **Owner**（`BUTLER_OWNER_WECHAT_ID` 或 `WECHAT_ALLOWED_USERS`）可用
+- `/项目 体检`、列表：所有已授权微信用户
+- 开发：`BUTLER_PROJECT_CREATE_OPEN=1` 可跳过 Owner 校验
+
 **Claude Code / Cursor**：不登记为项目类型；本机 IDE 改代码与 Butler 项目 workspace 可指向同一路径，协调方式见规划文档 §2.4。
 
 ---
