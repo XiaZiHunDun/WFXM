@@ -1,0 +1,23 @@
+# 模板：novel-factory — 含 novel-factory/ 工作区（参考灵文1号，按需裁剪）
+name: 项目名称
+type: content
+description: ""
+status: active
+workflows:
+  - name: novel-factory
+    description: 小说生产流水线
+  - name: novel-factory-status
+    description: 只读查看 workflow_state.json
+tools:
+  - read_file
+  - write_file
+  - patch
+  - search_files
+  - list_directory
+  - terminal
+  - git_status
+  - git_diff
+  - git_log
+  - skills_list
+  - skill_view
+# 登记后：BUTLER_LEAD_PROJECTS 加入 name；补 skills/*-project-lead.md；runtime/jobs.yaml

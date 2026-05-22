@@ -1,0 +1,12 @@
+# 模板：knowledge-light — 以文档/记忆为主，不默认开 shell/git（极少用）
+name: 知识仓
+type: content
+description: ""
+status: active
+tools:
+  - read_file
+  - list_directory
+  - search_files
+  - skills_list
+  - skill_view
+workflows: []
