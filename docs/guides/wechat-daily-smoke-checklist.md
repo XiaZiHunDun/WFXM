@@ -2,6 +2,7 @@
 
 > 推送代码或重启 `butler-gateway` 后，用本表在**微信私聊 Bot** 走一遍（约 15–25 分钟）。  
 > 完整剧本见 [wechat-core-scenario.md](./wechat-core-scenario.md)。  
+> **对话自动化（人工测试前建议先跑）**：真机衍射 [wechat-real-dialogue-test-scenarios-2026-05.md](../plans/wechat-real-dialogue-test-scenarios-2026-05.md) + 习惯全集 [wechat-dev-conversation-scenarios-2026-05.md](../plans/wechat-dev-conversation-scenarios-2026-05.md) → `pytest tests/test_gateway_dev_conversations.py -q`（**16** 项）  
 > **网关安装/发版/排障**见 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。  
 > **验收项目**：WFXM 仓库内 **`灵文1号`**（`projects/LingWen1/`），与仓库外「正式灵文」隔离。
 
