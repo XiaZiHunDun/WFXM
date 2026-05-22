@@ -428,6 +428,12 @@ class ButlerMessageHandler:
                 platform=platform,
             )
 
+        from butler.gateway.dev_commands import handle_dev_command
+
+        dev_resp = handle_dev_command(cmd, arg)
+        if dev_resp is not None:
+            return dev_resp
+
         from butler.gateway.runtime_commands import handle_runtime_command
 
         rt_resp = handle_runtime_command(self._orchestrator, cmd, arg)
@@ -498,6 +504,9 @@ class ButlerMessageHandler:
                     settings=self._orchestrator._settings,
                 )
             )
+            from butler.ops.snapshot import format_ops_diagnostic_lines
+
+            lines.extend(format_ops_diagnostic_lines())
             return "\n".join(lines)
 
         if health:
@@ -569,6 +578,9 @@ class ButlerMessageHandler:
                     settings=self._orchestrator._settings,
                 )
             )
+            from butler.ops.snapshot import format_ops_diagnostic_lines
+
+            lines.extend(format_ops_diagnostic_lines())
             if health.get("error"):
                 lines.append("错误: 有（查看日志）")
             if health.get("hygiene_error"):
@@ -595,6 +607,9 @@ class ButlerMessageHandler:
                     settings=self._orchestrator._settings,
                 )
             )
+            from butler.ops.snapshot import format_ops_diagnostic_lines
+
+            lines.extend(format_ops_diagnostic_lines())
 
         if tool_summary["total"]:
             lines.extend([
