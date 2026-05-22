@@ -21,6 +21,7 @@
 | 2026-05-22 | **人工测试前准备** | `butler-pre-release-smoke.sh`；清单/`env.example` 同步；ops-bundle + gateway restart |
 | 2026-05-22 | **P1/P2 工程** | runtime smoke 默认不推送；CI smoke job；连续失败告警+`/诊断`；preflight config/OCR；`wechat-ocr` extra；`setup-butler-config.sh` |
 | 2026-05-22 | **可选打磨** | pytest 推送 mock；`validate_progress.py`；文档 1121、v4 信息回传表述、jieba 警告过滤 |
+| 2026-05-22 | **人工测试复验** | M1–M4、O7、RT2 ☑（M2 复测；M3 拒绝记忆；M4 预取缓存命中） |
 
 ## 稳上线后微信补验（自动化已守门，真机可快速勾选）
 
