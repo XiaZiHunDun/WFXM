@@ -107,10 +107,10 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 | M2 | 「灵文试点统一测试是哪天？」（不说 2026-05-22） | 答 **2026-05-22**（项目 Notes 备忘） | ☑ | 2026-05-22 复测通过（MEMORY 补条 + reindex 后） |
 | M3 | 决策句 → `/记忆待审` → `/拒绝记忆 1` | Pending 减、向量不增正式条 | ☑ | 2026-05-22 Redis 决策拒绝；Pending 0 |
 | M4 | 同一问题连发两遍 → `/诊断` | 「上轮预取缓存: 命中」 | ☑ | 2026-05-22 13:57–58；命中+当前句就绪 |
-| M1b | `/记忆图谱` | 三元组或空状态提示 | ☐ | |
+| M1b | `/记忆图谱` | 三元组或空状态提示 | ☑ | 2026-05-22 1 条（Redis 决策展示） |
 | O7 | `/诊断` | knowledge.db 键数、混合检索权重、半衰期/访问加权 | ☑ | 含于 M1 |
-| Ops | `/开发状态` | 显示 terminal/git/git_write 开关（生产 git_write 宜 0） | ☐ | 可选 |
-| RT1 | `/定时` | 列出 jobs；含 consistency-weekly / factory-status | ☐ | |
+| Ops | `/开发状态` | 显示 terminal/git/git_write 开关（生产 git_write 宜 0） | ☑ | 2026-05-22 全 0，符合生产 |
+| RT1 | `/定时` | 列出 jobs；含 consistency-weekly / factory-status | ☑ | 2026-05-22 5 项 jobs 完整 |
 | RT2 | `/运行 factory-status-daily` | 收到摘要或 audit 路径 | ☑ | M1 时段已收到 factory-status 推送摘要 |
 
 **Owner 画像**：`~/.butler/tenants/default/memory/profile.json`；**勿**在画像写死默认项目名（见 `owner-profile-setup.md`）。
