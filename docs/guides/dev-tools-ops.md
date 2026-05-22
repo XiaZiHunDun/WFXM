@@ -61,6 +61,15 @@ bash scripts/butler-dev-tools-smoke.sh
 
 覆盖：`patch` → `terminal`（跑检查脚本）→ `git_status` → `git_add` → `git_commit`（隔离临时 git 仓库）。
 
+## 微信开发验收（可选）
+
+| 命令 | 说明 |
+|------|------|
+| `/开发状态` | 查看网关进程内 terminal/git 开关 |
+| `/开发验收` | 需 `.env` 设 `BUTLER_WECHAT_DEV_SMOKE=1` 并重启网关；跑 `test_dev_tools_integration` |
+
+生产网关保持 `BUTLER_ENABLE_GIT_WRITE=0`；试点机验收可临时开启上述 smoke 开关。
+
 ## 委派 dev 真机链（验收模板）
 
 1. 微信：`请委派开发代理：修改 docs/… 并 git_status，跑 pytest tests/test_runtime.py -q，不要 commit`

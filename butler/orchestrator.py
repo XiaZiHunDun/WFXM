@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from butler.config import ButlerSettings, get_butler_settings, get_model_config
+from butler.config import ButlerSettings, get_butler_settings
 from butler.memory import ButlerMemory, ProjectMemory
 from butler.memory_plugin import ButlerMemoryService
 from butler.project_manager import get_project_manager
@@ -215,11 +215,16 @@ class ButlerOrchestrator:
         current = self.project_manager.current_project or "(未选择)"
         project_list = _format_project_list(self._settings)
 
-        mc = get_model_config("butler")
+        from butler.model_resolve import resolve_effective_model
+
+        proj = self.project_manager.get_current()
+        em = resolve_effective_model("butler", project=proj, settings=self._settings)
+        mc = em.config
         prov = mc.provider or self._settings.default_provider or ""
         parts_model = [
             f"- Provider: `{prov or 'unset'}`",
             f"- Model: `{mc.model or 'unset'}`",
+            f"- Sources: `{', '.join(em.sources)}`",
         ]
         if mc.temperature is not None:
             parts_model.append(f"- Temperature: `{mc.temperature}`")

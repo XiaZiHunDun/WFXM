@@ -92,8 +92,7 @@ flowchart TB
 |------|------|
 | 管家层合并 | `butler/config.py` — `ButlerSettings.get_model_config` |
 | 项目层合并 | `butler/project.py` — `Project.resolve_model` |
-| 厂长凭证（缺项目合并） | `butler/orchestrator.py` — `_model_credentials` |
-| 委派凭证（完整合并） | `butler/orchestrator.py` — `get_project_agent_kwargs` |
+| 管家/委派凭证 | `butler/orchestrator.py` — `_model_credentials` / `get_project_agent_kwargs`（均走 `resolve_effective_model`） |
 | 运行时覆盖 | `butler/config.py` — `set_runtime_model_override` |
 | `/model` | `butler/model_resolve.py` — **单一解析 + /model** |
 | `butler/gateway/message_handler.py`、`butler/main.py` |

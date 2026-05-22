@@ -84,6 +84,8 @@ _cmd_upgrade() {
     echo "Not a git repo; skipping pull" >&2
   fi
   bash "$ROOT/scripts/install-butler-gateway-service.sh"
+  echo "== refresh ops timers (runtime all-projects, push-drain) =="
+  bash "$ROOT/scripts/install-butler-ops-bundle.sh" --no-enable || true
   if [[ "$skip_reindex" -eq 0 ]]; then
     _cmd_reindex "灵文1号" || echo "memory-reindex failed (non-fatal)" >&2
   fi

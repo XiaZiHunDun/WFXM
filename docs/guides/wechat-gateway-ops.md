@@ -138,7 +138,8 @@ systemctl --user enable butler-gateway.service
 - **正常关键字**：`Butler native gateway running`、`[Wechat] Connected`、`inbound` / `outbound`
 - **异常**：`missing token`、`WeChat requires: pip install`、`hermes gateway`
 
-日志轮转：`bash scripts/install-butler-logrotate.sh user`（或 `system` 需 sudo）。配置模板见 `scripts/logrotate/butler-gateway.conf`。
+日志轮转：`bash scripts/install-butler-logrotate.sh user --install-cron`。  
+运维一键：`bash scripts/install-butler-ops-bundle.sh`（runtime timer 全项目 + push-drain + logrotate）。`upgrade` 会自动刷新 timer 单元。
 
 ---
 

@@ -17,6 +17,7 @@
 | 2026-05-21 | **A–D 技术债清偿** | knowledge.db 同步；/诊断 推送队列；`drain-push`；逐步 workflow model；删 220424 报告；入站媒体+dev 委派守门脚本 |
 | 2026-05-21 | **工程增强批次** | push-drain timer；`publish-merge` job；`gateway` config.yaml；logrotate 安装脚本；upgrade→reindex；`演示试点` 模板 |
 | 2026-05-22 | **P1/P2 清偿** | prefer_ilink 接线；CI；`{workflow_version}`；多项目 due；推送去重；识图 fallback；auxiliary 入 Settings；/诊断 媒体耗时 |
+| 2026-05-22 | **P2 运维/开发** | 运维快照；`/开发状态` `/开发验收`；ops-bundle；logrotate cron；模型展示统一 resolve |
 
 ## 稳上线后微信补验（自动化已守门，真机可快速勾选）
 
