@@ -382,7 +382,7 @@ def _handle_slash_command(
             console.print("[yellow]用法: /steer <指引文本>[/yellow]")
             return "handled"
         from butler.core.steer import steer
-        if steer(arg):
+        if steer(arg, session_key="cli"):
             console.print("[dim]已加入指引，将在下一批工具结果后生效[/dim]")
         return "handled"
 

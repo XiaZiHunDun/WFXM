@@ -52,7 +52,7 @@ _RECALL_SCHEMA = {
 
 def _memory_service():
     from butler.execution_context import get_current_orchestrator
-    from butler.memory_plugin import ButlerMemoryService
+    from butler.memory.facade import ButlerMemoryService
 
     orch = get_current_orchestrator()
     if orch is not None and getattr(orch, "memory_provider", None) is not None:

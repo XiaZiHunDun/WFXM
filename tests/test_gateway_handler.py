@@ -327,7 +327,9 @@ class TestSlashCommands:
             text = handler.handle_message("/new", session_key="a")
 
         assert text.startswith("已清空本轮对话上下文。")
-        finalize.assert_called_once_with(handler._orchestrator, loop_a)
+        finalize.assert_called_once_with(
+            handler._orchestrator, loop_a, session_id="a"
+        )
         assert "a" not in handler._sessions
         assert handler._sessions["b"] is loop_b
         assert handler.last_health_summary("a") == {}

@@ -176,6 +176,7 @@ class TestFactoryMethods:
             orch = ButlerOrchestrator(user_id="u1", channel="test")
 
         assert orch.memory_provider is provider
+        provider.link_orchestrator.assert_called_once_with(orch)
         provider.initialize.assert_called_once()
 
     def test_create_agent_loop_has_system_prompt_and_tools(

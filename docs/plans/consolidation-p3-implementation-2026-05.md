@@ -47,7 +47,7 @@
 | c3 | `project_preflight.resolve_tool_safe_root()`；main/gateway 复用 | 无重复片段 |
 | c4 | `memory_plugin` 文档去 Hermes Provider 口吻（不改行为） | 注释 only |
 
-**本轮不做**：记忆双轨合并、`/health` 三分支大重构、微信 `/steer`（保留 CLI only）。
+**本轮不做**（深度分析见 [`p3-deferred-deep-dive-2026-05.md`](p3-deferred-deep-dive-2026-05.md)）：记忆双轨合并、`/health` 三分支大重构、微信 `/steer`（保留 CLI only）。
 
 ---
 

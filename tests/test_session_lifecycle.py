@@ -245,15 +245,14 @@ def test_trigger_session_end_returns_processor_result():
         {"role": "user", "content": "3"},
         {"role": "assistant", "content": "4"},
     ])
-    processor = MagicMock()
-    processor.process = MagicMock(return_value={"memory_updates": 1, "skills_extracted": 0, "errors": []})
-
-    with patch("butler.post_session.PostSessionProcessor", return_value=processor):
-        with patch("asyncio.run", return_value={"memory_updates": 1, "skills_extracted": 0, "errors": []}):
-            result = trigger_session_end(orch, loop)
+    with patch(
+        "butler.session_lifecycle._execute_post_session",
+        return_value={"memory_updates": 1, "skills_extracted": 0, "errors": []},
+    ) as execute:
+        result = trigger_session_end(orch, loop)
 
     assert result["memory_updates"] == 1
-    processor.set_llm_call.assert_called_once()
+    execute.assert_called_once()
 
 
 def test_auxiliary_llm_call_factory_is_async():

@@ -348,7 +348,7 @@ class TestCliSlashCommandMatrix:
         console, buf = _console()
         with patch("butler.core.steer.steer", return_value=True) as steer:
             assert _handle_slash_command("/steer 先读 README", _orch(), console) == "handled"
-        steer.assert_called_once_with("先读 README")
+        steer.assert_called_once_with("先读 README", session_key="cli")
         assert "指引" in rendered_text(buf)
 
     def test_detail_without_report(self):

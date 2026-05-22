@@ -19,7 +19,7 @@ from butler.core.message_sanitize import sanitize_surrogates
 from butler.core.tool_batch import dispatch_tool_with_envelope, process_tool_calls
 from butler.tool_guardrails import ToolCallGuardrailController
 from butler.tools.interrupt import clear_interrupt, is_interrupted, set_interrupt
-from butler.core.steer import clear_steer
+from butler.core.steer import clear_steer, mark_run_active, mark_run_inactive
 from butler.transport.fallback import FallbackEntry, create_client_from_entry
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse
@@ -99,7 +99,33 @@ class AgentLoop:
         self._interrupted = False
         self._thread_id = threading.get_ident() if hasattr(threading, "get_ident") else None
         clear_interrupt(self._thread_id)
-        clear_steer()
+        from butler.execution_context import get_current_session_key
+
+        _steer_session = get_current_session_key() or "default"
+        mark_run_active(_steer_session)
+        try:
+            return self._run_turn_body(
+                user_message,
+                run_callbacks=run_callbacks,
+                saved_callbacks=saved_callbacks,
+                pre_run_diagnostics=pre_run_diagnostics,
+                start_time=start_time,
+                steer_session=_steer_session,
+            )
+        finally:
+            mark_run_inactive(_steer_session)
+
+    def _run_turn_body(
+        self,
+        user_message: str,
+        *,
+        run_callbacks: Optional[LoopCallbacks],
+        saved_callbacks: LoopCallbacks,
+        pre_run_diagnostics: dict[str, Any],
+        start_time: float,
+        steer_session: str,
+    ) -> LoopResult:
+        clear_steer(steer_session)
         self._primary_client = self.client
         self._fallback_index = 0
         self._empty_retries = 0
