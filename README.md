@@ -82,7 +82,7 @@ butler/
 ├── post_session.py
 └── main.py
 docs/                  # 架构与设计文档（索引 docs/README.md）
-tests/                 # ~1138 自动化测试（archive 遗留另计）
+tests/                 # ~1093 自动化测试（v3 archive 已移除）
 scripts/               # 网关安装与 butler-gateway-ops 运维
 ```
 

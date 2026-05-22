@@ -21,7 +21,7 @@ WFXM/
 │   ├── guides/                  #   运维、冒烟、接入
 │   ├── config/                  #   config.yaml.example、reference.md
 │   └── plans/                   #   整理方案等
-├── tests/                       #   默认 ~1138 passed（排除 live_llm / archive）
+├── tests/                       #   默认 ~1093 passed（排除 live_llm）
 ├── projects/                    #   LingWen1、DemoPilot 等工作区
 ├── logs/                        #   butler-gateway.log（gitignore *.log）
 ├── archive/                     #   Butler v1 快照（计划迁 tag）
