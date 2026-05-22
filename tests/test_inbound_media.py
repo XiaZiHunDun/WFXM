@@ -81,6 +81,41 @@ class TestBuildInboundUserText:
         assert out.startswith("[微信语音转写]")
         assert "明天开会" in out
 
+    def test_voice_prefer_ilink_skips_stt(self, monkeypatch, tmp_path):
+        silk = tmp_path / "v.silk"
+        silk.write_bytes(b"\x00")
+        ev = _event(
+            text="iLink 转写内容",
+            media_urls=[str(silk)],
+            media_types=["audio/silk"],
+            message_type=MessageType.VOICE,
+        )
+        with patch(
+            "butler.gateway.speech_stt.transcribe_voice_file",
+            side_effect=AssertionError("STT should not run"),
+        ):
+            out = build_inbound_user_text(ev)
+        assert "iLink 转写内容" in out
+        assert "[微信语音转写]" in out
+
+    def test_voice_prefer_ilink_off_uses_stt(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("BUTLER_WECHAT_PREFER_ILINK_TEXT", "0")
+        silk = tmp_path / "v.silk"
+        silk.write_bytes(b"\x00")
+        ev = _event(
+            text="应忽略",
+            media_urls=[str(silk)],
+            media_types=["audio/silk"],
+            message_type=MessageType.VOICE,
+        )
+        with patch(
+            "butler.gateway.speech_stt.transcribe_voice_file",
+            return_value="本地转写",
+        ):
+            out = build_inbound_user_text(ev)
+        assert "本地转写" in out
+        assert "应忽略" not in out
+
     def test_voice_file_stt(self, monkeypatch, tmp_path):
         silk = tmp_path / "v.silk"
         silk.write_bytes(b"\x00")

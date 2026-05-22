@@ -11,7 +11,7 @@ Type=oneshot
 WorkingDirectory=@WFXM_ROOT@
 Environment=PYTHONPATH=@WFXM_ROOT@
 EnvironmentFile=-@WFXM_ROOT@/.env
-ExecStart=@PYTHON@ -m butler.main runtime due --project 灵文1号
+ExecStart=@PYTHON@ -m butler.main runtime due --all-projects
 StandardOutput=append:@WFXM_ROOT@/logs/butler-runtime.log
 StandardError=append:@WFXM_ROOT@/logs/butler-runtime.log
 

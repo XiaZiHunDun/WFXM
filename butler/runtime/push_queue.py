@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import time
@@ -20,17 +21,37 @@ def _queue_path() -> Path:
     return get_butler_home() / _QUEUE_FILE
 
 
+def _dedupe_key(title: str, body: str, chat_id: str) -> str:
+    raw = f"{title}\n{body}\n{chat_id}".encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()[:24]
+
+
 def enqueue_failed_push(title: str, body: str, *, chat_id: str | None = None) -> None:
     path = _queue_path()
     path.parent.mkdir(parents=True, exist_ok=True)
+    cid = (chat_id or "").strip()
+    key = _dedupe_key(title[:200], body[:4000], cid)
     row = {
         "ts": time.time(),
         "title": title[:200],
         "body": body[:4000],
-        "chat_id": (chat_id or "").strip(),
+        "chat_id": cid,
+        "dedupe_key": key,
     }
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    lines: list[str] = []
+    if path.is_file():
+        for ln in path.read_text(encoding="utf-8").splitlines():
+            if not ln.strip():
+                continue
+            try:
+                old = json.loads(ln)
+            except json.JSONDecodeError:
+                continue
+            if str(old.get("dedupe_key") or "") == key:
+                continue
+            lines.append(ln)
+    lines.append(json.dumps(row, ensure_ascii=False))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     _trim_queue(path)
 
 

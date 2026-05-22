@@ -31,6 +31,9 @@ gateway:
       endpoint: coding_plan/vlm
       timeout_seconds: 45
     speech:
-      prefer_ilink_text: true
-      stt_provider: local   # local | off
+      prefer_ilink_text: true   # true=有 iLink 转写则跳过本地 STT
+      stt_provider: local       # local | off
       whisper_model: small
+
+# 识图失败时 fallback（env 可覆盖）：openai,ocr
+# BUTLER_WECHAT_VISION_FALLBACK=openai,ocr

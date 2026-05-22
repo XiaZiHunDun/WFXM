@@ -183,7 +183,7 @@ ffmpeg -y -i voice.silk -ar 16000 -ac 1 voice.wav
 | **P1** | `inbound_media.build_inbound_user_text` + OpenAI Vision + 语音格式化（含已有 text） | 发图 → 管家能描述；发语音（带 iLink 转写）→ 能回复内容 |
 | **P2** | silk + ffmpeg + OpenAI Whisper | 无转写语音 → 转文字后进对话 |
 | **P3** | MiniMax understand_image HTTP（若有稳定 REST）/ 本地 OCR 可选 | 无 OpenAI 时仍可识图 |
-| **P4** | `/诊断` 显示上次 vision/stt  Provider 与耗时；微信冒烟清单补 2 条 | 运维可见 |
+| **P4** | `/诊断` 显示上次 vision/stt Provider 与耗时 | ✅ 2026-05-22 `media_telemetry` |
 
 **建议工期**：P1+P2 为微信主场景 MVP（约 1–2 人日）；P3 按需。
 

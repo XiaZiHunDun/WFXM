@@ -265,6 +265,17 @@ def list_due_mutating_jobs(project_name: str) -> list[JobDef]:
     return out
 
 
+def discover_runtime_projects() -> list[str]:
+    """Projects with a non-empty ``runtime/jobs.yaml``."""
+    names: list[str] = []
+    for proj in ProjectManager().list_projects():
+        ws = Path(proj.workspace)
+        jf = loader.load_jobs_file(ws)
+        if jf and jf.jobs:
+            names.append(proj.name)
+    return sorted(names)
+
+
 def run_due_jobs(
     project_name: str,
     *,
@@ -302,3 +313,13 @@ def run_due_jobs(
             results.append(entry)
 
     return results
+
+
+def run_due_jobs_all(*, skip_notify: bool = False) -> list[dict[str, Any]]:
+    """Run due jobs for every project that has runtime/jobs.yaml."""
+    combined: list[dict[str, Any]] = []
+    for name in discover_runtime_projects():
+        for item in run_due_jobs(name, skip_notify=skip_notify):
+            item.setdefault("project", name)
+            combined.append(item)
+    return combined

@@ -157,6 +157,7 @@ class ButlerSettings:
     default_provider: str = "minimax"
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     models: LayeredModelConfig = field(default_factory=LayeredModelConfig)
+    auxiliary: dict[str, Any] = field(default_factory=dict)
     butler_name: str = "莎丽"
     owner_name: str = "主公"
     default_tenant: str = ""
@@ -284,7 +285,23 @@ class ButlerSettings:
         self.default_provider = str(data.get("default_provider", self.default_provider))
         if "models" in data and isinstance(data["models"], dict):
             self.models = LayeredModelConfig.from_dict(data["models"])
+        if "auxiliary" in data and isinstance(data["auxiliary"], dict):
+            self.auxiliary = dict(data["auxiliary"])
         self._ensure_default_models_from_provider()
+
+    def get_auxiliary_task_config(self, task: str = "compression") -> ModelConfig:
+        """``config.yaml`` auxiliary.<task> → ModelConfig."""
+        raw: dict[str, Any] = {}
+        aux = self.auxiliary
+        if isinstance(aux, dict):
+            entry = aux.get(task)
+            if isinstance(entry, dict):
+                raw = entry
+            elif isinstance(aux.get("provider"), str) or isinstance(aux.get("model"), str):
+                raw = aux
+        if raw and (raw.get("provider") or raw.get("model")):
+            return ModelConfig.from_dict(raw)
+        return ModelConfig()
 
     @classmethod
     def load(cls, config_yaml: Path | None = None) -> ButlerSettings:

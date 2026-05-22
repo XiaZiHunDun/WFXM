@@ -36,4 +36,5 @@ def test_publish_merge_mutating_gated():
     assert pm.get("mode") == "mutating"
     assert pm.get("enabled") is False
     assert "merge" in (pm.get("command") or [])
+    assert "{workflow_version}" in (pm.get("command") or [])
     assert pm.get("approval", {}).get("required") is True

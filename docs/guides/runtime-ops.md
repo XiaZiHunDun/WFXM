@@ -22,8 +22,10 @@ bash scripts/install-butler-runtime-timer.sh
 bash scripts/install-butler-push-drain.sh
 
 # 手动跑「当前到期」任务（只读执行；改盘仅推送待批准）
-bash scripts/butler-runtime-due.sh
+bash scripts/butler-runtime-due.sh          # 所有含 jobs.yaml 的项目
+bash scripts/butler-runtime-due.sh 灵文1号  # 仅灵文
 # 或
+butler runtime due --all-projects
 butler runtime due --project 灵文1号
 
 # 手动跑单个任务

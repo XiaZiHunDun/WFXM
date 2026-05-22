@@ -662,28 +662,33 @@ def _cmd_runtime_run(ns: argparse.Namespace) -> int:
 
 
 def _cmd_runtime_due(ns: argparse.Namespace) -> int:
-    from butler.runtime.service import run_due_jobs
+    from butler.runtime.service import run_due_jobs, run_due_jobs_all
 
-    results = run_due_jobs(
-        ns.project.strip(),
-        skip_notify=bool(ns.no_notify),
-    )
+    if getattr(ns, "all_projects", False):
+        results = run_due_jobs_all(skip_notify=bool(ns.no_notify))
+    else:
+        results = run_due_jobs(
+            ns.project.strip(),
+            skip_notify=bool(ns.no_notify),
+        )
     if not results:
         print("没有到期的任务。")
         return 0
     exit_code = 0
     for out in results:
         jid = out.get("job_id") or "?"
+        proj = out.get("project")
+        prefix = f"{proj}/{jid}" if proj else jid
         if out.get("error"):
-            print(f"{jid}: error — {out['error']}", file=sys.stderr)
+            print(f"{prefix}: error — {out['error']}", file=sys.stderr)
             exit_code = 1
             continue
         if out.get("pending_approval"):
             note = "notified" if out.get("notified") else "skipped-notify-cooldown"
-            print(f"{jid}: [pending-approval] ({note})")
+            print(f"{prefix}: [pending-approval] ({note})")
             continue
         status = "ok" if out.get("success") else "failed"
-        print(f"{jid}: [{status}]")
+        print(f"{prefix}: [{status}]")
         if not out.get("success"):
             exit_code = 2
     return exit_code
@@ -854,7 +859,16 @@ def _build_parser() -> argparse.ArgumentParser:
     rt_run.set_defaults(func=_cmd_runtime_run)
 
     rt_due = rt_sub.add_parser("due", help="执行当前到期的任务（改盘仅推送待批准）")
-    rt_due.add_argument("--project", required=True)
+    rt_due.add_argument(
+        "--project",
+        default="灵文1号",
+        help="项目名称；与 --all-projects 互斥",
+    )
+    rt_due.add_argument(
+        "--all-projects",
+        action="store_true",
+        help="扫描所有含 runtime/jobs.yaml 的项目",
+    )
     rt_due.add_argument(
         "--no-notify",
         action="store_true",
