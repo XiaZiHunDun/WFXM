@@ -1,6 +1,6 @@
 # 项目层微信化规划（单项目打磨 → 多项目）
 
-> **状态**：规划稿（2026-05-22，§2 三层模型已采纳）  
+> **状态**：**已落地归档**（2026-05-22）；新接入见 [`guides/project-onboarding.md`](../guides/project-onboarding.md)。整理见 [`plans/consolidation-2026-05.md`](../plans/consolidation-2026-05.md)。  
 > **目标**：在微信上完成项目的**开发、测试、运行**；当前以 **灵文1号** 打磨单项目闭环，成熟后再扩展多项目。  
 > **关联**：[`project-lead-decision.md`](project-lead-decision.md)、[`dev-ops-tools-design.md`](dev-ops-tools-design.md)、[`project-runtime-automation.md`](project-runtime-automation.md)
 
@@ -261,7 +261,7 @@ flowchart LR
 
 ### 5.3 工程项（可选）
 
-- `scripts/butler-lingwen-lead-smoke.sh`：Lead 工具集 + workflow-state 只读断言。
+- `scripts/butler-lingwen-lead-smoke.sh`：Lead 工具集 + workflow-state 只读断言（**P1 待实现**，见整理方案）。
 - `project.yaml` 增加规划字段 `lifecycle: complete`（文档化即可，解析可后做）。
 
 ---

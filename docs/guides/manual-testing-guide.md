@@ -15,7 +15,7 @@
 | Python | 3.10+ |
 | 操作系统 | Linux (已验证 Ubuntu 22.04) |
 | MiniMax API Key | 已设置 `MINIMAX_API_KEY` 环境变量 |
-| 依赖 | `pip install -r requirements.txt` |
+| 依赖 | `pip install -e ".[wechat]"`（Python ≥3.11，见 `pyproject.toml`） |
 
 ### 1.2 验证环境
 
@@ -30,7 +30,7 @@ echo $MINIMAX_API_KEY | head -c 12
 cd ~/projects/WFXM
 PYTHONPATH=. python -c "from butler.main import main; print('OK')"
 
-# 运行自动化测试（应 ~1121 passed，live_llm 默认 deselected）
+# 运行自动化测试（应 ~1138 passed，live_llm 默认 deselected）
 PYTHONPATH=. python -m pytest tests/ -q
 
 # 可选：真实 API smoke（需 .env 中 API Key + BUTLER_RUN_REAL_API_SMOKE=1）

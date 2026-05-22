@@ -22,6 +22,9 @@
 | [`guides/wechat-core-scenario.md`](guides/wechat-core-scenario.md) | 微信核心场景八步剧本 |
 | [`guides/manual-testing-guide.md`](guides/manual-testing-guide.md) | CLI / 微信完整人工测试 |
 | [`.env.example`](../.env.example) | 环境变量与真实 API smoke 门控 |
+| [`config/reference.md`](config/reference.md) | **BUTLER_* 环境变量速查** |
+| [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理与瘦身方案（进行中） |
+| [`guides/project-onboarding.md`](guides/project-onboarding.md) | 项目接入与 preflight |
 
 ## 版本演进（历史）
 
@@ -31,7 +34,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q    # ~1121 passed
+PYTHONPATH=. pytest -q    # ~1138 passed
 
 # 微信网关 live（发版前可选）
 BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
@@ -44,4 +47,4 @@ BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py
 
 ## 归档代码
 
-[`../archive/`](../archive/) — Butler v1 快照；[`../reference/`](../reference/) — Hermes 只读对照（勿改）。
+[`../archive/`](../archive/) — Butler v1 快照；[`../reference/`](../reference/) — **主公维护**的外部对照区（整理方案不修改）。
