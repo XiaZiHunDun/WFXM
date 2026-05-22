@@ -156,7 +156,12 @@ class TestProjectManager:
             from butler.project_manager import ProjectManager
             ProjectManager._instance = None
             pm = ProjectManager(projects_dir)
-            proj = pm.create_project("NewProject", "software", "A new project")
+            proj = pm.create_project(
+                "NewProject",
+                "software",
+                "A new project",
+                display_name="NewProject",
+            )
             assert proj is not None
             assert proj.name == "NewProject"
             assert (projects_dir / "NewProject" / "project.yaml").exists()

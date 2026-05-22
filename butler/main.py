@@ -469,9 +469,12 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
         return 1
 
 
-def _cmd_projects(_ns: argparse.Namespace) -> int:
+def _cmd_projects(ns: argparse.Namespace) -> int:
     from butler.project_manager import get_project_manager
+
     manager = get_project_manager()
+    if getattr(ns, "reload", False):
+        return _cmd_projects_refresh(ns)
     projects = sorted(manager.list_projects(), key=lambda p: p.name)
     if not projects:
         print("No projects found.", file=sys.stderr)
@@ -479,18 +482,79 @@ def _cmd_projects(_ns: argparse.Namespace) -> int:
     current = manager.current_project
     for proj in projects:
         mark = "*" if proj.name == current else " "
-        print(f"[{mark}] {proj.name:20} ({proj.type:8})  {proj.workspace}")
+        pack = getattr(proj, "pack", "") or ""
+        extra = f" pack={pack}" if pack else ""
+        print(f"[{mark}] {proj.name:20} ({proj.type:8}{extra})  {proj.workspace}")
     return 0
 
 
 def _cmd_create(ns: argparse.Namespace) -> int:
     from butler.project_manager import get_project_manager
+
     mgr = get_project_manager()
-    created = mgr.create_project(ns.name, ns.type_, ns.description)
-    if created is None:
-        print(f"Project {ns.name!r} already exists.", file=sys.stderr)
+    try:
+        created = mgr.create_project(
+            ns.slug,
+            ns.type_,
+            ns.description,
+            display_name=(ns.display_name or "").strip() or ns.slug,
+            pack=(ns.pack or "").strip(),
+            template=(ns.template or "").strip(),
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
         return 1
-    print(f"Created project {created.name} at {created.workspace}")
+    if created is None:
+        print(f"Project slug {ns.slug!r} already exists.", file=sys.stderr)
+        return 1
+    print(f"Created project {created.name!r} at {created.workspace}")
+    print(f"Next: butler project preflight --project {created.name!r}")
+    print(f"      butler memory-reindex --project {created.name!r}")
+    return 0
+
+
+def _cmd_project_register(ns: argparse.Namespace) -> int:
+    from butler.config import get_butler_settings
+    from butler.project_manager import get_project_manager
+
+    path = Path(ns.path).expanduser().resolve()
+    mgr = get_project_manager()
+    try:
+        proj = mgr.register_workspace(
+            path,
+            display_name=(ns.display_name or "").strip(),
+            pack=(ns.pack or "").strip(),
+            template=(ns.template or "software-default").strip(),
+            merge_existing=not ns.force_new_yaml,
+        )
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    except FileNotFoundError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    settings = get_butler_settings()
+    under = path.resolve()
+    try:
+        under.relative_to(settings.projects_dir.resolve())
+    except ValueError:
+        print(
+            f"Warning: {path} is outside BUTLER_PROJECTS_DIR ({settings.projects_dir})",
+            file=sys.stderr,
+        )
+    print(f"Registered project {proj.name!r} at {proj.workspace}")
+    print(f"Next: butler project preflight --project {proj.name!r}")
+    return 0
+
+
+def _cmd_projects_refresh(_ns: argparse.Namespace) -> int:
+    from butler.project_manager import get_project_manager
+
+    mgr = get_project_manager()
+    mgr.refresh()
+    names = [p.name for p in mgr.list_projects()]
+    print(f"Reloaded {len(names)} project(s): {', '.join(names) or '(none)'}")
     return 0
 
 
@@ -797,12 +861,29 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     sub.add_parser("chat", help="交互式对话").set_defaults(func=_cmd_chat)
-    sub.add_parser("projects", help="列出项目").set_defaults(func=_cmd_projects)
+    prj = sub.add_parser("projects", help="列出项目")
+    prj.add_argument(
+        "--reload",
+        action="store_true",
+        help="重新扫描 BUTLER_PROJECTS_DIR",
+    )
+    prj.set_defaults(func=_cmd_projects)
 
-    cr = sub.add_parser("create", help="创建新项目")
-    cr.add_argument("name")
+    cr = sub.add_parser("create", help="创建新项目（slug 目录名 + 可选中文显示名）")
+    cr.add_argument("slug", help="ASCII 目录名，如 MyApp")
+    cr.add_argument("--name", dest="display_name", default="", help="显示名（微信 /切换）")
     cr.add_argument("--type", dest="type_", default="software")
     cr.add_argument("--description", default="")
+    cr.add_argument(
+        "--pack",
+        default="",
+        help="能力包，如 novel-factory",
+    )
+    cr.add_argument(
+        "--template",
+        default="",
+        help="模板 ID：software-default | novel-factory | knowledge-light",
+    )
     cr.set_defaults(func=_cmd_create)
 
     pr = sub.add_parser("project", help="项目接入与体检")
@@ -824,6 +905,22 @@ def _build_parser() -> argparse.ArgumentParser:
         help="输出 JSON（供脚本解析）",
     )
     pf.set_defaults(func=_cmd_project_preflight)
+
+    reg = pr_sub.add_parser("register", help="为已有目录登记 project.yaml")
+    reg.add_argument("path", help="项目 workspace 目录")
+    reg.add_argument("--name", dest="display_name", default="", help="覆盖显示名")
+    reg.add_argument("--pack", default="")
+    reg.add_argument(
+        "--template",
+        default="software-default",
+        help="无 project.yaml 时使用的模板",
+    )
+    reg.add_argument(
+        "--force-new-yaml",
+        action="store_true",
+        help="已有 project.yaml 时不合并，仅补 MEMORY",
+    )
+    reg.set_defaults(func=_cmd_project_register)
 
     ex = sub.add_parser("exec", help="单次消息执行")
     ex.add_argument("message")

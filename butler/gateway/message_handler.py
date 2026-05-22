@@ -60,7 +60,7 @@ class ButlerMessageHandler:
         from butler.project_lead import gateway_loop_role
         from butler.tools.project_tools import get_tool_definitions_for_project
 
-        loop_role = gateway_loop_role(proj_name)
+        loop_role = gateway_loop_role(proj_name, project=project)
         tools = get_tool_definitions_for_project(project, role=loop_role)
         return self._orchestrator.create_agent_loop(
             role=loop_role,
@@ -215,10 +215,10 @@ class ButlerMessageHandler:
         with use_execution_context(self._orchestrator, session_key=session_key):
             from butler.project_lead import gateway_loop_role
 
-            proj_name = self._orchestrator.project_manager.resolve_active_project_name(
-                session_key=session_key,
-            )
-            loop_role = gateway_loop_role(proj_name)
+            pm = self._orchestrator.project_manager
+            proj_name = pm.resolve_active_project_name(session_key=session_key)
+            proj = pm.get_current(session_key=session_key)
+            loop_role = gateway_loop_role(proj_name, project=proj)
             health: dict[str, Any] = {
                 "session_key": session_key,
                 "platform": platform,
@@ -314,16 +314,34 @@ class ButlerMessageHandler:
         arg = parts[1].strip() if len(parts) > 1 else ""
 
         if cmd in ("/projects", "/项目"):
+            from butler.gateway.project_commands import handle_project_onboarding_command
+
+            onboard = handle_project_onboarding_command(
+                self._orchestrator,
+                cmd,
+                arg,
+                session_key=session_key,
+            )
+            if onboard is not None:
+                return onboard
+
             projects = self._orchestrator.project_manager.list_projects()
             if not projects:
                 return "暂无项目。"
             current = self._orchestrator.project_manager.resolve_active_project_name(
                 session_key=session_key,
             )
-            lines = []
+            lines = [
+                "项目列表（* 当前）",
+                "  /项目 新建 <slug> [模板]",
+                "  /项目 体检",
+                "",
+            ]
             for p in sorted(projects, key=lambda x: x.name):
                 mark = "* " if p.name == current else "  "
-                lines.append(f"{mark}{p.name} ({p.type}) — {p.description}")
+                pack = getattr(p, "pack", "") or ""
+                extra = f" pack={pack}" if pack else ""
+                lines.append(f"{mark}{p.name} ({p.type}{extra}) — {p.description}")
             return "\n".join(lines)
 
         if cmd in ("/switch", "/切换"):
@@ -379,21 +397,31 @@ class ButlerMessageHandler:
         if cmd in ("/status", "/状态"):
             import os
 
+            from butler.project_lead import gateway_loop_role, is_lead_project
+            from butler.project_meta import format_project_meta_lines
+
             s = self._orchestrator._settings
-            current = (
-                self._orchestrator.project_manager.resolve_active_project_name(
-                    session_key=session_key,
-                )
-                or "(无)"
-            )
+            pm = self._orchestrator.project_manager
+            current = pm.resolve_active_project_name(session_key=session_key) or "(无)"
+            proj = pm.get_current(session_key=session_key)
             default_proj = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip() or "(未设置)"
-            return (
-                f"Butler 状态\n"
-                f"  管家: {s.butler_name}\n"
-                f"  当前项目: {current}\n"
-                f"  环境默认项目: {default_proj}\n"
-                f"  默认 Provider: {s.default_provider}"
-            )
+            lines = [
+                "Butler 状态",
+                f"  管家: {s.butler_name}",
+                f"  当前项目: {current}",
+                f"  环境默认项目: {default_proj}",
+                f"  默认 Provider: {s.default_provider}",
+            ]
+            if proj is not None:
+                lines.append(
+                    f"  对话引擎: {'项目 Lead（厂长）' if is_lead_project(proj.name, project=proj) else '管家 Butler'}"
+                )
+                lines.extend(format_project_meta_lines(proj))
+            elif current != "(无)":
+                lines.append(
+                    f"  对话引擎: {gateway_loop_role(current)}"
+                )
+            return "\n".join(lines)
 
         if cmd in ("/health", "/诊断"):
             return self._format_health_summary(session_key)
@@ -492,6 +520,11 @@ class ButlerMessageHandler:
             proj = self._orchestrator.project_manager.get_current(
                 session_key=session_key
             )
+            if proj is not None:
+                from butler.project_meta import format_project_meta_lines
+
+                lines.append("项目元数据:")
+                lines.extend(format_project_meta_lines(proj))
             proj_name = str(getattr(proj, "name", "") or "") if proj else ""
             from butler.runtime.diagnostics import format_runtime_diagnostic_lines
 
@@ -534,6 +567,7 @@ class ButlerMessageHandler:
                 aux_label = "未配置"
 
             from butler.project_lead import lead_mode_banner_line
+            from butler.project_meta import format_project_meta_lines
 
             agent_role = str(health.get("gateway_agent_role") or "butler")
             engine_line = (
@@ -557,19 +591,18 @@ class ButlerMessageHandler:
                 f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
             ]
             lines.extend(format_memory_diagnostic_lines(mem_stats))
-            proj_name = str(mem_stats.get("project_name") or "").strip()
-            if not proj_name:
-                proj = self._orchestrator.project_manager.get_current(
-                    session_key=session_key
-                )
-                if proj is not None:
-                    proj_name = str(getattr(proj, "name", "") or "")
-            from butler.runtime.diagnostics import format_runtime_diagnostic_lines
-
-            lines.extend(format_runtime_diagnostic_lines(proj_name))
             proj = self._orchestrator.project_manager.get_current(
                 session_key=session_key
             )
+            if proj is not None:
+                lines.append("项目元数据:")
+                lines.extend(format_project_meta_lines(proj))
+            proj_name = str(mem_stats.get("project_name") or "").strip()
+            if not proj_name and proj is not None:
+                proj_name = str(getattr(proj, "name", "") or "")
+            from butler.runtime.diagnostics import format_runtime_diagnostic_lines
+
+            lines.extend(format_runtime_diagnostic_lines(proj_name))
             from butler.model_resolve import format_model_diagnostic_lines
 
             lines.extend(

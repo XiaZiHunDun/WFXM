@@ -48,7 +48,9 @@ butler exec "列出所有项目"
 
 # 项目列表 / 创建
 butler projects
-butler create MyApp --type software --description "我的新应用"
+butler create MyApp --name "我的新应用" --type software
+butler project register projects/MyApp   # 已有目录时登记
+butler project preflight --project "我的新应用"
 
 # 微信（个人助手主场景）
 butler wechat-setup                              # 扫码绑定
