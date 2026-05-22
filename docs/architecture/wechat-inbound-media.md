@@ -162,6 +162,9 @@ ffmpeg -y -i voice.silk -ar 16000 -ac 1 voice.wav
 | `BUTLER_WECHAT_STT_PROVIDER` | `openai` | `openai` \| `local` \| `off` |
 | `BUTLER_WECHAT_STT_MODEL` | `whisper-1` | OpenAI STT |
 | `BUTLER_WECHAT_STT_TIMEOUT` | `60` | 秒 |
+| `BUTLER_WECHAT_VISION_FALLBACK` | `openai,ocr` | 识图失败链；含 `ocr` 时需 **`pip install -e ".[wechat-ocr]"`** 与系统 **tesseract**（`chi_sim` 语言包） |
+
+**OCR 可选依赖**：`pip install -e ".[wechat-ocr]"`（`pytesseract` + `pillow`）。Preflight 在 fallback 含 `ocr` 时会提示缺失。
 
 **与主 LLM 分离**：Vision/STT 在 **网关正交层**（env / 未来 `config.yaml` 的 `gateway` 段），**不**通过 `project.yaml` 的 `dev_agent` 配多模态。角色模型分层见 [`layered-model-config.md`](layered-model-config.md)。
 

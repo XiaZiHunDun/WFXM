@@ -95,4 +95,10 @@ def format_runtime_diagnostic_lines(project_name: str) -> list[str]:
             f"  · {j['id']} [{j.get('mode')}, {en}]{last}{nxt}"
         )
     lines.append("  微信: /定时 /运行 <id>；改盘: /批准运行 <id>")
+    try:
+        from butler.runtime.failure_tracker import format_failure_streak_lines
+
+        lines.extend(format_failure_streak_lines())
+    except Exception:
+        pass
     return lines

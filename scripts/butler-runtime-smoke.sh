@@ -12,6 +12,11 @@ if [[ -f .env ]]; then
   set +a
 fi
 export PYTHONPATH="${PYTHONPATH:-.}:."
+# 冒烟默认不推微信（避免 iLink 限流）；真机推送验证用 butler-wechat-push-verify.sh
+# 或 BUTLER_RUNTIME_SMOKE_PUSH=1
+if [[ "${BUTLER_RUNTIME_SMOKE_PUSH:-0}" != "1" ]]; then
+  export BUTLER_RUNTIME_PUSH=0
+fi
 # 连续 runtime 推送间隔，减轻 iLink 限流（与 notify.py 冷却叠加）
 export BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS="${BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS:-30}"
 export WECHAT_SEND_CHUNK_RETRIES="${WECHAT_SEND_CHUNK_RETRIES:-6}"
@@ -28,9 +33,14 @@ echo ""
 echo "== run factory-status-daily =="
 python3 -m butler.main runtime run factory-status-daily --project "$PROJECT"
 
-echo ""
-echo "== cooldown before next runtime push =="
-sleep "${BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS}"
+if [[ "${BUTLER_RUNTIME_PUSH:-0}" == "1" ]]; then
+  echo ""
+  echo "== cooldown before next runtime push =="
+  sleep "${BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS}"
+else
+  echo ""
+  echo "== skip push cooldown (BUTLER_RUNTIME_PUSH=0) =="
+fi
 
 echo ""
 echo "== run publish-preflight (readonly) =="

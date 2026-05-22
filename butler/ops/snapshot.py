@@ -97,11 +97,20 @@ def collect_ops_snapshot() -> dict[str, Any]:
         "git": os.getenv("BUTLER_ENABLE_GIT", "0"),
         "git_write": os.getenv("BUTLER_ENABLE_GIT_WRITE", "0"),
     }
+    failure_streaks: list[dict[str, Any]] = []
+    try:
+        from butler.runtime.failure_tracker import list_active_streaks
+
+        failure_streaks = list_active_streaks()
+    except Exception:
+        pass
+
     return {
         "gateway_log": _file_stats(_gateway_log_path()),
         "runtime_log": _file_stats(_runtime_log_path()),
         "timers": _systemd_timer_rows("butler-*"),
         "recent_runtime_failures": _recent_runtime_failures(),
+        "failure_streaks": failure_streaks,
         "env": env_flags,
     }
 
@@ -134,6 +143,13 @@ def format_ops_diagnostic_lines() -> list[str]:
         for f in fails[:3]:
             lines.append(
                 f"    {f.get('project')}/{f.get('job_id')} @ {f.get('finished_at')}"
+            )
+    streaks = snap.get("failure_streaks") or []
+    if streaks:
+        lines.append(f"  连续失败跟踪: {len(streaks)} 项")
+        for s in streaks[:3]:
+            lines.append(
+                f"    {s.get('project')}/{s.get('job_id')}: {s.get('streak')} 次"
             )
     env = snap.get("env") or {}
     lines.append(
