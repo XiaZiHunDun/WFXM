@@ -2,6 +2,8 @@ name: 演示试点
 type: software
 description: Butler 第二试点（轻量模板，无 novel-factory；用于多项目切换与 runtime 冒烟）
 status: active
+lifecycle: active
+lead: false
 workspace: projects/DemoPilot
 models:
   dev_agent:
@@ -9,8 +11,13 @@ models:
     model: MiniMax-M2.7
 workflows: []
 tools:
-- read_file
-- list_directory
-- terminal
-- git_status
-- skills_list
+  - read_file
+  - write_file
+  - patch
+  - list_directory
+  - search_files
+  - terminal
+  - git_status
+  - git_diff
+  - skills_list
+  - skill_view

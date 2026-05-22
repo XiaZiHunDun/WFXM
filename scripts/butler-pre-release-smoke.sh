@@ -8,8 +8,10 @@ PROJECT="${1:-灵文1号}"
 
 if [[ -f .env ]]; then
   set -a
+  set +u
   # shellcheck disable=SC1091
   source .env
+  set -u
   set +a
 fi
 export PYTHONPATH="${PYTHONPATH:-.}:."
@@ -38,8 +40,12 @@ echo "== 6/7 runtime smoke ($PROJECT, default no push) =="
 bash scripts/butler-runtime-smoke.sh "$PROJECT"
 
 echo ""
-echo "== 7/7 dev delegate smoke =="
+echo "== 7/8 dev delegate smoke =="
 bash scripts/butler-dev-delegate-smoke.sh
+
+echo ""
+echo "== 8/8 DemoPilot project smoke =="
+bash scripts/butler-demo-pilot-smoke.sh
 
 echo ""
 echo "Pre-release smoke: ALL PASSED"

@@ -5,6 +5,7 @@
 | 文件 | 适用 |
 |------|------|
 | `software-default.project.yaml` | 通用软件仓库 |
+| `software-default.runtime.jobs.yaml` | 同上项目的 `runtime/jobs.yaml`（含 test-unit-smoke） |
 | `novel-factory.project.yaml` | 含 `novel-factory/` 与厂长模式 |
 | `knowledge-light.project.yaml` | 仅文档/记忆，收紧工具 |
 

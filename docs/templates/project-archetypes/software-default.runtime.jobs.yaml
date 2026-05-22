@@ -1,26 +1,13 @@
-# 演示试点 · runtime（多项目 / 测试冒烟）
+# 模板：software-default runtime jobs（复制到 projects/<slug>/runtime/jobs.yaml 并改 project 名）
 version: 1
-project: 演示试点
+project: 项目名称
 defaults:
   timeout_seconds: 600
   notify_wechat: false
 
 jobs:
-  - id: pilot-heartbeat
-    description: 试点心跳（只读 echo，用于 /定时 与 timer 冒烟）
-    schedule: "0 12 * * *"
-    mode: readonly
-    enabled: true
-    command:
-      - bash
-      - -c
-      - echo "DemoPilot heartbeat $(date -Iseconds)"
-    notify:
-      on_success: false
-      on_failure: false
-
   - id: test-unit-smoke
-    description: WFXM 仓库轻量 pytest（项目层接入回归子集）
+    description: 仓库轻量单元测试（pytest 子集，供 /运行 与委派 dev 参考）
     mode: readonly
     enabled: false
     command:
@@ -35,7 +22,6 @@ jobs:
           tests/test_project_archetypes.py \
           tests/test_project_commands.py \
           tests/test_project_lead.py \
-          tests/test_owner_gate.py \
           --tb=line
     notify:
       on_success: false

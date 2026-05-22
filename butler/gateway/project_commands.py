@@ -15,6 +15,8 @@ def handle_project_onboarding_command(
     arg: str,
     *,
     session_key: str,
+    platform: str = "unknown",
+    external_id: str | None = None,
 ) -> str | None:
     """Handle /项目 新建|体检. Returns None if not matched."""
     if cmd != "/项目":
@@ -25,14 +27,36 @@ def handle_project_onboarding_command(
     rest = parts[1:] if len(parts) > 1 else []
 
     if sub in ("新建", "create"):
-        return _project_create_wechat(orchestrator, rest)
+        return _project_create_wechat(
+            orchestrator,
+            rest,
+            platform=platform,
+            external_id=external_id,
+            session_key=session_key,
+        )
     if sub in ("体检", "preflight", "检查"):
         return _project_preflight_wechat(orchestrator, session_key=session_key)
 
     return None
 
 
-def _project_create_wechat(orchestrator: "ButlerOrchestrator", args: list[str]) -> str:
+def _project_create_wechat(
+    orchestrator: "ButlerOrchestrator",
+    args: list[str],
+    *,
+    platform: str = "unknown",
+    external_id: str | None = None,
+    session_key: str = "",
+) -> str:
+    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
+    if not is_gateway_owner(
+        platform=platform,
+        external_id=external_id,
+        session_key=session_key,
+    ):
+        return owner_required_message()
+
     if not args:
         return (
             "用法: /项目 新建 <slug> [模板]\n"

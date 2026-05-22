@@ -74,6 +74,14 @@ class TestCreateAndLeadYaml:
         assert proj is not None
         assert is_lead_project("书厂", project=proj)
 
+    def test_create_writes_runtime_template(self, projects_dir):
+        pm = ProjectManager()
+        created = pm.create_project("RtApp", display_name="Rt应用")
+        jobs = created.workspace / "runtime" / "jobs.yaml"
+        assert jobs.is_file()
+        raw = jobs.read_text(encoding="utf-8")
+        assert "test-unit-smoke" in raw
+
     def test_register_writes_yaml(self, projects_dir):
         ext = projects_dir / "imported"
         ext.mkdir()

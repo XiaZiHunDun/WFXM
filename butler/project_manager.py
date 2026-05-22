@@ -188,9 +188,11 @@ class ProjectManager:
         display_name: str = "",
         pack: str = "",
         template: str = "",
+        with_runtime: bool = True,
     ) -> Project | None:
         from butler.project_archetypes import (
             ensure_memory_skeleton,
+            ensure_runtime_jobs_skeleton,
             load_template,
             validate_slug,
             write_project_yaml,
@@ -228,6 +230,8 @@ class ProjectManager:
         workspace.mkdir(parents=True, exist_ok=True)
         write_project_yaml(workspace, data, merge_existing=False)
         ensure_memory_skeleton(workspace)
+        if with_runtime:
+            ensure_runtime_jobs_skeleton(workspace, show_name, template_id)
         self.refresh()
         proj = Project.from_yaml(workspace / "project.yaml")
         self._projects[proj.name] = proj
@@ -241,9 +245,11 @@ class ProjectManager:
         pack: str = "",
         template: str = "software-default",
         merge_existing: bool = True,
+        with_runtime: bool = True,
     ) -> Project:
         from butler.project_archetypes import (
             ensure_memory_skeleton,
+            ensure_runtime_jobs_skeleton,
             load_template,
             write_project_yaml,
         )
@@ -262,6 +268,9 @@ class ProjectManager:
                     proj.name = display_name
                 proj.save()
             ensure_memory_skeleton(ws)
+            if with_runtime:
+                tid = (template or pack or proj.pack or "software-default").strip()
+                ensure_runtime_jobs_skeleton(ws, proj.name, tid)
             self.refresh()
             return Project.from_yaml(ws / "project.yaml")
 
@@ -274,6 +283,8 @@ class ProjectManager:
             data["lead"] = True
         write_project_yaml(ws, data, merge_existing=False)
         ensure_memory_skeleton(ws)
+        if with_runtime:
+            ensure_runtime_jobs_skeleton(ws, data["name"], template_id)
         self.refresh()
         return Project.from_yaml(ws / "project.yaml")
 
