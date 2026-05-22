@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -47,15 +48,10 @@ def _image_to_data_url(path: Path) -> str:
     return f"data:image/{fmt};base64,{b64}"
 
 
-def describe_image(path: str, *, caption: str = "", timeout: float | None = None) -> str:
-    """Call MiniMax ``/v1/coding_plan/vlm``. Returns description or raises."""
+def _describe_minimax(path: str, *, caption: str = "", timeout: float) -> str:
     key = _api_key()
     if not key:
         raise RuntimeError("MINIMAX_API_KEY 未配置，无法识图")
-
-    from butler.gateway_settings import resolve_gateway_inbound_config
-
-    to = timeout if timeout is not None else resolve_gateway_inbound_config().vision.timeout_seconds
     prompt = _VISION_PROMPT.format(caption=(caption or "").strip() or "（无）")
     payload = {
         "prompt": prompt,
@@ -72,7 +68,7 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
             "MM-API-Source": "Butler-WeChat-Gateway",
         },
         json=payload,
-        timeout=to,
+        timeout=timeout,
     )
     resp.raise_for_status()
     data = resp.json()
@@ -85,3 +81,53 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
     if not content:
         raise RuntimeError("MiniMax VLM 返回空内容")
     return content
+
+
+def describe_image(path: str, *, caption: str = "", timeout: float | None = None) -> str:
+    """MiniMax VLM, then optional OpenAI/OCR fallbacks. Records telemetry."""
+    from butler.gateway.media_telemetry import record_media_event
+    from butler.gateway_settings import resolve_gateway_inbound_config
+
+    to = timeout if timeout is not None else resolve_gateway_inbound_config().vision.timeout_seconds
+    t0 = time.monotonic()
+    primary_exc: Exception | None = None
+    try:
+        text = _describe_minimax(path, caption=caption, timeout=to)
+        record_media_event(
+            "vision",
+            provider="minimax",
+            ok=True,
+            duration_ms=(time.monotonic() - t0) * 1000,
+        )
+        return text
+    except Exception as exc:
+        primary_exc = exc
+        logger.warning("MiniMax vision failed for %s: %s", path, exc)
+
+    from butler.gateway.vision_fallback import describe_image_with_fallbacks
+
+    t1 = time.monotonic()
+    try:
+        text, provider = describe_image_with_fallbacks(
+            path,
+            caption=caption,
+            primary_error=primary_exc,
+            timeout=to,
+        )
+        record_media_event(
+            "vision",
+            provider=provider,
+            ok=True,
+            duration_ms=(time.monotonic() - t0) * 1000,
+            detail="fallback",
+        )
+        return text
+    except Exception as exc:
+        record_media_event(
+            "vision",
+            provider="minimax+fallback",
+            ok=False,
+            duration_ms=(time.monotonic() - t0) * 1000,
+            detail=str(exc)[:80],
+        )
+        raise

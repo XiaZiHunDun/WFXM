@@ -81,25 +81,31 @@ def build_inbound_user_text(event: MessageEvent) -> str:
 
     if voices:
         from butler.gateway.speech_stt import transcribe_voice_file
+        from butler.gateway_settings import resolve_gateway_inbound_config
 
-        if base and event.message_type == MessageType.VOICE:
-            blocks.append(f"[微信语音转写]\n{base}")
+        prefer_ilink = resolve_gateway_inbound_config().speech.prefer_ilink_text
+        ilink_text = base.strip() if base else ""
+
+        if prefer_ilink and ilink_text:
+            blocks.append(f"[微信语音转写]\n{ilink_text}")
+            base = ""
         else:
             for vpath in voices[:2]:
                 try:
-                    if base and not blocks:
-                        text = base
-                    else:
-                        text = transcribe_voice_file(vpath)
+                    text = transcribe_voice_file(vpath)
                     blocks.append(f"[微信语音转写]\n{text}")
                     base = ""
                 except Exception as exc:
                     logger.warning("WeChat STT failed for %s: %s", vpath, exc)
-                    blocks.append(
-                        "--- 语音转写 ---\n"
-                        f"（转写失败：{exc}。请用文字重说，或安装 ffmpeg + faster-whisper）"
-                    )
-        base = ""
+                    if ilink_text:
+                        blocks.append(f"[微信语音转写]\n{ilink_text}")
+                        base = ""
+                    else:
+                        blocks.append(
+                            "--- 语音转写 ---\n"
+                            f"（转写失败：{exc}。请用文字重说，或安装 ffmpeg + faster-whisper）"
+                        )
+            base = ""
 
     if base:
         if event.message_type == MessageType.VOICE and not voices:

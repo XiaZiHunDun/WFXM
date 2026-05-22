@@ -181,6 +181,12 @@ def format_model_diagnostic_lines(
                 f"  gateway(语音): {ilink}; STT={gw.speech.stt_provider}; "
                 f"whisper={gw.speech.whisper_model}"
             )
+            try:
+                from butler.gateway.media_telemetry import format_media_diagnostic_lines
+
+                lines.extend(format_media_diagnostic_lines())
+            except Exception:
+                pass
         else:
             lines.append("  gateway(入站媒体): 关")
     except Exception:

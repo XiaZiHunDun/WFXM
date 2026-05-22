@@ -51,7 +51,9 @@ def execute_job(job: JobDef, workspace: Path) -> dict[str, Any]:
 
 
 def _run_subprocess(job: JobDef, workspace: Path) -> dict[str, Any]:
-    cmd = list(job.command)
+    from butler.runtime.workflow_version import resolve_job_command
+
+    cmd = resolve_job_command(list(job.command), workspace)
     timeout = max(30, int(job.timeout_seconds or 900))
     try:
         proc = subprocess.run(

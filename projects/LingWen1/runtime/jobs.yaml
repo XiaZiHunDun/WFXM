@@ -60,7 +60,7 @@ jobs:
       - bash
       - novel-factory/tools/publish/run_publish.sh
       - archive
-      - v3.0
+      - "{workflow_version}"
     notify:
       on_success: true
       on_failure: true
@@ -77,7 +77,7 @@ jobs:
       - bash
       - novel-factory/tools/publish/run_publish.sh
       - merge
-      - v3.0
+      - "{workflow_version}"
     notify:
       on_success: true
       on_failure: true

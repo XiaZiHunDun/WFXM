@@ -57,6 +57,22 @@ def test_gateway_env_overrides_yaml(butler_home, monkeypatch):
     assert gw.max_chars == 1800
 
 
+def test_save_butler_config_preserves_auxiliary(butler_home):
+    cfg_path = butler_home / "config.yaml"
+    cfg_path.write_text(
+        yaml.safe_dump(
+            {"auxiliary": {"compression": {"provider": "deepseek", "model": "deepseek-chat"}}}
+        ),
+        encoding="utf-8",
+    )
+    reload_butler_settings()
+    from butler.config import save_butler_config
+
+    save_butler_config()
+    data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    assert data["auxiliary"]["compression"]["provider"] == "deepseek"
+
+
 def test_save_butler_config_preserves_gateway(butler_home):
     cfg_path = butler_home / "config.yaml"
     cfg_path.write_text(

@@ -16,17 +16,9 @@ logger = logging.getLogger(__name__)
 def resolve_auxiliary_config(task: str = "compression") -> ModelConfig:
     """Pick auxiliary model: ``config.yaml`` auxiliary.* → **default_provider** (MiniMax) → butler model."""
     settings = get_butler_settings()
-    raw = {}
-    try:
-        import yaml
-        if settings.config_yaml_path.exists():
-            data = yaml.safe_load(settings.config_yaml_path.read_text(encoding="utf-8")) or {}
-            raw = (data.get("auxiliary") or {}).get(task) or data.get("auxiliary") or {}
-    except Exception:
-        pass
-
-    if raw and (raw.get("provider") or raw.get("model")):
-        return ModelConfig.from_dict(raw if isinstance(raw, dict) else {})
+    cfg = settings.get_auxiliary_task_config(task)
+    if not cfg.is_empty():
+        return cfg
 
     preferred = (settings.default_provider or "minimax").strip()
     if preferred and (pc := settings.providers.get(preferred)):
