@@ -1,12 +1,9 @@
-"""Hermes MemoryProvider backed by Butler's layered memory.
+"""Butler layered memory service for tools and orchestrator sync.
 
-Use with ``memory.provider: butler`` after registering this module as the
-Hermes bundled plugin ``plugins/memory/butler`` (thin re-export wrapper),
-or instantiate ``ButlerMemoryProvider`` and attach it programmatically.
-
-The Butler orchestrator prefers :class:`~butler.memory.ButlerMemory`
-embedded in prompts; this provider mirrors the same stores for prefetch/
-tool execution inside the Hermes agent loop without editing core Hermes files.
+Wraps :class:`~butler.memory.ButlerMemory` / :class:`~butler.memory.ProjectMemory`
+for ``butler_remember``, prefetch, and post-session vector updates. The gateway
+orchestrator is the primary owner; tools obtain the same instance via
+``orchestrator.memory_provider`` when available.
 """
 
 from __future__ import annotations

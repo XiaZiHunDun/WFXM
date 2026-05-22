@@ -18,14 +18,9 @@ _LAST_PUSH_FILE = "runtime/last_push_at.json"
 
 
 def resolve_owner_wechat_chat_id() -> str:
-    """BUTLER_OWNER_WECHAT_ID, else first WECHAT_ALLOWED_USERS entry."""
-    cid = os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip()
-    if cid:
-        return cid
-    allow = os.getenv("WECHAT_ALLOWED_USERS", "").strip()
-    if allow:
-        return allow.split(",")[0].strip()
-    return ""
+    from butler.gateway.owner_gate import resolve_owner_wechat_chat_id as _resolve
+
+    return _resolve()
 
 
 def runtime_push_enabled() -> bool:

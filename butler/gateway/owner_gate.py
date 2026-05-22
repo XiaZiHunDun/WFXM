@@ -7,6 +7,17 @@ import os
 from butler.session_keys import chat_id_from_session_key
 
 
+def resolve_owner_wechat_chat_id() -> str:
+    """Primary Owner chat id for runtime push (env order: dedicated owner, then allowlist first)."""
+    owner = os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip()
+    if owner:
+        return owner
+    allow = os.getenv("WECHAT_ALLOWED_USERS", "").strip()
+    if allow:
+        return allow.split(",")[0].strip()
+    return ""
+
+
 def owner_wechat_ids() -> frozenset[str]:
     """Configured owner / allowlist WeChat user ids."""
     ids: set[str] = set()

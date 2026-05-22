@@ -206,26 +206,3 @@ class TestWorkflowSlash:
             out = handle_workflow_command(orch, "run novel-factory 写验收文档")
         assert "novel-factory" in out
 
-
-@pytest.mark.module_test
-class TestLingwenLeadHooks:
-    def test_project_switched_includes_workflows_for_lingwen(self):
-        from butler.workflows.hooks import _on_project_switched
-
-        orch = MagicMock()
-        proj = MagicMock()
-        proj.name = "灵文1号"
-        orch.project_manager.get_current.return_value = proj
-        from types import SimpleNamespace
-
-        with patch(
-            "butler.workflows.loader.list_workflows_for_project",
-            return_value=[SimpleNamespace(name="novel-factory")],
-        ):
-            out = _on_project_switched(
-                old_project="",
-                new_project="灵文1号",
-                orchestrator=orch,
-            )
-        assert out is not None
-        assert "工作流" in out.get("context", "")

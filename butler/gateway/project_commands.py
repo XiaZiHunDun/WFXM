@@ -133,9 +133,10 @@ def _project_preflight_wechat(
     if not name or proj is None:
         return "请先 /切换 到要体检的项目。"
 
+    from butler.project_preflight import resolve_tool_safe_root
+
     settings = get_butler_settings()
-    safe_raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
-    safe_root = Path(safe_raw).expanduser().resolve() if safe_raw else None
+    safe_root = resolve_tool_safe_root()
 
     report = run_preflight(
         proj.workspace,

@@ -180,6 +180,7 @@ reference/                      # 【不动】主公维护的对照区
 | 2026-05-22 | **P0 完成** | STRUCTURE、scripts/README、config/reference、1138 同步、preflight Skill 去重、vendor gitignore、规划稿归档 |
 | 2026-05-22 | **P1 完成** | 依赖/archive 清理、test_butler_v4 瘦身、CLI 手册合并、lead smoke、死 API 删除（**reference/ 未动**） |
 | 2026-05-22 | **P2 完成** | v1 → git tag；design 历史迁出；`butler-smoke.sh`；config.yaml 分工文档 |
+| 2026-05-22 | **P3 完成** | 实现层熵减，见 [`consolidation-p3-implementation-2026-05.md`](consolidation-p3-implementation-2026-05.md) |
 
 ### P0 交付清单
 

@@ -13,7 +13,6 @@ from butler.core.agent_loop import LoopResult, LoopStatus
 from butler.execution_context import use_execution_context
 from butler.gateway.message_handler import (
     ButlerMessageHandler,
-    _is_global_session_command,
     _is_sessionless_command,
     _normalize_detail_request,
 )
@@ -387,12 +386,13 @@ class TestSlashCommands:
     def test_non_command_returns_none(self, handler):
         assert handler._handle_command("/unknowncmd") is None
 
-    def test_global_session_commands_are_detected(self):
-        assert _is_global_session_command("/switch test-project") is True
-        assert _is_global_session_command("/模型 butler minimax/test") is True
-        assert _is_global_session_command("/new") is False
-        assert _is_global_session_command("hello") is False
-        assert _is_sessionless_command("/status") is True
+    def test_sessionless_commands_are_detected(self):
+        assert _is_sessionless_command("/switch test-project") is True
+        assert _is_sessionless_command("/模型 butler minimax/test") is True
+        assert _is_sessionless_command("/批准") is True
+        assert _is_sessionless_command("/开发状态") is True
+        assert _is_sessionless_command("/new") is True
+        assert _is_sessionless_command("hello") is False
         assert _is_sessionless_command("/unknowncmd") is False
 
     def test_hook_rewrite_to_global_command_bypasses_session_lock(self, handler):

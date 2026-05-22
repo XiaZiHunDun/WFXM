@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import os
 
-
-def _truthy(name: str, default: str = "0") -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+from butler.env_parse import env_truthy
 
 
 def semantic_memory_enabled() -> bool:
     """When true, maintain memory_vectors.db and use hybrid recall."""
-    return _truthy("BUTLER_SEMANTIC_MEMORY", "0")
+    return env_truthy("BUTLER_SEMANTIC_MEMORY", default=False)
 
 
 def embedding_provider_name() -> str:

@@ -80,7 +80,7 @@
 | `butler/transport/interruptible_client.py` | L7166–L7484 | 可中断 API + stale 超时 | ✅ |
 | `butler/core/steer.py` | L5180–L5293 | `/steer` 不打断插话 | ✅ |
 | `butler/core/delegate_context.py` | L10225 回调传播 | 子 loop 工具进度回调 | ✅ |
-| `butler/core/iteration_budget.py` | L283–L325 | 迭代预算（可选） | ✅ |
+| `butler/core/iteration_budget.py` | L283–L325 | 迭代预算（已移除，P3 未接线） | — |
 | `butler/core/agent_loop.py` + `butler/core/loop_types.py` | 回合边界 | failover 回合恢复、空内容重试、截断续写、Loop 公共类型 | ✅ |
 
 测试：`tests/test_run_agent_extraction.py`；全量 **pytest 全绿**（默认排除 `live_llm`）。

@@ -459,6 +459,14 @@ def format_report(report: PreflightReport) -> str:
     return "\n".join(lines)
 
 
+def resolve_tool_safe_root() -> Path | None:
+    """``BUTLER_TOOL_SAFE_ROOT`` when set, else ``None``."""
+    raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
+    if not raw:
+        return None
+    return Path(raw).expanduser().resolve()
+
+
 def resolve_workspace(
     *,
     path: str = "",

@@ -51,6 +51,6 @@
 
 | 指标 | 值 |
 |------|-----|
-| pytest | 1093 passed，1 skipped，18 deselected |
+| pytest | 1092 passed，1 skipped，18 deselected（P3 移除 1 个 Hook 测试） |
 | pre-release smoke | 9 步全绿 |
 | 灵文试点结论 | 通过，可运营 |

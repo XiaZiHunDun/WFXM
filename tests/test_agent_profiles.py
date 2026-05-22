@@ -16,20 +16,17 @@ class TestGetProfile:
     def test_dev_profile(self):
         profile = get_profile("dev")
         assert profile is DEV_AGENT
-        assert profile.system_prompt
-        assert "code_editing" in profile.toolsets
+        assert "patch" in profile.system_prompt or "read_file" in profile.system_prompt
 
     def test_content_profile(self):
         profile = get_profile("content")
         assert profile is CONTENT_AGENT
         assert profile.system_prompt
-        assert profile.toolsets
 
     def test_review_profile(self):
         profile = get_profile("review")
         assert profile is REVIEW_AGENT
         assert profile.system_prompt
-        assert "code_editing" in profile.toolsets
 
     def test_unknown_returns_none(self):
         assert get_profile("unknown") is None

@@ -35,10 +35,9 @@ class GatewayInboundConfig:
 
 
 def _bool_env(name: str, default: bool) -> bool:
-    raw = os.getenv(name, "").strip().lower()
-    if not raw:
-        return default
-    return raw in ("1", "true", "yes", "on")
+    from butler.env_parse import env_truthy
+
+    return env_truthy(name, default=default)
 
 
 def _load_yaml_gateway() -> dict[str, Any]:

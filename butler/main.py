@@ -29,7 +29,7 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     from rich.panel import Panel
 
     from butler.cli.session_ui import ChatSessionUI
-    from butler.cli.slash_commands import build_slash_completer, is_known_slash_command
+    from butler.cli.slash_commands import build_slash_completer
     from butler.core.agent_loop import LoopStatus
     from butler.tools.registry import dispatch_tool
     from butler.tools.project_tools import get_current_project_tools
@@ -58,8 +58,6 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     ))
 
     from butler.session_keys import build_session_key
-    from butler.session_lifecycle import clear_session_boundary_memory
-
     ui = ChatSessionUI(console)
     loops_by_session: dict[str, Any] = {}
     agent_loop = None
@@ -588,11 +586,15 @@ def _cmd_project_preflight(ns: argparse.Namespace) -> int:
     import os
 
     from butler.config import get_butler_settings
-    from butler.project_preflight import format_report, resolve_workspace, run_preflight
+    from butler.project_preflight import (
+        format_report,
+        resolve_tool_safe_root,
+        resolve_workspace,
+        run_preflight,
+    )
 
     settings = get_butler_settings()
-    safe_raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
-    safe_root = Path(safe_raw).expanduser().resolve() if safe_raw else None
+    safe_root = resolve_tool_safe_root()
 
     ws = resolve_workspace(
         path=str(ns.path or ""),
@@ -857,7 +859,6 @@ def _cmd_runtime_approve(ns: argparse.Namespace) -> int:
 
 def _cmd_gateway(ns: argparse.Namespace) -> int:
     """Start WeChat-only Butler gateway (iLink)."""
-    os.environ["BUTLER_GATEWAY_ACTIVE"] = "1"
     remainder = list(getattr(ns, "gateway_remainder", None) or [])
     legacy = [x for x in remainder if x in ("--hermes-fallback", "--native-only")]
     if legacy:

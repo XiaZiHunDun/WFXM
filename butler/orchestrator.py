@@ -501,17 +501,6 @@ class ButlerOrchestrator:
         self._reload_project_memory()
         self._rebuild_skill_router()
         self._refresh_memory_provider_for_project_switch()
-        try:
-            from butler.gateway.hooks import invoke_hook
-
-            invoke_hook(
-                "project_switched",
-                old_project=old_project,
-                new_project=new_project,
-                orchestrator=self,
-            )
-        except Exception as exc:
-            logger.debug("project_switched hooks skipped: %s", exc)
 
     def inject_skill_context(
         self,

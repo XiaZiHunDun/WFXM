@@ -16,14 +16,9 @@ from typing import Any, Optional
 
 from butler.orchestrator import ButlerOrchestrator
 from butler.session_keys import chat_id_from_session_key, normalize_session_key
-from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopConfig, LoopResult, LoopStatus
-from butler.session_lifecycle import (
-    attach_turn_memory_prefetch,
-    clear_session_boundary_memory,
-    sync_turn_memory,
-)
+from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopResult, LoopStatus
+from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
 from butler.tools.registry import dispatch_tool
-from butler.tools.project_tools import get_current_project_tools
 from butler.report import AgentReport, format_for_wechat, format_for_cli, cache_report
 from butler.gateway.session_registry import GatewaySessionRegistry
 
@@ -725,15 +720,6 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
-def _is_global_session_command(text: str) -> bool:
-    stripped = (text or "").strip()
-    if not stripped.startswith("/"):
-        return False
-    parts = stripped.split(maxsplit=1)
-    cmd = parts[0].lower()
-    return cmd in {"/switch", "/切换", "/model", "/模型"}
-
-
 def _is_sessionless_command(text: str) -> bool:
     stripped = (text or "").strip()
     if not stripped.startswith("/"):
@@ -777,6 +763,11 @@ def _is_sessionless_command(text: str) -> bool:
         "/拒绝记忆",
         "/reject-memory",
         "/拒绝",
+        "/批准",
+        "/开发状态",
+        "/dev-status",
+        "/开发验收",
+        "/dev-smoke",
     }
 
 

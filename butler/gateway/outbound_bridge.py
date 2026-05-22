@@ -32,10 +32,9 @@ class _TypingAdapter(Protocol):
 
 
 def _env_bool(name: str, default: bool) -> bool:
-    raw = os.getenv(name, "").strip().lower()
-    if not raw:
-        return default
-    return raw in {"1", "true", "yes", "on"}
+    from butler.env_parse import env_truthy
+
+    return env_truthy(name, default=default)
 
 
 def _env_float(name: str, default: float) -> float:

@@ -12,7 +12,9 @@ def _repo_root() -> Path:
 
 
 def _env_on(name: str) -> bool:
-    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
+    from butler.env_parse import env_truthy
+
+    return env_truthy(name)
 
 
 def format_dev_status() -> str:

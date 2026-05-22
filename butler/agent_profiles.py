@@ -1,13 +1,12 @@
 """Agent role profiles for Butler.
 
-Each profile defines a role-specific system prompt and toolset hint.
-When Butler spawns a project-level AgentLoop, the profile's prompt
-is used as the system prompt and toolsets guide tool filtering.
+Each profile supplies a role-specific **system prompt** only.
+Tool lists come from ``project.yaml``; loop limits from ``LoopConfig``.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -15,8 +14,6 @@ class AgentProfile:
     role: str
     description: str
     system_prompt: str
-    toolsets: list[str] = field(default_factory=list)
-    max_iterations: int = 90
 
 
 TOOL_USE_ENFORCEMENT = """
@@ -97,8 +94,6 @@ DEV_AGENT = AgentProfile(
         + VERIFICATION_GUIDANCE
         + TASK_DECOMPOSITION
     ),
-    toolsets=["code_editing", "shell", "git", "browser", "mcp"],
-    max_iterations=90,
 )
 
 CONTENT_AGENT = AgentProfile(
@@ -112,8 +107,6 @@ CONTENT_AGENT = AgentProfile(
         "- 将创作结果写入指定文件\n"
         + TOOL_USE_ENFORCEMENT
     ),
-    toolsets=["code_editing"],
-    max_iterations=30,
 )
 
 REVIEW_AGENT = AgentProfile(
@@ -128,8 +121,6 @@ REVIEW_AGENT = AgentProfile(
         "审核时可以读取文件和搜索代码来验证一致性。\n"
         + TOOL_USE_ENFORCEMENT
     ),
-    toolsets=["code_editing", "shell", "git"],
-    max_iterations=30,
 )
 
 LEAD_AGENT = AgentProfile(
@@ -139,8 +130,6 @@ LEAD_AGENT = AgentProfile(
         "你是项目 Lead（厂长）。统筹本项目：读 workflow_state、委派 dev/content/review。"
         "不要直接 write_file / patch / terminal。"
     ),
-    toolsets=["delegation", "file", "skills"],
-    max_iterations=60,
 )
 
 PROFILES: dict[str, AgentProfile] = {

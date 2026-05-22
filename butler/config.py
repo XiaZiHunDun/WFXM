@@ -14,7 +14,6 @@ from typing import Any, Final
 import yaml
 from dotenv import load_dotenv
 
-from butler.paths import resolve_hermes_home
 
 load_dotenv()
 
@@ -339,11 +338,6 @@ def save_butler_config() -> None:
     get_butler_settings().save_butler_config()
 
 
-def hermes_home_display() -> str:
-    """Resolved Hermes home path (Gateway legacy co-install only)."""
-    return str(resolve_hermes_home())
-
-
 def get_model_config(role: str) -> ModelConfig:
     """Return merged model configuration for ``role`` (see ``ButlerSettings``)."""
     return get_butler_settings().get_model_config(role)
@@ -364,5 +358,4 @@ __all__ = [
     "get_model_config",
     "reload_butler_settings",
     "save_butler_config",
-    "hermes_home_display",
 ]

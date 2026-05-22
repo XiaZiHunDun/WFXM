@@ -19,6 +19,7 @@ BUILTIN_COMMANDS: tuple[str, ...] = (
     "诊断",
     "detail",
     "steer",
+    "workflow",
     "quit",
     "exit",
     "q",
@@ -38,11 +39,14 @@ MEMORY_SLASH_COMMANDS: tuple[str, ...] = (
     "/拒绝记忆",
     "/reject-memory",
     "/拒绝",
+    "/工作流",
+    "/workflow",
 )
 
 # Aliases map to canonical names for matching only
 _ALIASES: dict[str, str] = {
     "诊断": "health",
+    "工作流": "workflow",
     "q": "quit",
     "exit": "quit",
 }

@@ -437,7 +437,6 @@ class TestGatewayCommand:
         with patch("butler.gateway.runner.run_gateway_blocking", return_value=0) as run:
             assert _cmd_gateway(ns) == 0
         run.assert_called_once_with(["wechat"])
-        assert os.environ["BUTLER_GATEWAY_ACTIVE"] == "1"
 
     def test_cmd_gateway_rejects_non_wechat_platform(self, capsys):
         from butler.main import _cmd_gateway
