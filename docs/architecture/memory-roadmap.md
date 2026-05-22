@@ -20,7 +20,7 @@ Butler 已对齐 **内置层 + prefetch/sync/post_session**；**P0/P1 向量层*
 
 ## 2. Butler 现状 vs 设计文档
 
-| 能力 | 当前 v4（2026-05-22） | 设计稿（`docs/design/design.md` §11/§13） |
+| 能力 | 当前 v4（2026-05-22） | 历史设计稿（[`design-evolution-v0.5-v1.0.md`](../history/design-evolution-v0.5-v1.0.md) §11/§13） |
 |------|----------------------|----------------------------------------|
 | Owner 画像 | `profile.json` | ProfileStore ✅ |
 | 跨项目经验 | `experience.db` + **FTS5**；可选向量 hybrid | ExperienceStore ✅ |

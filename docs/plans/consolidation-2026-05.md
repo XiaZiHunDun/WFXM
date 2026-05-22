@@ -1,6 +1,6 @@
 # WFXM 整理与瘦身方案（2026-05）
 
-> **状态**：执行中  
+> **状态**：**P0–P2 已完成**（2026-05-22）  
 > **目标**：消化开发期熵增，让骨架与脉络重新清晰，**不**改变 v4 运行时架构。  
 > **基线**：全量 pytest **1093 passed**（P1 移除 v3 archive 后），1 skipped，18 deselected；`butler-pre-release-smoke.sh` 9 步全绿。
 
@@ -178,6 +178,7 @@ reference/                      # 【不动】主公维护的对照区
 | 2026-05-22 | 方案 | 本文档；**reference/ 排除**（主公维护） |
 | 2026-05-22 | **P0 完成** | STRUCTURE、scripts/README、config/reference、1138 同步、preflight Skill 去重、vendor gitignore、规划稿归档 |
 | 2026-05-22 | **P1 完成** | 依赖/archive 清理、test_butler_v4 瘦身、CLI 手册合并、lead smoke、死 API 删除（**reference/ 未动**） |
+| 2026-05-22 | **P2 完成** | v1 → git tag；design 历史迁出；`butler-smoke.sh`；config.yaml 分工文档 |
 
 ### P0 交付清单
 
@@ -202,4 +203,11 @@ reference/                      # 【不动】主公维护的对照区
 - [x] P1.7 `scripts/butler-lingwen-lead-smoke.sh` + pre-release 第 7 步
 - [x] P1.8 删除根 `docs/*` 跳转桩（保留 `manual-test-guide.md` → history）
 - [x] P1.9 onboarding Skill 同步流程
-- [ ] P2 可选（见 §4）
+- [x] **P2 完成**（2026-05-22）：v1 迁 tag、design 历史拆分、butler-smoke 分层、config 稳定项文档
+
+### P2 交付清单
+
+- [x] P2.1 标签 `archive/butler-v1-20260522`，删除 `archive/butler-v1/`，仅留 `archive/README.md`
+- [x] P2.2 `design-evolution-v0.5-v1.0.md`；`design/design.md` v4 摘要 + 附录
+- [x] P2.3 `scripts/butler-smoke.sh --tier=quick|standard|full`
+- [x] P2.4 `config/reference.md` + `config.yaml.example` 稳定项 vs 密钥分工

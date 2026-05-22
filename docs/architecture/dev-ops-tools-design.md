@@ -91,7 +91,7 @@ flowchart TB
 
 ### 2.4 v1 可复用资产
 
-`archive/butler-v1/butler/tools/git_tools.py`：async `git_status/diff/log/add/commit/branch`，需改为：
+v1 参考 `git show archive/butler-v1-20260522:archive/butler-v1/butler/tools/git_tools.py`（async `git_status/diff/log/add/commit/branch`），需改为：
 
 - 同步 handler（匹配 v4 `dispatch_tool`）
 - `path_safety` 校验 `cwd`
@@ -310,6 +310,6 @@ BUTLER_TOOL_SAFE_ROOT=/home/.../WFXM
 
 - `butler/tools/registry.py` — 注册与 dispatch
 - `butler/tools/path_safety.py` — 沙箱
-- `archive/butler-v1/butler/tools/git_tools.py` — v1 参考
+- Git 标签 `archive/butler-v1-20260522` — v1 `git_tools` 参考
 - `docs/architecture/hermes-extraction-map.md` — 不移植边界
 - `docs/guides/runtime-ops.md` — Runtime 旁路

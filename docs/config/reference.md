@@ -1,7 +1,19 @@
 # Butler 配置参考（env + YAML）
 
-> 密钥与部署覆盖放 `.env`；模型与网关默认见 `docs/config/config.yaml.example` → `~/.butler/config.yaml`。  
-> 完整示例：仓库根 `.env.example`。
+> **原则**：`.env` 仅放**密钥与部署覆盖**；稳定行为默认值优先写入 `~/.butler/config.yaml`（见 [`config.yaml.example`](config.yaml.example)）。  
+> 完整密钥示例：仓库根 `.env.example`。
+
+## 推荐：`config.yaml` vs `.env`
+
+| 放 `~/.butler/config.yaml` | 放 `.env`（或环境） |
+|---------------------------|---------------------|
+| `default_provider`、`butler_name`、`owner_name` | `MINIMAX_API_KEY`、`DEEPSEEK_API_KEY` 等 |
+| `models.butler` / `dev_agent` / `content_agent` / `review_agent` | `WECHAT_TOKEN`、`WECHAT_ACCOUNT_ID` |
+| `auxiliary.compression` / `post_session` | `BUTLER_OWNER_WECHAT_ID`、`WECHAT_ALLOWED_USERS` |
+| `gateway.inbound_media`（识图/STT 开关与模型名） | `BUTLER_PROJECTS_DIR`、`BUTLER_TOOL_SAFE_ROOT`（部署路径） |
+| — | `BUTLER_RUNTIME_*` 运维开关（可逐步迁 YAML，当前以 env 为主） |
+
+安装：`bash scripts/setup-butler-config.sh` 从 example 生成；`/model save` 会更新 `models` 段且不覆盖 `gateway`/`auxiliary`。
 
 ## 必填（至少一项）
 

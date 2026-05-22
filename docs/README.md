@@ -15,7 +15,7 @@
 | [`guides/runtime-ops.md`](guides/runtime-ops.md) | **Runtime timer** 安装、due、审计与排障 |
 | [`architecture/wechat-inbound-media.md`](architecture/wechat-inbound-media.md) | **微信入站图片/语音** MiniMax VLM + 语音转写（已实施 P1+P2） |
 | [`architecture/layered-model-config.md`](architecture/layered-model-config.md) | **分层模型配置** 设计 vs 实现对照 + 完善路线（M1–M5） |
-| [`design/design.md`](design/design.md) | 完整产品设计（记忆、Skill、编排、命令速查） |
+| [`design/design.md`](design/design.md) | v4 产品设计摘要（命令速查）；历史见 [`history/design-evolution-v0.5-v1.0.md`](history/design-evolution-v0.5-v1.0.md) |
 | [`guides/README.md`](guides/README.md) | 微信运维 / 冒烟 / 人工测试索引 |
 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) | **微信网关 systemd 运维**（安装、发版、排障） |
 | [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) | 发版后真机冒烟检查表 |

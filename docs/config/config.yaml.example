@@ -1,4 +1,6 @@
-# Copy to ~/.butler/config.yaml and adjust. Env vars override gateway fields.
+# Copy to ~/.butler/config.yaml and adjust (bash scripts/setup-butler-config.sh).
+# Stable defaults here; secrets only in .env (MINIMAX_API_KEY, WECHAT_TOKEN, …).
+# Env overrides gateway fields when set. See docs/config/reference.md
 # See docs/architecture/layered-model-config.md
 
 default_provider: minimax

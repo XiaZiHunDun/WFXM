@@ -24,7 +24,7 @@ WFXM/
 ├── tests/                       #   默认 ~1093 passed（排除 live_llm）
 ├── projects/                    #   LingWen1、DemoPilot 等工作区
 ├── logs/                        #   butler-gateway.log（gitignore *.log）
-├── archive/                     #   Butler v1 快照（计划迁 tag）
+├── archive/                     #   README + Git 标签 archive/butler-v1-20260522
 ├── reference/                   #   【不动】外部对照，主公维护
 └── pyproject.toml               #   包名 butler-system；`[wechat]` extra
 ```

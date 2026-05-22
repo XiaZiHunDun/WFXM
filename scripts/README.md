@@ -1,6 +1,6 @@
 # scripts/ 索引
 
-> 日常只记三条：`butler-gateway-ops.sh`、`butler-pre-release-smoke.sh`、`sync-lingwen-project-skills.sh`（灵文）。  
+> 日常只记四条：`butler-gateway-ops.sh`、`butler-smoke.sh`、`butler-pre-release-smoke.sh`（= `--tier=full`）、`sync-lingwen-project-skills.sh`（灵文）。  
 > 整理方案：[`docs/plans/consolidation-2026-05.md`](../docs/plans/consolidation-2026-05.md)
 
 ## 安装与 systemd
@@ -29,6 +29,7 @@
 
 | 脚本 | 步骤 |
 |------|------|
+| `butler-smoke.sh` | `--tier=quick`（preflight + 快测）/ `standard`（+ 域冒烟）/ `full`（= pre-release） |
 | `butler-pre-release-smoke.sh` | 1 gateway → 2 pytest → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot |
 
 ## 分域冒烟（被 pre-release 或文档调用）
