@@ -18,3 +18,4 @@ fi
 cp "$EXAMPLE" "$TARGET"
 echo "Created $TARGET from config.yaml.example"
 echo "Edit gateway / auxiliary sections as needed; env vars still override."
+echo "OCR fallback: pip install -e \".[wechat-ocr]\" (plus system tesseract + chi_sim)"

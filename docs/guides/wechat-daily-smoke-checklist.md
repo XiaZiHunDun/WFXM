@@ -29,8 +29,8 @@ bash scripts/butler-pre-release-smoke.sh 灵文1号   # 一键守门（约 3–5
 | 试点路径 + `~/.butler/wechat/accounts/` | ☑ |
 | `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`SYNC_CONVERSATION_MEMORY=0` | ☑ |
 | `.env` 记忆：`SEMANTIC_MEMORY=1`、`QUEUE_PREFETCH=1`（推荐） | ☑ |
-| `~/.butler/config.yaml` 可选（见 `docs/config/config.yaml.example`） | ☐ |
-| `butler-pre-release-smoke.sh` 全绿 | ☑ 2026-05-22（1116 pytest + 各 smoke） |
+| `~/.butler/config.yaml` 可选（`bash scripts/setup-butler-config.sh`） | ☐ |
+| `butler-pre-release-smoke.sh` 全绿 | ☑ 2026-05-22（1118 pytest + 各 smoke） |
 | Owner 画像 SSOT | ☑ |
 
 ```bash
