@@ -35,9 +35,10 @@ butler memory-reindex --project "我的应用"
 1. 将完整树放入 `projects/<ASCII目录>/`（勿写入 `reference/` 只读区）。
 2. 编写或合并 `project.yaml`（参考 `novel-factory.project.yaml` 模板）。
 3. 补 `docs/pilot-setup.md`（路径角色、禁止项、微信验收顺序）。
-4. 若启用厂长：`BUTLER_LEAD_PROJECTS` 加入 `name`，并放置 `skills/*-project-lead.md`。
-5. 可选 `runtime/jobs.yaml`（测试/巡检）。
-6. 执行下方 **§4 统一收尾**。
+4. 若启用厂长：`project.yaml` 设 `lead: true`（或 `BUTLER_LEAD_PROJECTS`），并放置 `skills/*-project-lead.md`。
+5. **Skill 同步**（有项目 Skill 时）：编辑 `projects/<slug>/skills/*.md` → `bash scripts/sync-lingwen-project-skills.sh`（或项目自有 sync 脚本）→ 确认 `~/.butler/skills/` 已更新 → 改 Skill 后 `butler-gateway-ops.sh restart`。
+6. 可选 `runtime/jobs.yaml`（测试/巡检）。
+7. 执行下方 **§4 统一收尾**。
 
 ### C. Git 仓库登记
 
@@ -95,9 +96,10 @@ butler project preflight --path projects/MySlug --json
 | 1 | `butler project preflight` 无 FAIL（微信 `/项目 体检`） |
 | 2 | `butler memory-reindex --project "<name>"` |
 | 2b | 可选 `butler projects --reload`（热加载 project.yaml） |
-| 3 | 若改 Skill / `.env`：`bash scripts/butler-gateway-ops.sh restart` |
-| 4 | 微信：`/项目` → `/切换 <name>` → `/诊断` |
-| 5 | Lead 项目：确认「对话引擎: 项目 Lead（厂长）」 |
+| 3 | 项目 Skill：`projects/<slug>/skills/` → `sync-*-project-skills.sh` → `~/.butler/skills/` |
+| 4 | 若改 Skill / `.env`：`bash scripts/butler-gateway-ops.sh restart` |
+| 5 | 微信：`/项目` → `/切换 <name>` → `/诊断` |
+| 6 | Lead 项目：确认「对话引擎: 项目 Lead（厂长）」；可跑 `bash scripts/butler-lingwen-lead-smoke.sh` |
 
 ---
 

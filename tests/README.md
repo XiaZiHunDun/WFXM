@@ -2,7 +2,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q          # 默认 ~1138 passed，排除 live_llm 与 tests/archive/
+PYTHONPATH=. pytest -q          # 默认全量 passed，排除 live_llm（见 pyproject addopts）
 ```
 
 ## 分层（`pyproject.toml` markers）
@@ -85,4 +85,4 @@ BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
 
 含：单轮问候、README 直读（步骤 3）、委派写文件（步骤 4–4c）、Owner 称呼。
 
-v3 遗留测试见 `tests/archive/test_butler_v3.py`（默认不收集）；v4 主线以 `test_butler_v4.py` 及 Loop 栈测试为准。
+v4 主线以 `test_butler_v4.py`（编排/Loop E2E/CLI）及各 `test_*.py` 模块测试为准；v3/Hermes 嵌入路径已移除。

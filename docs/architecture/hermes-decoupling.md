@@ -29,7 +29,7 @@
 ### 阶段 A — Butler 零 Hermes import ✅
 
 - [x] Agent Loop、Transport、工具在 `butler/core` + `butler/transport`
-- [x] `post_session.from_hermes_agent` deprecated；v3 测试在 `tests/archive/`
+- [x] `post_session.from_hermes_agent` 已删除；v3 测试目录已移除
 - [x] 根 `pyproject` 仅 `butler-system`；微信见 `[wechat]` extra
 
 ### 阶段 B — 仅微信 Gateway ✅
@@ -60,4 +60,4 @@
 
 - `rg '^from (agent|run_agent)' butler/` 无匹配  
 - `butler gateway` 仅微信栈  
-- 默认 `pytest` 1138 passed（`tests/archive/` 不收集；`live_llm` 需显式 `-m`）
+- 默认 `pytest` 全绿（`live_llm` 需显式 `-m`）

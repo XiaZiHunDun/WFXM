@@ -177,6 +177,7 @@ reference/                      # 【不动】主公维护的对照区
 |------|------|------|
 | 2026-05-22 | 方案 | 本文档；**reference/ 排除**（主公维护） |
 | 2026-05-22 | **P0 完成** | STRUCTURE、scripts/README、config/reference、1138 同步、preflight Skill 去重、vendor gitignore、规划稿归档 |
+| 2026-05-22 | **P1 完成** | 依赖/archive 清理、test_butler_v4 瘦身、CLI 手册合并、lead smoke、死 API 删除（**reference/ 未动**） |
 
 ### P0 交付清单
 
@@ -188,4 +189,17 @@ reference/                      # 【不动】主公维护的对照区
 - [x] `project_preflight` Skill 去重
 - [x] `project-layer-wechat-plan.md` 标已落地
 - [x] `.gitignore` 增加 `vendor/`（**未动 reference/**）
-- [ ] P1 待执行（见 §4）
+- [x] **P1 完成**（2026-05-22）：依赖瘦身、删 archive 测试、瘦身 test_butler_v4、合并 CLI 手册、删 Hermes API、工具别名表、lingwen lead smoke、删根跳转桩
+
+### P1 交付清单
+
+- [x] P1.1 `pyproject.toml` 移除未用 Hermes 遗留依赖
+- [x] P1.2 删 `tests/archive/`、`archive/butler-v1/tests/`
+- [x] P1.3 瘦身 `tests/test_butler_v4.py`
+- [x] P1.4 合并 `cli-manual-test-cases` → `manual-testing-guide` 附录 A
+- [x] P1.5 删除 `PostSessionProcessor.from_hermes_agent`
+- [x] P1.6 `docs/config/reference.md` 工具别名表
+- [x] P1.7 `scripts/butler-lingwen-lead-smoke.sh` + pre-release 第 7 步
+- [x] P1.8 删除根 `docs/*` 跳转桩（保留 `manual-test-guide.md` → history）
+- [x] P1.9 onboarding Skill 同步流程
+- [ ] P2 可选（见 §4）
