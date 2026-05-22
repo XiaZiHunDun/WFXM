@@ -1,0 +1,18 @@
+# Install: bash scripts/install-butler-push-drain.sh
+# Retries WeChat runtime push queue when iLink rate-limits.
+
+[Unit]
+Description=Butler Runtime — drain deferred WeChat push queue
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@WFXM_ROOT@
+Environment=PYTHONPATH=@WFXM_ROOT@
+EnvironmentFile=-@WFXM_ROOT@/.env
+ExecStart=@PYTHON@ -m butler.main runtime drain-push --max-items 3
+StandardOutput=append:@WFXM_ROOT@/logs/butler-push-drain.log
+StandardError=append:@WFXM_ROOT@/logs/butler-push-drain.log
+
+[Install]
+WantedBy=default.target

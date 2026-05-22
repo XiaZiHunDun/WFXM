@@ -253,16 +253,27 @@ class ButlerSettings:
     def save_butler_config(self) -> None:
         """Persist Butler settings to ``~/.butler/config.yaml``."""
         self.butler_home.mkdir(parents=True, exist_ok=True)
+        path = self.config_yaml_path
+        preserved: dict[str, Any] = {}
+        if path.exists():
+            try:
+                raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+                if isinstance(raw, dict):
+                    for key in ("gateway", "auxiliary"):
+                        if key in raw:
+                            preserved[key] = raw[key]
+            except Exception:
+                pass
         data: dict[str, Any] = {
             "butler_name": self.butler_name,
             "owner_name": self.owner_name,
             "models": self.models.to_dict(),
         }
+        data.update(preserved)
         if self.default_tenant:
             data["default_tenant"] = self.default_tenant
         if self.default_provider:
             data["default_provider"] = self.default_provider
-        path = self.config_yaml_path
         with open(path, "w", encoding="utf-8") as f:
             yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
 

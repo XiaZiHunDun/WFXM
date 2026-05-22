@@ -26,3 +26,14 @@ def test_publish_archive_mutating_gated():
     assert pa.get("mode") == "mutating"
     assert pa.get("enabled") is False
     assert pa.get("approval", {}).get("required") is True
+
+
+def test_publish_merge_mutating_gated():
+    data = yaml.safe_load(JOBS.read_text(encoding="utf-8"))
+    jobs = {j["id"]: j for j in data.get("jobs") or []}
+    pm = jobs.get("publish-merge")
+    assert pm is not None
+    assert pm.get("mode") == "mutating"
+    assert pm.get("enabled") is False
+    assert "merge" in (pm.get("command") or [])
+    assert pm.get("approval", {}).get("required") is True

@@ -65,3 +65,20 @@ jobs:
       on_success: true
       on_failure: true
       max_summary_chars: 800
+
+  - id: publish-merge
+    description: 合并正文为单文件（mutating，写入 07_汇总仓库）
+    mode: mutating
+    enabled: false
+    approval:
+      required: true
+      expires_hours: 48
+    command:
+      - bash
+      - novel-factory/tools/publish/run_publish.sh
+      - merge
+      - v3.0
+    notify:
+      on_success: true
+      on_failure: true
+      max_summary_chars: 800

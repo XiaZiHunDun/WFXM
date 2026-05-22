@@ -18,8 +18,12 @@ bash scripts/butler-gateway-ops.sh status      # 状态 + 最近日志
 bash scripts/butler-gateway-ops.sh preflight   # 环境检查（不重启）
 bash scripts/butler-gateway-ops.sh restart     # 发版后重启
 bash scripts/butler-gateway-ops.sh logs        # tail -f 日志
-bash scripts/butler-gateway-ops.sh upgrade     # git pull + 重装单元 + 重启
+bash scripts/butler-gateway-ops.sh upgrade     # git pull + 重装单元 + 重启 + memory-reindex
+bash scripts/butler-gateway-ops.sh reindex     # 仅重建记忆向量（默认灵文1号）
+bash scripts/install-butler-logrotate.sh       # 网关日志轮转（user 模式，无需 sudo）
 ```
+
+**`~/.butler/config.yaml`**：可复制 [`docs/config/config.yaml.example`](../config/config.yaml.example) 配置 `gateway` / `auxiliary`（`/model save` 不会覆盖这两段）。
 
 ---
 

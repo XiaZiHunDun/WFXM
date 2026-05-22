@@ -1,0 +1,13 @@
+# Fires every 5 minutes; complements runtime due drain.
+
+[Unit]
+Description=Butler push queue drain timer (every 5 min)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

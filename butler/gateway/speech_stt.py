@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 def stt_provider() -> str:
-    return os.getenv("BUTLER_WECHAT_STT_PROVIDER", "local").strip().lower()
+    from butler.gateway_settings import resolve_gateway_inbound_config
+
+    return resolve_gateway_inbound_config().speech.stt_provider
 
 
 def silk_to_wav(silk_path: Path, wav_path: Path) -> None:
@@ -50,7 +52,9 @@ def transcribe_wav_local(wav_path: Path) -> str:
             "未安装 faster-whisper，无法转写纯语音文件（pip install faster-whisper）"
         ) from exc
 
-    model_size = os.getenv("BUTLER_WECHAT_WHISPER_MODEL", "small").strip() or "small"
+    from butler.gateway_settings import resolve_gateway_inbound_config
+
+    model_size = resolve_gateway_inbound_config().speech.whisper_model
     model = WhisperModel(model_size, device="cpu", compute_type="int8")
     segments, _info = model.transcribe(str(wav_path), language="zh")
     parts = [seg.text.strip() for seg in segments if seg.text.strip()]
