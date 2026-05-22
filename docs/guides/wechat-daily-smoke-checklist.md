@@ -9,28 +9,37 @@
 
 ## 运维前置（终端）
 
-**2026-05-21**：已由 Agent 在本机执行（你无需再跑）。发版/改网关后可让 Agent 重跑同一套。
+**人工测试前**（2026-05-22 发版 `9c94cb1` 后建议跑一遍）：
+
+```bash
+cd ~/projects/WFXM
+git pull --ff-only
+bash scripts/install-butler-ops-bundle.sh          # runtime --all-projects + push-drain
+bash scripts/install-butler-logrotate.sh user --install-cron   # 可选
+bash scripts/butler-gateway-ops.sh restart
+bash scripts/butler-gateway-ops.sh reindex         # 或 upgrade（含 pull+重装+reindex）
+bash scripts/butler-pre-release-smoke.sh 灵文1号   # 一键守门（约 3–5 分钟）
+```
 
 | 检查项 | 结果 |
 |--------|------|
-| `butler-gateway.service` active | ☑ |
-| `systemctl --user daemon-reload` | ☑ |
+| `butler-gateway.service` active | ☑ 2026-05-22 restart |
+| `butler-runtime-lingwen.timer` + `butler-push-drain.timer` | ☑ 2026-05-22 ops-bundle |
+| logrotate cron 03:00 | ☑ 2026-05-22 `--install-cron` |
 | 试点路径 + `~/.butler/wechat/accounts/` | ☑ |
-| `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`SYNC_CONVERSATION_MEMORY=0`、`EXPERIENCE_PRUNE_DAYS=30` | ☑ |
-| `.env` 记忆增强：`SEMANTIC_MEMORY=1`、`QUEUE_PREFETCH=1`、`PREFETCH_PROJECT_HITS=5` | ☑ 2026-05-21 |
-| Owner 画像 SSOT（默认项目不写死在 profile） | ☑ |
-| 记忆守门 pytest（102+ passed，含 fixture/网关） | ☑ 2026-05-21 |
+| `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`SYNC_CONVERSATION_MEMORY=0` | ☑ |
+| `.env` 记忆：`SEMANTIC_MEMORY=1`、`QUEUE_PREFETCH=1`（推荐） | ☑ |
+| `~/.butler/config.yaml` 可选（见 `docs/config/config.yaml.example`） | ☐ |
+| `butler-pre-release-smoke.sh` 全绿 | ☑ 2026-05-22（1116 pytest + 各 smoke） |
+| Owner 画像 SSOT | ☑ |
 
 ```bash
-# 记忆/feature 守门（与生产 .env 兼容，推荐）
-cd ~/projects/WFXM
-PYTHONPATH=. pytest tests/test_p0_memory_pilot.py tests/test_memory_p1_p2.py \
-  tests/test_memory_recall_fixtures.py tests/test_semantic_memory_p1.py \
-  tests/test_memory_reindex.py tests/test_gateway_handler.py -q
-
-# 全量微信套件（SYNC_CONVERSATION_MEMORY=0，与生产一致）：
-#   bash scripts/butler-wechat-gateway-smoke.sh
-# 记忆守门：bash scripts/butler-wechat-memory-smoke.sh
+# 分项守门（与 pre-release 相同，可单独跑）
+bash scripts/butler-gateway-ops.sh preflight
+bash scripts/butler-wechat-memory-smoke.sh
+bash scripts/butler-wechat-gateway-smoke.sh
+bash scripts/butler-inbound-media-smoke.sh
+bash scripts/butler-runtime-smoke.sh 灵文1号
 ```
 
 **可选 live（真 MiniMax，发版前建议跑）**：
@@ -93,12 +102,15 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 | # | 发送内容 | 预期（摘要） | 通过 | 备注 |
 |---|----------|--------------|------|------|
-| M1 | `/诊断`（可无会话） | 记忆分层；项目 MEMORY **(灵文1号)**；向量 N 条 + model | ☑ | 2026-05-21：4 条 / hashing-v1 |
-| M2 | 「灵文试点统一测试是哪天？」（不说 2026-05-22） | 答 **2026-05-22**（项目 Notes 备忘） | ☑ | paraphrase + 向量/关键词预取 |
-| M3 | 决策句 → `/记忆待审` → `/拒绝记忆 1` | Pending 减、向量不增正式条 | ☑ | 2026-05-21 pytest+命令路径；真机可复现下方话术 |
-| M4 | 同一问题连发两遍 → `/诊断` | 「上轮预取缓存: 命中」 | ☑ | 2026-05-21 真机通过（20s–90s 内复问；`QUEUE_PREFETCH=1`） |
-| M1b | `/记忆图谱` | 三元组展示（仅展示） | ☐ | 2026-05-21 发版后补验 |
-| O7/O8 | `/诊断` | 三元组条数 + 半衰期/访问加权行 | ☐ | 2026-05-21 发版后补验 |
+| M1 | `/诊断`（可无会话） | 记忆分层；**运维快照**；gateway 识图/语音；推送队列（若有） | ☐ | 2026-05-22 发版后 |
+| M2 | 「灵文试点统一测试是哪天？」（不说 2026-05-22） | 答 **2026-05-22**（项目 Notes 备忘） | ☐ | 需 `QUEUE_PREFETCH=1` 更佳 |
+| M3 | 决策句 → `/记忆待审` → `/拒绝记忆 1` | Pending 减、向量不增正式条 | ☐ | 话术见下方 |
+| M4 | 同一问题连发两遍 → `/诊断` | 「上轮预取缓存: 命中」 | ☐ | 间隔 20–90s |
+| M1b | `/记忆图谱` | 三元组或空状态提示 | ☐ | |
+| O7 | `/诊断` | knowledge.db 键数、混合检索权重、半衰期/访问加权 | ☐ | |
+| Ops | `/开发状态` | 显示 terminal/git/git_write 开关（生产 git_write 宜 0） | ☐ | 可选 |
+| RT1 | `/定时` | 列出 jobs；含 consistency-weekly / factory-status | ☐ | |
+| RT2 | `/运行 factory-status-daily` | 收到摘要或 audit 路径 | ☐ | |
 
 **Owner 画像**：`~/.butler/tenants/default/memory/profile.json`；**勿**在画像写死默认项目名（见 `owner-profile-setup.md`）。
 

@@ -65,7 +65,11 @@ _cmd_install() {
 _cmd_reindex() {
   local project="${1:-灵文1号}"
   echo "== memory-reindex ($project) =="
-  bash "$ROOT/scripts/butler-memory-reindex.sh" "$project"
+  if [[ -n "$project" ]]; then
+    bash "$ROOT/scripts/butler-memory-reindex.sh" --project "$project"
+  else
+    bash "$ROOT/scripts/butler-memory-reindex.sh"
+  fi
 }
 
 _cmd_upgrade() {
