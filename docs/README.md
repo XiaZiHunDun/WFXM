@@ -1,6 +1,6 @@
 # Butler 文档索引
 
-> 更新：2026-05-20 | 当前主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
+> 更新：2026-05-22 | 当前主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
 > 仓库目录：[`../STRUCTURE.md`](../STRUCTURE.md) · 指南：[`guides/README.md`](guides/README.md)
 
 ## 推荐阅读顺序
@@ -23,7 +23,9 @@
 | [`guides/manual-testing-guide.md`](guides/manual-testing-guide.md) | CLI / 微信完整人工测试 |
 | [`.env.example`](../.env.example) | 环境变量与真实 API smoke 门控 |
 | [`config/reference.md`](config/reference.md) | **BUTLER_* 环境变量速查** |
-| [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理与瘦身方案（进行中） |
+| [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理方案（P0–P2 已完成） |
+| [`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md) | **后续规划**（运营 / 灵文 / 多项目） |
+| [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 项目成熟度评估（约 4/5） |
 | [`guides/project-onboarding.md`](guides/project-onboarding.md) | 项目接入与 preflight |
 
 ## 版本演进（历史）
@@ -47,4 +49,4 @@ BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py
 
 ## 归档代码
 
-[`../archive/`](../archive/) — Butler v1 快照；[`../reference/`](../reference/) — **主公维护**的外部对照区（整理方案不修改）。
+[`../archive/`](../archive/) — v1 在 Git 标签 `archive/butler-v1-20260522`；[`../reference/`](../reference/) — **主公维护**的外部对照区。

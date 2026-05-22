@@ -81,7 +81,7 @@ butler/
 ├── orchestrator.py
 ├── post_session.py
 └── main.py
-docs/                  # 架构与设计文档（索引 docs/README.md）
+docs/                  # 架构与设计（索引 docs/README.md；后续规划见 docs/plans/post-consolidation-roadmap-2026-05.md）
 tests/                 # ~1093 自动化测试（v3 archive 已移除）
 scripts/               # 网关安装与 butler-gateway-ops 运维
 ```
@@ -137,4 +137,6 @@ scripts/               # 网关安装与 butler-gateway-ops 运维
 | [docs/architecture/hermes-decoupling.md](docs/architecture/hermes-decoupling.md) | Hermes 解耦（已完成） |
 | [docs/guides/wechat-gateway-ops.md](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |
 | [docs/guides/wechat-daily-smoke-checklist.md](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟检查表 |
-| [docs/design/design.md](docs/design/design.md) | 产品设计全文 |
+| [docs/design/design.md](docs/design/design.md) | v4 产品设计摘要 |
+| [docs/plans/post-consolidation-roadmap-2026-05.md](docs/plans/post-consolidation-roadmap-2026-05.md) | 整理后后续规划 |
+| [docs/reviews/project-assessment-2026-05.md](docs/reviews/project-assessment-2026-05.md) | 项目成熟度评估 |

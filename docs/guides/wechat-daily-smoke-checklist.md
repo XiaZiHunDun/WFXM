@@ -30,7 +30,7 @@ bash scripts/butler-pre-release-smoke.sh 灵文1号   # 一键守门（约 3–5
 | `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`SYNC_CONVERSATION_MEMORY=0` | ☑ |
 | `.env` 记忆：`SEMANTIC_MEMORY=1`、`QUEUE_PREFETCH=1`（推荐） | ☑ |
 | `~/.butler/config.yaml` 可选（`setup-butler-config.sh`；本机已合并 gateway/auxiliary） | ☑ 2026-05-22 |
-| `butler-pre-release-smoke.sh` 全绿 | ☑ 2026-05-22（1138 pytest + 各 smoke） |
+| `butler-pre-release-smoke.sh` 全绿 | ☑ 2026-05-22（1093 pytest + 9 步 smoke） |
 | Owner 画像 SSOT | ☑ |
 
 ```bash
@@ -148,7 +148,7 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 **范围**：WFXM 仓库 **灵文1号** 微信管家试点（Butler 原生网关 + 记忆 P0–P2 + Runtime 3a–3c）。
 
-**结论**：**通过，可运营。** 核心真机项（对话八步、记忆 M1–M4、诊断/图谱、开发状态、定时任务、推送）均已勾选；自动化守门 1138 pytest + `butler-pre-release-smoke.sh` 全绿。
+**结论**：**通过，可运营。** 核心真机项（对话八步、记忆 M1–M4、诊断/图谱、开发状态、定时任务、推送）均已勾选；自动化守门 1093 pytest + `butler-pre-release-smoke.sh` 全绿。后续规划见 [`docs/plans/post-consolidation-roadmap-2026-05.md`](../plans/post-consolidation-roadmap-2026-05.md)。
 
 **暂缓**：入站截图/短语音真机（M-img/M-voice，场景未定；`butler-inbound-media-smoke.sh` 已覆盖代码路径）。
 

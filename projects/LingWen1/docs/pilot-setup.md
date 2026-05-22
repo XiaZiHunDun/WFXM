@@ -51,9 +51,28 @@ bash scripts/butler-gateway-ops.sh restart   # 网关加载 Skill + Lead Loop
 
 见 [memory-guide.md](./memory-guide.md)（写入对照表、`butler_remember` / `butler_recall`、`.env` 中的 `BUTLER_SYNC_CONVERSATION_MEMORY`）。
 
+## 运营态双剧本
+
+`project.yaml` 中 `lifecycle: complete` 时走**维护态**；主公明确「新开一本」时走**新书态**（与 Skill `lingwen-project-lead` §1a 一致）。
+
+| 剧本 | 何时 | Lead 主路径 |
+|------|------|-------------|
+| **维护态** | `lifecycle: complete` 或 state 为 PHASE_COMPLETE | 读 `workflow_state.json` → `/运行` 只读 job（factory-status、consistency-weekly、publish-preflight）→ 委派 dev 只读检查 |
+| **新书态** | 主公明确新选题/新开一本 | 指引 `novel-factory/tools/workflow/run_workflow.sh` 早期步骤；**不**无人值守跑完全厂 25 步；`butler_remember` 记「新书立项」 |
+
 ## 微信试点
 
-**验收**：**2026-05-22 结论 — 通过，可运营。** 冒烟（0–8c）、记忆 M1–M4/M1b、Runtime、运维命令已复验；M-img/M-voice 暂缓。见 `pilot-log.md` §验收结论、`docs/guides/wechat-daily-smoke-checklist.md`。
+**验收**：**2026-05-22 结论 — 通过，可运营。** 冒烟（0–8c）、记忆 M1–M4/M1b、Runtime、运维命令已复验；M-img/M-voice 暂缓。
+
+| 文档 | 用途 |
+|------|------|
+| [`pilot-log.md`](./pilot-log.md) | 时间线与 §验收结论 |
+| [`docs/guides/wechat-daily-smoke-checklist.md`](../../../docs/guides/wechat-daily-smoke-checklist.md) | 发版后真机检查表（**主清单**） |
+| [`docs/guides/wechat-core-scenario.md`](../../../docs/guides/wechat-core-scenario.md) | 八步剧本详解 |
+
+**说明**：验收步骤 4 会委派 content 写入 `docs/wechat-smoke.md`（运行时生成的验收文件），不是独立维护的手册；步骤定义见冒烟清单 §4 / 核心场景 §委派。
+
+**自动化守门**：`bash scripts/butler-smoke.sh --tier=standard`（日常）或 `--tier=full`（发版）；灵文 Lead 见 `butler-lingwen-lead-smoke.sh`。
 
 ### 建议顺序（复测时）
 

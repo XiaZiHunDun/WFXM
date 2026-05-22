@@ -19,7 +19,7 @@
 ### 1.2 当前基线（代码事实）
 
 - 项目 SSOT：`projects/<目录>/project.yaml`，由 `ProjectManager` 扫描 `BUTLER_PROJECTS_DIR`。
-- 新建：`butler create <名> --type software` → 空目录 + 默认 tools 列表（**仅 CLI**，微信尚无「新建项目」）。
+- 新建：`butler create` / 微信 Owner **`/项目 新建`** → 空目录 + 默认 tools；`butler project preflight` / **`/项目 体检`** 已落地。
 - 灵文1号：属 **迁入型** 项目（目录 `LingWen1`，显示名 `灵文1号`），含 `novel-factory/`、`runtime/jobs.yaml`、Lead Skill。
 - 对话引擎：`BUTLER_LEAD_PROJECTS` / 默认 `灵文1号` → `gateway_loop_role=lead`（`butler/project_lead.py`）。
 - 三条执行通道并存（见 §4）。

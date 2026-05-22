@@ -156,7 +156,7 @@ reference/                      # 【不动】主公维护的对照区
 | 指标 | 当前 | 目标 |
 |------|------|------|
 | pytest passed | 1093 | 全绿（P1 删 v3 archive 后） |
-| README 测试数 | 1121（过期） | 1138+ |
+| README 测试数 | 1093 | 全绿即可 |
 | 根 docs 跳转桩 | 7+ | 0 |
 | 手工测试入口 | 2+ | 1 |
 | pre-release smoke | 通过 | 每阶段通过 |
@@ -165,7 +165,8 @@ reference/                      # 【不动】主公维护的对照区
 
 ## 7. 相关文档
 
-- [项目评估（2026-05）](../reviews/project-assessment-2026-05.md)（若已创建）  
+- [项目评估（2026-05）](../reviews/project-assessment-2026-05.md)  
+- [后续规划（整理后）](post-consolidation-roadmap-2026-05.md)  
 - [项目接入指南](../guides/project-onboarding.md)  
 - [Hermes 解耦（已完成）](../architecture/hermes-decoupling.md)
 
@@ -211,3 +212,18 @@ reference/                      # 【不动】主公维护的对照区
 - [x] P2.2 `design-evolution-v0.5-v1.0.md`；`design/design.md` v4 摘要 + 附录
 - [x] P2.3 `scripts/butler-smoke.sh --tier=quick|standard|full`
 - [x] P2.4 `config/reference.md` + `config.yaml.example` 稳定项 vs 密钥分工
+
+---
+
+## 9. 后续规划
+
+整理阶段结束后，产品/工程推进见 **[`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md)**（轨道 A–E：运营巩固 → 灵文样板 → 多项目 → 配置演进）。
+
+**文档小债（已处理或跟踪）**
+
+| 项 | 状态 |
+|----|------|
+| pytest 基线 1093 全文同步 | 本轮文档提交 |
+| `docs/reviews/project-assessment-2026-05.md` | 已创建 |
+| 试点验收集中在 `pilot-setup.md` | 已补充双剧本与冒烟索引 |
+| `wechat-smoke.md` 合并进试点说明 | 验收产物仍为 `docs/wechat-smoke.md` 文件，步骤见清单 §4 |

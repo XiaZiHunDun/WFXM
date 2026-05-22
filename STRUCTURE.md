@@ -20,7 +20,8 @@ WFXM/
 │   ├── design/                  #   产品设计
 │   ├── guides/                  #   运维、冒烟、接入
 │   ├── config/                  #   config.yaml.example、reference.md
-│   └── plans/                   #   整理方案等
+│   ├── plans/                   #   整理方案、后续规划
+│   └── reviews/                 #   项目评估
 ├── tests/                       #   默认 ~1093 passed（排除 live_llm）
 ├── projects/                    #   LingWen1、DemoPilot 等工作区
 ├── logs/                        #   butler-gateway.log（gitignore *.log）
