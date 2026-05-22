@@ -1,0 +1,155 @@
+"""Track consecutive runtime job failures and optional Owner alert (no auto-retry)."""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import time
+from pathlib import Path
+from typing import Any
+
+from butler.config import get_butler_home
+
+logger = logging.getLogger(__name__)
+
+_STREAKS_FILE = "runtime/failure_streaks.json"
+
+
+def _streaks_path() -> Path:
+    return get_butler_home() / _STREAKS_FILE
+
+
+def _alert_threshold() -> int:
+    try:
+        return max(1, int(os.getenv("BUTLER_RUNTIME_FAIL_ALERT_STREAK", "3")))
+    except ValueError:
+        return 3
+
+
+def _load_streaks() -> dict[str, Any]:
+    path = _streaks_path()
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_streaks(data: dict[str, Any]) -> None:
+    path = _streaks_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=0), encoding="utf-8")
+
+
+def _job_key(project_name: str, job_id: str) -> str:
+    return f"{project_name.strip()}::{job_id.strip()}"
+
+
+def record_job_outcome(
+    project_name: str,
+    job_id: str,
+    *,
+    success: bool,
+    audit_path: str = "",
+) -> dict[str, Any]:
+    """
+    Update failure streak; optionally push WeChat when streak reaches threshold.
+
+    Returns dict with ``streak``, ``alerted`` (bool).
+    """
+    key = _job_key(project_name, job_id)
+    data = _load_streaks()
+    entry = data.get(key) if isinstance(data.get(key), dict) else {}
+    threshold = _alert_threshold()
+
+    if success:
+        if entry:
+            data.pop(key, None)
+            _save_streaks(data)
+        return {"streak": 0, "alerted": False, "threshold": threshold}
+
+    streak = int(entry.get("streak") or 0) + 1
+    last_alert_at = float(entry.get("last_alert_at") or 0)
+    entry = {
+        "streak": streak,
+        "last_failure_at": time.time(),
+        "last_audit": audit_path,
+        "last_alert_at": last_alert_at,
+    }
+    data[key] = entry
+    _save_streaks(data)
+
+    alerted = False
+    if streak >= threshold and streak == threshold:
+        alerted = _push_streak_alert(project_name, job_id, streak, audit_path)
+        if alerted:
+            entry["last_alert_at"] = time.time()
+            data[key] = entry
+            _save_streaks(data)
+
+    return {"streak": streak, "alerted": alerted, "threshold": threshold}
+
+
+def _push_streak_alert(
+    project_name: str,
+    job_id: str,
+    streak: int,
+    audit_path: str,
+) -> bool:
+    from butler.runtime.notify import push_runtime_message
+
+    body = (
+        f"任务 {job_id} 已连续失败 {streak} 次。\n"
+        f"请检查日志或执行: butler runtime run {job_id} --project {project_name}\n"
+    )
+    if audit_path:
+        body += f"审计: {audit_path}"
+    try:
+        return bool(
+            push_runtime_message(
+                f"[Butler] {project_name} runtime 连续失败",
+                body[:1200],
+            )
+        )
+    except Exception as exc:
+        logger.warning("Failure streak alert push failed: %s", exc)
+        return False
+
+
+def list_active_streaks(*, min_streak: int = 1) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for key, entry in _load_streaks().items():
+        if not isinstance(entry, dict):
+            continue
+        streak = int(entry.get("streak") or 0)
+        if streak < min_streak:
+            continue
+        if "::" in key:
+            proj, jid = key.split("::", 1)
+        else:
+            proj, jid = key, ""
+        out.append(
+            {
+                "project": proj,
+                "job_id": jid,
+                "streak": streak,
+                "last_audit": entry.get("last_audit"),
+            }
+        )
+    out.sort(key=lambda r: (-int(r["streak"]), r["project"], r["job_id"]))
+    return out
+
+
+def format_failure_streak_lines() -> list[str]:
+    rows = list_active_streaks()
+    if not rows:
+        return []
+    lines = [f"  runtime 连续失败: {len(rows)} 项（阈值 {_alert_threshold()} 次告警）"]
+    for r in rows[:5]:
+        audit = r.get("last_audit") or ""
+        tail = f" | {audit}" if audit else ""
+        lines.append(f"    {r['project']}/{r['job_id']}: {r['streak']} 次{tail}")
+    return lines

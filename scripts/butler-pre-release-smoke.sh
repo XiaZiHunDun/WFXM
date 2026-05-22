@@ -34,8 +34,8 @@ echo "== 5/7 inbound media smoke =="
 bash scripts/butler-inbound-media-smoke.sh
 
 echo ""
-echo "== 6/7 runtime smoke ($PROJECT, no WeChat push) =="
-BUTLER_RUNTIME_PUSH=0 bash scripts/butler-runtime-smoke.sh "$PROJECT"
+echo "== 6/7 runtime smoke ($PROJECT, default no push) =="
+bash scripts/butler-runtime-smoke.sh "$PROJECT"
 
 echo ""
 echo "== 7/7 dev delegate smoke =="

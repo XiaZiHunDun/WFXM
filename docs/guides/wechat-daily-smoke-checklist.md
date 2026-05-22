@@ -40,6 +40,7 @@ bash scripts/butler-wechat-memory-smoke.sh
 bash scripts/butler-wechat-gateway-smoke.sh
 bash scripts/butler-inbound-media-smoke.sh
 bash scripts/butler-runtime-smoke.sh 灵文1号
+# 默认不推微信；真机推送：BUTLER_RUNTIME_SMOKE_PUSH=1 或 butler-wechat-push-verify.sh
 ```
 
 **可选 live（真 MiniMax，发版前建议跑）**：

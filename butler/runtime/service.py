@@ -143,6 +143,18 @@ def run_job(
         project_name=project_name, job_id=job.id, payload=record
     )
 
+    try:
+        from butler.runtime.failure_tracker import record_job_outcome
+
+        record_job_outcome(
+            project_name,
+            job.id,
+            success=bool(result.get("success")),
+            audit_path=str(record_path),
+        )
+    except Exception as exc:
+        logger.debug("Failure streak tracking skipped: %s", exc)
+
     if not skip_notify:
         _maybe_notify(project_name, job, result, audit_path=str(record_path))
 

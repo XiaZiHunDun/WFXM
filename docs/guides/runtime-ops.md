@@ -78,6 +78,8 @@ tail -f logs/butler-runtime.log
 |------|------|
 | `BUTLER_RUNTIME_ENABLED` | `0` 关闭所有 run/due |
 | `BUTLER_RUNTIME_PUSH` | `0` 不推微信（CLI 仍写 audit） |
+| `BUTLER_RUNTIME_SMOKE_PUSH` | `1` 时 `butler-runtime-smoke.sh` 才推送（默认 **0**） |
+| `BUTLER_RUNTIME_FAIL_ALERT_STREAK` | 同一任务连续失败 **N** 次后额外微信告警（默认 **3**，不自动重试） |
 | `BUTLER_OWNER_WECHAT_ID` | 推送目标；未设则用 `WECHAT_ALLOWED_USERS` 首项 |
 | `WECHAT_TOKEN` / `WECHAT_ACCOUNT_ID` | 推送必填 |
 | `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` | 两次 runtime 推送最小间隔（默认 **25s**，防 iLink 限流） |
@@ -109,6 +111,7 @@ tail -f logs/butler-runtime.log
 |------|------|
 | timer 无输出 | `tail logs/butler-runtime.log`；非 cron 到点会显示「没有到期的任务」 |
 | 未收到推送 | 查 `WECHAT_TOKEN`、`BUTLER_OWNER_WECHAT_ID`；`BUTLER_RUNTIME_PUSH=1`；连跑多任务时加大 `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` 或跑 `butler-wechat-push-verify.sh` |
+| 连续失败无感知 | `/诊断` 或 `/开发状态` 看 **连续失败**；达阈值会推 `[Butler] … runtime 连续失败`； streak 存 `~/.butler/runtime/failure_streaks.json` |
 | 一致性摘要无路径 | `consistency-weekly` 成功后会附 `novel-factory/06_意见仓库/07_一致性检查/*.md`；失败推送含 `审计: …json` |
 | `/运行` 改盘被拒 | 正常；用 `/批准运行` 或保持 job 关闭 |
 | 任务一直「运行中」 | 删锁：`~/.butler/runtime/locks/<项目>__<job_id>.lock`（或等 2h 过期） |

@@ -43,6 +43,12 @@ sys.exit(0 if check_wechat_requirements() else 1)
   fi
 
   local butler_home="${BUTLER_HOME:-$HOME/.butler}"
+  if [[ ! -f "$butler_home/config.yaml" ]]; then
+    _bg_warn "~/.butler/config.yaml 缺失 — 可复制 docs/config/config.yaml.example"
+  else
+    _bg_ok "config.yaml present ($butler_home/config.yaml)"
+  fi
+
   local accounts_dir="$butler_home/wechat/accounts"
   if [[ ! -d "$accounts_dir" ]] || [[ -z "$(find "$accounts_dir" -maxdepth 1 -name '*.json' 2>/dev/null | head -1)" ]]; then
     _bg_warn "no WeChat account in $accounts_dir — run: butler wechat-setup"
@@ -102,6 +108,14 @@ sys.exit(0 if check_wechat_requirements() else 1)
   if [[ "$inbound_media" =~ ^(1|true|yes|on)$ ]]; then
     if [[ -z "${MINIMAX_API_KEY:-}" && -z "${MINIMAX_CN_API_KEY:-}" ]]; then
       _bg_warn "入站识图需 MINIMAX_API_KEY（BUTLER_WECHAT_INBOUND_MEDIA=1）"
+    fi
+    local vf="${BUTLER_WECHAT_VISION_FALLBACK:-openai,ocr}"
+    if [[ "$vf" == *ocr* ]]; then
+      if ! PYTHONPATH="$root" python3 -c "import pytesseract" 2>/dev/null; then
+        _bg_warn "VISION_FALLBACK 含 ocr 但未安装 — pip install -e \".[wechat-ocr]\"（及系统 tesseract）"
+      else
+        _bg_ok "pytesseract available (vision OCR fallback)"
+      fi
     fi
     if [[ "${BUTLER_WECHAT_STT_PROVIDER:-local}" == "local" ]]; then
       if ! command -v ffmpeg >/dev/null 2>&1; then
