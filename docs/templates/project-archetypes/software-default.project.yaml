@@ -1,0 +1,22 @@
+# 模板：software-default — 通用软件项目（复制到 projects/<slug>/project.yaml 并改 name）
+name: 我的应用
+type: software
+description: ""
+status: active
+tools:
+  - read_file
+  - write_file
+  - patch
+  - search_files
+  - list_directory
+  - terminal
+  - git_status
+  - git_diff
+  - git_log
+  - skills_list
+  - skill_view
+workflows: []
+# models:  # 按需取消注释
+#   dev_agent:
+#     provider: minimax
+#     model: MiniMax-M2.7

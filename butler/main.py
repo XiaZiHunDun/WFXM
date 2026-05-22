@@ -494,6 +494,43 @@ def _cmd_create(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_project_preflight(ns: argparse.Namespace) -> int:
+    import os
+
+    from butler.config import get_butler_settings
+    from butler.project_preflight import format_report, resolve_workspace, run_preflight
+
+    settings = get_butler_settings()
+    safe_raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
+    safe_root = Path(safe_raw).expanduser().resolve() if safe_raw else None
+
+    ws = resolve_workspace(
+        path=str(ns.path or ""),
+        project_name=str(ns.project or ""),
+        projects_dir=settings.projects_dir,
+    )
+    if ws is None:
+        print(
+            "用法: butler project preflight --path <目录>\n"
+            "  或: butler project preflight --project <已登记项目名>",
+            file=sys.stderr,
+        )
+        return 2
+
+    report = run_preflight(
+        ws,
+        projects_dir=settings.projects_dir,
+        safe_root=safe_root,
+    )
+    if ns.json:
+        import json
+
+        print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    else:
+        print(format_report(report))
+    return 0 if report.ok else 1
+
+
 def _print_wechat_setup_success(creds: dict[str, str]) -> None:
     """Human-readable next steps after QR login."""
     account_id = creds["account_id"]
@@ -767,6 +804,26 @@ def _build_parser() -> argparse.ArgumentParser:
     cr.add_argument("--type", dest="type_", default="software")
     cr.add_argument("--description", default="")
     cr.set_defaults(func=_cmd_create)
+
+    pr = sub.add_parser("project", help="项目接入与体检")
+    pr_sub = pr.add_subparsers(dest="project_cmd", required=True)
+    pf = pr_sub.add_parser("preflight", help="检查目录是否满足 Butler 项目接入条件")
+    pf.add_argument(
+        "--path",
+        default="",
+        help="工作区目录（含或即将写入 project.yaml）",
+    )
+    pf.add_argument(
+        "--project",
+        default="",
+        help="已登记项目显示名（从 ProjectManager 解析 workspace）",
+    )
+    pf.add_argument(
+        "--json",
+        action="store_true",
+        help="输出 JSON（供脚本解析）",
+    )
+    pf.set_defaults(func=_cmd_project_preflight)
 
     ex = sub.add_parser("exec", help="单次消息执行")
     ex.add_argument("message")
