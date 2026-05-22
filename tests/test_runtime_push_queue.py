@@ -27,9 +27,12 @@ def test_enqueue_on_rate_limit_failure(butler_home_q, monkeypatch):
     monkeypatch.setenv("WECHAT_TOKEN", "t")
     monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "u1")
 
+    async def _rate_limited(**_kwargs):
+        return {"error": "rate limited"}
+
     with patch(
-        "butler.runtime.notify.asyncio.run",
-        return_value={"error": "rate limited"},
+        "butler.gateway.platforms.wechat_ilink.send_wechat_direct",
+        side_effect=_rate_limited,
     ):
         ok = notify.push_runtime_message("T", "body")
 

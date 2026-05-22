@@ -103,62 +103,17 @@ for issue in report.issues:
 
 ## 五、自动化验证脚本
 
-```python
-#!/usr/bin/env python3
-"""
-进度验证脚本
-验证workflow_state.json与实际审核情况的一致性
-"""
+可执行脚本：[`../scripts/validate_progress.py`](../scripts/validate_progress.py)
 
-import os
-import json
-from pathlib import Path
-
-REVIEW_DIR = Path("06_意见仓库/04_正文_审核")
-STATE_FILE = Path("workflow_state.json")
-
-def get_audit_files():
-    """获取所有审核报告文件"""
-    return {f.stem: f for f in REVIEW_DIR.glob("*_审核.md")}
-
-def validate_batch(batch_name):
-    """验证单个批次"""
-    # 提取批次名称中的章节范围
-    chapters = batch_name.replace("ch", "").split("-")
-    start, end = int(chapters[0]), int(chapters[1])
-
-    # 检查审核报告
-    if batch_name not in get_audit_files():
-        return False, f"缺少审核报告: {batch_name}"
-
-    # TODO: 检查问题修复情况
-
-    return True, "通过"
-
-def main():
-    with open(STATE_FILE) as f:
-        state = json.load(f)
-
-    completed = state["review_queue"]["completed"]
-
-    errors = []
-    for batch in completed:
-        valid, msg = validate_batch(batch)
-        if not valid:
-            errors.append(msg)
-
-    if errors:
-        print("⚠️ 发现问题：")
-        for e in errors:
-            print(f"  - {e}")
-        return 1
-    else:
-        print("✅ 进度验证通过")
-        return 0
-
-if __name__ == "__main__":
-    exit(main())
+```bash
+cd projects/LingWen1/novel-factory
+python3 scripts/validate_progress.py
 ```
+
+检查项：
+
+1. `workflow_state.json` 的 `review_queue.completed` 与审核报告目录是否一致（抽样匹配章节范围）
+2. `06_意见仓库/04_正文_审核/*_审核.md` 是否含未闭合 **P0** / **待修复** 标记（启发式，需人工复核边界案例）
 
 ---
 

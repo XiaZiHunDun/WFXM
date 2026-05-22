@@ -7,7 +7,7 @@
 | 2026-05-21 | 记忆写入备忘 | `butler_remember` Notes：试点统一测试日 2026-05-22；流程：测试 → `/记忆待审` → `/批准记忆 全部` |
 | 2026-05-21 | 项目 Lead 阶段 1 | ADR + Skill `lingwen-project-lead` + 厂长 `pre_llm_call`；**微信验收通过**（读 phase/step、content 委派写 docs、不直接改盘） |
 | 2026-05-21 | 项目 Lead 阶段 2 | Lead AgentLoop + `/诊断` 对话引擎行；**微信验收通过**（切换厂长模式、多轮上下文、委派审计） |
-| 2026-05-21 | 项目 Lead 阶段 3 | 运行时自动化 **设计方案** + `runtime/jobs.yaml` 草案；实施待 3a 开发 |
+| 2026-05-21 | 项目 Lead 阶段 3 | 运行时自动化 3a–3c 已实现；`runtime/jobs.yaml` + systemd timer |
 | 2026-05-21 | **稳上线**（记忆增强 + 开发工具） | `git push` → `351d41f`；`memory-reindex`；gateway restart；记忆守门脚本 + 推送摘要真机通过 |
 | 2026-05-21 | **Runtime 运营 + 开发实战** | `butler-runtime-smoke.sh` 通过；timer enabled；`factory-status-daily` OK；`publish-preflight` 禁用拒绝；`consistency-weekly` 跑完 exit1（P1×3，有报告）；修复 runtime 微信推送 `PlatformConfig`；`butler-dev-tools-smoke.sh` patch/terminal/git 全绿 |
 | 2026-05-21 | **一致性 / 预检策略** | 人物仅报「死后复活」；脚本 exit0 当 P0=0；runner `passed_with_warnings`；`publish-preflight` 改为 readonly + `preflight` 子命令并默认启用 |
@@ -20,6 +20,7 @@
 | 2026-05-22 | **P2 运维/开发** | 运维快照；`/开发状态` `/开发验收`；ops-bundle；logrotate cron；模型展示统一 resolve |
 | 2026-05-22 | **人工测试前准备** | `butler-pre-release-smoke.sh`；清单/`env.example` 同步；ops-bundle + gateway restart |
 | 2026-05-22 | **P1/P2 工程** | runtime smoke 默认不推送；CI smoke job；连续失败告警+`/诊断`；preflight config/OCR；`wechat-ocr` extra；`setup-butler-config.sh` |
+| 2026-05-22 | **可选打磨** | pytest 推送 mock 修复；`validate_progress.py`；文档/清单数字同步 |
 
 ## 稳上线后微信补验（自动化已守门，真机可快速勾选）
 

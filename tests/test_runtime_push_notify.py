@@ -40,15 +40,14 @@ def test_push_records_timestamp_on_success(butler_home_push, monkeypatch):
     monkeypatch.setenv("WECHAT_TOKEN", "t")
     monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "user1")
 
+    async def _fake_send(**_kwargs):
+        return {}
+
     with patch(
-        "butler.runtime.notify.asyncio.run",
-        return_value={},
+        "butler.gateway.platforms.wechat_ilink.send_wechat_direct",
+        side_effect=_fake_send,
     ):
-        with patch(
-            "butler.gateway.platforms.wechat_ilink.send_wechat_direct",
-            return_value={},
-        ):
-            ok = notify.push_runtime_message("t", "body")
+        ok = notify.push_runtime_message("t", "body")
 
     assert ok is True
     path = butler_home_push / "runtime" / "last_push_at.json"
