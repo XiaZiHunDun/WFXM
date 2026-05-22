@@ -205,7 +205,16 @@ class TestManualGuide24Projects:
         _setup_projects(tmp_path, monkeypatch)
         manager = ProjectManager()
         assert _cmd_create(
-            SimpleNamespace(name="cli-accept", type_="software", description="CLI test")
+            SimpleNamespace(
+                slug="cli-accept",
+                type_="software",
+                description="CLI test",
+                display_name="",
+                pack="",
+                template="",
+                no_runtime=False,
+                reindex=False,
+            )
         ) == 0
         assert _cmd_projects(SimpleNamespace()) == 0
         out = capsys.readouterr().out

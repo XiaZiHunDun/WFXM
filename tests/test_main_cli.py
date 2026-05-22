@@ -327,15 +327,37 @@ class TestProjectCommands:
         )
         manager = MagicMock()
         manager.create_project.return_value = created
-        ns = SimpleNamespace(name="new-project", type_="software", description="Created")
+        ns = SimpleNamespace(
+            slug="new-project",
+            type_="software",
+            description="Created",
+            display_name="",
+            pack="",
+            template="",
+            no_runtime=False,
+            reindex=False,
+        )
         with patch("butler.project_manager.get_project_manager", return_value=manager):
             assert _cmd_create(ns) == 0
-        manager.create_project.assert_called_once_with("new-project", "software", "Created")
+        manager.create_project.assert_called_once()
+        args, kwargs = manager.create_project.call_args
+        assert args[0] == "new-project"
+        assert args[1] == "software"
+        assert kwargs.get("display_name") == "new-project"
 
     def test_cmd_create_existing_project_returns_one(self):
         manager = MagicMock()
         manager.create_project.return_value = None
-        ns = SimpleNamespace(name="exists", type_="software", description="")
+        ns = SimpleNamespace(
+            slug="exists",
+            type_="software",
+            description="",
+            display_name="",
+            pack="",
+            template="",
+            no_runtime=False,
+            reindex=False,
+        )
         with patch("butler.project_manager.get_project_manager", return_value=manager):
             assert _cmd_create(ns) == 1
 

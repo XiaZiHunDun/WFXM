@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runtime ops smoke for 灵文1号 (readonly jobs + mutating gates via pytest).
+# Runtime ops smoke — 灵文1号（默认）或 演示试点（轻量 jobs）
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -7,8 +7,10 @@ PROJECT="${1:-灵文1号}"
 
 if [[ -f .env ]]; then
   set -a
+  set +u
   # shellcheck disable=SC1091
   source .env
+  set -u
   set +a
 fi
 export PYTHONPATH="${PYTHONPATH:-.}:."
@@ -17,7 +19,6 @@ export PYTHONPATH="${PYTHONPATH:-.}:."
 if [[ "${BUTLER_RUNTIME_SMOKE_PUSH:-0}" != "1" ]]; then
   export BUTLER_RUNTIME_PUSH=0
 fi
-# 连续 runtime 推送间隔，减轻 iLink 限流（与 notify.py 冷却叠加）
 export BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS="${BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS:-30}"
 export WECHAT_SEND_CHUNK_RETRIES="${WECHAT_SEND_CHUNK_RETRIES:-6}"
 export WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS="${WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS:-2}"
@@ -29,35 +30,42 @@ echo ""
 echo "== list jobs ($PROJECT) =="
 python3 -m butler.main runtime list --project "$PROJECT"
 
-echo ""
-echo "== run factory-status-daily =="
-python3 -m butler.main runtime run factory-status-daily --project "$PROJECT"
-
-if [[ "${BUTLER_RUNTIME_PUSH:-0}" == "1" ]]; then
+_run() {
+  local id="$1"
+  shift
   echo ""
-  echo "== cooldown before next runtime push =="
-  sleep "${BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS}"
+  echo "== run $id =="
+  python3 -m butler.main runtime run "$id" --project "$PROJECT" "$@"
+}
+
+if [[ "$PROJECT" == "演示试点" ]]; then
+  _run pilot-heartbeat --no-notify
+  _run test-unit-smoke --no-notify --force
 else
-  echo ""
-  echo "== skip push cooldown (BUTLER_RUNTIME_PUSH=0) =="
-fi
+  _run factory-status-daily --no-notify
 
-echo ""
-echo "== run publish-preflight (readonly) =="
-python3 -m butler.main runtime run publish-preflight --project "$PROJECT"
+  if [[ "${BUTLER_RUNTIME_PUSH:-0}" == "1" ]]; then
+    echo ""
+    echo "== cooldown before next runtime push =="
+    sleep "${BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS}"
+  else
+    echo ""
+    echo "== skip push cooldown (BUTLER_RUNTIME_PUSH=0) =="
+  fi
 
-echo ""
-echo "== agent runtime bridge (list_runtime_jobs / run_runtime_job) =="
-export BUTLER_RUNTIME_ENABLED=1
-python3 -m pytest tests/test_dev_ops_p2.py::TestRuntimeBridgeTools -q --tb=line
+  _run publish-preflight --no-notify
 
-if [[ "${BUTLER_RUNTIME_RUN_CONSISTENCY:-0}" == "1" ]]; then
   echo ""
-  echo "== run consistency-weekly (slow, opt-in) =="
-  python3 -m butler.main runtime run consistency-weekly --project "$PROJECT"
-else
-  echo ""
-  echo "Skip consistency-weekly (set BUTLER_RUNTIME_RUN_CONSISTENCY=1 to run; may take several minutes)"
+  echo "== agent runtime bridge (list_runtime_jobs / run_runtime_job) =="
+  export BUTLER_RUNTIME_ENABLED=1
+  python3 -m pytest tests/test_dev_ops_p2.py::TestRuntimeBridgeTools -q --tb=line
+
+  if [[ "${BUTLER_RUNTIME_RUN_CONSISTENCY:-0}" == "1" ]]; then
+    _run consistency-weekly --no-notify
+  else
+    echo ""
+    echo "Skip consistency-weekly (set BUTLER_RUNTIME_RUN_CONSISTENCY=1 to run; may take several minutes)"
+  fi
 fi
 
 echo ""

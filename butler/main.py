@@ -488,16 +488,26 @@ def _cmd_projects(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _create_slug_from_ns(ns: argparse.Namespace) -> str:
+    """CLI slug positional (legacy tests may still pass ``name``)."""
+    return str(getattr(ns, "slug", None) or getattr(ns, "name", None) or "").strip()
+
+
 def _cmd_create(ns: argparse.Namespace) -> int:
     from butler.project_manager import get_project_manager
+
+    slug = _create_slug_from_ns(ns)
+    if not slug:
+        print("Error: missing project slug.", file=sys.stderr)
+        return 2
 
     mgr = get_project_manager()
     try:
         created = mgr.create_project(
-            ns.slug,
+            slug,
             ns.type_,
             ns.description,
-            display_name=(ns.display_name or "").strip() or ns.slug,
+            display_name=(getattr(ns, "display_name", None) or "").strip() or slug,
             pack=(ns.pack or "").strip(),
             template=(ns.template or "").strip(),
             with_runtime=not ns.no_runtime,
@@ -506,7 +516,7 @@ def _cmd_create(ns: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     if created is None:
-        print(f"Project slug {ns.slug!r} already exists.", file=sys.stderr)
+        print(f"Project slug {slug!r} already exists.", file=sys.stderr)
         return 1
     print(f"Created project {created.name!r} at {created.workspace}")
     print(f"Next: butler project preflight --project {created.name!r}")
