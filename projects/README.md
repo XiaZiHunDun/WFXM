@@ -16,3 +16,5 @@
 创建新项目：`butler create <名称> --type software --description "..."`
 
 **全局配置示例**：[`docs/config/config.yaml.example`](../docs/config/config.yaml.example) → 复制到 `~/.butler/config.yaml`
+
+**项目层规划（微信开发/测试/运行）**：[`docs/architecture/project-layer-wechat-plan.md`](../docs/architecture/project-layer-wechat-plan.md)
