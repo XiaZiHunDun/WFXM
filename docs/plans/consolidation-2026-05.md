@@ -2,7 +2,7 @@
 
 > **状态**：执行中  
 > **目标**：消化开发期熵增，让骨架与脉络重新清晰，**不**改变 v4 运行时架构。  
-> **基线**：全量 pytest **1138 passed**，1 skipped，18 deselected；`butler-pre-release-smoke.sh` 全绿。
+> **基线**：全量 pytest **1093 passed**（P1 移除 v3 archive 后），1 skipped，18 deselected；`butler-pre-release-smoke.sh` 9 步全绿。
 
 ---
 
@@ -155,7 +155,7 @@ reference/                      # 【不动】主公维护的对照区
 
 | 指标 | 当前 | 目标 |
 |------|------|------|
-| pytest passed | 1138 | ≥1138（删测试后允许略降但全绿） |
+| pytest passed | 1093 | 全绿（P1 删 v3 archive 后） |
 | README 测试数 | 1121（过期） | 1138+ |
 | 根 docs 跳转桩 | 7+ | 0 |
 | 手工测试入口 | 2+ | 1 |
