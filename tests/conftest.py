@@ -14,6 +14,9 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
+# Gateway corpus L1 fixtures (must be registered from top-level conftest)
+pytest_plugins = ["tests.corpus.conftest_gateway"]
+
 
 @pytest.fixture(autouse=True)
 def _isolate_butler_home(tmp_path, monkeypatch):
