@@ -26,6 +26,25 @@ jobs:
       - name: Run unit tests (exclude live_llm)
         run: python -m pytest -q --tb=line
 
+  corpus-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Gateway catalog drift check
+        run: ./scripts/corpus-test.sh drift
+
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 10

@@ -23,10 +23,12 @@ from tests.corpus.harness.loader import (
 )
 from tests.corpus.harness.registry import (
     agent_loop_suite_ids,
+    gateway_runner_modules,
     get_suite,
     iter_suites,
     load_registry,
     load_suite_corpus,
+    resolve_runner_module_path,
 )
 
 __all__ = [
@@ -52,4 +54,6 @@ __all__ = [
     "load_registry",
     "load_suite_corpus",
     "get_suite",
+    "gateway_runner_modules",
+    "resolve_runner_module_path",
 ]

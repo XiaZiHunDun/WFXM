@@ -37,14 +37,16 @@
 | **meta.dimensions 去重** | **≥ 40** | 跨套件维度并集（当前约 **50+**） |
 | **每维至少** | **≥ 2 条** | 单轮或 1 组多轮 |
 
-### Gateway（`wechat_real.*`）
+### Gateway（`wechat_real.lw_real` — 分层，见 `meta.yaml`）
 
 | 指标 | 目标 | 说明 |
 |------|------|------|
-| **话术目录条数** | **≥ 55** | `utterance_catalog.yaml`（含 legacy 索引 + 可执行条目） |
-| **可执行话术** | **≥ 45** | `test_gateway_utterance_catalog.py` 数据驱动 |
-| **LW-REAL 手写场景** | **≥ 10** | `test_gateway_dev_conversations.py` 真机黄金路径 |
-| **合计 gateway pytest** | **≥ 60** | 数据驱动 + LW-REAL + DEV 习惯 |
+| **L0 smoke 清单** | **≥ 400** | `reference_utterance_catalog.yaml`（库存） |
+| **L1 单轮 strict** | **≥ 200** | 手册 + strict REAL + production |
+| **L1 多轮链** | **≥ 18**（≥4 条 ≥5 轮） | `utterance_multiturn_catalog.yaml` |
+| **L2 黄金路径** | **≥ 10** | `test_gateway_dev_conversations.py` |
+| **strict 中 generic_ack** | **≤ 20** | 情绪/闲聊例外 |
+| **一键命令** | `./scripts/corpus-test.sh gateway` | health + L1 + L2 |
 
 ### 未达标前
 
@@ -79,7 +81,7 @@ v6  （预留）~20     达 200+ 或补 Gateway 缺口
 | v5 | 39 | 36 | 3 | ✅ 新增 |
 | **合计** | **183** | **171** | **12** | **达提交线（≥180）** |
 
-Gateway 话术目录：真机 10 + 习惯 5 + **catalog 10** = **25 条**（≥20）。
+Gateway：见 `tests/corpus/suites/wechat_real/lw_real/meta.yaml` 与 [`wechat-real-coverage-matrix-2026-05.md`](wechat-real-coverage-matrix-2026-05.md)。
 
 ---
 

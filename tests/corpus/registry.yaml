@@ -1,5 +1,25 @@
 # Corpus suite registry — docs/plans/corpus-testing-module-design-2026-05.md
 
+cross_channel:
+  schema: schemas/corpus-intent-v1.md
+  crosswalk: intent_crosswalk.yaml
+  unified_mock:
+    - runners/test_agent_loop_rubric.py
+    - runners/test_corpus_cross_channel.py
+    - runners/test_gateway_module_health.py
+    - runners/test_gateway_scripted.py
+    - runners/test_gateway_utterance_catalog.py
+    - runners/test_gateway_utterance_variants.py
+    - runners/test_gateway_multiturn_catalog.py
+    - runners/test_gateway_golden.py
+    - runners/test_gateway_production_ops.py
+    - tests/test_gateway_dev_conversations.py
+  pr_gate_paths:
+    - butler/gateway/message_handler.py
+    - butler/gateway/
+    - tests/corpus/
+    - tests/test_gateway_dev_conversations.py
+
 suites:
   - suite_id: dev_assistant.v1
     title: 开发助手语料 v1
@@ -39,9 +59,35 @@ suites:
     live_smoke_from_corpus: true
 
   - suite_id: wechat_real.lw_real
-    title: 微信真机衍射 LW-REAL
+    title: 微信真机衍射 LW-REAL（分层语料）
     channel: gateway_wechat
-    runner: gateway_scripted
+    runner: gateway_wechat
     corpus_path: suites/wechat_real/lw_real/corpus.yaml
-    test_module: runners/test_gateway_scripted.py
+    meta_path: suites/wechat_real/lw_real/meta.yaml
+    schema: schemas/gateway-utterance-v1.md
     live_smoke_from_corpus: false
+    runner_modules:
+      - runners/test_gateway_module_health.py
+      - runners/test_gateway_scripted.py
+      - runners/test_gateway_utterance_catalog.py
+      - runners/test_gateway_utterance_variants.py
+      - runners/test_gateway_multiturn_catalog.py
+      - runners/test_gateway_golden.py
+      - runners/test_gateway_live_corpus.py
+      - runners/test_gateway_production_ops.py
+    runner_roles:
+      health: runners/test_gateway_module_health.py
+      schema: runners/test_gateway_scripted.py
+      l1_single: runners/test_gateway_utterance_catalog.py
+      l1_variants: runners/test_gateway_utterance_variants.py
+      l1_multiturn: runners/test_gateway_multiturn_catalog.py
+      l2_golden: runners/test_gateway_golden.py
+      l3_live: runners/test_gateway_live_corpus.py
+    catalog_tiers:
+      l0_smoke: reference_utterance_catalog.yaml
+      l1_strict_single:
+        - utterance_catalog.yaml
+        - reference_utterance_strict.yaml
+        - production_utterance_catalog.yaml
+      l1_multiturn: utterance_multiturn_catalog.yaml
+      l2_golden: corpus.yaml

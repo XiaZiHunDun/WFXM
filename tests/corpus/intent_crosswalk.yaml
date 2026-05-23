@@ -1,0 +1,234 @@
+meta:
+  version: 2026-05-24-intent-r1
+  schema: schemas/corpus-intent-v1.md
+  p0_intents:
+  - clarify
+  - delegate
+  - detail
+  - switch
+  - safety
+cross_refs:
+- intent: clarify
+  agent_loop:
+  - dev_assistant.v1::DA-02
+  - dev_assistant.v1::DA-03
+  - dev_assistant.v1::DA-04
+  - dev_assistant.v1::DA-05
+  - dev_assistant.v1::DA-06
+  - dev_assistant.v1::DA-08
+  - dev_assistant.v1::DA-10
+  - dev_assistant.v1::DA-12
+  - dev_assistant.v1::DA-13
+  - dev_assistant.v1::DA-14
+  - dev_assistant.v1::DA-15
+  - dev_assistant.v1::DA-16
+  gateway:
+  - CAT-07
+  - REF-STRICT-20260523-B05
+  - REF-STRICT-20260523-B06
+  - PROD-021
+- intent: delegate
+  agent_loop:
+  - dev_assistant.v3::DA3-31
+  - dev_assistant.v3::DA3-32
+  gateway:
+  - CAT-06
+  - SMK-04
+  - DEV-B04
+  - DEV-B05
+  - DEV-B06
+  - DEV-D02
+  - SMK-R1
+  - SMK-R4
+  - CAT-16
+  - CAT-17
+  - P1-FAIL-01
+  - P1-FAIL-02
+- intent: detail
+  agent_loop:
+  - dev_assistant.v1::DA-09
+  - dev_assistant.v1::DA-20
+  - dev_assistant.v3::DA3-33
+  - dev_assistant.v4::DA4-26
+  gateway:
+  - CAT-05
+  - SMK-04b
+  - SMK-04c
+  - SMK-06b
+  - SMK-Ops
+  - DEV-C03
+  - DEV-C-alias-01
+  - DEV-C-alias-02
+  - CAT-15
+  - P1-DET-01
+  - P1-DET-02
+  - P1-DET-03
+- intent: switch
+  agent_loop:
+  - dev_assistant.v1::DA-19
+  - dev_assistant.v1::DA-28
+  - dev_assistant.v2::DA2-15
+  - dev_assistant.v4::DA4-19
+  - dev_assistant.v4::DA4-20
+  - dev_assistant.v4::DA4-22
+  - dev_assistant.v4::DA4-27
+  - dev_assistant.v5::DA5-07
+  gateway:
+  - CAT-01
+  - CAT-02
+  - CAT-03
+  - SMK-00
+  - SMK-01
+  - SMK-02
+  - CAT-11
+  - CAT-12
+  - CAT-13
+  - CAT-14
+  - CAT-20
+  - REF-STRICT-20260523-A01
+- intent: safety
+  agent_loop:
+  - dev_assistant.v1::DA-32
+  - dev_assistant.v3::DA3-05
+  - dev_assistant.v3::DA3-34
+  - dev_assistant.v3::DA3-35
+  - dev_assistant.v3::DA3-36
+  - dev_assistant.v4::DA4-05
+  - dev_assistant.v4::DA4-34
+  - dev_assistant.v5::DA5-04
+  - dev_assistant.v5::DA5-18
+  gateway:
+  - DEV-G02
+  - P1-SEC-01
+  - P1-SEC-02
+  - P1-SEC-03
+  - P1-SEC-04
+  - P1-SEC-05
+  - P1-SEC-06
+  - REF-STRICT-20260523-G01
+  - REF-STRICT-20260523-G02
+  - REF-STRICT-20260523-G03
+  - REF-STRICT-20260523-G04
+  - REF-STRICT-20260523-G05
+- intent: readonly
+  agent_loop:
+  - dev_assistant.v1::DA-01
+  - dev_assistant.v1::DA-07
+  - dev_assistant.v1::DA-30
+  - dev_assistant.v2::DA2-09
+  - dev_assistant.v4::DA4-11
+  - dev_assistant.v5::DA5-06
+  - dev_assistant.v5::DA5-31
+  - dev_assistant.v5::DA5-35
+  gateway:
+  - CAT-08
+  - SMK-03
+  - SMK-05
+  - DEV-A04
+  - REF-STRICT-20260523-B01
+  - REF-STRICT-20260523-B02
+  - REF-STRICT-20260523-B03
+  - REF-STRICT-20260523-B04
+- intent: memory
+  agent_loop: []
+  gateway:
+  - SMK-07
+  - SMK-M1b
+  - SMK-M-pending
+  - REF-STRICT-20260523-E01
+  - REF-STRICT-20260523-E02
+  - REF-STRICT-20260523-E03
+  - REF-STRICT-20260523-E04
+  - REF-STRICT-20260523-E05
+  - REF-STRICT-20260523-E06
+  - REF-STRICT-20260523-E07
+  - REF-STRICT-20260523-E08
+  - REF-STRICT-20260523-O01
+- intent: workflow
+  agent_loop: []
+  gateway:
+  - SMK-08
+  - SMK-RT1
+  - REF-STRICT-20260523-F01
+  - REF-STRICT-20260523-F02
+  - REF-STRICT-20260523-F03
+  - REF-STRICT-20260523-F04
+  - REF-STRICT-20260523-F05
+  - REF-STRICT-20260523-F06
+  - REF-STRICT-20260523-M01
+  - REF-STRICT-20260523-M02
+  - REF-STRICT-20260523-M03
+  - REF-STRICT-20260523-M04
+- intent: identity
+  agent_loop: []
+  gateway:
+  - CAT-18
+  - CAT-19
+  - REF-STRICT-20260523-H01
+  - REF-STRICT-20260523-H02
+- intent: recap
+  agent_loop: []
+  gateway:
+  - CAT-04
+  - CAT-10
+  - REF-STRICT-20260523-C09
+- intent: off_topic
+  agent_loop: []
+  gateway:
+  - REF-STRICT-20260523-V01
+  - REF-STRICT-20260523-V02
+  - REF-STRICT-20260523-V03
+  - REF-STRICT-20260523-V04
+  - REF-STRICT-20260523-V05
+- intent: emotion
+  agent_loop: []
+  gateway:
+  - REF-STRICT-20260523-K01
+  - REF-STRICT-20260523-K02
+  - REF-STRICT-20260523-K03
+  - REF-STRICT-20260523-K04
+  - REF-STRICT-20260523-K05
+  - REF-STRICT-20260523-K06
+- intent: multiturn
+  agent_loop:
+  - dev_assistant.v1::DA-11
+  - dev_assistant.v1::DA-31
+  - dev_assistant.v2::DA2-MT01
+  - dev_assistant.v2::DA2-MT02
+  - dev_assistant.v3::DA3-MT01
+  - dev_assistant.v3::DA3-MT02
+  - dev_assistant.v3::DA3-MT03
+  - dev_assistant.v4::DA4-MT01
+  - dev_assistant.v4::DA4-MT02
+  - dev_assistant.v5::DA5-MT01
+  - dev_assistant.v5::DA5-MT02
+  - dev_assistant.v5::DA5-MT03
+  gateway:
+  - MT-01
+  - MT-02
+  - MT-03
+  - MT-04
+  - MT-05
+  - MT-06
+  - MT-07
+  - MT-08
+  - MT-09
+  - MT-10
+  - MT-11
+  - MT-12
+- intent: debug
+  agent_loop:
+  - dev_assistant.v3::DA3-10
+  - dev_assistant.v3::DA3-11
+  - dev_assistant.v3::DA3-12
+  - dev_assistant.v3::DA3-19
+  - dev_assistant.v3::DA3-21
+  gateway:
+  - CAT-09
+  - SMK-M1
+  - DEV-F02
+  - REF-STRICT-20260523-T01
+  - REF-STRICT-20260523-T02
+  - REF-STRICT-20260523-T03
+  - REF-STRICT-20260523-T04
+  - REF-STRICT-20260523-T05

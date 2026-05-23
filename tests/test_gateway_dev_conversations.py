@@ -3,7 +3,10 @@
 Catalog: tests/corpus/suites/wechat_real/lw_real/corpus.yaml
 Design: docs/plans/wechat-real-dialogue-test-scenarios-2026-05.md
 
-Run:
+Run (L2 corpus entry — prefer):
+  PYTHONPATH=. pytest tests/corpus/runners/test_gateway_golden.py -q
+
+Legacy direct:
   PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
 """
 
@@ -25,6 +28,8 @@ from tests.test_gateway_acceptance import (
     _text_response,
     _tool_response,
 )
+
+pytestmark = [pytest.mark.integration, pytest.mark.corpus, pytest.mark.corpus_mock]
 
 # Paths from 2026-05-22 鹿角象真机对话
 HELLO_REL = "docs/test_hello.txt"

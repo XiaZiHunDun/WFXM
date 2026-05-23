@@ -348,12 +348,55 @@ BUTLER_RUN_REAL_API_SMOKE=1 CORPUS_ARCHIVE=1 PYTHONPATH=. \
 - [x] `runners/test_gateway_scripted.py`（schema）  
 - [ ] 将 `test_gateway_dev_conversations.py` 逐步数据驱动（可选后续）
 
+### Phase 3b — 微信真实语料模块（分层门禁）✅
+
+- [x] `schemas/gateway-utterance-v1.md` — L0～L3 字段约定  
+- [x] `suites/wechat_real/lw_real/meta.yaml` — targets + coverage_matrix  
+- [x] `registry.yaml` — `runner_modules` / `catalog_tiers` / `runner_roles`  
+- [x] `harness/gateway_meta.py` + `runners/test_gateway_module_health.py`  
+- [x] `./scripts/corpus-test.sh gateway` — L0 health + L1 单轮/多轮 + L2 黄金路径  
+- [x] `./scripts/corpus-test.sh drift` — 生成脚本与 YAML 一致  
+- [x] `suites/wechat_real/lw_real/README.md` + `wechat-real-coverage-matrix-2026-05.md`  
+- [x] L3 live：`live_smoke_ids` → `test_gateway_live_corpus.py`（`./scripts/corpus-test.sh gateway-live`）
+
+### Phase 3b-3 — 执行层收敛（L2 golden + L3 live）✅
+
+- [x] `test_gateway_golden.py` — `corpus.yaml` 索引校验 + 收集 `dev_conversations` 实现  
+- [x] `test_gateway_live_corpus.py` — `meta.live_smoke_ids` 驱动真 API 抽检  
+- [x] `harness/gateway_golden.py`、`harness/gateway_live.py`  
+- [x] `corpus-test.sh gateway` 改走 golden runner；新增 `gateway-live`
+
+### Phase 3b-2 — 质量门禁与覆盖矩阵 ✅
+
+- [x] `validate_coverage_matrix()` — 每维度 ≥2 strict 或 ≥1 多轮  
+- [x] `test_gateway_utterance_variants.py` — llm 变体抽检（≤40）  
+- [x] `harness/gateway_scripts.py` — mock script 单点维护  
+- [x] CI job `corpus-drift` — 生成脚本与 YAML 一致  
+- [x] `scripts/corpus/promote_production.py` — production → strict 升格
+
 ### Phase 4 — 归档与问题地图 ✅（基础）
 
 - [x] live runner 集成 `CORPUS_ARCHIVE=1` → `archive/runs/`  
 - [x] `docs/plans/corpus-issue-map-template-2026-05.md`  
 - [x] `scripts/corpus-test.sh`  
 - [ ] optional：GitHub Action nightly live smoke
+
+### Phase 4b — 微信 production 运营闭环 ✅
+
+- [x] `docs/plans/wechat-corpus-ops-2026-05.md` — 回流 / 升格 / 月度指标  
+- [x] `scripts/corpus/append_production.py` — 脱敏句入池  
+- [x] `scripts/corpus/promote_production.py` — 升格 + `promotion_history`  
+- [x] `scripts/corpus/summarize_runs.py` — 归档 → issue map 草稿  
+- [x] `harness/gateway_ops.py` + `test_gateway_production_ops.py`  
+- [x] `./scripts/corpus-test.sh ops` / `gateway-ops`
+
+### Phase 5 — AgentLoop ↔ Gateway 协同 ✅
+
+- [x] `schemas/corpus-intent-v1.md` + `intent_crosswalk.yaml`  
+- [x] `harness/corpus_intent.py` + `test_corpus_cross_channel.py`  
+- [x] `scripts/corpus/build_intent_crosswalk.py`  
+- [x] `./scripts/corpus-test.sh unified` / `pr-gate`  
+- [x] [`corpus-cross-channel-2026-05.md`](corpus-cross-channel-2026-05.md)
 
 ---
 

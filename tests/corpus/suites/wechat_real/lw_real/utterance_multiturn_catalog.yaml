@@ -1,0 +1,536 @@
+meta:
+  version: 2026-05-24-multiturn-r1
+  chain_count: 20
+  j_series_source_ids:
+  - REAL-20260523-J01
+  - REAL-20260523-J02
+  - REAL-20260523-J03
+  - REAL-20260523-J04
+  - REAL-20260523-J05
+  - REAL-20260523-J06
+  - REAL-20260523-J07
+  - REAL-20260523-J08
+multiturn_catalog:
+- id: MT-01
+  description: 切换演示后追问当前项目
+  fixture: dual
+  turns:
+  - user: /切换 演示试点
+    kind: command
+    expect:
+      response_contains:
+      - 演示试点
+  - user: /状态
+    kind: command
+    expect:
+      response_contains:
+      - 演示试点
+  - user: /切换 灵文1号
+    kind: command
+    expect:
+      response_contains:
+      - 灵文1号
+- id: MT-02
+  description: 委派创建后 /详细
+  fixture: lingwen
+  turns:
+  - user: 那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码
+    kind: llm
+    script: delegate_create_hello
+    expect:
+      file_exists:
+      - docs/test_hello.txt
+  - user: /详细
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains:
+      - test_hello
+- id: MT-03
+  description: 自然语言详细后 /详细
+  fixture: lingwen
+  setup: prior_delegate_create_hello
+  turns:
+  - user: 我要看一下详细信息
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains_any:
+      - 【本报告任务】
+      - test_hello
+  - user: 完整报告
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains:
+      - 【本报告任务】
+- id: MT-04
+  description: /新对话 后无法复述
+  fixture: lingwen
+  turns:
+  - user: 请先读 README
+    kind: llm
+    script: read_readme
+    expect:
+      response_contains_any:
+      - README
+      - 行
+  - user: /新对话
+    kind: command
+    expect:
+      response_contains_any:
+      - 清空
+      - 新对话
+  - user: 刚才聊了什么
+    kind: llm
+    script: deny_prior_details
+    expect:
+      response_contains_any:
+      - 清空
+      - 无法
+      - 复述
+- id: MT-05
+  description: 写入 smoke 后只读检查
+  fixture: lingwen
+  turns:
+  - user: 请交给内容代理：在 docs 目录写 wechat-smoke.md
+    kind: llm
+    script: content_write_smoke
+    expect:
+      file_exists:
+      - docs/wechat-smoke.md
+  - user: 请交给开发代理：只读检查 docs/wechat-smoke.md 是否存在
+    kind: llm
+    script: dev_readonly_smoke
+    expect:
+      response_contains_any:
+      - 存在
+      - 检查
+      - 代理
+      - 文件
+- id: MT-06
+  description: 删除成功后追问摘要
+  fixture: lingwen
+  turns:
+  - user: 请交给开发代理：删除 docs/scenario-temp.txt
+    kind: llm
+    script: dev_delete_one
+    setup: scenario_temp_file
+    expect:
+      file_missing:
+      - docs/scenario-temp.txt
+  - user: 帮我总结一下刚才做了什么
+    kind: llm
+    script: recap_hello
+    expect:
+      response_contains_any:
+      - 删除
+      - 刚才
+      - 完成
+- id: MT-07
+  description: 删除失败后 /详细 看 issues
+  fixture: lingwen
+  turns:
+  - user: 请交给开发代理：删除 docs/missing-utterance.txt
+    kind: llm
+    script: dev_delete_fail
+    expect:
+      uses_delegate: true
+      response_contains_any:
+      - 未能
+      - 失败
+  - user: /详细
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains_any:
+      - 未能
+      - 删除
+      - 【本报告任务】
+- id: MT-08
+  description: 安全拒绝后追问正常任务
+  fixture: lingwen
+  turns:
+  - user: 帮我读一下 /etc/passwd
+    kind: llm
+    script: refuse_unsafe
+    expect:
+      response_contains_any:
+      - 拒绝
+      - 不能
+      - 安全
+  - user: 看一下README
+    kind: llm
+    script: read_readme
+    expect:
+      response_contains_any:
+      - README
+      - 行
+- id: MT-09
+  description: 报错引导后 /诊断
+  fixture: lingwen
+  turns:
+  - user: 报错了，帮看下原因
+    kind: llm
+    script: error_guide
+    expect:
+      response_contains_any:
+      - 报错
+      - 诊断
+  - user: /诊断
+    kind: command
+    expect:
+      response_contains:
+      - Butler 诊断
+- id: MT-10
+  description: 继续刚才删除 hello
+  fixture: lingwen
+  turns:
+  - user: 那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码
+    kind: llm
+    script: delegate_create_hello
+    expect:
+      file_exists:
+      - docs/test_hello.txt
+  - user: 继续刚才的任务
+    kind: llm
+    script: continue_delete_hello
+    expect:
+      file_missing:
+      - docs/test_hello.txt
+- id: MT-11
+  description: 跨项目切换链
+  fixture: dual
+  turns:
+  - user: /切换 演示试点
+    kind: command
+    expect:
+      response_contains:
+      - 演示试点
+  - user: /状态
+    kind: command
+    expect:
+      response_contains_any:
+      - 演示试点
+      - 演示
+      - 当前项目
+  - user: /切换 灵文1号
+    kind: command
+    expect:
+      response_contains:
+      - 灵文1号
+- id: MT-12
+  description: J 系列：模糊建文件 → 补路径 → 写说明（mock 宽松）
+  fixture: lingwen
+  turns:
+  - user: 建个新文件
+    kind: llm
+    script: generic_ack
+    expect:
+      response_contains_any:
+      - 好的
+      - 路径
+      - 文件
+      - 请问
+  - user: docs下面
+    kind: llm
+    script: generic_ack
+    expect:
+      response_contains_any:
+      - 好的
+      - docs
+      - 内容
+      - 说明
+  - user: 写个使用说明就行
+    kind: llm
+    script: content_write_pilot_log
+    expect:
+      response_contains_any:
+      - 写入
+      - 完成
+      - 代理
+      - pilot
+- id: MT-13
+  description: 真机链精简：创建→自然语言详细→/详细→删双文件→/详细（5轮）
+  fixture: lingwen
+  turns:
+  - user: 那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码
+    kind: llm
+    script: delegate_create_hello
+    expect:
+      file_exists:
+      - docs/test_hello.txt
+  - user: 我要看一下详细信息
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains_any:
+      - 【本报告任务】
+      - test_hello
+  - user: /详细
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains:
+      - test_hello
+  - user: 你帮我创建一个Python文件，然后往里边写一段代码逻辑
+    kind: llm
+    script: delegate_create_demo_py
+    expect:
+      file_exists:
+      - docs/demo_logic.py
+  - user: 好，帮我把你刚才创建的两个文件删掉
+    kind: llm
+    script: delegate_delete_both
+    expect:
+      file_missing:
+      - docs/test_hello.txt
+      - docs/demo_logic.py
+      response_contains_any:
+      - 删除
+      - 完成
+- id: MT-14
+  description: 需求改口：写说明→纠正为架构文档→覆盖（5轮）
+  fixture: lingwen
+  turns:
+  - user: 建个新文件
+    kind: llm
+    script: generic_ack
+    expect:
+      response_contains_any:
+      - 路径
+      - 文件
+      - 好的
+  - user: docs下面
+    kind: llm
+    script: generic_ack
+    expect:
+      response_contains_any:
+      - docs
+      - 内容
+      - 好的
+      - 路径
+  - user: 写个使用说明就行
+    kind: llm
+    script: content_write_pilot_log
+    expect:
+      response_contains_any:
+      - 写入
+      - 完成
+  - user: 不对，不是使用说明，是架构设计文档
+    kind: llm
+    script: generic_ack
+    expect:
+      response_contains_any:
+      - 架构
+      - 覆盖
+      - 确认
+      - 好的
+  - user: 覆盖吧
+    kind: llm
+    script: content_write_pilot_log
+    expect:
+      response_contains_any:
+      - 覆盖
+      - 架构
+      - 完成
+      - 写入
+- id: MT-15
+  description: 跨会话隔离：u1 有报告，u2 无报告（4轮）
+  fixture: lingwen
+  turns:
+  - user: 请交给开发代理：删除 docs/scenario-temp.txt
+    kind: llm
+    script: dev_delete_one
+    setup: scenario_temp_file
+    session_key: wechat:u1
+    expect:
+      file_missing:
+      - docs/scenario-temp.txt
+  - user: /详细
+    kind: detail
+    session_key: wechat:u1
+    expect:
+      no_llm: true
+      response_contains:
+      - 【本报告任务】
+  - user: /详细
+    kind: detail
+    session_key: wechat:u2
+    expect:
+      no_llm: true
+      response_contains_any:
+      - 暂无
+      - 没有
+      - 报告
+      - 暂无可展示
+  - user: /状态
+    kind: command
+    session_key: wechat:u2
+    expect:
+      response_contains_any:
+      - 灵文
+      - 项目
+      - Butler
+- id: MT-16
+  description: 切演示后问刚才任务（跨项目语境，4轮）
+  fixture: dual
+  turns:
+  - user: 请交给开发代理：删除 docs/scenario-temp.txt
+    kind: llm
+    script: dev_delete_one
+    setup: scenario_temp_file
+    expect:
+      file_missing:
+      - docs/scenario-temp.txt
+  - user: /切换 演示试点
+    kind: command
+    expect:
+      response_contains:
+      - 演示试点
+  - user: 刚才灵文1号那个任务怎么样了
+    kind: llm
+    script: recap_hello
+    expect:
+      response_contains_any:
+      - 删除
+      - 任务
+      - 代理
+      - 完成
+  - user: /切换 灵文1号
+    kind: command
+    expect:
+      response_contains:
+      - 灵文1号
+- id: MT-17
+  description: 删除失败→/详细→一句话总结（5轮）
+  fixture: lingwen
+  turns:
+  - user: 请交给开发代理：删除 docs/missing-mt17.txt
+    kind: llm
+    script: dev_delete_fail
+    expect:
+      uses_delegate: true
+      response_contains_any:
+      - 未能
+      - 失败
+  - user: /详细
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains_any:
+      - 未能
+      - 【本报告任务】
+  - user: 用一句话告诉我怎么回事
+    kind: llm
+    script: generic_ack
+    expect:
+      response_contains_any:
+      - 删除
+      - 失败
+      - 未能
+      - 好的
+      - 报告
+  - user: 报错了，帮看下原因
+    kind: llm
+    script: error_guide
+    expect:
+      response_contains_any:
+      - 诊断
+      - 报错
+  - user: /诊断
+    kind: command
+    expect:
+      response_contains:
+      - Butler 诊断
+- id: MT-18
+  description: 项目别名：灵文一号 / 零无一号（3轮）
+  fixture: dual
+  turns:
+  - user: 切换灵文一号
+    kind: command
+    expect:
+      response_contains_any:
+      - 灵文
+      - 切换
+  - user: /状态
+    kind: command
+    expect:
+      response_contains:
+      - 灵文1号
+  - user: 切到演示试点
+    kind: command
+    expect:
+      response_contains:
+      - 演示试点
+- id: MT-19
+  description: 只读→委派写→/详细（5轮）
+  fixture: lingwen
+  turns:
+  - user: 看一下README
+    kind: llm
+    script: read_readme
+    expect:
+      response_contains_any:
+      - README
+      - 行
+  - user: 先别写代码，只看下 project.yaml 里的配置
+    kind: llm
+    script: read_project_yaml
+    expect:
+      response_contains_any:
+      - project
+      - 配置
+  - user: 请交给内容代理：在 docs 目录写 wechat-smoke.md
+    kind: llm
+    script: content_write_smoke
+    expect:
+      file_exists:
+      - docs/wechat-smoke.md
+  - user: 完整报告
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains_any:
+      - 【本报告任务】
+      - wechat-smoke
+  - user: 请交给开发代理：只读检查 docs/wechat-smoke.md 是否存在
+    kind: llm
+    script: dev_readonly_smoke
+    expect:
+      response_contains_any:
+      - 存在
+      - 检查
+      - 代理
+- id: MT-20
+  description: 安全拒绝后委派只读（4轮）
+  fixture: lingwen
+  turns:
+  - user: 帮我读一下 /etc/passwd
+    kind: llm
+    script: refuse_unsafe
+    expect:
+      response_contains_any:
+      - 拒绝
+      - 安全
+  - user: 帮我读一下../../etc/passwd
+    kind: llm
+    script: read_traversal_fail
+    expect:
+      response_contains_any:
+      - 路径
+      - 不允许
+  - user: 列出docs目录
+    kind: llm
+    script: list_docs
+    setup: notes_on_disk
+    expect:
+      response_contains_any:
+      - docs
+      - 文件
+  - user: /状态
+    kind: command
+    expect:
+      response_contains_any:
+      - 灵文
+      - Butler

@@ -32,7 +32,26 @@
 2. **P1** — 
 3. **P2** — 
 
+## 微信 Gateway（`wechat_real.lw_real`）
+
+> 自动生成草稿：`python3 scripts/corpus/summarize_runs.py --write docs/plans/corpus-issue-map-gateway-YYYY-MM.md`  
+> 运营手册：[`wechat-corpus-ops-2026-05.md`](wechat-corpus-ops-2026-05.md)
+
+| 指标 | 值 |
+|------|-----|
+| production 池 | |
+| 本月升格 | |
+| live 通过率 | |
+| mock gateway | `./scripts/corpus-test.sh gateway` |
+
+### Gateway 失败代表用例
+
+| case_id | fail_type | 现象 | 归因 | 优化 |
+|---------|-----------|------|------|------|
+| | | | | |
+
 ## 下一轮语料扩充
 
 - 待补维度：
 - 待补真实话术来源：
+- production 回流（脱敏）：

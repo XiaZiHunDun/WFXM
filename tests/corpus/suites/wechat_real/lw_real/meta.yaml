@@ -1,4 +1,110 @@
+# wechat_real.lw_real — 套件元数据（分层、目标、维度矩阵）
+# 约定：tests/corpus/schemas/gateway-utterance-v1.md
+
 suite_id: wechat_real.lw_real
 channel: gateway_wechat
+version: "2026-05-24-module-r1"
+title: 微信真机衍射语料（分层）
+
 analysis_doc: docs/plans/wechat-real-dialogue-test-scenarios-2026-05.md
-implementation: tests/test_gateway_dev_conversations.py
+design_doc: docs/plans/corpus-testing-module-design-2026-05.md
+coverage_matrix: docs/plans/wechat-real-coverage-matrix-2026-05.md
+
+# 阶段 4 — production 运营闭环
+production_ops:
+  ops_doc: docs/plans/wechat-corpus-ops-2026-05.md
+  append_script: scripts/corpus/append_production.py
+  promote_script: scripts/corpus/promote_production.py
+  summary_script: scripts/corpus/summarize_runs.py
+  archive_dir: tests/corpus/archive/runs
+
+# 阶段 5 — AgentLoop ↔ Gateway 意图交叉
+cross_channel:
+  schema: schemas/corpus-intent-v1.md
+  crosswalk: tests/corpus/intent_crosswalk.yaml
+  build_script: scripts/corpus/build_intent_crosswalk.py
+  pr_gate_script: scripts/corpus/pr_corpus_gate.sh
+  doc: docs/plans/corpus-cross-channel-2026-05.md
+
+# 生成脚本版本（CI drift 检查用）
+ingest_scripts:
+  strict_and_multiturn: scripts/build_reference_strict_catalog.py
+  smoke: scripts/ingest_reference_user_corpus.py
+  production: scripts/generate_production_catalog.py
+
+# 分层 → 文件（相对本目录）
+catalog_tiers:
+  l0_smoke:
+    file: reference_utterance_catalog.yaml
+    runner: reference_smoke
+    ci: inventory_only
+  l1_strict_single:
+    files:
+      - utterance_catalog.yaml
+      - reference_utterance_strict.yaml
+      - production_utterance_catalog.yaml
+    runners:
+      - runners/test_gateway_utterance_catalog.py
+    ci: default
+  l1_multiturn:
+    file: utterance_multiturn_catalog.yaml
+    runners:
+      - runners/test_gateway_multiturn_catalog.py
+    ci: default
+  l2_golden:
+    file: corpus.yaml
+    block: lingwen_real_dialogue
+    runners:
+      - runners/test_gateway_golden.py
+    ci: default
+  l3_live:
+    live_smoke_ids:
+      - CAT-08
+      - CAT-19
+      - CAT-06
+      - SMK-M1
+      - REF-STRICT-20260523-B01
+      - PROD-001
+    runners:
+      - runners/test_gateway_live_corpus.py
+    ci: manual
+
+# 规模门禁（与 actual_tier_counts() 对齐，略低于实测值留缓冲）
+targets:
+  l0_smoke: 400
+  l1_strict_single: 200
+  l1_multiturn_chains: 18
+  l1_multiturn_turns: 45
+  strict_generic_ack_max: 20
+  handbook: 50
+  reference_strict: 95
+  production: 30
+  coverage_min_strict_per_dim: 2
+  l1_multiturn_long_chains: 4
+  variants_sample_max: 40
+  variants_with_variants_min: 30
+
+# 维度 × 深度（✓=已有 strict 或 multiturn；○=仅 smoke；—=待补）
+coverage_matrix:
+  A_project_session: { smoke: true, strict: true, multiturn: true }
+  B_readonly: { smoke: true, strict: true, multiturn: true }
+  C_delegate_file: { smoke: true, strict: true, multiturn: true }
+  D_detail_report: { smoke: true, strict: true, multiturn: true }
+  E_memory_ops: { smoke: true, strict: true, multiturn: false }
+  F_workflow_schedule: { smoke: true, strict: true, multiturn: false }
+  G_safety_boundary: { smoke: true, strict: true, multiturn: true }
+  H_ability_identity: { smoke: true, strict: true, multiturn: false }
+  I_novel_factory: { smoke: true, strict: true, multiturn: false }
+  J_multiturn: { smoke: true, strict: false, multiturn: true }
+  K_emotion_urgency: { smoke: true, strict: true, multiturn: false }
+  L_cross_project: { smoke: true, strict: true, multiturn: true }
+  N_schedule_ops: { smoke: true, strict: true, multiturn: false }
+  O_memory_conflict: { smoke: true, strict: true, multiturn: false }
+  P_wechat_specific: { smoke: true, strict: true, multiturn: false }
+  Q_role_misunderstanding: { smoke: true, strict: true, multiturn: false }
+  R_batch_file_ops: { smoke: true, strict: true, multiturn: false }
+  S_reporting: { smoke: true, strict: true, multiturn: false }
+  T_debugging: { smoke: true, strict: true, multiturn: true }
+  U_compliance: { smoke: true, strict: true, multiturn: true }
+  V_off_topic: { smoke: true, strict: true, multiturn: false }
+  production_real: { smoke: false, strict: true, multiturn: false }

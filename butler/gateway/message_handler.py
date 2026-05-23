@@ -194,6 +194,7 @@ class ButlerMessageHandler:
             _normalize_detail_request,
             _normalize_switch_request,
             _normalize_status_request,
+            _normalize_new_session_request,
         ):
             cmd = normalizer(text)
             if cmd is not None:
@@ -537,12 +538,34 @@ class ButlerMessageHandler:
 
 def _normalize_switch_request(text: str) -> str | None:
     """Map「切换到 <项目>」to ``/切换 <项目>`` (WeChat natural phrasing)."""
-    stripped = (text or "").strip()
-    for prefix in ("切换到", "切换至", "切换去", "切换回"):
+    stripped = (text or "").strip().rstrip("。.!！?？")
+    _switch_prefixes = ("切换到", "切换至", "切换去", "切换回")
+    if stripped.startswith("切换") and not any(
+        stripped.startswith(p) for p in _switch_prefixes
+    ):
+        name = stripped[len("切换") :].strip().rstrip("。.!！?？")
+        if name and not name.startswith("/"):
+            return f"/切换 {name}"
+    for prefix in (
+        "切换到",
+        "切换至",
+        "切换去",
+        "切换回",
+        "现在切到",
+        "现在切回",
+        "切到",
+        "切回",
+        "把项目切回去",
+        "把项目切回",
+    ):
         if stripped.startswith(prefix):
             name = stripped[len(prefix) :].strip().rstrip("。.!！?？")
             if name:
                 return f"/切换 {name}"
+    if stripped.startswith("切回去"):
+        name = stripped[len("切回去") :].strip().rstrip("。.!！?？")
+        if name:
+            return f"/切换 {name}"
     return None
 
 
@@ -556,8 +579,36 @@ def _normalize_status_request(text: str) -> str | None:
         "现在在哪个项目",
         "现在在什么项目",
         "当前项目是什么",
+        "确认一下当前项目",
+        "报一下当前项目",
     ):
         return "/状态"
+    if any(
+        phrase in stripped
+        for phrase in ("哪个项目", "什么项目", "当前项目", "现在在哪个")
+    ) and any(
+        hint in stripped
+        for hint in ("当前", "现在", "哪个", "什么", "确认", "报", "我是")
+    ):
+        if any(
+            verb in stripped
+            for verb in ("读", "读取", "列出", "写", "删", "委派", "检查", "README", "文件")
+        ):
+            return None
+        return "/状态"
+    if any(
+        phrase in stripped
+        for phrase in ("有哪些项目", "项目列表", "哪些workspace", "几个项目")
+    ):
+        return "/项目"
+    return None
+
+
+def _normalize_new_session_request(text: str) -> str | None:
+    """Allow ``/新对话`` with trailing natural-language hints."""
+    stripped = (text or "").strip()
+    if stripped == "/新对话" or stripped.startswith("/新对话"):
+        return "/新对话"
     return None
 
 
@@ -567,6 +618,10 @@ def _normalize_detail_request(text: str) -> str | None:
     if not stripped:
         return None
     lower = stripped.lower()
+    if "报错" in stripped or "错误信息" in stripped:
+        return None
+    if "/详细" in stripped or stripped.endswith("详细"):
+        return "/详细"
     detail_aliases = {
         "/详细",
         "/detail",

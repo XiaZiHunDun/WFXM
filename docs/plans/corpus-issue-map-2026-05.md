@@ -54,7 +54,23 @@ PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
 
 ---
 
-## 三、跨套件统计（首轮 live，修正前）
+## 三、按 intent 交叉（阶段 5）
+
+权威索引：[`tests/corpus/intent_crosswalk.yaml`](../tests/corpus/intent_crosswalk.yaml)
+
+| intent | AgentLoop 代表 | Gateway 代表 | 说明 |
+|--------|----------------|--------------|------|
+| clarify | `dev_assistant.v3::DA3-01` 等 | `CAT-07`, `REF-STRICT-*` + `plan_only` | 先方案不写代码 |
+| delegate | `dev_assistant.v3::DA3-31` 等 | `CAT-06`, `PROD-001` | 委派写删改 |
+| detail | `dev_assistant.v3::DA3-32` 等 | `CAT-05`, `P1-DET-*` | 报告/进度 |
+| switch | `dev_assistant.v1::DA-19` 等 | `CAT-02`, `SMK-01` | 项目/会话 |
+| safety | `dev_assistant.v3::DA3-34` 等 | `REF-STRICT-*` `G_*` | 安全拒绝 |
+
+更新：`python3 scripts/corpus/build_intent_crosswalk.py`
+
+---
+
+## 四、跨套件统计（首轮 live，修正前）
 
 | fail_type | 条数 | 说明 |
 |-----------|------|------|

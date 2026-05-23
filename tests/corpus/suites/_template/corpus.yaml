@@ -14,7 +14,7 @@ cases:
       这是一条示例用户话术，替换为真实口语化问句。
     must_contain_any: [示例, example]
     tags:
-      intent: clarify
+      intent: clarify  # corpus-intent-v1: clarify|delegate|detail|switch|safety|...
       difficulty: L1
 
 live_smoke_ids:
