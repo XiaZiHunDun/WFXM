@@ -190,16 +190,21 @@ class ButlerMessageHandler:
         if not text.strip():
             return ""
 
-        detail_cmd = _normalize_detail_request(text)
-        if detail_cmd is not None:
-            response = self._handle_command(
-                detail_cmd,
-                session_key=session_key,
-                platform=platform,
-                external_id=external_id,
-            )
-            if response is not None:
-                return response
+        for normalizer in (
+            _normalize_detail_request,
+            _normalize_switch_request,
+            _normalize_status_request,
+        ):
+            cmd = normalizer(text)
+            if cmd is not None:
+                response = self._handle_command(
+                    cmd,
+                    session_key=session_key,
+                    platform=platform,
+                    external_id=external_id,
+                )
+                if response is not None:
+                    return response
 
         if text.startswith("/"):
             response = self._handle_command(
@@ -528,6 +533,32 @@ class ButlerMessageHandler:
         if not result.final_response:
             return "（执行完成，无文字输出）"
         return result.final_response
+
+
+def _normalize_switch_request(text: str) -> str | None:
+    """Map「切换到 <项目>」to ``/切换 <项目>`` (WeChat natural phrasing)."""
+    stripped = (text or "").strip()
+    for prefix in ("切换到", "切换至", "切换去", "切换回"):
+        if stripped.startswith(prefix):
+            name = stripped[len(prefix) :].strip().rstrip("。.!！?？")
+            if name:
+                return f"/切换 {name}"
+    return None
+
+
+def _normalize_status_request(text: str) -> str | None:
+    """Map project-status questions to ``/状态``."""
+    stripped = (text or "").strip().rstrip("？?").strip()
+    if stripped in (
+        "当前在哪个项目",
+        "当前是什么项目",
+        "当前什么项目",
+        "现在在哪个项目",
+        "现在在什么项目",
+        "当前项目是什么",
+    ):
+        return "/状态"
+    return None
 
 
 def _normalize_detail_request(text: str) -> str | None:

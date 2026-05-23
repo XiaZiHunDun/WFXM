@@ -35,6 +35,19 @@ Thumbs.db
 projects/*/.butler/
 projects/*/docs/workflow-output.md
 
+# Agent / corpus-live 在 projects/ 根目录产生的临时文件（非用户项目）
+/projects/CMakeLists.txt
+/projects/kernel-update.yml
+/projects/generate_users.py
+/projects/server.js
+/projects/package.json
+/projects/test_divide.py
+/projects/.github/
+/projects/rds-mysql/
+/projects/shortlink/
+/projects/kernel-update/
+/projects/WFXM/
+
 # Logs
 *.log
 

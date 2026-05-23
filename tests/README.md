@@ -14,6 +14,16 @@ PYTHONPATH=. pytest -q          # 默认全量 passed，排除 live_llm（见 py
 | `integration` | L3 跨模块 |
 | `e2e` | L4 端到端 |
 | `live_llm` | 真实 API（需 `BUTLER_RUN_REAL_API_SMOKE=1`）|
+| `corpus` / `corpus_mock` / `corpus_live` / `corpus_smoke` | 语料模块评测，见 [`corpus/README.md`](corpus/README.md) |
+
+**语料测试（开发对话 + 微信衍射，独立目录）：**
+
+设计：[`docs/plans/corpus-testing-module-design-2026-05.md`](../docs/plans/corpus-testing-module-design-2026-05.md)
+
+```bash
+PYTHONPATH=. pytest tests/corpus -m corpus_mock -q
+# 或：./scripts/corpus-test.sh mock
+```
 
 ## 文件分组（按域）
 

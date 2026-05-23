@@ -1,0 +1,4 @@
+suite_id: example.suite
+case_count_single: 1
+case_count_multi: 0
+docs: docs/plans/corpus-testing-module-design-2026-05.md

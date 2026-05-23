@@ -1,6 +1,6 @@
 """WeChat conversation scenarios derived from real LingWen dialogue (2026-05-22).
 
-Catalog: tests/scenarios/wechat_dev_conversations.yaml
+Catalog: tests/corpus/suites/wechat_real/lw_real/corpus.yaml
 Design: docs/plans/wechat-real-dialogue-test-scenarios-2026-05.md
 
 Run:
@@ -45,7 +45,7 @@ DEMO_CONTENT = (
 def _setup_lingwen_gateway_project(tmp_path: Path, monkeypatch) -> Path:
     projects_dir = tmp_path / "projects"
     proj = projects_dir / "LingWen1"
-    proj.mkdir(parents=True)
+    proj.mkdir(parents=True, exist_ok=True)
     (proj / "docs").mkdir(exist_ok=True)
     (proj / "README.md").write_text("# 灵文1号\n", encoding="utf-8")
     spec = {
@@ -74,6 +74,46 @@ def _setup_lingwen_gateway_project(tmp_path: Path, monkeypatch) -> Path:
     _reset_singletons()
     reload_butler_settings()
     return proj
+
+
+def _setup_dual_gateway_projects(tmp_path: Path, monkeypatch) -> Path:
+    """灵文1号 + 演示试点（多项目切换话术）。"""
+    from butler.config import reload_butler_settings
+    from tests.test_gateway_handler import _reset_singletons
+
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir()
+    for folder, name, desc in (
+        ("LingWen1", "灵文1号", "小说工厂试点"),
+        ("DemoPilot", "演示试点", "轻量第二试点"),
+    ):
+        proj = projects_dir / folder
+        proj.mkdir(parents=True)
+        (proj / "docs").mkdir(exist_ok=True)
+        (proj / "README.md").write_text(f"# {name}\n", encoding="utf-8")
+        spec = {
+            "name": name,
+            "type": "software",
+            "description": desc,
+            "workspace": str(proj),
+            "tools": [
+                "read_file",
+                "write_file",
+                "delete_file",
+                "patch",
+                "search_files",
+                "list_directory",
+                "delegate_task",
+            ],
+        }
+        (proj / "project.yaml").write_text(
+            yaml.safe_dump(spec, allow_unicode=True),
+            encoding="utf-8",
+        )
+    monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
+    _reset_singletons()
+    reload_butler_settings()
+    return projects_dir
 
 
 def _lingwen_session_key(chat_id: str = "u1") -> str:

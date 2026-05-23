@@ -1,0 +1,4 @@
+suite_id: dev_assistant.v1
+single_turn_cases: 33
+multi_turn_cases: 2
+analysis_doc: docs/plans/dev-assistant-corpus-analysis-2026-05.md

@@ -1,0 +1,21 @@
+meta:
+  suite_id: example.suite
+  version: "YYYY-MM-DD-v1"
+  title: 示例语料套件
+  live_model: MiniMax-M2.7
+  dimensions:
+    - example
+
+cases:
+  - id: EX-01
+    dimension: example
+    title: 示例单轮
+    user: |
+      这是一条示例用户话术，替换为真实口语化问句。
+    must_contain_any: [示例, example]
+    tags:
+      intent: clarify
+      difficulty: L1
+
+live_smoke_ids:
+  - EX-01

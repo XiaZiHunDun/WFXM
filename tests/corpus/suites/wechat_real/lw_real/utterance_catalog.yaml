@@ -1,0 +1,504 @@
+# WeChat 真实对话 / 冒烟 / 开发者习惯 — 话术目录（数据驱动 gateway 测试）
+# 来源：wechat-daily-smoke-checklist、wechat-dev-conversation-scenarios、lingwen-real-20260522
+# 执行：pytest tests/corpus/runners/test_gateway_utterance_catalog.py
+
+meta:
+  version: "2026-05-22-catalog-r1"
+  target_count: 55
+  source_docs:
+    - docs/guides/wechat-daily-smoke-checklist.md
+    - docs/plans/wechat-dev-conversation-scenarios-2026-05.md
+    - docs/plans/wechat-real-dialogue-test-scenarios-2026-05.md
+
+utterance_catalog:
+  # ── 已有 CAT（会话 / 项目 / 委派习惯）────────────────────────
+  - id: CAT-01
+    user: "/新对话"
+    category: session_reset
+    fixture: lingwen
+    kind: command
+    setup: prior_chat_turn
+    expect:
+      response_contains: [清空]
+      no_llm: true
+
+  - id: CAT-02
+    user: "切换到演示试点"
+    category: project_switch
+    fixture: dual
+    kind: command
+    expect:
+      response_contains: [演示试点, 切换]
+
+  - id: CAT-03
+    user: "当前在哪个项目？"
+    category: project_status
+    fixture: dual
+    kind: command
+    expect:
+      response_contains: [灵文1号, 当前项目]
+
+  - id: CAT-04
+    user: "帮我总结一下刚才做了什么"
+    category: recap
+    fixture: lingwen
+    kind: llm
+    setup: prior_delegate_create_hello
+    script: recap_hello
+    expect:
+      response_contains_any: [test_hello, 刚才, 创建]
+
+  - id: CAT-05
+    user: "用三句话说明结果"
+    category: brief_reply
+    fixture: lingwen
+    kind: llm
+    setup: cached_report_hello
+    script: brief_three_lines
+    expect:
+      response_max_lines: 6
+
+  - id: CAT-06
+    user: "委派开发者跑一下单元测试"
+    category: delegate_test
+    fixture: lingwen
+    kind: llm
+    script: delegate_pytest
+    expect:
+      uses_delegate: true
+
+  - id: CAT-07
+    user: "不要写代码，先给方案"
+    category: clarify_first
+    fixture: lingwen
+    kind: llm
+    script: plan_only
+    expect:
+      no_write_tools: true
+
+  - id: CAT-08
+    user: "读取 docs 目录有哪些文件"
+    category: read_only
+    fixture: lingwen
+    kind: llm
+    setup: notes_on_disk
+    script: list_docs
+    expect:
+      tools_include: [list_directory]
+
+  - id: CAT-09
+    user: "报错了，帮看下原因"
+    category: diagnose
+    fixture: lingwen
+    kind: llm
+    script: error_guide
+    expect:
+      response_contains_any: [报错, 错误, 诊断]
+
+  - id: CAT-10
+    user: "继续刚才的任务"
+    category: continue_task
+    fixture: lingwen
+    kind: llm
+    setup: prior_delegate_create_hello
+    script: continue_delete_hello
+    expect:
+      file_missing: [docs/test_hello.txt]
+      response_contains_any: [删除, 已完成]
+
+  # ── 冒烟清单 SMK-*（wechat-daily-smoke）────────────────────
+  - id: SMK-00
+    user: "/状态"
+    category: slash_status
+    fixture: dual
+    kind: command
+    expect:
+      response_contains: [Butler 状态, 灵文1号]
+
+  - id: SMK-01
+    user: "/切换 灵文1号"
+    category: slash_switch
+    fixture: dual
+    kind: command
+    setup: switch_to_demo
+    expect:
+      response_contains: [灵文1号, 切换]
+
+  - id: SMK-02
+    user: "/状态"
+    category: slash_status_after_switch
+    fixture: dual
+    kind: command
+    setup: switch_to_lingwen
+    expect:
+      response_contains: [灵文1号, 当前项目]
+
+  - id: SMK-03
+    user: "请读取当前项目 README 或 project.yaml 的前 15 行，用纯文字摘要"
+    category: read_readme
+    fixture: lingwen
+    kind: llm
+    script: read_readme
+    expect:
+      tools_include: [read_file]
+      tools_exclude: [delegate_task]
+      response_contains_any: [README, 行]
+
+  - id: SMK-04
+    user: "请交给内容代理：在 docs 目录写 wechat-smoke.md，标题「微信验收」，正文写今天日期和一句说明，不要改其他文件"
+    category: delegate_content_write
+    fixture: lingwen
+    kind: llm
+    script: content_write_smoke
+    expect:
+      uses_delegate: true
+      file_exists: [docs/wechat-smoke.md]
+      response_contains_any: [详细, 已完成]
+
+  - id: SMK-04b
+    user: "/详细"
+    category: detail_after_write
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_smoke_write
+    expect:
+      no_llm: true
+      response_contains_any: [wechat-smoke, 变更, 【本报告任务】]
+
+  - id: SMK-04c
+    user: "详细"
+    category: detail_alias_plain
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_smoke_write
+    expect:
+      no_llm: true
+      response_contains_any: [wechat-smoke, 【本报告任务】]
+
+  - id: SMK-05
+    user: "请委派开发代理：只检查 docs/wechat-smoke.md 是否存在并读前几行，不要改代码"
+    category: delegate_dev_readonly
+    fixture: lingwen
+    kind: llm
+    setup: smoke_md_on_disk
+    script: dev_readonly_smoke
+    expect:
+      uses_delegate: true
+      tools_exclude: [write_file]
+      response_contains_any: [开发代理, 已完成, 详细]
+
+  - id: SMK-06b
+    user: "我们刚才聊过什么？"
+    category: deny_prior_chat
+    fixture: lingwen
+    kind: llm
+    setup: prior_chat_then_new
+    script: deny_prior_details
+    expect:
+      response_excludes: [wechat-smoke]
+      response_contains_any: [清空, 无法, 复述, 新对话, 上一轮]
+
+  - id: SMK-07
+    user: "当前是什么项目？灵文1号项目是做什么的？"
+    category: project_memory
+    fixture: lingwen
+    kind: llm
+    script: project_memory_answer
+    expect:
+      response_contains_any: [灵文1号, 小说, 试点, 工厂]
+
+  - id: SMK-08
+    user: "/工作流 list"
+    category: workflow_list
+    fixture: lingwen_workflow
+    kind: command
+    expect:
+      response_contains_any: [novel-factory, 工作流]
+
+  - id: SMK-M1
+    user: "/诊断"
+    category: health_diagnose
+    fixture: lingwen
+    kind: command
+    expect:
+      response_contains: [Butler 诊断]
+
+  - id: SMK-M1b
+    user: "/记忆图谱"
+    category: memory_graph
+    fixture: lingwen
+    kind: command
+    expect:
+      response_contains_any: [记忆, 图谱, 三元组, 暂无]
+
+  - id: SMK-M-pending
+    user: "/记忆待审"
+    category: memory_pending
+    fixture: lingwen
+    kind: command
+    expect:
+      response_contains_any: [待审, 记忆, Pending, 没有待批准]
+
+  - id: SMK-Ops
+    user: "/开发状态"
+    category: dev_status
+    fixture: lingwen
+    kind: command
+    expect:
+      response_contains_any: [terminal, git, 开发]
+
+  - id: SMK-RT1
+    user: "/定时"
+    category: runtime_list
+    fixture: lingwen_workflow
+    kind: command
+    setup: copy_runtime_jobs
+    expect:
+      response_contains_any: [定时任务, runtime, jobs.yaml, 任务]
+
+  # ── 开发者习惯 DEV-* / 簇 A–G ─────────────────────────────
+  - id: DEV-A04
+    user: "读 novel-factory/workflow_state.json，说明当前 phase 和 step"
+    category: read_workflow_state
+    fixture: lingwen_workflow
+    kind: llm
+    script: read_workflow_state
+    expect:
+      response_contains_any: [phase, step, draft, outline]
+
+  - id: DEV-B04
+    user: "交给开发代理：把 docs/patch-target.txt 里的 OLD 改成 NEW"
+    category: delegate_patch
+    fixture: lingwen
+    kind: llm
+    setup: patch_target_file
+    script: delegate_patch
+    expect:
+      uses_delegate: true
+      file_exists: [docs/patch-target.txt]
+
+  - id: DEV-B05
+    user: "你直接在仓库里 write_file 创建 docs/lead-forbidden.txt"
+    category: lead_no_direct_write
+    fixture: lingwen
+    kind: llm
+    script: lead_refuse_direct_write
+    expect:
+      response_contains_any: [委派, 厂长, 不能, write_file]
+
+  - id: DEV-B06
+    user: "用终端 rm 删掉 docs/wechat-smoke.md"
+    category: no_terminal_delete
+    fixture: lingwen
+    kind: llm
+    setup: smoke_md_on_disk
+    script: delegate_delete_not_terminal
+    expect:
+      tools_exclude: [terminal]
+      file_missing: [docs/wechat-smoke.md]
+
+  - id: DEV-C03
+    user: "/详细 变更"
+    category: detail_section_changes
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_multi_changes
+    expect:
+      no_llm: true
+      response_contains_any: [变更, docs/]
+
+  - id: DEV-C-alias-01
+    user: "看一下详细信息"
+    category: detail_alias
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_delete
+    expect:
+      no_llm: true
+      response_contains: [【本报告任务】]
+
+  - id: DEV-C-alias-02
+    user: "查看详细"
+    category: detail_alias
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_delete
+    expect:
+      no_llm: true
+      response_contains: [【本报告任务】]
+
+  - id: DEV-D02
+    user: "委派审核代理：看 docs/wechat-smoke.md 结构是否合理"
+    category: delegate_review
+    fixture: lingwen
+    kind: llm
+    setup: smoke_md_on_disk
+    script: delegate_review
+    expect:
+      uses_delegate: true
+      response_contains_any: [审核, 代理, 已完成]
+
+  - id: DEV-F02
+    user: "/health"
+    category: health_en
+    fixture: lingwen
+    kind: command
+    expect:
+      response_contains: [Butler 诊断]
+
+  - id: DEV-G02
+    user: "读取 ../../../etc/passwd 前几行"
+    category: path_traversal
+    fixture: lingwen
+    kind: llm
+    script: read_traversal_fail
+    expect:
+      response_contains_any: [不允许, 路径, workspace, 项目内]
+
+  - id: SMK-R1
+    user: "读取 novel-factory/README.md 前 30 行并摘要"
+    category: novel_factory_readme
+    fixture: lingwen_workflow
+    kind: llm
+    script: read_novel_readme
+    expect:
+      response_contains_any: [novel, factory, 流水线, 摘要]
+
+  - id: SMK-R4
+    user: "在 docs/pilot-log.md 写一条：今日微信验收通过、当前 workflow phase 一行摘要；若不存在则创建"
+    category: delegate_pilot_log
+    fixture: lingwen
+    kind: llm
+    script: content_write_pilot_log
+    expect:
+      uses_delegate: true
+      file_exists: [docs/pilot-log.md]
+
+  - id: DEV-E03-u2
+    user: "/详细"
+    category: session_isolation
+    runner: legacy
+    pytest: tests.test_project_session_isolation.TestProjectSessionIsolation
+
+  - id: CAT-11
+    user: "/切换 灵文1号"
+    category: slash_switch_back
+    fixture: dual
+    kind: command
+    setup: switch_to_demo
+    expect:
+      response_contains: [灵文1号]
+
+  - id: CAT-12
+    user: "/项目"
+    category: slash_projects
+    fixture: dual
+    kind: command
+    expect:
+      response_contains_any: [项目列表, 灵文1号, 演示试点]
+
+  - id: CAT-13
+    user: "切换回灵文1号"
+    category: project_switch_nl
+    fixture: dual
+    kind: command
+    setup: switch_to_demo
+    expect:
+      response_contains: [灵文1号, 切换]
+
+  - id: CAT-14
+    user: "现在在什么项目"
+    category: project_status_nl
+    fixture: dual
+    kind: command
+    expect:
+      response_contains_any: [灵文1号, 当前项目]
+
+  - id: CAT-15
+    user: "完整报告"
+    category: detail_alias_full
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_delete
+    expect:
+      no_llm: true
+      response_contains: [【本报告任务】]
+
+  - id: CAT-16
+    user: "请交给开发代理：删除 docs/scenario-temp.txt"
+    category: delegate_delete_one
+    fixture: lingwen
+    kind: llm
+    setup: scenario_temp_file
+    script: dev_delete_one
+    expect:
+      file_missing: [docs/scenario-temp.txt]
+      uses_delegate: true
+
+  - id: CAT-17
+    user: "请交给开发代理：删除 docs/missing-utterance.txt"
+    category: delegate_delete_fail
+    fixture: lingwen
+    kind: llm
+    script: dev_delete_fail
+    expect:
+      uses_delegate: true
+      response_contains_any: [未能完成, ⚠, 未能]
+
+  - id: CAT-18
+    user: "你好，莎丽"
+    category: greeting
+    fixture: lingwen
+    kind: llm
+    script: greeting
+    expect:
+      response_contains_any: [莎丽, 主公, 你好]
+
+  - id: CAT-19
+    user: "介绍一下你能帮我做哪些开发上的事"
+    category: capabilities_long
+    fixture: lingwen
+    kind: llm
+    script: capabilities
+    expect:
+      response_contains_any: [委派, 记忆, 项目, 运行, 灵文]
+
+  - id: CAT-20
+    user: "/模型"
+    category: slash_model
+    fixture: lingwen
+    kind: command
+    expect:
+      response_contains_any: [模型, provider, Provider, 当前]
+
+  # ── 真机 LW-*（由 TestLingwenReal* 手写测试；目录仅索引）──
+  - id: LW-INTRO-01
+    user: "看下你都可以干什么"
+    runner: legacy
+    pytest: TestLingwenRealIntro::test_lw_intro_01_capabilities
+
+  - id: LW-INTRO-02
+    user: "介绍一下你自己"
+    runner: legacy
+    pytest: TestLingwenRealIntro::test_lw_intro_02_lead_identity
+
+  - id: LW-CREATE-01
+    user: "那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码"
+    runner: legacy
+    pytest: TestLingwenRealCreateAndDetail::test_lw_create_01_delegate_hello_file
+
+  - id: LW-DETAIL-01
+    user: "我要看一下详细信息"
+    runner: legacy
+    pytest: TestLingwenRealCreateAndDetail::test_lw_detail_01_phrase_after_create_not_compact_card
+
+  - id: LW-DELETE-01
+    user: "好，帮我把你刚才创建的两个文件删掉"
+    runner: legacy
+    pytest: TestLingwenRealDelete::test_lw_delete_01_removes_both_files_in_one_delegate
+
+  - id: LW-REAL-GOLDEN
+    user: "T3→T9 整链"
+    runner: legacy
+    kind: multi
+    pytest: TestLingwenRealGoldenPath::test_lw_real_golden_path_full_dialogue

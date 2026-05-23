@@ -1,0 +1,329 @@
+# Developer assistant corpus v2 — practical dev pain points (2026-05 batch).
+# Model: MiniMax-M2.7 (live_llm)
+# Analysis: docs/plans/dev-assistant-corpus-v2-analysis-2026-05.md
+# Runner: tests/corpus/runners/test_agent_loop_rubric.py
+
+meta:
+  version: "2026-05-22-v2"
+  live_provider: minimax
+  live_model: MiniMax-M2.7
+  dimensions:
+    - code_migration
+    - debugging
+    - frameworks
+    - algorithms
+    - system_design
+    - devops
+    - database_cache
+    - security
+    - testing
+    - tooling
+    - text_processing
+    - multi_turn
+
+cases:
+  # ── 代码转换与适配 ──
+  - id: DA2-01
+    dimension: code_migration
+    title: Fetch 改 Axios + token 拦截器
+    user: 把这段用 Fetch API 写的请求改成用 Axios 发送，并加上请求拦截器统一添加 token。
+    must_contain: [axios]
+    must_contain_any: [interceptor, 拦截器, interceptors.request]
+    must_contain_any2: [token, Authorization]
+
+  - id: DA2-02
+    dimension: code_migration
+    title: Java Stream 转 Kotlin 序列
+    user: 这个 Java 的 Stream API 聚合操作怎么转换成 Kotlin 的序列操作？
+    must_contain_any: [kotlin, Kotlin]
+    must_contain_any2: [sequence, Sequence, asSequence]
+
+  - id: DA2-03
+    dimension: code_migration
+    title: Makefile 迁移 CMake
+    user: |
+      将下面的 Makefile 构建脚本迁移到 CMake，需要保留原有的编译选项和输出路径 `bin/app`：
+
+      ```makefile
+      CC = gcc
+      CFLAGS = -Wall -O2
+      OUT = bin/app
+      SRC = main.c util.c
+      $(OUT): $(SRC)
+      	$(CC) $(CFLAGS) -o $(OUT) $(SRC)
+      ```
+    must_contain_any: [cmake, CMake, CMakeLists]
+    must_contain_any2: [add_executable, target_, 迁移, migrate]
+
+  # ── 调试与报错排查 ──
+  - id: DA2-04
+    dimension: debugging
+    title: Spring Boot DataSource 未配置
+    user: |
+      启动 Spring Boot 时反复报 `Failed to configure a DataSource`，但我明明在 application.yml 里配了数据库，怎么回事？
+    must_contain_any: [DataSource, datasource]
+    must_contain_any2: [spring.datasource, auto-configure, 自动配置, exclude]
+
+  - id: DA2-05
+    dimension: debugging
+    title: Windows gbk UnicodeEncodeError
+    user: |
+      Python 脚本在 Windows 上运行报 UnicodeEncodeError gbk codec can't encode character，怎么解决？
+    must_contain_any: [utf-8, UTF-8]
+    must_contain_any2: [PYTHONIOENCODING, chcp, encoding]
+
+  - id: DA2-06
+    dimension: debugging
+    title: FastAPI CORS
+    user: |
+      浏览器控制台出现 `Access to fetch at '...' from origin '...' has been blocked by CORS policy`，后端用的 FastAPI，怎么配置 CORS？
+    must_contain: [CORS]
+    must_contain_any: [CORSMiddleware, fastapi, FastAPI]
+
+  # ── 框架与库 ──
+  - id: DA2-07
+    dimension: frameworks
+    title: NestJS 全局异常过滤器
+    user: NestJS 里如何定义一个全局的异常过滤器来统一返回错误格式？
+    must_contain_any: [ExceptionFilter, exception filter, 异常过滤器]
+    must_contain_any2: [APP_FILTER, "@Catch", useGlobalFilters]
+
+  - id: DA2-08
+    dimension: frameworks
+    title: React Router v6 lazy + 动态参数
+    user: React Router v6 中，嵌套路由和动态参数 `:id` 怎么配合 lazy loading 使用？
+    must_contain_any: [lazy, React.lazy, Suspense]
+    must_contain_any2: [":id", useParams, 动态]
+
+  - id: DA2-09
+    dimension: frameworks
+    title: Go net/http 超时
+    user: Go 的 `net/http` 里如何优雅地设置读取请求体和响应的超时时间？给个例子。
+    must_contain_any: [timeout, Timeout, 超时]
+    must_contain_any2: [context, ReadHeaderTimeout, Server]
+
+  - id: DA2-10
+    dimension: frameworks
+    title: Sequelize UNIX 时间戳
+    user: 用 Sequelize 定义模型时，怎么设置 `createdAt` 和 `updatedAt` 使用 UNIX 时间戳（整数）而不是默认的 DATETIME？
+    must_contain: [sequelize]
+    must_contain_any: [timestamps, createdAt, updatedAt]
+    must_contain_any2: [INTEGER, unix, getDataValue]
+
+  # ── 算法与数据结构 ──
+  - id: DA2-11
+    dimension: algorithms
+    title: O(1) 滑动窗口统计
+    user: 实现一个支持 `O(1)` 时间获取最小元素、最大元素和均值的滑动窗口，写具体代码。
+    must_contain_any: [O(1), deque, 双端队列, 单调队列]
+    must_contain_any2: [min, max, mean, 均值]
+
+  - id: DA2-12
+    dimension: algorithms
+    title: 大文件 Top100 频次
+    user: 给定一个含千万级整数的文件，内存只有 512MB，如何高效找出出现次数最多的前 100 个数？描述思路即可。
+    must_contain_any: [堆, heap, Top, 前 100]
+    must_contain_any2: [哈希, hash, 分桶, 外部排序, MapReduce]
+
+  # ── 系统设计 ──
+  - id: DA2-13
+    dimension: system_design
+    title: 短链接服务设计
+    user: 设计一个短链接服务，要求支持高并发、自定义后缀和过期时间，核心表结构和关键API怎么设计？
+    must_contain_any: [短链, short]
+    must_contain_any2: [hash, base62, 过期, expire]
+    must_contain_any3: [API, POST, GET, redirect]
+
+  - id: DA2-14
+    dimension: system_design
+    title: 单体拆微服务数据库
+    user: 我们要从单体应用迁移到微服务，第一步如何拆分数据库？有没有推荐的策略和避坑经验？
+    must_contain_any: [微服务, microservice]
+    must_contain_any2: [拆分, bounded context, 领域, strangler]
+    must_contain_any3: [数据库, 事务, 双写, 同步]
+
+  - id: DA2-15
+    dimension: system_design
+    title: 读写分离主从延迟
+    user: 读写分离架构下，如何解决主从延迟导致读到的数据不是最新的问题？说说常见的方案。
+    must_contain_any: [主从, 延迟, replication lag]
+    must_contain_any2: [读主, 写后读, read-your-writes, 强制读主]
+    must_contain_any3: [缓存, 版本号, 会话]
+
+  # ── 运维与部署 ──
+  - id: DA2-16
+    dimension: devops
+    title: Docker 时区 Asia/Shanghai
+    user: Docker 容器内时区不正确，总是 UTC，在 Dockerfile 里怎么设置为 Asia/Shanghai？
+    must_contain_any: [TZ, Asia/Shanghai]
+    must_contain_any2: [tzdata, /etc/localtime, timezone]
+
+  - id: DA2-17
+    dimension: devops
+    title: K8s 资源限制与 HPA
+    user: |
+      Kubernetes 中如何给 Pod 设置资源限制（CPU/memory request 和 limit）并配置 HPA 基于自定义指标自动扩缩？
+    must_contain_any: [resources, limits, requests]
+    must_contain_any2: [HPA, HorizontalPodAutoscaler]
+    must_contain_any3: [metrics, 自定义, custom]
+
+  - id: DA2-18
+    dimension: devops
+    title: Ansible 内核更新回滚
+    user: 写一个 Ansible playbook，批量更新一组 CentOS 服务器的内核并重启，如果更新失败要自动回滚内核。
+    must_contain: [ansible]
+    must_contain_any: [playbook, yum, dnf, kernel]
+    must_contain_any2: [rollback, 回滚, rescue, block]
+
+  # ── 数据库与缓存 ──
+  - id: DA2-19
+    dimension: database_cache
+    title: MySQL 联合索引最左前缀
+    user: MySQL 的联合索引 `(a, b, c)`，查询条件 `WHERE b = ? AND c = ?` 会走索引吗？为什么？
+    must_contain_any: [最左前缀, leftmost, 左前缀]
+    must_contain_any2: [不走, 无法, 全表, filesort]
+    must_contain_any3: [a, 缺少 a]
+
+  - id: DA2-20
+    dimension: database_cache
+    title: Redis 哨兵 vs 集群
+    user: Redis 哨兵模式和集群模式在数据分片和高可用上的根本区别是什么？生产环境选型有什么建议？
+    must_contain_any: [哨兵, Sentinel]
+    must_contain_any2: [集群, Cluster, 分片, slot]
+    must_contain_any3: [高可用, 主从, 16384]
+
+  - id: DA2-21
+    dimension: database_cache
+    title: PostgreSQL Seq Scan 有索引
+    user: PostgreSQL 的 `EXPLAIN ANALYZE` 输出中看到了 `Seq Scan`，但表上明明有索引，可能的原因有哪些？
+    must_contain_any: [Seq Scan, 顺序扫描]
+    must_contain_any2: [统计, statistics, ANALYZE]
+    must_contain_any3: [索引失效, 类型, 函数, 选择性]
+
+  # ── 安全 ──
+  - id: DA2-22
+    dimension: security
+    title: JWT localStorage vs Cookie
+    user: 前端存储 JWT 到底放在 localStorage 还是 Cookie？分别有什么安全风险和推荐的防御措施？
+    must_contain: [JWT]
+    must_contain_any: [localStorage, Cookie]
+    must_contain_any2: [XSS, HttpOnly, Secure, CSRF]
+
+  - id: DA2-23
+    dimension: security
+    title: SVG 上传 XSS 清洗
+    user: 如何防止用户上传的 SVG 文件包含恶意脚本导致 XSS？后端 Python 有合适的库做清洗吗？
+    must_contain: [SVG]
+    must_contain_any: [XSS, script, 脚本]
+    must_contain_any2: [bleach, defusedxml, sanitize, 清洗]
+
+  - id: DA2-24
+    dimension: security
+    title: OAuth2 CSRF
+    user: 我有一个开放的 OAuth 2.0 授权端点，如何避免 CSRF 攻击？具体要在授权请求里加什么参数？
+    must_contain_any: [CSRF, state]
+    must_contain_any2: [OAuth, PKCE, code]
+    must_contain_any3: [redirect, 回调, 校验]
+
+  # ── 测试 ──
+  - id: DA2-25
+    dimension: testing
+    title: Jest mock ESM
+    user: Jest 中如何 mock 一个 ES6 module 的默认导出和命名导出，并验证被 mock 的函数调用次数？
+    must_contain: [jest]
+    must_contain_any: [mock, jest.mock]
+    must_contain_any2: [toHaveBeenCalled, calledTimes, 调用次数]
+
+  - id: DA2-26
+    dimension: testing
+    title: WebSocket 服务端测试
+    user: 对 WebSocket 服务端进行自动化测试，用什么工具或库来模拟客户端连接和收发消息？
+    must_contain_any: [WebSocket, websocket]
+    must_contain_any2: [pytest, jest, socket, test client, 模拟]
+
+  - id: DA2-27
+    dimension: testing
+    title: pytest 多种异常
+    user: 如何用 pytest 测试一个可能抛出多种异常的函数，分别验证异常类型和消息？
+    must_contain: [pytest]
+    must_contain_any: [pytest.raises, raises]
+    must_contain_any2: [match, 异常, Exception]
+
+  # ── 效率工具 ──
+  - id: DA2-28
+    dimension: tooling
+    title: VSCode ESLint + Prettier
+    user: VSCode 里如何配置保存时自动用 ESLint 修复格式并 Prettier 格式化，且不冲突？
+    must_contain_any: [eslint, ESLint]
+    must_contain_any2: [prettier, Prettier]
+    must_contain_any3: [settings.json, formatOnSave, 保存]
+
+  - id: DA2-29
+    dimension: tooling
+    title: Git bisect
+    user: Git 的 `bisect` 命令怎么用？我现在怀疑某次提交引入了 bug 但不确定是哪一次。
+    must_contain: [bisect]
+    must_contain_any: [git bisect, good, bad]
+
+  - id: DA2-30
+    dimension: tooling
+    title: 查找大于 1GB 文件
+    user: Linux 下如何递归查找所有大于 1GB 的文件并按大小排序显示前 10 个？一行命令搞定。
+    must_contain_any: [find, du]
+    must_contain_any2: ["1G", "+1G", 1073741824]
+    must_contain_any3: [sort, head, 排序]
+
+  # ── 正则与文本 ──
+  - id: DA2-31
+    dimension: text_processing
+    title: 日志提取 IPv4
+    user: 用正则从一段混杂的日志中提取所有 IPv4 地址并去重，给个 `grep` 或 `awk` 一行命令。
+    must_contain_any: [grep, awk]
+    must_contain_any2: [IPv4, ip, [0-9]]
+    must_contain_any3: [sort -u, uniq, 去重]
+
+  - id: DA2-32
+    dimension: text_processing
+    title: awk CSV 金额求和（千分位）
+    user: 我有一个 CSV 文件，第3列是金额，需要用 `awk` 计算出所有金额的总和，但列内可能有千位分隔逗号，怎么处理？
+    must_contain: [awk]
+    must_contain_any: [gsub, 逗号, 千分位]
+    must_contain_any2: [sum, 求和, total, $3]
+
+  # ── 多轮 ──
+  - id: DA2-MT01
+    dimension: multi_turn
+    title: Python 装饰器 → logger → 单测
+    turns:
+      - user: 帮我用 Python 写一个装饰器，记录函数执行时间并打印。
+        must_contain_any: [装饰器, decorator, wrapper, wraps, functools]
+        must_contain_any2: [time, 耗时, perf_counter, timing, 执行时间]
+      - user: 把这个装饰器改成可以接受一个 logger 参数，如果提供了 logger 就用 logger.info 输出。
+        must_contain_any: [logger, logging]
+        must_contain_any2: [info, logger.info]
+      - user: 再帮我写个单元测试，验证这个装饰器在函数抛出异常时也能正常记录耗时。
+        must_contain_any: [pytest, unittest]
+        must_contain_any2: [raises, 异常, Exception]
+        must_contain_any3: [耗时, time]
+
+  - id: DA2-MT02
+    dimension: multi_turn
+    title: Terraform RDS → 只读副本 → 标签
+    turns:
+      - user: 用 Terraform 创建一个 AWS RDS MySQL 实例，db.t3.micro，20GB 存储，放在默认 VPC 中。
+        must_contain: [terraform]
+        must_contain_any: [aws_db_instance, RDS, rds]
+        must_contain_any2: [db.t3.micro, 20]
+      - user: 追加一个只读副本，放在另一个可用区。
+        must_contain_any: [replica, 只读, read_replica]
+        must_contain_any2: [availability_zone, az, 可用区]
+      - user: 再给这两个实例都打上 `Environment=staging` 的标签，并输出 endpoint。
+        must_contain_any: [tags, Environment, staging]
+        must_contain_any2: [endpoint, output]
+
+live_smoke_ids:
+  - DA2-04
+  - DA2-06
+  - DA2-12
+  - DA2-19
+  - DA2-22

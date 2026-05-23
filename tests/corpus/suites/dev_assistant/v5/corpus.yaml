@@ -1,0 +1,338 @@
+# Developer assistant corpus v5 — scale completion batch (2026-05).
+# Target: docs/plans/corpus-scale-target-2026-05.md
+# Runner: tests/corpus/runners/test_agent_loop_rubric.py
+
+meta:
+  version: "2026-05-23-v5"
+  live_provider: minimax
+  live_model: MiniMax-M2.7
+  generation_doc: docs/plans/corpus-scale-target-2026-05.md
+  dimensions:
+    - csharp_dotnet
+    - java_spring
+    - python_packaging
+    - rust_async
+    - wasm_edge
+    - cicd_pipeline
+    - db_schema
+    - api_gateway
+    - observability_slo
+    - security_supply_chain
+    - technical_writing
+    - architecture_tradeoff
+    - multi_turn
+
+cases:
+  # ── C# / .NET ──
+  - id: DA5-01
+    dimension: csharp_dotnet
+    title: async void 陷阱
+    user: C# 里 event handler 写成 async void 有什么风险？和 async Task 区别？
+    must_contain_any: [async, C#, csharp]
+    must_contain_any2: [void, Task, 异常, exception]
+
+  - id: DA5-02
+    dimension: csharp_dotnet
+    title: EF Core 迁移冲突
+    user: EF Core 多人同时加 migration 冲突了，一般怎么合并 Migration 文件？
+    must_contain_any: [EF, Entity Framework, migration]
+    must_contain_any2: [合并, conflict, Designer, Snapshot]
+
+  - id: DA5-03
+    dimension: csharp_dotnet
+    title: ASP.NET 授权策略
+    user: ASP.NET Core 里 Policy 授权和 Role 授权怎么选？
+    must_contain_any: [ASP.NET, Policy, 授权]
+    must_contain_any2: [Role, Claims, IAuthorization]
+
+  # ── Java / Spring ──
+  - id: DA5-04
+    dimension: java_spring
+    title: Bean 循环依赖
+    user: Spring Boot 启动报循环依赖，@Lazy 和改构造器注入哪个更好？
+    must_contain_any: [Spring, 循环依赖]
+    must_contain_any2: [Lazy, 构造, constructor, Bean]
+
+  - id: DA5-05
+    dimension: java_spring
+    title: JPA N+1
+    user: JPA 查列表带出关联实体 SQL 爆炸，除了 @EntityGraph 还有啥？
+    must_contain_any: [JPA, N+1]
+    must_contain_any2: [fetch, join, EntityGraph, batch]
+
+  - id: DA5-06
+    dimension: java_spring
+    title: Virtual threads
+    user: Java 21 虚拟线程适合替代 Web 容器线程池吗？有啥限制？
+    must_contain_any: [虚拟线程, virtual thread, Java 21]
+    must_contain_any2: [pinning, synchronized, 阻塞, carrier]
+
+  # ── Python 工程 ──
+  - id: DA5-07
+    dimension: python_packaging
+    title: pyproject 与 setup.py
+    user: 新项目还用 setup.py 吗？pyproject.toml 里怎么声明依赖？
+    must_contain_any: [pyproject, toml]
+    must_contain_any2: [依赖, dependencies, setuptools, poetry]
+
+  - id: DA5-08
+    dimension: python_packaging
+    title: 类型检查 strict
+    user: mypy strict 模式一堆 Any 报错，渐进迁移怎么搞？
+    must_contain_any: [mypy, strict]
+    must_contain_any2: [Any, 类型, gradual, 迁移]
+
+  - id: DA5-09
+    dimension: python_packaging
+    title: GIL 与多进程
+    user: CPU 密集 Python 任务多进程还是多线程？一句话。
+    must_contain_any: [GIL, 多进程, multiprocessing]
+    must_contain_any2: [CPU, 线程, 密集]
+
+  # ── Rust ──
+  - id: DA5-10
+    dimension: rust_async
+    title: lifetime 编译错误
+    user: Rust .borrow checker 报 returned value references a parameter，常见修法？
+    must_contain_any: [lifetime, borrow, Rust]
+    must_contain_any2: [引用, parameter, static, Box, 生命周期]
+
+  - id: DA5-11
+    dimension: rust_async
+    title: Tokio spawn
+    user: Tokio 里 task::spawn 和 spawn_blocking 什么时候用哪个？
+    must_contain_any: [Tokio, spawn]
+    must_contain_any2: [blocking, async, 阻塞, CPU]
+
+  - id: DA5-12
+    dimension: rust_async
+    title: Result 错误链
+    user: Rust 里 anyhow 和 thiserror 怎么搭配比较顺手？
+    must_contain_any: [anyhow, thiserror, Result]
+    must_contain_any2: [错误, error, context, 链]
+
+  # ── WASM / Edge ──
+  - id: DA5-13
+    dimension: wasm_edge
+    title: WASM 体积
+    user: Rust 编译 WASM 体积太大，wasm-opt 之外还能减什么？
+    must_contain_any: [WASM, wasm]
+    must_contain_any2: [体积, opt, strip, LTO]
+
+  - id: DA5-14
+    dimension: wasm_edge
+    title: Edge Worker 限制
+    user: Cloudflare Workers 里不能跑多久、内存多少？和 Node 服务器差在哪？
+    must_contain_any: [Worker, edge, Cloudflare]
+    must_contain_any2: [CPU, 内存, 限制, 冷启动]
+
+  - id: DA5-15
+    dimension: wasm_edge
+    title: WASI 与浏览器 WASM
+    user: WASI 和浏览器里跑的 WASM 是一回事吗？
+    must_contain_any: [WASI, WASM]
+    must_contain_any2: [浏览器, 系统调用, sandbox]
+
+  # ── CI/CD ──
+  - id: DA5-16
+    dimension: cicd_pipeline
+    title: GitHub Actions 缓存
+    user: GitHub Actions 怎么缓存 npm 和 Docker layer 加速构建？
+    must_contain_any: [GitHub Actions, cache]
+    must_contain_any2: [npm, Docker, actions/cache]
+
+  - id: DA5-17
+    dimension: cicd_pipeline
+    title: 蓝绿发布
+    user: K8s 蓝绿发布和金丝雀有啥区别？各适合什么场景？
+    must_contain_any: [蓝绿, 金丝雀, canary]
+    must_contain_any2: [发布, 流量, 回滚, K8s]
+
+  - id: DA5-18
+    dimension: cicd_pipeline
+    title: 密钥注入 CI
+    user: CI 里拉取私有 npm 包，GitHub Secrets 怎么传给 workflow 最安全？
+    must_contain_any: [Secrets, CI]
+    must_contain_any2: [token, npm, 私有, 环境变量]
+
+  # ── 数据库 schema ──
+  - id: DA5-19
+    dimension: db_schema
+    title: 在线 DDL
+    user: MySQL 大表加索引不想锁表，pt-online-schema-change 原理一句话？
+    must_contain_any: [DDL, 索引, MySQL]
+    must_contain_any2: [pt-online, gh-ost, 锁表, 在线]
+
+  - id: DA5-20
+    dimension: db_schema
+    title: 分库分表键
+    user: 订单表分库分表，用 user_id 还是 order_id 做 shard key？
+    must_contain_any: [分库, 分表, shard]
+    must_contain_any2: [user_id, order_id, 热点, 均衡]
+
+  - id: DA5-21
+    dimension: db_schema
+    title: 乐观锁版本号
+    user: 并发更新用 version 字段乐观锁，更新为 0 行怎么处理？
+    must_contain_any: [乐观锁, version]
+    must_contain_any2: [冲突, 重试, 0 行, concurrent]
+
+  # ── API 网关 / 限流 ──
+  - id: DA5-22
+    dimension: api_gateway
+    title: 令牌桶限流
+    user: API 网关限流令牌桶和漏桶对突发流量有啥不同？
+    must_contain_any: [令牌桶, 漏桶, 限流]
+    must_contain_any2: [突发, burst, rate, 网关]
+
+  - id: DA5-23
+    dimension: api_gateway
+    title: 超时级联
+    user: 微服务 A 调 B 调 C，超时设一样长会怎样？怎么分层设？
+    must_contain_any: [超时, timeout, 级联]
+    must_contain_any2: [微服务, 下游, 熔断, circuit]
+
+  - id: DA5-24
+    dimension: api_gateway
+    title: gRPC 与 REST
+    user: 内部服务用 gRPC 对外 REST，BFF 层要做什么？
+    must_contain_any: [gRPC, REST, BFF]
+    must_contain_any2: [转换, 聚合, proto, JSON]
+
+  # ── SLO / 可观测 ──
+  - id: DA5-25
+    dimension: observability_slo
+    title: SLI 选择
+    user: 下单接口 SLO 用成功率还是延迟 P99？怎么定 SLI？
+    must_contain_any: [SLO, SLI]
+    must_contain_any2: [成功率, P99, 延迟, 可用性]
+
+  - id: DA5-26
+    dimension: observability_slo
+    title: 错误预算 burn rate
+    user: 错误预算 burn rate 告警是什么意思？举个小例子。
+    must_contain_any: [错误预算, burn, error budget]
+    must_contain_any2: [告警, SLO, 消耗, rate]
+
+  - id: DA5-27
+    dimension: observability_slo
+    title: 分布式追踪采样
+    user: 全量 trace 太贵，头部采样和尾部采样怎么选？
+    must_contain_any: [trace, 采样, sampling]
+    must_contain_any2: [头部, 尾部, head, tail]
+
+  # ── 供应链安全 ──
+  - id: DA5-28
+    dimension: security_supply_chain
+    title: 依赖漏洞扫描
+    user: npm audit 报 high 但修不了，一般怎么处理？
+    must_contain_any: [npm audit, 漏洞]
+    must_contain_any2: [升级, override, 豁免, CVSS]
+
+  - id: DA5-29
+    dimension: security_supply_chain
+    title: SBOM
+    user: SBOM 是什么？发布镜像前为什么要生成？
+    must_contain_any: [SBOM]
+    must_contain_any2: [供应链, 依赖清单, SPDX, CycloneDX]
+
+  - id: DA5-30
+    dimension: security_supply_chain
+    title: 签名镜像
+    user: 容器镜像 cosign 签名验证在 K8s  admission 怎么接？
+    must_contain_any: [cosign, 签名]
+    must_contain_any2: [镜像, admission, 验证, K8s]
+
+  # ── 技术写作 / 架构 ──
+  - id: DA5-31
+    dimension: technical_writing
+    title: README 结构
+    user: 开源库 README 最少应有哪些章节？列个提纲。
+    must_contain_any: [README]
+    must_contain_any2: [安装, install, 用法, 示例, license]
+
+  - id: DA5-32
+    dimension: technical_writing
+    title: ADR 写法
+    user: 架构决策记录 ADR 一般一页写什么？
+    must_contain_any: [ADR, 架构决策]
+    must_contain_any2: [背景, 决策, 后果, 备选]
+
+  - id: DA5-33
+    dimension: architecture_tradeoff
+    title: 单体拆微服务
+    user: 单体拆微服务第一步拆订单还是用户？判断依据？
+    must_contain_any: [微服务, 拆分]
+    must_contain_any2: [边界, 领域, DDD, 耦合]
+
+  - id: DA5-34
+    dimension: architecture_tradeoff
+    title: 事件驱动 vs 同步
+    user: 订单创建后通知库存，用消息队列还是同步 HTTP？
+    must_contain_any: [消息, 队列, Kafka, MQ]
+    must_contain_any2: [同步, HTTP, 最终一致, 耦合]
+
+  - id: DA5-35
+    dimension: architecture_tradeoff
+    title: CQRS 何时值得
+    user: 什么情况下 CQRS 才值得上？别泛泛而谈。
+    must_contain_any: [CQRS]
+    must_contain_any2: [读写分离, 复杂, 报表, 事件]
+
+  - id: DA5-36
+    dimension: architecture_tradeoff
+    title: 缓存穿透
+    user: 热点 key 过期瞬间打穿数据库，布隆过滤器还是互斥锁？
+    must_contain_any: [缓存, 穿透, 击穿]
+    must_contain_any2: [布隆, 互斥, 单飞, singleflight]
+
+  # ── 多轮 ──
+  - id: DA5-MT01
+    dimension: multi_turn
+    title: 表结构变更 → 在线脚本 → 回滚
+    turns:
+      - user: 要给 orders 表加 status 字段并建索引，先说在线变更风险点，不写 SQL。
+        must_contain_any: [在线, DDL, 风险]
+        must_contain_any2: [锁表, 回滚, 索引, orders]
+      - user: 那 MySQL 8 在线加列 + 索引的 SQL 骨架给一下。
+        must_contain_any: [ALTER, MySQL]
+        must_contain_any2: [ADD COLUMN, INDEX, status]
+      - user: 如果迁移一半失败，回滚思路是什么？
+        must_contain_any: [回滚, rollback]
+        must_contain_any2: [备份, 快照, 逆向, 脚本]
+
+  - id: DA5-MT02
+    dimension: multi_turn
+    title: CI 失败 → 日志 → 修 workflow
+    turns:
+      - user: GitHub Actions 突然红了，我先看哪三个地方？
+        must_contain_any: [GitHub Actions, workflow]
+        must_contain_any2: [日志, log, 步骤, step]
+      - user: 日志里是 `npm ERR! ERESOLVE` 依赖冲突，常见修法？
+        must_contain_any: [ERESOLVE, npm, 依赖]
+        must_contain_any2: [legacy-peer-deps, 版本, lock]
+      - user: 给一段 cache node_modules 的 yaml 片段示例。
+        must_contain_any: [cache, actions/cache]
+        must_contain_any2: [node_modules, npm, path]
+
+  - id: DA5-MT03
+    dimension: multi_turn
+    title: Butler 能力 → 委派写文件 → 问进度
+    turns:
+      - user: 你能帮我做哪些开发相关的事？微信里简短说。
+        must_contain_any: [委派, 开发, 项目]
+        must_contain_any2: [代码, 文件, 记忆]
+      - user: 那在灵文1号 docs 下建个 status.txt 写一行 ok。
+        must_contain_any: [灵文, LingWen, docs, status]
+        must_contain_any2: [文件, 创建, 委派]
+      - user: 我一会回来怎么问你进度？
+        must_contain_any: [进度, 状态]
+        must_contain_any2: [委派, 完成, 怎么样]
+
+live_smoke_ids:
+  - DA5-04
+  - DA5-10
+  - DA5-19
+  - DA5-25
+  - DA5-28
+  - DA5-33

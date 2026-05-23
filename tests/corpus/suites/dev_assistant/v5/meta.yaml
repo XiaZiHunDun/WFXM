@@ -1,0 +1,4 @@
+suite_id: dev_assistant.v5
+single_turn_cases: 36
+multi_turn_cases: 3
+generation_doc: docs/plans/corpus-scale-target-2026-05.md

@@ -1,0 +1,4 @@
+suite_id: wechat_real.lw_real
+channel: gateway_wechat
+analysis_doc: docs/plans/wechat-real-dialogue-test-scenarios-2026-05.md
+implementation: tests/test_gateway_dev_conversations.py

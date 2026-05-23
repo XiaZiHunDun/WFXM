@@ -15,6 +15,8 @@ from butler.gateway.message_handler import (
     ButlerMessageHandler,
     _is_sessionless_command,
     _normalize_detail_request,
+    _normalize_status_request,
+    _normalize_switch_request,
 )
 from butler.report import AgentReport, Change, cache_report, clear_report_cache
 from butler.project_manager import ProjectManager
@@ -348,6 +350,16 @@ class TestSlashCommands:
         assert _normalize_detail_request("我要看一下详细信息") == "/详细"
         assert _normalize_detail_request("看一下详细") == "/详细"
         assert _normalize_detail_request("你好") is None
+
+    def test_normalize_switch_request_aliases(self):
+        assert _normalize_switch_request("切换到演示试点") == "/切换 演示试点"
+        assert _normalize_switch_request("切换至灵文1号") == "/切换 灵文1号"
+        assert _normalize_switch_request("你好") is None
+
+    def test_normalize_status_request_aliases(self):
+        assert _normalize_status_request("当前在哪个项目？") == "/状态"
+        assert _normalize_status_request("当前是什么项目") == "/状态"
+        assert _normalize_status_request("你好") is None
 
     def test_detail_plain_text_skips_llm(self, handler):
         clear_report_cache()

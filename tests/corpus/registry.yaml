@@ -1,0 +1,47 @@
+# Corpus suite registry — docs/plans/corpus-testing-module-design-2026-05.md
+
+suites:
+  - suite_id: dev_assistant.v1
+    title: 开发助手语料 v1
+    channel: agent_loop
+    runner: agent_loop_rubric
+    corpus_path: suites/dev_assistant/v1/corpus.yaml
+    extras:
+      - runners/test_v1_butler_lead.py
+    live_smoke_from_corpus: false
+
+  - suite_id: dev_assistant.v2
+    title: 开发助手语料 v2
+    channel: agent_loop
+    runner: agent_loop_rubric
+    corpus_path: suites/dev_assistant/v2/corpus.yaml
+    live_smoke_from_corpus: true
+
+  - suite_id: dev_assistant.v3
+    title: 开发助手语料 v3
+    channel: agent_loop
+    runner: agent_loop_rubric
+    corpus_path: suites/dev_assistant/v3/corpus.yaml
+    live_smoke_from_corpus: true
+
+  - suite_id: dev_assistant.v4
+    title: 开发助手语料 v4
+    channel: agent_loop
+    runner: agent_loop_rubric
+    corpus_path: suites/dev_assistant/v4/corpus.yaml
+    live_smoke_from_corpus: true
+
+  - suite_id: dev_assistant.v5
+    title: 开发助手语料 v5
+    channel: agent_loop
+    runner: agent_loop_rubric
+    corpus_path: suites/dev_assistant/v5/corpus.yaml
+    live_smoke_from_corpus: true
+
+  - suite_id: wechat_real.lw_real
+    title: 微信真机衍射 LW-REAL
+    channel: gateway_wechat
+    runner: gateway_scripted
+    corpus_path: suites/wechat_real/lw_real/corpus.yaml
+    test_module: runners/test_gateway_scripted.py
+    live_smoke_from_corpus: false

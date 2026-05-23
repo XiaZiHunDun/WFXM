@@ -62,6 +62,10 @@ markers = [
     "e2e: L4 end-to-end tests (full pipeline)",
     "slow: tests taking > 5s",
     "live_llm: requires real LLM API key (skip in CI)",
+    "corpus: corpus-driven evaluation (tests/corpus)",
+    "corpus_mock: corpus tests with mocked LLM (CI)",
+    "corpus_live: corpus tests with real LLM (implies live_llm)",
+    "corpus_smoke: corpus live smoke subset only",
 ]
 addopts = "-m 'not live_llm'"
 filterwarnings = [

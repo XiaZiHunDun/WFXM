@@ -15,6 +15,8 @@
 
 创建新项目：`butler create <slug> --name "显示名" --type software` · 登记已有目录：`butler project register <路径>`
 
+**注意**：Agent 工具调用或语料 live 可能在 `projects/` **根目录**生成临时文件（如 `rds-mysql/`、`shortlink/`）。这些不是用户项目，已列入根目录 `.gitignore`；发现后可直接删除，仅保留 `LingWen1/`、`DemoPilot/` 等登记目录。
+
 **全局配置示例**：[`docs/config/config.yaml.example`](../docs/config/config.yaml.example) → 复制到 `~/.butler/config.yaml`
 
 **项目接入（体检 + 清单）**：[`docs/guides/project-onboarding.md`](../docs/guides/project-onboarding.md) · `butler project preflight`
