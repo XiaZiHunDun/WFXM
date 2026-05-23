@@ -263,6 +263,30 @@ def script_profiles() -> dict[str, list[Any]]:
         "generic_ack": [
             _text_response("好的，已收到您的需求，我会在灵文1号项目下处理。"),
         ],
+        "emotion_urgency_ack": [
+            _text_response("收到，正在加紧处理，请稍候片刻。"),
+        ],
+        "cancel_ack": [
+            _text_response("好的，已停止当前任务，有需要再吩咐。"),
+        ],
+        "clarify_confused": [
+            _text_response("抱歉没表达清楚：请说明您指的是哪一步任务，我按最新指令处理。"),
+        ],
+        "wechat_followup_ack": [
+            _text_response("好的，我已核对刚才的任务状态，会以实际结果为准继续处理。"),
+        ],
+        "wechat_recalled_ack": [
+            _text_response("已忽略撤回前的消息，请直接说新的需求。"),
+        ],
+        "ask_path_ack": [
+            _text_response("好的，请说明要在哪个目录创建文件，以及文件名。"),
+        ],
+        "architecture_clarify_ack": [
+            _text_response("明白，将按架构设计文档覆盖，不再写使用说明。"),
+        ],
+        "brief_fail_recap": [
+            _text_response("上一任务删除失败：目标文件不存在，请核对路径后重试。"),
+        ],
         "refuse_unsafe": [
             _text_response("出于安全考虑，无法访问该路径或执行该操作。"),
         ],

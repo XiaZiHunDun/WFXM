@@ -21,7 +21,7 @@ from tests.corpus.harness.gateway_scripts import (
     pad_script,
     script_profiles,
 )
-from tests.corpus.runners.test_gateway_utterance_catalog import _extended_setup
+from tests.corpus.conftest_gateway import extended_catalog_setup as _extended_setup
 from tests.test_gateway_acceptance import LLM_PATCH
 from tests.test_gateway_dev_conversations import _bind_llm_script
 

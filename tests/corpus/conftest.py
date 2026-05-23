@@ -27,3 +27,7 @@ def corpus_registry() -> dict:
 @pytest.fixture(scope="session")
 def corpus_root() -> Path:
     return _CORPUS_ROOT
+
+
+# Gateway L1 fixtures (utterance / multiturn / variants runners)
+pytest_plugins = ["tests.corpus.conftest_gateway"]

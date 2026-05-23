@@ -867,13 +867,14 @@ utterance_catalog:
   - 定时任务：每天8点跑报告
   - 设置定时跑报告
   kind: llm
-  script: generic_ack
+  script: schedule_ops_ack
   expect:
     response_contains_any:
     - 定时
     - 任务
     - 报告
-    - 好的
+    - 已
+    - 规则
 - id: REF-STRICT-20260523-G01
   user: 报错了帮看下原因
   category: G_error_boundary
@@ -1218,7 +1219,7 @@ utterance_catalog:
   - 好了没
   - 等半天了
   kind: llm
-  script: generic_ack
+  script: emotion_urgency_ack
   expect:
     response_contains_any:
     - 好的
@@ -1226,6 +1227,7 @@ utterance_catalog:
     - 稍候
     - 正在
     - 完成
+    - 收到
 - id: REF-STRICT-20260523-K02
   user: 算了别做了
   category: K_emotion_urgency
@@ -1240,7 +1242,7 @@ utterance_catalog:
   - 停下
   - 不做了
   kind: llm
-  script: generic_ack
+  script: cancel_ack
   expect:
     response_contains_any:
     - 好的
@@ -1261,7 +1263,7 @@ utterance_catalog:
   - 没看懂
   - 说人话
   kind: llm
-  script: generic_ack
+  script: emotion_urgency_ack
   expect:
     response_contains_any:
     - 好的
@@ -1269,6 +1271,7 @@ utterance_catalog:
     - 稍候
     - 正在
     - 完成
+    - 收到
 - id: REF-STRICT-20260523-K04
   user: 能不能快点
   category: K_emotion_urgency
@@ -1283,7 +1286,7 @@ utterance_catalog:
   - 加急
   - 速度
   kind: llm
-  script: generic_ack
+  script: emotion_urgency_ack
   expect:
     response_contains_any:
     - 好的
@@ -1291,6 +1294,7 @@ utterance_catalog:
     - 稍候
     - 正在
     - 完成
+    - 收到
 - id: REF-STRICT-20260523-K05
   user: 刚才的详细报告太长了，给我一句话总结
   category: K_emotion_urgency
@@ -1327,7 +1331,7 @@ utterance_catalog:
   - 搞不定？
   - 就这？
   kind: llm
-  script: generic_ack
+  script: schedule_ops_ack
   expect:
     response_contains_any:
     - 好的
@@ -1335,6 +1339,7 @@ utterance_catalog:
     - 稍候
     - 正在
     - 完成
+    - 任务
 - id: REF-STRICT-20260523-L01
   user: 演示试点里那个文件也帮我改一下
   category: L_cross_project
@@ -1817,7 +1822,7 @@ utterance_catalog:
   - 你之前说错了
   - 引用消息：不对
   kind: llm
-  script: generic_ack
+  script: wechat_followup_ack
   expect:
     response_contains_any:
     - 好的
@@ -1882,7 +1887,7 @@ utterance_catalog:
   - 刚才的撤回
   - 撤了
   kind: llm
-  script: generic_ack
+  script: wechat_recalled_ack
   expect:
     response_contains_any:
     - 撤回

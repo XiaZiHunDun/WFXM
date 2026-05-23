@@ -1,6 +1,6 @@
 meta:
   version: 2026-05-24-multiturn-r1
-  chain_count: 20
+  chain_count: 22
   j_series_source_ids:
   - REAL-20260523-J01
   - REAL-20260523-J02
@@ -225,7 +225,7 @@ multiturn_catalog:
   turns:
   - user: 建个新文件
     kind: llm
-    script: generic_ack
+    script: ask_path_ack
     expect:
       response_contains_any:
       - 好的
@@ -234,13 +234,14 @@ multiturn_catalog:
       - 请问
   - user: docs下面
     kind: llm
-    script: generic_ack
+    script: plan_only
     expect:
       response_contains_any:
       - 好的
       - docs
       - 内容
       - 说明
+      - 方案
   - user: 写个使用说明就行
     kind: llm
     script: content_write_pilot_log
@@ -295,7 +296,7 @@ multiturn_catalog:
   turns:
   - user: 建个新文件
     kind: llm
-    script: generic_ack
+    script: ask_path_ack
     expect:
       response_contains_any:
       - 路径
@@ -303,13 +304,14 @@ multiturn_catalog:
       - 好的
   - user: docs下面
     kind: llm
-    script: generic_ack
+    script: plan_only
     expect:
       response_contains_any:
       - docs
       - 内容
       - 好的
       - 路径
+      - 方案
   - user: 写个使用说明就行
     kind: llm
     script: content_write_pilot_log
@@ -319,7 +321,7 @@ multiturn_catalog:
       - 完成
   - user: 不对，不是使用说明，是架构设计文档
     kind: llm
-    script: generic_ack
+    script: architecture_clarify_ack
     expect:
       response_contains_any:
       - 架构
@@ -423,7 +425,7 @@ multiturn_catalog:
       - 【本报告任务】
   - user: 用一句话告诉我怎么回事
     kind: llm
-    script: generic_ack
+    script: brief_fail_recap
     expect:
       response_contains_any:
       - 删除
@@ -534,3 +536,101 @@ multiturn_catalog:
       response_contains_any:
       - 灵文
       - Butler
+- id: MT-21
+  description: 创建→/详细→删除失败→/详细 不应仍展示创建成功（6轮）
+  fixture: lingwen
+  turns:
+  - user: 那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码
+    kind: llm
+    script: delegate_create_hello
+    expect:
+      file_exists:
+      - docs/test_hello.txt
+  - user: /详细
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains:
+      - test_hello
+  - user: 请交给开发代理：删除 docs/missing-mt21.txt
+    kind: llm
+    script: dev_delete_fail
+    expect:
+      response_contains_any:
+      - 未能
+      - 失败
+      - 代理
+  - user: /详细
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains_any:
+      - 未能
+      - 删除
+      - 【本报告任务】
+      response_excludes:
+      - 文件已创建
+      - test_hello.txt 已写入
+  - user: 用一句话告诉我怎么回事
+    kind: llm
+    script: brief_fail_recap
+    expect:
+      response_contains_any:
+      - 删除
+      - 失败
+      - 未能
+  - user: /状态
+    kind: command
+    expect:
+      response_contains_any:
+      - 灵文
+      - Butler
+- id: MT-22
+  description: 真机连发：状态→一句话→催办→/详细→/诊断→确认（6轮）
+  fixture: lingwen
+  setup: prior_delegate_create_hello
+  turns:
+  - user: /状态
+    kind: command
+    expect:
+      response_contains_any:
+      - 灵文
+      - Butler
+  - user: 用一句话总结刚才任务
+    kind: llm
+    script: brief_three_lines
+    expect:
+      response_max_lines: 8
+      response_contains_any:
+      - 创建
+      - 完成
+      - test_hello
+  - user: 能不能快点
+    kind: llm
+    script: emotion_urgency_ack
+    expect:
+      response_contains_any:
+      - 收到
+      - 稍候
+      - 正在
+      - 好的
+  - user: /详细
+    kind: detail
+    expect:
+      no_llm: true
+      response_contains_any:
+      - 【本报告任务】
+      - test_hello
+  - user: /诊断
+    kind: command
+    expect:
+      response_contains:
+      - Butler 诊断
+  - user: 好的知道了
+    kind: llm
+    script: cancel_ack
+    expect:
+      response_contains_any:
+      - 好的
+      - 明白
+      - 收到

@@ -277,8 +277,8 @@ def _profile(item: dict[str, Any]) -> dict[str, Any]:
         elif "定时" in u or "早8点" in u or "每天" in u:
             entry.update(
                 kind="llm",
-                script="generic_ack",
-                expect={"response_contains_any": ["定时", "任务", "报告", "好的"]},
+                script="schedule_ops_ack",
+                expect={"response_contains_any": ["定时", "任务", "报告", "已", "规则"]},
             )
         else:
             entry.update(kind="command", expect={"response_contains_any": ["工作流", "定时", "运行"]})
@@ -338,17 +338,29 @@ def _profile(item: dict[str, Any]) -> dict[str, Any]:
                 setup="cached_report_hello",
                 expect={"response_max_lines": 8, "response_contains_any": ["完成", "创建", "详细"]},
             )
-        elif "算了" in u or "别做" in u:
+        elif "算了" in u or "别做" in u or "取消" in u or "停下" in u or "不做了" in u:
             entry.update(
                 kind="llm",
-                script="generic_ack",
+                script="cancel_ack",
                 expect={"response_contains_any": ["好的", "取消", "停止", "明白"]},
+            )
+        elif any(x in u for x in ("催", "急", "快点", "慢", "还没", "好了没", "等")) or u in ("？", "???"):
+            entry.update(
+                kind="llm",
+                script="emotion_urgency_ack",
+                expect={"response_contains_any": ["好的", "执行", "稍候", "正在", "完成", "收到"]},
+            )
+        elif any(x in u for x in ("什么意思", "没看懂", "说人话")):
+            entry.update(
+                kind="llm",
+                script="clarify_confused",
+                expect={"response_contains_any": ["说明", "复述", "具体", "哪一步", "任务"]},
             )
         else:
             entry.update(
                 kind="llm",
-                script="generic_ack",
-                expect={"response_contains_any": ["好的", "执行", "稍候", "正在", "完成"]},
+                script="schedule_ops_ack",
+                expect={"response_contains_any": ["好的", "执行", "稍候", "正在", "完成", "任务"]},
             )
         return entry
 
@@ -391,7 +403,7 @@ def _profile(item: dict[str, Any]) -> dict[str, Any]:
         elif "引用" in u or "没完成" in u or "说错了" in u:
             entry.update(
                 kind="llm",
-                script="generic_ack",
+                script="wechat_followup_ack",
                 expect={"response_contains_any": ["好的", "核查", "确认", "状态", "实际", "完成"]},
             )
         elif "@" in u or "在吗" in u or "在？" in u:
@@ -403,7 +415,7 @@ def _profile(item: dict[str, Any]) -> dict[str, Any]:
         elif "撤回" in u:
             entry.update(
                 kind="llm",
-                script="generic_ack",
+                script="wechat_recalled_ack",
                 expect={"response_contains_any": ["撤回", "忽略", "新的", "需求"]},
             )
         else:
@@ -782,14 +794,14 @@ def build_multiturn_catalog(j_rows: list[dict[str, Any]]) -> dict[str, Any]:
                 {
                     "user": "建个新文件",
                     "kind": "llm",
-                    "script": "generic_ack",
+                    "script": "ask_path_ack",
                     "expect": {"response_contains_any": ["好的", "路径", "文件", "请问"]},
                 },
                 {
                     "user": "docs下面",
                     "kind": "llm",
-                    "script": "generic_ack",
-                    "expect": {"response_contains_any": ["好的", "docs", "内容", "说明"]},
+                    "script": "plan_only",
+                    "expect": {"response_contains_any": ["好的", "docs", "内容", "说明", "方案"]},
                 },
                 {
                     "user": "写个使用说明就行",
@@ -842,13 +854,13 @@ def build_multiturn_catalog(j_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "description": "需求改口：写说明→纠正为架构文档→覆盖（5轮）",
             "fixture": "lingwen",
             "turns": [
-                {"user": "建个新文件", "kind": "llm", "script": "generic_ack", "expect": {"response_contains_any": ["路径", "文件", "好的"]}},
-                {"user": "docs下面", "kind": "llm", "script": "generic_ack", "expect": {"response_contains_any": ["docs", "内容", "好的", "路径"]}},
+                {"user": "建个新文件", "kind": "llm", "script": "ask_path_ack", "expect": {"response_contains_any": ["路径", "文件", "好的"]}},
+                {"user": "docs下面", "kind": "llm", "script": "plan_only", "expect": {"response_contains_any": ["docs", "内容", "好的", "路径", "方案"]}},
                 {"user": "写个使用说明就行", "kind": "llm", "script": "content_write_pilot_log", "expect": {"response_contains_any": ["写入", "完成"]}},
                 {
                     "user": "不对，不是使用说明，是架构设计文档",
                     "kind": "llm",
-                    "script": "generic_ack",
+                    "script": "architecture_clarify_ack",
                     "expect": {"response_contains_any": ["架构", "覆盖", "确认", "好的"]},
                 },
                 {
@@ -933,7 +945,7 @@ def build_multiturn_catalog(j_rows: list[dict[str, Any]]) -> dict[str, Any]:
                 {
                     "user": "用一句话告诉我怎么回事",
                     "kind": "llm",
-                    "script": "generic_ack",
+                    "script": "brief_fail_recap",
                     "expect": {"response_contains_any": ["删除", "失败", "未能", "好的", "报告"]},
                 },
                 {
@@ -990,6 +1002,87 @@ def build_multiturn_catalog(j_rows: list[dict[str, Any]]) -> dict[str, Any]:
                 {"user": "帮我读一下../../etc/passwd", "kind": "llm", "script": "read_traversal_fail", "expect": {"response_contains_any": ["路径", "不允许"]}},
                 {"user": "列出docs目录", "kind": "llm", "script": "list_docs", "setup": "notes_on_disk", "expect": {"response_contains_any": ["docs", "文件"]}},
                 {"user": "/状态", "kind": "command", "expect": {"response_contains_any": ["灵文", "Butler"]}},
+            ],
+        },
+        {
+            "id": "MT-21",
+            "description": "创建→/详细→删除失败→/详细 不应仍展示创建成功（6轮）",
+            "fixture": "lingwen",
+            "turns": [
+                {
+                    "user": "那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码",
+                    "kind": "llm",
+                    "script": "delegate_create_hello",
+                    "expect": {"file_exists": ["docs/test_hello.txt"]},
+                },
+                {
+                    "user": "/详细",
+                    "kind": "detail",
+                    "expect": {"no_llm": True, "response_contains": ["test_hello"]},
+                },
+                {
+                    "user": "请交给开发代理：删除 docs/missing-mt21.txt",
+                    "kind": "llm",
+                    "script": "dev_delete_fail",
+                    "expect": {"response_contains_any": ["未能", "失败", "代理"]},
+                },
+                {
+                    "user": "/详细",
+                    "kind": "detail",
+                    "expect": {
+                        "no_llm": True,
+                        "response_contains_any": ["未能", "删除", "【本报告任务】"],
+                        "response_excludes": ["文件已创建", "test_hello.txt 已写入"],
+                    },
+                },
+                {
+                    "user": "用一句话告诉我怎么回事",
+                    "kind": "llm",
+                    "script": "brief_fail_recap",
+                    "expect": {"response_contains_any": ["删除", "失败", "未能"]},
+                },
+                {
+                    "user": "/状态",
+                    "kind": "command",
+                    "expect": {"response_contains_any": ["灵文", "Butler"]},
+                },
+            ],
+        },
+        {
+            "id": "MT-22",
+            "description": "真机连发：状态→一句话→催办→/详细→/诊断→确认（6轮）",
+            "fixture": "lingwen",
+            "setup": "prior_delegate_create_hello",
+            "turns": [
+                {"user": "/状态", "kind": "command", "expect": {"response_contains_any": ["灵文", "Butler"]}},
+                {
+                    "user": "用一句话总结刚才任务",
+                    "kind": "llm",
+                    "script": "brief_three_lines",
+                    "expect": {"response_max_lines": 8, "response_contains_any": ["创建", "完成", "test_hello"]},
+                },
+                {
+                    "user": "能不能快点",
+                    "kind": "llm",
+                    "script": "emotion_urgency_ack",
+                    "expect": {"response_contains_any": ["收到", "稍候", "正在", "好的"]},
+                },
+                {
+                    "user": "/详细",
+                    "kind": "detail",
+                    "expect": {"no_llm": True, "response_contains_any": ["【本报告任务】", "test_hello"]},
+                },
+                {
+                    "user": "/诊断",
+                    "kind": "command",
+                    "expect": {"response_contains": ["Butler 诊断"]},
+                },
+                {
+                    "user": "好的知道了",
+                    "kind": "llm",
+                    "script": "cancel_ack",
+                    "expect": {"response_contains_any": ["好的", "明白", "收到"]},
+                },
             ],
         },
     ]

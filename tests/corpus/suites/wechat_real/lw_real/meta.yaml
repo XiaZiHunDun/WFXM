@@ -73,14 +73,14 @@ catalog_tiers:
 targets:
   l0_smoke: 400
   l1_strict_single: 200
-  l1_multiturn_chains: 18
-  l1_multiturn_turns: 45
-  strict_generic_ack_max: 20
+  l1_multiturn_chains: 22
+  l1_multiturn_turns: 55
+  strict_generic_ack_max: 5
   handbook: 50
   reference_strict: 95
   production: 30
   coverage_min_strict_per_dim: 2
-  l1_multiturn_long_chains: 4
+  l1_multiturn_long_chains: 6
   variants_sample_max: 40
   variants_with_variants_min: 30
 

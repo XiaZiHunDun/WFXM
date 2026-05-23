@@ -23,11 +23,10 @@ from tests.corpus.harness.gateway_scripts import (
     pad_script,
     script_profiles,
 )
-from tests.corpus.runners.test_gateway_utterance_catalog import (
-    _extended_setup,
-    _resolved_session_key,
+from tests.corpus.conftest_gateway import (
+    extended_catalog_setup as _extended_setup,
+    resolved_session_key as _resolved_session_key,
 )
-from tests.test_gateway_acceptance import LLM_PATCH
 from tests.test_gateway_dev_conversations import (
     _bind_llm_script,
     _delegate_create_py_script,
@@ -127,18 +126,6 @@ def _run_turn(
 
 
 @pytest.fixture
-def patch_llm(mock_llm_response):
-    with (
-        patch(f"{LLM_PATCH}.complete") as mock_complete,
-        patch(f"{LLM_PATCH}.stream") as mock_stream,
-    ):
-        default = mock_llm_response()
-        mock_complete.return_value = default
-        mock_stream.return_value = default
-        yield mock_complete, mock_stream
-
-
-@pytest.fixture
 def multiturn_handlers(tmp_path, monkeypatch, tmp_butler_home):
     clear_report_cache()
     _setup_dual_gateway_projects(tmp_path, monkeypatch)
@@ -204,6 +191,6 @@ class TestGatewayMultiturnCatalog:
 
     def test_multiturn_count(self):
         chains = load_multiturn_catalog()
-        assert len(chains) >= 18
+        assert len(chains) >= 20
         long_chains = sum(1 for c in chains if len(c.get("turns") or []) >= 5)
-        assert long_chains >= 4, f"expected >=4 chains with 5+ turns, got {long_chains}"
+        assert long_chains >= 6, f"expected >=6 chains with 5+ turns, got {long_chains}"

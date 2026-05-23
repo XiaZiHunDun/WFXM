@@ -522,6 +522,39 @@ utterance_catalog:
       no_llm: true
       response_contains_any: [【本报告任务】, test_hello]
 
+  - id: P1-DET-06
+    user: "详细"
+    category: detail_alias_compact
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_hello
+    expect:
+      no_llm: true
+      response_contains: [【本报告任务】]
+      response_excludes: [仅摘要, 点击查看]
+
+  - id: P1-DET-07
+    user: "/详细"
+    category: detail_after_delete_fail
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_delete_fail
+    expect:
+      no_llm: true
+      response_contains_any: [删除, 未能, 【本报告任务】]
+      response_excludes: [文件已创建, test_hello.txt 已写入]
+
+  - id: P1-RT-01
+    user: "完整报告"
+    category: detail_repeat_full
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_hello
+    expect:
+      no_llm: true
+      response_contains: [【本报告任务】]
+      response_excludes: [仅摘要]
+
   - id: P1-FAIL-01
     user: "请交给开发代理：删除 docs/missing-p1-a.txt"
     category: delegate_delete_fail
@@ -568,9 +601,9 @@ utterance_catalog:
     fixture: lingwen
     kind: llm
     setup: cached_report_delete_fail
-    script: generic_ack
+    script: brief_fail_recap
     expect:
-      response_contains_any: [未能, 失败, 删除, 好的]
+      response_contains_any: [未能, 失败, 删除, 不存在]
 
   - id: P1-SEC-01
     user: "读取 /etc/passwd 前10行"
