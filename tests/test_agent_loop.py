@@ -821,7 +821,7 @@ class TestAgentLoopContext:
         loop = AgentLoop(
             mock_llm_client,
             system_prompt="sys",
-            config=LoopConfig(max_context_tokens=100, stream=False),
+            config=LoopConfig(max_context_tokens=128_000, stream=False),
         )
         loop.messages = [
             {"role": "system", "content": "sys"},
@@ -833,7 +833,7 @@ class TestAgentLoopContext:
                     {
                         "id": "call-1",
                         "type": "function",
-                        "function": {"name": "big", "arguments": "x" * 1000},
+                        "function": {"name": "big", "arguments": "x" * 8000},
                     }
                 ],
             },
@@ -844,15 +844,22 @@ class TestAgentLoopContext:
                     {
                         "id": "call-2",
                         "type": "function",
-                        "function": {"name": "big", "arguments": "y" * 1000},
+                        "function": {"name": "big", "arguments": "y" * 8000},
                     }
                 ],
             },
         ]
 
         before_tokens = loop._estimate_tokens(loop.messages)
+        token_reads = [100_000, 500]
 
-        with patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"):
+        def _est(_msgs):
+            return token_reads.pop(0) if token_reads else 500
+
+        with (
+            patch.object(loop._context, "estimate_tokens", side_effect=_est),
+            patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"),
+        ):
             did = loop.hygiene_compress_if_needed()
 
         assert did is True
