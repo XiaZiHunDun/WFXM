@@ -62,17 +62,18 @@ def test_hygiene_compress_skips_below_threshold():
 
 
 @pytest.mark.unit
-def test_hygiene_compress_uses_85_percent_threshold():
-    pipeline = ContextPipeline(LoopConfig(max_context_tokens=100))
+def test_hygiene_compress_when_over_auto_threshold():
+    pipeline = ContextPipeline(LoopConfig(max_context_tokens=128_000))
     messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
     compressed_msgs = [{"role": "user", "content": "summary"}]
     diagnostics: dict = {}
 
     with patch.object(pipeline, "compress_context", return_value=compressed_msgs) as compress:
-        compressed, updated = pipeline.hygiene_compress_if_needed(messages, diagnostics)
+        with patch.object(pipeline, "estimate_tokens", return_value=100_000):
+            compressed, updated = pipeline.hygiene_compress_if_needed(messages, diagnostics)
 
     assert compressed is True
     assert updated == compressed_msgs
     compress.assert_called_once()
-    assert compress.call_args.kwargs["threshold_ratio"] == 0.85
+    assert compress.call_args.kwargs["threshold_ratio"] == 0.0
     assert diagnostics["hygiene_compressed"] is True

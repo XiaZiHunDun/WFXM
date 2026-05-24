@@ -62,7 +62,12 @@ def get_auto_compact_threshold(
         max_output_tokens=max_output_tokens,
     )
     buffer = _int_env("BUTLER_CONTEXT_COMPACT_RESERVE", _AUTOCOMPACT_BUFFER_TOKENS)
-    return max(0, effective - buffer)
+    candidate = effective - buffer
+    # CC formula assumes 100k+ windows; tiny test/sandbox configs fall back to 85%.
+    ratio_floor = int(effective * 0.85)
+    if candidate < ratio_floor:
+        return max(100, ratio_floor)
+    return candidate
 
 
 def load_context_thresholds(

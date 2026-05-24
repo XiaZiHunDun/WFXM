@@ -732,21 +732,22 @@ class TestAgentLoopContext:
         assert "hygiene_estimated_tokens" not in loop.diagnostics
         assert "hygiene_messages_after" not in loop.diagnostics
 
-    def test_hygiene_compress_uses_85_percent_threshold(self, mock_llm_client):
+    def test_hygiene_compress_when_over_auto_threshold(self, mock_llm_client):
         loop = AgentLoop(
             mock_llm_client,
-            config=LoopConfig(max_context_tokens=100, stream=False),
+            config=LoopConfig(max_context_tokens=128_000, stream=False),
         )
         loop.messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
         compressed = [{"role": "user", "content": "summary"}]
 
-        with patch.object(loop._context, "compress_context", return_value=compressed) as compress:
-            did = loop.hygiene_compress_if_needed()
+        with patch.object(loop._context, "estimate_tokens", return_value=100_000):
+            with patch.object(loop._context, "compress_context", return_value=compressed) as compress:
+                did = loop.hygiene_compress_if_needed()
 
         assert did is True
         assert loop.messages == compressed
         compress.assert_called_once()
-        assert compress.call_args.kwargs["threshold_ratio"] == 0.85
+        assert compress.call_args.kwargs["threshold_ratio"] == 0.0
         assert loop.diagnostics["hygiene_compressed"] is True
         assert loop.diagnostics["hygiene_messages_before"] == 20
         assert loop.diagnostics["hygiene_messages_after"] == 1
