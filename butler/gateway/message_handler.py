@@ -572,6 +572,20 @@ def _normalize_switch_request(text: str) -> str | None:
 def _normalize_status_request(text: str) -> str | None:
     """Map project-status questions to ``/状态``."""
     stripped = (text or "").strip().rstrip("？?").strip()
+    purpose_hints = (
+        "做什么",
+        "干什么",
+        "用途",
+        "目的",
+        "介绍",
+        "是干嘛",
+        "干啥",
+        "干什么用",
+        "用来做什么",
+        "用来干什么",
+    )
+    if any(hint in stripped for hint in purpose_hints):
+        return None
     if stripped in (
         "当前在哪个项目",
         "当前是什么项目",
@@ -620,8 +634,11 @@ def _normalize_detail_request(text: str) -> str | None:
     lower = stripped.lower()
     if "报错" in stripped or "错误信息" in stripped:
         return None
-    if "/详细" in stripped or stripped.endswith("详细"):
-        return "/详细"
+    for marker, cmd in (("/详细", "/详细"), ("/detail", "/detail")):
+        idx = lower.find(marker)
+        if idx >= 0:
+            rest = stripped[idx + len(marker) :].strip().rstrip("，,。.!！?？")
+            return f"{cmd} {rest}".strip() if rest else cmd
     detail_aliases = {
         "/详细",
         "/detail",

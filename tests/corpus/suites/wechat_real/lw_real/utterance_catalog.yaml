@@ -544,6 +544,17 @@ utterance_catalog:
       response_contains_any: [删除, 未能, 【本报告任务】]
       response_excludes: [文件已创建, test_hello.txt 已写入]
 
+  - id: P1-DET-08
+    user: "/详细 变更"
+    category: detail_section_changes
+    fixture: lingwen
+    kind: detail
+    setup: cached_report_multi_changes
+    expect:
+      no_llm: true
+      response_contains_any: [a.md, b.md, 文件变更]
+      response_excludes: [方案 A, "决策:"]
+
   - id: P1-RT-01
     user: "完整报告"
     category: detail_repeat_full

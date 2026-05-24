@@ -346,6 +346,10 @@ class TestSlashCommands:
         assert _normalize_detail_request("详细") == "/详细"
         assert _normalize_detail_request("detail") == "/详细"
         assert _normalize_detail_request("详细 变更") == "/详细 变更"
+        assert _normalize_detail_request("/详细 变更") == "/详细 变更"
+        assert _normalize_detail_request("/详细 决策") == "/详细 决策"
+        assert _normalize_detail_request("/detail changes") == "/detail changes"
+        assert _normalize_detail_request("刚才删的文件，/详细") == "/详细"
         assert _normalize_detail_request("详细信息") == "/详细"
         assert _normalize_detail_request("我要看一下详细信息") == "/详细"
         assert _normalize_detail_request("看一下详细") == "/详细"
@@ -359,6 +363,7 @@ class TestSlashCommands:
     def test_normalize_status_request_aliases(self):
         assert _normalize_status_request("当前在哪个项目？") == "/状态"
         assert _normalize_status_request("当前是什么项目") == "/状态"
+        assert _normalize_status_request("当前是什么项目？灵文项目是做什么的？") is None
         assert _normalize_status_request("你好") is None
 
     def test_detail_plain_text_skips_llm(self, handler):
