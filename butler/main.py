@@ -146,11 +146,30 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
             continue
 
         from butler.gateway.hooks import apply_pre_llm_context
+        from butler.hooks.runner import run_user_prompt_submit_hooks
+
+        cli_sk = _cli_session_key()
+        prompt_hooks = run_user_prompt_submit_hooks(
+            user_input.strip(),
+            session_key=cli_sk,
+            platform="cli",
+        )
+        if prompt_hooks.blocked:
+            console.print(f"[yellow]{prompt_hooks.block_message}[/yellow]")
+            continue
+        if prompt_hooks.prevent_continuation:
+            console.print(
+                f"[yellow]{prompt_hooks.stop_message or '已停止（UserPromptSubmit hook）'}[/yellow]"
+            )
+            continue
 
         augmented = apply_pre_llm_context(
             orchestrator.inject_skill_context(user_input),
             orchestrator=orchestrator,
         )
+        if prompt_hooks.additional_context:
+            hook_ctx = "\n\n".join(prompt_hooks.additional_context)
+            augmented = f"{hook_ctx}\n\n{augmented}"
         ui.print_user_message(user_input)
         ui.begin_turn()
         stream = None
@@ -498,7 +517,15 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
 
     console = Console(stderr=True)
     orch = ButlerOrchestrator(user_id="owner", channel="cli")
+    from butler.hooks.runner import run_user_prompt_submit_hooks
+
+    prompt_hooks = run_user_prompt_submit_hooks(ns.message.strip(), session_key="cli", platform="cli")
+    if prompt_hooks.blocked:
+        print(prompt_hooks.block_message, file=sys.stderr)
+        return 1
     augmented = orch.inject_skill_context(ns.message)
+    if prompt_hooks.additional_context:
+        augmented = "\n\n".join(prompt_hooks.additional_context) + "\n\n" + augmented
     ui = ChatSessionUI(console, stream_title="exec")
     ui.print_user_message(ns.message)
     stream = ui.begin_turn()

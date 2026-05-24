@@ -1,13 +1,19 @@
 # Copy to ~/.butler/config.yaml under `hooks:` or to <project>/.butler/hooks.yaml
-# Claude Code–compatible events: PreToolUse exit 2 blocks; stdin receives JSON.
+# Claude Code–compatible events: PreToolUse / UserPromptSubmit exit 2 blocks; stdin JSON.
 
 hooks:
   PreToolUse:
     - matcher: "write_file|patch"
       command: "echo 'blocked by example hook' >&2; exit 2"
   PostToolUse:
-    - matcher: "read_file"
+    - matcher: read_file
       command: "echo 'read ok'"
+  UserPromptSubmit:
+    - matcher: "*"
+      command: "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":[\"[hook] git status stub\"]}}'"
+  PermissionDenied:
+    - matcher: write_file
+      command: "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PermissionDenied\",\"retry\":true}}'"
   SessionStart:
     - matcher: "*"
       command: "echo 'session started'"

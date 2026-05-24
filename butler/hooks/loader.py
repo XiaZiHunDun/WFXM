@@ -106,3 +106,20 @@ def match_tool(matcher: str, tool_name: str) -> bool:
     if "|" in pat:
         return any(match_tool(part.strip(), tool_name) for part in pat.split("|"))
     return fnmatch.fnmatch(tool_name, pat)
+
+
+def match_hook_query(matcher: str, query: str) -> bool:
+    """Match prompts or other free-text hook targets (substring or ``re:`` pattern)."""
+    pat = (matcher or "*").strip()
+    if pat in ("*", ""):
+        return True
+    if "|" in pat:
+        return any(match_hook_query(part.strip(), query) for part in pat.split("|"))
+    if pat.startswith("re:"):
+        import re
+
+        try:
+            return bool(re.search(pat[3:], query, re.DOTALL))
+        except re.error:
+            return False
+    return pat in query

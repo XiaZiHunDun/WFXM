@@ -6,12 +6,23 @@ import json
 import logging
 import os
 import subprocess
+import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from butler.hooks.loader import HookRule, load_hooks_config, match_tool
+from butler.hooks.loader import HookRule, load_hooks_config, match_hook_query, match_tool
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class UserPromptSubmitResult:
+    blocked: bool = False
+    block_message: str = ""
+    additional_context: list[str] = field(default_factory=list)
+    prevent_continuation: bool = False
+    stop_message: str = ""
 
 
 def _resolve_workspace() -> Path | None:
@@ -36,6 +47,25 @@ def _resolve_workspace() -> Path | None:
 
 def _rules_for_event(event: str) -> list[HookRule]:
     return [r for r in load_hooks_config(_resolve_workspace()) if r.event == event]
+
+
+def _parse_hook_stdout(stdout: str, event: str) -> dict[str, Any]:
+    text = (stdout or "").strip()
+    if not text:
+        return {}
+    try:
+        data = json.loads(text)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    specific = data.get("hookSpecificOutput") or data.get("hook_specific_output")
+    if not isinstance(specific, dict):
+        return {}
+    name = specific.get("hookEventName") or specific.get("hook_event_name")
+    if name and str(name) != event:
+        return {}
+    return specific
 
 
 def _hook_payload(
@@ -68,6 +98,88 @@ def _hook_payload(
         "tool_input": args,
         "tool_response": result,
     }
+
+
+def run_user_prompt_submit_hooks(
+    prompt: str,
+    *,
+    session_key: str = "",
+    platform: str = "unknown",
+) -> UserPromptSubmitResult:
+    """Run UserPromptSubmit hooks before an LLM turn. Exit 2 blocks the prompt."""
+    result = UserPromptSubmitResult()
+    payload = {
+        "hook_event_name": "UserPromptSubmit",
+        "prompt": prompt,
+        "session_key": session_key,
+        "platform": platform,
+    }
+    for rule in _rules_for_event("UserPromptSubmit"):
+        if not match_hook_query(rule.matcher, prompt):
+            continue
+        code, out, err = _run_hook(rule, payload)
+        if code == 2:
+            msg = (err or out or "UserPromptSubmit hook blocked prompt").strip()
+            result.blocked = True
+            result.block_message = msg[:2000] or "UserPromptSubmit hook blocked prompt"
+            return result
+        specific = _parse_hook_stdout(out, "UserPromptSubmit")
+        ctx = specific.get("additionalContext") or specific.get("additional_context")
+        if isinstance(ctx, list):
+            for item in ctx:
+                if str(item).strip():
+                    result.additional_context.append(str(item).strip()[:4000])
+        elif isinstance(ctx, str) and ctx.strip():
+            result.additional_context.append(ctx.strip()[:4000])
+        elif out.strip() and not specific:
+            result.additional_context.append(out.strip()[:4000])
+        if specific.get("preventContinuation") or specific.get("prevent_continuation"):
+            result.prevent_continuation = True
+            reason = str(
+                specific.get("stopReason") or specific.get("stop_reason") or ""
+            ).strip()
+            if reason:
+                result.stop_message = reason[:2000]
+        if code not in (0, None) and (out or err):
+            logger.warning(
+                "UserPromptSubmit hook exit %s: %s", code, (err or out)[:200]
+            )
+    return result
+
+
+def run_permission_denied_hooks(
+    tool_name: str,
+    args: dict[str, Any],
+    reason: str,
+    *,
+    tool_use_id: str = "",
+) -> str | None:
+    """Run PermissionDenied hooks; return optional hint for the model (e.g. retry allowed)."""
+    payload = {
+        "hook_event_name": "PermissionDenied",
+        "tool_name": tool_name,
+        "tool_input": args,
+        "tool_use_id": tool_use_id or uuid.uuid4().hex[:12],
+        "reason": reason,
+    }
+    hints: list[str] = []
+    for rule in _rules_for_event("PermissionDenied"):
+        if not match_tool(rule.matcher, tool_name):
+            continue
+        code, out, err = _run_hook(rule, payload)
+        specific = _parse_hook_stdout(out, "PermissionDenied")
+        if specific.get("retry") is True:
+            hints.append(
+                "PermissionDenied hook: retry is allowed; you may retry this tool."
+            )
+        msg = (err or out or "").strip()
+        if msg and code == 0:
+            hints.append(msg[:1500])
+        elif code not in (0, None) and msg:
+            logger.info("PermissionDenied hook exit %s for %s: %s", code, tool_name, msg[:200])
+    if not hints:
+        return None
+    return "\n".join(hints)
 
 
 def run_session_start_hooks(*, source: str = "clear") -> None:

@@ -90,11 +90,11 @@ def dispatch_tool(name: str, args: dict) -> str:
 
     plan_block = check_plan_mode_block(name, args)
     if plan_block:
-        return _finalize_tool_result(
+        return _permission_denied_tool_result(
             name,
             args,
-            {"error": plan_block, "code": "PLAN_MODE_BLOCKED"},
-            started_at=time.monotonic(),
+            plan_block,
+            code="PLAN_MODE_BLOCKED",
         )
 
     started_at = time.monotonic()
@@ -103,10 +103,11 @@ def dispatch_tool(name: str, args: dict) -> str:
 
         pre_block = run_pre_tool_hooks(name, args)
         if pre_block:
-            return _finalize_tool_result(
+            return _permission_denied_tool_result(
                 name,
                 args,
-                {"error": pre_block, "code": "HOOK_BLOCKED"},
+                pre_block,
+                code="HOOK_BLOCKED",
                 started_at=started_at,
             )
     except Exception as exc:
@@ -128,6 +129,31 @@ def dispatch_tool(name: str, args: dict) -> str:
             started_at=started_at,
         )
         return _apply_post_tool_hooks(name, args, err_result, failed=True)
+
+
+def _permission_denied_tool_result(
+    name: str,
+    args: dict,
+    reason: str,
+    *,
+    code: str,
+    started_at: float | None = None,
+) -> str:
+    payload: dict[str, Any] = {"error": reason, "code": code}
+    try:
+        from butler.hooks.runner import run_permission_denied_hooks
+
+        hint = run_permission_denied_hooks(name, args, reason)
+        if hint:
+            payload["permission_denied_hint"] = hint
+    except Exception as exc:
+        logger.debug("PermissionDenied hooks skipped: %s", exc)
+    return _finalize_tool_result(
+        name,
+        args,
+        payload,
+        started_at=started_at if started_at is not None else time.monotonic(),
+    )
 
 
 def _apply_post_tool_hooks(
@@ -243,6 +269,16 @@ def _finalize_tool_result(
             payload.setdefault("ok", False)
             payload.setdefault("tool", name)
             payload.setdefault("code", code)
+            err = str(payload.get("error") or "")
+            if err.startswith("Access denied"):
+                try:
+                    from butler.hooks.runner import run_permission_denied_hooks
+
+                    hint = run_permission_denied_hooks(name, args, err)
+                    if hint:
+                        payload["permission_denied_hint"] = hint
+                except Exception as exc:
+                    logger.debug("PermissionDenied hooks skipped: %s", exc)
         _record_tool_audit(name, args, ok=ok, code=code, started_at=started_at)
         return json.dumps(payload, ensure_ascii=False, default=str)
 

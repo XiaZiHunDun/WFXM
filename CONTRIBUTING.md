@@ -40,4 +40,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 
 - 微信：`/计划`、`/执行`、`/任务`；`/诊断` 含上下文用量档位；`/状态` 含规划模式
 - Hooks 示例：`butler/hooks/hooks.yaml.example`（可复制到 `~/.butler/config.yaml` 的 `hooks:` 段）
+  - `PreToolUse` / `PostToolUse` / `SessionStart`：工具与会话生命周期
+  - `UserPromptSubmit`：Gateway/CLI 入站消息进 LLM 前；`exit 2` 直接回复用户并跳过本轮
+  - `PermissionDenied`：规划模式 / Hook 拦截 / 路径 `Access denied` 时触发，可返回 `retry: true`
 - 可选环境变量：`BUTLER_DISABLE_AUTO_COMPACT`、`BUTLER_CONTEXT_*`、`BUTLER_MEMORY_MAX_LINES`

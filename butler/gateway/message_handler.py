@@ -219,6 +219,7 @@ class ButlerMessageHandler:
 
         from butler.execution_context import use_execution_context
         from butler.gateway.hooks import apply_pre_llm_context
+        from butler.hooks.runner import run_user_prompt_submit_hooks
 
         import time as _time
 
@@ -229,6 +230,16 @@ class ButlerMessageHandler:
             platform,
             text[:80],
         )
+
+        prompt_hooks = run_user_prompt_submit_hooks(
+            text.strip(),
+            session_key=session_key,
+            platform=platform,
+        )
+        if prompt_hooks.blocked:
+            return prompt_hooks.block_message
+        if prompt_hooks.prevent_continuation:
+            return prompt_hooks.stop_message or "已停止（UserPromptSubmit hook）"
 
         with use_execution_context(self._orchestrator, session_key=session_key):
             from butler.project_lead import gateway_loop_role
@@ -248,6 +259,9 @@ class ButlerMessageHandler:
                 session_key=session_key,
                 orchestrator=self._orchestrator,
             )
+            if prompt_hooks.additional_context:
+                hook_ctx = "\n\n".join(prompt_hooks.additional_context)
+                augmented = f"{hook_ctx}\n\n{augmented}"
 
             loop = self._get_or_create_loop(session_key)
 
