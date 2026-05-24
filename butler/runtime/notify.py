@@ -60,6 +60,16 @@ def _write_last_push_monotonic(ts: float) -> None:
     )
 
 
+def wait_wechat_push_cooldown() -> float:
+    """Shared cooldown for runtime push and gateway completion push."""
+    return _wait_push_cooldown()
+
+
+def mark_wechat_push_sent() -> None:
+    """Record a successful WeChat push (starts cooldown window)."""
+    _write_last_push_monotonic(time.monotonic())
+
+
 def _wait_push_cooldown() -> float:
     """Sleep if the previous runtime push was too recent. Returns seconds slept."""
     cooldown = _push_cooldown_seconds()
@@ -107,7 +117,7 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
     if len(text) > 4000:
         text = text[:3997] + "..."
 
-    _wait_push_cooldown()
+    wait_wechat_push_cooldown()
     try:
         from butler.gateway.platforms.wechat_ilink import send_wechat_direct
 
@@ -121,22 +131,42 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
         )
         ok = not result.get("error")
         if ok:
-            _write_last_push_monotonic(time.monotonic())
+            mark_wechat_push_sent()
         else:
             err = result.get("error")
             logger.warning("Runtime wechat push failed: %s", err)
-            if _should_enqueue_on_failure(err):
+            if should_enqueue_wechat_push_failure(err):
                 from butler.runtime.push_queue import enqueue_failed_push
 
                 enqueue_failed_push(title, body, chat_id=cid)
         return ok
     except Exception as exc:
         logger.exception("Runtime wechat push failed: %s", exc)
-        if _should_enqueue_on_failure(str(exc)):
+        if should_enqueue_wechat_push_failure(str(exc)):
             from butler.runtime.push_queue import enqueue_failed_push
 
             enqueue_failed_push(title, body, chat_id=cid)
         return False
+
+
+def should_enqueue_wechat_push_failure(err: str | None) -> bool:
+    """Whether a failed WeChat push should be queued for retry."""
+    if _should_enqueue_on_failure(err):
+        return True
+    msg = (err or "").lower()
+    return any(
+        token in msg
+        for token in (
+            "timeout",
+            "timed out",
+            "connection",
+            "network",
+            "refused",
+            "unavailable",
+            "503",
+            "502",
+        )
+    )
 
 
 def _should_enqueue_on_failure(err: str | None) -> bool:

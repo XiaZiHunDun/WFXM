@@ -72,3 +72,82 @@ def test_try_push_turn_complete_respects_completion_sent_flag():
     br = _bridge(ack_sent=True, elapsed=120.0)
     br._completion_push_sent = True
     assert not try_push_turn_complete(br, elapsed_seconds=120.0)
+
+
+def test_deliver_completion_push_enqueues_on_failure(tmp_path, monkeypatch):
+    import asyncio
+
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    adapter = MagicMock()
+    adapter.send = AsyncMock(
+        return_value=__import__(
+            "butler.gateway.platforms.types", fromlist=["SendResult"]
+        ).SendResult(success=False, error="rate limit exceeded")
+    )
+    ok = asyncio.run(
+        __import__(
+            "butler.gateway.completion_notify", fromlist=["deliver_completion_push"]
+        ).deliver_completion_push(adapter, "wx-1", "body", kind="delegate")
+    )
+    assert ok is False
+    queue = tmp_path / "runtime" / "push_queue.jsonl"
+    assert queue.is_file()
+    assert "完成提醒" in queue.read_text(encoding="utf-8")
+
+
+def test_deliver_completion_push_waits_cooldown(monkeypatch):
+    import asyncio
+
+    calls: list[str] = []
+
+    def _wait():
+        calls.append("wait")
+        return 0.0
+
+    def _mark():
+        calls.append("mark")
+
+    monkeypatch.setattr("butler.runtime.notify.wait_wechat_push_cooldown", _wait)
+    monkeypatch.setattr("butler.runtime.notify.mark_wechat_push_sent", _mark)
+    adapter = MagicMock()
+    adapter.send = AsyncMock(
+        return_value=__import__(
+            "butler.gateway.platforms.types", fromlist=["SendResult"]
+        ).SendResult(success=True)
+    )
+    ok = asyncio.run(
+        __import__(
+            "butler.gateway.completion_notify", fromlist=["deliver_completion_push"]
+        ).deliver_completion_push(adapter, "wx-1", "ok", kind="turn")
+    )
+    assert ok is True
+    assert calls == ["wait", "mark"]
+
+
+def test_workflow_failure_push(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    br = _bridge(ack_sent=True, elapsed=100.0)
+
+    def _run_coro(coro, loop):
+        loop.run_until_complete(coro)
+        return MagicMock()
+
+    with patch("asyncio.run_coroutine_threadsafe", side_effect=_run_coro):
+        from butler.gateway.completion_notify import try_push_workflow_failure
+
+        assert try_push_workflow_failure(
+            br,
+            "daily_report",
+            RuntimeError("step failed"),
+            session_key="s1",
+        )
+    text = br.adapter.send.call_args[0][1]
+    assert "工作流" in text
+    assert "未完成" in text or "失败" in text
+    br.loop.close()

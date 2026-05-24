@@ -271,8 +271,15 @@ class GatewayOutboundBridge:
             body = body[:3997] + "..."
 
         async def _send() -> None:
-            try:
-                await self.adapter.send(self.chat_id, body)
+            from butler.gateway.completion_notify import deliver_completion_push
+
+            ok = await deliver_completion_push(
+                self.adapter,
+                self.chat_id,
+                body,
+                kind=kind,
+            )
+            if ok:
                 self._completion_push_sent = True
                 logger.info(
                     "Gateway completion push sent kind=%s chat_id=%s len=%d",
@@ -280,8 +287,6 @@ class GatewayOutboundBridge:
                     self.chat_id[:12],
                     len(body),
                 )
-            except Exception as exc:
-                logger.warning("Gateway completion push failed kind=%s: %s", kind, exc)
 
         try:
             asyncio.run_coroutine_threadsafe(_send(), self.loop)

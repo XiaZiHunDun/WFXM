@@ -1222,12 +1222,14 @@ def _tool_skill_view(name: str, **_) -> str:
 
 def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
     """Execute a project workflow DAG via TaskOrchestrator."""
+    from butler.execution_context import get_current_session_key
+    from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+
+    bridge = get_gateway_bridge_optional()
+    session_key = ""
     try:
-        from butler.execution_context import get_current_session_key
-        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
         from butler.workflows.runner import run_workflow_for_project
 
-        bridge = get_gateway_bridge_optional()
         if bridge is not None:
             bridge.notify_workflow_step(name, "start", step_index=0, step_total=0)
 
@@ -1251,6 +1253,17 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
                 bridge.notify_workflow_finished(report)
         return json.dumps({"success": True, "summary": text}, ensure_ascii=False)
     except Exception as exc:
+        try:
+            from butler.gateway.completion_notify import try_push_workflow_failure
+
+            try_push_workflow_failure(
+                bridge,
+                name,
+                exc,
+                session_key=session_key or str(get_current_session_key() or ""),
+            )
+        except Exception as push_exc:
+            logger.debug("Workflow failure completion push skipped: %s", push_exc)
         return json.dumps({"error": str(exc)}, ensure_ascii=False)
 
 

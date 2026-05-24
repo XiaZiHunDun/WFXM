@@ -115,6 +115,76 @@ def should_push_turn_completion(
     return elapsed_turn_seconds >= min_elapsed_for_push()
 
 
+def _workflow_push_prefix(report: AgentReport) -> str:
+    if report.success:
+        return "📋 工作流阶段完成"
+    return "⚠️ 工作流未完成"
+
+
+async def deliver_completion_push(
+    adapter: Any,
+    chat_id: str,
+    body: str,
+    *,
+    kind: str,
+) -> bool:
+    """Send completion text with shared WeChat cooldown; enqueue on retryable failure."""
+    import asyncio
+
+    from butler.runtime.notify import (
+        mark_wechat_push_sent,
+        should_enqueue_wechat_push_failure,
+        wait_wechat_push_cooldown,
+    )
+    from butler.runtime.push_queue import enqueue_failed_push
+
+    await asyncio.to_thread(wait_wechat_push_cooldown)
+    title = f"[Butler] {kind}完成提醒"
+    try:
+        result = await adapter.send(chat_id, body)
+        err = getattr(result, "error", None)
+        success = getattr(result, "success", True)
+        if success is False or err:
+            raise RuntimeError(str(err or "send failed"))
+        await asyncio.to_thread(mark_wechat_push_sent)
+        return True
+    except Exception as exc:
+        logger.warning("Gateway completion push failed kind=%s: %s", kind, exc)
+        if should_enqueue_wechat_push_failure(str(exc)):
+            enqueue_failed_push(title, body, chat_id=chat_id)
+        return False
+
+
+def try_push_workflow_failure(
+    bridge: GatewayOutboundBridge | None,
+    workflow_name: str,
+    error: Exception | str,
+    *,
+    session_key: str = "",
+) -> bool:
+    from butler.report import AgentReport, cache_report, get_last_report
+
+    br = bridge
+    if br is None:
+        return False
+    report = get_last_report(session_key)
+    if report is None:
+        msg = str(error)[:2000]
+        report = AgentReport(
+            headline=f"工作流 {workflow_name} 失败",
+            summary=msg,
+            success=False,
+            task_preview=f"workflow:{workflow_name}"[:200],
+            issues=[msg[:500]],
+        )
+        cache_report(report, session_key=session_key or "default")
+    elapsed = time.monotonic() - br.turn_started_at if br.turn_started_at else 0.0
+    if not should_push_workflow_completion(br, elapsed):
+        return False
+    text = build_report_push_text(report, prefix=_workflow_push_prefix(report))
+    return br.schedule_completion_push(text, kind="workflow")
+
+
 def try_push_agent_report(
     report: AgentReport,
     *,
@@ -140,7 +210,7 @@ def try_push_agent_report(
     elif kind == "workflow":
         if not should_push_workflow_completion(br, elapsed):
             return False
-        prefix = "📋 工作流阶段完成"
+        prefix = _workflow_push_prefix(report)
     else:
         return False
     text = build_report_push_text(report, prefix=prefix)
