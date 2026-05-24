@@ -60,6 +60,10 @@ def _write_last_push_monotonic(ts: float) -> None:
     )
 
 
+def wechat_push_cooldown_seconds() -> float:
+    return _push_cooldown_seconds()
+
+
 def wait_wechat_push_cooldown() -> float:
     """Shared cooldown for runtime push and gateway completion push."""
     return _wait_push_cooldown()

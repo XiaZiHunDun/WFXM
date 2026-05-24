@@ -160,6 +160,15 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
         else:
             preview = str(stop_ctx)[:160]
         lines.append(f"上轮 Stop 注入: {preview}")
+    try:
+        from butler.gateway.completion_notify import format_outbound_diagnostic_lines
+
+        chat_id = ""
+        if health:
+            chat_id = str(health.get("platform_chat_id") or health.get("chat_id") or "")
+        lines.extend(format_outbound_diagnostic_lines(session_key, chat_id=chat_id))
+    except Exception:
+        lines.append("出站策略: 不可用")
     return lines
 
 

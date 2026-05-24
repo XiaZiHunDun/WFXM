@@ -64,6 +64,27 @@ def _trim_queue(path: Path) -> None:
     path.write_text("\n".join(lines[-_MAX_QUEUE:]) + "\n", encoding="utf-8")
 
 
+def count_pending_pushes(*, chat_id: str | None = None) -> int:
+    """Return number of rows in the push queue (optionally filter by chat_id)."""
+    path = _queue_path()
+    if not path.is_file():
+        return 0
+    cid = (chat_id or "").strip()
+    if not cid:
+        return sum(1 for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip())
+    count = 0
+    for ln in path.read_text(encoding="utf-8").splitlines():
+        if not ln.strip():
+            continue
+        try:
+            row = json.loads(ln)
+        except json.JSONDecodeError:
+            continue
+        if str(row.get("chat_id") or "").strip() == cid:
+            count += 1
+    return count
+
+
 def drain_push_queue(*, max_items: int = 3) -> dict[str, Any]:
     """
     Retry queued pushes (newest first). Called from runtime due / manual ops.

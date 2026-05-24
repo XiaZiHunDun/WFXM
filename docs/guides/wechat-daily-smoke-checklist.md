@@ -116,6 +116,26 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 **Owner 画像**：`~/.butler/tenants/default/memory/profile.json`；**勿**在画像写死默认项目名（见 `owner-profile-setup.md`）。
 
+### 线束与长任务完成提醒（发版后建议 10 分钟）
+
+> 覆盖：规划模式、Hooks、`/诊断` 用量、委派完成推送、progress ack、失败入队。  
+> 环境变量见 `.env.example` 与 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。
+
+| # | 发送 / 操作 | 预期 | 通过 | 备注 |
+|---|-------------|------|------|------|
+| H1 | `/诊断`（任意会话） | 含 **上下文用量**、**Shell hooks**、**出站策略**（委派模式/最短秒数/冷却） | ☐ | |
+| H2 | `/计划` → `/状态` | 状态含 **规划模式: 已开启** | ☐ | |
+| H3 | `/执行` | 退出规划；可再委派 | ☐ | |
+| H4 | 触发 **委派** 的长任务（如步骤 4） | ~30s 收到 progress ack「仍在处理…已委派」 | ☐ | |
+| H5 | 委派结束（未等管家收尾） | 收到 **第二条**：委派摘要（`📋 委派阶段完成`） | ☐ | `DELEGATE_COMPLETION_MODE=last` 时同轮第二次委派只保留最后一次 |
+| H6 | 管家最终回复 | **第三条** 为紧凑摘要；`/详细` 可看报告 | ☐ | |
+| H7 | `/任务` | 最近委派任务列表含 task_id | ☐ | |
+| H8 | `/新对话` | 清空；hook 最近记录重置 | ☐ | |
+| H9 | `butler runtime due` 或等 push-drain timer | 若曾限流入队，`/诊断` 队列待发减少 | ☐ | 可选 |
+| H10 | 自动化：`pytest tests/test_completion_notify.py tests/test_hooks_runner.py -q` | 全绿 | ☐ | 发版前 |
+
+---
+
 ### 阶段 1 · 只读读工厂（冒烟通过后）
 
 | # | 发送内容 | 通过 |

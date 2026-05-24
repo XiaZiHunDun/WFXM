@@ -63,6 +63,50 @@ def delegate_completion_max_each() -> int:
         return 3
 
 
+def format_outbound_diagnostic_lines(
+    session_key: str = "",
+    *,
+    chat_id: str = "",
+) -> list[str]:
+    """Lines for ``/诊断`` — completion notify policy + session push stats."""
+    from butler.gateway.completion_telemetry import (
+        completion_push_stats,
+        push_queue_pending_count,
+    )
+    from butler.runtime.notify import wechat_push_cooldown_seconds
+
+    mode = delegate_completion_mode()
+    flags: list[str] = []
+    if completion_notify_enabled():
+        flags.append("完成提醒:开")
+        flags.append(f"委派={mode}")
+        if mode == "each":
+            flags.append(f"each≤{delegate_completion_max_each()}")
+        flags.append(f"最短{int(min_elapsed_for_push())}s")
+        flags.append(f"冷却{int(wechat_push_cooldown_seconds())}s")
+        if not delegate_completion_enabled():
+            flags.append("委派推:关")
+        if not turn_completion_enabled():
+            flags.append("整轮推:关")
+        if not timeout_completion_enabled():
+            flags.append("超时推:关")
+    else:
+        flags.append("完成提醒:关")
+    lines = [f"出站策略: {' · '.join(flags)}"]
+    stats = completion_push_stats(session_key or chat_id)
+    if any(stats.values()):
+        lines.append(
+            "出站推送本轮: "
+            f"成功{stats['sent']} 失败{stats['failed']} 入队{stats['enqueued']}"
+        )
+    else:
+        lines.append("出站推送本轮: 无记录")
+    pending = push_queue_pending_count(chat_id=chat_id)
+    if pending:
+        lines.append(f"推送队列待发: {pending} 条")
+    return lines
+
+
 def format_elapsed(seconds: float) -> str:
     total = max(0, int(seconds))
     if total < 60:
@@ -208,6 +252,13 @@ async def deliver_completion_push(
     )
     from butler.runtime.push_queue import enqueue_failed_push
 
+    from butler.gateway.completion_telemetry import (
+        record_completion_push_enqueued,
+        record_completion_push_failed,
+        record_completion_push_sent,
+    )
+
+    telemetry_key = chat_id or ""
     await asyncio.to_thread(wait_wechat_push_cooldown)
     title = f"[Butler] {kind}完成提醒"
     try:
@@ -217,11 +268,15 @@ async def deliver_completion_push(
         if success is False or err:
             raise RuntimeError(str(err or "send failed"))
         await asyncio.to_thread(mark_wechat_push_sent)
+        record_completion_push_sent(session_key=telemetry_key)
         return True
     except Exception as exc:
         logger.warning("Gateway completion push failed kind=%s: %s", kind, exc)
         if should_enqueue_wechat_push_failure(str(exc)):
             enqueue_failed_push(title, body, chat_id=chat_id)
+            record_completion_push_enqueued(session_key=telemetry_key)
+        else:
+            record_completion_push_failed(session_key=telemetry_key)
         return False
 
 

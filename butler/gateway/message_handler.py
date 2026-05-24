@@ -251,6 +251,7 @@ class ButlerMessageHandler:
             health: dict[str, Any] = {
                 "session_key": session_key,
                 "platform": platform,
+                "platform_chat_id": external_id or "",
                 "last_user_query": text.strip()[:500],
                 "gateway_agent_role": loop_role,
             }
@@ -500,8 +501,10 @@ class ButlerMessageHandler:
             clear_plan_mode(session_key)
             try:
                 from butler.hooks.telemetry import reset_hook_telemetry
+                from butler.gateway.completion_telemetry import reset_completion_telemetry
 
                 reset_hook_telemetry(session_key)
+                reset_completion_telemetry(session_key)
             except Exception:
                 pass
             return handle_new_session_command(self._orchestrator, session_key, loop)
