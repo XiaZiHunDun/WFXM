@@ -212,11 +212,130 @@ def test_stop_hook_matches_status(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    run_stop_hooks(status="completed", last_assistant_message="done", session_key="s1")
+    result = run_stop_hooks(
+        status="completed", last_assistant_message="done", session_key="s1"
+    )
     assert marker.is_file()
+    assert not result.additional_context
     marker.unlink()
     run_stop_hooks(status="error", last_assistant_message="fail", session_key="s1")
     assert not marker.exists()
+
+
+def test_stop_hook_injects_additional_context(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    payload = json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "Stop",
+                "additionalContext": ["metrics-ok"],
+            }
+        }
+    )
+    hook = tmp_path / "stop_ctx.sh"
+    hook.write_text(f"#!/bin/sh\necho '{payload}'\n", encoding="utf-8")
+    hooks_dir = tmp_path / ".butler"
+    hooks_dir.mkdir(exist_ok=True)
+    (hooks_dir / "hooks.yaml").write_text(
+        f"""hooks:
+  Stop:
+    - matcher: "*"
+      command: sh {hook}
+""",
+        encoding="utf-8",
+    )
+
+    result = run_stop_hooks(status="completed", session_key="s1")
+    assert result.additional_context == ["metrics-ok"]
+
+
+def test_subagent_start_injects_context(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    payload = json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "SubagentStart",
+                "additionalContext": ["audit-line"],
+            }
+        }
+    )
+    hook = tmp_path / "sub.sh"
+    hook.write_text(f"#!/bin/sh\necho '{payload}'\n", encoding="utf-8")
+    hooks_dir = tmp_path / ".butler"
+    hooks_dir.mkdir(exist_ok=True)
+    (hooks_dir / "hooks.yaml").write_text(
+        f"""hooks:
+  SubagentStart:
+    - matcher: dev
+      command: sh {hook}
+""",
+        encoding="utf-8",
+    )
+
+    from butler.hooks.runner import run_subagent_start_hooks
+
+    ctx = run_subagent_start_hooks(
+        agent_type="dev",
+        agent_id="task-1",
+        task_preview="fix tests",
+        session_key="s1",
+    )
+    assert ctx == ["audit-line"]
+
+
+def test_health_report_lists_hook_telemetry(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    from butler.hooks.telemetry import record_hook_run
+    from butler.ops.health_report import HealthReportInput, build_health_report
+    from unittest.mock import MagicMock, patch
+
+    record_hook_run(
+        session_key="diag-s",
+        event="Stop",
+        exit_code=0,
+        preview="ok",
+    )
+    orch = MagicMock()
+    orch._settings = MagicMock()
+    orch.project_manager.get_current.return_value = None
+    with (
+        patch(
+            "butler.memory.diagnostics.format_memory_diagnostic_lines",
+            return_value=[],
+        ),
+        patch(
+            "butler.runtime.diagnostics.format_runtime_diagnostic_lines",
+            return_value=[],
+        ),
+        patch(
+            "butler.model_resolve.format_model_diagnostic_lines",
+            return_value=[],
+        ),
+        patch(
+            "butler.ops.snapshot.format_ops_diagnostic_lines",
+            return_value=[],
+        ),
+    ):
+        text = build_health_report(
+            HealthReportInput(
+                session_key="diag-s",
+                health=None,
+                tool_summary={"total": 0, "failed": 0, "codes": []},
+                mem_stats={},
+                orchestrator=orch,
+            )
+        )
+    assert "Shell hooks 最近" in text
+    assert "Stop exit=0" in text
 
 
 def test_agent_loop_emits_stop_hook(tmp_path, monkeypatch):

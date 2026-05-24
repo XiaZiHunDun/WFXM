@@ -57,4 +57,7 @@ Shell hooks 示例：`butler/hooks/hooks.yaml.example`
 | `PermissionDenied` | 规划模式 / Hook 拦截 / 路径拒绝 |
 | `SessionStart` | `/新对话` 清空后 |
 | `SessionEnd` | 会话销毁前（`reason`: `clear` / `finalize` / `shutdown` / `end`） |
-| `Stop` | 单轮 AgentLoop 结束（`matcher` 匹配 `status`: `completed` / `interrupted` / `error` / `tool_limit`） |
+| `Stop` | 单轮 AgentLoop 结束（`matcher` 匹配 `status`；可注入 `additionalContext` 到 `diagnostics.stop_hook_context`） |
+| `SubagentStart` | `delegate_task` 启动子代理前（`matcher` 匹配 `role`；上下文注入委派 prompt） |
+
+`/诊断` 会显示 **Shell hooks 配置** 与 **最近执行**（退出码 + 摘要）；委派与 Stop 注入另有单行摘要。

@@ -223,7 +223,7 @@ class AgentLoop:
         try:
             from butler.hooks.runner import run_stop_hooks
 
-            run_stop_hooks(
+            stop_hooks = run_stop_hooks(
                 status=status.value,
                 last_assistant_message=final_text or "",
                 session_key=steer_session,
@@ -231,6 +231,10 @@ class AgentLoop:
                 tool_calls=self._tool_calls_count,
                 elapsed_seconds=elapsed,
             )
+            if stop_hooks.additional_context:
+                self.diagnostics["stop_hook_context"] = list(
+                    stop_hooks.additional_context
+                )
         except Exception as exc:
             logger.debug("Stop hooks skipped: %s", exc)
         return result

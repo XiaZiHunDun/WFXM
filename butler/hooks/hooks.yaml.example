@@ -24,4 +24,7 @@ hooks:
       command: "echo 'session cleared'"
   Stop:
     - matcher: completed
-      command: "echo 'turn completed'"
+      command: "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"additionalContext\":[\"[hook] turn metrics stub\"]}}'"
+  SubagentStart:
+    - matcher: dev
+      command: "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":[\"[hook] delegate audit stub\"]}}'"

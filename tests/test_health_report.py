@@ -44,6 +44,7 @@ def test_build_health_report_static_branch():
     assert "上下文用量" in text
     assert "轮次诊断: 暂无" in text
     assert "记忆分层: test" in text
+    assert "Shell hooks" in text
     assert "工具调用:" not in text
 
 

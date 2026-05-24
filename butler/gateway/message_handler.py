@@ -492,6 +492,12 @@ class ButlerMessageHandler:
             from butler.plan_mode import clear_plan_mode
 
             clear_plan_mode(session_key)
+            try:
+                from butler.hooks.telemetry import reset_hook_telemetry
+
+                reset_hook_telemetry(session_key)
+            except Exception:
+                pass
             return handle_new_session_command(self._orchestrator, session_key, loop)
 
         if cmd in ("/detail", "/详细"):

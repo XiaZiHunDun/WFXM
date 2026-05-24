@@ -25,6 +25,11 @@ class UserPromptSubmitResult:
     stop_message: str = ""
 
 
+@dataclass
+class StopHookResult:
+    additional_context: list[str] = field(default_factory=list)
+
+
 def _resolve_workspace() -> Path | None:
     try:
         from butler.execution_context import get_current_orchestrator
@@ -47,6 +52,32 @@ def _resolve_workspace() -> Path | None:
 
 def _rules_for_event(event: str) -> list[HookRule]:
     return [r for r in load_hooks_config(_resolve_workspace()) if r.event == event]
+
+
+def _session_key_from_payload(payload: dict[str, Any]) -> str:
+    sk = str(payload.get("session_key") or "").strip()
+    if sk:
+        return sk
+    try:
+        from butler.execution_context import get_current_session_key
+
+        return str(get_current_session_key() or "").strip()
+    except Exception:
+        return ""
+
+
+def _collect_additional_context(specific: dict[str, Any], stdout: str) -> list[str]:
+    out: list[str] = []
+    ctx = specific.get("additionalContext") or specific.get("additional_context")
+    if isinstance(ctx, list):
+        for item in ctx:
+            if str(item).strip():
+                out.append(str(item).strip()[:4000])
+    elif isinstance(ctx, str) and ctx.strip():
+        out.append(ctx.strip()[:4000])
+    elif stdout.strip() and not specific:
+        out.append(stdout.strip()[:4000])
+    return out
 
 
 def _parse_hook_stdout(stdout: str, event: str) -> dict[str, Any]:
@@ -124,15 +155,7 @@ def run_user_prompt_submit_hooks(
             result.block_message = msg[:2000] or "UserPromptSubmit hook blocked prompt"
             return result
         specific = _parse_hook_stdout(out, "UserPromptSubmit")
-        ctx = specific.get("additionalContext") or specific.get("additional_context")
-        if isinstance(ctx, list):
-            for item in ctx:
-                if str(item).strip():
-                    result.additional_context.append(str(item).strip()[:4000])
-        elif isinstance(ctx, str) and ctx.strip():
-            result.additional_context.append(ctx.strip()[:4000])
-        elif out.strip() and not specific:
-            result.additional_context.append(out.strip()[:4000])
+        result.additional_context.extend(_collect_additional_context(specific, out))
         if specific.get("preventContinuation") or specific.get("prevent_continuation"):
             result.prevent_continuation = True
             reason = str(
@@ -221,8 +244,9 @@ def run_stop_hooks(
     iterations: int = 0,
     tool_calls: int = 0,
     elapsed_seconds: float = 0.0,
-) -> None:
+) -> StopHookResult:
     """Run Stop hooks after a single agent turn finishes."""
+    result = StopHookResult()
     payload = {
         "hook_event_name": "Stop",
         "status": status,
@@ -237,8 +261,45 @@ def run_stop_hooks(
         if not match_hook_query(rule.matcher, status):
             continue
         code, out, err = _run_hook(rule, payload)
+        specific = _parse_hook_stdout(out, "Stop")
+        result.additional_context.extend(_collect_additional_context(specific, out))
         if code not in (0, None) and (out or err):
             logger.info("Stop hook exit %s: %s", code, (err or out)[:200])
+    return result
+
+
+def run_subagent_start_hooks(
+    *,
+    agent_type: str,
+    agent_id: str,
+    task_preview: str = "",
+    task_id: str = "",
+    session_key: str = "",
+) -> list[str]:
+    """Run SubagentStart hooks before a delegated agent loop; return context to inject."""
+    contexts: list[str] = []
+    payload = {
+        "hook_event_name": "SubagentStart",
+        "agent_type": agent_type,
+        "agent_id": agent_id,
+        "task_preview": (task_preview or "")[:500],
+        "task_id": task_id,
+        "session_key": session_key,
+    }
+    for rule in _rules_for_event("SubagentStart"):
+        if not match_tool(rule.matcher, agent_type):
+            continue
+        code, out, err = _run_hook(rule, payload)
+        specific = _parse_hook_stdout(out, "SubagentStart")
+        contexts.extend(_collect_additional_context(specific, out))
+        if code not in (0, None) and (out or err):
+            logger.info(
+                "SubagentStart hook exit %s for %s: %s",
+                code,
+                agent_type,
+                (err or out)[:200],
+            )
+    return contexts
 
 
 def run_pre_tool_hooks(tool_name: str, args: dict[str, Any]) -> str | None:
@@ -320,9 +381,46 @@ def _run_hook(
             text=True,
             timeout=30,
         )
-        return proc.returncode, proc.stdout or "", proc.stderr or ""
+        code = proc.returncode
+        stdout = proc.stdout or ""
+        stderr = proc.stderr or ""
+        preview = (stderr or stdout or "").strip()[:120]
+        try:
+            from butler.hooks.telemetry import record_hook_run
+
+            record_hook_run(
+                session_key=_session_key_from_payload(payload),
+                event=str(payload.get("hook_event_name") or rule.event),
+                exit_code=code,
+                preview=preview,
+            )
+        except Exception:
+            pass
+        return code, stdout, stderr
     except subprocess.TimeoutExpired:
+        try:
+            from butler.hooks.telemetry import record_hook_run
+
+            record_hook_run(
+                session_key=_session_key_from_payload(payload),
+                event=str(payload.get("hook_event_name") or rule.event),
+                exit_code=None,
+                preview="hook timed out",
+            )
+        except Exception:
+            pass
         return None, "", "hook timed out"
     except Exception as exc:
         logger.warning("Hook command failed: %s", exc)
+        try:
+            from butler.hooks.telemetry import record_hook_run
+
+            record_hook_run(
+                session_key=_session_key_from_payload(payload),
+                event=str(payload.get("hook_event_name") or rule.event),
+                exit_code=None,
+                preview=str(exc)[:120],
+            )
+        except Exception:
+            pass
         return None, "", str(exc)

@@ -1346,6 +1346,21 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
         )
         task_id = str(task_record.get("task_id") or "")
 
+        try:
+            from butler.hooks.runner import run_subagent_start_hooks
+
+            subagent_ctx = run_subagent_start_hooks(
+                agent_type=role,
+                agent_id=task_id or f"delegate-{role}",
+                task_preview=task,
+                task_id=task_id,
+                session_key=session_key,
+            )
+            if subagent_ctx:
+                user_msg = "\n\n".join(subagent_ctx) + "\n\n" + user_msg
+        except Exception as exc:
+            logger.debug("SubagentStart hooks skipped: %s", exc)
+
         with use_execution_context(orch, session_key=session_key):
             result = agent.run(user_msg)
         sync_turn_memory(

@@ -141,7 +141,26 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         f"记忆上下文: {'已注入' if health.get('memory_context_injected') else '未注入'}",
         f"记忆同步: {'已同步' if not memory_sync.get('skipped', True) else '跳过'}",
         f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
-    ]
+    ] + _hook_diagnostic_lines(inp.session_key, health)
+
+
+def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> list[str]:
+    lines: list[str] = []
+    try:
+        from butler.hooks.telemetry import format_hook_diagnostic_lines
+
+        lines.extend(format_hook_diagnostic_lines(session_key))
+    except Exception:
+        lines.append("Shell hooks: 不可用")
+    loop = (health or {}).get("loop") if isinstance((health or {}).get("loop"), dict) else {}
+    stop_ctx = loop.get("stop_hook_context") if isinstance(loop, dict) else None
+    if stop_ctx:
+        if isinstance(stop_ctx, list):
+            preview = " | ".join(str(x)[:80] for x in stop_ctx[:2])
+        else:
+            preview = str(stop_ctx)[:160]
+        lines.append(f"上轮 Stop 注入: {preview}")
+    return lines
 
 
 def _tool_audit_lines(tool_summary: dict[str, Any]) -> list[str]:
@@ -169,6 +188,7 @@ def build_health_report(inp: HealthReportInput) -> str:
             "轮次诊断: 暂无（本会话尚无完整对话轮次）",
         ]
         lines.extend(_shared_diagnostic_lines(inp))
+        lines.extend(_hook_diagnostic_lines(inp.session_key, health))
         return "\n".join(lines)
 
     lines: list[str] = []
@@ -190,5 +210,6 @@ def build_health_report(inp: HealthReportInput) -> str:
         ]
         lines.extend(_shared_diagnostic_lines(inp))
 
+    lines.extend(_hook_diagnostic_lines(inp.session_key, health))
     lines.extend(_tool_audit_lines(tool_summary))
     return "\n".join(lines)
