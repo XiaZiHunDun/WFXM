@@ -87,7 +87,7 @@ BUTLER_RUN_REAL_API_SMOKE=1 CORPUS_ARCHIVE=1 PYTHONPATH=. \
 # 微信话术：主目录 + 严断言参考（CI 默认，~186 条）
 PYTHONPATH=. pytest tests/corpus/runners/test_gateway_utterance_catalog.py -q
 
-# 多轮链路（20 条，其中 4 条 ≥5 轮）
+# 多轮链路（22 条，其中 6 条 ≥5 轮）
 PYTHONPATH=. pytest tests/corpus/runners/test_gateway_multiturn_catalog.py -q
 
 # 参考语料全量冒烟（仅清单校验，不参与默认 parametrize）
@@ -114,4 +114,4 @@ PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
 
 - 模板：[`docs/plans/corpus-issue-map-template-2026-05.md`](../../docs/plans/corpus-issue-map-template-2026-05.md)
 - 合并地图（v1+v2+v3+LW-REAL）：[`docs/plans/corpus-issue-map-2026-05.md`](../../docs/plans/corpus-issue-map-2026-05.md)
-- 汇总脚本：`python3 scripts/summarize_corpus_run.py [path/to/run.jsonl]`
+- 汇总脚本：`python3 scripts/corpus/summarize_runs.py [--write docs/plans/corpus-issue-map-gateway-latest.md]`

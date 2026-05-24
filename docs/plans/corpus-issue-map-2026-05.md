@@ -106,7 +106,7 @@ PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
 | `2026-05-23-v1-p1-fix` | v1 DA-06、DA-31 重跑 |
 
 ```bash
-python3 scripts/summarize_corpus_run.py tests/corpus/archive/runs/<run_id>.jsonl
+python3 scripts/corpus/summarize_runs.py --write docs/plans/corpus-issue-map-gateway-latest.md
 ```
 
 ---

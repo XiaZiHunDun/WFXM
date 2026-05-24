@@ -55,6 +55,10 @@ projects/*/docs/workflow-output.md
 .pytest_cache/
 htmlcov/
 
+# Corpus live-run archives (local only; use summarize_runs.py)
+tests/corpus/archive/runs/*.jsonl
+!tests/corpus/archive/runs/.gitkeep
+
 # Reference code (large, keep separate — 主公维护，整理方案不修改)
 reference/
 

@@ -69,20 +69,19 @@ catalog_tiers:
       - runners/test_gateway_live_corpus.py
     ci: manual
 
-# 规模门禁（与 actual_tier_counts() 对齐，略低于实测值留缓冲）
+# 规模门禁（与 actual_tier_counts() 对齐，实测值减小幅缓冲）
 targets:
-  l0_smoke: 400
-  l1_strict_single: 200
+  l0_smoke: 440
+  l1_strict_single: 215
   l1_multiturn_chains: 22
-  l1_multiturn_turns: 55
-  strict_generic_ack_max: 5
-  handbook: 50
-  reference_strict: 95
-  production: 30
+  l1_multiturn_turns: 70
+  strict_generic_ack_max: 2
+  handbook: 70
+  reference_strict: 118
+  production: 28
   coverage_min_strict_per_dim: 2
   l1_multiturn_long_chains: 6
   variants_sample_max: 40
-  variants_with_variants_min: 30
 
 # 维度 × 深度（✓=已有 strict 或 multiturn；○=仅 smoke；—=待补）
 coverage_matrix:

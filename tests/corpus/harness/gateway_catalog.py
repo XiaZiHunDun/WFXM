@@ -255,3 +255,142 @@ def apply_catalog_setup(
             ),
             session_key=session_key,
         )
+    elif setup == "cached_report_smoke_write":
+        from butler.report import AgentReport, Change, cache_report, clear_report_cache
+
+        clear_report_cache(session_key)
+        cache_report(
+            AgentReport(
+                headline="内容代理已完成任务",
+                task_preview="写 docs/wechat-smoke.md",
+                summary="已写入 wechat-smoke.md",
+                changes=[Change("docs/wechat-smoke.md", "created", "微信验收")],
+                success=True,
+            ),
+            session_key=session_key,
+        )
+    elif setup == "cached_report_multi_changes":
+        from butler.report import AgentReport, Change, cache_report, clear_report_cache
+
+        clear_report_cache(session_key)
+        cache_report(
+            AgentReport(
+                headline="开发代理已完成任务",
+                summary="完整摘要",
+                changes=[
+                    Change("docs/a.md", "created", ""),
+                    Change("docs/b.md", "modified", ""),
+                ],
+                success=True,
+            ),
+            session_key=session_key,
+        )
+    elif setup == "patch_target_file":
+        rel = "docs/patch-target.txt"
+        (proj / rel).parent.mkdir(parents=True, exist_ok=True)
+        (proj / rel).write_text("OLD\n", encoding="utf-8")
+    elif setup == "scenario_temp_file":
+        rel = "docs/scenario-temp.txt"
+        (proj / rel).parent.mkdir(parents=True, exist_ok=True)
+        (proj / rel).write_text("temp\n", encoding="utf-8")
+    elif setup == "u1_report_u2_empty":
+        from butler.report import AgentReport, cache_report, clear_report_cache
+
+        clear_report_cache()
+        u1_sk = handler.resolve_session_key(
+            session_key="wechat:u1",
+            platform="wechat",
+            external_id="u1",
+        )
+        cache_report(
+            AgentReport(headline="report-for-u1-only", summary="u1"),
+            session_key=u1_sk,
+        )
+    elif setup == "notes_on_disk":
+        (proj / "docs" / "notes.md").write_text("# notes\n", encoding="utf-8")
+    elif setup == "copy_runtime_jobs":
+        import shutil
+
+        src = (
+            Path(__file__).resolve().parents[3]
+            / "projects"
+            / "DemoPilot"
+            / "runtime"
+            / "jobs.yaml"
+        )
+        if src.is_file():
+            dest = proj / "runtime"
+            dest.mkdir(parents=True, exist_ok=True)
+            shutil.copy(src, dest / "jobs.yaml")
+
+
+def run_catalog_turn(
+    entry: dict[str, Any],
+    *,
+    handler: Any,
+    session_key: str,
+    proj: Path,
+    helpers: dict[str, Callable[..., Any]],
+    patch_llm: tuple[Any, Any],
+    platform: str = "wechat",
+    external_id: str | None = None,
+) -> tuple[str, list[str] | None, bool | None]:
+    """Execute one catalog/multiturn turn; returns (response, tool_names, llm_called)."""
+    from unittest.mock import MagicMock, patch
+
+    from butler.core.agent_loop import LoopResult, LoopStatus
+    from tests.corpus.harness.gateway_scripts import (
+        final_text_from_script,
+        needs_real_tools,
+        pad_script,
+        script_profiles,
+    )
+    from tests.test_gateway_dev_conversations import _bind_llm_script
+
+    entry_id = entry.get("id", "?")
+    mock_complete, mock_stream = patch_llm
+    kind = entry.get("kind", "command")
+    tool_names: list[str] | None = None
+    llm_called: bool | None = None
+
+    msg_kw: dict[str, Any] = {"session_key": session_key, "platform": platform}
+    if external_id is not None:
+        msg_kw["external_id"] = external_id
+
+    if kind in ("command", "detail"):
+        with patch.object(handler, "_get_or_create_loop") as mock_loop:
+            out = handler.handle_message(entry["user"], **msg_kw)
+            llm_called = mock_loop.called
+        if not isinstance(out, str):
+            out = str(out)
+    elif kind == "llm":
+        script_name = entry.get("script")
+        script = script_profiles().get(script_name or "")
+        assert script, f"{entry_id}: unknown script {script_name!r}"
+        expect = entry.get("expect") or {}
+
+        if needs_real_tools(expect):
+            _bind_llm_script(mock_complete, mock_stream, pad_script(script))
+            from butler.tools.registry import dispatch_tool
+
+            with patch(
+                "butler.gateway.message_handler.dispatch_tool",
+                wraps=dispatch_tool,
+            ) as spy:
+                out = handler.handle_message(entry["user"], **msg_kw)
+                tool_names = [c[0][0] for c in spy.call_args_list if c[0]]
+            llm_called = True
+        else:
+            with patch.object(handler, "_get_or_create_loop") as mock_get:
+                loop = MagicMock()
+                loop.run.return_value = LoopResult(
+                    status=LoopStatus.COMPLETED,
+                    final_response=final_text_from_script(script),
+                )
+                mock_get.return_value = loop
+                out = handler.handle_message(entry["user"], **msg_kw)
+                llm_called = mock_get.called
+    else:
+        raise AssertionError(f"{entry_id}: unsupported kind {kind!r}")
+
+    return out, tool_names, llm_called

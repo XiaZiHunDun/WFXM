@@ -9,4 +9,10 @@
 
 字段见 [`docs/plans/corpus-testing-module-design-2026-05.md`](../../../docs/plans/corpus-testing-module-design-2026-05.md) 第五节。
 
-归纳多轮跑批后，人工整理到 `docs/plans/corpus-issue-map-YYYY-MM.md`。
+归纳多轮跑批后：
+
+```bash
+python3 scripts/corpus/summarize_runs.py --write docs/plans/corpus-issue-map-gateway-latest.md
+```
+
+`runs/*.jsonl` 为本地产物（已 gitignore），勿提交仓库。

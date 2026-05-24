@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-import yaml
 
 from tests.corpus.harness.gateway_catalog import _LW_REAL_DIR
 from tests.corpus.harness.gateway_golden import validate_golden_index
@@ -20,7 +17,6 @@ from tests.corpus.harness.gateway_meta import (
     variant_sample_ids,
 )
 from tests.corpus.harness.registry import get_suite, load_suite_corpus
-from tests.corpus.harness.registry import corpus_root, get_suite
 
 
 @pytest.mark.corpus
@@ -50,10 +46,10 @@ class TestGatewayModuleHealth:
         assert "runners/test_gateway_live_corpus.py" in modules
 
     def test_actual_counts_snapshot(self):
-        """文档化当前规模；失败时提示更新 meta.targets。"""
+        """规模由 validate_meta_targets 统一门禁；此处仅防回归为 0。"""
         counts = actual_tier_counts()
-        assert counts["l1_strict_single"] >= 200
-        assert counts["l1_multiturn_chains"] >= 18
+        assert counts["l1_strict_single"] > 0
+        assert counts["l1_multiturn_chains"] > 0
 
     def test_coverage_matrix_keys_documented(self):
         meta = load_gateway_meta()
