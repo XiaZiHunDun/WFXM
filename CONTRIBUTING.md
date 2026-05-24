@@ -75,3 +75,5 @@ Shell hooks 示例：`butler/hooks/hooks.yaml.example`
 环境变量：`BUTLER_GATEWAY_COMPLETION_NOTIFY`（总开关）、`BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS`（默认 90）、`BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY`、`BUTLER_GATEWAY_TURN_COMPLETION_NOTIFY`、`BUTLER_GATEWAY_WORKFLOW_COMPLETION_NOTIFY`。
 
 完成推送与 `runtime` 定时推送共用 `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` 冷却；发送失败（含限流/网络）时写入 `runtime/push_queue.jsonl`，由 `drain_push_queue` / runtime due 重试。工作流异常结束也会尝试推送失败摘要。
+
+委派完成推送模式：`BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE`（默认 `last` 仅最后一次委派；`each` 最多 `BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH` 次；`once` 仅第一次）。Gateway 处理超时且曾发 progress ack 时可推 `BUTLER_GATEWAY_TIMEOUT_COMPLETION_NOTIFY`。Shell hooks：`SubagentStop` 在委派结束触发。

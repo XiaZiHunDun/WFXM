@@ -47,6 +47,22 @@ def workflow_completion_enabled() -> bool:
     return _env_bool("BUTLER_GATEWAY_WORKFLOW_COMPLETION_NOTIFY", True)
 
 
+def timeout_completion_enabled() -> bool:
+    return _env_bool("BUTLER_GATEWAY_TIMEOUT_COMPLETION_NOTIFY", True)
+
+
+def delegate_completion_mode() -> str:
+    """last: only the final delegate in a turn pushes; each: up to N; once: first only."""
+    return (os.getenv("BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE", "last") or "last").strip().lower()
+
+
+def delegate_completion_max_each() -> int:
+    try:
+        return max(1, int(os.getenv("BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH", "3") or "3"))
+    except ValueError:
+        return 3
+
+
 def format_elapsed(seconds: float) -> str:
     total = max(0, int(seconds))
     if total < 60:
@@ -80,7 +96,10 @@ def should_push_delegate_completion(
 ) -> bool:
     if not completion_notify_enabled() or not delegate_completion_enabled():
         return False
-    if bridge.completion_push_sent:
+    mode = delegate_completion_mode()
+    if mode == "once" and bridge.delegate_push_count >= 1:
+        return False
+    if mode == "each" and bridge.delegate_push_count >= delegate_completion_max_each():
         return False
     if bridge.ack_sent:
         return True
@@ -108,11 +127,62 @@ def should_push_turn_completion(
 ) -> bool:
     if not completion_notify_enabled() or not turn_completion_enabled():
         return False
-    if bridge.completion_push_sent:
+    if bridge.completion_push_sent or bridge.timeout_notified:
         return False
     if not bridge.ack_sent:
         return False
     return elapsed_turn_seconds >= min_elapsed_for_push()
+
+
+def should_push_timeout_completion(
+    bridge: GatewayOutboundBridge,
+    elapsed_turn_seconds: float,
+) -> bool:
+    if not completion_notify_enabled() or not timeout_completion_enabled():
+        return False
+    if bridge.timeout_notified or bridge.completion_push_sent:
+        return False
+    return bridge.ack_sent or elapsed_turn_seconds >= min_elapsed_for_push()
+
+
+def build_timeout_text(*, timeout_seconds: float, elapsed_seconds: float) -> str:
+    limit = int(timeout_seconds)
+    return (
+        f"⏱ 处理超时（已超过 {limit} 秒，本轮约 {format_elapsed(elapsed_seconds)}）\n"
+        "请稍后重试，或发 /诊断 查看状态。"
+    )
+
+
+def try_push_turn_timeout(
+    bridge: GatewayOutboundBridge | None,
+    *,
+    timeout_seconds: float,
+    elapsed_seconds: float,
+) -> bool:
+    br = bridge
+    if br is None:
+        return False
+    if not should_push_timeout_completion(br, elapsed_seconds):
+        return False
+    return br.schedule_completion_push(
+        build_timeout_text(
+            timeout_seconds=timeout_seconds,
+            elapsed_seconds=elapsed_seconds,
+        ),
+        kind="timeout",
+    )
+
+
+def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
+    """Push deferred delegate report (``delegate_completion_mode=last``)."""
+    report = bridge.take_pending_delegate_report()
+    if report is None:
+        return False
+    elapsed = time.monotonic() - bridge.turn_started_at if bridge.turn_started_at else 0.0
+    if not should_push_delegate_completion(bridge, elapsed):
+        return False
+    text = build_report_push_text(report, prefix="📋 委派阶段完成")
+    return bridge.schedule_completion_push(text, kind="delegate")
 
 
 def _workflow_push_prefix(report: AgentReport) -> str:
@@ -204,6 +274,9 @@ def try_push_agent_report(
         else (time.monotonic() - br.turn_started_at if br.turn_started_at else 0.0)
     )
     if kind == "delegate":
+        if delegate_completion_mode() == "last":
+            br.set_pending_delegate_report(report)
+            return True
         if not should_push_delegate_completion(br, elapsed):
             return False
         prefix = "📋 委派阶段完成"

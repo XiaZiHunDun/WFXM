@@ -71,6 +71,7 @@ async def _butler_message_handler(
     if source is None:
         return None
     bridge = getattr(event, "gateway_bridge", None)
+    handler_timeout = _HANDLER_TIMEOUT_SECONDS
 
     def _run_in_worker() -> str:
         from butler.gateway.outbound_bridge import set_current_bridge
@@ -91,18 +92,20 @@ async def _butler_message_handler(
     try:
         return await asyncio.wait_for(
             loop.run_in_executor(_HANDLER_EXECUTOR, _run_in_worker),
-            timeout=_HANDLER_TIMEOUT_SECONDS,
+            timeout=handler_timeout,
         )
     except asyncio.TimeoutError:
         logger.error(
             "Gateway handler timed out after %.0fs (chat_id=%s preview=%r)",
-            _HANDLER_TIMEOUT_SECONDS,
+            handler_timeout,
             source.chat_id,
             text[:80],
         )
+        if bridge is not None:
+            bridge.notify_turn_timeout(timeout_seconds=handler_timeout)
         return (
-            f"处理超时（>{int(_HANDLER_TIMEOUT_SECONDS)}秒）。"
-            "请稍后重试，或发 /health 查看状态；必要时重启 butler-gateway。"
+            f"处理超时（>{int(handler_timeout)}秒）。"
+            "请稍后重试，或发 /诊断 查看状态；必要时重启 butler-gateway。"
         )
 
 

@@ -43,7 +43,8 @@ def test_should_push_turn_after_ack_and_min_elapsed(monkeypatch):
     assert should_push_turn_completion(br, 120.0)
 
 
-def test_try_push_agent_report_schedules_send():
+def test_try_push_agent_report_schedules_send(monkeypatch):
+    monkeypatch.setenv("BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE", "each")
     br = _bridge(ack_sent=True, elapsed=100.0)
     report = AgentReport(headline="开发代理已完成任务", summary="ok", success=True)
 

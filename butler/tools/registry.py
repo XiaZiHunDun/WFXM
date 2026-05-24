@@ -1267,6 +1267,30 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
         return json.dumps({"error": str(exc)}, ensure_ascii=False)
 
 
+def _run_subagent_stop_hooks(
+    *,
+    role: str,
+    agent_id: str,
+    success: bool,
+    task_id: str = "",
+    session_key: str = "",
+    summary_preview: str = "",
+) -> None:
+    try:
+        from butler.hooks.runner import run_subagent_stop_hooks
+
+        run_subagent_stop_hooks(
+            agent_type=role,
+            agent_id=agent_id,
+            success=success,
+            task_id=task_id,
+            session_key=session_key,
+            summary_preview=summary_preview,
+        )
+    except Exception as exc:
+        logger.debug("SubagentStop hooks skipped: %s", exc)
+
+
 def _finalize_delegate_failure(
     *,
     role: str,
@@ -1297,6 +1321,14 @@ def _finalize_delegate_failure(
         issues=[summary[:500]],
     )
     cache_report(report, session_key=session_key or "default")
+    _run_subagent_stop_hooks(
+        role=role,
+        agent_id=task_id or f"delegate-{role}",
+        success=False,
+        task_id=task_id,
+        session_key=session_key,
+        summary_preview=summary,
+    )
     try:
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
 
@@ -1432,6 +1464,14 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             success=success,
             report_headline=report.headline,
             summary=report.summary,
+        )
+        _run_subagent_stop_hooks(
+            role=role,
+            agent_id=task_id or f"delegate-{role}",
+            success=success,
+            task_id=task_id,
+            session_key=session_key,
+            summary_preview=report.summary,
         )
         if bridge is not None:
             bridge.notify_delegate_finished(report)

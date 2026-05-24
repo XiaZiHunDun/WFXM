@@ -302,6 +302,39 @@ def run_subagent_start_hooks(
     return contexts
 
 
+def run_subagent_stop_hooks(
+    *,
+    agent_type: str,
+    agent_id: str,
+    success: bool,
+    task_id: str = "",
+    session_key: str = "",
+    summary_preview: str = "",
+) -> None:
+    """Run SubagentStop hooks after a delegated agent loop finishes."""
+    payload = {
+        "hook_event_name": "SubagentStop",
+        "agent_type": agent_type,
+        "agent_id": agent_id,
+        "success": success,
+        "task_id": task_id,
+        "session_key": session_key,
+        "summary_preview": (summary_preview or "")[:500],
+        "stop_hook_active": True,
+    }
+    for rule in _rules_for_event("SubagentStop"):
+        if not match_tool(rule.matcher, agent_type):
+            continue
+        code, out, err = _run_hook(rule, payload)
+        if code not in (0, None) and (out or err):
+            logger.info(
+                "SubagentStop hook exit %s for %s: %s",
+                code,
+                agent_type,
+                (err or out)[:200],
+            )
+
+
 def run_pre_tool_hooks(tool_name: str, args: dict[str, Any]) -> str | None:
     """Run PreToolUse hooks. Return error string to block tool, or None to continue."""
     for rule in _rules_for_event("PreToolUse"):

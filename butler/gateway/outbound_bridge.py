@@ -79,6 +79,9 @@ class GatewayOutboundBridge:
     _final_sent: bool = field(default=False, init=False)
     _ack_sent: bool = field(default=False, init=False)
     _completion_push_sent: bool = field(default=False, init=False)
+    _delegate_push_count: int = field(default=0, init=False)
+    _pending_delegate_report: Any = field(default=None, init=False)
+    _timeout_notified: bool = field(default=False, init=False)
     _typing_task: asyncio.Task[None] | None = field(default=None, init=False)
     _ack_task: asyncio.Task[None] | None = field(default=None, init=False)
     _closed: bool = field(default=False, init=False)
@@ -103,6 +106,22 @@ class GatewayOutboundBridge:
     def completion_push_sent(self) -> bool:
         return self._completion_push_sent
 
+    @property
+    def delegate_push_count(self) -> int:
+        return self._delegate_push_count
+
+    @property
+    def timeout_notified(self) -> bool:
+        return self._timeout_notified
+
+    def set_pending_delegate_report(self, report: Any) -> None:
+        self._pending_delegate_report = report
+
+    def take_pending_delegate_report(self) -> Any:
+        report = self._pending_delegate_report
+        self._pending_delegate_report = None
+        return report
+
     @classmethod
     def for_event(
         cls,
@@ -121,6 +140,9 @@ class GatewayOutboundBridge:
         self._final_sent = False
         self._ack_sent = False
         self._completion_push_sent = False
+        self._delegate_push_count = 0
+        self._pending_delegate_report = None
+        self._timeout_notified = False
         self._closed = False
         self.delegate_role = ""
         self.workflow_name = ""
@@ -176,12 +198,9 @@ class GatewayOutboundBridge:
         role = str(role or "").strip()
         if not role:
             return
-
-        def _apply() -> None:
-            self.delegate_role = role
-            logger.info("Gateway milestone delegate_start role=%s preview=%r", role, preview[:40])
-
-        self.emit_threadsafe(_apply)
+        self.flush_pending_delegate_completion()
+        self.delegate_role = role
+        logger.info("Gateway milestone delegate_start role=%s preview=%r", role, preview[:40])
 
     def notify_workflow_step(
         self,
@@ -227,8 +246,13 @@ class GatewayOutboundBridge:
     def on_tool_complete(self, name: str, result: str) -> None:
         del name, result
 
+    def flush_pending_delegate_completion(self) -> None:
+        from butler.gateway.completion_notify import flush_pending_delegate_completion
+
+        flush_pending_delegate_completion(self)
+
     def notify_delegate_finished(self, report: Any) -> None:
-        """Push delegate AgentReport to WeChat when the user was kept waiting."""
+        """Push or defer delegate AgentReport (see delegate_completion_mode)."""
         from butler.gateway.completion_notify import try_push_agent_report
 
         elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
@@ -237,6 +261,16 @@ class GatewayOutboundBridge:
             kind="delegate",
             bridge=self,
             elapsed_turn_seconds=elapsed,
+        )
+
+    def notify_turn_timeout(self, *, timeout_seconds: float) -> None:
+        from butler.gateway.completion_notify import try_push_turn_timeout
+
+        elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
+        try_push_turn_timeout(
+            self,
+            timeout_seconds=timeout_seconds,
+            elapsed_seconds=elapsed,
         )
 
     def notify_workflow_finished(self, report: Any) -> None:
@@ -257,14 +291,19 @@ class GatewayOutboundBridge:
         """Call after the main WeChat reply was sent (see platforms/base.py)."""
         from butler.gateway.completion_notify import try_push_turn_complete
 
+        self.flush_pending_delegate_completion()
         elapsed = self._last_turn_elapsed
         if elapsed <= 0 and self._started_at:
             elapsed = time.monotonic() - self._started_at
         try_push_turn_complete(self, elapsed_seconds=elapsed)
 
     def schedule_completion_push(self, text: str, *, kind: str) -> bool:
-        """Thread-safe: send an extra completion message (before final reply)."""
-        if self._closed or self._completion_push_sent or not (text or "").strip():
+        """Thread-safe: send an extra completion message."""
+        if self._closed or not (text or "").strip():
+            return False
+        if kind in ("turn", "workflow") and self._completion_push_sent:
+            return False
+        if kind == "timeout" and (self._timeout_notified or self._completion_push_sent):
             return False
         body = (text or "").strip()
         if len(body) > 4000:
@@ -280,7 +319,12 @@ class GatewayOutboundBridge:
                 kind=kind,
             )
             if ok:
-                self._completion_push_sent = True
+                if kind == "delegate":
+                    self._delegate_push_count += 1
+                else:
+                    self._completion_push_sent = True
+                if kind == "timeout":
+                    self._timeout_notified = True
                 logger.info(
                     "Gateway completion push sent kind=%s chat_id=%s len=%d",
                     kind,

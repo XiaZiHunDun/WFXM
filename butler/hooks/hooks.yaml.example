@@ -28,3 +28,6 @@ hooks:
   SubagentStart:
     - matcher: dev
       command: "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"SubagentStart\",\"additionalContext\":[\"[hook] delegate audit stub\"]}}'"
+  SubagentStop:
+    - matcher: dev
+      command: "echo 'subagent stopped'"

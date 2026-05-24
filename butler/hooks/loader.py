@@ -20,6 +20,7 @@ _HOOK_EVENTS = (
     "SessionEnd",
     "Stop",
     "SubagentStart",
+    "SubagentStop",
 )
 
 

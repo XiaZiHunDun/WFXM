@@ -11,6 +11,7 @@ from butler.hooks.runner import (
     run_session_start_hooks,
     run_stop_hooks,
     run_subagent_start_hooks,
+    run_subagent_stop_hooks,
     run_user_prompt_submit_hooks,
 )
 from butler.hooks.telemetry import format_hook_diagnostic_lines, reset_hook_telemetry
@@ -28,5 +29,6 @@ __all__ = [
     "run_session_end_hooks",
     "run_stop_hooks",
     "run_subagent_start_hooks",
+    "run_subagent_stop_hooks",
     "run_user_prompt_submit_hooks",
 ]
