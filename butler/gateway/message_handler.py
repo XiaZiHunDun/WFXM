@@ -67,7 +67,7 @@ class ButlerMessageHandler:
     def _finalize_session(self, loop: AgentLoop) -> None:
         from butler.session_lifecycle import trigger_session_end
 
-        trigger_session_end(self._orchestrator, loop)
+        trigger_session_end(self._orchestrator, loop, reason="finalize")
 
     def _get_or_create_loop(self, session_key: str) -> AgentLoop:
         self._session_registry.evict_idle()

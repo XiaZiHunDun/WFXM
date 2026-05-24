@@ -254,7 +254,7 @@ def _trigger_session_end(
 ) -> None:
     """Trigger post-session processing (memory/skill extraction)."""
     from butler.session_lifecycle import trigger_session_end
-    trigger_session_end(orchestrator, agent_loop)
+    trigger_session_end(orchestrator, agent_loop, reason="shutdown")
 
 
 def _handle_slash_command(

@@ -1,4 +1,8 @@
-"""Lightweight hook bus for Butler gateway and agent loop."""
+"""Lightweight in-process hook bus for Gateway / AgentLoop.
+
+For shell scripts and Claude Code–compatible hooks, use ``butler.hooks.runner``
+(``hooks.yaml``). This module is for Python-only, low-latency context injection.
+"""
 
 from __future__ import annotations
 

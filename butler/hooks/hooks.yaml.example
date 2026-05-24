@@ -1,5 +1,7 @@
 # Copy to ~/.butler/config.yaml under `hooks:` or to <project>/.butler/hooks.yaml
-# Claude Code–compatible events: PreToolUse / UserPromptSubmit exit 2 blocks; stdin JSON.
+# Claude Code–compatible shell hooks (stdin JSON). See CONTRIBUTING.md § Butler 线束.
+#
+# Process-internal hooks (pre_llm_call, pre_gateway_dispatch) live in butler/gateway/hooks.py.
 
 hooks:
   PreToolUse:
@@ -17,3 +19,9 @@ hooks:
   SessionStart:
     - matcher: "*"
       command: "echo 'session started'"
+  SessionEnd:
+    - matcher: clear
+      command: "echo 'session cleared'"
+  Stop:
+    - matcher: completed
+      command: "echo 'turn completed'"

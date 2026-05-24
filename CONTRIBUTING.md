@@ -39,8 +39,22 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 ## Butler 线束（规划 / 上下文 / Hooks）
 
 - 微信：`/计划`、`/执行`、`/任务`；`/诊断` 含上下文用量档位；`/状态` 含规划模式
-- Hooks 示例：`butler/hooks/hooks.yaml.example`（可复制到 `~/.butler/config.yaml` 的 `hooks:` 段）
-  - `PreToolUse` / `PostToolUse` / `SessionStart`：工具与会话生命周期
-  - `UserPromptSubmit`：Gateway/CLI 入站消息进 LLM 前；`exit 2` 直接回复用户并跳过本轮
-  - `PermissionDenied`：规划模式 / Hook 拦截 / 路径 `Access denied` 时触发，可返回 `retry: true`
 - 可选环境变量：`BUTLER_DISABLE_AUTO_COMPACT`、`BUTLER_CONTEXT_*`、`BUTLER_MEMORY_MAX_LINES`
+
+### 两套 Hook（不要混用）
+
+| 机制 | 配置 | 适用 |
+|------|------|------|
+| **Shell hooks（CC 协议）** | `hooks.yaml` / `config.yaml` 的 `hooks:` | 运维脚本、审计、与 Claude Code 配置复用 |
+| **进程内 hooks** | `butler/gateway/hooks.py` 的 `register_hook` | 低延迟拼上下文、`pre_gateway_dispatch` 改写 |
+
+Shell hooks 示例：`butler/hooks/hooks.yaml.example`
+
+| 事件 | 触发时机 |
+|------|----------|
+| `PreToolUse` / `PostToolUse` | 工具调用前后 |
+| `UserPromptSubmit` | Gateway/CLI 消息进 LLM 前（`exit 2` 拦截） |
+| `PermissionDenied` | 规划模式 / Hook 拦截 / 路径拒绝 |
+| `SessionStart` | `/新对话` 清空后 |
+| `SessionEnd` | 会话销毁前（`reason`: `clear` / `finalize` / `shutdown` / `end`） |
+| `Stop` | 单轮 AgentLoop 结束（`matcher` 匹配 `status`: `completed` / `interrupted` / `error` / `tool_limit`） |

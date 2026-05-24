@@ -632,8 +632,24 @@ def trigger_session_end(
     agent_loop: Any | None,
     *,
     session_id: str = "",
+    reason: str = "end",
 ) -> dict[str, Any]:
     """Run post-session on turns not yet covered by incremental extraction."""
+    session_key = str(session_id or "").strip()
+    if not session_key:
+        try:
+            from butler.execution_context import get_current_session_key
+
+            session_key = str(get_current_session_key() or "").strip()
+        except Exception:
+            session_key = ""
+    try:
+        from butler.hooks.runner import run_session_end_hooks
+
+        run_session_end_hooks(reason=reason, session_key=session_key)
+    except Exception as exc:
+        logger.debug("SessionEnd hooks skipped: %s", exc)
+
     try:
         if not agent_loop or not hasattr(agent_loop, "messages"):
             return {"skipped": True, "reason": "no_agent_loop"}
@@ -691,7 +707,7 @@ def handle_new_session_command(
 ) -> str:
     """Post-session extract, purge ephemeral echoes, return user message."""
     extract_result = trigger_session_end(
-        orchestrator, agent_loop, session_id=session_id
+        orchestrator, agent_loop, session_id=session_id, reason="clear"
     )
     purge_result = clear_session_boundary_memory(orchestrator, session_id)
     try:

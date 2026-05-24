@@ -17,6 +17,8 @@ _HOOK_EVENTS = (
     "PermissionDenied",
     "UserPromptSubmit",
     "SessionStart",
+    "SessionEnd",
+    "Stop",
 )
 
 

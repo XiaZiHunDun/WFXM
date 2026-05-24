@@ -209,7 +209,7 @@ class AgentLoop:
                 self.callbacks = saved_callbacks
 
         elapsed = time.time() - start_time
-        return LoopResult(
+        result = LoopResult(
             status=status,
             final_response=final_text,
             reasoning=final_reasoning,
@@ -220,6 +220,20 @@ class AgentLoop:
             elapsed_seconds=elapsed,
             diagnostics=dict(self.diagnostics),
         )
+        try:
+            from butler.hooks.runner import run_stop_hooks
+
+            run_stop_hooks(
+                status=status.value,
+                last_assistant_message=final_text or "",
+                session_key=steer_session,
+                iterations=iteration,
+                tool_calls=self._tool_calls_count,
+                elapsed_seconds=elapsed,
+            )
+        except Exception as exc:
+            logger.debug("Stop hooks skipped: %s", exc)
+        return result
 
     def _restore_primary_client(self) -> None:
         if self._primary_client is not None:

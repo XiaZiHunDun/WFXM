@@ -194,6 +194,53 @@ def run_session_start_hooks(*, source: str = "clear") -> None:
             logger.info("SessionStart hook exit %s: %s", code, (err or out)[:200])
 
 
+def run_session_end_hooks(
+    *,
+    reason: str = "end",
+    session_key: str = "",
+) -> None:
+    """Run SessionEnd hooks when a conversation session is torn down."""
+    payload = {
+        "hook_event_name": "SessionEnd",
+        "reason": reason,
+        "session_key": session_key,
+    }
+    for rule in _rules_for_event("SessionEnd"):
+        if not match_hook_query(rule.matcher, reason):
+            continue
+        code, out, err = _run_hook(rule, payload)
+        if code not in (0, None) and (out or err):
+            logger.info("SessionEnd hook exit %s: %s", code, (err or out)[:200])
+
+
+def run_stop_hooks(
+    *,
+    status: str,
+    last_assistant_message: str = "",
+    session_key: str = "",
+    iterations: int = 0,
+    tool_calls: int = 0,
+    elapsed_seconds: float = 0.0,
+) -> None:
+    """Run Stop hooks after a single agent turn finishes."""
+    payload = {
+        "hook_event_name": "Stop",
+        "status": status,
+        "stop_hook_active": True,
+        "last_assistant_message": (last_assistant_message or "")[:4000],
+        "session_key": session_key,
+        "iterations": iterations,
+        "tool_calls": tool_calls,
+        "elapsed_seconds": round(float(elapsed_seconds), 3),
+    }
+    for rule in _rules_for_event("Stop"):
+        if not match_hook_query(rule.matcher, status):
+            continue
+        code, out, err = _run_hook(rule, payload)
+        if code not in (0, None) and (out or err):
+            logger.info("Stop hook exit %s: %s", code, (err or out)[:200])
+
+
 def run_pre_tool_hooks(tool_name: str, args: dict[str, Any]) -> str | None:
     """Run PreToolUse hooks. Return error string to block tool, or None to continue."""
     for rule in _rules_for_event("PreToolUse"):

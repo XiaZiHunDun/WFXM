@@ -6,6 +6,8 @@ from butler.hooks.runner import (
     _hook_payload,
     run_permission_denied_hooks,
     run_pre_tool_hooks,
+    run_session_end_hooks,
+    run_stop_hooks,
     run_user_prompt_submit_hooks,
 )
 from butler.tools.registry import dispatch_tool, reset_tool_audit_events
@@ -166,3 +168,86 @@ def test_dispatch_plan_mode_triggers_permission_denied_hint(tmp_path, monkeypatc
     data = json.loads(raw)
     assert data.get("code") == "PLAN_MODE_BLOCKED"
     assert data.get("permission_denied_hint")
+
+
+def test_session_end_hook_runs_for_clear_reason(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    marker = tmp_path / "session_end.marker"
+    hook = tmp_path / "end.sh"
+    hook.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+    hooks_dir = tmp_path / ".butler"
+    hooks_dir.mkdir(exist_ok=True)
+    (hooks_dir / "hooks.yaml").write_text(
+        f"""hooks:
+  SessionEnd:
+    - matcher: clear
+      command: sh {hook}
+""",
+        encoding="utf-8",
+    )
+
+    run_session_end_hooks(reason="clear", session_key="s1")
+    assert marker.is_file()
+
+
+def test_stop_hook_matches_status(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    marker = tmp_path / "stop.marker"
+    hook = tmp_path / "stop.sh"
+    hook.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+    hooks_dir = tmp_path / ".butler"
+    hooks_dir.mkdir(exist_ok=True)
+    (hooks_dir / "hooks.yaml").write_text(
+        f"""hooks:
+  Stop:
+    - matcher: completed
+      command: sh {hook}
+""",
+        encoding="utf-8",
+    )
+
+    run_stop_hooks(status="completed", last_assistant_message="done", session_key="s1")
+    assert marker.is_file()
+    marker.unlink()
+    run_stop_hooks(status="error", last_assistant_message="fail", session_key="s1")
+    assert not marker.exists()
+
+
+def test_agent_loop_emits_stop_hook(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    marker = tmp_path / "loop_stop.marker"
+    hook = tmp_path / "loop_stop.sh"
+    hook.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+    hooks_dir = tmp_path / ".butler"
+    hooks_dir.mkdir(exist_ok=True)
+    (hooks_dir / "hooks.yaml").write_text(
+        f"""hooks:
+  Stop:
+    - matcher: "*"
+      command: sh {hook}
+""",
+        encoding="utf-8",
+    )
+
+    from unittest.mock import MagicMock
+
+    from butler.core.agent_loop import AgentLoop
+    from butler.core.loop_types import LoopConfig
+    from butler.transport.types import NormalizedResponse
+
+    client = MagicMock()
+    client.chat.return_value = NormalizedResponse(content="hi", tool_calls=[])
+    loop = AgentLoop(client, config=LoopConfig(max_iterations=1))
+    with monkeypatch.context() as m:
+        m.setattr("butler.execution_context.get_current_session_key", lambda: "test-stop")
+        loop.run("hello")
+    assert marker.is_file()

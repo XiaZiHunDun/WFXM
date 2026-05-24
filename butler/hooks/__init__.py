@@ -6,7 +6,9 @@ from butler.hooks.runner import (
     run_permission_denied_hooks,
     run_post_tool_hooks,
     run_pre_tool_hooks,
+    run_session_end_hooks,
     run_session_start_hooks,
+    run_stop_hooks,
     run_user_prompt_submit_hooks,
 )
 
@@ -17,5 +19,7 @@ __all__ = [
     "run_post_tool_hooks",
     "run_permission_denied_hooks",
     "run_session_start_hooks",
+    "run_session_end_hooks",
+    "run_stop_hooks",
     "run_user_prompt_submit_hooks",
 ]
