@@ -38,8 +38,9 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 
 ## Butler 线束（规划 / 上下文 / Hooks）
 
-- 微信：`/计划`、`/执行`、`/任务`；`/诊断` 含上下文用量档位；`/状态` 含规划模式
+- 微信：`/计划`、`/执行`、`/任务`；`/诊断` 含上下文用量档位、Shell hooks 摘要、**出站策略**（完成推送/委派模式/冷却）；`/状态` 含规划模式
 - 可选环境变量：`BUTLER_DISABLE_AUTO_COMPACT`、`BUTLER_CONTEXT_*`、`BUTLER_MEMORY_MAX_LINES`
+- **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 
 ### 两套 Hook（不要混用）
 
@@ -77,3 +78,5 @@ Shell hooks 示例：`butler/hooks/hooks.yaml.example`
 完成推送与 `runtime` 定时推送共用 `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` 冷却；发送失败（含限流/网络）时写入 `runtime/push_queue.jsonl`，由 `drain_push_queue` / runtime due 重试。工作流异常结束也会尝试推送失败摘要。
 
 委派完成推送模式：`BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE`（默认 `last` 仅最后一次委派；`each` 最多 `BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH` 次；`once` 仅第一次）。Gateway 处理超时且曾发 progress ack 时可推 `BUTLER_GATEWAY_TIMEOUT_COMPLETION_NOTIFY`。Shell hooks：`SubagentStop` 在委派结束触发。
+
+`/诊断` 另含 **出站推送本轮**（成功/失败/入队）与 **推送队列待发** 条数；`/新对话` 会重置 hook 与出站遥测。变量模板见仓库根 [`.env.example`](.env.example)；运维说明见 [`docs/guides/wechat-gateway-ops.md`](docs/guides/wechat-gateway-ops.md)。真机步骤见上节 **H1–H10** 表。

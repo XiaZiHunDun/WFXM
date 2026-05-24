@@ -119,6 +119,7 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 ### 线束与长任务完成提醒（发版后建议 10 分钟）
 
 > 覆盖：规划模式、Hooks、`/诊断` 用量、委派完成推送、progress ack、失败入队。  
+> 设计说明见仓库根 [CONTRIBUTING.md](../../CONTRIBUTING.md#butler-线束规划--上下文--hooks)（Butler 线束 + Gateway 长任务完成提醒）。  
 > 环境变量见 `.env.example` 与 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。
 
 | # | 发送 / 操作 | 预期 | 通过 | 备注 |
