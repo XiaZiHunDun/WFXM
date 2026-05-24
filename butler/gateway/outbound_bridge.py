@@ -78,6 +78,7 @@ class GatewayOutboundBridge:
     _started_at: float = field(default=0.0, init=False)
     _final_sent: bool = field(default=False, init=False)
     _ack_sent: bool = field(default=False, init=False)
+    _completion_push_sent: bool = field(default=False, init=False)
     _typing_task: asyncio.Task[None] | None = field(default=None, init=False)
     _ack_task: asyncio.Task[None] | None = field(default=None, init=False)
     _closed: bool = field(default=False, init=False)
@@ -88,6 +89,19 @@ class GatewayOutboundBridge:
     workflow_step_index: int = field(default=0, init=False)
     workflow_step_total: int = field(default=0, init=False)
     last_tool_name: str = field(default="", init=False)
+    _last_turn_elapsed: float = field(default=0.0, init=False)
+
+    @property
+    def turn_started_at(self) -> float:
+        return self._started_at
+
+    @property
+    def ack_sent(self) -> bool:
+        return self._ack_sent
+
+    @property
+    def completion_push_sent(self) -> bool:
+        return self._completion_push_sent
 
     @classmethod
     def for_event(
@@ -106,7 +120,10 @@ class GatewayOutboundBridge:
         self._started_at = time.monotonic()
         self._final_sent = False
         self._ack_sent = False
+        self._completion_push_sent = False
         self._closed = False
+        self.delegate_role = ""
+        self.workflow_name = ""
 
         ensure = getattr(self, "_ensure_typing", None)
         if callable(ensure):
@@ -209,6 +226,69 @@ class GatewayOutboundBridge:
 
     def on_tool_complete(self, name: str, result: str) -> None:
         del name, result
+
+    def notify_delegate_finished(self, report: Any) -> None:
+        """Push delegate AgentReport to WeChat when the user was kept waiting."""
+        from butler.gateway.completion_notify import try_push_agent_report
+
+        elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
+        try_push_agent_report(
+            report,
+            kind="delegate",
+            bridge=self,
+            elapsed_turn_seconds=elapsed,
+        )
+
+    def notify_workflow_finished(self, report: Any) -> None:
+        from butler.gateway.completion_notify import try_push_agent_report
+
+        elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
+        try_push_agent_report(
+            report,
+            kind="workflow",
+            bridge=self,
+            elapsed_turn_seconds=elapsed,
+        )
+
+    def record_turn_elapsed(self, elapsed_seconds: float) -> None:
+        self._last_turn_elapsed = max(0.0, float(elapsed_seconds))
+
+    def maybe_notify_turn_complete_after_reply(self) -> None:
+        """Call after the main WeChat reply was sent (see platforms/base.py)."""
+        from butler.gateway.completion_notify import try_push_turn_complete
+
+        elapsed = self._last_turn_elapsed
+        if elapsed <= 0 and self._started_at:
+            elapsed = time.monotonic() - self._started_at
+        try_push_turn_complete(self, elapsed_seconds=elapsed)
+
+    def schedule_completion_push(self, text: str, *, kind: str) -> bool:
+        """Thread-safe: send an extra completion message (before final reply)."""
+        if self._closed or self._completion_push_sent or not (text or "").strip():
+            return False
+        body = (text or "").strip()
+        if len(body) > 4000:
+            body = body[:3997] + "..."
+
+        async def _send() -> None:
+            try:
+                await self.adapter.send(self.chat_id, body)
+                self._completion_push_sent = True
+                logger.info(
+                    "Gateway completion push sent kind=%s chat_id=%s len=%d",
+                    kind,
+                    self.chat_id[:12],
+                    len(body),
+                )
+            except Exception as exc:
+                logger.warning("Gateway completion push failed kind=%s: %s", kind, exc)
+
+        try:
+            asyncio.run_coroutine_threadsafe(_send(), self.loop)
+            return True
+        except Exception as exc:
+            logger.warning("Gateway completion push schedule failed: %s", exc)
+            return False
 
     async def maybe_send_ack(self) -> None:
         if self._closed or self._final_sent or self._ack_sent:

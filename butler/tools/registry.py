@@ -1243,6 +1243,12 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
             session_key=session_key,
             orchestrator=orch,
         )
+        if bridge is not None:
+            from butler.report import get_last_report
+
+            report = get_last_report(session_key)
+            if report is not None:
+                bridge.notify_workflow_finished(report)
         return json.dumps({"success": True, "summary": text}, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"error": str(exc)}, ensure_ascii=False)
@@ -1278,6 +1284,14 @@ def _finalize_delegate_failure(
         issues=[summary[:500]],
     )
     cache_report(report, session_key=session_key or "default")
+    try:
+        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+
+        br = get_gateway_bridge_optional()
+        if br is not None:
+            br.notify_delegate_finished(report)
+    except Exception:
+        pass
     payload: dict[str, Any] = {
         "success": False,
         "error": f"Delegation failed: {exc}",
@@ -1406,6 +1420,8 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             report_headline=report.headline,
             summary=report.summary,
         )
+        if bridge is not None:
+            bridge.notify_delegate_finished(report)
 
         return json.dumps({
             "success": report.success,

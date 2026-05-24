@@ -113,6 +113,8 @@ class ButlerPlatformAdapter(ABC):
                     if bridge is not None:
                         bridge.mark_final_sent()
                     await self.send(chat_id, response)
+                    if bridge is not None:
+                        bridge.maybe_notify_turn_complete_after_reply()
             except Exception as exc:
                 logger.error("[%s] handler failed: %s", self.name, exc, exc_info=True)
                 try:

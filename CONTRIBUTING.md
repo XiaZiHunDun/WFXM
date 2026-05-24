@@ -61,3 +61,15 @@ Shell hooks 示例：`butler/hooks/hooks.yaml.example`
 | `SubagentStart` | `delegate_task` 启动子代理前（`matcher` 匹配 `role`；上下文注入委派 prompt） |
 
 `/诊断` 会显示 **Shell hooks 配置** 与 **最近执行**（退出码 + 摘要）；委派与 Stop 注入另有单行摘要。
+
+### Gateway 长任务完成提醒（出站层，非 Notification hook）
+
+微信 Gateway 在「已发过进度 ack」或耗时超过阈值时，可额外推送一条完成消息（与主回复分开）：
+
+| 时机 | 条件 | 内容 |
+|------|------|------|
+| 委派结束 | `delegate_task` 完成/失败 | `AgentReport` 微信摘要 |
+| 工作流结束 | `run_workflow` 完成 | 缓存的工作流报告 |
+| 整轮结束 | 主回复已发送且曾发过 ack | 简短「本轮已完成」 |
+
+环境变量：`BUTLER_GATEWAY_COMPLETION_NOTIFY`（总开关）、`BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS`（默认 90）、`BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY`、`BUTLER_GATEWAY_TURN_COMPLETION_NOTIFY`、`BUTLER_GATEWAY_WORKFLOW_COMPLETION_NOTIFY`。

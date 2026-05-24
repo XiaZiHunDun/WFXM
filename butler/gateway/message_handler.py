@@ -317,10 +317,16 @@ class ButlerMessageHandler:
                 )
                 self._session_registry.set_health(session_key, health)
                 out = self._format_response(result, platform)
+                turn_elapsed = _time.monotonic() - _turn_started
+                from butler.gateway.outbound_bridge import get_current_bridge
+
+                br = get_current_bridge()
+                if br is not None:
+                    br.record_turn_elapsed(turn_elapsed)
                 logger.info(
                     "Gateway turn done session=%s elapsed=%.1fs out_len=%d",
                     session_key,
-                    _time.monotonic() - _turn_started,
+                    turn_elapsed,
                     len(out or ""),
                 )
                 return out
