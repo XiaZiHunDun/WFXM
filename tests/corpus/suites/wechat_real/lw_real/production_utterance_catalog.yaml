@@ -1,6 +1,6 @@
 meta:
   version: 2026-05-24-production-r1
-  entry_count: 30
+  entry_count: 35
 utterance_catalog:
 - id: PROD-001
   user: 那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码
@@ -425,3 +425,71 @@ utterance_catalog:
     - 项目
     - 助手
   script: off_topic_redirect
+- id: PROD-031
+  user: /计划
+  category: harness_plan
+  fixture: lingwen
+  kind: command
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/harness-2026-05
+  expect:
+    no_llm: true
+    response_contains_any:
+    - 规划模式
+    - 只读
+- id: PROD-032
+  user: /任务
+  category: T_debugging
+  fixture: lingwen
+  kind: command
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/harness-2026-05
+  expect:
+    no_llm: true
+    response_contains_any:
+    - 委派任务
+    - 暂无
+- id: PROD-033
+  user: /执行
+  category: harness_plan
+  fixture: lingwen
+  kind: command
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/harness-2026-05
+  expect:
+    no_llm: true
+    response_contains_any:
+    - 退出
+    - 规划
+- id: PROD-034
+  user: /诊断
+  category: T_debugging
+  fixture: lingwen
+  kind: command
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/harness-2026-05
+  expect:
+    no_llm: true
+    response_contains:
+    - 上下文用量
+- id: PROD-035
+  user: /状态
+  category: harness_plan
+  fixture: lingwen
+  kind: command
+  tier: production
+  quality: strict
+  runner: production
+  source_file: production/harness-2026-05
+  expect:
+    no_llm: true
+    response_contains:
+    - 规划模式

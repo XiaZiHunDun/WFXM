@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate production_utterance_catalog.yaml — 30 条脱敏真机风格话术（严断言）。"""
+"""Generate production_utterance_catalog.yaml — 脱敏真机 + 线束命令（严断言）。"""
 
 from __future__ import annotations
 
@@ -48,6 +48,20 @@ def _row(
     return row
 
 
+def _harness_row(
+    pid: str,
+    user: str,
+    *,
+    category: str,
+    expect: dict[str, Any],
+    fixture: str = "lingwen",
+) -> dict[str, Any]:
+    row = _row(pid, user, kind="command", fixture=fixture, expect=expect)
+    row["category"] = category
+    row["source_file"] = "production/harness-2026-05"
+    return row
+
+
 def main() -> None:
     rows = [
         _row("PROD-001", "那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码", script="delegate_create_hello", expect={"file_exists": ["docs/test_hello.txt"]}),
@@ -80,6 +94,48 @@ def main() -> None:
         _row("PROD-028", "[图片] 这个报错什么意思", script="wechat_image_limit", expect={"response_contains_any": ["图片", "文字", "粘贴"]}),
         _row("PROD-029", "你直接改代码啊，干嘛还要委派", script="lead_refuse_direct_write", expect={"no_write_tools": True, "response_contains_any": ["委派", "代理"]}),
         _row("PROD-030", "今天天气怎么样", script="off_topic_redirect", expect={"response_contains_any": ["项目", "助手"]}),
+        _harness_row(
+            "PROD-031",
+            "/计划",
+            category="harness_plan",
+            expect={
+                "no_llm": True,
+                "response_contains_any": ["规划模式", "只读"],
+            },
+        ),
+        _harness_row(
+            "PROD-032",
+            "/任务",
+            category="T_debugging",
+            expect={
+                "no_llm": True,
+                "response_contains_any": ["委派任务", "暂无"],
+            },
+        ),
+        _harness_row(
+            "PROD-033",
+            "/执行",
+            category="harness_plan",
+            expect={
+                "no_llm": True,
+                "response_contains_any": ["退出", "规划"],
+            },
+        ),
+        _harness_row(
+            "PROD-034",
+            "/诊断",
+            category="T_debugging",
+            expect={"no_llm": True, "response_contains": ["上下文用量"]},
+        ),
+        _harness_row(
+            "PROD-035",
+            "/状态",
+            category="harness_plan",
+            expect={
+                "no_llm": True,
+                "response_contains": ["规划模式"],
+            },
+        ),
     ]
     doc = {
         "meta": {"version": "2026-05-24-production-r1", "entry_count": len(rows)},

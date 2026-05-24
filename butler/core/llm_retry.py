@@ -121,6 +121,8 @@ def call_llm_with_retry(
 
             if classified.should_compress and not compress_attempted:
                 compress_attempted = True
+                diagnostics["reactive_context_compact"] = True
+                diagnostics["reactive_compact_reason"] = classified.reason.value
                 messages[:] = compress_messages(list(messages))
                 messages_to_send = prepare_messages()
                 continue

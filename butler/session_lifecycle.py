@@ -694,6 +694,12 @@ def handle_new_session_command(
         orchestrator, agent_loop, session_id=session_id
     )
     purge_result = clear_session_boundary_memory(orchestrator, session_id)
+    try:
+        from butler.hooks.runner import run_session_start_hooks
+
+        run_session_start_hooks(source="clear")
+    except Exception as exc:
+        logger.debug("SessionStart hooks skipped: %s", exc)
     return format_new_session_user_message(
         extract_result=extract_result,
         purge_result=purge_result,

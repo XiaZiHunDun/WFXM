@@ -35,3 +35,9 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 | `./scripts/corpus-test.sh drift` | YAML 漂移检查 |
 
 设计说明见 `docs/plans/corpus-testing-module-design-2026-05.md` 与 `tests/corpus/suites/wechat_real/lw_real/meta.yaml`。
+
+## Butler 线束（规划 / 上下文 / Hooks）
+
+- 微信：`/计划`、`/执行`、`/任务`；`/诊断` 含上下文用量档位；`/状态` 含规划模式
+- Hooks 示例：`butler/hooks/hooks.yaml.example`（可复制到 `~/.butler/config.yaml` 的 `hooks:` 段）
+- 可选环境变量：`BUTLER_DISABLE_AUTO_COMPACT`、`BUTLER_CONTEXT_*`、`BUTLER_MEMORY_MAX_LINES`

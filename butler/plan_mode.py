@@ -56,18 +56,33 @@ def set_plan_mode(session_key: str, enabled: bool) -> None:
             _PLAN_BY_SESSION[key] = True
         else:
             _PLAN_BY_SESSION.pop(key, None)
+    try:
+        from butler.plan_mode_store import save_plan_mode_flag
+
+        save_plan_mode_flag(key, enabled)
+    except Exception:
+        pass
 
 
 def is_plan_mode(session_key: str = "") -> bool:
     key = _resolve_session_key(session_key)
     with _LOCK:
-        return bool(_PLAN_BY_SESSION.get(key))
+        if key in _PLAN_BY_SESSION:
+            return bool(_PLAN_BY_SESSION[key])
+    try:
+        from butler.plan_mode_store import load_plan_mode_flag
+
+        enabled = load_plan_mode_flag(key)
+        with _LOCK:
+            if enabled:
+                _PLAN_BY_SESSION[key] = True
+        return enabled
+    except Exception:
+        return False
 
 
 def clear_plan_mode(session_key: str = "") -> None:
-    key = _resolve_session_key(session_key)
-    with _LOCK:
-        _PLAN_BY_SESSION.pop(key, None)
+    set_plan_mode(_resolve_session_key(session_key), False)
 
 
 def check_plan_mode_block(

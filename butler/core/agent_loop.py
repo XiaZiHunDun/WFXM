@@ -253,6 +253,7 @@ class AgentLoop:
         *,
         threshold_ratio: float = 0.85,
         hard_message_limit: int = 400,
+        max_output_tokens: int | None = None,
     ) -> bool:
         """Preflight compression for long-lived gateway sessions."""
         compressed, messages = self._context.hygiene_compress_if_needed(
@@ -260,6 +261,7 @@ class AgentLoop:
             self.diagnostics,
             threshold_ratio=threshold_ratio,
             hard_message_limit=hard_message_limit,
+            max_output_tokens=max_output_tokens,
         )
         if compressed:
             self._messages[:] = messages

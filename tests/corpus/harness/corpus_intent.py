@@ -77,6 +77,8 @@ def gateway_category_to_intent(category: str | None, *, kind: str | None = None)
         return "delegate"
     if "diagnose" in cat or "health" in cat or cat == "error" or cat.startswith("debug"):
         return "debug"
+    if "harness_plan" in cat or cat == "plan_mode":
+        return "readonly"
 
     dim = category_to_dimension(category)
     if dim:

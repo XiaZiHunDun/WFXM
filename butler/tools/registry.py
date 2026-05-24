@@ -1212,8 +1212,50 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
         return json.dumps({"error": str(exc)}, ensure_ascii=False)
 
 
+def _finalize_delegate_failure(
+    *,
+    role: str,
+    task: str,
+    exc: Exception,
+    task_id: str = "",
+    session_key: str = "",
+) -> str:
+    from butler.report import AgentReport, cache_report
+    from butler.runtime.task_store import complete_task
+
+    role_label = _delegate_role_label(role)
+    headline = f"{role_label}委派失败"
+    summary = str(exc)[:2000]
+    if task_id:
+        complete_task(
+            task_id,
+            success=False,
+            report_headline=headline,
+            summary=summary,
+        )
+    report = AgentReport(
+        headline=headline,
+        summary=summary,
+        success=False,
+        task_preview=(task or "")[:200],
+        task_id=task_id,
+        issues=[summary[:500]],
+    )
+    cache_report(report, session_key=session_key or "default")
+    payload: dict[str, Any] = {
+        "success": False,
+        "error": f"Delegation failed: {exc}",
+        "headline": headline,
+    }
+    if task_id:
+        payload["task_id"] = task_id
+    return json.dumps(payload, ensure_ascii=False)
+
+
 def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0, **_) -> str:
     """Delegate to a project-level agent through Butler's orchestrator."""
+    task_id = ""
+    session_key = ""
     try:
         from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS, MAX_DELEGATE_DEPTH
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
@@ -1256,7 +1298,7 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
 
         attach_turn_memory_prefetch(agent, orch, raw_user_msg, role=role)
 
-        session_key = get_current_session_key()
+        session_key = str(get_current_session_key() or "").strip()
         project_name = ""
         if project is not None:
             project_name = str(getattr(project, "name", "") or "")
@@ -1326,7 +1368,13 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
 
     except Exception as exc:
         logger.error("Delegation to %s failed: %s", role, exc)
-        return json.dumps({"error": f"Delegation failed: {exc}"})
+        return _finalize_delegate_failure(
+            role=role,
+            task=task,
+            exc=exc,
+            task_id=task_id,
+            session_key=session_key,
+        )
 
 
 def _orchestrator_for_tool(*, channel: str):

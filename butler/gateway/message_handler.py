@@ -253,7 +253,16 @@ class ButlerMessageHandler:
 
             try:
                 try:
-                    hygiene_compressed = loop.hygiene_compress_if_needed()
+                    from butler.core.model_context import resolve_max_output_tokens
+
+                    max_out = resolve_max_output_tokens(
+                        self._orchestrator,
+                        session_key=session_key,
+                        role=loop_role,
+                    )
+                    hygiene_compressed = loop.hygiene_compress_if_needed(
+                        max_output_tokens=max_out,
+                    )
                     health["hygiene_compressed"] = hygiene_compressed
                     health.update({
                         k: v for k, v in getattr(loop, "diagnostics", {}).items()
@@ -442,6 +451,9 @@ class ButlerMessageHandler:
                 lines.append(
                     f"  对话引擎: {gateway_loop_role(current)}"
                 )
+            from butler.plan_mode import format_plan_mode_status
+
+            lines.append(f"  {format_plan_mode_status(session_key).replace(chr(10), ' ')}")
             return "\n".join(lines)
 
         if cmd in ("/health", "/诊断"):

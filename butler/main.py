@@ -338,13 +338,74 @@ def _handle_slash_command(
         settings = orchestrator._settings
         current = orchestrator.project_manager.current_project or "(无)"
         mc = orchestrator._model_credentials("butler")
+        from butler.session_keys import build_session_key
+        from butler.plan_mode import format_plan_mode_status
+
+        cli_sk = build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=current if current != "(无)" else "",
+        )
         console.print(
             f"[bold]Butler 状态[/bold]\n"
             f"  管家: {settings.butler_name}\n"
             f"  当前项目: {current}\n"
             f"  模型: {mc.get('provider', '?')}/{mc.get('model', '?')}\n"
             f"  Butler Home: {settings.butler_home}\n"
+            f"  {format_plan_mode_status(cli_sk).replace(chr(10), ' ')}\n"
         )
+        return "handled"
+
+    if command in ("/plan", "/计划"):
+        from butler.session_keys import build_session_key
+        from butler.plan_mode import clear_plan_mode, format_plan_mode_status, set_plan_mode
+
+        cli_sk = build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        )
+        arg_l = (arg or "").strip().lower()
+        if arg_l in ("off", "exit", "执行", "退出", "关闭"):
+            clear_plan_mode(cli_sk)
+            console.print("[green]已退出规划模式[/green]")
+        else:
+            set_plan_mode(cli_sk, True)
+            console.print(format_plan_mode_status(cli_sk))
+        return "handled"
+
+    if command in ("/执行", "/exit-plan", "/退出规划"):
+        from butler.session_keys import build_session_key
+        from butler.plan_mode import clear_plan_mode
+
+        cli_sk = build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        )
+        clear_plan_mode(cli_sk)
+        console.print("[green]已退出规划模式[/green]")
+        return "handled"
+
+    if command in ("/tasks", "/任务"):
+        from butler.session_keys import build_session_key
+        from butler.runtime.task_store import list_recent_tasks
+
+        cli_sk = build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        )
+        rows = list_recent_tasks(cli_sk, limit=5)
+        if not rows:
+            console.print("[dim]暂无委派任务记录[/dim]")
+        else:
+            for row in rows:
+                mark = "✓" if row.get("success") is True else ("✗" if row.get("success") is False else "…")
+                console.print(
+                    f"  {mark} {row.get('task_id')} [{row.get('status')}] "
+                    f"{(row.get('task_preview') or '')[:60]}"
+                )
         return "handled"
 
     from butler.gateway.memory_commands import handle_memory_pending_command

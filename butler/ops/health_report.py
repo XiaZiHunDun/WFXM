@@ -160,9 +160,12 @@ def build_health_report(inp: HealthReportInput) -> str:
     tool_summary = inp.tool_summary
 
     if not health and not tool_summary.get("total"):
+        from butler.core.context_budget import format_context_budget_line
+
         lines = [
             "Butler 诊断",
             f"会话: {inp.session_key}",
+            format_context_budget_line(health or {}),
             "轮次诊断: 暂无（本会话尚无完整对话轮次）",
         ]
         lines.extend(_shared_diagnostic_lines(inp))
@@ -177,9 +180,12 @@ def build_health_report(inp: HealthReportInput) -> str:
         if health.get("hygiene_error"):
             lines.append("压缩错误: 有（查看日志）")
     else:
+        from butler.core.context_budget import format_context_budget_line
+
         lines = [
             "Butler 诊断",
             f"会话: {inp.session_key}",
+            format_context_budget_line({}),
             "轮次诊断: 暂无（本会话尚无完整对话轮次）",
         ]
         lines.extend(_shared_diagnostic_lines(inp))

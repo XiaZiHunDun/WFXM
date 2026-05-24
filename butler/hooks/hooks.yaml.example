@@ -1,0 +1,13 @@
+# Copy to ~/.butler/config.yaml under `hooks:` or to <project>/.butler/hooks.yaml
+# Claude Code–compatible events: PreToolUse exit 2 blocks; stdin receives JSON.
+
+hooks:
+  PreToolUse:
+    - matcher: "write_file|patch"
+      command: "echo 'blocked by example hook' >&2; exit 2"
+  PostToolUse:
+    - matcher: "read_file"
+      command: "echo 'read ok'"
+  SessionStart:
+    - matcher: "*"
+      command: "echo 'session started'"

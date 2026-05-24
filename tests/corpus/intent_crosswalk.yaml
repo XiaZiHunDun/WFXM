@@ -129,6 +129,9 @@ cross_refs:
   - REF-STRICT-20260523-B02
   - REF-STRICT-20260523-B03
   - REF-STRICT-20260523-B04
+  - PROD-031
+  - PROD-033
+  - PROD-035
 - intent: memory
   agent_loop: []
   gateway:
@@ -232,3 +235,5 @@ cross_refs:
   - REF-STRICT-20260523-T03
   - REF-STRICT-20260523-T04
   - REF-STRICT-20260523-T05
+  - PROD-032
+  - PROD-034

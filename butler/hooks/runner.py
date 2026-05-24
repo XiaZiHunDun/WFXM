@@ -70,6 +70,18 @@ def _hook_payload(
     }
 
 
+def run_session_start_hooks(*, source: str = "clear") -> None:
+    """Run SessionStart hooks (e.g. after /新对话)."""
+    payload = {
+        "hook_event_name": "SessionStart",
+        "source": source,
+    }
+    for rule in _rules_for_event("SessionStart"):
+        code, out, err = _run_hook(rule, payload)
+        if code not in (0, None) and (out or err):
+            logger.info("SessionStart hook exit %s: %s", code, (err or out)[:200])
+
+
 def run_pre_tool_hooks(tool_name: str, args: dict[str, Any]) -> str | None:
     """Run PreToolUse hooks. Return error string to block tool, or None to continue."""
     for rule in _rules_for_event("PreToolUse"):

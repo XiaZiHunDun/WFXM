@@ -159,6 +159,8 @@ def format_for_wechat(report: AgentReport) -> str:
         parts.append("")
         parts.append("⚠ 工具执行未成功，请发 /详细 查看原因")
 
+    if report.task_id:
+        parts.append(f"任务 {report.task_id} · 发 /任务 可查记录")
     parts.append("\n回复「/详细」或「详细」查看完整报告")
     return "\n".join(parts)
 

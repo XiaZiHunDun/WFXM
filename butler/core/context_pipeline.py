@@ -82,6 +82,7 @@ class ContextPipeline:
         *,
         threshold_ratio: float = 0.85,
         hard_message_limit: int = 400,
+        max_output_tokens: int | None = None,
     ) -> tuple[bool, list[dict]]:
         """Run gateway preflight compression; return (compressed, updated_messages)."""
         snapshot = list(messages)
@@ -94,6 +95,7 @@ class ContextPipeline:
             threshold_ratio=threshold_ratio,
             hard_message_limit=hard_message_limit,
             consecutive_compact_failures=self.consecutive_compact_failures,
+            max_output_tokens=max_output_tokens,
         )
         self.consecutive_compact_failures = int(
             diagnostics.get("context_compact_consecutive_failures", 0) or 0
