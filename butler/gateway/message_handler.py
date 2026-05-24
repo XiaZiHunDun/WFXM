@@ -257,7 +257,7 @@ class ButlerMessageHandler:
                     health["hygiene_compressed"] = hygiene_compressed
                     health.update({
                         k: v for k, v in getattr(loop, "diagnostics", {}).items()
-                        if str(k).startswith("hygiene_")
+                        if str(k).startswith(("hygiene_", "context_"))
                     })
                 except Exception as exc:
                     health["hygiene_error"] = str(exc)
@@ -463,6 +463,9 @@ class ButlerMessageHandler:
             from butler.report import clear_report_cache
 
             clear_report_cache(session_key)
+            from butler.plan_mode import clear_plan_mode
+
+            clear_plan_mode(session_key)
             return handle_new_session_command(self._orchestrator, session_key, loop)
 
         if cmd in ("/detail", "/详细"):
@@ -473,6 +476,41 @@ class ButlerMessageHandler:
             if report:
                 return format_detail(report, section=parse_detail_section(arg))
             return "暂无可展示的详细报告。"
+
+        if cmd in ("/plan", "/计划"):
+            from butler.plan_mode import format_plan_mode_status, set_plan_mode
+
+            arg_l = (arg or "").strip().lower()
+            if arg_l in ("off", "exit", "执行", "退出", "关闭"):
+                from butler.plan_mode import clear_plan_mode
+
+                clear_plan_mode(session_key)
+                return "已退出规划模式，可以委派与写入。"
+            set_plan_mode(session_key, True)
+            return format_plan_mode_status(session_key)
+
+        if cmd in ("/执行", "/exit-plan", "/退出规划"):
+            from butler.plan_mode import clear_plan_mode
+
+            clear_plan_mode(session_key)
+            return "已退出规划模式，可以委派与写入。"
+
+        if cmd in ("/tasks", "/任务"):
+            from butler.runtime.task_store import list_recent_tasks
+
+            rows = list_recent_tasks(session_key, limit=5)
+            if not rows:
+                return "暂无委派任务记录。"
+            lines = ["最近委派任务:"]
+            for row in rows:
+                status = row.get("status") or "?"
+                ok = row.get("success")
+                mark = "✓" if ok is True else ("✗" if ok is False else "…")
+                lines.append(
+                    f"  {mark} {row.get('task_id')} [{status}] "
+                    f"{(row.get('task_preview') or '')[:60]}"
+                )
+            return "\n".join(lines)
 
         if cmd in ("/workflow", "/工作流"):
             from butler.workflows.commands import handle_workflow_command
@@ -719,6 +757,13 @@ def _is_sessionless_command(text: str) -> bool:
         "/新对话",
         "/detail",
         "/详细",
+        "/plan",
+        "/计划",
+        "/执行",
+        "/exit-plan",
+        "/退出规划",
+        "/tasks",
+        "/任务",
         "/workflow",
         "/工作流",
         "/定时",

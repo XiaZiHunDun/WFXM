@@ -365,6 +365,11 @@ def _handle_slash_command(
                 "session_key": "cli",
                 "platform": "cli",
                 "hygiene_compressed": loop_diag.get("hygiene_compressed"),
+                **{
+                    k: v
+                    for k, v in loop_diag.items()
+                    if str(k).startswith("context_")
+                },
                 "schema_recovered": loop_diag.get("schema_recovered"),
                 "schema_keywords_stripped": loop_diag.get("schema_keywords_stripped"),
                 "skill_context_injected": loop_diag.get("skill_context_injected"),

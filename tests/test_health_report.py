@@ -68,6 +68,10 @@ def test_build_health_report_turn_and_tools():
                     "session_key": "default",
                     "platform": "wechat",
                     "hygiene_compressed": True,
+                    "context_estimated_tokens": 50000,
+                    "context_max_tokens": 128000,
+                    "context_usage_percent": 39.1,
+                    "context_tier_label": "正常",
                     "skill_context_injected": False,
                     "memory_context_injected": True,
                     "memory_sync": {"skipped": True},
@@ -79,6 +83,7 @@ def test_build_health_report_turn_and_tools():
         )
 
     assert "压缩: 是" in text
+    assert "上下文用量:" in text
     assert "记忆提炼模型(post_session): 未配置" in text
     assert "工具调用: 2" in text
     assert "工具错误码: X" in text

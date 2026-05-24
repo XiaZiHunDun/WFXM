@@ -22,6 +22,7 @@ class AgentReport:
     summary: str = ""
     success: bool = True
     task_preview: str = ""
+    task_id: str = ""
     iterations: int = 0
     tool_calls: int = 0
     tokens_used: int = 0
@@ -39,6 +40,11 @@ class AgentReport:
             "summary": self.summary,
             "success": self.success,
             "task_preview": self.task_preview,
+            "task_id": self.task_id,
+            "iterations": self.iterations,
+            "tool_calls": self.tool_calls,
+            "tokens_used": self.tokens_used,
+            "elapsed_seconds": self.elapsed_seconds,
         }
 
     @classmethod
@@ -67,6 +73,7 @@ class AgentReport:
             summary=str(raw.get("summary", "") or ""),
             success=bool(raw.get("success", True)),
             task_preview=str(raw.get("task_preview", "") or ""),
+            task_id=str(raw.get("task_id", "") or ""),
         )
 
 
@@ -185,6 +192,8 @@ def format_detail(report: AgentReport, section: str = "") -> str:
         return "\n".join(lines)
 
     parts: list[str] = []
+    if report.task_id:
+        parts.append(f"任务 ID: {report.task_id}")
     if report.task_preview:
         parts.append(f"【本报告任务】{report.task_preview}")
         parts.append("")
@@ -251,13 +260,32 @@ def _resolve_report_key(session_key: str | None = None) -> str:
 
 
 def cache_report(report: AgentReport, *, session_key: str = "") -> None:
-    """Store the latest delegate/workflow report for a session."""
-    _reports[_resolve_report_key(session_key)] = report
+    """Store the latest delegate/workflow report for a session (memory + disk)."""
+    key = _resolve_report_key(session_key)
+    _reports[key] = report
+    try:
+        from butler.report_store import persist_report
+
+        persist_report(report, session_key=key, task_id=report.task_id)
+    except Exception:
+        pass
 
 
 def get_last_report(session_key: str = "") -> AgentReport | None:
     """Return the cached report for ``session_key`` (or current execution context)."""
-    return _reports.get(_resolve_report_key(session_key))
+    key = _resolve_report_key(session_key)
+    cached = _reports.get(key)
+    if cached is not None:
+        return cached
+    try:
+        from butler.report_store import load_persisted_report
+
+        loaded = load_persisted_report(key)
+        if loaded is not None:
+            _reports[key] = loaded
+        return loaded
+    except Exception:
+        return None
 
 
 def clear_report_cache(session_key: str = "") -> None:

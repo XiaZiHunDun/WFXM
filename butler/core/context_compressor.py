@@ -35,6 +35,11 @@ def _estimate_tokens(messages: list[dict]) -> int:
     return total
 
 
+def prune_tool_outputs(messages: list[dict]) -> list[dict]:
+    """Prune oversized tool role messages before API / compaction (microCompact-style)."""
+    return _prune_tool_outputs(messages)
+
+
 def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
     out: list[dict] = []
     for m in messages:

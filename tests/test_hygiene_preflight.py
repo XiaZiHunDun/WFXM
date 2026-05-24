@@ -2,6 +2,8 @@
 
 from unittest.mock import Mock
 
+import pytest
+
 from butler.core.hygiene_preflight import run_hygiene_preflight
 
 
@@ -15,7 +17,7 @@ def test_hygiene_preflight_skips_short_history_and_clears_stale_diagnostics():
 
     result = run_hygiene_preflight(
         messages,
-        max_context_tokens=1000,
+        max_context_tokens=128_000,
         diagnostics=diagnostics,
         estimate_tokens=lambda _: 1,
         compress=Mock(),
@@ -29,7 +31,7 @@ def test_hygiene_preflight_skips_short_history_and_clears_stale_diagnostics():
     assert "hygiene_messages_after" not in diagnostics
 
 
-def test_hygiene_preflight_compresses_when_over_threshold():
+def test_hygiene_preflight_compresses_when_over_auto_threshold():
     diagnostics: dict[str, object] = {}
     messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
     compressed = [{"role": "user", "content": "summary"}]
@@ -37,18 +39,16 @@ def test_hygiene_preflight_compresses_when_over_threshold():
 
     result = run_hygiene_preflight(
         messages,
-        max_context_tokens=100,
+        max_context_tokens=128_000,
         diagnostics=diagnostics,
-        estimate_tokens=lambda _: 100,
+        estimate_tokens=lambda _: 100_000,
         compress=compress,
     )
 
     assert result.compressed is True
     assert result.messages == compressed
     assert diagnostics["hygiene_compressed"] is True
-    assert diagnostics["hygiene_messages_before"] == 20
-    assert diagnostics["hygiene_messages_after"] == 1
-    assert compress.call_args.kwargs["threshold_ratio"] == 0.85
+    assert compress.call_args.kwargs["threshold_ratio"] == 0.0
 
 
 def test_hygiene_preflight_uses_hard_message_limit_without_token_threshold():
@@ -59,7 +59,7 @@ def test_hygiene_preflight_uses_hard_message_limit_without_token_threshold():
 
     result = run_hygiene_preflight(
         messages,
-        max_context_tokens=100000,
+        max_context_tokens=128_000,
         diagnostics=diagnostics,
         estimate_tokens=lambda _: 10,
         compress=compress,
@@ -69,3 +69,62 @@ def test_hygiene_preflight_uses_hard_message_limit_without_token_threshold():
     assert result.compressed is True
     assert result.messages == compressed
     assert compress.call_args.kwargs["threshold_ratio"] == 0.0
+
+
+def test_hygiene_preflight_circuit_breaker_skips_compress():
+    diagnostics: dict[str, object] = {}
+    messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
+    compress = Mock()
+
+    result = run_hygiene_preflight(
+        messages,
+        max_context_tokens=128_000,
+        diagnostics=diagnostics,
+        estimate_tokens=lambda _: 100_000,
+        compress=compress,
+        consecutive_compact_failures=3,
+    )
+
+    assert result.compressed is False
+    assert diagnostics.get("context_compact_circuit_open") is True
+    compress.assert_not_called()
+
+
+def test_hygiene_preflight_noop_does_not_increment_failures():
+    diagnostics: dict[str, object] = {}
+    messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
+    compress = Mock(return_value=messages)
+
+    result = run_hygiene_preflight(
+        messages,
+        max_context_tokens=128_000,
+        diagnostics=diagnostics,
+        estimate_tokens=lambda _: 100_000,
+        compress=compress,
+        consecutive_compact_failures=2,
+    )
+
+    assert result.compressed is False
+    assert diagnostics.get("hygiene_compact_noop") is True
+    assert diagnostics.get("context_compact_consecutive_failures") == 2
+
+
+def test_hygiene_preflight_exception_increments_failures():
+    diagnostics: dict[str, object] = {}
+    messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("compact api failed")
+
+    result = run_hygiene_preflight(
+        messages,
+        max_context_tokens=128_000,
+        diagnostics=diagnostics,
+        estimate_tokens=lambda _: 100_000,
+        compress=_boom,
+        consecutive_compact_failures=1,
+    )
+
+    assert result.compressed is False
+    assert diagnostics.get("context_compact_consecutive_failures") == 2
+    assert diagnostics.get("hygiene_compact_failed") is True

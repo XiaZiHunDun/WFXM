@@ -6,7 +6,12 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from butler.core.context_compressor import _estimate_tokens, compress_messages
+from butler.core.context_compressor import (
+    _estimate_tokens,
+    compress_messages,
+    prune_tool_outputs,
+)
+from butler.core.post_compact_cleanup import run_post_compact_cleanup
 from butler.core.hygiene_preflight import run_hygiene_preflight
 from butler.core.loop_types import LoopConfig
 from butler.core.message_repair import repair_message_sequence, repair_tool_arguments
@@ -24,6 +29,7 @@ class ContextPipeline:
 
     config: LoopConfig
     compression_summary: str = ""
+    consecutive_compact_failures: int = 0
 
     def estimate_tokens(self, messages: list[dict]) -> int:
         return _estimate_tokens(messages)
@@ -50,6 +56,7 @@ class ContextPipeline:
         )
         if did and summary:
             self.compression_summary = summary
+            self.consecutive_compact_failures = 0
         return compressed
 
     def prepare_messages_for_api(
@@ -58,7 +65,8 @@ class ContextPipeline:
         *,
         pre_llm_transform: Callable[[list[dict]], list[dict]] | None = None,
     ) -> list[dict]:
-        prepared = self.compress_context(list(messages))
+        prepared = prune_tool_outputs(list(messages))
+        prepared = self.compress_context(prepared)
         prepared, _ = repair_message_sequence(prepared)
         repair_tool_arguments(prepared)
         prepared, _ = sanitize_api_messages(prepared)
@@ -85,10 +93,15 @@ class ContextPipeline:
             compress=self.compress_context,
             threshold_ratio=threshold_ratio,
             hard_message_limit=hard_message_limit,
+            consecutive_compact_failures=self.consecutive_compact_failures,
+        )
+        self.consecutive_compact_failures = int(
+            diagnostics.get("context_compact_consecutive_failures", 0) or 0
         )
         if not result.compressed:
             return False, messages
 
+        run_post_compact_cleanup(diagnostics)
         logger.info(
             "Gateway hygiene compressed %d->%d messages (~%d tokens, threshold=%d)",
             len(messages),

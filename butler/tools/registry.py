@@ -85,18 +85,76 @@ def dispatch_tool(name: str, args: dict) -> str:
             {"error": f"Unknown tool: {name}"},
             started_at=time.monotonic(),
         )
+
+    from butler.plan_mode import check_plan_mode_block
+
+    plan_block = check_plan_mode_block(name, args)
+    if plan_block:
+        return _finalize_tool_result(
+            name,
+            args,
+            {"error": plan_block, "code": "PLAN_MODE_BLOCKED"},
+            started_at=time.monotonic(),
+        )
+
     started_at = time.monotonic()
     try:
+        from butler.hooks.runner import run_pre_tool_hooks
+
+        pre_block = run_pre_tool_hooks(name, args)
+        if pre_block:
+            return _finalize_tool_result(
+                name,
+                args,
+                {"error": pre_block, "code": "HOOK_BLOCKED"},
+                started_at=started_at,
+            )
+    except Exception as exc:
+        logger.debug("Pre tool hooks skipped: %s", exc)
+
+    try:
         result = entry.handler(**args)
-        return _finalize_tool_result(name, args, result, started_at=started_at)
+        return _apply_post_tool_hooks(
+            name,
+            args,
+            _finalize_tool_result(name, args, result, started_at=started_at),
+        )
     except Exception as exc:
         logger.error("Tool %s failed: %s", name, exc)
-        return _finalize_tool_result(
+        err_result = _finalize_tool_result(
             name,
             args,
             {"error": f"Tool '{name}' failed: {exc}"},
             started_at=started_at,
         )
+        return _apply_post_tool_hooks(name, args, err_result, failed=True)
+
+
+def _apply_post_tool_hooks(
+    name: str,
+    args: dict,
+    finalized: str,
+    *,
+    failed: bool = False,
+) -> str:
+    try:
+        payload = json.loads(finalized)
+        if not failed and isinstance(payload, dict):
+            failed = (
+                payload.get("ok") is False
+                or "error" in payload
+                or payload.get("success") is False
+            )
+    except (TypeError, ValueError, json.JSONDecodeError):
+        if not failed:
+            failed = '"error"' in finalized
+    try:
+        from butler.hooks.runner import run_post_tool_hooks
+
+        return run_post_tool_hooks(name, args, finalized, failed=failed)
+    except Exception as exc:
+        logger.debug("Post tool hooks skipped: %s", exc)
+        return finalized
 
 
 def finalize_tool_result(
@@ -1194,10 +1252,22 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
 
         from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
         from butler.execution_context import get_current_session_key, use_execution_context
+        from butler.runtime.task_store import complete_task, create_task
 
         attach_turn_memory_prefetch(agent, orch, raw_user_msg, role=role)
 
         session_key = get_current_session_key()
+        project_name = ""
+        if project is not None:
+            project_name = str(getattr(project, "name", "") or "")
+        task_record = create_task(
+            session_key=session_key,
+            role=role,
+            task_preview=task,
+            project=project_name,
+        )
+        task_id = str(task_record.get("task_id") or "")
+
         with use_execution_context(orch, session_key=session_key):
             result = agent.run(user_msg)
         sync_turn_memory(
@@ -1228,6 +1298,7 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             issues=issues,
             success=success,
             task_preview=task_preview,
+            task_id=task_id,
             iterations=result.iterations,
             tool_calls=result.tool_calls_made,
             tokens_used=result.total_tokens,
@@ -1235,12 +1306,19 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
         )
 
         from butler.report import cache_report
-        cache_report(report)
+        cache_report(report, session_key=session_key)
+        complete_task(
+            task_id,
+            success=success,
+            report_headline=report.headline,
+            summary=report.summary,
+        )
 
         return json.dumps({
             "success": report.success,
             "headline": report.headline,
             "summary": report.summary[:2000],
+            "task_id": task_id,
             "iterations": report.iterations,
             "tool_calls": report.tool_calls,
             "tokens": report.tokens_used,

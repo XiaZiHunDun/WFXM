@@ -115,13 +115,25 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         if agent_role == "lead"
         else "对话引擎: 管家 Butler"
     )
+    from butler.core.context_budget import format_context_budget_line
+
+    context_line = format_context_budget_line(health)
+    compact_note = "否"
+    if health.get("hygiene_compressed"):
+        compact_note = "是"
+    elif health.get("context_compact_circuit_open"):
+        compact_note = "熔断跳过"
+    elif health.get("hygiene_compact_skipped"):
+        compact_note = f"跳过({health.get('hygiene_compact_skipped')})"
+
     return [
         "Butler 诊断",
         f"会话: {health.get('session_key') or inp.session_key}",
         f"平台: {health.get('platform') or '-'}",
         engine_line,
+        context_line,
         f"记忆提炼模型(post_session): {aux_label}",
-        f"压缩: {'是' if health.get('hygiene_compressed') else '否'}",
+        f"压缩: {compact_note}",
         f"Schema 降级: {'是' if schema_recovered else '否'}",
         f"剥离关键字: {schema_keywords}",
         f"Skill: {'已注入' if health.get('skill_context_injected') else '未注入'}",

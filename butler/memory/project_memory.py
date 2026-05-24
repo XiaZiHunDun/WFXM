@@ -649,4 +649,7 @@ class ProjectMemory:
         p = self.markdown.path
         if not p.exists():
             return ""
-        return p.read_text(encoding="utf-8")
+        from butler.memory.memory_caps import truncate_memory_text
+
+        text, _ = truncate_memory_text(p.read_text(encoding="utf-8"))
+        return text

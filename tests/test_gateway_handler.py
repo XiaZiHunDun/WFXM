@@ -405,6 +405,17 @@ class TestSlashCommands:
             text = handler._handle_command("/新对话")
         assert text.startswith("已清空本轮对话上下文。")
 
+    def test_plan_mode_slash_commands(self, handler):
+        from butler.plan_mode import clear_plan_mode, is_plan_mode
+
+        clear_plan_mode("wechat:plan:_")
+        on = handler._handle_command("/计划", session_key="wechat:plan:_")
+        assert on and "规划模式" in on
+        assert is_plan_mode("wechat:plan:_")
+        off = handler._handle_command("/执行", session_key="wechat:plan:_")
+        assert off and "退出" in off
+        assert not is_plan_mode("wechat:plan:_")
+
     def test_non_command_returns_none(self, handler):
         assert handler._handle_command("/unknowncmd") is None
 
@@ -414,6 +425,8 @@ class TestSlashCommands:
         assert _is_sessionless_command("/批准") is True
         assert _is_sessionless_command("/开发状态") is True
         assert _is_sessionless_command("/new") is True
+        assert _is_sessionless_command("/计划") is True
+        assert _is_sessionless_command("/任务") is True
         assert _is_sessionless_command("hello") is False
         assert _is_sessionless_command("/unknowncmd") is False
 

@@ -161,6 +161,7 @@ class WorkflowRunner:
                 headline=headline,
                 summary="\n".join(summary_parts),
                 success=graph.success,
+                task_preview=f"workflow:{workflow.name}"[:200],
             ),
             session_key=session_key,
         )
