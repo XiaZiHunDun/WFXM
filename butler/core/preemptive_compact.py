@@ -23,6 +23,30 @@ class ContextPrecheckOverflow(RuntimeError):
         self.threshold_tokens = threshold
 
 
+def record_precheck_overflow(
+    diagnostics: dict[str, Any],
+    exc: ContextPrecheckOverflow,
+) -> None:
+    diagnostics["preemptive_overflow_fail"] = True
+    diagnostics["loop_transition_reason"] = "preemptive_overflow"
+    diagnostics["preemptive_overflow_message"] = str(exc)
+    diagnostics["preemptive_estimated_tokens"] = exc.estimated_tokens
+    diagnostics["preemptive_threshold_tokens"] = exc.threshold_tokens
+
+
+def prepare_messages_or_abort(
+    prepare_messages: Callable[[], list[dict]],
+    diagnostics: dict[str, Any],
+) -> list[dict] | None:
+    """Run prepare_messages; return None if preemptive overflow aborts the turn."""
+    try:
+        return prepare_messages()
+    except ContextPrecheckOverflow as exc:
+        record_precheck_overflow(diagnostics, exc)
+        logger.error("Preemptive context overflow: %s", exc)
+        return None
+
+
 @dataclass(frozen=True)
 class PreemptiveDecision:
     route: PreemptiveRoute

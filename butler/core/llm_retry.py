@@ -34,20 +34,11 @@ def call_llm_with_retry(
     on_tool_call_ready: Callable[[int, str, str, dict], None] | None = None,
 ) -> tuple[Optional[NormalizedResponse], bool]:
     """Call the LLM with retries; return (response, interrupted)."""
-    try:
-        messages_to_send = prepare_messages()
-    except Exception as exc:
-        from butler.core.preemptive_compact import ContextPrecheckOverflow
+    from butler.core.preemptive_compact import prepare_messages_or_abort
 
-        if isinstance(exc, ContextPrecheckOverflow):
-            diagnostics["preemptive_overflow_fail"] = True
-            diagnostics["loop_transition_reason"] = "preemptive_overflow"
-            diagnostics["preemptive_overflow_message"] = str(exc)
-            diagnostics["preemptive_estimated_tokens"] = exc.estimated_tokens
-            diagnostics["preemptive_threshold_tokens"] = exc.threshold_tokens
-            logger.error("Preemptive context overflow: %s", exc)
-            return None, False
-        raise
+    messages_to_send = prepare_messages_or_abort(prepare_messages, diagnostics)
+    if messages_to_send is None:
+        return None, False
     if callbacks.on_llm_start:
         callbacks.on_llm_start(messages_to_send)
 
@@ -98,16 +89,9 @@ def call_llm_with_retry(
             ):
                 empty_retries[0] += 1
                 messages.append({"role": "user", "content": empty_retry_message()})
-                try:
-                    messages_to_send = prepare_messages()
-                except Exception as prep_exc:
-                    from butler.core.preemptive_compact import ContextPrecheckOverflow
-
-                    if isinstance(prep_exc, ContextPrecheckOverflow):
-                        diagnostics["preemptive_overflow_fail"] = True
-                        diagnostics["loop_transition_reason"] = "preemptive_overflow"
-                        return None, False
-                    raise
+                messages_to_send = prepare_messages_or_abort(prepare_messages, diagnostics)
+                if messages_to_send is None:
+                    return None, False
                 continue
 
             if callbacks.on_llm_complete:
@@ -176,16 +160,9 @@ def call_llm_with_retry(
                 if not applied:
                     messages[:] = compress_messages(list(messages))
                     diagnostics["reactive_context_compact"] = True
-                try:
-                    messages_to_send = prepare_messages()
-                except Exception as prep_exc:
-                    from butler.core.preemptive_compact import ContextPrecheckOverflow
-
-                    if isinstance(prep_exc, ContextPrecheckOverflow):
-                        diagnostics["preemptive_overflow_fail"] = True
-                        diagnostics["loop_transition_reason"] = "preemptive_overflow"
-                        return None, False
-                    raise
+                messages_to_send = prepare_messages_or_abort(prepare_messages, diagnostics)
+                if messages_to_send is None:
+                    return None, False
                 continue
 
             if classified.should_fallback and try_activate_fallback():

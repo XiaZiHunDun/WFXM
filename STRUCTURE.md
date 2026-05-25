@@ -24,7 +24,7 @@ WFXM/
 │   ├── plans/                   #   规划索引 README + CC/整理/外部对标
 │   ├── ops/                     #   /诊断 阈值等运维说明
 │   └── reviews/                 #   项目评估
-├── tests/                       #   默认 1200+ passed（排除 live_llm）
+├── tests/                       #   默认 ~1810 passed（排除 live_llm）
 ├── projects/                    #   LingWen1、DemoPilot 等工作区
 ├── logs/                        #   butler-gateway.log（gitignore *.log）
 ├── archive/                     #   README + Git 标签 archive/butler-v1-20260522
@@ -40,6 +40,7 @@ cp .env.example .env              # 配置 MINIMAX_API_KEY 等
 
 butler chat                       # CLI
 butler project preflight --project 灵文1号
+butler doctor                     # 静态安全配置审计
 butler wechat-setup               # 微信扫码绑定
 bash scripts/install-butler-gateway-service.sh   # systemd 用户服务
 bash scripts/butler-gateway-ops.sh status        # 网关运维

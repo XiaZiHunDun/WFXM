@@ -90,11 +90,10 @@
 | `BUTLER_MCP_HTTP_HOSTS_ALLOW` | 空 | 额外允许的 HTTP Host |
 | `BUTLER_MCP_SESSION_SCOPED` | 1 | 按 `session_key` 隔离连接 |
 | `BUTLER_MCP_HTTP_ALLOW_PRIVATE` | 0 | 是否允许 127.0.0.1 等内网 Host |
-| `BUTLER_SESSION_TRANSCRIPT` | 1 | 含 `compact_scheduled` / `compact_done` 事件 |
+| `BUTLER_SESSION_TRANSCRIPT` | 1 | `~/.butler/sessions/<key>/transcript.jsonl`；含 compact / `bot_loop_suppressed` 等事件 |
+| `BUTLER_SESSION_TRANSCRIPT_MAX_BYTES` | 52428800 | transcript 轮转阈值 |
 | `BUTLER_READ_BEFORE_EDIT` | 1 | patch/write 前须 read_file + mtime |
 | `BUTLER_READ_STATE_MAX_ENTRIES` | 100 | read state LRU 上限 |
-| `BUTLER_SESSION_TRANSCRIPT` | 1 | `~/.butler/sessions/<key>/transcript.jsonl` |
-| `BUTLER_SESSION_TRANSCRIPT_MAX_BYTES` | 52428800 |  transcript 轮转阈值 |
 | `BUTLER_DISABLE_AUTO_COMPACT` | 0 | `1` 关闭 LLM 摘要压缩 |
 | `BUTLER_CONTEXT_*` | — | 压缩阈值等（见 `.env.example`） |
 | `BUTLER_STREAMING_TOOLS` | 1 | 流式只读工具参数完整后预执行 |
