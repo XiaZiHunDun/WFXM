@@ -169,6 +169,14 @@ def run_job(
     }
     if result.get("outcome"):
         out["outcome"] = result["outcome"]
+    try:
+        from butler.experiments.ledger import maybe_record_from_job_result
+
+        exp_row = maybe_record_from_job_result(ws, job.id, result)
+        if exp_row:
+            out["experiment"] = exp_row
+    except Exception as exc:
+        logger.debug("Experiment ledger record skipped: %s", exc)
     return out
 
 

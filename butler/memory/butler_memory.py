@@ -426,6 +426,12 @@ class ButlerMemory:
         self.butler_home = Path(butler_home).expanduser().resolve()
         self.tenant_id = normalize_tenant_id(tenant_id or DEFAULT_TENANT)
         migrate_legacy_memory_layout(self.butler_home)
+        try:
+            from butler.skills.seed_bundled import ensure_bundled_tenant_skills
+
+            ensure_bundled_tenant_skills(self.butler_home, self.tenant_id)
+        except Exception as exc:
+            logger.debug("Bundled skills seed skipped: %s", exc)
         mem_dir = tenant_memory_dir(self.butler_home, self.tenant_id)
         mem_dir.mkdir(parents=True, exist_ok=True)
         self.profile = ProfileStore(mem_dir / "profile.json")

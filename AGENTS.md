@@ -10,6 +10,7 @@
 | 2 | [`docs/config/reference.md`](docs/config/reference.md) + [`.env.example`](.env.example) | `BUTLER_*` 环境变量（勿猜默认值） |
 | 3 | [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | Claude Code 对照；**CC 线束 P0–P4**（§4–§11） |
 | 4 | [`docs/plans/README.md`](docs/plans/README.md) | 规划索引；**三套 P0/P2/P3 命名对照** |
+| 4b | [`docs/plans/four-reports-out-of-scope-2026-05.md`](docs/plans/four-reports-out-of-scope-2026-05.md) | 四报告对标 **明确不做**（新增能力前先查） |
 | 5 | [`STRUCTURE.md`](STRUCTURE.md) | 目录树与常用命令 |
 | 6 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | 微信线束、Hooks、出站、队列/workflow、发版抽测 |
 | 7 | [`docs/design/design.md`](docs/design/design.md) | 产品设计摘要；§9 为对照表，**§11+ 可能过时** |
@@ -50,6 +51,10 @@ PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.p
 # 改 gateway / 队列 / workflow
 PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command.py \
   tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
+
+# 改四报告增量（RAG / DESIGN / 实验 / Loop 减熵）
+PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sections.py \
+  tests/test_experiment_ledger.py tests/test_query_decompose.py tests/test_support_line_e.py -q
 ```
 
 ## 产品边界（简述）
@@ -60,9 +65,10 @@ PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command
 
 ## 文档更新义务
 
-若改动 **CC 线束**、**外部对标模块**（`runtime_metrics` / `queue_settings` / `human_gate`）或新增 `BUTLER_*`，请同步：
+若改动 **CC 线束**、**外部对标模块**（`runtime_metrics` / `queue_settings` / `human_gate`）、**四报告增量**（`butler/memory/chunking`、`design_md_sections`、`butler/experiments/`、`query_decompose` 等）或新增 `BUTLER_*`，请同步：
 
 - `docs/architecture/v4-architecture.md`
 - `docs/config/reference.md`、`.env.example`
 - `CONTRIBUTING.md`（Butler 线束节）
+- 四报告能力变更时：`docs/guides/four-reports-capabilities-2026-05.md`、`docs/plans/four-reports-improvement-roadmap-2026-05.md` §9
 - 阈值变更时：`docs/ops/diagnostic-thresholds.md`

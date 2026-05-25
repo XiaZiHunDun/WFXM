@@ -18,6 +18,9 @@ steps:
 
       首行必须是 **PASS** 或 **FAIL**（全大写）。
       - 须用 read_file / search_files / terminal(测试) 核对，禁止空口 PASS
+      - 若存在 DESIGN.md：read_file 后核对 Do's and Don'ts、Responsive Behavior、
+        colors/typography token；无 DESIGN 时不得声称「符合品牌」
+      - PASS 须列出已核对的 DESIGN 规则或 token 名（至少 1 条）
       - 默认至少列出 1 条可改进点；严重问题标为 FAIL
       - FAIL 时说明阻塞项与建议修复顺序
       不要修改业务文件，除非用户明确要求。

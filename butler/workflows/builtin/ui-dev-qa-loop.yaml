@@ -1,0 +1,26 @@
+name: ui-dev-qa-loop
+description: UI 实现 → DESIGN 对齐审查（design-md 子集）
+steps:
+  - id: implement
+    role: dev
+    max_retries: 1
+    task: |
+      根据用户目标完成 UI 实现。开始前 read_file 项目 DESIGN.md（根目录或
+      `.butler/design/DESIGN.md`）。一次只改一个 components.* token；遵守
+      Do's and Don'ts 与 Responsive Behavior。
+      完成后整理 HANDOFF：改了哪些文件、核对了哪些 token。
+  - id: qa
+    role: review
+    depends_on: [implement]
+    max_retries: 3
+    task: |
+      审查上一步 UI 实现（输出见下）。
+
+      {{implement.output}}
+
+      首行必须是 **PASS** 或 **FAIL**（全大写）。
+      - 须 read_file DESIGN.md；逐条核对 Do's and Don'ts、Responsive Behavior
+      - 核对主色/背景/canvas 等 token 名与取值；PASS 须列出 ≥1 条已核对规则
+      - 无 DESIGN.md 时不得 PASS「符合品牌」类结论
+      - 默认至少 1 条可改进点；严重视觉/可访问性问题标 FAIL
+      不要修改业务文件，除非用户明确要求。

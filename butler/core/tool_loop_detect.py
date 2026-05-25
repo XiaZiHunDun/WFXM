@@ -109,7 +109,7 @@ class ToolLoopDetector:
         return None
 
     def _check_ping_pong(self, tool_name: str, args_hash: str) -> LoopDetectDecision | None:
-        if len(self._history) < 6:
+        if len(self._history) < 4:
             return None
         recent = list(self._history)[-6:]
         names = [r[0] for r in recent]
@@ -121,15 +121,24 @@ class ToolLoopDetector:
         alt = names[0] != names[1]
         if not all(names[i] != names[i + 1] for i in range(len(names) - 1)):
             return None
-        if alt:
+        if not alt:
+            return None
+        label = " <-> ".join(sorted(set(names)))
+        if len(recent) >= 6:
             return LoopDetectDecision(
                 stuck=True,
                 level="critical",
                 detector="ping_pong",
-                message=f"工具乒乓循环: {' <-> '.join(sorted(set(names)))}",
+                message=f"工具乒乓循环: {label}",
                 count=len(recent),
             )
-        return None
+        return LoopDetectDecision(
+            stuck=True,
+            level="warning",
+            detector="ping_pong_soft_nudge",
+            message=f"疑似工具乒乓: {label}。请收敛策略或 delegate_yield。",
+            count=len(recent),
+        )
 
     def _check_poll_no_progress(self, tool_name: str) -> LoopDetectDecision | None:
         same = [fp for name, fp in self._result_fps if name == tool_name]

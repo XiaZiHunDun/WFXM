@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 
@@ -83,6 +84,13 @@ def _shared_diagnostic_lines(
         lines.extend(
             format_rag_diagnostic_lines(inp.mem_stats, session_key=inp.session_key)
         )
+    except Exception:
+        pass
+    try:
+        from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
+
+        if proj is not None:
+            lines.extend(format_experiment_diagnostic_lines(Path(proj.workspace)))
     except Exception:
         pass
     return lines
@@ -166,7 +174,7 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
     except Exception:
         pass
 
-    return [
+    out: list[str] = [
         "Butler 诊断",
         f"会话: {health.get('session_key') or inp.session_key}",
         f"平台: {health.get('platform') or '-'}",
@@ -181,7 +189,20 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         f"记忆上下文: {'已注入' if health.get('memory_context_injected') else '未注入'}",
         f"记忆同步: {'已同步' if not memory_sync.get('skipped', True) else '跳过'}",
         f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
-    ] + stale_lines + recovery_lines + _hook_diagnostic_lines(inp.session_key, health)
+    ]
+    out.extend(stale_lines + recovery_lines + _hook_diagnostic_lines(inp.session_key, health))
+    try:
+        from butler.core.schema_optimizer import schema_optimize_enabled
+
+        if schema_optimize_enabled():
+            stripped = health.get("schema_optimize_stripped") or loop_health.get(
+                "schema_optimize_stripped"
+            )
+            if stripped:
+                out.append(f"Schema 预优化剥离: {int(stripped)}")
+    except Exception:
+        pass
+    return out
 
 
 def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> list[str]:
@@ -292,6 +313,31 @@ def build_health_report(inp: HealthReportInput) -> str:
             lines.append("错误: 有（查看日志）")
         if health.get("hygiene_error"):
             lines.append("压缩错误: 有（查看日志）")
+        try:
+            from butler.ops.token_cost_diagnostics import (
+                format_token_cost_diagnostic_lines,
+                token_cost_estimate_enabled,
+            )
+            from butler.model_resolve import resolve_effective_model
+
+            model_name = ""
+            try:
+                proj = inp.orchestrator.project_manager.get_current(session_key=inp.session_key)
+                em = resolve_effective_model(
+                    "butler", project=proj, settings=inp.orchestrator._settings
+                )
+                model_name = str(em.config.model or "")
+            except Exception:
+                pass
+            lines.extend(
+                format_token_cost_diagnostic_lines(
+                    health,
+                    model=model_name,
+                    estimate_cost=token_cost_estimate_enabled(),
+                )
+            )
+        except Exception:
+            pass
     else:
         from butler.core.context_budget import format_context_budget_line
 

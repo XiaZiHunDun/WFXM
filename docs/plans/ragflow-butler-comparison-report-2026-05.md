@@ -1,6 +1,6 @@
 # Butler v4 × RAGFlow 对标报告
 
-> **状态**：分析完成（2026-05-25）；**未落地实现**  
+> **状态**：分析完成（2026-05-25）；**RF-P0–P2 子集已落地**（fallback/切块/引用/子 query；全栈见 [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md)）  
 > **本地对照**：`reference/ragflow`（gitignore，仅阅读）  
 > **原则**：只借鉴设计；[`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) 零新增 pip 依赖；全量 RAG 管道见 [`../guides/external-reference-deferred-2026-05.md`](../guides/external-reference-deferred-2026-05.md)  
 > **规划索引**：[`README.md`](README.md)

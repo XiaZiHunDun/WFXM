@@ -12,6 +12,7 @@ from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.core.parallel_tools import execute_tools_parallel
 from butler.core.steer import apply_steer_to_tool_results
 from butler.tool_guardrails import (
+    GuardrailDecision,
     ToolCallGuardrailController,
     append_guidance,
     synthetic_result,
@@ -87,6 +88,14 @@ def process_tool_calls(
         return ToolBatchStats()
 
     tools_started = 0
+    batch_guard = None
+    try:
+        from butler.core.batch_sequence_guard import BatchSequenceGuard, batch_stale_guard_enabled
+
+        if batch_stale_guard_enabled():
+            batch_guard = BatchSequenceGuard()
+    except Exception:
+        batch_guard = None
 
     from butler.core.tool_call_limits import get_tool_call_limiter
     from butler.core.tool_retry import run_tool_with_retry
@@ -94,25 +103,59 @@ def process_tool_calls(
     from butler.execution_context import get_current_session_key
 
     def _dispatch_one(name: str, args: dict, *, tool_call_id: str = "") -> str:
+        if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
+            from butler.core.batch_sequence_guard import (
+                STALE_PREFETCH_CODE,
+                STALE_SKIP_CODE,
+                stale_skip_result,
+            )
+
+            code = (
+                STALE_PREFETCH_CODE
+                if prefetched and tool_call_id and tool_call_id in prefetched
+                else STALE_SKIP_CODE
+            )
+            payload = stale_skip_result(name, args, guard=batch_guard, code=code)
+            return finalize_fallback_tool_result(name, args, payload)
         if prefetched and tool_call_id and tool_call_id in prefetched:
-            return prefetched[tool_call_id]
+            result = prefetched[tool_call_id]
+            if batch_guard is not None:
+                batch_guard.note_tool_result(name, args, result)
+            return result
         session_key = str(get_current_session_key() or "").strip()
         cached = get_cached_result(name, args, session_key=session_key)
         if cached is not None:
-            return cached
+            result = cached
+            pending_warn = None
+            if guardrails:
+                before = guardrails.before_call(name, args)
+                if before.action == "warn" and before.code == "doom_loop_soft_nudge":
+                    pending_warn = before
+                if before.should_halt:
+                    return finalize_fallback_tool_result(name, args, synthetic_result(before))
+                after = guardrails.after_call(name, args, result)
+                if after.should_halt:
+                    guardrails.set_halt_decision(after)
+                    return finalize_guardrail_halt_result(name, args, result, after)
+                if after.action == "warn":
+                    result = append_guidance(result, after)
+                elif pending_warn is not None:
+                    result = append_guidance(result, pending_warn)
+            return result
         blocked = get_tool_call_limiter().before_call(name)
         if blocked:
             return finalize_fallback_tool_result(name, args, blocked)
+        pending_warn = None
         if guardrails:
             before = guardrails.before_call(name, args)
+            if before.action == "warn" and before.code == "doom_loop_soft_nudge":
+                pending_warn = before
             if before.action == "ask" and before.code == "doom_loop":
                 try:
                     from butler.permission_doom_loop import check_doom_loop_ask
 
                     block_msg = check_doom_loop_ask(before, name, args)
                     if block_msg:
-                        from butler.tool_guardrails import GuardrailDecision, synthetic_result
-
                         ask_dec = GuardrailDecision(
                             action="block",
                             code="doom_loop",
@@ -142,6 +185,12 @@ def process_tool_calls(
                 result = finalize_guardrail_halt_result(name, args, result, after)
             elif after.action == "warn":
                 result = append_guidance(result, after)
+            elif pending_warn is not None:
+                result = append_guidance(result, pending_warn)
+        elif pending_warn is not None:
+            result = append_guidance(result, pending_warn)
+        if batch_guard is not None:
+            batch_guard.note_tool_result(name, args, result)
         return result
 
     def _on_start(name: str, args: dict) -> None:
@@ -174,6 +223,14 @@ def process_tool_calls(
                 name,
                 args,
                 synthetic_result(guardrails.halt_decision),
+            )
+        if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
+            from butler.core.batch_sequence_guard import stale_skip_result
+
+            return finalize_fallback_tool_result(
+                name,
+                args,
+                stale_skip_result(name, args, guard=batch_guard),
             )
         return None
 
@@ -211,6 +268,18 @@ def process_tool_calls(
                         tc.name,
                         args,
                         synthetic_result(guardrails.halt_decision),
+                    ),
+                ))
+                continue
+            if batch_guard is not None and batch_guard.should_skip_stale_read(tc.name, args):
+                from butler.core.batch_sequence_guard import stale_skip_result
+
+                pairs.append((
+                    tc,
+                    finalize_fallback_tool_result(
+                        tc.name,
+                        args,
+                        stale_skip_result(tc.name, args, guard=batch_guard),
                     ),
                 ))
                 continue

@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 
 PERSISTED_OUTPUT_TAG = "<persisted-output>"
 PERSISTED_OUTPUT_CLOSING_TAG = "</persisted-output>"
+INJECT_ONCE_REF_TAG = "<persisted-output-ref>"
+INJECT_ONCE_REF_CLOSING_TAG = "</persisted-output-ref>"
 TOOL_RESULTS_SUBDIR = "tool-results"
 _SESSIONS_SUBDIR = "sessions"
 BUDGET_TRUNCATED_TAG = "<tool-result-truncated>"
@@ -32,11 +34,18 @@ _NO_SPILL_TOOLS = frozenset({"read_file", "skills_list", "skill_view"})
 _SAFE_SEGMENT_RE = re.compile(r"[^a-zA-Z0-9._+-]+")
 _LOCK = threading.RLock()
 _REPLACEMENT_BY_SESSION: dict[str, "ContentReplacementState"] = {}
+_INJECT_ONCE_BY_SESSION: dict[str, "InjectOnceState"] = {}
 _PER_TOOL_THRESHOLDS_CACHE: dict[str, int] | None = None
+_FILEPATH_IN_SPILL_RE = re.compile(r"完整结果已保存至[：:]\s*(\S+)")
+_SIZE_IN_SPILL_RE = re.compile(r"输出过大[（(](\d+)\s*字符")
 
 
 def tool_result_spill_enabled() -> bool:
     return env_truthy("BUTLER_TOOL_RESULT_SPILL", default=True)
+
+
+def tool_result_inject_once_enabled() -> bool:
+    return env_truthy("BUTLER_TOOL_RESULT_INJECT_ONCE", default=True)
 
 
 def message_tool_budget_enabled() -> bool:
@@ -100,7 +109,12 @@ def spill_preview_chars() -> int:
 
 
 def is_persisted_tool_result(content: str) -> bool:
-    return PERSISTED_OUTPUT_TAG in (content or "")
+    text = content or ""
+    return PERSISTED_OUTPUT_TAG in text or INJECT_ONCE_REF_TAG in text
+
+
+def is_inject_once_ref(content: str) -> bool:
+    return INJECT_ONCE_REF_TAG in (content or "")
 
 
 def is_budget_truncated_tool_result(content: str) -> bool:
@@ -145,6 +159,23 @@ class ContentReplacementState:
         )
 
 
+@dataclass
+class SpillInjectMeta:
+    tool_use_id: str
+    filepath: str
+    original_size: int
+    summary_line: str
+    tool_name: str = ""
+
+
+@dataclass
+class InjectOnceState:
+    """Track which spilled tool_use_ids already had a full inject this turn/session."""
+
+    injected_ids: set[str] = field(default_factory=set)
+    spill_meta: dict[str, SpillInjectMeta] = field(default_factory=dict)
+
+
 def get_replacement_state(session_key: str = "") -> ContentReplacementState:
     sk = _safe_path_segment(session_key or "_global", fallback="_global")
     with _LOCK:
@@ -160,6 +191,23 @@ def reset_replacement_state(session_key: str | None = None) -> None:
             return
         sk = _safe_path_segment(session_key, fallback="_global")
         _REPLACEMENT_BY_SESSION.pop(sk, None)
+
+
+def get_inject_once_state(session_key: str = "") -> InjectOnceState:
+    sk = _safe_path_segment(session_key or "_global", fallback="_global")
+    with _LOCK:
+        if sk not in _INJECT_ONCE_BY_SESSION:
+            _INJECT_ONCE_BY_SESSION[sk] = InjectOnceState()
+        return _INJECT_ONCE_BY_SESSION[sk]
+
+
+def reset_inject_once_state(session_key: str | None = None) -> None:
+    with _LOCK:
+        if session_key is None:
+            _INJECT_ONCE_BY_SESSION.clear()
+            return
+        sk = _safe_path_segment(session_key, fallback="_global")
+        _INJECT_ONCE_BY_SESSION.pop(sk, None)
 
 
 def _safe_path_segment(value: str, *, fallback: str = "unknown") -> str:
@@ -225,6 +273,71 @@ def persist_tool_result_text(
     )
 
 
+def _first_summary_line(preview: str) -> str:
+    for line in (preview or "").splitlines():
+        text = line.strip()
+        if text and text != "...":
+            return text[:240]
+    return ""
+
+
+def register_spill_inject_meta(
+    *,
+    tool_use_id: str,
+    session_key: str,
+    persisted: PersistedToolResult,
+    tool_name: str = "",
+) -> None:
+    tid = str(tool_use_id or "").strip()
+    if not tid:
+        return
+    sk = str(session_key or "").strip() or "_global"
+    state = get_inject_once_state(sk)
+    state.spill_meta[tid] = SpillInjectMeta(
+        tool_use_id=tid,
+        filepath=str(persisted.filepath),
+        original_size=int(persisted.original_size),
+        summary_line=_first_summary_line(persisted.preview),
+        tool_name=str(tool_name or "").strip(),
+    )
+
+
+def parse_spill_meta_from_content(content: str, *, tool_use_id: str = "") -> SpillInjectMeta | None:
+    text = str(content or "")
+    if PERSISTED_OUTPUT_TAG not in text:
+        return None
+    path_m = _FILEPATH_IN_SPILL_RE.search(text)
+    size_m = _SIZE_IN_SPILL_RE.search(text)
+    if not path_m:
+        return None
+    preview_block = ""
+    if "预览" in text:
+        parts = text.split("预览", 1)
+        if len(parts) > 1:
+            preview_block = parts[1].split(PERSISTED_OUTPUT_CLOSING_TAG, 1)[0]
+    return SpillInjectMeta(
+        tool_use_id=str(tool_use_id or "").strip(),
+        filepath=path_m.group(1).strip(),
+        original_size=int(size_m.group(1)) if size_m else len(text),
+        summary_line=_first_summary_line(preview_block),
+    )
+
+
+def build_inject_once_compact_message(meta: SpillInjectMeta) -> str:
+    summary = meta.summary_line or "(无摘要)"
+    tool = f" [{meta.tool_name}]" if meta.tool_name else ""
+    return "\n".join(
+        [
+            INJECT_ONCE_REF_TAG,
+            f"inject_once{tool}：完整输出已在上一轮注入，此处仅保留指针。",
+            f"路径：{meta.filepath}",
+            f"大小：{meta.original_size} 字符",
+            f"摘要：{summary}",
+            INJECT_ONCE_REF_CLOSING_TAG,
+        ]
+    )
+
+
 def build_spill_message(result: PersistedToolResult) -> str:
     preview_limit = spill_preview_chars()
     lines = [
@@ -284,7 +397,75 @@ def maybe_spill_tool_result(
     persisted = persist_tool_result_text(text, tool_use_id=tid, session_key=sk)
     if persisted is None:
         return text
+    if tool_result_inject_once_enabled():
+        register_spill_inject_meta(
+            tool_use_id=tid,
+            session_key=sk,
+            persisted=persisted,
+            tool_name=tool_name,
+        )
     return build_spill_message(persisted)
+
+
+def apply_inject_once_policy(
+    messages: list[dict],
+    *,
+    session_key: str = "",
+) -> list[dict]:
+    """
+    First API round keeps full ``<persisted-output>``; later rounds compact to ref+summary.
+    Mutates tool message dicts in ``messages`` in place.
+    """
+    if not tool_result_inject_once_enabled() or not tool_result_spill_enabled():
+        return messages
+    sk = str(session_key or "").strip()
+    if not sk:
+        from butler.execution_context import get_audit_session_key
+
+        sk = get_audit_session_key(fallback="_global")
+    state = get_inject_once_state(sk)
+    name_index = _build_tool_name_index(messages)
+
+    for msg in messages:
+        if msg.get("role") != "tool":
+            continue
+        tid = str(msg.get("tool_call_id") or msg.get("id") or "").strip()
+        if not tid:
+            continue
+        content = str(msg.get("content") or "")
+        if is_inject_once_ref(content):
+            continue
+        if not is_persisted_tool_result(content) or PERSISTED_OUTPUT_TAG not in content:
+            continue
+        meta = state.spill_meta.get(tid)
+        if meta is None:
+            meta = parse_spill_meta_from_content(content, tool_use_id=tid)
+            if meta is not None:
+                meta.tool_name = name_index.get(tid, meta.tool_name)
+                state.spill_meta[tid] = meta
+        if meta is None:
+            continue
+        if tid in state.injected_ids:
+            msg["content"] = build_inject_once_compact_message(meta)
+            continue
+        state.injected_ids.add(tid)
+    return messages
+
+
+def _build_tool_name_index(messages: list[dict]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for msg in messages:
+        if msg.get("role") != "assistant":
+            continue
+        for tc in msg.get("tool_calls") or []:
+            if not isinstance(tc, dict):
+                continue
+            tid = str(tc.get("id") or "").strip()
+            if not tid:
+                continue
+            fn = tc.get("function") if isinstance(tc.get("function"), dict) else {}
+            out[tid] = str(fn.get("name") or "").strip()
+    return out
 
 
 def _tool_result_char_len(msg: dict) -> int:

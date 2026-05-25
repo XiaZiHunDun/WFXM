@@ -150,13 +150,16 @@ class ContextPipeline:
         pre_llm_transform: Callable[[list[dict]], list[dict]] | None = None,
         diagnostics: dict[str, Any] | None = None,
     ) -> list[dict]:
-        from butler.core.tool_result_storage import enforce_message_tool_budget
+        from butler.core.tool_result_storage import (
+            apply_inject_once_policy,
+            enforce_message_tool_budget,
+        )
         from butler.execution_context import get_audit_session_key
 
-        prepared = enforce_message_tool_budget(
-            list(messages),
-            session_key=get_audit_session_key(fallback="_global"),
-        )
+        sk = get_audit_session_key(fallback="_global")
+        prepared = list(messages)
+        apply_inject_once_policy(prepared, session_key=sk)
+        prepared = enforce_message_tool_budget(prepared, session_key=sk)
         prepared = prune_tool_outputs(prepared)
         prepared = backward_prune_tool_outputs(prepared)
         try:

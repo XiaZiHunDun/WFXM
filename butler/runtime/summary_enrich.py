@@ -1,4 +1,4 @@
-"""Enrich runtime job summaries (report paths, audit hints)."""
+"""Enrich runtime job summaries (report paths, audit hints, experiment metrics)."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from butler.experiments.metrics import parse_metrics_from_text
 from butler.runtime.schema import JobDef
 
 _REPORT_LINE = re.compile(
@@ -97,6 +98,15 @@ def enrich_job_result(
         for p in _latest_consistency_reports(ws):
             if p not in paths:
                 paths.append(p)
+
+    metrics = parse_metrics_from_text(stdout)
+    if metrics:
+        m = metrics[0]
+        metric_line = f"METRIC {m['metric_name']}={m['metric_value']}"
+        summary = (result.get("summary") or "").strip()
+        if metric_line not in summary:
+            result["summary"] = f"{summary}\n{metric_line}".strip() if summary else metric_line
+        result["metrics"] = metrics
 
     if not paths:
         return result

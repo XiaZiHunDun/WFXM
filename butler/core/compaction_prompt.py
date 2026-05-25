@@ -10,6 +10,11 @@ Preserve verbatim when present: URLs, file paths, hostnames, task_id, session_ke
 error codes, exit codes, JSON keys, and command lines. Do not paraphrase opaque identifiers.
 """
 
+IN_PROGRESS_RULE = """
+For any work not finished in this segment, prefix bullets with exactly `IN-PROGRESS:` (e.g. `- IN-PROGRESS: fix tests`).
+Do not mark incomplete work as Done/Resolved. Blocked items may use `BLOCKED:` when applicable.
+"""
+
 OPENCODE_SUMMARY_TEMPLATE = """Output exactly the Markdown structure below. Keep every section even when empty. Use terse bullets, not prose. Preserve exact paths, commands, error strings, and identifiers when known. Do not mention compaction.
 
 ## Goal
@@ -23,7 +28,7 @@ OPENCODE_SUMMARY_TEMPLATE = """Output exactly the Markdown structure below. Keep
 - (completed work or "(none)")
 
 ### In Progress
-- (current work or "(none)")
+- (use `- IN-PROGRESS: ...` for unfinished work or "(none)")
 
 ### Blocked
 - (blockers or "(none)")
@@ -75,7 +80,7 @@ Use terse bullets. Preserve exact paths, commands, error strings, and identifier
 - (open questions or "(none)")
 
 ## Remaining Work
-- (ordered next actions — most important)
+- (ordered next actions — prefix unfinished with `IN-PROGRESS:`)
 
 ## Active Task
 - (what the assistant should do next)
@@ -100,17 +105,18 @@ def build_compaction_user_prompt(*, transcript: str, previous_summary: str = "")
     if use_hermes_compaction_template():
         return _append_preflight_checklist(
             "Summarize this conversation segment for handoff to a new context window.\n\n"
-            f"{IDENTIFIER_PRESERVATION}\n{HERMES_SUMMARY_TEMPLATE}{prev_block}\n\n"
+            f"{IDENTIFIER_PRESERVATION}\n{IN_PROGRESS_RULE}\n{HERMES_SUMMARY_TEMPLATE}{prev_block}\n\n"
             f"Conversation:\n{transcript}"
         )
     if use_opencode_compaction_template():
         return _append_preflight_checklist(
             "Summarize this conversation segment for handoff to a new context window.\n\n"
-            f"{IDENTIFIER_PRESERVATION}\n{OPENCODE_SUMMARY_TEMPLATE}{prev_block}\n\n"
+            f"{IDENTIFIER_PRESERVATION}\n{IN_PROGRESS_RULE}\n{OPENCODE_SUMMARY_TEMPLATE}{prev_block}\n\n"
             f"Conversation:\n{transcript}"
         )
     return _append_preflight_checklist(
         "Summarize this conversation segment for handoff to a new context window.\n\n"
+        f"{IN_PROGRESS_RULE}\n"
         "Use this structure:\n"
         "## Resolved\n- (completed items)\n\n"
         "## Pending\n- (open questions)\n\n"

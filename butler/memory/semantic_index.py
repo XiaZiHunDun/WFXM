@@ -410,6 +410,45 @@ def index_triplets_for_content(
         return 0
 
 
+def _hybrid_experience_search_once(
+    semantic: SemanticMemoryIndex | None,
+    fts_search: Callable[..., list[dict[str, Any]]],
+    query: str,
+    *,
+    project: str | None = None,
+    limit: int = 8,
+) -> tuple[list[dict[str, Any]], str, int]:
+    """Single-query hybrid; returns (hits, mode, fallbacks)."""
+    fts_hits = fts_search(query, project=project, limit=limit * 2)
+    mode = "fts" if semantic is None else "hybrid"
+    fallbacks = 0
+    if semantic is None:
+        out = fts_hits[:limit]
+    else:
+        try:
+            out = semantic.hybrid_search(query, fts_hits, project=project, limit=limit)
+        except Exception as exc:
+            logger.warning("Hybrid search failed, using FTS: %s", exc)
+            out = fts_hits[:limit]
+            mode = "fts-error-fallback"
+            fallbacks += 1
+    if not out and project is not None:
+        fallbacks += 1
+        global_fts_hits = fts_search(query, project=None, limit=limit * 4)
+        if semantic is None:
+            out = global_fts_hits[:limit]
+            mode = "fts-fallback-global"
+        else:
+            try:
+                out = semantic.hybrid_search(query, global_fts_hits, project=None, limit=limit)
+                mode = "hybrid-fallback-global"
+            except Exception as exc:
+                logger.warning("Hybrid global fallback failed, using FTS: %s", exc)
+                out = global_fts_hits[:limit]
+                mode = "fts-fallback-global"
+    return out, mode, fallbacks
+
+
 def hybrid_experience_search(
     semantic: SemanticMemoryIndex | None,
     fts_search: Callable[..., list[dict[str, Any]]],
@@ -419,17 +458,63 @@ def hybrid_experience_search(
     limit: int = 8,
     experience_store: Any | None = None,
 ) -> list[dict[str, Any]]:
-    """FTS-only when semantic disabled; otherwise hybrid merge."""
-    fts_hits = fts_search(query, project=project, limit=limit * 2)
-    if semantic is None:
-        out = fts_hits[:limit]
-    else:
-        try:
-            out = semantic.hybrid_search(query, fts_hits, project=project, limit=limit)
-        except Exception as exc:
-            logger.warning("Hybrid search failed, using FTS: %s", exc)
-            out = fts_hits[:limit]
+    """FTS-only when semantic disabled; otherwise hybrid merge (optional sub-queries)."""
+    q = str(query or "").strip()
+    sub_queries: list[str] = []
+    mode = "none"
+    fallbacks = 0
+    out: list[dict[str, Any]] = []
+
+    def _once(sub_q: str) -> list[dict[str, Any]]:
+        hits, _, _ = _hybrid_experience_search_once(
+            semantic,
+            fts_search,
+            sub_q,
+            project=project,
+            limit=limit,
+        )
+        return hits
+
+    try:
+        from butler.memory.query_decompose import decompose_query, search_with_subqueries, subquery_enabled
+
+        if subquery_enabled() and q and len(decompose_query(q)) > 1:
+            out, sub_queries = search_with_subqueries(q, _once, limit=limit)
+            mode = "hybrid-subquery"
+        else:
+            out, mode, fallbacks = _hybrid_experience_search_once(
+                semantic,
+                fts_search,
+                q,
+                project=project,
+                limit=limit,
+            )
+    except Exception:
+        out, mode, fallbacks = _hybrid_experience_search_once(
+            semantic,
+            fts_search,
+            q,
+            project=project,
+            limit=limit,
+        )
+
     _record_experience_access_from_hits(experience_store, out)
+    try:
+        from butler.execution_context import get_current_session_key
+        from butler.memory.retrieval_telemetry import record_last_retrieval
+
+        payload: dict[str, Any] = {
+            "mode": mode if out else "none",
+            "fallbacks": fallbacks,
+            "candidates": len(out),
+            "query": q,
+        }
+        if sub_queries and len(sub_queries) > 1:
+            payload["sub_queries"] = sub_queries
+            payload["mode"] = mode or "hybrid-subquery"
+        record_last_retrieval(get_current_session_key() or "", payload)
+    except Exception:
+        pass
     return out
 
 

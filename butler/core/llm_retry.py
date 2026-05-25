@@ -46,6 +46,17 @@ def call_llm_with_retry(
     compress_attempted = False
     schema_recovery_attempted = False
     tools_to_send = tools or None
+    if tools_to_send:
+        try:
+            from butler.core.schema_optimizer import optimize_tool_definitions
+
+            tools_to_send = optimize_tool_definitions(
+                tools_to_send,
+                diagnostics=diagnostics,
+                provider=str(getattr(client, "provider_name", "") or ""),
+            )
+        except Exception:
+            pass
     interrupted = False
 
     for attempt in range(config.max_retries):

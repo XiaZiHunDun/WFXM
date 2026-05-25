@@ -1,6 +1,6 @@
 # Butler v4 ↔ browser-use 对照分析报告
 
-> **状态**：参考分析（2026-05-25）  
+> **状态**：分析完成（2026-05-25）；**主线 B 已落地**（Loop 减熵，见路线图 §9）；CDP/截图见 [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md)  
 > **对照源**：`reference/browser-use`（browser-use v0.12.8）  
 > **产品边界**：[`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)、[`AGENTS.md`](../../AGENTS.md)  
 > **相关规划**：CC 线束 [`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)、外部对标 [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md)

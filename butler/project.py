@@ -11,6 +11,20 @@ import yaml
 from butler.config import ModelConfig, get_butler_settings
 
 
+def _parse_tool_modes(raw: Any) -> dict[str, list[str]]:
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, list[str]] = {}
+    for key, val in raw.items():
+        role = str(key or "").strip().lower()
+        if not role or not isinstance(val, list):
+            continue
+        names = [str(n).strip() for n in val if str(n).strip()]
+        if names:
+            out[role] = names
+    return out
+
+
 @dataclass
 class Project:
     """Single Butler project anchored at a ``project.yaml`` on disk."""
@@ -28,6 +42,8 @@ class Project:
     workflows: list[Any] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
     worktree: str = ""
+    design_preset: str = ""
+    tool_modes: dict[str, list[str]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.workspace = self.workspace.expanduser().resolve()
@@ -74,6 +90,8 @@ class Project:
             workflows=list(data.get("workflows") or []),
             tools=list(data.get("tools") or []),
             worktree=str(data.get("worktree") or "").strip(),
+            design_preset=str(data.get("design_preset") or "").strip(),
+            tool_modes=_parse_tool_modes(data.get("tool_modes")),
         )
 
     def resolve_model(self, role: str, runtime_override: ModelConfig | None = None) -> ModelConfig:
@@ -117,6 +135,10 @@ class Project:
             d["tools"] = self.tools
         if self.worktree:
             d["worktree"] = self.worktree
+        if self.design_preset:
+            d["design_preset"] = self.design_preset
+        if self.tool_modes:
+            d["tool_modes"] = dict(self.tool_modes)
         return d
 
     def save(self) -> None:
@@ -145,6 +167,10 @@ class Project:
             payload["tools"] = self.tools
         if self.worktree:
             payload["worktree"] = self.worktree
+        if self.design_preset:
+            payload["design_preset"] = self.design_preset
+        if self.tool_modes:
+            payload["tool_modes"] = dict(self.tool_modes)
 
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False)

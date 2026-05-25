@@ -132,9 +132,11 @@ def test_parallel_batch_skips_dispatch_after_guardrail_halt():
 
 @pytest.mark.unit
 def test_sequential_batch_skips_remaining_after_guardrail_halt():
+    from butler.core.tool_result_cache import clear_session_tool_cache
     from butler.tool_guardrails import GuardrailConfig, GuardrailDecision, ToolCallGuardrailController
     from butler.transport.types import NormalizedResponse, Usage, build_tool_call
 
+    clear_session_tool_cache()
     guardrails = ToolCallGuardrailController(
         GuardrailConfig(
             same_tool_failure_halt_after=99,

@@ -111,6 +111,12 @@ def doom_loop_mode() -> str:
     return mode if mode in ("block", "ask") else "block"
 
 
+def doom_loop_soft_nudge_enabled() -> bool:
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_DOOM_LOOP_SOFT_NUDGE", default=True)
+
+
 def _safe_json_loads(text: str) -> Any:
     try:
         return json.loads(text)
@@ -188,6 +194,7 @@ class ToolCallGuardrailController:
             self._no_progress: dict[ToolCallSignature, tuple[str, int]] = {}
             self._halt_decision: GuardrailDecision | None = None
             self._call_history: deque[ToolCallSignature] = deque(maxlen=16)
+            self._doom_soft_nudged: set[ToolCallSignature] = set()
 
     @property
     def halt_decision(self) -> GuardrailDecision | None:
@@ -232,6 +239,26 @@ class ToolCallGuardrailController:
         if threshold > 0:
             self._call_history.append(signature)
             tail = list(self._call_history)[-threshold:]
+            soft_at = max(1, threshold - 1)
+            if (
+                doom_loop_soft_nudge_enabled()
+                and threshold > 1
+                and len(tail) >= soft_at
+                and all(s == tail[0] for s in tail)
+                and signature not in self._doom_soft_nudged
+            ):
+                self._doom_soft_nudged.add(signature)
+                return GuardrailDecision(
+                    action="warn",
+                    code="doom_loop_soft_nudge",
+                    message=(
+                        f"{tool_name} 已连续 {len(tail)} 次相同参数调用"
+                        f"（硬拦截阈值 {threshold}）。请换策略或先向用户确认，"
+                        "避免无效重复。"
+                    ),
+                    tool_name=tool_name,
+                    count=len(tail),
+                )
             if len(tail) >= threshold and all(s == tail[0] for s in tail):
                 mode = doom_loop_mode()
                 if mode == "ask":

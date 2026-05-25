@@ -207,10 +207,23 @@ def search_project_memory_vectors(
             continue
         if (hit.get("category") or "") == "project_pending":
             continue
-        out.append(hit)
+        item = dict(hit)
+        try:
+            from butler.memory.chunking import heading_boost_factor
+
+            base = float(item.get("score") or 0.0)
+            boost = heading_boost_factor(str(item.get("content") or ""), q)
+            if boost != 1.0:
+                item["score"] = round(base * boost, 6)
+                item["heading_boost"] = round(boost, 4)
+        except Exception:
+            pass
+        out.append(item)
         if len(out) >= limit:
             break
-    return out
+    from butler.memory.retrieval_ranking import rerank_memory_hits
+
+    return rerank_memory_hits(out)
 
 
 def invalidate_project_memory_bullet(
@@ -231,6 +244,28 @@ def invalidate_project_memory_bullet(
         logger.warning("Project bullet vector delete failed: %s", exc)
 
 
+def _prefetch_project_once(
+    pmem: "ProjectMemory",
+    query: str,
+    *,
+    project_name: str,
+    semantic: SemanticMemoryIndex | None,
+    limit: int,
+    semantic_enabled: bool,
+) -> tuple[list[dict[str, Any]], str]:
+    q = (query or "").strip()
+    if semantic_enabled and semantic is not None:
+        hits = search_project_memory_vectors(
+            semantic, q, project=project_name, limit=limit
+        )
+        if hits:
+            return hits, "vector"
+    kw = search_project_memory_keywords(pmem, q, limit=limit)
+    if kw:
+        return kw, "keyword"
+    return [], "none"
+
+
 def prefetch_project_memory_hits(
     pmem: "ProjectMemory",
     query: str,
@@ -243,19 +278,39 @@ def prefetch_project_memory_hits(
     """
     Query-aligned project bullets: vectors first, then keyword fallback.
 
-    Returns (hits, mode) where mode is ``vector`` | ``keyword`` | ``none``.
+    Returns (hits, mode) where mode is ``vector`` | ``keyword`` | ``none`` | ``*-subquery``.
     """
     q = (query or "").strip()
     if not q or not project_name:
         return [], "none"
-    hits: list[dict[str, Any]] = []
-    if semantic_enabled and semantic is not None:
-        hits = search_project_memory_vectors(
-            semantic, q, project=project_name, limit=limit
+
+    def _search(sub_q: str) -> list[dict[str, Any]]:
+        hits, _ = _prefetch_project_once(
+            pmem,
+            sub_q,
+            project_name=project_name,
+            semantic=semantic,
+            limit=limit,
+            semantic_enabled=semantic_enabled,
         )
-        if hits:
-            return hits, "vector"
-    kw = search_project_memory_keywords(pmem, q, limit=limit)
-    if kw:
-        return kw, "keyword"
-    return [], "none"
+        return hits
+
+    try:
+        from butler.memory.query_decompose import decompose_query, search_with_subqueries, subquery_enabled
+
+        if subquery_enabled() and len(decompose_query(q)) > 1:
+            merged, subs = search_with_subqueries(q, _search, limit=limit)
+            if merged:
+                return merged, "subquery"
+            return [], "none"
+    except Exception:
+        pass
+
+    return _prefetch_project_once(
+        pmem,
+        q,
+        project_name=project_name,
+        semantic=semantic,
+        limit=limit,
+        semantic_enabled=semantic_enabled,
+    )

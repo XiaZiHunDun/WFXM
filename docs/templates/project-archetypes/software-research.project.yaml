@@ -1,0 +1,31 @@
+# 模板：software-research — 实验组织（harness + experiments/ + METRIC 账本）
+name: 我的研究项目
+type: software
+description: "autoresearch 风格实验面；须 BUTLER_EXPERIMENT_MODE=1 启用写路径守卫"
+status: active
+pack: software-research
+tools:
+  - read_file
+  - write_file
+  - patch
+  - search_files
+  - list_directory
+  - terminal
+  - run_runtime_job
+  - list_runtime_jobs
+workflows: []
+# 按角色缩小工具面（可选；与 tools 列表求交）
+tool_modes:
+  dev:
+    - read_file
+    - write_file
+    - patch
+    - list_directory
+    - search_files
+    - terminal
+    - run_runtime_job
+  review:
+    - read_file
+    - list_directory
+    - search_files
+    - search_project_knowledge

@@ -1,0 +1,16 @@
+# Copy to projects/<slug>/runtime/jobs.yaml — harness-eval readonly job
+project: 项目名称
+jobs:
+  - id: harness-eval
+    description: 只读运行 .butler/harness/eval.sh，解析 METRIC 写入实验账本
+    mode: readonly
+    enabled: true
+    schedule: ""
+    timeout_seconds: 600
+    command:
+      - bash
+      - .butler/harness/eval.sh
+    notify:
+      on_success: false
+      on_failure: true
+      max_summary_chars: 500

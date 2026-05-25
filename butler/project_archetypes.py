@@ -13,12 +13,16 @@ _TEMPLATES_DIR = _REPO_ROOT / "docs" / "templates" / "project-archetypes"
 
 _TEMPLATE_FILES = {
     "software-default": "software-default.project.yaml",
+    "software-research": "software-research.project.yaml",
     "novel-factory": "novel-factory.project.yaml",
     "knowledge-light": "knowledge-light.project.yaml",
 }
 
+_EXPERIMENT_TEMPLATE_DIR = _REPO_ROOT / "docs" / "templates" / "experiments"
+
 _RUNTIME_TEMPLATE_FILES = {
     "software-default": "software-default.runtime.jobs.yaml",
+    "software-research": "software-research.runtime.jobs.yaml",
 }
 
 _SLUG_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
@@ -70,6 +74,38 @@ def ensure_memory_skeleton(workspace: Path) -> Path:
     mem.parent.mkdir(parents=True, exist_ok=True)
     mem.write_text(_MEMORY_TEMPLATE, encoding="utf-8")
     return mem
+
+
+def ensure_experiment_skeleton(workspace: Path, *, template_id: str = "") -> list[Path]:
+    """Bootstrap harness + experiments dirs for software-research archetype."""
+    if (template_id or "").strip() != "software-research":
+        return []
+    ws = Path(workspace).expanduser().resolve()
+    created: list[Path] = []
+    harness_dir = ws / ".butler" / "harness"
+    harness_dir.mkdir(parents=True, exist_ok=True)
+    eval_sh = harness_dir / "eval.sh"
+    src = _EXPERIMENT_TEMPLATE_DIR / "harness-eval.sh"
+    if not eval_sh.is_file() and src.is_file():
+        eval_sh.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        try:
+            eval_sh.chmod(eval_sh.stat().st_mode | 0o111)
+        except OSError:
+            pass
+        created.append(eval_sh)
+    exp_dir = ws / "experiments"
+    exp_dir.mkdir(parents=True, exist_ok=True)
+    readme = _EXPERIMENT_TEMPLATE_DIR / "README.md"
+    exp_readme = exp_dir / "README.md"
+    if not exp_readme.is_file() and readme.is_file():
+        exp_readme.write_text(readme.read_text(encoding="utf-8"), encoding="utf-8")
+        created.append(exp_readme)
+    program_src = _EXPERIMENT_TEMPLATE_DIR / "PROGRAM.md"
+    program_dest = ws / "PROGRAM.md"
+    if not program_dest.is_file() and program_src.is_file():
+        program_dest.write_text(program_src.read_text(encoding="utf-8"), encoding="utf-8")
+        created.append(program_dest)
+    return created
 
 
 def ensure_runtime_jobs_skeleton(
@@ -139,6 +175,7 @@ def write_project_yaml(
 
 
 __all__ = [
+    "ensure_experiment_skeleton",
     "ensure_memory_skeleton",
     "ensure_runtime_jobs_skeleton",
     "list_template_ids",

@@ -1,6 +1,6 @@
 # Butler v4 ↔ awesome-llm-apps 对照分析报告
 
-> **状态**：分析完成（2026-05-25），**待落地**  
+> **状态**：分析完成（2026-05-25）；**Sprint B–C 子集已落地**（见 [`../guides/sprint-roadmap-2026-05.md`](../guides/sprint-roadmap-2026-05.md)）  
 > **本地参考**：`reference/awesome-llm-apps/`（gitignore，外部标本，非 Butler 产品代码）  
 > **原则**：只借鉴设计、零新增运行时依赖（与 [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) 一致）  
 > **主学习线**：Claude Code 线束仍见 [`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)

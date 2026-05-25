@@ -20,6 +20,10 @@ _PROMPT_KW = re.compile(
     r"(提示词|语料|corpus|prompt|butler_system|规划模式)",
     re.IGNORECASE,
 )
+_DESIGN_KW = re.compile(
+    r"(DESIGN\.md|设计稿|设计系统|ui-build|组件样式|design.token|responsive)",
+    re.IGNORECASE,
+)
 
 
 def corpus_routing_enabled() -> bool:
@@ -47,33 +51,48 @@ def route_corpus_query(query: str, *, default_scope: str = "project") -> CorpusR
         )
     if _OWNER_KW.search(q):
         return CorpusRoute(scope="profile", reason="owner_keywords")
+    if _DESIGN_KW.search(q):
+        return CorpusRoute(scope="project", reason="design_keywords")
     if _PROJECT_KW.search(q):
         return CorpusRoute(scope="project", reason="project_keywords")
     return CorpusRoute(scope=default_scope, reason="default")
 
 
 def multi_scope_recall(query: str, *, limit: int = 6) -> str:
-    """Invoke butler_recall for primary + optional secondary scopes."""
+    """Invoke butler_recall for primary + optional secondary scopes (optional sub-queries)."""
     import json
 
     from butler.tools.memory_tools import tool_butler_recall
 
+    try:
+        from butler.memory.query_decompose import decompose_query, subquery_enabled
+
+        sub_queries = decompose_query(query) if subquery_enabled() else [query]
+    except Exception:
+        sub_queries = [query]
+
     route = route_corpus_query(query)
     parts: list[dict[str, Any]] = []
 
-    def _one(scope: str) -> None:
-        raw = tool_butler_recall(scope=scope, query=query, limit=limit)
+    def _one(scope: str, sub_q: str) -> None:
+        raw = tool_butler_recall(scope=scope, query=sub_q, limit=limit)
         try:
-            parts.append({"scope": scope, "payload": json.loads(raw)})
+            parts.append({"scope": scope, "sub_query": sub_q, "payload": json.loads(raw)})
         except json.JSONDecodeError:
-            parts.append({"scope": scope, "payload": {"text": raw}})
+            parts.append({"scope": scope, "sub_query": sub_q, "payload": {"text": raw}})
 
-    _one(route.scope)
-    for extra in route.extra_scopes:
-        if extra != route.scope:
-            _one(extra)
+    for sub_q in sub_queries:
+        _one(route.scope, sub_q)
+        for extra in route.extra_scopes:
+            if extra != route.scope:
+                _one(extra, sub_q)
     return json.dumps(
-        {"route": route.reason, "scopes": [p["scope"] for p in parts], "results": parts},
+        {
+            "route": route.reason,
+            "sub_queries": sub_queries if len(sub_queries) > 1 else [],
+            "scopes": [p["scope"] for p in parts],
+            "results": parts,
+        },
         ensure_ascii=False,
     )
 

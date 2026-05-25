@@ -203,6 +203,20 @@ class ButlerOrchestrator:
             pm_txt = self._project_memory.get_context_for_agent(for_role)
             chunks.append(f"## 当前项目记忆\n{pm_txt}")
 
+        proj = self.project_manager.get_current()
+        if proj is not None:
+            try:
+                from butler.core.design_md_sections import build_design_context_block
+
+                design_block = build_design_context_block(
+                    Path(proj.workspace),
+                    design_preset=str(getattr(proj, "design_preset", "") or ""),
+                )
+                if design_block.strip():
+                    chunks.append(design_block.strip())
+            except Exception as exc:
+                logger.debug("DESIGN context inject skipped: %s", exc)
+
         return "\n\n".join(c for c in chunks if c and str(c).strip())
 
     def build_system_prompt(self) -> str:

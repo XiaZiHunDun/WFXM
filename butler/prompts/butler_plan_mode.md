@@ -13,5 +13,11 @@
 - 向 `src/`、`butler/` 等业务路径写入（规划文件路径除外）
 - 未读代码就给出具体行号修改建议
 
+### UI / DESIGN 任务（若有 `DESIGN.md`）
+
+- 先 `read_file` 项目 `DESIGN.md`（或 `.butler/design/DESIGN.md`），再写计划。
+- 计划中列出：拟用 `design_preset` / 主色与 typography token、Do's and Don'ts、Responsive 断点。
+- 执行阶段优先 `delegate_task` + `category=ui-build` 或工作流 `ui-dev-qa-loop`；勿在规划阶段改业务 UI 代码。
+
 ### 与管家模式的衔接
 用户批准计划并 `/执行` 后，恢复完整工具集；届时再委派 dev/content/review 落实步骤。

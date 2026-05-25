@@ -39,6 +39,16 @@ def _extract_scope_path(tool_name: str, args: dict) -> str | None:
 def should_parallelize_tool_batch(tool_calls: list[Any]) -> bool:
     if len(tool_calls) <= 1:
         return False
+    try:
+        from butler.core.batch_sequence_guard import (
+            batch_has_destructive_and_reads,
+            batch_stale_guard_enabled,
+        )
+
+        if batch_stale_guard_enabled() and batch_has_destructive_and_reads(tool_calls):
+            return False
+    except Exception:
+        pass
     names = [getattr(tc, "name", "") or (tc.get("name") if isinstance(tc, dict) else "") for tc in tool_calls]
     if any(n in _NEVER_PARALLEL for n in names):
         return False

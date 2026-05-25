@@ -7,12 +7,13 @@
 ```
 WFXM/
 ├── butler/                      # ★ Butler v4 产品代码
-│   ├── core/                    #   Agent Loop 栈
+│   ├── core/                    #   Agent Loop 栈（含 design_md_sections、tool_implicit_context）
+│   ├── experiments/             #   研究模式账本、METRIC、crash_guard
 │   ├── transport/               #   LLM Provider / 客户端
 │   ├── gateway/                 #   消息处理、session、/health
 │   │   └── platforms/           #   wechat_ilink.py（iLink）
 │   ├── runtime/ workflows/    #   定时任务、短工作流
-│   ├── tools/ memory/ skills/ cli/ ops/
+│   ├── tools/ memory/ skills/ cli/ ops/   # memory: chunking、query_decompose、semantic_index
 │   ├── project*.py              #   项目注册 / Lead / preflight
 │   └── main.py                  #   `butler` CLI 入口
 ├── scripts/                     #   见 scripts/README.md
@@ -58,6 +59,8 @@ PYTHONPATH=. pytest -q
 | [`docs/plans/README.md`](docs/plans/README.md) | 规划文档与 P0/P2/P3 命名对照 |
 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | v4 架构（CC 线束 + 外部对标） |
 | [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | CC 对照与 Loop 线束 |
+| [`docs/guides/four-reports-capabilities-2026-05.md`](docs/guides/four-reports-capabilities-2026-05.md) | 四报告已落地能力速查 |
+| [`docs/plans/four-reports-out-of-scope-2026-05.md`](docs/plans/four-reports-out-of-scope-2026-05.md) | 四报告明确不做清单 |
 | [`docs/plans/reference-learning-plan-2026-05.md`](docs/plans/reference-learning-plan-2026-05.md) | 外部对标（已收口） |
 | [`docs/ops/diagnostic-thresholds.md`](docs/ops/diagnostic-thresholds.md) | `/诊断` 运行指标阈值 |
 | [`docs/guides/wechat-gateway-ops.md`](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |

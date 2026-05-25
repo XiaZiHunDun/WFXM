@@ -225,7 +225,10 @@ def dispatch_tool(name: str, args: dict) -> str:
         logger.debug("Pre tool hooks skipped: %s", exc)
 
     try:
-        result = entry.handler(**args)
+        from butler.tools.tool_implicit_context import merge_implicit_tool_args
+
+        call_args = merge_implicit_tool_args(args)
+        result = entry.handler(**call_args)
         return _apply_post_tool_hooks(
             name,
             args,
@@ -740,7 +743,7 @@ def _register_builtin_tools() -> None:
                 },
                 "category": {
                     "type": "string",
-                    "description": "Optional preset: quick, deep, ultrabrain (see delegate_categories.yaml)",
+                    "description": "Optional preset: quick, deep, ultrabrain, ui-build (see delegate_categories.yaml)",
                 },
                 "task": {"type": "string", "description": "Task description"},
                 "context": {"type": "string", "description": "Additional context for the agent"},
@@ -1713,16 +1716,29 @@ def _tool_delegate_task(
         from butler.core.handoff import merge_handoff_into_context, render_handoff_block
 
         cat_name = str(category or category_meta.get("category") or "").strip().lower()
-        if cat_name.startswith("nexus") or "## Handoff" not in str(context or ""):
+        needs_handoff = (
+            cat_name.startswith("nexus")
+            or cat_name == "ui-build"
+            or "## Handoff" not in str(context or "")
+        )
+        if needs_handoff:
+            from butler.core.handoff import default_visual_acceptance
+
+            if cat_name == "ui-build":
+                acceptance = default_visual_acceptance()
+                evidence_required = ["read_file DESIGN.md", "read_file 改动文件"]
+            else:
+                acceptance = [
+                    "任务描述中的目标已达成",
+                    "关键改动有 read_file 或测试证据",
+                ]
+                evidence_required = ["read_file 或 pytest"]
             handoff = render_handoff_block(
                 from_role="butler",
                 to_role=str(role or "dev"),
                 task=task,
-                acceptance=[
-                    "任务描述中的目标已达成",
-                    "关键改动有 read_file 或测试证据",
-                ],
-                evidence_required=["read_file 或 pytest"],
+                acceptance=acceptance,
+                evidence_required=evidence_required,
             )
             context = merge_handoff_into_context(context, handoff)
 

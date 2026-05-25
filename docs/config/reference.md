@@ -70,6 +70,13 @@
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `BUTLER_TOOL_RESULT_SPILL` | 1 | 超大 tool 结果落盘，上下文为 `<persisted-output>` |
+| `BUTLER_TOOL_RESULT_INJECT_ONCE` | 1 | 落盘结果首轮完整注入，后续 API 轮仅 `<persisted-output-ref>`+摘要 |
+| `BUTLER_MARKDOWN_CHUNKING` | 1 | reindex 时按标题树切分 MEMORY/DESIGN/AGENTS 等 Markdown |
+| `BUTLER_MARKDOWN_CHUNK_MIN_CHARS` | 256 | 切块最小字符（过小段落会合并） |
+| `BUTLER_MARKDOWN_CHUNK_MAX_CHARS` | 4000 | 单块最大字符 |
+| `BUTLER_MARKDOWN_HEADING_BOOST` | 0.18 | 检索 query 与 `[headings: …]` 重合时的分数加成系数 |
+| `BUTLER_MARKDOWN_INDEX_PATHS` | 见下 | 逗号分隔或 JSON 数组；默认 MEMORY/DESIGN/AGENTS/架构 doc |
+| `BUTLER_BATCH_STALE_GUARD` | 1 | 同批 `patch`/`write_file` 成功后跳过后续过时的 `read_file`/`grep` 等 |
 | `BUTLER_TOOL_RESULT_SPILL_MIN_CHARS` | 8192 | 默认单条落盘阈值（≥256） |
 | `BUTLER_TOOL_RESULT_THRESHOLDS` | — | JSON 按工具名覆盖阈值；`read_file` 等默认不落盘 |
 | `BUTLER_TOOL_RESULT_MESSAGE_BUDGET` | 1 | 单轮 tool 结果总字符预算（CC enforceToolResultBudget） |
@@ -89,6 +96,9 @@
 | `BUTLER_PERMISSION_ONCE_TTL` | 300 | `/批准一次` 有效期（秒） |
 | `BUTLER_DOOM_LOOP_THRESHOLD` | 3 | 连续相同 tool+args 拦截（0=关） |
 | `BUTLER_DOOM_LOOP_MODE` | block | `ask` 时走 Owner `/批准一次`（permission `doom_loop`） |
+| `BUTLER_DOOM_LOOP_SOFT_NUDGE` | 1 | 达阈值前 1 次时 `warn`（`doom_loop_soft_nudge`），再重复才硬拦截 |
+| `BUTLER_LOOP_BUDGET_NUDGE` | 1 | 迭代或 token 达 75% 时注入收尾提示 |
+| `BUTLER_LOOP_BUDGET_WARN_RATIO` | 0.75 | 预算预警比例（迭代 `iteration/max_iterations` 或 token 用量） |
 | `BUTLER_TRANSCRIPT_REVERT_KEEP_LINES` | 40 | `/回滚` 默认保留 transcript 行数 |
 | `BUTLER_PROJECT_WORKTREE` | 0 | `1` 且 `project.yaml` 含 `worktree:` 时工具 cwd 指向 worktree |
 | `BUTLER_DELEGATE_ASYNC` | 1 | 微信 gateway 下 `delegate_task` 后台执行并单独推送完成摘要 |
@@ -146,6 +156,22 @@
 | `BUTLER_PREEMPTIVE_TRUNCATE_BUFFER` | 512 | 截断后仍允许的 token 缓冲 |
 | `BUTLER_POST_COMPACT_AGENTS_SECTIONS` | Session Startup,Red Lines,… | 压缩后回灌 AGENTS.md 节名 |
 | `BUTLER_POST_COMPACT_AGENTS_MAX_CHARS` | 2000 | 上述节总字符上限 |
+| `BUTLER_POST_COMPACT_DESIGN_SECTIONS` | Overview,Do's and Don'ts,… | 压缩后回灌 DESIGN.md 节名 |
+| `BUTLER_POST_COMPACT_DESIGN_MAX_CHARS` | 2500 | 上述 DESIGN 节总字符上限 |
+| `BUTLER_DESIGN_CONTEXT_INJECT` | 1 | `0` 关闭 orchestrator 中 DESIGN 摘要注入 |
+| `BUTLER_DESIGN_PRESET_DIR` | （空） | `design_preset` 解析参考目录（不打包进主仓库） |
+| `BUTLER_EXPERIMENT_MODE` | 0 | `1` 时仅允许写入 `experiments/`；`.butler/harness/` 只读 |
+| `BUTLER_EXPERIMENT_LEDGER` | 1 | runtime job 解析 `METRIC` 写入 `.butler/experiments.tsv` |
+| `BUTLER_EXPERIMENT_GIT_RESET` | 0 | `1` 时 CLI `experiment discard --apply-reset` 可 `git reset --hard` |
+| `BUTLER_EXPERIMENT_LOG_LINES` | 200 | job 输出超过行数写入 `.butler/last_run.log` |
+| `BUTLER_RAG_SUBQUERY` | 1 | `0` 关闭复合问句多子 query 检索 |
+| `BUTLER_RAG_SUBQUERY_MAX` | 3 | 单次检索最多子 query 数 |
+| `BUTLER_RAG_SUBQUERY_MIN_CHARS` | 72 | 超过此长度才尝试按句切分 |
+| `BUTLER_TOOL_IMPLICIT_CONTEXT` | 1 | `0` 关闭 dispatch 时注入 `_butler_*` 隐式参数 |
+| `BUTLER_SCHEMA_OPTIMIZE` | 1 | LLM 调用前预净化 tool schema |
+| `BUTLER_TOKEN_COST_ESTIMATE` | 0 | `1` 时 `/诊断` 显示粗算美元成本 |
+| `BUTLER_RESEARCH_SIMPLICITY_ANCHOR` | 1 | 压缩后回灌简洁性/实验纪律锚点 |
+| `BUTLER_EXPERIMENT_CRASH_BLOCK` | 3 | 同假设连续 crash 达此次数时诊断提示阻断 |
 | `BUTLER_TOOL_LOOP_DETECTORS` | ping_pong,poll,circuit | 工具环检测（`off` 关闭） |
 | `BUTLER_TOOL_LOOP_CIRCUIT_LIMIT` | 40 | 单轮工具调用熔断上限 |
 | `BUTLER_TERMINAL_REQUIRE_APPROVAL` | 0 | `1` 时 terminal 须 Owner `/批准执行` |

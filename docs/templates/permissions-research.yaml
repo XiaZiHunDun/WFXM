@@ -1,0 +1,13 @@
+# Copy to projects/<slug>/.butler/permissions.yaml (optional; experiment mode also enforces in code)
+permissions:
+  rules:
+    - tool: patch
+      path: .butler/harness/*
+      action: deny
+      reason: harness 为只读评测面
+    - tool: write_file
+      path: .butler/harness/*
+      action: deny
+    - tool: delete_file
+      path: .butler/harness/*
+      action: deny

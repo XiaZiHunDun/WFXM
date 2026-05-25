@@ -191,6 +191,7 @@ class ProjectManager:
         with_runtime: bool = True,
     ) -> Project | None:
         from butler.project_archetypes import (
+            ensure_experiment_skeleton,
             ensure_memory_skeleton,
             ensure_runtime_jobs_skeleton,
             load_template,
@@ -232,6 +233,7 @@ class ProjectManager:
         ensure_memory_skeleton(workspace)
         if with_runtime:
             ensure_runtime_jobs_skeleton(workspace, show_name, template_id)
+        ensure_experiment_skeleton(workspace, template_id=template_id)
         self.refresh()
         proj = Project.from_yaml(workspace / "project.yaml")
         self._projects[proj.name] = proj
@@ -248,6 +250,7 @@ class ProjectManager:
         with_runtime: bool = True,
     ) -> Project:
         from butler.project_archetypes import (
+            ensure_experiment_skeleton,
             ensure_memory_skeleton,
             ensure_runtime_jobs_skeleton,
             load_template,
@@ -271,6 +274,7 @@ class ProjectManager:
             if with_runtime:
                 tid = (template or pack or proj.pack or "software-default").strip()
                 ensure_runtime_jobs_skeleton(ws, proj.name, tid)
+            ensure_experiment_skeleton(ws, template_id=(template or pack or proj.pack or ""))
             self.refresh()
             return Project.from_yaml(ws / "project.yaml")
 
@@ -285,6 +289,7 @@ class ProjectManager:
         ensure_memory_skeleton(ws)
         if with_runtime:
             ensure_runtime_jobs_skeleton(ws, data["name"], template_id)
+        ensure_experiment_skeleton(ws, template_id=template_id)
         self.refresh()
         return Project.from_yaml(ws / "project.yaml")
 

@@ -51,3 +51,12 @@ categories:
       - search_code
       - butler_recall
       - search_project_knowledge
+  ui-build:
+    role: dev
+    description: UI implementation — DESIGN.md tokens, single-component iteration
+    background: true
+    prompt_append: |
+      [category:ui-build] 先 read_file 项目根 DESIGN.md（或 .butler/design/DESIGN.md）。
+      按 Iteration Guide 一次只改一个 components.* token；禁止整份 DESIGN 灌入对话。
+      遵守 Do's and Don'ts 与 Responsive Behavior；Handoff 须含视觉验收项。
+    max_iterations: 28

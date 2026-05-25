@@ -52,7 +52,10 @@ class TestMemoryReindex:
         )
         assert result["ok"] is True
         assert result["indexed_experience"] >= 1
-        assert result["indexed_project_bullets"] >= 1
+        assert (
+            result.get("indexed_project_bullets", 0) >= 1
+            or result.get("indexed_markdown_chunks", 0) >= 1
+        )
         assert result["vector_rows"] >= 2
         hits = bm.semantic.search("pytest 守门", limit=5)
         assert any("pytest" in (h.get("content") or "") for h in hits)

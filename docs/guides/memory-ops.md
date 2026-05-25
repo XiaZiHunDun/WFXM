@@ -18,7 +18,8 @@
 
 | 命令 | 作用 |
 |------|------|
-| `/诊断` | 向量条数、画像向量、三元组条数、衰减参数 |
+| `butler memory search "<词>" --verbose` | CLI 检索调试：mode、fallback、chunk_id、混合权重 |
+| `/诊断` | 向量条数、画像向量、三元组条数、衰减参数、最近检索 telemetry |
 | `/记忆图谱` | 三元组只读展示（不参与检索） |
 | `/记忆待审` / `/批准记忆` / `/拒绝记忆` | Pending 审批 |
 
@@ -35,8 +36,11 @@ bash scripts/butler-memory-reindex.sh
 ## 脚本
 
 ```bash
+butler memory search "某项目决策" --scope project --verbose
+butler memory search "pytest" --scope experience --json
 bash scripts/butler-memory-smoke.sh      # recall fixture 回归
 bash scripts/butler-memory-reindex.sh    # 重建向量（改 MEMORY / 升级记忆模块后）
+# 等价: butler memory reindex
 ```
 
 ## 灵文1号试点

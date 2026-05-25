@@ -1,6 +1,6 @@
 # Butler v4 ↔ autoresearch 对照与提炼报告
 
-> **状态**：分析报告（2026-05-25）  
+> **状态**：分析完成（2026-05-25）；**主线 D 已落地**（PR6，见 [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) §9）  
 > **本地对照代码**：`reference/autoresearch/`（gitignore，主公维护）  
 > **Butler 事实来源**：`docs/architecture/v4-architecture.md`、`butler/` 实现  
 > **原则**：只借鉴**研究组织**设计，零新增依赖；不引入 GPU 训练栈

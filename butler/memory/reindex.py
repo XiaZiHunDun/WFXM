@@ -56,6 +56,7 @@ def reindex_semantic_memory(
         "cleared": 0,
         "indexed_experience": 0,
         "indexed_project_bullets": 0,
+        "indexed_markdown_chunks": 0,
         "skipped_conversation": 0,
         "projects_scanned": 0,
     }
@@ -98,7 +99,9 @@ def reindex_semantic_memory(
 
         for proj_path in _iter_project_dirs(pdir, project_name):
             stats["projects_scanned"] += 1
-            stats["indexed_project_bullets"] += _index_project_dir(proj_path, semantic)
+            bullets, chunks = _index_project_dir(proj_path, semantic)
+            stats["indexed_project_bullets"] += bullets
+            stats["indexed_markdown_chunks"] += chunks
 
     try:
         stats["indexed_profile_vectors"] = bm.sync_profile_vectors()
@@ -150,7 +153,7 @@ def _iter_project_dirs(projects_dir: Path, only_name: str | None) -> list[Path]:
     return out
 
 
-def _index_project_dir(project_dir: Path, semantic: SemanticMemoryIndex) -> int:
+def _index_project_dir(project_dir: Path, semantic: SemanticMemoryIndex) -> tuple[int, int]:
     try:
         from butler.project import Project
 
@@ -162,9 +165,29 @@ def _index_project_dir(project_dir: Path, semantic: SemanticMemoryIndex) -> int:
             logger.debug("facts refresh during reindex skipped for %s: %s", project_dir, exc)
     except Exception as exc:
         logger.warning("Skip project %s: %s", project_dir, exc)
-        return 0
+        return 0, 0
+
+    chunk_count = 0
+    try:
+        from butler.memory.chunking import (
+            index_project_markdown_corpus,
+            markdown_chunking_enabled,
+        )
+
+        if markdown_chunking_enabled():
+            chunk_count = index_project_markdown_corpus(
+                semantic,
+                project_dir,
+                project_name=proj.name,
+                workspace=proj.workspace,
+            )
+    except Exception as exc:
+        logger.warning("Markdown corpus index failed for %s: %s", project_dir, exc)
 
     count = 0
+    if chunk_count > 0:
+        return count, chunk_count
+
     sections = pm.markdown.get_all_sections()
     for section, body in sections.items():
         if section == "Pending":
@@ -198,7 +221,7 @@ def _index_project_dir(project_dir: Path, semantic: SemanticMemoryIndex) -> int:
                 count += 1
             except Exception as exc:
                 logger.warning("Project bullet index failed: %s", exc)
-    return count
+    return count, chunk_count
 
 
 def ensure_semantic_enabled_msg() -> str | None:

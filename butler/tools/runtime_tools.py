@@ -103,6 +103,8 @@ def _tool_run_runtime_job(
     }
     if out.get("outcome"):
         payload["outcome"] = out["outcome"]
+    if out.get("experiment"):
+        payload["experiment"] = out["experiment"]
     if out.get("error"):
         payload["error"] = out["error"]
         payload["ok"] = False

@@ -250,9 +250,24 @@ def prefetch_turn_memory(
                     limit=project_hits_limit,
                     semantic_enabled=semantic_memory_enabled(),
                 )
+                sem_enabled = semantic_memory_enabled()
                 from butler.memory.project_memory import filter_memory_hits_by_role
 
                 hits = filter_memory_hits_by_role(hits, role)
+                try:
+                    from butler.memory.retrieval_telemetry import record_last_retrieval
+
+                    record_last_retrieval(
+                        session_key,
+                        {
+                            "mode": f"project-{mode}",
+                            "fallbacks": 1 if sem_enabled and mode == "keyword" else 0,
+                            "candidates": len(hits),
+                            "query": q_strip,
+                        },
+                    )
+                except Exception:
+                    pass
                 if hits:
                     lines = [
                         f"- {h.get('content', '')}".strip()
@@ -316,12 +331,15 @@ def queue_prefetch_after_turn(
     sk = str(session_id or "").strip() or _session_key_for_prefetch()
 
     def _build() -> str:
-        return prefetch_turn_memory(
-            orchestrator,
-            query,
-            role=role,
-            use_cache=False,
-        )
+        from butler.execution_context import use_execution_context
+
+        with use_execution_context(orchestrator, session_key=sk):
+            return prefetch_turn_memory(
+                orchestrator,
+                query,
+                role=role,
+                use_cache=False,
+            )
 
     schedule_prefetch_warm(_build, session_key=sk, query=query)
 
@@ -356,6 +374,22 @@ def clear_session_boundary_memory(
     from butler.memory.prefetch_cache import clear_prefetch_cache
 
     clear_prefetch_cache(session_id)
+    try:
+        from butler.memory.retrieval_telemetry import clear_last_retrieval
+
+        clear_last_retrieval(session_id)
+    except Exception:
+        pass
+    try:
+        from butler.core.tool_result_storage import (
+            reset_inject_once_state,
+            reset_replacement_state,
+        )
+
+        reset_inject_once_state(session_id)
+        reset_replacement_state(session_id)
+    except Exception:
+        pass
     return {"removed": removed, "session_tag": tag}
 
 

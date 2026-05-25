@@ -1,6 +1,6 @@
 # Gemini CLI ↔ Butler v4 对照分析报告
 
-> **状态**：分析完成（2026-05-25）；**待落地**（零新增 npm/运行时依赖）  
+> **状态**：分析完成（2026-05-25）；**Sprint A 子集已落地**（见 [`../guides/sprint-roadmap-2026-05.md`](../guides/sprint-roadmap-2026-05.md)）；其余 defer  
 > **对照源**：`reference/gemini-cli`（Google [gemini-cli](https://github.com/google-gemini/gemini-cli)，本地只读）  
 > **Butler 基线**：[`v4-architecture.md`](../architecture/v4-architecture.md)、[`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)  
 > **原则**：只借鉴设计，映射到现有 `butler/core`、`butler/gateway`、`butler/permissions`；不引入 Gemini CLI 运行时或 npm 生态。

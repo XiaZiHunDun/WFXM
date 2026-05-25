@@ -12,6 +12,7 @@
 | 微信发版 / 运维 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) → [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) |
 | 看 CC 能力是否已有 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) |
 | 看规划与命名 | [`plans/README.md`](plans/README.md) |
+| 四报告已落地能力 / 故意不做 | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) · [`plans/four-reports-out-of-scope-2026-05.md`](plans/four-reports-out-of-scope-2026-05.md) |
 | Codex 对标 Sprint C0–C2 | [`guides/sprint-codex-c0-2026-05.md`](guides/sprint-codex-c0-2026-05.md) · [C1](guides/sprint-codex-c1-2026-05.md) · [C2](guides/sprint-codex-c2-2026-05.md) |
 | 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
 
@@ -51,6 +52,8 @@
 | [`plans/README.md`](plans/README.md) | **规划索引**（CC / 整理 / 外部对标 命名对照） |
 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) | Claude Code ↔ Butler（**主对照**） |
 | [`plans/reference-learning-plan-2026-05.md`](plans/reference-learning-plan-2026-05.md) | 外部对标（Prometheus/OpenClaw/Dify）— **已收口** |
+| [`plans/four-reports-improvement-roadmap-2026-05.md`](plans/four-reports-improvement-roadmap-2026-05.md) | 四份报告合并路线图（**已收口** §9） |
+| [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) | 四报告能力速查（env / CLI / 测试） |
 | [`plans/openclaw-learning-plan-2026-05.md`](plans/openclaw-learning-plan-2026-05.md) | OpenClaw 对标 OC-P0–P2（前置压缩、Gateway、doctor）— **已落地** |
 | [`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md) | 运营与多项目后续 |
 | [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理（已完成） |

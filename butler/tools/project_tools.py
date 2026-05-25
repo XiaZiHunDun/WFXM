@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -83,6 +84,20 @@ def allowed_tool_names_for_project(
     if not mapped:
         return None
     norm = role.replace("_agent", "").strip().lower()
+    modes = getattr(project, "tool_modes", None) or {}
+    if isinstance(modes, dict) and modes:
+        mode_list = modes.get(norm) or modes.get(role) or modes.get(role.replace("_agent", ""))
+        if isinstance(mode_list, list) and mode_list:
+            mode_set = {canonical_tool_name(str(n)) for n in mode_list if str(n).strip()}
+            mode_set = {n for n in mode_set if n}
+            if norm == "plan":
+                return mode_set & set(_PLAN_MODE_TOOLS) if mode_set else set(_PLAN_MODE_TOOLS)
+            if norm == "lead":
+                read_only = mode_set & _LEAD_READ_TOOLS if mode_set else set(_LEAD_READ_TOOLS)
+                return read_only | _LEAD_EXTRA_TOOLS
+            if norm in {"butler", "default", ""} or role == "butler":
+                return mode_set | _BUTLER_EXTRA_TOOLS
+            return mode_set
     if norm == "plan":
         return set(_PLAN_MODE_TOOLS)
     if norm == "lead":
@@ -119,16 +134,53 @@ def filter_tool_definitions(
     ]
 
 
+def _workflow_step_tool_allowlist(project: "Project | None") -> set[str] | None:
+    try:
+        from butler.execution_context import get_current_workflow_step
+        from butler.permissions import get_workflow_step_tool_allowlist
+
+        step_id = get_current_workflow_step()
+        if not step_id:
+            return None
+        ws = Path(project.workspace) if project is not None else None
+        return get_workflow_step_tool_allowlist(step_id, workspace=ws)
+    except Exception:
+        return None
+
+
+def intersect_allowed_names(
+    base: set[str] | None,
+    extra: set[str] | None,
+) -> set[str] | None:
+    if extra is None:
+        return base
+    if base is None:
+        return set(extra)
+    return base & extra
+
+
 def get_tool_definitions_for_project(
     project: "Project | None" = None,
     *,
     role: str = "butler",
+    optimize_schema: bool = True,
 ) -> list[dict]:
+    from pathlib import Path
+
     from butler.tools.registry import get_tool_definitions
 
     all_tools = get_tool_definitions()
     allowed = allowed_tool_names_for_project(project, role=role)
-    return filter_tool_definitions(all_tools, allowed)
+    allowed = intersect_allowed_names(allowed, _workflow_step_tool_allowlist(project))
+    filtered = filter_tool_definitions(all_tools, allowed)
+    if not optimize_schema:
+        return filtered
+    try:
+        from butler.core.schema_optimizer import optimize_tool_definitions
+
+        return optimize_tool_definitions(filtered) or filtered
+    except Exception:
+        return filtered
 
 
 def get_current_project_tools(*, role: str = "butler") -> list[dict]:
@@ -147,4 +199,5 @@ __all__ = [
     "filter_tool_definitions",
     "get_current_project_tools",
     "get_tool_definitions_for_project",
+    "intersect_allowed_names",
 ]

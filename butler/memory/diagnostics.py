@@ -177,6 +177,21 @@ def collect_memory_layer_stats(
             except Exception:
                 pass
 
+    if session_key:
+        try:
+            from butler.memory.retrieval_telemetry import get_last_retrieval
+
+            last = get_last_retrieval(session_key)
+            if last:
+                stats["rag_last_mode"] = str(last.get("mode") or "")
+                stats["rag_last_fallbacks"] = int(last.get("fallbacks") or 0)
+                stats["rag_last_candidates"] = int(last.get("candidates") or 0)
+                stats["rag_last_query"] = str(last.get("query") or "")
+                if last.get("sub_query_count"):
+                    stats["rag_last_sub_queries"] = int(last.get("sub_query_count") or 0)
+        except Exception:
+            pass
+
     return stats
 
 

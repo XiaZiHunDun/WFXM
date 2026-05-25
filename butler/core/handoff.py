@@ -6,6 +6,13 @@ from typing import Any
 
 _HANDOFF_MARKER = "## Handoff"
 
+_VISUAL_ACCEPTANCE_DEFAULT = (
+    "已 read_file 项目 DESIGN.md（若存在）；无 DESIGN 时不得声称「符合品牌」",
+    "主色/背景/canvas/spacing 等 token 与 DESIGN 一致，或说明合理例外",
+    "遵守 DESIGN 中 Do's and Don'ts",
+    "Responsive Behavior 断点已考虑（移动端/桌面）",
+)
+
 
 def render_handoff_block(
     *,
@@ -59,6 +66,23 @@ def _report_summary(report: Any) -> str:
     if isinstance(report, dict):
         return str(report.get("headline") or report.get("summary") or "")[:400]
     return str(report)[:400]
+
+
+def default_visual_acceptance() -> list[str]:
+    """Standard visual QA checklist for UI delegate / review handoffs."""
+    return list(_VISUAL_ACCEPTANCE_DEFAULT)
+
+
+def visual_acceptance_for_handoff(extra: list[str] | None = None) -> list[str]:
+    base = default_visual_acceptance()
+    if not extra:
+        return base
+    merged = list(base)
+    for item in extra:
+        s = str(item).strip()
+        if s and s not in merged:
+            merged.append(s)
+    return merged
 
 
 def merge_handoff_into_context(
@@ -116,7 +140,9 @@ def handoff_from_report(
 
 
 __all__ = [
+    "default_visual_acceptance",
     "handoff_from_report",
     "merge_handoff_into_context",
     "render_handoff_block",
+    "visual_acceptance_for_handoff",
 ]

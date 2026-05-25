@@ -144,6 +144,31 @@ def evaluate_external_directory(
     return matched
 
 
+def get_workflow_step_tool_allowlist(
+    step_id: str,
+    *,
+    workspace: Path | None = None,
+) -> set[str] | None:
+    """Return allowed tool names for *step_id*, or None if step has no allowlist."""
+    sid = str(step_id or "").strip()
+    if not sid:
+        return None
+    cfg = _load_permissions_yaml(workspace)
+    steps_cfg = cfg.get("workflow_steps")
+    if not isinstance(steps_cfg, dict):
+        return None
+    step_rules = steps_cfg.get(sid)
+    if step_rules is None:
+        return None
+    allowed = step_rules.get("tools") if isinstance(step_rules, dict) else step_rules
+    if not isinstance(allowed, list) or not allowed:
+        return None
+    from butler.tools.project_tools import canonical_tool_name
+
+    names = {canonical_tool_name(str(t)) for t in allowed if str(t).strip()}
+    return {n for n in names if n}
+
+
 def evaluate_workflow_step_permission(
     tool_name: str,
     step_id: str,
@@ -357,6 +382,15 @@ def check_project_permission_block(
         return None
 
     session_key = _current_session_key()
+
+    try:
+        from butler.experiments.mode import check_experiment_mode_block
+
+        exp_block = check_experiment_mode_block(tool_name, args, workspace=workspace)
+        if exp_block:
+            return exp_block
+    except Exception:
+        pass
 
     try:
         from butler.execution_context import get_current_workflow_step

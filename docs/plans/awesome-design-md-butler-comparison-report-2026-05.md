@@ -1,6 +1,6 @@
 # Butler v4 ↔ awesome-design-md 对照分析报告
 
-> **状态**：分析完成（2026-05-25），**待落地**  
+> **状态**：分析完成（2026-05-25）；**主线 C 已落地**（PR5，见 [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) §9）  
 > **本地参考**：`reference/awesome-design-md/`（gitignore，外部标本，非 Butler 产品代码）  
 > **原则**：只借鉴设计上下文与工程模式，零新增运行时依赖；不将 73 套预设打入主仓库  
 > **易混淆**：本报告 ≠ [`awesome-llm-apps-butler-comparison-report-2026-05.md`](awesome-llm-apps-butler-comparison-report-2026-05.md)（后者对应 Sprint B–C 的 MCP/corrective recall）
@@ -11,7 +11,7 @@
 
 **awesome-design-md**（VoltAgent）是约 **73** 套从真实网站提炼的 `DESIGN.md` 标本库，遵循 Google Stitch 的「纯文本设计系统」思路：无 Figma、无 JSON schema、无专用运行时。
 
-**Butler v4** 是微信/CLI 多项目 AI 管家，已有 `AGENTS.md` 分段钉选、Skill 路由、Handoff、规划模式、证据优先 review、压缩后锚点等，但**尚无** `DESIGN.md` 一等公民支持。
+**Butler v4** 是微信/CLI 多项目 AI 管家，已有 `AGENTS.md` 分段钉选、Skill 路由、Handoff、规划模式、证据优先 review、压缩后锚点等；**2026-05 起**已支持项目级 `DESIGN.md` 上下文管线（`design_md_sections`、`ui-build`、`design_preset`），详见 [`../guides/four-reports-capabilities-2026-05.md`](../guides/four-reports-capabilities-2026-05.md)。
 
 **结论**：awesome-design-md 的价值在于 **AGENTS.md + DESIGN.md 职责分离**、**YAML token + 命名组件 + Do's/Don'ts** 三层约束，以及可按品牌选用的 preset。应在现有 Loop / Skill / 委派 / 工作流上增加 **DESIGN 上下文管线**，而不是复制标本库或做 UI 生成平台。
 
@@ -197,7 +197,7 @@ flowchart LR
 PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py -q
 
 # 若新增 design_md_sections / project preset
-PYTHONPATH=. pytest tests/test_design_md_sections.py -q   # 待新增
+PYTHONPATH=. pytest tests/test_design_md_sections.py -q
 ```
 
 手工：在带 `DESIGN.md` 的项目中委派 `ui-build`，确认 context 含 Do's/Don'ts 摘要且未超 token 预算；review 对违反禁止项返回 FAIL。

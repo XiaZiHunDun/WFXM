@@ -65,6 +65,9 @@ def format_project_meta_lines(
     pack = (getattr(project, "pack", "") or "").strip()
     if pack:
         lines.append(f"  能力包 pack: {pack}")
+    preset = (getattr(project, "design_preset", "") or "").strip()
+    if preset:
+        lines.append(f"  design_preset: {preset}")
     lc = lifecycle_label(project)
     if lc:
         lines.append(f"  运营态 lifecycle: {lc}")

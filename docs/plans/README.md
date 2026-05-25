@@ -28,10 +28,12 @@
 | **agency-agents 提炼** | [`agency-agents-extraction-analysis-2026-05.md`](agency-agents-extraction-analysis-2026-05.md) | NEXUS / Handoff / dev-qa-loop → **Sprint B 已落地子集** |
 | **Gemini CLI 对照报告** | [`gemini-cli-butler-comparison-report-2026-05.md`](gemini-cli-butler-comparison-report-2026-05.md) | G-P0 masking/压缩 → **Sprint A**；G-P1+ 仍 defer |
 | **awesome-llm-apps 对照报告** | [`awesome-llm-apps-butler-comparison-report-2026-05.md`](awesome-llm-apps-butler-comparison-report-2026-05.md) | MCP profiles / corrective recall → **Sprint B–C 已落地子集** |
-| **awesome-design-md 对照报告** | [`awesome-design-md-butler-comparison-report-2026-05.md`](awesome-design-md-butler-comparison-report-2026-05.md) | DESIGN.md 标本库 → **DESIGN 上下文管线（待落地）**；≠ awesome-llm-apps |
-| **autoresearch 对照报告** | [`autoresearch-butler-comparison-report-2026-05.md`](autoresearch-butler-comparison-report-2026-05.md) | 自主实验组织：harness/账本/keep-discard；零依赖，阶段 A–C |
-| **browser-use 对照报告** | [`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md) | Butler ↔ browser-use 全量对照 + P0–P2 提炼建议（零 CDP 依赖，2026-05-25） |
-| **RAGFlow 对照报告** | [`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md) | Butler ↔ RAGFlow 全量对照 + RF-P0–P2 提炼建议（零依赖，分析完成未落地，2026-05-25） |
+| **awesome-design-md 对照报告** | [`awesome-design-md-butler-comparison-report-2026-05.md`](awesome-design-md-butler-comparison-report-2026-05.md) | DESIGN 上下文管线 **已落地**；P3 不做项见 [out-of-scope](four-reports-out-of-scope-2026-05.md) |
+| **autoresearch 对照报告** | [`autoresearch-butler-comparison-report-2026-05.md`](autoresearch-butler-comparison-report-2026-05.md) | 实验组织 **已落地**；通宵/自动 commit 见 [out-of-scope](four-reports-out-of-scope-2026-05.md) |
+| **browser-use 对照报告** | [`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md) | Loop 减熵 **已落地**；CDP/截图见 [out-of-scope](four-reports-out-of-scope-2026-05.md) |
+| **RAGFlow 对照报告** | [`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md) | 检索增强 **已落地**；全栈嵌入见 [out-of-scope](four-reports-out-of-scope-2026-05.md) |
+| **四报告合并路线图** | [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) | 统一收敛 DESIGN / 实验组织 / Loop 减熵 / RAG（**已落地** §9） |
+| **四报告明确不做** | [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | 18 项否决能力 + 原因 + 替代方案（**新增需求前必读**） |
 
 ## 当前状态（2026-05-25）
 
@@ -43,6 +45,7 @@
 | 外部对标（Hermes/LangChain/Dify/Langflow 阶段 A/B/C） | **已落地**；defer 见 [`../guides/external-reference-deferred-2026-05.md`](../guides/external-reference-deferred-2026-05.md) |
 | Prompt Corpus 阶段 D/E | **已落地**；验收 [`../guides/phase-d-prompt-corpus.md`](../guides/phase-d-prompt-corpus.md) |
 | 四报告 Sprint A–D | **已落地**；验收 [`../guides/sprint-roadmap-2026-05.md`](../guides/sprint-roadmap-2026-05.md) |
+| 四报告合并路线图 PR1–PR6 | **已落地**；速查 [`../guides/four-reports-capabilities-2026-05.md`](../guides/four-reports-capabilities-2026-05.md)、§9 [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) |
 | Codex Sprint C0–C2 | **已落地**；`pytest tests/test_sprint_codex_c0.py tests/test_sprint_codex_c1.py tests/test_sprint_codex_c2.py` |
 | OpenCode 对标 | P0–P2 已落地（SQLite 全量模型仍暂缓） |
 | MCP P3 | 薄 Client + 诊断 + `butler mcp serve`（默认关闭） |
@@ -72,10 +75,13 @@
 | [`agency-agents-extraction-analysis-2026-05.md`](agency-agents-extraction-analysis-2026-05.md) | agency-agents（NEXUS）；Sprint B 子集已落地 |
 | [`gemini-cli-butler-comparison-report-2026-05.md`](gemini-cli-butler-comparison-report-2026-05.md) | Gemini CLI；G-P0 → Sprint A，G-P1+ defer |
 | [`awesome-llm-apps-butler-comparison-report-2026-05.md`](awesome-llm-apps-butler-comparison-report-2026-05.md) | awesome-llm-apps；Sprint B–C 子集已落地 |
-| [`awesome-design-md-butler-comparison-report-2026-05.md`](awesome-design-md-butler-comparison-report-2026-05.md) | awesome-design-md；DESIGN.md / UI 上下文（待落地） |
-| [`autoresearch-butler-comparison-report-2026-05.md`](autoresearch-butler-comparison-report-2026-05.md) | autoresearch（`reference/autoresearch`）；实验 harness 与账本提炼 |
+| [`awesome-design-md-butler-comparison-report-2026-05.md`](awesome-design-md-butler-comparison-report-2026-05.md) | awesome-design-md；DESIGN 管线 **已落地**（见路线图 §9） |
+| [`autoresearch-butler-comparison-report-2026-05.md`](autoresearch-butler-comparison-report-2026-05.md) | autoresearch；实验 harness/账本 **已落地**（PR6） |
+| [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) | 四份报告统一路线图（**已收口**）；速查 [`../guides/four-reports-capabilities-2026-05.md`](../guides/four-reports-capabilities-2026-05.md) |
+| [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | 18 项明确不做（新增需求前必读） |
 | [`../guides/sprint-roadmap-2026-05.md`](../guides/sprint-roadmap-2026-05.md) | Sprint A–D 验收与内置工作流索引 |
-| [`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md) | RAGFlow ↔ Butler；RF-P0–P2 路线图（**分析完成，待落地**） |
+| [`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md) | RAGFlow ↔ Butler；RF-P0–P2 **子集已落地**（全栈见 out-of-scope） |
+| [`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md) | browser-use；Loop 减熵 **已落地**（主线 B） |
 | [`codex-butler-comparison-2026-05.md`](codex-butler-comparison-2026-05.md) | Codex ↔ Butler；C0–C2 **已落地** |
 
 ## 归档 / 专项（按需打开）

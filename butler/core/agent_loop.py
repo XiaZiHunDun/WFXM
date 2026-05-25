@@ -265,6 +265,23 @@ class AgentLoop:
                 if self.callbacks.on_iteration:
                     self.callbacks.on_iteration(iteration, status)
 
+                try:
+                    from butler.core.loop_budget_nudge import maybe_inject_loop_budget_nudges
+
+                    budget_tokens = (
+                        int(budget_state.budget_tokens) if budget_state is not None else None
+                    )
+                    maybe_inject_loop_budget_nudges(
+                        self._messages,
+                        self.diagnostics,
+                        iteration=iteration,
+                        max_iterations=self.config.max_iterations,
+                        total_tokens=self._total_tokens,
+                        budget_tokens=budget_tokens,
+                    )
+                except Exception as exc:
+                    logger.debug("Loop budget nudge skipped: %s", exc)
+
                 response = self._call_llm_with_retry()
                 if response is None:
                     if self._interrupted:

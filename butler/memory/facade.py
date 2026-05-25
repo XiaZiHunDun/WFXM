@@ -561,20 +561,50 @@ class ButlerMemoryService:
                 sem = getattr(self._butler_global, "semantic", None)
                 if not isinstance(sem, SemanticMemoryIndex):
                     sem = None
+                sem_enabled = semantic_memory_enabled()
                 display = resolve_project_display_name(pm) or proj_name
+                from butler.memory.query_decompose import decompose_query, subquery_enabled
+
                 raw_hits, mode = prefetch_project_memory_hits(
                     pm,
                     query,
                     project_name=display,
                     semantic=sem,
                     limit=limit,
-                    semantic_enabled=semantic_memory_enabled(),
+                    semantic_enabled=sem_enabled,
+                )
+                sub_queries = (
+                    decompose_query(query)
+                    if subquery_enabled() and query
+                    else [query]
                 )
                 hits = [
-                    {"content": h.get("content", ""), "section": h.get("section", ""), "mode": mode}
+                    {
+                        "content": h.get("content", ""),
+                        "section": h.get("section", ""),
+                        "mode": mode,
+                        "score": h.get("score"),
+                        "source_id": h.get("source_id"),
+                    }
                     for h in raw_hits
                     if h.get("content")
                 ]
+                try:
+                    from butler.execution_context import get_current_session_key
+                    from butler.memory.retrieval_telemetry import record_last_retrieval
+
+                    tel: dict[str, Any] = {
+                        "mode": f"project-{mode}",
+                        "fallbacks": 1 if sem_enabled and mode in {"keyword", "none"} else 0,
+                        "candidates": len(hits),
+                        "query": query,
+                    }
+                    if len(sub_queries) > 1:
+                        tel["sub_queries"] = sub_queries
+                        tel["mode"] = f"project-{mode}-subquery"
+                    record_last_retrieval(get_current_session_key() or "", tel)
+                except Exception:
+                    pass
             return json.dumps(
                 {
                     "ok": True,

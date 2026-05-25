@@ -86,6 +86,28 @@ def build_post_compact_anchor_text(
         logger.debug("Post-compact AGENTS sections skipped: %s", exc)
 
     try:
+        from butler.core.design_md_sections import extract_design_md_sections
+
+        design_block = extract_design_md_sections()
+        if design_block:
+            parts.insert(0, design_block)
+            if diagnostics is not None:
+                diagnostics["post_compact_design_sections"] = len(design_block)
+    except Exception as exc:
+        logger.debug("Post-compact DESIGN sections skipped: %s", exc)
+
+    try:
+        from butler.core.research_simplicity import format_simplicity_anchor
+
+        simplicity = format_simplicity_anchor()
+        if simplicity:
+            parts.append(simplicity)
+            if diagnostics is not None:
+                diagnostics["post_compact_simplicity"] = True
+    except Exception as exc:
+        logger.debug("Post-compact simplicity anchor skipped: %s", exc)
+
+    try:
         from butler.core.read_state import get_recent_edit_paths
 
         recent = get_recent_edit_paths(limit=5)

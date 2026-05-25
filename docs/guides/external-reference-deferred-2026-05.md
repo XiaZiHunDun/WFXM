@@ -29,6 +29,10 @@
 
 ## 3. 明确不做（四报告共识）
 
+> **四报告专用完整清单**（browser-use / RAGFlow / design-md / autoresearch）：[`../plans/four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md)
+
+以下为 Hermes / LangChain / Dify / Langflow 阶段对标共识；与四报告清单互补，不重复展开。
+
 | 能力 | 原因 |
 |------|------|
 | Hermes 单体 Loop / 多平台网关 | 违背 v4 架构 |
