@@ -125,3 +125,16 @@ class TestMemoryDiagnostics:
         assert "记忆分层" in text
         assert "Owner 画像" in text
         assert "Pending" in text
+
+    def test_collect_stats_mock_db_path_does_not_create_repo_junk(self, tmp_path):
+        from butler.memory.diagnostics import _experience_category_counts
+
+        repo_root = tmp_path / "fake_repo"
+        repo_root.mkdir()
+        exp = MagicMock()
+        exp.db_path = MagicMock()
+        exp.db_path.path = MagicMock()
+
+        before = list(repo_root.iterdir())
+        _experience_category_counts(exp.db_path)
+        assert list(repo_root.iterdir()) == before

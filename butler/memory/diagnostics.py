@@ -9,9 +9,27 @@ from typing import Any
 from butler.session_lifecycle import CONVERSATION_CATEGORY
 
 
+def _resolve_experience_db_path(db_path: Any) -> Path | None:
+    """Return an existing SQLite path, or None (never create files from mocks)."""
+    if db_path is None:
+        return None
+    from unittest.mock import Mock
+
+    raw = getattr(db_path, "path", db_path)
+    if isinstance(raw, Mock):
+        return None
+    try:
+        resolved = Path(raw)
+    except (TypeError, ValueError, OSError):
+        return None
+    if not resolved.exists():
+        return None
+    return resolved
+
+
 def _experience_category_counts(db_path: Any) -> dict[str, int]:
-    path = getattr(db_path, "path", db_path)
-    if not path or not str(path):
+    path = _resolve_experience_db_path(db_path)
+    if path is None:
         return {}
     try:
         conn = sqlite3.connect(str(path))
