@@ -292,8 +292,25 @@ class ButlerMessageHandler:
             pass
 
         try:
-            from butler.memory.injection_guard import mark_adversarial_user_text
+            from butler.memory.injection_guard import (
+                injection_score_enabled,
+                mark_adversarial_user_text,
+                score_injection_risk,
+            )
 
+            if injection_score_enabled():
+                risk = score_injection_risk(text)
+                if risk > 0:
+                    try:
+                        from butler.core.session_transcript import append_transcript_entry
+
+                        append_transcript_entry(
+                            session_key,
+                            "injection_score",
+                            {"score": risk, "preview": text[:120]},
+                        )
+                    except Exception:
+                        pass
             text = mark_adversarial_user_text(text)
         except Exception:
             pass

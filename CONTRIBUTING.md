@@ -72,6 +72,12 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
   tests/test_experiment_ledger.py tests/test_query_decompose.py tests/test_support_line_e.py \
   tests/test_roadmap_remainder.py tests/test_markdown_chunking.py tests/test_loop_pr2_entropy.py -q
 
+# 五报告 P2 子集（SSOT sync / ToolsEngine / reflexion）
+PYTHONPATH=. pytest tests/test_five_reports_p5.py tests/test_mcp_merge.py -q
+
+# 五报告 P5（SSOT / 治理）
+PYTHONPATH=. pytest tests/test_five_reports_p5.py tests/test_mcp_merge.py -q
+
 # 五报告增量（PR-F1–F6）
 PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \
   tests/test_memory_recall_layers.py tests/test_provider_health.py tests/test_sessions_cli.py \

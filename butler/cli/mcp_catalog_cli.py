@@ -67,6 +67,12 @@ def register_mcp_catalog_parsers(mcp_sub: argparse._SubParsersAction) -> None:
     p_reload = mcp_sub.add_parser("reload", help="断开并重载 MCP 连接")
     p_reload.set_defaults(func=_cmd_mcp_reload)
 
+    p_sync = mcp_sub.add_parser("sync", help="刷新 MCP SSOT 索引（合并视图）")
+    p_sync.add_argument("--workspace", default="", help="项目工作区（写入 .butler/mcp-ssot.yaml）")
+    p_sync.add_argument("--dry-run", action="store_true", help="仅预览，不写文件")
+    p_sync.add_argument("--reload", action="store_true", help="写入后重载 MCP 连接")
+    p_sync.set_defaults(func=_cmd_mcp_sync)
+
 
 def _cmd_mcp_search(ns: argparse.Namespace) -> int:
     svc = McpCatalogService()
@@ -154,5 +160,18 @@ def _cmd_mcp_test(ns: argparse.Namespace) -> int:
 
 def _cmd_mcp_reload(ns: argparse.Namespace) -> int:
     ok, msg = reload_mcp_connections()
+    print(msg)
+    return 0 if ok else 1
+
+
+def _cmd_mcp_sync(ns: argparse.Namespace) -> int:
+    from butler.registry.mcp_ssot import sync_mcp_ssot
+
+    ws = _workspace_from_ns(ns)
+    ok, msg = sync_mcp_ssot(
+        workspace=ws,
+        dry_run=bool(getattr(ns, "dry_run", False)),
+        reload=bool(getattr(ns, "reload", False)),
+    )
     print(msg)
     return 0 if ok else 1

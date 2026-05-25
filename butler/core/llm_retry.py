@@ -57,6 +57,18 @@ def call_llm_with_retry(
             )
         except Exception:
             pass
+        if tools_to_send:
+            try:
+                from butler.mcp.tools_engine import filter_tools_for_model
+
+                tools_to_send, te_diag = filter_tools_for_model(
+                    tools_to_send,
+                    provider=str(getattr(client, "provider_name", "") or ""),
+                    model=str(getattr(client, "model", "") or ""),
+                )
+                diagnostics.update(te_diag)
+            except Exception:
+                pass
     interrupted = False
 
     cache_fp = ""

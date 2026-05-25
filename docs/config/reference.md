@@ -200,6 +200,11 @@
 | `BUTLER_GATEWAY_SESSION_INITIALIZING` | 1 | 首条会话冷启动期间入站入队不丢 |
 | `BUTLER_WORKFLOW_QA_REPLAN` | 1 | `dev-qa-loop` / `ui-dev-qa-loop` QA 行首 FAIL 时重跑 implement |
 | `BUTLER_WORKFLOW_QA_REPLAN_MAX` | 1 | QA FAIL replan 最多重跑 implement 次数 |
+| `BUTLER_INLINE_TOOL_COMPRESS` | 0 | 实验：截断较早 tool 消息内容 |
+| `BUTLER_THINKING_PROTOCOL` | 0 | `1` 时为 supports_thinking 模型追加 system 协议 hint |
+| `BUTLER_REFLEXION_WRITE_EXPERIENCE` | 0 | `1` 时 Reflexion 写入 `.butler/experiences/reflexion.jsonl` |
+| `BUTLER_INJECTION_SCORE` | 0 | `1` 时入站规则 injection 分写入 transcript |
+| `BUTLER_TOOLS_ENGINE` | 1 | `0` 关闭 FC 能力检查；`BUTLER_TOOLS_ENGINE_FORCE_OFF=1` 强制无 tools |
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 `.butler/observations.tsv` |
 | `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | SessionEnd 写 `.butler/session_summary.json` |

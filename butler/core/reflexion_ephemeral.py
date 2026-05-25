@@ -44,6 +44,18 @@ def maybe_apply_reflexion(
     )
     if banner:
         diagnostics["ephemeral_system"] = banner
+    try:
+        from butler.core.reflexion_write import write_reflexion_experience
+        from butler.execution_context import get_current_session_key
+
+        write_reflexion_experience(
+            tool_name=tool_name,
+            failure_count=failure_count,
+            last_error=last_error,
+            session_key=str(get_current_session_key() or ""),
+        )
+    except Exception:
+        pass
 
 
 __all__ = [

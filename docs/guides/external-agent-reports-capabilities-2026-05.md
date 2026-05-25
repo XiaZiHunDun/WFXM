@@ -67,8 +67,18 @@ PYTHONPATH=. pytest tests/test_external_agent_*.py tests/test_message_ir.py \
 
 ---
 
-## 5. 变更记录
+## 5. 五报告 P2 子集（CLI）
+
+```bash
+butler mcp sync [--workspace PATH] [--dry-run] [--reload]
+butler skills sync [--dry-run]
+```
+
+SSOT 文件：`<workspace>/.butler/mcp-ssot.yaml`、`~/.butler/tenants/<id>/skills-ssot.yaml`。
+
+## 6. 变更记录
 
 | 日期 | 说明 |
 |------|------|
 | 2026-05-25 | 初版：PR-X3–X6 + M 后续 + P1–P4 深化速查 |
+| 2026-05-25 | 五报告 P5：mcp/skills sync、ToolsEngine、reflexion write 等 |

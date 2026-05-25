@@ -35,16 +35,13 @@
 
 | 主线 | 项 | 说明 |
 |------|-----|------|
-| **F** | 内联工具压缩实验 | `BUTLER_INLINE_TOOL_COMPRESS`；长会话评估用，未实现开关 |
-| **G** | MCP/Skill **SSOT + `butler mcp sync`** | 跨项目 MCP/Skill 单一索引与同步 CLI；当前仅薄 MCP |
-| **G** | Thinking/协议整形 | 按模型自动注入 thinking 头；`model_capabilities` 仅静态表，未接 transport |
+| **G** | Thinking/协议整形（深化） | `BUTLER_THINKING_PROTOCOL=1` 已接 system hint；无 API beta 头全自动矩阵 |
 | **G** | `butler://` provider 预设库 | cc-switch 对照中的预设分发，未做 |
 | **H** | Prompt 迭代 **eval 闭环** | 语料 case + rubric 自动化（非 APE 搜 prompt） |
-| **H** | 辅助模型 **injection 评分** | 入站消息 LLM 打分 + human_gate；当前仅规则 `injection_guard` |
-| **H** | `BUTLER_REFLEXION_WRITE_EXPERIENCE` | Reflexion 写入长期 experience；当前仅 ephemeral banner |
+| **H** | 辅助模型 **injection 评分（LLM）** | 已有规则分 `BUTLER_INJECTION_SCORE` + transcript；无 LLM 打分 + human_gate 联动 |
 | **I** | 完整 **Pydantic 终局校验（深化）** | PR-X5 已落地 `validate_structured_output` + `maybe_repair_structured_output`；无全量 Pydantic 模型树 |
 | **I** | 固定 **Bull/Bear 多角色图** | TradingAgents 演示图；非默认微信路径 |
-| **J** | **ToolsEngine**（manifest 合并、FC 检查） | MCP 深化时再做 |
+| **J** | **ToolsEngine**（manifest 合并深化） | FC 检查子集已落地 `BUTLER_TOOLS_ENGINE`；无市场 manifest 合并 |
 | **J** | 市场 manifest **安装前扫描**深化 | 与 REG-P4 / lobehub 源联动，未做 |
 | **J** | post_session **persona/preference/experience 自动分层写入** | `session_summary.json` 有壳；字段多为空，未接 LLM 抽取 |
 
@@ -58,7 +55,9 @@
 | Reflexion | 默认 `BUTLER_REFLEXION_EPHEMERAL=0` | 开 env 即用 |
 | `model_capabilities` | `butler/transport/model_capabilities.py` 静态表 | 接到 `anthropic_transport` 等 |
 | 终局 schema | `output_schema` 校验 + 一次 LLM repair（`BUTLER_OUTPUT_SCHEMA_*`） | 全量 Pydantic 类型树 + 多轮 repair |
-| MCP | `BUTLER_MCP_ENABLED` + deferred 发现（`BUTLER_MCP_DEFERRED_TOOLS`） | 不等于 S11 全量 Host；SSOT/sync CLI 见 §2 |
+| MCP | `butler mcp sync` + `mcp-ssot.yaml`；deferred 发现 | 不等于 S11 全量 Host |
+| Skills SSOT | `butler skills sync` + `skills-ssot.yaml` | lockfile 快照，非 Hub 自动升级 |
+| Reflexion 写入 | `BUTLER_REFLEXION_WRITE_EXPERIENCE=0` | `.butler/experiences/reflexion.jsonl` |
 
 ---
 
@@ -95,3 +94,5 @@
 | 2026-05-25 | 初版：S1–S11、P2 未排期、可深化对照、四报告交叉引用 |
 | 2026-05-25 | §4：交叉引用 external-agent-reports 路线图 |
 | 2026-05-25 | §2/§3：Pydantic 子集、MCP deferred 已与 PR-X4/X5 对齐 |
+| 2026-05-25 | P5：`mcp/skills sync`、ToolsEngine FC、reflexion write、injection 启发式分 |
+| 2026-05-25 | P5：`mcp/skills sync`、inline compress、reflexion write、injection 规则分、ToolsEngine FC |

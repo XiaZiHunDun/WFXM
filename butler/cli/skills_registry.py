@@ -45,6 +45,10 @@ def register_skills_parser(sub: argparse._SubParsersAction) -> None:
     p_up.add_argument("--force", action="store_true", default=True)
     p_up.set_defaults(func=_cmd_upgrade)
 
+    p_sync = sp.add_parser("sync", help="刷新 Skills SSOT 索引（lockfile 快照）")
+    p_sync.add_argument("--dry-run", action="store_true")
+    p_sync.set_defaults(func=_cmd_sync)
+
 
 def _tenant_id() -> str:
     try:
@@ -129,6 +133,17 @@ def _cmd_upgrade(ns: argparse.Namespace) -> int:
         return 1
     print(f"已升级: {rec.name} ({rec.content_hash})")
     return 0
+
+
+def _cmd_sync(ns: argparse.Namespace) -> int:
+    from butler.registry.skills_ssot import sync_skills_ssot
+
+    ok, msg = sync_skills_ssot(
+        tenant_id=_tenant_id(),
+        dry_run=bool(getattr(ns, "dry_run", False)),
+    )
+    print(msg)
+    return 0 if ok else 1
 
 
 def _cmd_list(ns: argparse.Namespace) -> int:
