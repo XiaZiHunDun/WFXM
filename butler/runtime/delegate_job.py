@@ -250,6 +250,13 @@ def run_delegate_job(job: DelegateJob) -> None:
             task_id=job.task_id,
             session_key=job.session_key,
         )
+    finally:
+        try:
+            from butler.core.delegate_semaphore import release_delegate_slot
+
+            release_delegate_slot(job.session_key)
+        except Exception:
+            pass
 
 
 def _delegate_role_label(role: str) -> str:

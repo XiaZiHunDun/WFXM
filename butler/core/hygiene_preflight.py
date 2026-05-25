@@ -145,6 +145,12 @@ def run_hygiene_preflight(
     if not did_shrink:
         diagnostics["hygiene_compact_noop"] = True
         diagnostics.pop("hygiene_compact_failed", None)
+        try:
+            from butler.core.compaction_status import derive_compaction_status
+
+            diagnostics["compaction_status"] = derive_compaction_status(diagnostics)
+        except Exception:
+            pass
         return HygienePreflightResult(messages=messages, compressed=False)
 
     diagnostics.pop("hygiene_compact_noop", None)
@@ -154,6 +160,7 @@ def run_hygiene_preflight(
         "hygiene_compressed": True,
         "hygiene_messages_after": len(compressed),
         "hygiene_estimated_tokens_after": after_tokens,
+        "compaction_status": "compressed",
     })
     try:
         from butler.execution_context import get_audit_session_key

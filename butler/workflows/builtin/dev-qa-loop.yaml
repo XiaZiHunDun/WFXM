@@ -1,0 +1,23 @@
+name: dev-qa-loop
+description: 开发实现 → 证据优先审查（NEXUS / agency-agents 子集）
+steps:
+  - id: implement
+    role: dev
+    max_retries: 1
+    task: |
+      根据用户目标完成实现。遵守项目规范；改前先 read_file。
+      完成后在脑中整理 HANDOFF：改了哪些文件、如何验证。
+  - id: qa
+    role: review
+    depends_on: [implement]
+    max_retries: 3
+    task: |
+      审查上一步实现（输出见下）。
+
+      {{implement.output}}
+
+      首行必须是 **PASS** 或 **FAIL**（全大写）。
+      - 须用 read_file / search_files / terminal(测试) 核对，禁止空口 PASS
+      - 默认至少列出 1 条可改进点；严重问题标为 FAIL
+      - FAIL 时说明阻塞项与建议修复顺序
+      不要修改业务文件，除非用户明确要求。

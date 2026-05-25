@@ -134,6 +134,14 @@ def apply_preemptive_pipeline(
     estimated = estimate_tokens(out)
     if diagnostics is not None:
         diagnostics["preemptive_truncate_applied"] = truncated
+        if truncated:
+            diagnostics["compaction_status"] = "truncated_only"
+            try:
+                from butler.ops.retry_buckets import record_recovery_event
+
+                record_recovery_event("preemptive_truncate")
+            except Exception:
+                pass
 
     if estimated < effective_limit:
         return out, PreemptiveDecision(

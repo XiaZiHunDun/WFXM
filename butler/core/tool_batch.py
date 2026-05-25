@@ -132,6 +132,13 @@ def process_tool_calls(
             after = guardrails.after_call(name, args, result)
             if after.should_halt:
                 guardrails.set_halt_decision(after)
+                try:
+                    from butler.ops.retry_buckets import record_recovery_event
+
+                    reason = str(getattr(after, "reason", "") or "tool_guardrail_halt")[:32]
+                    record_recovery_event(reason or "tool_guardrail_halt")
+                except Exception:
+                    pass
                 result = finalize_guardrail_halt_result(name, args, result, after)
             elif after.action == "warn":
                 result = append_guidance(result, after)

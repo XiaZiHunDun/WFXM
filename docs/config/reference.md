@@ -195,6 +195,24 @@
 | `BUTLER_MODE_CLASSIFIER_AUTO_PLAN` | 0 | 高置信 plan 句自动 `set_plan_mode`（微信慎用） |
 | `BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION` | 0 | 委派子 Agent 每轮单工具（关并行） |
 | `BUTLER_COMPACTION_PREFLIGHT_CHECKLIST` | 1 | 压缩摘要附带完成前自检要点 |
+| `BUTLER_GATEWAY_EXTERNAL_ID_DEDUPE` | 1 | 微信 `external_id` 入站幂等（防重投双跑 Loop） |
+| `BUTLER_TASK_STALE_MINUTES` | 60 | `running` 委派超过此时长标 stale |
+| `BUTLER_TASK_STALE_AUTO_FAIL` | 0 | 是否自动将 stale 任务标为 failed |
+| `BUTLER_TOOL_MASK_ENABLED` | 1 | 统一 tool output masking（Gemini 子集） |
+| `BUTLER_TOOL_MASK_PROTECT_TOKENS` | 50000 | masking 保护最近 tool token 预算 |
+| `BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET` | 50000 | 压缩摘要前 tool 消息 token 硬截断 |
+| `BUTLER_IO_GUARDRAIL` | 1 | 入站明文密钥/过长消息检测 |
+| `BUTLER_IO_GUARDRAIL_BLOCK` | 0 | 检测到 tripwire 时是否拦截（否则仅记录） |
+| `BUTLER_IO_GUARDRAIL_PII` | 0 | 是否检测手机号/身份证模式 |
+| `BUTLER_IO_GUARDRAIL_MAX_CHARS` | 0 | 入站最大字符（0=不限制） |
+| `BUTLER_MCP_PROFILES` | 1 | MCP server 按 profile 过滤（`mcp.yaml` `profiles`） |
+| `BUTLER_CORRECTIVE_RECALL` | 1 | 委派子 loop 工具失败时追加纠错检索块 |
+| `BUTLER_CORPUS_ROUTING` | 1 | `search_project_knowledge` 多 scope 路由 |
+| `BUTLER_ENABLE_WEB_FETCH` | 0 | 启用薄 `web_fetch`（公网 URL，SSRF 校验） |
+| `BUTLER_WEB_FETCH_MAX_BYTES` | 65536 | web_fetch 响应字节上限 |
+| `BUTLER_WEB_FETCH_TIMEOUT` | 20 | web_fetch 超时（秒） |
+| `BUTLER_DELEGATE_CONCURRENCY_LIMIT` | 1 | 同会话并发委派槽位限制 |
+| `BUTLER_DELEGATE_MAX_CONCURRENT` | 2 | 每会话最大并行委派数 |
 | `BUTLER_EXECUTE_CODE` | 0 | 启用 `execute_code` 沙箱工具（须安全评审） |
 | `BUTLER_SECRETS_FILE` | 1 | 从 `~/.butler/secrets.yaml` 加载 provider API key |
 | `BUTLER_TERMINAL_SMART_APPROVE` | 1 | `/批准模式 <pattern>` 本会话放行危险 terminal |

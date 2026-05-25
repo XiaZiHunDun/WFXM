@@ -102,6 +102,66 @@ def _split_head_tail(
     return system, middle, head + tail
 
 
+def compress_tool_response_budget_tokens() -> int:
+    import os
+
+    try:
+        return max(5000, int(os.getenv("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", "") or "50000"))
+    except ValueError:
+        return 50_000
+
+
+def truncate_tool_responses_to_budget(messages: list[dict]) -> list[dict]:
+    """Before LLM summarization, cap total tool-role tokens (Gemini pre-compress budget)."""
+    import os
+
+    if os.getenv("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", "").strip().lower() in (
+        "0",
+        "false",
+        "no",
+        "off",
+    ):
+        return messages
+    budget = compress_tool_response_budget_tokens()
+    tool_msgs = [m for m in messages if m.get("role") == "tool"]
+    total = sum(len(str(m.get("content") or "")) // 4 for m in tool_msgs)
+    if total <= budget:
+        return messages
+
+    from butler.core.tool_result_storage import BUDGET_TRUNCATED_TAG
+
+    out: list[dict] = []
+    remaining = budget
+    changed = False
+    for m in messages:
+        if m.get("role") != "tool":
+            out.append(m)
+            continue
+        content = str(m.get("content") or "")
+        est = max(1, len(content) // 4)
+        if remaining > 0 and est <= remaining:
+            out.append(m)
+            remaining -= est
+            continue
+        changed = True
+        lines = content.splitlines()
+        tail = "\n".join(lines[-30:]) if len(lines) > 30 else content[:4000]
+        trimmed = (
+            tail[:8000]
+            + f"\n\n{BUDGET_TRUNCATED_TAG} "
+            f"(pre-compact budget; was ~{est * 4} chars)\n"
+        )
+        out.append({**m, "content": trimmed})
+    if changed:
+        try:
+            from butler.ops.retry_buckets import record_recovery_event
+
+            record_recovery_event("compress_tool_budget_truncate")
+        except Exception:
+            pass
+    return out
+
+
 def _format_for_summary(messages: list[dict], max_chars: int = 12000) -> str:
     parts: list[str] = []
     total = 0
@@ -213,6 +273,7 @@ def compress_messages(
     if not middle:
         return pruned, previous_summary, False
 
+    middle = truncate_tool_responses_to_budget(middle)
     summary = _summarize_middle(middle, previous_summary)
     summary_msg = {"role": "user", "content": SUMMARY_PREFIX + summary}
 

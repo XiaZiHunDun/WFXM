@@ -77,6 +77,14 @@ def _shared_diagnostic_lines(
         )
     )
     lines.extend(format_ops_diagnostic_lines())
+    try:
+        from butler.ops.rag_diagnostics import format_rag_diagnostic_lines
+
+        lines.extend(
+            format_rag_diagnostic_lines(inp.mem_stats, session_key=inp.session_key)
+        )
+    except Exception:
+        pass
     return lines
 
 
@@ -118,13 +126,45 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
     from butler.core.context_budget import format_context_budget_line
 
     context_line = format_context_budget_line(health)
-    compact_note = "否"
-    if health.get("hygiene_compressed"):
-        compact_note = "是"
-    elif health.get("context_compact_circuit_open"):
-        compact_note = "熔断跳过"
-    elif health.get("hygiene_compact_skipped"):
-        compact_note = f"跳过({health.get('hygiene_compact_skipped')})"
+    try:
+        from butler.core.compaction_status import format_compaction_status_line
+
+        compact_note = format_compaction_status_line(health).replace("压缩状态: ", "")
+    except Exception:
+        compact_note = "否"
+        if health.get("hygiene_compressed"):
+            compact_note = "是"
+        elif health.get("context_compact_circuit_open"):
+            compact_note = "熔断跳过"
+        elif health.get("hygiene_compact_skipped"):
+            compact_note = f"跳过({health.get('hygiene_compact_skipped')})"
+
+    stale_lines: list[str] = []
+    try:
+        from butler.runtime.task_store import mark_stale_tasks, count_running_tasks
+
+        stale = mark_stale_tasks(health.get("session_key") or inp.session_key, auto_fail=False)
+        running = count_running_tasks(health.get("session_key") or inp.session_key)
+        if running:
+            stale_lines.append(f"委派 running: {running}")
+        if stale:
+            stale_lines.append(f"委派 stale: {len(stale)}（>阈值未结束）")
+            for row in stale[:3]:
+                stale_lines.append(
+                    f"  ⏱ {row.get('task_id')} {(row.get('task_preview') or '')[:40]}"
+                )
+    except Exception:
+        pass
+
+    recovery_lines: list[str] = []
+    try:
+        from butler.ops.retry_buckets import format_recovery_bucket_lines
+
+        recovery_lines = format_recovery_bucket_lines(
+            session_key=health.get("session_key") or inp.session_key,
+        )
+    except Exception:
+        pass
 
     return [
         "Butler 诊断",
@@ -141,7 +181,7 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         f"记忆上下文: {'已注入' if health.get('memory_context_injected') else '未注入'}",
         f"记忆同步: {'已同步' if not memory_sync.get('skipped', True) else '跳过'}",
         f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
-    ] + _hook_diagnostic_lines(inp.session_key, health)
+    ] + stale_lines + recovery_lines + _hook_diagnostic_lines(inp.session_key, health)
 
 
 def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> list[str]:

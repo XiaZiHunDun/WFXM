@@ -764,6 +764,10 @@ def _register_builtin_tools() -> None:
 
     register_knowledge_tools(register)
 
+    from butler.tools.web_fetch import register_web_fetch_tool
+
+    register_web_fetch_tool(register)
+
     from butler.tools.git_tools import register_git_tools
 
     register_git_tools(register)
@@ -1711,6 +1715,22 @@ def _tool_delegate_task(
                 context=context,
             )
 
+        from butler.core.handoff import merge_handoff_into_context, render_handoff_block
+
+        cat_name = str(category or category_meta.get("category") or "").strip().lower()
+        if cat_name.startswith("nexus") or "## Handoff" not in str(context or ""):
+            handoff = render_handoff_block(
+                from_role="butler",
+                to_role=str(role or "dev"),
+                task=task,
+                acceptance=[
+                    "任务描述中的目标已达成",
+                    "关键改动有 read_file 或测试证据",
+                ],
+                evidence_required=["read_file 或 pytest"],
+            )
+            context = merge_handoff_into_context(context, handoff)
+
         bridge = get_gateway_bridge_optional()
         if bridge is not None:
             bridge.notify_delegate_start(role, preview=task[:80])
@@ -1808,14 +1828,30 @@ def _tool_delegate_task(
         attach_turn_memory_prefetch(agent, orch, raw_user_msg, role=role)
 
         session_key = str(get_current_session_key() or "").strip()
+        from butler.core.delegate_semaphore import try_acquire_delegate_slot
+
+        if not try_acquire_delegate_slot(session_key):
+            from butler.core.delegate_semaphore import max_concurrent_delegates
+
+            return json.dumps({
+                "error": (
+                    f"本会话并发委派已达上限 ({max_concurrent_delegates()})，"
+                    "请等待进行中的任务完成。"
+                ),
+                "code": "DELEGATE_CONCURRENCY",
+            })
         project_name = ""
         if project is not None:
             project_name = str(getattr(project, "name", "") or "")
+        from butler.runtime.task_store import delegate_group_id
+
+        group_id = delegate_group_id(session_key)
         task_record = create_task(
             session_key=session_key,
             role=role,
             task_preview=task,
             project=project_name,
+            group_id=group_id,
         )
         task_id = str(task_record.get("task_id") or "")
         child_session_key = str(task_record.get("child_session_key") or "")
@@ -1893,22 +1929,27 @@ def _tool_delegate_task(
                 category=str(category_meta.get("category") or category or ""),
             )
 
-        with use_execution_context(orch, session_key=child_session_key or session_key):
-            try:
-                from butler.runtime.delegate_registry import (
-                    register_delegate_loop,
-                    unregister_delegate_loop,
-                )
-
-                register_delegate_loop(session_key, agent)
-                result = agent.run(user_msg)
-            finally:
+        try:
+            with use_execution_context(orch, session_key=child_session_key or session_key):
                 try:
-                    from butler.runtime.delegate_registry import unregister_delegate_loop
+                    from butler.runtime.delegate_registry import (
+                        register_delegate_loop,
+                        unregister_delegate_loop,
+                    )
 
-                    unregister_delegate_loop(session_key, agent)
-                except Exception:
-                    pass
+                    register_delegate_loop(session_key, agent)
+                    result = agent.run(user_msg)
+                finally:
+                    try:
+                        from butler.runtime.delegate_registry import unregister_delegate_loop
+
+                        unregister_delegate_loop(session_key, agent)
+                    except Exception:
+                        pass
+        finally:
+            from butler.core.delegate_semaphore import release_delegate_slot
+
+            release_delegate_slot(session_key)
 
         sync_turn_memory(
             orch,
@@ -2044,7 +2085,25 @@ def _safe_dispatch(name: str, args: dict, depth: int) -> str:
         return json.dumps({"error": f"Tool '{name}' is blocked in delegated agents"})
     if name == "delegate_task":
         args = {**args, "depth": depth}
-    return dispatch_tool(name, args)
+    result = dispatch_tool(name, args)
+    try:
+        from butler.memory.corrective_recall import (
+            build_corrective_recall_block,
+            should_trigger_corrective,
+        )
+
+        if should_trigger_corrective(name, result):
+            task_hint = str(args.get("task") or args.get("query") or args.get("path") or "")
+            block = build_corrective_recall_block(
+                task=task_hint,
+                tool_name=name,
+                error_excerpt=result[:400],
+            )
+            if block:
+                result = f"{result}\n\n{block}"
+    except Exception:
+        pass
+    return result
 
 
 def _delegate_role_label(role: str) -> str:

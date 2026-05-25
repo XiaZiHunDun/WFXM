@@ -28,6 +28,8 @@ pytest tests/test_phase_a_external.py tests/test_phase_b_external.py \
 
 与 **OpenCode / CC 线束** 正交：见 [opencode-parity.md](./opencode-parity.md)、[../plans/cc-butler-gap-analysis-2026-05.md](../plans/cc-butler-gap-analysis-2026-05.md)。
 
+**四报告 Sprint（Firecrawl / agency / Gemini / awesome）** 另见 [sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md)（A–D 已落地，与上表阶段 A/B/C 独立）。
+
 ## 状态摘要（2026-05-25）
 
 | 阶段 | 状态 |

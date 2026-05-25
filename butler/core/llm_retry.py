@@ -167,6 +167,12 @@ def call_llm_with_retry(
             if classified.should_compress and not compress_attempted:
                 compress_attempted = True
                 diagnostics["reactive_compact_reason"] = classified.reason.value
+                try:
+                    from butler.ops.retry_buckets import record_recovery_event
+
+                    record_recovery_event("reactive_compact")
+                except Exception:
+                    pass
                 from butler.core.reactive_compact import apply_reactive_compact_to_messages
 
                 applied = apply_reactive_compact_to_messages(
@@ -183,6 +189,12 @@ def call_llm_with_retry(
                 continue
 
             if classified.should_fallback and try_activate_fallback():
+                try:
+                    from butler.ops.retry_buckets import record_recovery_event
+
+                    record_recovery_event("provider_failover")
+                except Exception:
+                    pass
                 continue
 
             if not classified.retryable:

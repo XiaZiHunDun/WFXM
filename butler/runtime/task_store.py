@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
+
+from butler.env_parse import env_truthy
 
 
 def _tasks_root() -> Path:
@@ -21,21 +24,98 @@ def new_task_id() -> str:
     return f"task_{uuid.uuid4().hex[:12]}"
 
 
+def task_stale_minutes() -> int:
+    try:
+        return max(5, int(os.getenv("BUTLER_TASK_STALE_MINUTES", "") or "60"))
+    except ValueError:
+        return 60
+
+
+def task_stale_auto_fail() -> bool:
+    return env_truthy("BUTLER_TASK_STALE_AUTO_FAIL", default=False)
+
+
+def _parse_iso(ts: str) -> datetime | None:
+    raw = str(ts or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def is_task_stale(record: dict[str, Any], *, now: datetime | None = None) -> bool:
+    if str(record.get("status") or "") != "running":
+        return False
+    updated = _parse_iso(str(record.get("updated_at") or record.get("created_at") or ""))
+    if updated is None:
+        return False
+    ref = now or datetime.now(timezone.utc)
+    if updated.tzinfo is None:
+        updated = updated.replace(tzinfo=timezone.utc)
+    return ref - updated > timedelta(minutes=task_stale_minutes())
+
+
+def mark_stale_tasks(
+    session_key: str = "",
+    *,
+    auto_fail: bool | None = None,
+) -> list[dict[str, Any]]:
+    """Return stale running tasks; optionally mark failed."""
+    do_fail = task_stale_auto_fail() if auto_fail is None else auto_fail
+    stale: list[dict[str, Any]] = []
+    root = _tasks_root()
+    sk = str(session_key or "").strip()
+    for path in root.glob("task_*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if sk and str(data.get("session_key") or "") != sk:
+            continue
+        if not is_task_stale(data):
+            continue
+        stale.append(data)
+        if do_fail:
+            update_task(
+                str(data.get("task_id") or ""),
+                status="failed",
+                success=False,
+                report_headline="任务超时（stale）",
+                summary="running 超过配置时限，已自动标记失败。",
+            )
+    return stale
+
+
+def delegate_group_id(session_key: str, *, parent_task_id: str = "") -> str:
+    """Stable group id for related delegate/workflow tasks in one session."""
+    import hashlib
+
+    base = f"{str(session_key or 'default').strip()}:{str(parent_task_id or 'root').strip()}"
+    return hashlib.sha256(base.encode("utf-8")).hexdigest()[:16]
+
+
 def create_task(
     *,
     session_key: str = "",
     role: str = "",
     task_preview: str = "",
     project: str = "",
+    group_id: str = "",
 ) -> dict[str, Any]:
     from butler.delegate_subagent_permissions import make_child_session_key
 
     task_id = new_task_id()
     sk = str(session_key or "").strip() or "default"
     now = datetime.now(timezone.utc).isoformat()
+    gid = str(group_id or "").strip() or delegate_group_id(sk)
     record: dict[str, Any] = {
         "task_id": task_id,
         "session_key": sk,
+        "group_id": gid,
         "child_session_key": make_child_session_key(sk, task_id),
         "role": str(role or "").strip(),
         "project": str(project or "").strip(),
@@ -87,6 +167,24 @@ def get_task(task_id: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def count_running_tasks(session_key: str = "") -> int:
+    sk = str(session_key or "").strip()
+    n = 0
+    for path in _tasks_root().glob("task_*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        if str(data.get("status") or "") != "running":
+            continue
+        if sk and str(data.get("session_key") or "") != sk:
+            continue
+        n += 1
+    return n
+
+
 def list_recent_tasks(session_key: str = "", *, limit: int = 5) -> list[dict[str, Any]]:
     root = _tasks_root()
     files = sorted(root.glob("task_*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -101,7 +199,10 @@ def list_recent_tasks(session_key: str = "", *, limit: int = 5) -> list[dict[str
             continue
         if sk and str(data.get("session_key") or "") != sk:
             continue
-        out.append(data)
+        row = dict(data)
+        if is_task_stale(row):
+            row["stale"] = True
+        out.append(row)
         if len(out) >= max(1, limit):
             break
     return out

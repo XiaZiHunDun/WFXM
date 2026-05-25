@@ -1,6 +1,7 @@
 # 指南文档索引
 
-> 更新：2026-05-25 | 个人助手 Butler：**主场景为微信**；CLI 为本地开发与调试。
+> 更新：2026-05-25 | 个人助手 Butler：**主场景为微信**；CLI 为本地开发与调试。  
+> 四报告 Sprint A–D 总索引：[sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md)
 
 | 文档 | 用途 |
 |------|------|
@@ -12,6 +13,9 @@
 | [phase-c-external-reference.md](./phase-c-external-reference.md) | 阶段 C：工具预选、Loop 插件、workflow validate |
 | [external-reference-deferred-2026-05.md](./external-reference-deferred-2026-05.md) | 补做项与仍 defer 项分析 |
 | [phase-d-prompt-corpus.md](./phase-d-prompt-corpus.md) | **Prompt Corpus 线**：工具 DSL、/规划、transcript 事件、大文件读、task_milestone |
+| [sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md) | **四报告 Sprint A–D** 总索引（Firecrawl / agency / Gemini / awesome） |
+| [sprint-a-firecrawl-gemini-2026-05.md](./sprint-a-firecrawl-gemini-2026-05.md) | **Sprint A**：external_id 幂等、task stale、恢复分桶、tool masking |
+| [sprint-bcd-agency-awesome-2026-05.md](./sprint-bcd-agency-awesome-2026-05.md) | **Sprint B–D**：Handoff、dev-qa-loop、MCP profiles、RAG、web_fetch、委派并发 |
 | [../plans/prompts-corpus-butler-comparison-2026-05.md](../plans/prompts-corpus-butler-comparison-2026-05.md) | Prompt Corpus ↔ Butler 对标全文 |
 | [runtime-ops.md](./runtime-ops.md) | **Runtime timer**：定时任务 due、审计、批准与排障 |
 | [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) | **发版后真机冒烟**（H1–H10，约 15–25 分钟） |

@@ -1,0 +1,15 @@
+name: ops-checklist
+description: 发版前轻量巡检（Sprint D 配方 — Firecrawl workflow 子集）
+steps:
+  - id: scan
+    role: review
+    max_retries: 1
+    task: |
+      只读巡检当前项目：读 README、.env.example、docs/guides 索引是否存在明显过时项。
+      输出三条以内检查结论，不改文件。
+  - id: note
+    role: content
+    depends_on: [scan]
+    max_retries: 1
+    task: |
+      将 scan 步骤结论写入 docs/workflow-output.md（覆盖写入），标题「运维巡检摘要」。

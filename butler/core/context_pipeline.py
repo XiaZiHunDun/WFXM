@@ -124,6 +124,12 @@ class ContextPipeline:
         )
         prepared = prune_tool_outputs(prepared)
         prepared = backward_prune_tool_outputs(prepared)
+        try:
+            from butler.core.tool_output_masking import apply_unified_tool_masking
+
+            prepared = apply_unified_tool_masking(prepared)
+        except Exception as exc:
+            logger.debug("Unified tool masking skipped: %s", exc)
         diag: dict[str, Any] = diagnostics if isinstance(diagnostics, dict) else {}
         try:
             from butler.core.preemptive_compact import (

@@ -109,6 +109,13 @@ CONTENT_AGENT = AgentProfile(
     ),
 )
 
+_EVIDENCE_FIRST_REVIEW = (
+    "\n\n## 证据优先（EVIDENCE-FIRST）\n"
+    "- 首行必须是 PASS 或 FAIL（全大写）\n"
+    "- 无 read_file / search / 测试证据时不得 PASS\n"
+    "- 每条严重问题须附路径或命令输出摘要\n"
+)
+
 REVIEW_AGENT = AgentProfile(
     role="review_agent",
     description="审核 Agent — 代码审查、内容审核、质量检查",
@@ -119,6 +126,7 @@ REVIEW_AGENT = AgentProfile(
         "2. 改进建议\n"
         "3. 优点总结\n\n"
         "审核时可以读取文件和搜索代码来验证一致性。\n"
+        + _EVIDENCE_FIRST_REVIEW
         + TOOL_USE_ENFORCEMENT
     ),
 )

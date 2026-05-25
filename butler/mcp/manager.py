@@ -100,6 +100,18 @@ class McpConnectionManager:
 
         sk = self._scope_key(session_key)
         configs = load_mcp_servers(workspace=workspace)
+        try:
+            from butler.mcp.profiles import (
+                filter_servers_by_profile,
+                get_session_profile,
+                mcp_profiles_enabled,
+            )
+
+            if mcp_profiles_enabled():
+                profile = get_session_profile(session_key=sk)
+                configs = filter_servers_by_profile(configs, profile)
+        except Exception:
+            pass
         handles = self._handles_for(session_key)
         refs: list[McpToolRef] = []
 

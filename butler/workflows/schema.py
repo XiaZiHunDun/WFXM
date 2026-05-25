@@ -18,6 +18,7 @@ class WorkflowStepDef:
     requires_approval: bool = False
     model: ModelConfig | None = None
     output_keys: list[str] = field(default_factory=lambda: ["output"])
+    max_retries: int = 1
 
 
 @dataclass
@@ -58,6 +59,11 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         model_cfg = ModelConfig.from_dict(model_raw)
     from butler.workflows.variables import extract_output_keys
 
+    try:
+        max_retries = max(1, int(raw.get("max_retries", 1)))
+    except (TypeError, ValueError):
+        max_retries = 1
+
     return WorkflowStepDef(
         id=step_id,
         role=role,
@@ -67,6 +73,7 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         requires_approval=bool(raw.get("requires_approval", False)),
         model=model_cfg,
         output_keys=extract_output_keys(raw),
+        max_retries=max_retries,
     )
 
 

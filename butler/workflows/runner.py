@@ -126,6 +126,7 @@ class WorkflowRunner:
                     ),
                     depends_on=list(step.depends_on),
                     requires_approval=step.requires_approval,
+                    max_retries=max(1, int(step.max_retries or 1)),
                 )
             )
         return nodes

@@ -45,6 +45,12 @@ def recover_schema_after_error(
             "schema_recovered": True,
             "schema_keywords_stripped": stripped,
         })
+    try:
+        from butler.ops.retry_buckets import record_recovery_event
+
+        record_recovery_event("schema_recovery")
+    except Exception:
+        pass
     return SchemaRecoveryResult(
         tools=stripped_tools,
         stripped=stripped,

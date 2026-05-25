@@ -30,3 +30,24 @@ categories:
       - skills_list
       - skill_view
       - session_todos_list
+  nexus-sprint:
+    role: dev
+    description: NEXUS sprint — implement with structured handoff to review
+    background: true
+    prompt_append: |
+      [category:nexus-sprint] 实现后须在上下文中包含 ## Handoff（目标/验收/相关路径）。
+    max_iterations: 28
+  nexus-micro:
+    role: review
+    description: NEXUS micro-review — evidence-first, read-only
+    background: false
+    prompt_append: |
+      [category:nexus-micro] 证据优先审查；首行 PASS/FAIL；禁止无依据 PASS。
+    max_iterations: 16
+    allow_tools:
+      - read_file
+      - list_directory
+      - search_files
+      - search_code
+      - butler_recall
+      - search_project_knowledge

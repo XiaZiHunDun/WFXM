@@ -253,8 +253,34 @@ class ButlerMessageHandler:
             external_id=external_id,
             session_key=session_key,
         )
+        try:
+            from butler.mcp.profiles import (
+                mcp_profiles_enabled,
+                select_profile_for_text,
+                set_session_profile,
+            )
+
+            if mcp_profiles_enabled() and text.strip():
+                set_session_profile(
+                    session_key,
+                    select_profile_for_text(text),
+                )
+        except Exception:
+            pass
         if not text.strip():
             return ""
+
+        try:
+            from butler.core.io_guardrail import check_inbound_text, io_guardrail_enabled
+
+            if io_guardrail_enabled():
+                guard = check_inbound_text(text)
+                if guard.tripwire and not guard.allowed:
+                    return guard.user_message or "消息未通过入站安全检查。"
+        except Exception:
+            pass
+
+        _idempotency_reserved = False
 
         try:
             from butler.gateway.bot_loop_guard import record_and_should_suppress
@@ -266,6 +292,11 @@ class ButlerMessageHandler:
                 text=text,
             )
             if suppress:
+                if _idempotency_reserved:
+                    try:
+                        release_inflight(session_key, external_id)
+                    except Exception:
+                        pass
                 return "（已忽略：群聊 bot 互回复环防护）"
         except Exception:
             pass
@@ -356,6 +387,31 @@ class ButlerMessageHandler:
             )
             return out
 
+        try:
+            from butler.gateway.inbound_idempotency import (
+                check_and_reserve_inbound,
+                complete_inbound,
+                record_duplicate_skip,
+                release_inflight,
+            )
+
+            _idem = check_and_reserve_inbound(
+                session_key,
+                external_id,
+                text_preview=text[:80],
+            )
+            if _idem.skip:
+                record_duplicate_skip(
+                    session_key,
+                    reason=_idem.reason,
+                    external_id=str(external_id or ""),
+                    preview=text[:80],
+                )
+                return _idem.user_reply or "（重复消息已忽略。）"
+            _idempotency_reserved = True
+        except Exception:
+            pass
+
         if self._should_queue_inbound(session_key, text):
             from butler.gateway.message_queue import (
                 enqueue_inbound,
@@ -426,6 +482,11 @@ class ButlerMessageHandler:
         finally:
             self._session_registry.exit_session(session_key, session_lock)
             release(admission)
+            if _idempotency_reserved:
+                try:
+                    complete_inbound(session_key, external_id)
+                except Exception:
+                    pass
         follow = self._drain_queued_inbound(
             session_key,
             platform=platform,
@@ -1011,21 +1072,35 @@ class ButlerMessageHandler:
             return format_help_text()
 
         if cmd in ("/tasks", "/任务"):
-            from butler.runtime.task_store import list_recent_tasks
+            from butler.runtime.task_store import (
+                count_running_tasks,
+                list_recent_tasks,
+                mark_stale_tasks,
+                task_stale_minutes,
+            )
 
+            stale = mark_stale_tasks(session_key, auto_fail=False)
             rows = list_recent_tasks(session_key, limit=5)
             if not rows:
                 return "暂无委派任务记录。"
-            lines = ["最近委派任务:"]
+            lines = [
+                "最近委派任务:",
+                f"  running: {count_running_tasks(session_key)} · stale 阈值: {task_stale_minutes()} 分钟",
+            ]
+            if stale:
+                lines.append(f"  ⚠ 僵死任务 {len(stale)} 个（发 /诊断 查看详情）")
             for row in rows:
                 status = row.get("status") or "?"
                 ok = row.get("success")
                 mark = "✓" if ok is True else ("✗" if ok is False else "…")
+                if row.get("stale"):
+                    mark = "⏱"
                 child_sk = str(row.get("child_session_key") or "").strip()
                 child_hint = f" · {child_sk}" if child_sk else ""
                 bg = " [后台]" if row.get("background") else ""
+                stale_tag = " [stale]" if row.get("stale") else ""
                 lines.append(
-                    f"  {mark} {row.get('task_id')} [{status}]{bg}{child_hint} "
+                    f"  {mark} {row.get('task_id')} [{status}]{stale_tag}{bg}{child_hint} "
                     f"{(row.get('task_preview') or '')[:60]}"
                 )
             return "\n".join(lines)

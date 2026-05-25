@@ -12,13 +12,18 @@ def tool_search_project_knowledge(
     **_: Any,
 ) -> str:
     """Search project MEMORY + semantic index (wrapper over butler_recall project scope)."""
+    q = str(query or "").strip()
+    lim = max(1, min(20, int(limit or 8)))
+    try:
+        from butler.memory.corpus_router import corpus_routing_enabled, multi_scope_recall
+
+        if corpus_routing_enabled() and q:
+            return multi_scope_recall(q, limit=lim)
+    except Exception:
+        pass
     from butler.tools.memory_tools import tool_butler_recall
 
-    return tool_butler_recall(
-        scope="project",
-        query=str(query or "").strip(),
-        limit=max(1, min(20, int(limit or 8))),
-    )
+    return tool_butler_recall(scope="project", query=q, limit=lim)
 
 
 def register_knowledge_tools(register_fn) -> None:
