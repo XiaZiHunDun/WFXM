@@ -829,9 +829,10 @@ def write_session_summary_snapshot(
         "project": str(proj.name or ""),
         "turns": turns,
         "memory_updates": int((extract_result or {}).get("memory_updates") or 0),
-        "persona": [],
-        "preference": [],
-        "experience": [],
+        "skills_extracted": int((extract_result or {}).get("skills_extracted") or 0),
+        "persona": list((extract_result or {}).get("persona") or []),
+        "preference": list((extract_result or {}).get("preference") or []),
+        "experience": list((extract_result or {}).get("experience") or []),
     }
     path = Path(proj.workspace) / ".butler" / "session_summary.json"
     path.parent.mkdir(parents=True, exist_ok=True)

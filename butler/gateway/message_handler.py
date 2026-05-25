@@ -315,6 +315,30 @@ class ButlerMessageHandler:
         except Exception:
             pass
 
+        try:
+            from butler.memory.injection_llm_score import (
+                injection_llm_score_enabled,
+                should_block_inbound_llm_score,
+            )
+
+            if injection_llm_score_enabled():
+                blocked, llm_score, block_msg = should_block_inbound_llm_score(text)
+                if llm_score is not None:
+                    try:
+                        from butler.core.session_transcript import append_transcript_entry
+
+                        append_transcript_entry(
+                            session_key,
+                            "injection_llm_score",
+                            {"score": llm_score, "preview": text[:120]},
+                        )
+                    except Exception:
+                        pass
+                if blocked:
+                    return block_msg
+        except Exception:
+            pass
+
         _idempotency_reserved = False
 
         try:

@@ -1,0 +1,57 @@
+# Prompt eval rubric (PEG P2-5) — pattern checks on production prompts.
+# No LLM required for default CI gate.
+
+version: 1
+cases:
+  - id: task_discipline
+    file: butler/prompts/butler_system.md
+    must_contain:
+      - "禁止静默跳步"
+      - "IN-PROGRESS"
+    description: 任务完成纪律与进行中标记
+
+  - id: rag_factuality
+    file: butler/prompts/butler_system.md
+    must_contain:
+      - "未在记忆"
+    description: RAG 无依据不说死话
+
+  - id: tool_error_format
+    file: butler/prompts/butler_system.md
+    must_contain:
+      - "错误类型"
+      - "建议下一步"
+    description: 工具失败 Observation 格式
+
+  - id: delegate_hint
+    file: butler/prompts/butler_system.md
+    must_contain:
+      - "delegate_task"
+    description: 委派入口
+
+  - id: plan_mode_facts
+    file: butler/prompts/butler_plan_mode.md
+    must_contain:
+      - "已知"
+    description: 规划模式 Generated Knowledge 子集
+
+  - id: plan_mode_scope
+    file: butler/prompts/butler_plan_mode.md
+    must_contain:
+      - "规划"
+      - "执行"
+    description: 规划与执行阶段分离
+
+  - id: lead_template_exists
+    file: butler/prompts/lingwen_lead_system.md
+    must_contain:
+      - "{current_project}"
+      - "{memory_context}"
+    description: Lead 模板占位符
+
+  - id: tool_error_policy_module
+    file: butler/core/tool_error_policy.py
+    must_contain:
+      - "错误类型"
+      - "建议下一步"
+    description: 工具错误 Observation 格式化实现

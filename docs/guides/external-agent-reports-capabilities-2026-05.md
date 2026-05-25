@@ -67,14 +67,17 @@ PYTHONPATH=. pytest tests/test_external_agent_*.py tests/test_message_ir.py \
 
 ---
 
-## 5. 五报告 P2 子集（CLI）
+## 5. 五报告 P2/P6 子集（CLI）
 
 ```bash
 butler mcp sync [--workspace PATH] [--dry-run] [--reload]
 butler skills sync [--dry-run]
+butler prompt eval          # pattern rubric，无需 API Key
+butler provider presets     # butler:// 预设列表
+./scripts/prompt-eval.sh    # CI 守门
 ```
 
-SSOT 文件：`<workspace>/.butler/mcp-ssot.yaml`、`~/.butler/tenants/<id>/skills-ssot.yaml`。
+SSOT：`mcp-ssot.yaml`、`skills-ssot.yaml`。Prompt eval：`tests/fixtures/prompt_eval/cases.yaml`。
 
 ## 6. 变更记录
 
@@ -82,3 +85,4 @@ SSOT 文件：`<workspace>/.butler/mcp-ssot.yaml`、`~/.butler/tenants/<id>/skil
 |------|------|
 | 2026-05-25 | 初版：PR-X3–X6 + M 后续 + P1–P4 深化速查 |
 | 2026-05-25 | 五报告 P5：mcp/skills sync、ToolsEngine、reflexion write 等 |
+| 2026-05-25 | 五报告 P6：prompt eval、post_session layered、injection LLM、provider presets |

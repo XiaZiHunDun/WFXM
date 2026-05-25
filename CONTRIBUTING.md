@@ -78,6 +78,10 @@ PYTHONPATH=. pytest tests/test_five_reports_p5.py tests/test_mcp_merge.py -q
 # 五报告 P5（SSOT / 治理）
 PYTHONPATH=. pytest tests/test_five_reports_p5.py tests/test_mcp_merge.py -q
 
+# 五报告 P6（prompt eval / post_session 分层）
+./scripts/prompt-eval.sh
+PYTHONPATH=. pytest tests/test_prompt_eval.py tests/test_five_reports_p6.py -q
+
 # 五报告增量（PR-F1–F6）
 PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \
   tests/test_memory_recall_layers.py tests/test_provider_health.py tests/test_sessions_cli.py \

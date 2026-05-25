@@ -1,0 +1,13 @@
+# Provider presets for ``butler provider presets`` / butler:// URIs
+# Copy to ~/.butler/provider-presets.yaml
+
+version: 1
+presets:
+  minimax-default:
+    provider: minimax
+    model: ""
+    description: 默认 MiniMax（使用 config.yaml 中的 model）
+  deepseek-chat:
+    provider: deepseek
+    model: deepseek-chat
+    description: DeepSeek 对话模型

@@ -241,6 +241,19 @@ class PostSessionProcessor:
             logger.error("Skill extraction failed: %s", e)
             result["errors"].append(f"Skill: {e}")
 
+        try:
+            from butler.post_session_layered import (
+                extract_layered_summary,
+                post_session_layered_enabled,
+            )
+
+            if post_session_layered_enabled():
+                layers = await extract_layered_summary(messages, self._llm_call)
+                for key in ("persona", "preference", "experience"):
+                    result[key] = layers.get(key) or []
+        except Exception as exc:
+            logger.debug("Layered post-session skipped: %s", exc)
+
         return result
 
     async def _extract_memories(

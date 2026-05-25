@@ -204,6 +204,8 @@
 | `BUTLER_THINKING_PROTOCOL` | 0 | `1` 时为 supports_thinking 模型追加 system 协议 hint |
 | `BUTLER_REFLEXION_WRITE_EXPERIENCE` | 0 | `1` 时 Reflexion 写入 `.butler/experiences/reflexion.jsonl` |
 | `BUTLER_INJECTION_SCORE` | 0 | `1` 时入站规则 injection 分写入 transcript |
+| `BUTLER_INJECTION_LLM_SCORE` | 0 | `1` 时辅助模型对入站打 0–100 分（`BUTLER_INJECTION_LLM_BLOCK` 默认 85 阻断） |
+| `BUTLER_POST_SESSION_LAYERED` | 0 | `1` 时 post_session 抽取 persona/preference/experience 写入 `session_summary.json` |
 | `BUTLER_TOOLS_ENGINE` | 1 | `0` 关闭 FC 能力检查；`BUTLER_TOOLS_ENGINE_FORCE_OFF=1` 强制无 tools |
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 `.butler/observations.tsv` |
 | `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |

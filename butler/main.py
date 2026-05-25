@@ -1290,6 +1290,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     register_sessions_subparser(sub)
 
+    from butler.cli.prompt_eval_cli import register_prompt_eval_parser
+
+    register_prompt_eval_parser(sub)
+
+    from butler.cli.provider_presets_cli import register_provider_presets_parser
+
+    register_provider_presets_parser(sub)
+
     from butler.cli.secrets_cli import register_secrets_subparser
 
     register_secrets_subparser(sub)
