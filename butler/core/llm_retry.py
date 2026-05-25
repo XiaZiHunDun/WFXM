@@ -59,6 +59,29 @@ def call_llm_with_retry(
             pass
     interrupted = False
 
+    cache_fp = ""
+    try:
+        from butler.core.exp_cache import (
+            fingerprint_llm_request,
+            lookup_cached_response,
+            store_cached_response,
+        )
+        from butler.core.meta_flags import exp_cache_enabled
+
+        if exp_cache_enabled() and not tools_to_send:
+            cache_fp = fingerprint_llm_request(
+                provider=str(getattr(client, "provider_name", "") or ""),
+                model=str(getattr(client, "model", "") or ""),
+                messages=messages_to_send,
+                tools=tools_to_send,
+            )
+            cached = lookup_cached_response(cache_fp)
+            if cached:
+                diagnostics["exp_cache_hit"] = True
+                return NormalizedResponse(content=cached, finish_reason="stop"), False
+    except Exception as exc:
+        logger.debug("exp_cache lookup skipped: %s", exc)
+
     for attempt in range(config.max_retries):
         if interrupt_check():
             return None, True
@@ -144,6 +167,19 @@ def call_llm_with_retry(
                 )
             except Exception:
                 pass
+            if cache_fp and response and not response.tool_calls:
+                try:
+                    text = str(response.content or "").strip()
+                    if text:
+                        store_cached_response(
+                            cache_fp,
+                            text,
+                            provider=str(getattr(client, "provider_name", "") or ""),
+                            model=str(getattr(client, "model", "") or ""),
+                        )
+                        diagnostics["exp_cache_store"] = True
+                except Exception as exc:
+                    logger.debug("exp_cache store skipped: %s", exc)
             if callbacks.on_llm_complete:
                 callbacks.on_llm_complete(response)
             return response, False

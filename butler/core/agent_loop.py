@@ -189,6 +189,12 @@ class AgentLoop:
                 self._messages.append({"role": "system", "content": self.system_prompt})
 
         user_content = sanitize_surrogates(cleaned_user)
+        try:
+            from butler.core.system_reminder import maybe_prepend_system_reminder
+
+            user_content = maybe_prepend_system_reminder(user_content)
+        except Exception:
+            pass
         self._messages.append({"role": "user", "content": user_content})
         try:
             from butler.core.tool_selector import select_tools_for_context
@@ -333,7 +339,32 @@ class AgentLoop:
                     )
 
                 if response.tool_calls:
-                    self._process_tool_calls(response)
+                    batch_stats = self._process_tool_calls(response)
+                    if getattr(batch_stats, "waiting_confirmation_message", None):
+                        final_text = batch_stats.waiting_confirmation_message
+                        status = LoopStatus.WAITING_CONFIRMATION
+                        transition = LoopTransitionReason.WAITING_CONFIRMATION
+                        self.diagnostics["two_phase_confirm"] = True
+                        break
+                    stuck_msg = None
+                    try:
+                        from butler.core.loop_stuck import guardrail_stuck_message
+
+                        stuck_msg = guardrail_stuck_message(self._guardrails)
+                    except Exception:
+                        pass
+                    if stuck_msg:
+                        final_text = stuck_msg
+                        status = LoopStatus.STUCK
+                        transition = LoopTransitionReason.STUCK
+                        self.diagnostics["loop_stuck"] = True
+                        break
+                    if getattr(batch_stats, "clarification_question", None):
+                        final_text = batch_stats.clarification_question
+                        status = LoopStatus.COMPLETED
+                        transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
+                        self.diagnostics["ask_clarification"] = True
+                        break
                     if self.callbacks.should_continue:
                         if not self.callbacks.should_continue(iteration, response):
                             final_text = response.content
@@ -670,7 +701,7 @@ class AgentLoop:
             self._interrupted = True
         return response
 
-    def _process_tool_calls(self, response: NormalizedResponse) -> None:
+    def _process_tool_calls(self, response: NormalizedResponse):
         stats = process_tool_calls(
             response=response,
             messages=self._messages,
@@ -683,6 +714,13 @@ class AgentLoop:
         )
         self._tool_prefetch.clear()
         self._tool_calls_count += stats.tools_started
+        try:
+            self._messages[:] = self._plugins.after_tools(
+                self._messages,
+                tool_stats=stats,
+            )
+        except Exception as exc:
+            logger.debug("after_tools middleware skipped: %s", exc)
         if self._guardrails is not None:
             try:
                 counts = getattr(self._guardrails, "_same_tool_failure_counts", {}) or {}
@@ -697,6 +735,7 @@ class AgentLoop:
                     )
             except Exception:
                 pass
+        return stats
 
     def _dispatch_tool(self, name: str, args: dict) -> str:
         def _inner(n: str, a: dict) -> str:

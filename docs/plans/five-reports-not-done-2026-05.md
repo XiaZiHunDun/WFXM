@@ -42,7 +42,7 @@
 | **H** | Prompt 迭代 **eval 闭环** | 语料 case + rubric 自动化（非 APE 搜 prompt） |
 | **H** | 辅助模型 **injection 评分** | 入站消息 LLM 打分 + human_gate；当前仅规则 `injection_guard` |
 | **H** | `BUTLER_REFLEXION_WRITE_EXPERIENCE` | Reflexion 写入长期 experience；当前仅 ephemeral banner |
-| **I** | 完整 **Pydantic 终局校验** | 已有 JSON fence + `output_schema` 解析；无 schema 校验/重试管线 |
+| **I** | 完整 **Pydantic 终局校验（深化）** | PR-X5 已落地 `validate_structured_output` + `maybe_repair_structured_output`；无全量 Pydantic 模型树 |
 | **I** | 固定 **Bull/Bear 多角色图** | TradingAgents 演示图；非默认微信路径 |
 | **J** | **ToolsEngine**（manifest 合并、FC 检查） | MCP 深化时再做 |
 | **J** | 市场 manifest **安装前扫描**深化 | 与 REG-P4 / lobehub 源联动，未做 |
@@ -57,8 +57,8 @@
 | 观察者队列 | 默认 `BUTLER_MEMORY_OBSERVER_QUEUE=0` | 开 env 即用；非 Chroma Worker |
 | Reflexion | 默认 `BUTLER_REFLEXION_EPHEMERAL=0` | 开 env 即用 |
 | `model_capabilities` | `butler/transport/model_capabilities.py` 静态表 | 接到 `anthropic_transport` 等 |
-| 终局 schema | `parse_structured_output` + workflow `output_schema` | 加 Pydantic + 失败重试 |
-| MCP | `BUTLER_MCP_ENABLED` + `.butler/mcp.yaml` | 不等于 S11 全量 Host |
+| 终局 schema | `output_schema` 校验 + 一次 LLM repair（`BUTLER_OUTPUT_SCHEMA_*`） | 全量 Pydantic 类型树 + 多轮 repair |
+| MCP | `BUTLER_MCP_ENABLED` + deferred 发现（`BUTLER_MCP_DEFERRED_TOOLS`） | 不等于 S11 全量 Host；SSOT/sync CLI 见 §2 |
 
 ---
 
@@ -94,3 +94,4 @@
 |------|------|
 | 2026-05-25 | 初版：S1–S11、P2 未排期、可深化对照、四报告交叉引用 |
 | 2026-05-25 | §4：交叉引用 external-agent-reports 路线图 |
+| 2026-05-25 | §2/§3：Pydantic 子集、MCP deferred 已与 PR-X4/X5 对齐 |

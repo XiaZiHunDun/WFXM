@@ -25,6 +25,7 @@ class WorkflowStepDef:
     supervisor_note: str = ""
     optional: bool = False
     rescue_steps: list["WorkflowStepDef"] = field(default_factory=list)
+    until: dict[str, Any] | None = None
 
 
 @dataclass
@@ -34,6 +35,10 @@ class WorkflowDef:
     steps: list[WorkflowStepDef] = field(default_factory=list)
     source: str = "project"
     schema_version: str = "1"
+    max_parallel: int | None = None
+    serial: bool = False
+    imports: list[str] = field(default_factory=list)
+    handlers: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def runnable(self) -> bool:
@@ -89,6 +94,8 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         optional = optional.strip().lower() in ("1", "true", "yes", "on")
 
     rescue_steps: list[WorkflowStepDef] = []
+    until_raw = raw.get("until")
+    until_spec = until_raw if isinstance(until_raw, dict) else None
     rescue_raw = raw.get("rescue_steps") or raw.get("rescue") or []
     if isinstance(rescue_raw, list):
         for idx, item in enumerate(rescue_raw):
@@ -116,6 +123,7 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         supervisor_note=supervisor_note,
         optional=bool(optional),
         rescue_steps=rescue_steps,
+        until=until_spec,
     )
 
 
@@ -129,12 +137,44 @@ def parse_workflow_data(data: dict[str, Any], *, source: str = "project") -> Wor
             step = parse_step(raw)
             if step is not None:
                 steps.append(step)
+    max_parallel: int | None = None
+    mp_raw = data.get("max_parallel")
+    if mp_raw is not None:
+        try:
+            max_parallel = max(1, min(32, int(mp_raw)))
+        except (TypeError, ValueError):
+            max_parallel = None
+
+    serial = data.get("serial", False)
+    if isinstance(serial, str):
+        serial = serial.strip().lower() in ("1", "true", "yes", "on")
+
+    imports_raw = data.get("import") or data.get("imports") or data.get("extends") or []
+    imports: list[str] = []
+    if isinstance(imports_raw, str) and imports_raw.strip():
+        imports = [imports_raw.strip()]
+    elif isinstance(imports_raw, list):
+        imports = [str(x).strip() for x in imports_raw if str(x).strip()]
+
+    handlers_raw = data.get("handlers") or []
+    handlers: list[dict[str, Any]] = []
+    if isinstance(handlers_raw, list):
+        for item in handlers_raw:
+            if isinstance(item, dict):
+                handlers.append(dict(item))
+            elif isinstance(item, str) and item.strip():
+                handlers.append({"type": item.strip()})
+
     return WorkflowDef(
         name=name,
         description=str(data.get("description") or "").strip(),
         steps=steps,
         source=source,
         schema_version=str(data.get("schema_version") or "1").strip() or "1",
+        max_parallel=max_parallel,
+        serial=bool(serial),
+        imports=imports,
+        handlers=handlers,
     )
 
 

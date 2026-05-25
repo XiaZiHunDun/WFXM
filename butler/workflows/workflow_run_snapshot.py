@@ -83,9 +83,48 @@ def write_workflow_run_snapshot(
         return None
 
 
+def write_workflow_step_checkpoint(
+    workspace: Path,
+    workflow_name: str,
+    *,
+    step_id: str,
+    completed_steps: list[str],
+    session_key: str = "",
+    run_id: str = "checkpoint",
+) -> Path | None:
+    """Write incremental checkpoint after each workflow step (PR-X5)."""
+    try:
+        from butler.core.meta_flags import workflow_checkpoint_enabled
+
+        if not workflow_checkpoint_enabled():
+            return None
+    except Exception:
+        if not workflow_run_snapshot_enabled():
+            return None
+    payload = {
+        "workflow": workflow_name,
+        "run_id": run_id,
+        "session_key": session_key,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "last_step": step_id,
+        "completed_steps": list(completed_steps),
+    }
+    path = workflow_run_path(workspace, workflow_name, run_id=run_id)
+    try:
+        from butler.io.atomic_write import atomic_write_text
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2))
+        return path
+    except OSError as exc:
+        logger.debug("workflow checkpoint write failed: %s", exc)
+        return None
+
+
 __all__ = [
     "build_run_snapshot",
     "workflow_run_path",
     "workflow_run_snapshot_enabled",
     "write_workflow_run_snapshot",
+    "write_workflow_step_checkpoint",
 ]

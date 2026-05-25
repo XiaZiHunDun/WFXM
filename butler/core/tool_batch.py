@@ -39,6 +39,8 @@ class ToolBatchStats:
     """Counters produced while executing a tool batch."""
 
     tools_started: int = 0
+    clarification_question: str | None = None
+    waiting_confirmation_message: str | None = None
 
 
 def append_assistant_tool_calls(
@@ -112,6 +114,27 @@ def process_tool_calls(
     from butler.execution_context import get_current_session_key
 
     def _dispatch_one(name: str, args: dict, *, tool_call_id: str = "") -> str:
+        try:
+            from butler.core.two_phase_confirm import two_phase_block_message
+
+            block = two_phase_block_message(
+                name,
+                args,
+                tool_call_id=tool_call_id,
+            )
+            if block:
+                return finalize_fallback_tool_result(
+                    name,
+                    args,
+                    {
+                        "ok": False,
+                        "code": "TWO_PHASE_PENDING",
+                        "error": block,
+                        "tool": name,
+                    },
+                )
+        except Exception:
+            pass
         if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
             from butler.core.batch_sequence_guard import (
                 STALE_PREFETCH_CODE,
@@ -222,9 +245,39 @@ def process_tool_calls(
             batch_guard.note_tool_result(name, args, result)
         return result
 
+    def _transcript_source() -> str:
+        try:
+            from butler.execution_context import get_current_workflow_step
+
+            if get_current_workflow_step():
+                return "workflow"
+            from butler.core.delegate_context import get_parent_messages
+
+            if get_parent_messages():
+                return "delegate"
+        except Exception:
+            pass
+        return "loop"
+
     def _on_start(name: str, args: dict) -> None:
         nonlocal tools_started
         tools_started += 1
+        try:
+            import json as _json
+
+            from butler.core.session_transcript import record_tool_action
+            from butler.execution_context import get_current_session_key
+
+            sk = str(get_current_session_key() or "").strip()
+            if sk:
+                record_tool_action(
+                    sk,
+                    tool_name=name,
+                    args_preview=_json.dumps(args, ensure_ascii=False, default=str)[:400],
+                    source=_transcript_source(),
+                )
+        except Exception:
+            pass
         if callbacks.on_tool_start:
             callbacks.on_tool_start(name, args)
 
@@ -235,6 +288,21 @@ def process_tool_calls(
             outcome = _tool_result_outcome(result)
             tool_label = str(name or "?")[:48]
             inc("tool_call", labels={"tool": tool_label, "outcome": outcome})
+        except Exception:
+            pass
+        try:
+            from butler.core.session_transcript import record_tool_observation
+            from butler.execution_context import get_current_session_key
+
+            sk = str(get_current_session_key() or "").strip()
+            if sk:
+                record_tool_observation(
+                    sk,
+                    tool_name=name,
+                    outcome=_tool_result_outcome(result),
+                    preview=str(result or "")[:500],
+                    source=_transcript_source(),
+                )
         except Exception:
             pass
         if callbacks.on_tool_complete:
@@ -341,7 +409,27 @@ def process_tool_calls(
         })
 
     apply_steer_to_tool_results(messages, len(pairs))
-    return ToolBatchStats(tools_started=tools_started)
+
+    clarification: str | None = None
+    waiting: str | None = None
+    for tc, result in pairs:
+        payload = parse_tool_result_object(result)
+        if isinstance(payload, dict) and payload.get("code") == "TWO_PHASE_PENDING":
+            waiting = str(payload.get("error") or "").strip() or None
+            if waiting:
+                break
+        if tc.name != "ask_clarification":
+            continue
+        if isinstance(payload, dict) and payload.get("code") == "CLARIFICATION":
+            clarification = str(payload.get("question") or "").strip() or None
+            if clarification:
+                break
+
+    return ToolBatchStats(
+        tools_started=tools_started,
+        clarification_question=clarification,
+        waiting_confirmation_message=waiting,
+    )
 
 
 def dispatch_tool_with_envelope(

@@ -44,6 +44,7 @@ class Project:
     worktree: str = ""
     design_preset: str = ""
     tool_modes: dict[str, list[str]] = field(default_factory=dict)
+    plugins: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.workspace = self.workspace.expanduser().resolve()
@@ -76,6 +77,8 @@ class Project:
         else:
             lead = bool(lead_raw)
 
+        from butler.project_plugins import normalize_plugins
+
         return cls(
             name=str(data.get("name", ws.name)),
             type=str(data.get("type", "software")),
@@ -92,6 +95,7 @@ class Project:
             worktree=str(data.get("worktree") or "").strip(),
             design_preset=str(data.get("design_preset") or "").strip(),
             tool_modes=_parse_tool_modes(data.get("tool_modes")),
+            plugins=normalize_plugins(data.get("plugins")),
         )
 
     def resolve_model(self, role: str, runtime_override: ModelConfig | None = None) -> ModelConfig:
@@ -139,6 +143,8 @@ class Project:
             d["design_preset"] = self.design_preset
         if self.tool_modes:
             d["tool_modes"] = dict(self.tool_modes)
+        if self.plugins:
+            d["plugins"] = dict(self.plugins)
         return d
 
     def save(self) -> None:
@@ -171,6 +177,8 @@ class Project:
             payload["design_preset"] = self.design_preset
         if self.tool_modes:
             payload["tool_modes"] = dict(self.tool_modes)
+        if self.plugins:
+            payload["plugins"] = dict(self.plugins)
 
         from butler.io.atomic_write import atomic_write_text
 

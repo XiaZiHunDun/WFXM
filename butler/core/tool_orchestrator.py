@@ -28,6 +28,30 @@ def run_terminal_with_gates(
         set_terminal_session_context(session_key)
         danger = check_dangerous_command(command)
         if not danger.allowed:
+            try:
+                from butler.core.confirm_flags import permission_risk_heuristic_enabled
+                from butler.permission_approvals import ApprovalRequest, save_pending
+
+                if permission_risk_heuristic_enabled() and session_key:
+                    save_pending(
+                        session_key,
+                        ApprovalRequest(
+                            permission="terminal_risk",
+                            tool="terminal",
+                            pattern=danger.pattern or "danger",
+                            reason=danger.reason,
+                        ),
+                    )
+                    return _deny(
+                        "TERMINAL_RISK_ASK",
+                        (
+                            f"{danger.reason}\n"
+                            "（Owner：/批准执行 <命令> 或 /批准模式 "
+                            f"{danger.pattern}> 后重试）"
+                        ),
+                    )
+            except Exception:
+                pass
             return _deny("TERMINAL_DANGER_PATTERN", danger.reason)
     except Exception as exc:
         logger.debug("terminal danger gate: %s", exc)

@@ -254,6 +254,17 @@ class ButlerMessageHandler:
             session_key=session_key,
         )
         try:
+            from butler.core.message_ir import inbound_text_from_gateway
+
+            text = inbound_text_from_gateway(
+                text,
+                platform=platform,
+                external_id=external_id,
+                session_key=session_key,
+            )
+        except Exception:
+            pass
+        try:
             from butler.mcp.profiles import (
                 mcp_profiles_enabled,
                 select_profile_for_text,
@@ -305,6 +316,25 @@ class ButlerMessageHandler:
                     except Exception:
                         pass
                 return "（已忽略：群聊 bot 互回复环防护）"
+        except Exception:
+            pass
+
+        try:
+            from butler.core.two_phase_confirm import (
+                cancel_pending_unless_confirm,
+                try_execute_pending_confirm,
+            )
+
+            pending_reply = try_execute_pending_confirm(text, session_key=session_key)
+            if pending_reply is not None:
+                from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
+                if not is_gateway_owner(platform=platform, external_id=external_id):
+                    return owner_required_message()
+                return pending_reply
+            cancel_note = cancel_pending_unless_confirm(text, session_key=session_key)
+            if cancel_note:
+                text = f"{cancel_note}\n\n{text}"
         except Exception:
             pass
 
@@ -416,6 +446,44 @@ class ButlerMessageHandler:
                 )
                 return _idem.user_reply or "（重复消息已忽略。）"
             _idempotency_reserved = True
+        except Exception:
+            pass
+
+        try:
+            from butler.gateway.message_queue import (
+                enqueue_inbound,
+                format_queued_ack,
+                pending_count,
+            )
+            from butler.gateway.session_lifecycle import (
+                format_initializing_ack,
+                session_initializing_enabled,
+                try_enter_session,
+            )
+
+            if session_initializing_enabled():
+
+                def _warm() -> None:
+                    try:
+                        from butler.skills.similarity import _ensure_jieba
+
+                        _ensure_jieba()
+                    except Exception:
+                        pass
+                    mgr = getattr(self._orchestrator, "_skill_manager", None)
+                    if mgr is not None:
+                        mgr.list_skills()
+
+                state = try_enter_session(session_key, _warm)
+                if state == "queued":
+                    if enqueue_inbound(
+                        session_key,
+                        text,
+                        platform=platform,
+                        external_id=external_id or "",
+                    ):
+                        return format_initializing_ack(pending=pending_count(session_key))
+                    return format_initializing_ack()
         except Exception:
             pass
 
@@ -617,6 +685,14 @@ class ButlerMessageHandler:
                 augmented = f"{hook_ctx}\n\n{augmented}"
 
             loop = self._get_or_create_loop(session_key)
+            try:
+                from butler.gateway.inbound_validate import validate_loop_messages_before_turn
+
+                seq_err = validate_loop_messages_before_turn(loop.messages)
+                if seq_err:
+                    return seq_err
+            except Exception:
+                pass
             from butler.core.turn_token_budget import resolve_turn_budget
 
             loop.config, turn_budget, augmented = resolve_turn_budget(augmented, loop.config)

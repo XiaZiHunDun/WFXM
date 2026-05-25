@@ -181,6 +181,25 @@
 | `BUTLER_COMPACT_SKILL_PRESERVE` | 1 | 压缩前保留最近 skill 读取 tool 对 |
 | `BUTLER_SAFETY_FINISH_GUARD` | 1 | `content_filter` 等 finish_reason 时忽略 tool_calls |
 | `BUTLER_FINISH_TOOL_TRUNCATE` | 1 | 同轮 `finish` 工具后截断多余 tool_calls |
+| `BUTLER_MESSAGE_IR` | 1 | 入站经 Canonical Message IR 规范化 |
+| `BUTLER_TOOL_WIRE` | 1 | 按 provider 适配 tool schema / tool_calls |
+| `BUTLER_MCP_DEFERRED_TOOLS` | 0 | `1` 时 MCP 仅注入已 promote 工具 + `mcp_tool_search` / `load_mcp_tools` |
+| `BUTLER_ASK_CLARIFICATION` | 1 | 启用 `ask_clarification` 工具（结束本轮追问） |
+| `BUTLER_STATIC_SYSTEM_REMINDER` | 0 | `1` 时静态 system + 动态 `<system-reminder>` 进 user 轮 |
+| `BUTLER_EXP_CACHE` | 0 | 无 tools 的 LLM 请求指纹缓存（`.butler/experiences/llm_cache.jsonl`） |
+| `BUTLER_EXP_CACHE_MAX` | 500 | 经验缓存最大条数 |
+| `BUTLER_EXP_CACHE_STORE` | 1 | 是否写入缓存 |
+| `BUTLER_TOOL_RECALL_BM25` | 0 | 工具列表超阈值时用 BM25 召回 top-k |
+| `BUTLER_OUTPUT_SCHEMA_VALIDATE` | 1 | workflow `output_schema` 结构化校验 |
+| `BUTLER_WORKFLOW_CHECKPOINT` | 1 | 每步完成后写 `.butler/workflow_runs/<wf>-checkpoint.json` |
+| `BUTLER_WORKFLOW_MAX_PARALLEL` | 空 | 全局 DAG 同层并发上限（可被 workflow YAML `max_parallel` 覆盖） |
+| `BUTLER_TWO_PHASE_CONFIRM` | 0 | 高风险工具（terminal/delete_file）待 Owner `/确认工具` 后执行 |
+| `BUTLER_PERMISSION_RISK_HEURISTIC` | 0 | 终端危险模式改为 ask + `/批准执行`（非硬阻断） |
+| `BUTLER_OUTPUT_SCHEMA_REPAIR` | 1 | workflow 终局 schema 校验失败后一次 LLM 修复 |
+| `BUTLER_INBOUND_SEQUENCE_VALIDATE` | 1 | Gateway 跑 Loop 前校验 messages 序列 |
+| `BUTLER_GATEWAY_SESSION_INITIALIZING` | 1 | 首条会话冷启动期间入站入队不丢 |
+| `BUTLER_WORKFLOW_QA_REPLAN` | 1 | `dev-qa-loop` / `ui-dev-qa-loop` QA 行首 FAIL 时重跑 implement |
+| `BUTLER_WORKFLOW_QA_REPLAN_MAX` | 1 | QA FAIL replan 最多重跑 implement 次数 |
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 `.butler/observations.tsv` |
 | `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | SessionEnd 写 `.butler/session_summary.json` |

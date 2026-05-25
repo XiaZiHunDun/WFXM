@@ -14,6 +14,8 @@
 | [external-reference-deferred-2026-05.md](./external-reference-deferred-2026-05.md) | 补做项与仍 defer 项分析 |
 | [phase-d-prompt-corpus.md](./phase-d-prompt-corpus.md) | **Prompt Corpus 线**：工具 DSL、/规划、transcript 事件、大文件读、task_milestone |
 | [four-reports-capabilities-2026-05.md](./four-reports-capabilities-2026-05.md) | **四报告 PR1–PR6 已落地**速查（RAG / Loop / DESIGN / 实验） |
+| [external-agent-reports-capabilities-2026-05.md](./external-agent-reports-capabilities-2026-05.md) | **外部五报告 PR-X + M** 速查（workflow/Loop/MCP/schema） |
+| [workflow-variable-precedence.md](./workflow-variable-precedence.md) | Workflow `{{var}}` 变量 precedence |
 | [sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md) | **四报告 Sprint A–D** 总索引（Firecrawl / agency / Gemini / awesome） |
 | [sprint-a-firecrawl-gemini-2026-05.md](./sprint-a-firecrawl-gemini-2026-05.md) | **Sprint A**：external_id 幂等、task stale、恢复分桶、tool masking |
 | [sprint-bcd-agency-awesome-2026-05.md](./sprint-bcd-agency-awesome-2026-05.md) | **Sprint B–D**：Handoff、dev-qa-loop、MCP profiles、RAG、web_fetch、委派并发 |

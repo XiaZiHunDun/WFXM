@@ -588,6 +588,31 @@ def _record_tool_audit(
         logger.debug("Tool audit persist skipped: %s", exc)
 
 
+def _tool_mcp_tool_search(query: str, limit: int = 12, promote: bool = False) -> str:
+    from butler.mcp.deferred import tool_search_handler
+
+    return tool_search_handler(query, limit=limit, promote=promote)
+
+
+def _tool_load_mcp_tools(tool_names: list | None = None) -> str:
+    from butler.mcp.deferred import load_mcp_tools_handler
+
+    return load_mcp_tools_handler(list(tool_names or []))
+
+
+def _tool_ask_clarification(question: str, options: list | None = None) -> str:
+    import json
+
+    q = str(question or "").strip()
+    if not q:
+        return json.dumps({"ok": False, "code": "CLARIFICATION_EMPTY", "error": "question required"})
+    opts = [str(o).strip() for o in (options or []) if str(o).strip()]
+    return json.dumps(
+        {"ok": True, "code": "CLARIFICATION", "question": q, "options": opts},
+        ensure_ascii=False,
+    )
+
+
 _builtins_loaded = False
 
 
@@ -751,6 +776,77 @@ def _register_builtin_tools() -> None:
         handler=_tool_skill_view,
         toolset="skills",
     )
+
+    try:
+        from butler.core.harness_flags import (
+            ask_clarification_enabled,
+            mcp_deferred_tools_enabled,
+        )
+
+        if mcp_deferred_tools_enabled():
+            register(
+                name="mcp_tool_search",
+                description=(
+                    "Search configured MCP tools by keyword without loading full schemas. "
+                    "Use load_mcp_tools to promote names into the active tool set for this session."
+                ),
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"},
+                        "limit": {"type": "integer", "default": 12},
+                        "promote": {
+                            "type": "boolean",
+                            "description": "If true, also promote all matches for this session",
+                            "default": False,
+                        },
+                    },
+                    "required": ["query"],
+                },
+                handler=_tool_mcp_tool_search,
+                toolset="mcp",
+            )
+            register(
+                name="load_mcp_tools",
+                description="Promote MCP tool registered names so full schemas are available on the next LLM turn.",
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "tool_names": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "MCP registered tool names (mcp_*)",
+                        },
+                    },
+                    "required": ["tool_names"],
+                },
+                handler=_tool_load_mcp_tools,
+                toolset="mcp",
+            )
+        if ask_clarification_enabled():
+            register(
+                name="ask_clarification",
+                description=(
+                    "Ask the user a clarifying question and end the current agent turn. "
+                    "Use when requirements are ambiguous before destructive or expensive work."
+                ),
+                schema={
+                    "type": "object",
+                    "properties": {
+                        "question": {"type": "string"},
+                        "options": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "Optional multiple-choice labels",
+                        },
+                    },
+                    "required": ["question"],
+                },
+                handler=_tool_ask_clarification,
+                toolset="butler",
+            )
+    except Exception as exc:
+        logger.debug("Harness builtin tools skipped: %s", exc)
 
     register(
         name="run_workflow",
@@ -1805,6 +1901,17 @@ def _tool_delegate_task(
         from butler.tools.project_tools import get_tool_definitions_for_project
 
         project = orch.project_manager.get_current()
+        if project is not None:
+            try:
+                from butler.agents_md import merge_agent_md_into_context
+
+                context = merge_agent_md_into_context(
+                    Path(project.workspace),
+                    role,
+                    context,
+                )
+            except Exception:
+                pass
         tools = get_tool_definitions_for_project(project, role=role)
 
         from butler.delegate_subagent_permissions import filter_tools_for_subagent

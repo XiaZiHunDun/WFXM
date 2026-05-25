@@ -183,10 +183,10 @@ flowchart LR
 |----|------|------|----------------------|
 | **PR-X1** | rescue_steps + optional + 失败 facts 快照（子集） | O | `tests/test_workflow_rescue*.py`（待增） |
 | **PR-X2** | skill rescue + safety finish + Finish 截断 + WAITING 态 + 两阶段确认（子集） | L、M | `tests/test_loop_safety*.py`（待增） |
-| **PR-X3** | message_ir + converters + tool_wire | K | `tests/test_message_ir.py`（待增） |
-| **PR-X4** | MCP tool_search + static system/reminder + ask_clarification | L | `tests/test_mcp_deferred*.py`（待增） |
-| **PR-X5** | exp_cache + tool recall + Pydantic 终局 + workflow checkpoint | N | `tests/test_exp_cache*.py`（待增） |
-| **PR-X6** | serial/max_parallel、handlers、import_workflow、renderer/plugins（按需拆） | O、K | 分模块验收 |
+| **PR-X3** | message_ir + converters + tool_wire | K | `tests/test_message_ir.py` |
+| **PR-X4** | MCP tool_search + static system/reminder + ask_clarification | L | `tests/test_mcp_deferred.py` |
+| **PR-X5** | exp_cache + tool recall + Pydantic 终局 + workflow checkpoint | N | `tests/test_external_agent_x5_x6.py` |
+| **PR-X6** | serial/max_parallel、import_workflow（子集） | O、K | `tests/test_external_agent_x5_x6.py` |
 
 **开工二选一（资源紧时）**：
 
@@ -283,22 +283,25 @@ PYTHONPATH=. pytest tests/test_five_reports_f6.py tests/test_outcome_reflection.
 
 | 项 | 状态 | 说明 |
 |----|------|------|
-| 主线 K P0 | ⬜ | message_ir + tool_wire |
-| 主线 K P1+ | ⬜ | renderer、plugins、校验 |
-| 主线 L P0 | 🟡 | skill rescue、safety finish ✅；MCP deferred、clarification ⬜ |
-| 主线 L P1+ | ⬜ | system-reminder、research skill |
-| 主线 M P0 | 🟡 | Finish 截断、safety ✅；`WAITING_CONFIRMATION`/`STUCK` 枚举 ✅；两阶段确认 ⬜ |
-| 主线 M P1+ | ⬜ | agents.md、stuck 检测、transcript 类型 |
-| 主线 N P0 | ⬜ | exp_cache、tool recall、Pydantic 终局 |
-| 主线 N P1+ | ⬜ | artifacts、checkpoint、PlanSnapshot |
+| 主线 K P0 | ✅ | `message_ir.py`、gateway 入站、`tool_wire.py` |
+| 主线 K P1+ | ✅ | `prompt_renderer` 接入 orchestrator、`plugins:`、入站序列校验 |
+| 主线 L P0 | ✅ | skill rescue、safety finish、MCP deferred、`ask_clarification` |
+| 主线 L P1+ | ✅ | system-reminder、`deep-research` skill、LoopMiddleware |
+| 主线 M P0 | ✅ | 两阶段确认、`STUCK` 态、风险 ask、Finish/safety |
+| 主线 M P1+ | ✅ | agents.md、transcript 语义 source、session initializing |
+| 主线 N P0 | ✅ | exp_cache、BM25 recall、output_schema 校验 |
+| 主线 N P1+ | ✅ | schema 修复、artifacts SOP、PlanSnapshot + QA replan |
 | 主线 O P0 | ✅ | `rescue_steps` + `optional` + workflow_run 快照 |
-| 主线 O P1+ | ⬜ | serial、callback、handlers |
-| 主线 O P2+ | ⬜ | until、handlers、import_workflow |
+| 主线 O P1 | ✅ | max_parallel/serial/import/checkpoint/handlers 子集 |
+| 主线 O P2+ | ✅ | `until` 断言、变量 precedence 文档 |
 | PR-X1 | ✅ | Ansible rescue/optional |
 | PR-X2 | ✅ | Loop 安全子集 |
-| PR-X3 … PR-X6 | ⬜ | 见 §4 |
+| PR-X3 | ✅ | Message IR + tool_wire |
+| PR-X4 | ✅ | MCP deferred + clarification + system-reminder |
+| PR-X5 | ✅ | exp_cache + BM25 + schema 校验 + checkpoint |
+| PR-X6 | ✅ | parallel/import/handlers/until/agents.md/renderer 子集 |
 | 对照报告文首状态 | 🟡 | 分析完成；指向本路线图 |
-| 运维速查 | ⬜ | 落地后可增 `guides/external-agent-reports-capabilities-2026-05.md` |
+| 运维速查 | ✅ | [`guides/external-agent-reports-capabilities-2026-05.md`](../guides/external-agent-reports-capabilities-2026-05.md) |
 
 ---
 
@@ -314,3 +317,4 @@ PYTHONPATH=. pytest tests/test_five_reports_f6.py tests/test_outcome_reflection.
 |------|------|
 | 2026-05-25 | 初版：五报告合并路线图、主线 K–O、PR-X1–X6、§10 核对表 |
 | 2026-05-25 | PR-X1–X2 落地：workflow rescue/optional、loop safety |
+| 2026-05-25 | PR-X3–X6 + M 后续 + P1–P4 深化；运维速查与 CONTRIBUTING 守门 |

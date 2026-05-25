@@ -77,8 +77,14 @@ PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_cont
   tests/test_memory_recall_layers.py tests/test_provider_health.py tests/test_sessions_cli.py \
   tests/test_outcome_reflection.py tests/test_task_orchestrator_handoff.py tests/test_five_reports_f6.py -q
 
-# 外部 Agent 五报告（PR-X1–X2 已落地）
-PYTHONPATH=. pytest tests/test_external_agent_x1_x2.py tests/test_p2_workflow_permissions.py -q
+# 外部 Agent 五报告（PR-X1–X6 + M 后续）
+PYTHONPATH=. pytest tests/test_external_agent_x1_x2.py tests/test_external_agent_x5_x6.py \
+  tests/test_external_agent_m_confirm.py tests/test_external_agent_m_followup.py \
+  tests/test_external_agent_p1_p4.py tests/test_message_ir.py tests/test_mcp_deferred.py \
+  tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
+```
+
+运维速查：[`docs/guides/external-agent-reports-capabilities-2026-05.md`](docs/guides/external-agent-reports-capabilities-2026-05.md)
 ```
 
 ### 两套 Hook（不要混用）

@@ -125,7 +125,18 @@ class LLMClient:
         if transport is None:
             raise ValueError(f"No transport for api_mode={self.api_mode}")
 
-        converted_tools = transport.convert_tools(tools) if tools else None
+        converted_tools = None
+        if tools:
+            try:
+                from butler.transport.tool_wire import wire_tools_for_provider
+
+                converted_tools = wire_tools_for_provider(
+                    self.provider_name or "",
+                    tools,
+                    api_mode=self.api_mode,
+                )
+            except Exception:
+                converted_tools = transport.convert_tools(tools)
 
         params = {
             "temperature": kwargs.get("temperature", self.temperature),
@@ -175,7 +186,18 @@ class LLMClient:
         if transport is None:
             raise ValueError(f"No transport for api_mode={self.api_mode}")
 
-        converted_tools = transport.convert_tools(tools) if tools else None
+        converted_tools = None
+        if tools:
+            try:
+                from butler.transport.tool_wire import wire_tools_for_provider
+
+                converted_tools = wire_tools_for_provider(
+                    self.provider_name or "",
+                    tools,
+                    api_mode=self.api_mode,
+                )
+            except Exception:
+                converted_tools = transport.convert_tools(tools)
 
         params = {
             "temperature": kwargs.get("temperature", self.temperature),

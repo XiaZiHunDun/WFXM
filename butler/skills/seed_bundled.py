@@ -12,6 +12,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BUNDLED: tuple[tuple[str, str], ...] = (
     ("design-system", "docs/templates/skills/design-system.md"),
     ("research-program", "docs/templates/skills/research-program.md"),
+    ("deep-research", "docs/templates/skills/deep-research.md"),
 )
 
 

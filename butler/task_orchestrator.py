@@ -91,6 +91,7 @@ class TaskNode:
     supervisor_note: str = ""
     optional: bool = False
     rescue_configs: list[AgentSpawnConfig] = field(default_factory=list)
+    until: dict | None = None
 
 
 @dataclass
@@ -329,6 +330,9 @@ class TaskOrchestrator:
         nodes: list[TaskNode],
         on_approval: Callable[[TaskNode], bool] | None = None,
         on_progress: Callable[[str, str, str], None] | None = None,
+        *,
+        max_parallel: int | None = None,
+        serial: bool = False,
     ) -> TaskGraphResult:
         """Execute a DAG of tasks with dependency resolution."""
         graph_result = TaskGraphResult()
@@ -342,6 +346,14 @@ class TaskOrchestrator:
 
         layers = _group_into_layers(order, node_map)
         step_index = 0
+
+        try:
+            from butler.core.meta_flags import workflow_max_parallel_default
+
+            if max_parallel is None:
+                max_parallel = workflow_max_parallel_default()
+        except Exception:
+            pass
 
         for layer in layers:
             layer_tasks = []
@@ -403,36 +415,47 @@ class TaskOrchestrator:
             if not layer_tasks:
                 continue
 
-            if len(layer_tasks) == 1:
-                nid, node = layer_tasks[0]
-                step_index += 1
-                if on_progress:
-                    try:
-                        on_progress(nid, "start", node.config.role)
-                    except Exception as exc:
-                        logger.debug("graph on_progress start: %s", exc)
-                from butler.execution_context import use_workflow_step
-
-                with use_workflow_step(nid):
-                    result = _coerce_agent_result(
-                        await self._run_with_retry(node, on_progress=on_progress)
-                    )
-                completed[nid] = result
-                graph_result.execution_order.append(nid)
+            if serial:
+                batches = [[item] for item in layer_tasks]
+            elif max_parallel and max_parallel > 0:
+                batches = [
+                    layer_tasks[i : i + max_parallel]
+                    for i in range(0, len(layer_tasks), max_parallel)
+                ]
             else:
-                from butler.execution_context import use_workflow_step
+                batches = [layer_tasks]
 
-                async def _run_one(n: TaskNode) -> AgentResult:
-                    with use_workflow_step(n.id):
-                        return await self._run_with_retry(n, on_progress=on_progress)
+            for batch in batches:
+                if len(batch) == 1:
+                    nid, node = batch[0]
+                    step_index += 1
+                    if on_progress:
+                        try:
+                            on_progress(nid, "start", node.config.role)
+                        except Exception as exc:
+                            logger.debug("graph on_progress start: %s", exc)
+                    from butler.execution_context import use_workflow_step
 
-                parallel_results = await asyncio.gather(
-                    *[_run_one(node) for _, node in layer_tasks],
-                    return_exceptions=True,
-                )
-                for (nid, _), result in zip(layer_tasks, parallel_results):
-                    completed[nid] = _coerce_agent_result(result)
+                    with use_workflow_step(nid):
+                        result = _coerce_agent_result(
+                            await self._run_with_retry(node, on_progress=on_progress)
+                        )
+                    completed[nid] = result
                     graph_result.execution_order.append(nid)
+                else:
+                    from butler.execution_context import use_workflow_step
+
+                    async def _run_one(n: TaskNode) -> AgentResult:
+                        with use_workflow_step(n.id):
+                            return await self._run_with_retry(n, on_progress=on_progress)
+
+                    parallel_results = await asyncio.gather(
+                        *[_run_one(node) for _, node in batch],
+                        return_exceptions=True,
+                    )
+                    for (nid, _), result in zip(batch, parallel_results):
+                        completed[nid] = _coerce_agent_result(result)
+                        graph_result.execution_order.append(nid)
 
             for nid in [lid for lid, _ in layer_tasks]:
                 node = node_map[nid]
@@ -510,6 +533,22 @@ class TaskOrchestrator:
             except Exception:
                 pass
             if last_result.success:
+                try:
+                    from butler.workflows.until_assert import evaluate_until
+
+                    ok, err = evaluate_until(
+                        last_result.response or "",
+                        node.until,
+                    )
+                    if not ok:
+                        last_result = AgentResult(
+                            success=False,
+                            error=err or "until_assertion_failed",
+                            response=last_result.response,
+                        )
+                        return last_result
+                except Exception:
+                    pass
                 return last_result
             logger.warning(
                 "Node %s attempt %d/%d failed",

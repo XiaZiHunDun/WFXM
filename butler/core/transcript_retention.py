@@ -22,8 +22,24 @@ _TRANSCRIPT_KEEP_PRIORITY: dict[str, int] = {
 }
 
 
-def transcript_keep_priority(entry_type: str) -> int:
-    return _TRANSCRIPT_KEEP_PRIORITY.get(str(entry_type or "").strip(), 30)
+def transcript_source_boost(source: str) -> int:
+    """Semantic source tag boost for retention (workflow / delegate / loop)."""
+    src = str(source or "").strip().lower()
+    boosts = {
+        "workflow": 12,
+        "delegate": 10,
+        "loop": 0,
+        "context": 2,
+        "memory_prefetch": 4,
+        "context_compressor": 3,
+        "hygiene": 2,
+    }
+    return boosts.get(src, 0)
+
+
+def transcript_keep_priority(entry_type: str, *, source: str = "") -> int:
+    base = _TRANSCRIPT_KEEP_PRIORITY.get(str(entry_type or "").strip(), 30)
+    return base + transcript_source_boost(source)
 
 
 def select_transcript_rows_for_retention(
@@ -40,7 +56,10 @@ def select_transcript_rows_for_retention(
     indexed = list(enumerate(rows))
     indexed.sort(
         key=lambda pair: (
-            -transcript_keep_priority(str(pair[1].get("type") or "")),
+            -transcript_keep_priority(
+                str(pair[1].get("type") or ""),
+                source=str(pair[1].get("source") or ""),
+            ),
             pair[0],
         ),
     )
@@ -51,4 +70,5 @@ def select_transcript_rows_for_retention(
 __all__ = [
     "select_transcript_rows_for_retention",
     "transcript_keep_priority",
+    "transcript_source_boost",
 ]

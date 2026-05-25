@@ -122,6 +122,37 @@ def append_transcript_entry(
         logger.debug("Transcript append skipped: %s", exc)
 
 
+def record_tool_action(
+    session_key: str,
+    *,
+    tool_name: str,
+    args_preview: str = "",
+    source: str = "loop",
+    tool_call_id: str = "",
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "tool_action",
+        {
+            "tool": str(tool_name or "")[:64],
+            "args_preview": str(args_preview or "")[:400],
+            "source": str(source or "loop")[:32],
+            "tool_call_id": str(tool_call_id or "")[:64],
+        },
+    )
+
+
+def record_plan_snapshot(session_key: str, snapshot_json: str) -> None:
+    append_transcript_entry(
+        session_key,
+        "plan_snapshot",
+        {
+            "snapshot": str(snapshot_json or "")[:8000],
+            "source": "workflow",
+        },
+    )
+
+
 def record_user_message(session_key: str, content: str) -> None:
     append_transcript_entry(
         session_key,
@@ -248,17 +279,28 @@ def record_knowledge_inject(
 def record_tool_observation(
     session_key: str,
     *,
-    tool: str,
+    tool: str = "",
+    tool_name: str = "",
     ok: bool = True,
+    outcome: str = "",
     preview: str = "",
+    source: str = "loop",
+    tool_call_id: str = "",
 ) -> None:
+    name = str(tool_name or tool or "")[:64]
+    ok_flag = bool(ok)
+    if outcome:
+        ok_flag = str(outcome).lower() not in ("error", "fail", "failed")
     append_transcript_entry(
         session_key,
         "tool_observation",
         {
-            "tool": str(tool or "")[:64],
-            "ok": bool(ok),
-            "preview": (preview or "")[:300],
+            "tool": name,
+            "ok": ok_flag,
+            "outcome": str(outcome or ("ok" if ok_flag else "error"))[:16],
+            "preview": (preview or "")[:500],
+            "source": str(source or "loop")[:32],
+            "tool_call_id": str(tool_call_id or "")[:64],
         },
     )
 

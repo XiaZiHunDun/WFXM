@@ -57,6 +57,7 @@ class LoopConfig:
     max_empty_content_retries: int = 1
     max_truncation_continues: int = 1
     plugins: list[Any] = field(default_factory=list)
+    middlewares: list[Any] = field(default_factory=list)
 
 
 @dataclass

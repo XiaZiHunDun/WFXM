@@ -152,15 +152,126 @@ def parse_structured_output(text: str, schema: dict[str, Any] | None) -> dict[st
                 candidates.append(parsed)
         except json.JSONDecodeError:
             continue
-    fields = schema.get("fields") if isinstance(schema.get("fields"), list) else []
-    if not fields and isinstance(schema, dict):
-        fields = [k for k in schema.keys() if k not in ("type", "fields")]
+    field_names: list[str] = []
+    raw_fields = schema.get("fields") if isinstance(schema.get("fields"), list) else []
+    for item in raw_fields:
+        if isinstance(item, str):
+            field_names.append(item)
+        elif isinstance(item, dict) and item.get("name"):
+            field_names.append(str(item["name"]))
+    if not field_names and isinstance(schema, dict):
+        field_names = [
+            k for k in schema.keys() if k not in ("type", "fields", "title", "description")
+        ]
     if not candidates:
         return {}
     best = candidates[-1]
-    if fields:
-        return {k: best.get(k) for k in fields if k in best}
+    if field_names:
+        return {k: best.get(k) for k in field_names if k in best}
     return dict(best)
+
+
+def _schema_field_specs(schema: dict[str, Any]) -> list[dict[str, Any]]:
+    fields = schema.get("fields")
+    if isinstance(fields, list):
+        specs: list[dict[str, Any]] = []
+        for item in fields:
+            if isinstance(item, str):
+                specs.append({"name": item, "type": "string", "required": True})
+            elif isinstance(item, dict) and item.get("name"):
+                specs.append(dict(item))
+        return specs
+    specs = []
+    for key, val in schema.items():
+        if key in ("type", "fields", "title", "description"):
+            continue
+        if isinstance(val, dict):
+            specs.append({"name": key, **val})
+        else:
+            specs.append({"name": key, "type": "string", "required": True})
+    return specs
+
+
+def validate_structured_output(
+    data: dict[str, Any],
+    schema: dict[str, Any] | None,
+) -> tuple[bool, list[str]]:
+    """Validate parsed output against a lightweight schema (optional Pydantic)."""
+    if not schema:
+        return True, []
+    try:
+        from butler.core.meta_flags import output_schema_validate_enabled
+
+        if not output_schema_validate_enabled():
+            return True, []
+    except Exception:
+        pass
+    specs = _schema_field_specs(schema)
+    if not specs:
+        return True, []
+    errors: list[str] = []
+    for spec in specs:
+        name = str(spec.get("name") or "").strip()
+        if not name:
+            continue
+        required = bool(spec.get("required", True))
+        if required and name not in data:
+            errors.append(f"missing required field: {name}")
+            continue
+        if name not in data:
+            continue
+        val = data[name]
+        expected = str(spec.get("type") or "string").strip().lower()
+        if expected in ("str", "string") and not isinstance(val, str):
+            errors.append(f"{name}: expected string")
+        elif expected in ("int", "integer") and not isinstance(val, int):
+            errors.append(f"{name}: expected integer")
+        elif expected in ("bool", "boolean") and not isinstance(val, bool):
+            errors.append(f"{name}: expected boolean")
+        enum = spec.get("enum")
+        if isinstance(enum, list) and enum and str(val) not in [str(x) for x in enum]:
+            errors.append(f"{name}: value not in enum")
+    if errors:
+        return False, errors
+    try:
+        from pydantic import BaseModel, Field, create_model
+
+        fields: dict[str, Any] = {}
+        for spec in specs:
+            name = str(spec["name"])
+            required = bool(spec.get("required", True))
+            expected = str(spec.get("type") or "string").lower()
+            py_type: Any = str
+            if expected in ("int", "integer"):
+                py_type = int
+            elif expected in ("bool", "boolean"):
+                py_type = bool
+            if required:
+                fields[name] = (py_type, Field(...))
+            else:
+                fields[name] = (py_type | None, None)
+        if fields:
+            model = create_model("ButlerOutputSchema", **fields)
+            model.model_validate(data)
+    except ImportError:
+        pass
+    except Exception as exc:
+        return False, [f"pydantic: {exc}"]
+    return True, []
+
+
+def build_schema_repair_prompt(
+    errors: list[str],
+    schema: dict[str, Any] | None,
+) -> str:
+    if not errors:
+        return ""
+    fields = [str(s.get("name") or "") for s in _schema_field_specs(schema or {}) if s.get("name")]
+    return (
+        "结构化输出未通过校验，请仅输出一个 JSON 对象修正以下问题：\n"
+        + "\n".join(f"- {e}" for e in errors[:8])
+        + (f"\n期望字段: {', '.join(fields)}" if fields else "")
+    )
 
 
 def enrich_output_schema(
@@ -170,12 +281,105 @@ def enrich_output_schema(
 ) -> AgentReport:
     parsed = parse_structured_output(text, schema)
     if parsed:
-        report.structured_output = parsed
-        for key, val in parsed.items():
-            if str(key).lower() in ("rating", "decision", "verdict"):
-                report.decisions = list(
-                    dict.fromkeys(list(report.decisions) + [str(val).lower()])
-                )
+        ok, errors = validate_structured_output(parsed, schema)
+        if ok:
+            report.structured_output = parsed
+            for key, val in parsed.items():
+                if str(key).lower() in ("rating", "decision", "verdict"):
+                    report.decisions = list(
+                        dict.fromkeys(list(report.decisions) + [str(val).lower()])
+                    )
+        else:
+            report.structured_output = parsed
+            repair = build_schema_repair_prompt(errors, schema)
+            if repair:
+                report.issues.append(repair[:500])
+            for err in errors[:5]:
+                report.issues.append(f"schema: {err}")
+    return report
+
+
+def _schema_validation_failed(report: AgentReport) -> bool:
+    if any(str(i).startswith("schema:") for i in report.issues):
+        return True
+    if report.structured_output:
+        return False
+    return bool(report.issues)
+
+
+def maybe_repair_structured_output(
+    report: AgentReport,
+    source_text: str,
+    schema: dict[str, Any] | None,
+    *,
+    orchestrator: Any = None,
+) -> AgentReport:
+    """One-shot LLM repair when schema validation failed (PR-X5 / 主线 N)."""
+    if not schema:
+        return report
+    try:
+        from butler.core.confirm_flags import output_schema_repair_enabled
+        from butler.core.meta_flags import output_schema_validate_enabled
+
+        if not output_schema_repair_enabled() or not output_schema_validate_enabled():
+            return report
+    except Exception:
+        return report
+    if not _schema_validation_failed(report):
+        ok, _ = validate_structured_output(report.structured_output, schema)
+        if ok and report.structured_output:
+            return report
+    if orchestrator is None:
+        try:
+            from butler.execution_context import get_current_orchestrator
+
+            orchestrator = get_current_orchestrator()
+        except Exception:
+            orchestrator = None
+    if orchestrator is None:
+        return report
+
+    repair_prompt = build_schema_repair_prompt(
+        [i for i in report.issues if str(i).startswith("schema:")],
+        schema,
+    )
+    if not repair_prompt:
+        repair_prompt = build_schema_repair_prompt(["structured output invalid"], schema)
+    user_msg = f"{repair_prompt}\n\n---\n原始输出：\n{(source_text or '')[:12000]}"
+    try:
+        client = orchestrator.create_llm_client("butler")
+        from butler.transport.types import NormalizedResponse
+
+        resp = client.complete(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "你只输出一个 JSON 对象，不要 markdown 围栏或解释。",
+                },
+                {"role": "user", "content": user_msg},
+            ],
+            tools=None,
+        )
+        if not isinstance(resp, NormalizedResponse):
+            return report
+        parsed = parse_structured_output(str(resp.content or ""), schema)
+        ok, errs = validate_structured_output(parsed, schema)
+        if ok and parsed:
+            report.structured_output = parsed
+            report.issues = [
+                i for i in report.issues
+                if not str(i).startswith("schema:")
+                and "结构化输出未通过" not in str(i)
+            ]
+            for key, val in parsed.items():
+                if str(key).lower() in ("rating", "decision", "verdict"):
+                    report.decisions = list(
+                        dict.fromkeys(list(report.decisions) + [str(val).lower()])
+                    )
+        elif errs:
+            report.issues.append(f"schema_repair_failed: {errs[0]}")
+    except Exception as exc:
+        report.issues.append(f"schema_repair_error: {exc}")
     return report
 
 
@@ -430,7 +634,10 @@ def clear_report_cache(session_key: str = "") -> None:
 __all__ = [
     "AgentReport",
     "Change",
+    "build_schema_repair_prompt",
     "enrich_report_decisions",
+    "maybe_repair_structured_output",
+    "validate_structured_output",
     "format_detail",
     "format_for_butler_tool_result",
     "format_for_cli",

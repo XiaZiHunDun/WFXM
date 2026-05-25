@@ -75,6 +75,18 @@ def select_tools_for_context(
         return list(tools), diag
 
     cap = threshold if threshold is not None else tool_selector_threshold()
+
+    try:
+        from butler.core.tool_recall_bm25 import (
+            select_tools_with_bm25,
+            tool_recall_bm25_enabled,
+        )
+
+        if tool_recall_bm25_enabled() and len(tools) > cap:
+            return select_tools_with_bm25(tools, user_hint=user_hint or role, top_k=cap)
+    except Exception:
+        pass
+
     if len(tools) <= cap:
         return list(tools), diag
 

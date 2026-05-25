@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from butler.core.loop_types import LoopResult
+from butler.core.loop_types import LoopResult, LoopStatus
 from butler.report import format_for_wechat, get_last_report
 
 
@@ -28,6 +28,15 @@ def wechat_response_text(
 ) -> str:
     """Pick compact delegate report or plain assistant text for WeChat."""
     from butler.execution_context import get_current_session_key
+
+    if result.status == LoopStatus.WAITING_CONFIRMATION:
+        text = (result.final_response or "").strip()
+        return text or "等待您确认高风险工具。回复 /确认工具 执行。"
+    if result.status == LoopStatus.STUCK:
+        text = (result.final_response or "").strip()
+        prefix = "任务卡住："
+        body = text or "工具循环检测触发，请调整策略或发 /详细 查看。"
+        return f"{prefix}{body}"[:max_length]
 
     report = get_last_report(get_current_session_key())
     if report and turn_used_delegate_task(result):

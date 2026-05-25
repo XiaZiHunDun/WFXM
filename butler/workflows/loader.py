@@ -69,11 +69,40 @@ def load_workspace_workflow(workspace: Path, name: str) -> WorkflowDef | None:
     return parse_workflow_data(data, source="workspace")
 
 
+def _merge_imported_steps(
+    project: "Project | None",
+    wf: WorkflowDef,
+) -> WorkflowDef:
+    if not wf.imports or project is None:
+        return wf
+    merged_steps: list[WorkflowStepDef] = []
+    seen_ids: set[str] = set()
+    for imp_name in wf.imports:
+        imported = load_workspace_workflow(project.workspace, imp_name)
+        if imported is None:
+            imported = load_builtin_workflow(imp_name)
+        if imported is None:
+            continue
+        for step in imported.steps:
+            if step.id in seen_ids:
+                continue
+            merged_steps.append(step)
+            seen_ids.add(step.id)
+    for step in wf.steps:
+        if step.id in seen_ids:
+            continue
+        merged_steps.append(step)
+        seen_ids.add(step.id)
+    wf.steps = merged_steps
+    return wf
+
+
 def resolve_workflow(project: "Project | None", name: str) -> WorkflowDef | None:
     """Merge project.yaml entry, workspace file, and builtin template."""
     key = str(name or "").strip()
     if not key or project is None:
-        return load_builtin_workflow(key)
+        base = load_builtin_workflow(key)
+        return base
 
     base: WorkflowDef | None = None
     for entry in project.workflows or []:
@@ -98,7 +127,9 @@ def resolve_workflow(project: "Project | None", name: str) -> WorkflowDef | None
         if builtin is not None and builtin.description:
             base.description = builtin.description
 
-    return base if base.name else None
+    if base is not None:
+        base = _merge_imported_steps(project, base)
+    return base if base and base.name else None
 
 
 def list_workflows_for_project(project: "Project | None") -> list[WorkflowDef]:

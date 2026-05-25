@@ -234,7 +234,7 @@ class ButlerOrchestrator:
 
         return "\n\n".join(c for c in chunks if c and str(c).strip())
 
-    def build_system_prompt(self) -> str:
+    def _system_prompt_placeholders(self, *, for_role: str = "default") -> dict[str, str]:
         template = _template_path()
         try:
             body = template.read_text(encoding="utf-8")
@@ -266,13 +266,14 @@ class ButlerOrchestrator:
         if self._skill_manager is not None:
             skills_block = _format_skill_summaries(self._skill_manager.list_skills())
 
-        memory_ctx = self.build_memory_context(for_role="default")
+        memory_ctx = self.build_memory_context(for_role=for_role)
 
         from butler.workflows.loader import format_workflows_for_prompt
 
         workflows_block = format_workflows_for_prompt(self.project_manager.get_current())
 
-        placeholders = {
+        return {
+            "template_body": body,
             "butler_name": self._settings.butler_name,
             "owner_name": self._settings.owner_name,
             "current_project": current,
@@ -280,21 +281,98 @@ class ButlerOrchestrator:
             "memory_context": memory_ctx,
             "butler_model": model_block,
             "skill_summaries": skills_block,
+            "workflows_block": workflows_block,
+            "model_block": model_block,
         }
 
+    def build_dynamic_system_reminder(self, *, for_role: str = "default") -> str:
+        """Dynamic context injected into the user turn when static system mode is on."""
+        try:
+            from butler.core.system_reminder import wrap_system_reminder
+        except Exception:
+            return ""
+        ph = self._system_prompt_placeholders(for_role=for_role)
+        chunks = [
+            "## 记忆与上下文\n" + (ph.get("memory_context") or "(无)"),
+            "## 可用技能概要\n" + ph.get("skill_summaries", ""),
+            "## 项目工作流\n" + ph.get("workflows_block", ""),
+        ]
+        body = "\n\n".join(c for c in chunks if c and str(c).strip())
+        return wrap_system_reminder(body)
+
+    def build_static_system_prompt(self) -> str:
+        """System prompt without dynamic memory (paired with build_dynamic_system_reminder)."""
+        ph = self._system_prompt_placeholders(for_role="default")
+        body = ph.get("template_body") or ""
+        placeholders = {
+            "butler_name": ph["butler_name"],
+            "owner_name": ph["owner_name"],
+            "current_project": ph["current_project"],
+            "project_list": ph["project_list"],
+            "memory_context": "(见本轮 system-reminder)",
+            "butler_model": ph["butler_model"],
+            "skill_summaries": "(见本轮 system-reminder)",
+        }
         rendered = body
         for k, v in placeholders.items():
             rendered = rendered.replace("{" + k + "}", v)
-
         appendix = (
             "\n\n## Butler 模型\n"
-            f"{model_block}\n\n"
+            f"{ph['model_block']}\n\n"
             "## 可用技能概要\n"
-            f"{skills_block}\n\n"
+            "(见本轮 system-reminder)\n\n"
             "## 项目工作流\n"
-            f"{workflows_block}"
+            "(见本轮 system-reminder)"
         )
         return rendered.rstrip() + appendix
+
+    def resolve_system_prompt(
+        self,
+        *,
+        role: str = "butler",
+        session_key: str = "",
+    ) -> tuple[str, str | None]:
+        """Return (system_prompt, optional user-side reminder)."""
+        if role == "lead":
+            return self.build_lead_system_prompt(session_key=session_key), None
+        from butler.core.prompt_renderer import render_orchestrator_turn
+
+        return render_orchestrator_turn(self, for_role=role)
+
+    def _assemble_default_system_prompt(self, *, for_role: str = "default") -> str:
+        ph = self._system_prompt_placeholders(for_role=for_role)
+        body = ph.get("template_body") or ""
+        placeholders = {
+            "butler_name": ph["butler_name"],
+            "owner_name": ph["owner_name"],
+            "current_project": ph["current_project"],
+            "project_list": ph["project_list"],
+            "memory_context": ph["memory_context"],
+            "butler_model": ph["butler_model"],
+            "skill_summaries": ph["skill_summaries"],
+        }
+        rendered = body
+        for k, v in placeholders.items():
+            rendered = rendered.replace("{" + k + "}", v)
+        appendix = (
+            "\n\n## Butler 模型\n"
+            f"{ph['model_block']}\n\n"
+            "## 可用技能概要\n"
+            f"{ph['skill_summaries']}\n\n"
+            "## 项目工作流\n"
+            f"{ph['workflows_block']}"
+        )
+        return rendered.rstrip() + appendix
+
+    def build_system_prompt(self) -> str:
+        try:
+            from butler.core.harness_flags import static_system_reminder_enabled
+
+            if static_system_reminder_enabled():
+                return self.build_static_system_prompt()
+        except Exception:
+            pass
+        return self._assemble_default_system_prompt(for_role="default")
 
     def build_lead_system_prompt(self, *, session_key: str = "") -> str:
         """System prompt for project Lead gateway loop (phase 2)."""
@@ -355,7 +433,7 @@ class ButlerOrchestrator:
             "max_tokens": mc.get("max_tokens"),
             "user_id": self.user_id,
             "platform": self.channel,
-            "ephemeral_system_prompt": self.build_system_prompt(),
+            "ephemeral_system_prompt": self.resolve_system_prompt(role="butler")[0],
         }
 
     def create_llm_client(self, role: str = "butler") -> "LLMClient":
@@ -391,12 +469,22 @@ class ButlerOrchestrator:
         primary = ModelConfig(provider=mc.get("provider") or "", model=mc.get("model") or "")
         fallback_chain = build_fallback_chain(primary)
 
+        sk = str(session_key or "").strip()
+        try:
+            proj = self.project_manager.get_current(session_key=sk)
+            from butler.project_plugins import apply_project_plugins
+
+            apply_project_plugins(proj)
+        except Exception:
+            pass
+
+        user_reminder: str | None = None
         if role == "butler":
-            system_prompt = self.build_system_prompt()
+            system_prompt, user_reminder = self.resolve_system_prompt(role="butler", session_key=sk)
         elif role == "lead":
-            system_prompt = self.build_lead_system_prompt(session_key=session_key)
+            system_prompt = self.build_lead_system_prompt(session_key=sk)
         elif role == "plan":
-            system_prompt = self.build_system_prompt()
+            system_prompt, user_reminder = self.resolve_system_prompt(role="plan", session_key=sk)
             from butler.plan_mode import load_plan_mode_system_appendix
 
             system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
@@ -411,7 +499,6 @@ class ButlerOrchestrator:
                 if extra:
                     system_prompt += "\n\n" + extra
 
-        sk = str(session_key or "").strip()
         if sk and role != "plan":
             try:
                 from butler.plan_mode import is_plan_mode, load_plan_mode_system_appendix

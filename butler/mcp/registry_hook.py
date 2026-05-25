@@ -52,6 +52,14 @@ def ensure_mcp_for_session(session_key: str = "") -> list[dict[str, Any]]:
 
 
 def get_mcp_tool_definitions(session_key: str = "") -> list[dict[str, Any]]:
+    try:
+        from butler.core.harness_flags import mcp_deferred_tools_enabled
+        from butler.mcp.deferred import get_deferred_mcp_definitions
+
+        if mcp_deferred_tools_enabled():
+            return get_deferred_mcp_definitions(session_key)
+    except Exception as exc:
+        logger.debug("MCP deferred definitions skipped: %s", exc)
     return ensure_mcp_for_session(session_key)
 
 
