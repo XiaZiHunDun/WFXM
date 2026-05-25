@@ -21,6 +21,18 @@ from butler.transport.types import NormalizedResponse
 logger = logging.getLogger(__name__)
 
 
+def _tool_result_outcome(result: str) -> str:
+    text = (result or "").strip()
+    if not text:
+        return "ok"
+    head = text[:240].lower()
+    if head.startswith("error:") or head.startswith('{"error"'):
+        return "error"
+    if text.startswith("{") and '"error"' in head:
+        return "error"
+    return "ok"
+
+
 @dataclass(frozen=True)
 class ToolBatchStats:
     """Counters produced while executing a tool batch."""
@@ -100,6 +112,14 @@ def process_tool_calls(
             callbacks.on_tool_start(name, args)
 
     def _on_complete(name: str, result: str) -> None:
+        try:
+            from butler.ops.runtime_metrics import inc
+
+            outcome = _tool_result_outcome(result)
+            tool_label = str(name or "?")[:48]
+            inc("tool_call", labels={"tool": tool_label, "outcome": outcome})
+        except Exception:
+            pass
         if callbacks.on_tool_complete:
             callbacks.on_tool_complete(name, result)
 

@@ -68,6 +68,7 @@ class GatewaySessionRegistry:
             self.touch(key)
             loop = self.sessions[key]
         self.enforce_lru()
+        self._publish_session_gauges()
         return loop
 
     def session_lock(self, session_key: str) -> threading.RLock:
@@ -113,11 +114,25 @@ class GatewaySessionRegistry:
         with self._lock:
             self._wait_for_reset_all_locked()
             self._active_sessions.add(str(session_key or "default"))
+        self._publish_session_gauges()
 
     def mark_inactive(self, session_key: str) -> None:
         with self._lock:
             self._active_sessions.discard(str(session_key or "default"))
             self._reset_condition.notify_all()
+        self._publish_session_gauges()
+
+    def _publish_session_gauges(self) -> None:
+        try:
+            from butler.ops.runtime_metrics import publish_gateway_session_gauges
+
+            with self._lock:
+                publish_gateway_session_gauges(
+                    session_count=len(self.sessions),
+                    active_turns=len(self._active_sessions),
+                )
+        except Exception:
+            pass
 
     def is_session_active(self, session_key: str) -> bool:
         """True while a gateway turn holds the session lock (AgentLoop running)."""

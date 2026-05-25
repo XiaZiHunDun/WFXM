@@ -91,6 +91,7 @@ def enqueue_inbound(
         bucket = deque(sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)))
         _QUEUES[key] = bucket
     logger.info("Queued inbound session=%s priority=%s len=%d", key, pri, len(_QUEUES[key]))
+    _refresh_queue_gauges(key)
     try:
         from butler.core.session_transcript import record_queue_operation
 
@@ -98,6 +99,23 @@ def enqueue_inbound(
     except Exception:
         pass
     return True
+
+
+def _refresh_queue_gauges(session_key: str) -> None:
+    try:
+        from butler.ops.runtime_metrics import set_gauge
+
+        key = str(session_key or "default")
+        depth = pending_count(key)
+        set_gauge("inbound_queue_depth", float(depth), session_key=key)
+        set_gauge("inbound_queue_depth_total", float(pending_total()))
+    except Exception:
+        pass
+
+
+def pending_total() -> int:
+    with _LOCK:
+        return sum(len(bucket) for bucket in _QUEUES.values())
 
 
 def pop_next(session_key: str) -> QueuedInbound | None:
@@ -109,7 +127,8 @@ def pop_next(session_key: str) -> QueuedInbound | None:
         item = bucket.popleft()
         if not bucket:
             _QUEUES.pop(key, None)
-        return item
+    _refresh_queue_gauges(key)
+    return item
 
 
 def pending_count(session_key: str = "") -> int:
@@ -123,10 +142,19 @@ def reset_queue(session_key: str | None = None) -> None:
         if session_key is None:
             _QUEUES.clear()
             _LAST_ENQUEUE.clear()
-            return
-        key = str(session_key or "default")
-        _QUEUES.pop(key, None)
-        _LAST_ENQUEUE.pop(key, None)
+        else:
+            key = str(session_key or "default")
+            _QUEUES.pop(key, None)
+            _LAST_ENQUEUE.pop(key, None)
+    try:
+        from butler.ops.runtime_metrics import set_gauge
+
+        if session_key is None:
+            set_gauge("inbound_queue_depth_total", 0.0)
+        else:
+            _refresh_queue_gauges(session_key)
+    except Exception:
+        pass
 
 
 def format_queued_ack(*, pending: int = 1) -> str:

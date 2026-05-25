@@ -29,6 +29,17 @@ def record_hook_run(
     with _LOCK:
         bucket = _RECORDS.setdefault(key, deque(maxlen=_MAX_PER_SESSION))
         bucket.append(entry)
+    try:
+        from butler.ops.runtime_metrics import inc
+
+        outcome = "ok" if exit_code == 0 else "fail" if exit_code is not None else "unknown"
+        inc(
+            "hook_run",
+            labels={"event": str(event or "?")[:32], "outcome": outcome},
+            session_key=session_key,
+        )
+    except Exception:
+        pass
 
 
 def recent_hook_runs(session_key: str = "", *, limit: int = 5) -> list[dict[str, Any]]:
@@ -42,9 +53,16 @@ def reset_hook_telemetry(session_key: str | None = None) -> None:
     with _LOCK:
         if session_key is None:
             _RECORDS.clear()
-            return
-        key = str(session_key or "").strip() or "_global"
-        _RECORDS.pop(key, None)
+        else:
+            key = str(session_key or "").strip() or "_global"
+            _RECORDS.pop(key, None)
+    if session_key:
+        try:
+            from butler.ops.runtime_metrics import reset_session
+
+            reset_session(session_key)
+        except Exception:
+            pass
 
 
 def configured_hook_summary(workspace: Any = None) -> str:

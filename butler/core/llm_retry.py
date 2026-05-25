@@ -55,6 +55,8 @@ def call_llm_with_retry(
                 "check_interrupt": interrupt_check,
                 "stale_timeout": config.api_stale_timeout,
             }
+            provider = str(getattr(client, "provider_name", "") or "?")[:24]
+            llm_started = time.monotonic()
             if config.stream and (callbacks.on_stream_delta or on_tool_call_ready):
                 response = client.stream(
                     on_delta=callbacks.on_stream_delta,
@@ -65,6 +67,17 @@ def call_llm_with_retry(
                 response = client.complete(**common)
 
             response = sanitize_response(response)
+            try:
+                from butler.ops.runtime_metrics import inc, observe_ms
+
+                observe_ms(
+                    "llm_latency",
+                    (time.monotonic() - llm_started) * 1000.0,
+                    labels={"provider": provider, "outcome": "ok"},
+                )
+                inc("llm_request", labels={"provider": provider, "outcome": "ok"})
+            except Exception:
+                pass
 
             if (
                 needs_empty_content_retry(response)
@@ -80,6 +93,13 @@ def call_llm_with_retry(
             return response, False
 
         except InterruptedError:
+            try:
+                from butler.ops.runtime_metrics import inc
+
+                provider = str(getattr(client, "provider_name", "") or "?")[:24]
+                inc("llm_request", labels={"provider": provider, "outcome": "interrupt"})
+            except Exception:
+                pass
             return None, True
 
         except Exception as exc:
@@ -147,4 +167,11 @@ def call_llm_with_retry(
                 time.sleep(retry_delay_for_config(config, attempt))
 
     logger.error("All LLM attempts failed: %s", last_error)
+    try:
+        from butler.ops.runtime_metrics import inc
+
+        provider = str(getattr(client, "provider_name", "") or "?")[:24]
+        inc("llm_request", labels={"provider": provider, "outcome": "fail"})
+    except Exception:
+        pass
     return None, interrupted

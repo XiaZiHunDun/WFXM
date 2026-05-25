@@ -309,6 +309,28 @@ class AgentLoop:
 
         elapsed = time.time() - start_time
         self.diagnostics["loop_transition_reason"] = transition.value
+        try:
+            from butler.ops.runtime_metrics import inc, observe_ms
+
+            observe_ms(
+                "turn_duration",
+                elapsed * 1000.0,
+                labels={
+                    "transition": str(transition.value)[:32],
+                    "status": str(status.value)[:16],
+                },
+                session_key=steer_session,
+            )
+            inc(
+                "turn_finished",
+                labels={
+                    "transition": str(transition.value)[:32],
+                    "status": str(status.value)[:16],
+                },
+                session_key=steer_session,
+            )
+        except Exception:
+            pass
         result = LoopResult(
             status=status,
             transition_reason=transition.value,

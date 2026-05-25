@@ -2,47 +2,54 @@
 
 from __future__ import annotations
 
-import threading
-from typing import Any
-
-_LOCK = threading.Lock()
-_BY_SESSION: dict[str, dict[str, int]] = {}
-
-
-def _bucket(session_key: str) -> dict[str, int]:
-    key = str(session_key or "").strip() or "_global"
-    with _LOCK:
-        return _BY_SESSION.setdefault(
-            key,
-            {"sent": 0, "failed": 0, "enqueued": 0},
-        )
-
 
 def record_completion_push_sent(*, session_key: str = "") -> None:
-    _bucket(session_key)["sent"] += 1
+    from butler.ops.runtime_metrics import inc
+
+    inc("gateway_completion_push", labels={"outcome": "sent"}, session_key=session_key)
 
 
 def record_completion_push_failed(*, session_key: str = "") -> None:
-    _bucket(session_key)["failed"] += 1
+    from butler.ops.runtime_metrics import inc
+
+    inc("gateway_completion_push", labels={"outcome": "failed"}, session_key=session_key)
 
 
 def record_completion_push_enqueued(*, session_key: str = "") -> None:
-    _bucket(session_key)["enqueued"] += 1
+    from butler.ops.runtime_metrics import inc
+
+    inc("gateway_completion_push", labels={"outcome": "enqueued"}, session_key=session_key)
 
 
 def reset_completion_telemetry(session_key: str | None = None) -> None:
-    with _LOCK:
-        if session_key is None:
-            _BY_SESSION.clear()
-            return
-        key = str(session_key or "").strip() or "_global"
-        _BY_SESSION.pop(key, None)
+    from butler.ops.runtime_metrics import reset_counters_named, reset_session
+
+    if session_key is None:
+        reset_counters_named("gateway_completion_push")
+        return
+    reset_session(session_key)
 
 
 def completion_push_stats(session_key: str = "") -> dict[str, int]:
-    key = str(session_key or "").strip() or "_global"
-    with _LOCK:
-        return dict(_BY_SESSION.get(key, {"sent": 0, "failed": 0, "enqueued": 0}))
+    from butler.ops.runtime_metrics import counter_value
+
+    return {
+        "sent": counter_value(
+            "gateway_completion_push",
+            labels={"outcome": "sent"},
+            session_key=session_key,
+        ),
+        "failed": counter_value(
+            "gateway_completion_push",
+            labels={"outcome": "failed"},
+            session_key=session_key,
+        ),
+        "enqueued": counter_value(
+            "gateway_completion_push",
+            labels={"outcome": "enqueued"},
+            session_key=session_key,
+        ),
+    }
 
 
 def push_queue_pending_count(*, chat_id: str = "") -> int:

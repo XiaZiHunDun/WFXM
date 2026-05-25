@@ -36,7 +36,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_tool_result_storage.py tests/test_streaming_tools.py -q
+PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py tests/test_tool_result_storage.py -q
 # 改 gateway：再加 tests/test_message_queue.py tests/test_gateway_handler.py（部分用例可能与 reason=clear 等历史 mock 不一致）
 ```
 

@@ -27,6 +27,7 @@
 | [`config/reference.md`](config/reference.md) | **BUTLER_* 环境变量速查** |
 | [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理方案（P0–P2 已完成） |
 | [`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md) | **后续规划**（运营 / 灵文 / 多项目） |
+| [`plans/reference-learning-plan-2026-05.md`](plans/reference-learning-plan-2026-05.md) | **外部项目学习规划**（零依赖对标；P0 见 [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md)） |
 | [`plans/consolidation-p3-implementation-2026-05.md`](plans/consolidation-p3-implementation-2026-05.md) | **P3 实现层熵减**（已完成） |
 | [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 项目成熟度评估（约 4/5） |
 | [`guides/project-onboarding.md`](guides/project-onboarding.md) | 项目接入与 preflight |
