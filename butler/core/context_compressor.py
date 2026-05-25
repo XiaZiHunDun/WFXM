@@ -47,6 +47,9 @@ def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
             out.append(m)
             continue
         content = str(m.get("content") or "")
+        if "<persisted-output>" in content:
+            out.append(m)
+            continue
         if len(content) <= _TOOL_PRUNE_LIMIT:
             out.append(m)
             continue

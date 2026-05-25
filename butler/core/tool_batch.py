@@ -158,11 +158,21 @@ def process_tool_calls(
             if interrupt_check():
                 batch_interrupted = True
 
+    from butler.core.tool_result_storage import maybe_spill_tool_result
+    from butler.execution_context import get_current_session_key
+
+    session_key = str(get_current_session_key() or "").strip()
     for tc, result in pairs:
+        content = maybe_spill_tool_result(
+            result,
+            tool_name=tc.name,
+            tool_use_id=tc.id or "",
+            session_key=session_key,
+        )
         messages.append({
             "role": "tool",
             "tool_call_id": tc.id,
-            "content": result,
+            "content": content,
         })
 
     apply_steer_to_tool_results(messages, len(pairs))
