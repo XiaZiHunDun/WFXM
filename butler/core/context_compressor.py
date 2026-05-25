@@ -185,4 +185,11 @@ def compress_messages(
         "Context compressed: %d→%d msgs, ~%d→%d tokens",
         len(messages), len(compressed), estimated, _estimate_tokens(compressed),
     )
+    try:
+        from butler.core.session_transcript import record_compact_boundary
+        from butler.execution_context import get_audit_session_key
+
+        record_compact_boundary(get_audit_session_key(fallback="_global"), len(summary))
+    except Exception:
+        pass
     return compressed, summary, True

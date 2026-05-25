@@ -31,7 +31,7 @@ def test_maybe_spill_writes_file_and_pointer(monkeypatch, tmp_path):
     body = "line\n" * 200
     out = maybe_spill_tool_result(
         body,
-        tool_name="read_file",
+        tool_name="grep",
         tool_use_id="call_big",
         session_key="wx-user-1",
     )

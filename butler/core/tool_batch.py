@@ -162,13 +162,17 @@ def process_tool_calls(
             if interrupt_check():
                 batch_interrupted = True
 
-    from butler.core.tool_result_storage import maybe_spill_tool_result
+    from butler.core.tool_result_storage import (
+        maybe_spill_tool_result,
+        normalize_empty_tool_result,
+    )
     from butler.execution_context import get_current_session_key
 
     session_key = str(get_current_session_key() or "").strip()
     for tc, result in pairs:
+        normalized = normalize_empty_tool_result(result, tool_name=tc.name)
         content = maybe_spill_tool_result(
-            result,
+            normalized,
             tool_name=tc.name,
             tool_use_id=tc.id or "",
             session_key=session_key,

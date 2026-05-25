@@ -66,7 +66,14 @@ class ContextPipeline:
         *,
         pre_llm_transform: Callable[[list[dict]], list[dict]] | None = None,
     ) -> list[dict]:
-        prepared = prune_tool_outputs(list(messages))
+        from butler.core.tool_result_storage import enforce_message_tool_budget
+        from butler.execution_context import get_audit_session_key
+
+        prepared = enforce_message_tool_budget(
+            list(messages),
+            session_key=get_audit_session_key(fallback="_global"),
+        )
+        prepared = prune_tool_outputs(prepared)
         prepared = self.compress_context(prepared)
         prepared, _ = repair_message_sequence(prepared)
         repair_tool_arguments(prepared)
