@@ -630,6 +630,10 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
         end = start + limit
         selected = lines[start:end]
         numbered = [f"{i + start + 1:6}|{line}" for i, line in enumerate(selected)]
+        if _p is not None and _stat is not None:
+            from butler.core.read_state import record_read_state
+
+            record_read_state(_p, _stat, data)
         return "\n".join(numbered)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -878,6 +882,11 @@ def _format_open_error(exc: OSError) -> str:
 
 def _tool_write_file(path: str, content: str, **_) -> str:
     try:
+        from butler.core.read_state import require_read_before_edit
+
+        guard = require_read_before_edit(path, for_write=True)
+        if guard:
+            return json.dumps(guard, ensure_ascii=False)
         p, error = _atomic_write_text(path, content)
         if error:
             return json.dumps({"error": error})
@@ -917,11 +926,26 @@ def _tool_delete_file(path: str, **_) -> str:
 
 def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
     try:
+        from butler.core.read_state import normalize_quotes, require_read_before_edit
+
+        guard = require_read_before_edit(path, for_write=True)
+        if guard:
+            return json.dumps(guard, ensure_ascii=False)
         data, _p, expected_stat, error = _read_regular_file_bytes(path, for_write=True)
         if error:
             return json.dumps({"error": error})
         text = data.decode("utf-8", errors="replace")
         count = text.count(old_string)
+        fuzzy = False
+        if count == 0:
+            norm_text = normalize_quotes(text)
+            norm_old = normalize_quotes(old_string)
+            count = norm_text.count(norm_old)
+            if count > 0:
+                text = norm_text
+                old_string = norm_old
+                new_string = normalize_quotes(new_string)
+                fuzzy = True
         if count == 0:
             return json.dumps({"error": "old_string not found in file"})
         if count > 1:
@@ -950,7 +974,10 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
         _written_path, write_error = _atomic_write_text(path, new_text, expected_stat=expected_stat)
         if write_error:
             return json.dumps({"error": write_error})
-        return json.dumps({"success": True, "replacements": 1})
+        payload: dict[str, Any] = {"success": True, "replacements": 1}
+        if fuzzy:
+            payload["fuzzy_quotes"] = True
+        return json.dumps(payload)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
 

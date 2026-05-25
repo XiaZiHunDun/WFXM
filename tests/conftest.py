@@ -24,6 +24,7 @@ def _isolate_butler_home(tmp_path, monkeypatch):
     home = tmp_path / ".butler"
     home.mkdir()
     monkeypatch.setenv("BUTLER_HOME", str(home))
+    monkeypatch.setenv("BUTLER_READ_BEFORE_EDIT", "0")
     return home
 
 

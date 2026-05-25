@@ -86,15 +86,12 @@
 - 环境变量：`BUTLER_TOOL_RESULT_SPILL`、`BUTLER_TOOL_RESULT_SPILL_MIN_CHARS`（默认 8192）、`BUTLER_TOOL_RESULT_SPILL_PREVIEW_CHARS`
 - 测试：`tests/test_tool_result_storage.py`
 
-### 4.3 读后再改 + mtime（edit safety）
+### 4.3 读后再改 + mtime（edit safety） ✅ 已落地（2026-05-22）
 
-**CC**：编辑前必须 read + mtime 校验。
+**Butler**：`butler/core/read_state.py`；`read_file` 记录 mtime/哈希；`patch`/`write_file`（已有文件）返回 `READ_STATE_REQUIRED` / `READ_STATE_STALE`；`patch` 支持弯引号模糊匹配；`/新对话` 重置。
 
-**Butler**：`design.md` §9.2 已规划，**未编码**。
-
-**建议**：会话级 `ReadStateStore`（path → content_hash, mtime, read_turn）；`patch`/`write_file` 前校验；结构化错误 + 可选引号归一化。
-
-**改动**：`butler/tools/registry.py`、`path_safety.py`
+- 环境变量：`BUTLER_READ_BEFORE_EDIT`（默认 `1`）
+- 测试：`tests/test_read_state.py`（pytest 默认关闭以免破坏旧用例）
 
 ### 4.4 循环 transition 原因 + 可观测性 ✅ 已落地（2026-05-22）
 
@@ -162,11 +159,9 @@
 
 Claude Code 的核心优势在 **上下文经济学**（micro 剪枝 + 落盘 + 分层 compact）、**编辑安全**（read state）、**运行时控制**（队列 steer、transition 可观测、流式工具）。Butler 在 **多项目记忆、微信网关、委派编排** 上已超 CC 的产品适配。
 
-**最值得优先的三件事**：
+**P0 四项（2026-05-22）均已落地**：落盘、分级 micro + post-compact 锚点、`transition_reason`、read-before-edit + mtime。
 
-1. 别只靠截断丢信息 → **落盘**  
-2. 别动不动就 LLM 压缩 → **micro 按工具分级 + 阈值门控**（门控已有，分级与重注入待加强）  
-3. **patch 前强制 read + mtime**
+**P1 候选**：消息优先级队列、Stop 钩子 block、流式工具、token budget 续跑、cache-safe delegate。
 
 其余按微信远程场景取舍。
 
@@ -179,5 +174,5 @@ Claude Code 的核心优势在 **上下文经济学**（micro 剪枝 + 落盘 + 
 | 1 | ~~**tool_result_storage**~~ | ✅ |
 | 2 | ~~**工具分级剪枝 + post_compact 重注入**~~ | ✅ |
 | 3 | ~~**transition_reason**~~ | ✅ |
-| 4 | **read_state + mtime** | 下一项 P0/P1 |
+| 4 | ~~**read_state + mtime**~~ | ✅ |
 | 4 | **read_state + mtime** | 触及 patch/write 全路径，需 fuzz/回归 |

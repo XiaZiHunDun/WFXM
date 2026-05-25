@@ -507,6 +507,9 @@ class ButlerMessageHandler:
 
                 reset_hook_telemetry(session_key)
                 reset_completion_telemetry(session_key)
+                from butler.core.read_state import reset_read_state
+
+                reset_read_state(session_key)
             except Exception:
                 pass
             return handle_new_session_command(self._orchestrator, session_key, loop)
