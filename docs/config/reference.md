@@ -63,6 +63,36 @@
 | `BUTLER_QUEUE_PREFETCH` | `1` 推荐：下轮预取缓存 |
 | `BUTLER_PREFETCH_*` | 预取字符上限与条数（见 `.env.example`） |
 
+## Agent Loop 线束（上下文 / 安全）
+
+> 设计说明：[`plans/cc-butler-gap-analysis-2026-05.md`](../plans/cc-butler-gap-analysis-2026-05.md) · [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_TOOL_RESULT_SPILL` | 1 | 超大 tool 结果落盘，上下文为 `<persisted-output>` |
+| `BUTLER_TOOL_RESULT_SPILL_MIN_CHARS` | 8192 | 落盘阈值 |
+| `BUTLER_TOOL_PRUNE_*` | 见 example | 按工具分级 micro 剪枝 |
+| `BUTLER_READ_BEFORE_EDIT` | 1 | patch/write 前须 read_file + mtime |
+| `BUTLER_DISABLE_AUTO_COMPACT` | 0 | `1` 关闭 LLM 摘要压缩 |
+| `BUTLER_CONTEXT_*` | — | 压缩阈值等（见 `.env.example`） |
+| `BUTLER_STREAMING_TOOLS` | 1 | 流式只读工具参数完整后预执行 |
+| `BUTLER_CACHE_SAFE_DELEGATE` | 1 | 委派子 loop 共享父 system 前缀 |
+| `BUTLER_CACHE_SAFE_SHARED_CHARS` | 4096 | 共享前缀最大字符 |
+
+## Gateway 线束（入站 / 出站）
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_GATEWAY_MESSAGE_QUEUE` | 1 | 忙会话非斜杠消息入队 |
+| `BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN` | 1 | 每轮最多 drain 条数 |
+| `BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE` | 1 | drain 正文单独微信（非拼主回复） |
+| `BUTLER_GATEWAY_COMPLETION_NOTIFY` | 1 | 长任务完成额外推送总开关 |
+| `BUTLER_GATEWAY_DELEGATE_COMPLETION_*` | — | 委派完成推送模式（见 `.env.example`） |
+| `BUTLER_TURN_TOKEN_BUDGET` | 1 | 句末 `+500k` / `/budget` 提高迭代上限 |
+| `BUTLER_TURN_BUDGET_*` | — | 预算数值（见 example） |
+
+Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → 下轮 `stop_hook_blocked`。运维与 H1–H10 见 [`guides/wechat-daily-smoke-checklist.md`](../guides/wechat-daily-smoke-checklist.md)。
+
 ## 冒烟 / 开发
 
 | 变量 | 说明 |

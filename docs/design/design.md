@@ -67,6 +67,11 @@ butler/
 │   ├── tool_batch.py          # 工具批次、envelope、guardrails
 │   ├── llm_retry.py           # LLM 重试、schema 恢复、failover
 │   ├── context_pipeline.py    # 压缩、hygiene、API 消息准备
+│   ├── tool_prune_policy.py   # 分级 micro 剪枝
+│   ├── tool_result_storage.py # 大工具结果落盘
+│   ├── read_state.py          # read-before-edit
+│   ├── streaming_tools.py     # 流式只读预取
+│   ├── cache_safe_delegate.py # 委派 prompt 前缀
 │   ├── parallel_tools.py      # 并行批调度
 │   ├── context_compressor.py  # 上下文压缩
 │   ├── message_repair.py      # 消息序列修复
@@ -77,7 +82,9 @@ butler/
 │   ├── providers.py / fallback.py / error_classifier.py
 │   └── schema_sanitizer.py
 ├── gateway/
-│   ├── message_handler.py     # 入站消息、斜杠命令、/health
+│   ├── message_handler.py     # 入站消息、斜杠命令、队列 drain、/health
+│   ├── message_queue.py       # 忙会话入站排队
+│   ├── outbound_bridge.py     # typing、ack、completion、supplementary
 │   └── session_registry.py    # session 生命周期与审计桶清理
 ├── tools/
 │   └── registry.py            # 工具注册、JSON envelope、审计
@@ -380,14 +387,18 @@ class AgentResult:
 
 ### 9.2 Claude Code 关键技术
 
-| 技术 | 描述 | 我们的借鉴 |
-|------|------|-----------|
-| 读后才能编辑 | readFileState + mtime 检查 | 实现 read_state 跟踪 |
-| 引号归一化 | 弯引号 ↔ 直引号 | 纳入模糊匹配策略 |
-| 流式工具执行 | 不等回复完成就开始执行 | 暂列为未来扩展 |
-| autocompact | 自适应上下文压缩 | 暂列为未来扩展 |
-| Prompt 缓存 | 静态前缀 / 动态后缀分离 | 已在架构中实现 |
-| 结构化 diff 反馈 | 编辑后返回 diff | 已在 edit_file 中实现 |
+| 技术 | 描述 | Butler v4 状态 |
+|------|------|----------------|
+| 读后才能编辑 | readFileState + mtime | ✅ `read_state.py`；`BUTLER_READ_BEFORE_EDIT` |
+| 引号归一化 | 弯引号 ↔ 直引号 | ✅ `patch` 模糊匹配 |
+| 流式工具执行 | 参数完整即执行只读工具 | ✅ `streaming_tools.py` + `BUTLER_STREAMING_TOOLS` |
+| 上下文 micro / auto | 分级剪枝 + 阈值 LLM 摘要 | ✅ `tool_prune_policy` + `context_pipeline` |
+| 大工具结果落盘 | persisted-output 指针 | ✅ `tool_result_storage.py` |
+| Prompt 缓存 | 静态前缀 / 动态后缀 | ✅ `cache_safe_delegate.py`（委派子 loop） |
+| 循环 transition | query 结束原因可观测 | ✅ `LoopTransitionReason` → `/诊断` |
+| 结构化 diff 反馈 | 编辑后返回 diff | ✅ patch 结果摘要 |
+
+详见 [`architecture/v4-architecture.md`](../architecture/v4-architecture.md) 与 [`plans/cc-butler-gap-analysis-2026-05.md`](../plans/cc-butler-gap-analysis-2026-05.md)。
 
 ---
 

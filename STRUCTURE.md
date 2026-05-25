@@ -22,7 +22,7 @@ WFXM/
 │   ├── config/                  #   config.yaml.example、reference.md
 │   ├── plans/                   #   整理方案、后续规划
 │   └── reviews/                 #   项目评估
-├── tests/                       #   默认 ~1093 passed（排除 live_llm）
+├── tests/                       #   默认 1200+ passed（排除 live_llm）
 ├── projects/                    #   LingWen1、DemoPilot 等工作区
 ├── logs/                        #   butler-gateway.log（gitignore *.log）
 ├── archive/                     #   README + Git 标签 archive/butler-v1-20260522
@@ -52,7 +52,8 @@ PYTHONPATH=. pytest -q
 |------|------|
 | [`README.md`](README.md) | 项目总览 |
 | [`docs/README.md`](docs/README.md) | 文档索引 |
-| [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | v4 架构 |
+| [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | v4 架构（含 P0–P2 线束） |
+| [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | CC 对照与 Loop 线束 |
 | [`docs/guides/wechat-gateway-ops.md`](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |
 | [`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟 |
 | [`tests/README.md`](tests/README.md) | 测试分层与守门命令 |

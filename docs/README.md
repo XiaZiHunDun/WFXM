@@ -7,7 +7,8 @@
 
 | 文档 | 说明 |
 |------|------|
-| [`architecture/v4-architecture.md`](architecture/v4-architecture.md) | **当前架构**：Loop 栈、Gateway、观测、测试规模 |
+| [`architecture/v4-architecture.md`](architecture/v4-architecture.md) | **当前架构**：Loop 栈、Gateway、P0–P2 线束、观测 |
+| [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) | Claude Code 对照与 P0–P2 落地状态 |
 | [`architecture/hermes-extraction-map.md`](architecture/hermes-extraction-map.md) | Hermes → Butler 提炼对照与验收状态 |
 | [`architecture/hermes-decoupling.md`](architecture/hermes-decoupling.md) | **解耦路线图**（目标：零 Hermes 黑盒依赖）|
 | [`architecture/project-lead-decision.md`](architecture/project-lead-decision.md) | **项目 Lead 架构决策**（莎丽门户 + 厂长主控，分阶段）|
@@ -37,7 +38,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q    # ~1092 passed
+PYTHONPATH=. pytest -q    # 1200+ passed（默认排除 live_llm / corpus 按需）
 
 # 微信网关 live（发版前可选）
 BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v

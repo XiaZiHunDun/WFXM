@@ -3,7 +3,7 @@
 多项目 AI 协助系统 —— 通过 CLI 或微信指挥 AI 管家管理和推进多个项目。
 
 **当前版本：Butler v4** — 自建 Agent Loop + 模块化 Hermes 提炼，不再 `import` Hermes `AIAgent`。  
-架构见 [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)；文档索引 [`docs/README.md`](docs/README.md)；目录说明 [`STRUCTURE.md`](STRUCTURE.md)。
+架构见 [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)；CC 能力对照 [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md)；文档索引 [`docs/README.md`](docs/README.md)；目录说明 [`STRUCTURE.md`](STRUCTURE.md)。
 
 ## 架构（v4 概要）
 
@@ -17,7 +17,8 @@
    Agent Loop (agent_loop.py)   ← 编排 ~300 行
          ├─ context_pipeline     ← 压缩 / hygiene
          ├─ llm_retry            ← 重试 / failover
-         ├─ tool_batch           ← 工具批次 / guardrails
+         ├─ tool_batch           ← 工具批次 / spill / guardrails
+         ├─ streaming_tools      ← 流式只读预取（可选）
          └─ Transport + Tools    ← LLM 协议与工具注册表
 ```
 
@@ -82,7 +83,7 @@ butler/
 ├── post_session.py
 └── main.py
 docs/                  # 架构与设计（索引 docs/README.md；后续规划见 docs/plans/post-consolidation-roadmap-2026-05.md）
-tests/                 # ~1093 自动化测试（v3 archive 已移除）
+tests/                 # 1200+ 自动化测试（v3 archive 已移除）
 scripts/               # 网关安装与 butler-gateway-ops 运维
 ```
 

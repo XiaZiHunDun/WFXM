@@ -70,6 +70,16 @@ BUTLER_GATEWAY_HANDLER_TIMEOUT=600    # 默认已 600s，委派/工作流可再�
 BUTLER_GATEWAY_HANDLER_WORKERS=2      # 长任务进行中仍可处理 /详细 等短命令（不同 worker）
 ```
 
+**Agent / Gateway 线束（上下文落盘、入站队列、流式预取）** — 默认多数开启，见 [`config/reference.md`](../config/reference.md) 与 [`plans/cc-butler-gap-analysis-2026-05.md`](../plans/cc-butler-gap-analysis-2026-05.md)：
+
+```bash
+BUTLER_TOOL_RESULT_SPILL=1
+BUTLER_GATEWAY_MESSAGE_QUEUE=1
+BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE=1
+BUTLER_STREAMING_TOOLS=1
+BUTLER_CACHE_SAFE_DELEGATE=1
+```
+
 **长任务完成提醒（出站推送，见 CONTRIBUTING § Gateway 长任务）** — 完整变量见仓库根 `.env.example`：
 
 ```bash

@@ -77,6 +77,7 @@ Shell hooks 示例：`butler/hooks/hooks.yaml.example`
 | 委派结束 | `delegate_task` 完成/失败 | `AgentReport` 微信摘要 |
 | 工作流结束 | `run_workflow` 完成 | 缓存的工作流报告 |
 | 整轮结束 | 主回复已发送且曾发过 ack | 简短「本轮已完成」 |
+| 入站队列 drain | 主回复已发且 `BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE=1` | 排队消息经 `schedule_supplementary_reply` **单独一条**（非拼进主回复） |
 
 环境变量：`BUTLER_GATEWAY_COMPLETION_NOTIFY`（总开关）、`BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS`（默认 90）、`BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY`、`BUTLER_GATEWAY_TURN_COMPLETION_NOTIFY`、`BUTLER_GATEWAY_WORKFLOW_COMPLETION_NOTIFY`。
 

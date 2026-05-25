@@ -24,11 +24,11 @@
 | 维度 | Claude Code | Butler v4 | 差距 |
 |------|-------------|-----------|------|
 | Agent 循环 | `query.ts` 状态机 + 明确 transition 原因 | `agent_loop.py` 模块化 while | **中** |
-| 上下文压缩 | 三层：micro → auto → session memory | 单层 LLM 摘要 + `prune_tool_outputs` | **大**（见 §4 核验） |
-| 工具结果 | 超大结果落盘 + 模型按需 Read | 截断/剪枝到 ~800 字符 | **大** |
+| 上下文压缩 | 三层：micro → auto → session memory | 分级 micro + 阈值 auto + post_compact 锚点 | **小**（无 CC session memory 文件） |
+| 工具结果 | 超大结果落盘 + 模型按需 Read | `tool_result_storage` + 分级剪枝 | **小** |
 | 工具执行 | 流式并行 `StreamingToolExecutor` | 流式只读预取 + `parallel_tools` | **小**（只读类） |
-| 运行中输入 | 优先级队列 now/next/later + QueryGuard | `/steer` 注入 tool 结果 | **中** |
-| 读后再改 | readFileState + mtime | `design.md` 规划，**未实现** | **大** |
+| 运行中输入 | 优先级队列 now/next/later + QueryGuard | `message_queue` + `/steer` | **小** |
+| 读后再改 | readFileState + mtime | `read_state.py` | **已对齐** |
 | 权限 | 规则引擎 + LLM classifier | plan mode + owner gate + 工具开关 | **中** |
 | 记忆 | CLAUDE.md + memdir | 分层 memory + post_session | **Butler 更强**（多项目） |
 | 子 Agent | `runAgent()` + cache-safe fork | TaskOrchestrator + `delegate_task` | 各有优势 |

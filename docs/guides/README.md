@@ -13,6 +13,8 @@
 | [dev-tools-ops.md](./dev-tools-ops.md) | **开发操作工具**：terminal / git / env 与 Runtime 分工 |
 | [project-onboarding.md](./project-onboarding.md) | **项目接入**：preflight 体检、模板、登记收尾与微信验收 |
 | [../plans/consolidation-2026-05.md](../plans/consolidation-2026-05.md) | 仓库整理（P0–P2 已完成） |
+| [../plans/cc-butler-gap-analysis-2026-05.md](../plans/cc-butler-gap-analysis-2026-05.md) | CC↔Butler Loop 线束 P0–P2 |
+| [../config/reference.md](../config/reference.md) | `BUTLER_*` 含线束与 Gateway 变量 |
 | [../plans/post-consolidation-roadmap-2026-05.md](../plans/post-consolidation-roadmap-2026-05.md) | **后续规划** |
 | [../reviews/project-assessment-2026-05.md](../reviews/project-assessment-2026-05.md) | 成熟度评估 |
 | [../config/reference.md](../config/reference.md) | BUTLER_* 环境变量速查 |
