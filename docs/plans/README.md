@@ -24,6 +24,7 @@
 | OpenCode 对标 | P0–P2 已落地（SQLite 全量模型仍暂缓） |
 | MCP P3 | 薄 Client + 诊断 + `butler mcp serve`（默认关闭） |
 | OpenClaw OC-P0–P2 | 前置压缩 / AGENTS 节回灌 / 工具环 / Gateway 准入 / `butler doctor`（**已落地**） |
+| OpenClaw OC-P3 子集 | transcript 索引 / 出站延迟 / 记忆离线 cron / hook fail-closed（**已落地**） |
 | 产品后续 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) |
 
 ## 活跃参考

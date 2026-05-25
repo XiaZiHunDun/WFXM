@@ -11,6 +11,8 @@ def run_builtin(handler: str, workspace: Path) -> dict[str, Any]:
     name = (handler or "").strip()
     if name == "builtin:workflow_state_digest":
         return _workflow_state_digest(workspace)
+    if name == "builtin:memory_offline_consolidate":
+        return _memory_offline_consolidate(workspace)
     raise ValueError(f"Unknown builtin handler: {handler}")
 
 
@@ -47,6 +49,42 @@ def _workflow_state_digest(workspace: Path) -> dict[str, Any]:
     return {
         "success": True,
         "stdout": summary,
+        "stderr": "",
+        "summary": summary,
+    }
+
+
+def _memory_offline_consolidate(workspace: Path) -> dict[str, Any]:
+    """Prune stale conversation experience rows (OpenClaw memory-dreaming subset)."""
+    import os
+
+    from butler.config import get_butler_home
+    from butler.memory.butler_memory import ButlerMemory
+
+    raw = os.getenv("BUTLER_EXPERIENCE_PRUNE_DAYS", "30").strip()
+    if raw in ("0", "off", "false", "no"):
+        return {
+            "success": True,
+            "stdout": "BUTLER_EXPERIENCE_PRUNE_DAYS=0，跳过 experience 修剪",
+            "stderr": "",
+            "summary": "记忆离线整理：已跳过（修剪关闭）",
+        }
+    try:
+        days = float(raw)
+    except ValueError:
+        days = 30.0
+
+    mem = ButlerMemory(get_butler_home())
+    removed = mem.experience.prune_conversation_older_than(days)
+    lines = [
+        f"workspace: {workspace}",
+        f"pruned_conversation_rows: {removed}",
+        f"max_age_days: {days}",
+    ]
+    summary = f"记忆离线整理：删除 {removed} 条过期 conversation 经验（>{days:.0f} 天）"
+    return {
+        "success": True,
+        "stdout": "\n".join(lines),
         "stderr": "",
         "summary": summary,
     }

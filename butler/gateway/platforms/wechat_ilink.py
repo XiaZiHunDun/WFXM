@@ -1799,8 +1799,14 @@ class WeChatAdapter(ButlerPlatformAdapter):
                     client_id=client_id,
                 )
                 last_message_id = client_id
-                if idx < len(chunks) - 1 and self._send_chunk_delay_seconds > 0:
-                    await asyncio.sleep(self._send_chunk_delay_seconds)
+                if idx < len(chunks) - 1:
+                    from butler.gateway.outbound_delay import inter_chunk_delay_seconds
+
+                    delay = inter_chunk_delay_seconds(
+                        fallback_seconds=self._send_chunk_delay_seconds,
+                    )
+                    if delay > 0:
+                        await asyncio.sleep(delay)
             return SendResult(success=True, message_id=last_message_id)
         except Exception as exc:
             logger.error("[%s] send failed to=%s: %s", self.name, _safe_id(chat_id), exc)

@@ -357,8 +357,15 @@ def run_subagent_stop_hooks(
             )
 
 
+def _pre_tool_hook_fail_closed() -> bool:
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_HOOK_FAIL_CLOSED", default=False)
+
+
 def run_pre_tool_hooks(tool_name: str, args: dict[str, Any]) -> str | None:
     """Run PreToolUse hooks. Return error string to block tool, or None to continue."""
+    fail_closed = _pre_tool_hook_fail_closed()
     for rule in _rules_for_event("PreToolUse"):
         if not match_tool(rule.matcher, tool_name):
             continue
@@ -366,8 +373,10 @@ def run_pre_tool_hooks(tool_name: str, args: dict[str, Any]) -> str | None:
             rule,
             _hook_payload("PreToolUse", tool_name, args),
         )
-        if code == 2:
+        if code == 2 or (fail_closed and code not in (0, None)):
             msg = (err or out or "Hook blocked tool execution").strip()
+            if fail_closed and code not in (0, None, 2):
+                msg = msg or f"PreToolUse hook exited with code {code}"
             return msg[:2000] or "Hook blocked tool execution"
         if code != 0 and code is not None:
             logger.warning("PreToolUse hook exit %s for %s: %s", code, tool_name, err or out)

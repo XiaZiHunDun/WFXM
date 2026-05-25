@@ -42,6 +42,29 @@ def test_pre_tool_hook_blocks_on_exit_2(tmp_path, monkeypatch):
     assert msg and "blocked" in msg
 
 
+def test_pre_tool_hook_fail_closed_blocks_nonzero(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    monkeypatch.setenv("BUTLER_HOOK_FAIL_CLOSED", "1")
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    hook = tmp_path / "warn.sh"
+    hook.write_text('#!/bin/sh\necho soft-fail 1>&2\nexit 1\n', encoding="utf-8")
+    hooks_dir = tmp_path / ".butler"
+    hooks_dir.mkdir(exist_ok=True)
+    (hooks_dir / "hooks.yaml").write_text(
+        f"""hooks:
+  PreToolUse:
+    - matcher: read_file
+      command: sh {hook}
+""",
+        encoding="utf-8",
+    )
+
+    msg = run_pre_tool_hooks("read_file", {"path": "x"})
+    assert msg and "soft-fail" in msg
+
+
 def test_user_prompt_submit_blocks_on_exit_2(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     from butler.config import reload_butler_settings

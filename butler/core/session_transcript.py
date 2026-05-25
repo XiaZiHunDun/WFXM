@@ -47,8 +47,15 @@ def _append_line(path: Path, entry: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(entry, ensure_ascii=False) + "\n"
     with _LOCK:
+        offset = path.stat().st_size if path.is_file() else 0
         with path.open("a", encoding="utf-8") as fh:
             fh.write(line)
+        try:
+            from butler.core.transcript_index import update_index_after_append
+
+            update_index_after_append(path, line_byte_offset=offset, line_len=len(line.encode("utf-8")))
+        except Exception:
+            pass
         if path.stat().st_size > transcript_max_bytes():
             _tombstone_tail(path)
 
@@ -69,6 +76,9 @@ def _tombstone_tail(path: Path) -> None:
     }
     tail = lines[-keep:]
     try:
+        from butler.core.transcript_index import invalidate_index
+
+        invalidate_index(path)
         with path.open("w", encoding="utf-8") as fh:
             fh.write(json.dumps(marker, ensure_ascii=False) + "\n")
             for ln in tail:
@@ -206,6 +216,12 @@ def record_queue_drop(session_key: str, reason: str, count: int = 1) -> None:
 
 def load_transcript_tail(session_key: str, *, max_lines: int = 50) -> list[dict[str, Any]]:
     path = transcript_path(session_key)
+    try:
+        from butler.core.transcript_index import load_tail_rows
+
+        return load_tail_rows(path, max_lines=max(1, int(max_lines)))
+    except Exception:
+        pass
     if not path.is_file():
         return []
     try:

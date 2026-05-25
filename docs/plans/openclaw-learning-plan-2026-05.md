@@ -50,11 +50,17 @@
 
 ---
 
-## 4. 仍暂缓（OC-P3）
+## 4. OC-P3（已落地子集）
 
-- Transcript 异步索引（jsonl 未超阈值则不做）
-- 出站 human delay、memory dreaming cron
+| 项 | 模块 | 配置 |
+|----|------|------|
+| Transcript 尾索引 | `butler/core/transcript_index.py` | `BUTLER_TRANSCRIPT_INDEX_MIN_BYTES`（默认 256KiB 起用） |
+| 出站分块延迟 | `butler/gateway/outbound_delay.py` | `BUTLER_OUTBOUND_BLOCK_DELAY_MS`（随机抖动；未设则用 `WECHAT_SEND_CHUNK_DELAY_SECONDS`） |
+| 记忆离线整理 | `builtin:memory_offline_consolidate` | `BUTLER_EXPERIENCE_PRUNE_DAYS`；示例 job `memory-offline-weekly`（默认 `enabled: false`） |
+| Hook fail-closed | `hooks/runner.py` PreToolUse | `BUTLER_HOOK_FAIL_CLOSED=1`（非 0 退出即阻断） |
+
+**仍不做**：通用 Context engine 可插拔 registry（与 Butler 双路径 preemptive/post-compact 重复）。
 
 ---
 
-*对照完成：2026-05*
+*对照完成：2026-05；OC-P3 子集：2026-05-25*

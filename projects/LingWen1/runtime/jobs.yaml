@@ -22,6 +22,18 @@ jobs:
       on_failure: true
       max_summary_chars: 1200
 
+  # 离线记忆卫生：修剪过期 conversation 经验（OC-P3；默认关闭，启用后每周日 03:00）
+  - id: memory-offline-weekly
+    description: 修剪 ~/.butler 下过期的 conversation 经验行（只读，不改项目盘）
+    schedule: "0 3 * * 0"
+    mode: readonly
+    enabled: false
+    handler: builtin:memory_offline_consolidate
+    notify:
+      on_success: true
+      on_failure: true
+      max_summary_chars: 600
+
   - id: factory-status-daily
     description: workflow_state.json 日报摘要
     schedule: "0 8 * * *"
