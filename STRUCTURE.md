@@ -1,6 +1,7 @@
 # 仓库目录结构
 
 > Butler v4：**仅微信**消息网关（`butler gateway --platforms wechat`）。  
+> **Cursor / Agent**：新会话先读 [`AGENTS.md`](AGENTS.md)（事实来源与易错点）。  
 > **`reference/`**：主公维护的外部竞品/标本对照区（gitignore），**整理方案不修改此目录**。
 
 ```

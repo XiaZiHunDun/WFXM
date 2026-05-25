@@ -1,0 +1,13 @@
+---
+description: 修改 butler/ Python 时的模块约定
+globs: butler/**/*.py
+alwaysApply: false
+---
+
+# butler/ Python 约定
+
+- 新 Loop 能力放进 `butler/core/` 子模块，避免把 `agent_loop.py` 撑回单体。
+- 工具实现与委派在 `butler/tools/registry.py`；写路径前考虑 `read_state`（`BUTLER_READ_BEFORE_EDIT`）。
+- Gateway 副作用（第二条微信、completion）放在 `gateway/`，不要塞进 `agent_loop`。
+- 线程局部上下文：`butler/execution_context.py`、`delegate_context.py`。
+- 与 CC 差距相关的开关见 `cc-butler-gap-analysis-2026-05.md` 与 `config/reference.md`。

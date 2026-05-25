@@ -65,8 +65,10 @@ reference/
 # Local vendor copies (not part of product; use reference/ for Hermes diff)
 vendor/
 
-# Cursor
-.cursor/
+# Cursor（本地状态忽略；团队共享规则纳入版本库）
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 MagicMock/
 # Accidental pytest mock path leaks at repo root
 <MagicMock*

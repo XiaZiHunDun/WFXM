@@ -1,6 +1,7 @@
 # Butler 文档索引
 
 > 更新：2026-05-22 | 当前主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
+> **Cursor 新会话**：先读仓库根 [`../AGENTS.md`](../AGENTS.md)  
 > 仓库目录：[`../STRUCTURE.md`](../STRUCTURE.md) · 指南：[`guides/README.md`](guides/README.md)
 
 ## 推荐阅读顺序
