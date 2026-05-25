@@ -27,6 +27,8 @@ class AgentReport:
     tool_calls: int = 0
     tokens_used: int = 0
     elapsed_seconds: float = 0.0
+    failed_steps: list[str] = field(default_factory=list)
+    step_outcomes: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -45,6 +47,8 @@ class AgentReport:
             "tool_calls": self.tool_calls,
             "tokens_used": self.tokens_used,
             "elapsed_seconds": self.elapsed_seconds,
+            "failed_steps": list(self.failed_steps),
+            "step_outcomes": dict(self.step_outcomes),
         }
 
     @classmethod
@@ -74,6 +78,12 @@ class AgentReport:
             success=bool(raw.get("success", True)),
             task_preview=str(raw.get("task_preview", "") or ""),
             task_id=str(raw.get("task_id", "") or ""),
+            failed_steps=[str(x) for x in (raw.get("failed_steps") or [])],
+            step_outcomes={
+                str(k): str(v)
+                for k, v in (raw.get("step_outcomes") or {}).items()
+                if isinstance(raw.get("step_outcomes"), dict)
+            },
         )
 
 
@@ -226,6 +236,19 @@ def format_detail(report: AgentReport, section: str = "") -> str:
         parts.append("需关注:")
         for issue in report.issues:
             parts.append(f"  ! {issue}")
+
+    if report.step_outcomes:
+        parts.append("")
+        parts.append("工作流步骤:")
+        for step_id, outcome in report.step_outcomes.items():
+            label = {
+                "ok": "成功",
+                "fail": "失败",
+                "approval_pending": "待确认",
+            }.get(outcome, outcome)
+            parts.append(f"  - {step_id}: {label}")
+        if report.failed_steps:
+            parts.append(f"  失败/等待: {', '.join(report.failed_steps)}")
 
     stats = []
     if report.iterations > 0:

@@ -352,7 +352,8 @@ class TaskOrchestrator:
                 if node.requires_approval and on_approval:
                     if not on_approval(node):
                         completed[node_id] = AgentResult(
-                            success=False, error="Approval denied"
+                            success=False,
+                            error="workflow_step_approval_pending",
                         )
                         continue
 
@@ -369,17 +370,23 @@ class TaskOrchestrator:
                         on_progress(nid, "start", node.config.role)
                     except Exception as exc:
                         logger.debug("graph on_progress start: %s", exc)
-                result = _coerce_agent_result(
-                    await self._run_with_retry(node, on_progress=on_progress)
-                )
+                from butler.execution_context import use_workflow_step
+
+                with use_workflow_step(nid):
+                    result = _coerce_agent_result(
+                        await self._run_with_retry(node, on_progress=on_progress)
+                    )
                 completed[nid] = result
                 graph_result.execution_order.append(nid)
             else:
+                from butler.execution_context import use_workflow_step
+
+                async def _run_one(n: TaskNode) -> AgentResult:
+                    with use_workflow_step(n.id):
+                        return await self._run_with_retry(n, on_progress=on_progress)
+
                 parallel_results = await asyncio.gather(
-                    *[
-                        self._run_with_retry(node, on_progress=on_progress)
-                        for _, node in layer_tasks
-                    ],
+                    *[_run_one(node) for _, node in layer_tasks],
                     return_exceptions=True,
                 )
                 for (nid, _), result in zip(layer_tasks, parallel_results):

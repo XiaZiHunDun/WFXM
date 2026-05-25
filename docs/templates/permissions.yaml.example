@@ -15,4 +15,20 @@ rules:
   # - tool: read_file
   #   path: "secrets/*"
   #   action: ask
-  #   reason: 敏感路径需人工确认
+  #   reason: 敏感路径需人工确认（回复「确认」或「取消」）
+
+# 工作流 DAG 步骤级工具白名单（P2）：仅当 TaskOrchestrator 执行该 step_id 时生效
+workflow_steps:
+  dev_write:
+    tools:
+      - read_file
+      - write_file
+      - patch
+      - search_files
+  review:
+    tools:
+      - read_file
+      - search_files
+
+# 工作流步骤人工确认：在 workflow YAML 中为 step 设置 requires_approval: true
+# 微信回复「确认」后再次 /workflow <name> 继续

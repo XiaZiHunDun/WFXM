@@ -244,6 +244,15 @@ class ButlerMessageHandler:
         if not text.strip():
             return ""
 
+        try:
+            from butler.human_gate import resolve_human_gate_message
+
+            gate_reply = resolve_human_gate_message(session_key, text)
+            if gate_reply is not None:
+                return gate_reply
+        except Exception:
+            pass
+
         from butler.gateway.hooks import apply_pre_gateway_dispatch
         rewritten = apply_pre_gateway_dispatch(text, session_key=session_key, platform=platform)
         if rewritten is not None:
@@ -649,6 +658,16 @@ class ButlerMessageHandler:
 
             return apply_queue_command(session_key, arg)
 
+        if cmd in ("/确认", "/approve"):
+            from butler.human_gate import resolve_human_gate_message
+
+            return resolve_human_gate_message(session_key, "确认") or "当前没有待确认的工作流步骤。"
+
+        if cmd in ("/取消", "/cancel"):
+            from butler.human_gate import resolve_human_gate_message
+
+            return resolve_human_gate_message(session_key, "取消") or "当前没有待确认的工作流步骤。"
+
         if cmd in ("/budget", "/预算"):
             from butler.core.turn_token_budget import parse_token_budget_text
 
@@ -685,10 +704,12 @@ class ButlerMessageHandler:
                 from butler.core.read_state import reset_read_state
                 from butler.gateway.message_queue import reset_queue
                 from butler.gateway.queue_settings import clear_session_override
+                from butler.human_gate import clear_session_gates
 
                 reset_read_state(session_key)
                 reset_queue(session_key)
                 clear_session_override(session_key)
+                clear_session_gates(session_key)
             except Exception:
                 pass
             return handle_new_session_command(self._orchestrator, session_key, loop)
@@ -979,6 +1000,10 @@ def _is_sessionless_command(text: str) -> bool:
         "/steer",
         "/指引",
         "/queue",
+        "/确认",
+        "/approve",
+        "/取消",
+        "/cancel",
         "/new",
         "/新对话",
         "/detail",

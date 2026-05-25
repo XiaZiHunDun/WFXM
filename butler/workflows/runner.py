@@ -108,8 +108,23 @@ class WorkflowRunner:
         nodes = self.build_nodes(workflow, user_hint=user_hint, session_key=session_key)
         total_steps = len(nodes)
         progress_cb = _workflow_progress_callback(workflow.name, total_steps)
+        needs_approval = any(n.requires_approval for n in nodes)
+
+        def _on_approval(node: TaskNode) -> bool:
+            from butler.human_gate import check_workflow_step_approval
+
+            return check_workflow_step_approval(
+                session_key or "workflow",
+                workflow.name,
+                node.id,
+            )
+
         with use_execution_context(orch, session_key=session_key or "workflow"):
-            graph = await self._tasks.execute_graph(nodes, on_progress=progress_cb)
+            graph = await self._tasks.execute_graph(
+                nodes,
+                on_progress=progress_cb,
+                on_approval=_on_approval if needs_approval else None,
+            )
         self._cache_workflow_report(workflow, graph, session_key=session_key)
         return graph
 
@@ -141,19 +156,35 @@ class WorkflowRunner:
     ) -> None:
         ok = sum(1 for r in graph.nodes.values() if r.success)
         total = len(graph.nodes)
-        headline = (
-            f"工作流 {workflow.name} 完成 ({ok}/{total} 步成功)"
-            if graph.success
-            else f"工作流 {workflow.name} 未完全成功 ({ok}/{total} 步)"
-        )
+        failed_steps: list[str] = []
+        step_outcomes: dict[str, str] = {}
         summary_parts = []
         for step_id in graph.execution_order:
             result = graph.nodes.get(step_id)
             if result is None:
                 continue
-            status = "OK" if result.success else "FAIL"
+            if result.success:
+                step_outcomes[step_id] = "ok"
+                status = "OK"
+            elif (result.error or "") == "workflow_step_approval_pending":
+                step_outcomes[step_id] = "approval_pending"
+                failed_steps.append(step_id)
+                status = "WAIT"
+            else:
+                step_outcomes[step_id] = "fail"
+                failed_steps.append(step_id)
+                status = "FAIL"
             snippet = (result.response or result.error or "")[:400]
+            if snippet == "workflow_step_approval_pending":
+                snippet = "等待人工确认"
             summary_parts.append(f"[{step_id}] {status}: {snippet}")
+        headline = (
+            f"工作流 {workflow.name} 完成 ({ok}/{total} 步成功)"
+            if graph.success
+            else f"工作流 {workflow.name} 未完全成功 ({ok}/{total} 步)"
+        )
+        if any(v == "approval_pending" for v in step_outcomes.values()):
+            headline += "（有待确认步骤）"
         if graph.error:
             summary_parts.append(f"图错误: {graph.error}")
         cache_report(
@@ -162,6 +193,8 @@ class WorkflowRunner:
                 summary="\n".join(summary_parts),
                 success=graph.success,
                 task_preview=f"workflow:{workflow.name}"[:200],
+                failed_steps=failed_steps,
+                step_outcomes=step_outcomes,
             ),
             session_key=session_key,
         )
@@ -180,7 +213,16 @@ class WorkflowRunner:
             lines.append(f"{mark} {step_id}: {detail or '(无输出)'}")
         if graph.error:
             lines.append(f"备注: {graph.error}")
-        lines.append("回复「详细」查看结构化报告。")
+        if any(
+            (graph.nodes.get(sid) and (graph.nodes[sid].error or "") == "workflow_step_approval_pending")
+            for sid in graph.execution_order
+        ):
+            from butler.human_gate import format_pending_hint
+
+            hint = format_pending_hint(session_key)
+            if hint:
+                lines.append(hint)
+        lines.append("回复「/详细」查看结构化报告。")
         return "\n".join(lines)
 
 

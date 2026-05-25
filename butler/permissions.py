@@ -52,6 +52,35 @@ def _match_glob(pattern: str, value: str) -> bool:
     return value == pat
 
 
+def evaluate_workflow_step_permission(
+    tool_name: str,
+    step_id: str,
+    *,
+    workspace: Path | None = None,
+) -> PermissionDecision | None:
+    """Step-level tool whitelist from ``workflow_steps`` in permissions.yaml."""
+    if not step_id.strip():
+        return None
+    cfg = _load_permissions_yaml(workspace)
+    steps_cfg = cfg.get("workflow_steps")
+    if not isinstance(steps_cfg, dict):
+        return None
+    step_rules = steps_cfg.get(step_id)
+    if step_rules is None:
+        return None
+    allowed = step_rules.get("tools") if isinstance(step_rules, dict) else step_rules
+    if not isinstance(allowed, list) or not allowed:
+        return None
+    allowed_set = {str(t).strip() for t in allowed if str(t).strip()}
+    if tool_name in allowed_set:
+        return PermissionDecision(allowed=True, action="allow", reason="workflow step allowlist")
+    return PermissionDecision(
+        allowed=False,
+        action="deny",
+        reason=f"步骤 {step_id} 仅允许工具: {', '.join(sorted(allowed_set))}",
+    )
+
+
 def evaluate_permission(
     tool_name: str,
     args: dict[str, Any],
@@ -109,6 +138,21 @@ def check_project_permission_block(
         workspace = Path(proj.workspace)
     except Exception:
         return None
+
+    try:
+        from butler.execution_context import get_current_workflow_step
+
+        step_id = get_current_workflow_step()
+        if step_id:
+            step_decision = evaluate_workflow_step_permission(
+                tool_name,
+                step_id,
+                workspace=workspace,
+            )
+            if step_decision is not None and not step_decision.allowed:
+                return step_decision.reason
+    except Exception:
+        pass
 
     decision = evaluate_permission(tool_name, args, workspace=workspace)
     if decision is None or decision.allowed:

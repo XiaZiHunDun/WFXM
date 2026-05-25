@@ -1,6 +1,6 @@
 # 外部项目学习规划（Butler v4）
 
-> **状态**：P0/P1 已落地（2026-05-25）；P2 编排/权限按需  
+> **状态**：P0–P2 已落地（2026-05-25，零依赖）  
 > **触发**：[`reference/待学习项目.md`](../../reference/待学习项目.md) 泛清单筛选 + Butler 现状对照  
 > **原则**：**只借鉴设计、零新增依赖**（不引入 `prometheus-client`、消息中间件客户端、Dify/OpenClaw 运行时）；在现有 Python 标准库 + Butler 模块内落地。  
 > **主学习线**：Claude Code（[`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)）  
@@ -179,7 +179,7 @@ drain: message_handler 回合结束拼回主回复
 | **P0** | Prometheus **模型** | `runtime_metrics` + `/诊断` 增强 | `test_runtime_metrics.py` |
 | **P1** | OpenClaw **queue** | cap / drop / collect / `/queue` 命令 | `test_message_queue.py` 扩展 |
 | **P1b** | OpenClaw **session** | transcript 事件 + registry 文档 | `test_cc_p3_p4` transcript |
-| **P2** | Dify **DAG 思想** | TaskOrchestrator 步骤失败 + permissions 步骤白名单 | `test_permissions.py` / orchestrator |
+| **P2** ✅ | Dify **DAG 思想** | `workflow_steps` 白名单、`human_gate` 确认、`AgentReport.step_outcomes` | `test_p2_workflow_permissions.py` |
 
 ---
 

@@ -18,6 +18,10 @@ _current_session_key: ContextVar[str] = ContextVar(
     "butler_current_session_key",
     default="",
 )
+_current_workflow_step: ContextVar[str] = ContextVar(
+    "butler_current_workflow_step",
+    default="",
+)
 
 
 def get_current_orchestrator() -> "ButlerOrchestrator | None":
@@ -28,6 +32,21 @@ def get_current_orchestrator() -> "ButlerOrchestrator | None":
 def get_current_session_key() -> str:
     """Return the external session key bound to the current turn, if any."""
     return _current_session_key.get()
+
+
+def get_current_workflow_step() -> str:
+    """Active workflow step id during DAG node execution (for step-level permissions)."""
+    return str(_current_workflow_step.get() or "").strip()
+
+
+@contextmanager
+def use_workflow_step(step_id: str) -> Iterator[None]:
+    """Bind workflow step id for tool permission checks in orchestrator nodes."""
+    token = _current_workflow_step.set(str(step_id or "").strip())
+    try:
+        yield
+    finally:
+        _current_workflow_step.reset(token)
 
 
 @contextmanager
