@@ -32,8 +32,14 @@
 | **autoresearch 对照报告** | [`autoresearch-butler-comparison-report-2026-05.md`](autoresearch-butler-comparison-report-2026-05.md) | 实验组织 **已落地**；通宵/自动 commit 见 [out-of-scope](four-reports-out-of-scope-2026-05.md) |
 | **browser-use 对照报告** | [`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md) | Loop 减熵 **已落地**；CDP/截图见 [out-of-scope](four-reports-out-of-scope-2026-05.md) |
 | **RAGFlow 对照报告** | [`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md) | 检索增强 **已落地**；全栈嵌入见 [out-of-scope](four-reports-out-of-scope-2026-05.md) |
+| **TradingAgents 对照报告** | [`tradingagents-butler-comparison-report-2026-05.md`](tradingagents-butler-comparison-report-2026-05.md) | 多智能体流水线 / outcome 反思 / 阶段清上下文；LangGraph/行情 **不做** |
+| **CC Switch 对照报告** | [`cc-switch-butler-analysis-2026-05.md`](cc-switch-butler-analysis-2026-05.md) | 桌面配置台 ↔ Butler：供应商熔断/会话/MCP·Skill SSOT；**阶段一/二/三**（与 CC 线束 P0–P4 无关） |
+| **LobeHub 对照报告** | [`lobehub-butler-comparison-report-2026-05.md`](lobehub-butler-comparison-report-2026-05.md) | LobeHub ↔ Butler 全量对照 + P0–P2 提炼（技能市场 REG-P4 **已落地**；Loop/UI/MCP Host **不做**） |
 | **四报告合并路线图** | [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) | 统一收敛 DESIGN / 实验组织 / Loop 减熵 / RAG（**已落地** §9） |
 | **四报告明确不做** | [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | 18 项否决能力 + 原因 + 替代方案（**新增需求前必读**） |
+| **五报告合并路线图** | [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) | claude-mem / cc-switch / PEG / TradingAgents / LobeHub → 主线 **F–J**、PR-F1–F6（**规划中**） |
+| **claude-mem 对照报告** | [`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md) | 记忆渐进披露 / observer；见五报告 **主线 F** |
+| **PEG 对照报告** | [`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md) | Prompt 纪律 / 事实性；见五报告 **主线 H** |
 
 ## 当前状态（2026-05-25）
 
@@ -46,6 +52,7 @@
 | Prompt Corpus 阶段 D/E | **已落地**；验收 [`../guides/phase-d-prompt-corpus.md`](../guides/phase-d-prompt-corpus.md) |
 | 四报告 Sprint A–D | **已落地**；验收 [`../guides/sprint-roadmap-2026-05.md`](../guides/sprint-roadmap-2026-05.md) |
 | 四报告合并路线图 PR1–PR6 | **已落地**；速查 [`../guides/four-reports-capabilities-2026-05.md`](../guides/four-reports-capabilities-2026-05.md)、§9 [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) |
+| 五报告合并路线图 PR-F1–F6 | **规划中**；[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §9 |
 | Codex Sprint C0–C2 | **已落地**；`pytest tests/test_sprint_codex_c0.py tests/test_sprint_codex_c1.py tests/test_sprint_codex_c2.py` |
 | OpenCode 对标 | P0–P2 已落地（SQLite 全量模型仍暂缓） |
 | MCP P3 | 薄 Client + 诊断 + `butler mcp serve`（默认关闭） |
@@ -59,6 +66,7 @@
 | 文档 | 用途 |
 |------|------|
 | [`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md) | 改 Loop/Gateway 前先看对照与落地状态 |
+| [`cc-switch-butler-analysis-2026-05.md`](cc-switch-butler-analysis-2026-05.md) | CC Switch（`reference/cc-switch`）运维/配置层提炼；与 gap 文档 Loop 项不重复 |
 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) | 灵文运营、多项目、语料 |
 | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | 外部项目学习记录（**已关闭**） |
 | [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | OpenCode 对标（**已落地 P0–P1**） |
@@ -81,8 +89,13 @@
 | [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | 18 项明确不做（新增需求前必读） |
 | [`../guides/sprint-roadmap-2026-05.md`](../guides/sprint-roadmap-2026-05.md) | Sprint A–D 验收与内置工作流索引 |
 | [`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md) | RAGFlow ↔ Butler；RF-P0–P2 **子集已落地**（全栈见 out-of-scope） |
+| [`tradingagents-butler-comparison-report-2026-05.md`](tradingagents-butler-comparison-report-2026-05.md) | TradingAgents ↔ Butler；**主线 I**（见五报告路线图 §3–§4） |
 | [`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md) | browser-use；Loop 减熵 **已落地**（主线 B） |
 | [`codex-butler-comparison-2026-05.md`](codex-butler-comparison-2026-05.md) | Codex ↔ Butler；C0–C2 **已落地** |
+| [`lobehub-butler-comparison-report-2026-05.md`](lobehub-butler-comparison-report-2026-05.md) | LobeHub ↔ Butler；**主线 J**（技能市场已落地）；见五报告路线图 |
+| [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) | 五份报告统一路线图（**规划中**）；与四报告正交 |
+| [`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md) | claude-mem ↔ Butler；**主线 F** |
+| [`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md) | PEG ↔ Butler；**主线 H** |
 
 ## 归档 / 专项（按需打开）
 

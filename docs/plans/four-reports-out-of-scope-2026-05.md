@@ -91,3 +91,10 @@ Butler v4 是 **微信管家 + 多项目自建 Agent Loop**，不是浏览器自
 
 - 四报告路线图若新增「不做」项，须同步更新 **§2 总表**。
 - 若实现某条原「不做」能力，从表中删除并注明替代方案废弃日期。
+
+---
+
+## 7. 五报告增量「不做」（索引）
+
+claude-mem / cc-switch / PEG / TradingAgents / LobeHub 特有否决项（S1–S11）见 [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §6。  
+**本文 §2 总表优先**；五报告仅补充未在四报告中单列的边界。
