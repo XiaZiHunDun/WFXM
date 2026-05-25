@@ -258,6 +258,25 @@ class AgentLoop:
                 self.diagnostics["stop_hook_context"] = list(
                     stop_hooks.additional_context
                 )
+            if stop_hooks.blocked:
+                self.diagnostics["stop_hook_blocked"] = True
+                msg = (stop_hooks.block_message or "").strip()
+                if msg:
+                    result = LoopResult(
+                        status=result.status,
+                        transition_reason=LoopTransitionReason.STOP_HOOK_BLOCKED.value,
+                        final_response=msg,
+                        reasoning=result.reasoning,
+                        messages=result.messages,
+                        iterations=result.iterations,
+                        total_tokens=result.total_tokens,
+                        tool_calls_made=result.tool_calls_made,
+                        elapsed_seconds=result.elapsed_seconds,
+                        diagnostics=dict(self.diagnostics),
+                    )
+                    self.diagnostics["loop_transition_reason"] = (
+                        LoopTransitionReason.STOP_HOOK_BLOCKED.value
+                    )
         except Exception as exc:
             logger.debug("Stop hooks skipped: %s", exc)
         return result

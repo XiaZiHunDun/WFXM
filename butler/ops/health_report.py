@@ -158,6 +158,21 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
     )
     if trans:
         lines.append(f"上轮循环结束: {trans}")
+    if loop.get("stop_hook_blocked"):
+        lines.append("Stop 钩子: 已阻断收尾")
+    if (health or {}).get("turn_token_budget"):
+        lines.append(
+            f"上轮 token 预算: {(health or {})['turn_token_budget']:,} "
+            f"(max_iter={(health or {}).get('turn_max_iterations', '-')})"
+        )
+    try:
+        from butler.gateway.message_queue import pending_count
+
+        pending = pending_count(session_key)
+        if pending:
+            lines.append(f"入站队列待发: {pending} 条")
+    except Exception:
+        pass
     stop_ctx = loop.get("stop_hook_context") if isinstance(loop, dict) else None
     if stop_ctx:
         if isinstance(stop_ctx, list):

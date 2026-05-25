@@ -93,6 +93,56 @@ class ButlerMessageHandler:
             project=project,
         )
 
+    def _should_queue_inbound(self, session_key: str, text: str) -> bool:
+        from butler.gateway.message_queue import message_queue_enabled
+
+        if not message_queue_enabled():
+            return False
+        stripped = (text or "").strip()
+        if not stripped or stripped.startswith("/"):
+            return False
+        return self._session_registry.is_session_active(session_key)
+
+    def _drain_queued_inbound(
+        self,
+        session_key: str,
+        *,
+        platform: str,
+        external_id: str | None,
+    ) -> str:
+        import os
+
+        from butler.gateway.message_queue import message_queue_enabled, pop_next
+
+        if not message_queue_enabled():
+            return ""
+        try:
+            max_drain = max(0, int(os.getenv("BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN", "1") or "1"))
+        except ValueError:
+            max_drain = 1
+        parts: list[str] = []
+        for _ in range(max_drain):
+            item = pop_next(session_key)
+            if item is None:
+                break
+            if self._session_registry.is_session_active(session_key):
+                break
+            logger.info(
+                "Gateway drain queued session=%s priority=%s preview=%r",
+                session_key,
+                item.priority,
+                item.text[:60],
+            )
+            part = self.handle_message(
+                item.text,
+                session_key=session_key,
+                platform=item.platform or platform,
+                external_id=item.external_id or external_id,
+            )
+            if part:
+                parts.append(part)
+        return "\n\n---\n\n".join(parts)
+
     def _recover_registry_if_stale(self) -> None:
         """Clear a stuck ``reset_all`` flag that would block ``enter_session`` forever."""
         reg = self._session_registry
@@ -160,8 +210,24 @@ class ButlerMessageHandler:
             )
             return out
 
+        if self._should_queue_inbound(session_key, text):
+            from butler.gateway.message_queue import (
+                enqueue_inbound,
+                format_queued_ack,
+                pending_count,
+            )
+
+            if enqueue_inbound(
+                session_key,
+                text,
+                platform=platform,
+                external_id=external_id or "",
+            ):
+                return format_queued_ack(pending=pending_count(session_key))
+
         logger.info("Gateway enter_session session=%s", session_key)
         session_lock = self._session_registry.enter_session(session_key)
+        out = ""
         try:
             out = self._handle_message_locked(
                 text,
@@ -175,9 +241,16 @@ class ButlerMessageHandler:
                 _time.monotonic() - _t0,
                 len(out or ""),
             )
-            return out
         finally:
             self._session_registry.exit_session(session_key, session_lock)
+        follow = self._drain_queued_inbound(
+            session_key,
+            platform=platform,
+            external_id=external_id,
+        )
+        if follow:
+            out = f"{out}\n\n---\n\n{follow}" if out else follow
+        return out
 
     def _handle_message_locked(
         self,
@@ -265,6 +338,12 @@ class ButlerMessageHandler:
                 augmented = f"{hook_ctx}\n\n{augmented}"
 
             loop = self._get_or_create_loop(session_key)
+            from butler.core.turn_token_budget import resolve_turn_budget
+
+            loop.config, turn_budget, augmented = resolve_turn_budget(augmented, loop.config)
+            if turn_budget:
+                health["turn_token_budget"] = turn_budget
+                health["turn_max_iterations"] = loop.config.max_iterations
 
             try:
                 try:
@@ -489,6 +568,21 @@ class ButlerMessageHandler:
             accepted = bool(active and steer(arg, session_key=session_key))
             return format_steer_gateway_reply(accepted=accepted, active=active)
 
+        if cmd in ("/budget", "/预算"):
+            from butler.core.turn_token_budget import parse_token_budget_text
+
+            if arg:
+                probe = parse_token_budget_text(f"/budget {arg}")
+                if probe:
+                    return (
+                        f"已识别本轮 token 预算约 {probe:,}。"
+                        "请直接发送任务并在句末加 +500k，或写「本轮尽量做完」。"
+                    )
+            return (
+                "用法：在任务句末加 +500k / +2m，或发送「本轮尽量做完」。"
+                "也可：/budget 500k（提示预算，与下一条任务一并发送）。"
+            )
+
         if cmd in ("/new", "/新对话"):
             from butler.session_lifecycle import handle_new_session_command
 
@@ -508,8 +602,10 @@ class ButlerMessageHandler:
                 reset_hook_telemetry(session_key)
                 reset_completion_telemetry(session_key)
                 from butler.core.read_state import reset_read_state
+                from butler.gateway.message_queue import reset_queue
 
                 reset_read_state(session_key)
+                reset_queue(session_key)
             except Exception:
                 pass
             return handle_new_session_command(self._orchestrator, session_key, loop)

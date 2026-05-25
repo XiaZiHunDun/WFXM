@@ -28,6 +28,8 @@ class LoopTransitionReason(str, Enum):
     INTERRUPTED = "interrupted"
     LLM_ERROR = "llm_error"
     REACTIVE_COMPACT_RETRY = "reactive_compact_retry"
+    STOP_HOOK_BLOCKED = "stop_hook_blocked"
+    TOKEN_BUDGET_CONTINUE = "token_budget_continue"
     UNKNOWN = "unknown"
 
 

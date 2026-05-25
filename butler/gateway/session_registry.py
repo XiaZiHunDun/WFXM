@@ -119,6 +119,12 @@ class GatewaySessionRegistry:
             self._active_sessions.discard(str(session_key or "default"))
             self._reset_condition.notify_all()
 
+    def is_session_active(self, session_key: str) -> bool:
+        """True while a gateway turn holds the session lock (AgentLoop running)."""
+        key = str(session_key or "default")
+        with self._lock:
+            return key in self._active_sessions
+
     def touch(self, session_key: str) -> None:
         with self._lock:
             self._last_active_at[str(session_key or "default")] = self._now()

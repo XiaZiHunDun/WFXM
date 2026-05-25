@@ -28,6 +28,9 @@ class UserPromptSubmitResult:
 @dataclass
 class StopHookResult:
     additional_context: list[str] = field(default_factory=list)
+    blocked: bool = False
+    block_message: str = ""
+    decision: str = "continue"
 
 
 def _resolve_workspace() -> Path | None:
@@ -261,8 +264,27 @@ def run_stop_hooks(
         if not match_hook_query(rule.matcher, status):
             continue
         code, out, err = _run_hook(rule, payload)
+        if code == 2:
+            result.blocked = True
+            result.decision = "block"
+            result.block_message = (err or out or "Stop hook blocked turn").strip()[:2000]
+            return result
         specific = _parse_hook_stdout(out, "Stop")
         result.additional_context.extend(_collect_additional_context(specific, out))
+        decision = str(
+            specific.get("decision") or specific.get("stopDecision") or ""
+        ).strip().lower()
+        if decision == "block" or specific.get("block") is True:
+            result.blocked = True
+            result.decision = "block"
+            msg = str(
+                specific.get("systemMessage")
+                or specific.get("system_message")
+                or specific.get("message")
+                or ""
+            ).strip()
+            if msg:
+                result.block_message = msg[:2000]
         if code not in (0, None) and (out or err):
             logger.info("Stop hook exit %s: %s", code, (err or out)[:200])
     return result

@@ -106,15 +106,15 @@
 
 ---
 
-## 5. 中优先级（P1，2–3 周）
+## 5. 中优先级（P1）
 
-| # | 项 | 要点 |
+| # | 项 | 状态 |
 |---|-----|------|
-| 5 | 流式工具执行 | transport 流式回调增量 enqueue；先只读工具；配合 outbound 进度 |
-| 6 | 消息优先级队列 | Gateway 入站 now/next/later；与 `GatewaySessionRegistry` 单 loop 锁配合 |
-| 7 | Token budget 续跑 | `/budget` 或关键词；`max_iterations` 之上按预算续跑 |
-| 8 | Stop 钩子 block | `decision: block\|continue` + system_message（如未 pytest 不许结束） |
-| 9 | Cache-safe delegate | static_system / dynamic_context 拆分，子 agent 复用前缀哈希 |
+| 5 | 流式工具执行 | **P2**（需改 transport 流式增量 dispatch） |
+| 6 | 消息优先级队列 | ✅ `butler/gateway/message_queue.py` |
+| 7 | Token budget 续跑 | ✅ `butler/core/turn_token_budget.py` |
+| 8 | Stop 钩子 block | ✅ `StopHookResult.blocked` + `stop_hook_blocked` 诊断 |
+| 9 | Cache-safe delegate | **P2** |
 
 ---
 
@@ -161,7 +161,9 @@ Claude Code 的核心优势在 **上下文经济学**（micro 剪枝 + 落盘 + 
 
 **P0 四项（2026-05-22）均已落地**：落盘、分级 micro + post-compact 锚点、`transition_reason`、read-before-edit + mtime。
 
-**P1 候选**：消息优先级队列、Stop 钩子 block、流式工具、token budget 续跑、cache-safe delegate。
+**P1（2026-05-22 已落地）**：入站消息队列（`message_queue.py`）、Stop 钩子 `block`、turn token 预算（`+500k` / `/budget` / 「本轮尽量做完」）。
+
+**P2 候选**：流式工具执行、cache-safe delegate、消息队列出站 follow-up（bridge 主动推送 drain 回复）。
 
 其余按微信远程场景取舍。
 
