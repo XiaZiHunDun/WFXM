@@ -4,7 +4,7 @@
 
 **当前版本：Butler v4** — 自建 Agent Loop + 模块化 Hermes 提炼，不再 `import` Hermes `AIAgent`。  
 **在 Cursor 中开发**：先读 [`AGENTS.md`](AGENTS.md)。  
-架构见 [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)；CC 能力对照 [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md)；文档索引 [`docs/README.md`](docs/README.md)；目录说明 [`STRUCTURE.md`](STRUCTURE.md)。
+架构见 [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)；CC 能力对照 [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md)；规划索引 [`docs/plans/README.md`](docs/plans/README.md)；文档总索引 [`docs/README.md`](docs/README.md)；目录说明 [`STRUCTURE.md`](STRUCTURE.md)。
 
 ## 架构（v4 概要）
 

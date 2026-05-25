@@ -1,56 +1,89 @@
 # Butler 文档索引
 
-> 更新：2026-05-22 | 当前主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
-> **Cursor 新会话**：先读仓库根 [`../AGENTS.md`](../AGENTS.md)  
-> 仓库目录：[`../STRUCTURE.md`](../STRUCTURE.md) · 指南：[`guides/README.md`](guides/README.md)
+> 更新：**2026-05-25** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
+> **新会话**：先读 [`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md)
 
-## 推荐阅读顺序
+## 快速入口
+
+| 我要… | 读这里 |
+|--------|--------|
+| 改代码 / 查模块 | [`architecture/v4-architecture.md`](architecture/v4-architecture.md) |
+| 查环境变量 | [`config/reference.md`](config/reference.md) + [`../.env.example`](../.env.example) |
+| 微信发版 / 运维 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) → [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) |
+| 看 CC 能力是否已有 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) |
+| 看规划与命名 | [`plans/README.md`](plans/README.md) |
+| 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
+
+## 架构与设计
 
 | 文档 | 说明 |
 |------|------|
-| [`architecture/v4-architecture.md`](architecture/v4-architecture.md) | **当前架构**：Loop 栈、Gateway、P0–P2 线束、观测 |
-| [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) | Claude Code 对照与 P0–P2 落地状态 |
-| [`architecture/hermes-extraction-map.md`](architecture/hermes-extraction-map.md) | Hermes → Butler 提炼对照与验收状态 |
-| [`architecture/hermes-decoupling.md`](architecture/hermes-decoupling.md) | **解耦路线图**（目标：零 Hermes 黑盒依赖）|
-| [`architecture/project-lead-decision.md`](architecture/project-lead-decision.md) | **项目 Lead 架构决策**（莎丽门户 + 厂长主控，分阶段）|
-| [`architecture/project-runtime-automation.md`](architecture/project-runtime-automation.md) | **阶段 3** 定时脚本 / 运行时推送 |
-| [`guides/runtime-ops.md`](guides/runtime-ops.md) | **Runtime timer** 安装、due、审计与排障 |
-| [`architecture/wechat-inbound-media.md`](architecture/wechat-inbound-media.md) | **微信入站图片/语音** MiniMax VLM + 语音转写（已实施 P1+P2） |
-| [`architecture/layered-model-config.md`](architecture/layered-model-config.md) | **分层模型配置** 设计 vs 实现对照 + 完善路线（M1–M5） |
-| [`design/design.md`](design/design.md) | v4 产品设计摘要（命令速查）；历史见 [`history/design-evolution-v0.5-v1.0.md`](history/design-evolution-v0.5-v1.0.md) |
-| [`guides/README.md`](guides/README.md) | 微信运维 / 冒烟 / 人工测试索引 |
-| [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) | **微信网关 systemd 运维**（安装、发版、排障） |
-| [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) | 发版后真机冒烟检查表 |
-| [`guides/wechat-core-scenario.md`](guides/wechat-core-scenario.md) | 微信核心场景八步剧本 |
-| [`guides/manual-testing-guide.md`](guides/manual-testing-guide.md) | CLI / 微信完整人工测试 |
-| [`.env.example`](../.env.example) | 环境变量与真实 API smoke 门控 |
-| [`config/reference.md`](config/reference.md) | **BUTLER_* 环境变量速查** |
-| [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理方案（P0–P2 已完成） |
-| [`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md) | **后续规划**（运营 / 灵文 / 多项目） |
-| [`plans/reference-learning-plan-2026-05.md`](plans/reference-learning-plan-2026-05.md) | **外部项目学习规划**（零依赖对标；P0 见 [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md)） |
-| [`plans/consolidation-p3-implementation-2026-05.md`](plans/consolidation-p3-implementation-2026-05.md) | **P3 实现层熵减**（已完成） |
-| [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 项目成熟度评估（约 4/5） |
-| [`guides/project-onboarding.md`](guides/project-onboarding.md) | 项目接入与 preflight |
+| [`architecture/v4-architecture.md`](architecture/v4-architecture.md) | **当前架构**：Loop、Gateway、CC 线束 + 外部对标落地 |
+| [`design/design.md`](design/design.md) | 产品设计摘要；§9 对照表（§11+ 可能滞后） |
+| [`architecture/project-lead-decision.md`](architecture/project-lead-decision.md) | 莎丽门户 + 厂长主控 |
+| [`architecture/project-runtime-automation.md`](architecture/project-runtime-automation.md) | Runtime 定时任务 |
+| [`architecture/wechat-inbound-media.md`](architecture/wechat-inbound-media.md) | 入站图片 VLM + 语音转写 |
+| [`architecture/layered-model-config.md`](architecture/layered-model-config.md) | 分层模型配置 |
+| [`architecture/hermes-decoupling.md`](architecture/hermes-decoupling.md) | Hermes 解耦（已完成） |
+| [`architecture/hermes-extraction-map.md`](architecture/hermes-extraction-map.md) | Hermes → Butler 提炼对照 |
 
-## 版本演进（历史）
+## 运维与测试
 
-见 [`history/README.md`](history/README.md)（v1 / v3 对照文档）。
+| 文档 | 说明 |
+|------|------|
+| [`guides/README.md`](guides/README.md) | **指南总索引**（冒烟、Runtime、接入） |
+| [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) | systemd 安装、发版、日志 |
+| [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) | 发版真机 H1–H10 |
+| [`guides/wechat-core-scenario.md`](guides/wechat-core-scenario.md) | 微信八步剧本 |
+| [`guides/manual-testing-guide.md`](guides/manual-testing-guide.md) | CLI + 微信人工测试 |
+| [`guides/runtime-ops.md`](guides/runtime-ops.md) | Runtime timer |
+| [`guides/memory-ops.md`](guides/memory-ops.md) | 记忆运维 |
+| [`guides/project-onboarding.md`](guides/project-onboarding.md) | 项目接入 preflight |
+| [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md) | `/诊断` 运行指标阈值说明 |
+| [`../tests/README.md`](../tests/README.md) | pytest 分层与守门 |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | 贡献、Hooks、出站、语料 |
+
+## 规划与评估
+
+| 文档 | 说明 |
+|------|------|
+| [`plans/README.md`](plans/README.md) | **规划索引**（CC / 整理 / 外部对标 命名对照） |
+| [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) | Claude Code ↔ Butler（**主对照**） |
+| [`plans/reference-learning-plan-2026-05.md`](plans/reference-learning-plan-2026-05.md) | 外部对标（Prometheus/OpenClaw/Dify）— **已收口** |
+| [`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md) | 运营与多项目后续 |
+| [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理（已完成） |
+| [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 成熟度评估 |
+
+## 配置模板
+
+| 文档 | 说明 |
+|------|------|
+| [`config/reference.md`](config/reference.md) | `BUTLER_*` 速查 |
+| [`templates/permissions.yaml.example`](templates/permissions.yaml.example) | 项目 `.butler/permissions.yaml` 模板（含 `workflow_steps`） |
+
+## 历史与外部对照
+
+| 路径 | 说明 |
+|------|------|
+| [`history/README.md`](history/README.md) | v0.5–v3 文档（勿作实现依据） |
+| [`../archive/`](../archive/) | v1 归档标签 `archive/butler-v1-20260522` |
+| [`../reference/`](../reference/) | 外部标本（**gitignore**，主公维护） |
 
 ## 验证命令
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q    # 1200+ passed（默认排除 live_llm / corpus 按需）
+PYTHONPATH=. pytest -q    # 默认 1200+ passed（排除 live_llm；corpus 按需）
+
+# 守门子集
+PYTHONPATH=. pytest tests/test_runtime_metrics.py tests/test_message_queue.py \
+  tests/test_p2_workflow_permissions.py tests/test_cc_p3_p4_features.py -q
 
 # 微信网关 live（发版前可选）
 BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
-
-# 其它 Provider smoke
-BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py
 ```
 
-网关运维：`bash scripts/butler-gateway-ops.sh status`
-
-## 归档代码
-
-[`../archive/`](../archive/) — v1 在 Git 标签 `archive/butler-v1-20260522`；[`../reference/`](../reference/) — **主公维护**的外部对照区。
+```bash
+bash scripts/butler-gateway-ops.sh status
+bash scripts/butler-pre-release-smoke.sh
+```

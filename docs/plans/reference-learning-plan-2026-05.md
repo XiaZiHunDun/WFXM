@@ -4,6 +4,7 @@
 > **触发**：[`reference/待学习项目.md`](../../reference/待学习项目.md) 泛清单筛选 + Butler 现状对照  
 > **原则**：**只借鉴设计、零新增依赖**（不引入 `prometheus-client`、消息中间件客户端、Dify/OpenClaw 运行时）；在现有 Python 标准库 + Butler 模块内落地。  
 > **主学习线**：Claude Code（[`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)）  
+> **规划索引**：[`README.md`](README.md)（三套 P0/P2/P3 命名对照）  
 > **本地代码**：`reference/learn-*` 仅作阅读对照（**gitignore**）
 
 ---

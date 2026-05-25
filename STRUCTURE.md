@@ -21,7 +21,8 @@ WFXM/
 │   ├── design/                  #   产品设计
 │   ├── guides/                  #   运维、冒烟、接入
 │   ├── config/                  #   config.yaml.example、reference.md
-│   ├── plans/                   #   整理方案、后续规划
+│   ├── plans/                   #   规划索引 README + CC/整理/外部对标
+│   ├── ops/                     #   /诊断 阈值等运维说明
 │   └── reviews/                 #   项目评估
 ├── tests/                       #   默认 1200+ passed（排除 live_llm）
 ├── projects/                    #   LingWen1、DemoPilot 等工作区
@@ -52,9 +53,12 @@ PYTHONPATH=. pytest -q
 | 文档 | 说明 |
 |------|------|
 | [`README.md`](README.md) | 项目总览 |
-| [`docs/README.md`](docs/README.md) | 文档索引 |
-| [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | v4 架构（含 P0–P2 线束） |
+| [`docs/README.md`](docs/README.md) | 文档索引（2026-05-25） |
+| [`docs/plans/README.md`](docs/plans/README.md) | 规划文档与 P0/P2/P3 命名对照 |
+| [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | v4 架构（CC 线束 + 外部对标） |
 | [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | CC 对照与 Loop 线束 |
+| [`docs/plans/reference-learning-plan-2026-05.md`](docs/plans/reference-learning-plan-2026-05.md) | 外部对标（已收口） |
+| [`docs/ops/diagnostic-thresholds.md`](docs/ops/diagnostic-thresholds.md) | `/诊断` 运行指标阈值 |
 | [`docs/guides/wechat-gateway-ops.md`](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |
 | [`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟 |
 | [`tests/README.md`](tests/README.md) | 测试分层与守门命令 |
