@@ -356,7 +356,7 @@ class ButlerOrchestrator:
         from butler.transport.fallback import build_fallback_chain
         from butler.transport.model_context import infer_context_length
 
-        llm_role = "butler" if role == "lead" else role
+        llm_role = "butler" if role in ("lead", "plan") else role
         client = self.create_llm_client(llm_role)
         mc = self._model_credentials(llm_role)
         primary = ModelConfig(provider=mc.get("provider") or "", model=mc.get("model") or "")
@@ -366,6 +366,11 @@ class ButlerOrchestrator:
             system_prompt = self.build_system_prompt()
         elif role == "lead":
             system_prompt = self.build_lead_system_prompt(session_key=session_key)
+        elif role == "plan":
+            system_prompt = self.build_system_prompt()
+            from butler.plan_mode import load_plan_mode_system_appendix
+
+            system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
         else:
             system_prompt = ""
             from butler.agent_profiles import get_profile
@@ -376,6 +381,16 @@ class ButlerOrchestrator:
                 extra = get_model_aware_prompt_extra(client.provider_name or "")
                 if extra:
                     system_prompt += "\n\n" + extra
+
+        sk = str(session_key or "").strip()
+        if sk and role != "plan":
+            try:
+                from butler.plan_mode import is_plan_mode, load_plan_mode_system_appendix
+
+                if is_plan_mode(sk):
+                    system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
+            except Exception:
+                pass
 
         return AgentLoop(
             client=client,

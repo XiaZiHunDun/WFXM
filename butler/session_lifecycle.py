@@ -420,6 +420,19 @@ def build_memory_pre_llm_transform(
                 if diagnostics is not None:
                     diagnostics["memory_context_injected"] = True
                     diagnostics["memory_context_chars"] = min(len(ctx), cap)
+                try:
+                    from butler.execution_context import get_current_session_key
+                    from butler.core.session_transcript import record_knowledge_inject
+
+                    sk = str(get_current_session_key() or "").strip()
+                    if sk:
+                        record_knowledge_inject(
+                            sk,
+                            source="memory_prefetch",
+                            chars=min(len(ctx), cap),
+                        )
+                except Exception:
+                    pass
                 break
         return out
 

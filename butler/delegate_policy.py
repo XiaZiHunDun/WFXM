@@ -12,6 +12,13 @@ DELEGATE_BLOCKED_TOOLS = frozenset({
 MAX_DELEGATE_DEPTH = 2
 
 
+def delegate_one_tool_per_iteration() -> bool:
+    """Manus-style single tool call per delegate iteration (default off — slower reads)."""
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION", default=False)
+
+
 def resolve_delegate_max_iterations(category_meta: dict | None = None) -> int:
     """Independent iteration cap for child delegate loops (Hermes IterationBudget subset)."""
     meta = category_meta if isinstance(category_meta, dict) else {}

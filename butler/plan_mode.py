@@ -49,6 +49,19 @@ def _tool_target_path(tool_name: str, args: dict[str, Any]) -> str:
     return ""
 
 
+def load_plan_mode_system_appendix() -> str:
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent / "prompts" / "butler_plan_mode.md"
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return (
+            "## 规划模式\n只读探索并写 plan 文件；"
+            "禁止 delegate_task、terminal 与业务源码写入。用户 /执行 后退出。"
+        )
+
+
 def set_plan_mode(session_key: str, enabled: bool) -> None:
     key = str(session_key or "default").strip() or "default"
     with _LOCK:
@@ -62,6 +75,13 @@ def set_plan_mode(session_key: str, enabled: bool) -> None:
         save_plan_mode_flag(key, enabled)
     except Exception:
         pass
+    if enabled:
+        try:
+            from butler.core.session_transcript import record_plan_step
+
+            record_plan_step(key, title="plan_mode_enabled", phase="start")
+        except Exception:
+            pass
 
 
 def is_plan_mode(session_key: str = "") -> bool:
@@ -113,7 +133,7 @@ def format_plan_mode_status(session_key: str = "") -> str:
             "可写: .butler/plan/*、*plan.md、plans/*\n"
             "发「/执行」或「/退出规划」开始执行。"
         )
-    return "规划模式: 未开启。发「/计划」进入只读规划。"
+    return "规划模式: 未开启。发「/计划」或「/规划」进入只读规划。"
 
 
 def _resolve_session_key(session_key: str) -> str:

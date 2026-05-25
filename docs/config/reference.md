@@ -187,6 +187,14 @@
 | `BUTLER_TOOL_RESULT_CACHE` | 1 | 只读工具结果会话内短 TTL 缓存 |
 | `BUTLER_COMPACTION_USE_HERMES_TEMPLATE` | 0 | 压缩摘要使用 Hermes v2 节结构 |
 | `BUTLER_GATEWAY_PROGRESSIVE_STREAM` | 0 | 长流式任务渐进式微信补充消息 |
+| `BUTLER_GATEWAY_TASK_MILESTONE` | 0 | 长轮次结构化进度消息（Antigravity 子集） |
+| `BUTLER_GATEWAY_TASK_MILESTONE_SECONDS` | 90 | 里程碑最短等待秒数（通常需已发 progress ack） |
+| `BUTLER_READ_FILE_SUMMARY_THRESHOLD` | 400 | 超大文件首次 read 返回行数摘要而非全文 |
+| `BUTLER_MODE_CLASSIFIER` | 1 | 启发式 plan/do ephemeral 建议（不自动改模式） |
+| `BUTLER_MODE_CLASSIFIER_AUX` | 0 | 边界句用 auxiliary 做 plan/do JSON 分类 |
+| `BUTLER_MODE_CLASSIFIER_AUTO_PLAN` | 0 | 高置信 plan 句自动 `set_plan_mode`（微信慎用） |
+| `BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION` | 0 | 委派子 Agent 每轮单工具（关并行） |
+| `BUTLER_COMPACTION_PREFLIGHT_CHECKLIST` | 1 | 压缩摘要附带完成前自检要点 |
 | `BUTLER_EXECUTE_CODE` | 0 | 启用 `execute_code` 沙箱工具（须安全评审） |
 | `BUTLER_SECRETS_FILE` | 1 | 从 `~/.butler/secrets.yaml` 加载 provider API key |
 | `BUTLER_TERMINAL_SMART_APPROVE` | 1 | `/批准模式 <pattern>` 本会话放行危险 terminal |

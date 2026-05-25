@@ -52,6 +52,19 @@ def use_hermes_compaction_template() -> bool:
     return flag in ("1", "true", "yes", "on")
 
 
+def compaction_preflight_checklist_enabled() -> bool:
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_COMPACTION_PREFLIGHT_CHECKLIST", default=True)
+
+
+PREFLIGHT_CHECKLIST_APPENDIX = """
+Before you finish the summary, reflect on execution quality (add bullets under ## Remaining Work or ## Blocked when relevant):
+- If code or config was changed: were tests, lint, or build commands run or explicitly deferred?
+- Any files only partially edited or tool errors left unresolved?
+- Permission blocks, plan-mode blocks, or delegate failures still open?
+"""
+
 HERMES_SUMMARY_TEMPLATE = """Output exactly the Markdown structure below. Keep every section even when empty.
 Use terse bullets. Preserve exact paths, commands, error strings, and identifiers. Do not mention compaction.
 
@@ -72,6 +85,12 @@ Use terse bullets. Preserve exact paths, commands, error strings, and identifier
 """
 
 
+def _append_preflight_checklist(body: str) -> str:
+    if not compaction_preflight_checklist_enabled():
+        return body
+    return body.rstrip() + "\n\n" + PREFLIGHT_CHECKLIST_APPENDIX.strip()
+
+
 def build_compaction_user_prompt(*, transcript: str, previous_summary: str = "") -> str:
     prev_block = (
         f"\n\nPrevious summary to merge and update:\n{previous_summary}"
@@ -79,18 +98,18 @@ def build_compaction_user_prompt(*, transcript: str, previous_summary: str = "")
         else ""
     )
     if use_hermes_compaction_template():
-        return (
+        return _append_preflight_checklist(
             "Summarize this conversation segment for handoff to a new context window.\n\n"
             f"{IDENTIFIER_PRESERVATION}\n{HERMES_SUMMARY_TEMPLATE}{prev_block}\n\n"
             f"Conversation:\n{transcript}"
         )
     if use_opencode_compaction_template():
-        return (
+        return _append_preflight_checklist(
             "Summarize this conversation segment for handoff to a new context window.\n\n"
             f"{IDENTIFIER_PRESERVATION}\n{OPENCODE_SUMMARY_TEMPLATE}{prev_block}\n\n"
             f"Conversation:\n{transcript}"
         )
-    return (
+    return _append_preflight_checklist(
         "Summarize this conversation segment for handoff to a new context window.\n\n"
         "Use this structure:\n"
         "## Resolved\n- (completed items)\n\n"

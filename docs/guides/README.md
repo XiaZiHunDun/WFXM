@@ -11,6 +11,8 @@
 | [phase-b-external-reference.md](./phase-b-external-reference.md) | 阶段 B：安全、Registry、工具纪律、workflow 变量 |
 | [phase-c-external-reference.md](./phase-c-external-reference.md) | 阶段 C：工具预选、Loop 插件、workflow validate |
 | [external-reference-deferred-2026-05.md](./external-reference-deferred-2026-05.md) | 补做项与仍 defer 项分析 |
+| [phase-d-prompt-corpus.md](./phase-d-prompt-corpus.md) | **Prompt Corpus 线**：工具 DSL、/规划、transcript 事件、大文件读、task_milestone |
+| [../plans/prompts-corpus-butler-comparison-2026-05.md](../plans/prompts-corpus-butler-comparison-2026-05.md) | Prompt Corpus ↔ Butler 对标全文 |
 | [runtime-ops.md](./runtime-ops.md) | **Runtime timer**：定时任务 due、审计、批准与排障 |
 | [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) | **发版后真机冒烟**（H1–H10，约 15–25 分钟） |
 | [wechat-core-scenario.md](./wechat-core-scenario.md) | 微信八步剧本详解与 FAQ |

@@ -55,7 +55,15 @@ def register(
     handler: Callable,
     toolset: str = "default",
 ) -> None:
-    _REGISTRY[name] = ToolEntry(name, description, schema, handler, toolset)
+    from butler.tools.tool_doc_templates import enrich_tool_description
+
+    _REGISTRY[name] = ToolEntry(
+        name,
+        enrich_tool_description(name, description),
+        schema,
+        handler,
+        toolset,
+    )
 
 
 def get_tool_definitions() -> List[dict]:
@@ -335,6 +343,42 @@ def pop_last_tool_audit_for_tool(name: str) -> None:
             bucket.pop()
 
 
+def _maybe_record_tool_observation(
+    name: str,
+    args: dict,
+    payload: dict[str, Any],
+) -> None:
+    try:
+        from butler.execution_context import get_current_session_key
+        from butler.core.session_transcript import record_tool_observation
+
+        sk = str(get_current_session_key() or "").strip()
+        if not sk:
+            return
+        preview = ""
+        if payload.get("error"):
+            preview = str(payload.get("error") or "")[:200]
+        elif payload.get("mode") == "summary":
+            preview = f"summary lines={payload.get('total_lines', '?')}"
+        elif payload.get("preview"):
+            preview = str(payload.get("preview") or "")[:200]
+        else:
+            for key in ("content", "result", "output", "message"):
+                if payload.get(key):
+                    preview = str(payload[key])[:200]
+                    break
+        if not preview and name == "read_file":
+            preview = str(args.get("path") or "")[:120]
+        record_tool_observation(
+            sk,
+            tool=name,
+            ok=_tool_result_ok(payload),
+            preview=preview,
+        )
+    except Exception:
+        pass
+
+
 def _finalize_tool_result(
     name: str,
     args: dict,
@@ -348,6 +392,15 @@ def _finalize_tool_result(
             ok = True
             code = "TOOL_OK"
             _record_tool_audit(name, args, ok=ok, code=code, started_at=started_at)
+            parsed = _parse_json_object(result)
+            if isinstance(parsed, dict):
+                _maybe_record_tool_observation(name, args, parsed)
+            elif name:
+                _maybe_record_tool_observation(
+                    name,
+                    args,
+                    {"preview": str(result)[:200]},
+                )
             return result
     elif isinstance(result, dict):
         payload = dict(result)
@@ -372,9 +425,12 @@ def _finalize_tool_result(
                 except Exception as exc:
                     logger.debug("PermissionDenied hooks skipped: %s", exc)
         _record_tool_audit(name, args, ok=ok, code=code, started_at=started_at)
+        _maybe_record_tool_observation(name, args, payload)
         return json.dumps(payload, ensure_ascii=False, default=str)
 
     _record_tool_audit(name, args, ok=True, code="TOOL_OK", started_at=started_at)
+    if isinstance(payload, dict):
+        _maybe_record_tool_observation(name, args, payload)
     return json.dumps(payload, ensure_ascii=False, default=str)
 
 
@@ -750,6 +806,19 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
             return json.dumps({"error": error})
         text = data.decode("utf-8", errors="replace")
         lines = text.splitlines()
+        from butler.core.read_file_partial import (
+            build_large_file_summary,
+            format_summary_message,
+            read_summary_threshold_lines,
+        )
+
+        if (
+            offset == 1
+            and len(lines) > read_summary_threshold_lines()
+            and limit >= 100
+        ):
+            summary = build_large_file_summary(str(path), lines)
+            return format_summary_message(summary)
         start = offset - 1
         end = start + limit
         selected = lines[start:end]
@@ -1718,6 +1787,14 @@ def _tool_delegate_task(
         from butler.delegate_policy import resolve_delegate_max_iterations
 
         agent.config.max_iterations = resolve_delegate_max_iterations(category_meta)
+        try:
+            from butler.delegate_policy import delegate_one_tool_per_iteration
+
+            if delegate_one_tool_per_iteration():
+                agent.config.enable_parallel_tools = False
+                agent.diagnostics["delegate_one_tool_per_iteration"] = True
+        except Exception:
+            pass
 
         agent.reset()
 

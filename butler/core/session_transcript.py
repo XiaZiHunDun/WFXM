@@ -74,7 +74,21 @@ def _tombstone_tail(path: Path) -> None:
         "ts": datetime.now(timezone.utc).isoformat(),
         "dropped_lines": len(lines) - keep,
     }
-    tail = lines[-keep:]
+    parsed_rows: list[dict[str, Any]] = []
+    for ln in lines:
+        try:
+            row = json.loads(ln)
+            if isinstance(row, dict):
+                parsed_rows.append(row)
+        except json.JSONDecodeError:
+            continue
+    if parsed_rows:
+        from butler.core.transcript_retention import select_transcript_rows_for_retention
+
+        kept_rows = select_transcript_rows_for_retention(parsed_rows, keep_count=keep)
+        tail = [json.dumps(row, ensure_ascii=False) for row in kept_rows]
+    else:
+        tail = lines[-keep:]
     try:
         from butler.core.transcript_index import invalidate_index
 
@@ -194,6 +208,58 @@ def record_queue_operation(session_key: str, priority: str, preview: str) -> Non
         session_key,
         "queue_op",
         {"priority": priority, "preview": preview[:200]},
+    )
+
+
+def record_plan_step(
+    session_key: str,
+    *,
+    title: str = "",
+    phase: str = "active",
+    detail: str = "",
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "plan_step",
+        {
+            "title": (title or "")[:120],
+            "phase": str(phase or "active")[:32],
+            "detail": (detail or "")[:300],
+        },
+    )
+
+
+def record_knowledge_inject(
+    session_key: str,
+    *,
+    source: str = "memory_prefetch",
+    chars: int = 0,
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "knowledge_inject",
+        {
+            "source": str(source or "memory")[:32],
+            "chars": max(0, int(chars)),
+        },
+    )
+
+
+def record_tool_observation(
+    session_key: str,
+    *,
+    tool: str,
+    ok: bool = True,
+    preview: str = "",
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "tool_observation",
+        {
+            "tool": str(tool or "")[:64],
+            "ok": bool(ok),
+            "preview": (preview or "")[:300],
+        },
     )
 
 

@@ -375,7 +375,7 @@ def _handle_slash_command(
         )
         return "handled"
 
-    if command in ("/plan", "/计划"):
+    if command in ("/plan", "/计划", "/规划"):
         from butler.session_keys import build_session_key
         from butler.plan_mode import clear_plan_mode, format_plan_mode_status, set_plan_mode
 

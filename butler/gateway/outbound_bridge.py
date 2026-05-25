@@ -85,6 +85,8 @@ class GatewayOutboundBridge:
     _typing_task: asyncio.Task[None] | None = field(default=None, init=False)
     _ack_task: asyncio.Task[None] | None = field(default=None, init=False)
     _closed: bool = field(default=False, init=False)
+    _task_milestone_sent: bool = field(default=False, init=False)
+    _milestone_task: asyncio.Task[None] | None = field(default=None, init=False)
 
     delegate_role: str = field(default="", init=False)
     workflow_name: str = field(default="", init=False)
@@ -148,6 +150,7 @@ class GatewayOutboundBridge:
         self._pending_delegate_report = None
         self._timeout_notified = False
         self._closed = False
+        self._task_milestone_sent = False
         self.delegate_role = ""
         self.workflow_name = ""
 
@@ -171,11 +174,22 @@ class GatewayOutboundBridge:
                 name=f"butler-ack-{self.chat_id[:8]}",
             )
 
+        try:
+            from butler.gateway.task_milestone import task_milestone_enabled
+
+            if task_milestone_enabled():
+                self._milestone_task = asyncio.create_task(
+                    self._milestone_timer(),
+                    name=f"butler-milestone-{self.chat_id[:8]}",
+                )
+        except Exception:
+            pass
+
     async def end_turn(self) -> None:
         if self._closed:
             return
         self._closed = True
-        for task in (self._typing_task, self._ack_task):
+        for task in (self._typing_task, self._ack_task, self._milestone_task):
             if task and not task.done():
                 task.cancel()
                 try:
@@ -184,6 +198,7 @@ class GatewayOutboundBridge:
                     pass
         self._typing_task = None
         self._ack_task = None
+        self._milestone_task = None
         if self.typing_enabled:
             await self._safe_stop_typing()
 
@@ -443,8 +458,29 @@ class GatewayOutboundBridge:
             await self.adapter.send(self.chat_id, text)
             self._ack_sent = True
             logger.info("Gateway progress ack sent chat_id=%s elapsed=%ds", self.chat_id, elapsed)
+            try:
+                from butler.gateway.task_milestone import maybe_schedule_task_milestone
+
+                maybe_schedule_task_milestone(self)
+            except Exception:
+                pass
         except Exception as exc:
             logger.warning("Gateway progress ack failed: %s", exc)
+
+    async def _milestone_timer(self) -> None:
+        try:
+            from butler.gateway.task_milestone import (
+                maybe_schedule_task_milestone,
+                task_milestone_min_seconds,
+            )
+
+            await asyncio.sleep(task_milestone_min_seconds())
+            if not self._closed and not self._final_sent:
+                maybe_schedule_task_milestone(self)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.debug("milestone timer ended: %s", exc)
 
     def _build_ack_text(self, elapsed: int) -> str:
         if self.delegate_role:

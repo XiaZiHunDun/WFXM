@@ -55,7 +55,11 @@ class ButlerMessageHandler:
         from butler.project_lead import gateway_loop_role
         from butler.tools.project_tools import get_tool_definitions_for_project
 
+        from butler.plan_mode import is_plan_mode
+
         loop_role = gateway_loop_role(proj_name, project=project)
+        if is_plan_mode(session_key):
+            loop_role = "plan"
         tools = get_tool_definitions_for_project(project, role=loop_role)
         return self._orchestrator.create_agent_loop(
             role=loop_role,
@@ -501,7 +505,11 @@ class ButlerMessageHandler:
             pm = self._orchestrator.project_manager
             proj_name = pm.resolve_active_project_name(session_key=session_key)
             proj = pm.get_current(session_key=session_key)
+            from butler.plan_mode import is_plan_mode
+
             loop_role = gateway_loop_role(proj_name, project=proj)
+            if is_plan_mode(session_key):
+                loop_role = "plan"
             health: dict[str, Any] = {
                 "session_key": session_key,
                 "platform": platform,
@@ -515,14 +523,27 @@ class ButlerMessageHandler:
                 orchestrator=self._orchestrator,
             )
             ephemeral_system = None
+            ephemeral_parts: list[str] = []
             try:
                 from butler.core.intent_keywords import detect_intent_banner
 
-                ephemeral_system = detect_intent_banner(text)
-                if ephemeral_system:
+                intent_banner = detect_intent_banner(text)
+                if intent_banner:
+                    ephemeral_parts.append(intent_banner)
                     health["intent_keyword_banner"] = True
             except Exception:
                 pass
+            try:
+                from butler.core.mode_classifier import detect_mode_suggestion_banner
+
+                mode_banner = detect_mode_suggestion_banner(text, session_key=session_key)
+                if mode_banner:
+                    ephemeral_parts.append(mode_banner)
+                    health["mode_classifier_banner"] = True
+            except Exception:
+                pass
+            if ephemeral_parts:
+                ephemeral_system = "\n\n".join(ephemeral_parts)
             if prompt_hooks.additional_context:
                 hook_ctx = "\n\n".join(prompt_hooks.additional_context)
                 augmented = f"{hook_ctx}\n\n{augmented}"
@@ -906,7 +927,7 @@ class ButlerMessageHandler:
                 return format_detail(report, section=parse_detail_section(arg))
             return "暂无可展示的详细报告。"
 
-        if cmd in ("/plan", "/计划"):
+        if cmd in ("/plan", "/计划", "/规划"):
             from butler.plan_mode import format_plan_mode_status, set_plan_mode
 
             arg_l = (arg or "").strip().lower()
@@ -914,14 +935,17 @@ class ButlerMessageHandler:
                 from butler.plan_mode import clear_plan_mode
 
                 clear_plan_mode(session_key)
+                self._session_registry.reset(session_key)
                 return "已退出规划模式，可以委派与写入。"
             set_plan_mode(session_key, True)
+            self._session_registry.reset(session_key)
             return format_plan_mode_status(session_key)
 
         if cmd in ("/执行", "/exit-plan", "/退出规划"):
             from butler.plan_mode import clear_plan_mode
 
             clear_plan_mode(session_key)
+            self._session_registry.reset(session_key)
             return "已退出规划模式，可以委派与写入。"
 
         if cmd in ("/todos", "/待办"):
@@ -1285,6 +1309,7 @@ def _is_sessionless_command(text: str) -> bool:
         "/详细",
         "/plan",
         "/计划",
+        "/规划",
         "/执行",
         "/exit-plan",
         "/退出规划",

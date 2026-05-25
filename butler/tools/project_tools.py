@@ -34,6 +34,18 @@ _LEAD_READ_TOOLS = frozenset({
     "list_directory",
     "search_files",
 })
+_PLAN_MODE_TOOLS = frozenset({
+    "read_file",
+    "list_directory",
+    "search_files",
+    "search_project_knowledge",
+    "search_transcript",
+    "skills_list",
+    "skill_view",
+    "butler_remember",
+    "butler_recall",
+})
+
 _LEAD_EXTRA_TOOLS = frozenset({
     "delegate_task",
     "run_workflow",
@@ -61,13 +73,18 @@ def allowed_tool_names_for_project(
     role: str = "butler",
 ) -> set[str] | None:
     """Return allowed registry tool names, or ``None`` if unrestricted."""
+    norm_early = role.replace("_agent", "").strip().lower()
     if project is None:
+        if norm_early == "plan":
+            return set(_PLAN_MODE_TOOLS)
         return None
     raw = [canonical_tool_name(n) for n in (project.tools or [])]
     mapped = {n for n in raw if n}
     if not mapped:
         return None
     norm = role.replace("_agent", "").strip().lower()
+    if norm == "plan":
+        return set(_PLAN_MODE_TOOLS)
     if norm == "lead":
         read_only = {n for n in mapped if n in _LEAD_READ_TOOLS}
         return read_only | _LEAD_EXTRA_TOOLS
