@@ -24,7 +24,7 @@ WFXM/
 │   ├── plans/                   #   规划索引 README + CC/整理/外部对标
 │   ├── ops/                     #   /诊断 阈值等运维说明
 │   └── reviews/                 #   项目评估
-├── tests/                       #   默认 ~1810 passed（排除 live_llm）
+├── tests/                       #   默认 ~1816 passed（排除 live_llm）
 ├── projects/                    #   LingWen1、DemoPilot 等工作区
 ├── logs/                        #   butler-gateway.log（gitignore *.log）
 ├── archive/                     #   README + Git 标签 archive/butler-v1-20260522

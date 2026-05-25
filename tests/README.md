@@ -2,7 +2,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest -q          # 默认全量 ~1810 passed，排除 live_llm（见 pyproject addopts）
+PYTHONPATH=. pytest -q          # 默认全量 ~1816 passed，排除 live_llm（见 pyproject addopts）
 butler doctor                   # 静态安全配置审计（OpenClaw OC-P2）
 ```
 

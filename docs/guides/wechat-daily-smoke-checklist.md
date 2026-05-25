@@ -19,7 +19,7 @@ bash scripts/install-butler-ops-bundle.sh          # runtime --all-projects + pu
 bash scripts/install-butler-logrotate.sh user --install-cron   # 可选
 bash scripts/butler-gateway-ops.sh restart
 bash scripts/butler-gateway-ops.sh reindex         # 或 upgrade（含 pull+重装+reindex）
-bash scripts/butler-pre-release-smoke.sh           # 一键守门（约 5–6 分钟，含 ~1810 pytest）
+bash scripts/butler-pre-release-smoke.sh           # 一键守门（约 5–6 分钟，含 ~1816 pytest）
 butler doctor                                      # 静态安全配置（应无 CRITICAL）
 ```
 
