@@ -1,6 +1,6 @@
 # 外部项目学习规划（Butler v4）
 
-> **状态**：P0–P2 已落地（2026-05-25，零依赖）  
+> **状态**：P0–P2 已落地并收口（2026-05-25，零依赖）；**本规划无后续必做项**  
 > **触发**：[`reference/待学习项目.md`](../../reference/待学习项目.md) 泛清单筛选 + Butler 现状对照  
 > **原则**：**只借鉴设计、零新增依赖**（不引入 `prometheus-client`、消息中间件客户端、Dify/OpenClaw 运行时）；在现有 Python 标准库 + Butler 模块内落地。  
 > **主学习线**：Claude Code（[`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)）  
@@ -18,7 +18,7 @@
 | Agent 平台 | 已对标 Claude Code P0–P4 | **OpenClaw** 作第二对照（Gateway/会话/队列/多通道） |
 | 工作流产品化 | 无可视化工作流 | **Dify** 仅学权限与 Graph 编排，**二期可选** |
 
-**明确不做（本规划周期）**：任何 **pip 新依赖**；Istio/K8s 联邦；RocketMQ/Kafka 集群；OpenClaw/Dify 子进程或嵌入运行时。
+**明确不做（本规划周期）**：任何 **pip 新依赖**；Istio/K8s 联邦；RocketMQ/Kafka 集群；OpenClaw/Dify 子进程或嵌入运行时；**入站队列 jsonl/WAL 持久化**（`session_transcript` 已够审计）；**确认后自动续跑 workflow**（维持「确认 → 再发 `/workflow`」）；**多实例 Gateway + 外部队列**（单进程微信网关为当前部署假设）。
 
 ---
 
@@ -117,9 +117,9 @@ drain: message_handler 回合结束拼回主回复
 
 | 概念 | 用于 Butler 的设计决策 |
 |------|-------------------------|
-| 分区键 = session_key | 多实例 Gateway 时保证同会话有序 |
-| 消费组 | 单 consumer  per partition → 与「每 session 单 active run」一致 |
-| at-least-once + 幂等 | 入站 dedupe + push_queue 已有方向；需 message_id |
+| 分区键 = session_key | 仅作概念参考；当前单实例 Gateway，不实施 |
+| 消费组 | 与「每 session 单 active run」同构，已实现于内存队列 |
+| at-least-once + 幂等 | 入站 2s 去重 + `push_queue` 落盘（出站侧） |
 | 背压 | 队列 cap + drop summarize → 用户可见「仍在处理」 |
 
 #### 实施阶段（均在 `message_queue.py` + `message_handler.py`，零依赖）
@@ -129,8 +129,8 @@ drain: message_handler 回合结束拼回主回复
 | **L1** ✅ | `BUTLER_GATEWAY_QUEUE_MODE`、`CAP`、`DROP`；`/queue` 会话覆盖（`butler/gateway/queue_settings.py`） |
 | **L2** ✅ | `collect`：`pop_all_merged` 合并 drain；溢出 `summarize` 摘要 |
 | **L3** ✅ | `interrupt`：`loop.interrupt()`；`steer` 模式走 `/steer` 同路径 |
-| **L4** | ~~jsonl 持久化~~ **暂缓**（见 D5）；当前仅 transcript 审计 |
-| **L5（远期）** | 多实例 MQ **暂缓**（见 D7） |
+
+入站排队**不**做 jsonl 恢复：进程重启后依赖用户重发即可；`session_transcript` 的 `queue_op` / `queue_drop` 仅审计。
 
 #### 必读 OpenClaw 文件
 
@@ -157,7 +157,7 @@ drain: message_handler 回合结束拼回主回复
 | typing + 单条 ack | `outbound_bridge.py` 已有；补齐 `delegate_role` 在 `start_turn` **之后** 再设（测试已修） |
 | steer vs followup 边界 | 与 `/steer`、P3 `message_queue` 文档统一（`docs/guides/wechat-core-scenario.md`） |
 
-### 3.4 编排与权限 — Dify **设计**（P2 可选，零依赖）
+### 3.4 编排与权限 — Dify **设计**（P2 已落地，零依赖）
 
 **只读** `learn-dify/api/core/workflow/workflow_entry.py` 理解：**图节点、失败即事件、子图**。
 
@@ -194,63 +194,25 @@ drain: message_handler 回合结束拼回主回复
 
 ---
 
-## 6. 阅读作业（建议顺序）
-
-### 第 1 周（可观测性，零依赖）
-
-1. 阅读 Prometheus 文档「指标类型」一节（或 `learn-prometheus-client` 源码结构，**不 import**）
-2. 实现 `butler/ops/runtime_metrics.py` 草案
-3. 合并 `completion_telemetry` → 统一 inc API
-
-### 第 2 周（队列）
-
-1. `reference/learn-openclaw/docs/concepts/queue.md`（全文）
-2. Butler：`message_queue.py`、`message_handler.py`（drain/follow）
-3. 写 ADR：`docs/plans/adr-gateway-queue-modes.md`（可选）
-
-### 第 3 周（OpenClaw Gateway）
-
-1. `learn-openclaw/src/gateway/session-utils.ts`（选读 200 行/函数级）
-2. 对比 `session_transcript.py`、`session_registry.py`
-3. 更新 `v4-architecture.md` Gateway 小节（若实现 L1）
-
-### 第 4 周（Dify，可选）
-
-1. `learn-dify/api/core/workflow/workflow_entry.py`
-2. 评估：是否将 `TaskOrchestrator` 暴露为微信可触发的「工作流」命令
-
----
-
-## 7. 决策记录（已按「零依赖」收敛）
+## 6. 决策记录（零依赖收敛）
 
 | # | 问题 | 结论 |
 |---|------|------|
-| D1 | 是否引入 `prometheus-client`？ | **否**；只用其指标命名与类型思维 |
-| D2 | 队列 persist 是否 L1 必做？ | **否**；L1 仅 cap/drop/mode |
-| D3 | 是否对接 RocketMQ/Kafka？ | **否**（本阶段）；语义借鉴即可 |
-| D4 | 是否嵌入 Dify/OpenClaw？ | **否**；只改 Butler 自有模块 |
-| D5 | L4 入站队列 jsonl 持久化？ | **暂缓**（2026-05-25）；无重启丢队列事故前不做 |
-| D6 | 确认后自动续跑 workflow？ | **暂缓**；维持「确认 → 再发 /workflow」 |
-| D7 | L5 多实例 MQ？ | **暂缓**；水平扩展 Gateway 时另立项 |
+| D1 | 是否引入 `prometheus-client`？ | **否**；`runtime_metrics` + `/诊断` 已落地 |
+| D2 | 入站队列是否要 jsonl 持久化（原 L4）？ | **否**；内存队列 + cap/drop + transcript 审计足够；无重启丢消息事故 |
+| D3 | 是否对接 RocketMQ/Kafka（原 L5）？ | **否**；单实例 Gateway，不引入 MQ 客户端 |
+| D4 | 是否嵌入 Dify/OpenClaw 运行时？ | **否**；P2 仅步骤权限 + `human_gate` |
+| D5 | 确认后是否自动续跑 workflow？ | **否**；显式再发 `/workflow` 更符合微信可控性 |
 
 ---
 
-## 8. 建议实施顺序（可直接开干）
-
-1. **P0**：`runtime_metrics.py` + `/诊断` 一节 + 合并 telemetry（约 300–500 行）
-2. **P1**：`message_queue` cap/drop/collect + `/queue` 斜杠命令（约 400 行 + 测试）
-3. **P1b**：`session_transcript` 事件对齐 OpenClaw 命名（小改）
-4. **P2**：`permissions.yaml` 步骤级工具 + TaskOrchestrator 失败摘要（按需）
-
----
-
-## 9. 与「引依赖」方案差异（备忘）
+## 7. 与「引依赖」方案差异（备忘）
 
 | 原规划 | 零依赖替代 |
 |--------|------------|
 | `prometheus-client` + `/metrics` HTTP | `runtime_metrics` + `/诊断` 文本快照 |
 | Grafana 仪表盘 | `diagnostic-thresholds.md` + 微信 `/诊断` |
-| Redis/RocketMQ 队列 | 内存 deque + cap/drop + transcript/jsonl 持久化 |
+| Redis/RocketMQ 队列 | 内存 deque + cap/drop + `session_transcript` 审计 |
 | Dify GraphEngine | `task_orchestrator` + YAML DAG |
 
 ---
