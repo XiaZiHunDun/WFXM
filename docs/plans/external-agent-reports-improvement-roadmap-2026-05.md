@@ -285,16 +285,18 @@ PYTHONPATH=. pytest tests/test_five_reports_f6.py tests/test_outcome_reflection.
 |----|------|------|
 | 主线 K P0 | ⬜ | message_ir + tool_wire |
 | 主线 K P1+ | ⬜ | renderer、plugins、校验 |
-| 主线 L P0 | ⬜ | skill rescue、safety、MCP deferred、clarification |
+| 主线 L P0 | 🟡 | skill rescue、safety finish ✅；MCP deferred、clarification ⬜ |
 | 主线 L P1+ | ⬜ | system-reminder、research skill |
-| 主线 M P0 | ⬜ | 确认态、两阶段、Finish 截断、风险启发式 |
-| 主线 M P1+ | ⬜ | agents.md、stuck、transcript 类型 |
+| 主线 M P0 | 🟡 | Finish 截断、safety ✅；`WAITING_CONFIRMATION`/`STUCK` 枚举 ✅；两阶段确认 ⬜ |
+| 主线 M P1+ | ⬜ | agents.md、stuck 检测、transcript 类型 |
 | 主线 N P0 | ⬜ | exp_cache、tool recall、Pydantic 终局 |
 | 主线 N P1+ | ⬜ | artifacts、checkpoint、PlanSnapshot |
-| 主线 O P0 | ⬜ | rescue + optional |
-| 主线 O P1+ | ⬜ | serial、callback、facts |
+| 主线 O P0 | ✅ | `rescue_steps` + `optional` + workflow_run 快照 |
+| 主线 O P1+ | ⬜ | serial、callback、handlers |
 | 主线 O P2+ | ⬜ | until、handlers、import_workflow |
-| PR-X1 … PR-X6 | ⬜ | 见 §4 |
+| PR-X1 | ✅ | Ansible rescue/optional |
+| PR-X2 | ✅ | Loop 安全子集 |
+| PR-X3 … PR-X6 | ⬜ | 见 §4 |
 | 对照报告文首状态 | 🟡 | 分析完成；指向本路线图 |
 | 运维速查 | ⬜ | 落地后可增 `guides/external-agent-reports-capabilities-2026-05.md` |
 
@@ -311,3 +313,4 @@ PYTHONPATH=. pytest tests/test_five_reports_f6.py tests/test_outcome_reflection.
 | 日期 | 说明 |
 |------|------|
 | 2026-05-25 | 初版：五报告合并路线图、主线 K–O、PR-X1–X6、§10 核对表 |
+| 2026-05-25 | PR-X1–X2 落地：workflow rescue/optional、loop safety |
