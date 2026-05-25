@@ -66,6 +66,7 @@ class AgentLoop:
         self._empty_retries = 0
         self._truncation_retries = 0
         self.diagnostics: dict[str, Any] = {}
+        self._tool_prefetch: dict[str, str] = {}
 
     @property
     def _compression_summary(self) -> str:
@@ -137,6 +138,10 @@ class AgentLoop:
         self._empty_retries = 0
         self._truncation_retries = 0
         set_parent_callbacks(self.callbacks)
+        from butler.core.delegate_context import set_parent_system_prompt
+
+        set_parent_system_prompt(self.system_prompt)
+        self._tool_prefetch.clear()
         if self._guardrails:
             self._guardrails.reset_for_turn()
 
@@ -352,6 +357,29 @@ class AgentLoop:
 
     def _call_llm_with_retry(self) -> Optional[NormalizedResponse]:
         empty_retries = [self._empty_retries]
+        from butler.core.streaming_tools import streaming_tools_enabled
+
+        on_tool_ready = None
+        if streaming_tools_enabled() and self.config.stream:
+            prefetch = self._tool_prefetch
+
+            def on_tool_ready(_idx: int, tool_id: str, name: str, args: dict) -> None:
+                if self._interrupt_check():
+                    return
+                key = tool_id or f"call_{_idx}"
+                if key in prefetch:
+                    return
+                if self._guardrails:
+                    from butler.tool_guardrails import synthetic_result
+
+                    before = self._guardrails.before_call(name, args)
+                    if before.should_halt:
+                        prefetch[key] = synthetic_result(before)
+                        return
+                prefetch[key] = self._dispatch_tool(name, args)
+
+            on_tool_ready = on_tool_ready
+
         response, interrupted = call_llm_with_retry(
             client=self.client,
             config=self.config,
@@ -364,6 +392,7 @@ class AgentLoop:
             interrupt_check=self._interrupt_check,
             try_activate_fallback=self._try_activate_fallback,
             empty_retries=empty_retries,
+            on_tool_call_ready=on_tool_ready,
         )
         self._empty_retries = empty_retries[0]
         if interrupted:
@@ -379,7 +408,9 @@ class AgentLoop:
             guardrails=self._guardrails,
             dispatch_tool=self._dispatch_tool,
             interrupt_check=self._interrupt_check,
+            prefetched=self._tool_prefetch,
         )
+        self._tool_prefetch.clear()
         self._tool_calls_count += stats.tools_started
 
     def _dispatch_tool(self, name: str, args: dict) -> str:

@@ -19,6 +19,14 @@ def get_parent_callbacks() -> Optional["LoopCallbacks"]:
     return getattr(_local, "callbacks", None)
 
 
+def set_parent_system_prompt(prompt: str) -> None:
+    _local.system_prompt = str(prompt or "")
+
+
+def get_parent_system_prompt() -> str:
+    return str(getattr(_local, "system_prompt", "") or "")
+
+
 def child_callbacks(parent: Optional["LoopCallbacks"]) -> Optional["LoopCallbacks"]:
     """Subset of callbacks safe for nested agent loops."""
     if parent is None:

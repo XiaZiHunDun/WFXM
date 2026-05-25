@@ -75,6 +75,7 @@ def execute_tools_parallel(
     on_complete: Callable[[str, str], None] | None = None,
     check_interrupt: Callable[[], bool] | None = None,
     precheck_tool: Callable[[str, dict], str | None] | None = None,
+    prefetched: dict[str, str] | None = None,
 ) -> list[tuple[Any, str]]:
     """Execute tool calls in parallel; return list of (tool_call, result) in original order."""
 
@@ -84,6 +85,14 @@ def execute_tools_parallel(
             args = tc.args_dict() if hasattr(tc, "args_dict") else {}
         except Exception:
             args = {}
+        tool_id = str(getattr(tc, "id", None) or "")
+        if prefetched and tool_id in prefetched:
+            if on_start:
+                on_start(name, args)
+            result = prefetched[tool_id]
+            if on_complete:
+                on_complete(name, result)
+            return tc, result
         if precheck_tool:
             prechecked = precheck_tool(name, args)
             if prechecked is not None:

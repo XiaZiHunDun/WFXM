@@ -44,6 +44,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - 工具分级剪枝：`BUTLER_TOOL_PRUNE_*`；压缩后 `post_compact` 重注入 MEMORY/任务锚点；`/诊断` 含 **上轮循环结束**（`loop_transition_reason`）
 - 读后再改：`BUTLER_READ_BEFORE_EDIT=1` 时 `patch`/`write_file`（覆盖已有文件）须先 `read_file`，且校验 mtime；`/新对话` 清空 read state
 - P1：长轮次中重复入站进队列（`BUTLER_GATEWAY_MESSAGE_QUEUE`）；Stop 钩子可 `exit 2` 或 JSON `decision:block`；句末 `+500k` / `/budget` / 「本轮尽量做完」提高 `max_iterations`
+- P2：流式只读工具预取（`BUTLER_STREAMING_TOOLS`）；`delegate_task` cache-safe 前缀（`BUTLER_CACHE_SAFE_DELEGATE`）；队列 drain 单独推送（`BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE`）
 - **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 
 ### 两套 Hook（不要混用）

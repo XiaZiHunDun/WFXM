@@ -26,7 +26,7 @@
 | Agent 循环 | `query.ts` 状态机 + 明确 transition 原因 | `agent_loop.py` 模块化 while | **中** |
 | 上下文压缩 | 三层：micro → auto → session memory | 单层 LLM 摘要 + `prune_tool_outputs` | **大**（见 §4 核验） |
 | 工具结果 | 超大结果落盘 + 模型按需 Read | 截断/剪枝到 ~800 字符 | **大** |
-| 工具执行 | 流式并行 `StreamingToolExecutor` | 批结束后 `parallel_tools` | **中** |
+| 工具执行 | 流式并行 `StreamingToolExecutor` | 流式只读预取 + `parallel_tools` | **小**（只读类） |
 | 运行中输入 | 优先级队列 now/next/later + QueryGuard | `/steer` 注入 tool 结果 | **中** |
 | 读后再改 | readFileState + mtime | `design.md` 规划，**未实现** | **大** |
 | 权限 | 规则引擎 + LLM classifier | plan mode + owner gate + 工具开关 | **中** |
@@ -49,9 +49,9 @@
 | 「每轮常走 LLM 摘要」 | `context_pipeline.prepare_messages_for_api`：`prune` → `compress_context` | `compress_messages` **仅在** `estimated > threshold` 且消息数 ≥ 12 时调辅助模型摘要；否则 no-op |
 | 「无 micro 先行」 | `context_compressor._prune_tool_outputs` | **已有** micro 风格剪枝，但是 **统一 800 字符**，未按工具名分级 |
 | 「无 post-compact 重注入」 | `post_compact_cleanup.py` | 仅清理 hygiene 诊断标记；**未**重注入 MEMORY / Skill / 活跃任务锚点 |
-| 「patch 无 read state」 | `design.md` §9.2 | 与代码一致：无 `ReadStateStore` |
+| 「patch 无 read state」 | `read_state.py` | ✅ 已实现（`BUTLER_READ_BEFORE_EDIT`） |
 | 「transition 不可观测」 | `loop_types.LoopResult` | 有 `LoopStatus`，**无** `transition_reason`；gateway 有 completion/hook 遥测，无 loop transition 枚举 |
-| 「Prompt 缓存已实现」 | 需单独审计 delegate/orchestrator | 报告写「已在架构中」——委派仍全量新 loop，**cache-safe fork 仍待做**（P2） |
+| 「Prompt 缓存已实现」 | `cache_safe_delegate.py` | delegate 子 loop 共享父 system 前缀（`BUTLER_CACHE_SAFE_DELEGATE`） |
 
 ---
 
@@ -110,11 +110,11 @@
 
 | # | 项 | 状态 |
 |---|-----|------|
-| 5 | 流式工具执行 | **P2**（需改 transport 流式增量 dispatch） |
-| 6 | 消息优先级队列 | ✅ `butler/gateway/message_queue.py` |
+| 5 | 流式工具执行 | ✅ `streaming_tools.py` + `llm_client` 流式 `on_tool_call_ready` |
+| 6 | 消息优先级队列 | ✅ `message_queue.py`；drain 可经 bridge 单独推送 |
 | 7 | Token budget 续跑 | ✅ `butler/core/turn_token_budget.py` |
 | 8 | Stop 钩子 block | ✅ `StopHookResult.blocked` + `stop_hook_blocked` 诊断 |
-| 9 | Cache-safe delegate | **P2** |
+| 9 | Cache-safe delegate | ✅ `cache_safe_delegate.py` + `delegate_context` 父 system |
 
 ---
 
@@ -148,7 +148,7 @@
 |------|------|------|
 | **P0** | 工具分级剪枝 + post-compact 重注入；tool result spill；`transition_reason` | 长会话稳定、降 token、可排障 |
 | **P1** | read-before-edit + mtime；Stop block；消息优先级队列 | 少改错文件、主公遥控 |
-| **P2** | 流式工具；token budget 续跑；cache-safe delegate | 延迟与成本 |
+| **P2** | 流式只读工具；cache-safe delegate；队列 drain 出站 | 延迟与成本（✅ 2026-05-22） |
 | **不做** | IDE/MCP 全家桶、Swarm UI | 符合微信管家边界 |
 
 **合并到运营规划**：轨道 D 按需项可与 [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) 并行；发版验收继续用 [`wechat-daily-smoke-checklist.md`](../guides/wechat-daily-smoke-checklist.md) **H1–H10** + [`CONTRIBUTING.md`](../../CONTRIBUTING.md) Butler 线束节。
@@ -163,7 +163,9 @@ Claude Code 的核心优势在 **上下文经济学**（micro 剪枝 + 落盘 + 
 
 **P1（2026-05-22 已落地）**：入站消息队列（`message_queue.py`）、Stop 钩子 `block`、turn token 预算（`+500k` / `/budget` / 「本轮尽量做完」）。
 
-**P2 候选**：流式工具执行、cache-safe delegate、消息队列出站 follow-up（bridge 主动推送 drain 回复）。
+**P2（2026-05-22 已落地）**：`BUTLER_STREAMING_TOOLS` 只读工具流式预取；`BUTLER_CACHE_SAFE_DELEGATE` 委派共享 system 前缀；`BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE` 队列 drain 经 `schedule_supplementary_reply` 单独推送。
+
+测试：`tests/test_streaming_tools.py`、`tests/test_cache_safe_delegate.py`。
 
 其余按微信远程场景取舍。
 
@@ -177,4 +179,4 @@ Claude Code 的核心优势在 **上下文经济学**（micro 剪枝 + 落盘 + 
 | 2 | ~~**工具分级剪枝 + post_compact 重注入**~~ | ✅ |
 | 3 | ~~**transition_reason**~~ | ✅ |
 | 4 | ~~**read_state + mtime**~~ | ✅ |
-| 4 | **read_state + mtime** | 触及 patch/write 全路径，需 fuzz/回归 |
+| 5 | ~~**P2 流式工具 + cache-safe + 队列出站**~~ | ✅ |

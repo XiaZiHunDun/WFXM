@@ -1409,6 +1409,17 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             tool_dispatcher=lambda name, args: _safe_dispatch(name, args, depth + 1),
             callbacks=child_callbacks(parent_cb),
         )
+        from butler.core.cache_safe_delegate import (
+            apply_cache_safe_system_prompt,
+            delegate_diagnostics,
+        )
+        from butler.core.delegate_context import get_parent_system_prompt
+
+        parent_sys = get_parent_system_prompt()
+        if parent_sys:
+            merged = apply_cache_safe_system_prompt(parent_sys, agent.system_prompt)
+            agent.system_prompt = merged
+            agent.diagnostics.update(delegate_diagnostics(parent_sys, merged))
         agent.reset()
 
         raw_user_msg = _project_agent_raw_message(task=task, context=context)

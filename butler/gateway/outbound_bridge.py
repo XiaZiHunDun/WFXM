@@ -297,6 +297,33 @@ class GatewayOutboundBridge:
             elapsed = time.monotonic() - self._started_at
         try_push_turn_complete(self, elapsed_seconds=elapsed)
 
+    def schedule_supplementary_reply(self, text: str, *, kind: str = "queued") -> bool:
+        """Send an extra user-visible message (e.g. drained inbound queue)."""
+        if self._closed or not (text or "").strip():
+            return False
+        body = (text or "").strip()
+        if len(body) > 4000:
+            body = body[:3997] + "..."
+
+        async def _send() -> None:
+            try:
+                await self.adapter.send(self.chat_id, body)
+                logger.info(
+                    "Gateway supplementary reply sent kind=%s chat_id=%s len=%d",
+                    kind,
+                    self.chat_id[:12],
+                    len(body),
+                )
+            except Exception as exc:
+                logger.warning("Gateway supplementary reply failed: %s", exc)
+
+        try:
+            asyncio.run_coroutine_threadsafe(_send(), self.loop)
+            return True
+        except Exception as exc:
+            logger.warning("Gateway supplementary schedule failed: %s", exc)
+            return False
+
     def schedule_completion_push(self, text: str, *, kind: str) -> bool:
         """Thread-safe: send an extra completion message."""
         if self._closed or not (text or "").strip():

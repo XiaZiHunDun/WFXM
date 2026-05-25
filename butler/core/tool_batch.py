@@ -60,6 +60,7 @@ def process_tool_calls(
     guardrails: ToolCallGuardrailController | None,
     dispatch_tool: Callable[[str, dict], str],
     interrupt_check: Callable[[], bool],
+    prefetched: dict[str, str] | None = None,
 ) -> ToolBatchStats:
     """Run a tool batch and append tool role messages."""
     if not response.tool_calls:
@@ -75,7 +76,9 @@ def process_tool_calls(
 
     tools_started = 0
 
-    def _dispatch_one(name: str, args: dict) -> str:
+    def _dispatch_one(name: str, args: dict, *, tool_call_id: str = "") -> str:
+        if prefetched and tool_call_id and tool_call_id in prefetched:
+            return prefetched[tool_call_id]
         if guardrails:
             before = guardrails.before_call(name, args)
             if before.should_halt:
@@ -118,11 +121,12 @@ def process_tool_calls(
     if config.enable_parallel_tools and len(response.tool_calls) > 1:
         pairs = execute_tools_parallel(
             response.tool_calls,
-            _dispatch_one,
+            lambda n, a: _dispatch_one(n, a),
             on_start=_on_start,
             on_complete=_on_complete,
             check_interrupt=interrupt_check,
             precheck_tool=_precheck_tool,
+            prefetched=prefetched,
         )
     else:
         pairs = []
@@ -152,7 +156,7 @@ def process_tool_calls(
                 ))
                 continue
             _on_start(tc.name, args)
-            result = _dispatch_one(tc.name, args)
+            result = _dispatch_one(tc.name, args, tool_call_id=str(tc.id or ""))
             _on_complete(tc.name, result)
             pairs.append((tc, result))
             if interrupt_check():

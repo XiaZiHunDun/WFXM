@@ -103,12 +103,18 @@ class ButlerMessageHandler:
             return False
         return self._session_registry.is_session_active(session_key)
 
+    def _queue_push_via_bridge(self) -> bool:
+        from butler.env_parse import env_truthy
+
+        return env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True)
+
     def _drain_queued_inbound(
         self,
         session_key: str,
         *,
         platform: str,
         external_id: str | None,
+        primary_reply: str = "",
     ) -> str:
         import os
 
@@ -141,7 +147,17 @@ class ButlerMessageHandler:
             )
             if part:
                 parts.append(part)
-        return "\n\n---\n\n".join(parts)
+        if not parts:
+            return ""
+        combined = "\n\n---\n\n".join(parts)
+        if self._queue_push_via_bridge() and primary_reply.strip():
+            from butler.gateway.outbound_bridge import get_current_bridge
+
+            br = get_current_bridge()
+            if br is not None:
+                br.schedule_supplementary_reply(combined, kind="queued")
+                return ""
+        return combined
 
     def _recover_registry_if_stale(self) -> None:
         """Clear a stuck ``reset_all`` flag that would block ``enter_session`` forever."""
@@ -247,7 +263,9 @@ class ButlerMessageHandler:
             session_key,
             platform=platform,
             external_id=external_id,
+            primary_reply=out,
         )
+        # follow 非空表示未走 bridge 单独推送（成功时 _drain 返回 ""）
         if follow:
             out = f"{out}\n\n---\n\n{follow}" if out else follow
         return out

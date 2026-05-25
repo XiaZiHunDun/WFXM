@@ -31,6 +31,7 @@ def call_llm_with_retry(
     interrupt_check: Callable[[], bool],
     try_activate_fallback: Callable[[], bool],
     empty_retries: list[int],
+    on_tool_call_ready: Callable[[int, str, str, dict], None] | None = None,
 ) -> tuple[Optional[NormalizedResponse], bool]:
     """Call the LLM with retries; return (response, interrupted)."""
     messages_to_send = prepare_messages()
@@ -54,9 +55,10 @@ def call_llm_with_retry(
                 "check_interrupt": interrupt_check,
                 "stale_timeout": config.api_stale_timeout,
             }
-            if config.stream and callbacks.on_stream_delta:
+            if config.stream and (callbacks.on_stream_delta or on_tool_call_ready):
                 response = client.stream(
                     on_delta=callbacks.on_stream_delta,
+                    on_tool_call_ready=on_tool_call_ready,
                     **common,
                 )
             else:

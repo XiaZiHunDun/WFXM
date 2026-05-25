@@ -163,6 +163,7 @@ class LLMClient:
         messages: list[dict],
         tools: Optional[list[dict]] = None,
         on_delta: Optional[Callable[[str], None]] = None,
+        on_tool_call_ready: Optional[Callable[[int, str, str, dict], None]] = None,
         check_interrupt: Optional[Callable[[], bool]] = None,
         stale_timeout: Optional[float] = None,
         **kwargs,
@@ -210,6 +211,7 @@ class LLMClient:
                 return self._stream_call(
                     api_kwargs,
                     on_delta=_wrapped_delta if on_delta else None,
+                    on_tool_call_ready=on_tool_call_ready,
                     transport=transport,
                 )
             finally:
@@ -246,6 +248,7 @@ class LLMClient:
         self,
         api_kwargs: dict,
         on_delta: Optional[Callable[[str], None]] = None,
+        on_tool_call_ready: Optional[Callable[[int, str, str, dict], None]] = None,
         transport: Any = None,
     ) -> NormalizedResponse:
         """Execute streaming API call and collect into NormalizedResponse."""
@@ -261,7 +264,12 @@ class LLMClient:
 
         try:
             if self.api_mode == "anthropic_messages":
-                return self._stream_anthropic(api_kwargs, on_delta, transport)
+                return self._stream_anthropic(
+                    api_kwargs,
+                    on_delta,
+                    transport,
+                    on_tool_call_ready=on_tool_call_ready,
+                )
 
             client = self._get_openai_client()
             stream = client.chat.completions.create(**api_kwargs)
@@ -304,6 +312,14 @@ class LLMClient:
                                 entry["name"] = fn.name
                             if getattr(fn, "arguments", None):
                                 entry["arguments"] += fn.arguments
+                    from butler.core.streaming_tools import (
+                        notify_complete_tool_calls_from_stream,
+                    )
+
+                    notify_complete_tool_calls_from_stream(
+                        collected_tool_calls,
+                        on_tool_call_ready,
+                    )
 
                 raw_usage = getattr(chunk, "usage", None)
                 if raw_usage:
@@ -319,6 +335,13 @@ class LLMClient:
                 pass
             else:
                 raise
+
+        from butler.core.streaming_tools import notify_complete_tool_calls_from_stream
+
+        notify_complete_tool_calls_from_stream(
+            collected_tool_calls,
+            on_tool_call_ready,
+        )
 
         tool_calls = None
         if collected_tool_calls:
@@ -344,6 +367,7 @@ class LLMClient:
         api_kwargs: dict,
         on_delta: Optional[Callable[[str], None]],
         transport: Any,
+        on_tool_call_ready: Optional[Callable[[int, str, str, dict], None]] = None,
     ) -> NormalizedResponse:
         from butler.transport.types import ToolCall, Usage
 
@@ -353,7 +377,10 @@ class LLMClient:
         if not hasattr(client, "messages"):
             api_kwargs["stream"] = True
             return self._stream_call(
-                api_kwargs, on_delta=on_delta, transport=transport
+                api_kwargs,
+                on_delta=on_delta,
+                transport=transport,
+                on_tool_call_ready=on_tool_call_ready,
             )
 
         collected_text: list[str] = []
@@ -392,6 +419,14 @@ class LLMClient:
 
                 elif etype == "content_block_stop":
                     if current_tool:
+                        from butler.core.streaming_tools import (
+                            notify_complete_tool_calls_from_stream,
+                        )
+
+                        notify_complete_tool_calls_from_stream(
+                            {len(tool_calls): current_tool},
+                            on_tool_call_ready,
+                        )
                         tool_calls.append(ToolCall(
                             id=current_tool["id"],
                             name=current_tool["name"],
