@@ -1182,7 +1182,21 @@ def _build_parser() -> argparse.ArgumentParser:
     rt_ap.add_argument("--no-notify", action="store_true")
     rt_ap.set_defaults(func=_cmd_runtime_approve)
 
+    mcp = sub.add_parser("mcp", help="MCP 协议工具（需 butler-system[mcp]）")
+    mcp_sub = mcp.add_subparsers(dest="mcp_cmd", required=True)
+    mcp_serve = mcp_sub.add_parser(
+        "serve",
+        help="stdio MCP Server，暴露只读 Butler 工具供 Cursor 等客户端调用",
+    )
+    mcp_serve.set_defaults(func=_cmd_mcp_serve)
+
     return p
+
+
+def _cmd_mcp_serve(_ns: argparse.Namespace) -> int:
+    from butler.mcp.server_stdio import run_stdio_server
+
+    return run_stdio_server()
 
 
 def main(argv: Sequence[str] | None = None) -> None:

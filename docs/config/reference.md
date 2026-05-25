@@ -81,6 +81,15 @@
 | `BUTLER_INSTRUCTION_WALKUP*` | 见 example | read_file 后注入邻近 AGENTS.md |
 | `BUTLER_SESSION_TODOS` | 1 | 会话 `todos.json`；`/待办`；工具 `session_todos_list` / `session_todos_write` |
 | `BUTLER_SESSION_TODOS_MAX_ITEMS` | 30 | 单会话待办条数上限（1–100） |
+| `BUTLER_MCP_ENABLED` | 0 | 薄 MCP Client；需 `butler-system[mcp]` |
+| `BUTLER_MCP_CONFIG` | `~/.butler/mcp.yaml` | MCP Server 列表 |
+| `BUTLER_MCP_MAX_SERVERS` | 3 | 同时连接 Server 数 |
+| `BUTLER_MCP_MAX_TOOLS` | 20 | 注入模型的 MCP 工具总数 |
+| `BUTLER_MCP_TOOL_PREFIX` | mcp | 注册工具名前缀 |
+| `BUTLER_MCP_STDIO_ALLOW_COMMANDS` | python,python3,uvx | stdio 可执行命令白名单 |
+| `BUTLER_MCP_HTTP_HOSTS_ALLOW` | 空 | 额外允许的 HTTP Host |
+| `BUTLER_MCP_SESSION_SCOPED` | 1 | 按 `session_key` 隔离连接 |
+| `BUTLER_MCP_HTTP_ALLOW_PRIVATE` | 0 | 是否允许 127.0.0.1 等内网 Host |
 | `BUTLER_SESSION_TRANSCRIPT` | 1 | 含 `compact_scheduled` / `compact_done` 事件 |
 | `BUTLER_READ_BEFORE_EDIT` | 1 | patch/write 前须 read_file + mtime |
 | `BUTLER_READ_STATE_MAX_ENTRIES` | 100 | read state LRU 上限 |

@@ -1,0 +1,13 @@
+# Example: gate MCP tools via project permissions (last-match).
+# Place rules in <workspace>/.butler/permissions.yaml
+
+rules:
+  - tool: "mcp_*"
+    action: ask
+    reason: "MCP 工具调用需 Owner 确认"
+
+delegate_subagent:
+  deny_tools:
+    - "mcp_*"
+
+# project.yaml must still list mcp_* or specific mcp_server_tool names under tools:

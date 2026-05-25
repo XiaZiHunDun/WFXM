@@ -71,12 +71,90 @@ def get_tool_definitions() -> List[dict]:
                 "parameters": entry.schema,
             },
         })
+    try:
+        from butler.mcp.registry_hook import get_mcp_tool_definitions
+
+        result.extend(get_mcp_tool_definitions())
+    except Exception as exc:
+        logger.debug("MCP tool definitions skipped: %s", exc)
     return result
+
+
+def _dispatch_mcp_tool(name: str, args: dict) -> str:
+    """Run permission/hooks/audit pipeline for MCP tools."""
+    from butler.mcp.registry_hook import dispatch_mcp_tool
+
+    started_at = time.monotonic()
+    plan_block = None
+    try:
+        from butler.mcp.registry_hook import check_plan_mode_mcp_block
+
+        plan_block = check_plan_mode_mcp_block(name)
+    except Exception as exc:
+        logger.debug("MCP plan mode check skipped: %s", exc)
+    if plan_block:
+        return _permission_denied_tool_result(
+            name,
+            args,
+            plan_block,
+            code="PLAN_MODE_BLOCKED",
+        )
+
+    try:
+        from butler.permissions import check_project_permission_block
+
+        perm_block = check_project_permission_block(name, args)
+        if perm_block:
+            return _permission_denied_tool_result(
+                name,
+                args,
+                perm_block,
+                code="PERMISSION_RULE_DENIED",
+            )
+    except Exception as exc:
+        logger.debug("MCP permission rules skipped: %s", exc)
+
+    try:
+        from butler.hooks.runner import run_pre_tool_hooks
+
+        pre_block = run_pre_tool_hooks(name, args)
+        if pre_block:
+            return _permission_denied_tool_result(
+                name,
+                args,
+                pre_block,
+                code="HOOK_BLOCKED",
+                started_at=started_at,
+            )
+    except Exception as exc:
+        logger.debug("MCP pre tool hooks skipped: %s", exc)
+
+    result = dispatch_mcp_tool(name, args)
+    if result is None:
+        return _finalize_tool_result(
+            name,
+            args,
+            {"error": f"Unknown MCP tool: {name}"},
+            started_at=started_at,
+        )
+    return _apply_post_tool_hooks(
+        name,
+        args,
+        _finalize_tool_result(name, args, result, started_at=started_at),
+    )
 
 
 def dispatch_tool(name: str, args: dict) -> str:
     """Dispatch a tool call by name. Returns result as string."""
     _ensure_builtins()
+    try:
+        from butler.mcp.registry_hook import is_mcp_tool
+
+        if is_mcp_tool(name):
+            return _dispatch_mcp_tool(name, args)
+    except Exception as exc:
+        logger.debug("MCP dispatch routing skipped: %s", exc)
+
     entry = _REGISTRY.get(name)
     if entry is None:
         return _finalize_tool_result(

@@ -58,11 +58,20 @@ def filter_tools_for_subagent(
             if isinstance(role_deny, list):
                 denied.update(str(t).strip() for t in role_deny if str(t).strip())
 
-    return [
-        t
-        for t in tools
-        if str((t.get("function") or {}).get("name") or "") not in denied
-    ]
+    filtered: list[dict] = []
+    for t in tools:
+        name = str((t.get("function") or {}).get("name") or "")
+        if name in denied:
+            continue
+        try:
+            from butler.mcp.naming import is_mcp_registered_name
+
+            if is_mcp_registered_name(name):
+                continue
+        except Exception:
+            pass
+        filtered.append(t)
+    return filtered
 
 
 def make_child_session_key(parent_session_key: str, task_id: str) -> str:

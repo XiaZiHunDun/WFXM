@@ -36,6 +36,12 @@ def format_transcript_diagnostic_lines(session_key: str) -> list[str]:
     pending = _after_commit_pending()
     if pending:
         lines.append(f"Post-commit 队列: 待发 {pending} 条")
+    try:
+        from butler.mcp.diagnostics import format_mcp_diagnostic_lines
+
+        lines.extend(format_mcp_diagnostic_lines(session_key))
+    except Exception:
+        pass
     return lines
 
 

@@ -73,6 +73,20 @@ def allowed_tool_names_for_project(
     return mapped
 
 
+def _tool_allowed(name: str, allowed: set[str]) -> bool:
+    if name in allowed:
+        return True
+    if "mcp_*" in allowed:
+        try:
+            from butler.mcp.naming import is_mcp_registered_name
+
+            if is_mcp_registered_name(name):
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def filter_tool_definitions(
     tools: list[dict],
     allowed: set[str] | None,
@@ -81,7 +95,7 @@ def filter_tool_definitions(
         return list(tools)
     return [
         t for t in tools
-        if t.get("function", {}).get("name") in allowed
+        if _tool_allowed(str(t.get("function", {}).get("name") or ""), allowed)
     ]
 
 

@@ -11,6 +11,7 @@
 | **仓库整理 P3** | [`consolidation-p3-implementation-2026-05.md`](consolidation-p3-implementation-2026-05.md) | 实现层熵减（与 CC P3 无关） |
 | **外部对标 P0–P2** | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | Prometheus/OpenClaw/Dify **设计借鉴**（已收口，零依赖） |
 | **OpenCode 对标 P0–P1** | [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | 压缩/prune/权限/doom loop/委派/指令 walk-up（**已落地**） |
+| **MCP 薄客户端 P3** | [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md) | stdio/HTTP Client + `butler mcp serve`（**已落地**） |
 
 ## 当前状态（2026-05-25）
 
@@ -20,6 +21,7 @@
 | 仓库整理 | P0–P3 已完成 |
 | 外部对标 | P0–P2 已落地；**无后续必做项**（不做队列 jsonl WAL、自动续跑 workflow、多实例 MQ） |
 | OpenCode 对标 | P0–P2 已落地（SQLite 全量模型仍暂缓） |
+| MCP P3 | 薄 Client + 诊断 + `butler mcp serve`（默认关闭） |
 | 产品后续 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) |
 
 ## 活跃参考
@@ -30,6 +32,7 @@
 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) | 灵文运营、多项目、语料 |
 | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | 外部项目学习记录（**已关闭**） |
 | [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | OpenCode 对标（**已落地 P0–P1**） |
+| [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md) | MCP 薄客户端（**已落地**） |
 
 ## 归档 / 专项（按需打开）
 

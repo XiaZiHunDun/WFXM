@@ -1,0 +1,22 @@
+# Copy to ~/.butler/mcp.yaml or <project>/.butler/mcp.yaml
+# Requires: pip install butler-system[mcp] and BUTLER_MCP_ENABLED=1
+
+version: 1
+servers:
+  # example_stdio:
+  #   transport: stdio
+  #   command: python3
+  #   args: ["/path/to/your_mcp_server.py"]
+  #   timeout_seconds: 60
+  #   tools:
+  #     allow: ["tool_a", "tool_b"]
+  #   classify:
+  #     tool_a: readonly
+
+  # example_http:
+  #   transport: http
+  #   url: https://mcp.example.com/mcp
+  #   sse: false
+  #   headers:
+  #     Authorization: "Bearer ${MCP_CORP_TOKEN}"
+  #   hosts_allow: ["mcp.example.com"]

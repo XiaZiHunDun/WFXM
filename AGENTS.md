@@ -55,7 +55,8 @@ PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command
 ## 产品边界（简述）
 
 - **做**：微信管家、多项目、`delegate_task`、runtime jobs、项目 `MEMORY.md`、入站队列 mode、`workflow_steps` 权限
-- **不做**：内置 MCP host、控制 IDE、Claude Code 子进程替代 Loop；入站队列 jsonl WAL、确认后自动续跑 workflow、多实例 MQ（见 `reference-learning-plan`）
+- **不做**：OpenCode/CC 级 MCP Host（npm 生态、OAuth 浏览器）；控制 IDE、Claude 子进程替代 Loop；入站 jsonl WAL、自动续跑 workflow、多实例 MQ
+- **可选 MCP**：`BUTLER_MCP_ENABLED=1` + `pip install butler-system[mcp]` + `.butler/mcp.yaml`；见 [`docs/plans/butler-mcp-capability-2026-05.md`](docs/plans/butler-mcp-capability-2026-05.md)
 
 ## 文档更新义务
 

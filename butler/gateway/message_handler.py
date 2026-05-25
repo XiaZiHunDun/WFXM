@@ -38,7 +38,7 @@ class ButlerMessageHandler:
         self._session_registry = GatewaySessionRegistry(
             self._create_loop_for_session,
             finalize=self._finalize_session,
-            on_session_removed=_reset_tool_audit_events,
+            on_session_removed=_on_gateway_session_removed,
             max_sessions=_env_int("BUTLER_GATEWAY_MAX_SESSIONS", 128),
             idle_ttl_seconds=_env_float("BUTLER_GATEWAY_SESSION_IDLE_TTL_SECONDS", 3600),
         )
@@ -1073,3 +1073,13 @@ def _reset_tool_audit_events(session_key: str | None = None) -> None:
     except Exception:
         return
     reset_tool_audit_events(session_key)
+
+
+def _on_gateway_session_removed(session_key: str) -> None:
+    _reset_tool_audit_events(session_key)
+    try:
+        from butler.mcp.registry_hook import disconnect_mcp_session
+
+        disconnect_mcp_session(session_key)
+    except Exception:
+        pass
