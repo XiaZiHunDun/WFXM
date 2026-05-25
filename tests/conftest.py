@@ -62,6 +62,11 @@ def mock_llm_response():
     return _factory
 
 
+def link_llm_stream_mock(mock_complete, mock_stream) -> None:
+    """Route LLMClient.stream() through complete() so side_effect lists advance in order."""
+    mock_stream.side_effect = lambda *args, **kwargs: mock_complete(*args, **kwargs)
+
+
 @pytest.fixture
 def mock_llm_client(mock_llm_response):
     """LLMClient with mocked complete/stream methods."""

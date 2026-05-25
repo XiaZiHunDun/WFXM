@@ -116,9 +116,9 @@ class TestWechatCoreScenarioStep6:
             _text_response("检查完成。"),
             _text_response("上一轮对话已清空，无法复述具体细节。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        from tests.conftest import link_llm_stream_mock
+
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         for user, _ in self.TURNS:
             gateway_handler.handle_message(

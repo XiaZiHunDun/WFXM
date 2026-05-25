@@ -330,7 +330,7 @@ class TestSlashCommands:
 
         assert text.startswith("已清空本轮对话上下文。")
         finalize.assert_called_once_with(
-            handler._orchestrator, loop_a, session_id="a"
+            handler._orchestrator, loop_a, session_id="a", reason="clear"
         )
         assert "a" not in handler._sessions
         assert handler._sessions["b"] is loop_b
@@ -595,7 +595,9 @@ class TestSessionManagement:
         assert loop is new_loop
         assert "old" not in handler._sessions
         assert "new" in handler._sessions
-        finalize.assert_called_once_with(handler._orchestrator, old_loop)
+        finalize.assert_called_once_with(
+            handler._orchestrator, old_loop, reason="finalize"
+        )
 
     def test_get_or_create_loop_enforces_lru_limit(self, handler):
         now = {"value": 0.0}

@@ -75,9 +75,11 @@ def patch_llm(mock_llm_response):
         patch(f"{LLM_PATCH}.complete") as mock_complete,
         patch(f"{LLM_PATCH}.stream") as mock_stream,
     ):
+        from tests.conftest import link_llm_stream_mock
+
         default = mock_llm_response()
         mock_complete.return_value = default
-        mock_stream.return_value = default
+        link_llm_stream_mock(mock_complete, mock_stream)
         yield mock_complete, mock_stream
 
 
@@ -102,9 +104,9 @@ class TestManualGuide22Dialog:
             _text_response("好的，张三。"),
             _text_response("你刚才说的是张三。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        from tests.conftest import link_llm_stream_mock
+
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         loop = butler_orchestrator.create_agent_loop(role="butler")
         loop.config = LoopConfig(stream=False)
@@ -184,9 +186,9 @@ class TestManualGuide23Slash:
             _text_response("好的，李四。"),
             _text_response("你叫李四。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        from tests.conftest import link_llm_stream_mock
+
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         loop = butler_orchestrator.create_agent_loop(role="butler")
         loop.config = LoopConfig(stream=False)

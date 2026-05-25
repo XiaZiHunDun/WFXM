@@ -126,10 +126,10 @@ def _lingwen_session_key(chat_id: str = "u1") -> str:
 
 
 def _bind_llm_script(mock_complete, mock_stream, script: list) -> None:
+    from tests.conftest import link_llm_stream_mock
+
     mock_complete.side_effect = list(script)
-    mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-        min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-    ]
+    link_llm_stream_mock(mock_complete, mock_stream)
 
 
 def _assert_not_compact_delegate_card(text: str) -> None:

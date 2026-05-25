@@ -252,9 +252,9 @@ class TestCliMultiTurnMemorySemantics:
             patch(f"{LLM_PATCH}.stream") as mock_stream,
         ):
             mock_complete.side_effect = [_resp("记住李四"), _resp("你叫李四。")]
-            mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-                mock_complete.call_count - 1
-            ]
+            from tests.conftest import link_llm_stream_mock
+
+            link_llm_stream_mock(mock_complete, mock_stream)
 
             loop = butler_orchestrator.create_agent_loop(role="butler")
             loop.config = LoopConfig(stream=False)

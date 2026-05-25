@@ -58,9 +58,8 @@ async def test_ack_sent_once_after_delay(monkeypatch):
     adapter = _MockAdapter()
     loop = asyncio.get_running_loop()
     bridge = GatewayOutboundBridge(adapter=adapter, chat_id="u1", loop=loop)
-    bridge.delegate_role = "content_agent"
-
     await bridge.start_turn()
+    bridge.delegate_role = "content_agent"
     await asyncio.sleep(0.12)
     assert len(adapter.sent) == 1
     assert "content_agent" in adapter.sent[0]

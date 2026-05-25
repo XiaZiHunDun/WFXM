@@ -191,7 +191,7 @@ class TestButlerMessageHandlerRunner:
 
         assert out is not None
         assert "处理超时" in out
-        assert "/health" in out or "health" in out.lower()
+        assert "/诊断" in out or "/health" in out or "health" in out.lower()
         butler.handle_message.assert_not_called()
 
     @pytest.mark.asyncio

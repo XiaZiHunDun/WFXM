@@ -12,6 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tests.conftest import link_llm_stream_mock
+
 from butler.core.agent_loop import LoopResult, LoopStatus
 from butler.gateway.message_handler import ButlerMessageHandler
 from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
@@ -48,7 +50,7 @@ def patch_llm(mock_llm_response):
     ):
         default = mock_llm_response()
         mock_complete.return_value = default
-        mock_stream.return_value = default
+        link_llm_stream_mock(mock_complete, mock_stream)
         yield mock_complete, mock_stream
 
 
@@ -97,9 +99,7 @@ class TestManualGuide34Dialog:
             _text_response("好的，我记住了。"),
             _text_response("你叫王五。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         sk = "wechat:u1"
         gateway_handler.handle_message("我叫王五", session_key=sk, platform="wechat")
@@ -120,9 +120,7 @@ class TestManualGuide34Dialog:
             _tool_response("read_file", {"path": str(sample)}),
             _text_response(f"__init__.py 共有 {expected} 行。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         out = gateway_handler.handle_message(
             "请帮我查看 butler/gateway/__init__.py 文件有多少行",
@@ -271,9 +269,7 @@ class TestManualGuide35Slash:
             _text_response("好的，赵六。"),
             _text_response("我不记得了。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         sk = "wechat:u1"
         gateway_handler.handle_message("我叫赵六", session_key=sk, platform="wechat")
@@ -368,9 +364,7 @@ class TestWechatSmokeDelegate:
             _text_response("已写入 docs/smoke-gw.md"),
             _text_response("内容代理已完成，发 /详细 可看变更。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         out = handler.handle_message(
             "请交给内容代理：在 docs 写 smoke-gw.md，正文写微信验收",
@@ -405,9 +399,7 @@ class TestWechatSmokeDelegate:
             _tool_response("read_file", {"path": readme_rel}),
             _text_response("README 共 15 行左右。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         handler._session_registry.reset_all()
         with patch(
@@ -587,9 +579,7 @@ class TestWechatSmokeDevDelegate:
             _text_response("开发代理确认：文件存在。"),
             _text_response("已委派开发代理完成检查，文件存在。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         handler._session_registry.reset_all()
         with patch(
@@ -697,9 +687,7 @@ class TestWechatSmokeDetailAlias:
             _text_response("已完成。"),
             _text_response("发「详细」可看报告。"),
         ]
-        mock_stream.side_effect = lambda *a, **k: mock_complete.side_effect[
-            min(mock_complete.call_count - 1, len(mock_complete.side_effect) - 1)
-        ]
+        link_llm_stream_mock(mock_complete, mock_stream)
 
         handler.handle_message(
             "请交给内容代理写 docs/smoke-detail-alias.md",

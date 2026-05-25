@@ -102,7 +102,9 @@ class TestOwnerProfileGateway:
             platform="wechat",
         )
 
-        call_args = mock_complete.call_args
+        llm_mock = mock_complete if mock_complete.called else mock_stream
+        call_args = llm_mock.call_args
+        assert call_args is not None
         messages = call_args.kwargs.get("messages") or call_args.args[0]
         system_blob = " ".join(
             str(m.get("content", ""))
