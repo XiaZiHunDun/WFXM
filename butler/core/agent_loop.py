@@ -474,6 +474,7 @@ class AgentLoop:
         return self._context.prepare_messages_for_api(
             self._messages,
             pre_llm_transform=self.callbacks.pre_llm_transform,
+            diagnostics=self.diagnostics,
         )
 
     def _try_activate_fallback(self) -> bool:

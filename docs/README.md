@@ -50,6 +50,7 @@
 | [`plans/README.md`](plans/README.md) | **规划索引**（CC / 整理 / 外部对标 命名对照） |
 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) | Claude Code ↔ Butler（**主对照**） |
 | [`plans/reference-learning-plan-2026-05.md`](plans/reference-learning-plan-2026-05.md) | 外部对标（Prometheus/OpenClaw/Dify）— **已收口** |
+| [`plans/openclaw-learning-plan-2026-05.md`](plans/openclaw-learning-plan-2026-05.md) | OpenClaw 对标 OC-P0–P2（前置压缩、Gateway、doctor）— **已落地** |
 | [`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md) | 运营与多项目后续 |
 | [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理（已完成） |
 | [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 成熟度评估 |

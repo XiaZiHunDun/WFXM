@@ -48,6 +48,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - **外部对标（已收口，零依赖）**：`runtime_metrics` → `/诊断` 运行指标（[`docs/ops/diagnostic-thresholds.md`](docs/ops/diagnostic-thresholds.md)）；入站 `BUTLER_GATEWAY_QUEUE_MODE`（followup/collect/interrupt/steer）与会话 `/queue`；workflow `requires_approval` → `/确认` `/取消` 后再发 `/workflow`（见 [`docs/plans/reference-learning-plan-2026-05.md`](docs/plans/reference-learning-plan-2026-05.md)）
 - **OpenCode 对标（P0–P1）**：压缩模板、`BUTLER_TOOL_PRUNE_BACKWARD*`、`BUTLER_DOOM_LOOP_THRESHOLD`、权限 last-match、`instruction_walkup`、`delegate_subagent`（见 [`docs/plans/opencode-learning-plan-2026-05.md`](docs/plans/opencode-learning-plan-2026-05.md)）
 - **MCP 薄客户端（P3，默认关）**：`pip install butler-system[mcp]` + `BUTLER_MCP_ENABLED=1` + `~/.butler/mcp.yaml`；`project.yaml` 须含 `mcp_*`；`/诊断` 含 MCP 连接段；开发：`butler mcp serve`（见 [`docs/plans/butler-mcp-capability-2026-05.md`](docs/plans/butler-mcp-capability-2026-05.md)）
+- **OpenClaw 对标（OC-P0–P2，默认多数开）**：`preemptive_compact`（LLM 前压缩路由）；AGENTS.md 节 post-compact 回灌；`tool_loop_detect`（ping_pong/poll/circuit）；`reply_admission` 单飞；`bot_loop_guard`（默认关）；`butler doctor` / 微信 `/doctor`；Owner `/批准执行` + `delegate_yield`（见 [`docs/plans/openclaw-learning-plan-2026-05.md`](docs/plans/openclaw-learning-plan-2026-05.md)）
 - **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 
 ```bash

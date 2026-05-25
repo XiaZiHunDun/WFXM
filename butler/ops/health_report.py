@@ -192,6 +192,15 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
         lines.extend(format_outbound_diagnostic_lines(session_key, chat_id=chat_id))
     except Exception:
         lines.append("出站策略: 不可用")
+    try:
+        from butler.ops.openclaw_diagnostics import format_openclaw_diagnostic_lines
+
+        oc_lines = format_openclaw_diagnostic_lines(health, session_key=session_key)
+        if oc_lines:
+            lines.append("OpenClaw 对标:")
+            lines.extend(f"  {ln}" for ln in oc_lines)
+    except Exception:
+        pass
     return lines
 
 

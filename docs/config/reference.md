@@ -103,6 +103,15 @@
 | `BUTLER_CACHE_SAFE_MESSAGES_CHARS` | 2048 | 共享 messages 前缀用于 cache 指纹 |
 | `BUTLER_TURN_BUDGET_MAX_CONTINUATIONS` | 3 | 回合内 token 预算续跑次数 |
 | `BUTLER_TURN_BUDGET_MIN_DELTA` | 500 | 续跑收益递减：Δ tokens 低于此则停 |
+| `BUTLER_PREEMPTIVE_COMPACT` | 1 | LLM 前估算 → compact / truncate / overflow_fail |
+| `BUTLER_PREEMPTIVE_TRUNCATE_BUFFER` | 512 | 截断后仍允许的 token 缓冲 |
+| `BUTLER_POST_COMPACT_AGENTS_SECTIONS` | Session Startup,Red Lines,… | 压缩后回灌 AGENTS.md 节名 |
+| `BUTLER_POST_COMPACT_AGENTS_MAX_CHARS` | 2000 | 上述节总字符上限 |
+| `BUTLER_TOOL_LOOP_DETECTORS` | ping_pong,poll,circuit | 工具环检测（`off` 关闭） |
+| `BUTLER_TOOL_LOOP_CIRCUIT_LIMIT` | 40 | 单轮工具调用熔断上限 |
+| `BUTLER_TERMINAL_REQUIRE_APPROVAL` | 0 | `1` 时 terminal 须 Owner `/批准执行` |
+
+> OpenClaw 对标详表：[`plans/openclaw-learning-plan-2026-05.md`](../plans/openclaw-learning-plan-2026-05.md)
 
 ## Gateway 线束（入站 / 出站）
 
@@ -117,6 +126,10 @@
 | `BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE` | 1 | drain 正文单独微信（非拼主回复） |
 | `BUTLER_GATEWAY_COMPLETION_NOTIFY` | 1 | 长任务完成额外推送总开关 |
 | `BUTLER_GATEWAY_DELEGATE_COMPLETION_*` | — | 委派完成推送模式（见 `.env.example`） |
+| `BUTLER_REPLY_ADMISSION` | 1 | 每 session 单飞 reply turn；忙则入队 |
+| `BUTLER_BOT_LOOP_GUARD` | 0 | 群聊 bot 互 @ 环防护 |
+| `BUTLER_BOT_LOOP_PAIR_THRESHOLD` | 6 | bot 环滑动窗口阈值 |
+| `BUTLER_BOT_LOOP_WHITELIST` | — | 逗号分隔 chat_id 白名单 |
 | `BUTLER_TURN_TOKEN_BUDGET` | 1 | 句末 `+500k` / `/budget` 提高迭代上限 |
 | `BUTLER_TURN_BUDGET_*` | — | 预算数值（见 example） |
 

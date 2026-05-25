@@ -66,6 +66,7 @@ class ContextPipeline:
         messages: list[dict],
         *,
         pre_llm_transform: Callable[[list[dict]], list[dict]] | None = None,
+        diagnostics: dict[str, Any] | None = None,
     ) -> list[dict]:
         from butler.core.tool_result_storage import enforce_message_tool_budget
         from butler.execution_context import get_audit_session_key
@@ -76,6 +77,32 @@ class ContextPipeline:
         )
         prepared = prune_tool_outputs(prepared)
         prepared = backward_prune_tool_outputs(prepared)
+        diag: dict[str, Any] = diagnostics if isinstance(diagnostics, dict) else {}
+        try:
+            from butler.core.preemptive_compact import (
+                ContextPrecheckOverflow,
+                apply_preemptive_pipeline,
+                preemptive_compact_enabled,
+            )
+
+            if preemptive_compact_enabled():
+                prepared, decision = apply_preemptive_pipeline(
+                    prepared,
+                    max_context_tokens=self.config.max_context_tokens,
+                    estimate_tokens=self.estimate_tokens,
+                    compress=self.compress_context,
+                    diagnostics=diag or None,
+                )
+                if decision.route == "overflow_fail":
+                    raise ContextPrecheckOverflow(
+                        decision.message,
+                        estimated=decision.estimated_tokens,
+                        threshold=decision.threshold_tokens,
+                    )
+        except ContextPrecheckOverflow:
+            raise
+        except Exception as exc:
+            logger.debug("Preemptive compact skipped: %s", exc)
         prepared = self.compress_context(prepared)
         prepared, _ = repair_message_sequence(prepared)
         repair_tool_arguments(prepared)

@@ -187,6 +187,15 @@ def record_queue_operation(session_key: str, priority: str, preview: str) -> Non
     )
 
 
+def record_generic_event(session_key: str, event_type: str, payload: dict | None = None) -> None:
+    """Append arbitrary audit row (bot_loop_suppressed, etc.)."""
+    append_transcript_entry(
+        session_key,
+        str(event_type or "event"),
+        dict(payload or {}),
+    )
+
+
 def record_queue_drop(session_key: str, reason: str, count: int = 1) -> None:
     append_transcript_entry(
         session_key,

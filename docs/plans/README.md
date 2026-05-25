@@ -12,6 +12,7 @@
 | **外部对标 P0–P2** | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | Prometheus/OpenClaw/Dify **设计借鉴**（已收口，零依赖） |
 | **OpenCode 对标 P0–P1** | [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | 压缩/prune/权限/doom loop/委派/指令 walk-up（**已落地**） |
 | **MCP 薄客户端 P3** | [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md) | stdio/HTTP Client + `butler mcp serve`（**已落地**） |
+| **OpenClaw 对标 OC-P0–P2** | [`openclaw-learning-plan-2026-05.md`](openclaw-learning-plan-2026-05.md) | 前置压缩、工具环、reply 准入、doctor、terminal 绑定、delegate_yield（**已落地**） |
 
 ## 当前状态（2026-05-25）
 
@@ -22,6 +23,7 @@
 | 外部对标 | P0–P2 已落地；**无后续必做项**（不做队列 jsonl WAL、自动续跑 workflow、多实例 MQ） |
 | OpenCode 对标 | P0–P2 已落地（SQLite 全量模型仍暂缓） |
 | MCP P3 | 薄 Client + 诊断 + `butler mcp serve`（默认关闭） |
+| OpenClaw OC-P0–P2 | 前置压缩 / AGENTS 节回灌 / 工具环 / Gateway 准入 / `butler doctor`（**已落地**） |
 | 产品后续 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) |
 
 ## 活跃参考
@@ -33,6 +35,7 @@
 | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | 外部项目学习记录（**已关闭**） |
 | [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | OpenCode 对标（**已落地 P0–P1**） |
 | [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md) | MCP 薄客户端（**已落地**） |
+| [`openclaw-learning-plan-2026-05.md`](openclaw-learning-plan-2026-05.md) | OpenClaw 对标（**已落地 OC-P0–P2**） |
 
 ## 归档 / 专项（按需打开）
 

@@ -16,7 +16,7 @@
 | 产品形态 | 微信管家 + 自建 Loop + 多项目 | 不变成 K8s 平台、不嵌 Dify/OpenClaw 运行时 |
 | 可观测性 | `/诊断` 文本 + 内存计数器（`completion_telemetry`、`hooks/telemetry`） | 借鉴 **Prometheus 指标模型**（命名/类型/标签），统一到 **零依赖** 运行时快照，强化 `/诊断` 与 health |
 | 入站队列 | `message_queue.py`：now/next/later + 2s 去重 | 对齐 **steer/followup/collect/interrupt** 语义与 cap/drop |
-| Agent 平台 | 已对标 Claude Code P0–P4 | **OpenClaw** 作第二对照（Gateway/会话/队列/多通道） |
+| Agent 平台 | 已对标 Claude Code P0–P4 | **OpenClaw** 作第二对照（Gateway/会话/队列/多通道）；OC-P0–P2 详表见 [`openclaw-learning-plan-2026-05.md`](openclaw-learning-plan-2026-05.md) |
 | 工作流产品化 | 无可视化工作流 | **Dify** 仅学权限与 Graph 编排，**二期可选** |
 
 **明确不做（本规划周期）**：任何 **pip 新依赖**；Istio/K8s 联邦；RocketMQ/Kafka 集群；OpenClaw/Dify 子进程或嵌入运行时；**入站队列 jsonl/WAL 持久化**（`session_transcript` 已够审计）；**确认后自动续跑 workflow**（维持「确认 → 再发 `/workflow`」）；**多实例 Gateway + 外部队列**（单进程微信网关为当前部署假设）。

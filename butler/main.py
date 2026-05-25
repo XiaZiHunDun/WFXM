@@ -1190,6 +1190,11 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     mcp_serve.set_defaults(func=_cmd_mcp_serve)
 
+    sub.add_parser(
+        "doctor",
+        help="静态安全配置审计（OpenClaw doctor 子集，只读）",
+    ).set_defaults(func=_cmd_doctor)
+
     return p
 
 
@@ -1197,6 +1202,29 @@ def _cmd_mcp_serve(_ns: argparse.Namespace) -> int:
     from butler.mcp.server_stdio import run_stdio_server
 
     return run_stdio_server()
+
+
+def _cmd_doctor(_ns: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from butler.ops.security_audit import format_audit_report, run_security_audit
+
+    workspace: Path | None = None
+    try:
+        from butler.config import get_butler_home
+
+        projects_dir = get_butler_home() / "projects"
+        if projects_dir.is_dir():
+            for child in sorted(projects_dir.iterdir()):
+                if (child / "AGENTS.md").is_file():
+                    workspace = child
+                    break
+    except Exception:
+        workspace = None
+    findings = run_security_audit(workspace=workspace)
+    print(format_audit_report(findings))
+    critical = sum(1 for f in findings if f.level == "critical")
+    return 1 if critical else 0
 
 
 def main(argv: Sequence[str] | None = None) -> None:

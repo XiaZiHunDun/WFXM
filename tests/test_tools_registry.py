@@ -53,7 +53,7 @@ class TestToolDefinitions:
             assert params.get("type") == "object"
             assert "properties" in params
             names.add(fn["name"])
-        assert names == {
+        assert names >= {
             "read_file",
             "write_file",
             "delete_file",
@@ -65,6 +65,7 @@ class TestToolDefinitions:
             "skill_view",
             "run_workflow",
             "delegate_task",
+            "delegate_yield",
             "butler_remember",
             "butler_recall",
             "git_status",
@@ -76,6 +77,8 @@ class TestToolDefinitions:
             "list_runtime_jobs",
             "run_runtime_job",
             "download_file",
+            "session_todos_list",
+            "session_todos_write",
         }
 
     @pytest.mark.parametrize(

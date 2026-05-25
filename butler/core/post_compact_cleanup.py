@@ -75,6 +75,17 @@ def build_post_compact_anchor_text(
             diagnostics["post_compact_anchor_error"] = str(exc)[:200]
 
     try:
+        from butler.core.agents_md_sections import extract_agents_md_sections
+
+        agents_block = extract_agents_md_sections()
+        if agents_block:
+            parts.insert(0, agents_block)
+            if diagnostics is not None:
+                diagnostics["post_compact_agents_sections"] = len(agents_block)
+    except Exception as exc:
+        logger.debug("Post-compact AGENTS sections skipped: %s", exc)
+
+    try:
         from butler.core.read_state import get_recent_edit_paths
 
         recent = get_recent_edit_paths(limit=5)

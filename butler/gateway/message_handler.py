@@ -245,6 +245,34 @@ class ButlerMessageHandler:
             return ""
 
         try:
+            from butler.gateway.bot_loop_guard import record_and_should_suppress
+
+            chat_id = session_key.split(":")[-1] if ":" in session_key else session_key
+            suppress, _reason = record_and_should_suppress(
+                chat_id=chat_id,
+                sender_id=str(external_id or ""),
+                text=text,
+            )
+            if suppress:
+                return "（已忽略：群聊 bot 互回复环防护）"
+        except Exception:
+            pass
+
+        try:
+            from butler.tools.terminal_approval import parse_approve_command, store_approval
+
+            cmd = parse_approve_command(text)
+            if cmd is not None:
+                from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
+                if not is_gateway_owner(platform=platform, external_id=external_id):
+                    return owner_required_message()
+                store_approval(cmd, session_key=session_key)
+                return f"已批准 terminal 命令（5 分钟内有效）:\n{cmd[:200]}"
+        except Exception:
+            pass
+
+        try:
             from butler.human_gate import resolve_human_gate_message
 
             gate_reply = resolve_human_gate_message(session_key, text)
@@ -308,6 +336,24 @@ class ButlerMessageHandler:
                     return "队列已满，最新消息未入队。可发 /queue 调整 cap 或 /诊断 查看。"
                 return format_queued_ack(pending=pending_count(session_key), session_key=session_key)
 
+        from butler.gateway.reply_admission import release, try_admit
+
+        admission = try_admit(session_key)
+        if admission is None:
+            from butler.gateway.message_queue import enqueue_inbound, format_queued_ack, pending_count
+
+            if enqueue_inbound(
+                session_key,
+                text,
+                platform=platform,
+                external_id=external_id or "",
+            ):
+                return format_queued_ack(
+                    pending=pending_count(session_key),
+                    session_key=session_key,
+                )
+            return "会话处理中，请稍候…"
+
         logger.info("Gateway enter_session session=%s", session_key)
         session_lock = self._session_registry.enter_session(session_key)
         out = ""
@@ -326,6 +372,7 @@ class ButlerMessageHandler:
             )
         finally:
             self._session_registry.exit_session(session_key, session_lock)
+            release(admission)
         follow = self._drain_queued_inbound(
             session_key,
             platform=platform,
@@ -645,6 +692,20 @@ class ButlerMessageHandler:
 
         if cmd in ("/health", "/诊断"):
             return self._format_health_summary(session_key)
+
+        if cmd in ("/doctor",):
+            from butler.ops.security_audit import format_audit_report, run_security_audit
+
+            workspace = None
+            try:
+                proj = self._orchestrator.project_manager.get_current(session_key=session_key)
+                if proj is not None:
+                    from pathlib import Path
+
+                    workspace = Path(proj.workspace)
+            except Exception:
+                pass
+            return format_audit_report(run_security_audit(workspace=workspace))
 
         if cmd in ("/steer", "/指引"):
             from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
@@ -1006,6 +1067,7 @@ def _is_sessionless_command(text: str) -> bool:
         "/状态",
         "/health",
         "/诊断",
+        "/doctor",
         "/steer",
         "/指引",
         "/queue",

@@ -696,6 +696,10 @@ def _register_builtin_tools() -> None:
 
     register_session_todos_tools(register)
 
+    from butler.tools.delegate_yield_tools import register_delegate_yield_tools
+
+    register_delegate_yield_tools(register)
+
     from butler.tools.download_tools import register_download_tools
 
     register_download_tools(register)
@@ -1134,6 +1138,17 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
     command_safety = prepare_shell_command(command)
     if not command_safety.allowed:
         return json.dumps({"error": command_safety.error})
+
+    try:
+        from butler.tools.terminal_approval import check_approval
+
+        cwd_hint = str(workdir or default_tool_workdir() or "")
+        cmd_text = " ".join(command_safety.argv) if command_safety.argv else command
+        block = check_approval(cmd_text, cwd=cwd_hint)
+        if block:
+            return json.dumps({"ok": False, "error": block, "code": "TERMINAL_APPROVAL_REQUIRED"})
+    except Exception:
+        pass
 
     if workdir:
         safety = check_tool_path(workdir)

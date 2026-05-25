@@ -170,6 +170,12 @@ class ToolCallGuardrailController:
         self.reset_for_turn()
 
     def reset_for_turn(self) -> None:
+        try:
+            from butler.core.tool_loop_detect import get_tool_loop_detector
+
+            get_tool_loop_detector().reset_for_turn()
+        except Exception:
+            pass
         with self._lock:
             self._exact_failure_counts: dict[ToolCallSignature, int] = {}
             self._same_tool_failure_counts: dict[str, int] = {}
@@ -196,6 +202,23 @@ class ToolCallGuardrailController:
         self, tool_name: str, args: Mapping[str, Any] | None
     ) -> GuardrailDecision:
         signature = ToolCallSignature.from_call(tool_name, args)
+        try:
+            from butler.core.tool_loop_detect import get_tool_loop_detector
+
+            loop_dec = get_tool_loop_detector().check_before_call(tool_name, args)
+            if loop_dec is not None and loop_dec.stuck:
+                decision = GuardrailDecision(
+                    action="block" if loop_dec.level == "critical" else "warn",
+                    code=loop_dec.detector,
+                    message=loop_dec.message,
+                    tool_name=tool_name,
+                    count=loop_dec.count,
+                )
+                if loop_dec.level == "critical":
+                    self._halt_decision = decision
+                return decision
+        except Exception:
+            pass
         if not self.config.hard_stop_enabled:
             return GuardrailDecision(tool_name=tool_name)
 
@@ -275,6 +298,17 @@ class ToolCallGuardrailController:
         signature = ToolCallSignature.from_call(tool_name, args)
         if failed is None:
             failed, _ = classify_tool_failure(tool_name, result)
+
+        try:
+            from butler.core.tool_loop_detect import get_tool_loop_detector
+
+            get_tool_loop_detector().record_call(
+                tool_name,
+                signature.args_hash,
+                result or "",
+            )
+        except Exception:
+            pass
 
         if failed:
             exact_count = self._exact_failure_counts.get(signature, 0) + 1

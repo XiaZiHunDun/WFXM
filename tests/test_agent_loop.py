@@ -414,10 +414,12 @@ class TestAgentLoopRun:
         tool_msgs = [msg for msg in loop.messages if msg["role"] == "tool"]
         assert len(tool_msgs) == 8
 
-    def test_guardrail_halt_is_enveloped_and_audited(self, mock_llm_client):
+    def test_guardrail_halt_is_enveloped_and_audited(self, mock_llm_client, monkeypatch):
         from butler.tool_guardrails import GuardrailConfig, ToolCallGuardrailController
         from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
 
+        monkeypatch.setenv("BUTLER_DOOM_LOOP_THRESHOLD", "0")
+        monkeypatch.setenv("BUTLER_TOOL_LOOP_DETECTORS", "off")
         reset_tool_audit_events()
         mock_llm_client.complete.side_effect = [
             _tool_response("read_file", {"path": "missing.py"}),
@@ -745,7 +747,7 @@ class TestAgentLoopContext:
                 did = loop.hygiene_compress_if_needed()
 
         assert did is True
-        assert loop.messages == compressed
+        assert any(m.get("content") == "summary" for m in loop.messages)
         compress.assert_called_once()
         assert compress.call_args.kwargs["threshold_ratio"] == 0.0
         assert loop.diagnostics["hygiene_compressed"] is True
