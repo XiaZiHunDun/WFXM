@@ -170,6 +170,26 @@ def process_tool_calls(
             if before.should_halt:
                 return finalize_fallback_tool_result(name, args, synthetic_result(before))
         result = run_tool_with_retry(name, args, dispatch_tool)
+        try:
+            from butler.core.tool_error_policy import (
+                apply_tool_error_policy,
+                should_halt_loop_on_tool_error,
+            )
+
+            result = apply_tool_error_policy(result, tool_name=name)
+            if should_halt_loop_on_tool_error(result, tool_name=name) and guardrails:
+                from butler.tool_guardrails import GuardrailDecision
+
+                guardrails.set_halt_decision(
+                    GuardrailDecision(
+                        action="block",
+                        code="tool_error_stop",
+                        message="工具错误策略: stop（勿重复同调用）",
+                        tool_name=name,
+                    )
+                )
+        except Exception:
+            pass
         set_cached_result(name, args, result, session_key=session_key)
         if guardrails:
             after = guardrails.after_call(name, args, result)

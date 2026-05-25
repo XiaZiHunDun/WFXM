@@ -43,6 +43,13 @@ def tool_retry_backoff_seconds(attempt: int) -> float:
 
 
 def _is_transient_error(result: str) -> bool:
+    try:
+        from butler.core.tool_error_policy import ToolErrorKind, classify_tool_error
+
+        if tool_retry_enabled():
+            return classify_tool_error(result) == ToolErrorKind.retry
+    except Exception:
+        pass
     text = (result or "").strip().lower()
     if not text:
         return False

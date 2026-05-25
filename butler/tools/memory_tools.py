@@ -45,6 +45,22 @@ _RECALL_SCHEMA = {
         "query": {"type": "string", "description": "FTS 检索词；profile 可留空"},
         "limit": {"type": "integer", "default": 8},
         "project": {"type": "string", "description": "可选项目名过滤"},
+        "mode": {
+            "type": "string",
+            "enum": ["full", "index", "fetch", "timeline"],
+            "default": "full",
+            "description": "full=全文结果; index=仅索引; fetch=按 ids 拉全文; timeline=锚点时间线",
+        },
+        "ids": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "mode=fetch 时的 chunk_id 列表，如 experience:42",
+        },
+        "anchor_id": {
+            "type": "string",
+            "description": "mode=timeline 的锚点 chunk_id",
+        },
+        "depth": {"type": "integer", "default": 5, "description": "timeline 前后条数"},
     },
     "required": [],
 }
@@ -104,18 +120,25 @@ def tool_butler_recall(
     query: str = "",
     limit: int = 8,
     project: str = "",
+    mode: str = "full",
+    ids: list | None = None,
+    anchor_id: str = "",
+    depth: int = 5,
     **_: Any,
 ) -> str:
     svc = _memory_service()
-    return svc.handle_tool_call(
-        "butler_recall",
-        {
-            "scope": scope,
-            "query": query,
-            "limit": limit,
-            "project": project,
-        },
-    )
+    payload: dict[str, Any] = {
+        "scope": scope,
+        "query": query,
+        "limit": limit,
+        "project": project,
+        "mode": mode,
+        "anchor_id": anchor_id,
+        "depth": depth,
+    }
+    if ids is not None:
+        payload["ids"] = ids
+    return svc.handle_tool_call("butler_recall", payload)
 
 
 def register_memory_tools(register_fn) -> None:
@@ -132,7 +155,10 @@ def register_memory_tools(register_fn) -> None:
     )
     register_fn(
         name="butler_recall",
-        description="检索 Owner profile 全文，或按关键词搜索 experience(FTS，不含临时会话回声)。",
+        description=(
+            "检索记忆：mode=full 全文；index 仅索引(~50tok/条)；"
+            "fetch 按 ids 拉全文；timeline 锚点时间线。"
+        ),
         schema=_RECALL_SCHEMA,
         handler=tool_butler_recall,
         toolset="memory",

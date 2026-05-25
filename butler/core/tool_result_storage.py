@@ -228,12 +228,9 @@ def tool_result_path(session_key: str, tool_use_id: str) -> Path:
 
 
 def generate_preview(content: str, max_chars: int) -> tuple[str, bool]:
-    if len(content) <= max_chars:
-        return content, False
-    truncated = content[:max_chars]
-    last_nl = truncated.rfind("\n")
-    cut = last_nl if last_nl > max_chars // 2 else max_chars
-    return content[:cut], True
+    from butler.core.text_truncate import truncate_text
+
+    return truncate_text(content, max_chars, suffix="\n…(truncated)", prefer_newline=True)
 
 
 def persist_tool_result_text(

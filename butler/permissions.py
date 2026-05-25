@@ -199,6 +199,78 @@ def evaluate_workflow_step_permission(
     )
 
 
+def _security_blacklist_enabled() -> bool:
+    try:
+        from butler.env_parse import env_truthy
+
+        return env_truthy("BUTLER_PERMISSIONS_PARAM_BLACKLIST", default=True)
+    except Exception:
+        return True
+
+
+def _arg_values_for_param(args: dict[str, Any], param: str) -> list[str]:
+    key = str(param or "").strip()
+    if not key or key == "*":
+        return [str(v) for v in args.values() if v is not None]
+    if key in args:
+        val = args[key]
+        if isinstance(val, (list, tuple)):
+            return [str(x) for x in val]
+        return [str(val)]
+    return []
+
+
+def evaluate_security_blacklist(
+    tool_name: str,
+    args: dict[str, Any],
+    *,
+    workspace: Path | None = None,
+) -> PermissionDecision | None:
+    """Parameter-level deny rules (LobeHub security_blacklist subset). Highest priority."""
+    if not _security_blacklist_enabled():
+        return None
+    cfg = _load_permissions_yaml(workspace)
+    rules = cfg.get("security_blacklist")
+    if not isinstance(rules, list) or not rules:
+        return None
+
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        tool_pat = str(rule.get("tool") or rule.get("name") or "*")
+        if tool_pat != "*" and tool_pat != tool_name:
+            continue
+        param = str(rule.get("param") or rule.get("field") or "*")
+        pattern = rule.get("pattern")
+        pattern_re = rule.get("pattern_regex") or rule.get("regex")
+        reason = str(
+            rule.get("reason")
+            or rule.get("message")
+            or "security_blacklist: 参数被拒绝"
+        )
+        for val in _arg_values_for_param(args, param):
+            text = str(val)
+            if pattern is not None and str(pattern) in text:
+                return PermissionDecision(
+                    allowed=False,
+                    action="deny",
+                    reason=reason,
+                    permission="security_blacklist",
+                )
+            if pattern_re:
+                try:
+                    if re.search(str(pattern_re), text, re.I):
+                        return PermissionDecision(
+                            allowed=False,
+                            action="deny",
+                            reason=reason,
+                            permission="security_blacklist",
+                        )
+                except re.error as exc:
+                    logger.warning("security_blacklist regex invalid: %s", exc)
+    return None
+
+
 def evaluate_tool_policy(
     tool_name: str,
     *,
@@ -382,6 +454,10 @@ def check_project_permission_block(
         return None
 
     session_key = _current_session_key()
+
+    bl = evaluate_security_blacklist(tool_name, args, workspace=workspace)
+    if bl is not None and not bl.allowed:
+        return bl.reason
 
     try:
         from butler.experiments.mode import check_experiment_mode_block

@@ -236,10 +236,21 @@ def dispatch_tool(name: str, args: dict) -> str:
         )
     except Exception as exc:
         logger.error("Tool %s failed: %s", name, exc)
+        try:
+            from butler.core.tool_error_policy import apply_tool_error_policy
+
+            raw = apply_tool_error_policy(
+                "",
+                tool_name=name,
+                exc=exc,
+            )
+            payload = json.loads(raw) if raw.strip().startswith("{") else {"error": raw}
+        except Exception:
+            payload = {"error": f"Tool '{name}' failed: {exc}"}
         err_result = _finalize_tool_result(
             name,
             args,
-            {"error": f"Tool '{name}' failed: {exc}"},
+            payload,
             started_at=started_at,
         )
         return _apply_post_tool_hooks(name, args, err_result, failed=True)

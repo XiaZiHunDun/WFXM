@@ -62,7 +62,14 @@ class AgentLoop:
         self._context._attached_loop = self
         self._turn_ephemeral_system: str | None = None
         self._thread_id: int | None = None
-        self._fallback_chain: list[FallbackEntry] = list(self.config.fallback_entries or [])
+        _chain = list(self.config.fallback_entries or [])
+        try:
+            from butler.transport.provider_health import filter_fallback_chain
+
+            _chain = filter_fallback_chain(_chain)
+        except Exception:
+            pass
+        self._fallback_chain: list[FallbackEntry] = _chain
         self._fallback_index = 0
         self._primary_client: LLMClient | None = None
         self._empty_retries = 0
@@ -576,15 +583,28 @@ class AgentLoop:
         return self._plugins.before_model(prepared)
 
     def _try_activate_fallback(self) -> bool:
-        if not self._fallback_chain or self._fallback_index >= len(self._fallback_chain) - 1:
+        if not self._fallback_chain:
             return False
-        self._fallback_index += 1
-        entry = self._fallback_chain[self._fallback_index]
-        self.client = create_client_from_entry(entry)
-        logger.info("Fallback activated: %s/%s", entry.provider, entry.model)
-        if self.callbacks.on_fallback:
-            self.callbacks.on_fallback(entry.provider, entry.model)
-        return True
+        from butler.transport.provider_health import is_circuit_open, record_provider_failure
+
+        try:
+            record_provider_failure(
+                getattr(self.client, "provider", "") or "",
+                getattr(self.client, "model", "") or "",
+            )
+        except Exception:
+            pass
+        while self._fallback_index < len(self._fallback_chain) - 1:
+            self._fallback_index += 1
+            entry = self._fallback_chain[self._fallback_index]
+            if is_circuit_open(entry.provider, entry.model):
+                continue
+            self.client = create_client_from_entry(entry)
+            logger.info("Fallback activated: %s/%s", entry.provider, entry.model)
+            if self.callbacks.on_fallback:
+                self.callbacks.on_fallback(entry.provider, entry.model)
+            return True
+        return False
 
     def _interrupt_check(self) -> bool:
         return bool(

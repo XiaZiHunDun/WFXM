@@ -1,6 +1,6 @@
 # 五份报告合并改进路线图（2026-05）
 
-> **状态**：活跃规划（2026-05-25）；**尚未落地**（见 §9 核对表）  
+> **状态**：**第 1–2 波已落地**（2026-05-25）；PR-F5/F6 待做（见 §9）  
 > **来源**：[`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md)、[`cc-switch-butler-analysis-2026-05.md`](cc-switch-butler-analysis-2026-05.md)、[`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md)、[`tradingagents-butler-comparison-report-2026-05.md`](tradingagents-butler-comparison-report-2026-05.md)、[`lobehub-butler-comparison-report-2026-05.md`](lobehub-butler-comparison-report-2026-05.md)  
 > **事实基线**：[`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)、[`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md)（**已收口**）、[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md)  
 > **原则**：零新增重依赖；不重复四报告 / CC 线束已落地项；不改变「微信管家 + 多项目 Agent Loop」边界
@@ -272,20 +272,24 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 
 | 项 | 状态 | 说明 |
 |----|------|------|
-| 主线 F P0 | ⬜ | `<private>` + 三层 recall |
+| 主线 F P0 | ✅ | `<private>` + `butler_recall` mode=index/fetch/timeline |
 | 主线 F P1 | ⬜ | 观察者队列、PreRead、Session summary |
-| 主线 G P0 | ⬜ | 熔断/failover + sessions list |
-| 主线 G P1 | ⬜ | `/会话`、探活、用量盘、原子写 |
+| 主线 G P0 | ✅ | 熔断 + `filter_fallback_chain`；`butler sessions list` |
+| 主线 G P1 | ⬜ | 微信 `/会话`、流式探活、用量盘、原子写 |
 | 主线 G P2 | ⬜ | MCP/Skill SSOT |
-| 主线 H P0 | ⬜ | 四条 PEG prompt/registry 契约 |
+| 主线 H P0 | ✅ | `butler_system.md` 任务纪律 / RAG 忠实度 / 工具错误格式 |
 | 主线 H P1 | ⬜ | Reflexion、委派 verify、对抗加固 |
 | 主线 I P0–P1 | ⬜ | outcome log、反思注入、清子 transcript |
 | 主线 I P1 终局 schema | ⬜ | workflow `output_schema` + 枚举 parse |
-| 主线 J P0 | ⬜ | 错误分类、blacklist、UTF-16 截断 |
+| 主线 J P0 | ✅ | `tool_error_policy`、`security_blacklist`、`text_truncate` |
 | 主线 J P1 | ⬜ | Pipeline 步骤化、记忆 schema、Supervisor |
-| PR-F1 … PR-F6 | ⬜ | 见 §4 |
-| 文档同步 | ⬜ | `v4-architecture`、`reference.md`、`.env.example`、`CONTRIBUTING` |
-| 运维速查 | ⬜ | 落地后可选 [`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md) |
+| PR-F1 | ✅ | LobeHub P0 |
+| PR-F2 | ✅ | PEG P0 |
+| PR-F3 | ✅ | claude-mem P0 |
+| PR-F4 | ✅ | cc-switch 阶段一（熔断 + sessions list） |
+| PR-F5 … PR-F6 | ⬜ | TradingAgents + LobeHub P1 子集 |
+| 文档同步 | 🟡 | `.env.example` 已补；`reference.md` / CONTRIBUTING 待补全 |
+| 运维速查 | ⬜ | 可选 [`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md) |
 
 ---
 

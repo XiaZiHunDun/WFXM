@@ -62,9 +62,23 @@ from butler.gateway.platforms.base import ButlerPlatformAdapter
 from butler.config import get_butler_home
 
 def _truncate_plain(text: str, max_length: int) -> list[str]:
-    if len(text) <= max_length:
+    from butler.core.text_truncate import truncate_text, utf16_code_units, utf16_safe_slice
+
+    if not text:
+        return [""]
+    if utf16_code_units(text) <= max_length:
         return [text]
-    return [text[i : i + max_length] for i in range(0, len(text), max_length)]
+    chunks: list[str] = []
+    rest = text
+    while rest and utf16_code_units(rest) > max_length:
+        piece, _ = truncate_text(rest, max_length, suffix="", prefer_newline=False)
+        if not piece:
+            piece = utf16_safe_slice(rest, max_length)
+        chunks.append(piece)
+        rest = rest[len(piece) :]
+    if rest:
+        chunks.append(rest)
+    return chunks or [""]
 
 
 def cache_image_from_bytes(data: bytes, ext: str) -> str:

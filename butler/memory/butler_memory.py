@@ -387,6 +387,96 @@ class ExperienceStore:
                 conn.commit()
                 return int(cur.rowcount or 0)
 
+    def fetch_by_ids(self, row_ids: list[int]) -> list[dict[str, Any]]:
+        ids = [int(x) for x in row_ids if x is not None]
+        if not ids:
+            return []
+        placeholders = ",".join("?" * len(ids))
+        with self._lock:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    f"""
+                    SELECT id, project, category, content, tags, created_at,
+                           COALESCE(access_count, 0), COALESCE(last_accessed_at, 0)
+                    FROM experiences
+                    WHERE id IN ({placeholders})
+                    ORDER BY created_at DESC
+                    """,
+                    ids,
+                ).fetchall()
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            out.append(
+                {
+                    "id": r[0],
+                    "project": r[1],
+                    "category": r[2],
+                    "content": r[3],
+                    "tags": r[4],
+                    "created_at": r[5],
+                    "access_count": int(r[6] or 0),
+                    "last_accessed_at": float(r[7] or 0),
+                }
+            )
+        return out
+
+    def timeline_around(
+        self,
+        anchor_id: int,
+        *,
+        before: int = 5,
+        after: int = 5,
+    ) -> list[dict[str, Any]]:
+        aid = int(anchor_id)
+        with self._lock:
+            with self._connect() as conn:
+                row = conn.execute(
+                    "SELECT created_at, project FROM experiences WHERE id = ?",
+                    (aid,),
+                ).fetchone()
+                if not row:
+                    return []
+                created_at, project = float(row[0]), str(row[1] or "")
+                older = conn.execute(
+                    """
+                    SELECT id, project, category, content, tags, created_at
+                    FROM experiences
+                    WHERE project = ? AND created_at <= ? AND id != ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                    """,
+                    (project, created_at, aid, before),
+                ).fetchall()
+                newer = conn.execute(
+                    """
+                    SELECT id, project, category, content, tags, created_at
+                    FROM experiences
+                    WHERE project = ? AND created_at >= ? AND id != ?
+                    ORDER BY created_at ASC
+                    LIMIT ?
+                    """,
+                    (project, created_at, aid, after),
+                ).fetchall()
+                anchor = conn.execute(
+                    """
+                    SELECT id, project, category, content, tags, created_at
+                    FROM experiences WHERE id = ?
+                    """,
+                    (aid,),
+                ).fetchone()
+        def _row_dict(r: tuple) -> dict[str, Any]:
+            return {
+                "id": r[0],
+                "project": r[1],
+                "category": r[2],
+                "content": r[3],
+                "tags": r[4],
+                "created_at": r[5],
+            }
+
+        combined = list(reversed(older)) + ([_row_dict(anchor)] if anchor else []) + list(newer)
+        return combined
+
     def get_recent(self, limit: int = 5) -> list[dict[str, Any]]:
         with self._lock:
             with self._connect() as conn:

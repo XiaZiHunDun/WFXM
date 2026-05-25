@@ -1286,6 +1286,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     register_experiment_parser(sub)
 
+    from butler.cli.sessions_cli import register_sessions_subparser
+
+    register_sessions_subparser(sub)
+
     from butler.cli.secrets_cli import register_secrets_subparser
 
     register_secrets_subparser(sub)

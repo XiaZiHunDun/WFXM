@@ -122,6 +122,15 @@ def call_llm_with_retry(
                     return None, False
                 continue
 
+            try:
+                from butler.transport.provider_health import record_provider_success
+
+                record_provider_success(
+                    str(getattr(client, "provider", "") or ""),
+                    str(getattr(client, "model", "") or ""),
+                )
+            except Exception:
+                pass
             if callbacks.on_llm_complete:
                 callbacks.on_llm_complete(response)
             return response, False

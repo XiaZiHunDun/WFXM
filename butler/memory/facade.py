@@ -389,6 +389,16 @@ class ButlerMemoryService:
 
         scope = str(args.get("scope") or "")
         content = str(args.get("content") or "").strip()
+        try:
+            from butler.memory.private_tags import strip_private_tags
+
+            content, fully_private = strip_private_tags(content)
+            if fully_private:
+                return json.dumps(
+                    {"ok": True, "skipped": True, "reason": "content entirely <private>"},
+                )
+        except Exception:
+            pass
         if not content:
             return json.dumps({"ok": False, "error": "content is empty"})
 
@@ -527,6 +537,12 @@ class ButlerMemoryService:
     def _recall(self, args: Dict[str, Any]) -> str:
         if self._butler_global is None:
             return json.dumps({"ok": False, "error": "ButlerMemory not initialized"})
+
+        mode = str(args.get("mode") or "full").strip().lower()
+        if mode and mode != "full":
+            from butler.memory.recall_layers import dispatch_recall_mode
+
+            return dispatch_recall_mode(self, args, mode)
 
         scope = str(args.get("scope", "experience") or "experience")
         if scope == "profile":
