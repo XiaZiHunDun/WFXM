@@ -50,6 +50,7 @@ class TestCLIE2E:
         mock_stream.return_value = mock_complete.return_value
 
         loop = butler_orchestrator.create_agent_loop(role="butler")
+        loop.config = LoopConfig(stream=False)
         result = loop.run("你好")
 
         assert result.status == LoopStatus.COMPLETED

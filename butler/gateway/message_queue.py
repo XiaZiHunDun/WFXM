@@ -91,6 +91,12 @@ def enqueue_inbound(
         bucket = deque(sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)))
         _QUEUES[key] = bucket
     logger.info("Queued inbound session=%s priority=%s len=%d", key, pri, len(_QUEUES[key]))
+    try:
+        from butler.core.session_transcript import record_queue_operation
+
+        record_queue_operation(key, pri, body)
+    except Exception:
+        pass
     return True
 
 

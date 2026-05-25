@@ -8,7 +8,7 @@
 |--------|------|------|
 | 1 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | **当前**模块划分、Loop/Gateway 数据流、P0–P2 线束 |
 | 2 | [`docs/config/reference.md`](docs/config/reference.md) + [`.env.example`](.env.example) | `BUTLER_*` 环境变量（勿猜默认值） |
-| 3 | [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | Claude Code 对照；**Loop 线束 P0–P2** 落地状态 |
+| 3 | [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | Claude Code 对照；**CC 线束 P0–P4**（§4–§11，勿与 consolidation-P3 混淆） |
 | 4 | [`STRUCTURE.md`](STRUCTURE.md) | 目录树与常用命令 |
 | 5 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | 微信线束、Hooks、出站推送、发版抽测 H1–H11 |
 | 6 | [`docs/design/design.md`](docs/design/design.md) | 产品设计摘要；§9 为对照表，**§11+ 可能过时** |
@@ -19,7 +19,7 @@
 
 - `docs/history/*` — v0.5–v3、`AgentRunner`、`butler/agent/` 等**已删除或归档**
 - `reference/` — 外部对照区，**gitignore**，与 Butler 产品代码无关
-- 文中「P2」可能指 **仓库整理 P2**（`consolidation-2026-05.md`）或 **CC 差距 P2**（流式工具/cache-safe/队列出站）— 以 `cc-butler-gap-analysis` 为准
+- **P2 / P3 / P4 多义**：**CC 线束**见 `cc-butler-gap-analysis`（P2=流式预取等，P3/P4=§11 深挖）；**仓库整理 P3**见 `consolidation-p3-implementation-2026-05.md`（死代码清理，已完成）
 - **不要**声称 `import Hermes AIAgent` 或 Hermes 子进程网关 — v4 为自建 Loop + 原生微信 Gateway
 
 ## 代码入口
@@ -36,7 +36,7 @@
 
 ```bash
 cd /home/ailearn/projects/WFXM
-PYTHONPATH=. pytest tests/test_streaming_tools.py tests/test_cache_safe_delegate.py tests/test_tool_result_storage.py -q
+PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_tool_result_storage.py tests/test_streaming_tools.py -q
 # 改 gateway：再加 tests/test_message_queue.py tests/test_gateway_handler.py（部分用例可能与 reason=clear 等历史 mock 不一致）
 ```
 
@@ -47,4 +47,4 @@ PYTHONPATH=. pytest tests/test_streaming_tools.py tests/test_cache_safe_delegate
 
 ## 文档更新义务
 
-若改动 P0–P2 线束行为或新增 `BUTLER_*` 变量，请同步：`docs/architecture/v4-architecture.md`、`docs/config/reference.md`、`.env.example`、`CONTRIBUTING.md`（Butler 线束节）。
+若改动 CC 线束（P0–P4）或新增 `BUTLER_*` 变量，请同步：`docs/architecture/v4-architecture.md`、`docs/config/reference.md`、`.env.example`、`CONTRIBUTING.md`（Butler 线束节）。

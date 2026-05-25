@@ -1,0 +1,18 @@
+# 项目 workspace 内放置为 .butler/permissions.yaml（CC permissions 子集，无 LLM classifier）
+#
+# 复制：cp docs/templates/permissions.yaml.example projects/<YourProject>/.butler/permissions.yaml
+
+rules:
+  - tool: terminal
+    action: deny
+    reason: 微信/Lead 场景禁止 shell
+
+  - tool: write_file
+    path: ".env*"
+    action: deny
+    reason: 禁止通过 Agent 写环境密钥文件
+
+  # - tool: read_file
+  #   path: "secrets/*"
+  #   action: ask
+  #   reason: 敏感路径需人工确认

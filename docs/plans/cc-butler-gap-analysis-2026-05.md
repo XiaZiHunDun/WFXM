@@ -1,6 +1,6 @@
 # Claude Code ↔ Butler v4 差距分析
 
-> **状态**：活跃参考（2026-05-22）  
+> **状态**：活跃参考（2026-05-22）；§11 P3/P4 于 2026-05-25 合入 main  
 > **对照源**：`reference/claude-code-bak`（`claude-code/`、`claude-code-source-code/`、`claude-code-sourcemap/restored-src/`）  
 > **产品边界**：[`project-layer-wechat-plan.md`](../architecture/project-layer-wechat-plan.md)、[`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md)  
 > **设计基线**：[`design.md`](../design/design.md) §9.1–9.2
@@ -180,3 +180,22 @@ Claude Code 的核心优势在 **上下文经济学**（micro 剪枝 + 落盘 + 
 | 3 | ~~**transition_reason**~~ | ✅ |
 | 4 | ~~**read_state + mtime**~~ | ✅ |
 | 5 | ~~**P2 流式工具 + cache-safe + 队列出站**~~ | ✅ |
+
+---
+
+## 11. P3/P4（2026-05-25，CC 深挖落地）
+
+| 项 | 状态 | Butler 模块 |
+|----|------|-------------|
+| Per-message 工具结果预算 + 按工具 spill 阈值 | ✅ | `tool_result_storage.enforce_message_tool_budget` |
+| 空 tool 结果占位 | ✅ | `normalize_empty_tool_result` |
+| Stop hook **循环内** block 续跑 | ✅ | `agent_loop._maybe_stop_hook_continue` |
+| Token budget 回合内续跑（90% + 收益递减） | ✅ | `turn_token_budget.TurnBudgetState` + `agent_loop` |
+| 轻量 transcript JSONL | ✅ | `session_transcript.py` + gateway 挂钩 |
+| Read-state LRU + partial view | ✅ | `read_state.py` |
+| Post-compact 最近编辑文件锚点 | ✅ | `post_compact_cleanup` + `record_edit_path` |
+| Cache-safe delegate v2（tools/messages 指纹） | ✅ | `cache_safe_delegate.py` |
+| 声明式 permissions.yaml | ✅ | `butler/permissions.py` + `registry.dispatch_tool` |
+| Reactive compact（413 / should_compress） | ✅ | `reactive_compact.py` + `llm_retry` |
+
+测试：`tests/test_cc_p3_p4_features.py`（含 stop hook 续跑、tool budget、permissions）。

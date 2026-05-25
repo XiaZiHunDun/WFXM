@@ -70,14 +70,23 @@
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `BUTLER_TOOL_RESULT_SPILL` | 1 | 超大 tool 结果落盘，上下文为 `<persisted-output>` |
-| `BUTLER_TOOL_RESULT_SPILL_MIN_CHARS` | 8192 | 落盘阈值 |
+| `BUTLER_TOOL_RESULT_SPILL_MIN_CHARS` | 8192 | 默认单条落盘阈值（≥256） |
+| `BUTLER_TOOL_RESULT_THRESHOLDS` | — | JSON 按工具名覆盖阈值；`read_file` 等默认不落盘 |
+| `BUTLER_TOOL_RESULT_MESSAGE_BUDGET` | 1 | 单轮 tool 结果总字符预算（CC enforceToolResultBudget） |
+| `BUTLER_TOOL_RESULT_MESSAGE_MAX_CHARS` | 200000 | 单轮 tool 结果聚合上限 |
 | `BUTLER_TOOL_PRUNE_*` | 见 example | 按工具分级 micro 剪枝 |
 | `BUTLER_READ_BEFORE_EDIT` | 1 | patch/write 前须 read_file + mtime |
+| `BUTLER_READ_STATE_MAX_ENTRIES` | 100 | read state LRU 上限 |
+| `BUTLER_SESSION_TRANSCRIPT` | 1 | `~/.butler/sessions/<key>/transcript.jsonl` |
+| `BUTLER_SESSION_TRANSCRIPT_MAX_BYTES` | 52428800 |  transcript 轮转阈值 |
 | `BUTLER_DISABLE_AUTO_COMPACT` | 0 | `1` 关闭 LLM 摘要压缩 |
 | `BUTLER_CONTEXT_*` | — | 压缩阈值等（见 `.env.example`） |
 | `BUTLER_STREAMING_TOOLS` | 1 | 流式只读工具参数完整后预执行 |
-| `BUTLER_CACHE_SAFE_DELEGATE` | 1 | 委派子 loop 共享父 system 前缀 |
-| `BUTLER_CACHE_SAFE_SHARED_CHARS` | 4096 | 共享前缀最大字符 |
+| `BUTLER_CACHE_SAFE_DELEGATE` | 1 | 委派子 loop 共享父 system + tools/messages 指纹（v2） |
+| `BUTLER_CACHE_SAFE_SHARED_CHARS` | 4096 | 共享 system 前缀最大字符 |
+| `BUTLER_CACHE_SAFE_MESSAGES_CHARS` | 2048 | 共享 messages 前缀用于 cache 指纹 |
+| `BUTLER_TURN_BUDGET_MAX_CONTINUATIONS` | 3 | 回合内 token 预算续跑次数 |
+| `BUTLER_TURN_BUDGET_MIN_DELTA` | 500 | 续跑收益递减：Δ tokens 低于此则停 |
 
 ## Gateway 线束（入站 / 出站）
 
@@ -91,7 +100,11 @@
 | `BUTLER_TURN_TOKEN_BUDGET` | 1 | 句末 `+500k` / `/budget` 提高迭代上限 |
 | `BUTLER_TURN_BUDGET_*` | — | 预算数值（见 example） |
 
-Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → 下轮 `stop_hook_blocked`。运维与 H1–H10 见 [`guides/wechat-daily-smoke-checklist.md`](../guides/wechat-daily-smoke-checklist.md)。
+Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → **循环内**注入 user 消息并续跑（`stop_hook_blocked`），非仅替换最终回复。
+
+项目权限：`.butler/permissions.yaml` 或 `project.yaml` 的 `permissions.rules`（`allow`/`deny`/`ask`，无 LLM classifier）。
+
+运维与 H1–H10 见 [`guides/wechat-daily-smoke-checklist.md`](../guides/wechat-daily-smoke-checklist.md)。
 
 ## 冒烟 / 开发
 

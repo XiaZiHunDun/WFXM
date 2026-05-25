@@ -364,8 +364,12 @@ def test_agent_loop_emits_stop_hook(tmp_path, monkeypatch):
     from butler.transport.types import NormalizedResponse
 
     client = MagicMock()
-    client.chat.return_value = NormalizedResponse(content="hi", tool_calls=[])
-    loop = AgentLoop(client, config=LoopConfig(max_iterations=1))
+    client.provider_name = "test"
+    client.model = "test"
+    resp = NormalizedResponse(content="hi", tool_calls=[])
+    client.complete.return_value = resp
+    client.stream.return_value = resp
+    loop = AgentLoop(client, config=LoopConfig(max_iterations=1, stream=False))
     with monkeypatch.context() as m:
         m.setattr("butler.execution_context.get_current_session_key", lambda: "test-stop")
         loop.run("hello")

@@ -123,9 +123,17 @@ def call_llm_with_retry(
 
             if classified.should_compress and not compress_attempted:
                 compress_attempted = True
-                diagnostics["reactive_context_compact"] = True
                 diagnostics["reactive_compact_reason"] = classified.reason.value
-                messages[:] = compress_messages(list(messages))
+                from butler.core.reactive_compact import apply_reactive_compact_to_messages
+
+                applied = apply_reactive_compact_to_messages(
+                    messages,
+                    compress_fn=compress_messages,
+                    diagnostics=diagnostics,
+                )
+                if not applied:
+                    messages[:] = compress_messages(list(messages))
+                    diagnostics["reactive_context_compact"] = True
                 messages_to_send = prepare_messages()
                 continue
 

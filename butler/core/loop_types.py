@@ -30,6 +30,8 @@ class LoopTransitionReason(str, Enum):
     REACTIVE_COMPACT_RETRY = "reactive_compact_retry"
     STOP_HOOK_BLOCKED = "stop_hook_blocked"
     TOKEN_BUDGET_CONTINUE = "token_budget_continue"
+    PROMPT_TOO_LONG = "prompt_too_long"
+    MAX_OUTPUT_RECOVERY = "max_output_recovery"
     UNKNOWN = "unknown"
 
 
