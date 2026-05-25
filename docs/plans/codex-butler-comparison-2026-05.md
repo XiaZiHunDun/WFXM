@@ -14,6 +14,10 @@
 | `guardian/` | `core/auto_review.py` | C0-4 极简子集 |
 | `mcp_tool_call.rs` | `mcp/approval.py` + `mcp/manager.py` | C1-2 |
 | `input_queue.rs` | `compaction_steer_bridge` + `message_queue` + `steer` | C1-1 |
+| `compact_remote_v2.rs` | `core/remote_compact.py` → `context_compressor` | C2-1（可选） |
+| `memories/` | `memory/transcript_memory_pipeline.py` | C2-2（可选） |
+| `thread_manager` fork | `core/transcript_fork.py` | C2-3 |
+| app-server Item 事件 | `gateway/item_events.py` + `item_event_sink` | C2-4 |
 
 ## Sprint Codex-C0（已落地）
 

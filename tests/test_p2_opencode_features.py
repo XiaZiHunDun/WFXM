@@ -47,6 +47,27 @@ def test_compaction_turn_not_twice_same_iteration():
 
 
 @pytest.mark.unit
+def test_agent_compress_context_forwards_diagnostics(mock_llm_client):
+    from butler.core.agent_loop import AgentLoop, LoopConfig
+
+    loop = AgentLoop(mock_llm_client, config=LoopConfig(max_context_tokens=128000))
+    diag = {"compaction_explicit_turn": True, "compaction_turn_iteration": 2}
+    with patch.object(
+        loop._context,
+        "compress_context",
+        return_value=[{"role": "user", "content": "ok"}],
+    ) as mock_compress:
+        out = loop._compress_context(
+            [{"role": "user", "content": "x" * 100}],
+            diagnostics=diag,
+            initial_injection=None,
+        )
+    assert out
+    mock_compress.assert_called_once()
+    assert mock_compress.call_args.kwargs.get("diagnostics") is diag
+
+
+@pytest.mark.unit
 def test_run_compaction_turn_records_transcript(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
     sk = "test-compact-turn"

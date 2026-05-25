@@ -17,10 +17,7 @@ from butler.core.remote_compact import (
 from butler.core.transcript_fork import fork_transcript_at_user_message
 from butler.gateway.item_events import SCHEMA, context_compaction_item, thread_item_event
 from butler.gateway.item_event_sink import recent_thread_items, record_thread_item
-from butler.memory.transcript_memory_pipeline import (
-    transcript_rows_to_messages,
-    transcript_memory_enabled,
-)
+from butler.memory.transcript_memory_pipeline import transcript_rows_to_messages
 
 
 def test_remote_compact_disabled_by_default():
@@ -54,37 +51,23 @@ def test_messages_to_compact_input():
 def test_transcript_fork_at_second_user():
     with tempfile.TemporaryDirectory() as tmp:
         sk = "test_fork_sk"
-        from butler.config import get_butler_home
+        path = Path(tmp) / "transcript.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            json.dumps({"type": "user", "ts": "1", "content_preview": "u1"}),
+            json.dumps({"type": "assistant", "ts": "2", "content_preview": "a1"}),
+            json.dumps({"type": "user", "ts": "3", "content_preview": "u2"}),
+            json.dumps({"type": "assistant", "ts": "4", "content_preview": "a2"}),
+        ]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-        with patch.object(
-            type(get_butler_home()),
-            "__call__",
-            side_effect=lambda: Path(tmp),
-        ):
-            pass
-
-        from butler.core import session_transcript as st
-
-        home = Path(tmp)
-        with patch("butler.core.session_transcript.get_butler_home", return_value=home):
-            with patch("butler.core.transcript_fork.transcript_path", wraps=st.transcript_path):
-                path = home / "sessions" / st._safe_segment(sk) / "transcript.jsonl"
-                path.parent.mkdir(parents=True, exist_ok=True)
-                lines = [
-                    json.dumps({"type": "user", "ts": "1", "content_preview": "u1"}),
-                    json.dumps({"type": "assistant", "ts": "2", "content_preview": "a1"}),
-                    json.dumps({"type": "user", "ts": "3", "content_preview": "u2"}),
-                    json.dumps({"type": "assistant", "ts": "4", "content_preview": "a2"}),
-                ]
-                path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-                with patch("butler.core.transcript_fork.transcript_path", return_value=path):
-                    result = fork_transcript_at_user_message(sk, keep_from_user_index=2)
+        with patch("butler.core.transcript_fork.transcript_path", return_value=path):
+            result = fork_transcript_at_user_message(sk, keep_from_user_index=2)
 
         assert result.get("ok") is True
         assert result.get("dropped_lines") == 2
         out_lines = path.read_text(encoding="utf-8").splitlines()
-        assert out_lines[0].find("transcript_fork") >= 0 or json.loads(out_lines[0]).get("type") == "transcript_fork"
+        assert json.loads(out_lines[0]).get("type") == "transcript_fork"
         assert any("u2" in ln for ln in out_lines)
 
 

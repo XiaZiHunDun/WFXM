@@ -514,7 +514,10 @@ class AgentLoop:
         max_tail_messages: int = 12,
         min_tail_messages: int = 4,
         overflow_replay: bool = False,
+        diagnostics: dict[str, Any] | None = None,
+        initial_injection: Any = None,
     ) -> list[dict]:
+        del initial_injection  # explicit compaction turn resolves injection via diagnostics
         return self._context.compress_context(
             messages,
             threshold_ratio=threshold_ratio,
@@ -523,6 +526,7 @@ class AgentLoop:
             max_tail_messages=max_tail_messages,
             min_tail_messages=min_tail_messages,
             overflow_replay=overflow_replay,
+            diagnostics=diagnostics,
         )
 
     def hygiene_compress_if_needed(

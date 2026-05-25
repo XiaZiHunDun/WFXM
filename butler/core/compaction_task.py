@@ -100,12 +100,13 @@ def run_compaction_turn(
         explicit_turn=True,
     )
     record_compaction_diagnostics(diag, phase=phase, reason=reason, injection=injection)
+    diag["compaction_explicit_turn"] = True
+    diag["compaction_turn_iteration"] = iteration
 
     compressed = compress(
         list(messages),
         threshold_ratio=0.0,
         min_messages_to_compress=max(6, int(os.getenv("BUTLER_COMPACTION_TURN_MIN_MSGS", "8"))),
-        initial_injection=injection,
         diagnostics=diag,
     )
     after_est = before_est

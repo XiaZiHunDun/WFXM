@@ -34,6 +34,7 @@ PYTHONPATH=. pytest tests/corpus -m corpus_mock -q
 | `test_transport_*`, `test_llm_client.py`, `test_retry_*` | Transport / LLM |
 | `test_gateway_*`, `test_wechat_*`, `test_session_lifecycle.py` | Gateway / 微信 iLink / Session |
 | `test_preemptive_compact.py`, `test_post_compact_agents_sections.py`, `test_gateway_openclaw.py`, `test_security_audit.py` | OpenClaw OC-P0–P2 |
+| `test_sprint_codex_c0.py`, `test_sprint_codex_c1.py`, `test_sprint_codex_c2.py` | Codex 对标 Sprint C0–C2 |
 | `test_hermes_extraction.py`, `test_run_agent_extraction.py` | Hermes 提炼回归 |
 | `test_real_api_smoke*.py`, `test_wechat_gateway_live_smoke.py` | 可选真实 API smoke（`live_llm`） |
 | `test_tools_registry.py`, `test_tool_guardrails.py`, `test_path_safety.py` | 工具与安全 |

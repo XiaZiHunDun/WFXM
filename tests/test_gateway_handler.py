@@ -138,7 +138,7 @@ class TestSlashCommands:
 
         assert "Butler 诊断" in text
         assert "会话: default" in text
-        assert "压缩: 是" in text
+        assert "压缩: 已压缩" in text
         assert "Schema 降级: 是" in text
         assert "剥离关键字: 2" in text
         assert "Skill: 已注入" in text
