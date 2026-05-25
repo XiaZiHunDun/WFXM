@@ -97,6 +97,20 @@ def dispatch_tool(name: str, args: dict) -> str:
             code="PLAN_MODE_BLOCKED",
         )
 
+    try:
+        from butler.permissions import check_project_permission_block
+
+        perm_block = check_project_permission_block(name, args)
+        if perm_block:
+            return _permission_denied_tool_result(
+                name,
+                args,
+                perm_block,
+                code="PERMISSION_RULE_DENIED",
+            )
+    except Exception as exc:
+        logger.debug("Project permission rules skipped: %s", exc)
+
     started_at = time.monotonic()
     try:
         from butler.hooks.runner import run_pre_tool_hooks
@@ -890,6 +904,12 @@ def _tool_write_file(path: str, content: str, **_) -> str:
         p, error = _atomic_write_text(path, content)
         if error:
             return json.dumps({"error": error})
+        try:
+            from butler.core.read_state import record_edit_path
+
+            record_edit_path(p)
+        except Exception:
+            pass
         return json.dumps({"success": True, "path": str(p), "bytes": len(content.encode("utf-8"))})
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -974,6 +994,13 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
         _written_path, write_error = _atomic_write_text(path, new_text, expected_stat=expected_stat)
         if write_error:
             return json.dumps({"error": write_error})
+        try:
+            from butler.core.read_state import record_edit_path
+
+            if _written_path is not None:
+                record_edit_path(_written_path)
+        except Exception:
+            pass
         payload: dict[str, Any] = {"success": True, "replacements": 1}
         if fuzzy:
             payload["fuzzy_quotes"] = True
@@ -1415,11 +1442,26 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
         )
         from butler.core.delegate_context import get_parent_system_prompt
 
+        from butler.core.delegate_context import get_parent_messages
+
         parent_sys = get_parent_system_prompt()
+        parent_msgs = get_parent_messages()
         if parent_sys:
-            merged = apply_cache_safe_system_prompt(parent_sys, agent.system_prompt)
+            merged = apply_cache_safe_system_prompt(
+                parent_sys,
+                agent.system_prompt,
+                tools=delegated_tools,
+                messages=parent_msgs,
+            )
             agent.system_prompt = merged
-            agent.diagnostics.update(delegate_diagnostics(parent_sys, merged))
+            agent.diagnostics.update(
+                delegate_diagnostics(
+                    parent_sys,
+                    merged,
+                    tools=delegated_tools,
+                    messages=parent_msgs,
+                )
+            )
         agent.reset()
 
         raw_user_msg = _project_agent_raw_message(task=task, context=context)

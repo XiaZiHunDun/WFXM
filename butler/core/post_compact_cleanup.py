@@ -65,6 +65,18 @@ def build_post_compact_anchor_text(
         if diagnostics is not None:
             diagnostics["post_compact_anchor_error"] = str(exc)[:200]
 
+    try:
+        from butler.core.read_state import get_recent_edit_paths
+
+        recent = get_recent_edit_paths(limit=5)
+        if recent:
+            lines = [f"- {p}" for p in recent]
+            parts.append("## Recent edited files\n" + "\n".join(lines))
+            if diagnostics is not None:
+                diagnostics["post_compact_recent_files"] = len(lines)
+    except Exception as exc:
+        logger.debug("Post-compact recent files skipped: %s", exc)
+
     body = "\n\n".join(p for p in parts if p.strip())
     if not body:
         return ""

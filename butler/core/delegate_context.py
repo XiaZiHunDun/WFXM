@@ -27,6 +27,14 @@ def get_parent_system_prompt() -> str:
     return str(getattr(_local, "system_prompt", "") or "")
 
 
+def set_parent_messages(messages: list) -> None:
+    _local.messages = list(messages or [])
+
+
+def get_parent_messages() -> list:
+    return list(getattr(_local, "messages", []) or [])
+
+
 def child_callbacks(parent: Optional["LoopCallbacks"]) -> Optional["LoopCallbacks"]:
     """Subset of callbacks safe for nested agent loops."""
     if parent is None:

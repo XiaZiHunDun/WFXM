@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 from butler.core.loop_types import LoopConfig
 from butler.env_parse import env_truthy
@@ -99,3 +99,49 @@ def resolve_turn_budget(
 
 def is_budget_command(text: str) -> bool:
     return bool(_BUDGET_CMD_RE.match((text or "").strip()))
+
+
+def get_budget_continuation_message(budget_tokens: int, *, attempt: int = 1) -> str:
+    return (
+        f"[系统] 本轮 token 预算约 {budget_tokens:,}，当前进度未达 90%。"
+        f"请继续完成用户任务，避免重复已交付内容。（续跑 {attempt}）"
+    )
+
+
+@dataclass
+class TurnBudgetState:
+    """Track mid-turn token budget continuation (CC query/tokenBudget.ts)."""
+
+    budget_tokens: int
+    continuations_used: int = 0
+    tokens_at_last_check: int = 0
+
+    def should_continue(
+        self,
+        output_tokens: int,
+        *,
+        max_continuations: int = 3,
+        min_delta_tokens: int = 500,
+    ) -> bool:
+        if self.budget_tokens <= 0:
+            return False
+        if self.continuations_used >= max_continuations:
+            if output_tokens - self.tokens_at_last_check < min_delta_tokens:
+                return False
+        threshold = int(self.budget_tokens * 0.9)
+        if output_tokens < threshold:
+            return True
+        return False
+
+    def record_continuation(self, output_tokens: int) -> None:
+        self.continuations_used += 1
+        self.tokens_at_last_check = output_tokens
+
+
+def continuation_limits() -> tuple[int, int]:
+    try:
+        max_cont = max(1, int(os.getenv("BUTLER_TURN_BUDGET_MAX_CONTINUATIONS", "3") or "3"))
+        min_delta = max(0, int(os.getenv("BUTLER_TURN_BUDGET_MIN_DELTA", "500") or "500"))
+    except ValueError:
+        max_cont, min_delta = 3, 500
+    return max_cont, min_delta

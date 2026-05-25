@@ -138,18 +138,45 @@ class AgentLoop:
         self._empty_retries = 0
         self._truncation_retries = 0
         set_parent_callbacks(self.callbacks)
-        from butler.core.delegate_context import set_parent_system_prompt
+        from butler.core.delegate_context import set_parent_messages, set_parent_system_prompt
 
         set_parent_system_prompt(self.system_prompt)
+        set_parent_messages(self._messages)
         self._tool_prefetch.clear()
         if self._guardrails:
             self._guardrails.reset_for_turn()
+
+        from butler.core.turn_token_budget import (
+            TurnBudgetState,
+            continuation_limits,
+            get_budget_continuation_message,
+            resolve_turn_budget,
+        )
+
+        self.config, turn_budget_tokens, cleaned_user = resolve_turn_budget(
+            user_message,
+            self.config,
+        )
+        budget_state: TurnBudgetState | None = (
+            TurnBudgetState(int(turn_budget_tokens))
+            if turn_budget_tokens
+            else None
+        )
+        if turn_budget_tokens:
+            self.diagnostics["turn_token_budget"] = int(turn_budget_tokens)
 
         if not self._messages:
             if self.system_prompt:
                 self._messages.append({"role": "system", "content": self.system_prompt})
 
-        self._messages.append({"role": "user", "content": sanitize_surrogates(user_message)})
+        user_content = sanitize_surrogates(cleaned_user)
+        self._messages.append({"role": "user", "content": user_content})
+        try:
+            from butler.core.session_transcript import record_user_message
+
+            record_user_message(steer_session, user_content)
+        except Exception:
+            pass
 
         final_text = None
         final_reasoning = None
@@ -165,6 +192,7 @@ class AgentLoop:
                     break
 
                 iteration += 1
+                set_parent_messages(self._messages)
                 if iteration > 1 and self.callbacks.on_stream_boundary:
                     self.callbacks.on_stream_boundary()
                 if self.callbacks.on_iteration:
@@ -214,6 +242,41 @@ class AgentLoop:
                     final_text = None
                     transition = LoopTransitionReason.TRUNCATION_CONTINUE
                     continue
+
+                stop_blocked = self._maybe_stop_hook_continue(
+                    steer_session=steer_session,
+                    iteration=iteration,
+                    start_time=start_time,
+                    final_text=final_text or "",
+                )
+                if stop_blocked:
+                    final_text = None
+                    transition = LoopTransitionReason.STOP_HOOK_BLOCKED
+                    continue
+
+                if budget_state is not None:
+                    max_cont, min_delta = continuation_limits()
+                    if budget_state.should_continue(
+                        self._total_tokens,
+                        max_continuations=max_cont,
+                        min_delta_tokens=min_delta,
+                    ):
+                        if final_text:
+                            msg = {"role": "assistant", "content": final_text}
+                            from butler.transport.reasoning_replay import store_reasoning_on_message
+
+                            store_reasoning_on_message(msg, final_reasoning)
+                            self._messages.append(msg)
+                        budget_state.record_continuation(self._total_tokens)
+                        nudge = get_budget_continuation_message(
+                            budget_state.budget_tokens,
+                            attempt=budget_state.continuations_used,
+                        )
+                        self._messages.append({"role": "user", "content": nudge})
+                        final_text = None
+                        transition = LoopTransitionReason.TOKEN_BUDGET_CONTINUE
+                        continue
+
                 status = LoopStatus.COMPLETED
                 transition = LoopTransitionReason.TURN_COMPLETED
 
@@ -227,6 +290,16 @@ class AgentLoop:
 
                 store_reasoning_on_message(msg, final_reasoning)
                 self._messages.append(msg)
+                try:
+                    from butler.core.session_transcript import record_assistant_message
+
+                    record_assistant_message(
+                        steer_session,
+                        final_text,
+                        tool_calls=self._tool_calls_count,
+                    )
+                except Exception:
+                    pass
 
         finally:
             self._restore_primary_client()
@@ -248,43 +321,68 @@ class AgentLoop:
             elapsed_seconds=elapsed,
             diagnostics=dict(self.diagnostics),
         )
+        if self.diagnostics.get("stop_hook_context"):
+            pass
+        elif status == LoopStatus.COMPLETED:
+            try:
+                from butler.hooks.runner import run_stop_hooks
+
+                stop_hooks = run_stop_hooks(
+                    status=status.value,
+                    last_assistant_message=final_text or "",
+                    session_key=steer_session,
+                    iterations=iteration,
+                    tool_calls=self._tool_calls_count,
+                    elapsed_seconds=elapsed,
+                )
+                if stop_hooks.additional_context:
+                    self.diagnostics["stop_hook_context"] = list(
+                        stop_hooks.additional_context
+                    )
+            except Exception as exc:
+                logger.debug("Stop hooks context skipped: %s", exc)
+        return result
+
+    def _maybe_stop_hook_continue(
+        self,
+        *,
+        steer_session: str,
+        iteration: int,
+        start_time: float,
+        final_text: str,
+    ) -> bool:
+        """Run Stop hooks inside the loop; return True if continuation was injected."""
         try:
             from butler.hooks.runner import run_stop_hooks
 
             stop_hooks = run_stop_hooks(
-                status=status.value,
-                last_assistant_message=final_text or "",
+                status=LoopStatus.RUNNING.value,
+                last_assistant_message=final_text,
                 session_key=steer_session,
                 iterations=iteration,
                 tool_calls=self._tool_calls_count,
-                elapsed_seconds=elapsed,
+                elapsed_seconds=time.time() - start_time,
             )
-            if stop_hooks.additional_context:
-                self.diagnostics["stop_hook_context"] = list(
-                    stop_hooks.additional_context
-                )
-            if stop_hooks.blocked:
-                self.diagnostics["stop_hook_blocked"] = True
-                msg = (stop_hooks.block_message or "").strip()
-                if msg:
-                    result = LoopResult(
-                        status=result.status,
-                        transition_reason=LoopTransitionReason.STOP_HOOK_BLOCKED.value,
-                        final_response=msg,
-                        reasoning=result.reasoning,
-                        messages=result.messages,
-                        iterations=result.iterations,
-                        total_tokens=result.total_tokens,
-                        tool_calls_made=result.tool_calls_made,
-                        elapsed_seconds=result.elapsed_seconds,
-                        diagnostics=dict(self.diagnostics),
-                    )
-                    self.diagnostics["loop_transition_reason"] = (
-                        LoopTransitionReason.STOP_HOOK_BLOCKED.value
-                    )
         except Exception as exc:
             logger.debug("Stop hooks skipped: %s", exc)
-        return result
+            return False
+
+        if stop_hooks.additional_context:
+            self.diagnostics["stop_hook_context"] = list(stop_hooks.additional_context)
+
+        if not stop_hooks.blocked:
+            return False
+
+        self.diagnostics["stop_hook_blocked"] = True
+        block_msg = (stop_hooks.block_message or "Stop hook 要求继续处理").strip()
+        if final_text:
+            msg = {"role": "assistant", "content": final_text}
+            self._messages.append(msg)
+        self._messages.append({
+            "role": "user",
+            "content": f"[stop-hook-block]\n{block_msg}",
+        })
+        return True
 
     def _restore_primary_client(self) -> None:
         if self._primary_client is not None:
