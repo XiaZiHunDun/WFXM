@@ -41,6 +41,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - 微信：`/计划`、`/执行`、`/任务`；`/诊断` 含上下文用量档位、Shell hooks 摘要、**出站策略**（完成推送/委派模式/冷却）；`/状态` 含规划模式
 - 可选环境变量：`BUTLER_DISABLE_AUTO_COMPACT`、`BUTLER_CONTEXT_*`、`BUTLER_MEMORY_MAX_LINES`
 - 大工具结果落盘：`BUTLER_TOOL_RESULT_SPILL`（默认开）→ `~/.butler/sessions/<session>/tool-results/`；上下文为 `<persisted-output>` 指针，需完整内容时用 `read_file`
+- 工具分级剪枝：`BUTLER_TOOL_PRUNE_*`；压缩后 `post_compact` 重注入 MEMORY/任务锚点；`/诊断` 含 **上轮循环结束**（`loop_transition_reason`）
 - **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 
 ### 两套 Hook（不要混用）

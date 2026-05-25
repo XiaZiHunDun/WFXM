@@ -24,7 +24,6 @@ SUMMARY_PREFIX = (
     "Respond ONLY to the latest user message after this block:\n\n"
 )
 
-_TOOL_PRUNE_LIMIT = 800
 _MIN_MESSAGES_TO_COMPRESS = 12
 
 
@@ -41,23 +40,33 @@ def prune_tool_outputs(messages: list[dict]) -> list[dict]:
 
 
 def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
+    from butler.core.tool_prune_policy import (
+        build_tool_name_index,
+        keep_recent_tool_messages,
+        prune_tool_message_content,
+        _tool_message_indices,
+    )
+
+    id_to_name = build_tool_name_index(messages)
+    tool_idxs = _tool_message_indices(messages)
+    recent = set(tool_idxs[-keep_recent_tool_messages() :])
+
     out: list[dict] = []
-    for m in messages:
+    for i, m in enumerate(messages):
         if m.get("role") != "tool":
             out.append(m)
             continue
         content = str(m.get("content") or "")
-        if "<persisted-output>" in content:
+        tool_name = id_to_name.get(str(m.get("tool_call_id") or ""), "")
+        new_content = prune_tool_message_content(
+            content,
+            tool_name=tool_name,
+            is_stale=i not in recent,
+        )
+        if new_content == content:
             out.append(m)
-            continue
-        if len(content) <= _TOOL_PRUNE_LIMIT:
-            out.append(m)
-            continue
-        preview = content[:300].replace("\n", " ")
-        out.append({
-            **m,
-            "content": f"[Tool output pruned: {len(content)} chars] {preview}...",
-        })
+        else:
+            out.append({**m, "content": new_content})
     return out
 
 

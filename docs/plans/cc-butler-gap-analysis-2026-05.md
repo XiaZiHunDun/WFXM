@@ -59,7 +59,11 @@
 
 微信长会话稳定性、降 token 费。
 
-### 4.1 三层上下文压缩（micro → auto → full）
+### 4.1 三层上下文压缩（micro → auto → full） ✅ 部分落地（2026-05-22）
+
+- **micro**：`tool_prune_policy.py` 按工具分级 + 旧结果清空；`post_compact_cleanup.py` 压缩后重注入 MEMORY/任务锚点  
+- **auto**：原有 `compress_messages` 阈值门控不变  
+- 测试：`tests/test_tool_prune_policy.py`、`test_context_pipeline` post-compact 用例
 
 **CC**：`microCompact.ts` 按工具类型清空旧 read/bash/grep；`autoCompact.ts` 达阈值 LLM 摘要；`postCompactCleanup.ts` 补注入附件。
 
@@ -92,7 +96,10 @@
 
 **改动**：`butler/tools/registry.py`、`path_safety.py`
 
-### 4.4 循环 transition 原因 + 可观测性
+### 4.4 循环 transition 原因 + 可观测性 ✅ 已落地（2026-05-22）
+
+- `LoopTransitionReason` + `LoopResult.transition_reason`；`/诊断` 显示 **上轮循环结束**
+- 测试：`tests/test_loop_transition.py`
 
 **CC**：`query.ts` — `reactive_compact_retry`、`token_budget_continuation`、`stop_hook_blocking` 等。
 
@@ -169,7 +176,8 @@ Claude Code 的核心优势在 **上下文经济学**（micro 剪枝 + 落盘 + 
 
 | 顺序 | 项 | 理由 |
 |------|-----|------|
-| 1 | ~~**tool_result_storage**~~ | ✅ 已完成；下一项：**工具分级剪枝 + post_compact 重注入** |
-| 2 | **工具分级剪枝 + post_compact 重注入** | 改动集中在 context 管线，与现有 `prune`/`compress` 衔接 |
-| 3 | **transition_reason** | 小 diff，提升发版冒烟与语料对照 |
+| 1 | ~~**tool_result_storage**~~ | ✅ |
+| 2 | ~~**工具分级剪枝 + post_compact 重注入**~~ | ✅ |
+| 3 | ~~**transition_reason**~~ | ✅ |
+| 4 | **read_state + mtime** | 下一项 P0/P1 |
 | 4 | **read_state + mtime** | 触及 patch/write 全路径，需 fuzz/回归 |

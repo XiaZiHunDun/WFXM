@@ -153,6 +153,11 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
     except Exception:
         lines.append("Shell hooks: 不可用")
     loop = (health or {}).get("loop") if isinstance((health or {}).get("loop"), dict) else {}
+    trans = (health or {}).get("loop_transition_reason") or (
+        loop.get("loop_transition_reason") if isinstance(loop, dict) else ""
+    )
+    if trans:
+        lines.append(f"上轮循环结束: {trans}")
     stop_ctx = loop.get("stop_hook_context") if isinstance(loop, dict) else None
     if stop_ctx:
         if isinstance(stop_ctx, list):

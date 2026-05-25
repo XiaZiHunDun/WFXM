@@ -14,7 +14,13 @@ from butler.core.loop_response import (
     needs_truncation_continue,
     truncation_continue_message,
 )
-from butler.core.loop_types import LoopCallbacks, LoopConfig, LoopResult, LoopStatus
+from butler.core.loop_types import (
+    LoopCallbacks,
+    LoopConfig,
+    LoopResult,
+    LoopStatus,
+    LoopTransitionReason,
+)
 from butler.core.message_sanitize import sanitize_surrogates
 from butler.core.tool_batch import dispatch_tool_with_envelope, process_tool_calls
 from butler.tool_guardrails import ToolCallGuardrailController
@@ -143,12 +149,14 @@ class AgentLoop:
         final_text = None
         final_reasoning = None
         status = LoopStatus.RUNNING
+        transition = LoopTransitionReason.UNKNOWN
         iteration = 0
 
         try:
             while status == LoopStatus.RUNNING and iteration < self.config.max_iterations:
                 if self._interrupted or (self._thread_id and is_interrupted(self._thread_id)):
                     status = LoopStatus.INTERRUPTED
+                    transition = LoopTransitionReason.INTERRUPTED
                     break
 
                 iteration += 1
@@ -159,7 +167,15 @@ class AgentLoop:
 
                 response = self._call_llm_with_retry()
                 if response is None:
-                    status = LoopStatus.INTERRUPTED if self._interrupted else LoopStatus.ERROR
+                    if self._interrupted:
+                        status = LoopStatus.INTERRUPTED
+                        transition = LoopTransitionReason.INTERRUPTED
+                    else:
+                        status = LoopStatus.ERROR
+                        if self.diagnostics.get("reactive_context_compact"):
+                            transition = LoopTransitionReason.REACTIVE_COMPACT_RETRY
+                        else:
+                            transition = LoopTransitionReason.LLM_ERROR
                     break
 
                 if response.usage:
@@ -171,7 +187,9 @@ class AgentLoop:
                         if not self.callbacks.should_continue(iteration, response):
                             final_text = response.content
                             status = LoopStatus.COMPLETED
+                            transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
                             break
+                    transition = LoopTransitionReason.TOOL_BATCH_CONTINUE
                     continue
 
                 final_text = response.content
@@ -189,11 +207,14 @@ class AgentLoop:
                         self._messages.append(msg)
                     self._messages.append({"role": "user", "content": truncation_continue_message()})
                     final_text = None
+                    transition = LoopTransitionReason.TRUNCATION_CONTINUE
                     continue
                 status = LoopStatus.COMPLETED
+                transition = LoopTransitionReason.TURN_COMPLETED
 
             if status == LoopStatus.RUNNING:
                 status = LoopStatus.TOOL_LIMIT
+                transition = LoopTransitionReason.TOOL_LIMIT
 
             if final_text:
                 msg = {"role": "assistant", "content": final_text}
@@ -209,8 +230,10 @@ class AgentLoop:
                 self.callbacks = saved_callbacks
 
         elapsed = time.time() - start_time
+        self.diagnostics["loop_transition_reason"] = transition.value
         result = LoopResult(
             status=status,
+            transition_reason=transition.value,
             final_response=final_text,
             reasoning=final_reasoning,
             messages=list(self._messages),

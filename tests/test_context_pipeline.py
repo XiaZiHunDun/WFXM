@@ -77,3 +77,27 @@ def test_hygiene_compress_when_over_auto_threshold():
     compress.assert_called_once()
     assert compress.call_args.kwargs["threshold_ratio"] == 0.0
     assert diagnostics["hygiene_compressed"] is True
+
+
+@pytest.mark.unit
+def test_compress_context_applies_post_compact_anchor(monkeypatch):
+    pipeline = ContextPipeline(LoopConfig(max_context_tokens=5))
+    msgs = [{"role": "system", "content": "system prompt"}]
+    for _ in range(20):
+        msgs.append({"role": "user", "content": "x" * 200})
+
+    with patch(
+        "butler.core.context_compressor.auxiliary_complete",
+        return_value="## Active Task\n- keep going",
+    ):
+        with patch(
+            "butler.core.post_compact_cleanup.build_post_compact_anchor_text",
+            return_value="[POST-COMPACT ANCHORS — REFERENCE ONLY]\n## Memory anchor\nfoo",
+        ):
+            compressed = pipeline.compress_context(msgs)
+
+    from butler.core.context_compressor import SUMMARY_PREFIX
+    from butler.core.post_compact_cleanup import POST_COMPACT_PREFIX
+
+    assert any(SUMMARY_PREFIX[:20] in str(m.get("content", "")) for m in compressed)
+    assert any(POST_COMPACT_PREFIX[:20] in str(m.get("content", "")) for m in compressed)

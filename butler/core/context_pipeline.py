@@ -11,7 +11,7 @@ from butler.core.context_compressor import (
     compress_messages,
     prune_tool_outputs,
 )
-from butler.core.post_compact_cleanup import run_post_compact_cleanup
+from butler.core.post_compact_cleanup import apply_post_compact_anchors, run_post_compact_cleanup
 from butler.core.hygiene_preflight import run_hygiene_preflight
 from butler.core.loop_types import LoopConfig
 from butler.core.message_repair import repair_message_sequence, repair_tool_arguments
@@ -57,6 +57,7 @@ class ContextPipeline:
         if did and summary:
             self.compression_summary = summary
             self.consecutive_compact_failures = 0
+            compressed = apply_post_compact_anchors(compressed)
         return compressed
 
     def prepare_messages_for_api(
@@ -103,12 +104,12 @@ class ContextPipeline:
         if not result.compressed:
             return False, messages
 
-        run_post_compact_cleanup(diagnostics)
+        anchored = run_post_compact_cleanup(diagnostics, messages=result.messages) or result.messages
         logger.info(
             "Gateway hygiene compressed %d->%d messages (~%d tokens, threshold=%d)",
             len(messages),
-            len(result.messages),
+            len(anchored),
             diagnostics.get("hygiene_estimated_tokens", 0),
             diagnostics.get("hygiene_threshold_tokens", 0),
         )
-        return True, result.messages
+        return True, anchored

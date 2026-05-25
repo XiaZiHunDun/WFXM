@@ -17,6 +17,20 @@ class LoopStatus(str, Enum):
     INTERRUPTED = "interrupted"
 
 
+class LoopTransitionReason(str, Enum):
+    """Why the agent loop stopped or continued (Claude Code query.ts-style)."""
+
+    TURN_COMPLETED = "turn_completed"
+    TOOL_BATCH_CONTINUE = "tool_batch_continue"
+    SHOULD_CONTINUE_FALSE = "should_continue_false"
+    TRUNCATION_CONTINUE = "truncation_continue"
+    TOOL_LIMIT = "tool_limit"
+    INTERRUPTED = "interrupted"
+    LLM_ERROR = "llm_error"
+    REACTIVE_COMPACT_RETRY = "reactive_compact_retry"
+    UNKNOWN = "unknown"
+
+
 @dataclass
 class LoopConfig:
     max_iterations: int = 30
@@ -52,6 +66,7 @@ class LoopCallbacks:
 @dataclass
 class LoopResult:
     status: LoopStatus
+    transition_reason: str = ""
     final_response: Optional[str] = None
     reasoning: Optional[str] = None
     messages: list = field(default_factory=list)

@@ -299,6 +299,8 @@ class ButlerMessageHandler:
                 else:
                     result = loop.run(augmented)
                 health["loop"] = dict(getattr(result, "diagnostics", {}) or {})
+                if getattr(result, "transition_reason", ""):
+                    health["loop_transition_reason"] = result.transition_reason
                 sync_result = sync_turn_memory(
                     self._orchestrator,
                     text,
