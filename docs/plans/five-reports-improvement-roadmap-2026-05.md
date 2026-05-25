@@ -295,10 +295,19 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 | PR-F6 | ✅ | 观察者队列 + ContextPipeline 步骤诊断 + TA output_schema 子集 |
 | 文档同步 | ✅ | `reference.md`、`.env.example`、`CONTRIBUTING`、本表 |
 | 运维速查 | ✅ | [`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md) |
+| **未作清单** | 📋 | [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md)（S1–S11 + P2 未排期） |
 
 ---
 
-## 10. 一句话总结
+## 10. 未作与深化（索引）
+
+PR-F1–F6 落地后，**否决型不做**、**P2 未排期**、**可深化子集** 见专用文档：
+
+- [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md)
+
+---
+
+## 11. 一句话总结
 
 五份报告合并后的方向，不是「再做一个 claude-mem / CC Switch / LobeChat」，而是让现有 Butler：
 
@@ -312,9 +321,10 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 
 ---
 
-## 11. 变更记录
+## 12. 变更记录
 
 | 日期 | 说明 |
 |------|------|
 | 2026-05-25 | 初版：五报告合并路线图、主线 F–J、PR-F1–F6、out-of-scope S1–S11、§9 核对表 |
 | 2026-05-25 | §9：PR-F1–F6 落地；新增五报告能力速查 |
+| 2026-05-25 | 新增 [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) 未作清单 |

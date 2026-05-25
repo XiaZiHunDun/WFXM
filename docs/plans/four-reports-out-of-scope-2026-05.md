@@ -96,5 +96,9 @@ Butler v4 是 **微信管家 + 多项目自建 Agent Loop**，不是浏览器自
 
 ## 7. 五报告增量「不做」（索引）
 
-claude-mem / cc-switch / PEG / TradingAgents / LobeHub 特有否决项（S1–S11）见 [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §6。  
-**本文 §2 总表优先**；五报告仅补充未在四报告中单列的边界。
+| 文档 | 内容 |
+|------|------|
+| [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) | **未作总表**：S1–S11 否决 + P2 未排期 + 可深化（推荐 Agent 先读） |
+| [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §6 | S1–S11 原文与原因 |
+
+**本文 §2 总表优先**；五报告否决与未排期以 `five-reports-not-done` 为准。

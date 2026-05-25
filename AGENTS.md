@@ -12,6 +12,7 @@
 | 4 | [`docs/plans/README.md`](docs/plans/README.md) | 规划索引；**三套 P0/P2/P3 命名对照** |
 | 4b | [`docs/plans/four-reports-out-of-scope-2026-05.md`](docs/plans/four-reports-out-of-scope-2026-05.md) | 四报告对标 **明确不做**（新增能力前先查） |
 | 4c | [`docs/plans/five-reports-improvement-roadmap-2026-05.md`](docs/plans/five-reports-improvement-roadmap-2026-05.md) | 五报告合并路线图（**已落地**，主线 F–J / PR-F1–F6）；速查 [`docs/guides/five-reports-capabilities-2026-05.md`](docs/guides/five-reports-capabilities-2026-05.md) |
+| 4d | [`docs/plans/five-reports-not-done-2026-05.md`](docs/plans/five-reports-not-done-2026-05.md) | 五报告**未作**（S1–S11 否决 + P2 未排期）；与四报告 out-of-scope 并用 |
 | 5 | [`STRUCTURE.md`](STRUCTURE.md) | 目录树与常用命令 |
 | 6 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | 微信线束、Hooks、出站、队列/workflow、发版抽测 |
 | 7 | [`docs/design/design.md`](docs/design/design.md) | 产品设计摘要；§9 为对照表，**§11+ 可能过时** |

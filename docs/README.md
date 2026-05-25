@@ -13,7 +13,8 @@
 | 看 CC 能力是否已有 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) |
 | 看规划与命名 | [`plans/README.md`](plans/README.md) |
 | 四报告已落地能力 / 故意不做 | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) · [`plans/four-reports-out-of-scope-2026-05.md`](plans/four-reports-out-of-scope-2026-05.md) |
-| 五报告改进路线图（规划中） | [`plans/five-reports-improvement-roadmap-2026-05.md`](plans/five-reports-improvement-roadmap-2026-05.md) |
+| 五报告改进路线图（已落地） | [`plans/five-reports-improvement-roadmap-2026-05.md`](plans/five-reports-improvement-roadmap-2026-05.md) |
+| 五报告未作清单 | [`plans/five-reports-not-done-2026-05.md`](plans/five-reports-not-done-2026-05.md) |
 | Codex 对标 Sprint C0–C2 | [`guides/sprint-codex-c0-2026-05.md`](guides/sprint-codex-c0-2026-05.md) · [C1](guides/sprint-codex-c1-2026-05.md) · [C2](guides/sprint-codex-c2-2026-05.md) |
 | 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
 

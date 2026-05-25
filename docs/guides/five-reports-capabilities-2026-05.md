@@ -17,7 +17,7 @@
 | **I 编排** | outcomes.tsv、`/评价`、handoff 依赖、clear_child、output_schema、决策解析 | `outcomes.py`、`task_orchestrator.py`、`report.py` |
 | **J 可靠性** | retry/replan/stop、param blacklist、UTF-16 截断、Pipeline 步骤耗时 | `tool_error_policy.py`、`text_truncate.py`、`pipeline_steps.py`、`context_pipeline.py` |
 
-**仍不做（P2 大项）**：CC Switch 桌面、MCP Host 全家桶、LangGraph 行情图、Chroma Worker 等 — 见路线图 §6。
+**未作 / 不做**：见 [`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md)（S1–S11 否决 + P2 未排期）。
 
 ---
 
@@ -81,3 +81,12 @@ PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_cont
 PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sections.py \
   tests/test_experiment_ledger.py tests/test_tool_result_storage.py tests/test_message_queue.py -q
 ```
+
+---
+
+## 6. 未作清单（索引）
+
+| 类型 | 文档 |
+|------|------|
+| 五报告否决 + P2 未排期 | [`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md) |
+| 四报告 18 项否决 | [`../plans/four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md) §2 |

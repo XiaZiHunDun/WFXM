@@ -38,6 +38,7 @@
 | **四报告合并路线图** | [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) | 统一收敛 DESIGN / 实验组织 / Loop 减熵 / RAG（**已落地** §9） |
 | **四报告明确不做** | [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | 18 项否决能力 + 原因 + 替代方案（**新增需求前必读**） |
 | **五报告合并路线图** | [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) | claude-mem / cc-switch / PEG / TradingAgents / LobeHub → 主线 **F–J**、PR-F1–F6（**已落地** §9） |
+| **五报告未作清单** | [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) | S1–S11 否决 + P2 未排期（**新增需求前必读**） |
 | **claude-mem 对照报告** | [`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md) | 记忆渐进披露 / observer；见五报告 **主线 F** |
 | **PEG 对照报告** | [`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md) | Prompt 纪律 / 事实性；见五报告 **主线 H** |
 
