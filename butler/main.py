@@ -1298,6 +1298,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     register_provider_presets_parser(sub)
 
+    from butler.cli.registry_cli import register_registry_parser
+
+    register_registry_parser(sub)
+
     from butler.cli.secrets_cli import register_secrets_subparser
 
     register_secrets_subparser(sub)

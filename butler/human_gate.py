@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import time
@@ -160,6 +161,11 @@ def has_pending_gate(session_key: str) -> bool:
     return _load_pending(session_key) is not None
 
 
+def has_injection_review_pending(session_key: str) -> bool:
+    pending = _load_pending(session_key)
+    return pending is not None and pending.kind == "injection_review"
+
+
 def check_workflow_step_approval(
     session_key: str,
     workflow_name: str,
@@ -189,10 +195,66 @@ def format_pending_hint(session_key: str) -> str:
     pending = _load_pending(session_key)
     if pending is None:
         return ""
+    if pending.kind == "injection_review":
+        return (
+            f"入站消息安全评分 {pending.step_id} 偏高，等待 Owner 确认。"
+            "回复「确认」后请重发上一条消息，或「取消」忽略。"
+        )
     return (
         f"工作流「{pending.workflow}」步骤「{pending.step_id}」等待确认。"
         "回复「确认」继续（随后请再次发送 /workflow），或「取消」中止。"
     )
+
+
+def request_injection_review_gate(session_key: str, *, score: int) -> None:
+    """Owner must 确认 before retrying a high-risk inbound message."""
+    sk = str(session_key or "").strip()
+    _save_pending(
+        sk,
+        PendingGate(
+            kind="injection_review",
+            workflow="",
+            step_id=str(int(score)),
+            created_at=time.time(),
+        ),
+    )
+
+
+def _injection_bypass_path(session_key: str) -> Path:
+    digest = hashlib.sha256(str(session_key or "default").encode()).hexdigest()[:16]
+    return _gate_dir() / f"inj_bypass_{digest}.json"
+
+
+def grant_injection_bypass(session_key: str, *, ttl_seconds: float = 300.0) -> None:
+    """Allow one subsequent inbound to skip injection LLM block."""
+    path = _injection_bypass_path(session_key)
+    payload = {"expires_at": time.time() + max(30.0, ttl_seconds)}
+    try:
+        path.write_text(json.dumps(payload), encoding="utf-8")
+    except OSError as exc:
+        logger.debug("injection bypass write failed: %s", exc)
+
+
+def consume_injection_bypass(session_key: str) -> bool:
+    path = _injection_bypass_path(session_key)
+    if not path.is_file():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        expires = float(data.get("expires_at") or 0)
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    if expires < time.time():
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return False
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+    return True
 
 
 def resolve_human_gate_message(session_key: str, text: str) -> str | None:
@@ -207,7 +269,17 @@ def resolve_human_gate_message(session_key: str, text: str) -> str | None:
 
     if stripped in _CANCEL:
         _save_pending(session_key, None)
+        if pending.kind == "injection_review":
+            return "已取消高风险入站确认；请修改消息内容后重试。"
         return f"已取消工作流步骤「{pending.step_id}」（{pending.workflow}）。"
+
+    if pending.kind == "injection_review":
+        grant_injection_bypass(session_key)
+        _save_pending(session_key, None)
+        return (
+            f"已确认入站安全评分 {pending.step_id}。"
+            "请重新发送上一条消息以继续处理。"
+        )
 
     mark_step_approved(session_key, pending.workflow, pending.step_id)
     _save_pending(session_key, None)

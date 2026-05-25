@@ -292,6 +292,15 @@ class ButlerMessageHandler:
             pass
 
         try:
+            from butler.human_gate import resolve_human_gate_message
+
+            gate_reply = resolve_human_gate_message(session_key, text)
+            if gate_reply is not None:
+                return gate_reply
+        except Exception:
+            pass
+
+        try:
             from butler.memory.injection_guard import (
                 injection_score_enabled,
                 mark_adversarial_user_text,
@@ -316,26 +325,43 @@ class ButlerMessageHandler:
             pass
 
         try:
+            from butler.human_gate import (
+                consume_injection_bypass,
+                format_pending_hint,
+                has_injection_review_pending,
+                request_injection_review_gate,
+            )
             from butler.memory.injection_llm_score import (
+                injection_llm_gate_enabled,
                 injection_llm_score_enabled,
                 should_block_inbound_llm_score,
             )
 
             if injection_llm_score_enabled():
-                blocked, llm_score, block_msg = should_block_inbound_llm_score(text)
-                if llm_score is not None:
-                    try:
-                        from butler.core.session_transcript import append_transcript_entry
+                if consume_injection_bypass(session_key):
+                    pass
+                elif has_injection_review_pending(session_key):
+                    hint = format_pending_hint(session_key)
+                    if hint:
+                        return hint
+                else:
+                    blocked, llm_score, block_msg = should_block_inbound_llm_score(text)
+                    if llm_score is not None:
+                        try:
+                            from butler.core.session_transcript import append_transcript_entry
 
-                        append_transcript_entry(
-                            session_key,
-                            "injection_llm_score",
-                            {"score": llm_score, "preview": text[:120]},
-                        )
-                    except Exception:
-                        pass
-                if blocked:
-                    return block_msg
+                            append_transcript_entry(
+                                session_key,
+                                "injection_llm_score",
+                                {"score": llm_score, "preview": text[:120]},
+                            )
+                        except Exception:
+                            pass
+                    if blocked:
+                        if injection_llm_gate_enabled() and llm_score is not None:
+                            request_injection_review_gate(session_key, score=llm_score)
+                            return format_pending_hint(session_key) or block_msg
+                        return block_msg
         except Exception:
             pass
 
@@ -418,15 +444,6 @@ class ButlerMessageHandler:
                     return owner_required_message()
                 store_approval(cmd, session_key=session_key)
                 return f"已批准 terminal 命令（5 分钟内有效）:\n{cmd[:200]}"
-        except Exception:
-            pass
-
-        try:
-            from butler.human_gate import resolve_human_gate_message
-
-            gate_reply = resolve_human_gate_message(session_key, text)
-            if gate_reply is not None:
-                return gate_reply
         except Exception:
             pass
 
@@ -953,6 +970,11 @@ class ButlerMessageHandler:
                     f"{extra}{lead_note}"
                 )
             return f"未找到项目: {arg}（名称需精确或唯一匹配）"
+
+        if cmd in ("/presets", "/预设"):
+            from butler.provider_presets import format_presets_list
+
+            return format_presets_list()
 
         if cmd in ("/model", "/模型"):
             from butler.model_resolve import handle_model_command

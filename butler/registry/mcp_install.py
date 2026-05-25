@@ -139,6 +139,18 @@ def install_catalog_server(
 
     block = _entry_to_server_block(entry, _parse_env_list(env_assignments))
     try:
+        from butler.registry.install_scan import (
+            format_scan_message,
+            install_pre_scan_fail_closed,
+            pre_install_scan_mcp,
+        )
+
+        scan = pre_install_scan_mcp(entry, block)
+        if not scan.ok_to_install and install_pre_scan_fail_closed():
+            return False, format_scan_message(scan) + "\n安装已取消。"
+    except Exception as exc:
+        logger.debug("MCP pre-install scan skipped: %s", exc)
+    try:
         config_path = resolve_mcp_write_path(workspace=workspace, use_project=use_project)
     except ValueError as exc:
         return False, str(exc)

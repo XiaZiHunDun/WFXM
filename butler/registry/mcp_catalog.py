@@ -34,8 +34,25 @@ def mcp_catalog_enabled() -> bool:
     return raw not in ("0", "false", "no", "off")
 
 
+_catalog_integrity_checked = False
+
+
+def _ensure_catalog_integrity_once() -> None:
+    global _catalog_integrity_checked
+    if _catalog_integrity_checked:
+        return
+    _catalog_integrity_checked = True
+    try:
+        from butler.registry.catalog_integrity import ensure_catalog_integrity
+
+        ensure_catalog_integrity()
+    except Exception as exc:
+        logger.warning("MCP catalog integrity: %s", exc)
+
+
 class McpCatalogService:
     def _load_bundled_entries(self) -> list[McpCatalogEntry]:
+        _ensure_catalog_integrity_once()
         path = catalog_dir() / "mcp" / "servers.yaml"
         if not path.is_file():
             return []

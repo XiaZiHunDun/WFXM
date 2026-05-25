@@ -205,8 +205,21 @@
 | `BUTLER_REFLEXION_WRITE_EXPERIENCE` | 0 | `1` 时 Reflexion 写入 `.butler/experiences/reflexion.jsonl` |
 | `BUTLER_INJECTION_SCORE` | 0 | `1` 时入站规则 injection 分写入 transcript |
 | `BUTLER_INJECTION_LLM_SCORE` | 0 | `1` 时辅助模型对入站打 0–100 分（`BUTLER_INJECTION_LLM_BLOCK` 默认 85 阻断） |
+| `BUTLER_INJECTION_LLM_BLOCK` | 85 | 与 `BUTLER_INJECTION_LLM_SCORE` 联用，≥ 阈值则阻断或门控 |
+| `BUTLER_INJECTION_LLM_GATE` | 0 | `1` 且开启 LLM 评分时，高分走微信「确认」门控而非硬拒（需重发消息） |
+| `BUTLER_INSTALL_PRE_SCAN` | 1 | MCP/Skill 安装前规则扫描（`butler mcp scan` / `skill install`） |
+| `BUTLER_INSTALL_PRE_SCAN_FAIL_CLOSED` | 1 | 扫描 `block` 时拒绝安装 |
 | `BUTLER_POST_SESSION_LAYERED` | 0 | `1` 时 post_session 抽取 persona/preference/experience 写入 `session_summary.json` |
 | `BUTLER_TOOLS_ENGINE` | 1 | `0` 关闭 FC 能力检查；`BUTLER_TOOLS_ENGINE_FORCE_OFF=1` 强制无 tools |
+| `BUTLER_TOOLS_ENGINE_SSOT` | 0 | `1` 时仅保留 effective mcp.yaml 中 server 的 `mcp_*` 工具 |
+| `BUTLER_PROMPT_EVAL_LLM` | 0 | `1` 时 `butler prompt eval --llm` 对 pattern 通过项做辅助模型打分 |
+| `BUTLER_PROMPT_EVAL_LLM_MIN` | 70 | LLM rubric 最低分（0–100） |
+| `BUTLER_PROMPT_EVAL_LIVE_MAX` | 12 | `prompt eval --corpus-live-full` 单轮 case 上限 |
+| `BUTLER_THINKING_BETA_HEADER` | （空） | 覆盖 anthropic-beta 头（需 `BUTLER_THINKING_PROTOCOL=1`） |
+| `BUTLER_THINKING_BETA_MATRIX` | （空） | JSON 矩阵 `[{provider,model_contains,anthropic_beta}]` |
+| `BUTLER_HUB_MANIFEST_CHECK` | 1 | `butler registry verify` 校验 bundled catalog + 远程 Hub |
+| `BUTLER_MCP_CATALOG_URLS` | （空） | 逗号分隔远程 MCP 目录 URL（Hub 合并） |
+| `BUTLER_OUTPUT_SCHEMA_REPAIR_MAX` | 2 | 终局 schema LLM 修复最多轮次 |
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 `.butler/observations.tsv` |
 | `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | SessionEnd 写 `.butler/session_summary.json` |

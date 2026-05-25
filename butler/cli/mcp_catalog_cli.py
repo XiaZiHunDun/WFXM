@@ -60,6 +60,10 @@ def register_mcp_catalog_parsers(mcp_sub: argparse._SubParsersAction) -> None:
     p_inspect.add_argument("server_id")
     p_inspect.set_defaults(func=_cmd_mcp_inspect)
 
+    p_scan = mcp_sub.add_parser("scan", help="安装前扫描目录模板（不写 mcp.yaml）")
+    p_scan.add_argument("server_id")
+    p_scan.set_defaults(func=_cmd_mcp_scan)
+
     p_test = mcp_sub.add_parser("test", help="探测已配置的 server")
     p_test.add_argument("server_id")
     p_test.set_defaults(func=_cmd_mcp_test)
@@ -126,6 +130,21 @@ def _cmd_mcp_inspect(ns: argparse.Namespace) -> int:
         return 1
     print(svc.format_inspect(entry))
     return 0
+
+
+def _cmd_mcp_scan(ns: argparse.Namespace) -> int:
+    from butler.registry.install_scan import format_scan_message, pre_install_scan_mcp
+    from butler.registry.mcp_install import _entry_to_server_block
+
+    svc = McpCatalogService()
+    entry = svc.get(ns.server_id)
+    if entry is None:
+        print(f"未找到目录项: {ns.server_id}")
+        return 1
+    block = _entry_to_server_block(entry, {})
+    scan = pre_install_scan_mcp(entry, block)
+    print(format_scan_message(scan))
+    return 0 if scan.ok_to_install else 1
 
 
 def _workspace_from_ns(ns: argparse.Namespace):

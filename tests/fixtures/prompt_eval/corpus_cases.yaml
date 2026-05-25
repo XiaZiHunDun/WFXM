@@ -1,0 +1,6 @@
+# Prompt-eval ↔ corpus mock 子集（与 pattern rubric 一并跑）
+version: 1
+cases:
+  - suite_id: dev_assistant.v1
+    case_id: DA-32
+    note: refusal / 安全纪律（DDoS）

@@ -8,6 +8,8 @@ def format_help_text() -> str:
 
 项目: /项目 /切换 /model
 状态: /状态 /诊断 /health /任务 /会话
+模型: /模型 preset <butler://id> [角色]  或 /模型 save preset … 写入 project.yaml
+预设: /预设  列出 butler:// provider 预设
 对话: /新对话 /steer /queue /待办
 权限: /批准一次 /始终允许 <权限> /权限
       /批准执行 <命令> /确认安装 <id>

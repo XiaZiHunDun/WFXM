@@ -67,17 +67,29 @@ PYTHONPATH=. pytest tests/test_external_agent_*.py tests/test_message_ir.py \
 
 ---
 
-## 5. 五报告 P2/P6 子集（CLI）
+## 5. 五报告 P2/P6/P7 子集（CLI）
 
 ```bash
 butler mcp sync [--workspace PATH] [--dry-run] [--reload]
+butler mcp scan <server_id>   # 安装前扫描（不写 mcp.yaml）
 butler skills sync [--dry-run]
-butler prompt eval          # pattern rubric，无需 API Key
-butler provider presets     # butler:// 预设列表
-./scripts/prompt-eval.sh    # CI 守门
+butler prompt eval            # pattern rubric，无需 API Key
+butler prompt eval --corpus   # + corpus mock 子集（DA-32 等）
+butler prompt eval --corpus-live   # overlay live 子集
+butler prompt eval --corpus-live-smoke   # registry v2–v5 live_smoke_ids
+butler prompt eval --corpus-live-full    # registry 单轮 live（BUTLER_PROMPT_EVAL_LIVE_MAX）
+butler prompt eval --llm   # 辅助模型 rubric（BUTLER_PROMPT_EVAL_LLM=1）
+butler registry verify
+butler sessions layered <session_key>   # BUTLER_POST_SESSION_LAYERED=1
+# 微信: /预设  /模型 preset …
+# workflow 模板: trading-debate（builtin）
+butler provider presets       # butler:// 预设列表
+butler provider apply <id> --workspace PATH [--role dev_agent] [--dry-run]
+# 微信: /模型 preset minimax-default  或 /模型 save preset …
+./scripts/prompt-eval.sh      # CI 守门（含 test_five_reports_p7）
 ```
 
-SSOT：`mcp-ssot.yaml`、`skills-ssot.yaml`。Prompt eval：`tests/fixtures/prompt_eval/cases.yaml`。
+SSOT：`mcp-ssot.yaml`、`skills-ssot.yaml`。Prompt eval：`cases.yaml` + `corpus_cases.yaml`。安装前扫描：`BUTLER_INSTALL_PRE_SCAN`（默认开）。Injection 门控：`BUTLER_INJECTION_LLM_SCORE=1` + `BUTLER_INJECTION_LLM_GATE=1`。
 
 ## 6. 变更记录
 
@@ -86,3 +98,7 @@ SSOT：`mcp-ssot.yaml`、`skills-ssot.yaml`。Prompt eval：`tests/fixtures/prom
 | 2026-05-25 | 初版：PR-X3–X6 + M 后续 + P1–P4 深化速查 |
 | 2026-05-25 | 五报告 P5：mcp/skills sync、ToolsEngine、reflexion write 等 |
 | 2026-05-25 | 五报告 P6：prompt eval、post_session layered、injection LLM、provider presets |
+| 2026-05-25 | 五报告 P7：install pre-scan、`mcp scan`、`prompt eval --corpus`、injection human_gate |
+| 2026-05-25 | 五报告 P8：`provider apply`、`/模型 preset`、`prompt eval --corpus-live` |
+| 2026-05-25 | 五报告 P9：LLM rubric、corpus live smoke、`BUTLER_TOOLS_ENGINE_SSOT` |
+| 2026-05-25 | 五报告 P10：thinking beta、`registry verify`、`corpus-live-full`、trading-debate、schema repair×N |

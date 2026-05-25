@@ -207,6 +207,41 @@ class SkillRegistryService:
                 )
             raise InstallConfirmationRequired(hit)
 
+        try:
+            from butler.registry.install_scan import (
+                install_pre_scan_fail_closed,
+                pre_install_scan_skill,
+            )
+            import hashlib
+
+            h = hashlib.sha256()
+            for key in sorted(bundle.files.keys()):
+                piece = bundle.files[key]
+                h.update(key.encode("utf-8"))
+                h.update(piece if isinstance(piece, bytes) else piece.encode("utf-8"))
+            bundle_digest = h.hexdigest()[:16]
+            expected = ""
+            if hit is not None:
+                expected = str((hit.extra or {}).get("content_hash") or "").strip()
+            if not expected:
+                expected = str(bundle.metadata.get("content_hash") or "").strip()
+            scan = pre_install_scan_skill(
+                bundle,
+                source=str(hit.source if hit else bundle.source),
+                expected_content_hash=expected,
+                actual_content_hash=bundle_digest,
+            )
+            if not scan.ok_to_install and install_pre_scan_fail_closed():
+                raise ValueError(
+                    f"Install blocked by pre-scan ({scan.verdict}): {', '.join(scan.issues)}"
+                )
+        except ValueError:
+            raise
+        except Exception as exc:
+            import logging
+
+            logging.getLogger(__name__).debug("Skill pre-install scan skipped: %s", exc)
+
         qpath = quarantine_bundle(bundle, tenant_id=self.tenant_id)
         verdict, issues = scan_quarantine(qpath)
         if verdict == "block":

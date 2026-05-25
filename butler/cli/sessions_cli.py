@@ -87,6 +87,46 @@ def _cmd_sessions_list(ns: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_sessions_layered(ns: argparse.Namespace) -> int:
+    import asyncio
+
+    from butler.post_session_layered import extract_layered_summary, post_session_layered_enabled
+    from butler.transport.auxiliary_client import auxiliary_llm_call_factory
+
+    if not post_session_layered_enabled():
+        print("BUTLER_POST_SESSION_LAYERED=0（请设为 1 后重试）")
+        return 1
+    sk = str(getattr(ns, "session_key", "") or "").strip()
+    if not sk:
+        print("用法: butler sessions layered <session_key>")
+        return 1
+    transcript = _sessions_root() / sk / "transcript.jsonl"
+    if not transcript.is_file():
+        print(f"未找到 transcript: {transcript}")
+        return 1
+    messages: list[dict] = []
+    import json
+
+    for line in transcript.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if row.get("type") in ("user_message", "assistant_message"):
+            role = "user" if row.get("type") == "user_message" else "assistant"
+            messages.append({"role": role, "content": str(row.get("content") or row.get("text") or "")})
+    if len(messages) < 2:
+        print("transcript 过短，跳过分层抽取")
+        return 0
+    llm = auxiliary_llm_call_factory(task="post_session")
+    data = asyncio.run(extract_layered_summary(messages, llm))
+    print(json.dumps(data, ensure_ascii=False, indent=2))
+    return 0
+
+
 def register_sessions_subparser(sub: argparse._SubParsersAction) -> None:
     sess = sub.add_parser("sessions", help="会话 transcript 列表")
     sess_sub = sess.add_subparsers(dest="sessions_cmd", required=True)
@@ -94,3 +134,7 @@ def register_sessions_subparser(sub: argparse._SubParsersAction) -> None:
     ls.add_argument("--search", default="", help="过滤 session_key")
     ls.add_argument("--limit", type=int, default=20)
     ls.set_defaults(func=_cmd_sessions_list)
+
+    ly = sess_sub.add_parser("layered", help="从 transcript 抽取 persona/preference/experience")
+    ly.add_argument("session_key", help="~/.butler/sessions/<key>")
+    ly.set_defaults(func=_cmd_sessions_layered)

@@ -17,8 +17,18 @@ def output_schema_repair_enabled() -> bool:
     return env_truthy("BUTLER_OUTPUT_SCHEMA_REPAIR", default=True)
 
 
+def output_schema_repair_max_rounds() -> int:
+    import os
+
+    try:
+        return max(1, min(3, int(os.getenv("BUTLER_OUTPUT_SCHEMA_REPAIR_MAX", "2"))))
+    except ValueError:
+        return 2
+
+
 __all__ = [
     "output_schema_repair_enabled",
+    "output_schema_repair_max_rounds",
     "permission_risk_heuristic_enabled",
     "two_phase_confirm_enabled",
 ]

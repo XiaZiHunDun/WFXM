@@ -26,6 +26,8 @@ class PromptEvalResult:
     case_id: str
     ok: bool
     errors: list[str] = field(default_factory=list)
+    llm_score: int | None = None
+    llm_note: str = ""
 
 
 def _load_cases(path: Path | None = None) -> list[PromptEvalCase]:
@@ -54,7 +56,7 @@ def _load_cases(path: Path | None = None) -> list[PromptEvalCase]:
     return out
 
 
-def _eval_one(case: PromptEvalCase, *, repo_root: Path) -> PromptEvalResult:
+def _eval_one(case: PromptEvalCase, *, repo_root: Path, use_llm: bool = False) -> PromptEvalResult:
     path = repo_root / case.file
     errors: list[str] = []
     if not path.is_file():
@@ -66,17 +68,31 @@ def _eval_one(case: PromptEvalCase, *, repo_root: Path) -> PromptEvalResult:
     for needle in case.must_not_contain:
         if needle in text:
             errors.append(f"forbidden phrase present: {needle!r}")
-    return PromptEvalResult(case.id, not errors, errors)
+    llm_score: int | None = None
+    llm_note = ""
+    if use_llm and not errors:
+        from butler.prompt_eval.llm_rubric import (
+            llm_rubric_passes,
+            prompt_eval_llm_enabled,
+            score_prompt_eval_llm,
+        )
+
+        if prompt_eval_llm_enabled():
+            llm_score, llm_note = score_prompt_eval_llm(case, text)
+            if llm_score is not None and not llm_rubric_passes(llm_score):
+                errors.append(f"LLM rubric score {llm_score} < min ({llm_note})")
+    return PromptEvalResult(case.id, not errors, errors, llm_score=llm_score, llm_note=llm_note)
 
 
 def run_prompt_eval(
     *,
     cases_path: Path | None = None,
     repo_root: Path | None = None,
+    use_llm: bool = False,
 ) -> tuple[bool, list[PromptEvalResult]]:
     root = (repo_root or _REPO_ROOT).resolve()
     cases = _load_cases(cases_path)
-    results = [_eval_one(c, repo_root=root) for c in cases]
+    results = [_eval_one(c, repo_root=root, use_llm=use_llm) for c in cases]
     ok = all(r.ok for r in results)
     return ok, results
 
@@ -85,7 +101,12 @@ def format_prompt_eval_report(results: list[PromptEvalResult]) -> str:
     lines = [f"Prompt eval: {sum(1 for r in results if r.ok)}/{len(results)} passed"]
     for r in results:
         mark = "OK" if r.ok else "FAIL"
-        lines.append(f"  [{mark}] {r.case_id}")
+        extra = ""
+        if r.llm_score is not None:
+            extra = f" llm={r.llm_score}"
+            if r.llm_note:
+                extra += f" ({r.llm_note[:60]})"
+        lines.append(f"  [{mark}] {r.case_id}{extra}")
         for err in r.errors:
             lines.append(f"       - {err}")
     return "\n".join(lines)

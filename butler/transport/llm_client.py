@@ -261,6 +261,16 @@ class LLMClient:
         return client.chat.completions.create(**api_kwargs)
 
     def _call_anthropic(self, api_kwargs: dict) -> Any:
+        try:
+            from butler.transport.thinking_headers import merge_thinking_request_kwargs
+
+            api_kwargs = merge_thinking_request_kwargs(
+                api_kwargs,
+                provider=self.provider_name or "",
+                model=self.model or "",
+            )
+        except Exception:
+            pass
         client = self._get_anthropic_client()
         if hasattr(client, "messages"):
             return client.messages.create(**api_kwargs)
@@ -394,6 +404,16 @@ class LLMClient:
         from butler.transport.types import ToolCall, Usage
 
         api_kwargs.pop("stream", None)
+        try:
+            from butler.transport.thinking_headers import merge_thinking_request_kwargs
+
+            api_kwargs = merge_thinking_request_kwargs(
+                api_kwargs,
+                provider=self.provider_name or "",
+                model=self.model or "",
+            )
+        except Exception:
+            pass
 
         client = self._get_anthropic_client()
         if not hasattr(client, "messages"):

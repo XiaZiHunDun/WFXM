@@ -314,15 +314,19 @@ def maybe_repair_structured_output(
     *,
     orchestrator: Any = None,
 ) -> AgentReport:
-    """One-shot LLM repair when schema validation failed (PR-X5 / 主线 N)."""
+    """Multi-round LLM repair when schema validation failed (PR-X5 / 主线 N / P10)."""
     if not schema:
         return report
     try:
-        from butler.core.confirm_flags import output_schema_repair_enabled
+        from butler.core.confirm_flags import (
+            output_schema_repair_enabled,
+            output_schema_repair_max_rounds,
+        )
         from butler.core.meta_flags import output_schema_validate_enabled
 
         if not output_schema_repair_enabled() or not output_schema_validate_enabled():
             return report
+        max_rounds = output_schema_repair_max_rounds()
     except Exception:
         return report
     if not _schema_validation_failed(report):
@@ -339,47 +343,55 @@ def maybe_repair_structured_output(
     if orchestrator is None:
         return report
 
-    repair_prompt = build_schema_repair_prompt(
-        [i for i in report.issues if str(i).startswith("schema:")],
-        schema,
-    )
-    if not repair_prompt:
-        repair_prompt = build_schema_repair_prompt(["structured output invalid"], schema)
-    user_msg = f"{repair_prompt}\n\n---\n原始输出：\n{(source_text or '')[:12000]}"
-    try:
-        client = orchestrator.create_llm_client("butler")
-        from butler.transport.types import NormalizedResponse
-
-        resp = client.complete(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你只输出一个 JSON 对象，不要 markdown 围栏或解释。",
-                },
-                {"role": "user", "content": user_msg},
-            ],
-            tools=None,
-        )
-        if not isinstance(resp, NormalizedResponse):
+    last_text = source_text or ""
+    for _round in range(max_rounds):
+        ok, _ = validate_structured_output(report.structured_output or {}, schema)
+        if ok and report.structured_output:
             return report
-        parsed = parse_structured_output(str(resp.content or ""), schema)
-        ok, errs = validate_structured_output(parsed, schema)
-        if ok and parsed:
-            report.structured_output = parsed
-            report.issues = [
-                i for i in report.issues
-                if not str(i).startswith("schema:")
-                and "结构化输出未通过" not in str(i)
-            ]
-            for key, val in parsed.items():
-                if str(key).lower() in ("rating", "decision", "verdict"):
-                    report.decisions = list(
-                        dict.fromkeys(list(report.decisions) + [str(val).lower()])
-                    )
-        elif errs:
-            report.issues.append(f"schema_repair_failed: {errs[0]}")
-    except Exception as exc:
-        report.issues.append(f"schema_repair_error: {exc}")
+        repair_prompt = build_schema_repair_prompt(
+            [i for i in report.issues if str(i).startswith("schema:")],
+            schema,
+        )
+        if not repair_prompt:
+            repair_prompt = build_schema_repair_prompt(["structured output invalid"], schema)
+        user_msg = f"{repair_prompt}\n\n---\n原始输出：\n{last_text[:12000]}"
+        try:
+            client = orchestrator.create_llm_client("butler")
+            from butler.transport.types import NormalizedResponse
+
+            resp = client.complete(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "你只输出一个 JSON 对象，不要 markdown 围栏或解释。",
+                    },
+                    {"role": "user", "content": user_msg},
+                ],
+                tools=None,
+            )
+            if not isinstance(resp, NormalizedResponse):
+                break
+            last_text = str(resp.content or "")
+            parsed = parse_structured_output(last_text, schema)
+            ok, errs = validate_structured_output(parsed, schema)
+            if ok and parsed:
+                report.structured_output = parsed
+                report.issues = [
+                    i for i in report.issues
+                    if not str(i).startswith("schema:")
+                    and "结构化输出未通过" not in str(i)
+                ]
+                for key, val in parsed.items():
+                    if str(key).lower() in ("rating", "decision", "verdict"):
+                        report.decisions = list(
+                            dict.fromkeys(list(report.decisions) + [str(val).lower()])
+                        )
+                return report
+            if errs:
+                report.issues.append(f"schema_repair_failed_r{_round + 1}: {errs[0]}")
+        except Exception as exc:
+            report.issues.append(f"schema_repair_error_r{_round + 1}: {exc}")
+            break
     return report
 
 

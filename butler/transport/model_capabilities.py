@@ -33,6 +33,16 @@ def get_provider_capabilities(provider: str) -> dict[str, Any]:
     return dict(_CAPABILITIES.get(key) or {"tool_choice_style": "openai"})
 
 
+def model_supports_thinking(provider: str, model: str = "") -> bool:
+    cap = get_provider_capabilities(provider)
+    if not cap.get("supports_thinking"):
+        return False
+    m = str(model or "").strip().lower()
+    if m.endswith("-instruct-only") or "no-thinking" in m:
+        return False
+    return True
+
+
 def format_capability_hint(provider: str, model: str = "") -> str:
     cap = get_provider_capabilities(provider)
     parts = [f"provider={provider or '?'}"]
@@ -43,4 +53,4 @@ def format_capability_hint(provider: str, model: str = "") -> str:
     return ", ".join(parts)
 
 
-__all__ = ["format_capability_hint", "get_provider_capabilities"]
+__all__ = ["format_capability_hint", "get_provider_capabilities", "model_supports_thinking"]

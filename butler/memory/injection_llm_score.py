@@ -14,6 +14,11 @@ def injection_llm_score_enabled() -> bool:
     return env_truthy("BUTLER_INJECTION_LLM_SCORE", default=False)
 
 
+def injection_llm_gate_enabled() -> bool:
+    """High scores require Owner 确认 + resend instead of hard reject."""
+    return env_truthy("BUTLER_INJECTION_LLM_GATE", default=False)
+
+
 def injection_llm_block_threshold() -> int:
     import os
 
@@ -76,6 +81,7 @@ def should_block_inbound_llm_score(text: str) -> tuple[bool, int | None, str]:
 
 __all__ = [
     "injection_llm_block_threshold",
+    "injection_llm_gate_enabled",
     "injection_llm_score_enabled",
     "score_injection_llm",
     "should_block_inbound_llm_score",

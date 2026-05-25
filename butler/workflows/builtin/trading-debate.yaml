@@ -1,0 +1,33 @@
+# 可选演示：Bull/Bear 结构化辩论（非默认微信路径；TradingAgents 子集）
+name: trading-debate
+description: "Bull/Bear 双角色 + 终局 verdict（需项目 dev_agent）"
+steps:
+  - id: bull_case
+    agent: dev_agent
+    prompt: |
+      你是 Bull 分析师。基于用户主题只输出看涨论据要点（bullet，≤8 条）。
+      用户主题：{{input}}
+  - id: bear_case
+    agent: dev_agent
+    prompt: |
+      你是 Bear 分析师。基于同一主题只输出看跌/风险论据要点（bullet，≤8 条）。
+      用户主题：{{input}}
+  - id: verdict
+    agent: review_agent
+    prompt: |
+      综合 Bull 与 Bear 论据，输出 JSON 终局（无 markdown）：
+      {"bull_summary":"…","bear_summary":"…","verdict":"bull|bear|neutral","confidence":0-100}
+    output_schema:
+      fields:
+        - name: bull_summary
+          type: string
+          required: true
+        - name: bear_summary
+          type: string
+          required: true
+        - name: verdict
+          type: string
+          required: true
+        - name: confidence
+          type: integer
+          required: false

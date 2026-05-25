@@ -36,15 +36,24 @@ def filter_tools_for_model(
 ) -> tuple[list[dict], dict[str, Any]]:
     """Drop tool schemas when model cannot use function calling."""
     diag: dict[str, Any] = {"tools_engine_input": len(tools)}
+    working = list(tools)
+    try:
+        from butler.mcp.tools_manifest import filter_tools_by_mcp_ssot
+
+        working, manifest_diag = filter_tools_by_mcp_ssot(working)
+        diag.update(manifest_diag)
+    except Exception as exc:
+        logger.debug("ToolsEngine manifest merge skipped: %s", exc)
+
     if not tools_engine_enabled():
         diag["tools_engine_skipped"] = True
-        return list(tools), diag
+        return working, diag
     if model_supports_function_calling(provider, model):
         diag["tools_engine_fc"] = True
-        return list(tools), diag
-    logger.info("ToolsEngine: FC disabled for %s/%s — %d tools omitted", provider, model, len(tools))
+        return working, diag
+    logger.info("ToolsEngine: FC disabled for %s/%s — %d tools omitted", provider, model, len(working))
     diag["tools_engine_fc"] = False
-    diag["tools_engine_dropped"] = len(tools)
+    diag["tools_engine_dropped"] = len(working)
     return [], diag
 
 

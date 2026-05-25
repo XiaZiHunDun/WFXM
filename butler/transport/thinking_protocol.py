@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from butler.env_parse import env_truthy
-from butler.transport.model_capabilities import get_provider_capabilities
+from butler.transport.model_capabilities import model_supports_thinking
 
 _THINKING_HINT = (
     "\n\n[协议] 本模型支持 extended thinking；"
@@ -23,8 +23,7 @@ def maybe_append_thinking_system_hint(
 ) -> str:
     if not thinking_protocol_enabled():
         return system
-    cap = get_provider_capabilities(provider)
-    if not cap.get("supports_thinking"):
+    if not model_supports_thinking(provider, model):
         return system
     body = str(system or "").rstrip()
     if _THINKING_HINT.strip() in body:

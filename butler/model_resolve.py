@@ -225,6 +225,19 @@ def handle_model_command(
             settings=settings,
         ), False
 
+    try:
+        from butler.provider_presets import try_handle_preset_model_command
+
+        preset_out = try_handle_preset_model_command(
+            text,
+            project=project,
+            project_label=project_label,
+        )
+        if preset_out is not None:
+            return preset_out
+    except Exception:
+        pass
+
     parts = text.split(maxsplit=2)
     verb = parts[0].lower()
 

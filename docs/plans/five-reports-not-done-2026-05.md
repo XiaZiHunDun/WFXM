@@ -1,11 +1,11 @@
 # 五报告路线图 — 未作清单（2026-05）
 
-> **状态**：长期有效；PR-F1–F6 **已落地**后，本文记录**仍未实现**或**明确不做**的项。  
-> **已落地速查**：[`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md)  
+> **状态**：P5–P10 **已落地**（2026-05-25）；本文记录**仍未实现**或**明确不做**的项。  
+> **已落地速查**：[`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md)、[`../guides/external-agent-reports-capabilities-2026-05.md`](../guides/external-agent-reports-capabilities-2026-05.md)  
 > **路线图核对表**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §9  
 > **四报告否决（18 项）**：[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) §2（优先于本文）
 
-提新需求前：先查四报告 §2，再查本文 **§1 否决**；若属 **§2 未排期 P2**，需单独立项，勿与 PR-F1–F6 重复验收。
+提新需求前：先查四报告 §2，再查本文 **§1 否决**。
 
 ---
 
@@ -29,74 +29,49 @@
 
 ---
 
-## 2. 路线图 P2 / 未排期（未做，可另开 PR）
-
-五报告 §3 中 **P2** 或 §9 标 **—** 的项；PR-F1–F6 **未包含**。
+## 2. 路线图 P2 — 仍超出当前子集（勿误判为「未做」）
 
 | 主线 | 项 | 说明 |
 |------|-----|------|
-| **G** | Thinking/协议整形（深化） | `BUTLER_THINKING_PROTOCOL=1` 已接 system hint；无 API beta 头全自动矩阵 |
-| **G** | `butler://` 预设分发（深化） | `butler provider presets` + yaml 已落地；无 IDE/微信一键切换 |
-| **H** | Prompt eval **LLM rubric** | `butler prompt eval` pattern 门已落地；无 aux LLM 逐条评分 |
-| **H** | injection **human_gate 联动** | `BUTLER_INJECTION_LLM_SCORE` 可阻断；无 `/确认` 门控联动 |
-| **I** | 完整 **Pydantic 终局校验（深化）** | PR-X5 已落地 `validate_structured_output` + `maybe_repair_structured_output`；无全量 Pydantic 模型树 |
-| **I** | 固定 **Bull/Bear 多角色图** | TradingAgents 演示图；非默认微信路径 |
-| **J** | **ToolsEngine**（manifest 合并深化） | FC 检查子集已落地 `BUTLER_TOOLS_ENGINE`；无市场 manifest 合并 |
-| **J** | 市场 manifest **安装前扫描**深化 | 与 REG-P4 / lobehub 源联动，未做 |
-| **J** | post_session 分层（深化） | `BUTLER_POST_SESSION_LAYERED=0` 默认关；开则 LLM 写入 `session_summary.json` |
+| **G** | CC Switch 级 **IDE/托盘** | 已有 `/预设`、`provider apply`、`/模型 preset` |
+| **H** | **APE / ToT** 全自动 prompt 搜索 | 已有 pattern + `--llm` + corpus live 子集 |
+| **I** | **LangGraph 级** Bull/Bear 图 | 已有可选 `trading-debate` workflow；非默认路径 |
+| **I** | **全字段** Pydantic 树覆盖所有 workflow | 已有 `output_schema_registry` + 多轮 repair |
+| **J** | **npm 级** MCP Host / OTEL | 见 S11 |
+| **J** | Hub **自动升级** lockfile | 已有 `registry verify` + 远程 URL 预扫描 |
 
 ---
 
-## 3. 已做子集、可深化（非「未作」，勿误判为缺失）
+## 3. 已落地子集（P5–P10 速查）
 
-| 项 | 当前状态 | 深化方向 |
-|----|----------|----------|
-| 观察者队列 | 默认 `BUTLER_MEMORY_OBSERVER_QUEUE=0` | 开 env 即用；非 Chroma Worker |
-| Reflexion | 默认 `BUTLER_REFLEXION_EPHEMERAL=0` | 开 env 即用 |
-| `model_capabilities` | `butler/transport/model_capabilities.py` 静态表 | 接到 `anthropic_transport` 等 |
-| 终局 schema | `output_schema` 校验 + 一次 LLM repair（`BUTLER_OUTPUT_SCHEMA_*`） | 全量 Pydantic 类型树 + 多轮 repair |
-| MCP | `butler mcp sync` + `mcp-ssot.yaml`；deferred 发现 | 不等于 S11 全量 Host |
-| Skills SSOT | `butler skills sync` + `skills-ssot.yaml` | lockfile 快照，非 Hub 自动升级 |
-| Reflexion 写入 | `BUTLER_REFLEXION_WRITE_EXPERIENCE=0` | `.butler/experiences/reflexion.jsonl` |
-| Prompt eval | `butler prompt eval` / `scripts/prompt-eval.sh` | pattern rubric，非 APE |
-| Provider 预设 | `butler provider presets` | `~/.butler/provider-presets.yaml` |
-| Post-session 分层 | `BUTLER_POST_SESSION_LAYERED=0` | persona/preference/experience 数组 |
+| 批次 | 能力 |
+|------|------|
+| P5 | `mcp/skills sync`、ToolsEngine FC、reflexion write、injection 规则分 |
+| P6 | `prompt eval`、post_session layered、injection LLM、provider presets |
+| P7 | install pre-scan、`mcp scan`、`BUTLER_INJECTION_LLM_GATE` |
+| P8 | `provider apply`、`/模型 preset`、`prompt eval --corpus-live` |
+| P9 | `--llm`、`--corpus-live-smoke`、`BUTLER_TOOLS_ENGINE_SSOT` |
+| P10 | thinking beta 头矩阵、`registry verify`、`--corpus-live-full`、schema 多轮 repair、`trading-debate` workflow、`sessions layered`、`/预设` |
 
 ---
 
 ## 4. 与外部 Agent 五报告路线图的关系
 
-[`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) 中 **PR-X4/X5** 与本文 §2 部分重叠（MCP deferred、Pydantic 终局、MCP SSOT）。**否决项**仍以本文 §1 与四报告 §2 为准；**可立项**项以该路线图 §4 PR 为准。
+[`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) 中 PR-X 与 P5–P10 重叠项以代码为准。**否决项**仍以本文 §1 与四报告 §2 为准。
 
 ---
 
-## 5. 与四报告「不做」的关系
+## 5. 维护义务
 
-| 文档 | 范围 |
-|------|------|
-| [four-reports-out-of-scope §2](four-reports-out-of-scope-2026-05.md) | RAGFlow 全栈、CDP/截图、73 套 DESIGN、通宵自治等 **18 项** |
-| 本文 §1 | 五报告 **特有** S1–S11 |
-| 本文 §2 | 五报告路线图 **P2 未排期** |
-
-四报告与五报告 **均已收口 P0/P1 主路径**；新增能力若命中 §1 或四报告 §2，应直接拒绝或改产品边界。
+- 新否决项：写入 §1。
+- 新完成 P2 子集：写入 §3，从 §2 删除或改为「深化边界」说明。
 
 ---
 
-## 6. 维护义务
-
-- 新否决项：写入 §1 并同步 [路线图 §6](five-reports-improvement-roadmap-2026-05.md)。
-- 新完成 P2：从 §2 删除，在路线图 §9 标 ✅。
-- 若实现原否决能力：从 §1 删除并注明日期与替代方案废弃说明。
-
----
-
-## 7. 变更记录
+## 6. 变更记录
 
 | 日期 | 说明 |
 |------|------|
-| 2026-05-25 | 初版：S1–S11、P2 未排期、可深化对照、四报告交叉引用 |
-| 2026-05-25 | §4：交叉引用 external-agent-reports 路线图 |
-| 2026-05-25 | §2/§3：Pydantic 子集、MCP deferred 已与 PR-X4/X5 对齐 |
-| 2026-05-25 | P5：`mcp/skills sync`、ToolsEngine FC、reflexion write、injection 启发式分 |
-| 2026-05-25 | P6：prompt eval、post_session layered、injection LLM、provider presets |
-| 2026-05-25 | P5：`mcp/skills sync`、inline compress、reflexion write、injection 规则分、ToolsEngine FC |
+| 2026-05-25 | 初版：S1–S11、P2 未排期 |
+| 2026-05-25 | P5–P9 分批落地（见 §3） |
+| 2026-05-25 | P10：thinking headers、hub manifest、corpus live full、schema registry/repair、trading-debate、§2 收口 |
