@@ -23,6 +23,7 @@ class AgentReport:
     success: bool = True
     task_preview: str = ""
     task_id: str = ""
+    child_session_key: str = ""
     iterations: int = 0
     tool_calls: int = 0
     tokens_used: int = 0
@@ -43,6 +44,7 @@ class AgentReport:
             "success": self.success,
             "task_preview": self.task_preview,
             "task_id": self.task_id,
+            "child_session_key": self.child_session_key,
             "iterations": self.iterations,
             "tool_calls": self.tool_calls,
             "tokens_used": self.tokens_used,
@@ -78,6 +80,7 @@ class AgentReport:
             success=bool(raw.get("success", True)),
             task_preview=str(raw.get("task_preview", "") or ""),
             task_id=str(raw.get("task_id", "") or ""),
+            child_session_key=str(raw.get("child_session_key", "") or ""),
             failed_steps=[str(x) for x in (raw.get("failed_steps") or [])],
             step_outcomes={
                 str(k): str(v)
@@ -171,6 +174,8 @@ def format_for_wechat(report: AgentReport) -> str:
 
     if report.task_id:
         parts.append(f"任务 {report.task_id} · 发 /任务 可查记录")
+    if report.child_session_key:
+        parts.append(f"子会话 {report.child_session_key}")
     parts.append("\n回复「/详细」或「详细」查看完整报告")
     return "\n".join(parts)
 
@@ -206,6 +211,8 @@ def format_detail(report: AgentReport, section: str = "") -> str:
     parts: list[str] = []
     if report.task_id:
         parts.append(f"任务 ID: {report.task_id}")
+    if report.child_session_key:
+        parts.append(f"子会话: {report.child_session_key}")
     if report.task_preview:
         parts.append(f"【本报告任务】{report.task_preview}")
         parts.append("")

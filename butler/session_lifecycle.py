@@ -450,6 +450,16 @@ def attach_turn_memory_prefetch(
 
     def _composed(messages: list[dict]) -> list[dict]:
         prepared = memory_transform(messages)
+        try:
+            from butler.core.instruction_walkup import build_instruction_pre_llm_transform
+            from butler.execution_context import get_current_session_key
+
+            inst_transform = build_instruction_pre_llm_transform(
+                session_key=str(get_current_session_key() or ""),
+            )
+            prepared = inst_transform(prepared)
+        except Exception:
+            pass
         if existing:
             return existing(prepared)
         return prepared

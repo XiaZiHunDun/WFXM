@@ -288,6 +288,18 @@ while not done and iterations < budget:
 | P1 入站队列 | `gateway/queue_settings.py` + `message_queue.py` | `/queue`；`BUTLER_GATEWAY_QUEUE_*` |
 | P2 工作流门控 | `human_gate.py` + `permissions.yaml` `workflow_steps` | `/确认` `/取消`；再发 `/workflow` |
 
+### OpenCode 对标落地（2026-05，P0–P1）
+
+详见 [`plans/opencode-learning-plan-2026-05.md`](../plans/opencode-learning-plan-2026-05.md)。
+
+| 项 | 模块 |
+|----|------|
+| 压缩模板 / backward prune | `compaction_prompt.py`、`tool_output_prune.py` |
+| last-match 权限 / doom loop | `permissions.py`、`tool_guardrails.py` |
+| cache 计入用量 | `context_budget.record_usage_in_diagnostics` |
+| 委派子代理 | `delegate_subagent_permissions.py`；`child_session_key` in `task_store` |
+| 读文件规则注入 | `instruction_walkup.py` |
+
 ## 测试覆盖
 
 **pytest**（默认排除 `live_llm`；CI 见 `.github/workflows/ci.yml`），覆盖：
@@ -301,5 +313,6 @@ while not done and iterations < budget:
 - Gateway（`test_gateway_handler.py`、`test_gateway_session_registry.py`、hygiene）
 - CC P0–P2 线束（`test_tool_result_storage.py`、`test_tool_prune_policy.py`、`test_read_state.py`、`test_loop_transition.py`、`test_message_queue.py`、`test_streaming_tools.py`、`test_cache_safe_delegate.py`、`test_gateway_queue_drain_push.py`）
 - 外部对标（`test_runtime_metrics.py`、`test_gateway_queue_command.py`、`test_p2_workflow_permissions.py`）
+- OpenCode 对标（`test_opencode_features.py`）
 - Report / CLI / Session lifecycle
 - 真实 API smoke（可选）：`BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py`

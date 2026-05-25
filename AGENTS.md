@@ -24,6 +24,7 @@
   - **CC 线束** P0–P4 → `cc-butler-gap-analysis`
   - **仓库整理** P3 → `consolidation-p3-implementation`（死代码清理，已完成）
   - **外部对标** P0–P2 → `reference-learning-plan`（**已收口**，零依赖）
+  - **OpenCode 对标** P0–P1 → `opencode-learning-plan`（压缩/prune/权限/doom loop/委派）
 - **不要**声称 `import Hermes AIAgent` 或 Hermes 子进程网关 — v4 为自建 Loop + 原生微信 Gateway
 
 ## 代码入口

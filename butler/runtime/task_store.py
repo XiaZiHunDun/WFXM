@@ -28,11 +28,15 @@ def create_task(
     task_preview: str = "",
     project: str = "",
 ) -> dict[str, Any]:
+    from butler.delegate_subagent_permissions import make_child_session_key
+
     task_id = new_task_id()
+    sk = str(session_key or "").strip() or "default"
     now = datetime.now(timezone.utc).isoformat()
     record: dict[str, Any] = {
         "task_id": task_id,
-        "session_key": str(session_key or "").strip() or "default",
+        "session_key": sk,
+        "child_session_key": make_child_session_key(sk, task_id),
         "role": str(role or "").strip(),
         "project": str(project or "").strip(),
         "task_preview": (task_preview or "")[:500],

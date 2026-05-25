@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import threading
+from collections import deque
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -95,6 +97,14 @@ def _sha256(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def doom_loop_threshold() -> int:
+    """Consecutive identical tool calls before block (OpenCode processor; 0=off)."""
+    try:
+        return max(0, int(os.getenv("BUTLER_DOOM_LOOP_THRESHOLD", "3").strip() or "3"))
+    except ValueError:
+        return 3
+
+
 def _safe_json_loads(text: str) -> Any:
     try:
         return json.loads(text)
@@ -165,6 +175,7 @@ class ToolCallGuardrailController:
             self._same_tool_failure_counts: dict[str, int] = {}
             self._no_progress: dict[ToolCallSignature, tuple[str, int]] = {}
             self._halt_decision: GuardrailDecision | None = None
+            self._call_history: deque[ToolCallSignature] = deque(maxlen=16)
 
     @property
     def halt_decision(self) -> GuardrailDecision | None:
@@ -187,6 +198,24 @@ class ToolCallGuardrailController:
         signature = ToolCallSignature.from_call(tool_name, args)
         if not self.config.hard_stop_enabled:
             return GuardrailDecision(tool_name=tool_name)
+
+        threshold = doom_loop_threshold()
+        if threshold > 0:
+            self._call_history.append(signature)
+            tail = list(self._call_history)[-threshold:]
+            if len(tail) >= threshold and all(s == tail[0] for s in tail):
+                decision = GuardrailDecision(
+                    action="block",
+                    code="doom_loop",
+                    message=(
+                        f"Blocked {tool_name}: same tool+arguments repeated "
+                        f"{threshold} times in a row. Change strategy or ask the user."
+                    ),
+                    tool_name=tool_name,
+                    count=threshold,
+                )
+                self._halt_decision = decision
+                return decision
 
         exact_count = self._exact_failure_counts.get(signature, 0)
         if exact_count >= self.config.exact_failure_block_after:

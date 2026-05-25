@@ -70,7 +70,13 @@ def test_hygiene_compress_when_over_auto_threshold():
 
     with patch.object(pipeline, "compress_context", return_value=compressed_msgs) as compress:
         with patch.object(pipeline, "estimate_tokens", return_value=100_000):
-            compressed, updated = pipeline.hygiene_compress_if_needed(messages, diagnostics)
+            with patch(
+                "butler.core.context_pipeline.run_post_compact_cleanup",
+                return_value=compressed_msgs,
+            ):
+                compressed, updated = pipeline.hygiene_compress_if_needed(
+                    messages, diagnostics
+                )
 
     assert compressed is True
     assert updated == compressed_msgs

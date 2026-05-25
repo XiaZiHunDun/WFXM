@@ -46,12 +46,14 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - P1：长轮次中重复入站进队列（`BUTLER_GATEWAY_MESSAGE_QUEUE`）；Stop 钩子可 `exit 2` 或 JSON `decision:block`；句末 `+500k` / `/budget` / 「本轮尽量做完」提高 `max_iterations`
 - P2：流式只读工具预取（`BUTLER_STREAMING_TOOLS`）；`delegate_task` cache-safe 前缀（`BUTLER_CACHE_SAFE_DELEGATE`）；队列 drain 单独推送（`BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE`）
 - **外部对标（已收口，零依赖）**：`runtime_metrics` → `/诊断` 运行指标（[`docs/ops/diagnostic-thresholds.md`](docs/ops/diagnostic-thresholds.md)）；入站 `BUTLER_GATEWAY_QUEUE_MODE`（followup/collect/interrupt/steer）与会话 `/queue`；workflow `requires_approval` → `/确认` `/取消` 后再发 `/workflow`（见 [`docs/plans/reference-learning-plan-2026-05.md`](docs/plans/reference-learning-plan-2026-05.md)）
+- **OpenCode 对标（P0–P1）**：压缩模板、`BUTLER_TOOL_PRUNE_BACKWARD*`、`BUTLER_DOOM_LOOP_THRESHOLD`、权限 last-match、`instruction_walkup`、`delegate_subagent`（见 [`docs/plans/opencode-learning-plan-2026-05.md`](docs/plans/opencode-learning-plan-2026-05.md)）
 - **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 
 ```bash
 # 文档/队列/workflow 相关守门
 PYTHONPATH=. pytest tests/test_runtime_metrics.py tests/test_message_queue.py \
-  tests/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py -q
+  tests/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py \
+  tests/test_opencode_features.py -q
 ```
 
 ### 两套 Hook（不要混用）

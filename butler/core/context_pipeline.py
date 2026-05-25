@@ -11,6 +11,7 @@ from butler.core.context_compressor import (
     compress_messages,
     prune_tool_outputs,
 )
+from butler.core.tool_output_prune import backward_prune_tool_outputs
 from butler.core.post_compact_cleanup import apply_post_compact_anchors, run_post_compact_cleanup
 from butler.core.hygiene_preflight import run_hygiene_preflight
 from butler.core.loop_types import LoopConfig
@@ -74,6 +75,7 @@ class ContextPipeline:
             session_key=get_audit_session_key(fallback="_global"),
         )
         prepared = prune_tool_outputs(prepared)
+        prepared = backward_prune_tool_outputs(prepared)
         prepared = self.compress_context(prepared)
         prepared, _ = repair_message_sequence(prepared)
         repair_tool_arguments(prepared)

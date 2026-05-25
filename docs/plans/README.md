@@ -10,6 +10,7 @@
 | **仓库整理 P0–P2** | [`consolidation-2026-05.md`](consolidation-2026-05.md) | 目录瘦身、文档归档、死代码清理前置 |
 | **仓库整理 P3** | [`consolidation-p3-implementation-2026-05.md`](consolidation-p3-implementation-2026-05.md) | 实现层熵减（与 CC P3 无关） |
 | **外部对标 P0–P2** | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | Prometheus/OpenClaw/Dify **设计借鉴**（已收口，零依赖） |
+| **OpenCode 对标 P0–P1** | [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | 压缩/prune/权限/doom loop/委派/指令 walk-up（**已落地**） |
 
 ## 当前状态（2026-05-25）
 
@@ -18,6 +19,7 @@
 | CC 线束 §4–§11 | 已落地 main（见 gap 文档 §3 核验） |
 | 仓库整理 | P0–P3 已完成 |
 | 外部对标 | P0–P2 已落地；**无后续必做项**（不做队列 jsonl WAL、自动续跑 workflow、多实例 MQ） |
+| OpenCode 对标 | P0–P1 已落地；P2 暂缓（见 opencode-learning-plan） |
 | 产品后续 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) |
 
 ## 活跃参考
@@ -27,6 +29,7 @@
 | [`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md) | 改 Loop/Gateway 前先看对照与落地状态 |
 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) | 灵文运营、多项目、语料 |
 | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | 外部项目学习记录（**已关闭**） |
+| [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | OpenCode 对标（**已落地 P0–P1**） |
 
 ## 归档 / 专项（按需打开）
 

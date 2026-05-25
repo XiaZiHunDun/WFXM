@@ -1,0 +1,73 @@
+"""Subagent tool filtering (OpenCode deriveSubagentSessionPermission subset)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
+from butler.permissions import _load_permissions_yaml
+
+_DEFAULT_SUBAGENT_DENY = frozenset({
+    "delegate_task",
+    "run_workflow",
+    "run_runtime_job",
+})
+
+
+def filter_tools_for_subagent(
+    tools: list[dict],
+    *,
+    workspace: Path | None = None,
+    role: str = "",
+) -> list[dict]:
+    """Narrow tool list for delegate_task child loops."""
+    cfg = _load_permissions_yaml(workspace)
+    sub_cfg = cfg.get("delegate_subagent")
+    if not isinstance(sub_cfg, dict):
+        sub_cfg = {}
+
+    allow_only = sub_cfg.get("allow_tools")
+    if isinstance(allow_only, list) and allow_only:
+        allow_set = {str(t).strip() for t in allow_only if str(t).strip()}
+        return [
+            t
+            for t in tools
+            if str((t.get("function") or {}).get("name") or "") in allow_set
+        ]
+
+    denied = set(_DEFAULT_SUBAGENT_DENY) | set(DELEGATE_BLOCKED_TOOLS)
+    extra = sub_cfg.get("deny_tools")
+    if isinstance(extra, list):
+        denied.update(str(t).strip() for t in extra if str(t).strip())
+
+    role_key = str(role or "").strip().lower()
+    by_role = sub_cfg.get("roles")
+    if isinstance(by_role, dict) and role_key:
+        role_cfg = by_role.get(role_key)
+        if isinstance(role_cfg, dict):
+            role_allow = role_cfg.get("allow_tools")
+            if isinstance(role_allow, list) and role_allow:
+                allow_set = {str(t).strip() for t in role_allow if str(t).strip()}
+                return [
+                    t
+                    for t in tools
+                    if str((t.get("function") or {}).get("name") or "") in allow_set
+                ]
+            role_deny = role_cfg.get("deny_tools")
+            if isinstance(role_deny, list):
+                denied.update(str(t).strip() for t in role_deny if str(t).strip())
+
+    return [
+        t
+        for t in tools
+        if str((t.get("function") or {}).get("name") or "") not in denied
+    ]
+
+
+def make_child_session_key(parent_session_key: str, task_id: str) -> str:
+    parent = str(parent_session_key or "").strip() or "default"
+    tid = str(task_id or "").strip()
+    if not tid:
+        return parent
+    return f"{parent}::delegate::{tid}"

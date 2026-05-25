@@ -94,6 +94,7 @@ def evaluate_permission(
         return None
 
     path_val = str(args.get("path") or args.get("file_path") or args.get("command") or "")
+    matched: PermissionDecision | None = None
     for rule in rules:
         if not isinstance(rule, dict):
             continue
@@ -110,11 +111,12 @@ def evaluate_permission(
         action = str(rule.get("action") or rule.get("decision") or "deny").lower()
         reason = str(rule.get("reason") or rule.get("message") or f"permission rule: {action}")
         if action == "allow":
-            return PermissionDecision(allowed=True, action="allow", reason=reason)
-        if action == "ask":
-            return PermissionDecision(allowed=False, action="ask", reason=reason)
-        return PermissionDecision(allowed=False, action="deny", reason=reason)
-    return None
+            matched = PermissionDecision(allowed=True, action="allow", reason=reason)
+        elif action == "ask":
+            matched = PermissionDecision(allowed=False, action="ask", reason=reason)
+        else:
+            matched = PermissionDecision(allowed=False, action="deny", reason=reason)
+    return matched
 
 
 def check_project_permission_block(

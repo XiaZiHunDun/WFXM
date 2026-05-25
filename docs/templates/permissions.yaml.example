@@ -2,6 +2,7 @@
 #
 # 复制：cp docs/templates/permissions.yaml.example projects/<YourProject>/.butler/permissions.yaml
 
+# rules 按列表顺序匹配，**最后一条匹配的规则生效**（OpenCode last-match）
 rules:
   - tool: terminal
     action: deny
@@ -32,3 +33,11 @@ workflow_steps:
 
 # 工作流步骤人工确认：在 workflow YAML 中为 step 设置 requires_approval: true
 # 微信回复「确认」后再次 /workflow <name> 继续
+
+# 委派子代理工具集（OpenCode deriveSubagent 子集）
+# delegate_subagent:
+#   deny_tools: [run_runtime_job]
+#   allow_tools: [read_file, search_files, patch]   # 若设置则仅允许列表内工具
+#   roles:
+#     review:
+#       allow_tools: [read_file, search_files]

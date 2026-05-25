@@ -705,11 +705,13 @@ class ButlerMessageHandler:
                 from butler.gateway.message_queue import reset_queue
                 from butler.gateway.queue_settings import clear_session_override
                 from butler.human_gate import clear_session_gates
+                from butler.core.instruction_walkup import reset_instruction_claims
 
                 reset_read_state(session_key)
                 reset_queue(session_key)
                 clear_session_override(session_key)
                 clear_session_gates(session_key)
+                reset_instruction_claims(session_key=session_key)
             except Exception:
                 pass
             return handle_new_session_command(self._orchestrator, session_key, loop)
@@ -752,8 +754,10 @@ class ButlerMessageHandler:
                 status = row.get("status") or "?"
                 ok = row.get("success")
                 mark = "✓" if ok is True else ("✗" if ok is False else "…")
+                child_sk = str(row.get("child_session_key") or "").strip()
+                child_hint = f" · {child_sk}" if child_sk else ""
                 lines.append(
-                    f"  {mark} {row.get('task_id')} [{status}] "
+                    f"  {mark} {row.get('task_id')} [{status}]{child_hint} "
                     f"{(row.get('task_preview') or '')[:60]}"
                 )
             return "\n".join(lines)

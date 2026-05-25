@@ -648,6 +648,20 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
             from butler.core.read_state import record_read_state
 
             record_read_state(_p, _stat, data)
+            try:
+                from butler.core.instruction_walkup import record_read_path
+                from butler.execution_context import get_current_orchestrator
+
+                orch = get_current_orchestrator()
+                workspace_root = None
+                if orch is not None:
+                    pm = getattr(orch, "project_manager", None)
+                    proj = pm.get_current() if pm is not None else None
+                    if proj is not None:
+                        workspace_root = Path(proj.workspace)
+                record_read_path(_p, workspace_root=workspace_root)
+            except Exception:
+                pass
         return "\n".join(numbered)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -1406,7 +1420,7 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
     task_id = ""
     session_key = ""
     try:
-        from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS, MAX_DELEGATE_DEPTH
+        from butler.delegate_policy import MAX_DELEGATE_DEPTH
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
 
         bridge = get_gateway_bridge_optional()
@@ -1422,10 +1436,14 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
         project = orch.project_manager.get_current()
         tools = get_tool_definitions_for_project(project, role=role)
 
-        delegated_tools = [
-            t for t in tools
-            if t["function"]["name"] not in DELEGATE_BLOCKED_TOOLS
-        ]
+        from butler.delegate_subagent_permissions import filter_tools_for_subagent
+
+        workspace = Path(project.workspace) if project is not None else None
+        delegated_tools = filter_tools_for_subagent(
+            tools,
+            workspace=workspace,
+            role=role,
+        )
 
         from butler.core.delegate_context import child_callbacks, get_parent_callbacks
 
@@ -1484,6 +1502,7 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             project=project_name,
         )
         task_id = str(task_record.get("task_id") or "")
+        child_session_key = str(task_record.get("child_session_key") or "")
 
         try:
             from butler.hooks.runner import run_subagent_start_hooks
@@ -1531,6 +1550,7 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             success=success,
             task_preview=task_preview,
             task_id=task_id,
+            child_session_key=child_session_key,
             iterations=result.iterations,
             tool_calls=result.tool_calls_made,
             tokens_used=result.total_tokens,
@@ -1561,6 +1581,7 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             "headline": report.headline,
             "summary": report.summary[:2000],
             "task_id": task_id,
+            "child_session_key": child_session_key,
             "iterations": report.iterations,
             "tool_calls": report.tool_calls,
             "tokens": report.tokens_used,

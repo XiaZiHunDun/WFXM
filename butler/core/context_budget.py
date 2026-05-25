@@ -34,6 +34,47 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def usage_billable_tokens(
+    *,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    total_tokens: int = 0,
+    cached_tokens: int = 0,
+) -> int:
+    """Billable context footprint (OpenCode overflow: input+output+cache)."""
+    if total_tokens > 0 and cached_tokens <= 0:
+        return total_tokens
+    billable = max(0, int(prompt_tokens or 0)) + max(0, int(completion_tokens or 0))
+    billable += max(0, int(cached_tokens or 0))
+    if billable > 0:
+        return billable
+    return max(0, int(total_tokens or 0))
+
+
+def record_usage_in_diagnostics(
+    diagnostics: dict[str, Any],
+    *,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    total_tokens: int = 0,
+    cached_tokens: int = 0,
+) -> int:
+    """Accumulate provider usage into diagnostics for /诊断."""
+    billable = usage_billable_tokens(
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        cached_tokens=cached_tokens,
+    )
+    prev = int(diagnostics.get("context_usage_billable_total") or 0)
+    diagnostics["context_usage_billable_total"] = prev + billable
+    diagnostics["last_usage_prompt_tokens"] = int(prompt_tokens or 0)
+    diagnostics["last_usage_completion_tokens"] = int(completion_tokens or 0)
+    diagnostics["last_usage_cached_tokens"] = int(cached_tokens or 0)
+    diagnostics["last_usage_total_tokens"] = int(total_tokens or 0)
+    return billable
+
+
 def get_output_reserve_tokens(*, max_output_tokens: int | None = None) -> int:
     """Tokens reserved for model output during compaction (CC: min(maxOutput, 20k))."""
     cap = _int_env("BUTLER_CONTEXT_OUTPUT_RESERVE", _MAX_OUTPUT_TOKENS_FOR_SUMMARY)
@@ -219,4 +260,10 @@ def format_context_budget_line(diagnostics: dict[str, Any]) -> str:
         line += f" · 压缩熔断: 开 (连续失败 {n} 次)"
     elif diagnostics.get("hygiene_compact_noop"):
         line += " · 上次压缩无效果"
+    cached = diagnostics.get("last_usage_cached_tokens")
+    if cached is not None and int(cached) > 0:
+        line += f" · cache {int(cached):,}"
+    billable = diagnostics.get("context_usage_billable_total")
+    if billable is not None and int(billable) > 0:
+        line += f" · 计费 tokens 累计 {int(billable):,}"
     return line

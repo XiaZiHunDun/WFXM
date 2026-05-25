@@ -119,25 +119,12 @@ def _summarize_middle(middle: list[dict], previous_summary: str = "") -> str:
     if len(transcript) < 100:
         return previous_summary
 
-    prev_block = f"\n\nPrevious summary to merge:\n{previous_summary}" if previous_summary else ""
-    prompt = f"""Summarize this conversation segment for handoff to a new context window.
+    from butler.core.compaction_prompt import build_compaction_user_prompt
 
-Use this structure:
-## Resolved
-- (completed items)
-
-## Pending
-- (open questions)
-
-## Active Task
-- (what to do next — most important)
-
-## Key Facts
-- (architecture, paths, decisions){prev_block}
-
-Conversation:
-{transcript}
-"""
+    prompt = build_compaction_user_prompt(
+        transcript=transcript,
+        previous_summary=previous_summary,
+    )
     try:
         return auxiliary_complete(
             prompt,

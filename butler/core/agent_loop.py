@@ -212,7 +212,25 @@ class AgentLoop:
                     break
 
                 if response.usage:
-                    self._total_tokens += response.usage.total_tokens
+                    from butler.core.context_budget import (
+                        record_usage_in_diagnostics,
+                        usage_billable_tokens,
+                    )
+
+                    billable = usage_billable_tokens(
+                        prompt_tokens=response.usage.prompt_tokens,
+                        completion_tokens=response.usage.completion_tokens,
+                        total_tokens=response.usage.total_tokens,
+                        cached_tokens=response.usage.cached_tokens,
+                    )
+                    self._total_tokens += billable
+                    record_usage_in_diagnostics(
+                        self.diagnostics,
+                        prompt_tokens=response.usage.prompt_tokens,
+                        completion_tokens=response.usage.completion_tokens,
+                        total_tokens=response.usage.total_tokens,
+                        cached_tokens=response.usage.cached_tokens,
+                    )
 
                 if response.tool_calls:
                     self._process_tool_calls(response)
