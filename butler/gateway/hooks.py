@@ -49,6 +49,28 @@ def apply_pre_gateway_dispatch(text: str, **ctx: Any) -> str | None:
     return text
 
 
+def trigger_hooks_mutating(
+    name: str,
+    input_data: dict[str, Any],
+    output_data: dict[str, Any],
+) -> dict[str, Any]:
+    """Run hooks in order; each may mutate ``output_data`` (OpenCode Plugin.trigger subset)."""
+    out = dict(output_data)
+    for fn in _REGISTRY.get(name, []):
+        try:
+            result = fn(dict(input_data), out)
+            if isinstance(result, dict):
+                out.update(result)
+        except TypeError:
+            try:
+                fn(dict(input_data), out)
+            except Exception as exc:
+                logger.warning("Hook %s failed: %s", name, exc)
+        except Exception as exc:
+            logger.warning("Hook %s failed: %s", name, exc)
+    return out
+
+
 def apply_pre_llm_context(text: str, **ctx: Any) -> str:
     """Append ephemeral context from pre_llm_call hooks (injected into user message)."""
     parts = [text]

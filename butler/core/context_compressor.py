@@ -153,6 +153,19 @@ def compress_messages(
     if estimated <= threshold or len(messages) < min_messages_to_compress:
         return messages, previous_summary, False
 
+    try:
+        from butler.core.session_transcript import record_compact_scheduled
+        from butler.execution_context import get_audit_session_key
+
+        record_compact_scheduled(
+            get_audit_session_key(fallback="_global"),
+            source="context_compressor",
+            messages_before=len(messages),
+            tokens_estimated=estimated,
+        )
+    except Exception:
+        pass
+
     pruned = _prune_tool_outputs(messages)
     system, middle, head_tail = _split_head_tail(
         pruned,
@@ -173,10 +186,21 @@ def compress_messages(
         len(messages), len(compressed), estimated, _estimate_tokens(compressed),
     )
     try:
-        from butler.core.session_transcript import record_compact_boundary
+        from butler.core.session_transcript import (
+            record_compact_boundary,
+            record_compact_done,
+        )
         from butler.execution_context import get_audit_session_key
 
-        record_compact_boundary(get_audit_session_key(fallback="_global"), len(summary))
+        sk = get_audit_session_key(fallback="_global")
+        record_compact_boundary(sk, len(summary))
+        record_compact_done(
+            sk,
+            source="context_compressor",
+            messages_after=len(compressed),
+            tokens_after=_estimate_tokens(compressed),
+            summary_chars=len(summary),
+        )
     except Exception:
         pass
     return compressed, summary, True

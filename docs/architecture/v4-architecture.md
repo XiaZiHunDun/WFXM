@@ -288,7 +288,7 @@ while not done and iterations < budget:
 | P1 入站队列 | `gateway/queue_settings.py` + `message_queue.py` | `/queue`；`BUTLER_GATEWAY_QUEUE_*` |
 | P2 工作流门控 | `human_gate.py` + `permissions.yaml` `workflow_steps` | `/确认` `/取消`；再发 `/workflow` |
 
-### OpenCode 对标落地（2026-05，P0–P1）
+### OpenCode 对标落地（2026-05，P0–P2）
 
 详见 [`plans/opencode-learning-plan-2026-05.md`](../plans/opencode-learning-plan-2026-05.md)。
 
@@ -299,6 +299,8 @@ while not done and iterations < budget:
 | cache 计入用量 | `context_budget.record_usage_in_diagnostics` |
 | 委派子代理 | `delegate_subagent_permissions.py`；`child_session_key` in `task_store` |
 | 读文件规则注入 | `instruction_walkup.py` |
+| P2 transcript / post-commit / todos | `session_transcript`、`post_commit.py`、`session_todos.py` |
+| P2 hook mutate | `gateway/hooks.trigger_hooks_mutating` |
 
 ## 测试覆盖
 

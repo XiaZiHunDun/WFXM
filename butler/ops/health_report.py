@@ -222,6 +222,12 @@ def build_health_report(inp: HealthReportInput) -> str:
         lines.extend(_shared_diagnostic_lines(inp))
         lines.extend(_hook_diagnostic_lines(inp.session_key, health))
         try:
+            from butler.ops.transcript_diagnostics import format_transcript_diagnostic_lines
+
+            lines.extend(format_transcript_diagnostic_lines(inp.session_key))
+        except Exception:
+            pass
+        try:
             from butler.ops.runtime_metrics import format_metrics_diagnostic_lines
 
             lines.extend(format_metrics_diagnostic_lines(session_key=inp.session_key))
@@ -250,6 +256,12 @@ def build_health_report(inp: HealthReportInput) -> str:
 
     lines.extend(_hook_diagnostic_lines(inp.session_key, health))
     lines.extend(_tool_audit_lines(tool_summary))
+    try:
+        from butler.ops.transcript_diagnostics import format_transcript_diagnostic_lines
+
+        lines.extend(format_transcript_diagnostic_lines(inp.session_key))
+    except Exception:
+        pass
     try:
         from butler.ops.runtime_metrics import format_metrics_diagnostic_lines
 

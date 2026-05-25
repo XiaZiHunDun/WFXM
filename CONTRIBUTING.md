@@ -53,7 +53,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 # 文档/队列/workflow 相关守门
 PYTHONPATH=. pytest tests/test_runtime_metrics.py tests/test_message_queue.py \
   tests/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py \
-  tests/test_opencode_features.py -q
+  tests/test_opencode_features.py tests/test_opencode_p2_features.py -q
 ```
 
 ### 两套 Hook（不要混用）

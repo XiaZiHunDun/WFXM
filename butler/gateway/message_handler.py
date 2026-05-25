@@ -743,6 +743,11 @@ class ButlerMessageHandler:
             clear_plan_mode(session_key)
             return "已退出规划模式，可以委派与写入。"
 
+        if cmd in ("/todos", "/待办"):
+            from butler.core.session_todos import format_session_todos_for_wechat
+
+            return format_session_todos_for_wechat(session_key)
+
         if cmd in ("/tasks", "/任务"):
             from butler.runtime.task_store import list_recent_tasks
 
@@ -1017,6 +1022,8 @@ def _is_sessionless_command(text: str) -> bool:
         "/执行",
         "/exit-plan",
         "/退出规划",
+        "/todos",
+        "/待办",
         "/tasks",
         "/任务",
         "/workflow",

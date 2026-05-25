@@ -585,6 +585,13 @@ def run_post_session_extraction(
                         result.get("memory_updates", 0),
                         result.get("skills_extracted", 0),
                     )
+                if not result.get("skipped"):
+                    try:
+                        from butler.core.post_commit import flush_after_commit
+
+                        flush_after_commit()
+                    except Exception:
+                        pass
                 return result
             except Exception as exc:
                 logger.warning("Post-session extraction failed: %s", exc)
@@ -811,6 +818,13 @@ def sync_turn_memory(
         }
         if provider_error:
             result["provider_error"] = provider_error
+        if not result.get("skipped"):
+            try:
+                from butler.core.post_commit import flush_after_commit
+
+                flush_after_commit()
+            except Exception:
+                pass
         return result
     except Exception as exc:
         logger.warning("Memory sync failed: %s", exc)

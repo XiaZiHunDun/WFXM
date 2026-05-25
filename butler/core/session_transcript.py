@@ -125,6 +125,52 @@ def record_compact_boundary(session_key: str, summary_chars: int) -> None:
     )
 
 
+def record_compact_scheduled(
+    session_key: str,
+    *,
+    source: str = "context",
+    messages_before: int = 0,
+    tokens_estimated: int = 0,
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "compact_scheduled",
+        {
+            "source": str(source or "context")[:32],
+            "messages_before": max(0, int(messages_before)),
+            "tokens_estimated": max(0, int(tokens_estimated)),
+        },
+    )
+
+
+def record_compact_done(
+    session_key: str,
+    *,
+    source: str = "context",
+    messages_after: int = 0,
+    tokens_after: int = 0,
+    summary_chars: int = 0,
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "compact_done",
+        {
+            "source": str(source or "context")[:32],
+            "messages_after": max(0, int(messages_after)),
+            "tokens_after": max(0, int(tokens_after)),
+            "summary_chars": max(0, int(summary_chars)),
+        },
+    )
+
+
+def record_todo_updated(session_key: str, *, count: int = 0) -> None:
+    append_transcript_entry(
+        session_key,
+        "todo_updated",
+        {"count": max(0, int(count))},
+    )
+
+
 def record_tool_spill_pointer(session_key: str, tool_use_id: str, path: str) -> None:
     append_transcript_entry(
         session_key,

@@ -87,6 +87,18 @@ def run_hygiene_preflight(
     compression_threshold = 0.0
     before_tokens = estimated
     try:
+        from butler.execution_context import get_audit_session_key
+        from butler.core.session_transcript import record_compact_scheduled
+
+        record_compact_scheduled(
+            get_audit_session_key(fallback="_global"),
+            source="hygiene",
+            messages_before=len(messages),
+            tokens_estimated=before_tokens,
+        )
+    except Exception:
+        pass
+    try:
         compressed = compress(
             messages,
             threshold_ratio=compression_threshold,
@@ -125,6 +137,18 @@ def run_hygiene_preflight(
         "hygiene_messages_after": len(compressed),
         "hygiene_estimated_tokens_after": after_tokens,
     })
+    try:
+        from butler.execution_context import get_audit_session_key
+        from butler.core.session_transcript import record_compact_done
+
+        record_compact_done(
+            get_audit_session_key(fallback="_global"),
+            source="hygiene",
+            messages_after=len(compressed),
+            tokens_after=after_tokens,
+        )
+    except Exception:
+        pass
     diagnostics.update(
         calculate_token_warning_state(
             after_tokens,

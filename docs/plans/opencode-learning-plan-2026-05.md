@@ -1,6 +1,6 @@
 # OpenCode 对标学习规划（Butler v4）
 
-> **状态**：P0–P1 已落地（2026-05-25，零依赖）  
+> **状态**：P0–P2（有帮助项）已落地（2026-05-25，零依赖）  
 > **源码**：[reference/opencode](../../reference/opencode)（gitignore，本地对照）  
 > **原则**：只借鉴设计，不引入 Effect-TS / Drizzle / AI SDK / MCP SDK  
 > **主学习线**：仍优先 [cc-butler-gap-analysis-2026-05.md](cc-butler-gap-analysis-2026-05.md)  
@@ -45,14 +45,24 @@
 | P1 子代理权限 | `butler/delegate_subagent_permissions.py` | `delegate_subagent` in permissions.yaml |
 | P1 task 恢复 | `butler/runtime/task_store.py`、`report.py` | `/任务`、`/详细`；`child_session_key` |
 | P1 instruction walk-up | `butler/core/instruction_walkup.py` | `BUTLER_INSTRUCTION_WALKUP_*` |
+| P2 transcript 压缩事件 | `session_transcript` | `compact_scheduled` / `compact_done` |
+| P2 post-commit | `post_commit.py` | 记忆/post_session 成功后 flush |
+| P2 会话待办 | `session_todos.py` | `/待办`；`BUTLER_SESSION_TODOS` |
+| P2 hook mutate | `gateway/hooks.py` | `trigger_hooks_mutating` |
 
 ---
 
-## 4. P2 暂缓
+## 4. P2 已落地 / 仍暂缓
 
-- 压缩 task part 入队（改 loop 结构）
-- SQLite session/message/part 规范化
-- post-commit 副作用队列（记忆 + outbound）
+| 项 | 状态 | 模块 |
+|----|------|------|
+| Transcript `compact_scheduled` / `compact_done` | 已落地 | `session_transcript.py` + hygiene/compressor |
+| Post-commit 副作用队列 | 已落地 | `post_commit.py`；`sync_turn_memory` / post_session 后 flush |
+| 会话 Todo replace-all | 已落地 | `session_todos.py`；微信 `/待办` |
+| 有序 hook mutate output | 已落地 | `gateway/hooks.py` `trigger_hooks_mutating` |
+| `/诊断` Transcript 摘要 | 已落地 | `ops/transcript_diagnostics.py` |
+
+**仍暂缓**：压缩 task part 改主 loop 入队；**完整 SQLite** message/part 模型（jsonl 够用则不做了）。
 
 ---
 
