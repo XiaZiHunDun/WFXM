@@ -221,6 +221,13 @@ class GatewayOutboundBridge:
         self._outbound_events.append(payload)
         if len(self._outbound_events) > 24:
             self._outbound_events.pop(0)
+        if payload.get("kind") == "thread_item":
+            try:
+                from butler.gateway.item_event_sink import record_thread_item
+
+                record_thread_item(payload)
+            except Exception:
+                pass
 
     def recent_outbound_events(self) -> list[dict[str, Any]]:
         return list(self._outbound_events)

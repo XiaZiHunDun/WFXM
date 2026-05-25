@@ -47,6 +47,20 @@ PYTHONPATH=. pytest tests/test_sprint_a_gateway.py tests/test_sprint_bcd.py -q
 
 见 [../config/reference.md](../config/reference.md)（Sprint A–D 段）与 `.env.example` 注释块 `Sprint A` / `Sprint B–D`。
 
+## Sprint Codex（2026-05）
+
+| 指南 | 测试 | 状态 |
+|------|------|------|
+| [sprint-codex-c0-2026-05.md](./sprint-codex-c0-2026-05.md) | `tests/test_sprint_codex_c0.py` | ✅ |
+| [sprint-codex-c1-2026-05.md](./sprint-codex-c1-2026-05.md) | `tests/test_sprint_codex_c1.py` | ✅ |
+| [sprint-codex-c2-2026-05.md](./sprint-codex-c2-2026-05.md) | `tests/test_sprint_codex_c2.py` | ✅ |
+
+```bash
+PYTHONPATH=. pytest tests/test_sprint_codex_c0.py tests/test_sprint_codex_c1.py tests/test_sprint_codex_c2.py -q
+```
+
+对照：[codex-butler-comparison-2026-05.md](../plans/codex-butler-comparison-2026-05.md)
+
 ## 明确不做
 
 Redis/RabbitMQ、Playwright 农场、189 Agent 包、Agno/LangGraph 运行时、整包 Gemini ContextManager、Firecrawl 全量 SDK 内嵌。

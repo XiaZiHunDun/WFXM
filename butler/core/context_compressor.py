@@ -178,10 +178,19 @@ def _format_for_summary(messages: list[dict], max_chars: int = 12000) -> str:
     return "\n\n".join(parts)
 
 
-def _summarize_middle(middle: list[dict], previous_summary: str = "") -> str:
+def _summarize_middle(middle: list[dict], previous_summary: str = "") -> tuple[str, bool]:
     transcript = _format_for_summary(middle)
     if len(transcript) < 100:
-        return previous_summary
+        return previous_summary, False
+
+    try:
+        from butler.core.remote_compact import try_remote_summarize
+
+        remote_summary = try_remote_summarize(middle, previous_summary)
+        if remote_summary and remote_summary.strip():
+            return remote_summary.strip(), True
+    except Exception as exc:
+        logger.debug("Remote compact skipped: %s", exc)
 
     from butler.core.compaction_prompt import build_compaction_user_prompt
 
@@ -190,14 +199,15 @@ def _summarize_middle(middle: list[dict], previous_summary: str = "") -> str:
         previous_summary=previous_summary,
     )
     try:
-        return auxiliary_complete(
+        text = auxiliary_complete(
             prompt,
             task="compression",
             system="You compress conversation history into structured handoff notes.",
         )
+        return text, False
     except Exception as exc:
         logger.warning("Summary LLM failed: %s", exc)
-        return previous_summary or transcript[:2000]
+        return previous_summary or transcript[:2000], False
 
 
 def compress_messages(
@@ -212,6 +222,8 @@ def compress_messages(
     min_tail_messages: int = 4,
     overflow_replay: bool = False,
     max_output_tokens: int | None = None,
+    initial_injection: Any = None,
+    diagnostics: dict[str, Any] | None = None,
 ) -> tuple[list[dict], str, bool]:
     """Compress messages if over threshold. Returns (messages, summary, did_compress)."""
     estimated = _estimate_tokens(messages)
@@ -274,10 +286,23 @@ def compress_messages(
         return pruned, previous_summary, False
 
     middle = truncate_tool_responses_to_budget(middle)
-    summary = _summarize_middle(middle, previous_summary)
+    summary, used_remote = _summarize_middle(middle, previous_summary)
+    if isinstance(diagnostics, dict):
+        diagnostics["compaction_remote"] = used_remote
     summary_msg = {"role": "user", "content": SUMMARY_PREFIX + summary}
 
-    compressed = system + [summary_msg] + head_tail
+    try:
+        from butler.core.compaction_phase import (
+            InitialContextInjection,
+            apply_summary_placement,
+        )
+
+        injection = initial_injection
+        if injection is None:
+            injection = InitialContextInjection.DO_NOT_INJECT
+        compressed = apply_summary_placement(system, head_tail, summary_msg, injection)
+    except Exception:
+        compressed = system + [summary_msg] + head_tail
     if overflow_replay and replay_user:
         try:
             from butler.core.turn_compaction import append_overflow_replay
@@ -289,6 +314,7 @@ def compress_messages(
         "Context compressed: %d→%d msgs, ~%d→%d tokens",
         len(messages), len(compressed), estimated, _estimate_tokens(compressed),
     )
+    sk = ""
     try:
         from butler.core.session_transcript import (
             record_compact_boundary,
@@ -304,6 +330,23 @@ def compress_messages(
             messages_after=len(compressed),
             tokens_after=_estimate_tokens(compressed),
             summary_chars=len(summary),
+        )
+    except Exception:
+        pass
+    try:
+        from butler.gateway.item_events import context_compaction_item, emit_thread_item
+
+        emit_thread_item(
+            context_compaction_item(
+                phase="completed",
+                thread_id=sk,
+                tokens_before=estimated,
+                tokens_after=_estimate_tokens(compressed),
+                messages_before=len(messages),
+                messages_after=len(compressed),
+                source="context_compressor",
+                remote=used_remote,
+            )
         )
     except Exception:
         pass

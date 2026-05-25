@@ -241,6 +241,20 @@ class AgentLoop:
                         )
                         if did_compact:
                             self._messages[:] = new_msgs
+                            try:
+                                from butler.core.compaction_steer_bridge import (
+                                    apply_compaction_turn_followup,
+                                )
+                                from butler.execution_context import get_audit_session_key
+
+                                sk = get_audit_session_key(fallback="default")
+                                self._messages[:] = apply_compaction_turn_followup(
+                                    self._messages,
+                                    sk,
+                                    self.diagnostics,
+                                )
+                            except Exception:
+                                pass
                             transition = LoopTransitionReason.COMPACTION_TURN
                             continue
                 except Exception as exc:

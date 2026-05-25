@@ -27,8 +27,26 @@ def derive_compaction_status(health: dict[str, Any] | None) -> str:
     return "none"
 
 
+def format_compaction_detail_line(health: dict[str, Any] | None) -> str:
+    h = health or {}
+    phase = str(h.get("compaction_phase") or "").strip()
+    reason = str(h.get("compaction_reason") or "").strip()
+    if not phase and not reason:
+        return ""
+    parts = []
+    if phase:
+        parts.append(f"phase={phase}")
+    if reason:
+        parts.append(f"reason={reason}")
+    inj = str(h.get("compaction_initial_injection") or "").strip()
+    if inj:
+        parts.append(f"injection={inj}")
+    return "压缩相位: " + ", ".join(parts)
+
+
 def format_compaction_status_line(health: dict[str, Any] | None) -> str:
     status = derive_compaction_status(health)
+    detail = format_compaction_detail_line(health)
     labels = {
         "compressed": "已压缩",
         "truncated_only": "仅截断工具输出（未摘要）",
@@ -45,7 +63,14 @@ def format_compaction_status_line(health: dict[str, Any] | None) -> str:
             f" (~{health.get('hygiene_estimated_tokens', '?')}→"
             f"{health.get('hygiene_estimated_tokens_after', '?')} tokens)"
         )
-    return f"压缩状态: {text}{extra}"
+    line = f"压缩状态: {text}{extra}"
+    if detail:
+        line += f"；{detail}"
+    return line
 
 
-__all__ = ["derive_compaction_status", "format_compaction_status_line"]
+__all__ = [
+    "derive_compaction_status",
+    "format_compaction_detail_line",
+    "format_compaction_status_line",
+]

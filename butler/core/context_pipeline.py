@@ -83,6 +83,27 @@ class ContextPipeline:
             except Exception as exc:
                 logger.debug("Compaction checkpoint pre-capture: %s", exc)
 
+        injection = None
+        if isinstance(diagnostics, dict):
+            try:
+                from butler.core.compaction_phase import (
+                    record_compaction_diagnostics,
+                    resolve_compaction_context,
+                )
+
+                iteration = int(diagnostics.get("compaction_turn_iteration") or 0)
+                reactive = bool(diagnostics.get("reactive_context_compact"))
+                phase, injection, reason = resolve_compaction_context(
+                    iteration=max(1, iteration),
+                    explicit_turn=bool(diagnostics.get("compaction_explicit_turn")),
+                    reactive=reactive,
+                )
+                record_compaction_diagnostics(
+                    diagnostics, phase=phase, reason=reason, injection=injection
+                )
+            except Exception:
+                injection = None
+
         compressed, summary, did = compress_messages(
             messages,
             max_tokens=self.config.max_context_tokens,
@@ -94,11 +115,25 @@ class ContextPipeline:
             min_tail_messages=min_tail_messages,
             max_output_tokens=getattr(self.config, "max_output_tokens", None),
             overflow_replay=overflow_replay,
+            initial_injection=injection,
+            diagnostics=diagnostics,
         )
         if did and summary:
             self.compression_summary = summary
             self.consecutive_compact_failures = 0
-            compressed = apply_post_compact_anchors(compressed)
+            skip_anchor = False
+            if isinstance(diagnostics, dict):
+                try:
+                    from butler.core.compaction_phase import (
+                        CompactionPhase,
+                        should_skip_post_compact_reanchor,
+                    )
+
+                    skip_anchor = should_skip_post_compact_reanchor(diagnostics)
+                except Exception:
+                    skip_anchor = False
+            if not skip_anchor:
+                compressed = apply_post_compact_anchors(compressed, diagnostics)
             if session_key and isinstance(diagnostics, dict):
                 try:
                     from butler.core.compaction_checkpoint import restore_into_diagnostics

@@ -1,0 +1,19 @@
+# Builtin execpolicy rules (Codex prefix_rule subset). Override in ~/.butler/execpolicy.yaml
+rules:
+  - name: git_readonly
+    pattern: ["git", ["status", "diff", "log", "show", "branch"]]
+    decision: allow
+    justification: "只读 git 子命令"
+    match:
+      - ["git", "status"]
+      - "git diff"
+    not_match:
+      - ["git", "push"]
+
+  - name: pytest_collect
+    pattern: ["pytest", ["--collect-only", "-q"]]
+    decision: allow
+    match:
+      - "pytest --collect-only -q"
+    not_match:
+      - ["pytest", ""]

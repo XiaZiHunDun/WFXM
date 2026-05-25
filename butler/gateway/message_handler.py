@@ -724,6 +724,14 @@ class ButlerMessageHandler:
                 if br is not None:
                     br.record_turn_elapsed(turn_elapsed)
                     health["outbound_events"] = br.recent_outbound_events()[-8:]
+                try:
+                    from butler.gateway.item_event_sink import recent_thread_items
+
+                    items = recent_thread_items(8)
+                    if items:
+                        health["thread_items"] = items
+                except Exception:
+                    pass
                 logger.info(
                     "Gateway turn done session=%s elapsed=%.1fs out_len=%d",
                     session_key,
@@ -1042,6 +1050,61 @@ class ButlerMessageHandler:
                 f"已截断 transcript：丢弃 {result.get('dropped_lines', 0)} 行，"
                 f"保留约 {result.get('lines_after', 0)} 行（不含内存中的对话）。"
             )
+
+        if cmd in ("/fork-transcript", "/transcript-fork", "/分叉"):
+            from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+            from butler.core.transcript_fork import fork_transcript_at_user_message
+
+            if not is_gateway_owner(platform=platform, external_id=external_id, session_key=session_key):
+                return owner_required_message()
+            user_idx = 1
+            if arg.strip().isdigit():
+                user_idx = max(1, int(arg.strip()))
+            result = fork_transcript_at_user_message(
+                session_key,
+                keep_from_user_index=user_idx,
+            )
+            if not result.get("ok"):
+                err = result.get("error", "?")
+                if err == "user_index_not_found":
+                    return (
+                        f"Fork 失败：未找到第 {user_idx} 条 user 消息"
+                        f"（共 {result.get('user_messages_found', 0)} 条 user）。"
+                    )
+                return f"Transcript fork 失败: {err}"
+            if result.get("skipped"):
+                return f"Transcript 已在第 {user_idx} 条 user 消息处，无需 fork。"
+            return (
+                f"已从第 {user_idx} 条 user 消息 fork transcript："
+                f"丢弃 {result.get('dropped_lines', 0)} 行，保留约 {result.get('lines_after', 0)} 行。"
+            )
+
+        if cmd in ("/记忆提炼", "/transcript-memory", "/extract-transcript-memory"):
+            from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+            from butler.memory.transcript_memory_pipeline import (
+                extract_memory_from_transcript,
+                transcript_memory_enabled,
+            )
+
+            if not is_gateway_owner(platform=platform, external_id=external_id, session_key=session_key):
+                return owner_required_message()
+            if not transcript_memory_enabled():
+                return (
+                    "Transcript 记忆提炼未启用。设置 BUTLER_TRANSCRIPT_MEMORY=1 后重试。"
+                )
+            project = arg.strip() or os.getenv("BUTLER_DEFAULT_PROJECT", "") or ""
+            result = extract_memory_from_transcript(session_key, project_name=project)
+            if not result.get("ok"):
+                return f"记忆提炼失败: {result.get('error', '?')}"
+            if result.get("skipped"):
+                return (
+                    f"跳过提炼：transcript 消息不足（{result.get('message_count', 0)} 条，需 ≥4）。"
+                )
+            updates = int(result.get("memory_updates") or 0)
+            errs = result.get("errors") or []
+            if errs:
+                return f"提炼完成：写入 {updates} 条；警告: {'; '.join(errs[:2])}"
+            return f"提炼完成：从 transcript 写入 {updates} 条记忆。"
 
         if cmd in ("/确认安装", "/confirm-install"):
             from butler.gateway.registry_commands import handle_confirm_install_command

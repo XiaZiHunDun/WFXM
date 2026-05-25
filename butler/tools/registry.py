@@ -199,8 +199,19 @@ def dispatch_tool(name: str, args: dict) -> str:
 
     started_at = time.monotonic()
     try:
-        from butler.hooks.runner import run_pre_tool_hooks
+        from butler.execution_context import get_current_session_key
+        from butler.hooks.runner import run_permission_request_hooks, run_pre_tool_hooks
 
+        sk = str(get_current_session_key() or "").strip()
+        perm_block = run_permission_request_hooks(name, args, session_key=sk)
+        if perm_block:
+            return _permission_denied_tool_result(
+                name,
+                args,
+                perm_block,
+                code="PERMISSION_REQUEST_HOOK",
+                started_at=started_at,
+            )
         pre_block = run_pre_tool_hooks(name, args)
         if pre_block:
             return _permission_denied_tool_result(
@@ -1277,45 +1288,15 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
         return json.dumps({
             "error": f"Terminal timeout must be between 1 and {MAX_TERMINAL_TIMEOUT_SECONDS} seconds"
         })
-    try:
-        from butler.execution_context import get_current_session_key
-        from butler.tools.terminal_danger import (
-            check_dangerous_command,
-            set_terminal_session_context,
-        )
-
-        set_terminal_session_context(get_current_session_key())
-        danger = check_dangerous_command(command)
-        if not danger.allowed:
-            return json.dumps({
-                "ok": False,
-                "error": danger.reason,
-                "code": "TERMINAL_DANGER_PATTERN",
-                "pattern": danger.pattern,
-            })
-    except Exception:
-        pass
-
     command_safety = prepare_shell_command(command)
     if not command_safety.allowed:
         return json.dumps({"error": command_safety.error})
 
-    try:
-        from butler.tools.terminal_approval import check_approval
+    cwd_hint = str(workdir or default_tool_workdir() or "")
+    cmd_text = " ".join(command_safety.argv) if command_safety.argv else command
+    from butler.execution_context import get_current_session_key
 
-        cwd_hint = str(workdir or default_tool_workdir() or "")
-        cmd_text = " ".join(command_safety.argv) if command_safety.argv else command
-        from butler.execution_context import get_current_session_key
-
-        block = check_approval(
-            cmd_text,
-            cwd=cwd_hint,
-            session_key=get_current_session_key(),
-        )
-        if block:
-            return json.dumps({"ok": False, "error": block, "code": "TERMINAL_APPROVAL_REQUIRED"})
-    except Exception:
-        pass
+    session_key = str(get_current_session_key() or "")
 
     if workdir:
         safety = check_tool_path(workdir)
@@ -1336,44 +1317,58 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
                 return
             time.sleep(0.2)
 
-    try:
-        proc = subprocess.Popen(
-            command_safety.argv,
-            shell=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=resolved_workdir,
-            env=safe_subprocess_env(),
-        )
-        watcher = threading.Thread(target=_watch, daemon=True)
-        watcher.start()
+    def _run_subprocess() -> str:
+        nonlocal proc, interrupted
         try:
-            stdout, stderr, truncated = _communicate_limited(
-                proc,
-                timeout=timeout,
-                max_output_chars=MAX_TERMINAL_OUTPUT_CHARS,
+            proc = subprocess.Popen(
+                command_safety.argv,
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=resolved_workdir,
+                env=safe_subprocess_env(),
             )
-        except subprocess.TimeoutExpired:
-            proc.kill()
+            watcher = threading.Thread(target=_watch, daemon=True)
+            watcher.start()
             try:
-                proc.wait(timeout=1)
-            finally:
-                _close_pipe(proc.stdout)
-                _close_pipe(proc.stderr)
-            return json.dumps({"error": f"Command timed out after {timeout}s"})
-        if interrupted:
-            return json.dumps({"error": "interrupted", "output": ""})
-        output = stdout or ""
-        if stderr:
-            output += "\n[stderr]\n" + stderr
-        if truncated or len(output) > MAX_TERMINAL_OUTPUT_CHARS:
-            output = output[:MAX_TERMINAL_OUTPUT_CHARS] + "\n... (truncated)"
-        return json.dumps({
-            "exit_code": proc.returncode,
-            "output": output,
-        })
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+                stdout, stderr, truncated = _communicate_limited(
+                    proc,
+                    timeout=timeout,
+                    max_output_chars=MAX_TERMINAL_OUTPUT_CHARS,
+                )
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                try:
+                    proc.wait(timeout=1)
+                finally:
+                    _close_pipe(proc.stdout)
+                    _close_pipe(proc.stderr)
+                return json.dumps({"error": f"Command timed out after {timeout}s"})
+            if interrupted:
+                return json.dumps({"error": "interrupted", "output": ""})
+            output = stdout or ""
+            if stderr:
+                output += "\n[stderr]\n" + stderr
+            if truncated or len(output) > MAX_TERMINAL_OUTPUT_CHARS:
+                output = output[:MAX_TERMINAL_OUTPUT_CHARS] + "\n... (truncated)"
+            return json.dumps({
+                "exit_code": proc.returncode,
+                "output": output,
+            })
+        except Exception as exc:
+            return json.dumps({"error": str(exc)})
+
+    try:
+        from butler.core.tool_orchestrator import run_terminal_with_gates
+
+        return run_terminal_with_gates(
+            cmd_text,
+            cwd=cwd_hint,
+            session_key=session_key,
+            run_fn=_run_subprocess,
+        )
+    except Exception:
+        return _run_subprocess()
 
 
 def _communicate_limited(

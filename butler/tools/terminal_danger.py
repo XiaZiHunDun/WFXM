@@ -48,6 +48,29 @@ def check_dangerous_command(command: str) -> DangerCheckResult:
     text = (command or "").strip()
     if not text:
         return DangerCheckResult(True)
+
+    try:
+        from butler.execpolicy import evaluate_command
+        from butler.execpolicy.engine import PolicyDecision
+        from butler.execution_context import get_current_orchestrator
+
+        workspace = None
+        orch = get_current_orchestrator()
+        if orch is not None and getattr(orch, "project_manager", None):
+            proj = orch.project_manager.get_current()
+            if proj is not None:
+                from pathlib import Path
+
+                workspace = Path(getattr(proj, "workspace", "") or "")
+        pol = evaluate_command(text, workspace=workspace)
+        if pol is not None:
+            if pol.decision == PolicyDecision.FORBIDDEN:
+                msg = pol.justification or "execpolicy forbidden"
+                return DangerCheckResult(False, reason=f"execpolicy: {msg}", pattern=pol.matched_rule)
+            if pol.decision == PolicyDecision.ALLOW:
+                return DangerCheckResult(True)
+    except Exception:
+        pass
     for name, pattern in _PATTERNS:
         if pattern.search(text):
             try:

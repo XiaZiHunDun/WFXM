@@ -150,4 +150,13 @@ def run_post_compact_cleanup(
         diagnostics["post_compact_cleanup"] = True
     if messages is None:
         return None
+    try:
+        from butler.core.compaction_phase import should_skip_post_compact_reanchor
+
+        if should_skip_post_compact_reanchor(diagnostics):
+            if diagnostics is not None:
+                diagnostics["post_compact_skipped_mid_turn"] = True
+            return messages
+    except Exception:
+        pass
     return apply_post_compact_anchors(messages, diagnostics, role=role)

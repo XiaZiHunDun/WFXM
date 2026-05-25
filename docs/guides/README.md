@@ -16,6 +16,10 @@
 | [sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md) | **四报告 Sprint A–D** 总索引（Firecrawl / agency / Gemini / awesome） |
 | [sprint-a-firecrawl-gemini-2026-05.md](./sprint-a-firecrawl-gemini-2026-05.md) | **Sprint A**：external_id 幂等、task stale、恢复分桶、tool masking |
 | [sprint-bcd-agency-awesome-2026-05.md](./sprint-bcd-agency-awesome-2026-05.md) | **Sprint B–D**：Handoff、dev-qa-loop、MCP profiles、RAG、web_fetch、委派并发 |
+| [sprint-codex-c0-2026-05.md](./sprint-codex-c0-2026-05.md) | **Sprint Codex-C0**：命令归一化、mid-turn 压缩、execpolicy、auto_review |
+| [sprint-codex-c1-2026-05.md](./sprint-codex-c1-2026-05.md) | **Sprint Codex-C1**：压缩后 steer、MCP 审批、goal 预算、tool orchestrator |
+| [sprint-codex-c2-2026-05.md](./sprint-codex-c2-2026-05.md) | **Sprint Codex-C2**：remote compact、transcript 记忆、user fork、thread_item 事件 |
+| [../plans/codex-butler-comparison-2026-05.md](../plans/codex-butler-comparison-2026-05.md) | Codex ↔ Butler 全量对照（C0–C2 已落地） |
 | [../plans/prompts-corpus-butler-comparison-2026-05.md](../plans/prompts-corpus-butler-comparison-2026-05.md) | Prompt Corpus ↔ Butler 对标全文 |
 | [runtime-ops.md](./runtime-ops.md) | **Runtime timer**：定时任务 due、审计、批准与排障 |
 | [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) | **发版后真机冒烟**（H1–H10，约 15–25 分钟） |

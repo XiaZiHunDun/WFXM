@@ -127,7 +127,23 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
 
     if not isinstance(args, dict):
         args = {}
-    text = get_manager().call_tool(sk, ref, args, workspace=_resolve_workspace())
+
+    def _call() -> str:
+        return get_manager().call_tool(sk, ref, args, workspace=_resolve_workspace())
+
+    try:
+        from butler.core.tool_orchestrator import run_mcp_with_gates
+
+        text = run_mcp_with_gates(
+            server_id=ref.server_id,
+            tool_name=name,
+            args=args,
+            session_key=sk,
+            classification=str(ref.classification or ""),
+            run_fn=_call,
+        )
+    except Exception:
+        text = _call()
     if text.strip().startswith("{") and '"ok": false' in text.replace(" ", "").lower():
         return text
     return format_call_result(text, tool_name=name, server_id=ref.server_id)

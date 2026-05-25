@@ -208,6 +208,37 @@ def run_permission_denied_hooks(
     return "\n".join(hints)
 
 
+def run_permission_request_hooks(
+    tool_name: str,
+    args: dict[str, Any],
+    *,
+    reason: str = "",
+    session_key: str = "",
+) -> str | None:
+    """Run PermissionRequest hooks (Codex C1-3 subset). Return block message or None."""
+    payload = {
+        "hook_event_name": "PermissionRequest",
+        "tool_name": tool_name,
+        "tool_input": args,
+        "reason": reason,
+        "session_key": session_key,
+    }
+    for rule in _rules_for_event("PermissionRequest"):
+        if not match_tool(rule.matcher, tool_name):
+            continue
+        code, out, err = _run_hook(rule, payload)
+        if code == 2:
+            return (err or out or "PermissionRequest hook blocked").strip()[:2000]
+        if code not in (0, None) and (out or err):
+            logger.info(
+                "PermissionRequest hook exit %s for %s: %s",
+                code,
+                tool_name,
+                (err or out)[:200],
+            )
+    return None
+
+
 def run_session_start_hooks(*, source: str = "clear") -> None:
     """Run SessionStart hooks (e.g. after /新对话)."""
     payload = {

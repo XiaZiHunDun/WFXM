@@ -273,6 +273,25 @@ def _decision_with_approval(
     req = _approval_request_from_decision(decision, tool_name, args)
     if session_key and is_approved(session_key, req):
         return None
+    try:
+        from butler.hooks.runner import run_permission_request_hooks
+
+        hook_block = run_permission_request_hooks(
+            tool_name,
+            args,
+            reason=decision.reason,
+            session_key=session_key,
+        )
+        if hook_block:
+            decision = PermissionDecision(
+                allowed=False,
+                action="deny",
+                reason=hook_block,
+                permission=decision.permission,
+            )
+            return decision
+    except Exception:
+        pass
     if session_key:
         save_pending(session_key, req)
     return decision

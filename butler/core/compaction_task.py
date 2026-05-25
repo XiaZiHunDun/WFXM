@@ -90,10 +90,23 @@ def run_compaction_turn(
     except Exception:
         pass
 
+    from butler.core.compaction_phase import (
+        record_compaction_diagnostics,
+        resolve_compaction_context,
+    )
+
+    phase, injection, reason = resolve_compaction_context(
+        iteration=iteration,
+        explicit_turn=True,
+    )
+    record_compaction_diagnostics(diag, phase=phase, reason=reason, injection=injection)
+
     compressed = compress(
         list(messages),
         threshold_ratio=0.0,
         min_messages_to_compress=max(6, int(os.getenv("BUTLER_COMPACTION_TURN_MIN_MSGS", "8"))),
+        initial_injection=injection,
+        diagnostics=diag,
     )
     after_est = before_est
     try:
@@ -106,6 +119,33 @@ def run_compaction_turn(
     did = len(compressed) < len(messages) or after_est < before_est
     if not did:
         return False, messages
+
+    thread_id = str(session_key or "").strip()
+    if not thread_id:
+        try:
+            from butler.execution_context import get_audit_session_key
+
+            thread_id = get_audit_session_key(fallback="_global")
+        except Exception:
+            thread_id = "_global"
+    try:
+        from butler.gateway.item_events import context_compaction_item, emit_thread_item
+
+        remote = bool(diag.get("compaction_remote"))
+        emit_thread_item(
+            context_compaction_item(
+                phase="completed",
+                thread_id=thread_id,
+                tokens_before=before_est,
+                tokens_after=after_est,
+                messages_before=len(messages),
+                messages_after=len(compressed),
+                source="compaction_turn",
+                remote=remote,
+            )
+        )
+    except Exception:
+        pass
 
     try:
         from butler.hooks.runner import run_post_compact_hooks

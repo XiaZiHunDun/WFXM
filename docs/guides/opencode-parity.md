@@ -14,6 +14,8 @@
 | `/帮助` | 常用命令摘要 | 否 |
 | `/导出 [行数]` | 会话 transcript → Markdown；微信下附带发 `.md` 文件 | **是** |
 | `/回滚 [保留行数]` | 仅截断 `transcript.jsonl`（非 git snapshot） | **是** |
+| `/fork-transcript N`、`/分叉 N` | 从第 N 条 `type=user` 行保留 transcript（Codex C2-3） | **是** |
+| `/记忆提炼 [项目]` | 从 transcript 提炼记忆（需 `BUTLER_TRANSCRIPT_MEMORY=1`） | **是** |
 | `/批准一次` | 本次会话内批准 pending 权限 | **是** |
 | `/始终允许 <权限>` | 写入批准缓存（TTL 见 env） | **是** |
 | `/权限` | 查看待批准项 | **是** |
@@ -71,6 +73,9 @@
 | Pre/Post compact hooks | `hooks.yaml` | `PreCompact` / `PostCompact` |
 | Transcript 导出 | `/导出` | `BUTLER_SESSION_TRANSCRIPT=1` |
 | Transcript 回滚 | `/回滚` | `BUTLER_TRANSCRIPT_REVERT_KEEP_LINES` |
+| Transcript user fork | `/fork-transcript` `/分叉` | `butler/core/transcript_fork.py` |
+| Remote compact | `BUTLER_REMOTE_COMPACT=1` | 失败回退本地 auxiliary；见 [sprint-codex-c2-2026-05.md](./sprint-codex-c2-2026-05.md) |
+| thread_item 出站 | 压缩完成 | `health.thread_items` / `outbound_events` `kind=thread_item` |
 | 子会话 transcript | `child_session_key` | 委派独立 jsonl + 事件 |
 
 ---

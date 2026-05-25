@@ -213,6 +213,18 @@
 | `BUTLER_WEB_FETCH_TIMEOUT` | 20 | web_fetch 超时（秒） |
 | `BUTLER_DELEGATE_CONCURRENCY_LIMIT` | 1 | 同会话并发委派槽位限制 |
 | `BUTLER_DELEGATE_MAX_CONCURRENT` | 2 | 每会话最大并行委派数 |
+| `BUTLER_MID_TURN_COMPACT` | 1 | turn 内多轮 tool 后 mid-turn 压缩相位 |
+| `BUTLER_EXECPOLICY` | 1 | YAML prefix_rule 终端策略（`~/.butler/execpolicy.yaml`） |
+| `BUTLER_AUTO_REVIEW` | 0 | Guardian 子集：低风险只读 terminal 自动批准 |
+| `BUTLER_AUTO_REVIEW_MAX_DENIALS` | 3 | 每 turn auto_review 连续拒绝上限 |
+| `BUTLER_COMPACTION_INBOUND_BRIDGE` | 1 | 压缩迭代后注入紧急入站与 pending steer |
+| `BUTLER_MCP_APPROVAL` | 1 | 变更类 MCP 工具需会话批准 |
+| `BUTLER_GOAL_TOKEN_BUDGET` | 0 | `/循环` 累计 token 上限（0=不限制） |
+| `BUTLER_REMOTE_COMPACT` | 0 | 对 OpenAI 兼容 host 尝试 `POST /v1/responses/compact`，失败回退 auxiliary |
+| `BUTLER_REMOTE_COMPACT_URL` | — | 覆盖 compact 完整 URL |
+| `BUTLER_REMOTE_COMPACT_FORCE` | 0 | 非 openai.com host 也尝试 remote compact |
+| `BUTLER_TRANSCRIPT_MEMORY` | 0 | 启用 `/记忆提炼` 从 transcript JSONL 跑 PostSession 记忆通道 |
+| `BUTLER_TRANSCRIPT_MEMORY_MAX_LINES` | 400 | 记忆提炼读取 transcript 尾部行数 |
 | `BUTLER_EXECUTE_CODE` | 0 | 启用 `execute_code` 沙箱工具（须安全评审） |
 | `BUTLER_SECRETS_FILE` | 1 | 从 `~/.butler/secrets.yaml` 加载 provider API key |
 | `BUTLER_TERMINAL_SMART_APPROVE` | 1 | `/批准模式 <pattern>` 本会话放行危险 terminal |

@@ -33,8 +33,14 @@ def approval_required() -> bool:
 
 
 def argv_fingerprint(command: str, *, cwd: str = "") -> str:
+    try:
+        from butler.tools.command_canonicalize import canonicalize_command_for_approval
+
+        canonical = canonicalize_command_for_approval(command)
+    except Exception:
+        canonical = (command or "").strip()
     payload = json.dumps(
-        {"command": command.strip(), "cwd": (cwd or "").strip()},
+        {"command": canonical, "cwd": (cwd or "").strip()},
         sort_keys=True,
         ensure_ascii=False,
     )
@@ -69,6 +75,17 @@ def check_approval(
     """Return error message if not approved; None if ok or approval not required."""
     if not approval_required():
         return None
+
+    try:
+        from butler.core.auto_review import try_auto_review_terminal
+
+        review = try_auto_review_terminal(command, diagnostics=None)
+        if review.allowed and not review.skipped:
+            store_approval(command, cwd=cwd, session_key=session_key, ttl_sec=300.0)
+            return None
+    except Exception:
+        pass
+
     fp = argv_fingerprint(command, cwd=cwd)
     path = _approvals_dir() / f"{fp}.json"
     if not path.is_file():

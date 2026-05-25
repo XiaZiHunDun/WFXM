@@ -170,6 +170,23 @@ def pending_total() -> int:
         return sum(len(bucket) for bucket in _QUEUES.values())
 
 
+def pop_urgent_inbound(session_key: str) -> QueuedInbound | None:
+    """Pop one ``now`` priority item if at queue head (mid-turn compaction bridge)."""
+    key = str(session_key or "default")
+    with _LOCK:
+        bucket = _QUEUES.get(key)
+        if not bucket:
+            return None
+        first = bucket[0]
+        if first.priority != "now":
+            return None
+        item = bucket.popleft()
+        if not bucket:
+            _QUEUES.pop(key, None)
+    _refresh_queue_gauges(key)
+    return item
+
+
 def pop_next(session_key: str) -> QueuedInbound | None:
     key = str(session_key or "default")
     with _LOCK:
