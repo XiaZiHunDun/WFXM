@@ -47,7 +47,7 @@
 | P1 instruction walk-up | `butler/core/instruction_walkup.py` | `BUTLER_INSTRUCTION_WALKUP_*` |
 | P2 transcript 压缩事件 | `session_transcript` | `compact_scheduled` / `compact_done` |
 | P2 post-commit | `post_commit.py` | 记忆/post_session 成功后 flush |
-| P2 会话待办 | `session_todos.py` | `/待办`；`BUTLER_SESSION_TODOS` |
+| P2 会话待办 | `session_todos.py`、`session_todos_tools.py` | `/待办`；Agent 工具 `session_todos_*` |
 | P2 hook mutate | `gateway/hooks.py` | `trigger_hooks_mutating` |
 
 ---

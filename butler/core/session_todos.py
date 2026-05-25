@@ -23,6 +23,24 @@ def session_todos_enabled() -> bool:
     return env_truthy("BUTLER_SESSION_TODOS", default=True)
 
 
+def max_todos_items() -> int:
+    try:
+        return max(1, min(100, int(os.getenv("BUTLER_SESSION_TODOS_MAX_ITEMS", "30"))))
+    except ValueError:
+        return 30
+
+
+def _resolve_session_key(session_key: str = "") -> str:
+    if str(session_key or "").strip():
+        return str(session_key).strip()
+    try:
+        from butler.execution_context import get_current_session_key
+
+        return str(get_current_session_key() or "").strip() or "default"
+    except Exception:
+        return "default"
+
+
 def _safe_segment(value: str) -> str:
     import re
 
@@ -66,7 +84,10 @@ def replace_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
         return {"skipped": True, "reason": "empty_session"}
 
     normalized: list[dict[str, str]] = []
+    cap = max_todos_items()
     for i, raw in enumerate(items or []):
+        if len(normalized) >= cap:
+            break
         item = _normalize_item(raw, i + 1)
         if item is not None:
             normalized.append(item)
@@ -101,6 +122,43 @@ def replace_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
     return {"ok": True, "count": len(normalized)}
 
 
+def _apply_merge_patch(existing: dict[str, dict[str, str]], raw: Any) -> bool:
+    """Patch an existing row by id (status/content only) or return False to fall through."""
+    if not isinstance(raw, dict):
+        return False
+    iid = str(raw.get("id") or "").strip()
+    if not iid or iid not in existing:
+        return False
+    content = str(raw.get("content") or raw.get("text") or "").strip()
+    if content:
+        existing[iid]["content"] = content[:500]
+    status = str(raw.get("status") or "").strip().lower()
+    if status in ("pending", "in_progress", "completed", "cancelled"):
+        existing[iid]["status"] = status
+    return True
+
+
+def merge_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
+    """Merge by ``id`` into existing list; append items without id clash."""
+    if not session_todos_enabled():
+        return {"skipped": True, "reason": "disabled"}
+    sk = _resolve_session_key(session_key)
+    existing = {str(t.get("id") or ""): dict(t) for t in load_session_todos(sk)}
+    for raw in items or []:
+        if _apply_merge_patch(existing, raw):
+            continue
+        item = _normalize_item(raw, len(existing) + 1)
+        if item is None:
+            continue
+        iid = str(item.get("id") or "")
+        if iid in existing:
+            existing[iid].update(item)
+        else:
+            existing[iid] = item
+    merged = list(existing.values())[: max_todos_items()]
+    return replace_session_todos(sk, merged)
+
+
 def load_session_todos(session_key: str) -> list[dict[str, str]]:
     if not session_todos_enabled():
         return []
@@ -125,10 +183,29 @@ def load_session_todos(session_key: str) -> list[dict[str, str]]:
     return out
 
 
+def format_open_todos_anchor(session_key: str = "", *, limit: int = 8) -> str:
+    """Short markdown block for post-compact re-injection."""
+    sk = _resolve_session_key(session_key)
+    items = [
+        t
+        for t in load_session_todos(sk)
+        if str(t.get("status") or "") in ("pending", "in_progress")
+    ]
+    if not items:
+        return ""
+    lines = [
+        f"- [{t.get('id')}] {t.get('content', '')[:120]}"
+        for t in items[:limit]
+    ]
+    if len(items) > limit:
+        lines.append(f"- … 另有 {len(items) - limit} 条未完成")
+    return "## Session todos (open)\n" + "\n".join(lines)
+
+
 def format_session_todos_for_wechat(session_key: str, *, limit: int = 10) -> str:
     items = load_session_todos(session_key)
     if not items:
-        return "会话待办: (空) — Agent 可通过内部 API 写入 todos.json"
+        return "会话待办: (空) — 可用工具 session_todos_write / session_todos_list"
     lines = ["会话待办:"]
     for row in items[: max(1, limit)]:
         mark = {

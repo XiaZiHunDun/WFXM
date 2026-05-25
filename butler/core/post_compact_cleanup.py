@@ -40,6 +40,15 @@ def build_post_compact_anchor_text(
             if diagnostics is not None:
                 diagnostics["post_compact_tasks"] = len(lines)
 
+        from butler.core.session_todos import format_open_todos_anchor, session_todos_enabled
+
+        if session_todos_enabled():
+            todo_anchor = format_open_todos_anchor(sk)
+            if todo_anchor:
+                parts.append(todo_anchor)
+                if diagnostics is not None:
+                    diagnostics["post_compact_session_todos"] = todo_anchor.count("\n")
+
         orch = get_current_orchestrator()
         if orch is not None:
             mem = prefetch_turn_memory(

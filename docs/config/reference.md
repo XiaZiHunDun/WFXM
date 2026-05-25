@@ -79,7 +79,8 @@
 | `BUTLER_COMPACTION_USE_OPENCODE_TEMPLATE` | 1 | 压缩摘要使用 Goal/Progress/… 固定节 |
 | `BUTLER_DOOM_LOOP_THRESHOLD` | 3 | 连续相同 tool+args 拦截（0=关） |
 | `BUTLER_INSTRUCTION_WALKUP*` | 见 example | read_file 后注入邻近 AGENTS.md |
-| `BUTLER_SESSION_TODOS` | 1 | 会话 `todos.json` replace-all；`/待办` |
+| `BUTLER_SESSION_TODOS` | 1 | 会话 `todos.json`；`/待办`；工具 `session_todos_list` / `session_todos_write` |
+| `BUTLER_SESSION_TODOS_MAX_ITEMS` | 30 | 单会话待办条数上限（1–100） |
 | `BUTLER_SESSION_TRANSCRIPT` | 1 | 含 `compact_scheduled` / `compact_done` 事件 |
 | `BUTLER_READ_BEFORE_EDIT` | 1 | patch/write 前须 read_file + mtime |
 | `BUTLER_READ_STATE_MAX_ENTRIES` | 100 | read state LRU 上限 |

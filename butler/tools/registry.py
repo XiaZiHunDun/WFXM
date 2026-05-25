@@ -614,6 +614,10 @@ def _register_builtin_tools() -> None:
 
     register_runtime_tools(register)
 
+    from butler.tools.session_todos_tools import register_session_todos_tools
+
+    register_session_todos_tools(register)
+
     from butler.tools.download_tools import register_download_tools
 
     register_download_tools(register)
