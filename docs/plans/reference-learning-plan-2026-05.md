@@ -129,8 +129,8 @@ drain: message_handler 回合结束拼回主回复
 | **L1** ✅ | `BUTLER_GATEWAY_QUEUE_MODE`、`CAP`、`DROP`；`/queue` 会话覆盖（`butler/gateway/queue_settings.py`） |
 | **L2** ✅ | `collect`：`pop_all_merged` 合并 drain；溢出 `summarize` 摘要 |
 | **L3** ✅ | `interrupt`：`loop.interrupt()`；`steer` 模式走 `/steer` 同路径 |
-| **L4** | 持久化：复用 `session_transcript.record_queue_operation` + 可选 `runtime/queue/<hash>.jsonl`（标准库 `json`），**不**引 MQ 客户端 |
-| **L5（远期）** | 多实例再评估外部 MQ；本约束下 **不做** |
+| **L4** | ~~jsonl 持久化~~ **暂缓**（见 D5）；当前仅 transcript 审计 |
+| **L5（远期）** | 多实例 MQ **暂缓**（见 D7） |
 
 #### 必读 OpenClaw 文件
 
@@ -229,6 +229,9 @@ drain: message_handler 回合结束拼回主回复
 | D2 | 队列 persist 是否 L1 必做？ | **否**；L1 仅 cap/drop/mode |
 | D3 | 是否对接 RocketMQ/Kafka？ | **否**（本阶段）；语义借鉴即可 |
 | D4 | 是否嵌入 Dify/OpenClaw？ | **否**；只改 Butler 自有模块 |
+| D5 | L4 入站队列 jsonl 持久化？ | **暂缓**（2026-05-25）；无重启丢队列事故前不做 |
+| D6 | 确认后自动续跑 workflow？ | **暂缓**；维持「确认 → 再发 /workflow」 |
+| D7 | L5 多实例 MQ？ | **暂缓**；水平扩展 Gateway 时另立项 |
 
 ---
 
