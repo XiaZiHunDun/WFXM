@@ -171,6 +171,9 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
         pending = pending_count(session_key)
         if pending:
             lines.append(f"入站队列待发: {pending} 条")
+        from butler.gateway.queue_settings import format_queue_status_line
+
+        lines.append(format_queue_status_line(session_key))
     except Exception:
         pass
     stop_ctx = loop.get("stop_hook_context") if isinstance(loop, dict) else None

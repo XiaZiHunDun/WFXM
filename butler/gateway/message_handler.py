@@ -108,6 +108,15 @@ class ButlerMessageHandler:
 
         return env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True)
 
+    def _interrupt_session_loop(self, session_key: str) -> None:
+        loop = self._sessions.get(session_key)
+        if loop is not None and hasattr(loop, "interrupt"):
+            try:
+                loop.interrupt()
+                logger.info("Gateway interrupt requested session=%s", session_key)
+            except Exception as exc:
+                logger.debug("Gateway interrupt failed: %s", exc)
+
     def _drain_queued_inbound(
         self,
         session_key: str,
@@ -118,38 +127,69 @@ class ButlerMessageHandler:
     ) -> str:
         import os
 
-        from butler.gateway.message_queue import message_queue_enabled, pop_next
+        from butler.gateway.message_queue import (
+            message_queue_enabled,
+            pop_all_merged,
+            pop_next,
+        )
+        from butler.gateway.queue_settings import get_queue_mode
 
         if not message_queue_enabled():
             return ""
-        try:
-            max_drain = max(0, int(os.getenv("BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN", "1") or "1"))
-        except ValueError:
-            max_drain = 1
+
+        mode = get_queue_mode(session_key)
         parts: list[str] = []
-        for _ in range(max_drain):
-            item = pop_next(session_key)
-            if item is None:
-                break
-            if self._session_registry.is_session_active(session_key):
-                break
-            logger.info(
-                "Gateway drain queued session=%s priority=%s preview=%r",
-                session_key,
-                item.priority,
-                item.text[:60],
-            )
-            part = self.handle_message(
-                item.text,
-                session_key=session_key,
-                platform=item.platform or platform,
-                external_id=item.external_id or external_id,
-            )
-            if part:
-                parts.append(part)
+
+        if mode == "collect":
+            item = pop_all_merged(session_key)
+            if item is not None and not self._session_registry.is_session_active(session_key):
+                logger.info(
+                    "Gateway drain collect session=%s preview=%r",
+                    session_key,
+                    item.text[:80],
+                )
+                part = self.handle_message(
+                    item.text,
+                    session_key=session_key,
+                    platform=item.platform or platform,
+                    external_id=item.external_id or external_id,
+                )
+                if part:
+                    parts.append(part)
+        else:
+            try:
+                max_drain = max(0, int(os.getenv("BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN", "1") or "1"))
+            except ValueError:
+                max_drain = 1
+            if mode == "followup":
+                try:
+                    max_drain = max(max_drain, int(os.getenv("BUTLER_GATEWAY_QUEUE_DRAIN_FOLLOWUP", "1") or "1"))
+                except ValueError:
+                    pass
+            for _ in range(max_drain):
+                item = pop_next(session_key)
+                if item is None:
+                    break
+                if self._session_registry.is_session_active(session_key):
+                    break
+                logger.info(
+                    "Gateway drain queued session=%s priority=%s preview=%r",
+                    session_key,
+                    item.priority,
+                    item.text[:60],
+                )
+                part = self.handle_message(
+                    item.text,
+                    session_key=session_key,
+                    platform=item.platform or platform,
+                    external_id=item.external_id or external_id,
+                )
+                if part:
+                    parts.append(part)
+
         if not parts:
             return ""
-        combined = "\n\n---\n\n".join(parts)
+        combined = "\n\n---\n\n".join(parts) if len(parts) > 1 else parts[0]
         if self._queue_push_via_bridge() and primary_reply.strip():
             from butler.gateway.outbound_bridge import get_current_bridge
 
@@ -232,14 +272,32 @@ class ButlerMessageHandler:
                 format_queued_ack,
                 pending_count,
             )
+            from butler.gateway.queue_settings import get_queue_mode
 
-            if enqueue_inbound(
-                session_key,
-                text,
-                platform=platform,
-                external_id=external_id or "",
-            ):
-                return format_queued_ack(pending=pending_count(session_key))
+            mode = get_queue_mode(session_key)
+            if mode == "steer":
+                from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
+
+                if is_run_active(session_key) and steer(text, session_key=session_key):
+                    return format_steer_gateway_reply(accepted=True, active=True)
+            elif mode == "interrupt":
+                self._interrupt_session_loop(session_key)
+            else:
+                if enqueue_inbound(
+                    session_key,
+                    text,
+                    platform=platform,
+                    external_id=external_id or "",
+                ):
+                    return format_queued_ack(
+                        pending=pending_count(session_key),
+                        session_key=session_key,
+                    )
+                from butler.gateway.queue_settings import session_drop_policy
+
+                if session_drop_policy(session_key) == "new":
+                    return "队列已满，最新消息未入队。可发 /queue 调整 cap 或 /诊断 查看。"
+                return format_queued_ack(pending=pending_count(session_key), session_key=session_key)
 
         logger.info("Gateway enter_session session=%s", session_key)
         session_lock = self._session_registry.enter_session(session_key)
@@ -586,6 +644,11 @@ class ButlerMessageHandler:
             accepted = bool(active and steer(arg, session_key=session_key))
             return format_steer_gateway_reply(accepted=accepted, active=active)
 
+        if cmd == "/queue":
+            from butler.gateway.queue_settings import apply_queue_command
+
+            return apply_queue_command(session_key, arg)
+
         if cmd in ("/budget", "/预算"):
             from butler.core.turn_token_budget import parse_token_budget_text
 
@@ -621,9 +684,11 @@ class ButlerMessageHandler:
                 reset_completion_telemetry(session_key)
                 from butler.core.read_state import reset_read_state
                 from butler.gateway.message_queue import reset_queue
+                from butler.gateway.queue_settings import clear_session_override
 
                 reset_read_state(session_key)
                 reset_queue(session_key)
+                clear_session_override(session_key)
             except Exception:
                 pass
             return handle_new_session_command(self._orchestrator, session_key, loop)
@@ -913,6 +978,7 @@ def _is_sessionless_command(text: str) -> bool:
         "/诊断",
         "/steer",
         "/指引",
+        "/queue",
         "/new",
         "/新对话",
         "/detail",

@@ -1,6 +1,6 @@
 # 外部项目学习规划（Butler v4）
 
-> **状态**：P0 已落地（2026-05-25，`runtime_metrics` + `/诊断`）；P1 队列待做  
+> **状态**：P0/P1 已落地（2026-05-25）；P2 编排/权限按需  
 > **触发**：[`reference/待学习项目.md`](../../reference/待学习项目.md) 泛清单筛选 + Butler 现状对照  
 > **原则**：**只借鉴设计、零新增依赖**（不引入 `prometheus-client`、消息中间件客户端、Dify/OpenClaw 运行时）；在现有 Python 标准库 + Butler 模块内落地。  
 > **主学习线**：Claude Code（[`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)）  
@@ -126,9 +126,9 @@ drain: message_handler 回合结束拼回主回复
 
 | 阶段 | 交付 |
 |------|------|
-| **L1** | `BUTLER_GATEWAY_QUEUE_MODE`（默认 `followup`，兼容现有行为）、`BUTLER_GATEWAY_QUEUE_CAP`、`BUTLER_GATEWAY_QUEUE_DROP`（summarize\|old\|new） |
-| **L2** | `collect`：`debounce_ms` 内合并为单条合成 user 文本（借鉴 OpenClaw `drop=summarize` 文案） |
-| **L3** | `interrupt`：调用已有 `run_interruptible` / loop 取消路径，再处理最新消息 |
+| **L1** ✅ | `BUTLER_GATEWAY_QUEUE_MODE`、`CAP`、`DROP`；`/queue` 会话覆盖（`butler/gateway/queue_settings.py`） |
+| **L2** ✅ | `collect`：`pop_all_merged` 合并 drain；溢出 `summarize` 摘要 |
+| **L3** ✅ | `interrupt`：`loop.interrupt()`；`steer` 模式走 `/steer` 同路径 |
 | **L4** | 持久化：复用 `session_transcript.record_queue_operation` + 可选 `runtime/queue/<hash>.jsonl`（标准库 `json`），**不**引 MQ 客户端 |
 | **L5（远期）** | 多实例再评估外部 MQ；本约束下 **不做** |
 

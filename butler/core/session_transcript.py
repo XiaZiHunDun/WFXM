@@ -141,6 +141,14 @@ def record_queue_operation(session_key: str, priority: str, preview: str) -> Non
     )
 
 
+def record_queue_drop(session_key: str, reason: str, count: int = 1) -> None:
+    append_transcript_entry(
+        session_key,
+        "queue_drop",
+        {"reason": str(reason or "?")[:32], "count": max(1, int(count))},
+    )
+
+
 def load_transcript_tail(session_key: str, *, max_lines: int = 50) -> list[dict[str, Any]]:
     path = transcript_path(session_key)
     if not path.is_file():

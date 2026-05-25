@@ -30,6 +30,8 @@ _LOCK = threading.RLock()
 _QUEUES: dict[str, deque[QueuedInbound]] = {}
 _DEDUP_WINDOW_SEC = 2.0
 _LAST_ENQUEUE: dict[str, tuple[str, float]] = {}
+_DROP_SUMMARIES: dict[str, deque[str]] = {}
+_SUMMARY_MAX = 8
 
 
 def message_queue_enabled() -> bool:
@@ -55,6 +57,54 @@ def _should_dedupe(session_key: str, text: str) -> bool:
         return True
     _LAST_ENQUEUE[key] = (text.strip(), now)
     return False
+
+
+def _record_queue_drop(session_key: str, *, reason: str, count: int = 1) -> None:
+    try:
+        from butler.ops.runtime_metrics import inc
+
+        inc(
+            "inbound_queue_drop",
+            labels={"reason": reason[:24]},
+            session_key=session_key,
+            value=count,
+        )
+        from butler.core.session_transcript import record_queue_drop
+
+        record_queue_drop(session_key, reason, count)
+    except Exception:
+        pass
+
+
+def _summarize_dropped(text: str) -> str:
+    preview = re.sub(r"\s+", " ", (text or "").strip())[:120]
+    return preview or "（空消息）"
+
+
+def _apply_cap_before_append(session_key: str, bucket: deque[QueuedInbound], incoming: str) -> bool:
+    """Make room for one more item. Returns False if incoming rejected (drop=new)."""
+    from butler.gateway.queue_settings import session_drop_policy, session_queue_cap
+
+    key = str(session_key or "default")
+    cap = session_queue_cap(key)
+    drop = session_drop_policy(key)
+    while len(bucket) >= cap:
+        if drop == "new":
+            _record_queue_drop(key, reason="new")
+            return False
+        if not bucket:
+            break
+        if drop == "old":
+            bucket.popleft()
+            _record_queue_drop(key, reason="old")
+            continue
+        # summarize
+        removed = bucket.popleft()
+        summary = _summarize_dropped(removed.text)
+        summaries = _DROP_SUMMARIES.setdefault(key, deque(maxlen=_SUMMARY_MAX))
+        summaries.append(summary)
+        _record_queue_drop(key, reason="summarize")
+    return True
 
 
 def enqueue_inbound(
@@ -87,6 +137,8 @@ def enqueue_inbound(
     )
     with _LOCK:
         bucket = _QUEUES.setdefault(key, deque())
+        if not _apply_cap_before_append(key, bucket, body):
+            return False
         bucket.append(item)
         bucket = deque(sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)))
         _QUEUES[key] = bucket
@@ -131,6 +183,36 @@ def pop_next(session_key: str) -> QueuedInbound | None:
     return item
 
 
+def pop_all_merged(session_key: str) -> QueuedInbound | None:
+    """Drain entire queue into one synthetic followup item (collect mode)."""
+    key = str(session_key or "default")
+    with _LOCK:
+        bucket = _QUEUES.get(key)
+        items = list(bucket) if bucket else []
+        if bucket:
+            bucket.clear()
+            _QUEUES.pop(key, None)
+        summaries = list(_DROP_SUMMARIES.pop(key, ()))
+    _refresh_queue_gauges(key)
+    if not items and not summaries:
+        return None
+    parts: list[str] = []
+    if summaries:
+        joined = "；".join(summaries)
+        parts.append(f"[此前队列溢出摘要，共 {len(summaries)} 条] {joined}")
+    for item in sorted(items, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)):
+        parts.append(item.text)
+    text = "\n\n".join(parts)
+    last = items[-1] if items else None
+    return QueuedInbound(
+        text=text,
+        priority="next",
+        platform=last.platform if last else "unknown",
+        external_id=last.external_id if last else "",
+        enqueued_at=time.monotonic(),
+    )
+
+
 def pending_count(session_key: str = "") -> int:
     key = str(session_key or "default")
     with _LOCK:
@@ -142,10 +224,12 @@ def reset_queue(session_key: str | None = None) -> None:
         if session_key is None:
             _QUEUES.clear()
             _LAST_ENQUEUE.clear()
+            _DROP_SUMMARIES.clear()
         else:
             key = str(session_key or "default")
             _QUEUES.pop(key, None)
             _LAST_ENQUEUE.pop(key, None)
+            _DROP_SUMMARIES.pop(key, None)
     try:
         from butler.ops.runtime_metrics import set_gauge
 
@@ -157,7 +241,19 @@ def reset_queue(session_key: str | None = None) -> None:
         pass
 
 
-def format_queued_ack(*, pending: int = 1) -> str:
-    if pending > 1:
-        return f"已收到（队列中还有 {pending} 条），当前轮次结束后继续处理。"
-    return "已收到，当前轮次结束后继续处理。"
+def format_queued_ack(*, pending: int = 1, session_key: str = "") -> str:
+    base = (
+        f"已收到（队列中还有 {pending} 条），当前轮次结束后继续处理。"
+        if pending > 1
+        else "已收到，当前轮次结束后继续处理。"
+    )
+    if session_key:
+        try:
+            from butler.gateway.queue_settings import get_queue_mode
+
+            mode = get_queue_mode(session_key)
+            if mode != "followup":
+                base += f"（队列模式：{mode}）"
+        except Exception:
+            pass
+    return base
