@@ -55,6 +55,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - **内置技能种子**：首次加载租户 ButlerMemory 时安装 `tenants/<id>/skills/design-system.md`（源 [`docs/templates/skills/design-system.md`](docs/templates/skills/design-system.md)）
 - **支撑线 E（P2 子集）**：workflow 步骤与 `project.yaml` 工具列表求交；`tool_modes` 按角色缩工具；`BUTLER_TOOL_IMPLICIT_CONTEXT`；`BUTLER_SCHEMA_OPTIMIZE`；`BUTLER_TOKEN_COST_ESTIMATE`
 - **研究模式补充**：`PROGRAM.md` + skill `research-program`；连续 crash 阻断提示；post-compact 简洁性锚点 — 见 [`docs/plans/four-reports-improvement-roadmap-2026-05.md`](docs/plans/four-reports-improvement-roadmap-2026-05.md) §9
+- **五报告增量（PR-F1–F6）**：outcome log（`/评价`）、handoff、熔断/sessions、`butler_recall` 三层、工具错误策略、Pipeline 步骤诊断 — 见 [`docs/guides/five-reports-capabilities-2026-05.md`](docs/guides/five-reports-capabilities-2026-05.md)
 - **四报告明确不做**：CDP/截图、RAGFlow 全栈、73 套 DESIGN 进仓、通宵自治、LLM 子 query 等 — 见 [`docs/plans/four-reports-out-of-scope-2026-05.md`](docs/plans/four-reports-out-of-scope-2026-05.md)（**勿重复立项**）
 - **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 
@@ -69,6 +70,11 @@ PYTHONPATH=. pytest tests/test_runtime_metrics.py tests/test_message_queue.py \
 PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sections.py \
   tests/test_experiment_ledger.py tests/test_query_decompose.py tests/test_support_line_e.py \
   tests/test_roadmap_remainder.py tests/test_markdown_chunking.py tests/test_loop_pr2_entropy.py -q
+
+# 五报告增量（PR-F1–F6）
+PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \
+  tests/test_memory_recall_layers.py tests/test_provider_health.py tests/test_sessions_cli.py \
+  tests/test_outcome_reflection.py tests/test_task_orchestrator_handoff.py tests/test_five_reports_f6.py -q
 ```
 
 ### 两套 Hook（不要混用）

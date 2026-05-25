@@ -120,6 +120,21 @@ def failover_list_from_env() -> list[tuple[str, str]]:
     return pairs
 
 
+def format_circuit_diagnostic_lines() -> list[str]:
+    if not provider_circuit_enabled():
+        return []
+    snap = health_snapshot()
+    if not snap:
+        return []
+    lines = ["供应商熔断:"]
+    for row in snap[:6]:
+        key = row.get("provider_model") or "?"
+        open_flag = row.get("open")
+        fails = row.get("failures", 0)
+        lines.append(f"  {key}: failures={fails} open={open_flag}")
+    return lines
+
+
 def health_snapshot() -> list[dict[str, Any]]:
     now = time.time()
     with _STATE_LOCK:

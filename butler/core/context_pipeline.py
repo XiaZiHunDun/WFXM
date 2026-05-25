@@ -150,6 +150,7 @@ class ContextPipeline:
         pre_llm_transform: Callable[[list[dict]], list[dict]] | None = None,
         diagnostics: dict[str, Any] | None = None,
     ) -> list[dict]:
+        from butler.core.pipeline_steps import PipelineStep, run_pipeline_steps
         from butler.core.tool_result_storage import (
             apply_inject_once_policy,
             enforce_message_tool_budget,
@@ -157,31 +158,42 @@ class ContextPipeline:
         from butler.execution_context import get_audit_session_key
 
         sk = get_audit_session_key(fallback="_global")
-        prepared = list(messages)
-        apply_inject_once_policy(prepared, session_key=sk)
-        prepared = enforce_message_tool_budget(prepared, session_key=sk)
-        prepared = prune_tool_outputs(prepared)
-        prepared = backward_prune_tool_outputs(prepared)
-        try:
-            from butler.core.tool_output_masking import apply_unified_tool_masking
-
-            prepared = apply_unified_tool_masking(prepared)
-        except Exception as exc:
-            logger.debug("Unified tool masking skipped: %s", exc)
         diag: dict[str, Any] = diagnostics if isinstance(diagnostics, dict) else {}
-        try:
-            from butler.core.preemptive_compact import (
-                ContextPrecheckOverflow,
-                apply_preemptive_pipeline,
-                preemptive_compact_enabled,
-            )
+        pipeline = self
 
-            if preemptive_compact_enabled():
-                prepared, decision = apply_preemptive_pipeline(
-                    prepared,
-                    max_context_tokens=self.config.max_context_tokens,
-                    estimate_tokens=self.estimate_tokens,
-                    compress=self.compress_context,
+        def _inject_once(msgs: list[dict]) -> list[dict]:
+            out = list(msgs)
+            apply_inject_once_policy(out, session_key=sk)
+            return enforce_message_tool_budget(out, session_key=sk)
+
+        def _prune(msgs: list[dict]) -> list[dict]:
+            out = prune_tool_outputs(list(msgs))
+            return backward_prune_tool_outputs(out)
+
+        def _mask(msgs: list[dict]) -> list[dict]:
+            try:
+                from butler.core.tool_output_masking import apply_unified_tool_masking
+
+                return apply_unified_tool_masking(list(msgs))
+            except Exception as exc:
+                logger.debug("Unified tool masking skipped: %s", exc)
+                return list(msgs)
+
+        def _preemptive(msgs: list[dict]) -> list[dict]:
+            try:
+                from butler.core.preemptive_compact import (
+                    ContextPrecheckOverflow,
+                    apply_preemptive_pipeline,
+                    preemptive_compact_enabled,
+                )
+
+                if not preemptive_compact_enabled():
+                    return list(msgs)
+                out, decision = apply_preemptive_pipeline(
+                    list(msgs),
+                    max_context_tokens=pipeline.config.max_context_tokens,
+                    estimate_tokens=pipeline.estimate_tokens,
+                    compress=pipeline.compress_context,
                     diagnostics=diag or None,
                 )
                 if decision.route == "overflow_fail":
@@ -190,23 +202,38 @@ class ContextPipeline:
                         estimated=decision.estimated_tokens,
                         threshold=decision.threshold_tokens,
                     )
-        except ContextPrecheckOverflow:
-            raise
-        except Exception as exc:
-            logger.debug("Preemptive compact skipped: %s", exc)
-        if diag is not None:
-            diag.setdefault("session_key", get_audit_session_key(fallback="_global"))
-        prepared = self.compress_context(prepared, diagnostics=diag or None)
-        prepared, _ = repair_message_sequence(prepared)
-        prepared, _ = repair_tool_pairs(prepared, diagnostics=diag or None)
-        repair_tool_arguments(prepared)
-        prepared, _ = sanitize_api_messages(prepared)
-        prepared, _ = drop_thinking_only_assistants(prepared)
+                return out
+            except ContextPrecheckOverflow:
+                raise
+            except Exception as exc:
+                logger.debug("Preemptive compact skipped: %s", exc)
+                return list(msgs)
+
+        def _compress(msgs: list[dict]) -> list[dict]:
+            if diag is not None:
+                diag.setdefault("session_key", get_audit_session_key(fallback="_global"))
+            return pipeline.compress_context(list(msgs), diagnostics=diag or None)
+
+        def _repair(msgs: list[dict]) -> list[dict]:
+            out, _ = repair_message_sequence(list(msgs))
+            out, _ = repair_tool_pairs(out, diagnostics=diag or None)
+            repair_tool_arguments(out)
+            out, _ = sanitize_api_messages(out)
+            out, _ = drop_thinking_only_assistants(out)
+            return out
+
+        steps = [
+            PipelineStep("inject_once", _inject_once),
+            PipelineStep("prune_tools", _prune),
+            PipelineStep("mask_tools", _mask),
+            PipelineStep("preemptive_compact", _preemptive),
+            PipelineStep("compress", _compress),
+            PipelineStep("repair_sanitize", _repair),
+        ]
+        prepared = run_pipeline_steps(list(messages), steps, diagnostics=diag or None)
         if pre_llm_transform:
             prepared = pre_llm_transform(prepared)
-        ephemeral = ""
-        if diag:
-            ephemeral = str(diag.get("ephemeral_system") or "").strip()
+        ephemeral = str(diag.get("ephemeral_system") or "").strip() if diag else ""
         if ephemeral:
             prepared = _inject_ephemeral_system(prepared, ephemeral)
         return prepared

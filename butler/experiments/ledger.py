@@ -185,6 +185,41 @@ def maybe_record_from_job_result(
         "metric_value": metric["metric_value"],
         "status": status,
     }
+    try:
+        from butler.experiments.outcomes import (
+            maybe_resolve_previous_pending,
+            maybe_store_pending_from_metric,
+        )
+
+        proj_name = ""
+        try:
+            from butler.project_manager import get_project_manager
+
+            for p in get_project_manager().list_projects():
+                if Path(p.workspace).resolve() == ws:
+                    proj_name = p.name
+                    break
+        except Exception:
+            pass
+        subj = str(job_id or metric["metric_name"])
+        maybe_resolve_previous_pending(
+            ws,
+            project=proj_name,
+            subject=subj,
+            outcome_value=str(metric["metric_value"]),
+        )
+        pending_row = maybe_store_pending_from_metric(
+            ws,
+            project=proj_name,
+            job_id=job_id,
+            metric_name=str(metric["metric_name"]),
+            metric_value=float(metric["metric_value"]),
+            hypothesis=hyp,
+        )
+        if pending_row:
+            out["outcome_pending_id"] = pending_row.get("row_id")
+    except Exception as exc:
+        logger.debug("outcome log hook skipped: %s", exc)
     if status == "crash":
         try:
             from butler.experiments.crash_guard import (

@@ -2,8 +2,16 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
+
+_DECISION_PATTERNS = (
+    re.compile(r"\*\*\s*rating\s*\*\*\s*:\s*(approve|revise|block|keep|discard)\b", re.I),
+    re.compile(r"\brating\s*:\s*(approve|revise|block|keep|discard)\b", re.I),
+    re.compile(r"\bdecision\s*:\s*(approve|revise|block|keep|discard)\b", re.I),
+    re.compile(r"\b(approve|revise|block|keep|discard)\b", re.I),
+)
 
 
 @dataclass
@@ -30,6 +38,7 @@ class AgentReport:
     elapsed_seconds: float = 0.0
     failed_steps: list[str] = field(default_factory=list)
     step_outcomes: dict[str, str] = field(default_factory=dict)
+    structured_output: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -51,6 +60,7 @@ class AgentReport:
             "elapsed_seconds": self.elapsed_seconds,
             "failed_steps": list(self.failed_steps),
             "step_outcomes": dict(self.step_outcomes),
+            "structured_output": dict(self.structured_output),
         }
 
     @classmethod
@@ -87,7 +97,95 @@ class AgentReport:
                 for k, v in (raw.get("step_outcomes") or {}).items()
                 if isinstance(raw.get("step_outcomes"), dict)
             },
+            structured_output=dict(raw.get("structured_output") or {}),
         )
+
+
+def parse_decisions_from_text(text: str) -> list[str]:
+    """Deterministic enum extraction (TradingAgents SignalProcessor subset)."""
+    blob = str(text or "")
+    if not blob.strip():
+        return []
+    found: list[str] = []
+    seen: set[str] = set()
+    for pat in _DECISION_PATTERNS:
+        for m in pat.finditer(blob):
+            val = str(m.group(1) or "").strip().lower()
+            if val and val not in seen:
+                seen.add(val)
+                found.append(val)
+    return found[:8]
+
+
+def enrich_report_decisions(report: AgentReport, text: str) -> AgentReport:
+    parsed = parse_decisions_from_text(text)
+    if not parsed:
+        return report
+    merged = list(dict.fromkeys(list(report.decisions) + parsed))
+    report.decisions = merged
+    return report
+
+
+def parse_structured_output(text: str, schema: dict[str, Any] | None) -> dict[str, Any]:
+    """Extract JSON object from final text when workflow declares output_schema."""
+    if not schema:
+        return {}
+    blob = str(text or "").strip()
+    if not blob:
+        return {}
+    import json
+    import re
+
+    candidates: list[dict[str, Any]] = []
+    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", blob, re.DOTALL)
+    if fence:
+        try:
+            parsed = json.loads(fence.group(1))
+            if isinstance(parsed, dict):
+                candidates.append(parsed)
+        except json.JSONDecodeError:
+            pass
+    for m in re.finditer(r"\{[^{}]*\}", blob):
+        try:
+            parsed = json.loads(m.group(0))
+            if isinstance(parsed, dict):
+                candidates.append(parsed)
+        except json.JSONDecodeError:
+            continue
+    fields = schema.get("fields") if isinstance(schema.get("fields"), list) else []
+    if not fields and isinstance(schema, dict):
+        fields = [k for k in schema.keys() if k not in ("type", "fields")]
+    if not candidates:
+        return {}
+    best = candidates[-1]
+    if fields:
+        return {k: best.get(k) for k in fields if k in best}
+    return dict(best)
+
+
+def enrich_output_schema(
+    report: AgentReport,
+    text: str,
+    schema: dict[str, Any] | None,
+) -> AgentReport:
+    parsed = parse_structured_output(text, schema)
+    if parsed:
+        report.structured_output = parsed
+        for key, val in parsed.items():
+            if str(key).lower() in ("rating", "decision", "verdict"):
+                report.decisions = list(
+                    dict.fromkeys(list(report.decisions) + [str(val).lower()])
+                )
+    return report
+
+
+def render_structured_output_markdown(data: dict[str, Any]) -> str:
+    if not data:
+        return ""
+    lines = ["## 结构化终局"]
+    for key, val in data.items():
+        lines.append(f"- **{key}**: {val}")
+    return "\n".join(lines)
 
 
 def format_for_butler_tool_result(
@@ -330,7 +428,15 @@ def clear_report_cache(session_key: str = "") -> None:
 
 
 __all__ = [
-    "AgentReport", "Change",
-    "format_detail", "format_for_butler_tool_result", "format_for_cli", "format_for_wechat",
-    "cache_report", "clear_report_cache", "get_last_report",
+    "AgentReport",
+    "Change",
+    "enrich_report_decisions",
+    "format_detail",
+    "format_for_butler_tool_result",
+    "format_for_cli",
+    "format_for_wechat",
+    "parse_decisions_from_text",
+    "cache_report",
+    "clear_report_cache",
+    "get_last_report",
 ]

@@ -172,5 +172,7 @@ class Project:
         if self.tool_modes:
             payload["tool_modes"] = dict(self.tool_modes)
 
-        with open(config_path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False)
+        from butler.io.atomic_write import atomic_write_text
+
+        text = yaml.safe_dump(payload, allow_unicode=True, sort_keys=False)
+        atomic_write_text(config_path, text)

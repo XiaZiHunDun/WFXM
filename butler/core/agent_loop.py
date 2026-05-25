@@ -310,6 +310,10 @@ class AgentLoop:
                     from butler.transport.usage_normalize import normalize_usage
 
                     provider = str(getattr(self.client, "provider_name", "") or "")
+                    self.diagnostics["last_provider"] = provider
+                    self.diagnostics["last_model"] = str(
+                        getattr(self.client, "model_name", "") or ""
+                    )
                     norm_usage = normalize_usage(response.usage, provider=provider)
                     usage = norm_usage or response.usage
 
@@ -679,6 +683,20 @@ class AgentLoop:
         )
         self._tool_prefetch.clear()
         self._tool_calls_count += stats.tools_started
+        if self._guardrails is not None:
+            try:
+                counts = getattr(self._guardrails, "_same_tool_failure_counts", {}) or {}
+                if counts:
+                    worst_tool, worst_n = max(counts.items(), key=lambda kv: kv[1])
+                    from butler.core.reflexion_ephemeral import maybe_apply_reflexion
+
+                    maybe_apply_reflexion(
+                        self.diagnostics,
+                        tool_name=worst_tool,
+                        failure_count=int(worst_n),
+                    )
+            except Exception:
+                pass
 
     def _dispatch_tool(self, name: str, args: dict) -> str:
         def _inner(n: str, a: dict) -> str:

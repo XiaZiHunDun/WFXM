@@ -49,6 +49,7 @@ class AgentSpawnConfig:
     project_name: str | None = None
     delegate_depth: int = 0
     session_key: str = ""
+    clear_child_transcript: bool = False
 
 
 @dataclass
@@ -85,6 +86,9 @@ class TaskNode:
     router: Callable[[AgentResult], str | None] | None = None
     requires_approval: bool = False
     max_retries: int = 1
+    handoff_only: bool = True
+    clear_child_transcript: bool = False
+    supervisor_note: str = ""
 
 
 @dataclass
@@ -232,12 +236,28 @@ class TaskOrchestrator:
                 tokens_used=loop_result.total_tokens,
                 elapsed_seconds=loop_result.elapsed_seconds,
             )
+            from butler.report import enrich_report_decisions
+
+            enrich_report_decisions(report, loop_result.final_response or "")
             cache_report(report, session_key=session_key)
             success = loop_result.status.value == "completed"
 
+            response_text = loop_result.final_response or ""
+            try:
+                from butler.core.workflow_flags import workflow_clear_child_enabled
+
+                if workflow_clear_child_enabled() or config.clear_child_transcript:
+                    response_text = (
+                        report.headline
+                        or report.summary
+                        or response_text
+                    )[:2000]
+            except Exception:
+                pass
+
             result = AgentResult(
                 success=success,
-                response=loop_result.final_response or "",
+                response=response_text,
                 report=report,
                 tokens_used=loop_result.total_tokens,
                 iterations=loop_result.iterations,
@@ -348,12 +368,25 @@ class TaskOrchestrator:
                     dep_contexts = []
                     for dep_id in node.depends_on:
                         dep_result = completed.get(dep_id)
-                        if dep_result and dep_result.response:
-                            dep_contexts.append(f"[{dep_id} 结果]: {dep_result.response[:1500]}")
+                        if dep_result is None:
+                            continue
+                        block = _format_dependency_context(
+                            dep_id,
+                            dep_result,
+                            handoff_only=node.handoff_only,
+                        )
+                        if block:
+                            dep_contexts.append(block)
                     if dep_contexts:
                         node.config.context = (
                             (node.config.context or "") + "\n\n" + "\n".join(dep_contexts)
                         )
+
+                if node.supervisor_note.strip():
+                    sup = f"## Supervisor 指令\n{node.supervisor_note.strip()[:600]}"
+                    node.config.context = (
+                        (node.config.context or "") + "\n\n" + sup
+                    ).strip()
 
                 if node.requires_approval and on_approval:
                     if not on_approval(node):
@@ -448,6 +481,8 @@ class TaskOrchestrator:
         node: TaskNode,
         on_progress: Callable[[str, str, str], None] | None = None,
     ) -> AgentResult:
+        import time as _time
+
         try:
             from butler.execution_context import get_workflow_var_pool
 
@@ -458,7 +493,18 @@ class TaskOrchestrator:
             pass
         last_result = AgentResult(success=False, error="No attempts")
         for attempt in range(node.max_retries):
+            t0 = _time.perf_counter()
             last_result = await self.spawn_agent(node.config, on_progress=on_progress)
+            try:
+                from butler.ops.runtime_metrics import observe_ms
+
+                observe_ms(
+                    "workflow_step_duration_ms",
+                    (_time.perf_counter() - t0) * 1000.0,
+                    labels={"step": node.id},
+                )
+            except Exception:
+                pass
             if last_result.success:
                 return last_result
             logger.warning(
@@ -466,6 +512,30 @@ class TaskOrchestrator:
                 node.id, attempt + 1, node.max_retries,
             )
         return last_result
+
+
+def _format_dependency_context(
+    dep_id: str,
+    dep_result: AgentResult,
+    *,
+    handoff_only: bool,
+) -> str:
+    """Upstream context: handoff + report summary instead of full tool transcript."""
+    if handoff_only and dep_result.report is not None:
+        from butler.core.handoff import render_handoff_block
+
+        rep = dep_result.report
+        return render_handoff_block(
+            from_role=dep_id,
+            to_role="",
+            current_state=(rep.summary or dep_result.response or "")[:400],
+            deliverable=rep.headline or dep_id,
+            prior_report=rep,
+        )
+    text = (dep_result.response or dep_result.error or "").strip()
+    if not text:
+        return ""
+    return f"[{dep_id} 结果]: {text[:1500]}"
 
 
 def _topological_sort(nodes: list[TaskNode]) -> list[str]:

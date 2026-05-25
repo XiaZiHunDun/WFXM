@@ -19,6 +19,10 @@ class WorkflowStepDef:
     model: ModelConfig | None = None
     output_keys: list[str] = field(default_factory=lambda: ["output"])
     max_retries: int = 1
+    handoff_only: bool = True
+    clear_child_transcript: bool = False
+    output_schema: dict[str, Any] | None = None
+    supervisor_note: str = ""
 
 
 @dataclass
@@ -64,6 +68,20 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
     except (TypeError, ValueError):
         max_retries = 1
 
+    handoff_only = raw.get("handoff_only", True)
+    if isinstance(handoff_only, str):
+        handoff_only = handoff_only.strip().lower() not in ("0", "false", "no", "off")
+
+    clear_child = raw.get("clear_child_transcript", False)
+    if isinstance(clear_child, str):
+        clear_child = clear_child.strip().lower() in ("1", "true", "yes", "on")
+
+    output_schema = raw.get("output_schema")
+    if not isinstance(output_schema, dict):
+        output_schema = None
+
+    supervisor_note = str(raw.get("supervisor_note") or raw.get("supervisor") or "").strip()
+
     return WorkflowStepDef(
         id=step_id,
         role=role,
@@ -74,6 +92,10 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         model=model_cfg,
         output_keys=extract_output_keys(raw),
         max_retries=max_retries,
+        handoff_only=bool(handoff_only),
+        clear_child_transcript=bool(clear_child),
+        output_schema=output_schema,
+        supervisor_note=supervisor_note,
     )
 
 

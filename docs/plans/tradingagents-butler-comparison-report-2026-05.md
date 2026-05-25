@@ -1,6 +1,6 @@
 # Butler v4 ↔ TradingAgents 对照与提炼报告
 
-> **状态**：分析完成（2026-05-25）；**落地项未开始**（见 [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 I**、PR-F5）  
+> **状态**：分析完成（2026-05-25）；**主线 I 子集已落地**（见五报告路线图 §9、PR-F5/F6）  
 > **本地对照代码**：`reference/TradingAgents/`（gitignore，上游 [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents)）  
 > **Butler 事实来源**：`docs/architecture/v4-architecture.md`、`butler/` 实现  
 > **原则**：只借鉴**编排与上下文经济学**设计，**零新增依赖**（不引入 LangGraph / LangChain / yfinance）；金融数据层不进 `butler/core`

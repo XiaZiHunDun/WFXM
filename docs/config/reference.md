@@ -172,6 +172,22 @@
 | `BUTLER_TOKEN_COST_ESTIMATE` | 0 | `1` 时 `/诊断` 显示粗算美元成本 |
 | `BUTLER_RESEARCH_SIMPLICITY_ANCHOR` | 1 | 压缩后回灌简洁性/实验纪律锚点 |
 | `BUTLER_EXPERIMENT_CRASH_BLOCK` | 3 | 同假设连续 crash 达此次数时诊断提示阻断 |
+| `BUTLER_OUTCOME_REFLECTION` | 1 | `0` 关闭 `.butler/outcomes.tsv` 与 orchestrator 反思注入 |
+| `BUTLER_WORKFLOW_HANDOFF_ONLY` | 1 | workflow 依赖上下文默认 Handoff 块（`handoff_only: false` 可关） |
+| `BUTLER_WORKFLOW_CLEAR_CHILD` | 0 | `1` 时 DAG/委派上行仅 headline+summary，不带子 Loop 全量轨迹 |
+| `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 `.butler/observations.tsv` |
+| `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |
+| `BUTLER_SESSION_SUMMARY` | 1 | SessionEnd 写 `.butler/session_summary.json` |
+| `BUTLER_SESSIONS_LIST_LIMIT` | 20 | 微信 `/会话` 默认条数 |
+| `BUTLER_STREAM_PROBE` | 0 | `1` 时 `/诊断` 触发最小 complete 探活 |
+| `BUTLER_USAGE_PERSIST` | 1 | 用量写入 `~/.butler/usage/YYYY-MM-DD.jsonl` |
+| `BUTLER_REFLEXION_EPHEMERAL` | 0 | `1` 时同工具连续失败注入 ephemeral 反思 |
+| `BUTLER_ADVERSARIAL_MARK` | 1 | 入站消息含 injection 模式时前缀系统提示 |
+| `BUTLER_PREFETCH_INJECTION_FILTER` | 1 | 记忆预取行过滤 injection 模式 |
+| `BUTLER_MEMORY_PREREAD` | 1 | 读文件前注入 `.butler/observations.tsv` 路径摘要 |
+| `BUTLER_SESSION_SUMMARY` | 1 | 会话结束写 `.butler/session_summary.json` |
+| `BUTLER_PROVIDER_CIRCUIT` | 1 | 供应商熔断（见 `provider_health.py`） |
+| `BUTLER_PROVIDER_FAILOVER` | （空） | 全局 failover 列表，逗号分隔 `provider/model` |
 | `BUTLER_TOOL_LOOP_DETECTORS` | ping_pong,poll,circuit | 工具环检测（`off` 关闭） |
 | `BUTLER_TOOL_LOOP_CIRCUIT_LIMIT` | 40 | 单轮工具调用熔断上限 |
 | `BUTLER_TERMINAL_REQUIRE_APPROVAL` | 0 | `1` 时 terminal 须 Owner `/批准执行` |

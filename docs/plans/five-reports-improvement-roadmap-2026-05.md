@@ -1,6 +1,6 @@
 # 五份报告合并改进路线图（2026-05）
 
-> **状态**：**第 1–2 波已落地**（2026-05-25）；PR-F5/F6 待做（见 §9）  
+> **状态**：**PR-F1–F6 已落地**（2026-05-25）；运维速查 [`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md)  
 > **来源**：[`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md)、[`cc-switch-butler-analysis-2026-05.md`](cc-switch-butler-analysis-2026-05.md)、[`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md)、[`tradingagents-butler-comparison-report-2026-05.md`](tradingagents-butler-comparison-report-2026-05.md)、[`lobehub-butler-comparison-report-2026-05.md`](lobehub-butler-comparison-report-2026-05.md)  
 > **事实基线**：[`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)、[`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md)（**已收口**）、[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md)  
 > **原则**：零新增重依赖；不重复四报告 / CC 线束已落地项；不改变「微信管家 + 多项目 Agent Loop」边界
@@ -273,23 +273,28 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 | 项 | 状态 | 说明 |
 |----|------|------|
 | 主线 F P0 | ✅ | `<private>` + `butler_recall` mode=index/fetch/timeline |
-| 主线 F P1 | ⬜ | 观察者队列、PreRead、Session summary |
+| 主线 F P1 | ✅ | 观察者队列、PreRead、Session summary（`BUTLER_MEMORY_OBSERVER_QUEUE` 默认关） |
 | 主线 G P0 | ✅ | 熔断 + `filter_fallback_chain`；`butler sessions list` |
-| 主线 G P1 | ⬜ | 微信 `/会话`、流式探活、用量盘、原子写 |
-| 主线 G P2 | ⬜ | MCP/Skill SSOT |
+| 主线 G P1 | ✅ | 微信 `/会话`、流式探活、用量盘、`atomic_write` |
+| 主线 G P2 | — | MCP/Skill SSOT 大项；保留薄 MCP（`BUTLER_MCP_ENABLED`），见 §6 S5 |
 | 主线 H P0 | ✅ | `butler_system.md` 任务纪律 / RAG 忠实度 / 工具错误格式 |
-| 主线 H P1 | ⬜ | Reflexion、委派 verify、对抗加固 |
-| 主线 I P0–P1 | ⬜ | outcome log、反思注入、清子 transcript |
-| 主线 I P1 终局 schema | ⬜ | workflow `output_schema` + 枚举 parse |
+| 主线 H P1 | ✅ | Reflexion（默认关）、委派 verify 片段、prefetch/入站 injection 过滤 |
+| 主线 I P0 | ✅ | `outcomes.tsv` pending/resolve、orchestrator 注入、`/评价`、runtime METRIC 挂钩 |
+| 主线 I P1 handoff | ✅ | workflow `handoff_only` 默认、DAG 依赖 Handoff 块 |
+| 主线 I P1 clear_child | ✅ | `BUTLER_WORKFLOW_CLEAR_CHILD` + step `clear_child_transcript` |
+| 主线 I P1 终局 schema | ✅ | `output_schema` + `parse_structured_output`；完整 Pydantic 终局仍可选深化 |
+| 主线 I P2 wall time | ✅ | `workflow_step_duration_ms` → `/诊断` |
+| PR-F5 | ✅ | TA-A1/A2 + 决策解析 |
 | 主线 J P0 | ✅ | `tool_error_policy`、`security_blacklist`、`text_truncate` |
-| 主线 J P1 | ⬜ | Pipeline 步骤化、记忆 schema、Supervisor |
+| 主线 J P1 | ✅ | Pipeline 步骤化、`session_summary.json`、workflow `supervisor_note` |
 | PR-F1 | ✅ | LobeHub P0 |
 | PR-F2 | ✅ | PEG P0 |
 | PR-F3 | ✅ | claude-mem P0 |
 | PR-F4 | ✅ | cc-switch 阶段一（熔断 + sessions list） |
-| PR-F5 … PR-F6 | ⬜ | TradingAgents + LobeHub P1 子集 |
-| 文档同步 | 🟡 | `.env.example` 已补；`reference.md` / CONTRIBUTING 待补全 |
-| 运维速查 | ⬜ | 可选 [`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md) |
+| PR-F5 | ✅ | 见上 |
+| PR-F6 | ✅ | 观察者队列 + ContextPipeline 步骤诊断 + TA output_schema 子集 |
+| 文档同步 | ✅ | `reference.md`、`.env.example`、`CONTRIBUTING`、本表 |
+| 运维速查 | ✅ | [`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md) |
 
 ---
 
@@ -303,7 +308,7 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 - **更会收尾**（workflow 经济学 + outcome 反思）  
 - **更耐失败**（工具错误与截断）  
 
-推荐起步：**PR-F1 + PR-F2 + PR-F3**（第 1 波）；稳定后再 **PR-F4 + PR-F5**。
+**PR-F1–F6 已全部落地**；新需求请对照 §6「明确不做」与四报告 out-of-scope，避免重复立项。
 
 ---
 
@@ -312,3 +317,4 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 | 日期 | 说明 |
 |------|------|
 | 2026-05-25 | 初版：五报告合并路线图、主线 F–J、PR-F1–F6、out-of-scope S1–S11、§9 核对表 |
+| 2026-05-25 | §9：PR-F1–F6 落地；新增五报告能力速查 |

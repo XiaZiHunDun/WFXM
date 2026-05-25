@@ -7,7 +7,7 @@ def format_help_text() -> str:
     return """Butler 常用命令
 
 项目: /项目 /切换 /model
-状态: /状态 /诊断 /health /任务
+状态: /状态 /诊断 /health /任务 /会话
 对话: /新对话 /steer /queue /待办
 权限: /批准一次 /始终允许 <权限> /权限
       /批准执行 <命令> /确认安装 <id>
@@ -16,6 +16,7 @@ def format_help_text() -> str:
 回滚: /回滚 [保留行数]（仅 transcript，Owner）
 规划: /计划 /执行 /确认 /取消
 记忆: /记忆待审 /批准记忆 /拒绝记忆
+实验: /评价 list | /评价 <row_id> <结果> [反思]（outcome log）
 其它: /workflow /定时 /runtime /开发状态
 
 环境要点:

@@ -159,3 +159,58 @@ def register_experiment_parser(sub) -> None:
         help="BUTLER_EXPERIMENT_GIT_RESET=1 时执行 git reset --hard",
     )
     disc.set_defaults(func=_cmd_experiment_discard)
+
+    oc = exp_sub.add_parser("outcome", help="结果日志 pending/resolve")
+    oc_sub = oc.add_subparsers(dest="outcome_cmd", required=True)
+
+    oc_list = oc_sub.add_parser("list", help="列出 pending")
+    oc_list.add_argument("--project", required=True)
+    oc_list.set_defaults(func=_cmd_outcome_list)
+
+    oc_res = oc_sub.add_parser("resolve", help="标记 resolved")
+    oc_res.add_argument("--project", required=True)
+    oc_res.add_argument("--row-id", required=True)
+    oc_res.add_argument("--value", required=True)
+    oc_res.add_argument("--reflection", default="")
+    oc_res.set_defaults(func=_cmd_outcome_resolve)
+
+
+def _cmd_outcome_list(ns: argparse.Namespace) -> int:
+    console = Console()
+    ws, err = _resolve_workspace(ns.project)
+    if err:
+        console.print(f"[red]{err}[/red]")
+        return 1
+    from butler.experiments.outcomes import list_pending, outcomes_path
+
+    rows = list_pending(ws, project=str(ns.project or ""), limit=20)
+    if not rows:
+        console.print(f"无 pending: {outcomes_path(ws)}")
+        return 0
+    for r in rows:
+        console.print(
+            f"  {r.get('row_id')} | {r.get('subject')} | {r.get('hypothesis', '')[:50]}"
+        )
+    return 0
+
+
+def _cmd_outcome_resolve(ns: argparse.Namespace) -> int:
+    console = Console()
+    ws, err = _resolve_workspace(ns.project)
+    if err:
+        console.print(f"[red]{err}[/red]")
+        return 1
+    from butler.experiments.outcomes import resolve_outcome
+
+    row = resolve_outcome(
+        ws,
+        row_id=str(ns.row_id),
+        outcome_value=str(ns.value),
+        reflection=str(ns.reflection or ""),
+        project=str(ns.project or ""),
+    )
+    if row is None:
+        console.print("[red]未找到 pending 行[/red]")
+        return 1
+    console.print(f"[green]已 resolved[/green] {row.get('reflection', '')[:120]}")
+    return 0

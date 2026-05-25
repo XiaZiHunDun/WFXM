@@ -93,6 +93,24 @@ def _shared_diagnostic_lines(
             lines.extend(format_experiment_diagnostic_lines(Path(proj.workspace)))
     except Exception:
         pass
+    try:
+        from butler.ops.usage_ledger import format_usage_ledger_lines
+
+        lines.extend(format_usage_ledger_lines())
+    except Exception:
+        pass
+    try:
+        from butler.transport.stream_probe import format_stream_probe_lines
+
+        lines.extend(format_stream_probe_lines())
+    except Exception:
+        pass
+    try:
+        from butler.transport.provider_health import format_circuit_diagnostic_lines
+
+        lines.extend(format_circuit_diagnostic_lines())
+    except Exception:
+        pass
     return lines
 
 
@@ -191,6 +209,24 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
     ]
     out.extend(stale_lines + recovery_lines + _hook_diagnostic_lines(inp.session_key, health))
+    try:
+        from butler.core.pipeline_steps import format_pipeline_step_lines
+
+        out.extend(format_pipeline_step_lines(health))
+    except Exception:
+        pass
+    try:
+        from butler.transport.stream_probe import (
+            format_stream_probe_lines,
+            run_stream_probe,
+            stream_probe_enabled,
+        )
+
+        if stream_probe_enabled():
+            run_stream_probe(inp.orchestrator)
+            out.extend(format_stream_probe_lines())
+    except Exception:
+        pass
     try:
         from butler.core.schema_optimizer import schema_optimize_enabled
 

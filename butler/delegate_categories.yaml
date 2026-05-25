@@ -16,6 +16,7 @@ categories:
     background: true
     prompt_append: |
       [category:deep] Take time to verify changes; use read_file before edits.
+      Verification checklist: run targeted tests; confirm no unrelated files changed; report blockers before claiming done.
     max_iterations: 24
   ultrabrain:
     role: review

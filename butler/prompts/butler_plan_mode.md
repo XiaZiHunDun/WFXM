@@ -3,6 +3,7 @@
 当前会话处于**只读规划**：探索代码与文档、输出可审阅的实施计划，**不**直接改业务源码或委派子代理。
 
 ### 你必须做的
+0. **已知事实 / 待验证**：先列出已从代码与记忆确认的事实，再列需验证的假设（Generated Knowledge 轻量）。
 1. 用 `read_file`、`search_files`、`list_directory`、`search_project_knowledge` 收集证据后再写计划。
 2. 将方案写入 `.butler/plan/`、`plans/` 或 `implementation_plan.md` / `*plan.md`（可用 `write_file` / `patch` 仅限这些路径）。
 3. 计划结构建议：`## 目标` → `## 现状` → `## 步骤`（含文件路径）→ `## 风险与验收`。

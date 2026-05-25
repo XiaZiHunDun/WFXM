@@ -311,6 +311,12 @@ def prefetch_turn_memory(
             diagnostics["memory_prefetch_truncated"] = True
     if diagnostics is not None:
         diagnostics["memory_prefetch_chars"] = len(merged)
+    try:
+        from butler.memory.injection_guard import filter_injection_from_prefetch
+
+        merged = filter_injection_from_prefetch(merged)
+    except Exception as exc:
+        logger.debug("Prefetch injection filter skipped: %s", exc)
     if merged.strip():
         from butler.memory.prefetch_cache import set_cached_prefetch
 
@@ -739,6 +745,15 @@ def trigger_session_end(
             advance_watermark=False,
         )
         reset_post_session_watermark(orchestrator, session_id)
+        try:
+            write_session_summary_snapshot(
+                orchestrator,
+                agent_loop,
+                extract_result=result,
+                session_id=session_key,
+            )
+        except Exception as exc:
+            logger.debug("Session summary snapshot skipped: %s", exc)
         return result
     except Exception as exc:
         logger.warning("Session end processing failed: %s", exc)
@@ -784,6 +799,48 @@ def handle_new_session_command(
         extract_result=extract_result,
         purge_result=purge_result,
     )
+
+
+def write_session_summary_snapshot(
+    orchestrator: Any,
+    agent_loop: Any | None,
+    *,
+    extract_result: dict[str, Any] | None = None,
+    session_id: str = "",
+) -> None:
+    """Structured session summary for recall (claude-mem subset)."""
+    from butler.env_parse import env_truthy
+
+    if not env_truthy("BUTLER_SESSION_SUMMARY", default=True):
+        return
+    proj = orchestrator.project_manager.get_current(session_key=session_id)
+    if proj is None:
+        return
+    from pathlib import Path
+    import json
+
+    turns = 0
+    if agent_loop and hasattr(agent_loop, "messages"):
+        turns = sum(
+            1 for m in agent_loop.messages if isinstance(m, dict) and m.get("role") == "user"
+        )
+    payload = {
+        "session_id": str(session_id or ""),
+        "project": str(proj.name or ""),
+        "turns": turns,
+        "memory_updates": int((extract_result or {}).get("memory_updates") or 0),
+        "persona": [],
+        "preference": [],
+        "experience": [],
+    }
+    path = Path(proj.workspace) / ".butler" / "session_summary.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        from butler.io.atomic_write import atomic_write_text
+
+        atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2))
+    except OSError as exc:
+        logger.debug("session_summary.json write skipped: %s", exc)
 
 
 def format_session_end_summary(result: dict[str, Any] | None) -> str:
@@ -872,6 +929,15 @@ def sync_turn_memory(
                 flush_after_commit()
             except Exception:
                 pass
+        try:
+            from butler.memory.observer_queue import flush_observer_queue
+            from pathlib import Path
+
+            proj = orchestrator.project_manager.get_current(session_key=session_id)
+            if proj is not None:
+                flush_observer_queue(Path(proj.workspace))
+        except Exception:
+            pass
         return result
     except Exception as exc:
         logger.warning("Memory sync failed: %s", exc)

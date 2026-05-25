@@ -37,7 +37,7 @@
 | **LobeHub 对照报告** | [`lobehub-butler-comparison-report-2026-05.md`](lobehub-butler-comparison-report-2026-05.md) | LobeHub ↔ Butler 全量对照 + P0–P2 提炼（技能市场 REG-P4 **已落地**；Loop/UI/MCP Host **不做**） |
 | **四报告合并路线图** | [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) | 统一收敛 DESIGN / 实验组织 / Loop 减熵 / RAG（**已落地** §9） |
 | **四报告明确不做** | [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | 18 项否决能力 + 原因 + 替代方案（**新增需求前必读**） |
-| **五报告合并路线图** | [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) | claude-mem / cc-switch / PEG / TradingAgents / LobeHub → 主线 **F–J**、PR-F1–F6（**规划中**） |
+| **五报告合并路线图** | [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) | claude-mem / cc-switch / PEG / TradingAgents / LobeHub → 主线 **F–J**、PR-F1–F6（**已落地** §9） |
 | **claude-mem 对照报告** | [`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md) | 记忆渐进披露 / observer；见五报告 **主线 F** |
 | **PEG 对照报告** | [`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md) | Prompt 纪律 / 事实性；见五报告 **主线 H** |
 
@@ -52,7 +52,7 @@
 | Prompt Corpus 阶段 D/E | **已落地**；验收 [`../guides/phase-d-prompt-corpus.md`](../guides/phase-d-prompt-corpus.md) |
 | 四报告 Sprint A–D | **已落地**；验收 [`../guides/sprint-roadmap-2026-05.md`](../guides/sprint-roadmap-2026-05.md) |
 | 四报告合并路线图 PR1–PR6 | **已落地**；速查 [`../guides/four-reports-capabilities-2026-05.md`](../guides/four-reports-capabilities-2026-05.md)、§9 [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) |
-| 五报告合并路线图 PR-F1–F6 | **规划中**；[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §9 |
+| 五报告合并路线图 PR-F1–F6 | **已落地** — [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §9；速查 [`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md) |
 | Codex Sprint C0–C2 | **已落地**；`pytest tests/test_sprint_codex_c0.py tests/test_sprint_codex_c1.py tests/test_sprint_codex_c2.py` |
 | OpenCode 对标 | P0–P2 已落地（SQLite 全量模型仍暂缓） |
 | MCP P3 | 薄 Client + 诊断 + `butler mcp serve`（默认关闭） |

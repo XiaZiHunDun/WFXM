@@ -54,6 +54,13 @@ DEV_WORKFLOW_EXAMPLES = """
 5. terminal → 验证修复
 """
 
+DELEGATE_VERIFY_CHECKLIST = """
+## 委派验收清单（verification）
+- [ ] 已 read_file 关键路径或运行 pytest/构建验证
+- [ ] 结论可追溯到工具输出，非臆测
+- [ ] 若失败，说明阻塞点与建议下一步
+"""
+
 VERIFICATION_GUIDANCE = """
 ## 验证要求
 

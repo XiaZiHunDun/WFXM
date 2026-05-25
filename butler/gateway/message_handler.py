@@ -280,6 +280,13 @@ class ButlerMessageHandler:
         except Exception:
             pass
 
+        try:
+            from butler.memory.injection_guard import mark_adversarial_user_text
+
+            text = mark_adversarial_user_text(text)
+        except Exception:
+            pass
+
         _idempotency_reserved = False
 
         try:
@@ -884,6 +891,28 @@ class ButlerMessageHandler:
 
             lines.append(f"  {format_plan_mode_status(session_key).replace(chr(10), ' ')}")
             return "\n".join(lines)
+
+        if cmd in ("/会话", "/sessions"):
+            from butler.gateway.sessions_commands import handle_sessions_command
+
+            sess_out = handle_sessions_command(
+                self._orchestrator,
+                arg,
+                session_key=session_key,
+            )
+            if sess_out:
+                return sess_out
+
+        if cmd in ("/评价", "/outcome"):
+            from butler.gateway.outcome_commands import handle_outcome_command
+
+            outcome = handle_outcome_command(
+                self._orchestrator,
+                arg,
+                session_key=session_key,
+            )
+            if outcome is not None:
+                return outcome
 
         if cmd in ("/health", "/诊断"):
             return self._format_health_summary(session_key)

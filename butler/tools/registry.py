@@ -224,10 +224,30 @@ def dispatch_tool(name: str, args: dict) -> str:
     except Exception as exc:
         logger.debug("Pre tool hooks skipped: %s", exc)
 
+    call_args = dict(args)
+    if name == "read_file":
+        try:
+            from butler.core.preread_context import build_preread_block, inject_preread_into_args
+            from butler.execution_context import get_current_orchestrator
+
+            orch = get_current_orchestrator()
+            ws = None
+            if orch is not None:
+                proj = orch.project_manager.get_current()
+                if proj is not None:
+                    from pathlib import Path
+
+                    ws = Path(proj.workspace)
+            block = build_preread_block(ws, str(call_args.get("path") or ""))
+            if block:
+                call_args = inject_preread_into_args(call_args, block)
+        except Exception:
+            pass
+
     try:
         from butler.tools.tool_implicit_context import merge_implicit_tool_args
 
-        call_args = merge_implicit_tool_args(args)
+        call_args = merge_implicit_tool_args(call_args)
         result = entry.handler(**call_args)
         return _apply_post_tool_hooks(
             name,
@@ -400,6 +420,19 @@ def _maybe_record_tool_observation(
             ok=_tool_result_ok(payload),
             preview=preview,
         )
+        try:
+            from butler.memory.observer_queue import enqueue_tool_observation
+
+            path_hint = str(args.get("path") or args.get("file") or "")
+            enqueue_tool_observation(
+                session_key=sk,
+                tool=name,
+                ok=_tool_result_ok(payload),
+                preview=preview,
+                path=path_hint,
+            )
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -1752,6 +1785,14 @@ def _tool_delegate_task(
                 evidence_required=evidence_required,
             )
             context = merge_handoff_into_context(context, handoff)
+
+        try:
+            from butler.agent_profiles import DELEGATE_VERIFY_CHECKLIST
+
+            if DELEGATE_VERIFY_CHECKLIST.strip():
+                context = (context or "").rstrip() + "\n\n" + DELEGATE_VERIFY_CHECKLIST.strip()
+        except Exception:
+            pass
 
         bridge = get_gateway_bridge_optional()
         if bridge is not None:

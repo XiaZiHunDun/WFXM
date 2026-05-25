@@ -123,10 +123,14 @@ class WorkflowRunner:
                         tools=step.tools,
                         model_config=model_cfg,
                         session_key=session_key,
+                        clear_child_transcript=step.clear_child_transcript,
                     ),
                     depends_on=list(step.depends_on),
                     requires_approval=step.requires_approval,
                     max_retries=max(1, int(step.max_retries or 1)),
+                    handoff_only=step.handoff_only,
+                    clear_child_transcript=step.clear_child_transcript,
+                    supervisor_note=step.supervisor_note,
                 )
             )
         return nodes
@@ -190,7 +194,12 @@ class WorkflowRunner:
                     on_progress=progress_cb,
                     on_approval=_on_approval if needs_approval else None,
                 )
-        self._cache_workflow_report(workflow, graph, session_key=session_key)
+        self._cache_workflow_report(
+            workflow,
+            graph,
+            session_key=session_key,
+            orchestrator=orch,
+        )
         return graph
 
     def run(
@@ -218,6 +227,7 @@ class WorkflowRunner:
         graph: TaskGraphResult,
         *,
         session_key: str = "",
+        orchestrator: Any | None = None,
     ) -> None:
         ok = sum(1 for r in graph.nodes.values() if r.success)
         total = len(graph.nodes)
@@ -252,17 +262,49 @@ class WorkflowRunner:
             headline += "（有待确认步骤）"
         if graph.error:
             summary_parts.append(f"图错误: {graph.error}")
-        cache_report(
-            AgentReport(
-                headline=headline,
-                summary="\n".join(summary_parts),
-                success=graph.success,
-                task_preview=f"workflow:{workflow.name}"[:200],
-                failed_steps=failed_steps,
-                step_outcomes=step_outcomes,
-            ),
-            session_key=session_key,
+        final_report = AgentReport(
+            headline=headline,
+            summary="\n".join(summary_parts),
+            success=graph.success,
+            task_preview=f"workflow:{workflow.name}"[:200],
+            failed_steps=failed_steps,
+            step_outcomes=step_outcomes,
         )
+        from butler.report import (
+            enrich_output_schema,
+            enrich_report_decisions,
+            render_structured_output_markdown,
+        )
+
+        enrich_report_decisions(final_report, "\n".join(summary_parts))
+        last_step = workflow.steps[-1] if workflow.steps else None
+        if last_step and last_step.output_schema:
+            last_result = graph.nodes.get(last_step.id) if last_step.id in graph.nodes else None
+            text = ""
+            if last_result is not None:
+                text = last_result.response or ""
+            enrich_output_schema(final_report, text, last_step.output_schema)
+            md = render_structured_output_markdown(final_report.structured_output)
+            if md:
+                final_report.summary = (final_report.summary or "") + "\n\n" + md
+        cache_report(final_report, session_key=session_key)
+        if orchestrator is not None:
+            proj = orchestrator.project_manager.get_current(session_key=session_key)
+            if proj is not None:
+                try:
+                    from pathlib import Path
+
+                    from butler.experiments.outcomes import append_pending
+
+                    append_pending(
+                        Path(proj.workspace),
+                        project=str(proj.name or ""),
+                        subject=f"workflow:{workflow.name}",
+                        hypothesis=headline[:200],
+                        source="workflow",
+                    )
+                except Exception:
+                    pass
 
     @staticmethod
     def format_graph_summary(

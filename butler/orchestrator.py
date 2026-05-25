@@ -217,6 +217,21 @@ class ButlerOrchestrator:
             except Exception as exc:
                 logger.debug("DESIGN context inject skipped: %s", exc)
 
+        try:
+            from pathlib import Path
+
+            from butler.experiments.outcomes import format_context_for_prompt
+
+            if proj is not None:
+                outcome_block = format_context_for_prompt(
+                    Path(proj.workspace),
+                    project=str(proj.name or current or ""),
+                )
+                if outcome_block.strip():
+                    chunks.append(outcome_block.strip())
+        except Exception as exc:
+            logger.debug("Outcome context inject skipped: %s", exc)
+
         return "\n\n".join(c for c in chunks if c and str(c).strip())
 
     def build_system_prompt(self) -> str:

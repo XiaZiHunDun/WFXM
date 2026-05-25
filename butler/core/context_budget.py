@@ -72,6 +72,18 @@ def record_usage_in_diagnostics(
     diagnostics["last_usage_completion_tokens"] = int(completion_tokens or 0)
     diagnostics["last_usage_cached_tokens"] = int(cached_tokens or 0)
     diagnostics["last_usage_total_tokens"] = int(total_tokens or 0)
+    try:
+        from butler.ops.usage_ledger import record_usage_snapshot
+
+        record_usage_snapshot(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cached_tokens=cached_tokens,
+            provider=str(diagnostics.get("last_provider") or ""),
+            model=str(diagnostics.get("last_model") or ""),
+        )
+    except Exception:
+        pass
     return billable
 
 
