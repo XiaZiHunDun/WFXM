@@ -1,6 +1,6 @@
 # 外部 Agent 对标五报告 — 合并改进路线图（2026-05）
 
-> **状态**：**规划中**（2026-05-25）；对照分析已完成，**PR-X1–X6 未落地**  
+> **状态**：**PR-X1–X2 已落地**（2026-05-25）；PR-X3–X6 规划中  
 > **来源报告**：[`llamafactory-butler-comparison-report-2026-05.md`](llamafactory-butler-comparison-report-2026-05.md)、[`deer-flow-butler-comparison-report-2026-05.md`](deer-flow-butler-comparison-report-2026-05.md)、[`openhands-butler-comparison-report-2026-05.md`](openhands-butler-comparison-report-2026-05.md)、[`metagpt-butler-comparison-report-2026-05.md`](metagpt-butler-comparison-report-2026-05.md)、[`ansible-butler-comparison-2026-05.md`](ansible-butler-comparison-2026-05.md)  
 > **事实基线**：[`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)  
 > **前置已落地**：[四报告路线图](four-reports-improvement-roadmap-2026-05.md)（**已收口**）、[五报告路线图](five-reports-improvement-roadmap-2026-05.md)（**PR-F1–F6 已落地**）、[CC 线束](cc-butler-gap-analysis-2026-05.md)  

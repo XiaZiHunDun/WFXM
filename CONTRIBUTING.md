@@ -76,6 +76,9 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \
   tests/test_memory_recall_layers.py tests/test_provider_health.py tests/test_sessions_cli.py \
   tests/test_outcome_reflection.py tests/test_task_orchestrator_handoff.py tests/test_five_reports_f6.py -q
+
+# 外部 Agent 五报告（PR-X1–X2 已落地）
+PYTHONPATH=. pytest tests/test_external_agent_x1_x2.py tests/test_p2_workflow_permissions.py -q
 ```
 
 ### 两套 Hook（不要混用）

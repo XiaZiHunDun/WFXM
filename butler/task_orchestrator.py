@@ -89,6 +89,8 @@ class TaskNode:
     handoff_only: bool = True
     clear_child_transcript: bool = False
     supervisor_note: str = ""
+    optional: bool = False
+    rescue_configs: list[AgentSpawnConfig] = field(default_factory=list)
 
 
 @dataclass
@@ -356,7 +358,7 @@ class TaskOrchestrator:
                     )
                     continue
 
-                failed_dep = _first_failed_dependency(node, completed)
+                failed_dep = _first_failed_dependency(node, completed, node_map)
                 if failed_dep:
                     completed[node_id] = AgentResult(
                         success=False,
@@ -473,7 +475,9 @@ class TaskOrchestrator:
 
         graph_result.nodes = completed
         graph_result.error = "; ".join(errors)
-        graph_result.success = not errors and all(r.success for r in completed.values())
+        graph_result.success = (
+            not errors and _graph_all_required_ok(completed, node_map)
+        )
         return graph_result
 
     async def _run_with_retry(
@@ -511,7 +515,55 @@ class TaskOrchestrator:
                 "Node %s attempt %d/%d failed",
                 node.id, attempt + 1, node.max_retries,
             )
+        if not last_result.success and node.rescue_configs:
+            last_result = await self._run_rescue_steps(
+                node,
+                last_result,
+                on_progress=on_progress,
+            )
         return last_result
+
+    async def _run_rescue_steps(
+        self,
+        node: TaskNode,
+        failed: AgentResult,
+        *,
+        on_progress: Callable[[str, str, str], None] | None = None,
+    ) -> AgentResult:
+        from butler.core.workflow_flags import workflow_rescue_enabled
+
+        if not workflow_rescue_enabled():
+            return failed
+        parts = [
+            (failed.response or "").strip(),
+            f"[步骤 {node.id} 失败] {failed.error or 'unknown'}".strip(),
+        ]
+        for idx, cfg in enumerate(node.rescue_configs):
+            rescue_id = f"{node.id}__rescue_{idx}"
+            if on_progress:
+                try:
+                    on_progress(rescue_id, "start", cfg.role)
+                except Exception as exc:
+                    logger.debug("rescue on_progress: %s", exc)
+            r = await self.spawn_agent(cfg, on_progress=on_progress)
+            if on_progress:
+                try:
+                    on_progress(rescue_id, "done", cfg.role)
+                except Exception:
+                    pass
+            if r.response:
+                parts.append(f"## Rescue ({rescue_id})\n{r.response[:3000]}")
+        merged = "\n\n".join(p for p in parts if p)
+        return AgentResult(
+            success=False,
+            response=merged,
+            report=failed.report,
+            error=failed.error or "rescue_completed",
+            tokens_used=failed.tokens_used,
+            iterations=failed.iterations,
+            tool_calls=failed.tool_calls,
+            elapsed_seconds=failed.elapsed_seconds,
+        )
 
 
 def _format_dependency_context(
@@ -604,12 +656,41 @@ def _coerce_agent_result(result: AgentResult | BaseException) -> AgentResult:
     return AgentResult(success=False, error=str(result))
 
 
-def _first_failed_dependency(node: TaskNode, completed: dict[str, AgentResult]) -> str:
+def _first_failed_dependency(
+    node: TaskNode,
+    completed: dict[str, AgentResult],
+    node_map: dict[str, TaskNode],
+) -> str:
+    from butler.core.workflow_flags import workflow_optional_enabled
+
     for dep_id in node.depends_on:
         dep_result = completed.get(dep_id)
         if dep_result is not None and not dep_result.success:
+            dep_node = node_map.get(dep_id)
+            if (
+                workflow_optional_enabled()
+                and dep_node is not None
+                and dep_node.optional
+            ):
+                continue
             return dep_id
     return ""
+
+
+def _graph_all_required_ok(
+    completed: dict[str, AgentResult],
+    node_map: dict[str, TaskNode],
+) -> bool:
+    from butler.core.workflow_flags import workflow_optional_enabled
+
+    for nid, result in completed.items():
+        node = node_map.get(nid)
+        if result.success:
+            continue
+        if workflow_optional_enabled() and node is not None and node.optional:
+            continue
+        return False
+    return True
 
 
 def _first_cancelled_dependency(node: TaskNode, cancelled: set[str]) -> str:

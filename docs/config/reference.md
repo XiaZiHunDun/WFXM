@@ -175,6 +175,12 @@
 | `BUTLER_OUTCOME_REFLECTION` | 1 | `0` 关闭 `.butler/outcomes.tsv` 与 orchestrator 反思注入 |
 | `BUTLER_WORKFLOW_HANDOFF_ONLY` | 1 | workflow 依赖上下文默认 Handoff 块（`handoff_only: false` 可关） |
 | `BUTLER_WORKFLOW_CLEAR_CHILD` | 0 | `1` 时 DAG/委派上行仅 headline+summary，不带子 Loop 全量轨迹 |
+| `BUTLER_WORKFLOW_RESCUE` | 1 | `1` 时步骤失败且 YAML 含 `rescue_steps` 时跑补救子步骤 |
+| `BUTLER_WORKFLOW_OPTIONAL` | 1 | `1` 时 `optional: true` 步骤失败不阻断依赖方（Ansible ignore_errors 子集） |
+| `BUTLER_WORKFLOW_RUN_SNAPSHOT` | 1 | 写入 `.butler/workflow_runs/<workflow>-latest.json` |
+| `BUTLER_COMPACT_SKILL_PRESERVE` | 1 | 压缩前保留最近 skill 读取 tool 对 |
+| `BUTLER_SAFETY_FINISH_GUARD` | 1 | `content_filter` 等 finish_reason 时忽略 tool_calls |
+| `BUTLER_FINISH_TOOL_TRUNCATE` | 1 | 同轮 `finish` 工具后截断多余 tool_calls |
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 `.butler/observations.tsv` |
 | `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | SessionEnd 写 `.butler/session_summary.json` |

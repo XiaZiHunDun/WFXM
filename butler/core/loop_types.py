@@ -15,6 +15,8 @@ class LoopStatus(str, Enum):
     TOOL_LIMIT = "tool_limit"
     ERROR = "error"
     INTERRUPTED = "interrupted"
+    WAITING_CONFIRMATION = "waiting_confirmation"
+    STUCK = "stuck"
 
 
 class LoopTransitionReason(str, Enum):
@@ -33,6 +35,9 @@ class LoopTransitionReason(str, Enum):
     TOKEN_BUDGET_CONTINUE = "token_budget_continue"
     PROMPT_TOO_LONG = "prompt_too_long"
     MAX_OUTPUT_RECOVERY = "max_output_recovery"
+    SAFETY_FINISH = "safety_finish"
+    WAITING_CONFIRMATION = "waiting_confirmation"
+    STUCK = "stuck"
     UNKNOWN = "unknown"
 
 

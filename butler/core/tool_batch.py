@@ -79,6 +79,15 @@ def process_tool_calls(
     if not response.tool_calls:
         return ToolBatchStats()
 
+    try:
+        from butler.core.finish_tool_truncate import truncate_tool_calls_at_finish
+
+        truncated = truncate_tool_calls_at_finish(list(response.tool_calls))
+        if len(truncated) < len(response.tool_calls):
+            response.tool_calls = truncated
+    except Exception:
+        pass
+
     if callbacks.on_stream_boundary:
         callbacks.on_stream_boundary()
 

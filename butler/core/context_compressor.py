@@ -245,6 +245,16 @@ def compress_messages(
         pass
 
     pruned = _prune_tool_outputs(messages)
+    skill_rescued: list[dict] = []
+    try:
+        from butler.core.skill_compact_rescue import (
+            extract_skill_rescue_messages,
+            merge_skill_rescue_into_tail,
+        )
+
+        pruned, skill_rescued = extract_skill_rescue_messages(pruned)
+    except Exception as exc:
+        logger.debug("Skill compact rescue skipped: %s", exc)
     replay_user = None
     if overflow_replay:
         try:
@@ -283,6 +293,9 @@ def compress_messages(
         )
 
     if not middle:
+        if skill_rescued:
+            head_tail = merge_skill_rescue_into_tail(head_tail, skill_rescued)
+            return system + head_tail, previous_summary, False
         return pruned, previous_summary, False
 
     middle = truncate_tool_responses_to_budget(middle)
@@ -303,6 +316,16 @@ def compress_messages(
         compressed = apply_summary_placement(system, head_tail, summary_msg, injection)
     except Exception:
         compressed = system + [summary_msg] + head_tail
+    if skill_rescued:
+        try:
+            from butler.core.skill_compact_rescue import merge_skill_rescue_into_tail
+
+            tail_only = [m for m in compressed if m.get("role") != "system"]
+            system_only = [m for m in compressed if m.get("role") == "system"]
+            tail_only = merge_skill_rescue_into_tail(tail_only, skill_rescued)
+            compressed = system_only + tail_only
+        except Exception as exc:
+            logger.debug("Skill rescue merge skipped: %s", exc)
     if overflow_replay and replay_user:
         try:
             from butler.core.turn_compaction import append_overflow_replay

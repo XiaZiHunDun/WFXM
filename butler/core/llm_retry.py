@@ -100,6 +100,19 @@ def call_llm_with_retry(
 
             response = sanitize_response(response)
             try:
+                from butler.core.safety_finish import safety_finish_user_message
+
+                safety_msg = safety_finish_user_message(response)
+                if safety_msg:
+                    response.tool_calls = None
+                    response.content = safety_msg
+                    response.finish_reason = "stop"
+                    if callbacks.on_llm_complete:
+                        callbacks.on_llm_complete(response)
+                    return response, False
+            except Exception:
+                pass
+            try:
                 from butler.ops.runtime_metrics import inc, observe_ms
 
                 observe_ms(

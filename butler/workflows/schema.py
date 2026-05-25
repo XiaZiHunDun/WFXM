@@ -23,6 +23,8 @@ class WorkflowStepDef:
     clear_child_transcript: bool = False
     output_schema: dict[str, Any] | None = None
     supervisor_note: str = ""
+    optional: bool = False
+    rescue_steps: list["WorkflowStepDef"] = field(default_factory=list)
 
 
 @dataclass
@@ -82,6 +84,22 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
 
     supervisor_note = str(raw.get("supervisor_note") or raw.get("supervisor") or "").strip()
 
+    optional = raw.get("optional", False)
+    if isinstance(optional, str):
+        optional = optional.strip().lower() in ("1", "true", "yes", "on")
+
+    rescue_steps: list[WorkflowStepDef] = []
+    rescue_raw = raw.get("rescue_steps") or raw.get("rescue") or []
+    if isinstance(rescue_raw, list):
+        for idx, item in enumerate(rescue_raw):
+            if not isinstance(item, dict):
+                continue
+            rid = str(item.get("id") or f"{step_id}_rescue_{idx}").strip()
+            merged = {**item, "id": rid}
+            rs = parse_step(merged)
+            if rs is not None:
+                rescue_steps.append(rs)
+
     return WorkflowStepDef(
         id=step_id,
         role=role,
@@ -96,6 +114,8 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         clear_child_transcript=bool(clear_child),
         output_schema=output_schema,
         supervisor_note=supervisor_note,
+        optional=bool(optional),
+        rescue_steps=rescue_steps,
     )
 
 

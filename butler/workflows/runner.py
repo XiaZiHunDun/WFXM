@@ -13,6 +13,24 @@ from butler.workflows.schema import WorkflowDef
 logger = logging.getLogger(__name__)
 
 
+def _rescue_spawn_configs(step: Any, *, session_key: str = "") -> list[AgentSpawnConfig]:
+    from butler.model_resolve import workflow_step_spawn_model_config
+
+    configs: list[AgentSpawnConfig] = []
+    for rs in getattr(step, "rescue_steps", None) or []:
+        model_cfg = workflow_step_spawn_model_config(rs.model)
+        configs.append(
+            AgentSpawnConfig(
+                role=rs.role,
+                task=rs.task,
+                tools=rs.tools,
+                model_config=model_cfg,
+                session_key=session_key,
+            )
+        )
+    return configs
+
+
 def _workflow_progress_callback(
     workflow_name: str,
     total_steps: int,
@@ -131,6 +149,8 @@ class WorkflowRunner:
                     handoff_only=step.handoff_only,
                     clear_child_transcript=step.clear_child_transcript,
                     supervisor_note=step.supervisor_note,
+                    optional=step.optional,
+                    rescue_configs=_rescue_spawn_configs(step, session_key=session_key),
                 )
             )
         return nodes
@@ -200,6 +220,23 @@ class WorkflowRunner:
             session_key=session_key,
             orchestrator=orch,
         )
+        try:
+            proj = orch.project_manager.get_current(session_key=session_key)
+            if proj is not None:
+                from pathlib import Path
+
+                from butler.workflows.workflow_run_snapshot import (
+                    write_workflow_run_snapshot,
+                )
+
+                write_workflow_run_snapshot(
+                    Path(proj.workspace),
+                    workflow.name,
+                    graph,
+                    session_key=session_key,
+                )
+        except Exception as exc:
+            logger.debug("workflow_run snapshot skipped: %s", exc)
         return graph
 
     def run(
@@ -277,7 +314,8 @@ class WorkflowRunner:
         )
 
         enrich_report_decisions(final_report, "\n".join(summary_parts))
-        last_step = workflow.steps[-1] if workflow.steps else None
+        steps = getattr(workflow, "steps", None) or []
+        last_step = steps[-1] if steps else None
         if last_step and last_step.output_schema:
             last_result = graph.nodes.get(last_step.id) if last_step.id in graph.nodes else None
             text = ""
