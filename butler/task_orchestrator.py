@@ -259,7 +259,13 @@ class TaskOrchestrator:
         if on_progress:
             try:
                 status_label = "done" if result.success else "failed"
-                on_progress(task_id, status_label, config.role)
+                preview = ""
+                if status_label != "start":
+                    preview = (result.response or result.error or "")[:500]
+                try:
+                    on_progress(task_id, status_label, config.role, preview)
+                except TypeError:
+                    on_progress(task_id, status_label, config.role)
             except Exception as exc:
                 logger.debug("on_progress end failed: %s", exc)
 
@@ -442,6 +448,14 @@ class TaskOrchestrator:
         node: TaskNode,
         on_progress: Callable[[str, str, str], None] | None = None,
     ) -> AgentResult:
+        try:
+            from butler.execution_context import get_workflow_var_pool
+
+            pool = get_workflow_var_pool()
+            if pool is not None:
+                node.config.task = pool.interpolate(node.config.task)  # type: ignore[attr-defined]
+        except Exception:
+            pass
         last_result = AgentResult(success=False, error="No attempts")
         for attempt in range(node.max_retries):
             last_result = await self.spawn_agent(node.config, on_progress=on_progress)

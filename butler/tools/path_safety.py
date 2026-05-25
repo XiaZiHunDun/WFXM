@@ -91,7 +91,9 @@ def current_workspace_root() -> Path | None:
         )
         workspace = getattr(project, "workspace", None)
         if workspace:
-            return Path(workspace).expanduser().resolve()
+            from butler.project_worktree import effective_workspace
+
+            return effective_workspace(Path(workspace))
     except Exception:
         return None
     return None
@@ -108,6 +110,14 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
         return PathSafetyResult(False, resolved, sensitive_error)
 
     if root is not None and not _is_relative_to(resolved, root):
+        try:
+            from butler.permissions import check_external_path_override
+
+            override = check_external_path_override(str(resolved), for_write=for_write)
+            if override is not None and override.allowed:
+                return PathSafetyResult(True, resolved)
+        except Exception:
+            pass
         return PathSafetyResult(
             False,
             resolved,

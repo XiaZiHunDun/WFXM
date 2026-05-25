@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 _LOCK = threading.RLock()
 _SUBDIR = "sessions"
+_TODO_PRIORITIES = ("high", "medium", "low")
+_PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
 
 
 def session_todos_enabled() -> bool:
@@ -71,8 +73,16 @@ def _normalize_item(raw: Any, position: int) -> dict[str, str] | None:
     status = str(raw.get("status") or "pending").strip().lower()
     if status not in ("pending", "in_progress", "completed", "cancelled"):
         status = "pending"
+    priority = str(raw.get("priority") or "medium").strip().lower()
+    if priority not in _TODO_PRIORITIES:
+        priority = "medium"
     item_id = str(raw.get("id") or position).strip() or str(position)
-    return {"id": item_id[:32], "content": content[:500], "status": status}
+    return {
+        "id": item_id[:32],
+        "content": content[:500],
+        "status": status,
+        "priority": priority,
+    }
 
 
 def replace_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
@@ -135,7 +145,20 @@ def _apply_merge_patch(existing: dict[str, dict[str, str]], raw: Any) -> bool:
     status = str(raw.get("status") or "").strip().lower()
     if status in ("pending", "in_progress", "completed", "cancelled"):
         existing[iid]["status"] = status
+    priority = str(raw.get("priority") or "").strip().lower()
+    if priority in _TODO_PRIORITIES:
+        existing[iid]["priority"] = priority
     return True
+
+
+def _sort_todos(items: list[dict[str, str]]) -> list[dict[str, str]]:
+    return sorted(
+        items,
+        key=lambda t: (
+            _PRIORITY_RANK.get(str(t.get("priority") or "medium"), 1),
+            str(t.get("id") or ""),
+        ),
+    )
 
 
 def merge_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
@@ -175,12 +198,16 @@ def load_session_todos(session_key: str) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for row in items:
         if isinstance(row, dict) and row.get("content"):
+            pr = str(row.get("priority") or "medium").strip().lower()
+            if pr not in _TODO_PRIORITIES:
+                pr = "medium"
             out.append({
                 "id": str(row.get("id") or ""),
                 "content": str(row.get("content") or ""),
                 "status": str(row.get("status") or "pending"),
+                "priority": pr,
             })
-    return out
+    return _sort_todos(out)
 
 
 def format_open_todos_anchor(session_key: str = "", *, limit: int = 8) -> str:
@@ -194,8 +221,8 @@ def format_open_todos_anchor(session_key: str = "", *, limit: int = 8) -> str:
     if not items:
         return ""
     lines = [
-        f"- [{t.get('id')}] {t.get('content', '')[:120]}"
-        for t in items[:limit]
+        f"- [{t.get('priority', 'medium')}] [{t.get('id')}] {t.get('content', '')[:120]}"
+        for t in _sort_todos(items)[:limit]
     ]
     if len(items) > limit:
         lines.append(f"- … 另有 {len(items) - limit} 条未完成")
@@ -207,13 +234,14 @@ def format_session_todos_for_wechat(session_key: str, *, limit: int = 10) -> str
     if not items:
         return "会话待办: (空) — 可用工具 session_todos_write / session_todos_list"
     lines = ["会话待办:"]
-    for row in items[: max(1, limit)]:
+    for row in _sort_todos(items)[: max(1, limit)]:
         mark = {
             "completed": "✓",
             "cancelled": "✗",
             "in_progress": "…",
         }.get(row.get("status", ""), "○")
-        lines.append(f"  {mark} [{row.get('id')}] {row.get('content', '')[:80]}")
+        pr = row.get("priority") or "medium"
+        lines.append(f"  {mark} [{pr}] [{row.get('id')}] {row.get('content', '')[:80]}")
     if len(items) > limit:
         lines.append(f"  … 另有 {len(items) - limit} 条")
     return "\n".join(lines)

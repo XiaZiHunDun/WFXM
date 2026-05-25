@@ -1,0 +1,20 @@
+{
+  "name": "butler-demo-marketplace",
+  "owner": { "name": "Butler" },
+  "plugins": [
+    {
+      "name": "demo-pdf",
+      "description": "Demo directory skill with SKILL.md and reference",
+      "version": "1.0.0",
+      "source": "./plugins/demo-pdf",
+      "skills": ["./plugins/demo-pdf"]
+    },
+    {
+      "name": "demo-flat",
+      "description": "Demo single-file skill",
+      "version": "1.0.0",
+      "source": "./plugins/demo-flat",
+      "commands": ["./plugins/demo-flat/SKILL.md"]
+    }
+  ]
+}

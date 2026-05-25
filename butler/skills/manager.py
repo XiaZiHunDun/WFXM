@@ -84,7 +84,7 @@ def _parse_skill_frontmatter(frontmatter: str, path: Path, source: str) -> Optio
     if isinstance(triggers, str):
         triggers = [triggers]
     triggers = [str(t) for t in triggers]
-    return {
+    out: dict[str, Any] = {
         "name": name,
         "description": str(fm.get("description", "")),
         "triggers": triggers,
@@ -93,6 +93,10 @@ def _parse_skill_frontmatter(frontmatter: str, path: Path, source: str) -> Optio
         "_path": path,
         "_source": source,
     }
+    if str(fm.get("install_type") or "") == "directory":
+        out["install_type"] = "directory"
+        out["content_path"] = str(fm.get("content_path") or "")
+    return out
 
 
 def _read_frontmatter_only(path: Path) -> Optional[str]:
@@ -174,6 +178,11 @@ class SkillManager:
         shutil.move(str(path), str(dest))
         logger.info("Archived skill file %s -> %s", path, dest)
 
+    def _skills_root_for(self, path: Path, source: str) -> Path:
+        if source == "global" and self._global_skills_dir is not None:
+            return self._global_skills_dir
+        return self._skills_dir
+
     def _iter_skill_files(self) -> list[tuple[Path, str]]:
         out: list[tuple[Path, str]] = []
         if self._global_skills_dir is not None:
@@ -187,16 +196,51 @@ class SkillManager:
             out.append((p, "project"))
         return out
 
+    def _load_skill_from_path(self, path: Path, source: str) -> Optional[dict[str, Any]]:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as e:
+            logger.warning("Could not read %s: %s", path, e)
+            return None
+        sk = _parse_skill_md(text, path, source)
+        if not sk:
+            return None
+        fm_text = _read_frontmatter_only(path)
+        if fm_text:
+            try:
+                fm = yaml.safe_load(fm_text) or {}
+            except yaml.YAMLError:
+                fm = {}
+            if isinstance(fm, dict) and str(fm.get("install_type") or "") == "directory":
+                rel = str(fm.get("content_path") or "").strip()
+                if rel:
+                    root = self._skills_root_for(path, source)
+                    content_path = (root / rel).resolve()
+                    try:
+                        content_path.relative_to(root.resolve())
+                    except ValueError:
+                        logger.warning("Skill content_path escapes skills root: %s", rel)
+                        return sk
+                    if content_path.is_file():
+                        inner = _parse_skill_md(
+                            content_path.read_text(encoding="utf-8"),
+                            content_path,
+                            source,
+                        )
+                        if inner:
+                            sk["description"] = str(
+                                fm.get("description") or inner.get("description") or ""
+                            )
+                            sk["triggers"] = inner.get("triggers") or sk.get("triggers") or []
+                            sk["content"] = inner.get("content") or ""
+                            sk["_content_path"] = content_path
+        return sk
+
     def _load_all(self) -> list[dict[str, Any]]:
         seen: dict[str, dict[str, Any]] = {}
         order: list[str] = []
         for path, source in self._iter_skill_files():
-            try:
-                text = path.read_text(encoding="utf-8")
-            except OSError as e:
-                logger.warning("Could not read %s: %s", path, e)
-                continue
-            sk = _parse_skill_md(text, path, source)
+            sk = self._load_skill_from_path(path, source)
             if not sk:
                 continue
             name = sk["name"]

@@ -94,6 +94,10 @@ def _split_head_tail(
             break
 
     middle_end = len(rest) - len(tail)
+    from butler.core.compaction_cutoff import find_safe_tail_start
+
+    middle_end = find_safe_tail_start(rest, middle_end)
+    tail = rest[middle_end:]
     middle = rest[head_count:middle_end] if middle_end > head_count else []
     return system, middle, head + tail
 
@@ -146,6 +150,8 @@ def compress_messages(
     head_count: int = 3,
     max_tail_messages: int = 12,
     min_tail_messages: int = 4,
+    overflow_replay: bool = False,
+    max_output_tokens: int | None = None,
 ) -> tuple[list[dict], str, bool]:
     """Compress messages if over threshold. Returns (messages, summary, did_compress)."""
     estimated = _estimate_tokens(messages)
@@ -167,12 +173,42 @@ def compress_messages(
         pass
 
     pruned = _prune_tool_outputs(messages)
-    system, middle, head_tail = _split_head_tail(
-        pruned,
-        head_count=head_count,
-        max_tail_messages=max_tail_messages,
-        min_tail_messages=min_tail_messages,
-    )
+    replay_user = None
+    if overflow_replay:
+        try:
+            from butler.core.turn_compaction import find_overflow_replay_user
+
+            replay_user = find_overflow_replay_user(pruned)
+        except Exception:
+            pass
+
+    try:
+        from butler.core.turn_compaction import split_head_tail_turns, turn_compaction_enabled
+
+        if turn_compaction_enabled():
+            system, middle, head_tail = split_head_tail_turns(
+                pruned,
+                max_context_tokens=max_tokens,
+                max_output_tokens=max_output_tokens,
+                head_count=head_count,
+                min_tail_messages=min_tail_messages,
+                estimate_fn=_estimate_tokens,
+            )
+        else:
+            system, middle, head_tail = _split_head_tail(
+                pruned,
+                head_count=head_count,
+                max_tail_messages=max_tail_messages,
+                min_tail_messages=min_tail_messages,
+            )
+    except Exception as exc:
+        logger.debug("Turn compaction fallback: %s", exc)
+        system, middle, head_tail = _split_head_tail(
+            pruned,
+            head_count=head_count,
+            max_tail_messages=max_tail_messages,
+            min_tail_messages=min_tail_messages,
+        )
 
     if not middle:
         return pruned, previous_summary, False
@@ -181,6 +217,13 @@ def compress_messages(
     summary_msg = {"role": "user", "content": SUMMARY_PREFIX + summary}
 
     compressed = system + [summary_msg] + head_tail
+    if overflow_replay and replay_user:
+        try:
+            from butler.core.turn_compaction import append_overflow_replay
+
+            compressed = append_overflow_replay(compressed, replay_user)
+        except Exception:
+            pass
     logger.info(
         "Context compressed: %d→%d msgs, ~%d→%d tokens",
         len(messages), len(compressed), estimated, _estimate_tokens(compressed),

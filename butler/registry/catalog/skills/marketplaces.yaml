@@ -1,0 +1,7 @@
+version: 1
+marketplaces:
+  - id: demo
+    title: Butler Registry Demo Marketplace
+    description: 内置示例（本地 JSON，用于测试 marketplace 适配器）
+    trust: builtin
+    path: marketplace-demo.json

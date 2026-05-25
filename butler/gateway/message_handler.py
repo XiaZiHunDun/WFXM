@@ -109,6 +109,14 @@ class ButlerMessageHandler:
         return env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True)
 
     def _interrupt_session_loop(self, session_key: str) -> None:
+        try:
+            from butler.runtime.delegate_registry import interrupt_delegates_for_session
+
+            n = interrupt_delegates_for_session(session_key)
+            if n:
+                logger.info("Gateway interrupted %d delegate loop(s) session=%s", n, session_key)
+        except Exception as exc:
+            logger.debug("Delegate interrupt skipped: %s", exc)
         loop = self._sessions.get(session_key)
         if loop is not None and hasattr(loop, "interrupt"):
             try:
@@ -259,8 +267,36 @@ class ButlerMessageHandler:
             pass
 
         try:
+            from butler.gateway.permission_commands import handle_permission_command
+
+            perm_reply = handle_permission_command(
+                text,
+                platform=platform,
+                external_id=external_id,
+                session_key=session_key,
+            )
+            if perm_reply is not None:
+                return perm_reply
+        except Exception:
+            pass
+
+        try:
             from butler.tools.terminal_approval import parse_approve_command, store_approval
 
+            pattern_raw = (text or "").strip()
+            for prefix in ("/批准模式", "/approve-pattern"):
+                if pattern_raw.lower().startswith(prefix.lower()):
+                    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
+                    if not is_gateway_owner(platform=platform, external_id=external_id):
+                        return owner_required_message()
+                    pat = pattern_raw[len(prefix) :].strip()
+                    if not pat:
+                        return "用法: /批准模式 <rm_rf|curl_pipe_sh|chmod_777|...>"
+                    from butler.tools.terminal_pattern_approval import approve_pattern
+
+                    approve_pattern(session_key, pat)
+                    return f"已批准本会话 terminal 危险模式「{pat}」（24h 内同类命令可放行）。"
             cmd = parse_approve_command(text)
             if cmd is not None:
                 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
@@ -278,6 +314,19 @@ class ButlerMessageHandler:
             gate_reply = resolve_human_gate_message(session_key, text)
             if gate_reply is not None:
                 return gate_reply
+        except Exception:
+            pass
+
+        if _is_prequeue_interrupt_command(text):
+            self._interrupt_session_loop(session_key)
+            return "已请求停止当前会话任务（含进行中的委派）。"
+
+        try:
+            from butler.core.auto_continue import resolve_auto_continue_user_message
+
+            continued = resolve_auto_continue_user_message(session_key, text)
+            if continued:
+                text = continued
         except Exception:
             pass
 
@@ -465,6 +514,15 @@ class ButlerMessageHandler:
                 session_key=session_key,
                 orchestrator=self._orchestrator,
             )
+            ephemeral_system = None
+            try:
+                from butler.core.intent_keywords import detect_intent_banner
+
+                ephemeral_system = detect_intent_banner(text)
+                if ephemeral_system:
+                    health["intent_keyword_banner"] = True
+            except Exception:
+                pass
             if prompt_hooks.additional_context:
                 hook_ctx = "\n\n".join(prompt_hooks.additional_context)
                 augmented = f"{hook_ctx}\n\n{augmented}"
@@ -505,13 +563,59 @@ class ButlerMessageHandler:
                     diagnostics=health,
                 )
                 run_callbacks = _gateway_run_callbacks()
-                if run_callbacks is not None:
-                    result = loop.run(augmented, run_callbacks=run_callbacks)
-                else:
-                    result = loop.run(augmented)
+
+                def _run_turn(msg: str) -> LoopResult:
+                    run_kwargs: dict[str, Any] = {}
+                    if ephemeral_system:
+                        run_kwargs["ephemeral_system"] = ephemeral_system
+                    try:
+                        if run_callbacks is not None:
+                            return loop.run(
+                                msg,
+                                run_callbacks=run_callbacks,
+                                **run_kwargs,
+                            )
+                        return loop.run(msg, **run_kwargs)
+                    except TypeError:
+                        if run_callbacks is not None:
+                            return loop.run(msg, run_callbacks=run_callbacks)
+                        return loop.run(msg)
+
+                try:
+                    from butler.core.todo_continuation import run_with_todo_continuation
+                    from butler.core.goal_loop import maybe_run_goal_continuation
+
+                    result = run_with_todo_continuation(
+                        loop,
+                        augmented,
+                        session_key,
+                        run_fn=_run_turn,
+                        run_callbacks=run_callbacks,
+                    )
+                    result = maybe_run_goal_continuation(
+                        loop,
+                        result,
+                        session_key,
+                        run_fn=_run_turn,
+                    )
+                except Exception as exc:
+                    logger.debug("Todo/goal continuation fallback: %s", exc)
+                    result = _run_turn(augmented)
                 health["loop"] = dict(getattr(result, "diagnostics", {}) or {})
                 if getattr(result, "transition_reason", ""):
                     health["loop_transition_reason"] = result.transition_reason
+                if result.status == LoopStatus.INTERRUPTED:
+                    try:
+                        from butler.core.auto_continue import capture_auto_continue_pending
+
+                        capture_auto_continue_pending(
+                            session_key,
+                            user_preview=augmented,
+                            reason="interrupt",
+                            diagnostics=health.get("loop") if isinstance(health.get("loop"), dict) else None,
+                        )
+                    except Exception:
+                        pass
                 sync_result = sync_turn_memory(
                     self._orchestrator,
                     text,
@@ -537,6 +641,7 @@ class ButlerMessageHandler:
                 br = get_current_bridge()
                 if br is not None:
                     br.record_turn_elapsed(turn_elapsed)
+                    health["outbound_events"] = br.recent_outbound_events()[-8:]
                 logger.info(
                     "Gateway turn done session=%s elapsed=%.1fs out_len=%d",
                     session_key,
@@ -693,6 +798,16 @@ class ButlerMessageHandler:
         if cmd in ("/health", "/诊断"):
             return self._format_health_summary(session_key)
 
+        if cmd in ("/循环", "/loop"):
+            from butler.core.goal_loop import start_goal_loop
+
+            return start_goal_loop(session_key, arg)
+
+        if cmd in ("/停止循环", "/stoploop"):
+            from butler.core.goal_loop import stop_goal_loop
+
+            return stop_goal_loop(session_key)
+
         if cmd in ("/doctor",):
             from butler.ops.security_audit import format_audit_report, run_security_audit
 
@@ -773,6 +888,11 @@ class ButlerMessageHandler:
                 clear_session_override(session_key)
                 clear_session_gates(session_key)
                 reset_instruction_claims(session_key=session_key)
+                from butler.core.goal_loop import clear_state as clear_goal_loop
+                from butler.core.compaction_checkpoint import clear_checkpoint
+
+                clear_goal_loop(session_key)
+                clear_checkpoint(session_key)
             except Exception:
                 pass
             return handle_new_session_command(self._orchestrator, session_key, loop)
@@ -809,6 +929,63 @@ class ButlerMessageHandler:
 
             return format_session_todos_for_wechat(session_key)
 
+        if cmd in ("/导出", "/export", "/export-session", "/导出会话"):
+            from butler.gateway.export_commands import handle_export_session_command
+
+            return handle_export_session_command(
+                arg,
+                platform=platform,
+                external_id=external_id,
+                session_key=session_key,
+            )
+
+        if cmd in ("/回滚", "/transcript-revert", "/revert-transcript"):
+            from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+            from butler.core.transcript_revert import truncate_transcript
+
+            if not is_gateway_owner(platform=platform, external_id=external_id, session_key=session_key):
+                return owner_required_message()
+            keep = 0
+            if arg.strip().isdigit():
+                keep = int(arg.strip())
+            result = truncate_transcript(session_key, keep_last_lines=keep or None)
+            if not result.get("ok"):
+                return f"Transcript 回滚失败: {result.get('error', '?')}"
+            if result.get("skipped"):
+                return f"Transcript 无需回滚（当前 {result.get('lines_after', '?')} 行）"
+            return (
+                f"已截断 transcript：丢弃 {result.get('dropped_lines', 0)} 行，"
+                f"保留约 {result.get('lines_after', 0)} 行（不含内存中的对话）。"
+            )
+
+        if cmd in ("/确认安装", "/confirm-install"):
+            from butler.gateway.registry_commands import handle_confirm_install_command
+
+            return handle_confirm_install_command(
+                arg,
+                platform=platform,
+                external_id=external_id,
+                session_key=session_key,
+            )
+
+        if cmd in ("/技能", "/skills", "/mcp"):
+            from butler.gateway.registry_commands import handle_registry_command
+
+            reg = handle_registry_command(
+                cmd,
+                arg,
+                platform=platform,
+                external_id=external_id,
+                session_key=session_key,
+            )
+            if reg is not None:
+                return reg
+
+        if cmd in ("/帮助", "/help"):
+            from butler.gateway.help_commands import format_help_text
+
+            return format_help_text()
+
         if cmd in ("/tasks", "/任务"):
             from butler.runtime.task_store import list_recent_tasks
 
@@ -822,8 +999,9 @@ class ButlerMessageHandler:
                 mark = "✓" if ok is True else ("✗" if ok is False else "…")
                 child_sk = str(row.get("child_session_key") or "").strip()
                 child_hint = f" · {child_sk}" if child_sk else ""
+                bg = " [后台]" if row.get("background") else ""
                 lines.append(
-                    f"  {mark} {row.get('task_id')} [{status}]{child_hint} "
+                    f"  {mark} {row.get('task_id')} [{status}]{bg}{child_hint} "
                     f"{(row.get('task_preview') or '')[:60]}"
                 )
             return "\n".join(lines)
@@ -1030,10 +1208,30 @@ def _gateway_run_callbacks() -> LoopCallbacks | None:
     bridge = get_current_bridge()
     if bridge is None:
         return None
+
+    def _on_stream_delta(chunk: str) -> None:
+        bridge.append_stream_preview(chunk)
+
     return LoopCallbacks(
         on_tool_start=bridge.on_tool_start,
         on_tool_complete=bridge.on_tool_complete,
+        on_stream_delta=_on_stream_delta,
     )
+
+
+def _is_prequeue_interrupt_command(text: str) -> bool:
+    stripped = (text or "").strip().lower()
+    if not stripped.startswith("/"):
+        return False
+    cmd = stripped.split(maxsplit=1)[0]
+    return cmd in {
+        "/stop",
+        "/停止",
+        "/中断",
+        "/cancel-loop",
+        "/停止循环",
+        "/stoploop",
+    }
 
 
 def _env_int(name: str, default: int) -> int:
@@ -1071,6 +1269,12 @@ def _is_sessionless_command(text: str) -> bool:
         "/steer",
         "/指引",
         "/queue",
+        "/stop",
+        "/停止",
+        "/中断",
+        "/cancel-loop",
+        "/continue",
+        "/继续",
         "/确认",
         "/approve",
         "/取消",
@@ -1088,6 +1292,21 @@ def _is_sessionless_command(text: str) -> bool:
         "/待办",
         "/tasks",
         "/任务",
+        "/帮助",
+        "/help",
+        "/导出",
+        "/export",
+        "/export-session",
+        "/导出会话",
+        "/回滚",
+        "/transcript-revert",
+        "/revert-transcript",
+        "/批准一次",
+        "/approve-once",
+        "/始终允许",
+        "/always-allow",
+        "/权限",
+        "/permissions",
         "/workflow",
         "/工作流",
         "/定时",

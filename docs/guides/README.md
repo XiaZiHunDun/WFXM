@@ -5,6 +5,12 @@
 | 文档 | 用途 |
 |------|------|
 | [wechat-gateway-ops.md](./wechat-gateway-ops.md) | **生产运维**：systemd 安装、发版、日志、排障 |
+| [opencode-parity.md](./opencode-parity.md) | **OpenCode 对标速查**：slash、异步委派、transcript、env 验收 |
+| [external-reference-roadmap-2026-05.md](./external-reference-roadmap-2026-05.md) | **外部对标总索引**（阶段 A/B/C + defer，唯一 backlog） |
+| [phase-a-external-reference.md](./phase-a-external-reference.md) | 阶段 A：网关、压缩、auto-continue |
+| [phase-b-external-reference.md](./phase-b-external-reference.md) | 阶段 B：安全、Registry、工具纪律、workflow 变量 |
+| [phase-c-external-reference.md](./phase-c-external-reference.md) | 阶段 C：工具预选、Loop 插件、workflow validate |
+| [external-reference-deferred-2026-05.md](./external-reference-deferred-2026-05.md) | 补做项与仍 defer 项分析 |
 | [runtime-ops.md](./runtime-ops.md) | **Runtime timer**：定时任务 due、审计、批准与排障 |
 | [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) | **发版后真机冒烟**（H1–H10，约 15–25 分钟） |
 | [wechat-core-scenario.md](./wechat-core-scenario.md) | 微信八步剧本详解与 FAQ |

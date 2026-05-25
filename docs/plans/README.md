@@ -10,9 +10,16 @@
 | **仓库整理 P0–P2** | [`consolidation-2026-05.md`](consolidation-2026-05.md) | 目录瘦身、文档归档、死代码清理前置 |
 | **仓库整理 P3** | [`consolidation-p3-implementation-2026-05.md`](consolidation-p3-implementation-2026-05.md) | 实现层熵减（与 CC P3 无关） |
 | **外部对标 P0–P2** | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | Prometheus/OpenClaw/Dify **设计借鉴**（已收口，零依赖） |
+| **外部对标阶段 A/B/C** | [`../guides/external-reference-roadmap-2026-05.md`](../guides/external-reference-roadmap-2026-05.md) | Hermes/LangChain/Dify/Langflow **已落地**（2026-05-25） |
 | **OpenCode 对标 P0–P1** | [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | 压缩/prune/权限/doom loop/委派/指令 walk-up（**已落地**） |
+| **OpenCode 对照报告** | [`opencode-butler-comparison-report-2026-05.md`](opencode-butler-comparison-report-2026-05.md) | 全量设计对照 + P1–P3 净新增建议（2026-05-25） |
+| **Langflow 对照报告** | [`langflow-butler-comparison-2026-05.md`](langflow-butler-comparison-2026-05.md) | Butler ↔ Langflow 全量对照 + P0–P2 提炼建议（2026-05-25） |
+| **LangChain 对照报告** | [`langchain-butler-comparison-2026-05.md`](langchain-butler-comparison-2026-05.md) | Butler ↔ LangChain v1 Agent/中间件 全量对照 + P0–P2 提炼建议（2026-05-25） |
+| **Dify 对照报告** | [`dify-butler-comparison-2026-05.md`](dify-butler-comparison-2026-05.md) | Butler ↔ Dify 全量对照 + P0–P2 提炼建议（零依赖，2026-05-25） |
 | **MCP 薄客户端 P3** | [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md) | stdio/HTTP Client + `butler mcp serve`（**已落地**） |
 | **OpenClaw 对标 OC-P0–P2** | [`openclaw-learning-plan-2026-05.md`](openclaw-learning-plan-2026-05.md) | 前置压缩、工具环、reply 准入、doctor、terminal 绑定、delegate_yield（**已落地**） |
+| **OMO 对标 OMO-P0–P2** | [`omo-learning-plan-2026-05.md`](omo-learning-plan-2026-05.md) | tool-pair、压缩检查点、待办续跑、委派类别、魔法词、hashline、规则引擎（**已落地**） |
+| **Skill/MCP Registry** | [`skill-mcp-registry-2026-05.md`](skill-mcp-registry-2026-05.md) | 搜索 / 安装 / 装配（**已落地 REG-P0 / MCP-P0**） |
 
 ## 当前状态（2026-05-25）
 
@@ -20,11 +27,13 @@
 |------|------|
 | CC 线束 §4–§11 | 已落地 main（见 gap 文档 §3 核验） |
 | 仓库整理 | P0–P3 已完成 |
-| 外部对标 | P0–P2 已落地；**无后续必做项**（不做队列 jsonl WAL、自动续跑 workflow、多实例 MQ） |
+| 外部对标（Prometheus/OpenClaw/Dify 线） | P0–P2 已落地；**无后续必做项** |
+| 外部对标（Hermes/LangChain/Dify/Langflow 阶段 A/B/C） | **已落地**；defer 见 [`../guides/external-reference-deferred-2026-05.md`](../guides/external-reference-deferred-2026-05.md) |
 | OpenCode 对标 | P0–P2 已落地（SQLite 全量模型仍暂缓） |
 | MCP P3 | 薄 Client + 诊断 + `butler mcp serve`（默认关闭） |
 | OpenClaw OC-P0–P2 | 前置压缩 / AGENTS 节回灌 / 工具环 / Gateway 准入 / `butler doctor`（**已落地**） |
 | OpenClaw OC-P3 子集 | transcript 索引 / 出站延迟 / 记忆离线 cron / hook fail-closed（**已落地**） |
+| OMO OMO-P0–P2 | tool-pair 修复 / 压缩检查点 / 待办续跑 / 委派类别 / 魔法词 / hashline / goal_loop（**已落地**） |
 | 产品后续 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) |
 
 ## 活跃参考
@@ -35,8 +44,15 @@
 | [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) | 灵文运营、多项目、语料 |
 | [`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md) | 外部项目学习记录（**已关闭**） |
 | [`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md) | OpenCode 对标（**已落地 P0–P1**） |
+| [`opencode-butler-comparison-report-2026-05.md`](opencode-butler-comparison-report-2026-05.md) | OpenCode ↔ Butler 全量对照报告 + 后续 P1–P3 |
+| [`langflow-butler-comparison-2026-05.md`](langflow-butler-comparison-2026-05.md) | Langflow ↔ Butler 全量对照报告 + P0–P2 提炼建议 |
+| [`langchain-butler-comparison-2026-05.md`](langchain-butler-comparison-2026-05.md) | LangChain ↔ Butler 全量对照报告 + P0–P2 提炼建议（零依赖） |
+| [`dify-butler-comparison-2026-05.md`](dify-butler-comparison-2026-05.md) | Dify ↔ Butler 全量对照报告 + P0–P2 提炼建议（零依赖） |
 | [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md) | MCP 薄客户端（**已落地**） |
 | [`openclaw-learning-plan-2026-05.md`](openclaw-learning-plan-2026-05.md) | OpenClaw 对标（**已落地 OC-P0–P2**） |
+| [`omo-learning-plan-2026-05.md`](omo-learning-plan-2026-05.md) | Oh-My-OpenAgent 对标（**已落地 OMO-P0–P2**） |
+| [`../guides/external-reference-roadmap-2026-05.md`](../guides/external-reference-roadmap-2026-05.md) | 四报告统一阶段 A/B/C + 验收 |
+| [`../architecture/hermes-butler-comparison-2026-05.md`](../architecture/hermes-butler-comparison-2026-05.md) | Hermes 对照全文 |
 
 ## 归档 / 专项（按需打开）
 

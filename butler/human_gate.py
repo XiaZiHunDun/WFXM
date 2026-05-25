@@ -13,6 +13,24 @@ from butler.config import get_butler_home
 
 logger = logging.getLogger(__name__)
 
+
+def _gate_ttl_seconds() -> float:
+    import os
+
+    try:
+        return max(60.0, float(os.getenv("BUTLER_GATEWAY_HUMAN_GATE_TTL", "3600")))
+    except ValueError:
+        return 3600.0
+
+
+def _is_gate_expired(created_at: float) -> bool:
+    if created_at <= 0:
+        return False
+    import time
+
+    return (time.time() - created_at) > _gate_ttl_seconds()
+
+
 _CONFIRM = frozenset({
     "确认",
     "确认继续",
@@ -73,12 +91,16 @@ def _load_pending(session_key: str) -> PendingGate | None:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             return None
-        return PendingGate(
+        gate = PendingGate(
             kind=str(data.get("kind") or ""),
             workflow=str(data.get("workflow") or ""),
             step_id=str(data.get("step_id") or ""),
             created_at=float(data.get("created_at") or 0),
         )
+        if _is_gate_expired(gate.created_at):
+            _save_pending(session_key, None)
+            return None
+        return gate
     except Exception as exc:
         logger.debug("human gate read failed: %s", exc)
         return None

@@ -312,6 +312,12 @@ class ButlerSettings:
                 raw = yaml.safe_load(f)
             if isinstance(raw, dict):
                 instance._apply_yaml_dict(raw)
+        try:
+            from butler.config_secrets import merge_secrets_into_settings
+
+            merge_secrets_into_settings(instance)
+        except Exception:
+            pass
         return instance
 
 

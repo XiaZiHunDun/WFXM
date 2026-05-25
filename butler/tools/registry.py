@@ -671,6 +671,10 @@ def _register_builtin_tools() -> None:
                     "description": "Agent role: 'dev', 'content', or 'review'",
                     "enum": ["dev", "content", "review"],
                 },
+                "category": {
+                    "type": "string",
+                    "description": "Optional preset: quick, deep, ultrabrain (see delegate_categories.yaml)",
+                },
                 "task": {"type": "string", "description": "Task description"},
                 "context": {"type": "string", "description": "Additional context for the agent"},
             },
@@ -680,9 +684,29 @@ def _register_builtin_tools() -> None:
         toolset="delegation",
     )
 
+    from butler.tools.registry_tools import register_registry_tools
+
+    register_registry_tools(register)
+
     from butler.tools.memory_tools import register_memory_tools
 
     register_memory_tools(register)
+
+    from butler.core.transcript_search import register_transcript_search_tool
+
+    register_transcript_search_tool(register)
+
+    from butler.tools.execute_code import register_execute_code_tool
+
+    register_execute_code_tool(register)
+
+    from butler.tools.workflow_tools import register_workflow_tools
+
+    register_workflow_tools(register)
+
+    from butler.tools.knowledge_search import register_knowledge_tools
+
+    register_knowledge_tools(register)
 
     from butler.tools.git_tools import register_git_tools
 
@@ -729,7 +753,24 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
         start = offset - 1
         end = start + limit
         selected = lines[start:end]
-        numbered = [f"{i + start + 1:6}|{line}" for i, line in enumerate(selected)]
+        if _p is not None:
+            from butler.core.hashline import format_read_output
+
+            body = format_read_output(_p, selected, start + 1)
+        else:
+            from butler.core.hashline import hashline_read_enabled
+
+            if hashline_read_enabled():
+                from butler.core.hashline import format_hash_line
+
+                body = "\n".join(
+                    format_hash_line(start + i + 1, line)
+                    for i, line in enumerate(selected)
+                )
+            else:
+                body = "\n".join(
+                    f"{i + start + 1:6}|{line}" for i, line in enumerate(selected)
+                )
         if _p is not None and _stat is not None:
             from butler.core.read_state import record_read_state
 
@@ -748,7 +789,7 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
                 record_read_path(_p, workspace_root=workspace_root)
             except Exception:
                 pass
-        return "\n".join(numbered)
+        return body
     except Exception as exc:
         return json.dumps({"error": str(exc)})
 
@@ -1010,7 +1051,16 @@ def _tool_write_file(path: str, content: str, **_) -> str:
             record_edit_path(p)
         except Exception:
             pass
-        return json.dumps({"success": True, "path": str(p), "bytes": len(content.encode("utf-8"))})
+        payload: dict = {"success": True, "path": str(p), "bytes": len(content.encode("utf-8"))}
+        try:
+            from butler.core.post_edit_format import maybe_format_after_edit
+
+            fmt = maybe_format_after_edit(p)
+            if fmt:
+                payload["post_edit_format"] = fmt
+        except Exception:
+            pass
+        return json.dumps(payload)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
 
@@ -1054,6 +1104,16 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
         data, _p, expected_stat, error = _read_regular_file_bytes(path, for_write=True)
         if error:
             return json.dumps({"error": error})
+        if _p is not None:
+            try:
+                from butler.core.hashline import extract_anchors_from_old_string, verify_line_anchors
+
+                anchors = extract_anchors_from_old_string(old_string)
+                mismatch = verify_line_anchors(_p, anchors)
+                if mismatch:
+                    return json.dumps(mismatch, ensure_ascii=False)
+            except Exception:
+                pass
         text = data.decode("utf-8", errors="replace")
         count = text.count(old_string)
         fuzzy = False
@@ -1104,6 +1164,15 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
         payload: dict[str, Any] = {"success": True, "replacements": 1}
         if fuzzy:
             payload["fuzzy_quotes"] = True
+        if _written_path is not None:
+            try:
+                from butler.core.post_edit_format import maybe_format_after_edit
+
+                fmt = maybe_format_after_edit(_written_path)
+                if fmt:
+                    payload["post_edit_format"] = fmt
+            except Exception:
+                pass
         return json.dumps(payload)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -1135,6 +1204,25 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
         return json.dumps({
             "error": f"Terminal timeout must be between 1 and {MAX_TERMINAL_TIMEOUT_SECONDS} seconds"
         })
+    try:
+        from butler.execution_context import get_current_session_key
+        from butler.tools.terminal_danger import (
+            check_dangerous_command,
+            set_terminal_session_context,
+        )
+
+        set_terminal_session_context(get_current_session_key())
+        danger = check_dangerous_command(command)
+        if not danger.allowed:
+            return json.dumps({
+                "ok": False,
+                "error": danger.reason,
+                "code": "TERMINAL_DANGER_PATTERN",
+                "pattern": danger.pattern,
+            })
+    except Exception:
+        pass
+
     command_safety = prepare_shell_command(command)
     if not command_safety.allowed:
         return json.dumps({"error": command_safety.error})
@@ -1144,7 +1232,13 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
 
         cwd_hint = str(workdir or default_tool_workdir() or "")
         cmd_text = " ".join(command_safety.argv) if command_safety.argv else command
-        block = check_approval(cmd_text, cwd=cwd_hint)
+        from butler.execution_context import get_current_session_key
+
+        block = check_approval(
+            cmd_text,
+            cwd=cwd_hint,
+            session_key=get_current_session_key(),
+        )
         if block:
             return json.dumps({"ok": False, "error": block, "code": "TERMINAL_APPROVAL_REQUIRED"})
     except Exception:
@@ -1512,13 +1606,41 @@ def _finalize_delegate_failure(
     return json.dumps(payload, ensure_ascii=False)
 
 
-def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0, **_) -> str:
+def _tool_delegate_task(
+    role: str,
+    task: str,
+    context: str = "",
+    category: str = "",
+    depth: int = 0,
+    **_,
+) -> str:
     """Delegate to a project-level agent through Butler's orchestrator."""
     task_id = ""
     session_key = ""
+    category_meta: dict[str, Any] = {}
     try:
         from butler.delegate_policy import MAX_DELEGATE_DEPTH
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+
+        if not str(category or "").strip():
+            try:
+                from butler.core.intent_keywords import category_from_intent
+
+                inferred = category_from_intent(task)
+                if inferred:
+                    category = inferred
+            except Exception:
+                pass
+
+        if str(category or "").strip():
+            from butler.delegate_category_resolver import apply_category_to_delegate
+
+            role, task, context, category_meta = apply_category_to_delegate(
+                category=str(category).strip(),
+                role=role,
+                task=task,
+                context=context,
+            )
 
         bridge = get_gateway_bridge_optional()
         if bridge is not None:
@@ -1541,6 +1663,22 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             workspace=workspace,
             role=role,
         )
+        allow_only = category_meta.get("allow_tools")
+        deny_extra = category_meta.get("deny_tools")
+        if isinstance(allow_only, list) and allow_only:
+            allow_set = {str(t).strip() for t in allow_only if str(t).strip()}
+            delegated_tools = [
+                t
+                for t in delegated_tools
+                if str((t.get("function") or {}).get("name") or "") in allow_set
+            ]
+        if isinstance(deny_extra, list):
+            deny_set = {str(t).strip() for t in deny_extra if str(t).strip()}
+            delegated_tools = [
+                t
+                for t in delegated_tools
+                if str((t.get("function") or {}).get("name") or "") not in deny_set
+            ]
 
         from butler.core.delegate_context import child_callbacks, get_parent_callbacks
 
@@ -1577,6 +1715,10 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
                     messages=parent_msgs,
                 )
             )
+        from butler.delegate_policy import resolve_delegate_max_iterations
+
+        agent.config.max_iterations = resolve_delegate_max_iterations(category_meta)
+
         agent.reset()
 
         raw_user_msg = _project_agent_raw_message(task=task, context=context)
@@ -1616,8 +1758,81 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
         except Exception as exc:
             logger.debug("SubagentStart hooks skipped: %s", exc)
 
-        with use_execution_context(orch, session_key=session_key):
-            result = agent.run(user_msg)
+        from butler.core.session_transcript import record_generic_event
+
+        if child_session_key:
+            record_generic_event(
+                session_key,
+                "delegate_started",
+                {
+                    "task_id": task_id,
+                    "child_session_key": child_session_key,
+                    "role": role,
+                },
+            )
+            record_generic_event(
+                child_session_key,
+                "delegate_turn_start",
+                {"task_id": task_id, "parent_session_key": session_key, "role": role},
+            )
+
+        from butler.runtime.async_delegate import (
+            schedule_background_delegate,
+            should_delegate_async,
+            push_target_from_bridge,
+        )
+        from butler.runtime.delegate_job import (
+            DelegateJob,
+            build_async_delegate_tool_result,
+        )
+
+        if should_delegate_async(
+            bridge=bridge,
+            depth=depth,
+            category_meta=category_meta,
+        ):
+            push_tgt = push_target_from_bridge(bridge) if bridge is not None else None
+            schedule_background_delegate(
+                DelegateJob(
+                    agent=agent,
+                    orch=orch,
+                    user_msg=user_msg,
+                    raw_user_msg=raw_user_msg,
+                    role=role,
+                    task=task,
+                    session_key=session_key,
+                    child_session_key=child_session_key,
+                    task_id=task_id,
+                    category_meta=category_meta,
+                    bridge=bridge,
+                    push_target=push_tgt,
+                )
+            )
+            return build_async_delegate_tool_result(
+                task_id=task_id,
+                child_session_key=child_session_key,
+                role=role,
+                task_preview=task,
+                category=str(category_meta.get("category") or category or ""),
+            )
+
+        with use_execution_context(orch, session_key=child_session_key or session_key):
+            try:
+                from butler.runtime.delegate_registry import (
+                    register_delegate_loop,
+                    unregister_delegate_loop,
+                )
+
+                register_delegate_loop(session_key, agent)
+                result = agent.run(user_msg)
+            finally:
+                try:
+                    from butler.runtime.delegate_registry import unregister_delegate_loop
+
+                    unregister_delegate_loop(session_key, agent)
+                except Exception:
+                    pass
+
         sync_turn_memory(
             orch,
             raw_user_msg,
@@ -1639,9 +1854,29 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             else f"{role_label}未能完成任务"
         )
         task_preview = (task or "").strip()[:200]
+        summary_text = (result.final_response or "").strip()
+        if not summary_text:
+            summary_text = (
+                "DELEGATE_EMPTY_RESPONSE: 子代理未返回有效摘要。"
+                "请缩小任务范围或换 category/role 后重试。"
+            )
+            success = False
+            headline = f"{role_label}返回空结果"
+
+        if child_session_key:
+            record_generic_event(
+                child_session_key,
+                "delegate_turn_done",
+                {
+                    "task_id": task_id,
+                    "success": success,
+                    "iterations": getattr(result, "iterations", 0),
+                },
+            )
+
         report = AgentReport(
             headline=headline,
-            summary=result.final_response or "(无输出)",
+            summary=summary_text or "(无输出)",
             changes=changes,
             issues=issues,
             success=success,
@@ -1673,7 +1908,7 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
         if bridge is not None:
             bridge.notify_delegate_finished(report)
 
-        return json.dumps({
+        payload: dict[str, Any] = {
             "success": report.success,
             "headline": report.headline,
             "summary": report.summary[:2000],
@@ -1682,7 +1917,12 @@ def _tool_delegate_task(role: str, task: str, context: str = "", depth: int = 0,
             "iterations": report.iterations,
             "tool_calls": report.tool_calls,
             "tokens": report.tokens_used,
-        }, ensure_ascii=False)
+        }
+        if category_meta.get("category"):
+            payload["category"] = category_meta["category"]
+        if not (result.final_response or "").strip():
+            payload["code"] = "DELEGATE_EMPTY_RESPONSE"
+        return json.dumps(payload, ensure_ascii=False)
 
     except Exception as exc:
         logger.error("Delegation to %s failed: %s", role, exc)

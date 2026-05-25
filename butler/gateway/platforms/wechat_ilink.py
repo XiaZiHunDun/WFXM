@@ -2144,6 +2144,12 @@ class WeChatAdapter(ButlerPlatformAdapter):
         chat_type = "group" if chat_id.endswith("@chatroom") else "dm"
         return {"name": chat_id, "type": chat_type, "chat_id": chat_id}
 
+    def extract_local_files(self, content: str) -> tuple[list[str], str]:
+        from butler.gateway.outbound_files import extract_deliverable_local_files
+
+        paths, cleaned = extract_deliverable_local_files(content)
+        return paths, cleaned
+
     def format_message(self, content: Optional[str]) -> str:
         if content is None:
             return ""

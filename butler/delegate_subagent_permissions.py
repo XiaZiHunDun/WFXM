@@ -12,6 +12,8 @@ _DEFAULT_SUBAGENT_DENY = frozenset({
     "delegate_task",
     "run_workflow",
     "run_runtime_job",
+    "session_todos_list",
+    "session_todos_write",
 })
 
 

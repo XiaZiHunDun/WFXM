@@ -88,14 +88,46 @@ def process_tool_calls(
 
     tools_started = 0
 
+    from butler.core.tool_call_limits import get_tool_call_limiter
+    from butler.core.tool_retry import run_tool_with_retry
+    from butler.core.tool_result_cache import get_cached_result, set_cached_result
+    from butler.execution_context import get_current_session_key
+
     def _dispatch_one(name: str, args: dict, *, tool_call_id: str = "") -> str:
         if prefetched and tool_call_id and tool_call_id in prefetched:
             return prefetched[tool_call_id]
+        session_key = str(get_current_session_key() or "").strip()
+        cached = get_cached_result(name, args, session_key=session_key)
+        if cached is not None:
+            return cached
+        blocked = get_tool_call_limiter().before_call(name)
+        if blocked:
+            return finalize_fallback_tool_result(name, args, blocked)
         if guardrails:
             before = guardrails.before_call(name, args)
+            if before.action == "ask" and before.code == "doom_loop":
+                try:
+                    from butler.permission_doom_loop import check_doom_loop_ask
+
+                    block_msg = check_doom_loop_ask(before, name, args)
+                    if block_msg:
+                        from butler.tool_guardrails import GuardrailDecision, synthetic_result
+
+                        ask_dec = GuardrailDecision(
+                            action="block",
+                            code="doom_loop",
+                            message=block_msg,
+                            tool_name=name,
+                        )
+                        return finalize_fallback_tool_result(
+                            name, args, synthetic_result(ask_dec)
+                        )
+                except Exception:
+                    return finalize_fallback_tool_result(name, args, synthetic_result(before))
             if before.should_halt:
                 return finalize_fallback_tool_result(name, args, synthetic_result(before))
-        result = dispatch_tool(name, args)
+        result = run_tool_with_retry(name, args, dispatch_tool)
+        set_cached_result(name, args, result, session_key=session_key)
         if guardrails:
             after = guardrails.after_call(name, args, result)
             if after.should_halt:

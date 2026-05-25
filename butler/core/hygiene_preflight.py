@@ -51,19 +51,37 @@ def run_hygiene_preflight(
         return HygienePreflightResult(messages=messages, compressed=False)
 
     estimated = estimate_tokens(messages)
+    reported = int(diagnostics.get("last_usage_prompt_tokens") or 0) + int(
+        diagnostics.get("last_usage_completion_tokens") or 0
+    )
+    cached = int(diagnostics.get("last_usage_cached_tokens") or 0)
+    if cached > 0:
+        reported += cached
+    billable_reported = int(diagnostics.get("context_usage_billable_total") or 0)
+    trigger_tokens = estimated
+    trigger_source = "estimated"
+    if billable_reported > 0:
+        trigger_tokens = max(estimated, billable_reported)
+        trigger_source = "usage_metadata"
+    elif reported > 0:
+        trigger_tokens = max(estimated, reported)
+        trigger_source = "usage_metadata"
+
     auto_threshold = get_auto_compact_threshold(
         max_context_tokens,
         max_output_tokens=max_output_tokens,
     )
     diagnostics.update(
         calculate_token_warning_state(
-            estimated,
+            trigger_tokens,
             max_context_tokens=max_context_tokens,
             max_output_tokens=max_output_tokens,
         )
     )
     diagnostics.update({
         "hygiene_estimated_tokens": estimated,
+        "hygiene_trigger_tokens": trigger_tokens,
+        "hygiene_compact_trigger_source": trigger_source,
         "hygiene_threshold_tokens": auto_threshold,
     })
 
@@ -78,7 +96,7 @@ def run_hygiene_preflight(
 
     token_limit_hit = (
         is_auto_compact_enabled()
-        and estimated >= auto_threshold
+        and trigger_tokens >= auto_threshold
     )
     hard_limit_hit = len(messages) >= hard_message_limit
     if not token_limit_hit and not hard_limit_hit:

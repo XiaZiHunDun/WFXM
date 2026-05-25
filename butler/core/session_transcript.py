@@ -197,6 +197,30 @@ def record_queue_operation(session_key: str, priority: str, preview: str) -> Non
     )
 
 
+def record_workflow_step(
+    session_key: str,
+    *,
+    workflow: str,
+    step_id: str,
+    phase: str,
+    step_index: int = 0,
+    step_total: int = 0,
+    error: str = "",
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "workflow_step",
+        {
+            "workflow": workflow,
+            "step_id": step_id,
+            "phase": phase,
+            "step_index": step_index,
+            "step_total": step_total,
+            "error": (error or "")[:300],
+        },
+    )
+
+
 def record_generic_event(session_key: str, event_type: str, payload: dict | None = None) -> None:
     """Append arbitrary audit row (bot_loop_suppressed, etc.)."""
     append_transcript_entry(

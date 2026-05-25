@@ -16,25 +16,60 @@ logger = logging.getLogger(__name__)
 def _workflow_progress_callback(
     workflow_name: str,
     total_steps: int,
+    *,
+    session_key: str = "",
+    var_pool: Any = None,
+    step_output_keys: dict[str, list[str]] | None = None,
+
 ) -> Any:
     """Forward DAG step events to the gateway outbound bridge when present."""
     step_ids: list[str] = []
 
-    def _cb(step_id: str, phase: str, role: str) -> None:
+    def _cb(step_id: str, phase: str, role: str, preview: str = "") -> None:
         del role
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
 
         bridge = get_gateway_bridge_optional()
-        if bridge is None:
-            return
-        if phase == "start" and step_id not in step_ids:
+        norm_phase = str(phase or "start").strip().lower()
+        if norm_phase in ("failed", "fail", "error"):
+            norm_phase = "fail"
+        elif norm_phase in ("done", "ok", "success"):
+            norm_phase = "done"
+        else:
+            norm_phase = "start"
+
+        if norm_phase == "start" and step_id not in step_ids:
             step_ids.append(step_id)
         index = step_ids.index(step_id) + 1 if step_id in step_ids else len(step_ids)
+
+        sk = str(session_key or "").strip()
+        if sk:
+            try:
+                from butler.core.session_transcript import record_workflow_step
+
+                record_workflow_step(
+                    sk,
+                    workflow=workflow_name,
+                    step_id=step_id,
+                    phase=norm_phase,
+                    step_index=index,
+                    step_total=total_steps,
+                )
+            except Exception:
+                pass
+
+        if norm_phase == "done" and var_pool is not None and preview:
+            keys = (step_output_keys or {}).get(step_id, ["output"])
+            var_pool.set_step_output(step_id, preview, keys=keys)
+
+        if bridge is None:
+            return
         bridge.notify_workflow_step(
             workflow_name,
             step_id,
             step_index=index,
             step_total=total_steps,
+            phase=norm_phase,
         )
 
     return _cb
@@ -104,27 +139,56 @@ class WorkflowRunner:
     ) -> TaskGraphResult:
         from butler.execution_context import use_execution_context
 
+        from butler.workflows.variables import WorkflowVariablePool
+
         orch = self._orch()
         nodes = self.build_nodes(workflow, user_hint=user_hint, session_key=session_key)
         total_steps = len(nodes)
-        progress_cb = _workflow_progress_callback(workflow.name, total_steps)
+        var_pool = WorkflowVariablePool()
+        output_keys = {s.id: list(s.output_keys) for s in workflow.steps}
+        progress_cb = _workflow_progress_callback(
+            workflow.name,
+            total_steps,
+            session_key=session_key,
+            var_pool=var_pool,
+            step_output_keys=output_keys,
+        )
         needs_approval = any(n.requires_approval for n in nodes)
 
         def _on_approval(node: TaskNode) -> bool:
             from butler.human_gate import check_workflow_step_approval
 
-            return check_workflow_step_approval(
+            approved = check_workflow_step_approval(
                 session_key or "workflow",
                 workflow.name,
                 node.id,
             )
+            if not approved:
+                try:
+                    from butler.workflows.pause_state import WorkflowPauseState, save_workflow_pause
+
+                    save_workflow_pause(
+                        WorkflowPauseState(
+                            workflow=workflow.name,
+                            step_id=node.id,
+                            session_key=session_key or "workflow",
+                            execution_order=[n.id for n in nodes],
+                            completed_steps=[],
+                        ),
+                    )
+                except Exception:
+                    pass
+            return approved
+
+        from butler.execution_context import use_execution_context, use_workflow_var_pool
 
         with use_execution_context(orch, session_key=session_key or "workflow"):
-            graph = await self._tasks.execute_graph(
-                nodes,
-                on_progress=progress_cb,
-                on_approval=_on_approval if needs_approval else None,
-            )
+            with use_workflow_var_pool(var_pool):
+                graph = await self._tasks.execute_graph(
+                    nodes,
+                    on_progress=progress_cb,
+                    on_approval=_on_approval if needs_approval else None,
+                )
         self._cache_workflow_report(workflow, graph, session_key=session_key)
         return graph
 
@@ -200,7 +264,12 @@ class WorkflowRunner:
         )
 
     @staticmethod
-    def format_graph_summary(workflow: WorkflowDef, graph: TaskGraphResult) -> str:
+    def format_graph_summary(
+        workflow: WorkflowDef,
+        graph: TaskGraphResult,
+        *,
+        session_key: str = "",
+    ) -> str:
         lines = [f"工作流「{workflow.name}」{'已完成' if graph.success else '未完全成功'}。"]
         for step_id in graph.execution_order:
             result = graph.nodes.get(step_id)
@@ -247,7 +316,7 @@ def run_workflow_for_project(
         )
     runner = WorkflowRunner(orchestrator=orchestrator)
     graph = runner.run(wf, user_hint=user_hint, session_key=session_key)
-    return runner.format_graph_summary(wf, graph)
+    return runner.format_graph_summary(wf, graph, session_key=session_key)
 
 
 __all__ = ["WorkflowRunner", "run_workflow_for_project"]

@@ -259,6 +259,9 @@ async def deliver_completion_push(
     )
 
     telemetry_key = chat_id or ""
+    from butler.gateway.pii_scrub import scrub_outbound_text
+
+    body = scrub_outbound_text(body)
     await asyncio.to_thread(wait_wechat_push_cooldown)
     title = f"[Butler] {kind}完成提醒"
     try:

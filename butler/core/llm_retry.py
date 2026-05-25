@@ -61,9 +61,26 @@ def call_llm_with_retry(
             }
             provider = str(getattr(client, "provider_name", "") or "?")[:24]
             llm_started = time.monotonic()
-            if config.stream and (callbacks.on_stream_delta or on_tool_call_ready):
+            on_delta_cb = callbacks.on_stream_delta
+            if on_delta_cb:
+                from butler.transport.memory_context_scrubber import (
+                    StreamingMemoryContextScrubber,
+                    memory_stream_scrub_enabled,
+                    scrub_stream_delta,
+                )
+
+                if memory_stream_scrub_enabled():
+                    scrubber = StreamingMemoryContextScrubber()
+                    base_delta = on_delta_cb
+
+                    def on_delta_cb(chunk: str) -> None:  # type: ignore[misc]
+                        cleaned = scrub_stream_delta(chunk, scrubber)
+                        if cleaned:
+                            base_delta(cleaned)
+
+            if config.stream and (on_delta_cb or on_tool_call_ready):
                 response = client.stream(
-                    on_delta=callbacks.on_stream_delta,
+                    on_delta=on_delta_cb,
                     on_tool_call_ready=on_tool_call_ready,
                     **common,
                 )

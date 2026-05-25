@@ -93,6 +93,10 @@ class GatewayOutboundBridge:
     workflow_step_total: int = field(default=0, init=False)
     last_tool_name: str = field(default="", init=False)
     _last_turn_elapsed: float = field(default=0.0, init=False)
+    _outbound_events: list[Any] = field(default_factory=list, init=False)
+    _stream_preview: str = field(default="", init=False)
+    _stream_chars: int = field(default=0, init=False)
+    workflow_step_phase: str = field(default="", init=False)
 
     @property
     def turn_started_at(self) -> float:
@@ -194,12 +198,47 @@ class GatewayOutboundBridge:
         except RuntimeError:
             logger.debug("outbound bridge loop closed; drop event")
 
+    def record_outbound_event(self, event: Any) -> None:
+        try:
+            payload = event.to_dict() if hasattr(event, "to_dict") else dict(event)
+        except Exception:
+            return
+        self._outbound_events.append(payload)
+        if len(self._outbound_events) > 24:
+            self._outbound_events.pop(0)
+
+    def recent_outbound_events(self) -> list[dict[str, Any]]:
+        return list(self._outbound_events)
+
+    def append_stream_preview(self, delta: str) -> None:
+        if self._closed or not delta:
+            return
+        from butler.env_parse import env_truthy
+
+        if not env_truthy("BUTLER_GATEWAY_STREAM_PREVIEW", default=False):
+            return
+
+        def _apply() -> None:
+            self._stream_chars += len(delta)
+            combined = (self._stream_preview + delta)[-400:]
+            self._stream_preview = combined
+            from butler.gateway.outbound_events import stream_event
+            from butler.gateway.progressive_stream import maybe_schedule_progressive_reply
+
+            self.record_outbound_event(stream_event(phase="delta", chars=len(delta)))
+            maybe_schedule_progressive_reply(self, combined)
+
+        self.emit_threadsafe(_apply)
+
     def notify_delegate_start(self, role: str, *, preview: str = "") -> None:
         role = str(role or "").strip()
         if not role:
             return
         self.flush_pending_delegate_completion()
         self.delegate_role = role
+        from butler.gateway.outbound_events import delegate_event
+
+        self.record_outbound_event(delegate_event(role, phase="start", preview=preview[:80]))
         logger.info("Gateway milestone delegate_start role=%s preview=%r", role, preview[:40])
 
     def notify_workflow_step(
@@ -209,16 +248,32 @@ class GatewayOutboundBridge:
         *,
         step_index: int = 0,
         step_total: int = 0,
+        phase: str = "start",
+        error: str = "",
     ) -> None:
         def _apply() -> None:
             self.workflow_name = str(workflow_name or "").strip()
             self.workflow_step = str(step_id or "").strip()
             self.workflow_step_index = int(step_index)
             self.workflow_step_total = int(step_total)
+            self.workflow_step_phase = str(phase or "start").strip()
+            from butler.gateway.outbound_events import workflow_event
+
+            self.record_outbound_event(
+                workflow_event(
+                    self.workflow_name,
+                    self.workflow_step,
+                    phase=self.workflow_step_phase,
+                    step_index=self.workflow_step_index,
+                    step_total=self.workflow_step_total,
+                    error=error,
+                )
+            )
             logger.info(
-                "Gateway milestone workflow_step wf=%s step=%s (%s/%s)",
+                "Gateway milestone workflow_step wf=%s step=%s phase=%s (%s/%s)",
                 self.workflow_name,
                 self.workflow_step,
+                self.workflow_step_phase,
                 self.workflow_step_index,
                 self.workflow_step_total,
             )
@@ -302,6 +357,9 @@ class GatewayOutboundBridge:
         if self._closed or not (text or "").strip():
             return False
         body = (text or "").strip()
+        from butler.gateway.pii_scrub import scrub_outbound_text
+
+        body = scrub_outbound_text(body)
         if len(body) > 4000:
             body = body[:3997] + "..."
 
@@ -333,6 +391,9 @@ class GatewayOutboundBridge:
         if kind == "timeout" and (self._timeout_notified or self._completion_push_sent):
             return False
         body = (text or "").strip()
+        from butler.gateway.pii_scrub import scrub_outbound_text
+
+        body = scrub_outbound_text(body)
         if len(body) > 4000:
             body = body[:3997] + "..."
 
@@ -375,6 +436,9 @@ class GatewayOutboundBridge:
         text = self._build_ack_text(elapsed)
         if not text:
             return
+        from butler.gateway.pii_scrub import scrub_outbound_text
+
+        text = scrub_outbound_text(text)
         try:
             await self.adapter.send(self.chat_id, text)
             self._ack_sent = True
@@ -399,10 +463,15 @@ class GatewayOutboundBridge:
                 f"仍在处理：工作流 {self.workflow_name} 执行中{step_part}。"
                 f"可发 /health（已等待约 {elapsed} 秒）"
             )
-        return (
+        base = (
             f"仍在处理，请稍候（已等待约 {elapsed} 秒）。"
             "完成后回复摘要；可发 /health。"
         )
+        preview = (self._stream_preview or "").strip()
+        if preview:
+            snippet = preview[-120:].replace("\n", " ")
+            return f"{base}\n…{snippet}"
+        return base
 
     async def _typing_refresh_loop(self) -> None:
         try:

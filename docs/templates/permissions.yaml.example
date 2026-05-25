@@ -2,6 +2,12 @@
 #
 # 复制：cp docs/templates/permissions.yaml.example projects/<YourProject>/.butler/permissions.yaml
 
+# 单工具策略（阶段 C6）：按工具名直接 allow / ask / deny（优先于 rules 路径匹配）
+# tool_policies:
+#   write_file: ask
+#   patch: ask
+#   terminal: deny
+
 # rules 按列表顺序匹配，**最后一条匹配的规则生效**（OpenCode last-match）
 rules:
   - tool: terminal
@@ -16,7 +22,16 @@ rules:
   # - tool: read_file
   #   path: "secrets/*"
   #   action: ask
-  #   reason: 敏感路径需人工确认（回复「确认」或「取消」）
+  #   reason: 敏感路径需 Owner 确认（/批准一次 或 /始终允许 rule）
+
+# 工作区外路径（OpenCode external_directory 子集）
+# external_directory:
+#   - path: "/tmp/**"
+#     action: ask
+#     reason: 访问 /tmp 需 Owner 批准
+#   - path: "/home/**"
+#     action: deny
+#     reason: 禁止读取用户主目录
 
 # 工作流 DAG 步骤级工具白名单（P2）：仅当 TaskOrchestrator 执行该 step_id 时生效
 workflow_steps:

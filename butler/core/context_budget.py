@@ -266,4 +266,7 @@ def format_context_budget_line(diagnostics: dict[str, Any]) -> str:
     billable = diagnostics.get("context_usage_billable_total")
     if billable is not None and int(billable) > 0:
         line += f" · 计费 tokens 累计 {int(billable):,}"
+    trigger_src = diagnostics.get("hygiene_compact_trigger_source")
+    if trigger_src:
+        line += f" · 压缩触发: {trigger_src}"
     return line

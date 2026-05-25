@@ -28,6 +28,7 @@ class LoopTransitionReason(str, Enum):
     INTERRUPTED = "interrupted"
     LLM_ERROR = "llm_error"
     REACTIVE_COMPACT_RETRY = "reactive_compact_retry"
+    COMPACTION_TURN = "compaction_turn"
     STOP_HOOK_BLOCKED = "stop_hook_blocked"
     TOKEN_BUDGET_CONTINUE = "token_budget_continue"
     PROMPT_TOO_LONG = "prompt_too_long"
@@ -50,6 +51,7 @@ class LoopConfig:
     api_stale_timeout: float = 90.0
     max_empty_content_retries: int = 1
     max_truncation_continues: int = 1
+    plugins: list[Any] = field(default_factory=list)
 
 
 @dataclass

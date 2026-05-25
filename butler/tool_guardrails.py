@@ -105,6 +105,12 @@ def doom_loop_threshold() -> int:
         return 3
 
 
+def doom_loop_mode() -> str:
+    """``block`` (default, D3) or ``ask`` (Owner /批准一次 via permission cache)."""
+    mode = os.getenv("BUTLER_DOOM_LOOP_MODE", "block").strip().lower()
+    return mode if mode in ("block", "ask") else "block"
+
+
 def _safe_json_loads(text: str) -> Any:
     try:
         return json.loads(text)
@@ -227,6 +233,20 @@ class ToolCallGuardrailController:
             self._call_history.append(signature)
             tail = list(self._call_history)[-threshold:]
             if len(tail) >= threshold and all(s == tail[0] for s in tail):
+                mode = doom_loop_mode()
+                if mode == "ask":
+                    decision = GuardrailDecision(
+                        action="ask",
+                        code="doom_loop",
+                        message=(
+                            f"Doom loop detected for {tool_name} "
+                            f"({threshold} identical calls). "
+                            "Owner: /批准一次 或 /始终允许 doom_loop 后重试。"
+                        ),
+                        tool_name=tool_name,
+                        count=threshold,
+                    )
+                    return decision
                 decision = GuardrailDecision(
                     action="block",
                     code="doom_loop",

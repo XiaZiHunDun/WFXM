@@ -79,4 +79,26 @@ def format_openclaw_diagnostic_lines(
     except Exception:
         pass
 
+    try:
+        from butler.config_secrets import secrets_status_line
+
+        lines.append(secrets_status_line())
+    except Exception:
+        pass
+
+    try:
+        from butler.tools.terminal_danger import danger_patterns_enabled
+        from butler.tools.terminal_pattern_approval import smart_pattern_approve_enabled
+
+        if danger_patterns_enabled():
+            flag = "开" if smart_pattern_approve_enabled() else "关"
+            lines.append(f"Terminal 危险模式: 开 (smart_approve={flag})")
+    except Exception:
+        pass
+
+    loop_tools = loop.get("tool_selector_output") or h.get("tool_selector_output")
+    if loop_tools is not None:
+        dropped = loop.get("tool_selector_dropped") or h.get("tool_selector_dropped") or 0
+        lines.append(f"工具预选: 出站 {loop_tools} 工具 (省略 {dropped})")
+
     return lines

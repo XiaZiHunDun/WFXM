@@ -12,12 +12,28 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+_PATH_TOOLS = frozenset(
+    {
+        "read_file",
+        "write_file",
+        "patch",
+        "delete_file",
+        "search_files",
+        "list_dir",
+    }
+)
+
 
 @dataclass(frozen=True)
 class PermissionDecision:
     allowed: bool
     action: str  # allow | deny | ask
     reason: str = ""
+    permission: str = ""  # e.g. external_directory, rule, workflow_step
+
+
+def match_path_glob(pattern: str, value: str) -> bool:
+    return _match_glob(pattern, value)
 
 
 def _load_permissions_yaml(workspace: Path | None) -> dict[str, Any]:
@@ -52,6 +68,82 @@ def _match_glob(pattern: str, value: str) -> bool:
     return value == pat
 
 
+def _resolve_path_arg(args: dict[str, Any]) -> str:
+    return str(args.get("path") or args.get("file_path") or "").strip()
+
+
+def _path_outside_workspace(path_str: str, workspace: Path) -> bool:
+    if not path_str:
+        return False
+    try:
+        from butler.tools.path_safety import check_tool_path
+
+        result = check_tool_path(path_str, for_write=False)
+        if not result.allowed and "outside workspace" in (result.error or "").lower():
+            return True
+    except Exception:
+        pass
+    try:
+        root = workspace.expanduser().resolve()
+        target = Path(path_str).expanduser()
+        if not target.is_absolute():
+            target = (root / target).resolve()
+        else:
+            target = target.resolve()
+        return not str(target).startswith(str(root))
+    except Exception:
+        return False
+    return False
+
+
+def evaluate_external_directory(
+    path_str: str,
+    *,
+    workspace: Path | None,
+    for_write: bool = False,
+) -> PermissionDecision | None:
+    """Rules for paths outside project workspace (OpenCode external_directory subset)."""
+    if workspace is None or not path_str.strip():
+        return None
+    if not _path_outside_workspace(path_str, workspace):
+        return None
+
+    cfg = _load_permissions_yaml(workspace)
+    rules = cfg.get("external_directory")
+    if not isinstance(rules, list) or not rules:
+        return PermissionDecision(
+            allowed=False,
+            action="deny",
+            reason=f"路径在工作区外：{path_str}",
+            permission="external_directory",
+        )
+
+    matched: PermissionDecision | None = None
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        path_pat = rule.get("path") or rule.get("path_glob") or "*"
+        if path_pat != "*" and not _match_glob(str(path_pat), path_str):
+            continue
+        if for_write and rule.get("read_only") is True:
+            matched = PermissionDecision(
+                allowed=False,
+                action="deny",
+                reason="external_directory 规则禁止写入",
+                permission="external_directory",
+            )
+            continue
+        action = str(rule.get("action") or rule.get("decision") or "ask").lower()
+        reason = str(rule.get("reason") or rule.get("message") or f"external_directory: {action}")
+        if action == "allow":
+            matched = PermissionDecision(allowed=True, action="allow", reason=reason, permission="external_directory")
+        elif action == "ask":
+            matched = PermissionDecision(allowed=False, action="ask", reason=reason, permission="external_directory")
+        else:
+            matched = PermissionDecision(allowed=False, action="deny", reason=reason, permission="external_directory")
+    return matched
+
+
 def evaluate_workflow_step_permission(
     tool_name: str,
     step_id: str,
@@ -73,12 +165,41 @@ def evaluate_workflow_step_permission(
         return None
     allowed_set = {str(t).strip() for t in allowed if str(t).strip()}
     if tool_name in allowed_set:
-        return PermissionDecision(allowed=True, action="allow", reason="workflow step allowlist")
+        return PermissionDecision(allowed=True, action="allow", reason="workflow step allowlist", permission="workflow_step")
     return PermissionDecision(
         allowed=False,
         action="deny",
         reason=f"步骤 {step_id} 仅允许工具: {', '.join(sorted(allowed_set))}",
+        permission="workflow_step",
     )
+
+
+def evaluate_tool_policy(
+    tool_name: str,
+    *,
+    workspace: Path | None = None,
+) -> PermissionDecision | None:
+    """Per-tool HITL from ``tool_policies`` (LangChain/Dify subset)."""
+    cfg = _load_permissions_yaml(workspace)
+    policies = cfg.get("tool_policies") or cfg.get("tools")
+    if not isinstance(policies, dict):
+        return None
+    raw = policies.get(tool_name)
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        action = raw.strip().lower()
+        reason = f"tool_policies: {tool_name} -> {action}"
+    elif isinstance(raw, dict):
+        action = str(raw.get("action") or raw.get("decision") or "ask").lower()
+        reason = str(raw.get("reason") or raw.get("message") or f"tool_policies: {action}")
+    else:
+        return None
+    if action == "allow":
+        return PermissionDecision(True, "allow", reason, permission="tool_policy")
+    if action == "ask":
+        return PermissionDecision(False, "ask", reason, permission="tool_policy")
+    return PermissionDecision(False, "deny", reason, permission="tool_policy")
 
 
 def evaluate_permission(
@@ -93,7 +214,7 @@ def evaluate_permission(
     if not isinstance(rules, list):
         return None
 
-    path_val = str(args.get("path") or args.get("file_path") or args.get("command") or "")
+    path_val = _resolve_path_arg(args) or str(args.get("command") or "")
     matched: PermissionDecision | None = None
     for rule in rules:
         if not isinstance(rule, dict):
@@ -110,23 +231,79 @@ def evaluate_permission(
                 continue
         action = str(rule.get("action") or rule.get("decision") or "deny").lower()
         reason = str(rule.get("reason") or rule.get("message") or f"permission rule: {action}")
+        perm = str(rule.get("permission") or "rule")
         if action == "allow":
-            matched = PermissionDecision(allowed=True, action="allow", reason=reason)
+            matched = PermissionDecision(allowed=True, action="allow", reason=reason, permission=perm)
         elif action == "ask":
-            matched = PermissionDecision(allowed=False, action="ask", reason=reason)
+            matched = PermissionDecision(allowed=False, action="ask", reason=reason, permission=perm)
         else:
-            matched = PermissionDecision(allowed=False, action="deny", reason=reason)
+            matched = PermissionDecision(allowed=False, action="deny", reason=reason, permission=perm)
     return matched
 
 
-def check_project_permission_block(
+def _approval_request_from_decision(
+    decision: PermissionDecision,
     tool_name: str,
     args: dict[str, Any],
-) -> str | None:
-    """Return error message when denied; None if allowed or no rule."""
+) -> "ApprovalRequest":
+    from butler.permission_approvals import ApprovalRequest
+
+    path_val = _resolve_path_arg(args) or str(args.get("command") or "*")
+    perm = str(decision.permission or "rule").strip() or "rule"
+    return ApprovalRequest(
+        permission=perm,
+        tool=tool_name,
+        pattern=path_val or "*",
+        reason=decision.reason,
+    )
+
+
+def _decision_with_approval(
+    decision: PermissionDecision,
+    tool_name: str,
+    args: dict[str, Any],
+    *,
+    session_key: str,
+) -> PermissionDecision | None:
+    """Return None if approved; else original decision."""
+    if decision.action != "ask":
+        return decision
+    from butler.permission_approvals import ApprovalRequest, is_approved, save_pending
+
+    req = _approval_request_from_decision(decision, tool_name, args)
+    if session_key and is_approved(session_key, req):
+        return None
+    if session_key:
+        save_pending(session_key, req)
+    return decision
+
+
+def check_external_path_override(
+    path_str: str,
+    *,
+    for_write: bool = False,
+) -> PermissionDecision | None:
+    """If path is outside workspace, apply external_directory rules + session approvals."""
+    workspace = _current_workspace()
+    if workspace is None:
+        return None
+    decision = evaluate_external_directory(path_str, workspace=workspace, for_write=for_write)
+    if decision is None:
+        return None
+    if decision.allowed:
+        return decision
+    session_key = _current_session_key()
+    if decision.action == "ask":
+        resolved = _decision_with_approval(decision, "path", {"path": path_str}, session_key=session_key)
+        if resolved is None:
+            return PermissionDecision(True, "allow", "session approval", permission="external_directory")
+        return resolved
+    return decision
+
+
+def _current_workspace() -> Path | None:
     try:
-        from butler.execution_context import get_current_orchestrator
-        from butler.execution_context import get_current_session_key
+        from butler.execution_context import get_current_orchestrator, get_current_session_key
 
         orch = get_current_orchestrator()
         if orch is None:
@@ -137,9 +314,30 @@ def check_project_permission_block(
         proj = pm.get_current(session_key=str(get_current_session_key() or ""))
         if proj is None:
             return None
-        workspace = Path(proj.workspace)
+        return Path(proj.workspace)
     except Exception:
         return None
+
+
+def _current_session_key() -> str:
+    try:
+        from butler.execution_context import get_current_session_key
+
+        return str(get_current_session_key() or "").strip()
+    except Exception:
+        return ""
+
+
+def check_project_permission_block(
+    tool_name: str,
+    args: dict[str, Any],
+) -> str | None:
+    """Return error message when denied; None if allowed or no rule."""
+    workspace = _current_workspace()
+    if workspace is None:
+        return None
+
+    session_key = _current_session_key()
 
     try:
         from butler.execution_context import get_current_workflow_step
@@ -156,9 +354,43 @@ def check_project_permission_block(
     except Exception:
         pass
 
+    path_val = _resolve_path_arg(args)
+    if path_val and tool_name in _PATH_TOOLS:
+        ext = evaluate_external_directory(path_val, workspace=workspace, for_write=tool_name in ("write_file", "patch", "delete_file"))
+        if ext is not None:
+            if ext.allowed:
+                pass
+            elif ext.action == "ask":
+                blocked = _decision_with_approval(ext, tool_name, args, session_key=session_key)
+                if blocked is not None:
+                    return _format_ask_message(blocked)
+            else:
+                return ext.reason
+
+    policy = evaluate_tool_policy(tool_name, workspace=workspace)
+    if policy is not None:
+        if policy.allowed:
+            pass
+        elif policy.action == "ask":
+            blocked = _decision_with_approval(policy, tool_name, args, session_key=session_key)
+            if blocked is not None:
+                return _format_ask_message(blocked)
+        else:
+            return policy.reason
+
     decision = evaluate_permission(tool_name, args, workspace=workspace)
     if decision is None or decision.allowed:
         return None
     if decision.action == "ask":
-        return f"{decision.reason}（需 Owner 确认后重试）"
+        blocked = _decision_with_approval(decision, tool_name, args, session_key=session_key)
+        if blocked is None:
+            return None
+        return _format_ask_message(blocked)
     return decision.reason
+
+
+def _format_ask_message(decision: PermissionDecision) -> str:
+    perm = str(decision.permission or "rule")
+    return (
+        f"{decision.reason}（需 Owner：/批准一次 或 /始终允许 {perm}）"
+    )

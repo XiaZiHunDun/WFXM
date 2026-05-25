@@ -47,12 +47,43 @@ def use_opencode_compaction_template() -> bool:
     return flag not in ("0", "false", "no", "off")
 
 
+def use_hermes_compaction_template() -> bool:
+    flag = os.getenv("BUTLER_COMPACTION_USE_HERMES_TEMPLATE", "0").strip().lower()
+    return flag in ("1", "true", "yes", "on")
+
+
+HERMES_SUMMARY_TEMPLATE = """Output exactly the Markdown structure below. Keep every section even when empty.
+Use terse bullets. Preserve exact paths, commands, error strings, and identifiers. Do not mention compaction.
+
+## Resolved
+- (completed items or "(none)")
+
+## Pending
+- (open questions or "(none)")
+
+## Remaining Work
+- (ordered next actions — most important)
+
+## Active Task
+- (what the assistant should do next)
+
+## Key Facts
+- (architecture, paths, decisions, blockers)
+"""
+
+
 def build_compaction_user_prompt(*, transcript: str, previous_summary: str = "") -> str:
     prev_block = (
         f"\n\nPrevious summary to merge and update:\n{previous_summary}"
         if previous_summary
         else ""
     )
+    if use_hermes_compaction_template():
+        return (
+            "Summarize this conversation segment for handoff to a new context window.\n\n"
+            f"{IDENTIFIER_PRESERVATION}\n{HERMES_SUMMARY_TEMPLATE}{prev_block}\n\n"
+            f"Conversation:\n{transcript}"
+        )
     if use_opencode_compaction_template():
         return (
             "Summarize this conversation segment for handoff to a new context window.\n\n"

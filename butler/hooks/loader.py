@@ -16,6 +16,8 @@ _HOOK_EVENTS = (
     "PostToolUseFailure",
     "PermissionDenied",
     "UserPromptSubmit",
+    "PreCompact",
+    "PostCompact",
     "SessionStart",
     "SessionEnd",
     "Stop",

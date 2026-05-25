@@ -363,8 +363,61 @@ def _pre_tool_hook_fail_closed() -> bool:
     return env_truthy("BUTLER_HOOK_FAIL_CLOSED", default=False)
 
 
+def run_pre_compact_hooks(
+    *,
+    estimated_tokens: int = 0,
+    message_count: int = 0,
+    iteration: int = 0,
+    session_key: str = "",
+) -> str | None:
+    """Run PreCompact shell hooks before context compaction."""
+    payload = {
+        "hook_event_name": "PreCompact",
+        "estimated_tokens": max(0, int(estimated_tokens)),
+        "message_count": max(0, int(message_count)),
+        "iteration": max(0, int(iteration)),
+        "session_key": session_key,
+    }
+    for rule in _rules_for_event("PreCompact"):
+        code, out, err = _run_hook(rule, payload)
+        if code == 2:
+            return (err or out or "PreCompact hook blocked compaction").strip()[:2000]
+        if code not in (0, None) and (out or err):
+            logger.info("PreCompact hook exit %s: %s", code, (err or out)[:200])
+    return None
+
+
+def run_post_compact_hooks(
+    *,
+    estimated_tokens_before: int = 0,
+    estimated_tokens_after: int = 0,
+    message_count_before: int = 0,
+    message_count_after: int = 0,
+    iteration: int = 0,
+    session_key: str = "",
+) -> list[str]:
+    """Run PostCompact hooks; return optional context lines for diagnostics."""
+    payload = {
+        "hook_event_name": "PostCompact",
+        "estimated_tokens_before": max(0, int(estimated_tokens_before)),
+        "estimated_tokens_after": max(0, int(estimated_tokens_after)),
+        "message_count_before": max(0, int(message_count_before)),
+        "message_count_after": max(0, int(message_count_after)),
+        "iteration": max(0, int(iteration)),
+        "session_key": session_key,
+    }
+    contexts: list[str] = []
+    for rule in _rules_for_event("PostCompact"):
+        code, out, err = _run_hook(rule, payload)
+        specific = _parse_hook_stdout(out, "PostCompact")
+        contexts.extend(_collect_additional_context(specific, out))
+        if code not in (0, None) and (out or err):
+            logger.info("PostCompact hook exit %s: %s", code, (err or out)[:200])
+    return contexts
+
+
 def run_pre_tool_hooks(tool_name: str, args: dict[str, Any]) -> str | None:
-    """Run PreToolUse hooks. Return error string to block tool, or None to continue."""
+    """Run PreToolUse hooks (``pre_tool_execute`` alias). Return error to block tool."""
     fail_closed = _pre_tool_hook_fail_closed()
     for rule in _rules_for_event("PreToolUse"):
         if not match_tool(rule.matcher, tool_name):

@@ -1,0 +1,32 @@
+# Delegate category presets (OMO-style; override via ~/.butler/delegate_categories.yaml)
+categories:
+  quick:
+    role: dev
+    description: Fast, shallow task — prefer fewer tool iterations
+    background: true
+    prompt_append: |
+      [category:quick] Prefer direct answers; minimize exploration; finish in one pass when possible.
+    max_iterations: 12
+    deny_tools:
+      - delegate_task
+      - run_workflow
+  deep:
+    role: dev
+    description: Standard implementation work
+    background: true
+    prompt_append: |
+      [category:deep] Take time to verify changes; use read_file before edits.
+    max_iterations: 24
+  ultrabrain:
+    role: review
+    description: Read-heavy analysis; no delegation chain
+    background: false
+    prompt_append: |
+      [category:ultrabrain] Read-only analysis; do not modify files unless explicitly required.
+    max_iterations: 20
+    allow_tools:
+      - read_file
+      - list_directory
+      - skills_list
+      - skill_view
+      - session_todos_list

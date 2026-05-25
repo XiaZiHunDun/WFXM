@@ -17,6 +17,7 @@ class WorkflowStepDef:
     tools: list[str] | None = None
     requires_approval: bool = False
     model: ModelConfig | None = None
+    output_keys: list[str] = field(default_factory=lambda: ["output"])
 
 
 @dataclass
@@ -25,6 +26,7 @@ class WorkflowDef:
     description: str = ""
     steps: list[WorkflowStepDef] = field(default_factory=list)
     source: str = "project"
+    schema_version: str = "1"
 
     @property
     def runnable(self) -> bool:
@@ -54,6 +56,8 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         model_cfg = parse_model_spec(model_raw.strip())
     elif isinstance(model_raw, dict):
         model_cfg = ModelConfig.from_dict(model_raw)
+    from butler.workflows.variables import extract_output_keys
+
     return WorkflowStepDef(
         id=step_id,
         role=role,
@@ -62,6 +66,7 @@ def parse_step(raw: dict[str, Any]) -> WorkflowStepDef | None:
         tools=tools,
         requires_approval=bool(raw.get("requires_approval", False)),
         model=model_cfg,
+        output_keys=extract_output_keys(raw),
     )
 
 
@@ -80,6 +85,7 @@ def parse_workflow_data(data: dict[str, Any], *, source: str = "project") -> Wor
         description=str(data.get("description") or "").strip(),
         steps=steps,
         source=source,
+        schema_version=str(data.get("schema_version") or "1").strip() or "1",
     )
 
 

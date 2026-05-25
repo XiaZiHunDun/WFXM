@@ -96,6 +96,20 @@ def record_read_path(
         )
         _PENDING.setdefault(key, []).append(block)
         seen.add(claim)
+        try:
+            from butler.core.rules_engine import resolve_rules_for_path
+
+            rules_block = resolve_rules_for_path(
+                resolved,
+                workspace_root=workspace_root,
+            )
+            if rules_block.strip():
+                rules_claim = f"rules:{rules_block[:80]}"
+                if rules_claim not in seen:
+                    _PENDING.setdefault(key, []).append(rules_block)
+                    seen.add(rules_claim)
+        except Exception:
+            pass
 
 
 def drain_pending_instructions(*, session_key: str = "") -> str:

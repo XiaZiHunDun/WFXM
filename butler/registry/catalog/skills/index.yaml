@@ -1,0 +1,8 @@
+version: 1
+skills:
+  - id: bundled:lingwen-project-lead
+    name: lingwen-project-lead
+    description: 灵文项目 Lead 技能（仓库内置）
+    trust: builtin
+    path: projects/LingWen1/skills/lingwen-project-lead.md
+    tags: [lead, novel]

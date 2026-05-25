@@ -1,0 +1,22 @@
+version: 1
+servers:
+  - id: filesystem
+    title: Filesystem (reference)
+    description: 官方参考 MCP — 只读列目录（需本机已配置 npx）
+    trust: trusted
+    transport: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    env_hints: []
+    note: "项目层安装时会尝试自动在 project.yaml tools 追加 mcp_*（BUTLER_MCP_AUTO_PROJECT_TOOLS）"
+
+  - id: github
+    title: GitHub MCP
+    description: GitHub API 工具（需 PAT）
+    trust: trusted
+    transport: stdio
+    command: npx
+    args: ["-y", "@modelcontextprotocol/server-github"]
+    env_hints:
+      - name: GITHUB_PERSONAL_ACCESS_TOKEN
+        required: true

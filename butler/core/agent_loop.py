@@ -59,6 +59,8 @@ class AgentLoop:
         self._tool_calls_count = 0
         self._guardrails = ToolCallGuardrailController() if self.config.enable_guardrails else None
         self._context = ContextPipeline(self.config)
+        self._context._attached_loop = self
+        self._turn_ephemeral_system: str | None = None
         self._thread_id: int | None = None
         self._fallback_chain: list[FallbackEntry] = list(self.config.fallback_entries or [])
         self._fallback_index = 0
@@ -67,6 +69,9 @@ class AgentLoop:
         self._truncation_retries = 0
         self.diagnostics: dict[str, Any] = {}
         self._tool_prefetch: dict[str, str] = {}
+        from butler.core.loop_plugins import default_plugin_registry
+
+        self._plugins = default_plugin_registry(self.config)
 
     @property
     def _compression_summary(self) -> str:
@@ -91,6 +96,7 @@ class AgentLoop:
         user_message: str,
         *,
         run_callbacks: Optional[LoopCallbacks] = None,
+        ephemeral_system: str | None = None,
     ) -> LoopResult:
         start_time = time.time()
         saved_callbacks = self.callbacks
@@ -103,6 +109,9 @@ class AgentLoop:
             if str(k).startswith("hygiene_")
         }
         self.diagnostics = dict(pre_run_diagnostics)
+        self._turn_ephemeral_system = (ephemeral_system or "").strip() or None
+        if self._turn_ephemeral_system:
+            self.diagnostics["ephemeral_system_injected"] = True
         self._interrupted = False
         self._thread_id = threading.get_ident() if hasattr(threading, "get_ident") else None
         clear_interrupt(self._thread_id)
@@ -145,6 +154,9 @@ class AgentLoop:
         self._tool_prefetch.clear()
         if self._guardrails:
             self._guardrails.reset_for_turn()
+        from butler.core.tool_call_limits import reset_tool_call_limiter_for_turn
+
+        reset_tool_call_limiter_for_turn()
 
         from butler.core.turn_token_budget import (
             TurnBudgetState,
@@ -172,6 +184,18 @@ class AgentLoop:
         user_content = sanitize_surrogates(cleaned_user)
         self._messages.append({"role": "user", "content": user_content})
         try:
+            from butler.core.tool_selector import select_tools_for_context
+
+            selected, sel_diag = select_tools_for_context(
+                self.tools,
+                user_hint=user_content,
+            )
+            self.tools = selected
+            for key, val in sel_diag.items():
+                self.diagnostics[key] = val
+        except Exception:
+            pass
+        try:
             from butler.core.session_transcript import record_user_message
 
             record_user_message(steer_session, user_content)
@@ -193,6 +217,35 @@ class AgentLoop:
 
                 iteration += 1
                 set_parent_messages(self._messages)
+                try:
+                    from butler.core.compaction_task import (
+                        run_compaction_turn,
+                        should_run_compaction_turn,
+                    )
+                    from butler.execution_context import get_audit_session_key
+
+                    if should_run_compaction_turn(
+                        self._messages,
+                        max_context_tokens=self.config.max_context_tokens,
+                        estimate_tokens=self._estimate_tokens,
+                        diagnostics=self.diagnostics,
+                        iteration=iteration,
+                        max_output_tokens=getattr(self.config, "max_output_tokens", None),
+                    ):
+                        did_compact, new_msgs = run_compaction_turn(
+                            self._messages,
+                            compress=self._compress_context,
+                            diagnostics=self.diagnostics,
+                            iteration=iteration,
+                            session_key=get_audit_session_key(fallback="default"),
+                        )
+                        if did_compact:
+                            self._messages[:] = new_msgs
+                            transition = LoopTransitionReason.COMPACTION_TURN
+                            continue
+                except Exception as exc:
+                    logger.debug("Explicit compaction turn skipped: %s", exc)
+
                 if iteration > 1 and self.callbacks.on_stream_boundary:
                     self.callbacks.on_stream_boundary()
                 if self.callbacks.on_iteration:
@@ -216,20 +269,25 @@ class AgentLoop:
                         record_usage_in_diagnostics,
                         usage_billable_tokens,
                     )
+                    from butler.transport.usage_normalize import normalize_usage
+
+                    provider = str(getattr(self.client, "provider_name", "") or "")
+                    norm_usage = normalize_usage(response.usage, provider=provider)
+                    usage = norm_usage or response.usage
 
                     billable = usage_billable_tokens(
-                        prompt_tokens=response.usage.prompt_tokens,
-                        completion_tokens=response.usage.completion_tokens,
-                        total_tokens=response.usage.total_tokens,
-                        cached_tokens=response.usage.cached_tokens,
+                        prompt_tokens=usage.prompt_tokens,
+                        completion_tokens=usage.completion_tokens,
+                        total_tokens=usage.total_tokens,
+                        cached_tokens=usage.cached_tokens,
                     )
                     self._total_tokens += billable
                     record_usage_in_diagnostics(
                         self.diagnostics,
-                        prompt_tokens=response.usage.prompt_tokens,
-                        completion_tokens=response.usage.completion_tokens,
-                        total_tokens=response.usage.total_tokens,
-                        cached_tokens=response.usage.cached_tokens,
+                        prompt_tokens=usage.prompt_tokens,
+                        completion_tokens=usage.completion_tokens,
+                        total_tokens=usage.total_tokens,
+                        cached_tokens=usage.cached_tokens,
                     )
 
                 if response.tool_calls:
@@ -441,6 +499,7 @@ class AgentLoop:
         head_count: int = 3,
         max_tail_messages: int = 12,
         min_tail_messages: int = 4,
+        overflow_replay: bool = False,
     ) -> list[dict]:
         return self._context.compress_context(
             messages,
@@ -449,6 +508,7 @@ class AgentLoop:
             head_count=head_count,
             max_tail_messages=max_tail_messages,
             min_tail_messages=min_tail_messages,
+            overflow_replay=overflow_replay,
         )
 
     def hygiene_compress_if_needed(
@@ -471,11 +531,14 @@ class AgentLoop:
         return compressed
 
     def _prepare_messages_for_api(self) -> list[dict]:
-        return self._context.prepare_messages_for_api(
+        if self._turn_ephemeral_system:
+            self.diagnostics["ephemeral_system"] = self._turn_ephemeral_system
+        prepared = self._context.prepare_messages_for_api(
             self._messages,
             pre_llm_transform=self.callbacks.pre_llm_transform,
             diagnostics=self.diagnostics,
         )
+        return self._plugins.before_model(prepared)
 
     def _try_activate_fallback(self) -> bool:
         if not self._fallback_chain or self._fallback_index >= len(self._fallback_chain) - 1:
@@ -512,6 +575,16 @@ class AgentLoop:
                     from butler.tool_guardrails import synthetic_result
 
                     before = self._guardrails.before_call(name, args)
+                    if before.action == "ask" and before.code == "doom_loop":
+                        try:
+                            from butler.permission_doom_loop import check_doom_loop_ask
+
+                            if check_doom_loop_ask(before, name, args):
+                                prefetch[key] = synthetic_result(before)
+                                return
+                        except Exception:
+                            prefetch[key] = synthetic_result(before)
+                            return
                     if before.should_halt:
                         prefetch[key] = synthetic_result(before)
                         return
@@ -553,7 +626,10 @@ class AgentLoop:
         self._tool_calls_count += stats.tools_started
 
     def _dispatch_tool(self, name: str, args: dict) -> str:
-        return dispatch_tool_with_envelope(self.tool_dispatcher, name, args)
+        def _inner(n: str, a: dict) -> str:
+            return dispatch_tool_with_envelope(self.tool_dispatcher, n, a)
+
+        return self._plugins.wrap_tool_call(name, args, _inner)
 
     @property
     def messages(self) -> list[dict]:
@@ -568,3 +644,6 @@ class AgentLoop:
         self._total_tokens = 0
         self._tool_calls_count = 0
         self._interrupted = False
+        from butler.core.tool_call_limits import reset_tool_call_limiter_for_turn
+
+        reset_tool_call_limiter_for_turn()

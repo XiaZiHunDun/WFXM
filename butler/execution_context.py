@@ -22,6 +22,10 @@ _current_workflow_step: ContextVar[str] = ContextVar(
     "butler_current_workflow_step",
     default="",
 )
+_workflow_var_pool: ContextVar[object | None] = ContextVar(
+    "butler_workflow_var_pool",
+    default=None,
+)
 
 
 def get_current_orchestrator() -> "ButlerOrchestrator | None":
@@ -37,6 +41,19 @@ def get_current_session_key() -> str:
 def get_current_workflow_step() -> str:
     """Active workflow step id during DAG node execution (for step-level permissions)."""
     return str(_current_workflow_step.get() or "").strip()
+
+
+def get_workflow_var_pool() -> object | None:
+    return _workflow_var_pool.get()
+
+
+@contextmanager
+def use_workflow_var_pool(pool: object | None) -> Iterator[None]:
+    token = _workflow_var_pool.set(pool)
+    try:
+        yield
+    finally:
+        _workflow_var_pool.reset(token)
 
 
 @contextmanager

@@ -23,6 +23,8 @@ env/
 # Environment & secrets
 .env
 *.env.local
+secrets.yaml
+**/secrets.yaml
 
 # OS
 .DS_Store

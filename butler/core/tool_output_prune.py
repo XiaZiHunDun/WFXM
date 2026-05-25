@@ -26,6 +26,14 @@ def prune_minimum_chars() -> int:
     return _int_env("BUTLER_TOOL_PRUNE_BACKWARD_MINIMUM", PRUNE_MINIMUM_CHARS)
 
 
+def clear_at_least_chars() -> int:
+    """LangChain ClearToolUsesEdit-style floor (alias for minimum by default)."""
+    raw = os.getenv("BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST", "").strip()
+    if raw:
+        return _int_env("BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST", PRUNE_MINIMUM_CHARS)
+    return prune_minimum_chars()
+
+
 def prune_protect_chars() -> int:
     return _int_env("BUTLER_TOOL_PRUNE_BACKWARD_PROTECT", PRUNE_PROTECT_CHARS)
 
@@ -44,7 +52,7 @@ def backward_prune_tool_outputs(messages: list[dict]) -> list[dict]:
     if len(tool_idxs) < 2:
         return messages
 
-    minimum = prune_minimum_chars()
+    minimum = clear_at_least_chars()
     protect = prune_protect_chars()
     total = 0
     pruned = 0
@@ -89,6 +97,23 @@ def backward_prune_tool_outputs(messages: list[dict]) -> list[dict]:
             continue
         pruned += est
         to_clear.append(idx)
+
+    if pruned < minimum and to_clear:
+        extra: list[int] = []
+        for idx in tool_idxs:
+            if idx in to_clear:
+                continue
+            msg = messages[idx]
+            content = str(msg.get("content") or "")
+            if content.strip() in (CLEARED_TOOL_RESULT_MESSAGE, "[旧工具结果已清空]"):
+                continue
+            if is_persisted_tool_result(content):
+                continue
+            extra.append(idx)
+            pruned += max(1, len(content) // 4)
+            if pruned >= minimum:
+                break
+        to_clear.extend(extra)
 
     if pruned < minimum:
         return messages

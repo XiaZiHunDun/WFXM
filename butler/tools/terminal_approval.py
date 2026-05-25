@@ -60,7 +60,12 @@ def store_approval(
     return fp
 
 
-def check_approval(command: str, *, cwd: str = "") -> str | None:
+def check_approval(
+    command: str,
+    *,
+    cwd: str = "",
+    session_key: str = "",
+) -> str | None:
     """Return error message if not approved; None if ok or approval not required."""
     if not approval_required():
         return None
@@ -82,6 +87,10 @@ def check_approval(command: str, *, cwd: str = "") -> str | None:
         return "terminal 批准已过期，请重新 /批准执行"
     if data.get("command", "").strip() != command.strip():
         return "terminal 命令与批准记录不一致"
+    recorded_sk = str(data.get("session_key") or "").strip()
+    want_sk = str(session_key or "").strip()
+    if recorded_sk and want_sk and recorded_sk != want_sk:
+        return "terminal 批准记录属于其他会话，请在本会话重新 /批准执行"
     return None
 
 

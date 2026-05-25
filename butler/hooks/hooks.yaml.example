@@ -1,9 +1,16 @@
 # Copy to ~/.butler/config.yaml under `hooks:` or to <project>/.butler/hooks.yaml
 # Claude Code–compatible shell hooks (stdin JSON). See CONTRIBUTING.md § Butler 线束.
 #
-# Process-internal hooks (pre_llm_call, pre_gateway_dispatch) live in butler/gateway/hooks.py.
+# Process-internal hooks (pre_llm_call, pre_gateway_dispatch, pre_compact, post_compact)
+# live in butler/gateway/hooks.py. PreToolUse = pre_tool_execute.
 
 hooks:
+  PreCompact:
+    - matcher: "*"
+      command: "echo 'pre-compact audit'"
+  PostCompact:
+    - matcher: "*"
+      command: "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PostCompact\",\"additionalContext\":[\"[hook] compact done\"]}}'"
   PreToolUse:
     - matcher: "write_file|patch"
       command: "echo 'blocked by example hook' >&2; exit 2"

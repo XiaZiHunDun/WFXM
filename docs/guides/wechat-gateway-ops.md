@@ -1,7 +1,8 @@
 # 微信网关运维手册（systemd）
 
 > 个人助手 Butler：**仅微信**网关，用户级 systemd，日志在仓库 `logs/butler-gateway.log`。  
-> 真机验收见 [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md)（试点项目 **灵文1号** / `projects/LingWen1/`）。
+> 真机验收见 [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md)（试点项目 **灵文1号** / `projects/LingWen1/`）。  
+> OpenCode 对标能力（导出/委派/回滚等）速查：[opencode-parity.md](./opencode-parity.md)。
 
 ---
 

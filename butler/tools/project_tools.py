@@ -18,6 +18,8 @@ _TOOL_NAME_ALIASES: dict[str, str] = {
 # Butler orchestration tools always available when a project is selected.
 _BUTLER_EXTRA_TOOLS = frozenset({
     "delegate_task",
+    "list_workflows",
+    "search_project_knowledge",
     "skills_list",
     "skill_view",
     "butler_remember",
@@ -35,6 +37,7 @@ _LEAD_READ_TOOLS = frozenset({
 _LEAD_EXTRA_TOOLS = frozenset({
     "delegate_task",
     "run_workflow",
+    "list_workflows",
     "skills_list",
     "skill_view",
     "butler_remember",

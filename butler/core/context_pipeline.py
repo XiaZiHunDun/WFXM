@@ -16,6 +16,7 @@ from butler.core.post_compact_cleanup import apply_post_compact_anchors, run_pos
 from butler.core.hygiene_preflight import run_hygiene_preflight
 from butler.core.loop_types import LoopConfig
 from butler.core.message_repair import repair_message_sequence, repair_tool_arguments
+from butler.core.tool_pair_repair import repair_tool_pairs
 from butler.core.message_sanitize import (
     drop_thinking_only_assistants,
     sanitize_api_messages,
@@ -31,6 +32,7 @@ class ContextPipeline:
     config: LoopConfig
     compression_summary: str = ""
     consecutive_compact_failures: int = 0
+    _attached_loop: Any | None = None
 
     def estimate_tokens(self, messages: list[dict]) -> int:
         return _estimate_tokens(messages)
@@ -44,7 +46,43 @@ class ContextPipeline:
         head_count: int = 3,
         max_tail_messages: int = 12,
         min_tail_messages: int = 4,
+        overflow_replay: bool = False,
+        diagnostics: dict[str, Any] | None = None,
     ) -> list[dict]:
+        session_key = ""
+        try:
+            from butler.execution_context import get_audit_session_key
+
+            session_key = get_audit_session_key(fallback="")
+        except Exception:
+            pass
+        if session_key and len(messages) >= min_messages_to_compress:
+            try:
+                from butler.core.compaction_checkpoint import capture_checkpoint
+                from butler.core.session_todos import count_open_todos, session_todos_enabled
+
+                open_n = (
+                    count_open_todos(session_key)
+                    if session_todos_enabled()
+                    else 0
+                )
+                capture_checkpoint(
+                    session_key,
+                    open_todos=open_n,
+                    compression_summary=self.compression_summary,
+                    max_iterations=self.config.max_iterations,
+                )
+                if self._attached_loop is not None:
+                    from butler.core.compaction_checkpoint import capture_from_loop
+
+                    capture_from_loop(
+                        session_key,
+                        loop=self._attached_loop,
+                        compression_summary=self.compression_summary,
+                    )
+            except Exception as exc:
+                logger.debug("Compaction checkpoint pre-capture: %s", exc)
+
         compressed, summary, did = compress_messages(
             messages,
             max_tokens=self.config.max_context_tokens,
@@ -54,11 +92,20 @@ class ContextPipeline:
             head_count=head_count,
             max_tail_messages=max_tail_messages,
             min_tail_messages=min_tail_messages,
+            max_output_tokens=getattr(self.config, "max_output_tokens", None),
+            overflow_replay=overflow_replay,
         )
         if did and summary:
             self.compression_summary = summary
             self.consecutive_compact_failures = 0
             compressed = apply_post_compact_anchors(compressed)
+            if session_key and isinstance(diagnostics, dict):
+                try:
+                    from butler.core.compaction_checkpoint import restore_into_diagnostics
+
+                    restore_into_diagnostics(session_key, diagnostics)
+                except Exception as exc:
+                    logger.debug("Compaction checkpoint restore: %s", exc)
         return compressed
 
     def prepare_messages_for_api(
@@ -103,13 +150,21 @@ class ContextPipeline:
             raise
         except Exception as exc:
             logger.debug("Preemptive compact skipped: %s", exc)
-        prepared = self.compress_context(prepared)
+        if diag is not None:
+            diag.setdefault("session_key", get_audit_session_key(fallback="_global"))
+        prepared = self.compress_context(prepared, diagnostics=diag or None)
         prepared, _ = repair_message_sequence(prepared)
+        prepared, _ = repair_tool_pairs(prepared, diagnostics=diag or None)
         repair_tool_arguments(prepared)
         prepared, _ = sanitize_api_messages(prepared)
         prepared, _ = drop_thinking_only_assistants(prepared)
         if pre_llm_transform:
             prepared = pre_llm_transform(prepared)
+        ephemeral = ""
+        if diag:
+            ephemeral = str(diag.get("ephemeral_system") or "").strip()
+        if ephemeral:
+            prepared = _inject_ephemeral_system(prepared, ephemeral)
         return prepared
 
     def hygiene_compress_if_needed(
@@ -149,3 +204,17 @@ class ContextPipeline:
             diagnostics.get("hygiene_threshold_tokens", 0),
         )
         return True, anchored
+
+
+def _inject_ephemeral_system(messages: list[dict], banner: str) -> list[dict]:
+    if not banner.strip():
+        return messages
+    block = f"{banner.strip()}\n\n(本段为 ephemeral 执行提示，不写入用户消息。)"
+    out = list(messages)
+    for i, msg in enumerate(out):
+        if isinstance(msg, dict) and msg.get("role") == "system":
+            prev = str(msg.get("content") or "")
+            out[i] = {**msg, "content": f"{prev}\n\n{block}".strip() if prev else block}
+            return out
+    out.insert(0, {"role": "system", "content": block})
+    return out

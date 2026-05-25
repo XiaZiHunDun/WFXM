@@ -27,6 +27,7 @@ class Project:
     models: dict[str, ModelConfig] = field(default_factory=dict)
     workflows: list[Any] = field(default_factory=list)
     tools: list[str] = field(default_factory=list)
+    worktree: str = ""
 
     def __post_init__(self) -> None:
         self.workspace = self.workspace.expanduser().resolve()
@@ -72,6 +73,7 @@ class Project:
             models=models,
             workflows=list(data.get("workflows") or []),
             tools=list(data.get("tools") or []),
+            worktree=str(data.get("worktree") or "").strip(),
         )
 
     def resolve_model(self, role: str, runtime_override: ModelConfig | None = None) -> ModelConfig:
@@ -113,6 +115,8 @@ class Project:
             d["workflows"] = self.workflows
         if self.tools:
             d["tools"] = self.tools
+        if self.worktree:
+            d["worktree"] = self.worktree
         return d
 
     def save(self) -> None:
@@ -139,6 +143,8 @@ class Project:
             payload["workflows"] = self.workflows
         if self.tools:
             payload["tools"] = self.tools
+        if self.worktree:
+            payload["worktree"] = self.worktree
 
         with open(config_path, "w", encoding="utf-8") as f:
             yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False)

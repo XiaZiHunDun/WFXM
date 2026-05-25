@@ -1189,6 +1189,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="stdio MCP Server，暴露只读 Butler 工具供 Cursor 等客户端调用",
     )
     mcp_serve.set_defaults(func=_cmd_mcp_serve)
+    from butler.cli.mcp_catalog_cli import register_mcp_catalog_parsers
+
+    register_mcp_catalog_parsers(mcp_sub)
+
+    from butler.cli.skills_registry import register_skills_parser
+
+    register_skills_parser(sub)
+
+    from butler.cli.workflow_cli import register_workflow_subparser
+
+    register_workflow_subparser(sub)
+
+    from butler.cli.secrets_cli import register_secrets_subparser
+
+    register_secrets_subparser(sub)
 
     sub.add_parser(
         "doctor",
