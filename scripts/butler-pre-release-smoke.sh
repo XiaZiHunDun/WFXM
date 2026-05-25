@@ -7,13 +7,10 @@ cd "$ROOT"
 # 灵文 runtime 与 DemoPilot 分步冒烟；$1 保留兼容但不再覆盖灵文 runtime 步骤
 RUNTIME_PROJECT="灵文1号"
 
+# shellcheck source=scripts/lib/butler-source-env.sh
+source "$ROOT/scripts/lib/butler-source-env.sh"
 if [[ -f .env ]]; then
-  set -a
-  set +u
-  # shellcheck disable=SC1091
-  source .env
-  set -u
-  set +a
+  butler_source_env "$ROOT/.env"
 fi
 export PYTHONPATH="${PYTHONPATH:-.}:."
 

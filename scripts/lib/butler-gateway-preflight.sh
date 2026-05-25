@@ -2,6 +2,9 @@
 # Usage: ROOT=... source scripts/lib/butler-gateway-preflight.sh
 #        butler_gateway_preflight
 
+# shellcheck source=scripts/lib/butler-source-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/butler-source-env.sh"
+
 butler_gateway_preflight() {
   local root="${ROOT:?ROOT not set}"
   local errors=0
@@ -23,8 +26,10 @@ butler_gateway_preflight() {
     _bg_fail "missing $root/.env (cp .env.example .env)"
   else
     _bg_ok ".env present"
-    # shellcheck disable=SC1090
-    set -a && source "$root/.env" && set +a
+    butler_source_env "$root/.env" || {
+      _bg_fail "failed to source $root/.env (check unset vars under set -u, e.g. use \${LD_LIBRARY_PATH:-})"
+      errors=$((errors + 1))
+    }
     if [[ -z "${MINIMAX_API_KEY:-}" && -z "${MINIMAX_CN_API_KEY:-}" ]]; then
       _bg_warn "MINIMAX_API_KEY not set in .env (gateway LLM may fail)"
     else
@@ -102,6 +107,12 @@ sys.exit(0 if check_wechat_requirements() else 1)
     _bg_warn "BUTLER_DEFAULT_PROJECT unset — new chats need /切换 before tool use"
   else
     _bg_ok "BUTLER_DEFAULT_PROJECT=${BUTLER_DEFAULT_PROJECT}"
+  fi
+
+  if [[ -z "${BUTLER_OWNER_WECHAT_ID:-}" && -z "${BUTLER_GATEWAY_ALLOWLIST:-}" ]]; then
+    _bg_warn "未配置 BUTLER_OWNER_WECHAT_ID / BUTLER_GATEWAY_ALLOWLIST — 运行 butler doctor 或补 .env"
+  else
+    _bg_ok "Gateway owner/allowlist configured"
   fi
 
   local inbound_media="${BUTLER_WECHAT_INBOUND_MEDIA:-1}"

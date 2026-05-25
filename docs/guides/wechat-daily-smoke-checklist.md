@@ -19,7 +19,8 @@ bash scripts/install-butler-ops-bundle.sh          # runtime --all-projects + pu
 bash scripts/install-butler-logrotate.sh user --install-cron   # 可选
 bash scripts/butler-gateway-ops.sh restart
 bash scripts/butler-gateway-ops.sh reindex         # 或 upgrade（含 pull+重装+reindex）
-bash scripts/butler-pre-release-smoke.sh 灵文1号   # 一键守门（约 3–5 分钟）
+bash scripts/butler-pre-release-smoke.sh           # 一键守门（约 5–6 分钟，含 ~1810 pytest）
+butler doctor                                      # 静态安全配置（应无 CRITICAL）
 ```
 
 | 检查项 | 结果 |
@@ -28,7 +29,8 @@ bash scripts/butler-pre-release-smoke.sh 灵文1号   # 一键守门（约 3–5
 | `butler-runtime-lingwen.timer` + `butler-push-drain.timer` | ☑ 2026-05-22 ops-bundle |
 | logrotate cron 03:00 | ☑ 2026-05-22 `--install-cron` |
 | 试点路径 + `~/.butler/wechat/accounts/` | ☑ |
-| `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`SYNC_CONVERSATION_MEMORY=0` | ☑ |
+| `.env`：`BUTLER_DEFAULT_PROJECT=灵文1号`、`BUTLER_OWNER_WECHAT_ID`、`SYNC_CONVERSATION_MEMORY=0` | ☑ |
+| `.env` tesseract：`LD_LIBRARY_PATH=...:${LD_LIBRARY_PATH:-}`（避免 preflight `set -u` 失败） | ☑ |
 | `.env` 记忆：`SEMANTIC_MEMORY=1`、`QUEUE_PREFETCH=1`（推荐） | ☑ |
 | `~/.butler/config.yaml` 可选（`setup-butler-config.sh`；本机已合并 gateway/auxiliary） | ☑ 2026-05-22 |
 | `butler-pre-release-smoke.sh` 全绿 | ☑ 2026-05-25（~1810 pytest + 9 步 smoke；含 OpenClaw OC-P0–P2） |

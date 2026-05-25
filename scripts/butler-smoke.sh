@@ -28,13 +28,10 @@ for arg in "$@"; do
   esac
 done
 
+# shellcheck source=scripts/lib/butler-source-env.sh
+source "$ROOT/scripts/lib/butler-source-env.sh"
 if [[ -f .env ]]; then
-  set -a
-  set +u
-  # shellcheck disable=SC1091
-  source .env
-  set -u
-  set +a
+  butler_source_env "$ROOT/.env"
 fi
 export PYTHONPATH="${PYTHONPATH:-.}:."
 

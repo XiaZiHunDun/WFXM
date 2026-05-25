@@ -14,6 +14,7 @@
 | `install-butler-logrotate.sh` | 日志轮转 |
 | `setup-butler-config.sh` | 生成 `~/.butler/config.yaml` |
 | `lib/butler-gateway-preflight.sh` | 网关启动前检查（被 ops 调用） |
+| `lib/butler-source-env.sh` | 安全 `source .env`（`set -u` 下兼容 `${VAR:-}`） |
 
 ## 日常运维
 
