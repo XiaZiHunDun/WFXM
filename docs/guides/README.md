@@ -1,13 +1,16 @@
 # 指南文档索引
 
 > 更新：2026-05-25 | 个人助手 Butler：**主场景为微信**；CLI 为本地开发与调试。  
+> 文档体系：[`../DOCUMENTATION.md`](../DOCUMENTATION.md) · 否决/Backlog：[`../plans/roadmap-backlog-and-boundaries-2026-05.md`](../plans/roadmap-backlog-and-boundaries-2026-05.md)  
 > 四报告 Sprint A–D 总索引：[sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md)
 
 | 文档 | 用途 |
 |------|------|
 | [wechat-gateway-ops.md](./wechat-gateway-ops.md) | **生产运维**：systemd 安装、发版、日志、排障 |
 | [opencode-parity.md](./opencode-parity.md) | **OpenCode 对标速查**：slash、异步委派、transcript、env 验收 |
-| [external-reference-roadmap-2026-05.md](./external-reference-roadmap-2026-05.md) | **外部对标总索引**（阶段 A/B/C + defer，唯一 backlog） |
+| [external-reference-roadmap-2026-05.md](./external-reference-roadmap-2026-05.md) | **外部对标验收索引**（阶段 A/B/C 已落地；defer 见 deferred） |
+| [../plans/roadmap-backlog-and-boundaries-2026-05.md](../plans/roadmap-backlog-and-boundaries-2026-05.md) | **否决 / 深化边界 / 可选 Backlog**（提需求先读） |
+| [five-reports-capabilities-2026-05.md](./five-reports-capabilities-2026-05.md) | **五报告 PR-F + P5–P10** 已落地速查 |
 | [phase-a-external-reference.md](./phase-a-external-reference.md) | 阶段 A：网关、压缩、auto-continue |
 | [phase-b-external-reference.md](./phase-b-external-reference.md) | 阶段 B：安全、Registry、工具纪律、workflow 变量 |
 | [phase-c-external-reference.md](./phase-c-external-reference.md) | 阶段 C：工具预选、Loop 插件、workflow validate |
@@ -45,6 +48,7 @@
 | 脚本 | 用途 |
 |------|------|
 | `scripts/butler-pre-release-smoke.sh` | 发版前一键（preflight + pytest + smoke） |
+| `scripts/butler-five-reports-gate.sh` | 五报告 P5–P10 守门 |
 | `scripts/butler-runtime-smoke.sh` | Runtime 运维冒烟（灵文1号） |
 | `scripts/butler-demo-pilot-smoke.sh` | 演示试点 E2E |
 | `scripts/butler-dev-tools-smoke.sh` | 开发工具链实战冒烟 |

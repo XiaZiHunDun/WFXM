@@ -58,7 +58,9 @@ butler registry verify
 |------|------|
 | [`README.md`](README.md) | 项目总览 |
 | [`docs/README.md`](docs/README.md) | 文档索引（2026-05-25） |
+| [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档体系、维护规则、语料专项 |
 | [`docs/plans/README.md`](docs/plans/README.md) | 规划文档与 P0/P2/P3 命名对照 |
+| [`docs/plans/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/roadmap-backlog-and-boundaries-2026-05.md) | 否决 / Backlog 决策入口 |
 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | v4 架构（CC 线束 + 外部对标） |
 | [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | CC 对照与 Loop 线束 |
 | [`docs/guides/four-reports-capabilities-2026-05.md`](docs/guides/four-reports-capabilities-2026-05.md) | 四报告已落地能力速查 |

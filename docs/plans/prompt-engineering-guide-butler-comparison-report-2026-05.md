@@ -4,7 +4,10 @@
 > **对照源**：`reference/Prompt-Engineering-Guide`（DAIR.AI 教学文档站，Nextra + MDX，**非可运行 Agent 框架**）  
 > **Butler 基线**：[`v4-architecture.md`](../architecture/v4-architecture.md)、[`prompts-corpus-butler-comparison-2026-05.md`](prompts-corpus-butler-comparison-2026-05.md)（Prompt Corpus 线 D/E 已落地）  
 > **原则**：提炼方法论与 prompt 模式，不引入 npm 文档站、LangChain 运行时或 notebook 依赖  
-> **合并路线图**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 H**（规划中）  
+> **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）  
+> **状态**：**主线 H 子集已落地**（PR-F4、`butler prompt eval`、P9–P10 LLM/corpus）  
+> **合并路线图**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 H**  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)  
 > **并行主线**：CC 线束见 [`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)；OpenCode 压缩/prune 见 [`opencode-butler-comparison-report-2026-05.md`](opencode-butler-comparison-report-2026-05.md)
 
 ---

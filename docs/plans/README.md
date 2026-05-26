@@ -1,6 +1,7 @@
 # 规划文档索引
 
-> 更新：2026-05-25 | 区分 **CC 线束**、**仓库整理**、**外部对标** 三套「P0/P2/P3」命名，勿混用。
+> 更新：2026-05-25 | 区分 **CC 线束**、**仓库整理**、**外部对标** 三套「P0/P2/P3」命名，勿混用。  
+> 文档体系：[`../DOCUMENTATION.md`](../DOCUMENTATION.md) · 对照报告正文 **非待办**，以决策入口为准。
 
 ## 决策入口（提需求 / 写规划先看）
 
@@ -124,12 +125,35 @@
 
 ## 归档 / 专项（按需打开）
 
+### 已完成实施（历史记录）
+
 | 文档 | 说明 |
 |------|------|
-| [`consolidation-2026-05.md`](consolidation-2026-05.md) | 整理方案全文 |
-| [`memory-unification-implementation-2026-05.md`](memory-unification-implementation-2026-05.md) | 记忆双轨合并 |
-| [`wechat-steer-implementation-2026-05.md`](wechat-steer-implementation-2026-05.md) | `/steer` 实现 |
-| [`corpus-testing-module-design-2026-05.md`](corpus-testing-module-design-2026-05.md) | 语料测试模块 |
+| [`consolidation-2026-05.md`](consolidation-2026-05.md) | 整理方案全文（P0–P2 已完成） |
+| [`consolidation-p3-implementation-2026-05.md`](consolidation-p3-implementation-2026-05.md) | P3 死代码清理（已完成） |
+| [`memory-unification-implementation-2026-05.md`](memory-unification-implementation-2026-05.md) | 记忆双轨合并（M1–M4 已完成） |
+| [`wechat-steer-implementation-2026-05.md`](wechat-steer-implementation-2026-05.md) | `/steer` 实现（已完成） |
+| [`health-report-refactor-2026-05.md`](health-report-refactor-2026-05.md) | 健康报告重构（已完成） |
+
+### 语料与微信测试（与对标正交）
+
+| 文档 | 说明 |
+|------|------|
+| [`corpus-testing-module-design-2026-05.md`](corpus-testing-module-design-2026-05.md) | 语料模块设计 |
+| [`wechat-real-coverage-matrix-2026-05.md`](wechat-real-coverage-matrix-2026-05.md) | 真机覆盖矩阵 |
+| [`wechat-dev-conversation-scenarios-2026-05.md`](wechat-dev-conversation-scenarios-2026-05.md) | 开发对话场景 |
+| [`wechat-real-dialogue-test-scenarios-2026-05.md`](wechat-real-dialogue-test-scenarios-2026-05.md) | 真机对话场景 |
+| [`dev-assistant-corpus-v4-expansion-2026-05.md`](dev-assistant-corpus-v4-expansion-2026-05.md) | 语料 v4 扩展 |
+| [`dev-assistant-corpus-v3-analysis-2026-05.md`](dev-assistant-corpus-v3-analysis-2026-05.md) | 语料 v3 分析 |
+| [`corpus-issue-map-2026-05.md`](corpus-issue-map-2026-05.md) | 语料 issue 映射 |
+
+门禁：[`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) · [`../guides/project-intro-for-utterance-corpus.md`](../guides/project-intro-for-utterance-corpus.md)
+
+### 备忘（非实施承诺）
+
+| 文档 | 说明 |
+|------|------|
 | [`p3-deferred-deep-dive-2026-05.md`](p3-deferred-deep-dive-2026-05.md) | 双实例 / 记忆排查备忘 |
+| [`corpus-scale-target-2026-05.md`](corpus-scale-target-2026-05.md) | 语料规模目标 |
 
 `reference/` 目录（gitignore）由主公维护，**不在此索引内**。

@@ -175,6 +175,7 @@
 
 | 文档 | 保留用途 | 与本文关系 |
 |------|----------|------------|
+| [`../DOCUMENTATION.md`](../DOCUMENTATION.md) | **文档体系** L0–L5、维护规则、语料专项 | 本文的上位索引 |
 | [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | **四报告 18 项否决** 权威正文 | 本文 §1.1 索引 |
 | [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) | **五报告** 变更记录 + P5–P10 表 | 本文 §1.2、§2.1 索引 |
 | [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) | 四报告 **已落地** PR 核对 §9 | 勿从 §3–§5 旧表找待办 |
@@ -198,3 +199,4 @@
 | 日期 | 说明 |
 |------|------|
 | 2026-05-25 | 初版：合并四报告/五报告/外部 Agent/OpenCode/defer/post-consolidation 未做与边界 |
+| 2026-05-25 | 链入 [`DOCUMENTATION.md`](../DOCUMENTATION.md) 文档体系 |

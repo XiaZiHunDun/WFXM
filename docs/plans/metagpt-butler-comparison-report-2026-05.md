@@ -3,7 +3,10 @@
 > **日期**：2026-05-25  
 > **对照源**：`reference/MetaGPT`（本地 gitignore，不嵌入运行时）  
 > **Butler 基线**：[`v4-architecture.md`](../architecture/v4-architecture.md)、[`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md)（P0–P2 已收口）  
+> **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）  
+> **状态**：**主线 N / PR-X5 子集已落地**（见外部 Agent 路线图 §10）  
 > **合并路线图**：[`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) **主线 N**、PR-X5  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)  
 > **产品边界**：[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) §2、[`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) §1–§2  
 > **原则**：只借鉴设计/理论，不引入 MetaGPT `Team`/`Environment` 全框架、不变成「软件公司」默认自治
 

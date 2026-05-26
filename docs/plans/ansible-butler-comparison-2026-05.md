@@ -3,7 +3,10 @@
 > **日期**：2026-05-25  
 > **对照代码**：`reference/ansible`（Ansible Core，`lib/ansible/`）  
 > **Butler 事实来源**：[`docs/architecture/v4-architecture.md`](../architecture/v4-architecture.md)  
+> **文档类型**：对照分析报告（正文 ANS-P 表为历史提炼，**非待办**）  
+> **状态**：**主线 O / PR-X1/X6 子集已落地**（见外部 Agent 路线图 §10）  
 > **合并路线图**：[`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) **主线 O**、PR-X1/X6（ANS-P0–P3 见该文档 §5）  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)  
 > **相关规划**：[`reference-learning-plan-2026-05.md`](reference-learning-plan-2026-05.md)（外部对标已收口，零依赖）、[`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)、[`dify-butler-comparison-2026-05.md`](dify-butler-comparison-2026-05.md)  
 > **原则**：只借鉴编排与可观测**设计**；零新增 pip 依赖；不引入多进程 Worker 池、Jinja 全生态、远程 Module 执行模型
 

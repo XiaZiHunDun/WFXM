@@ -1,7 +1,8 @@
 # Butler 文档索引
 
 > 更新：**2026-05-25** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
-> **新会话**：先读 [`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md)
+> **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md)  
+> **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 
 ## 快速入口
 
@@ -52,7 +53,9 @@
 
 | 文档 | 说明 |
 |------|------|
+| [`DOCUMENTATION.md`](DOCUMENTATION.md) | **文档体系**（L0–L5 分层、维护规则、语料专项） |
 | [`plans/README.md`](plans/README.md) | **规划索引**（CC / 整理 / 外部对标 命名对照） |
+| [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/roadmap-backlog-and-boundaries-2026-05.md) | **否决 / Backlog 决策入口** |
 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) | Claude Code ↔ Butler（**主对照**） |
 | [`plans/reference-learning-plan-2026-05.md`](plans/reference-learning-plan-2026-05.md) | 外部对标（Prometheus/OpenClaw/Dify）— **已收口** |
 | [`plans/four-reports-improvement-roadmap-2026-05.md`](plans/four-reports-improvement-roadmap-2026-05.md) | 四份报告合并路线图（**已收口** §9） |
@@ -61,6 +64,17 @@
 | [`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md) | 运营与多项目后续 |
 | [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理（已完成） |
 | [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 成熟度评估 |
+
+## 语料与微信测试（专项）
+
+与 Loop 对标正交；改 `tests/corpus/` 或网关路由时读 [`DOCUMENTATION.md`](DOCUMENTATION.md) §5。
+
+| 文档 | 说明 |
+|------|------|
+| [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus-testing-module-design-2026-05.md) | 语料模块设计 |
+| [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/wechat-real-coverage-matrix-2026-05.md) | 真机覆盖矩阵 |
+| [`guides/project-intro-for-utterance-corpus.md`](guides/project-intro-for-utterance-corpus.md) | 语料项目介绍 |
+| [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | `corpus-test.sh` 门禁 |
 
 ## 配置模板
 

@@ -4,7 +4,10 @@
 > **对照源**：`reference/claude-mem`（本地 gitignore，不嵌入运行时）  
 > **Butler 基线**：[`v4-architecture.md`](../architecture/v4-architecture.md)、[`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md)（四报告 A 线检索已落地）、[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md)  
 > **原则**：只借鉴记忆工程方法论，不引入 Bun Worker、Chroma MCP、uv Python 栈、IDE 插件 Host  
-> **合并路线图**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 F**（规划中）  
+> **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）  
+> **状态**：**主线 F 子集已落地**（PR-F1–F6、P5–P10；见五报告路线图 §9）  
+> **合并路线图**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 F**  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)  
 > **并行主线**：CC 线束见 [`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)
 
 ---

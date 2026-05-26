@@ -27,7 +27,7 @@ Butler 已对齐 **内置层 + prefetch/sync/post_session**；**P0/P1 向量层*
 | 项目 MEMORY | `MEMORY.md` + Pending + 微信/CLI 待审命令 | MarkdownMemory ✅ |
 | 项目语义索引 | `memory_vectors.db`；`butler_remember` / 批准 / reindex 同步 | SemanticMemoryIndex ✅ |
 | 每轮召回 | experience hybrid + **项目 MEMORY query 向量预取** + 围栏注入 | get_relevant_context ✅ 部分 |
-| 向量 / 混合检索 | `BUTLER_SEMANTIC_MEMORY=1` 启用；`=0` 仅 FTS | 规划中 BM25+向量 ✅ P1 |
+| 向量 / 混合检索 | `BUTLER_SEMANTIC_MEMORY=1` 启用；`=0` 仅 FTS | BM25+向量 hybrid ✅ P1 已落地 |
 | queue_prefetch | `BUTLER_QUEUE_PREFETCH=1` 上轮结束后后台 warm 缓存 | Hermes 可选 ✅ P2 |
 | 机读 facts | `facts.json` SSOT + `knowledge.db` 同步镜像；预取 + `butler_recall` scope=project | ✅ |
 

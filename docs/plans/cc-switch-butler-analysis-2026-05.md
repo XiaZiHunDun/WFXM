@@ -4,7 +4,10 @@
 > **对照源**：`reference/cc-switch`（Tauri 2 桌面应用，[README_ZH](https://github.com/farion1231/cc-switch) 同仓库路径）  
 > **Butler 基线**：[`v4-architecture.md`](../architecture/v4-architecture.md)、[`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)  
 > **产品边界**：[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md)、[`project-layer-wechat-plan.md`](../architecture/project-layer-wechat-plan.md)  
-> **合并路线图**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 G**（规划中）
+> **文档类型**：对照分析报告（正文阶段表为历史提炼，**非待办**）  
+> **状态**：**主线 G 子集已落地**（PR-F2/F3、P8 provider preset；桌面托盘等见否决 S3–S5）  
+> **合并路线图**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 G**  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)
 
 ---
 

@@ -1,6 +1,9 @@
 # Butler v4 ↔ LlamaFactory 对照与提炼报告
 
-> **状态**：分析完成（2026-05-25）；**提炼项未落地** — 合并路线图 [`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) **主线 K**、PR-X3  
+> **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）  
+> **状态**：分析完成（2026-05-25）；**主线 K / PR-X3 子集已落地**（见外部 Agent 路线图 §10）  
+> **合并路线图**：[`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) **主线 K**、PR-X3  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)  
 > **本地对照代码**：`reference/LlamaFactory/`（gitignore，主公维护）  
 > **Butler 事实来源**：[`docs/architecture/v4-architecture.md`](../architecture/v4-architecture.md)、`butler/` 实现  
 > **原则**：只借鉴**编排与协议**设计，**零新增重依赖**；不引入 GPU 训练栈、Gradio 训练面板、HF Trainer  

@@ -4,7 +4,10 @@
 > **对照源**：`reference/OpenHands`（本地 gitignore；V1 App Server + PyPI 包 `openhands-sdk` / `openhands-agent-server` / `openhands-tools` @ 1.22.1）  
 > **Butler 基线**：[`v4-architecture.md`](../architecture/v4-architecture.md)、[`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)、[`opencode-learning-plan-2026-05.md`](opencode-learning-plan-2026-05.md)  
 > **原则**：只借鉴设计，**零新增 pip 依赖**；不引入 Docker 沙箱、React GUI、FastMCP PR 全家桶  
+> **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）  
+> **状态**：**主线 M / PR-X2/X4/X5 子集已落地**（见外部 Agent 路线图 §10）  
 > **合并路线图**：[`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) **主线 M**、PR-X2/X4/X5  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)  
 > **产品边界**：[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md)、[`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md)
 
 ---

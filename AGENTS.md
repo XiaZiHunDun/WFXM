@@ -10,16 +10,17 @@
 | 2 | [`docs/config/reference.md`](docs/config/reference.md) + [`.env.example`](.env.example) | `BUTLER_*` 环境变量（勿猜默认值） |
 | 3 | [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | Claude Code 对照；**CC 线束 P0–P4**（§4–§11） |
 | 4 | [`docs/plans/README.md`](docs/plans/README.md) | 规划索引；**三套 P0/P2/P3 命名对照** |
-| 4b | [`docs/plans/four-reports-out-of-scope-2026-05.md`](docs/plans/four-reports-out-of-scope-2026-05.md) | 四报告对标 **明确不做**（新增能力前先查） |
-| 4c | [`docs/plans/five-reports-improvement-roadmap-2026-05.md`](docs/plans/five-reports-improvement-roadmap-2026-05.md) | 五报告合并路线图（**已落地**，主线 F–J / PR-F1–F6）；速查 [`docs/guides/five-reports-capabilities-2026-05.md`](docs/guides/five-reports-capabilities-2026-05.md) |
-| 4d | [`docs/plans/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/roadmap-backlog-and-boundaries-2026-05.md) | **统一**：各路线图否决、深化边界、可选 Backlog（提需求先读） |
-| 4d′ | [`docs/plans/five-reports-not-done-2026-05.md`](docs/plans/five-reports-not-done-2026-05.md) | 五报告 S1–S11 速查（→ 主入口） |
-| 4e | [`docs/plans/external-agent-reports-improvement-roadmap-2026-05.md`](docs/plans/external-agent-reports-improvement-roadmap-2026-05.md) | LF/DeerFlow/OpenHands/MetaGPT/Ansible 合并路线图（**PR-X1–X6 已落地**，主线 K–O） |
+| 4a | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | **文档体系**（L0–L5 分层、维护规则、语料专项；对照报告非待办） |
+| 4b | [`docs/plans/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/roadmap-backlog-and-boundaries-2026-05.md) | **否决 / 深化边界 / Backlog**（提需求先读） |
+| 4c | [`docs/plans/four-reports-out-of-scope-2026-05.md`](docs/plans/four-reports-out-of-scope-2026-05.md) | 四报告 **18 项否决** 正文 |
+| 4d | [`docs/plans/five-reports-not-done-2026-05.md`](docs/plans/five-reports-not-done-2026-05.md) | 五报告 S1–S11 + P5–P10 速查 |
+| 4e | [`docs/plans/five-reports-improvement-roadmap-2026-05.md`](docs/plans/five-reports-improvement-roadmap-2026-05.md) | 五报告路线图（**已落地** §9）；速查 [`five-reports-capabilities`](docs/guides/five-reports-capabilities-2026-05.md) |
+| 4f | [`docs/plans/external-agent-reports-improvement-roadmap-2026-05.md`](docs/plans/external-agent-reports-improvement-roadmap-2026-05.md) | 外部五报告（**PR-X 已落地** §10） |
 | 5 | [`STRUCTURE.md`](STRUCTURE.md) | 目录树与常用命令 |
 | 6 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | 微信线束、Hooks、出站、队列/workflow、发版抽测 |
 | 7 | [`docs/design/design.md`](docs/design/design.md) | 产品设计摘要；§9 为对照表，**§11+ 可能过时** |
 
-索引：[`docs/README.md`](docs/README.md)
+索引：[`docs/README.md`](docs/README.md) · 文档维护：[`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)
 
 ## 已过时或易误导（勿作为实现依据）
 

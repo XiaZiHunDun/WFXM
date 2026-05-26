@@ -5,7 +5,10 @@
 > **Butler 事实来源**：[`docs/architecture/v4-architecture.md`](../architecture/v4-architecture.md)  
 > **产品边界**：[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) · [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md)  
 > **原则**：只借鉴设计；不引入 LangGraph 运行时、不替换 Butler Loop；零新增重依赖  
+> **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）  
+> **状态**：**主线 L / PR-X2/X4 子集已落地**（见外部 Agent 路线图 §10）  
 > **合并路线图**：[`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) **主线 L**、PR-X2/X4  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)  
 > **关联**：CC 线束 [`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md) · MCP [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md)
 
 ---

@@ -5,7 +5,10 @@
 > **Butler 事实来源**：[`docs/architecture/v4-architecture.md`](../architecture/v4-architecture.md)  
 > **产品边界**：[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) · CC 线束 [`cc-butler-gap-analysis-2026-05.md`](cc-butler-gap-analysis-2026-05.md)  
 > **原则**：只借鉴设计；不引入 LobeHub 运行时、不替换 Butler Loop；零新增重依赖  
-> **合并路线图**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 J**（规划中）
+> **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）  
+> **状态**：**主线 J 子集已落地**（REG-P4 LobeHub 市场、PR-F3；Loop/UI/MCP Host 见否决 S10–S11）  
+> **合并路线图**：[`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) **主线 J**  
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)
 
 ---
 
