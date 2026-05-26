@@ -1,7 +1,7 @@
 # 外部 Agent 对标五报告 — 合并改进路线图（2026-05）
 
 > **状态**：**PR-X1–X6 已落地**（2026-05-25）；P5–P10 五报告子集见 [`five-reports-not-done-2026-05.md`](../decisions/five-reports-not-done-2026-05.md) §3  
-> **来源报告**：[`llamafactory-butler-comparison-report-2026-05.md`](llamafactory-butler-comparison-report-2026-05.md)、[`deer-flow-butler-comparison-report-2026-05.md`](deer-flow-butler-comparison-report-2026-05.md)、[`openhands-butler-comparison-report-2026-05.md`](openhands-butler-comparison-report-2026-05.md)、[`metagpt-butler-comparison-report-2026-05.md`](metagpt-butler-comparison-report-2026-05.md)、[`ansible-butler-comparison-2026-05.md`](ansible-butler-comparison-2026-05.md)  
+> **来源报告**：[`llamafactory-butler-comparison-report-2026-05.md`](../comparisons/llamafactory-butler-comparison-report-2026-05.md)、[`deer-flow-butler-comparison-report-2026-05.md`](../comparisons/deer-flow-butler-comparison-report-2026-05.md)、[`openhands-butler-comparison-report-2026-05.md`](../comparisons/openhands-butler-comparison-report-2026-05.md)、[`metagpt-butler-comparison-report-2026-05.md`](../comparisons/metagpt-butler-comparison-report-2026-05.md)、[`ansible-butler-comparison-2026-05.md`](../comparisons/ansible-butler-comparison-2026-05.md)  
 > **事实基线**：[`../architecture/v4-architecture.md`](../../architecture/v4-architecture.md)  
 > **前置已落地**：[四报告路线图](../roadmaps/four-reports-improvement-roadmap-2026-05.md)（**已收口**）、[五报告路线图](../roadmaps/five-reports-improvement-roadmap-2026-05.md)（**PR-F1–F6 已落地**）、[CC 线束](../active/cc-butler-gap-analysis-2026-05.md)  
 > **否决 / 边界 / Backlog**：[`roadmap-backlog-and-boundaries-2026-05.md`](../decisions/roadmap-backlog-and-boundaries-2026-05.md)（**决策入口**）  
@@ -234,7 +234,7 @@ flowchart LR
 | [五报告路线图](../roadmaps/five-reports-improvement-roadmap-2026-05.md) | **已落地**；TradingAgents/outcome 不重复 |
 | [四报告路线图](../roadmaps/four-reports-improvement-roadmap-2026-05.md) | **已收口**；RAG/实验/DESIGN 不重复 |
 | [CC 线束](../active/cc-butler-gap-analysis-2026-05.md) | 流式/spill/队列；本路线补 workflow 与协议 |
-| [Dify 对照](dify-butler-comparison-2026-05.md) | VariablePool/HITL 已部分落地；Ansible 补 rescue |
+| [Dify 对照](../comparisons/dify-butler-comparison-2026-05.md) | VariablePool/HITL 已部分落地；Ansible 补 rescue |
 | [reference-learning-plan](../archive/reference-learning-plan-2026-05.md) | **已关闭**；继续零 pip 依赖 |
 | [five-reports-not-done](../decisions/five-reports-not-done-2026-05.md) | MCP SSOT、Pydantic 深化与本路线 PR-X4/X5 重叠 |
 

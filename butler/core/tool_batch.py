@@ -290,21 +290,6 @@ def process_tool_calls(
             inc("tool_call", labels={"tool": tool_label, "outcome": outcome})
         except Exception:
             pass
-        try:
-            from butler.core.session_transcript import record_tool_observation
-            from butler.execution_context import get_current_session_key
-
-            sk = str(get_current_session_key() or "").strip()
-            if sk:
-                record_tool_observation(
-                    sk,
-                    tool_name=name,
-                    outcome=_tool_result_outcome(result),
-                    preview=str(result or "")[:500],
-                    source=_transcript_source(),
-                )
-        except Exception:
-            pass
         if callbacks.on_tool_complete:
             callbacks.on_tool_complete(name, result)
 
@@ -334,7 +319,7 @@ def process_tool_calls(
     if config.enable_parallel_tools and len(response.tool_calls) > 1:
         pairs = execute_tools_parallel(
             response.tool_calls,
-            lambda n, a: _dispatch_one(n, a),
+            lambda n, a, *, tool_call_id="": _dispatch_one(n, a, tool_call_id=tool_call_id),
             on_start=_on_start,
             on_complete=_on_complete,
             check_interrupt=interrupt_check,
@@ -347,7 +332,8 @@ def process_tool_calls(
         for tc in response.tool_calls:
             try:
                 args = tc.args_dict()
-            except Exception:
+            except Exception as exc:
+                logger.warning("args_dict() parse failed for tool %s: %s", tc.name, exc)
                 args = {}
             if batch_interrupted or interrupt_check():
                 batch_interrupted = True

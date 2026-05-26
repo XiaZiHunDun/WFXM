@@ -122,7 +122,7 @@
 
 | 项 | 说明 |
 |----|------|
-| MCP 一等公民 | **已落地薄 Client**（`butler/mcp/`，默认关）；见 [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md) |
+| MCP 一等公民 | **已落地薄 Client**（`butler/mcp/`，默认关）；见 [`butler-mcp-capability-2026-05.md`](../comparisons/butler-mcp-capability-2026-05.md) |
 | IDE/LSP/打开文件列表 | 文档已明确不控 IDE |
 | Tasks V2 + Ink UI | 轻量 todo + 微信卡片代替 |
 | Swarm/teammate | 现有 TaskOrchestrator DAG 足够 |

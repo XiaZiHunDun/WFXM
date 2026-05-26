@@ -104,6 +104,26 @@ def mark_outbox_failed(entry_id: str, *, error: str = "") -> bool:
     return _transition_outbox_entry(entry_id, target_state="failed", error=error)
 
 
+def list_pending_outbox() -> list[dict[str, Any]]:
+    """Return all pending outbox entries (for startup replay).
+
+    NOTE: cross-process file locking is NOT enforced; if multiple gateway
+    processes share the same BUTLER_HOME, concurrent mark_sent / replay
+    may race.  For single-process deployment this is safe.
+    """
+    if not durable_outbox_enabled():
+        return []
+    entries: list[dict[str, Any]] = []
+    for path in sorted(_state_dir("pending").glob("*.json"), key=lambda p: p.stat().st_mtime):
+        try:
+            row = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(row, dict):
+                entries.append(row)
+        except (OSError, json.JSONDecodeError):
+            continue
+    return entries
+
+
 def outbox_counts(*, chat_id: str = "") -> dict[str, int]:
     cid = str(chat_id or "").strip()
     counts = {"pending": 0, "sent": 0, "failed": 0}
@@ -123,6 +143,7 @@ __all__ = [
     "durable_outbox_enabled",
     "durable_outbox_max_entries",
     "enqueue_outbox_message",
+    "list_pending_outbox",
     "mark_outbox_failed",
     "mark_outbox_sent",
     "outbox_counts",

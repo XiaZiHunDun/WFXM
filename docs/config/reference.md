@@ -174,7 +174,7 @@
 | `BUTLER_RESEARCH_SIMPLICITY_ANCHOR` | 1 | 压缩后回灌简洁性/实验纪律锚点 |
 | `BUTLER_EXPERIMENT_CRASH_BLOCK` | 3 | 同假设连续 crash 达此次数时诊断提示阻断 |
 | `BUTLER_OUTCOME_REFLECTION` | 1 | `0` 关闭 `.butler/outcomes.tsv` 与 orchestrator 反思注入 |
-| `BUTLER_WORKFLOW_HANDOFF_ONLY` | 1 | workflow 依赖上下文默认 Handoff 块（`handoff_only: false` 可关） |
+| ~~`BUTLER_WORKFLOW_HANDOFF_ONLY`~~ | — | **非环境变量**；workflow YAML 步骤字段 `handoff_only: true/false`（默认 true）控制依赖上下文模式 |
 | `BUTLER_WORKFLOW_CLEAR_CHILD` | 0 | `1` 时 DAG/委派上行仅 headline+summary，不带子 Loop 全量轨迹 |
 | `BUTLER_WORKFLOW_RESCUE` | 1 | `1` 时步骤失败且 YAML 含 `rescue_steps` 时跑补救子步骤 |
 | `BUTLER_WORKFLOW_OPTIONAL` | 1 | `1` 时 `optional: true` 步骤失败不阻断依赖方（Ansible ignore_errors 子集） |

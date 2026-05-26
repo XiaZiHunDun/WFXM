@@ -16,7 +16,7 @@
 | Dify **DAG 思想** → `workflow_steps`、`human_gate` | 嵌入 Dify 运行时 |
 | OpenClaw 第二对照（Gateway/会话） | 嵌入 OpenClaw 子进程 |
 
-OpenClaw 详表：[`openclaw-learning-plan-2026-05.md`](openclaw-learning-plan-2026-05.md)。LangChain/Dify/Langflow 全量对照见各 `*-butler-comparison-2026-05.md`（**非待办**，见 [`roadmap-backlog-and-boundaries-2026-05.md`](../decisions/roadmap-backlog-and-boundaries-2026-05.md)）。
+OpenClaw 详表：[`openclaw-learning-plan-2026-05.md`](../comparisons/openclaw-learning-plan-2026-05.md)。LangChain/Dify/Langflow 全量对照见各 `*-butler-comparison-2026-05.md`（**非待办**，见 [`roadmap-backlog-and-boundaries-2026-05.md`](../decisions/roadmap-backlog-and-boundaries-2026-05.md)）。
 
 ---
 

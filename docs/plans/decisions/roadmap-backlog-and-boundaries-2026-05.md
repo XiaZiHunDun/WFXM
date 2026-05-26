@@ -115,7 +115,7 @@
 |------|--------------|------|
 | 四报告 RF-P2 | 目录 watch + MinerU 全家桶 | **不做**（§1.1）；轻量 reindex 已有 |
 | Gemini 对照 G-P1+ | 多项 CLI 能力 | **defer**，非 blocking |
-| OpenCode 对照 P2/P3 | SQLite 全量、LSP、Share URL | **暂缓/不做**；见 [`opencode-butler-comparison-report-2026-05.md`](opencode-butler-comparison-report-2026-05.md) |
+| OpenCode 对照 P2/P3 | SQLite 全量、LSP、Share URL | **暂缓/不做**；见 [`opencode-butler-comparison-report-2026-05.md`](../comparisons/opencode-butler-comparison-report-2026-05.md) |
 | OpenCode learning plan | SQLite 全量模型 | **仍暂缓** |
 
 ### 2.4 依赖分层 / 本地状态（外部依赖策略）
@@ -162,7 +162,7 @@
 
 ### 3.3 OpenCode 净新增（P2/P3）
 
-见 [`opencode-butler-comparison-report-2026-05.md`](opencode-butler-comparison-report-2026-05.md)「仍明确暂缓」与 P2/P3 表：Compaction 一等任务、异步委派通知、worktree 会话、LSP、Share 公网 URL、Post-edit format 等。
+见 [`opencode-butler-comparison-report-2026-05.md`](../comparisons/opencode-butler-comparison-report-2026-05.md)「仍明确暂缓」与 P2/P3 表：Compaction 一等任务、异步委派通知、worktree 会话、LSP、Share 公网 URL、Post-edit format 等。
 
 ### 3.4 产品运营（post-consolidation）
 
@@ -184,7 +184,7 @@
 | 五报告 P5–P10 | [`external-agent-reports-capabilities-2026-05.md`](../../guides/external-agent-reports-capabilities-2026-05.md) | `./scripts/butler-five-reports-gate.sh` |
 | 外部 Agent PR-X1–X6 | [`external-agent-reports-improvement-roadmap-2026-05.md`](../roadmaps/external-agent-reports-improvement-roadmap-2026-05.md) §10 | `tests/test_external_agent_*.py` 等 |
 | OpenCode / OpenClaw / OMO | 各 learning-plan | 各 `test_opencode_*` 等 |
-| MCP 薄客户端 | [`butler-mcp-capability-2026-05.md`](butler-mcp-capability-2026-05.md) | `BUTLER_MCP_ENABLED` |
+| MCP 薄客户端 | [`butler-mcp-capability-2026-05.md`](../comparisons/butler-mcp-capability-2026-05.md) | `BUTLER_MCP_ENABLED` |
 
 ---
 

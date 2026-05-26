@@ -152,7 +152,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 ```markdown
 > **文档类型**：对照分析报告（正文 P0/P2 表为历史提炼，**非待办**）
 > **状态**：…已落地子集…（见合并路线图 §9/§10）
-> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)
+> **决策入口**：[`roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)
 ```
 
 ### 6.4 禁止事项

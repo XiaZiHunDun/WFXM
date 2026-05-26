@@ -78,7 +78,7 @@ def should_parallelize_tool_batch(tool_calls: list[Any]) -> bool:
 
 def execute_tools_parallel(
     tool_calls: list[Any],
-    dispatch_fn: Callable[[str, dict], str],
+    dispatch_fn: Callable[..., str],
     *,
     max_workers: int = 8,
     on_start: Callable[[str, dict], None] | None = None,
@@ -93,7 +93,8 @@ def execute_tools_parallel(
         name = tc.name if hasattr(tc, "name") else tc.get("name", "")
         try:
             args = tc.args_dict() if hasattr(tc, "args_dict") else {}
-        except Exception:
+        except Exception as exc:
+            logger.warning("args_dict() parse failed for tool %s: %s", name, exc)
             args = {}
         tool_id = str(getattr(tc, "id", None) or "")
         if prefetched and tool_id in prefetched:
@@ -116,7 +117,7 @@ def execute_tools_parallel(
         if on_start:
             on_start(name, args)
         try:
-            result = dispatch_fn(name, args)
+            result = dispatch_fn(name, args, tool_call_id=tool_id)
         except Exception as exc:
             result = _finalize_parallel_tool_result(
                 name,

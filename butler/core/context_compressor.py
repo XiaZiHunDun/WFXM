@@ -206,8 +206,8 @@ def _summarize_middle(middle: list[dict], previous_summary: str = "") -> tuple[s
         )
         return text, False
     except Exception as exc:
-        logger.warning("Summary LLM failed: %s", exc)
-        return previous_summary or transcript[:2000], False
+        logger.warning("Summary LLM failed — aborting compression to preserve context: %s", exc)
+        return "", False
 
 
 def compress_messages(
@@ -315,6 +315,16 @@ def compress_messages(
 
     middle = truncate_tool_responses_to_budget(middle)
     summary, used_remote = _summarize_middle(middle, previous_summary)
+    if not summary.strip():
+        logger.warning("Summary generation failed; preserving original messages instead of compressing")
+        if skill_rescued:
+            try:
+                from butler.core.skill_compact_rescue import merge_skill_rescue_into_tail as _merge
+
+                head_tail = _merge(head_tail, skill_rescued)
+            except Exception:
+                pass
+        return system + head_tail + middle, previous_summary, False
     if isinstance(diagnostics, dict):
         diagnostics["compaction_remote"] = used_remote
     summary_msg = {"role": "user", "content": SUMMARY_PREFIX + summary}

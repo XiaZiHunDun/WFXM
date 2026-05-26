@@ -34,6 +34,49 @@ else
   echo "OK: no bare ../plans/*.md in docs/"
 fi
 
+echo ""
+echo "== docs-lint: broken relative links in docs/ =="
+python3 - <<'PYEOF'
+import re, os, sys
+broken = []
+for root, dirs, files in os.walk("docs"):
+    for fname in files:
+        if not fname.endswith(".md"):
+            continue
+        fpath = os.path.join(root, fname)
+        with open(fpath) as f:
+            content = f.read()
+        for m in re.finditer(r"\]\(([^)]+)\)", content):
+            target = m.group(1).split("#")[0]
+            if not target or target.startswith("http"):
+                continue
+            if "reference/" in target and ("hermes" in target or "opencode" in target or "openclaw" in target or "oh-my-" in target):
+                continue
+            if target.startswith("../../.butler/"):
+                continue
+            if "/tests/corpus/" in target:
+                continue
+            resolved = os.path.normpath(os.path.join(os.path.dirname(fpath), target))
+            if not os.path.exists(resolved):
+                broken.append("  {} -> {}".format(fpath, target))
+if broken:
+    for b in sorted(set(broken)):
+        print(b)
+    sys.exit(1)
+PYEOF
+if [[ $? -ne 0 ]]; then
+  echo "FAIL: broken relative links found"
+  FAIL=1
+else
+  echo "OK: no broken relative links"
+fi
+
+echo ""
+echo "== docs-lint: reference.md vs .env.example env var consistency =="
+REF_VARS=$(rg -o 'BUTLER_[A-Z_]+' docs/config/reference.md 2>/dev/null | sort -u | wc -l)
+ENV_VARS=$(rg -o 'BUTLER_[A-Z_]+' .env.example 2>/dev/null | sort -u | wc -l)
+echo "reference.md env vars: $REF_VARS / .env.example env vars: $ENV_VARS"
+
 if [[ "$FAIL" -ne 0 ]]; then
   exit 1
 fi

@@ -61,4 +61,4 @@
 
 - [external-reference-roadmap-2026-05.md](../../guides/external-reference-roadmap-2026-05.md)
 - [external-reference-deferred-2026-05.md](../../guides/external-reference-deferred-2026-05.md)
-- [cc-butler-gap-analysis-2026-05.md](./cc-butler-gap-analysis-2026-05.md)
+- [cc-butler-gap-analysis-2026-05.md](../active/cc-butler-gap-analysis-2026-05.md)

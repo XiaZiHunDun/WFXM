@@ -97,8 +97,11 @@ def enqueue_tool_observation(
     }
     with _LOCK:
         queue = _queue_for_key(key)
+        was_full = len(queue) >= (queue.maxlen or 256)
         queue.append(row)
         pending = len(queue)
+    if was_full:
+        logger.warning("observation queue at capacity (%d) — oldest entry discarded", queue.maxlen)
     if pending >= _FLUSH_BATCH:
         flush_observer_queue(ws)
 

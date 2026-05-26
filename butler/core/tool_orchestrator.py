@@ -78,6 +78,23 @@ def run_mcp_with_gates(
     run_fn: Callable[[], str],
 ) -> str:
     try:
+        from butler.hooks.runner import run_permission_request_hooks, run_pre_tool_hooks
+
+        perm_block = run_permission_request_hooks(
+            tool_name,
+            args,
+            session_key=session_key,
+        )
+        if perm_block:
+            return _deny("PERMISSION_REQUEST_HOOK", perm_block)
+
+        pre_block = run_pre_tool_hooks(tool_name, args)
+        if pre_block:
+            return _deny("HOOK_BLOCKED", pre_block)
+    except Exception as exc:
+        logger.debug("mcp pre-hooks: %s", exc)
+
+    try:
         from butler.mcp.approval import check_mcp_tool_approval
 
         block = check_mcp_tool_approval(

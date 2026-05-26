@@ -1,7 +1,7 @@
 # 四份报告合并改进路线图（2026-05）
 
 > **状态**：**已收口**（2026-05-25）；主线 A–D + 支撑线 E 已落地（见 §9）；运维速查 [`../guides/four-reports-capabilities-2026-05.md`](../../guides/four-reports-capabilities-2026-05.md)；**明确不做**见 §7 与 [`four-reports-out-of-scope-2026-05.md`](../decisions/four-reports-out-of-scope-2026-05.md)  
-> **来源**：[`awesome-design-md-butler-comparison-report-2026-05.md`](awesome-design-md-butler-comparison-report-2026-05.md)、[`autoresearch-butler-comparison-report-2026-05.md`](autoresearch-butler-comparison-report-2026-05.md)、[`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md)、[`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md)  
+> **来源**：[`awesome-design-md-butler-comparison-report-2026-05.md`](../comparisons/awesome-design-md-butler-comparison-report-2026-05.md)、[`autoresearch-butler-comparison-report-2026-05.md`](../comparisons/autoresearch-butler-comparison-report-2026-05.md)、[`browser-use-butler-comparison-report-2026-05.md`](../comparisons/browser-use-butler-comparison-report-2026-05.md)、[`ragflow-butler-comparison-report-2026-05.md`](../comparisons/ragflow-butler-comparison-report-2026-05.md)  
 > **事实基线**：[`../architecture/v4-architecture.md`](../../architecture/v4-architecture.md) 与 `butler/` 当前实现  
 > **原则**：零新增重依赖；不改变 Butler「微信管家 + 多项目开发 Agent」产品边界
 
@@ -242,10 +242,10 @@ PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py -q
 |------|------|
 | [`post-consolidation-roadmap-2026-05.md`](../active/post-consolidation-roadmap-2026-05.md) | 本文是其后续“能力增强”子路线图 |
 | [`cc-butler-gap-analysis-2026-05.md`](../active/cc-butler-gap-analysis-2026-05.md) | 本文不替代 CC 线束，优先改增量能力 |
-| [`awesome-design-md-butler-comparison-report-2026-05.md`](awesome-design-md-butler-comparison-report-2026-05.md) | 提供 DESIGN 主线来源 |
-| [`autoresearch-butler-comparison-report-2026-05.md`](autoresearch-butler-comparison-report-2026-05.md) | 提供实验组织主线来源 |
-| [`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md) | 提供 Loop 减熵主线来源 |
-| [`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md) | 提供检索增强主线来源 |
+| [`awesome-design-md-butler-comparison-report-2026-05.md`](../comparisons/awesome-design-md-butler-comparison-report-2026-05.md) | 提供 DESIGN 主线来源 |
+| [`autoresearch-butler-comparison-report-2026-05.md`](../comparisons/autoresearch-butler-comparison-report-2026-05.md) | 提供实验组织主线来源 |
+| [`browser-use-butler-comparison-report-2026-05.md`](../comparisons/browser-use-butler-comparison-report-2026-05.md) | 提供 Loop 减熵主线来源 |
+| [`ragflow-butler-comparison-report-2026-05.md`](../comparisons/ragflow-butler-comparison-report-2026-05.md) | 提供检索增强主线来源 |
 
 ---
 

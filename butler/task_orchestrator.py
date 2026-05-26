@@ -547,8 +547,16 @@ class TaskOrchestrator:
                             response=last_result.response,
                         )
                         return last_result
-                except Exception:
+                except ImportError:
                     pass
+                except Exception as exc:
+                    logger.error("until assertion raised for step %s — treating as failed: %s", node.id, exc)
+                    last_result = AgentResult(
+                        success=False,
+                        error=f"until_assertion_error: {exc}",
+                        response=last_result.response,
+                    )
+                    return last_result
                 return last_result
             logger.warning(
                 "Node %s attempt %d/%d failed",
@@ -593,6 +601,8 @@ class TaskOrchestrator:
             if r.response:
                 parts.append(f"## Rescue ({rescue_id})\n{r.response[:3000]}")
         merged = "\n\n".join(p for p in parts if p)
+        # Rescue intentionally keeps success=False (Ansible "rescued" semantics):
+        # downstream steps see it as failed; rescue output is preserved for diagnostics.
         return AgentResult(
             success=False,
             response=merged,

@@ -288,8 +288,11 @@ class ButlerMessageHandler:
                 guard = check_inbound_text(text)
                 if guard.tripwire and not guard.allowed:
                     return guard.user_message or "消息未通过入站安全检查。"
-        except Exception:
+        except ImportError:
             pass
+        except Exception as exc:
+            logger.error("io_guardrail check raised — fail-closed: %s", exc)
+            return "安全检查模块异常，消息已拦截。请稍后重试。"
 
         try:
             from butler.human_gate import resolve_human_gate_message
@@ -297,8 +300,11 @@ class ButlerMessageHandler:
             gate_reply = resolve_human_gate_message(session_key, text)
             if gate_reply is not None:
                 return gate_reply
-        except Exception:
+        except ImportError:
             pass
+        except Exception as exc:
+            logger.error("human_gate check raised — fail-closed: %s", exc)
+            return "审批门控模块异常，消息已拦截。请稍后重试。"
 
         try:
             from butler.memory.injection_guard import (
@@ -321,8 +327,11 @@ class ButlerMessageHandler:
                     except Exception:
                         pass
             text = mark_adversarial_user_text(text)
-        except Exception:
+        except ImportError:
             pass
+        except Exception as exc:
+            logger.error("injection_guard raised — fail-closed: %s", exc)
+            return "注入检测模块异常，消息已拦截。请稍后重试。"
 
         try:
             from butler.human_gate import (
@@ -362,8 +371,11 @@ class ButlerMessageHandler:
                             request_injection_review_gate(session_key, score=llm_score)
                             return format_pending_hint(session_key) or block_msg
                         return block_msg
-        except Exception:
+        except ImportError:
             pass
+        except Exception as exc:
+            logger.error("injection_llm_score raised — fail-closed: %s", exc)
+            return "LLM 注入检测模块异常，消息已拦截。请稍后重试。"
 
         _idempotency_reserved = False
 

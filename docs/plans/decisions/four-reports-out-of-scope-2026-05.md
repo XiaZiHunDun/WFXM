@@ -43,21 +43,21 @@ Butler v4 是 **微信管家 + 多项目自建 Agent Loop**，不是浏览器自
 
 便于回溯细节，仍以**本文 §2 总表**为裁决依据。
 
-### 3.1 RAGFlow（[`ragflow-butler-comparison-report-2026-05.md`](ragflow-butler-comparison-report-2026-05.md)）
+### 3.1 RAGFlow（[`ragflow-butler-comparison-report-2026-05.md`](../comparisons/ragflow-butler-comparison-report-2026-05.md)）
 
 - 不部署 RAGFlow 子服务；不默认引入 ES/Infinity/MinIO。
 - 不做 Web 知识库 Studio、多租户 Dataset、Confluence/S3 全量同步（除非另立项）。
 - RF-P2 级「项目目录 watch + MinerU/Docling 全家桶」— **不做**。
 
-### 3.2 browser-use（[`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md)）
+### 3.2 browser-use（[`browser-use-butler-comparison-report-2026-05.md`](../comparisons/browser-use-butler-comparison-report-2026-05.md)）
 
 - **明确不做**：在 `butler/core` 内嵌 CDP、每步截图、browser-use Cloud Skills（除非产品改边界）。
 
-### 3.3 awesome-design-md（[`awesome-design-md-butler-comparison-report-2026-05.md`](awesome-design-md-butler-comparison-report-2026-05.md)）
+### 3.3 awesome-design-md（[`awesome-design-md-butler-comparison-report-2026-05.md`](../comparisons/awesome-design-md-butler-comparison-report-2026-05.md)）
 
 - **P3 明确不做**：73 套内置、Stitch 商业流水线、Playwright 视觉农场、替代 Loop 的设计 Agent 运行时。
 
-### 3.4 autoresearch（[`autoresearch-butler-comparison-report-2026-05.md`](autoresearch-butler-comparison-report-2026-05.md)）
+### 3.4 autoresearch（[`autoresearch-butler-comparison-report-2026-05.md`](../comparisons/autoresearch-butler-comparison-report-2026-05.md)）
 
 - **明确不做**：默认路径通宵自治、无门控每轮提交、训练实现细节迁移。
 - `goal_loop` 与 **experiment 标量驱动** 分离，不合并。

@@ -1,7 +1,7 @@
 # 五份报告合并改进路线图（2026-05）
 
 > **状态**：**PR-F1–F6 已落地**（2026-05-25）；运维速查 [`../guides/five-reports-capabilities-2026-05.md`](../../guides/five-reports-capabilities-2026-05.md)  
-> **来源**：[`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md)、[`cc-switch-butler-analysis-2026-05.md`](cc-switch-butler-analysis-2026-05.md)、[`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md)、[`tradingagents-butler-comparison-report-2026-05.md`](tradingagents-butler-comparison-report-2026-05.md)、[`lobehub-butler-comparison-report-2026-05.md`](lobehub-butler-comparison-report-2026-05.md)  
+> **来源**：[`claude-mem-butler-comparison-report-2026-05.md`](../comparisons/claude-mem-butler-comparison-report-2026-05.md)、[`cc-switch-butler-analysis-2026-05.md`](../comparisons/cc-switch-butler-analysis-2026-05.md)、[`prompt-engineering-guide-butler-comparison-report-2026-05.md`](../comparisons/prompt-engineering-guide-butler-comparison-report-2026-05.md)、[`tradingagents-butler-comparison-report-2026-05.md`](../comparisons/tradingagents-butler-comparison-report-2026-05.md)、[`lobehub-butler-comparison-report-2026-05.md`](../comparisons/lobehub-butler-comparison-report-2026-05.md)  
 > **事实基线**：[`../architecture/v4-architecture.md`](../../architecture/v4-architecture.md)、[`four-reports-improvement-roadmap-2026-05.md`](../roadmaps/four-reports-improvement-roadmap-2026-05.md)（**已收口**）  
 > **否决 / 边界 / Backlog**：[`roadmap-backlog-and-boundaries-2026-05.md`](../decisions/roadmap-backlog-and-boundaries-2026-05.md)  
 > **原则**：零新增重依赖；不重复四报告 / CC 线束已落地项；不改变「微信管家 + 多项目 Agent Loop」边界
@@ -198,9 +198,9 @@ flowchart LR
 | [`four-reports-improvement-roadmap-2026-05.md`](../roadmaps/four-reports-improvement-roadmap-2026-05.md) | **前置已收口**；本路线图不重复 PR1–PR6 |
 | [`four-reports-out-of-scope-2026-05.md`](../decisions/four-reports-out-of-scope-2026-05.md) | **共享产品边界**；§7 仅列五报告增量「不做」 |
 | [`cc-butler-gap-analysis-2026-05.md`](../active/cc-butler-gap-analysis-2026-05.md) | Loop/Gateway 线束；本文 **不重复** P0–P4 |
-| [`cc-switch-butler-analysis-2026-05.md`](cc-switch-butler-analysis-2026-05.md) | 主线 G 细节来源 |
+| [`cc-switch-butler-analysis-2026-05.md`](../comparisons/cc-switch-butler-analysis-2026-05.md) | 主线 G 细节来源 |
 | [`post-consolidation-roadmap-2026-05.md`](../active/post-consolidation-roadmap-2026-05.md) | 产品运营轨；可将 PR-F4 `/会话` 并入运营验收 |
-| [`docs/plans/README.md`](README.md) | 命名对照表需同步「五报告主线 F–J」 |
+| [`docs/plans/README.md`](../README.md) | 命名对照表需同步「五报告主线 F–J」 |
 
 ---
 

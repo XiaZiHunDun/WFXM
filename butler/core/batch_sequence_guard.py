@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -140,14 +141,19 @@ class BatchSequenceGuard:
     invalidated_paths: list[str] = field(default_factory=list)
     last_writer: str = ""
     skips: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def should_skip_stale_read(self, tool_name: str, args: dict[str, Any] | None) -> bool:
-        if not batch_stale_guard_enabled() or not self.invalidated_paths:
+        if not batch_stale_guard_enabled():
             return False
         if not is_stale_read_batch_tool(tool_name):
             return False
+        with self._lock:
+            if not self.invalidated_paths:
+                return False
+            snapshot = list(self.invalidated_paths)
         for scope in extract_tool_scope_paths(tool_name, args):
-            if any(_paths_overlap(scope, inv) for inv in self.invalidated_paths):
+            if any(_paths_overlap(scope, inv) for inv in snapshot):
                 return True
         return False
 
@@ -156,11 +162,12 @@ class BatchSequenceGuard:
             return
         if not destructive_tool_succeeded(tool_name, result):
             return
-        for path in extract_tool_scope_paths(tool_name, args):
-            norm = _normalize_path(path)
-            if norm and norm not in self.invalidated_paths:
-                self.invalidated_paths.append(norm)
-        self.last_writer = str(tool_name or "").strip()
+        with self._lock:
+            for path in extract_tool_scope_paths(tool_name, args):
+                norm = _normalize_path(path)
+                if norm and norm not in self.invalidated_paths:
+                    self.invalidated_paths.append(norm)
+            self.last_writer = str(tool_name or "").strip()
         try:
             from butler.core.read_state import record_edit_path
 
@@ -170,7 +177,8 @@ class BatchSequenceGuard:
             pass
 
     def record_skip(self) -> None:
-        self.skips += 1
+        with self._lock:
+            self.skips += 1
 
 
 def stale_skip_result(
