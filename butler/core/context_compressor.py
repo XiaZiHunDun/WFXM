@@ -276,6 +276,21 @@ def compress_messages(
                 min_tail_messages=min_tail_messages,
                 estimate_fn=_estimate_tokens,
             )
+            if not middle:
+                legacy_system, legacy_middle, legacy_head_tail = _split_head_tail(
+                    pruned,
+                    head_count=head_count,
+                    max_tail_messages=max_tail_messages,
+                    min_tail_messages=min_tail_messages,
+                )
+                if legacy_middle:
+                    system, middle, head_tail = (
+                        legacy_system,
+                        legacy_middle,
+                        legacy_head_tail,
+                    )
+                    if isinstance(diagnostics, dict):
+                        diagnostics["compaction_turn_fallback"] = "legacy_split"
         else:
             system, middle, head_tail = _split_head_tail(
                 pruned,

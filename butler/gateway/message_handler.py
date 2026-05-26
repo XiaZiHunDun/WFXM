@@ -490,16 +490,21 @@ class ButlerMessageHandler:
                 release_inflight,
             )
 
+            inbound_id = str(external_id or "").strip()
+            if inbound_id and inbound_id == chat_id_from_session_key(session_key):
+                # ``external_id`` is usually the platform chat/user id, not a per-message id.
+                # Treating it as an idempotency key would suppress every later turn.
+                inbound_id = ""
             _idem = check_and_reserve_inbound(
                 session_key,
-                external_id,
+                inbound_id,
                 text_preview=text[:80],
             )
             if _idem.skip:
                 record_duplicate_skip(
                     session_key,
                     reason=_idem.reason,
-                    external_id=str(external_id or ""),
+                    external_id=inbound_id,
                     preview=text[:80],
                 )
                 return _idem.user_reply or "（重复消息已忽略。）"
@@ -617,7 +622,7 @@ class ButlerMessageHandler:
             release(admission)
             if _idempotency_reserved:
                 try:
-                    complete_inbound(session_key, external_id)
+                    complete_inbound(session_key, inbound_id)
                 except Exception:
                     pass
         follow = self._drain_queued_inbound(

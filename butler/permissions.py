@@ -114,7 +114,7 @@ def evaluate_external_directory(
         return PermissionDecision(
             allowed=False,
             action="deny",
-            reason=f"路径在工作区外：{path_str}",
+            reason=f"路径在工作区外（outside workspace）：{path_str}",
             permission="external_directory",
         )
 

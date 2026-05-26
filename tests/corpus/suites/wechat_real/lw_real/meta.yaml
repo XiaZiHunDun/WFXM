@@ -12,7 +12,7 @@ coverage_matrix: docs/plans/wechat-real-coverage-matrix-2026-05.md
 
 # 阶段 4 — production 运营闭环
 production_ops:
-  ops_doc: docs/plans/wechat-corpus-ops-2026-05.md
+  ops_doc: docs/plans/corpus/wechat-corpus-ops-2026-05.md
   append_script: scripts/corpus/append_production.py
   promote_script: scripts/corpus/promote_production.py
   summary_script: scripts/corpus/summarize_runs.py

@@ -136,6 +136,13 @@ class ProjectManager:
     def resolve_active_project_name(self, *, session_key: str = "") -> str:
         """Resolve project for CLI (global) or gateway (per-chat map + session key)."""
         key = str(session_key or "").strip()
+        if not key:
+            try:
+                from butler.execution_context import get_current_session_key
+
+                key = str(get_current_session_key() or "").strip()
+            except Exception:
+                key = ""
         if key:
             from_session = project_from_session_key(key)
             if from_session:

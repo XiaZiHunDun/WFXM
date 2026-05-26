@@ -266,6 +266,21 @@ class TestSlashCommands:
 
         assert "工具调用:" not in text
 
+    def test_chat_external_id_is_not_treated_as_duplicate_message_id(self, handler):
+        loop = MagicMock()
+        loop.run.side_effect = [
+            LoopResult(status=LoopStatus.COMPLETED, final_response="first reply"),
+            LoopResult(status=LoopStatus.COMPLETED, final_response="second reply"),
+        ]
+
+        with patch.object(handler, "_get_or_create_loop", return_value=loop):
+            first = handler.handle_message("第一条", platform="wechat", external_id="u1")
+            second = handler.handle_message("第二条", platform="wechat", external_id="u1")
+
+        assert first == "first reply"
+        assert second == "second reply"
+        assert loop.run.call_count == 2
+
     def test_model_returns_model_config(self, handler):
         text = handler._handle_command("/model")
         assert "当前有效模型" in text

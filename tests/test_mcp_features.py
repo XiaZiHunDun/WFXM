@@ -96,11 +96,15 @@ def test_project_tools_mcp_wildcard():
 
 
 def test_registry_no_mcp_tools_when_disabled(monkeypatch):
+    monkeypatch.setenv("BUTLER_MCP_DEFERRED_TOOLS", "1")
     monkeypatch.setenv("BUTLER_MCP_ENABLED", "0")
-    from butler.tools.registry import get_tool_definitions
+    from butler.tools import registry as reg
 
-    names = {d["function"]["name"] for d in get_tool_definitions()}
+    reg._builtins_loaded = False
+    reg._ensure_builtins()
+    names = {d["function"]["name"] for d in reg.get_tool_definitions()}
     assert not any(n.startswith("mcp_") for n in names)
+    assert "load_mcp_tools" not in names
 
 
 def test_dispatch_unknown_mcp_when_disabled(monkeypatch):

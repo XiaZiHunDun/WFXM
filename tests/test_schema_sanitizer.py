@@ -171,7 +171,7 @@ def test_strip_pattern_and_format_removes_schema_keywords_only():
     assert "format" not in props["ts"]
 
 
-def test_agent_loop_retries_llamacpp_schema_error_with_stripped_schema():
+def test_agent_loop_retries_llamacpp_schema_error_with_stripped_schema(monkeypatch):
     class GrammarError(Exception):
         status_code = 400
 
@@ -189,6 +189,7 @@ def test_agent_loop_retries_llamacpp_schema_error_with_stripped_schema():
                 raise GrammarError("Unable to generate parser: json schema conversion failed")
             return NormalizedResponse(content="ok")
 
+    monkeypatch.setenv("BUTLER_SCHEMA_OPTIMIZE", "0")
     client = FakeClient()
     loop = AgentLoop(
         client,
@@ -213,7 +214,7 @@ def test_agent_loop_retries_llamacpp_schema_error_with_stripped_schema():
     assert result.diagnostics["schema_keywords_stripped"] == 1
 
 
-def test_agent_loop_retries_schema_error_with_sanitized_schema_when_nothing_stripped():
+def test_agent_loop_retries_schema_error_with_sanitized_schema_when_nothing_stripped(monkeypatch):
     class GrammarError(Exception):
         status_code = 400
 
@@ -231,6 +232,7 @@ def test_agent_loop_retries_schema_error_with_sanitized_schema_when_nothing_stri
                 raise GrammarError("Unable to generate parser: json schema conversion failed")
             return NormalizedResponse(content="ok")
 
+    monkeypatch.setenv("BUTLER_SCHEMA_OPTIMIZE", "0")
     client = FakeClient()
     loop = AgentLoop(
         client,

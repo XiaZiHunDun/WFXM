@@ -134,7 +134,7 @@ class TaskOrchestrator:
             get_tool_definitions_for_project,
         )
 
-        project = orch.project_manager.get_current()
+        project = orch.project_manager.get_current(session_key=str(config.session_key or ""))
         tools = get_tool_definitions_for_project(project, role=config.role)
         delegated_tools = [
             t for t in tools

@@ -353,6 +353,18 @@ def run_catalog_turn(
     tool_names: list[str] | None = None
     llm_called: bool | None = None
 
+    def _tool_names_from_messages(messages: list[dict[str, Any]]) -> list[str]:
+        names: list[str] = []
+        for msg in messages:
+            if msg.get("role") != "assistant":
+                continue
+            for call in msg.get("tool_calls") or []:
+                fn = call.get("function") or {}
+                name = str(fn.get("name") or "").strip()
+                if name:
+                    names.append(name)
+        return names
+
     msg_kw: dict[str, Any] = {"session_key": session_key, "platform": platform}
     if external_id is not None:
         msg_kw["external_id"] = external_id
@@ -371,14 +383,29 @@ def run_catalog_turn(
 
         if needs_real_tools(expect):
             _bind_llm_script(mock_complete, mock_stream, pad_script(script))
-            from butler.tools.registry import dispatch_tool
+            from butler.tools.registry import (
+                get_tool_audit_events,
+                reset_tool_audit_events,
+            )
 
-            with patch(
-                "butler.gateway.message_handler.dispatch_tool",
-                wraps=dispatch_tool,
-            ) as spy:
-                out = handler.handle_message(entry["user"], **msg_kw)
-                tool_names = [c[0][0] for c in spy.call_args_list if c[0]]
+            existing_loop = getattr(handler, "_sessions", {}).get(session_key)
+            before_messages = list(getattr(existing_loop, "messages", []) or [])
+            reset_tool_audit_events(session_key=session_key)
+            out = handler.handle_message(entry["user"], **msg_kw)
+            loop = getattr(handler, "_sessions", {}).get(session_key)
+            after_messages = list(getattr(loop, "messages", []) or [])
+            new_messages = (
+                after_messages[len(before_messages):]
+                if len(after_messages) >= len(before_messages)
+                else after_messages
+            )
+            tool_names = _tool_names_from_messages(new_messages)
+            if not tool_names:
+                tool_names = [
+                str(event.get("tool") or "")
+                for event in get_tool_audit_events(session_key=session_key)
+                if str(event.get("tool") or "").strip()
+                ]
             llm_called = True
         else:
             with patch.object(handler, "_get_or_create_loop") as mock_get:

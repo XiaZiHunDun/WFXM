@@ -69,8 +69,17 @@ def register(
 def get_tool_definitions() -> List[dict]:
     """Return OpenAI function-calling format tool definitions."""
     _ensure_builtins()
+    mcp_available = False
+    try:
+        from butler.mcp.config import mcp_enabled
+
+        mcp_available = bool(mcp_enabled())
+    except Exception:
+        mcp_available = False
     result = []
     for entry in _REGISTRY.values():
+        if entry.toolset == "mcp" and not mcp_available:
+            continue
         result.append({
             "type": "function",
             "function": {
@@ -79,12 +88,13 @@ def get_tool_definitions() -> List[dict]:
                 "parameters": entry.schema,
             },
         })
-    try:
-        from butler.mcp.registry_hook import get_mcp_tool_definitions
+    if mcp_available:
+        try:
+            from butler.mcp.registry_hook import get_mcp_tool_definitions
 
-        result.extend(get_mcp_tool_definitions())
-    except Exception as exc:
-        logger.debug("MCP tool definitions skipped: %s", exc)
+            result.extend(get_mcp_tool_definitions())
+        except Exception as exc:
+            logger.debug("MCP tool definitions skipped: %s", exc)
     return result
 
 
@@ -117,7 +127,10 @@ def _dispatch_mcp_tool(name: str, args: dict) -> str:
                 name,
                 args,
                 perm_block,
-                code="PERMISSION_RULE_DENIED",
+                code=_permission_denied_code(
+                    perm_block,
+                    default="PERMISSION_RULE_DENIED",
+                ),
             )
     except Exception as exc:
         logger.debug("MCP permission rules skipped: %s", exc)
@@ -192,7 +205,10 @@ def dispatch_tool(name: str, args: dict) -> str:
                 name,
                 args,
                 perm_block,
-                code="PERMISSION_RULE_DENIED",
+                code=_permission_denied_code(
+                    perm_block,
+                    default="PERMISSION_RULE_DENIED",
+                ),
             )
     except Exception as exc:
         logger.debug("Project permission rules skipped: %s", exc)
@@ -299,6 +315,20 @@ def _permission_denied_tool_result(
         payload,
         started_at=started_at if started_at is not None else time.monotonic(),
     )
+
+
+def _permission_denied_code(reason: str, *, default: str) -> str:
+    lowered = str(reason or "").lower()
+    if (
+        "access denied" in lowered
+        or "outside workspace" in lowered
+        or "路径在工作区外" in str(reason or "")
+        or "sensitive" in lowered
+        or "symlink" in lowered
+        or "hardlinked" in lowered
+    ):
+        return "TOOL_SECURITY_DENIED"
+    return default
 
 
 def _apply_post_tool_hooks(
@@ -536,6 +566,7 @@ def _tool_result_code(name: str, payload: dict[str, Any], *, ok: bool) -> str:
     if (
         "access denied" in lowered
         or "outside workspace" in lowered
+        or "路径在工作区外" in error
         or "sensitive" in lowered
         or "symlink" in lowered
         or "hardlinked" in lowered
@@ -1829,6 +1860,7 @@ def _tool_delegate_task(
     task_id = ""
     session_key = ""
     category_meta: dict[str, Any] = {}
+    original_context = context
     try:
         from butler.delegate_policy import MAX_DELEGATE_DEPTH
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
@@ -1989,6 +2021,10 @@ def _tool_delegate_task(
         agent.reset()
 
         raw_user_msg = _project_agent_raw_message(task=task, context=context)
+        memory_sync_user_msg = _project_agent_raw_message(
+            task=task,
+            context=original_context,
+        )
         user_msg = _inject_project_agent_skills(orch, raw_user_msg)
 
         from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
@@ -2123,7 +2159,7 @@ def _tool_delegate_task(
 
         sync_turn_memory(
             orch,
-            raw_user_msg,
+            memory_sync_user_msg,
             result.final_response or "",
             interrupted=result.status.value == "interrupted",
             status=result.status,

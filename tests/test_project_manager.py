@@ -8,6 +8,8 @@ import pytest
 import yaml
 
 from butler.config import reload_butler_settings
+from butler.delegate_subagent_permissions import make_child_session_key
+from butler.execution_context import use_execution_context
 from butler.project_manager import ProjectManager
 
 
@@ -86,3 +88,17 @@ class TestProjectManagerSwitch:
         assert pm.get_project_name_for_chat(platform="wechat", chat_id="u1") == "Alpha"
         assert pm.get_project_name_for_chat(platform="wechat", chat_id="u2") == "Beta"
         assert pm.current_project == ""
+
+    def test_get_current_uses_child_delegate_session_project(self, projects_dir):
+        _write_project(projects_dir, "A", name="Alpha")
+        pm = ProjectManager()
+        assert pm.switch_project_for_chat(platform="wechat", chat_id="u1", name="Alpha")
+
+        parent = "wechat:u1:Alpha"
+        child = make_child_session_key(parent, "task_abc")
+
+        with use_execution_context(session_key=child):
+            project = pm.get_current()
+
+        assert project is not None
+        assert project.name == "Alpha"

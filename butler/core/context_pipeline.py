@@ -303,6 +303,13 @@ class ContextPipeline:
             return False, messages
 
         anchored = run_post_compact_cleanup(diagnostics, messages=result.messages) or result.messages
+        before_tokens = self.estimate_tokens(messages)
+        anchored_tokens = self.estimate_tokens(anchored)
+        if anchored_tokens >= before_tokens:
+            diagnostics["post_compact_anchor_skipped_bloat"] = True
+            anchored = result.messages
+        else:
+            diagnostics["post_compact_anchor_applied"] = True
         logger.info(
             "Gateway hygiene compressed %d->%d messages (~%d tokens, threshold=%d)",
             len(messages),

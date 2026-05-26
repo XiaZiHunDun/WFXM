@@ -5,6 +5,11 @@ from __future__ import annotations
 _NO_PROJECT_SLUG = "_"
 
 
+def _base_session_key(session_key: str) -> str:
+    """Strip child/delegate suffixes so parsers see canonical ``platform:chat:project``."""
+    return str(session_key or "").split("::", 1)[0]
+
+
 def slug_project(project: str) -> str:
     """Filesystem-safe project segment for session keys."""
     name = str(project or "").strip()
@@ -25,7 +30,7 @@ def build_session_key(
 
 def project_from_session_key(session_key: str) -> str:
     """Extract project name from a v2 session key; legacy two-part keys return ``\"\"``."""
-    parts = str(session_key or "").split(":", 2)
+    parts = _base_session_key(session_key).split(":", 2)
     if len(parts) < 3:
         return ""
     slug = parts[2]
@@ -34,7 +39,7 @@ def project_from_session_key(session_key: str) -> str:
 
 def chat_id_from_session_key(session_key: str) -> str:
     """Extract chat/channel id from session key."""
-    parts = str(session_key or "").split(":", 2)
+    parts = _base_session_key(session_key).split(":", 2)
     if len(parts) < 2:
         return str(session_key or "default")
     return parts[1]
