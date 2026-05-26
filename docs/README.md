@@ -62,6 +62,8 @@
 | [`plans/four-reports-improvement-roadmap-2026-05.md`](plans/roadmaps/four-reports-improvement-roadmap-2026-05.md) | 四份报告合并路线图（**已收口** §9） |
 | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) | 四报告能力速查（env / CLI / 测试） |
 | [`plans/openclaw-learning-plan-2026-05.md`](plans/comparisons/openclaw-learning-plan-2026-05.md) | OpenClaw 对标 OC-P0–P2（前置压缩、Gateway、doctor）— **已落地** |
+| [`agent-analysis-2026-05/README.md`](agent-analysis-2026-05/README.md) | 2026-05 分析归档（Canvas/Plan 整理稿，**非实现 SSOT**） |
+| [`plans/comparisons/hermes-agent-dependency-and-extraction-report-2026-05.md`](plans/comparisons/hermes-agent-dependency-and-extraction-report-2026-05.md) | Hermes 依赖/边界对照报告（**非待办**） |
 | [`plans/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md) | 运营与多项目后续 |
 | [`plans/consolidation-2026-05.md`](plans/archive/consolidation-2026-05.md) | 仓库整理（已完成） |
 | [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 成熟度评估 |
