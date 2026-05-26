@@ -80,7 +80,7 @@ tail -f logs/butler-runtime.log
 | `BUTLER_RUNTIME_PUSH` | `0` 不推微信（CLI 仍写 audit） |
 | `BUTLER_RUNTIME_SMOKE_PUSH` | `1` 时 `butler-runtime-smoke.sh` 才推送（默认 **0**） |
 | `BUTLER_RUNTIME_FAIL_ALERT_STREAK` | 同一任务连续失败 **N** 次后额外微信告警（默认 **3**，不自动重试） |
-| `BUTLER_OWNER_WECHAT_ID` | 推送目标；未设则用 `WECHAT_ALLOWED_USERS` 首项 |
+| `BUTLER_OWNER_WECHAT_ID` | 推送目标；未设则依次回退到 `WECHAT_ALLOWED_USERS`、`BUTLER_GATEWAY_ALLOWLIST` 首项 |
 | `WECHAT_TOKEN` / `WECHAT_ACCOUNT_ID` | 推送必填 |
 | `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` | 两次 runtime 推送最小间隔（默认 **25s**，防 iLink 限流） |
 | `WECHAT_SEND_CHUNK_RETRIES` / `WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS` | 微信发送重试（验证脚本建议 6 / 2） |

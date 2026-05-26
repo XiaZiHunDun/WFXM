@@ -7,14 +7,20 @@ import os
 from butler.session_keys import chat_id_from_session_key
 
 
+def _csv_env_ids(name: str) -> list[str]:
+    raw = os.getenv(name, "").strip()
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
 def resolve_owner_wechat_chat_id() -> str:
-    """Primary Owner chat id for runtime push (env order: dedicated owner, then allowlist first)."""
+    """Primary Owner chat id for runtime push (owner, then active allowlists)."""
     owner = os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip()
     if owner:
         return owner
-    allow = os.getenv("WECHAT_ALLOWED_USERS", "").strip()
-    if allow:
-        return allow.split(",")[0].strip()
+    for name in ("WECHAT_ALLOWED_USERS", "BUTLER_GATEWAY_ALLOWLIST"):
+        ids = _csv_env_ids(name)
+        if ids:
+            return ids[0]
     return ""
 
 
@@ -24,11 +30,13 @@ def owner_wechat_ids() -> frozenset[str]:
     owner = os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip()
     if owner:
         ids.add(owner)
-    raw = os.getenv("WECHAT_ALLOWED_USERS", "").strip()
-    for part in raw.split(","):
-        p = part.strip()
-        if p:
-            ids.add(p)
+    allow = _csv_env_ids("WECHAT_ALLOWED_USERS")
+    if allow:
+        ids.update(allow)
+        return frozenset(ids)
+    legacy = _csv_env_ids("BUTLER_GATEWAY_ALLOWLIST")
+    if legacy and not ids:
+        ids.update(legacy)
     return frozenset(ids)
 
 
@@ -64,7 +72,7 @@ def is_gateway_owner(
 def owner_required_message() -> str:
     return (
         "该操作仅主公（Owner）可用。\n"
-        "请确认 .env 中已配置 BUTLER_OWNER_WECHAT_ID 或 WECHAT_ALLOWED_USERS，"
+        "请确认 .env 中已配置 BUTLER_OWNER_WECHAT_ID、WECHAT_ALLOWED_USERS 或 BUTLER_GATEWAY_ALLOWLIST，"
         "且当前微信账号在列表中。\n"
         "开发环境可设 BUTLER_PROJECT_CREATE_OPEN=1 跳过校验。"
     )

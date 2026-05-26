@@ -110,7 +110,9 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
         return False
     cid = (chat_id or "").strip() or resolve_owner_wechat_chat_id()
     if not cid:
-        logger.warning("No BUTLER_OWNER_WECHAT_ID / WECHAT_ALLOWED_USERS for runtime push")
+        logger.warning(
+            "No BUTLER_OWNER_WECHAT_ID / WECHAT_ALLOWED_USERS / BUTLER_GATEWAY_ALLOWLIST for runtime push"
+        )
         return False
     extra = _wechat_extra()
     if not extra.get("token"):

@@ -54,3 +54,27 @@ def test_push_records_timestamp_on_success(butler_home_push, monkeypatch):
     assert path.is_file()
     data = json.loads(path.read_text(encoding="utf-8"))
     assert "monotonic" in data
+
+
+def test_push_uses_gateway_allowlist_fallback(butler_home_push, monkeypatch):
+    monkeypatch.setenv("BUTLER_RUNTIME_PUSH", "1")
+    monkeypatch.setenv("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", "0")
+    monkeypatch.setenv("WECHAT_TOKEN", "t")
+    monkeypatch.delenv("BUTLER_OWNER_WECHAT_ID", raising=False)
+    monkeypatch.delenv("WECHAT_ALLOWED_USERS", raising=False)
+    monkeypatch.setenv("BUTLER_GATEWAY_ALLOWLIST", "legacy1,legacy2")
+
+    seen: dict[str, str] = {}
+
+    async def _fake_send(**kwargs):
+        seen["chat_id"] = kwargs["chat_id"]
+        return {}
+
+    with patch(
+        "butler.gateway.platforms.wechat_ilink.send_wechat_direct",
+        side_effect=_fake_send,
+    ):
+        ok = notify.push_runtime_message("t", "body")
+
+    assert ok is True
+    assert seen["chat_id"] == "legacy1"

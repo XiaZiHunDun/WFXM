@@ -9,7 +9,7 @@
 |---------------------------|---------------------|
 | `default_provider`、`butler_name`、`owner_name` | `MINIMAX_API_KEY`、`DEEPSEEK_API_KEY` 等 |
 | `models.butler` / `dev_agent` / `content_agent` / `review_agent` | `WECHAT_TOKEN`、`WECHAT_ACCOUNT_ID` |
-| `auxiliary.compression` / `post_session` | `BUTLER_OWNER_WECHAT_ID`、`WECHAT_ALLOWED_USERS` |
+| `auxiliary.compression` / `post_session` | `BUTLER_OWNER_WECHAT_ID`、`WECHAT_ALLOWED_USERS`、`BUTLER_GATEWAY_ALLOWLIST` |
 | `gateway.inbound_media`（识图/STT 开关与模型名） | `BUTLER_PROJECTS_DIR`、`BUTLER_TOOL_SAFE_ROOT`（部署路径） |
 | — | `BUTLER_RUNTIME_*` 运维开关（可逐步迁 YAML，当前以 env 为主） |
 
@@ -29,6 +29,7 @@
 | `WECHAT_DM_POLICY` | open | 生产建议 `allowlist` |
 | `WECHAT_ALLOWED_USERS` | — | 逗号分隔微信 user id |
 | `BUTLER_OWNER_WECHAT_ID` | — | Owner；runtime 推送、**/项目 新建** 白名单 |
+| `BUTLER_GATEWAY_ALLOWLIST` | — | 历史兼容 fallback allowlist；仅在未设 `BUTLER_OWNER_WECHAT_ID` 且未设 `WECHAT_ALLOWED_USERS` 时供 runtime push 与 Owner gate 使用；不影响 DM 入站 allowlist |
 | `BUTLER_PROJECT_CREATE_OPEN` | 0 | `1` 跳过 Owner 新建校验（仅开发） |
 | `BUTLER_DEFAULT_PROJECT` | — | 未绑 chat 时的默认项目名 |
 | `BUTLER_GATEWAY_HANDLER_TIMEOUT` | 600 | 单条消息处理超时（秒） |

@@ -58,7 +58,7 @@ butler create MySlug --name "显示名" --reindex   # 创建并索引 MEMORY
 
 ### 微信 Owner 限制
 
-- `/项目 新建` 仅 **Owner**（`BUTLER_OWNER_WECHAT_ID` 或 `WECHAT_ALLOWED_USERS`）可用
+- `/项目 新建` 仅 **Owner**（`BUTLER_OWNER_WECHAT_ID`、`WECHAT_ALLOWED_USERS`，或在前两者都未设时回退到历史兼容 `BUTLER_GATEWAY_ALLOWLIST`）可用
 - `/项目 体检`、列表：所有已授权微信用户
 - 开发：`BUTLER_PROJECT_CREATE_OPEN=1` 可跳过 Owner 校验
 
