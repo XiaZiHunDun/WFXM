@@ -11,9 +11,7 @@
 | [external-reference-roadmap-2026-05.md](./external-reference-roadmap-2026-05.md) | **外部对标验收索引**（阶段 A/B/C 已落地；defer 见 deferred） |
 | [../plans/roadmap-backlog-and-boundaries-2026-05.md](../plans/roadmap-backlog-and-boundaries-2026-05.md) | **否决 / 深化边界 / 可选 Backlog**（提需求先读） |
 | [five-reports-capabilities-2026-05.md](./five-reports-capabilities-2026-05.md) | **五报告 PR-F + P5–P10** 已落地速查 |
-| [phase-a-external-reference.md](./phase-a-external-reference.md) | 阶段 A：网关、压缩、auto-continue |
-| [phase-b-external-reference.md](./phase-b-external-reference.md) | 阶段 B：安全、Registry、工具纪律、workflow 变量 |
-| [phase-c-external-reference.md](./phase-c-external-reference.md) | 阶段 C：工具预选、Loop 插件、workflow validate |
+| [phase-abc-external-reference.md](./phase-abc-external-reference.md) | **阶段 A/B/C** 合并验收（网关、安全、工程化） |
 | [external-reference-deferred-2026-05.md](./external-reference-deferred-2026-05.md) | 补做项与仍 defer 项分析 |
 | [phase-d-prompt-corpus.md](./phase-d-prompt-corpus.md) | **Prompt Corpus 线**：工具 DSL、/规划、transcript 事件、大文件读、task_milestone |
 | [four-reports-capabilities-2026-05.md](./four-reports-capabilities-2026-05.md) | **四报告 PR1–PR6 已落地**速查（RAG / Loop / DESIGN / 实验） |

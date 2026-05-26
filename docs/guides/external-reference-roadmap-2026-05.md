@@ -7,9 +7,9 @@
 
 | 阶段 | 文档 | 验收测试 |
 |------|------|----------|
-| A — 微信体验与网关 | [phase-a-external-reference.md](./phase-a-external-reference.md) | `tests/test_phase_a_external.py` |
-| B — 安全 / 工作流 / 工具纪律 | [phase-b-external-reference.md](./phase-b-external-reference.md) | `tests/test_phase_b_external.py` |
-| C — 规模与工程化 | [phase-c-external-reference.md](./phase-c-external-reference.md) | `tests/test_phase_c_external.py` |
+| A — 微信体验与网关 | [phase-abc-external-reference.md](./phase-abc-external-reference.md) §A | `tests/test_phase_a_external.py` |
+| B — 安全 / 工作流 / 工具纪律 | [phase-abc-external-reference.md](./phase-abc-external-reference.md) §B | `tests/test_phase_b_external.py` |
+| C — 规模与工程化 | [phase-abc-external-reference.md](./phase-abc-external-reference.md) §C | `tests/test_phase_c_external.py` |
 | 补做 + defer 分析 | [external-reference-deferred-2026-05.md](./external-reference-deferred-2026-05.md) | `tests/test_deferred_external.py` |
 
 ```bash

@@ -1,6 +1,8 @@
 # P3 未做项深度分析（2026-05-22）
 
-> **状态**：规划分析（非实施承诺）  
+> **历史文档**：下文三项（记忆双轨、`/health` 抽取、微信 `/steer`）**均已落地** — 见 [`memory-unification-implementation-2026-05.md`](memory-unification-implementation-2026-05.md)、[`health-report-refactor-2026-05.md`](health-report-refactor-2026-05.md)、[`wechat-steer-implementation-2026-05.md`](wechat-steer-implementation-2026-05.md)。**勿**据此排期；活跃 backlog 见 [`post-consolidation-roadmap-2026-05.md`](post-consolidation-roadmap-2026-05.md) 与 [`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)。
+>
+> **状态**：规划分析（非实施承诺，**仅作 ADR 考古**）  
 > **前置**：[`consolidation-p3-implementation-2026-05.md`](consolidation-p3-implementation-2026-05.md) 已完成；本文对应其中「本轮不做」三项。  
 > **原则**：影响面越大，方案与验收越细；实施前需 ADR + 专门回归，不并入日常小熵减。
 

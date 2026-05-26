@@ -54,7 +54,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | 五报告 PR-F1–F6 | `five-reports-improvement-roadmap` §9 | `five-reports-capabilities` |
 | 五报告 P5–P10 | `five-reports-not-done` §3 | `butler-five-reports-gate.sh` |
 | 外部 Agent PR-X1–X6 | `external-agent-reports-improvement-roadmap` §10 | `test_external_agent_*` |
-| 外部对标 A/B/C + defer | `guides/external-reference-roadmap` | phase-a/b/c 指南 |
+| 外部对标 A/B/C + defer | `guides/external-reference-roadmap` | `phase-abc-external-reference` |
 | OpenCode / OpenClaw / OMO | 各 learning-plan | 各 `test_*` |
 | 仓库整理 P0–P3 | `consolidation-*` | — |
 
@@ -83,7 +83,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 |------|----------|
 | **生产运维** | `wechat-gateway-ops`、`wechat-daily-smoke-checklist` |
 | **能力速查** | `four-reports-capabilities`、`five-reports-capabilities`、`external-agent-reports-capabilities` |
-| **外部对标验收** | `external-reference-roadmap`、`phase-a/b/c`、`external-reference-deferred` |
+| **外部对标验收** | `external-reference-roadmap`、`phase-abc-external-reference`、`external-reference-deferred` |
 | **Sprint / Codex** | `sprint-roadmap`、`sprint-codex-c0/c1/c2` |
 | **接入** | `project-onboarding`、`memory-ops`、`runtime-ops` |
 
@@ -117,7 +117,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus-testing-module-design-2026-05.md) | 语料模块设计 |
 | [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/wechat-real-coverage-matrix-2026-05.md) | 真机覆盖矩阵 |
 | [`plans/wechat-dev-conversation-scenarios-2026-05.md`](plans/wechat-dev-conversation-scenarios-2026-05.md) | 开发对话场景 |
-| [`plans/dev-assistant-corpus-*.md`](plans/) | 语料版本分析（v2/v3/v4） |
+| [`plans/dev-assistant-corpus-history-2026-05.md`](plans/dev-assistant-corpus-history-2026-05.md) | 语料 v1–v4 版本史 |
 | [`guides/project-intro-for-utterance-corpus.md`](guides/project-intro-for-utterance-corpus.md) | 语料项目介绍 |
 
 命令：[`../CONTRIBUTING.md`](../CONTRIBUTING.md) 语料节、`./scripts/corpus-test.sh`
@@ -178,3 +178,4 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 |------|------|
 | 2026-05-25 | 初版：文档分层、三类规划、已收口主线、语料专项、维护规则 |
 | 2026-05-25 | 全库整理：索引对齐、对照报告文首状态、语料/归档分表 |
+| 2026-05-25 | 合并 phase-a/b/c → phase-abc；语料 v1–v4 → corpus-history；精简 plans/README、reference-learning-plan |
