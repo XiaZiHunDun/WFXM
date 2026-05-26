@@ -12,7 +12,7 @@ from butler.human_gate import (
     mark_step_approved,
     resolve_human_gate_message,
 )
-from butler.permissions import evaluate_workflow_step_permission
+from butler.permissions import evaluate_workflow_step_permission, get_workflow_step_tool_allowlist
 from butler.report import AgentReport
 from butler.workflows.runner import WorkflowRunner
 
@@ -28,6 +28,21 @@ def test_workflow_step_tool_allowlist(tmp_path):
     assert ok is not None and ok.allowed
     bad = evaluate_workflow_step_permission("terminal", "write_step", workspace=ws)
     assert bad is not None and not bad.allowed
+
+
+def test_workflow_step_permission_uses_canonical_tool_names(tmp_path):
+    ws = tmp_path / "proj"
+    (ws / ".butler").mkdir(parents=True)
+    (ws / ".butler" / "permissions.yaml").write_text(
+        "workflow_steps:\n  edit_step:\n    tools: [edit_file, search_code]\n",
+        encoding="utf-8",
+    )
+
+    allow = get_workflow_step_tool_allowlist("edit_step", workspace=ws)
+    assert allow == {"patch", "search_files"}
+
+    ok = evaluate_workflow_step_permission("patch", "edit_step", workspace=ws)
+    assert ok is not None and ok.allowed
 
 
 def test_workflow_step_context_blocks_tool(tmp_path, monkeypatch):

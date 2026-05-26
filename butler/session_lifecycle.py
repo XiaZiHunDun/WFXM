@@ -894,15 +894,30 @@ def sync_turn_memory(
     try:
         if not (user_msg and assistant_msg):
             return {"skipped": True, "reason": "empty_turn", "experience_updates": 0}
+        try:
+            from butler.memory.private_tags import strip_private_tags
+
+            public_user, _ = strip_private_tags(user_msg)
+            public_assistant, _ = strip_private_tags(assistant_msg)
+        except Exception as exc:
+            logger.warning("Private-tag filtering failed during memory sync: %s", exc)
+            return {"skipped": True, "reason": "private_filter_error", "experience_updates": 0}
+        if not (public_user or public_assistant):
+            return {"skipped": True, "reason": "private_only", "experience_updates": 0}
         with _SYNC_TURN_LOCK:
             bm = orchestrator.butler_memory
             updates = 0
             if bm and hasattr(bm, "experience") and bm.experience:
                 tag = session_experience_tag(session_id)
+                turn_parts: list[str] = []
+                if public_user:
+                    turn_parts.append(f"Q: {public_user[:200]}")
+                if public_assistant:
+                    turn_parts.append(f"A: {public_assistant[:300]}")
                 bm.experience.add(
                     project=_current_project(orchestrator),
                     category=CONVERSATION_CATEGORY,
-                    content=f"Q: {user_msg[:200]} → A: {assistant_msg[:300]}",
+                    content=" → ".join(turn_parts),
                     tags=tag or None,
                 )
                 updates += 1
@@ -911,7 +926,7 @@ def sync_turn_memory(
             provider_error = ""
             if provider is not None and hasattr(provider, "sync_turn"):
                 try:
-                    provider.sync_turn(user_msg, assistant_msg, session_id=session_id)
+                    provider.sync_turn(public_user, public_assistant, session_id=session_id)
                     provider_synced = True
                 except Exception as exc:
                     provider_error = str(exc)

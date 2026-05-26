@@ -178,18 +178,13 @@ def evaluate_workflow_step_permission(
     """Step-level tool whitelist from ``workflow_steps`` in permissions.yaml."""
     if not step_id.strip():
         return None
-    cfg = _load_permissions_yaml(workspace)
-    steps_cfg = cfg.get("workflow_steps")
-    if not isinstance(steps_cfg, dict):
+    allowed_set = get_workflow_step_tool_allowlist(step_id, workspace=workspace)
+    if allowed_set is None:
         return None
-    step_rules = steps_cfg.get(step_id)
-    if step_rules is None:
-        return None
-    allowed = step_rules.get("tools") if isinstance(step_rules, dict) else step_rules
-    if not isinstance(allowed, list) or not allowed:
-        return None
-    allowed_set = {str(t).strip() for t in allowed if str(t).strip()}
-    if tool_name in allowed_set:
+    from butler.tools.project_tools import canonical_tool_name
+
+    tool_key = canonical_tool_name(tool_name)
+    if tool_key in allowed_set:
         return PermissionDecision(allowed=True, action="allow", reason="workflow step allowlist", permission="workflow_step")
     return PermissionDecision(
         allowed=False,

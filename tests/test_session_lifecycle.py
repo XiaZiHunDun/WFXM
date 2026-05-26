@@ -188,6 +188,70 @@ def test_sync_turn_memory_records_success_and_provider(monkeypatch):
     provider.sync_turn.assert_called_once_with("question", "answer", session_id="wechat:u1")
 
 
+def test_sync_turn_memory_strips_private_tags_before_persist(monkeypatch):
+    monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
+    orch = _orch()
+    provider = MagicMock()
+    orch.memory_provider = provider
+
+    result = sync_turn_memory(
+        orch,
+        "公开问题 <private>secret-q</private>",
+        "公开回答 <private>secret-a</private>",
+        status=LoopStatus.COMPLETED,
+        session_id="wechat:u1",
+    )
+
+    assert result["skipped"] is False
+    add_kwargs = orch.butler_memory.experience.add.call_args.kwargs
+    assert "secret-q" not in add_kwargs["content"]
+    assert "secret-a" not in add_kwargs["content"]
+    assert "公开问题" in add_kwargs["content"]
+    assert "公开回答" in add_kwargs["content"]
+    provider.sync_turn.assert_called_once_with("公开问题", "公开回答", session_id="wechat:u1")
+
+
+def test_sync_turn_memory_skips_fully_private_turn(monkeypatch):
+    monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
+    orch = _orch()
+    provider = MagicMock()
+    orch.memory_provider = provider
+
+    result = sync_turn_memory(
+        orch,
+        "<private>secret-q</private>",
+        "<private>secret-a</private>",
+        status=LoopStatus.COMPLETED,
+        session_id="wechat:u1",
+    )
+
+    assert result["skipped"] is True
+    assert result["reason"] == "private_only"
+    orch.butler_memory.experience.add.assert_not_called()
+    provider.sync_turn.assert_not_called()
+
+
+def test_sync_turn_memory_fails_closed_when_private_filter_errors(monkeypatch):
+    monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
+    orch = _orch()
+    provider = MagicMock()
+    orch.memory_provider = provider
+
+    with patch("butler.memory.private_tags.strip_private_tags", side_effect=RuntimeError("boom")):
+        result = sync_turn_memory(
+            orch,
+            "公开问题 <private>secret-q</private>",
+            "公开回答 <private>secret-a</private>",
+            status=LoopStatus.COMPLETED,
+            session_id="wechat:u1",
+        )
+
+    assert result["skipped"] is True
+    assert result["reason"] == "private_filter_error"
+    orch.butler_memory.experience.add.assert_not_called()
+    provider.sync_turn.assert_not_called()
+
+
 def test_sync_turn_memory_provider_failure_keeps_experience_success(monkeypatch):
     monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
     orch = _orch()

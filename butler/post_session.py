@@ -15,6 +15,8 @@ import logging
 import re
 from typing import Any, Callable, Coroutine, Union
 
+from butler.memory.private_tags import strip_private_tags
+
 logger = logging.getLogger(__name__)
 
 LLMCallFn = Callable[[str], Union[str, Coroutine[Any, Any, str]]]
@@ -297,6 +299,10 @@ class PostSessionProcessor:
             content = upd.get("content", "")
             section = upd.get("section", "")
             if not content:
+                continue
+            content, fully_private = strip_private_tags(content)
+            if fully_private or not content:
+                logger.debug("Post-session skip fully private memory update: %s", target)
                 continue
 
             if memory_update_is_duplicate(content, corpus):

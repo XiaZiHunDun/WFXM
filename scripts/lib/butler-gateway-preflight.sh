@@ -13,6 +13,9 @@ butler_gateway_preflight() {
   _bg_ok() { printf '  [ok] %s\n' "$1"; }
   _bg_warn() { printf '  [warn] %s\n' "$1"; warns=$((warns + 1)); }
   _bg_fail() { printf '  [fail] %s\n' "$1"; errors=$((errors + 1)); }
+  _bg_compact() {
+    printf '%s' "${1:-}" | tr -d '[:space:]'
+  }
 
   echo "Butler gateway preflight ($root)"
 
@@ -85,16 +88,35 @@ sys.exit(0 if check_wechat_requirements() else 1)
   _bg_ok "logs dir: $root/logs"
 
   local dm_policy="${WECHAT_DM_POLICY:-open}"
+  dm_policy="${dm_policy,,}"
+  local dm_allow_compact
+  dm_allow_compact="$(_bg_compact "${WECHAT_ALLOWED_USERS:-}")"
   if [[ "$dm_policy" == "open" ]]; then
     _bg_warn "WECHAT_DM_POLICY=open — set allowlist + WECHAT_ALLOWED_USERS before exposing the Bot"
   elif [[ "$dm_policy" == "allowlist" ]]; then
-    if [[ -z "${WECHAT_ALLOWED_USERS:-}" ]]; then
+    if [[ -z "$dm_allow_compact" ]]; then
       _bg_warn "WECHAT_DM_POLICY=allowlist but WECHAT_ALLOWED_USERS is empty"
     else
       _bg_ok "WeChat DM allowlist configured"
     fi
   else
     _bg_ok "WeChat DM policy: $dm_policy"
+  fi
+
+  local group_policy="${WECHAT_GROUP_POLICY:-disabled}"
+  group_policy="${group_policy,,}"
+  local group_allow_compact
+  group_allow_compact="$(_bg_compact "${WECHAT_GROUP_ALLOWED_USERS:-}")"
+  if [[ "$group_policy" == "open" ]]; then
+    _bg_warn "WECHAT_GROUP_POLICY=open — group ingress is fully exposed; prefer disabled or allowlist"
+  elif [[ "$group_policy" == "allowlist" ]]; then
+    if [[ -z "$group_allow_compact" ]]; then
+      _bg_warn "WECHAT_GROUP_POLICY=allowlist but WECHAT_GROUP_ALLOWED_USERS is empty"
+    else
+      _bg_warn "WECHAT_GROUP_POLICY=allowlist — confirm WECHAT_GROUP_ALLOWED_USERS is minimal"
+    fi
+  else
+    _bg_ok "WeChat group policy: $group_policy"
   fi
 
   if [[ -z "${BUTLER_TOOL_SAFE_ROOT:-}" ]]; then
@@ -109,8 +131,11 @@ sys.exit(0 if check_wechat_requirements() else 1)
     _bg_ok "BUTLER_DEFAULT_PROJECT=${BUTLER_DEFAULT_PROJECT}"
   fi
 
-  if [[ -z "${BUTLER_OWNER_WECHAT_ID:-}" && -z "${BUTLER_GATEWAY_ALLOWLIST:-}" ]]; then
-    _bg_warn "未配置 BUTLER_OWNER_WECHAT_ID / BUTLER_GATEWAY_ALLOWLIST — 运行 butler doctor 或补 .env"
+  local owner_compact gateway_allow_compact
+  owner_compact="$(_bg_compact "${BUTLER_OWNER_WECHAT_ID:-}")"
+  gateway_allow_compact="$(_bg_compact "${BUTLER_GATEWAY_ALLOWLIST:-}")"
+  if [[ -z "$owner_compact" && -z "$gateway_allow_compact" && -z "$dm_allow_compact" ]]; then
+    _bg_warn "未配置 BUTLER_OWNER_WECHAT_ID / BUTLER_GATEWAY_ALLOWLIST / WECHAT_ALLOWED_USERS — 运行 butler doctor 或补 .env"
   else
     _bg_ok "Gateway owner/allowlist configured"
   fi

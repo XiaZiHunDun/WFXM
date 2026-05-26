@@ -29,14 +29,61 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
 
     owner = os.getenv("BUTLER_OWNER_WECHAT_ID", "").strip()
     allow = os.getenv("BUTLER_GATEWAY_ALLOWLIST", "").strip()
-    if not owner and not allow:
+    wechat_allow = os.getenv("WECHAT_ALLOWED_USERS", "").strip()
+    if not owner and not allow and not wechat_allow:
         findings.append(
             AuditFinding(
                 "critical",
                 "NO_GATEWAY_OWNER",
-                "未配置 BUTLER_OWNER_WECHAT_ID 或 BUTLER_GATEWAY_ALLOWLIST",
+                "未配置 BUTLER_OWNER_WECHAT_ID、BUTLER_GATEWAY_ALLOWLIST 或 WECHAT_ALLOWED_USERS",
             )
         )
+
+    dm_policy = os.getenv("WECHAT_DM_POLICY", "open").strip().lower()
+    if dm_policy == "open":
+        findings.append(
+            AuditFinding(
+                "warn",
+                "WECHAT_DM_OPEN",
+                "WECHAT_DM_POLICY=open：建议改为 allowlist 并配置 WECHAT_ALLOWED_USERS",
+            )
+        )
+    elif dm_policy == "allowlist" and not wechat_allow:
+        findings.append(
+            AuditFinding(
+                "warn",
+                "WECHAT_DM_ALLOWLIST_EMPTY",
+                "WECHAT_DM_POLICY=allowlist 但 WECHAT_ALLOWED_USERS 为空",
+            )
+        )
+
+    group_policy = os.getenv("WECHAT_GROUP_POLICY", "disabled").strip().lower()
+    group_allow = os.getenv("WECHAT_GROUP_ALLOWED_USERS", "").strip()
+    if group_policy == "open":
+        findings.append(
+            AuditFinding(
+                "warn",
+                "WECHAT_GROUP_OPEN",
+                "WECHAT_GROUP_POLICY=open：群聊入口完全开放，请确认这是预期配置",
+            )
+        )
+    elif group_policy == "allowlist":
+        if not group_allow:
+            findings.append(
+                AuditFinding(
+                    "warn",
+                    "WECHAT_GROUP_ALLOWLIST_EMPTY",
+                    "WECHAT_GROUP_POLICY=allowlist 但 WECHAT_GROUP_ALLOWED_USERS 为空",
+                )
+            )
+        else:
+            findings.append(
+                AuditFinding(
+                    "warn",
+                    "WECHAT_GROUP_ALLOWLIST_ACTIVE",
+                    "WECHAT_GROUP_POLICY=allowlist：群聊入口已启用，请确认白名单最小化",
+                )
+            )
 
     if os.getenv("BUTLER_MCP_ENABLED", "0").strip() in ("1", "true", "yes"):
         hosts = os.getenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", "").strip()

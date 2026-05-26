@@ -180,6 +180,55 @@ class TestExtractMemories:
             content="always test auth",
         )
 
+    def test_private_tags_are_stripped_before_memory_persist(self):
+        async def llm_call(prompt):
+            return (
+                '{"updates": ['
+                '{"target": "butler", "content": "prefers dark <private>secret</private> mode"},'
+                '{"target": "project", "section": "架构与设计", "content": "uses <private>hidden</private> FastAPI"},'
+                '{"target": "experience", "content": "<private>secret</private> always test auth"}'
+                "]}"
+            )
+
+        butler_memory = MagicMock()
+        butler_memory.profile.add.return_value = {"success": True}
+        project_memory = MagicMock()
+        proc = PostSessionProcessor(llm_call=llm_call)
+
+        count = asyncio.run(
+            proc._extract_memories(self._long_messages(), butler_memory, project_memory, "MyProj")
+        )
+
+        assert count == 3
+        butler_memory.profile.add.assert_called_once_with("prefers dark  mode")
+        project_memory.markdown.append.assert_called_once_with("Architecture", "uses  FastAPI")
+        butler_memory.experience.add.assert_called_once_with(
+            project="MyProj",
+            category="experience",
+            content="always test auth",
+        )
+
+    def test_fully_private_memory_updates_are_skipped(self):
+        async def llm_call(prompt):
+            return (
+                '{"updates": ['
+                '{"target": "butler", "content": "<private>secret</private>"},'
+                '{"target": "experience", "content": "<private>secret2</private>"}'
+                "]}"
+            )
+
+        butler_memory = MagicMock()
+        project_memory = MagicMock()
+        proc = PostSessionProcessor(llm_call=llm_call)
+
+        count = asyncio.run(
+            proc._extract_memories(self._long_messages(), butler_memory, project_memory, "MyProj")
+        )
+
+        assert count == 0
+        butler_memory.profile.add.assert_not_called()
+        butler_memory.experience.add.assert_not_called()
+
     def test_invalid_target_skipped(self):
         async def llm_call(prompt):
             return '{"updates": [{"target": "unknown", "content": "ignored"}]}'
