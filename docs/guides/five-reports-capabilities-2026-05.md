@@ -1,9 +1,9 @@
 # 五报告能力速查（2026-05）
 
 > **状态**：主线 F–J + PR-F1–F6 + **P5–P10 子集** **已落地**（2026-05-25）  
-> **路线图**：[`../plans/five-reports-improvement-roadmap-2026-05.md`](../plans/five-reports-improvement-roadmap-2026-05.md) §9  
+> **路线图**：[`../plans/five-reports-improvement-roadmap-2026-05.md`](../plans/roadmaps/five-reports-improvement-roadmap-2026-05.md) §9  
 > **前置**：[`four-reports-capabilities-2026-05.md`](four-reports-capabilities-2026-05.md)（四报告已收口）  
-> **明确不做**：[`../plans/four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md) §7、路线图 §6 S1–S11
+> **明确不做**：[`../plans/four-reports-out-of-scope-2026-05.md`](../plans/decisions/four-reports-out-of-scope-2026-05.md) §7、路线图 §6 S1–S11
 
 ---
 
@@ -17,7 +17,7 @@
 | **I 编排** | outcomes.tsv、`/评价`、handoff 依赖、clear_child、output_schema、决策解析 | `outcomes.py`、`task_orchestrator.py`、`report.py` |
 | **J 可靠性** | retry/replan/stop、param blacklist、UTF-16 截断、Pipeline 步骤耗时 | `tool_error_policy.py`、`text_truncate.py`、`pipeline_steps.py`、`context_pipeline.py` |
 
-**否决 / 边界**：见 [`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md)（S1–S11；超出 P5–P10 子集的能力勿重复立项）。
+**否决 / 边界**：见 [`../plans/five-reports-not-done-2026-05.md`](../plans/decisions/five-reports-not-done-2026-05.md)（S1–S11；超出 P5–P10 子集的能力勿重复立项）。
 
 ---
 
@@ -114,5 +114,5 @@ PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_cont
 
 | 类型 | 文档 |
 |------|------|
-| 五报告否决与边界 | [`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md) |
-| 四报告 18 项否决 | [`../plans/four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md) §2 |
+| 五报告否决与边界 | [`../plans/five-reports-not-done-2026-05.md`](../plans/decisions/five-reports-not-done-2026-05.md) |
+| 四报告 18 项否决 | [`../plans/four-reports-out-of-scope-2026-05.md`](../plans/decisions/four-reports-out-of-scope-2026-05.md) §2 |

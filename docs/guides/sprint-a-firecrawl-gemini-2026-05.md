@@ -1,6 +1,6 @@
 # Sprint A：网关稳定 + 上下文 G-P0（2026-05）
 
-> 来源：[`firecrawl-butler-comparison-2026-05.md`](../plans/firecrawl-butler-comparison-2026-05.md) P0 + [`gemini-cli-butler-comparison-report-2026-05.md`](../plans/gemini-cli-butler-comparison-report-2026-05.md) G-P0-1～3
+> 来源：[`firecrawl-butler-comparison-2026-05.md`](../plans/comparisons/firecrawl-butler-comparison-2026-05.md) P0 + [`gemini-cli-butler-comparison-report-2026-05.md`](../plans/comparisons/gemini-cli-butler-comparison-report-2026-05.md) G-P0-1～3
 
 ## 已落地
 

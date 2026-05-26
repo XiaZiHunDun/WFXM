@@ -126,7 +126,15 @@ jobs:
           CORPUS_RUN_ID: nightly-${{ github.run_id }}
         run: |
           ./scripts/corpus-test.sh gateway-live
-          python3 scripts/corpus/summarize_runs.py --write docs/plans/corpus-issue-map-gateway-latest.md
+          python3 scripts/corpus/summarize_runs.py --write docs/plans/corpus/corpus-issue-map-gateway-latest.md
+
+  docs-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Documentation hygiene
+        run: bash scripts/docs-lint.sh
 
   live-llm-smoke:
     runs-on: ubuntu-latest

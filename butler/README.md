@@ -4,7 +4,7 @@ Butler v4 产品代码：自建 **Agent Loop** + 分层记忆 + Skill + Gateway 
 
 - 架构：[`../docs/architecture/v4-architecture.md`](../docs/architecture/v4-architecture.md)
 - 设计：[`../docs/design/design.md`](../docs/design/design.md)
-- CC 对照：[`../docs/plans/cc-butler-gap-analysis-2026-05.md`](../docs/plans/cc-butler-gap-analysis-2026-05.md)
+- CC 对照：[`../docs/plans/active/cc-butler-gap-analysis-2026-05.md`](../docs/plans/active/cc-butler-gap-analysis-2026-05.md)
 - 配置：[`../docs/config/reference.md`](../docs/config/reference.md)
 - 入口：`python -m butler.main` 或控制台命令 `butler`
 

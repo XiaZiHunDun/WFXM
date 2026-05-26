@@ -4,7 +4,7 @@
 
 **当前版本：Butler v4** — 自建 Agent Loop + 模块化 Hermes 提炼，不再 `import` Hermes `AIAgent`。  
 **在 Cursor 中开发**：先读 [`AGENTS.md`](AGENTS.md)。  
-架构见 [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)；文档体系 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)；规划与否决 [`docs/plans/README.md`](docs/plans/README.md)、[`roadmap-backlog-and-boundaries`](docs/plans/roadmap-backlog-and-boundaries-2026-05.md)；总索引 [`docs/README.md`](docs/README.md)。
+架构见 [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)；文档体系 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)；规划与否决 [`docs/plans/README.md`](docs/plans/README.md)、[`roadmap-backlog-and-boundaries`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)；总索引 [`docs/README.md`](docs/README.md)。
 
 ## 架构（v4 概要）
 
@@ -83,7 +83,7 @@ butler/
 ├── orchestrator.py
 ├── post_session.py
 └── main.py
-docs/                  # 架构与设计（索引 docs/README.md；后续规划见 docs/plans/post-consolidation-roadmap-2026-05.md）
+docs/                  # 架构与设计（索引 docs/README.md；后续规划见 docs/plans/active/post-consolidation-roadmap-2026-05.md）
 tests/                 # 1200+ 自动化测试（v3 archive 已移除）
 scripts/               # 网关安装与 butler-gateway-ops 运维
 ```
@@ -140,5 +140,5 @@ scripts/               # 网关安装与 butler-gateway-ops 运维
 | [docs/guides/wechat-gateway-ops.md](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |
 | [docs/guides/wechat-daily-smoke-checklist.md](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟检查表 |
 | [docs/design/design.md](docs/design/design.md) | v4 产品设计摘要 |
-| [docs/plans/post-consolidation-roadmap-2026-05.md](docs/plans/post-consolidation-roadmap-2026-05.md) | 整理后后续规划 |
+| [docs/plans/active/post-consolidation-roadmap-2026-05.md](docs/plans/active/post-consolidation-roadmap-2026-05.md) | 整理后后续规划 |
 | [docs/reviews/project-assessment-2026-05.md](docs/reviews/project-assessment-2026-05.md) | 项目成熟度评估 |

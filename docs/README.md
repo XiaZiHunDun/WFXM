@@ -10,13 +10,14 @@
 |--------|--------|
 | 改代码 / 查模块 | [`architecture/v4-architecture.md`](architecture/v4-architecture.md) |
 | 查环境变量 | [`config/reference.md`](config/reference.md) + [`../.env.example`](../.env.example) |
+| **发版一条链** | [`guides/release-runbook-2026-05.md`](guides/release-runbook-2026-05.md) |
 | 微信发版 / 运维 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) → [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) |
-| 看 CC 能力是否已有 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) |
+| 看 CC 能力是否已有 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) |
 | 看规划与命名 | [`plans/README.md`](plans/README.md) |
-| **否决 / 未做 / Backlog（统一）** | [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/roadmap-backlog-and-boundaries-2026-05.md) |
-| 四报告已落地 / 18 项不做 | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) · [`plans/four-reports-out-of-scope-2026-05.md`](plans/four-reports-out-of-scope-2026-05.md) |
-| 五报告已落地 / S1–S11 | [`guides/five-reports-capabilities-2026-05.md`](guides/five-reports-capabilities-2026-05.md) · [`plans/five-reports-not-done-2026-05.md`](plans/five-reports-not-done-2026-05.md) |
-| 外部 Agent 路线图（PR-X 已落地） | [`plans/external-agent-reports-improvement-roadmap-2026-05.md`](plans/external-agent-reports-improvement-roadmap-2026-05.md) |
+| **否决 / 未做 / Backlog（统一）** | [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) |
+| 四报告已落地 / 18 项不做 | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) · [`plans/four-reports-out-of-scope-2026-05.md`](plans/decisions/four-reports-out-of-scope-2026-05.md) |
+| 五报告已落地 / S1–S11 | [`guides/five-reports-capabilities-2026-05.md`](guides/five-reports-capabilities-2026-05.md) · [`plans/five-reports-not-done-2026-05.md`](plans/decisions/five-reports-not-done-2026-05.md) |
+| 外部 Agent 路线图（PR-X 已落地） | [`plans/external-agent-reports-improvement-roadmap-2026-05.md`](plans/roadmaps/external-agent-reports-improvement-roadmap-2026-05.md) |
 | Codex 对标 Sprint C0–C2 | [`guides/sprint-codex-c0-2026-05.md`](guides/sprint-codex-c0-2026-05.md) · [C1](guides/sprint-codex-c1-2026-05.md) · [C2](guides/sprint-codex-c2-2026-05.md) |
 | 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
 
@@ -55,14 +56,14 @@
 |------|------|
 | [`DOCUMENTATION.md`](DOCUMENTATION.md) | **文档体系**（L0–L5 分层、维护规则、语料专项） |
 | [`plans/README.md`](plans/README.md) | **规划索引**（CC / 整理 / 外部对标 命名对照） |
-| [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/roadmap-backlog-and-boundaries-2026-05.md) | **否决 / Backlog 决策入口** |
-| [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) | Claude Code ↔ Butler（**主对照**） |
-| [`plans/reference-learning-plan-2026-05.md`](plans/reference-learning-plan-2026-05.md) | 外部对标（Prometheus/OpenClaw/Dify）— **已收口** |
-| [`plans/four-reports-improvement-roadmap-2026-05.md`](plans/four-reports-improvement-roadmap-2026-05.md) | 四份报告合并路线图（**已收口** §9） |
+| [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | **否决 / Backlog 决策入口** |
+| [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) | Claude Code ↔ Butler（**主对照**） |
+| [`plans/reference-learning-plan-2026-05.md`](plans/archive/reference-learning-plan-2026-05.md) | 外部对标（Prometheus/OpenClaw/Dify）— **已收口** |
+| [`plans/four-reports-improvement-roadmap-2026-05.md`](plans/roadmaps/four-reports-improvement-roadmap-2026-05.md) | 四份报告合并路线图（**已收口** §9） |
 | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) | 四报告能力速查（env / CLI / 测试） |
-| [`plans/openclaw-learning-plan-2026-05.md`](plans/openclaw-learning-plan-2026-05.md) | OpenClaw 对标 OC-P0–P2（前置压缩、Gateway、doctor）— **已落地** |
-| [`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md) | 运营与多项目后续 |
-| [`plans/consolidation-2026-05.md`](plans/consolidation-2026-05.md) | 仓库整理（已完成） |
+| [`plans/openclaw-learning-plan-2026-05.md`](plans/comparisons/openclaw-learning-plan-2026-05.md) | OpenClaw 对标 OC-P0–P2（前置压缩、Gateway、doctor）— **已落地** |
+| [`plans/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md) | 运营与多项目后续 |
+| [`plans/consolidation-2026-05.md`](plans/archive/consolidation-2026-05.md) | 仓库整理（已完成） |
 | [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 成熟度评估 |
 
 ## 语料与微信测试（专项）
@@ -71,8 +72,8 @@
 
 | 文档 | 说明 |
 |------|------|
-| [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus-testing-module-design-2026-05.md) | 语料模块设计 |
-| [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/wechat-real-coverage-matrix-2026-05.md) | 真机覆盖矩阵 |
+| [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus/corpus-testing-module-design-2026-05.md) | 语料模块设计 |
+| [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/corpus/wechat-real-coverage-matrix-2026-05.md) | 真机覆盖矩阵 |
 | [`guides/project-intro-for-utterance-corpus.md`](guides/project-intro-for-utterance-corpus.md) | 语料项目介绍 |
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | `corpus-test.sh` 门禁 |
 

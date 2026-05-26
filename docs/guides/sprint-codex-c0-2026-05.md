@@ -1,6 +1,6 @@
 # Sprint Codex-C0（2026-05）
 
-> 总索引：[codex-butler-comparison-2026-05.md](../plans/codex-butler-comparison-2026-05.md)
+> 总索引：[codex-butler-comparison-2026-05.md](../plans/comparisons/codex-butler-comparison-2026-05.md)
 
 ## 已落地
 

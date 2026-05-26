@@ -2,7 +2,7 @@
 
 **Schema**：[`../../schemas/gateway-utterance-v1.md`](../../schemas/gateway-utterance-v1.md)  
 **元数据**：[`meta.yaml`](meta.yaml)  
-**覆盖矩阵**：[`docs/plans/wechat-real-coverage-matrix-2026-05.md`](../../../../../docs/plans/wechat-real-coverage-matrix-2026-05.md)
+**覆盖矩阵**：[`docs/plans/corpus/wechat-real-coverage-matrix-2026-05.md`](../../../../../docs/plans/corpus/wechat-real-coverage-matrix-2026-05.md)
 
 ## 分层文件
 
@@ -46,8 +46,8 @@ python3 scripts/generate_production_catalog.py
 | 脚本库共享 | `harness/gateway_scripts.py` |
 | production 升格 | `python3 scripts/corpus/promote_production.py PROD-001` |
 | L3 live 子集 | `./scripts/corpus-test.sh gateway-live` |
-| L4 运营 | [`wechat-corpus-ops`](../../../../../docs/plans/wechat-corpus-ops-2026-05.md) · `./scripts/corpus-test.sh ops` |
-| 跨通道 | [`corpus-cross-channel`](../../../../../docs/plans/corpus-cross-channel-2026-05.md) · `intent_crosswalk.yaml` |
+| L4 运营 | [`wechat-corpus-ops`](../../../../../docs/plans/corpus/wechat-corpus-ops-2026-05.md) · `./scripts/corpus-test.sh ops` |
+| 跨通道 | [`corpus-cross-channel`](../../../../../docs/plans/corpus/corpus-cross-channel-2026-05.md) · `intent_crosswalk.yaml` |
 
 ## 升格流程（production → strict）
 

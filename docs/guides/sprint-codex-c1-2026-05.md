@@ -1,6 +1,6 @@
 # Sprint Codex-C1（2026-05）
 
-> C0：[sprint-codex-c0-2026-05.md](./sprint-codex-c0-2026-05.md) · 对照：[codex-butler-comparison-2026-05.md](../plans/codex-butler-comparison-2026-05.md)
+> C0：[sprint-codex-c0-2026-05.md](./sprint-codex-c0-2026-05.md) · 对照：[codex-butler-comparison-2026-05.md](../plans/comparisons/codex-butler-comparison-2026-05.md)
 
 ## 已落地
 

@@ -1,7 +1,7 @@
 # 外部对标 — 剩余项分析与落地状态
 
 > 2026-05-25 · 汇总 Hermes / LangChain / Dify / Langflow 四报告 + 阶段 A/B/C  
-> **统一索引**：[`../plans/roadmap-backlog-and-boundaries-2026-05.md`](../plans/roadmap-backlog-and-boundaries-2026-05.md)（§1.3 否决、§3.1–3.2 可选 Backlog）
+> **统一索引**：[`../plans/roadmap-backlog-and-boundaries-2026-05.md`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)（§1.3 否决、§3.1–3.2 可选 Backlog）
 
 ## 1. 总览
 
@@ -30,7 +30,7 @@
 
 ## 3. 明确不做（四报告共识）
 
-> **四报告专用完整清单**（browser-use / RAGFlow / design-md / autoresearch）：[`../plans/four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md)
+> **四报告专用完整清单**（browser-use / RAGFlow / design-md / autoresearch）：[`../plans/four-reports-out-of-scope-2026-05.md`](../plans/decisions/four-reports-out-of-scope-2026-05.md)
 
 以下为 Hermes / LangChain / Dify / Langflow 阶段对标共识；与四报告清单互补，不重复展开。
 

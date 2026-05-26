@@ -1,7 +1,7 @@
 # WFXM / Butler 项目评估（2026-05）
 
 > **结论**：平台约 **4/5** 成熟度；灵文1号试点 **可运营**；整理 P0–P2 已完成。  
-> **后续**：[`plans/post-consolidation-roadmap-2026-05.md`](../plans/post-consolidation-roadmap-2026-05.md)
+> **后续**：[`plans/post-consolidation-roadmap-2026-05.md`](../plans/active/post-consolidation-roadmap-2026-05.md)
 
 ---
 

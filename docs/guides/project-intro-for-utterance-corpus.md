@@ -77,7 +77,7 @@
 
 ## 4. 真机已验证的黄金句（可改写，勿改语义）
 
-来源：2026-05-22 微信对话「鹿角象 × 灵文1号」，详见 `docs/plans/wechat-real-dialogue-test-scenarios-2026-05.md`。
+来源：2026-05-22 微信对话「鹿角象 × 灵文1号」，详见 `docs/plans/corpus/wechat-real-dialogue-test-scenarios-2026-05.md`。
 
 | 意图 | 示例原话 |
 |------|----------|
@@ -152,7 +152,7 @@
 | `tests/corpus/runners/test_gateway_utterance_catalog.py` | 数据驱动执行 |
 | `tests/test_gateway_dev_conversations.py` | LW-REAL 黄金路径手写测试 |
 | `docs/guides/wechat-daily-smoke-checklist.md` | 真机冒烟步骤 |
-| `docs/plans/wechat-dev-conversation-scenarios-2026-05.md` | 场景全集设计 |
+| `docs/plans/corpus/wechat-dev-conversation-scenarios-2026-05.md` | 场景全集设计 |
 
 ---
 

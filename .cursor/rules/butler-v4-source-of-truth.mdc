@@ -5,11 +5,11 @@ alwaysApply: true
 
 # Butler v4 — Agent 事实来源
 
-1. **实现以代码 + `docs/architecture/v4-architecture.md` 为准**；`docs/history/`、`reference/`、design.md 后半历史章节不可当作当前架构。提需求/否决/Backlog 见 `docs/plans/roadmap-backlog-and-boundaries-2026-05.md`；文档体系见 `docs/DOCUMENTATION.md`。
+1. **实现以代码 + `docs/architecture/v4-architecture.md` 为准**；`docs/history/`、`reference/`、design.md 后半历史章节不可当作当前架构。提需求/否决/Backlog 见 `docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`；文档体系见 `docs/DOCUMENTATION.md`。
 2. **Loop 在 `butler/core/`**（`agent_loop`, `tool_batch`, `context_pipeline`），不是 `butler/agent/`，不 import Hermes `AIAgent`。
 3. **微信网关**：`butler/gateway/message_handler.py` + `wechat_ilink.py`；入站队列 `message_queue.py`；出站 `outbound_bridge.py`。
 4. **环境变量**：查 `docs/config/reference.md` 或 `.env.example`，不要凭记忆写默认值。
-5. **两个「P2」**：仓库整理见 `docs/plans/consolidation-2026-05.md`；CC 线束（流式工具/cache-safe/队列出站）见 `docs/plans/cc-butler-gap-analysis-2026-05.md`。
+5. **两个「P2」**：仓库整理见 `docs/plans/archive/consolidation-2026-05.md`；CC 线束（流式工具/cache-safe/队列出站）见 `docs/plans/active/cc-butler-gap-analysis-2026-05.md`。
 6. 改 `butler/core` 或 `butler/gateway` 后，用 `rg` 确认调用链；必要时跑 `PYTHONPATH=. pytest tests/<相关> -q`。
 7. 回复用户技术结论前，对路径/模块名/是否已实现 **grep 或 read 文件验证**。
 

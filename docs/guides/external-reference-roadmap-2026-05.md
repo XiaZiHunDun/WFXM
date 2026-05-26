@@ -22,11 +22,11 @@ pytest tests/test_phase_a_external.py tests/test_phase_b_external.py \
 | 报告 | 路径 |
 |------|------|
 | Hermes | [../architecture/hermes-butler-comparison-2026-05.md](../architecture/hermes-butler-comparison-2026-05.md) |
-| LangChain | [../plans/langchain-butler-comparison-2026-05.md](../plans/langchain-butler-comparison-2026-05.md) |
-| Dify | [../plans/dify-butler-comparison-2026-05.md](../plans/dify-butler-comparison-2026-05.md) |
-| Langflow | [../plans/langflow-butler-comparison-2026-05.md](../plans/langflow-butler-comparison-2026-05.md) |
+| LangChain | [../plans/langchain-butler-comparison-2026-05.md](../plans/comparisons/langchain-butler-comparison-2026-05.md) |
+| Dify | [../plans/dify-butler-comparison-2026-05.md](../plans/comparisons/dify-butler-comparison-2026-05.md) |
+| Langflow | [../plans/langflow-butler-comparison-2026-05.md](../plans/comparisons/langflow-butler-comparison-2026-05.md) |
 
-与 **OpenCode / CC 线束** 正交：见 [opencode-parity.md](./opencode-parity.md)、[../plans/cc-butler-gap-analysis-2026-05.md](../plans/cc-butler-gap-analysis-2026-05.md)。
+与 **OpenCode / CC 线束** 正交：见 [opencode-parity.md](./opencode-parity.md)、[../plans/cc-butler-gap-analysis-2026-05.md](../plans/active/cc-butler-gap-analysis-2026-05.md)。
 
 **四报告 Sprint（Firecrawl / agency / Gemini / awesome）** 另见 [sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md)（A–D 已落地，与上表阶段 A/B/C 独立）。
 

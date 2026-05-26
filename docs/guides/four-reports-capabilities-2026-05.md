@@ -1,8 +1,8 @@
 # 四报告能力速查（2026-05）
 
 > **状态**：主线 A–D + 支撑线 E（P2 子集）**已落地**  
-> **路线图**：[`../plans/four-reports-improvement-roadmap-2026-05.md`](../plans/four-reports-improvement-roadmap-2026-05.md) §9  
-> **明确不做**：[`../plans/four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md)（新增需求前必读）  
+> **路线图**：[`../plans/four-reports-improvement-roadmap-2026-05.md`](../plans/roadmaps/four-reports-improvement-roadmap-2026-05.md) §9  
+> **明确不做**：[`../plans/four-reports-out-of-scope-2026-05.md`](../plans/decisions/four-reports-out-of-scope-2026-05.md)（新增需求前必读）  
 > **架构表**：[`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)「四报告增量」节
 
 本文是运维/开发用的**单一速查**，不替代四份对照报告全文。
@@ -85,9 +85,9 @@ PYTHONPATH=. pytest tests/test_design_md_sections.py tests/test_experiment_ledge
 
 | 文档 | 说明 |
 |------|------|
-| [`four-reports-improvement-roadmap-2026-05.md`](../plans/four-reports-improvement-roadmap-2026-05.md) | PR1–PR6 与 §9 核对表 |
-| [`four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md) | 18 项否决能力 |
-| [`awesome-design-md-butler-comparison-report-2026-05.md`](../plans/awesome-design-md-butler-comparison-report-2026-05.md) | DESIGN 对照全文 |
-| [`ragflow-butler-comparison-report-2026-05.md`](../plans/ragflow-butler-comparison-report-2026-05.md) | RAG 对照全文 |
-| [`autoresearch-butler-comparison-report-2026-05.md`](../plans/autoresearch-butler-comparison-report-2026-05.md) | 实验对照全文 |
-| [`browser-use-butler-comparison-report-2026-05.md`](../plans/browser-use-butler-comparison-report-2026-05.md) | Loop 减熵对照全文 |
+| [`four-reports-improvement-roadmap-2026-05.md`](../plans/roadmaps/four-reports-improvement-roadmap-2026-05.md) | PR1–PR6 与 §9 核对表 |
+| [`four-reports-out-of-scope-2026-05.md`](../plans/decisions/four-reports-out-of-scope-2026-05.md) | 18 项否决能力 |
+| [`awesome-design-md-butler-comparison-report-2026-05.md`](../plans/comparisons/awesome-design-md-butler-comparison-report-2026-05.md) | DESIGN 对照全文 |
+| [`ragflow-butler-comparison-report-2026-05.md`](../plans/comparisons/ragflow-butler-comparison-report-2026-05.md) | RAG 对照全文 |
+| [`autoresearch-butler-comparison-report-2026-05.md`](../plans/comparisons/autoresearch-butler-comparison-report-2026-05.md) | 实验对照全文 |
+| [`browser-use-butler-comparison-report-2026-05.md`](../plans/comparisons/browser-use-butler-comparison-report-2026-05.md) | Loop 减熵对照全文 |

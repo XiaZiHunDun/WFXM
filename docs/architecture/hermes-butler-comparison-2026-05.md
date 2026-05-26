@@ -3,7 +3,7 @@
 > **日期**：2026-05-25（**勘误**：2026-05-25，对照 Butler 代码与 `reference/hermes-agent` 实测修订）  
 > **对照源**：`reference/hermes-agent`（Nous Research Hermes Agent，本地 gitignore）  
 > **Butler 基线**：[`v4-architecture.md`](v4-architecture.md)、[`hermes-extraction-map.md`](hermes-extraction-map.md)  
-> **相关规划**：[`cc-butler-gap-analysis-2026-05.md`](../plans/cc-butler-gap-analysis-2026-05.md)、[`reference-learning-plan-2026-05.md`](../plans/reference-learning-plan-2026-05.md)
+> **相关规划**：[`cc-butler-gap-analysis-2026-05.md`](../plans/active/cc-butler-gap-analysis-2026-05.md)、[`reference-learning-plan-2026-05.md`](../plans/archive/reference-learning-plan-2026-05.md)
 
 ---
 
@@ -101,7 +101,7 @@ Butler v4:
 1. **多项目记忆与 Skill 路由**（`butler/orchestrator.py`、`butler/skills/router.py`）  
 2. **DAG 工作流 + 步骤级工具白名单 + 人工门控**（`butler/workflows/runner.py`、`butler/human_gate.py`）  
 3. **结构化 `AgentReport` + 微信 `/详细` 渐进披露**（`butler/report.py`）  
-4. **CC 线束 P0–P4 已落地**（见 [`cc-butler-gap-analysis-2026-05.md`](../plans/cc-butler-gap-analysis-2026-05.md) §4–§11）  
+4. **CC 线束 P0–P4 已落地**（见 [`cc-butler-gap-analysis-2026-05.md`](../plans/active/cc-butler-gap-analysis-2026-05.md) §4–§11）  
 5. **记忆注入围栏文案**（`inject_turn_memory` / `_render_turn_memory_context`）
 
 ---
@@ -215,7 +215,7 @@ Butler v4:
 
 ## 6. 与 Claude Code 差距的互补关系
 
-[`cc-butler-gap-analysis-2026-05.md`](../plans/cc-butler-gap-analysis-2026-05.md) 主对照 Claude Code；Hermes 可补 **另一类** 缺口：
+[`cc-butler-gap-analysis-2026-05.md`](../plans/active/cc-butler-gap-analysis-2026-05.md) 主对照 Claude Code；Hermes 可补 **另一类** 缺口：
 
 | CC / Butler 缺口 | Hermes 可补 |
 |------------------|-------------|

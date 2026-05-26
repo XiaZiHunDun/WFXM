@@ -1,7 +1,8 @@
 # 管家系统（Butler System）完整设计方案
 
-> 版本: v4 产品设计摘要 | 更新日期: 2026-05-22  
-> 当前实现架构详见 [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)；Hermes 提炼见 [`../architecture/hermes-extraction-map.md`](../architecture/hermes-extraction-map.md)。
+> **实现以** [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md) **为准**；本文 §1–§10 为产品摘要，§2 内「第十一～十二章」等叙述为早期路径，勿对照代码。  
+> 版本: v4 产品设计摘要 | 更新: 2026-05-22  
+> Hermes 提炼：[`../architecture/hermes-extraction-map.md`](../architecture/hermes-extraction-map.md) · 历史演进：[`../history/design-evolution-v0.5-v1.0.md`](../history/design-evolution-v0.5-v1.0.md)
 
 ## 目录
 
@@ -398,7 +399,7 @@ class AgentResult:
 | 循环 transition | query 结束原因可观测 | ✅ `LoopTransitionReason` → `/诊断` |
 | 结构化 diff 反馈 | 编辑后返回 diff | ✅ patch 结果摘要 |
 
-详见 [`architecture/v4-architecture.md`](../architecture/v4-architecture.md) 与 [`plans/cc-butler-gap-analysis-2026-05.md`](../plans/cc-butler-gap-analysis-2026-05.md)。
+详见 [`architecture/v4-architecture.md`](../architecture/v4-architecture.md) 与 [`plans/cc-butler-gap-analysis-2026-05.md`](../plans/active/cc-butler-gap-analysis-2026-05.md)。
 
 ---
 

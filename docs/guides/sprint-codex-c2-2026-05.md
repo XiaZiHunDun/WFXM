@@ -34,4 +34,4 @@
 pytest tests/test_sprint_codex_c0.py tests/test_sprint_codex_c1.py tests/test_sprint_codex_c2.py -q
 ```
 
-对照总表：[codex-butler-comparison-2026-05.md](../plans/codex-butler-comparison-2026-05.md)
+对照总表：[codex-butler-comparison-2026-05.md](../plans/comparisons/codex-butler-comparison-2026-05.md)

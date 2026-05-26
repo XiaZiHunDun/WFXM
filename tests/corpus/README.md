@@ -2,7 +2,7 @@
 
 开发对话与微信真机场景的**语料驱动回归**，与 `tests/test_gateway_*` 等产品单测互补。
 
-**总体设计**：[`docs/plans/corpus-testing-module-design-2026-05.md`](../../docs/plans/corpus-testing-module-design-2026-05.md)
+**总体设计**：[`docs/plans/corpus/corpus-testing-module-design-2026-05.md`](../../docs/plans/corpus/corpus-testing-module-design-2026-05.md)
 
 ## 目录
 
@@ -41,7 +41,7 @@ corpus/
 
 **一键**：`./scripts/corpus-test.sh gateway`（schema + L1 + L2）
 
-**AgentLoop 语料合计**：**183 case**（171 单轮 + 12 多轮组）。规模目标见 [`docs/plans/corpus-scale-target-2026-05.md`](../../docs/plans/corpus-scale-target-2026-05.md)。
+**AgentLoop 语料合计**：**183 case**（171 单轮 + 12 多轮组）。规模目标见 [`docs/plans/corpus/corpus-scale-target-2026-05.md`](../../docs/plans/corpus/corpus-scale-target-2026-05.md)。
 
 旧路径 `tests/scenarios/*.yaml` 为**符号链接**，见 [`../scenarios/README.md`](../scenarios/README.md)。
 
@@ -112,6 +112,6 @@ PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
 
 ## 问题地图
 
-- 模板：[`docs/plans/corpus-issue-map-template-2026-05.md`](../../docs/plans/corpus-issue-map-template-2026-05.md)
-- 合并地图（v1+v2+v3+LW-REAL）：[`docs/plans/corpus-issue-map-2026-05.md`](../../docs/plans/corpus-issue-map-2026-05.md)
-- 汇总脚本：`python3 scripts/corpus/summarize_runs.py [--write docs/plans/corpus-issue-map-gateway-latest.md]`
+- 模板：[`docs/plans/corpus/corpus-issue-map-template-2026-05.md`](../../docs/plans/corpus/corpus-issue-map-template-2026-05.md)
+- 合并地图（v1+v2+v3+LW-REAL）：[`docs/plans/corpus/corpus-issue-map-2026-05.md`](../../docs/plans/corpus/corpus-issue-map-2026-05.md)
+- 汇总脚本：`python3 scripts/corpus/summarize_runs.py [--write docs/plans/corpus/corpus-issue-map-gateway-latest.md]`

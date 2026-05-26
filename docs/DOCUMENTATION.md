@@ -20,7 +20,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 |------|----------|------|
 | **L1 架构** | `docs/architecture/` | 模块划分、Loop/Gateway、ADR |
 | **L1 配置** | `docs/config/`、`/.env.example` | `BUTLER_*` 权威默认值 |
-| **L2 决策** | `docs/plans/roadmap-backlog-and-boundaries-2026-05.md` | 否决、深化边界、可选 Backlog |
+| **L2 决策** | `docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md` | 否决、深化边界、可选 Backlog |
 | **L2 规划索引** | `docs/plans/README.md` | 命名对照（CC / 整理 / 外部对标） |
 | **L3 运维指南** | `docs/guides/` | 微信发版、冒烟、Runtime、外部对标验收 |
 | **L3 运维阈值** | `docs/ops/` | `/诊断` 指标说明 |
@@ -39,7 +39,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | **对照报告（comparison-report）** | 长文 + P0/P2 提炼表 | 查文首 **落地状态**；否决见 roadmap-backlog §1 |
 | **学习计划（learning-plan）** | 单源对标、已收口多 | 仅作验收索引；defer 见 external-reference-deferred |
 
-**统一决策入口**：[`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/roadmap-backlog-and-boundaries-2026-05.md)
+**统一决策入口**：[`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)
 
 ---
 
@@ -58,7 +58,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | OpenCode / OpenClaw / OMO | 各 learning-plan | 各 `test_*` |
 | 仓库整理 P0–P3 | `consolidation-*` | — |
 
-**仍活跃的产品规划**：[`plans/post-consolidation-roadmap-2026-05.md`](plans/post-consolidation-roadmap-2026-05.md)（运营、语料、多项目 — 与对标正交）
+**仍活跃的产品规划**：[`plans/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md)（运营、语料、多项目 — 与对标正交）
 
 ---
 
@@ -87,18 +87,20 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | **Sprint / Codex** | `sprint-roadmap`、`sprint-codex-c0/c1/c2` |
 | **接入** | `project-onboarding`、`memory-ops`、`runtime-ops` |
 
-### 4.3 `docs/plans/`
+### 4.3 `docs/plans/`（分子目录）
 
 索引：[`plans/README.md`](plans/README.md)
 
-| 子类 | 说明 |
-|------|------|
-| **决策 / 否决** | `roadmap-backlog-and-boundaries`、`four-reports-out-of-scope`、`five-reports-not-done` |
-| **已收口路线图** | `four/five/external-agent-reports-improvement-roadmap` |
-| **活跃产品规划** | `post-consolidation-roadmap` |
-| **对照报告** | `*-comparison-report-2026-05.md`、`*-butler-comparison-2026-05.md` |
-| **已完成实施** | `wechat-steer-implementation`、`memory-unification`、`health-report-refactor`、`consolidation-p3` |
-| **语料专项** | 见 §5 |
+| 子目录 | 说明 |
+|--------|------|
+| `active/` | `post-consolidation`、`cc-butler-gap-analysis` |
+| `decisions/` | **roadmap-backlog**、out-of-scope、five-reports-not-done |
+| `roadmaps/` | 四/五/外部 Agent 已收口路线图 §9/§10 |
+| `comparisons/` | 对照全文（**非待办**） |
+| `corpus/` | 语料与微信场景 |
+| `archive/` | 已完成实施、历史分析 |
+
+发版：[`guides/release-runbook-2026-05.md`](guides/release-runbook-2026-05.md) · 能力索引：[`guides/capabilities-index-2026-05.md`](guides/capabilities-index-2026-05.md)
 
 ### 4.4 `docs/templates/`、`docs/reviews/`、`docs/history/`
 
@@ -114,10 +116,10 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 
 | 文档 | 用途 |
 |------|------|
-| [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus-testing-module-design-2026-05.md) | 语料模块设计 |
-| [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/wechat-real-coverage-matrix-2026-05.md) | 真机覆盖矩阵 |
-| [`plans/wechat-dev-conversation-scenarios-2026-05.md`](plans/wechat-dev-conversation-scenarios-2026-05.md) | 开发对话场景 |
-| [`plans/dev-assistant-corpus-history-2026-05.md`](plans/dev-assistant-corpus-history-2026-05.md) | 语料 v1–v4 版本史 |
+| [`plans/corpus-testing-module-design-2026-05.md`](plans/corpus/corpus-testing-module-design-2026-05.md) | 语料模块设计 |
+| [`plans/wechat-real-coverage-matrix-2026-05.md`](plans/corpus/wechat-real-coverage-matrix-2026-05.md) | 真机覆盖矩阵 |
+| [`plans/wechat-dev-conversation-scenarios-2026-05.md`](plans/corpus/wechat-dev-conversation-scenarios-2026-05.md) | 开发对话场景 |
+| [`plans/dev-assistant-corpus-history-2026-05.md`](plans/corpus/dev-assistant-corpus-history-2026-05.md) | 语料 v1–v4 版本史 |
 | [`guides/project-intro-for-utterance-corpus.md`](guides/project-intro-for-utterance-corpus.md) | 语料项目介绍 |
 
 命令：[`../CONTRIBUTING.md`](../CONTRIBUTING.md) 语料节、`./scripts/corpus-test.sh`
@@ -130,12 +132,12 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 
 1. 更新 [`architecture/v4-architecture.md`](architecture/v4-architecture.md) 相关节  
 2. 新 `BUTLER_*` → [`config/reference.md`](config/reference.md) + `.env.example`  
-3. 若属 CC 线束 → [`plans/cc-butler-gap-analysis-2026-05.md`](plans/cc-butler-gap-analysis-2026-05.md) §3  
+3. 若属 CC 线束 → [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) §3  
 4. 阈值 → [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md)
 
 ### 6.2 新能力需求（产品 / 对标）
 
-1. 先读 [`roadmap-backlog-and-boundaries-2026-05.md`](plans/roadmap-backlog-and-boundaries-2026-05.md) §0 决策流  
+1. 先读 [`roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) §0 决策流  
 2. 命中否决 → 拒绝或改边界，**不写**对照报告 P 表  
 3. 已有子集 → 更新 §2 深化边界 + 对应 `*-capabilities` 速查  
 4. 可选立项 → 写入 roadmap-backlog §3，附验收与 env
@@ -166,7 +168,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | 总索引 | [`README.md`](README.md) |
 | 规划命名 | [`plans/README.md`](plans/README.md) |
 | 指南列表 | [`guides/README.md`](guides/README.md) |
-| 否决 / Backlog | [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/roadmap-backlog-and-boundaries-2026-05.md) |
+| 否决 / Backlog | [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) |
 | 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
 | Agent 规则 | [`../AGENTS.md`](../AGENTS.md) |
 
@@ -179,3 +181,4 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | 2026-05-25 | 初版：文档分层、三类规划、已收口主线、语料专项、维护规则 |
 | 2026-05-25 | 全库整理：索引对齐、对照报告文首状态、语料/归档分表 |
 | 2026-05-25 | 合并 phase-a/b/c → phase-abc；语料 v1–v4 → corpus-history；精简 plans/README、reference-learning-plan |
+| 2026-05-25 | plans/ 分子目录；瘦身 AGENTS；release-runbook、capabilities-index、docs-lint.sh |

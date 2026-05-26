@@ -1,8 +1,8 @@
 # 外部 Agent 五报告能力速查（2026-05）
 
 > **状态**：PR-X1–X6 + 主线 M 后续子集 **已落地**  
-> **路线图**：[`../plans/external-agent-reports-improvement-roadmap-2026-05.md`](../plans/external-agent-reports-improvement-roadmap-2026-05.md) §10  
-> **未作 / 否决**：[`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md)
+> **路线图**：[`../plans/external-agent-reports-improvement-roadmap-2026-05.md`](../plans/roadmaps/external-agent-reports-improvement-roadmap-2026-05.md) §10  
+> **未作 / 否决**：[`../plans/five-reports-not-done-2026-05.md`](../plans/decisions/five-reports-not-done-2026-05.md)
 
 ---
 

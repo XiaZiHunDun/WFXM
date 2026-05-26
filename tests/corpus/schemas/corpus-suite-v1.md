@@ -47,4 +47,4 @@
     reply_contains_any: [完成]
 ```
 
-详见 `docs/plans/corpus-testing-module-design-2026-05.md` 第三节。
+详见 `docs/plans/corpus/corpus-testing-module-design-2026-05.md` 第三节。

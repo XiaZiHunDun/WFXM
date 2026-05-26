@@ -19,7 +19,7 @@ butler doctor                   # 静态安全配置审计（OpenClaw OC-P2）
 
 **语料测试（开发对话 + 微信衍射，独立目录）：**
 
-设计：[`docs/plans/corpus-testing-module-design-2026-05.md`](../docs/plans/corpus-testing-module-design-2026-05.md)
+设计：[`docs/plans/corpus/corpus-testing-module-design-2026-05.md`](../docs/plans/corpus/corpus-testing-module-design-2026-05.md)
 
 ```bash
 PYTHONPATH=. pytest tests/corpus -m corpus_mock -q

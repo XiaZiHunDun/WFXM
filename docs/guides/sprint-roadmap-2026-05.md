@@ -20,10 +20,10 @@ PYTHONPATH=. pytest tests/test_sprint_a_gateway.py tests/test_sprint_bcd.py -q
 
 | 报告 | 路径 |
 |------|------|
-| Firecrawl | [../plans/firecrawl-butler-comparison-2026-05.md](../plans/firecrawl-butler-comparison-2026-05.md) |
-| agency-agents | [../plans/agency-agents-extraction-analysis-2026-05.md](../plans/agency-agents-extraction-analysis-2026-05.md) |
-| Gemini CLI | [../plans/gemini-cli-butler-comparison-report-2026-05.md](../plans/gemini-cli-butler-comparison-report-2026-05.md) |
-| awesome-llm-apps | [../plans/awesome-llm-apps-butler-comparison-report-2026-05.md](../plans/awesome-llm-apps-butler-comparison-report-2026-05.md) |
+| Firecrawl | [../plans/firecrawl-butler-comparison-2026-05.md](../plans/comparisons/firecrawl-butler-comparison-2026-05.md) |
+| agency-agents | [../plans/agency-agents-extraction-analysis-2026-05.md](../plans/comparisons/agency-agents-extraction-analysis-2026-05.md) |
+| Gemini CLI | [../plans/gemini-cli-butler-comparison-report-2026-05.md](../plans/comparisons/gemini-cli-butler-comparison-report-2026-05.md) |
+| awesome-llm-apps | [../plans/awesome-llm-apps-butler-comparison-report-2026-05.md](../plans/comparisons/awesome-llm-apps-butler-comparison-report-2026-05.md) |
 
 与 [external-reference-roadmap-2026-05.md](./external-reference-roadmap-2026-05.md)（Hermes/LangChain/Dify/Langflow 阶段 A/B/C）、[phase-d-prompt-corpus.md](./phase-d-prompt-corpus.md)（Prompt Corpus D/E）**正交**，可并行阅读。
 
@@ -59,7 +59,7 @@ PYTHONPATH=. pytest tests/test_sprint_a_gateway.py tests/test_sprint_bcd.py -q
 PYTHONPATH=. pytest tests/test_sprint_codex_c0.py tests/test_sprint_codex_c1.py tests/test_sprint_codex_c2.py -q
 ```
 
-对照：[codex-butler-comparison-2026-05.md](../plans/codex-butler-comparison-2026-05.md)
+对照：[codex-butler-comparison-2026-05.md](../plans/comparisons/codex-butler-comparison-2026-05.md)
 
 ## 明确不做
 

@@ -65,7 +65,7 @@
 
 ## Agent Loop 线束（上下文 / 安全）
 
-> 设计说明：[`plans/cc-butler-gap-analysis-2026-05.md`](../plans/cc-butler-gap-analysis-2026-05.md) · [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)
+> 设计说明：[`plans/cc-butler-gap-analysis-2026-05.md`](../plans/active/cc-butler-gap-analysis-2026-05.md) · [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)
 
 | 变量 | 默认 | 说明 |
 |------|------|------|
@@ -241,7 +241,7 @@
 | `BUTLER_HOOK_FAIL_CLOSED` | 0 | `1` 时 PreToolUse 非 0 退出即阻断工具 |
 
 > OpenCode 对标运维速查：[`guides/opencode-parity.md`](../guides/opencode-parity.md)  
-> OpenClaw 对标详表：[`plans/openclaw-learning-plan-2026-05.md`](../plans/openclaw-learning-plan-2026-05.md)
+> OpenClaw 对标详表：[`plans/openclaw-learning-plan-2026-05.md`](../plans/comparisons/openclaw-learning-plan-2026-05.md)
 
 ## Gateway 线束（入站 / 出站）
 
@@ -350,4 +350,4 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 ## 相关
 
 - [`../guides/project-onboarding.md`](../guides/project-onboarding.md)  
-- [`../plans/consolidation-2026-05.md`](../plans/consolidation-2026-05.md)
+- [`../plans/consolidation-2026-05.md`](../plans/archive/consolidation-2026-05.md)

@@ -1,6 +1,6 @@
 # 阶段 D/E：Prompt Corpus 线验收
 
-> 对标 `reference/system-prompts-and-models-of-ai-tools` 的设计模式（非源码移植）。对照全文：[prompts-corpus-butler-comparison-2026-05.md](../plans/prompts-corpus-butler-comparison-2026-05.md)。
+> 对标 `reference/system-prompts-and-models-of-ai-tools` 的设计模式（非源码移植）。对照全文：[prompts-corpus-butler-comparison-2026-05.md](../plans/comparisons/prompts-corpus-butler-comparison-2026-05.md)。
 
 ## 自动化验收
 

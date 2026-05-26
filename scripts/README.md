@@ -1,7 +1,7 @@
 # scripts/ 索引
 
 > 日常只记四条：`butler-gateway-ops.sh`、`butler-smoke.sh`、`butler-pre-release-smoke.sh`（= `--tier=full`）、`sync-lingwen-project-skills.sh`（灵文）。  
-> 整理方案：[`docs/plans/consolidation-2026-05.md`](../docs/plans/consolidation-2026-05.md)
+> 整理方案：[`docs/plans/archive/consolidation-2026-05.md`](../docs/plans/archive/consolidation-2026-05.md)
 
 ## 安装与 systemd
 

@@ -34,7 +34,11 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 | `./scripts/corpus-test.sh gateway-live` | L3 live（需 `.env` 与 `MINIMAX_API_KEY`） |
 | `./scripts/corpus-test.sh drift` | YAML 漂移检查 |
 
-设计说明见 [`docs/plans/corpus-testing-module-design-2026-05.md`](docs/plans/corpus-testing-module-design-2026-05.md) 与 `tests/corpus/suites/wechat_real/lw_real/meta.yaml`。语料文档索引见 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §5。
+设计说明见 [`docs/plans/corpus/corpus-testing-module-design-2026-05.md`](docs/plans/corpus/corpus-testing-module-design-2026-05.md) 与 `tests/corpus/suites/wechat_real/lw_real/meta.yaml`。语料文档索引见 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) §5。
+
+## 发版
+
+发版顺序见 [`docs/guides/release-runbook-2026-05.md`](docs/guides/release-runbook-2026-05.md)（preflight → `butler-pre-release-smoke.sh` → 网关部署 → 真机清单）。
 
 ## Butler 线束（规划 / 上下文 / Hooks）
 
@@ -45,18 +49,18 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - 读后再改：`BUTLER_READ_BEFORE_EDIT=1` 时 `patch`/`write_file`（覆盖已有文件）须先 `read_file`，且校验 mtime；`/新对话` 清空 read state
 - P1：长轮次中重复入站进队列（`BUTLER_GATEWAY_MESSAGE_QUEUE`）；Stop 钩子可 `exit 2` 或 JSON `decision:block`；句末 `+500k` / `/budget` / 「本轮尽量做完」提高 `max_iterations`
 - P2：流式只读工具预取（`BUTLER_STREAMING_TOOLS`）；`delegate_task` cache-safe 前缀（`BUTLER_CACHE_SAFE_DELEGATE`）；队列 drain 单独推送（`BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE`）
-- **外部对标（已收口，零依赖）**：`runtime_metrics` → `/诊断` 运行指标（[`docs/ops/diagnostic-thresholds.md`](docs/ops/diagnostic-thresholds.md)）；入站 `BUTLER_GATEWAY_QUEUE_MODE`（followup/collect/interrupt/steer）与会话 `/queue`；workflow `requires_approval` → `/确认` `/取消` 后再发 `/workflow`（见 [`docs/plans/reference-learning-plan-2026-05.md`](docs/plans/reference-learning-plan-2026-05.md)）
-- **OpenCode 对标（P0–P1）**：压缩模板、`BUTLER_TOOL_PRUNE_BACKWARD*`、`BUTLER_DOOM_LOOP_THRESHOLD`、权限 last-match、`instruction_walkup`、`delegate_subagent`（见 [`docs/plans/opencode-learning-plan-2026-05.md`](docs/plans/opencode-learning-plan-2026-05.md)）
-- **MCP 薄客户端（P3，默认关）**：`pip install butler-system[mcp]` + `BUTLER_MCP_ENABLED=1` + `~/.butler/mcp.yaml`；`project.yaml` 须含 `mcp_*`；`/诊断` 含 MCP 连接段；开发：`butler mcp serve`（见 [`docs/plans/butler-mcp-capability-2026-05.md`](docs/plans/butler-mcp-capability-2026-05.md)）
-- **OpenClaw 对标（OC-P0–P2，默认多数开）**：`preemptive_compact`（LLM 前压缩路由）；AGENTS.md 节 post-compact 回灌；`tool_loop_detect`（ping_pong/poll/circuit）；`reply_admission` 单飞；`bot_loop_guard`（默认关）；`butler doctor` / 微信 `/doctor`；Owner `/批准执行` + `delegate_yield`（见 [`docs/plans/openclaw-learning-plan-2026-05.md`](docs/plans/openclaw-learning-plan-2026-05.md)）
+- **外部对标（已收口，零依赖）**：`runtime_metrics` → `/诊断` 运行指标（[`docs/ops/diagnostic-thresholds.md`](docs/ops/diagnostic-thresholds.md)）；入站 `BUTLER_GATEWAY_QUEUE_MODE`（followup/collect/interrupt/steer）与会话 `/queue`；workflow `requires_approval` → `/确认` `/取消` 后再发 `/workflow`（见 [`docs/plans/archive/reference-learning-plan-2026-05.md`](docs/plans/archive/reference-learning-plan-2026-05.md)）
+- **OpenCode 对标（P0–P1）**：压缩模板、`BUTLER_TOOL_PRUNE_BACKWARD*`、`BUTLER_DOOM_LOOP_THRESHOLD`、权限 last-match、`instruction_walkup`、`delegate_subagent`（见 [`docs/plans/comparisons/opencode-learning-plan-2026-05.md`](docs/plans/comparisons/opencode-learning-plan-2026-05.md)）
+- **MCP 薄客户端（P3，默认关）**：`pip install butler-system[mcp]` + `BUTLER_MCP_ENABLED=1` + `~/.butler/mcp.yaml`；`project.yaml` 须含 `mcp_*`；`/诊断` 含 MCP 连接段；开发：`butler mcp serve`（见 [`docs/plans/comparisons/butler-mcp-capability-2026-05.md`](docs/plans/comparisons/butler-mcp-capability-2026-05.md)）
+- **OpenClaw 对标（OC-P0–P2，默认多数开）**：`preemptive_compact`（LLM 前压缩路由）；AGENTS.md 节 post-compact 回灌；`tool_loop_detect`（ping_pong/poll/circuit）；`reply_admission` 单飞；`bot_loop_guard`（默认关）；`butler doctor` / 微信 `/doctor`；Owner `/批准执行` + `delegate_yield`（见 [`docs/plans/comparisons/openclaw-learning-plan-2026-05.md`](docs/plans/comparisons/openclaw-learning-plan-2026-05.md)）
 - **DESIGN.md（UI 项目，PR5）**：根目录或 `.butler/design/DESIGN.md`；可选 `project.yaml` 的 `design_preset`；`butler/core/design_md_sections.py` 负责压缩后回灌与 orchestrator 摘要；委派 `category=ui-build`；内置工作流 `ui-dev-qa-loop`；技能模板 [`docs/templates/skills/design-system.md`](docs/templates/skills/design-system.md)
 - **实验组织（PR6）**：模板 `software-research`；`.butler/harness/` 只读 + `experiments/` 可写（`BUTLER_EXPERIMENT_MODE=1`）；账本 `.butler/experiments.tsv`；harness stdout 打印 `METRIC name=value`；CLI `butler experiment list|record|best|discard`；见 [`docs/templates/experiments/README.md`](docs/templates/experiments/README.md)
 - **检索子 query**：`BUTLER_RAG_SUBQUERY=1` 时复合问句拆为多路检索合并；`/诊断` 显示子 query 数
 - **内置技能种子**：首次加载租户 ButlerMemory 时安装 `tenants/<id>/skills/design-system.md`（源 [`docs/templates/skills/design-system.md`](docs/templates/skills/design-system.md)）
 - **支撑线 E（P2 子集）**：workflow 步骤与 `project.yaml` 工具列表求交；`tool_modes` 按角色缩工具；`BUTLER_TOOL_IMPLICIT_CONTEXT`；`BUTLER_SCHEMA_OPTIMIZE`；`BUTLER_TOKEN_COST_ESTIMATE`
-- **研究模式补充**：`PROGRAM.md` + skill `research-program`；连续 crash 阻断提示；post-compact 简洁性锚点 — 见 [`docs/plans/four-reports-improvement-roadmap-2026-05.md`](docs/plans/four-reports-improvement-roadmap-2026-05.md) §9
+- **研究模式补充**：`PROGRAM.md` + skill `research-program`；连续 crash 阻断提示；post-compact 简洁性锚点 — 见 [`docs/plans/roadmaps/four-reports-improvement-roadmap-2026-05.md`](docs/plans/roadmaps/four-reports-improvement-roadmap-2026-05.md) §9
 - **五报告增量（PR-F1–F6）**：outcome log（`/评价`）、handoff、熔断/sessions、`butler_recall` 三层、工具错误策略、Pipeline 步骤诊断 — 见 [`docs/guides/five-reports-capabilities-2026-05.md`](docs/guides/five-reports-capabilities-2026-05.md)
-- **否决 / 未做 / Backlog**：见 [`docs/plans/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/roadmap-backlog-and-boundaries-2026-05.md)（**提需求先读**）；五报告 S1–S11 速查 [`five-reports-not-done`](docs/plans/five-reports-not-done-2026-05.md)；四报告 18 项 [`four-reports-out-of-scope`](docs/plans/four-reports-out-of-scope-2026-05.md)
+- **否决 / 未做 / Backlog**：见 [`docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)（**提需求先读**）；五报告 S1–S11 速查 [`five-reports-not-done`](docs/plans/decisions/five-reports-not-done-2026-05.md)；四报告 18 项 [`four-reports-out-of-scope`](docs/plans/decisions/four-reports-out-of-scope-2026-05.md)
 - **文档维护**：见 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)
 - **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 

@@ -60,16 +60,16 @@ butler registry verify
 | [`docs/README.md`](docs/README.md) | 文档索引（2026-05-25） |
 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档体系、维护规则、语料专项 |
 | [`docs/plans/README.md`](docs/plans/README.md) | 规划文档与 P0/P2/P3 命名对照 |
-| [`docs/plans/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/roadmap-backlog-and-boundaries-2026-05.md) | 否决 / Backlog 决策入口 |
+| [`docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | 否决 / Backlog 决策入口 |
 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | v4 架构（CC 线束 + 外部对标） |
-| [`docs/plans/cc-butler-gap-analysis-2026-05.md`](docs/plans/cc-butler-gap-analysis-2026-05.md) | CC 对照与 Loop 线束 |
+| [`docs/plans/active/cc-butler-gap-analysis-2026-05.md`](docs/plans/active/cc-butler-gap-analysis-2026-05.md) | CC 对照与 Loop 线束 |
 | [`docs/guides/four-reports-capabilities-2026-05.md`](docs/guides/four-reports-capabilities-2026-05.md) | 四报告已落地能力速查 |
-| [`docs/plans/four-reports-out-of-scope-2026-05.md`](docs/plans/four-reports-out-of-scope-2026-05.md) | 四报告明确不做清单 |
-| [`docs/plans/reference-learning-plan-2026-05.md`](docs/plans/reference-learning-plan-2026-05.md) | 外部对标（已收口） |
+| [`docs/plans/decisions/four-reports-out-of-scope-2026-05.md`](docs/plans/decisions/four-reports-out-of-scope-2026-05.md) | 四报告明确不做清单 |
+| [`docs/plans/archive/reference-learning-plan-2026-05.md`](docs/plans/archive/reference-learning-plan-2026-05.md) | 外部对标（已收口） |
 | [`docs/ops/diagnostic-thresholds.md`](docs/ops/diagnostic-thresholds.md) | `/诊断` 运行指标阈值 |
 | [`docs/guides/wechat-gateway-ops.md`](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |
 | [`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟 |
 | [`tests/README.md`](tests/README.md) | 测试分层与守门命令 |
 | [`scripts/README.md`](scripts/README.md) | 脚本索引 |
-| [`docs/plans/consolidation-2026-05.md`](docs/plans/consolidation-2026-05.md) | 整理与瘦身方案 |
+| [`docs/plans/archive/consolidation-2026-05.md`](docs/plans/archive/consolidation-2026-05.md) | 整理与瘦身方案 |
 | [`docs/config/reference.md`](docs/config/reference.md) | 环境变量速查 |

@@ -1,6 +1,6 @@
 # OpenCode 对标能力 — 运维速查
 
-> 对照 [`plans/opencode-butler-comparison-report-2026-05.md`](../plans/opencode-butler-comparison-report-2026-05.md) 已落地的 Butler 子集。  
+> 对照 [`plans/opencode-butler-comparison-report-2026-05.md`](../plans/comparisons/opencode-butler-comparison-report-2026-05.md) 已落地的 Butler 子集。  
 > **主场景**：微信网关 + 本地工具沙箱；**不做**：OpenCode HTTP 多客户端、公开 Share、完整 snapshot revert。
 
 更新：2026-05-25
@@ -116,4 +116,4 @@
 
 - 全量 env：[`config/reference.md`](../config/reference.md)
 - 微信运维：[`wechat-gateway-ops.md`](./wechat-gateway-ops.md)
-- 对比报告：[`plans/opencode-butler-comparison-report-2026-05.md`](../plans/opencode-butler-comparison-report-2026-05.md)
+- 对比报告：[`plans/opencode-butler-comparison-report-2026-05.md`](../plans/comparisons/opencode-butler-comparison-report-2026-05.md)
