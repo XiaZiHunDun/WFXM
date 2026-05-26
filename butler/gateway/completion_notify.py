@@ -104,6 +104,17 @@ def format_outbound_diagnostic_lines(
     pending = push_queue_pending_count(chat_id=chat_id)
     if pending:
         lines.append(f"推送队列待发: {pending} 条")
+    try:
+        from butler.gateway.durable_outbox import outbox_counts
+
+        counts = outbox_counts(chat_id=chat_id)
+        if any(counts.values()):
+            lines.append(
+                "出站留痕: "
+                f"pending={counts['pending']} sent={counts['sent']} failed={counts['failed']}"
+            )
+    except Exception:
+        pass
     return lines
 
 
@@ -251,6 +262,11 @@ async def deliver_completion_push(
         wait_wechat_push_cooldown,
     )
     from butler.runtime.push_queue import enqueue_failed_push
+    from butler.gateway.durable_outbox import (
+        enqueue_outbox_message,
+        mark_outbox_failed,
+        mark_outbox_sent,
+    )
 
     from butler.gateway.completion_telemetry import (
         record_completion_push_enqueued,
@@ -262,6 +278,7 @@ async def deliver_completion_push(
     from butler.gateway.pii_scrub import scrub_outbound_text
 
     body = scrub_outbound_text(body)
+    outbox_id = enqueue_outbox_message(chat_id, body, kind=kind)
     await asyncio.to_thread(wait_wechat_push_cooldown)
     title = f"[Butler] {kind}完成提醒"
     try:
@@ -271,10 +288,12 @@ async def deliver_completion_push(
         if success is False or err:
             raise RuntimeError(str(err or "send failed"))
         await asyncio.to_thread(mark_wechat_push_sent)
+        mark_outbox_sent(outbox_id)
         record_completion_push_sent(session_key=telemetry_key)
         return True
     except Exception as exc:
         logger.warning("Gateway completion push failed kind=%s: %s", kind, exc)
+        mark_outbox_failed(outbox_id, error=str(exc))
         if should_enqueue_wechat_push_failure(str(exc)):
             enqueue_failed_push(title, body, chat_id=chat_id)
             record_completion_push_enqueued(session_key=telemetry_key)

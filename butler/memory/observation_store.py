@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+_SCHEMA_VERSION = 2
 
 
 def observations_db_path(workspace: Path) -> Path:
@@ -46,9 +50,101 @@ class ObservationStore:
                     ON observations(path, timestamp DESC);
                     CREATE INDEX IF NOT EXISTS idx_observations_session_ts
                     ON observations(session_key, timestamp DESC);
+                    CREATE TABLE IF NOT EXISTS observation_meta (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL DEFAULT ''
+                    );
                     """
                 )
+                self._migrate_schema_locked(conn)
+                self._prune_locked(conn)
                 conn.commit()
+
+    def _migrate_schema_locked(self, conn: sqlite3.Connection) -> None:
+        row = conn.execute(
+            "SELECT value FROM observation_meta WHERE key = 'schema_version'"
+        ).fetchone()
+        current = 0
+        if row is not None:
+            try:
+                current = int(row["value"] or 0)
+            except (TypeError, ValueError):
+                current = 0
+        if current >= _SCHEMA_VERSION:
+            return
+        conn.executescript(
+            """
+            DELETE FROM observations
+            WHERE row_id IN (
+                SELECT row_id
+                FROM (
+                    SELECT
+                        row_id,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY session_key, tool, path, content_hash
+                            ORDER BY timestamp DESC, row_id DESC
+                        ) AS rn
+                    FROM observations
+                    WHERE content_hash != ''
+                )
+                WHERE rn > 1
+            );
+                    DROP INDEX IF EXISTS idx_observations_dedupe;
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_observations_dedupe
+                    ON observations(session_key, tool, path, content_hash)
+                    WHERE content_hash != '';
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO observation_meta(key, value) VALUES ('schema_version', ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            """,
+            (str(_SCHEMA_VERSION),),
+        )
+
+    @staticmethod
+    def _ttl_days() -> int:
+        raw = os.getenv("BUTLER_MEMORY_OBSERVATION_TTL_DAYS", "").strip()
+        if not raw:
+            return 0
+        try:
+            return max(0, int(raw))
+        except ValueError:
+            return 0
+
+    @staticmethod
+    def _max_rows() -> int:
+        raw = os.getenv("BUTLER_MEMORY_OBSERVATION_MAX_ROWS", "").strip()
+        if not raw:
+            return 0
+        try:
+            return max(0, int(raw))
+        except ValueError:
+            return 0
+
+    def _prune_locked(self, conn: sqlite3.Connection) -> None:
+        ttl_days = self._ttl_days()
+        if ttl_days > 0:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=ttl_days)).isoformat()
+            conn.execute(
+                "DELETE FROM observations WHERE timestamp != '' AND timestamp < ?",
+                (cutoff,),
+            )
+        max_rows = self._max_rows()
+        if max_rows > 0:
+            conn.execute(
+                """
+                DELETE FROM observations
+                WHERE row_id IN (
+                    SELECT row_id
+                    FROM observations
+                    ORDER BY timestamp DESC, row_id DESC
+                    LIMIT -1 OFFSET ?
+                )
+                """,
+                (max_rows,),
+            )
 
     @staticmethod
     def _normalize_row(row: dict[str, str]) -> tuple[str, str, str, str, int, str, str, str, str]:
@@ -78,6 +174,7 @@ class ObservationStore:
                     """,
                     payload,
                 )
+                self._prune_locked(conn)
                 conn.commit()
         return len(payload)
 

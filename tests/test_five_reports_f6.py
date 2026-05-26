@@ -46,6 +46,7 @@ def test_observer_queue_flush(monkeypatch):
             ok=True,
             preview="read foo",
             path="src/foo.py",
+            workspace=ws,
         )
         n = flush_observer_queue(ws)
         assert n >= 1

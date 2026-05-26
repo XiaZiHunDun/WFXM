@@ -118,6 +118,15 @@
 | OpenCode 对照 P2/P3 | SQLite 全量、LSP、Share URL | **暂缓/不做**；见 [`opencode-butler-comparison-report-2026-05.md`](opencode-butler-comparison-report-2026-05.md) |
 | OpenCode learning plan | SQLite 全量模型 | **仍暂缓** |
 
+### 2.4 依赖分层 / 本地状态（外部依赖策略）
+
+| 常见误判 | Butler 现行策略 |
+|----------|-----------------|
+| “要补 Redis / Postgres / MQ 才算完整 Agent 平台” | **不需要**；继续走 `transcript.jsonl` + 文件状态 + SQLite 派生索引 |
+| “SQLite 已引入，就该替换 transcript 为 SQL 会话库” | **不做**；SQLite 只用于 `observations.db`、tail/read model 等查询层 |
+| “新增能力应直接进 core 默认依赖” | **不建议**；微信/MCP/voice/OCR/PTY 等优先走 `optional-dependencies` |
+| “出站可靠性需要外部 broker” | **不需要**；优先本地 durable outbox + `runtime/push_queue.jsonl` 重试 |
+
 ---
 
 ## 3. 可选 Backlog（可单独立项）
@@ -142,6 +151,14 @@
 | LLM 工具模拟器 | LangChain | 仅测试路径，ROI 低 |
 | LangChain **Checkpointer** 断点续跑 | LangChain | 单进程微信非刚需 |
 | **corpus live 全量**（非 smoke） | PEG | 成本高；已有 `--corpus-live-full` 上限子集 |
+
+### 3.2.1 Observation Store 残留项（开发完成后统一收口）
+
+| 项 | 来源 | 说明 |
+|----|------|------|
+| `observations.tsv` -> `observations.db` 一次性迁移 | SQLite observation store 首版 | 兼容早期试用数据；可在首次发现 DB 缺失且 TSV 存在时导入 |
+| observation 路径历史排序/权重优化 | SQLite observation store 收口 | 当前以最近命中为主；后续可按工具类型、成功率、访问频次细化排序 |
+| observation 导出/诊断命令 | SQLite observation store 收口 | 目前主要经 `PreRead` 与 `read_file` 隐式消费；如需人工排障可另加只读诊断命令 |
 
 ### 3.3 OpenCode 净新增（P2/P3）
 
@@ -200,3 +217,4 @@
 |------|------|
 | 2026-05-25 | 初版：合并四报告/五报告/外部 Agent/OpenCode/defer/post-consolidation 未做与边界 |
 | 2026-05-25 | 链入 [`DOCUMENTATION.md`](../../DOCUMENTATION.md) 文档体系 |
+| 2026-05-26 | 记录 SQLite observation store 首版落地后的残留风险与后续收口项 |

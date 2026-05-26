@@ -90,12 +90,13 @@ BUTLER_CACHE_SAFE_DELEGATE=1
 ```bash
 BUTLER_GATEWAY_COMPLETION_NOTIFY=1
 BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS=90
+BUTLER_GATEWAY_DURABLE_OUTBOX=1
 BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE=last   # 同轮多次委派只推最后一次
 BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS=25        # 与 runtime 推送共用间隔
 BUTLER_RUNTIME_PUSH_QUEUE=1                    # 限流失败入队，due 时 drain
 ```
 
-发版后 `/诊断` 应含 **出站策略** 与 **出站推送本轮** 统计。真机抽测见 [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) § 线束与完成提醒。
+`BUTLER_GATEWAY_DURABLE_OUTBOX=1` 时，completion push 会先落到 `~/.butler/gateway_outbox/{pending,sent,failed}`，再实际发送；它提供的是**本地留痕/审计**，真正的失败重试仍复用 `runtime/push_queue.jsonl`。发版后 `/诊断` 应含 **出站策略**、**出站推送本轮**，以及有记录时的 **出站留痕** 统计。真机抽测见 [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) § 线束与完成提醒。
 
 ---
 

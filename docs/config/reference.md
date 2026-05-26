@@ -222,6 +222,8 @@
 | `BUTLER_MCP_CATALOG_URLS` | （空） | 逗号分隔远程 MCP 目录 URL（Hub 合并） |
 | `BUTLER_OUTPUT_SCHEMA_REPAIR_MAX` | 2 | 终局 schema LLM 修复最多轮次 |
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 workspace `.butler/observations.db`（SQLite observation store） |
+| `BUTLER_MEMORY_OBSERVATION_TTL_DAYS` | 0 | observation store 按天裁剪旧记录（0=关闭） |
+| `BUTLER_MEMORY_OBSERVATION_MAX_ROWS` | 0 | observation store 行数上限（0=关闭） |
 | `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | SessionEnd 写 `.butler/session_summary.json` |
 | `BUTLER_SESSIONS_LIST_LIMIT` | 20 | 微信 `/会话` 默认条数 |
@@ -230,8 +232,6 @@
 | `BUTLER_REFLEXION_EPHEMERAL` | 0 | `1` 时同工具连续失败注入 ephemeral 反思 |
 | `BUTLER_ADVERSARIAL_MARK` | 1 | 入站消息含 injection 模式时前缀系统提示 |
 | `BUTLER_PREFETCH_INJECTION_FILTER` | 1 | 记忆预取行过滤 injection 模式 |
-| `BUTLER_MEMORY_PREREAD` | 1 | 读文件前注入 workspace `.butler/observations.db` 的路径摘要 |
-| `BUTLER_SESSION_SUMMARY` | 1 | 会话结束写 `.butler/session_summary.json` |
 | `BUTLER_PROVIDER_CIRCUIT` | 1 | 供应商熔断（见 `provider_health.py`） |
 | `BUTLER_PROVIDER_FAILOVER` | （空） | 全局 failover 列表，逗号分隔 `provider/model` |
 | `BUTLER_TOOL_LOOP_DETECTORS` | ping_pong,poll,circuit | 工具环检测（`off` 关闭） |
@@ -243,6 +243,19 @@
 
 > OpenCode 对标运维速查：[`guides/opencode-parity.md`](../guides/opencode-parity.md)  
 > OpenClaw 对标详表：[`plans/openclaw-learning-plan-2026-05.md`](../plans/comparisons/openclaw-learning-plan-2026-05.md)
+
+## 安装与依赖分层
+
+| 安装 | 用途 |
+|------|------|
+| `pip install -e .` | core 默认最小依赖（Loop / Transport / 配置 / SQLite 派生索引） |
+| `pip install -e ".[wechat]"` | 微信 iLink 网关 |
+| `pip install -e ".[mcp]"` | 薄 MCP client |
+| `pip install -e ".[voice]"` | 语音/STT/TTS 能力 |
+| `pip install -e ".[wechat-ocr]"` | OCR / 图片辅助 |
+| `pip install -e ".[pty]"` | PTY 兼容层 |
+
+**原则**：新增外部依赖优先进入 `pyproject.toml` `optional-dependencies`；只有主循环、transport、配置和本地状态主路径必需的能力才进入 core 默认依赖。
 
 ## Gateway 线束（入站 / 出站）
 
@@ -256,6 +269,8 @@
 | `BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN` | 1 | 每轮最多 drain 条数（collect 模式合并为一条） |
 | `BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE` | 1 | drain 正文单独微信（非拼主回复） |
 | `BUTLER_GATEWAY_COMPLETION_NOTIFY` | 1 | 长任务完成额外推送总开关 |
+| `BUTLER_GATEWAY_DURABLE_OUTBOX` | 1 | completion push 发送前写 `~/.butler/gateway_outbox/{pending,sent,failed}` |
+| `BUTLER_GATEWAY_DURABLE_OUTBOX_MAX` | 200 | durable outbox 每状态最多保留条数 |
 | `BUTLER_GATEWAY_DELEGATE_COMPLETION_*` | — | 委派完成推送模式（见 `.env.example`） |
 | `BUTLER_REPLY_ADMISSION` | 1 | 每 session 单飞 reply turn；忙则入队 |
 | `BUTLER_BOT_LOOP_GUARD` | 0 | 群聊 bot 互 @ 环防护 |

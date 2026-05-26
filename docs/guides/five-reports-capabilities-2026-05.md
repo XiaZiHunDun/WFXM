@@ -80,6 +80,8 @@ butler sessions layered <session_key>   # BUTLER_POST_SESSION_LAYERED=1
 | 变量 | 默认 | 用途 |
 |------|------|------|
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | PostToolUse → workspace `.butler/observations.db` |
+| `BUTLER_MEMORY_OBSERVATION_TTL_DAYS` | 0 | observation store 按天裁剪旧记录（0=关闭） |
+| `BUTLER_MEMORY_OBSERVATION_MAX_ROWS` | 0 | observation store 行数上限（0=关闭） |
 | `BUTLER_MEMORY_PREREAD` | 1 | 读文件前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | Stop 写 `.butler/session_summary.json` |
 | `BUTLER_OUTCOME_REFLECTION` | 1 | outcomes.tsv + orchestrator 注入 |

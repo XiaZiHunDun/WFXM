@@ -128,6 +128,59 @@ def test_deliver_completion_push_waits_cooldown(monkeypatch):
     assert calls == ["wait", "mark"]
 
 
+def test_deliver_completion_push_persists_sent_outbox(tmp_path, monkeypatch):
+    import asyncio
+
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    adapter = MagicMock()
+    adapter.send = AsyncMock(
+        return_value=__import__(
+            "butler.gateway.platforms.types", fromlist=["SendResult"]
+        ).SendResult(success=True)
+    )
+    ok = asyncio.run(
+        __import__(
+            "butler.gateway.completion_notify", fromlist=["deliver_completion_push"]
+        ).deliver_completion_push(adapter, "wx-1", "ok", kind="turn")
+    )
+    assert ok is True
+    sent_dir = tmp_path / "gateway_outbox" / "sent"
+    pending_dir = tmp_path / "gateway_outbox" / "pending"
+    sent_files = list(sent_dir.glob("*.json"))
+    assert len(sent_files) == 1
+    assert pending_dir.exists()
+    assert list(pending_dir.glob("*.json")) == []
+    assert '"status": "sent"' in sent_files[0].read_text(encoding="utf-8")
+
+
+def test_deliver_completion_push_marks_failed_outbox(tmp_path, monkeypatch):
+    import asyncio
+
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+
+    reload_butler_settings()
+    adapter = MagicMock()
+    adapter.send = AsyncMock(
+        return_value=__import__(
+            "butler.gateway.platforms.types", fromlist=["SendResult"]
+        ).SendResult(success=False, error="temporary down")
+    )
+    ok = asyncio.run(
+        __import__(
+            "butler.gateway.completion_notify", fromlist=["deliver_completion_push"]
+        ).deliver_completion_push(adapter, "wx-1", "body", kind="delegate")
+    )
+    assert ok is False
+    failed_dir = tmp_path / "gateway_outbox" / "failed"
+    failed_files = list(failed_dir.glob("*.json"))
+    assert len(failed_files) == 1
+    assert '"status": "failed"' in failed_files[0].read_text(encoding="utf-8")
+
+
 def test_workflow_failure_push(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     from butler.config import reload_butler_settings

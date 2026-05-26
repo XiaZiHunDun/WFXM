@@ -452,14 +452,27 @@ def _maybe_record_tool_observation(
         )
         try:
             from butler.memory.observer_queue import enqueue_tool_observation
+            from butler.execution_context import get_current_orchestrator
 
             path_hint = str(args.get("path") or args.get("file") or "")
+            workspace = None
+            orch = get_current_orchestrator()
+            if orch is not None:
+                try:
+                    proj = orch.project_manager.get_current(session_key=sk)
+                    if proj is not None:
+                        from pathlib import Path
+
+                        workspace = Path(proj.workspace)
+                except Exception:
+                    workspace = None
             enqueue_tool_observation(
                 session_key=sk,
                 tool=name,
                 ok=_tool_result_ok(payload),
                 preview=preview,
                 path=path_hint,
+                workspace=workspace,
             )
         except Exception:
             pass

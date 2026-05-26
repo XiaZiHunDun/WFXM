@@ -53,6 +53,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - **OpenCode 对标（P0–P1）**：压缩模板、`BUTLER_TOOL_PRUNE_BACKWARD*`、`BUTLER_DOOM_LOOP_THRESHOLD`、权限 last-match、`instruction_walkup`、`delegate_subagent`（见 [`docs/plans/comparisons/opencode-learning-plan-2026-05.md`](docs/plans/comparisons/opencode-learning-plan-2026-05.md)）
 - **MCP 薄客户端（P3，默认关）**：`pip install butler-system[mcp]` + `BUTLER_MCP_ENABLED=1` + `~/.butler/mcp.yaml`；`project.yaml` 须含 `mcp_*`；`/诊断` 含 MCP 连接段；开发：`butler mcp serve`（见 [`docs/plans/comparisons/butler-mcp-capability-2026-05.md`](docs/plans/comparisons/butler-mcp-capability-2026-05.md)）
 - **OpenClaw 对标（OC-P0–P2，默认多数开）**：`preemptive_compact`（LLM 前压缩路由）；AGENTS.md 节 post-compact 回灌；`tool_loop_detect`（ping_pong/poll/circuit）；`reply_admission` 单飞；`bot_loop_guard`（默认关）；`butler doctor` / 微信 `/doctor`；Owner `/批准执行` + `delegate_yield`（见 [`docs/plans/comparisons/openclaw-learning-plan-2026-05.md`](docs/plans/comparisons/openclaw-learning-plan-2026-05.md)）
+- **依赖分层原则**：默认 `pip install -e .` 只覆盖 core 主路径；微信/MCP/voice/OCR/PTY 依赖走 `optional-dependencies`；不要把 Effect、Redis、Postgres、全量 MCP Host、桌面壳依赖拉进 core
 - **DESIGN.md（UI 项目，PR5）**：根目录或 `.butler/design/DESIGN.md`；可选 `project.yaml` 的 `design_preset`；`butler/core/design_md_sections.py` 负责压缩后回灌与 orchestrator 摘要；委派 `category=ui-build`；内置工作流 `ui-dev-qa-loop`；技能模板 [`docs/templates/skills/design-system.md`](docs/templates/skills/design-system.md)
 - **实验组织（PR6）**：模板 `software-research`；`.butler/harness/` 只读 + `experiments/` 可写（`BUTLER_EXPERIMENT_MODE=1`）；账本 `.butler/experiments.tsv`；harness stdout 打印 `METRIC name=value`；CLI `butler experiment list|record|best|discard`；见 [`docs/templates/experiments/README.md`](docs/templates/experiments/README.md)
 - **检索子 query**：`BUTLER_RAG_SUBQUERY=1` 时复合问句拆为多路检索合并；`/诊断` 显示子 query 数
@@ -129,7 +130,7 @@ Shell hooks 示例：`butler/hooks/hooks.yaml.example`
 
 环境变量：`BUTLER_GATEWAY_COMPLETION_NOTIFY`（总开关）、`BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS`（默认 90）、`BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY`、`BUTLER_GATEWAY_TURN_COMPLETION_NOTIFY`、`BUTLER_GATEWAY_WORKFLOW_COMPLETION_NOTIFY`。
 
-完成推送与 `runtime` 定时推送共用 `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` 冷却；发送失败（含限流/网络）时写入 `runtime/push_queue.jsonl`，由 `drain_push_queue` / runtime due 重试。工作流异常结束也会尝试推送失败摘要。
+完成推送与 `runtime` 定时推送共用 `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` 冷却；`BUTLER_GATEWAY_DURABLE_OUTBOX=1` 时会先写 `~/.butler/gateway_outbox/{pending,sent,failed}` 再发送，**用于本地留痕/审计，不替代重试队列**。发送失败（含限流/网络）时写入 `runtime/push_queue.jsonl`，由 `drain_push_queue` / runtime due 重试。工作流异常结束也会尝试推送失败摘要。
 
 委派完成推送模式：`BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE`（默认 `last` 仅最后一次委派；`each` 最多 `BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH` 次；`once` 仅第一次）。Gateway 处理超时且曾发 progress ack 时可推 `BUTLER_GATEWAY_TIMEOUT_COMPLETION_NOTIFY`。Shell hooks：`SubagentStop` 在委派结束触发。
 
