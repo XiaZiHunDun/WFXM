@@ -986,6 +986,22 @@ def _register_builtin_tools() -> None:
 
     register_download_tools(register)
 
+    from butler.tools.document_reader import register_document_tools
+
+    register_document_tools(register)
+
+    from butler.tools.data_query import register_data_query_tools
+
+    register_data_query_tools(register)
+
+    from butler.tools.reminder import register_reminder_tools
+
+    register_reminder_tools(register)
+
+    from butler.tools.project_todos import register_project_todos_tools
+
+    register_project_todos_tools(register)
+
 
 # ── Tool Implementations ─────────────────────────────────────
 

@@ -165,6 +165,40 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     return max(-1.0, min(1.0, dot))
 
 
+class FastEmbedEmbedder:
+    """Local ONNX-based embeddings via fastembed (no PyTorch required)."""
+
+    _DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
+    _DEFAULT_DIM = 384
+
+    def __init__(self, *, model_name: str = "") -> None:
+        self._model_name = model_name or self._DEFAULT_MODEL
+        self._dim = self._DEFAULT_DIM
+        self._model: Any = None
+
+    def _ensure_model(self) -> Any:
+        if self._model is None:
+            from fastembed import TextEmbedding  # type: ignore[import-untyped]
+
+            self._model = TextEmbedding(model_name=self._model_name)
+        return self._model
+
+    @property
+    def model_id(self) -> str:
+        return f"fastembed/{self._model_name}"
+
+    @property
+    def dimension(self) -> int:
+        return self._dim
+
+    def embed(self, text: str) -> list[float]:
+        model = self._ensure_model()
+        results = list(model.embed([text.strip() or "."]))
+        vec = [float(x) for x in results[0]]
+        self._dim = len(vec)
+        return _l2_normalize(vec)
+
+
 def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
     if provider == "openai":
         key = os.getenv("OPENAI_API_KEY", "").strip()
@@ -187,12 +221,33 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
     return None
 
 
+def _resolve_fastembed(model: str) -> Embedder | None:
+    """Try to instantiate a fastembed embedder; return None if library unavailable."""
+    try:
+        m = model if model and model != "hashing-v1" else FastEmbedEmbedder._DEFAULT_MODEL
+        embedder = FastEmbedEmbedder(model_name=m)
+        probe = embedder.embed("ping")
+        if probe:
+            return embedder
+    except ImportError:
+        logger.warning("BUTLER_EMBEDDING_PROVIDER=fastembed but fastembed not installed; pip install 'butler-system[embeddings]'")
+    except Exception as exc:
+        logger.warning("fastembed init failed (%s); falling back to local hashing", exc)
+    return None
+
+
 def get_embedder() -> Embedder:
     """Resolve embedder from env; API providers fall back to local hashing on failure."""
     provider = embedding_provider_name()
     model = embedding_model_name()
     if provider in ("local", "hash", "hashing", ""):
         return HashingEmbedder(model_id=model or "hashing-v1")
+
+    if provider == "fastembed":
+        fe = _resolve_fastembed(model)
+        if fe is not None:
+            return fe
+        return HashingEmbedder(model_id="hashing-v1")
 
     api = _resolve_api_embedder(provider, model)
     if api is not None:

@@ -32,16 +32,33 @@ def _truncate(text: str) -> str:
     return t[: limit - 3] + "..."
 
 
-def _pair_media(event: MessageEvent) -> tuple[list[str], list[str]]:
+def _pair_media(event: MessageEvent) -> tuple[list[str], list[str], list[str]]:
     images: list[str] = []
     voices: list[str] = []
+    documents: list[str] = []
     for url, mime in zip(event.media_urls or [], event.media_types or []):
         m = (mime or "").lower()
         if m.startswith("image/"):
             images.append(url)
         elif m.startswith("audio/") or "silk" in m:
             voices.append(url)
-    return images, voices
+        elif _is_document_path(url, m):
+            documents.append(url)
+    return images, voices, documents
+
+
+def _is_document_path(path: str, mime: str) -> bool:
+    """Check if a file path/mime represents a convertible document."""
+    try:
+        from butler.tools.document_reader import can_convert
+        if can_convert(path):
+            return True
+    except ImportError:
+        pass
+    doc_mimes = ("application/pdf", "application/msword", "application/vnd.openxml",
+                 "application/vnd.ms-excel", "application/vnd.ms-powerpoint",
+                 "text/html", "text/csv", "application/epub")
+    return any(mime.startswith(dm) for dm in doc_mimes)
 
 
 def build_inbound_user_text(event: MessageEvent) -> str:
@@ -54,8 +71,27 @@ def build_inbound_user_text(event: MessageEvent) -> str:
             return _PLACEHOLDER
         return ""
 
-    images, voices = _pair_media(event)
+    images, voices, documents = _pair_media(event)
     blocks: list[str] = []
+
+    if documents:
+        for doc_path in documents[:3]:
+            try:
+                from butler.tools.document_reader import convert_document
+                result = convert_document(doc_path, max_chars=_max_chars())
+                if result.get("ok"):
+                    fmt = result.get("format", "文档")
+                    chars = result.get("chars", 0)
+                    text = result.get("text", "")
+                    blocks.append(f"[微信文件 — {fmt.upper()}，{chars} 字]\n{text}")
+                    logger.info("WeChat document converted path=%s format=%s chars=%d", doc_path, fmt, chars)
+                else:
+                    blocks.append(f"[微信文件]\n（文档解析失败：{result.get('error', '未知错误')}）")
+            except ImportError:
+                blocks.append(f"[微信文件]\n（文档解析不可用，请安装: pip install 'butler-system[documents]'）")
+            except Exception as exc:
+                logger.warning("WeChat document conversion failed for %s: %s", doc_path, exc)
+                blocks.append(f"[微信文件]\n（文档解析失败：{exc}）")
 
     if images:
         from butler.gateway.minimax_vlm import describe_image

@@ -319,13 +319,25 @@ while not done and iterations < budget:
 
 ### 外部对标落地（2026-05，已收口）
 
-与 **CC 线束** 独立；详见 [`reference-learning-plan-2026-05.md`](../plans/archive/reference-learning-plan-2026-05.md)。**不做**：入站队列 jsonl WAL、确认后自动续跑 workflow、多实例 MQ。
+与 **CC 线束** 独立；详见 [`reference-learning-plan-2026-05.md`](../plans/archive/reference-learning-plan-2026-05.md)。**不做**：入站队列 jsonl WAL、多实例 MQ。已做（opt-in）：确认后自动续跑 workflow（`BUTLER_WORKFLOW_AUTO_RESUME=1`）。
 
 | 项 | 模块 | 微信命令 / 配置 |
 |----|------|-----------------|
 | P0 可观测 | `ops/runtime_metrics.py` | `/诊断` 运行指标；[`ops/diagnostic-thresholds.md`](../ops/diagnostic-thresholds.md) |
 | P1 入站队列 | `gateway/queue_settings.py` + `message_queue.py` | `/queue`；`BUTLER_GATEWAY_QUEUE_*` |
 | P2 工作流门控 | `human_gate.py` + `permissions.yaml` `workflow_steps` | `/确认` `/取消`；再发 `/workflow` |
+
+### 体验增强落地（2026-05，P2）
+
+| 项 | 模块 | 微信命令 / 配置 |
+|----|------|-----------------|
+| 多项目总览 | `gateway/message_handler._build_project_overview` | `/总览`、`/overview` |
+| 项目级持久待办 | `tools/project_todos.py` | `/项目待办`；`<workspace>/.butler/todos.json` |
+| Terminal 管道支持 | `tools/path_safety.py` pipe 段验证 | `BUTLER_TERMINAL_PIPE=1`；白名单命令间 `\|`，最多 5 段 |
+| 首次使用引导 | `gateway/message_handler._maybe_welcome_prefix` | `BUTLER_ONBOARDING_WELCOME=1` |
+| Workflow 确认自动续跑 | `human_gate._auto_resume_workflow` | `BUTLER_WORKFLOW_AUTO_RESUME=1` |
+
+守门：`pytest tests/test_p2_remaining_features.py -q`
 
 ### OpenCode 对标落地（2026-05，P0–P2）
 
@@ -368,6 +380,7 @@ while not done and iterations < budget:
 - Gateway（`test_gateway_handler.py`、`test_gateway_session_registry.py`、hygiene）
 - CC P0–P2 线束（`test_tool_result_storage.py`、`test_tool_prune_policy.py`、`test_read_state.py`、`test_loop_transition.py`、`test_message_queue.py`、`test_streaming_tools.py`、`test_cache_safe_delegate.py`、`test_gateway_queue_drain_push.py`）
 - 外部对标（`test_runtime_metrics.py`、`test_gateway_queue_command.py`、`test_p2_workflow_permissions.py`）
+- 体验增强（`test_p2_remaining_features.py`：总览、项目待办、管道、引导、自动续跑）
 - OpenCode 对标（`test_opencode_features.py`）
 - Report / CLI / Session lifecycle
 - 真实 API smoke（可选）：`BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py`

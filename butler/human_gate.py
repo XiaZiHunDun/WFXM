@@ -10,9 +10,40 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+import os
+
 from butler.config import get_butler_home
 
 logger = logging.getLogger(__name__)
+
+
+def _workflow_auto_resume_enabled() -> bool:
+    return os.getenv("BUTLER_WORKFLOW_AUTO_RESUME", "").strip() == "1"
+
+
+def _auto_resume_workflow(session_key: str, workflow_name: str) -> str | None:
+    """Re-run the workflow after approval, returning the result text."""
+    try:
+        from butler.execution_context import get_current_orchestrator
+
+        orch = get_current_orchestrator()
+        if orch is None:
+            return None
+        pm = orch.project_manager
+        proj = pm.get_current(session_key=session_key)
+        if proj is None:
+            return None
+        from butler.workflows.runner import run_workflow_for_project
+
+        return run_workflow_for_project(
+            proj,
+            workflow_name,
+            session_key=session_key,
+            orchestrator=orch,
+        )
+    except Exception as exc:
+        logger.warning("Auto-resume workflow %s failed: %s", workflow_name, exc)
+        return None
 
 
 def _gate_ttl_seconds() -> float:
@@ -283,6 +314,15 @@ def resolve_human_gate_message(session_key: str, text: str) -> str | None:
 
     mark_step_approved(session_key, pending.workflow, pending.step_id)
     _save_pending(session_key, None)
+
+    if _workflow_auto_resume_enabled():
+        try:
+            resume_reply = _auto_resume_workflow(session_key, pending.workflow)
+            if resume_reply:
+                return f"已确认步骤「{pending.step_id}」，自动继续执行…\n\n{resume_reply}"
+        except Exception as exc:
+            logger.warning("Workflow auto-resume failed: %s", exc)
+
     return (
         f"已确认步骤「{pending.step_id}」。"
         f"请再次发送 /workflow {pending.workflow} 以继续执行该步骤及后续节点。"

@@ -61,12 +61,14 @@ class ButlerMessageHandler:
         if is_plan_mode(session_key):
             loop_role = "plan"
         tools = get_tool_definitions_for_project(project, role=loop_role)
-        return self._orchestrator.create_agent_loop(
+        loop = self._orchestrator.create_agent_loop(
             role=loop_role,
             tools=tools,
             tool_dispatcher=dispatch_tool,
             session_key=session_key,
         )
+        _inject_previous_session_summary(loop, project)
+        return loop
 
     def _finalize_session(self, loop: AgentLoop) -> None:
         from butler.session_lifecycle import trigger_session_end
@@ -659,6 +661,8 @@ class ButlerMessageHandler:
         if not text.strip():
             return ""
 
+        welcome_prefix = _maybe_welcome_prefix(session_key)
+
         for normalizer in (
             _normalize_detail_request,
             _normalize_switch_request,
@@ -897,6 +901,8 @@ class ButlerMessageHandler:
                     turn_elapsed,
                     len(out or ""),
                 )
+                if welcome_prefix:
+                    out = f"{welcome_prefix}\n\n---\n\n{out}" if out else welcome_prefix
                 return out
             except Exception as exc:
                 health["error"] = str(exc)
@@ -963,6 +969,9 @@ class ButlerMessageHandler:
                 extra = f" pack={pack}" if pack else ""
                 lines.append(f"{mark}{p.name} ({p.type}{extra}) — {p.description}")
             return "\n".join(lines)
+
+        if cmd in ("/overview", "/总览"):
+            return _build_project_overview(self._orchestrator, session_key)
 
         if cmd in ("/switch", "/切换"):
             if not arg:
@@ -1209,6 +1218,16 @@ class ButlerMessageHandler:
             from butler.core.session_todos import format_session_todos_for_wechat
 
             return format_session_todos_for_wechat(session_key)
+
+        if cmd in ("/project-todos", "/项目待办"):
+            from butler.tools.project_todos import format_project_todos_for_wechat
+
+            proj = self._orchestrator.project_manager.active_project
+            if proj and getattr(proj, "workspace", None):
+                from pathlib import Path
+
+                return format_project_todos_for_wechat(Path(proj.workspace))
+            return "无活跃项目。"
 
         if cmd in ("/导出", "/export", "/export-session", "/导出会话"):
             from butler.gateway.export_commands import handle_export_session_command
@@ -1497,6 +1516,11 @@ def _normalize_status_request(text: str) -> str | None:
         for phrase in ("有哪些项目", "项目列表", "哪些workspace", "几个项目")
     ):
         return "/项目"
+    if any(
+        phrase in stripped
+        for phrase in ("总览", "全部项目状态", "所有项目", "项目仪表盘", "dashboard")
+    ):
+        return "/总览"
     return None
 
 
@@ -1705,6 +1729,180 @@ def _reset_tool_audit_events(session_key: str | None = None) -> None:
     except Exception:
         return
     reset_tool_audit_events(session_key)
+
+
+_WELCOMED_SESSIONS: set[str] = set()
+
+_WELCOME_TEXT = """🤖 Hi，我是你的 Butler 管家！首次对话，快速了解我的能力：
+
+📂 项目管理：/项目 | /切换 | /总览
+🔍 代码操作：读写文件、搜索、委派开发/审核
+🧠 记忆系统：跨会话记住你的偏好和决策
+⏰ 提醒功能：设置定时提醒（如「提醒我明天开会」）
+📋 待办管理：/待办（会话级）| /项目待办（持久）
+🔧 诊断运维：/诊断 | /状态
+💡 更多命令：/帮助
+
+如有任何问题，直接跟我说就好！"""
+
+
+def _maybe_welcome_prefix(session_key: str) -> str:
+    """Return welcome text for first-time sessions, empty string otherwise."""
+    if not os.getenv("BUTLER_ONBOARDING_WELCOME", "").strip():
+        return ""
+    if session_key in _WELCOMED_SESSIONS:
+        return ""
+    _WELCOMED_SESSIONS.add(session_key)
+    from pathlib import Path
+
+    marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
+    try:
+        if marker.is_file():
+            known = set(marker.read_text(encoding="utf-8").strip().splitlines())
+            if session_key in known:
+                return ""
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        with open(marker, "a", encoding="utf-8") as f:
+            f.write(session_key + "\n")
+    except Exception:
+        pass
+    return _WELCOME_TEXT
+
+
+def _build_project_overview(orchestrator: Any, session_key: str) -> str:
+    """Build a multi-project dashboard for /总览."""
+    pm = orchestrator.project_manager
+    projects = pm.list_projects()
+    if not projects:
+        return "暂无项目。"
+
+    current = pm.resolve_active_project_name(session_key=session_key)
+    lines = ["📋 项目总览", ""]
+
+    for p in sorted(projects, key=lambda x: x.name):
+        mark = "▸ " if p.name == current else "  "
+        header = f"{mark}{p.name}"
+        if p.name == current:
+            header += "（当前）"
+
+        sub: list[str] = []
+        workspace = getattr(p, "workspace", None)
+
+        if workspace:
+            from pathlib import Path
+
+            ws = Path(workspace)
+            todos_path = ws / ".butler" / "todos.json"
+            if todos_path.is_file():
+                try:
+                    import json as _json
+                    todos_data = _json.loads(todos_path.read_text(encoding="utf-8"))
+                    pending = [t for t in todos_data if t.get("status") == "pending"]
+                    if pending:
+                        sub.append(f"待办 {len(pending)} 项")
+                except Exception:
+                    pass
+
+            jobs_path = ws / "runtime" / "jobs.yaml"
+            if jobs_path.is_file():
+                try:
+                    from butler.runtime.service import list_jobs_status, runtime_enabled
+
+                    if runtime_enabled():
+                        job_rows = list_jobs_status(p.name)
+                        if job_rows:
+                            sub.append(f"定时任务 {len(job_rows)} 个")
+                except Exception:
+                    pass
+
+            summary_path = ws / ".butler" / "session_summary.json"
+            if summary_path.is_file():
+                try:
+                    import json as _json
+                    summary = _json.loads(summary_path.read_text(encoding="utf-8"))
+                    turns = summary.get("turns", 0)
+                    if turns:
+                        sub.append(f"上次会话 {turns} 轮")
+                except Exception:
+                    pass
+
+        pack = getattr(p, "pack", "") or ""
+        ptype = p.type or ""
+        desc_parts = [ptype]
+        if pack:
+            desc_parts.append(f"pack={pack}")
+        if sub:
+            desc_parts.append("｜".join(sub))
+
+        lines.append(f"{header}  [{', '.join(desc_parts)}]")
+        if p.description:
+            lines.append(f"    {p.description[:60]}")
+
+    lines.append("")
+    lines.append("提醒：")
+    try:
+        from butler.tools.reminder import _load_all
+
+        reminders = [r for r in _load_all() if r.get("status") == "pending"]
+        if reminders:
+            lines.append(f"  待触发提醒 {len(reminders)} 个")
+            for r in reminders[:3]:
+                lines.append(f"    · {r.get('due_human', '')} — {r.get('message', '')[:40]}")
+        else:
+            lines.append("  无待触发提醒")
+    except Exception:
+        lines.append("  提醒系统不可用")
+
+    return "\n".join(lines)
+
+
+def _inject_previous_session_summary(loop: "AgentLoop", project: Any) -> None:
+    """Inject previous session summary into a new AgentLoop for context continuity."""
+    try:
+        from butler.env_parse import env_truthy
+
+        if not env_truthy("BUTLER_SESSION_SUMMARY", default=True):
+            return
+        if project is None:
+            return
+        workspace = getattr(project, "workspace", None)
+        if not workspace:
+            return
+
+        import json
+        from pathlib import Path
+
+        summary_path = Path(workspace) / ".butler" / "session_summary.json"
+        if not summary_path.is_file():
+            return
+
+        raw = json.loads(summary_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            return
+
+        parts: list[str] = []
+        proj_name = raw.get("project", "")
+        turns = raw.get("turns", 0)
+        if proj_name:
+            parts.append(f"上次会话项目：{proj_name}，{turns} 轮对话")
+        for field, label in [
+            ("persona", "用户偏好"),
+            ("preference", "设置变更"),
+            ("experience", "经验记录"),
+        ]:
+            items = raw.get(field) or []
+            if items:
+                parts.append(f"{label}：" + "；".join(str(i) for i in items[:5]))
+
+        if not parts:
+            return
+
+        context = "[上次会话摘要]\n" + "\n".join(parts) + "\n[/上次会话摘要]"
+        if hasattr(loop, "_messages"):
+            loop._messages.append({"role": "system", "content": context})
+            logger.debug("Injected previous session summary (%d chars)", len(context))
+    except Exception as exc:
+        logger.debug("Session summary injection skipped: %s", exc)
 
 
 def _on_gateway_session_removed(session_key: str) -> None:

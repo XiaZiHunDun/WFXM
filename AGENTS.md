@@ -23,6 +23,7 @@
 | 运行指标 | `butler/ops/runtime_metrics.py` |
 | Workflow 门控 | `butler/human_gate.py` |
 | 工具/委派 | `butler/tools/registry.py` |
+| 项目级持久待办 | `butler/tools/project_todos.py` |
 | CLI | `butler/main.py` |
 
 ## 改代码前守门
@@ -33,7 +34,9 @@ PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.p
   tests/test_tool_result_storage.py -q
 # gateway / 队列 / workflow
 PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command.py \
-  tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
+ tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
+# 体验增强（总览/待办/管道/引导/自动续跑）
+PYTHONPATH=. pytest tests/test_p2_remaining_features.py -q
 # 五报告 P5–P10
 ./scripts/butler-five-reports-gate.sh
 ```
@@ -47,8 +50,9 @@ PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command
 
 ## 产品边界（简述）
 
-- **做**：微信管家、多项目、`delegate_task`、runtime、MEMORY、队列 mode、workflow 权限
-- **不做**：全量 MCP Host、IDE 子进程替代 Loop、入站 WAL、workflow 自动续跑、多实例 MQ
+- **做**：微信管家、多项目、`delegate_task`、runtime、MEMORY、队列 mode、workflow 权限、项目待办、多项目总览
+- **不做**：全量 MCP Host、IDE 子进程替代 Loop、入站 WAL、多实例 MQ
+- **已做（opt-in）**：workflow 自动续跑（`BUTLER_WORKFLOW_AUTO_RESUME=1`）、terminal 管道（`BUTLER_TERMINAL_PIPE=1`）、首次引导（`BUTLER_ONBOARDING_WELCOME=1`）
 - **可选 MCP**：`BUTLER_MCP_ENABLED=1` — [`docs/plans/comparisons/butler-mcp-capability-2026-05.md`](docs/plans/comparisons/butler-mcp-capability-2026-05.md)
 
 ## 文档同步义务

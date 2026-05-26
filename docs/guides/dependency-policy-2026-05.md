@@ -1,6 +1,6 @@
 # 依赖分层与引入策略（2026-05）
 
-> **更新**：2026-05-26  
+> **更新**：2026-05-27  
 > **用途**：说明 Butler 当前已经引入哪些依赖、哪些依赖是可选安装、哪些依赖明确不引入。  
 > **事实源**：依赖包名以 [`../../pyproject.toml`](../../pyproject.toml) 为准；产品边界以 [`../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) 为准。
 
@@ -46,12 +46,21 @@ Butler v4 的依赖策略只有三条：
 | `pty` | `pip install -e ".[pty]"` | `ptyprocess` 或 `pywinpty` | PTY 兼容层 |
 | `dev` | `pip install -e ".[dev]"` | `debugpy`、`pytest`、`pytest-asyncio`、`ruff` | 开发 / 测试 / Lint |
 | `all` | `pip install -e ".[all]"` | 聚合 `wechat`、`wechat-ocr`、`cli`、`dev`、`voice`、`pty` | 便捷安装集合 |
+| `embeddings` | `pip install -e ".[embeddings]"` | `fastembed` | 本地 ONNX 语义嵌入（替代 hashing / API） |
+| `documents` | `pip install -e ".[documents]"` | `markitdown[pdf,docx,xlsx,pptx]` | 文档转 Markdown（PDF/Word/Excel/PPT） |
+| `web` | `pip install -e ".[web]"` | `trafilatura` | 网页正文智能提取（替代正则） |
+| `notify` | `pip install -e ".[notify]"` | `apprise` | 多渠道通知（Telegram/Email/Slack 等 130+） |
+| `analytics` | `pip install -e ".[analytics]"` | `duckdb` | 本地数据查询（CSV/JSON/Parquet/SQLite） |
 
 补充说明：
 
-- `all` **不包含** `mcp`，需要时仍应单独安装 `.[mcp]`。
+- `all` **不包含** `mcp`、`embeddings`、`documents`、`web`、`notify`、`analytics`，需要时仍应单独安装。
 - `cryptography` 虽已在 `wechat` extra 中存在，但“凭证 Fernet 加密”仍属于产品层待选能力，不等于该能力已经默认启用。
 - `mcp` 只是可选薄客户端，功能开关仍受 `BUTLER_MCP_ENABLED` 控制。
+- `fastembed` 使用 ONNX Runtime 推理，无需 PyTorch，安装体积约 200MB；`BUTLER_EMBEDDING_PROVIDER=fastembed` 启用。
+- `trafilatura` 安装后 `web_fetch` 自动使用其提取正文，无需额外配置；未安装时回退正则方案。
+- `apprise` 通过 `BUTLER_NOTIFY_URLS` 配置通知渠道，URL 式语法（如 `tgram://bot/chat`）。
+- `duckdb` 注册 `query_data` 工具，仅允许只读 SQL 查询。
 
 ## 4. 明确不引入的依赖
 

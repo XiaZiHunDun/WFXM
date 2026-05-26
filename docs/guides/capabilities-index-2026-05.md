@@ -1,6 +1,6 @@
 # 项目状态总览（已实现 / 未实现 / 依赖）
 
-> **更新**：2026-05-26  
+> **更新**：2026-05-27  
 > **用途**：作为维护者总入口，快速判断 Butler 当前哪些能力已实现、哪些仍未实现或明确不做、当前已引入哪些依赖、哪些依赖明确不引入。  
 > **原则**：本页只做**路由与摘要**，不替代架构、决策与配置 SSOT。  
 > **勿从对照报告正文抽待办** — [`roadmap-backlog`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)
@@ -25,6 +25,22 @@
 | Observation Store、durable outbox 等本地状态深化 | 已落地子集 | `durable outbox` 默认；observation queue 需开关 | [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md) |
 | MCP 薄客户端 | 已落地 | 可选（extra + 开关） | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) |
 | 语音 / OCR / PTY | 已落地 | 可选（extra） | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) |
+| 本地 ONNX 语义嵌入（fastembed） | 已落地 | 可选（`[embeddings]` extra） | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) |
+| 文档解析（markitdown：PDF/Word/Excel/PPT） | 已落地 | 可选（`[documents]` extra） | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) |
+| 网页正文提取（trafilatura） | 已落地 | 可选（`[web]` extra） | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) |
+| 多渠道通知（apprise：Telegram/Email/Slack 等） | 已落地 | 可选（`[notify]` extra） | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) |
+| 本地数据查询（duckdb：CSV/JSON/Parquet/SQLite） | 已落地 | 可选（`[analytics]` extra） | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) |
+| 微信文件自动解析（PDF/Word/Excel/PPT → Markdown） | 已落地 | 需 `[documents]` extra | `butler/gateway/inbound_media.py` |
+| 入站队列 JSONL 持久化 | 已落地 | `BUTLER_GATEWAY_QUEUE_PERSIST=1` | `butler/gateway/message_queue.py` |
+| 出站 durable outbox 启动时自动回放 | 已落地 | 默认（跟随 durable outbox） | `butler/gateway/runner.py` |
+| 会话上下文延续（session_summary 注入） | 已落地 | 默认开 | `butler/gateway/message_handler.py` |
+| 个人提醒系统（set/list/cancel_reminder） | 已落地 | 默认 | `butler/tools/reminder.py` |
+| Git push 审批门控 | 已落地 | `BUTLER_ENABLE_GIT_PUSH=1` | `butler/tools/git_tools.py` |
+| 多项目总览（`/总览`） | 已落地 | 默认 | `butler/gateway/message_handler.py` |
+| 项目级持久待办（`/项目待办`） | 已落地 | 默认 | `butler/tools/project_todos.py` |
+| Terminal 有限管道 | 已落地 | `BUTLER_TERMINAL_PIPE=1` | `butler/tools/path_safety.py` |
+| 首次使用引导 | 已落地 | `BUTLER_ONBOARDING_WELCOME=1` | `butler/gateway/message_handler.py` |
+| Workflow 确认自动续跑 | 已落地 | `BUTLER_WORKFLOW_AUTO_RESUME=1` | `butler/human_gate.py` |
 | 浏览器自动化平台、RAGFlow 全栈、LangGraph 替代 Loop | 明确不做 | 不引入 | [`../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) §1 |
 
 ## 2. 已实现能力（文档入口）

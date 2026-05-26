@@ -209,6 +209,70 @@ def _tool_git_commit(message: str = "", workdir: str | None = None, **_) -> str:
     return json.dumps(_run_git(["commit", "-m", msg], workdir=workdir))
 
 
+def _tool_git_push(
+    remote: str = "origin",
+    branch: str = "",
+    force: bool = False,
+    workdir: str | None = None,
+    **_,
+) -> str:
+    """Push to remote — requires BUTLER_ENABLE_GIT_PUSH=1 and Owner approval."""
+    if not git_write_enabled():
+        return _disabled_write_msg()
+    push_enabled = os.getenv("BUTLER_ENABLE_GIT_PUSH", "").strip() == "1"
+    if not push_enabled:
+        return json.dumps({
+            "error": "Git push requires BUTLER_ENABLE_GIT_PUSH=1 in .env.",
+            "code": "GIT_PUSH_DISABLED",
+        })
+    if force:
+        return json.dumps({
+            "error": "Force push is blocked for safety. Use manual git push --force.",
+            "code": "GIT_FORCE_PUSH_BLOCKED",
+        })
+
+    cwd, err = _resolve_git_workdir(workdir)
+    if err:
+        return json.dumps({"error": err, "exit_code": -1})
+
+    remote_name = (remote or "origin").strip()
+    branch_name = (branch or "").strip()
+    if not branch_name:
+        result = _run_git(["rev-parse", "--abbrev-ref", "HEAD"], workdir=workdir)
+        branch_name = (result.get("stdout") or "").strip()
+        if not branch_name:
+            return json.dumps({"error": "Cannot detect current branch", "exit_code": -1})
+
+    if branch_name in ("main", "master"):
+        return json.dumps({
+            "error": f"Push to protected branch '{branch_name}' is blocked.",
+            "code": "GIT_PROTECTED_BRANCH",
+        })
+
+    approval_key = f"git_push:{remote_name}:{branch_name}"
+    try:
+        from butler.tools.terminal_approval import check_approval
+
+        approved = check_approval(approval_key)
+        if not approved:
+            return json.dumps({
+                "ok": False,
+                "code": "PUSH_REQUIRES_APPROVAL",
+                "error": (
+                    f"Git push to {remote_name}/{branch_name} requires Owner approval.\n"
+                    f"请在微信确认：/批准一次 git_push 或 /始终允许 git_push"
+                ),
+                "remote": remote_name,
+                "branch": branch_name,
+            })
+    except ImportError:
+        pass
+
+    args = ["push", remote_name, branch_name]
+    result = _run_git(args, workdir=workdir)
+    return json.dumps(result)
+
+
 def register_git_tools(register: Callable[..., None]) -> None:
     """Register git_* tools (always visible; gated at runtime by env)."""
 
@@ -316,5 +380,30 @@ def register_git_tools(register: Callable[..., None]) -> None:
             "required": ["message"],
         },
         handler=_tool_git_commit,
+        toolset="git",
+    )
+
+    register(
+        name="git_push",
+        description=(
+            "Push commits to remote. Requires BUTLER_ENABLE_GIT_PUSH=1 + Owner approval. "
+            "Force push and push to main/master are blocked."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "remote": {
+                    "type": "string",
+                    "description": "Remote name (default: origin)",
+                    "default": "origin",
+                },
+                "branch": {
+                    "type": "string",
+                    "description": "Branch to push (default: current branch)",
+                },
+                "workdir": {"type": "string", "description": "Working directory (optional)"},
+            },
+        },
+        handler=_tool_git_push,
         toolset="git",
     )

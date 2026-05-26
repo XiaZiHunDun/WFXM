@@ -160,6 +160,19 @@ async def run_gateway_async(platforms: list[str]) -> int:
 
     logger.info("Butler native gateway running (%s)", ", ".join(a.name for a in connected))
 
+    try:
+        from butler.gateway.message_queue import restore_persisted_queue
+
+        restored = restore_persisted_queue()
+        if restored:
+            logger.info("Restored %d queued inbound messages from disk", restored)
+    except Exception as exc:
+        logger.debug("Queue restore skipped: %s", exc)
+
+    _replay_pending_outbox(connected)
+
+    _reminder_task = asyncio.ensure_future(_poll_reminders_loop(connected))
+
     stop = asyncio.Event()
 
     def _request_stop(*_args: Any) -> None:
@@ -174,9 +187,90 @@ async def run_gateway_async(platforms: list[str]) -> int:
 
     await stop.wait()
 
+    _reminder_task.cancel()
     for adapter in connected:
         await adapter.disconnect()
     return 0
+
+
+async def _poll_reminders_loop(adapters: list[Any]) -> None:
+    """Background coroutine that checks for due reminders every 60s."""
+    poll_interval = float(os.getenv("BUTLER_REMINDER_POLL_SECONDS", "60"))
+    while True:
+        await asyncio.sleep(poll_interval)
+        try:
+            from butler.tools.reminder import poll_due_reminders
+
+            fired = poll_due_reminders()
+            if not fired:
+                continue
+            bridge = None
+            for adapter in adapters:
+                if hasattr(adapter, "send_text"):
+                    bridge = adapter
+                    break
+            if bridge is None:
+                continue
+            for reminder in fired:
+                text = f"⏰ 提醒：{reminder.get('message', '')}\n（设定时间：{reminder.get('due_human', '')}）"
+                try:
+                    chat_id = os.getenv("BUTLER_OWNER_WECHAT_ID", "")
+                    if chat_id:
+                        bridge.send_text(chat_id, text)
+                        logger.info("Reminder fired: %s", reminder.get("id"))
+                    else:
+                        logger.warning("BUTLER_OWNER_WECHAT_ID not set, reminder not pushed: %s", reminder.get("id"))
+                except Exception as exc:
+                    logger.warning("Reminder push failed: %s", exc)
+        except Exception as exc:
+            logger.debug("Reminder poll error: %s", exc)
+
+
+def _replay_pending_outbox(adapters: list[Any]) -> None:
+    """Replay unsent durable outbox entries on gateway startup."""
+    try:
+        from butler.gateway.durable_outbox import (
+            durable_outbox_enabled,
+            list_pending_outbox,
+            mark_outbox_sent,
+        )
+
+        if not durable_outbox_enabled():
+            return
+
+        pending = list_pending_outbox()
+        if not pending:
+            return
+
+        logger.info("Replaying %d pending outbox entries", len(pending))
+        bridge = None
+        for adapter in adapters:
+            if hasattr(adapter, "send_text"):
+                bridge = adapter
+                break
+
+        if bridge is None:
+            logger.warning("No adapter with send_text — skipping outbox replay")
+            return
+
+        sent = 0
+        for entry in pending:
+            chat_id = entry.get("chat_id", "")
+            text = entry.get("text", "")
+            entry_id = entry.get("id", "")
+            if not chat_id or not text:
+                continue
+            try:
+                bridge.send_text(chat_id, text)
+                mark_outbox_sent(entry_id)
+                sent += 1
+            except Exception as exc:
+                logger.warning("Outbox replay failed for entry %s: %s", entry_id, exc)
+        logger.info("Outbox replay complete: %d/%d sent", sent, len(pending))
+    except ImportError:
+        logger.debug("durable_outbox not available, skipping replay")
+    except Exception as exc:
+        logger.warning("Outbox replay error: %s", exc)
 
 
 def run_gateway_blocking(platforms: list[str]) -> int:

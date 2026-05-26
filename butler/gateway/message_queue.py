@@ -1,13 +1,21 @@
-"""Per-session inbound message priority queue (now > next > later)."""
+"""Per-session inbound message priority queue (now > next > later).
+
+Supports optional JSONL-backed persistence so queued messages survive
+gateway restarts.  Controlled by ``BUTLER_GATEWAY_QUEUE_PERSIST`` (default off).
+"""
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import re
 import threading
 import time
+import uuid
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
+from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
@@ -24,6 +32,7 @@ class QueuedInbound:
     platform: str = "unknown"
     external_id: str = ""
     enqueued_at: float = 0.0
+    persist_id: str = dc_field(default_factory=lambda: uuid.uuid4().hex[:12])
 
 
 _LOCK = threading.RLock()
@@ -142,6 +151,7 @@ def enqueue_inbound(
         bucket.append(item)
         bucket = deque(sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)))
         _QUEUES[key] = bucket
+    _persist_enqueue(key, item)
     logger.info("Queued inbound session=%s priority=%s len=%d", key, pri, len(_QUEUES[key]))
     _refresh_queue_gauges(key)
     try:
@@ -183,6 +193,7 @@ def pop_urgent_inbound(session_key: str) -> QueuedInbound | None:
         item = bucket.popleft()
         if not bucket:
             _QUEUES.pop(key, None)
+    _persist_remove(key, item.persist_id)
     _refresh_queue_gauges(key)
     return item
 
@@ -196,6 +207,7 @@ def pop_next(session_key: str) -> QueuedInbound | None:
         item = bucket.popleft()
         if not bucket:
             _QUEUES.pop(key, None)
+    _persist_remove(key, item.persist_id)
     _refresh_queue_gauges(key)
     return item
 
@@ -210,6 +222,7 @@ def pop_all_merged(session_key: str) -> QueuedInbound | None:
             bucket.clear()
             _QUEUES.pop(key, None)
         summaries = list(_DROP_SUMMARIES.pop(key, ()))
+    _persist_clear(key)
     _refresh_queue_gauges(key)
     if not items and not summaries:
         return None
@@ -247,6 +260,7 @@ def reset_queue(session_key: str | None = None) -> None:
             _QUEUES.pop(key, None)
             _LAST_ENQUEUE.pop(key, None)
             _DROP_SUMMARIES.pop(key, None)
+    _persist_clear(session_key)
     try:
         from butler.ops.runtime_metrics import set_gauge
 
@@ -256,6 +270,132 @@ def reset_queue(session_key: str | None = None) -> None:
             _refresh_queue_gauges(session_key)
     except Exception:
         pass
+
+
+# ---------------------------------------------------------------------------
+# Persistence layer — JSONL-backed durable queue
+# ---------------------------------------------------------------------------
+
+
+def _queue_persist_enabled() -> bool:
+    return env_truthy("BUTLER_GATEWAY_QUEUE_PERSIST", default=False)
+
+
+def _queue_persist_dir() -> Path:
+    from butler.config import get_butler_home
+
+    return get_butler_home() / "gateway" / "queue"
+
+
+def _persist_enqueue(session_key: str, item: QueuedInbound) -> None:
+    """Append a queue entry to the session's JSONL file."""
+    if not _queue_persist_enabled():
+        return
+    try:
+        root = _queue_persist_dir()
+        root.mkdir(parents=True, exist_ok=True)
+        safe_key = re.sub(r"[^\w\-]", "_", session_key)[:120]
+        path = root / f"{safe_key}.jsonl"
+        row = {
+            "id": item.persist_id,
+            "text": item.text,
+            "priority": item.priority,
+            "platform": item.platform,
+            "external_id": item.external_id,
+            "enqueued_at": item.enqueued_at,
+        }
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception as exc:
+        logger.debug("Queue persist write failed: %s", exc)
+
+
+def _persist_remove(session_key: str, persist_id: str) -> None:
+    """Remove a single persisted entry by its id (rewrite minus the line)."""
+    if not _queue_persist_enabled() or not persist_id:
+        return
+    try:
+        root = _queue_persist_dir()
+        safe_key = re.sub(r"[^\w\-]", "_", session_key)[:120]
+        path = root / f"{safe_key}.jsonl"
+        if not path.is_file():
+            return
+        lines = path.read_text(encoding="utf-8").splitlines()
+        kept = [ln for ln in lines if persist_id not in ln]
+        if len(kept) == len(lines):
+            return
+        if kept:
+            path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+        else:
+            path.unlink(missing_ok=True)
+    except Exception as exc:
+        logger.debug("Queue persist remove failed: %s", exc)
+
+
+def _persist_clear(session_key: str | None = None) -> None:
+    """Clear persisted queue file(s)."""
+    if not _queue_persist_enabled():
+        return
+    try:
+        root = _queue_persist_dir()
+        if not root.is_dir():
+            return
+        if session_key is None:
+            for f in root.glob("*.jsonl"):
+                f.unlink(missing_ok=True)
+        else:
+            safe_key = re.sub(r"[^\w\-]", "_", session_key)[:120]
+            (root / f"{safe_key}.jsonl").unlink(missing_ok=True)
+    except Exception as exc:
+        logger.debug("Queue persist clear failed: %s", exc)
+
+
+def restore_persisted_queue() -> int:
+    """Reload queued messages from disk into in-memory queues on startup.
+
+    Returns the total number of restored items.
+    """
+    if not _queue_persist_enabled():
+        return 0
+    root = _queue_persist_dir()
+    if not root.is_dir():
+        return 0
+    total = 0
+    for path in sorted(root.glob("*.jsonl")):
+        session_key = path.stem
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        items: list[QueuedInbound] = []
+        for ln in lines:
+            ln = ln.strip()
+            if not ln:
+                continue
+            try:
+                row = json.loads(ln)
+                items.append(QueuedInbound(
+                    text=row["text"],
+                    priority=row.get("priority", "next"),
+                    platform=row.get("platform", "unknown"),
+                    external_id=row.get("external_id", ""),
+                    enqueued_at=row.get("enqueued_at", 0.0),
+                    persist_id=row.get("id", uuid.uuid4().hex[:12]),
+                ))
+            except (json.JSONDecodeError, KeyError):
+                continue
+        if items:
+            with _LOCK:
+                bucket = _QUEUES.setdefault(session_key, deque())
+                bucket.extend(items)
+                _QUEUES[session_key] = deque(
+                    sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9))
+                )
+            total += len(items)
+            logger.info("Restored %d queued messages for session %s", len(items), session_key)
+    if total:
+        logger.info("Queue persistence restored %d total items", total)
+    return total
 
 
 def format_queued_ack(*, pending: int = 1, session_key: str = "") -> str:

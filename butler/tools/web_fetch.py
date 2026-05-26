@@ -31,13 +31,53 @@ def _timeout_seconds() -> float:
         return 20.0
 
 
-def _strip_html(html: str) -> str:
+def _strip_html_regex(html: str) -> str:
+    """Fallback HTML stripping with regex (used when trafilatura is unavailable)."""
     text = re.sub(r"(?is)<script[^>]*>.*?</script>", " ", html)
     text = re.sub(r"(?is)<style[^>]*>.*?</style>", " ", text)
     text = re.sub(r"<[^>]+>", " ", text)
     text = unescape(text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
+
+def _extract_with_trafilatura(html: str, url: str = "") -> dict[str, str] | None:
+    """Extract main content with trafilatura; returns None if unavailable."""
+    try:
+        import trafilatura  # type: ignore[import-untyped]
+    except ImportError:
+        return None
+    try:
+        text = trafilatura.extract(
+            html,
+            url=url or None,
+            output_format="txt",
+            include_comments=False,
+            include_tables=True,
+            include_links=True,
+        )
+        if not text:
+            return None
+        metadata = trafilatura.extract_metadata(html, default_url=url or None)
+        meta: dict[str, str] = {}
+        if metadata:
+            if getattr(metadata, "title", None):
+                meta["title"] = str(metadata.title)
+            if getattr(metadata, "author", None):
+                meta["author"] = str(metadata.author)
+            if getattr(metadata, "date", None):
+                meta["date"] = str(metadata.date)
+        return {"text": text, **meta}
+    except Exception:
+        return None
+
+
+def _strip_html(html: str, *, url: str = "") -> str | dict[str, str]:
+    """Extract content from HTML; prefers trafilatura, falls back to regex."""
+    result = _extract_with_trafilatura(html, url=url)
+    if result is not None:
+        return result
+    return _strip_html_regex(html)
 
 
 def tool_web_fetch(url: str, *, max_chars: int = 8000, **_: Any) -> str:
@@ -75,21 +115,32 @@ def tool_web_fetch(url: str, *, max_chars: int = 8000, **_: Any) -> str:
     else:
         truncated = False
 
+    decoded = raw.decode("utf-8", errors="replace")
+    extra_meta: dict[str, str] = {}
+
     if "html" in ctype.lower():
-        body = _strip_html(raw.decode("utf-8", errors="replace"))
+        extracted = _strip_html(decoded, url=target)
+        if isinstance(extracted, dict):
+            body = extracted.pop("text", decoded)
+            extra_meta = extracted
+        else:
+            body = extracted
     else:
-        body = raw.decode("utf-8", errors="replace")
+        body = decoded
 
     if len(body) > cap:
         body = body[:cap] + "\n…(truncated)"
-    return json.dumps({
+    result = {
         "ok": True,
         "url": target,
         "content_type": ctype,
         "truncated": truncated,
         "chars": len(body),
         "text": body,
-    }, ensure_ascii=False)
+    }
+    if extra_meta:
+        result["metadata"] = extra_meta
+    return json.dumps(result, ensure_ascii=False)
 
 
 def register_web_fetch_tool(register_fn) -> None:

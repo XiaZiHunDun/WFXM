@@ -68,6 +68,7 @@ class CommandSafetyResult:
     allowed: bool
     argv: list[str]
     error: str = ""
+    is_pipe: bool = False
 
 
 def current_workspace_root() -> Path | None:
@@ -140,9 +141,65 @@ def tool_safe_root() -> Path:
     return current_workspace_root() or _configured_safe_root() or Path.cwd().resolve()
 
 
+def _pipe_mode_enabled() -> bool:
+    return os.getenv("BUTLER_TERMINAL_PIPE", "").strip() == "1"
+
+
+_PIPE_SAFE_COMMANDS = frozenset({
+    "grep", "rg", "wc", "head", "tail", "sort", "uniq", "tr", "cut",
+    "awk", "sed", "cat", "tee", "xargs", "find", "ls", "echo",
+})
+
+
+def _validate_pipe_segment(segment: str, allowed: set[str]) -> CommandSafetyResult:
+    """Validate one pipe segment (no recursion into nested pipes)."""
+    seg = segment.strip()
+    if not seg:
+        return CommandSafetyResult(False, [], "Empty pipe segment")
+    try:
+        argv = shlex.split(seg, posix=True)
+    except ValueError as exc:
+        return CommandSafetyResult(False, [], f"Invalid pipe segment: {exc}")
+    if not argv:
+        return CommandSafetyResult(False, [], "Empty pipe segment")
+    cmd_name = Path(argv[0]).name
+    all_allowed = allowed | _PIPE_SAFE_COMMANDS
+    if "/" in argv[0] or cmd_name not in all_allowed:
+        return CommandSafetyResult(False, [], f"Pipe segment command '{cmd_name}' not in allowlist")
+    if _uses_dynamic_interpreter(argv):
+        return CommandSafetyResult(False, [], "Dynamic interpreter in pipe segment")
+    if any("$" in token for token in argv):
+        return CommandSafetyResult(False, [], "Shell variables in pipe segment")
+    return CommandSafetyResult(True, argv)
+
+
 def prepare_shell_command(command: str) -> CommandSafetyResult:
-    """Validate a terminal command and return argv for ``shell=False`` execution."""
+    """Validate a terminal command and return argv for ``shell=False`` execution.
+
+    When ``BUTLER_TERMINAL_PIPE=1``, simple pipes are allowed between
+    allowlisted commands. The result uses ``shell=True`` via ``bash -c``
+    in that case, with each segment validated individually.
+    """
     text = command or ""
+
+    has_pipe = "|" in text
+    has_other_meta = bool(re.search(r"[&;<>()`]", text))
+
+    if has_pipe and _pipe_mode_enabled() and not has_other_meta:
+        allowed = _allowed_terminal_commands()
+        segments = text.split("|")
+        if len(segments) > 5:
+            return CommandSafetyResult(False, [], "Too many pipe segments (max 5)")
+        for seg in segments:
+            result = _validate_pipe_segment(seg, allowed)
+            if not result.allowed:
+                return result
+        for candidate in _extract_command_paths(text):
+            result = check_tool_path(candidate, for_write=_looks_like_write_command(text, candidate))
+            if not result.allowed:
+                return CommandSafetyResult(False, [], result.error)
+        return CommandSafetyResult(True, ["bash", "-c", text], is_pipe=True)
+
     try:
         argv = shlex.split(text, posix=True)
     except ValueError as exc:

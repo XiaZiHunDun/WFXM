@@ -44,6 +44,7 @@
 | `BUTLER_LEAD_PROJECTS` | 厂长模式项目列表（逗号分隔；可被 `project.yaml` `lead: true` 补充） |
 | `BUTLER_ENABLE_TERMINAL` | `1` 启用 terminal |
 | `BUTLER_ENABLE_GIT` / `BUTLER_ENABLE_GIT_WRITE` | 只读 / 写 git 工具 |
+| `BUTLER_ENABLE_GIT_PUSH` | `1` 启用 `git_push` 工具（需同时 `GIT_WRITE=1`；push 前需 Owner 审批） |
 
 ## Runtime
 
@@ -256,7 +257,12 @@
 | `pip install -e ".[cli]"` | CLI 菜单增强 |
 | `pip install -e ".[dev]"` | 开发 / 测试 / lint 依赖 |
 | `pip install -e ".[pty]"` | PTY 兼容层 |
-| `pip install -e ".[all]"` | 便捷安装集合（含 `wechat` / `wechat-ocr` / `cli` / `dev` / `voice` / `pty`，**不含** `mcp`） |
+| `pip install -e ".[all]"` | 便捷安装集合（含 `wechat` / `wechat-ocr` / `cli` / `dev` / `voice` / `pty`，**不含** `mcp` 及以下五项） |
+| `pip install -e ".[embeddings]"` | 本地 ONNX 语义嵌入（fastembed，替代 hashing / API） |
+| `pip install -e ".[documents]"` | 文档转 Markdown（markitdown：PDF/Word/Excel/PPT） |
+| `pip install -e ".[web]"` | 网页正文智能提取（trafilatura，替代正则） |
+| `pip install -e ".[notify]"` | 多渠道通知（apprise：Telegram/Email/Slack 等 130+） |
+| `pip install -e ".[analytics]"` | 本地数据查询（duckdb：CSV/JSON/Parquet/SQLite） |
 
 **原则**：新增外部依赖优先进入 `pyproject.toml` `optional-dependencies`；只有主循环、transport、配置和本地状态主路径必需的能力才进入 core 默认依赖。
 
@@ -274,6 +280,10 @@
 | `BUTLER_GATEWAY_COMPLETION_NOTIFY` | 1 | 长任务完成额外推送总开关 |
 | `BUTLER_GATEWAY_DURABLE_OUTBOX` | 1 | completion push 发送前写 `~/.butler/gateway_outbox/{pending,sent,failed}` |
 | `BUTLER_GATEWAY_DURABLE_OUTBOX_MAX` | 200 | durable outbox 每状态最多保留条数 |
+| `BUTLER_GATEWAY_QUEUE_PERSIST` | 0 | 入站队列 JSONL 持久化（`~/.butler/gateway/queue/`），启动时恢复 |
+| `BUTLER_SESSION_SUMMARY` | 1 | 新会话启动时注入上次 session_summary.json 摘要 |
+| `BUTLER_REMINDER_POLL_SECONDS` | 60 | 提醒轮询间隔（秒） |
+| `BUTLER_OWNER_WECHAT_ID` | — | Owner 微信 ID（用于提醒推送） |
 | `BUTLER_GATEWAY_DELEGATE_COMPLETION_*` | — | 委派完成推送模式（见 `.env.example`） |
 | `BUTLER_REPLY_ADMISSION` | 1 | 每 session 单飞 reply turn；忙则入队 |
 | `BUTLER_BOT_LOOP_GUARD` | 0 | 群聊 bot 互 @ 环防护 |
@@ -338,6 +348,9 @@
 | `BUTLER_BOT_LOOP_WHITELIST` | — | 逗号分隔 chat_id 白名单 |
 | `BUTLER_TURN_TOKEN_BUDGET` | 1 | 句末 `+500k` / `/budget` 提高迭代上限 |
 | `BUTLER_TURN_BUDGET_*` | — | 预算数值（见 example） |
+| `BUTLER_TERMINAL_PIPE` | 0 | `1` 允许 terminal 工具有限管道（`\|`），仅白名单命令间可管道，最多 5 段 |
+| `BUTLER_ONBOARDING_WELCOME` | 0 | `1` 新会话首条消息前附加 Butler 能力概览欢迎语 |
+| `BUTLER_WORKFLOW_AUTO_RESUME` | 0 | `1` workflow 步骤确认后自动续跑（无需再发 `/workflow`） |
 
 Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → **循环内**注入 user 消息并续跑（`stop_hook_blocked`），非仅替换最终回复。
 
