@@ -12,6 +12,7 @@ from butler.core.workflow_flags import workflow_clear_child_enabled
 from butler.memory.observer_queue import (
     enqueue_tool_observation,
     flush_observer_queue,
+    list_observations_for_path,
     observer_queue_enabled,
     observations_path,
 )
@@ -49,6 +50,13 @@ def test_observer_queue_flush(monkeypatch):
         n = flush_observer_queue(ws)
         assert n >= 1
         assert observations_path(ws).is_file()
+        rows = list_observations_for_path(ws, "src/foo.py", limit=3)
+        assert len(rows) == 1
+        assert rows[0]["tool"] == "read_file"
+        assert "read foo" in rows[0]["preview"]
+        block = build_preread_block(ws, "src/foo.py")
+        assert "PreRead 路径历史" in block
+        assert "read foo" in block
 
 
 def test_output_schema_parse():

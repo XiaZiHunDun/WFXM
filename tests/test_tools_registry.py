@@ -18,6 +18,7 @@ from butler.tools.registry import (
     reset_tool_audit_events,
 )
 from butler.execution_context import use_execution_context
+from butler.memory.observer_queue import flush_observer_queue, list_observations_for_path
 
 
 def _orchestrator_for_workspace(workspace: Path):
@@ -221,6 +222,26 @@ class TestReadFile:
         f.write_text("", encoding="utf-8")
         result = dispatch_tool("read_file", {"path": str(f)})
         assert result == ""
+
+    def test_read_file_records_observation_when_queue_enabled(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_MEMORY_OBSERVER_QUEUE", "1")
+        workspace = tmp_path / "workspace"
+        workspace.mkdir()
+        target = workspace / "notes.txt"
+        target.write_text("hello observation\n", encoding="utf-8")
+
+        with use_execution_context(
+            _orchestrator_for_workspace(workspace),
+            session_key="wechat:u1:proj",
+        ):
+            result = dispatch_tool("read_file", {"path": str(target)})
+
+        assert "hello observation" in result
+        assert flush_observer_queue(workspace) >= 1
+        rows = list_observations_for_path(workspace, str(target), limit=3)
+        assert len(rows) == 1
+        assert rows[0]["tool"] == "read_file"
+        assert "hello observation" in rows[0]["preview"]
 
     def test_denies_file_outside_current_workspace(self, tmp_path):
         workspace = tmp_path / "workspace"

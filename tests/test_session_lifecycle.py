@@ -267,6 +267,18 @@ def test_sync_turn_memory_provider_failure_keeps_experience_success(monkeypatch)
     assert result["provider_error"] == "provider down"
 
 
+def test_sync_turn_memory_flushes_observer_queue_on_success(monkeypatch):
+    monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
+    orch = _orch()
+    orch.project_manager.get_current.return_value = SimpleNamespace(workspace="/tmp/demo")
+
+    with patch("butler.memory.observer_queue.flush_observer_queue") as flush_queue:
+        result = sync_turn_memory(orch, "question", "answer", status=LoopStatus.COMPLETED)
+
+    assert result["skipped"] is False
+    flush_queue.assert_called_once()
+
+
 def test_clear_session_boundary_memory_removes_tagged_conversation(tmp_path):
     from butler.memory.butler_memory import ButlerMemory
 

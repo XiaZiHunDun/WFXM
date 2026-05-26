@@ -12,7 +12,7 @@
 
 | # | 能力 | Butler 替代 |
 |---|------|-------------|
-| S1 | claude-mem Bun Worker + Chroma MCP | `semantic_index` + observations.tsv |
+| S1 | claude-mem Bun Worker + Chroma MCP | `semantic_index` + workspace `.butler/observations.db` |
 | S2 | claude-mem IDE / Viewer | CLI / 微信 |
 | S3 | CC Switch Tauri 桌面 | CLI + `/诊断` |
 | S4 | 五 CLI live 双向同步 | `project.yaml` |

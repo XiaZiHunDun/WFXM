@@ -221,7 +221,7 @@
 | `BUTLER_HUB_MANIFEST_CHECK` | 1 | `butler registry verify` 校验 bundled catalog + 远程 Hub |
 | `BUTLER_MCP_CATALOG_URLS` | （空） | 逗号分隔远程 MCP 目录 URL（Hub 合并） |
 | `BUTLER_OUTPUT_SCHEMA_REPAIR_MAX` | 2 | 终局 schema LLM 修复最多轮次 |
-| `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 `.butler/observations.tsv` |
+| `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 workspace `.butler/observations.db`（SQLite observation store） |
 | `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | SessionEnd 写 `.butler/session_summary.json` |
 | `BUTLER_SESSIONS_LIST_LIMIT` | 20 | 微信 `/会话` 默认条数 |
@@ -230,7 +230,7 @@
 | `BUTLER_REFLEXION_EPHEMERAL` | 0 | `1` 时同工具连续失败注入 ephemeral 反思 |
 | `BUTLER_ADVERSARIAL_MARK` | 1 | 入站消息含 injection 模式时前缀系统提示 |
 | `BUTLER_PREFETCH_INJECTION_FILTER` | 1 | 记忆预取行过滤 injection 模式 |
-| `BUTLER_MEMORY_PREREAD` | 1 | 读文件前注入 `.butler/observations.tsv` 路径摘要 |
+| `BUTLER_MEMORY_PREREAD` | 1 | 读文件前注入 workspace `.butler/observations.db` 的路径摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | 会话结束写 `.butler/session_summary.json` |
 | `BUTLER_PROVIDER_CIRCUIT` | 1 | 供应商熔断（见 `provider_health.py`） |
 | `BUTLER_PROVIDER_FAILOVER` | （空） | 全局 failover 列表，逗号分隔 `provider/model` |

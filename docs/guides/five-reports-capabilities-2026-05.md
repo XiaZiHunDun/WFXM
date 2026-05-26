@@ -11,7 +11,7 @@
 
 | 主线 | 能力 | 主要模块 |
 |------|------|----------|
-| **F 记忆** | `<private>`、三层 `butler_recall`、观察者队列、PreRead、session_summary | `private_tags.py`、`recall_layers.py`、`observer_queue.py`、`preread_context.py` |
+| **F 记忆** | `<private>`、三层 `butler_recall`、SQLite observation store、PreRead、session_summary | `private_tags.py`、`recall_layers.py`、`observer_queue.py`、`observation_store.py`、`preread_context.py` |
 | **G 运维** | 熔断/failover、`sessions list`、`/会话`、流式探活、用量盘、原子写 | `provider_health.py`、`sessions_cli.py`、`usage_ledger.py`、`stream_probe.py`、`io/atomic_write.py` |
 | **H Prompt** | 任务纪律、RAG 忠实度、工具错误格式、Reflexion、规划 Generated Knowledge | `butler_system.md`、`tool_error_policy.py`、`reflexion_ephemeral.py` |
 | **I 编排** | outcomes.tsv、`/评价`、handoff 依赖、clear_child、output_schema、决策解析 | `outcomes.py`、`task_orchestrator.py`、`report.py` |
@@ -79,7 +79,7 @@ butler sessions layered <session_key>   # BUTLER_POST_SESSION_LAYERED=1
 
 | 变量 | 默认 | 用途 |
 |------|------|------|
-| `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | PostToolUse → `.butler/observations.tsv` |
+| `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | PostToolUse → workspace `.butler/observations.db` |
 | `BUTLER_MEMORY_PREREAD` | 1 | 读文件前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | Stop 写 `.butler/session_summary.json` |
 | `BUTLER_OUTCOME_REFLECTION` | 1 | outcomes.tsv + orchestrator 注入 |
