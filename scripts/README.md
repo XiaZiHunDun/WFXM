@@ -32,6 +32,8 @@
 |------|------|
 | `butler-smoke.sh` | `--tier=quick`（preflight + 快测）/ `standard`（+ 域冒烟）/ `full`（= pre-release） |
 | `butler-pre-release-smoke.sh` | 1 gateway → 2 pytest → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot |
+| `butler-five-reports-gate.sh` | 五报告 P5–P10 单测 + `prompt-eval.sh` + `registry verify` |
+| `prompt-eval.sh` | Prompt pattern rubric + `test_five_reports_p7/p9/p10` |
 
 ## 分域冒烟（被 pre-release 或文档调用）
 

@@ -16,7 +16,7 @@ WFXM/
 │   ├── tools/ memory/ skills/ cli/ ops/   # memory: chunking、query_decompose、semantic_index
 │   ├── project*.py              #   项目注册 / Lead / preflight
 │   └── main.py                  #   `butler` CLI 入口
-├── scripts/                     #   见 scripts/README.md
+├── scripts/                     #   见 scripts/README.md（含 butler-five-reports-gate.sh）
 ├── docs/
 │   ├── architecture/            #   v4 架构、ADR、Hermes 解耦（已完成）
 │   ├── design/                  #   产品设计
@@ -48,6 +48,8 @@ bash scripts/butler-gateway-ops.sh status        # 网关运维
 bash scripts/butler-pre-release-smoke.sh         # 发版守门
 
 PYTHONPATH=. pytest -q
+./scripts/butler-five-reports-gate.sh   # 五报告 P5–P10 守门
+butler registry verify
 ```
 
 ## 文档入口

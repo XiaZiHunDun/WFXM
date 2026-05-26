@@ -1,6 +1,6 @@
 # 五报告能力速查（2026-05）
 
-> **状态**：主线 F–J + PR-F1–F6 **已落地**（2026-05-25）  
+> **状态**：主线 F–J + PR-F1–F6 + **P5–P10 子集** **已落地**（2026-05-25）  
 > **路线图**：[`../plans/five-reports-improvement-roadmap-2026-05.md`](../plans/five-reports-improvement-roadmap-2026-05.md) §9  
 > **前置**：[`four-reports-capabilities-2026-05.md`](four-reports-capabilities-2026-05.md)（四报告已收口）  
 > **明确不做**：[`../plans/four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md) §7、路线图 §6 S1–S11
@@ -17,7 +17,7 @@
 | **I 编排** | outcomes.tsv、`/评价`、handoff 依赖、clear_child、output_schema、决策解析 | `outcomes.py`、`task_orchestrator.py`、`report.py` |
 | **J 可靠性** | retry/replan/stop、param blacklist、UTF-16 截断、Pipeline 步骤耗时 | `tool_error_policy.py`、`text_truncate.py`、`pipeline_steps.py`、`context_pipeline.py` |
 
-**未作 / 不做**：见 [`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md)（S1–S11 否决 + P2 未排期）。
+**否决 / 边界**：见 [`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md)（S1–S11；超出 P5–P10 子集的能力勿重复立项）。
 
 ---
 
@@ -28,6 +28,8 @@
 | `/评价` / `/outcome` | outcome log：list / resolve pending |
 | `/会话` / `/sessions` | 最近 transcript 会话列表 |
 | `/诊断` | 含 ContextPipeline 步骤 ms、用量盘、stream probe（若开启） |
+| `/预设` | 列出 `butler://` provider 预设 |
+| `/模型 preset …` | 应用预设到项目或 runtime（见 P8） |
 
 ---
 
@@ -43,11 +45,35 @@ butler experiment outcome resolve --project <名> --row-id <id> --value <结果>
 
 # 三层 recall（主线 F，需 BUTLER_MEMORY_RECALL_LAYERS=1）
 # 工具 butler_recall mode=index|fetch|timeline
+
+# P5–P10 子集
+butler mcp sync [--workspace PATH]
+butler mcp scan <server_id>
+butler skills sync
+butler prompt eval [--corpus] [--llm]
+butler provider presets | butler provider apply <id> --workspace PATH
+butler registry verify
+butler sessions layered <session_key>   # BUTLER_POST_SESSION_LAYERED=1
 ```
 
 ---
 
-## 4. 常用环境变量
+## 4. P5–P10 子集（2026-05）
+
+| 批次 | 能力 |
+|------|------|
+| P5 | MCP/Skills SSOT、`BUTLER_TOOLS_ENGINE`、reflexion write |
+| P6 | `prompt eval`、post_session layered、injection LLM、provider presets |
+| P7 | 安装前扫描、`BUTLER_INJECTION_LLM_GATE` |
+| P8 | `provider apply`、`/模型 preset` |
+| P9 | LLM rubric、corpus live smoke、ToolsEngine SSOT |
+| P10 | thinking beta 头、`registry verify`、corpus live full、schema 多轮 repair、`trading-debate` workflow |
+
+详见 [`external-agent-reports-capabilities-2026-05.md`](external-agent-reports-capabilities-2026-05.md)。
+
+---
+
+## 5. 常用环境变量
 
 详见 [`../config/reference.md`](../config/reference.md)。
 
@@ -67,26 +93,26 @@ butler experiment outcome resolve --project <名> --row-id <id> --value <结果>
 
 ---
 
-## 5. 测试守门
+## 6. 测试守门
 
 ```bash
 cd /home/ailearn/projects/WFXM
 
+# PR-F1–F6
 PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \
   tests/test_memory_recall_layers.py tests/test_provider_health.py tests/test_sessions_cli.py \
   tests/test_outcome_reflection.py tests/test_task_orchestrator_handoff.py \
   tests/test_five_reports_f6.py -q
 
-# 四报告 + CC 回归
-PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sections.py \
-  tests/test_experiment_ledger.py tests/test_tool_result_storage.py tests/test_message_queue.py -q
+# P5–P10 一条命令
+./scripts/butler-five-reports-gate.sh
 ```
 
 ---
 
-## 6. 未作清单（索引）
+## 7. 否决清单（索引）
 
 | 类型 | 文档 |
 |------|------|
-| 五报告否决 + P2 未排期 | [`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md) |
+| 五报告否决与边界 | [`../plans/five-reports-not-done-2026-05.md`](../plans/five-reports-not-done-2026-05.md) |
 | 四报告 18 项否决 | [`../plans/four-reports-out-of-scope-2026-05.md`](../plans/four-reports-out-of-scope-2026-05.md) §2 |

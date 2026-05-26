@@ -72,35 +72,11 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
   tests/test_experiment_ledger.py tests/test_query_decompose.py tests/test_support_line_e.py \
   tests/test_roadmap_remainder.py tests/test_markdown_chunking.py tests/test_loop_pr2_entropy.py -q
 
-# 五报告 P2 子集（SSOT sync / ToolsEngine / reflexion）
-PYTHONPATH=. pytest tests/test_five_reports_p5.py tests/test_mcp_merge.py -q
+# 五报告 P5–P10（SSOT / eval / registry / harness）— 一条命令
+./scripts/butler-five-reports-gate.sh
+# 可选 live：BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=… butler prompt eval --corpus-live-smoke
 
-# 五报告 P5（SSOT / 治理）
-PYTHONPATH=. pytest tests/test_five_reports_p5.py tests/test_mcp_merge.py -q
-
-# 五报告 P6（prompt eval / post_session 分层）
-./scripts/prompt-eval.sh
-PYTHONPATH=. pytest tests/test_prompt_eval.py tests/test_five_reports_p6.py -q
-
-# 五报告 P7（安装前扫描 / corpus eval / injection gate）
-PYTHONPATH=. pytest tests/test_five_reports_p7.py -q
-butler prompt eval --corpus
-butler mcp scan <server_id>
-
-# 五报告 P8（provider apply / corpus live prompt eval）
-PYTHONPATH=. pytest tests/test_five_reports_p8.py -q
-butler provider apply minimax-default --workspace <path> --dry-run
-# BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=… butler prompt eval --corpus-live
-# BUTLER_PROMPT_EVAL_LLM=1 butler prompt eval --llm
-
-# 五报告 P9（LLM rubric / corpus live smoke / ToolsEngine SSOT）
-PYTHONPATH=. pytest tests/test_five_reports_p9.py -q
-
-# 五报告 P10（thinking beta / hub manifest / schema registry / corpus live full）
-PYTHONPATH=. pytest tests/test_five_reports_p10.py -q
-butler registry verify
-
-# 五报告增量（PR-F1–F6）
+# 五报告 PR-F1–F6（主线 F–J 基线）
 PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \
   tests/test_memory_recall_layers.py tests/test_provider_health.py tests/test_sessions_cli.py \
   tests/test_outcome_reflection.py tests/test_task_orchestrator_handoff.py tests/test_five_reports_f6.py -q

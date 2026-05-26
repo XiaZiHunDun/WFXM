@@ -75,3 +75,4 @@
 | 2026-05-25 | 初版：S1–S11、P2 未排期 |
 | 2026-05-25 | P5–P9 分批落地（见 §3） |
 | 2026-05-25 | P10：thinking headers、hub manifest、corpus live full、schema registry/repair、trading-debate、§2 收口 |
+| 2026-05-25 | 熵减：`butler-five-reports-gate.sh`、AGENTS/CONTRIBUTING/路线图状态对齐 |

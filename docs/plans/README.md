@@ -43,8 +43,9 @@
 | **四报告合并路线图** | [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) | 统一收敛 DESIGN / 实验组织 / Loop 减熵 / RAG（**已落地** §9） |
 | **四报告明确不做** | [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | 18 项否决能力 + 原因 + 替代方案（**新增需求前必读**） |
 | **五报告合并路线图** | [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) | claude-mem / cc-switch / PEG / TradingAgents / LobeHub → 主线 **F–J**、PR-F1–F6（**已落地** §9） |
-| **外部 Agent 五报告路线图** | [`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) | LF / DeerFlow / OpenHands / MetaGPT / Ansible → 主线 **K–O**、PR-X1–X6（**规划中**） |
-| **五报告未作清单** | [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) | S1–S11 否决 + P2 未排期（**新增需求前必读**） |
+| **外部 Agent 五报告路线图** | [`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) | LF / DeerFlow / OpenHands / MetaGPT / Ansible → 主线 **K–O**、PR-X1–X6（**已落地**） |
+| **五报告未作清单** | [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) | S1–S11 否决 + 超出 P5–P10 边界（**新增需求前必读**） |
+| **五报告 P5–P10** | [`../guides/external-agent-reports-capabilities-2026-05.md`](../guides/external-agent-reports-capabilities-2026-05.md) | SSOT / eval / registry / harness 子集（**已落地**） |
 | **claude-mem 对照报告** | [`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md) | 记忆渐进披露 / observer；见五报告 **主线 F** |
 | **PEG 对照报告** | [`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md) | Prompt 纪律 / 事实性；见五报告 **主线 H** |
 
@@ -60,7 +61,8 @@
 | 四报告 Sprint A–D | **已落地**；验收 [`../guides/sprint-roadmap-2026-05.md`](../guides/sprint-roadmap-2026-05.md) |
 | 四报告合并路线图 PR1–PR6 | **已落地**；速查 [`../guides/four-reports-capabilities-2026-05.md`](../guides/four-reports-capabilities-2026-05.md)、§9 [`four-reports-improvement-roadmap-2026-05.md`](four-reports-improvement-roadmap-2026-05.md) |
 | 五报告合并路线图 PR-F1–F6 | **已落地** — [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §9；速查 [`../guides/five-reports-capabilities-2026-05.md`](../guides/five-reports-capabilities-2026-05.md) |
-| 外部 Agent 五报告 PR-X1–X2 | **已落地**；PR-X3–X6 规划中 — [`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) §10 |
+| 五报告 P5–P10 子集 | **已落地** — `./scripts/butler-five-reports-gate.sh` |
+| 外部 Agent 五报告 PR-X1–X6 | **已落地** — [`external-agent-reports-improvement-roadmap-2026-05.md`](external-agent-reports-improvement-roadmap-2026-05.md) §10 |
 | Codex Sprint C0–C2 | **已落地**；`pytest tests/test_sprint_codex_c0.py tests/test_sprint_codex_c1.py tests/test_sprint_codex_c2.py` |
 | OpenCode 对标 | P0–P2 已落地（SQLite 全量模型仍暂缓） |
 | MCP P3 | 薄 Client + 诊断 + `butler mcp serve`（默认关闭） |

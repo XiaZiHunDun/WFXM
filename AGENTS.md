@@ -12,8 +12,8 @@
 | 4 | [`docs/plans/README.md`](docs/plans/README.md) | 规划索引；**三套 P0/P2/P3 命名对照** |
 | 4b | [`docs/plans/four-reports-out-of-scope-2026-05.md`](docs/plans/four-reports-out-of-scope-2026-05.md) | 四报告对标 **明确不做**（新增能力前先查） |
 | 4c | [`docs/plans/five-reports-improvement-roadmap-2026-05.md`](docs/plans/five-reports-improvement-roadmap-2026-05.md) | 五报告合并路线图（**已落地**，主线 F–J / PR-F1–F6）；速查 [`docs/guides/five-reports-capabilities-2026-05.md`](docs/guides/five-reports-capabilities-2026-05.md) |
-| 4d | [`docs/plans/five-reports-not-done-2026-05.md`](docs/plans/five-reports-not-done-2026-05.md) | 五报告**未作**（S1–S11 否决 + P2 未排期）；与四报告 out-of-scope 并用 |
-| 4e | [`docs/plans/external-agent-reports-improvement-roadmap-2026-05.md`](docs/plans/external-agent-reports-improvement-roadmap-2026-05.md) | LF/DeerFlow/OpenHands/MetaGPT/Ansible 合并路线图（**规划中**，主线 K–O / PR-X1–X6） |
+| 4d | [`docs/plans/five-reports-not-done-2026-05.md`](docs/plans/five-reports-not-done-2026-05.md) | 五报告**否决与边界**（S1–S11）；P5–P10 子集已落地，见速查 |
+| 4e | [`docs/plans/external-agent-reports-improvement-roadmap-2026-05.md`](docs/plans/external-agent-reports-improvement-roadmap-2026-05.md) | LF/DeerFlow/OpenHands/MetaGPT/Ansible 合并路线图（**PR-X1–X6 已落地**，主线 K–O） |
 | 5 | [`STRUCTURE.md`](STRUCTURE.md) | 目录树与常用命令 |
 | 6 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | 微信线束、Hooks、出站、队列/workflow、发版抽测 |
 | 7 | [`docs/design/design.md`](docs/design/design.md) | 产品设计摘要；§9 为对照表，**§11+ 可能过时** |
@@ -58,6 +58,9 @@ PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command
 # 改四报告增量（RAG / DESIGN / 实验 / Loop 减熵）
 PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sections.py \
   tests/test_experiment_ledger.py tests/test_query_decompose.py tests/test_support_line_e.py -q
+
+# 改五报告 P5–P10（SSOT / prompt eval / registry / harness）
+./scripts/butler-five-reports-gate.sh
 ```
 
 ## 产品边界（简述）
@@ -68,10 +71,11 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 
 ## 文档更新义务
 
-若改动 **CC 线束**、**外部对标模块**（`runtime_metrics` / `queue_settings` / `human_gate`）、**四报告增量**（`butler/memory/chunking`、`design_md_sections`、`butler/experiments/`、`query_decompose` 等）或新增 `BUTLER_*`，请同步：
+若改动 **CC 线束**、**外部对标模块**（`runtime_metrics` / `queue_settings` / `human_gate`）、**四报告增量**、**五报告 P5–P10**（`install_scan` / `prompt_eval` / `tools_manifest` / `provider_presets` 等）或新增 `BUTLER_*`，请同步：
 
 - `docs/architecture/v4-architecture.md`
 - `docs/config/reference.md`、`.env.example`
 - `CONTRIBUTING.md`（Butler 线束节）
 - 四报告能力变更时：`docs/guides/four-reports-capabilities-2026-05.md`、`docs/plans/four-reports-improvement-roadmap-2026-05.md` §9
+- 五报告 P5–P10 变更时：`docs/guides/five-reports-capabilities-2026-05.md`、`docs/guides/external-agent-reports-capabilities-2026-05.md`、`docs/plans/five-reports-not-done-2026-05.md`
 - 阈值变更时：`docs/ops/diagnostic-thresholds.md`
