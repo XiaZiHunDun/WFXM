@@ -253,7 +253,10 @@
 | `pip install -e ".[mcp]"` | 薄 MCP client |
 | `pip install -e ".[voice]"` | 语音/STT/TTS 能力 |
 | `pip install -e ".[wechat-ocr]"` | OCR / 图片辅助 |
+| `pip install -e ".[cli]"` | CLI 菜单增强 |
+| `pip install -e ".[dev]"` | 开发 / 测试 / lint 依赖 |
 | `pip install -e ".[pty]"` | PTY 兼容层 |
+| `pip install -e ".[all]"` | 便捷安装集合（含 `wechat` / `wechat-ocr` / `cli` / `dev` / `voice` / `pty`，**不含** `mcp`） |
 
 **原则**：新增外部依赖优先进入 `pyproject.toml` `optional-dependencies`；只有主循环、transport、配置和本地状态主路径必需的能力才进入 core 默认依赖。
 

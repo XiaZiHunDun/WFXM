@@ -1,6 +1,6 @@
 # Butler 文档索引
 
-> 更新：**2026-05-25** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
+> 更新：**2026-05-26** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
 > **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md)  
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 
@@ -10,6 +10,7 @@
 |--------|--------|
 | 改代码 / 查模块 | [`architecture/v4-architecture.md`](architecture/v4-architecture.md) |
 | 查环境变量 | [`config/reference.md`](config/reference.md) + [`../.env.example`](../.env.example) |
+| **看项目现状 / 已实现 / 未实现 / 依赖** | [`guides/capabilities-index-2026-05.md`](guides/capabilities-index-2026-05.md) |
 | **发版一条链** | [`guides/release-runbook-2026-05.md`](guides/release-runbook-2026-05.md) |
 | 微信发版 / 运维 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) → [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) |
 | 看 CC 能力是否已有 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) |
@@ -39,6 +40,8 @@
 | 文档 | 说明 |
 |------|------|
 | [`guides/README.md`](guides/README.md) | **指南总索引**（冒烟、Runtime、接入） |
+| [`guides/capabilities-index-2026-05.md`](guides/capabilities-index-2026-05.md) | 项目状态总览（已实现 / 未实现 / 依赖） |
+| [`guides/dependency-policy-2026-05.md`](guides/dependency-policy-2026-05.md) | 依赖分层与引入策略（core / extras / 明确不引入） |
 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) | systemd 安装、发版、日志 |
 | [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) | 发版真机 H1–H10 |
 | [`guides/wechat-core-scenario.md`](guides/wechat-core-scenario.md) | 微信八步剧本 |

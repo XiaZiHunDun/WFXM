@@ -1,6 +1,6 @@
 # Butler 文档体系与维护说明
 
-> **更新**：2026-05-25 | **读者**：主公、Cursor Agent、贡献者  
+> **更新**：2026-05-26 | **读者**：主公、Cursor Agent、贡献者  
 > **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md) → 本文（按需）
 
 ---
@@ -81,6 +81,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 
 | 类别 | 代表文档 |
 |------|----------|
+| **项目总览 / 依赖** | `capabilities-index-2026-05`、`dependency-policy-2026-05` |
 | **生产运维** | `wechat-gateway-ops`、`wechat-daily-smoke-checklist` |
 | **能力速查** | `four-reports-capabilities`、`five-reports-capabilities`、`external-agent-reports-capabilities` |
 | **外部对标验收** | `external-reference-roadmap`、`phase-abc-external-reference`、`external-reference-deferred` |
@@ -133,8 +134,9 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 
 1. 更新 [`architecture/v4-architecture.md`](architecture/v4-architecture.md) 相关节  
 2. 新 `BUTLER_*` → [`config/reference.md`](config/reference.md) + `.env.example`  
-3. 若属 CC 线束 → [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) §3  
-4. 阈值 → [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md)
+3. 改 `pyproject.toml` 依赖分层（`dependencies` / `optional-dependencies`）→ 同步 [`guides/dependency-policy-2026-05.md`](guides/dependency-policy-2026-05.md)  
+4. 若属 CC 线束 → [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) §3  
+5. 阈值 → [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md)
 
 ### 6.2 新能力需求（产品 / 对标）
 
@@ -183,3 +185,4 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | 2026-05-25 | 全库整理：索引对齐、对照报告文首状态、语料/归档分表 |
 | 2026-05-25 | 合并 phase-a/b/c → phase-abc；语料 v1–v4 → corpus-history；精简 plans/README、reference-learning-plan |
 | 2026-05-25 | plans/ 分子目录；瘦身 AGENTS；release-runbook、capabilities-index、docs-lint.sh |
+| 2026-05-26 | 新增项目状态总览与依赖策略索引；补充 pyproject 依赖分层同步规则 |

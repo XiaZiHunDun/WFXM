@@ -1,13 +1,14 @@
 # 指南文档索引
 
-> 更新：2026-05-25 | 个人助手 Butler：**主场景为微信**；CLI 为本地开发与调试。  
+> 更新：2026-05-26 | 个人助手 Butler：**主场景为微信**；CLI 为本地开发与调试。  
 > 文档体系：[`../DOCUMENTATION.md`](../DOCUMENTATION.md) · 发版：[`release-runbook-2026-05.md`](./release-runbook-2026-05.md) · 否决/Backlog：[`../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)  
 > 四报告 Sprint A–D 总索引：[sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md)
 
 | 文档 | 用途 |
 |------|------|
 | [release-runbook-2026-05.md](./release-runbook-2026-05.md) | **发版一条链**（preflight → smoke → 部署 → 真机） |
-| [capabilities-index-2026-05.md](./capabilities-index-2026-05.md) | 已落地能力总索引（env / 守门） |
+| [capabilities-index-2026-05.md](./capabilities-index-2026-05.md) | 项目状态总览（已实现 / 未实现 / 依赖） |
+| [dependency-policy-2026-05.md](./dependency-policy-2026-05.md) | 依赖分层与引入策略（core / extras / 明确不引入） |
 | [wechat-gateway-ops.md](./wechat-gateway-ops.md) | **生产运维**：systemd 安装、发版、日志、排障 |
 | [opencode-parity.md](./opencode-parity.md) | **OpenCode 对标速查**：slash、异步委派、transcript、env 验收 |
 | [external-reference-roadmap-2026-05.md](./external-reference-roadmap-2026-05.md) | **外部对标验收索引**（阶段 A/B/C 已落地；defer 见 deferred） |
