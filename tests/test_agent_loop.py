@@ -99,6 +99,68 @@ class TestAgentLoopRun:
         assert result.iterations == 1
         assert result.tool_calls_made == 0
 
+    def test_tool_selection_recomputes_from_full_toolset_each_turn(self, mock_llm_client):
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "read_file",
+                    "description": "Read files",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "write_file",
+                    "description": "Write files",
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+        ]
+        mock_llm_client.complete.side_effect = [
+            _text_response("first done"),
+            _text_response("second done"),
+        ]
+
+        def _select(tools_for_turn, *, user_hint="", role="", threshold=None):
+            names = {t["function"]["name"] for t in tools_for_turn}
+            if "write" in user_hint.lower():
+                if "write_file" in names:
+                    return ([t for t in tools_for_turn if t["function"]["name"] == "write_file"], {})
+                return (list(tools_for_turn), {})
+            return ([t for t in tools_for_turn if t["function"]["name"] == "read_file"], {})
+
+        loop = AgentLoop(
+            mock_llm_client,
+            tools=tools,
+            config=LoopConfig(stream=False),
+        )
+
+        with patch("butler.core.tool_selector.select_tools_for_context", side_effect=_select):
+            first = loop.run("please read config")
+            second = loop.run("please write config")
+
+        assert first.status == LoopStatus.COMPLETED
+        assert second.status == LoopStatus.COMPLETED
+        first_tools = [t["function"]["name"] for t in mock_llm_client.complete.call_args_list[0].kwargs["tools"]]
+        second_tools = [t["function"]["name"] for t in mock_llm_client.complete.call_args_list[1].kwargs["tools"]]
+        assert first_tools == ["read_file"]
+        assert second_tools == ["write_file"]
+        assert [t["function"]["name"] for t in loop.tools] == ["read_file", "write_file"]
+
+    def test_turn_budget_does_not_persist_after_run(self, mock_llm_client):
+        mock_llm_client.complete.return_value = _text_response("budget done")
+        loop = AgentLoop(
+            mock_llm_client,
+            config=LoopConfig(max_iterations=30, stream=False),
+        )
+
+        result = loop.run("本轮尽量做完，把测试跑完")
+
+        assert result.status == LoopStatus.COMPLETED
+        assert loop.config.max_iterations == 30
+
     def test_single_tool_call_then_text(self, mock_llm_client):
         mock_llm_client.complete.side_effect = [
             _tool_response("echo", {"x": 1}),

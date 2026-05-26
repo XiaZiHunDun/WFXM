@@ -54,6 +54,7 @@ class AgentLoop:
         self.callbacks = callbacks or LoopCallbacks()
 
         self._messages: list[dict] = []
+        self._turn_tools: list[dict] | None = None
         self._interrupted = False
         self._total_tokens = 0
         self._tool_calls_count = 0
@@ -172,6 +173,7 @@ class AgentLoop:
             resolve_turn_budget,
         )
 
+        original_config = self.config
         self.config, turn_budget_tokens, cleaned_user = resolve_turn_budget(
             user_message,
             self.config,
@@ -196,18 +198,20 @@ class AgentLoop:
         except Exception:
             pass
         self._messages.append({"role": "user", "content": user_content})
+        turn_tools = list(self.tools or [])
         try:
             from butler.core.tool_selector import select_tools_for_context
 
             selected, sel_diag = select_tools_for_context(
-                self.tools,
+                turn_tools,
                 user_hint=user_content,
             )
-            self.tools = selected
+            turn_tools = list(selected)
             for key, val in sel_diag.items():
                 self.diagnostics[key] = val
         except Exception:
             pass
+        self._turn_tools = turn_tools
         try:
             from butler.core.session_transcript import record_user_message
 
@@ -451,7 +455,9 @@ class AgentLoop:
                     pass
 
         finally:
+            self.config = original_config
             self._restore_primary_client()
+            self._turn_tools = None
             set_parent_callbacks(None)
             if run_callbacks is not None:
                 self.callbacks = saved_callbacks
@@ -686,7 +692,7 @@ class AgentLoop:
             client=self.client,
             config=self.config,
             callbacks=self.callbacks,
-            tools=self.tools,
+            tools=self._turn_tools if self._turn_tools is not None else self.tools,
             messages=self._messages,
             diagnostics=self.diagnostics,
             prepare_messages=self._prepare_messages_for_api,

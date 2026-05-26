@@ -748,6 +748,7 @@ class ButlerMessageHandler:
                 augmented = f"{hook_ctx}\n\n{augmented}"
 
             loop = self._get_or_create_loop(session_key)
+            original_loop_config = loop.config
             try:
                 from butler.gateway.inbound_validate import validate_loop_messages_before_turn
 
@@ -898,6 +899,8 @@ class ButlerMessageHandler:
                 from butler.gateway.user_errors import format_gateway_user_error
 
                 return format_gateway_user_error(exc)
+            finally:
+                loop.config = original_loop_config
 
     def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
         """Return the latest best-effort runtime diagnostics for a session."""

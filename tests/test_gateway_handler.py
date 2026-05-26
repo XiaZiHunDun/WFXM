@@ -10,6 +10,7 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.core.agent_loop import LoopResult, LoopStatus
+from butler.core.loop_types import LoopConfig
 from butler.execution_context import use_execution_context
 from butler.gateway.message_handler import (
     ButlerMessageHandler,
@@ -280,6 +281,26 @@ class TestSlashCommands:
         assert first == "first reply"
         assert second == "second reply"
         assert loop.run.call_count == 2
+
+    def test_turn_budget_only_applies_to_current_turn(self, handler):
+        loop = MagicMock()
+        loop.messages = []
+        loop.config = LoopConfig(max_iterations=30, stream=False)
+        loop.hygiene_compress_if_needed.return_value = False
+        loop.run.return_value = LoopResult(
+            status=LoopStatus.COMPLETED,
+            final_response="done",
+        )
+
+        with patch.object(handler, "_get_or_create_loop", return_value=loop):
+            text = handler.handle_message(
+                "本轮尽量做完，把测试跑完",
+                platform="wechat",
+                external_id="u1",
+            )
+
+        assert text == "done"
+        assert loop.config.max_iterations == 30
 
     def test_model_returns_model_config(self, handler):
         text = handler._handle_command("/model")
