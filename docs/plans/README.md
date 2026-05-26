@@ -2,6 +2,18 @@
 
 > 更新：2026-05-25 | 区分 **CC 线束**、**仓库整理**、**外部对标** 三套「P0/P2/P3」命名，勿混用。
 
+## 决策入口（提需求 / 写规划先看）
+
+| 文档 | 用途 |
+|------|------|
+| **[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)** | **统一**：否决、深化边界、可选 Backlog、已落地速查 |
+| [`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) | 四报告 **18 项否决** 正文 |
+| [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) | 五报告 **S1–S11** + P5–P10 速查 |
+
+各 `*-improvement-roadmap-2026-05.md` 的 §9/§10 仅维护 **已落地核对**；勿从路线图正文旧 P0/P2 表提取待办。
+
+---
+
 ## 命名对照（易混淆）
 
 | 说法 | 文档 | 含义 |
@@ -105,7 +117,8 @@
 | [`browser-use-butler-comparison-report-2026-05.md`](browser-use-butler-comparison-report-2026-05.md) | browser-use；Loop 减熵 **已落地**（主线 B） |
 | [`codex-butler-comparison-2026-05.md`](codex-butler-comparison-2026-05.md) | Codex ↔ Butler；C0–C2 **已落地** |
 | [`lobehub-butler-comparison-report-2026-05.md`](lobehub-butler-comparison-report-2026-05.md) | LobeHub ↔ Butler；**主线 J**（技能市场已落地）；见五报告路线图 |
-| [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) | 五份报告统一路线图（**规划中**）；与四报告正交 |
+| [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) | 五份报告统一路线图（**PR-F1–F6 已落地**）；与四报告正交 |
+| [`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md) | **未做 / 边界 / Backlog 合并索引** |
 | [`claude-mem-butler-comparison-report-2026-05.md`](claude-mem-butler-comparison-report-2026-05.md) | claude-mem ↔ Butler；**主线 F** |
 | [`prompt-engineering-guide-butler-comparison-report-2026-05.md`](prompt-engineering-guide-butler-comparison-report-2026-05.md) | PEG ↔ Butler；**主线 H** |
 

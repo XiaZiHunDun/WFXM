@@ -1,6 +1,7 @@
 # 外部对标 — 剩余项分析与落地状态
 
-> 2026-05-25 · 汇总 Hermes / LangChain / Dify / Langflow 四报告 + 阶段 A/B/C
+> 2026-05-25 · 汇总 Hermes / LangChain / Dify / Langflow 四报告 + 阶段 A/B/C  
+> **统一索引**：[`../plans/roadmap-backlog-and-boundaries-2026-05.md`](../plans/roadmap-backlog-and-boundaries-2026-05.md)（§1.3 否决、§3.1–3.2 可选 Backlog）
 
 ## 1. 总览
 

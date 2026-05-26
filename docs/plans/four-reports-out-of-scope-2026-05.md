@@ -1,7 +1,8 @@
 # 四份对标报告 — 明确不做清单（Out of Scope）
 
 > **状态**：长期有效（2026-05-25 起）  
-> **用途**：Agent / 开发者在提需求或写规划时，先查本文，避免把已否决的能力当作「待实现」。  
+> **用途**：**四报告 18 项否决** 的权威正文（原因 + 替代方案 + 报告索引）。  
+> **合并索引**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)（含五报告 S1–S11、外部 defer、可选 Backlog）  
 > **关联**：[四报告合并路线图](four-reports-improvement-roadmap-2026-05.md) §7、[落地核对表](four-reports-improvement-roadmap-2026-05.md) §9
 
 ---
@@ -94,11 +95,12 @@ Butler v4 是 **微信管家 + 多项目自建 Agent Loop**，不是浏览器自
 
 ---
 
-## 7. 五报告增量「不做」（索引）
+## 7. 五报告与其它路线图（索引）
 
 | 文档 | 内容 |
 |------|------|
-| [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) | **未作总表**：S1–S11 否决 + P2 未排期 + 可深化（推荐 Agent 先读） |
+| [`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md) | **统一决策入口**（否决 + 深化边界 + Backlog） |
+| [`five-reports-not-done-2026-05.md`](five-reports-not-done-2026-05.md) | 五报告 S1–S11 速查 + P5–P10 表 |
 | [`five-reports-improvement-roadmap-2026-05.md`](five-reports-improvement-roadmap-2026-05.md) §6 | S1–S11 原文与原因 |
 
-**本文 §2 总表优先**；五报告否决与未排期以 `five-reports-not-done` 为准。
+**四报告否决以本文 §2 为准**；五报告 S1–S11 以五报告路线图 §6 为准；交叉检索用 `roadmap-backlog-and-boundaries`。

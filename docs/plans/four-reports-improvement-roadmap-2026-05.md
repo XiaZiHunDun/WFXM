@@ -251,7 +251,8 @@ PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py -q
 
 ## 7. 明确不做
 
-> **完整清单（含原因、替代方案、来源报告）**：[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md) — 新增需求前请先查该文档。
+> **完整清单（含原因、替代方案、来源报告）**：[`four-reports-out-of-scope-2026-05.md`](four-reports-out-of-scope-2026-05.md)  
+> **合并索引（四报告 + 五报告 + defer + Backlog）**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)
 
 摘要（18 项，详见 out-of-scope 文档 §2 总表）：
 

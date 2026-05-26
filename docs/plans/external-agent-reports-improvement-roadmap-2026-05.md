@@ -4,7 +4,7 @@
 > **来源报告**：[`llamafactory-butler-comparison-report-2026-05.md`](llamafactory-butler-comparison-report-2026-05.md)、[`deer-flow-butler-comparison-report-2026-05.md`](deer-flow-butler-comparison-report-2026-05.md)、[`openhands-butler-comparison-report-2026-05.md`](openhands-butler-comparison-report-2026-05.md)、[`metagpt-butler-comparison-report-2026-05.md`](metagpt-butler-comparison-report-2026-05.md)、[`ansible-butler-comparison-2026-05.md`](ansible-butler-comparison-2026-05.md)  
 > **事实基线**：[`../architecture/v4-architecture.md`](../architecture/v4-architecture.md)  
 > **前置已落地**：[四报告路线图](four-reports-improvement-roadmap-2026-05.md)（**已收口**）、[五报告路线图](five-reports-improvement-roadmap-2026-05.md)（**PR-F1–F6 已落地**）、[CC 线束](cc-butler-gap-analysis-2026-05.md)  
-> **否决与未排期**：[四报告 out-of-scope](four-reports-out-of-scope-2026-05.md) §2、[五报告未作](five-reports-not-done-2026-05.md)  
+> **否决 / 边界 / Backlog**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md)（**决策入口**）  
 > **原则**：零新增重依赖；不引入 LangGraph / 训练栈 / Docker 沙箱 / Web GUI；不改变「微信管家 + 自建 Agent Loop」边界
 
 ---
