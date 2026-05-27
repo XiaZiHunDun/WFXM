@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 def _mcp_self_service_enabled() -> bool:
+    if os.getenv("BUTLER_MCP_ENABLED", "0").strip().lower() in ("0", "false", "no", "off"):
+        return False
     return os.getenv("BUTLER_MCP_SELF_SERVICE", "1").strip() in ("1", "true")
 
 

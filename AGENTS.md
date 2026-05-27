@@ -19,7 +19,8 @@
 |------|------|
 | Agent 主循环 | `butler/core/agent_loop.py` |
 | 微信入站 | `butler/gateway/message_handler.py` |
-| 入站队列 | `butler/gateway/queue_settings.py` |
+| 入站队列（实现） | `butler/gateway/message_queue.py` |
+| 入站队列（配置） | `butler/gateway/queue_settings.py` |
 | 运行指标 | `butler/ops/runtime_metrics.py` |
 | Workflow 门控 | `butler/human_gate.py` |
 | 向量检索层 | `butler/memory/vector_store.py` |

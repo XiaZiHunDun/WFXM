@@ -252,7 +252,9 @@ def poll_due_reminders() -> list[dict[str, Any]]:
             continue
         due = reminder.get("due_ts", 0)
         if due <= now:
-            fired.append(dict(reminder))
+            snapshot = dict(reminder)
+            snapshot["status"] = "fired"
+            snapshot["fired_ts"] = now
 
             if reminder.get("recurring") and reminder.get("cron"):
                 now_cn = datetime.now(_CN_TZ)
@@ -271,6 +273,8 @@ def poll_due_reminders() -> list[dict[str, Any]]:
                 reminder["status"] = "fired"
                 reminder["fired_ts"] = now
                 _save_reminder(reminder)
+
+            fired.append(snapshot)
     return fired
 
 

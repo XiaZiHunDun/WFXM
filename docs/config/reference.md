@@ -147,7 +147,12 @@
 | `BUTLER_READ_BEFORE_EDIT` | 1 | patch/write 前须 read_file + mtime |
 | `BUTLER_READ_STATE_MAX_ENTRIES` | 100 | read state LRU 上限 |
 | `BUTLER_DISABLE_AUTO_COMPACT` | 0 | `1` 关闭 LLM 摘要压缩 |
-| `BUTLER_CONTEXT_*` | — | 压缩阈值等（见 `.env.example`） |
+| `BUTLER_CONTEXT_OUTPUT_RESERVE` | 16384 | 压缩时为模型输出保留的 token 数 |
+| `BUTLER_CONTEXT_COMPACT_RESERVE` | 32768 | 自动压缩触发缓冲 token |
+| `BUTLER_CONTEXT_WARNING_BUFFER` | 4096 | 上下文 warning 阈值缓冲 |
+| `BUTLER_CONTEXT_ERROR_BUFFER` | 2048 | 上下文 error 阈值缓冲 |
+| `BUTLER_CONTEXT_BLOCKING_BUFFER` | 1024 | 上下文阻塞阈值缓冲 |
+| `BUTLER_CONTEXT_COMPACT_MAX_FAILURES` | 3 | 连续压缩失败上限 |
 | `BUTLER_STREAMING_TOOLS` | 1 | 流式只读工具参数完整后预执行 |
 | `BUTLER_CACHE_SAFE_DELEGATE` | 1 | 委派子 loop 共享父 system + tools/messages 指纹（v2） |
 | `BUTLER_CACHE_SAFE_SHARED_CHARS` | 4096 | 共享 system 前缀最大字符 |
