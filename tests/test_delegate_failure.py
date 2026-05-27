@@ -21,7 +21,7 @@ def test_delegate_failure_completes_task_and_caches_report(tmp_path, monkeypatch
     orch.create_project_agent_loop.return_value = agent
 
     with (
-        patch("butler.tools.registry._orchestrator_for_tool", return_value=orch),
+        patch("butler.tools.builtin_impl._orchestrator_for_tool", return_value=orch),
         patch("butler.execution_context.get_current_session_key", return_value="wechat:u1:demo"),
         patch(
             "butler.tools.project_tools.get_tool_definitions_for_project",

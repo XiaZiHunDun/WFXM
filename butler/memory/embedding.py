@@ -241,12 +241,15 @@ def get_embedder() -> Embedder:
     provider = embedding_provider_name()
     model = embedding_model_name()
     if provider in ("local", "hash", "hashing", ""):
+        logger.debug("Embedding provider: local HashingEmbedder (%s)", model or "hashing-v1")
         return HashingEmbedder(model_id=model or "hashing-v1")
 
     if provider == "fastembed":
         fe = _resolve_fastembed(model)
         if fe is not None:
+            logger.info("Embedding provider: fastembed (%s)", fe.model_id)
             return fe
+        logger.warning("fastembed unavailable → fallback to local HashingEmbedder")
         return HashingEmbedder(model_id="hashing-v1")
 
     api = _resolve_api_embedder(provider, model)
@@ -254,16 +257,17 @@ def get_embedder() -> Embedder:
         try:
             probe = api.embed("ping")
             if probe:
+                logger.info("Embedding provider: %s (%s)", provider, api.model_id)
                 return api
         except Exception as exc:
             logger.warning(
-                "Embedding provider %r failed (%s); falling back to local hashing",
+                "Embedding provider %r probe failed (%s) → fallback to HashingEmbedder",
                 provider,
                 exc,
             )
     else:
         logger.warning(
-            "Embedding provider %r unavailable; falling back to local hashing",
+            "Embedding provider %r unavailable (missing API key?) → fallback to HashingEmbedder",
             provider,
         )
     return HashingEmbedder(model_id="hashing-v1")

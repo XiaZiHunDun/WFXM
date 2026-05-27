@@ -88,3 +88,22 @@ addopts = "-m 'not live_llm'"
 filterwarnings = [
     "ignore:pkg_resources is deprecated:UserWarning:jieba._compat",
 ]
+
+[tool.coverage.run]
+source = ["butler"]
+omit = [
+    "butler/tools/builtin_impl.py",
+    "butler/gateway/platforms/wechat_ilink.py",
+    "butler/gateway/platforms/wechat_format.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 0
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ ==",
+    "@overload",
+]

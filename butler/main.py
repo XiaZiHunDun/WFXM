@@ -1329,14 +1329,71 @@ def _cmd_doctor(_ns: argparse.Namespace) -> int:
     try:
         from butler.config import get_butler_home
 
-        projects_dir = get_butler_home() / "projects"
+        butler_home = get_butler_home()
+        projects_dir = butler_home / "projects"
         if projects_dir.is_dir():
             for child in sorted(projects_dir.iterdir()):
                 if (child / "AGENTS.md").is_file():
                     workspace = child
                     break
     except Exception:
-        workspace = None
+        butler_home = Path(os.environ.get("BUTLER_HOME", "~/.butler")).expanduser()
+
+    print("=== Butler Doctor ===\n")
+
+    # 1. Data directory check
+    print("[数据目录]")
+    expected_dirs = ["sessions", "runtime", "skills", "wechat", "exports", "gateway"]
+    for d in expected_dirs:
+        p = butler_home / d
+        status = "✓" if p.is_dir() else "✗ (missing)"
+        print(f"  {butler_home / d}: {status}")
+    print()
+
+    # 2. Dependency check
+    print("[核心依赖]")
+    core_deps = {
+        "dotenv": "python-dotenv",
+        "yaml": "PyYAML",
+        "httpx": "httpx",
+        "openai": "openai",
+    }
+    for mod, pkg in core_deps.items():
+        try:
+            __import__(mod)
+            print(f"  {pkg}: ✓")
+        except ImportError:
+            print(f"  {pkg}: ✗ (pip install {pkg})")
+
+    # 3. Optional extras
+    print("\n[可选依赖]")
+    optional = {
+        "chromadb": "chromadb (vectors extra)",
+        "fastembed": "fastembed (embeddings extra)",
+        "aiohttp": "aiohttp (gateway extra)",
+        "docling": "docling (documents extra)",
+        "croniter": "croniter (reminders cron)",
+    }
+    for mod, desc in optional.items():
+        try:
+            __import__(mod)
+            print(f"  {desc}: ✓")
+        except ImportError:
+            print(f"  {desc}: — (not installed)")
+
+    # 4. .env file
+    print("\n[配置]")
+    env_path = Path.cwd() / ".env"
+    if env_path.is_file():
+        print(f"  .env: ✓ ({env_path})")
+    else:
+        print("  .env: ✗ (copy .env.example → .env)")
+
+    api_key = os.environ.get("MINIMAX_API_KEY", "")
+    print(f"  MINIMAX_API_KEY: {'✓ (set)' if api_key else '✗ (unset)'}")
+
+    # 5. Security audit
+    print("\n[安全审计]")
     findings = run_security_audit(workspace=workspace)
     print(format_audit_report(findings))
     critical = sum(1 for f in findings if f.level == "critical")
