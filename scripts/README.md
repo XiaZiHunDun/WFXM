@@ -3,6 +3,14 @@
 > 日常只记四条：`butler-gateway-ops.sh`、`butler-smoke.sh`、`butler-pre-release-smoke.sh`（= `--tier=full`）、`sync-lingwen-project-skills.sh`（灵文）。  
 > 整理方案：[`docs/plans/archive/consolidation-2026-05.md`](../docs/plans/archive/consolidation-2026-05.md)
 
+## 部署与数据管理
+
+| 脚本 | 用途 |
+|------|------|
+| `deploy-new-env.sh` | **新环境一键部署**（Python 检查 → venv → 依赖 → 配置 → doctor） |
+| `backup-butler-data.sh` | 备份 `~/.butler/` 运行时数据 |
+| `restore-butler-data.sh` | 从备份恢复数据（自动安全备份已有数据） |
+
 ## 安装与 systemd
 
 | 脚本 | 用途 |

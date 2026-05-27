@@ -50,6 +50,13 @@ projects/*/docs/workflow-output.md
 /projects/kernel-update/
 /projects/WFXM/
 
+# Runtime data & model caches
+chroma_data/
+.fastembed_cache/
+*.onnx
+*.safetensors
+*.ckpt
+
 # Logs
 *.log
 
