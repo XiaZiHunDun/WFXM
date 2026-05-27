@@ -114,7 +114,7 @@ class TestParallelTools:
         reset_tool_audit_events()
         tcs = [ToolCall(id="1", name="read_file", arguments='{"path": "a.py"}')]
 
-        def dispatch(_name, _args):
+        def dispatch(_name, _args, **_kw):
             raise RuntimeError("boom")
 
         pairs = execute_tools_parallel(tcs, dispatch)

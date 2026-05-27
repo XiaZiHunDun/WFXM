@@ -97,15 +97,15 @@
 | 类别 | 权威文档 | 说明 |
 |------|----------|------|
 | core 默认依赖 | [`../../pyproject.toml`](../../pyproject.toml) | `pip install -e .` 会安装的 17 个主路径依赖 |
-| optional extras | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) | `[wechat]`、`[mcp]`、`[voice]`、`[wechat-ocr]`、`[cli]`、`[pty]`、`[dev]` |
+| optional extras | [`dependency-policy-2026-05.md`](./dependency-policy-2026-05.md) | `[wechat]`、`[mcp]`、`[voice]`、`[wechat-ocr]`、`[cli]`、`[pty]`、`[dev]`、`[embeddings]`、`[documents]`、`[web]`、`[notify]`、`[analytics]`、`[vectors]` |
 | 安装方式与分层原则 | [`../config/reference.md`](../config/reference.md) §安装与依赖分层 | `core` vs `optional-dependencies` 的安装入口 |
 | 架构原则 | [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md) §依赖分层与本地状态原则 | 为什么这些依赖在 core 或 optional |
 
 当前规则：
 
 - `core` 保持最小：Loop / Transport / 配置 / 本地状态主路径必需
-- 微信、MCP、OCR、voice、PTY 等能力优先走 `optional-dependencies`
-- `all` 是便捷安装集合，但**不包含** `mcp`
+- 微信、MCP、OCR、voice、PTY、embeddings、vectors、documents、web、notify、analytics 等能力优先走 `optional-dependencies`
+- `all` 是便捷安装集合，但**不包含** `mcp`、`vectors`、`embeddings`、`documents`、`web`、`notify`、`analytics`
 
 ## 5. 明确不引入的依赖
 

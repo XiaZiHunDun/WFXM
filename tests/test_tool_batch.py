@@ -89,7 +89,7 @@ def test_parallel_batch_skips_dispatch_after_guardrail_halt():
     )
     dispatched: list[str] = []
 
-    def dispatch(name: str, _args: dict) -> str:
+    def dispatch(name: str, _args: dict, **_kw: object) -> str:
         dispatched.append(name)
         guardrails.set_halt_decision(halt)
         return json.dumps({"error": "fail"})

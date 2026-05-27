@@ -34,6 +34,16 @@
 | `BUTLER_DEFAULT_PROJECT` | — | 未绑 chat 时的默认项目名 |
 | `BUTLER_GATEWAY_HANDLER_TIMEOUT` | 600 | 单条消息处理超时（秒） |
 | `BUTLER_GATEWAY_HANDLER_WORKERS` | 2 | 并发 worker 数 |
+| `BUTLER_GATEWAY_MAX_SESSIONS` | 50 | 最大活跃会话数 |
+| `BUTLER_GATEWAY_SESSION_IDLE_TTL_SECONDS` | 7200 | 会话空闲过期（秒） |
+| `BUTLER_GATEWAY_TYPING_ENABLED` | 1 | 输入状态提示 |
+| `BUTLER_GATEWAY_PROGRESS_ACK_ENABLED` | 1 | 长任务进度确认推送 |
+| `BUTLER_GATEWAY_PROGRESS_ACK_SECONDS` | 30 | 进度确认间隔（秒） |
+| `BUTLER_GATEWAY_TIMEOUT_COMPLETION_NOTIFY` | 1 | 超时完成推送 |
+| `BUTLER_GATEWAY_TURN_COMPLETION_NOTIFY` | 1 | 轮次完成推送 |
+| `BUTLER_GATEWAY_WORKFLOW_COMPLETION_NOTIFY` | 1 | 工作流完成推送 |
+| `BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS` | 10 | 完成推送最短等待时间 |
+| `BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH` | 500 | 委派完成推送单条最大字符 |
 
 ## 项目与工具安全
 
@@ -42,7 +52,10 @@
 | `BUTLER_PROJECTS_DIR` | 项目根（默认仓库 `projects/`） |
 | `BUTLER_TOOL_SAFE_ROOT` | 工具路径沙箱根 |
 | `BUTLER_LEAD_PROJECTS` | 厂长模式项目列表（逗号分隔；可被 `project.yaml` `lead: true` 补充） |
+| `BUTLER_HOME` | `~/.butler` | Butler 数据根目录 |
 | `BUTLER_ENABLE_TERMINAL` | `1` 启用 terminal |
+| `BUTLER_TERMINAL_ALLOWLIST_EXTRA` | — | 额外允许的 terminal 命令（逗号分隔） |
+| `BUTLER_TERMINAL_PROFILE` | — | 终端 profile 名（不同项目可用不同白名单） |
 | `BUTLER_ENABLE_GIT` / `BUTLER_ENABLE_GIT_WRITE` | 只读 / 写 git 工具 |
 | `BUTLER_ENABLE_GIT_PUSH` | `1` 启用 `git_push` 工具（需同时 `GIT_WRITE=1`；push 前需 Owner 审批） |
 
@@ -55,15 +68,31 @@
 | `BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS` | 25 | 推送间隔 |
 | `BUTLER_RUNTIME_FAIL_ALERT_STREAK` | 3 | 连续失败告警 |
 | `BUTLER_RUNTIME_SMOKE_PUSH` | 0 | 冒烟是否真推送 |
+| `BUTLER_RUNTIME_PUSH_QUEUE` | 1 | 推送入队开关 |
 
 ## 记忆
 
-| 变量 | 说明 |
-|------|------|
-| `BUTLER_SEMANTIC_MEMORY` | `1` 启用本地向量 |
-| `BUTLER_SYNC_CONVERSATION_MEMORY` | `0` 不把每轮聊天写入 experience |
-| `BUTLER_QUEUE_PREFETCH` | `1` 推荐：下轮预取缓存 |
-| `BUTLER_PREFETCH_*` | 预取字符上限与条数（见 `.env.example`） |
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_SEMANTIC_MEMORY` | 1 | 启用本地向量 |
+| `BUTLER_SEMANTIC_SEARCH_LIMIT` | 5 | 单次语义搜索返回条数 |
+| `BUTLER_SYNC_CONVERSATION_MEMORY` | 0 | 不把每轮聊天写入 experience |
+| `BUTLER_QUEUE_PREFETCH` | 1 | 推荐：下轮预取缓存 |
+| `BUTLER_PREFETCH_CACHE_TTL` | 120 | 预取缓存 TTL（秒） |
+| `BUTLER_PREFETCH_MAX_CHARS` | 4000 | 单层预取字符上限 |
+| `BUTLER_PREFETCH_TOTAL_MAX_CHARS` | 12000 | 全部预取合计字符上限 |
+| `BUTLER_PREFETCH_PROJECT_HITS` | 5 | 项目层预取条数 |
+| `BUTLER_PREFETCH_PROJECT_MAX_CHARS` | 3000 | 项目层预取字符上限 |
+| `BUTLER_PREFETCH_EXPERIENCE_HITS` | 5 | 经验层预取条数 |
+| `BUTLER_PREFETCH_FACTS_MAX_CHARS` | 2000 | 事实预取字符上限 |
+| `BUTLER_MEMORY_RECALL_LAYERS` | — | 逗号分隔记忆检索层（project,experience,fact） |
+| `BUTLER_MEMORY_ACCESS_BOOST` | 0.1 | 记忆访问频率权重加成 |
+| `BUTLER_MEMORY_HALF_LIFE_DAYS` | 30 | 记忆衰减半衰期（天） |
+| `BUTLER_MEMORY_PRIVATE_TAGS` | — | 逗号分隔私有标签 |
+| `BUTLER_FTS_HYBRID_WEIGHT` | 0.3 | 全文/向量混合检索权重 |
+| `BUTLER_VECTOR_HYBRID_WEIGHT` | 0.7 | 向量检索在混合中的权重 |
+| `BUTLER_EMBEDDING_PROVIDER` | local | 嵌入提供者：local/fastembed/openai/minimax |
+| `BUTLER_EMBEDDING_MODEL` | hashing-v1 | 嵌入模型名 |
 
 ## Agent Loop 线束（上下文 / 安全）
 
@@ -83,8 +112,19 @@
 | `BUTLER_TOOL_RESULT_THRESHOLDS` | — | JSON 按工具名覆盖阈值；`read_file` 等默认不落盘 |
 | `BUTLER_TOOL_RESULT_MESSAGE_BUDGET` | 1 | 单轮 tool 结果总字符预算（CC enforceToolResultBudget） |
 | `BUTLER_TOOL_RESULT_MESSAGE_MAX_CHARS` | 200000 | 单轮 tool 结果聚合上限 |
+| `BUTLER_TOOL_RESULT_SPILL_PREVIEW_CHARS` | 500 | 落盘 tool 结果内联预览字符 |
+| `BUTLER_TOOL_AUDIT_JSONL` | 0 | `1` 写入工具审计 JSONL |
+| `BUTLER_TOOL_AUDIT_PATH` | — | 审计 JSONL 文件路径 |
+| `BUTLER_TOOL_ERROR_POLICY` | log | 工具错误策略：log/raise/retry |
+| `BUTLER_UTF16_SAFE_TRUNCATE` | 1 | 截断时对齐 UTF-16 边界 |
+| `BUTLER_TOOL_PRUNE_DEFAULT_CHARS` | 600 | 默认工具输出剪枝字符 |
+| `BUTLER_TOOL_PRUNE_PRESERVE_CHARS` | 2000 | 剪枝保护字符 |
+| `BUTLER_TOOL_PRUNE_KEEP_RECENT` | 3 | 保留最近 N 个工具输出不剪枝 |
+| `BUTLER_TOOL_PRUNE_CLEARABLE_CHARS` | 100 | 可完全清除的工具输出阈值 |
 | `BUTLER_TOOL_PRUNE_*` | 见 example | 按工具分级 micro 剪枝 |
-| `BUTLER_TOOL_PRUNE_BACKWARD*` | 见 example | OpenCode 式从旧 tool 消息向后擦除输出 |
+| `BUTLER_TOOL_PRUNE_BACKWARD` | 1 | OpenCode 式向后工具输出剪枝开关 |
+| `BUTLER_TOOL_PRUNE_BACKWARD_MINIMUM` | 20000 | 向后剪枝目标最小字符 |
+| `BUTLER_TOOL_PRUNE_BACKWARD_PROTECT` | 40000 | 向后剪枝保护字符 |
 | `BUTLER_COMPACTION_USE_OPENCODE_TEMPLATE` | 1 | 压缩摘要使用 Goal/Progress/… 固定节 |
 | `BUTLER_COMPACTION_USE_TURNS` | 1 | 按 user turn + token 预算选压缩尾（OpenCode compaction.ts） |
 | `BUTLER_COMPACTION_TAIL_TURNS` | 2 | 参与尾保护的最近 turn 数 |
@@ -174,6 +214,7 @@
 | `BUTLER_RAG_SUBQUERY` | 1 | `0` 关闭复合问句多子 query 检索 |
 | `BUTLER_RAG_SUBQUERY_MAX` | 3 | 单次检索最多子 query 数 |
 | `BUTLER_RAG_SUBQUERY_MIN_CHARS` | 72 | 超过此长度才尝试按句切分 |
+| `BUTLER_INSTRUCTION_WALKUP_MAX_CHARS` | 2000 | read_file 后注入 AGENTS.md 最大字符 |
 | `BUTLER_TOOL_IMPLICIT_CONTEXT` | 1 | `0` 关闭 dispatch 时注入 `_butler_*` 隐式参数 |
 | `BUTLER_SCHEMA_OPTIMIZE` | 1 | LLM 调用前预净化 tool schema |
 | `BUTLER_TOKEN_COST_ESTIMATE` | 0 | `1` 时 `/诊断` 显示粗算美元成本 |
@@ -225,7 +266,6 @@
 | `BUTLER_THINKING_BETA_HEADER` | （空） | 覆盖 anthropic-beta 头（需 `BUTLER_THINKING_PROTOCOL=1`） |
 | `BUTLER_THINKING_BETA_MATRIX` | （空） | JSON 矩阵 `[{provider,model_contains,anthropic_beta}]` |
 | `BUTLER_HUB_MANIFEST_CHECK` | 1 | `butler registry verify` 校验 bundled catalog + 远程 Hub |
-| `BUTLER_MCP_CATALOG_URLS` | （空） | 逗号分隔远程 MCP 目录 URL（Hub 合并） |
 | `BUTLER_OUTPUT_SCHEMA_REPAIR_MAX` | 2 | 终局 schema LLM 修复最多轮次 |
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 workspace `.butler/observations.db`（SQLite observation store） |
 | `BUTLER_MEMORY_OBSERVATION_TTL_DAYS` | 0 | observation store 按天裁剪旧记录（0=关闭） |
@@ -240,6 +280,8 @@
 | `BUTLER_PREFETCH_INJECTION_FILTER` | 1 | 记忆预取行过滤 injection 模式 |
 | `BUTLER_PROVIDER_CIRCUIT` | 1 | 供应商熔断（见 `provider_health.py`） |
 | `BUTLER_PROVIDER_FAILOVER` | （空） | 全局 failover 列表，逗号分隔 `provider/model` |
+| `BUTLER_PROVIDER_CIRCUIT_FAILURES` | 3 | 熔断触发失败次数 |
+| `BUTLER_PROVIDER_CIRCUIT_OPEN_SECONDS` | 60 | 熔断打开持续秒数 |
 | `BUTLER_TOOL_LOOP_DETECTORS` | ping_pong,poll,circuit | 工具环检测（`off` 关闭） |
 | `BUTLER_TOOL_LOOP_CIRCUIT_LIMIT` | 40 | 单轮工具调用熔断上限 |
 | `BUTLER_TERMINAL_REQUIRE_APPROVAL` | 0 | `1` 时 terminal 须 Owner `/批准执行` |
@@ -268,6 +310,7 @@
 | `pip install -e ".[web]"` | 网页正文智能提取（trafilatura，替代正则） |
 | `pip install -e ".[notify]"` | 多渠道通知（apprise：Telegram/Email/Slack 等 130+） |
 | `pip install -e ".[analytics]"` | 本地数据查询（duckdb：CSV/JSON/Parquet/SQLite） |
+| `pip install -e ".[vectors]"` | 向量检索（chromadb：嵌入式持久化，替代内存暴力搜） |
 
 **原则**：新增外部依赖优先进入 `pyproject.toml` `optional-dependencies`；只有主循环、transport、配置和本地状态主路径必需的能力才进入 core 默认依赖。
 
@@ -286,9 +329,7 @@
 | `BUTLER_GATEWAY_DURABLE_OUTBOX` | 1 | completion push 发送前写 `~/.butler/gateway_outbox/{pending,sent,failed}` |
 | `BUTLER_GATEWAY_DURABLE_OUTBOX_MAX` | 200 | durable outbox 每状态最多保留条数 |
 | `BUTLER_GATEWAY_QUEUE_PERSIST` | 0 | 入站队列 JSONL 持久化（`~/.butler/gateway/queue/`），启动时恢复 |
-| `BUTLER_SESSION_SUMMARY` | 1 | 新会话启动时注入上次 session_summary.json 摘要 |
 | `BUTLER_REMINDER_POLL_SECONDS` | 60 | 提醒轮询间隔（秒） |
-| `BUTLER_OWNER_WECHAT_ID` | — | Owner 微信 ID（用于提醒推送） |
 | `BUTLER_GATEWAY_DELEGATE_COMPLETION_*` | — | 委派完成推送模式（见 `.env.example`） |
 | `BUTLER_REPLY_ADMISSION` | 1 | 每 session 单飞 reply turn；忙则入队 |
 | `BUTLER_BOT_LOOP_GUARD` | 0 | 群聊 bot 互 @ 环防护 |
@@ -300,6 +341,14 @@
 | `BUTLER_TOOL_RETRY` | 1 | 瞬态错误工具自动重试 |
 | `BUTLER_TOOL_CALL_LIMIT_PER_TOOL` | 0 | 每轮单工具调用上限（0=关闭） |
 | `BUTLER_OUTBOUND_PII_SCRUB` | 1 | 微信出站手机号/证件号脱敏 |
+| `BUTLER_WECHAT_INBOUND_MEDIA` | 0 | 微信入站媒体（图片/语音）处理 |
+| `BUTLER_WECHAT_MEDIA_MAX_CHARS` | 4000 | 媒体 OCR/转写最大字符 |
+| `BUTLER_WECHAT_STT_PROVIDER` | — | 语音转文字提供者 |
+| `BUTLER_WECHAT_WHISPER_MODEL` | — | Whisper 模型名 |
+| `BUTLER_WECHAT_VISION_FALLBACK` | 0 | 图片识别降级开关 |
+| `BUTLER_WECHAT_VISION_TIMEOUT` | 30 | 图片识别超时（秒） |
+| `BUTLER_WECHAT_PREFER_ILINK_TEXT` | 1 | 优先 iLink 文本消息 |
+| `BUTLER_WECHAT_MINIMAX_API_HOST` | — | MiniMax API host 覆盖 |
 | `BUTLER_GATEWAY_HUMAN_GATE_TTL` | 3600 | workflow 人工 gate 最短 60s 过期 |
 | `BUTLER_DELEGATE_MAX_ITERATIONS` | 24 | 委派子 loop 默认迭代上限 |
 | `BUTLER_CATALOG_INTEGRITY` | 1 | bundled catalog SHA-256 校验 |
@@ -329,6 +378,10 @@
 | `BUTLER_MCP_PROFILES` | 1 | MCP server 按 profile 过滤（`mcp.yaml` `profiles`） |
 | `BUTLER_CORRECTIVE_RECALL` | 1 | 委派子 loop 工具失败时追加纠错检索块 |
 | `BUTLER_CORPUS_ROUTING` | 1 | `search_project_knowledge` 多 scope 路由 |
+| `BUTLER_ENABLE_DOWNLOAD` | 0 | 启用文件下载工具 |
+| `BUTLER_DOWNLOAD_MAX_BYTES` | 10485760 | 下载文件大小上限 |
+| `BUTLER_DOWNLOAD_ALLOW_HOSTS` | — | 下载白名单 host |
+| `BUTLER_DATA_QUERY` | 0 | 启用 `data_query` 工具（duckdb） |
 | `BUTLER_ENABLE_WEB_FETCH` | 0 | 启用薄 `web_fetch`（公网 URL，SSRF 校验） |
 | `BUTLER_WEB_FETCH_MAX_BYTES` | 65536 | web_fetch 响应字节上限 |
 | `BUTLER_WEB_FETCH_TIMEOUT` | 20 | web_fetch 超时（秒） |
@@ -352,7 +405,8 @@
 | `BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST` | — | 向后剪枝最少回收字符数 |
 | `BUTLER_BOT_LOOP_WHITELIST` | — | 逗号分隔 chat_id 白名单 |
 | `BUTLER_TURN_TOKEN_BUDGET` | 1 | 句末 `+500k` / `/budget` 提高迭代上限 |
-| `BUTLER_TURN_BUDGET_*` | — | 预算数值（见 example） |
+| `BUTLER_TURN_BUDGET_DEFAULT` | 200000 | 默认轮预算 token 数 |
+| `BUTLER_TURN_BUDGET_MAX_ITERATIONS` | 50 | 轮预算最大迭代次数 |
 | `BUTLER_TERMINAL_PIPE` | 0 | `1` 允许 terminal 工具有限管道（`\|`），仅白名单命令间可管道，最多 5 段 |
 | `BUTLER_ONBOARDING_WELCOME` | 0 | `1` 新会话首条消息前附加 Butler 能力概览欢迎语 |
 | `BUTLER_WORKFLOW_AUTO_RESUME` | 0 | `1` workflow 步骤确认后自动续跑（无需再发 `/workflow`） |
@@ -376,6 +430,14 @@ Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → **循环内**注入 u
 | `BUTLER_WECHAT_DEV_SMOKE` | `/诊断` 显示开发项 |
 | `BUTLER_CLI_STREAM_MODE` | CLI 流式 `live` / `off` |
 | `BUTLER_RUNTIME_RUN_CONSISTENCY` | `1` 时 runtime-smoke 跑 consistency-weekly |
+| `BUTLER_RUN_REAL_API_SMOKE` | 0 | `1` 跑真实 API 冒烟测试 |
+| `BUTLER_SMOKE_DEEPSEEK_MODEL` | — | 冒烟用 DeepSeek 模型 |
+| `BUTLER_SMOKE_DEEPSEEK_REASONER_MODEL` | — | 冒烟用 DeepSeek 推理模型 |
+| `BUTLER_SMOKE_MINIMAX_MODEL` | — | 冒烟用 MiniMax 模型 |
+| `BUTLER_SMOKE_QWEN_MODEL` | — | 冒烟用 Qwen 模型 |
+| `BUTLER_NOTIFY_URLS` | — | 多渠道通知 URL（apprise 格式，CSV） |
+| `BUTLER_PERMISSIONS_PARAM_BLACKLIST` | — | 权限参数黑名单 |
+| `BUTLER_EXPERIENCE_PRUNE_DAYS` | 90 | 经验数据过期天数 |
 
 ## 工具名别名（`project.yaml` / 提示词 → 注册表）
 
