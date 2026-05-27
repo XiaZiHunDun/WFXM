@@ -577,9 +577,9 @@ class TestTerminal:
         fake_proc.communicate.side_effect = AssertionError("communicate should not be used")
         fake_proc.returncode = -9
 
-        with patch("butler.tools.registry.subprocess.Popen", return_value=fake_proc):
+        with patch("butler.tools.builtin_impl.subprocess.Popen", return_value=fake_proc):
             with patch(
-                "butler.tools.registry._communicate_limited",
+                "butler.tools.builtin_impl._communicate_limited",
                 side_effect=subprocess.TimeoutExpired(cmd="sleep 10", timeout=1),
             ):
                 result = dispatch_tool("terminal", {"command": "sleep 10", "timeout": 1})

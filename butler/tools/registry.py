@@ -1025,4 +1025,11 @@ from butler.tools.builtin_impl import (  # noqa: F401
     _finalize_delegate_failure,
     _run_subagent_stop_hooks,
     _communicate_limited,
+    _extract_changes_from_messages,
+    _extract_issues_from_messages,
+    _delegate_task_succeeded,
+    _delegate_role_label,
+    _safe_dispatch,
+    _project_agent_raw_message,
+    _inject_project_agent_skills,
 )
