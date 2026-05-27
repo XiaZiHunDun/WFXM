@@ -45,11 +45,16 @@ echo ""
 
 # 预检：列出备份内容
 echo "备份内容预览:"
-tar tzf "$BACKUP" | head -20
+TAR_LIST=$(tar tzf "$BACKUP" 2>/dev/null || true)
+echo "$TAR_LIST" | head -20 || true
+TOTAL_FILES=$(echo "$TAR_LIST" | wc -l)
 echo "..."
-TOTAL_FILES=$(tar tzf "$BACKUP" | wc -l)
 echo "(共 $TOTAL_FILES 个条目)"
 echo ""
+
+# 检测 tar 内的顶层目录名
+TAR_TOP=$(echo "$TAR_LIST" | head -1 | cut -d/ -f1)
+echo "备份内部根: $TAR_TOP"
 
 # 如果目标已存在，先做安全备份
 if [[ -d "$BUTLER_HOME" ]] && [[ "$FORCE" -eq 0 ]]; then
@@ -64,10 +69,20 @@ if [[ -d "$BUTLER_HOME" ]] && [[ "$FORCE" -eq 0 ]]; then
   fi
 fi
 
-# 恢复
+# 恢复：解包到临时目录再移动，确保路径正确对齐
 echo "正在恢复..."
-mkdir -p "$(dirname "$BUTLER_HOME")"
-tar xzf "$BACKUP" -C "$(dirname "$BUTLER_HOME")"
+TMPDIR=$(mktemp -d)
+tar xzf "$BACKUP" -C "$TMPDIR"
+
+# 将解包内容移动到 BUTLER_HOME
+mkdir -p "$BUTLER_HOME"
+EXTRACTED="$TMPDIR/$TAR_TOP"
+if [[ -d "$EXTRACTED" ]]; then
+  cp -a "$EXTRACTED"/. "$BUTLER_HOME"/
+else
+  cp -a "$TMPDIR"/. "$BUTLER_HOME"/
+fi
+rm -rf "$TMPDIR"
 
 # 验证
 echo ""
