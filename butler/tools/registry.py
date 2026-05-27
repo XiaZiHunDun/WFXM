@@ -1002,6 +1002,10 @@ def _register_builtin_tools() -> None:
 
     register_project_todos_tools(register)
 
+    from butler.tools.mcp_self_service import register_mcp_self_service_tools
+
+    register_mcp_self_service_tools(register)
+
 
 # ── Tool Implementations ─────────────────────────────────────
 

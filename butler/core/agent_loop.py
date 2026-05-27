@@ -202,9 +202,18 @@ class AgentLoop:
         try:
             from butler.core.tool_selector import select_tools_for_context
 
+            skill_pt: set[str] = set()
+            try:
+                from butler.core.skill_tool_bridge import extract_skill_preferred_tools
+
+                skill_pt = extract_skill_preferred_tools(user_content)
+            except Exception:
+                pass
+
             selected, sel_diag = select_tools_for_context(
                 turn_tools,
                 user_hint=user_content,
+                skill_preferred_tools=skill_pt or None,
             )
             turn_tools = list(selected)
             for key, val in sel_diag.items():

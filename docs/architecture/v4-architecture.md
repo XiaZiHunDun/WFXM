@@ -339,6 +339,19 @@ while not done and iterations < budget:
 
 守门：`pytest tests/test_p2_remaining_features.py -q`
 
+### 编排质量增强（2026-05）
+
+| 项 | 模块 | 配置 |
+|----|------|------|
+| Cron 重复提醒 | `tools/reminder.py` | `set_reminder` when 支持 `每天 9:00`、`工作日`、cron 表达式 |
+| 向量检索层 | `memory/vector_store.py` | `[vectors]` extra（ChromaDB 优先，fallback 内存暴力搜） |
+| Skill/工具语义路由 | `skills/router.py`、`core/tool_selector.py` | `BUTLER_SKILL_SEMANTIC_ROUTING`、`BUTLER_TOOL_SEMANTIC_SELECT`（需非 hashing embedder） |
+| MCP 自助安装 | `tools/mcp_self_service.py` | `BUTLER_MCP_SELF_SERVICE=1`；`mcp_catalog_search`、`mcp_install`、`mcp_remove` |
+| 压缩前 Fact 提取 | `core/fact_extraction.py` → `post_compact_cleanup.py` | `BUTLER_FACT_EXTRACTION=1`（默认开）；压缩后注入事实锚点 |
+| Skill preferred_tools | `skills/router.py` → `core/skill_tool_bridge.py` → `core/tool_selector.py` | Skill frontmatter `preferred_tools` 字段保留工具不被筛掉 |
+
+守门：`pytest tests/test_orchestration_improvements.py -q`
+
 ### OpenCode 对标落地（2026-05，P0–P2）
 
 详见 [`plans/opencode-learning-plan-2026-05.md`](../plans/comparisons/opencode-learning-plan-2026-05.md)。
@@ -381,6 +394,7 @@ while not done and iterations < budget:
 - CC P0–P2 线束（`test_tool_result_storage.py`、`test_tool_prune_policy.py`、`test_read_state.py`、`test_loop_transition.py`、`test_message_queue.py`、`test_streaming_tools.py`、`test_cache_safe_delegate.py`、`test_gateway_queue_drain_push.py`）
 - 外部对标（`test_runtime_metrics.py`、`test_gateway_queue_command.py`、`test_p2_workflow_permissions.py`）
 - 体验增强（`test_p2_remaining_features.py`：总览、项目待办、管道、引导、自动续跑）
+- 编排质量（`test_orchestration_improvements.py`：cron 提醒、向量检索、语义路由、MCP 自助、fact 提取、Skill 工具联动）
 - OpenCode 对标（`test_opencode_features.py`）
 - Report / CLI / Session lifecycle
 - 真实 API smoke（可选）：`BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py`

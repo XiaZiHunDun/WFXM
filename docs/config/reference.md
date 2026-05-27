@@ -351,6 +351,10 @@
 | `BUTLER_TERMINAL_PIPE` | 0 | `1` 允许 terminal 工具有限管道（`\|`），仅白名单命令间可管道，最多 5 段 |
 | `BUTLER_ONBOARDING_WELCOME` | 0 | `1` 新会话首条消息前附加 Butler 能力概览欢迎语 |
 | `BUTLER_WORKFLOW_AUTO_RESUME` | 0 | `1` workflow 步骤确认后自动续跑（无需再发 `/workflow`） |
+| `BUTLER_SKILL_SEMANTIC_ROUTING` | 1 | `1` Skill 路由使用 embedding 语义匹配（需非 hashing embedder） |
+| `BUTLER_TOOL_SEMANTIC_SELECT` | 1 | `1` 工具选择加入 embedding 语义评分 |
+| `BUTLER_MCP_SELF_SERVICE` | 1 | `1` 注册 `mcp_catalog_search`/`mcp_install`/`mcp_remove` Agent 工具 |
+| `BUTLER_FACT_EXTRACTION` | 1 | `1` 压缩前从对话提取结构化事实，压缩后重注入 |
 
 Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → **循环内**注入 user 消息并续跑（`stop_hook_blocked`），非仅替换最终回复。
 

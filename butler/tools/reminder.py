@@ -1,4 +1,7 @@
-"""Personal reminder tool — set, list, cancel reminders with due-time push."""
+"""Personal reminder tool — set, list, cancel reminders with due-time push.
+
+Supports one-shot and recurring (cron) reminders.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +14,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+from croniter import croniter
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +30,52 @@ _UNIT_MAP: dict[str, int] = {
     "小时": 3600, "时": 3600, "h": 3600, "hour": 3600, "hours": 3600,
     "天": 86400, "日": 86400, "d": 86400, "day": 86400, "days": 86400,
 }
+
+_CRON_ALIASES: dict[str, str] = {
+    "每天": "0 9 * * *",
+    "每小时": "0 * * * *",
+    "每周一": "0 9 * * 1",
+    "每周二": "0 9 * * 2",
+    "每周三": "0 9 * * 3",
+    "每周四": "0 9 * * 4",
+    "每周五": "0 9 * * 5",
+    "每周六": "0 9 * * 6",
+    "每周日": "0 9 * * 0",
+    "工作日": "0 9 * * 1-5",
+    "每月1号": "0 9 1 * *",
+    "daily": "0 9 * * *",
+    "hourly": "0 * * * *",
+    "weekdays": "0 9 * * 1-5",
+}
+
+_NATURAL_CRON_RE = re.compile(
+    r"每天\s*(\d{1,2})[:\s时](\d{1,2})?",
+)
+
+
+def _parse_cron_schedule(text: str) -> str | None:
+    """Parse cron expression from user input. Returns 5-field cron or None."""
+    stripped = text.strip().lower()
+
+    if stripped in _CRON_ALIASES:
+        return _CRON_ALIASES[stripped]
+
+    m = _NATURAL_CRON_RE.search(stripped)
+    if m:
+        hour = int(m.group(1))
+        minute = int(m.group(2) or 0)
+        if 0 <= hour <= 23 and 0 <= minute <= 59:
+            return f"{minute} {hour} * * *"
+
+    parts = stripped.split()
+    if len(parts) == 5:
+        try:
+            croniter(stripped)
+            return stripped
+        except (ValueError, KeyError):
+            pass
+
+    return None
 
 
 def _reminders_dir() -> Path:
@@ -109,13 +160,45 @@ def tool_set_reminder(message: str, when: str, **_: Any) -> str:
     if not msg:
         return json.dumps({"ok": False, "error": "message is required"})
     if not raw_when:
-        return json.dumps({"ok": False, "error": "when is required (e.g. '30分钟', '14:00')"})
+        return json.dumps({"ok": False, "error": "when is required (e.g. '30分钟', '14:00', '每天 9:00')"})
+
+    cron_expr = _parse_cron_schedule(raw_when)
+
+    if cron_expr is not None:
+        now_cn = datetime.now(_CN_TZ)
+        cit = croniter(cron_expr, now_cn)
+        next_fire = cit.get_next(datetime)
+        rid = uuid.uuid4().hex[:10]
+        reminder = {
+            "id": rid,
+            "message": msg,
+            "cron": cron_expr,
+            "due_ts": next_fire.timestamp(),
+            "due_human": next_fire.strftime("%Y-%m-%d %H:%M"),
+            "created_ts": time.time(),
+            "status": "pending",
+            "recurring": True,
+            "fire_count": 0,
+        }
+        _save_reminder(reminder)
+        return json.dumps({
+            "ok": True,
+            "id": rid,
+            "message": msg,
+            "recurring": True,
+            "cron": cron_expr,
+            "next_fire": reminder["due_human"],
+        }, ensure_ascii=False)
 
     due_ts = parse_due_timestamp(raw_when)
     if due_ts is None:
         return json.dumps({
             "ok": False,
-            "error": f"Cannot parse time: '{raw_when}'. Examples: '30分钟', '2小时', '14:00', '2026-05-28 09:00'",
+            "error": (
+                f"Cannot parse time: '{raw_when}'. Examples: "
+                "'30分钟', '2小时', '14:00', '2026-05-28 09:00', "
+                "'每天 9:00', '工作日', '每小时', '0 9 * * 1-5'"
+            ),
         })
 
     rid = uuid.uuid4().hex[:10]
@@ -158,7 +241,10 @@ def tool_cancel_reminder(reminder_id: str, **_: Any) -> str:
 
 
 def poll_due_reminders() -> list[dict[str, Any]]:
-    """Check for reminders that are past due. Returns fired reminders."""
+    """Check for reminders that are past due. Returns fired reminders.
+
+    Recurring reminders auto-reschedule to the next cron fire time.
+    """
     now = time.time()
     fired: list[dict[str, Any]] = []
     for reminder in _load_all():
@@ -166,10 +252,25 @@ def poll_due_reminders() -> list[dict[str, Any]]:
             continue
         due = reminder.get("due_ts", 0)
         if due <= now:
-            reminder["status"] = "fired"
-            reminder["fired_ts"] = now
-            _save_reminder(reminder)
-            fired.append(reminder)
+            fired.append(dict(reminder))
+
+            if reminder.get("recurring") and reminder.get("cron"):
+                now_cn = datetime.now(_CN_TZ)
+                try:
+                    cit = croniter(reminder["cron"], now_cn)
+                    next_fire = cit.get_next(datetime)
+                    reminder["due_ts"] = next_fire.timestamp()
+                    reminder["due_human"] = next_fire.strftime("%Y-%m-%d %H:%M")
+                    reminder["fire_count"] = reminder.get("fire_count", 0) + 1
+                    _save_reminder(reminder)
+                except (ValueError, KeyError):
+                    reminder["status"] = "fired"
+                    reminder["fired_ts"] = now
+                    _save_reminder(reminder)
+            else:
+                reminder["status"] = "fired"
+                reminder["fired_ts"] = now
+                _save_reminder(reminder)
     return fired
 
 
@@ -177,14 +278,22 @@ def register_reminder_tools(register: Callable[..., None]) -> None:
     register(
         name="set_reminder",
         description=(
-            "Set a personal reminder. Time supports relative ('30分钟', '2小时', '1天') "
-            "or absolute ('14:00', '2026-05-28 09:00'). Reminder will be pushed via WeChat."
+            "Set a personal reminder. Supports: relative ('30分钟', '2小时'), "
+            "absolute ('14:00', '2026-05-28 09:00'), "
+            "recurring cron ('每天 9:00', '工作日', '每小时', '每周一', or 5-field cron '0 9 * * 1-5'). "
+            "Recurring reminders auto-reschedule after each fire."
         ),
         schema={
             "type": "object",
             "properties": {
                 "message": {"type": "string", "description": "Reminder content"},
-                "when": {"type": "string", "description": "When to remind (e.g. '30分钟', '14:00')"},
+                "when": {
+                    "type": "string",
+                    "description": (
+                        "When to remind. Relative: '30分钟'. Absolute: '14:00'. "
+                        "Recurring: '每天 9:00', '工作日', '每小时', '每周一', or cron '0 9 * * 1-5'"
+                    ),
+                },
             },
             "required": ["message", "when"],
         },

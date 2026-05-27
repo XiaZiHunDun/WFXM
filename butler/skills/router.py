@@ -1,13 +1,35 @@
-"""Task-time skill matching for context injection (triggers + TF-IDF)."""
+"""Task-time skill matching for context injection (triggers + semantic + TF-IDF)."""
 
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Callable
 
 from butler.skills.similarity import tfidf_cosine
 
 logger = logging.getLogger(__name__)
+
+_embedding_cache: dict[str, list[float]] = {}
+
+
+def _semantic_routing_enabled() -> bool:
+    return os.getenv("BUTLER_SKILL_SEMANTIC_ROUTING", "1").strip() == "1"
+
+
+def _get_embedder_safe():
+    """Get embedder if available, None otherwise (avoids import cost when disabled)."""
+    if not _semantic_routing_enabled():
+        return None
+    try:
+        from butler.memory.embedding import get_embedder
+
+        embedder = get_embedder()
+        if embedder.model_id.startswith("hashing"):
+            return None
+        return embedder
+    except Exception:
+        return None
 
 
 def _skill_text(skill: dict[str, Any]) -> str:
@@ -16,8 +38,22 @@ def _skill_text(skill: dict[str, Any]) -> str:
     return f"{desc}\n{triggers}"
 
 
+def _embed_skill(embedder: Any, skill: dict[str, Any]) -> list[float]:
+    """Embed skill text with caching by skill name + description hash."""
+    text = _skill_text(skill)
+    cache_key = f"skill:{skill.get('name', '')}:{hash(text)}"
+    if cache_key in _embedding_cache:
+        return _embedding_cache[cache_key]
+    try:
+        vec = embedder.embed(text)
+        _embedding_cache[cache_key] = vec
+        return vec
+    except Exception:
+        return []
+
+
 class SkillRouter:
-    """Match a task string to the most relevant skills (no LLM)."""
+    """Match a task string to the most relevant skills (triggers + semantic + TF-IDF)."""
 
     def __init__(
         self,
@@ -28,6 +64,7 @@ class SkillRouter:
         self._skills = list(skills)
         self._content_loader = content_loader
         self._batch_content_loader = batch_content_loader
+        self._embedder = _get_embedder_safe()
 
     def _payload_for(
         self,
@@ -43,6 +80,7 @@ class SkillRouter:
             "version": skill.get("version"),
             "created": skill.get("created"),
             "match_score": round(score, 4),
+            "preferred_tools": list(skill.get("preferred_tools") or []),
         }
         full = None
         if payload["name"] and loaded_by_name:
@@ -64,12 +102,25 @@ class SkillRouter:
         return payload
 
     def match(self, task_description: str, top_k: int = 3) -> list[dict[str, Any]]:
-        """Return skill dicts with injection-ready `content` and `match_score`."""
+        """Return skill dicts with injection-ready `content` and `match_score`.
+
+        Scoring cascade:
+        1. Trigger substring match → 0.9
+        2. Semantic embedding similarity (if embedder available) → cosine score * 0.85
+        3. TF-IDF cosine fallback → raw cosine score
+        """
         if not task_description or not self._skills:
             return []
 
         task_lower = task_description.lower()
         scored: list[tuple[float, dict[str, Any]]] = []
+
+        query_vec: list[float] = []
+        if self._embedder:
+            try:
+                query_vec = self._embedder.embed(task_description)
+            except Exception:
+                query_vec = []
 
         for skill in self._skills:
             score = 0.0
@@ -78,6 +129,14 @@ class SkillRouter:
                 if t and t in task_lower:
                     score = max(score, 0.9)
                     break
+
+            if score < 0.5 and query_vec and self._embedder:
+                skill_vec = _embed_skill(self._embedder, skill)
+                if skill_vec:
+                    from butler.memory.embedding import cosine_similarity
+
+                    sim = cosine_similarity(query_vec, skill_vec)
+                    score = max(score, sim * 0.85)
 
             if score < 0.5:
                 st = _skill_text(skill)
@@ -107,3 +166,13 @@ class SkillRouter:
             self._payload_for(skill, score, loaded_by_name=loaded_by_name)
             for score, skill in selected
         ]
+
+    def get_preferred_tools(self, task_description: str, top_k: int = 3) -> set[str]:
+        """Return the union of preferred_tools from matched skills."""
+        matched = self.match(task_description, top_k=top_k)
+        tools: set[str] = set()
+        for skill in matched:
+            pt = skill.get("preferred_tools") or []
+            if isinstance(pt, list):
+                tools.update(str(t) for t in pt if t)
+        return tools

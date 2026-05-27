@@ -119,6 +119,19 @@ def build_post_compact_anchor_text(
     except Exception as exc:
         logger.debug("Post-compact recent files skipped: %s", exc)
 
+    try:
+        from butler.core.fact_extraction import format_facts_for_anchor
+        from butler.execution_context import get_audit_session_key
+
+        sk = get_audit_session_key(fallback="_global")
+        facts_block = format_facts_for_anchor(sk)
+        if facts_block:
+            parts.append(facts_block)
+            if diagnostics is not None:
+                diagnostics["post_compact_facts"] = True
+    except Exception as exc:
+        logger.debug("Post-compact facts anchor skipped: %s", exc)
+
     body = "\n\n".join(p for p in parts if p.strip())
     if not body:
         return ""

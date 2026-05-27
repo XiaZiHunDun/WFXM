@@ -313,6 +313,15 @@ def compress_messages(
             return system + head_tail, previous_summary, False
         return pruned, previous_summary, False
 
+    try:
+        from butler.core.fact_extraction import extract_pre_compact_facts
+        from butler.execution_context import get_audit_session_key
+
+        sk = get_audit_session_key(fallback="_global")
+        extract_pre_compact_facts(sk, middle)
+    except Exception as exc:
+        logger.debug("Fact extraction skipped: %s", exc)
+
     middle = truncate_tool_responses_to_budget(middle)
     summary, used_remote = _summarize_middle(middle, previous_summary)
     if not summary.strip():

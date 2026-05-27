@@ -41,6 +41,12 @@
 | Terminal 有限管道 | 已落地 | `BUTLER_TERMINAL_PIPE=1` | `butler/tools/path_safety.py` |
 | 首次使用引导 | 已落地 | `BUTLER_ONBOARDING_WELCOME=1` | `butler/gateway/message_handler.py` |
 | Workflow 确认自动续跑 | 已落地 | `BUTLER_WORKFLOW_AUTO_RESUME=1` | `butler/human_gate.py` |
+| Cron 重复提醒 | 已落地 | 默认 | `butler/tools/reminder.py` |
+| 向量检索层（ChromaDB） | 已落地 | `[vectors]` extra | `butler/memory/vector_store.py` |
+| Skill/工具语义路由 | 已落地 | 默认（需 fastembed） | `butler/skills/router.py` |
+| MCP 自助安装 | 已落地 | `BUTLER_MCP_SELF_SERVICE=1` | `butler/tools/mcp_self_service.py` |
+| 压缩前 Fact 提取 | 已落地 | `BUTLER_FACT_EXTRACTION=1` | `butler/core/fact_extraction.py` |
+| Skill preferred_tools 联动 | 已落地 | 默认 | `butler/core/skill_tool_bridge.py` |
 | 浏览器自动化平台、RAGFlow 全栈、LangGraph 替代 Loop | 明确不做 | 不引入 | [`../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) §1 |
 
 ## 2. 已实现能力（文档入口）

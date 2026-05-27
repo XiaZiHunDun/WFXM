@@ -22,6 +22,10 @@
 | 入站队列 | `butler/gateway/queue_settings.py` |
 | 运行指标 | `butler/ops/runtime_metrics.py` |
 | Workflow 门控 | `butler/human_gate.py` |
+| 向量检索层 | `butler/memory/vector_store.py` |
+| Fact 提取 | `butler/core/fact_extraction.py` |
+| MCP 自助工具 | `butler/tools/mcp_self_service.py` |
+| Skill 工具桥接 | `butler/core/skill_tool_bridge.py` |
 | 工具/委派 | `butler/tools/registry.py` |
 | 项目级持久待办 | `butler/tools/project_todos.py` |
 | CLI | `butler/main.py` |
@@ -37,6 +41,8 @@ PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command
  tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
 # 体验增强（总览/待办/管道/引导/自动续跑）
 PYTHONPATH=. pytest tests/test_p2_remaining_features.py -q
+# 编排质量（cron 提醒/向量/语义路由/MCP 自助/fact/Skill 工具联动）
+PYTHONPATH=. pytest tests/test_orchestration_improvements.py -q
 # 五报告 P5–P10
 ./scripts/butler-five-reports-gate.sh
 ```
