@@ -89,6 +89,11 @@
 | `BUTLER_MEMORY_ACCESS_BOOST` | 0.1 | 记忆访问频率权重加成 |
 | `BUTLER_MEMORY_HALF_LIFE_DAYS` | 30 | 记忆衰减半衰期（天） |
 | `BUTLER_MEMORY_PRIVATE_TAGS` | — | 逗号分隔私有标签 |
+| `BUTLER_MEMO_ENABLED` | 1 | 0=关闭备忘录模块（memo_add/list/search/update/delete 工具） |
+| `BUTLER_MEMO_MAX_ACTIVE` | 200 | 活跃备忘条数上限 |
+| `BUTLER_CONTACTS_ENABLED` | 1 | 0=关闭通讯录模块（contact_add/find/update/delete/list 工具） |
+| `BUTLER_EXPENSE_ENABLED` | 1 | 0=关闭记账模块（expense_add/summary/list/delete 工具） |
+| `BUTLER_HABITS_ENABLED` | 1 | 0=关闭习惯打卡模块（habit_create/checkin/stats/list/delete 工具） |
 | `BUTLER_FTS_HYBRID_WEIGHT` | 0.3 | 全文/向量混合检索权重 |
 | `BUTLER_VECTOR_HYBRID_WEIGHT` | 0.7 | 向量检索在混合中的权重 |
 | `BUTLER_EMBEDDING_PROVIDER` | local | 嵌入提供者：local/fastembed/openai/minimax |

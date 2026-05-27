@@ -45,6 +45,7 @@ class Project:
     design_preset: str = ""
     tool_modes: dict[str, list[str]] = field(default_factory=dict)
     plugins: dict[str, str] = field(default_factory=dict)
+    dev: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.workspace = self.workspace.expanduser().resolve()
@@ -96,6 +97,7 @@ class Project:
             design_preset=str(data.get("design_preset") or "").strip(),
             tool_modes=_parse_tool_modes(data.get("tool_modes")),
             plugins=normalize_plugins(data.get("plugins")),
+            dev=dict(data.get("dev") or {}),
         )
 
     def resolve_model(self, role: str, runtime_override: ModelConfig | None = None) -> ModelConfig:
@@ -145,6 +147,8 @@ class Project:
             d["tool_modes"] = dict(self.tool_modes)
         if self.plugins:
             d["plugins"] = dict(self.plugins)
+        if self.dev:
+            d["dev"] = dict(self.dev)
         return d
 
     def save(self) -> None:
@@ -179,6 +183,8 @@ class Project:
             payload["tool_modes"] = dict(self.tool_modes)
         if self.plugins:
             payload["plugins"] = dict(self.plugins)
+        if self.dev:
+            payload["dev"] = dict(self.dev)
 
         from butler.io.atomic_write import atomic_write_text
 

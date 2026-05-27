@@ -1003,6 +1003,22 @@ def _register_builtin_tools() -> None:
 
     register_mcp_self_service_tools(register)
 
+    from butler.tools.memo import register_memo_tools
+
+    register_memo_tools(register)
+
+    from butler.tools.contacts import register_contact_tools
+
+    register_contact_tools(register)
+
+    from butler.tools.expense import register_expense_tools
+
+    register_expense_tools(register)
+
+    from butler.tools.habits import register_habit_tools
+
+    register_habit_tools(register)
+
 
 
 # Tool implementations live in builtin_impl.py

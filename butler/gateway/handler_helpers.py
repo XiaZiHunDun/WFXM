@@ -113,6 +113,49 @@ def _normalize_new_session_request(text: str) -> str | None:
     return None
 
 
+def _normalize_memo_request(text: str) -> str | None:
+    """Map natural phrases about memos to ``/备忘``."""
+    stripped = (text or "").strip().rstrip("。.!！?？")
+    if not stripped:
+        return None
+    if stripped in ("查看备忘", "我的备忘", "备忘录", "备忘列表", "看看备忘",
+                    "有什么备忘", "备忘有哪些"):
+        return "/备忘"
+    return None
+
+
+def _normalize_contacts_request(text: str) -> str | None:
+    """Map natural phrases about contacts to ``/通讯录``."""
+    stripped = (text or "").strip().rstrip("。.!！?？")
+    if not stripped:
+        return None
+    if stripped in ("通讯录", "联系人", "我的通讯录", "查看通讯录", "联系人列表"):
+        return "/通讯录"
+    return None
+
+
+def _normalize_expense_request(text: str) -> str | None:
+    """Map natural phrases about expenses to ``/记账``."""
+    stripped = (text or "").strip().rstrip("。.!！?？")
+    if not stripped:
+        return None
+    if stripped in ("记账", "账单", "看看账单", "这个月花了多少", "本月支出",
+                    "本月账单", "收支", "我的账单"):
+        return "/记账"
+    return None
+
+
+def _normalize_habits_request(text: str) -> str | None:
+    """Map natural phrases about habits to ``/打卡``."""
+    stripped = (text or "").strip().rstrip("。.!！?？")
+    if not stripped:
+        return None
+    if stripped in ("打卡", "习惯", "今日打卡", "我的习惯", "习惯打卡",
+                    "看看打卡", "打卡情况"):
+        return "/打卡"
+    return None
+
+
 def _normalize_detail_request(text: str) -> str | None:
     """Map WeChat-friendly「详细」to ``/详细`` without requiring a slash prefix."""
     stripped = (text or "").strip()
@@ -248,6 +291,14 @@ def _is_sessionless_command(text: str) -> bool:
         "/todos",
         "/待办",
         "/tasks",
+        "/memo",
+        "/备忘",
+        "/通讯录",
+        "/contacts",
+        "/记账",
+        "/expense",
+        "/打卡",
+        "/habits",
         "/任务",
         "/帮助",
         "/help",
@@ -291,6 +342,13 @@ def _is_sessionless_command(text: str) -> bool:
         "/dev-status",
         "/开发验收",
         "/dev-smoke",
+        "/git",
+        "/测试",
+        "/test",
+        "/构建",
+        "/build",
+        "/项目概况",
+        "/project-dashboard",
     }
 
 

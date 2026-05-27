@@ -668,6 +668,10 @@ class ButlerMessageHandler:
             _normalize_switch_request,
             _normalize_status_request,
             _normalize_new_session_request,
+            _normalize_memo_request,
+            _normalize_contacts_request,
+            _normalize_expense_request,
+            _normalize_habits_request,
         ):
             cmd = normalizer(text)
             if cmd is not None:
@@ -1219,6 +1223,26 @@ class ButlerMessageHandler:
 
             return format_session_todos_for_wechat(session_key)
 
+        if cmd in ("/memo", "/备忘"):
+            from butler.tools.memo import format_memos_for_wechat
+
+            return format_memos_for_wechat(arg)
+
+        if cmd in ("/contacts", "/通讯录"):
+            from butler.tools.contacts import format_contacts_for_wechat
+
+            return format_contacts_for_wechat(arg)
+
+        if cmd in ("/expense", "/记账"):
+            from butler.tools.expense import format_expense_for_wechat
+
+            return format_expense_for_wechat(arg)
+
+        if cmd in ("/habits", "/打卡"):
+            from butler.tools.habits import format_habits_for_wechat
+
+            return format_habits_for_wechat(arg)
+
         if cmd in ("/project-todos", "/项目待办"):
             from butler.tools.project_todos import format_project_todos_for_wechat
 
@@ -1443,6 +1467,10 @@ from butler.gateway.handler_helpers import (  # noqa: F401
     _normalize_status_request,
     _normalize_new_session_request,
     _normalize_detail_request,
+    _normalize_memo_request,
+    _normalize_contacts_request,
+    _normalize_expense_request,
+    _normalize_habits_request,
     _gateway_run_callbacks,
     _is_prequeue_interrupt_command,
     _env_int,

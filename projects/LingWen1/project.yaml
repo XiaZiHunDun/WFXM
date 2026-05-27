@@ -21,6 +21,14 @@ workflows:
   description: 小说生产流水线 - 从灵感到发布的闭环
 - name: novel-factory-status
   description: 只读查看 novel-factory 流水线状态（workflow_state.json）
+dev:
+  test_command: "python -m pytest tests/ -q --tb=short"
+  build_command: "python -m py_compile butler/main.py"
+  lint_command: "rg 'import pdb|breakpoint()' --count"
+  main_branch: "main"
+  source_dirs:
+  - butler/
+  - tests/
 tools:
 - read_file
 - write_file

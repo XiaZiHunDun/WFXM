@@ -120,6 +120,15 @@ def build_post_compact_anchor_text(
         logger.debug("Post-compact recent files skipped: %s", exc)
 
     try:
+        dev_changes = _collect_dev_session_changes()
+        if dev_changes:
+            parts.append(dev_changes)
+            if diagnostics is not None:
+                diagnostics["post_compact_dev_changes"] = True
+    except Exception as exc:
+        logger.debug("Post-compact dev changes skipped: %s", exc)
+
+    try:
         from butler.core.fact_extraction import format_facts_for_anchor
         from butler.execution_context import get_audit_session_key
 
@@ -195,3 +204,64 @@ def run_post_compact_cleanup(
     except Exception:
         pass
     return apply_post_compact_anchors(messages, diagnostics, role=role)
+
+
+def _collect_dev_session_changes() -> str:
+    """Build a session change log from tool audit events (write/patch/terminal/git)."""
+    try:
+        from butler.execution_context import get_audit_session_key
+        from butler.tools.registry import get_tool_audit_events
+
+        sk = get_audit_session_key(fallback="_global")
+        events = get_tool_audit_events(limit=100, session_key=sk)
+    except Exception:
+        return ""
+
+    write_tools = {"write_file", "patch", "delete_file"}
+    terminal_tools = {"terminal"}
+    git_write_tools = {"git_add", "git_commit", "git_push"}
+
+    written_files: list[str] = []
+    terminal_cmds: list[str] = []
+    git_ops: list[str] = []
+
+    seen_files: set[str] = set()
+    for ev in events:
+        tool = ev.get("tool", "")
+        args = ev.get("args") or {}
+
+        if tool in write_tools:
+            path = str(args.get("path") or args.get("file") or "").strip()
+            if path and path not in seen_files:
+                seen_files.add(path)
+                action = {"write_file": "写入", "patch": "修改", "delete_file": "删除"}.get(tool, tool)
+                written_files.append(f"  [{action}] {path}")
+
+        elif tool in terminal_tools:
+            cmd = str(args.get("command") or "").strip()[:80]
+            if cmd:
+                terminal_cmds.append(f"  $ {cmd}")
+
+        elif tool in git_write_tools:
+            if tool == "git_commit":
+                msg = str(args.get("message") or "").strip()[:60]
+                git_ops.append(f"  commit: {msg}")
+            elif tool == "git_push":
+                git_ops.append("  push")
+
+    if not written_files and not terminal_cmds and not git_ops:
+        return ""
+
+    sections: list[str] = ["## Dev session changes (this session)"]
+    if written_files:
+        sections.append("Files changed:")
+        sections.extend(written_files[:20])
+        if len(written_files) > 20:
+            sections.append(f"  ... and {len(written_files) - 20} more")
+    if terminal_cmds:
+        sections.append("Terminal commands:")
+        sections.extend(terminal_cmds[-10:])
+    if git_ops:
+        sections.append("Git operations:")
+        sections.extend(git_ops[-5:])
+    return "\n".join(sections)

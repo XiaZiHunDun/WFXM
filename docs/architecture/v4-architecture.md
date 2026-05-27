@@ -344,6 +344,10 @@ while not done and iterations < budget:
 | 项 | 模块 | 配置 |
 |----|------|------|
 | Cron 重复提醒 | `tools/reminder.py` | `set_reminder` when 支持 `每天 9:00`、`工作日`、cron 表达式 |
+| 个人备忘录 | `tools/memo.py` | `BUTLER_MEMO_ENABLED=1`；tenant 级跨项目，5 工具（add/list/search/update/delete），`/备忘` 斜杠命令 |
+| 通讯录 | `tools/contacts.py` | `BUTLER_CONTACTS_ENABLED=1`；tenant 级跨项目，5 工具（add/find/update/delete/list），`/通讯录` 斜杠命令 |
+| 记账 | `tools/expense.py` | `BUTLER_EXPENSE_ENABLED=1`；tenant 级跨项目，4 工具（add/summary/list/delete），`/记账` 斜杠命令 |
+| 习惯打卡 | `tools/habits.py` | `BUTLER_HABITS_ENABLED=1`；tenant 级跨项目，5 工具（create/checkin/stats/list/delete），`/打卡` 斜杠命令 |
 | 向量检索层 | `memory/vector_store.py` | `[vectors]` extra（ChromaDB 优先，fallback 内存暴力搜） |
 | Skill/工具语义路由 | `skills/router.py`、`core/tool_selector.py` | `BUTLER_SKILL_SEMANTIC_ROUTING`、`BUTLER_TOOL_SEMANTIC_SELECT`（需非 hashing embedder） |
 | MCP 自助安装 | `tools/mcp_self_service.py` | `BUTLER_MCP_SELF_SERVICE=1`；`mcp_catalog_search`、`mcp_install`、`mcp_remove` |

@@ -228,6 +228,7 @@ def run_delegate_job(job: DelegateJob) -> None:
             session_key=job.session_key,
             summary_preview=report.summary,
         )
+        _try_attach_diff_summary(report, job)
         push_delegate_completion(
             report,
             bridge=job.bridge,
@@ -257,6 +258,52 @@ def run_delegate_job(job: DelegateJob) -> None:
             release_delegate_slot(job.session_key)
         except Exception:
             pass
+
+
+def _try_attach_diff_summary(report: Any, job: DelegateJob) -> None:
+    """Collect git diff --stat after delegate finishes and append to report summary."""
+    if not report or not hasattr(report, "summary"):
+        return
+    try:
+        from butler.tools.git_tools import git_read_enabled, _run_git
+
+        if not git_read_enabled():
+            return
+
+        workspace = None
+        proj = None
+        try:
+            from butler.project_manager import ProjectManager
+            pm = ProjectManager()
+            proj = pm.active_project
+            if proj and hasattr(proj, "workspace"):
+                workspace = str(proj.workspace)
+        except Exception:
+            pass
+        if not workspace:
+            return
+
+        diff = _run_git(["diff", "--stat", "--cached"], workdir=workspace)
+        if diff.get("exit_code") != 0:
+            diff = _run_git(["diff", "--stat"], workdir=workspace)
+        if diff.get("exit_code") != 0:
+            return
+
+        stat_output = (diff.get("stdout") or "").strip()
+        if not stat_output:
+            return
+
+        diff_lines = stat_output.split("\n")
+        if len(diff_lines) > 15:
+            diff_lines = diff_lines[:14] + [f"... 还有 {len(diff_lines) - 14} 个文件"]
+
+        diff_section = "\n\n📊 变更摘要:\n" + "\n".join(f"  {l}" for l in diff_lines)
+
+        current = report.summary or ""
+        if len(current) + len(diff_section) < 4000:
+            report.summary = current + diff_section
+    except Exception as exc:
+        logger.debug("Diff summary collection skipped: %s", exc)
 
 
 def _delegate_role_label(role: str) -> str:
