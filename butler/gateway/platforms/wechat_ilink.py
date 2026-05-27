@@ -23,7 +23,6 @@ import re
 import secrets
 import struct
 import tempfile
-import textwrap
 import time
 import uuid
 from datetime import datetime
@@ -33,10 +32,8 @@ from urllib.parse import quote, urlparse
 
 logger = logging.getLogger(__name__)
 
-WECHAT_COPY_LINE_WIDTH = 120
-
-
 from butler.gateway.platforms.wechat_format import (  # noqa: F401
+    WECHAT_COPY_LINE_WIDTH,
     _truncate_plain,
     _split_text_for_wechat_delivery,
     _wrap_copy_friendly_lines_for_wechat,
@@ -194,10 +191,6 @@ MSG_STATE_FINISH = 2
 TYPING_START = 1
 TYPING_STOP = 2
 
-_HEADER_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
-_TABLE_RULE_RE = re.compile(r"^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$")
-_FENCE_RE = re.compile(r"^```([^\n`]*)\s*$")
-_MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
 
 def check_wechat_requirements() -> bool:

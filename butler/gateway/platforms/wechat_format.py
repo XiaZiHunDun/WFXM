@@ -7,6 +7,7 @@ converting markdown text into WeChat-friendly message chunks.
 from __future__ import annotations
 
 import re
+import textwrap
 from typing import List
 
 WECHAT_COPY_LINE_WIDTH = 120

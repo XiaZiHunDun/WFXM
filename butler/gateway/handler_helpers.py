@@ -157,7 +157,8 @@ def _normalize_detail_request(text: str) -> str | None:
     return None
 
 
-def _gateway_run_callbacks() -> LoopCallbacks | None:
+def _gateway_run_callbacks():
+    from butler.core.agent_loop import LoopCallbacks
     from butler.gateway.outbound_bridge import get_current_bridge
 
     bridge = get_current_bridge()

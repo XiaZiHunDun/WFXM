@@ -260,13 +260,5 @@ def run_delegate_job(job: DelegateJob) -> None:
 
 
 def _delegate_role_label(role: str) -> str:
-    key = str(role or "").strip().lower()
-    labels = {
-        "content_agent": "内容代理",
-        "content": "内容代理",
-        "dev_agent": "开发代理",
-        "dev": "开发代理",
-        "review_agent": "审查代理",
-        "review": "审查代理",
-    }
-    return labels.get(key, role or "子代理")
+    from butler.tools.builtin_impl import _delegate_role_label as _canonical
+    return _canonical(role)

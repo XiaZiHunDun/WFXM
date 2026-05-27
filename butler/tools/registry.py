@@ -9,19 +9,16 @@ from __future__ import annotations
 import json
 import logging
 import os
-import stat as stat_module
-import subprocess
 import threading
 import time
 from collections import deque
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 logger = logging.getLogger(__name__)
-MAX_READ_FILE_BYTES = 1024 * 1024
+
+# Schema-referenced limits — canonical definitions live in builtin_impl.py
 MAX_READ_FILE_LINES = 1000
 MAX_TERMINAL_TIMEOUT_SECONDS = 120
-MAX_TERMINAL_OUTPUT_CHARS = 50000
 _TOOL_AUDIT_EVENTS: deque[dict[str, Any]] = deque(maxlen=200)
 _TOOL_AUDIT_EVENTS_BY_SESSION: dict[str, deque[dict[str, Any]]] = {}
 _TOOL_AUDIT_LOCK = threading.RLock()
