@@ -34,17 +34,17 @@ _CATEGORY_LABELS = {
 }
 
 
+from butler.tools.tenant_store import TenantStore
+
+_store = TenantStore("contacts", env_toggle="BUTLER_CONTACTS_ENABLED")
+
+
 def _contacts_enabled() -> bool:
-    return os.getenv("BUTLER_CONTACTS_ENABLED", "1").strip() not in ("0", "false", "no")
+    return _store.enabled()
 
 
 def _contacts_dir() -> Path:
-    from butler.config import get_butler_home
-    from butler.tenant import DEFAULT_TENANT, tenant_root
-
-    tenant_id = os.getenv("BUTLER_TENANT", DEFAULT_TENANT)
-    root = tenant_root(get_butler_home(), tenant_id)
-    return root / "contacts"
+    return _store.storage_dir()
 
 
 def _save_contact(contact: dict[str, Any]) -> Path:

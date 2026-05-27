@@ -269,8 +269,8 @@ class LLMClient:
                 provider=self.provider_name or "",
                 model=self.model or "",
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Thinking headers merge skipped: %s", exc)
         client = self._get_anthropic_client()
         if hasattr(client, "messages"):
             return client.messages.create(**api_kwargs)
@@ -412,8 +412,8 @@ class LLMClient:
                 provider=self.provider_name or "",
                 model=self.model or "",
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Thinking headers merge skipped (stream): %s", exc)
 
         client = self._get_anthropic_client()
         if not hasattr(client, "messages"):

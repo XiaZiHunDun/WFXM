@@ -40,7 +40,7 @@ class ButlerMessageHandler:
             finalize=self._finalize_session,
             on_session_removed=_on_gateway_session_removed,
             max_sessions=_env_int("BUTLER_GATEWAY_MAX_SESSIONS", 128),
-            idle_ttl_seconds=_env_float("BUTLER_GATEWAY_SESSION_IDLE_TTL_SECONDS", 3600),
+            idle_ttl_seconds=_env_float("BUTLER_GATEWAY_SESSION_IDLE_TTL_SECONDS", 7200),
         )
         self._sessions: dict[str, AgentLoop] = self._session_registry.sessions
         self._health_by_session: dict[str, dict[str, Any]] = self._session_registry.health_by_session
@@ -264,8 +264,8 @@ class ButlerMessageHandler:
                 external_id=external_id,
                 session_key=session_key,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Inbound text transform skipped: %s", exc)
         try:
             from butler.mcp.profiles import (
                 mcp_profiles_enabled,
@@ -278,8 +278,8 @@ class ButlerMessageHandler:
                     session_key,
                     select_profile_for_text(text),
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("MCP profile selection skipped: %s", exc)
         if not text.strip():
             return ""
 
@@ -326,8 +326,8 @@ class ButlerMessageHandler:
                             "injection_score",
                             {"score": risk, "preview": text[:120]},
                         )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Injection score transcript skipped: %s", exc)
             text = mark_adversarial_user_text(text)
         except ImportError:
             pass
@@ -366,8 +366,8 @@ class ButlerMessageHandler:
                                 "injection_llm_score",
                                 {"score": llm_score, "preview": text[:120]},
                             )
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.debug("Injection LLM score transcript skipped: %s", exc)
                     if blocked:
                         if injection_llm_gate_enabled() and llm_score is not None:
                             request_injection_review_gate(session_key, score=llm_score)
@@ -394,11 +394,11 @@ class ButlerMessageHandler:
                 if _idempotency_reserved:
                     try:
                         release_inflight(session_key, external_id)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Inflight release skipped: %s", exc)
                 return "（已忽略：群聊 bot 互回复环防护）"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Bot loop guard skipped: %s", exc)
 
         try:
             from butler.core.two_phase_confirm import (
@@ -416,8 +416,8 @@ class ButlerMessageHandler:
             cancel_note = cancel_pending_unless_confirm(text, session_key=session_key)
             if cancel_note:
                 text = f"{cancel_note}\n\n{text}"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Two-phase confirm skipped: %s", exc)
 
         try:
             from butler.gateway.permission_commands import handle_permission_command
@@ -430,8 +430,8 @@ class ButlerMessageHandler:
             )
             if perm_reply is not None:
                 return perm_reply
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Permission command handling skipped: %s", exc)
 
         try:
             from butler.tools.terminal_approval import parse_approve_command, store_approval
@@ -458,8 +458,8 @@ class ButlerMessageHandler:
                     return owner_required_message()
                 store_approval(cmd, session_key=session_key)
                 return f"已批准 terminal 命令（5 分钟内有效）:\n{cmd[:200]}"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Terminal approval handling skipped: %s", exc)
 
         if _is_prequeue_interrupt_command(text):
             self._interrupt_session_loop(session_key)
@@ -471,8 +471,8 @@ class ButlerMessageHandler:
             continued = resolve_auto_continue_user_message(session_key, text)
             if continued:
                 text = continued
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Auto continue resolve skipped: %s", exc)
 
         from butler.gateway.hooks import apply_pre_gateway_dispatch
         rewritten = apply_pre_gateway_dispatch(text, session_key=session_key, platform=platform)
@@ -523,8 +523,8 @@ class ButlerMessageHandler:
                 )
                 return _idem.user_reply or "（重复消息已忽略。）"
             _idempotency_reserved = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Idempotency check skipped: %s", exc)
 
         try:
             from butler.gateway.message_queue import (
@@ -545,8 +545,8 @@ class ButlerMessageHandler:
                         from butler.skills.similarity import _ensure_jieba
 
                         _ensure_jieba()
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Jieba warm-up skipped: %s", exc)
                     mgr = getattr(self._orchestrator, "_skill_manager", None)
                     if mgr is not None:
                         mgr.list_skills()
@@ -561,8 +561,8 @@ class ButlerMessageHandler:
                     ):
                         return format_initializing_ack(pending=pending_count(session_key))
                     return format_initializing_ack()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Session initializing skipped: %s", exc)
 
         if self._should_queue_inbound(session_key, text):
             from butler.gateway.message_queue import (
@@ -637,8 +637,8 @@ class ButlerMessageHandler:
             if _idempotency_reserved:
                 try:
                     complete_inbound(session_key, inbound_id)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Inbound completion record skipped: %s", exc)
         follow = self._drain_queued_inbound(
             session_key,
             platform=platform,
@@ -750,8 +750,8 @@ class ButlerMessageHandler:
                 if intent_banner:
                     ephemeral_parts.append(intent_banner)
                     health["intent_keyword_banner"] = True
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Intent keyword detection skipped: %s", exc)
             try:
                 from butler.core.mode_classifier import detect_mode_suggestion_banner
 
@@ -759,8 +759,8 @@ class ButlerMessageHandler:
                 if mode_banner:
                     ephemeral_parts.append(mode_banner)
                     health["mode_classifier_banner"] = True
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Mode classifier detection skipped: %s", exc)
             if ephemeral_parts:
                 ephemeral_system = "\n\n".join(ephemeral_parts)
             if prompt_hooks.additional_context:
@@ -775,8 +775,8 @@ class ButlerMessageHandler:
                 seq_err = validate_loop_messages_before_turn(loop.messages)
                 if seq_err:
                     return seq_err
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Loop message validation skipped: %s", exc)
             from butler.core.turn_token_budget import resolve_turn_budget
 
             loop.config, turn_budget, augmented = resolve_turn_budget(augmented, loop.config)
@@ -863,8 +863,8 @@ class ButlerMessageHandler:
                             reason="interrupt",
                             diagnostics=health.get("loop") if isinstance(health.get("loop"), dict) else None,
                         )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Auto continue capture skipped: %s", exc)
                 sync_result = sync_turn_memory(
                     self._orchestrator,
                     text,
@@ -897,8 +897,8 @@ class ButlerMessageHandler:
                     items = recent_thread_items(8)
                     if items:
                         health["thread_items"] = items
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Thread items collection skipped: %s", exc)
                 logger.info(
                     "Gateway turn done session=%s elapsed=%.1fs out_len=%d",
                     session_key,
@@ -1109,8 +1109,8 @@ class ButlerMessageHandler:
                     from pathlib import Path
 
                     workspace = Path(proj.workspace)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Security audit workspace resolve skipped: %s", exc)
             return format_audit_report(run_security_audit(workspace=workspace))
 
         if cmd in ("/steer", "/指引"):
@@ -1184,8 +1184,8 @@ class ButlerMessageHandler:
 
                 clear_goal_loop(session_key)
                 clear_checkpoint(session_key)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Session cleanup for new session skipped: %s", exc)
             return handle_new_session_command(self._orchestrator, session_key, loop)
 
         if cmd in ("/detail", "/详细"):

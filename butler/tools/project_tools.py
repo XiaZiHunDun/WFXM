@@ -27,6 +27,17 @@ _BUTLER_EXTRA_TOOLS = frozenset({
     "butler_recall",
     "list_runtime_jobs",
     "run_runtime_job",
+    "memo_add",
+    "memo_list",
+    "memo_search",
+    "contact_add",
+    "contact_find",
+    "expense_add",
+    "expense_summary",
+    "habit_create",
+    "habit_checkin",
+    "habit_list",
+    "habit_stats",
 })
 
 # Project Lead: read-only + orchestration (no write/shell even if listed in project.yaml).

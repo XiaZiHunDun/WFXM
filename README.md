@@ -15,7 +15,7 @@
    Butler Orchestrator          ← 记忆、Skill、分层模型
          │
          ▼
-   Agent Loop (agent_loop.py)   ← 编排 ~300 行
+   Agent Loop (agent_loop.py)   ← 编排 ~780 行
          ├─ context_pipeline     ← 压缩 / hygiene
          ├─ llm_retry            ← 重试 / failover
          ├─ tool_batch           ← 工具批次 / spill / guardrails

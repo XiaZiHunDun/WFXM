@@ -40,17 +40,17 @@ _CATEGORY_LABELS = {
 _STATUS_LABELS = {"active": "活跃", "done": "已完成", "archived": "已归档"}
 
 
+from butler.tools.tenant_store import TenantStore
+
+_store = TenantStore("memos", env_toggle="BUTLER_MEMO_ENABLED", skip_files=frozenset({"index.json"}))
+
+
 def _memo_enabled() -> bool:
-    return os.getenv("BUTLER_MEMO_ENABLED", "1").strip() not in ("0", "false", "no")
+    return _store.enabled()
 
 
 def _memos_dir() -> Path:
-    from butler.config import get_butler_home
-    from butler.tenant import DEFAULT_TENANT, tenant_root
-
-    tenant_id = os.getenv("BUTLER_TENANT", DEFAULT_TENANT)
-    root = tenant_root(get_butler_home(), tenant_id)
-    return root / "memos"
+    return _store.storage_dir()
 
 
 def _save_memo(memo: dict[str, Any]) -> Path:
@@ -438,8 +438,8 @@ def register_memo_tools(register: Callable[..., None]) -> None:
         name="memo_add",
         description=(
             "为主人创建备忘录条目。用于记录日常事务、约会、购物清单、健康信息等。"
+            "用户说「帮我记一下…」「提醒我…」「别忘了…」时应使用此工具。"
             "如果有明确时间，设置 due_date 并建议 set_reminder。"
-            "注意：个人偏好用 butler_remember(owner_profile)，工作经验用 butler_remember(owner_experience)。"
         ),
         schema={
             "type": "object",

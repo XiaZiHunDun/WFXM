@@ -68,8 +68,8 @@ class AgentLoop:
             from butler.transport.provider_health import filter_fallback_chain
 
             _chain = filter_fallback_chain(_chain)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Fallback chain filter skipped: %s", exc)
         self._fallback_chain: list[FallbackEntry] = _chain
         self._fallback_index = 0
         self._primary_client: LLMClient | None = None
@@ -195,8 +195,8 @@ class AgentLoop:
             from butler.core.system_reminder import maybe_prepend_system_reminder
 
             user_content = maybe_prepend_system_reminder(user_content)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("System reminder skipped: %s", exc)
         self._messages.append({"role": "user", "content": user_content})
         turn_tools = list(self.tools or [])
         try:
@@ -207,8 +207,8 @@ class AgentLoop:
                 from butler.core.skill_tool_bridge import extract_skill_preferred_tools
 
                 skill_pt = extract_skill_preferred_tools(user_content)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Skill preferred tools extraction skipped: %s", exc)
 
             selected, sel_diag = select_tools_for_context(
                 turn_tools,
@@ -218,15 +218,15 @@ class AgentLoop:
             turn_tools = list(selected)
             for key, val in sel_diag.items():
                 self.diagnostics[key] = val
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Tool selector skipped: %s", exc)
         self._turn_tools = turn_tools
         try:
             from butler.core.session_transcript import record_user_message
 
             record_user_message(steer_session, user_content)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Session transcript record skipped: %s", exc)
 
         final_text = None
         final_reasoning = None
@@ -279,8 +279,8 @@ class AgentLoop:
                                     sk,
                                     self.diagnostics,
                                 )
-                            except Exception:
-                                pass
+                            except Exception as exc:
+                                logger.debug("Compaction turn followup skipped: %s", exc)
                             transition = LoopTransitionReason.COMPACTION_TURN
                             continue
                 except Exception as exc:
@@ -364,8 +364,8 @@ class AgentLoop:
                         from butler.core.loop_stuck import guardrail_stuck_message
 
                         stuck_msg = guardrail_stuck_message(self._guardrails)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Stuck message check skipped: %s", exc)
                     if stuck_msg:
                         final_text = stuck_msg
                         status = LoopStatus.STUCK
@@ -460,8 +460,8 @@ class AgentLoop:
                         final_text,
                         tool_calls=self._tool_calls_count,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Assistant transcript record skipped: %s", exc)
 
         finally:
             self.config = original_config
@@ -493,8 +493,8 @@ class AgentLoop:
                 },
                 session_key=steer_session,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Turn metrics recording skipped: %s", exc)
         result = LoopResult(
             status=status,
             transition_reason=transition.value,
@@ -508,7 +508,7 @@ class AgentLoop:
             diagnostics=dict(self.diagnostics),
         )
         if self.diagnostics.get("stop_hook_context"):
-            pass
+            logger.debug("Stop hook context already present, skipping post-run hooks")
         elif status == LoopStatus.COMPLETED:
             try:
                 from butler.hooks.runner import run_stop_hooks
@@ -642,8 +642,8 @@ class AgentLoop:
                 getattr(self.client, "provider", "") or "",
                 getattr(self.client, "model", "") or "",
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Provider failure recording skipped: %s", exc)
         while self._fallback_index < len(self._fallback_chain) - 1:
             self._fallback_index += 1
             entry = self._fallback_chain[self._fallback_index]
@@ -748,8 +748,8 @@ class AgentLoop:
                         tool_name=worst_tool,
                         failure_count=int(worst_n),
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Reflexion apply skipped: %s", exc)
         return stats
 
     def _dispatch_tool(self, name: str, args: dict) -> str:

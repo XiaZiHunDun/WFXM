@@ -59,6 +59,12 @@
 | `BUTLER_ENABLE_GIT` / `BUTLER_ENABLE_GIT_WRITE` | 只读 / 写 git 工具 |
 | `BUTLER_ENABLE_GIT_PUSH` | `1` 启用 `git_push` 工具（需同时 `GIT_WRITE=1`；push 前需 Owner 审批） |
 
+## 日志
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_LOG_LEVEL` | INFO | 日志级别（DEBUG / INFO / WARNING / ERROR）；CLI 和 Gateway 统一读取 |
+
 ## Runtime
 
 | 变量 | 默认 | 说明 |

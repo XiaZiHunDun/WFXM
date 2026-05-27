@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +15,11 @@ _MAX_ROWS = 200
 _MAX_OUTPUT_CHARS = 32_000
 
 _QUERYABLE_EXTENSIONS = frozenset({".csv", ".tsv", ".json", ".jsonl", ".parquet", ".db", ".sqlite"})
+
+_WRITE_KEYWORDS = re.compile(
+    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|REPLACE|MERGE|GRANT|REVOKE|EXEC|EXECUTE|CALL|COPY|LOAD|IMPORT|EXPORT)\b",
+    re.IGNORECASE,
+)
 
 
 def _duckdb_available() -> bool:
@@ -30,8 +36,15 @@ def _analytics_enabled() -> bool:
 
 
 def _resolve_project_path(path: str) -> Path | None:
-    """Resolve and validate a data file path within the project."""
-    p = Path(path).expanduser().resolve()
+    """Resolve and validate a data file path within workspace via path_safety."""
+    from butler.tools.path_safety import check_tool_path
+
+    safety = check_tool_path(path, for_write=False)
+    if not safety.allowed:
+        logger.warning("data_query path rejected: %s — %s", path, safety.error)
+        return None
+
+    p = safety.path
     if not p.exists():
         return None
     if p.suffix.lower() not in _QUERYABLE_EXTENSIONS:
@@ -67,15 +80,15 @@ def tool_query_data(
     if not query:
         return json.dumps({"error": "sql query required"})
 
-    forbidden = query.upper().split()
-    for kw in ("INSERT", "UPDATE", "DELETE", "DROP", "ALTER", "CREATE", "TRUNCATE"):
-        if kw in forbidden:
-            return json.dumps({"error": f"write operations not allowed: {kw}"})
+    if _WRITE_KEYWORDS.search(query):
+        match = _WRITE_KEYWORDS.search(query)
+        return json.dumps({"error": f"write operations not allowed: {match.group(1).upper()}"})
 
     cap = min(max(10, int(max_rows or _MAX_ROWS)), 1000)
 
     import duckdb  # type: ignore[import-untyped]
 
+    con = None
     try:
         con = duckdb.connect(":memory:", read_only=False)
 
@@ -85,19 +98,27 @@ def tool_query_data(
             if p is None:
                 return json.dumps({"error": f"file not found or unsupported: {target}"})
 
+            safe_path = str(p)
             ext = p.suffix.lower()
             if ext in (".db", ".sqlite"):
-                con.execute(f"ATTACH '{p}' AS src (TYPE sqlite, READ_ONLY)")
+                con.execute("ATTACH ? AS src (TYPE sqlite, READ_ONLY)", [safe_path])
                 con.execute("USE src")
             elif ext in (".csv", ".tsv"):
-                sep = "\\t" if ext == ".tsv" else ","
+                sep = "\t" if ext == ".tsv" else ","
                 con.execute(
-                    f"CREATE TABLE data AS SELECT * FROM read_csv_auto('{p}', delim='{sep}')"
+                    "CREATE TABLE data AS SELECT * FROM read_csv_auto(?, delim=?)",
+                    [safe_path, sep],
                 )
             elif ext in (".json", ".jsonl"):
-                con.execute(f"CREATE TABLE data AS SELECT * FROM read_json_auto('{p}')")
+                con.execute(
+                    "CREATE TABLE data AS SELECT * FROM read_json_auto(?)",
+                    [safe_path],
+                )
             elif ext == ".parquet":
-                con.execute(f"CREATE TABLE data AS SELECT * FROM read_parquet('{p}')")
+                con.execute(
+                    "CREATE TABLE data AS SELECT * FROM read_parquet(?)",
+                    [safe_path],
+                )
 
         result = con.execute(query).fetchdf()
         if len(result) > cap:
@@ -120,12 +141,14 @@ def tool_query_data(
         }, ensure_ascii=False)
 
     except Exception as exc:
+        logger.warning("data_query execution error: %s", exc)
         return json.dumps({"error": f"query failed: {exc}"})
     finally:
-        try:
-            con.close()
-        except Exception:
-            pass
+        if con is not None:
+            try:
+                con.close()
+            except Exception:
+                pass
 
 
 def register_data_query_tools(register_fn) -> None:

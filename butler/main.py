@@ -1401,6 +1401,9 @@ def _cmd_doctor(_ns: argparse.Namespace) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    from butler.logging_config import configure_logging
+
+    configure_logging()
     args = _build_parser().parse_args(argv)
     code = args.func(args)
     raise SystemExit(code)

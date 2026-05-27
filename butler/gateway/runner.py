@@ -274,7 +274,9 @@ def _replay_pending_outbox(adapters: list[Any]) -> None:
 
 
 def run_gateway_blocking(platforms: list[str]) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    from butler.logging_config import configure_logging
+
+    configure_logging()
     try:
         return asyncio.run(run_gateway_async(platforms))
     except KeyboardInterrupt:

@@ -28,17 +28,17 @@ _VALID_FREQUENCIES = frozenset({"daily", "weekly"})
 _FREQ_LABELS = {"daily": "每日", "weekly": "每周"}
 
 
+from butler.tools.tenant_store import TenantStore
+
+_store = TenantStore("habits", env_toggle="BUTLER_HABITS_ENABLED")
+
+
 def _habits_enabled() -> bool:
-    return os.getenv("BUTLER_HABITS_ENABLED", "1").strip() not in ("0", "false", "no")
+    return _store.enabled()
 
 
 def _habits_dir() -> Path:
-    from butler.config import get_butler_home
-    from butler.tenant import DEFAULT_TENANT, tenant_root
-
-    tenant_id = os.getenv("BUTLER_TENANT", DEFAULT_TENANT)
-    root = tenant_root(get_butler_home(), tenant_id)
-    return root / "habits"
+    return _store.storage_dir()
 
 
 def _checkins_dir() -> Path:

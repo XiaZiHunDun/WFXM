@@ -16,6 +16,10 @@ _CORE_TOOLS = frozenset({
     "butler_recall",
     "search_transcript",
     "run_workflow",
+    "memo_add",
+    "contact_add",
+    "expense_add",
+    "habit_create",
 })
 
 _tool_embed_cache: dict[str, list[float]] = {}
