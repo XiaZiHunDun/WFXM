@@ -100,7 +100,7 @@
 ## 验证命令
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 PYTHONPATH=. pytest -q    # 默认 1200+ passed（排除 live_llm；corpus 按需）
 
 # 守门子集

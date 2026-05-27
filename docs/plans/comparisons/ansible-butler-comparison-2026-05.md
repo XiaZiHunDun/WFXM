@@ -297,7 +297,7 @@ flowchart LR
 ## 9. 验收建议（落地后）
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 # workflow / DAG 改动
 PYTHONPATH=. pytest tests/test_p2_workflow_permissions.py \
   tests/test_message_queue.py -q

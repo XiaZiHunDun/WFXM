@@ -250,7 +250,7 @@ flowchart LR
 ## 8. 测试守门（落地后写入 CONTRIBUTING）
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 
 # 第 1 波
 PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \

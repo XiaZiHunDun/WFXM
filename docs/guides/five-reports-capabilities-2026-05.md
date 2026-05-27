@@ -98,7 +98,7 @@ butler sessions layered <session_key>   # BUTLER_POST_SESSION_LAYERED=1
 ## 6. 测试守门
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 
 # PR-F1–F6
 PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \

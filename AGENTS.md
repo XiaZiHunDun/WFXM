@@ -34,7 +34,7 @@
 ## 改代码前守门
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py \
   tests/test_tool_result_storage.py -q
 # gateway / 队列 / workflow

@@ -211,7 +211,7 @@
 若后续实施本清单中涉及 `butler/core` 或 `butler/gateway` 的项，实施前后至少执行：
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py tests/test_tool_result_storage.py -q
 PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
 ```

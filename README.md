@@ -28,7 +28,7 @@
 ### 1. 安装
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 pip install -e ".[wechat]"          # Butler + 微信 iLink 依赖（推荐）
 ```
 

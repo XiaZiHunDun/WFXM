@@ -262,7 +262,7 @@ flowchart LR
 ## 9. 测试守门（落地后写入 CONTRIBUTING）
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 
 # 第 1 波
 PYTHONPATH=. pytest tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q

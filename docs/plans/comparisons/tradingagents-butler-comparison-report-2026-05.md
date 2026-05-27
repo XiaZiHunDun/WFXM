@@ -218,7 +218,7 @@ flowchart TB
 ## 7. 验收建议（实现阶段 A 后）
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 PYTHONPATH=. pytest tests/test_experiment_ledger.py -q
 # 新增 outcome / workflow handoff 测试后补充：
 # PYTHONPATH=. pytest tests/test_<outcome|workflow>_*.py -q

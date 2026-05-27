@@ -225,7 +225,7 @@ flowchart TB
 **建议测试**（改 gateway / task / metrics 后）：
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_handler.py \
   tests/test_runtime_metrics.py -q
 ```

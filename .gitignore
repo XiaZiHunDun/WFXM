@@ -37,6 +37,20 @@ Thumbs.db
 projects/*/.butler/
 projects/*/docs/workflow-output.md
 
+# LingWen1 novel content — IP / personal creative data (keep tools skeleton only)
+projects/LingWen1/novel-factory/01_灵感库/
+projects/LingWen1/novel-factory/02_作家工作室/
+projects/LingWen1/novel-factory/03_内容仓库/
+projects/LingWen1/novel-factory/04_审核员工作室/
+projects/LingWen1/novel-factory/05_模拟读者池/
+projects/LingWen1/novel-factory/06_意见仓库/
+projects/LingWen1/novel-factory/07_汇总仓库/
+projects/LingWen1/novel-factory/08_已发布/
+projects/LingWen1/novel-factory/memory/
+projects/LingWen1/novel-factory/.session_handoff/
+projects/LingWen1/docs/reference-snapshot/
+projects/LingWen1/docs/pilot-log.md
+
 # Agent / corpus-live 在 projects/ 根目录产生的临时文件（非用户项目）
 /projects/CMakeLists.txt
 /projects/kernel-update.yml
@@ -67,6 +81,9 @@ htmlcov/
 # Corpus live-run archives (local only; use summarize_runs.py)
 tests/corpus/archive/runs/*.jsonl
 !tests/corpus/archive/runs/.gitkeep
+
+# Historical docs (outdated architecture, personal paths)
+docs/history/
 
 # Reference code (large, keep separate — 主公维护，整理方案不修改)
 reference/

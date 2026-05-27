@@ -60,7 +60,7 @@ butler experiment discard --project <名> --name trial1 --apply-reset   # 可选
 ## 4. 测试守门
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 PYTHONPATH=. pytest tests/test_design_md_sections.py tests/test_experiment_ledger.py \
   tests/test_query_decompose.py tests/test_support_line_e.py tests/test_roadmap_remainder.py \
   tests/test_ragflow_p0_retrieval.py tests/test_markdown_chunking.py tests/test_loop_pr2_entropy.py -q

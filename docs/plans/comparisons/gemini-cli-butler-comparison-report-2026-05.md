@@ -254,7 +254,7 @@ GeminiClient                         agent_loop
 改 `butler/core` 或 `butler/gateway` 后：
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_tool_result_storage.py \
   tests/test_context_pipeline.py tests/test_tool_prune_policy.py -q
 

@@ -59,7 +59,7 @@ plugins:
 ## 4. 测试守门
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 
 PYTHONPATH=. pytest tests/test_external_agent_*.py tests/test_message_ir.py \
   tests/test_mcp_deferred.py tests/test_gateway_handler.py -q

@@ -341,7 +341,7 @@ class ActionLoopDetector(BaseModel):
 ### 验收建议（改代码后）
 
 ```bash
-cd /home/ailearn/projects/WFXM
+cd /path/to/WFXM
 PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py \
   tests/test_tool_result_storage.py -q
 # 若改 guardrails / loop

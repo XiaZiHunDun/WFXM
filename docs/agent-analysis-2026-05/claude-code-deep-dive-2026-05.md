@@ -300,6 +300,6 @@ WFXM 更适合继续加强：
 
 ## 8. 附：本次分析产物
 
-- Canvas：`/home/ailearn/.cursor/projects/home-ailearn-projects-WFXM/canvases/claude-code-deep-dive.canvas.tsx`
+- Canvas：`<cursor-project>/canvases/claude-code-deep-dive.canvas.tsx`
 - 本文档：`docs/agent-analysis-2026-05/claude-code-deep-dive-2026-05.md`
 
