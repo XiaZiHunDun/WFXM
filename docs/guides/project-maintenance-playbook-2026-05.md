@@ -69,6 +69,8 @@ bash scripts/project-health-check.sh quick
 bash scripts/project-health-check.sh full
 ```
 
+CI 已增加 `maintenance-full-health` 定时任务（每周）自动执行 full 检查，并上传 `logs/maintenance/` 作为构建产物，便于回溯趋势与失败定位。
+
 ## 5) 代码整理基线
 
 推荐每轮改动后的最小清单：

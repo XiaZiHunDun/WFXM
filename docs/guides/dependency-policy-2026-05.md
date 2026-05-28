@@ -61,6 +61,7 @@ Butler v4 的依赖策略只有三条：
 - `trafilatura` 安装后 `web_fetch` 自动使用其提取正文，无需额外配置；未安装时回退正则方案。
 - `apprise` 通过 `BUTLER_NOTIFY_URLS` 配置通知渠道，URL 式语法（如 `tgram://bot/chat`）。
 - `duckdb` 注册 `query_data` 工具，仅允许只读 SQL 查询。
+- 运行 `butler doctor` 时会按模块检查常见可选依赖（`chromadb` / `fastembed` / `aiohttp` / `markitdown`），并给出对应 `pip install -e ".[extra]"` 建议。
 
 ## 4. 明确不引入的依赖
 

@@ -1,18 +1,15 @@
 """Tests for butler.config — ModelConfig, LayeredModelConfig, ButlerSettings."""
 
-import os
 import tempfile
 from pathlib import Path
 
-import pytest
 import yaml
 
 from butler.config import (
+    BUTLER_RUNTIME_DIRS,
     ButlerSettings,
     LayeredModelConfig,
     ModelConfig,
-    get_butler_settings,
-    reload_butler_settings,
 )
 
 
@@ -122,6 +119,14 @@ class TestButlerSettings:
             s2 = ButlerSettings.load(Path(td) / "config.yaml")
             assert s2.butler_name == "TestButler"
             assert s2.models.butler.provider == "test"
+
+    def test_bootstrap_runtime_directories(self, monkeypatch):
+        with tempfile.TemporaryDirectory() as td:
+            monkeypatch.setenv("BUTLER_HOME", td)
+            s = ButlerSettings()
+            assert s.butler_home == Path(td).resolve()
+            for name in BUTLER_RUNTIME_DIRS:
+                assert (s.butler_home / name).is_dir(), f"missing runtime dir: {name}"
 
 
 class TestProjectManager:

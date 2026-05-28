@@ -28,6 +28,22 @@ _ROLE_NAMES: Final[tuple[str, ...]] = (
 )
 
 _DEFAULT_BUTLER_HOME = Path.home() / ".butler"
+_DEFAULT_BUTLER_RUNTIME_DIRS: Final[tuple[str, ...]] = (
+    "sessions",
+    "runtime",
+    "skills",
+    "wechat",
+    "exports",
+    "gateway",
+)
+BUTLER_RUNTIME_DIRS: Final[tuple[str, ...]] = _DEFAULT_BUTLER_RUNTIME_DIRS
+
+
+def _ensure_butler_home_structure(home: Path) -> None:
+    """Create Butler runtime directories expected by doctor and gateway/runtime flows."""
+    home.mkdir(parents=True, exist_ok=True)
+    for name in BUTLER_RUNTIME_DIRS:
+        (home / name).mkdir(parents=True, exist_ok=True)
 
 
 def _workspace_root() -> Path:
@@ -171,7 +187,7 @@ class ButlerSettings:
 
     def __post_init__(self) -> None:
         self.butler_home = self.butler_home.expanduser().resolve()
-        self.butler_home.mkdir(parents=True, exist_ok=True)
+        _ensure_butler_home_structure(self.butler_home)
         self.projects_dir = self.projects_dir.expanduser().resolve()
         if self.db_path is None:
             self.db_path = self.butler_home / "state.db"
@@ -371,4 +387,5 @@ __all__ = [
     "get_model_config",
     "reload_butler_settings",
     "save_butler_config",
+    "BUTLER_RUNTIME_DIRS",
 ]

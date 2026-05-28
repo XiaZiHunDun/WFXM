@@ -1329,7 +1329,7 @@ def _cmd_doctor(_ns: argparse.Namespace) -> int:
 
     workspace: Path | None = None
     try:
-        from butler.config import get_butler_home
+        from butler.config import BUTLER_RUNTIME_DIRS, get_butler_home
 
         butler_home = get_butler_home()
         projects_dir = butler_home / "projects"
@@ -1345,8 +1345,7 @@ def _cmd_doctor(_ns: argparse.Namespace) -> int:
 
     # 1. Data directory check
     print("[数据目录]")
-    expected_dirs = ["sessions", "runtime", "skills", "wechat", "exports", "gateway"]
-    for d in expected_dirs:
+    for d in BUTLER_RUNTIME_DIRS:
         p = butler_home / d
         status = "✓" if p.is_dir() else "✗ (missing)"
         print(f"  {butler_home / d}: {status}")
@@ -1370,18 +1369,24 @@ def _cmd_doctor(_ns: argparse.Namespace) -> int:
     # 3. Optional extras
     print("\n[可选依赖]")
     optional = {
-        "chromadb": "chromadb (vectors extra)",
-        "fastembed": "fastembed (embeddings extra)",
-        "aiohttp": "aiohttp (gateway extra)",
-        "docling": "docling (documents extra)",
-        "croniter": "croniter (reminders cron)",
+        "chromadb": ("chromadb (vectors extra)", 'pip install -e ".[vectors]"'),
+        "fastembed": ("fastembed (embeddings extra)", 'pip install -e ".[embeddings]"'),
+        "aiohttp": ("aiohttp (wechat extra)", 'pip install -e ".[wechat]"'),
+        "markitdown": ("markitdown (documents extra)", 'pip install -e ".[documents]"'),
+        "croniter": ("croniter (core dependency)", 'pip install -e ".[dev]"'),
     }
-    for mod, desc in optional.items():
+    missing_optional: list[str] = []
+    for mod, (desc, install_hint) in optional.items():
         try:
             __import__(mod)
             print(f"  {desc}: ✓")
         except ImportError:
             print(f"  {desc}: — (not installed)")
+            missing_optional.append(f"{desc} -> {install_hint}")
+    if missing_optional:
+        print("  可按需安装：")
+        for item in missing_optional:
+            print(f"    - {item}")
 
     # 4. .env file
     print("\n[配置]")
