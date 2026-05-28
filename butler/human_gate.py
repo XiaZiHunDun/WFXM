@@ -156,8 +156,8 @@ def _load_approved(session_key: str) -> set[str]:
             return {str(x) for x in data}
         if isinstance(data, dict):
             return {str(k) for k, v in data.items() if v}
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("load approved skipped: %s", exc)
     return set()
 
 

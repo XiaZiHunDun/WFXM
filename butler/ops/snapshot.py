@@ -10,7 +10,10 @@ from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def _workspace_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -102,9 +105,8 @@ def collect_ops_snapshot() -> dict[str, Any]:
         from butler.runtime.failure_tracker import list_active_streaks
 
         failure_streaks = list_active_streaks()
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("collect ops snapshot skipped: %s", exc)
     return {
         "gateway_log": _file_stats(_gateway_log_path()),
         "runtime_log": _file_stats(_runtime_log_path()),

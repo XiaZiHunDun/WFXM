@@ -182,9 +182,8 @@ class GatewayOutboundBridge:
                     self._milestone_timer(),
                     name=f"butler-milestone-{self.chat_id[:8]}",
                 )
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("start turn skipped: %s", exc)
     async def end_turn(self) -> None:
         if self._closed:
             return
@@ -226,9 +225,8 @@ class GatewayOutboundBridge:
                 from butler.gateway.item_event_sink import record_thread_item
 
                 record_thread_item(payload)
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("record outbound event skipped: %s", exc)
     def recent_outbound_events(self) -> list[dict[str, Any]]:
         return list(self._outbound_events)
 
@@ -469,8 +467,8 @@ class GatewayOutboundBridge:
                 from butler.gateway.task_milestone import maybe_schedule_task_milestone
 
                 maybe_schedule_task_milestone(self)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("maybe send ack skipped: %s", exc)
         except Exception as exc:
             logger.warning("Gateway progress ack failed: %s", exc)
 

@@ -199,8 +199,8 @@ def maybe_record_from_job_result(
                 if Path(p.workspace).resolve() == ws:
                     proj_name = p.name
                     break
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("maybe record from job result skipped: %s", exc)
         subj = str(job_id or metric["metric_name"])
         maybe_resolve_previous_pending(
             ws,

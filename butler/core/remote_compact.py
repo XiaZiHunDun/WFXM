@@ -174,7 +174,7 @@ def try_remote_summarize(middle: list[dict], previous_summary: str = "") -> str 
             from butler.ops.retry_buckets import record_recovery_event
 
             record_recovery_event("remote_compact_ok")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("try remote summarize skipped: %s", exc)
         return summary
     return None

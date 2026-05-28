@@ -121,8 +121,8 @@ class ButlerPlatformAdapter(ABC):
                     if bridge is not None:
                         bridge.mark_final_sent()
                     await self.send(chat_id, f"处理失败: {exc}")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("handle message skipped: %s", exc)
             finally:
                 if bridge is not None:
                     await bridge.end_turn()

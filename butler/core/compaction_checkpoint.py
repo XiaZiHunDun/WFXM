@@ -103,8 +103,8 @@ def capture_from_loop(
     try:
         client = getattr(loop, "client", None)
         model = str(getattr(client, "model", "") or "")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("capture from loop skipped: %s", exc)
     tool_names: list[str] = []
     for t in getattr(loop, "tools", None) or []:
         fn = (t.get("function") or {}) if isinstance(t, dict) else {}
@@ -117,8 +117,8 @@ def capture_from_loop(
 
         if session_todos_enabled():
             open_todos = count_open_todos(session_key)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("capture from loop skipped: %s", exc)
     max_iter = getattr(getattr(loop, "config", None), "max_iterations", None)
     capture_checkpoint(
         session_key,

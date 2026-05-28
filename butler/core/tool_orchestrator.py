@@ -50,8 +50,8 @@ def run_terminal_with_gates(
                             f"{danger.pattern}> 后重试）"
                         ),
                     )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("run terminal with gates skipped: %s", exc)
             return _deny("TERMINAL_DANGER_PATTERN", danger.reason)
     except Exception as exc:
         logger.debug("terminal danger gate: %s", exc)

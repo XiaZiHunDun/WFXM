@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
+import logging
+
+logger = logging.getLogger(__name__)
 
 DESTRUCTIVE_BATCH_TOOLS = frozenset({
     "write_file",
@@ -173,9 +176,8 @@ class BatchSequenceGuard:
 
             for path in extract_tool_scope_paths(tool_name, args):
                 record_edit_path(path)
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("note tool result skipped: %s", exc)
     def record_skip(self) -> None:
         with self._lock:
             self.skips += 1

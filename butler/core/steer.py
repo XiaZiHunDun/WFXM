@@ -22,8 +22,8 @@ def _resolve_session_key(session_key: str | None = None) -> str:
         sk = str(get_current_session_key() or "").strip()
         if sk:
             return sk
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("resolve session key skipped: %s", exc)
     return "default"
 
 

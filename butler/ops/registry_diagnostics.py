@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def format_registry_diagnostic_lines(
     health: dict[str, Any] | None = None,
@@ -17,9 +20,8 @@ def format_registry_diagnostic_lines(
         lines.append(
             f"Skill Registry: {'开' if registry_enabled() else '关'} (BUTLER_SKILL_REGISTRY)"
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format registry diagnostic lines skipped: %s", exc)
     try:
         from butler.registry.skill_service import SkillRegistryService
         from butler.config import load_settings
@@ -37,11 +39,10 @@ def format_registry_diagnostic_lines(
                 mp_hits = ClaudeMarketplaceSource().search("", limit=50)
                 if mp_hits:
                     lines.append(f"Marketplace 索引: {len(mp_hits)} 个插件")
-        except Exception:
-            pass
-    except Exception:
-        pass
-
+        except Exception as exc:
+            logger.debug("format registry diagnostic lines skipped: %s", exc)
+    except Exception as exc:
+        logger.debug("format registry diagnostic lines skipped: %s", exc)
     try:
         from butler.registry.mcp_catalog import mcp_catalog_enabled, McpCatalogService
 
@@ -55,9 +56,8 @@ def format_registry_diagnostic_lines(
                 + (f" (远程 +{remote_n})" if remote_n else "")
                 + f", 全局 yaml {len(inst)} 个"
             )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format registry diagnostic lines skipped: %s", exc)
     try:
         from butler.registry.mcp_merge import (
             format_mcp_merge_diagnostic_lines,
@@ -68,9 +68,8 @@ def format_registry_diagnostic_lines(
         merge_lines = format_mcp_merge_diagnostic_lines(workspace=ws)
         if merge_lines:
             lines.extend(merge_lines[:6])
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format registry diagnostic lines skipped: %s", exc)
     try:
         from butler.registry.paths import mcp_lock_path
         import json
@@ -85,7 +84,6 @@ def format_registry_diagnostic_lines(
                     err = (probe or {}).get("error") if isinstance(probe, dict) else ""
                     if err:
                         lines.append(f"MCP lock {sid}: {str(err)[:80]}")
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format registry diagnostic lines skipped: %s", exc)
     return lines

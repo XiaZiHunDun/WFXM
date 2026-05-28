@@ -9,6 +9,9 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 _SECTION_ORDER = (
     "Architecture",
@@ -470,9 +473,8 @@ class ProjectFactsStore:
             from butler.memory.knowledge_db import sync_facts_json_to_knowledge_db
 
             sync_facts_json_to_knowledge_db(self.path)
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("save unlocked skipped: %s", exc)
     def auto_extract(self, project_dir: Path) -> dict[str, Any]:
         root = Path(project_dir).resolve()
         facts: dict[str, Any] = {"extracted_at": time.time()}

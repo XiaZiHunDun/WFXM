@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def format_openclaw_diagnostic_lines(
     health: dict[str, Any] | None = None,
@@ -34,9 +37,8 @@ def format_openclaw_diagnostic_lines(
         lines.append(
             f"前置压缩开关: {'开' if preemptive_compact_enabled() else '关'} (BUTLER_PREEMPTIVE_COMPACT)"
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
     try:
         from butler.core.tool_loop_detect import enabled_detectors, get_tool_loop_detector
 
@@ -59,33 +61,29 @@ def format_openclaw_diagnostic_lines(
             sk = str(session_key or h.get("session_key") or "").strip()
             if sk and is_admitted(sk):
                 lines.append("Reply 准入: 本 session 有活跃 turn")
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
     try:
         from butler.gateway.bot_loop_guard import bot_loop_guard_enabled
 
         lines.append(
             f"Bot 环防护: {'开' if bot_loop_guard_enabled() else '关'} (BUTLER_BOT_LOOP_GUARD)"
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
     try:
         from butler.tools.terminal_approval import approval_required
 
         if approval_required():
             lines.append("Terminal 批准: 需 Owner /批准执行")
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
     try:
         from butler.config_secrets import secrets_status_line
 
         lines.append(secrets_status_line())
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
     try:
         from butler.tools.terminal_danger import danger_patterns_enabled
         from butler.tools.terminal_pattern_approval import smart_pattern_approve_enabled
@@ -93,9 +91,8 @@ def format_openclaw_diagnostic_lines(
         if danger_patterns_enabled():
             flag = "开" if smart_pattern_approve_enabled() else "关"
             lines.append(f"Terminal 危险模式: 开 (smart_approve={flag})")
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
     loop_tools = loop.get("tool_selector_output") or h.get("tool_selector_output")
     if loop_tools is not None:
         dropped = loop.get("tool_selector_dropped") or h.get("tool_selector_dropped") or 0

@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from butler.gateway.outbound_events import OutboundEvent
+import logging
+
+logger = logging.getLogger(__name__)
 
 SCHEMA = "butler.app-server/1"
 
@@ -100,5 +103,5 @@ def emit_thread_item(event: OutboundEvent) -> None:
         from butler.gateway.item_event_sink import record_thread_item
 
         record_thread_item(event)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("emit thread item skipped: %s", exc)

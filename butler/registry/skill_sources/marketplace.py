@@ -255,8 +255,8 @@ def _fetch_raw_tree(base_raw: str, rel_dir: str) -> dict[str, str]:
                 resp = safe_registry_get(url, timeout=15.0)
                 if resp.status_code == 200:
                     files[extra] = resp.text
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("fetch raw tree skipped: %s", exc)
     return files
 
 

@@ -84,8 +84,8 @@ def repair_tool_pairs(
                 "tool_pair_repair",
                 {"count": repairs},
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("flush pending skipped: %s", exc)
         logger.debug("Tool-pair repair inserted %d synthetic tool results", repairs)
 
     return out, repairs

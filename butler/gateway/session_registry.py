@@ -10,6 +10,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_evict_notify_hook: Callable[[str], None] | None = None
+
+
+def set_evict_notify_hook(hook: Callable[[str], None] | None) -> None:
+    global _evict_notify_hook
+    _evict_notify_hook = hook
+
 
 class _TrackedSessionDict(dict[str, Any]):
     def __init__(self, registry: "GatewaySessionRegistry", initial: dict[str, Any] | None = None) -> None:
@@ -131,9 +138,8 @@ class GatewaySessionRegistry:
                     session_count=len(self.sessions),
                     active_turns=len(self._active_sessions),
                 )
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("publish session gauges skipped: %s", exc)
     def is_session_active(self, session_key: str) -> bool:
         """True while a gateway turn holds the session lock (AgentLoop running)."""
         key = str(session_key or "default")
@@ -239,6 +245,12 @@ class GatewaySessionRegistry:
         for key in expired:
             if self._reset_if_still_idle(key, cutoff):
                 evicted.append(key)
+        if evicted and _evict_notify_hook is not None:
+            for key in evicted:
+                try:
+                    _evict_notify_hook(key)
+                except Exception as exc:
+                    logger.debug("Evict notify hook skipped: %s", exc)
         return evicted
 
     def enforce_lru(self) -> list[str]:

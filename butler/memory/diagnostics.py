@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from butler.session_lifecycle import CONVERSATION_CATEGORY
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def _resolve_experience_db_path(db_path: Any) -> Path | None:
     """Return an existing SQLite path, or None (never create files from mocks)."""
@@ -115,15 +118,14 @@ def collect_memory_layer_stats(
                 stats["profile_vector_rows"] = sem.count_by_source(
                     SOURCE_OWNER_PROFILE
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("collect memory layer stats skipped: %s", exc)
         tri = bm.triplet_index() if hasattr(bm, "triplet_index") else None
         if tri is not None:
             try:
                 stats["triplet_rows"] = tri.count()
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("collect memory layer stats skipped: %s", exc)
         exp = getattr(bm, "experience", None)
         if exp is not None:
             by_cat = _experience_category_counts(getattr(exp, "db_path", None))
@@ -142,8 +144,8 @@ def collect_memory_layer_stats(
             if tri2 is not None:
                 try:
                     stats["triplet_rows"] = tri2.count(project=proj_name or None)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("collect memory layer stats skipped: %s", exc)
         md = getattr(pm, "markdown", None)
         if md is not None:
             try:
@@ -163,8 +165,8 @@ def collect_memory_layer_stats(
                             chars += len(line)
                 stats["project_bullets"] = bullets
                 stats["project_chars"] = chars
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("collect memory layer stats skipped: %s", exc)
         facts_store = getattr(pm, "facts", None)
         if facts_store is not None:
             try:
@@ -174,9 +176,8 @@ def collect_memory_layer_stats(
                     ProjectKnowledgeDb.path_for_memory_dir(facts_store.path.parent)
                 )
                 stats["knowledge_db_keys"] = kdb.count_keys()
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("collect memory layer stats skipped: %s", exc)
     if session_key:
         try:
             from butler.memory.retrieval_telemetry import get_last_retrieval
@@ -189,9 +190,8 @@ def collect_memory_layer_stats(
                 stats["rag_last_query"] = str(last.get("query") or "")
                 if last.get("sub_query_count"):
                     stats["rag_last_sub_queries"] = int(last.get("sub_query_count") or 0)
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("collect memory layer stats skipped: %s", exc)
     return stats
 
 
@@ -243,8 +243,8 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         lines.append(
             f"  混合检索权重: 向量 {hybrid_vector_weight():.2f} / FTS {hybrid_fts_weight():.2f}"
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format memory diagnostic lines skipped: %s", exc)
     from butler.memory.prefetch_cache import queue_prefetch_enabled
 
     lines.append(

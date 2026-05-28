@@ -17,6 +17,9 @@ import threading
 from collections import deque
 from dataclasses import dataclass
 from typing import Any, Mapping
+import logging
+
+logger = logging.getLogger(__name__)
 
 IDEMPOTENT_TOOLS = frozenset({
     "read_file",
@@ -186,8 +189,8 @@ class ToolCallGuardrailController:
             from butler.core.tool_loop_detect import get_tool_loop_detector
 
             get_tool_loop_detector().reset_for_turn()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("reset for turn skipped: %s", exc)
         with self._lock:
             self._exact_failure_counts: dict[ToolCallSignature, int] = {}
             self._same_tool_failure_counts: dict[str, int] = {}
@@ -230,8 +233,8 @@ class ToolCallGuardrailController:
                 if loop_dec.level == "critical":
                     self._halt_decision = decision
                 return decision
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("before call locked skipped: %s", exc)
         if not self.config.hard_stop_enabled:
             return GuardrailDecision(tool_name=tool_name)
 
@@ -354,9 +357,8 @@ class ToolCallGuardrailController:
                 signature.args_hash,
                 result or "",
             )
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("after call locked skipped: %s", exc)
         if failed:
             exact_count = self._exact_failure_counts.get(signature, 0) + 1
             self._exact_failure_counts[signature] = exact_count

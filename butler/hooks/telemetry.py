@@ -6,6 +6,9 @@ import threading
 import time
 from collections import deque
 from typing import Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
 _MAX_PER_SESSION = 12
@@ -38,10 +41,8 @@ def record_hook_run(
             labels={"event": str(event or "?")[:32], "outcome": outcome},
             session_key=session_key,
         )
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("record hook run skipped: %s", exc)
 def recent_hook_runs(session_key: str = "", *, limit: int = 5) -> list[dict[str, Any]]:
     key = str(session_key or "").strip() or "_global"
     with _LOCK:
@@ -61,10 +62,8 @@ def reset_hook_telemetry(session_key: str | None = None) -> None:
             from butler.ops.runtime_metrics import reset_session
 
             reset_session(session_key)
-        except Exception:
-            pass
-
-
+        except Exception as exc:
+            logger.debug("reset hook telemetry skipped: %s", exc)
 def configured_hook_summary(workspace: Any = None) -> str:
     """Compact summary of loaded hook rules (by event)."""
     try:

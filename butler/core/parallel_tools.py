@@ -47,8 +47,8 @@ def should_parallelize_tool_batch(tool_calls: list[Any]) -> bool:
 
         if batch_stale_guard_enabled() and batch_has_destructive_and_reads(tool_calls):
             return False
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("should parallelize tool batch skipped: %s", exc)
     names = [getattr(tc, "name", "") or (tc.get("name") if isinstance(tc, dict) else "") for tc in tool_calls]
     if any(n in _NEVER_PARALLEL for n in names):
         return False

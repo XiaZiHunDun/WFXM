@@ -7,7 +7,10 @@ import re
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 _BASE_TERMINAL_COMMANDS = {
     "cat",
@@ -117,8 +120,8 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
             override = check_external_path_override(str(resolved), for_write=for_write)
             if override is not None and override.allowed:
                 return PathSafetyResult(True, resolved)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("check tool path skipped: %s", exc)
         return PathSafetyResult(
             False,
             resolved,

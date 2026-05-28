@@ -82,8 +82,8 @@ def check_and_reserve_inbound(
         from butler.ops.runtime_metrics import inc
 
         inc("inbound_idempotency_reserve", session_key=sk)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("check and reserve inbound skipped: %s", exc)
     return InboundIdempotencyDecision(accept=True)
 
 
@@ -151,10 +151,8 @@ def record_duplicate_skip(
                 "preview": (preview or "")[:120],
             },
         )
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("record duplicate skip skipped: %s", exc)
 __all__ = [
     "InboundIdempotencyDecision",
     "check_and_reserve_inbound",

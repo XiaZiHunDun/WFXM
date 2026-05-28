@@ -53,6 +53,11 @@
 | `BUTLER_TOOL_SAFE_ROOT` | 工具路径沙箱根 |
 | `BUTLER_LEAD_PROJECTS` | 厂长模式项目列表（逗号分隔；可被 `project.yaml` `lead: true` 补充） |
 | `BUTLER_HOME` | `~/.butler` | Butler 数据根目录 |
+| `BUTLER_TENANT` | default | 多租户隔离键；日常工具数据存于 `~/.butler/tenants/<tenant>/` |
+| `BUTLER_PROJECT_ROOT` | — | 记忆层项目根覆盖（默认当前项目 workspace） |
+| `BUTLER_SECRETS_PATH` | — | 凭证文件路径覆盖（默认 `~/.butler/secrets.yaml`） |
+| `BUTLER_GOAL_LOOP` | 0 | `1` 启用 `/循环` 目标循环模式 |
+| `BUTLER_DISABLE_COMPACT` | 0 | `1` 禁用所有压缩（与 `BUTLER_DISABLE_AUTO_COMPACT` 并存） |
 | `BUTLER_ENABLE_TERMINAL` | `1` 启用 terminal |
 | `BUTLER_TERMINAL_ALLOWLIST_EXTRA` | — | 额外允许的 terminal 命令（逗号分隔） |
 | `BUTLER_TERMINAL_PROFILE` | — | 终端 profile 名（不同项目可用不同白名单） |
@@ -268,7 +273,7 @@
 | `BUTLER_INJECTION_LLM_GATE` | 0 | `1` 且开启 LLM 评分时，高分走微信「确认」门控而非硬拒（需重发消息） |
 | `BUTLER_INSTALL_PRE_SCAN` | 1 | MCP/Skill 安装前规则扫描（`butler mcp scan` / `skill install`） |
 | `BUTLER_INSTALL_PRE_SCAN_FAIL_CLOSED` | 1 | 扫描 `block` 时拒绝安装 |
-| `BUTLER_POST_SESSION_LAYERED` | 0 | `1` 时 post_session 抽取 persona/preference/experience 写入 `session_summary.json` |
+| `BUTLER_POST_SESSION_LAYERED` | 0 | `1` 时 post_session 抽取 persona/preference/experience 写入 `session_summary.json`（默认 0，推荐按需设为 1） |
 | `BUTLER_TOOLS_ENGINE` | 1 | `0` 关闭 FC 能力检查；`BUTLER_TOOLS_ENGINE_FORCE_OFF=1` 强制无 tools |
 | `BUTLER_TOOLS_ENGINE_SSOT` | 0 | `1` 时仅保留 effective mcp.yaml 中 server 的 `mcp_*` 工具 |
 | `BUTLER_PROMPT_EVAL_LLM` | 0 | `1` 时 `butler prompt eval --llm` 对 pattern 通过项做辅助模型打分 |
@@ -376,6 +381,8 @@
 | `BUTLER_MODE_CLASSIFIER_AUTO_PLAN` | 0 | 高置信 plan 句自动 `set_plan_mode`（微信慎用） |
 | `BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION` | 0 | 委派子 Agent 每轮单工具（关并行） |
 | `BUTLER_COMPACTION_PREFLIGHT_CHECKLIST` | 1 | 压缩摘要附带完成前自检要点 |
+| `BUTLER_WECHAT_CONTENT_DEDUP_TTL` | 20 | 微信内容去重 TTL（秒） |
+| `BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL` | 300 | 微信消息 ID 去重 TTL（秒） |
 | `BUTLER_GATEWAY_EXTERNAL_ID_DEDUPE` | 1 | 微信 `external_id` 入站幂等（防重投双跑 Loop） |
 | `BUTLER_TASK_STALE_MINUTES` | 60 | `running` 委派超过此时长标 stale |
 | `BUTLER_TASK_STALE_AUTO_FAIL` | 0 | 是否自动将 stale 任务标为 failed |
@@ -392,8 +399,12 @@
 | `BUTLER_ENABLE_DOWNLOAD` | 0 | 启用文件下载工具 |
 | `BUTLER_DOWNLOAD_MAX_BYTES` | 10485760 | 下载文件大小上限 |
 | `BUTLER_DOWNLOAD_ALLOW_HOSTS` | — | 下载白名单 host |
-| `BUTLER_DATA_QUERY` | 0 | 启用 `data_query` 工具（duckdb） |
+| `BUTLER_DATA_QUERY` | 1 | 启用 `data_query` 工具（duckdb） |
 | `BUTLER_ENABLE_WEB_FETCH` | 0 | 启用薄 `web_fetch`（公网 URL，SSRF 校验） |
+| `BUTLER_ENABLE_WEB_SEARCH` | 0 | 启用 `web_search` 工具（DuckDuckGo） |
+| `BUTLER_WEB_SEARCH_TIMEOUT` | 15 | web_search 超时（秒） |
+| `BUTLER_IMAGE_GENERATION` | 1 | 启用 `generate_image`（MiniMax image-01） |
+| `BUTLER_TTS` | 1 | 启用 `synthesize_speech`（MiniMax TTS HD） |
 | `BUTLER_WEB_FETCH_MAX_BYTES` | 65536 | web_fetch 响应字节上限 |
 | `BUTLER_WEB_FETCH_TIMEOUT` | 20 | web_fetch 超时（秒） |
 | `BUTLER_DELEGATE_CONCURRENCY_LIMIT` | 1 | 同会话并发委派槽位限制 |
@@ -411,6 +422,8 @@
 | `BUTLER_TRANSCRIPT_MEMORY` | 0 | 启用 `/记忆提炼` 从 transcript JSONL 跑 PostSession 记忆通道 |
 | `BUTLER_TRANSCRIPT_MEMORY_MAX_LINES` | 400 | 记忆提炼读取 transcript 尾部行数 |
 | `BUTLER_EXECUTE_CODE` | 0 | 启用 `execute_code` 沙箱工具（须安全评审） |
+| `BUTLER_EXECUTE_CODE_TIMEOUT` | 30 | 代码执行超时（秒） |
+| `BUTLER_EXECUTE_CODE_ALLOW_NETWORK` | 0 | `1` 允许沙箱网络访问 |
 | `BUTLER_SECRETS_FILE` | 1 | 从 `~/.butler/secrets.yaml` 加载 provider API key |
 | `BUTLER_TERMINAL_SMART_APPROVE` | 1 | `/批准模式 <pattern>` 本会话放行危险 terminal |
 | `BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST` | — | 向后剪枝最少回收字符数 |

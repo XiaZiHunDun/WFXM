@@ -26,8 +26,8 @@ def _get_workspace() -> Path | None:
         proj = orch.project_manager.active_project
         if proj and getattr(proj, "workspace", None):
             return Path(proj.workspace)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("get workspace skipped: %s", exc)
     return None
 
 

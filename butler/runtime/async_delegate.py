@@ -58,9 +58,8 @@ def schedule_background_delegate(job: DelegateJob) -> None:
         from butler.runtime.task_store import update_task
 
         update_task(job.task_id, background=True)
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("schedule background delegate skipped: %s", exc)
     def _worker() -> None:
         try:
             run_delegate_job(job)

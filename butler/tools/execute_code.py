@@ -9,6 +9,9 @@ import tempfile
 from pathlib import Path
 
 from butler.env_parse import env_truthy
+import logging
+
+logger = logging.getLogger(__name__)
 
 _MAX_CODE_CHARS = 8000
 _DEFAULT_TIMEOUT = 30
@@ -41,8 +44,8 @@ def _workspace_cwd() -> Path:
             proj = pm.get_current(session_key=str(get_current_session_key() or ""))
             if proj is not None:
                 return Path(proj.workspace).resolve()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("workspace cwd skipped: %s", exc)
     return Path.cwd().resolve()
 
 

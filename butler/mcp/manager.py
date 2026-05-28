@@ -110,8 +110,8 @@ class McpConnectionManager:
             if mcp_profiles_enabled():
                 profile = get_session_profile(session_key=sk)
                 configs = filter_servers_by_profile(configs, profile)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("ensure connected skipped: %s", exc)
         handles = self._handles_for(session_key)
         refs: list[McpToolRef] = []
 

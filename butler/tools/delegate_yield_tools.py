@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 from typing import Any, Callable
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def _tool_delegate_yield(
     task_id: str = "",
@@ -24,8 +27,8 @@ def _tool_delegate_yield(
             recent = list_recent_tasks(sk, limit=1)
             if recent:
                 tid = str(recent[0].get("task_id") or "")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("tool delegate yield skipped: %s", exc)
     if not tid:
         return json.dumps({
             "ok": False,

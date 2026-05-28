@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from butler.core.system_reminder import wrap_system_reminder
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def anchor_sections(sections: dict[str, str]) -> str:
     """Render named sections as markdown headings."""
@@ -52,8 +55,8 @@ def render_orchestrator_turn(
         from butler.core.harness_flags import static_system_reminder_enabled
 
         use_static_reminder = static_system_reminder_enabled()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("render orchestrator turn skipped: %s", exc)
     if use_static_reminder:
         static = orchestrator.build_static_system_prompt()
         reminder_body = orchestrator.build_dynamic_system_reminder(for_role=for_role)

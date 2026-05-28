@@ -50,8 +50,8 @@ def is_high_risk_tool(tool_name: str, args: dict[str, Any] | None = None) -> boo
                 danger = check_dangerous_command(cmd)
                 if not danger.allowed:
                     return True
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("is high risk tool skipped: %s", exc)
     return False
 
 
@@ -188,8 +188,8 @@ def two_phase_block_message(
             step_index=1,
             step_total=1,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("two phase block message skipped: %s", exc)
     return build_wait_message(pending)
 
 

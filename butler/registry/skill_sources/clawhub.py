@@ -310,6 +310,6 @@ def _extract_inline_files(version_data: dict[str, Any]) -> dict[str, str]:
                 resp = httpx.get(raw_url, timeout=20.0)
                 if resp.status_code == 200:
                     files[fname] = resp.text
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("extract inline files skipped: %s", exc)
     return files

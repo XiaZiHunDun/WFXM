@@ -152,9 +152,8 @@ def detect_mode_suggestion_banner(
 
         if is_plan_mode(session_key):
             return None
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("detect mode suggestion banner skipped: %s", exc)
     label = classify_turn_mode(text)
     if label is None:
         return None
@@ -169,8 +168,8 @@ def detect_mode_suggestion_banner(
                     "[Mode: plan] 已根据消息内容自动进入规划模式（只读 + 可写 plan 文件）。"
                     "发 /执行 退出后再改代码或委派。"
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("detect mode suggestion banner skipped: %s", exc)
         return (
             "[Mode: plan] 本条更像「先规划再动手」。建议发 **/规划** 进入只读规划；"
             "若你就是要直接改代码，请说明「直接执行」或具体改动目标。"

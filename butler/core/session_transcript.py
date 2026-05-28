@@ -54,8 +54,8 @@ def _append_line(path: Path, entry: dict[str, Any]) -> None:
             from butler.core.transcript_index import update_index_after_append
 
             update_index_after_append(path, line_byte_offset=offset, line_len=len(line.encode("utf-8")))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("append line skipped: %s", exc)
         if path.stat().st_size > transcript_max_bytes():
             _tombstone_tail(path)
 
@@ -352,8 +352,8 @@ def load_transcript_tail(session_key: str, *, max_lines: int = 50) -> list[dict[
         from butler.core.transcript_index import load_tail_rows
 
         return load_tail_rows(path, max_lines=max(1, int(max_lines)))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("load transcript tail skipped: %s", exc)
     if not path.is_file():
         return []
     try:

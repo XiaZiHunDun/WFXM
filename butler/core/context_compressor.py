@@ -157,8 +157,8 @@ def truncate_tool_responses_to_budget(messages: list[dict]) -> list[dict]:
             from butler.ops.retry_buckets import record_recovery_event
 
             record_recovery_event("compress_tool_budget_truncate")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("truncate tool responses to budget skipped: %s", exc)
     return out
 
 
@@ -241,9 +241,8 @@ def compress_messages(
             messages_before=len(messages),
             tokens_estimated=estimated,
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("compress messages skipped: %s", exc)
     pruned = _prune_tool_outputs(messages)
     skill_rescued: list[dict] = []
     try:
@@ -261,9 +260,8 @@ def compress_messages(
             from butler.core.turn_compaction import find_overflow_replay_user
 
             replay_user = find_overflow_replay_user(pruned)
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("compress messages skipped: %s", exc)
     try:
         from butler.core.turn_compaction import split_head_tail_turns, turn_compaction_enabled
 
@@ -331,8 +329,8 @@ def compress_messages(
                 from butler.core.skill_compact_rescue import merge_skill_rescue_into_tail as _merge
 
                 head_tail = _merge(head_tail, skill_rescued)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("compress messages skipped: %s", exc)
         return system + head_tail + middle, previous_summary, False
     if isinstance(diagnostics, dict):
         diagnostics["compaction_remote"] = used_remote
@@ -365,8 +363,8 @@ def compress_messages(
             from butler.core.turn_compaction import append_overflow_replay
 
             compressed = append_overflow_replay(compressed, replay_user)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("compress messages skipped: %s", exc)
     logger.info(
         "Context compressed: %d→%d msgs, ~%d→%d tokens",
         len(messages), len(compressed), estimated, _estimate_tokens(compressed),
@@ -388,8 +386,8 @@ def compress_messages(
             tokens_after=_estimate_tokens(compressed),
             summary_chars=len(summary),
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("compress messages skipped: %s", exc)
     try:
         from butler.gateway.item_events import context_compaction_item, emit_thread_item
 
@@ -405,6 +403,6 @@ def compress_messages(
                 remote=used_remote,
             )
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("compress messages skipped: %s", exc)
     return compressed, summary, True

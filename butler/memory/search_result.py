@@ -8,6 +8,9 @@ from typing import Any
 
 from butler.memory.semantic_config import hybrid_fts_weight, hybrid_vector_weight
 from butler.memory.semantic_index import SOURCE_EXPERIENCE, SOURCE_PROJECT
+import logging
+
+logger = logging.getLogger(__name__)
 
 _MD_SOURCE_ID_RE = re.compile(r"^[^:]+:md:(.+?)#h")
 
@@ -43,8 +46,8 @@ def source_path_for_hit(hit: dict[str, Any], *, project_workspace: Path | None =
             meta_path = parse_chunk_metadata(str(hit.get("content") or "")).get(
                 "source_path", ""
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("source path for hit skipped: %s", exc)
         if meta_path:
             if project_workspace is not None:
                 return str((project_workspace / meta_path).resolve())
@@ -90,8 +93,8 @@ def score_breakdown_for_hit(hit: dict[str, Any]) -> dict[str, Any]:
             breakdown["heading_path"] = meta["heading_path"]
         if meta.get("parent_source_id"):
             breakdown["parent_source_id"] = meta["parent_source_id"]
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("score breakdown for hit skipped: %s", exc)
     return breakdown
 
 
@@ -112,8 +115,8 @@ def enrich_search_hit(
             item["heading_path"] = meta["heading_path"]
         if meta.get("parent_source_id"):
             item["parent_source_id"] = meta["parent_source_id"]
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("enrich search hit skipped: %s", exc)
     return item
 
 

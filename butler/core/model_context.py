@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def resolve_max_output_tokens(
     orchestrator: Any,
@@ -31,6 +34,6 @@ def resolve_max_output_tokens(
         cfg = get_model_config(loop_role)
         if cfg.max_tokens and int(cfg.max_tokens) > 0:
             return int(cfg.max_tokens)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("resolve max output tokens skipped: %s", exc)
     return None

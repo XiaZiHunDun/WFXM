@@ -36,8 +36,8 @@ def resolve_project_display_name(pmem: "ProjectMemory") -> str:
         yaml = Path(pmem.project_dir) / "project.yaml"
         if yaml.is_file():
             return Project.from_yaml(yaml).name
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("resolve project display name skipped: %s", exc)
     return Path(pmem.project_dir).name
 
 
@@ -216,8 +216,8 @@ def search_project_memory_vectors(
             if boost != 1.0:
                 item["score"] = round(base * boost, 6)
                 item["heading_boost"] = round(boost, 4)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("search project memory vectors skipped: %s", exc)
         out.append(item)
         if len(out) >= limit:
             break
@@ -303,9 +303,8 @@ def prefetch_project_memory_hits(
             if merged:
                 return merged, "subquery"
             return [], "none"
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("search skipped: %s", exc)
     return _prefetch_project_once(
         pmem,
         q,

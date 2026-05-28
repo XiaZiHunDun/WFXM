@@ -9,6 +9,9 @@ import re
 from typing import Any
 
 from butler.env_parse import env_truthy
+import logging
+
+logger = logging.getLogger(__name__)
 
 _POLICY_ENV = "BUTLER_TOOL_ERROR_POLICY"
 
@@ -213,9 +216,8 @@ def apply_tool_error_policy(
         from butler.ops.runtime_metrics import inc
 
         inc("tool_error_policy", labels={"kind": kind.value, "tool": (tool_name or "?")[:32]})
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("apply tool error policy skipped: %s", exc)
     msg = ""
     code = f"TOOL_ERROR_{kind.value.upper()}"
     if exc is not None:

@@ -129,9 +129,8 @@ def run_delegate_job(job: DelegateJob) -> None:
                 from butler.gateway.outbound_bridge import set_current_bridge
 
                 set_current_bridge(job.bridge)
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("run delegate job skipped: %s", exc)
         from butler.execution_context import use_execution_context
 
         with use_execution_context(job.orch, session_key=job.child_session_key or job.session_key):
@@ -192,9 +191,8 @@ def run_delegate_job(job: DelegateJob) -> None:
                         "iterations": getattr(result, "iterations", 0) if result else 0,
                     },
                 )
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("run delegate job skipped: %s", exc)
         from butler.report import AgentReport, cache_report
         from butler.runtime.task_store import complete_task
 
@@ -256,10 +254,8 @@ def run_delegate_job(job: DelegateJob) -> None:
             from butler.core.delegate_semaphore import release_delegate_slot
 
             release_delegate_slot(job.session_key)
-        except Exception:
-            pass
-
-
+        except Exception as exc:
+            logger.debug("run delegate job skipped: %s", exc)
 def _try_attach_diff_summary(report: Any, job: DelegateJob) -> None:
     """Collect git diff --stat after delegate finishes and append to report summary."""
     if not report or not hasattr(report, "summary"):
@@ -278,8 +274,8 @@ def _try_attach_diff_summary(report: Any, job: DelegateJob) -> None:
             proj = pm.active_project
             if proj and hasattr(proj, "workspace"):
                 workspace = str(proj.workspace)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("try attach diff summary skipped: %s", exc)
         if not workspace:
             return
 

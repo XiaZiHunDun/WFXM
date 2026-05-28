@@ -81,10 +81,8 @@ def _record_queue_drop(session_key: str, *, reason: str, count: int = 1) -> None
         from butler.core.session_transcript import record_queue_drop
 
         record_queue_drop(session_key, reason, count)
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("record queue drop skipped: %s", exc)
 def _summarize_dropped(text: str) -> str:
     preview = re.sub(r"\s+", " ", (text or "").strip())[:120]
     return preview or "（空消息）"
@@ -158,8 +156,8 @@ def enqueue_inbound(
         from butler.core.session_transcript import record_queue_operation
 
         record_queue_operation(key, pri, body)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("enqueue inbound skipped: %s", exc)
     return True
 
 
@@ -171,10 +169,8 @@ def _refresh_queue_gauges(session_key: str) -> None:
         depth = pending_count(key)
         set_gauge("inbound_queue_depth", float(depth), session_key=key)
         set_gauge("inbound_queue_depth_total", float(pending_total()))
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("refresh queue gauges skipped: %s", exc)
 def pending_total() -> int:
     with _LOCK:
         return sum(len(bucket) for bucket in _QUEUES.values())
@@ -268,10 +264,8 @@ def reset_queue(session_key: str | None = None) -> None:
             set_gauge("inbound_queue_depth_total", 0.0)
         else:
             _refresh_queue_gauges(session_key)
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("reset queue skipped: %s", exc)
 # ---------------------------------------------------------------------------
 # Persistence layer — JSONL-backed durable queue
 # ---------------------------------------------------------------------------
@@ -411,6 +405,6 @@ def format_queued_ack(*, pending: int = 1, session_key: str = "") -> str:
             mode = get_queue_mode(session_key)
             if mode != "followup":
                 base += f"（队列模式：{mode}）"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("format queued ack skipped: %s", exc)
     return base

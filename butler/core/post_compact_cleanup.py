@@ -201,8 +201,8 @@ def run_post_compact_cleanup(
             if diagnostics is not None:
                 diagnostics["post_compact_skipped_mid_turn"] = True
             return messages
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("run post compact cleanup skipped: %s", exc)
     return apply_post_compact_anchors(messages, diagnostics, role=role)
 
 

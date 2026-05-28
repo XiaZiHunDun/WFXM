@@ -21,6 +21,13 @@ _WRITE_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 
+_DANGEROUS_FUNCTIONS = re.compile(
+    r"\b(read_csv_auto|read_csv|read_json_auto|read_json|read_parquet|read_text|"
+    r"read_blob|read_ndjson|ATTACH|DETACH|read_csv_objects|glob|pragma_|"
+    r"query_table|httpfs|s3_|hf_|azure_)\b",
+    re.IGNORECASE,
+)
+
 
 def _duckdb_available() -> bool:
     try:
@@ -84,15 +91,25 @@ def tool_query_data(
         match = _WRITE_KEYWORDS.search(query)
         return json.dumps({"error": f"write operations not allowed: {match.group(1).upper()}"})
 
+    if _DANGEROUS_FUNCTIONS.search(query):
+        match = _DANGEROUS_FUNCTIONS.search(query)
+        return json.dumps({
+            "error": f"direct file access functions not allowed in SQL: {match.group(1)}",
+            "hint": "use the 'file' parameter to specify data source",
+        })
+
     cap = min(max(10, int(max_rows or _MAX_ROWS)), 1000)
 
     import duckdb  # type: ignore[import-untyped]
+
+    target = (file or "").strip()
+    if not target:
+        return json.dumps({"error": "file parameter is required", "hint": "specify a data file path"})
 
     con = None
     try:
         con = duckdb.connect(":memory:", read_only=False)
 
-        target = (file or "").strip()
         if target:
             p = _resolve_project_path(target)
             if p is None:
@@ -147,10 +164,8 @@ def tool_query_data(
         if con is not None:
             try:
                 con.close()
-            except Exception:
-                pass
-
-
+            except Exception as exc:
+                logger.debug("tool query data skipped: %s", exc)
 def register_data_query_tools(register_fn) -> None:
     """Register query_data tool if duckdb is available."""
     if not _duckdb_available():
@@ -184,7 +199,7 @@ def register_data_query_tools(register_fn) -> None:
                     "description": "Maximum rows to return",
                 },
             },
-            "required": ["sql"],
+            "required": ["sql", "file"],
         },
         handler=tool_query_data,
         toolset="analytics",

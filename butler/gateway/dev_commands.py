@@ -30,8 +30,8 @@ def _get_active_project() -> Any:
         handler = GatewayMessageHandler._instance  # type: ignore[attr-defined]
         if handler and hasattr(handler, "_orchestrator"):
             return handler._orchestrator.project_manager.active_project
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("get active project skipped: %s", exc)
     try:
         from butler.project_manager import ProjectManager
         pm = ProjectManager()
@@ -488,10 +488,8 @@ def _append_runtime_summary(lines: list[str], ws: Path) -> None:
         active = sum(1 for j in jobs if j.get("enabled", True))
         if jobs:
             lines.append(f"⏰ 定时任务: {active} 个活跃 / {len(jobs)} 总计")
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("append runtime summary skipped: %s", exc)
 def _append_memory_summary(lines: list[str], ws: Path) -> None:
     mem_path = ws / ".butler" / "memory" / "MEMORY.md"
     if not mem_path.is_file():

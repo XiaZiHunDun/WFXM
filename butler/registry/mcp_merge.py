@@ -10,7 +10,10 @@ import yaml
 
 from butler.mcp.config import _resolve_config_paths
 from butler.registry.paths import default_mcp_config_path
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class McpConfigLayer:
@@ -88,8 +91,8 @@ def resolve_workspace_for_session(session_key: str = "") -> Path | None:
                     p = Path(str(ws)).expanduser()
                     if p.is_dir():
                         return p
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("resolve workspace for session skipped: %s", exc)
     if not sk:
         return None
     try:
@@ -104,8 +107,8 @@ def resolve_workspace_for_session(session_key: str = "") -> Path | None:
                 p = Path(str(ws)).expanduser()
                 if p.is_dir():
                     return p
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("resolve workspace for session skipped: %s", exc)
     return None
 
 

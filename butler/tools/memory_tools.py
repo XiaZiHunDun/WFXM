@@ -83,8 +83,8 @@ def _memory_service():
         from butler.execution_context import get_current_session_key
 
         session_key = get_current_session_key() or ""
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("memory service skipped: %s", exc)
     svc.initialize(session_id=session_key or "tool")
     if orch is not None:
         if getattr(orch, "butler_memory", None) is not None:

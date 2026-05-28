@@ -66,8 +66,8 @@ async def _maybe_replan_dev_qa_loop(
         )
         try:
             impl_node.config.task = var_pool.interpolate(impl_node.config.task)  # type: ignore[attr-defined]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("maybe replan dev qa loop skipped: %s", exc)
         impl_result = await orchestrator._run_with_retry(impl_node, on_progress=on_progress)
         graph.nodes["implement"] = impl_result
         update_step_outcome(snap, "implement", success=impl_result.success)
@@ -90,8 +90,8 @@ async def _maybe_replan_dev_qa_loop(
             from butler.core.session_transcript import record_plan_snapshot
 
             record_plan_snapshot(sk, snap.to_json())
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("maybe replan dev qa loop skipped: %s", exc)
     return graph
 
 
@@ -156,9 +156,8 @@ def _workflow_progress_callback(
                     step_index=index,
                     step_total=total_steps,
                 )
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("cb skipped: %s", exc)
         if norm_phase == "done" and var_pool is not None and preview:
             keys = (step_output_keys or {}).get(step_id, ["output"])
             var_pool.set_step_output(step_id, preview, keys=keys)
@@ -180,9 +179,8 @@ def _workflow_progress_callback(
                         completed_steps=list(completed_checkpoint),
                         session_key=session_key,
                     )
-                except Exception:
-                    pass
-
+                except Exception as exc:
+                    logger.debug("cb skipped: %s", exc)
         if bridge is None:
             return
         bridge.notify_workflow_step(
@@ -280,8 +278,8 @@ class WorkflowRunner:
             proj = orch.project_manager.get_current(session_key=session_key)
             if proj is not None:
                 ws = proj.workspace
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("run async skipped: %s", exc)
         progress_cb = _workflow_progress_callback(
             workflow.name,
             total_steps,
@@ -313,8 +311,8 @@ class WorkflowRunner:
                             completed_steps=[],
                         ),
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("on approval skipped: %s", exc)
             return approved
 
         from butler.execution_context import use_execution_context, use_workflow_var_pool
@@ -327,8 +325,8 @@ class WorkflowRunner:
 
                     if mp is None:
                         mp = workflow_max_parallel_default()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("on approval skipped: %s", exc)
                 graph = await self._tasks.execute_graph(
                     nodes,
                     on_progress=progress_cb,
@@ -387,8 +385,8 @@ class WorkflowRunner:
                     proj = orch.project_manager.get_current(session_key=session_key)
                     if proj is not None:
                         ws_path = Path(proj.workspace)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("on approval skipped: %s", exc)
                 run_workflow_handlers(
                     workflow.handlers,
                     event="workflow_finished",
@@ -514,9 +512,8 @@ class WorkflowRunner:
                         hypothesis=headline[:200],
                         source="workflow",
                     )
-                except Exception:
-                    pass
-
+                except Exception as exc:
+                    logger.debug("cache workflow report skipped: %s", exc)
     @staticmethod
     def format_graph_summary(
         workflow: WorkflowDef,

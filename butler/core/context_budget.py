@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Claude Code v2.1.88 defaults (services/compact/autoCompact.ts)
 _MAX_OUTPUT_TOKENS_FOR_SUMMARY = 20_000
@@ -82,8 +85,8 @@ def record_usage_in_diagnostics(
             provider=str(diagnostics.get("last_provider") or ""),
             model=str(diagnostics.get("last_model") or ""),
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("record usage in diagnostics skipped: %s", exc)
     return billable
 
 

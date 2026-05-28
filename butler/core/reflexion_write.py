@@ -31,8 +31,8 @@ def _experience_path() -> Path:
                     / "experiences"
                     / "reflexion.jsonl"
                 )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("experience path skipped: %s", exc)
     return Path.home() / ".butler" / "experiences" / "reflexion.jsonl"
 
 

@@ -152,8 +152,8 @@ def _build_existing_memory_corpus(butler_memory: Any, project_memory: Any) -> st
         if hasattr(butler_memory, "profile"):
             try:
                 parts.append(str(butler_memory.profile.read() or ""))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("build existing memory corpus skipped: %s", exc)
         exp = getattr(butler_memory, "experience", None)
         if exp is not None and hasattr(exp, "get_recent"):
             try:
@@ -161,13 +161,13 @@ def _build_existing_memory_corpus(butler_memory: Any, project_memory: Any) -> st
 
                 for row in filter_non_conversation_experience(exp.get_recent(limit=40)):
                     parts.append(str(row.get("content") or ""))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("build existing memory corpus skipped: %s", exc)
     if project_memory is not None and hasattr(project_memory, "get_full_context"):
         try:
             parts.append(str(project_memory.get_full_context(max_lines=80) or ""))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("build existing memory corpus skipped: %s", exc)
     return "\n".join(p for p in parts if isinstance(p, str) and p.strip())
 
 

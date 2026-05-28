@@ -5,7 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class HealthReportInput:
@@ -84,33 +87,33 @@ def _shared_diagnostic_lines(
         lines.extend(
             format_rag_diagnostic_lines(inp.mem_stats, session_key=inp.session_key)
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("shared diagnostic lines skipped: %s", exc)
     try:
         from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
 
         if proj is not None:
             lines.extend(format_experiment_diagnostic_lines(Path(proj.workspace)))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("shared diagnostic lines skipped: %s", exc)
     try:
         from butler.ops.usage_ledger import format_usage_ledger_lines
 
         lines.extend(format_usage_ledger_lines())
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("shared diagnostic lines skipped: %s", exc)
     try:
         from butler.transport.stream_probe import format_stream_probe_lines
 
         lines.extend(format_stream_probe_lines())
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("shared diagnostic lines skipped: %s", exc)
     try:
         from butler.transport.provider_health import format_circuit_diagnostic_lines
 
         lines.extend(format_circuit_diagnostic_lines())
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("shared diagnostic lines skipped: %s", exc)
     return lines
 
 
@@ -179,9 +182,8 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
                 stale_lines.append(
                     f"  ⏱ {row.get('task_id')} {(row.get('task_preview') or '')[:40]}"
                 )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("turn diagnostic lines skipped: %s", exc)
     recovery_lines: list[str] = []
     try:
         from butler.ops.retry_buckets import format_recovery_bucket_lines
@@ -189,9 +191,8 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         recovery_lines = format_recovery_bucket_lines(
             session_key=health.get("session_key") or inp.session_key,
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("turn diagnostic lines skipped: %s", exc)
     out: list[str] = [
         "Butler 诊断",
         f"会话: {health.get('session_key') or inp.session_key}",
@@ -213,8 +214,8 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         from butler.core.pipeline_steps import format_pipeline_step_lines
 
         out.extend(format_pipeline_step_lines(health))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("turn diagnostic lines skipped: %s", exc)
     try:
         from butler.transport.stream_probe import (
             format_stream_probe_lines,
@@ -225,8 +226,8 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         if stream_probe_enabled():
             run_stream_probe(inp.orchestrator)
             out.extend(format_stream_probe_lines())
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("turn diagnostic lines skipped: %s", exc)
     try:
         from butler.core.schema_optimizer import schema_optimize_enabled
 
@@ -236,8 +237,8 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
             )
             if stripped:
                 out.append(f"Schema 预优化剥离: {int(stripped)}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("turn diagnostic lines skipped: %s", exc)
     return out
 
 
@@ -271,8 +272,8 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
         from butler.gateway.queue_settings import format_queue_status_line
 
         lines.append(format_queue_status_line(session_key))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("hook diagnostic lines skipped: %s", exc)
     stop_ctx = loop.get("stop_hook_context") if isinstance(loop, dict) else None
     if stop_ctx:
         if isinstance(stop_ctx, list):
@@ -296,8 +297,8 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
         if oc_lines:
             lines.append("Harness 对标 (OpenClaw + OMO):")
             lines.extend(f"  {ln}" for ln in oc_lines)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("hook diagnostic lines skipped: %s", exc)
     return lines
 
 
@@ -331,14 +332,14 @@ def build_health_report(inp: HealthReportInput) -> str:
             from butler.ops.transcript_diagnostics import format_transcript_diagnostic_lines
 
             lines.extend(format_transcript_diagnostic_lines(inp.session_key))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("build health report skipped: %s", exc)
         try:
             from butler.ops.runtime_metrics import format_metrics_diagnostic_lines
 
             lines.extend(format_metrics_diagnostic_lines(session_key=inp.session_key))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("build health report skipped: %s", exc)
         return "\n".join(lines)
 
     lines: list[str] = []
@@ -363,8 +364,8 @@ def build_health_report(inp: HealthReportInput) -> str:
                     "butler", project=proj, settings=inp.orchestrator._settings
                 )
                 model_name = str(em.config.model or "")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("build health report skipped: %s", exc)
             lines.extend(
                 format_token_cost_diagnostic_lines(
                     health,
@@ -372,8 +373,8 @@ def build_health_report(inp: HealthReportInput) -> str:
                     estimate_cost=token_cost_estimate_enabled(),
                 )
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("build health report skipped: %s", exc)
     else:
         from butler.core.context_budget import format_context_budget_line
 
@@ -391,12 +392,12 @@ def build_health_report(inp: HealthReportInput) -> str:
         from butler.ops.transcript_diagnostics import format_transcript_diagnostic_lines
 
         lines.extend(format_transcript_diagnostic_lines(inp.session_key))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("build health report skipped: %s", exc)
     try:
         from butler.ops.runtime_metrics import format_metrics_diagnostic_lines
 
         lines.extend(format_metrics_diagnostic_lines(session_key=inp.session_key))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("build health report skipped: %s", exc)
     return "\n".join(lines)

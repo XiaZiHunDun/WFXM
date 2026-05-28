@@ -71,9 +71,8 @@ def try_reactive_compact(
                 if len(compressed) >= len(messages):
                     return False, messages, "exhausted"
                 return True, compressed, "ok"
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("try reactive compact skipped: %s", exc)
     rounds = group_messages_by_api_round(messages)
     if len(rounds) <= min_rounds_to_drop + 1:
         return False, messages, "too_few_groups"

@@ -397,8 +397,8 @@ class ButlerMemoryService:
                 return json.dumps(
                     {"ok": True, "skipped": True, "reason": "content entirely <private>"},
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("remember skipped: %s", exc)
         if not content:
             return json.dumps({"ok": False, "error": "content is empty"})
 
@@ -619,8 +619,8 @@ class ButlerMemoryService:
                         tel["sub_queries"] = sub_queries
                         tel["mode"] = f"project-{mode}-subquery"
                     record_last_retrieval(get_current_session_key() or "", tel)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("recall skipped: %s", exc)
             return json.dumps(
                 {
                     "ok": True,

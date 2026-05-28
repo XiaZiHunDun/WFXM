@@ -43,8 +43,8 @@ def _resolve_cache_path() -> Path | None:
             proj = pm.get_current(session_key=str(get_current_session_key() or ""))
             if proj is not None:
                 return Path(proj.workspace).expanduser().resolve() / ".butler" / "experiences" / "llm_cache.jsonl"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("resolve cache path skipped: %s", exc)
     home = Path.home() / ".butler" / "experiences" / "llm_cache.jsonl"
     return home
 

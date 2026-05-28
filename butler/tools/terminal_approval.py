@@ -83,9 +83,8 @@ def check_approval(
         if review.allowed and not review.skipped:
             store_approval(command, cwd=cwd, session_key=session_key, ttl_sec=300.0)
             return None
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("check approval skipped: %s", exc)
     fp = argv_fingerprint(command, cwd=cwd)
     path = _approvals_dir() / f"{fp}.json"
     if not path.is_file():

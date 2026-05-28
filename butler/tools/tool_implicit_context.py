@@ -6,7 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def implicit_context_enabled() -> bool:
     return env_truthy("BUTLER_TOOL_IMPLICIT_CONTEXT", default=True)
@@ -41,8 +44,8 @@ def build_implicit_tool_args() -> dict[str, Any]:
         sk = str(get_current_session_key() or "").strip()
         if sk:
             out["_butler_session_key"] = sk
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("build implicit tool args skipped: %s", exc)
     ws = resolve_project_workspace()
     if ws is not None:
         out["_butler_project_root"] = str(ws)
@@ -53,8 +56,8 @@ def build_implicit_tool_args() -> dict[str, Any]:
         step = str(get_current_workflow_step() or "").strip()
         if step:
             out["_butler_workflow_step"] = step
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("build implicit tool args skipped: %s", exc)
     return out
 
 

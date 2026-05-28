@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from butler.runtime import audit, loader, schedule
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def _workspace_for_project(project_name: str) -> Path | None:
     from butler.project_manager import ProjectManager
@@ -30,9 +33,8 @@ def collect_runtime_stats(project_name: str, *, max_jobs: int = 6) -> dict[str, 
             push_queue_pending = sum(
                 1 for ln in qpath.read_text(encoding="utf-8").splitlines() if ln.strip()
             )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("collect runtime stats skipped: %s", exc)
     out: dict[str, Any] = {
         "project": name,
         "enabled": os.getenv("BUTLER_RUNTIME_ENABLED", "1").strip().lower()
@@ -99,6 +101,6 @@ def format_runtime_diagnostic_lines(project_name: str) -> list[str]:
         from butler.runtime.failure_tracker import format_failure_streak_lines
 
         lines.extend(format_failure_streak_lines())
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format runtime diagnostic lines skipped: %s", exc)
     return lines

@@ -1360,10 +1360,36 @@ class ButlerMessageHandler:
             if reg is not None:
                 return reg
 
+        if cmd in ("/config", "/配置"):
+            from butler.config_service import (
+                config_set,
+                format_config_get,
+                format_config_list,
+            )
+
+            if not arg:
+                return format_config_list()
+            parts = arg.split(maxsplit=1)
+            sub = parts[0].lower()
+            sub_arg = parts[1].strip() if len(parts) > 1 else ""
+            if sub == "list":
+                return format_config_list(sub_arg)
+            if sub == "get" and sub_arg:
+                return format_config_get(sub_arg)
+            if sub == "set":
+                kv = sub_arg.split(maxsplit=1)
+                if len(kv) == 2:
+                    result = config_set(kv[0], kv[1])
+                    if result.needs_reset:
+                        self._session_registry.reset(session_key)
+                    return result.message
+                return "用法: /config set <变量名> <值>"
+            return format_config_get(arg)
+
         if cmd in ("/帮助", "/help"):
             from butler.gateway.help_commands import format_help_text
 
-            return format_help_text()
+            return format_help_text(arg)
 
         if cmd in ("/tasks", "/任务"):
             from butler.runtime.task_store import (

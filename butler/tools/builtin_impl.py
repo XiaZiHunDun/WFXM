@@ -94,8 +94,8 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
                     if proj is not None:
                         workspace_root = Path(proj.workspace)
                 record_read_path(_p, workspace_root=workspace_root)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("read path tracking skipped: %s", exc)
         return body
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -356,8 +356,8 @@ def _tool_write_file(path: str, content: str, **_) -> str:
             from butler.core.read_state import record_edit_path
 
             record_edit_path(p)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("edit path tracking skipped: %s", exc)
         payload: dict = {"success": True, "path": str(p), "bytes": len(content.encode("utf-8"))}
         try:
             from butler.core.post_edit_format import maybe_format_after_edit
@@ -365,8 +365,8 @@ def _tool_write_file(path: str, content: str, **_) -> str:
             fmt = maybe_format_after_edit(p)
             if fmt:
                 payload["post_edit_format"] = fmt
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("post-edit format skipped: %s", exc)
         return json.dumps(payload)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -419,8 +419,8 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
                 mismatch = verify_line_anchors(_p, anchors)
                 if mismatch:
                     return json.dumps(mismatch, ensure_ascii=False)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("hashline anchor verify skipped: %s", exc)
         text = data.decode("utf-8", errors="replace")
         count = text.count(old_string)
         fuzzy = False
@@ -466,8 +466,8 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
 
             if _written_path is not None:
                 record_edit_path(_written_path)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("edit path tracking skipped: %s", exc)
         payload: dict[str, Any] = {"success": True, "replacements": 1}
         if fuzzy:
             payload["fuzzy_quotes"] = True
@@ -478,8 +478,8 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
                 fmt = maybe_format_after_edit(_written_path)
                 if fmt:
                     payload["post_edit_format"] = fmt
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("post-edit format skipped: %s", exc)
         return json.dumps(payload)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -885,8 +885,8 @@ def _finalize_delegate_failure(
         br = get_gateway_bridge_optional()
         if br is not None:
             br.notify_delegate_finished(report)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("delegate finished notification skipped: %s", exc)
     payload: dict[str, Any] = {
         "success": False,
         "error": f"Delegation failed: {exc}",
@@ -921,8 +921,8 @@ def _tool_delegate_task(
                 inferred = category_from_intent(task)
                 if inferred:
                     category = inferred
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("intent category inference skipped: %s", exc)
 
         if str(category or "").strip():
             from butler.delegate_category_resolver import apply_category_to_delegate
@@ -968,8 +968,8 @@ def _tool_delegate_task(
 
             if DELEGATE_VERIFY_CHECKLIST.strip():
                 context = (context or "").rstrip() + "\n\n" + DELEGATE_VERIFY_CHECKLIST.strip()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("delegate verify checklist skipped: %s", exc)
 
         bridge = get_gateway_bridge_optional()
         if bridge is not None:
@@ -991,8 +991,8 @@ def _tool_delegate_task(
                     role,
                     context,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("agents.md merge skipped: %s", exc)
         tools = get_tool_definitions_for_project(project, role=role)
 
         from butler.delegate_subagent_permissions import filter_tools_for_subagent
@@ -1064,8 +1064,8 @@ def _tool_delegate_task(
             if delegate_one_tool_per_iteration():
                 agent.config.enable_parallel_tools = False
                 agent.diagnostics["delegate_one_tool_per_iteration"] = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("delegate one-tool-per-iteration policy skipped: %s", exc)
 
         agent.reset()
 
@@ -1199,8 +1199,8 @@ def _tool_delegate_task(
                         from butler.runtime.delegate_registry import unregister_delegate_loop
 
                         unregister_delegate_loop(session_key, agent)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("delegate loop unregister skipped: %s", exc)
         finally:
             from butler.core.delegate_semaphore import release_delegate_slot
 
@@ -1357,8 +1357,8 @@ def _safe_dispatch(name: str, args: dict, depth: int) -> str:
             )
             if block:
                 result = f"{result}\n\n{block}"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("corrective recall injection skipped: %s", exc)
     return result
 
 

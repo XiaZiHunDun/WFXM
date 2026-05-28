@@ -59,9 +59,8 @@ def run_compaction_turn(
         from butler.core.context_compressor import _estimate_tokens
 
         before_est = _estimate_tokens(messages)
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("run compaction turn skipped: %s", exc)
     try:
         from butler.hooks.runner import run_post_compact_hooks, run_pre_compact_hooks
 
@@ -87,9 +86,8 @@ def run_compaction_turn(
             iteration=iteration,
             session_key=session_key,
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("run compaction turn skipped: %s", exc)
     from butler.core.compaction_phase import (
         record_compaction_diagnostics,
         resolve_compaction_context,
@@ -114,9 +112,8 @@ def run_compaction_turn(
         from butler.core.context_compressor import _estimate_tokens
 
         after_est = _estimate_tokens(compressed)
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("run compaction turn skipped: %s", exc)
     did = len(compressed) < len(messages) or after_est < before_est
     if not did:
         return False, messages
@@ -145,9 +142,8 @@ def run_compaction_turn(
                 remote=remote,
             )
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("run compaction turn skipped: %s", exc)
     try:
         from butler.hooks.runner import run_post_compact_hooks
 
@@ -173,9 +169,8 @@ def run_compaction_turn(
             iteration=iteration,
             session_key=session_key,
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("run compaction turn skipped: %s", exc)
     sk = session_key
     if not sk:
         try:
@@ -198,9 +193,8 @@ def run_compaction_turn(
                 "tokens_after": after_est,
             },
         )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("run compaction turn skipped: %s", exc)
     diag["compaction_explicit_turn"] = True
     diag["compaction_turn_iteration"] = iteration
     diag["compaction_turn_messages_before"] = len(messages)

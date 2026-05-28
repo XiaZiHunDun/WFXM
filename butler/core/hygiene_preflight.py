@@ -114,8 +114,8 @@ def run_hygiene_preflight(
             messages_before=len(messages),
             tokens_estimated=before_tokens,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("run hygiene preflight skipped: %s", exc)
     try:
         compressed = compress(
             messages,
@@ -149,8 +149,8 @@ def run_hygiene_preflight(
             from butler.core.compaction_status import derive_compaction_status
 
             diagnostics["compaction_status"] = derive_compaction_status(diagnostics)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("run hygiene preflight skipped: %s", exc)
         return HygienePreflightResult(messages=messages, compressed=False)
 
     diagnostics.pop("hygiene_compact_noop", None)
@@ -172,8 +172,8 @@ def run_hygiene_preflight(
             messages_after=len(compressed),
             tokens_after=after_tokens,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("run hygiene preflight skipped: %s", exc)
     diagnostics.update(
         calculate_token_warning_state(
             after_tokens,

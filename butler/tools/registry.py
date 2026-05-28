@@ -254,9 +254,8 @@ def dispatch_tool(name: str, args: dict) -> str:
             block = build_preread_block(ws, str(call_args.get("path") or ""))
             if block:
                 call_args = inject_preread_into_args(call_args, block)
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("dispatch tool skipped: %s", exc)
     try:
         from butler.tools.tool_implicit_context import merge_implicit_tool_args
 
@@ -471,12 +470,10 @@ def _maybe_record_tool_observation(
                 path=path_hint,
                 workspace=workspace,
             )
-        except Exception:
-            pass
-    except Exception:
-        pass
-
-
+        except Exception as exc:
+            logger.debug("maybe record tool observation skipped: %s", exc)
+    except Exception as exc:
+        logger.debug("maybe record tool observation skipped: %s", exc)
 def _finalize_tool_result(
     name: str,
     args: dict,
@@ -963,6 +960,10 @@ def _register_builtin_tools() -> None:
 
     register_web_fetch_tool(register)
 
+    from butler.tools.web_search import register_web_search_tool
+
+    register_web_search_tool(register)
+
     from butler.tools.git_tools import register_git_tools
 
     register_git_tools(register)
@@ -1019,6 +1020,13 @@ def _register_builtin_tools() -> None:
 
     register_habit_tools(register)
 
+    from butler.tools.multimodal_tools import register_multimodal_tools
+
+    register_multimodal_tools(register)
+
+    from butler.tools.config_tools import register_config_tools
+
+    register_config_tools(register)
 
 
 # Tool implementations live in builtin_impl.py

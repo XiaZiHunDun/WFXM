@@ -140,9 +140,8 @@ def apply_preemptive_pipeline(
                 from butler.ops.retry_buckets import record_recovery_event
 
                 record_recovery_event("preemptive_truncate")
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("apply preemptive pipeline skipped: %s", exc)
     if estimated < effective_limit:
         return out, PreemptiveDecision(
             route="truncate",

@@ -96,8 +96,8 @@ def pre_install_scan_mcp(
                 err = validate_stdio_command(cfg)
                 if err:
                     issues.append("command_denied")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("pre install scan mcp skipped: %s", exc)
     else:
         url = str(block.get("url") or entry.url or "").strip()
         if url:

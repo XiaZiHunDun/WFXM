@@ -255,9 +255,8 @@ class TaskOrchestrator:
                         or report.summary
                         or response_text
                     )[:2000]
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("spawn agent skipped: %s", exc)
             result = AgentResult(
                 success=success,
                 response=response_text,
@@ -352,9 +351,8 @@ class TaskOrchestrator:
 
             if max_parallel is None:
                 max_parallel = workflow_max_parallel_default()
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("execute graph skipped: %s", exc)
         for layer in layers:
             layer_tasks = []
             for node_id in layer:
@@ -516,8 +514,8 @@ class TaskOrchestrator:
             pool = get_workflow_var_pool()
             if pool is not None:
                 node.config.task = pool.interpolate(node.config.task)  # type: ignore[attr-defined]
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("run with retry skipped: %s", exc)
         last_result = AgentResult(success=False, error="No attempts")
         for attempt in range(node.max_retries):
             t0 = _time.perf_counter()
@@ -530,8 +528,8 @@ class TaskOrchestrator:
                     (_time.perf_counter() - t0) * 1000.0,
                     labels={"step": node.id},
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("run with retry skipped: %s", exc)
             if last_result.success:
                 try:
                     from butler.workflows.until_assert import evaluate_until
@@ -596,8 +594,8 @@ class TaskOrchestrator:
             if on_progress:
                 try:
                     on_progress(rescue_id, "done", cfg.role)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("run rescue steps skipped: %s", exc)
             if r.response:
                 parts.append(f"## Rescue ({rescue_id})\n{r.response[:3000]}")
         merged = "\n\n".join(p for p in parts if p)

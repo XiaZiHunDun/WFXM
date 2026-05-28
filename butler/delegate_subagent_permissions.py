@@ -7,6 +7,9 @@ from typing import Any
 
 from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
 from butler.permissions import _load_permissions_yaml
+import logging
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_SUBAGENT_DENY = frozenset({
     "delegate_task",
@@ -70,8 +73,8 @@ def filter_tools_for_subagent(
 
             if is_mcp_registered_name(name):
                 continue
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("filter tools for subagent skipped: %s", exc)
         filtered.append(t)
     return filtered
 

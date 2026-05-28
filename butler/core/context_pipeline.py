@@ -54,8 +54,8 @@ class ContextPipeline:
             from butler.execution_context import get_audit_session_key
 
             session_key = get_audit_session_key(fallback="")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("compress context skipped: %s", exc)
         if session_key and len(messages) >= min_messages_to_compress:
             try:
                 from butler.core.compaction_checkpoint import capture_checkpoint

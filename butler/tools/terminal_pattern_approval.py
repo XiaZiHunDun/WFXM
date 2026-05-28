@@ -8,7 +8,10 @@ import time
 from pathlib import Path
 
 from butler.env_parse import env_truthy
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def smart_pattern_approve_enabled() -> bool:
     return env_truthy("BUTLER_TERMINAL_SMART_APPROVE", default=True)
@@ -71,7 +74,7 @@ def approve_pattern(session_key: str, pattern: str) -> None:
             raw = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(raw, dict):
                 data = raw
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("approve pattern skipped: %s", exc)
     data[pattern] = {"expires_at": time.time() + _ttl_seconds(), "approved_at": time.time()}
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

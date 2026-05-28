@@ -113,8 +113,8 @@ def format_outbound_diagnostic_lines(
                 "出站留痕: "
                 f"pending={counts['pending']} sent={counts['sent']} failed={counts['failed']}"
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format outbound diagnostic lines skipped: %s", exc)
     return lines
 
 

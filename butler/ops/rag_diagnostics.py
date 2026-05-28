@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def format_rag_diagnostic_lines(
     mem_stats: dict[str, Any] | None = None,
@@ -20,8 +23,8 @@ def format_rag_diagnostic_lines(
         lines.append(
             f"  混合权重: 向量 {hybrid_vector_weight():.2f} / FTS {hybrid_fts_weight():.2f}"
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format rag diagnostic lines skipped: %s", exc)
     if sem:
         lines.append(
             f"  向量行数: {stats.get('vector_rows', 0)} "
@@ -47,26 +50,26 @@ def format_rag_diagnostic_lines(
         from butler.memory.query_decompose import subquery_enabled
 
         lines.append(f"  子 query 分解: {'开' if subquery_enabled() else '关'}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format rag diagnostic lines skipped: %s", exc)
     try:
         from butler.memory.corpus_router import corpus_routing_enabled
 
         lines.append(f"  多语料库路由: {'开' if corpus_routing_enabled() else '关'}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format rag diagnostic lines skipped: %s", exc)
     try:
         from butler.memory.corrective_recall import corrective_recall_enabled
 
         lines.append(f"  纠错召回: {'开' if corrective_recall_enabled() else '关'}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format rag diagnostic lines skipped: %s", exc)
     try:
         from butler.tools.web_fetch import web_fetch_enabled
 
         lines.append(f"  web_fetch: {'开' if web_fetch_enabled() else '关'}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format rag diagnostic lines skipped: %s", exc)
     sk = str(session_key or "").strip()
     if sk:
         try:
@@ -74,8 +77,8 @@ def format_rag_diagnostic_lines(
 
             if mcp_profiles_enabled():
                 lines.append(f"  MCP profile: {get_session_profile(session_key=sk)}")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("format rag diagnostic lines skipped: %s", exc)
     return lines
 
 

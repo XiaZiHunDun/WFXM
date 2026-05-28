@@ -55,8 +55,8 @@ def call_llm_with_retry(
                 diagnostics=diagnostics,
                 provider=str(getattr(client, "provider_name", "") or ""),
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("call llm with retry skipped: %s", exc)
         if tools_to_send:
             try:
                 from butler.mcp.tools_engine import filter_tools_for_model
@@ -67,8 +67,8 @@ def call_llm_with_retry(
                     model=str(getattr(client, "model", "") or ""),
                 )
                 diagnostics.update(te_diag)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("call llm with retry skipped: %s", exc)
     interrupted = False
 
     cache_fp = ""
@@ -145,8 +145,8 @@ def call_llm_with_retry(
                     if callbacks.on_llm_complete:
                         callbacks.on_llm_complete(response)
                     return response, False
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("on delta cb skipped: %s", exc)
             try:
                 from butler.ops.runtime_metrics import inc, observe_ms
 
@@ -156,9 +156,8 @@ def call_llm_with_retry(
                     labels={"provider": provider, "outcome": "ok"},
                 )
                 inc("llm_request", labels={"provider": provider, "outcome": "ok"})
-            except Exception:
-                pass
-
+            except Exception as exc:
+                logger.debug("on delta cb skipped: %s", exc)
             if (
                 needs_empty_content_retry(response)
                 and empty_retries[0] < config.max_empty_content_retries
@@ -177,8 +176,8 @@ def call_llm_with_retry(
                     str(getattr(client, "provider", "") or ""),
                     str(getattr(client, "model", "") or ""),
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("on delta cb skipped: %s", exc)
             if cache_fp and response and not response.tool_calls:
                 try:
                     text = str(response.content or "").strip()
@@ -202,8 +201,8 @@ def call_llm_with_retry(
 
                 provider = str(getattr(client, "provider_name", "") or "?")[:24]
                 inc("llm_request", labels={"provider": provider, "outcome": "interrupt"})
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("on delta cb skipped: %s", exc)
             return None, True
 
         except Exception as exc:
@@ -252,8 +251,8 @@ def call_llm_with_retry(
                     from butler.ops.retry_buckets import record_recovery_event
 
                     record_recovery_event("reactive_compact")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("on delta cb skipped: %s", exc)
                 from butler.core.reactive_compact import apply_reactive_compact_to_messages
 
                 applied = apply_reactive_compact_to_messages(
@@ -274,8 +273,8 @@ def call_llm_with_retry(
                     from butler.ops.retry_buckets import record_recovery_event
 
                     record_recovery_event("provider_failover")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("on delta cb skipped: %s", exc)
                 continue
 
             if not classified.retryable:
@@ -290,6 +289,6 @@ def call_llm_with_retry(
 
         provider = str(getattr(client, "provider_name", "") or "?")[:24]
         inc("llm_request", labels={"provider": provider, "outcome": "fail"})
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("on delta cb skipped: %s", exc)
     return None, interrupted

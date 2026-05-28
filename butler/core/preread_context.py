@@ -7,7 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def preread_enabled() -> bool:
     return env_truthy("BUTLER_MEMORY_PREREAD", default=True)
@@ -29,8 +32,8 @@ def build_preread_block(workspace: Path | None, file_path: str) -> str:
             tool = str(row.get("tool") or "")
             if preview:
                 lines.append(f"- [{tool}] {preview[:160]}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("build preread block skipped: %s", exc)
     if not lines:
         return ""
     return "## PreRead 路径历史\n" + "\n".join(lines[:5])

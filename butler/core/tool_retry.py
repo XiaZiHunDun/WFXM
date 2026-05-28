@@ -7,6 +7,9 @@ import time
 from typing import Callable
 
 from butler.env_parse import env_truthy
+import logging
+
+logger = logging.getLogger(__name__)
 
 _NO_RETRY_TOOLS = frozenset({
     "write_file",
@@ -48,8 +51,8 @@ def _is_transient_error(result: str) -> bool:
 
         if tool_retry_enabled():
             return classify_tool_error(result) == ToolErrorKind.retry
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("is transient error skipped: %s", exc)
     text = (result or "").strip().lower()
     if not text:
         return False

@@ -7,7 +7,10 @@ from typing import Any
 
 from butler.experiments.ledger import best_record, experiments_ledger_path, list_recent
 from butler.experiments.mode import experiment_mode_enabled
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def format_experiment_diagnostic_lines(
     workspace: Path | None,
@@ -45,8 +48,8 @@ def format_experiment_diagnostic_lines(
             lines.append(
                 f"  连续 crash: {streak}（阻断阈值 {crash_block_threshold()}）"
             )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format experiment diagnostic lines skipped: %s", exc)
     return lines
 
 

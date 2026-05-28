@@ -8,6 +8,9 @@ from typing import Any
 
 from butler.env_parse import env_truthy
 from butler.memory.search_result import chunk_id_for_hit, enrich_search_hit, source_path_for_hit
+import logging
+
+logger = logging.getLogger(__name__)
 
 _LAYER_ENV = "BUTLER_MEMORY_RECALL_LAYERS"
 
@@ -132,8 +135,8 @@ def recall_fetch(
     rows = bm.experience.fetch_by_ids(row_ids)
     try:
         bm.experience.record_access(row_ids)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("recall fetch skipped: %s", exc)
     items = []
     for row in rows:
         enriched = enrich_search_hit(row, project_workspace=getattr(svc, "_project_root", None))

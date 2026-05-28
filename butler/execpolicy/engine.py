@@ -131,8 +131,8 @@ def _policy_paths(workspace: Path | None = None) -> list[Path]:
         home = get_butler_home() / "execpolicy.yaml"
         if home.is_file():
             paths.append(home)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("policy paths skipped: %s", exc)
     builtin = Path(__file__).resolve().parent / "builtin_rules.yaml"
     if builtin.is_file():
         paths.append(builtin)

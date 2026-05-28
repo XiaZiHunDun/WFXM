@@ -8,6 +8,9 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from butler.tool_guardrails import MUTATING_TOOLS
+import logging
+
+logger = logging.getLogger(__name__)
 
 PLAN_BLOCKED_TOOLS = frozenset(MUTATING_TOOLS) | frozenset({
     "delegate_task",
@@ -73,17 +76,15 @@ def set_plan_mode(session_key: str, enabled: bool) -> None:
         from butler.plan_mode_store import save_plan_mode_flag
 
         save_plan_mode_flag(key, enabled)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("set plan mode skipped: %s", exc)
     if enabled:
         try:
             from butler.core.session_transcript import record_plan_step
 
             record_plan_step(key, title="plan_mode_enabled", phase="start")
-        except Exception:
-            pass
-
-
+        except Exception as exc:
+            logger.debug("set plan mode skipped: %s", exc)
 def is_plan_mode(session_key: str = "") -> bool:
     key = _resolve_session_key(session_key)
     with _LOCK:

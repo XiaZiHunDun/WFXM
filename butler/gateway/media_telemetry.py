@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
+import logging
+
+logger = logging.getLogger(__name__)
 
 _STATE_NAME = "runtime/media_telemetry.json"
 
@@ -33,8 +36,8 @@ def record_media_event(
             raw = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(raw, dict):
                 data = raw
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("record media event skipped: %s", exc)
     data[kind] = {
         "provider": (provider or "?")[:40],
         "ok": bool(ok),

@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from butler.config import ModelConfig, get_butler_settings, save_butler_config
+import logging
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from butler.config import ButlerSettings
@@ -185,8 +188,8 @@ def format_model_diagnostic_lines(
                 from butler.gateway.media_telemetry import format_media_diagnostic_lines
 
                 lines.extend(format_media_diagnostic_lines())
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("format model diagnostic lines skipped: %s", exc)
         else:
             lines.append("  gateway(入站媒体): 关")
     except Exception:
@@ -235,9 +238,8 @@ def handle_model_command(
         )
         if preset_out is not None:
             return preset_out
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("handle model command skipped: %s", exc)
     parts = text.split(maxsplit=2)
     verb = parts[0].lower()
 

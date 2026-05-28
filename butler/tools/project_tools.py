@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from butler.project import Project
@@ -128,8 +131,8 @@ def _tool_allowed(name: str, allowed: set[str]) -> bool:
 
             if is_mcp_registered_name(name):
                 return True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("tool allowed skipped: %s", exc)
     return False
 
 

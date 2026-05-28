@@ -87,9 +87,8 @@ def process_tool_calls(
         truncated = truncate_tool_calls_at_finish(list(response.tool_calls))
         if len(truncated) < len(response.tool_calls):
             response.tool_calls = truncated
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("process tool calls skipped: %s", exc)
     if callbacks.on_stream_boundary:
         callbacks.on_stream_boundary()
 
@@ -133,8 +132,8 @@ def process_tool_calls(
                         "tool": name,
                     },
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("dispatch one skipped: %s", exc)
         if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
             from butler.core.batch_sequence_guard import (
                 STALE_PREFETCH_CODE,
@@ -220,8 +219,8 @@ def process_tool_calls(
                         tool_name=name,
                     )
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("dispatch one skipped: %s", exc)
         set_cached_result(name, args, result, session_key=session_key)
         if guardrails:
             after = guardrails.after_call(name, args, result)
@@ -232,8 +231,8 @@ def process_tool_calls(
 
                     reason = str(getattr(after, "reason", "") or "tool_guardrail_halt")[:32]
                     record_recovery_event(reason or "tool_guardrail_halt")
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("dispatch one skipped: %s", exc)
                 result = finalize_guardrail_halt_result(name, args, result, after)
             elif after.action == "warn":
                 result = append_guidance(result, after)
@@ -255,8 +254,8 @@ def process_tool_calls(
 
             if get_parent_messages():
                 return "delegate"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("transcript source skipped: %s", exc)
         return "loop"
 
     def _on_start(name: str, args: dict) -> None:
@@ -276,8 +275,8 @@ def process_tool_calls(
                     args_preview=_json.dumps(args, ensure_ascii=False, default=str)[:400],
                     source=_transcript_source(),
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("on start skipped: %s", exc)
         if callbacks.on_tool_start:
             callbacks.on_tool_start(name, args)
 
@@ -288,8 +287,8 @@ def process_tool_calls(
             outcome = _tool_result_outcome(result)
             tool_label = str(name or "?")[:48]
             inc("tool_call", labels={"tool": tool_label, "outcome": outcome})
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("on complete skipped: %s", exc)
         if callbacks.on_tool_complete:
             callbacks.on_tool_complete(name, result)
 

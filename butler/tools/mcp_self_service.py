@@ -101,9 +101,8 @@ def _tool_mcp_remove(server_id: str, **_: Any) -> str:
             from butler.tools.project_todos import _get_workspace
 
             workspace = _get_workspace()
-        except Exception:
-            pass
-
+        except Exception as exc:
+            logger.debug("tool mcp remove skipped: %s", exc)
         ok, msg = remove_mcp_server(sid, workspace=workspace)
         return json.dumps({"ok": ok, "message": msg}, ensure_ascii=False)
     except Exception as exc:

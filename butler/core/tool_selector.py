@@ -7,6 +7,9 @@ import re
 from typing import Iterable
 
 from butler.env_parse import env_truthy
+import logging
+
+logger = logging.getLogger(__name__)
 
 _CORE_TOOLS = frozenset({
     "read_file",
@@ -137,9 +140,8 @@ def select_tools_for_context(
 
         if tool_recall_bm25_enabled() and len(tools) > cap:
             return select_tools_with_bm25(tools, user_hint=user_hint or role, top_k=cap)
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("select tools for context skipped: %s", exc)
     if len(tools) <= cap:
         return list(tools), diag
 

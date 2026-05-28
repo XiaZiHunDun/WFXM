@@ -5,11 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import logging
+
 from butler.transport.schema_sanitizer import (
     is_schema_grammar_error,
     sanitize_tool_schemas,
     strip_pattern_and_format,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -49,8 +53,8 @@ def recover_schema_after_error(
         from butler.ops.retry_buckets import record_recovery_event
 
         record_recovery_event("schema_recovery")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("recover schema after error skipped: %s", exc)
     return SchemaRecoveryResult(
         tools=stripped_tools,
         stripped=stripped,

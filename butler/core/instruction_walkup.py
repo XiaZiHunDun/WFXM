@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 import threading
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 _CLAIMS: dict[str, set[str]] = {}
 _PENDING: dict[str, list[str]] = {}
@@ -108,10 +111,8 @@ def record_read_path(
                 if rules_claim not in seen:
                     _PENDING.setdefault(key, []).append(rules_block)
                     seen.add(rules_claim)
-        except Exception:
-            pass
-
-
+        except Exception as exc:
+            logger.debug("record read path skipped: %s", exc)
 def drain_pending_instructions(*, session_key: str = "") -> str:
     """Return and clear queued instruction blocks for this session."""
     key = _session_key(session_key)

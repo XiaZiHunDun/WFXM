@@ -5,6 +5,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 _DECISION_PATTERNS = (
     re.compile(r"\*\*\s*rating\s*\*\*\s*:\s*(approve|revise|block|keep|discard)\b", re.I),
@@ -204,8 +207,8 @@ def validate_structured_output(
 
         if not output_schema_validate_enabled():
             return True, []
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("validate structured output skipped: %s", exc)
     specs = _schema_field_specs(schema)
     if not specs:
         return True, []
@@ -600,8 +603,8 @@ def _resolve_report_key(session_key: str | None = None) -> str:
         ctx_key = str(get_current_session_key() or "").strip()
         if ctx_key:
             return ctx_key
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("resolve report key skipped: %s", exc)
     return "default"
 
 
@@ -613,10 +616,8 @@ def cache_report(report: AgentReport, *, session_key: str = "") -> None:
         from butler.report_store import persist_report
 
         persist_report(report, session_key=key, task_id=report.task_id)
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("cache report skipped: %s", exc)
 def get_last_report(session_key: str = "") -> AgentReport | None:
     """Return the cached report for ``session_key`` (or current execution context)."""
     key = _resolve_report_key(session_key)

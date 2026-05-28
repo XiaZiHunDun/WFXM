@@ -6,6 +6,9 @@ import contextvars
 import os
 import re
 from dataclasses import dataclass
+import logging
+
+logger = logging.getLogger(__name__)
 
 _CURRENT_SESSION: contextvars.ContextVar[str] = contextvars.ContextVar(
     "butler_terminal_session",
@@ -69,8 +72,8 @@ def check_dangerous_command(command: str) -> DangerCheckResult:
                 return DangerCheckResult(False, reason=f"execpolicy: {msg}", pattern=pol.matched_rule)
             if pol.decision == PolicyDecision.ALLOW:
                 return DangerCheckResult(True)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("check dangerous command skipped: %s", exc)
     for name, pattern in _PATTERNS:
         if pattern.search(text):
             try:
@@ -79,8 +82,8 @@ def check_dangerous_command(command: str) -> DangerCheckResult:
                 sk = get_terminal_session_context()
                 if sk and is_pattern_approved(sk, name):
                     return DangerCheckResult(True)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("check dangerous command skipped: %s", exc)
             return DangerCheckResult(
                 False,
                 reason=(

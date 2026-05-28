@@ -300,6 +300,8 @@ def _is_sessionless_command(text: str) -> bool:
         "/打卡",
         "/habits",
         "/任务",
+        "/config",
+        "/配置",
         "/帮助",
         "/help",
         "/导出",
@@ -404,8 +406,8 @@ def _maybe_welcome_prefix(session_key: str) -> str:
         marker.parent.mkdir(parents=True, exist_ok=True)
         with open(marker, "a", encoding="utf-8") as f:
             f.write(session_key + "\n")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("maybe welcome prefix skipped: %s", exc)
     return _WELCOME_TEXT
 
 
@@ -440,9 +442,8 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
                     pending = [t for t in todos_data if t.get("status") == "pending"]
                     if pending:
                         sub.append(f"待办 {len(pending)} 项")
-                except Exception:
-                    pass
-
+                except Exception as exc:
+                    logger.debug("build project overview skipped: %s", exc)
             jobs_path = ws / "runtime" / "jobs.yaml"
             if jobs_path.is_file():
                 try:
@@ -452,9 +453,8 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
                         job_rows = list_jobs_status(p.name)
                         if job_rows:
                             sub.append(f"定时任务 {len(job_rows)} 个")
-                except Exception:
-                    pass
-
+                except Exception as exc:
+                    logger.debug("build project overview skipped: %s", exc)
             summary_path = ws / ".butler" / "session_summary.json"
             if summary_path.is_file():
                 try:
@@ -463,9 +463,8 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
                     turns = summary.get("turns", 0)
                     if turns:
                         sub.append(f"上次会话 {turns} 轮")
-                except Exception:
-                    pass
-
+                except Exception as exc:
+                    logger.debug("build project overview skipped: %s", exc)
         pack = getattr(p, "pack", "") or ""
         ptype = p.type or ""
         desc_parts = [ptype]
@@ -551,5 +550,5 @@ def _on_gateway_session_removed(session_key: str) -> None:
         from butler.mcp.registry_hook import disconnect_mcp_session
 
         disconnect_mcp_session(session_key)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("on gateway session removed skipped: %s", exc)

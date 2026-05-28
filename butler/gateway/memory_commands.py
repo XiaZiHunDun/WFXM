@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -50,8 +53,8 @@ def format_memory_triplet_graph(orchestrator: "ButlerOrchestrator") -> str:
             cur = pman.get_current()
             if cur is not None:
                 proj_name = str(getattr(cur, "name", "") or "")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("format memory triplet graph skipped: %s", exc)
     total = tri.count(project=proj_name or None)
     lines = [
         "记忆图谱（三元组仅展示，不参与检索排序）",

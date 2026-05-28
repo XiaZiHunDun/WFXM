@@ -520,8 +520,8 @@ def _run_hook(
     }
     try:
         proc = subprocess.run(
-            rule.command,
-            shell=True,
+            ["bash", "-c", rule.command],
+            shell=False,
             cwd=cwd,
             input=stdin_json,
             env=env,
@@ -542,8 +542,8 @@ def _run_hook(
                 exit_code=code,
                 preview=preview,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("run hook skipped: %s", exc)
         return code, stdout, stderr
     except subprocess.TimeoutExpired:
         try:
@@ -555,8 +555,8 @@ def _run_hook(
                 exit_code=None,
                 preview="hook timed out",
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("run hook skipped: %s", exc)
         return None, "", "hook timed out"
     except Exception as exc:
         logger.warning("Hook command failed: %s", exc)
@@ -569,6 +569,6 @@ def _run_hook(
                 exit_code=None,
                 preview=str(exc)[:120],
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("run hook skipped: %s", exc)
         return None, "", str(exc)

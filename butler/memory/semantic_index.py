@@ -513,8 +513,8 @@ def hybrid_experience_search(
             payload["sub_queries"] = sub_queries
             payload["mode"] = mode or "hybrid-subquery"
         record_last_retrieval(get_current_session_key() or "", payload)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("once skipped: %s", exc)
     return out
 
 

@@ -86,6 +86,6 @@ def json_dumps_result(result: Any) -> str:
     try:
         if hasattr(result, "model_dump"):
             return json.dumps(result.model_dump(), ensure_ascii=False, default=str)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("json dumps result skipped: %s", exc)
     return str(result)

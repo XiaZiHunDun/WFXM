@@ -1,4 +1,4 @@
-"""Registry tools: search-only + propose install (no direct install)."""
+"""Registry tools: search, propose install, and Owner-gated direct install."""
 
 from __future__ import annotations
 
@@ -41,6 +41,24 @@ def register_registry_tools(register) -> None:
             "required": ["identifier"],
         },
         handler=_tool_registry_propose_skill_install,
+        toolset="registry",
+    )
+
+    register(
+        name="registry_install_skill",
+        description=(
+            "Install a skill from the registry. Requires Owner approval. "
+            "Use registry_search_skills first to find the identifier."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "identifier": {"type": "string", "description": "Skill identifier from search results"},
+                "source": {"type": "string", "default": "", "description": "Source hint (github/clawhub/lobehub)"},
+            },
+            "required": ["identifier"],
+        },
+        handler=_tool_registry_install_skill,
         toolset="registry",
     )
 
@@ -89,6 +107,34 @@ def _tool_registry_propose_skill_install(identifier: str, **_) -> str:
         },
         ensure_ascii=False,
     )
+
+
+def _tool_registry_install_skill(identifier: str, source: str = "", **_) -> str:
+    """Install a skill — requires Owner confirmation via human_gate."""
+    try:
+        from butler.human_gate import is_owner_context
+
+        if not is_owner_context():
+            return json.dumps({
+                "error": "skill 安装需要主人确认",
+                "hint": "请主人在微信发送 /技能 安装 " + identifier,
+            }, ensure_ascii=False)
+    except Exception:
+        pass
+
+    svc = SkillRegistryService()
+    try:
+        result = svc.install(identifier, confirmed=True)
+        return json.dumps({
+            "ok": True,
+            "message": f"Skill '{identifier}' 安装完成",
+            "details": str(result) if result else "",
+        }, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({
+            "error": f"安装失败: {exc}",
+            "hint": "可尝试 /技能 搜索 " + identifier + " 确认标识符",
+        }, ensure_ascii=False)
 
 
 def _tool_registry_search_mcp(query: str = "", **_) -> str:

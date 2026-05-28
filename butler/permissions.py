@@ -54,8 +54,8 @@ def _load_permissions_yaml(workspace: Path | None) -> dict[str, Any]:
             if isinstance(data, dict):
                 perms = data.get("permissions")
                 return perms if isinstance(perms, dict) else {}
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("load permissions yaml skipped: %s", exc)
     return {}
 
 
@@ -81,8 +81,9 @@ def _path_outside_workspace(path_str: str, workspace: Path) -> bool:
         result = check_tool_path(path_str, for_write=False)
         if not result.allowed and "outside workspace" in (result.error or "").lower():
             return True
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("path_outside_workspace check failed (fail-closed): %s", exc)
+        return True
     try:
         root = workspace.expanduser().resolve()
         target = Path(path_str).expanduser()
@@ -382,8 +383,8 @@ def _decision_with_approval(
                 permission=decision.permission,
             )
             return decision
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Permission request hooks failed (continuing): %s", exc)
     if session_key:
         save_pending(session_key, req)
     return decision
@@ -460,8 +461,8 @@ def check_project_permission_block(
         exp_block = check_experiment_mode_block(tool_name, args, workspace=workspace)
         if exp_block:
             return exp_block
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Experiment mode block check failed: %s", exc)
 
     try:
         from butler.execution_context import get_current_workflow_step
@@ -475,8 +476,8 @@ def check_project_permission_block(
             )
             if step_decision is not None and not step_decision.allowed:
                 return step_decision.reason
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Workflow step permission check failed: %s", exc)
 
     path_val = _resolve_path_arg(args)
     if path_val and tool_name in _PATH_TOOLS:

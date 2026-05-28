@@ -169,8 +169,8 @@ def maybe_run_goal_continuation(
         tokens = int(getattr(result, "total_tokens", 0) or 0)
         if tokens > 0:
             record_goal_tokens(session_key, tokens)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("maybe run goal continuation skipped: %s", exc)
     exhausted_msg = goal_budget_exhausted_message(session_key)
     if exhausted_msg:
         result.final_response = (

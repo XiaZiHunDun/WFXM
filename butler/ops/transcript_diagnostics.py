@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def format_transcript_diagnostic_lines(session_key: str) -> list[str]:
     try:
@@ -40,8 +43,8 @@ def format_transcript_diagnostic_lines(session_key: str) -> list[str]:
         from butler.mcp.diagnostics import format_mcp_diagnostic_lines
 
         lines.extend(format_mcp_diagnostic_lines(session_key))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format transcript diagnostic lines skipped: %s", exc)
     return lines
 
 

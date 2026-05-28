@@ -90,7 +90,7 @@ def record_and_should_suppress(
                 "bot_loop_suppressed",
                 {"sender": sender_id, "count": count},
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("record and should suppress skipped: %s", exc)
         return True, f"bot_loop_guard count={count}"
     return False, ""

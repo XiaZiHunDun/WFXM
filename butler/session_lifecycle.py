@@ -266,8 +266,8 @@ def prefetch_turn_memory(
                             "query": q_strip,
                         },
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Prefetch telemetry recording skipped: %s", exc)
                 if hits:
                     lines = [
                         f"- {h.get('content', '')}".strip()
@@ -384,8 +384,8 @@ def clear_session_boundary_memory(
         from butler.memory.retrieval_telemetry import clear_last_retrieval
 
         clear_last_retrieval(session_id)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Retrieval telemetry clear skipped: %s", exc)
     try:
         from butler.core.tool_result_storage import (
             reset_inject_once_state,
@@ -394,8 +394,8 @@ def clear_session_boundary_memory(
 
         reset_inject_once_state(session_id)
         reset_replacement_state(session_id)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Tool result state reset skipped: %s", exc)
     return {"removed": removed, "session_tag": tag}
 
 
@@ -471,8 +471,8 @@ def build_memory_pre_llm_transform(
                             source="memory_prefetch",
                             chars=min(len(ctx), cap),
                         )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Prefetch context injection budget skipped: %s", exc)
                 break
         return out
 
@@ -511,8 +511,8 @@ def attach_turn_memory_prefetch(
                 session_key=str(get_current_session_key() or ""),
             )
             prepared = inst_transform(prepared)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Instruction pre-LLM transform skipped: %s", exc)
         if existing:
             return existing(prepared)
         return prepared
@@ -643,8 +643,8 @@ def run_post_session_extraction(
                         from butler.core.post_commit import flush_after_commit
 
                         flush_after_commit()
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Post-commit flush skipped: %s", exc)
                 return result
             except Exception as exc:
                 logger.warning("Post-session extraction failed: %s", exc)
@@ -943,8 +943,8 @@ def sync_turn_memory(
                 from butler.core.post_commit import flush_after_commit
 
                 flush_after_commit()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Post-commit flush skipped: %s", exc)
         try:
             from butler.memory.observer_queue import flush_observer_queue
             from pathlib import Path
@@ -952,8 +952,8 @@ def sync_turn_memory(
             proj = orchestrator.project_manager.get_current(session_key=session_id)
             if proj is not None:
                 flush_observer_queue(Path(proj.workspace))
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Observer queue flush skipped: %s", exc)
         return result
     except Exception as exc:
         logger.warning("Memory sync failed: %s", exc)

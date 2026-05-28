@@ -127,8 +127,8 @@ def replace_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
         from butler.core.session_transcript import record_todo_updated
 
         record_todo_updated(sk, count=len(normalized))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("replace session todos skipped: %s", exc)
     return {"ok": True, "count": len(normalized)}
 
 

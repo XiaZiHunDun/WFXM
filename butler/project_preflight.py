@@ -13,7 +13,10 @@ import yaml
 
 from butler.project import Project
 from butler.project_lead import is_lead_project
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 class CheckLevel(str, Enum):
     OK = "ok"
@@ -268,9 +271,8 @@ def run_preflight(
                     "确认 BUTLER_PROJECTS_DIR 或重启 butler gateway",
                 )
             )
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("run preflight skipped: %s", exc)
     pack = _detect_pack(ws)
     lifecycle = _detect_lifecycle(ws)
     has_code = _has_executable_tree(ws)

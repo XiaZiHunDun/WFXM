@@ -289,7 +289,8 @@ class ButlerOrchestrator:
         """Dynamic context injected into the user turn when static system mode is on."""
         try:
             from butler.core.system_reminder import wrap_system_reminder
-        except Exception:
+        except Exception as exc:
+            logger.debug("system_reminder import skipped: %s", exc)
             return ""
         ph = self._system_prompt_placeholders(for_role=for_role)
         chunks = [
@@ -370,8 +371,8 @@ class ButlerOrchestrator:
 
             if static_system_reminder_enabled():
                 return self.build_static_system_prompt()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Static system prompt check skipped: %s", exc)
         return self._assemble_default_system_prompt(for_role="default")
 
     def build_lead_system_prompt(self, *, session_key: str = "") -> str:
@@ -475,8 +476,8 @@ class ButlerOrchestrator:
             from butler.project_plugins import apply_project_plugins
 
             apply_project_plugins(proj)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Project plugins apply skipped: %s", exc)
 
         user_reminder: str | None = None
         if role == "butler":
@@ -505,8 +506,8 @@ class ButlerOrchestrator:
 
                 if is_plan_mode(sk):
                     system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Plan mode appendix skipped: %s", exc)
 
         return AgentLoop(
             client=client,

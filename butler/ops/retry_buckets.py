@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 from butler.ops.runtime_metrics import inc, snapshot_global
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def record_recovery_event(reason: str, *, session_key: str = "") -> None:
     """Increment a labeled recovery counter (process-wide + optional session)."""
     label = str(reason or "unknown").strip()[:32] or "unknown"
     try:
         inc("recovery_event", labels={"reason": label}, session_key=session_key)
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("record recovery event skipped: %s", exc)
 def format_recovery_bucket_lines(*, session_key: str = "") -> list[str]:
     """Summarize recovery_event counters for health output."""
     lines: list[str] = []
@@ -43,8 +44,8 @@ def format_recovery_bucket_lines(*, session_key: str = "") -> list[str]:
             lines.append("恢复/重试分桶（进程）:")
             for key in sorted(gprefixed):
                 lines.append(f"  {key}: {gprefixed[key]}")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("format recovery bucket lines skipped: %s", exc)
     if not lines:
         return []
     return lines

@@ -5,7 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from butler.env_parse import env_truthy
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def reflexion_ephemeral_enabled() -> bool:
     return env_truthy("BUTLER_REFLEXION_EPHEMERAL", default=False)
@@ -54,10 +57,8 @@ def maybe_apply_reflexion(
             last_error=last_error,
             session_key=str(get_current_session_key() or ""),
         )
-    except Exception:
-        pass
-
-
+    except Exception as exc:
+        logger.debug("maybe apply reflexion skipped: %s", exc)
 __all__ = [
     "build_reflexion_banner",
     "maybe_apply_reflexion",

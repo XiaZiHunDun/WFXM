@@ -72,9 +72,8 @@ def _tool_run_runtime_job(
         p = get_project_manager().get_project(proj or "")
         if p is not None:
             pm_ws = p.workspace
-    except Exception:
-        pass
-
+    except Exception as exc:
+        logger.debug("tool run runtime job skipped: %s", exc)
     if pm_ws is not None:
         job = loader.find_job(pm_ws, jid)
         if job is not None and not job.is_readonly:

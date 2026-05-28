@@ -729,9 +729,10 @@ def _print_wechat_setup_success(creds: dict[str, str]) -> None:
     print("  butler gateway")
     print("  # 生产推荐: bash scripts/install-butler-gateway-service.sh")
     print("  # 日常: bash scripts/butler-gateway-ops.sh restart")
+    masked_token = token[:6] + "…" + token[-4:] if len(token) > 12 else "***"
     print("\n可将以下内容加入项目 .env（也可只设 WECHAT_ACCOUNT_ID，token 会从 accounts 目录读取）:")
     print(f"WECHAT_ACCOUNT_ID={account_id}")
-    print(f"WECHAT_TOKEN={token}")
+    print(f"WECHAT_TOKEN={masked_token}  # 完整 token 已存入 ~/.butler/wechat/accounts/")
     if base_url != "https://ilinkai.weixin.qq.com":
         print(f"WECHAT_BASE_URL={base_url}")
     print("\n勿与 Hermes 共用同一 Bot；Hermes 凭证在 ~/.hermes/，Butler 在 ~/.butler/。")

@@ -13,7 +13,10 @@ from typing import Any, Final
 
 import yaml
 from dotenv import load_dotenv
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -262,8 +265,8 @@ class ButlerSettings:
                     for key in ("gateway", "auxiliary"):
                         if key in raw:
                             preserved[key] = raw[key]
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("save butler config skipped: %s", exc)
         data: dict[str, Any] = {
             "butler_name": self.butler_name,
             "owner_name": self.owner_name,
@@ -316,8 +319,8 @@ class ButlerSettings:
             from butler.config_secrets import merge_secrets_into_settings
 
             merge_secrets_into_settings(instance)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("load skipped: %s", exc)
         return instance
 
 

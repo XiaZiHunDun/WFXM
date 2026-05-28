@@ -873,8 +873,8 @@ async def qr_login(
                         qr.add_data(qr_scan_data)
                         qr.make(fit=True)
                         qr.print_ascii(invert=True)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("qr login skipped: %s", exc)
                 except Exception as exc:
                     logger.error("wechat: QR refresh failed: %s", exc)
                     return None

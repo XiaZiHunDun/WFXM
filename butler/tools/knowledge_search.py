@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import json
 from typing import Any
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 def tool_search_project_knowledge(
     query: str = "",
@@ -19,8 +22,8 @@ def tool_search_project_knowledge(
 
         if corpus_routing_enabled() and q:
             return multi_scope_recall(q, limit=lim)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("tool search project knowledge skipped: %s", exc)
     from butler.tools.memory_tools import tool_butler_recall
 
     raw = tool_butler_recall(scope="project", query=q, limit=lim)
