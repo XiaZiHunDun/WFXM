@@ -82,7 +82,8 @@ def test_filter_servers_by_profile():
     assert out[0].server_id == "a"
 
 
-def test_web_fetch_disabled_by_default():
+def test_web_fetch_disabled_by_default(monkeypatch):
+    monkeypatch.delenv("BUTLER_ENABLE_WEB_FETCH", raising=False)
     from butler.tools.web_fetch import tool_web_fetch, web_fetch_enabled
 
     assert not web_fetch_enabled()

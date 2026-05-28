@@ -113,7 +113,12 @@ class TestSlashCommandRecognition:
 class TestRegistrationIntegration:
     """Verify all daily-life tools register correctly via registry."""
 
-    def test_all_daily_life_tools_registered(self):
+    def test_all_daily_life_tools_registered(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_MEMO_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_CONTACTS_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_EXPENSE_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_HABITS_ENABLED", "1")
+
         registered: dict[str, dict] = {}
 
         def fake_register(name: str, **kwargs):
@@ -139,7 +144,12 @@ class TestRegistrationIntegration:
         assert expense_tools == {"expense_add", "expense_summary", "expense_list", "expense_delete"}
         assert habit_tools == {"habit_create", "habit_checkin", "habit_stats", "habit_list", "habit_delete"}
 
-    def test_all_handlers_callable(self):
+    def test_all_handlers_callable(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_MEMO_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_CONTACTS_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_EXPENSE_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_HABITS_ENABLED", "1")
+
         registered: dict[str, dict] = {}
 
         def fake_register(name: str, **kwargs):
@@ -160,7 +170,12 @@ class TestRegistrationIntegration:
             assert "schema" in info, f"{name} missing schema"
             assert "description" in info, f"{name} missing description"
 
-    def test_all_schemas_have_required_fields(self):
+    def test_all_schemas_have_required_fields(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_MEMO_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_CONTACTS_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_EXPENSE_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_HABITS_ENABLED", "1")
+
         registered: dict[str, dict] = {}
 
         def fake_register(name: str, **kwargs):
@@ -181,7 +196,12 @@ class TestRegistrationIntegration:
             assert schema["type"] == "object", f"{name} schema type != object"
             assert "properties" in schema, f"{name} schema missing properties"
 
-    def test_no_tool_name_conflicts(self):
+    def test_no_tool_name_conflicts(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_MEMO_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_CONTACTS_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_EXPENSE_ENABLED", "1")
+        monkeypatch.setenv("BUTLER_HABITS_ENABLED", "1")
+
         registered: list[str] = []
 
         def fake_register(name: str, **kwargs):
