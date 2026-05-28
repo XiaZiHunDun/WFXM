@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from butler.core.loop_types import LoopResult, LoopStatus
-from butler.report import format_for_wechat, get_last_report
+from butler.report.generator import format_for_wechat, get_last_report
 
 
 def turn_used_delegate_task(result: LoopResult) -> bool:

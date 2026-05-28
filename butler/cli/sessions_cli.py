@@ -90,7 +90,7 @@ def _cmd_sessions_list(ns: argparse.Namespace) -> int:
 def _cmd_sessions_layered(ns: argparse.Namespace) -> int:
     import asyncio
 
-    from butler.post_session_layered import extract_layered_summary, post_session_layered_enabled
+    from butler.session.post_session_layered import extract_layered_summary, post_session_layered_enabled
     from butler.transport.auxiliary_client import auxiliary_llm_call_factory
 
     if not post_session_layered_enabled():

@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def _workspace_for_project(project_name: str) -> Path | None:
-    from butler.project_manager import ProjectManager
+    from butler.project.manager import ProjectManager
 
     proj = ProjectManager().get_project((project_name or "").strip())
     if proj is None:

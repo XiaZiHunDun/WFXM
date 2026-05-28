@@ -217,7 +217,7 @@ def run_scripted_interactive_chat(
     if patch_sync_memory:
         patches.append(patch("butler.main._sync_memory"))
     if patch_prefetch:
-        patches.append(patch("butler.session_lifecycle.attach_turn_memory_prefetch"))
+        patches.append(patch("butler.session.lifecycle.attach_turn_memory_prefetch"))
     if not patch_stdout_during_turn:
         patches.append(
             patch("prompt_toolkit.patch_stdout.patch_stdout", lambda: _null_context())
@@ -372,7 +372,7 @@ def run_live_scripted_chat(
     if patch_sync_memory:
         patches.append(patch("butler.main._sync_memory"))
     if patch_prefetch:
-        patches.append(patch("butler.session_lifecycle.attach_turn_memory_prefetch"))
+        patches.append(patch("butler.session.lifecycle.attach_turn_memory_prefetch"))
     if patch_auxiliary_post_session:
         patches.append(
             patch(

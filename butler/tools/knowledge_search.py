@@ -47,7 +47,7 @@ def _enrich_project_knowledge_json(raw: str) -> str:
     proj = str(data.get("project") or "").strip()
     if proj:
         try:
-            from butler.project_manager import get_project_manager
+            from butler.project.manager import get_project_manager
 
             p = get_project_manager().get_project(proj)
             if p is not None and getattr(p, "workspace", None):

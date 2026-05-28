@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 from butler.project import Project
-from butler.project_lead import (
+from butler.project.lead import (
     gateway_loop_role,
     is_lead_project,
     lead_mode_switch_suffix,
@@ -77,7 +77,7 @@ class TestLeadToolAllowlist:
 class TestLeadLoopFactory:
     def test_gateway_creates_lead_loop_for_lingwen_session(self, tmp_path, monkeypatch):
         from butler.config import reload_butler_settings
-        from butler.project_manager import ProjectManager
+        from butler.project.manager import ProjectManager
 
         ProjectManager._instance = None
         reload_butler_settings()
@@ -97,7 +97,7 @@ class TestLeadLoopFactory:
         )
 
         from butler.gateway.message_handler import ButlerMessageHandler
-        from butler.session_keys import build_session_key
+        from butler.session.keys import build_session_key
 
         handler = ButlerMessageHandler(channel="test")
         sk = build_session_key(
@@ -118,7 +118,7 @@ class TestLeadLoopFactory:
 
     def test_build_lead_system_prompt(self, tmp_path, monkeypatch):
         from butler.config import reload_butler_settings
-        from butler.project_manager import ProjectManager
+        from butler.project.manager import ProjectManager
 
         ProjectManager._instance = None
         reload_butler_settings()

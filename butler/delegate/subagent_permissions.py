@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
-from butler.permissions import _load_permissions_yaml
+from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
+from butler.permissions.rules import _load_permissions_yaml
 import logging
 
 logger = logging.getLogger(__name__)

@@ -11,7 +11,7 @@ from butler.config import reload_butler_settings
 from butler.memory.butler_memory import ButlerMemory
 from butler.orchestrator import ButlerOrchestrator, _combined_skill_manager
 from butler.project import Project
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.tenant import (
     DEFAULT_TENANT,
     migrate_legacy_memory_layout,

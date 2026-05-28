@@ -11,7 +11,7 @@ from butler.core.design_md_sections import (
     resolve_design_md_path,
 )
 from butler.core.handoff import default_visual_acceptance, render_handoff_block
-from butler.delegate_category_resolver import resolve_category
+from butler.delegate.category_resolver import resolve_category
 from butler.project import Project
 
 

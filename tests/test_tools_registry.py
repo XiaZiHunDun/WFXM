@@ -979,8 +979,8 @@ class TestDelegateTask:
         mock_agent.run.assert_called_once()
         assert "auth module" in mock_agent.run.call_args[0][0]
 
-    @patch("butler.session_lifecycle.sync_turn_memory", return_value={"skipped": False})
-    @patch("butler.session_lifecycle.attach_turn_memory_prefetch")
+    @patch("butler.session.lifecycle.sync_turn_memory", return_value={"skipped": False})
+    @patch("butler.session.lifecycle.attach_turn_memory_prefetch")
     @patch("butler.report.cache_report")
     @patch("butler.orchestrator.ButlerOrchestrator")
     def test_delegate_task_reuses_execution_context_orchestrator(
@@ -1019,8 +1019,8 @@ class TestDelegateTask:
         assert mock_sync.call_args.args[1] == "run python tests"
         assert mock_sync.call_args.kwargs["session_id"] == "gateway-session"
 
-    @patch("butler.session_lifecycle.sync_turn_memory", return_value={"skipped": False})
-    @patch("butler.session_lifecycle.attach_turn_memory_prefetch")
+    @patch("butler.session.lifecycle.sync_turn_memory", return_value={"skipped": False})
+    @patch("butler.session.lifecycle.attach_turn_memory_prefetch")
     @patch("butler.report.cache_report")
     @patch("butler.orchestrator.ButlerOrchestrator")
     def test_delegate_task_binds_context_during_agent_run(
@@ -1049,8 +1049,8 @@ class TestDelegateTask:
 
         assert json.loads(result)["success"] is True
 
-    @patch("butler.session_lifecycle.sync_turn_memory", return_value={"skipped": False})
-    @patch("butler.session_lifecycle.attach_turn_memory_prefetch")
+    @patch("butler.session.lifecycle.sync_turn_memory", return_value={"skipped": False})
+    @patch("butler.session.lifecycle.attach_turn_memory_prefetch")
     @patch("butler.report.cache_report")
     @patch("butler.orchestrator.ButlerOrchestrator")
     def test_delegate_marks_failure_when_tools_error_without_changes(

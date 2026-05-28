@@ -84,7 +84,7 @@ async def extract_memory_from_transcript_async(
             "message_count": len(messages),
         }
 
-    from butler.post_session import PostSessionProcessor
+    from butler.session.post_session import PostSessionProcessor
     from butler.transport.auxiliary_client import auxiliary_llm_call_factory
 
     processor = PostSessionProcessor(llm_call=auxiliary_llm_call_factory("post_session"))

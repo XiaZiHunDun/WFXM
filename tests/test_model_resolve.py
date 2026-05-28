@@ -16,7 +16,7 @@ from butler.model_resolve import (
     resolve_effective_model,
 )
 from butler.project import Project
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 
 
 def _reset() -> None:

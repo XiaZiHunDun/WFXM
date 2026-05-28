@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from butler.session_keys import chat_id_from_session_key
+from butler.session.keys import chat_id_from_session_key
 
 
 def _csv_env_ids(name: str) -> list[str]:

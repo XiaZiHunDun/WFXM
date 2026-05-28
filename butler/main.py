@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Sequence
@@ -60,7 +59,7 @@ def _run_interactive_chat(orchestrator: ButlerOrchestrator) -> int:
         border_style="blue",
     ))
 
-    from butler.session_keys import build_session_key
+    from butler.session.keys import build_session_key
     ui = ChatSessionUI(console)
     loops_by_session: dict[str, Any] = {}
     agent_loop = None
@@ -73,7 +72,7 @@ def _run_interactive_chat(orchestrator: ButlerOrchestrator) -> int:
         )
 
     def _cli_loop_role() -> str:
-        from butler.project_lead import gateway_loop_role
+        from butler.project.lead import gateway_loop_role
 
         return gateway_loop_role(orchestrator.project_manager.current_project or "")
 
@@ -179,7 +178,7 @@ def _run_interactive_chat(orchestrator: ButlerOrchestrator) -> int:
         try:
             from butler.cli.stream import StreamRenderer
             from butler.execution_context import use_execution_context
-            from butler.session_lifecycle import attach_turn_memory_prefetch
+            from butler.session.lifecycle import attach_turn_memory_prefetch
 
             stream = StreamRenderer(console, title=settings.butler_name or "Butler")
             agent_loop.callbacks = ui.build_callbacks(stream)
@@ -200,7 +199,7 @@ def _run_interactive_chat(orchestrator: ButlerOrchestrator) -> int:
                     interrupted=result.status == LoopStatus.INTERRUPTED,
                     status=result.status,
                 )
-                from butler.session_lifecycle import queue_prefetch_after_turn
+                from butler.session.lifecycle import queue_prefetch_after_turn
 
                 queue_prefetch_after_turn(
                     orchestrator,
@@ -239,7 +238,7 @@ def _sync_memory(
 ) -> None:
     """Sync conversation turn to butler memory for experience tracking."""
     from butler.execution_context import get_current_session_key
-    from butler.session_lifecycle import sync_turn_memory
+    from butler.session.lifecycle import sync_turn_memory
     sync_turn_memory(
         orchestrator,
         user_msg,
@@ -255,7 +254,7 @@ def _trigger_session_end(
     agent_loop: Any,
 ) -> None:
     """Trigger post-session processing (memory/skill extraction)."""
-    from butler.session_lifecycle import trigger_session_end
+    from butler.session.lifecycle import trigger_session_end
     trigger_session_end(orchestrator, agent_loop, reason="shutdown")
 
 
@@ -315,7 +314,7 @@ def _handle_slash_command(
                 f"[green]已切换到项目: {new}[/green] "
                 "[dim]（该项目有独立对话历史）[/dim]"
             )
-            from butler.project_lead import lead_mode_switch_suffix
+            from butler.project.lead import lead_mode_switch_suffix
 
             note = lead_mode_switch_suffix(new or "")
             if note:
@@ -343,8 +342,8 @@ def _handle_slash_command(
         return "handled"
 
     if command == "/new":
-        from butler.session_keys import build_session_key
-        from butler.session_lifecycle import handle_new_session_command
+        from butler.session.keys import build_session_key
+        from butler.session.lifecycle import handle_new_session_command
 
         cli_sk = build_session_key(
             platform="cli",
@@ -359,8 +358,8 @@ def _handle_slash_command(
         settings = orchestrator._settings
         current = orchestrator.project_manager.current_project or "(无)"
         mc = orchestrator._model_credentials("butler")
-        from butler.session_keys import build_session_key
-        from butler.plan_mode import format_plan_mode_status
+        from butler.session.keys import build_session_key
+        from butler.plan.mode import format_plan_mode_status
 
         cli_sk = build_session_key(
             platform="cli",
@@ -378,8 +377,8 @@ def _handle_slash_command(
         return "handled"
 
     if command in ("/plan", "/计划", "/规划"):
-        from butler.session_keys import build_session_key
-        from butler.plan_mode import clear_plan_mode, format_plan_mode_status, set_plan_mode
+        from butler.session.keys import build_session_key
+        from butler.plan.mode import clear_plan_mode, format_plan_mode_status, set_plan_mode
 
         cli_sk = build_session_key(
             platform="cli",
@@ -396,8 +395,8 @@ def _handle_slash_command(
         return "handled"
 
     if command in ("/执行", "/exit-plan", "/退出规划"):
-        from butler.session_keys import build_session_key
-        from butler.plan_mode import clear_plan_mode
+        from butler.session.keys import build_session_key
+        from butler.plan.mode import clear_plan_mode
 
         cli_sk = build_session_key(
             platform="cli",
@@ -409,7 +408,7 @@ def _handle_slash_command(
         return "handled"
 
     if command in ("/tasks", "/任务"):
-        from butler.session_keys import build_session_key
+        from butler.session.keys import build_session_key
         from butler.runtime.task_store import list_recent_tasks
 
         cli_sk = build_session_key(
@@ -475,7 +474,7 @@ def _handle_slash_command(
 
     if command == "/detail":
         from butler.report import get_last_report
-        from butler.report_format import parse_detail_section
+        from butler.report.format import parse_detail_section
         try:
             report = get_last_report()
             if report:
@@ -488,7 +487,7 @@ def _handle_slash_command(
         return "handled"
 
     if command in ("/workflow", "/工作流"):
-        from butler.session_keys import build_session_key
+        from butler.session.keys import build_session_key
         from butler.workflows.commands import handle_workflow_command
 
         cli_sk = build_session_key(
@@ -540,7 +539,7 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
     )
 
     try:
-        from butler.session_lifecycle import attach_turn_memory_prefetch
+        from butler.session.lifecycle import attach_turn_memory_prefetch
 
         from butler.execution_context import use_execution_context
 
@@ -563,7 +562,7 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
 
 
 def _cmd_projects(ns: argparse.Namespace) -> int:
-    from butler.project_manager import get_project_manager
+    from butler.project.manager import get_project_manager
 
     manager = get_project_manager()
     if getattr(ns, "reload", False):
@@ -587,7 +586,7 @@ def _create_slug_from_ns(ns: argparse.Namespace) -> str:
 
 
 def _cmd_create(ns: argparse.Namespace) -> int:
-    from butler.project_manager import get_project_manager
+    from butler.project.manager import get_project_manager
 
     slug = _create_slug_from_ns(ns)
     if not slug:
@@ -614,7 +613,7 @@ def _cmd_create(ns: argparse.Namespace) -> int:
     print(f"Created project {created.name!r} at {created.workspace}")
     print(f"Next: butler project preflight --project {created.name!r}")
     if ns.reindex:
-        from butler.project_archetypes import reindex_project_memory
+        from butler.project.archetypes import reindex_project_memory
 
         ok, msg = reindex_project_memory(created.name)
         print(f"Reindex: {msg}")
@@ -626,7 +625,7 @@ def _cmd_create(ns: argparse.Namespace) -> int:
 
 def _cmd_project_register(ns: argparse.Namespace) -> int:
     from butler.config import get_butler_settings
-    from butler.project_manager import get_project_manager
+    from butler.project.manager import get_project_manager
 
     path = Path(ns.path).expanduser().resolve()
     mgr = get_project_manager()
@@ -658,7 +657,7 @@ def _cmd_project_register(ns: argparse.Namespace) -> int:
     print(f"Registered project {proj.name!r} at {proj.workspace}")
     print(f"Next: butler project preflight --project {proj.name!r}")
     if ns.reindex:
-        from butler.project_archetypes import reindex_project_memory
+        from butler.project.archetypes import reindex_project_memory
 
         ok, msg = reindex_project_memory(proj.name)
         print(f"Reindex: {msg}")
@@ -668,7 +667,7 @@ def _cmd_project_register(ns: argparse.Namespace) -> int:
 
 
 def _cmd_projects_refresh(_ns: argparse.Namespace) -> int:
-    from butler.project_manager import get_project_manager
+    from butler.project.manager import get_project_manager
 
     mgr = get_project_manager()
     mgr.refresh()
@@ -680,7 +679,7 @@ def _cmd_projects_refresh(_ns: argparse.Namespace) -> int:
 def _cmd_project_preflight(ns: argparse.Namespace) -> int:
 
     from butler.config import get_butler_settings
-    from butler.project_preflight import (
+    from butler.project.preflight import (
         format_report,
         resolve_tool_safe_root,
         resolve_workspace,
@@ -1322,89 +1321,10 @@ def _cmd_mcp_serve(_ns: argparse.Namespace) -> int:
     return run_stdio_server()
 
 
-def _cmd_doctor(_ns: argparse.Namespace) -> int:
-    from pathlib import Path
+def _cmd_doctor(ns: argparse.Namespace) -> int:
+    from butler.cli.doctor import cmd_doctor
 
-    from butler.ops.security_audit import format_audit_report, run_security_audit
-
-    workspace: Path | None = None
-    try:
-        from butler.config import BUTLER_RUNTIME_DIRS, get_butler_home
-
-        butler_home = get_butler_home()
-        projects_dir = butler_home / "projects"
-        if projects_dir.is_dir():
-            for child in sorted(projects_dir.iterdir()):
-                if (child / "AGENTS.md").is_file():
-                    workspace = child
-                    break
-    except Exception:
-        butler_home = Path(os.environ.get("BUTLER_HOME", "~/.butler")).expanduser()
-
-    print("=== Butler Doctor ===\n")
-
-    # 1. Data directory check
-    print("[数据目录]")
-    for d in BUTLER_RUNTIME_DIRS:
-        p = butler_home / d
-        status = "✓" if p.is_dir() else "✗ (missing)"
-        print(f"  {butler_home / d}: {status}")
-    print()
-
-    # 2. Dependency check
-    print("[核心依赖]")
-    core_deps = {
-        "dotenv": "python-dotenv",
-        "yaml": "PyYAML",
-        "httpx": "httpx",
-        "openai": "openai",
-    }
-    for mod, pkg in core_deps.items():
-        try:
-            __import__(mod)
-            print(f"  {pkg}: ✓")
-        except ImportError:
-            print(f"  {pkg}: ✗ (pip install {pkg})")
-
-    # 3. Optional extras
-    print("\n[可选依赖]")
-    optional = {
-        "chromadb": ("chromadb (vectors extra)", 'pip install -e ".[vectors]"'),
-        "fastembed": ("fastembed (embeddings extra)", 'pip install -e ".[embeddings]"'),
-        "aiohttp": ("aiohttp (wechat extra)", 'pip install -e ".[wechat]"'),
-        "markitdown": ("markitdown (documents extra)", 'pip install -e ".[documents]"'),
-        "croniter": ("croniter (core dependency)", 'pip install -e ".[dev]"'),
-    }
-    missing_optional: list[str] = []
-    for mod, (desc, install_hint) in optional.items():
-        try:
-            __import__(mod)
-            print(f"  {desc}: ✓")
-        except ImportError:
-            print(f"  {desc}: — (not installed)")
-            missing_optional.append(f"{desc} -> {install_hint}")
-    if missing_optional:
-        print("  可按需安装：")
-        for item in missing_optional:
-            print(f"    - {item}")
-
-    # 4. .env file
-    print("\n[配置]")
-    env_path = Path.cwd() / ".env"
-    if env_path.is_file():
-        print(f"  .env: ✓ ({env_path})")
-    else:
-        print("  .env: ✗ (copy .env.example → .env)")
-
-    api_key = os.environ.get("MINIMAX_API_KEY", "")
-    print(f"  MINIMAX_API_KEY: {'✓ (set)' if api_key else '✗ (unset)'}")
-
-    # 5. Security audit
-    print("\n[安全审计]")
-    findings = run_security_audit(workspace=workspace)
-    print(format_audit_report(findings))
-    critical = sum(1 for f in findings if f.level == "critical")
-    return 1 if critical else 0
+    return cmd_doctor(ns)
 
 
 def main(argv: Sequence[str] | None = None) -> None:

@@ -73,7 +73,7 @@ def set_plan_mode(session_key: str, enabled: bool) -> None:
         else:
             _PLAN_BY_SESSION.pop(key, None)
     try:
-        from butler.plan_mode_store import save_plan_mode_flag
+        from butler.plan.store import save_plan_mode_flag
 
         save_plan_mode_flag(key, enabled)
     except Exception as exc:
@@ -91,7 +91,7 @@ def is_plan_mode(session_key: str = "") -> bool:
         if key in _PLAN_BY_SESSION:
             return bool(_PLAN_BY_SESSION[key])
     try:
-        from butler.plan_mode_store import load_plan_mode_flag
+        from butler.plan.store import load_plan_mode_flag
 
         enabled = load_plan_mode_flag(key)
         with _LOCK:

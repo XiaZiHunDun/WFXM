@@ -15,9 +15,9 @@ import os
 from typing import Any, Optional
 
 from butler.orchestrator import ButlerOrchestrator
-from butler.session_keys import chat_id_from_session_key, normalize_session_key
+from butler.session.keys import chat_id_from_session_key, normalize_session_key
 from butler.core.agent_loop import AgentLoop, LoopResult, LoopStatus
-from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
+from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory
 from butler.tools.registry import dispatch_tool
 from butler.gateway.session_registry import GatewaySessionRegistry
 from butler.gateway.inbound_idempotency import release_inflight
@@ -52,10 +52,10 @@ class ButlerMessageHandler:
             str(getattr(project, "name", "") or "").strip()
             or pm.resolve_active_project_name(session_key=session_key)
         )
-        from butler.project_lead import gateway_loop_role
+        from butler.project.lead import gateway_loop_role
         from butler.tools.project_tools import get_tool_definitions_for_project
 
-        from butler.plan_mode import is_plan_mode
+        from butler.plan.mode import is_plan_mode
 
         loop_role = gateway_loop_role(proj_name, project=project)
         if is_plan_mode(session_key):
@@ -71,7 +71,7 @@ class ButlerMessageHandler:
         return loop
 
     def _finalize_session(self, loop: AgentLoop) -> None:
-        from butler.session_lifecycle import trigger_session_end
+        from butler.session.lifecycle import trigger_session_end
 
         trigger_session_end(self._orchestrator, loop, reason="finalize")
 
@@ -717,12 +717,12 @@ class ButlerMessageHandler:
             return prompt_hooks.stop_message or "已停止（UserPromptSubmit hook）"
 
         with use_execution_context(self._orchestrator, session_key=session_key):
-            from butler.project_lead import gateway_loop_role
+            from butler.project.lead import gateway_loop_role
 
             pm = self._orchestrator.project_manager
             proj_name = pm.resolve_active_project_name(session_key=session_key)
             proj = pm.get_current(session_key=session_key)
-            from butler.plan_mode import is_plan_mode
+            from butler.plan.mode import is_plan_mode
 
             loop_role = gateway_loop_role(proj_name, project=proj)
             if is_plan_mode(session_key):
@@ -872,7 +872,7 @@ class ButlerMessageHandler:
                     session_id=session_key,
                 )
                 health["memory_sync"] = sync_result
-                from butler.session_lifecycle import queue_prefetch_after_turn
+                from butler.session.lifecycle import queue_prefetch_after_turn
 
                 queue_prefetch_after_turn(
                     self._orchestrator,
@@ -992,7 +992,7 @@ class ButlerMessageHandler:
                 extra = ""
                 if cleared:
                     extra = f"\n已重建对话引擎（清理 {len(cleared)} 个旧项目会话）。"
-                from butler.project_lead import lead_mode_switch_suffix
+                from butler.project.lead import lead_mode_switch_suffix
 
                 lead_note = lead_mode_switch_suffix(new_name)
                 return (
@@ -1033,8 +1033,8 @@ class ButlerMessageHandler:
         if cmd in ("/status", "/状态"):
             import os
 
-            from butler.project_lead import gateway_loop_role, is_lead_project
-            from butler.project_meta import format_project_meta_lines
+            from butler.project.lead import gateway_loop_role, is_lead_project
+            from butler.project.meta import format_project_meta_lines
 
             s = self._orchestrator._settings
             pm = self._orchestrator.project_manager
@@ -1057,7 +1057,7 @@ class ButlerMessageHandler:
                 lines.append(
                     f"  对话引擎: {gateway_loop_role(current)}"
                 )
-            from butler.plan_mode import format_plan_mode_status
+            from butler.plan.mode import format_plan_mode_status
 
             lines.append(f"  {format_plan_mode_status(session_key).replace(chr(10), ' ')}")
             return "\n".join(lines)
@@ -1149,7 +1149,7 @@ class ButlerMessageHandler:
             )
 
         if cmd in ("/new", "/新对话"):
-            from butler.session_lifecycle import handle_new_session_command
+            from butler.session.lifecycle import handle_new_session_command
 
             loop = self._sessions.get(session_key)
             self._session_registry.reset(session_key, skip_finalize=True)
@@ -1157,7 +1157,7 @@ class ButlerMessageHandler:
             from butler.report import clear_report_cache
 
             clear_report_cache(session_key)
-            from butler.plan_mode import clear_plan_mode
+            from butler.plan.mode import clear_plan_mode
 
             clear_plan_mode(session_key)
             try:
@@ -1188,7 +1188,7 @@ class ButlerMessageHandler:
 
         if cmd in ("/detail", "/详细"):
             from butler.report import get_last_report, format_detail
-            from butler.report_format import parse_detail_section
+            from butler.report.format import parse_detail_section
 
             report = get_last_report(session_key)
             if report:
@@ -1196,11 +1196,11 @@ class ButlerMessageHandler:
             return "暂无可展示的详细报告。"
 
         if cmd in ("/plan", "/计划", "/规划"):
-            from butler.plan_mode import format_plan_mode_status, set_plan_mode
+            from butler.plan.mode import format_plan_mode_status, set_plan_mode
 
             arg_l = (arg or "").strip().lower()
             if arg_l in ("off", "exit", "执行", "退出", "关闭"):
-                from butler.plan_mode import clear_plan_mode
+                from butler.plan.mode import clear_plan_mode
 
                 clear_plan_mode(session_key)
                 self._session_registry.reset(session_key)
@@ -1210,7 +1210,7 @@ class ButlerMessageHandler:
             return format_plan_mode_status(session_key)
 
         if cmd in ("/执行", "/exit-plan", "/退出规划"):
-            from butler.plan_mode import clear_plan_mode
+            from butler.plan.mode import clear_plan_mode
 
             clear_plan_mode(session_key)
             self._session_registry.reset(session_key)
@@ -1476,7 +1476,7 @@ class ButlerMessageHandler:
     def _format_response(self, result: LoopResult, platform: str) -> str:
         """Format the response appropriately for the platform."""
         if platform in ("wechat", "weixin"):
-            from butler.report_format import wechat_response_text
+            from butler.report.format import wechat_response_text
 
             return wechat_response_text(result)
 

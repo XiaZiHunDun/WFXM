@@ -28,7 +28,7 @@ from butler.main import (
     main,
 )
 from butler.project import Project
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 
 
 def _reset_singletons() -> None:
@@ -186,7 +186,7 @@ class TestCmdExec:
 
         ns = MagicMock(message="run this task")
         with patch("butler.orchestrator.ButlerOrchestrator", return_value=orch):
-            with patch("butler.session_lifecycle.sync_turn_memory") as sync:
+            with patch("butler.session.lifecycle.sync_turn_memory") as sync:
                 code = _cmd_exec(ns)
         assert code == 0
         assert sync.call_args.kwargs["session_id"] == "cli"
@@ -195,7 +195,7 @@ class TestCmdExec:
         orch = _mock_orchestrator()
         from butler.execution_context import use_execution_context
 
-        with patch("butler.session_lifecycle.sync_turn_memory") as sync:
+        with patch("butler.session.lifecycle.sync_turn_memory") as sync:
             with use_execution_context(orch, session_key="cli"):
                 _sync_memory(orch, "user", "assistant", status=LoopStatus.COMPLETED)
 
@@ -217,7 +217,7 @@ class TestSessionEnd:
     def test_short_messages_no_processing(self):
         orch = _mock_orchestrator()
         loop = MagicMock(messages=[{"role": "user"}, {"role": "assistant"}])
-        with patch("butler.post_session.PostSessionProcessor") as mock_proc:
+        with patch("butler.session.post_session.PostSessionProcessor") as mock_proc:
             _trigger_session_end(orch, loop)
         mock_proc.assert_not_called()
 
@@ -236,7 +236,7 @@ class TestSessionEnd:
         mock_processor = MagicMock()
         mock_processor.process = MagicMock(return_value={})
 
-        with patch("butler.post_session.PostSessionProcessor", return_value=mock_processor):
+        with patch("butler.session.post_session.PostSessionProcessor", return_value=mock_processor):
             with patch("asyncio.run", return_value={}):
                 _trigger_session_end(orch, loop)
         mock_processor.set_llm_call.assert_called_once()
@@ -302,7 +302,7 @@ class TestProjectCommands:
     def test_cmd_projects_no_projects(self):
         manager = MagicMock()
         manager.list_projects.return_value = []
-        with patch("butler.project_manager.get_project_manager", return_value=manager):
+        with patch("butler.project.manager.get_project_manager", return_value=manager):
             assert _cmd_projects(MagicMock()) == 0
 
     def test_cmd_projects_lists_projects(self):
@@ -315,7 +315,7 @@ class TestProjectCommands:
         manager = MagicMock()
         manager.list_projects.return_value = [project]
         manager.current_project = "demo"
-        with patch("butler.project_manager.get_project_manager", return_value=manager):
+        with patch("butler.project.manager.get_project_manager", return_value=manager):
             assert _cmd_projects(MagicMock()) == 0
 
     def test_cmd_create_success(self):
@@ -337,7 +337,7 @@ class TestProjectCommands:
             no_runtime=False,
             reindex=False,
         )
-        with patch("butler.project_manager.get_project_manager", return_value=manager):
+        with patch("butler.project.manager.get_project_manager", return_value=manager):
             assert _cmd_create(ns) == 0
         manager.create_project.assert_called_once()
         args, kwargs = manager.create_project.call_args
@@ -358,7 +358,7 @@ class TestProjectCommands:
             no_runtime=False,
             reindex=False,
         )
-        with patch("butler.project_manager.get_project_manager", return_value=manager):
+        with patch("butler.project.manager.get_project_manager", return_value=manager):
             assert _cmd_create(ns) == 1
 
 

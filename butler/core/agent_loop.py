@@ -682,7 +682,7 @@ class AgentLoop:
                     before = self._guardrails.before_call(name, args)
                     if before.action == "ask" and before.code == "doom_loop":
                         try:
-                            from butler.permission_doom_loop import check_doom_loop_ask
+                            from butler.permissions.doom_loop import check_doom_loop_ask
 
                             if check_doom_loop_ask(before, name, args):
                                 prefetch[key] = synthetic_result(before)

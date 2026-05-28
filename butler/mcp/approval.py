@@ -77,7 +77,7 @@ def check_mcp_tool_approval(
     if not is_mutating_classification(classification):
         return None
 
-    from butler.permission_approvals import ApprovalRequest, is_approved, save_pending
+    from butler.permissions.approvals import ApprovalRequest, is_approved, save_pending
 
     fp = mcp_tool_fingerprint(server_id, tool_name, args)
     req = ApprovalRequest(
@@ -100,7 +100,7 @@ def check_mcp_tool_approval(
 
 def grant_mcp_session_always(session_key: str, server_id: str = "*") -> str:
     """Grant always-allow for mcp_tool permission scoped to server pattern."""
-    from butler.permission_approvals import grant_always
+    from butler.permissions.approvals import grant_always
 
     return grant_always(
         session_key,

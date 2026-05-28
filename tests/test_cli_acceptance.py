@@ -18,7 +18,7 @@ from butler.main import (
     _handle_slash_command,
     _run_interactive_chat,
 )
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.tools.registry import dispatch_tool, get_tool_definitions
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -192,7 +192,7 @@ class TestManualGuide23Slash:
 
         loop = butler_orchestrator.create_agent_loop(role="butler")
         loop.config = LoopConfig(stream=False)
-        with patch("butler.session_lifecycle.sync_turn_memory", return_value={"skipped": True}):
+        with patch("butler.session.lifecycle.sync_turn_memory", return_value={"skipped": True}):
             loop.run("我叫李四")
             loop.reset()
             result = loop.run("我之前说过什么名字？")

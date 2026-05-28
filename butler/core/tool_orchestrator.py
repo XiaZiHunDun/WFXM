@@ -29,7 +29,7 @@ def run_terminal_with_gates(
         if not danger.allowed:
             try:
                 from butler.core.confirm_flags import permission_risk_heuristic_enabled
-                from butler.permission_approvals import ApprovalRequest, save_pending
+                from butler.permissions.approvals import ApprovalRequest, save_pending
 
                 if permission_risk_heuristic_enabled() and session_key:
                     save_pending(

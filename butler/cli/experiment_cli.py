@@ -12,7 +12,7 @@ def _resolve_workspace(project: str) -> tuple[Path | None, str | None]:
     name = (project or "").strip()
     if not name:
         return None, "请指定 --project"
-    from butler.project_manager import get_project_manager
+    from butler.project.manager import get_project_manager
 
     proj = get_project_manager().get_project(name)
     if proj is None:

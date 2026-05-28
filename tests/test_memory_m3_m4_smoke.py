@@ -13,7 +13,7 @@ from butler.memory.prefetch_cache import clear_prefetch_cache
 from butler.memory.project_memory import ProjectMemory
 from butler.memory.semantic_project import index_pending_memory_bullet, pending_source_id
 from butler.project import Project
-from butler.session_lifecycle import prefetch_turn_memory, queue_prefetch_after_turn
+from butler.session.lifecycle import prefetch_turn_memory, queue_prefetch_after_turn
 
 
 @pytest.mark.module_test
@@ -109,7 +109,7 @@ class TestM4PrefetchCacheHit:
         diagnostics: dict = {}
         with pytest.MonkeyPatch.context() as m:
             m.setattr(
-                "butler.session_lifecycle._session_key_for_prefetch",
+                "butler.session.lifecycle._session_key_for_prefetch",
                 lambda: session_id,
             )
             prefetch_turn_memory(

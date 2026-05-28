@@ -47,7 +47,7 @@ def _title_from_hit(hit: dict[str, Any]) -> str:
 
 
 def _search_hits(svc: Any, query: str, *, limit: int, project: str | None) -> list[dict[str, Any]]:
-    from butler.session_lifecycle import filter_non_conversation_experience
+    from butler.session.lifecycle import filter_non_conversation_experience
 
     bm = svc._butler_global
     if bm is None:
@@ -168,7 +168,7 @@ def recall_timeline(
         return json.dumps({"ok": False, "error": "anchor_id required (e.g. experience:42)"})
 
     rows = bm.experience.timeline_around(rid, before=depth, after=depth)
-    from butler.session_lifecycle import filter_non_conversation_experience
+    from butler.session.lifecycle import filter_non_conversation_experience
 
     rows = filter_non_conversation_experience(rows)
     items = []

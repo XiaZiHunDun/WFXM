@@ -106,7 +106,7 @@ def create_task(
     project: str = "",
     group_id: str = "",
 ) -> dict[str, Any]:
-    from butler.delegate_subagent_permissions import make_child_session_key
+    from butler.delegate.subagent_permissions import make_child_session_key
 
     task_id = new_task_id()
     sk = str(session_key or "").strip() or "default"

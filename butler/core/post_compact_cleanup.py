@@ -26,7 +26,7 @@ def build_post_compact_anchor_text(
     try:
         from butler.execution_context import get_current_orchestrator, get_current_session_key
         from butler.runtime.task_store import list_recent_tasks
-        from butler.session_lifecycle import prefetch_turn_memory
+        from butler.session.lifecycle import prefetch_turn_memory
 
         sk = str(get_current_session_key() or "").strip()
         tasks = list_recent_tasks(sk, limit=3)

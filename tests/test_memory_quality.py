@@ -9,9 +9,9 @@ import pytest
 
 from butler.memory import ButlerMemory, ProjectMemory
 from butler.memory.diagnostics import collect_memory_layer_stats, format_memory_diagnostic_lines
-from butler.post_session import PostSessionProcessor, memory_update_is_duplicate
+from butler.session.post_session import PostSessionProcessor, memory_update_is_duplicate
 from butler.project import Project
-from butler.session_lifecycle import inject_turn_memory, prefetch_limits, prefetch_turn_memory
+from butler.session.lifecycle import inject_turn_memory, prefetch_limits, prefetch_turn_memory
 
 
 @pytest.mark.module_test

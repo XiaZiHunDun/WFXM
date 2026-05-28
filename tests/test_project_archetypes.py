@@ -9,9 +9,9 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.project import Project
-from butler.project_archetypes import load_template, validate_slug
-from butler.project_lead import is_lead_project
-from butler.project_manager import ProjectManager
+from butler.project.archetypes import load_template, validate_slug
+from butler.project.lead import is_lead_project
+from butler.project.manager import ProjectManager
 
 
 def _reset_pm() -> None:

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from butler.post_session import (
+from butler.session.post_session import (
     PostSessionProcessor,
     _format_messages,
     _normalize_project_section,

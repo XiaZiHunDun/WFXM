@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from butler.project import Project
+from butler.project.model import Project
 
 
 def _normalize_plugins(raw: Any) -> dict[str, str]:

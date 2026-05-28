@@ -16,7 +16,7 @@ from butler.core.mode_classifier import (
     mode_classifier_enabled,
     score_mode,
 )
-from butler.delegate_policy import delegate_one_tool_per_iteration
+from butler.delegate.policy import delegate_one_tool_per_iteration
 
 
 def test_plan_heuristic_long_design_message():

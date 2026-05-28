@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from butler.env_parse import env_truthy
-from butler.post_session import _format_messages, _parse_json_from_response
+from butler.session.post_session import _format_messages, _parse_json_from_response
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,7 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.project import Project
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.task_orchestrator import AgentResult, TaskGraphResult
 from butler.workflows.loader import (
     load_builtin_workflow,

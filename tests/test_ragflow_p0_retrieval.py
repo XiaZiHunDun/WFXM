@@ -91,7 +91,7 @@ def test_collect_memory_layer_stats_merges_last_retrieval():
 @pytest.mark.module_test
 def test_clear_session_boundary_memory_clears_last_retrieval():
     from butler.memory.retrieval_telemetry import get_last_retrieval, record_last_retrieval
-    from butler.session_lifecycle import clear_session_boundary_memory
+    from butler.session.lifecycle import clear_session_boundary_memory
 
     orch = MagicMock()
     orch.butler_memory = None
@@ -112,7 +112,7 @@ def test_clear_session_boundary_memory_clears_last_retrieval():
 def test_prefetch_turn_memory_records_project_retrieval_mode(tmp_path, monkeypatch):
     from butler.execution_context import use_execution_context
     from butler.memory.project_memory import ProjectMemory
-    from butler.session_lifecycle import prefetch_turn_memory
+    from butler.session.lifecycle import prefetch_turn_memory
 
     monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "0")
     (tmp_path / "project.yaml").write_text("name: demo\nworkspace: .\n", encoding="utf-8")

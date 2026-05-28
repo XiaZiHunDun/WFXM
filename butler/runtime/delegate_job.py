@@ -145,7 +145,7 @@ def run_delegate_job(job: DelegateJob) -> None:
             finally:
                 unregister_delegate_loop(job.session_key, job.agent)
 
-        from butler.session_lifecycle import sync_turn_memory
+        from butler.session.lifecycle import sync_turn_memory
 
         sync_turn_memory(
             job.orch,
@@ -269,7 +269,7 @@ def _try_attach_diff_summary(report: Any, job: DelegateJob) -> None:
         workspace = None
         proj = None
         try:
-            from butler.project_manager import ProjectManager
+            from butler.project.manager import ProjectManager
             pm = ProjectManager()
             proj = pm.active_project
             if proj and hasattr(proj, "workspace"):

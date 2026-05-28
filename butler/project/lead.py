@@ -6,7 +6,7 @@ import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from butler.project import Project
+    from butler.project.model import Project
 
 # Default pilot project(s); override with BUTLER_LEAD_PROJECTS=灵文1号,Other
 _DEFAULT_LEAD_PROJECTS = frozenset({"灵文1号", "灵文1"})
@@ -20,7 +20,7 @@ def lead_project_names() -> frozenset[str]:
 
 
 def _resolve_project(project_name: str) -> "Project | None":
-    from butler.project_manager import get_project_manager
+    from butler.project.manager import get_project_manager
 
     pm = get_project_manager()
     name = (project_name or "").strip()

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from butler.permission_approvals import ApprovalRequest
+    from butler.permissions.approvals import ApprovalRequest
 
 import yaml
 
@@ -347,7 +347,7 @@ def _approval_request_from_decision(
     tool_name: str,
     args: dict[str, Any],
 ) -> "ApprovalRequest":
-    from butler.permission_approvals import ApprovalRequest
+    from butler.permissions.approvals import ApprovalRequest
 
     path_val = _resolve_path_arg(args) or str(args.get("command") or "*")
     perm = str(decision.permission or "rule").strip() or "rule"
@@ -369,7 +369,7 @@ def _decision_with_approval(
     """Return None if approved; else original decision."""
     if decision.action != "ask":
         return decision
-    from butler.permission_approvals import is_approved, save_pending
+    from butler.permissions.approvals import is_approved, save_pending
 
     req = _approval_request_from_decision(decision, tool_name, args)
     if session_key and is_approved(session_key, req):

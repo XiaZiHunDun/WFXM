@@ -22,7 +22,7 @@ def cmd_workflow_validate(ns: argparse.Namespace) -> int:
         _wf, errors = validate_workflow_file(path)
         wf_name = path.name
     elif ns.workflow:
-        from butler.project_manager import get_project_manager
+        from butler.project.manager import get_project_manager
 
         pm = get_project_manager()
         project = None

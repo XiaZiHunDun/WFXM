@@ -156,7 +156,7 @@ def test_permission_denied_hook_retry_hint(tmp_path, monkeypatch):
 def test_dispatch_plan_mode_triggers_permission_denied_hint(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
     from butler.config import reload_butler_settings
-    from butler.plan_mode import set_plan_mode
+    from butler.plan.mode import set_plan_mode
 
     reload_butler_settings()
     payload = json.dumps(

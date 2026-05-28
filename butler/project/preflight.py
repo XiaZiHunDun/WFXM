@@ -11,8 +11,8 @@ from typing import Any
 
 import yaml
 
-from butler.project import Project
-from butler.project_lead import is_lead_project
+from butler.project.model import Project
+from butler.project.lead import is_lead_project
 import logging
 
 
@@ -250,7 +250,7 @@ def run_preflight(
         )
 
     try:
-        from butler.project_manager import get_project_manager
+        from butler.project.manager import get_project_manager
 
         pm = get_project_manager()
         if project_name and pm.get_project(project_name) is not None:
@@ -393,7 +393,7 @@ def run_preflight(
         )
 
     if project_name and is_lead_project(project_name, project=proj):
-        from butler.project_lead import lead_project_names
+        from butler.project.lead import lead_project_names
 
         src = []
         if proj and proj.lead is True:
@@ -479,7 +479,7 @@ def resolve_workspace(
     if path.strip():
         return Path(path.strip())
     if project_name.strip():
-        from butler.project_manager import get_project_manager
+        from butler.project.manager import get_project_manager
 
         proj = get_project_manager().get_project(project_name.strip())
         if proj is None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from butler.permission_approvals import ApprovalRequest, is_approved, save_pending
+from butler.permissions.approvals import ApprovalRequest, is_approved, save_pending
 from butler.tool_guardrails import GuardrailDecision, ToolCallSignature
 
 

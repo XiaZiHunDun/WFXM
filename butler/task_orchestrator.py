@@ -128,7 +128,7 @@ class TaskOrchestrator:
 
     def _create_agent_loop_with_orchestrator(self, config: AgentSpawnConfig, orch: Any):
         """Create a Butler AgentLoop using an already-selected orchestrator."""
-        from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
+        from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
         from butler.tools.project_tools import (
             canonical_tool_name,
             get_tool_definitions_for_project,
@@ -186,7 +186,7 @@ class TaskOrchestrator:
                 logger.debug("on_progress start failed: %s", exc)
 
         try:
-            from butler.delegate_policy import MAX_DELEGATE_DEPTH
+            from butler.delegate.policy import MAX_DELEGATE_DEPTH
 
             if config.delegate_depth >= MAX_DELEGATE_DEPTH:
                 raise ValueError(f"Maximum delegation depth ({MAX_DELEGATE_DEPTH}) exceeded")
@@ -203,7 +203,7 @@ class TaskOrchestrator:
             user_message = raw_user_message
             if orch is not None and hasattr(orch, "inject_skill_context"):
                 user_message = orch.inject_skill_context(raw_user_message)
-                from butler.session_lifecycle import attach_turn_memory_prefetch
+                from butler.session.lifecycle import attach_turn_memory_prefetch
 
                 attach_turn_memory_prefetch(agent, orch, raw_user_message, role=config.role)
             from butler.execution_context import use_execution_context
@@ -216,7 +216,7 @@ class TaskOrchestrator:
                     user_message,
                 )
             if orch is not None:
-                from butler.session_lifecycle import sync_turn_memory
+                from butler.session.lifecycle import sync_turn_memory
 
                 sync_turn_memory(
                     orch,

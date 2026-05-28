@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _TEMPLATES_DIR = _REPO_ROOT / "docs" / "templates" / "project-archetypes"
 
 _TEMPLATE_FILES = {

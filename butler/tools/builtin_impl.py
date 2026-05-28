@@ -910,7 +910,7 @@ def _tool_delegate_task(
     category_meta: dict[str, Any] = {}
     original_context = context
     try:
-        from butler.delegate_policy import MAX_DELEGATE_DEPTH
+        from butler.delegate.policy import MAX_DELEGATE_DEPTH
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
 
         if not str(category or "").strip():
@@ -924,7 +924,7 @@ def _tool_delegate_task(
                 logger.debug("intent category inference skipped: %s", exc)
 
         if str(category or "").strip():
-            from butler.delegate_category_resolver import apply_category_to_delegate
+            from butler.delegate.category_resolver import apply_category_to_delegate
 
             role, task, context, category_meta = apply_category_to_delegate(
                 category=str(category).strip(),
@@ -994,7 +994,7 @@ def _tool_delegate_task(
                 logger.debug("agents.md merge skipped: %s", exc)
         tools = get_tool_definitions_for_project(project, role=role)
 
-        from butler.delegate_subagent_permissions import filter_tools_for_subagent
+        from butler.delegate.subagent_permissions import filter_tools_for_subagent
 
         workspace = Path(project.workspace) if project is not None else None
         delegated_tools = filter_tools_for_subagent(
@@ -1054,11 +1054,11 @@ def _tool_delegate_task(
                     messages=parent_msgs,
                 )
             )
-        from butler.delegate_policy import resolve_delegate_max_iterations
+        from butler.delegate.policy import resolve_delegate_max_iterations
 
         agent.config.max_iterations = resolve_delegate_max_iterations(category_meta)
         try:
-            from butler.delegate_policy import delegate_one_tool_per_iteration
+            from butler.delegate.policy import delegate_one_tool_per_iteration
 
             if delegate_one_tool_per_iteration():
                 agent.config.enable_parallel_tools = False
@@ -1075,7 +1075,7 @@ def _tool_delegate_task(
         )
         user_msg = _inject_project_agent_skills(orch, raw_user_msg)
 
-        from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
+        from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory
         from butler.execution_context import get_current_session_key, use_execution_context
         from butler.runtime.task_store import complete_task, create_task
 
@@ -1334,7 +1334,7 @@ def _inject_project_agent_skills(orch: Any, user_msg: str) -> str:
 
 
 def _safe_dispatch(name: str, args: dict, depth: int) -> str:
-    from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
+    from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
     if name in DELEGATE_BLOCKED_TOOLS:
         return json.dumps({"error": f"Tool '{name}' is blocked in delegated agents"})
     if name == "delegate_task":

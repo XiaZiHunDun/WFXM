@@ -11,7 +11,7 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.project import Project
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.runtime import audit, loader, schedule, service
 from butler.runtime.builtin_handlers import run_builtin
 

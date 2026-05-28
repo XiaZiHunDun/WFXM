@@ -16,7 +16,7 @@ from rich.panel import Panel
 from butler.cli.session_ui import ChatSessionUI
 from butler.cli.stream import StreamRenderer
 from butler.main import _handle_slash_command, _run_interactive_chat
-from butler.session_lifecycle import trigger_session_end
+from butler.session.lifecycle import trigger_session_end
 from tests.cli_harness import (
     assert_no_ansi_artifacts,
     capture_console,
@@ -259,7 +259,7 @@ class TestCliMultiTurnMemorySemantics:
             loop = butler_orchestrator.create_agent_loop(role="butler")
             loop.config = LoopConfig(stream=False)
             with patch(
-                "butler.session_lifecycle.sync_turn_memory",
+                "butler.session.lifecycle.sync_turn_memory",
                 return_value={"skipped": True},
             ):
                 loop.run("我叫李四")

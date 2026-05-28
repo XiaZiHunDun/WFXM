@@ -183,7 +183,7 @@ def process_tool_calls(
                 pending_warn = before
             if before.action == "ask" and before.code == "doom_loop":
                 try:
-                    from butler.permission_doom_loop import check_doom_loop_ask
+                    from butler.permissions.doom_loop import check_doom_loop_ask
 
                     block_msg = check_doom_loop_ask(before, name, args)
                     if block_msg:

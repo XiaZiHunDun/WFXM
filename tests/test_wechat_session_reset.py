@@ -11,8 +11,8 @@ import pytest
 
 from butler.core.agent_loop import LoopStatus
 from butler.gateway.message_handler import ButlerMessageHandler
-from butler.session_keys import build_session_key
-from butler.session_lifecycle import (
+from butler.session.keys import build_session_key
+from butler.session.lifecycle import (
     inject_turn_memory,
     prefetch_turn_memory,
     sync_turn_memory,

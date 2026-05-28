@@ -97,7 +97,7 @@ def resolve_workspace_for_session(session_key: str = "") -> Path | None:
         return None
     try:
         from butler.config import load_settings
-        from butler.project_manager import ProjectManager
+        from butler.project.manager import ProjectManager
 
         pm = ProjectManager(load_settings())
         proj = pm.get_current(session_key=sk)

@@ -1,6 +1,6 @@
 """Tests for planning mode tool blocks."""
 
-from butler.plan_mode import (
+from butler.plan.mode import (
     check_plan_mode_block,
     clear_plan_mode,
     is_plan_mode,

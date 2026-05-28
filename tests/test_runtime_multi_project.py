@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from butler.config import reload_butler_settings
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.runtime.service import discover_runtime_projects
 
 

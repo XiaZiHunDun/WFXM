@@ -95,7 +95,7 @@ class TestOrchestrator:
             monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
 
             from butler.config import reload_butler_settings
-            from butler.project_manager import ProjectManager
+            from butler.project.manager import ProjectManager
             ProjectManager._instance = None
             reload_butler_settings()
 
@@ -115,7 +115,7 @@ class TestOrchestrator:
             monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
 
             from butler.config import reload_butler_settings
-            from butler.project_manager import ProjectManager
+            from butler.project.manager import ProjectManager
             ProjectManager._instance = None
             reload_butler_settings()
 

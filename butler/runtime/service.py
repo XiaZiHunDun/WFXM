@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.runtime import approval, audit, loader, notify, runner, schedule
 from butler.runtime.schema import JobDef
 

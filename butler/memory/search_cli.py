@@ -21,7 +21,7 @@ _CLI_SESSION_KEY = "cli-memory-search"
 
 def _resolve_project_memory(project_name: str) -> tuple[Any | None, str, Path | None]:
     from butler.memory.project_memory import ProjectMemory
-    from butler.project_manager import get_project_manager
+    from butler.project.manager import get_project_manager
 
     name = (project_name or "").strip()
     pmgr = get_project_manager()

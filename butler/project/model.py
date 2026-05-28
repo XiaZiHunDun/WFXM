@@ -78,7 +78,7 @@ class Project:
         else:
             lead = bool(lead_raw)
 
-        from butler.project_plugins import normalize_plugins
+        from butler.project.plugins import normalize_plugins
 
         return cls(
             name=str(data.get("name", ws.name)),

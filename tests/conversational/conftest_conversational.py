@@ -22,7 +22,7 @@ import yaml
 
 from butler.config import ModelConfig, get_butler_settings, reload_butler_settings
 from butler.gateway.message_handler import ButlerMessageHandler
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.tools.registry import (
     get_tool_audit_events,
     reset_tool_audit_events,
@@ -150,7 +150,7 @@ def send_message(
     reset_tool_audit_events()
 
     t0 = time.monotonic()
-    with patch("butler.session_lifecycle.sync_turn_memory", return_value={}):
+    with patch("butler.session.lifecycle.sync_turn_memory", return_value={}):
         response = handler.handle_message(
             text, session_key=session_key, platform=platform,
         )

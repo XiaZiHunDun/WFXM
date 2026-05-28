@@ -14,7 +14,7 @@ def test_resolve_max_output_tokens_from_role_config():
     with patch("butler.config.get_model_config") as gm:
         gm.return_value = ModelConfig(max_tokens=8192)
         with patch(
-            "butler.project_lead.gateway_loop_role",
+            "butler.project.lead.gateway_loop_role",
             return_value="butler",
         ):
             assert (
@@ -28,7 +28,7 @@ def test_resolve_max_output_tokens_none_when_unset():
     with patch("butler.config.get_model_config") as gm:
         gm.return_value = ModelConfig()
         with patch(
-            "butler.project_lead.gateway_loop_role",
+            "butler.project.lead.gateway_loop_role",
             return_value="butler",
         ):
             assert resolve_max_output_tokens(orch) is None

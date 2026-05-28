@@ -27,7 +27,7 @@ def resolve_max_output_tokens(
                     proj_name = str(
                         pm.resolve_active_project_name(session_key=session_key) or ""
                     )
-                from butler.project_lead import gateway_loop_role
+                from butler.project.lead import gateway_loop_role
 
                 proj = pm.get_current(session_key=session_key) if hasattr(pm, "get_current") else None
                 loop_role = gateway_loop_role(proj_name, project=proj)

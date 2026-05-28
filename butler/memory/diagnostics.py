@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from butler.session_lifecycle import CONVERSATION_CATEGORY
+from butler.session.lifecycle import CONVERSATION_CATEGORY
 import logging
 
 

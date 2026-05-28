@@ -613,7 +613,7 @@ def cache_report(report: AgentReport, *, session_key: str = "") -> None:
     key = _resolve_report_key(session_key)
     _reports[key] = report
     try:
-        from butler.report_store import persist_report
+        from butler.report.store import persist_report
 
         persist_report(report, session_key=key, task_id=report.task_id)
     except Exception as exc:
@@ -625,7 +625,7 @@ def get_last_report(session_key: str = "") -> AgentReport | None:
     if cached is not None:
         return cached
     try:
-        from butler.report_store import load_persisted_report
+        from butler.report.store import load_persisted_report
 
         loaded = load_persisted_report(key)
         if loaded is not None:

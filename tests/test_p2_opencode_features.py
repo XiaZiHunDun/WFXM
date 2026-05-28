@@ -17,7 +17,7 @@ from butler.core.session_todos import (
     replace_session_todos,
     session_todos_enabled,
 )
-from butler.delegate_subagent_permissions import filter_tools_for_subagent
+from butler.delegate.subagent_permissions import filter_tools_for_subagent
 
 
 @pytest.mark.unit

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from butler.memory.project_memory import ProjectMemory
-from butler.session_lifecycle import prefetch_turn_memory
+from butler.session.lifecycle import prefetch_turn_memory
 
 
 def _orch_with_project(tmp_path: Path) -> MagicMock:

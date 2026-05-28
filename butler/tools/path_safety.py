@@ -95,7 +95,7 @@ def current_workspace_root() -> Path | None:
         )
         workspace = getattr(project, "workspace", None)
         if workspace:
-            from butler.project_worktree import effective_workspace
+            from butler.project.worktree import effective_workspace
 
             return effective_workspace(Path(workspace))
     except Exception:

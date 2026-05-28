@@ -82,7 +82,7 @@ def _project_create_wechat(
 
     display_name = " ".join(display_parts).strip() or slug
 
-    from butler.project_archetypes import validate_slug
+    from butler.project.archetypes import validate_slug
 
     ok, err = validate_slug(slug)
     if not ok:
@@ -123,7 +123,7 @@ def _project_preflight_wechat(
 ) -> str:
 
     from butler.config import get_butler_settings
-    from butler.project_preflight import format_report, run_preflight
+    from butler.project.preflight import format_report, run_preflight
 
     pm = orchestrator.project_manager
     name = pm.resolve_active_project_name(session_key=session_key)
@@ -131,7 +131,7 @@ def _project_preflight_wechat(
     if not name or proj is None:
         return "请先 /切换 到要体检的项目。"
 
-    from butler.project_preflight import resolve_tool_safe_root
+    from butler.project.preflight import resolve_tool_safe_root
 
     settings = get_butler_settings()
     safe_root = resolve_tool_safe_root()

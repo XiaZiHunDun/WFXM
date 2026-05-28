@@ -6,7 +6,7 @@ import pytest
 
 from butler.core.loop_types import LoopResult, LoopStatus
 from butler.report import AgentReport, Change, cache_report, clear_report_cache, format_detail
-from butler.report_format import parse_detail_section, turn_used_delegate_task, wechat_response_text
+from butler.report.format import parse_detail_section, turn_used_delegate_task, wechat_response_text
 
 
 @pytest.fixture(autouse=True)

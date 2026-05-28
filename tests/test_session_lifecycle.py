@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from butler.core.agent_loop import LoopResult, LoopStatus
-from butler.session_lifecycle import (
+from butler.session.lifecycle import (
     attach_turn_memory_prefetch,
     build_memory_pre_llm_transform,
     clear_session_boundary_memory,
@@ -322,7 +322,7 @@ def test_trigger_session_end_returns_processor_result():
         {"role": "assistant", "content": "4"},
     ])
     with patch(
-        "butler.session_lifecycle._execute_post_session",
+        "butler.session.lifecycle._execute_post_session",
         return_value={"memory_updates": 1, "skills_extracted": 0, "errors": []},
     ) as execute:
         result = trigger_session_end(orch, loop)

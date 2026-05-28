@@ -27,8 +27,8 @@ def test_delegate_failure_completes_task_and_caches_report(tmp_path, monkeypatch
             "butler.tools.project_tools.get_tool_definitions_for_project",
             return_value=[],
         ),
-        patch("butler.session_lifecycle.attach_turn_memory_prefetch"),
-        patch("butler.session_lifecycle.sync_turn_memory"),
+        patch("butler.session.lifecycle.attach_turn_memory_prefetch"),
+        patch("butler.session.lifecycle.sync_turn_memory"),
     ):
         raw = _tool_delegate_task(role="dev", task="fix tests", context="")
 

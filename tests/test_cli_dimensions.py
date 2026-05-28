@@ -407,7 +407,7 @@ class TestCliInteractiveFlow:
         orch = mock_orchestrator_for_chat(
             tmp_path, responses={"x": make_loop_result("y")}
         )
-        with patch("butler.session_lifecycle.attach_turn_memory_prefetch") as prefetch:
+        with patch("butler.session.lifecycle.attach_turn_memory_prefetch") as prefetch:
             run_scripted_interactive_chat(orch, ["x", "/quit"], patch_prefetch=False)
         assert prefetch.call_count >= 1
 
@@ -484,7 +484,7 @@ class TestCliSessionLifecycle:
             s.side_effect = lambda *a, **k: c.side_effect[c.call_count - 1]
             loop = butler_orchestrator.create_agent_loop(role="butler")
             loop.config = LoopConfig(stream=False)
-            with patch("butler.session_lifecycle.sync_turn_memory", return_value={"skipped": True}):
+            with patch("butler.session.lifecycle.sync_turn_memory", return_value={"skipped": True}):
                 loop.run("我叫张三")
                 r2 = loop.run("我刚才说了什么名字？")
         assert "张三" in (r2.final_response or "")
@@ -492,7 +492,7 @@ class TestCliSessionLifecycle:
     def test_sync_memory_empty_user_turn_skipped(self):
         orch = _orch()
         orch.butler_memory = MagicMock()
-        with patch("butler.session_lifecycle.sync_turn_memory") as sync:
+        with patch("butler.session.lifecycle.sync_turn_memory") as sync:
             sync.return_value = {"skipped": True, "reason": "empty_turn"}
             _sync_memory(orch, "", "answer")
         sync.assert_called_once()

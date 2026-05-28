@@ -29,7 +29,7 @@ from butler.report import (
     maybe_repair_structured_output,
     validate_structured_output,
 )
-from butler.report_format import wechat_response_text
+from butler.report.format import wechat_response_text
 from butler.tool_guardrails import GuardrailDecision, ToolCallGuardrailController
 from butler.transport.types import NormalizedResponse, ToolCall
 from butler.core.loop_types import LoopCallbacks, LoopConfig, LoopResult

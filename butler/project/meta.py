@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from butler.project import Project
+    from butler.project.model import Project
 
 
 def lifecycle_label(project: "Project | None") -> str:
@@ -21,7 +21,7 @@ def lifecycle_label(project: "Project | None") -> str:
 
 
 def is_lead_enabled_for_project(project: "Project | None", project_name: str = "") -> bool:
-    from butler.project_lead import is_lead_project
+    from butler.project.lead import is_lead_project
 
     name = (project_name or (project.name if project else "") or "").strip()
     return is_lead_project(name, project=project)

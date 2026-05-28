@@ -197,7 +197,7 @@ class TestProjectPrefetchAndFence:
             encoding="utf-8",
         )
         from butler.project import Project
-        from butler.session_lifecycle import prefetch_turn_memory
+        from butler.session.lifecycle import prefetch_turn_memory
 
         proj = Project.from_yaml(proj_dir / "project.yaml")
         bm = ButlerMemory(tmp_path / "home", tenant_id="default")
@@ -221,7 +221,7 @@ class TestProjectPrefetchAndFence:
         assert "2026-05-22" in ctx
 
     def test_memory_fence_wrapper(self):
-        from butler.session_lifecycle import _render_turn_memory_context
+        from butler.session.lifecycle import _render_turn_memory_context
 
         out = _render_turn_memory_context("记忆片段", "用户问题", max_chars=500)
         assert "<memory-context>" in out

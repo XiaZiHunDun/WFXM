@@ -20,7 +20,7 @@ from butler.core.instruction_walkup import (
     reset_instruction_claims,
 )
 from butler.core.tool_output_prune import backward_prune_tool_outputs
-from butler.delegate_subagent_permissions import (
+from butler.delegate.subagent_permissions import (
     filter_tools_for_subagent,
     make_child_session_key,
 )

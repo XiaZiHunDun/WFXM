@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from butler.delegate_category_resolver import apply_category_to_delegate, list_categories
+from butler.delegate.category_resolver import apply_category_to_delegate, list_categories
 
 
 def test_list_categories_includes_presets():

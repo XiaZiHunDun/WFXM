@@ -61,7 +61,7 @@ def format_experiment_diagnostic_lines_for_project(
     if not name:
         return []
     try:
-        from butler.project_manager import get_project_manager
+        from butler.project.manager import get_project_manager
 
         proj = get_project_manager().get_project(name)
         if proj is None:

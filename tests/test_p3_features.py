@@ -8,9 +8,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from butler.core.transcript_revert import truncate_transcript
-from butler.permission_approvals import grant_once, is_approved, save_pending
-from butler.permission_doom_loop import check_doom_loop_ask, doom_loop_approval_request
-from butler.project_worktree import effective_workspace, read_worktree_spec
+from butler.permissions.approvals import grant_once, is_approved, save_pending
+from butler.permissions.doom_loop import check_doom_loop_ask, doom_loop_approval_request
+from butler.project.worktree import effective_workspace, read_worktree_spec
 from butler.runtime.delegate_registry import (
     interrupt_delegates_for_session,
     register_delegate_loop,

@@ -101,7 +101,7 @@ def _active_project_name() -> str:
         pm = None
     if pm is None:
         try:
-            from butler.project_manager import get_project_manager
+            from butler.project.manager import get_project_manager
 
             pm = get_project_manager()
         except Exception:
@@ -124,7 +124,7 @@ def _project_root_discovery() -> Path | None:
 
     """Best-effort: Butler CLI sets ONLY when a managed project exists."""
     try:
-        from butler.project_manager import get_project_manager
+        from butler.project.manager import get_project_manager
 
         pm = get_project_manager()
         if cur := pm.get_current():
@@ -189,7 +189,7 @@ class ButlerMemoryService:
             return
 
         from butler.config import get_butler_settings
-        from butler.project_manager import get_project_manager
+        from butler.project.manager import get_project_manager
         from butler.tenant import resolve_tenant_for_project
 
         settings = get_butler_settings()
@@ -235,7 +235,7 @@ class ButlerMemoryService:
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
         if self._orchestrator is not None:
-            from butler.session_lifecycle import prefetch_turn_memory
+            from butler.session.lifecycle import prefetch_turn_memory
 
             merged = prefetch_turn_memory(self._orchestrator, query, use_cache=False)
             if not merged.strip():
@@ -255,7 +255,7 @@ class ButlerMemoryService:
 
         try:
             try:
-                from butler.project_manager import get_project_manager
+                from butler.project.manager import get_project_manager
 
                 current = get_project_manager().current_project or ""
             except Exception:
@@ -277,13 +277,13 @@ class ButlerMemoryService:
         if qr and self._butler_global is not None:
             pname = ""
             try:
-                from butler.project_manager import get_project_manager
+                from butler.project.manager import get_project_manager
 
                 pname = get_project_manager().current_project or ""
             except Exception:
                 pname = self._guess_project_slug(root)
 
-            from butler.session_lifecycle import _filter_ephemeral_experience
+            from butler.session.lifecycle import _filter_ephemeral_experience
 
             hits = _filter_ephemeral_experience(
                 self._butler_global.experience.search(
@@ -309,7 +309,7 @@ class ButlerMemoryService:
     def _guess_project_slug(proj_root: Path | None) -> str:
         if proj_root is None:
             try:
-                from butler.project_manager import get_project_manager
+                from butler.project.manager import get_project_manager
 
                 return get_project_manager().current_project or ""
             except Exception:
@@ -321,7 +321,7 @@ class ButlerMemoryService:
         if not user_content and not assistant_content:
             return
         if self._orchestrator is not None:
-            from butler.session_lifecycle import record_post_session_turn
+            from butler.session.lifecycle import record_post_session_turn
 
             record_post_session_turn(
                 self._orchestrator,
@@ -356,7 +356,7 @@ class ButlerMemoryService:
 
     def _trigger_background_extraction_standalone(self) -> None:
         """Unlinked provider fallback (tests / legacy) via session_lifecycle runner."""
-        from butler.session_lifecycle import run_post_session_extraction
+        from butler.session.lifecycle import run_post_session_extraction
 
         messages = list(self._turn_buffer)
         self._turn_buffer.clear()
@@ -630,7 +630,7 @@ class ButlerMemoryService:
                 }
             )
 
-        from butler.session_lifecycle import filter_non_conversation_experience
+        from butler.session.lifecycle import filter_non_conversation_experience
 
         query = str(args.get("query", "") or "").strip()
         limit = max(1, int(args.get("limit", 8) or 8))

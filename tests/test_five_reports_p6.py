@@ -31,7 +31,7 @@ def test_provider_presets_builtin():
 
 @pytest.mark.unit
 def test_post_session_layered_disabled_by_default():
-    from butler.post_session_layered import post_session_layered_enabled
+    from butler.session.post_session_layered import post_session_layered_enabled
 
     assert not post_session_layered_enabled()
 

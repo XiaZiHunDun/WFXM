@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from butler.report import AgentReport
+from butler.report.generator import AgentReport
 
 
 def _reports_root() -> Path:

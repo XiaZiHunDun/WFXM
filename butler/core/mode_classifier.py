@@ -148,7 +148,7 @@ def detect_mode_suggestion_banner(
     if not text or text.startswith("/"):
         return None
     try:
-        from butler.plan_mode import is_plan_mode
+        from butler.plan.mode import is_plan_mode
 
         if is_plan_mode(session_key):
             return None
@@ -161,7 +161,7 @@ def detect_mode_suggestion_banner(
     if label == "plan":
         if mode_classifier_auto_plan():
             try:
-                from butler.plan_mode import set_plan_mode
+                from butler.plan.mode import set_plan_mode
 
                 set_plan_mode(session_key, True)
                 return (

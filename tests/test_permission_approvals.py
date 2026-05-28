@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from butler.permission_approvals import (
+from butler.permissions.approvals import (
     ApprovalRequest,
     grant_always,
     grant_once,
@@ -132,7 +132,7 @@ external_directory:
 
 def test_make_child_session_transcript_isolated(tmp_path, monkeypatch):
     from butler.core.session_transcript import load_transcript_tail, record_user_message, transcript_path
-    from butler.delegate_subagent_permissions import make_child_session_key
+    from butler.delegate.subagent_permissions import make_child_session_key
 
     parent = "wx:parent"
     child = make_child_session_key(parent, "task_deadbeef")

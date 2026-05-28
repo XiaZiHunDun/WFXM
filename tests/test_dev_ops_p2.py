@@ -146,7 +146,7 @@ jobs:
                 return_value=orch,
             ),
             patch(
-                "butler.project_manager.get_project_manager",
+                "butler.project.manager.get_project_manager",
                 return_value=pm_mock,
             ),
         ):
@@ -156,7 +156,7 @@ jobs:
 
     def test_readonly_job_via_agent_tool(self, tmp_path, monkeypatch):
         from butler.config import reload_butler_settings
-        from butler.project_manager import ProjectManager
+        from butler.project.manager import ProjectManager
 
         monkeypatch.setenv("BUTLER_RUNTIME_ENABLED", "1")
         monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(tmp_path / "projects"))

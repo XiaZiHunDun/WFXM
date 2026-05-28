@@ -67,7 +67,7 @@ def _tool_run_runtime_job(
 
     pm_ws = None
     try:
-        from butler.project_manager import get_project_manager
+        from butler.project.manager import get_project_manager
 
         p = get_project_manager().get_project(proj or "")
         if p is not None:

@@ -91,7 +91,7 @@ def _omo_lines(health: dict[str, Any] | None, *, session_key: str) -> list[str]:
     except Exception as exc:
         logger.debug("omo lines skipped: %s", exc)
     try:
-        from butler.delegate_category_resolver import list_categories
+        from butler.delegate.category_resolver import list_categories
 
         cats = list_categories()
         if cats:

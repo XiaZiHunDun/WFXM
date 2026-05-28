@@ -158,7 +158,7 @@ def _build_existing_memory_corpus(butler_memory: Any, project_memory: Any) -> st
         exp = getattr(butler_memory, "experience", None)
         if exp is not None and hasattr(exp, "get_recent"):
             try:
-                from butler.session_lifecycle import filter_non_conversation_experience
+                from butler.session.lifecycle import filter_non_conversation_experience
 
                 for row in filter_non_conversation_experience(exp.get_recent(limit=40)):
                     parts.append(str(row.get("content") or ""))
@@ -245,7 +245,7 @@ class PostSessionProcessor:
             result["errors"].append(f"Skill: {e}")
 
         try:
-            from butler.post_session_layered import (
+            from butler.session.post_session_layered import (
                 extract_layered_summary,
                 post_session_layered_enabled,
             )

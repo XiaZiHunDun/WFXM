@@ -142,7 +142,7 @@ class TestProjectManager:
                 yaml.safe_dump({"name": "TestProj", "type": "software", "description": "test"})
             )
 
-            from butler.project_manager import ProjectManager
+            from butler.project.manager import ProjectManager
             ProjectManager._instance = None
             pm = ProjectManager(projects_dir)
             assert len(pm.list_projects()) == 1
@@ -158,7 +158,7 @@ class TestProjectManager:
             projects_dir = Path(td) / "projects"
             projects_dir.mkdir()
 
-            from butler.project_manager import ProjectManager
+            from butler.project.manager import ProjectManager
             ProjectManager._instance = None
             pm = ProjectManager(projects_dir)
             proj = pm.create_project(

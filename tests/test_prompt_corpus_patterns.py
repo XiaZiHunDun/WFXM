@@ -20,7 +20,7 @@ from butler.core.transcript_retention import (
     transcript_keep_priority,
 )
 from butler.gateway.task_milestone import build_milestone_text, task_milestone_enabled
-from butler.plan_mode import check_plan_mode_block, clear_plan_mode, set_plan_mode
+from butler.plan.mode import check_plan_mode_block, clear_plan_mode, set_plan_mode
 from butler.tools.project_tools import allowed_tool_names_for_project
 from butler.tools.registry import get_tool_definitions
 from butler.tools.tool_doc_templates import (

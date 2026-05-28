@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from butler.config import get_butler_settings
-from butler.project import Project
-from butler.session_keys import chat_id_from_session_key, project_from_session_key
+from butler.project.model import Project
+from butler.session.keys import chat_id_from_session_key, project_from_session_key
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +198,7 @@ class ProjectManager:
         template: str = "",
         with_runtime: bool = True,
     ) -> Project | None:
-        from butler.project_archetypes import (
+        from butler.project.archetypes import (
             ensure_experiment_skeleton,
             ensure_memory_skeleton,
             ensure_runtime_jobs_skeleton,
@@ -257,7 +257,7 @@ class ProjectManager:
         merge_existing: bool = True,
         with_runtime: bool = True,
     ) -> Project:
-        from butler.project_archetypes import (
+        from butler.project.archetypes import (
             ensure_experiment_skeleton,
             ensure_memory_skeleton,
             ensure_runtime_jobs_skeleton,

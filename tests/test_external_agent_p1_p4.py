@@ -11,7 +11,7 @@ from butler.core.loop_middleware import LoopMiddlewareChain
 from butler.core.plan_snapshot import qa_response_is_fail, replan_implement_task
 from butler.core.prompt_renderer import render_orchestrator_turn
 from butler.core.transcript_retention import transcript_keep_priority, transcript_source_boost
-from butler.project_plugins import apply_project_plugins, normalize_plugins
+from butler.project.plugins import apply_project_plugins, normalize_plugins
 from butler.project import Project
 from butler.workflows.artifact_paths import artifacts_dir, requirements_path
 

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 from butler.config import ButlerSettings, get_butler_settings
 from butler.memory import ButlerMemory, ProjectMemory
 from butler.memory.facade import ButlerMemoryService
-from butler.project_manager import get_project_manager
+from butler.project.manager import get_project_manager
 from butler.skills.manager import SkillManager
 from butler.skills.router import SkillRouter
 
@@ -399,7 +399,7 @@ class ButlerOrchestrator:
             self.project_manager.get_current(session_key=session_key or "")
         )
         proj = self.project_manager.get_current(session_key=session_key or "")
-        from butler.project_meta import lifecycle_operating_hint
+        from butler.project.meta import lifecycle_operating_hint
 
         lifecycle_block = lifecycle_operating_hint(proj)
 
@@ -475,7 +475,7 @@ class ButlerOrchestrator:
         sk = str(session_key or "").strip()
         try:
             proj = self.project_manager.get_current(session_key=sk)
-            from butler.project_plugins import apply_project_plugins
+            from butler.project.plugins import apply_project_plugins
 
             apply_project_plugins(proj)
         except Exception as exc:
@@ -488,7 +488,7 @@ class ButlerOrchestrator:
             system_prompt = self.build_lead_system_prompt(session_key=sk)
         elif role == "plan":
             system_prompt, user_reminder = self.resolve_system_prompt(role="plan", session_key=sk)
-            from butler.plan_mode import load_plan_mode_system_appendix
+            from butler.plan.mode import load_plan_mode_system_appendix
 
             system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
         else:
@@ -504,7 +504,7 @@ class ButlerOrchestrator:
 
         if sk and role != "plan":
             try:
-                from butler.plan_mode import is_plan_mode, load_plan_mode_system_appendix
+                from butler.plan.mode import is_plan_mode, load_plan_mode_system_appendix
 
                 if is_plan_mode(sk):
                     system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()

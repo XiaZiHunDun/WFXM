@@ -7,7 +7,7 @@ from butler.memory.project_memory import (
     project_prefetch_max_chars,
     sections_for_agent_role,
 )
-from butler.session_lifecycle import format_new_session_user_message
+from butler.session.lifecycle import format_new_session_user_message
 
 
 def test_sections_for_lead_vs_content():

@@ -591,7 +591,7 @@ def drain_post_session_buffer(provider: Any) -> list[dict[str, Any]]:
 
 
 def _execute_post_session(orchestrator: Any, messages: list[Any]) -> dict[str, Any]:
-    from butler.post_session import PostSessionProcessor
+    from butler.session.post_session import PostSessionProcessor
     from butler.transport.auxiliary_client import auxiliary_llm_call_factory
 
     processor = PostSessionProcessor()

@@ -193,7 +193,7 @@ def maybe_record_from_job_result(
 
         proj_name = ""
         try:
-            from butler.project_manager import get_project_manager
+            from butler.project.manager import get_project_manager
 
             for p in get_project_manager().list_projects():
                 if Path(p.workspace).resolve() == ws:

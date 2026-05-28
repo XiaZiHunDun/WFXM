@@ -20,7 +20,7 @@ from butler.gateway.message_handler import (
     _normalize_switch_request,
 )
 from butler.report import AgentReport, Change, cache_report, clear_report_cache
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.report import AgentReport, cache_report
 
 
@@ -326,7 +326,7 @@ class TestSlashCommands:
         assert handler._handle_command("/switch") == "用法: /switch <项目名称>"
 
     def test_switch_valid_project_success(self, handler_with_project):
-        from butler.session_keys import build_session_key
+        from butler.session.keys import build_session_key
 
         sk = build_session_key(platform="test", chat_id="default", project="test-project")
         text = handler_with_project._handle_command("/switch test-project", session_key=sk)
@@ -339,7 +339,7 @@ class TestSlashCommands:
         handler._sessions["default"] = mock_loop
         handler._health_by_session["default"] = {"stale": True}
         with patch(
-            "butler.session_lifecycle.trigger_session_end",
+            "butler.session.lifecycle.trigger_session_end",
             return_value={"memory_updates": 1, "skills_extracted": 0},
         ):
             text = handler._handle_command("/new")
@@ -359,7 +359,7 @@ class TestSlashCommands:
         handler._health_by_session["b"] = {"keep": "b"}
 
         with patch(
-            "butler.session_lifecycle.trigger_session_end",
+            "butler.session.lifecycle.trigger_session_end",
             return_value={"skipped": True, "reason": "short_history"},
         ) as finalize:
             text = handler.handle_message("/new", session_key="a")
@@ -435,14 +435,14 @@ class TestSlashCommands:
 
     def test_chinese_alias_new(self, handler):
         with patch(
-            "butler.session_lifecycle.trigger_session_end",
+            "butler.session.lifecycle.trigger_session_end",
             return_value={"skipped": True, "reason": "short_history"},
         ):
             text = handler._handle_command("/新对话")
         assert text.startswith("已清空本轮对话上下文。")
 
     def test_plan_mode_slash_commands(self, handler):
-        from butler.plan_mode import clear_plan_mode, is_plan_mode
+        from butler.plan.mode import clear_plan_mode, is_plan_mode
 
         clear_plan_mode("wechat:plan:_")
         on = handler._handle_command("/计划", session_key="wechat:plan:_")
@@ -591,7 +591,7 @@ class TestSessionManagement:
                 assert handler._get_or_create_loop("a") is not handler._get_or_create_loop("b")
 
     def test_new_keeps_other_sessions(self, handler, mock_loop):
-        from butler.session_keys import build_session_key
+        from butler.session.keys import build_session_key
 
         sk_default = build_session_key(platform="unknown", chat_id="default", project="")
         other_loop = MagicMock()
@@ -606,7 +606,7 @@ class TestSessionManagement:
         assert handler._sessions["other"] is other_loop
 
     def test_switch_clears_all_project_sessions_for_chat(self, handler_with_project, mock_loop):
-        from butler.session_keys import build_session_key
+        from butler.session.keys import build_session_key
 
         sk_other = build_session_key(platform="test", chat_id="default", project="other-proj")
         handler_with_project._sessions[sk_other] = mock_loop
@@ -625,7 +625,7 @@ class TestSessionManagement:
         now["value"] = 20.0
 
         with patch.object(handler._orchestrator, "create_agent_loop", return_value=new_loop):
-            with patch("butler.session_lifecycle.trigger_session_end", return_value={}) as finalize:
+            with patch("butler.session.lifecycle.trigger_session_end", return_value={}) as finalize:
                 loop = handler._get_or_create_loop("new")
 
         assert loop is new_loop

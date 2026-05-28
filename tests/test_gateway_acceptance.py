@@ -234,8 +234,8 @@ class TestManualGuide35Slash:
 
     def test_356b_new_clears_chat_experience_recall(self, gateway_handler, patch_llm):
         from butler.core.agent_loop import LoopStatus
-        from butler.session_keys import build_session_key
-        from butler.session_lifecycle import inject_turn_memory, sync_turn_memory
+        from butler.session.keys import build_session_key
+        from butler.session.lifecycle import inject_turn_memory, sync_turn_memory
 
         sk = build_session_key(platform="wechat", chat_id="u1", project="")
         sync_turn_memory(
@@ -612,8 +612,8 @@ class TestWechatSmokeProjectMemory:
         self, tmp_path, monkeypatch, tmp_butler_home, patch_llm
     ):
         from butler.core.agent_loop import LoopStatus
-        from butler.session_keys import build_session_key
-        from butler.session_lifecycle import sync_turn_memory
+        from butler.session.keys import build_session_key
+        from butler.session.lifecycle import sync_turn_memory
         from tests.test_gateway_handler import _reset_singletons
 
         desc = "小说工厂流水线验收专用描述"

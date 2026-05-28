@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 from butler.config import ModelConfig, reload_butler_settings
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 
 
 def _reset_singletons() -> None:

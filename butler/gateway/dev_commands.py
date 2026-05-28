@@ -33,7 +33,7 @@ def _get_active_project() -> Any:
     except Exception as exc:
         logger.debug("get active project skipped: %s", exc)
     try:
-        from butler.project_manager import ProjectManager
+        from butler.project.manager import ProjectManager
         pm = ProjectManager()
         return pm.active_project
     except Exception:

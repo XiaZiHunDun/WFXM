@@ -12,7 +12,7 @@ from butler.execution_context import use_execution_context
 from butler.gateway.message_handler import ButlerMessageHandler
 from butler.memory.project_memory import ProjectMemory
 from butler.project import Project
-from butler.session_lifecycle import (
+from butler.session.lifecycle import (
     conversation_sync_enabled,
     format_session_end_summary,
     should_sync_conversation_turn,
@@ -115,7 +115,7 @@ class TestNewCommandMemoryFeedback:
         handler._sessions["wechat:u1:_"] = loop
 
         with patch(
-            "butler.session_lifecycle.trigger_session_end",
+            "butler.session.lifecycle.trigger_session_end",
             return_value={"memory_updates": 2, "skills_extracted": 0},
         ):
             text = handler._handle_command("/新对话", session_key="wechat:u1:_")

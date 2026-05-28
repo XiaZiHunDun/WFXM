@@ -1,7 +1,7 @@
 """Tests for persisted AgentReport storage."""
 
 from butler.report import AgentReport, cache_report, clear_report_cache, get_last_report
-from butler.report_store import load_persisted_report, persist_report
+from butler.report.store import load_persisted_report, persist_report
 
 
 def test_persist_and_load_report(tmp_path, monkeypatch):

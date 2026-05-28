@@ -196,7 +196,7 @@ def _match_entry(
     tool_pat = str(entry.get("tool") or "*")
     if tool_pat != "*" and tool_pat != request.tool:
         return False
-    from butler.permissions import match_path_glob
+    from butler.permissions.rules import match_path_glob
 
     pat = str(entry.get("pattern") or "*")
     if pat == "*":

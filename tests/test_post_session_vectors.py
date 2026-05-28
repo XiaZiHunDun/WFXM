@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from butler.post_session import PostSessionProcessor
+from butler.session.post_session import PostSessionProcessor
 
 
 @pytest.mark.module_test

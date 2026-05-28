@@ -11,8 +11,8 @@ import yaml
 from butler.config import reload_butler_settings
 from butler.core.agent_loop import LoopResult, LoopStatus
 from butler.gateway.message_handler import ButlerMessageHandler
-from butler.project_manager import ProjectManager
-from butler.session_keys import build_session_key
+from butler.project.manager import ProjectManager
+from butler.session.keys import build_session_key
 
 LLM_PATCH = "butler.transport.llm_client.LLMClient"
 

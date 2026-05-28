@@ -463,7 +463,7 @@ class TestDelegateDiffSummary:
                 mock_proj.workspace = "/tmp"
                 mock_pm = MagicMock()
                 mock_pm.active_project = mock_proj
-                with patch("butler.project_manager.ProjectManager", return_value=mock_pm):
+                with patch("butler.project.manager.ProjectManager", return_value=mock_pm):
                     _try_attach_diff_summary(report, job)
                     assert "变更摘要" in report.summary
 

@@ -181,7 +181,7 @@ def dispatch_tool(name: str, args: dict) -> str:
             started_at=time.monotonic(),
         )
 
-    from butler.plan_mode import check_plan_mode_block
+    from butler.plan.mode import check_plan_mode_block
 
     plan_block = check_plan_mode_block(name, args)
     if plan_block:

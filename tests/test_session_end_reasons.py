@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from butler.session_lifecycle import trigger_session_end
+from butler.session.lifecycle import trigger_session_end
 
 
 @pytest.mark.parametrize("reason,marker_name", [

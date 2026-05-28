@@ -9,7 +9,7 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.project import Project
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 from butler.tools.project_tools import (
     allowed_tool_names_for_project,
     canonical_tool_name,

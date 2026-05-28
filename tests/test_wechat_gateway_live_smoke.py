@@ -69,7 +69,7 @@ def test_live_gateway_one_turn_minimax(tmp_butler_home, tmp_path, monkeypatch):
     handler = ButlerMessageHandler(channel="gateway")
     sk = "wechat:live-smoke"
 
-    with patch("butler.session_lifecycle.sync_turn_memory", return_value={}):
+    with patch("butler.session.lifecycle.sync_turn_memory", return_value={}):
         out = handler.handle_message(
             f"请只回复这一行英文，不要其它内容：{GW_SMOKE_TOKEN}",
             session_key=sk,
@@ -101,7 +101,7 @@ def test_live_gateway_owner_profile_nickname(tmp_butler_home, tmp_path, monkeypa
     sk = "wechat:live-profile"
 
     handler.handle_message("/新对话", session_key=sk, platform="wechat")
-    with patch("butler.session_lifecycle.sync_turn_memory", return_value={}):
+    with patch("butler.session.lifecycle.sync_turn_memory", return_value={}):
         out = handler.handle_message(
             "用一句话说明你会怎么称呼我（只答称呼，不要解释）。",
             session_key=sk,
@@ -156,7 +156,7 @@ def test_live_gateway_read_file_no_delegate(tmp_butler_home, tmp_path, monkeypat
     handler._orchestrator.project_manager.switch_project("live-gw-proj")
     sk = "wechat:live-readfile"
 
-    with patch("butler.session_lifecycle.sync_turn_memory", return_value={}):
+    with patch("butler.session.lifecycle.sync_turn_memory", return_value={}):
         out = handler.handle_message(
             f"请用 read_file 读取当前项目 README，在回复里原样包含这一行：{marker}。"
             "不要 delegate_task，不要委派。",
@@ -185,7 +185,7 @@ def test_live_gateway_delegate_writes_file(tmp_butler_home, tmp_path, monkeypatc
     handler._orchestrator.project_manager.switch_project("live-gw-proj")
     sk = "wechat:live-delegate"
 
-    with patch("butler.session_lifecycle.sync_turn_memory", return_value={}):
+    with patch("butler.session.lifecycle.sync_turn_memory", return_value={}):
         out = handler.handle_message(
             f"请交给内容代理：在 {doc_rel} 写一行正文「{body_marker}」，不要改其它文件。",
             session_key=sk,

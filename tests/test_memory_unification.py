@@ -8,7 +8,7 @@ import pytest
 import yaml
 
 from butler.config import reload_butler_settings
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 
 
 def _reset_singletons() -> None:
@@ -72,7 +72,7 @@ class TestMemorySingleInstance:
         assert orchestrator._project_memory is provider._project_memory
 
     def test_prefetch_delegates_to_session_lifecycle_when_linked(self, orchestrator, monkeypatch):
-        from butler.session_lifecycle import prefetch_turn_memory
+        from butler.session.lifecycle import prefetch_turn_memory
 
         calls: list[tuple] = []
 
@@ -81,7 +81,7 @@ class TestMemorySingleInstance:
             return "spy-prefetch"
 
         monkeypatch.setattr(
-            "butler.session_lifecycle.prefetch_turn_memory",
+            "butler.session.lifecycle.prefetch_turn_memory",
             _spy,
         )
         provider = orchestrator.memory_provider

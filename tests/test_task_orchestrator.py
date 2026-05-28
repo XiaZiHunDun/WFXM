@@ -187,9 +187,9 @@ class TestSpawnAgent:
 
         with use_execution_context(current_orch, session_key="s1"):
             with patch.object(orch, "_create_agent_loop", return_value=mock_loop):
-                with patch("butler.session_lifecycle.attach_turn_memory_prefetch") as prefetch:
+                with patch("butler.session.lifecycle.attach_turn_memory_prefetch") as prefetch:
                     with patch(
-                        "butler.session_lifecycle.sync_turn_memory",
+                        "butler.session.lifecycle.sync_turn_memory",
                         return_value={"skipped": False},
                     ) as sync:
                         result = await orch.spawn_agent(_spawn_config(task="run python tests"))

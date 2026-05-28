@@ -59,7 +59,7 @@ def _shared_diagnostic_lines(
     from butler.memory.diagnostics import format_memory_diagnostic_lines
     from butler.model_resolve import format_model_diagnostic_lines
     from butler.ops.snapshot import format_ops_diagnostic_lines
-    from butler.project_meta import format_project_meta_lines
+    from butler.project.meta import format_project_meta_lines
     from butler.runtime.diagnostics import format_runtime_diagnostic_lines
 
     lines: list[str] = []
@@ -144,7 +144,7 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
     except Exception:
         aux_label = "未配置"
 
-    from butler.project_lead import lead_mode_banner_line
+    from butler.project.lead import lead_mode_banner_line
 
     agent_role = str(health.get("gateway_agent_role") or "butler")
     engine_line = (

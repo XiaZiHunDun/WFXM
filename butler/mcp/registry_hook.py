@@ -73,7 +73,7 @@ def check_plan_mode_mcp_block(tool_name: str, *, session_key: str = "") -> str |
     if not is_mcp_tool(tool_name):
         return None
     try:
-        from butler.plan_mode import is_plan_mode
+        from butler.plan.mode import is_plan_mode
 
         if not is_plan_mode(session_key):
             return None

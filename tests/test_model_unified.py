@@ -3,7 +3,7 @@
 from butler.config import reload_butler_settings
 from butler.model_resolve import resolve_effective_model
 from butler.orchestrator import ButlerOrchestrator
-from butler.project_manager import ProjectManager
+from butler.project.manager import ProjectManager
 
 
 def test_butler_credentials_match_project_dev_agent(tmp_path, monkeypatch):

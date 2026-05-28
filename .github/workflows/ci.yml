@@ -50,8 +50,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Run unit tests (exclude live_llm)
-        run: python -m pytest -q --tb=line
+      - name: Run unit tests with coverage (exclude live_llm)
+        run: python -m pytest -q --tb=line --cov=butler --cov-report=term-missing:skip-covered --cov-report=html:htmlcov
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ github.run_id }}
+          path: htmlcov/
+          if-no-files-found: warn
 
   corpus-pr-gate:
     runs-on: ubuntu-latest

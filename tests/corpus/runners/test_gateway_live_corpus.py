@@ -102,7 +102,7 @@ class TestGatewayLiveCorpusSmoke:
         passed = False
 
         try:
-            with patch("butler.session_lifecycle.sync_turn_memory", return_value={}):
+            with patch("butler.session.lifecycle.sync_turn_memory", return_value={}):
                 out = handler.handle_message(
                     entry["user"],
                     session_key=sk,
