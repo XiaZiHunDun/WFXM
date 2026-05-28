@@ -64,6 +64,10 @@ bash scripts/butler-gateway-ops.sh status        # 运维状态
 
 ```bash
 PYTHONPATH=. pytest -q          # 全绿（默认排除 live_llm）
+bash scripts/project-health-check.sh quick   # 统一项目体检（推荐日常）
+bash scripts/project-health-check.sh full    # 发版前完整体检
+bash scripts/project-health-report.sh quick  # 生成体检报告（logs/maintenance）
+bash scripts/repo-cleanup-audit.sh           # 仓库结构与大文件审计
 
 # 微信改动的快守门（见 tests/README.md）
 PYTHONPATH=. pytest tests/test_gateway_acceptance.py tests/test_wechat_ilink_*.py -q

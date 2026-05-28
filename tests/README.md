@@ -3,6 +3,10 @@
 ```bash
 cd /path/to/WFXM
 PYTHONPATH=. pytest -q          # 默认全量 ~2100+ passed，排除 live_llm（见 pyproject addopts）
+bash scripts/project-health-check.sh quick   # 统一体检（代码+配置+关键测试）
+bash scripts/project-health-check.sh full    # 加跑 corpus + 五报告守门
+bash scripts/project-health-report.sh quick  # 体检并落盘报告
+bash scripts/repo-cleanup-audit.sh           # 结构漂移/大文件审计
 butler doctor                   # 静态安全配置审计（OpenClaw OC-P2）
 ```
 

@@ -38,6 +38,9 @@
 
 | 脚本 | 步骤 |
 |------|------|
+| `project-health-check.sh` | **统一体检**：语法/导入/配置对齐/核心测试（`quick`）+ 语料与五报告守门（`full`） |
+| `project-health-report.sh` | 基于 `project-health-check.sh` 产出带时间戳的体检报告（`logs/maintenance/`） |
+| `repo-cleanup-audit.sh` | 仓库清理审计：结构漂移、tracked 大文件、git 工作区变更概览 |
 | `butler-smoke.sh` | `--tier=quick`（preflight + 快测）/ `standard`（+ 域冒烟）/ `full`（= pre-release） |
 | `butler-pre-release-smoke.sh` | 1 gateway → 2 pytest → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot |
 | `butler-five-reports-gate.sh` | 五报告 P5–P10 单测 + `prompt-eval.sh` + `registry verify` |

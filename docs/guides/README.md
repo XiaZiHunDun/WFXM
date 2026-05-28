@@ -6,6 +6,8 @@
 
 | 文档 | 用途 |
 |------|------|
+| [project-maintenance-playbook-2026-05.md](./project-maintenance-playbook-2026-05.md) | **项目整理手册**：代码/文档/结构/配置/测试的统一维护流程 |
+| [repo-cleanup-checklist-2026-05.md](./repo-cleanup-checklist-2026-05.md) | **仓库深度整理清单**：weekly / pre-release 固化流程 |
 | [release-runbook-2026-05.md](./release-runbook-2026-05.md) | **发版一条链**（preflight → smoke → 部署 → 真机） |
 | [capabilities-index-2026-05.md](./capabilities-index-2026-05.md) | 项目状态总览（已实现 / 未实现 / 依赖） |
 | [dependency-policy-2026-05.md](./dependency-policy-2026-05.md) | 依赖分层与引入策略（core / extras / 明确不引入） |

@@ -73,6 +73,7 @@ chroma_data/
 
 # Logs
 *.log
+logs/maintenance/
 
 # Pytest
 .pytest_cache/
