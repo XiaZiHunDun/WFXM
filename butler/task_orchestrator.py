@@ -21,7 +21,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from butler.report import AgentReport, cache_report
 
@@ -339,7 +339,6 @@ class TaskOrchestrator:
         completed: dict[str, AgentResult] = {}
         cancelled: set[str] = set()
         errors: list[str] = []
-        total_steps = len(nodes)
 
         order = _topological_sort(nodes)
 

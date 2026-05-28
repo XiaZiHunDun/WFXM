@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from butler.experiments.ledger import best_record, experiments_ledger_path, list_recent
 from butler.experiments.mode import experiment_mode_enabled

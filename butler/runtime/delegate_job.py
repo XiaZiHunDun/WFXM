@@ -293,7 +293,7 @@ def _try_attach_diff_summary(report: Any, job: DelegateJob) -> None:
         if len(diff_lines) > 15:
             diff_lines = diff_lines[:14] + [f"... 还有 {len(diff_lines) - 14} 个文件"]
 
-        diff_section = "\n\n📊 变更摘要:\n" + "\n".join(f"  {l}" for l in diff_lines)
+        diff_section = "\n\n📊 变更摘要:\n" + "\n".join(f"  {line}" for line in diff_lines)
 
         current = report.summary or ""
         if len(current) + len(diff_section) < 4000:

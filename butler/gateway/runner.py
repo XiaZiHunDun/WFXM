@@ -13,12 +13,18 @@ from butler.gateway.message_handler import ButlerMessageHandler
 from butler.gateway.platform_policy import SUPPORTED_PLATFORMS, normalize_platforms
 
 NATIVE_PLATFORMS = SUPPORTED_PLATFORMS  # alias for tests / legacy imports
-from butler.gateway.platforms.types import MessageEvent, PlatformConfig
+from butler.gateway.platforms.types import MessageEvent, PlatformConfig  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
 # Re-export for tests / callers that imported from runner.
-__all__ = ["NATIVE_PLATFORMS", "normalize_platforms", "unsupported_platforms", "run_gateway_blocking", "run_gateway_async"]
+__all__ = [
+    "NATIVE_PLATFORMS",
+    "normalize_platforms",
+    "unsupported_platforms",
+    "run_gateway_blocking",
+    "run_gateway_async",
+]
 
 def _handler_worker_count() -> int:
     raw = os.getenv("BUTLER_GATEWAY_HANDLER_WORKERS", "2")

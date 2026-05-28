@@ -67,7 +67,7 @@ def apply_consistency_success_policy(
         out = dict(result)
         out["success"] = True
         out["outcome"] = "passed_with_warnings" if (p1 or 0) > 0 else "passed"
-        note = f"一致性检查 P0=0"
+        note = "一致性检查 P0=0"
         if (p1 or 0) > 0:
             note += f"，P1={p1}（有条件通过）"
         summary = (out.get("summary") or "").strip()

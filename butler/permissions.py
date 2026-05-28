@@ -6,7 +6,10 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from butler.permission_approvals import ApprovalRequest
 
 import yaml
 
@@ -186,7 +189,12 @@ def evaluate_workflow_step_permission(
 
     tool_key = canonical_tool_name(tool_name)
     if tool_key in allowed_set:
-        return PermissionDecision(allowed=True, action="allow", reason="workflow step allowlist", permission="workflow_step")
+        return PermissionDecision(
+            allowed=True,
+            action="allow",
+            reason="workflow step allowlist",
+            permission="workflow_step",
+        )
     return PermissionDecision(
         allowed=False,
         action="deny",
@@ -361,7 +369,7 @@ def _decision_with_approval(
     """Return None if approved; else original decision."""
     if decision.action != "ask":
         return decision
-    from butler.permission_approvals import ApprovalRequest, is_approved, save_pending
+    from butler.permission_approvals import is_approved, save_pending
 
     req = _approval_request_from_decision(decision, tool_name, args)
     if session_key and is_approved(session_key, req):
@@ -481,7 +489,11 @@ def check_project_permission_block(
 
     path_val = _resolve_path_arg(args)
     if path_val and tool_name in _PATH_TOOLS:
-        ext = evaluate_external_directory(path_val, workspace=workspace, for_write=tool_name in ("write_file", "patch", "delete_file"))
+        ext = evaluate_external_directory(
+            path_val,
+            workspace=workspace,
+            for_write=tool_name in ("write_file", "patch", "delete_file"),
+        )
         if ext is not None:
             if ext.allowed:
                 pass

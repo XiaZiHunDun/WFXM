@@ -11,12 +11,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +36,6 @@ _CATEGORY_LABELS = {
     "investment": "投资", "other": "其他",
 }
 _DIR_LABELS = {"income": "收入", "expense": "支出"}
-
-
-from butler.tools.tenant_store import TenantStore
 
 _store = TenantStore("expenses", env_toggle="BUTLER_EXPENSE_ENABLED")
 
@@ -429,7 +427,10 @@ def register_expense_tools(register: Callable[..., None]) -> None:
                 "category": {
                     "type": "string",
                     "enum": list(_VALID_CATEGORIES),
-                    "description": "分类: food/transport/housing/medical/entertainment/shopping/education/social/salary/investment/other",
+                    "description": (
+                        "分类: food/transport/housing/medical/entertainment/"
+                        "shopping/education/social/salary/investment/other"
+                    ),
                 },
                 "direction": {
                     "type": "string",

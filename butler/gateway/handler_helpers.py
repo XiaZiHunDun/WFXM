@@ -7,11 +7,10 @@ management utilities.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from butler.core.agent_loop import AgentLoop
@@ -395,7 +394,6 @@ def _maybe_welcome_prefix(session_key: str) -> str:
     if session_key in _WELCOMED_SESSIONS:
         return ""
     _WELCOMED_SESSIONS.add(session_key)
-    from pathlib import Path
 
     marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
     try:

@@ -14,7 +14,6 @@ from butler.registry.paths import quarantine_dir, skills_root
 from butler.registry.skill_lock import SkillLockFile
 from butler.registry.skill_normalize import (
     bundle_install_layout,
-    bundle_to_markdown,
     validate_skill_name,
 )
 from butler.registry.skill_types import InstalledSkillRecord, SkillBundle

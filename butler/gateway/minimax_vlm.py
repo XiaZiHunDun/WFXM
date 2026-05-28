@@ -106,7 +106,6 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
 
     from butler.gateway.vision_fallback import describe_image_with_fallbacks
 
-    t1 = time.monotonic()
     try:
         text, provider = describe_image_with_fallbacks(
             path,

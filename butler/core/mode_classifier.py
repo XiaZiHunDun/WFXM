@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, Literal
+from typing import Literal
 
 from butler.env_parse import env_truthy
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Iterable
 
 if TYPE_CHECKING:
-    from prompt_toolkit.completion import Completer, Completion
+    from prompt_toolkit.completion import Completer
 
 # Primary commands (first token after optional leading /)
 BUILTIN_COMMANDS: tuple[str, ...] = (

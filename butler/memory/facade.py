@@ -169,7 +169,6 @@ class ButlerMemoryService:
         self._hermes_home = str(kwargs.get("hermes_home", "") or "")
         self._user_id = str(kwargs.get("user_id", "") or "")
 
-        from butler.config import get_butler_settings
 
         self._reload_butler_global()
         self._project_root = _project_root_discovery()

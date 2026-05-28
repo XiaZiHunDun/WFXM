@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,6 @@ _MAX_HABITS = 30
 
 _VALID_FREQUENCIES = frozenset({"daily", "weekly"})
 _FREQ_LABELS = {"daily": "每日", "weekly": "每周"}
-
-
-from butler.tools.tenant_store import TenantStore
 
 _store = TenantStore("habits", env_toggle="BUTLER_HABITS_ENABLED")
 

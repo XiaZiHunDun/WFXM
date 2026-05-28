@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 import logging
 
 logger = logging.getLogger(__name__)
@@ -179,7 +179,6 @@ def get_tool_definitions_for_project(
     role: str = "butler",
     optimize_schema: bool = True,
 ) -> list[dict]:
-    from pathlib import Path
 
     from butler.tools.registry import get_tool_definitions
 

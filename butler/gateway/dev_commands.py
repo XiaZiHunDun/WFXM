@@ -123,7 +123,7 @@ def run_dev_smoke(*, timeout_seconds: int = 180) -> str:
 
 
 def format_git_for_wechat(arg: str = "") -> str:
-    from butler.tools.git_tools import git_read_enabled, _run_git
+    from butler.tools.git_tools import git_read_enabled
 
     if not git_read_enabled():
         return "Git 未启用 (BUTLER_ENABLE_GIT=0)"
@@ -160,7 +160,7 @@ def _format_git_status(workdir: str | None) -> str:
 
     branch_line = lines[0] if lines else ""
     branch = branch_line.replace("## ", "").split("...")[0] if branch_line.startswith("##") else "unknown"
-    changes = [l for l in lines[1:] if l.strip()]
+    changes = [line for line in lines[1:] if line.strip()]
 
     log = _run_git(["log", "-5", "--format=%h %ar %s"], workdir=workdir)
     commits = (log.get("stdout") or "").strip().split("\n") if log.get("exit_code") == 0 else []
@@ -169,8 +169,8 @@ def _format_git_status(workdir: str | None) -> str:
     result = [f"🔀 Git 状态  [{branch}]\n"]
 
     if changes:
-        staged = [l for l in changes if l[0] in "MADRC"]
-        unstaged = [l for l in changes if l[0] == " " or l[0] == "?"]
+        staged = [line for line in changes if line[0] in "MADRC"]
+        unstaged = [line for line in changes if line[0] == " " or line[0] == "?"]
         if staged:
             result.append(f"📦 已暂存: {len(staged)} 个文件")
         if unstaged:
@@ -443,7 +443,9 @@ def _append_git_summary(lines: list[str], ws: Path) -> None:
     status = _run_git(["status", "--short"], workdir=workdir)
     change_count = 0
     if status.get("exit_code") == 0:
-        change_lines = [l for l in (status.get("stdout") or "").strip().split("\n") if l.strip()]
+        change_lines = [
+            line for line in (status.get("stdout") or "").strip().split("\n") if line.strip()
+        ]
         change_count = len(change_lines)
 
     log = _run_git(["log", "-3", "--format=%h %ar %s"], workdir=workdir)

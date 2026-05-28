@@ -153,7 +153,11 @@ class ProviderConfig:
 class ButlerSettings:
     """Loaded Butler configuration with env + ``~/.butler/config.yaml`` + runtime overrides."""
 
-    butler_home: Path = field(default_factory=lambda: Path(os.getenv("BUTLER_HOME", str(_DEFAULT_BUTLER_HOME))).expanduser())
+    butler_home: Path = field(
+        default_factory=lambda: Path(
+            os.getenv("BUTLER_HOME", str(_DEFAULT_BUTLER_HOME))
+        ).expanduser()
+    )
     projects_dir: Path = field(default_factory=_default_projects_dir)
     db_path: Path | None = None
     default_provider: str = "minimax"

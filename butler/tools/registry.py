@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
 from collections import deque
@@ -1030,7 +1029,7 @@ def _register_builtin_tools() -> None:
 
 
 # Tool implementations live in builtin_impl.py
-from butler.tools.builtin_impl import (  # noqa: F401
+from butler.tools.builtin_impl import (  # noqa: F401, E402
     _tool_read_file,
     _tool_write_file,
     _tool_delete_file,

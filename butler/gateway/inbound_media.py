@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 
 from butler.gateway.platforms.types import MessageEvent, MessageType
 
@@ -88,7 +87,7 @@ def build_inbound_user_text(event: MessageEvent) -> str:
                 else:
                     blocks.append(f"[微信文件]\n（文档解析失败：{result.get('error', '未知错误')}）")
             except ImportError:
-                blocks.append(f"[微信文件]\n（文档解析不可用，请安装: pip install 'butler-system[documents]'）")
+                blocks.append("[微信文件]\n（文档解析不可用，请安装: pip install 'butler-system[documents]'）")
             except Exception as exc:
                 logger.warning("WeChat document conversion failed for %s: %s", doc_path, exc)
                 blocks.append(f"[微信文件]\n（文档解析失败：{exc}）")

@@ -37,7 +37,12 @@ def _label_key(labels: dict[str, str] | None, *, session_key: str = "") -> tuple
     return tuple(sorted(merged.items()))
 
 
-def _metric_key(name: str, labels: dict[str, str] | None = None, *, session_key: str = "") -> tuple[str, tuple[tuple[str, str], ...]]:
+def _metric_key(
+    name: str,
+    labels: dict[str, str] | None = None,
+    *,
+    session_key: str = "",
+) -> tuple[str, tuple[tuple[str, str], ...]]:
     return (str(name), _label_key(labels, session_key=session_key))
 
 

@@ -14,7 +14,7 @@ Registry pattern: transports self-register at import time via
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional, Type
+from typing import Dict, Type
 
 from butler.transport.types import (  # noqa: F401 — re-export
     NormalizedResponse,

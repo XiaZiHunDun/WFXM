@@ -254,5 +254,5 @@ class AnthropicTransport(ProviderTransport):
         return bool(content) or getattr(response, "stop_reason", None) == "end_turn"
 
 
-from butler.transport import register_transport
+from butler.transport import register_transport  # noqa: E402
 register_transport("anthropic_messages", AnthropicTransport)

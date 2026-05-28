@@ -6,7 +6,6 @@ import json
 import os
 from collections import defaultdict
 
-from butler.env_parse import env_truthy
 
 _DEFAULT_LIMIT = 0
 

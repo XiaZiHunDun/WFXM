@@ -21,7 +21,7 @@ def evaluate_until(response_text: str, until_spec: dict[str, Any] | None) -> tup
     regex = until_spec.get("output_regex") or until_spec.get("regex")
     if isinstance(regex, str) and regex.strip():
         if not re.search(regex, text, re.I | re.DOTALL):
-            return False, f"until: output regex not matched"
+            return False, "until: output regex not matched"
 
     rating = until_spec.get("rating") or until_spec.get("decision")
     if rating is not None:

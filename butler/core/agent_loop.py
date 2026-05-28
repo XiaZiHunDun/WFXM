@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, Optional
 
 from butler.core.context_pipeline import ContextPipeline
 from butler.core.delegate_context import set_parent_callbacks

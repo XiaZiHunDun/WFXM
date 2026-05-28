@@ -209,8 +209,6 @@ def process_tool_calls(
 
             result = apply_tool_error_policy(result, tool_name=name)
             if should_halt_loop_on_tool_error(result, tool_name=name) and guardrails:
-                from butler.tool_guardrails import GuardrailDecision
-
                 guardrails.set_halt_decision(
                     GuardrailDecision(
                         action="block",
@@ -376,7 +374,6 @@ def process_tool_calls(
         maybe_spill_tool_result,
         normalize_empty_tool_result,
     )
-    from butler.execution_context import get_current_session_key
 
     session_key = str(get_current_session_key() or "").strip()
     for tc, result in pairs:

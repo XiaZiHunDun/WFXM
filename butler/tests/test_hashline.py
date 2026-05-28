@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from butler.core.hashline import (
     compute_line_hash,

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -122,7 +121,6 @@ def _project_preflight_wechat(
     *,
     session_key: str,
 ) -> str:
-    import os
 
     from butler.config import get_butler_settings
     from butler.project_preflight import format_report, run_preflight

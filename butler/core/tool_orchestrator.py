@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
@@ -119,7 +118,6 @@ def dispatch_with_orchestrator(
     handler: Callable[..., str],
 ) -> str:
     """Hooks + PermissionRequest + handler for generic registry tools."""
-    started_at = time.monotonic()
     try:
         from butler.hooks.runner import run_permission_request_hooks, run_pre_tool_hooks
 

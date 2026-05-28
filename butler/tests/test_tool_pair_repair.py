@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 
 from butler.core.tool_pair_repair import (
     PLACEHOLDER_CONTENT,

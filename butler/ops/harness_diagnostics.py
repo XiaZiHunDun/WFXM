@@ -54,7 +54,7 @@ def _omo_lines(health: dict[str, Any] | None, *, session_key: str) -> list[str]:
         model = h.get("compaction_checkpoint_model") or loop.get("compaction_checkpoint_model")
         todos = h.get("compaction_checkpoint_open_todos") or loop.get("compaction_checkpoint_open_todos")
         lines.append(
-            f"压缩检查点: 已恢复"
+            "压缩检查点: 已恢复"
             + (f" model={model}" if model else "")
             + (f" open_todos={todos}" if todos else "")
         )

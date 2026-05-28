@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 
 from butler.env_parse import env_truthy
 

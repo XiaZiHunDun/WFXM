@@ -16,11 +16,11 @@ from typing import Any, Optional
 
 from butler.orchestrator import ButlerOrchestrator
 from butler.session_keys import chat_id_from_session_key, normalize_session_key
-from butler.core.agent_loop import AgentLoop, LoopCallbacks, LoopResult, LoopStatus
+from butler.core.agent_loop import AgentLoop, LoopResult, LoopStatus
 from butler.session_lifecycle import attach_turn_memory_prefetch, sync_turn_memory
 from butler.tools.registry import dispatch_tool
-from butler.report import AgentReport, format_for_wechat, format_for_cli, cache_report
 from butler.gateway.session_registry import GatewaySessionRegistry
+from butler.gateway.inbound_idempotency import release_inflight
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +139,6 @@ class ButlerMessageHandler:
         external_id: str | None,
         primary_reply: str = "",
     ) -> str:
-        import os
 
         from butler.gateway.message_queue import (
             message_queue_enabled,
@@ -501,7 +500,6 @@ class ButlerMessageHandler:
                 check_and_reserve_inbound,
                 complete_inbound,
                 record_duplicate_skip,
-                release_inflight,
             )
 
             inbound_id = str(external_id or "").strip()
@@ -1488,7 +1486,7 @@ class ButlerMessageHandler:
 
 
 
-from butler.gateway.handler_helpers import (  # noqa: F401
+from butler.gateway.handler_helpers import (  # noqa: F401, E402
     _normalize_switch_request,
     _normalize_status_request,
     _normalize_new_session_request,

@@ -12,14 +12,17 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
+
+if TYPE_CHECKING:
+    from butler.orchestrator import ButlerOrchestrator
 
 logger = logging.getLogger(__name__)
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
+def _run_interactive_chat(orchestrator: ButlerOrchestrator) -> int:
     """Interactive chat loop using Butler's own AgentLoop."""
     from prompt_toolkit import PromptSession
     from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
@@ -75,7 +78,6 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
         return gateway_loop_role(orchestrator.project_manager.current_project or "")
 
     def _create_loop():
-        from butler.tools.project_tools import get_current_project_tools
 
         sk = _cli_session_key()
         role = _cli_loop_role()
@@ -228,7 +230,7 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
 
 
 def _sync_memory(
-    orchestrator: "ButlerOrchestrator",
+    orchestrator: ButlerOrchestrator,
     user_msg: str,
     assistant_msg: str,
     *,
@@ -249,7 +251,7 @@ def _sync_memory(
 
 
 def _trigger_session_end(
-    orchestrator: "ButlerOrchestrator",
+    orchestrator: ButlerOrchestrator,
     agent_loop: Any,
 ) -> None:
     """Trigger post-session processing (memory/skill extraction)."""
@@ -259,7 +261,7 @@ def _trigger_session_end(
 
 def _handle_slash_command(
     cmd: str,
-    orchestrator: "ButlerOrchestrator",
+    orchestrator: ButlerOrchestrator,
     console: Any,
     *,
     agent_loop: Any | None = None,
@@ -676,7 +678,6 @@ def _cmd_projects_refresh(_ns: argparse.Namespace) -> int:
 
 
 def _cmd_project_preflight(ns: argparse.Namespace) -> int:
-    import os
 
     from butler.config import get_butler_settings
     from butler.project_preflight import (

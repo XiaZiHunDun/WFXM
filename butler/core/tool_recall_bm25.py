@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from typing import Iterable
 
 from butler.core.meta_flags import tool_recall_bm25_enabled
 

@@ -315,7 +315,7 @@ class WorkflowRunner:
                     logger.debug("on approval skipped: %s", exc)
             return approved
 
-        from butler.execution_context import use_execution_context, use_workflow_var_pool
+        from butler.execution_context import use_workflow_var_pool
 
         with use_execution_context(orch, session_key=session_key or "workflow"):
             with use_workflow_var_pool(var_pool):
@@ -412,7 +412,7 @@ class WorkflowRunner:
     ) -> TaskGraphResult:
         """Sync entry for gateway slash commands."""
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             return asyncio.run(
                 self.run_async(workflow, user_hint=user_hint, session_key=session_key)

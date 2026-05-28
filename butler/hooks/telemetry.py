@@ -84,7 +84,6 @@ def configured_hook_summary(workspace: Any = None) -> str:
 
 def format_hook_diagnostic_lines(session_key: str = "") -> list[str]:
     """Lines for ``/诊断`` — configured rules + recent executions."""
-    key = str(session_key or "").strip() or "_global"
     try:
         from butler.hooks.runner import _resolve_workspace
 

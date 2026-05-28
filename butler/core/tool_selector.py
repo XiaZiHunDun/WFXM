@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Iterable
 
 from butler.env_parse import env_truthy
 import logging

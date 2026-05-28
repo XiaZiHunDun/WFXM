@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 from butler.registry.paths import enabled_sources, registry_enabled
 from butler.registry.skill_install import (

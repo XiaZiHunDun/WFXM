@@ -109,7 +109,6 @@ def apply_preemptive_pipeline(
         )
 
     out = list(messages)
-    route: PreemptiveRoute = "compact"
     if is_auto_compact_enabled():
         try:
             out = compress(out)

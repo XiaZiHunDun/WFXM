@@ -81,7 +81,6 @@ def _save(session_key: str, data: dict[str, Any]) -> None:
 
 def _purge_once(entries: list[Any]) -> list[dict[str, Any]]:
     now = time.time()
-    ttl = once_ttl_seconds()
     out: list[dict[str, Any]] = []
     for row in entries:
         if not isinstance(row, dict):

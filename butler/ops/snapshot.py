@@ -73,7 +73,6 @@ def _recent_runtime_failures(limit: int = 5) -> list[dict[str, Any]]:
             continue
         if data.get("success") is not False:
             continue
-        finished = str(data.get("finished_at") or "")
         rows.append((path.stat().st_mtime, data))
     rows.sort(key=lambda x: x[0], reverse=True)
     out: list[dict[str, Any]] = []

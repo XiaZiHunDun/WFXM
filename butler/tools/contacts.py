@@ -11,11 +11,12 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable
+
+from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,6 @@ _CATEGORY_LABELS = {
     "personal": "个人", "work": "工作", "service": "服务",
     "medical": "医疗", "other": "其他",
 }
-
-
-from butler.tools.tenant_store import TenantStore
 
 _store = TenantStore("contacts", env_toggle="BUTLER_CONTACTS_ENABLED")
 

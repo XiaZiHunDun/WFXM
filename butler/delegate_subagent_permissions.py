@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from butler.delegate_policy import DELEGATE_BLOCKED_TOOLS
 from butler.permissions import _load_permissions_yaml

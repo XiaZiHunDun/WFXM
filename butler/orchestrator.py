@@ -10,7 +10,11 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from butler.core.agent_loop import AgentLoop
+    from butler.transport.llm_client import LLMClient
 
 from butler.config import ButlerSettings, get_butler_settings
 from butler.memory import ButlerMemory, ProjectMemory
@@ -218,8 +222,6 @@ class ButlerOrchestrator:
                 logger.debug("DESIGN context inject skipped: %s", exc)
 
         try:
-            from pathlib import Path
-
             from butler.experiments.outcomes import format_context_for_prompt
 
             if proj is not None:
@@ -437,7 +439,7 @@ class ButlerOrchestrator:
             "ephemeral_system_prompt": self.resolve_system_prompt(role="butler")[0],
         }
 
-    def create_llm_client(self, role: str = "butler") -> "LLMClient":
+    def create_llm_client(self, role: str = "butler") -> LLMClient:
         """Create an LLMClient for the given role."""
         from butler.transport.llm_client import LLMClient
         mc = self._model_credentials(role)
@@ -457,7 +459,7 @@ class ButlerOrchestrator:
         tool_dispatcher: Any = None,
         callbacks: Any = None,
         session_key: str = "",
-    ) -> "AgentLoop":
+    ) -> AgentLoop:
         """Create a fully configured AgentLoop for the given role."""
         from butler.config import ModelConfig
         from butler.core.agent_loop import AgentLoop, LoopConfig
@@ -532,12 +534,11 @@ class ButlerOrchestrator:
         tools: list[dict] | None = None,
         tool_dispatcher: Any = None,
         callbacks: Any = None,
-    ) -> "AgentLoop":
+    ) -> AgentLoop:
         """Create an AgentLoop configured for a project-level agent."""
         from butler.core.agent_loop import AgentLoop, LoopConfig
         from butler.agent_profiles import get_profile, get_model_aware_prompt_extra
 
-        normalized_role = _normalize_butler_role(role)
         kw = self.get_project_agent_kwargs(role)
 
         from butler.transport.llm_client import LLMClient

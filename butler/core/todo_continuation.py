@@ -1,4 +1,7 @@
-"""Continue gateway turns when session todos remain open after loop completion (OMO todo-continuation-enforcer subset)."""
+"""Continue gateway turns when session todos remain open after loop completion.
+
+Implements an OMO todo-continuation-enforcer subset.
+"""
 
 from __future__ import annotations
 

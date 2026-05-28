@@ -119,7 +119,10 @@ def _cmd_experiment_discard(ns: argparse.Namespace) -> int:
             console.print(f"[red]{msg}[/red]")
             return 1
     else:
-        console.print(f"已记 discard（未 reset）；加 --apply-reset 且 BUTLER_EXPERIMENT_GIT_RESET=1 可回滚到 {sha[:12]}")
+        console.print(
+            "已记 discard（未 reset）；加 --apply-reset 且 "
+            f"BUTLER_EXPERIMENT_GIT_RESET=1 可回滚到 {sha[:12]}"
+        )
     return 0
 
 

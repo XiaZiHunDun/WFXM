@@ -14,7 +14,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -486,7 +486,6 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
 
 
 def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) -> str:
-    import threading
     from butler.tools.interrupt import is_interrupted
     from butler.tools.path_safety import (
         check_tool_path,

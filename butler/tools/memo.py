@@ -12,11 +12,12 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable
+
+from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +39,6 @@ _CATEGORY_LABELS = {
     "travel": "出行", "shopping": "购物", "social": "社交", "work": "工作",
 }
 _STATUS_LABELS = {"active": "活跃", "done": "已完成", "archived": "已归档"}
-
-
-from butler.tools.tenant_store import TenantStore
 
 _store = TenantStore("memos", env_toggle="BUTLER_MEMO_ENABLED", skip_files=frozenset({"index.json"}))
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from butler.project import Project
+    from butler.config import ModelConfig
 
 import yaml
 

@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
-from typing import Any
 
 from butler.core.tool_result_storage import is_persisted_tool_result
 

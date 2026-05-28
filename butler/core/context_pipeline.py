@@ -125,7 +125,6 @@ class ContextPipeline:
             if isinstance(diagnostics, dict):
                 try:
                     from butler.core.compaction_phase import (
-                        CompactionPhase,
                         should_skip_post_compact_reanchor,
                     )
 

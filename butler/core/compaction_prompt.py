@@ -15,7 +15,9 @@ For any work not finished in this segment, prefix bullets with exactly `IN-PROGR
 Do not mark incomplete work as Done/Resolved. Blocked items may use `BLOCKED:` when applicable.
 """
 
-OPENCODE_SUMMARY_TEMPLATE = """Output exactly the Markdown structure below. Keep every section even when empty. Use terse bullets, not prose. Preserve exact paths, commands, error strings, and identifiers when known. Do not mention compaction.
+OPENCODE_SUMMARY_TEMPLATE = """Output exactly the Markdown structure below. Keep every section even when empty.
+Use terse bullets, not prose. Preserve exact paths, commands, error strings, and identifiers when known.
+Do not mention compaction.
 
 ## Goal
 - (single-sentence task summary)
@@ -64,7 +66,8 @@ def compaction_preflight_checklist_enabled() -> bool:
 
 
 PREFLIGHT_CHECKLIST_APPENDIX = """
-Before you finish the summary, reflect on execution quality (add bullets under ## Remaining Work or ## Blocked when relevant):
+Before you finish the summary, reflect on execution quality
+(add bullets under ## Remaining Work or ## Blocked when relevant):
 - If code or config was changed: were tests, lint, or build commands run or explicitly deferred?
 - Any files only partially edited or tool errors left unresolved?
 - Permission blocks, plan-mode blocks, or delegate failures still open?

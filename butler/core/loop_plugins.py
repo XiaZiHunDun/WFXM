@@ -81,7 +81,7 @@ class LoopPluginRegistry:
 
 
 def default_plugin_registry(config: Any | None = None) -> LoopPluginRegistry:
-    from butler.core.loop_middleware import LoopMiddlewareChain, merge_middleware_and_plugins
+    from butler.core.loop_middleware import merge_middleware_and_plugins
 
     plugins: list[Any] = []
     middlewares: list[Any] = []

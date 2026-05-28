@@ -6,7 +6,6 @@ import logging
 import os
 from typing import Any
 
-import httpx
 import yaml
 
 from butler.registry.hub_index_cache import read_cache, write_cache

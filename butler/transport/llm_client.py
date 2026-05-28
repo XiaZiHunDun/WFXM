@@ -6,10 +6,8 @@ Provides both streaming and non-streaming call modes.
 
 from __future__ import annotations
 
-import json
 import logging
-import time
-from typing import Any, Callable, Dict, Generator, Optional
+from typing import Any, Callable, Optional
 
 from butler.transport.types import NormalizedResponse, Usage
 from butler.transport.providers import ProviderProfile, get_provider
@@ -284,7 +282,7 @@ class LLMClient:
         transport: Any = None,
     ) -> NormalizedResponse:
         """Execute streaming API call and collect into NormalizedResponse."""
-        from butler.transport.types import ToolCall, Usage
+        from butler.transport.types import ToolCall
 
         api_kwargs["stream"] = True
 
@@ -401,7 +399,7 @@ class LLMClient:
         transport: Any,
         on_tool_call_ready: Optional[Callable[[int, str, str, dict], None]] = None,
     ) -> NormalizedResponse:
-        from butler.transport.types import ToolCall, Usage
+        from butler.transport.types import ToolCall
 
         api_kwargs.pop("stream", None)
         try:

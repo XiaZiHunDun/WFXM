@@ -19,7 +19,6 @@ import json
 import logging
 import mimetypes
 import os
-import re
 import secrets
 import struct
 import tempfile
@@ -32,7 +31,7 @@ from urllib.parse import quote, urlparse
 
 logger = logging.getLogger(__name__)
 
-from butler.gateway.platforms.wechat_format import (  # noqa: F401
+from butler.gateway.platforms.wechat_format import (  # noqa: F401, E402
     WECHAT_COPY_LINE_WIDTH,
     _truncate_plain,
     _split_text_for_wechat_delivery,
@@ -68,11 +67,11 @@ except ImportError:  # pragma: no cover - dependency gate
     modes = None  # type: ignore[assignment]
     CRYPTO_AVAILABLE = False
 
-from butler.gateway.platforms.types import PlatformConfig
-from butler.gateway.platforms.helpers import MessageDeduplicator, atomic_json_write
-from butler.gateway.platforms.types import MessageEvent, MessageType, SendResult
-from butler.gateway.platforms.base import ButlerPlatformAdapter
-from butler.config import get_butler_home
+from butler.gateway.platforms.types import PlatformConfig  # noqa: E402
+from butler.gateway.platforms.helpers import MessageDeduplicator, atomic_json_write  # noqa: E402
+from butler.gateway.platforms.types import MessageEvent, MessageType, SendResult  # noqa: E402
+from butler.gateway.platforms.base import ButlerPlatformAdapter  # noqa: E402
+from butler.config import get_butler_home  # noqa: E402
 
 
 
@@ -401,7 +400,9 @@ def _parse_aes_key(aes_key_b64: str) -> bytes:
 def _guess_chat_type(message: Dict[str, Any], account_id: str) -> Tuple[str, str]:
     room_id = str(message.get("room_id") or message.get("chat_room_id") or "").strip()
     to_user_id = str(message.get("to_user_id") or "").strip()
-    is_group = bool(room_id) or (to_user_id and account_id and to_user_id != account_id and message.get("msg_type") == 1)
+    is_group = bool(room_id) or (
+        to_user_id and account_id and to_user_id != account_id and message.get("msg_type") == 1
+    )
     if is_group:
         return "group", room_id or to_user_id or str(message.get("from_user_id") or "")
     return "dm", str(message.get("from_user_id") or "")
@@ -595,7 +596,11 @@ async def _upload_ciphertext(
     # "Timeout context manager should be used inside a task" errors when
     # invoked via asyncio.run_coroutine_threadsafe() from cron jobs.
     async def _do_upload() -> str:
-        async with session.post(upload_url, data=ciphertext, headers={"Content-Type": "application/octet-stream"}) as response:
+        async with session.post(
+            upload_url,
+            data=ciphertext,
+            headers={"Content-Type": "application/octet-stream"},
+        ) as response:
             if response.status == 200:
                 encrypted_param = response.headers.get("x-encrypted-param")
                 if encrypted_param:
@@ -944,8 +949,12 @@ class WeChatAdapter(ButlerPlatformAdapter):
             extra.get("send_chunk_retry_delay_seconds")
             or os.getenv("WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS", "1.0")
         )
-        self._dm_policy = str(extra.get("dm_policy") or os.getenv("WECHAT_DM_POLICY", "open")).strip().lower()
-        self._group_policy = str(extra.get("group_policy") or os.getenv("WECHAT_GROUP_POLICY", "disabled")).strip().lower()
+        self._dm_policy = str(
+            extra.get("dm_policy") or os.getenv("WECHAT_DM_POLICY", "open")
+        ).strip().lower()
+        self._group_policy = str(
+            extra.get("group_policy") or os.getenv("WECHAT_GROUP_POLICY", "disabled")
+        ).strip().lower()
         allow_from = extra.get("allow_from")
         if allow_from is None:
             allow_from = os.getenv("WECHAT_ALLOWED_USERS", "")
@@ -1004,8 +1013,14 @@ class WeChatAdapter(ButlerPlatformAdapter):
         # "Timeout context manager should be used inside a task" errors when
         # send() is invoked via asyncio.run_coroutine_threadsafe() from cron.
         # Timeout is managed externally via asyncio.wait_for() in _api_post/_api_get.
-        _no_aiohttp_timeout = aiohttp.ClientTimeout(total=None, connect=None, sock_connect=None, sock_read=None)
-        self._send_session = aiohttp.ClientSession(trust_env=True, connector=_make_ssl_connector(), timeout=_no_aiohttp_timeout)
+        _no_aiohttp_timeout = aiohttp.ClientTimeout(
+            total=None, connect=None, sock_connect=None, sock_read=None
+        )
+        self._send_session = aiohttp.ClientSession(
+            trust_env=True,
+            connector=_make_ssl_connector(),
+            timeout=_no_aiohttp_timeout,
+        )
         self._token_store.restore(self._account_id)
         self._poll_task = asyncio.create_task(self._poll_loop(), name="wechat-poll")
         self._mark_connected()
@@ -1082,7 +1097,11 @@ class WeChatAdapter(ButlerPlatformAdapter):
                         consecutive_failures,
                         MAX_CONSECUTIVE_FAILURES,
                     )
-                    await asyncio.sleep(BACKOFF_DELAY_SECONDS if consecutive_failures >= MAX_CONSECUTIVE_FAILURES else RETRY_DELAY_SECONDS)
+                    await asyncio.sleep(
+                        BACKOFF_DELAY_SECONDS
+                        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES
+                        else RETRY_DELAY_SECONDS
+                    )
                     if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
                         consecutive_failures = 0
                     continue
@@ -1100,8 +1119,18 @@ class WeChatAdapter(ButlerPlatformAdapter):
                 break
             except Exception as exc:
                 consecutive_failures += 1
-                logger.error("[%s] poll error (%d/%d): %s", self.name, consecutive_failures, MAX_CONSECUTIVE_FAILURES, exc)
-                await asyncio.sleep(BACKOFF_DELAY_SECONDS if consecutive_failures >= MAX_CONSECUTIVE_FAILURES else RETRY_DELAY_SECONDS)
+                logger.error(
+                    "[%s] poll error (%d/%d): %s",
+                    self.name,
+                    consecutive_failures,
+                    MAX_CONSECUTIVE_FAILURES,
+                    exc,
+                )
+                await asyncio.sleep(
+                    BACKOFF_DELAY_SECONDS
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES
+                    else RETRY_DELAY_SECONDS
+                )
                 if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
                     consecutive_failures = 0
 
@@ -1109,7 +1138,13 @@ class WeChatAdapter(ButlerPlatformAdapter):
         try:
             await self._process_message(message)
         except Exception as exc:
-            logger.error("[%s] unhandled inbound error from=%s: %s", self.name, _safe_id(message.get("from_user_id")), exc, exc_info=True)
+            logger.error(
+                "[%s] unhandled inbound error from=%s: %s",
+                self.name,
+                _safe_id(message.get("from_user_id")),
+                exc,
+                exc_info=True,
+            )
 
     async def _process_message(self, message: Dict[str, Any]) -> None:
         assert self._poll_session is not None
@@ -1180,7 +1215,13 @@ class WeChatAdapter(ButlerPlatformAdapter):
             media_types=media_types,
             timestamp=datetime.now(),
         )
-        logger.info("[%s] inbound from=%s type=%s media=%d", self.name, _safe_id(sender_id), source.chat_type, len(media_paths))
+        logger.info(
+            "[%s] inbound from=%s type=%s media=%d",
+            self.name,
+            _safe_id(sender_id),
+            source.chat_type,
+            len(media_paths),
+        )
         await self.handle_message(event)
 
     def _is_dm_allowed(self, sender_id: str) -> bool:
@@ -1868,8 +1909,13 @@ async def send_wechat_direct(
     This bypasses the long-poll adapter lifecycle and uses the raw API directly.
     """
     account_id = str(extra.get("account_id") or os.getenv("WECHAT_ACCOUNT_ID", "")).strip()
-    base_url = str(extra.get("base_url") or os.getenv("WECHAT_BASE_URL", ILINK_BASE_URL)).strip().rstrip("/")
-    cdn_base_url = str(extra.get("cdn_base_url") or os.getenv("WECHAT_CDN_BASE_URL", WECHAT_CDN_BASE_URL)).strip().rstrip("/")
+    base_url = str(
+        extra.get("base_url") or os.getenv("WECHAT_BASE_URL", ILINK_BASE_URL)
+    ).strip().rstrip("/")
+    cdn_base_url = str(
+        extra.get("cdn_base_url")
+        or os.getenv("WECHAT_CDN_BASE_URL", WECHAT_CDN_BASE_URL)
+    ).strip().rstrip("/")
     resolved_token = str(token or extra.get("token") or os.getenv("WECHAT_TOKEN", "")).strip()
     if not resolved_token:
         return {"error": "WeChat token missing. Configure WECHAT_TOKEN or platforms.wechat.token."}

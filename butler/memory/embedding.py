@@ -7,7 +7,7 @@ import logging
 import math
 import os
 import re
-from typing import Protocol
+from typing import Any, Protocol
 
 from butler.memory.semantic_config import embedding_model_name, embedding_provider_name
 
@@ -230,7 +230,10 @@ def _resolve_fastembed(model: str) -> Embedder | None:
         if probe:
             return embedder
     except ImportError:
-        logger.warning("BUTLER_EMBEDDING_PROVIDER=fastembed but fastembed not installed; pip install 'butler-system[embeddings]'")
+        logger.warning(
+            "BUTLER_EMBEDDING_PROVIDER=fastembed but fastembed not installed; "
+            "pip install 'butler-system[embeddings]'"
+        )
     except Exception as exc:
         logger.warning("fastembed init failed (%s); falling back to local hashing", exc)
     return None

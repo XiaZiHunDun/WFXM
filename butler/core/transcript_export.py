@@ -173,7 +173,7 @@ def build_session_markdown(
     rows = load_transcript_rows(sk, max_lines=max_lines)
     now = datetime.now(timezone.utc).isoformat()
     parts = [
-        f"# Butler 会话导出",
+        "# Butler 会话导出",
         "",
         f"- session_key: `{sk}`",
         f"- exported_at: {now}",

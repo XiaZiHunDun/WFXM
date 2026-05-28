@@ -237,7 +237,7 @@ def validate_structured_output(
     if errors:
         return False, errors
     try:
-        from pydantic import BaseModel, Field, create_model
+        from pydantic import Field, create_model
 
         fields: dict[str, Any] = {}
         for spec in specs:

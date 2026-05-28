@@ -73,7 +73,7 @@ def ensure_project_mcp_tools(
     if not auto:
         return False, (
             "project.yaml tools 未包含 mcp_*，Agent 无法调用 MCP 工具。\n"
-            f"请手动添加 mcp_*，或设置 BUTLER_MCP_AUTO_PROJECT_TOOLS=1 后重装。"
+            "请手动添加 mcp_*，或设置 BUTLER_MCP_AUTO_PROJECT_TOOLS=1 后重装。"
         )
 
     tools.append("mcp_*")

@@ -143,7 +143,6 @@ def format_model_diagnostic_lines(
     settings: ButlerSettings | None = None,
 ) -> list[str]:
     """Compact model block for ``/诊断`` (no /model usage footer)."""
-    import os
 
     settings = settings or get_butler_settings()
     lines = ["--- 有效模型 ---"]

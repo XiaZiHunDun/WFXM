@@ -7,7 +7,6 @@ OpenAI, local models, etc.).
 
 from __future__ import annotations
 
-import copy
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -201,5 +200,5 @@ class ChatCompletionsTransport(ProviderTransport):
         return bool(getattr(response, "choices", None))
 
 
-from butler.transport import register_transport
+from butler.transport import register_transport  # noqa: E402
 register_transport("chat_completions", ChatCompletionsTransport)
