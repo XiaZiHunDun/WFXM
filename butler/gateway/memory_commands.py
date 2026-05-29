@@ -199,7 +199,57 @@ def _sync_vectors_after_reject(
             invalidate_pending_vector(sem, proj.name, body)
 
 
+def format_memory_status(orchestrator: "ButlerOrchestrator", *, session_key: str = "") -> str:
+    """Show memory system status: profile, experience, project entries, vector index."""
+    lines = ["记忆系统状态", ""]
+
+    bm = getattr(orchestrator, "butler_memory", None)
+    if bm is None:
+        lines.append("Butler Memory: 未初始化")
+    else:
+        profile = getattr(bm, "profile", None)
+        if profile is not None:
+            try:
+                items = profile.list_all() if hasattr(profile, "list_all") else []
+                lines.append(f"Profile 条目数: {len(items)}")
+            except Exception:
+                lines.append("Profile: 读取失败")
+
+        experience = getattr(bm, "experience", None)
+        if experience is not None:
+            try:
+                items = experience.list_all() if hasattr(experience, "list_all") else []
+                lines.append(f"Experience 条目数: {len(items)}")
+            except Exception:
+                lines.append("Experience: 读取失败")
+
+        semantic = getattr(bm, "semantic", None)
+        if semantic is not None:
+            lines.append("向量索引: 已初始化")
+        else:
+            lines.append("向量索引: 未初始化")
+
+    pmem = _project_memory(orchestrator)
+    if pmem is not None:
+        pending = pmem.markdown.list_pending()
+        lines.append(f"项目 MEMORY Pending: {len(pending)} 条")
+        try:
+            sections = pmem.markdown.list_sections() if hasattr(pmem.markdown, "list_sections") else []
+            total = sum(len(s.get("items", [])) for s in sections) if sections else 0
+            lines.append(f"项目 MEMORY 条目: {total} 条")
+        except Exception:
+            pass
+    else:
+        lines.append("项目 MEMORY: 未选择项目")
+
+    import time
+
+    lines.append(f"最后检查: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    return "\n".join(lines)
+
+
 __all__ = [
+    "format_memory_status",
     "format_pending_memory_list",
     "format_memory_triplet_graph",
     "handle_memory_pending_command",

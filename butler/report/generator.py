@@ -489,8 +489,22 @@ def format_for_wechat(report: AgentReport) -> str:
         parts.append("")
         parts.append("⚠ 工具执行未成功，请发 /详细 查看原因")
 
+    if report.decisions:
+        parts.append("")
+        parts.append("关键决策:")
+        for d in report.decisions[:3]:
+            parts.append(f"  * {d[:80]}")
+
+    meta_parts: list[str] = []
     if report.task_id:
-        parts.append(f"任务 {report.task_id} · 发 /任务 可查记录")
+        meta_parts.append(f"任务 {report.task_id}")
+    if report.iterations:
+        meta_parts.append(f"迭代 {report.iterations} 轮")
+    if report.changes:
+        tool_count = len(report.changes)
+        meta_parts.append(f"变更 {tool_count} 处")
+    if meta_parts:
+        parts.append(" · ".join(meta_parts) + " · 发 /任务 可查记录")
     if report.child_session_key:
         parts.append(f"子会话 {report.child_session_key}")
     parts.append("\n回复「/详细」或「详细」查看完整报告")

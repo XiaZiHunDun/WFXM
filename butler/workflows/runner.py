@@ -181,6 +181,13 @@ def _workflow_progress_callback(
                     )
                 except Exception as exc:
                     logger.debug("cb skipped: %s", exc)
+        if norm_phase == "fail" and preview:
+            logger.warning(
+                "Workflow %s step %s failed: %s",
+                workflow_name,
+                step_id,
+                preview[:200],
+            )
         if bridge is None:
             return
         bridge.notify_workflow_step(

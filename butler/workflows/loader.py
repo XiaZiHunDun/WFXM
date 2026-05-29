@@ -186,7 +186,52 @@ def format_workflows_for_wechat(project: "Project | None") -> str:
     return "\n".join(lines)
 
 
+def format_workflow_preview(project: "Project | None", name: str, *, dry_run: bool = False) -> str:
+    """Show detailed step info, dependencies, and optionally validate without executing."""
+    wf = resolve_workflow(project, name)
+    if wf is None:
+        return f"未找到工作流: {name}"
+
+    lines = [f"工作流预览: {wf.name}"]
+    if wf.description:
+        lines.append(f"描述: {wf.description}")
+    lines.append(f"状态: {'可执行' if wf.runnable else '未定义步骤'}")
+    lines.append(f"步骤数: {len(wf.steps)}")
+    lines.append("")
+
+    errors: list[str] = []
+    step_ids = {s.id for s in wf.steps}
+
+    for i, step in enumerate(wf.steps, 1):
+        gate = " [需确认]" if step.requires_approval else ""
+        optional = " (可选)" if step.optional else ""
+        lines.append(f"{i}. {step.id} — 角色: {step.role}{gate}{optional}")
+        lines.append(f"   任务: {step.task[:120]}")
+        if step.depends_on:
+            deps = ", ".join(step.depends_on)
+            lines.append(f"   依赖: {deps}")
+            for dep in step.depends_on:
+                if dep not in step_ids:
+                    errors.append(f"步骤 {step.id} 依赖不存在的步骤 {dep}")
+        if step.model and not step.model.is_empty():
+            lines.append(f"   模型: {step.model.provider or '-'}/{step.model.model or '-'}")
+        if step.tools:
+            lines.append(f"   工具: {', '.join(step.tools)}")
+        lines.append("")
+
+    if dry_run:
+        lines.append("--- dry-run 验证 ---")
+        if errors:
+            for err in errors:
+                lines.append(f"  [错误] {err}")
+        else:
+            lines.append("  验证通过，所有依赖关系正确。")
+
+    return "\n".join(lines)
+
+
 __all__ = [
+    "format_workflow_preview",
     "format_workflows_for_prompt",
     "format_workflows_for_wechat",
     "list_workflows_for_project",

@@ -1478,6 +1478,11 @@ class ButlerMessageHandler:
         if rt_resp is not None:
             return rt_resp
 
+        if cmd in ("/记忆状态", "/memory-status"):
+            from butler.gateway.memory_commands import format_memory_status
+
+            return format_memory_status(self._orchestrator, session_key=session_key)
+
         from butler.gateway.memory_commands import handle_memory_pending_command
 
         mem_resp = handle_memory_pending_command(self._orchestrator, cmd, arg)

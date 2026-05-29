@@ -38,6 +38,16 @@ def handle_workflow_command(
             return header + format_workflows_for_wechat(project)
         return format_workflows_for_prompt(project)
 
+    if sub in {"preview", "预览"}:
+        from butler.workflows.loader import format_workflow_preview
+
+        dry_run = "--dry-run" in hint
+        wf_name = hint.replace("--dry-run", "").strip()
+        if not wf_name:
+            names = ", ".join(wf.name for wf in list_workflows_for_project(project)) or "(无)"
+            return f"用法: /工作流 preview <名称> [--dry-run]\n可用: {names}"
+        return format_workflow_preview(project, wf_name, dry_run=dry_run)
+
     if sub in {"run", "start", "执行", "运行"}:
         run_parts = hint.split(maxsplit=1)
         if not run_parts or not run_parts[0].strip():
