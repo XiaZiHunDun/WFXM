@@ -918,7 +918,32 @@ class ButlerMessageHandler:
                 )
                 from butler.gateway.user_errors import format_gateway_user_error
 
-                return format_gateway_user_error(exc)
+                card = None
+                try:
+                    from butler.gateway.error_cards import format_error_card
+
+                    exc_type = type(exc).__name__
+                    if "timeout" in exc_type.lower() or "Timeout" in exc_type:
+                        card = format_error_card(
+                            "delegate_timeout",
+                            role="agent",
+                            elapsed=round(_time.monotonic() - _turn_started),
+                        )
+                    elif "Permission" in exc_type:
+                        card = format_error_card(
+                            "permission_deny",
+                            tool="message_handler",
+                            reason=str(exc)[:200],
+                        )
+                    else:
+                        card = format_error_card(
+                            "tool_error",
+                            tool="message_handler",
+                            error=str(exc),
+                        )
+                except Exception:
+                    pass
+                return card or format_gateway_user_error(exc)
             finally:
                 loop.config = original_loop_config
 

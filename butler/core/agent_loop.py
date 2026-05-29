@@ -69,7 +69,7 @@ class AgentLoop:
 
             _chain = filter_fallback_chain(_chain)
         except Exception as exc:
-            logger.debug("Fallback chain filter skipped: %s", exc)
+            logger.debug("Fallback chain filter skipped: %s", exc, exc_info=True)
         self._fallback_chain: list[FallbackEntry] = _chain
         self._fallback_index = 0
         self._primary_client: LLMClient | None = None
@@ -196,7 +196,7 @@ class AgentLoop:
 
             user_content = maybe_prepend_system_reminder(user_content)
         except Exception as exc:
-            logger.debug("System reminder skipped: %s", exc)
+            logger.warning("System reminder skipped: %s", exc)
         self._messages.append({"role": "user", "content": user_content})
         turn_tools = list(self.tools or [])
         try:
@@ -208,7 +208,7 @@ class AgentLoop:
 
                 skill_pt = extract_skill_preferred_tools(user_content)
             except Exception as exc:
-                logger.debug("Skill preferred tools extraction skipped: %s", exc)
+                logger.warning("Skill preferred tools extraction skipped: %s", exc)
 
             selected, sel_diag = select_tools_for_context(
                 turn_tools,
@@ -219,14 +219,14 @@ class AgentLoop:
             for key, val in sel_diag.items():
                 self.diagnostics[key] = val
         except Exception as exc:
-            logger.debug("Tool selector skipped: %s", exc)
+            logger.warning("Tool selector skipped: %s", exc)
         self._turn_tools = turn_tools
         try:
             from butler.core.session_transcript import record_user_message
 
             record_user_message(steer_session, user_content)
         except Exception as exc:
-            logger.debug("Session transcript record skipped: %s", exc)
+            logger.debug("Session transcript record skipped: %s", exc, exc_info=True)
 
         final_text = None
         final_reasoning = None
@@ -280,11 +280,11 @@ class AgentLoop:
                                     self.diagnostics,
                                 )
                             except Exception as exc:
-                                logger.debug("Compaction turn followup skipped: %s", exc)
+                                logger.debug("Compaction turn followup skipped: %s", exc, exc_info=True)
                             transition = LoopTransitionReason.COMPACTION_TURN
                             continue
                 except Exception as exc:
-                    logger.debug("Explicit compaction turn skipped: %s", exc)
+                    logger.debug("Explicit compaction turn skipped: %s", exc, exc_info=True)
 
                 if iteration > 1 and self.callbacks.on_stream_boundary:
                     self.callbacks.on_stream_boundary()
@@ -306,7 +306,7 @@ class AgentLoop:
                         budget_tokens=budget_tokens,
                     )
                 except Exception as exc:
-                    logger.debug("Loop budget nudge skipped: %s", exc)
+                    logger.warning("Loop budget nudge skipped: %s", exc)
 
                 response = self._call_llm_with_retry()
                 if response is None:
@@ -365,7 +365,7 @@ class AgentLoop:
 
                         stuck_msg = guardrail_stuck_message(self._guardrails)
                     except Exception as exc:
-                        logger.debug("Stuck message check skipped: %s", exc)
+                        logger.warning("Stuck message check skipped: %s", exc)
                     if stuck_msg:
                         final_text = stuck_msg
                         status = LoopStatus.STUCK
@@ -461,7 +461,7 @@ class AgentLoop:
                         tool_calls=self._tool_calls_count,
                     )
                 except Exception as exc:
-                    logger.debug("Assistant transcript record skipped: %s", exc)
+                    logger.debug("Assistant transcript record skipped: %s", exc, exc_info=True)
 
         finally:
             self.config = original_config
@@ -494,7 +494,7 @@ class AgentLoop:
                 session_key=steer_session,
             )
         except Exception as exc:
-            logger.debug("Turn metrics recording skipped: %s", exc)
+            logger.debug("Turn metrics recording skipped: %s", exc, exc_info=True)
         result = LoopResult(
             status=status,
             transition_reason=transition.value,
@@ -526,7 +526,7 @@ class AgentLoop:
                         stop_hooks.additional_context
                     )
             except Exception as exc:
-                logger.debug("Stop hooks context skipped: %s", exc)
+                logger.debug("Stop hooks context skipped: %s", exc, exc_info=True)
         return result
 
     def _maybe_stop_hook_continue(
@@ -550,7 +550,7 @@ class AgentLoop:
                 elapsed_seconds=time.time() - start_time,
             )
         except Exception as exc:
-            logger.debug("Stop hooks skipped: %s", exc)
+            logger.debug("Stop hooks skipped: %s", exc, exc_info=True)
             return False
 
         if stop_hooks.additional_context:
@@ -643,7 +643,7 @@ class AgentLoop:
                 getattr(self.client, "model", "") or "",
             )
         except Exception as exc:
-            logger.debug("Provider failure recording skipped: %s", exc)
+            logger.warning("Provider failure recording skipped: %s", exc)
         while self._fallback_index < len(self._fallback_chain) - 1:
             self._fallback_index += 1
             entry = self._fallback_chain[self._fallback_index]
@@ -735,7 +735,7 @@ class AgentLoop:
                 tool_stats=stats,
             )
         except Exception as exc:
-            logger.debug("after_tools middleware skipped: %s", exc)
+            logger.warning("after_tools middleware skipped: %s", exc)
         if self._guardrails is not None:
             try:
                 counts = getattr(self._guardrails, "_same_tool_failure_counts", {}) or {}
@@ -749,7 +749,7 @@ class AgentLoop:
                         failure_count=int(worst_n),
                     )
             except Exception as exc:
-                logger.debug("Reflexion apply skipped: %s", exc)
+                logger.debug("Reflexion apply skipped: %s", exc, exc_info=True)
         return stats
 
     def _dispatch_tool(self, name: str, args: dict) -> str:

@@ -209,6 +209,17 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         f"记忆同步: {'已同步' if not memory_sync.get('skipped', True) else '跳过'}",
         f"Provider 同步: {'是' if memory_sync.get('provider_synced') else '否'}",
     ]
+    error_count = int(health.get("error_count") or 0)
+    out.append(f"运行时错误计数: {error_count}")
+    try:
+        from butler.ops.runtime_metrics import get_runtime_metrics
+
+        metrics = get_runtime_metrics()
+        compaction_count = metrics.get("compaction_count", 0)
+        token_estimate = metrics.get("context_token_estimate", "-")
+        out.append(f"Context Pipeline: compaction={compaction_count}, tokens≈{token_estimate}")
+    except Exception:
+        pass
     out.extend(stale_lines + recovery_lines + _hook_diagnostic_lines(inp.session_key, health))
     try:
         from butler.core.pipeline_steps import format_pipeline_step_lines
