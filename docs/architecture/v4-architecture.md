@@ -384,6 +384,19 @@ while not done and iterations < budget:
 
 守门：`pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sections.py tests/test_experiment_ledger.py tests/test_query_decompose.py tests/test_support_line_e.py -q`
 
+### 全面改进 Sprint 1–6（2026-05-29）
+
+> 基于 10 份审查报告约 80 项问题，6 Sprint 全部落地。
+
+| Sprint | 主题 | 要点 |
+|--------|------|------|
+| S1 安全/可靠性 | 原子写入 5 处、write_file/patch 二次确认、Human Gate TOCTOU 锁、ExecPolicy fail-closed、符号链接检测、Permissions 审计日志、Session Key 验证、Observation TTL 90d |
+| S2 可观测性 | logger.debug→warning 16 处、exc_info 9 处、Gateway 错误分类 5 类、error_cards 接入、`/诊断` 增运行错误计数与 context metrics |
+| S3 UX | `command_registry` 集中注册、帮助体系补全 ~15 命令、Welcome 默认启用、项目切换失败提示改善、处理中 ETA 反馈 |
+| S4 架构/性能 | `LoopContext` Protocol 解耦、embedder LRU 复用、ProjectManager RLock、内存泄漏修复 4 处（_SEEN/orchestrator/embedding/enqueue）、`tool_schemas.py` 拆分、TaskOrchestrator 并发锁 |
+| S5 功能补强 | Workflow DAG `/工作流 preview`、步骤失败实时 log、`/记忆状态`、委派摘要增强（决策高亮+文件统计）、`auto_title` 会话标题生成 |
+| S6 测试/文档 | core 模块测试 4 个、gateway 模块测试 5 个、env 文档同步、覆盖率阈值 50→55 |
+
 ## 测试覆盖
 
 **pytest**（默认排除 `live_llm`；CI 见 `.github/workflows/ci.yml`），覆盖：
@@ -400,5 +413,6 @@ while not done and iterations < budget:
 - 体验增强（`test_p2_remaining_features.py`：总览、项目待办、管道、引导、自动续跑）
 - 编排质量（`test_orchestration_improvements.py`：cron 提醒、向量检索、语义路由、MCP 自助、fact 提取、Skill 工具联动）
 - OpenCode 对标（`test_opencode_features.py`）
+- Sprint 改进（`test_delegate_context`、`test_loop_response`、`test_skill_tool_bridge`、`test_transcript_search`、`test_gateway_user_errors`、`test_gateway_help_commands`、`test_gateway_error_cards`、`test_command_registry`、`test_session_auto_title`）
 - Report / CLI / Session lifecycle
 - 真实 API smoke（可选）：`BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_real_api_smoke.py`

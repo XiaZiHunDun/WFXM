@@ -162,7 +162,7 @@ def test_observation_store_migrates_existing_duplicate_rows_before_unique_index(
 
 
 def test_observation_store_prunes_rows_older_than_ttl(tmp_path, monkeypatch):
-    monkeypatch.setenv("BUTLER_MEMORY_OBSERVATION_TTL_DAYS", "7")
+    monkeypatch.setenv("BUTLER_OBSERVATION_TTL_DAYS", "7")
     db = ObservationStore(observations_db_path(tmp_path))
     now = datetime.now(timezone.utc)
     db.insert_many(

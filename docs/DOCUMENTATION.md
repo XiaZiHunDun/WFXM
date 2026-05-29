@@ -24,7 +24,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | **L2 规划索引** | `docs/plans/README.md` | 命名对照（CC / 整理 / 外部对标） |
 | **L3 运维指南** | `docs/guides/` | 微信发版、冒烟、Runtime、外部对标验收 |
 | **L3 运维阈值** | `docs/ops/` | `/诊断` 指标说明 |
-| **L4 对照报告** | `docs/plans/*-comparison*.md`、`docs/agent-analysis-2026-05/` | 竞品/本轮分析归档；**正文旧表非待办** |
+| **L4 对照报告** | `docs/plans/*-comparison*.md` | 竞品对照归档；**正文旧表非待办** |
 | **L4 路线图** | `docs/plans/*-improvement-roadmap*.md` | PR 核对表（§9/§10）；历史 PR 叙述 |
 | **L5 历史** | `docs/history/` | v0.5–v3，已删除实现 |
 | **产品** | `docs/design/design.md` | 产品摘要；§9 对照表可用 |
@@ -108,7 +108,6 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 - **templates/**：权限、技能、实验 harness、项目 archetype — 复制到 `.butler/` 或 `projects/`
 - **reviews/**：阶段性评估（非实现规范）
 - **history/**：**勿**作 Agent 实现依据
-- **agent-analysis-2026-05/**：2026-05 Canvas/Plan 整理稿；属于分析归档，当前实现仍以 `v4-architecture` / `config/reference` / `roadmap-backlog` 为准
 
 ---
 

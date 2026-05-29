@@ -474,6 +474,14 @@ Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → **循环内**注入 u
 
 Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_task`、`read_file`、`run_workflow` 等 — 见 [`architecture/project-lead-decision.md`](../architecture/project-lead-decision.md)。
 
+## Sprint 1-5 新增环境变量 (2026-05)
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_CONFIRM_WRITE_OPS` | `1` | 写操作 (write_file/patch_file) 二次确认开关 |
+| `BUTLER_OBSERVATION_TTL_DAYS` | `90` | Observation Store 数据保留天数 |
+| `BUTLER_ONBOARDING_WELCOME` | `1` | 首次会话欢迎消息（`0` 关闭） |
+
 ## 相关
 
 - [`../guides/project-onboarding.md`](../guides/project-onboarding.md)  

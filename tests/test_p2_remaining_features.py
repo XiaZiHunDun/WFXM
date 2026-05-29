@@ -173,10 +173,21 @@ class TestTerminalPipe:
 class TestOnboardingWelcome:
     """#14 First-time user onboarding."""
 
-    def test_no_welcome_by_default(self):
-        from butler.gateway.message_handler import _maybe_welcome_prefix
+    def test_welcome_enabled_by_default(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        from butler.gateway.message_handler import _WELCOMED_SESSIONS, _maybe_welcome_prefix
 
+        _WELCOMED_SESSIONS.discard("test:user1")
         result = _maybe_welcome_prefix("test:user1")
+        assert "Butler" in result
+        assert "管家" in result
+
+    def test_no_welcome_when_disabled(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "0")
+        from butler.gateway.message_handler import _WELCOMED_SESSIONS, _maybe_welcome_prefix
+
+        _WELCOMED_SESSIONS.discard("test:disabled_user")
+        result = _maybe_welcome_prefix("test:disabled_user")
         assert result == ""
 
     def test_welcome_with_env(self, monkeypatch, tmp_path):
