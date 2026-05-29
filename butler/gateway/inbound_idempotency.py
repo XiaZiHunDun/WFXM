@@ -17,6 +17,7 @@ _LOCK = threading.RLock()
 # session -> OrderedDict[external_id, (status, monotonic_ts)]
 _SEEN: dict[str, OrderedDict[str, tuple[str, float]]] = {}
 _MAX_IDS_PER_SESSION = 512
+_MAX_SESSIONS = 256
 
 Status = Literal["inflight", "done"]
 
@@ -60,6 +61,9 @@ def check_and_reserve_inbound(
 
     sk = str(session_key or "default").strip() or "default"
     with _LOCK:
+        if len(_SEEN) >= _MAX_SESSIONS and sk not in _SEEN:
+            oldest = next(iter(_SEEN))
+            _SEEN.pop(oldest, None)
         bucket = _SEEN.setdefault(sk, OrderedDict())
         prev = bucket.get(eid)
         if prev is not None:

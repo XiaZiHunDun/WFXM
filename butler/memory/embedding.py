@@ -239,10 +239,23 @@ def _resolve_fastembed(model: str) -> Embedder | None:
     return None
 
 
+import functools
+
+
+@functools.lru_cache(maxsize=4)
+def _cached_embedder(provider: str, model: str) -> Embedder:
+    """Cached embedder resolution keyed by (provider, model)."""
+    return _build_embedder(provider, model)
+
+
 def get_embedder() -> Embedder:
     """Resolve embedder from env; API providers fall back to local hashing on failure."""
     provider = embedding_provider_name()
     model = embedding_model_name()
+    return _cached_embedder(provider, model)
+
+
+def _build_embedder(provider: str, model: str) -> Embedder:
     if provider in ("local", "hash", "hashing", ""):
         logger.debug("Embedding provider: local HashingEmbedder (%s)", model or "hashing-v1")
         return HashingEmbedder(model_id=model or "hashing-v1")

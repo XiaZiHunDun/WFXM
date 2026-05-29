@@ -10,6 +10,7 @@ from butler.skills.similarity import tfidf_cosine
 
 logger = logging.getLogger(__name__)
 
+_EMBEDDING_CACHE_MAX = 1024
 _embedding_cache: dict[str, list[float]] = {}
 
 
@@ -46,6 +47,9 @@ def _embed_skill(embedder: Any, skill: dict[str, Any]) -> list[float]:
         return _embedding_cache[cache_key]
     try:
         vec = embedder.embed(text)
+        if len(_embedding_cache) >= _EMBEDDING_CACHE_MAX:
+            oldest = next(iter(_embedding_cache))
+            _embedding_cache.pop(oldest, None)
         _embedding_cache[cache_key] = vec
         return vec
     except Exception:

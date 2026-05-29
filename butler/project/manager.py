@@ -38,6 +38,9 @@ class ProjectManager:
             projects_dir if projects_dir is not None else settings.projects_dir
         )
         self.projects_dir = self.projects_dir.expanduser().resolve()
+        import threading
+
+        self._lock = threading.RLock()
         self._projects: dict[str, Project] = {}
         self.current_project: str = ""
         self._default_project: str = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
@@ -99,8 +102,9 @@ class ProjectManager:
         if matched is None:
             return False
 
-        old = self.current_project
-        self.current_project = matched
+        with self._lock:
+            old = self.current_project
+            self.current_project = matched
         for cb in self._on_switch_callbacks:
             try:
                 cb(old, matched)
@@ -114,8 +118,9 @@ class ProjectManager:
         if matched is None:
             return False
         scope = self.chat_scope_key(platform=platform, chat_id=chat_id)
-        old = self._chat_project.get(scope, "")
-        self._chat_project[scope] = matched
+        with self._lock:
+            old = self._chat_project.get(scope, "")
+            self._chat_project[scope] = matched
         for cb in self._on_switch_callbacks:
             try:
                 cb(old, matched)
@@ -182,8 +187,9 @@ class ProjectManager:
 
     def get_current(self, *, session_key: str = "") -> Project | None:
         name = self.resolve_active_project_name(session_key=session_key)
-        if name:
-            return self._projects.get(name)
+        with self._lock:
+            if name:
+                return self._projects.get(name)
         return None
 
     # ---------------------------------------------------------------- lifecycle

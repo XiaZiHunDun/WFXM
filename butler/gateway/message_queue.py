@@ -56,12 +56,25 @@ def classify_inbound_priority(text: str) -> str:
     return "next"
 
 
+_LAST_ENQUEUE_MAX = 512
+
+
 def _should_dedupe(session_key: str, text: str) -> bool:
     key = str(session_key or "default")
     now = time.monotonic()
     prev = _LAST_ENQUEUE.get(key)
     if prev and prev[0] == text.strip() and (now - prev[1]) < _DEDUP_WINDOW_SEC:
         return True
+    if len(_LAST_ENQUEUE) >= _LAST_ENQUEUE_MAX:
+        stale = [
+            k for k, (_, ts) in _LAST_ENQUEUE.items()
+            if (now - ts) > _DEDUP_WINDOW_SEC * 10
+        ]
+        for k in stale:
+            _LAST_ENQUEUE.pop(k, None)
+        if len(_LAST_ENQUEUE) >= _LAST_ENQUEUE_MAX:
+            oldest = next(iter(_LAST_ENQUEUE))
+            _LAST_ENQUEUE.pop(oldest, None)
     _LAST_ENQUEUE[key] = (text.strip(), now)
     return False
 

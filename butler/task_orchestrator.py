@@ -106,6 +106,9 @@ class TaskOrchestrator:
     """Execute multi-agent workflows using Butler's AgentLoop."""
 
     def __init__(self) -> None:
+        import threading
+
+        self._tasks_lock = threading.Lock()
         self._tasks: dict[str, AgentTask] = {}
 
     def _create_agent_loop(self, config: AgentSpawnConfig):
@@ -173,7 +176,8 @@ class TaskOrchestrator:
         """Spawn a Butler AgentLoop and run the task."""
         task_id = uuid.uuid4().hex[:8]
         task = AgentTask(id=task_id, config=config)
-        self._tasks[task_id] = task
+        with self._tasks_lock:
+            self._tasks[task_id] = task
         task.status = AgentStatus.RUNNING
         task.started_at = time.time()
 

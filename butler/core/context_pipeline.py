@@ -4,7 +4,18 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class LoopContext(Protocol):
+    """Minimal interface that ContextPipeline needs from AgentLoop."""
+
+    @property
+    def client(self) -> Any: ...
+
+    @property
+    def config(self) -> Any: ...
 
 from butler.core.context_compressor import (
     _estimate_tokens,
@@ -32,7 +43,7 @@ class ContextPipeline:
     config: LoopConfig
     compression_summary: str = ""
     consecutive_compact_failures: int = 0
-    _attached_loop: Any | None = None
+    _attached_loop: LoopContext | None = None
 
     def estimate_tokens(self, messages: list[dict]) -> int:
         return _estimate_tokens(messages)

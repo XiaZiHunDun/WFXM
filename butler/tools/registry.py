@@ -663,133 +663,30 @@ def _ensure_builtins() -> None:
 
 def _register_builtin_tools() -> None:
     """Register Butler's core development tools."""
-
-    # ── read_file ─────────────────────────────────────────────
-    register(
-        name="read_file",
-        description="Read content from a file. Returns the file content as text.",
-        schema={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Absolute or relative file path"},
-                "offset": {"type": "integer", "description": "Line number to start from (1-indexed)", "default": 1},
-                "limit": {
-                    "type": "integer",
-                    "description": f"Max lines to read (1-{MAX_READ_FILE_LINES})",
-                    "default": 500,
-                    "minimum": 1,
-                    "maximum": MAX_READ_FILE_LINES,
-                },
-            },
-            "required": ["path"],
-        },
-        handler=_tool_read_file,
-        toolset="file",
+    from butler.tools.tool_schemas import (
+        read_file_schema,
+        write_file_schema,
+        patch_schema,
+        delete_file_schema,
+        terminal_schema,
+        search_files_schema,
+        list_directory_schema,
     )
 
-    # ── write_file ────────────────────────────────────────────
-    register(
-        name="write_file",
-        description="Write content to a file. Creates the file if it doesn't exist.",
-        schema={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "File path to write"},
-                "content": {"type": "string", "description": "Content to write"},
-            },
-            "required": ["path", "content"],
-        },
-        handler=_tool_write_file,
-        toolset="file",
-    )
-
-    # ── patch ─────────────────────────────────────────────────
-    register(
-        name="patch",
-        description="Replace a specific string in a file. The old_string must match exactly.",
-        schema={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "File path"},
-                "old_string": {"type": "string", "description": "Exact text to find"},
-                "new_string": {"type": "string", "description": "Replacement text"},
-            },
-            "required": ["path", "old_string", "new_string"],
-        },
-        handler=_tool_patch,
-        toolset="file",
-    )
-
-    register(
-        name="delete_file",
-        description=(
-            "Delete a regular file under the project workspace. "
-            "Prefer this over terminal rm. Does not remove directories."
-        ),
-        schema={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "File path to delete"},
-            },
-            "required": ["path"],
-        },
-        handler=_tool_delete_file,
-        toolset="file",
-    )
-
-    # ── terminal ──────────────────────────────────────────────
-    register(
-        name="terminal",
-        description="Execute a restricted argv command when BUTLER_ENABLE_TERMINAL=1.",
-        schema={
-            "type": "object",
-            "properties": {
-                "command": {"type": "string", "description": "Shell command to execute"},
-                "timeout": {
-                    "type": "integer",
-                    "description": f"Timeout in seconds (1-{MAX_TERMINAL_TIMEOUT_SECONDS})",
-                    "default": 30,
-                    "minimum": 1,
-                    "maximum": MAX_TERMINAL_TIMEOUT_SECONDS,
-                },
-                "workdir": {"type": "string", "description": "Working directory"},
-            },
-            "required": ["command"],
-        },
-        handler=_tool_terminal,
-        toolset="shell",
-    )
-
-    # ── search_files ──────────────────────────────────────────
-    register(
-        name="search_files",
-        description="Search for a pattern in files using ripgrep.",
-        schema={
-            "type": "object",
-            "properties": {
-                "pattern": {"type": "string", "description": "Search pattern (regex)"},
-                "path": {"type": "string", "description": "Directory or file to search in", "default": "."},
-                "include": {"type": "string", "description": "Glob pattern to filter files"},
-            },
-            "required": ["pattern"],
-        },
-        handler=_tool_search_files,
-        toolset="search",
-    )
-
-    # ── list_directory ────────────────────────────────────────
-    register(
-        name="list_directory",
-        description="List files and directories in a given path.",
-        schema={
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Directory path", "default": "."},
-            },
-        },
-        handler=_tool_list_directory,
-        toolset="file",
-    )
+    register(name="read_file", description="Read content from a file. Returns the file content as text.",
+             schema=read_file_schema(), handler=_tool_read_file, toolset="file")
+    register(name="write_file", description="Write content to a file. Creates the file if it doesn't exist.",
+             schema=write_file_schema(), handler=_tool_write_file, toolset="file")
+    register(name="patch", description="Replace a specific string in a file. The old_string must match exactly.",
+             schema=patch_schema(), handler=_tool_patch, toolset="file")
+    register(name="delete_file", description="Delete a regular file under the project workspace. Prefer this over terminal rm.",
+             schema=delete_file_schema(), handler=_tool_delete_file, toolset="file")
+    register(name="terminal", description="Execute a restricted argv command when BUTLER_ENABLE_TERMINAL=1.",
+             schema=terminal_schema(), handler=_tool_terminal, toolset="shell")
+    register(name="search_files", description="Search for a pattern in files using ripgrep.",
+             schema=search_files_schema(), handler=_tool_search_files, toolset="search")
+    register(name="list_directory", description="List files and directories in a given path.",
+             schema=list_directory_schema(), handler=_tool_list_directory, toolset="file")
 
     # ── delegate_task (Butler-native) ─────────────────────────
     register(
@@ -885,51 +782,14 @@ def _register_builtin_tools() -> None:
     except Exception as exc:
         logger.debug("Harness builtin tools skipped: %s", exc)
 
-    register(
-        name="run_workflow",
-        description=(
-            "Run a named project workflow (DAG of dev/content/review agents). "
-            "Workflows are declared in project.yaml or .butler/workflows/."
-        ),
-        schema={
-            "type": "object",
-            "properties": {
-                "name": {"type": "string", "description": "Workflow name (e.g. novel-factory)"},
-                "hint": {
-                    "type": "string",
-                    "description": "Optional user goal appended to each step",
-                    "default": "",
-                },
-            },
-            "required": ["name"],
-        },
-        handler=_tool_run_workflow,
-        toolset="delegation",
-    )
+    from butler.tools.tool_schemas import delegate_task_schema, run_workflow_schema
 
-    register(
-        name="delegate_task",
-        description="Delegate a task to a project-level agent (dev/content/review). Butler orchestrates the sub-agent.",
-        schema={
-            "type": "object",
-            "properties": {
-                "role": {
-                    "type": "string",
-                    "description": "Agent role: 'dev', 'content', or 'review'",
-                    "enum": ["dev", "content", "review"],
-                },
-                "category": {
-                    "type": "string",
-                    "description": "Optional preset: quick, deep, ultrabrain, ui-build (see delegate_categories.yaml)",
-                },
-                "task": {"type": "string", "description": "Task description"},
-                "context": {"type": "string", "description": "Additional context for the agent"},
-            },
-            "required": ["role", "task"],
-        },
-        handler=_tool_delegate_task,
-        toolset="delegation",
-    )
+    register(name="run_workflow",
+             description="Run a named project workflow (DAG of dev/content/review agents).",
+             schema=run_workflow_schema(), handler=_tool_run_workflow, toolset="delegation")
+    register(name="delegate_task",
+             description="Delegate a task to a project-level agent (dev/content/review).",
+             schema=delegate_task_schema(), handler=_tool_delegate_task, toolset="delegation")
 
     from butler.tools.registry_tools import register_registry_tools
 

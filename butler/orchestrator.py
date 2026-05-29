@@ -133,6 +133,9 @@ class ButlerOrchestrator:
         )
         mem = self._memory_by_tenant.get(tid)
         if mem is None:
+            if len(self._memory_by_tenant) >= 64:
+                oldest = next(iter(self._memory_by_tenant))
+                self._memory_by_tenant.pop(oldest, None)
             mem = ButlerMemory(self._settings.butler_home, tenant_id=tid)
             self._memory_by_tenant[tid] = mem
         return mem
