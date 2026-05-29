@@ -1025,7 +1025,15 @@ class ButlerMessageHandler:
                     "（下一条消息起使用新项目工具与 workspace。）"
                     f"{extra}{lead_note}"
                 )
-            return f"未找到项目: {arg}（名称需精确或唯一匹配）"
+            available = pm.list_projects()
+            if available:
+                names = [p.name for p in available]
+                return (
+                    f"未找到项目: {arg}\n\n"
+                    f"可用项目: {', '.join(names)}\n"
+                    "提示: 名称需精确或唯一匹配。"
+                )
+            return f"未找到项目: {arg}（当前无已注册项目，请先用 /项目 新建 创建）"
 
         if cmd in ("/presets", "/预设"):
             from butler.provider_presets import format_presets_list

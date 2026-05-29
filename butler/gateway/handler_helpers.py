@@ -374,22 +374,26 @@ def _reset_tool_audit_events(session_key: str | None = None) -> None:
 
 _WELCOMED_SESSIONS: set[str] = set()
 
-_WELCOME_TEXT = """🤖 Hi，我是你的 Butler 管家！首次对话，快速了解我的能力：
+_WELCOME_TEXT = """Hi，我是你的 Butler 管家！首次对话，快速了解我的能力：
 
-📂 项目管理：/项目 | /切换 | /总览
-🔍 代码操作：读写文件、搜索、委派开发/审核
-🧠 记忆系统：跨会话记住你的偏好和决策
-⏰ 提醒功能：设置定时提醒（如「提醒我明天开会」）
-📋 待办管理：/待办（会话级）| /项目待办（持久）
-🔧 诊断运维：/诊断 | /状态
-💡 更多命令：/帮助
+项目管理：/项目 | /切换 | /总览
+代码操作：读写文件、搜索、委派开发/审核
+记忆系统：跨会话记住你的偏好和决策
+提醒功能：设置定时提醒（如「提醒我明天开会」）
+待办管理：/待办（会话级）| /项目待办（持久）
+诊断运维：/诊断 | /状态
+
+推荐先试试这 3 个命令：
+  /项目   — 查看和管理你的项目
+  /帮助   — 查看所有可用命令
+  /诊断   — 系统健康检查
 
 如有任何问题，直接跟我说就好！"""
 
 
 def _maybe_welcome_prefix(session_key: str) -> str:
     """Return welcome text for first-time sessions, empty string otherwise."""
-    if not os.getenv("BUTLER_ONBOARDING_WELCOME", "").strip():
+    if os.getenv("BUTLER_ONBOARDING_WELCOME", "1").strip() == "0":
         return ""
     if session_key in _WELCOMED_SESSIONS:
         return ""

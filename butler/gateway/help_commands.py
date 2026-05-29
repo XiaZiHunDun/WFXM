@@ -89,7 +89,10 @@ _GROUP_ALIASES: dict[str, str] = {
 
 
 def format_help_text(topic: str = "") -> str:
-    """Return help text; if topic given, show that group only."""
+    """Return help text; if topic given, show that group only.
+
+    Falls through to the command registry for single-command lookups.
+    """
     topic = topic.strip()
 
     if topic:
@@ -98,10 +101,25 @@ def format_help_text(topic: str = "") -> str:
         if entry:
             title, body = entry
             return f"Butler 帮助 — {title}\n{body.strip()}"
+        try:
+            from butler.gateway.command_registry import format_registry_help
+
+            registry_result = format_registry_help(topic)
+            if not registry_result.startswith("未找到"):
+                return registry_result
+        except Exception:
+            pass
         return (
             f"未找到帮助主题: {topic}\n\n"
             f"可用主题: {', '.join(_HELP_GROUPS.keys())}"
         )
+
+    try:
+        from butler.gateway.command_registry import format_registry_help
+
+        return format_registry_help()
+    except Exception:
+        pass
 
     lines = ["Butler 命令帮助\n"]
     for group, (title, _body) in _HELP_GROUPS.items():

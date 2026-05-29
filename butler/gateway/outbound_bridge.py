@@ -488,10 +488,11 @@ class GatewayOutboundBridge:
             logger.debug("milestone timer ended: %s", exc)
 
     def _build_ack_text(self, elapsed: int) -> str:
+        eta = self._estimate_eta(elapsed)
         if self.delegate_role:
             return (
-                f"仍在处理：已委派 {self.delegate_role}，完成后回复摘要。"
-                f"可发 /health（已等待约 {elapsed} 秒）"
+                f"正在处理：已委派 {self.delegate_role}，完成后回复摘要。"
+                f"（已用 {elapsed}s{eta}）可发 /health 查看状态"
             )
         if self.workflow_name:
             step_part = ""
@@ -501,18 +502,28 @@ class GatewayOutboundBridge:
                 else:
                     step_part = f"（{self.workflow_step}）"
             return (
-                f"仍在处理：工作流 {self.workflow_name} 执行中{step_part}。"
-                f"可发 /health（已等待约 {elapsed} 秒）"
+                f"正在处理：工作流 {self.workflow_name} 执行中{step_part}。"
+                f"（已用 {elapsed}s{eta}）可发 /health 查看状态"
             )
         base = (
-            f"仍在处理，请稍候（已等待约 {elapsed} 秒）。"
-            "完成后回复摘要；可发 /health。"
+            f"正在处理，请稍候（已用 {elapsed}s{eta}）。"
+            "完成后回复摘要；可发 /health 查看状态。"
         )
         preview = (self._stream_preview or "").strip()
         if preview:
             snippet = preview[-120:].replace("\n", " ")
             return f"{base}\n…{snippet}"
         return base
+
+    @staticmethod
+    def _estimate_eta(elapsed: int) -> str:
+        if elapsed < 10:
+            return "，预计 15-30s"
+        if elapsed < 30:
+            return "，预计还需 10-30s"
+        if elapsed < 60:
+            return "，预计还需 30-60s"
+        return ""
 
     async def _typing_refresh_loop(self) -> None:
         try:
