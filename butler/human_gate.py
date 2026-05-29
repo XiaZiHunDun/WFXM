@@ -5,16 +5,18 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
+import threading
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-import os
-
 from butler.config import get_butler_home
 
 logger = logging.getLogger(__name__)
+
+_gate_lock = threading.Lock()
 
 
 def _workflow_auto_resume_enabled() -> bool:
@@ -143,7 +145,9 @@ def _save_pending(session_key: str, gate: PendingGate | None) -> None:
     if gate is None:
         path.unlink(missing_ok=True)
         return
-    path.write_text(json.dumps(gate.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    from butler.io.atomic_write import atomic_write_text
+
+    atomic_write_text(path, json.dumps(gate.to_dict(), ensure_ascii=False, indent=2))
 
 
 def _load_approved(session_key: str) -> set[str]:
@@ -166,7 +170,9 @@ def _save_approved(session_key: str, keys: set[str]) -> None:
     if not keys:
         path.unlink(missing_ok=True)
         return
-    path.write_text(json.dumps(sorted(keys), ensure_ascii=False, indent=2), encoding="utf-8")
+    from butler.io.atomic_write import atomic_write_text
+
+    atomic_write_text(path, json.dumps(sorted(keys), ensure_ascii=False, indent=2))
 
 
 def _approval_key(workflow: str, step_id: str) -> str:
@@ -178,9 +184,10 @@ def is_step_approved(session_key: str, workflow: str, step_id: str) -> bool:
 
 
 def mark_step_approved(session_key: str, workflow: str, step_id: str) -> None:
-    keys = _load_approved(session_key)
-    keys.add(_approval_key(workflow, step_id))
-    _save_approved(session_key, keys)
+    with _gate_lock:
+        keys = _load_approved(session_key)
+        keys.add(_approval_key(workflow, step_id))
+        _save_approved(session_key, keys)
 
 
 def clear_session_gates(session_key: str) -> None:
@@ -261,31 +268,34 @@ def grant_injection_bypass(session_key: str, *, ttl_seconds: float = 300.0) -> N
     path = _injection_bypass_path(session_key)
     payload = {"expires_at": time.time() + max(30.0, ttl_seconds)}
     try:
-        path.write_text(json.dumps(payload), encoding="utf-8")
+        from butler.io.atomic_write import atomic_write_text
+
+        atomic_write_text(path, json.dumps(payload))
     except OSError as exc:
         logger.debug("injection bypass write failed: %s", exc)
 
 
 def consume_injection_bypass(session_key: str) -> bool:
-    path = _injection_bypass_path(session_key)
-    if not path.is_file():
-        return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        expires = float(data.get("expires_at") or 0)
-    except (OSError, json.JSONDecodeError, TypeError):
-        return False
-    if expires < time.time():
+    with _gate_lock:
+        path = _injection_bypass_path(session_key)
+        if not path.is_file():
+            return False
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            expires = float(data.get("expires_at") or 0)
+        except (OSError, json.JSONDecodeError, TypeError):
+            return False
+        if expires < time.time():
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return False
         try:
             path.unlink(missing_ok=True)
         except OSError:
             pass
-        return False
-    try:
-        path.unlink(missing_ok=True)
-    except OSError:
-        pass
-    return True
+        return True
 
 
 def resolve_human_gate_message(session_key: str, text: str) -> str | None:
@@ -294,26 +304,29 @@ def resolve_human_gate_message(session_key: str, text: str) -> str | None:
     if stripped not in _CONFIRM and stripped not in _CANCEL:
         return None
 
-    pending = _load_pending(session_key)
-    if pending is None:
-        return None
+    with _gate_lock:
+        pending = _load_pending(session_key)
+        if pending is None:
+            return None
 
-    if stripped in _CANCEL:
-        _save_pending(session_key, None)
+        if stripped in _CANCEL:
+            _save_pending(session_key, None)
+            if pending.kind == "injection_review":
+                return "已取消高风险入站确认；请修改消息内容后重试。"
+            return f"已取消工作流步骤「{pending.step_id}」（{pending.workflow}）。"
+
         if pending.kind == "injection_review":
-            return "已取消高风险入站确认；请修改消息内容后重试。"
-        return f"已取消工作流步骤「{pending.step_id}」（{pending.workflow}）。"
+            grant_injection_bypass(session_key)
+            _save_pending(session_key, None)
+            return (
+                f"已确认入站安全评分 {pending.step_id}。"
+                "请重新发送上一条消息以继续处理。"
+            )
 
-    if pending.kind == "injection_review":
-        grant_injection_bypass(session_key)
+        keys = _load_approved(session_key)
+        keys.add(_approval_key(pending.workflow, pending.step_id))
+        _save_approved(session_key, keys)
         _save_pending(session_key, None)
-        return (
-            f"已确认入站安全评分 {pending.step_id}。"
-            "请重新发送上一条消息以继续处理。"
-        )
-
-    mark_step_approved(session_key, pending.workflow, pending.step_id)
-    _save_pending(session_key, None)
 
     if _workflow_auto_resume_enabled():
         try:

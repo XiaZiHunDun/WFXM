@@ -50,8 +50,10 @@ def enqueue_failed_push(title: str, body: str, *, chat_id: str | None = None) ->
             if str(old.get("dedupe_key") or "") == key:
                 continue
             lines.append(ln)
+    from butler.io.atomic_write import atomic_write_text
+
     lines.append(json.dumps(row, ensure_ascii=False))
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    atomic_write_text(path, "\n".join(lines) + "\n")
     _trim_queue(path)
 
 
@@ -61,7 +63,9 @@ def _trim_queue(path: Path) -> None:
     lines = path.read_text(encoding="utf-8").splitlines()
     if len(lines) <= _MAX_QUEUE:
         return
-    path.write_text("\n".join(lines[-_MAX_QUEUE:]) + "\n", encoding="utf-8")
+    from butler.io.atomic_write import atomic_write_text
+
+    atomic_write_text(path, "\n".join(lines[-_MAX_QUEUE:]) + "\n")
 
 
 def count_pending_pushes(*, chat_id: str | None = None) -> int:
@@ -121,9 +125,11 @@ def drain_push_queue(*, max_items: int = 3) -> dict[str, Any]:
     rest = retry_later + tail
     rest.reverse()
     if rest:
-        path.write_text(
+        from butler.io.atomic_write import atomic_write_text
+
+        atomic_write_text(
+            path,
             "\n".join(json.dumps(r, ensure_ascii=False) for r in rest) + "\n",
-            encoding="utf-8",
         )
     else:
         path.unlink(missing_ok=True)

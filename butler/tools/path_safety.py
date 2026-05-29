@@ -262,7 +262,19 @@ def _resolve_tool_path(raw: str, root: Path | None) -> Path:
     path = Path(raw).expanduser()
     if not path.is_absolute() and root is not None:
         path = root / path
-    return path.resolve(strict=False)
+    resolved = path.resolve(strict=False)
+    if path.is_symlink():
+        target = resolved
+        if root is not None and not str(target).startswith(str(root.resolve())):
+            import logging as _log
+
+            _log.getLogger(__name__).warning(
+                "Symlink %s resolves outside workspace: %s", path, target
+            )
+            raise PermissionError(
+                f"Symlink target {target} is outside workspace {root}"
+            )
+    return resolved
 
 
 def _extract_command_paths(command: str) -> list[str]:

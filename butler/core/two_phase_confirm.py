@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 _HIGH_RISK_TOOLS = frozenset({
     "terminal",
     "delete_file",
+    "write_file",
+    "patch_file",
 })
 
 _CONFIRM_CMDS = frozenset({
@@ -37,8 +39,16 @@ class PendingToolCall:
     requested_at: float = 0.0
 
 
+def _write_confirm_enabled() -> bool:
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_CONFIRM_WRITE_OPS", default=True)
+
+
 def is_high_risk_tool(tool_name: str, args: dict[str, Any] | None = None) -> bool:
     name = str(tool_name or "").strip()
+    if name in {"write_file", "patch_file"} and not _write_confirm_enabled():
+        return False
     if name in _HIGH_RISK_TOOLS:
         return True
     if name == "terminal" and args:

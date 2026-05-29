@@ -209,6 +209,8 @@ def list_recent_tasks(session_key: str = "", *, limit: int = 5) -> list[dict[str
 
 
 def _write(task_id: str, record: dict[str, Any]) -> Path:
+    from butler.io.atomic_write import atomic_write_text
+
     path = _tasks_root() / f"{task_id}.json"
-    path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(record, ensure_ascii=False, indent=2))
     return path

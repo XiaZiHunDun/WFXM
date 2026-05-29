@@ -29,8 +29,10 @@ def write_run_record(
 ) -> Path:
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     path = _runs_root() / _slug(project_name) / job_id / f"{ts}.json"
+    from butler.io.atomic_write import atomic_write_text
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2))
     return path
 
 
@@ -63,7 +65,9 @@ def try_acquire_lock(project_name: str, job_id: str, *, stale_seconds: float = 7
         except OSError:
             return False
     try:
-        path.write_text(str(time.time()), encoding="utf-8")
+        from butler.io.atomic_write import atomic_write_text
+
+        atomic_write_text(path, str(time.time()))
         return True
     except OSError:
         return False

@@ -317,7 +317,9 @@ def _persist_remove(session_key: str, persist_id: str) -> None:
         if len(kept) == len(lines):
             return
         if kept:
-            path.write_text("\n".join(kept) + "\n", encoding="utf-8")
+            from butler.io.atomic_write import atomic_write_text
+
+            atomic_write_text(path, "\n".join(kept) + "\n")
         else:
             path.unlink(missing_ok=True)
     except Exception as exc:

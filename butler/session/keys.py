@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import re
+
 _NO_PROJECT_SLUG = "_"
+_KEY_PATTERN = re.compile(r"^[a-zA-Z0-9_:.\-+]+$")
+_MAX_KEY_LEN = 256
 
 
 def _base_session_key(session_key: str) -> str:
@@ -65,7 +69,22 @@ def normalize_session_key(
     parts = raw.split(":")
     if len(parts) == 2:
         return build_session_key(platform=parts[0], chat_id=parts[1], project=project)
-    return raw
+    validated = _validate_session_key(raw)
+    return validated
+
+
+def _validate_session_key(raw: str) -> str:
+    """Sanitize and validate session key format."""
+    key = raw[:_MAX_KEY_LEN]
+    if not _KEY_PATTERN.match(key):
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "Session key contains invalid characters, sanitizing: %r",
+            raw[:50],
+        )
+        key = re.sub(r"[^a-zA-Z0-9_:.\-+]", "_", key)
+    return key
 
 
 __all__ = [

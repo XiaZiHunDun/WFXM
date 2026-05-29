@@ -81,7 +81,14 @@ def _parse_rule(raw: dict[str, Any], index: int) -> PrefixRule | None:
     try:
         decision = PolicyDecision(dec_raw)
     except ValueError:
-        decision = PolicyDecision.ALLOW
+        import logging as _log
+
+        _log.getLogger(__name__).warning(
+            "ExecPolicy rule %s: invalid decision %r, defaulting to DENY",
+            index,
+            dec_raw,
+        )
+        decision = PolicyDecision.DENY
     match_ex = [_normalize_example(x) for x in (raw.get("match") or [])]
     not_match_ex = [_normalize_example(x) for x in (raw.get("not_match") or [])]
     return PrefixRule(

@@ -313,6 +313,11 @@ def evaluate_permission(
     cfg = _load_permissions_yaml(workspace)
     rules = cfg.get("rules") or cfg.get("tool_rules")
     if not isinstance(rules, list):
+        logger.debug(
+            "evaluate_permission: no rules found for workspace %s, allowing %s",
+            workspace,
+            tool_name,
+        )
         return None
 
     path_val = _resolve_path_arg(args) or str(args.get("command") or "")
@@ -455,6 +460,11 @@ def check_project_permission_block(
     """Return error message when denied; None if allowed or no rule."""
     workspace = _current_workspace()
     if workspace is None:
+        logger.warning(
+            "check_project_permission_block: no workspace resolved, "
+            "allowing %s (consider setting a project)",
+            tool_name,
+        )
         return None
 
     session_key = _current_session_key()

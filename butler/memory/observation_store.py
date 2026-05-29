@@ -105,13 +105,13 @@ class ObservationStore:
 
     @staticmethod
     def _ttl_days() -> int:
-        raw = os.getenv("BUTLER_MEMORY_OBSERVATION_TTL_DAYS", "").strip()
+        raw = os.getenv("BUTLER_OBSERVATION_TTL_DAYS", "").strip()
         if not raw:
-            return 0
+            return 90
         try:
             return max(0, int(raw))
         except ValueError:
-            return 0
+            return 90
 
     @staticmethod
     def _max_rows() -> int:
