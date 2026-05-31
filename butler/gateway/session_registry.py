@@ -74,7 +74,7 @@ class GatewaySessionRegistry:
                 self.sessions[key] = self._loop_factory(key)
             self.touch(key)
             loop = self.sessions[key]
-        self.enforce_lru()
+            self.enforce_lru()
         self._publish_session_gauges()
         return loop
 

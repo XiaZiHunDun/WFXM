@@ -127,8 +127,8 @@ def config_set(key: str, value: str) -> ConfigResult:
     if meta is None:
         return ConfigResult(ok=False, message=f"不允许修改 {key}（不在白名单中或为敏感配置）")
 
-    if meta.value_type == "bool" and value not in ("0", "1", "true", "false"):
-        return ConfigResult(ok=False, message=f"{key} 是布尔值，请使用 0 或 1")
+    if meta.value_type == "bool" and value.lower() not in ("0", "1", "true", "false", "yes", "no", "on", "off"):
+        return ConfigResult(ok=False, message=f"{key} 是布尔值，请使用 0/1/true/false/yes/no")
     if meta.value_type == "int":
         try:
             int(value)

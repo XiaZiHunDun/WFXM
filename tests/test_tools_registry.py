@@ -365,7 +365,7 @@ class TestWriteFile:
         target = tmp_path / "existing.txt"
         target.write_text("old", encoding="utf-8")
 
-        with patch("butler.tools.builtin_impl.os.replace", side_effect=OSError("replace failed")):
+        with patch("butler.tools.file_io.os.replace", side_effect=OSError("replace failed")):
             result = dispatch_tool("write_file", {"path": str(target), "content": "new"})
 
         data = json.loads(result)
@@ -386,7 +386,7 @@ class TestWriteFile:
                 swapped.replace(target)
             return original_fsync(fd)
 
-        with patch("butler.tools.builtin_impl.os.fsync", side_effect=_swap_before_replace):
+        with patch("butler.tools.file_io.os.fsync", side_effect=_swap_before_replace):
             result = dispatch_tool("write_file", {"path": str(target), "content": "new"})
 
         data = json.loads(result)
@@ -489,7 +489,7 @@ class TestPatch:
         target = tmp_path / "patchme.txt"
         target.write_text("replace me", encoding="utf-8")
 
-        with patch("butler.tools.builtin_impl.os.replace", side_effect=OSError("replace failed")):
+        with patch("butler.tools.file_io.os.replace", side_effect=OSError("replace failed")):
             result = dispatch_tool(
                 "patch",
                 {"path": str(target), "old_string": "replace", "new_string": "done"},
@@ -513,7 +513,7 @@ class TestPatch:
                 swapped.replace(target)
             return original_fsync(fd)
 
-        with patch("butler.tools.builtin_impl.os.fsync", side_effect=_swap_before_replace):
+        with patch("butler.tools.file_io.os.fsync", side_effect=_swap_before_replace):
             result = dispatch_tool(
                 "patch",
                 {"path": str(target), "old_string": "replace", "new_string": "done"},
@@ -577,9 +577,9 @@ class TestTerminal:
         fake_proc.communicate.side_effect = AssertionError("communicate should not be used")
         fake_proc.returncode = -9
 
-        with patch("butler.tools.builtin_impl.subprocess.Popen", return_value=fake_proc):
+        with patch("butler.tools.terminal_impl.subprocess.Popen", return_value=fake_proc):
             with patch(
-                "butler.tools.builtin_impl._communicate_limited",
+                "butler.tools.terminal_impl._communicate_limited",
                 side_effect=subprocess.TimeoutExpired(cmd="sleep 10", timeout=1),
             ):
                 result = dispatch_tool("terminal", {"command": "sleep 10", "timeout": 1})
@@ -772,7 +772,7 @@ class TestTerminal:
         fake_proc.communicate.return_value = ("ok\n", "")
         fake_proc.returncode = 0
 
-        with patch("butler.tools.builtin_impl.subprocess.Popen", return_value=fake_proc) as mock_popen:
+        with patch("butler.tools.terminal_impl.subprocess.Popen", return_value=fake_proc) as mock_popen:
             with use_execution_context(_orchestrator_for_workspace(workspace)):
                 result = dispatch_tool("terminal", {"command": "echo ok"})
 
@@ -878,7 +878,7 @@ class TestSearchFiles:
         monkeypatch.setenv("LD_PRELOAD", str(tmp_path / "evil.so"))
 
         completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-        with patch("butler.tools.builtin_impl.subprocess.run", return_value=completed) as mock_run:
+        with patch("butler.tools.terminal_impl.subprocess.run", return_value=completed) as mock_run:
             with use_execution_context(_orchestrator_for_workspace(workspace)):
                 result = dispatch_tool("search_files", {"pattern": "needle", "path": str(workspace)})
 
@@ -910,7 +910,7 @@ class TestSearchFiles:
             stderr="",
         )
 
-        with patch("butler.tools.builtin_impl.subprocess.run", return_value=completed):
+        with patch("butler.tools.terminal_impl.subprocess.run", return_value=completed):
             with use_execution_context(_orchestrator_for_workspace(workspace)):
                 result = dispatch_tool("search_files", {"pattern": "needle", "path": str(workspace)})
 

@@ -94,7 +94,8 @@ def call_llm_with_retry(
     except Exception as exc:
         logger.debug("exp_cache lookup skipped: %s", exc)
 
-    for attempt in range(config.max_retries):
+    effective_retries = min(config.max_retries, 20)
+    for attempt in range(effective_retries):
         if interrupt_check():
             return None, True
 
@@ -180,8 +181,9 @@ def call_llm_with_retry(
                 logger.debug("on delta cb skipped: %s", exc)
             if cache_fp and response and not response.tool_calls:
                 try:
+                    fr = getattr(response, "finish_reason", None) or ""
                     text = str(response.content or "").strip()
-                    if text:
+                    if text and fr not in ("error", "content_filter"):
                         store_cached_response(
                             cache_fp,
                             text,
@@ -283,12 +285,15 @@ def call_llm_with_retry(
             if attempt < config.max_retries - 1:
                 time.sleep(retry_delay_for_config(config, attempt))
 
-    logger.error("All LLM attempts failed: %s", last_error)
+    logger.error("All LLM attempts failed: %s", last_error, exc_info=last_error)
     try:
         from butler.ops.runtime_metrics import inc
 
         provider = str(getattr(client, "provider_name", "") or "?")[:24]
         inc("llm_request", labels={"provider": provider, "outcome": "fail"})
+        if last_error is not None:
+            err_type = type(last_error).__name__
+            inc("llm_error", labels={"provider": provider, "error_type": err_type})
     except Exception as exc:
         logger.debug("on delta cb skipped: %s", exc)
     return None, interrupted

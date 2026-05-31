@@ -12,13 +12,23 @@ from butler.mcp.types import McpServerConfig
 logger = logging.getLogger(__name__)
 
 
+_PROTECTED_ENV_KEYS = frozenset({
+    "PATH", "HOME", "USER", "SHELL", "LOGNAME", "LANG",
+    "LD_PRELOAD", "LD_LIBRARY_PATH", "PYTHONPATH",
+})
+
+
 def _build_stdio_env(config: McpServerConfig) -> dict[str, str]:
     from butler.tools.path_safety import safe_subprocess_env
 
     base = safe_subprocess_env()
     for key, value in (config.env or {}).items():
         if value is not None:
-            base[str(key)] = str(value)
+            k = str(key)
+            if k.upper() in _PROTECTED_ENV_KEYS:
+                logger.warning("MCP env override blocked for protected key: %s", k)
+                continue
+            base[k] = str(value)
     return base
 
 

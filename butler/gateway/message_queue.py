@@ -35,6 +35,7 @@ class QueuedInbound:
 
 _LOCK = threading.RLock()
 _QUEUES: dict[str, deque[QueuedInbound]] = {}
+_QUEUES_MAX_SESSIONS = 256
 _DEDUP_WINDOW_SEC = 2.0
 _LAST_ENQUEUE: dict[str, tuple[str, float]] = {}
 _DROP_SUMMARIES: dict[str, deque[str]] = {}
@@ -140,9 +141,6 @@ def enqueue_inbound(
     if not body:
         return False
     key = str(session_key or "default")
-    if _should_dedupe(key, body):
-        logger.debug("Inbound queue dedupe session=%s", key)
-        return False
     pri = priority or classify_inbound_priority(body)
     if pri not in _PRIORITY_ORDER:
         pri = "next"
@@ -154,6 +152,14 @@ def enqueue_inbound(
         enqueued_at=time.monotonic(),
     )
     with _LOCK:
+        if _should_dedupe(key, body):
+            logger.debug("Inbound queue dedupe session=%s", key)
+            return False
+        if len(_QUEUES) >= _QUEUES_MAX_SESSIONS and key not in _QUEUES:
+            empty_keys = [k for k, v in _QUEUES.items() if not v]
+            for ek in empty_keys:
+                _QUEUES.pop(ek, None)
+                _DROP_SUMMARIES.pop(ek, None)
         bucket = _QUEUES.setdefault(key, deque())
         if not _apply_cap_before_append(key, bucket, body):
             return False
@@ -312,7 +318,7 @@ def _persist_enqueue(session_key: str, item: QueuedInbound) -> None:
         with open(path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
     except Exception as exc:
-        logger.debug("Queue persist write failed: %s", exc)
+        logger.warning("Queue persist write failed: %s", exc)
 
 
 def _persist_remove(session_key: str, persist_id: str) -> None:
@@ -326,7 +332,8 @@ def _persist_remove(session_key: str, persist_id: str) -> None:
         if not path.is_file():
             return
         lines = path.read_text(encoding="utf-8").splitlines()
-        kept = [ln for ln in lines if persist_id not in ln]
+        marker = f'"id": "{persist_id}"'
+        kept = [ln for ln in lines if marker not in ln]
         if len(kept) == len(lines):
             return
         if kept:
@@ -336,7 +343,7 @@ def _persist_remove(session_key: str, persist_id: str) -> None:
         else:
             path.unlink(missing_ok=True)
     except Exception as exc:
-        logger.debug("Queue persist remove failed: %s", exc)
+        logger.warning("Queue persist remove failed: %s", exc)
 
 
 def _persist_clear(session_key: str | None = None) -> None:
@@ -354,7 +361,7 @@ def _persist_clear(session_key: str | None = None) -> None:
             safe_key = re.sub(r"[^\w\-]", "_", session_key)[:120]
             (root / f"{safe_key}.jsonl").unlink(missing_ok=True)
     except Exception as exc:
-        logger.debug("Queue persist clear failed: %s", exc)
+        logger.warning("Queue persist clear failed: %s", exc)
 
 
 def restore_persisted_queue() -> int:
@@ -387,14 +394,17 @@ def restore_persisted_queue() -> int:
                     platform=row.get("platform", "unknown"),
                     external_id=row.get("external_id", ""),
                     enqueued_at=row.get("enqueued_at", 0.0),
-                    persist_id=row.get("id", uuid.uuid4().hex[:12]),
+                    persist_id=row["id"] if "id" in row else uuid.uuid4().hex[:12],
                 ))
             except (json.JSONDecodeError, KeyError):
                 continue
         if items:
+            from butler.gateway.queue_settings import session_queue_cap
+
+            cap = session_queue_cap(session_key)
             with _LOCK:
                 bucket = _QUEUES.setdefault(session_key, deque())
-                bucket.extend(items)
+                bucket.extend(items[:cap])
                 _QUEUES[session_key] = deque(
                     sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9))
                 )

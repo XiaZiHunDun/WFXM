@@ -115,7 +115,7 @@ class TestNewCommandMemoryFeedback:
         handler._sessions["wechat:u1:_"] = loop
 
         with patch(
-            "butler.session.lifecycle.trigger_session_end",
+            "butler.session.post_session_ops.trigger_session_end",
             return_value={"memory_updates": 2, "skills_extracted": 0},
         ):
             text = handler._handle_command("/新对话", session_key="wechat:u1:_")

@@ -9,6 +9,7 @@ Provides:
 from __future__ import annotations
 
 import logging
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -99,6 +100,7 @@ class ButlerOrchestrator:
         self.channel = channel
         self._settings = get_butler_settings()
         self._memory_by_tenant: dict[str, ButlerMemory] = {}
+        self._memory_lock = threading.Lock()
         self.project_manager = get_project_manager()
         self._project_memory: ProjectMemory | None = None
         self._skill_router: SkillRouter | None = None
@@ -131,13 +133,14 @@ class ButlerOrchestrator:
             self.project_manager.get_current(),
             self._settings,
         )
-        mem = self._memory_by_tenant.get(tid)
-        if mem is None:
-            if len(self._memory_by_tenant) >= 64:
-                oldest = next(iter(self._memory_by_tenant))
-                self._memory_by_tenant.pop(oldest, None)
-            mem = ButlerMemory(self._settings.butler_home, tenant_id=tid)
-            self._memory_by_tenant[tid] = mem
+        with self._memory_lock:
+            mem = self._memory_by_tenant.get(tid)
+            if mem is None:
+                if len(self._memory_by_tenant) >= 64:
+                    oldest = next(iter(self._memory_by_tenant))
+                    self._memory_by_tenant.pop(oldest, None)
+                mem = ButlerMemory(self._settings.butler_home, tenant_id=tid)
+                self._memory_by_tenant[tid] = mem
         return mem
 
     def _rebuild_skill_router(self) -> None:

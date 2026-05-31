@@ -40,7 +40,7 @@ def test_incremental_flush_calls_processor_once(monkeypatch):
     )
 
     with patch(
-        "butler.session.lifecycle._execute_post_session",
+        "butler.session.post_session_ops._execute_post_session",
         return_value={"memory_updates": 1, "skills_extracted": 0},
     ) as execute:
         record_post_session_turn(orch, provider, "u1", "a1", session_id="s1")
@@ -66,7 +66,7 @@ def test_session_end_skips_already_extracted_pairs():
         {"role": "user", "content": "7"},
         {"role": "assistant", "content": "8"},
     ]
-    with patch("butler.session.lifecycle._execute_post_session") as execute:
+    with patch("butler.session.post_session_ops._execute_post_session") as execute:
         result = trigger_session_end(orch, loop, session_id="s1")
 
     assert result["reason"] == "short_history"
@@ -94,7 +94,7 @@ def test_session_end_processes_only_tail_after_watermark():
         captured.append(list(msgs))
         return {"memory_updates": 1, "skills_extracted": 0}
 
-    with patch("butler.session.lifecycle._execute_post_session", side_effect=_capture):
+    with patch("butler.session.post_session_ops._execute_post_session", side_effect=_capture):
         result = trigger_session_end(orch, loop, session_id="s1")
 
     assert result.get("memory_updates") == 1
@@ -120,7 +120,7 @@ def test_post_session_lock_serializes_calls():
         {"role": "assistant", "content": "d" * 80},
     ]
 
-    with patch("butler.session.lifecycle._execute_post_session", side_effect=slow_execute):
+    with patch("butler.session.post_session_ops._execute_post_session", side_effect=slow_execute):
         run_post_session_extraction(orch, msgs, background=True, session_id="lock")
         run_post_session_extraction(orch, msgs, background=False, session_id="lock")
 

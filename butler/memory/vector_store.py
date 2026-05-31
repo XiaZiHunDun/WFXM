@@ -9,6 +9,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Any, Protocol
@@ -144,6 +145,7 @@ class InMemoryVectorStore:
     """Brute-force fallback when ChromaDB is not installed."""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._docs: dict[str, dict[str, Any]] = {}
         self._embedder = _get_embedder()
         self._persist_path = _store_root() / "fallback.jsonl"
@@ -173,14 +175,15 @@ class InMemoryVectorStore:
         metadata: dict[str, Any] | None = None,
     ) -> None:
         embedding = self._embedder.embed(text)
-        self._docs[doc_id] = {
-            "id": doc_id,
-            "text": text,
-            "metadata": dict(metadata or {}),
-            "embedding": embedding,
-            "created_ts": time.time(),
-        }
-        self._persist()
+        with self._lock:
+            self._docs[doc_id] = {
+                "id": doc_id,
+                "text": text,
+                "metadata": dict(metadata or {}),
+                "embedding": embedding,
+                "created_ts": time.time(),
+            }
+            self._persist()
 
     def query(
         self,
@@ -191,11 +194,13 @@ class InMemoryVectorStore:
     ) -> list[dict[str, Any]]:
         from butler.memory.embedding import cosine_similarity
 
-        if not self._docs:
-            return []
+        with self._lock:
+            if not self._docs:
+                return []
+            snapshot = list(self._docs.values())
         query_vec = self._embedder.embed(text)
         scored: list[tuple[float, dict[str, Any]]] = []
-        for doc in self._docs.values():
+        for doc in snapshot:
             if where:
                 meta = doc.get("metadata", {})
                 if not all(meta.get(k) == v for k, v in where.items()):
@@ -214,23 +219,29 @@ class InMemoryVectorStore:
         ]
 
     def delete(self, doc_id: str) -> bool:
-        if doc_id in self._docs:
-            del self._docs[doc_id]
-            self._persist()
-            return True
-        return False
+        with self._lock:
+            if doc_id in self._docs:
+                del self._docs[doc_id]
+                self._persist()
+                return True
+            return False
 
     def count(self) -> int:
-        return len(self._docs)
+        with self._lock:
+            return len(self._docs)
 
 
 _STORE_CACHE: dict[str, VectorStore] = {}
+_STORE_CACHE_MAX = 64
+_STORE_CACHE_LOCK = threading.Lock()
 
 
 def get_vector_store(collection: str = "butler_personal") -> VectorStore:
     """Get or create a vector store instance (ChromaDB preferred, fallback to in-memory)."""
-    if collection in _STORE_CACHE:
-        return _STORE_CACHE[collection]
+    with _STORE_CACHE_LOCK:
+        cached = _STORE_CACHE.get(collection)
+        if cached is not None:
+            return cached
 
     store: VectorStore
     try:
@@ -243,5 +254,13 @@ def get_vector_store(collection: str = "butler_personal") -> VectorStore:
         logger.warning("ChromaDB init failed (%s); using fallback", exc)
         store = InMemoryVectorStore()
 
-    _STORE_CACHE[collection] = store
+    with _STORE_CACHE_LOCK:
+        existing = _STORE_CACHE.get(collection)
+        if existing is not None:
+            return existing
+        if len(_STORE_CACHE) >= _STORE_CACHE_MAX:
+            oldest = next(iter(_STORE_CACHE))
+            _STORE_CACHE.pop(oldest, None)
+            logger.info("Evicted vector store cache entry: %s", oldest)
+        _STORE_CACHE[collection] = store
     return store

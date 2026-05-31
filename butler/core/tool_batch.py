@@ -236,8 +236,6 @@ def process_tool_calls(
                 result = append_guidance(result, after)
             elif pending_warn is not None:
                 result = append_guidance(result, pending_warn)
-        elif pending_warn is not None:
-            result = append_guidance(result, pending_warn)
         if batch_guard is not None:
             batch_guard.note_tool_result(name, args, result)
         return result

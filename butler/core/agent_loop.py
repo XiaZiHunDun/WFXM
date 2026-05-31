@@ -26,6 +26,7 @@ from butler.core.tool_batch import dispatch_tool_with_envelope, process_tool_cal
 from butler.tool_guardrails import ToolCallGuardrailController
 from butler.tools.interrupt import clear_interrupt, is_interrupted, set_interrupt
 from butler.core.steer import clear_steer, mark_run_active, mark_run_inactive
+from butler.transport.base import LLMClientProtocol
 from butler.transport.fallback import FallbackEntry, create_client_from_entry
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse
@@ -38,7 +39,7 @@ class AgentLoop:
 
     def __init__(
         self,
-        client: LLMClient,
+        client: LLMClientProtocol,
         *,
         system_prompt: str = "",
         tools: Optional[list[dict]] = None,
@@ -46,7 +47,7 @@ class AgentLoop:
         config: Optional[LoopConfig] = None,
         callbacks: Optional[LoopCallbacks] = None,
     ):
-        self.client = client
+        self.client: LLMClientProtocol = client
         self.system_prompt = system_prompt
         self.tools = tools or []
         self.tool_dispatcher = tool_dispatcher
@@ -60,7 +61,7 @@ class AgentLoop:
         self._tool_calls_count = 0
         self._guardrails = ToolCallGuardrailController() if self.config.enable_guardrails else None
         self._context = ContextPipeline(self.config)
-        self._context._attached_loop = self
+        self._context.attach_loop(self)
         self._turn_ephemeral_system: str | None = None
         self._thread_id: int | None = None
         _chain = list(self.config.fallback_entries or [])
@@ -139,16 +140,8 @@ class AgentLoop:
         finally:
             mark_run_inactive(_steer_session)
 
-    def _run_turn_body(
-        self,
-        user_message: str,
-        *,
-        run_callbacks: Optional[LoopCallbacks],
-        saved_callbacks: LoopCallbacks,
-        pre_run_diagnostics: dict[str, Any],
-        start_time: float,
-        steer_session: str,
-    ) -> LoopResult:
+    def _init_turn_state(self, steer_session: str) -> None:
+        """Reset per-turn mutable state before the iteration loop."""
         clear_steer(steer_session)
         self._primary_client = self.client
         self._fallback_index = 0
@@ -166,31 +159,20 @@ class AgentLoop:
 
         reset_tool_call_limiter_for_turn()
 
-        from butler.core.turn_token_budget import (
-            TurnBudgetState,
-            continuation_limits,
-            get_budget_continuation_message,
-            resolve_turn_budget,
-        )
+    def _prepare_user_message(
+        self,
+        user_message: str,
+        steer_session: str,
+    ) -> tuple[str, list[dict]]:
+        """Sanitize user input, select tools, record transcript.
 
-        original_config = self.config
-        self.config, turn_budget_tokens, cleaned_user = resolve_turn_budget(
-            user_message,
-            self.config,
-        )
-        budget_state: TurnBudgetState | None = (
-            TurnBudgetState(int(turn_budget_tokens))
-            if turn_budget_tokens
-            else None
-        )
-        if turn_budget_tokens:
-            self.diagnostics["turn_token_budget"] = int(turn_budget_tokens)
-
+        Returns ``(user_content, turn_tools)``.
+        """
         if not self._messages:
             if self.system_prompt:
                 self._messages.append({"role": "system", "content": self.system_prompt})
 
-        user_content = sanitize_surrogates(cleaned_user)
+        user_content = sanitize_surrogates(user_message)
         try:
             from butler.core.system_reminder import maybe_prepend_system_reminder
 
@@ -198,6 +180,7 @@ class AgentLoop:
         except Exception as exc:
             logger.warning("System reminder skipped: %s", exc)
         self._messages.append({"role": "user", "content": user_content})
+
         turn_tools = list(self.tools or [])
         try:
             from butler.core.tool_selector import select_tools_for_context
@@ -220,7 +203,7 @@ class AgentLoop:
                 self.diagnostics[key] = val
         except Exception as exc:
             logger.warning("Tool selector skipped: %s", exc)
-        self._turn_tools = turn_tools
+
         try:
             from butler.core.session_transcript import record_user_message
 
@@ -228,11 +211,50 @@ class AgentLoop:
         except Exception as exc:
             logger.debug("Session transcript record skipped: %s", exc, exc_info=True)
 
+        return user_content, turn_tools
+
+    def _run_turn_body(
+        self,
+        user_message: str,
+        *,
+        run_callbacks: Optional[LoopCallbacks],
+        saved_callbacks: LoopCallbacks,
+        pre_run_diagnostics: dict[str, Any],
+        start_time: float,
+        steer_session: str,
+    ) -> LoopResult:
+        self._init_turn_state(steer_session)
+
+        from butler.core.turn_token_budget import (
+            TurnBudgetState,
+            continuation_limits,
+            get_budget_continuation_message,
+            resolve_turn_budget,
+        )
+
+        original_config = self.config
+        self.config, turn_budget_tokens, cleaned_user = resolve_turn_budget(
+            user_message,
+            self.config,
+        )
+        budget_state: TurnBudgetState | None = (
+            TurnBudgetState(int(turn_budget_tokens))
+            if turn_budget_tokens
+            else None
+        )
+        if turn_budget_tokens:
+            self.diagnostics["turn_token_budget"] = int(turn_budget_tokens)
+
+        user_content, turn_tools = self._prepare_user_message(cleaned_user, steer_session)
+        self._turn_tools = turn_tools
+
         final_text = None
         final_reasoning = None
         status = LoopStatus.RUNNING
         transition = LoopTransitionReason.UNKNOWN
         iteration = 0
+
+        from butler.core.delegate_context import set_parent_messages
 
         try:
             while status == LoopStatus.RUNNING and iteration < self.config.max_iterations:
@@ -494,7 +516,7 @@ class AgentLoop:
                 session_key=steer_session,
             )
         except Exception as exc:
-            logger.debug("Turn metrics recording skipped: %s", exc, exc_info=True)
+            logger.warning("Turn metrics recording skipped: %s", exc, exc_info=True)
         result = LoopResult(
             status=status,
             transition_reason=transition.value,
@@ -695,8 +717,6 @@ class AgentLoop:
                         return
                 prefetch[key] = self._dispatch_tool(name, args)
 
-            on_tool_ready = on_tool_ready
-
         response, interrupted = call_llm_with_retry(
             client=self.client,
             config=self.config,
@@ -771,6 +791,17 @@ class AgentLoop:
         self._total_tokens = 0
         self._tool_calls_count = 0
         self._interrupted = False
+        self._empty_retries = 0
+        self._truncation_retries = 0
+        self._turn_tools = None
+        self._turn_ephemeral_system = None
+        self._fallback_index = 0
+        self._primary_client = None
+        self._tool_prefetch.clear()
+        self.diagnostics.clear()
+        if self._context is not None:
+            self._context.compression_summary = ""
+            self._context.consecutive_compact_failures = 0
         from butler.core.tool_call_limits import reset_tool_call_limiter_for_turn
 
         reset_tool_call_limiter_for_turn()

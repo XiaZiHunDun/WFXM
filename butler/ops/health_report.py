@@ -193,8 +193,31 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         )
     except Exception as exc:
         logger.debug("turn diagnostic lines skipped: %s", exc)
+    from butler import get_build_identity
+
+    bi = get_build_identity()
+    _start_ts = bi.get("start_time", "")
+    _uptime = ""
+    if _start_ts:
+        import datetime
+
+        try:
+            _st = datetime.datetime.fromisoformat(_start_ts)
+            _delta = datetime.datetime.now(tz=datetime.timezone.utc) - _st
+            _h, _rem = divmod(int(_delta.total_seconds()), 3600)
+            _m = _rem // 60
+            _uptime = f"{_h}h {_m}m"
+        except Exception:
+            pass
+
     out: list[str] = [
         "Butler 诊断",
+        f"版本: {bi['version']} ({bi['git_sha']})",
+        f"Python: {bi['python']} ({bi['python_path']})",
+    ]
+    if _uptime:
+        out.append(f"运行时长: {_uptime}")
+    out += [
         f"会话: {health.get('session_key') or inp.session_key}",
         f"平台: {health.get('platform') or '-'}",
         engine_line,
@@ -329,10 +352,13 @@ def build_health_report(inp: HealthReportInput) -> str:
     tool_summary = inp.tool_summary
 
     if not health and not tool_summary.get("total"):
+        from butler import get_build_identity
         from butler.core.context_budget import format_context_budget_line
 
+        _bi = get_build_identity()
         lines = [
             "Butler 诊断",
+            f"版本: {_bi['version']} ({_bi['git_sha']})",
             f"会话: {inp.session_key}",
             format_context_budget_line(health or {}),
             "轮次诊断: 暂无（本会话尚无完整对话轮次）",
@@ -387,10 +413,13 @@ def build_health_report(inp: HealthReportInput) -> str:
         except Exception as exc:
             logger.debug("build health report skipped: %s", exc)
     else:
+        from butler import get_build_identity
         from butler.core.context_budget import format_context_budget_line
 
+        _bi2 = get_build_identity()
         lines = [
             "Butler 诊断",
+            f"版本: {_bi2['version']} ({_bi2['git_sha']})",
             f"会话: {inp.session_key}",
             format_context_budget_line({}),
             "轮次诊断: 暂无（本会话尚无完整对话轮次）",

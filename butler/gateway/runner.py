@@ -117,6 +117,11 @@ async def _butler_message_handler(
 
 async def run_gateway_async(platforms: list[str]) -> int:
     """Start native adapters; blocks until cancelled."""
+    from butler import format_build_identity_line, mark_start_time
+
+    mark_start_time()
+    logger.info("%s starting", format_build_identity_line())
+
     unsupported = unsupported_platforms(platforms)
     if unsupported:
         from butler.gateway.platform_policy import format_unsupported_error
@@ -196,6 +201,7 @@ async def run_gateway_async(platforms: list[str]) -> int:
     _reminder_task.cancel()
     for adapter in connected:
         await adapter.disconnect()
+    _HANDLER_EXECUTOR.shutdown(wait=True, cancel_futures=False)
     return 0
 
 

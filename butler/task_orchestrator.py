@@ -177,6 +177,13 @@ class TaskOrchestrator:
         task_id = uuid.uuid4().hex[:8]
         task = AgentTask(id=task_id, config=config)
         with self._tasks_lock:
+            if len(self._tasks) > 200:
+                completed = [
+                    k for k, v in self._tasks.items()
+                    if getattr(v, "status", None) in ("completed", "error", "cancelled")
+                ]
+                for k in completed[:100]:
+                    del self._tasks[k]
             self._tasks[task_id] = task
         task.status = AgentStatus.RUNNING
         task.started_at = time.time()

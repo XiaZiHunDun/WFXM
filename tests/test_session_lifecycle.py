@@ -322,7 +322,7 @@ def test_trigger_session_end_returns_processor_result():
         {"role": "assistant", "content": "4"},
     ])
     with patch(
-        "butler.session.lifecycle._execute_post_session",
+        "butler.session.post_session_ops._execute_post_session",
         return_value={"memory_updates": 1, "skills_extracted": 0, "errors": []},
     ) as execute:
         result = trigger_session_end(orch, loop)

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from typing import Any, Callable
 
 from butler.skills.similarity import tfidf_cosine
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 _EMBEDDING_CACHE_MAX = 1024
 _embedding_cache: dict[str, list[float]] = {}
+_embedding_cache_lock = threading.Lock()
 
 
 def _semantic_routing_enabled() -> bool:
@@ -43,14 +45,17 @@ def _embed_skill(embedder: Any, skill: dict[str, Any]) -> list[float]:
     """Embed skill text with caching by skill name + description hash."""
     text = _skill_text(skill)
     cache_key = f"skill:{skill.get('name', '')}:{hash(text)}"
-    if cache_key in _embedding_cache:
-        return _embedding_cache[cache_key]
+    with _embedding_cache_lock:
+        if cache_key in _embedding_cache:
+            _embedding_cache[cache_key] = _embedding_cache.pop(cache_key)
+            return _embedding_cache[cache_key]
     try:
         vec = embedder.embed(text)
-        if len(_embedding_cache) >= _EMBEDDING_CACHE_MAX:
-            oldest = next(iter(_embedding_cache))
-            _embedding_cache.pop(oldest, None)
-        _embedding_cache[cache_key] = vec
+        with _embedding_cache_lock:
+            if len(_embedding_cache) >= _EMBEDDING_CACHE_MAX:
+                oldest = next(iter(_embedding_cache))
+                _embedding_cache.pop(oldest, None)
+            _embedding_cache[cache_key] = vec
         return vec
     except Exception:
         return []

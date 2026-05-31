@@ -7,6 +7,7 @@ import logging
 import math
 import os
 import re
+import threading
 from typing import Any, Protocol
 
 from butler.memory.semantic_config import embedding_model_name, embedding_provider_name
@@ -17,6 +18,7 @@ _TOKEN_RE = re.compile(r"[\w\u4e00-\u9fff]+", re.UNICODE)
 
 _JIEBA = None
 _JIEBA_TRIED = False
+_JIEBA_LOCK = threading.Lock()
 
 _DEFAULT_OPENAI_MODEL = "text-embedding-3-small"
 _DEFAULT_MINIMAX_MODEL = "embo-01"
@@ -25,14 +27,16 @@ _DEFAULT_MINIMAX_MODEL = "embo-01"
 def _tokenize(text: str) -> list[str]:
     global _JIEBA, _JIEBA_TRIED
     if not _JIEBA_TRIED:
-        _JIEBA_TRIED = True
-        try:
-            import jieba
+        with _JIEBA_LOCK:
+            if not _JIEBA_TRIED:
+                _JIEBA_TRIED = True
+                try:
+                    import jieba
 
-            jieba.setLogLevel(logging.WARNING)
-            _JIEBA = jieba
-        except ImportError:
-            _JIEBA = None
+                    jieba.setLogLevel(logging.WARNING)
+                    _JIEBA = jieba
+                except ImportError:
+                    _JIEBA = None
     raw = (text or "").strip().lower()
     if not raw:
         return []
@@ -105,6 +109,7 @@ class OpenAIEmbedder:
         self._base_url = base_url.rstrip("/")
         self._dim = 0
         self._model_id = f"openai/{model}"
+        self._client = None
 
     @property
     def model_id(self) -> str:
@@ -114,10 +119,14 @@ class OpenAIEmbedder:
     def dimension(self) -> int:
         return self._dim or 1536
 
-    def embed(self, text: str) -> list[float]:
-        from openai import OpenAI
+    def _get_client(self):
+        if self._client is None:
+            from openai import OpenAI
+            self._client = OpenAI(api_key=self._api_key, base_url=self._base_url)
+        return self._client
 
-        client = OpenAI(api_key=self._api_key, base_url=self._base_url)
+    def embed(self, text: str) -> list[float]:
+        client = self._get_client()
         resp = client.embeddings.create(model=self._model, input=(text or "").strip())
         vec = list(resp.data[0].embedding)
         self._dim = len(vec)
@@ -139,6 +148,7 @@ class MinimaxEmbedder:
         self._base_url = base_url.rstrip("/")
         self._dim = 0
         self._model_id = f"minimax/{model}"
+        self._client = None
 
     @property
     def model_id(self) -> str:
@@ -148,10 +158,14 @@ class MinimaxEmbedder:
     def dimension(self) -> int:
         return self._dim or 1024
 
-    def embed(self, text: str) -> list[float]:
-        from openai import OpenAI
+    def _get_client(self):
+        if self._client is None:
+            from openai import OpenAI
+            self._client = OpenAI(api_key=self._api_key, base_url=self._base_url)
+        return self._client
 
-        client = OpenAI(api_key=self._api_key, base_url=self._base_url)
+    def embed(self, text: str) -> list[float]:
+        client = self._get_client()
         resp = client.embeddings.create(model=self._model, input=(text or "").strip())
         vec = list(resp.data[0].embedding)
         self._dim = len(vec)

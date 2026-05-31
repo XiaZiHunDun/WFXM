@@ -77,8 +77,12 @@ class LLMClient:
         if self._client is None:
             try:
                 from openai import OpenAI
+                api_key = self._api_key
+                if not api_key:
+                    logger.warning("OpenAI client created without API key; calls will likely fail")
+                    api_key = "dummy"
                 self._client = OpenAI(
-                    api_key=self._api_key or "dummy",
+                    api_key=api_key,
                     base_url=self._base_url,
                     timeout=self.timeout,
                 )
@@ -88,10 +92,14 @@ class LLMClient:
 
     def _get_anthropic_client(self):
         if self._client is None:
+            api_key = self._api_key
+            if not api_key:
+                logger.warning("Anthropic client created without API key; calls will likely fail")
+                api_key = "dummy"
             try:
                 from anthropic import Anthropic
                 self._client = Anthropic(
-                    api_key=self._api_key or "dummy",
+                    api_key=api_key,
                     base_url=self._base_url,
                     timeout=self.timeout,
                 )
@@ -99,7 +107,7 @@ class LLMClient:
                 try:
                     from openai import OpenAI
                     self._client = OpenAI(
-                        api_key=self._api_key or "dummy",
+                        api_key=api_key,
                         base_url=self._base_url,
                         timeout=self.timeout,
                     )
@@ -133,7 +141,8 @@ class LLMClient:
                     tools,
                     api_mode=self.api_mode,
                 )
-            except Exception:
+            except Exception as exc:
+                logger.warning("wire_tools_for_provider failed, falling back: %s", exc)
                 converted_tools = transport.convert_tools(tools)
 
         params = {
@@ -194,7 +203,8 @@ class LLMClient:
                     tools,
                     api_mode=self.api_mode,
                 )
-            except Exception:
+            except Exception as exc:
+                logger.warning("wire_tools_for_provider (stream) failed, falling back: %s", exc)
                 converted_tools = transport.convert_tools(tools)
 
         params = {
@@ -360,11 +370,10 @@ class LLMClient:
                     )
 
         except Exception as exc:
-            logger.error("Stream error: %s", exc)
-            if collected_content:
-                pass
-            else:
+            logger.error("Stream error: %s", exc, exc_info=True)
+            if not collected_content:
                 raise
+            finish_reason = "error"
 
         from butler.core.streaming_tools import notify_complete_tool_calls_from_stream
 

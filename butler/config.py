@@ -7,6 +7,7 @@ to ``<workspace>/projects/`` (same layout as this repository).
 from __future__ import annotations
 
 import os
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
@@ -297,8 +298,22 @@ class ButlerSettings:
             data["default_tenant"] = self.default_tenant
         if self.default_provider:
             data["default_provider"] = self.default_provider
-        with open(path, "w", encoding="utf-8") as f:
-            yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+        import tempfile
+        tmp_fd, tmp_path = tempfile.mkstemp(
+            dir=str(path.parent), suffix=".tmp", prefix=".butler-cfg-"
+        )
+        try:
+            with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+                yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, str(path))
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     def _apply_yaml_dict(self, data: dict[str, Any]) -> None:
         self.butler_name = str(data.get("butler_name", self.butler_name))
@@ -345,14 +360,20 @@ class ButlerSettings:
 
 
 _settings: ButlerSettings | None = None
+_settings_lock = threading.Lock()
 
 
 def get_butler_settings() -> ButlerSettings:
     """Singleton Butler settings shared across Butler modules."""
     global _settings
     if _settings is None:
-        _settings = ButlerSettings.load()
+        with _settings_lock:
+            if _settings is None:
+                _settings = ButlerSettings.load()
     return _settings
+
+
+load_settings = get_butler_settings
 
 
 def reload_butler_settings() -> ButlerSettings:

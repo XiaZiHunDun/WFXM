@@ -32,9 +32,13 @@ class ButlerMessageHandler:
     messages through Butler's orchestration layer.
     """
 
-    def __init__(self, channel: str = "gateway"):
+    def __init__(
+        self,
+        channel: str = "gateway",
+        orchestrator: Optional[ButlerOrchestrator] = None,
+    ):
         self.channel = channel
-        self._orchestrator = ButlerOrchestrator(user_id="owner", channel=channel)
+        self._orchestrator = orchestrator or ButlerOrchestrator(user_id="owner", channel=channel)
         self._session_registry = GatewaySessionRegistry(
             self._create_loop_for_session,
             finalize=self._finalize_session,
@@ -289,8 +293,8 @@ class ButlerMessageHandler:
                 guard = check_inbound_text(text)
                 if guard.tripwire and not guard.allowed:
                     return guard.user_message or "消息未通过入站安全检查。"
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.info("io_guardrail module not available: %s", exc)
         except Exception as exc:
             logger.error("io_guardrail check raised — fail-closed: %s", exc)
             return "安全检查模块异常，消息已拦截。请稍后重试。"
@@ -300,9 +304,13 @@ class ButlerMessageHandler:
 
             gate_reply = resolve_human_gate_message(session_key, text)
             if gate_reply is not None:
+                from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
+                if not is_gateway_owner(platform=platform, external_id=external_id):
+                    return owner_required_message()
                 return gate_reply
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.info("human_gate module not available: %s", exc)
         except Exception as exc:
             logger.error("human_gate check raised — fail-closed: %s", exc)
             return "审批门控模块异常，消息已拦截。请稍后重试。"
@@ -328,8 +336,8 @@ class ButlerMessageHandler:
                     except Exception as exc:
                         logger.debug("Injection score transcript skipped: %s", exc)
             text = mark_adversarial_user_text(text)
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.info("injection_guard module not available: %s", exc)
         except Exception as exc:
             logger.error("injection_guard raised — fail-closed: %s", exc)
             return "注入检测模块异常，消息已拦截。请稍后重试。"
@@ -372,8 +380,8 @@ class ButlerMessageHandler:
                             request_injection_review_gate(session_key, score=llm_score)
                             return format_pending_hint(session_key) or block_msg
                         return block_msg
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.info("injection_llm_score module not available: %s", exc)
         except Exception as exc:
             logger.error("injection_llm_score raised — fail-closed: %s", exc)
             return "LLM 注入检测模块异常，消息已拦截。请稍后重试。"
@@ -636,7 +644,7 @@ class ButlerMessageHandler:
                 try:
                     complete_inbound(session_key, inbound_id)
                 except Exception as exc:
-                    logger.debug("Inbound completion record skipped: %s", exc)
+                    logger.warning("Inbound completion record failed (idempotency may leak): %s", exc)
         follow = self._drain_queued_inbound(
             session_key,
             platform=platform,
@@ -964,6 +972,22 @@ class ButlerMessageHandler:
         cmd = parts[0].lower()
         arg = parts[1].strip() if len(parts) > 1 else ""
 
+        import butler.gateway.commands  # noqa: F401 — ensure handlers registered
+        from butler.gateway.command_registry import CommandContext, dispatch
+
+        ctx = CommandContext(
+            cmd=cmd,
+            arg=arg,
+            session_key=session_key,
+            platform=platform,
+            external_id=external_id,
+            orchestrator=self._orchestrator,
+            session_registry=self._session_registry,
+        )
+        handled, result = dispatch(ctx)
+        if handled:
+            return result
+
         if cmd in ("/projects", "/项目"):
             from butler.gateway.project_commands import handle_project_onboarding_command
 
@@ -996,9 +1020,6 @@ class ButlerMessageHandler:
                 extra = f" pack={pack}" if pack else ""
                 lines.append(f"{mark}{p.name} ({p.type}{extra}) — {p.description}")
             return "\n".join(lines)
-
-        if cmd in ("/overview", "/总览"):
-            return _build_project_overview(self._orchestrator, session_key)
 
         if cmd in ("/switch", "/切换"):
             if not arg:
@@ -1034,11 +1055,6 @@ class ButlerMessageHandler:
                     "提示: 名称需精确或唯一匹配。"
                 )
             return f"未找到项目: {arg}（当前无已注册项目，请先用 /项目 新建 创建）"
-
-        if cmd in ("/presets", "/预设"):
-            from butler.provider_presets import format_presets_list
-
-            return format_presets_list()
 
         if cmd in ("/model", "/模型"):
             from butler.model_resolve import handle_model_command
@@ -1120,67 +1136,6 @@ class ButlerMessageHandler:
         if cmd in ("/health", "/诊断"):
             return self._format_health_summary(session_key)
 
-        if cmd in ("/循环", "/loop"):
-            from butler.core.goal_loop import start_goal_loop
-
-            return start_goal_loop(session_key, arg)
-
-        if cmd in ("/停止循环", "/stoploop"):
-            from butler.core.goal_loop import stop_goal_loop
-
-            return stop_goal_loop(session_key)
-
-        if cmd in ("/doctor",):
-            from butler.ops.security_audit import format_audit_report, run_security_audit
-
-            workspace = None
-            try:
-                proj = self._orchestrator.project_manager.get_current(session_key=session_key)
-                if proj is not None:
-                    from pathlib import Path
-
-                    workspace = Path(proj.workspace)
-            except Exception as exc:
-                logger.debug("Security audit workspace resolve skipped: %s", exc)
-            return format_audit_report(run_security_audit(workspace=workspace))
-
-        if cmd in ("/steer", "/指引"):
-            from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
-
-            active = is_run_active(session_key)
-            accepted = bool(active and steer(arg, session_key=session_key))
-            return format_steer_gateway_reply(accepted=accepted, active=active)
-
-        if cmd == "/queue":
-            from butler.gateway.queue_settings import apply_queue_command
-
-            return apply_queue_command(session_key, arg)
-
-        if cmd in ("/确认", "/approve"):
-            from butler.human_gate import resolve_human_gate_message
-
-            return resolve_human_gate_message(session_key, "确认") or "当前没有待确认的工作流步骤。"
-
-        if cmd in ("/取消", "/cancel"):
-            from butler.human_gate import resolve_human_gate_message
-
-            return resolve_human_gate_message(session_key, "取消") or "当前没有待确认的工作流步骤。"
-
-        if cmd in ("/budget", "/预算"):
-            from butler.core.turn_token_budget import parse_token_budget_text
-
-            if arg:
-                probe = parse_token_budget_text(f"/budget {arg}")
-                if probe:
-                    return (
-                        f"已识别本轮 token 预算约 {probe:,}。"
-                        "请直接发送任务并在句末加 +500k，或写「本轮尽量做完」。"
-                    )
-            return (
-                "用法：在任务句末加 +500k / +2m，或发送「本轮尽量做完」。"
-                "也可：/budget 500k（提示预算，与下一条任务一并发送）。"
-            )
-
         if cmd in ("/new", "/新对话"):
             from butler.session.lifecycle import handle_new_session_command
 
@@ -1219,253 +1174,6 @@ class ButlerMessageHandler:
                 logger.debug("Session cleanup for new session skipped: %s", exc)
             return handle_new_session_command(self._orchestrator, session_key, loop)
 
-        if cmd in ("/detail", "/详细"):
-            from butler.report import get_last_report, format_detail
-            from butler.report.format import parse_detail_section
-
-            report = get_last_report(session_key)
-            if report:
-                return format_detail(report, section=parse_detail_section(arg))
-            return "暂无可展示的详细报告。"
-
-        if cmd in ("/plan", "/计划", "/规划"):
-            from butler.plan.mode import format_plan_mode_status, set_plan_mode
-
-            arg_l = (arg or "").strip().lower()
-            if arg_l in ("off", "exit", "执行", "退出", "关闭"):
-                from butler.plan.mode import clear_plan_mode
-
-                clear_plan_mode(session_key)
-                self._session_registry.reset(session_key)
-                return "已退出规划模式，可以委派与写入。"
-            set_plan_mode(session_key, True)
-            self._session_registry.reset(session_key)
-            return format_plan_mode_status(session_key)
-
-        if cmd in ("/执行", "/exit-plan", "/退出规划"):
-            from butler.plan.mode import clear_plan_mode
-
-            clear_plan_mode(session_key)
-            self._session_registry.reset(session_key)
-            return "已退出规划模式，可以委派与写入。"
-
-        if cmd in ("/todos", "/待办"):
-            from butler.core.session_todos import format_session_todos_for_wechat
-
-            return format_session_todos_for_wechat(session_key)
-
-        if cmd in ("/memo", "/备忘"):
-            from butler.tools.memo import format_memos_for_wechat
-
-            return format_memos_for_wechat(arg)
-
-        if cmd in ("/contacts", "/通讯录"):
-            from butler.tools.contacts import format_contacts_for_wechat
-
-            return format_contacts_for_wechat(arg)
-
-        if cmd in ("/expense", "/记账"):
-            from butler.tools.expense import format_expense_for_wechat
-
-            return format_expense_for_wechat(arg)
-
-        if cmd in ("/habits", "/打卡"):
-            from butler.tools.habits import format_habits_for_wechat
-
-            return format_habits_for_wechat(arg)
-
-        if cmd in ("/project-todos", "/项目待办"):
-            from butler.tools.project_todos import format_project_todos_for_wechat
-
-            proj = self._orchestrator.project_manager.active_project
-            if proj and getattr(proj, "workspace", None):
-                from pathlib import Path
-
-                return format_project_todos_for_wechat(Path(proj.workspace))
-            return "无活跃项目。"
-
-        if cmd in ("/导出", "/export", "/export-session", "/导出会话"):
-            from butler.gateway.export_commands import handle_export_session_command
-
-            return handle_export_session_command(
-                arg,
-                platform=platform,
-                external_id=external_id,
-                session_key=session_key,
-            )
-
-        if cmd in ("/回滚", "/transcript-revert", "/revert-transcript"):
-            from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-            from butler.core.transcript_revert import truncate_transcript
-
-            if not is_gateway_owner(platform=platform, external_id=external_id, session_key=session_key):
-                return owner_required_message()
-            keep = 0
-            if arg.strip().isdigit():
-                keep = int(arg.strip())
-            result = truncate_transcript(session_key, keep_last_lines=keep or None)
-            if not result.get("ok"):
-                return f"Transcript 回滚失败: {result.get('error', '?')}"
-            if result.get("skipped"):
-                return f"Transcript 无需回滚（当前 {result.get('lines_after', '?')} 行）"
-            return (
-                f"已截断 transcript：丢弃 {result.get('dropped_lines', 0)} 行，"
-                f"保留约 {result.get('lines_after', 0)} 行（不含内存中的对话）。"
-            )
-
-        if cmd in ("/fork-transcript", "/transcript-fork", "/分叉"):
-            from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-            from butler.core.transcript_fork import fork_transcript_at_user_message
-
-            if not is_gateway_owner(platform=platform, external_id=external_id, session_key=session_key):
-                return owner_required_message()
-            user_idx = 1
-            if arg.strip().isdigit():
-                user_idx = max(1, int(arg.strip()))
-            result = fork_transcript_at_user_message(
-                session_key,
-                keep_from_user_index=user_idx,
-            )
-            if not result.get("ok"):
-                err = result.get("error", "?")
-                if err == "user_index_not_found":
-                    return (
-                        f"Fork 失败：未找到第 {user_idx} 条 user 消息"
-                        f"（共 {result.get('user_messages_found', 0)} 条 user）。"
-                    )
-                return f"Transcript fork 失败: {err}"
-            if result.get("skipped"):
-                return f"Transcript 已在第 {user_idx} 条 user 消息处，无需 fork。"
-            return (
-                f"已从第 {user_idx} 条 user 消息 fork transcript："
-                f"丢弃 {result.get('dropped_lines', 0)} 行，保留约 {result.get('lines_after', 0)} 行。"
-            )
-
-        if cmd in ("/记忆提炼", "/transcript-memory", "/extract-transcript-memory"):
-            from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-            from butler.memory.transcript_memory_pipeline import (
-                extract_memory_from_transcript,
-                transcript_memory_enabled,
-            )
-
-            if not is_gateway_owner(platform=platform, external_id=external_id, session_key=session_key):
-                return owner_required_message()
-            if not transcript_memory_enabled():
-                return (
-                    "Transcript 记忆提炼未启用。设置 BUTLER_TRANSCRIPT_MEMORY=1 后重试。"
-                )
-            project = arg.strip() or os.getenv("BUTLER_DEFAULT_PROJECT", "") or ""
-            result = extract_memory_from_transcript(session_key, project_name=project)
-            if not result.get("ok"):
-                return f"记忆提炼失败: {result.get('error', '?')}"
-            if result.get("skipped"):
-                return (
-                    f"跳过提炼：transcript 消息不足（{result.get('message_count', 0)} 条，需 ≥4）。"
-                )
-            updates = int(result.get("memory_updates") or 0)
-            errs = result.get("errors") or []
-            if errs:
-                return f"提炼完成：写入 {updates} 条；警告: {'; '.join(errs[:2])}"
-            return f"提炼完成：从 transcript 写入 {updates} 条记忆。"
-
-        if cmd in ("/确认安装", "/confirm-install"):
-            from butler.gateway.registry_commands import handle_confirm_install_command
-
-            return handle_confirm_install_command(
-                arg,
-                platform=platform,
-                external_id=external_id,
-                session_key=session_key,
-            )
-
-        if cmd in ("/技能", "/skills", "/mcp"):
-            from butler.gateway.registry_commands import handle_registry_command
-
-            reg = handle_registry_command(
-                cmd,
-                arg,
-                platform=platform,
-                external_id=external_id,
-                session_key=session_key,
-            )
-            if reg is not None:
-                return reg
-
-        if cmd in ("/config", "/配置"):
-            from butler.config_service import (
-                config_set,
-                format_config_get,
-                format_config_list,
-            )
-
-            if not arg:
-                return format_config_list()
-            parts = arg.split(maxsplit=1)
-            sub = parts[0].lower()
-            sub_arg = parts[1].strip() if len(parts) > 1 else ""
-            if sub == "list":
-                return format_config_list(sub_arg)
-            if sub == "get" and sub_arg:
-                return format_config_get(sub_arg)
-            if sub == "set":
-                kv = sub_arg.split(maxsplit=1)
-                if len(kv) == 2:
-                    result = config_set(kv[0], kv[1])
-                    if result.needs_reset:
-                        self._session_registry.reset(session_key)
-                    return result.message
-                return "用法: /config set <变量名> <值>"
-            return format_config_get(arg)
-
-        if cmd in ("/帮助", "/help"):
-            from butler.gateway.help_commands import format_help_text
-
-            return format_help_text(arg)
-
-        if cmd in ("/tasks", "/任务"):
-            from butler.runtime.task_store import (
-                count_running_tasks,
-                list_recent_tasks,
-                mark_stale_tasks,
-                task_stale_minutes,
-            )
-
-            stale = mark_stale_tasks(session_key, auto_fail=False)
-            rows = list_recent_tasks(session_key, limit=5)
-            if not rows:
-                return "暂无委派任务记录。"
-            lines = [
-                "最近委派任务:",
-                f"  running: {count_running_tasks(session_key)} · stale 阈值: {task_stale_minutes()} 分钟",
-            ]
-            if stale:
-                lines.append(f"  ⚠ 僵死任务 {len(stale)} 个（发 /诊断 查看详情）")
-            for row in rows:
-                status = row.get("status") or "?"
-                ok = row.get("success")
-                mark = "✓" if ok is True else ("✗" if ok is False else "…")
-                if row.get("stale"):
-                    mark = "⏱"
-                child_sk = str(row.get("child_session_key") or "").strip()
-                child_hint = f" · {child_sk}" if child_sk else ""
-                bg = " [后台]" if row.get("background") else ""
-                stale_tag = " [stale]" if row.get("stale") else ""
-                lines.append(
-                    f"  {mark} {row.get('task_id')} [{status}]{stale_tag}{bg}{child_hint} "
-                    f"{(row.get('task_preview') or '')[:60]}"
-                )
-            return "\n".join(lines)
-
-        if cmd in ("/workflow", "/工作流"):
-            from butler.workflows.commands import handle_workflow_command
-
-            return handle_workflow_command(
-                self._orchestrator,
-                arg,
-                session_key=session_key,
-                platform=platform,
-            )
-
         from butler.gateway.dev_commands import handle_dev_command
 
         dev_resp = handle_dev_command(cmd, arg)
@@ -1477,11 +1185,6 @@ class ButlerMessageHandler:
         rt_resp = handle_runtime_command(self._orchestrator, cmd, arg)
         if rt_resp is not None:
             return rt_resp
-
-        if cmd in ("/记忆状态", "/memory-status"):
-            from butler.gateway.memory_commands import format_memory_status
-
-            return format_memory_status(self._orchestrator, session_key=session_key)
 
         from butler.gateway.memory_commands import handle_memory_pending_command
 

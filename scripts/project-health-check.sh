@@ -29,13 +29,23 @@ modules = [
     "butler.core.agent_loop",
     "butler.core.tool_batch",
     "butler.core.context_pipeline",
+    "butler.core.llm_retry",
     "butler.gateway.message_handler",
     "butler.gateway.session_registry",
+    "butler.gateway.command_registry",
+    "butler.gateway.commands",
+    "butler.project.lead",
+    "butler.project.manager",
+    "butler.project.preflight",
     "butler.tools.registry",
     "butler.tools.config_tools",
     "butler.tools.web_search",
     "butler.tools.multimodal_tools",
     "butler.config_service",
+    "butler.memory.embedding",
+    "butler.memory.vector_store",
+    "butler.transport.llm_client",
+    "butler.ops.health_report",
 ]
 for m in modules:
     __import__(m)

@@ -21,7 +21,6 @@ from butler.gateway.message_handler import (
 )
 from butler.report import AgentReport, Change, cache_report, clear_report_cache
 from butler.project.manager import ProjectManager
-from butler.report import AgentReport, cache_report
 
 
 def _reset_singletons() -> None:
@@ -339,7 +338,7 @@ class TestSlashCommands:
         handler._sessions["default"] = mock_loop
         handler._health_by_session["default"] = {"stale": True}
         with patch(
-            "butler.session.lifecycle.trigger_session_end",
+            "butler.session.post_session_ops.trigger_session_end",
             return_value={"memory_updates": 1, "skills_extracted": 0},
         ):
             text = handler._handle_command("/new")
@@ -359,7 +358,7 @@ class TestSlashCommands:
         handler._health_by_session["b"] = {"keep": "b"}
 
         with patch(
-            "butler.session.lifecycle.trigger_session_end",
+            "butler.session.post_session_ops.trigger_session_end",
             return_value={"skipped": True, "reason": "short_history"},
         ) as finalize:
             text = handler.handle_message("/new", session_key="a")
@@ -435,7 +434,7 @@ class TestSlashCommands:
 
     def test_chinese_alias_new(self, handler):
         with patch(
-            "butler.session.lifecycle.trigger_session_end",
+            "butler.session.post_session_ops.trigger_session_end",
             return_value={"skipped": True, "reason": "short_history"},
         ):
             text = handler._handle_command("/新对话")

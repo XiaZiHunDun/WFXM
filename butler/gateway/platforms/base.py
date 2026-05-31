@@ -120,7 +120,9 @@ class ButlerPlatformAdapter(ABC):
                 try:
                     if bridge is not None:
                         bridge.mark_final_sent()
-                    await self.send(chat_id, f"处理失败: {exc}")
+                    from butler.gateway.user_errors import format_gateway_user_error
+
+                    await self.send(chat_id, format_gateway_user_error(exc))
                 except Exception as exc:
                     logger.debug("handle message skipped: %s", exc)
             finally:

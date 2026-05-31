@@ -1,12 +1,47 @@
-"""Unified command registry for Butler gateway slash commands."""
+"""Unified command registry for Butler gateway slash commands.
+
+Supports two tiers of command handling:
+
+1. **Registered handlers** — ``CommandDef.handler`` is a callable that receives
+   a ``CommandContext`` and returns ``str | None``.  These are resolved via
+   ``dispatch()`` and bypass the legacy if/elif chain.
+
+2. **Legacy inline** — commands without a handler fall through to
+   ``ButlerMessageHandler._handle_command``'s if/elif chain.  New commands
+   should always use tier 1.
+"""
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Optional
+
+if TYPE_CHECKING:
+    from butler.orchestrator import ButlerOrchestrator
+    from butler.gateway.session_registry import GatewaySessionRegistry
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CommandContext:
+    """Immutable bag of state passed to every registered command handler."""
+
+    cmd: str
+    arg: str
+    session_key: str
+    platform: str
+    external_id: str | None
+    orchestrator: Any
+    session_registry: Any
+
+    def reset_loop(self) -> None:
+        """Convenience: destroy the current session's AgentLoop."""
+        self.session_registry.reset(self.session_key)
+
+
+CommandHandler = Callable[[CommandContext], Optional[str]]
 
 
 @dataclass(frozen=True)
@@ -16,6 +51,7 @@ class CommandDef:
     category: str = "其他"
     help_text: str = ""
     handler_ref: str = ""
+    handler: Optional[CommandHandler] = field(default=None, repr=False, compare=False)
     visibility: str = "public"  # public | admin | hidden
 
 
@@ -32,6 +68,24 @@ def register(cmd: CommandDef) -> None:
 def lookup(name: str) -> CommandDef | None:
     canonical = _ALIAS_MAP.get(name, name)
     return _REGISTRY.get(canonical)
+
+
+def dispatch(ctx: CommandContext) -> tuple[bool, str | None]:
+    """Try to dispatch *ctx.cmd* through a registered handler.
+
+    Returns ``(handled, response)``.  If no handler is registered for the
+    command, returns ``(False, None)`` so the caller can fall through to
+    legacy handling.
+    """
+    cmd_def = lookup(ctx.cmd)
+    if cmd_def is None or cmd_def.handler is None:
+        return False, None
+    try:
+        result = cmd_def.handler(ctx)
+        return True, result
+    except Exception as exc:
+        logger.error("Command handler %s failed: %s", ctx.cmd, exc, exc_info=True)
+        return True, f"命令执行异常: {exc}"
 
 
 def all_commands(*, visibility: str | None = None) -> list[CommandDef]:
@@ -146,9 +200,12 @@ def _register_defaults() -> None:
 _register_defaults()
 
 __all__ = [
+    "CommandContext",
     "CommandDef",
+    "CommandHandler",
     "all_commands",
     "categories",
+    "dispatch",
     "format_registry_help",
     "lookup",
     "register",

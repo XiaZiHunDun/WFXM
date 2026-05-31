@@ -28,7 +28,9 @@ jobs:
       - name: Ruff lint
         run: ruff check butler/ --select=E,F,W --ignore=E501,E402 --output-format=concise
       - name: Import smoke test
-        run: python -c "from butler.tools.registry import dispatch_tool; from butler.core.agent_loop import AgentLoop; print('imports OK')"
+        run: |
+          python -c "from butler.tools.registry import dispatch_tool; from butler.core.agent_loop import AgentLoop; print('imports OK')"
+          python -m pytest tests/test_critical_imports.py -q --tb=line
 
   pytest:
     runs-on: ubuntu-latest
@@ -120,7 +122,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Butler smoke subset (runtime, inbound, ops, memory)
+      - name: Butler smoke subset (runtime, inbound, ops, memory, imports)
         run: |
           python -m pytest \
             tests/test_runtime.py \
@@ -131,6 +133,8 @@ jobs:
             tests/test_failure_tracker.py \
             tests/test_dev_tools_integration.py \
             tests/test_p0_memory_pilot.py \
+            tests/test_critical_imports.py \
+            tests/test_project_lead.py \
             -q --tb=line
 
   corpus-gateway-live:

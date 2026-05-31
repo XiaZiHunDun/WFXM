@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 _MAX_ROWS = 200
 _MAX_OUTPUT_CHARS = 32_000
+_QUERY_TIMEOUT_SECONDS = 30
 
 _QUERYABLE_EXTENSIONS = frozenset({".csv", ".tsv", ".json", ".jsonl", ".parquet", ".db", ".sqlite"})
 
@@ -39,6 +40,13 @@ def _duckdb_available() -> bool:
 def _analytics_enabled() -> bool:
     from butler.env_parse import env_truthy
     return env_truthy("BUTLER_DATA_QUERY", default=True)
+
+
+def _strip_sql_comments(sql: str) -> str:
+    """Remove SQL comments to prevent keyword check bypass."""
+    sql = re.sub(r"--[^\n]*", " ", sql)
+    sql = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
+    return sql
 
 
 def _resolve_project_path(path: str) -> Path | None:
@@ -86,18 +94,20 @@ def tool_query_data(
     if not query:
         return json.dumps({"error": "sql query required"})
 
-    if _WRITE_KEYWORDS.search(query):
-        match = _WRITE_KEYWORDS.search(query)
+    normalized = _strip_sql_comments(query)
+
+    if _WRITE_KEYWORDS.search(normalized):
+        match = _WRITE_KEYWORDS.search(normalized)
         return json.dumps({"error": f"write operations not allowed: {match.group(1).upper()}"})
 
-    if _DANGEROUS_FUNCTIONS.search(query):
-        match = _DANGEROUS_FUNCTIONS.search(query)
+    if _DANGEROUS_FUNCTIONS.search(normalized):
+        match = _DANGEROUS_FUNCTIONS.search(normalized)
         return json.dumps({
             "error": f"direct file access functions not allowed in SQL: {match.group(1)}",
             "hint": "use the 'file' parameter to specify data source",
         })
 
-    cap = min(max(10, int(max_rows or _MAX_ROWS)), 1000)
+    cap = min(max(10, int(max_rows if max_rows is not None else _MAX_ROWS)), 1000)
 
     import duckdb  # type: ignore[import-untyped]
 
@@ -107,7 +117,11 @@ def tool_query_data(
 
     con = None
     try:
-        con = duckdb.connect(":memory:", read_only=False)
+        con = duckdb.connect(":memory:")
+        try:
+            con.execute(f"SET statement_timeout='{_QUERY_TIMEOUT_SECONDS}s'")
+        except Exception:
+            pass
 
         if target:
             p = _resolve_project_path(target)
@@ -158,7 +172,10 @@ def tool_query_data(
 
     except Exception as exc:
         logger.warning("data_query execution error: %s", exc)
-        return json.dumps({"error": f"query failed: {exc}"})
+        err_msg = str(exc)
+        if len(err_msg) > 200:
+            err_msg = err_msg[:200] + "…"
+        return json.dumps({"error": f"query failed: {err_msg}"})
     finally:
         if con is not None:
             try:

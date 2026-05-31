@@ -54,6 +54,9 @@ def quarantine_bundle(bundle: SkillBundle, *, tenant_id: str = "") -> Path:
         if total > _max_bytes():
             raise ValueError(f"Skill bundle exceeds {_max_bytes()} bytes")
         target = dest / safe
+        resolved = target.resolve()
+        if not str(resolved).startswith(str(dest.resolve())):
+            raise ValueError(f"Unsafe path escapes quarantine: {rel}")
         target.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(content, bytes):
             target.write_bytes(content)

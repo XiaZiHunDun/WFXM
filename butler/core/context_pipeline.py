@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+import weakref
+from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol, runtime_checkable
 
 
@@ -43,7 +44,38 @@ class ContextPipeline:
     config: LoopConfig
     compression_summary: str = ""
     consecutive_compact_failures: int = 0
-    _attached_loop: LoopContext | None = None
+    _attached_loop_ref: Any = field(default=None, repr=False)
+
+    @property
+    def _attached_loop(self) -> LoopContext | None:
+        ref = self._attached_loop_ref
+        if ref is None:
+            return None
+        if isinstance(ref, weakref.ref):
+            return ref()
+        return ref
+
+    @_attached_loop.setter
+    def _attached_loop(self, value: LoopContext | None) -> None:
+        if value is None:
+            self._attached_loop_ref = None
+        else:
+            try:
+                self._attached_loop_ref = weakref.ref(value)
+            except TypeError:
+                logger.warning(
+                    "Cannot create weakref for %s; loop diagnostics will be unavailable",
+                    type(value).__name__,
+                )
+                self._attached_loop_ref = None
+
+    def attach_loop(self, loop: LoopContext) -> None:
+        """Public API: attach a loop context (stored as a weakref)."""
+        self._attached_loop = loop
+
+    def detach_loop(self) -> None:
+        """Public API: clear the attached loop reference."""
+        self._attached_loop = None
 
     def estimate_tokens(self, messages: list[dict]) -> int:
         return _estimate_tokens(messages)

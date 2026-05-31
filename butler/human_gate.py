@@ -135,8 +135,10 @@ def _load_pending(session_key: str) -> PendingGate | None:
             _save_pending(session_key, None)
             return None
         return gate
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None
     except Exception as exc:
-        logger.debug("human gate read failed: %s", exc)
+        logger.warning("human gate read failed unexpectedly: %s", exc)
         return None
 
 
@@ -266,7 +268,7 @@ def _injection_bypass_path(session_key: str) -> Path:
 def grant_injection_bypass(session_key: str, *, ttl_seconds: float = 300.0) -> None:
     """Allow one subsequent inbound to skip injection LLM block."""
     path = _injection_bypass_path(session_key)
-    payload = {"expires_at": time.time() + max(30.0, ttl_seconds)}
+    payload = {"expires_at": time.time() + min(max(30.0, ttl_seconds), 3600.0)}
     try:
         from butler.io.atomic_write import atomic_write_text
 

@@ -46,10 +46,10 @@ def once_ttl_seconds() -> float:
 
 
 def _safe_segment(value: str) -> str:
-    import re
+    import hashlib
 
     raw = str(value or "").strip() or "_global"
-    return re.sub(r"[^a-zA-Z0-9._+-]+", "_", raw)[:120] or "_global"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 def approvals_path(session_key: str) -> Path:

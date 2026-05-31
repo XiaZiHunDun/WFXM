@@ -24,8 +24,8 @@ butler project preflight --project "$PROJECT"
 echo ""
 echo "== 2/4 lead project + tool allowlist =="
 python3 <<'PY'
-from butler.project_lead import gateway_loop_role, is_lead_project
-from butler.project_manager import get_project_manager
+from butler.project.lead import gateway_loop_role, is_lead_project
+from butler.project.manager import get_project_manager
 from butler.tools.project_tools import allowed_tool_names_for_project
 
 pm = get_project_manager()

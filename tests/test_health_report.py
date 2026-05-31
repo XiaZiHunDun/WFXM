@@ -40,7 +40,8 @@ def test_build_health_report_static_branch():
             )
         )
 
-    assert text.startswith("Butler 诊断\n会话: sess-a")
+    assert text.startswith("Butler 诊断\n版本:")
+    assert "会话: sess-a" in text
     assert "上下文用量" in text
     assert "轮次诊断: 暂无" in text
     assert "记忆分层: test" in text

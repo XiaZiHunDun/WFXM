@@ -157,6 +157,7 @@ class SemanticMemoryIndex:
         if not q:
             return []
         cap = limit if limit is not None else semantic_search_limit()
+        sql_limit = min(max(cap * 10, 200), 2000)
         qvec = self.embedder.embed(q)
         scored: list[tuple[float, dict[str, Any]]] = []
         with self._lock:
@@ -168,8 +169,10 @@ class SemanticMemoryIndex:
                                updated_at, access_count, last_accessed_at
                         FROM memory_vectors
                         WHERE project = ? OR project = ''
+                        ORDER BY updated_at DESC
+                        LIMIT ?
                         """,
-                        (project.strip(),),
+                        (project.strip(), sql_limit),
                     ).fetchall()
                 else:
                     rows = conn.execute(
@@ -177,7 +180,10 @@ class SemanticMemoryIndex:
                         SELECT source, source_id, project, category, content, embedding_json,
                                updated_at, access_count, last_accessed_at
                         FROM memory_vectors
-                        """
+                        ORDER BY updated_at DESC
+                        LIMIT ?
+                        """,
+                        (sql_limit,),
                     ).fetchall()
         for row in rows:
             (
@@ -269,21 +275,30 @@ class SemanticMemoryIndex:
         if not hits:
             return
         now = time.time()
+        pairs = []
+        for hit in hits:
+            src = str(hit.get("source") or "")
+            sid = str(hit.get("source_id") or "")
+            if src and sid:
+                pairs.append((src, sid))
+        if not pairs:
+            return
         with self._lock:
             with self._connect() as conn:
-                for hit in hits:
-                    src = str(hit.get("source") or "")
-                    sid = str(hit.get("source_id") or "")
-                    if not src or not sid:
-                        continue
-                    conn.execute(
-                        """
-                        UPDATE memory_vectors
-                        SET access_count = access_count + 1, last_accessed_at = ?
-                        WHERE source = ? AND source_id = ?
-                        """,
-                        (now, src, sid),
-                    )
+                placeholders = " OR ".join(
+                    "(source = ? AND source_id = ?)" for _ in pairs
+                )
+                params: list[Any] = [now]
+                for src, sid in pairs:
+                    params.extend([src, sid])
+                conn.execute(
+                    f"""
+                    UPDATE memory_vectors
+                    SET access_count = access_count + 1, last_accessed_at = ?
+                    WHERE {placeholders}
+                    """,
+                    params,
+                )
                 conn.commit()
 
     def delete_source_prefix(self, source: str) -> int:

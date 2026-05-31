@@ -236,6 +236,19 @@ def snapshot_session(session_key: str) -> dict[str, Any]:
     return {"counters": counters, "gauges": gauges, "histograms": histograms}
 
 
+def get_runtime_metrics() -> dict[str, Any]:
+    """Return a flat dict of key runtime metrics for /诊断 display."""
+    snap = snapshot_global()
+    counters = snap.get("counters", {})
+    error_total = sum(v for k, v in counters.items() if k == "error" or k.startswith("error{"))
+    result: dict[str, Any] = {
+        "error_count": error_total,
+        "compaction_count": sum(v for k, v in counters.items() if k == "compaction" or k.startswith("compaction{")),
+        "context_token_estimate": counters.get("context_tokens", "-"),
+    }
+    return result
+
+
 def _format_histogram_line(key: str, stats: dict[str, Any]) -> str:
     p50 = stats.get("p50_ms")
     p95 = stats.get("p95_ms")

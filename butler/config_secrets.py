@@ -39,7 +39,7 @@ def _ensure_private_mode(path: Path) -> None:
             path.touch(mode=0o600)
             path.chmod(0o600)
     except OSError as exc:
-        logger.debug("secrets chmod skipped: %s", exc)
+        logger.warning("secrets chmod failed (file may be world-readable): %s", exc)
 
 
 def load_secrets_dict(home: Path | None = None) -> dict[str, Any]:
