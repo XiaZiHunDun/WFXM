@@ -1109,6 +1109,8 @@ class ButlerMessageHandler:
             sess_out = handle_sessions_command(
                 self._orchestrator,
                 arg,
+                platform=platform,
+                external_id=external_id,
                 session_key=session_key,
             )
             if sess_out:

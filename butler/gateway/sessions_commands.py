@@ -5,13 +5,23 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
 
 def handle_sessions_command(
     orchestrator: Any,
     arg: str,
     *,
+    platform: str = "",
+    external_id: str | None = None,
     session_key: str = "",
 ) -> str:
+    # Sprint 11 SEC-11-7: list_sessions 返全量 session_key（含 chat_id），
+    # 信息泄露风险。仅 Owner 可看。
+    if not is_gateway_owner(
+        platform=platform, external_id=external_id, session_key=session_key
+    ):
+        return owner_required_message()
     from butler.cli.sessions_cli import list_sessions
 
     try:
