@@ -4,17 +4,29 @@ from __future__ import annotations
 
 from typing import Any
 
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
 
 def handle_outcome_command(
     orchestrator: Any,
     arg: str,
     *,
+    platform: str = "",
+    external_id: str | None = None,
     session_key: str = "",
 ) -> str | None:
     """
     /评价 [row_id] <结果值> [反思一句]
     /评价 list — 列出 pending
+
+    Sprint 11 SEC-11-6: 写入 experiments/outcomes.py，需 Owner 守门避免
+    污染实验评估日志。
     """
+    # Sprint 11 SEC-11-6: 非 Owner 一律拒绝
+    if not is_gateway_owner(
+        platform=platform, external_id=external_id, session_key=session_key
+    ):
+        return owner_required_message()
     text = (arg or "").strip()
     proj = orchestrator.project_manager.get_current(session_key=session_key)
     if proj is None:

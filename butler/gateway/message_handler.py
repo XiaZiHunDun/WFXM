@@ -1120,6 +1120,8 @@ class ButlerMessageHandler:
             outcome = handle_outcome_command(
                 self._orchestrator,
                 arg,
+                platform=platform,
+                external_id=external_id,
                 session_key=session_key,
             )
             if outcome is not None:
