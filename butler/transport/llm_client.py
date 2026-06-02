@@ -73,6 +73,8 @@ class LLMClient:
     def api_mode(self) -> str:
         return self._api_mode or "chat_completions"
 
+    _MAX_RETRIES = 0  # 重试由外层 llm_retry 中间件统一处理，关闭 SDK 默认重试避免双层放大（Sprint 10 PERF-NEW-3）
+
     def _get_openai_client(self):
         if self._client is None:
             try:
@@ -85,6 +87,7 @@ class LLMClient:
                     api_key=api_key,
                     base_url=self._base_url,
                     timeout=self.timeout,
+                    max_retries=self._MAX_RETRIES,
                 )
             except ImportError:
                 raise RuntimeError("openai package required: pip install openai")
@@ -102,6 +105,7 @@ class LLMClient:
                     api_key=api_key,
                     base_url=self._base_url,
                     timeout=self.timeout,
+                    max_retries=self._MAX_RETRIES,
                 )
             except ImportError:
                 try:
@@ -110,6 +114,7 @@ class LLMClient:
                         api_key=api_key,
                         base_url=self._base_url,
                         timeout=self.timeout,
+                        max_retries=self._MAX_RETRIES,
                     )
                     self._api_mode = "chat_completions"
                 except ImportError:
