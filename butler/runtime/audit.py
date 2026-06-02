@@ -3,13 +3,24 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from butler.config import get_butler_settings
+
+logger = logging.getLogger(__name__)
+
+# Per-process nonce for ``try_acquire_lock`` content.  Generated once at
+# module import; never persisted.  ``release_lock`` compares the current
+# process pid + this token against the lock file before unlinking, so a
+# stale takeover (after 2h+) does not let the original owner accidentally
+# unlink the new owner's lock.
+_PROCESS_TOKEN: str = uuid4().hex
 
 
 def _runs_root() -> Path:
@@ -56,6 +67,15 @@ def lock_path(project_name: str, job_id: str) -> Path:
     return locks / f"{_slug(project_name)}__{job_id}.lock"
 
 
+def _lock_content() -> str:
+    """Build the lock file content for the current process.
+
+    Sprint 9 REL-10: format ``pid:nonce:acquire_ts`` so ``release_lock``
+    can verify the holder before unlinking.
+    """
+    return f"{os.getpid()}:{_PROCESS_TOKEN}:{time.time()}"
+
+
 def try_acquire_lock(project_name: str, job_id: str, *, stale_seconds: float = 7200) -> bool:
     path = lock_path(project_name, job_id)
     # Atomic create-or-fail: O_EXCL makes the create fail if the file
@@ -87,14 +107,52 @@ def try_acquire_lock(project_name: str, job_id: str, *, stale_seconds: float = 7
     except OSError:
         return False
     try:
-        os.write(fd, str(time.time()).encode("utf-8"))
+        os.write(fd, _lock_content().encode("utf-8"))
     finally:
         os.close(fd)
     return True
 
 
 def release_lock(project_name: str, job_id: str) -> None:
+    """Unlink the lock only if the current process is the recorded holder.
+
+    Sprint 9 REL-10: 读锁内容 → 验证 pid + nonce 匹配当前进程 → 匹配
+    才 unlink。不匹配 / 文件缺失 / 内容格式异常一律 no-op（warn log），
+    防止 stale takeover 之后原 owner release 误删新 owner 的锁。
+    """
+    path = lock_path(project_name, job_id)
     try:
-        lock_path(project_name, job_id).unlink(missing_ok=True)
+        content = path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return
+    except OSError:
+        return
+    parts = content.split(":", 2)
+    if len(parts) < 3:
+        logger.warning(
+            "release_lock: 锁内容格式异常，跳过 unlink: path=%s content=%r",
+            path,
+            content,
+        )
+        return
+    try:
+        lock_pid = int(parts[0])
+    except ValueError:
+        logger.warning(
+            "release_lock: 锁内容 PID 非数字，跳过 unlink: path=%s content=%r",
+            path,
+            content,
+        )
+        return
+    if lock_pid != os.getpid() or parts[1] != _PROCESS_TOKEN:
+        logger.warning(
+            "release_lock: 锁持有者非当前进程，跳过 unlink: path=%s lock_pid=%s current_pid=%s",
+            path,
+            lock_pid,
+            os.getpid(),
+        )
+        return
+    try:
+        path.unlink()
     except OSError:
         pass
