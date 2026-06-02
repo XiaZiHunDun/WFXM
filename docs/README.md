@@ -68,7 +68,7 @@
 | [`plans/comparisons/hermes-agent-dependency-and-extraction-report-2026-05.md`](plans/comparisons/hermes-agent-dependency-and-extraction-report-2026-05.md) | Hermes 依赖/边界对照报告（**非待办**） |
 | [`plans/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md) | 运营与多项目后续 |
 | [`plans/consolidation-2026-05.md`](plans/archive/consolidation-2026-05.md) | 仓库整理（已完成） |
-| [`reviews/project-assessment-2026-05.md`](reviews/project-assessment-2026-05.md) | 成熟度评估 |
+| [`reviews/project-deep-audit-2026-06.md`](reviews/project-deep-audit-2026-06.md) | 成熟度评估 |
 
 ## 语料与微信测试（专项）
 

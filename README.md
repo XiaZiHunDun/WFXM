@@ -145,4 +145,4 @@ scripts/               # 网关安装与 butler-gateway-ops 运维
 | [docs/guides/wechat-daily-smoke-checklist.md](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟检查表 |
 | [docs/design/design.md](docs/design/design.md) | v4 产品设计摘要 |
 | [docs/plans/active/post-consolidation-roadmap-2026-05.md](docs/plans/active/post-consolidation-roadmap-2026-05.md) | 整理后后续规划 |
-| [docs/reviews/project-assessment-2026-05.md](docs/reviews/project-assessment-2026-05.md) | 项目成熟度评估 |
+| [docs/reviews/project-deep-audit-2026-06.md](docs/reviews/project-deep-audit-2026-06.md) | 项目成熟度评估 |

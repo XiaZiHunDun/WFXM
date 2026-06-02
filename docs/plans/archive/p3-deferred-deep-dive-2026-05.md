@@ -278,4 +278,4 @@ agent_loop: clear_steer(session_key)  # 按 session
 - [`architecture/memory-roadmap.md`](../../architecture/memory-roadmap.md)  
 - [`consolidation-p3-implementation-2026-05.md`](../archive/consolidation-p3-implementation-2026-05.md)  
 - [`post-consolidation-roadmap-2026-05.md`](../active/post-consolidation-roadmap-2026-05.md)  
-- [`reviews/project-assessment-2026-05.md`](../../reviews/project-assessment-2026-05.md)
+- [`reviews/project-deep-audit-2026-06.md`](../../reviews/project-deep-audit-2026-06.md)

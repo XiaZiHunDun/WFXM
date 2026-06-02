@@ -44,7 +44,7 @@
 | [../plans/cc-butler-gap-analysis-2026-05.md](../plans/active/cc-butler-gap-analysis-2026-05.md) | CC↔Butler Loop 线束 |
 | [../plans/reference-learning-plan-2026-05.md](../plans/archive/reference-learning-plan-2026-05.md) | 外部对标记录（**已收口**） |
 | [../plans/post-consolidation-roadmap-2026-05.md](../plans/active/post-consolidation-roadmap-2026-05.md) | 产品后续规划 |
-| [../reviews/project-assessment-2026-05.md](../reviews/project-assessment-2026-05.md) | 成熟度评估 |
+| [../reviews/project-deep-audit-2026-06.md](../reviews/project-deep-audit-2026-06.md) | 成熟度评估 |
 
 ## 脚本守门
 

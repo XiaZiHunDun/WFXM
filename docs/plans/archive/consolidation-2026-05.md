@@ -165,7 +165,7 @@ reference/                      # 【不动】主公维护的对照区
 
 ## 7. 相关文档
 
-- [项目评估（2026-05）](../../reviews/project-assessment-2026-05.md)  
+- [项目评估（2026-05）](../../reviews/project-deep-audit-2026-06.md)  
 - [后续规划（整理后）](../active/post-consolidation-roadmap-2026-05.md)  
 - [项目接入指南](../../guides/project-onboarding.md)  
 - [Hermes 解耦（已完成）](../../architecture/hermes-decoupling.md)
@@ -225,6 +225,6 @@ reference/                      # 【不动】主公维护的对照区
 | 项 | 状态 |
 |----|------|
 | pytest 基线 1093 全文同步 | 本轮文档提交 |
-| `docs/reviews/project-assessment-2026-05.md` | 已创建 |
+| `docs/reviews/project-deep-audit-2026-06.md` | 已创建 |
 | 试点验收集中在 `pilot-setup.md` | 已补充双剧本与冒烟索引 |
 | `wechat-smoke.md` 合并进试点说明 | 验收产物仍为 `docs/wechat-smoke.md` 文件，步骤见清单 §4 |
