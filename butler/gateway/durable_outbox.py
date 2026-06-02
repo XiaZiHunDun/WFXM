@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import os
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from butler.config import get_butler_home
 from butler.env_parse import env_truthy
@@ -52,6 +54,28 @@ def _trim_state_dir(state: str) -> None:
     keep = durable_outbox_max_entries()
     for extra in files[keep:]:
         extra.unlink(missing_ok=True)
+
+
+@contextlib.contextmanager
+def _outbox_read_lock() -> Iterator[None]:
+    """Acquire ``flock(LOCK_SH)`` on the outbox lock file for the read window.
+
+    Sprint 8 REL-2: cross-process readers (``list_pending_outbox`` /
+    ``outbox_counts``) hold a shared lock so concurrent writers cannot
+    leave a torn JSON file mid-replace.  Writers use ``LOCK_EX`` and
+    release in the same call.
+    """
+    lock_path = _outbox_root() / ".lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_SH)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
 
 def enqueue_outbox_message(chat_id: str, body: str, *, kind: str) -> str:
@@ -107,35 +131,39 @@ def mark_outbox_failed(entry_id: str, *, error: str = "") -> bool:
 def list_pending_outbox() -> list[dict[str, Any]]:
     """Return all pending outbox entries (for startup replay).
 
-    NOTE: cross-process file locking is NOT enforced; if multiple gateway
-    processes share the same BUTLER_HOME, concurrent mark_sent / replay
-    may race.  For single-process deployment this is safe.
+    Sprint 8 REL-2: holds ``flock(LOCK_SH)`` for the read window so
+    concurrent writers (mark_sent / mark_failed) cannot leave a torn
+    JSON file mid-replace.  Writers are expected to acquire
+    ``LOCK_EX`` for the duration of their write + replace.
     """
     if not durable_outbox_enabled():
         return []
-    entries: list[dict[str, Any]] = []
-    for path in sorted(_state_dir("pending").glob("*.json"), key=lambda p: p.stat().st_mtime):
-        try:
-            row = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(row, dict):
-                entries.append(row)
-        except (OSError, json.JSONDecodeError):
-            continue
-    return entries
+    with _outbox_read_lock():
+        entries: list[dict[str, Any]] = []
+        for path in sorted(_state_dir("pending").glob("*.json"), key=lambda p: p.stat().st_mtime):
+            try:
+                row = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(row, dict):
+                    entries.append(row)
+            except (OSError, json.JSONDecodeError):
+                continue
+        return entries
 
 
 def outbox_counts(*, chat_id: str = "") -> dict[str, int]:
+    """Return per-state counts.  Sprint 8 REL-2: holds ``LOCK_SH``."""
     cid = str(chat_id or "").strip()
     counts = {"pending": 0, "sent": 0, "failed": 0}
-    for state in tuple(counts.keys()):
-        for path in _state_dir(state).glob("*.json"):
-            try:
-                row = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            if cid and str(row.get("chat_id") or "").strip() != cid:
-                continue
-            counts[state] += 1
+    with _outbox_read_lock():
+        for state in tuple(counts.keys()):
+            for path in _state_dir(state).glob("*.json"):
+                try:
+                    row = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    continue
+                if cid and str(row.get("chat_id") or "").strip() != cid:
+                    continue
+                counts[state] += 1
     return counts
 
 
