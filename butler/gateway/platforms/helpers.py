@@ -7,12 +7,18 @@ import time
 from pathlib import Path
 from typing import Any
 
+from butler.io.atomic_write import atomic_write_text
+
 
 def atomic_json_write(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)
+    """Serialize payload to JSON and write atomically (fsync + no symlink).
+
+    Sprint 8 REL-3：原实现裸 write_text + replace，缺 fsync（崩溃丢数据）
+    与 O_NOFOLLOW（可写到 symlink 目标绕过路径守门）。改为复用
+    ``butler.io.atomic_write_text``。
+    """
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    atomic_write_text(path, text)
 
 
 class MessageDeduplicator:
