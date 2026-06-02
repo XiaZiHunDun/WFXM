@@ -116,9 +116,12 @@ class TestConfigTool:
 
     def test_tool_set(self, monkeypatch):
         import json
+        from butler.execution_context import use_execution_context
         from butler.tools.config_tools import tool_butler_config
 
         monkeypatch.delenv("BUTLER_MEMO_ENABLED", raising=False)
-        raw = tool_butler_config(action="set", key="BUTLER_MEMO_ENABLED", value="0")
+        monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "u1")
+        with use_execution_context(session_key="wechat:u1:proj1"):
+            raw = tool_butler_config(action="set", key="BUTLER_MEMO_ENABLED", value="0")
         data = json.loads(raw)
         assert data["ok"]
