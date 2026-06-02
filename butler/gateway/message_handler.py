@@ -20,7 +20,6 @@ from butler.core.agent_loop import AgentLoop, LoopResult, LoopStatus
 from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory
 from butler.tools.registry import dispatch_tool
 from butler.gateway.session_registry import GatewaySessionRegistry
-from butler.gateway.inbound_idempotency import release_inflight
 
 logger = logging.getLogger(__name__)
 
@@ -386,8 +385,6 @@ class ButlerMessageHandler:
             logger.error("injection_llm_score raised — fail-closed: %s", exc)
             return "LLM 注入检测模块异常，消息已拦截。请稍后重试。"
 
-        _idempotency_reserved = False
-
         try:
             from butler.gateway.bot_loop_guard import record_and_should_suppress
 
@@ -398,11 +395,6 @@ class ButlerMessageHandler:
                 text=text,
             )
             if suppress:
-                if _idempotency_reserved:
-                    try:
-                        release_inflight(session_key, external_id)
-                    except Exception as exc:
-                        logger.debug("Inflight release skipped: %s", exc)
                 return "（已忽略：群聊 bot 互回复环防护）"
         except Exception as exc:
             logger.debug("Bot loop guard skipped: %s", exc)
