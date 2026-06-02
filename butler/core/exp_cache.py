@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 _lock = threading.RLock()
 _MAX_ENTRIES = 500
 
+# Sprint 11 PERF-11-2/3: per-path in-memory cache，lookup O(1)，避免
+# 每次 LLM 调用都全文件 read + 逐行 json.loads。store 仍写全文件
+# （保持持久化语义，避免崩溃丢数据），但 store 频率远低于 lookup。
+_MEM_CACHE: dict[str, dict[str, dict[str, Any]]] = {}
+_MEM_LOADED: dict[str, bool] = {}
+
 
 def _cache_enabled() -> bool:
     return exp_cache_enabled()
@@ -77,23 +83,38 @@ def fingerprint_llm_request(
 
 
 def _read_entries(path: Path) -> dict[str, dict[str, Any]]:
-    if not path.is_file():
-        return {}
+    """Return in-memory cache for path（lazy load once per path）。
+
+    Sprint 11 PERF-11-2: 修复前每次 read 全文件 + 逐行 json.loads。
+    修复后：path 首次访问时 load 一次，之后只读 in-memory dict。
+    """
+    cache_key = str(path)
+    if _MEM_LOADED.get(cache_key):
+        return _MEM_CACHE.setdefault(cache_key, {})
     out: dict[str, dict[str, Any]] = {}
-    try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            if isinstance(row, dict) and row.get("fp"):
-                out[str(row["fp"])] = row
-    except (OSError, json.JSONDecodeError) as exc:
-        logger.debug("exp_cache read %s: %s", path, exc)
+    if path.is_file():
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                row = json.loads(line)
+                if isinstance(row, dict) and row.get("fp"):
+                    out[str(row["fp"])] = row
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.debug("exp_cache read %s: %s", path, exc)
+    _MEM_CACHE[cache_key] = out
+    _MEM_LOADED[cache_key] = True
     return out
 
 
 def _write_entries(path: Path, entries: dict[str, dict[str, Any]]) -> None:
+    """Write entries to disk AND update in-memory cache.
+
+    Sprint 11 PERF-11-3: 写全文件（保持原持久化语义），但同时
+    同步 in-memory dict，避免后续 lookup 重读。
+    """
+    cache_key = str(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     items = list(entries.values())[-_max_entries():]
     text = "\n".join(json.dumps(it, ensure_ascii=False) for it in items) + ("\n" if items else "")
@@ -103,6 +124,9 @@ def _write_entries(path: Path, entries: dict[str, dict[str, Any]]) -> None:
         atomic_write_text(path, text)
     except Exception:
         path.write_text(text, encoding="utf-8")
+    # Sprint 11 PERF-11-2: 同步 in-memory cache（截断到 max_entries）
+    _MEM_CACHE[cache_key] = {str(it.get("fp")): it for it in items if it.get("fp")}
+    _MEM_LOADED[cache_key] = True
 
 
 def lookup_cached_response(fp: str) -> str | None:
