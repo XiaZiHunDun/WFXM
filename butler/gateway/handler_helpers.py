@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
@@ -373,6 +374,7 @@ def _reset_tool_audit_events(session_key: str | None = None) -> None:
 
 
 _WELCOMED_SESSIONS: set[str] = set()
+_WELCOMED_LOCK = threading.Lock()
 
 _WELCOME_TEXT = """Hi，我是你的 Butler 管家！首次对话，快速了解我的能力：
 
@@ -395,9 +397,10 @@ def _maybe_welcome_prefix(session_key: str) -> str:
     """Return welcome text for first-time sessions, empty string otherwise."""
     if os.getenv("BUTLER_ONBOARDING_WELCOME", "1").strip() == "0":
         return ""
-    if session_key in _WELCOMED_SESSIONS:
-        return ""
-    _WELCOMED_SESSIONS.add(session_key)
+    with _WELCOMED_LOCK:
+        if session_key in _WELCOMED_SESSIONS:
+            return ""
+        _WELCOMED_SESSIONS.add(session_key)
 
     marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
     try:

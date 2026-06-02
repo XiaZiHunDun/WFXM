@@ -211,6 +211,49 @@ class TestOnboardingWelcome:
         assert first != ""
         assert second == ""
 
+    def test_welcome_atomic_under_concurrent_threads(self, monkeypatch, tmp_path):
+        """Audit 3.2.1: the in-check + set.add pair is racy. We replace
+        _WELCOMED_SESSIONS with a set subclass whose add() sleeps briefly,
+        which widens the race window so the bug is reliably observable.
+        With the bug: multiple threads see "not in set" and add → multiple
+        welcome texts returned. With the lock fix: only one thread passes
+        the check-add atomically."""
+        import concurrent.futures
+        import threading
+        import time
+
+        monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "1")
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        from butler.gateway import handler_helpers
+        from butler.gateway.message_handler import _maybe_welcome_prefix
+
+        session = "test:race_user"
+
+        class SlowSet(set):
+            def add(self, key):  # type: ignore[override]
+                if key == session:
+                    time.sleep(0.05)
+                return super().add(key)
+
+        handler_helpers._WELCOMED_SESSIONS = SlowSet()
+
+        barrier = threading.Barrier(16)
+
+        def call_welcome():
+            barrier.wait()
+            return _maybe_welcome_prefix(session)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as ex:
+            results = list(ex.map(lambda _: call_welcome(), range(16)))
+
+        welcome_count = sum(1 for r in results if r)
+        empty_count = sum(1 for r in results if not r)
+        assert welcome_count == 1, (
+            f"expected exactly 1 welcome text under concurrent threads, got {welcome_count}: "
+            f"{[bool(r) for r in results]}"
+        )
+        assert empty_count == 15
+
 
 class TestWorkflowAutoResume:
     """#4 Workflow auto-resume after approval."""
