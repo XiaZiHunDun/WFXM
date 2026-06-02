@@ -74,7 +74,12 @@ def _outbox_read_lock() -> Iterator[None]:
     """
     lock_path = _outbox_root() / ".lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+    # Sprint 10 REL-NEW-01: O_NOFOLLOW 拒 symlink bypass，否则攻击者预置
+    # symlink → flock 落在宿主文件 → 后续 os.replace 改写非预期目标。
+    try:
+        fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError:
+        raise
     try:
         fcntl.flock(fd, fcntl.LOCK_SH)
         yield
@@ -94,10 +99,15 @@ def _outbox_write_lock() -> Iterator[None]:
     writers (same or different process) cannot interleave write+replace
     and leave the on-disk state in a torn / racey state.  Readers use
     ``LOCK_SH`` and wait for our release.
+
+    Sprint 10 REL-NEW-01: O_NOFOLLOW 拒 symlink bypass。
     """
     lock_path = _outbox_root() / ".lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError:
+        raise
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield

@@ -65,10 +65,15 @@ def _save_all(data: dict[str, Any]) -> None:
 def _write_lock() -> Iterator[None]:
     """Hold ``flock(LOCK_EX)`` so concurrent save/clear calls cannot interleave
     their read-modify-write cycle.  Sprint 9 REL-11 防止 save 互相覆盖。
+
+    Sprint 10 REL-NEW-01: O_NOFOLLOW 拒 symlink bypass。
     """
     lock_path = _pending_path().parent / ".pending-installs.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError:
+        raise
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield

@@ -80,7 +80,8 @@ def try_acquire_lock(project_name: str, job_id: str, *, stale_seconds: float = 7
     path = lock_path(project_name, job_id)
     # Atomic create-or-fail: O_EXCL makes the create fail if the file
     # already exists, so two concurrent acquirers cannot both "win".
-    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+    # Sprint 10 REL-NEW-01: O_NOFOLLOW 拒 symlink bypass。
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW
     try:
         fd = os.open(str(path), flags, 0o600)
     except FileExistsError:
