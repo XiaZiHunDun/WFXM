@@ -32,7 +32,12 @@ class SemanticMemoryIndex:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.embedder = embedder or get_embedder()
-        self._lock = threading.RLock()
+        # Sprint 11 PERF-11-5: 拆分读写。read 不持进程级锁（依赖 sqlite3
+        # Connection 内部 mutex + check_same_thread=False），write 串行
+        # 化避免 DML race。原 _lock = RLock 串行化 9 处方法是性能瓶颈。
+        self._write_lock = threading.Lock()
+        # 向后兼容：旧测试/外部代码可能直接访问 idx._lock
+        self._lock = self._write_lock
         self._conn = self._open_conn()
         self._init_schema()
 
@@ -42,14 +47,14 @@ class SemanticMemoryIndex:
         return conn
 
     def close(self) -> None:
-        with self._lock:
+        with self._write_lock:
             try:
                 self._conn.close()
             except Exception:
                 pass
 
     def _init_schema(self) -> None:
-        with self._lock:
+        with self._write_lock:
             conn = self._conn
             conn.executescript(
                 """
@@ -84,22 +89,22 @@ class SemanticMemoryIndex:
             )
 
     def count_rows(self) -> int:
-        with self._lock:
-            conn = self._conn
-            row = conn.execute("SELECT COUNT(*) FROM memory_vectors").fetchone()
-            return int(row[0] if row else 0)
+        # Sprint 11 PERF-11-5: read 不持锁（依赖 sqlite3 Connection 内部 mutex）
+        conn = self._conn
+        row = conn.execute("SELECT COUNT(*) FROM memory_vectors").fetchone()
+        return int(row[0] if row else 0)
 
     def count_by_source(self, source: str) -> int:
         src = (source or "").strip()
         if not src:
             return 0
-        with self._lock:
-            conn = self._conn
-            row = conn.execute(
-                "SELECT COUNT(*) FROM memory_vectors WHERE source = ?",
-                (src,),
-            ).fetchone()
-            return int(row[0] if row else 0)
+        # Sprint 11 PERF-11-5: read 不持锁
+        conn = self._conn
+        row = conn.execute(
+            "SELECT COUNT(*) FROM memory_vectors WHERE source = ?",
+            (src,),
+        ).fetchone()
+        return int(row[0] if row else 0)
 
     @property
     def model_id(self) -> str:
@@ -120,7 +125,7 @@ class SemanticMemoryIndex:
         vec = self.embedder.embed(text)
         payload = json.dumps(vec, ensure_ascii=False)
         now = time.time()
-        with self._lock:
+        with self._write_lock:
             conn = self._conn
             conn.execute(
                 """
@@ -151,7 +156,7 @@ class SemanticMemoryIndex:
             conn.commit()
 
     def delete(self, source: str, source_id: str) -> None:
-        with self._lock:
+        with self._write_lock:
             conn = self._conn
             conn.execute(
                 "DELETE FROM memory_vectors WHERE source = ? AND source_id = ?",
@@ -168,31 +173,31 @@ class SemanticMemoryIndex:
         sql_limit = min(max(cap * 10, 200), 2000)
         qvec = self.embedder.embed(q)
         scored: list[tuple[float, dict[str, Any]]] = []
-        with self._lock:
-            conn = self._conn
-            if project is not None and str(project).strip():
-                rows = conn.execute(
-                    """
-                    SELECT source, source_id, project, category, content, embedding_json,
-                           updated_at, access_count, last_accessed_at
-                    FROM memory_vectors
-                    WHERE project = ? OR project = ''
-                    ORDER BY updated_at DESC
-                    LIMIT ?
-                    """,
-                    (project.strip(), sql_limit),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """
-                    SELECT source, source_id, project, category, content, embedding_json,
-                           updated_at, access_count, last_accessed_at
-                    FROM memory_vectors
-                    ORDER BY updated_at DESC
-                    LIMIT ?
-                    """,
-                    (sql_limit,),
-                ).fetchall()
+        # Sprint 11 PERF-11-5: read 不持进程级锁（依赖 sqlite3 Connection mutex）
+        conn = self._conn
+        if project is not None and str(project).strip():
+            rows = conn.execute(
+                """
+                SELECT source, source_id, project, category, content, embedding_json,
+                       updated_at, access_count, last_accessed_at
+                FROM memory_vectors
+                WHERE project = ? OR project = ''
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (project.strip(), sql_limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT source, source_id, project, category, content, embedding_json,
+                       updated_at, access_count, last_accessed_at
+                FROM memory_vectors
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (sql_limit,),
+            ).fetchall()
         for row in rows:
             (
                 source,
@@ -291,7 +296,7 @@ class SemanticMemoryIndex:
                 pairs.append((src, sid))
         if not pairs:
             return
-        with self._lock:
+        with self._write_lock:
             conn = self._conn
             placeholders = " OR ".join(
                 "(source = ? AND source_id = ?)" for _ in pairs
@@ -310,7 +315,7 @@ class SemanticMemoryIndex:
             conn.commit()
 
     def delete_source_prefix(self, source: str) -> int:
-        with self._lock:
+        with self._write_lock:
             conn = self._conn
             cur = conn.execute(
                 "DELETE FROM memory_vectors WHERE source = ?",
@@ -327,17 +332,17 @@ class SemanticMemoryIndex:
         cap = max(1, min(int(limit), 12))
         qvec = self.embedder.embed(q)
         scored: list[tuple[float, dict[str, Any]]] = []
-        with self._lock:
-            conn = self._conn
-            rows = conn.execute(
-                """
-                SELECT source_id, content, embedding_json, updated_at,
-                       access_count, last_accessed_at
-                FROM memory_vectors
-                WHERE source = ?
-                """,
-                (SOURCE_OWNER_PROFILE,),
-            ).fetchall()
+        # Sprint 11 PERF-11-5: read 不持进程级锁
+        conn = self._conn
+        rows = conn.execute(
+            """
+            SELECT source_id, content, embedding_json, updated_at,
+                   access_count, last_accessed_at
+            FROM memory_vectors
+            WHERE source = ?
+            """,
+            (SOURCE_OWNER_PROFILE,),
+        ).fetchall()
         for source_id, content, emb_json, updated_at, access_count, last_accessed_at in rows:
             try:
                 vec = json.loads(emb_json)
