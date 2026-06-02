@@ -63,6 +63,7 @@ def catalog_handlers(tmp_path, monkeypatch, tmp_butler_home):
         encoding="utf-8",
     )
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+    monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "u1")
     _reset_singletons()
 
     dual = ButlerMessageHandler(channel="gateway")

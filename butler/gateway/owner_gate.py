@@ -57,11 +57,11 @@ def is_gateway_owner(
 
     plat = str(platform or "").strip().lower()
     if plat not in ("wechat", "weixin"):
-        return True
+        return False
 
     allowed = owner_wechat_ids()
     if not allowed:
-        return True
+        return False
 
     cid = str(external_id or "").strip()
     if not cid and session_key:

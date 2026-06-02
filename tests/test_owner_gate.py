@@ -26,16 +26,18 @@ class TestOwnerGate:
         assert is_gateway_owner(platform="wechat", external_id="friend2")
         assert not is_gateway_owner(platform="wechat", external_id="stranger")
 
-    def test_non_wechat_always_allowed(self, monkeypatch):
+    def test_non_wechat_denied_by_default(self, monkeypatch):
+        monkeypatch.delenv("BUTLER_PROJECT_CREATE_OPEN", raising=False)
         monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "owner1")
-        assert is_gateway_owner(platform="cli", external_id="any")
+        assert not is_gateway_owner(platform="cli", external_id="any")
 
-    def test_empty_allowlist_allows_all(self, monkeypatch):
+    def test_empty_allowlist_denies_all(self, monkeypatch):
+        monkeypatch.delenv("BUTLER_PROJECT_CREATE_OPEN", raising=False)
         monkeypatch.delenv("BUTLER_OWNER_WECHAT_ID", raising=False)
         monkeypatch.delenv("WECHAT_ALLOWED_USERS", raising=False)
         monkeypatch.delenv("BUTLER_GATEWAY_ALLOWLIST", raising=False)
         assert owner_wechat_ids() == frozenset()
-        assert is_gateway_owner(platform="wechat", external_id="anyone")
+        assert not is_gateway_owner(platform="wechat", external_id="anyone")
 
     def test_gateway_allowlist_is_honored_for_owner_gate(self, monkeypatch):
         monkeypatch.delenv("BUTLER_PROJECT_CREATE_OPEN", raising=False)
