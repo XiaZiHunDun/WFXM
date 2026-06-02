@@ -54,6 +54,38 @@ def test_pii_scrub_phone():
 
 
 @pytest.mark.unit
+def test_pii_scrub_bank_card_with_luhn():
+    # 16-19 digit number passing Luhn checksum
+    valid_card = "4111111111111111"  # Visa test card (passes Luhn)
+    out = scrub_outbound_text(f"卡号 {valid_card} 收到")
+    assert valid_card not in out
+    assert "银行卡" in out or "卡号" in out
+
+
+@pytest.mark.unit
+def test_pii_scrub_api_key_sk_prefix():
+    sk = "sk-" + "abcdefghijklmnopqrstuvwxyz123456"
+    out = scrub_outbound_text(f"使用 key {sk} 调用")
+    assert sk not in out
+    assert "API" in out or "密钥" in out
+
+
+@pytest.mark.unit
+def test_pii_scrub_jwt_token():
+    jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+    out = scrub_outbound_text(f"token={jwt}")
+    assert jwt not in out
+    assert "JWT" in out or "令牌" in out
+
+
+@pytest.mark.unit
+def test_pii_scrub_private_ipv4():
+    for ip in ("10.0.0.1", "172.16.0.1", "192.168.1.1", "127.0.0.1"):
+        out = scrub_outbound_text(f"内网 {ip} 不可达")
+        assert ip not in out, f"private IP {ip} should be scrubbed"
+
+
+@pytest.mark.unit
 def test_terminal_danger_rm_rf_root():
     r = check_dangerous_command("rm -rf /")
     assert not r.allowed
