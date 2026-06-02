@@ -1916,7 +1916,10 @@ class WeChatAdapter(ButlerPlatformAdapter):
     def format_message(self, content: Optional[str]) -> str:
         if content is None:
             return ""
-        return _wrap_copy_friendly_lines_for_wechat(_normalize_markdown_blocks(content))
+        from butler.gateway.pii_scrub import scrub_outbound_text
+
+        scrubbed = scrub_outbound_text(str(content))
+        return _wrap_copy_friendly_lines_for_wechat(_normalize_markdown_blocks(scrubbed))
 
 
 async def send_wechat_direct(
