@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 import logging
 
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -72,8 +74,15 @@ def handle_memory_pending_command(
     orchestrator: "ButlerOrchestrator",
     cmd: str,
     arg: str,
+    *,
+    platform: str = "",
+    external_id: str | None = None,
+    session_key: str = "",
 ) -> Optional[str]:
-    """Handle /记忆待审, /批准记忆, /拒绝记忆, /记忆图谱. Returns None if cmd not recognized."""
+    """Handle /记忆待审, /批准记忆, /拒绝记忆, /记忆图谱. Returns None if cmd not recognized.
+
+    Sprint 11 SEC-11-2: /批准记忆 路径加 owner gate（永久污染 MEMORY.md）。
+    """
     if cmd in ("/记忆图谱", "/memory-graph", "/三元组"):
         return format_memory_triplet_graph(orchestrator)
 
@@ -85,6 +94,12 @@ def handle_memory_pending_command(
 
     if cmd not in ("/批准记忆", "/approve-memory", "/批准"):
         return None
+
+    # Sprint 11 SEC-11-2: /批准记忆 永久写入 MEMORY.md，仅 Owner 可批准
+    if not is_gateway_owner(
+        platform=platform, external_id=external_id, session_key=session_key
+    ):
+        return owner_required_message()
 
     pmem = _project_memory(orchestrator)
     if pmem is None:
