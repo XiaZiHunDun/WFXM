@@ -265,7 +265,7 @@ def _resolve_tool_path(raw: str, root: Path | None) -> Path:
     resolved = path.resolve(strict=False)
     if path.is_symlink():
         target = resolved
-        if root is not None and not str(target).startswith(str(root.resolve())):
+        if root is not None and not target.is_relative_to(root.resolve()):
             import logging as _log
 
             _log.getLogger(__name__).warning(
