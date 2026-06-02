@@ -106,8 +106,15 @@ class TestQueuePersistence:
             with _LOCK:
                 bucket = _QUEUES.get(safe_key)
                 assert bucket is not None
-                assert len(bucket) == 1
-                assert bucket[0].text == "测试消息"
+                # Sprint 11 PERF-11-1: 3 桶结构 (now/next/later)
+                # 找 1 条消息所在桶，验证 text
+                found = None
+                for sub in bucket.values():
+                    if sub:
+                        found = sub[0]
+                        break
+                assert found is not None, "应至少 1 条消息"
+                assert found.text == "测试消息"
                 _QUEUES.pop(safe_key, None)
 
     def test_persist_remove(self, tmp_path):

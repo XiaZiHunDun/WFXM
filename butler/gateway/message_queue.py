@@ -34,12 +34,37 @@ class QueuedInbound:
 
 
 _LOCK = threading.RLock()
-_QUEUES: dict[str, deque[QueuedInbound]] = {}
+# Sprint 11 PERF-11-1: 3 桶 per session（now/next/later），enqueue O(1)。
+# 原实现是单 deque + 每次 enqueue O(N log N) sort，高频 inbound 线性退化。
+# 桶内保持 FIFO；跨桶顺序：now > next > later（与原 sort 一致）。
+_QUEUES: dict[str, dict[str, deque[QueuedInbound]]] = {}
 _QUEUES_MAX_SESSIONS = 256
 _DEDUP_WINDOW_SEC = 2.0
 _LAST_ENQUEUE: dict[str, tuple[str, float]] = {}
 _DROP_SUMMARIES: dict[str, deque[str]] = {}
 _SUMMARY_MAX = 8
+_PRIORITIES: tuple[str, ...] = ("now", "next", "later")
+
+
+def _ensure_bucket(key: str) -> dict[str, deque[QueuedInbound]]:
+    """Return the 3-bucket dict for session, creating if absent."""
+    bucket = _QUEUES.get(key)
+    if bucket is None:
+        bucket = {p: deque() for p in _PRIORITIES}
+        _QUEUES[key] = bucket
+    return bucket
+
+
+def _bucket_total(bucket: dict[str, deque[QueuedInbound]]) -> int:
+    return sum(len(bucket[p]) for p in _PRIORITIES)
+
+
+def _bucket_pop_oldest(bucket: dict[str, deque[QueuedInbound]]) -> QueuedInbound | None:
+    """Pop from the lowest-priority non-empty bucket (later > next > now)."""
+    for p in reversed(_PRIORITIES):
+        if bucket[p]:
+            return bucket[p].popleft()
+    return None
 
 
 def message_queue_enabled() -> bool:
@@ -100,25 +125,33 @@ def _summarize_dropped(text: str) -> str:
     return preview or "（空消息）"
 
 
-def _apply_cap_before_append(session_key: str, bucket: deque[QueuedInbound], incoming: str) -> bool:
-    """Make room for one more item. Returns False if incoming rejected (drop=new)."""
+def _apply_cap_before_append(session_key: str, bucket: dict[str, deque[QueuedInbound]], incoming: str) -> bool:
+    """Make room for one more item. Returns False if incoming rejected (drop=new).
+
+    Sprint 11 PERF-11-1: 3 桶结构下，cap 检查汇总 3 桶总长；evict
+    从最低优先级（later → next → now）开始 popleft，保留高优先级。
+    """
     from butler.gateway.queue_settings import session_drop_policy, session_queue_cap
 
     key = str(session_key or "default")
     cap = session_queue_cap(key)
     drop = session_drop_policy(key)
-    while len(bucket) >= cap:
+    while _bucket_total(bucket) >= cap:
         if drop == "new":
             _record_queue_drop(key, reason="new")
             return False
-        if not bucket:
+        if _bucket_total(bucket) == 0:
             break
         if drop == "old":
-            bucket.popleft()
+            removed = _bucket_pop_oldest(bucket)
+            if removed is None:
+                break
             _record_queue_drop(key, reason="old")
             continue
         # summarize
-        removed = bucket.popleft()
+        removed = _bucket_pop_oldest(bucket)
+        if removed is None:
+            break
         summary = _summarize_dropped(removed.text)
         summaries = _DROP_SUMMARIES.setdefault(key, deque(maxlen=_SUMMARY_MAX))
         summaries.append(summary)
@@ -156,18 +189,17 @@ def enqueue_inbound(
             logger.debug("Inbound queue dedupe session=%s", key)
             return False
         if len(_QUEUES) >= _QUEUES_MAX_SESSIONS and key not in _QUEUES:
-            empty_keys = [k for k, v in _QUEUES.items() if not v]
+            empty_keys = [k for k, b in _QUEUES.items() if _bucket_total(b) == 0]
             for ek in empty_keys:
                 _QUEUES.pop(ek, None)
                 _DROP_SUMMARIES.pop(ek, None)
-        bucket = _QUEUES.setdefault(key, deque())
+        bucket = _ensure_bucket(key)
         if not _apply_cap_before_append(key, bucket, body):
             return False
-        bucket.append(item)
-        bucket = deque(sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)))
-        _QUEUES[key] = bucket
+        # Sprint 11 PERF-11-1: O(1) append to priority bucket, no sort
+        bucket[pri].append(item)
     _persist_enqueue(key, item)
-    logger.info("Queued inbound session=%s priority=%s len=%d", key, pri, len(_QUEUES[key]))
+    logger.info("Queued inbound session=%s priority=%s len=%d", key, pri, _bucket_total(bucket))
     _refresh_queue_gauges(key)
     try:
         from butler.core.session_transcript import record_queue_operation
@@ -190,49 +222,61 @@ def _refresh_queue_gauges(session_key: str) -> None:
         logger.debug("refresh queue gauges skipped: %s", exc)
 def pending_total() -> int:
     with _LOCK:
-        return sum(len(bucket) for bucket in _QUEUES.values())
+        return sum(_bucket_total(b) for b in _QUEUES.values())
 
 
 def pop_urgent_inbound(session_key: str) -> QueuedInbound | None:
-    """Pop one ``now`` priority item if at queue head (mid-turn compaction bridge)."""
+    """Pop one ``now`` priority item if at queue head (mid-turn compaction bridge).
+
+    Sprint 11 PERF-11-1: 3 桶结构下，直接从 now 桶 popleft，O(1)。
+    """
     key = str(session_key or "default")
+    item: QueuedInbound | None = None
     with _LOCK:
         bucket = _QUEUES.get(key)
-        if not bucket:
-            return None
-        first = bucket[0]
-        if first.priority != "now":
-            return None
-        item = bucket.popleft()
-        if not bucket:
-            _QUEUES.pop(key, None)
+        if bucket and bucket["now"]:
+            item = bucket["now"].popleft()
+            if _bucket_total(bucket) == 0:
+                _QUEUES.pop(key, None)
+    if item is None:
+        return None
     _persist_remove(key, item.persist_id)
     _refresh_queue_gauges(key)
     return item
 
 
 def pop_next(session_key: str) -> QueuedInbound | None:
+    """Pop next item in priority order: now > next > later, FIFO within each."""
     key = str(session_key or "default")
+    item: QueuedInbound | None = None
     with _LOCK:
         bucket = _QUEUES.get(key)
-        if not bucket:
-            return None
-        item = bucket.popleft()
-        if not bucket:
-            _QUEUES.pop(key, None)
+        if bucket:
+            for p in _PRIORITIES:
+                if bucket[p]:
+                    item = bucket[p].popleft()
+                    if _bucket_total(bucket) == 0:
+                        _QUEUES.pop(key, None)
+                    break
+    if item is None:
+        return None
     _persist_remove(key, item.persist_id)
     _refresh_queue_gauges(key)
     return item
 
 
 def pop_all_merged(session_key: str) -> QueuedInbound | None:
-    """Drain entire queue into one synthetic followup item (collect mode)."""
+    """Drain entire queue into one synthetic followup item (collect mode).
+
+    Sprint 11 PERF-11-1: 3 桶结构下，合并时按 now → next → later 桶顺序。
+    """
     key = str(session_key or "default")
     with _LOCK:
         bucket = _QUEUES.get(key)
-        items = list(bucket) if bucket else []
+        items: list[QueuedInbound] = []
         if bucket:
-            bucket.clear()
+            for p in _PRIORITIES:
+                items.extend(bucket[p])
             _QUEUES.pop(key, None)
         summaries = list(_DROP_SUMMARIES.pop(key, ()))
     _persist_clear(key)
@@ -243,7 +287,7 @@ def pop_all_merged(session_key: str) -> QueuedInbound | None:
     if summaries:
         joined = "；".join(summaries)
         parts.append(f"[此前队列溢出摘要，共 {len(summaries)} 条] {joined}")
-    for item in sorted(items, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)):
+    for item in items:
         parts.append(item.text)
     text = "\n\n".join(parts)
     last = items[-1] if items else None
@@ -259,7 +303,8 @@ def pop_all_merged(session_key: str) -> QueuedInbound | None:
 def pending_count(session_key: str = "") -> int:
     key = str(session_key or "default")
     with _LOCK:
-        return len(_QUEUES.get(key, ()))
+        bucket = _QUEUES.get(key)
+        return _bucket_total(bucket) if bucket else 0
 
 
 def reset_queue(session_key: str | None = None) -> None:
@@ -403,11 +448,15 @@ def restore_persisted_queue() -> int:
 
             cap = session_queue_cap(session_key)
             with _LOCK:
-                bucket = _QUEUES.setdefault(session_key, deque())
-                bucket.extend(items[:cap])
-                _QUEUES[session_key] = deque(
-                    sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9))
-                )
+                bucket = _ensure_bucket(session_key)
+                # Sprint 11 PERF-11-1: 直接 append 到对应 priority 桶，O(N)
+                added = 0
+                for it in items:
+                    if added >= cap:
+                        break
+                    p = it.priority if it.priority in _PRIORITY_ORDER else "next"
+                    bucket[p].append(it)
+                    added += 1
             total += len(items)
             logger.info("Restored %d queued messages for session %s", len(items), session_key)
     if total:
