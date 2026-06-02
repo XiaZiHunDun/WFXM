@@ -8,6 +8,24 @@ from typing import Any
 
 from butler.registry.paths import lock_path
 from butler.registry.skill_types import InstalledSkillRecord
+from butler.tools._file_cache import read_json_cached
+
+
+_EMPTY_LOCK: dict[str, Any] = {"version": 1, "skills": {}}
+
+
+def _row_to_record(name: str, row: dict[str, Any]) -> InstalledSkillRecord:
+    return InstalledSkillRecord(
+        name=str(name),
+        source=str(row.get("source") or ""),
+        identifier=str(row.get("identifier") or ""),
+        version=row.get("version"),
+        installed_at=str(row.get("installed_at") or ""),
+        content_hash=str(row.get("content_hash") or ""),
+        install_path=str(row.get("install_path") or ""),
+        scan_verdict=str(row.get("scan_verdict") or ""),
+        trust=str(row.get("trust") or "community"),
+    )
 
 
 class SkillLockFile:
@@ -15,14 +33,9 @@ class SkillLockFile:
         self._path = path or lock_path(tenant_id=tenant_id)
 
     def _load(self) -> dict[str, Any]:
-        if not self._path.is_file():
-            return {"version": 1, "skills": {}}
-        try:
-            data = json.loads(self._path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return {"version": 1, "skills": {}}
+        data = read_json_cached(self._path)
         if not isinstance(data, dict):
-            return {"version": 1, "skills": {}}
+            return dict(_EMPTY_LOCK)
         data.setdefault("version", 1)
         data.setdefault("skills", {})
         return data
@@ -42,26 +55,18 @@ class SkillLockFile:
         for name, row in raw.items():
             if not isinstance(row, dict):
                 continue
-            out.append(
-                InstalledSkillRecord(
-                    name=str(name),
-                    source=str(row.get("source") or ""),
-                    identifier=str(row.get("identifier") or ""),
-                    version=row.get("version"),
-                    installed_at=str(row.get("installed_at") or ""),
-                    content_hash=str(row.get("content_hash") or ""),
-                    install_path=str(row.get("install_path") or ""),
-                    scan_verdict=str(row.get("scan_verdict") or ""),
-                    trust=str(row.get("trust") or "community"),
-                )
-            )
+            out.append(_row_to_record(name, row))
         return sorted(out, key=lambda r: r.name)
 
     def get(self, name: str) -> InstalledSkillRecord | None:
-        for row in self.list_installed():
-            if row.name == name:
-                return row
-        return None
+        data = self._load()
+        raw = data.get("skills") or {}
+        if not isinstance(raw, dict):
+            return None
+        row = raw.get(name)
+        if not isinstance(row, dict):
+            return None
+        return _row_to_record(name, row)
 
     def record_install(self, record: InstalledSkillRecord) -> None:
         data = self._load()
