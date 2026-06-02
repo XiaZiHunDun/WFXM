@@ -34,6 +34,36 @@ from butler.transport.types import NormalizedResponse
 logger = logging.getLogger(__name__)
 
 
+def _doom_loop_block_on_ask(
+    decision: GuardrailDecision,
+    tool_name: str,
+    args: dict,
+) -> str | None:
+    """Resolve doom-loop ask-mode for a prefetched tool call.
+
+    Returns a synthetic_result JSON (blocked) when the user has not approved the
+    call, and ``None`` when the call is approved and should be dispatched.
+    Fails CLOSED: any exception raised while checking the approval cache is
+    logged and treated as a block rather than silently allowed.
+    """
+    try:
+        from butler.permissions.doom_loop import check_doom_loop_ask
+
+        if check_doom_loop_ask(decision, tool_name, args):
+            from butler.tool_guardrails import synthetic_result
+
+            return synthetic_result(decision)
+    except Exception:
+        logger.exception(
+            "Doom-loop ask check failed; failing closed (synthetic block) for %s",
+            tool_name,
+        )
+        from butler.tool_guardrails import synthetic_result
+
+        return synthetic_result(decision)
+    return None
+
+
 class AgentLoop:
     """Self-contained LLM conversation loop with tool calling."""
 
@@ -703,14 +733,9 @@ class AgentLoop:
 
                     before = self._guardrails.before_call(name, args)
                     if before.action == "ask" and before.code == "doom_loop":
-                        try:
-                            from butler.permissions.doom_loop import check_doom_loop_ask
-
-                            if check_doom_loop_ask(before, name, args):
-                                prefetch[key] = synthetic_result(before)
-                                return
-                        except Exception:
-                            prefetch[key] = synthetic_result(before)
+                        blocked = _doom_loop_block_on_ask(before, name, args)
+                        if blocked is not None:
+                            prefetch[key] = blocked
                             return
                     if before.should_halt:
                         prefetch[key] = synthetic_result(before)

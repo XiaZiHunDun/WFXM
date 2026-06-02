@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock
+import logging
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -27,6 +28,63 @@ from butler.tool_guardrails import (
 def test_doom_loop_mode_default_block(monkeypatch):
     monkeypatch.delenv("BUTLER_DOOM_LOOP_MODE", raising=False)
     assert doom_loop_mode() == "block"
+
+
+@pytest.mark.unit
+def test_doom_loop_ask_exception_fails_closed_and_logs(caplog):
+    """When check_doom_loop_ask raises, the prefetch path must remain fail-closed
+    (synthetic block result) AND the exception must be logged for observability.
+    Audit claim of "fail-open" was a mischaracterization; the real defect was the
+    silent exception swallow."""
+    from butler.core.agent_loop import _doom_loop_block_on_ask
+
+    decision = GuardrailDecision(action="ask", code="doom_loop", message="loop detected")
+
+    with patch(
+        "butler.permissions.doom_loop.check_doom_loop_ask",
+        side_effect=RuntimeError("session key lookup blew up"),
+    ):
+        with caplog.at_level(logging.ERROR, logger="butler.core.agent_loop"):
+            result = _doom_loop_block_on_ask(decision, "read_file", {"path": "/x"})
+
+    assert result is not None, "must fail-closed (synthetic result), not None"
+    parsed = json.loads(result)
+    assert parsed.get("error"), f"synthetic result must contain error: {parsed}"
+    assert parsed.get("guardrail", {}).get("code") == "doom_loop"
+    assert any(
+        rec.levelno >= logging.ERROR and "doom-loop" in rec.message.lower()
+        for rec in caplog.records
+    ), f"expected ERROR log mentioning doom-loop; got: {[r.getMessage() for r in caplog.records]}"
+    assert any(
+        rec.exc_info is not None for rec in caplog.records
+    ), "logger.exception must attach exc_info (traceback)"
+
+
+@pytest.mark.unit
+def test_doom_loop_ask_approval_returns_none():
+    """When the ask-mode check approves the call, the helper returns None (caller dispatches)."""
+    from butler.core.agent_loop import _doom_loop_block_on_ask
+
+    decision = GuardrailDecision(action="ask", code="doom_loop", message="loop")
+    with patch("butler.permissions.doom_loop.check_doom_loop_ask", return_value=None):
+        assert _doom_loop_block_on_ask(decision, "read_file", {}) is None
+
+
+@pytest.mark.unit
+def test_doom_loop_ask_block_message_returns_synthetic():
+    """When the ask-mode check returns a block message, the helper returns synthetic_result JSON."""
+    from butler.core.agent_loop import _doom_loop_block_on_ask
+
+    decision = GuardrailDecision(action="ask", code="doom_loop", message="needs approval")
+    with patch(
+        "butler.permissions.doom_loop.check_doom_loop_ask",
+        return_value="needs approval",
+    ):
+        result = _doom_loop_block_on_ask(decision, "read_file", {})
+    assert result is not None
+    parsed = json.loads(result)
+    assert parsed["error"] == "needs approval"
+    assert parsed["guardrail"]["code"] == "doom_loop"
 
 
 @pytest.mark.unit
