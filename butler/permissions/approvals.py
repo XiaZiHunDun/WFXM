@@ -122,10 +122,15 @@ def grant_once(session_key: str, *, fingerprint: str = "") -> str | None:
     if not fp:
         return "暂无待批准项；请先触发需确认的工具调用"
     row = pending if isinstance(pending, dict) and pending.get("fingerprint") == fp else None
-    if row is None and isinstance(pending, dict):
-        row = pending
-    if not isinstance(row, dict):
-        return "待批准项已过期或不存在"
+    if row is None:
+        if isinstance(pending, dict):
+            logger.warning(
+                "approvals.grant_once fingerprint mismatch: pending.fp=%s got.fp=%s session=%s",
+                pending.get("fingerprint"),
+                fp,
+                sk,
+            )
+        return "指纹不匹配；请重新发起待批准项"
     data["once"] = _purge_once(data.get("once") or [])
     data["once"].append(
         {
