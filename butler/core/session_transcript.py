@@ -6,9 +6,10 @@ import json
 import logging
 import os
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from butler.config import get_butler_home
 from butler.env_parse import env_truthy
@@ -18,6 +19,11 @@ logger = logging.getLogger(__name__)
 _TRANSCRIPT_SUBDIR = "sessions"
 _DEFAULT_MAX_BYTES = 50 * 1024 * 1024
 _LOCK = threading.RLock()
+
+# PERF-13-3: 批量写 buffer
+_BATCH_LOCK = threading.RLock()
+_ACTIVE_BATCHES: set[str] = set()
+_BATCH_BUFFERS: dict[str, list[dict[str, Any]]] = {}
 
 
 def transcript_enabled() -> bool:
@@ -116,10 +122,68 @@ def append_transcript_entry(
         "ts": datetime.now(timezone.utc).isoformat(),
         **payload,
     }
+    # PERF-13-3: 批量写 buffer 命中
+    with _BATCH_LOCK:
+        if sk in _ACTIVE_BATCHES:
+            buf = _BATCH_BUFFERS.setdefault(sk, [])
+            buf.append(entry)
+            return
     try:
         _append_line(transcript_path(sk), entry)
     except OSError as exc:
         logger.debug("Transcript append skipped: %s", exc)
+
+
+@contextmanager
+def transcript_batch(session_key: str) -> Iterator[None]:
+    """PERF-13-3: 批量写上下文。
+
+    with 块内所有 record_*() / append_transcript_entry() 调用走 buffer，
+    块退出时一次性 flush（单次 file open + 一次或多次 write）。支持嵌套。
+    块外 record_*() 行为不变（立即写）。
+    """
+    sk = str(session_key or "").strip()
+    if not sk:
+        yield
+        return
+    with _BATCH_LOCK:
+        _ACTIVE_BATCHES.add(sk)
+        _BATCH_BUFFERS.setdefault(sk, [])
+    try:
+        yield
+    finally:
+        with _BATCH_LOCK:
+            _ACTIVE_BATCHES.discard(sk)
+            entries = _BATCH_BUFFERS.pop(sk, [])
+        if entries:
+            _flush_entries(sk, entries)
+
+
+def _flush_entries(sk: str, entries: list[dict[str, Any]]) -> None:
+    """PERF-13-3: 一次 file open + writelines 写入所有 buffer 条目。"""
+    if not entries:
+        return
+    try:
+        path = transcript_path(sk)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [json.dumps(e, ensure_ascii=False) + "\n" for e in entries]
+        payload_bytes = b"".join(line.encode("utf-8") for line in lines)
+        with _LOCK:
+            offset = path.stat().st_size if path.is_file() else 0
+            with path.open("a", encoding="utf-8") as fh:
+                fh.writelines(lines)
+            try:
+                from butler.core.transcript_index import update_index_after_append
+
+                update_index_after_append(
+                    path, line_byte_offset=offset, line_len=len(payload_bytes)
+                )
+            except Exception as exc:
+                logger.debug("append line skipped: %s", exc)
+            if path.stat().st_size > transcript_max_bytes():
+                _tombstone_tail(path)
+    except OSError as exc:
+        logger.debug("Transcript batch flush failed: %s", exc)
 
 
 def record_tool_action(

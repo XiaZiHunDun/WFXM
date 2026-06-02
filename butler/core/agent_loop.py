@@ -158,15 +158,19 @@ class AgentLoop:
 
         _steer_session = get_current_session_key() or "default"
         mark_run_active(_steer_session)
+        # PERF-13-3: 把整轮所有 record_* 批量成 1 次 flush
+        from butler.core.session_transcript import transcript_batch
+
         try:
-            return self._run_turn_body(
-                user_message,
-                run_callbacks=run_callbacks,
-                saved_callbacks=saved_callbacks,
-                pre_run_diagnostics=pre_run_diagnostics,
-                start_time=start_time,
-                steer_session=_steer_session,
-            )
+            with transcript_batch(_steer_session):
+                return self._run_turn_body(
+                    user_message,
+                    run_callbacks=run_callbacks,
+                    saved_callbacks=saved_callbacks,
+                    pre_run_diagnostics=pre_run_diagnostics,
+                    start_time=start_time,
+                    steer_session=_steer_session,
+                )
         finally:
             mark_run_inactive(_steer_session)
 
