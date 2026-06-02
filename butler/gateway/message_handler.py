@@ -1174,13 +1174,19 @@ class ButlerMessageHandler:
 
         from butler.gateway.runtime_commands import handle_runtime_command
 
-        rt_resp = handle_runtime_command(self._orchestrator, cmd, arg)
+        rt_resp = handle_runtime_command(
+            self._orchestrator, cmd, arg,
+            platform=platform, external_id=external_id, session_key=session_key,
+        )
         if rt_resp is not None:
             return rt_resp
 
         from butler.gateway.memory_commands import handle_memory_pending_command
 
-        mem_resp = handle_memory_pending_command(self._orchestrator, cmd, arg)
+        mem_resp = handle_memory_pending_command(
+            self._orchestrator, cmd, arg,
+            platform=platform, external_id=external_id, session_key=session_key,
+        )
         if mem_resp is not None:
             return mem_resp
 
