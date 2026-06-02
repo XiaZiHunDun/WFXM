@@ -140,26 +140,30 @@ def enqueue_outbox_message(chat_id: str, body: str, *, kind: str) -> str:
 def _transition_outbox_entry(entry_id: str, *, target_state: str, error: str = "") -> bool:
     if not entry_id or not durable_outbox_enabled():
         return False
-    pending = _entry_path("pending", entry_id)
-    if not pending.is_file():
-        return False
-    try:
-        row = json.loads(pending.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    if not isinstance(row, dict):
-        return False
-    row["attempts"] = int(row.get("attempts") or 0) + 1
-    row["status"] = target_state
-    row[f"{target_state}_at"] = time.time()
-    if error:
-        row["error"] = str(error)[:500]
     target = _entry_path(target_state, entry_id)
+    # Sprint 10 REL-NEW-02: read+modify+write 全部进 _outbox_write_lock()
+    # 内，消除 TOCTOU。原实现 read 在锁外，并发 mark_delivered +
+    # _recover_orphans 时陈旧 read-state 决策 transition → 重复/丢失。
     with _outbox_write_lock():
+        pending = _entry_path("pending", entry_id)
+        if not pending.is_file():
+            return False
+        try:
+            row = json.loads(pending.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(row, dict):
+            return False
+        row["attempts"] = int(row.get("attempts") or 0) + 1
+        row["status"] = target_state
+        row[f"{target_state}_at"] = time.time()
+        if error:
+            row["error"] = str(error)[:500]
         _write_entry(pending, row)
         pending.replace(target)
         _trim_state_dir(target_state)
-    return True
+        return True
+    return False  # unreachable, kept for static checkers
 
 
 def mark_outbox_sent(entry_id: str) -> bool:
