@@ -349,7 +349,12 @@ class ContextTokenStore:
             if key.startswith(prefix)
         }
         try:
-            atomic_json_write(self._path(account_id), payload)
+            path = self._path(account_id)
+            atomic_json_write(path, payload)
+            try:
+                path.chmod(0o600)
+            except OSError:
+                pass
         except Exception as exc:
             logger.warning("wechat: failed to persist context tokens for %s: %s", _safe_id(account_id), exc)
 

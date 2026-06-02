@@ -8,6 +8,7 @@ import pytest
 
 from butler.gateway.platforms.types import PlatformConfig
 from butler.gateway.platforms.wechat_ilink import (
+    ContextTokenStore,
     WeChatAdapter,
     _account_file,
     load_wechat_account,
@@ -89,3 +90,18 @@ class TestWechatAdapterLoadsPersistedToken:
             PlatformConfig(token="", extra={"account_id": "bot-load-2"}),
         )
         assert adapter._token == "from-env-token"
+
+
+@pytest.mark.unit
+class TestContextTokenStorePermissions:
+    """Audit 4.1.2: context-token JSON must be written with 0o600 permissions,
+    matching the pattern used by save_wechat_account for account credentials."""
+
+    def test_persisted_file_is_owner_only(self, tmp_butler_home):
+        store = ContextTokenStore(str(tmp_butler_home))
+        store.set("bot-1", "peer-1", "secret-ctx-token")
+        path = tmp_butler_home / "wechat" / "accounts" / "bot-1.context-tokens.json"
+        assert path.exists()
+        assert oct(path.stat().st_mode & 0o777) == "0o600", (
+            f"context-token file should be 0o600, got {oct(path.stat().st_mode & 0o777)}"
+        )
