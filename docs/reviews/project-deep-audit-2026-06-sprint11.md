@@ -12,7 +12,7 @@
 
 | # | ID | 位置 | 问题 | 严重 | 工时 |
 |---|----|------|------|------|------|
-| 1 | **TST-11-1** | `butler/runtime/approval.py` (140 行) | 真死代码（0 importer/0 test）— Sprint 10 REL-NEW-07 描述的代码在此 | 🔴 | 10min |
+| 1 | ~~TST-11-1~~ | ~~`butler/runtime/approval.py` (140 行)~~ | ~~真死代码（0 importer/0 test）— Sprint 10 REL-NEW-07 描述的代码在此~~ **⚠️ Sprint 11 误报：实为 namespace 引用（service.py:12）** | ~~🔴~~ | ~~10min~~ |
 | 2 | **REL-11-1** | `message_handler.py:389,401` | `_idempotency_reserved = False` 提前初始化 → inflight 假阴性泄漏 | 🔴 | 30min |
 | 3 | **REL-11-5** | `inbound_idempotency.py:22,79-82` | `inflight` 状态无 TTL/无 sweep → worker 崩溃后永久拒绝 | 🔴 | 1h |
 | 4 | **PERF-11-5** | `semantic_index.py:35` | 单 RLock 串行化 9 个方法（search/upsert/delete/count）— 多 session 并发全阻塞 | 🔴 | 2h |
@@ -192,11 +192,20 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 ### 🔴 CRITICAL
 
-#### TST-11-1 `butler/runtime/approval.py` 真死代码
+#### TST-11-1 `butler/runtime/approval.py` 真死代码  ⚠️ **Sprint 11 审计误报**
 - **位置**: `butler/runtime/approval.py` (140 行)
-- **证据**: `grep "from butler.runtime.approval" butler/ tests/` = **0 命中**。Sprint 9 漏报，Sprint 10 REL-NEW-07 `consume_approval` 描述的代码**就在这个死模块里**。
-- **关联消化**: 删除此模块同时消化 Sprint 10 REL-NEW-07。
-- **建议**: 整文件删除 + Sprint 10 REL-NEW-07 标"因死代码自然消化"。
+- **初次审计结论**: `grep "from butler.runtime.approval" butler/ tests/` = **0 命中**，报为真死代码，建议删。
+- **复检结果 (2026-06-02)**: **实为 false positive**。
+  - `butler/runtime/service.py:12` 实际是 `from butler.runtime import approval, audit, loader, notify, runner, schedule`（namespace 形式）
+  - 主审计师 pattern 漏检形式：`from butler.runtime import` 后接 approval 的子句（form3-namespace）
+  - `tests/test_runtime.py:335` 也有同款 `from butler.runtime import approval`
+  - 实际 `approval.*()` 调用 ≥3 处
+- **修复**: 已加 `tests/test_sprint11_tst1_approval_alive.py` 回归保护，3 种 import 形式（form1 / form2 / form3-namespace）全覆盖，防止后续 subagent 误删。
+- **审计方法学**: 死代码扫描必须覆盖 3 种 import 形式：
+  - form1: `from butler.runtime.approval import X`
+  - form2: `import butler.runtime.approval`
+  - form3: `from butler.runtime import ... approval ...`（namespace，Sprint 11 漏检）
+- **关联消化**: **不成立**。Sprint 10 REL-NEW-07 `consume_approval` RMW 仍为独立 finding，approval 模块保留。
 
 ### 🟠 HIGH
 
