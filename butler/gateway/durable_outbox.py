@@ -13,6 +13,7 @@ from typing import Any, Iterator
 
 from butler.config import get_butler_home
 from butler.env_parse import env_truthy
+from butler.io.atomic_write import atomic_write_text
 
 
 def durable_outbox_enabled() -> bool:
@@ -44,8 +45,14 @@ def _entry_path(state: str, entry_id: str) -> Path:
 
 
 def _write_entry(path: Path, row: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(row, ensure_ascii=False, indent=2), encoding="utf-8")
+    """Serialize row to JSON and write atomically (fsync + no symlink).
+
+    Sprint 9 REL-9: 原实现裸 ``path.write_text``，缺 fsync（崩溃丢数据）
+    与 O_NOFOLLOW（可写到 symlink 目标绕过路径守门）。改为复用
+    ``butler.io.atomic_write_text``。
+    """
+    text = json.dumps(row, ensure_ascii=False, indent=2)
+    atomic_write_text(path, text)
 
 
 def _trim_state_dir(state: str) -> None:
@@ -78,6 +85,29 @@ def _outbox_read_lock() -> Iterator[None]:
             os.close(fd)
 
 
+@contextlib.contextmanager
+def _outbox_write_lock() -> Iterator[None]:
+    """Acquire ``flock(LOCK_EX)`` on the outbox lock file for the write window.
+
+    Sprint 9 REL-9: cross-process writers (``enqueue_outbox_message`` /
+    ``_transition_outbox_entry``) hold an exclusive lock so concurrent
+    writers (same or different process) cannot interleave write+replace
+    and leave the on-disk state in a torn / racey state.  Readers use
+    ``LOCK_SH`` and wait for our release.
+    """
+    lock_path = _outbox_root() / ".lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+
 def enqueue_outbox_message(chat_id: str, body: str, *, kind: str) -> str:
     if not durable_outbox_enabled():
         return ""
@@ -91,8 +121,9 @@ def enqueue_outbox_message(chat_id: str, body: str, *, kind: str) -> str:
         "attempts": 0,
         "created_at": time.time(),
     }
-    _write_entry(_entry_path("pending", entry_id), row)
-    _trim_state_dir("pending")
+    with _outbox_write_lock():
+        _write_entry(_entry_path("pending", entry_id), row)
+        _trim_state_dir("pending")
     return entry_id
 
 
@@ -114,9 +145,10 @@ def _transition_outbox_entry(entry_id: str, *, target_state: str, error: str = "
     if error:
         row["error"] = str(error)[:500]
     target = _entry_path(target_state, entry_id)
-    _write_entry(pending, row)
-    pending.replace(target)
-    _trim_state_dir(target_state)
+    with _outbox_write_lock():
+        _write_entry(pending, row)
+        pending.replace(target)
+        _trim_state_dir(target_state)
     return True
 
 
