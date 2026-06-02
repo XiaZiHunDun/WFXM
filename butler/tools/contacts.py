@@ -16,6 +16,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+from butler.tools._file_cache import read_json_cached
 from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
@@ -59,12 +60,9 @@ def _load_all() -> list[dict[str, Any]]:
         return []
     result: list[dict[str, Any]] = []
     for f in sorted(d.glob("*.json")):
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and "id" in data:
-                result.append(data)
-        except (json.JSONDecodeError, OSError):
-            continue
+        data = read_json_cached(f)
+        if isinstance(data, dict) and "id" in data:
+            result.append(data)
     return result
 
 
@@ -72,11 +70,8 @@ def _load_contact(cid: str) -> dict[str, Any] | None:
     path = _contacts_dir() / f"{cid}.json"
     if not path.is_file():
         return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) and data.get("id") == cid else None
-    except (json.JSONDecodeError, OSError):
-        return None
+    data = read_json_cached(path)
+    return data if isinstance(data, dict) and data.get("id") == cid else None
 
 
 def _delete_contact(cid: str) -> bool:

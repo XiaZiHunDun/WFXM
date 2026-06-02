@@ -18,6 +18,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+from butler.tools._file_cache import read_json_cached
 from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
@@ -61,12 +62,9 @@ def _load_all_habits() -> list[dict[str, Any]]:
     for f in sorted(d.glob("*.json")):
         if f.parent.name == "checkins":
             continue
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and "id" in data and "name" in data:
-                result.append(data)
-        except (json.JSONDecodeError, OSError):
-            continue
+        data = read_json_cached(f)
+        if isinstance(data, dict) and "id" in data and "name" in data:
+            result.append(data)
     return result
 
 
@@ -74,11 +72,8 @@ def _load_habit(hid: str) -> dict[str, Any] | None:
     path = _habits_dir() / f"{hid}.json"
     if not path.is_file():
         return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) and data.get("id") == hid else None
-    except (json.JSONDecodeError, OSError):
-        return None
+    data = read_json_cached(path)
+    return data if isinstance(data, dict) and data.get("id") == hid else None
 
 
 def _delete_habit(hid: str) -> bool:
@@ -116,12 +111,9 @@ def _load_checkins(habit_id: str, days: int = 30) -> list[dict[str, Any]]:
         return []
     result: list[dict[str, Any]] = []
     for f in sorted(cd.glob(f"{habit_id}_*.json"), reverse=True):
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                result.append(data)
-        except (json.JSONDecodeError, OSError):
-            continue
+        data = read_json_cached(f)
+        if isinstance(data, dict):
+            result.append(data)
         if len(result) >= days:
             break
     return result
@@ -131,10 +123,8 @@ def _get_checkin(habit_id: str, date: str) -> dict[str, Any] | None:
     path = _checkins_dir() / f"{habit_id}_{date}.json"
     if not path.is_file():
         return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
+    data = read_json_cached(path)
+    return data if isinstance(data, dict) else None
 
 
 def _calc_streak(habit_id: str) -> int:
