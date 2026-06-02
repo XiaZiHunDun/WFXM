@@ -56,14 +56,14 @@ class TestMemoryBulletEdit:
 
         new_sid = project_bullet_source_id("p", "Notes", "试点统一测试日 2026-05-22")
         with bm.semantic._lock:
-            with bm.semantic._connect() as conn:
-                old_row = conn.execute(
-                    "SELECT 1 FROM memory_vectors WHERE source_id = ?",
-                    (old_sid,),
-                ).fetchone()
-                new_row = conn.execute(
-                    "SELECT 1 FROM memory_vectors WHERE source_id = ?",
-                    (new_sid,),
-                ).fetchone()
+            conn = bm.semantic._conn
+            old_row = conn.execute(
+                "SELECT 1 FROM memory_vectors WHERE source_id = ?",
+                (old_sid,),
+            ).fetchone()
+            new_row = conn.execute(
+                "SELECT 1 FROM memory_vectors WHERE source_id = ?",
+                (new_sid,),
+            ).fetchone()
         assert old_row is None
         assert new_row is not None

@@ -120,12 +120,12 @@ def reindex_semantic_memory(
 
 def _clear_vector_table(semantic: SemanticMemoryIndex) -> int:
     with semantic._lock:
-        with semantic._connect() as conn:
-            cur = conn.execute("SELECT COUNT(*) FROM memory_vectors")
-            n = int(cur.fetchone()[0] or 0)
-            conn.execute("DELETE FROM memory_vectors")
-            conn.commit()
-            return n
+        conn = semantic._conn
+        cur = conn.execute("SELECT COUNT(*) FROM memory_vectors")
+        n = int(cur.fetchone()[0] or 0)
+        conn.execute("DELETE FROM memory_vectors")
+        conn.commit()
+        return n
 
 
 def _iter_project_dirs(projects_dir: Path, only_name: str | None) -> list[Path]:

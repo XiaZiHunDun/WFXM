@@ -33,36 +33,44 @@ class SemanticMemoryIndex:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.embedder = embedder or get_embedder()
         self._lock = threading.RLock()
+        self._conn = self._open_conn()
         self._init_schema()
 
-    def _connect(self) -> sqlite3.Connection:
+    def _open_conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")
         return conn
 
+    def close(self) -> None:
+        with self._lock:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+
     def _init_schema(self) -> None:
         with self._lock:
-            with self._connect() as conn:
-                conn.executescript(
-                    """
-                    CREATE TABLE IF NOT EXISTS memory_vectors (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        source TEXT NOT NULL,
-                        source_id TEXT NOT NULL,
-                        project TEXT NOT NULL DEFAULT '',
-                        category TEXT NOT NULL DEFAULT '',
-                        content TEXT NOT NULL,
-                        embedding_json TEXT NOT NULL,
-                        model_id TEXT NOT NULL,
-                        updated_at REAL NOT NULL,
-                        UNIQUE(source, source_id)
-                    );
-                    CREATE INDEX IF NOT EXISTS idx_mv_project ON memory_vectors(project);
-                    CREATE INDEX IF NOT EXISTS idx_mv_source ON memory_vectors(source);
-                    """
-                )
-                self._ensure_vector_columns(conn)
-                conn.commit()
+            conn = self._conn
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS memory_vectors (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source TEXT NOT NULL,
+                    source_id TEXT NOT NULL,
+                    project TEXT NOT NULL DEFAULT '',
+                    category TEXT NOT NULL DEFAULT '',
+                    content TEXT NOT NULL,
+                    embedding_json TEXT NOT NULL,
+                    model_id TEXT NOT NULL,
+                    updated_at REAL NOT NULL,
+                    UNIQUE(source, source_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_mv_project ON memory_vectors(project);
+                CREATE INDEX IF NOT EXISTS idx_mv_source ON memory_vectors(source);
+                """
+            )
+            self._ensure_vector_columns(conn)
+            conn.commit()
 
     def _ensure_vector_columns(self, conn: sqlite3.Connection) -> None:
         cols = {row[1] for row in conn.execute("PRAGMA table_info(memory_vectors)").fetchall()}
@@ -77,21 +85,21 @@ class SemanticMemoryIndex:
 
     def count_rows(self) -> int:
         with self._lock:
-            with self._connect() as conn:
-                row = conn.execute("SELECT COUNT(*) FROM memory_vectors").fetchone()
-                return int(row[0] if row else 0)
+            conn = self._conn
+            row = conn.execute("SELECT COUNT(*) FROM memory_vectors").fetchone()
+            return int(row[0] if row else 0)
 
     def count_by_source(self, source: str) -> int:
         src = (source or "").strip()
         if not src:
             return 0
         with self._lock:
-            with self._connect() as conn:
-                row = conn.execute(
-                    "SELECT COUNT(*) FROM memory_vectors WHERE source = ?",
-                    (src,),
-                ).fetchone()
-                return int(row[0] if row else 0)
+            conn = self._conn
+            row = conn.execute(
+                "SELECT COUNT(*) FROM memory_vectors WHERE source = ?",
+                (src,),
+            ).fetchone()
+            return int(row[0] if row else 0)
 
     @property
     def model_id(self) -> str:
@@ -113,43 +121,43 @@ class SemanticMemoryIndex:
         payload = json.dumps(vec, ensure_ascii=False)
         now = time.time()
         with self._lock:
-            with self._connect() as conn:
-                conn.execute(
-                    """
-                    INSERT INTO memory_vectors (
-                        source, source_id, project, category, content,
-                        embedding_json, model_id, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(source, source_id) DO UPDATE SET
-                        project=excluded.project,
-                        category=excluded.category,
-                        content=excluded.content,
-                        embedding_json=excluded.embedding_json,
-                        model_id=excluded.model_id,
-                        updated_at=excluded.updated_at,
-                        access_count=memory_vectors.access_count
-                    """,
-                    (
-                        source,
-                        str(source_id),
-                        project or "",
-                        category or "",
-                        text,
-                        payload,
-                        self.embedder.model_id,
-                        now,
-                    ),
-                )
-                conn.commit()
+            conn = self._conn
+            conn.execute(
+                """
+                INSERT INTO memory_vectors (
+                    source, source_id, project, category, content,
+                    embedding_json, model_id, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(source, source_id) DO UPDATE SET
+                    project=excluded.project,
+                    category=excluded.category,
+                    content=excluded.content,
+                    embedding_json=excluded.embedding_json,
+                    model_id=excluded.model_id,
+                    updated_at=excluded.updated_at,
+                    access_count=memory_vectors.access_count
+                """,
+                (
+                    source,
+                    str(source_id),
+                    project or "",
+                    category or "",
+                    text,
+                    payload,
+                    self.embedder.model_id,
+                    now,
+                ),
+            )
+            conn.commit()
 
     def delete(self, source: str, source_id: str) -> None:
         with self._lock:
-            with self._connect() as conn:
-                conn.execute(
-                    "DELETE FROM memory_vectors WHERE source = ? AND source_id = ?",
-                    (source, str(source_id)),
-                )
-                conn.commit()
+            conn = self._conn
+            conn.execute(
+                "DELETE FROM memory_vectors WHERE source = ? AND source_id = ?",
+                (source, str(source_id)),
+            )
+            conn.commit()
 
     def search(self, query: str, *, project: str | None = None, limit: int | None = None) -> list[dict[str, Any]]:
         """Pure vector search ranked by cosine similarity."""
@@ -161,30 +169,30 @@ class SemanticMemoryIndex:
         qvec = self.embedder.embed(q)
         scored: list[tuple[float, dict[str, Any]]] = []
         with self._lock:
-            with self._connect() as conn:
-                if project is not None and str(project).strip():
-                    rows = conn.execute(
-                        """
-                        SELECT source, source_id, project, category, content, embedding_json,
-                               updated_at, access_count, last_accessed_at
-                        FROM memory_vectors
-                        WHERE project = ? OR project = ''
-                        ORDER BY updated_at DESC
-                        LIMIT ?
-                        """,
-                        (project.strip(), sql_limit),
-                    ).fetchall()
-                else:
-                    rows = conn.execute(
-                        """
-                        SELECT source, source_id, project, category, content, embedding_json,
-                               updated_at, access_count, last_accessed_at
-                        FROM memory_vectors
-                        ORDER BY updated_at DESC
-                        LIMIT ?
-                        """,
-                        (sql_limit,),
-                    ).fetchall()
+            conn = self._conn
+            if project is not None and str(project).strip():
+                rows = conn.execute(
+                    """
+                    SELECT source, source_id, project, category, content, embedding_json,
+                           updated_at, access_count, last_accessed_at
+                    FROM memory_vectors
+                    WHERE project = ? OR project = ''
+                    ORDER BY updated_at DESC
+                    LIMIT ?
+                    """,
+                    (project.strip(), sql_limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT source, source_id, project, category, content, embedding_json,
+                           updated_at, access_count, last_accessed_at
+                    FROM memory_vectors
+                    ORDER BY updated_at DESC
+                    LIMIT ?
+                    """,
+                    (sql_limit,),
+                ).fetchall()
         for row in rows:
             (
                 source,
@@ -284,32 +292,32 @@ class SemanticMemoryIndex:
         if not pairs:
             return
         with self._lock:
-            with self._connect() as conn:
-                placeholders = " OR ".join(
-                    "(source = ? AND source_id = ?)" for _ in pairs
-                )
-                params: list[Any] = [now]
-                for src, sid in pairs:
-                    params.extend([src, sid])
-                conn.execute(
-                    f"""
-                    UPDATE memory_vectors
-                    SET access_count = access_count + 1, last_accessed_at = ?
-                    WHERE {placeholders}
-                    """,
-                    params,
-                )
-                conn.commit()
+            conn = self._conn
+            placeholders = " OR ".join(
+                "(source = ? AND source_id = ?)" for _ in pairs
+            )
+            params: list[Any] = [now]
+            for src, sid in pairs:
+                params.extend([src, sid])
+            conn.execute(
+                f"""
+                UPDATE memory_vectors
+                SET access_count = access_count + 1, last_accessed_at = ?
+                WHERE {placeholders}
+                """,
+                params,
+            )
+            conn.commit()
 
     def delete_source_prefix(self, source: str) -> int:
         with self._lock:
-            with self._connect() as conn:
-                cur = conn.execute(
-                    "DELETE FROM memory_vectors WHERE source = ?",
-                    (source,),
-                )
-                conn.commit()
-                return int(cur.rowcount or 0)
+            conn = self._conn
+            cur = conn.execute(
+                "DELETE FROM memory_vectors WHERE source = ?",
+                (source,),
+            )
+            conn.commit()
+            return int(cur.rowcount or 0)
 
     def search_owner_profile(self, query: str, *, limit: int = 4) -> list[dict[str, Any]]:
         """Vector search limited to owner profile entries."""
@@ -320,16 +328,16 @@ class SemanticMemoryIndex:
         qvec = self.embedder.embed(q)
         scored: list[tuple[float, dict[str, Any]]] = []
         with self._lock:
-            with self._connect() as conn:
-                rows = conn.execute(
-                    """
-                    SELECT source_id, content, embedding_json, updated_at,
-                           access_count, last_accessed_at
-                    FROM memory_vectors
-                    WHERE source = ?
-                    """,
-                    (SOURCE_OWNER_PROFILE,),
-                ).fetchall()
+            conn = self._conn
+            rows = conn.execute(
+                """
+                SELECT source_id, content, embedding_json, updated_at,
+                       access_count, last_accessed_at
+                FROM memory_vectors
+                WHERE source = ?
+                """,
+                (SOURCE_OWNER_PROFILE,),
+            ).fetchall()
         for source_id, content, emb_json, updated_at, access_count, last_accessed_at in rows:
             try:
                 vec = json.loads(emb_json)

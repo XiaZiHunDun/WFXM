@@ -92,14 +92,14 @@ class TestPendingMemoryCommands:
         assert out and "已拒绝" in out
         assert not pm.markdown.list_pending()
         with bm.semantic._lock:
-            with bm.semantic._connect() as conn:
-                assert (
-                    conn.execute(
-                        "SELECT 1 FROM memory_vectors WHERE source_id = ?",
-                        (pend_sid,),
-                    ).fetchone()
-                    is None
-                )
+            conn = bm.semantic._conn
+            assert (
+                conn.execute(
+                    "SELECT 1 FROM memory_vectors WHERE source_id = ?",
+                    (pend_sid,),
+                ).fetchone()
+                is None
+            )
 
 
 @pytest.mark.module_test
@@ -170,14 +170,14 @@ class TestExperiencePrune:
         bm = ButlerMemory(tmp_path / "bh")
         old = time.time() - 40 * 86400
         with bm.experience._lock:
-            with bm.experience._connect() as conn:
-                conn.execute(
-                    """
-                    INSERT INTO experiences (project, category, content, tags, created_at)
-                    VALUES ('', 'conversation', 'old', '', ?)
-                    """,
-                    (old,),
-                )
-                conn.commit()
+            conn = bm.experience._conn
+            conn.execute(
+                """
+                INSERT INTO experiences (project, category, content, tags, created_at)
+                VALUES ('', 'conversation', 'old', '', ?)
+                """,
+                (old,),
+            )
+            conn.commit()
         removed = bm.experience.prune_conversation_older_than(30)
         assert removed >= 1

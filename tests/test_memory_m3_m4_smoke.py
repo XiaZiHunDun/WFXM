@@ -54,14 +54,14 @@ class TestM3RejectPendingGateway:
         assert "Redis" not in pm.markdown.get_section("Decisions")
 
         with bm.semantic._lock:
-            with bm.semantic._connect() as conn:
-                assert (
-                    conn.execute(
-                        "SELECT 1 FROM memory_vectors WHERE source_id = ?",
-                        (pend_sid,),
-                    ).fetchone()
-                    is None
-                )
+            conn = bm.semantic._conn
+            assert (
+                conn.execute(
+                    "SELECT 1 FROM memory_vectors WHERE source_id = ?",
+                    (pend_sid,),
+                ).fetchone()
+                is None
+            )
 
 
 @pytest.mark.module_test

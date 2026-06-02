@@ -93,15 +93,15 @@ class TestProjectMemoryVectors:
         assert not pm.markdown.list_pending()
         formal_sid = project_bullet_source_id("p", "Decisions", "我们决定采用 PostgreSQL")
         with sem._lock:
-            with sem._connect() as conn:
-                row = conn.execute(
-                    "SELECT source_id FROM memory_vectors WHERE source_id = ?",
-                    (formal_sid,),
-                ).fetchone()
-                pend_row = conn.execute(
-                    "SELECT source_id FROM memory_vectors WHERE source_id = ?",
-                    (pend_sid,),
-                ).fetchone()
+            conn = sem._conn
+            row = conn.execute(
+                "SELECT source_id FROM memory_vectors WHERE source_id = ?",
+                (formal_sid,),
+            ).fetchone()
+            pend_row = conn.execute(
+                "SELECT source_id FROM memory_vectors WHERE source_id = ?",
+                (pend_sid,),
+            ).fetchone()
         assert row is not None
         assert pend_row is None
 
@@ -112,11 +112,11 @@ class TestProjectMemoryVectors:
         assert idx.count_rows() == 1
         invalidate_pending_vector(idx, "p", "草稿记忆")
         with idx._lock:
-            with idx._connect() as conn:
-                row = conn.execute(
-                    "SELECT 1 FROM memory_vectors WHERE source = ? AND source_id = ?",
-                    (SOURCE_PROJECT, sid),
-                ).fetchone()
+            conn = idx._conn
+            row = conn.execute(
+                "SELECT 1 FROM memory_vectors WHERE source = ? AND source_id = ?",
+                (SOURCE_PROJECT, sid),
+            ).fetchone()
         assert row is None
 
 

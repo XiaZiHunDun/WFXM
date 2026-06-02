@@ -1,5 +1,6 @@
 """Tests for butler.memory — ButlerMemory and ProjectMemory."""
 
+import sqlite3 as _real_sqlite3
 import tempfile
 from pathlib import Path
 
@@ -273,3 +274,38 @@ class TestButlerMemoryDefault:
         assert isinstance(bm, ButlerMemory)
         assert bm.profile is not None
         assert bm.experience is not None
+
+
+@pytest.mark.module_test
+class TestExperienceStoreConnectionReuse:
+    """Audit 5.1.1: ExperienceStore was opening a fresh sqlite3.connect
+    on every operation (13+ call sites). The fix holds a single
+    connection for the store's lifetime."""
+
+    def test_connection_is_opened_once_then_reused(self, monkeypatch, tmp_path):
+        from butler.memory import butler_memory as bm
+
+        counter = {"calls": 0}
+        real_connect = _real_sqlite3.connect
+
+        def counting_connect(*args, **kwargs):
+            counter["calls"] += 1
+            return real_connect(*args, **kwargs)
+
+        monkeypatch.setattr(bm.sqlite3, "connect", counting_connect)
+
+        es = ExperienceStore(tmp_path / "exp.db")
+        baseline = counter["calls"]
+        assert baseline >= 1, "__init__ should open the connection at least once"
+
+        for i in range(20):
+            es.add("P", "dev", f"item-{i}")
+        es.search("item")
+        es.get_recent(5)
+        es.fetch_by_ids([1])
+
+        post_ops = counter["calls"] - baseline
+        assert post_ops == 0, (
+            f"connection not reused: {post_ops} extra sqlite3.connect() calls during "
+            f"23 operations (audit 5.1.1: should be 0 after the fix)"
+        )
