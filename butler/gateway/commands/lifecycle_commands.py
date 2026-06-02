@@ -144,6 +144,7 @@ def _cmd_registry(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_config(ctx: CommandContext) -> Optional[str]:
     from butler.config_service import config_set, format_config_get, format_config_list
+    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
     if not ctx.arg:
         return format_config_list()
@@ -155,6 +156,10 @@ def _cmd_config(ctx: CommandContext) -> Optional[str]:
     if sub == "get" and sub_arg:
         return format_config_get(sub_arg)
     if sub == "set":
+        if not is_gateway_owner(
+            platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+        ):
+            return owner_required_message()
         kv = sub_arg.split(maxsplit=1)
         if len(kv) == 2:
             result = config_set(kv[0], kv[1])
