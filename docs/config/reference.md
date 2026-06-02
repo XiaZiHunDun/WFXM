@@ -482,6 +482,56 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_OBSERVATION_TTL_DAYS` | `90` | Observation Store 数据保留天数 |
 | `BUTLER_ONBOARDING_WELCOME` | `1` | 首次会话欢迎消息（`0` 关闭） |
 
+## Sprint 6+ 增量开关 (审计 5.1.10 同步)
+
+> 本节为 `tests/test_butler_env_sync.py` 自动校验入口；新增 `BUTLER_` env
+> 必须在 `.env.example` 与本节**同时**出现，否则 `pytest -k butler_env_sync` 失败。
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_RUNTIME_DIRS` | 见 `butler/config.py` | runtime 写入白名单目录（逗号分隔） |
+| `BUTLER_TOOL_RETRY_MAX` | `2` | 单 tool 失败重试上限 |
+| `BUTLER_TOOL_RETRY_BACKOFF_SECONDS` | `0.4` | 工具重试退避基数（秒） |
+| `BUTLER_TOOL_PAIR_REPAIR` | `1` | 配对工具（read_file/write_file）错误时自动修复 |
+| `BUTLER_TOOL_SELECTOR_THRESHOLD` | `12` | 工具数超过此值才启用 LLM 选择器 |
+| `BUTLER_TOOL_CALL_LIMIT_EXEMPT` | — | 不受 `PerToolCallLimiter` 约束的 tool 名（逗号分隔） |
+| `BUTLER_TOOL_NAMES` | — | 自定义已知 tool 名白名单（normalize 用，逗号分隔） |
+| `BUTLER_TOOL_MASK_MIN_PRUNABLE` | `30000` | tool 输出掩码：可脱敏最小字符 |
+| `BUTLER_TOOL_RESULT_CACHE_TTL` | `120` | 工具结果缓存 TTL（秒） |
+| `BUTLER_HASHLINE_READ` | `0` | `1` = read_file 返回 hashline 锚点 |
+| `BUTLER_HASHLINE_PATCH` | `1` | `1` = patch 工具支持 hashline 定位 |
+| `BUTLER_INLINE_TOOL_COMPRESS_MAX_CHARS` | `1200` | 单 tool 输出超过此值触发内联压缩 |
+| `BUTLER_INLINE_TOOL_COMPRESS_KEEP` | `6` | 内联压缩后保留最近 N 行 |
+| `BUTLER_TERMINAL_PATTERN_APPROVE_TTL` | `86400` | `/批准一次 pattern` 有效期（秒） |
+| `BUTLER_REGISTRY_ALLOWED_HOSTS` | — | registry 拉取白名单 host（逗号分隔） |
+| `BUTLER_MEMORY_MAX_LINES` | `200` | 单 markdown chunk 最大行数 |
+| `BUTLER_MEMORY_MAX_BYTES` | `25600` | 单 markdown chunk 最大字节数 |
+| `BUTLER_MODE_CLASSIFIER_MIN_CHARS` | `36` | 触发 mode classifier 的最小 query 字符数 |
+| `BUTLER_INTENT_KEYWORDS` | — | 自定义 intent 关键词（追加默认，逗号分隔） |
+| `BUTLER_INTENT_KEYWORDS_OFF` | `0` | `1` = 关闭 intent 关键词 |
+| `BUTLER_INSTRUCTION_WALKUP_MAX_FILES` | `8` | `/指令召回` 单次回放最多文件数 |
+| `BUTLER_GATEWAY_PROGRESSIVE_MIN_CHARS` | `240` | 渐进推送触发字符阈值 |
+| `BUTLER_GATEWAY_PROGRESSIVE_INTERVAL` | `45` | 渐进推送最小间隔（秒） |
+| `BUTLER_GATEWAY_PROGRESS_MAX_ACK_MESSAGES` | `1` | 单次进度确认最多消息数 |
+| `BUTLER_GATEWAY_TYPING_REFRESH_SECONDS` | `4` | 输入提示刷新间隔（秒） |
+| `BUTLER_GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS` | `2` | 输入提示拉取超时（秒） |
+| `BUTLER_GATEWAY_QUEUE_DRAIN_FOLLOWUP` | `1` | drain 队列中 followup 消息的并发上限 |
+| `BUTLER_GATEWAY_DELEGATE_PUSH_ALWAYS` | `0` | `1` = 委派任务每次完成都推微信 |
+| `BUTLER_OUTBOUND_PII_SCRUB_EMAIL` | `1` | 出站脱敏是否包含邮箱（`0` 关闭） |
+| `BUTLER_RULES_ENGINE` | `1` | `0` = 关闭规则引擎 |
+| `BUTLER_RULES_MAX_CHARS` | `6000` | 规则引擎单次输出最大字符 |
+| `BUTLER_TODO_CONTINUATION` | `1` | `0` = 关闭 todo 持续推进 |
+| `BUTLER_TODO_CONTINUATION_MAX` | `2` | todo 单轮最大续推次数 |
+| `BUTLER_TODO_STAGNATION_MAX` | `2` | todo 停滞容忍次数 |
+| `BUTLER_POST_SESSION_BUFFER_MESSAGES` | `8` | post-session 缓冲消息条数 |
+| `BUTLER_TURN_BUDGET_MIN_ITERATIONS` | `30` | 单轮 tool 调用的最小迭代数 |
+| `BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX` | — | 微信限流退避上限（秒） |
+| `BUTLER_CLI_SHOW_REASONING` | `0` | `1` = CLI 显示 reasoning |
+| `BUTLER_CATALOG_INTEGRITY_FAIL_CLOSED` | `1` | `0` = catalog 校验失败仍尝试加载 |
+| `BUTLER_EXTRA_TOOLS` | — | 项目维度默认启用的额外工具（逗号分隔） |
+| `BUTLER_TRANSCRIPT_SEARCH_MAX_HITS` | `15` | transcript 搜索单次最多命中 |
+| `BUTLER_TRANSCRIPT_SEARCH_MAX_SESSIONS` | `5` | transcript 搜索最多扫描的会话数 |
+
 ## 相关
 
 - [`../guides/project-onboarding.md`](../guides/project-onboarding.md)  
