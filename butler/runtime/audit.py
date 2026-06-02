@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,20 +58,39 @@ def lock_path(project_name: str, job_id: str) -> Path:
 
 def try_acquire_lock(project_name: str, job_id: str, *, stale_seconds: float = 7200) -> bool:
     path = lock_path(project_name, job_id)
-    if path.exists():
+    # Atomic create-or-fail: O_EXCL makes the create fail if the file
+    # already exists, so two concurrent acquirers cannot both "win".
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+    try:
+        fd = os.open(str(path), flags, 0o600)
+    except FileExistsError:
+        # Lock exists — check if stale and try to take over.
         try:
-            age = time.time() - path.stat().st_mtime
-            if age < stale_seconds:
-                return False
+            stat_result = path.stat()
         except OSError:
             return False
-    try:
-        from butler.io.atomic_write import atomic_write_text
-
-        atomic_write_text(path, str(time.time()))
-        return True
+        age = time.time() - stat_result.st_mtime
+        if age < stale_seconds:
+            return False
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            return False
+        try:
+            fd = os.open(str(path), flags, 0o600)
+        except FileExistsError:
+            return False
+        except OSError:
+            return False
     except OSError:
         return False
+    try:
+        os.write(fd, str(time.time()).encode("utf-8"))
+    finally:
+        os.close(fd)
+    return True
 
 
 def release_lock(project_name: str, job_id: str) -> None:
