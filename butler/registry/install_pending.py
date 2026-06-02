@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import json
 import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from butler.config import get_butler_home
+from butler.io.atomic_write import atomic_write_text
 
 
 @dataclass
@@ -53,7 +56,27 @@ def _load_all() -> dict[str, Any]:
 
 
 def _save_all(data: dict[str, Any]) -> None:
-    _pending_path().write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    """Atomic JSON write (fsync + no symlink).  Sprint 9 REL-11 替换原裸 write_text。"""
+    text = json.dumps(data, ensure_ascii=False, indent=2)
+    atomic_write_text(_pending_path(), text)
+
+
+@contextlib.contextmanager
+def _write_lock() -> Iterator[None]:
+    """Hold ``flock(LOCK_EX)`` so concurrent save/clear calls cannot interleave
+    their read-modify-write cycle.  Sprint 9 REL-11 防止 save 互相覆盖。
+    """
+    lock_path = _pending_path().parent / ".pending-installs.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(lock_path), os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
 
 def _entry_key(session_key: str, platform: str, external_id: str | None) -> str:
@@ -74,22 +97,23 @@ def _purge_expired(entries: dict[str, Any]) -> dict[str, Any]:
 
 
 def save_pending(row: PendingSkillInstall) -> None:
-    data = _load_all()
-    entries = _purge_expired(data.get("entries") or {})
-    key = _entry_key(row.session_key, row.platform, row.external_id)
-    entries[key] = {
-        "identifier": row.identifier,
-        "name": row.name,
-        "description": row.description[:500],
-        "source": row.source,
-        "trust": row.trust,
-        "session_key": row.session_key,
-        "platform": row.platform,
-        "external_id": row.external_id,
-        "requested_at": row.requested_at,
-    }
-    data["entries"] = entries
-    _save_all(data)
+    with _write_lock():
+        data = _load_all()
+        entries = _purge_expired(data.get("entries") or {})
+        key = _entry_key(row.session_key, row.platform, row.external_id)
+        entries[key] = {
+            "identifier": row.identifier,
+            "name": row.name,
+            "description": row.description[:500],
+            "source": row.source,
+            "trust": row.trust,
+            "session_key": row.session_key,
+            "platform": row.platform,
+            "external_id": row.external_id,
+            "requested_at": row.requested_at,
+        }
+        data["entries"] = entries
+        _save_all(data)
 
 
 def get_pending(
@@ -99,10 +123,14 @@ def get_pending(
     external_id: str | None,
     identifier: str = "",
 ) -> PendingSkillInstall | None:
+    """Read pending install — **read-only**, no side effects.
+
+    Sprint 9 REL-11：原实现末尾 _save_all 写盘清理过期项。这把"读"
+    路径变成"读+写"，并发 save 互相覆盖、读后无谓写盘。修复：纯读；
+    过期清理由 save_pending / clear_pending 写盘时顺带做。
+    """
     data = _load_all()
-    entries = _purge_expired(data.get("entries") or {})
-    data["entries"] = entries
-    _save_all(data)
+    entries = data.get("entries") or {}
 
     ident = identifier.strip()
     key = _entry_key(session_key, platform, external_id)
@@ -146,18 +174,19 @@ def clear_pending(
     external_id: str | None,
     identifier: str = "",
 ) -> None:
-    data = _load_all()
-    entries = _purge_expired(data.get("entries") or {})
-    key = _entry_key(session_key, platform, external_id)
-    if key in entries:
-        del entries[key]
-    if identifier.strip():
-        ident = identifier.strip()
-        for k, row in list(entries.items()):
-            if isinstance(row, dict) and str(row.get("identifier") or "") == ident:
-                del entries[k]
-    data["entries"] = entries
-    _save_all(data)
+    with _write_lock():
+        data = _load_all()
+        entries = _purge_expired(data.get("entries") or {})
+        key = _entry_key(session_key, platform, external_id)
+        if key in entries:
+            del entries[key]
+        if identifier.strip():
+            ident = identifier.strip()
+            for k, row in list(entries.items()):
+                if isinstance(row, dict) and str(row.get("identifier") or "") == ident:
+                    del entries[k]
+        data["entries"] = entries
+        _save_all(data)
 
 
 def format_pending_prompt(hit_name: str, identifier: str, source: str, trust: str) -> str:
