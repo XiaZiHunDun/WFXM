@@ -234,7 +234,7 @@ def validate_http_url(config: McpServerConfig) -> str | None:
     if not allow_private_http() and host in _PRIVATE_HOSTS:
         return f"private host blocked: {host}"
     allowed = set(config.hosts_allow) | set(http_hosts_allow_extra())
-    if allowed and not any(host == h or host.endswith("." + h) or host.endswith(h) for h in allowed):
+    if allowed and not any(host == h or host.endswith("." + h) for h in allowed):
         return f"host '{host}' not in hosts_allow"
     return None
 

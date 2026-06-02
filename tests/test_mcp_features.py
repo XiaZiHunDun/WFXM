@@ -77,6 +77,50 @@ def test_http_private_host_blocked():
     assert validate_http_url(cfg) is not None
 
 
+def test_http_hosts_allow_strict_subdomain():
+    """Substring bypass must be rejected: `notapi.com` ≠ allowlisted `api.com`."""
+    cfg = McpServerConfig(
+        server_id="x",
+        transport="http",
+        url="https://notapi.com/mcp",
+        hosts_allow=("api.com",),
+    )
+    assert validate_http_url(cfg) is not None
+
+
+def test_http_hosts_allow_suffix_attack():
+    """Suffix attack: `api.com.attacker.tld` must NOT pass for allowlisted `api.com`."""
+    cfg = McpServerConfig(
+        server_id="x",
+        transport="http",
+        url="https://api.com.attacker.tld/mcp",
+        hosts_allow=("api.com",),
+    )
+    assert validate_http_url(cfg) is not None
+
+
+def test_http_hosts_allow_subdomain_match():
+    """`sub.api.com` SHOULD pass for allowlisted `api.com`."""
+    cfg = McpServerConfig(
+        server_id="x",
+        transport="http",
+        url="https://sub.api.com/mcp",
+        hosts_allow=("api.com",),
+    )
+    assert validate_http_url(cfg) is None
+
+
+def test_http_hosts_allow_exact_match():
+    """Exact host match SHOULD pass."""
+    cfg = McpServerConfig(
+        server_id="x",
+        transport="http",
+        url="https://api.com/mcp",
+        hosts_allow=("api.com",),
+    )
+    assert validate_http_url(cfg) is None
+
+
 def test_tool_policy_allow_deny():
     pol = McpToolPolicy(allow=("a",), deny=("b",))
     assert tool_allowed_by_policy(pol, "a") is True
