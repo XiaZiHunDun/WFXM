@@ -45,6 +45,36 @@ def _function_calls_name(func: ast.FunctionDef, name: str) -> bool:
     return False
 
 
+def _collect_called_names(func: ast.FunctionDef) -> set[str]:
+    """Collect top-level function names directly called inside `func`."""
+    names: set[str] = set()
+    for node in ast.walk(func):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+            names.add(node.func.id)
+    return names
+
+
+def _has_gate_in_file(func: ast.FunctionDef, file_funcs: dict[str, ast.FunctionDef]) -> bool:
+    """True if `func` has direct gate OR (1-level transitive) callee in same file has gate."""
+    if any(_function_calls_name(func, n) for n in GATE_CALL_NAMES):
+        return True
+    for called in _collect_called_names(func):
+        target = file_funcs.get(called)
+        if target is not None and any(
+            _function_calls_name(target, n) for n in GATE_CALL_NAMES
+        ):
+            return True
+    return False
+
+
+def _build_func_map(tree: ast.AST) -> dict[str, ast.FunctionDef]:
+    return {
+        node.name: node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+    }
+
+
 def _has_opt_out_marker(func: ast.FunctionDef) -> bool:
     """True if docstring or leading 3 lines contain owner-gate-opt-out: <reason>."""
     if (
@@ -77,13 +107,11 @@ def scan_owner_gate_gaps() -> list[tuple[Path, str, int, str]]:
             tree = ast.parse(py.read_text(encoding="utf-8"))
         except SyntaxError:
             continue
+        file_funcs = _build_func_map(tree)
         for node in ast.walk(tree):
             if not isinstance(node, ast.FunctionDef) or not _is_handler(node):
                 continue
-            has_gate = any(
-                _function_calls_name(node, n) for n in GATE_CALL_NAMES
-            )
-            if has_gate or _has_opt_out_marker(node):
+            if _has_gate_in_file(node, file_funcs) or _has_opt_out_marker(node):
                 continue
             gaps.append(
                 (
