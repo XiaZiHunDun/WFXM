@@ -5,6 +5,16 @@ from __future__ import annotations
 from typing import Optional
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
+
+def _require_owner(ctx: CommandContext) -> Optional[str]:
+    """Sprint 11 SEC-11-5: 私人数据 handler 守门。"""
+    if not is_gateway_owner(
+        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+    ):
+        return owner_required_message()
+    return None
 
 
 def _cmd_overview(ctx: CommandContext) -> Optional[str]:
@@ -32,24 +42,36 @@ def _cmd_todos(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_memo(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.tools.memo import format_memos_for_wechat
 
     return format_memos_for_wechat(ctx.arg)
 
 
 def _cmd_contacts(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.tools.contacts import format_contacts_for_wechat
 
     return format_contacts_for_wechat(ctx.arg)
 
 
 def _cmd_expense(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.tools.expense import format_expense_for_wechat
 
     return format_expense_for_wechat(ctx.arg)
 
 
 def _cmd_habits(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.tools.habits import format_habits_for_wechat
 
     return format_habits_for_wechat(ctx.arg)
