@@ -162,55 +162,7 @@ class TestTrafilaturaWebFetch:
             assert result["title"] == "Test Page"
 
 
-# ── T4: apprise notifications ───────────────────────────────────────
-
-class TestAppriseAdapter:
-    def test_apprise_disabled_without_urls(self):
-        from butler.gateway.platforms.apprise_adapter import apprise_enabled
-
-        with patch.dict("os.environ", {"BUTLER_NOTIFY_URLS": ""}, clear=False):
-            assert apprise_enabled() is False
-
-    def test_notify_urls_parsing(self):
-        from butler.gateway.platforms.apprise_adapter import _notify_urls
-
-        with patch.dict("os.environ", {
-            "BUTLER_NOTIFY_URLS": "tgram://bot/chat, mailto://u:p@host, slack://tok",
-        }):
-            urls = _notify_urls()
-            assert len(urls) == 3
-            assert urls[0] == "tgram://bot/chat"
-            assert urls[1] == "mailto://u:p@host"
-
-    def test_send_notification_returns_false_without_apprise(self):
-        from butler.gateway.platforms.apprise_adapter import reset_apprise, send_notification
-
-        reset_apprise()
-        with patch.dict("os.environ", {"BUTLER_NOTIFY_URLS": ""}, clear=False):
-            result = send_notification("test message")
-            assert result is False
-
-    def test_send_notification_with_mock_apprise(self):
-        from butler.gateway.platforms.apprise_adapter import reset_apprise, send_notification
-
-        reset_apprise()
-
-        mock_apprise_mod = MagicMock()
-        mock_apprise_mod.NotifyType.INFO = "info"
-        mock_instance = MagicMock()
-        mock_instance.notify.return_value = True
-        mock_apprise_mod.Apprise.return_value = mock_instance
-
-        with patch.dict("os.environ", {"BUTLER_NOTIFY_URLS": "json://localhost"}):
-            with patch.dict("sys.modules", {"apprise": mock_apprise_mod}):
-                reset_apprise()
-                result = send_notification("test body", title="Test")
-                assert result is True
-
-        reset_apprise()
-
-
-# ── T5: duckdb data query ───────────────────────────────────────────
+# ── T4: duckdb data query (apprise adapter removed Sprint 10 TST-10-1) ────
 
 class TestDataQuery:
     def test_tool_query_data_no_sql(self):
