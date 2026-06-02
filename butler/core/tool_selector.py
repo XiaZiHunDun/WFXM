@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
+from collections import OrderedDict
 
 from butler.env_parse import env_truthy
 import logging
@@ -24,9 +26,20 @@ _CORE_TOOLS = frozenset({
     "habit_create",
 })
 
-_tool_embed_cache: dict[str, list[float]] = {}
+_TOOL_EMBED_CACHE_MAX = 256
+_tool_embed_cache: "OrderedDict[str, list[float]]" = OrderedDict()
 _embedder_instance = None
 _embedder_resolved = False
+
+
+def _tool_embed_cache_key(name: str, text: str) -> str:
+    """Stable cache key (Sprint 13 PERF-13-1).
+
+    blake2b is deterministic across processes; builtin hash() is not
+    (PYTHONHASHSEED). 16 hex chars ≈ 64 bits, ample for cache key.
+    """
+    h = hashlib.blake2b(f"{name}\x00{text}".encode("utf-8")).hexdigest()[:16]
+    return f"tool:{name}:{h}"
 
 
 def tool_selector_enabled() -> bool:
@@ -75,15 +88,19 @@ def _semantic_score(defn: dict, query_vec: list[float], embedder: object) -> flo
     """Compute semantic similarity between tool description and user query."""
     text = _tool_text(defn)
     name = _tool_name(defn)
-    cache_key = f"tool:{name}:{hash(text)}"
+    cache_key = _tool_embed_cache_key(name, text)
     if cache_key in _tool_embed_cache:
         tool_vec = _tool_embed_cache[cache_key]
+        _tool_embed_cache.move_to_end(cache_key)
     else:
         try:
             tool_vec = embedder.embed(text)  # type: ignore[union-attr]
-            _tool_embed_cache[cache_key] = tool_vec
         except Exception:
             return 0.0
+        _tool_embed_cache[cache_key] = tool_vec
+        _tool_embed_cache.move_to_end(cache_key)
+        if len(_tool_embed_cache) > _TOOL_EMBED_CACHE_MAX:
+            _tool_embed_cache.popitem(last=False)
     from butler.memory.embedding import cosine_similarity
 
     return max(0.0, cosine_similarity(query_vec, tool_vec))
