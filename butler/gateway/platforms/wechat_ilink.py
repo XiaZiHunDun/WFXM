@@ -934,6 +934,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
         self._content_dedup = MessageDeduplicator(ttl_seconds=_content_dedup_ttl())
 
         self._account_id = str(extra.get("account_id") or os.getenv("WECHAT_ACCOUNT_ID", "")).strip()
+        self._bg_typing_tasks: set[asyncio.Task] = set()
         self._token = str(config.token or extra.get("token") or os.getenv("WECHAT_TOKEN", "")).strip()
         self._base_url = str(extra.get("base_url") or os.getenv("WECHAT_BASE_URL", ILINK_BASE_URL)).strip().rstrip("/")
         self._cdn_base_url = str(
@@ -984,6 +985,15 @@ class WeChatAdapter(ButlerPlatformAdapter):
         if isinstance(value, (list, tuple, set)):
             return [str(item).strip() for item in value if str(item).strip()]
         return [str(value).strip()] if str(value).strip() else []
+
+    def _schedule_typing_ticket_bg(self, user_id: str, context_token: Optional[str]) -> None:
+        """Fire-and-forget typing-ticket fetch, but retain the task on the adapter
+        so disconnect() can cancel it before _poll_session closes."""
+        task = asyncio.create_task(
+            self._maybe_fetch_typing_ticket(user_id, context_token)
+        )
+        self._bg_typing_tasks.add(task)
+        task.add_done_callback(self._bg_typing_tasks.discard)
 
     async def connect(self) -> bool:
         if not check_wechat_requirements():
@@ -1049,6 +1059,15 @@ class WeChatAdapter(ButlerPlatformAdapter):
             except asyncio.CancelledError:
                 pass
         self._poll_task = None
+        # Cancel any retained background typing-ticket fetches BEFORE we close
+        # _poll_session — otherwise they will keep a reference to a closed session
+        # and crash on the next await.
+        pending_bg = [t for t in self._bg_typing_tasks if not t.done()]
+        for t in pending_bg:
+            t.cancel()
+        if pending_bg:
+            await asyncio.gather(*pending_bg, return_exceptions=True)
+        self._bg_typing_tasks.clear()
         if self._poll_session and not self._poll_session.closed:
             await self._poll_session.close()
         self._poll_session = None
@@ -1184,7 +1203,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
         context_token = str(message.get("context_token") or "").strip()
         if context_token:
             self._token_store.set(self._account_id, sender_id, context_token)
-        asyncio.create_task(self._maybe_fetch_typing_ticket(sender_id, context_token or None))
+        self._schedule_typing_ticket_bg(sender_id, context_token or None)
 
         media_paths: List[str] = []
         media_types: List[str] = []
