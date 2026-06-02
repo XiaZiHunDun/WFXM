@@ -243,6 +243,9 @@ class ExperienceStore:
         content: str,
         tags: str | list[str] | None = None,
     ) -> int:
+        # Sprint 11 SEC-11-3: 拦截 prompt-injection payload（与 ProfileStore.add 对齐）
+        if _reject_injection(content or ""):
+            return -1
         tag_str = ""
         if tags is None:
             tag_str = ""
