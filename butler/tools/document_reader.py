@@ -76,10 +76,20 @@ def convert_document(path: str, *, max_chars: int = _MAX_OUTPUT_CHARS) -> dict[s
 
 
 def tool_read_document(path: str = "", *, max_chars: int = _MAX_OUTPUT_CHARS, **_: Any) -> str:
-    """Tool handler: convert a document to Markdown text."""
+    """Tool handler: convert a document to Markdown text.
+
+    Sprint 10 SEC-10-2: 加 check_tool_path 守门，防止 path 遍历读
+    /etc/passwd、SSH 私钥、.aws/credentials 等敏感文件。
+    """
     target = (path or "").strip()
     if not target:
         return json.dumps({"error": "path required"})
+
+    from butler.tools.path_safety import check_tool_path
+
+    safety = check_tool_path(target, for_write=False)
+    if not safety.allowed:
+        return json.dumps({"error": f"Access denied: {safety.error}"})
 
     if not _markitdown_available():
         return json.dumps({
