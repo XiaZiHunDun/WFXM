@@ -98,6 +98,11 @@ def _handle_skills(
     external_id: str | None,
     session_key: str,
 ) -> str:
+    # Sprint 11 SEC-11-4: read-only 子命令（搜索/列表/查看）也守门，
+    # 避免第三方恶意 Skill 描述喂回 LLM 形成 prompt injection
+    gate = _require_owner(platform, external_id, session_key)
+    if gate:
+        return gate
     from butler.registry.skill_service import SkillRegistryService
 
     parts = (arg or "").strip().split(maxsplit=1)
