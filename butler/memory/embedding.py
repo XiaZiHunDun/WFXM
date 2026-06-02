@@ -254,6 +254,51 @@ def _resolve_fastembed(model: str) -> Embedder | None:
 
 
 import functools
+from collections import OrderedDict
+
+
+_EMBED_CACHE_DEFAULT_MAX = 128
+
+
+def _embed_cache_key(text: str) -> str:
+    """Stable cache key for embedder query (Sprint 13 PERF-13-2).
+
+    blake2b 是稳定的（不依赖 PYTHONHASHSEED）。
+    """
+    return hashlib.blake2b((text or "").encode("utf-8")).hexdigest()[:16]
+
+
+class _CachedEmbedder:
+    """LRU wrapper around an embedder (Sprint 13 PERF-13-2).
+
+    对 API/本地模型 embedder 包装一层 query 缓存，避免同一文本重复
+    触发昂贵的 API 调用。HashingEmbedder 不包装（本身无开销）。
+    """
+
+    def __init__(self, inner: Embedder, *, max_size: int = _EMBED_CACHE_DEFAULT_MAX) -> None:
+        self._inner = inner
+        self._max_size = max(1, int(max_size))
+        self._cache: "OrderedDict[str, list[float]]" = OrderedDict()
+
+    @property
+    def model_id(self) -> str:
+        return self._inner.model_id
+
+    @property
+    def dimension(self) -> int:
+        return self._inner.dimension
+
+    def embed(self, text: str) -> list[float]:
+        key = _embed_cache_key(text)
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return self._cache[key]
+        vec = self._inner.embed(text)
+        self._cache[key] = vec
+        self._cache.move_to_end(key)
+        if len(self._cache) > self._max_size:
+            self._cache.popitem(last=False)
+        return vec
 
 
 @functools.lru_cache(maxsize=4)
@@ -270,6 +315,14 @@ def get_embedder() -> Embedder:
 
 
 def _build_embedder(provider: str, model: str) -> Embedder:
+    raw = _build_raw_embedder(provider, model)
+    # PERF-13-2: 包装 query 缓存（HashingEmbedder 无 API 开销，跳过）
+    if isinstance(raw, HashingEmbedder):
+        return raw
+    return _CachedEmbedder(raw)
+
+
+def _build_raw_embedder(provider: str, model: str) -> Embedder:
     if provider in ("local", "hash", "hashing", ""):
         logger.debug("Embedding provider: local HashingEmbedder (%s)", model or "hashing-v1")
         return HashingEmbedder(model_id=model or "hashing-v1")
