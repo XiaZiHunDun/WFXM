@@ -62,24 +62,21 @@ _register("BUTLER_TTS", "网络", "语音合成工具", "1")
 _register("BUTLER_WEB_FETCH_TIMEOUT", "网络", "web_fetch 超时（秒）", "20", vtype="int")
 _register("BUTLER_WEB_FETCH_MAX_BYTES", "网络", "web_fetch 响应字节上限", "65536", vtype="int")
 # --- 安全 ---
-_register("BUTLER_DOOM_LOOP_THRESHOLD", "安全", "连续重复工具拦截阈值（0=关）", "3", vtype="int")
-_register("BUTLER_DOOM_LOOP_MODE", "安全", "重复拦截模式（block/ask）", "block", vtype="str")
-_register("BUTLER_TERMINAL_DANGER_CHECK", "安全", "终端危险命令检测", "1")
-_register("BUTLER_IO_GUARDRAIL", "安全", "入站明文密钥/过长消息检测", "1")
-_register("BUTLER_READ_BEFORE_EDIT", "安全", "编辑前须先读取文件", "1")
+# Sprint 9 SEC-9.1: 5 个安全类 key（DOOM_LOOP_THRESHOLD / DOOM_LOOP_MODE /
+# TERMINAL_DANGER_CHECK / IO_GUARDRAIL / READ_BEFORE_EDIT）从 _MUTABLE_KEYS
+# 移出。运行时不可改 — 启动期 env 或 yaml 才能决定。
 # --- 记忆 ---
 _register("BUTLER_SEMANTIC_MEMORY", "记忆", "本地向量语义搜索", "1")
 _register("BUTLER_SYNC_CONVERSATION_MEMORY", "记忆", "每轮聊天写入 experience", "0")
 _register("BUTLER_QUEUE_PREFETCH", "记忆", "下轮预取缓存", "1")
 _register("BUTLER_CORRECTIVE_RECALL", "记忆", "工具失败纠错检索", "1")
 # --- 开发 ---
-_register("BUTLER_ENABLE_TERMINAL", "开发", "终端工具", "0")
 _register("BUTLER_ENABLE_GIT", "开发", "Git 只读工具", "1")
 _register("BUTLER_ENABLE_GIT_WRITE", "开发", "Git 写入工具", "0")
-_register("BUTLER_ENABLE_GIT_PUSH", "开发", "Git push（需 Owner 审批）", "0")
 _register("BUTLER_POST_EDIT_FORMAT", "开发", "编辑后自动格式化（ruff/prettier）", "0")
-_register("BUTLER_EXECUTE_CODE", "开发", "代码沙箱执行", "0")
 _register("BUTLER_DATA_QUERY", "开发", "DuckDB 数据查询", "1")
+# Sprint 9 SEC-9.1: 3 个开发类 key（ENABLE_TERMINAL / ENABLE_GIT_PUSH /
+# EXECUTE_CODE）从 _MUTABLE_KEYS 移出 — 运行时不可改。
 # --- 网关 ---
 _register("BUTLER_GATEWAY_TYPING_ENABLED", "网关", "输入状态提示", "1")
 _register("BUTLER_GATEWAY_PROGRESS_ACK_ENABLED", "网关", "长任务进度确认", "1")
