@@ -27,13 +27,25 @@ class LoopPlugin(Protocol):
 @dataclass
 class LoopPluginRegistry:
     plugins: list[Any] = field(default_factory=list)
+    _before_llm_hooks: list[Callable] = field(default_factory=list, init=False, repr=False, compare=False)
+    _after_tools_hooks: list[Callable] = field(default_factory=list, init=False, repr=False, compare=False)
+    _wrap_tool_call_hooks: list[Callable] = field(default_factory=list, init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        for plugin in self.plugins:
+            before_hook = getattr(plugin, "before_llm", None) or getattr(plugin, "before_model", None)
+            if callable(before_hook):
+                self._before_llm_hooks.append(before_hook)
+            after_hook = getattr(plugin, "after_tools", None)
+            if callable(after_hook):
+                self._after_tools_hooks.append(after_hook)
+            wrap_hook = getattr(plugin, "wrap_tool_call", None)
+            if callable(wrap_hook):
+                self._wrap_tool_call_hooks.append(wrap_hook)
 
     def before_model(self, messages: list[dict]) -> list[dict]:
         out = list(messages)
-        for plugin in self.plugins:
-            hook = getattr(plugin, "before_llm", None) or getattr(plugin, "before_model", None)
-            if not callable(hook):
-                continue
+        for hook in self._before_llm_hooks:
             try:
                 out = hook(out)
             except Exception as exc:
@@ -50,10 +62,7 @@ class LoopPluginRegistry:
         tool_stats: Any = None,
     ) -> list[dict]:
         out = list(messages)
-        for plugin in reversed(self.plugins):
-            hook = getattr(plugin, "after_tools", None)
-            if not callable(hook):
-                continue
+        for hook in reversed(self._after_tools_hooks):
             try:
                 out = hook(out, tool_stats=tool_stats)
             except Exception as exc:
@@ -67,10 +76,7 @@ class LoopPluginRegistry:
         dispatch: Callable[[str, dict], str],
     ) -> str:
         chain = dispatch
-        for plugin in reversed(self.plugins):
-            hook = getattr(plugin, "wrap_tool_call", None)
-            if not callable(hook):
-                continue
+        for hook in reversed(self._wrap_tool_call_hooks):
             prev = chain
 
             def _wrap(n: str, a: dict, _hook=hook, _prev=prev) -> str:

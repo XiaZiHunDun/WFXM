@@ -25,16 +25,28 @@ class LoopMiddleware(Protocol):
 @dataclass
 class LoopMiddlewareChain:
     middlewares: list[Any] = field(default_factory=list)
+    _before_llm_hooks: list[Callable] = field(default_factory=list, init=False, repr=False, compare=False)
+    _after_tools_hooks: list[Callable] = field(default_factory=list, init=False, repr=False, compare=False)
+    _wrap_tool_call_hooks: list[Callable] = field(default_factory=list, init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        for mw in self.middlewares:
+            before_hook = getattr(mw, "before_llm", None) or getattr(mw, "before_model", None)
+            if callable(before_hook):
+                self._before_llm_hooks.append(before_hook)
+            after_hook = getattr(mw, "after_tools", None)
+            if callable(after_hook):
+                self._after_tools_hooks.append(after_hook)
+            wrap_hook = getattr(mw, "wrap_tool_call", None)
+            if callable(wrap_hook):
+                self._wrap_tool_call_hooks.append(wrap_hook)
 
     def before_model(self, messages: list[dict]) -> list[dict]:
         return self.before_llm(messages)
 
     def before_llm(self, messages: list[dict]) -> list[dict]:
         out = list(messages)
-        for mw in self.middlewares:
-            hook = getattr(mw, "before_llm", None) or getattr(mw, "before_model", None)
-            if not callable(hook):
-                continue
+        for hook in self._before_llm_hooks:
             try:
                 out = hook(out)
             except Exception as exc:
@@ -48,10 +60,7 @@ class LoopMiddlewareChain:
         tool_stats: Any = None,
     ) -> list[dict]:
         out = list(messages)
-        for mw in reversed(self.middlewares):
-            hook = getattr(mw, "after_tools", None)
-            if not callable(hook):
-                continue
+        for hook in reversed(self._after_tools_hooks):
             try:
                 out = hook(out, tool_stats=tool_stats)
             except Exception as exc:
@@ -65,10 +74,7 @@ class LoopMiddlewareChain:
         dispatch: Callable[[str, dict], str],
     ) -> str:
         chain = dispatch
-        for mw in reversed(self.middlewares):
-            hook = getattr(mw, "wrap_tool_call", None)
-            if not callable(hook):
-                continue
+        for hook in reversed(self._wrap_tool_call_hooks):
             prev = chain
 
             def _wrap(n: str, a: dict, _hook=hook, _prev=prev) -> str:
