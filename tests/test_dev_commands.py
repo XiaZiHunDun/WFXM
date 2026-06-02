@@ -16,69 +16,118 @@ import pytest
 
 
 class TestHandleDevCommandRouting:
-    def test_git_command_routed(self):
+    @pytest.fixture
+    def _owner(self):
+        with patch(
+            "butler.gateway.dev_commands.is_gateway_owner", return_value=True
+        ):
+            yield
+
+    def test_git_command_routed(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
         with patch("butler.gateway.dev_commands.format_git_for_wechat", return_value="git-ok") as m:
-            result = handle_dev_command("/git", "status")
+            result = handle_dev_command(
+                "/git", "status",
+                platform="wechat", external_id="owner", session_key="k",
+            )
             m.assert_called_once_with("status")
             assert result == "git-ok"
 
-    def test_test_command_routed_cn(self):
+    def test_test_command_routed_cn(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
         with patch("butler.gateway.dev_commands.format_test_for_wechat", return_value="test-ok") as m:
-            result = handle_dev_command("/测试", "")
+            result = handle_dev_command(
+                "/测试", "",
+                platform="wechat", external_id="owner", session_key="k",
+            )
             m.assert_called_once_with("")
             assert result == "test-ok"
 
-    def test_test_command_routed_en(self):
+    def test_test_command_routed_en(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
         with patch("butler.gateway.dev_commands.format_test_for_wechat", return_value="test-ok") as m:
-            result = handle_dev_command("/test", "arg")
+            result = handle_dev_command(
+                "/test", "arg",
+                platform="wechat", external_id="owner", session_key="k",
+            )
             m.assert_called_once_with("arg")
             assert result == "test-ok"
 
-    def test_build_command_routed_cn(self):
+    def test_build_command_routed_cn(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
         with patch("butler.gateway.dev_commands.format_build_for_wechat", return_value="build-ok") as m:
-            result = handle_dev_command("/构建", "")
+            result = handle_dev_command(
+                "/构建", "",
+                platform="wechat", external_id="owner", session_key="k",
+            )
             m.assert_called_once_with("")
 
-    def test_build_command_routed_en(self):
+    def test_build_command_routed_en(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
         with patch("butler.gateway.dev_commands.format_build_for_wechat", return_value="build-ok") as m:
-            result = handle_dev_command("/build", "")
+            result = handle_dev_command(
+                "/build", "",
+                platform="wechat", external_id="owner", session_key="k",
+            )
             m.assert_called_once_with("")
 
-    def test_dashboard_command_routed_cn(self):
+    def test_dashboard_command_routed_cn(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
         with patch("butler.gateway.dev_commands.format_project_dashboard", return_value="dash-ok") as m:
-            result = handle_dev_command("/项目概况", "")
+            result = handle_dev_command(
+                "/项目概况", "",
+                platform="wechat", external_id="owner", session_key="k",
+            )
             m.assert_called_once_with("")
 
-    def test_dashboard_command_routed_en(self):
+    def test_dashboard_command_routed_en(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
         with patch("butler.gateway.dev_commands.format_project_dashboard", return_value="dash-ok") as m:
-            result = handle_dev_command("/project-dashboard", "")
+            result = handle_dev_command(
+                "/project-dashboard", "",
+                platform="wechat", external_id="owner", session_key="k",
+            )
             m.assert_called_once_with("")
 
-    def test_existing_commands_still_work(self):
+    def test_existing_commands_still_work(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
-        r = handle_dev_command("/开发状态")
+        r = handle_dev_command(
+            "/开发状态", "",
+            platform="wechat", external_id="owner", session_key="k",
+        )
         assert r is not None
         assert "开发工具状态" in r
 
-    def test_unknown_returns_none(self):
+    def test_unknown_returns_none(self, _owner):
         from butler.gateway.dev_commands import handle_dev_command
 
-        assert handle_dev_command("/unknown") is None
+        assert handle_dev_command(
+            "/unknown", "",
+            platform="wechat", external_id="owner", session_key="k",
+        ) is None
+
+    def test_non_owner_blocked(self):
+        from butler.gateway.dev_commands import handle_dev_command
+        from butler.gateway.owner_gate import owner_required_message
+
+        with patch(
+            "butler.gateway.dev_commands.is_gateway_owner", return_value=False
+        ):
+            out = handle_dev_command(
+                "/git", "status",
+                platform="wechat", external_id="non_owner", session_key="k",
+            )
+        assert out == owner_required_message(), (
+            f"非 Owner /git 应被拒，实际 {out!r}"
+        )
 
 
 # ── /git command ───────────────────────────────────────────────

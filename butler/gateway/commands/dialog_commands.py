@@ -6,11 +6,24 @@ import logging
 from typing import Optional
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
 logger = logging.getLogger(__name__)
 
 
+def _require_owner(ctx: CommandContext) -> Optional[str]:
+    """Sprint 12 SEC-12-2: 会话状态变更类命令 owner 守门。"""
+    if not is_gateway_owner(
+        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+    ):
+        return owner_required_message()
+    return None
+
+
 def _cmd_steer(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
 
     active = is_run_active(ctx.session_key)
@@ -19,36 +32,54 @@ def _cmd_steer(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_queue(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.gateway.queue_settings import apply_queue_command
 
     return apply_queue_command(ctx.session_key, ctx.arg)
 
 
 def _cmd_approve(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.human_gate import resolve_human_gate_message
 
     return resolve_human_gate_message(ctx.session_key, "确认") or "当前没有待确认的工作流步骤。"
 
 
 def _cmd_cancel(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.human_gate import resolve_human_gate_message
 
     return resolve_human_gate_message(ctx.session_key, "取消") or "当前没有待确认的工作流步骤。"
 
 
 def _cmd_goal_loop(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.core.goal_loop import start_goal_loop
 
     return start_goal_loop(ctx.session_key, ctx.arg)
 
 
 def _cmd_stop_goal_loop(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.core.goal_loop import stop_goal_loop
 
     return stop_goal_loop(ctx.session_key)
 
 
 def _cmd_plan_mode(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.plan.mode import format_plan_mode_status, set_plan_mode
 
     arg_l = (ctx.arg or "").strip().lower()
@@ -64,6 +95,9 @@ def _cmd_plan_mode(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_exit_plan(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.plan.mode import clear_plan_mode
 
     clear_plan_mode(ctx.session_key)

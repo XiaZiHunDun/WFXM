@@ -18,24 +18,38 @@ def _require_owner(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_overview(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.gateway.handler_helpers import _build_project_overview
 
     return _build_project_overview(ctx.orchestrator, ctx.session_key)
 
 
 def _cmd_presets(ctx: CommandContext) -> Optional[str]:
+    """List provider presets.
+
+    owner-gate-opt-out: 公共只读，无 owner 数据；列出 butler:// preset URL
+    """
     from butler.provider_presets import format_presets_list
 
     return format_presets_list()
 
 
 def _cmd_help(ctx: CommandContext) -> Optional[str]:
+    """Show help text.
+
+    owner-gate-opt-out: 公共只读，无 owner 数据；命令帮助对所有白名单用户开放
+    """
     from butler.gateway.help_commands import format_help_text
 
     return format_help_text(ctx.arg)
 
 
 def _cmd_todos(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.core.session_todos import format_session_todos_for_wechat
 
     return format_session_todos_for_wechat(ctx.session_key)
@@ -78,6 +92,9 @@ def _cmd_habits(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_project_todos(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.tools.project_todos import format_project_todos_for_wechat
 
     proj = ctx.orchestrator.project_manager.active_project
@@ -89,12 +106,18 @@ def _cmd_project_todos(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_memory_status(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.gateway.memory_commands import format_memory_status
 
     return format_memory_status(ctx.orchestrator, session_key=ctx.session_key)
 
 
 def _cmd_detail(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.report import get_last_report, format_detail
     from butler.report.format import parse_detail_section
 
@@ -105,6 +128,10 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_budget(ctx: CommandContext) -> Optional[str]:
+    """Show or hint token budget.
+
+    owner-gate-opt-out: 公共只读，无 owner 数据；只显示预算提示文本
+    """
     from butler.core.turn_token_budget import parse_token_budget_text
 
     if ctx.arg:

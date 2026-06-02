@@ -9,11 +9,24 @@ import os
 from typing import Optional
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
 logger = logging.getLogger(__name__)
 
 
+def _require_owner(ctx: CommandContext) -> Optional[str]:
+    """Sprint 12 SEC-12-2: 生命周期/系统管理类命令 owner 守门。"""
+    if not is_gateway_owner(
+        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+    ):
+        return owner_required_message()
+    return None
+
+
 def _cmd_doctor(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.ops.security_audit import format_audit_report, run_security_audit
 
     workspace = None
@@ -29,6 +42,9 @@ def _cmd_doctor(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_export(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.gateway.export_commands import handle_export_session_command
 
     return handle_export_session_command(
@@ -120,6 +136,9 @@ def _cmd_transcript_memory(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_confirm_install(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.gateway.registry_commands import handle_confirm_install_command
 
     return handle_confirm_install_command(
@@ -131,6 +150,9 @@ def _cmd_confirm_install(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_registry(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.gateway.registry_commands import handle_registry_command
 
     return handle_registry_command(
@@ -171,6 +193,9 @@ def _cmd_config(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_tasks(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.runtime.task_store import (
         count_running_tasks,
         list_recent_tasks,
@@ -206,6 +231,9 @@ def _cmd_tasks(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_workflow(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.workflows.commands import handle_workflow_command
 
     return handle_workflow_command(

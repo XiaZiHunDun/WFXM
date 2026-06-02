@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
 logger = logging.getLogger(__name__)
 
 
@@ -504,8 +506,22 @@ def _append_memory_summary(lines: list[str], ws: Path) -> None:
         pass
 
 
-def handle_dev_command(cmd: str, arg: str = "") -> str | None:
-    """Return reply for dev slash commands, or None."""
+def handle_dev_command(
+    cmd: str,
+    arg: str = "",
+    *,
+    platform: str = "",
+    external_id: str | None = None,
+    session_key: str = "",
+) -> str | None:
+    """Return reply for dev slash commands, or None.
+
+    Sprint 12 SEC-12-2: dev tools (git/test/build/dashboard) only Owner.
+    """
+    if not is_gateway_owner(
+        platform=platform, external_id=external_id, session_key=session_key
+    ):
+        return owner_required_message()
     if cmd in ("/开发状态", "/dev-status"):
         return format_dev_status()
     if cmd in ("/开发验收", "/dev-smoke"):
