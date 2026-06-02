@@ -1,19 +1,19 @@
-"""Sprint 11 REL-11-1: `_idempotency_reserved = False` 提前初始化死代码
+"""Sprint 11/14 REL-11-1: `_idempotency_reserved` 提前初始化修复
 
-Sprint 11 审计：butler/gateway/message_handler.py:389 `_idempotency_reserved
-= False` 提前初始化，line 401 `if _idempotency_reserved:` 检查时该变量
-永远 False（reserve 在 531 才发生），导致 line 401-405 的 release_inflight
-死代码。
+Sprint 11 审计误判为「提前 init 是死代码」并删除。Sprint 14 复检发现：
+- 删除 init 后，idempotency try 块异常时 finally 块 `if _idempotency_reserved:`
+  引用未定义变量 → 抛 UnboundLocalError
+- UnboundLocalError 阻止 complete_inbound 调用 → inflight 状态永远不释放
+  → 后续同 id 消息被误判为重复（假阴性泄漏）
 
-分析：
-- 死代码是真实的：bot_loop_guard 在 idempotency reserve **之前**就
-  触发 return，suppress 时 inflight 还没 reserve，release_inflight 必 no-op
-- line 643 finally 块的 `if _idempotency_reserved: complete_inbound` 是
-  有效代码（reserve 后才置位），必须保留
-- line 23 的 `release_inflight` import 也变成死引用，可一并清理
-
-修复：删 line 389 提前 init + 删 line 401-405 死 if 块 + 删 line 23
-无用 import。保留 line 531 (set True) + line 643 (finally check)。
+正确修复（不删除 init）：
+- 保留 `_idempotency_reserved = False` 在 idempotency try 块**之前**
+  （不再放在 bot_loop_guard 块内的旧位置）
+- 删除 bot_loop_guard 块内的死 `if _idempotency_reserved: release_inflight`
+  （reserve 在它之后才发生）
+- 删除 `release_inflight` import（已无引用）
+- 保留 try 块内 `_idempotency_reserved = True`（reserve 成功后置位）
+- 保留 finally 块 `if _idempotency_reserved: complete_inbound`（有效逻辑）
 """
 
 from __future__ import annotations
@@ -31,14 +31,18 @@ MESSAGE_HANDLER_PATH = Path(message_handler.__file__)
 
 
 @pytest.mark.unit
-def test_idempotency_reserved_false_init_removed():
-    """`_idempotency_reserved = False` 提前初始化应被删除。"""
+def test_idempotency_reserved_false_init_present():
+    """`_idempotency_reserved = False` 提前初始化必须保留（防 UnboundLocalError）。
+
+    Sprint 14 复检：Sprint 11 误判 init 为死代码，实际它是 finally 块安全的
+    必要条件。删除会导致 idempotency try 块异常时 finally 抛 UnboundLocalError，
+    进而阻止 complete_inbound 调用 → inflight 假阴性泄漏。
+    """
     text = MESSAGE_HANDLER_PATH.read_text(encoding="utf-8")
-    # 原 line 389: `_idempotency_reserved = False`
-    # 修复后：行应不存在（init 与 reserve 后置位合并到 try 块内）
-    assert "_idempotency_reserved = False" not in text, (
-        "_idempotency_reserved = False 提前 init 是死代码（检查时永远 False），\n"
-        "应删除并依赖 line 531 reserve 成功后置位"
+    assert "_idempotency_reserved = False" in text, (
+        "_idempotency_reserved = False 提前 init **必须保留**：\n"
+        "  - finally 块 `if _idempotency_reserved: complete_inbound` 引用它\n"
+        "  - 缺少 init → try 块异常时 UnboundLocalError → inflight 假阴性泄漏"
     )
 
 

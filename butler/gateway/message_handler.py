@@ -495,6 +495,9 @@ class ButlerMessageHandler:
             )
             return out
 
+        # Sprint 14 REL-11-1: 提前初始化，避免 try 块异常时 finally 引用
+        # 未定义变量抛 UnboundLocalError → complete_inbound 永不调用 → inflight 假阴性泄漏
+        _idempotency_reserved = False
         try:
             from butler.gateway.inbound_idempotency import (
                 check_and_reserve_inbound,
