@@ -134,6 +134,18 @@ class ButlerMessageHandler:
             except Exception as exc:
                 logger.debug("Gateway interrupt failed: %s", exc)
 
+    def _format_prequeue_interrupt_reply(self, session_key: str) -> str:
+        """Sprint 16 TST-10-5 第八批: 抽自 handle_message pre-dispatch hook (原 line 422-424).
+
+        中断 in-flight session loop, 返 "已请求停止" 提示. 防御性 try/except 包裹 interrupt 调用,
+        即使 interrupt 抛异常也返消息 (logger.debug), 不应阻断 caller.
+        """
+        try:
+            self._interrupt_session_loop(session_key)
+        except Exception as exc:
+            logger.debug("Prequeue interrupt failed: %s", exc)
+        return "已请求停止当前会话任务（含进行中的委派）。"
+
     def _drain_queued_inbound(
         self,
         session_key: str,
@@ -420,17 +432,11 @@ class ButlerMessageHandler:
 
 
         if _is_prequeue_interrupt_command(text):
-            self._interrupt_session_loop(session_key)
-            return "已请求停止当前会话任务（含进行中的委派）。"
+            return self._format_prequeue_interrupt_reply(session_key)
 
-        try:
-            from butler.core.auto_continue import resolve_auto_continue_user_message
-
-            continued = resolve_auto_continue_user_message(session_key, text)
-            if continued:
-                text = continued
-        except Exception as exc:
-            logger.debug("Auto continue resolve skipped: %s", exc)
+        continued = apply_auto_continue_rewrite(session_key, text)
+        if continued:
+            text = continued
 
         from butler.gateway.hooks import apply_pre_gateway_dispatch
         rewritten = apply_pre_gateway_dispatch(text, session_key=session_key, platform=platform)
@@ -539,7 +545,7 @@ class ButlerMessageHandler:
                 if is_run_active(session_key) and steer(text, session_key=session_key):
                     return format_steer_gateway_reply(accepted=True, active=True)
             elif mode == "interrupt":
-                self._interrupt_session_loop(session_key)
+                self._format_prequeue_interrupt_reply(session_key)
             else:
                 if enqueue_inbound(
                     session_key,
@@ -991,6 +997,7 @@ from butler.gateway.handler_helpers import (  # noqa: F401, E402
     _env_int,
     _env_float,
     _is_sessionless_command,
+    apply_auto_continue_rewrite,
     _tool_audit_summary,
     _reset_tool_audit_events,
     _maybe_welcome_prefix,

@@ -233,6 +233,23 @@ def _is_prequeue_interrupt_command(text: str) -> bool:
     }
 
 
+def apply_auto_continue_rewrite(session_key: str, text: str) -> str | None:
+    """Sprint 16 TST-10-5 第八批: 抽自 message_handler.py:426-433 pre-dispatch rewriter.
+
+    如果用户输入是 continue marker 且有 fresh pending, 返回改写后的 text (供后续 dispatch);
+    否则返 None (text 不变). 异常吞掉 + logger.debug, 与原 inline try/except 行为一致.
+
+    注意: 这是 text rewriter, **不**是 slash dispatch handler — 返回值是 "新 text" 而非 reply 字符串.
+    """
+    try:
+        from butler.core.auto_continue import resolve_auto_continue_user_message
+
+        return resolve_auto_continue_user_message(session_key, text)
+    except Exception as exc:
+        logger.debug("Auto continue resolve skipped: %s", exc)
+        return None
+
+
 def _env_int(name: str, default: int) -> int:
     try:
         return int(os.getenv(name, "").strip() or default)

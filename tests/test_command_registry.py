@@ -22,12 +22,11 @@ from butler.gateway.command_registry import (
 #   注: /项目 体检 和 /项目 新建 是 /项目 的子命令 (通过 arg 区分), 不再作为独立 CommandDef 注册。
 # Sprint 16 第六批迁移: /权限 /批准一次 /始终允许 /批准执行 /批准模式 — 已在 butler/gateway/commands/permission_commands.py 注册。
 # Sprint 16 第七批迁移: /切换 /模型 /新对话 — 已在 butler/gateway/commands/dialog_commands.py 注册 (与既有 steer/queue/plan 共存).
-_KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
-    "/继续",
-    "/urgent",
-    "/later",
-    "/停止",
-})
+# Sprint 16 第八批 (完成): /继续 /停止 /urgent /later — 全部从 registry 移除.
+#   - /urgent /later 是 pre-queue priority tag (classify_inbound_priority), 不是 slash dispatch 命令.
+#   - /继续 /停止 是 pre-dispatch hook, 抽 helper 后保留 inline 行为, 不走 registry dispatch.
+#   Sprint 11 baseline 30 → 0: 全部命令已迁移, _KNOWN_INLINE_COMMANDS 为空 frozenset.
+_KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset()
 
 
 # 测试 artifact — 由 test_register_custom_command 注册, 隔离在另一个 set 防止污染迁移测试。
@@ -119,23 +118,29 @@ class TestInlineCommandMigration:
         )
 
     def test_known_inline_set_is_finite(self, ensure_handlers_registered):
-        """白名单不应无限增长 — 每次 sprint 应该至少迁移一个。"""
+        """白名单不应无限增长 — 每次 sprint 应该至少迁移一个。
+
+        Sprint 16 第八批完成: Sprint 11 baseline 30 → 0. _KNOWN_INLINE_COMMANDS 应为空.
+        """
         # Sprint 11 baseline: 30 inline; 首期迁移 3 个 (/会话 /评价 /诊断) → 27
         # Sprint 12+: 每次合并 _cmd_xxx 注册后, 集合应减小
         # Sprint 16 第四批迁移 6 个 dev 命令 → 22 → 16
         # Sprint 16 第五批迁移 4 个 (项目 ×3 + 状态) → 16 → 12
         # Sprint 16 第六批迁移 5 个权限命令 → 12 → 7
         # Sprint 16 第七批迁移 3 个对话控制 (切换/模型/新对话) → 7 → 4
-        assert len(_KNOWN_INLINE_COMMANDS) <= 4, (
-            f"_KNOWN_INLINE_COMMANDS 增长到 {len(_KNOWN_INLINE_COMMANDS)}, "
-            "应有持续迁移, 而不是堆积"
+        # Sprint 16 第八批迁移 4 个 prequeue/special-path (继续/停止/urgent/later) → 4 → 0
+        assert len(_KNOWN_INLINE_COMMANDS) == 0, (
+            f"Sprint 11 baseline 30 → 0: TST-10-5 全部迁移完成. "
+            f"实际 _KNOWN_INLINE_COMMANDS = {sorted(_KNOWN_INLINE_COMMANDS)}"
         )
 
     def test_inline_command_still_dispatches(self, ensure_handlers_registered):
-        """inline 命令在迁移前必须可 dispatch (防止 audit 报告的 0 e2e 退化)。"""
-        # 真实 dispatch 验证在 test_gateway_handler.TestEveryRegisteredCommandDispatches
-        # 这里只验证白名单中的每个名字都能被 lookup 到
-        for name in _KNOWN_INLINE_COMMANDS:
-            assert lookup(name) is not None, (
-                f"inline 命令 {name!r} 在 registry 中查不到 — 迁移前已损坏"
-            )
+        """TST-10-5 迁移完成: 白名单为空, 改为显式空集断言 (TST-10-5 全部迁移).
+
+        原测试: for name in _KNOWN_INLINE_COMMANDS: assert lookup(name) is not None
+        迁移后: 集合为空, 显式断言空集, 防止有人误把名字加回来.
+        """
+        assert _KNOWN_INLINE_COMMANDS == frozenset(), (
+            f"TST-10-5 全部迁移完成, _KNOWN_INLINE_COMMANDS 应为空. "
+            f"实际: {sorted(_KNOWN_INLINE_COMMANDS)}"
+        )

@@ -72,7 +72,14 @@ def message_queue_enabled() -> bool:
 
 
 def classify_inbound_priority(text: str) -> str:
-    """Classify gateway inbound: ``now`` | ``next`` | ``later``."""
+    """Classify gateway inbound: ``now`` | ``next`` | ``later``.
+
+    Sprint 16 TST-10-5 第八批: ``/urgent`` ``/紧急`` ``/now`` 和 ``/later`` ``/稍后`` 是
+    **priority tag (priority prefix)**, 不是 slash dispatch 命令. 它们在 inbound 入队前
+    被识别为 priority hint (e.g. ``/urgent foo`` → "now" priority 整段入队), 不走
+    ``_is_sessionless_command`` 或 ``dispatch()`` 路径. CommandDef 已从 registry 移除
+    (Sprint 16 第八批). 用户文档保留这些名字作为 priority hint 提示, 但不视为可执行命令.
+    """
     stripped = (text or "").strip()
     lower = stripped.lower()
     if lower.startswith(("/urgent", "/紧急", "/now")):
