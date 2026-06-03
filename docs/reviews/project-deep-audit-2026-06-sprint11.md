@@ -284,6 +284,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | **PERF-11-9** | `butler/core/llm_retry.py:11 处 try/except: logger.debug` → `_safe_call(fn, msg)` 集中处理, 短路 `isEnabledFor(DEBUG)==False` 时跳过整个 try/except + fn 调用 | `9fb8c7b` | 7 个新测试, 5 静态契约 (helper 存在/短路/运行/吞异常/无内联) + 2 行为契约 (happy path/interrupt). **行为变化**: DEBUG 关闭时 4 处 metrics + provider_health + recovery_buckets + exp_cache + safety_finish 全部短路, 生产可观测性退化 |
 | **TST-11-4** | `butler/gateway/handler_helpers.py:_WELCOMED_SESSIONS` race test 补全: 11 个新测试覆盖 5 类场景 | `4b9d9de` | 既有仅 16 线程同 session SlowSet, 缺: 不同 session 并发 / 真实 set 锁测试 / 顺序覆盖 / 重启读 marker / BUTLER_HOME 隔离 / 跨 spawn 进程同/不同 session. 锁+set 实现已正确, 不动 |
 | **TST-11-2** | `butler/gateway/platforms/wechat_ilink.py:_LIVE_ADAPTERS` 补 14 个 race + 契约测试 (0 → 14) | `55816ad` | 5 顺序语义 + 2 并发不同 token (32 线程 + asyncio.gather) + 1 并发同 token (16 线程) + 2 connect/disconnect 交错 (50 flap + lookup 不抛 KeyError) + 4 静态契约 (dict 类型/pop 默认值/connect 注册/无裸下标) |
+| **TST-11-9** | `butler/mcp/{client_http,client_stdio,server_stdio}.py` 0% → 高覆盖 (31 个新测试) | `6de1ac1` | client_stdio 16 (env 阻止 + warning / cwd 解析 / json_dumps / call_stdio 文本拼接) + client_http 7 (call_http + connect_http 错误路径) + server_stdio 8 (_dispatch_builtin 错误 JSON / dispatch / parametrize 4 EXPOSED + 5 静态契约) |
 
 ---
 
