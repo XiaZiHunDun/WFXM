@@ -275,6 +275,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | **REL-11-6** | `mcp/manager.py:_handles_for` 改返回 `dict()` 快照 + 新增 `_with_handles` 上下文管理器 | `5770a50` | 避免与 `disconnect_session` 竞争抛 "dict changed size", 5 个新测试 (含 Barrier 同步多线程) |
 | **REL-11-7** | `human_gate.py:consume_injection_bypass` 改用 `os.rename` 原子抢占, 替代 `threading.Lock + is_file + unlink` TOCTOU | `7400a5f` | 跨进程 consume-once; 4 个新测试 (含 spawn+Barrier 多进程并发) |
 | **REL-11-8** | `runtime/audit.py:release_lock` 显式分 `FileNotFoundError` (benign race) vs 其他 `OSError` (logger.warning) | `f2f089f` | 7 个新测试覆盖所有 OSError 分支 |
+| **REL-11-4** | `butler/gateway/runner.py` shutdown 序列加 grace 超时 + `_SHUTDOWN_EVENT` 通知 in-flight handler | `b52c83a` | 加 `is_shutting_down()` + `request_stop()` 模块级 API (threading.Event, executor 线程可见) / submit 前检查 / `asyncio.wait_for(executor.shutdown, timeout=30s)` 防卡死 / 幂等. 14 个新测试覆盖 5 场景 |
 | **TST-10-5** | 迁移 3 个 inline 命令到 registry handler: /会话 /评价 /诊断 | `ad560e0` | 信息性 if/elif 块删除, info_commands.py 注册; whitelist 30→27; TestInlineCommandMigration 跟踪 |
 | **TST-10-7** | TestEveryRegisteredCommandDispatches 100% 覆盖 59 unique command dispatch | `6336eb7` | 不再 18/59 partial, 3 个新测试验证所有命令可 dispatch + 无 NotImplementedError + help_text 非空 |
 | **TST-10-9** | 验证 Sprint 9 TST-2 "缺 45 script" 报告口径已过期 | — | `tests/corpus/harness/gateway_scripts.py:42 script_profiles()` 当前含 46 个 profile 定义；pytest 失败分析显示 0 处 "missing script" 错误（仅 behavioral "tool not called" 类，与 TST-2 不同源） |
