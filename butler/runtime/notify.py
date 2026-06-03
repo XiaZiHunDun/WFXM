@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import os
@@ -126,8 +125,11 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
     wait_wechat_push_cooldown()
     try:
         from butler.gateway.platforms.wechat_ilink import send_wechat_direct
+        from butler.mcp.async_runner import run_mcp_async
 
-        result = asyncio.run(
+        # Sprint 16 REL-11-3: 用 butler.mcp.async_runner 代替 asyncio.run,
+        # 避免在 MCP tool handler / 任何已运行 event loop 的线程内调用时崩溃。
+        result = run_mcp_async(
             send_wechat_direct(
                 extra=extra,
                 token=str(extra.get("token") or ""),
