@@ -108,8 +108,6 @@ ignore = [
 source = ["butler"]
 omit = [
     "butler/tools/builtin_impl.py",
-    "butler/gateway/platforms/wechat_ilink.py",
-    "butler/gateway/platforms/wechat_format.py",
 ]
 
 [tool.coverage.report]
