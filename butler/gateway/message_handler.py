@@ -983,39 +983,6 @@ class ButlerMessageHandler:
         if handled:
             return result
 
-        if cmd in ("/projects", "/项目"):
-            from butler.gateway.project_commands import handle_project_onboarding_command
-
-            onboard = handle_project_onboarding_command(
-                self._orchestrator,
-                cmd,
-                arg,
-                session_key=session_key,
-                platform=platform,
-                external_id=external_id,
-            )
-            if onboard is not None:
-                return onboard
-
-            projects = self._orchestrator.project_manager.list_projects()
-            if not projects:
-                return "暂无项目。"
-            current = self._orchestrator.project_manager.resolve_active_project_name(
-                session_key=session_key,
-            )
-            lines = [
-                "项目列表（* 当前）",
-                "  /项目 新建 <slug> [模板]",
-                "  /项目 体检",
-                "",
-            ]
-            for p in sorted(projects, key=lambda x: x.name):
-                mark = "* " if p.name == current else "  "
-                pack = getattr(p, "pack", "") or ""
-                extra = f" pack={pack}" if pack else ""
-                lines.append(f"{mark}{p.name} ({p.type}{extra}) — {p.description}")
-            return "\n".join(lines)
-
         if cmd in ("/switch", "/切换"):
             if not arg:
                 return "用法: /switch <项目名称>"
@@ -1073,38 +1040,6 @@ class ButlerMessageHandler:
                 self._session_registry.reset(session_key)
                 _reset_tool_audit_events(session_key)
             return reply
-
-        if cmd in ("/status", "/状态"):
-            import os
-
-            from butler.project.lead import gateway_loop_role, is_lead_project
-            from butler.project.meta import format_project_meta_lines
-
-            s = self._orchestrator._settings
-            pm = self._orchestrator.project_manager
-            current = pm.resolve_active_project_name(session_key=session_key) or "(无)"
-            proj = pm.get_current(session_key=session_key)
-            default_proj = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip() or "(未设置)"
-            lines = [
-                "Butler 状态",
-                f"  管家: {s.butler_name}",
-                f"  当前项目: {current}",
-                f"  环境默认项目: {default_proj}",
-                f"  默认 Provider: {s.default_provider}",
-            ]
-            if proj is not None:
-                lines.append(
-                    f"  对话引擎: {'项目 Lead（厂长）' if is_lead_project(proj.name, project=proj) else '管家 Butler'}"
-                )
-                lines.extend(format_project_meta_lines(proj))
-            elif current != "(无)":
-                lines.append(
-                    f"  对话引擎: {gateway_loop_role(current)}"
-                )
-            from butler.plan.mode import format_plan_mode_status
-
-            lines.append(f"  {format_plan_mode_status(session_key).replace(chr(10), ' ')}")
-            return "\n".join(lines)
 
         if cmd in ("/new", "/新对话"):
             from butler.session.lifecycle import handle_new_session_command

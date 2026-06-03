@@ -184,8 +184,6 @@ def _register_defaults() -> None:
         CommandDef("/任务", ("/tasks",), "系统管理", "查看委派任务列表"),
         CommandDef("/评价", ("/evaluate",), "系统管理", "评估/评价当前结果"),
         CommandDef("/分叉", ("/fork",), "系统管理", "会话分叉"),
-        CommandDef("/项目 新建", (), "项目管理", "创建新项目"),
-        CommandDef("/项目 体检", (), "项目管理", "项目健康检查"),
         CommandDef("/urgent", (), "系统管理", "标记紧急任务", visibility="admin"),
         CommandDef("/later", (), "系统管理", "延后任务处理", visibility="admin"),
         CommandDef("/备忘", (), "日常生活", "查看备忘录"),

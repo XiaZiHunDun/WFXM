@@ -18,13 +18,11 @@ from butler.gateway.command_registry import (
 # Sprint 16 迁移: /记忆图谱 /记忆待审 /拒绝记忆 /批准记忆 — 已在 butler/gateway/commands/memory_commands.py 注册。
 # Sprint 16 第三批迁移: /定时 /批准运行 /运行 — 已在 butler/gateway/commands/runtime_commands.py 注册。
 # Sprint 16 第四批迁移: /git /测试 /构建 /开发状态 /开发验收 /项目概况 — 已在 butler/gateway/commands/dev_commands.py 注册。
+# Sprint 16 第五批迁移: /项目 /项目 体检 /项目 新建 /状态 — 已在 butler/gateway/commands/project_commands.py 注册。
+#   注: /项目 体检 和 /项目 新建 是 /项目 的子命令 (通过 arg 区分), 不再作为独立 CommandDef 注册。
 _KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
-    "/项目",
-    "/项目 体检",
-    "/项目 新建",
     "/切换",
     "/模型",
-    "/状态",
     "/新对话",
     "/始终允许",
     "/批准一次",
@@ -131,7 +129,8 @@ class TestInlineCommandMigration:
         # Sprint 11 baseline: 30 inline; 首期迁移 3 个 (/会话 /评价 /诊断) → 27
         # Sprint 12+: 每次合并 _cmd_xxx 注册后, 集合应减小
         # Sprint 16 第四批迁移 6 个 dev 命令 → 22 → 16
-        assert len(_KNOWN_INLINE_COMMANDS) <= 16, (
+        # Sprint 16 第五批迁移 4 个 (项目 ×3 + 状态) → 16 → 12
+        assert len(_KNOWN_INLINE_COMMANDS) <= 12, (
             f"_KNOWN_INLINE_COMMANDS 增长到 {len(_KNOWN_INLINE_COMMANDS)}, "
             "应有持续迁移, 而不是堆积"
         )
