@@ -7,6 +7,8 @@ import concurrent.futures
 import logging
 import os
 import signal
+import threading
+import time
 from typing import Any
 
 from butler.gateway.message_handler import ButlerMessageHandler
@@ -40,6 +42,32 @@ _HANDLER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
     thread_name_prefix="butler-gw-handler",
 )
 _HANDLER_TIMEOUT_SECONDS = float(os.getenv("BUTLER_GATEWAY_HANDLER_TIMEOUT", "600"))
+_HANDLER_SHUTDOWN_GRACE_SECONDS = float(
+    os.getenv("BUTLER_GATEWAY_HANDLER_SHUTDOWN_GRACE", "30"),
+)
+
+# Sprint 16 REL-11-4: 让 in-flight handler (executor 线程) 能感知 shutdown
+# 阶段。 asyncio.Event 在子线程中无法 set / wait, 必须用 threading.Event。
+_SHUTDOWN_EVENT = threading.Event()
+
+
+def is_shutting_down() -> bool:
+    """Return True once the gateway has entered its shutdown phase.
+
+    Handlers running inside ``_HANDLER_EXECUTOR`` should check this before
+    doing expensive work; submit paths should also gate new submissions.
+    """
+    return _SHUTDOWN_EVENT.is_set()
+
+
+def request_stop(stop: asyncio.Event) -> None:
+    """Idempotently set both the asyncio stop event and the threading shutdown event.
+
+    Module-level so tests and external callers can trigger the same path that
+    SIGINT / SIGTERM take. Safe to call multiple times.
+    """
+    _SHUTDOWN_EVENT.set()
+    stop.set()
 
 
 def unsupported_platforms(platforms: list[str]) -> list[str]:
@@ -75,6 +103,14 @@ async def _butler_message_handler(
         return None
     source = event.source
     if source is None:
+        return None
+    if is_shutting_down():
+        # REL-11-4: shutdown 阶段不再接受新提交, 避免挂在 executor 队列里被强杀
+        logger.info(
+            "Dropping inbound during shutdown (chat_id=%s preview=%r)",
+            source.chat_id,
+            text[:80],
+        )
         return None
     bridge = getattr(event, "gateway_bridge", None)
     handler_timeout = _HANDLER_TIMEOUT_SECONDS
@@ -186,22 +222,46 @@ async def run_gateway_async(platforms: list[str]) -> int:
 
     stop = asyncio.Event()
 
-    def _request_stop(*_args: Any) -> None:
-        stop.set()
+    def _on_signal(*_args: Any) -> None:
+        request_stop(stop)
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         try:
-            loop.add_signal_handler(sig, _request_stop)
+            loop.add_signal_handler(sig, _on_signal)
         except NotImplementedError:
-            signal.signal(sig, lambda *_: stop.set())
+            signal.signal(sig, lambda *_: request_stop(stop))
 
     await stop.wait()
 
+    # REL-11-4: 显式 set (signal handler 可能因 NotImplementedError 走 signal.signal 路径,
+    # 仍要确保 _SHUTDOWN_EVENT 被 set, 兜底)
+    _SHUTDOWN_EVENT.set()
+
     _reminder_task.cancel()
     for adapter in connected:
-        await adapter.disconnect()
-    _HANDLER_EXECUTOR.shutdown(wait=True, cancel_futures=False)
+        try:
+            await adapter.disconnect()
+        except Exception as exc:
+            logger.warning("Adapter %s disconnect failed: %s", adapter.name, exc)
+
+    # Grace period: 给 in-flight handler 时间完成。 超时后强制退出, 避免进程挂住。
+    grace = _HANDLER_SHUTDOWN_GRACE_SECONDS
+    logger.info("Waiting up to %.0fs for in-flight handlers to drain", grace)
+    try:
+        await asyncio.wait_for(
+            asyncio.to_thread(
+                _HANDLER_EXECUTOR.shutdown, wait=True, cancel_futures=False,
+            ),
+            timeout=grace,
+        )
+        logger.info("Handler executor drained cleanly")
+    except asyncio.TimeoutError:
+        logger.warning(
+            "Handler executor still has in-flight tasks after %.0fs grace; "
+            "exiting anyway (LLM calls may be aborted by OS)",
+            grace,
+        )
     return 0
 
 
