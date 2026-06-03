@@ -131,10 +131,10 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 | ID | 位置 | 问题 |
 |----|------|------|
-| PERF-11-8 | `skill_lock.py:17-28, 37-58` | skill lock 每次操作全读全解析；`list_installed` O(N log N) sort |
-| PERF-11-9 | `llm_retry.py` | LLM 路径 14 处无条件 `logger.debug` |
-| PERF-11-10 | `tools/expense.py:66,347,355,389` + `contacts.py:63,76` + `habits.py:65,78,120,135` | 工具内 `read_text+json.loads` 无缓存 |
-| PERF-11-11 | `core/loop_response.py` / `core/sanitize_response` 等 | 14 个 middleware 都在 LLM 前无脑执行 |
+| PERF-11-8 | `skill_lock.py:17-28, 37-58` | skill lock 每次操作全读全解析；`list_installed` O(N log N) sort (✅ Sprint 15 `a85b28a`: `_load` 走 `read_json_cached` (LRU 按 `(path, mtime)`), `get()` 走 `_load` 直查 O(1), 抽 `_row_to_record`. 18 测试覆盖) |
+| PERF-11-9 | `llm_retry.py` | LLM 路径 14 处无条件 `logger.debug` (✅ `9fb8c7b` `_safe_call(fn, msg)` 短路) |
+| PERF-11-10 | `tools/expense.py:66,347,355,389` + `contacts.py:63,76` + `habits.py:65,78,120,135` | 工具内 `read_text+json.loads` 无缓存 (✅ Sprint 15 `0dc1680`: 新建 `butler/tools/_file_cache.py` `read_json_cached(path)` LRU 256, expense/contacts/habits 全部走缓存, 24 测试覆盖) |
+| PERF-11-11 | `core/loop_response.py` / `core/sanitize_response` 等 | 14 个 middleware 都在 LLM 前无脑执行 (✅ Sprint 15 `8049afc`: `LoopMiddlewareChain.__post_init__` 预解析 `_before_llm_hooks` / `_after_tools_hooks` / `_wrap_tool_call_hooks`, 14 middleware × N turn 从 N×getattr 降至 0; 13 测试覆盖顺序/链式/倒序/失败容错/无 wrap 跳过) |
 
 ---
 
@@ -286,6 +286,12 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | **TST-11-4** | `butler/gateway/handler_helpers.py:_WELCOMED_SESSIONS` race test 补全: 11 个新测试覆盖 5 类场景 | `4b9d9de` | 既有仅 16 线程同 session SlowSet, 缺: 不同 session 并发 / 真实 set 锁测试 / 顺序覆盖 / 重启读 marker / BUTLER_HOME 隔离 / 跨 spawn 进程同/不同 session. 锁+set 实现已正确, 不动 |
 | **TST-11-2** | `butler/gateway/platforms/wechat_ilink.py:_LIVE_ADAPTERS` 补 14 个 race + 契约测试 (0 → 14) | `55816ad` | 5 顺序语义 + 2 并发不同 token (32 线程 + asyncio.gather) + 1 并发同 token (16 线程) + 2 connect/disconnect 交错 (50 flap + lookup 不抛 KeyError) + 4 静态契约 (dict 类型/pop 默认值/connect 注册/无裸下标) |
 | **TST-11-9** | `butler/mcp/{client_http,client_stdio,server_stdio}.py` 0% → 高覆盖 (31 个新测试) | `6de1ac1` | client_stdio 16 (env 阻止 + warning / cwd 解析 / json_dumps / call_stdio 文本拼接) + client_http 7 (call_http + connect_http 错误路径) + server_stdio 8 (_dispatch_builtin 错误 JSON / dispatch / parametrize 4 EXPOSED + 5 静态契约) |
+| **TST-11-3** | `butler/gateway/commands/lifecycle_commands.py` 11 handler 仅 `_cmd_config` 测 → 41 测试 (0% → 100%) | `6fddada` | /doctor×5 /export×2 /回滚×5 /分叉×6 /会话记忆×6 /确认安装×2 /注册表×2 /任务×4 /工作流×2 /_require_owner×2 /静态契约×4 |
+| **TST-11-5** | `butler/tools/execute_code.py` 仅 1 disabled test → 38 测试 | `4667c91` | enabled gate×3 + input validation×7 + 真实 subprocess×4 (print 1+1 happy / NameError / 16k stdout 截断 / 4k stderr 截断) + subprocess errors×3 (TimeoutExpired / OSError / tempfile 清理) + env 构造×3 (网络禁用 proxy blockers / PYTHONNOUSERSITE/-I) + timeout 配置×7 + workspace_cwd×4 (contextvars 切换) + register tool×4 + 静态契约×3 |
+| **TST-11-10** | `butler/registry/url_safety.py` + `wechat_ilink._download_remote_media` 仅 1 最小 unit test → 75 测试 (重点: 0.0.0.0 / IPv6 ::1 / link-local 169.254 / metadata / .local / .internal) | `8d73ba0` | is_safe_url 阻断 30+ (RFC1918/loopback/0.0.0.0/link-local 4 类/IPv6 ::1+ULA+fe80/localhost/metadata/.local.internal/ftp-file-gopher/空 URL/无 host/DNS 失败/DNS 解析到 192.168/127/169.254) + 放行 6 (公网 IP/公网域名/mock DNS/allowed_hosts bypass) + assert_safe_redirect×5 + safe_registry_get×8 (5 个 3xx 状态码参数化 + 相对路径 urljoin + kwargs 透传) + _download_remote_media 集成×11 (4 类 unsafe + ValueError 含原 URL + happy path 写 tempfile + .bin fallback + query string 剥离 + 30s wait_for + session.get URL 透传) + 静态契约×4. 注意: `_download_remote_media` 用 `from tools.url_safety import is_safe_url` (hermes 命名空间包), 集成测试 patch `tools.url_safety.is_safe_url` |
+| **PERF-11-8** | (Sprint 15) `SkillLockFile` 走 `read_json_cached` + `get()` O(1) | `a85b28a` | 18 测试: load 缓存×2 / save 失效×1 / get 效率×3 (不走 list_installed) / 跨实例共享×1 / list_installed 排序×2 / 行为正确性×3. 验收: K 次 SkillLockFile.get() 转为 1 次磁盘读 + O(1) dict lookup |
+| **PERF-11-10** | (Sprint 15) 工具文件读取按 `(path, mtime)` LRU 缓存 | `0dc1680` | 新建 `butler/tools/_file_cache.py` (`read_json_cached` LRU 256 + 线程安全), expense/contacts/habits 全部改用, 24 测试覆盖 (mtime 失效 / LRU 淘汰 / 各工具 _load_all 缓存命中 / write-then-read 一致性) |
+| **PERF-11-11** | (Sprint 15) middleware/plugin hook 预解析 | `8049afc` | `LoopMiddlewareChain.__post_init__` 预解析 `_before_llm_hooks` / `_after_tools_hooks` / `_wrap_tool_call_hooks`, 14 middleware × N turn 从 N×getattr 降至 0; `LoopPluginRegistry` 同处理. 13 测试: 顺序/链式/倒序/失败容错/无 wrap 跳过/预解析验证/getattr 计数 |
 
 ---
 
