@@ -282,6 +282,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | **TST-11-7** | `butler/agents_md.py:list_agent_md_names` 0% → 100% 覆盖 | `50f700e` | 5 个新测试, 含 dir 缺失/sorted/stem/subdir 过滤 |
 | **TST-11-8** | `butler/cli/doctor.py:cmd_doctor` 0% → 92% 覆盖 | `18fffeb` | 13 个新测试, 含数据目录 ✓/✗、依赖、.env、API key、workspace 探测、critical vs warn 退出码 |
 | **PERF-11-9** | `butler/core/llm_retry.py:11 处 try/except: logger.debug` → `_safe_call(fn, msg)` 集中处理, 短路 `isEnabledFor(DEBUG)==False` 时跳过整个 try/except + fn 调用 | `9fb8c7b` | 7 个新测试, 5 静态契约 (helper 存在/短路/运行/吞异常/无内联) + 2 行为契约 (happy path/interrupt). **行为变化**: DEBUG 关闭时 4 处 metrics + provider_health + recovery_buckets + exp_cache + safety_finish 全部短路, 生产可观测性退化 |
+| **TST-11-4** | `butler/gateway/handler_helpers.py:_WELCOMED_SESSIONS` race test 补全: 11 个新测试覆盖 5 类场景 | `4b9d9de` | 既有仅 16 线程同 session SlowSet, 缺: 不同 session 并发 / 真实 set 锁测试 / 顺序覆盖 / 重启读 marker / BUTLER_HOME 隔离 / 跨 spawn 进程同/不同 session. 锁+set 实现已正确, 不动 |
 
 ---
 
