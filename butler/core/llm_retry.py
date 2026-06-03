@@ -18,6 +18,23 @@ from butler.transport.types import NormalizedResponse
 logger = logging.getLogger(__name__)
 
 
+def _safe_call(fn: Callable[[], Any], msg: str) -> Any:
+    """Run ``fn``; swallow exceptions with debug log.
+
+    Sprint 16 PERF-11-9: 取代内联 ``try/except: logger.debug(...)`` 模式。
+    debug 关闭时短路: 跳过 fn 调用 + try/except, 节省
+    ``logger.debug()`` 方法分发 + ``sys.exc_info()`` + frame setup
+    11 次/调用的开销。仅在 debug 开启时才跑 fn + 处理异常。
+    """
+    if not logger.isEnabledFor(logging.DEBUG):
+        return None
+    try:
+        return fn()
+    except Exception as exc:
+        logger.debug("%s: %s", msg, exc)
+        return None
+
+
 def call_llm_with_retry(
     *,
     client: LLMClient,
@@ -47,52 +64,54 @@ def call_llm_with_retry(
     schema_recovery_attempted = False
     tools_to_send = tools or None
     if tools_to_send:
-        try:
+        def _optimize() -> None:
             from butler.core.schema_optimizer import optimize_tool_definitions
-
+            nonlocal tools_to_send
             tools_to_send = optimize_tool_definitions(
                 tools_to_send,
                 diagnostics=diagnostics,
                 provider=str(getattr(client, "provider_name", "") or ""),
             )
-        except Exception as exc:
-            logger.debug("call llm with retry skipped: %s", exc)
-        if tools_to_send:
-            try:
-                from butler.mcp.tools_engine import filter_tools_for_model
 
+        _safe_call(_optimize, "call llm with retry skipped")
+        if tools_to_send:
+            def _filter() -> None:
+                from butler.mcp.tools_engine import filter_tools_for_model
+                nonlocal tools_to_send
                 tools_to_send, te_diag = filter_tools_for_model(
                     tools_to_send,
                     provider=str(getattr(client, "provider_name", "") or ""),
                     model=str(getattr(client, "model", "") or ""),
                 )
                 diagnostics.update(te_diag)
-            except Exception as exc:
-                logger.debug("call llm with retry skipped: %s", exc)
+
+            _safe_call(_filter, "call llm with retry skipped")
     interrupted = False
 
     cache_fp = ""
-    try:
+
+    def _exp_cache_lookup() -> str | None:
         from butler.core.exp_cache import (
             fingerprint_llm_request,
             lookup_cached_response,
-            store_cached_response,
         )
         from butler.core.meta_flags import exp_cache_enabled
 
-        if exp_cache_enabled() and not tools_to_send:
-            cache_fp = fingerprint_llm_request(
-                provider=str(getattr(client, "provider_name", "") or ""),
-                model=str(getattr(client, "model", "") or ""),
-                messages=messages_to_send,
-                tools=tools_to_send,
-            )
-            cached = lookup_cached_response(cache_fp)
-            if cached:
-                diagnostics["exp_cache_hit"] = True
-                return NormalizedResponse(content=cached, finish_reason="stop"), False
-    except Exception as exc:
-        logger.debug("exp_cache lookup skipped: %s", exc)
+        nonlocal cache_fp
+        if not (exp_cache_enabled() and not tools_to_send):
+            return None
+        cache_fp = fingerprint_llm_request(
+            provider=str(getattr(client, "provider_name", "") or ""),
+            model=str(getattr(client, "model", "") or ""),
+            messages=messages_to_send,
+            tools=tools_to_send,
+        )
+        return lookup_cached_response(cache_fp)
+
+    cached = _safe_call(_exp_cache_lookup, "exp_cache lookup skipped")
+    if cached:
+        diagnostics["exp_cache_hit"] = True
+        return NormalizedResponse(content=cached, finish_reason="stop"), False
 
     effective_retries = min(config.max_retries, 20)
     for attempt in range(effective_retries):
@@ -135,20 +154,23 @@ def call_llm_with_retry(
                 response = client.complete(**common)
 
             response = sanitize_response(response)
-            try:
+
+            def _safety_finish() -> bool:
                 from butler.core.safety_finish import safety_finish_user_message
 
                 safety_msg = safety_finish_user_message(response)
-                if safety_msg:
-                    response.tool_calls = None
-                    response.content = safety_msg
-                    response.finish_reason = "stop"
-                    if callbacks.on_llm_complete:
-                        callbacks.on_llm_complete(response)
-                    return response, False
-            except Exception as exc:
-                logger.debug("on delta cb skipped: %s", exc)
-            try:
+                if not safety_msg:
+                    return False
+                response.tool_calls = None
+                response.content = safety_msg
+                response.finish_reason = "stop"
+                if callbacks.on_llm_complete:
+                    callbacks.on_llm_complete(response)
+                return True
+
+            if _safe_call(_safety_finish, "safety finish skipped"):
+                return response, False
+            def _record_ok_latency() -> None:
                 from butler.ops.runtime_metrics import inc, observe_ms
 
                 observe_ms(
@@ -157,8 +179,8 @@ def call_llm_with_retry(
                     labels={"provider": provider, "outcome": "ok"},
                 )
                 inc("llm_request", labels={"provider": provider, "outcome": "ok"})
-            except Exception as exc:
-                logger.debug("on delta cb skipped: %s", exc)
+
+            _safe_call(_record_ok_latency, "record ok latency skipped")
             if (
                 needs_empty_content_retry(response)
                 and empty_retries[0] < config.max_empty_content_retries
@@ -170,17 +192,20 @@ def call_llm_with_retry(
                     return None, False
                 continue
 
-            try:
+            def _record_provider_success() -> None:
                 from butler.transport.provider_health import record_provider_success
 
                 record_provider_success(
                     str(getattr(client, "provider", "") or ""),
                     str(getattr(client, "model", "") or ""),
                 )
-            except Exception as exc:
-                logger.debug("on delta cb skipped: %s", exc)
+
+            _safe_call(_record_provider_success, "record provider success skipped")
             if cache_fp and response and not response.tool_calls:
-                try:
+
+                def _exp_cache_store() -> None:
+                    from butler.core.exp_cache import store_cached_response
+
                     fr = getattr(response, "finish_reason", None) or ""
                     text = str(response.content or "").strip()
                     if text and fr not in ("error", "content_filter"):
@@ -191,20 +216,21 @@ def call_llm_with_retry(
                             model=str(getattr(client, "model", "") or ""),
                         )
                         diagnostics["exp_cache_store"] = True
-                except Exception as exc:
-                    logger.debug("exp_cache store skipped: %s", exc)
+
+                _safe_call(_exp_cache_store, "exp_cache store skipped")
             if callbacks.on_llm_complete:
                 callbacks.on_llm_complete(response)
             return response, False
 
         except InterruptedError:
-            try:
+
+            def _record_interrupt() -> None:
                 from butler.ops.runtime_metrics import inc
 
                 provider = str(getattr(client, "provider_name", "") or "?")[:24]
                 inc("llm_request", labels={"provider": provider, "outcome": "interrupt"})
-            except Exception as exc:
-                logger.debug("on delta cb skipped: %s", exc)
+
+            _safe_call(_record_interrupt, "record interrupt skipped")
             return None, True
 
         except Exception as exc:
@@ -249,12 +275,13 @@ def call_llm_with_retry(
             if classified.should_compress and not compress_attempted:
                 compress_attempted = True
                 diagnostics["reactive_compact_reason"] = classified.reason.value
-                try:
+
+                def _record_reactive_compact() -> None:
                     from butler.ops.retry_buckets import record_recovery_event
 
                     record_recovery_event("reactive_compact")
-                except Exception as exc:
-                    logger.debug("on delta cb skipped: %s", exc)
+
+                _safe_call(_record_reactive_compact, "record reactive compact skipped")
                 from butler.core.reactive_compact import apply_reactive_compact_to_messages
 
                 applied = apply_reactive_compact_to_messages(
@@ -271,12 +298,13 @@ def call_llm_with_retry(
                 continue
 
             if classified.should_fallback and try_activate_fallback():
-                try:
+
+                def _record_provider_failover() -> None:
                     from butler.ops.retry_buckets import record_recovery_event
 
                     record_recovery_event("provider_failover")
-                except Exception as exc:
-                    logger.debug("on delta cb skipped: %s", exc)
+
+                _safe_call(_record_provider_failover, "record provider failover skipped")
                 continue
 
             if not classified.retryable:
@@ -286,7 +314,8 @@ def call_llm_with_retry(
                 time.sleep(retry_delay_for_config(config, attempt))
 
     logger.error("All LLM attempts failed: %s", last_error, exc_info=last_error)
-    try:
+
+    def _record_failure() -> None:
         from butler.ops.runtime_metrics import inc
 
         provider = str(getattr(client, "provider_name", "") or "?")[:24]
@@ -294,6 +323,6 @@ def call_llm_with_retry(
         if last_error is not None:
             err_type = type(last_error).__name__
             inc("llm_error", labels={"provider": provider, "error_type": err_type})
-    except Exception as exc:
-        logger.debug("on delta cb skipped: %s", exc)
+
+    _safe_call(_record_failure, "record failure skipped")
     return None, interrupted
