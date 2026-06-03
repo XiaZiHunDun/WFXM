@@ -167,21 +167,21 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
   - 无后台线程
 - **回归测试**: `tests/test_sprint11_rel5_inflight_ttl.py` — **7 PASSED**
 
-### 🟠 HIGH — 4 项
+### 🟠 HIGH — 0 项 — Sprint 16 已修
 
 | ID | 位置 | 问题 |
 |----|------|------|
-| REL-11-2 | `mcp/async_runner.py:11-39` | 守护线程 + 独立 loop，**无 atexit/signal/shutdown** |
-| REL-11-3 | `runtime/notify.py:130` | `asyncio.run(send_wechat_direct(...))` 同步路径里跑 |
-| REL-11-4 | `gateway/runner.py:38, 100, 190, 204` | SIGTERM 只 `stop.set()`，不等待 executor 排空 |
+| ~~REL-11-2~~ | ~~`mcp/async_runner.py:11-39`~~ | ~~守护线程 + 独立 loop，**无 atexit/signal/shutdown**~~ ✅ Sprint 16 `45d8d8a`: shutdown_async_runner + atexit first-use 注册, 12 测试 |
+| ~~REL-11-3~~ | ~~`runtime/notify.py:130`~~ | ~~`asyncio.run(send_wechat_direct(...))` 同步路径里跑~~ ✅ Sprint 16 `d01873f`: 改用 async_runner.run_mcp_async, 2 测试 |
+| ~~REL-11-4~~ | ~~`gateway/runner.py:38, 100, 190, 204`~~ | ~~SIGTERM 只 `stop.set()`，不等待 executor 排空~~ ✅ Sprint 16 `b52c83a`: _SHUTDOWN_EVENT + grace 30s timeout + is_shutting_down 门控, 14 测试 |
 
-### 🟡 MEDIUM — 3 项
+### 🟡 MEDIUM — 0 项 — Sprint 16 已修
 
 | ID | 位置 | 问题 |
 |----|------|------|
-| REL-11-6 | `mcp/manager.py:54-61` | `_handles_for` 锁外返回 live dict |
-| REL-11-7 | `human_gate.py:19, 280-300` | `consume_injection_bypass` 跨进程不安全 |
-| REL-11-8 | `runtime/audit.py:97` | `release_lock.unlink` 静默吞咽 OSError |
+| ~~REL-11-6~~ | ~~`mcp/manager.py:54-61`~~ | ~~`_handles_for` 锁外返回 live dict~~ ✅ Sprint 16 `5770a50`: 改返回 dict() 快照 + `_with_handles` ctx mgr, 5 测试 |
+| ~~REL-11-7~~ | ~~`human_gate.py:19, 280-300`~~ | ~~`consume_injection_bypass` 跨进程不安全~~ ✅ Sprint 16 `7400a5f`: 改用 `os.rename` 原子抢占, 4 测试 |
+| ~~REL-11-8~~ | ~~`runtime/audit.py:97`~~ | ~~`release_lock.unlink` 静默吞咽 OSError~~ ✅ Sprint 16 `f2f089f`: 显式分 FileNotFoundError vs 其他 OSError, 7 测试 |
 
 ---
 
@@ -221,7 +221,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | TST-11-4 | `handler_helpers.py:376` `_WELCOMED_SESSIONS` | race test 不全 |
 | TST-11-6 | `__init__.py:55-57, 60-63` | `format_build_identity_line` / `mark_start_time` 0% |
 | TST-11-7 | `agents_md.py:80-88` | `list_agent_md_names` 0% |
-| TST-11-11 | `runtime/{audit,loader,schedule}.py` | 0 直测；Sprint 10 REL-NEW-01 修的 flock 锁内容无独立 race test |
+| ~~TST-11-11~~ | ~~`runtime/{audit,loader,schedule}.py`~~ | ~~0 直测；Sprint 10 REL-NEW-01 修的 flock 锁内容无独立 race test~~ **✅ Sprint 16: 47 个新测试 (loader 20 + audit runs 10 + schedule 17)** |
 
 ### 🟢 LOW
 
@@ -296,6 +296,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | **PERF-11-8** | (Sprint 15) `SkillLockFile` 走 `read_json_cached` + `get()` O(1) | `a85b28a` | 18 测试: load 缓存×2 / save 失效×1 / get 效率×3 (不走 list_installed) / 跨实例共享×1 / list_installed 排序×2 / 行为正确性×3. 验收: K 次 SkillLockFile.get() 转为 1 次磁盘读 + O(1) dict lookup |
 | **PERF-11-10** | (Sprint 15) 工具文件读取按 `(path, mtime)` LRU 缓存 | `0dc1680` | 新建 `butler/tools/_file_cache.py` (`read_json_cached` LRU 256 + 线程安全), expense/contacts/habits 全部改用, 24 测试覆盖 (mtime 失效 / LRU 淘汰 / 各工具 _load_all 缓存命中 / write-then-read 一致性) |
 | **PERF-11-11** | (Sprint 15) middleware/plugin hook 预解析 | `8049afc` | `LoopMiddlewareChain.__post_init__` 预解析 `_before_llm_hooks` / `_after_tools_hooks` / `_wrap_tool_call_hooks`, 14 middleware × N turn 从 N×getattr 降至 0; `LoopPluginRegistry` 同处理. 13 测试: 顺序/链式/倒序/失败容错/无 wrap 跳过/预解析验证/getattr 计数 |
+| **TST-11-11** | (Sprint 16) runtime/{audit,loader,schedule}.py 补 47 直测 | (当前 commit) | loader 20 (load_jobs_file 13 + find_job 4 + list_jobs 3) + audit runs 10 (write_run_record 5 + latest_run 5) + schedule 17 (job_is_due 7 + format_schedule_hint 4 + next_run_iso 6). 注意: audit.py 用 `from butler.config import get_butler_settings`, fixture 必须 `monkeypatch.setattr(audit, "get_butler_settings", ...)` 在 audit 模块 patch (Sprint 16 _tenant_store 同款教训) |
 
 ---
 
