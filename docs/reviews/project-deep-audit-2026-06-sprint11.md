@@ -272,6 +272,8 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 |----|------|--------|------|
 | **REL-11-2** | `mcp/async_runner.py` 加 `shutdown_async_runner` + `_atexit_shutdown` + atexit first-use 注册 | `45d8d8a` | 守护线程 graceful shutdown, idempotent, 12 个新测试覆盖 |
 | **REL-11-3** | `runtime/notify.py:push_runtime_message` 改用 `async_runner.run_mcp_async` 代替 `asyncio.run` | `d01873f` | 避免在 MCP tool handler / 已运行 event loop 线程中调用崩溃, 2 个新测试 |
+| **REL-11-6** | `mcp/manager.py:_handles_for` 改返回 `dict()` 快照 + 新增 `_with_handles` 上下文管理器 | `5770a50` | 避免与 `disconnect_session` 竞争抛 "dict changed size", 5 个新测试 (含 Barrier 同步多线程) |
+| **REL-11-7** | `human_gate.py:consume_injection_bypass` 改用 `os.rename` 原子抢占, 替代 `threading.Lock + is_file + unlink` TOCTOU | (本 commit) | 跨进程 consume-once; 4 个新测试 (含 spawn+Barrier 多进程并发) |
 | **REL-11-8** | `runtime/audit.py:release_lock` 显式分 `FileNotFoundError` (benign race) vs 其他 `OSError` (logger.warning) | `f2f089f` | 7 个新测试覆盖所有 OSError 分支 |
 | **TST-10-5** | 迁移 3 个 inline 命令到 registry handler: /会话 /评价 /诊断 | `ad560e0` | 信息性 if/elif 块删除, info_commands.py 注册; whitelist 30→27; TestInlineCommandMigration 跟踪 |
 | **TST-10-7** | TestEveryRegisteredCommandDispatches 100% 覆盖 59 unique command dispatch | `6336eb7` | 不再 18/59 partial, 3 个新测试验证所有命令可 dispatch + 无 NotImplementedError + help_text 非空 |

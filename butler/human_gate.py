@@ -278,26 +278,36 @@ def grant_injection_bypass(session_key: str, *, ttl_seconds: float = 300.0) -> N
 
 
 def consume_injection_bypass(session_key: str) -> bool:
-    with _gate_lock:
-        path = _injection_bypass_path(session_key)
-        if not path.is_file():
-            return False
+    """Atomically consume a one-shot injection bypass across processes.
+
+    Sprint 16 REL-11-7: 旧实现用进程内 ``threading.Lock`` + 预检
+    + ``unlink(missing_ok=True)`` 模式, 跨进程可多个 consumer 都
+    返回 True, 单次性失效。
+
+    改用 ``os.rename`` 做原子抢占 — POSIX 保证原子; 失败方收到
+    ``FileNotFoundError`` 即知自己输了比赛, 返回 ``False``。
+    """
+    path = _injection_bypass_path(session_key)
+    consumed_path = path.with_name(path.name + ".consumed")
+    # 原子抢占: 多个进程并发, 仅 1 个 rename 成功。
+    try:
+        os.rename(path, consumed_path)
+    except FileNotFoundError:
+        return False
+
+    # 抢占成功, 读取内容判断是否过期
+    try:
+        data = json.loads(consumed_path.read_text(encoding="utf-8"))
+        expires = float(data.get("expires_at") or 0)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return False
+    if expires < time.time():
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            expires = float(data.get("expires_at") or 0)
-        except (OSError, json.JSONDecodeError, TypeError):
-            return False
-        if expires < time.time():
-            try:
-                path.unlink(missing_ok=True)
-            except OSError:
-                pass
-            return False
-        try:
-            path.unlink(missing_ok=True)
+            consumed_path.unlink(missing_ok=True)
         except OSError:
             pass
-        return True
+        return False
+    return True
 
 
 def resolve_human_gate_message(session_key: str, text: str) -> str | None:
