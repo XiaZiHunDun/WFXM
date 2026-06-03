@@ -215,7 +215,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | TST-11-3 | `lifecycle_commands.py` 234 行 | coverage 21%；11 handler 仅 `_cmd_config` 测 (✅ `6fddada` 补 41 测试：/doctor×5 /export×2 /回滚×5 /分叉×6 /会话记忆×6 /确认安装×2 /注册表×2 /任务×4 /工作流×2 /_require_owner×2 /静态契约×4) |
 | TST-11-5 | `execute_code.py:52-116` `run_execute_code` | 1 unit test (disabled 路径)；0 真实 subprocess (✅ `4667c91` 补 38 测试: enabled×3 / input×7 / 真实 subprocess×4 / errors×3 / env×3 / timeout×7 / workspace_cwd×4 / register×4 / 契约×3) |
 | TST-11-9 | `mcp/{client_http,client_stdio,server_stdio}.py` | 三文件 0%；mcp 子包覆盖极薄 |
-| TST-11-10 | `wechat_ilink.py:1720-1737` `_download_remote_media` SSRF | 0 e2e with redirector/IPv6/0.0.0.0 |
+| TST-11-10 | `wechat_ilink.py:1720-1737` `_download_remote_media` SSRF | 0 e2e with redirector/IPv6/0.0.0.0 (✅ `8d73ba0` 补 75 测试: is_safe_url 阻断×30+/放行×6, assert_safe_redirect×5, safe_registry_get×8 (5 个 3xx 状态码), _download_remote_media 集成×11, 契约×4) |
 
 ### 🟡 MEDIUM
 
