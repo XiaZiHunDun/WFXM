@@ -266,6 +266,16 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 ---
 
+## 6. Sprint 11+ 修复记录
+
+| ID | 修复 | Commit | 备注 |
+|----|------|--------|------|
+| **REL-11-2** | `mcp/async_runner.py` 加 `shutdown_async_runner` + `_atexit_shutdown` + atexit first-use 注册 | `45d8d8a` | 守护线程 graceful shutdown, idempotent, 12 个新测试覆盖 |
+| **REL-11-8** | `runtime/audit.py:release_lock` 显式分 `FileNotFoundError` (benign race) vs 其他 `OSError` (logger.warning) | `f2f089f` | 7 个新测试覆盖所有 OSError 分支 |
+| **TST-10-9** | 验证 Sprint 9 TST-2 "缺 45 script" 报告口径已过期 | — | `tests/corpus/harness/gateway_scripts.py:42 script_profiles()` 当前含 46 个 profile 定义；pytest 失败分析显示 0 处 "missing script" 错误（仅 behavioral "tool not called" 类，与 TST-2 不同源） |
+
+---
+
 **审计师**: Claude (Anthropic) + 4 个并行 subagent
 **审计时间**: 2026-06-02
 **审计基线**: commit `a3871da`（Sprint 10 完成）
