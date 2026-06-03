@@ -15,6 +15,7 @@ from butler.gateway.command_registry import (
 # Sprint 11 TST-10-5: 这些命令还有 inline handler 在 message_handler.py, 还未迁移到 registry。
 # 迁移一个就从这个 set 移除一个。 当 set 为空时, 全部命令走 registry dispatch。
 # Sprint 11 第一批迁移: /会话 /评价 /诊断 — 已在 butler/gateway/commands/info_commands.py 注册。
+# Sprint 16 迁移: /记忆图谱 /记忆待审 /拒绝记忆 /批准记忆 — 已在 butler/gateway/commands/memory_commands.py 注册。
 _KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
     "/项目",
     "/项目 体检",
@@ -33,10 +34,6 @@ _KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
     "/批准一次",
     "/批准执行",
     "/批准模式",
-    "/批准记忆",
-    "/拒绝记忆",
-    "/记忆图谱",
-    "/记忆待审",
     "/继续",
     "/权限",
     "/urgent",

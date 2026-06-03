@@ -239,11 +239,11 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | TST-10-2 | `tenant_store.py TenantStore` 0 直测 | ✅ `21d9df5` |
 | TST-10-3 | `extract_layered_summary` 0 直测 | ✅ `bac97e4` |
 | TST-10-4 | `atomic_write.atomic_write_text` 0 直测 | ✅ `a0353f9` |
-| TST-10-5 | 28 个 `CommandDef` 缺 handler | 🟠 |
+| TST-10-5 | 28 个 `CommandDef` 缺 handler | 🟠 (部分 ✅ `ad560e0`) |
 | TST-10-6 | MagicMock 99.6% 无 `spec=` | 🟡 |
-| TST-10-7 | `test_gateway_handler.py` 18/59 unique commands | 🟡 |
+| TST-10-7 | `test_gateway_handler.py` 18/59 unique commands | ✅ `6336eb7` |
 | TST-10-8 | `wechat_ilink.py` 2027 行仍在 coverage omit | ✅ (当前 commit) |
-| TST-10-9 | Sprint 9 报告口径过期 | 🟢 |
+| TST-10-9 | Sprint 9 报告口径过期 | ✅ (验证) |
 
 ---
 

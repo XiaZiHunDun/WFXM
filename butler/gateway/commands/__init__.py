@@ -8,10 +8,12 @@ from butler.gateway.commands import (
     dialog_commands,
     info_commands,
     lifecycle_commands,
+    memory_commands,
 )
 
 __all__ = [
     "dialog_commands",
     "info_commands",
     "lifecycle_commands",
+    "memory_commands",
 ]
