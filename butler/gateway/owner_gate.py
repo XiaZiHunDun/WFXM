@@ -46,8 +46,18 @@ def is_gateway_owner(
     external_id: str | None = None,
     session_key: str = "",
 ) -> bool:
-    """Return True if the caller may run owner-only gateway actions."""
-    if os.getenv("BUTLER_PROJECT_CREATE_OPEN", "").strip().lower() in (
+    """Return True if the caller may run owner-only gateway actions.
+
+    Sprint 18-2 SEC-18-2-1: BUTLER_ENV=prod 时禁用 BUTLER_PROJECT_CREATE_OPEN
+    越权 BYPASS. 防误带 .env 上线 / CI 残留 / .env 注入 — 一旦 prod 即 fail-closed,
+    owner 行为仅依赖显式 BUTLER_OWNER_WECHAT_ID / WECHAT_ALLOWED_USERS allowlist.
+    dev / test / 未设 env 时 BYPASS 仍生效 (开发体验 + 向后兼容).
+    """
+    # Sprint 18-2: prod 环境硬拒绝 BYPASS, 防止越权开关被滥用.
+    if os.getenv("BUTLER_ENV", "").strip().lower() == "prod":
+        # 跳过 BYPASS, 走正常 allowlist 校验
+        pass
+    elif os.getenv("BUTLER_PROJECT_CREATE_OPEN", "").strip().lower() in (
         "1",
         "true",
         "yes",
