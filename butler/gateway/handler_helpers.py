@@ -267,110 +267,27 @@ def _env_float(name: str, default: float) -> float:
 
 
 def _is_sessionless_command(text: str) -> bool:
+    """Decide whether *text* names a sessionless slash command.
+
+    Sprint 18-4 D CRITICAL-2: 真源 = command_registry. 已注册命令(含 aliases)
+    立即识别, 动态注册的新命令零漂移. 未注册命令返 False (降级到 session
+    队列后 LLM, 与原硬编码 set 中"未注册"成员的实际行为对齐 — 那些命令
+    在 dispatch 失败后同样 fallback 到 LLM).
+
+    行为变化: 之前 27 项已注册但不在 set 的命令 (新 dispatch 命令) 现在
+    sessionless, 立即响应; 之前 45 项在 set 但未注册的命令现在等 session
+    队列, 仅延迟差异 (最终 LLM 接收, 功能不变).
+    """
     stripped = (text or "").strip()
     if not stripped.startswith("/"):
         return False
     parts = stripped.split(maxsplit=1)
     cmd = parts[0].lower()
-    return cmd in {
-        "/projects",
-        "/项目",
-        "/switch",
-        "/切换",
-        "/model",
-        "/模型",
-        "/status",
-        "/状态",
-        "/health",
-        "/诊断",
-        "/doctor",
-        "/steer",
-        "/指引",
-        "/queue",
-        "/stop",
-        "/停止",
-        "/中断",
-        "/cancel-loop",
-        "/continue",
-        "/继续",
-        "/确认",
-        "/approve",
-        "/取消",
-        "/cancel",
-        "/new",
-        "/新对话",
-        "/detail",
-        "/详细",
-        "/plan",
-        "/计划",
-        "/规划",
-        "/执行",
-        "/exit-plan",
-        "/退出规划",
-        "/todos",
-        "/待办",
-        "/tasks",
-        "/memo",
-        "/备忘",
-        "/通讯录",
-        "/contacts",
-        "/记账",
-        "/expense",
-        "/打卡",
-        "/habits",
-        "/任务",
-        "/config",
-        "/配置",
-        "/帮助",
-        "/help",
-        "/导出",
-        "/export",
-        "/export-session",
-        "/导出会话",
-        "/回滚",
-        "/transcript-revert",
-        "/revert-transcript",
-        "/批准一次",
-        "/approve-once",
-        "/始终允许",
-        "/always-allow",
-        "/权限",
-        "/permissions",
-        "/workflow",
-        "/工作流",
-        "/定时",
-        "/runtime",
-        "/定时任务",
-        "/运行",
-        "/run-job",
-        "/运行任务",
-        "/批准运行",
-        "/approve-run",
-        "/批准任务",
-        "/记忆待审",
-        "/pending-memory",
-        "/待审记忆",
-        "/记忆图谱",
-        "/memory-graph",
-        "/三元组",
-        "/批准记忆",
-        "/approve-memory",
-        "/拒绝记忆",
-        "/reject-memory",
-        "/拒绝",
-        "/批准",
-        "/开发状态",
-        "/dev-status",
-        "/开发验收",
-        "/dev-smoke",
-        "/git",
-        "/测试",
-        "/test",
-        "/构建",
-        "/build",
-        "/项目概况",
-        "/project-dashboard",
-    }
+    if not cmd:
+        return False
+    from butler.gateway.command_registry import lookup
+
+    return lookup(cmd) is not None
 
 
 def _tool_audit_summary(session_key: str) -> dict[str, Any]:

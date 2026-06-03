@@ -362,6 +362,12 @@ class TestSessionlessCommands:
         "/项目概况", "/project-dashboard",
     ])
     def test_new_commands_are_sessionless(self, cmd):
+        """Sprint 18-4: _is_sessionless_command 用 registry 真源.
+
+        已注册到 command_registry 的命令 (含 aliases) → sessionless.
+        所有这些命令都通过 registry 真源识别, 包括别名 /test /build
+        /project-dashboard (alias of /测试 /构建 /项目概况).
+        """
         from butler.gateway.handler_helpers import _is_sessionless_command
 
         assert _is_sessionless_command(cmd), f"{cmd} should be sessionless"

@@ -11,6 +11,12 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
+# Import butler.gateway.commands so all CommandDef + aliases are registered
+# before any test runs. Sprint 18-4: _is_sessionless_command 真源 = registry.
+# Without this, /test /build /project-dashboard (aliases of /测试 /构建 /项目概况)
+# would appear unregistered, breaking sessionless detection.
+import butler.gateway.commands  # noqa: F401, E402
+
 # Gateway corpus L1 fixtures (must be registered from top-level conftest)
 pytest_plugins = ["tests.corpus.conftest_gateway"]
 
