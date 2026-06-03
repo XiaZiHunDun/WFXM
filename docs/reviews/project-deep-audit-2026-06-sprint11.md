@@ -13,8 +13,8 @@
 | # | ID | 位置 | 问题 | 严重 | 工时 |
 |---|----|------|------|------|------|
 | 1 | ~~TST-11-1~~ | ~~`butler/runtime/approval.py` (140 行)~~ | ~~真死代码（0 importer/0 test）— Sprint 10 REL-NEW-07 描述的代码在此~~ **⚠️ Sprint 11 误报：实为 namespace 引用（service.py:12）** | ~~🔴~~ | ~~10min~~ |
-| 2 | **REL-11-1** | `message_handler.py:389,401` | `_idempotency_reserved = False` 提前初始化 → inflight 假阴性泄漏 | 🔴 | 30min |
-| 3 | **REL-11-5** | `inbound_idempotency.py:22,79-82` | `inflight` 状态无 TTL/无 sweep → worker 崩溃后永久拒绝 | 🔴 | 1h |
+| 2 | ~~**REL-11-1**~~ | ~~`message_handler.py:389,401`~~ | ~~`_idempotency_reserved = False` 提前初始化 → inflight 假阴性泄漏~~ **✅ Sprint 14 a6e36af 修复: 保留 pre-init, 删 bot_loop_guard 死 release_inflight** | ~~🔴~~ | ~~30min~~ |
+| 3 | ~~**REL-11-5**~~ | ~~`inbound_idempotency.py:22,79-82`~~ | ~~`inflight` 状态无 TTL/无 sweep → worker 崩溃后永久拒绝~~ **✅ Sprint 11 94343dc 修复: lazy sweep + TTL 60s** | ~~🔴~~ | ~~1h~~ |
 | 4 | **PERF-11-5** | `semantic_index.py:35` | 单 RLock 串行化 9 个方法（search/upsert/delete/count）— 多 session 并发全阻塞 | 🔴 | 2h |
 | 5 | **PERF-11-1** | `message_queue.py:167` | 每次 enqueue 全桶 O(N log N) sort — 高 inbound 时线性退化 | 🔴 | 1h |
 | 6 | **PERF-11-2** | `exp_cache.py:79-93` | LLM 响应缓存每次 read 全文件 + 逐行 json.loads | 🔴 | 30min |
@@ -140,35 +140,41 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 ## 3. 可靠性审计（Reliability — 8 项新发现）
 
-### 🔴 CRITICAL（2 项）
+### 🔴 CRITICAL（0 项 — Sprint 11/14 已修）
 
-#### REL-11-1 `_idempotency_reserved = False` 提前初始化
-- **位置**: `butler/gateway/message_handler.py:389, 401, 531`
-- **证据**:
+#### ~~REL-11-1 `_idempotency_reserved = False` 提前初始化~~ ✅ Sprint 14 a6e36af 修复
+- **位置**: `butler/gateway/message_handler.py:500, 526, 638`
+- **历史证据**（Sprint 11 审计时）:
   ```python
-  # line 389
+  # 旧 line 389
   _idempotency_reserved = False  # ← 提前初始化 False
-
   try:
       from butler.gateway.bot_loop_guard import record_and_should_suppress
       ...
       if suppress:
-          if _idempotency_reserved:  # ← line 401 检查（永远 False）
+          if _idempotency_reserved:  # ← 旧 line 401 检查（永远 False）
               try:
                   release_inflight(session_key, external_id)
-              except Exception as exc:
-                  logger.debug("Inflight release skipped: %s", exc)
   ...
-  # line 531 才是真正 reserve 位置
+  # 旧 line 531 才是真正 reserve 位置
   _idempotency_reserved = True
   ```
-- **影响**: 401 行检查永远 False → `release_inflight` 是 no-op → inflight 假阴性泄漏。
-- **修复**: 把 `_idempotency_reserved = False` 移到 401 行 try 块之前（紧跟 reserve 调用之后）。或重构为 `try/finally` + 状态变量。
+- **修复结果**（Sprint 14 commit a6e36af）:
+  - 保留 pre-init（line 500）防止 finally 块 UnboundLocalError
+  - 删 bot_loop_guard 块内的死 `release_inflight` 调用
+  - 删对应的 `release_inflight` import
+  - 保留 try 块内 `_idempotency_reserved = True`（line 526, reserve 成功后置位）
+  - 保留 finally 块 `if _idempotency_reserved: complete_inbound`（line 638, 有效逻辑）
+- **回归测试**: `tests/test_sprint14_rel1_idempotency_init.py`（4 用例）+ `tests/test_sprint11_rel1_idempotency_reserved_init.py`（6 静态契约）= **10 PASSED**
 
-#### REL-11-5 `inbound_idempotency` inflight 状态无 TTL
-- **位置**: `butler/gateway/inbound_idempotency.py:22, 79-82`
-- **证据**: 全文件 `grep "sweep|TTL|expire"` 0 命中；只 `release_inflight/complete_inbound` 主动解除。
-- **影响**: worker 崩溃后 `external_id` 永久 `inflight`，后续同 ID 消息一律 `duplicate_inflight` 拒绝。
+#### ~~REL-11-5 `inbound_idempotency` inflight 状态无 TTL~~ ✅ Sprint 11 94343dc 修复
+- **位置**: `butler/gateway/inbound_idempotency.py:21-25, 49-64, 107, 145`
+- **修复方案**: lazy sweep（`check_and_reserve_inbound` / `complete_inbound` 时清理过期 inflight）
+  - TTL 默认 60s，`BUTLER_GATEWAY_INFLIGHT_TTL_SEC` 可配
+  - sweep 只清理 inflight 状态，保留 done 状态
+  - 线程安全（在 `_LOCK` 内执行）
+  - 无后台线程
+- **回归测试**: `tests/test_sprint11_rel5_inflight_ttl.py` — **7 PASSED**
 
 ### 🟠 HIGH — 4 项
 
@@ -249,10 +255,10 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 ## 5. 修复建议
 
-### 短期（7🔴 = 1 个工作日）
-1. **TST-11-1** 删 `runtime/approval.py`（10min + 测试，含消化 REL-NEW-07）
-2. **REL-11-1** `_idempotency_reserved` 初始化位置修复（30min + 测试）
-3. **REL-11-5** inflight TTL/sweep（1h + 测试）
+### 短期（5🔴 = 0.5 个工作日 — REL-11-1/5 已修）
+1. ~~**TST-11-1** 删 `runtime/approval.py`（10min + 测试，含消化 REL-NEW-07）~~ — Sprint 11 复检证实为 namespace 引用，非死代码
+2. ~~**REL-11-1** `_idempotency_reserved` 初始化位置修复（30min + 测试）~~ ✅ Sprint 14 a6e36af
+3. ~~**REL-11-5** inflight TTL/sweep（1h + 测试）~~ ✅ Sprint 11 94343dc
 4. **PERF-11-1** message_queue sort 优化（1h + 测试）
 5. **PERF-11-2/3** exp_cache 改为 SQLite 或 mmap（30min + 测试）
 6. **PERF-11-5** semantic_index 拆 read/write lock（2h + 测试）
