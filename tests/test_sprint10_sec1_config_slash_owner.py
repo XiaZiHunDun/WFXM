@@ -118,10 +118,14 @@ def test_set_invalid_keyvalue_syntax_returns_usage_not_owner_gate(monkeypatch):
 
 @pytest.mark.unit
 def test_owner_gate_check_uses_ctx_platform_external_id_session_key():
-    """owner 校验必须用 ctx.{platform,external_id,session_key}，不应用环境默认值。"""
+    """owner 校验必须用 ctx 透传，handler 不应解构 ctx 字段 (Sprint 18-1).
+
+    Sprint 18-1: 5 个 commands/*.py 改用 command_registry.require_owner 真源.
+    _cmd_config 调 require_owner(ctx) 真源, 真源内部从 ctx 拿 platform/external_id/session_key.
+    handler 自身只透传 ctx, 不解构. 静态断言: 必须调 require_owner 真源.
+    """
     import inspect
     src = inspect.getsource(_cmd_config)
-    assert "is_gateway_owner" in src, "_cmd_config 必须调 is_gateway_owner"
-    assert "ctx.platform" in src and "ctx.external_id" in src and "ctx.session_key" in src, (
-        "owner gate 必须传 ctx.{platform,external_id,session_key}"
-    )
+    assert "require_owner" in src, "_cmd_config 必须调 require_owner 真源"
+    # handler 应透传 ctx (而非解构 ctx.platform 等字段), 由真源负责解构
+    assert "require_owner(ctx)" in src, "_cmd_config 必须透传 ctx 给真源"

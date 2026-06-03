@@ -4,21 +4,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from butler.gateway.command_registry import CommandContext, CommandDef, register
-from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-
-
-def _require_owner(ctx: CommandContext) -> Optional[str]:
-    """Sprint 11 SEC-11-5: 私人数据 handler 守门。"""
-    if not is_gateway_owner(
-        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
-    ):
-        return owner_required_message()
-    return None
+from butler.gateway.command_registry import (
+    CommandContext,
+    CommandDef,
+    register,
+    require_owner,
+)
 
 
 def _cmd_overview(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.gateway.handler_helpers import _build_project_overview
@@ -47,7 +42,7 @@ def _cmd_help(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_todos(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.core.session_todos import format_session_todos_for_wechat
@@ -56,7 +51,7 @@ def _cmd_todos(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_memo(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.tools.memo import format_memos_for_wechat
@@ -65,7 +60,7 @@ def _cmd_memo(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_contacts(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.tools.contacts import format_contacts_for_wechat
@@ -74,7 +69,7 @@ def _cmd_contacts(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_expense(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.tools.expense import format_expense_for_wechat
@@ -83,7 +78,7 @@ def _cmd_expense(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_habits(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.tools.habits import format_habits_for_wechat
@@ -92,7 +87,7 @@ def _cmd_habits(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_project_todos(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.tools.project_todos import format_project_todos_for_wechat
@@ -106,7 +101,7 @@ def _cmd_project_todos(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_memory_status(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.gateway.memory_commands import format_memory_status
@@ -115,7 +110,7 @@ def _cmd_memory_status(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_detail(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.report import get_last_report, format_detail
@@ -153,7 +148,7 @@ def _cmd_budget(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_sessions(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.gateway.sessions_commands import handle_sessions_command
@@ -168,7 +163,7 @@ def _cmd_sessions(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.gateway.outcome_commands import handle_outcome_command
@@ -184,7 +179,7 @@ def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_health(ctx: CommandContext) -> Optional[str]:
     """Sprint 11 TST-10-5: 从 inline 迁移 — 等价于原 handler._format_health_summary。"""
-    gate = _require_owner(ctx)
+    gate = require_owner(ctx)
     if gate:
         return gate
     from butler.ops.health_report import (

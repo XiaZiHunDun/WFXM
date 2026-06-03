@@ -19,24 +19,17 @@ from __future__ import annotations
 
 from typing import Optional
 
-from butler.gateway.command_registry import CommandContext, CommandDef, register
-from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-
-
-def _check_owner_or_return(ctx: CommandContext) -> Optional[str]:
-    """非 owner 返 owner_required_message, owner 返 None (继续执行)."""
-    if not is_gateway_owner(
-        platform=ctx.platform,
-        external_id=ctx.external_id,
-        session_key=ctx.session_key,
-    ):
-        return owner_required_message()
-    return None
+from butler.gateway.command_registry import (
+    CommandContext,
+    CommandDef,
+    register,
+    require_owner,
+)
 
 
 def _cmd_perm_list(ctx: CommandContext) -> Optional[str]:
     """handler for /权限 — 列出本会话 always-allow 记录."""
-    gate = _check_owner_or_return(ctx)
+    gate = require_owner(ctx)
     if gate is not None:
         return gate
     from butler.permissions.approvals import list_always
@@ -54,7 +47,7 @@ def _cmd_perm_list(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_perm_once(ctx: CommandContext) -> Optional[str]:
     """handler for /批准一次 <fingerprint>."""
-    gate = _check_owner_or_return(ctx)
+    gate = require_owner(ctx)
     if gate is not None:
         return gate
     from butler.permissions.approvals import grant_once
@@ -64,7 +57,7 @@ def _cmd_perm_once(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_perm_always(ctx: CommandContext) -> Optional[str]:
     """handler for /始终允许 <spec> — 永久放行某类操作."""
-    gate = _check_owner_or_return(ctx)
+    gate = require_owner(ctx)
     if gate is not None:
         return gate
 
@@ -103,7 +96,7 @@ def _cmd_perm_always(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_perm_exec(ctx: CommandContext) -> Optional[str]:
     """handler for /批准执行 <cmd> — 放行 terminal 命令 5 分钟."""
-    gate = _check_owner_or_return(ctx)
+    gate = require_owner(ctx)
     if gate is not None:
         return gate
     cmd = ctx.arg.strip()
@@ -117,7 +110,7 @@ def _cmd_perm_exec(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_perm_pattern(ctx: CommandContext) -> Optional[str]:
     """handler for /批准模式 <pattern> — 24h 内同类 terminal 命令放行."""
-    gate = _check_owner_or_return(ctx)
+    gate = require_owner(ctx)
     if gate is not None:
         return gate
     pat = ctx.arg.strip()

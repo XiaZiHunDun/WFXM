@@ -44,6 +44,23 @@ class CommandContext:
 CommandHandler = Callable[[CommandContext], Optional[str]]
 
 
+def require_owner(ctx: CommandContext) -> Optional[str]:
+    """Sprint 18-1 真源: 5 个 commands/*.py 共享 owner-gate 守门.
+
+    非 owner 返 owner_required_message, owner 返 None (继续执行).
+    行为完全等价于原先 dialog/info/project/permission/lifecycle 各自的本地
+    _require_owner / _check_owner_or_return, 单一真源便于改 owner gate 规则.
+    """
+    # 延迟导入避免 module 加载顺序耦合 (owner_gate 不依赖本模块, 这里是单向引用)
+    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
+    if not is_gateway_owner(
+        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+    ):
+        return owner_required_message()
+    return None
+
+
 @dataclass(frozen=True)
 class CommandDef:
     name: str

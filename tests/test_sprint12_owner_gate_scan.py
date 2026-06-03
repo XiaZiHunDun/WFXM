@@ -1,10 +1,14 @@
 """Sprint 12 SEC-12-1: AST 静态扫描 owner gate
 
 扫描 butler/gateway/ 下所有 `def handle_*command(`` 和 `def _cmd_*(ctx)`` 函数，
-检查函数体内是否调用了 is_gateway_owner(...) 或 _require_owner(...)。
+检查函数体内是否调用了 is_gateway_owner(...) 或 require_owner(...) 真源。
 
 Sprint 11 审计：6 个新模块复现 owner-gate 漏洞（SEC-11-1..7）。Sprint 12 用
 静态扫描阻断同类问题在新代码中复现。
+
+Sprint 18-1: 5 个 commands/*.py 的本地 _require_owner / _check_owner_or_return
+合并到 command_registry.require_owner 真源。扫描器白名单改为识别真源名
+require_owner（避免扫描器字面依赖 helper 局部命名）。
 
 豁免机制：在函数 docstring 或前 3 行注释中含 `# owner-gate-opt-out: <理由>`
 可豁免（用于真正 public handler 如 /help、/总览）。
@@ -26,7 +30,12 @@ import pytest
 GATEWAY_ROOT = Path(__file__).resolve().parents[1] / "butler" / "gateway"
 HANDLER_PATTERN = re.compile(r"^(handle_[a-z_]+command|_cmd_[a-z_]+)$")
 OPT_OUT_MARKER = re.compile(r"owner-gate-opt-out\s*:")
-GATE_CALL_NAMES = frozenset({"is_gateway_owner", "_require_owner"})
+# Sprint 18-1: require_owner 是 command_registry 提供的真源 helper.
+# 保留 _require_owner 因为:
+#  1) registry_commands.py 等老代码仍在用本地 _require_owner 包装 is_gateway_owner
+#  2) 1-level transitive 逻辑 (_has_gate_in_file) 走 callee 找 _require_owner 当 gate 中转
+#  3) 兼容性: 老 inline helper 名字仍能命中, 迁移到 require_owner 真源后自然不再使用
+GATE_CALL_NAMES = frozenset({"is_gateway_owner", "require_owner", "_require_owner"})
 
 
 def _function_calls_name(func: ast.FunctionDef, name: str) -> bool:
@@ -204,15 +213,20 @@ class TestScannerSelfTest:
     def test_passes_handler_with_require_owner_helper(
         self, tmp_path: Path, monkeypatch
     ):
+        """Sprint 18-1: require_owner 是 command_registry 提供的真源 helper.
+
+        5 个 commands/*.py 已合并到该真源, 不再有本地 _require_owner.
+        self-test 验证扫描器对真源 require_owner(ctx) 调用不误报.
+        """
         target = tmp_path / "mod.py"
         target.write_text(
             textwrap.dedent(
                 """
-                def _require_owner(platform, external_id, session_key):
-                    return None
+                from somewhere import require_owner
 
                 def _cmd_z(ctx):
-                    if (gate := _require_owner(ctx.platform, ctx.external_id, ctx.session_key)):
+                    gate = require_owner(ctx)
+                    if gate:
                         return gate
                     return "ok"
                 """
@@ -224,7 +238,7 @@ class TestScannerSelfTest:
         gaps = scan_owner_gate_gaps()
         names = [g[1] for g in gaps]
         assert "_cmd_z" not in names, (
-            f"调 _require_owner helper 的 handler 不应被误报，实际: {names}"
+            f"调真源 require_owner(ctx) 的 handler 不应被误报，实际: {names}"
         )
 
     def test_passes_handler_with_opt_out_marker(

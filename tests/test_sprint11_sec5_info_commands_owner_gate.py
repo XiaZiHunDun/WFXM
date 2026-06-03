@@ -43,7 +43,7 @@ def test_memo_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.commands.info_commands.is_gateway_owner", return_value=False
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=False
     ):
         out = info_commands._cmd_memo(_ctx(cmd="/备忘", arg="今天买菜", external_id="non_owner"))
     assert out == owner_required_message(), (
@@ -57,7 +57,7 @@ def test_contacts_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.commands.info_commands.is_gateway_owner", return_value=False
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=False
     ):
         out = info_commands._cmd_contacts(_ctx(cmd="/通讯录", external_id="non_owner"))
     assert out == owner_required_message(), (
@@ -71,7 +71,7 @@ def test_expense_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.commands.info_commands.is_gateway_owner", return_value=False
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=False
     ):
         out = info_commands._cmd_expense(_ctx(cmd="/记账", external_id="non_owner"))
     assert out == owner_required_message(), (
@@ -85,7 +85,7 @@ def test_habits_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.commands.info_commands.is_gateway_owner", return_value=False
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=False
     ):
         out = info_commands._cmd_habits(_ctx(cmd="/打卡", external_id="non_owner"))
     assert out == owner_required_message(), (
@@ -97,7 +97,7 @@ def test_habits_blocked_for_non_owner():
 def test_owner_passes_through_memo():
     """Owner 调 /备忘 应能继续到 format_memos_for_wechat 逻辑。"""
     with patch(
-        "butler.gateway.commands.info_commands.is_gateway_owner", return_value=True
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=True
     ), patch("butler.tools.memo.format_memos_for_wechat", return_value="memo list") as mock_fmt:
         out = info_commands._cmd_memo(_ctx(cmd="/备忘", arg="", external_id="owner_id"))
     assert out == "memo list", f"Owner 应能拿到 memo list，实际 {out!r}"

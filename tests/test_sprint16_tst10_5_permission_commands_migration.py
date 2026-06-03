@@ -135,8 +135,9 @@ class TestDispatch:
         ):
             ctx = _make_ctx(cmd=name)
             # Mock the underlying function so we don't actually call the real one
+            # Sprint 18-1: require_owner 是 command_registry 提供的真源
             with patch(
-                "butler.gateway.commands.permission_commands._check_owner_or_return",
+                "butler.gateway.command_registry.require_owner",
                 return_value=None,  # owner passes
             ):
                 handled, result = dispatch(ctx)
@@ -158,9 +159,10 @@ class TestOwnerGate:
         from butler.gateway.owner_gate import owner_required_message
 
         ctx = _make_ctx(cmd=name, external_id="attacker")
-        # patch 在 importing module (permission_commands 已 `from ... import is_gateway_owner`).
-        with patch.object(
-            perm_cmds_module, "is_gateway_owner", return_value=False,
+        # Sprint 18-1: 5 个 commands/*.py 改用 command_registry.require_owner 真源.
+        # 真源内部调 butler.gateway.owner_gate.is_gateway_owner, patch 真源.
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=False,
         ) as gate:
             handled, result = dispatch(ctx)
         assert handled is True
@@ -176,8 +178,9 @@ class TestOwnerGate:
         from butler.gateway.commands import permission_commands as perm_cmds_module
 
         ctx = _make_ctx(cmd=name, external_id="owner1")
-        with patch.object(
-            perm_cmds_module, "is_gateway_owner", return_value=True,
+        # Sprint 18-1: patch 真源 owner_gate.is_gateway_owner
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ):
             # 各命令调不同底层函数, 但都应不抛异常 (或返字符串, 不返 None)
             handled, result = dispatch(ctx)
@@ -191,10 +194,8 @@ class TestOwnerGate:
 
 class TestDelegation:
     def _owner_patch(self):
-        """Helper: patch is_gateway_owner 在 importing module 上返 True."""
-        from butler.gateway.commands import permission_commands as perm_cmds_module
-
-        return patch.object(perm_cmds_module, "is_gateway_owner", return_value=True)
+        """Helper: patch is_gateway_owner 真源返 True (Sprint 18-1 require_owner 调它)."""
+        return patch("butler.gateway.owner_gate.is_gateway_owner", return_value=True)
 
     def test_perm_list_delegates_to_list_always(self, ensure_registered):
         """/权限 → list_always (空 list 返 '当前会话无「始终允许」记录。')."""
@@ -303,8 +304,9 @@ class TestErrorHandling:
         from butler.gateway.commands import permission_commands as perm_cmds_module
 
         ctx = _make_ctx(cmd="/批准一次", arg="fp")
-        with patch.object(
-            perm_cmds_module, "is_gateway_owner", return_value=True,
+        # Sprint 18-1: patch 真源 owner_gate.is_gateway_owner
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
             "butler.permissions.approvals.grant_once",
             side_effect=RuntimeError("boom"),

@@ -73,7 +73,7 @@ class TestInfoHandlerGates:
         from butler.gateway.owner_gate import owner_required_message
 
         with patch(
-            "butler.gateway.commands.info_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=False,
         ):
             out = info_commands._cmd_sessions(_ctx(cmd="/会话", external_id="non_owner"))
@@ -86,7 +86,7 @@ class TestInfoHandlerGates:
         from butler.gateway.owner_gate import owner_required_message
 
         with patch(
-            "butler.gateway.commands.info_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=False,
         ):
             out = info_commands._cmd_outcome(
@@ -101,7 +101,7 @@ class TestInfoHandlerGates:
         from butler.gateway.owner_gate import owner_required_message
 
         with patch(
-            "butler.gateway.commands.info_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=False,
         ):
             out = info_commands._cmd_health(_ctx(cmd="/诊断", external_id="non_owner"))
@@ -113,7 +113,7 @@ class TestInfoHandlerGates:
     def test_owner_passes_through_sessions(self):
         """Owner 调 /会话 应能走到 sessions_commands.handle_sessions_command."""
         with patch(
-            "butler.gateway.commands.info_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=True,
         ), patch(
             "butler.gateway.sessions_commands.handle_sessions_command",
@@ -128,7 +128,7 @@ class TestInfoHandlerGates:
     @pytest.mark.unit
     def test_owner_passes_through_outcome(self):
         with patch(
-            "butler.gateway.commands.info_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=True,
         ), patch(
             "butler.gateway.outcome_commands.handle_outcome_command",
@@ -158,7 +158,7 @@ class TestProjectHandlerGates:
         from butler.gateway.owner_gate import owner_required_message
 
         with patch(
-            "butler.gateway.commands.project_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=False,
         ):
             out = project_commands._cmd_project_list(
@@ -173,7 +173,7 @@ class TestProjectHandlerGates:
         from butler.gateway.owner_gate import owner_required_message
 
         with patch(
-            "butler.gateway.commands.project_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=False,
         ):
             out = project_commands._cmd_butler_status(
@@ -194,7 +194,7 @@ class TestProjectHandlerGates:
         fake_orch.project_manager = fake_pm
 
         with patch(
-            "butler.gateway.commands.project_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=True,
         ):
             out = project_commands._cmd_project_list(
@@ -217,7 +217,7 @@ class TestProjectHandlerGates:
         fake_orch.project_manager = fake_pm
 
         with patch(
-            "butler.gateway.commands.project_commands.is_gateway_owner",
+            "butler.gateway.owner_gate.is_gateway_owner",
             return_value=True,
         ):
             out = project_commands._cmd_butler_status(

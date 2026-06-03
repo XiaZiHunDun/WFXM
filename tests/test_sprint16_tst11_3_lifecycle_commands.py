@@ -464,20 +464,25 @@ class TestCmdWorkflow:
         )
 
 
-# ── _require_owner helper ──
+# ── require_owner helper (Sprint 18-1: 5 文件本地 _require_owner 合并到 command_registry.require_owner) ──
 
 
 class TestRequireOwnerHelper:
     def test_owner_returns_none(self, owner_env):
-        """owner → _require_owner 返回 None (gate 通过)。"""
+        """owner → require_owner 返回 None (gate 通过).
+
+        Sprint 18-1: lifecycle_commands 不再有本地 _require_owner, 改用真源.
+        """
+        from butler.gateway.command_registry import require_owner
         ctx = _make_ctx()
-        result = lifecycle_commands._require_owner(ctx)
+        result = require_owner(ctx)
         assert result is None
 
     def test_non_owner_returns_message(self, non_owner_env):
         """非 owner → 返回 owner_required_message() (非 None)。"""
+        from butler.gateway.command_registry import require_owner
         ctx = _make_ctx(platform="telegram", external_id="x")
-        result = lifecycle_commands._require_owner(ctx)
+        result = require_owner(ctx)
         assert result is not None
         assert "主公" in result or "Owner" in result
 

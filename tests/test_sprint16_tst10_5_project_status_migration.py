@@ -146,8 +146,8 @@ class TestDelegation:
         ctx = _make_ctx(
             cmd="/项目", arg="", orchestrator=orch, platform="wechat", external_id="owner1",
         )
-        with patch.object(
-            proj_cmds_module, "is_gateway_owner", return_value=True
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
             "butler.gateway.commands.project_commands.format_project_list",
             return_value="list-text",
@@ -168,8 +168,8 @@ class TestDelegation:
 
         orch = MagicMock()
         ctx = _make_ctx(cmd="/状态", orchestrator=orch)
-        with patch.object(
-            proj_cmds_module, "is_gateway_owner", return_value=True
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
             "butler.gateway.commands.project_commands.format_butler_status",
             return_value="status-text",
@@ -183,8 +183,8 @@ class TestDelegation:
         from butler.gateway.commands import project_commands as proj_cmds_module
 
         ctx = _make_ctx(cmd="/项目", arg="新建 myapp")
-        with patch.object(
-            proj_cmds_module, "is_gateway_owner", return_value=True
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
             "butler.gateway.commands.project_commands.format_project_list",
             return_value="onboard-text",
@@ -199,8 +199,8 @@ class TestDelegation:
         from butler.gateway.commands import project_commands as proj_cmds_module
 
         ctx = _make_ctx(cmd="/项目")
-        with patch.object(
-            proj_cmds_module, "is_gateway_owner", return_value=True
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
             "butler.gateway.commands.project_commands.format_project_list",
             return_value=None,
@@ -224,8 +224,8 @@ class TestSubcommandRouting:
         orch.project_manager = fake_pm
 
         ctx = _make_ctx(cmd="/项目", arg="新建 myapp", orchestrator=orch)
-        with patch.object(
-            proj_cmds_module, "is_gateway_owner", return_value=True
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
             "butler.gateway.project_commands.handle_project_onboarding_command",
             return_value="用法: /项目 新建 <slug> [模板]",
@@ -244,8 +244,8 @@ class TestSubcommandRouting:
         orch.project_manager = fake_pm
 
         ctx = _make_ctx(cmd="/项目", arg="体检", orchestrator=orch)
-        with patch.object(
-            proj_cmds_module, "is_gateway_owner", return_value=True
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
             "butler.gateway.project_commands.handle_project_onboarding_command",
             return_value="预检报告: 全部通过",
@@ -263,8 +263,8 @@ class TestSubcommandRouting:
         orch.project_manager = fake_pm
 
         ctx = _make_ctx(cmd="/项目", arg="", orchestrator=orch)
-        with patch.object(
-            proj_cmds_module, "is_gateway_owner", return_value=True
+        with patch(
+            "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
             "butler.gateway.project_commands.handle_project_onboarding_command",
             return_value=None,
