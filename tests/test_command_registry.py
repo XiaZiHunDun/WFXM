@@ -29,7 +29,6 @@ _KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
     "/构建",
     "/开发状态",
     "/开发验收",
-    "/定时",
     "/始终允许",
     "/批准一次",
     "/批准执行",

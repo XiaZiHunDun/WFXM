@@ -1153,15 +1153,6 @@ class ButlerMessageHandler:
         if dev_resp is not None:
             return dev_resp
 
-        from butler.gateway.runtime_commands import handle_runtime_command
-
-        rt_resp = handle_runtime_command(
-            self._orchestrator, cmd, arg,
-            platform=platform, external_id=external_id, session_key=session_key,
-        )
-        if rt_resp is not None:
-            return rt_resp
-
         return None
 
     def _format_health_summary(self, session_key: str = "default") -> str:

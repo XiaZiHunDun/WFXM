@@ -9,6 +9,7 @@ from butler.gateway.commands import (
     info_commands,
     lifecycle_commands,
     memory_commands,
+    runtime_commands,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "info_commands",
     "lifecycle_commands",
     "memory_commands",
+    "runtime_commands",
 ]
