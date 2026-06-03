@@ -4,7 +4,7 @@
 
 **基线**: Sprint 10 修复 5 CRITICAL（SEC-10-1/2 + REL-NEW-01/02 + PERF-NEW-3） + 删 apprise_adapter.py。本轮独立扫描 Sprint 10 修复后的代码状态。
 
-**总计**: 31 项新发现（13 安全 + 11 性能 + 8 可靠性 + 19 测试/死代码，含 9 项重叠 = 41 项独立）。**Sprint 10 残留 16 项未动**。
+**总计**: 31 项新发现（13 安全 + 11 性能 + 8 可靠性 + 19 测试/死代码，含 9 项重叠 = 41 项独立）。**Sprint 10 残留** 8 项 → 当前已修 6 项（详见 §4 末尾表）。
 
 ---
 
@@ -15,10 +15,10 @@
 | 1 | ~~TST-11-1~~ | ~~`butler/runtime/approval.py` (140 行)~~ | ~~真死代码（0 importer/0 test）— Sprint 10 REL-NEW-07 描述的代码在此~~ **⚠️ Sprint 11 误报：实为 namespace 引用（service.py:12）** | ~~🔴~~ | ~~10min~~ |
 | 2 | ~~**REL-11-1**~~ | ~~`message_handler.py:389,401`~~ | ~~`_idempotency_reserved = False` 提前初始化 → inflight 假阴性泄漏~~ **✅ Sprint 14 a6e36af 修复: 保留 pre-init, 删 bot_loop_guard 死 release_inflight** | ~~🔴~~ | ~~30min~~ |
 | 3 | ~~**REL-11-5**~~ | ~~`inbound_idempotency.py:22,79-82`~~ | ~~`inflight` 状态无 TTL/无 sweep → worker 崩溃后永久拒绝~~ **✅ Sprint 11 94343dc 修复: lazy sweep + TTL 60s** | ~~🔴~~ | ~~1h~~ |
-| 4 | **PERF-11-5** | `semantic_index.py:35` | 单 RLock 串行化 9 个方法（search/upsert/delete/count）— 多 session 并发全阻塞 | 🔴 | 2h |
-| 5 | **PERF-11-1** | `message_queue.py:167` | 每次 enqueue 全桶 O(N log N) sort — 高 inbound 时线性退化 | 🔴 | 1h |
-| 6 | **PERF-11-2** | `exp_cache.py:79-93` | LLM 响应缓存每次 read 全文件 + 逐行 json.loads | 🔴 | 30min |
-| 7 | **PERF-11-3** | `exp_cache.py:96-105` | LLM 响应缓存每次 store 写全文件 N 条 | 🔴 | 30min |
+| 4 | ~~**PERF-11-5**~~ | ~~`semantic_index.py:35`~~ | ~~单 RLock 串行化 9 个方法（search/upsert/delete/count）— 多 session 并发全阻塞~~ **✅ Sprint 11 899ccc7 修复: 读写分离锁** | ~~🔴~~ | ~~2h~~ |
+| 5 | ~~**PERF-11-1**~~ | ~~`message_queue.py:167`~~ | ~~每次 enqueue 全桶 O(N log N) sort — 高 inbound 时线性退化~~ **✅ Sprint 11 194e6d6 修复: 3 桶结构 O(1) append** | ~~🔴~~ | ~~1h~~ |
+| 6 | ~~**PERF-11-2**~~ | ~~`exp_cache.py:79-93`~~ | ~~LLM 响应缓存每次 read 全文件 + 逐行 json.loads~~ **✅ Sprint 11 1ba1c45 修复: per-path in-memory cache** | ~~🔴~~ | ~~30min~~ |
+| 7 | ~~**PERF-11-3**~~ | ~~`exp_cache.py:96-105`~~ | ~~LLM 响应缓存每次 store 写全文件 N 条~~ **✅ Sprint 11 1ba1c45 修复: store 同步 in-memory** | ~~🔴~~ | ~~30min~~ |
 | 8 | **SEC-11-1** | `runtime_commands.py:17-75` | `/运行` + `/批准运行` 漏 owner gate | 🟠 | 10min |
 | 9 | **SEC-11-2** | `memory_commands.py:86-118` | `/批准记忆 全部` 漏 owner gate → 污染 MEMORY.md | 🟠 | 10min |
 | 10 | **SEC-11-3** | `butler_memory.py:239-265` | `ExperienceStore.add` 缺 `_reject_injection` → 注入持久化 sink | 🟠 | 30min |
@@ -78,46 +78,37 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 ## 2. 性能审计（Performance — 11 项新发现）
 
-### 🔴 CRITICAL（4 项）
+### 🔴 CRITICAL（0 项 — Sprint 11 已修）
 
-#### PERF-11-1 `message_queue.enqueue` 全桶 sort
-- **位置**: `butler/gateway/message_queue.py:167`
-- **证据**:
+#### ~~PERF-11-1 `message_queue.enqueue` 全桶 sort~~ ✅ Sprint 11 194e6d6 修复
+- **位置**: `butler/gateway/message_queue.py:40, 49-55, 200, 228-265`
+- **历史证据**（Sprint 11 审计时）:
   ```python
   bucket = _QUEUES.setdefault(key, deque())
   if not _apply_cap_before_append(key, bucket, body):
       return False
   bucket.append(item)
-  bucket = deque(sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)))  # ← O(N log N) 每条 enqueue
+  bucket = deque(sorted(bucket, key=lambda x: _PRIORITY_ORDER.get(x.priority, 9)))
   _QUEUES[key] = bucket
   ```
-- **影响**: 每条 inbound 都触发 O(N log N) sort；高 inbound 频率时线性退化。
+- **修复方案**: `_QUEUES[session_key]` 从单 deque 改为 `dict[priority, deque]`（now / next / later 3 桶）。enqueue 走 `bucket[pri].append(item)`，O(1)。
+- **行为不变性**: pop_urgent / pop_next / pop_all_merged 跨桶顺序保持 now > next > later。
+- **回归测试**: `tests/test_sprint11_perf1_message_queue_3buckets.py` — **7 PASSED**
 
-#### PERF-11-2 `exp_cache.lookup_cached_response` 全文件读
-- **位置**: `butler/core/exp_cache.py:79-93, 108-119`
-- **证据**:
-  ```python
-  def _read_entries(path: Path) -> dict[str, dict[str, Any]]:
-      if not path.is_file(): return {}
-      out: dict[str, dict[str, Any]] = {}
-      try:
-          for line in path.read_text(encoding="utf-8").splitlines():  # ← 全文件
-              line = line.strip()
-              if not line: continue
-              row = json.loads(line)  # ← 每行 json.loads
-              ...
-  ```
-- **影响**: 每次 LLM 调用都重读全缓存 + 逐行 json.loads。
+#### ~~PERF-11-2 `exp_cache.lookup_cached_response` 全文件读~~ ✅ Sprint 11 1ba1c45 修复
+- **位置**: `butler/core/exp_cache.py:23-24, 85-108, 138-143`
+- **修复方案**: per-path in-memory cache（`_MEM_CACHE` + `_MEM_LOADED`）。首次访问 lazy load 一次，之后只读 dict。
+- **回归测试**: `tests/test_sprint11_perf23_exp_cache_inmemory.py` — **6 PASSED**（含并发线程安全）
 
-#### PERF-11-3 `exp_cache` store 写全文件
-- **位置**: `butler/core/exp_cache.py:96-105, 142-148`
-- **证据**: `_write_entries` → `atomic_write_text` 写全部 N 条；发生在每次成功 LLM 响应后。
-- **影响**: 每次成功 LLM 调 = 1 次全文件 fsync。
+#### ~~PERF-11-3 `exp_cache` store 写全文件~~ ✅ Sprint 11 1ba1c45 修复
+- **位置**: `butler/core/exp_cache.py:111-129, 166-172`
+- **修复方案**: `_write_entries` 仍写全文件（持久化语义不变），但同步更新 `_MEM_CACHE`，避免后续 lookup 重读。
+- **回归测试**: 同 PERF-11-2 的 6 用例覆盖 store 路径
 
-#### PERF-11-5 `semantic_index` 单 RLock 串行化
-- **位置**: `butler/memory/semantic_index.py:35` + 9 处 `with self._lock`
-- **证据**: 同一 `self._lock = threading.RLock()` 保护 search/upsert/delete/count/prefetch 全部方法。
-- **影响**: 多 session 并发 prefetch 全串行；单 session 内部 `search` 时其他 session 的 `upsert` 阻塞。
+#### ~~PERF-11-5 `semantic_index` 单 RLock 串行化~~ ✅ Sprint 11 899ccc7 修复
+- **位置**: `butler/memory/semantic_index.py:35-40`
+- **修复方案**: 拆 `self._write_lock = threading.Lock()`（仅 write 持锁），read 走 sqlite3 Connection 内部 mutex（`check_same_thread=False`）。`self._lock = self._write_lock` 保留向后兼容旧测试。
+- **回归测试**: `tests/test_sprint11_perf5_semantic_index_rwlock.py` — **6 PASSED**（含并发 search 不阻塞 upsert）
 
 ### 🟠 HIGH — 3 项
 
@@ -238,7 +229,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 |----|------|------|
 | TST-11-8 | `cli/doctor.py` 60 行 | 整文件 0 测试 |
 
-### Sprint 10 残留（8 项，全部未修）
+### Sprint 10 残留（1 项：TST-10-5 仍在迁移中；TST-10-6 暂缓）
 
 | ID | 问题 | 严重 |
 |----|------|------|
@@ -255,13 +246,13 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 ## 5. 修复建议
 
-### 短期（5🔴 = 0.5 个工作日 — REL-11-1/5 已修）
+### 短期（0🔴 — Sprint 11/14 已全部修完）
 1. ~~**TST-11-1** 删 `runtime/approval.py`（10min + 测试，含消化 REL-NEW-07）~~ — Sprint 11 复检证实为 namespace 引用，非死代码
 2. ~~**REL-11-1** `_idempotency_reserved` 初始化位置修复（30min + 测试）~~ ✅ Sprint 14 a6e36af
 3. ~~**REL-11-5** inflight TTL/sweep（1h + 测试）~~ ✅ Sprint 11 94343dc
-4. **PERF-11-1** message_queue sort 优化（1h + 测试）
-5. **PERF-11-2/3** exp_cache 改为 SQLite 或 mmap（30min + 测试）
-6. **PERF-11-5** semantic_index 拆 read/write lock（2h + 测试）
+4. ~~**PERF-11-1** message_queue sort 优化（1h + 测试）~~ ✅ Sprint 11 194e6d6
+5. ~~**PERF-11-2/3** exp_cache 改为 SQLite 或 mmap（30min + 测试）~~ ✅ Sprint 11 1ba1c45
+6. ~~**PERF-11-5** semantic_index 拆 read/write lock（2h + 测试）~~ ✅ Sprint 11 899ccc7
 
 ### 中期（owner-gate 6 项 = 2h）
 - **SEC-11-1/2/4/5/6/7** 6 个命令加 owner gate + 引入 CI 静态扫描
