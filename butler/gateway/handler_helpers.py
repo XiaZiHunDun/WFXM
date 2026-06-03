@@ -13,6 +13,8 @@ import threading
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
+from butler.tools._file_cache import read_json_cached
+
 if TYPE_CHECKING:
     from butler.core.agent_loop import AgentLoop
 
@@ -459,8 +461,9 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
             todos_path = ws / ".butler" / "todos.json"
             if todos_path.is_file():
                 try:
-                    import json as _json
-                    todos_data = _json.loads(todos_path.read_text(encoding="utf-8"))
+                    todos_data = read_json_cached(todos_path)
+                    if not isinstance(todos_data, list):
+                        todos_data = []
                     pending = [t for t in todos_data if t.get("status") == "pending"]
                     if pending:
                         sub.append(f"待办 {len(pending)} 项")
@@ -480,8 +483,9 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
             summary_path = ws / ".butler" / "session_summary.json"
             if summary_path.is_file():
                 try:
-                    import json as _json
-                    summary = _json.loads(summary_path.read_text(encoding="utf-8"))
+                    summary = read_json_cached(summary_path)
+                    if not isinstance(summary, dict):
+                        summary = {}
                     turns = summary.get("turns", 0)
                     if turns:
                         sub.append(f"上次会话 {turns} 轮")
@@ -530,14 +534,13 @@ def _inject_previous_session_summary(loop: "AgentLoop", project: Any) -> None:
         if not workspace:
             return
 
-        import json
         from pathlib import Path
 
         summary_path = Path(workspace) / ".butler" / "session_summary.json"
         if not summary_path.is_file():
             return
 
-        raw = json.loads(summary_path.read_text(encoding="utf-8"))
+        raw = read_json_cached(summary_path)
         if not isinstance(raw, dict):
             return
 
