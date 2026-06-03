@@ -281,6 +281,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | **TST-11-6** | `butler/__init__.py:format_build_identity_line / mark_start_time` 0% → 100% 覆盖 | `298e814` | 7 个新测试, 含 subprocess 缓存 + CalledProcessError 分支 |
 | **TST-11-7** | `butler/agents_md.py:list_agent_md_names` 0% → 100% 覆盖 | `50f700e` | 5 个新测试, 含 dir 缺失/sorted/stem/subdir 过滤 |
 | **TST-11-8** | `butler/cli/doctor.py:cmd_doctor` 0% → 92% 覆盖 | `18fffeb` | 13 个新测试, 含数据目录 ✓/✗、依赖、.env、API key、workspace 探测、critical vs warn 退出码 |
+| **PERF-11-9** | `butler/core/llm_retry.py:11 处 try/except: logger.debug` → `_safe_call(fn, msg)` 集中处理, 短路 `isEnabledFor(DEBUG)==False` 时跳过整个 try/except + fn 调用 | `9fb8c7b` | 7 个新测试, 5 静态契约 (helper 存在/短路/运行/吞异常/无内联) + 2 行为契约 (happy path/interrupt). **行为变化**: DEBUG 关闭时 4 处 metrics + provider_health + recovery_buckets + exp_cache + safety_finish 全部短路, 生产可观测性退化 |
 
 ---
 
