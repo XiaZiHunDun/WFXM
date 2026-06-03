@@ -418,47 +418,6 @@ class ButlerMessageHandler:
         except Exception as exc:
             logger.debug("Two-phase confirm skipped: %s", exc)
 
-        try:
-            from butler.gateway.permission_commands import handle_permission_command
-
-            perm_reply = handle_permission_command(
-                text,
-                platform=platform,
-                external_id=external_id,
-                session_key=session_key,
-            )
-            if perm_reply is not None:
-                return perm_reply
-        except Exception as exc:
-            logger.debug("Permission command handling skipped: %s", exc)
-
-        try:
-            from butler.tools.terminal_approval import parse_approve_command, store_approval
-
-            pattern_raw = (text or "").strip()
-            for prefix in ("/批准模式", "/approve-pattern"):
-                if pattern_raw.lower().startswith(prefix.lower()):
-                    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-
-                    if not is_gateway_owner(platform=platform, external_id=external_id):
-                        return owner_required_message()
-                    pat = pattern_raw[len(prefix) :].strip()
-                    if not pat:
-                        return "用法: /批准模式 <rm_rf|curl_pipe_sh|chmod_777|...>"
-                    from butler.tools.terminal_pattern_approval import approve_pattern
-
-                    approve_pattern(session_key, pat)
-                    return f"已批准本会话 terminal 危险模式「{pat}」（24h 内同类命令可放行）。"
-            cmd = parse_approve_command(text)
-            if cmd is not None:
-                from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-
-                if not is_gateway_owner(platform=platform, external_id=external_id):
-                    return owner_required_message()
-                store_approval(cmd, session_key=session_key)
-                return f"已批准 terminal 命令（5 分钟内有效）:\n{cmd[:200]}"
-        except Exception as exc:
-            logger.debug("Terminal approval handling skipped: %s", exc)
 
         if _is_prequeue_interrupt_command(text):
             self._interrupt_session_loop(session_key)

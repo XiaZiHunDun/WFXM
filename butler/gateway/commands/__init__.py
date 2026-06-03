@@ -10,6 +10,7 @@ from butler.gateway.commands import (
     info_commands,
     lifecycle_commands,
     memory_commands,
+    permission_commands,
     project_commands,
     runtime_commands,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "info_commands",
     "lifecycle_commands",
     "memory_commands",
+    "permission_commands",
     "project_commands",
     "runtime_commands",
 ]
