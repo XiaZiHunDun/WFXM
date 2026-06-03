@@ -63,6 +63,10 @@ def gateway_handler(monkeypatch, tmp_path):
     empty_projects = tmp_path / "empty-projects"
     empty_projects.mkdir()
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(empty_projects))
+    # Sprint 17 SEC-11: 多数 slash 命令的 registry handler 現在有 owner gate
+    # (e.g. /health, /状态, /项目). 走 dev 旁路跳过 owner 校验, 避免每个测试
+    # 都要伪造 owner 身份. owner-gate 相关测试由 test_sprint17_sec11* 专门覆盖.
+    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
     handler._orchestrator.project_manager.current_project = ""
@@ -74,6 +78,9 @@ def gateway_handler_with_project(tmp_path, monkeypatch, tmp_butler_home):
     from tests.test_gateway_handler import _setup_projects
 
     _setup_projects(tmp_path, monkeypatch)
+    # Sprint 17 SEC-11: 多数 slash 命令的 registry handler 現在有 owner gate.
+    # 走 dev 旁路跳过 owner 校验 (与 gateway_handler fixture 保持一致).
+    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
     handler = ButlerMessageHandler(channel="gateway")
     handler._orchestrator.project_manager.switch_project("test-project")
     return handler
@@ -331,6 +338,8 @@ def gateway_handler_project(tmp_path, monkeypatch, tmp_butler_home):
     empty = tmp_path / "empty-hint"
     empty.mkdir()
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+    # Sprint 17 SEC-11: 走 dev 旁路跳过 owner 校验 (与 gateway_handler 一致).
+    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
     pm = handler._orchestrator.project_manager
@@ -428,6 +437,8 @@ class TestWechatSmokeWorkflow:
 
         clear_report_cache()
         _setup_gateway_project(tmp_path, monkeypatch, with_workflow=True)
+        # Sprint 17 SEC-11: 走 dev 旁路跳过 owner 校验.
+        monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
         _reset_singletons()
         handler = ButlerMessageHandler(channel="gateway")
         handler._orchestrator.project_manager.switch_project_for_chat(
@@ -481,6 +492,8 @@ class TestWechatSmokeWorkflow:
         clear_report_cache()
         _setup_gateway_project(tmp_path, monkeypatch, with_workflow=True)
         monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+        # Sprint 17 SEC-11: 走 dev 旁路跳过 owner 校验.
+        monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
         _reset_singletons()
         handler = ButlerMessageHandler(channel="gateway")
         handler._orchestrator.project_manager.switch_project_for_chat(
@@ -538,6 +551,8 @@ class TestWechatSmokeSlashProjects:
             description="小说工厂流水线验收",
         )
         monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+        # Sprint 17 SEC-11: 走 dev 旁路跳过 owner 校验.
+        monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
         _reset_singletons()
         handler = ButlerMessageHandler(channel="gateway")
 

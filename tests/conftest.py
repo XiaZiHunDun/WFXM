@@ -91,8 +91,15 @@ def sample_agent_loop(mock_llm_client):
 
 
 @pytest.fixture
-def butler_orchestrator(tmp_butler_home):
-    """Isolated ButlerOrchestrator instance."""
+def butler_orchestrator(tmp_butler_home, monkeypatch):
+    """Isolated ButlerOrchestrator instance.
+
+    Sprint 17 SEC-11 owner-gate completion: 多数 slash 命令的 registry handler
+    现在有 owner gate. e2e 测试不验证 owner gate (有 test_sprint11_sec* 专门
+    覆盖), 走 BUTLER_PROJECT_CREATE_OPEN=1 dev 旁路, 避免每个测试都伪造
+    owner 身份. tmp_butler_home 来自上游 fixture.
+    """
+    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
     from butler.orchestrator import ButlerOrchestrator
 
     return ButlerOrchestrator(user_id="test_user", channel="test")

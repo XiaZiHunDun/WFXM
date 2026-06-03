@@ -147,8 +147,15 @@ def _cmd_budget(ctx: CommandContext) -> Optional[str]:
     )
 
 
-# Sprint 11 TST-10-5: 从 inline 迁移过来的命令
+# Sprint 17 SEC-11 owner-gate completion: 从 inline 迁移过来的 3 个 handler 加 owner gate
+# (底层 handle_*_command 已有 gate, 这里 wrapper 再加一次防止 registry 直接 dispatch
+# 绕过 + 静态扫描器 owner-gate-scan 报 0 gaps).
+
+
 def _cmd_sessions(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.gateway.sessions_commands import handle_sessions_command
 
     return handle_sessions_command(
@@ -161,6 +168,9 @@ def _cmd_sessions(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.gateway.outcome_commands import handle_outcome_command
 
     return handle_outcome_command(
@@ -174,6 +184,9 @@ def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_health(ctx: CommandContext) -> Optional[str]:
     """Sprint 11 TST-10-5: 从 inline 迁移 — 等价于原 handler._format_health_summary。"""
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     from butler.ops.health_report import (
         HealthReportInput,
         build_health_report,

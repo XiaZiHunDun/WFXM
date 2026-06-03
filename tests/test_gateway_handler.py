@@ -54,6 +54,10 @@ def handler(tmp_path, monkeypatch, tmp_butler_home):
     empty_projects = tmp_path / "empty-projects"
     empty_projects.mkdir()
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(empty_projects))
+    # Sprint 17 SEC-11 owner-gate completion: 多数 registry handler 现在有 owner gate.
+    # 这些 integration 测试不验证 owner gate (有 test_sprint11_sec* 专门覆盖),
+    # 走 BUTLER_PROJECT_CREATE_OPEN=1 dev 旁路, 避免每个测试都伪造 owner 身份.
+    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
     _reset_singletons()
     return ButlerMessageHandler(channel="test")
 
@@ -61,6 +65,7 @@ def handler(tmp_path, monkeypatch, tmp_butler_home):
 @pytest.fixture
 def handler_with_project(tmp_path, monkeypatch, tmp_butler_home):
     _setup_projects(tmp_path, monkeypatch)
+    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
     h = ButlerMessageHandler(channel="test")
     h._orchestrator.project_manager.switch_project("test-project")
     return h

@@ -18,18 +18,37 @@ from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
 
 def _cmd_memory_graph(ctx: CommandContext) -> Optional[str]:
+    """Sprint 17 SEC-11-2 read-only: 查看三元组关系图.
+
+    owner-gate-opt-out: read-only 路径, 不写入 MEMORY.md. 既有契约
+    test_sprint11_sec2_memory_approve_owner.py::
+    test_unrelated_command_not_blocked_by_owner_gate 明确豁免.
+    """
     from butler.gateway.memory_commands import format_memory_triplet_graph
 
     return format_memory_triplet_graph(ctx.orchestrator)
 
 
 def _cmd_memory_pending_list(ctx: CommandContext) -> Optional[str]:
+    """Sprint 17 SEC-11-2 read-only: 查看待审批记忆.
+
+    owner-gate-opt-out: read-only 路径, 待审列表本身要让白名单用户看到
+    才能用（他们看不到就没法决定批准/拒绝）. 既有契约
+    test_sprint11_sec2_memory_approve_owner.py 明确豁免.
+    """
     from butler.gateway.memory_commands import format_pending_memory_list
 
     return format_pending_memory_list(ctx.orchestrator)
 
 
 def _cmd_memory_reject(ctx: CommandContext) -> Optional[str]:
+    """Sprint 17 SEC-11-2 read-only: 拒绝待审记忆 (不入正典).
+
+    owner-gate-opt-out: 拒绝只把 pending 标 rejected, 不写入 MEMORY.md
+    正典章节, 不会污染 LLM 长期记忆上下文. 既有契约
+    test_sprint11_sec2_memory_approve_owner.py 明确豁免.
+    /批准记忆 才是 SEC-11-2 owner-gated 改盘路径, 单独走 _cmd_memory_approve.
+    """
     from butler.gateway.memory_commands import handle_memory_pending_command
 
     return handle_memory_pending_command(

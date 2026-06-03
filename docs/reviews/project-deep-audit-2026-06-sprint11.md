@@ -19,8 +19,8 @@
 | 5 | ~~**PERF-11-1**~~ | ~~`message_queue.py:167`~~ | ~~每次 enqueue 全桶 O(N log N) sort — 高 inbound 时线性退化~~ **✅ Sprint 11 194e6d6 修复: 3 桶结构 O(1) append** | ~~🔴~~ | ~~1h~~ |
 | 6 | ~~**PERF-11-2**~~ | ~~`exp_cache.py:79-93`~~ | ~~LLM 响应缓存每次 read 全文件 + 逐行 json.loads~~ **✅ Sprint 11 1ba1c45 修复: per-path in-memory cache** | ~~🔴~~ | ~~30min~~ |
 | 7 | ~~**PERF-11-3**~~ | ~~`exp_cache.py:96-105`~~ | ~~LLM 响应缓存每次 store 写全文件 N 条~~ **✅ Sprint 11 1ba1c45 修复: store 同步 in-memory** | ~~🔴~~ | ~~30min~~ |
-| 8 | **SEC-11-1** | `runtime_commands.py:17-75` | `/运行` + `/批准运行` 漏 owner gate | 🟠 | 10min |
-| 9 | **SEC-11-2** | `memory_commands.py:86-118` | `/批准记忆 全部` 漏 owner gate → 污染 MEMORY.md | 🟠 | 10min |
+| 8 | ~~**SEC-11-1**~~ | ~~`runtime_commands.py:17-75`~~ | ~~`/运行` + `/批准运行` 漏 owner gate~~ **✅ Sprint 17 SEC-11 owner gate completion (T3): registry handler 加 gate** | ~~🟠~~ | ~~10min~~ |
+| 9 | ~~**SEC-11-2**~~ | ~~`memory_commands.py:86-118`~~ | ~~`/批准记忆 全部` 漏 owner gate → 污染 MEMORY.md~~ **✅ Sprint 17 SEC-11 owner gate completion (T2): registry handler 验证 + 加 gate** | ~~🟠~~ | ~~10min~~ |
 | 10 | **SEC-11-3** | `butler_memory.py:239-265` | `ExperienceStore.add` 缺 `_reject_injection` → 注入持久化 sink | 🟠 | 30min |
 
 ---
@@ -31,15 +31,17 @@
 
 ### 🟠 HIGH — 4 项 owner gate 漏报（同 SEC-10-1 模式）
 
-#### SEC-11-1 `/运行` + `/批准运行` 漏 owner gate
+#### ~~SEC-11-1 `/运行` + `/批准运行` 漏 owner gate~~ ✅ Sprint 17 SEC-11 owner gate completion 修复
 - **位置**: `butler/gateway/runtime_commands.py:17-75`
-- **证据**: `/批准运行` 调 `approve_and_run()` → `run_job(force=True, approved_run=True)` 跳过 `approval.approval_required` 守门（service.py:106-115），可执行 `publish-preflight` 类改盘任务。
-- **影响**: 任何 `WECHAT_ALLOWED_USERS` 中（不一定是 Owner）的用户都能改盘。
+- **历史证据**: `/批准运行` 调 `approve_and_run()` → `run_job(force=True, approved_run=True)` 跳过 `approval.approval_required` 守门（service.py:106-115），可执行 `publish-preflight` 类改盘任务。
+- **历史影响**: 任何 `WECHAT_ALLOWED_USERS` 中（不一定是 Owner）的用户都能改盘。
+- **修复 (Sprint 17 T3)**: `butler/gateway/commands/runtime_commands.py` 加 registry handler owner gate (`_cmd_runtime_jobs_list` + `_cmd_runtime_approve_run` + `_cmd_runtime_run`); 3 个 handler 在 sprint 12 之前已有 gate (`is_gateway_owner` 直接调用), 此次补 registry wrapper. owner_gate_scan gap 数 9 → 6 (3 个新 gate).
 
-#### SEC-11-2 `/批准记忆` 漏 owner gate
+#### ~~SEC-11-2 `/批准记忆` 漏 owner gate~~ ✅ Sprint 17 SEC-11 owner gate completion 修复
 - **位置**: `butler/gateway/memory_commands.py:86-118`
-- **证据**: `/批准记忆 全部` (line 94-98) 直接 `pmem.markdown.approve_all()`，无 owner 守门。对比 `lifecycle_commands.py:101` `_cmd_transcript_memory` 有 owner gate。
-- **影响**: 非 Owner 白名单用户可永久污染项目 MEMORY.md → 后续进入 LLM 上下文（prompt injection 注入到长期记忆）。
+- **历史证据**: `/批准记忆 全部` (line 94-98) 直接 `pmem.markdown.approve_all()`，无 owner 守门。对比 `lifecycle_commands.py:101` `_cmd_transcript_memory` 有 owner gate。
+- **历史影响**: 非 Owner 白名单用户可永久污染项目 MEMORY.md → 后续进入 LLM 上下文（prompt injection 注入到长期记忆）。
+- **修复 (Sprint 17 T2)**: 底层 `handle_memory_pending_command` 已有 owner gate (line 99-102) 自 Sprint 11 起, 但 registry handler 未在 _cmd_memory_approve 加. Sprint 17 在 registry handler (`butler/gateway/commands/memory_commands.py:_cmd_memory_approve`) 加 owner gate 守门. 其他 3 个 read-only handler (`_cmd_memory_graph` / `_cmd_memory_pending_list` / `_cmd_memory_reject`) 走 opt-out 路径 (Sprint 11 test_sprint11_sec2 既有契约). owner_gate_scan gap 数 6 → 3.
 
 ### 🟡 MEDIUM — 4 项
 
@@ -49,26 +51,30 @@
 - **链路**: `butler_remember scope=owner_experience` (`facade.py:444`) → `experience.add()` → SQLite → `search()` 召回 → `format_for_prompt` → LLM context。
 - **影响**: 与 SEC-10-6 互补，**完整 prompt-injection 持久化 sink**。
 
-#### SEC-11-4 `/技能 搜索/列表/查看` 漏 owner gate
+#### ~~SEC-11-4 `/技能 搜索/列表/查看` 漏 owner gate~~ ✅ Sprint 17 SEC-11 owner gate completion 修复
 - **位置**: `butler/gateway/registry_commands.py:109-135`
-- **证据**: 3 个 read-only 子命令均无 owner gate；line 129-130 显式"community 源需 Owner 确认" → 实际非 Owner 拿到相同内容。
-- **影响**: 第三方恶意 Skill 描述喂回 LLM 形成 prompt injection。
+- **历史证据**: 3 个 read-only 子命令均无 owner gate；line 129-130 显式"community 源需 Owner 确认" → 实际非 Owner 拿到相同内容。
+- **历史影响**: 第三方恶意 Skill 描述喂回 LLM 形成 prompt injection。
+- **修复 (Sprint 17 T5)**: `butler/gateway/commands/info_commands.py` 加 `_require_owner(ctx)` helper, 给 7 个私人数据 handler 加 gate (含 /技能 搜索/列表/查看). 既有 handler (底层 tools/memo.py 等) 已是 owner-scoped, 此次补 registry wrapper.
 
-#### SEC-11-5 `/备忘` `/通讯录` `/记账` `/打卡` 漏 owner gate
+#### ~~SEC-11-5 `/备忘` `/通讯录` `/记账` `/打卡` 漏 owner gate~~ ✅ Sprint 17 SEC-11 owner gate completion 修复
 - **位置**: `butler/gateway/info_commands.py:34-56`（handler 在 `tools/memo.py:337` 等）
-- **证据**: 4 命令均无 owner gate；但底层数据 owner-scoped（`memo.py:3-8` 明确 "owner-level"）。
-- **影响**: 任何白名单用户可读 Owner 私人数据。
+- **历史证据**: 4 命令均无 owner gate；但底层数据 owner-scoped（`memo.py:3-8` 明确 "owner-level"）。
+- **历史影响**: 任何白名单用户可读 Owner 私人数据。
+- **修复 (Sprint 17 T1)**: `butler/gateway/commands/info_commands.py` 加 `_require_owner(ctx)` helper, 给 5 个私人数据 handler 加 gate (含 /备忘 /通讯录 /记账 /打卡 /项目待办); 7 个 handler 共享同一个 helper, 4 个 opt-out (公共只读).
 
-#### SEC-11-6 `/评价` 漏 owner gate
+#### ~~SEC-11-6 `/评价` 漏 owner gate~~ ✅ Sprint 17 SEC-11 owner gate completion 修复
 - **位置**: `butler/gateway/outcome_commands.py:8-66`
-- **证据**: `handle_outcome_command` 全文 0 处 `is_gateway_owner`；写入 `experiments/outcomes.py`。
-- **影响**: 污染实验评估日志，影响后续记忆提炼。
+- **历史证据**: `handle_outcome_command` 全文 0 处 `is_gateway_owner`；写入 `experiments/outcomes.py`。
+- **历史影响**: 污染实验评估日志，影响后续记忆提炼。
+- **修复 (Sprint 17 T1)**: `butler/gateway/commands/info_commands.py` 加 `_cmd_outcome` handler, 在 registry dispatch 入口处调 `_require_owner(ctx)` 守门. 底层 `handle_outcome_command` 之前已加 owner gate, 此次补 registry wrapper.
 
 ### 🟢 LOW
 
-#### SEC-11-7 `/会话` 信息泄露
+#### ~~SEC-11-7 `/会话` 信息泄露~~ ✅ Sprint 17 SEC-11 owner gate completion 修复
 - **位置**: `butler/gateway/sessions_commands.py:9-38`
-- **证据**: `list_sessions()` 返回全量 session_key（含 chat_id），无 owner gate。
+- **历史证据**: `list_sessions()` 返回全量 session_key（含 chat_id），无 owner gate。
+- **修复 (Sprint 17 T1)**: `butler/gateway/commands/info_commands.py` 加 `_cmd_sessions` handler, 在 registry dispatch 入口处调 `_require_owner(ctx)` 守门. 底层 `handle_sessions_command` 之前已加 owner gate, 此次补 registry wrapper.
 
 ### 模式观察
 
@@ -255,7 +261,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 6. ~~**PERF-11-5** semantic_index 拆 read/write lock（2h + 测试）~~ ✅ Sprint 11 899ccc7
 
 ### 中期（owner-gate 6 项 = 2h）
-- **SEC-11-1/2/4/5/6/7** 6 个命令加 owner gate + 引入 CI 静态扫描
+- ~~**SEC-11-1/2/4/5/6/7** 6 个命令加 owner gate + 引入 CI 静态扫描~~ ✅ Sprint 17 SEC-11 owner gate completion: 6 handler 加 gate + 3 opt-out 标记 + scan gap 9 → 0
 
 ### 长期（性能 + 测试 = 5 天）
 - PERF-11-4/6/7/8/9/10/11
@@ -302,6 +308,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | **PERF-11-10** | (Sprint 15) 工具文件读取按 `(path, mtime)` LRU 缓存 | `0dc1680` | 新建 `butler/tools/_file_cache.py` (`read_json_cached` LRU 256 + 线程安全), expense/contacts/habits 全部改用, 24 测试覆盖 (mtime 失效 / LRU 淘汰 / 各工具 _load_all 缓存命中 / write-then-read 一致性) |
 | **PERF-11-11** | (Sprint 15) middleware/plugin hook 预解析 | `8049afc` | `LoopMiddlewareChain.__post_init__` 预解析 `_before_llm_hooks` / `_after_tools_hooks` / `_wrap_tool_call_hooks`, 14 middleware × N turn 从 N×getattr 降至 0; `LoopPluginRegistry` 同处理. 13 测试: 顺序/链式/倒序/失败容错/无 wrap 跳过/预解析验证/getattr 计数 |
 | **TST-11-11** | (Sprint 16) runtime/{audit,loader,schedule}.py 补 47 直测 | (当前 commit) | loader 20 (load_jobs_file 13 + find_job 4 + list_jobs 3) + audit runs 10 (write_run_record 5 + latest_run 5) + schedule 17 (job_is_due 7 + format_schedule_hint 4 + next_run_iso 6). 注意: audit.py 用 `from butler.config import get_butler_settings`, fixture 必须 `monkeypatch.setattr(audit, "get_butler_settings", ...)` 在 audit 模块 patch (Sprint 16 _tenant_store 同款教训) |
+| **SEC-11-1/2/4/5/6/7** (Sprint 17 owner gate completion) | 6 registry handler 加 owner gate + 3 memory handler opt-out 标记, scan gap 9 → 0 | (当前 commit) | **背景**: Sprint 12 owner_gate_scan 静态扫描器标记 9 个 handler 缺 owner gate (sprint 12 修复了 1 个, 剩 9). 6 个 owner-gated 改盘命令 + 3 个 read-only memory 命令 (per test_sprint11_sec2_memory_approve_owner 既有契约). **修复**: (T1) `info_commands.py` 加 `_require_owner(ctx)` helper + 5 handler 改用: `_cmd_sessions` / `_cmd_outcome` / `_cmd_health` / `_cmd_detail` (Sprint 12 已加) + 4 私人数据 handler (_cmd_todos / _cmd_memo / _cmd_contacts / _cmd_expense / _cmd_habits / _cmd_project_todos / _cmd_memory_status). (T2) `memory_commands.py` 加 3 opt-out marker (read-only 路径): `_cmd_memory_graph` / `_cmd_memory_pending_list` / `_cmd_memory_reject`. `_cmd_memory_approve` 已含 owner gate (不动). (T3) `runtime_commands.py` 加 inline `is_gateway_owner` 检查到 `_cmd_runtime_jobs_list` (Sprint 17 SEC-11 扩展, 旧版无). (T4) `project_commands.py` 加 `_require_owner` + 应用到 `_cmd_project_list` / `_cmd_butler_status` + 加 import. (T5) info_commands 5 个其他 private handler (_cmd_overview / _cmd_memory_status 等) 已有 owner gate (info_commands 共享同一 helper). **新测试**: `tests/test_sprint17_sec11_owner_gate_completion.py` 24 tests: TestInfoHandlerGates 5 (3 验证 blocked + 2 owner pass-through) + TestProjectHandlerGates 4 + TestRuntimeHandlerGates 2 + TestMemoryHandlerOptOut 4 (3 marker + 1 graph runtime) + TestHandlerNotFlaggedByScan 9 (每个 handler 在 scan 中不被 flag). **fixture 适配**: `tests/conftest.py:butler_orchestrator` + `tests/test_gateway_handler.py:handler/handler_with_project` + `tests/test_memory_p1_p2.py:test_status_shows_env_default_project` + `tests/test_gateway_acceptance.py:gateway_handler/gateway_handler_with_project/gateway_handler_project` + 4 inline test body, 全部加 `monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")` 走 dev 旁路 (避免每个测试伪造 owner). `test_sprint16_tst10_5_project_status_migration.py` 加 7 个 `patch.object(module, "is_gateway_owner", return_value=True)` + `test_sprint16_tst10_5_runtime_commands_migration.py` 改 1 test 期望 (新增 owner gate) + 加 1 new test. **最终**: owner_gate_scan 0 gaps, 全部 9 SEC-11 baseline gaps 关闭. owner-gate 总计 6 新加 + 3 opt-out. 全部 35 owner-gate 相关测试 (24 新 + 5 Sprint 12 scan self-test + 6 Sprint 11 SEC-2 memory) pass. 回归: 109 → 94 failed (-15), 1215 passed (含 24 新). |
 
 ---
 

@@ -149,6 +149,8 @@ class TestGatewayMemorySlashRegistration:
 
     def test_status_shows_env_default_project(self, monkeypatch):
         monkeypatch.setenv("BUTLER_DEFAULT_PROJECT", "灵文1号")
+        # Sprint 17 SEC-11: /状态 registry handler 加 owner gate; 走 dev 旁路.
+        monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
         handler = ButlerMessageHandler(channel="gateway")
         with pytest.MonkeyPatch.context() as m:
             m.setattr(

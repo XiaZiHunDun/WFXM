@@ -17,6 +17,15 @@ from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
 
 def _cmd_runtime_jobs_list(ctx: CommandContext) -> Optional[str]:
+    """Sprint 17 SEC-11 owner-gate completion: /定时 (jobs list) owner 守门.
+
+    Audit SEC-11-1 只覆盖 /运行 /批准运行 (改盘), 但 jobs 列表含工作流名
+    (e.g. ``publish-preflight``), 透露业务结构, 仍属 owner 数据.
+    """
+    if not is_gateway_owner(
+        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+    ):
+        return owner_required_message()
     from butler.gateway.runtime_commands import handle_runtime_command
 
     return handle_runtime_command(

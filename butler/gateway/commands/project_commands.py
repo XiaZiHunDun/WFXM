@@ -21,9 +21,22 @@ import os
 from typing import TYPE_CHECKING, Optional
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
+
+
+def _require_owner(ctx: CommandContext) -> Optional[str]:
+    """Sprint 17 SEC-11 owner-gate completion: /项目 /状态 owner 守门.
+
+    项目列表含描述, Butler 状态含 provider/role 均为 owner 私人数据.
+    """
+    if not is_gateway_owner(
+        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+    ):
+        return owner_required_message()
+    return None
 
 
 def format_project_list(
@@ -103,6 +116,9 @@ def format_butler_status(
 
 def _cmd_project_list(ctx: CommandContext) -> Optional[str]:
     """handler for /项目 — 包含 /项目 新建|体检 子命令委派."""
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     return format_project_list(
         ctx.orchestrator,
         ctx.cmd,
@@ -115,6 +131,9 @@ def _cmd_project_list(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_butler_status(ctx: CommandContext) -> Optional[str]:
     """handler for /状态 — 当前项目/Provider/角色/规划模式 概览."""
+    gate = _require_owner(ctx)
+    if gate:
+        return gate
     return format_butler_status(ctx.orchestrator, ctx.session_key)
 
 

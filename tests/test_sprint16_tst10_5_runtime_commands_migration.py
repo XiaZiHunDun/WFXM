@@ -122,7 +122,7 @@ class TestDelegation:
             orchestrator=orch,
             session_registry=MagicMock(),
         )
-        with patch(
+        with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
             "butler.gateway.runtime_commands.handle_runtime_command",
             return_value="jobs-text",
         ) as h:
@@ -182,8 +182,14 @@ class TestDelegation:
 
 
 class TestOwnerGate:
-    def test_jobs_list_no_owner_gate(self, ensure_registered):
-        """/定时 无 owner gate, 普通用户可查。"""
+    def test_jobs_list_has_owner_gate(self, ensure_registered):
+        """/定时 加 owner gate (Sprint 17 SEC-11 扩展): jobs 名透露工作流结构.
+
+        旧版本无 gate (Sprint 16 TST-10-5 第三批), Sprint 17 改为 owner-only.
+        非 owner 返 owner_required_message; owner 调 handle_runtime_command.
+        """
+        from butler.gateway.owner_gate import owner_required_message
+
         ctx = CommandContext(
             cmd="/定时",
             arg="",
@@ -193,12 +199,29 @@ class TestOwnerGate:
             orchestrator=MagicMock(),
             session_registry=MagicMock(),
         )
-        with patch.object(rt_cmds, "is_gateway_owner", return_value=False) as gate, patch(
+        with patch.object(rt_cmds, "is_gateway_owner", return_value=False):
+            result = rt_cmds._cmd_runtime_jobs_list(ctx)
+        assert result == owner_required_message(), (
+            f"非 owner /定时 应被拒, 实际 {result!r}"
+        )
+
+    def test_jobs_list_owner_passes_through(self, ensure_registered):
+        """owner 调 /定时 应能调 handle_runtime_command."""
+        ctx = CommandContext(
+            cmd="/定时",
+            arg="",
+            session_key="t:s",
+            platform="wechat",
+            external_id="owner1",
+            orchestrator=MagicMock(),
+            session_registry=MagicMock(),
+        )
+        with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
             "butler.gateway.runtime_commands.handle_runtime_command",
             return_value="jobs",
-        ):
+        ) as h:
             result = rt_cmds._cmd_runtime_jobs_list(ctx)
-        gate.assert_not_called()
+        assert h.called, "owner /定时 应能调到 handle_runtime_command"
         assert result == "jobs"
 
     def test_approve_run_blocked_for_non_owner(self, ensure_registered):
