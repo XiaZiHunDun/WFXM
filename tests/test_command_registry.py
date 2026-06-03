@@ -21,10 +21,8 @@ from butler.gateway.command_registry import (
 # Sprint 16 第五批迁移: /项目 /项目 体检 /项目 新建 /状态 — 已在 butler/gateway/commands/project_commands.py 注册。
 #   注: /项目 体检 和 /项目 新建 是 /项目 的子命令 (通过 arg 区分), 不再作为独立 CommandDef 注册。
 # Sprint 16 第六批迁移: /权限 /批准一次 /始终允许 /批准执行 /批准模式 — 已在 butler/gateway/commands/permission_commands.py 注册。
+# Sprint 16 第七批迁移: /切换 /模型 /新对话 — 已在 butler/gateway/commands/dialog_commands.py 注册 (与既有 steer/queue/plan 共存).
 _KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
-    "/切换",
-    "/模型",
-    "/新对话",
     "/继续",
     "/urgent",
     "/later",
@@ -127,7 +125,8 @@ class TestInlineCommandMigration:
         # Sprint 16 第四批迁移 6 个 dev 命令 → 22 → 16
         # Sprint 16 第五批迁移 4 个 (项目 ×3 + 状态) → 16 → 12
         # Sprint 16 第六批迁移 5 个权限命令 → 12 → 7
-        assert len(_KNOWN_INLINE_COMMANDS) <= 7, (
+        # Sprint 16 第七批迁移 3 个对话控制 (切换/模型/新对话) → 7 → 4
+        assert len(_KNOWN_INLINE_COMMANDS) <= 4, (
             f"_KNOWN_INLINE_COMMANDS 增长到 {len(_KNOWN_INLINE_COMMANDS)}, "
             "应有持续迁移, 而不是堆积"
         )
