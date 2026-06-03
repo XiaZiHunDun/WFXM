@@ -266,7 +266,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 ### 长期（性能 + 测试 = 5 天）
 - ~~PERF-11-4/6/7~~ ✅ Sprint 13 PERF-13-1/2/3 (560bd56/5551db2/9eef7b1)
-- PERF-11-8/9/10/11
+- ~~PERF-11-8/9/10/11~~ ✅ Sprint 15 (a85b28a/9fb8c7b/0dc1680/8049afc) — SkillLockFile 缓存 + llm_retry _safe_call + 工具文件 LRU + middleware hook 预解析
 - ~~TST-10-2/3/4/5/7/8/9~~ ✅ Sprint 11-16 全部完成
 - TST-10-6 (暂缓 — 风格改进, 风险高价值低)
 
