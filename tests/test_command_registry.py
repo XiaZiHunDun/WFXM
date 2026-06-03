@@ -16,6 +16,8 @@ from butler.gateway.command_registry import (
 # 迁移一个就从这个 set 移除一个。 当 set 为空时, 全部命令走 registry dispatch。
 # Sprint 11 第一批迁移: /会话 /评价 /诊断 — 已在 butler/gateway/commands/info_commands.py 注册。
 # Sprint 16 迁移: /记忆图谱 /记忆待审 /拒绝记忆 /批准记忆 — 已在 butler/gateway/commands/memory_commands.py 注册。
+# Sprint 16 第三批迁移: /定时 /批准运行 /运行 — 已在 butler/gateway/commands/runtime_commands.py 注册。
+# Sprint 16 第四批迁移: /git /测试 /构建 /开发状态 /开发验收 /项目概况 — 已在 butler/gateway/commands/dev_commands.py 注册。
 _KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
     "/项目",
     "/项目 体检",
@@ -24,11 +26,6 @@ _KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
     "/模型",
     "/状态",
     "/新对话",
-    "/git",
-    "/测试",
-    "/构建",
-    "/开发状态",
-    "/开发验收",
     "/始终允许",
     "/批准一次",
     "/批准执行",
@@ -37,7 +34,6 @@ _KNOWN_INLINE_COMMANDS: frozenset[str] = frozenset({
     "/权限",
     "/urgent",
     "/later",
-    "/项目概况",
     "/停止",
 })
 
@@ -134,7 +130,8 @@ class TestInlineCommandMigration:
         """白名单不应无限增长 — 每次 sprint 应该至少迁移一个。"""
         # Sprint 11 baseline: 30 inline; 首期迁移 3 个 (/会话 /评价 /诊断) → 27
         # Sprint 12+: 每次合并 _cmd_xxx 注册后, 集合应减小
-        assert len(_KNOWN_INLINE_COMMANDS) <= 27, (
+        # Sprint 16 第四批迁移 6 个 dev 命令 → 22 → 16
+        assert len(_KNOWN_INLINE_COMMANDS) <= 16, (
             f"_KNOWN_INLINE_COMMANDS 增长到 {len(_KNOWN_INLINE_COMMANDS)}, "
             "应有持续迁移, 而不是堆积"
         )

@@ -1144,15 +1144,6 @@ class ButlerMessageHandler:
                 logger.debug("Session cleanup for new session skipped: %s", exc)
             return handle_new_session_command(self._orchestrator, session_key, loop)
 
-        from butler.gateway.dev_commands import handle_dev_command
-
-        dev_resp = handle_dev_command(
-            cmd, arg,
-            platform=platform, external_id=external_id, session_key=session_key,
-        )
-        if dev_resp is not None:
-            return dev_resp
-
         return None
 
     def _format_health_summary(self, session_key: str = "default") -> str:
