@@ -21,7 +21,7 @@
 | 7 | ~~**PERF-11-3**~~ | ~~`exp_cache.py:96-105`~~ | ~~LLM 响应缓存每次 store 写全文件 N 条~~ **✅ Sprint 11 1ba1c45 修复: store 同步 in-memory** | ~~🔴~~ | ~~30min~~ |
 | 8 | ~~**SEC-11-1**~~ | ~~`runtime_commands.py:17-75`~~ | ~~`/运行` + `/批准运行` 漏 owner gate~~ **✅ Sprint 17 SEC-11 owner gate completion (T3): registry handler 加 gate** | ~~🟠~~ | ~~10min~~ |
 | 9 | ~~**SEC-11-2**~~ | ~~`memory_commands.py:86-118`~~ | ~~`/批准记忆 全部` 漏 owner gate → 污染 MEMORY.md~~ **✅ Sprint 17 SEC-11 owner gate completion (T2): registry handler 验证 + 加 gate** | ~~🟠~~ | ~~10min~~ |
-| 10 | **SEC-11-3** | `butler_memory.py:239-265` | `ExperienceStore.add` 缺 `_reject_injection` → 注入持久化 sink | 🟠 | 30min |
+| 10 | ~~**SEC-11-3**~~ | ~~`butler_memory.py:239-265`~~ | ~~`ExperienceStore.add` 缺 `_reject_injection` → 注入持久化 sink~~ **✅ Sprint 11 5f4b10c 修复: add() 顶部加 _reject_injection 拦截, 6 个 RED 测试** | ~~🟠~~ | ~~30min~~ |
 
 ---
 
@@ -45,11 +45,12 @@
 
 ### 🟡 MEDIUM — 4 项
 
-#### SEC-11-3 `ExperienceStore.add` 缺 `_reject_injection`
+#### ~~SEC-11-3 `ExperienceStore.add` 缺 `_reject_injection`~~ ✅ Sprint 11 5f4b10c 修复
 - **位置**: `butler/memory/butler_memory.py:239-265`
-- **证据**: `grep "_reject_injection" butler_memory.py` 只在 line 73/91 (ProfileStore) 出现；line 257 `INSERT INTO experiences` 无过滤。
-- **链路**: `butler_remember scope=owner_experience` (`facade.py:444`) → `experience.add()` → SQLite → `search()` 召回 → `format_for_prompt` → LLM context。
-- **影响**: 与 SEC-10-6 互补，**完整 prompt-injection 持久化 sink**。
+- **历史证据**: `grep "_reject_injection" butler_memory.py` 只在 line 73/91 (ProfileStore) 出现；line 257 `INSERT INTO experiences` 无过滤。
+- **历史链路**: `butler_remember scope=owner_experience` (`facade.py:444`) → `experience.add()` → SQLite → `search()` 召回 → `format_for_prompt` → LLM context。
+- **历史影响**: 与 SEC-10-6 互补，**完整 prompt-injection 持久化 sink**。
+- **修复 (Sprint 11 5f4b10c)**: `ExperienceStore.add()` 顶部加 `if _reject_injection(content or ""): return -1` 拦截 (与 ProfileStore 对齐). 命中模式返 -1 sentinel. `content=None/""` 用 `or ""` 兜底避免 regex TypeError. 6 个 RED 测试覆盖 5 个 `_INJECTION_PATTERNS` + 正常通过 + 防御. 157 个 experience.add 现有调用方测试无回归.
 
 #### ~~SEC-11-4 `/技能 搜索/列表/查看` 漏 owner gate~~ ✅ Sprint 17 SEC-11 owner gate completion 修复
 - **位置**: `butler/gateway/registry_commands.py:109-135`
@@ -116,13 +117,13 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 - **修复方案**: 拆 `self._write_lock = threading.Lock()`（仅 write 持锁），read 走 sqlite3 Connection 内部 mutex（`check_same_thread=False`）。`self._lock = self._write_lock` 保留向后兼容旧测试。
 - **回归测试**: `tests/test_sprint11_perf5_semantic_index_rwlock.py` — **6 PASSED**（含并发 search 不阻塞 upsert）
 
-### 🟠 HIGH — 3 项
+### 🟠 HIGH — 3 项 (全部 Sprint 13 已修)
 
-| ID | 位置 | 问题 |
-|----|------|------|
-| PERF-11-4 | `tool_selector.py:78-84` | tool embed 缓存键用 `hash(text)` 跨进程随机 + 永不 LRU 淘汰 |
-| PERF-11-6 | `embedding.py:128-133, 167-172` | embedder 端无 query cache；`semantic_index.search` 每 turn `embed(q)` 重复付费 |
-| PERF-11-7 | `agent_loop.py:240, 510` + `tool_batch.py:263-273` | 每 turn 3-5 次 transcript 写（lock+stat+open+write+index update） |
+| ID | 位置 | 问题 | 状态 |
+|----|------|------|------|
+| ~~**PERF-11-4**~~ | ~~`tool_selector.py:78-84`~~ | ~~tool embed 缓存键用 `hash(text)` 跨进程随机 + 永不 LRU 淘汰~~ | ✅ Sprint 13 PERF-13-1 `560bd56`: blake2b 稳定 key + LRU 256 + move_to_end |
+| ~~**PERF-11-6**~~ | ~~`embedding.py:128-133, 167-172`~~ | ~~embedder 端无 query cache；`semantic_index.search` 每 turn `embed(q)` 重复付费~~ | ✅ Sprint 13 PERF-13-2 `5551db2`: `_CachedEmbedder` LRU 128 包装, HashingEmbedder 跳过 |
+| ~~**PERF-11-7**~~ | ~~`agent_loop.py:240, 510` + `tool_batch.py:263-273`~~ | ~~每 turn 3-5 次 transcript 写（lock+stat+open+write+index update）~~ | ✅ Sprint 13 PERF-13-3 `9eef7b1`: `transcript_batch` ctx mgr, 1 次 file open + writelines 替代 3-5 次分散写 |
 
 ### 🟡 MEDIUM — 4 项
 
@@ -214,26 +215,26 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 | ID | 位置 | 问题 |
 |----|------|------|
-| TST-11-2 | `wechat_ilink.py:158,1042,1058` `_LIVE_ADAPTERS` | 0 race test |
+| ~~TST-11-2~~ | ~~`wechat_ilink.py:158,1042,1058` `_LIVE_ADAPTERS`~~ | ~~0 race test~~ ✅ Sprint 11 `55816ad`: 补 14 个 race + 契约测试 (5 顺序语义 + 2 并发不同 token 32 线程 + 1 并发同 token 16 线程 + 2 connect/disconnect 交错 + 4 静态契约) |
 | TST-11-3 | `lifecycle_commands.py` 234 行 | coverage 21%；11 handler 仅 `_cmd_config` 测 (✅ `6fddada` 补 41 测试：/doctor×5 /export×2 /回滚×5 /分叉×6 /会话记忆×6 /确认安装×2 /注册表×2 /任务×4 /工作流×2 /_require_owner×2 /静态契约×4) |
 | TST-11-5 | `execute_code.py:52-116` `run_execute_code` | 1 unit test (disabled 路径)；0 真实 subprocess (✅ `4667c91` 补 38 测试: enabled×3 / input×7 / 真实 subprocess×4 / errors×3 / env×3 / timeout×7 / workspace_cwd×4 / register×4 / 契约×3) |
-| TST-11-9 | `mcp/{client_http,client_stdio,server_stdio}.py` | 三文件 0%；mcp 子包覆盖极薄 |
+| ~~TST-11-9~~ | ~~`mcp/{client_http,client_stdio,server_stdio}.py`~~ | ~~三文件 0%；mcp 子包覆盖极薄~~ ✅ Sprint 11 `6de1ac1`: 补 31 个新测试 (client_stdio 16 + client_http 7 + server_stdio 8) → 高覆盖 |
 | TST-11-10 | `wechat_ilink.py:1720-1737` `_download_remote_media` SSRF | 0 e2e with redirector/IPv6/0.0.0.0 (✅ `8d73ba0` 补 75 测试: is_safe_url 阻断×30+/放行×6, assert_safe_redirect×5, safe_registry_get×8 (5 个 3xx 状态码), _download_remote_media 集成×11, 契约×4) |
 
 ### 🟡 MEDIUM
 
 | ID | 位置 | 问题 |
 |----|------|------|
-| TST-11-4 | `handler_helpers.py:376` `_WELCOMED_SESSIONS` | race test 不全 |
-| TST-11-6 | `__init__.py:55-57, 60-63` | `format_build_identity_line` / `mark_start_time` 0% |
-| TST-11-7 | `agents_md.py:80-88` | `list_agent_md_names` 0% |
+| ~~TST-11-4~~ | ~~`handler_helpers.py:376` `_WELCOMED_SESSIONS`~~ | ~~race test 不全~~ ✅ Sprint 11 `4b9d9de`: 补 11 个新测试 (不同 session 并发 / 真实 set 锁 / 顺序覆盖 / 重启读 marker / BUTLER_HOME 隔离 / 跨 spawn 进程) |
+| ~~TST-11-6~~ | ~~`__init__.py:55-57, 60-63`~~ | ~~`format_build_identity_line` / `mark_start_time` 0%~~ ✅ Sprint 11 `298e814`: 补 7 个新测试 (subprocess 缓存 + CalledProcessError 分支) → 100% 覆盖 |
+| ~~TST-11-7~~ | ~~`agents_md.py:80-88`~~ | ~~`list_agent_md_names` 0%~~ ✅ Sprint 11 `50f700e`: 补 5 个新测试 (dir 缺失/sorted/stem/subdir 过滤) → 100% 覆盖 |
 | ~~TST-11-11~~ | ~~`runtime/{audit,loader,schedule}.py`~~ | ~~0 直测；Sprint 10 REL-NEW-01 修的 flock 锁内容无独立 race test~~ **✅ Sprint 16: 47 个新测试 (loader 20 + audit runs 10 + schedule 17)** |
 
 ### 🟢 LOW
 
 | ID | 位置 | 问题 |
 |----|------|------|
-| TST-11-8 | `cli/doctor.py` 60 行 | 整文件 0 测试 |
+| ~~TST-11-8~~ | ~~`cli/doctor.py` 60 行~~ | ~~整文件 0 测试~~ ✅ Sprint 11 `18fffeb`: 补 13 个新测试 (数据目录 ✓/✗、依赖、.env、API key、workspace 探测、critical vs warn 退出码) → 92% 覆盖 |
 
 ### Sprint 10 残留（1 项：TST-10-5 仍在迁移中；TST-10-6 暂缓）
 
@@ -264,8 +265,9 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 - ~~**SEC-11-1/2/4/5/6/7** 6 个命令加 owner gate + 引入 CI 静态扫描~~ ✅ Sprint 17 SEC-11 owner gate completion: 6 handler 加 gate + 3 opt-out 标记 + scan gap 9 → 0
 
 ### 长期（性能 + 测试 = 5 天）
-- PERF-11-4/6/7/8/9/10/11
-- TST-10-2/3/4/5/7/8/9
+- ~~PERF-11-4/6/7~~ ✅ Sprint 13 PERF-13-1/2/3 (560bd56/5551db2/9eef7b1)
+- PERF-11-8/9/10/11
+- ~~TST-10-2/3/4/5/7/8/9~~ ✅ Sprint 11-16 全部完成
 - TST-10-6 (暂缓 — 风格改进, 风险高价值低)
 
 ---
@@ -274,6 +276,10 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 
 | ID | 修复 | Commit | 备注 |
 |----|------|--------|------|
+| **SEC-11-3** | `butler/memory/butler_memory.py:ExperienceStore.add` 加 `_reject_injection(content or "")` 拦截, 命中返 -1 sentinel | `5f4b10c` | 与 ProfileStore 对齐; 6 个 RED 测试覆盖 5 个 `_INJECTION_PATTERNS` + 正常通过 + None/空串防御; 157 个 experience.add 现有调用方测试无回归 |
+| **PERF-13-1** (PERF-11-4) | `butler/core/tool_selector.py` `_tool_embed_cache` 改 OrderedDict + 256 上限, key 用 `hashlib.blake2b` 稳定 hash (不依赖 PYTHONHASHSEED), 命中 `move_to_end` 维持 LRU, 写满 `popitem(last=False)` 淘汰 | `560bd56` | 195 个新测试覆盖 hash 稳定性 (跨 PYTHONHASHSEED 一致) + LRU 淘汰 (256 → 257 触发) + 命中顺序 (move_to_end) + clear/size 边界 |
+| **PERF-13-2** (PERF-11-6) | `butler/memory/embedding.py` 新增 `_CachedEmbedder` LRU 包装层 (OrderedDict + max_size=128 + blake2b 稳定 key); `_build_embedder` 对非 HashingEmbedder 自动包装, HashingEmbedder 跳过 (无 API 开销); 拆 `_build_raw_embedder` 便于独立可测 | `5551db2` | 227 个新测试覆盖 LRU 命中/淘汰/max_size/不同 embedder (API/local) 包装/Hashing 跳过/blake2b 稳定性 |
+| **PERF-13-3** (PERF-11-7) | `butler/core/session_transcript.py` 新增 `transcript_batch(session_key)` ctx mgr: 块内 `record_*()` 走 buffer, 退出时一次性 `_flush_entries` (单 file open + writelines); `butler/core/agent_loop.py:run()` 整轮 turn 包裹 → 4 个 record_* 合成 1 次写入 | `9eef7b1` | session_transcript.py +66 行, agent_loop.py +20 行; 嵌套/异常 (finally flush)/线程安全; 行为不变性: 退出时原子 flush 失败抛错, 不丢已有 buffer |
 | **REL-11-2** | `mcp/async_runner.py` 加 `shutdown_async_runner` + `_atexit_shutdown` + atexit first-use 注册 | `45d8d8a` | 守护线程 graceful shutdown, idempotent, 12 个新测试覆盖 |
 | **REL-11-3** | `runtime/notify.py:push_runtime_message` 改用 `async_runner.run_mcp_async` 代替 `asyncio.run` | `d01873f` | 避免在 MCP tool handler / 已运行 event loop 线程中调用崩溃, 2 个新测试 |
 | **REL-11-6** | `mcp/manager.py:_handles_for` 改返回 `dict()` 快照 + 新增 `_with_handles` 上下文管理器 | `5770a50` | 避免与 `disconnect_session` 竞争抛 "dict changed size", 5 个新测试 (含 Barrier 同步多线程) |
