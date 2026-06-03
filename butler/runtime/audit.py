@@ -155,5 +155,14 @@ def release_lock(project_name: str, job_id: str) -> None:
         return
     try:
         path.unlink()
-    except OSError:
+    except FileNotFoundError:
+        # Benign race: another process or the OS already removed the lock.
         pass
+    except OSError as exc:
+        # PermissionError / IsADirectoryError / device I/O error etc. — 不可静默,
+        # 运维需要看到为何锁未被清理, 否则可能堆积陈旧锁文件。
+        logger.warning(
+            "release_lock: unlink failed, 锁文件残留: path=%s err=%s",
+            path,
+            exc,
+        )
