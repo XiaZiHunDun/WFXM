@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -52,13 +54,40 @@ class McpConnectionManager:
         return "__global__"
 
     def _handles_for(self, session_key: str) -> dict[str, _ServerHandle]:
+        """Return a SNAPSHOT copy of the handles dict for *session_key*.
+
+        Sprint 16 REL-11-6: 之前返回 live dict ref (global 路径甚至未加锁),
+        调用方在锁外读写会与 ``disconnect_session`` / ``disconnect_all``
+        竞争, 抛 ``RuntimeError: dict changed size during iteration``。
+
+        新契约: 返回 ``dict(handles)`` 快照, 调用方可安全迭代, 但写入
+        会丢失 (要写入请用 ``_with_handles`` 上下文管理器)。
+        """
         sk = self._scope_key(session_key)
-        if sk == "__global__":
-            return self._global_handles
         with self._lock:
+            if sk == "__global__":
+                return dict(self._global_handles)
+            handles = self._session_handles.get(sk)
+            return dict(handles) if handles else {}
+
+    @contextlib.contextmanager
+    def _with_handles(
+        self, session_key: str,
+    ) -> Iterator[dict[str, "_ServerHandle"]]:
+        """持有 self._lock, 返回 live handles dict ref, 离开 ``with`` 自动释放。
+
+        Sprint 16 REL-11-6: 给需要 "读-改-写" 模式 (如 ensure_connected)
+        的调用方用。yield 的是 live ref, 在 ``with`` 块内可安全 ``__setitem__`` /
+        ``pop`` / ``keys()`` 迭代; 块外必须重新获取。
+        """
+        sk = self._scope_key(session_key)
+        with self._lock:
+            if sk == "__global__":
+                yield self._global_handles
+                return
             if sk not in self._session_handles:
                 self._session_handles[sk] = {}
-            return self._session_handles[sk]
+            yield self._session_handles[sk]
 
     def disconnect_session(self, session_key: str) -> None:
         sk = self._scope_key(session_key)
@@ -112,9 +141,25 @@ class McpConnectionManager:
                 configs = filter_servers_by_profile(configs, profile)
         except Exception as exc:
             logger.debug("ensure connected skipped: %s", exc)
-        handles = self._handles_for(session_key)
-        refs: list[McpToolRef] = []
+        # Sprint 16 REL-11-6: 用 _with_handles 持锁进行 read-modify-write,
+        # 避免 _handles_for 返回的 snapshot 被 disconnect_session 异步清空。
+        with self._with_handles(session_key) as handles:
+            refs = self._ensure_connected_locked(
+                sk, handles, configs, workspace=workspace,
+            )
+        return refs
 
+    def _ensure_connected_locked(
+        self,
+        sk: str,
+        handles: dict[str, "_ServerHandle"],
+        configs: list[Any],
+        *,
+        workspace: Path | None,
+    ) -> list[McpToolRef]:
+        from butler.mcp.bridge import build_tool_refs
+
+        refs: list[McpToolRef] = []
         for cfg in configs:
             handle = handles.get(cfg.server_id)
             if handle is None:
@@ -188,11 +233,14 @@ class McpConnectionManager:
         *,
         workspace: Path | None = None,
     ) -> str:
-        handles = self._handles_for(session_key)
-        handle = handles.get(ref.server_id)
+        # Sprint 16 REL-11-6: snapshot 拿不到可写的 handle ref; 用 _with_handles
+        # 持锁拿 live ref, 验证 handle 后立即释放, 后续 await 不持锁。
+        with self._with_handles(session_key) as handles:
+            handle = handles.get(ref.server_id)
         if handle is None or not handle.session:
             self.ensure_connected(session_key, workspace=workspace)
-            handle = handles.get(ref.server_id)
+            with self._with_handles(session_key) as handles:
+                handle = handles.get(ref.server_id)
         if handle is None or not handle.session:
             return _error_payload(ref.registered_name, "MCP server not connected")
 
