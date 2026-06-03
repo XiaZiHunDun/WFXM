@@ -645,3 +645,57 @@ class TestSessionManagement:
                 handler._get_or_create_loop(key)
 
         assert set(handler._sessions) == {"b", "c"}
+
+
+@pytest.mark.integration
+class TestEveryRegisteredCommandDispatches:
+    """TST-10-7: 60 default command name 的 dispatch 路径 e2e 覆盖。
+
+    验证每个注册的命令都能被 ``_handle_command`` 接受、返回字符串或 None
+    (表示不在当前 owner-gate / 项目上下文), 不会因未实现而抛。
+    """
+
+    @pytest.fixture
+    def every_command(self):
+        import butler.gateway.commands  # noqa: F401 — 注册 handler
+        from butler.gateway.command_registry import all_commands
+
+        return [c.name for c in all_commands()]
+
+    def test_every_command_dispatches_without_raising(self, handler, every_command):
+        # 至少 50 个命令 (Sprint 10 报告: 60)
+        assert len(every_command) >= 50, (
+            f"注册命令数 {len(every_command)} < 50, "
+            "请检查 _register_defaults 是否被覆盖"
+        )
+
+        for name in every_command:
+            try:
+                result = handler._handle_command(name)
+            except Exception as exc:
+                pytest.fail(
+                    f"命令 {name!r} 抛出未捕获异常: {type(exc).__name__}: {exc}"
+                )
+            # 返回 None 表示没有 owner gate / 项目匹配 (OK 跳过)
+            # 返回 str 表示真实响应 (OK)
+            assert result is None or isinstance(result, str), (
+                f"命令 {name!r} 返回类型错误: {type(result).__name__}"
+            )
+
+    def test_no_command_raises_not_implemented(self, handler, every_command):
+        """每个命令要么返回响应, 要么 None — 不应抛 NotImplementedError。"""
+        for name in every_command:
+            try:
+                handler._handle_command(name)
+            except NotImplementedError as exc:
+                pytest.fail(f"命令 {name!r} 抛 NotImplementedError: {exc}")
+
+    def test_every_command_has_help_text(self, every_command):
+        """每个注册的命令都应有 help_text, 否则用户 /帮助 看不到说明。"""
+        import butler.gateway.commands  # noqa: F401
+        from butler.gateway.command_registry import lookup
+
+        for name in every_command:
+            cmd = lookup(name)
+            assert cmd is not None, f"命令 {name!r} 在 registry 中查不到"
+            assert cmd.help_text, f"命令 {name!r} help_text 为空"
