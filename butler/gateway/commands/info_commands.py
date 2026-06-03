@@ -147,6 +147,55 @@ def _cmd_budget(ctx: CommandContext) -> Optional[str]:
     )
 
 
+# Sprint 11 TST-10-5: 从 inline 迁移过来的命令
+def _cmd_sessions(ctx: CommandContext) -> Optional[str]:
+    from butler.gateway.sessions_commands import handle_sessions_command
+
+    return handle_sessions_command(
+        ctx.orchestrator,
+        ctx.arg,
+        platform=ctx.platform,
+        external_id=ctx.external_id,
+        session_key=ctx.session_key,
+    )
+
+
+def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
+    from butler.gateway.outcome_commands import handle_outcome_command
+
+    return handle_outcome_command(
+        ctx.orchestrator,
+        ctx.arg,
+        platform=ctx.platform,
+        external_id=ctx.external_id,
+        session_key=ctx.session_key,
+    )
+
+
+def _cmd_health(ctx: CommandContext) -> Optional[str]:
+    """Sprint 11 TST-10-5: 从 inline 迁移 — 等价于原 handler._format_health_summary。"""
+    from butler.ops.health_report import (
+        HealthReportInput,
+        build_health_report,
+        collect_mem_stats_for_health,
+    )
+    from butler.gateway.handler_helpers import _tool_audit_summary
+
+    session_key = ctx.session_key
+    health = ctx.session_registry.get_health(session_key)
+    return build_health_report(
+        HealthReportInput(
+            session_key=session_key,
+            health=health,
+            tool_summary=_tool_audit_summary(session_key),
+            mem_stats=collect_mem_stats_for_health(
+                ctx.orchestrator, session_key, health
+            ),
+            orchestrator=ctx.orchestrator,
+        )
+    )
+
+
 _INFO_COMMANDS = [
     CommandDef("/总览", ("/overview",), "项目管理", "项目总览与概要", handler=_cmd_overview),
     CommandDef("/预设", (), "模型", "列出 butler:// 预设", handler=_cmd_presets),
@@ -160,7 +209,12 @@ _INFO_COMMANDS = [
     CommandDef("/记忆状态", ("/memory-status",), "记忆", "查看记忆系统状态", handler=_cmd_memory_status),
     CommandDef("/详细", ("/detail",), "对话控制", "查看详细报告", handler=_cmd_detail),
     CommandDef("/预算", ("/budget",), "系统管理", "设置本轮 token 预算", handler=_cmd_budget),
+    # Sprint 11 TST-10-5: 从 inline 迁移过来的命令
+    CommandDef("/会话", ("/sessions",), "对话控制", "查看/管理会话", handler=_cmd_sessions),
+    CommandDef("/评价", ("/outcome",), "系统管理", "评估/评价当前结果", handler=_cmd_outcome),
+    CommandDef("/诊断", ("/health",), "系统管理", "系统诊断", handler=_cmd_health),
 ]
+
 
 for _cmd in _INFO_COMMANDS:
     register(_cmd)
