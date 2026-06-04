@@ -194,6 +194,7 @@ class TestSummarizeCompactEvents:
             "compact_done": 0,
             "compact_failed": 0,
             "compact_boundary": 0,
+            "overflow_replay": 0,
         }
 
 

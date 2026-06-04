@@ -386,6 +386,19 @@ def compress_messages(
             compressed = append_overflow_replay(compressed, replay_user)
         except Exception as exc:
             logger.debug("compress messages skipped: %s", exc)
+        try:
+            from butler.core.session_transcript import record_overflow_replay
+            from butler.execution_context import get_audit_session_key
+
+            _replay_content = str(replay_user.get("content") or "")
+            record_overflow_replay(
+                get_audit_session_key(fallback="_global"),
+                source="context_compressor",
+                content_preview=_replay_content,
+                replayed_chars=len(_replay_content),
+            )
+        except Exception as exc:
+            logger.debug("compress messages skipped: %s", exc)
     logger.info(
         "Context compressed: %d→%d msgs, ~%d→%d tokens",
         len(messages), len(compressed), estimated, _estimate_tokens(compressed),
