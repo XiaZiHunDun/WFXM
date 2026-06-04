@@ -209,13 +209,26 @@ def _match_entry(
     return match_path_glob(pat, request.pattern)
 
 
-def is_approved(session_key: str, request: ApprovalRequest) -> bool:
+def is_approved(
+    session_key: str,
+    request: ApprovalRequest,
+    *,
+    diagnostics: dict[str, Any] | None = None,
+) -> bool:
+    """Sprint 24 P1-3.2: 加 diagnostics kw-only 形参, 命中时写入 source.
+
+    Note: diagnostics 是向后兼容 kw-only 形参, 现有 3 个调用点 (doom_loop /
+    rules / mcp) 不传也工作正常; 传则可在 /诊断中看到本次调用命中信息.
+    """
     sk = str(session_key or "").strip()
     if not sk:
         return False
     data = _load(sk)
     for row in data.get("always") or []:
         if isinstance(row, dict) and _match_entry(row, request):
+            if diagnostics is not None:
+                diagnostics["approval_cache_hit"] = True
+                diagnostics["approval_cache_source"] = "always"
             return True
     fp = request.fingerprint()
     now = time.time()
@@ -223,7 +236,13 @@ def is_approved(session_key: str, request: ApprovalRequest) -> bool:
         if not isinstance(row, dict):
             continue
         if str(row.get("fingerprint") or "") == fp:
+            if diagnostics is not None:
+                diagnostics["approval_cache_hit"] = True
+                diagnostics["approval_cache_source"] = "once"
             return True
         if _match_entry(row, request) and float(row.get("expires_at") or 0) > now:
+            if diagnostics is not None:
+                diagnostics["approval_cache_hit"] = True
+                diagnostics["approval_cache_source"] = "once"
             return True
     return False
