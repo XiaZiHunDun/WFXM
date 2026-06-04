@@ -122,6 +122,31 @@ def _cmd_perm_pattern(ctx: CommandContext) -> Optional[str]:
     return f"已批准本会话 terminal 危险模式「{pat}」（24h 内同类命令可放行）。"
 
 
+def _cmd_revoke_always(ctx: CommandContext) -> Optional[str]:
+    """Sprint 24 P1-3.2: /撤销批准 <permission> [tool] [pattern]."""
+    gate = require_owner(ctx)
+    if gate is not None:
+        return gate
+    arg = (ctx.arg or "").strip()
+    if not arg:
+        return "用法: /撤销批准 <permission> [tool] [pattern]"
+    parts = arg.split()
+    perm = parts[0] if len(parts) >= 1 else ""
+    tool = parts[1] if len(parts) >= 2 else ""
+    pat = parts[2] if len(parts) >= 3 else ""
+    from butler.permissions.approvals import revoke_always
+    return revoke_always(ctx.session_key, permission=perm, tool=tool, pattern=pat)
+
+
+def _cmd_clear_always(ctx: CommandContext) -> Optional[str]:
+    """Sprint 24 P1-3.2: /清除始终允许 — 清空 session 所有 always 记录."""
+    gate = require_owner(ctx)
+    if gate is not None:
+        return gate
+    from butler.permissions.approvals import clear_always
+    return clear_always(ctx.session_key)
+
+
 _PERMISSION_COMMANDS: list[CommandDef] = [
     CommandDef(
         "/权限",
@@ -157,6 +182,20 @@ _PERMISSION_COMMANDS: list[CommandDef] = [
         "权限安全",
         "按模式批准（24h 有效）",
         handler=_cmd_perm_pattern,
+    ),
+    CommandDef(
+        "/撤销批准",
+        (),
+        "权限安全",
+        "撤销已设置的始终允许规则",
+        handler=_cmd_revoke_always,
+    ),
+    CommandDef(
+        "/清除始终允许",
+        (),
+        "权限安全",
+        "清空当前会话所有始终允许",
+        handler=_cmd_clear_always,
     ),
 ]
 
