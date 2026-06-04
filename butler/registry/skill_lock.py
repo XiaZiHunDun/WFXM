@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,22 @@ from butler.tools._file_cache import read_json_cached
 
 
 _EMPTY_LOCK: dict[str, Any] = {"version": 1, "skills": {}}
+
+# Sprint 21-2 TEST-21-C-2: per-path lock to serialize record_install /
+# remove. Multiple SkillLockFile instances pointing at the same path
+# share one lock so concurrent install / uninstall don't tear the file.
+_PATH_LOCKS: dict[str, threading.Lock] = {}
+_PATH_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for(path: Path) -> threading.Lock:
+    key = str(path)
+    with _PATH_LOCKS_GUARD:
+        lock = _PATH_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _PATH_LOCKS[key] = lock
+        return lock
 
 
 def _row_to_record(name: str, row: dict[str, Any]) -> InstalledSkillRecord:
@@ -31,6 +48,7 @@ def _row_to_record(name: str, row: dict[str, Any]) -> InstalledSkillRecord:
 class SkillLockFile:
     def __init__(self, path: Path | None = None, *, tenant_id: str = "") -> None:
         self._path = path or lock_path(tenant_id=tenant_id)
+        self._lock = _lock_for(self._path)
 
     def _load(self) -> dict[str, Any]:
         data = read_json_cached(self._path)
@@ -69,25 +87,27 @@ class SkillLockFile:
         return _row_to_record(name, row)
 
     def record_install(self, record: InstalledSkillRecord) -> None:
-        data = self._load()
-        skills = data.setdefault("skills", {})
-        skills[record.name] = {
-            "source": record.source,
-            "identifier": record.identifier,
-            "version": record.version,
-            "installed_at": record.installed_at,
-            "content_hash": record.content_hash,
-            "install_path": record.install_path,
-            "scan_verdict": record.scan_verdict,
-            "trust": record.trust,
-        }
-        self._save(data)
+        with self._lock:
+            data = self._load()
+            skills = data.setdefault("skills", {})
+            skills[record.name] = {
+                "source": record.source,
+                "identifier": record.identifier,
+                "version": record.version,
+                "installed_at": record.installed_at,
+                "content_hash": record.content_hash,
+                "install_path": record.install_path,
+                "scan_verdict": record.scan_verdict,
+                "trust": record.trust,
+            }
+            self._save(data)
 
     def remove(self, name: str) -> bool:
-        data = self._load()
-        skills = data.get("skills") or {}
-        if name not in skills:
-            return False
-        del skills[name]
-        self._save(data)
-        return True
+        with self._lock:
+            data = self._load()
+            skills = data.get("skills") or {}
+            if name not in skills:
+                return False
+            del skills[name]
+            self._save(data)
+            return True
