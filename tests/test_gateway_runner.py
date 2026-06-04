@@ -30,7 +30,7 @@ class TestGatewayCommand:
     def test_cmd_gateway_native_wechat(self, monkeypatch):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="wechat", gateway_remainder=[])
+        ns = MagicMock(platforms="wechat", gateway_remainder=[])  # noqa: magicmock-no-spec — gateway runner facade (ns/butler)
         with patch("butler.gateway.runner.run_gateway_blocking", return_value=0) as run:
             assert _cmd_gateway(ns) == 0
         run.assert_called_once_with(["wechat"])
@@ -38,7 +38,7 @@ class TestGatewayCommand:
     def test_cmd_gateway_default_is_wechat(self, monkeypatch):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="", gateway_remainder=[])
+        ns = MagicMock(platforms="", gateway_remainder=[])  # noqa: magicmock-no-spec — gateway runner facade (ns/butler)
         with patch("butler.gateway.runner.run_gateway_blocking", return_value=0) as run:
             assert _cmd_gateway(ns) == 0
         run.assert_called_once_with(["wechat"])
@@ -46,14 +46,14 @@ class TestGatewayCommand:
     def test_cmd_gateway_rejects_telegram(self, capsys):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="telegram", gateway_remainder=[])
+        ns = MagicMock(platforms="telegram", gateway_remainder=[])  # noqa: magicmock-no-spec — gateway runner facade (ns/butler)
         assert _cmd_gateway(ns) == 2
         assert "仅支持微信" in capsys.readouterr().err
 
     def test_cmd_gateway_rejects_hermes_fallback_flag(self, capsys):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="", gateway_remainder=["--hermes-fallback"])
+        ns = MagicMock(platforms="", gateway_remainder=["--hermes-fallback"])  # noqa: magicmock-no-spec — gateway runner facade (ns/butler)
         assert _cmd_gateway(ns) == 2
         assert "hermes-fallback" in capsys.readouterr().err
 
@@ -172,7 +172,7 @@ class TestButlerMessageHandlerRunner:
         from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
         from butler.gateway.runner import _butler_message_handler
 
-        butler = MagicMock()
+        butler = MagicMock()  # noqa: magicmock-no-spec — gateway runner facade (ns/butler)
         event = MessageEvent(
             text="会超时的问题",
             message_type=MessageType.TEXT,
@@ -201,7 +201,7 @@ class TestButlerMessageHandlerRunner:
         from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
         from butler.gateway.runner import _butler_message_handler
 
-        butler = MagicMock()
+        butler = MagicMock()  # noqa: magicmock-no-spec — gateway runner facade (ns/butler)
         butler.handle_message.return_value = "收到"
         event = MessageEvent(
             text="",
@@ -232,7 +232,7 @@ class TestWeChatAdapterWiring:
         from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
         from butler.gateway.runner import _butler_message_handler
 
-        butler = MagicMock()
+        butler = MagicMock()  # noqa: magicmock-no-spec — gateway runner facade (ns/butler)
         butler.handle_message.return_value = "ok"
         event = MessageEvent(
             text="你好",
