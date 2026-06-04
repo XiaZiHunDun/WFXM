@@ -49,8 +49,8 @@ def _make_ctx(
         session_key=session_key,
         platform=platform,
         external_id=external_id,
-        orchestrator=orchestrator or MagicMock(),
-        session_registry=MagicMock(),
+        orchestrator=orchestrator or MagicMock(),  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
+        session_registry=MagicMock(),  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
     )
 
 
@@ -142,7 +142,7 @@ class TestDelegation:
         """handler 应把 ctx 转给 format_project_list."""
         from butler.gateway.commands import project_commands as proj_cmds_module
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
         ctx = _make_ctx(
             cmd="/项目", arg="", orchestrator=orch, platform="wechat", external_id="owner1",
         )
@@ -166,7 +166,7 @@ class TestDelegation:
         """handler 应把 ctx 转给 format_butler_status."""
         from butler.gateway.commands import project_commands as proj_cmds_module
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
         ctx = _make_ctx(cmd="/状态", orchestrator=orch)
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
@@ -218,9 +218,9 @@ class TestSubcommandRouting:
         """arg='新建 foo' → handle_project_onboarding_command 拦截, 返 onboard result."""
         from butler.gateway.commands import project_commands as proj_cmds_module
 
-        fake_pm = MagicMock()
+        fake_pm = MagicMock()  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
         fake_pm.list_projects.return_value = []
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
         orch.project_manager = fake_pm
 
         ctx = _make_ctx(cmd="/项目", arg="新建 myapp", orchestrator=orch)
@@ -238,9 +238,9 @@ class TestSubcommandRouting:
         """arg='体检' → handle_project_onboarding_command 拦截."""
         from butler.gateway.commands import project_commands as proj_cmds_module
 
-        fake_pm = MagicMock()
+        fake_pm = MagicMock()  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
         fake_pm.list_projects.return_value = []
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
         orch.project_manager = fake_pm
 
         ctx = _make_ctx(cmd="/项目", arg="体检", orchestrator=orch)
@@ -257,9 +257,9 @@ class TestSubcommandRouting:
         """arg='' → handle_project_onboarding_command 返 None, 落到 list 分支."""
         from butler.gateway.commands import project_commands as proj_cmds_module
 
-        fake_pm = MagicMock()
+        fake_pm = MagicMock()  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
         fake_pm.list_projects.return_value = []  # 空 → 返 '暂无项目。'
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — project status facade (orch / pm / session_registry)
         orch.project_manager = fake_pm
 
         ctx = _make_ctx(cmd="/项目", arg="", orchestrator=orch)
