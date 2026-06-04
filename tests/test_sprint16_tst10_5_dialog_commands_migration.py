@@ -56,8 +56,8 @@ def _make_ctx(
         session_key=session_key,
         platform=platform,
         external_id=external_id,
-        orchestrator=orchestrator or MagicMock(),
-        session_registry=session_registry or MagicMock(),
+        orchestrator=orchestrator or MagicMock(),  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        session_registry=session_registry or MagicMock(),  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
     )
 
 
@@ -67,13 +67,13 @@ def _make_pm_orch(
     current_name: str = "default",
 ) -> MagicMock:
     """Build a mock orchestrator with project_manager."""
-    pm = MagicMock()
+    pm = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
     pm.switch_project_for_chat.return_value = switch_ok
     pm.get_project_name_for_chat.return_value = current_name
     pm.list_projects.return_value = []
     pm.get_current.return_value = None
     pm.resolve_active_project_name.return_value = current_name
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
     orch.project_manager = pm
     return orch
 
@@ -160,7 +160,7 @@ class TestSwitchProject:
     def test_successful_switch_resets_sessions(self, ensure_registered):
         """switch_project_for_chat 返 True → reset_sessions_for_chat 应被调用."""
         orch = _make_pm_orch(switch_ok=True, current_name="beta")
-        sr = MagicMock()
+        sr = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         sr.reset_sessions_for_chat.return_value = ["old-session-1", "old-session-2"]
         ctx = _make_ctx(cmd="/切换", arg="beta", orchestrator=orch, session_registry=sr)
 
@@ -178,7 +178,7 @@ class TestSwitchProject:
     def test_successful_switch_no_cleared_sessions(self, ensure_registered):
         """reset_sessions_for_chat 返空 list → 不显示 '清理' 提示."""
         orch = _make_pm_orch(switch_ok=True, current_name="alpha")
-        sr = MagicMock()
+        sr = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         sr.reset_sessions_for_chat.return_value = []
         ctx = _make_ctx(cmd="/切换", arg="alpha", orchestrator=orch, session_registry=sr)
 
@@ -193,8 +193,10 @@ class TestSwitchProject:
     def test_unknown_project_with_available(self, ensure_registered):
         """switch 返 False, 但有可用项目 → 列出可用项目."""
         orch = _make_pm_orch(switch_ok=False)
-        proj_a = MagicMock(); proj_a.name = "alpha"
-        proj_b = MagicMock(); proj_b.name = "beta"
+        proj_a = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        proj_a.name = "alpha"
+        proj_b = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        proj_b.name = "beta"
         orch.project_manager.list_projects.return_value = [proj_a, proj_b]
         ctx = _make_ctx(cmd="/切换", arg="ghost", orchestrator=orch)
         handled, result = dispatch(ctx)
@@ -242,7 +244,7 @@ class TestModelSelect:
         from butler.gateway.commands import dialog_commands as dialog_cmds_module
 
         orch = _make_pm_orch()
-        sr = MagicMock()
+        sr = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         ctx = _make_ctx(cmd="/模型", arg="gpt-4o", orchestrator=orch, session_registry=sr)
         with patch(
             "butler.model_resolve.handle_model_command",
@@ -260,7 +262,7 @@ class TestModelSelect:
         from butler.gateway.commands import dialog_commands as dialog_cmds_module
 
         orch = _make_pm_orch()
-        sr = MagicMock()
+        sr = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         ctx = _make_ctx(cmd="/模型", arg="", orchestrator=orch, session_registry=sr)
         with patch(
             "butler.model_resolve.handle_model_command",
@@ -280,9 +282,9 @@ class TestNewSession:
         from butler.gateway.commands import dialog_commands as dialog_cmds_module
 
         ctx_key = "wechat:u1:"
-        orch = MagicMock()
-        sr = MagicMock()
-        loop_mock = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        sr = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        loop_mock = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         sr.sessions = {ctx_key: loop_mock}
         ctx = _make_ctx(
             cmd="/新对话", arg="", orchestrator=orch, session_registry=sr,
@@ -294,13 +296,13 @@ class TestNewSession:
             return_value="已开始新对话",
         ) as h, patch.multiple(
             "butler.tools.tool_audit",
-            reset_tool_audit_events=MagicMock(),
+            reset_tool_audit_events=MagicMock(),  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         ), patch.multiple(
             "butler.report",
-            clear_report_cache=MagicMock(),
+            clear_report_cache=MagicMock(),  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         ), patch.multiple(
             "butler.plan.mode",
-            clear_plan_mode=MagicMock(),
+            clear_plan_mode=MagicMock(),  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         ):
             handled, result = dispatch(ctx)
         assert handled is True
@@ -318,8 +320,8 @@ class TestNewSession:
         """/新对话 应尝试调 11+ cleanup 函数 (部分模块可能不存在 → logger.debug + skip)."""
         from butler.gateway.commands import dialog_commands as dialog_cmds_module
 
-        orch = MagicMock()
-        sr = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        sr = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         ctx = _make_ctx(
             cmd="/新对话", arg="", orchestrator=orch, session_registry=sr,
         )
@@ -339,9 +341,9 @@ class TestNewSession:
         from butler.gateway.commands import dialog_commands as dialog_cmds_module
 
         ctx_key = "wechat:u1:"
-        orch = MagicMock()
-        sr = MagicMock()
-        loop_mock = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        sr = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        loop_mock = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         sr.sessions = {ctx_key: loop_mock}
         ctx = _make_ctx(
             cmd="/新对话", arg="", orchestrator=orch, session_registry=sr,
@@ -362,7 +364,7 @@ class TestNewSession:
 class TestErrorHandling:
     def test_switch_handler_exception_returns_error(self, ensure_registered):
         """switch_project_for_chat 抛异常 → dispatch 返 '命令执行异常: ...'."""
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         orch.project_manager.switch_project_for_chat.side_effect = RuntimeError("boom")
         ctx = _make_ctx(cmd="/切换", arg="alpha", orchestrator=orch)
         handled, result = dispatch(ctx)
@@ -385,8 +387,8 @@ class TestErrorHandling:
 
     def test_new_session_handler_exception_returns_error(self, ensure_registered):
         """handle_new_session_command 抛异常 → dispatch 返 '命令执行异常: ...'."""
-        orch = MagicMock()
-        sr = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
+        sr = MagicMock()  # noqa: magicmock-no-spec — dialog command facade (ProjectManager / SessionRegistry / orch)
         sr.sessions = {}
         ctx = _make_ctx(
             cmd="/新对话", arg="", orchestrator=orch, session_registry=sr,

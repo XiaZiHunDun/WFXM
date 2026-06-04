@@ -276,7 +276,9 @@ class TestScanCli:
 #        /ProjectManager / process_callback 加 noqa)
 # → 481 (test_llm_client: 28 处 OpenAI/Anthropic stream chunk / facade /
 #        fake import 加 noqa)
-_BASELINE_VIOLATIONS = 481
+# → 457 (test_sprint16_tst10_5_dialog_commands_migration: 24 处 dialog command
+#        facade (ProjectManager / SessionRegistry / orch) 加 noqa)
+_BASELINE_VIOLATIONS = 457
 
 
 @pytest.mark.unit
