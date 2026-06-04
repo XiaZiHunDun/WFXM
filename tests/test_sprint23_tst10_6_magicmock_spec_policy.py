@@ -296,7 +296,8 @@ class TestScanCli:
 #        (report / bridge / agent / orch) 加 noqa)
 # → 317 (test_completion_notify: 12 处 completion notify facade
 #        (adapter / send 含 AsyncMock) 加 noqa)
-_BASELINE_VIOLATIONS = 317
+# → 306 (test_gateway_handler: 11 处 gateway handler AgentLoop facade 加 noqa)
+_BASELINE_VIOLATIONS = 306
 
 
 @pytest.mark.unit

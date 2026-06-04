@@ -73,7 +73,7 @@ def handler_with_project(tmp_path, monkeypatch, tmp_butler_home):
 
 @pytest.fixture
 def mock_loop():
-    loop = MagicMock()
+    loop = MagicMock()  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
     loop.run.return_value = LoopResult(
         status=LoopStatus.COMPLETED,
         final_response="assistant reply",
@@ -272,7 +272,7 @@ class TestSlashCommands:
         assert "工具调用:" not in text
 
     def test_chat_external_id_is_not_treated_as_duplicate_message_id(self, handler):
-        loop = MagicMock()
+        loop = MagicMock()  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
         loop.run.side_effect = [
             LoopResult(status=LoopStatus.COMPLETED, final_response="first reply"),
             LoopResult(status=LoopStatus.COMPLETED, final_response="second reply"),
@@ -287,7 +287,7 @@ class TestSlashCommands:
         assert loop.run.call_count == 2
 
     def test_turn_budget_only_applies_to_current_turn(self, handler):
-        loop = MagicMock()
+        loop = MagicMock()  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
         loop.messages = []
         loop.config = LoopConfig(max_iterations=30, stream=False)
         loop.hygiene_compress_if_needed.return_value = False
@@ -353,8 +353,8 @@ class TestSlashCommands:
         assert handler.last_health_summary("default") == {}
 
     def test_new_only_clears_current_session(self, handler):
-        loop_a = MagicMock(messages=[{"role": "user"}] * 6)
-        loop_b = MagicMock(messages=[{"role": "user"}] * 6)
+        loop_a = MagicMock(messages=[{"role": "user"}] * 6)  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
+        loop_b = MagicMock(messages=[{"role": "user"}] * 6)  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
         handler._sessions["a"] = loop_a
         handler._sessions["b"] = loop_b
         handler._session_registry.touch("a")
@@ -576,8 +576,8 @@ class TestFormatResponse:
 @pytest.mark.integration
 class TestSessionManagement:
     def test_different_session_keys_different_loops(self, handler):
-        loop_a = MagicMock()
-        loop_b = MagicMock()
+        loop_a = MagicMock()  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
+        loop_b = MagicMock()  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
         calls = {"n": 0}
 
         def _factory(key: str):
@@ -597,7 +597,7 @@ class TestSessionManagement:
         from butler.session.keys import build_session_key
 
         sk_default = build_session_key(platform="unknown", chat_id="default", project="")
-        other_loop = MagicMock()
+        other_loop = MagicMock()  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
         handler._sessions[sk_default] = mock_loop
         handler._sessions["other"] = other_loop
         handler._session_registry.touch(sk_default)
@@ -621,8 +621,8 @@ class TestSessionManagement:
         now = {"value": 0.0}
         handler._session_registry.idle_ttl_seconds = 10
         handler._session_registry._now = lambda: now["value"]
-        old_loop = MagicMock(messages=[{"role": "user"}] * 6)
-        new_loop = MagicMock()
+        old_loop = MagicMock(messages=[{"role": "user"}] * 6)  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
+        new_loop = MagicMock()  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
         handler._sessions["old"] = old_loop
         handler._session_registry.touch("old")
         now["value"] = 20.0
@@ -642,7 +642,7 @@ class TestSessionManagement:
         now = {"value": 0.0}
         handler._session_registry.max_sessions = 2
         handler._session_registry._now = lambda: now["value"]
-        loops = [MagicMock(name=f"loop-{i}") for i in range(3)]
+        loops = [MagicMock(name=f"loop-{i}") for i in range(3)]  # noqa: magicmock-no-spec — gateway handler AgentLoop facade
 
         with patch.object(handler._orchestrator, "create_agent_loop", side_effect=loops):
             for key in ("a", "b", "c"):
