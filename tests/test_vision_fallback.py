@@ -40,9 +40,9 @@ class TestDescribeImageOpenai:
         img = tmp_path / "test.png"
         img.write_bytes(b"\x89PNG\r\n\x1a\n")
 
-        mock_resp = MagicMock()
+        mock_resp = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_resp.json.return_value = {"choices": []}
-        mock_resp.raise_for_status = MagicMock()
+        mock_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_post.return_value = mock_resp
 
         with pytest.raises(RuntimeError, match="空 choices"):
@@ -54,11 +54,11 @@ class TestDescribeImageOpenai:
         img = tmp_path / "test.jpg"
         img.write_bytes(b"\xff\xd8\xff")
 
-        mock_resp = MagicMock()
+        mock_resp = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_resp.json.return_value = {
             "choices": [{"message": {"content": "  一张图片  "}}]
         }
-        mock_resp.raise_for_status = MagicMock()
+        mock_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_post.return_value = mock_resp
 
         assert vf.describe_image_openai(img) == "一张图片"

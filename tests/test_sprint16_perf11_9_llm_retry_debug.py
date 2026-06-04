@@ -49,7 +49,7 @@ class TestStaticContract:
 
         with pytest.MonkeyPatch.context() as mp:
             # 把 logger 替换为 isEnabledFor 永远 False 的 mock
-            fake_logger = MagicMock()
+            fake_logger = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
             fake_logger.isEnabledFor.return_value = False
             mp.setattr(llm_retry, "logger", fake_logger)
             result = llm_retry._safe_call(should_not_run, "test msg")
@@ -61,7 +61,7 @@ class TestStaticContract:
     def test_safe_call_runs_fn_and_returns_when_debug_enabled(self):
         """debug 开启时, _safe_call 跑 fn 并返回结果。"""
         with pytest.MonkeyPatch.context() as mp:
-            fake_logger = MagicMock()
+            fake_logger = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
             fake_logger.isEnabledFor.return_value = True
             mp.setattr(llm_retry, "logger", fake_logger)
             result = llm_retry._safe_call(lambda: 42, "test msg")
@@ -73,7 +73,7 @@ class TestStaticContract:
             raise RuntimeError("kaboom")
 
         with pytest.MonkeyPatch.context() as mp:
-            fake_logger = MagicMock()
+            fake_logger = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
             fake_logger.isEnabledFor.return_value = True
             mp.setattr(llm_retry, "logger", fake_logger)
             result = llm_retry._safe_call(boom, "test msg: %s")
@@ -106,7 +106,7 @@ class TestStaticContract:
 
 def _fake_client(*, content: str = "ok", raise_exc: Exception | None = None) -> MagicMock:
     """构造一个 fake LLMClient, complete() 返回给定 content。"""
-    client = MagicMock()
+    client = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     client.provider_name = "fake"
     client.model = "fake-model"
     if raise_exc is not None:

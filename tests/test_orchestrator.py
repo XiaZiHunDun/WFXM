@@ -168,7 +168,7 @@ class TestFactoryMethods:
 
     def test_orchestrator_initializes_memory_provider(self, tmp_butler_home, monkeypatch):
         _reset_singletons()
-        provider = MagicMock()
+        provider = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         with patch("butler.orchestrator.ButlerMemoryService", return_value=provider):
             from butler.orchestrator import ButlerOrchestrator
@@ -264,7 +264,7 @@ class TestProjectSwitch:
         assert orch._skill_router is not None
 
     def test_project_switch_refreshes_memory_provider(self, orch_no_projects):
-        provider = MagicMock()
+        provider = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         provider._turn_buffer = [{"role": "user", "content": "old"}]
         orch_no_projects.memory_provider = provider
 
@@ -286,7 +286,7 @@ class TestSkillInjection:
         assert orch_no_projects.inject_skill_context("   ") == "   "
 
     def test_skill_router_builds_from_metadata_only(self, orch_no_projects):
-        manager = MagicMock()
+        manager = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         manager.list_skills.return_value = [
             {"name": "python-dev", "description": "Python development", "triggers": ["python"]},
             {"name": "docker-ops", "description": "Docker operations", "triggers": ["docker"]},
@@ -318,7 +318,7 @@ class TestSkillInjection:
         assert diagnostics["skill_matches"] == ["python-dev"]
 
     def test_skill_injection_skips_empty_lazy_loaded_content(self, orch_no_projects):
-        manager = MagicMock()
+        manager = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         manager.list_skills.return_value = [
             {"name": "python-dev", "description": "Python development", "triggers": ["python"]},
         ]

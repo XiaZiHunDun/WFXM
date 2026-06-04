@@ -67,7 +67,7 @@ def test_format_rag_diagnostic_lines_shows_last_retrieval_details():
 def test_collect_memory_layer_stats_merges_last_retrieval():
     from butler.memory.retrieval_telemetry import record_last_retrieval
 
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     orch.butler_memory = None
     orch._project_memory = None
     orch.project_manager.get_current.return_value = None
@@ -93,7 +93,7 @@ def test_clear_session_boundary_memory_clears_last_retrieval():
     from butler.memory.retrieval_telemetry import get_last_retrieval, record_last_retrieval
     from butler.session.lifecycle import clear_session_boundary_memory
 
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     orch.butler_memory = None
     orch.memory_provider = None
     orch._memory_provider = None
@@ -119,10 +119,10 @@ def test_prefetch_turn_memory_records_project_retrieval_mode(tmp_path, monkeypat
     pm = ProjectMemory(tmp_path)
     pm.markdown.append("Notes", "守门测试用 pytest", classification="fact")
 
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     orch.butler_memory = None
     orch._project_memory = pm
-    proj = MagicMock()
+    proj = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     proj.name = "demo"
     proj.workspace = tmp_path
     orch.project_manager.get_current.return_value = proj

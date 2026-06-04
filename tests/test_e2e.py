@@ -157,7 +157,7 @@ class TestDelegateE2E:
     def test_delegate_task_tool(self, mock_llm_response):
         from butler.core.agent_loop import LoopResult
 
-        mock_agent = MagicMock()
+        mock_agent = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_agent.run.return_value = LoopResult(
             status=LoopStatus.COMPLETED,
             final_response="test task output from dev agent",
@@ -166,7 +166,7 @@ class TestDelegateE2E:
             total_tokens=50,
             elapsed_seconds=0.5,
         )
-        mock_orch = MagicMock()
+        mock_orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_orch.create_project_agent_loop.return_value = mock_agent
 
         with patch("butler.orchestrator.ButlerOrchestrator", return_value=mock_orch):
@@ -188,7 +188,7 @@ class TestDelegateE2E:
 
         report_mod._last_report = None
 
-        mock_agent = MagicMock()
+        mock_agent = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_agent.run.return_value = LoopResult(
             status=LoopStatus.COMPLETED,
             final_response="cached delegation summary",
@@ -197,7 +197,7 @@ class TestDelegateE2E:
             total_tokens=120,
             elapsed_seconds=1.0,
         )
-        mock_orch = MagicMock()
+        mock_orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_orch.create_project_agent_loop.return_value = mock_agent
 
         with patch("butler.orchestrator.ButlerOrchestrator", return_value=mock_orch):

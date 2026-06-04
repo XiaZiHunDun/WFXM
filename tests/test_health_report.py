@@ -8,8 +8,8 @@ from butler.ops.health_report import HealthReportInput, build_health_report
 
 
 def test_build_health_report_static_branch():
-    orch = MagicMock()
-    orch._settings = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    orch._settings = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     orch.project_manager.get_current.return_value = None
 
     with (
@@ -50,8 +50,8 @@ def test_build_health_report_static_branch():
 
 
 def test_build_health_report_turn_and_tools():
-    orch = MagicMock()
-    orch._settings = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    orch._settings = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     orch.project_manager.get_current.return_value = None
 
     with (

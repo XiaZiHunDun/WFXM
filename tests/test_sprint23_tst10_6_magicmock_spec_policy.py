@@ -344,7 +344,14 @@ class TestScanCli:
 #     test_async_delegate (5 处)
 # → 111 (test_sprint16_tst11_9_mcp_client_server: 5 处遗漏
 #        session.call_tool = AsyncMock(...) attr 形式补 noqa)
-_BASELINE_VIOLATIONS = 111
+# → 87 (6 个 4 处文件批量清理, 总 -24 处):
+#     test_vision_fallback (4 处)
+#     test_sprint16_perf11_9_llm_retry_debug (4 处)
+#     test_ragflow_p0_retrieval (4 处)
+#     test_orchestrator (4 处)
+#     test_health_report (4 处)
+#     test_e2e (4 处)
+_BASELINE_VIOLATIONS = 87
 
 
 @pytest.mark.unit
