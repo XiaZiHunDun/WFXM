@@ -82,11 +82,11 @@ class TestCmdDoctor:
         """ctx 有 project → workspace 传给 run_security_audit。"""
         from pathlib import Path
 
-        fake_proj = MagicMock()
+        fake_proj = MagicMock()  # noqa: magicmock-no-spec — lifecycle command facade (proj/pm/orch)
         fake_proj.workspace = "/tmp/ws"
-        fake_pm = MagicMock()
+        fake_pm = MagicMock()  # noqa: magicmock-no-spec — lifecycle command facade (proj/pm/orch)
         fake_pm.get_current.return_value = fake_proj
-        fake_orch = MagicMock()
+        fake_orch = MagicMock()  # noqa: magicmock-no-spec — lifecycle command facade (proj/pm/orch)
         fake_orch.project_manager = fake_pm
         ctx = _make_ctx(orchestrator=fake_orch)
 
@@ -102,9 +102,9 @@ class TestCmdDoctor:
 
     def test_workspace_none_when_no_project(self, owner_env):
         """无 project 时 workspace=None, 不抛异常。"""
-        fake_pm = MagicMock()
+        fake_pm = MagicMock()  # noqa: magicmock-no-spec — lifecycle command facade (proj/pm/orch)
         fake_pm.get_current.return_value = None
-        fake_orch = MagicMock()
+        fake_orch = MagicMock()  # noqa: magicmock-no-spec — lifecycle command facade (proj/pm/orch)
         fake_orch.project_manager = fake_pm
         ctx = _make_ctx(orchestrator=fake_orch)
 
@@ -115,9 +115,9 @@ class TestCmdDoctor:
 
     def test_workspace_resolve_exception_caught(self, owner_env):
         """project_manager.get_current 抛异常 → workspace=None, 不中断。"""
-        fake_pm = MagicMock()
+        fake_pm = MagicMock()  # noqa: magicmock-no-spec — lifecycle command facade (proj/pm/orch)
         fake_pm.get_current.side_effect = RuntimeError("kaboom")
-        fake_orch = MagicMock()
+        fake_orch = MagicMock()  # noqa: magicmock-no-spec — lifecycle command facade (proj/pm/orch)
         fake_orch.project_manager = fake_pm
         ctx = _make_ctx(orchestrator=fake_orch)
 
@@ -452,7 +452,7 @@ class TestCmdWorkflow:
 
     def test_happy_path_delegates(self, owner_env):
         """owner 调 /工作流 → 委托给 handle_workflow_command, 传 orchestrator/arg/session。"""
-        fake_orch = MagicMock()
+        fake_orch = MagicMock()  # noqa: magicmock-no-spec — lifecycle command facade (proj/pm/orch)
         ctx = _make_ctx(cmd="/工作流", arg="list", orchestrator=fake_orch)
         with patch("butler.workflows.commands.handle_workflow_command",
                    return_value="(workflow list)") as handler:

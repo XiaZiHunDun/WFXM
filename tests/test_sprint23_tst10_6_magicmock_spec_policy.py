@@ -316,7 +316,9 @@ class TestScanCli:
 #        (function/tool/message/usage/choice/response) 加 noqa)
 # → 224 (test_sprint22_sec_a3_url_safety_dns_rebinding: 8 处 DNS rebinding
 #        httpx response shim (mock.Mock 单行/多行) 加 noqa)
-_BASELINE_VIOLATIONS = 224
+# → 216 (test_sprint16_tst11_3_lifecycle_commands: 8 处 lifecycle command
+#        facade (proj/pm/orch) 加 noqa)
+_BASELINE_VIOLATIONS = 216
 
 
 @pytest.mark.unit
