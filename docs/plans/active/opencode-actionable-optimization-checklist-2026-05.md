@@ -139,6 +139,7 @@
   - replay 点选错会导致重复执行或语义漂移
 
 > **Sprint 1-23 累计完成**: reactive compact 链已落地 (`reactive_compact.py:29` `_compress_with_overflow_replay(..., overflow_replay=True)` flag 透传 compress_fn + `:39` `try_reactive_compact` 入口 + `:105` `apply_reactive_compact_to_messages` 装回 messages + diagnostics 透传 `reactive_compact_strategy` / `reactive_compact_applied` / `reactive_compact_reason`). **真实 gap** (留 P2-4.1-gap 任务): `overflow_replay` transcript 事件类型未注册到 `session_transcript.record_*` 族 (当前只作为 reactive_compact 内部 flag, 不入 transcript jsonl); "用户感知是继续当前任务" 仍依赖 `try_reactive_compact` 自动透传, 无显式 UX 续跑提示. **本次收口**: checklist 标 [x] + audit doc 加 entry, 不写新代码.
+> **Sprint 26 (P2-4.1-gap) 完成**: `session_transcript.py:318-333` 新增 `record_overflow_replay(sk, *, source='context_compressor', content_preview='', replayed_chars=0)` (content_preview 80 截断, replayed_chars max(0, int()) 钳位); `context_compressor.py:382-396` 在 `append_overflow_replay` 实际追加 marker 后写入事件 (content_preview 来自 `replay_user.content`, replayed_chars = len(content)); `transcript_diagnostics.py:25-44` `summarize_compact_events` dict 升 6 key + `format_transcript_diagnostic_lines` 在 overflow_replay 计数 > 0 时输出 `⚠️ 续跑提示: 本会话触发了 N 次 413/overflow 续跑` 行. **测试**: 8 新测试 (`test_sprint26_overflow_replay.py` 5 record_ + 1 summarize_ + 2 警告门控), 全 GREEN. **commit 序列**: `f7dfa5c` RED + `01ed3ef` GREEN + `d9e7c37` wiring.
 
 ### 4.2 Compaction 作为 Loop 显式任务
 
