@@ -32,6 +32,27 @@ def _strategy_label(
     return f"{base}+split" if split_applied else base
 
 
+def _write_compaction_diagnostics(
+    diagnostics: dict[str, Any] | None,
+    *,
+    strategy: str,
+    tail_turns_kept: int,
+    split_turn_applied: bool,
+    preserved_recent_budget: int,
+    tail_token_count: int,
+    tail_start_index: int,
+) -> None:
+    """Write the 6 compaction diagnostics fields; no-op when diagnostics is None."""
+    if diagnostics is None:
+        return
+    diagnostics["compaction_strategy"] = strategy
+    diagnostics["compaction_tail_turns_kept"] = tail_turns_kept
+    diagnostics["compaction_split_turn_applied"] = split_turn_applied
+    diagnostics["compaction_preserved_recent_budget"] = preserved_recent_budget
+    diagnostics["compaction_tail_token_count"] = tail_token_count
+    diagnostics["compaction_tail_start_index"] = tail_start_index
+
+
 @dataclass(frozen=True)
 class TurnSpan:
     """Half-open index range [start, end) in a non-system message list."""
@@ -147,24 +168,28 @@ def select_tail_start_index(
     """
     limit = tail_turns if tail_turns is not None else tail_turns_limit()
     if limit <= 0 or not rest:
-        if diagnostics is not None:
-            diagnostics["compaction_strategy"] = "no_op"
-            diagnostics["compaction_tail_turns_kept"] = 0
-            diagnostics["compaction_split_turn_applied"] = False
-            diagnostics["compaction_preserved_recent_budget"] = 0
-            diagnostics["compaction_tail_token_count"] = 0
-            diagnostics["compaction_tail_start_index"] = 0
+        _write_compaction_diagnostics(
+            diagnostics,
+            strategy="no_op",
+            tail_turns_kept=0,
+            split_turn_applied=False,
+            preserved_recent_budget=0,
+            tail_token_count=0,
+            tail_start_index=0,
+        )
         return 0
 
     turns = group_messages_into_turns(rest)
     if not turns:
-        if diagnostics is not None:
-            diagnostics["compaction_strategy"] = "no_op"
-            diagnostics["compaction_tail_turns_kept"] = 0
-            diagnostics["compaction_split_turn_applied"] = False
-            diagnostics["compaction_preserved_recent_budget"] = 0
-            diagnostics["compaction_tail_token_count"] = 0
-            diagnostics["compaction_tail_start_index"] = 0
+        _write_compaction_diagnostics(
+            diagnostics,
+            strategy="no_op",
+            tail_turns_kept=0,
+            split_turn_applied=False,
+            preserved_recent_budget=0,
+            tail_token_count=0,
+            tail_start_index=0,
+        )
         return 0
 
     budget = preserve_recent_token_budget(
@@ -204,26 +229,26 @@ def select_tail_start_index(
     if keep_start is None or keep_start <= 0:
         if keep_start is None:
             kept_turn_count = len(recent)
-        if diagnostics is not None:
-            diagnostics["compaction_strategy"] = _strategy_label(
-                kept_turn_count, split_applied, middle_present=True
-            )
-            diagnostics["compaction_tail_turns_kept"] = kept_turn_count
-            diagnostics["compaction_split_turn_applied"] = split_applied
-            diagnostics["compaction_preserved_recent_budget"] = budget
-            diagnostics["compaction_tail_token_count"] = total
-            diagnostics["compaction_tail_start_index"] = 0
+        _write_compaction_diagnostics(
+            diagnostics,
+            strategy=_strategy_label(kept_turn_count, split_applied, middle_present=True),
+            tail_turns_kept=kept_turn_count,
+            split_turn_applied=split_applied,
+            preserved_recent_budget=budget,
+            tail_token_count=total,
+            tail_start_index=0,
+        )
         return 0
 
-    if diagnostics is not None:
-        diagnostics["compaction_strategy"] = _strategy_label(
-            kept_turn_count, split_applied, middle_present=True
-        )
-        diagnostics["compaction_tail_turns_kept"] = kept_turn_count
-        diagnostics["compaction_split_turn_applied"] = split_applied
-        diagnostics["compaction_preserved_recent_budget"] = budget
-        diagnostics["compaction_tail_token_count"] = total
-        diagnostics["compaction_tail_start_index"] = keep_start
+    _write_compaction_diagnostics(
+        diagnostics,
+        strategy=_strategy_label(kept_turn_count, split_applied, middle_present=True),
+        tail_turns_kept=kept_turn_count,
+        split_turn_applied=split_applied,
+        preserved_recent_budget=budget,
+        tail_token_count=total,
+        tail_start_index=keep_start,
+    )
     return keep_start
 
 
@@ -242,13 +267,15 @@ def split_head_tail_turns(
     rest = [m for m in messages if m.get("role") != "system"]
 
     if len(rest) <= head_count + min_tail_messages:
-        if diagnostics is not None:
-            diagnostics["compaction_strategy"] = "no_op"
-            diagnostics["compaction_tail_turns_kept"] = 0
-            diagnostics["compaction_split_turn_applied"] = False
-            diagnostics["compaction_preserved_recent_budget"] = 0
-            diagnostics["compaction_tail_token_count"] = 0
-            diagnostics["compaction_tail_start_index"] = 0
+        _write_compaction_diagnostics(
+            diagnostics,
+            strategy="no_op",
+            tail_turns_kept=0,
+            split_turn_applied=False,
+            preserved_recent_budget=0,
+            tail_token_count=0,
+            tail_start_index=0,
+        )
         return system, [], rest
 
     head = rest[:head_count]
