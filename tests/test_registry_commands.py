@@ -16,7 +16,7 @@ from butler.gateway.registry_commands import (
 def _owner_gate():
     """Patch owner gate to always pass."""
     with patch(
-        "butler.gateway.registry_commands.is_gateway_owner", return_value=True
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=True
     ):
         yield
 
@@ -25,7 +25,7 @@ def _owner_gate():
 def _non_owner():
     """Patch owner gate to always deny."""
     with patch(
-        "butler.gateway.registry_commands.is_gateway_owner", return_value=False
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=False
     ):
         yield
 

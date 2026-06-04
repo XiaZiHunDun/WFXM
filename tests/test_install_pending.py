@@ -82,7 +82,7 @@ def test_gateway_confirm_handler_requires_owner(monkeypatch):
     from butler.gateway.registry_commands import handle_confirm_install_command
 
     monkeypatch.setattr(
-        "butler.gateway.registry_commands.is_gateway_owner",
+        "butler.gateway.owner_gate.is_gateway_owner",
         lambda **_: False,
     )
     out = handle_confirm_install_command(

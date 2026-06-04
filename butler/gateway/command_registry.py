@@ -51,11 +51,22 @@ def require_owner(ctx: CommandContext) -> Optional[str]:
     行为完全等价于原先 dialog/info/project/permission/lifecycle 各自的本地
     _require_owner / _check_owner_or_return, 单一真源便于改 owner gate 规则.
     """
+    return require_owner_kw(
+        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+    )
+
+
+def require_owner_kw(
+    platform: str, external_id: str | None, session_key: str
+) -> Optional[str]:
+    """Sprint 19-4 SEC-19-4: kwargs 变体真源, 供 legacy 不走 CommandContext 的
+    调用方 (registry_commands 等) 使用. 行为与 require_owner 一致.
+    """
     # 延迟导入避免 module 加载顺序耦合 (owner_gate 不依赖本模块, 这里是单向引用)
     from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
     if not is_gateway_owner(
-        platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
+        platform=platform, external_id=external_id, session_key=session_key
     ):
         return owner_required_message()
     return None

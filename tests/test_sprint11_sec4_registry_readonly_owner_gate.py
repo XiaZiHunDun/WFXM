@@ -28,7 +28,7 @@ def test_skills_search_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.registry_commands.is_gateway_owner", return_value=False
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=False
     ):
         out = registry_commands.handle_registry_command(
             cmd="/技能",
@@ -48,7 +48,7 @@ def test_skills_list_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.registry_commands.is_gateway_owner", return_value=False
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=False
     ):
         out = registry_commands.handle_registry_command(
             cmd="/技能",
@@ -68,7 +68,7 @@ def test_skills_inspect_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.registry_commands.is_gateway_owner", return_value=False
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=False
     ):
         out = registry_commands.handle_registry_command(
             cmd="/技能",
@@ -87,7 +87,7 @@ def test_skills_search_passes_through_for_owner():
     """Owner 调 /技能 搜索 应能继续到 svc.search 逻辑。"""
     fake_rec = type("R", (), {"name": "demo", "identifier": "bundled:demo"})()
     with patch(
-        "butler.gateway.registry_commands.is_gateway_owner", return_value=True
+        "butler.gateway.owner_gate.is_gateway_owner", return_value=True
     ), patch("butler.registry.skill_service.SkillRegistryService") as MockSvc:
         svc = MockSvc.return_value
         svc.search.return_value = [fake_rec]

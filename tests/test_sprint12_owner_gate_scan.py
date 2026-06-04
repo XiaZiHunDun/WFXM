@@ -35,7 +35,11 @@ OPT_OUT_MARKER = re.compile(r"owner-gate-opt-out\s*:")
 #  1) registry_commands.py 等老代码仍在用本地 _require_owner 包装 is_gateway_owner
 #  2) 1-level transitive 逻辑 (_has_gate_in_file) 走 callee 找 _require_owner 当 gate 中转
 #  3) 兼容性: 老 inline helper 名字仍能命中, 迁移到 require_owner 真源后自然不再使用
-GATE_CALL_NAMES = frozenset({"is_gateway_owner", "require_owner", "_require_owner"})
+# Sprint 19-4: 新增 require_owner_kw (kwargs 变体) 到白名单, 因 registry_commands
+# 走 legacy kwargs 路径不构造 CommandContext, 统一调 require_owner_kw 真源.
+GATE_CALL_NAMES = frozenset(
+    {"is_gateway_owner", "require_owner", "require_owner_kw", "_require_owner"}
+)
 
 
 def _function_calls_name(func: ast.FunctionDef, name: str) -> bool:

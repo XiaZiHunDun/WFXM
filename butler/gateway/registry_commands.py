@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+from butler.gateway.command_registry import require_owner_kw
 
 
 def handle_confirm_install_command(
@@ -15,7 +15,7 @@ def handle_confirm_install_command(
     session_key: str,
 ) -> str:
     """Handle /确认安装 <identifier> (Owner)."""
-    gate = _require_owner(platform, external_id, session_key)
+    gate = require_owner_kw(platform, external_id, session_key)
     if gate:
         return gate
     ident = (arg or "").strip()
@@ -76,12 +76,6 @@ def handle_registry_command(
     return None
 
 
-def _require_owner(platform: str, external_id: str | None, session_key: str) -> str | None:
-    if not is_gateway_owner(platform=platform, external_id=external_id, session_key=session_key):
-        return owner_required_message()
-    return None
-
-
 def _tenant_id() -> str:
     try:
         from butler.config import load_settings
@@ -100,7 +94,7 @@ def _handle_skills(
 ) -> str:
     # Sprint 11 SEC-11-4: read-only 子命令（搜索/列表/查看）也守门，
     # 避免第三方恶意 Skill 描述喂回 LLM 形成 prompt injection
-    gate = _require_owner(platform, external_id, session_key)
+    gate = require_owner_kw(platform, external_id, session_key)
     if gate:
         return gate
     from butler.registry.skill_service import SkillRegistryService
@@ -142,7 +136,7 @@ def _handle_skills(
     if sub in ("确认", "confirm"):
         if not rest:
             return "用法: /技能 确认 <identifier>"
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         return _confirm_skill_install(
@@ -173,7 +167,7 @@ def _handle_skills(
         return f"已取消待安装: {pending.identifier}"
 
     if sub in ("强制安装", "force-install"):
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         if not rest:
@@ -185,7 +179,7 @@ def _handle_skills(
         return f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）"
 
     if sub in ("安装", "install"):
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         if not rest:
@@ -224,7 +218,7 @@ def _handle_skills(
         return f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）{warn}"
 
     if sub in ("升级", "upgrade"):
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         if not rest:
@@ -239,7 +233,7 @@ def _handle_skills(
         return f"已升级技能 {rec.name}（hash={rec.content_hash}）"
 
     if sub in ("卸载", "uninstall"):
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         if not rest:
@@ -298,7 +292,7 @@ def _handle_mcp(
         return svc.format_inspect(entry)
 
     if sub in ("安装", "add"):
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         if not rest:
@@ -313,7 +307,7 @@ def _handle_mcp(
         return msg if ok else f"失败: {msg}"
 
     if sub in ("移除", "remove", "卸载"):
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         if not rest:
@@ -323,7 +317,7 @@ def _handle_mcp(
         return msg if ok else f"失败: {msg}"
 
     if sub in ("测试", "test"):
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         if not rest:
@@ -343,7 +337,7 @@ def _handle_mcp(
         return f"探测 {rest}: ok={probe.get('ok')} tools={probe.get('tool_count')} {probe.get('error', '')}"
 
     if sub in ("重载", "reload"):
-        gate = _require_owner(platform, external_id, session_key)
+        gate = require_owner_kw(platform, external_id, session_key)
         if gate:
             return gate
         ok, msg = reload_mcp_connections()
