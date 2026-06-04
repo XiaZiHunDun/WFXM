@@ -64,6 +64,7 @@ all = [
 
 [project.scripts]
 butler = "butler.main:main"
+scan-magicmock-spec = "butler.tests_policies.scan_magicmock_spec:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

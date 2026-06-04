@@ -33,7 +33,7 @@ class TestInboundMessage:
         def _fake_create_task(coro, *args, **kwargs):
             if asyncio.iscoroutine(coro):
                 coro.close()
-            return MagicMock()
+            return MagicMock(spec=asyncio.Future)
 
         monkeypatch.setattr(asyncio, "create_task", _fake_create_task)
         monkeypatch.setenv("BUTLER_GATEWAY_TYPING_ENABLED", "0")
@@ -82,7 +82,7 @@ class TestInboundMessage:
         def _fake_create_task(coro, *args, **kwargs):
             if asyncio.iscoroutine(coro):
                 coro.close()
-            return MagicMock()
+            return MagicMock(spec=asyncio.Future)
 
         monkeypatch.setattr(asyncio, "create_task", _fake_create_task)
         monkeypatch.setenv("BUTLER_GATEWAY_TYPING_ENABLED", "0")
@@ -145,7 +145,7 @@ class TestInboundMessage:
         def _fake_create_task(coro, *args, **kwargs):
             del args, kwargs
             pending.append(coro)
-            return MagicMock()
+            return MagicMock(spec=asyncio.Future)
 
         monkeypatch.setattr(asyncio, "create_task", _fake_create_task)
         monkeypatch.setenv("BUTLER_GATEWAY_PROGRESS_ACK_ENABLED", "0")
