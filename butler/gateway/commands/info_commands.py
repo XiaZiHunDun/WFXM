@@ -114,11 +114,20 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
     if gate:
         return gate
     from butler.report import get_last_report, format_detail
-    from butler.report.format import parse_detail_section
+    from butler.report.format import (
+        format_child_session_detail,
+        parse_child_arg,
+        parse_detail_section,
+    )
+
+    # Sprint 28 P1-3.4: --child <child_sk> 优先于 report 路径.
+    remaining, child_sk = parse_child_arg(ctx.arg)
+    if child_sk:
+        return format_child_session_detail(child_sk)
 
     report = get_last_report(ctx.session_key)
     if report:
-        return format_detail(report, section=parse_detail_section(ctx.arg))
+        return format_detail(report, section=parse_detail_section(remaining))
     return "暂无可展示的详细报告。"
 
 
