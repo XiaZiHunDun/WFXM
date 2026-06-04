@@ -123,7 +123,7 @@ class TestDispatch:
     def test_dispatch_returns_handled_true_for_each(self, ensure_registered):
         """每个迁移命令的 dispatch() 应返 (True, str|None), 而非 (False, None)。"""
         for name in ("/记忆图谱", "/记忆待审", "/拒绝记忆", "/批准记忆"):
-            orch = MagicMock()
+            orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
             ctx = CommandContext(
                 cmd=name,
                 arg="",
@@ -131,7 +131,7 @@ class TestDispatch:
                 platform="t",
                 external_id="s",
                 orchestrator=orch,
-                session_registry=MagicMock(),
+                session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
             )
             with patch.object(mem_cmds, "_cmd_memory_approve", return_value=None) as approve_mock, \
                  patch.object(mem_cmds, "_cmd_memory_reject", return_value=None), \
@@ -148,7 +148,7 @@ class TestDelegation:
     def test_memory_graph_delegates_to_format_triplet_graph(self, ensure_registered):
         from butler.gateway.memory_commands import format_memory_triplet_graph
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         ctx = CommandContext(
             cmd="/记忆图谱",
             arg="",
@@ -156,7 +156,7 @@ class TestDelegation:
             platform="wechat",
             external_id="alice",
             orchestrator=orch,
-            session_registry=MagicMock(),
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.memory_commands.format_memory_triplet_graph",
@@ -169,7 +169,7 @@ class TestDelegation:
     def test_pending_list_delegates_to_format_pending_list(self, ensure_registered):
         from butler.gateway.memory_commands import format_pending_memory_list
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         ctx = CommandContext(
             cmd="/记忆待审",
             arg="",
@@ -177,7 +177,7 @@ class TestDelegation:
             platform="wechat",
             external_id="alice",
             orchestrator=orch,
-            session_registry=MagicMock(),
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.memory_commands.format_pending_memory_list",
@@ -191,7 +191,7 @@ class TestDelegation:
         """/拒绝记忆 handler 委派到 handle_memory_pending_command, 强制 cmd='/拒绝记忆'。"""
         from butler.gateway.memory_commands import handle_memory_pending_command
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         ctx = CommandContext(
             cmd="/reject-memory",  # alias, 不应是 canonical
             arg="1",
@@ -199,7 +199,7 @@ class TestDelegation:
             platform="wechat",
             external_id="alice",
             orchestrator=orch,
-            session_registry=MagicMock(),
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.memory_commands.handle_memory_pending_command",
@@ -221,7 +221,7 @@ class TestDelegation:
         """/批准记忆 handler 委派到 handle_memory_pending_command, 强制 cmd='/批准记忆'。"""
         from butler.gateway.memory_commands import handle_memory_pending_command
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         ctx = CommandContext(
             cmd="/approve-memory",  # alias
             arg="2",
@@ -229,7 +229,7 @@ class TestDelegation:
             platform="wechat",
             external_id="owner1",
             orchestrator=orch,
-            session_registry=MagicMock(),
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch.object(mem_cmds, "is_gateway_owner", return_value=True), patch(
             "butler.gateway.memory_commands.handle_memory_pending_command",
@@ -258,8 +258,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="attacker",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=False
@@ -275,8 +275,8 @@ class TestOwnerGate:
             session_key="t:owner",
             platform="wechat",
             external_id="u1",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch.object(mem_cmds, "is_gateway_owner", return_value=True) as gate, patch(
             "butler.gateway.memory_commands.handle_memory_pending_command",
@@ -295,8 +295,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="non_owner",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=False
@@ -317,8 +317,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="non_owner",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=False

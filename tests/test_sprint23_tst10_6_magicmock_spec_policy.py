@@ -280,7 +280,9 @@ class TestScanCli:
 #        facade (ProjectManager / SessionRegistry / orch) 加 noqa)
 # → 435 (test_gateway_session_registry: 22 处 SessionRegistry / AgentLoop
 #        facade (含 factory lambda / 字典字面量 / 列表 comp) 加 noqa)
-_BASELINE_VIOLATIONS = 435
+# → 417 (test_sprint16_tst10_5_memory_commands_migration: 18 处 memory
+#        command facade (orch / session_registry) 加 noqa)
+_BASELINE_VIOLATIONS = 417
 
 
 @pytest.mark.unit
