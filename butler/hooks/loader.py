@@ -142,6 +142,14 @@ def match_hook_query(matcher: str, query: str) -> bool:
 
         try:
             return bool(re.search(pat[3:], query, re.DOTALL))
-        except re.error:
+        except re.error as exc:
+            # Sprint 22-5 TEST-21-C-1: invalid regex fail-loud. Mirror
+            # `butler/permissions/rules.py:280` (security_blacklist regex
+            # warning). Without the log, a typo in hooks.yaml matcher
+            # silently makes the hook never fire — user has no idea.
+            logger.warning(
+                "hook matcher regex invalid (matcher=%r): %s",
+                matcher, exc,
+            )
             return False
     return pat in query
