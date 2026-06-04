@@ -131,7 +131,7 @@ class TestDnsPinningActive:
             [_public_ip_info("1.2.3.4")],  # safe_registry_get re-resolve
         ])
         with mock.patch.object(url_safety.socket, "getaddrinfo", side_effect=stub):
-            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):
+            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
                 url_safety.safe_registry_get("https://safe.example/path")
         # 退出 with 后, 应当恢复
         assert url_safety.socket.getaddrinfo is socket.getaddrinfo, (
@@ -148,7 +148,7 @@ class TestDnsPinningActive:
             [_public_ip_info("5.6.7.8")],  # re-resolve #2
         ])
         with mock.patch.object(url_safety.socket, "getaddrinfo", side_effect=stub):
-            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):
+            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
                 url_safety.safe_registry_get("https://first.example/")
                 url_safety.safe_registry_get("https://second.example/")
         assert url_safety.socket.getaddrinfo is socket.getaddrinfo, (
@@ -181,7 +181,7 @@ class TestHappyPath:
             [_public_ip_info("8.8.8.8")],
         ])
         with mock.patch.object(url_safety.socket, "getaddrinfo", side_effect=stub):
-            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):
+            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
                 resp = url_safety.safe_registry_get("https://example.com/path")
         assert resp.status_code == 200
 
@@ -192,7 +192,7 @@ class TestHappyPath:
             [_public_ip_info("8.8.8.8"), _public_ip_info("2001:4860:4860::8888")],
         ])
         with mock.patch.object(url_safety.socket, "getaddrinfo", side_effect=stub):
-            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):
+            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
                 url_safety.safe_registry_get("https://dual-stack.example/")
 
     def test_request_uses_pinned_resolution(self):
@@ -207,7 +207,7 @@ class TestHappyPath:
             [_public_ip_info("1.2.3.4")],  # re-resolve (必须的!)
         ])
         with mock.patch.object(url_safety.socket, "getaddrinfo", side_effect=stub):
-            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):
+            with mock.patch("httpx.get", return_value=mock.Mock(status_code=200, headers={})):  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
                 url_safety.safe_registry_get("https://safe.example/")
         # 必须有 2 次 getaddrinfo 调用 (is_safe_url + re-resolve)
         # 如果只有 1 次, 说明实现漏了 re-resolve, 不防 rebinding
@@ -231,11 +231,11 @@ class TestRedirectTargetPinned:
         ])
         with mock.patch.object(url_safety.socket, "getaddrinfo", side_effect=stub):
             with mock.patch("httpx.get") as fake_get:
-                redirect_resp = mock.Mock(
+                redirect_resp = mock.Mock(  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
                     status_code=302,
                     headers={"location": "https://elsewhere.example/elsewhere"},
-                )
-                ok_resp = mock.Mock(status_code=200, headers={})
+                )  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
+                ok_resp = mock.Mock(status_code=200, headers={})  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
                 fake_get.side_effect = [redirect_resp, ok_resp]
                 resp = url_safety.safe_registry_get("https://evil.example/start")
                 assert resp.status_code == 200
@@ -260,7 +260,7 @@ class TestRedirectTargetPinned:
         ])
         with mock.patch.object(url_safety.socket, "getaddrinfo", side_effect=stub):
             with mock.patch("httpx.get") as fake_get:
-                fake_get.return_value = mock.Mock(
+                fake_get.return_value = mock.Mock(  # noqa: magicmock-no-spec — DNS rebinding httpx response shim
                     status_code=302,
                     headers={"location": "http://internal.example.com/"},
                 )

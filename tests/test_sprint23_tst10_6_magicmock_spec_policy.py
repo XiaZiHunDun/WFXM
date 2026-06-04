@@ -314,7 +314,9 @@ class TestScanCli:
 #        (orch / loop / model credentials) 加 noqa)
 # → 232 (test_transport_chat: 8 处 LLM SDK response chunk shim
 #        (function/tool/message/usage/choice/response) 加 noqa)
-_BASELINE_VIOLATIONS = 232
+# → 224 (test_sprint22_sec_a3_url_safety_dns_rebinding: 8 处 DNS rebinding
+#        httpx response shim (mock.Mock 单行/多行) 加 noqa)
+_BASELINE_VIOLATIONS = 224
 
 
 @pytest.mark.unit
