@@ -55,7 +55,11 @@ def quarantine_bundle(bundle: SkillBundle, *, tenant_id: str = "") -> Path:
             raise ValueError(f"Skill bundle exceeds {_max_bytes()} bytes")
         target = dest / safe
         resolved = target.resolve()
-        if not str(resolved).startswith(str(dest.resolve())):
+        # Sprint 20-3 SEC-20-A-4: 用 is_relative_to 替换裸 startswith.
+        # str(resolved).startswith(str(dest.resolve())) 漏判 macOS /tmp symlink
+        # 跨平台 + Windows 大小写不敏感 + dest 名是 sibling 路径前缀等情况.
+        # is_relative_to (3.9+) 做 path component 级比较, 行为统一.
+        if not resolved.is_relative_to(dest.resolve()):
             raise ValueError(f"Unsafe path escapes quarantine: {rel}")
         target.parent.mkdir(parents=True, exist_ok=True)
         if isinstance(content, bytes):
