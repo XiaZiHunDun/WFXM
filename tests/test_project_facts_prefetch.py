@@ -20,8 +20,8 @@ def _orch_with_project(tmp_path: Path) -> MagicMock:
         "name: demo\nworkspace: .\n",
         encoding="utf-8",
     )
-    orch = MagicMock()
-    proj = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    proj = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     proj.name = "demo"
     proj.workspace = tmp_path
     orch.project_manager.get_current.return_value = proj
@@ -78,7 +78,7 @@ def test_butler_recall_project_scope(tmp_path, monkeypatch, tmp_butler_home):
     from butler.memory_plugin import ButlerMemoryService
 
     svc = ButlerMemoryService()
-    svc._butler_global = MagicMock()
+    svc._butler_global = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     svc._butler_global.semantic = None
     svc._project_memory = pm
     svc._project_root = tmp_path

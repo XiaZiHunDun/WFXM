@@ -61,8 +61,8 @@ async def test_deliver_completion_push_records_sent(monkeypatch):
     monkeypatch.setattr(notify, "wait_wechat_push_cooldown", lambda: None)
     monkeypatch.setattr(notify, "mark_wechat_push_sent", lambda: None)
 
-    adapter = MagicMock()
-    adapter.send = AsyncMock(return_value=MagicMock(success=True, error=None))
+    adapter = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    adapter.send = AsyncMock(return_value=MagicMock(success=True, error=None))  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
     ok = await completion_notify.deliver_completion_push(
         adapter,

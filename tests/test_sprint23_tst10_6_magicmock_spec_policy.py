@@ -351,7 +351,18 @@ class TestScanCli:
 #     test_orchestrator (4 处)
 #     test_health_report (4 处)
 #     test_e2e (4 处)
-_BASELINE_VIOLATIONS = 87
+# → 57 (10 个 3 处文件批量清理, 总 -29 处:
+#     test_sprint16_tst10_5_prequeue_commands_migration (3)
+#     test_project_facts_prefetch (3)
+#     test_outbound_diagnostics (2)
+#     test_orchestration_improvements (3)
+#     test_memory_m3_m4_smoke (3)
+#     test_memory_consistency (3)
+#     test_hooks_runner (3)
+#     test_execution_context (3)
+#     test_dev_ops_p2 (3)
+#     test_delegate_failure (3)
+_BASELINE_VIOLATIONS = 57
 
 
 @pytest.mark.unit

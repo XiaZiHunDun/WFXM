@@ -112,7 +112,7 @@ class TestPrequeueInterruptFormat:
 
     def _make_handler(self) -> MagicMock:
         """Build a mock message handler instance with _interrupt_session_loop + _sessions."""
-        handler = MagicMock()
+        handler = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         handler._sessions = {}
         return handler
 
@@ -253,8 +253,8 @@ class TestOverallMigration:
                 session_key="wx:u1:",
                 platform="wechat",
                 external_id="u1",
-                orchestrator=MagicMock(),
-                session_registry=MagicMock(),
+                orchestrator=MagicMock(),  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+                session_registry=MagicMock(),  # noqa: magicmock-no-spec — complex facade, spec= 收益低
             )
             handled, result = dispatch(ctx)
             assert handled is False, f"{name} 仍被 dispatch 视为 handled"

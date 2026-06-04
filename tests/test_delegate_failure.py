@@ -14,9 +14,9 @@ def test_delegate_failure_completes_task_and_caches_report(tmp_path, monkeypatch
 
     reload_butler_settings()
 
-    orch = MagicMock()
-    orch.project_manager.get_current.return_value = MagicMock(name="demo")
-    agent = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    orch.project_manager.get_current.return_value = MagicMock(name="demo")  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    agent = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     agent.run.side_effect = RuntimeError("boom")
     orch.create_project_agent_loop.return_value = agent
 

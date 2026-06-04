@@ -193,14 +193,14 @@ class TestSemanticRouting:
 
 class TestMcpSelfService:
     def test_catalog_search(self, monkeypatch):
-        mock_entry = MagicMock()
+        mock_entry = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_entry.id = "github"
         mock_entry.title = "GitHub"
         mock_entry.description = "GitHub integration"
         mock_entry.transport = "stdio"
         mock_entry.trust = "trusted"
 
-        mock_svc = MagicMock()
+        mock_svc = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_svc.search.return_value = [mock_entry]
         mock_svc.list_installed_ids.return_value = []
 
@@ -213,7 +213,7 @@ class TestMcpSelfService:
             assert result["results"][0]["id"] == "github"
 
     def test_list_installed(self, monkeypatch):
-        mock_svc = MagicMock()
+        mock_svc = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_svc.list_installed_ids.return_value = ["github", "slack"]
         mock_svc.load_lock_summary.return_value = {"servers": {}}
 

@@ -38,11 +38,11 @@ class TestM3RejectPendingGateway:
         index_pending_memory_bullet(bm.semantic, "灵文1号", "我们决定下周用 Redis 做缓存试点")
         pend_sid = pending_source_id("灵文1号", "我们决定下周用 Redis 做缓存试点")
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = bm
         orch._project_memory = pm
         orch.project_manager.get_current.return_value = proj
-        orch._reload_project_memory = MagicMock()
+        orch._reload_project_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         listed = handle_memory_pending_command(orch, "/记忆待审", "")
         assert "1." in listed
@@ -92,7 +92,7 @@ class TestM4PrefetchCacheHit:
             bm.semantic, "灵文1号", "Notes", "试点统一测试日 2026-05-22"
         )
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = bm
         orch._project_memory = pm
         orch.project_manager.resolve_active_project_name.return_value = "灵文1号"

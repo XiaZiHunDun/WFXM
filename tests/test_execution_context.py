@@ -11,8 +11,8 @@ from butler.execution_context import (
 
 
 def test_execution_context_restores_previous_values():
-    outer = MagicMock(name="outer")
-    inner = MagicMock(name="inner")
+    outer = MagicMock(name="outer")  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    inner = MagicMock(name="inner")  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
     assert get_current_orchestrator() is None
     assert get_current_session_key() == ""
@@ -45,6 +45,6 @@ def test_get_audit_session_key_uses_fallback_when_unbound():
 
 
 def test_get_audit_session_key_allows_empty_when_orchestrator_bound():
-    orch = MagicMock(name="orch")
+    orch = MagicMock(name="orch")  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     with use_execution_context(orch):
         assert get_audit_session_key() == ""

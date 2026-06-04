@@ -135,10 +135,10 @@ jobs:
             workspace=proj_dir,
             tools=[],
         )
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.project_manager.get_current.return_value = proj
 
-        pm_mock = MagicMock()
+        pm_mock = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         pm_mock.get_project.return_value = proj
         with (
             patch(
@@ -191,7 +191,7 @@ jobs:
         proj = pm.get_project("P1")
         assert proj is not None
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.project_manager.get_current.return_value = proj
 
         with patch(

@@ -25,7 +25,7 @@ class TestRememberPendingAlignment:
         )
         proj = Project.from_yaml(proj_dir / "project.yaml")
         bm = ButlerMemory(tmp_path / "butler_home", tenant_id="default")
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.memory_provider = None
         orch.butler_memory = bm
         orch._project_memory = ProjectMemory(proj_dir)
@@ -57,7 +57,7 @@ class TestRememberPendingAlignment:
         )
         proj = Project.from_yaml(proj_dir / "project.yaml")
         bm = ButlerMemory(tmp_path / "butler_home", tenant_id="default")
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.memory_provider = None
         orch.butler_memory = bm
         orch._project_memory = ProjectMemory(proj_dir)
@@ -88,7 +88,7 @@ class TestRecallFiltersConversation:
         bm.experience.add("", "conversation", "Q: hi → A: hello", tags="session:test")
         bm.experience.add("", "delegation_note", "长期：一致性检查用 pytest", tags="")
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = bm
         orch._project_memory = None
         orch.memory_provider = None

@@ -327,8 +327,8 @@ def test_health_report_lists_hook_telemetry(tmp_path, monkeypatch):
         exit_code=0,
         preview="ok",
     )
-    orch = MagicMock()
-    orch._settings = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    orch._settings = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     orch.project_manager.get_current.return_value = None
     with (
         patch(
@@ -386,7 +386,7 @@ def test_agent_loop_emits_stop_hook(tmp_path, monkeypatch):
     from butler.core.loop_types import LoopConfig
     from butler.transport.types import NormalizedResponse
 
-    client = MagicMock()
+    client = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     client.provider_name = "test"
     client.model = "test"
     resp = NormalizedResponse(content="hi", tool_calls=[])
