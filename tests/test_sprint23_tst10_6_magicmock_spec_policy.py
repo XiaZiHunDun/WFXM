@@ -269,9 +269,10 @@ class TestScanCli:
 # → 611 (test_wechat_ilink_inbound: 3 处 _fake_create_task 改 spec=asyncio.Future)
 # → 601 (test_workflow_runner: 10 处 WorkflowRunner(orchestrator=MagicMock()) 加 noqa)
 # → 584 (test_sprint16_tst11_9_mcp_client_server: 17 处 MCP 加 noqa)
-# → 558 (test_sprint16_tst11_10_wechat_ssrf: 26 处 httpx Response/AsyncClient
-#        /Session/raise_for_status 加 noqa)
-_BASELINE_VIOLATIONS = 558
+# → 558 (test_sprint16_tst11_10_wechat_ssrf: 26 处 httpx var 赋值 加 noqa)
+# → 538 (test_sprint16_tst11_10_wechat_ssrf: 20 处 httpx attr 赋值
+#        obj.attr=MagicMock/AsyncMock 补 noqa — Sprint 23-4 漏了 attr 形式)
+_BASELINE_VIOLATIONS = 538
 
 
 @pytest.mark.unit

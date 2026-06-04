@@ -385,12 +385,12 @@ class TestDownloadRemoteMedia:
         with patch("tools.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
-            fake_resp.read = AsyncMock(return_value=b"FAKE-IMAGE-DATA")
+            fake_resp.read = AsyncMock(return_value=b"FAKE-IMAGE-DATA")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
-            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
-            fake_session.__aexit__ = AsyncMock(return_value=None)
-            adapter._send_session.get = MagicMock(return_value=fake_session)
+            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_session.__aexit__ = AsyncMock(return_value=None)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            adapter._send_session.get = MagicMock(return_value=fake_session)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             path = await adapter._download_remote_media("https://example.com/img.png")
 
@@ -409,12 +409,12 @@ class TestDownloadRemoteMedia:
         with patch("tools.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
-            fake_resp.read = AsyncMock(return_value=b"X")
+            fake_resp.read = AsyncMock(return_value=b"X")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
-            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
-            fake_session.__aexit__ = AsyncMock(return_value=None)
-            adapter._send_session.get = MagicMock(return_value=fake_session)
+            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_session.__aexit__ = AsyncMock(return_value=None)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            adapter._send_session.get = MagicMock(return_value=fake_session)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             path = await adapter._download_remote_media("https://example.com/api/endpoint")
 
@@ -430,12 +430,12 @@ class TestDownloadRemoteMedia:
         with patch("tools.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
-            fake_resp.read = AsyncMock(return_value=b"X")
+            fake_resp.read = AsyncMock(return_value=b"X")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
-            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
-            fake_session.__aexit__ = AsyncMock(return_value=None)
-            adapter._send_session.get = MagicMock(return_value=fake_session)
+            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_session.__aexit__ = AsyncMock(return_value=None)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            adapter._send_session.get = MagicMock(return_value=fake_session)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             path = await adapter._download_remote_media("https://example.com/img.jpg?v=123")
 
@@ -451,12 +451,12 @@ class TestDownloadRemoteMedia:
         with patch("tools.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
-            fake_resp.read = AsyncMock(return_value=b"X")
+            fake_resp.read = AsyncMock(return_value=b"X")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
-            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
-            fake_session.__aexit__ = AsyncMock(return_value=None)
-            adapter._send_session.get = MagicMock(return_value=fake_session)
+            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_session.__aexit__ = AsyncMock(return_value=None)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            adapter._send_session.get = MagicMock(return_value=fake_session)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             with patch("butler.gateway.platforms.wechat_ilink.asyncio.wait_for") as mock_wait:
                 mock_wait.return_value = b"X"
@@ -474,12 +474,12 @@ class TestDownloadRemoteMedia:
         with patch("tools.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
-            fake_resp.read = AsyncMock(return_value=b"X")
+            fake_resp.read = AsyncMock(return_value=b"X")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
-            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
-            fake_session.__aexit__ = AsyncMock(return_value=None)
-            adapter._send_session.get = MagicMock(return_value=fake_session)
+            fake_session.__aenter__ = AsyncMock(return_value=fake_resp)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_session.__aexit__ = AsyncMock(return_value=None)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            adapter._send_session.get = MagicMock(return_value=fake_session)  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
 
             url = "https://cdn.example.com/image.jpeg"
             path = await adapter._download_remote_media(url)
