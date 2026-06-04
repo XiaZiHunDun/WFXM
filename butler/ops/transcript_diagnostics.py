@@ -23,13 +23,16 @@ def format_transcript_diagnostic_lines(session_key: str) -> list[str]:
         return ["Transcript: 暂无记录"]
 
     compact_scheduled = sum(1 for r in rows if r.get("type") == "compact_scheduled")
+    compact_started = sum(1 for r in rows if r.get("type") == "compact_started")
     compact_done = sum(1 for r in rows if r.get("type") == "compact_done")
+    compact_failed = sum(1 for r in rows if r.get("type") == "compact_failed")
     queue_ops = sum(1 for r in rows if r.get("type") in ("queue_op", "queue_drop"))
     last = rows[-1] if rows else {}
     last_type = str(last.get("type") or "-")
 
     lines = [
         f"Transcript: 近 {len(rows)} 条 · 压缩 {compact_done}/{compact_scheduled} 完成"
+        f" · started={compact_started} · failed={compact_failed}"
         f" · 队列事件 {queue_ops}",
         f"Transcript 末条: {last_type}",
     ]
@@ -58,7 +61,13 @@ def _after_commit_pending() -> int:
 
 
 def summarize_compact_events(rows: list[dict[str, Any]]) -> dict[str, int]:
-    out = {"compact_scheduled": 0, "compact_done": 0, "compact_boundary": 0}
+    out = {
+        "compact_scheduled": 0,
+        "compact_started": 0,
+        "compact_done": 0,
+        "compact_failed": 0,
+        "compact_boundary": 0,
+    }
     for row in rows:
         t = str(row.get("type") or "")
         if t in out:

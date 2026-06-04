@@ -282,6 +282,40 @@ def record_compact_done(
     )
 
 
+def record_compact_started(
+    session_key: str,
+    *,
+    source: str = "context",
+    trigger: str = "threshold",
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "compact_started",
+        {
+            "source": str(source or "context")[:32],
+            "trigger": str(trigger or "threshold")[:32],
+        },
+    )
+
+
+def record_compact_failed(
+    session_key: str,
+    *,
+    source: str = "context",
+    reason: str = "unknown",
+    iteration: int = 0,
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "compact_failed",
+        {
+            "source": str(source or "context")[:32],
+            "reason": str(reason or "unknown")[:64],
+            "iteration": max(0, int(iteration)),
+        },
+    )
+
+
 def record_todo_updated(session_key: str, *, count: int = 0) -> None:
     append_transcript_entry(
         session_key,
