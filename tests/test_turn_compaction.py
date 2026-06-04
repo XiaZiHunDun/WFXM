@@ -177,3 +177,26 @@ def test_diagnostics_strategy_turns_2_split():
     assert diag["compaction_split_turn_applied"] is True
     assert diag["compaction_tail_turns_kept"] == 1
     assert diag["compaction_tail_start_index"] == start
+
+
+@pytest.mark.unit
+def test_diagnostics_no_op_when_few_messages():
+    """4 turn (≤ head + min_tail=2) → no_op, tail_start=0."""
+    rest: list[dict] = []
+    for i in range(4):
+        rest.append({"role": "user", "content": f"u-{i}"})
+        rest.append({"role": "assistant", "content": f"a-{i}"})
+    diag: dict = {}
+    # Note: select_tail_start_index doesn't know about head+min_tail, but with 4 turns
+    # and tight budget the algorithm should produce a tail_start > 0; for "no_op" we
+    # use the full-function path via split_head_tail_turns.
+    system, middle, head_tail = split_head_tail_turns(
+        rest,
+        max_context_tokens=128_000,
+        head_count=3,
+        min_tail_messages=4,
+        diagnostics=diag,
+    )
+    assert middle == []
+    assert diag["compaction_strategy"] == "no_op"
+    assert diag["compaction_tail_start_index"] == 0
