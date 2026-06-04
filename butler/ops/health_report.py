@@ -54,7 +54,8 @@ def collect_mem_stats_for_health(
 def collect_approval_stats_for_health(session_key: str) -> dict[str, Any]:
     """Sprint 24 P1-3.2: /诊断 集成 — 读 session approvals.json 统计.
 
-    返回 dict 形如: {always_count, once_active_count, has_pending}.
+    返回 dict 形如: {always_count, once_active_count, has_pending,
+    external_directory_always_count, external_directory_once_count}.
     与 collect_mem_stats_for_health 平行, 在 _shared_diagnostic_lines 中调用.
     """
     try:
@@ -63,7 +64,13 @@ def collect_approval_stats_for_health(session_key: str) -> dict[str, Any]:
         return summarize_approvals(session_key)
     except Exception as exc:
         logger.debug("collect approval stats skipped: %s", exc)
-        return {"always_count": 0, "once_active_count": 0, "has_pending": False}
+        return {
+            "always_count": 0,
+            "once_active_count": 0,
+            "has_pending": False,
+            "external_directory_always_count": 0,
+            "external_directory_once_count": 0,
+        }
 
 
 def _shared_diagnostic_lines(
@@ -89,6 +96,16 @@ def _shared_diagnostic_lines(
         )
         if approval_stats["has_pending"]:
             lines.append("  ⏳ 有 1 项待批准")
+        # Sprint 27 P1-3.3: external_directory 决策透传. 仅当有活动时输出,
+        # 避免无 external_directory 活动时的无谓噪声行.
+        ext_always = int(approval_stats.get("external_directory_always_count") or 0)
+        ext_once = int(approval_stats.get("external_directory_once_count") or 0)
+        if ext_always or ext_once or approval_stats.get("has_pending"):
+            lines.append("External-Dir:")
+            lines.append(
+                f"  always={ext_always} · once={ext_once}"
+                f" · pending={'Y' if approval_stats.get('has_pending') else 'N'}"
+            )
     except Exception as exc:
         logger.debug("approval diagnostic lines skipped: %s", exc)
     proj = inp.orchestrator.project_manager.get_current(session_key=inp.session_key)

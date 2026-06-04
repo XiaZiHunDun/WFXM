@@ -303,17 +303,37 @@ def clear_always(session_key: str) -> str:
 
 
 def summarize_approvals(session_key: str) -> dict[str, Any]:
-    """Sprint 24 P1-3.2: 给 /诊断用的 always/once/pending 统计."""
+    """Sprint 24 P1-3.2: 给 /诊断用的 always/once/pending 统计.
+
+    Sprint 27 P1-3.3: 加 external_directory_always_count / external_directory_once_count
+    字段, 给 /诊断 透传 external_directory 决策用. 旧调用方不受影响 (新字段默认 0).
+    """
     sk = str(session_key or "").strip()
     if not sk:
-        return {"always_count": 0, "once_active_count": 0, "has_pending": False}
+        return {
+            "always_count": 0,
+            "once_active_count": 0,
+            "has_pending": False,
+            "external_directory_always_count": 0,
+            "external_directory_once_count": 0,
+        }
     data = _load(sk)
-    always_count = len([r for r in (data.get("always") or []) if isinstance(r, dict)])
-    once_active_count = len(_purge_once(data.get("once") or []))
+    always_list = [r for r in (data.get("always") or []) if isinstance(r, dict)]
+    once_active = _purge_once(data.get("once") or [])
+    always_count = len(always_list)
+    once_active_count = len(once_active)
+    ext_always = sum(
+        1 for r in always_list if str(r.get("permission") or "") == "external_directory"
+    )
+    ext_once = sum(
+        1 for r in once_active if str(r.get("permission") or "") == "external_directory"
+    )
     pending = data.get("pending")
     has_pending = isinstance(pending, dict) and bool(pending.get("fingerprint"))
     return {
         "always_count": always_count,
         "once_active_count": once_active_count,
         "has_pending": has_pending,
+        "external_directory_always_count": ext_always,
+        "external_directory_once_count": ext_once,
     }

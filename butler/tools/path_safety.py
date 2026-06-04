@@ -106,6 +106,15 @@ def current_workspace_root() -> Path | None:
 def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) -> PathSafetyResult:
     """Resolve and validate a tool path against workspace and sensitive path rules."""
     raw = str(path or ".")
+    # Sprint 27 P1-3.3: Windows 绝对路径 (C:/, C:\\, \\\\server\\...) 在 Linux 上
+    # 不被识别为绝对, resolve 后会变 relative 误判为 in-workspace.
+    # 显式 fail-closed 为 outside workspace.
+    if _is_windows_absolute_path(raw):
+        return PathSafetyResult(
+            False,
+            raw,
+            f"Access denied: Windows path is outside workspace ({raw})",
+        )
     root = tool_safe_root()
     resolved = _resolve_tool_path(raw, root)
 
@@ -347,6 +356,22 @@ def _is_relative_to(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+# Sprint 27 P1-3.3: Windows 绝对路径检测.
+#   形态 1: <drive>:[\\/]<rest>  (C:/..., C:\..., c:/..., Z:\foo\bar)
+#   形态 2: UNC \\\\?\\<...> 或 \\\\<server>\\<share>  (\\\\server\\share\\file)
+#   形态 3: 盘符相对形式 C:foo (无分隔符, 罕见, 也按 Windows 绝对处理)
+_WINDOWS_DRIVE_PATH = re.compile(r"^[A-Za-z]:[\\/]|^[A-Za-z]:[^\\/]")
+_WINDOWS_UNC_PATH = re.compile(r"^\\\\[?]?[A-Za-z0-9_.$-]+[\\/]")
+
+
+def _is_windows_absolute_path(path_str: str) -> bool:
+    """Return True if path_str looks like a Windows absolute path (drive or UNC)."""
+    s = str(path_str or "").strip()
+    if not s:
+        return False
+    return bool(_WINDOWS_DRIVE_PATH.match(s) or _WINDOWS_UNC_PATH.match(s))
 
 
 def _sensitive_path_error(path: Path, *, for_write: bool) -> str:
