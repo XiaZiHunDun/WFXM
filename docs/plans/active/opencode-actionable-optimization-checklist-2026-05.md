@@ -49,12 +49,14 @@
   - `butler/core/context_pipeline.py`
   - `butler/core/turn_token_budget.py`
 - [ ] **验收标准**：
-  - 长工具链会话中，最近 2 个 user turn 在预算内优先保留
-  - 当最新 turn 过大时，允许从 turn 中部开始保留后半段，而不是整体丢弃
-  - `/诊断` 能看见本轮压缩采用了何种尾选择策略
+  - [x] 长工具链会话中，最近 2 个 user turn 在预算内优先保留
+  - [x] 当最新 turn 过大时，允许从 turn 中部开始保留后半段，而不是整体丢弃
+  - [x] `/诊断` 能看见本轮压缩采用了何种尾选择策略
 - [ ] **风险提示**：
   - 需要小心和现有 `post_compact_cleanup` 锚点逻辑配合
   - 不能把 `delegate_task` / `patch` 这类高价值消息误裁掉
+
+> **Sprint 24 (2026-06-04) 完成**: 加 `_strategy_label` helper + `select_tail_start_index` diagnostics 注入, 6 字段 always-on (`compaction_strategy` / `tail_turns_kept` / `split_turn_applied` / `preserved_recent_budget` / `tail_token_count` / `tail_start_index`); 6 新测试覆盖 strategy 标签生成 / 透传 / fallback / no_op / end-to-end. 3946 passed, 0 新增失败 (pre-existing 99 失败未变).
 
 ### 3.2 会话批准缓存（一次 / 始终）
 
