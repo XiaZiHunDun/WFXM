@@ -13,7 +13,7 @@ def test_registry_reuses_loop_and_tracks_activity():
 
     def factory(session_key: str):
         created.append(session_key)
-        return MagicMock(name=f"loop-{session_key}")
+        return MagicMock(name=f"loop-{session_key}")  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
 
     registry = GatewaySessionRegistry(factory, now=lambda: now["value"])
 
@@ -34,7 +34,7 @@ def test_reset_clears_tool_audit_for_removed_session():
     reset_tool_audit_events()
     orch = SimpleNamespace()
     registry = GatewaySessionRegistry(
-        lambda key: MagicMock(name=f"loop-{key}"),
+        lambda key: MagicMock(name=f"loop-{key}"),  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
         on_session_removed=reset_tool_audit_events,
     )
 
@@ -52,7 +52,7 @@ def test_reset_clears_tool_audit_for_removed_session():
 
 
 def test_reset_finalizes_only_target_session():
-    loops = {"s1": MagicMock(name="s1"), "s2": MagicMock(name="s2")}
+    loops = {"s1": MagicMock(name="s1"), "s2": MagicMock(name="s2")}  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     finalized: list[object] = []
     registry = GatewaySessionRegistry(
         lambda key: loops[key],
@@ -74,9 +74,9 @@ def test_reset_finalizes_only_target_session():
 
 def test_reset_sessions_for_chat_clears_all_project_loops():
     loops = {
-        "wechat:u1:alpha": MagicMock(name="alpha"),
-        "wechat:u1:beta": MagicMock(name="beta"),
-        "wechat:u2:alpha": MagicMock(name="other-chat"),
+        "wechat:u1:alpha": MagicMock(name="alpha"),  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
+        "wechat:u1:beta": MagicMock(name="beta"),  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
+        "wechat:u2:alpha": MagicMock(name="other-chat"),  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     }
     finalized: list[object] = []
     registry = GatewaySessionRegistry(
@@ -104,7 +104,7 @@ def test_evict_idle_clears_tool_audit_for_removed_session():
     now = {"value": 100.0}
     orch = SimpleNamespace()
     registry = GatewaySessionRegistry(
-        lambda key: MagicMock(name=f"loop-{key}"),
+        lambda key: MagicMock(name=f"loop-{key}"),  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
         finalize=lambda loop: None,
         idle_ttl_seconds=30,
         now=lambda: now["value"],
@@ -127,7 +127,7 @@ def test_evict_idle_clears_tool_audit_for_removed_session():
 
 def test_evict_idle_finalizes_expired_sessions_only():
     now = {"value": 100.0}
-    loops = {"active": MagicMock(name="active"), "idle": MagicMock(name="idle")}
+    loops = {"active": MagicMock(name="active"), "idle": MagicMock(name="idle")}  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     finalized: list[object] = []
     registry = GatewaySessionRegistry(
         lambda key: loops[key],
@@ -155,7 +155,7 @@ def test_lru_eviction_clears_tool_audit_for_removed_session():
     now = {"value": 0.0}
     orch = SimpleNamespace()
     registry = GatewaySessionRegistry(
-        lambda key: MagicMock(name=f"loop-{key}"),
+        lambda key: MagicMock(name=f"loop-{key}"),  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
         max_sessions=2,
         now=lambda: now["value"],
         on_session_removed=reset_tool_audit_events,
@@ -179,7 +179,7 @@ def test_lru_eviction_clears_tool_audit_for_removed_session():
 
 def test_lru_limit_evicts_oldest_session():
     now = {"value": 0.0}
-    loops = {key: MagicMock(name=key) for key in ("a", "b", "c")}
+    loops = {key: MagicMock(name=key) for key in ("a", "b", "c")}  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     finalized: list[object] = []
     registry = GatewaySessionRegistry(
         lambda key: loops[key],
@@ -199,7 +199,7 @@ def test_lru_limit_evicts_oldest_session():
 
 def test_lru_does_not_evict_active_session():
     now = {"value": 0.0}
-    loops = {key: MagicMock(name=key) for key in ("active", "new")}
+    loops = {key: MagicMock(name=key) for key in ("active", "new")}  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     finalized: list[object] = []
     registry = GatewaySessionRegistry(
         lambda key: loops[key],
@@ -224,7 +224,7 @@ def test_lru_does_not_evict_active_session():
 
 def test_idle_eviction_skips_active_session():
     now = {"value": 0.0}
-    loop = MagicMock(name="active")
+    loop = MagicMock(name="active")  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     registry = GatewaySessionRegistry(
         lambda key: loop,
         idle_ttl_seconds=10,
@@ -240,7 +240,7 @@ def test_idle_eviction_skips_active_session():
 
 def test_idle_eviction_rechecks_last_active_before_reset():
     now = {"value": 0.0}
-    loops = {key: MagicMock(name=key) for key in ("old", "other")}
+    loops = {key: MagicMock(name=key) for key in ("old", "other")}  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     finalized: list[object] = []
     registry = GatewaySessionRegistry(
         lambda key: loops[key],
@@ -268,7 +268,7 @@ def test_reset_all_clears_tool_audit_for_all_sessions():
     reset_tool_audit_events()
     orch = SimpleNamespace()
     registry = GatewaySessionRegistry(
-        lambda key: MagicMock(name=f"loop-{key}"),
+        lambda key: MagicMock(name=f"loop-{key}"),  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
         on_session_removed=reset_tool_audit_events,
     )
 
@@ -285,7 +285,7 @@ def test_reset_all_clears_tool_audit_for_all_sessions():
 
 
 def test_reset_all_finalizes_every_session():
-    loops = {key: MagicMock(name=key) for key in ("a", "b")}
+    loops = {key: MagicMock(name=key) for key in ("a", "b")}  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     finalized: list[object] = []
     registry = GatewaySessionRegistry(
         lambda key: loops[key],
@@ -302,9 +302,9 @@ def test_reset_all_finalizes_every_session():
 
 def test_direct_session_dict_mutation_tracks_activity():
     now = {"value": 42.0}
-    registry = GatewaySessionRegistry(lambda key: MagicMock(), now=lambda: now["value"])
+    registry = GatewaySessionRegistry(lambda key: MagicMock(), now=lambda: now["value"])  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
 
-    registry.sessions["manual"] = MagicMock()
+    registry.sessions["manual"] = MagicMock()  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
 
     assert registry.last_active_at("manual") == 42.0
 
@@ -314,7 +314,7 @@ def test_concurrent_get_or_create_creates_one_loop_per_session():
 
     def factory(_key: str):
         time.sleep(0.02)
-        loop = MagicMock()
+        loop = MagicMock()  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
         created.append(loop)
         return loop
 
@@ -335,7 +335,7 @@ def test_concurrent_get_or_create_creates_one_loop_per_session():
 
 
 def test_reset_all_blocks_new_sessions_until_reset_finishes():
-    loops = {key: MagicMock(name=key) for key in ("old", "new")}
+    loops = {key: MagicMock(name=key) for key in ("old", "new")}  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     registry = GatewaySessionRegistry(lambda key: loops[key])
     registry.get_or_create("old")
     old_lock = registry.session_lock("old")
@@ -374,7 +374,7 @@ def test_reset_all_blocks_new_sessions_until_reset_finishes():
 
 def test_evict_idle_is_noop_while_reset_all_waits_for_active_session():
     now = {"value": 0.0}
-    loops = {key: MagicMock(name=key) for key in ("active", "idle")}
+    loops = {key: MagicMock(name=key) for key in ("active", "idle")}  # noqa: magicmock-no-spec — SessionRegistry / AgentLoop facade
     registry = GatewaySessionRegistry(
         lambda key: loops[key],
         idle_ttl_seconds=10,
