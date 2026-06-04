@@ -241,3 +241,33 @@ def test_diagnostics_no_op_when_none():
     )
     assert isinstance(start, int)
     assert start >= 0
+
+
+@pytest.mark.unit
+def test_diagnostics_legacy_fallback_on_exception():
+    """turn_compaction 抛异常时 diagnostics 写 'legacy_split' + 兼容原 fallback 标记."""
+    messages: list[dict] = [{"role": "system", "content": "sys"}]
+    for i in range(8):
+        messages.append({"role": "user", "content": f"u-{i}"})
+        messages.append({"role": "assistant", "content": f"a-{i}" * 80})
+
+    diag: dict = {}
+    # Force split_head_tail_turns to raise; compress_messages catches → fallback
+    with patch(
+        "butler.core.turn_compaction.split_head_tail_turns",
+        side_effect=RuntimeError("boom"),
+    ):
+        with patch(
+            "butler.core.context_compressor.auxiliary_complete",
+            return_value="## Active Task\n- ok",
+        ):
+            out, _, did = compress_messages(
+                messages,
+                max_tokens=4000,
+                threshold_ratio=0.01,
+                min_messages_to_compress=4,
+                diagnostics=diag,
+            )
+    assert did
+    assert diag.get("compaction_strategy") == "legacy_split"
+    assert diag.get("compaction_turn_fallback") == "legacy_split"

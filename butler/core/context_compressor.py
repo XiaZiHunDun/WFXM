@@ -309,6 +309,7 @@ def compress_messages(
                 tail_token_count=0,
                 tail_start_index=0,
             )
+            diagnostics["compaction_turn_fallback"] = "legacy_split"
         system, middle, head_tail = _split_head_tail(
             pruned,
             head_count=head_count,
