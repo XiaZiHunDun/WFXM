@@ -23,20 +23,20 @@ def _simple_workflow(steps=None, name="test-wf"):
 class TestBuildNodes:
     def test_not_runnable_raises(self):
         wf = parse_workflow_data({"name": "empty"})
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         with pytest.raises(ValueError, match="没有可执行步骤"):
             runner.build_nodes(wf)
 
     def test_user_hint_appended(self):
         wf = _simple_workflow()
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         nodes = runner.build_nodes(wf, user_hint="注意安全")
         assert "注意安全" in nodes[0].config.task
         assert "注意安全" in nodes[1].config.task
 
     def test_depends_on_preserved(self):
         wf = _simple_workflow()
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         nodes = runner.build_nodes(wf)
         assert nodes[0].depends_on == []
         assert nodes[1].depends_on == ["a"]
@@ -53,7 +53,7 @@ class TestFormatGraphSummary:
             },
             execution_order=["a", "b"],
         )
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         text = runner.format_graph_summary(wf, graph)
         assert "已完成" in text
         assert "✓ a" in text
@@ -69,7 +69,7 @@ class TestFormatGraphSummary:
             },
             execution_order=["a", "b"],
         )
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         text = runner.format_graph_summary(wf, graph)
         assert "未完全成功" in text
         assert "✗ b" in text
@@ -83,7 +83,7 @@ class TestFormatGraphSummary:
             nodes={"x": AgentResult(success=True, response="R" * 500)},
             execution_order=["x"],
         )
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         text = runner.format_graph_summary(wf, graph)
         assert "..." in text
 
@@ -95,7 +95,7 @@ class TestFormatGraphSummary:
             execution_order=[],
             error="dag cycle detected",
         )
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         text = runner.format_graph_summary(wf, graph)
         assert "dag cycle detected" in text
 
@@ -199,7 +199,7 @@ class TestRunAsync:
             },
             execution_order=["a", "b"],
         )
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         with patch.object(
             runner._tasks, "execute_graph", new_callable=AsyncMock
         ) as mock_graph:
@@ -217,7 +217,7 @@ class TestRunAsync:
             nodes={"only": AgentResult(success=True, response="done")},
             execution_order=["only"],
         )
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         with patch.object(
             runner._tasks, "execute_graph", new_callable=AsyncMock
         ) as mock_graph:
@@ -237,7 +237,7 @@ class TestRunSync:
             },
             execution_order=["a", "b"],
         )
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — orchestrator 是复杂多接口类, spec= 收益低
         with patch.object(
             runner._tasks, "execute_graph", new_callable=AsyncMock
         ) as mock_graph:

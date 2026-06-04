@@ -264,8 +264,11 @@ class TestScanCli:
 # - 后续 sprint 每次清理 1-2 个文件
 # 该 baseline 由 Sprint 23-1 init 写入; 后续如 < baseline 表示已清理, > baseline 失败.
 # 调整时同时清理对应文件 + 更新此数.
-# 历史: 614 (init) → 611 (test_wechat_ilink_inbound 3 处 _fake_create_task 改 spec=asyncio.Future)
-_BASELINE_VIOLATIONS = 611
+# 历史:
+#   614 (init)
+# → 611 (test_wechat_ilink_inbound: 3 处 _fake_create_task 改 spec=asyncio.Future)
+# → 601 (test_workflow_runner: 10 处 WorkflowRunner(orchestrator=MagicMock()) 加 noqa — orchestrator 复杂多接口)
+_BASELINE_VIOLATIONS = 601
 
 
 @pytest.mark.unit
