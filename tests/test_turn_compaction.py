@@ -8,6 +8,7 @@ import pytest
 
 from butler.core.context_compressor import SUMMARY_PREFIX, compress_messages
 from butler.core.turn_compaction import (
+    _strategy_label,
     append_overflow_replay,
     find_overflow_replay_user,
     group_messages_into_turns,
@@ -128,3 +129,27 @@ def test_find_overflow_replay_user_ignores_summary():
 def test_preserve_recent_budget_clamped():
     b = preserve_recent_token_budget(200_000)
     assert 2000 <= b <= 8000
+
+
+@pytest.mark.unit
+def test_diagnostics_strategy_turns_2():
+    """8 turn 场景 → compaction_strategy='turns:2', tail_turns_kept=2."""
+    rest: list[dict] = []
+    for i in range(8):
+        rest.append({"role": "user", "content": f"u-{i}"})
+        rest.append({"role": "assistant", "content": f"a-{i}" * 50})
+    diag: dict = {}
+    start = select_tail_start_index(
+        rest,
+        max_context_tokens=128_000,
+        tail_turns=2,
+        split_turn=False,
+        diagnostics=diag,
+    )
+    assert start > 0
+    assert diag["compaction_strategy"] == "turns:2"
+    assert diag["compaction_tail_turns_kept"] == 2
+    assert diag["compaction_split_turn_applied"] is False
+    assert isinstance(diag["compaction_preserved_recent_budget"], int)
+    assert diag["compaction_tail_token_count"] > 0
+    assert diag["compaction_tail_start_index"] == start
