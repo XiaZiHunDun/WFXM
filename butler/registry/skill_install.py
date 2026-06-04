@@ -186,12 +186,16 @@ def uninstall_skill(name: str, *, tenant_id: str = "") -> tuple[bool, str]:
         path.unlink()
         if content_rel:
             content_file = root / content_rel
-            # Sprint 19-2 SEC-19-A-3: 防 path traversal, content_file.resolve() 必须
-            # 在 root.resolve() 内. 恶意 frontmatter (e.g. `../../../tmp/important`)
-            # 会让 rmtree 删除 root 外任意目录, fail-closed 拒绝卸载.
+            # Sprint 19-2 SEC-19-A-3 + Sprint 21-4 QUAL-21-D-2: 防 path
+            # traversal, content_file.resolve() 必须在 root.resolve() 内.
+            # 恶意 frontmatter (e.g. `../../../tmp/important`) 会让 rmtree
+            # 删除 root 外任意目录, fail-closed 拒绝卸载. 用
+            # is_relative_to (Python 3.9+) 替换 startswith + os.sep,
+            # 跨平台一致 + 与 quarantine_bundle (Sprint 20-3) /
+            # _path_outside_workspace (Sprint 21-1) 统一.
             root_resolved = root.resolve()
             content_resolved = (root / content_rel).resolve()
-            if not str(content_resolved).startswith(str(root_resolved) + os.sep):
+            if not content_resolved.is_relative_to(root_resolved):
                 return False, (
                     f"Skill '{name}' has unsafe content_path; "
                     f"refusing to uninstall to prevent path traversal"
