@@ -165,6 +165,11 @@ class SkillRegistryService:
             return False
         if trust in ("builtin", "trusted"):
             return False
+        # Sprint 19-3 SEC-19-3: prod 环境硬拒 BUTLER_REGISTRY_AUTO_INSTALL 越权 BYPASS.
+        # 防 .env 误带上线 / CI 残留 → community skill 无确认自动 install. 模式同
+        # Sprint 18-2 (BUTLER_PROJECT_CREATE_OPEN prod 禁用).
+        if os.getenv("BUTLER_ENV", "").strip().lower() == "prod":
+            return True
         allow = os.getenv("BUTLER_REGISTRY_AUTO_INSTALL", "").strip().lower() in (
             "1",
             "true",
