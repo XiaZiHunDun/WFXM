@@ -37,20 +37,20 @@ def _reset_singletons() -> None:
 
 
 def _mock_console():
-    console = MagicMock()
+    console = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
     return console
 
 
 def _mock_orchestrator():
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
     orch.project_manager.list_projects.return_value = []
     orch.project_manager.current_project = ""
     orch.project_manager.switch_project.return_value = False
-    orch._settings = MagicMock()
+    orch._settings = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
     orch._settings.butler_home = Path("/tmp/butler")
     orch._model_credentials.return_value = {"provider": "minimax", "model": "test"}
-    orch.butler_memory = MagicMock()
-    orch.butler_memory.experience = MagicMock()
+    orch.butler_memory = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
+    orch.butler_memory.experience = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
     return orch
 
 
@@ -125,7 +125,7 @@ class TestSlashCommands:
 
     def test_health_returns_handled(self):
         orch = _mock_orchestrator()
-        loop = MagicMock()
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
         loop.diagnostics = {"schema_recovered": False}
         console = _mock_console()
         assert _handle_slash_command("/health", orch, console, agent_loop=loop) == "handled"
@@ -154,8 +154,8 @@ class TestSyncMemory:
 @pytest.mark.integration
 class TestCmdExec:
     def test_cmd_exec_runs_and_returns_zero(self):
-        orch = MagicMock()
-        loop = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
         loop.run.return_value = LoopResult(
             status=LoopStatus.COMPLETED,
             final_response="exec output",
@@ -163,7 +163,7 @@ class TestCmdExec:
         orch.inject_skill_context.side_effect = lambda x: x
         orch.create_agent_loop.return_value = loop
 
-        ns = MagicMock(message="run this task")
+        ns = MagicMock(message="run this task")  # noqa: magicmock-no-spec — argparse Namespace mock
         with patch("butler.orchestrator.ButlerOrchestrator", return_value=orch):
             code = _cmd_exec(ns)
         assert code == 0
@@ -172,8 +172,8 @@ class TestCmdExec:
     def test_cmd_exec_binds_execution_context(self):
         from butler.execution_context import get_current_orchestrator, get_current_session_key
 
-        orch = MagicMock()
-        loop = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
 
         def _run(_message: str) -> LoopResult:
             assert get_current_orchestrator() is orch
@@ -184,7 +184,7 @@ class TestCmdExec:
         orch.inject_skill_context.side_effect = lambda x: x
         orch.create_agent_loop.return_value = loop
 
-        ns = MagicMock(message="run this task")
+        ns = MagicMock(message="run this task")  # noqa: magicmock-no-spec — argparse Namespace mock
         with patch("butler.orchestrator.ButlerOrchestrator", return_value=orch):
             with patch("butler.session.lifecycle.sync_turn_memory") as sync:
                 code = _cmd_exec(ns)
@@ -202,11 +202,11 @@ class TestCmdExec:
         assert sync.call_args.kwargs["session_id"] == "cli"
 
     def test_cmd_exec_exception_returns_one(self):
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
         orch.inject_skill_context.side_effect = lambda x: x
-        orch.create_agent_loop.return_value = MagicMock(run=MagicMock(side_effect=RuntimeError("fail")))
+        orch.create_agent_loop.return_value = MagicMock(run=MagicMock(side_effect=RuntimeError("fail")))  # noqa: magicmock-no-spec — CLI MagicMock(run=...) 模拟 agent loop 入口
 
-        ns = MagicMock(message="fail")
+        ns = MagicMock(message="fail")  # noqa: magicmock-no-spec — argparse Namespace mock
         with patch("butler.orchestrator.ButlerOrchestrator", return_value=orch):
             code = _cmd_exec(ns)
         assert code == 1
@@ -216,14 +216,14 @@ class TestCmdExec:
 class TestSessionEnd:
     def test_short_messages_no_processing(self):
         orch = _mock_orchestrator()
-        loop = MagicMock(messages=[{"role": "user"}, {"role": "assistant"}])
+        loop = MagicMock(messages=[{"role": "user"}, {"role": "assistant"}])  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
         with patch("butler.session.post_session.PostSessionProcessor") as mock_proc:
             _trigger_session_end(orch, loop)
         mock_proc.assert_not_called()
 
     def test_longer_messages_post_session_called(self):
         orch = _mock_orchestrator()
-        loop = MagicMock(
+        loop = MagicMock(  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
             messages=[
                 {"role": "system", "content": "sys"},
                 {"role": "user", "content": "1"},
@@ -233,8 +233,8 @@ class TestSessionEnd:
                 {"role": "user", "content": "5"},
             ]
         )
-        mock_processor = MagicMock()
-        mock_processor.process = MagicMock(return_value={})
+        mock_processor = MagicMock()  # noqa: magicmock-no-spec — process callback shim
+        mock_processor.process = MagicMock(return_value={})  # noqa: magicmock-no-spec — process callback shim
 
         with patch("butler.session.post_session.PostSessionProcessor", return_value=mock_processor):
             with patch("asyncio.run", return_value={}):
@@ -300,10 +300,10 @@ class TestMainHelpers:
 @pytest.mark.integration
 class TestProjectCommands:
     def test_cmd_projects_no_projects(self):
-        manager = MagicMock()
+        manager = MagicMock()  # noqa: magicmock-no-spec — ProjectManager facade
         manager.list_projects.return_value = []
         with patch("butler.project.manager.get_project_manager", return_value=manager):
-            assert _cmd_projects(MagicMock()) == 0
+            assert _cmd_projects(MagicMock()) == 0  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
 
     def test_cmd_projects_lists_projects(self):
         project = Project(
@@ -312,11 +312,11 @@ class TestProjectCommands:
             description="Demo",
             workspace=Path("/tmp/demo"),
         )
-        manager = MagicMock()
+        manager = MagicMock()  # noqa: magicmock-no-spec — ProjectManager facade
         manager.list_projects.return_value = [project]
         manager.current_project = "demo"
         with patch("butler.project.manager.get_project_manager", return_value=manager):
-            assert _cmd_projects(MagicMock()) == 0
+            assert _cmd_projects(MagicMock()) == 0  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
 
     def test_cmd_create_success(self):
         created = Project(
@@ -325,7 +325,7 @@ class TestProjectCommands:
             description="Created",
             workspace=Path("/tmp/new-project"),
         )
-        manager = MagicMock()
+        manager = MagicMock()  # noqa: magicmock-no-spec — ProjectManager facade
         manager.create_project.return_value = created
         ns = SimpleNamespace(
             slug="new-project",
@@ -346,7 +346,7 @@ class TestProjectCommands:
         assert kwargs.get("display_name") == "new-project"
 
     def test_cmd_create_existing_project_returns_one(self):
-        manager = MagicMock()
+        manager = MagicMock()  # noqa: magicmock-no-spec — ProjectManager facade
         manager.create_project.return_value = None
         ns = SimpleNamespace(
             slug="exists",
@@ -433,7 +433,7 @@ class TestGatewayCommand:
     def test_cmd_gateway_native_default(self, monkeypatch):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="", gateway_remainder=[])
+        ns = MagicMock(platforms="", gateway_remainder=[])  # noqa: magicmock-no-spec — argparse Namespace mock
         with patch("butler.gateway.runner.run_gateway_blocking", return_value=0) as run:
             assert _cmd_gateway(ns) == 0
         run.assert_called_once_with(["wechat"])
@@ -441,7 +441,7 @@ class TestGatewayCommand:
     def test_cmd_gateway_rejects_non_wechat_platform(self, capsys):
         from butler.main import _cmd_gateway
 
-        ns = MagicMock(platforms="telegram", gateway_remainder=[])
+        ns = MagicMock(platforms="telegram", gateway_remainder=[])  # noqa: magicmock-no-spec — argparse Namespace mock
         assert _cmd_gateway(ns) == 2
         assert "仅支持微信" in capsys.readouterr().err
 
@@ -451,7 +451,7 @@ class TestInteractiveChat:
     def test_interactive_chat_eof_exits_cleanly(self, tmp_path):
         orch = _mock_orchestrator()
         orch._settings.butler_home = tmp_path
-        loop = MagicMock(messages=[])
+        loop = MagicMock(messages=[])  # noqa: magicmock-no-spec — CLI facade / console / orchestrator 复杂多接口
         orch.create_agent_loop.return_value = loop
 
         class FakeSession:

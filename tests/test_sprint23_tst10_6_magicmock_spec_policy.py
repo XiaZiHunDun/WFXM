@@ -272,7 +272,9 @@ class TestScanCli:
 # → 558 (test_sprint16_tst11_10_wechat_ssrf: 26 处 httpx var 赋值 加 noqa)
 # → 538 (test_sprint16_tst11_10_wechat_ssrf: 20 处 httpx attr 赋值
 #        obj.attr=MagicMock/AsyncMock 补 noqa — Sprint 23-4 漏了 attr 形式)
-_BASELINE_VIOLATIONS = 538
+# → 509 (test_main_cli: 29 处 CLI facade / console / orchestrator / Namespace
+#        /ProjectManager / process_callback 加 noqa)
+_BASELINE_VIOLATIONS = 509
 
 
 @pytest.mark.unit
