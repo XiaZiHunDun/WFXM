@@ -12,6 +12,7 @@ import json
 import logging
 from typing import Any
 
+from butler.core.turn_compaction import _write_compaction_diagnostics
 from butler.transport.auxiliary_client import auxiliary_complete
 
 logger = logging.getLogger(__name__)
@@ -272,6 +273,7 @@ def compress_messages(
                 head_count=head_count,
                 min_tail_messages=min_tail_messages,
                 estimate_fn=_estimate_tokens,
+                diagnostics=diagnostics,
             )
             if not middle:
                 legacy_system, legacy_middle, legacy_head_tail = _split_head_tail(
@@ -297,6 +299,16 @@ def compress_messages(
             )
     except Exception as exc:
         logger.debug("Turn compaction fallback: %s", exc)
+        if isinstance(diagnostics, dict):
+            _write_compaction_diagnostics(
+                diagnostics,
+                strategy="legacy_split",
+                tail_turns_kept=0,
+                split_turn_applied=False,
+                preserved_recent_budget=0,
+                tail_token_count=0,
+                tail_start_index=0,
+            )
         system, middle, head_tail = _split_head_tail(
             pruned,
             head_count=head_count,
