@@ -140,15 +140,15 @@ class TestManualGuide23Slash:
     """§2.3 斜杠命令"""
 
     def test_231_help_lists_commands(self):
-        console = MagicMock()
-        assert _handle_slash_command("/help", MagicMock(), console) == "handled"
+        console = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
+        assert _handle_slash_command("/help", MagicMock(), console) == "handled"  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
         text = console.print.call_args[0][0]
         assert "/projects" in text
         assert "/health" in text
         assert "/new" in text
 
     def test_232_status_fields(self):
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
         orch._settings.butler_name = "莎丽"
         orch.project_manager.current_project = "灵文"
         orch._settings.butler_home = Path("/tmp/butler")
@@ -156,7 +156,7 @@ class TestManualGuide23Slash:
             "provider": "minimax",
             "model": "MiniMax-M2.7",
         }
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
         assert _handle_slash_command("/status", orch, console) == "handled"
         text = console.print.call_args[0][0]
         assert "莎丽" in text
@@ -165,10 +165,10 @@ class TestManualGuide23Slash:
     def test_232b_health_command(self):
         from butler.gateway.message_handler import ButlerMessageHandler
 
-        orch = MagicMock()
-        loop = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
         loop.diagnostics = {"schema_recovered": True, "hygiene_compressed": False}
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
         assert _handle_slash_command("/health", orch, console, agent_loop=loop) == "handled"
         text = console.print.call_args[0][0]
         assert "Butler 诊断" in text
@@ -177,7 +177,7 @@ class TestManualGuide23Slash:
         assert "Schema 降级: 是" in handler._format_health_summary("cli") or "Butler 诊断" in text
 
     def test_236_new_rebuilds_loop(self):
-        assert _handle_slash_command("/new", MagicMock(), MagicMock()) == "rebuild_after_new"
+        assert _handle_slash_command("/new", MagicMock(), MagicMock()) == "rebuild_after_new"  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
 
     def test_236_memory_may_retain_identity(self, butler_orchestrator, patch_llm):
         """§2.3.6: /new clears loop; identity may remain via memory layer."""
@@ -232,8 +232,8 @@ class TestManualGuide25Exec:
         mock_complete.return_value = mock_llm_response(content="我是 Butler 管家。")
         mock_stream.return_value = mock_complete.return_value
 
-        orch = MagicMock()
-        loop = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
         loop.run.return_value = LoopResult(
             status=LoopStatus.COMPLETED,
             final_response="我是 Butler 管家。",
@@ -251,11 +251,11 @@ class TestManualGuide26Interactive:
     """§2.6 交互异常"""
 
     def test_264_eof_quit(self, tmp_path):
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
         orch._settings.butler_home = tmp_path
         orch.project_manager.current_project = ""
         orch._model_credentials.return_value = {"provider": "x", "model": "y"}
-        loop = MagicMock(messages=[])
+        loop = MagicMock(messages=[])  # noqa: magicmock-no-spec — CLI acceptance facade (orch / loop / console)
         orch.create_agent_loop.return_value = loop
 
         class FakeSession:

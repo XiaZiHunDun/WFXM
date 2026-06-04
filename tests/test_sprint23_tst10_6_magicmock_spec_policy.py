@@ -290,7 +290,9 @@ class TestScanCli:
 #        command facade (orch / session_registry) 加 noqa)
 # → 354 (test_tools_registry: 13 处 tools registry facade
 #        (orch / agent / proc / manager) 加 noqa)
-_BASELINE_VIOLATIONS = 354
+# → 341 (test_cli_acceptance: 13 处 CLI acceptance facade
+#        (orch / loop / console) 加 noqa)
+_BASELINE_VIOLATIONS = 341
 
 
 @pytest.mark.unit
