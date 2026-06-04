@@ -124,3 +124,47 @@ class TestSummarizeApprovals:
         assert s["always_count"] == 2
         assert s["once_active_count"] == 1
         assert s["has_pending"] is False  # grant_once 清空 pending
+
+
+class TestApprovalHealthIntegration:
+    def test_health_report_includes_approval_summary(self, tmp_path, monkeypatch):
+        """/诊断 应包含 approval 行 (always count / once active)."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        from butler.ops.health_report import collect_approval_stats_for_health
+        grant_always("s_health_1", permission="p1")
+        stats = collect_approval_stats_for_health("s_health_1")
+        assert stats["always_count"] == 1
+        assert stats["once_active_count"] == 0
+        assert stats["has_pending"] is False
+
+    def test_health_report_handles_empty_session(self, tmp_path, monkeypatch):
+        """空 session 时 /诊断 approval stats 返 0/0/False 不抛异常."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        from butler.ops.health_report import collect_approval_stats_for_health
+        stats = collect_approval_stats_for_health("s_health_empty")
+        assert stats["always_count"] == 0
+        assert stats["once_active_count"] == 0
+        assert stats["has_pending"] is False
+
+    def test_health_report_includes_approval_in_shared_lines(self, tmp_path, monkeypatch):
+        """_shared_diagnostic_lines 应包含 '权限批准缓存' 标题行 + always count + once count."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        from butler.ops.health_report import HealthReportInput, _shared_diagnostic_lines
+        from unittest.mock import MagicMock
+        grant_always("s_health_2", permission="p1")
+        grant_always("s_health_2", permission="p2")
+        orch = MagicMock()
+        orch.project_manager.get_current.return_value = None
+        orch._settings = MagicMock()
+        inp = HealthReportInput(
+            session_key="s_health_2",
+            health={},
+            tool_summary={},
+            mem_stats={},
+            orchestrator=orch,
+        )
+        lines = _shared_diagnostic_lines(inp, use_mem_stats_project_name=False)
+        text = "\n".join(lines)
+        assert "权限批准缓存" in text
+        assert "始终允许 2 项" in text
+        assert "本次允许 0 项" in text

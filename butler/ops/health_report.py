@@ -51,6 +51,21 @@ def collect_mem_stats_for_health(
     return mem_stats
 
 
+def collect_approval_stats_for_health(session_key: str) -> dict[str, Any]:
+    """Sprint 24 P1-3.2: /诊断 集成 — 读 session approvals.json 统计.
+
+    返回 dict 形如: {always_count, once_active_count, has_pending}.
+    与 collect_mem_stats_for_health 平行, 在 _shared_diagnostic_lines 中调用.
+    """
+    try:
+        from butler.permissions.approvals import summarize_approvals
+
+        return summarize_approvals(session_key)
+    except Exception as exc:
+        logger.debug("collect approval stats skipped: %s", exc)
+        return {"always_count": 0, "once_active_count": 0, "has_pending": False}
+
+
 def _shared_diagnostic_lines(
     inp: HealthReportInput,
     *,
@@ -64,6 +79,18 @@ def _shared_diagnostic_lines(
 
     lines: list[str] = []
     lines.extend(format_memory_diagnostic_lines(inp.mem_stats))
+    # Sprint 24 P1-3.2: 权限批准缓存统计
+    try:
+        approval_stats = collect_approval_stats_for_health(inp.session_key)
+        lines.append("权限批准缓存:")
+        lines.append(
+            f"  始终允许 {approval_stats['always_count']} 项 · "
+            f"本次允许 {approval_stats['once_active_count']} 项"
+        )
+        if approval_stats["has_pending"]:
+            lines.append("  ⏳ 有 1 项待批准")
+    except Exception as exc:
+        logger.debug("approval diagnostic lines skipped: %s", exc)
     proj = inp.orchestrator.project_manager.get_current(session_key=inp.session_key)
     if proj is not None:
         lines.append("项目元数据:")
