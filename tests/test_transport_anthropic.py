@@ -100,7 +100,10 @@ class TestConvertToolsToAnthropic:
 
 @pytest.mark.module_test
 class TestBuildKwargs:
-    def test_with_tuple_input(self, transport):
+    def test_with_tuple_input(self, transport, monkeypatch):
+        # Sprint 29 P2-4.3: explicitly disable cache_control to verify the
+        # pre-cache-control str→str behavior of the system field.
+        monkeypatch.setenv("BUTLER_TRANSPORT_CACHE_CONTROL", "0")
         messages_tuple = (
             "System prompt",
             [{"role": "user", "content": "hi"}],
@@ -109,7 +112,9 @@ class TestBuildKwargs:
         assert kwargs["system"] == "System prompt"
         assert kwargs["messages"] == [{"role": "user", "content": "hi"}]
 
-    def test_with_list_input(self, transport):
+    def test_with_list_input(self, transport, monkeypatch):
+        # Sprint 29 P2-4.3: disable cache_control to keep system as str.
+        monkeypatch.setenv("BUTLER_TRANSPORT_CACHE_CONTROL", "0")
         kwargs = transport.build_kwargs(
             model="claude-3",
             messages=[

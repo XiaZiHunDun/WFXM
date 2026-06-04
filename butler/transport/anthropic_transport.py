@@ -81,7 +81,10 @@ def _convert_messages_to_anthropic(
             })
             continue
 
-        anthropic_msgs.append({"role": "user", "content": str(content) if content else ""})
+        if isinstance(content, list):
+            anthropic_msgs.append({"role": "user", "content": content})
+        else:
+            anthropic_msgs.append({"role": "user", "content": str(content) if content else ""})
 
     return "\n\n".join(system_parts), anthropic_msgs
 
@@ -114,7 +117,22 @@ class AnthropicTransport(ProviderTransport):
     def convert_messages(
         self, messages: List[Dict[str, Any]], **kwargs
     ) -> tuple[str, List[Dict[str, Any]]]:
-        return _convert_messages_to_anthropic(messages)
+        # Sprint 29 P2-4.3: apply cache_control to last user msg (boundary 2)
+        # before OpenAI→Anthropic conversion. The list-form content carries
+        # through `_convert_messages_to_anthropic` (which now passes list
+        # content for role=user verbatim). Then add cache_control to the
+        # last tool_result block (boundary 4) on the converted side.
+        from butler.transport.cache_control import (
+            apply_cache_control_to_last_tool_result,
+            apply_cache_control_to_messages,
+        )
+
+        annotated = apply_cache_control_to_messages(
+            messages if isinstance(messages, list) else []
+        )
+        system_prompt, anthropic_messages = _convert_messages_to_anthropic(annotated)
+        anthropic_messages = apply_cache_control_to_last_tool_result(anthropic_messages)
+        return system_prompt, anthropic_messages
 
     def convert_tools(self, tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         return _convert_tools_to_anthropic(tools)
@@ -129,7 +147,9 @@ class AnthropicTransport(ProviderTransport):
         if isinstance(messages, tuple) and len(messages) == 2:
             system_prompt, anthropic_messages = messages
         else:
-            system_prompt, anthropic_messages = _convert_messages_to_anthropic(
+            # Route through self.convert_messages so cache_control (boundaries
+            # 2 + 4) is applied consistently — Sprint 29 P2-4.3.
+            system_prompt, anthropic_messages = self.convert_messages(
                 messages if isinstance(messages, list) else []
             )
 
@@ -140,12 +160,22 @@ class AnthropicTransport(ProviderTransport):
         }
 
         if system_prompt:
-            kwargs["system"] = system_prompt
+            # Sprint 29 P2-4.3: boundary 1 (system). apply_cache_control_to_system
+            # returns [] when disabled or system is empty → caller keeps the
+            # original str form (backward-compatible with HEAD~).
+            from butler.transport.cache_control import apply_cache_control_to_system
+
+            sys_blocks = apply_cache_control_to_system(system_prompt)
+            kwargs["system"] = sys_blocks if sys_blocks else system_prompt
 
         if tools:
             if isinstance(tools, list) and tools and "input_schema" not in tools[0]:
                 tools = _convert_tools_to_anthropic(tools)
-            kwargs["tools"] = tools
+            # Sprint 29 P2-4.3: boundary 3 (tools). apply_cache_control_to_tools
+            # returns the input unchanged when disabled or empty.
+            from butler.transport.cache_control import apply_cache_control_to_tools
+
+            kwargs["tools"] = apply_cache_control_to_tools(tools)
 
         temperature = params.get("temperature")
         if temperature is not None:

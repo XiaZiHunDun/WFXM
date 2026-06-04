@@ -124,11 +124,14 @@ class TestApplyMessages:
         # content 应为 list 形式, 末尾追加 1 个 text block + cache_control
         content = out[-1]["content"]
         assert isinstance(content, list)
-        # 末尾 block 是 text 且带 cache_control
+        # 末尾 block 是空 text + cache_control marker (不覆盖原 user 文本)
         tail = content[-1]
         assert tail["type"] == "text"
-        assert tail["text"] == "bye"
+        assert tail["text"] == ""
         assert tail["cache_control"] == {"type": "ephemeral"}
+        # 原 user 文本保留在第一个 block
+        assert content[0]["type"] == "text"
+        assert content[0]["text"] == "bye"
         # 前面消息未动
         assert out[0] == {"role": "user", "content": "hi"}
         assert out[1] == {"role": "assistant", "content": "hello"}
@@ -325,3 +328,174 @@ class TestFourBoundariesIntegration:
         assert apply_cache_control_to_messages(messages) == messages
         # tools 透传
         assert apply_cache_control_to_tools(tools) == tools
+
+
+# ── boundary 4 helper: apply_cache_control_to_last_tool_result ──
+
+
+class TestApplyLastToolResult:
+    def test_disabled_passthrough(self, monkeypatch):
+        """关闭时透传."""
+        monkeypatch.setenv("BUTLER_TRANSPORT_CACHE_CONTROL", "0")
+        from butler.transport.cache_control import (
+            apply_cache_control_to_last_tool_result,
+        )
+
+        msgs = [
+            {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "c1", "content": "r"}],
+            },
+        ]
+        assert apply_cache_control_to_last_tool_result(msgs) == msgs
+
+    def test_no_tool_result_noop(self, monkeypatch):
+        """无 tool_result 块 → 不动."""
+        monkeypatch.delenv("BUTLER_TRANSPORT_CACHE_CONTROL", raising=False)
+        from butler.transport.cache_control import (
+            apply_cache_control_to_last_tool_result,
+        )
+
+        msgs = [
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "hello"},
+        ]
+        assert apply_cache_control_to_last_tool_result(msgs) == msgs
+
+    def test_single_tool_result_marks(self, monkeypatch):
+        """单个 tool_result → 加 cache_control."""
+        monkeypatch.delenv("BUTLER_TRANSPORT_CACHE_CONTROL", raising=False)
+        from butler.transport.cache_control import (
+            apply_cache_control_to_last_tool_result,
+        )
+
+        msgs = [
+            {
+                "role": "user",
+                "content": [{"type": "tool_result", "tool_use_id": "c1", "content": "r1"}],
+            },
+        ]
+        out = apply_cache_control_to_last_tool_result(msgs)
+        assert out[0]["content"][0]["cache_control"] == {"type": "ephemeral"}
+
+    def test_multiple_tool_results_only_last_marked(self, monkeypatch):
+        """多个 tool_result (跨 user msg) → 只最后 1 个加 marker."""
+        monkeypatch.delenv("BUTLER_TRANSPORT_CACHE_CONTROL", raising=False)
+        from butler.transport.cache_control import (
+            apply_cache_control_to_last_tool_result,
+        )
+
+        msgs = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "c1", "content": "r1"},
+                    {"type": "tool_result", "tool_use_id": "c2", "content": "r2"},
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "tool_result", "tool_use_id": "c3", "content": "r3"},
+                ],
+            },
+        ]
+        out = apply_cache_control_to_last_tool_result(msgs)
+        # 第 1 个 user 的 c1, c2 不动
+        assert "cache_control" not in out[0]["content"][0]
+        assert "cache_control" not in out[0]["content"][1]
+        # 第 2 个 user 的 c3 加 marker
+        assert out[1]["content"][0]["cache_control"] == {"type": "ephemeral"}
+        # 其它字段保留
+        assert out[1]["content"][0]["tool_use_id"] == "c3"
+        assert out[1]["content"][0]["content"] == "r3"
+
+
+# ── 集成: anthropic_transport.build_kwargs wiring ──
+
+
+class TestAnthropicTransportWiring:
+    def test_build_kwargs_enabled_marks_all_four(self, monkeypatch):
+        """env on + build_kwargs → 4 boundary 全有 marker."""
+        monkeypatch.delenv("BUTLER_TRANSPORT_CACHE_CONTROL", raising=False)
+        from butler.transport.anthropic_transport import AnthropicTransport
+
+        t = AnthropicTransport()
+        messages = [
+            {"role": "system", "content": "you are a helpful assistant"},
+            {"role": "user", "content": "ask"},
+            {"role": "assistant", "content": "ok"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"id": "call_1", "function": {"name": "echo", "arguments": "{}"}},
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_1",
+                "content": "result",
+            },
+        ]
+        tools = [
+            {"name": "echo", "description": "echo", "input_schema": {"type": "object"}},
+        ]
+        kwargs = t.build_kwargs(
+            model="claude-test",
+            messages=messages,
+            tools=tools,
+            max_tokens=1024,
+        )
+
+        # boundary 1: system 走 list
+        assert isinstance(kwargs["system"], list)
+        assert kwargs["system"][-1]["cache_control"] == {"type": "ephemeral"}
+        # boundary 2: 最后 user (tool 转换后) 末尾有 marker block
+        # 最后一条是 tool → 转换后 role=user, content=[{tool_result, ...}]
+        last_msg = kwargs["messages"][-1]
+        assert last_msg["role"] == "user"
+        # boundary 4: tool_result 块带 cache_control
+        tool_result_block = last_msg["content"][-1]
+        assert tool_result_block["type"] == "tool_result"
+        assert tool_result_block["cache_control"] == {"type": "ephemeral"}
+        # boundary 3: tools 列表最后 1 个带 cache_control
+        assert kwargs["tools"][-1]["cache_control"] == {"type": "ephemeral"}
+
+    def test_build_kwargs_disabled_no_markers(self, monkeypatch):
+        """env=0 + build_kwargs → 4 boundary 全无 marker (system 走 str 路径)."""
+        monkeypatch.setenv("BUTLER_TRANSPORT_CACHE_CONTROL", "0")
+        from butler.transport.anthropic_transport import AnthropicTransport
+
+        t = AnthropicTransport()
+        messages = [
+            {"role": "system", "content": "you are a helpful assistant"},
+            {"role": "user", "content": "ask"},
+            {"role": "assistant", "content": "ok"},
+        ]
+        tools = [
+            {"name": "echo", "description": "echo", "input_schema": {"type": "object"}},
+        ]
+        kwargs = t.build_kwargs(
+            model="claude-test",
+            messages=messages,
+            tools=tools,
+            max_tokens=1024,
+        )
+
+        # system 仍是 str (不变成 list)
+        assert isinstance(kwargs["system"], str)
+        assert "cache_control" not in str(kwargs["system"])
+        # messages 没有任何 cache_control 字段
+        def _walk_no_cache_control(obj):
+            if isinstance(obj, dict):
+                assert "cache_control" not in obj, f"unexpected cache_control in {obj}"
+                for v in obj.values():
+                    _walk_no_cache_control(v)
+            elif isinstance(obj, list):
+                for item in obj:
+                    _walk_no_cache_control(item)
+
+        _walk_no_cache_control(kwargs["messages"])
+        # tools 无 cache_control
+        assert "cache_control" not in kwargs["tools"][-1]
