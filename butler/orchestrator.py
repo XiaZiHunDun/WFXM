@@ -28,6 +28,39 @@ import butler.workflows  # noqa: F401 — register workflow hooks
 
 logger = logging.getLogger(__name__)
 
+# Sprint 22-3 PERF-21-B-2: mtime+size-keyed cache for system prompt templates.
+# Mirrors skill_manager (Sprint 20-4) and hooks/loader (Sprint 21-3) pattern.
+# _system_prompt_placeholders (line 245) and build_lead_system_prompt
+# (line 386) both read template files every call. These are called from
+# each message dispatch, so caching avoids repeated disk reads + parse.
+# Key: (str(path), mtime_ns, size) — auto-invalidates on file change.
+_TEMPLATE_CACHE: dict[tuple[str, int, int], str] = {}
+
+
+def _read_template_cached(path: Path) -> str:
+    """Read template file with mtime+size cache.
+
+    Returns "" if file is missing. Cache invalidates automatically on
+    mtime/size change. Failed reads (OSError) are NOT cached so transient
+    I/O issues don't poison subsequent reads.
+    """
+    try:
+        st = path.stat()
+    except OSError as exc:
+        logger.debug("Could not stat template %s: %s", path, exc)
+        return ""
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    cached = _TEMPLATE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    _TEMPLATE_CACHE[key] = body
+    return body
+
+
 _ROLE_ALIASES: dict[str, str] = {
     "dev": "dev_agent",
     "content": "content_agent",
@@ -244,11 +277,12 @@ class ButlerOrchestrator:
 
     def _system_prompt_placeholders(self, *, for_role: str = "default") -> dict[str, str]:
         template = _template_path()
-        try:
-            body = template.read_text(encoding="utf-8")
-        except OSError:
-            logger.warning("Butler system template missing at %s", template)
-            body = ""
+        body = _read_template_cached(template)
+        if not body:
+            # Don't spam the log on every call; only log once at WARNING for
+            # genuinely missing templates (OSError is returned as "").
+            if not template.exists():
+                logger.warning("Butler system template missing at %s", template)
 
         current = self.project_manager.current_project or "(未选择)"
         project_list = _format_project_list(self._settings)
@@ -388,10 +422,10 @@ class ButlerOrchestrator:
         from butler.agent_profiles import get_profile
 
         path = _lead_template_path()
-        try:
-            body = path.read_text(encoding="utf-8")
-        except OSError:
-            logger.warning("Lead system template missing at %s", path)
+        body = _read_template_cached(path)
+        if not body:
+            if not path.exists():
+                logger.warning("Lead system template missing at %s", path)
             prof = get_profile("lead")
             body = prof.system_prompt if prof else ""
 

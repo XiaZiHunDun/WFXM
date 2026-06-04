@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 
 _BUILTIN_DIR = Path(__file__).resolve().parent / "builtin"
 
+# Sprint 22-3 PERF-21-B-2: mtime+size-keyed cache for parsed workflow YAML.
+# Mirrors skill_manager (Sprint 20-4) and hooks/loader (Sprint 21-3) pattern.
+# Key: (str(path), mtime_ns, size) — auto-invalidates on file modification.
+# Value: WorkflowDef (parsed) or None (load failure). None is NOT cached so
+# a transient parse failure does not poison subsequent successful loads.
+_FILE_CACHE: dict[tuple[str, int, int], WorkflowDef] = {}
+
 
 def _normalize_entry(entry: Any) -> dict[str, Any] | None:
     if isinstance(entry, dict):
@@ -33,22 +40,44 @@ def _normalize_entry(entry: Any) -> dict[str, Any] | None:
     return None
 
 
+def _load_yaml_workflow(path: Path, *, source: str, default_name: str) -> WorkflowDef | None:
+    """Read + parse a workflow YAML file, no caching."""
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        logger.warning("Failed to load %s workflow %s: %s", source, path, exc)
+        return None
+    if not isinstance(data, dict):
+        return None
+    data.setdefault("name", default_name)
+    return parse_workflow_data(data, source=source)
+
+
+def _cached_load(path: Path, *, source: str, default_name: str) -> WorkflowDef | None:
+    """mtime+size-keyed cache around `_load_yaml_workflow`."""
+    if not path.is_file():
+        return None
+    try:
+        st = path.stat()
+    except OSError as exc:
+        logger.debug("Could not stat %s: %s", path, exc)
+        return None
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    cached = _FILE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    wf = _load_yaml_workflow(path, source=source, default_name=default_name)
+    if wf is not None:
+        _FILE_CACHE[key] = wf
+    return wf
+
+
 def load_builtin_workflow(name: str) -> WorkflowDef | None:
     key = str(name or "").strip()
     if not key:
         return None
     path = _BUILTIN_DIR / f"{key}.yaml"
-    if not path.is_file():
-        return None
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError) as exc:
-        logger.warning("Failed to load builtin workflow %s: %s", path, exc)
-        return None
-    if not isinstance(data, dict):
-        return None
-    data.setdefault("name", key)
-    return parse_workflow_data(data, source="builtin")
+    return _cached_load(path, source="builtin", default_name=key)
 
 
 def load_workspace_workflow(workspace: Path, name: str) -> WorkflowDef | None:
@@ -56,17 +85,7 @@ def load_workspace_workflow(workspace: Path, name: str) -> WorkflowDef | None:
     if not key:
         return None
     path = Path(workspace).expanduser().resolve() / ".butler" / "workflows" / f"{key}.yaml"
-    if not path.is_file():
-        return None
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError) as exc:
-        logger.warning("Failed to load workspace workflow %s: %s", path, exc)
-        return None
-    if not isinstance(data, dict):
-        return None
-    data.setdefault("name", key)
-    return parse_workflow_data(data, source="workspace")
+    return _cached_load(path, source="workspace", default_name=key)
 
 
 def _merge_imported_steps(
