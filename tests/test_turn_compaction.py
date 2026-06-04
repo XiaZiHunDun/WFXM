@@ -224,3 +224,20 @@ def test_diagnostics_via_compress_messages():
     assert diag["compaction_strategy"].startswith("turns:")
     assert "compaction_tail_turns_kept" in diag
     assert isinstance(diag["compaction_tail_turns_kept"], int)
+
+
+@pytest.mark.unit
+def test_diagnostics_no_op_when_none():
+    """diagnostics=None 时 select_tail_start_index 仍能正常返回 (不抛错)."""
+    rest: list[dict] = []
+    for i in range(6):
+        rest.append({"role": "user", "content": f"u-{i}"})
+        rest.append({"role": "assistant", "content": f"a-{i}" * 50})
+    # No diagnostics kwarg → uses default None
+    start = select_tail_start_index(
+        rest,
+        max_context_tokens=128_000,
+        tail_turns=2,
+    )
+    assert isinstance(start, int)
+    assert start >= 0
