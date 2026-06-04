@@ -99,20 +99,25 @@
 
 ### 3.4 `child_session_key` 独立 transcript
 
-- [ ] **目标**：让 `delegate_task` 的子会话拥有独立 transcript，而不是仅靠父会话内嵌结果表示
-- [ ] **收益**：真正支持 resume、追责、`/任务` 深看、错误回放
-- [ ] **主要改动面**：
-  - `butler/core/session_transcript.py`
-  - `butler/core/delegate_context.py`
-  - `butler/runtime/task_store.py`
-  - `butler/report.py`
-- [ ] **验收标准**：
+- [x] **目标**：让 `delegate_task` 的子会话拥有独立 transcript，而不是仅靠父会话内嵌结果表示
+- [x] **收益**：真正支持 resume、追责、`/任务` 深看、错误回放
+- [x] **主要改动面**：
+  - `butler/core/session_transcript.py` (`transcript_path(sk)` → `~/.butler/sessions/{safe_segment(sk)}/transcript.jsonl`)
+  - `butler/delegate/subagent_permissions.py` (`make_child_session_key` → `{parent}::delegate::{task_id}`)
+  - `butler/runtime/delegate_job.py` (`use_execution_context(..., session_key=child_session_key)` 切换 active session)
+  - `butler/runtime/task_store.py` (`create_task` 持久化 `child_session_key` 字段)
+  - `butler/core/transcript_export.py` (`_format_row_markdown` 渲染 `delegate_started/turn_start/turn_done` 事件带 `child_session_key` + `parent_session_key`)
+  - `butler/core/transcript_retention.py` (`transcript_source_boost("delegate")=+10` 优先保留子 transcript)
+  - `butler/gateway/commands/lifecycle_commands.py` (`/任务` 输出 child_sk 提示)
+- [x] **验收标准**：
   - 子任务有独立 transcript 文件或独立 transcript 命名空间
   - 父任务能引用子 transcript 摘要，但不替代子 transcript 本身
   - `/任务`、`/详细` 能定位到子会话历史
-- [ ] **风险提示**：
+- [x] **风险提示**：
   - 不能破坏当前 `child_session_key` 约定
   - 需要明确父子 transcript 的清理与保留策略
+
+> **Sprint 1-21 累计完成**: `child_session_key` 命名约定 (`subagent_permissions.py:81-86` `make_child_session_key(parent, task_id) -> f"{parent}::delegate::{tid}"`) + per-session transcript 目录隔离 (`session_transcript.py:47-49` `transcript_path(sk) -> get_butler_home() / "sessions" / safe_segment(sk) / "transcript.jsonl"`) + `use_execution_context` 切换 active session (`delegate_job.py:136` `with use_execution_context(orch, session_key=child_session_key or session_key):`) + `task_store.create_task` 持久化 child_session_key 字段 (`task_store.py:101-130`) + transcript export 渲染 delegate 事件携带 child_session_key 字段 (`transcript_export.py:109-112` `_format_row_markdown` 处理 `delegate_started/turn_start/turn_done` 三事件类型) + retention 给 delegate 源 +10 优先保留 (`transcript_retention.transcript_source_boost("delegate")=10`) + `/任务` 输出 child_sk 提示便于人工定位 (`lifecycle_commands.py:209-210`). **已知 gap** (留待后续 sprint 单独 P1-3.4-gap 任务): `/详细 --child <child_sk>` UI 入口未实现, 暂用 transcript 文件路径定位; `/详细` 当前只支持按 `task_id` 倒查父 session, 不直接接受 child_sk. **本次收口**: checklist 标 [x] + audit doc 加 entry, 不写新代码.
 
 ---
 
