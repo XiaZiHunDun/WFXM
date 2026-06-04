@@ -8,10 +8,13 @@ import pytest
 
 from butler.permissions.approvals import (
     ApprovalRequest,
+    clear_always,
     grant_always,
     grant_once,
     is_approved,
+    revoke_always,
     save_pending,
+    summarize_approvals,
 )
 
 
@@ -50,3 +53,74 @@ class TestIsApprovedDiagnostics:
         req = ApprovalRequest(permission="p", tool="t", pattern="pat")
         grant_always("s_bwcompat", permission="p", tool="t", pattern="pat")
         assert is_approved("s_bwcompat", req) is True  # 不传 diagnostics
+
+
+class TestRevokeAlways:
+    def test_revoke_specific_entry(self, tmp_path, monkeypatch):
+        """revoke_always 按 permission+tool+pattern 匹配删除."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        grant_always("s_revoke_1", permission="write_file", tool="*", pattern="*.env")
+        grant_always("s_revoke_1", permission="read_file", tool="*", pattern="*")
+        msg = revoke_always("s_revoke_1", permission="write_file")
+        assert "已撤销" in msg
+        from butler.permissions.approvals import list_always
+        remaining = list_always("s_revoke_1")
+        assert len(remaining) == 1
+        assert remaining[0]["permission"] == "read_file"
+
+    def test_revoke_no_match_returns_status(self, tmp_path, monkeypatch):
+        """无匹配时返 '未找到匹配项' 提示."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        grant_always("s_revoke_2", permission="write_file", tool="*", pattern="*")
+        msg = revoke_always("s_revoke_2", permission="nonexistent")
+        assert "未找到" in msg
+        from butler.permissions.approvals import list_always
+        assert len(list_always("s_revoke_2")) == 1  # 原项保留
+
+    def test_revoke_all_filters_empty_returns_error(self, tmp_path, monkeypatch):
+        """全空过滤返错误 (防止误删全部)."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        grant_always("s_revoke_3", permission="p1")
+        msg = revoke_always("s_revoke_3")
+        assert "请指定" in msg or "至少一项" in msg
+        from butler.permissions.approvals import list_always
+        assert len(list_always("s_revoke_3")) == 1  # 原项保留
+
+    def test_clear_always_removes_all(self, tmp_path, monkeypatch):
+        """clear_always 清空所有 always 记录."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        grant_always("s_clear_1", permission="p1")
+        grant_always("s_clear_1", permission="p2")
+        msg = clear_always("s_clear_1")
+        assert "已清除 2 项" in msg
+        from butler.permissions.approvals import list_always
+        assert list_always("s_clear_1") == []
+
+    def test_clear_always_no_entries_is_ok(self, tmp_path, monkeypatch):
+        """clear_always 无记录时返 '已清除 0 项' 不报错."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        msg = clear_always("s_clear_2")
+        assert "已清除 0 项" in msg
+
+
+class TestSummarizeApprovals:
+    def test_summarize_empty_session(self, tmp_path, monkeypatch):
+        """空 session 返 0/0/False."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        s = summarize_approvals("s_sum_1")
+        assert s["always_count"] == 0
+        assert s["once_active_count"] == 0
+        assert s["has_pending"] is False
+
+    def test_summarize_with_entries(self, tmp_path, monkeypatch):
+        """含 always + once + pending 时正确统计."""
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        grant_always("s_sum_2", permission="p1")
+        grant_always("s_sum_2", permission="p2")
+        req = ApprovalRequest(permission="p3", tool="t", pattern="pat")
+        save_pending("s_sum_2", req)
+        grant_once("s_sum_2")
+        s = summarize_approvals("s_sum_2")
+        assert s["always_count"] == 2
+        assert s["once_active_count"] == 1
+        assert s["has_pending"] is False  # grant_once 清空 pending

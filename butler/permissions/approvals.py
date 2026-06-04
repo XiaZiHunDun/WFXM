@@ -246,3 +246,74 @@ def is_approved(
                 diagnostics["approval_cache_source"] = "once"
             return True
     return False
+
+
+def revoke_always(
+    session_key: str,
+    *,
+    permission: str = "",
+    tool: str = "",
+    pattern: str = "",
+) -> str:
+    """Sprint 24 P1-3.2: 按 permission/tool/pattern 过滤撤销 always 记录.
+
+    全空过滤时返错误, 防止误删. 任意一个非空过滤都参与匹配.
+    """
+    sk = str(session_key or "").strip()
+    if not sk:
+        return "无有效会话"
+    perm_f = str(permission or "").strip()
+    tool_f = str(tool or "").strip()
+    pat_f = str(pattern or "").strip()
+    if not any([perm_f, tool_f, pat_f]):
+        return "请指定 permission / tool / pattern 中的至少一项过滤"
+    data = _load(sk)
+    before = [r for r in (data.get("always") or []) if isinstance(r, dict)]
+    after: list[dict[str, Any]] = []
+    for r in before:
+        if perm_f and str(r.get("permission") or "") != perm_f:
+            after.append(r)
+            continue
+        if tool_f and str(r.get("tool") or "") != tool_f:
+            after.append(r)
+            continue
+        if pat_f and str(r.get("pattern") or "") != pat_f:
+            after.append(r)
+            continue
+    if len(after) == len(before):
+        return (
+            f"未找到匹配项 (permission={perm_f or '*'}, tool={tool_f or '*'}, "
+            f"pattern={pat_f or '*'})"
+        )
+    data["always"] = after
+    _save(sk, data)
+    return f"已撤销 {len(before) - len(after)} 项始终允许"
+
+
+def clear_always(session_key: str) -> str:
+    """Sprint 24 P1-3.2: 清空 session 的所有 always 记录."""
+    sk = str(session_key or "").strip()
+    if not sk:
+        return "无有效会话"
+    data = _load(sk)
+    count = len([r for r in (data.get("always") or []) if isinstance(r, dict)])
+    data["always"] = []
+    _save(sk, data)
+    return f"已清除 {count} 项始终允许"
+
+
+def summarize_approvals(session_key: str) -> dict[str, Any]:
+    """Sprint 24 P1-3.2: 给 /诊断用的 always/once/pending 统计."""
+    sk = str(session_key or "").strip()
+    if not sk:
+        return {"always_count": 0, "once_active_count": 0, "has_pending": False}
+    data = _load(sk)
+    always_count = len([r for r in (data.get("always") or []) if isinstance(r, dict)])
+    once_active_count = len(_purge_once(data.get("once") or []))
+    pending = data.get("pending")
+    has_pending = isinstance(pending, dict) and bool(pending.get("fingerprint"))
+    return {
+        "always_count": always_count,
+        "once_active_count": once_active_count,
+        "has_pending": has_pending,
+    }
