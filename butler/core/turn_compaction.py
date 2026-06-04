@@ -139,6 +139,7 @@ def select_tail_start_index(
     tail_turns: int | None = None,
     split_turn: bool | None = None,
     estimate_fn: Callable[[list[dict]], int] | None = None,
+    diagnostics: dict[str, Any] | None = None,
 ) -> int:
     """
     Return index in ``rest`` where preserved tail begins.
@@ -146,10 +147,24 @@ def select_tail_start_index(
     """
     limit = tail_turns if tail_turns is not None else tail_turns_limit()
     if limit <= 0 or not rest:
+        if diagnostics is not None:
+            diagnostics["compaction_strategy"] = "no_op"
+            diagnostics["compaction_tail_turns_kept"] = 0
+            diagnostics["compaction_split_turn_applied"] = False
+            diagnostics["compaction_preserved_recent_budget"] = 0
+            diagnostics["compaction_tail_token_count"] = 0
+            diagnostics["compaction_tail_start_index"] = 0
         return 0
 
     turns = group_messages_into_turns(rest)
     if not turns:
+        if diagnostics is not None:
+            diagnostics["compaction_strategy"] = "no_op"
+            diagnostics["compaction_tail_turns_kept"] = 0
+            diagnostics["compaction_split_turn_applied"] = False
+            diagnostics["compaction_preserved_recent_budget"] = 0
+            diagnostics["compaction_tail_token_count"] = 0
+            diagnostics["compaction_tail_start_index"] = 0
         return 0
 
     budget = preserve_recent_token_budget(
@@ -159,7 +174,9 @@ def select_tail_start_index(
     recent = turns[-limit:]
     total = 0
     keep_start: int | None = None
+    kept_turn_count = 0
     do_split = split_turn_enabled() if split_turn is None else split_turn
+    split_applied = False
 
     for turn in reversed(recent):
         chunk = rest[turn.start : turn.end]
@@ -167,20 +184,45 @@ def select_tail_start_index(
         if total + size <= budget:
             total += size
             keep_start = turn.start
+            kept_turn_count += 1
             continue
         remaining = budget - total
         if do_split and remaining > 0:
             split = _split_turn_suffix(rest, turn, budget=remaining, estimate_fn=estimate_fn)
             if split is not None:
                 keep_start = split.start
+                split_applied = True
             elif keep_start is None:
                 keep_start = turn.start
+                kept_turn_count = 1
         elif keep_start is None:
             keep_start = turn.start
+            kept_turn_count = 1
         break
 
     if keep_start is None or keep_start <= 0:
+        if keep_start is None:
+            kept_turn_count = len(recent)
+        if diagnostics is not None:
+            diagnostics["compaction_strategy"] = _strategy_label(
+                kept_turn_count, split_applied, middle_present=True
+            )
+            diagnostics["compaction_tail_turns_kept"] = kept_turn_count
+            diagnostics["compaction_split_turn_applied"] = split_applied
+            diagnostics["compaction_preserved_recent_budget"] = budget
+            diagnostics["compaction_tail_token_count"] = total
+            diagnostics["compaction_tail_start_index"] = 0
         return 0
+
+    if diagnostics is not None:
+        diagnostics["compaction_strategy"] = _strategy_label(
+            kept_turn_count, split_applied, middle_present=True
+        )
+        diagnostics["compaction_tail_turns_kept"] = kept_turn_count
+        diagnostics["compaction_split_turn_applied"] = split_applied
+        diagnostics["compaction_preserved_recent_budget"] = budget
+        diagnostics["compaction_tail_token_count"] = total
+        diagnostics["compaction_tail_start_index"] = keep_start
     return keep_start
 
 
