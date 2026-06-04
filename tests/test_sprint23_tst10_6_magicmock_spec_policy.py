@@ -301,7 +301,9 @@ class TestScanCli:
 #        status facade (orch / pm / session_registry) 加 noqa)
 # → 286 (test_sprint16_tst10_5_dev_commands_migration: 10 处 dev command
 #        facade (orch / session_registry) 加 noqa)
-_BASELINE_VIOLATIONS = 286
+# → 276 (test_post_session: 10 处 post_session memory facade
+#        (butler_memory / project_memory / skill_manager) 加 noqa)
+_BASELINE_VIOLATIONS = 276
 
 
 @pytest.mark.unit

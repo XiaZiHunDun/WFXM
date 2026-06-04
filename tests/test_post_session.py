@@ -137,7 +137,7 @@ class TestExtractMemories:
         async def llm_call(prompt):
             return '{"updates": [{"target": "butler", "content": "prefers dark mode"}]}'
 
-        butler_memory = MagicMock()
+        butler_memory = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         butler_memory.profile.add.return_value = {"success": True}
         proc = PostSessionProcessor(llm_call=llm_call)
 
@@ -154,7 +154,7 @@ class TestExtractMemories:
                 '"content": "uses FastAPI"}]}'
             )
 
-        project_memory = MagicMock()
+        project_memory = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         proc = PostSessionProcessor(llm_call=llm_call)
 
         count = asyncio.run(
@@ -167,7 +167,7 @@ class TestExtractMemories:
         async def llm_call(prompt):
             return '{"updates": [{"target": "experience", "content": "always test auth"}]}'
 
-        butler_memory = MagicMock()
+        butler_memory = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         proc = PostSessionProcessor(llm_call=llm_call)
 
         count = asyncio.run(
@@ -190,9 +190,9 @@ class TestExtractMemories:
                 "]}"
             )
 
-        butler_memory = MagicMock()
+        butler_memory = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         butler_memory.profile.add.return_value = {"success": True}
-        project_memory = MagicMock()
+        project_memory = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         proc = PostSessionProcessor(llm_call=llm_call)
 
         count = asyncio.run(
@@ -217,8 +217,8 @@ class TestExtractMemories:
                 "]}"
             )
 
-        butler_memory = MagicMock()
-        project_memory = MagicMock()
+        butler_memory = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
+        project_memory = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         proc = PostSessionProcessor(llm_call=llm_call)
 
         count = asyncio.run(
@@ -233,7 +233,7 @@ class TestExtractMemories:
         async def llm_call(prompt):
             return '{"updates": [{"target": "unknown", "content": "ignored"}]}'
 
-        butler_memory = MagicMock()
+        butler_memory = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         proc = PostSessionProcessor(llm_call=llm_call)
 
         count = asyncio.run(
@@ -258,7 +258,7 @@ class TestExtractSkills:
         async def llm_call(prompt):
             return json_skill_response()
 
-        skill_manager = MagicMock()
+        skill_manager = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         skill_manager.list_skills.return_value = []
         proc = PostSessionProcessor(llm_call=llm_call)
 
@@ -276,7 +276,7 @@ class TestExtractSkills:
         async def llm_call(prompt):
             return '{"skills": []}'
 
-        skill_manager = MagicMock()
+        skill_manager = MagicMock()  # noqa: magicmock-no-spec — post_session memory facade (butler/project_memory/skill_manager)
         skill_manager.list_skills.return_value = []
         proc = PostSessionProcessor(llm_call=llm_call)
 
