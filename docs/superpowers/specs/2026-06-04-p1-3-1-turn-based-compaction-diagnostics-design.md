@@ -49,20 +49,19 @@ def _strategy_label(
     tail_turns_kept: int,
     split_applied: bool,
     middle_present: bool,
-    fell_back: bool,
 ) -> str:
-    if fell_back:
-        return "legacy_split"
     if not middle_present:
         return "no_op"
     base = f"turns:{tail_turns_kept}"
     return f"{base}+split" if split_applied else base
 ```
 
+`_strategy_label` 不处理 `fell_back`（它不知道是否走了 fallback），由调用方在 try/except 里直接 `diagnostics["compaction_strategy"] = "legacy_split"`。
+
 枚举：
 - `turns:1` / `turns:2` / `turns:3` — turn-based 无 split
 - `turns:1+split` / `turns:2+split` — turn-based + mid-turn split
-- `legacy_split` — turn_compaction 抛异常时 fallback 到旧路径
+- `legacy_split` — turn_compaction 抛异常时由调用方（`compress_messages` / `try_reactive_compact`）直接写入
 - `no_op` — 无 middle（消息总数 ≤ head + min_tail）
 
 ### 2.4 Fallback 标记
@@ -124,9 +123,10 @@ if turn_compaction_enabled():
 `try_reactive_compact` 的 turn-mode 分支也写 strategy 字段：
 - 入参加 `diagnostics: dict | None = None`
 - 当 `use_turn_tail=True` 且成功压缩时，写入：
-  - `reactive_compact_strategy: "turns:N"` （N=保留的 turn 数）
-  - 复用 `compaction_strategy` 字段（同时存在）
+  - `compaction_strategy: "turns:N"` （N=保留的 turn 数，与主路径同名同义）
+  - `reactive_compact_strategy: "turns:N"` （reactive 专属字段，便于区分 reactive vs 主压缩）
 - 不动 reactive 路径的 `reactive_compact_applied` / `reactive_compact_reason`
+- 异常时（line 73 返 `("error", ...)`）不写 `compaction_strategy`，由上层 `apply_reactive_compact_to_messages` 决定是否需要 "legacy" 标记（本次不动）
 
 ### 3.4 `tests/test_turn_compaction.py`
 新增 6 个测试（见 §4.2）。
