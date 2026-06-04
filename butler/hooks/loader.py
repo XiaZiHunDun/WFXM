@@ -25,6 +25,12 @@ _HOOK_EVENTS = (
     "SubagentStop",
 )
 
+# Sprint 21-3 PERF-21-B-1: mtime+size-keyed cache for parsed hook rules.
+# Mirrors skill_manager._full_cache (Sprint 20-4) and skill_manager
+# _metadata_cache. Keyed by (str(path), mtime_ns, size) so the cache
+# auto-invalidates on file modification.
+_FILE_CACHE: dict[tuple[str, int, int], list["HookRule"]] = {}
+
 
 @dataclass(frozen=True)
 class HookRule:
@@ -85,6 +91,15 @@ def _load_file(path: Path) -> list[HookRule]:
     if not path.is_file():
         return []
     try:
+        st = path.stat()
+    except OSError as exc:
+        logger.debug("Could not stat %s: %s", path, exc)
+        return []
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    cached = _FILE_CACHE.get(key)
+    if cached is not None:
+        return list(cached)
+    try:
         import yaml
     except ImportError:
         logger.debug("PyYAML not installed; skipping %s", path)
@@ -102,7 +117,8 @@ def _load_file(path: Path) -> list[HookRule]:
     out: list[HookRule] = []
     for event in _HOOK_EVENTS:
         out.extend(_parse_rules(hooks.get(event), event))
-    return out
+    _FILE_CACHE[key] = out
+    return list(out)
 
 
 def match_tool(matcher: str, tool_name: str) -> bool:
