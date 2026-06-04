@@ -94,8 +94,8 @@ class TestDispatch:
                 session_key="t:s",
                 platform="t",
                 external_id="s",
-                orchestrator=MagicMock(),
-                session_registry=MagicMock(),
+                orchestrator=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
+                session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
             )
             with patch.object(rt_cmds, "_cmd_runtime_approve_run", return_value=None) as a, \
                  patch.object(rt_cmds, "_cmd_runtime_run", return_value=None) as r, \
@@ -112,7 +112,7 @@ class TestDelegation:
         """/定时 handler 强制 cmd='/定时' 委派到 handle_runtime_command。"""
         from butler.gateway.runtime_commands import handle_runtime_command
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         ctx = CommandContext(
             cmd="/runtime",  # alias
             arg="",
@@ -120,7 +120,7 @@ class TestDelegation:
             platform="wechat",
             external_id="alice",
             orchestrator=orch,
-            session_registry=MagicMock(),
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
             "butler.gateway.runtime_commands.handle_runtime_command",
@@ -134,7 +134,7 @@ class TestDelegation:
     def test_approve_run_passes_canonical_cmd(self, ensure_registered):
         from butler.gateway.runtime_commands import handle_runtime_command
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         ctx = CommandContext(
             cmd="/approve-run",
             arg="job-1",
@@ -142,7 +142,7 @@ class TestDelegation:
             platform="wechat",
             external_id="owner1",
             orchestrator=orch,
-            session_registry=MagicMock(),
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
             "butler.gateway.runtime_commands.handle_runtime_command",
@@ -157,7 +157,7 @@ class TestDelegation:
     def test_run_passes_canonical_cmd(self, ensure_registered):
         from butler.gateway.runtime_commands import handle_runtime_command
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         ctx = CommandContext(
             cmd="/run-job",
             arg="job-2",
@@ -165,7 +165,7 @@ class TestDelegation:
             platform="wechat",
             external_id="owner1",
             orchestrator=orch,
-            session_registry=MagicMock(),
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
             "butler.gateway.runtime_commands.handle_runtime_command",
@@ -196,8 +196,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="non_owner",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=False):
             result = rt_cmds._cmd_runtime_jobs_list(ctx)
@@ -213,8 +213,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="owner1",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
             "butler.gateway.runtime_commands.handle_runtime_command",
@@ -233,8 +233,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="attacker",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=False):
             result = rt_cmds._cmd_runtime_approve_run(ctx)
@@ -249,8 +249,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="attacker",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=False):
             result = rt_cmds._cmd_runtime_run(ctx)
