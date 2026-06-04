@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import ipaddress
 import os
 import socket
@@ -80,20 +81,108 @@ def assert_safe_redirect(url: str) -> bool:
     return is_safe_url(url)
 
 
+@contextlib.contextmanager
+def _pinned_dns(host_to_ips: dict[str, list[str]]):
+    """Pin host → list of IPs for the duration of the context.
+
+    Sprint 22-2 SEC-21-A-3: DNS rebinding mitigation. `is_safe_url`
+    resolves and validates IPs; `safe_registry_get` re-resolves and
+    re-validates, then enters this context. For the duration of
+    `httpx.get`, `socket.getaddrinfo` for the target host returns
+    only the validated IP literals. A rebinding attack that flips
+    the A record after validation cannot reach the connection
+    because the resolver is pinned.
+    """
+    if not host_to_ips:
+        yield
+        return
+    original = socket.getaddrinfo
+
+    def patched(host, *args, **kwargs):
+        if host in host_to_ips:
+            ips = host_to_ips[host]
+            port = args[0] if args else kwargs.get("port", 0)
+            socktype = kwargs.get("type", socket.SOCK_STREAM)
+            results = []
+            for ip in ips:
+                family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+                results.append((family, socktype, 6, "", (ip, port)))
+            return results
+        return original(host, *args, **kwargs)
+
+    socket.getaddrinfo = patched
+    try:
+        yield
+    finally:
+        socket.getaddrinfo = original
+
+
+def _resolve_public_ips(host: str) -> list[str]:
+    """Re-resolve host and return only public IPs. Raises if any is private.
+
+    Sprint 22-2 SEC-21-A-3: DNS rebinding mitigation. Distinct from
+    `is_safe_url` (which only returns bool), this returns the IP set
+    so we can pin it for the actual connection. Fails closed: any
+    private IP in the resolve set causes ValueError.
+    """
+    try:
+        infos = socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise ValueError(
+            f"DNS resolution failed for {host}: {exc}"
+        ) from exc
+    public_ips: list[str] = []
+    for info in infos:
+        ip_str = info[4][0]
+        try:
+            addr = ipaddress.ip_address(ip_str)
+        except ValueError:
+            continue
+        if _addr_blocked(addr):
+            raise ValueError(
+                f"DNS rebinding blocked: {host} resolves to private IP {ip_str}"
+            )
+        public_ips.append(ip_str)
+    if not public_ips:
+        raise ValueError(f"No public IPs for {host}")
+    return public_ips
+
+
 def safe_registry_get(url: str, **kwargs: object) -> object:
-    """HTTP GET with no auto-redirects and one validated Location hop."""
+    """HTTP GET with no auto-redirects and one validated Location hop.
+
+    Sprint 22-2 SEC-21-A-3: Mitigates DNS rebinding by re-resolving
+    after `is_safe_url` passes and pinning the validated IP set for
+    the duration of the HTTP call. The pin is host-scoped (other
+    lookups fall through to the original resolver) and uses a
+    try/finally to restore `socket.getaddrinfo` on success or
+    exception.
+    """
     import httpx
     from urllib.parse import urljoin
 
     if not is_safe_url(url):
         raise ValueError(f"unsafe registry url: {url}")
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"URL has no host: {url}")
+
+    pinned_ips = _resolve_public_ips(host)
     fetch_kw = httpx_fetch_kwargs()
     fetch_kw.update(kwargs)
-    resp = httpx.get(url, **fetch_kw)
+    with _pinned_dns({host: pinned_ips}):
+        resp = httpx.get(url, **fetch_kw)
+
     if resp.status_code in (301, 302, 303, 307, 308):
         loc = resp.headers.get("location") or resp.headers.get("Location")
         if loc:
             next_url = urljoin(url, loc)
             if assert_safe_redirect(next_url):
-                return httpx.get(next_url, **fetch_kw)
+                next_parsed = urlparse(next_url)
+                next_host = next_parsed.hostname
+                if next_host:
+                    next_ips = _resolve_public_ips(next_host)
+                    with _pinned_dns({next_host: next_ips}):
+                        return httpx.get(next_url, **fetch_kw)
     return resp
