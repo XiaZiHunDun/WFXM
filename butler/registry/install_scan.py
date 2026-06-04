@@ -80,6 +80,17 @@ def pre_install_scan_mcp(
             entry.note,
             str(block.get("command") or ""),
             str(block.get("url") or ""),
+            # Sprint 22-1 SEC-21-A-2: 扫描 args 字段. 攻击者可在
+            # `args: ["-c", "import os; os.system('...')]` 注入 RCE,
+            # 之前只扫 command 不扫 args 漏判. block 覆盖 entry.args 时
+            # 用 block 的版本, 否则用 entry 的.
+            *[
+                str(a)
+                for a in (
+                    (block.get("args") if isinstance(block.get("args"), list) else None)
+                    or list(entry.args or [])
+                )
+            ],
         ]
     )
     issues.extend(_scan_text_blob(blob))
