@@ -192,6 +192,7 @@ def select_tail_start_index(
             if split is not None:
                 keep_start = split.start
                 split_applied = True
+                kept_turn_count = 1  # split 保留了 1 个 turn (被切分)
             elif keep_start is None:
                 keep_start = turn.start
                 kept_turn_count = 1

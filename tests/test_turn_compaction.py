@@ -153,3 +153,27 @@ def test_diagnostics_strategy_turns_2():
     assert isinstance(diag["compaction_preserved_recent_budget"], int)
     assert diag["compaction_tail_token_count"] > 0
     assert diag["compaction_tail_start_index"] == start
+
+
+@pytest.mark.unit
+def test_diagnostics_strategy_turns_2_split():
+    """单个超大 turn 触发 mid-turn split → 'turns:1+split'."""
+    big = "x" * 8000
+    rest = [
+        {"role": "user", "content": "start"},
+        {"role": "assistant", "content": big},
+        {"role": "assistant", "content": "short tail reply"},
+    ]
+    diag: dict = {}
+    start = select_tail_start_index(
+        rest,
+        max_context_tokens=12_000,
+        tail_turns=1,
+        split_turn=True,
+        diagnostics=diag,
+    )
+    assert start == 2
+    assert diag["compaction_strategy"] == "turns:1+split"
+    assert diag["compaction_split_turn_applied"] is True
+    assert diag["compaction_tail_turns_kept"] == 1
+    assert diag["compaction_tail_start_index"] == start
