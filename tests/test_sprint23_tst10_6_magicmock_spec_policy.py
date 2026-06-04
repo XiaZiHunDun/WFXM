@@ -310,7 +310,9 @@ class TestScanCli:
 #        (current_orch / agent loop / config) 加 noqa)
 # → 249 (test_sprint16_rel11_4_runner_shutdown: 9 处 runner shutdown facade
 #        (butler / adapter / task) 加 noqa)
-_BASELINE_VIOLATIONS = 249
+# → 240 (test_cli_dimensions: 9 处 CLI dimensions facade
+#        (orch / loop / model credentials) 加 noqa)
+_BASELINE_VIOLATIONS = 240
 
 
 @pytest.mark.unit

@@ -45,7 +45,7 @@ from tests.cli_harness import (
 
 
 def _orch(butler_name: str = "莎丽", project: str = "灵文") -> MagicMock:
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
     orch._settings.butler_name = butler_name
     orch._settings.butler_home = Path("/tmp/butler-home")
     orch.project_manager.current_project = project
@@ -267,7 +267,7 @@ class TestCliSlashCommandMatrix:
     @pytest.mark.parametrize("cmd", ["/health", "/诊断"])
     def test_health_command(self, cmd):
         console, buf = _console()
-        loop = MagicMock()
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
         loop.diagnostics = {"schema_recovered": True}
         assert _handle_slash_command(cmd, _orch(), console, agent_loop=loop) == "handled"
         assert "诊断" in rendered_text(buf) or "Butler" in rendered_text(buf)
@@ -318,7 +318,7 @@ class TestCliSlashCommandMatrix:
     def test_model_list_roles(self):
         console, buf = _console()
         with patch("butler.config.get_model_config") as gmc:
-            gmc.return_value = MagicMock(provider="minimax", model="M2.7")
+            gmc.return_value = MagicMock(provider="minimax", model="M2.7")  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
             assert _handle_slash_command("/model", _orch(), console) == "handled"
         text = rendered_text(buf)
         for role in ("butler", "dev_agent", "content_agent", "review_agent"):
@@ -491,7 +491,7 @@ class TestCliSessionLifecycle:
 
     def test_sync_memory_empty_user_turn_skipped(self):
         orch = _orch()
-        orch.butler_memory = MagicMock()
+        orch.butler_memory = MagicMock()  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
         with patch("butler.session.lifecycle.sync_turn_memory") as sync:
             sync.return_value = {"skipped": True, "reason": "empty_turn"}
             _sync_memory(orch, "", "answer")
@@ -532,7 +532,7 @@ class TestCliErrorRecovery:
 
         orch.create_agent_loop.side_effect = None
         filler = "x" * 80
-        loop = MagicMock()
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
         loop.messages = [{"role": "user", "content": filler}] * 4
         loop.run.side_effect = RuntimeError("loop exploded")
         orch.create_agent_loop.return_value = loop
@@ -551,8 +551,8 @@ class TestCliExecMode:
     """§2.5: one-shot exec uses same Panel path as chat."""
 
     def test_exec_finish_turn_panel(self):
-        orch = MagicMock()
-        loop = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
         loop.run.return_value = LoopResult(
             status=LoopStatus.COMPLETED,
             final_response="我是 Butler 管家。",
@@ -567,8 +567,8 @@ class TestCliExecMode:
         loop.run.assert_called_once()
 
     def test_exec_non_completed_returns_nonzero(self):
-        orch = MagicMock()
-        loop = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI dimensions facade (orch / loop / model cred)
         loop.run.return_value = LoopResult(
             status=LoopStatus.ERROR,
             error="fail",
