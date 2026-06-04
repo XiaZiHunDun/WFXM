@@ -20,6 +20,18 @@ _SUMMARY_MARKERS = (
 )
 
 
+def _strategy_label(
+    tail_turns_kept: int,
+    split_applied: bool,
+    middle_present: bool,
+) -> str:
+    """Generate human-readable compaction strategy tag for /诊断 output."""
+    if not middle_present:
+        return "no_op"
+    base = f"turns:{tail_turns_kept}"
+    return f"{base}+split" if split_applied else base
+
+
 @dataclass(frozen=True)
 class TurnSpan:
     """Half-open index range [start, end) in a non-system message list."""
