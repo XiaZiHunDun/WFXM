@@ -71,7 +71,7 @@ class TestDisabled:
 
     @pytest.mark.asyncio
     async def test_disabled_returns_empty_without_calling_llm(self):
-        llm = MagicMock()
+        llm = MagicMock()  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(), llm)
         assert result == {"persona": [], "preference": [], "experience": []}
         llm.assert_not_called()
@@ -79,7 +79,7 @@ class TestDisabled:
     @pytest.mark.asyncio
     async def test_explicit_disabled_returns_empty(self, monkeypatch):
         monkeypatch.setenv("BUTLER_POST_SESSION_LAYERED", "0")
-        llm = MagicMock()
+        llm = MagicMock()  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(), llm)
         assert result == {"persona": [], "preference": [], "experience": []}
         llm.assert_not_called()
@@ -97,7 +97,7 @@ class TestShortTranscript:
     @pytest.mark.asyncio
     async def test_short_messages_returns_empty(self, enabled):
         """< 200 chars 短 transcript → 早退, 不调 llm_call。"""
-        llm = MagicMock()
+        llm = MagicMock()  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         msgs = [{"role": "user", "content": "hi"}]
         result = await extract_layered_summary(msgs, llm)
         assert result == {"persona": [], "preference": [], "experience": []}
@@ -105,7 +105,7 @@ class TestShortTranscript:
 
     @pytest.mark.asyncio
     async def test_empty_messages_returns_empty(self, enabled):
-        result = await extract_layered_summary([], MagicMock())
+        result = await extract_layered_summary([], MagicMock())  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         assert result == {"persona": [], "preference": [], "experience": []}
 
 
@@ -115,11 +115,11 @@ class TestShortTranscript:
 class TestSyncLlmCall:
     @pytest.mark.asyncio
     async def test_sync_llm_returns_three_lists(self, enabled):
-        llm = MagicMock(return_value=json.dumps({
+        llm = MagicMock(return_value=json.dumps({  # noqa: magicmock-no-spec — LLM callable shim (sync return_value, multiline)
             "persona": ["用户是开发者"],
             "preference": ["喜欢简洁回答"],
             "experience": ["使用中文"],
-        }))
+        }))  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result["persona"] == ["用户是开发者"]
         assert result["preference"] == ["喜欢简洁回答"]
@@ -134,7 +134,7 @@ class TestSyncLlmCall:
     async def test_response_with_markdown_fence_parsed(self, enabled):
         """LLM 返 ```json\\n{...}\\n``` → _parse_json_from_response 仍能抽 JSON。"""
         response = '```json\n{"persona": ["A"], "preference": [], "experience": []}\n```'
-        llm = MagicMock(return_value=response)
+        llm = MagicMock(return_value=response)  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result["persona"] == ["A"]
 
@@ -142,7 +142,7 @@ class TestSyncLlmCall:
     async def test_response_with_surrounding_text_parsed(self, enabled):
         """LLM 返 'Here is the JSON: {\\"persona\\": [\\"X\\"]} done' → 抽 {} 解析。"""
         response = 'Here is the JSON: {"persona": ["X"], "preference": [], "experience": []} done'
-        llm = MagicMock(return_value=response)
+        llm = MagicMock(return_value=response)  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result["persona"] == ["X"]
 
@@ -192,28 +192,28 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_non_json_response_returns_empty(self, enabled):
         """LLM 返 'I cannot help' (无 {) → 解析返 None → 返 empty。"""
-        llm = MagicMock(return_value="I cannot help with that.")
+        llm = MagicMock(return_value="I cannot help with that.")  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result == {"persona": [], "preference": [], "experience": []}
 
     @pytest.mark.asyncio
     async def test_invalid_json_response_returns_empty(self, enabled):
         """LLM 返 {invalid json} → json.JSONDecodeError → 返 None → empty。"""
-        llm = MagicMock(return_value="{not valid json}")
+        llm = MagicMock(return_value="{not valid json}")  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result == {"persona": [], "preference": [], "experience": []}
 
     @pytest.mark.asyncio
     async def test_list_response_returns_empty(self, enabled):
         """LLM 返 [...] (顶层是 list 而非 dict) → 返 empty。"""
-        llm = MagicMock(return_value="[1, 2, 3]")
+        llm = MagicMock(return_value="[1, 2, 3]")  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result == {"persona": [], "preference": [], "experience": []}
 
     @pytest.mark.asyncio
     async def test_empty_dict_response_returns_empty_lists(self, enabled):
         """LLM 返 {} → 三个字段都为空 list。"""
-        llm = MagicMock(return_value="{}")
+        llm = MagicMock(return_value="{}")  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result == {"persona": [], "preference": [], "experience": []}
 
@@ -225,11 +225,11 @@ class TestListTruncation:
     @pytest.mark.asyncio
     async def test_caps_each_field_to_3_items(self, enabled):
         """每个字段最多 3 条 (audit: 最多3条)。"""
-        llm = MagicMock(return_value=json.dumps({
+        llm = MagicMock(return_value=json.dumps({  # noqa: magicmock-no-spec — LLM callable shim (sync return_value, multiline)
             "persona": ["p1", "p2", "p3", "p4", "p5"],
             "preference": ["x1", "x2", "x3", "x4"],
             "experience": ["e1", "e2", "e3", "e4", "e5", "e6"],
-        }))
+        }))  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert len(result["persona"]) == 3
         assert len(result["preference"]) == 3
@@ -239,33 +239,33 @@ class TestListTruncation:
     async def test_caps_single_string_to_240_chars(self, enabled):
         """单条字符串 > 240 字符 → 截到 240。"""
         long = "a" * 500
-        llm = MagicMock(return_value=json.dumps({
+        llm = MagicMock(return_value=json.dumps({  # noqa: magicmock-no-spec — LLM callable shim (sync return_value, multiline)
             "persona": [long],
             "preference": [],
             "experience": [],
-        }))
+        }))  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert len(result["persona"][0]) == 240
 
     @pytest.mark.asyncio
     async def test_skips_empty_strings_after_strip(self, enabled):
         """空字符串 / 纯空白条目 → 跳过。"""
-        llm = MagicMock(return_value=json.dumps({
+        llm = MagicMock(return_value=json.dumps({  # noqa: magicmock-no-spec — LLM callable shim (sync return_value, multiline)
             "persona": ["real", "   ", "", "\t\n"],
             "preference": [],
             "experience": [],
-        }))
+        }))  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result["persona"] == ["real"]
 
     @pytest.mark.asyncio
     async def test_non_list_field_returns_empty_list(self, enabled):
         """字段是 dict/str/int 而不是 list → 返 []。"""
-        llm = MagicMock(return_value=json.dumps({
+        llm = MagicMock(return_value=json.dumps({  # noqa: magicmock-no-spec — LLM callable shim (sync return_value, multiline)
             "persona": {"name": "x"},  # dict 而非 list
             "preference": "string",   # str 而非 list
             "experience": 42,         # int
-        }))
+        }))  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result["persona"] == []
         assert result["preference"] == []
@@ -274,9 +274,9 @@ class TestListTruncation:
     @pytest.mark.asyncio
     async def test_missing_field_returns_empty_list(self, enabled):
         """LLM 响应缺某字段 → 缺字段返 []。"""
-        llm = MagicMock(return_value=json.dumps({
+        llm = MagicMock(return_value=json.dumps({  # noqa: magicmock-no-spec — LLM callable shim (sync return_value, multiline)
             "persona": ["only-persona"],
-        }))
+        }))  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result["persona"] == ["only-persona"]
         assert result["preference"] == []
@@ -285,22 +285,22 @@ class TestListTruncation:
     @pytest.mark.asyncio
     async def test_none_field_returns_empty_list(self, enabled):
         """字段值是 None → 返 [] (data.get(key) or [])。"""
-        llm = MagicMock(return_value=json.dumps({
+        llm = MagicMock(return_value=json.dumps({  # noqa: magicmock-no-spec — LLM callable shim (sync return_value, multiline)
             "persona": None,
             "preference": None,
             "experience": None,
-        }))
+        }))  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result == {"persona": [], "preference": [], "experience": []}
 
     @pytest.mark.asyncio
     async def test_string_items_coerced_to_str(self, enabled):
         """列表中非 str 元素 → str(x) 转换。"""
-        llm = MagicMock(return_value=json.dumps({
+        llm = MagicMock(return_value=json.dumps({  # noqa: magicmock-no-spec — LLM callable shim (sync return_value, multiline)
             "persona": [123, 1.5, True],
             "preference": [],
             "experience": [],
-        }))
+        }))  # noqa: magicmock-no-spec — LLM callable shim (sync return_value)
         result = await extract_layered_summary(_gen_messages(20), llm)
         assert result["persona"] == ["123", "1.5", "True"]
 

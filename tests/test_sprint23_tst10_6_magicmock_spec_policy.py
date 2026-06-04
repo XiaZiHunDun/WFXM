@@ -282,7 +282,9 @@ class TestScanCli:
 #        facade (含 factory lambda / 字典字面量 / 列表 comp) 加 noqa)
 # → 417 (test_sprint16_tst10_5_memory_commands_migration: 18 处 memory
 #        command facade (orch / session_registry) 加 noqa)
-_BASELINE_VIOLATIONS = 417
+# → 399 (test_sprint16_tst10_3_extract_layered_summary: 18 处 LLM
+#        callable shim (sync return_value, 含 multiline json.dumps) 加 noqa)
+_BASELINE_VIOLATIONS = 399
 
 
 @pytest.mark.unit
