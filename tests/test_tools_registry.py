@@ -22,7 +22,7 @@ from butler.memory.observer_queue import flush_observer_queue, list_observations
 
 
 def _orchestrator_for_workspace(workspace: Path):
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
     orch.project_manager.get_current.return_value = SimpleNamespace(workspace=workspace)
     return orch
 
@@ -571,7 +571,7 @@ class TestTerminal:
         assert "timeout" in data["error"].lower()
 
     def test_timeout_path_does_not_communicate_unbounded_output(self):
-        fake_proc = MagicMock()
+        fake_proc = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         fake_proc.poll.return_value = None
         fake_proc.wait.return_value = -9
         fake_proc.communicate.side_effect = AssertionError("communicate should not be used")
@@ -767,7 +767,7 @@ class TestTerminal:
         monkeypatch.setenv("LD_PRELOAD", str(tmp_path / "evil.so"))
         monkeypatch.setenv("RIPGREP_CONFIG_PATH", str(tmp_path / "evil-rg-config"))
 
-        fake_proc = MagicMock()
+        fake_proc = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         fake_proc.poll.return_value = 0
         fake_proc.communicate.return_value = ("ok\n", "")
         fake_proc.returncode = 0
@@ -954,7 +954,7 @@ class TestDelegateTask:
     def test_delegate_task_with_mock_orchestrator(self, mock_orch_cls, mock_cache):
         from butler.core.agent_loop import LoopResult, LoopStatus
 
-        mock_agent = MagicMock()
+        mock_agent = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         mock_agent.run.return_value = LoopResult(
             status=LoopStatus.COMPLETED,
             final_response="delegation done",
@@ -963,7 +963,7 @@ class TestDelegateTask:
             total_tokens=100,
             elapsed_seconds=1.5,
         )
-        mock_orch = MagicMock()
+        mock_orch = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         mock_orch.create_project_agent_loop.return_value = mock_agent
         mock_orch.inject_skill_context.side_effect = lambda text, **_: text
         mock_orch_cls.return_value = mock_orch
@@ -993,12 +993,12 @@ class TestDelegateTask:
         from butler.core.agent_loop import LoopResult, LoopStatus
         from butler.execution_context import use_execution_context
 
-        mock_agent = MagicMock()
+        mock_agent = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         mock_agent.run.return_value = LoopResult(
             status=LoopStatus.COMPLETED,
             final_response="delegation done",
         )
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         current_orch.create_project_agent_loop.return_value = mock_agent
         current_orch.inject_skill_context.side_effect = lambda text, **_: (
             f"## 相关知识（Butler Skill）\nUse pytest\n\n{text}"
@@ -1033,14 +1033,14 @@ class TestDelegateTask:
         from butler.core.agent_loop import LoopResult, LoopStatus
         from butler.execution_context import get_current_orchestrator
 
-        mock_orch = MagicMock()
+        mock_orch = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         mock_orch.inject_skill_context.side_effect = lambda text, **_: text
 
         def _run(_message: str) -> LoopResult:
             assert get_current_orchestrator() is mock_orch
             return LoopResult(status=LoopStatus.COMPLETED, final_response="delegation done")
 
-        mock_agent = MagicMock()
+        mock_agent = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         mock_agent.run.side_effect = _run
         mock_orch.create_project_agent_loop.return_value = mock_agent
         mock_orch_cls.return_value = mock_orch
@@ -1062,7 +1062,7 @@ class TestDelegateTask:
     ):
         from butler.core.agent_loop import LoopResult, LoopStatus
 
-        mock_agent = MagicMock()
+        mock_agent = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         mock_agent.run.return_value = LoopResult(
             status=LoopStatus.COMPLETED,
             final_response="无法删除文件",
@@ -1073,7 +1073,7 @@ class TestDelegateTask:
                 },
             ],
         )
-        mock_orch = MagicMock()
+        mock_orch = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         mock_orch.create_project_agent_loop.return_value = mock_agent
         mock_orch.inject_skill_context.side_effect = lambda text, **_: text
         mock_orch_cls.return_value = mock_orch
@@ -1116,11 +1116,11 @@ class TestSkillTools:
     def test_skills_list_reuses_execution_context_orchestrator(self, mock_orch_cls):
         from butler.execution_context import use_execution_context
 
-        manager = MagicMock()
+        manager = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         manager.list_skills.return_value = [
             {"name": "python-dev", "description": "Python development" * 20},
         ]
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         current_orch._skill_manager = manager
 
         with use_execution_context(current_orch):

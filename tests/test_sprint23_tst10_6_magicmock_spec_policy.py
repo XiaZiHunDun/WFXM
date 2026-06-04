@@ -288,7 +288,9 @@ class TestScanCli:
 #        / workspace cwd shim / execute_code facade (proj/pm/orch) 加 noqa)
 # → 367 (test_sprint16_tst10_5_runtime_commands_migration: 16 处 runtime
 #        command facade (orch / session_registry) 加 noqa)
-_BASELINE_VIOLATIONS = 367
+# → 354 (test_tools_registry: 13 处 tools registry facade
+#        (orch / agent / proc / manager) 加 noqa)
+_BASELINE_VIOLATIONS = 354
 
 
 @pytest.mark.unit
