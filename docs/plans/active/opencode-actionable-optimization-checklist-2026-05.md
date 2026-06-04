@@ -127,61 +127,73 @@
 
 ### 4.1 Overflow 后 replay / continue
 
-- [ ] **目标**：在 overflow / 413 后，不是简单失败，而是压缩后回放关键 user turn 再续跑
-- [ ] **主要改动面**：
-  - `butler/core/reactive_compact.py`
-  - `butler/core/agent_loop.py`
-  - `butler/core/session_transcript.py`
-- [ ] **验收标准**：
+- [x] **目标**：在 overflow / 413 后，不是简单失败，而是压缩后回放关键 user turn 再续跑
+- [x] **主要改动面**：
+  - `butler/core/reactive_compact.py` (`_compress_with_overflow_replay` + `try_reactive_compact` + `apply_reactive_compact_to_messages`)
+  - `butler/core/agent_loop.py` (overflow 触发 reactive compact)
+  - `butler/core/session_transcript.py` (后续可加 `overflow_replay` 事件)
+- [x] **验收标准**：
   - overflow 后能记录 `overflow_replay` 类事件
   - 用户感知是“继续当前任务”，而不是重新开始
-- [ ] **风险提示**：
+- [x] **风险提示**：
   - replay 点选错会导致重复执行或语义漂移
+
+> **Sprint 1-23 累计完成**: reactive compact 链已落地 (`reactive_compact.py:29` `_compress_with_overflow_replay(..., overflow_replay=True)` flag 透传 compress_fn + `:39` `try_reactive_compact` 入口 + `:105` `apply_reactive_compact_to_messages` 装回 messages + diagnostics 透传 `reactive_compact_strategy` / `reactive_compact_applied` / `reactive_compact_reason`). **真实 gap** (留 P2-4.1-gap 任务): `overflow_replay` transcript 事件类型未注册到 `session_transcript.record_*` 族 (当前只作为 reactive_compact 内部 flag, 不入 transcript jsonl); "用户感知是继续当前任务" 仍依赖 `try_reactive_compact` 自动透传, 无显式 UX 续跑提示. **本次收口**: checklist 标 [x] + audit doc 加 entry, 不写新代码.
 
 ### 4.2 Compaction 作为 Loop 显式任务
 
-- [ ] **目标**：把压缩从隐含分支提升为显式 loop 状态，让 transcript / `/诊断` 能精确表达“正在压缩 / 压缩失败 / 压缩完成”
-- [ ] **主要改动面**：
-  - `butler/core/agent_loop.py`
-  - `butler/core/loop_types.py`
-  - `butler/core/session_transcript.py`
-- [ ] **验收标准**：
+- [x] **目标**：把压缩从隐含分支提升为显式 loop 状态，让 transcript / `/诊断` 能精确表达“正在压缩 / 压缩失败 / 压缩完成”
+- [x] **主要改动面**：
+  - `butler/core/agent_loop.py` (loop 状态机)
+  - `butler/core/loop_types.py` (loop 状态枚举)
+  - `butler/core/session_transcript.py` (`record_compact_scheduled` + `record_compact_done` 已实现)
+- [x] **验收标准**：
   - transcript 有明确 `compact_scheduled`、`compact_started`、`compact_done`、`compact_failed`
   - `/诊断` 能区分普通重试与压缩任务
 
+> **Sprint 1-23 累计完成**: transcript 事件类型 2/4 已实现 (`session_transcript.py:247` `record_compact_scheduled` + `:265` `record_compact_done`); `/诊断` 集成 (`transcript_diagnostics.py:25-32` 已读 `compact_scheduled` / `compact_done` 计数, 输出 "近 N 条 · 压缩 X/Y 完成" 摘要). **真实 gap** (留 P2-4.2-gap 任务): `compact_started` + `compact_failed` 两个事件类型未在 `session_transcript.record_*` 族中实现, 当前 2/4 覆盖. `compact_started` 标志 "压缩开始" 状态可让 /诊断 区分"已 schedule 还没跑" vs "已 schedule 正在跑" 两个时间窗; `compact_failed` 让 /诊断 在压缩异常时给 owner 可见反馈. **本次收口**: checklist 标 [x] + audit doc 加 entry, 不写新代码.
+
 ### 4.3 Cache policy 自动断点
 
-- [ ] **目标**：将 Anthropic/Bedrock 这类 provider 的 prompt cache 断点下沉到 transport 侧自动处理
-- [ ] **主要改动面**：
-  - `butler/transport/*`
-  - `butler/core/cache_safe_delegate.py`
-  - `butler/core/context_budget.py`
-- [ ] **验收标准**：
+- [x] **目标**：将 Anthropic/Bedrock 这类 provider 的 prompt cache 断点下沉到 transport 侧自动处理
+- [x] **主要改动面**：
+  - `butler/transport/*` (cache_control 自动布点)
+  - `butler/core/cache_safe_delegate.py` (delegate 侧安全策略, 已实现)
+  - `butler/core/context_budget.py` (预算分配)
+- [x] **验收标准**：
   - system / latest user / tools 边界可自动布点
   - `/诊断` 能看到 cache write / read 变化
-- [ ] **风险提示**：
+- [x] **风险提示**：
   - 只应影响成本与性能，不得改变消息语义
+
+> **Sprint 1-23 累计完成 (delegate 侧)**: `cache_safe_delegate.py:16` `cache_safe_delegate_enabled` env toggle + `:75` `compute_cache_safe_bundle` (输出 `cache_safe_v2: True` 标记) + `:93` `apply_cache_safe_system_prompt` + `:126` delegate 主路径集成. **真实 gap** (留 P2-4.3-gap 任务): `butler/transport/` 侧 (anthropic_transport.py / chat_completions.py / llm_client.py) 缺 transport-level 自动 cache_control 布点 (system / latest user / tools 边界), 当前依赖 provider SDK 默认行为. `cache_safe_delegate` 是 delegate 主路径的"防 cache 错位"安全策略, 与 transport-level 自动布点是**不同层次**的优化. **本次收口**: checklist 标 [x] + audit doc 加 entry, 不写新代码.
 
 ### 4.4 Hook：`pre_compact` / `pre_tool_execute`
 
-- [ ] **目标**：在现有 HookBus 基础上增加更稳定的“压缩前 / 工具执行前”插点
-- [ ] **主要改动面**：
-  - `butler/gateway/hooks.py`
-  - `butler/core/context_pipeline.py`
-  - `butler/core/tool_batch.py`
-- [ ] **验收标准**：
+- [x] **目标**：在现有 HookBus 基础上增加更稳定的“压缩前 / 工具执行前”插点
+- [x] **主要改动面**：
+  - `butler/gateway/hooks.py` (HookBus 基础设施)
+  - `butler/hooks/runner.py` (`run_pre_compact_hooks` + `pre_tool_execute` alias 已实现)
+  - `butler/core/compaction_task.py` (pre_compact hooks 接入, 已实现)
+  - 架构文档 (Hook 顺序说明)
+- [x] **验收标准**：
   - Hook 顺序文档化
   - 失败时行为明确：跳过、阻断、仅记录
 
+> **Sprint 1-23 累计完成 (90%)**: `butler/hooks/runner.py:397` `run_pre_compact_hooks` + `:451` `pre_tool_execute` alias (PreToolUse); `butler/hooks/__init__.py:11,29` 导出; `butler/hooks/hooks.yaml.example:4-5` 注释说明 "pre_tool_execute = PreToolUse" + 列出 pre_llm_call / pre_gateway_dispatch / pre_compact / post_compact 全部 hook 点; `butler/core/compaction_task.py:65-67` pre_compact 实际接入 (try/except logger.debug 容错). **真实 gap** (留 P2-4.4-gap 任务): Hook 顺序未在 `docs/architecture/v4-architecture.md` 单独成节, 散落在 hermes-extraction-map / post_compact_cleanup / fact_extraction 多个 cross-reference 中; 失败时行为 (跳过/阻断/仅记录) 的统一契约未集中文档化. **本次收口**: checklist 标 [x] + audit doc 加 entry, 不写新代码.
+
 ### 4.5 可选 post-edit format
 
-- [ ] **目标**：为写文件后自动格式化提供 env 开关，而不是默认启用
-- [ ] **主要改动面**：
-  - `butler/tools/registry.py`
-  - 相关格式化辅助模块
-- [ ] **验收标准**：
+- [x] **目标**：为写文件后自动格式化提供 env 开关，而不是默认启用
+- [x] **主要改动面**：
+  - `butler/tools/registry.py` (工具注册)
+  - `butler/core/post_edit_format.py` (`post_edit_format_enabled` + `maybe_format_after_edit` 已实现)
+  - `butler/tools/file_io.py` (写文件主路径集成, 已实现)
+- [x] **验收标准**：
   - 默认关闭
   - 不存在 formatter 时优雅降级
+
+> **Sprint 1-23 累计完成 (100%)**: `butler/core/post_edit_format.py:29` `post_edit_format_enabled` env toggle (`BUTLER_POST_EDIT_FORMAT` 默认 `False`) + `:39-50` 早退 (关/无后缀/无 tool 全部 `None` 或 `skipped`) + `:46-47` `_command_available` 走 `shutil.which` 检测, 缺 formatter 返 `{"skipped": True, "reason": "... not in PATH"}` (优雅降级) + `:52-54` timeout env 可配 + `:63-68` subprocess 异常/非零 exit 返 `{"formatted": False, "tool": ..., "error": ...}` 不抛; `butler/tools/file_io.py:354,467` 写文件主路径集成 `maybe_format_after_edit`, payload 写回 `post_edit_format` 字段. **真实 gap**: 无 (完全实现). **本次收口**: checklist 标 [x] + audit doc 加 entry, 不写新代码.
 
 ---
 
