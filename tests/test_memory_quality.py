@@ -66,7 +66,7 @@ class TestPrefetchLimits:
         monkeypatch.setenv("BUTLER_PREFETCH_TOTAL_MAX_CHARS", "80")
         monkeypatch.setenv("BUTLER_PREFETCH_PROJECT_MAX_CHARS", "40")
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.project_manager.resolve_active_project_name.return_value = "p"
         orch.butler_memory.get_system_context.return_value = "G" * 200
         orch.butler_memory.experience.search.return_value = []
@@ -80,7 +80,7 @@ class TestPrefetchLimits:
         monkeypatch.setenv("BUTLER_PREFETCH_MAX_CHARS", "50")
         monkeypatch.setenv("BUTLER_PREFETCH_TOTAL_MAX_CHARS", "200")
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.project_manager.resolve_active_project_name.return_value = ""
         orch.butler_memory.get_system_context.return_value = "x" * 300
         orch.butler_memory.experience.search.return_value = []
@@ -109,7 +109,7 @@ class TestMemoryDiagnostics:
         from butler.project import Project
 
         proj = Project.from_yaml(proj_dir / "project.yaml")
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = bm
         orch._project_memory = pm
         orch.project_manager.get_current.return_value = proj
@@ -131,9 +131,9 @@ class TestMemoryDiagnostics:
 
         repo_root = tmp_path / "fake_repo"
         repo_root.mkdir()
-        exp = MagicMock()
-        exp.db_path = MagicMock()
-        exp.db_path.path = MagicMock()
+        exp = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        exp.db_path = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        exp.db_path.path = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         before = list(repo_root.iterdir())
         _experience_category_counts(exp.db_path)

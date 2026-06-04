@@ -28,9 +28,9 @@ class TestPostSessionProjectVectors:
                 '"content": "试点统一测试日 2026-05-22"}]}'
             )
 
-        butler_memory = MagicMock()
-        butler_memory.semantic = MagicMock()
-        project_memory = MagicMock()
+        butler_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        butler_memory.semantic = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        project_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         project_memory.markdown.append.return_value = "fact"
 
         proc = PostSessionProcessor(llm_call=llm_call)
@@ -66,9 +66,9 @@ class TestPostSessionProjectVectors:
                 '"content": "我们决定采用 redis 做试点缓存"}]}'
             )
 
-        butler_memory = MagicMock()
-        butler_memory.semantic = MagicMock()
-        project_memory = MagicMock()
+        butler_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        butler_memory.semantic = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        project_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         project_memory.markdown.append.return_value = "pending"
 
         proc = PostSessionProcessor(llm_call=llm_call)

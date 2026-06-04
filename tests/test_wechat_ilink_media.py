@@ -30,7 +30,7 @@ class TestWechatCdnUrlGuard:
 class TestDownloadAndDecryptMedia:
     @pytest.mark.asyncio
     async def test_download_via_encrypted_query_param(self):
-        session = MagicMock()
+        session = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         payload = b"encrypted-payload"
 
         with patch(
@@ -52,7 +52,7 @@ class TestDownloadAndDecryptMedia:
 
     @pytest.mark.asyncio
     async def test_download_via_allowlisted_full_url(self):
-        session = MagicMock()
+        session = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         payload = b"raw-image"
 
         with patch(
@@ -73,7 +73,7 @@ class TestDownloadAndDecryptMedia:
 
     @pytest.mark.asyncio
     async def test_raises_when_no_media_reference(self):
-        session = MagicMock()
+        session = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         with pytest.raises(RuntimeError, match="neither"):
             await _download_and_decrypt_media(
                 session,
@@ -96,7 +96,7 @@ class TestInboundMediaFailure:
         def _fake_create_task(coro, *args, **kwargs):
             if asyncio.iscoroutine(coro):
                 coro.close()
-            return MagicMock()
+            return MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         monkeypatch.setattr(asyncio, "create_task", _fake_create_task)
         monkeypatch.setenv("BUTLER_GATEWAY_TYPING_ENABLED", "0")
@@ -105,10 +105,10 @@ class TestInboundMediaFailure:
         adapter = WeChatAdapter(
             PlatformConfig(token="test-token", extra={"account_id": "bot-acc"}),
         )
-        adapter._poll_session = MagicMock()
+        adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         adapter._account_id = "bot-acc"
         adapter._dm_policy = "open"
-        adapter._maybe_fetch_typing_ticket = AsyncMock(return_value=None)
+        adapter._maybe_fetch_typing_ticket = AsyncMock(return_value=None)  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
 
         async def _fail_image(item):
             del item

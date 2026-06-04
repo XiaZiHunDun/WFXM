@@ -77,9 +77,9 @@ def test_approve_single_blocked_for_non_owner():
 @pytest.mark.unit
 def test_owner_passes_through_approve_all():
     """Owner 调 /批准记忆 全部 应能继续到 approve_all 逻辑。"""
-    fake_orch = MagicMock()
-    fake_orch._reload_project_memory = MagicMock()
-    fake_pmem = MagicMock()
+    fake_orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    fake_orch._reload_project_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    fake_pmem = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     fake_pmem.markdown.list_pending.return_value = [{"target": "Notes", "content": "x"}]
     fake_pmem.markdown.approve_all.return_value = 1
     fake_orch._project_memory = fake_pmem
@@ -106,9 +106,9 @@ def test_unrelated_command_not_blocked_by_owner_gate():
     注意：SEC-11-2 只覆盖 /批准记忆 写入路径。read-only cmd 不强制
     owner，避免误伤（待审列表本身就要给白名单用户看才能用）。
     """
-    fake_orch = MagicMock()
-    fake_orch._reload_project_memory = MagicMock()
-    fake_pmem = MagicMock()
+    fake_orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    fake_orch._reload_project_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    fake_pmem = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     fake_pmem.markdown.list_pending.return_value = []
     fake_orch._project_memory = fake_pmem
 

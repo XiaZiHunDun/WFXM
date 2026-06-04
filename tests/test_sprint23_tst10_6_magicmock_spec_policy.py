@@ -325,7 +325,13 @@ class TestScanCli:
 #        processor / loop) 加 noqa)
 # → 193 (test_gateway_runner: 7 处 gateway runner facade
 #        (ns argparse.Namespace / butler facade) 加 noqa)
-_BASELINE_VIOLATIONS = 193
+# → 163 (5 个 6 处文件批量清理, 总 -30 处):
+#     test_wechat_ilink_media (5+1 处, 1 处遗漏 attr 形式后补)
+#     test_sprint11_sec2_memory_approve_owner (6 处)
+#     test_post_session_vectors (6 处)
+#     test_p0_p1_features (6 处)
+#     test_memory_quality (6 处)
+_BASELINE_VIOLATIONS = 163
 
 
 @pytest.mark.unit

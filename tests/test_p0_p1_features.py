@@ -170,10 +170,10 @@ class TestSessionSummaryInjection:
             json.dumps(summary, ensure_ascii=False), encoding="utf-8"
         )
 
-        mock_loop = MagicMock()
+        mock_loop = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_loop._messages = []
 
-        mock_project = MagicMock()
+        mock_project = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_project.workspace = str(tmp_path)
 
         _inject_previous_session_summary(mock_loop, mock_project)
@@ -188,10 +188,10 @@ class TestSessionSummaryInjection:
     def test_inject_without_summary_file(self, tmp_path):
         from butler.gateway.message_handler import _inject_previous_session_summary
 
-        mock_loop = MagicMock()
+        mock_loop = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_loop._messages = []
 
-        mock_project = MagicMock()
+        mock_project = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_project.workspace = str(tmp_path)
 
         _inject_previous_session_summary(mock_loop, mock_project)
@@ -344,8 +344,8 @@ class TestOutboxReplay:
     def test_replay_pending_outbox_with_entries(self):
         from butler.gateway.runner import _replay_pending_outbox
 
-        mock_adapter = MagicMock()
-        mock_adapter.send_text = MagicMock()
+        mock_adapter = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        mock_adapter.send_text = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         with patch("butler.gateway.durable_outbox.durable_outbox_enabled", return_value=True), \
              patch("butler.gateway.durable_outbox.list_pending_outbox", return_value=[
