@@ -15,6 +15,7 @@ import httpx
 
 from butler.registry.hub_index_cache import read_cache, write_cache
 from butler.registry.skill_sources.base import SkillSource
+from butler.registry.skill_sources.zip_safety import is_unsafe_zip_entry
 from butler.registry.skill_types import SkillBundle, SkillSearchHit
 from butler.registry.url_safety import is_safe_url
 
@@ -221,7 +222,10 @@ class ClawHubSource(SkillSource):
                     return files
                 with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
                     for info in zf.infolist():
+                        # Sprint 20-2 SEC-20-A-2: skip symlinks / FIFO / CHR / BLK / SOCK.
                         if info.is_dir() or info.file_size > 500_000:
+                            continue
+                        if is_unsafe_zip_entry(info):
                             continue
                         safe = _safe_zip_path(info.filename)
                         if not safe:
