@@ -169,7 +169,9 @@
 - [x] **风险提示**：
   - 只应影响成本与性能，不得改变消息语义
 
-> **Sprint 1-23 累计完成 (delegate 侧)**: `cache_safe_delegate.py:16` `cache_safe_delegate_enabled` env toggle + `:75` `compute_cache_safe_bundle` (输出 `cache_safe_v2: True` 标记) + `:93` `apply_cache_safe_system_prompt` + `:126` delegate 主路径集成. **真实 gap** (留 P2-4.3-gap 任务): `butler/transport/` 侧 (anthropic_transport.py / chat_completions.py / llm_client.py) 缺 transport-level 自动 cache_control 布点 (system / latest user / tools 边界), 当前依赖 provider SDK 默认行为. `cache_safe_delegate` 是 delegate 主路径的"防 cache 错位"安全策略, 与 transport-level 自动布点是**不同层次**的优化. **本次收口**: checklist 标 [x] + audit doc 加 entry, 不写新代码.
+> **Sprint 1-23 累计完成 (delegate 侧)**: `cache_safe_delegate.py:16` `cache_safe_delegate_enabled` env toggle + `:75` `compute_cache_safe_bundle` (输出 `cache_safe_v2: True` 标记) + `:93` `apply_cache_safe_system_prompt` + `:126` delegate 主路径集成. **真实 gap** (留 P2-4.3-gap 任务): `butler/transport/` 侧 (anthropic_transport.py / chat_completions.py / llm_client.py) 缺 transport-level 自动 cache_control 布点 (system / latest user / tools 边界), 当前依赖 provider SDK 默认行为. `cache_safe_delegate` 是 delegate 主路径的"防 cache 错位"安全策略, 与 transport-level 自动布点是**不同层次**的优化.
+>
+> **Sprint 29 P2-4.3 完成 (transport 侧)**: 新建 `butler/transport/cache_control.py` (110 行, 5 helper), 接入 `anthropic_transport.py` (convert_messages + build_kwargs), Anthropic Prompt Caching 4 boundary 自动布点: (1) system → `[{type:text, text, cache_control:ephemeral}]`; (2) 最后 role=user → 末尾追加 marker block; (3) tools → 最后 tool 顶层加 cache_control; (4) 最后 tool_result → 块加 marker. bypass: `BUTLER_TRANSPORT_CACHE_CONTROL=0` 全部早退 (system 仍走 str 路径, 向后兼容). 25 新测试 (env toggle 4 + system 3 + messages 7 + tools 3 + last_tool_result 4 + integration 2 + wiring 2). 2 commits (`76574f0` + `66be229`). **风险落地**: "只应影响成本与性能, 不得改变消息语义" — 开启后 `kwargs["system"]` 从 str 变 list, Anthropic API 中两种 form 合法等价, 语义不变. OpenAI chat_completions 不动 (OpenAI 原生无 cache_control 字段). **本任务正式收口** (P2-4.3 + P2-4.3-gap 全部完成, 4 boundary 实现, delegate + transport 双层优化齐全).
 
 ### 4.4 Hook：`pre_compact` / `pre_tool_execute`
 
