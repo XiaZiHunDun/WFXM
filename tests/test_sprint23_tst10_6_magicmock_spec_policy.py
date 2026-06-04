@@ -331,7 +331,10 @@ class TestScanCli:
 #     test_post_session_vectors (6 处)
 #     test_p0_p1_features (6 处)
 #     test_memory_quality (6 处)
-_BASELINE_VIOLATIONS = 163
+# → 151 (2 个 6 处文件批量清理, 总 -12 处):
+#     test_memory_p1_p2 (6 处)
+#     test_butler_v4 (6 处)
+_BASELINE_VIOLATIONS = 151
 
 
 @pytest.mark.unit

@@ -33,9 +33,9 @@ class TestPendingMemoryCommands:
         pm = ProjectMemory(proj_dir)
         pm.markdown.append("Decisions", "我们决定采用 pytest", classification="auto")
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch._project_memory = pm
-        orch._reload_project_memory = MagicMock()
+        orch._reload_project_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         listed = format_pending_memory_list(orch)
         assert "1." in listed
@@ -53,9 +53,9 @@ class TestPendingMemoryCommands:
         pm = ProjectMemory(proj_dir)
         pm.markdown.append("Notes", "待定方案 A", classification="pending")
         pm.markdown.append("Notes", "待定方案 B", classification="pending")
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch._project_memory = pm
-        orch._reload_project_memory = MagicMock()
+        orch._reload_project_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         out = handle_memory_pending_command(orch, "/批准记忆", "全部")
         assert "2" in out
@@ -82,11 +82,11 @@ class TestPendingMemoryCommands:
         index_pending_memory_bullet(bm.semantic, "p", "我们决定采用 Kafka")
         pend_sid = pending_source_id("p", "我们决定采用 Kafka")
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = bm
         orch._project_memory = pm
         orch.project_manager.get_current.return_value = proj
-        orch._reload_project_memory = MagicMock()
+        orch._reload_project_memory = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         out = handle_memory_pending_command(orch, "/拒绝记忆", "1")
         assert out and "已拒绝" in out

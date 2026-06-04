@@ -118,7 +118,7 @@ class TestE2EToolFlow:
         from butler.transport.llm_client import LLMClient
 
         client = LLMClient(provider="minimax", model="test")
-        client.complete = MagicMock(side_effect=Exception("API down"))
+        client.complete = MagicMock(side_effect=Exception("API down"))  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         loop = AgentLoop(
             client=client,
@@ -132,7 +132,7 @@ class TestMainCLI:
     def test_handle_help(self):
         from butler.main import _handle_slash_command
         from butler.orchestrator import ButlerOrchestrator
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch = ButlerOrchestrator()
         result = _handle_slash_command("/help", orch, console)
         assert result == "handled"
@@ -140,7 +140,7 @@ class TestMainCLI:
     def test_handle_quit(self):
         from butler.main import _handle_slash_command
         from butler.orchestrator import ButlerOrchestrator
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch = ButlerOrchestrator()
         result = _handle_slash_command("/quit", orch, console)
         assert result == "quit"
@@ -148,7 +148,7 @@ class TestMainCLI:
     def test_handle_detail(self):
         from butler.main import _handle_slash_command
         from butler.orchestrator import ButlerOrchestrator
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch = ButlerOrchestrator()
         result = _handle_slash_command("/detail", orch, console)
         assert result == "handled"
@@ -156,7 +156,7 @@ class TestMainCLI:
     def test_handle_status(self):
         from butler.main import _handle_slash_command
         from butler.orchestrator import ButlerOrchestrator
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch = ButlerOrchestrator()
         result = _handle_slash_command("/status", orch, console)
         assert result == "handled"
@@ -173,7 +173,7 @@ class TestMainCLI:
     def test_unknown_command(self):
         from butler.main import _handle_slash_command
         from butler.orchestrator import ButlerOrchestrator
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch = ButlerOrchestrator()
         result = _handle_slash_command("/nonexistent", orch, console)
         assert result is None
