@@ -81,19 +81,21 @@
 
 ### 3.3 `external_directory` 等价规则 + shell 路径预检
 
-- [ ] **目标**：把“工作区外路径”从泛化 ask 升级为单独权限语义，并在 shell 执行前做轻量路径预检
-- [ ] **收益**：多项目切换和跨目录操作更安全；降低误改外部路径风险
-- [ ] **主要改动面**：
-  - `butler/permissions.py`
-  - `butler/core/path_safety.py`
-  - `butler/tools/registry.py`
-- [ ] **验收标准**：
-  - 对 workspace 外目录的读写/命令访问有独立权限判断
-  - shell 工具在简单 `cd` / 文件参数场景下能提取出目标路径并预检
-  - 误报存在时优先 ask，不得 silently allow
-- [ ] **风险提示**：
-  - 不建议引入 `tree-sitter`；优先使用轻量 heuristic / regex
-  - Windows/WSL/相对路径需要单测覆盖
+- [x] **目标**：把"工作区外路径"从泛化 ask 升级为单独权限语义，并在 shell 执行前做轻量路径预检
+- [x] **收益**：多项目切换和跨目录操作更安全；降低误改外部路径风险
+- [x] **主要改动面**：
+  - `butler/permissions/rules.py` (`evaluate_external_directory` / `check_external_path_override`)
+  - `butler/tools/path_safety.py` (`check_tool_path` / `prepare_shell_command` + `_extract_command_paths` + `_existing_argv_paths`)
+  - `butler/permissions/approvals.py` (session approval cache 集成)
+- [x] **验收标准**：
+  - [x] 对 workspace 外目录的读写/命令访问有独立权限判断
+  - [x] shell 工具在简单 `cd` / 文件参数场景下能提取出目标路径并预检
+  - [x] 误报存在时优先 ask，不得 silently allow
+- [x] **风险提示**：
+  - 不建议引入 `tree-sitter`；优先使用轻量 heuristic / regex ✅ 使用 shlex.split + 正则
+  - Windows/WSL/相对路径需要单测覆盖 ⚠️ 相对路径 1 case; Windows/WSL 0 case; 待后续 sprint 补齐
+
+> **Sprint 1-21 累计完成**: external_directory 规则 (`permissions/rules.py:109` `evaluate_external_directory`) + `check_tool_path` (`path_safety.py:106`) + `prepare_shell_command` shell 路径预检 (`path_safety.py:179`, 使用 shlex.split + regex) + session approval 集成 (`approvals.py`) + permissions.yaml `external_directory:` 节文档化. 关键 fix: Sprint 21-1 SEC-21-A-1 (`is_relative_to` 越界判定修复, 防 sibling-prefix 误判) + Sprint 21-4 QUAL-21-D-2 (uninstall_skill 越界统一 is_relative_to) + Sprint 1 symlink guard. 测试覆盖: `test_path_safety.py` 8 tests + `test_permission_approvals.py` 4 tests + `test_sprint8_sec6_path_safety.py` 74 lines + `test_sprint20_quarantine_path_safety.py`.
 
 ### 3.4 `child_session_key` 独立 transcript
 
