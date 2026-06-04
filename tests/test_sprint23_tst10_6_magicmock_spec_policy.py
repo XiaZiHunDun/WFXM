@@ -312,7 +312,9 @@ class TestScanCli:
 #        (butler / adapter / task) 加 noqa)
 # → 240 (test_cli_dimensions: 9 处 CLI dimensions facade
 #        (orch / loop / model credentials) 加 noqa)
-_BASELINE_VIOLATIONS = 240
+# → 232 (test_transport_chat: 8 处 LLM SDK response chunk shim
+#        (function/tool/message/usage/choice/response) 加 noqa)
+_BASELINE_VIOLATIONS = 232
 
 
 @pytest.mark.unit

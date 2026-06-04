@@ -204,29 +204,29 @@ class TestNormalizeDict:
 @pytest.mark.module_test
 class TestNormalizeSdk:
     def test_sdk_response_attributes(self, transport):
-        fn = MagicMock()
+        fn = MagicMock()  # noqa: magicmock-no-spec — LLM SDK response chunk shim (function/tool/message/usage/choice)
         fn.name = "read_file"
         fn.arguments = '{"path": "main.py"}'
 
-        tc = MagicMock()
+        tc = MagicMock()  # noqa: magicmock-no-spec — LLM SDK response chunk shim (function/tool/message/usage/choice)
         tc.id = "call-1"
         tc.function = fn
 
-        msg = MagicMock()
+        msg = MagicMock()  # noqa: magicmock-no-spec — LLM SDK response chunk shim (function/tool/message/usage/choice)
         msg.content = "done"
         msg.reasoning = "thought"
         msg.tool_calls = [tc]
 
-        choice = MagicMock()
+        choice = MagicMock()  # noqa: magicmock-no-spec — LLM SDK response chunk shim (function/tool/message/usage/choice)
         choice.message = msg
         choice.finish_reason = "tool_calls"
 
-        usage = MagicMock()
+        usage = MagicMock()  # noqa: magicmock-no-spec — LLM SDK response chunk shim (function/tool/message/usage/choice)
         usage.prompt_tokens = 10
         usage.completion_tokens = 5
         usage.total_tokens = 15
 
-        response = MagicMock()
+        response = MagicMock()  # noqa: magicmock-no-spec — LLM SDK response chunk shim (function/tool/message/usage/choice)
         response.choices = [choice]
         response.usage = usage
 
@@ -248,6 +248,6 @@ class TestValidateResponse:
         assert transport.validate_response({}) is False
 
     def test_sdk_with_choices_true(self, transport):
-        response = MagicMock()
-        response.choices = [MagicMock()]
+        response = MagicMock()  # noqa: magicmock-no-spec — LLM SDK response chunk shim (function/tool/message/usage/choice)
+        response.choices = [MagicMock()]  # noqa: magicmock-no-spec — LLM SDK response chunk shim (function/tool/message/usage/choice)
         assert transport.validate_response(response) is True
