@@ -232,14 +232,23 @@ def compress_messages(
         return messages, previous_summary, False
 
     try:
-        from butler.core.session_transcript import record_compact_scheduled
+        from butler.core.session_transcript import (
+            record_compact_scheduled,
+            record_compact_started,
+        )
         from butler.execution_context import get_audit_session_key
 
+        _sk = get_audit_session_key(fallback="_global")
         record_compact_scheduled(
-            get_audit_session_key(fallback="_global"),
+            _sk,
             source="context_compressor",
             messages_before=len(messages),
             tokens_estimated=estimated,
+        )
+        record_compact_started(
+            _sk,
+            source="context_compressor",
+            trigger="reactive" if overflow_replay else "preemptive",
         )
     except Exception as exc:
         logger.debug("compress messages skipped: %s", exc)

@@ -106,13 +106,23 @@ def run_hygiene_preflight(
     before_tokens = estimated
     try:
         from butler.execution_context import get_audit_session_key
-        from butler.core.session_transcript import record_compact_scheduled
+        from butler.core.session_transcript import (
+            record_compact_failed,
+            record_compact_scheduled,
+            record_compact_started,
+        )
 
+        _sk = get_audit_session_key(fallback="_global")
         record_compact_scheduled(
-            get_audit_session_key(fallback="_global"),
+            _sk,
             source="hygiene",
             messages_before=len(messages),
             tokens_estimated=before_tokens,
+        )
+        record_compact_started(
+            _sk,
+            source="hygiene",
+            trigger="preflight",
         )
     except Exception as exc:
         logger.debug("run hygiene preflight skipped: %s", exc)
@@ -134,6 +144,16 @@ def run_hygiene_preflight(
         )
         diagnostics["hygiene_compact_failed"] = True
         diagnostics["hygiene_compact_error"] = str(exc)[:500]
+        try:
+            from butler.execution_context import get_audit_session_key
+
+            record_compact_failed(
+                get_audit_session_key(fallback="_global"),
+                source="hygiene",
+                reason="compress_error",
+            )
+        except Exception as exc2:
+            logger.debug("hygiene compact failed event skipped: %s", exc2)
         logger.warning("Hygiene compact raised: %s", exc)
         return HygienePreflightResult(messages=messages, compressed=False)
 
