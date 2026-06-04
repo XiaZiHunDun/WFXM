@@ -34,8 +34,8 @@ def test_session_end_hook_reason_matcher(tmp_path, monkeypatch, reason, marker_n
         encoding="utf-8",
     )
 
-    orch = MagicMock()
-    loop = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    loop = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     loop.messages = []
     trigger_session_end(orch, loop, session_id="sess-x", reason=reason)
     assert marker.is_file()

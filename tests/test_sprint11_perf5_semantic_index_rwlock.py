@@ -81,9 +81,9 @@ def test_concurrent_search_does_not_block_upsert(tmp_index):
     )
 
     # 用 mock embedder 模拟慢 search
-    slow_embedder = MagicMock(spec=Embedder)
+    slow_embedder = MagicMock(spec=Embedder)  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     slow_embedder.model_id = "slow"
-    slow_embedder.embed = MagicMock(side_effect=lambda t: time.sleep(0.3) or [0.1] * 8)
+    slow_embedder.embed = MagicMock(side_effect=lambda t: time.sleep(0.3) or [0.1] * 8)  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     tmp_index.embedder = slow_embedder
 
     search_done_at: list[float] = []
@@ -161,9 +161,9 @@ def test_concurrent_searches_no_block(tmp_index):
         )
 
     # 慢 embedder：每次 embed 0.2s
-    tmp_index.embedder = MagicMock(spec=Embedder)
+    tmp_index.embedder = MagicMock(spec=Embedder)  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     tmp_index.embedder.model_id = "slow"
-    tmp_index.embedder.embed = MagicMock(
+    tmp_index.embedder.embed = MagicMock(  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         side_effect=lambda t: time.sleep(0.2) or [0.1] * 8
     )
 

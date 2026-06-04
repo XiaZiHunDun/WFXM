@@ -9,7 +9,7 @@ from butler.core.model_context import resolve_max_output_tokens
 
 
 def test_resolve_max_output_tokens_from_role_config():
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     orch.project_manager.get_current.return_value = None
     with patch("butler.config.get_model_config") as gm:
         gm.return_value = ModelConfig(max_tokens=8192)
@@ -24,7 +24,7 @@ def test_resolve_max_output_tokens_from_role_config():
 
 
 def test_resolve_max_output_tokens_none_when_unset():
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     with patch("butler.config.get_model_config") as gm:
         gm.return_value = ModelConfig()
         with patch(

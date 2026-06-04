@@ -127,7 +127,7 @@ class TestWorkflowRunner:
             execution_order=["a", "b"],
         )
 
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         with patch.object(runner._tasks, "execute_graph", new_callable=AsyncMock) as mock_graph:
             mock_graph.return_value = graph
             result = await runner.run_async(wf, user_hint="用户目标")
@@ -157,7 +157,7 @@ class TestWorkflowRunner:
             }
         )
         assert wf is not None
-        runner = WorkflowRunner(orchestrator=MagicMock())
+        runner = WorkflowRunner(orchestrator=MagicMock())  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         nodes = runner.build_nodes(wf)
         assert nodes[0].config.model_config == {
             "provider": "deepseek",

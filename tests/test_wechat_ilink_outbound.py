@@ -20,7 +20,7 @@ def _connected_adapter(monkeypatch, tmp_butler_home) -> WeChatAdapter:
         PlatformConfig(token="api-token", extra={"account_id": "bot-acc"}),
     )
     adapter._account_id = "bot-acc"
-    adapter._send_session = MagicMock()
+    adapter._send_session = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     adapter._token = "api-token"
     adapter._base_url = "https://ilink.test"
     adapter._send_chunk_retries = 2
@@ -107,7 +107,7 @@ class TestWechatIlinkOutboundTyping:
         self, monkeypatch, tmp_butler_home
     ):
         adapter = _connected_adapter(monkeypatch, tmp_butler_home)
-        adapter._poll_session = MagicMock()
+        adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         with patch(
             "butler.gateway.platforms.wechat_ilink._get_config",

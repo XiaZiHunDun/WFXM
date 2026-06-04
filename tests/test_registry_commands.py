@@ -64,7 +64,7 @@ class TestHandleRegistryCommand:
         assert "无" in result
 
     def test_skills_list_with_entries(self, _owner_gate):
-        rec = MagicMock()
+        rec = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         rec.name = "demo-skill"
         rec.identifier = "bundled:demo"
         rec.scan_verdict = "safe"
@@ -169,7 +169,7 @@ class TestHandleConfirmInstall:
         assert "用法" in result
 
     def test_successful_install(self, _owner_gate):
-        rec = MagicMock()
+        rec = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         rec.name = "test-skill"
         rec.install_path = "/path/to/skill"
         rec.scan_verdict = "safe"

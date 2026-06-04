@@ -362,7 +362,18 @@ class TestScanCli:
 #     test_execution_context (3)
 #     test_dev_ops_p2 (3)
 #     test_delegate_failure (3)
-_BASELINE_VIOLATIONS = 57
+# → 36 (10 个 2 处文件批量清理, 总 -21 处:
+#     test_workflows (2)
+#     test_wechat_ilink_outbound (2)
+#     test_sprint20_zip_symlink_bypass (2)
+#     test_sprint16_tst10_5_permission_commands_migration (2)
+#     test_sprint11_perf5_semantic_index_rwlock (2)
+#     test_session_end_reasons (2)
+#     test_resolve_max_output_tokens (2)
+#     test_registry_commands (2)
+#     test_project_commands (2)
+#     test_completion_notify_p2 (2))
+_BASELINE_VIOLATIONS = 36
 
 
 @pytest.mark.unit

@@ -14,7 +14,7 @@ class TestProjectCommands:
 
         monkeypatch.delenv("BUTLER_PROJECT_CREATE_OPEN", raising=False)
         monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "only-owner")
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         out = handle_project_onboarding_command(
             orch,
             "/项目",
@@ -29,7 +29,7 @@ class TestProjectCommands:
     def test_preflight_requires_project(self):
         from unittest.mock import MagicMock
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.project_manager.resolve_active_project_name.return_value = ""
         orch.project_manager.get_current.return_value = None
         out = handle_project_onboarding_command(

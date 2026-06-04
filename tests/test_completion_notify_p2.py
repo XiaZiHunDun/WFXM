@@ -17,8 +17,8 @@ from butler.report import AgentReport
 
 def _bridge(*, ack_sent: bool = True, elapsed: float = 120.0) -> GatewayOutboundBridge:
     loop = asyncio.new_event_loop()
-    adapter = MagicMock()
-    adapter.send = AsyncMock(
+    adapter = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    adapter.send = AsyncMock(  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         return_value=__import__(
             "butler.gateway.platforms.types", fromlist=["SendResult"]
         ).SendResult(success=True)
@@ -31,7 +31,7 @@ def _bridge(*, ack_sent: bool = True, elapsed: float = 120.0) -> GatewayOutbound
 
 def _run_coro(coro, loop):
     loop.run_until_complete(coro)
-    return MagicMock()
+    return MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
 
 def test_delegate_last_mode_only_pushes_on_flush(monkeypatch):

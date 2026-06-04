@@ -53,8 +53,8 @@ def _make_ctx(
         session_key=session_key,
         platform=platform,
         external_id=external_id,
-        orchestrator=MagicMock(),
-        session_registry=MagicMock(),
+        orchestrator=MagicMock(),  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        session_registry=MagicMock(),  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     )
 
 

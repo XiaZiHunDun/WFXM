@@ -231,7 +231,7 @@ class TestClawhubSymlinkBlocked:
         }
 
         def fake_get(url, **kwargs):
-            resp = MagicMock()
+            resp = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
             if "download" in url:
                 resp.status_code = 200
                 resp.content = blob
@@ -271,7 +271,7 @@ class TestClawhubSymlinkBlocked:
         }
 
         def fake_get(url, **kwargs):
-            resp = MagicMock()
+            resp = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
             if "download" in url:
                 resp.status_code = 200
                 resp.content = blob
