@@ -60,19 +60,24 @@
 
 ### 3.2 会话批准缓存（一次 / 始终）
 
-- [ ] **目标**：把当前偏静态的 `ask` 权限升级为运行时批准缓存，支持「允许一次 / 始终允许 / 拒绝」
-- [ ] **收益**：减少 Owner 对同类安全工具调用的重复确认；贴近 OpenCode 的交互权限体验
-- [ ] **主要改动面**：
-  - `butler/permissions.py`
-  - `butler/gateway/message_handler.py`
-  - `butler/human_gate.py`（如需统一交互）
-- [ ] **验收标准**：
-  - 同一会话内，批准过的同类安全 pattern 不再重复 ask
-  - 「始终允许」有清晰作用域：只限 session / project，不得默认全局放开
-  - `/诊断` 或权限日志能显示本次调用命中了缓存批准
-- [ ] **风险提示**：
-  - 必须保留 revoke/失效机制
-  - workflow 的人工审批语义不能被工具批准缓存偷穿透
+- [x] **目标**：把当前偏静态的 `ask` 权限升级为运行时批准缓存，支持「允许一次 / 始终允许 / 拒绝」
+- [x] **收益**：减少 Owner 对同类安全工具调用的重复确认；贴近 OpenCode 的交互权限体验
+- [x] **主要改动面**：
+  - `butler/permissions/approvals.py`
+  - `butler/permissions/rules.py`
+  - `butler/permissions/doom_loop.py`
+  - `butler/mcp/approval.py`
+  - `butler/ops/health_report.py`
+  - `butler/gateway/commands/permission_commands.py`
+- [x] **验收标准**：
+  - [x] 同一会话内，批准过的同类安全 pattern 不再重复 ask
+  - [x] 「始终允许」有清晰作用域：只限 session / project，不得默认全局放开
+  - [x] `/诊断` 或权限日志能显示本次调用命中了缓存批准
+- [x] **风险提示**：
+  - 必须保留 revoke/失效机制 ✅ `revoke_always` / `clear_always` (Sprint 24)
+  - workflow 的人工审批语义不能被工具批准缓存偷穿透 ✅ `is_step_approved` (human_gate) 与 `is_approved` (approvals) API 独立 (Sprint 24 测试验证)
+
+> **Sprint 24 (2026-06-04) 完成**: §3.2 P1 全部验收 + 风险点收口. 5 commits (1+1+1+2, 含 1 IMPROVE refactor). 19 新测试覆盖 diagnostics 4 + revoke 5 + summarize 2 + health 3 + registry 4 + workflow 1. owner_gate_scan gap 数稳定 9 (2 新 handler 都有 owner gate). workflow 边界测试明确验证 `is_step_approved` (human_gate.py:184) 与 `is_approved` (approvals.py:212) 存储路径分离, 互不影响.
 
 ### 3.3 `external_directory` 等价规则 + shell 路径预检
 
