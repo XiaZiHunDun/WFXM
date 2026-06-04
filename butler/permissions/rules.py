@@ -94,7 +94,13 @@ def _path_outside_workspace(path_str: str, workspace: Path) -> bool:
             target = (root / target).resolve()
         else:
             target = target.resolve()
-        return not str(target).startswith(str(root))
+        # Sprint 21-1 SEC-21-A-1: 用 is_relative_to 替换裸 startswith.
+        # str(target).startswith(str(root)) 漏判 sibling-prefix 场景
+        # (workspace=/tmp/proj, target=/tmp/proj_evil/x.md 会被误判为
+        # inside) + 跨平台大小写不敏感 + /tmp symlink. is_relative_to
+        # 做 path component 级比较, 行为统一. 镜像 Sprint 20-3
+        # quarantine_bundle 修复 (Sprint 21-4 uninstall_skill 进一步统一).
+        return not target.is_relative_to(root)
     except Exception:
         return False
     return False
