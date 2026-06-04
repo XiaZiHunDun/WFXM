@@ -43,6 +43,7 @@ def try_reactive_compact(
     min_rounds_to_drop: int = 1,
     max_rounds_to_drop: int = 3,
     use_turn_tail: bool = True,
+    diagnostics: dict[str, Any] | None = None,
 ) -> tuple[bool, list[dict], str]:
     """
     Drop oldest API rounds then compress. Returns (ok, new_messages, reason).
@@ -70,6 +71,10 @@ def try_reactive_compact(
                     return False, messages, "error"
                 if len(compressed) >= len(messages):
                     return False, messages, "exhausted"
+                if diagnostics is not None:
+                    strategy = f"turns:{len(keep_turns)}"
+                    diagnostics["compaction_strategy"] = strategy
+                    diagnostics["reactive_compact_strategy"] = strategy
                 return True, compressed, "ok"
         except Exception as exc:
             logger.debug("try reactive compact skipped: %s", exc)
