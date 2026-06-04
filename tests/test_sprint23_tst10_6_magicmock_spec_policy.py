@@ -284,7 +284,9 @@ class TestScanCli:
 #        command facade (orch / session_registry) 加 noqa)
 # → 399 (test_sprint16_tst10_3_extract_layered_summary: 18 处 LLM
 #        callable shim (sync return_value, 含 multiline json.dumps) 加 noqa)
-_BASELINE_VIOLATIONS = 399
+# → 383 (test_sprint16_tst11_5_execute_code: 16 处 subprocess proc facade
+#        / workspace cwd shim / execute_code facade (proj/pm/orch) 加 noqa)
+_BASELINE_VIOLATIONS = 383
 
 
 @pytest.mark.unit
