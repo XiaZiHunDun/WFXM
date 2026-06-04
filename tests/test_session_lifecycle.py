@@ -21,7 +21,7 @@ def _orch() -> MagicMock:
     from butler.memory.prefetch_cache import clear_prefetch_cache
 
     clear_prefetch_cache()
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — session lifecycle facade (orch / loop / provider)
     orch.project_manager.current_project = "proj"
     orch.project_manager.resolve_active_project_name.return_value = "proj"
     orch.project_manager.get_current.return_value = None
@@ -79,7 +79,7 @@ def test_memory_pre_llm_transform_does_not_mutate_history_messages():
 
 def test_attach_turn_memory_prefetch_composes_existing_transform():
     orch = _orch()
-    loop = MagicMock()
+    loop = MagicMock()  # noqa: magicmock-no-spec — session lifecycle facade (orch / loop / provider)
     loop.callbacks.pre_llm_transform = lambda messages: messages + [{"role": "user", "content": "existing"}]
 
     attach_turn_memory_prefetch(loop, orch, "clean query", role="butler")
@@ -91,7 +91,7 @@ def test_attach_turn_memory_prefetch_composes_existing_transform():
 
 def test_attach_turn_memory_prefetch_replaces_previous_memory_transform():
     orch = _orch()
-    loop = MagicMock()
+    loop = MagicMock()  # noqa: magicmock-no-spec — session lifecycle facade (orch / loop / provider)
     loop.callbacks.pre_llm_transform = None
 
     attach_turn_memory_prefetch(loop, orch, "first", role="butler")
@@ -169,7 +169,7 @@ def test_sync_turn_memory_records_on_explicit_remember(monkeypatch):
 def test_sync_turn_memory_records_success_and_provider(monkeypatch):
     monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
     orch = _orch()
-    provider = MagicMock()
+    provider = MagicMock()  # noqa: magicmock-no-spec — session lifecycle facade (orch / loop / provider)
     orch.memory_provider = provider
 
     result = sync_turn_memory(
@@ -191,7 +191,7 @@ def test_sync_turn_memory_records_success_and_provider(monkeypatch):
 def test_sync_turn_memory_strips_private_tags_before_persist(monkeypatch):
     monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
     orch = _orch()
-    provider = MagicMock()
+    provider = MagicMock()  # noqa: magicmock-no-spec — session lifecycle facade (orch / loop / provider)
     orch.memory_provider = provider
 
     result = sync_turn_memory(
@@ -214,7 +214,7 @@ def test_sync_turn_memory_strips_private_tags_before_persist(monkeypatch):
 def test_sync_turn_memory_skips_fully_private_turn(monkeypatch):
     monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
     orch = _orch()
-    provider = MagicMock()
+    provider = MagicMock()  # noqa: magicmock-no-spec — session lifecycle facade (orch / loop / provider)
     orch.memory_provider = provider
 
     result = sync_turn_memory(
@@ -234,7 +234,7 @@ def test_sync_turn_memory_skips_fully_private_turn(monkeypatch):
 def test_sync_turn_memory_fails_closed_when_private_filter_errors(monkeypatch):
     monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
     orch = _orch()
-    provider = MagicMock()
+    provider = MagicMock()  # noqa: magicmock-no-spec — session lifecycle facade (orch / loop / provider)
     orch.memory_provider = provider
 
     with patch("butler.memory.private_tags.strip_private_tags", side_effect=RuntimeError("boom")):
@@ -255,7 +255,7 @@ def test_sync_turn_memory_fails_closed_when_private_filter_errors(monkeypatch):
 def test_sync_turn_memory_provider_failure_keeps_experience_success(monkeypatch):
     monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
     orch = _orch()
-    provider = MagicMock()
+    provider = MagicMock()  # noqa: magicmock-no-spec — session lifecycle facade (orch / loop / provider)
     provider.sync_turn.side_effect = RuntimeError("provider down")
     orch.memory_provider = provider
 

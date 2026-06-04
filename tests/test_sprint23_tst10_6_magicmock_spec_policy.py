@@ -318,7 +318,9 @@ class TestScanCli:
 #        httpx response shim (mock.Mock 单行/多行) 加 noqa)
 # → 216 (test_sprint16_tst11_3_lifecycle_commands: 8 处 lifecycle command
 #        facade (proj/pm/orch) 加 noqa)
-_BASELINE_VIOLATIONS = 216
+# → 208 (test_session_lifecycle: 8 处 session lifecycle facade
+#        (orch / loop / turn memory provider) 加 noqa)
+_BASELINE_VIOLATIONS = 208
 
 
 @pytest.mark.unit
