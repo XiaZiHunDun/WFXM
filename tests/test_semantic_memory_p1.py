@@ -38,7 +38,7 @@ class TestProjectMemoryVectors:
         proj = Project.from_yaml(proj_dir / "project.yaml")
         bm = ButlerMemory(tmp_path / "home", tenant_id="default")
         pm = ProjectMemory(proj_dir)
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = bm
         orch._project_memory = pm
         orch.project_manager.get_current.return_value = proj
@@ -83,7 +83,7 @@ class TestProjectMemoryVectors:
         pend_sid = pending_source_id("p", "我们决定采用 PostgreSQL")
         assert sem.count_rows() >= 1
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = bm
         orch._project_memory = pm
         orch.project_manager.get_current.return_value = proj
@@ -149,7 +149,7 @@ class TestDiagnosticsNoSession:
         pm = ProjectMemory(proj_dir)
         pm.markdown.append("Notes", "诊断测试条目", classification="fact")
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = ButlerMemory(tmp_path / "home", tenant_id="default")
         orch._project_memory = None
         orch.project_manager.get_current.return_value = proj
@@ -208,7 +208,7 @@ class TestProjectPrefetchAndFence:
         index_project_memory_bullet(
             bm.semantic, "灵文1号", "Notes", "试点统一测试日 2026-05-22"
         )
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         orch.butler_memory = bm
         orch._project_memory = pm
         orch.project_manager.resolve_active_project_name.return_value = "灵文1号"
@@ -252,7 +252,7 @@ class TestApiEmbedders:
         monkeypatch.setenv("BUTLER_EMBEDDING_PROVIDER", "openai")
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.setenv("BUTLER_EMBEDDING_MODEL", "text-embedding-3-small")
-        mock_emb = MagicMock()
+        mock_emb = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_emb.model_id = "openai/text-embedding-3-small"
         mock_emb.embed.return_value = [0.1, 0.2, 0.3]
         with patch("butler.memory.embedding._resolve_api_embedder", return_value=mock_emb):

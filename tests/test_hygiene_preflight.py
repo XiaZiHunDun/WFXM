@@ -20,7 +20,7 @@ def test_hygiene_preflight_skips_short_history_and_clears_stale_diagnostics():
         max_context_tokens=128_000,
         diagnostics=diagnostics,
         estimate_tokens=lambda _: 1,
-        compress=Mock(),
+        compress=Mock(),  # noqa: magicmock-no-spec — hygiene preflight compress callback shim
     )
 
     assert result.compressed is False
@@ -35,7 +35,7 @@ def test_hygiene_preflight_compresses_when_over_auto_threshold():
     diagnostics: dict[str, object] = {}
     messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
     compressed = [{"role": "user", "content": "summary"}]
-    compress = Mock(return_value=compressed)
+    compress = Mock(return_value=compressed)  # noqa: magicmock-no-spec — hygiene preflight compress callback shim
 
     result = run_hygiene_preflight(
         messages,
@@ -55,7 +55,7 @@ def test_hygiene_preflight_uses_hard_message_limit_without_token_threshold():
     diagnostics: dict[str, object] = {}
     messages = [{"role": "user", "content": f"short {i}"} for i in range(10)]
     compressed = [{"role": "user", "content": "summary"}]
-    compress = Mock(return_value=compressed)
+    compress = Mock(return_value=compressed)  # noqa: magicmock-no-spec — hygiene preflight compress callback shim
 
     result = run_hygiene_preflight(
         messages,
@@ -74,7 +74,7 @@ def test_hygiene_preflight_uses_hard_message_limit_without_token_threshold():
 def test_hygiene_preflight_circuit_breaker_skips_compress():
     diagnostics: dict[str, object] = {}
     messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
-    compress = Mock()
+    compress = Mock()  # noqa: magicmock-no-spec — hygiene preflight compress callback shim
 
     result = run_hygiene_preflight(
         messages,
@@ -93,7 +93,7 @@ def test_hygiene_preflight_circuit_breaker_skips_compress():
 def test_hygiene_preflight_noop_does_not_increment_failures():
     diagnostics: dict[str, object] = {}
     messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
-    compress = Mock(return_value=messages)
+    compress = Mock(return_value=messages)  # noqa: magicmock-no-spec — hygiene preflight compress callback shim
 
     result = run_hygiene_preflight(
         messages,

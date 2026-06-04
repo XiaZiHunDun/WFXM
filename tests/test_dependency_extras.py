@@ -35,7 +35,7 @@ class TestFastEmbedEmbedder:
 
     def test_get_embedder_fastembed_success(self):
         """When fastembed resolves, should return the FastEmbedEmbedder."""
-        mock_embedder = MagicMock()
+        mock_embedder = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_embedder.model_id = "fastembed/test-model"
         mock_embedder.dimension = 384
 
@@ -51,7 +51,7 @@ class TestFastEmbedEmbedder:
         """FastEmbedEmbedder.embed() should accept text and return list[float]."""
         from butler.memory.embedding import FastEmbedEmbedder
 
-        mock_model = MagicMock()
+        mock_model = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_model.embed.return_value = [[0.5, 0.3, 0.1]]
 
         embedder = FastEmbedEmbedder(model_name="test")
@@ -106,7 +106,7 @@ class TestDocumentReader:
     def test_register_skips_when_not_available(self):
         from butler.tools.document_reader import register_document_tools
 
-        mock_register = MagicMock()
+        mock_register = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         with patch("butler.tools.document_reader._markitdown_available", return_value=False):
             register_document_tools(mock_register)
             mock_register.assert_not_called()
@@ -114,7 +114,7 @@ class TestDocumentReader:
     def test_register_adds_tool_when_available(self):
         from butler.tools.document_reader import register_document_tools
 
-        mock_register = MagicMock()
+        mock_register = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         with patch("butler.tools.document_reader._markitdown_available", return_value=True):
             register_document_tools(mock_register)
             mock_register.assert_called_once()
@@ -202,7 +202,7 @@ class TestDataQuery:
     def test_register_skips_when_not_available(self):
         from butler.tools.data_query import register_data_query_tools
 
-        mock_register = MagicMock()
+        mock_register = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         with patch("butler.tools.data_query._duckdb_available", return_value=False):
             register_data_query_tools(mock_register)
             mock_register.assert_not_called()

@@ -19,15 +19,15 @@ from butler.runtime.delegate_job import build_async_delegate_tool_result
 def test_should_delegate_async_requires_bridge(monkeypatch):
     monkeypatch.setenv("BUTLER_DELEGATE_ASYNC", "1")
     assert not should_delegate_async(bridge=None, depth=0)
-    assert should_delegate_async(bridge=MagicMock(), depth=0)
-    assert not should_delegate_async(bridge=MagicMock(), depth=1)
+    assert should_delegate_async(bridge=MagicMock(), depth=0)  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    assert not should_delegate_async(bridge=MagicMock(), depth=1)  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
 
 @pytest.mark.unit
 def test_category_background_false(monkeypatch):
     monkeypatch.setenv("BUTLER_DELEGATE_ASYNC", "1")
     assert not should_delegate_async(
-        bridge=MagicMock(),
+        bridge=MagicMock(),  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         depth=0,
         category_meta={"background": False},
     )
@@ -71,8 +71,8 @@ def test_schedule_background_delegate_marks_task_background(monkeypatch):
     from butler.runtime.delegate_job import DelegateJob
 
     job = DelegateJob(
-        agent=MagicMock(),
-        orch=MagicMock(),
+        agent=MagicMock(),  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        orch=MagicMock(),  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         user_msg="hi",
         raw_user_msg="hi",
         role="dev",

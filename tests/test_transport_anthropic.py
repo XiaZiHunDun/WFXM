@@ -205,25 +205,25 @@ class TestNormalizeDict:
 @pytest.mark.module_test
 class TestNormalizeSdk:
     def test_sdk_response_attributes(self, transport):
-        text_block = MagicMock()
+        text_block = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         text_block.type = "text"
         text_block.text = "hello"
 
-        thinking_block = MagicMock()
+        thinking_block = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         thinking_block.type = "thinking"
         thinking_block.thinking = "hmm"
 
-        tool_block = MagicMock()
+        tool_block = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         tool_block.type = "tool_use"
         tool_block.id = "toolu_1"
         tool_block.name = "grep"
         tool_block.input = {"pattern": "foo"}
 
-        usage = MagicMock()
+        usage = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         usage.input_tokens = 5
         usage.output_tokens = 3
 
-        response = MagicMock()
+        response = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         response.content = [text_block, thinking_block, tool_block]
         response.stop_reason = "tool_use"
         response.usage = usage

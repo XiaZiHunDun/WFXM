@@ -300,7 +300,7 @@ class TestProjectDashboard:
     def test_dashboard_with_project(self):
         from butler.gateway.dev_commands import format_project_dashboard
 
-        mock_proj = MagicMock()
+        mock_proj = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_proj.name = "TestProject"
         mock_proj.workspace = Path("/tmp")
         mock_proj.dev = {"test_command": "pytest -q"}
@@ -503,9 +503,9 @@ class TestDelegateDiffSummary:
     def test_attaches_diff(self):
         from butler.runtime.delegate_job import _try_attach_diff_summary, DelegateJob
 
-        report = MagicMock()
+        report = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         report.summary = "Task done."
-        job = MagicMock(spec=DelegateJob)
+        job = MagicMock(spec=DelegateJob)  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         diff_result = {
             "exit_code": 0,
@@ -514,9 +514,9 @@ class TestDelegateDiffSummary:
 
         with patch.dict(os.environ, {"BUTLER_ENABLE_GIT": "1"}):
             with patch("butler.tools.git_tools._run_git", return_value=diff_result):
-                mock_proj = MagicMock()
+                mock_proj = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
                 mock_proj.workspace = "/tmp"
-                mock_pm = MagicMock()
+                mock_pm = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
                 mock_pm.active_project = mock_proj
                 with patch("butler.project.manager.ProjectManager", return_value=mock_pm):
                     _try_attach_diff_summary(report, job)
@@ -525,9 +525,9 @@ class TestDelegateDiffSummary:
     def test_no_diff_when_git_disabled(self):
         from butler.runtime.delegate_job import _try_attach_diff_summary, DelegateJob
 
-        report = MagicMock()
+        report = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         report.summary = "Task done."
-        job = MagicMock(spec=DelegateJob)
+        job = MagicMock(spec=DelegateJob)  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("BUTLER_ENABLE_GIT", None)

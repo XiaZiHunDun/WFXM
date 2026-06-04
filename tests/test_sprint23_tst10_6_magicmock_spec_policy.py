@@ -334,7 +334,15 @@ class TestScanCli:
 # → 151 (2 个 6 处文件批量清理, 总 -12 处):
 #     test_memory_p1_p2 (6 处)
 #     test_butler_v4 (6 处)
-_BASELINE_VIOLATIONS = 151
+# → 116 (7 个 5 处文件批量清理, 总 -35 处):
+#     test_transport_anthropic (5 处)
+#     test_semantic_memory_p1 (5 处)
+#     test_hygiene_preflight (5 处, 用 Mock() 而非 MagicMock())
+#     test_dev_commands (5+2 处, 7 行)
+#     test_dependency_extras (5 处)
+#     test_cli_scenarios (5 处)
+#     test_async_delegate (5 处)
+_BASELINE_VIOLATIONS = 116
 
 
 @pytest.mark.unit

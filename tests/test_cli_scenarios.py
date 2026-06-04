@@ -35,7 +35,7 @@ class TestStreamRendererBufferOnly:
     """Buffer mode: deltas accumulate until finish_turn Panel."""
 
     def test_buffer_mode_does_not_print_during_delta(self):
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         stream = StreamRenderer(console, title="莎丽", mode="buffer")
         stream.on_delta("你好")
         stream.on_delta("世界")
@@ -110,7 +110,7 @@ class TestFinishTurnDisplayRegression:
         assert "visible reasoning" in out
 
     def test_finish_turn_single_panel_via_mock_console(self):
-        console = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         ui = ChatSessionUI(console, stream_title="莎丽")
         stream = StreamRenderer(console, title="莎丽", mode="buffer")
         stream.on_delta("Panel 正文")
@@ -130,8 +130,8 @@ class TestPatchStdoutLayout:
     """Regression: live stream + Rich status work with stderr console."""
 
     def test_llm_start_uses_rich_status(self):
-        console = MagicMock()
-        status = MagicMock()
+        console = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        status = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         console.status.return_value = status
         ui = ChatSessionUI(console)
         ui._on_llm_start()
@@ -226,7 +226,7 @@ class TestScriptedInteractiveChat:
 class TestCliScenarioSlashCommands:
     def test_new_prints_cleared_message(self):
         console, buf = capture_console()
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         assert _handle_slash_command("/new", orch, console) == "rebuild_after_new"
         assert "已清空本轮对话上下文" in rendered_text(buf)
 
