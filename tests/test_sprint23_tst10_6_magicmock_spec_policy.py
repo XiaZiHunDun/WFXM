@@ -308,7 +308,9 @@ class TestScanCli:
 #        set_message_handler) 加 noqa)
 # → 258 (test_task_orchestrator: 9 处 task orchestrator facade
 #        (current_orch / agent loop / config) 加 noqa)
-_BASELINE_VIOLATIONS = 258
+# → 249 (test_sprint16_rel11_4_runner_shutdown: 9 处 runner shutdown facade
+#        (butler / adapter / task) 加 noqa)
+_BASELINE_VIOLATIONS = 249
 
 
 @pytest.mark.unit

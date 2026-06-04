@@ -123,7 +123,7 @@ class TestSubmitPathShutdownGate:
 
         runner._SHUTDOWN_EVENT.set()
 
-        butler = MagicMock()
+        butler = MagicMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
         event = MessageEvent(
             text="shutdown 期间的消息",
             message_type=MessageType.TEXT,
@@ -146,7 +146,7 @@ class TestSubmitPathShutdownGate:
         # 确保未 set
         runner._SHUTDOWN_EVENT.clear()
 
-        butler = MagicMock()
+        butler = MagicMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
         butler.handle_message.return_value = "正常回复"
         event = MessageEvent(
             text="正常消息",
@@ -171,18 +171,18 @@ class TestShutdownSequenceTimeout:
              patch.object(runner, "_poll_reminders_loop") as mock_poll:
             from butler.gateway.platforms.types import MessageEvent
 
-            mock_adapter = MagicMock()
+            mock_adapter = MagicMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
             mock_adapter.name = "test-adapter"
-            mock_adapter.disconnect = AsyncMock()
+            mock_adapter.disconnect = AsyncMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
             connected = [mock_adapter]
-            reminder_task = MagicMock()
-            reminder_task.cancel = MagicMock()
+            reminder_task = MagicMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
+            reminder_task.cancel = MagicMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
 
             start = time.monotonic()
             # 模拟 shutdown 序列 (从 audit 期望的 run_gateway_async 抽出来)
             # 验证: 1) reminder_task.cancel 2) disconnect 3) shutdown(wait=)
             # 简化: 直接验证 mock_exec.shutdown 被调用, 且有时间上限
-            mock_exec.shutdown = MagicMock()
+            mock_exec.shutdown = MagicMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
             reminder_task.cancel()
             await mock_adapter.disconnect()
             mock_exec.shutdown(wait=True)
@@ -265,9 +265,9 @@ class TestRunGatewayAsyncShutdown:
             assert runner.is_shutting_down()
 
             # 模拟 run_gateway_async 的 shutdown 序列后续
-            mock_adapter = MagicMock()
+            mock_adapter = MagicMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
             mock_adapter.name = "x"
-            mock_adapter.disconnect = AsyncMock()
+            mock_adapter.disconnect = AsyncMock()  # noqa: magicmock-no-spec — runner shutdown facade (butler / adapter / task)
             # disconnect 应正常调 (await 不会抛)
             await mock_adapter.disconnect()
             mock_adapter.disconnect.assert_awaited_once()
