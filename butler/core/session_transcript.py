@@ -316,6 +316,24 @@ def record_compact_failed(
     )
 
 
+def record_overflow_replay(
+    session_key: str,
+    *,
+    source: str = "context_compressor",
+    content_preview: str = "",
+    replayed_chars: int = 0,
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "overflow_replay",
+        {
+            "source": str(source or "context_compressor")[:32],
+            "content_preview": str(content_preview or "")[:80],
+            "replayed_chars": max(0, int(replayed_chars)),
+        },
+    )
+
+
 def record_todo_updated(session_key: str, *, count: int = 0) -> None:
     append_transcript_entry(
         session_key,

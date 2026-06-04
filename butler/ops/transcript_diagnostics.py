@@ -26,6 +26,7 @@ def format_transcript_diagnostic_lines(session_key: str) -> list[str]:
     compact_started = sum(1 for r in rows if r.get("type") == "compact_started")
     compact_done = sum(1 for r in rows if r.get("type") == "compact_done")
     compact_failed = sum(1 for r in rows if r.get("type") == "compact_failed")
+    overflow_replay = sum(1 for r in rows if r.get("type") == "overflow_replay")
     queue_ops = sum(1 for r in rows if r.get("type") in ("queue_op", "queue_drop"))
     last = rows[-1] if rows else {}
     last_type = str(last.get("type") or "-")
@@ -36,6 +37,11 @@ def format_transcript_diagnostic_lines(session_key: str) -> list[str]:
         f" · 队列事件 {queue_ops}",
         f"Transcript 末条: {last_type}",
     ]
+    if overflow_replay:
+        lines.append(
+            f"⚠️ 续跑提示: 本会话触发了 {overflow_replay} 次 413/overflow 续跑"
+            f" (overflow_replay 事件), 上下文已被强制重放, 可考虑精简后重试"
+        )
     if session_todos_enabled():
         open_n = count_open_todos(session_key)
         lines.append(f"会话待办: 未完成 {open_n} 条 (发 /待办 查看)")
@@ -67,6 +73,7 @@ def summarize_compact_events(rows: list[dict[str, Any]]) -> dict[str, int]:
         "compact_done": 0,
         "compact_failed": 0,
         "compact_boundary": 0,
+        "overflow_replay": 0,
     }
     for row in rows:
         t = str(row.get("type") or "")
