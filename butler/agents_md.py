@@ -12,6 +12,16 @@ logger = logging.getLogger(__name__)
 
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n(.*)$", re.DOTALL)
 
+# Sprint 22-4 PERF-21-B-3: mtime+size-keyed cache for agent md files.
+# Mirrors hooks/loader (Sprint 21-3) + workflows/loader (Sprint 22-3) pattern.
+# load_agent_md is called from merge_agent_md_into_context (line 91),
+# which delegate_impl.py:324 invokes per message — without cache, each
+# delegate incurs a disk read + frontmatter parse.
+# Key: (str(workspace), str(name), str(path), mtime_ns, size) — auto-invalidates
+# on file modification. Failed loads (OSError → None) are NOT cached to
+# avoid poisoning subsequent reads.
+_FILE_CACHE: dict[tuple, AgentMdDef] = {}
+
 
 @dataclass
 class AgentMdDef:
@@ -46,35 +56,53 @@ def load_agent_md(workspace: Path, name: str) -> AgentMdDef | None:
     if not key:
         return None
     base = Path(workspace).expanduser().resolve() / ".butler" / "agents"
+    ws_key = str(workspace)
     for candidate in (f"{key}.md", f"{key}_agent.md"):
         path = base / candidate
         if not path.is_file():
             continue
         try:
+            st = path.stat()
+        except OSError as exc:
+            logger.debug("agent md stat %s: %s", path, exc)
+            continue
+        cache_key = (ws_key, key, str(path), st.st_mtime_ns, st.st_size)
+        cached = _FILE_CACHE.get(cache_key)
+        if cached is not None:
+            return cached
+        try:
             raw = path.read_text(encoding="utf-8")
         except OSError as exc:
             logger.debug("agent md read %s: %s", path, exc)
             return None
-        meta, body = _parse_frontmatter(raw)
-        tools_raw = meta.get("tools")
-        tools = None
-        if isinstance(tools_raw, list):
-            tools = [str(t).strip() for t in tools_raw if str(t).strip()]
-        triggers_raw = meta.get("triggers")
-        triggers: list[str] = []
-        if isinstance(triggers_raw, list):
-            triggers = [str(t).strip() for t in triggers_raw if str(t).strip()]
-        elif isinstance(triggers_raw, str) and triggers_raw.strip():
-            triggers = [triggers_raw.strip()]
-        return AgentMdDef(
-            name=key,
-            description=str(meta.get("description") or "")[:500],
-            system_prompt=body,
-            tools=tools,
-            triggers=triggers,
-            permission_mode=str(meta.get("permission_mode") or "")[:32],
-        )
+        agent = _parse_agent_md(key, raw)
+        if agent is not None:
+            _FILE_CACHE[cache_key] = agent
+        return agent
     return None
+
+
+def _parse_agent_md(key: str, raw: str) -> AgentMdDef | None:
+    """Parse a raw agent md body into AgentMdDef. No I/O, no cache."""
+    meta, body = _parse_frontmatter(raw)
+    tools_raw = meta.get("tools")
+    tools = None
+    if isinstance(tools_raw, list):
+        tools = [str(t).strip() for t in tools_raw if str(t).strip()]
+    triggers_raw = meta.get("triggers")
+    triggers: list[str] = []
+    if isinstance(triggers_raw, list):
+        triggers = [str(t).strip() for t in triggers_raw if str(t).strip()]
+    elif isinstance(triggers_raw, str) and triggers_raw.strip():
+        triggers = [triggers_raw.strip()]
+    return AgentMdDef(
+        name=key,
+        description=str(meta.get("description") or "")[:500],
+        system_prompt=body,
+        tools=tools,
+        triggers=triggers,
+        permission_mode=str(meta.get("permission_mode") or "")[:32],
+    )
 
 
 def list_agent_md_names(workspace: Path) -> list[str]:
