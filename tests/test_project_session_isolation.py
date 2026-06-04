@@ -103,7 +103,7 @@ class TestProjectSessionIsolation:
         handler._orchestrator.project_manager.switch_project("alpha")
 
         sk_alpha = build_session_key(platform="wechat", chat_id="u1", project="alpha")
-        loop_alpha = MagicMock(messages=[{"role": "user", "content": "alpha-only"}])
+        loop_alpha = MagicMock(messages=[{"role": "user", "content": "alpha-only"}])  # noqa: magicmock-no-spec — project session isolation facade (loop)
         handler._sessions[sk_alpha] = loop_alpha
         handler._session_registry.touch(sk_alpha)
 

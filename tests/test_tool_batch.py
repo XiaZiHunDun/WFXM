@@ -202,7 +202,7 @@ def test_finalize_fallback_tool_result_records_audit():
 
 @pytest.mark.unit
 def test_process_tool_calls_invokes_stream_boundary():
-    boundary = MagicMock()
+    boundary = MagicMock()  # noqa: magicmock-no-spec — tool batch facade (boundary)
     tc = build_tool_call("c1", "echo", {"x": 1})
     process_tool_calls(
         response=NormalizedResponse(tool_calls=[tc], usage=_usage()),

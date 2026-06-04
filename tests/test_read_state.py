@@ -22,7 +22,7 @@ from butler.tools.registry import dispatch_tool
 
 
 def _orchestrator_for_workspace(workspace: Path):
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — read state facade (orch)
     orch.project_manager.get_current.return_value = SimpleNamespace(workspace=workspace)
     return orch
 

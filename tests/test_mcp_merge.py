@@ -74,7 +74,7 @@ def test_reload_mcp_connections():
     from butler.registry.mcp_install import reload_mcp_connections
 
     with patch("butler.mcp.manager.McpConnectionManager") as mgr_cls:
-        mgr_cls.return_value = MagicMock()
+        mgr_cls.return_value = MagicMock()  # noqa: magicmock-no-spec — mcp merge facade (mgr cls)
         ok, msg = reload_mcp_connections()
     assert ok
     mgr_cls.return_value.disconnect_all.assert_called_once()

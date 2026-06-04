@@ -113,7 +113,7 @@ def mock_orchestrator_for_chat(
     on_run: Any | None = None,
 ) -> MagicMock:
     """Minimal orchestrator for _run_interactive_chat harness tests."""
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — CLI harness facade (orchestrator / loop)
     orch._settings.butler_home = tmp_path
     orch._settings.butler_name = butler_name
     orch.project_manager.current_project = project_name
@@ -139,7 +139,7 @@ def mock_orchestrator_for_chat(
     filler = "x" * 80
 
     def _create_loop(**_kwargs):
-        loop = MagicMock()
+        loop = MagicMock()  # noqa: magicmock-no-spec — CLI harness facade (orchestrator / loop)
         loop.messages = [
             {"role": "user", "content": filler},
             {"role": "assistant", "content": filler},

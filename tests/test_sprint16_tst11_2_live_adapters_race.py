@@ -38,7 +38,7 @@ def _make_fake_adapter(token: str) -> MagicMock:
 
     只设 ``_token`` 属性, 因为 _LIVE_ADAPTERS 索引只看 token。
     """
-    adapter = MagicMock()
+    adapter = MagicMock()  # noqa: magicmock-no-spec — live adapters race shim (adapter)
     adapter._token = token
     return adapter
 

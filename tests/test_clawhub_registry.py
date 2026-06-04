@@ -24,7 +24,7 @@ def test_clawhub_search_parses_items():
     }
     with patch.object(source, "inspect", return_value=None):
         with patch("butler.registry.skill_sources.clawhub.httpx.get") as mock_get:
-            mock_get.return_value = MagicMock(status_code=200, json=lambda: payload)
+            mock_get.return_value = MagicMock(status_code=200, json=lambda: payload)  # noqa: magicmock-no-spec — clawhub registry httpx shim
             with patch("butler.registry.skill_sources.clawhub.read_cache", return_value=None):
                 with patch("butler.registry.skill_sources.clawhub.write_cache"):
                     hits = source.search("demo", limit=5)
@@ -49,7 +49,7 @@ def test_clawhub_fetch_extracts_skill_md():
     zip_bytes = buf.getvalue()
 
     def fake_get(url, **kwargs):
-        resp = MagicMock()
+        resp = MagicMock()  # noqa: magicmock-no-spec — clawhub registry httpx shim
         if "/skills/demo-skill" in url and "versions" not in url and "download" not in url:
             resp.status_code = 200
             resp.json = lambda: skill_payload

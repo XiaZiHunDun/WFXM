@@ -34,7 +34,7 @@ class TestMemoryBulletEdit:
         svc = ButlerMemoryService()
         svc._butler_global = bm
         svc._project_memory = pm
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — memory bullet edit facade (orch)
         orch.butler_memory = bm
         orch._project_memory = pm
         orch.project_manager.get_current.return_value = proj

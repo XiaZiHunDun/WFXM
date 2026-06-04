@@ -109,7 +109,7 @@ class TestRecallHybridIntegration:
             category="experience",
             content="灵文1号采用 pytest 做守门测试",
         )
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — semantic memory facade (orch)
         orch.memory_provider = None
         orch.butler_memory = bm
         orch._project_memory = None

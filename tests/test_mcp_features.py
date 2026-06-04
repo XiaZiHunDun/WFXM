@@ -173,7 +173,7 @@ def test_dispatch_mcp_tool_mock(mock_get_manager, monkeypatch):
         classification="readonly",
         input_schema={"type": "object", "properties": {}},
     )
-    mgr = MagicMock()
+    mgr = MagicMock()  # noqa: magicmock-no-spec — mcp features facade (mgr)
     mgr.get_tool_ref.return_value = ref
     mgr.call_tool.return_value = '{"ok":true,"pong":1}'
     mock_get_manager.return_value = mgr

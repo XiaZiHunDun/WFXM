@@ -130,7 +130,7 @@ def test_truncate_transcript(tmp_path, monkeypatch):
 @pytest.mark.unit
 def test_delegate_interrupt_propagates():
     parent = "wx:parent"
-    child_loop = MagicMock()
+    child_loop = MagicMock()  # noqa: magicmock-no-spec — p3 features delegate facade (child loop)
     register_delegate_loop(parent, child_loop)
     n = interrupt_delegates_for_session(parent)
     assert n == 1

@@ -33,7 +33,7 @@ class _MockAdapter:
     async def send(self, chat_id: str, content: str, reply_to=None, metadata=None):
         del chat_id, reply_to, metadata
         self.sent.append(content)
-        return MagicMock(success=True)
+        return MagicMock(success=True)  # noqa: magicmock-no-spec — gateway outbound bridge send shim
 
 
 @pytest.mark.asyncio

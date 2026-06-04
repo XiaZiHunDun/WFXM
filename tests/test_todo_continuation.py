@@ -62,7 +62,7 @@ def test_run_with_todo_continuation_caps(monkeypatch):
         "butler.core.goal_loop.is_goal_loop_active",
         lambda _sk: False,
     )
-    loop = MagicMock()
+    loop = MagicMock()  # noqa: magicmock-no-spec — todo continuation facade (loop)
     calls: list[str] = []
 
     def fake_run(msg: str) -> LoopResult:

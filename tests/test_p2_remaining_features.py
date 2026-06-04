@@ -32,7 +32,7 @@ class TestProjectOverview:
         p1 = FakeProject("ProjectA", desc="描述A", workspace=tmp_path / "pA")
         p2 = FakeProject("ProjectB", desc="描述B", workspace=tmp_path / "pB")
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — p2 remaining features facade (orch)
         orch.project_manager.list_projects.return_value = [p1, p2]
         orch.project_manager.resolve_active_project_name.return_value = "ProjectA"
 
@@ -45,7 +45,7 @@ class TestProjectOverview:
     def test_overview_empty(self):
         from butler.gateway.message_handler import _build_project_overview
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — p2 remaining features facade (orch)
         orch.project_manager.list_projects.return_value = []
         result = _build_project_overview(orch, "s")
         assert "暂无" in result

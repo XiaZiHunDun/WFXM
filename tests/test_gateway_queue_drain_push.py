@@ -29,7 +29,7 @@ def test_merge_keeps_primary_when_follow_empty():
 def test_drain_supplementary_via_bridge(monkeypatch, primary, combined):
     monkeypatch.setenv("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", "1")
 
-    bridge = MagicMock()
+    bridge = MagicMock()  # noqa: magicmock-no-spec — gateway queue drain facade (bridge)
     bridge.schedule_supplementary_reply.return_value = True
     monkeypatch.setattr(
         "butler.gateway.outbound_bridge.get_current_bridge",

@@ -42,7 +42,7 @@ class TestMaybeScheduleProgressiveReply:
 
     def test_disabled_does_nothing(self, monkeypatch):
         monkeypatch.delenv("BUTLER_GATEWAY_PROGRESSIVE_STREAM", raising=False)
-        bridge = MagicMock()
+        bridge = MagicMock()  # noqa: magicmock-no-spec — progressive stream facade (bridge)
         ps.maybe_schedule_progressive_reply(bridge, "preview text")
         bridge.schedule_supplementary_reply.assert_not_called()
 
@@ -51,7 +51,7 @@ class TestMaybeScheduleProgressiveReply:
         monkeypatch.setenv("BUTLER_GATEWAY_PROGRESSIVE_MIN_CHARS", "80")
         monkeypatch.setenv("BUTLER_GATEWAY_PROGRESSIVE_INTERVAL", "15")
 
-        bridge = MagicMock()
+        bridge = MagicMock()  # noqa: magicmock-no-spec — progressive stream facade (bridge)
         bridge._progressive_last_at = 0.0
         bridge._stream_chars = 100
         bridge.schedule_supplementary_reply.return_value = True

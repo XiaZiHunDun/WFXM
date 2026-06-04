@@ -54,7 +54,7 @@ class TestMemoryToolsDispatch:
         )
         proj = Project.from_yaml(proj_dir / "project.yaml")
         bm = ButlerMemory(tmp_path / "butler_home", tenant_id="default")
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — p0 memory pilot facade (orch / loop)
         orch.memory_provider = None
         orch.butler_memory = bm
         orch._project_memory = ProjectMemory(proj_dir)
@@ -111,7 +111,7 @@ class TestNewCommandMemoryFeedback:
         from unittest.mock import MagicMock, patch
 
         handler = ButlerMessageHandler(channel="gateway")
-        loop = MagicMock(messages=[{"role": "user"}] * 6)
+        loop = MagicMock(messages=[{"role": "user"}] * 6)  # noqa: magicmock-no-spec — p0 memory pilot facade (orch / loop)
         handler._sessions["wechat:u1:_"] = loop
 
         with patch(

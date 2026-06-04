@@ -409,7 +409,7 @@ def run_catalog_turn(
             llm_called = True
         else:
             with patch.object(handler, "_get_or_create_loop") as mock_get:
-                loop = MagicMock()
+                loop = MagicMock()  # noqa: magicmock-no-spec — gateway catalog harness shim (loop)
                 loop.run.return_value = LoopResult(
                     status=LoopStatus.COMPLETED,
                     final_response=final_text_from_script(script),

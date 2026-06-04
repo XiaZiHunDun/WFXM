@@ -28,7 +28,7 @@ def test_lobehub_search_api():
             with patch("butler.registry.skill_sources.lobehub.read_cache", return_value=None):
                 with patch("butler.registry.skill_sources.lobehub.write_cache"):
                     with patch("butler.registry.skill_sources.lobehub.httpx.get") as mock_get:
-                        mock_get.return_value = MagicMock(
+                        mock_get.return_value = MagicMock(  # noqa: magicmock-no-spec — lobehub source httpx shim
                             status_code=200,
                             json=lambda: payload,
                         )
@@ -53,7 +53,7 @@ def test_lobehub_fetch_zip():
         with patch("butler.registry.skill_sources.lobehub.lobehub_prefer_cli", return_value=False):
             with patch("butler.registry.skill_sources.lobehub._fetch_cli", return_value=None):
                 with patch("butler.registry.skill_sources.lobehub.httpx.get") as mock_get:
-                    mock_get.return_value = MagicMock(status_code=200, content=zip_bytes)
+                    mock_get.return_value = MagicMock(status_code=200, content=zip_bytes)  # noqa: magicmock-no-spec — lobehub source httpx shim
                     bundle = source.fetch("lobehub:acme/pdf-tool")
     assert bundle is not None
     assert "SKILL.md" in bundle.files

@@ -76,8 +76,8 @@ def mock_llm_client(mock_llm_response):
     from butler.transport.llm_client import LLMClient
 
     client = LLMClient(provider="minimax", model="test-model")
-    client.complete = MagicMock(return_value=mock_llm_response())
-    client.stream = MagicMock(return_value=mock_llm_response())
+    client.complete = MagicMock(return_value=mock_llm_response())  # noqa: magicmock-no-spec — conftest LLM client shim
+    client.stream = MagicMock(return_value=mock_llm_response())  # noqa: magicmock-no-spec — conftest LLM client shim
     return client
 
 

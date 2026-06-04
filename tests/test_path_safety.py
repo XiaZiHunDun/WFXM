@@ -15,13 +15,13 @@ from butler.tools.path_safety import (
 
 
 def _orchestrator_for_workspace(workspace: Path):
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — path safety facade (orch)
     orch.project_manager.get_current.return_value = SimpleNamespace(workspace=workspace)
     return orch
 
 
 def _orchestrator_without_project():
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — path safety facade (orch)
     orch.project_manager.get_current.return_value = None
     return orch
 

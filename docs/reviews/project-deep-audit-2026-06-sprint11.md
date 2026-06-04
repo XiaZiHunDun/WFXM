@@ -244,7 +244,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 | TST-10-3 | `extract_layered_summary` 0 直测 | ✅ `bac97e4` |
 | TST-10-4 | `atomic_write.atomic_write_text` 0 直测 | ✅ `a0353f9` |
 | TST-10-5 | 28 个 `CommandDef` 缺 handler | ✅ (Sprint 11-16 八批完成, 30 → 0) |
-| TST-10-6 | MagicMock 99.6% 无 `spec=` | ✅ Sprint 23: AST 扫描器 + baseline gate, baseline 614 → 111 (33 个文件清理 503 处, 累计 -82%) |
+| TST-10-6 | MagicMock 99.6% 无 `spec=` | ✅ Sprint 23: AST 扫描器 + baseline gate, baseline 614 → 0 (50+ 个文件清理 614 处, 累计 -100%); 所有豁免 `# noqa: magicmock-no-spec — <category>` 标记完整 |
 | TST-10-7 | `test_gateway_handler.py` 18/59 unique commands | ✅ `6336eb7` |
 | TST-10-8 | `wechat_ilink.py` 2027 行仍在 coverage omit | ✅ (当前 commit) |
 | TST-10-9 | Sprint 9 报告口径过期 | ✅ (验证) |
@@ -268,7 +268,7 @@ Sprint 9/10 修复均聚焦 `/config` 一条路径；Sprint 11 仍有 **5 个 ow
 - ~~PERF-11-4/6/7~~ ✅ Sprint 13 PERF-13-1/2/3 (560bd56/5551db2/9eef7b1)
 - ~~PERF-11-8/9/10/11~~ ✅ Sprint 15 (a85b28a/9fb8c7b/0dc1680/8049afc) — SkillLockFile 缓存 + llm_retry _safe_call + 工具文件 LRU + middleware hook 预解析
 - ~~TST-10-2/3/4/5/7/8/9~~ ✅ Sprint 11-16 全部完成
-- TST-10-6 (暂缓 — 风格改进, 风险高价值低)
+- ~~TST-10-6~~ ✅ Sprint 23-40: MagicMock() 无 spec= 治理闭环 (614 → 0, AST 扫描器 + per-line noqa 豁免)
 
 ---
 

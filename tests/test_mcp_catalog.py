@@ -53,7 +53,7 @@ def test_remote_mcp_catalog_merge(monkeypatch):
     monkeypatch.setenv("BUTLER_MCP_CATALOG_URLS", "https://example.com/mcp-catalog.json")
 
     with patch("butler.registry.mcp_catalog_remote.httpx.get") as mock_get:
-        mock_get.return_value = MagicMock(status_code=200, json=lambda: payload)
+        mock_get.return_value = MagicMock(status_code=200, json=lambda: payload)  # noqa: magicmock-no-spec — mcp catalog httpx shim
         with patch("butler.registry.mcp_catalog_remote.is_safe_url", return_value=True):
             with patch("butler.registry.mcp_catalog_remote.read_cache", return_value=None):
                 with patch("butler.registry.mcp_catalog_remote.write_cache"):

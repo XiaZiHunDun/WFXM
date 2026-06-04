@@ -77,7 +77,7 @@ def test_delegate_loop_disables_parallel_tools(monkeypatch):
     from butler.core.agent_loop import AgentLoop
 
     cfg = LoopConfig(enable_parallel_tools=True)
-    agent = MagicMock()
+    agent = MagicMock()  # noqa: magicmock-no-spec — mode classifier defer facade (agent)
     agent.config = cfg
     agent.diagnostics = {}
     if delegate_one_tool_per_iteration():

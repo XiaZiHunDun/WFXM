@@ -129,11 +129,11 @@ def test_validate_and_repair_schema(monkeypatch):
         },
     )
     assert any("schema:" in i for i in report.issues)
-    mock_client = MagicMock()
+    mock_client = MagicMock()  # noqa: magicmock-no-spec — external agent confirm facade (mock client / orch)
     mock_client.complete.return_value = NormalizedResponse(
         content='{"rating": "approve", "score": 8}',
     )
-    orch = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — external agent confirm facade (mock client / orch)
     orch.create_llm_client.return_value = mock_client
     repaired = maybe_repair_structured_output(
         report,

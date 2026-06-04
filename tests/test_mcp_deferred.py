@@ -44,7 +44,7 @@ def test_mcp_deferred_promote_and_definitions(monkeypatch):
     monkeypatch.setenv("BUTLER_MCP_DEFERRED_TOOLS", "1")
     assert mcp_deferred_tools_enabled()
     clear_promoted("test-session")
-    ref = MagicMock()
+    ref = MagicMock()  # noqa: magicmock-no-spec — mcp deferred facade (ref)
     ref.registered_name = "mcp_srv_tool_a"
     ref.server_id = "srv"
     ref.original_name = "tool_a"
@@ -71,7 +71,7 @@ def test_get_mcp_tool_definitions_deferred_empty_without_promote(monkeypatch):
 
 
 def test_tool_search_handler_json():
-    ref = MagicMock()
+    ref = MagicMock()  # noqa: magicmock-no-spec — mcp deferred facade (ref)
     ref.registered_name = "mcp_x_find"
     ref.server_id = "x"
     ref.original_name = "find"

@@ -67,7 +67,7 @@ def test_run_active_depth_per_session():
 
 
 def test_apply_steer_uses_execution_context_session():
-    with use_execution_context(MagicMock(), session_key="ctx-s"):
+    with use_execution_context(MagicMock(), session_key="ctx-s"):  # noqa: magicmock-no-spec — steer sessions context shim
         steer("from context", session_key=None)
         msgs = [
             {"role": "assistant", "tool_calls": [{"id": "x", "function": {"name": "t"}}]},
