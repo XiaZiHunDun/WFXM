@@ -192,6 +192,80 @@ Gateway（message_handler + queue_settings）:
   on_tool_call_ready → 只读工具预取 → process_tool_calls(prefetched)
 ```
 
+### Hook 总线（Shell + In-Process）
+
+Butler 同时跑两套 Hook 总线：**Shell 钩子**（`butler/hooks/runner.py`，CC 兼容，`~/.butler/hooks.yaml` 配）和 **In-Process 钩子**（`butler/gateway/hooks.py`，轻量 Python 字典注册）。两套并行不冲突，按场景选用。
+
+#### 系统对照
+
+| 维度 | Shell 钩子 | In-Process 钩子 |
+|---|---|---|
+| 入口 | `butler/hooks/runner.py` | `butler/gateway/hooks.py` |
+| 配置 | `~/.butler/hooks.yaml` / `<project>/.butler/hooks.yaml` | `register_hook(name, fn)` 在代码内注册 |
+| 延迟 | 子进程 + JSON stdin/stdout | 进程内函数调用，零延迟 |
+| 典型用途 | 审计、通知、外部副作用（git status、metric 推送） | 上下文注入、改写、轻量决策（`pre_llm_call` 加临时上下文） |
+| 阻塞语义 | exit code 2 = 阻塞；其他非零 = warn | try/except 永吞（不阻塞）；返回 `{"action": "skip"}` 等可显式阻断 |
+| 上下文化 | `hookSpecificOutput.additionalContext` JSON 字段 | 返回值直接 list[str] 拼入 |
+
+#### 主流 Hook 点
+
+| 名称 | 类型 | 触发时机 | 阻塞方式 |
+|---|---|---|---|
+| `UserPromptSubmit` | Shell | 每个 LLM turn 入口，用户 prompt 入栈后 | exit 2 |
+| `pre_llm_call` | In-Process | `apply_pre_llm_context()`，注入临时上下文 | 返回值追加，不阻断 |
+| `pre_gateway_dispatch` | In-Process | 消息分发前，文本改写/跳过 | `{"action": "skip"}` 跳；`{"action": "rewrite", "text": ...}` 改写 |
+| `PreToolUse` (= `pre_tool_execute`) | Shell | 工具执行前，按 `matcher` 匹配 | exit 2（或 `BUTLER_HOOK_FAIL_CLOSED=1` 下任何非零） |
+| `PostToolUse` / `PostToolUseFailure` | Shell | 工具执行后 | 不阻塞；stderr / context 拼到 tool 结果 |
+| `PreCompact` + `pre_compact` | **双调用** | 压缩前 | Shell exit 2 阻断；In-Process 注入事实抽取 |
+| `PostCompact` + `post_compact` | **双调用** | 压缩后 | Shell 返回 contexts；In-Process 注入锚点 |
+| `PermissionDenied` | Shell | 权限拒绝后 | `{"retry": true}` 触发重试 |
+| `SessionStart` / `SessionEnd` | Shell | 会话开始/结束 | 不阻塞（仅审计） |
+| `Stop` | Shell | turn 完成 | exit 2 标记 `stop_hook_blocked` |
+| `SubagentStart` / `SubagentStop` | Shell | 委派子 agent 启停 | 不阻塞（仅审计） |
+
+#### 触发顺序（一次完整 turn）
+
+```
+[消息入] → sanitize → UserPromptSubmit (shell)
+       → pre_gateway_dispatch (in-proc, 可改写)
+       → pre_llm_call (in-proc, 追加上下文)
+       → LLM call
+       → 工具循环:
+            PreToolUse (shell, matcher 匹配)
+              → tool exec
+              → PostToolUse (shell)
+       → [若触发压缩]:
+            PreCompact (shell)  →  pre_compact (in-proc, 事实抽取)
+              → compress()
+              → PostCompact (shell, 返回 additionalContext)
+              → post_compact (in-proc, 锚点注入)
+       → Stop (shell)
+```
+
+#### 失败统一契约
+
+- **Shell** exit code：
+  - `0` / `None` = pass
+  - `2` = block，stderr（或 stdout）作为 block reason（截 2000 字）
+  - 其他非零 = warn，logger 记录不阻断
+  - `BUTLER_HOOK_FAIL_CLOSED=1` 时 PreToolUse 走"任何非零即阻断"严格模式
+- **In-Process**：`try/except Exception` 全部吞，logger.warning 一行后继续；显式 `action: skip/rewrite` 或返回 `block_message` 才算阻断
+
+#### 双调用约定（压缩钩子）
+
+`butler/core/compaction_task.py:64-90` 和 `:147-173` 串行触发两套钩子：
+1. **先 Shell**（`run_pre_compact_hooks` / `run_post_compact_hooks`）—— exit 2 立即阻断压缩；返回的 `additionalContext` 拼入下一轮 prompt
+2. **后 In-Process**（`invoke_hook("pre_compact" | "post_compact", ...)`）—— 事实抽取 / 锚点注入
+
+顺序选择理由：Shell 是**有副作用**的外部命令（git 状态、metric 推送），先跑能在压缩取消时省下 In-Process 工作；In-Process 是**纯函数**的事实抽取，放后面更稳。两套都 try/except 隔离，单点失败不互相影响。
+
+#### 配置参考
+
+- Shell 钩子样例：`butler/hooks/hooks.yaml.example`（含 11 种事件各一例）
+- In-Process 注册 API：`butler.gateway.hooks.register_hook(name, fn)`；调用 `invoke_hook(name, **kwargs)`
+- PreCompact payload：`{"hook_event_name": "PreCompact", "estimated_tokens", "message_count", "iteration", "session_key"}`
+- PreToolUse payload：`{"hook_event_name": "PreToolUse", "tool_name", "tool_input"}`
+
 ### Agent Loop 数据流（模块化）
 
 ```
