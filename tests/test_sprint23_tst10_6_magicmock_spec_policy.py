@@ -306,7 +306,9 @@ class TestScanCli:
 # → 267 (test_wechat_ilink_inbound: 9 处 WeChatAdapter shim
 #        (_poll_session / _maybe_fetch_typing_ticket / _send_session /
 #        set_message_handler) 加 noqa)
-_BASELINE_VIOLATIONS = 267
+# → 258 (test_task_orchestrator: 9 处 task orchestrator facade
+#        (current_orch / agent loop / config) 加 noqa)
+_BASELINE_VIOLATIONS = 258
 
 
 @pytest.mark.unit

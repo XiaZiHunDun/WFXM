@@ -39,12 +39,12 @@ def _completed_loop_result(
 
 
 def _mock_agent_loop(result: LoopResult | None = None, run_side_effect=None):
-    loop = MagicMock()
+    loop = MagicMock()  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
     if run_side_effect is not None:
         loop.run.side_effect = run_side_effect
     else:
         loop.run.return_value = result or _completed_loop_result()
-    loop.config = MagicMock(max_iterations=30)
+    loop.config = MagicMock(max_iterations=30)  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
     loop._butler_orchestrator = None
     return loop
 
@@ -98,7 +98,7 @@ class TestSpawnAgent:
 
         orch = TaskOrchestrator()
         mock_loop = _mock_agent_loop()
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
         current_orch.create_project_agent_loop.return_value = mock_loop
         config = AgentSpawnConfig(role="dev", task="run tests", delegate_depth=1)
 
@@ -126,7 +126,7 @@ class TestSpawnAgent:
 
         orch = TaskOrchestrator()
         mock_loop = _mock_agent_loop()
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
         current_orch.create_project_agent_loop.return_value = mock_loop
 
         with use_execution_context(current_orch):
@@ -144,7 +144,7 @@ class TestSpawnAgent:
         orch = TaskOrchestrator()
         mock_loop = _mock_agent_loop()
         previous = ModelConfig(provider="old", model="old-model")
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
         current_orch._settings._runtime_model_overrides = {"dev": previous}
         current_orch.create_project_agent_loop.return_value = mock_loop
 
@@ -179,7 +179,7 @@ class TestSpawnAgent:
 
         orch = TaskOrchestrator()
         mock_loop = _mock_agent_loop()
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
         current_orch.inject_skill_context.side_effect = lambda text, **_: (
             f"## 相关知识（Butler Skill）\nUse pytest\n\n{text}"
         )
@@ -235,7 +235,7 @@ class TestSpawnAgent:
 
         reset_tool_audit_events()
         orch = TaskOrchestrator()
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
         current_orch.inject_skill_context.side_effect = lambda text, **_: text
         mock_loop = _mock_agent_loop()
 
@@ -263,7 +263,7 @@ class TestSpawnAgent:
 
         reset_tool_audit_events()
         orch = TaskOrchestrator()
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
         current_orch.inject_skill_context.side_effect = lambda text, **_: text
         mock_loop = _mock_agent_loop()
 
@@ -290,7 +290,7 @@ class TestSpawnAgent:
         from butler.execution_context import get_current_orchestrator
 
         orch = TaskOrchestrator()
-        current_orch = MagicMock()
+        current_orch = MagicMock()  # noqa: magicmock-no-spec — task orchestrator facade (orch / agent loop)
         current_orch.inject_skill_context.side_effect = lambda text, **_: text
 
         def _run(_message: str) -> LoopResult:
