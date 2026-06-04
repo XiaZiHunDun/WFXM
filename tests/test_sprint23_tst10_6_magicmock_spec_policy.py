@@ -274,7 +274,9 @@ class TestScanCli:
 #        obj.attr=MagicMock/AsyncMock 补 noqa — Sprint 23-4 漏了 attr 形式)
 # → 509 (test_main_cli: 29 处 CLI facade / console / orchestrator / Namespace
 #        /ProjectManager / process_callback 加 noqa)
-_BASELINE_VIOLATIONS = 509
+# → 481 (test_llm_client: 28 处 OpenAI/Anthropic stream chunk / facade /
+#        fake import 加 noqa)
+_BASELINE_VIOLATIONS = 481
 
 
 @pytest.mark.unit

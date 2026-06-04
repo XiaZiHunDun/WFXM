@@ -76,7 +76,8 @@ class TestApiModeProperty:
 class TestCompleteChatCompletions:
     @patch("butler.transport.llm_client.LLMClient._get_openai_client")
     def test_calls_transport_build_and_normalize(self, mock_get_client):
-        mock_client = MagicMock()
+        mock_client = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         mock_get_client.return_value = mock_client
         mock_client.chat.completions.create.return_value = {
             "choices": [{
@@ -108,7 +109,8 @@ class TestCompleteChatCompletions:
 class TestCompleteAnthropic:
     @patch("butler.transport.llm_client.LLMClient._get_anthropic_client")
     def test_messages_create_called(self, mock_get_client):
-        mock_client = MagicMock()
+        mock_client = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         mock_get_client.return_value = mock_client
         mock_client.messages.create.return_value = {
             "content": [{"type": "text", "text": "anthropic reply"}],
@@ -135,40 +137,51 @@ class TestCompleteAnthropic:
 class TestStreamChatCompletions:
     @patch("butler.transport.llm_client.LLMClient._get_openai_client")
     def test_assembles_content_and_tool_calls(self, mock_get_client):
-        chunk1 = MagicMock()
-        chunk1.choices = [MagicMock()]
-        chunk1.choices[0].delta = MagicMock(content="Hel", tool_calls=None)
+        chunk1 = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
+        chunk1.choices = [MagicMock()]  # noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+        chunk1.choices[0].delta = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+content="Hel", tool_calls=None)
         chunk1.choices[0].finish_reason = None
 
-        fn_delta = MagicMock()
+        fn_delta = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         fn_delta.name = "read_file"
         fn_delta.arguments = '{"path":'
 
-        tc_delta = MagicMock()
+        tc_delta = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         tc_delta.index = 0
         tc_delta.id = "call-1"
         tc_delta.function = fn_delta
 
-        chunk2 = MagicMock()
-        chunk2.choices = [MagicMock()]
-        chunk2.choices[0].delta = MagicMock(content="lo", tool_calls=[tc_delta])
+        chunk2 = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
+        chunk2.choices = [MagicMock()]  # noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+        chunk2.choices[0].delta = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+content="lo", tool_calls=[tc_delta])
         chunk2.choices[0].finish_reason = None
 
-        fn_delta2 = MagicMock()
+        fn_delta2 = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         fn_delta2.name = None
         fn_delta2.arguments = ' "a.py"}'
 
-        tc_delta2 = MagicMock()
+        tc_delta2 = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         tc_delta2.index = 0
         tc_delta2.id = None
         tc_delta2.function = fn_delta2
 
-        chunk3 = MagicMock()
-        chunk3.choices = [MagicMock()]
-        chunk3.choices[0].delta = MagicMock(content=None, tool_calls=[tc_delta2])
+        chunk3 = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
+        chunk3.choices = [MagicMock()]  # noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+        chunk3.choices[0].delta = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+content=None, tool_calls=[tc_delta2])
         chunk3.choices[0].finish_reason = "tool_calls"
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         mock_get_client.return_value = mock_client
         mock_client.chat.completions.create.return_value = iter([chunk1, chunk2, chunk3])
 
@@ -213,8 +226,10 @@ class TestStreamAnthropic:
             usage=SimpleNamespace(input_tokens=10, output_tokens=5),
         )
 
-        mock_stream = MagicMock()
-        mock_stream.__iter__ = MagicMock(
+        mock_stream = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
+        mock_stream.__iter__ = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+
             return_value=iter([block_start, text_delta, json_delta, block_stop, msg_delta])
         )
 
@@ -222,8 +237,10 @@ class TestStreamAnthropic:
         def fake_stream(**kwargs):
             yield mock_stream
 
-        mock_client = MagicMock()
-        mock_client.messages = MagicMock()
+        mock_client = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
+        mock_client.messages = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         mock_client.messages.stream = fake_stream
         mock_get_client.return_value = mock_client
 
@@ -257,8 +274,10 @@ class TestGetOpenaiClient:
 class TestGetAnthropicClient:
     def test_import_error_falls_back_to_openai(self):
         client = LLMClient(api_mode="anthropic_messages", model="m")
-        mock_openai_cls = MagicMock()
-        mock_openai_instance = MagicMock()
+        mock_openai_cls = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
+        mock_openai_instance = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         mock_openai_cls.return_value = mock_openai_instance
 
         import builtins
@@ -268,7 +287,7 @@ class TestGetAnthropicClient:
             if name == "anthropic":
                 raise ImportError("no anthropic")
             if name == "openai":
-                return MagicMock(OpenAI=mock_openai_cls)
+                return MagicMock(OpenAI=mock_openai_cls)  # noqa: magicmock-no-spec — fake import shim returning module-like mock
             return real_import(name, *args, **kwargs)
 
         with patch("builtins.__import__", side_effect=fake_import):
@@ -282,12 +301,15 @@ class TestGetAnthropicClient:
 class TestStreamErrorHandling:
     @patch("butler.transport.llm_client.LLMClient._get_openai_client")
     def test_partial_content_on_stream_error(self, mock_get_client):
-        chunk = MagicMock()
-        chunk.choices = [MagicMock()]
-        chunk.choices[0].delta = MagicMock(content="partial", tool_calls=None)
+        chunk = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
+        chunk.choices = [MagicMock()]  # noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+        chunk.choices[0].delta = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+content="partial", tool_calls=None)
         chunk.choices[0].finish_reason = None
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         mock_get_client.return_value = mock_client
 
         def failing_stream(**kwargs):
@@ -305,7 +327,8 @@ class TestStreamErrorHandling:
 class TestTimeoutPassing:
     @patch("butler.transport.llm_client.LLMClient._get_openai_client")
     def test_timeout_in_build_kwargs(self, mock_get_client):
-        mock_client = MagicMock()
+        mock_client = MagicMock(# noqa: magicmock-no-spec — LLM client OpenAI/Anthropic stream chunk / facade
+)
         mock_get_client.return_value = mock_client
         mock_client.chat.completions.create.return_value = {
             "choices": [{"message": {"content": "ok"}, "finish_reason": "stop"}],
