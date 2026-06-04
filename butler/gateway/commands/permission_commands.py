@@ -123,23 +123,20 @@ def _cmd_perm_pattern(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_revoke_always(ctx: CommandContext) -> Optional[str]:
-    """Sprint 24 P1-3.2: /撤销批准 <permission> [tool] [pattern]."""
+    """handler for /撤销批准 <permission> [tool] [pattern] — 按过滤撤销 always 记录."""
     gate = require_owner(ctx)
     if gate is not None:
         return gate
     arg = (ctx.arg or "").strip()
     if not arg:
         return "用法: /撤销批准 <permission> [tool] [pattern]"
-    parts = arg.split()
-    perm = parts[0] if len(parts) >= 1 else ""
-    tool = parts[1] if len(parts) >= 2 else ""
-    pat = parts[2] if len(parts) >= 3 else ""
+    perm, tool, pat = (arg.split() + ["", "", ""])[:3]
     from butler.permissions.approvals import revoke_always
     return revoke_always(ctx.session_key, permission=perm, tool=tool, pattern=pat)
 
 
 def _cmd_clear_always(ctx: CommandContext) -> Optional[str]:
-    """Sprint 24 P1-3.2: /清除始终允许 — 清空 session 所有 always 记录."""
+    """handler for /清除始终允许 — 清空 session 所有 always 记录."""
     gate = require_owner(ctx)
     if gate is not None:
         return gate

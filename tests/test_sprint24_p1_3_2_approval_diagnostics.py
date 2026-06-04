@@ -172,7 +172,7 @@ class TestApprovalHealthIntegration:
 
 class TestRegistryCommands:
     def test_revoke_always_command_dispatch(self):
-        """/撤销批准 命令通过 registry dispatch 调用 revoke_always."""
+        """/撤销批准 命令已注册到 registry."""
         from butler.gateway.command_registry import lookup
         cmd = lookup("/撤销批准")
         assert cmd is not None
@@ -180,11 +180,12 @@ class TestRegistryCommands:
         assert cmd.category == "权限安全"
 
     def test_clear_always_command_dispatch(self):
-        """/清除始终允许 命令存在."""
+        """/清除始终允许 命令已注册到 registry."""
         from butler.gateway.command_registry import lookup
         cmd = lookup("/清除始终允许")
         assert cmd is not None
         assert cmd.handler is not None
+        assert cmd.category == "权限安全"
 
     def test_revoke_always_handler_calls_revoke(self, tmp_path, monkeypatch):
         """handler 解析 arg 调 revoke_always."""
