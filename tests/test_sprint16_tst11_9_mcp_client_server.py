@@ -162,7 +162,7 @@ class TestJsonDumpsResult:
 
     def test_object_with_model_dump(self):
         """有 .model_dump() 的对象 → JSON dump。"""
-        result = MagicMock()
+        result = MagicMock()  # noqa: magicmock-no-spec — mocks pydantic-like obj with .model_dump()
         result.model_dump.return_value = {"a": 1, "b": "x"}
         out = json_dumps_result(result)
         parsed = json.loads(out)
@@ -171,7 +171,7 @@ class TestJsonDumpsResult:
 
     def test_model_dump_exception_falls_back_to_str(self):
         """model_dump() 抛异常 → str() fallback。"""
-        result = MagicMock()
+        result = MagicMock()  # noqa: magicmock-no-spec — mocks pydantic-like obj with .model_dump()
         result.model_dump.side_effect = RuntimeError("kaboom")
         out = json_dumps_result(result)
         # str(MagicMock) 包含 repr, 至少非空
@@ -180,7 +180,7 @@ class TestJsonDumpsResult:
 
     def test_ensure_ascii_false(self):
         """非 ASCII 字符不被转义 (ensure_ascii=False)。"""
-        result = MagicMock()
+        result = MagicMock()  # noqa: magicmock-no-spec — mocks pydantic-like obj with .model_dump()
         result.model_dump.return_value = {"name": "中文"}
         out = json_dumps_result(result)
         assert "中文" in out, f"non-ASCII not preserved: {out!r}"
@@ -192,12 +192,12 @@ class TestJsonDumpsResult:
 class TestCallToolContentExtraction:
     def test_call_stdio_tool_concatenates_text_parts(self):
         """call_stdio_tool: result.content 含多个 text 块 → 用 \\n 连接。"""
-        session = MagicMock()
-        text_block_a = MagicMock()
+        session = MagicMock()  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
+        text_block_a = MagicMock()  # noqa: magicmock-no-spec — MCP text block (use mcp.types.TextContent in future)
         text_block_a.text = "alpha"
-        text_block_b = MagicMock()
+        text_block_b = MagicMock()  # noqa: magicmock-no-spec — MCP text block (use mcp.types.TextContent in future)
         text_block_b.text = "beta"
-        result = MagicMock()
+        result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = [text_block_a, text_block_b]
         session.call_tool = AsyncMock(return_value=result)
 
@@ -207,8 +207,8 @@ class TestCallToolContentExtraction:
 
     def test_call_stdio_tool_falls_back_to_str(self):
         """call_stdio_tool: content 空 → json_dumps_result。"""
-        session = MagicMock()
-        result = MagicMock()
+        session = MagicMock()  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
+        result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = None
         session.call_tool = AsyncMock(return_value=result)
 
@@ -219,9 +219,9 @@ class TestCallToolContentExtraction:
 
     def test_call_stdio_tool_handles_block_without_text(self):
         """call_stdio_tool: content 块无 .text 属性 → str(content) 兜底。"""
-        session = MagicMock()
+        session = MagicMock()  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
         block = MagicMock(spec=[])  # 没有 .text 属性
-        result = MagicMock()
+        result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = [block]
         session.call_tool = AsyncMock(return_value=result)
 
@@ -232,12 +232,12 @@ class TestCallToolContentExtraction:
 
     def test_call_http_tool_concatenates_text_parts(self):
         """call_http_tool: 同上, 用 \\n 拼接。"""
-        session = MagicMock()
-        text_block_a = MagicMock()
+        session = MagicMock()  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
+        text_block_a = MagicMock()  # noqa: magicmock-no-spec — MCP text block (use mcp.types.TextContent in future)
         text_block_a.text = "http_alpha"
-        text_block_b = MagicMock()
+        text_block_b = MagicMock()  # noqa: magicmock-no-spec — MCP text block (use mcp.types.TextContent in future)
         text_block_b.text = "http_beta"
-        result = MagicMock()
+        result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = [text_block_a, text_block_b]
         session.call_tool = AsyncMock(return_value=result)
 
@@ -247,8 +247,8 @@ class TestCallToolContentExtraction:
 
     def test_call_http_tool_falls_back_to_json_dumps(self):
         """call_http_tool: content 空 → json_dumps_result 走 str() 路径。"""
-        session = MagicMock()
-        result = MagicMock()
+        session = MagicMock()  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
+        result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = []
         session.call_tool = AsyncMock(return_value=result)
 
