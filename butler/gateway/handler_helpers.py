@@ -11,7 +11,7 @@ import logging
 import os
 import threading
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 from butler.tools._file_cache import read_json_cached
 
@@ -352,6 +352,61 @@ def _maybe_welcome_prefix(session_key: str) -> str:
     return _WELCOME_TEXT
 
 
+def _safe_overview_sub(fn: Callable[[], str | None], label: str) -> str | None:
+    """Run a `_build_project_overview` sub-info extractor; swallow + log on failure.
+
+    Sprint 22-7 QUAL-21-D-1: 3 sub-info paths (todos / jobs / summary)
+    used the same try/except + logger.debug("...skipped: %s", exc)
+    skeleton. Centralising the wrapper keeps the per-path code focused
+    on data extraction and makes future sub-infos cheap to add.
+    """
+    try:
+        return fn()
+    except Exception as exc:
+        logger.debug("build project overview skipped (%s): %s", label, exc)
+        return None
+
+
+def _todos_subinfo(ws: Path) -> str | None:
+    todos_path = ws / ".butler" / "todos.json"
+    if not todos_path.is_file():
+        return None
+    todos_data = read_json_cached(todos_path)
+    if not isinstance(todos_data, list):
+        todos_data = []
+    pending = [t for t in todos_data if t.get("status") == "pending"]
+    if pending:
+        return f"待办 {len(pending)} 项"
+    return None
+
+
+def _jobs_subinfo(ws: Path, project_name: str) -> str | None:
+    jobs_path = ws / "runtime" / "jobs.yaml"
+    if not jobs_path.is_file():
+        return None
+    from butler.runtime.service import list_jobs_status, runtime_enabled
+
+    if not runtime_enabled():
+        return None
+    job_rows = list_jobs_status(project_name)
+    if job_rows:
+        return f"定时任务 {len(job_rows)} 个"
+    return None
+
+
+def _summary_subinfo(ws: Path) -> str | None:
+    summary_path = ws / ".butler" / "session_summary.json"
+    if not summary_path.is_file():
+        return None
+    summary = read_json_cached(summary_path)
+    if not isinstance(summary, dict):
+        summary = {}
+    turns = summary.get("turns", 0)
+    if turns:
+        return f"上次会话 {turns} 轮"
+    return None
+
+
 def _build_project_overview(orchestrator: Any, session_key: str) -> str:
     """Build a multi-project dashboard for /总览."""
     pm = orchestrator.project_manager
@@ -375,39 +430,13 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
             from pathlib import Path
 
             ws = Path(workspace)
-            todos_path = ws / ".butler" / "todos.json"
-            if todos_path.is_file():
-                try:
-                    todos_data = read_json_cached(todos_path)
-                    if not isinstance(todos_data, list):
-                        todos_data = []
-                    pending = [t for t in todos_data if t.get("status") == "pending"]
-                    if pending:
-                        sub.append(f"待办 {len(pending)} 项")
-                except Exception as exc:
-                    logger.debug("build project overview skipped: %s", exc)
-            jobs_path = ws / "runtime" / "jobs.yaml"
-            if jobs_path.is_file():
-                try:
-                    from butler.runtime.service import list_jobs_status, runtime_enabled
-
-                    if runtime_enabled():
-                        job_rows = list_jobs_status(p.name)
-                        if job_rows:
-                            sub.append(f"定时任务 {len(job_rows)} 个")
-                except Exception as exc:
-                    logger.debug("build project overview skipped: %s", exc)
-            summary_path = ws / ".butler" / "session_summary.json"
-            if summary_path.is_file():
-                try:
-                    summary = read_json_cached(summary_path)
-                    if not isinstance(summary, dict):
-                        summary = {}
-                    turns = summary.get("turns", 0)
-                    if turns:
-                        sub.append(f"上次会话 {turns} 轮")
-                except Exception as exc:
-                    logger.debug("build project overview skipped: %s", exc)
+            for label, msg in (
+                ("todos", _safe_overview_sub(lambda: _todos_subinfo(ws), "todos")),
+                ("jobs", _safe_overview_sub(lambda: _jobs_subinfo(ws, p.name), "jobs")),
+                ("summary", _safe_overview_sub(lambda: _summary_subinfo(ws), "summary")),
+            ):
+                if msg:
+                    sub.append(msg)
         pack = getattr(p, "pack", "") or ""
         ptype = p.type or ""
         desc_parts = [ptype]
