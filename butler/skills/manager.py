@@ -159,6 +159,12 @@ class SkillManager:
         self._similarity = SkillSimilarity(llm_fn=llm_fn)
         self._consolidator = SkillConsolidator(llm_fn=llm_fn)
         self._metadata_cache: dict[tuple[str, str], tuple[_MetadataSignature, dict[str, Any]]] = {}
+        # Sprint 20-4 PERF-20-C-1: full-skill cache keyed by (path, source) +
+        # (mtime_ns, size) signature. Mirrors _metadata_cache but stores the
+        # full body parsed by _load_skill_from_path. Eliminates the N+1
+        # read_text + yaml.safe_load in get_skill / get_skills / list_skills
+        # when the same skill is touched multiple times within an LLM turn.
+        self._full_cache: dict[tuple[str, str], tuple[_MetadataSignature, dict[str, Any]]] = {}
 
     def set_llm_fn(self, fn: _LLMFn) -> None:
         self._similarity.set_llm_fn(fn)
@@ -239,8 +245,10 @@ class SkillManager:
     def _load_all(self) -> list[dict[str, Any]]:
         seen: dict[str, dict[str, Any]] = {}
         order: list[str] = []
+        active_keys: set[tuple[str, str]] = set()
         for path, source in self._iter_skill_files():
-            sk = self._load_skill_from_path(path, source)
+            active_keys.add((str(path), source))
+            sk = self._load_full_cached(path, source)
             if not sk:
                 continue
             name = sk["name"]
@@ -250,7 +258,36 @@ class SkillManager:
             if name in seen and source == "global" and seen[name].get("_source") == "project":
                 continue
             seen[name] = sk
+        # Evict cache entries for files that no longer exist (mirror _load_metadata_all).
+        for key in list(self._full_cache):
+            if key not in active_keys:
+                self._full_cache.pop(key, None)
         return [seen[k] for k in order if k in seen]
+
+    def _load_full_cached(self, path: Path, source: str) -> Optional[dict[str, Any]]:
+        """Sprint 20-4 PERF-20-C-1: mtime/size-keyed full-skill cache.
+
+        Same invalidation contract as ``_load_metadata``: the cached dict
+        is only returned when the file's ``(st_mtime_ns, st_size)`` matches
+        the recorded signature. Returns a shallow copy so callers can mutate
+        the result without corrupting the cache.
+        """
+        sig = self._metadata_signature(path)
+        if sig is None:
+            return None
+
+        key = (str(path), source)
+        cached = self._full_cache.get(key)
+        if cached and cached[0] == sig:
+            return dict(cached[1])
+
+        sk = self._load_skill_from_path(path, source)
+        if not sk:
+            self._full_cache.pop(key, None)
+            return None
+
+        self._full_cache[key] = (sig, dict(sk))
+        return sk
 
     def _metadata_signature(self, path: Path) -> _MetadataSignature | None:
         try:
