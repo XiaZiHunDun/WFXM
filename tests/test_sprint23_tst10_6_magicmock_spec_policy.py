@@ -294,7 +294,9 @@ class TestScanCli:
 #        (orch / loop / console) 加 noqa)
 # → 329 (test_delegate_job: 12 处 delegate job facade
 #        (report / bridge / agent / orch) 加 noqa)
-_BASELINE_VIOLATIONS = 329
+# → 317 (test_completion_notify: 12 处 completion notify facade
+#        (adapter / send 含 AsyncMock) 加 noqa)
+_BASELINE_VIOLATIONS = 317
 
 
 @pytest.mark.unit

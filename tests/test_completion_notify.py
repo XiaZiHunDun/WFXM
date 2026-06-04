@@ -18,8 +18,10 @@ from butler.report import AgentReport
 
 def _bridge(*, ack_sent: bool = False, elapsed: float = 120.0) -> GatewayOutboundBridge:
     loop = asyncio.new_event_loop()
-    adapter = MagicMock()
-    adapter.send = AsyncMock()
+    adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
+    adapter.send = AsyncMock(  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
+        return_value=None
+    )
     br = GatewayOutboundBridge(adapter=adapter, chat_id="wx-user", loop=loop)
     br._started_at = __import__("time").monotonic() - elapsed
     br._ack_sent = ack_sent
@@ -50,7 +52,7 @@ def test_try_push_agent_report_schedules_send(monkeypatch):
 
     def _run_coro(coro, loop):
         loop.run_until_complete(coro)
-        return MagicMock()
+        return MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
 
     with patch("asyncio.run_coroutine_threadsafe", side_effect=_run_coro):
         assert try_push_agent_report(
@@ -82,8 +84,8 @@ def test_deliver_completion_push_enqueues_on_failure(tmp_path, monkeypatch):
     from butler.config import reload_butler_settings
 
     reload_butler_settings()
-    adapter = MagicMock()
-    adapter.send = AsyncMock(
+    adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
+    adapter.send = AsyncMock(  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
         return_value=__import__(
             "butler.gateway.platforms.types", fromlist=["SendResult"]
         ).SendResult(success=False, error="rate limit exceeded")
@@ -113,8 +115,8 @@ def test_deliver_completion_push_waits_cooldown(monkeypatch):
 
     monkeypatch.setattr("butler.runtime.notify.wait_wechat_push_cooldown", _wait)
     monkeypatch.setattr("butler.runtime.notify.mark_wechat_push_sent", _mark)
-    adapter = MagicMock()
-    adapter.send = AsyncMock(
+    adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
+    adapter.send = AsyncMock(  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
         return_value=__import__(
             "butler.gateway.platforms.types", fromlist=["SendResult"]
         ).SendResult(success=True)
@@ -135,8 +137,8 @@ def test_deliver_completion_push_persists_sent_outbox(tmp_path, monkeypatch):
     from butler.config import reload_butler_settings
 
     reload_butler_settings()
-    adapter = MagicMock()
-    adapter.send = AsyncMock(
+    adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
+    adapter.send = AsyncMock(  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
         return_value=__import__(
             "butler.gateway.platforms.types", fromlist=["SendResult"]
         ).SendResult(success=True)
@@ -163,8 +165,8 @@ def test_deliver_completion_push_marks_failed_outbox(tmp_path, monkeypatch):
     from butler.config import reload_butler_settings
 
     reload_butler_settings()
-    adapter = MagicMock()
-    adapter.send = AsyncMock(
+    adapter = MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
+    adapter.send = AsyncMock(  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
         return_value=__import__(
             "butler.gateway.platforms.types", fromlist=["SendResult"]
         ).SendResult(success=False, error="temporary down")
@@ -190,7 +192,7 @@ def test_workflow_failure_push(tmp_path, monkeypatch):
 
     def _run_coro(coro, loop):
         loop.run_until_complete(coro)
-        return MagicMock()
+        return MagicMock()  # noqa: magicmock-no-spec — completion notify facade (adapter / send)
 
     with patch("asyncio.run_coroutine_threadsafe", side_effect=_run_coro):
         from butler.gateway.completion_notify import try_push_workflow_failure
