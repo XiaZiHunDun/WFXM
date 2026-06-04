@@ -42,7 +42,7 @@
 
 ### 3.1 Turn-based 压缩尾 + token 预算 + splitTurn
 
-- [ ] **目标**：将当前偏“消息数/字符”的尾保护升级为按 **turn + token budget** 选择，必要时允许 mid-turn split
+- [x] **目标**：将当前偏“消息数/字符”的尾保护升级为按 **turn + token budget** 选择，必要时允许 mid-turn split
 - [ ] **收益**：长会话稳定性更高；减少压缩后“保住了最新消息数，但没保住真正重要上下文”的问题
 - [ ] **主要改动面**：
   - `butler/core/context_compressor.py`
