@@ -299,7 +299,9 @@ class TestScanCli:
 # → 306 (test_gateway_handler: 11 处 gateway handler AgentLoop facade 加 noqa)
 # → 296 (test_sprint16_tst10_5_project_status_migration: 10 处 project
 #        status facade (orch / pm / session_registry) 加 noqa)
-_BASELINE_VIOLATIONS = 296
+# → 286 (test_sprint16_tst10_5_dev_commands_migration: 10 处 dev command
+#        facade (orch / session_registry) 加 noqa)
+_BASELINE_VIOLATIONS = 286
 
 
 @pytest.mark.unit

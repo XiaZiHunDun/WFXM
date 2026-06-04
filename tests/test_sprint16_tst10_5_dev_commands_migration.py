@@ -103,8 +103,8 @@ class TestDispatch:
                 session_key="t:s",
                 platform="t",
                 external_id="s",
-                orchestrator=MagicMock(),
-                session_registry=MagicMock(),
+                orchestrator=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
+                session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
             )
             with patch(
                 "butler.gateway.dev_commands.handle_dev_command",
@@ -123,7 +123,7 @@ class TestDelegation:
         """handler 应把 ctx 转给 dev_commands.handle_dev_command."""
         from butler.gateway.commands import dev_commands as dev_cmds_module
 
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         ctx = CommandContext(
             cmd="/git",
             arg="status",
@@ -131,7 +131,7 @@ class TestDelegation:
             platform="wechat",
             external_id="owner1",
             orchestrator=orch,
-            session_registry=MagicMock(),
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.dev_commands.handle_dev_command",
@@ -156,8 +156,8 @@ class TestDelegation:
             session_key="t:s",
             platform="wechat",
             external_id="owner1",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.dev_commands.handle_dev_command",
@@ -181,8 +181,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="attacker",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.dev_commands.handle_dev_command",
@@ -198,8 +198,8 @@ class TestOwnerGate:
             session_key="t:s",
             platform="wechat",
             external_id="owner1",
-            orchestrator=MagicMock(),
-            session_registry=MagicMock(),
+            orchestrator=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
+            session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         )
         with patch(
             "butler.gateway.dev_commands.handle_dev_command",
