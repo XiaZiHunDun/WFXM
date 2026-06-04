@@ -235,12 +235,20 @@ def split_head_tail_turns(
     head_count: int = 3,
     min_tail_messages: int = 4,
     estimate_fn: Callable[[list[dict]], int] | None = None,
+    diagnostics: dict[str, Any] | None = None,
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """Return (system, middle, head_tail) using turn + token tail selection."""
     system = [m for m in messages if m.get("role") == "system"]
     rest = [m for m in messages if m.get("role") != "system"]
 
     if len(rest) <= head_count + min_tail_messages:
+        if diagnostics is not None:
+            diagnostics["compaction_strategy"] = "no_op"
+            diagnostics["compaction_tail_turns_kept"] = 0
+            diagnostics["compaction_split_turn_applied"] = False
+            diagnostics["compaction_preserved_recent_budget"] = 0
+            diagnostics["compaction_tail_token_count"] = 0
+            diagnostics["compaction_tail_start_index"] = 0
         return system, [], rest
 
     head = rest[:head_count]
@@ -250,6 +258,7 @@ def split_head_tail_turns(
         max_context_tokens=max_context_tokens,
         max_output_tokens=max_output_tokens,
         estimate_fn=estimate_fn,
+        diagnostics=diagnostics,
     )
 
     if tail_start <= 0:
