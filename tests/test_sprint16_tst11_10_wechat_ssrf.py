@@ -245,7 +245,7 @@ class TestSafeRegistryGet:
 
     def test_allows_safe_url_calls_with_no_redirects(self):
         """is_safe_url=True → httpx.get(url, follow_redirects=False, timeout=25.0)。"""
-        mock_resp = MagicMock()
+        mock_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         mock_resp.status_code = 200
         with patch("httpx.get", return_value=mock_resp) as mock_get:
             result = safe_registry_get("https://example.com/file.json")
@@ -256,10 +256,10 @@ class TestSafeRegistryGet:
 
     def test_follows_one_safe_redirect(self):
         """301/302/303/307/308 + Location 指向 safe URL → 跟随一次。"""
-        first_resp = MagicMock()
+        first_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         first_resp.status_code = 301
         first_resp.headers = {"location": "https://example.com/new"}
-        second_resp = MagicMock()
+        second_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         second_resp.status_code = 200
 
         with patch("httpx.get") as mock_get:
@@ -271,10 +271,10 @@ class TestSafeRegistryGet:
     @pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
     def test_follows_all_redirect_codes(self, status):
         """所有 5 个 3xx 状态码都应触发 redirect 跟随。"""
-        first_resp = MagicMock()
+        first_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         first_resp.status_code = status
         first_resp.headers = {"location": "https://example.com/dest"}
-        second_resp = MagicMock()
+        second_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         second_resp.status_code = 200
 
         with patch("httpx.get") as mock_get:
@@ -285,7 +285,7 @@ class TestSafeRegistryGet:
 
     def test_blocks_redirect_to_unsafe_target(self):
         """301 → Location 指向 10.0.0.1 → 不跟随。"""
-        first_resp = MagicMock()
+        first_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         first_resp.status_code = 302
         first_resp.headers = {"location": "http://10.0.0.1/admin"}
 
@@ -296,7 +296,7 @@ class TestSafeRegistryGet:
 
     def test_redirect_without_location_header(self):
         """301 但无 Location header → 不跟随。"""
-        first_resp = MagicMock()
+        first_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         first_resp.status_code = 301
         first_resp.headers = {}
 
@@ -307,10 +307,10 @@ class TestSafeRegistryGet:
 
     def test_relative_redirect_resolved_against_base(self):
         """Location 是相对路径 → urljoin 解析。"""
-        first_resp = MagicMock()
+        first_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         first_resp.status_code = 307
         first_resp.headers = {"location": "/v2/file.json"}
-        second_resp = MagicMock()
+        second_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         second_resp.status_code = 200
 
         with patch("httpx.get") as mock_get:
@@ -321,7 +321,7 @@ class TestSafeRegistryGet:
 
     def test_custom_kwargs_passed_through(self):
         """调用方 kwargs (如 headers) 应透传到 httpx.get。"""
-        mock_resp = MagicMock()
+        mock_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         mock_resp.status_code = 200
         with patch("httpx.get", return_value=mock_resp) as mock_get:
             safe_registry_get("https://example.com/", headers={"X-Foo": "bar"})
@@ -344,7 +344,7 @@ class TestDownloadRemoteMedia:
         a = WeChatAdapter(
             PlatformConfig(token="api-token", extra={"account_id": "bot-acc"}),
         )
-        a._send_session = MagicMock()
+        a._send_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
         a._send_session.closed = False
         return a
 
@@ -383,11 +383,11 @@ class TestDownloadRemoteMedia:
     async def test_downloads_safe_url_to_tempfile(self, adapter):
         """is_safe_url 通过 → 调 session.get → 写到临时文件, 后缀来自 URL。"""
         with patch("tools.url_safety.is_safe_url", return_value=True):
-            fake_resp = MagicMock()
-            fake_resp.raise_for_status = MagicMock()
+            fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"FAKE-IMAGE-DATA")
 
-            fake_session = MagicMock()
+            fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
             fake_session.__aexit__ = AsyncMock(return_value=None)
             adapter._send_session.get = MagicMock(return_value=fake_session)
@@ -407,11 +407,11 @@ class TestDownloadRemoteMedia:
     async def test_default_bin_suffix_when_no_extension(self, adapter):
         """URL 无后缀 → .bin。"""
         with patch("tools.url_safety.is_safe_url", return_value=True):
-            fake_resp = MagicMock()
-            fake_resp.raise_for_status = MagicMock()
+            fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"X")
 
-            fake_session = MagicMock()
+            fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
             fake_session.__aexit__ = AsyncMock(return_value=None)
             adapter._send_session.get = MagicMock(return_value=fake_session)
@@ -428,11 +428,11 @@ class TestDownloadRemoteMedia:
     async def test_strips_query_string_for_suffix(self, adapter):
         """URL 含 ?query → 取 ? 前部分决定后缀。"""
         with patch("tools.url_safety.is_safe_url", return_value=True):
-            fake_resp = MagicMock()
-            fake_resp.raise_for_status = MagicMock()
+            fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"X")
 
-            fake_session = MagicMock()
+            fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
             fake_session.__aexit__ = AsyncMock(return_value=None)
             adapter._send_session.get = MagicMock(return_value=fake_session)
@@ -449,11 +449,11 @@ class TestDownloadRemoteMedia:
     async def test_30_second_timeout_wraps_fetch(self, adapter):
         """asyncio.wait_for 用 30s 超时。"""
         with patch("tools.url_safety.is_safe_url", return_value=True):
-            fake_resp = MagicMock()
-            fake_resp.raise_for_status = MagicMock()
+            fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"X")
 
-            fake_session = MagicMock()
+            fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
             fake_session.__aexit__ = AsyncMock(return_value=None)
             adapter._send_session.get = MagicMock(return_value=fake_session)
@@ -472,11 +472,11 @@ class TestDownloadRemoteMedia:
     async def test_session_get_called_with_url(self, adapter):
         """session.get 应被调用且 url 参数匹配。"""
         with patch("tools.url_safety.is_safe_url", return_value=True):
-            fake_resp = MagicMock()
-            fake_resp.raise_for_status = MagicMock()
+            fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
+            fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"X")
 
-            fake_session = MagicMock()
+            fake_session = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_session.__aenter__ = AsyncMock(return_value=fake_resp)
             fake_session.__aexit__ = AsyncMock(return_value=None)
             adapter._send_session.get = MagicMock(return_value=fake_session)
