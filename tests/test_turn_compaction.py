@@ -197,3 +197,30 @@ def test_diagnostics_no_op_when_few_messages():
     assert middle == []
     assert diag["compaction_strategy"] == "no_op"
     assert diag["compaction_tail_start_index"] == 0
+
+
+@pytest.mark.unit
+def test_diagnostics_via_compress_messages():
+    """端到端: compress_messages(messages, diagnostics={}) → dict 含 compaction_strategy 字段."""
+    messages: list[dict] = [{"role": "system", "content": "sys"}]
+    for i in range(8):
+        messages.append({"role": "user", "content": f"u-{i}"})
+        messages.append({"role": "assistant", "content": f"a-{i}" * 80})
+
+    diag: dict = {}
+    with patch(
+        "butler.core.context_compressor.auxiliary_complete",
+        return_value="## Active Task\n- done",
+    ):
+        out, _, did = compress_messages(
+            messages,
+            max_tokens=4000,
+            threshold_ratio=0.01,
+            min_messages_to_compress=4,
+            diagnostics=diag,
+        )
+    assert did
+    assert "compaction_strategy" in diag
+    assert diag["compaction_strategy"].startswith("turns:")
+    assert "compaction_tail_turns_kept" in diag
+    assert isinstance(diag["compaction_tail_turns_kept"], int)
