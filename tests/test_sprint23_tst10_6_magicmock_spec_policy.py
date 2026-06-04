@@ -342,7 +342,9 @@ class TestScanCli:
 #     test_dependency_extras (5 处)
 #     test_cli_scenarios (5 处)
 #     test_async_delegate (5 处)
-_BASELINE_VIOLATIONS = 116
+# → 111 (test_sprint16_tst11_9_mcp_client_server: 5 处遗漏
+#        session.call_tool = AsyncMock(...) attr 形式补 noqa)
+_BASELINE_VIOLATIONS = 111
 
 
 @pytest.mark.unit

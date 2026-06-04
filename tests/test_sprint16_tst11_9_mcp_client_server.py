@@ -199,7 +199,7 @@ class TestCallToolContentExtraction:
         text_block_b.text = "beta"
         result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = [text_block_a, text_block_b]
-        session.call_tool = AsyncMock(return_value=result)
+        session.call_tool = AsyncMock(return_value=result)  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
 
         import asyncio
         out = asyncio.run(call_stdio_tool(session, "tool", {"x": 1}))
@@ -210,7 +210,7 @@ class TestCallToolContentExtraction:
         session = MagicMock()  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
         result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = None
-        session.call_tool = AsyncMock(return_value=result)
+        session.call_tool = AsyncMock(return_value=result)  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
 
         import asyncio
         out = asyncio.run(call_stdio_tool(session, "tool", {}))
@@ -223,7 +223,7 @@ class TestCallToolContentExtraction:
         block = MagicMock(spec=[])  # 没有 .text 属性
         result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = [block]
-        session.call_tool = AsyncMock(return_value=result)
+        session.call_tool = AsyncMock(return_value=result)  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
 
         import asyncio
         out = asyncio.run(call_stdio_tool(session, "tool", {}))
@@ -239,7 +239,7 @@ class TestCallToolContentExtraction:
         text_block_b.text = "http_beta"
         result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = [text_block_a, text_block_b]
-        session.call_tool = AsyncMock(return_value=result)
+        session.call_tool = AsyncMock(return_value=result)  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
 
         import asyncio
         out = asyncio.run(call_http_tool(session, "tool", {}))
@@ -250,7 +250,7 @@ class TestCallToolContentExtraction:
         session = MagicMock()  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
         result = MagicMock()  # noqa: magicmock-no-spec — MCP CallToolResult (use mcp.types in future)
         result.content = []
-        session.call_tool = AsyncMock(return_value=result)
+        session.call_tool = AsyncMock(return_value=result)  # noqa: magicmock-no-spec — MCP ClientSession 复杂多接口
 
         import asyncio
         out = asyncio.run(call_http_tool(session, "tool", {}))
