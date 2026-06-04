@@ -292,7 +292,9 @@ class TestScanCli:
 #        (orch / agent / proc / manager) 加 noqa)
 # → 341 (test_cli_acceptance: 13 处 CLI acceptance facade
 #        (orch / loop / console) 加 noqa)
-_BASELINE_VIOLATIONS = 341
+# → 329 (test_delegate_job: 12 处 delegate job facade
+#        (report / bridge / agent / orch) 加 noqa)
+_BASELINE_VIOLATIONS = 329
 
 
 @pytest.mark.unit

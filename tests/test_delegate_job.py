@@ -60,11 +60,11 @@ class TestPushDelegateCompletion:
             "butler.gateway.completion_notify.delegate_completion_enabled",
             return_value=False,
         ):
-            assert push_delegate_completion(MagicMock()) is False
+            assert push_delegate_completion(MagicMock()) is False  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
 
     def test_bridge_notify(self):
-        report = MagicMock()
-        bridge = MagicMock()
+        report = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
+        bridge = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
         with (
             patch(
                 "butler.gateway.completion_notify.delegate_completion_enabled",
@@ -80,8 +80,8 @@ class TestPushDelegateCompletion:
         bridge.notify_delegate_finished.assert_called_once_with(report)
 
     def test_bridge_exception_falls_through(self):
-        report = MagicMock()
-        bridge = MagicMock()
+        report = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
+        bridge = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
         bridge.notify_delegate_finished.side_effect = RuntimeError("boom")
 
         with (
@@ -106,8 +106,8 @@ class TestPushDelegateCompletion:
         import asyncio
 
         loop = asyncio.new_event_loop()
-        target = DelegatePushTarget(adapter=MagicMock(), chat_id="c1", loop=loop)
-        report = MagicMock()
+        target = DelegatePushTarget(adapter=MagicMock(), chat_id="c1", loop=loop)  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
+        report = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
 
         with (
             patch(
@@ -138,9 +138,9 @@ class TestRunDelegateJob:
 
         reload_butler_settings()
 
-        agent = MagicMock()
+        agent = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
         agent.run.side_effect = RuntimeError("agent exploded")
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
 
         job = DelegateJob(
             agent=agent,
@@ -192,11 +192,11 @@ class TestRunDelegateJob:
                 if self.messages is None:
                     self.messages = []
                 if self.status is None:
-                    self.status = MagicMock(value="completed")
+                    self.status = MagicMock(value="completed")  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
 
-        agent = MagicMock()
+        agent = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
         agent.run.return_value = FakeResult()
-        orch = MagicMock()
+        orch = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
 
         job = DelegateJob(
             agent=agent,
