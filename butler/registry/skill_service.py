@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shutil
 
 from butler.registry.paths import enabled_sources, registry_enabled
 from butler.registry.skill_install import (
@@ -249,8 +250,7 @@ class SkillRegistryService:
         qpath = quarantine_bundle(bundle, tenant_id=self.tenant_id)
         verdict, issues = scan_quarantine(qpath)
         if verdict == "block":
-            shutil_rmtree = __import__("shutil").rmtree
-            shutil_rmtree(qpath, ignore_errors=True)
+            shutil.rmtree(qpath, ignore_errors=True)
             raise ValueError(f"Install blocked: {', '.join(issues)}")
 
         return install_from_quarantine(
