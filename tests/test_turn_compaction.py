@@ -181,15 +181,12 @@ def test_diagnostics_strategy_turns_2_split():
 
 @pytest.mark.unit
 def test_diagnostics_no_op_when_few_messages():
-    """4 turn (≤ head + min_tail=2) → no_op, tail_start=0."""
+    """3 turn (6 msg ≤ head=3 + min_tail=4=7) → no_op, tail_start=0."""
     rest: list[dict] = []
-    for i in range(4):
+    for i in range(3):
         rest.append({"role": "user", "content": f"u-{i}"})
         rest.append({"role": "assistant", "content": f"a-{i}"})
     diag: dict = {}
-    # Note: select_tail_start_index doesn't know about head+min_tail, but with 4 turns
-    # and tight budget the algorithm should produce a tail_start > 0; for "no_op" we
-    # use the full-function path via split_head_tail_turns.
     system, middle, head_tail = split_head_tail_turns(
         rest,
         max_context_tokens=128_000,
