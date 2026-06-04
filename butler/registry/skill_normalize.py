@@ -86,11 +86,24 @@ def _is_directory_bundle(files: dict[str, str | bytes]) -> bool:
     return len(extra) > 0
 
 
+_DRIVE_LETTER_SEGMENT = re.compile(r"^[a-zA-Z]:")
+
+
 def _safe_rel_path(rel: str) -> str | None:
+    # Sprint 22-6 TEST-21-C-3: reject absolute paths and Windows drive
+    # letters BEFORE lstrip mangles them. `c:/evil.md` (drive letter)
+    # would otherwise pass and let a directory-bundle install escape
+    # <skills_root>/<name>/. POSIX absolute paths are rejected up front
+    # because lstrip("/") silently downgrades them to relative.
+    if not isinstance(rel, str) or rel.startswith("/"):
+        return None
     normalized = rel.replace("\\", "/").lstrip("/")
     parts = [p for p in normalized.split("/") if p and p != "."]
     if not parts or ".." in parts:
         return None
+    for part in parts:
+        if _DRIVE_LETTER_SEGMENT.match(part):
+            return None
     return "/".join(parts)
 
 
