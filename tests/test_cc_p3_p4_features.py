@@ -86,6 +86,26 @@ def test_try_reactive_compact_drops_old_rounds():
     assert len(new_msgs) < len(msgs)
 
 
+def test_reactive_compact_turn_mode_writes_strategy():
+    """try_reactive_compact turn-mode 成功时写 compaction_strategy='turns:N' + reactive_compact_strategy."""
+    msgs = [{"role": "system", "content": "sys"}]
+    for i in range(10):
+        msgs.append({"role": "user", "content": f"u-{i}"})
+        msgs.append({"role": "assistant", "content": f"a-{i}" * 60})
+    diag: dict = {}
+
+    def fake_compress(messages: list[dict]) -> list[dict]:
+        return [{"role": "system", "content": "ok"}]
+
+    ok, new_msgs, reason = try_reactive_compact(
+        msgs, compress_fn=fake_compress, use_turn_tail=True, diagnostics=diag
+    )
+    assert ok is True
+    assert reason == "ok"
+    assert diag.get("compaction_strategy", "").startswith("turns:")
+    assert "reactive_compact_strategy" in diag
+
+
 def test_permission_deny_rule(tmp_path):
     ws = tmp_path / "proj"
     ws.mkdir()
