@@ -43,7 +43,7 @@ class TestInboundMessage:
         adapter = WeChatAdapter(
             PlatformConfig(token="test-token", extra={"account_id": "bot-acc"}),
         )
-        adapter._poll_session = MagicMock()
+        adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
         adapter._account_id = "bot-acc"
         adapter._dm_policy = "open"
 
@@ -53,7 +53,7 @@ class TestInboundMessage:
             seen.append(event)
 
         adapter.set_message_handler(_capture)
-        adapter._maybe_fetch_typing_ticket = AsyncMock(return_value=None)
+        adapter._maybe_fetch_typing_ticket = AsyncMock(return_value=None)  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
 
         await adapter._process_message(
             {
@@ -91,10 +91,10 @@ class TestInboundMessage:
         adapter = WeChatAdapter(
             PlatformConfig(token="test-token", extra={"account_id": "bot-acc"}),
         )
-        adapter._poll_session = MagicMock()
+        adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
         adapter._account_id = "bot-acc"
         adapter._dm_policy = "open"
-        adapter._maybe_fetch_typing_ticket = AsyncMock(return_value=None)
+        adapter._maybe_fetch_typing_ticket = AsyncMock(return_value=None)  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
 
         async def _fake_download_image(item):
             del item
@@ -153,11 +153,11 @@ class TestInboundMessage:
         adapter = WeChatAdapter(
             PlatformConfig(token="test-token", extra={"account_id": "bot-acc"}),
         )
-        adapter._poll_session = MagicMock()
+        adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
         adapter._account_id = "bot-acc"
         adapter._dm_policy = "open"
         adapter._maybe_fetch_typing_ticket = _track_fetch
-        adapter.set_message_handler(AsyncMock())
+        adapter.set_message_handler(AsyncMock())  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
 
         await adapter._process_message(
             {
@@ -183,7 +183,7 @@ class TestBackgroundTypingTaskLifecycle:
     async def test_helper_retains_task_and_drops_on_done(self, monkeypatch, tmp_butler_home):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
         adapter = WeChatAdapter(PlatformConfig(token="t"))
-        adapter._poll_session = MagicMock()  # bypass the guard in _maybe_fetch_typing_ticket
+        adapter._poll_session = MagicMock()  # bypass the guard in _maybe_fetch_typing_ticket  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
 
         done_event = asyncio.Event()
 
@@ -208,9 +208,9 @@ class TestBackgroundTypingTaskLifecycle:
     ):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
         adapter = WeChatAdapter(PlatformConfig(token="t"))
-        adapter._poll_session = MagicMock()
+        adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
         adapter._poll_session.closed = True  # skip the close() path in disconnect
-        adapter._send_session = MagicMock()
+        adapter._send_session = MagicMock()  # noqa: magicmock-no-spec — WeChatAdapter shim (bypass internals)
         adapter._send_session.closed = True
         adapter._poll_task = None  # skip the poll task cancel path
 

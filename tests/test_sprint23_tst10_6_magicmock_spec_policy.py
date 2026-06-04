@@ -303,7 +303,10 @@ class TestScanCli:
 #        facade (orch / session_registry) 加 noqa)
 # → 276 (test_post_session: 10 处 post_session memory facade
 #        (butler_memory / project_memory / skill_manager) 加 noqa)
-_BASELINE_VIOLATIONS = 276
+# → 267 (test_wechat_ilink_inbound: 9 处 WeChatAdapter shim
+#        (_poll_session / _maybe_fetch_typing_ticket / _send_session /
+#        set_message_handler) 加 noqa)
+_BASELINE_VIOLATIONS = 267
 
 
 @pytest.mark.unit
