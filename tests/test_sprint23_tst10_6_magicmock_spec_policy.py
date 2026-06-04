@@ -320,7 +320,10 @@ class TestScanCli:
 #        facade (proj/pm/orch) 加 noqa)
 # → 208 (test_session_lifecycle: 8 处 session lifecycle facade
 #        (orch / loop / turn memory provider) 加 noqa)
-_BASELINE_VIOLATIONS = 208
+# → 200 (test_post_session_unification: 8 处 post_session unification
+#        facade (orch / butler_memory / skill_manager / provider /
+#        processor / loop) 加 noqa)
+_BASELINE_VIOLATIONS = 200
 
 
 @pytest.mark.unit

@@ -19,12 +19,12 @@ from butler.session.lifecycle import (
 
 
 def _orch_with_provider():
-    orch = MagicMock()
-    orch.butler_memory = MagicMock()
+    orch = MagicMock()  # noqa: magicmock-no-spec — post_session unification facade
+    orch.butler_memory = MagicMock()  # noqa: magicmock-no-spec — post_session unification facade
     orch._project_memory = None
-    orch._skill_manager = MagicMock()
+    orch._skill_manager = MagicMock()  # noqa: magicmock-no-spec — post_session unification facade
     orch.project_manager.current_project = "proj"
-    provider = MagicMock()
+    provider = MagicMock()  # noqa: magicmock-no-spec — post_session unification facade
     provider._turn_buffer = []
     provider._orchestrator = orch
     orch.memory_provider = provider
@@ -34,8 +34,8 @@ def _orch_with_provider():
 def test_incremental_flush_calls_processor_once(monkeypatch):
     monkeypatch.setenv("BUTLER_POST_SESSION_BUFFER_MESSAGES", "4")
     orch, provider = _orch_with_provider()
-    processor = MagicMock()
-    processor.process = MagicMock(
+    processor = MagicMock()  # noqa: magicmock-no-spec — post_session unification facade
+    processor.process = MagicMock(  # noqa: magicmock-no-spec — post_session unification facade
         return_value={"memory_updates": 1, "skills_extracted": 0, "errors": []}
     )
 
@@ -55,7 +55,7 @@ def test_incremental_flush_calls_processor_once(monkeypatch):
 def test_session_end_skips_already_extracted_pairs():
     orch, provider = _orch_with_provider()
     orch._post_session_pairs_extracted = {"s1": 4}
-    loop = MagicMock()
+    loop = MagicMock()  # noqa: magicmock-no-spec — post_session unification facade
     loop.messages = [
         {"role": "user", "content": "1"},
         {"role": "assistant", "content": "2"},
@@ -77,7 +77,7 @@ def test_session_end_skips_already_extracted_pairs():
 def test_session_end_processes_only_tail_after_watermark():
     orch, provider = _orch_with_provider()
     orch._post_session_pairs_extracted = {"s1": 2}
-    loop = MagicMock()
+    loop = MagicMock()  # noqa: magicmock-no-spec — post_session unification facade
     loop.messages = [
         {"role": "user", "content": "x" * 80},
         {"role": "assistant", "content": "y" * 80},
