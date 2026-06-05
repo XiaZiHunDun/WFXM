@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
 
 from butler.env_parse import env_truthy
 from butler.registry.mcp_catalog import McpCatalogEntry
@@ -23,6 +22,11 @@ _BLOCK_CODES = frozenset(
         "private_url",
         "command_denied",
         "hash_mismatch",
+        # Audit R2-5: SSRF guard unavailable → hard-fail install.
+        # 旧实现里 `except Exception` 把 ImportError 降级为子串检查,
+        # 漏掉云元数据 / IPv6 / RFC1918. 攻击者可故意破坏 import 来
+        # 绕过守卫. 这里把 "guard 不可用" 与 "URL 私网" 分开上报.
+        "ssrf_check_unavailable",
     }
 )
 
@@ -62,6 +66,45 @@ def _scan_text_blob(text: str) -> list[str]:
     return scan_skill_text(text)
 
 
+def _build_mcp_scan_blob(entry: McpCatalogEntry, block: dict[str, Any]) -> str:
+    # Sprint 22-1 SEC-21-A-2: 扫描 args 字段, 镜像 skill files 全量扫描.
+    # block 覆盖 entry.args: 优先用 block 的版本, 否则用 entry 的.
+    args_raw = block.get("args")
+    args = list(args_raw) if isinstance(args_raw, list) else list(entry.args or [])
+    return " ".join(
+        [
+            entry.title,
+            entry.description,
+            entry.note,
+            str(block.get("command") or ""),
+            str(block.get("url") or ""),
+            *[str(a) for a in args],
+        ]
+    )
+
+
+def _check_mcp_http_url_ssrf(server_id: str, url: str) -> list[str]:
+    # Audit R2-5: 子串 fallback (`host in (localhost, 127.0.0.1, 0.0.0.0)`)
+    # 漏掉云元数据 / IPv6 / RFC1918, 攻击者可破坏 import 来绕过守卫.
+    # 这里 hard-fail: import 失败直接拒绝安装, 不再静默降级.
+    try:
+        from butler.mcp.config import validate_http_url
+        from butler.mcp.types import McpServerConfig
+    except ImportError as exc:
+        logger.error(
+            "SSRF check unavailable (validate_http_url import failed): %s; "
+            "rejecting install of MCP server %r",
+            exc,
+            server_id,
+        )
+        return ["ssrf_check_unavailable"]
+    cfg = McpServerConfig(server_id=server_id, transport="http", url=url)
+    err = validate_http_url(cfg)
+    if err:
+        return ["private_url"]
+    return []
+
+
 def pre_install_scan_mcp(
     entry: McpCatalogEntry,
     block: dict[str, Any],
@@ -73,27 +116,7 @@ def pre_install_scan_mcp(
     trust = str(entry.trust or "").strip().lower()
     if trust in ("community", "untrusted"):
         issues.append("community_trust")
-    blob = " ".join(
-        [
-            entry.title,
-            entry.description,
-            entry.note,
-            str(block.get("command") or ""),
-            str(block.get("url") or ""),
-            # Sprint 22-1 SEC-21-A-2: 扫描 args 字段. 攻击者可在
-            # `args: ["-c", "import os; os.system('...')]` 注入 RCE,
-            # 之前只扫 command 不扫 args 漏判. block 覆盖 entry.args 时
-            # 用 block 的版本, 否则用 entry 的.
-            *[
-                str(a)
-                for a in (
-                    (block.get("args") if isinstance(block.get("args"), list) else None)
-                    or list(entry.args or [])
-                )
-            ],
-        ]
-    )
-    issues.extend(_scan_text_blob(blob))
+    issues.extend(_scan_text_blob(_build_mcp_scan_blob(entry, block)))
     transport = str(block.get("transport") or entry.transport or "stdio").lower()
     if transport == "stdio":
         cmd = str(block.get("command") or entry.command or "").strip()
@@ -111,18 +134,7 @@ def pre_install_scan_mcp(
     else:
         url = str(block.get("url") or entry.url or "").strip()
         if url:
-            try:
-                from butler.mcp.config import validate_http_url
-                from butler.mcp.types import McpServerConfig
-
-                cfg = McpServerConfig(server_id=entry.id, transport="http", url=url)
-                err = validate_http_url(cfg)
-                if err:
-                    issues.append("private_url")
-            except Exception:
-                host = (urlparse(url).hostname or "").lower()
-                if host in ("localhost", "127.0.0.1", "0.0.0.0"):
-                    issues.append("private_url")
+            issues.extend(_check_mcp_http_url_ssrf(entry.id, url))
     return _finalize(issues, source=f"mcp:{entry.id}")
 
 
