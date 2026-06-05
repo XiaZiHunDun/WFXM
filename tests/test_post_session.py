@@ -313,7 +313,13 @@ class TestProcess:
     def test_short_conversation_skipped(self):
         proc = PostSessionProcessor(llm_call=lambda p: asyncio.sleep(0))
         result = asyncio.run(proc.process([{"role": "user", "content": "hi"}] * 3))
-        assert result == {"memory_updates": 0, "skills_extracted": 0, "errors": []}
+        assert result == {
+            "memory_updates": 0,
+            "memory_failed": 0,
+            "skills_extracted": 0,
+            "skills_failed": 0,
+            "errors": [],
+        }
 
     def test_no_llm_call_returns_zero(self):
         proc = PostSessionProcessor()

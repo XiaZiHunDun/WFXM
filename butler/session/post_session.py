@@ -369,7 +369,13 @@ class PostSessionProcessor:
         - ``errors``: list of channel-level + per-item error messages.
         """
         if not self._llm_call or len(messages) < 4:
-            return {"memory_updates": 0, "skills_extracted": 0, "errors": []}
+            return {
+                "memory_updates": 0,
+                "memory_failed": 0,
+                "skills_extracted": 0,
+                "skills_failed": 0,
+                "errors": [],
+            }
 
         result: dict = {
             "memory_updates": 0,
@@ -402,9 +408,9 @@ class PostSessionProcessor:
                 messages, butler_memory, project_memory, project_name,
                 errors=chan_errors,
             )
-        except Exception as e:
-            logger.error("Memory extraction failed: %s", e)
-            result["errors"].append(f"Memory: {e}")
+        except Exception as exc:
+            logger.error("Memory extraction failed", exc_info=exc)
+            result["errors"].append(f"Memory: {exc}")
         result["memory_failed"] = len(chan_errors)
         result["errors"].extend(chan_errors)
 
@@ -422,9 +428,9 @@ class PostSessionProcessor:
                 messages, skill_manager, project_name,
                 errors=chan_errors,
             )
-        except Exception as e:
-            logger.error("Skill extraction failed: %s", e)
-            result["errors"].append(f"Skill: {e}")
+        except Exception as exc:
+            logger.error("Skill extraction failed", exc_info=exc)
+            result["errors"].append(f"Skill: {exc}")
         result["skills_failed"] = len(chan_errors)
         result["errors"].extend(chan_errors)
 
@@ -447,10 +453,10 @@ class PostSessionProcessor:
 
     async def _extract_memories(
         self,
-        messages,
-        butler_memory,
-        project_memory,
-        project_name,
+        messages: list[dict],
+        butler_memory: Any,
+        project_memory: Any,
+        project_name: str,
         *,
         errors: list[str] | None = None,
     ) -> int:
@@ -501,9 +507,9 @@ class PostSessionProcessor:
 
     async def _extract_skills(
         self,
-        messages,
-        skill_manager,
-        project_name,
+        messages: list[dict],
+        skill_manager: Any,
+        project_name: str,
         *,
         errors: list[str] | None = None,
     ) -> int:
