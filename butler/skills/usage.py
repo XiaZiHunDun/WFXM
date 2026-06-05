@@ -12,6 +12,39 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Audit R2-18: corrupt ``skill_usage.json`` is now renamed to a
+# ``.corrupt-<unix_ts>`` forensic backup before the in-memory store is
+# reset. The event is also recorded in a module-level diagnostics
+# buffer so ``/诊断`` can surface skill-usage data loss.
+
+_MAX_USAGE_CORRUPTION_ENTRIES = 50
+_usage_data_corruption: list[dict[str, Any]] = []
+
+
+def recent_usage_data_corruption() -> list[dict[str, Any]]:
+    """Return recent skill-usage corruption events for ``/诊断``."""
+    return list(_usage_data_corruption)
+
+
+def reset_usage_data_corruption() -> None:
+    """Clear the skill-usage corruption buffer (test-only)."""
+    _usage_data_corruption.clear()
+
+
+def _record_usage_data_corruption(path: Path, error: str, backup: str) -> None:
+    """Append a corruption event to the diagnostics buffer (FIFO-capped)."""
+    _usage_data_corruption.append(
+        {
+            "kind": "skill_usage_corrupt",
+            "path": str(path),
+            "error": error,
+            "backup_path": backup,
+            "ts": time.time(),
+        }
+    )
+    while len(_usage_data_corruption) > _MAX_USAGE_CORRUPTION_ENTRIES:
+        _usage_data_corruption.pop(0)
+
 
 class UsageTracker:
     """Track create/view/use/delete/merge events per skill."""
@@ -22,12 +55,44 @@ class UsageTracker:
         self._load()
 
     def _load(self) -> None:
-        if self._path.exists():
-            try:
-                self._data = json.loads(self._path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError) as e:
-                logger.warning("Failed to load skill usage: %s", e)
-                self._data = {}
+        if not self._path.exists():
+            return
+        try:
+            self._data = json.loads(self._path.read_text(encoding="utf-8"))
+            return
+        except (json.JSONDecodeError, OSError) as exc:
+            backup = self._quarantine_corrupt_file(exc)
+            logger.warning(
+                "Failed to load skill usage, renamed corrupt file to %s: %s",
+                backup, exc,
+                exc_info=exc,
+            )
+            self._data = {}
+
+    def _quarantine_corrupt_file(self, exc: BaseException) -> str:
+        """Rename the corrupt file to ``<file>.corrupt-<unix_ts>`` for forensics.
+
+        Returns the backup path. If the rename itself fails, logs the
+        secondary failure at WARNING so operators can still recover
+        the file manually.
+        """
+        backup_name = f"{self._path.name}.corrupt-{int(time.time())}"
+        backup_path = self._path.with_name(backup_name)
+        try:
+            os.replace(self._path, backup_path)
+        except OSError as rename_exc:
+            logger.warning(
+                "Could not rename corrupt skill usage %s -> %s: %s",
+                self._path, backup_path, rename_exc,
+                exc_info=rename_exc,
+            )
+            backup_path_str = str(backup_path)
+        else:
+            backup_path_str = str(backup_path)
+        _record_usage_data_corruption(
+            self._path, str(exc), backup_path_str,
+        )
+        return backup_path_str
 
     def _save(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
