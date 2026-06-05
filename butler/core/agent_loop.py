@@ -140,7 +140,7 @@ class AgentLoop:
         start_time = time.time()
         saved_callbacks = self.callbacks
         if run_callbacks is not None:
-            from butler.gateway.outbound_bridge import merge_loop_callbacks
+            from butler.core.loop_callbacks_merge import merge_loop_callbacks
 
             self.callbacks = merge_loop_callbacks(saved_callbacks, run_callbacks)
         pre_run_diagnostics = {

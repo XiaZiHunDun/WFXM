@@ -558,34 +558,13 @@ class GatewayOutboundBridge:
             logger.debug("stop_typing failed: %s", exc)
 
 
-def merge_loop_callbacks(base: Any, extra: Any | None) -> Any:
-    """Merge optional per-run callbacks onto a base LoopCallbacks."""
-    from butler.core.loop_types import LoopCallbacks
-
-    if extra is None:
-        return base
-    if base is None:
-        return extra
-
-    def _pick(name: str) -> Any:
-        v = getattr(extra, name, None)
-        if v is not None:
-            return v
-        return getattr(base, name, None)
-
-    return LoopCallbacks(
-        on_llm_start=_pick("on_llm_start"),
-        on_llm_complete=_pick("on_llm_complete"),
-        on_stream_delta=_pick("on_stream_delta"),
-        on_stream_boundary=_pick("on_stream_boundary"),
-        on_tool_start=_pick("on_tool_start"),
-        on_tool_complete=_pick("on_tool_complete"),
-        on_error=_pick("on_error"),
-        on_iteration=_pick("on_iteration"),
-        on_fallback=_pick("on_fallback"),
-        pre_llm_transform=_pick("pre_llm_transform"),
-        should_continue=_pick("should_continue"),
-    )
+# Backward-compatible re-export of ``merge_loop_callbacks``.
+#
+# The implementation moved to :mod:`butler.core.loop_callbacks_merge` to fix
+# audit R1-2 (core → gateway layering violation). This re-export preserves the
+# historical import path ``from butler.gateway.outbound_bridge import
+# merge_loop_callbacks`` for existing callers.
+from butler.core.loop_callbacks_merge import merge_loop_callbacks  # noqa: E402,F401
 
 
 __all__ = [
