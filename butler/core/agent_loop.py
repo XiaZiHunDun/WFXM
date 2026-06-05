@@ -109,19 +109,19 @@ class AgentLoop:
         self._context.attach_loop(self)
         self._turn_ephemeral_system: str | None = None
         self._thread_id: int | None = None
+        self.diagnostics: dict[str, Any] = {}
         _chain = list(self.config.fallback_entries or [])
         try:
             from butler.transport.provider_health import filter_fallback_chain
 
             _chain = filter_fallback_chain(_chain)
         except Exception as exc:
-            logger.debug("Fallback chain filter skipped: %s", exc, exc_info=True)
+            self._record_skipped_plugin("fallback_chain_filter", exc)
         self._fallback_chain: list[FallbackEntry] = _chain
         self._fallback_index = 0
         self._primary_client: LLMClient | None = None
         self._empty_retries = 0
         self._truncation_retries = 0
-        self.diagnostics: dict[str, Any] = {}
         self._tool_prefetch: dict[str, str] = {}
         from butler.core.loop_plugins import default_plugin_registry
 
@@ -144,6 +144,27 @@ class AgentLoop:
         self._interrupted = False
         if self._thread_id is not None:
             clear_interrupt(self._thread_id)
+
+    def _record_skipped_plugin(self, plugin_name: str, exc: BaseException) -> None:
+        """Record a skipped plugin/middleware to ``diagnostics['skipped']``.
+
+        Replaces the old per-site ``logger.debug(..., exc_info=True)`` and
+        ``logger.warning(...)`` calls scattered through agent_loop.py. Each
+        skip now logs at ERROR with a full traceback AND appends a structured
+        entry to ``self.diagnostics`` so the failure is visible to ``/诊断``.
+
+        The list is capped at 50 entries to prevent unbounded growth across
+        long-lived sessions; older entries are dropped first (FIFO).
+        """
+        logger.error("%s skipped: %s", plugin_name, exc, exc_info=exc)
+        bucket = self.diagnostics.setdefault("skipped", [])
+        bucket.append({
+            "plugin": plugin_name,
+            "error": str(exc)[:200],
+            "type": type(exc).__name__,
+        })
+        if len(bucket) > 50:
+            del bucket[: len(bucket) - 50]
 
     def run(
         self,
@@ -258,9 +279,7 @@ class AgentLoop:
                     if _phase_maybe_compact_turn(self, state):
                         continue
                 except Exception as exc:
-                    logger.debug(
-                        "Explicit compaction turn skipped: %s", exc, exc_info=True,
-                    )
+                    self._record_skipped_plugin("compact_turn", exc)
                 response = _phase_call_llm(self, state)
                 if response is None:
                     break
@@ -297,7 +316,7 @@ class AgentLoop:
                 elapsed_seconds=time.time() - start_time,
             )
         except Exception as exc:
-            logger.debug("Stop hooks skipped: %s", exc, exc_info=True)
+            self._record_skipped_plugin("stop_hooks", exc)
             return False
 
         if stop_hooks.additional_context:
@@ -489,7 +508,7 @@ class AgentLoop:
                         failure_count=int(worst_n),
                     )
             except Exception as exc:
-                logger.debug("Reflexion apply skipped: %s", exc, exc_info=True)
+                self._record_skipped_plugin("reflexion_apply", exc)
         return stats
 
     def _dispatch_tool(self, name: str, args: dict) -> str:
