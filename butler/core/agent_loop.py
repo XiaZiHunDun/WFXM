@@ -31,6 +31,21 @@ from butler.transport.fallback import FallbackEntry, create_client_from_entry
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse
 
+# R1-8 split: phase helpers extracted from _run_turn_body (337L → 4 phase
+# orchestrators + 2 user-message sub-phases) live in this sibling module.
+# The host class imports them and delegates per-iteration work.
+from butler.core.agent_loop_phases import (  # noqa: E402 — split import
+    TurnBodyState,
+    _mark_interrupted_status,
+    _phase_call_llm,
+    _phase_dispatch_tools,
+    _phase_finalize,
+    _phase_init,
+    _phase_maybe_compact_turn,
+    _phase_resolve_user_text,
+    _phase_enrich_user_text,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -200,51 +215,16 @@ class AgentLoop:
     ) -> tuple[str, list[dict]]:
         """Sanitize user input, select tools, record transcript.
 
+        R1-8: thin orchestrator that delegates to two sub-phases —
+        ``_phase_resolve_user_text`` (sanitize + reminder + append) and
+        ``_phase_enrich_user_text`` (tool selection + transcript record).
+        Each sub-phase lives in :mod:`butler.core.agent_loop_phases` and
+        is a thin orchestrator under 50 source lines.
+
         Returns ``(user_content, turn_tools)``.
         """
-        if not self._messages:
-            if self.system_prompt:
-                self._messages.append({"role": "system", "content": self.system_prompt})
-
-        user_content = sanitize_surrogates(user_message)
-        try:
-            from butler.core.system_reminder import maybe_prepend_system_reminder
-
-            user_content = maybe_prepend_system_reminder(user_content)
-        except Exception as exc:
-            logger.warning("System reminder skipped: %s", exc)
-        self._messages.append({"role": "user", "content": user_content})
-
-        turn_tools = list(self.tools or [])
-        try:
-            from butler.core.tool_selector import select_tools_for_context
-
-            skill_pt: set[str] = set()
-            try:
-                from butler.core.skill_tool_bridge import extract_skill_preferred_tools
-
-                skill_pt = extract_skill_preferred_tools(user_content)
-            except Exception as exc:
-                logger.warning("Skill preferred tools extraction skipped: %s", exc)
-
-            selected, sel_diag = select_tools_for_context(
-                turn_tools,
-                user_hint=user_content,
-                skill_preferred_tools=skill_pt or None,
-            )
-            turn_tools = list(selected)
-            for key, val in sel_diag.items():
-                self.diagnostics[key] = val
-        except Exception as exc:
-            logger.warning("Tool selector skipped: %s", exc)
-
-        try:
-            from butler.core.session_transcript import record_user_message
-
-            record_user_message(steer_session, user_content)
-        except Exception as exc:
-            logger.debug("Session transcript record skipped: %s", exc, exc_info=True)
-
+        user_content = _phase_resolve_user_text(self, user_message)
+        turn_tools = _phase_enrich_user_text(self, user_content, steer_session)
         return user_content, turn_tools
 
     def _run_turn_body(
@@ -257,334 +237,45 @@ class AgentLoop:
         start_time: float,
         steer_session: str,
     ) -> LoopResult:
-        self._init_turn_state(steer_session)
-
-        from butler.core.turn_token_budget import (
-            TurnBudgetState,
-            continuation_limits,
-            get_budget_continuation_message,
-            resolve_turn_budget,
-        )
-
-        original_config = self.config
-        self.config, turn_budget_tokens, cleaned_user = resolve_turn_budget(
-            user_message,
-            self.config,
-        )
-        budget_state: TurnBudgetState | None = (
-            TurnBudgetState(int(turn_budget_tokens))
-            if turn_budget_tokens
-            else None
-        )
-        if turn_budget_tokens:
-            self.diagnostics["turn_token_budget"] = int(turn_budget_tokens)
-
-        user_content, turn_tools = self._prepare_user_message(cleaned_user, steer_session)
-        self._turn_tools = turn_tools
-
-        final_text = None
-        final_reasoning = None
-        status = LoopStatus.RUNNING
-        transition = LoopTransitionReason.UNKNOWN
-        iteration = 0
-
-        from butler.core.delegate_context import set_parent_messages
-
+        # R1-8 split: 4 audit-named phases (init / call_llm / dispatch_tools
+        # / finalize) are thin orchestrators in agent_loop_phases. This
+        # method is reduced to a while loop that calls them in order.
+        state = TurnBodyState()
+        _phase_init(self, user_message, steer_session, state)
         try:
-            while status == LoopStatus.RUNNING and iteration < self.config.max_iterations:
-                if self._interrupted or (self._thread_id and is_interrupted(self._thread_id)):
-                    status = LoopStatus.INTERRUPTED
-                    transition = LoopTransitionReason.INTERRUPTED
+            while (
+                state.status == LoopStatus.RUNNING
+                and state.iteration < self.config.max_iterations
+            ):
+                if self._interrupt_check():
+                    _mark_interrupted_status(state)
                     break
+                state.iteration += 1
+                from butler.core.delegate_context import set_parent_messages
 
-                iteration += 1
                 set_parent_messages(self._messages)
                 try:
-                    from butler.core.compaction_task import (
-                        run_compaction_turn,
-                        should_run_compaction_turn,
-                    )
-                    from butler.execution_context import get_audit_session_key
-
-                    if should_run_compaction_turn(
-                        self._messages,
-                        max_context_tokens=self.config.max_context_tokens,
-                        estimate_tokens=self._estimate_tokens,
-                        diagnostics=self.diagnostics,
-                        iteration=iteration,
-                        max_output_tokens=getattr(self.config, "max_output_tokens", None),
-                    ):
-                        did_compact, new_msgs = run_compaction_turn(
-                            self._messages,
-                            compress=self._compress_context,
-                            diagnostics=self.diagnostics,
-                            iteration=iteration,
-                            session_key=get_audit_session_key(fallback="default"),
-                        )
-                        if did_compact:
-                            self._messages[:] = new_msgs
-                            try:
-                                from butler.core.compaction_steer_bridge import (
-                                    apply_compaction_turn_followup,
-                                )
-                                from butler.execution_context import get_audit_session_key
-
-                                sk = get_audit_session_key(fallback="default")
-                                self._messages[:] = apply_compaction_turn_followup(
-                                    self._messages,
-                                    sk,
-                                    self.diagnostics,
-                                )
-                            except Exception as exc:
-                                logger.debug("Compaction turn followup skipped: %s", exc, exc_info=True)
-                            transition = LoopTransitionReason.COMPACTION_TURN
-                            continue
-                except Exception as exc:
-                    logger.debug("Explicit compaction turn skipped: %s", exc, exc_info=True)
-
-                if iteration > 1 and self.callbacks.on_stream_boundary:
-                    self.callbacks.on_stream_boundary()
-                if self.callbacks.on_iteration:
-                    self.callbacks.on_iteration(iteration, status)
-
-                try:
-                    from butler.core.loop_budget_nudge import maybe_inject_loop_budget_nudges
-
-                    budget_tokens = (
-                        int(budget_state.budget_tokens) if budget_state is not None else None
-                    )
-                    maybe_inject_loop_budget_nudges(
-                        self._messages,
-                        self.diagnostics,
-                        iteration=iteration,
-                        max_iterations=self.config.max_iterations,
-                        total_tokens=self._total_tokens,
-                        budget_tokens=budget_tokens,
-                    )
-                except Exception as exc:
-                    logger.warning("Loop budget nudge skipped: %s", exc)
-
-                response = self._call_llm_with_retry()
-                if response is None:
-                    if self._interrupted:
-                        status = LoopStatus.INTERRUPTED
-                        transition = LoopTransitionReason.INTERRUPTED
-                    else:
-                        status = LoopStatus.ERROR
-                        if self.diagnostics.get("reactive_context_compact"):
-                            transition = LoopTransitionReason.REACTIVE_COMPACT_RETRY
-                        else:
-                            transition = LoopTransitionReason.LLM_ERROR
-                    break
-
-                if response.usage:
-                    from butler.core.context_budget import (
-                        record_usage_in_diagnostics,
-                        usage_billable_tokens,
-                    )
-                    from butler.transport.usage_normalize import normalize_usage
-
-                    provider = str(getattr(self.client, "provider_name", "") or "")
-                    self.diagnostics["last_provider"] = provider
-                    self.diagnostics["last_model"] = str(
-                        getattr(self.client, "model_name", "") or ""
-                    )
-                    norm_usage = normalize_usage(response.usage, provider=provider)
-                    usage = norm_usage or response.usage
-
-                    billable = usage_billable_tokens(
-                        prompt_tokens=usage.prompt_tokens,
-                        completion_tokens=usage.completion_tokens,
-                        total_tokens=usage.total_tokens,
-                        cached_tokens=usage.cached_tokens,
-                    )
-                    self._total_tokens += billable
-                    record_usage_in_diagnostics(
-                        self.diagnostics,
-                        prompt_tokens=usage.prompt_tokens,
-                        completion_tokens=usage.completion_tokens,
-                        total_tokens=usage.total_tokens,
-                        cached_tokens=usage.cached_tokens,
-                    )
-
-                if response.tool_calls:
-                    batch_stats = self._process_tool_calls(response)
-                    if getattr(batch_stats, "waiting_confirmation_message", None):
-                        final_text = batch_stats.waiting_confirmation_message
-                        status = LoopStatus.WAITING_CONFIRMATION
-                        transition = LoopTransitionReason.WAITING_CONFIRMATION
-                        self.diagnostics["two_phase_confirm"] = True
-                        break
-                    stuck_msg = None
-                    try:
-                        from butler.core.loop_stuck import guardrail_stuck_message
-
-                        stuck_msg = guardrail_stuck_message(self._guardrails)
-                    except Exception as exc:
-                        logger.warning("Stuck message check skipped: %s", exc)
-                    if stuck_msg:
-                        final_text = stuck_msg
-                        status = LoopStatus.STUCK
-                        transition = LoopTransitionReason.STUCK
-                        self.diagnostics["loop_stuck"] = True
-                        break
-                    if getattr(batch_stats, "clarification_question", None):
-                        final_text = batch_stats.clarification_question
-                        status = LoopStatus.COMPLETED
-                        transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
-                        self.diagnostics["ask_clarification"] = True
-                        break
-                    if self.callbacks.should_continue:
-                        if not self.callbacks.should_continue(iteration, response):
-                            final_text = response.content
-                            status = LoopStatus.COMPLETED
-                            transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
-                            break
-                    transition = LoopTransitionReason.TOOL_BATCH_CONTINUE
-                    continue
-
-                final_text = response.content
-                final_reasoning = response.reasoning
-                if (
-                    needs_truncation_continue(response)
-                    and self._truncation_retries < self.config.max_truncation_continues
-                ):
-                    self._truncation_retries += 1
-                    if final_text:
-                        msg = {"role": "assistant", "content": final_text}
-                        from butler.transport.reasoning_replay import store_reasoning_on_message
-
-                        store_reasoning_on_message(msg, final_reasoning)
-                        self._messages.append(msg)
-                    self._messages.append({"role": "user", "content": truncation_continue_message()})
-                    final_text = None
-                    transition = LoopTransitionReason.TRUNCATION_CONTINUE
-                    continue
-
-                stop_blocked = self._maybe_stop_hook_continue(
-                    steer_session=steer_session,
-                    iteration=iteration,
-                    start_time=start_time,
-                    final_text=final_text or "",
-                )
-                if stop_blocked:
-                    final_text = None
-                    transition = LoopTransitionReason.STOP_HOOK_BLOCKED
-                    continue
-
-                if budget_state is not None:
-                    max_cont, min_delta = continuation_limits()
-                    if budget_state.should_continue(
-                        self._total_tokens,
-                        max_continuations=max_cont,
-                        min_delta_tokens=min_delta,
-                    ):
-                        if final_text:
-                            msg = {"role": "assistant", "content": final_text}
-                            from butler.transport.reasoning_replay import store_reasoning_on_message
-
-                            store_reasoning_on_message(msg, final_reasoning)
-                            self._messages.append(msg)
-                        budget_state.record_continuation(self._total_tokens)
-                        nudge = get_budget_continuation_message(
-                            budget_state.budget_tokens,
-                            attempt=budget_state.continuations_used,
-                        )
-                        self._messages.append({"role": "user", "content": nudge})
-                        final_text = None
-                        transition = LoopTransitionReason.TOKEN_BUDGET_CONTINUE
+                    if _phase_maybe_compact_turn(self, state):
                         continue
-
-                status = LoopStatus.COMPLETED
-                transition = LoopTransitionReason.TURN_COMPLETED
-
-            if status == LoopStatus.RUNNING:
-                status = LoopStatus.TOOL_LIMIT
-                transition = LoopTransitionReason.TOOL_LIMIT
-
-            if final_text:
-                msg = {"role": "assistant", "content": final_text}
-                from butler.transport.reasoning_replay import store_reasoning_on_message
-
-                store_reasoning_on_message(msg, final_reasoning)
-                self._messages.append(msg)
-                try:
-                    from butler.core.session_transcript import record_assistant_message
-
-                    record_assistant_message(
-                        steer_session,
-                        final_text,
-                        tool_calls=self._tool_calls_count,
-                    )
                 except Exception as exc:
-                    logger.debug("Assistant transcript record skipped: %s", exc, exc_info=True)
-
+                    logger.debug(
+                        "Explicit compaction turn skipped: %s", exc, exc_info=True,
+                    )
+                response = _phase_call_llm(self, state)
+                if response is None:
+                    break
+                if not _phase_dispatch_tools(
+                    self, response, state, start_time, steer_session,
+                ):
+                    break
         finally:
-            self.config = original_config
+            self.config = state.original_config
             self._restore_primary_client()
             self._turn_tools = None
             set_parent_callbacks(None)
             if run_callbacks is not None:
                 self.callbacks = saved_callbacks
-
-        elapsed = time.time() - start_time
-        self.diagnostics["loop_transition_reason"] = transition.value
-        try:
-            from butler.ops.runtime_metrics import inc, observe_ms
-
-            observe_ms(
-                "turn_duration",
-                elapsed * 1000.0,
-                labels={
-                    "transition": str(transition.value)[:32],
-                    "status": str(status.value)[:16],
-                },
-                session_key=steer_session,
-            )
-            inc(
-                "turn_finished",
-                labels={
-                    "transition": str(transition.value)[:32],
-                    "status": str(status.value)[:16],
-                },
-                session_key=steer_session,
-            )
-        except Exception as exc:
-            logger.warning("Turn metrics recording skipped: %s", exc, exc_info=True)
-        result = LoopResult(
-            status=status,
-            transition_reason=transition.value,
-            final_response=final_text,
-            reasoning=final_reasoning,
-            messages=list(self._messages),
-            iterations=iteration,
-            total_tokens=self._total_tokens,
-            tool_calls_made=self._tool_calls_count,
-            elapsed_seconds=elapsed,
-            diagnostics=dict(self.diagnostics),
-        )
-        if self.diagnostics.get("stop_hook_context"):
-            logger.debug("Stop hook context already present, skipping post-run hooks")
-        elif status == LoopStatus.COMPLETED:
-            try:
-                from butler.hooks.runner import run_stop_hooks
-
-                stop_hooks = run_stop_hooks(
-                    status=status.value,
-                    last_assistant_message=final_text or "",
-                    session_key=steer_session,
-                    iterations=iteration,
-                    tool_calls=self._tool_calls_count,
-                    elapsed_seconds=elapsed,
-                )
-                if stop_hooks.additional_context:
-                    self.diagnostics["stop_hook_context"] = list(
-                        stop_hooks.additional_context
-                    )
-            except Exception as exc:
-                logger.debug("Stop hooks context skipped: %s", exc, exc_info=True)
-        return result
-
+        return _phase_finalize(self, state, run_callbacks, steer_session, start_time)
     def _maybe_stop_hook_continue(
         self,
         *,
