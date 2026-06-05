@@ -111,28 +111,38 @@ def test_core_events_sink_exposes_required_symbols():
 
 @pytest.mark.module_test
 def test_default_sink_is_null_sink():
-    """Before gateway wires itself in, the default sink must be the no-op."""
+    """Before gateway wires itself in, the default sink must be the no-op.
+
+    This test is order-sensitive: if any other test (or gateway bootstrap)
+    has installed a real sink, the default is no longer ``NullEventsSink``.
+    We explicitly reset to null for the assertion, then restore.
+    """
     from butler.core.events_sink import (
         NullEventsSink,
         get_events_sink,
         pop_urgent_inbound,
         invoke_hook,
         emit_context_compaction,
+        set_events_sink,
     )
 
-    sink = get_events_sink()
-    assert isinstance(sink, NullEventsSink), (
-        f"default sink must be NullEventsSink, got {type(sink).__name__}"
-    )
-    # No-op behaviour
-    assert invoke_hook("pre_compact", messages=[]) == []
-    assert (
-        emit_context_compaction(
-            phase="completed", thread_id="t", tokens_before=0, tokens_after=0
+    saved = get_events_sink()
+    try:
+        set_events_sink(None)
+        assert isinstance(get_events_sink(), NullEventsSink), (
+            "default sink must be NullEventsSink"
         )
-        is None
-    )
-    assert pop_urgent_inbound("sess") is None
+        # No-op behaviour
+        assert invoke_hook("pre_compact", messages=[]) == []
+        assert (
+            emit_context_compaction(
+                phase="completed", thread_id="t", tokens_before=0, tokens_after=0
+            )
+            is None
+        )
+        assert pop_urgent_inbound("sess") is None
+    finally:
+        set_events_sink(saved)
 
 
 @pytest.mark.module_test

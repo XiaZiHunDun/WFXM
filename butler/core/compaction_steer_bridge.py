@@ -30,7 +30,7 @@ def apply_compaction_turn_followup(
     injected = 0
 
     try:
-        from butler.gateway.message_queue import pop_urgent_inbound
+        from butler.core.events_sink import pop_urgent_inbound
 
         item = pop_urgent_inbound(sk)
         if item is not None and item.text.strip():

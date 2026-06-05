@@ -16,6 +16,11 @@ from butler.gateway.platform_policy import SUPPORTED_PLATFORMS, normalize_platfo
 
 NATIVE_PLATFORMS = SUPPORTED_PLATFORMS  # alias for tests / legacy imports
 from butler.gateway.platforms.types import MessageEvent, PlatformConfig  # noqa: E402
+# R1-3: install the gateway implementation of butler.core.events_sink on
+# import. Core (context_compressor / compaction_task / compaction_steer_bridge)
+# calls the shims in core.events_sink; this is what makes them run for real
+# when the gateway is up.
+from butler.gateway import events_sink_impl  # noqa: E402, F401
 
 logger = logging.getLogger(__name__)
 
