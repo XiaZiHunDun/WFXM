@@ -530,6 +530,35 @@ def _run_subquery_hybrid(
     return out, sub_queries, any(degraded_flags)
 
 
+def _build_recall_telemetry_payload(
+    mode: str,
+    fallbacks: int,
+    out: list[dict[str, Any]],
+    q: str,
+    sub_queries: list[str],
+    degraded: bool,
+) -> dict[str, Any]:
+    """Audit R2-2: build the recall-quality payload for retrieval_telemetry.
+
+    The payload is the contract between ``hybrid_experience_search`` and
+    ``retrieval_telemetry.record_last_retrieval`` — it is also the only
+    place where ``recall_degraded`` is set, so changes here are observable
+    in ``/诊断`` via ``rag_last_recall_degraded``.
+    """
+    payload: dict[str, Any] = {
+        "mode": mode if out else "none",
+        "fallbacks": fallbacks,
+        "candidates": len(out),
+        "query": q,
+        # True iff hybrid_search raised on any path and we fell back to FTS only.
+        "recall_degraded": bool(degraded),
+    }
+    if sub_queries and len(sub_queries) > 1:
+        payload["sub_queries"] = sub_queries
+        payload["mode"] = mode or "hybrid-subquery"
+    return payload
+
+
 def hybrid_experience_search(
     semantic: SemanticMemoryIndex | None,
     fts_search: Callable[..., list[dict[str, Any]]],
@@ -566,20 +595,17 @@ def hybrid_experience_search(
         from butler.execution_context import get_current_session_key
         from butler.memory.retrieval_telemetry import record_last_retrieval
 
-        payload: dict[str, Any] = {
-            "mode": mode if out else "none",
-            "fallbacks": fallbacks,
-            "candidates": len(out),
-            "query": q,
-            # Audit R2-2: surface recall quality to /诊断 and any future
-            # LLM-side prompt injection. True iff hybrid_search raised on
-            # any sub-query or path and we fell back to FTS only.
-            "recall_degraded": bool(degraded),
-        }
-        if sub_queries and len(sub_queries) > 1:
-            payload["sub_queries"] = sub_queries
-            payload["mode"] = mode or "hybrid-subquery"
-        record_last_retrieval(get_current_session_key() or "", payload)
+        record_last_retrieval(
+            get_current_session_key() or "",
+            _build_recall_telemetry_payload(
+                mode=mode,
+                fallbacks=fallbacks,
+                out=out,
+                q=q,
+                sub_queries=sub_queries,
+                degraded=degraded,
+            ),
+        )
     except Exception as exc:
         logger.debug("once skipped: %s", exc)
     return out
