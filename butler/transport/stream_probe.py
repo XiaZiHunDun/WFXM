@@ -6,6 +6,7 @@ import logging
 import time
 from typing import Any
 
+from butler.core.metrics_sink import observe_ms
 from butler.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
@@ -49,8 +50,6 @@ def run_stream_probe(orchestrator: Any) -> dict[str, Any]:
             "provider": creds.get("provider") or "",
             "model": creds.get("model") or "",
         }
-        from butler.ops.runtime_metrics import observe_ms
-
         observe_ms("stream_probe_latency_ms", ms)
         return dict(_LAST_PROBE)
     except Exception as exc:
