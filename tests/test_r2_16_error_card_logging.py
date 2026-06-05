@@ -103,19 +103,11 @@ class TestImportFailure:
 
     def test_logs_error_when_import_fails(self, monkeypatch, caplog):
         """如果 error_cards 模块导入失败, 也应 log at ERROR."""
-        # 隐藏 format_error_card 的 import 路径, 让 from ... import 抛 ImportError
         import sys
 
-        # Patch the module-level import to raise
-        orig_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
-
-        def _patched_import(name, *args, **kwargs):
-            if name == "butler.gateway.error_cards":
-                raise ImportError("simulated: error_cards module missing")
-            return orig_import(name, *args, **kwargs)
-
-        # Restore: the test simulates module-level from-import failure inside
-        # _phase_format_error_card. Easiest: delete the entry from sys.modules.
+        # Force the from-import inside _phase_format_error_card to raise
+        # ImportError. Putting None in sys.modules is the canonical way
+        # to make Python's import machinery raise on the next import.
         monkeypatch.setitem(sys.modules, "butler.gateway.error_cards", None)
         with caplog.at_level(logging.DEBUG, logger="butler.gateway.locked_phases"):
             result = _phase_format_error_card(RuntimeError("upstream"), 1.5)
