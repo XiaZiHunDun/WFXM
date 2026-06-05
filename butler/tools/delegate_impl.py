@@ -242,404 +242,65 @@ def _tool_delegate_task(
     depth: int = 0,
     **_,
 ) -> str:
-    """Delegate to a project-level agent through Butler's orchestrator."""
-    task_id = ""
-    session_key = ""
-    category_meta: dict[str, Any] = {}
-    original_context = context
+    """Delegate to a project-level agent through Butler's orchestrator.
+
+    R1-5 split: the original 408-line body now delegates to six phase
+    helpers in :mod:`butler.tools.delegate_phases`. The host keeps the
+    try/except boundary so :func:`_finalize_delegate_failure` still owns
+    the single failure-finalize path (no behavior change).
+    """
+    from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+    from butler.tools.delegate_phases import (
+        DelegateRunState,
+        _build_user_message,
+        _format_delegate_result,
+        _prepare_delegate_task,
+        _record_delegate_state,
+        _resolve_subagent,
+        _run_subagent_loop,
+    )
+
+    state = DelegateRunState(
+        role=role,
+        task=task,
+        context=context,
+        category=category,
+        depth=depth,
+        original_context=context,
+        bridge=get_gateway_bridge_optional(),
+    )
     try:
-        from butler.delegate.policy import MAX_DELEGATE_DEPTH
-        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+        # Phase 1: enrich (role/task/context/category) + depth check
+        _prepare_delegate_task(state)
+        if state.early_return:
+            return state.early_return
 
-        if not str(category or "").strip():
-            try:
-                from butler.core.intent_keywords import category_from_intent
+        # Phase 2: orchestrator + project + tools + agent
+        _resolve_subagent(state)
 
-                inferred = category_from_intent(task)
-                if inferred:
-                    category = inferred
-            except Exception as exc:
-                logger.debug("intent category inference skipped: %s", exc)
+        # Phase 3: assemble user message
+        _build_user_message(state)
 
-        if str(category or "").strip():
-            from butler.delegate.category_resolver import apply_category_to_delegate
+        # Phase 4: prefetch + semaphore + task record + hooks + transcript
+        _record_delegate_state(state)
+        if state.early_return:
+            return state.early_return
 
-            role, task, context, category_meta = apply_category_to_delegate(
-                category=str(category).strip(),
-                role=role,
-                task=task,
-                context=context,
-            )
+        # Phase 5: dispatch (async vs sync) + run + release
+        async_payload = _run_subagent_loop(state)
+        if async_payload is not None:
+            return async_payload
+        result = state.sync_result
 
-        from butler.core.handoff import merge_handoff_into_context, render_handoff_block
-
-        cat_name = str(category or category_meta.get("category") or "").strip().lower()
-        needs_handoff = (
-            cat_name.startswith("nexus")
-            or cat_name == "ui-build"
-            or "## Handoff" not in str(context or "")
-        )
-        if needs_handoff:
-            from butler.core.handoff import default_visual_acceptance
-
-            if cat_name == "ui-build":
-                acceptance = default_visual_acceptance()
-                evidence_required = ["read_file DESIGN.md", "read_file 改动文件"]
-            else:
-                acceptance = [
-                    "任务描述中的目标已达成",
-                    "关键改动有 read_file 或测试证据",
-                ]
-                evidence_required = ["read_file 或 pytest"]
-            handoff = render_handoff_block(
-                from_role="butler",
-                to_role=str(role or "dev"),
-                task=task,
-                acceptance=acceptance,
-                evidence_required=evidence_required,
-            )
-            context = merge_handoff_into_context(context, handoff)
-
-        try:
-            from butler.agent_profiles import DELEGATE_VERIFY_CHECKLIST
-
-            if DELEGATE_VERIFY_CHECKLIST.strip():
-                context = (context or "").rstrip() + "\n\n" + DELEGATE_VERIFY_CHECKLIST.strip()
-        except Exception as exc:
-            logger.debug("delegate verify checklist skipped: %s", exc)
-
-        bridge = get_gateway_bridge_optional()
-        if bridge is not None:
-            bridge.notify_delegate_start(role, preview=task[:80])
-
-        if depth >= MAX_DELEGATE_DEPTH:
-            return json.dumps({"error": f"Maximum delegation depth ({MAX_DELEGATE_DEPTH}) exceeded"})
-
-        orch = _orchestrator_for_tool(channel="cli")
-        from butler.tools.project_tools import get_tool_definitions_for_project
-
-        project = orch.project_manager.get_current()
-        if project is not None:
-            try:
-                from butler.agents_md import merge_agent_md_into_context
-
-                context = merge_agent_md_into_context(
-                    Path(project.workspace),
-                    role,
-                    context,
-                )
-            except Exception as exc:
-                logger.debug("agents.md merge skipped: %s", exc)
-        tools = get_tool_definitions_for_project(project, role=role)
-
-        from butler.delegate.subagent_permissions import filter_tools_for_subagent
-
-        workspace = Path(project.workspace) if project is not None else None
-        delegated_tools = filter_tools_for_subagent(
-            tools,
-            workspace=workspace,
-            role=role,
-        )
-        allow_only = category_meta.get("allow_tools")
-        deny_extra = category_meta.get("deny_tools")
-        if isinstance(allow_only, list) and allow_only:
-            allow_set = {str(t).strip() for t in allow_only if str(t).strip()}
-            delegated_tools = [
-                t
-                for t in delegated_tools
-                if str((t.get("function") or {}).get("name") or "") in allow_set
-            ]
-        if isinstance(deny_extra, list):
-            deny_set = {str(t).strip() for t in deny_extra if str(t).strip()}
-            delegated_tools = [
-                t
-                for t in delegated_tools
-                if str((t.get("function") or {}).get("name") or "") not in deny_set
-            ]
-
-        from butler.core.delegate_context import child_callbacks, get_parent_callbacks
-
-        parent_cb = get_parent_callbacks()
-        agent = orch.create_project_agent_loop(
-            role=role,
-            tools=delegated_tools,
-            tool_dispatcher=lambda name, args: _safe_dispatch(name, args, depth + 1),
-            callbacks=child_callbacks(parent_cb),
-        )
-        from butler.core.cache_safe_delegate import (
-            apply_cache_safe_system_prompt,
-            delegate_diagnostics,
-        )
-        from butler.core.delegate_context import get_parent_system_prompt
-
-        from butler.core.delegate_context import get_parent_messages
-
-        parent_sys = get_parent_system_prompt()
-        parent_msgs = get_parent_messages()
-        if parent_sys:
-            merged = apply_cache_safe_system_prompt(
-                parent_sys,
-                agent.system_prompt,
-                tools=delegated_tools,
-                messages=parent_msgs,
-            )
-            agent.system_prompt = merged
-            agent.diagnostics.update(
-                delegate_diagnostics(
-                    parent_sys,
-                    merged,
-                    tools=delegated_tools,
-                    messages=parent_msgs,
-                )
-            )
-        from butler.delegate.policy import resolve_delegate_max_iterations
-
-        agent.config.max_iterations = resolve_delegate_max_iterations(category_meta)
-        try:
-            from butler.delegate.policy import delegate_one_tool_per_iteration
-
-            if delegate_one_tool_per_iteration():
-                agent.config.enable_parallel_tools = False
-                agent.diagnostics["delegate_one_tool_per_iteration"] = True
-        except Exception as exc:
-            logger.debug("delegate one-tool-per-iteration policy skipped: %s", exc)
-
-        agent.reset()
-
-        raw_user_msg = _project_agent_raw_message(task=task, context=context)
-        memory_sync_user_msg = _project_agent_raw_message(
-            task=task,
-            context=original_context,
-        )
-        user_msg = _inject_project_agent_skills(orch, raw_user_msg)
-
-        from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory
-        from butler.execution_context import get_current_session_key, use_execution_context
-        from butler.runtime.task_store import complete_task, create_task
-
-        attach_turn_memory_prefetch(agent, orch, raw_user_msg, role=role)
-
-        session_key = str(get_current_session_key() or "").strip()
-        from butler.core.delegate_semaphore import try_acquire_delegate_slot
-
-        if not try_acquire_delegate_slot(session_key):
-            from butler.core.delegate_semaphore import max_concurrent_delegates
-
-            return json.dumps({
-                "error": (
-                    f"本会话并发委派已达上限 ({max_concurrent_delegates()})，"
-                    "请等待进行中的任务完成。"
-                ),
-                "code": "DELEGATE_CONCURRENCY",
-            })
-        project_name = ""
-        if project is not None:
-            project_name = str(getattr(project, "name", "") or "")
-        from butler.runtime.task_store import delegate_group_id
-
-        group_id = delegate_group_id(session_key)
-        task_record = create_task(
-            session_key=session_key,
-            role=role,
-            task_preview=task,
-            project=project_name,
-            group_id=group_id,
-        )
-        task_id = str(task_record.get("task_id") or "")
-        child_session_key = str(task_record.get("child_session_key") or "")
-
-        try:
-            from butler.hooks.runner import run_subagent_start_hooks
-
-            subagent_ctx = run_subagent_start_hooks(
-                agent_type=role,
-                agent_id=task_id or f"delegate-{role}",
-                task_preview=task,
-                task_id=task_id,
-                session_key=session_key,
-            )
-            if subagent_ctx:
-                user_msg = "\n\n".join(subagent_ctx) + "\n\n" + user_msg
-        except Exception as exc:
-            logger.debug("SubagentStart hooks skipped: %s", exc)
-
-        from butler.core.session_transcript import record_generic_event
-
-        if child_session_key:
-            record_generic_event(
-                session_key,
-                "delegate_started",
-                {
-                    "task_id": task_id,
-                    "child_session_key": child_session_key,
-                    "role": role,
-                },
-            )
-            record_generic_event(
-                child_session_key,
-                "delegate_turn_start",
-                {"task_id": task_id, "parent_session_key": session_key, "role": role},
-            )
-
-        from butler.runtime.async_delegate import (
-            schedule_background_delegate,
-            should_delegate_async,
-            push_target_from_bridge,
-        )
-        from butler.runtime.delegate_job import (
-            DelegateJob,
-            build_async_delegate_tool_result,
-        )
-
-        if should_delegate_async(
-            bridge=bridge,
-            depth=depth,
-            category_meta=category_meta,
-        ):
-            push_tgt = push_target_from_bridge(bridge) if bridge is not None else None
-            schedule_background_delegate(
-                DelegateJob(
-                    agent=agent,
-                    orch=orch,
-                    user_msg=user_msg,
-                    raw_user_msg=raw_user_msg,
-                    role=role,
-                    task=task,
-                    session_key=session_key,
-                    child_session_key=child_session_key,
-                    task_id=task_id,
-                    category_meta=category_meta,
-                    bridge=bridge,
-                    push_target=push_tgt,
-                )
-            )
-            return build_async_delegate_tool_result(
-                task_id=task_id,
-                child_session_key=child_session_key,
-                role=role,
-                task_preview=task,
-                category=str(category_meta.get("category") or category or ""),
-            )
-
-        try:
-            with use_execution_context(orch, session_key=child_session_key or session_key):
-                try:
-                    from butler.runtime.delegate_registry import (
-                        register_delegate_loop,
-                        unregister_delegate_loop,
-                    )
-
-                    register_delegate_loop(session_key, agent)
-                    result = agent.run(user_msg)
-                finally:
-                    try:
-                        from butler.runtime.delegate_registry import unregister_delegate_loop
-
-                        unregister_delegate_loop(session_key, agent)
-                    except Exception as exc:
-                        logger.debug("delegate loop unregister skipped: %s", exc)
-        finally:
-            from butler.core.delegate_semaphore import release_delegate_slot
-
-            release_delegate_slot(session_key)
-
-        sync_turn_memory(
-            orch,
-            memory_sync_user_msg,
-            result.final_response or "",
-            interrupted=result.status.value == "interrupted",
-            status=result.status,
-            session_id=session_key,
-        )
-
-        from butler.report import AgentReport
-
-        changes = _extract_changes_from_messages(result.messages)
-        issues = _extract_issues_from_messages(result.messages)
-        success = _delegate_task_succeeded(result, changes, issues)
-        role_label = _delegate_role_label(role)
-        headline = (
-            f"{role_label}已完成任务"
-            if success
-            else f"{role_label}未能完成任务"
-        )
-        task_preview = (task or "").strip()[:200]
-        summary_text = (result.final_response or "").strip()
-        if not summary_text:
-            summary_text = (
-                "DELEGATE_EMPTY_RESPONSE: 子代理未返回有效摘要。"
-                "请缩小任务范围或换 category/role 后重试。"
-            )
-            success = False
-            headline = f"{role_label}返回空结果"
-
-        if child_session_key:
-            record_generic_event(
-                child_session_key,
-                "delegate_turn_done",
-                {
-                    "task_id": task_id,
-                    "success": success,
-                    "iterations": getattr(result, "iterations", 0),
-                },
-            )
-
-        report = AgentReport(
-            headline=headline,
-            summary=summary_text or "(无输出)",
-            changes=changes,
-            issues=issues,
-            success=success,
-            task_preview=task_preview,
-            task_id=task_id,
-            child_session_key=child_session_key,
-            iterations=result.iterations,
-            tool_calls=result.tool_calls_made,
-            tokens_used=result.total_tokens,
-            elapsed_seconds=result.elapsed_seconds,
-        )
-
-        from butler.report import cache_report
-        cache_report(report, session_key=session_key)
-        complete_task(
-            task_id,
-            success=success,
-            report_headline=report.headline,
-            summary=report.summary,
-        )
-        _run_subagent_stop_hooks(
-            role=role,
-            agent_id=task_id or f"delegate-{role}",
-            success=success,
-            task_id=task_id,
-            session_key=session_key,
-            summary_preview=report.summary,
-        )
-        if bridge is not None:
-            bridge.notify_delegate_finished(report)
-
-        payload: dict[str, Any] = {
-            "success": report.success,
-            "headline": report.headline,
-            "summary": report.summary[:2000],
-            "task_id": task_id,
-            "child_session_key": child_session_key,
-            "iterations": report.iterations,
-            "tool_calls": report.tool_calls,
-            "tokens": report.tokens_used,
-        }
-        if category_meta.get("category"):
-            payload["category"] = category_meta["category"]
-        if not (result.final_response or "").strip():
-            payload["code"] = "DELEGATE_EMPTY_RESPONSE"
-        return json.dumps(payload, ensure_ascii=False)
+        # Phase 6: build report + payload
+        return _format_delegate_result(state, result)
 
     except Exception as exc:
         logger.error("Delegation to %s failed: %s", role, exc)
         return _finalize_delegate_failure(
-            role=role,
-            task=task,
+            role=state.role,
+            task=state.task,
             exc=exc,
-            task_id=task_id,
-            session_key=session_key,
+            task_id=state.task_id,
+            session_key=state.session_key,
         )
