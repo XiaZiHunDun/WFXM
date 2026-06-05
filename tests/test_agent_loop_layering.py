@@ -112,3 +112,85 @@ def test_gateway_outbound_bridge_still_reexports_merge_loop_callbacks():
         "butler.gateway.outbound_bridge.merge_loop_callbacks must be the same "
         "object as butler.core.loop_callbacks_merge.merge_loop_callbacks (re-export)."
     )
+
+
+# -----------------------------------------------------------------------
+# R1-2 part 2: tools.interrupt 沉到 core.interrupt
+# -----------------------------------------------------------------------
+# 审计 R1-2 同时点名了 agent_loop.py 顶层的 "from butler.tools.interrupt"
+# (line 27 当时),audit 结论是 interrupt 模块本身只是线程局部信号,
+# 无 tool 语义,应下沉到 core/interrupt.py。
+#
+# 上一 commit (4aea3b0) 只修了 merge_loop_callbacks 一行,
+# 本次补做 interrupt 下沉:
+#   - core/agent_loop.py 改 import 源
+#   - 新建 core/interrupt.py(原 tools/interrupt.py 内容)
+#   - tools/interrupt.py 留一行 re-export 以兼容 terminal_impl.py /
+#     test_hermes_extraction.py 的既有 import 点
+# -----------------------------------------------------------------------
+
+
+@pytest.mark.module_test
+def test_agent_loop_source_file_has_no_tools_interrupt_import():
+    """agent_loop.py must not import from butler.tools.interrupt (R1-2 part 2).
+
+    The interrupt signal is a thread-local set, not a tool. ``core/`` should
+    not depend on ``tools/`` for this primitive.
+    """
+    src_path = pathlib.Path(agent_loop_module.__file__)
+    text = src_path.read_text(encoding="utf-8")
+    assert "from butler.tools.interrupt" not in text, (
+        f"{src_path} still imports from butler.tools.interrupt; "
+        "R1-2 part 2 layering violation is not fixed."
+    )
+    assert "import butler.tools.interrupt" not in text, (
+        f"{src_path} still has a `import butler.tools.interrupt` statement; "
+        "R1-2 part 2 layering violation is not fixed."
+    )
+
+
+@pytest.mark.module_test
+def test_core_interrupt_module_exists():
+    """The interrupt primitive must live in butler/core/interrupt.py."""
+    import butler.core.interrupt as core_interrupt  # noqa: F401
+
+    module_file = pathlib.Path(
+        __import__("butler.core.interrupt", fromlist=["__file__"]).__file__
+    ).resolve()
+    assert module_file.parent.name == "core", (
+        f"interrupt.py should live in butler/core/, found at {module_file}"
+    )
+    assert module_file.name == "interrupt.py", (
+        f"expected interrupt.py, found {module_file.name}"
+    )
+
+
+@pytest.mark.module_test
+def test_core_interrupt_exposes_three_primitives():
+    """core.interrupt must export set_interrupt, clear_interrupt, is_interrupted."""
+    from butler.core import interrupt as core_interrupt
+
+    for name in ("set_interrupt", "clear_interrupt", "is_interrupted"):
+        assert hasattr(core_interrupt, name), (
+            f"butler.core.interrupt is missing required export: {name}"
+        )
+        assert callable(getattr(core_interrupt, name)), (
+            f"butler.core.interrupt.{name} must be callable"
+        )
+
+
+@pytest.mark.module_test
+def test_core_interrupt_reexport_matches_tools_reexport():
+    """tools.interrupt (kept as backward-compat re-export) must point at core.
+
+    ``butler.tools.terminal_impl`` and ``tests/test_hermes_extraction.py`` still
+    import from ``butler.tools.interrupt``. To keep them green without
+    duplicating logic, ``butler/tools/interrupt.py`` becomes a one-line
+    re-export from ``butler.core.interrupt``.
+    """
+    from butler.core import interrupt as core_interrupt
+    from butler.tools import interrupt as tools_interrupt
+
+    assert tools_interrupt.set_interrupt is core_interrupt.set_interrupt
+    assert tools_interrupt.clear_interrupt is core_interrupt.clear_interrupt
+    assert tools_interrupt.is_interrupted is core_interrupt.is_interrupted

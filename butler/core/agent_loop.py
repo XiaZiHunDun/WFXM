@@ -24,7 +24,7 @@ from butler.core.loop_types import (
 from butler.core.message_sanitize import sanitize_surrogates
 from butler.core.tool_batch import dispatch_tool_with_envelope, process_tool_calls
 from butler.tool_guardrails import ToolCallGuardrailController
-from butler.tools.interrupt import clear_interrupt, is_interrupted, set_interrupt
+from butler.core.interrupt import clear_interrupt, is_interrupted, set_interrupt
 from butler.core.steer import clear_steer, mark_run_active, mark_run_inactive
 from butler.transport.base import LLMClientProtocol
 from butler.transport.fallback import FallbackEntry, create_client_from_entry
