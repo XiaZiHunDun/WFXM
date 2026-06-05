@@ -94,10 +94,16 @@ def _tool_skill_view(name: str, **_) -> str:
 
 def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
     """Execute a project workflow DAG via TaskOrchestrator."""
-    from butler.execution_context import get_current_session_key
-    from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+    # R1-10: route bridge + completion-push lookups through the
+    # ``butler.execution_context`` seam so tools → gateway stays a
+    # one-way dependency.
+    from butler.execution_context import (
+        get_current_session_key,
+        get_current_turn_bridge,
+        try_push_current_turn_workflow_failure,
+    )
 
-    bridge = get_gateway_bridge_optional()
+    bridge = get_current_turn_bridge()
     session_key = ""
     try:
         from butler.workflows.runner import run_workflow_for_project
@@ -126,10 +132,7 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
         return json.dumps({"success": True, "summary": text}, ensure_ascii=False)
     except Exception as exc:
         try:
-            from butler.gateway.completion_notify import try_push_workflow_failure
-
-            try_push_workflow_failure(
-                bridge,
+            try_push_current_turn_workflow_failure(
                 name,
                 exc,
                 session_key=session_key or str(get_current_session_key() or ""),

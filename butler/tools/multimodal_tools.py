@@ -37,7 +37,11 @@ def tool_generate_image(prompt: str = "", aspect_ratio: str = "1:1", **_: Any) -
         return json.dumps({"error": "prompt is required"})
 
     try:
-        from butler.gateway.minimax_image_gen import generate_image
+        # R1-10: minimax_* is a transport-layer LLM provider; import from
+        # ``butler.transport.multimodal`` (the new canonical path). The
+        # old ``butler.gateway.minimax_image_gen`` path is kept as a
+        # back-compat shim but tools must not depend on gateway.
+        from butler.transport.multimodal.minimax_image_gen import generate_image
         image_url = generate_image(prompt, aspect_ratio=aspect_ratio)
         return json.dumps({
             "ok": True,
@@ -62,7 +66,9 @@ def tool_synthesize_speech(text: str = "", voice_id: str = "male-qn-qingse", **_
         return json.dumps({"error": "text too long (max 5000 chars)"})
 
     try:
-        from butler.gateway.minimax_tts import synthesize_speech
+        # R1-10: see note in ``tool_generate_image`` — minimax_tts moved
+        # to butler/transport/multimodal/.
+        from butler.transport.multimodal.minimax_tts import synthesize_speech
         audio_bytes = synthesize_speech(text, voice_id=voice_id)
 
         import uuid

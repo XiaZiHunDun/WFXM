@@ -217,9 +217,11 @@ def _finalize_delegate_failure(
         summary_preview=summary,
     )
     try:
-        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+        # R1-10: bridge lookup routed through the execution_context seam
+        # so tools → gateway stays a one-way dependency.
+        from butler.execution_context import get_current_turn_bridge
 
-        br = get_gateway_bridge_optional()
+        br = get_current_turn_bridge()
         if br is not None:
             br.notify_delegate_finished(report)
     except Exception as exc:
@@ -248,8 +250,11 @@ def _tool_delegate_task(
     helpers in :mod:`butler.tools.delegate_phases`. The host keeps the
     try/except boundary so :func:`_finalize_delegate_failure` still owns
     the single failure-finalize path (no behavior change).
+
+    R1-10: bridge lookup routed through the ``butler.execution_context``
+    seam so tools → gateway stays a one-way dependency.
     """
-    from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+    from butler.execution_context import get_current_turn_bridge
     from butler.tools.delegate_phases import (
         DelegateRunState,
         _build_user_message,
@@ -267,7 +272,7 @@ def _tool_delegate_task(
         category=category,
         depth=depth,
         original_context=context,
-        bridge=get_gateway_bridge_optional(),
+        bridge=get_current_turn_bridge(),
     )
     try:
         # Phase 1: enrich (role/task/context/category) + depth check

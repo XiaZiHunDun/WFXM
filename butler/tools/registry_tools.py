@@ -110,20 +110,26 @@ def _tool_registry_propose_skill_install(identifier: str, **_) -> str:
 
 
 def _tool_registry_install_skill(identifier: str, source: str = "", **_) -> str:
-    """Install a skill — requires Owner confirmation via is_gateway_owner.
+    """Install a skill — requires Owner confirmation.
 
     Sprint 19-1 SEC-19-A-1: 旧实现 import `butler.human_gate.is_owner_context`
     但该符号根本不存在, try/except ImportError 静默吞掉, owner gate 完全 no-op.
     改用 is_gateway_owner 真源 (Sprint 18-1 单一真源), tool 上下文从
     get_current_session_key() 解析 chat_id, 无 session_key 时 fail-closed.
+
+    R1-10: route through ``is_current_turn_owner`` / ``owner_required_message``
+    in ``butler.execution_context`` so tools → gateway stays a one-way dependency.
     """
-    from butler.execution_context import get_current_session_key
-    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+    from butler.execution_context import (
+        get_current_session_key,
+        is_current_turn_owner,
+        owner_required_message,
+    )
     from butler.session.keys import chat_id_from_session_key
 
     sk = get_current_session_key() or ""
     cid = chat_id_from_session_key(sk) if sk else ""
-    if not is_gateway_owner(platform="wechat", external_id=cid, session_key=sk):
+    if not is_current_turn_owner(platform="wechat", external_id=cid, session_key=sk):
         return json.dumps({
             "error": owner_required_message(),
             "hint": f"请主人通过 /技能 安装 {identifier} 触发 (微信 owner 账号)",

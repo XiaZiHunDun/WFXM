@@ -44,15 +44,19 @@ def tool_butler_config(action: str = "list", key: str = "", value: str = "", cat
             return json.dumps({"error": "key and value are required for action=set"})
         # Sprint 9 SEC-9.5: set 路径在调 config_set 之前做 owner 二次校验，
         # 防止 prompt 注入 → Agent 调 butler_config 改运行时配置。
-        # - 取 implicit session_key → 提取 chat_id
-        # - is_gateway_owner 平台硬编 wechat（CLI / BYPASS 走 BUTLER_PROJECT_CREATE_OPEN）
-        from butler.execution_context import get_current_session_key
-        from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+        # R1-10: route through ``is_current_turn_owner`` / ``owner_required_message``
+        # in ``butler.execution_context`` so tools → gateway stays a one-way
+        # dependency. 平台硬编 wechat（CLI / BYPASS 走 BUTLER_PROJECT_CREATE_OPEN）。
+        from butler.execution_context import (
+            get_current_session_key,
+            is_current_turn_owner,
+            owner_required_message,
+        )
         from butler.session.keys import chat_id_from_session_key
 
         sk = str(get_current_session_key() or "").strip()
         cid = chat_id_from_session_key(sk) if sk else ""
-        if not is_gateway_owner(platform="wechat", external_id=cid, session_key=sk):
+        if not is_current_turn_owner(platform="wechat", external_id=cid, session_key=sk):
             logger.warning(
                 "config_set denied: sk=%s cid=%s key=%s", sk, cid, key
             )
