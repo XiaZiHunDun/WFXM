@@ -171,3 +171,52 @@ class TestPhaseHelpersExportedCleanly:
                 f"butler.tools.delegate_impl.{name} leaked from phases "
                 f"module — host should not re-export phase internals"
             )
+
+
+# Phase-function size contract (R1-5.2 reviewer feedback):
+# ``butler/tools/delegate_phases.py`` first split (commit 861a011) left 4/6
+# phase functions above the 50-line ceiling. The contract: every phase
+# helper must be implementable as a small orchestrator over focused
+# private helpers. We assert the *function* (not the body) stays under
+# 50 source lines — counting ``def`` through the last statement.
+PHASE_FUNCTIONS_UNDER_50 = [
+    "_prepare_delegate_task",
+    "_resolve_subagent",
+    "_build_user_message",
+    "_record_delegate_state",
+    "_run_subagent_loop",
+    "_format_delegate_result",
+]
+
+
+@pytest.mark.unit
+class TestPhaseFunctionsUnder50Lines:
+    """R1-5.2 size contract — every phase function must be a thin
+    orchestrator (< 50 source lines). Long bodies belong in
+    private helpers (``_infer_*`` / ``_apply_*`` / ``_build_*``)."""
+
+    @pytest.mark.parametrize("name", PHASE_FUNCTIONS_UNDER_50)
+    def test_phase_function_under_50_lines(self, name: str):
+        import inspect
+
+        from butler.tools import delegate_phases
+
+        fn = getattr(delegate_phases, name)
+        assert callable(fn), f"delegate_phases.{name} not callable"
+        src = inspect.getsource(fn)
+        # Count non-blank lines to be robust to trailing whitespace
+        body_lines = [ln for ln in src.splitlines() if ln.strip()]
+        assert len(body_lines) < 50, (
+            f"delegate_phases.{name} is {len(body_lines)} non-blank lines; "
+            f"R1-5.2 size contract requires < 50. Split into helpers."
+        )
+
+    def test_all_phase_functions_in_module(self):
+        """Sanity: the parametrize list and the module's phase exports
+        stay in lockstep — if a new phase is added, extend the list."""
+        from butler.tools import delegate_phases
+
+        for name in PHASE_FUNCTIONS_UNDER_50:
+            assert hasattr(delegate_phases, name), (
+                f"phase helper {name} missing from delegate_phases"
+            )
