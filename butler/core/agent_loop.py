@@ -48,6 +48,13 @@ from butler.core.agent_loop_phases import (  # noqa: E402 — split import
 
 logger = logging.getLogger(__name__)
 
+# Audit R2-9: cap on the per-session diagnostics["skipped"] list and truncation
+# length for the error string. Both are the empirical "good enough" defaults —
+# the cap keeps the list bounded for long sessions, the truncation keeps the
+# payload under the typical MCP/JSON envelope limit.
+_MAX_SKIPPED_PLUGIN_ENTRIES = 50
+_MAX_SKIPPED_PLUGIN_ERROR_LEN = 200
+
 
 def _doom_loop_block_on_ask(
     decision: GuardrailDecision,
@@ -153,18 +160,20 @@ class AgentLoop:
         skip now logs at ERROR with a full traceback AND appends a structured
         entry to ``self.diagnostics`` so the failure is visible to ``/诊断``.
 
-        The list is capped at 50 entries to prevent unbounded growth across
-        long-lived sessions; older entries are dropped first (FIFO).
+        The list is capped at ``_MAX_SKIPPED_PLUGIN_ENTRIES`` to prevent
+        unbounded growth across long-lived sessions; older entries are dropped
+        first (FIFO). Error strings are truncated to
+        ``_MAX_SKIPPED_PLUGIN_ERROR_LEN`` to keep the payload small.
         """
         logger.error("%s skipped: %s", plugin_name, exc, exc_info=exc)
         bucket = self.diagnostics.setdefault("skipped", [])
         bucket.append({
             "plugin": plugin_name,
-            "error": str(exc)[:200],
+            "error": str(exc)[:_MAX_SKIPPED_PLUGIN_ERROR_LEN],
             "type": type(exc).__name__,
         })
-        if len(bucket) > 50:
-            del bucket[: len(bucket) - 50]
+        if len(bucket) > _MAX_SKIPPED_PLUGIN_ENTRIES:
+            del bucket[: len(bucket) - _MAX_SKIPPED_PLUGIN_ENTRIES]
 
     def run(
         self,
@@ -409,7 +418,7 @@ class AgentLoop:
                 getattr(self.client, "model", "") or "",
             )
         except Exception as exc:
-            logger.warning("Provider failure recording skipped: %s", exc)
+            self._record_skipped_plugin("provider_failure_recording", exc)
         while self._fallback_index < len(self._fallback_chain) - 1:
             self._fallback_index += 1
             entry = self._fallback_chain[self._fallback_index]
@@ -494,7 +503,7 @@ class AgentLoop:
                 tool_stats=stats,
             )
         except Exception as exc:
-            logger.warning("after_tools middleware skipped: %s", exc)
+            self._record_skipped_plugin("after_tools_middleware", exc)
         if self._guardrails is not None:
             try:
                 counts = getattr(self._guardrails, "_same_tool_failure_counts", {}) or {}
