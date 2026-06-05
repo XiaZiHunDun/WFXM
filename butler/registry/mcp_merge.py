@@ -61,8 +61,9 @@ def _load_servers_block(path: Path) -> dict[str, Any] | None:
 
     Returns:
     - ``None`` if the file does not exist (legitimate empty layer)
-    - ``{}`` if the file exists but cannot be parsed (corruption; caller
-      should still proceed without this layer; corruption is recorded)
+    - ``{}`` if the file exists but is unreadable, unparseable, or has
+      the wrong root type (corruption; caller should still proceed
+      without this layer; corruption is recorded)
     - the parsed ``servers`` dict on success (may be empty)
     """
     if not path.is_file():
@@ -73,6 +74,12 @@ def _load_servers_block(path: Path) -> dict[str, Any] | None:
         _record_corruption(path, exc)
         return {}
     if not isinstance(data, dict):
+        _record_corruption(
+            path,
+            ValueError(
+                f"mcp.yaml root is {type(data).__name__}, expected mapping"
+            ),
+        )
         return {}
     block = data.get("servers")
     return block if isinstance(block, dict) else {}

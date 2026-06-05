@@ -193,6 +193,40 @@ class TestValidYamlClean:
         assert recent_mcp_merge_corruptions() == []
 
 
+@pytest.mark.unit
+class TestWrongRootType:
+    """YAML 合法但根类型不是 mapping — 也是 corruption, 须记入 diagnostics.
+
+    R2-12 code-quality follow-up: 之前 `not isinstance(data, dict)` 分支
+    直接返回 {}, 用户写入 `null` / `42` / `[1,2,3]` 时被静默吞掉, 与
+    parse error 同属 silent-mask. 现在 record corruption 后返回空.
+    """
+
+    def test_yaml_root_null_recorded(self, tmp_path: Path):
+        f = tmp_path / "mcp.yaml"
+        f.write_text("null", encoding="utf-8")
+        assert _read_server_ids(f) == ()
+        corruptions = recent_mcp_merge_corruptions()
+        assert len(corruptions) == 1
+        assert "NoneType" in corruptions[0]["error"] or "expected mapping" in corruptions[0]["error"]
+
+    def test_yaml_root_scalar_recorded(self, tmp_path: Path):
+        f = tmp_path / "mcp.yaml"
+        f.write_text("42", encoding="utf-8")
+        assert _read_server_ids(f) == ()
+        corruptions = recent_mcp_merge_corruptions()
+        assert len(corruptions) == 1
+        assert "int" in corruptions[0]["error"] or "expected mapping" in corruptions[0]["error"]
+
+    def test_yaml_root_list_recorded(self, tmp_path: Path):
+        f = tmp_path / "mcp.yaml"
+        f.write_text("[1, 2, 3]", encoding="utf-8")
+        assert _read_server_ids(f) == ()
+        corruptions = recent_mcp_merge_corruptions()
+        assert len(corruptions) == 1
+        assert "list" in corruptions[0]["error"] or "expected mapping" in corruptions[0]["error"]
+
+
 # -----------------------------------------------------------------------
 # Test 4: ERROR log with exc_info
 # -----------------------------------------------------------------------
@@ -305,18 +339,21 @@ class TestPublicReader:
         original_cap = mm._MAX_MCP_MERGE_CORRUPTION_ENTRIES
         mm._MAX_MCP_MERGE_CORRUPTION_ENTRIES = 3
         try:
-            proj_yaml = ws_with_layers / ".butler" / "mcp.yaml"
-            proj_yaml.write_text("servers: [unclosed", encoding="utf-8")
-            for _ in range(5):
-                _read_server_ids(proj_yaml)
-                mm._mcp_merge_corruptions.clear()  # simulate continuous ingest
-            # 单独再写 5 个不同的 path, 验证 cap 行为
+            # 写 5 个不同损坏 yaml, buffer cap=3, 验证最新 3 个保留 (FIFO)
             for i in range(5):
                 f = ws_with_layers / f"bad_{i}.yaml"
                 f.write_text("[unclosed", encoding="utf-8")
                 _read_server_ids(f)
-            assert len(recent_mcp_merge_corruptions()) <= 3, (
-                f"buffer 满后应按 cap 截断, 实际: {len(recent_mcp_merge_corruptions())}"
+            assert len(recent_mcp_merge_corruptions()) == 3, (
+                f"buffer 满后应严格 cap=3, 实际: {len(recent_mcp_merge_corruptions())}"
+            )
+            # 验证 FIFO: 最旧 2 个 (bad_0, bad_1) 应被丢弃, 留下 bad_2..bad_4
+            paths = [entry["path"] for entry in recent_mcp_merge_corruptions()]
+            assert not any("bad_0.yaml" in p for p in paths), (
+                f"最旧 entry (bad_0) 应被 FIFO 丢弃, 实际: {paths}"
+            )
+            assert not any("bad_1.yaml" in p for p in paths), (
+                f"次旧 entry (bad_1) 应被 FIFO 丢弃, 实际: {paths}"
             )
         finally:
             mm._MAX_MCP_MERGE_CORRUPTION_ENTRIES = original_cap
