@@ -1,42 +1,72 @@
-"""Sprint 16 TST-11-2: butler.gateway.platforms.wechat_ilink._LIVE_ADAPTERS 0 race test.
+"""Sprint 16 TST-11-2 → R1-12 — live-adapter registry race test.
 
-bug: butler/gateway/platforms/wechat_ilink.py:158, 1042, 1058
-  - ``_LIVE_ADAPTERS: Dict[str, Any] = {}`` 模块级 dict, 跨实例共享
-  - ``connect()`` → ``_LIVE_ADAPTERS[self._token] = self`` (line 1042)
-  - ``disconnect()`` → ``_LIVE_ADAPTERS.pop(self._token, None)`` (line 1058)
-  - 0 个 race test 覆盖: 并发 connect 同/不同 token, connect/disconnect 交错
+Original audit (Sprint 16):
+  ``butler.gateway.platforms.wechat_ilink._LIVE_ADAPTERS`` was a
+  module-level ``dict[str, Any] = {}`` with no lock. The
+  ``connect()`` and ``disconnect()`` paths each touched it from
+  the long-poll loop and from the one-shot ``send_wechat_direct``
+  helper, with 0 race-test coverage.
 
-修复: 直接补单测覆盖这些 race 场景, 不改实现 (dict 单 key 写入在 CPython 下原子,
-但并发 connect 同 token 的『last-writer-wins』语义需要测试验证)。
+R1-12 (this iteration):
+  The bare dict was replaced with :class:`AdapterRegistry` (a
+  ``WeakValueDictionary`` + ``threading.RLock``). The
+  sprint-16 race tests are kept and adapted to the new API so we
+  keep regression coverage on the *behaviour* (concurrent
+  register / unregister / lookup semantics) while the *shape*
+  shifts from ``dict`` to ``AdapterRegistry``.
+
+Test surface:
+  - Sequential: register / unregister / contains / len
+  - Concurrent distinct tokens: N threads, N entries
+  - Concurrent same token: last-writer-wins
+  - Concurrent register / unregister / lookup: no KeyError, no
+    inconsistent reads
+  - Static contract: registry is the new module-level name; the
+    old ``_LIVE_ADAPTERS`` dict is gone (R1-12 audit target).
 """
 
 from __future__ import annotations
 
 import asyncio
+import importlib
+import inspect
 import threading
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from butler.gateway.platforms import wechat_ilink
-from butler.gateway.platforms.wechat_ilink import _LIVE_ADAPTERS
+from butler.gateway.platforms.wechat_ilink_registry import (
+    AdapterRegistry,
+    _ADAPTER_REGISTRY,
+)
 
 
-# ── 通用 fixture: 清空模块级 dict ──
+# ── 通用 fixture: 清空 singleton, 测试间互不污染 ──
 
 
 @pytest.fixture(autouse=True)
 def _isolate_live_adapters():
-    """每个测试前后清空 _LIVE_ADAPTERS, 避免污染。"""
-    _LIVE_ADAPTERS.clear()
-    yield
-    _LIVE_ADAPTERS.clear()
+    """每个测试前后清空 singleton, 避免污染。"""
+    # Snapshot so we can restore after; per-test isolation is critical
+    # because the singleton is module-level and shared across tests.
+    snapshot = list(_ADAPTER_REGISTRY._adapters.items())  # type: ignore[attr-defined]
+    with _ADAPTER_REGISTRY._lock:  # type: ignore[attr-defined]
+        _ADAPTER_REGISTRY._adapters.clear()  # type: ignore[attr-defined]
+    try:
+        yield
+    finally:
+        with _ADAPTER_REGISTRY._lock:  # type: ignore[attr-defined]
+            _ADAPTER_REGISTRY._adapters.clear()  # type: ignore[attr-defined]
+            for k, v in snapshot:
+                _ADAPTER_REGISTRY._adapters[k] = v  # type: ignore[attr-defined]
 
 
 def _make_fake_adapter(token: str) -> MagicMock:
-    """构造一个 fake adapter, 模拟 connect/disconnect 的 dict 副作用。
+    """构造一个 fake adapter, 模拟 connect/disconnect 的注册副作用。
 
-    只设 ``_token`` 属性, 因为 _LIVE_ADAPTERS 索引只看 token。
+    只设 ``_token`` 属性, 因为 registry 只看 token。
     """
     adapter = MagicMock()  # noqa: magicmock-no-spec — live adapters race shim (adapter)
     adapter._token = token
@@ -44,13 +74,13 @@ def _make_fake_adapter(token: str) -> MagicMock:
 
 
 def _register(adapter: MagicMock) -> None:
-    """模拟 connect() 的最后一行: ``_LIVE_ADAPTERS[self._token] = self``。"""
-    _LIVE_ADAPTERS[adapter._token] = adapter
+    """模拟 ``_start_poll_and_register`` 的最后一行: ``_ADAPTER_REGISTRY.register(adapter._token, adapter)``。"""
+    _ADAPTER_REGISTRY.register(adapter._token, adapter)
 
 
 def _unregister(adapter: MagicMock) -> None:
-    """模拟 disconnect() 的第一行: ``_LIVE_ADAPTERS.pop(self._token, None)``。"""
-    _LIVE_ADAPTERS.pop(adapter._token, None)
+    """模拟 ``disconnect()`` 的第一行: ``_ADAPTER_REGISTRY.unregister(adapter._token)``。"""
+    _ADAPTER_REGISTRY.unregister(adapter._token)
 
 
 # ── 顺序: 基本契约 ──
@@ -58,25 +88,25 @@ def _unregister(adapter: MagicMock) -> None:
 
 class TestSequentialSemantics:
     def test_register_then_lookup(self):
-        """register 后, _LIVE_ADAPTERS.get(token) 应返回该 adapter。"""
+        """register 后, _ADAPTER_REGISTRY.get(token) 应返回该 adapter。"""
         a = _make_fake_adapter("token-a")
         _register(a)
-        assert _LIVE_ADAPTERS.get("token-a") is a
+        assert _ADAPTER_REGISTRY.get("token-a") is a
 
     def test_register_disconnect_unregister(self):
-        """register → unregister 后, dict 不应再含该 token。"""
+        """register → unregister 后, registry 不应再含该 token。"""
         a = _make_fake_adapter("token-b")
         _register(a)
-        assert "token-b" in _LIVE_ADAPTERS
+        assert "token-b" in _ADAPTER_REGISTRY
         _unregister(a)
-        assert "token-b" not in _LIVE_ADAPTERS
+        assert "token-b" not in _ADAPTER_REGISTRY
 
     def test_unregister_missing_token_is_noop(self):
-        """disconnect 未注册的 token → 不抛 KeyError, dict 不变。"""
+        """unregister 未注册的 token → 返回 False, registry 不变。"""
         a = _make_fake_adapter("never-registered")
         _unregister(a)  # 模拟重复 disconnect
-        assert "never-registered" not in _LIVE_ADAPTERS
-        assert _LIVE_ADAPTERS == {}
+        assert "never-registered" not in _ADAPTER_REGISTRY
+        assert len(_ADAPTER_REGISTRY) == 0
 
     def test_register_overwrites_previous(self):
         """同 token 重新 register → 新 adapter 覆盖旧 adapter (last-writer-wins)。"""
@@ -84,17 +114,17 @@ class TestSequentialSemantics:
         a2 = _make_fake_adapter("token-c")
         _register(a1)
         _register(a2)
-        assert _LIVE_ADAPTERS["token-c"] is a2
-        assert _LIVE_ADAPTERS["token-c"] is not a1
+        assert _ADAPTER_REGISTRY.get("token-c") is a2
+        assert _ADAPTER_REGISTRY.get("token-c") is not a1
 
     def test_disconnect_then_reconnect(self):
-        """disconnect → reconnect: 旧 adapter 失效, 新 adapter 上位。"""
+        """unregister → register: 旧 adapter 失效, 新 adapter 上位。"""
         a1 = _make_fake_adapter("token-d")
         a2 = _make_fake_adapter("token-d")
         _register(a1)
         _unregister(a1)
         _register(a2)
-        assert _LIVE_ADAPTERS["token-d"] is a2
+        assert _ADAPTER_REGISTRY.get("token-d") is a2
 
 
 # ── 并发: 不同 token 互不干扰 ──
@@ -102,7 +132,7 @@ class TestSequentialSemantics:
 
 class TestConcurrentDistinctTokens:
     def test_concurrent_register_distinct_tokens_all_succeed(self):
-        """N 个线程各 register 不同 token → 全部进入 dict。"""
+        """N 个线程各 register 不同 token → 全部进入 registry。"""
         N = 32
         barrier = threading.Barrier(N)
         adapters = [_make_fake_adapter(f"distinct-{i}") for i in range(N)]
@@ -121,23 +151,22 @@ class TestConcurrentDistinctTokens:
             t.join(timeout=5)
             assert not t.is_alive(), "register thread hung"
 
-        assert len(_LIVE_ADAPTERS) == N, (
-            f"expected {N} entries, got {len(_LIVE_ADAPTERS)}: "
-            f"{list(_LIVE_ADAPTERS.keys())}"
+        assert _ADAPTER_REGISTRY.live_count() == N, (
+            f"expected {N} entries, got {_ADAPTER_REGISTRY.live_count()}"
         )
         for a in adapters:
-            assert _LIVE_ADAPTERS[a._token] is a, (
+            assert _ADAPTER_REGISTRY.get(a._token) is a, (
                 f"token {a._token} registered adapter mismatch"
             )
 
     def test_async_gather_register_distinct_tokens_all_succeed(self):
-        """asyncio.gather 并发 register 不同 token → 全部进入 dict。"""
+        """asyncio.gather 并发 register 不同 token → 全部进入 registry。"""
         async def reg_all() -> None:
             adapters = [_make_fake_adapter(f"async-{i}") for i in range(20)]
             await asyncio.gather(*(_register_async(a) for a in adapters))
-            assert len(_LIVE_ADAPTERS) == 20
+            assert _ADAPTER_REGISTRY.live_count() == 20
             for a in adapters:
-                assert _LIVE_ADAPTERS[a._token] is a
+                assert _ADAPTER_REGISTRY.get(a._token) is a
 
         asyncio.run(reg_all())
 
@@ -153,7 +182,7 @@ async def _register_async(adapter: MagicMock) -> None:
 
 class TestConcurrentSameToken:
     def test_concurrent_register_same_token_one_wins(self):
-        """N 个线程同 token 并发 register → dict 终态应只有一个, 是某个 thread 的 adapter。"""
+        """N 个线程同 token 并发 register → registry 终态应只有一个, 是某个 thread 的 adapter。"""
         N = 16
         token = "shared-token"
         barrier = threading.Barrier(N)
@@ -173,10 +202,10 @@ class TestConcurrentSameToken:
             t.join(timeout=5)
             assert not t.is_alive(), "register thread hung"
 
-        assert len(_LIVE_ADAPTERS) == 1, (
-            f"expected 1 entry for shared token, got {len(_LIVE_ADAPTERS)}"
+        assert _ADAPTER_REGISTRY.live_count() == 1, (
+            f"expected 1 entry for shared token, got {_ADAPTER_REGISTRY.live_count()}"
         )
-        winner = _LIVE_ADAPTERS[token]
+        winner = _ADAPTER_REGISTRY.get(token)
         assert winner in adapters, "winner must be one of the registered adapters"
 
 
@@ -206,24 +235,24 @@ class TestConcurrentConnectDisconnect:
         for t in threads:
             t.join(timeout=5)
 
-        # 收尾: unregister 一次, 验证 dict 一致
+        # 收尾: unregister 一次, 验证 registry 一致
         _unregister(a)
-        assert "flap-token" not in _LIVE_ADAPTERS
+        assert "flap-token" not in _ADAPTER_REGISTRY
 
     def test_concurrent_unregister_and_lookup(self):
-        """一个线程 unregister, 多个线程同时 lookup → lookup 不应抛 KeyError。"""
+        """一个线程 unregister, 多个线程同时 lookup → lookup 不应抛任何异常。"""
         token = "lookup-race"
         a = _make_fake_adapter(token)
         _register(a)
 
         N_LOOKUP = 16
         barrier = threading.Barrier(N_LOOKUP + 1)
-        results: list[MagicMock | None] = []
+        results: list[Any] = []
         results_lock = threading.Lock()
 
         def do_lookup() -> None:
             barrier.wait()
-            v = _LIVE_ADAPTERS.get(token)
+            v = _ADAPTER_REGISTRY.get(token)
             with results_lock:
                 results.append(v)
 
@@ -243,64 +272,74 @@ class TestConcurrentConnectDisconnect:
             t.join(timeout=5)
         unreg_thread.join(timeout=5)
 
-        # 所有 lookup 应返回 a 或 None, 不抛 KeyError
+        # 所有 lookup 应返回 a 或 None, 不抛任何异常
         for r in results:
             assert r is a or r is None, (
                 f"lookup 期间不应出现意料外的值: {r!r}"
             )
 
 
-# ── 静态契约 ──
+# ── 静态契约: 适配 R1-12 的新 shape ──
 
 
 class TestStaticContract:
-    def test_live_adapters_is_module_level_dict(self):
-        """_LIVE_ADAPTERS 必须是模块级 dict[str, Any]。"""
-        # 直接 import 后修改 source module attr, 防止误改别名
-        assert hasattr(wechat_ilink, "_LIVE_ADAPTERS")
-        assert isinstance(wechat_ilink._LIVE_ADAPTERS, dict), (
-            f"_LIVE_ADAPTERS 应为 dict, 实际 {type(wechat_ilink._LIVE_ADAPTERS)}"
+    def test_registry_is_module_level_adapter_registry(self):
+        """R1-12: wechat_ilink 必须暴露模块级 ``_ADAPTER_REGISTRY`` (AdapterRegistry)。"""
+        assert hasattr(wechat_ilink, "_ADAPTER_REGISTRY"), (
+            "wechat_ilink must expose module-level _ADAPTER_REGISTRY (R1-12)"
+        )
+        assert isinstance(wechat_ilink._ADAPTER_REGISTRY, AdapterRegistry), (
+            f"_ADAPTER_REGISTRY 应为 AdapterRegistry, 实际 "
+            f"{type(wechat_ilink._ADAPTER_REGISTRY)}"
         )
 
-    def test_disconnect_uses_pop_with_default(self):
-        """disconnect() 必须用 ``_LIVE_ADAPTERS.pop(self._token, None)`` 而非 ``del``。"""
-        import inspect
+    def test_old_live_adapters_dict_is_gone(self):
+        """R1-12: 模块级 ``_LIVE_ADAPTERS: dict`` 已被 ``_ADAPTER_REGISTRY`` 替代。
 
+        如果 ``_LIVE_ADAPTERS`` 仍以 dict 形式存在, 说明 R1-12 的替换没生效。
+        """
+        if hasattr(wechat_ilink, "_LIVE_ADAPTERS"):
+            assert not isinstance(wechat_ilink._LIVE_ADAPTERS, dict), (
+                "_LIVE_ADAPTERS dict shape was the R1-12 audit target; "
+                "the new _ADAPTER_REGISTRY (AdapterRegistry) replaces it."
+            )
+
+    def test_disconnect_uses_registry_unregister(self):
+        """disconnect() 必须用 ``_ADAPTER_REGISTRY.unregister(self._token)``。"""
         from butler.gateway.platforms.wechat_ilink import WeChatAdapter
 
         source = inspect.getsource(WeChatAdapter.disconnect)
-        assert "_LIVE_ADAPTERS.pop(self._token, None)" in source, (
-            "disconnect() 应使用 .pop(..., None) 防止重复 disconnect 抛 KeyError"
+        assert "_ADAPTER_REGISTRY.unregister(self._token)" in source, (
+            "disconnect() 应使用 _ADAPTER_REGISTRY.unregister 防止并发损坏"
         )
-        # 防御: 不应有 del
-        assert "del _LIVE_ADAPTERS" not in source, (
-            "disconnect() 不应使用 del (会抛 KeyError on 重复 disconnect)"
+        # 防御: 不应再裸引用 _LIVE_ADAPTERS
+        assert "_LIVE_ADAPTERS" not in source, (
+            "disconnect() 不应再 touch _LIVE_ADAPTERS (R1-12 已替换为 registry)"
         )
 
-    def test_connect_assigns_to_dict(self):
-        """connect() 末尾应执行 ``_LIVE_ADAPTERS[self._token] = self``。"""
-        import inspect
+    def test_start_poll_assigns_via_registry(self):
+        """``_start_poll_and_register`` 末尾应执行 ``_ADAPTER_REGISTRY.register(...)``。"""
+        from butler.gateway.platforms import wechat_ilink_phases
 
-        from butler.gateway.platforms.wechat_ilink import WeChatAdapter
-
-        source = inspect.getsource(WeChatAdapter.connect)
-        assert "_LIVE_ADAPTERS[self._token] = self" in source, (
-            "connect() 应在末尾注册到 _LIVE_ADAPTERS"
+        source = inspect.getsource(wechat_ilink_phases._start_poll_and_register)
+        assert "_ADAPTER_REGISTRY.register(" in source, (
+            "_start_poll_and_register 应在末尾通过 _ADAPTER_REGISTRY.register 注册"
+        )
+        assert "_LIVE_ADAPTERS" not in source, (
+            "_start_poll_and_register 不应再 touch _LIVE_ADAPTERS"
         )
 
     def test_lookup_uses_get_with_default(self):
-        """调用方 (line 1956) 必须用 ``.get(resolved_token)`` 而非 ``[resolved_token]``。"""
-        # 找所有 _LIVE_ADAPTERS 引用, 确保没裸下标访问
+        """调用方 (line 1257 附近) 必须用 ``.get(resolved_token)`` 而非裸下标 ``[token]``。"""
         import inspect
 
         from butler.gateway.platforms import wechat_ilink
 
         source = inspect.getsource(wechat_ilink)
-        # 允许 .get(...) 和 .pop(..., None) 和 [...] = ... (写入)
-        # 禁止裸 _LIVE_ADAPTERS[xxx] 读取 (会抛 KeyError)
         for line in source.splitlines():
             stripped = line.strip()
-            if "_LIVE_ADAPTERS[" in stripped and "=" not in stripped.split("_LIVE_ADAPTERS[", 1)[1].split("]", 1)[1]:
+            # 允许 .get(...) 和 .pop(..., None) 调用; 禁止裸 _ADAPTER_REGISTRY[xxx] 读取
+            if "_ADAPTER_REGISTRY[" in stripped:
                 pytest.fail(
-                    f"found unsafe read _LIVE_ADAPTERS[...]: {stripped!r}"
+                    f"found unsafe read _ADAPTER_REGISTRY[...]: {stripped!r}"
                 )

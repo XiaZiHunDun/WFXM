@@ -22,6 +22,7 @@ PR, after the call sites are migrated to the registry.
 from __future__ import annotations
 
 import gc
+import inspect
 import threading
 import weakref
 from typing import Any
@@ -332,3 +333,110 @@ class TestModuleSingleton:
         assert "singleton-tok" in _ADAPTER_REGISTRY
         assert _ADAPTER_REGISTRY.unregister("singleton-tok") is True
         assert _ADAPTER_REGISTRY.get("singleton-tok") is None
+
+
+# ---------------------------------------------------------------------------
+# 5. Integration with the R1-4a/4b module split — call-site wiring
+# ---------------------------------------------------------------------------
+
+
+WECHAT_ILINK_PATH = "butler.gateway.platforms.wechat_ilink"
+WECHAT_ILINK_PHASES_PATH = "butler.gateway.platforms.wechat_ilink_phases"
+
+
+@pytest.mark.unit
+class TestCallSiteWiring:
+    """Static checks on the 3 call sites in the R1-4 split. They must
+    route through the registry, not the old module-level dict."""
+
+    def test_wechat_ilink_exposes_registry(self):
+        import importlib
+
+        mod = importlib.import_module(WECHAT_ILINK_PATH)
+        assert isinstance(mod._ADAPTER_REGISTRY, AdapterRegistry)
+
+    def test_disconnect_uses_registry_unregister(self):
+        from butler.gateway.platforms.wechat_ilink import WeChatAdapter
+
+        src = inspect.getsource(WeChatAdapter.disconnect)
+        assert "_ADAPTER_REGISTRY.unregister(self._token)" in src, (
+            "disconnect() must route through AdapterRegistry.unregister; "
+            "raw _LIVE_ADAPTERS.pop is the R1-12 audit target."
+        )
+        assert "_LIVE_ADAPTERS" not in src, (
+            "disconnect() must no longer touch the module-level dict"
+        )
+
+    def test_connect_assigns_via_registry(self):
+        """``_start_poll_and_register`` (R1-4a) must register via the registry."""
+        import importlib
+
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        fn = getattr(mod, "_start_poll_and_register", None)
+        assert fn is not None, "phases module must export _start_poll_and_register"
+        src = inspect.getsource(fn)
+        assert "_ADAPTER_REGISTRY.register(" in src, (
+            "_start_poll_and_register must register via AdapterRegistry"
+        )
+        assert "_LIVE_ADAPTERS" not in src, (
+            "_start_poll_and_register must no longer touch the module-level dict"
+        )
+
+    def test_send_wechat_direct_uses_registry_get(self):
+        from butler.gateway.platforms.wechat_ilink import send_wechat_direct
+
+        src = inspect.getsource(send_wechat_direct)
+        assert "_ADAPTER_REGISTRY.get(" in src, (
+            "send_wechat_direct must look up live adapter via AdapterRegistry.get"
+        )
+        assert "_LIVE_ADAPTERS" not in src, (
+            "send_wechat_direct must no longer touch the module-level dict"
+        )
+
+    def test_disconnect_drops_adapter_from_registry(self, fresh_registry):
+        """End-to-end: register an adapter, then simulate what
+        ``WeChatAdapter.disconnect`` does (the first line is now
+        ``_ADAPTER_REGISTRY.unregister(self._token)``) and verify the
+        adapter is gone."""
+        a = _make_fake_adapter("t-integration-disconnect")
+        fresh_registry.register("t-integration-disconnect", a)
+        # Mirror the disconnect() body: first line is the unregister call.
+        assert fresh_registry.unregister(a._token) is True
+        assert fresh_registry.get("t-integration-disconnect") is None
+
+
+@pytest.mark.unit
+class TestBackwardCompatShape:
+    """R1-12 replaces the old ``_LIVE_ADAPTERS`` dict with a registry.
+    No code path on ``wechat_ilink`` may still reference the old name
+    as a live (callable) attribute; comments / docstrings are fine.
+    """
+
+    def test_wechat_ilink_has_no_live_adapters_dict_attr(self):
+        import importlib
+
+        mod = importlib.import_module(WECHAT_ILINK_PATH)
+        # The dict itself must be gone; allowing only the registry:
+        if hasattr(mod, "_LIVE_ADAPTERS"):
+            assert not isinstance(mod._LIVE_ADAPTERS, dict), (
+                "_LIVE_ADAPTERS dict shape was the R1-12 audit target."
+            )
+
+    def test_phases_module_has_no_live_adapters_dict_attr(self):
+        import importlib
+
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        if hasattr(mod, "_LIVE_ADAPTERS"):
+            assert not isinstance(mod._LIVE_ADAPTERS, dict), (
+                "_LIVE_ADAPTERS dict shape was the R1-12 audit target."
+            )
+
+    def test_send_wechat_direct_is_callable(self):
+        from butler.gateway.platforms.wechat_ilink import send_wechat_direct
+
+        # The R1-12 wiring doesn't change the public surface — the
+        # function is still importable + async-callable.
+        import inspect as _inspect
+
+        assert _inspect.iscoroutinefunction(send_wechat_direct)
+

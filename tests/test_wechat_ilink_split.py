@@ -102,16 +102,29 @@ class TestBackwardCompatSymbols:
 
 @pytest.mark.unit
 class TestLiveAdaptersRegistryUntouched:
-    """R1-12 owns ``_LIVE_ADAPTERS``; this test only locks in dict type.
+    """R1-12 owns the live-adapter registry; the dict shape is gone.
 
-    The audit says R1-12 will be addressed separately. For R1-4, we just
-    ensure the global is still a module-level dict on the original
-    import path.
+    The audit split was intentional: R1-4 (this issue) only relocated
+    symbols without touching the registry, and R1-12 later replaced
+    ``_LIVE_ADAPTERS: Dict`` with ``_ADAPTER_REGISTRY: AdapterRegistry``.
+    This test now locks in the *new* contract: a module-level
+    ``_ADAPTER_REGISTRY`` of type :class:`AdapterRegistry` on the
+    original import path, with the public methods the R1-4 split
+    assumes (``register`` / ``unregister`` / ``get``).
     """
 
-    def test_live_adapters_is_dict(self):
+    def test_live_adapters_is_registry(self):
+        from butler.gateway.platforms.wechat_ilink_registry import (
+            AdapterRegistry,
+        )
+
         mod = importlib.import_module(WECHAT_ILINK_PATH)
-        assert isinstance(mod._LIVE_ADAPTERS, dict)
+        assert isinstance(mod._ADAPTER_REGISTRY, AdapterRegistry)
+        # Public surface the 3 call sites rely on:
+        for method in ("register", "unregister", "get", "live_count"):
+            assert callable(getattr(mod._ADAPTER_REGISTRY, method)), (
+                f"_ADAPTER_REGISTRY must expose {method}() for the R1-4 call sites"
+            )
 
 
 @pytest.mark.unit

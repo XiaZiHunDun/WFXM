@@ -266,15 +266,13 @@ def _open_aiohttp_sessions(adapter: "WeChatAdapter") -> None:
 
 def _start_poll_and_register(adapter: "WeChatAdapter") -> None:
     """Restore token store, start poll task, mark connected, register."""
-    from butler.gateway.platforms.wechat_ilink import (
-        _LIVE_ADAPTERS,
-        _safe_id,
-    )
+    from butler.gateway.platforms.wechat_ilink import _safe_id
+    from butler.gateway.platforms.wechat_ilink_registry import _ADAPTER_REGISTRY
 
     adapter._token_store.restore(adapter._account_id)
     adapter._poll_task = asyncio.create_task(adapter._poll_loop(), name="wechat-poll")
     adapter._mark_connected()
-    _LIVE_ADAPTERS[adapter._token] = adapter
+    _ADAPTER_REGISTRY.register(adapter._token, adapter)
     logger.info(
         "[%s] Connected account=%s base=%s",
         adapter.name, _safe_id(adapter._account_id), adapter._base_url,

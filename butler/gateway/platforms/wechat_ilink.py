@@ -158,9 +158,17 @@ from butler.gateway.platforms.wechat_ilink_utils import (  # noqa: E402, F401
 )
 
 
-_LIVE_ADAPTERS: Dict[str, Any] = {}
-# (R1-12 owns ``_LIVE_ADAPTERS``; the split is intentionally non-overlapping
-# with that issue — see audit doc §R1-12.)
+# R1-12 — thread-safe registry for live WeChat adapters. Replaces the
+# module-level ``_LIVE_ADAPTERS: Dict`` whose unguarded concurrent
+# register/get/pop across the long-poll loop and the one-shot
+# ``send_wechat_direct`` path was the audit H finding. The new
+# registry pairs a ``weakref.WeakValueDictionary`` (so dropped
+# adapters are reclaimed automatically) with a ``threading.RLock``
+# (so concurrent mutations are serialised).
+from butler.gateway.platforms.wechat_ilink_registry import (  # noqa: E402
+    AdapterRegistry,
+    _ADAPTER_REGISTRY,
+)
 
 
 async def _api_post(
@@ -488,7 +496,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
         return True
 
     async def disconnect(self) -> None:
-        _LIVE_ADAPTERS.pop(self._token, None)
+        _ADAPTER_REGISTRY.unregister(self._token)
         self._running = False
         if self._poll_task and not self._poll_task.done():
             self._poll_task.cancel()
@@ -1254,7 +1262,7 @@ async def send_wechat_direct(
     token_store.restore(account_id)
     context_token = token_store.get(account_id, chat_id)
 
-    live_adapter = _LIVE_ADAPTERS.get(resolved_token)
+    live_adapter = _ADAPTER_REGISTRY.get(resolved_token)
     send_session = getattr(live_adapter, "_send_session", None)
     if (live_adapter is not None and send_session is not None
             and not send_session.closed

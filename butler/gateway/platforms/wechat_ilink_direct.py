@@ -18,7 +18,7 @@ This module owns concerns 1-3 as small phase functions:
   either a credentials dict or an error dict (mirrors the
   ``{"error": ...}`` return contract of the host).
 * :func:`_phase_direct_send_via_live_adapter` — deliver via the
-  live adapter registered in ``_LIVE_ADAPTERS`` for the same token.
+  live adapter registered in ``_ADAPTER_REGISTRY`` for the same token.
 * :func:`_phase_direct_send_via_fresh_adapter` — build a fresh
   ``WeChatAdapter`` and deliver through it.
 
