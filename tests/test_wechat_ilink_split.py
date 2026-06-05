@@ -295,10 +295,10 @@ class TestR14aWeChatAdapterGodMethodsThinned:
         )
 
 
-# R1-4b reserved: ``qr_login`` (top-level) and ``send_wechat_direct`` are NOT
-# in this R1-4a issue; they are deferred to R1-4b. The global AST scan
-# below must skip them so R1-4a does not depend on R1-4b landing first.
-R14B_RESERVED = frozenset({"qr_login", "send_wechat_direct"})
+# R1-4b: ``qr_login`` and ``send_wechat_direct`` are now part of R1-4b's
+# scope. The global AST scan below enforces the < 50L cap on EVERY
+# top-level function in ``wechat_ilink.py`` (no reserved exceptions).
+R14B_RESERVED = frozenset()
 
 
 @pytest.mark.unit
@@ -425,3 +425,258 @@ class TestR14aSendStateDataclass:
             assert expected in field_names, (
                 f"WeChatSendState missing field: {expected}"
             )
+
+
+# ---------------------------------------------------------------------------
+# R1-4b — qr_login + send_wechat_direct god-function split
+# ---------------------------------------------------------------------------
+
+# Modules that R1-4b introduces or extends.
+WECHAT_ILINK_DIRECT_PATH = "butler.gateway.platforms.wechat_ilink_direct"
+
+
+# Top-level god functions that R1-4b must thin to < 50L in
+# ``wechat_ilink.py``. After this issue, the entire file should pass
+# the 50-line cap.
+R14B_GOD_FUNCTIONS = [
+    "qr_login",
+    "send_wechat_direct",
+]
+
+
+# Phase functions that the new ``wechat_ilink_phases`` module must export
+# for the QR login flow. Added in R1-4b on top of R1-4a's list.
+R14B_QR_PHASE_FUNCTIONS = [
+    "_phase_qr_request_code",
+    "_phase_qr_render",
+    "_phase_qr_poll_iteration",
+    "_phase_qr_refresh",
+    "_phase_qr_finalize",
+    "_phase_qr_poll_step",
+]
+
+
+# Phase functions that the new ``wechat_ilink_direct`` module must export
+# for the ``send_wechat_direct`` flow.
+R14B_DIRECT_PHASE_FUNCTIONS = [
+    "_phase_direct_resolve_credentials",
+    "_phase_direct_send_via_live_adapter",
+    "_phase_direct_send_via_fresh_adapter",
+]
+
+
+@pytest.mark.unit
+class TestR14bDirectModuleExists:
+    """R1-4b introduces ``wechat_ilink_direct.py`` — verify it loads."""
+
+    def test_direct_module_loads(self):
+        mod = importlib.import_module(WECHAT_ILINK_DIRECT_PATH)
+        assert mod is not None
+
+    def test_direct_module_docstring_mentions_r14b(self):
+        mod = importlib.import_module(WECHAT_ILINK_DIRECT_PATH)
+        assert mod.__doc__ and "R1-4b" in mod.__doc__, (
+            f"{WECHAT_ILINK_DIRECT_PATH} docstring must reference R1-4b audit source"
+        )
+
+    def test_direct_module_logger(self):
+        mod = importlib.import_module(WECHAT_ILINK_DIRECT_PATH)
+        assert hasattr(mod, "logger"), (
+            f"{WECHAT_ILINK_DIRECT_PATH} must define module-level logger"
+        )
+
+
+@pytest.mark.unit
+class TestR14bQrPhasesExtended:
+    """R1-4b extends ``wechat_ilink_phases.py`` with QR-login phases."""
+
+    def test_phases_module_docstring_mentions_r14b(self):
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        assert mod.__doc__ and "R1-4b" in mod.__doc__, (
+            f"{WECHAT_ILINK_PHASES_PATH} docstring must reference R1-4b audit source"
+        )
+
+    @pytest.mark.parametrize("name", R14B_QR_PHASE_FUNCTIONS)
+    def test_qr_phase_symbol_present(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        assert hasattr(mod, name), (
+            f"{WECHAT_ILINK_PHASES_PATH}.{name} missing — R1-4b extraction incomplete"
+        )
+        assert callable(getattr(mod, name)), (
+            f"{WECHAT_ILINK_PHASES_PATH}.{name} must be callable"
+        )
+
+
+@pytest.mark.unit
+class TestR14bDirectPhaseFunctionsPresent:
+    @pytest.mark.parametrize("name", R14B_DIRECT_PHASE_FUNCTIONS)
+    def test_direct_phase_symbol_present(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_DIRECT_PATH)
+        assert hasattr(mod, name), (
+            f"{WECHAT_ILINK_DIRECT_PATH}.{name} missing — R1-4b extraction incomplete"
+        )
+        assert callable(getattr(mod, name)), (
+            f"{WECHAT_ILINK_DIRECT_PATH}.{name} must be callable"
+        )
+
+
+@pytest.mark.unit
+class TestR14bPhaseFunctionsUnder50Lines:
+    """R1-4b size contract: every new phase helper must be < 50 source lines."""
+
+    @pytest.mark.parametrize("name", R14B_QR_PHASE_FUNCTIONS)
+    def test_qr_phase_function_under_50_lines(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        assert hasattr(mod, name), f"{WECHAT_ILINK_PHASES_PATH}.{name} missing"
+        fn = getattr(mod, name)
+        assert callable(fn), f"{WECHAT_ILINK_PHASES_PATH}.{name} not callable"
+        src = inspect.getsource(fn)
+        body_lines = [ln for ln in src.splitlines() if ln.strip()]
+        assert len(body_lines) < 50, (
+            f"{WECHAT_ILINK_PHASES_PATH}.{name} is {len(body_lines)} non-blank lines; "
+            f"R1-4b size contract requires < 50. Split into helpers."
+        )
+
+    @pytest.mark.parametrize("name", R14B_DIRECT_PHASE_FUNCTIONS)
+    def test_direct_phase_function_under_50_lines(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_DIRECT_PATH)
+        assert hasattr(mod, name), f"{WECHAT_ILINK_DIRECT_PATH}.{name} missing"
+        fn = getattr(mod, name)
+        assert callable(fn), f"{WECHAT_ILINK_DIRECT_PATH}.{name} not callable"
+        src = inspect.getsource(fn)
+        body_lines = [ln for ln in src.splitlines() if ln.strip()]
+        assert len(body_lines) < 50, (
+            f"{WECHAT_ILINK_DIRECT_PATH}.{name} is {len(body_lines)} non-blank lines; "
+            f"R1-4b size contract requires < 50. Split into helpers."
+        )
+
+
+@pytest.mark.unit
+class TestR14bTopLevelGodFunctionsThinned:
+    """``qr_login`` and ``send_wechat_direct`` must be < 50L after R1-4b."""
+
+    @pytest.mark.parametrize("name", R14B_GOD_FUNCTIONS)
+    def test_god_function_under_50_lines(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_PATH)
+        assert hasattr(mod, name), f"{WECHAT_ILINK_PATH}.{name} missing"
+        fn = getattr(mod, name)
+        assert callable(fn), f"{WECHAT_ILINK_PATH}.{name} not callable"
+        src = inspect.getsource(fn)
+        body_lines = [ln for ln in src.splitlines() if ln.strip()]
+        assert len(body_lines) < 50, (
+            f"{WECHAT_ILINK_PATH}.{name} is {len(body_lines)} non-blank lines; "
+            f"R1-4b split target is < 50."
+        )
+
+
+@pytest.mark.unit
+class TestR14bWeChatIlinkAllTopLevelUnder50Lines:
+    """Project-wide rule: every top-level function in wechat_ilink.py ≤ 50 lines.
+
+    After R1-4b, the file must pass the size contract end-to-end
+    (no reserved exceptions left). Catches the next god-function
+    refactor in this file.
+    """
+
+    def test_no_top_level_function_exceeds_50_lines(self):
+        src_path = _pathlib.Path(importlib.import_module(WECHAT_ILINK_PATH).__file__)
+        text = src_path.read_text(encoding="utf-8")
+        tree = _ast.parse(text)
+        src_lines = text.splitlines()
+        offenders: list[tuple[str, int, int]] = []
+        # Walk only the module body (not class bodies) for top-level funcs.
+        for node in tree.body:
+            if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                end = getattr(node, "end_lineno", None) or node.lineno
+                body = src_lines[node.lineno - 1:end]
+                non_blank = [ln for ln in body if ln.strip()]
+                if len(non_blank) > 50:
+                    offenders.append((node.name, node.lineno, len(non_blank)))
+        assert not offenders, (
+            "wechat_ilink.py top-level functions over 50 lines: "
+            + ", ".join(f"{n}@{ln}={sz}L" for n, ln, sz in offenders)
+        )
+
+
+@pytest.mark.unit
+class TestR14bBackwardCompat:
+    """R1-4b must not remove ``qr_login`` / ``send_wechat_direct`` from the
+    original import path; the thinned orchestrators must remain on
+    ``butler.gateway.platforms.wechat_ilink``."""
+
+    @pytest.mark.parametrize("name", ["qr_login", "send_wechat_direct"])
+    def test_symbol_still_on_wechat_ilink(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_PATH)
+        assert hasattr(mod, name), f"{name} disappeared from {WECHAT_ILINK_PATH}"
+        assert callable(getattr(mod, name)), (
+            f"{WECHAT_ILINK_PATH}.{name} must remain callable"
+        )
+
+    def test_qr_login_is_coroutine(self):
+        import inspect as _inspect
+
+        mod = importlib.import_module(WECHAT_ILINK_PATH)
+        assert _inspect.iscoroutinefunction(mod.qr_login), (
+            "qr_login must remain an async function for back-compat"
+        )
+
+    def test_send_wechat_direct_is_coroutine(self):
+        import inspect as _inspect
+
+        mod = importlib.import_module(WECHAT_ILINK_PATH)
+        assert _inspect.iscoroutinefunction(mod.send_wechat_direct), (
+            "send_wechat_direct must remain an async function for back-compat"
+        )
+
+
+@pytest.mark.unit
+class TestR14bQrLoginStateDataclass:
+    """``QrLoginState`` carrier — mirrors the R1-4a ``WeChatSendState`` pattern."""
+
+    def test_qr_login_state_is_dataclass(self):
+        from dataclasses import is_dataclass
+
+        from butler.gateway.platforms.wechat_ilink_phases import QrLoginState
+
+        assert is_dataclass(QrLoginState), (
+            "QrLoginState must be a @dataclass to serve as a phase carrier"
+        )
+
+    def test_qr_login_state_has_expected_fields(self):
+        from butler.gateway.platforms.wechat_ilink_phases import QrLoginState
+
+        field_names = {f.name for f in QrLoginState.__dataclass_fields__.values()}
+        for expected in ("refresh_count", "current_base_url", "qrcode_value", "qr_scan_data"):
+            assert expected in field_names, (
+                f"QrLoginState missing field: {expected}"
+            )
+
+
+@pytest.mark.unit
+class TestR14bSendWechatDirectMissingToken:
+    """Behavioral smoke: ``send_wechat_direct`` returns error dict (not raises)
+    when the token is missing. Mirrors the original function's contract."""
+
+    def test_missing_token_returns_error_dict(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        # Ensure no env fallback leaks in
+        for var in ("WECHAT_TOKEN", "WECHAT_ACCOUNT_ID"):
+            monkeypatch.delenv(var, raising=False)
+        from butler.gateway.platforms.wechat_ilink import send_wechat_direct
+
+        result = await_obj = None
+        import asyncio
+
+        async def _run():
+            return await send_wechat_direct(
+                extra={},
+                token=None,
+                chat_id="peer-1",
+                message="hi",
+            )
+
+        result = asyncio.run(_run())
+        assert isinstance(result, dict)
+        assert "error" in result
+        assert "token" in result["error"].lower()
+

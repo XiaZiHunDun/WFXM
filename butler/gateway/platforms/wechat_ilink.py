@@ -379,126 +379,43 @@ async def qr_login(
 
     Returns a credential dict on success, or ``None`` if login fails or times out.
     """
+    # R1-4b: thin state-machine orchestrator. All heavy lifting
+    # (HTTP fetch, terminal QR rendering, poll-dispatch, refresh,
+    # persistence) lives in ``wechat_ilink_phases.py``.
+    from butler.gateway.platforms.wechat_ilink_phases import (
+        QrLoginState,
+        _phase_qr_finalize,
+        _phase_qr_poll_step,
+        _phase_qr_render,
+        _phase_qr_request_code,
+    )
+
     if not AIOHTTP_AVAILABLE:
         raise RuntimeError("aiohttp is required for WeChat QR login")
 
     async with aiohttp.ClientSession(trust_env=True, connector=_make_ssl_connector()) as session:
-        try:
-            qr_resp = await _api_get(
-                session,
-                base_url=ILINK_BASE_URL,
-                endpoint=f"{EP_GET_BOT_QR}?bot_type={bot_type}",
-                timeout_ms=QR_TIMEOUT_MS,
-            )
-        except Exception as exc:
-            logger.error("wechat: failed to fetch QR code: %s", exc)
+        qr = await _phase_qr_request_code(
+            session, base_url=ILINK_BASE_URL, bot_type=bot_type,
+        )
+        if qr is None:
             return None
-
-        qrcode_value = str(qr_resp.get("qrcode") or "")
-        qrcode_url = str(qr_resp.get("qrcode_img_content") or "")
-        if not qrcode_value:
-            logger.error("wechat: QR response missing qrcode")
-            return None
-
-        # qrcode_url is the full scannable liteapp URL; qrcode_value is just the hex token
-        # WeChat needs to scan the full URL, not the raw hex string
-        qr_scan_data = qrcode_url if qrcode_url else qrcode_value
-
-        print("\n请使用微信扫描以下二维码：")
-        if qrcode_url:
-            print(qrcode_url)
-        try:
-            import qrcode
-
-            qr = qrcode.QRCode()
-            qr.add_data(qr_scan_data)
-            qr.make(fit=True)
-            qr.print_ascii(invert=True)
-        except Exception as _qr_exc:
-            print(f"（终端二维码渲染失败: {_qr_exc}，请直接打开上面的二维码链接）")
-
+        qrcode_value, qrcode_url, qr_scan_data = qr
+        _phase_qr_render(qrcode_url, qr_scan_data)
+        state = QrLoginState(
+            refresh_count=0,
+            current_base_url=ILINK_BASE_URL,
+            qrcode_value=qrcode_value,
+            qrcode_url=qrcode_url,
+            qr_scan_data=qr_scan_data,
+        )
         deadline = time.monotonic() + timeout_seconds
-        current_base_url = ILINK_BASE_URL
-        refresh_count = 0
-
         while time.monotonic() < deadline:
-            try:
-                status_resp = await _api_get(
-                    session,
-                    base_url=current_base_url,
-                    endpoint=f"{EP_GET_QR_STATUS}?qrcode={qrcode_value}",
-                    timeout_ms=QR_TIMEOUT_MS,
-                )
-            except asyncio.TimeoutError:
-                await asyncio.sleep(1)
-                continue
-            except Exception as exc:
-                logger.warning("wechat: QR poll error: %s", exc)
-                await asyncio.sleep(1)
-                continue
-
-            status = str(status_resp.get("status") or "wait")
-            if status == "wait":
-                print(".", end="", flush=True)
-            elif status == "scaned":
-                print("\n已扫码，请在微信里确认...")
-            elif status == "scaned_but_redirect":
-                redirect_host = str(status_resp.get("redirect_host") or "")
-                if redirect_host:
-                    current_base_url = f"https://{redirect_host}"
-            elif status == "expired":
-                refresh_count += 1
-                if refresh_count > 3:
-                    print("\n二维码多次过期，请重新执行登录。")
-                    return None
-                print(f"\n二维码已过期，正在刷新... ({refresh_count}/3)")
-                try:
-                    qr_resp = await _api_get(
-                        session,
-                        base_url=ILINK_BASE_URL,
-                        endpoint=f"{EP_GET_BOT_QR}?bot_type={bot_type}",
-                        timeout_ms=QR_TIMEOUT_MS,
-                    )
-                    qrcode_value = str(qr_resp.get("qrcode") or "")
-                    qrcode_url = str(qr_resp.get("qrcode_img_content") or "")
-                    qr_scan_data = qrcode_url if qrcode_url else qrcode_value
-                    if qrcode_url:
-                        print(qrcode_url)
-                    try:
-                        import qrcode as _qrcode
-                        qr = _qrcode.QRCode()
-                        qr.add_data(qr_scan_data)
-                        qr.make(fit=True)
-                        qr.print_ascii(invert=True)
-                    except Exception as exc:
-                        logger.debug("qr login skipped: %s", exc)
-                except Exception as exc:
-                    logger.error("wechat: QR refresh failed: %s", exc)
-                    return None
-            elif status == "confirmed":
-                account_id = str(status_resp.get("ilink_bot_id") or "")
-                token = str(status_resp.get("bot_token") or "")
-                base_url = str(status_resp.get("baseurl") or ILINK_BASE_URL)
-                user_id = str(status_resp.get("ilink_user_id") or "")
-                if not account_id or not token:
-                    logger.error("wechat: QR confirmed but credential payload was incomplete")
-                    return None
-                save_wechat_account(
-                    data_home,
-                    account_id=account_id,
-                    token=token,
-                    base_url=base_url,
-                    user_id=user_id,
-                )
-                print(f"\n微信连接成功，account_id={account_id}")
-                return {
-                    "account_id": account_id,
-                    "token": token,
-                    "base_url": base_url,
-                    "user_id": user_id,
-                }
+            action, data = await _phase_qr_poll_step(session, state, bot_type=bot_type)
+            if action == "confirmed":
+                return _phase_qr_finalize(data_home, data)
+            if action == "giveup":
+                return None
             await asyncio.sleep(1)
-
         print("\n微信登录超时。")
         return None
 
@@ -1317,93 +1234,43 @@ async def send_wechat_direct(
 
     This bypasses the long-poll adapter lifecycle and uses the raw API directly.
     """
-    account_id = str(extra.get("account_id") or os.getenv("WECHAT_ACCOUNT_ID", "")).strip()
-    base_url = str(
-        extra.get("base_url") or os.getenv("WECHAT_BASE_URL", ILINK_BASE_URL)
-    ).strip().rstrip("/")
-    cdn_base_url = str(
-        extra.get("cdn_base_url")
-        or os.getenv("WECHAT_CDN_BASE_URL", WECHAT_CDN_BASE_URL)
-    ).strip().rstrip("/")
-    resolved_token = str(token or extra.get("token") or os.getenv("WECHAT_TOKEN", "")).strip()
-    if not resolved_token:
-        return {"error": "WeChat token missing. Configure WECHAT_TOKEN or platforms.wechat.token."}
-    if not account_id:
-        return {"error": "WeChat account ID missing. Configure WECHAT_ACCOUNT_ID or platforms.wechat.extra.account_id."}
+    # R1-4b: thin orchestrator. Credential resolution lives in
+    # ``_phase_direct_resolve_credentials``; the two delivery paths
+    # (live-adapter fast path vs fresh-adapter one-shot) live in
+    # ``wechat_ilink_direct.py``.
+    from butler.gateway.platforms.wechat_ilink_direct import (
+        _phase_direct_resolve_credentials,
+        _phase_direct_send_via_fresh_adapter,
+        _phase_direct_send_via_live_adapter,
+    )
+
+    creds = _phase_direct_resolve_credentials(extra, token)
+    if "error" in creds:
+        return creds
+    resolved_token = creds["token"]
+    account_id = creds["account_id"]
 
     token_store = ContextTokenStore(str(get_butler_home()))
     token_store.restore(account_id)
     context_token = token_store.get(account_id, chat_id)
 
     live_adapter = _LIVE_ADAPTERS.get(resolved_token)
-    send_session = getattr(live_adapter, '_send_session', None)
+    send_session = getattr(live_adapter, "_send_session", None)
     if (live_adapter is not None and send_session is not None
             and not send_session.closed
             and send_session._loop is asyncio.get_running_loop()):
-        last_result: Optional[SendResult] = None
-        cleaned = live_adapter.format_message(message)
-        if cleaned:
-            last_result = await live_adapter.send(chat_id, cleaned)
-            if not last_result.success:
-                return {"error": f"WeChat send failed: {last_result.error}"}
-
-        for media_path, _is_voice in media_files or []:
-            ext = Path(media_path).suffix.lower()
-            if ext in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}:
-                last_result = await live_adapter.send_image_file(chat_id, media_path)
-            else:
-                last_result = await live_adapter.send_document(chat_id, media_path)
-            if not last_result.success:
-                return {"error": f"WeChat media send failed: {last_result.error}"}
-
-        return {
-            "success": True,
-            "platform": "wechat",
-            "chat_id": chat_id,
-            "message_id": last_result.message_id if last_result else None,
-            "context_token_used": bool(context_token),
-        }
-
-    async with aiohttp.ClientSession(trust_env=True, connector=_make_ssl_connector()) as session:
-        adapter = WeChatAdapter(
-            PlatformConfig(
-                token=resolved_token,
-                extra={
-                    **dict(extra or {}),
-                    "account_id": account_id,
-                    "base_url": base_url,
-                    "cdn_base_url": cdn_base_url,
-                },
-            )
+        return await _phase_direct_send_via_live_adapter(
+            live_adapter,
+            chat_id=chat_id,
+            message=message,
+            media_files=media_files,
+            context_token=context_token,
         )
-        adapter._send_session = session
-        adapter._session = session
-        adapter._token = resolved_token
-        adapter._account_id = account_id
-        adapter._base_url = base_url
-        adapter._cdn_base_url = cdn_base_url
-        adapter._token_store = token_store
-
-        last_result: Optional[SendResult] = None
-        cleaned = adapter.format_message(message)
-        if cleaned:
-            last_result = await adapter.send(chat_id, cleaned)
-            if not last_result.success:
-                return {"error": f"WeChat send failed: {last_result.error}"}
-
-        for media_path, _is_voice in media_files or []:
-            ext = Path(media_path).suffix.lower()
-            if ext in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}:
-                last_result = await adapter.send_image_file(chat_id, media_path)
-            else:
-                last_result = await adapter.send_document(chat_id, media_path)
-            if not last_result.success:
-                return {"error": f"WeChat media send failed: {last_result.error}"}
-
-        return {
-            "success": True,
-            "platform": "wechat",
-            "chat_id": chat_id,
-            "message_id": last_result.message_id if last_result else None,
-            "context_token_used": bool(context_token),
-        }
+    return await _phase_direct_send_via_fresh_adapter(
+        creds=creds,
+        chat_id=chat_id,
+        message=message,
+        media_files=media_files,
+        context_token=context_token,
+        token_store=token_store,
+    )
