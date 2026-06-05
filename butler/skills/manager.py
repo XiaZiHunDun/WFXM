@@ -41,10 +41,12 @@ _MetadataSignature = tuple[int, int]
 # ---------------------------------------------------------------------------
 
 # Stable error codes — keep in sync with tests/test_r2_8_skill_load_error.py
+# and tests/test_r2_13_skill_path_traversal.py
 SKILL_LOAD_ERR_NO_FRONTMATTER = "no_frontmatter"
 SKILL_LOAD_ERR_UNTERMINATED = "unterminated_frontmatter"
 SKILL_LOAD_ERR_ENCODING = "frontmatter_encoding"
 SKILL_LOAD_ERR_IO = "skill_io_error"
+SKILL_LOAD_ERR_PATH_TRAVERSAL = "path_traversal_attempt"
 
 _SKILL_LOAD_ERROR_BUFFER_MAX = 64
 _SKILL_LOAD_ERROR_BUFFER_LOCK = threading.RLock()
@@ -292,6 +294,47 @@ class SkillManager:
             out.append((p, "project"))
         return out
 
+    def _apply_directory_content(
+        self,
+        sk: dict[str, Any],
+        fm: dict[str, Any],
+        rel: str,
+        path: Path,
+        source: str,
+    ) -> dict[str, Any]:
+        """Merge inner content into ``sk`` for ``install_type: directory``.
+
+        Audit R2-13: a ``content_path`` that escapes the skills root is a
+        security signal — log at ERROR with full traceback and append a
+        categorized ``SkillLoadError`` so /诊断 can aggregate traversal
+        attempts. Behaviour change: still return ``sk`` unchanged (skill
+        remains usable) but the inner content is dropped — same as before,
+        just no longer silent.
+        """
+        root = self._skills_root_for(path, source)
+        content_path = (root / rel).resolve()
+        try:
+            content_path.relative_to(root.resolve())
+        except ValueError as exc:
+            msg = f"Skill content_path escapes skills root (security signal): {rel} in {path}"
+            logger.error(msg, exc_info=exc)
+            _record_skill_load_error(SKILL_LOAD_ERR_PATH_TRAVERSAL, path, msg)
+            return sk
+        if not content_path.is_file():
+            return sk
+        inner = _parse_skill_md(
+            content_path.read_text(encoding="utf-8"),
+            content_path,
+            source,
+        )
+        if not inner:
+            return sk
+        sk["description"] = str(fm.get("description") or inner.get("description") or "")
+        sk["triggers"] = inner.get("triggers") or sk.get("triggers") or []
+        sk["content"] = inner.get("content") or ""
+        sk["_content_path"] = content_path
+        return sk
+
     def _load_skill_from_path(self, path: Path, source: str) -> Optional[dict[str, Any]]:
         try:
             text = path.read_text(encoding="utf-8")
@@ -302,35 +345,18 @@ class SkillManager:
         if not sk:
             return None
         fm_text = _read_frontmatter_only(path)
-        if fm_text:
-            try:
-                fm = yaml.safe_load(fm_text) or {}
-            except yaml.YAMLError:
-                fm = {}
-            if isinstance(fm, dict) and str(fm.get("install_type") or "") == "directory":
-                rel = str(fm.get("content_path") or "").strip()
-                if rel:
-                    root = self._skills_root_for(path, source)
-                    content_path = (root / rel).resolve()
-                    try:
-                        content_path.relative_to(root.resolve())
-                    except ValueError:
-                        logger.warning("Skill content_path escapes skills root: %s", rel)
-                        return sk
-                    if content_path.is_file():
-                        inner = _parse_skill_md(
-                            content_path.read_text(encoding="utf-8"),
-                            content_path,
-                            source,
-                        )
-                        if inner:
-                            sk["description"] = str(
-                                fm.get("description") or inner.get("description") or ""
-                            )
-                            sk["triggers"] = inner.get("triggers") or sk.get("triggers") or []
-                            sk["content"] = inner.get("content") or ""
-                            sk["_content_path"] = content_path
-        return sk
+        if not fm_text:
+            return sk
+        try:
+            fm = yaml.safe_load(fm_text) or {}
+        except yaml.YAMLError:
+            fm = {}
+        if not (isinstance(fm, dict) and str(fm.get("install_type") or "") == "directory"):
+            return sk
+        rel = str(fm.get("content_path") or "").strip()
+        if not rel:
+            return sk
+        return self._apply_directory_content(sk, fm, rel, path, source)
 
     def _load_all(self) -> list[dict[str, Any]]:
         seen: dict[str, dict[str, Any]] = {}
