@@ -187,3 +187,166 @@ class TestAgentLoopSkippedIntegration:
             e["plugin"] == "reflexion_apply" and e["type"] == "RuntimeError"
             for e in entries
         ), f"expected reflexion_apply entry, got: {entries!r}"
+
+
+# ---------- Commit 2: 2 sites that had missing exc_info ----------
+
+class TestAgentLoopMissingExcInfo:
+    """Lines 392 + 477 originally used ``logger.warning(...)`` WITHOUT
+    ``exc_info``, silently dropping the traceback.  These two sites are the
+    bigger bug per the audit.  They must now also call
+    ``_record_skipped_plugin`` so traceback + diagnostics entry are preserved.
+    """
+
+    @staticmethod
+    def _make_loop_with_fallback_chain() -> AgentLoop:
+        from butler.transport.fallback import FallbackEntry
+
+        loop = _make_loop()
+        loop._fallback_chain = [
+            FallbackEntry(provider="p1", model="m1"),
+            FallbackEntry(provider="p2", model="m2"),
+        ]
+        loop._fallback_index = 0
+        return loop
+
+    def test_provider_failure_recording_skip_logs_error_with_exc_info(
+        self, monkeypatch, caplog,
+    ):
+        from butler.transport import provider_health
+
+        def boom(*a, **kw):
+            raise RuntimeError("provider fail boom")
+
+        monkeypatch.setattr(provider_health, "record_provider_failure", boom)
+        loop = self._make_loop_with_fallback_chain()
+
+        with caplog.at_level(logging.DEBUG, logger="butler.core.agent_loop"):
+            loop._try_activate_fallback()
+
+        errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+        assert errors, (
+            f"expected ERROR record, got levels: "
+            f"{[r.levelname for r in caplog.records]}"
+        )
+        assert any(r.exc_info is not None for r in errors), (
+            "expected exc_info to be set on the ERROR record (was the audit bug)"
+        )
+        # No plain WARNING record — audit said warning was the symptom
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert not warnings, (
+            f"unexpected WARNING records (audit said these masked failures): "
+            f"{[r.getMessage() for r in warnings]}"
+        )
+
+    def test_after_tools_middleware_skip_logs_error_with_exc_info(
+        self, monkeypatch, caplog,
+    ):
+        from butler.core import loop_middleware
+
+        def boom_after_tools(self, messages, *, tool_stats=None):
+            raise RuntimeError("after_tools boom")
+
+        monkeypatch.setattr(
+            loop_middleware.LoopMiddlewareChain, "after_tools", boom_after_tools,
+        )
+        loop = _make_loop()
+
+        with caplog.at_level(logging.DEBUG, logger="butler.core.agent_loop"):
+            from butler.transport.types import NormalizedResponse
+
+            resp = NormalizedResponse(content="", tool_calls=[], usage=None)
+            loop._process_tool_calls(resp)
+
+        errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+        assert errors, (
+            f"expected ERROR record, got levels: "
+            f"{[r.levelname for r in caplog.records]}"
+        )
+        assert any(r.exc_info is not None for r in errors), (
+            "expected exc_info to be set on the ERROR record (was the audit bug)"
+        )
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert not warnings, (
+            f"unexpected WARNING records (audit said these masked failures): "
+            f"{[r.getMessage() for r in warnings]}"
+        )
+
+    def test_provider_failure_recording_skip_records_to_diagnostics(
+        self, monkeypatch,
+    ):
+        from butler.transport import provider_health
+
+        def boom(*a, **kw):
+            raise RuntimeError("provider fail boom")
+
+        monkeypatch.setattr(provider_health, "record_provider_failure", boom)
+        loop = self._make_loop_with_fallback_chain()
+        loop._try_activate_fallback()
+
+        entries = loop.diagnostics.get("skipped", [])
+        assert any(
+            e["plugin"] == "provider_failure_recording" and e["type"] == "RuntimeError"
+            for e in entries
+        ), f"expected provider_failure_recording entry, got: {entries!r}"
+
+    def test_after_tools_middleware_skip_records_to_diagnostics(self, monkeypatch):
+        from butler.core import loop_middleware
+
+        def boom_after_tools(self, messages, *, tool_stats=None):
+            raise RuntimeError("after_tools boom")
+
+        monkeypatch.setattr(
+            loop_middleware.LoopMiddlewareChain, "after_tools", boom_after_tools,
+        )
+        loop = _make_loop()
+        from butler.transport.types import NormalizedResponse
+
+        resp = NormalizedResponse(content="", tool_calls=[], usage=None)
+        loop._process_tool_calls(resp)
+
+        entries = loop.diagnostics.get("skipped", [])
+        assert any(
+            e["plugin"] == "after_tools_middleware" and e["type"] == "RuntimeError"
+            for e in entries
+        ), f"expected after_tools_middleware entry, got: {entries!r}"
+
+    def test_no_warning_only_logging_for_provider_or_middleware(
+        self, monkeypatch, caplog,
+    ):
+        """Regression: both sites used ``logger.warning(...)`` per audit.
+
+        New behavior is ``logger.error(..., exc_info=exc)``.  Assert neither
+        of the old log messages appears in the caplog at WARNING level.
+        """
+        from butler.core import loop_middleware
+        from butler.transport import provider_health
+
+        def boom_provider(*a, **kw):
+            raise RuntimeError("provider boom")
+
+        def boom_after_tools(self, messages, *, tool_stats=None):
+            raise RuntimeError("after_tools boom")
+
+        monkeypatch.setattr(provider_health, "record_provider_failure", boom_provider)
+        monkeypatch.setattr(
+            loop_middleware.LoopMiddlewareChain, "after_tools", boom_after_tools,
+        )
+
+        loop = self._make_loop_with_fallback_chain()
+        with caplog.at_level(logging.DEBUG, logger="butler.core.agent_loop"):
+            loop._try_activate_fallback()
+            from butler.transport.types import NormalizedResponse
+
+            resp = NormalizedResponse(content="", tool_calls=[], usage=None)
+            loop._process_tool_calls(resp)
+
+        warning_msgs = [
+            r.getMessage() for r in caplog.records if r.levelno == logging.WARNING
+        ]
+        assert not any("Provider failure recording skipped" in m for m in warning_msgs), (
+            "old warning message must not appear; was the audit symptom"
+        )
+        assert not any("after_tools middleware skipped" in m for m in warning_msgs), (
+            "old warning message must not appear; was the audit symptom"
+        )
