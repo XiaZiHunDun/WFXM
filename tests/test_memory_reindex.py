@@ -14,11 +14,22 @@ from butler.memory.reindex import reindex_semantic_memory
 @pytest.mark.module_test
 class TestCliNewSingleFinalize:
     def test_rebuild_branch_does_not_call_trigger_before_rebuild_loop(self):
-        """Regression: /new → rebuild only finalizes inside _rebuild_loop once."""
-        src = Path(__file__).resolve().parents[1] / "butler" / "main.py"
+        """Regression: /new → rebuild only finalizes inside _rebuild_loop once.
+
+        R1-7 refactor moved the main loop to ``butler.cli.chat_cli``. The
+        semantic invariant is unchanged: the ``rebuild_after_new`` branch
+        must not invoke ``_trigger_session_end`` directly, and the
+        rebuild call must pass ``skip_session_end=True``.
+        """
+        src = (
+            Path(__file__).resolve().parents[1]
+            / "butler"
+            / "cli"
+            / "chat_cli.py"
+        )
         text = src.read_text(encoding="utf-8")
-        start = text.index('if handled == "rebuild_after_new":')
-        end = text.index("elif handled ==", start)
+        start = text.index('handled == "rebuild_after_new"')
+        end = text.index("return", start)
         branch = text[start:end]
         assert branch.count("_trigger_session_end") == 0
         assert "skip_session_end=True" in branch
