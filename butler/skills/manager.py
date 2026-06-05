@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import shutil
+import threading
 import time
 from datetime import date
 from pathlib import Path
@@ -28,6 +29,70 @@ _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n(.*)\Z", re.DOTALL)
 _MetadataSignature = tuple[int, int]
 
 
+# ---------------------------------------------------------------------------
+# Audit R2-8: skill load error disambiguation + recent-errors buffer.
+#
+# Before this commit, ``_read_frontmatter_only`` reported three distinct
+# failure modes (no opening ``---``, unterminated frontmatter, invalid UTF-8,
+# OSError) with the SAME warning message, so operators could not tell *why*
+# a skill file failed to load. We expose a categorized ``SkillLoadError``
+# exception plus a small thread-safe buffer so ``/诊断`` (and any future
+# prompt-side health reporting) can aggregate recent load failures.
+# ---------------------------------------------------------------------------
+
+# Stable error codes — keep in sync with tests/test_r2_8_skill_load_error.py
+SKILL_LOAD_ERR_NO_FRONTMATTER = "no_frontmatter"
+SKILL_LOAD_ERR_UNTERMINATED = "unterminated_frontmatter"
+SKILL_LOAD_ERR_ENCODING = "frontmatter_encoding"
+SKILL_LOAD_ERR_IO = "skill_io_error"
+
+_SKILL_LOAD_ERROR_BUFFER_MAX = 64
+_SKILL_LOAD_ERROR_BUFFER_LOCK = threading.RLock()
+_RECENT_SKILL_LOAD_ERRORS: list[SkillLoadError] = []  # populated below
+
+
+class SkillLoadError(Exception):
+    """Categorized skill load failure for /诊断 aggregation (audit R2-8)."""
+
+    code: str
+    path: Path
+    message: str
+
+    def __init__(self, code: str, path: Path, message: str) -> None:
+        super().__init__(message)
+        self.code = str(code)
+        self.path = path
+        self.message = str(message)
+
+
+def _record_skill_load_error(code: str, path: Path, message: str) -> SkillLoadError:
+    """Append a categorized error to the recent-errors buffer (thread-safe)."""
+    err = SkillLoadError(code=code, path=path, message=message)
+    with _SKILL_LOAD_ERROR_BUFFER_LOCK:
+        _RECENT_SKILL_LOAD_ERRORS.append(err)
+        if len(_RECENT_SKILL_LOAD_ERRORS) > _SKILL_LOAD_ERROR_BUFFER_MAX:
+            del _RECENT_SKILL_LOAD_ERRORS[
+                : len(_RECENT_SKILL_LOAD_ERRORS) - _SKILL_LOAD_ERROR_BUFFER_MAX
+            ]
+    return err
+
+
+def recent_skill_load_errors(limit: int = 20) -> list[SkillLoadError]:
+    """Return the most recent N categorized skill load errors (audit R2-8)."""
+    if limit <= 0:
+        return []
+    with _SKILL_LOAD_ERROR_BUFFER_LOCK:
+        if limit >= len(_RECENT_SKILL_LOAD_ERRORS):
+            return list(_RECENT_SKILL_LOAD_ERRORS)
+        return list(_RECENT_SKILL_LOAD_ERRORS[-limit:])
+
+
+def _clear_recent_skill_load_errors() -> None:
+    """Reset the recent-errors buffer. Test-only / process-start helper."""
+    with _SKILL_LOAD_ERROR_BUFFER_LOCK:
+        _RECENT_SKILL_LOAD_ERRORS.clear()
+
+
 def _validate_name(name: str) -> Optional[str]:
     if not name:
         return "Skill name is required."
@@ -44,7 +109,16 @@ def _validate_name(name: str) -> Optional[str]:
 def _parse_skill_md(text: str, path: Path, source: str) -> Optional[dict[str, Any]]:
     m = _FRONTMATTER_RE.match(text)
     if not m:
-        logger.warning("Skill file missing YAML frontmatter: %s", path)
+        # Audit R2-8 (bonus): this regex miss means the file either has no
+        # frontmatter block at all OR the block is malformed (e.g. closing
+        # ``---`` missing or trailing whitespace mismatch). The previous
+        # message was identical to the no-opener case in
+        # ``_read_frontmatter_only`` and gave operators no way to tell them
+        # apart. Return contract (None) is unchanged.
+        logger.warning(
+            "Skill file missing or malformed YAML frontmatter (regex match failed): %s",
+            path,
+        )
         return None
     try:
         fm = yaml.safe_load(m.group(1)) or {}
@@ -100,25 +174,41 @@ def _parse_skill_frontmatter(frontmatter: str, path: Path, source: str) -> Optio
 
 
 def _read_frontmatter_only(path: Path) -> Optional[str]:
+    # Audit R2-8: three distinct failure modes (no opener, unterminated,
+    # encoding error) plus an OSError path used to all log the same warning.
+    # Now each branch logs a distinct message; the two ``except`` sites log
+    # at ERROR with ``exc_info``; and every failure appends a categorized
+    # ``SkillLoadError`` to the module-level recent-errors buffer for /诊断.
     try:
         with path.open("rb") as f:
             first = f.readline()
             if first.strip() != b"---":
-                logger.warning("Skill file missing YAML frontmatter: %s", path)
+                msg = f"Skill file has no YAML frontmatter opener (---): {path}"
+                logger.warning(msg)
+                _record_skill_load_error(
+                    SKILL_LOAD_ERR_NO_FRONTMATTER, path, msg
+                )
                 return None
             lines: list[bytes] = []
             for line in f:
                 if line.strip() == b"---":
                     return b"".join(lines).decode("utf-8")
                 lines.append(line)
-    except UnicodeDecodeError as e:
-        logger.warning("Bad YAML frontmatter encoding in %s: %s", path, e)
+    except UnicodeDecodeError as exc:
+        msg = f"Skill file frontmatter has invalid UTF-8 encoding: {path}"
+        logger.error(msg, exc_info=exc)
+        _record_skill_load_error(SKILL_LOAD_ERR_ENCODING, path, msg)
         return None
-    except OSError as e:
-        logger.warning("Could not read %s: %s", path, e)
+    except OSError as exc:
+        msg = f"Skill file could not be opened: {path}"
+        logger.error(msg, exc_info=exc)
+        _record_skill_load_error(SKILL_LOAD_ERR_IO, path, msg)
         return None
 
-    logger.warning("Skill file missing YAML frontmatter: %s", path)
+    # Fallthrough: file started with ``---`` but never closed the block.
+    msg = f"Skill file has unterminated YAML frontmatter (no closing ---): {path}"
+    logger.warning(msg)
+    _record_skill_load_error(SKILL_LOAD_ERR_UNTERMINATED, path, msg)
     return None
 
 
