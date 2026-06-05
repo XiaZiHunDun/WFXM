@@ -114,16 +114,20 @@ class TestSequentialSemantics:
 
     def test_len_reports_count(self, fresh_registry):
         assert len(fresh_registry) == 0
-        fresh_registry.register("x", _make_fake_adapter("x"))
+        x = _make_fake_adapter("x")
+        fresh_registry.register("x", x)
         assert len(fresh_registry) == 1
-        fresh_registry.register("y", _make_fake_adapter("y"))
+        y = _make_fake_adapter("y")
+        fresh_registry.register("y", y)
         assert len(fresh_registry) == 2
 
     def test_live_count_matches_len(self, fresh_registry):
         # ``live_count`` is the diagnostics-facing alias; contract is
         # that it never raises (no "dict changed size during iteration").
-        fresh_registry.register("p", _make_fake_adapter("p"))
-        fresh_registry.register("q", _make_fake_adapter("q"))
+        p = _make_fake_adapter("p")
+        q = _make_fake_adapter("q")
+        fresh_registry.register("p", p)
+        fresh_registry.register("q", q)
         assert fresh_registry.live_count() == 2
 
 
