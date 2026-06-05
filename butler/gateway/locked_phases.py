@@ -457,7 +457,11 @@ def _phase_format_error_card(exc: BaseException, turn_elapsed: float) -> Optiona
     """Phase: build a structured error card for the failure reply.
 
     Returns ``None`` when the renderer itself fails (caller falls back
-    to ``format_gateway_user_error``).
+    to ``format_gateway_user_error``). Audit R2-16: the previous
+    ``except Exception: return None`` was completely silent — if the
+    error-card renderer itself broke, operators had no signal. We now
+    log at ERROR with full traceback so the failure is visible while
+    preserving the caller's fallback contract.
     """
     try:
         from butler.gateway.error_cards import format_error_card
@@ -481,4 +485,5 @@ def _phase_format_error_card(exc: BaseException, turn_elapsed: float) -> Optiona
             error=str(exc),
         )
     except Exception:
+        logger.error("error card formatting failed", exc_info=True)
         return None
