@@ -38,6 +38,10 @@ def format_rag_diagnostic_lines(
         lines.append(f"  最近检索模式: {last_mode}")
     if stats.get("rag_last_fallbacks") is not None and last_mode:
         lines.append(f"  最近 fallback: {int(stats.get('rag_last_fallbacks') or 0)}")
+    # Audit R2-2: when the hybrid/vector path raised and we fell back to
+    # FTS-only, the user (and the operator looking at /诊断) MUST see this.
+    if stats.get("rag_last_recall_degraded"):
+        lines.append("  检索质量降级: 上轮 hybrid_search 异常,仅用 FTS")
     if stats.get("rag_last_candidates") is not None and last_mode:
         lines.append(f"  最近候选数: {int(stats.get('rag_last_candidates') or 0)}")
     last_query = str(stats.get("rag_last_query") or "").strip()

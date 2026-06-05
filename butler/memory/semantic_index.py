@@ -411,7 +411,12 @@ def index_experience_row(
             source_ref=str(row_id),
         )
     except Exception as exc:
-        logger.warning("Semantic index upsert failed for experience %s: %s", row_id, exc)
+        # Audit R2-2: write failures must preserve the stack trace so the
+        # operator can diagnose embed OOM / DB lock / provider auth issues
+        # that this code path silently swallowed before.
+        logger.error(
+            "Semantic index upsert failed for experience %s", row_id, exc_info=exc
+        )
 
 
 def index_triplets_for_content(
@@ -445,21 +450,31 @@ def _hybrid_experience_search_once(
     *,
     project: str | None = None,
     limit: int = 8,
-) -> tuple[list[dict[str, Any]], str, int]:
-    """Single-query hybrid; returns (hits, mode, fallbacks)."""
+) -> tuple[list[dict[str, Any]], str, int, bool]:
+    """Single-query hybrid; returns (hits, mode, fallbacks, degraded).
+
+    ``degraded`` is True when any hybrid_search call raised and we had to
+    fall back to FTS-only. The caller (``hybrid_experience_search``) records
+    this flag in retrieval telemetry so /诊断 and the LLM can react.
+    """
     fts_hits = fts_search(query, project=project, limit=limit * 2)
     mode = "fts" if semantic is None else "hybrid"
     fallbacks = 0
+    degraded = False
     if semantic is None:
         out = fts_hits[:limit]
     else:
         try:
             out = semantic.hybrid_search(query, fts_hits, project=project, limit=limit)
         except Exception as exc:
-            logger.warning("Hybrid search failed, using FTS: %s", exc)
+            # Audit R2-2: degraded quality must be loud (ERROR + exc_info)
+            # so ops sees the underlying embed OOM / DB lock / provider auth
+            # error rather than a quiet warning that loses the stack.
+            logger.error("Hybrid search failed, using FTS", exc_info=exc)
             out = fts_hits[:limit]
             mode = "fts-error-fallback"
             fallbacks += 1
+            degraded = True
     if not out and project is not None:
         fallbacks += 1
         global_fts_hits = fts_search(query, project=None, limit=limit * 4)
@@ -471,10 +486,48 @@ def _hybrid_experience_search_once(
                 out = semantic.hybrid_search(query, global_fts_hits, project=None, limit=limit)
                 mode = "hybrid-fallback-global"
             except Exception as exc:
-                logger.warning("Hybrid global fallback failed, using FTS: %s", exc)
+                logger.error("Hybrid global fallback failed, using FTS", exc_info=exc)
                 out = global_fts_hits[:limit]
                 mode = "fts-fallback-global"
-    return out, mode, fallbacks
+                degraded = True
+    return out, mode, fallbacks, degraded
+
+
+def _should_use_subqueries(query: str) -> bool:
+    """R2-2 helper: return True when subquery fan-out is enabled and useful."""
+    if not query:
+        return False
+    try:
+        from butler.memory.query_decompose import decompose_query, subquery_enabled
+    except Exception:
+        return False
+    if not subquery_enabled():
+        return False
+    return len(decompose_query(query)) > 1
+
+
+def _run_subquery_hybrid(
+    semantic: SemanticMemoryIndex | None,
+    fts_search: Callable[..., list[dict[str, Any]]],
+    query: str,
+    *,
+    project: str | None,
+    limit: int,
+) -> tuple[list[dict[str, Any]], list[str], bool]:
+    """R2-2 helper: fan out per-subquery, aggregate degraded flag."""
+    from butler.memory.query_decompose import search_with_subqueries
+
+    degraded_flags: list[bool] = []
+
+    def _once(sub_q: str) -> list[dict[str, Any]]:
+        hits, _, _fb, sub_degraded = _hybrid_experience_search_once(
+            semantic, fts_search, sub_q, project=project, limit=limit
+        )
+        degraded_flags.append(sub_degraded)
+        return hits
+
+    out, sub_queries = search_with_subqueries(query, _once, limit=limit)
+    return out, sub_queries, any(degraded_flags)
 
 
 def hybrid_experience_search(
@@ -491,39 +544,21 @@ def hybrid_experience_search(
     sub_queries: list[str] = []
     mode = "none"
     fallbacks = 0
+    degraded = False
     out: list[dict[str, Any]] = []
-
-    def _once(sub_q: str) -> list[dict[str, Any]]:
-        hits, _, _ = _hybrid_experience_search_once(
-            semantic,
-            fts_search,
-            sub_q,
-            project=project,
-            limit=limit,
-        )
-        return hits
-
     try:
-        from butler.memory.query_decompose import decompose_query, search_with_subqueries, subquery_enabled
-
-        if subquery_enabled() and q and len(decompose_query(q)) > 1:
-            out, sub_queries = search_with_subqueries(q, _once, limit=limit)
+        if _should_use_subqueries(q):
+            out, sub_queries, degraded = _run_subquery_hybrid(
+                semantic, fts_search, q, project=project, limit=limit
+            )
             mode = "hybrid-subquery"
         else:
-            out, mode, fallbacks = _hybrid_experience_search_once(
-                semantic,
-                fts_search,
-                q,
-                project=project,
-                limit=limit,
+            out, mode, fallbacks, degraded = _hybrid_experience_search_once(
+                semantic, fts_search, q, project=project, limit=limit
             )
     except Exception:
-        out, mode, fallbacks = _hybrid_experience_search_once(
-            semantic,
-            fts_search,
-            q,
-            project=project,
-            limit=limit,
+        out, mode, fallbacks, degraded = _hybrid_experience_search_once(
+            semantic, fts_search, q, project=project, limit=limit
         )
 
     _record_experience_access_from_hits(experience_store, out)
@@ -536,6 +571,10 @@ def hybrid_experience_search(
             "fallbacks": fallbacks,
             "candidates": len(out),
             "query": q,
+            # Audit R2-2: surface recall quality to /诊断 and any future
+            # LLM-side prompt injection. True iff hybrid_search raised on
+            # any sub-query or path and we fell back to FTS only.
+            "recall_degraded": bool(degraded),
         }
         if sub_queries and len(sub_queries) > 1:
             payload["sub_queries"] = sub_queries

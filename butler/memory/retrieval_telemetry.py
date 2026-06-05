@@ -21,6 +21,10 @@ def record_last_retrieval(session_key: str, payload: dict[str, Any]) -> None:
         "candidates": max(0, int(payload.get("candidates") or 0)),
         "query": str(payload.get("query") or "")[:120],
         "ts": float(payload.get("ts") or time.time()),
+        # Audit R2-2: True iff hybrid_search raised and the caller fell back
+        # to FTS-only. Surfaces recall-quality collapse in /诊断 and any
+        # prompt-side health reporting.
+        "recall_degraded": bool(payload.get("recall_degraded")),
     }
     subs = payload.get("sub_queries")
     if isinstance(subs, list) and subs:

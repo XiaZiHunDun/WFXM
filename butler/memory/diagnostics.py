@@ -188,6 +188,8 @@ def collect_memory_layer_stats(
                 stats["rag_last_fallbacks"] = int(last.get("fallbacks") or 0)
                 stats["rag_last_candidates"] = int(last.get("candidates") or 0)
                 stats["rag_last_query"] = str(last.get("query") or "")
+                # Audit R2-2: surface recall-quality collapse to /诊断.
+                stats["rag_last_recall_degraded"] = bool(last.get("recall_degraded"))
                 if last.get("sub_query_count"):
                     stats["rag_last_sub_queries"] = int(last.get("sub_query_count") or 0)
         except Exception as exc:
