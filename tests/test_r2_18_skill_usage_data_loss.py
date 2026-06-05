@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -88,7 +89,7 @@ class TestCorruptFileRenamed:
         assert backups[0].read_text(encoding="utf-8") == "{this is not valid json"
 
     def test_corrupt_backup_name_includes_unix_ts(self, tmp_path: Path):
-        """备份名应包含 unix timestamp (整型秒) 便于排序."""
+        """备份名应包含 timestamp (整型, 纳秒级避免同秒碰撞) 便于排序."""
         usage_file = tmp_path / "skill_usage.json"
         usage_file.write_text("not json", encoding="utf-8")
 
@@ -98,8 +99,11 @@ class TestCorruptFileRenamed:
         assert len(backups) == 1
         m = re.match(r"skill_usage\.json\.corrupt-(\d+)$", backups[0].name)
         assert m, f"备份名格式应为 skill_usage.json.corrupt-<ts>, 实际: {backups[0].name}"
-        # unix ts 应为正整数
-        assert int(m.group(1)) > 0
+        # ts 应为正整数 (纳秒级时间戳, 远大于 10^15)
+        ts = int(m.group(1))
+        assert ts > 1_000_000_000_000, (
+            f"corrupt ts 期望纳秒级 (>10^15), 实际: {ts}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -161,10 +165,10 @@ class TestCorruptFileLogging:
         )
         # 关键词让操作者知道是 skill usage 损坏
         assert any(
-            "skill usage" in r.message.lower() or "usage" in r.message.lower()
+            "skill usage" in r.message.lower()
             for r in warning_records
         ), (
-            f"WARNING log 应提及 skill usage, 实际: "
+            f"WARNING log 应提及 'skill usage', 实际: "
             f"{[r.message for r in warning_records]}"
         )
 
@@ -349,3 +353,100 @@ class TestBehaviorAfterCorruption:
         content = usage_file.read_text(encoding="utf-8")
         assert "CORRUPT" not in content
         assert "skill-z" in content
+
+
+# ---------------------------------------------------------------------------
+# Test 8: rename 失败时, _save() 必须被 block (避免 R2-18 数据丢失重现)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+class TestRenameFailedBlocksSave:
+    """当 corrupt 文件 rename 失败时, _save() 必须被 block.
+
+    防止 on_view/on_use 后续写入覆盖原损坏文件, 重新制造 R2-18 数据丢失.
+    """
+
+    def test_save_blocked_when_rename_fails(self, tmp_path: Path, monkeypatch):
+        usage_file = tmp_path / "skill_usage.json"
+        usage_file.write_text("not json", encoding="utf-8")
+
+        # 强制 os.replace 抛 OSError
+        def _explode(*args, **kwargs):
+            raise OSError("simulated cross-device rename failure")
+
+        monkeypatch.setattr(os, "replace", _explode)
+
+        tracker = UsageTracker(usage_file)
+
+        # 原损坏文件应仍在原路径 (rename 失败)
+        assert usage_file.exists()
+        assert usage_file.read_text(encoding="utf-8") == "not json"
+
+        # _save() 必须不覆盖损坏文件
+        tracker.on_view("skill-blocked")
+
+        # 文件内容仍然是损坏的 (未被 _save 覆盖)
+        assert usage_file.read_text(encoding="utf-8") == "not json"
+
+    def test_logs_error_when_rename_fails(self, tmp_path: Path, monkeypatch, caplog):
+        usage_file = tmp_path / "skill_usage.json"
+        usage_file.write_text("not json", encoding="utf-8")
+
+        def _explode(*args, **kwargs):
+            raise OSError("simulated")
+
+        monkeypatch.setattr(os, "replace", _explode)
+
+        with caplog.at_level(logging.DEBUG, logger="butler.skills.usage"):
+            UsageTracker(usage_file)
+
+        error_records = [
+            r for r in caplog.records if r.levelno >= logging.ERROR
+        ]
+        assert error_records, (
+            f"rename 失败必须 log at ERROR (不是 WARNING), 实际: "
+            f"{[(r.levelname, r.message) for r in caplog.records]}"
+        )
+        # 必须含 exc_info
+        assert any(r.exc_info is not None for r in error_records)
+
+    def test_save_block_logs_warning(self, tmp_path: Path, monkeypatch, caplog):
+        """_save() 被 block 时, 应 log at WARNING 说明跳过原因."""
+        usage_file = tmp_path / "skill_usage.json"
+        usage_file.write_text("not json", encoding="utf-8")
+
+        def _explode(*args, **kwargs):
+            raise OSError("simulated")
+
+        monkeypatch.setattr(os, "replace", _explode)
+
+        tracker = UsageTracker(usage_file)
+
+        with caplog.at_level(logging.DEBUG, logger="butler.skills.usage"):
+            tracker.on_view("skill-x")
+
+        warning_records = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING and "skipped" in r.message.lower()
+        ]
+        assert warning_records, (
+            f"_save() block 必须 log WARNING with 'skipped', 实际: "
+            f"{[(r.levelname, r.message) for r in caplog.records]}"
+        )
+
+    def test_diagnostics_records_rename_failure(self, tmp_path: Path, monkeypatch):
+        """rename 失败时, diagnostics 仍应记录事件 (操作者可查)."""
+        usage_file = tmp_path / "skill_usage.json"
+        usage_file.write_text("not json", encoding="utf-8")
+
+        def _explode(*args, **kwargs):
+            raise OSError("simulated")
+
+        monkeypatch.setattr(os, "replace", _explode)
+
+        UsageTracker(usage_file)
+
+        records = usage_mod.recent_usage_data_corruption()
+        assert len(records) == 1
+        assert records[0]["kind"] == "skill_usage_corrupt"

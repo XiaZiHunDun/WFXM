@@ -42,8 +42,10 @@ def _record_usage_data_corruption(path: Path, error: str, backup: str) -> None:
             "ts": time.time(),
         }
     )
-    while len(_usage_data_corruption) > _MAX_USAGE_CORRUPTION_ENTRIES:
-        _usage_data_corruption.pop(0)
+    if len(_usage_data_corruption) > _MAX_USAGE_CORRUPTION_ENTRIES:
+        del _usage_data_corruption[
+            : len(_usage_data_corruption) - _MAX_USAGE_CORRUPTION_ENTRIES
+        ]
 
 
 class UsageTracker:
@@ -52,6 +54,7 @@ class UsageTracker:
     def __init__(self, usage_file: Path) -> None:
         self._path = Path(usage_file)
         self._data: dict[str, dict[str, Any]] = {}
+        self._save_blocked: bool = False
         self._load()
 
     def _load(self) -> None:
@@ -61,40 +64,68 @@ class UsageTracker:
             self._data = json.loads(self._path.read_text(encoding="utf-8"))
             return
         except (json.JSONDecodeError, OSError) as exc:
-            backup = self._quarantine_corrupt_file(exc)
-            logger.warning(
-                "Failed to load skill usage, renamed corrupt file to %s: %s",
-                backup, exc,
-                exc_info=exc,
-            )
+            backup_path_str, rename_ok = self._quarantine_corrupt_file(exc)
+            if rename_ok:
+                logger.warning(
+                    "Failed to load skill usage, renamed corrupt file to %s: %s",
+                    backup_path_str, exc,
+                    exc_info=exc,
+                )
+            else:
+                # Could not move the corrupt file. If we now allow _save()
+                # to run, the next on_view/on_use would atomically overwrite
+                # the still-corrupt original — re-creating the R2-18 data
+                # loss. Block saves until an operator intervenes.
+                logger.error(
+                    "Failed to load skill usage AND could not rename %s: %s. "
+                    "Subsequent _save() calls are blocked to prevent "
+                    "overwriting the corrupt file. Inspect the file manually "
+                    "and clear it before reusing this tracker.",
+                    self._path, exc,
+                    exc_info=exc,
+                )
+                self._save_blocked = True
             self._data = {}
 
-    def _quarantine_corrupt_file(self, exc: BaseException) -> str:
-        """Rename the corrupt file to ``<file>.corrupt-<unix_ts>`` for forensics.
+    def _quarantine_corrupt_file(self, exc: BaseException) -> tuple[str, bool]:
+        """Rename the corrupt file to ``<file>.corrupt-<ns_ts>`` for forensics.
 
-        Returns the backup path. If the rename itself fails, logs the
-        secondary failure at WARNING so operators can still recover
-        the file manually.
+        Returns ``(backup_path, rename_ok)``. The timestamp uses
+        nanosecond resolution to avoid collisions when multiple
+        corruptions of the same file occur within the same second.
+        On rename failure the original file remains in place and
+        ``rename_ok`` is False.
         """
-        backup_name = f"{self._path.name}.corrupt-{int(time.time())}"
+        backup_name = f"{self._path.name}.corrupt-{time.time_ns()}"
         backup_path = self._path.with_name(backup_name)
         try:
             os.replace(self._path, backup_path)
+            rename_ok = True
         except OSError as rename_exc:
             logger.warning(
                 "Could not rename corrupt skill usage %s -> %s: %s",
                 self._path, backup_path, rename_exc,
                 exc_info=rename_exc,
             )
-            backup_path_str = str(backup_path)
-        else:
-            backup_path_str = str(backup_path)
+            rename_ok = False
+        backup_path_str = str(backup_path)
         _record_usage_data_corruption(
             self._path, str(exc), backup_path_str,
         )
-        return backup_path_str
+        return backup_path_str, rename_ok
 
     def _save(self) -> None:
+        if self._save_blocked:
+            # Audit R2-18 follow-up: rename failed during _load(); the
+            # original corrupt file is still at self._path. Writing a
+            # fresh file here would overwrite it and re-create the
+            # data loss we are trying to prevent.
+            logger.warning(
+                "Skill usage _save() skipped: corrupt file at %s could not "
+                "be quarantined; refusing to overwrite.",
+                self._path,
+            )
+            return
         self._path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=str(self._path.parent), suffix=".tmp")
         try:
