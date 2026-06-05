@@ -357,7 +357,7 @@ class LLMClient:
                                 entry["name"] = fn.name
                             if getattr(fn, "arguments", None):
                                 entry["arguments"] += fn.arguments
-                    from butler.core.streaming_tools import (
+                    from butler.transport.streaming_signal import (
                         notify_complete_tool_calls_from_stream,
                     )
 
@@ -380,7 +380,7 @@ class LLMClient:
                 raise
             finish_reason = "error"
 
-        from butler.core.streaming_tools import notify_complete_tool_calls_from_stream
+        from butler.transport.streaming_signal import notify_complete_tool_calls_from_stream
 
         notify_complete_tool_calls_from_stream(
             collected_tool_calls,
@@ -473,7 +473,7 @@ class LLMClient:
 
                 elif etype == "content_block_stop":
                     if current_tool:
-                        from butler.core.streaming_tools import (
+                        from butler.transport.streaming_signal import (
                             notify_complete_tool_calls_from_stream,
                         )
 
