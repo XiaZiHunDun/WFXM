@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
+
+from butler.io.safe_load import safe_load_json
 
 logger = logging.getLogger(__name__)
 
@@ -15,15 +16,15 @@ _PLACEHOLDER = "{workflow_version}"
 def read_workflow_version(workspace: Path) -> str:
     """Return ``version`` field or default ``v3.0``."""
     path = Path(workspace).expanduser().resolve() / "novel-factory" / "workflow_state.json"
-    if not path.is_file():
+    # Audit R2-19: corrupt workflow_state.json used to silently fall
+    # back to default with a generic warning. safe_load_json
+    # renames the corrupt file for forensic retention, logs WARNING
+    # with exc_info, and records the event for /诊断.
+    data = safe_load_json(path, default=None, kind="runtime_workflow_state")
+    if not isinstance(data, dict):
         return _DEFAULT
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        ver = str((data or {}).get("version") or "").strip()
-        return ver or _DEFAULT
-    except (OSError, json.JSONDecodeError) as exc:
-        logger.warning("workflow_state.json unreadable: %s", exc)
-        return _DEFAULT
+    ver = str((data or {}).get("version") or "").strip()
+    return ver or _DEFAULT
 
 
 def resolve_job_command(command: list[str], workspace: Path) -> list[str]:

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
+from butler.io.safe_load import safe_load_json
 
 
 def _tasks_root() -> Path:
@@ -68,10 +69,10 @@ def mark_stale_tasks(
     root = _tasks_root()
     sk = str(session_key or "").strip()
     for path in root.glob("task_*.json"):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
+        # Audit R2-19: corrupt task record used to silently skip.
+        # safe_load renames the corrupt file for forensic retention,
+        # logs WARNING with exc_info, and records the event for /诊断.
+        data = safe_load_json(path, default=None, kind="runtime_task")
         if not isinstance(data, dict):
             continue
         if sk and str(data.get("session_key") or "") != sk:
@@ -158,12 +159,10 @@ def complete_task(
 
 def get_task(task_id: str) -> dict[str, Any] | None:
     path = _tasks_root() / f"{task_id}.json"
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    # Audit R2-19: corrupt task record used to silently return None.
+    # safe_load renames the corrupt file for forensic retention,
+    # logs WARNING with exc_info, and records the event for /诊断.
+    data = safe_load_json(path, default=None, kind="runtime_task")
     return data if isinstance(data, dict) else None
 
 
@@ -171,10 +170,8 @@ def count_running_tasks(session_key: str = "") -> int:
     sk = str(session_key or "").strip()
     n = 0
     for path in _tasks_root().glob("task_*.json"):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
+        # Audit R2-19: corrupt task record used to silently skip.
+        data = safe_load_json(path, default=None, kind="runtime_task")
         if not isinstance(data, dict):
             continue
         if str(data.get("status") or "") != "running":
@@ -191,10 +188,8 @@ def list_recent_tasks(session_key: str = "", *, limit: int = 5) -> list[dict[str
     sk = str(session_key or "").strip()
     out: list[dict[str, Any]] = []
     for path in files:
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            continue
+        # Audit R2-19: corrupt task record used to silently skip.
+        data = safe_load_json(path, default=None, kind="runtime_task")
         if not isinstance(data, dict):
             continue
         if sk and str(data.get("session_key") or "") != sk:

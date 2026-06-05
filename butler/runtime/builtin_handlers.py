@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
+
+from butler.io.safe_load import safe_load_json
 
 
 def run_builtin(handler: str, workspace: Path) -> dict[str, Any]:
@@ -25,14 +26,18 @@ def _workflow_state_digest(workspace: Path) -> dict[str, Any]:
             "stderr": f"Missing {path}",
             "summary": "未找到 workflow_state.json",
         }
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    # Audit R2-19: corrupt workflow_state.json used to silently
+    # return a parse-error envelope. safe_load renames the corrupt
+    # file for forensic retention, logs WARNING with exc_info, and
+    # records the event for /诊断 — we still surface a parse error
+    # to the user (the corruption event is logged separately).
+    data = safe_load_json(path, default=None, kind="runtime_workflow_state")
+    if not isinstance(data, dict):
         return {
             "success": False,
             "stdout": "",
-            "stderr": str(exc),
-            "summary": f"无法解析 workflow_state: {exc}",
+            "stderr": "workflow_state.json unreadable or corrupt (see logs)",
+            "summary": f"无法解析 workflow_state: 文件不可读或损坏",
         }
 
     phase = data.get("current_phase") or "?"

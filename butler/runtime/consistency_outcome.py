@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 from typing import Any
 
+from butler.io.safe_load import safe_load_json
 from butler.runtime.schema import JobDef
 
 _P0_LINE = re.compile(r"P0:\s*(\d+)", re.IGNORECASE)
@@ -25,9 +25,12 @@ def _p0_p1_from_stdout(stdout: str) -> tuple[int | None, int | None]:
 
 
 def _p0_p1_from_json_report(path: Path) -> tuple[int | None, int | None]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    # Audit R2-19: corrupt report JSON used to silently return (None, None),
+    # making downstream P0 gate a no-op. safe_load_json renames the corrupt
+    # file for forensic retention, logs WARNING with exc_info, and records
+    # the event for /诊断.
+    data = safe_load_json(path, default=None, kind="runtime_consistency_report")
+    if not isinstance(data, dict):
         return None, None
     by = data.get("by_severity") or {}
     if not isinstance(by, dict):

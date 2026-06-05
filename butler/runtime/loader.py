@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 import yaml
 
+from butler.io.safe_load import (
+    quarantine_corrupt_file,
+    record_state_file_corruption,
+)
 from butler.runtime.schema import ApprovalConfig, JobDef, JobsFile, NotifyConfig
 
 logger = logging.getLogger(__name__)
@@ -20,10 +25,23 @@ def load_jobs_file(workspace: Path) -> JobsFile | None:
     path = _jobs_path(workspace)
     if not path.is_file():
         return None
+    # Audit R2-19: corrupt jobs.yaml used to silently fall back to no
+    # jobs. We do the parse inline (rather than going through
+    # safe_load_yaml) so we can preserve the original "empty file →
+    # JobsFile(jobs=[])" contract via ``or {}`` while still routing
+    # corruption through the forensic + diagnostics pipeline via
+    # quarantine_corrupt_file / record_state_file_corruption.
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        text = path.read_text(encoding="utf-8")
+        raw = yaml.safe_load(text) or {}
     except (OSError, yaml.YAMLError) as exc:
-        logger.warning("Failed to load %s: %s", path, exc)
+        backup = quarantine_corrupt_file(path)
+        logger.warning(
+            "Corrupt jobs.yaml %s, renamed to %s: %s",
+            path, backup or "<rename-failed>", exc,
+            exc_info=exc,
+        )
+        record_state_file_corruption("runtime_jobs", path, str(exc), backup)
         return None
     if not isinstance(raw, dict):
         return None

@@ -61,6 +61,30 @@ def reset_state_file_corruption() -> None:
     _state_file_corruptions.clear()
 
 
+def record_state_file_corruption(
+    kind: str, path: Path, error: str, backup: str | None,
+) -> None:
+    """Public wrapper around the FIFO corruption recorder.
+
+    Callers that need to distinguish "parsed-as-None" (e.g. an empty
+    YAML file) from "corrupt / unparseable" (e.g. unbalanced braces)
+    use this together with ``quarantine_corrupt_file`` instead of
+    the all-in-one ``safe_load_yaml`` helper.  Most callers should
+    still prefer ``safe_load_yaml`` / ``safe_load_json`` directly.
+    """
+    _record_state_file_corruption(kind, path, error, backup)
+
+
+def quarantine_corrupt_file(path: Path) -> str | None:
+    """Public wrapper around ``_quarantine_corrupt_file``.
+
+    Returns the backup path, or ``None`` if the rename failed (or the
+    path was a symlink — see module docstring).  Symlinks are left in
+    place so downstream atomic-write guards can still reject writes.
+    """
+    return _quarantine_corrupt_file(path)
+
+
 def _record_state_file_corruption(
     kind: str, path: Path, error: str, backup: str | None,
 ) -> None:

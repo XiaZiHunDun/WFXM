@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
+from butler.io.safe_load import safe_load_json
 
 logger = logging.getLogger(__name__)
 
@@ -119,27 +120,30 @@ def _approved_path(session_key: str) -> Path:
 
 def _load_pending(session_key: str) -> PendingGate | None:
     path = _gate_path(session_key)
-    if not path.is_file():
+    # Audit R2-19: corrupt gate file used to silently return None,
+    # which causes check_workflow_step_approval to create a fresh gate
+    # on every retry — Owner never sees the "already asked" state.
+    # safe_load_json renames the corrupt file for forensic retention,
+    # logs WARNING with exc_info, and records the event for /诊断.
+    data = safe_load_json(path, default=None, kind="human_gate_pending")
+    if not isinstance(data, dict):
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            return None
-        gate = PendingGate(
-            kind=str(data.get("kind") or ""),
-            workflow=str(data.get("workflow") or ""),
-            step_id=str(data.get("step_id") or ""),
-            created_at=float(data.get("created_at") or 0),
-        )
-        if _is_gate_expired(gate.created_at):
-            _save_pending(session_key, None)
-            return None
-        return gate
-    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        raw_created = data.get("created_at")
+        created_at = float(raw_created) if raw_created else 0.0
+    except (TypeError, ValueError) as exc:
+        logger.warning("human gate schema invalid (created_at): %s", exc)
         return None
-    except Exception as exc:
-        logger.warning("human gate read failed unexpectedly: %s", exc)
+    gate = PendingGate(
+        kind=str(data.get("kind") or ""),
+        workflow=str(data.get("workflow") or ""),
+        step_id=str(data.get("step_id") or ""),
+        created_at=created_at,
+    )
+    if _is_gate_expired(gate.created_at):
+        _save_pending(session_key, None)
         return None
+    return gate
 
 
 def _save_pending(session_key: str, gate: PendingGate | None) -> None:
@@ -154,16 +158,15 @@ def _save_pending(session_key: str, gate: PendingGate | None) -> None:
 
 def _load_approved(session_key: str) -> set[str]:
     path = _approved_path(session_key)
-    if not path.is_file():
-        return set()
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            return {str(x) for x in data}
-        if isinstance(data, dict):
-            return {str(k) for k, v in data.items() if v}
-    except Exception as exc:
-        logger.debug("load approved skipped: %s", exc)
+    # Audit R2-19: corrupt approved-list file used to silently fall
+    # back to empty set (losing Owner's prior /approve grants). safe_load
+    # renames the corrupt file for forensic retention, logs WARNING with
+    # exc_info, and records the event for /诊断.
+    data = safe_load_json(path, default=None, kind="human_gate_approved")
+    if isinstance(data, list):
+        return {str(x) for x in data}
+    if isinstance(data, dict):
+        return {str(k) for k, v in data.items() if v}
     return set()
 
 
@@ -296,10 +299,16 @@ def consume_injection_bypass(session_key: str) -> bool:
         return False
 
     # 抢占成功, 读取内容判断是否过期
+    # Audit R2-19: corrupt consumed-bypass file used to silently
+    # return False, masking the issue. safe_load_json renames the
+    # corrupt file for forensic retention, logs WARNING with exc_info,
+    # and records the event for /诊断.
+    data = safe_load_json(consumed_path, default=None, kind="human_gate_injection_bypass")
+    if not isinstance(data, dict):
+        return False
     try:
-        data = json.loads(consumed_path.read_text(encoding="utf-8"))
         expires = float(data.get("expires_at") or 0)
-    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+    except (TypeError, ValueError):
         return False
     if expires < time.time():
         try:

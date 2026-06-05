@@ -12,6 +12,7 @@ from typing import Any
 from uuid import uuid4
 
 from butler.config import get_butler_settings
+from butler.io.safe_load import safe_load_json
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +56,13 @@ def latest_run(project_name: str, job_id: str) -> dict[str, Any] | None:
     files = sorted(base.glob("*.json"), reverse=True)
     if not files:
         return None
-    try:
-        return json.loads(files[0].read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return None
+    # Audit R2-19: corrupt run record used to silently return None.
+    # safe_load_json renames the corrupt file for forensic retention,
+    # logs WARNING with exc_info, and records the event for /诊断.
+    data = safe_load_json(
+        files[0], default=None, kind="runtime_run_record",
+    )
+    return data if isinstance(data, dict) else None
 
 
 def lock_path(project_name: str, job_id: str) -> Path:

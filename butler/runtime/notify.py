@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
+from butler.io.safe_load import safe_load_json
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +42,16 @@ def _last_push_path() -> Path:
 
 def _read_last_push_monotonic() -> float | None:
     path = _last_push_path()
-    if not path.is_file():
+    # Audit R2-19: corrupt cooldown marker used to silently return None,
+    # which collapses to "cooldown not active" → potential push storm.
+    # safe_load_json renames the corrupt file for forensic retention,
+    # logs WARNING with exc_info, and records the event for /诊断.
+    data = safe_load_json(path, default=None, kind="runtime_last_push")
+    if not isinstance(data, dict):
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
         return float(data.get("monotonic"))
-    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+    except (TypeError, ValueError):
         return None
 
 
