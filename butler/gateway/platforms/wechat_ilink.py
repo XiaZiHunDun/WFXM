@@ -72,345 +72,95 @@ from butler.gateway.platforms.helpers import MessageDeduplicator, atomic_json_wr
 from butler.gateway.platforms.types import MessageEvent, MessageType, SendResult  # noqa: E402
 from butler.gateway.platforms.base import ButlerPlatformAdapter  # noqa: E402
 from butler.config import get_butler_home  # noqa: E402
+# Re-export all constants/enums from the extracted sibling module so
+# ``from butler.gateway.platforms.wechat_ilink import SESSION_EXPIRED_ERRCODE``
+# (and similar) keeps working unchanged after audit R1-4 split.
+from butler.gateway.platforms.wechat_ilink_constants import (  # noqa: E402, F401
+    BACKOFF_DELAY_SECONDS,
+    CHANNEL_VERSION,
+    CONFIG_TIMEOUT_MS,
+    CONTENT_DEDUP_TTL_SECONDS,
+    EP_GET_BOT_QR,
+    EP_GET_CONFIG,
+    EP_GET_QR_STATUS,
+    EP_GET_UPDATES,
+    EP_GET_UPLOAD_URL,
+    EP_SEND_MESSAGE,
+    EP_SEND_TYPING,
+    ILINK_APP_CLIENT_VERSION,
+    ILINK_APP_ID,
+    ILINK_BASE_URL,
+    ITEM_FILE,
+    ITEM_IMAGE,
+    ITEM_TEXT,
+    ITEM_VIDEO,
+    ITEM_VOICE,
+    LONG_POLL_TIMEOUT_MS,
+    MAX_CONSECUTIVE_FAILURES,
+    MEDIA_FILE,
+    MEDIA_IMAGE,
+    MEDIA_VIDEO,
+    MEDIA_VOICE,
+    MESSAGE_ID_DEDUP_TTL_SECONDS,
+    MSG_STATE_FINISH,
+    MSG_TYPE_BOT,
+    MSG_TYPE_USER,
+    QR_TIMEOUT_MS,
+    RATE_LIMIT_ERRCODE,
+    RETRY_DELAY_SECONDS,
+    SESSION_EXPIRED_ERRCODE,
+    TYPING_START,
+    TYPING_STOP,
+    WECHAT_CDN_BASE_URL,
+)
+# Re-export utility helpers from the extracted utils sibling module.
+# See ``wechat_ilink_utils.py`` for the canonical home; this block is a
+# shim for backward compatibility after audit R1-4 split.
+from butler.gateway.platforms.wechat_ilink_utils import (  # noqa: E402, F401
+    ContextTokenStore,
+    TypingTicketCache,
+    _account_dir,
+    _account_file,
+    _assert_wechat_cdn_url,
+    _base_info,
+    _cdn_download_url,
+    _cdn_upload_url,
+    _content_dedup_ttl,
+    _coerce_bool,
+    _download_bytes,
+    _extract_text,
+    _guess_chat_type,
+    _headers,
+    _is_stale_session_ret,
+    _json_dumps,
+    _load_sync_buf,
+    _make_ssl_connector,
+    _media_reference,
+    _message_id_dedup_ttl,
+    _message_type_from_media,
+    _mime_from_filename,
+    _parse_aes_key,
+    _random_wechat_uin,
+    _save_sync_buf,
+    _safe_id,
+    _sync_buf_path,
+    cache_audio_from_bytes,
+    cache_document_from_bytes,
+    cache_image_from_bytes,
+    check_wechat_requirements,
+    load_wechat_account,
+    save_wechat_account,
+)
+# Async download helper stays in this module to avoid a circular import
+# with the CDN/utility module — tests patch it on this module path.
+from butler.gateway.platforms.wechat_ilink_utils import (  # noqa: E402, F401
+    _download_and_decrypt_media,
+)
 
-
-
-def cache_image_from_bytes(data: bytes, ext: str) -> str:
-    import tempfile
-    fd, path = tempfile.mkstemp(suffix=ext or ".jpg")
-    os.write(fd, data)
-    os.close(fd)
-    return path
-
-
-def cache_document_from_bytes(data: bytes, filename: str) -> str:
-    import tempfile
-    suffix = Path(filename).suffix if filename else ".bin"
-    fd, path = tempfile.mkstemp(suffix=suffix)
-    os.write(fd, data)
-    os.close(fd)
-    return path
-
-
-def cache_audio_from_bytes(data: bytes, ext: str) -> str:
-    return cache_document_from_bytes(data, f"voice{ext or '.silk'}")
-
-
-ILINK_BASE_URL = "https://ilinkai.weixin.qq.com"
-WECHAT_CDN_BASE_URL = "https://novac2c.cdn.weixin.qq.com/c2c"
-ILINK_APP_ID = "bot"
-CHANNEL_VERSION = "2.2.0"
-ILINK_APP_CLIENT_VERSION = (2 << 16) | (2 << 8) | 0
-
-EP_GET_UPDATES = "ilink/bot/getupdates"
-EP_SEND_MESSAGE = "ilink/bot/sendmessage"
-EP_SEND_TYPING = "ilink/bot/sendtyping"
-EP_GET_CONFIG = "ilink/bot/getconfig"
-EP_GET_UPLOAD_URL = "ilink/bot/getuploadurl"
-EP_GET_BOT_QR = "ilink/bot/get_bot_qrcode"
-EP_GET_QR_STATUS = "ilink/bot/get_qrcode_status"
-
-LONG_POLL_TIMEOUT_MS = 35_000
-API_TIMEOUT_MS = 15_000
-CONFIG_TIMEOUT_MS = 10_000
-QR_TIMEOUT_MS = 35_000
-
-MAX_CONSECUTIVE_FAILURES = 3
-RETRY_DELAY_SECONDS = 2
-BACKOFF_DELAY_SECONDS = 30
-SESSION_EXPIRED_ERRCODE = -14
-RATE_LIMIT_ERRCODE = -2  # iLink frequency limit — backoff and retry
-MESSAGE_ID_DEDUP_TTL_SECONDS = 300
-# Short window: only suppress iLink duplicate delivery bursts, not intentional user resends (M4).
-CONTENT_DEDUP_TTL_SECONDS = 20
-
-
-def _message_id_dedup_ttl() -> float:
-    try:
-        return max(5.0, float(os.getenv("BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL", str(MESSAGE_ID_DEDUP_TTL_SECONDS))))
-    except ValueError:
-        return float(MESSAGE_ID_DEDUP_TTL_SECONDS)
-
-
-def _content_dedup_ttl() -> float:
-    try:
-        return max(2.0, float(os.getenv("BUTLER_WECHAT_CONTENT_DEDUP_TTL", str(CONTENT_DEDUP_TTL_SECONDS))))
-    except ValueError:
-        return float(CONTENT_DEDUP_TTL_SECONDS)
-
-
-def _is_stale_session_ret(
-    ret: "Optional[int]", errcode: "Optional[int]", errmsg: "Optional[str]",
-) -> bool:
-    """True when iLink returns ret=-2 / errcode=-2 with 'unknown error',
-    which is a stale-session signal (same as errcode=-14) rather than
-    a genuine rate limit."""
-    if ret != RATE_LIMIT_ERRCODE and errcode != RATE_LIMIT_ERRCODE:
-        return False
-    return (errmsg or "").lower() == "unknown error"
-
-
-MEDIA_IMAGE = 1
-MEDIA_VIDEO = 2
-MEDIA_FILE = 3
-MEDIA_VOICE = 4
 
 _LIVE_ADAPTERS: Dict[str, Any] = {}
-
-
-def _make_ssl_connector() -> Optional["aiohttp.TCPConnector"]:
-    """Return a TCPConnector with a certifi CA bundle, or None if certifi is unavailable.
-
-    Tencent's iLink server (``ilinkai.wechat.qq.com``) is not verifiable against
-    some system CA stores (notably Homebrew's OpenSSL on macOS Apple Silicon).
-    When ``certifi`` is installed, use its Mozilla CA bundle to guarantee
-    verification. Otherwise fall back to aiohttp's default (which honors
-    ``SSL_CERT_FILE`` env var via ``trust_env=True``).
-    """
-    try:
-        import ssl
-        import certifi
-    except ImportError:
-        return None
-    if not AIOHTTP_AVAILABLE:
-        return None
-    ssl_ctx = ssl.create_default_context(cafile=certifi.where())
-    return aiohttp.TCPConnector(ssl=ssl_ctx)
-
-ITEM_TEXT = 1
-ITEM_IMAGE = 2
-ITEM_VOICE = 3
-ITEM_FILE = 4
-ITEM_VIDEO = 5
-
-MSG_TYPE_USER = 1
-MSG_TYPE_BOT = 2
-MSG_STATE_FINISH = 2
-
-TYPING_START = 1
-TYPING_STOP = 2
-
-
-
-def check_wechat_requirements() -> bool:
-    """Return True when runtime dependencies for WeChat are available."""
-    return AIOHTTP_AVAILABLE and CRYPTO_AVAILABLE
-
-
-def _safe_id(value: Optional[str], keep: int = 8) -> str:
-    raw = str(value or "").strip()
-    if not raw:
-        return "?"
-    if len(raw) <= keep:
-        return raw
-    return raw[:keep]
-
-
-def _json_dumps(payload: Dict[str, Any]) -> str:
-    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-
-
-def _pkcs7_pad(data: bytes, block_size: int = 16) -> bytes:
-    pad_len = block_size - (len(data) % block_size)
-    return data + bytes([pad_len] * pad_len)
-
-
-def _aes128_ecb_encrypt(plaintext: bytes, key: bytes) -> bytes:
-    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
-    encryptor = cipher.encryptor()
-    return encryptor.update(_pkcs7_pad(plaintext)) + encryptor.finalize()
-
-
-def _aes128_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
-    cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
-    decryptor = cipher.decryptor()
-    padded = decryptor.update(ciphertext) + decryptor.finalize()
-    if not padded:
-        return padded
-    pad_len = padded[-1]
-    if 1 <= pad_len <= 16 and padded.endswith(bytes([pad_len]) * pad_len):
-        return padded[:-pad_len]
-    return padded
-
-
-def _aes_padded_size(size: int) -> int:
-    return ((size + 1 + 15) // 16) * 16
-
-
-def _random_wechat_uin() -> str:
-    value = struct.unpack(">I", secrets.token_bytes(4))[0]
-    return base64.b64encode(str(value).encode("utf-8")).decode("ascii")
-
-
-def _base_info() -> Dict[str, Any]:
-    return {"channel_version": CHANNEL_VERSION}
-
-
-def _headers(token: Optional[str], body: str) -> Dict[str, str]:
-    headers = {
-        "Content-Type": "application/json",
-        "AuthorizationType": "ilink_bot_token",
-        "Content-Length": str(len(body.encode("utf-8"))),
-        "X-WECHAT-UIN": _random_wechat_uin(),
-        "iLink-App-Id": ILINK_APP_ID,
-        "iLink-App-ClientVersion": str(ILINK_APP_CLIENT_VERSION),
-    }
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    return headers
-
-
-def _account_dir(data_home: str) -> Path:
-    path = Path(data_home) / "wechat" / "accounts"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _account_file(data_home: str, account_id: str) -> Path:
-    return _account_dir(data_home) / f"{account_id}.json"
-
-
-def save_wechat_account(
-    data_home: str,
-    *,
-    account_id: str,
-    token: str,
-    base_url: str,
-    user_id: str = "",
-) -> None:
-    """Persist account credentials for later reuse."""
-    payload = {
-        "token": token,
-        "base_url": base_url,
-        "user_id": user_id,
-        "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    }
-    path = _account_file(data_home, account_id)
-    atomic_json_write(path, payload)
-    try:
-        path.chmod(0o600)
-    except OSError:
-        pass
-
-
-def load_wechat_account(data_home: str, account_id: str) -> Optional[Dict[str, Any]]:
-    """Load persisted account credentials."""
-    path = _account_file(data_home, account_id)
-    if not path.exists():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-
-class ContextTokenStore:
-    """Disk-backed ``context_token`` cache keyed by account + peer."""
-
-    def __init__(self, data_home: str):
-        self._root = _account_dir(data_home)
-        self._cache: Dict[str, str] = {}
-
-    def _path(self, account_id: str) -> Path:
-        return self._root / f"{account_id}.context-tokens.json"
-
-    def _key(self, account_id: str, user_id: str) -> str:
-        return f"{account_id}:{user_id}"
-
-    def restore(self, account_id: str) -> None:
-        path = self._path(account_id)
-        if not path.exists():
-            return
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("wechat: failed to restore context tokens for %s: %s", _safe_id(account_id), exc)
-            return
-        restored = 0
-        for user_id, token in data.items():
-            if isinstance(token, str) and token:
-                self._cache[self._key(account_id, user_id)] = token
-                restored += 1
-        if restored:
-            logger.info("wechat: restored %d context token(s) for %s", restored, _safe_id(account_id))
-
-    def get(self, account_id: str, user_id: str) -> Optional[str]:
-        return self._cache.get(self._key(account_id, user_id))
-
-    def set(self, account_id: str, user_id: str, token: str) -> None:
-        self._cache[self._key(account_id, user_id)] = token
-        self._persist(account_id)
-
-    def _persist(self, account_id: str) -> None:
-        prefix = f"{account_id}:"
-        payload = {
-            key[len(prefix) :]: value
-            for key, value in self._cache.items()
-            if key.startswith(prefix)
-        }
-        try:
-            path = self._path(account_id)
-            atomic_json_write(path, payload)
-            try:
-                path.chmod(0o600)
-            except OSError:
-                pass
-        except Exception as exc:
-            logger.warning("wechat: failed to persist context tokens for %s: %s", _safe_id(account_id), exc)
-
-
-class TypingTicketCache:
-    """Short-lived typing ticket cache from ``getconfig``."""
-
-    def __init__(self, ttl_seconds: float = 600.0):
-        self._ttl_seconds = ttl_seconds
-        self._cache: Dict[str, Tuple[str, float]] = {}
-
-    def get(self, user_id: str) -> Optional[str]:
-        entry = self._cache.get(user_id)
-        if not entry:
-            return None
-        if time.time() - entry[1] >= self._ttl_seconds:
-            self._cache.pop(user_id, None)
-            return None
-        return entry[0]
-
-    def set(self, user_id: str, ticket: str) -> None:
-        self._cache[user_id] = (ticket, time.time())
-
-
-def _cdn_download_url(cdn_base_url: str, encrypted_query_param: str) -> str:
-    return f"{cdn_base_url.rstrip('/')}/download?encrypted_query_param={quote(encrypted_query_param, safe='')}"
-
-
-def _cdn_upload_url(cdn_base_url: str, upload_param: str, filekey: str) -> str:
-    return (
-        f"{cdn_base_url.rstrip('/')}/upload"
-        f"?encrypted_query_param={quote(upload_param, safe='')}"
-        f"&filekey={quote(filekey, safe='')}"
-    )
-
-
-def _parse_aes_key(aes_key_b64: str) -> bytes:
-    decoded = base64.b64decode(aes_key_b64)
-    if len(decoded) == 16:
-        return decoded
-    if len(decoded) == 32:
-        text = decoded.decode("ascii", errors="ignore")
-        if text and all(ch in "0123456789abcdefABCDEF" for ch in text):
-            return bytes.fromhex(text)
-    raise ValueError(f"unexpected aes_key format ({len(decoded)} decoded bytes)")
-
-
-def _guess_chat_type(message: Dict[str, Any], account_id: str) -> Tuple[str, str]:
-    room_id = str(message.get("room_id") or message.get("chat_room_id") or "").strip()
-    to_user_id = str(message.get("to_user_id") or "").strip()
-    is_group = bool(room_id) or (
-        to_user_id and account_id and to_user_id != account_id and message.get("msg_type") == 1
-    )
-    if is_group:
-        return "group", room_id or to_user_id or str(message.get("from_user_id") or "")
-    return "dm", str(message.get("from_user_id") or "")
+# (R1-12 owns ``_LIVE_ADAPTERS``; the split is intentionally non-overlapping
+# with that issue — see audit doc §R1-12.)
 
 
 async def _api_post(
@@ -616,169 +366,6 @@ async def _upload_ciphertext(
             raw = await response.text()
             raise RuntimeError(f"CDN upload HTTP {response.status}: {raw[:200]}")
     return await asyncio.wait_for(_do_upload(), timeout=120)
-
-
-async def _download_bytes(
-    session: "aiohttp.ClientSession",
-    *,
-    url: str,
-    timeout_seconds: float = 60.0,
-) -> bytes:
-    # Use asyncio.wait_for() instead of aiohttp ClientTimeout to avoid
-    # "Timeout context manager should be used inside a task" errors.
-    async def _do_download() -> bytes:
-        async with session.get(url) as response:
-            response.raise_for_status()
-            return await response.read()
-    return await asyncio.wait_for(_do_download(), timeout=timeout_seconds)
-
-
-_WECHAT_CDN_ALLOWLIST: frozenset[str] = frozenset(
-    {
-        "novac2c.cdn.wechat.qq.com",
-        "ilinkai.wechat.qq.com",
-        "wx.qlogo.cn",
-        "thirdwx.qlogo.cn",
-        "res.wx.qq.com",
-        "mmbiz.qpic.cn",
-        "mmbiz.qlogo.cn",
-    }
-)
-
-
-def _assert_wechat_cdn_url(url: str) -> None:
-    """Raise ValueError if *url* does not point at a known WeChat CDN host."""
-    try:
-        parsed = urlparse(url)
-        scheme = parsed.scheme.lower()
-        host = parsed.hostname or ""
-    except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"Unparseable media URL: {url!r}") from exc
-
-    if scheme not in ("http", "https"):
-        raise ValueError(
-            f"Media URL has disallowed scheme {scheme!r}; only http/https are permitted."
-        )
-    if host not in _WECHAT_CDN_ALLOWLIST:
-        raise ValueError(
-            f"Media URL host {host!r} is not in the WeChat CDN allowlist. "
-            "Refusing to fetch to prevent SSRF."
-        )
-
-
-def _media_reference(item: Dict[str, Any], key: str) -> Dict[str, Any]:
-    return (item.get(key) or {}).get("media") or {}
-
-
-async def _download_and_decrypt_media(
-    session: "aiohttp.ClientSession",
-    *,
-    cdn_base_url: str,
-    encrypted_query_param: Optional[str],
-    aes_key_b64: Optional[str],
-    full_url: Optional[str],
-    timeout_seconds: float,
-) -> bytes:
-    if encrypted_query_param:
-        raw = await _download_bytes(
-            session,
-            url=_cdn_download_url(cdn_base_url, encrypted_query_param),
-            timeout_seconds=timeout_seconds,
-        )
-    elif full_url:
-        _assert_wechat_cdn_url(full_url)
-        raw = await _download_bytes(session, url=full_url, timeout_seconds=timeout_seconds)
-    else:
-        raise RuntimeError("media item had neither encrypt_query_param nor full_url")
-    if aes_key_b64:
-        raw = _aes128_ecb_decrypt(raw, _parse_aes_key(aes_key_b64))
-    return raw
-
-
-def _mime_from_filename(filename: str) -> str:
-    return mimetypes.guess_type(filename)[0] or "application/octet-stream"
-
-
-
-
-def _coerce_bool(value: Any, default: bool = True) -> bool:
-    """Coerce a config value to bool, tolerating strings like ``"true"``."""
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    text = str(value).strip().lower()
-    if not text:
-        return default
-    if text in {"1", "true", "yes", "on"}:
-        return True
-    if text in {"0", "false", "no", "off"}:
-        return False
-    return default
-
-
-def _extract_text(item_list: List[Dict[str, Any]]) -> str:
-    for item in item_list:
-        if item.get("type") == ITEM_TEXT:
-            text = str((item.get("text_item") or {}).get("text") or "")
-            ref = item.get("ref_msg") or {}
-            ref_item = ref.get("message_item") or {}
-            ref_type = ref_item.get("type")
-            if ref_type in (ITEM_IMAGE, ITEM_VIDEO, ITEM_FILE, ITEM_VOICE):
-                title = ref.get("title") or ""
-                prefix = f"[引用媒体: {title}]\n" if title else "[引用媒体]\n"
-                return f"{prefix}{text}".strip()
-            if ref_item:
-                parts: List[str] = []
-                if ref.get("title"):
-                    parts.append(str(ref["title"]))
-                ref_text = _extract_text([ref_item])
-                if ref_text:
-                    parts.append(ref_text)
-                if parts:
-                    return f"[引用: {' | '.join(parts)}]\n{text}".strip()
-            return text
-    for item in item_list:
-        if item.get("type") == ITEM_VOICE:
-            voice_text = str((item.get("voice_item") or {}).get("text") or "")
-            if voice_text:
-                return voice_text
-    return ""
-
-
-def _message_type_from_media(media_types: List[str], text: str) -> MessageType:
-    if any(m.startswith("image/") for m in media_types):
-        return MessageType.PHOTO
-    if any(m.startswith("video/") for m in media_types):
-        return MessageType.VIDEO
-    if any(m.startswith("audio/") for m in media_types):
-        return MessageType.VOICE
-    if media_types:
-        return MessageType.DOCUMENT
-    if text.startswith("/"):
-        return MessageType.COMMAND
-    return MessageType.TEXT
-
-
-def _sync_buf_path(data_home: str, account_id: str) -> Path:
-    return _account_dir(data_home) / f"{account_id}.sync.json"
-
-
-def _load_sync_buf(data_home: str, account_id: str) -> str:
-    path = _sync_buf_path(data_home, account_id)
-    if not path.exists():
-        return ""
-    try:
-        return json.loads(path.read_text(encoding="utf-8")).get("get_updates_buf", "")
-    except Exception:
-        return ""
-
-
-def _save_sync_buf(data_home: str, account_id: str, sync_buf: str) -> None:
-    path = _sync_buf_path(data_home, account_id)
-    atomic_json_write(path, {"get_updates_buf": sync_buf})
 
 
 async def qr_login(

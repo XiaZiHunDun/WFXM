@@ -34,7 +34,7 @@ class TestDownloadAndDecryptMedia:
         payload = b"encrypted-payload"
 
         with patch(
-            "butler.gateway.platforms.wechat_ilink._download_bytes",
+            "butler.gateway.platforms.wechat_ilink_utils._download_bytes",
             new_callable=AsyncMock,
             return_value=payload,
         ) as mock_dl:
@@ -56,7 +56,7 @@ class TestDownloadAndDecryptMedia:
         payload = b"raw-image"
 
         with patch(
-            "butler.gateway.platforms.wechat_ilink._download_bytes",
+            "butler.gateway.platforms.wechat_ilink_utils._download_bytes",
             new_callable=AsyncMock,
             return_value=payload,
         ):
