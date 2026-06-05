@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import httpx
 import yaml
 
 from butler.registry.paths import catalog_dir
@@ -243,7 +244,10 @@ def _fetch_raw_tree(base_raw: str, rel_dir: str) -> dict[str, str]:
             if resp.status_code == 200:
                 files["SKILL.md"] = resp.text
                 break
-        except Exception:
+        except httpx.HTTPError:
+            # Audit R2-15: network errors fall through to the next candidate.
+            # ValueError from safe_registry_get's SSRF guard propagates so
+            # the marketplace's caller can record it.
             continue
     for extra in ("reference.md", "README.md"):
         url = f"{base}/{rel}/{extra}"
@@ -254,7 +258,7 @@ def _fetch_raw_tree(base_raw: str, rel_dir: str) -> dict[str, str]:
                 resp = safe_registry_get(url, timeout=15.0)
                 if resp.status_code == 200:
                     files[extra] = resp.text
-            except Exception as exc:
+            except httpx.HTTPError as exc:
                 logger.debug("fetch raw tree skipped: %s", exc)
     return files
 

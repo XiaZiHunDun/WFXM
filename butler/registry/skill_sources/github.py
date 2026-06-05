@@ -18,6 +18,33 @@ logger = logging.getLogger(__name__)
 _GH_API = "https://api.github.com"
 _RAW = "https://raw.githubusercontent.com"
 
+# Audit R2-15: surface SSRF rejections instead of swallowing them as generic
+# "fetch failed". The inner loop used ``except Exception: continue`` which
+# hid the ValueError raised by ``safe_registry_get`` for unsafe URLs. We
+# now narrow the inner loop to network errors only, let SSRF rejection
+# propagate, and catch it at the ``fetch()`` boundary where the URL is
+# recorded for /诊断 to aggregate. Same shape as R2-9/11/12/13/14
+# diagnostics buffers.
+_MAX_SSRF_REJECTION_ENTRIES = 50
+_ssrf_rejections: list[dict[str, Any]] = []
+
+
+def recent_ssrf_rejections() -> list[dict[str, Any]]:
+    """Read the SSRF-rejection diagnostics buffer (test + /诊断 interface)."""
+    return list(_ssrf_rejections)
+
+
+def reset_ssrf_rejections() -> None:
+    """Clear the SSRF-rejection diagnostics buffer (test helper)."""
+    _ssrf_rejections.clear()
+
+
+def _record_ssrf_rejection(source: str, url: str, reason: str) -> None:
+    """Append an SSRF rejection event and cap the buffer to its max length."""
+    _ssrf_rejections.append({"source": source, "url": url, "reason": reason})
+    if len(_ssrf_rejections) > _MAX_SSRF_REJECTION_ENTRIES:
+        del _ssrf_rejections[: len(_ssrf_rejections) - _MAX_SSRF_REJECTION_ENTRIES]
+
 
 def _auth_headers() -> dict[str, str]:
     token = os.getenv("GITHUB_TOKEN", "").strip()
@@ -88,7 +115,19 @@ class GitHubSource(SkillSource):
         if not parsed:
             return None
         owner, repo, path = parsed
-        text = _fetch_raw(owner, repo, path) or _fetch_api(owner, repo, path)
+        try:
+            text = _fetch_raw(owner, repo, path) or _fetch_api(owner, repo, path)
+        except ValueError as exc:
+            # Audit R2-15: ``safe_registry_get`` rejected the URL as unsafe.
+            # This is a security signal, not a generic "fetch failed" — log
+            # at WARNING with the URL, record the event for /诊断, and
+            # return None so the caller's user-facing flow is not disrupted.
+            url = f"github:{owner}/{repo}/{path}"
+            logger.warning(
+                "github fetch blocked by SSRF guard for %s: %s", url, exc
+            )
+            _record_ssrf_rejection(self.source_id, url, str(exc))
+            return None
         if not text:
             return None
         name = _name_from_frontmatter(text) or path.split("/")[-1].replace(".md", "") or repo
@@ -121,7 +160,11 @@ def _fetch_raw(owner: str, repo: str, path: str, ref: str = "main") -> str | Non
             resp = safe_registry_get(url)
             if resp.status_code == 200:
                 return resp.text
-        except Exception:
+        except httpx.HTTPError:
+            # Audit R2-15: network / timeout / 5xx fall through to the next
+            # branch. ValueError from safe_registry_get's SSRF guard is
+            # deliberately NOT caught here so it propagates to the fetch()
+            # boundary for /诊断 recording.
             continue
     return None
 
@@ -140,7 +183,8 @@ def _fetch_api(owner: str, repo: str, path: str) -> str | None:
             return None
         raw = base64.b64decode(enc)
         return raw.decode("utf-8", errors="replace")
-    except Exception as exc:
+    except httpx.HTTPError as exc:
+        # Audit R2-15: narrow except — only network errors fall through.
         logger.debug("github api fetch failed: %s", exc)
         return None
 
