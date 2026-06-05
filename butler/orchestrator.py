@@ -139,6 +139,12 @@ class ButlerOrchestrator:
         self._skill_router: SkillRouter | None = None
         self._skill_manager: SkillManager | None = None
         self.memory_provider = None
+        # Audit R2-4: True iff the memory facade failed to initialize.
+        # Surfaces to /诊断 (collect_memory_layer_stats → format_rag_*_lines)
+        # and to the system prompt so the model can warn the user instead of
+        # silently serving empty recalls.
+        self.memory_offline: bool = False
+        self._memory_init_error: str = ""
         self._reload_project_memory()
         self._rebuild_skill_router()
         self._initialize_memory_provider()
@@ -205,9 +211,21 @@ class ButlerOrchestrator:
                 user_id=self.user_id,
             )
             self.memory_provider = provider
+            self.memory_offline = False
+            self._memory_init_error = ""
         except Exception as exc:
-            logger.warning("Butler memory provider unavailable: %s", exc)
+            # Audit R2-4: previously .warning with no exc_info — silently
+            # disabled the whole memory subsystem. Surface as ERROR with
+            # traceback AND set memory_offline so /诊断 + system prompt
+            # can tell the operator and the model that recall is offline.
+            logger.error(
+                "Butler memory provider unavailable: %s",
+                exc,
+                exc_info=exc,
+            )
             self.memory_provider = None
+            self.memory_offline = True
+            self._memory_init_error = f"{type(exc).__name__}: {exc}"
 
     def _refresh_memory_provider_for_project_switch(self) -> None:
         provider = getattr(self, "memory_provider", None)
@@ -340,6 +358,18 @@ class ButlerOrchestrator:
             "## 可用技能概要\n" + ph.get("skill_summaries", ""),
             "## 项目工作流\n" + ph.get("workflows_block", ""),
         ]
+        # Audit R2-4: when the memory facade failed to initialize, the
+        # model would otherwise answer as if it had no history (which it
+        # doesn't) without warning the user. Surface a clear note so the
+        # model can tell the user "本次对话无历史记忆".
+        if self.memory_offline:
+            chunks.append(
+                "## 记忆子系统离线 (memory offline)\n"
+                "本次会话无法 recall 历史上下文,所有"
+                " recall 类工具将返回空结果。"
+                "请主动告知用户\"本次对话无历史记忆\","
+                "避免产生已记住对方偏好的错觉。"
+            )
         body = "\n\n".join(c for c in chunks if c and str(c).strip())
         return wrap_system_reminder(body)
 
@@ -397,6 +427,18 @@ class ButlerOrchestrator:
         rendered = body
         for k, v in placeholders.items():
             rendered = rendered.replace("{" + k + "}", v)
+        # Audit R2-4: when memory facade init failed, append a visible
+        # warning section so the default-system path (without the dynamic
+        # reminder wrapper) still surfaces the degradation to the model.
+        offline_appendix = ""
+        if self.memory_offline:
+            offline_appendix = (
+                "\n\n## 记忆子系统离线 (memory offline)\n"
+                "本次会话无法 recall 历史上下文,所有"
+                " recall 类工具将返回空结果。"
+                "请主动告知用户\"本次对话无历史记忆\","
+                "避免产生已记住对方偏好的错觉。"
+            )
         appendix = (
             "\n\n## Butler 模型\n"
             f"{ph['model_block']}\n\n"
@@ -404,7 +446,7 @@ class ButlerOrchestrator:
             f"{ph['skill_summaries']}\n\n"
             "## 项目工作流\n"
             f"{ph['workflows_block']}"
-        )
+        ) + offline_appendix
         return rendered.rstrip() + appendix
 
     def build_system_prompt(self) -> str:

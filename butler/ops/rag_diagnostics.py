@@ -15,6 +15,13 @@ def format_rag_diagnostic_lines(
 ) -> list[str]:
     stats = mem_stats if isinstance(mem_stats, dict) else {}
     lines = ["RAG / 检索:"]
+    # Audit R2-4: orchestrator-level memory facade failed to initialize.
+    # This is the worst-case degradation: every recall returns empty, but
+    # the model has no way to know that. /诊断 must surface it loudly.
+    if stats.get("memory_offline"):
+        err = str(stats.get("memory_init_error") or "").strip()
+        suffix = f" ({err})" if err else ""
+        lines.append(f"  记忆子系统: 离线 (initialization failed){suffix}")
     sem = stats.get("semantic_enabled")
     lines.append(f"  语义索引: {'开' if sem else '关'}")
     try:

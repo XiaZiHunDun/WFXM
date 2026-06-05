@@ -93,6 +93,14 @@ def collect_memory_layer_stats(
         "project_bullets": 0,
         "project_chars": 0,
         "knowledge_db_keys": 0,
+        # Audit R2-4: orchestrator-level "memory facade failed to initialize"
+        # surfaced to /诊断 so the operator sees the whole subsystem is
+        # down, not just degraded. Distinct from embedding_degraded (R2-3)
+        # or recall_degraded (R2-2) which are sub-component degradations.
+        "memory_offline": bool(getattr(orchestrator, "memory_offline", False)),
+        "memory_init_error": str(
+            getattr(orchestrator, "_memory_init_error", "") or ""
+        ),
     }
 
     bm = getattr(orchestrator, "butler_memory", None)
