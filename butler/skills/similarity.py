@@ -233,9 +233,23 @@ content:
 """
 
 
+def _safe_unavailable_reason(exc: BaseException) -> str:
+    """Render an LLM-unavailable reason without echoing the raw exception.
+
+    Some provider exceptions (httpx, openai, anthropic) interpolate the
+    request URL or auth header into ``str(exc)``. Returning the bare class
+    name and a truncated, alphanumeric-only reason keeps the diagnostics
+    buffer useful without exposing request details to /诊断.
+    """
+    name = type(exc).__name__
+    raw = str(exc) or ""
+    safe = "".join(ch for ch in raw if ch.isalnum() or ch in " ._-")[:80]
+    return f"{name}: {safe}".strip(" :.") or name
+
+
 def _llm_similarity_score(
     new_skill: dict[str, Any], other: dict[str, Any], llm_fn: LLMFn
-) -> Optional[float]:
+) -> float:
     def _trunc(s: str, n: int) -> str:
         s = s or ""
         return s if len(s) <= n else s[:n] + "\n..."
@@ -254,14 +268,14 @@ def _llm_similarity_score(
     )
     # Audit R2-14: split the previous monolithic try/except. LLM provider
     # errors (network / timeout / 401) are a soft "unavailable" — caller
-    # records the event and falls back to the deterministic layer. A
-    # provider-up-but-response-garbled condition is a hard "corrupt" signal
-    # that must surface (raise) so callers don't silently degrade dedup.
+    # records the event and falls back to the deterministic layer.
+    # A provider-up-but-response-garbled condition is a hard "corrupt"
+    # signal that must surface (raise) so callers don't silently degrade.
     try:
         response = llm_fn(prompt).strip()
     except Exception as e:
         logger.warning("LLM similarity unavailable: %s", e)
-        raise SimilarityLLMUnavailable(str(e)) from e
+        raise SimilarityLLMUnavailable(_safe_unavailable_reason(e)) from e
     m = re.search(r"\{[^{}]*\}", response, re.DOTALL)
     if not m:
         m = re.search(r"\{.*\}", response, re.DOTALL)

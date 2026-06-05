@@ -104,7 +104,7 @@ class TestCorruptRaises:
         llm = _llm_returning("Sorry, I cannot help with that.")
         with pytest.raises(SimilarityResponseCorrupt) as excinfo:
             _llm_similarity_score(_SKILL_A, _SKILL_B, llm)
-        assert "no JSON" in str(excinfo.value) or "no json" in str(excinfo.value).lower()
+        assert "no JSON" in str(excinfo.value)
 
     def test_garbage_braces_but_not_json_raises(self):
         """LLM 返回有花括号但非 JSON → raise (json.JSONDecodeError)."""
@@ -131,7 +131,8 @@ class TestUnavailableRaises:
         llm = _llm_raising(ConnectionError("network down"))
         with pytest.raises(SimilarityLLMUnavailable) as excinfo:
             _llm_similarity_score(_SKILL_A, _SKILL_B, llm)
-        assert "network down" in str(excinfo.value)
+        # Safe reason (class name + sanitized str) — no raw URL/token leak.
+        assert "ConnectionError" in str(excinfo.value)
         # __cause__ 保留原始异常
         assert isinstance(excinfo.value.__cause__, ConnectionError)
 
@@ -230,28 +231,25 @@ class TestPublicReader:
     def test_buffer_is_bounded(self, monkeypatch):
         """buffer 满后按 FIFO 丢弃旧 entry (防止长会话无限增长)."""
         from butler.skills import similarity as sim_mod
-        original_cap = _MAX_DEDUP_STATUS_ENTRIES
-        sim_mod._MAX_DEDUP_STATUS_ENTRIES = 3
-        try:
-            # 触发 5 次 corrupt, 验证最新 3 个保留
-            sim = SkillSimilarity(llm_fn=_llm_returning("garbage"))
-            for i in range(5):
-                sim.find_similar(
-                    {**_SKILL_A, "name": f"a-{i}"},
-                    [{**_SKILL_B, "name": f"b-{i}"}],
-                    threshold=0.0,
-                )
-            entries = recent_dedup_status()
-            assert len(entries) == 3, (
-                f"buffer 满后应严格 cap=3, 实际: {len(entries)}"
+
+        monkeypatch.setattr(sim_mod, "_MAX_DEDUP_STATUS_ENTRIES", 3)
+        # 触发 5 次 corrupt, 验证最新 3 个保留
+        sim = SkillSimilarity(llm_fn=_llm_returning("garbage"))
+        for i in range(5):
+            sim.find_similar(
+                {**_SKILL_A, "name": f"a-{i}"},
+                [{**_SKILL_B, "name": f"b-{i}"}],
+                threshold=0.0,
             )
-            # FIFO: 最旧 2 个 (a-0, a-1) 应被丢弃
-            assert all(
-                "a-0" not in e["message"] and "a-1" not in e["message"]
-                for e in entries
-            ), f"最旧 2 个 entry 应被 FIFO 丢弃, 实际: {entries!r}"
-        finally:
-            sim_mod._MAX_DEDUP_STATUS_ENTRIES = original_cap
+        entries = recent_dedup_status()
+        assert len(entries) == 3, (
+            f"buffer 满后应严格 cap=3, 实际: {len(entries)}"
+        )
+        # FIFO: 最旧 2 个 (a-0, a-1) 应被丢弃
+        assert all(
+            "a-0" not in e["message"] and "a-1" not in e["message"]
+            for e in entries
+        ), f"最旧 2 个 entry 应被 FIFO 丢弃, 实际: {entries!r}"
 
 
 # -----------------------------------------------------------------------
