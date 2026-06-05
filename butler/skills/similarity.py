@@ -13,6 +13,54 @@ logger = logging.getLogger(__name__)
 
 LLMFn = Callable[[str], str]
 
+
+class SimilarityResponseCorrupt(ValueError):
+    """Raised when the LLM responded but its reply contains no parseable JSON.
+
+    Distinct from "LLM unreachable" (where ``llm_fn`` itself raises). Corrupt
+    responses indicate the provider is up but the model is misbehaving — a
+    data-quality signal that callers should surface to /诊断 rather than
+    silently treating as "no signal" and falling back to the deterministic
+    layer.
+    """
+
+
+class SimilarityLLMUnavailable(RuntimeError):
+    """Raised when the LLM provider itself is unreachable.
+
+    Mirrors the consolidator's ``ConsolidatorLLMUnavailable`` (R2-1). The
+    exception message carries the underlying cause so the dedup status
+    buffer can record *why* the dedup tier was unavailable (network,
+    timeout, 401, etc.) — not just the bare fact.
+    """
+
+
+# Audit R2-14: when the LLM tier fails we used to return None and silently
+# fall back to the Jaccard/TF-IDF layer, which meant near-duplicate skills
+# were treated as distinct and the skill library inflated invisibly. Track
+# each degradation event (unavailable vs corrupt) in a bounded buffer so
+# /诊断 can detect dedup drift. Same shape as R2-9 / R2-11 / R2-12 / R2-13
+# diagnostics buffers.
+_MAX_DEDUP_STATUS_ENTRIES = 50
+_dedup_status: list[dict[str, Any]] = []
+
+
+def recent_dedup_status() -> list[dict[str, Any]]:
+    """Read the dedup-status diagnostics buffer (test + /诊断 interface)."""
+    return list(_dedup_status)
+
+
+def reset_dedup_status() -> None:
+    """Clear the dedup-status diagnostics buffer (test helper)."""
+    _dedup_status.clear()
+
+
+def _record_dedup_status(kind: str, message: str) -> None:
+    """Append a dedup degradation event and cap the buffer to its max length."""
+    _dedup_status.append({"kind": kind, "message": message})
+    if len(_dedup_status) > _MAX_DEDUP_STATUS_ENTRIES:
+        del _dedup_status[: len(_dedup_status) - _MAX_DEDUP_STATUS_ENTRIES]
+
 _JIEBA_LOADED = False
 _jieba = None
 
@@ -204,21 +252,33 @@ def _llm_similarity_score(
         triggers_b=", ".join(other.get("triggers") or []),
         body_b=body_b,
     )
+    # Audit R2-14: split the previous monolithic try/except. LLM provider
+    # errors (network / timeout / 401) are a soft "unavailable" — caller
+    # records the event and falls back to the deterministic layer. A
+    # provider-up-but-response-garbled condition is a hard "corrupt" signal
+    # that must surface (raise) so callers don't silently degrade dedup.
     try:
         response = llm_fn(prompt).strip()
-        m = re.search(r"\{[^{}]*\}", response, re.DOTALL)
-        if not m:
-            m = re.search(r"\{.*\}", response, re.DOTALL)
-        if not m:
-            return None
+    except Exception as e:
+        logger.warning("LLM similarity unavailable: %s", e)
+        raise SimilarityLLMUnavailable(str(e)) from e
+    m = re.search(r"\{[^{}]*\}", response, re.DOTALL)
+    if not m:
+        m = re.search(r"\{.*\}", response, re.DOTALL)
+    if not m:
+        raise SimilarityResponseCorrupt(
+            f"LLM dedup response has no JSON object: {response[:120]!r}"
+        )
+    try:
         data = json.loads(m.group())
         score = float(data.get("score", 0.0))
-        if data.get("similar") is False and score >= 0.99:
-            score = min(score, 0.5)
-        return max(0.0, min(1.0, score))
-    except Exception as e:
-        logger.warning("LLM similarity failed: %s", e)
-        return None
+    except (json.JSONDecodeError, ValueError, TypeError) as e:
+        raise SimilarityResponseCorrupt(
+            f"LLM dedup response JSON unparseable: {e}"
+        ) from e
+    if data.get("similar") is False and score >= 0.99:
+        score = min(score, 0.5)
+    return max(0.0, min(1.0, score))
 
 
 class SkillSimilarity:
@@ -265,7 +325,7 @@ class SkillSimilarity:
             j = trigger_jaccard(new_triggers, list(skill.get("triggers") or []))
 
             if j >= self._jaccard_strong:
-                medium_score = j
+                medium_score: float = j
             else:
                 t = tfidf_cosine(new_text, _skill_text(skill))
                 if t >= self._tfidf_gate:
@@ -273,18 +333,39 @@ class SkillSimilarity:
                 else:
                     continue
 
-            final_score: float
-            if self._llm_fn is not None:
-                llm_s = _llm_similarity_score(new_skill, skill, self._llm_fn)
-                if llm_s is None:
-                    final_score = medium_score
-                else:
-                    final_score = llm_s
-            else:
-                final_score = medium_score
+            final_score = self._resolve_final_score(new_skill, skill, medium_score)
 
             if final_score >= threshold:
                 results.append((skill, final_score))
 
         results.sort(key=lambda x: -x[1])
         return results
+
+    def _resolve_final_score(
+        self,
+        new_skill: dict[str, Any],
+        skill: dict[str, Any],
+        medium_score: float,
+    ) -> float:
+        """Pick final dedup score: LLM tier if available, else medium_score.
+
+        Audit R2-14: the LLM tier's failure modes (unreachable / corrupt) are
+        recorded to the dedup-status buffer so /诊断 can detect dedup drift.
+        Corrupt responses also log at ERROR with full traceback — the
+        deterministic layer is a fallback, not a silent downgrade.
+        """
+        if self._llm_fn is None:
+            return medium_score
+        try:
+            return _llm_similarity_score(new_skill, skill, self._llm_fn)
+        except SimilarityResponseCorrupt as exc:
+            logger.error(
+                "LLM dedup response corrupt; falling back to medium score: %s",
+                exc,
+                exc_info=exc,
+            )
+            _record_dedup_status("corrupt", str(exc))
+            return medium_score
+        except SimilarityLLMUnavailable as exc:
+            _record_dedup_status("unavailable", str(exc))
+            return medium_score
