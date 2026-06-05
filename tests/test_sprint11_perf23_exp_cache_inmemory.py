@@ -28,20 +28,20 @@ from unittest.mock import patch
 import pytest
 
 from butler.core import exp_cache
+from butler.core.exp_cache import CacheBackend, reset_default_backend
 
 
 @pytest.fixture(autouse=True)
 def _reset_module_state():
-    """每个测试前清空模块级 in-memory cache（避免测试间污染）。"""
-    if hasattr(exp_cache, "_MEM_CACHE"):
-        exp_cache._MEM_CACHE.clear()
-    if hasattr(exp_cache, "_MEM_LOADED"):
-        exp_cache._MEM_LOADED.clear()
+    """R1-11: 每个测试前重置 default backend (避免测试间污染)。
+
+    旧 module-level ``_MEM_CACHE`` / ``_MEM_LOADED`` dicts 已封装到
+    ``CacheBackend`` 中;测试通过 ``reset_default_backend(None)`` 重建
+    singleton 来获得干净的 in-memory 状态。
+    """
+    reset_default_backend(None)
     yield
-    if hasattr(exp_cache, "_MEM_CACHE"):
-        exp_cache._MEM_CACHE.clear()
-    if hasattr(exp_cache, "_MEM_LOADED"):
-        exp_cache._MEM_LOADED.clear()
+    reset_default_backend(None)
 
 
 def _write_cache_file(path: Path, rows: list[dict]) -> None:
@@ -144,10 +144,12 @@ def test_lookup_loads_file_only_once_per_path(tmp_path, monkeypatch):
 
 @pytest.mark.unit
 def test_max_entries_eviction_still_works_with_inmemory(tmp_path, monkeypatch):
-    """store 超过 max_entries 时应仍能 evict。"""
+    """store 超过 max_entries 时应仍能 evict (LRU 淘汰最早 entry)。"""
     monkeypatch.setattr(exp_cache, "_cache_enabled", lambda: True)
     monkeypatch.setenv("BUTLER_EXP_CACHE_STORE", "1")
-    monkeypatch.setattr(exp_cache, "_max_entries", lambda: 3)
+    # R1-11: 旧 ``_max_entries`` 函数已封装到 ``CacheBackend.max_entries``;
+    # 通过 ``reset_default_backend`` 注入 max_entries=3 的 backend。
+    reset_default_backend(CacheBackend(max_entries=3, ttl_seconds=0))
 
     cache_path = tmp_path / "llm_cache.jsonl"
     monkeypatch.setattr(exp_cache, "_resolve_cache_path", lambda: cache_path)
@@ -157,12 +159,10 @@ def test_max_entries_eviction_still_works_with_inmemory(tmp_path, monkeypatch):
         exp_cache.store_cached_response(f"fp_{i}", f"content_{i}")
 
     # 内存中应只剩 3 个（最近 3 个）
-    if hasattr(exp_cache, "_MEM_CACHE"):
-        cache_key = str(cache_path)
-        mem = exp_cache._MEM_CACHE.get(cache_key, {})
-        assert len(mem) == 3, (
-            f"max_entries=3 应 evict 到 3 条，实际 in-memory {len(mem)} 条"
-        )
+    backend = exp_cache.get_default_backend()
+    assert backend.size(str(cache_path)) == 3, (
+        f"max_entries=3 应 evict 到 3 条，实际 in-memory {backend.size(str(cache_path))} 条"
+    )
 
     # lookup fp_0（最早的）应 None
     r0 = exp_cache.lookup_cached_response("fp_0")
