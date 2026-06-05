@@ -191,6 +191,146 @@ def memory_update_is_duplicate(content: str, corpus: str, *, min_len: int = 14) 
     return False
 
 
+def _persist_butler_memory(content: str, butler_memory: Any) -> None:
+    """Persist a butler-target memory update. Raises on profile.add failure."""
+    butler_memory.profile.add(content)
+    try:
+        butler_memory.sync_profile_vectors()
+    except Exception as exc:
+        logger.debug("Profile vector sync after post_session: %s", exc)
+
+
+def _persist_project_memory(
+    content: str,
+    section: str,
+    butler_memory: Any,
+    project_memory: Any,
+    project_name: str,
+) -> None:
+    """Persist a project-target memory update. Raises on markdown.append failure."""
+    canon = _normalize_project_section(section)
+    cls_result = project_memory.markdown.append(canon, content)
+    sem = getattr(butler_memory, "semantic", None) if butler_memory else None
+    from butler.memory.semantic_project import (
+        resolve_project_display_name,
+        sync_project_append_vectors,
+    )
+
+    proj_name = (project_name or "").strip() or resolve_project_display_name(
+        project_memory
+    )
+    sync_project_append_vectors(sem, proj_name, canon, content, cls_result)
+
+
+def _persist_experience_memory(
+    content: str, butler_memory: Any, project_name: str
+) -> None:
+    """Persist an experience memory update. Raises on experience.add failure."""
+    row_id = butler_memory.experience.add(
+        project=project_name, category="experience", content=content,
+    )
+    from butler.memory.semantic_index import index_experience_row
+
+    index_experience_row(
+        getattr(butler_memory, "semantic", None),
+        row_id,
+        project=project_name,
+        category="experience",
+        content=content,
+    )
+
+
+def _dispatch_memory_update(
+    upd: dict, butler_memory: Any, project_memory: Any, project_name: str
+) -> bool:
+    """Apply one memory update. Returns True iff persisted. Raises on persistence errors."""
+    target = upd.get("target", "")
+    content = upd.get("content", "")
+    section = upd.get("section", "")
+    if target == "butler" and butler_memory:
+        _persist_butler_memory(content, butler_memory)
+        return True
+    if target == "project" and project_memory and section:
+        _persist_project_memory(
+            content, section, butler_memory, project_memory, project_name
+        )
+        return True
+    if target == "experience" and butler_memory:
+        _persist_experience_memory(content, butler_memory, project_name)
+        return True
+    return False
+
+
+def _process_memory_update(
+    upd: dict,
+    butler_memory: Any,
+    project_memory: Any,
+    project_name: str,
+    corpus: str,
+    errors: list[str] | None,
+    idx: int,
+) -> tuple[int, int, str]:
+    """Process one LLM-suggested memory update.
+
+    Returns ``(applied_delta, skipped_dup_delta, new_corpus)``.
+    ``applied_delta`` is 1 when the update was persisted, else 0.
+    ``skipped_dup_delta`` is 1 when the update was skipped as a duplicate.
+    On persistence failure: ``logger.error(..., exc_info=exc)`` and append a
+    per-item message to ``errors`` (when provided) so the failure surfaces in
+    ``/诊断`` instead of being silently swallowed (R2-7).
+    """
+    target = upd.get("target", "")
+    content = upd.get("content", "")
+    if not content:
+        return 0, 0, corpus
+    content, fully_private = strip_private_tags(content)
+    if fully_private or not content:
+        logger.debug("Post-session skip fully private memory update: %s", target)
+        return 0, 0, corpus
+    if memory_update_is_duplicate(content, corpus):
+        logger.debug("Post-session skip duplicate memory: %s", content[:80])
+        return 0, 1, corpus
+    upd_clean = {**upd, "content": content}
+    try:
+        if _dispatch_memory_update(upd_clean, butler_memory, project_memory, project_name):
+            return 1, 0, _build_existing_memory_corpus(butler_memory, project_memory)
+    except Exception as exc:
+        logger.error("Post-session memory update %d failed", idx, exc_info=exc)
+        if errors is not None:
+            errors.append(f"Memory item {idx}: {exc}")
+    return 0, 0, corpus
+
+
+def _create_one_skill(
+    s: Any, skill_manager: Any, errors: list[str] | None
+) -> int:
+    """Create one LLM-suggested skill via ``skill_manager``.
+
+    Returns 1 when persisted, 0 otherwise (invalid shape or per-item failure).
+    On failure: ``logger.error(..., exc_info=exc)`` and append a per-item
+    message to ``errors`` so ``/诊断`` sees the failure (R2-7).
+    """
+    if not isinstance(s, dict) or not s.get("name") or not s.get("body"):
+        return 0
+    name = s.get("name", "?")
+    try:
+        skill_manager.create(
+            name=str(s["name"]),
+            description=str(s.get("description", "")),
+            triggers=s.get("triggers", []),
+            content=str(s["body"]),
+        )
+        logger.info("Extracted skill: %s", name)
+        return 1
+    except Exception as exc:
+        logger.error(
+            "Post-session skill creation failed: %s", name, exc_info=exc,
+        )
+        if errors is not None:
+            errors.append(f"Skill {name}: {exc}")
+        return 0
+
+
 class PostSessionProcessor:
     """Dual-channel post-session processor.
 
@@ -220,30 +360,78 @@ class PostSessionProcessor:
         skill_manager: Any = None,
         project_name: str = "",
     ) -> dict:
-        """Run both memory and skill extraction channels."""
+        """Run both memory and skill extraction channels.
+
+        Result keys:
+        - ``memory_updates`` / ``skills_extracted``: int counters (backward compat).
+        - ``memory_failed`` / ``skills_failed``: per-item failure counters surfaced
+          to ``/诊断`` (R2-7).
+        - ``errors``: list of channel-level + per-item error messages.
+        """
         if not self._llm_call or len(messages) < 4:
             return {"memory_updates": 0, "skills_extracted": 0, "errors": []}
 
-        result = {"memory_updates": 0, "skills_extracted": 0, "errors": []}
+        result: dict = {
+            "memory_updates": 0,
+            "memory_failed": 0,
+            "skills_extracted": 0,
+            "skills_failed": 0,
+            "errors": [],
+        }
 
+        await self._run_memory_channel(
+            messages, butler_memory, project_memory, project_name, result,
+        )
+        await self._run_skill_channel(messages, skill_manager, project_name, result)
+        await self._maybe_run_layered(messages, result)
+
+        return result
+
+    async def _run_memory_channel(
+        self,
+        messages: list[dict],
+        butler_memory: Any,
+        project_memory: Any,
+        project_name: str,
+        result: dict,
+    ) -> None:
+        """Run memory extraction; populate ``memory_updates``/``memory_failed``/``errors``."""
+        chan_errors: list[str] = []
         try:
-            mem_count = await self._extract_memories(
-                messages, butler_memory, project_memory, project_name
+            result["memory_updates"] = await self._extract_memories(
+                messages, butler_memory, project_memory, project_name,
+                errors=chan_errors,
             )
-            result["memory_updates"] = mem_count
         except Exception as e:
             logger.error("Memory extraction failed: %s", e)
             result["errors"].append(f"Memory: {e}")
+        result["memory_failed"] = len(chan_errors)
+        result["errors"].extend(chan_errors)
 
+    async def _run_skill_channel(
+        self,
+        messages: list[dict],
+        skill_manager: Any,
+        project_name: str,
+        result: dict,
+    ) -> None:
+        """Run skill extraction; populate ``skills_extracted``/``skills_failed``/``errors``."""
+        chan_errors: list[str] = []
         try:
-            skill_count = await self._extract_skills(
-                messages, skill_manager, project_name
+            result["skills_extracted"] = await self._extract_skills(
+                messages, skill_manager, project_name,
+                errors=chan_errors,
             )
-            result["skills_extracted"] = skill_count
         except Exception as e:
             logger.error("Skill extraction failed: %s", e)
             result["errors"].append(f"Skill: {e}")
+        result["skills_failed"] = len(chan_errors)
+        result["errors"].extend(chan_errors)
 
+    async def _maybe_run_layered(
+        self, messages: list[dict], result: dict
+    ) -> None:
+        """Best-effort layered post-session extraction (debug-logged on failure)."""
         try:
             from butler.session.post_session_layered import (
                 extract_layered_summary,
@@ -257,10 +445,14 @@ class PostSessionProcessor:
         except Exception as exc:
             logger.debug("Layered post-session skipped: %s", exc)
 
-        return result
-
     async def _extract_memories(
-        self, messages, butler_memory, project_memory, project_name
+        self,
+        messages,
+        butler_memory,
+        project_memory,
+        project_name,
+        *,
+        errors: list[str] | None = None,
     ) -> int:
         if not self._llm_call:
             return 0
@@ -295,73 +487,26 @@ class PostSessionProcessor:
         corpus = _build_existing_memory_corpus(butler_memory, project_memory)
         applied = 0
         skipped_dup = 0
-        for upd in updates:
-            target = upd.get("target", "")
-            content = upd.get("content", "")
-            section = upd.get("section", "")
-            if not content:
-                continue
-            content, fully_private = strip_private_tags(content)
-            if fully_private or not content:
-                logger.debug("Post-session skip fully private memory update: %s", target)
-                continue
-
-            if memory_update_is_duplicate(content, corpus):
-                skipped_dup += 1
-                logger.debug("Post-session skip duplicate memory: %s", content[:80])
-                continue
-
-            try:
-                if target == "butler" and butler_memory:
-                    butler_memory.profile.add(content)
-                    try:
-                        butler_memory.sync_profile_vectors()
-                    except Exception as exc:
-                        logger.debug("Profile vector sync after post_session: %s", exc)
-                    applied += 1
-                    corpus = _build_existing_memory_corpus(butler_memory, project_memory)
-                elif target == "project" and project_memory and section:
-                    canon = _normalize_project_section(section)
-                    cls_result = project_memory.markdown.append(canon, content)
-                    sem = (
-                        getattr(butler_memory, "semantic", None) if butler_memory else None
-                    )
-                    from butler.memory.semantic_project import (
-                        resolve_project_display_name,
-                        sync_project_append_vectors,
-                    )
-
-                    proj_name = (project_name or "").strip() or resolve_project_display_name(
-                        project_memory
-                    )
-                    sync_project_append_vectors(
-                        sem, proj_name, canon, content, cls_result
-                    )
-                    applied += 1
-                    corpus = _build_existing_memory_corpus(butler_memory, project_memory)
-                elif target == "experience" and butler_memory:
-                    row_id = butler_memory.experience.add(
-                        project=project_name, category="experience", content=content,
-                    )
-                    from butler.memory.semantic_index import index_experience_row
-
-                    index_experience_row(
-                        getattr(butler_memory, "semantic", None),
-                        row_id,
-                        project=project_name,
-                        category="experience",
-                        content=content,
-                    )
-                    applied += 1
-                    corpus = _build_existing_memory_corpus(butler_memory, project_memory)
-            except Exception as e:
-                logger.warning("Memory update error: %s", e)
+        for idx, upd in enumerate(updates):
+            a, s, corpus = _process_memory_update(
+                upd, butler_memory, project_memory, project_name,
+                corpus, errors, idx,
+            )
+            applied += a
+            skipped_dup += s
 
         if skipped_dup:
             logger.info("Post-session skipped %d duplicate memory update(s)", skipped_dup)
         return applied
 
-    async def _extract_skills(self, messages, skill_manager, project_name) -> int:
+    async def _extract_skills(
+        self,
+        messages,
+        skill_manager,
+        project_name,
+        *,
+        errors: list[str] | None = None,
+    ) -> int:
         if not self._llm_call or not skill_manager:
             return 0
 
@@ -392,24 +537,5 @@ class PostSessionProcessor:
 
         created = 0
         for s in skills[:2]:
-            if not isinstance(s, dict) or not s.get("name") or not s.get("body"):
-                continue
-            try:
-                skill_data = {
-                    "name": str(s["name"]),
-                    "description": str(s.get("description", "")),
-                    "content": str(s["body"]),
-                    "triggers": s.get("triggers", []),
-                }
-                skill_manager.create(
-                    name=skill_data["name"],
-                    description=skill_data["description"],
-                    triggers=skill_data.get("triggers", []),
-                    content=skill_data["content"],
-                )
-                created += 1
-                logger.info("Extracted skill: %s", s["name"])
-            except Exception as e:
-                logger.warning("Skill creation error: %s", e)
-
+            created += _create_one_skill(s, skill_manager, errors)
         return created
