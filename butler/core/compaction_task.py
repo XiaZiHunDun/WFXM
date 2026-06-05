@@ -77,7 +77,7 @@ def run_compaction_turn(
         logger.debug("pre_compact hooks skipped: %s", exc)
 
     try:
-        from butler.gateway.hooks import invoke_hook
+        from butler.core.events_sink import invoke_hook
 
         invoke_hook(
             "pre_compact",
@@ -127,20 +127,18 @@ def run_compaction_turn(
         except Exception:
             thread_id = "_global"
     try:
-        from butler.gateway.item_events import context_compaction_item, emit_thread_item
+        from butler.core.events_sink import emit_context_compaction
 
         remote = bool(diag.get("compaction_remote"))
-        emit_thread_item(
-            context_compaction_item(
-                phase="completed",
-                thread_id=thread_id,
-                tokens_before=before_est,
-                tokens_after=after_est,
-                messages_before=len(messages),
-                messages_after=len(compressed),
-                source="compaction_turn",
-                remote=remote,
-            )
+        emit_context_compaction(
+            phase="completed",
+            thread_id=thread_id,
+            tokens_before=before_est,
+            tokens_after=after_est,
+            messages_before=len(messages),
+            messages_after=len(compressed),
+            source="compaction_turn",
+            remote=remote,
         )
     except Exception as exc:
         logger.debug("run compaction turn skipped: %s", exc)
@@ -159,7 +157,7 @@ def run_compaction_turn(
         logger.debug("post_compact hooks skipped: %s", exc)
 
     try:
-        from butler.gateway.hooks import invoke_hook
+        from butler.core.events_sink import invoke_hook
 
         invoke_hook(
             "post_compact",

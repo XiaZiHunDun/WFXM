@@ -423,19 +423,17 @@ def compress_messages(
     except Exception as exc:
         logger.debug("compress messages skipped: %s", exc)
     try:
-        from butler.gateway.item_events import context_compaction_item, emit_thread_item
+        from butler.core.events_sink import emit_context_compaction
 
-        emit_thread_item(
-            context_compaction_item(
-                phase="completed",
-                thread_id=sk,
-                tokens_before=estimated,
-                tokens_after=_estimate_tokens(compressed),
-                messages_before=len(messages),
-                messages_after=len(compressed),
-                source="context_compressor",
-                remote=used_remote,
-            )
+        emit_context_compaction(
+            phase="completed",
+            thread_id=sk,
+            tokens_before=estimated,
+            tokens_after=_estimate_tokens(compressed),
+            messages_before=len(messages),
+            messages_after=len(compressed),
+            source="context_compressor",
+            remote=used_remote,
         )
     except Exception as exc:
         logger.debug("compress messages skipped: %s", exc)
