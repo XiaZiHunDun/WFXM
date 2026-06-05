@@ -175,7 +175,13 @@ class McpConnectionManager:
                     handle.status.last_error = msg
                     handle.status.degraded = True
                     self._last_errors[f"{sk}:{cfg.server_id}"] = msg
-                    logger.warning("MCP connect %s failed: %s", cfg.server_id, exc)
+                    # Audit R2-6: surface connect failure at ERROR with full
+                    # traceback so operators (and the /诊断 view downstream)
+                    # can see WHICH MCP server is down, not just the user-side
+                    # "Unknown MCP tool" complaint later.
+                    logger.error(
+                        "MCP connect %s failed", cfg.server_id, exc_info=exc,
+                    )
                     continue
             session_tools = getattr(handle, "_cached_tools", None)
             if session_tools is None:
@@ -267,6 +273,16 @@ class McpConnectionManager:
         except Exception as exc:
             handle.status.degraded = True
             handle.status.last_error = str(exc)[:300]
+            # Audit R2-6: the runtime call_tool path used to silently swallow
+            # the exception. Surface at ERROR with full traceback so the
+            # failure is visible in logs and /诊断, not only via the JSON
+            # "MCP_ERROR" payload the user gets back.
+            logger.error(
+                "MCP call_tool %s/%s failed",
+                cfg.server_id,
+                ref.original_name,
+                exc_info=exc,
+            )
             return _error_payload(ref.registered_name, str(exc))
 
 
@@ -278,6 +294,28 @@ class McpConnectionManager:
             else:
                 handles = dict(self._session_handles.get(sk) or {})
         return [h.status for h in handles.values()]
+
+    def degraded_servers(
+        self, session_key: str = "",
+    ) -> list[tuple[str, str, str]]:
+        """Return ``(server_id, transport, last_error)`` tuples for every
+        MCP server currently flagged degraded in *session_key*'s scope.
+
+        Audit R2-6: previously the only signal that a server was down was
+        the user-side "Unknown MCP tool" message; operators had no way to
+        see which servers are degraded without scraping internal state.
+        """
+        sk = self._scope_key(session_key)
+        with self._lock:
+            if sk == "__global__":
+                handles = dict(self._global_handles)
+            else:
+                handles = dict(self._session_handles.get(sk) or {})
+        return [
+            (h.config.server_id, h.config.transport, h.status.last_error)
+            for h in handles.values()
+            if h.status.degraded
+        ]
 
 
 def _error_payload(tool: str, message: str) -> str:

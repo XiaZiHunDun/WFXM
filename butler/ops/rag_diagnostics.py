@@ -51,6 +51,27 @@ def format_rag_diagnostic_lines(
     kdb = stats.get("knowledge_db_keys")
     if kdb is not None:
         lines.append(f"  项目 knowledge.db keys: {kdb}")
+    # Audit R2-6: surface degraded MCP servers so the user (and operator
+    # looking at /诊断) can see WHICH MCP servers are down and which
+    # transport failed, not just the user-side "Unknown MCP tool" complaint.
+    # Accepts either a list of (server_id, transport, last_error) tuples
+    # (preferred, from McpConnectionManager.degraded_servers) or a plain
+    # list of server_ids for backward compatibility.
+    degraded = stats.get("mcp_degraded")
+    if isinstance(degraded, list) and degraded:
+        if isinstance(degraded[0], (tuple, list)) and len(degraded[0]) >= 3:
+            rows = [
+                (str(r[0]), str(r[1]), str(r[2]))
+                for r in degraded
+            ]
+        else:
+            rows = [(str(sid), "?", "") for sid in degraded]
+        lines.append(
+            f"  MCP 降级: {len(rows)} 个 server 不可用"
+        )
+        for sid, transport, err in rows:
+            suffix = f": {err[:120]}" if err else ""
+            lines.append(f"    - {sid} ({transport}){suffix}")
     last_mode = str(stats.get("rag_last_mode") or "").strip()
     if last_mode:
         lines.append(f"  最近检索模式: {last_mode}")
