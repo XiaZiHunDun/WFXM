@@ -92,10 +92,10 @@ def _check_mcp_http_url_ssrf(server_id: str, url: str) -> list[str]:
         from butler.mcp.types import McpServerConfig
     except ImportError as exc:
         logger.error(
-            "SSRF check unavailable (validate_http_url import failed): %s; "
+            "SSRF check unavailable (validate_http_url import failed); "
             "rejecting install of MCP server %r",
-            exc,
             server_id,
+            exc_info=exc,
         )
         return ["ssrf_check_unavailable"]
     cfg = McpServerConfig(server_id=server_id, transport="http", url=url)

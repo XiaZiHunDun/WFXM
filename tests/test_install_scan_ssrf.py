@@ -259,17 +259,15 @@ class TestNarrowExcept:
             with pytest.raises(RuntimeError, match="simulated runtime failure"):
                 pre_install_scan_mcp(entry, _block(url="https://api.example.com/"))
 
-    def test_except_clause_in_pre_install_scan_mcp_is_import_error(self):
-        """pre_install_scan_mcp 内部的 except 子句必须 narrow (ImportError), 不是
-        bare `except Exception`."""
+    def test_no_bare_except_exception_in_pre_install_scan_mcp(self):
+        """pre_install_scan_mcp 内部不应有 bare `except Exception` (无 `as` 绑定).
+        该检查针对 HTTP SSRF 分支, stdio 分支的 `except Exception as exc` (带 `as`)
+        仍保留用于记录 `validate_stdio_command` 调用失败的 debug 信息.
+        """
         from butler.registry import install_scan
 
         src = inspect.getsource(install_scan.pre_install_scan_mcp)
-        # 该函数内部只允许 `except ImportError` (or ModuleNotFoundError), 不允许
-        # bare `except Exception`
         bare_excepts = re.findall(r"except\s+Exception\b(?!\s*as)", src)
-        # 也允许 `except Exception as exc` (stdio 分支保留), 但 HTTP 分支
-        # 不应有 bare except. 我们的检查目标是确保没有 bare except (无 `as`).
         assert not bare_excepts, (
             f"pre_install_scan_mcp 不应有 bare `except Exception` "
             f"(无 `as` 绑定); 找到 {len(bare_excepts)} 处. "
