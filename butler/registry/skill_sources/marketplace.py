@@ -86,7 +86,10 @@ def _fetch_marketplace_url(url: str) -> dict[str, Any] | None:
             return None
         data = resp.json()
         return data if isinstance(data, dict) else None
-    except Exception as exc:
+    except httpx.HTTPError as exc:
+        # Audit R2-15: only network errors fall through; SSRF rejections
+        # (ValueError) propagate so ClaudeMarketplaceSource.fetch() can
+        # record them at the boundary.
         logger.debug("marketplace url fetch %s: %s", url, exc)
         return None
 
@@ -399,25 +402,42 @@ class ClaudeMarketplaceSource(SkillSource):
         if not parsed:
             return None
         mp_id, plugin_name = parsed
-        for catalog in _catalog_entries():
-            if catalog.id != mp_id:
-                continue
-            data = _marketplace_json_for(catalog)
-            if not data:
-                continue
-            plugin = _find_plugin(data, plugin_name)
-            if not plugin:
-                return None
-            files = _resolve_plugin_files(catalog, plugin, data)
-            if not files:
-                return None
-            skill_name = _slug(str(plugin.get("name") or plugin_name))
-            return SkillBundle(
-                name=skill_name,
-                files=files,
-                source=self.source_id,
-                identifier=_normalize_identifier(mp_id, plugin_name),
-                trust=catalog.trust if catalog.trust != "builtin" else "trusted",
-                metadata={"marketplace": mp_id, "version": plugin.get("version")},
+        try:
+            for catalog in _catalog_entries():
+                if catalog.id != mp_id:
+                    continue
+                data = _marketplace_json_for(catalog)
+                if not data:
+                    continue
+                plugin = _find_plugin(data, plugin_name)
+                if not plugin:
+                    return None
+                files = _resolve_plugin_files(catalog, plugin, data)
+                if not files:
+                    return None
+                skill_name = _slug(str(plugin.get("name") or plugin_name))
+                return SkillBundle(
+                    name=skill_name,
+                    files=files,
+                    source=self.source_id,
+                    identifier=_normalize_identifier(mp_id, plugin_name),
+                    trust=catalog.trust if catalog.trust != "builtin" else "trusted",
+                    metadata={"marketplace": mp_id, "version": plugin.get("version")},
+                )
+        except ValueError as exc:
+            # Audit R2-15: ``safe_registry_get`` rejected a marketplace URL
+            # as unsafe. Log at WARNING with the URL and record the event
+            # so /诊断 can surface marketplace SSRF drift. Return None so
+            # the user's skill-install flow is not disrupted.
+            logger.warning(
+                "marketplace fetch blocked by SSRF guard for %s/%s: %s",
+                mp_id, plugin_name, exc,
             )
+            from butler.registry.skill_sources.github import _record_ssrf_rejection
+            _record_ssrf_rejection(
+                self.source_id,
+                f"marketplace:{mp_id}/{plugin_name}",
+                str(exc),
+            )
+            return None
         return None

@@ -40,10 +40,8 @@ from typing import Any
 import httpx
 import pytest
 
-from butler.registry import skill_sources
 from butler.registry.skill_sources import github as gh_mod
 from butler.registry.skill_sources.github import (
-    _MAX_SSRF_REJECTION_ENTRIES,
     GitHubSource,
     recent_ssrf_rejections,
     reset_ssrf_rejections,
@@ -218,3 +216,80 @@ class TestMarketplaceSSRF:
         _mock_safe_registry_get(monkeypatch, raise_value=httpx.ConnectError("network"))
         result = mp_mod._fetch_raw_tree("https://raw.githubusercontent.com/o/r", "plugins/x")
         assert result == {}, "网络错误应被吞, 返回空 dict"
+
+    def test_marketplace_fetch_raw_tree_propagates_from_extra_files(self, monkeypatch):
+        """reference.md / README.md 分支也必须传播 ValueError, 不吞."""
+        from butler.registry.skill_sources import marketplace as mp_mod
+        _mock_safe_registry_get(monkeypatch, raise_value=ValueError("unsafe"))
+        with pytest.raises(ValueError):
+            mp_mod._fetch_raw_tree("https://raw.githubusercontent.com/o/r", "plugins/x")
+
+
+@pytest.mark.unit
+class TestMarketplaceFetchBoundary:
+    """ClaudeMarketplaceSource.fetch() 边界捕获 SSRF 拒绝 → log WARNING + 写 diagnostics."""
+
+    def test_marketplace_fetch_catches_ssrf_from_inner(self, monkeypatch, caplog):
+        """_fetch_raw_tree 抛 ValueError → fetch() 边界捕获, log WARNING."""
+        from butler.registry.skill_sources import marketplace as mp_mod
+        from butler.registry.skill_sources.marketplace import ClaudeMarketplaceSource
+
+        # 强制 marketplace_enabled() 走通
+        monkeypatch.setattr(mp_mod, "marketplace_enabled", lambda: True)
+        # _catalog_entries 返回一个有 base_raw_url 的 catalog
+        monkeypatch.setattr(
+            mp_mod, "_catalog_entries",
+            lambda: [mp_mod._MarketplaceCatalog(
+                id="test-mp", title="test", trust="community",
+                base_path=None, base_raw_url="https://raw.githubusercontent.com/o/r",
+            )],
+        )
+        # _marketplace_json_for 返回 mock 索引
+        monkeypatch.setattr(
+            mp_mod, "_marketplace_json_for",
+            lambda _c: {"plugins": [{"name": "plug", "source": "plugins/plug"}]},
+        )
+        # _fetch_raw_tree 抛 ValueError
+        def _raise_ssrf(*_args, **_kwargs):
+            raise ValueError("unsafe registry url: blocked")
+        monkeypatch.setattr(mp_mod, "_fetch_raw_tree", _raise_ssrf)
+
+        with caplog.at_level(logging.DEBUG, logger="butler.registry.skill_sources.marketplace"):
+            result = ClaudeMarketplaceSource().fetch("marketplace:test-mp/plug")
+        assert result is None
+        # WARNING 含 "ssrf"
+        warning_records = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING and "ssrf" in r.message.lower()
+        ]
+        assert warning_records, (
+            f"marketplace SSRF 必须 log WARNING, 实际: "
+            f"{[(r.levelname, r.message) for r in caplog.records]}"
+        )
+
+    def test_marketplace_fetch_records_in_diagnostics(self, monkeypatch):
+        from butler.registry.skill_sources import marketplace as mp_mod
+        from butler.registry.skill_sources.marketplace import ClaudeMarketplaceSource
+
+        monkeypatch.setattr(mp_mod, "marketplace_enabled", lambda: True)
+        monkeypatch.setattr(
+            mp_mod, "_catalog_entries",
+            lambda: [mp_mod._MarketplaceCatalog(
+                id="test-mp", title="test", trust="community",
+                base_path=None, base_raw_url="https://raw.githubusercontent.com/o/r",
+            )],
+        )
+        monkeypatch.setattr(
+            mp_mod, "_marketplace_json_for",
+            lambda _c: {"plugins": [{"name": "plug", "source": "plugins/plug"}]},
+        )
+        monkeypatch.setattr(
+            mp_mod, "_fetch_raw_tree",
+            lambda *_a, **_kw: (_ for _ in ()).throw(ValueError("unsafe registry url")),
+        )
+
+        ClaudeMarketplaceSource().fetch("marketplace:test-mp/plug")
+        rejections = recent_ssrf_rejections()
+        assert any(r["source"] == "marketplace" for r in rejections), (
+            f"marketplace SSRF 应记入 diagnostics, 实际: {rejections!r}"
+        )
