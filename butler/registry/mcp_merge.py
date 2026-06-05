@@ -15,6 +15,68 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# R2-12: surface corrupted MCP config files (YAML parse errors, read
+# errors) instead of silently masking them. When a layer's mcp.yaml is
+# corrupt, the merge view used to return empty for that layer without any
+# signal — operators see "0 servers" and don't know whether the config is
+# genuinely empty or whether a partial write / bad edit / disk error ate
+# their servers. The buffer below records the corruption so /诊断 can
+# surface it, while the read helpers still return empty so a corrupt
+# layer never blocks the others.
+_MAX_MCP_MERGE_CORRUPTION_ENTRIES = 50
+_MAX_MCP_MERGE_CORRUPTION_ERROR_LEN = 200
+_mcp_merge_corruptions: list[dict[str, Any]] = []
+
+
+def recent_mcp_merge_corruptions() -> list[dict[str, Any]]:
+    """Read the module-level MCP-merge corruption diagnostics buffer."""
+    return list(_mcp_merge_corruptions)
+
+
+def reset_mcp_merge_corruptions() -> None:
+    """Clear the MCP-merge corruption diagnostics buffer (test helper)."""
+    _mcp_merge_corruptions.clear()
+
+
+def _record_corruption(path: Path, exc: BaseException) -> None:
+    """Append a corruption record for ``path`` to the diagnostics buffer."""
+    logger.error(
+        "MCP config layer corrupted (parsing failed); layer skipped: %s",
+        path,
+        exc_info=exc,
+    )
+    _mcp_merge_corruptions.append({
+        "path": str(path),
+        "error": str(exc)[:_MAX_MCP_MERGE_CORRUPTION_ERROR_LEN],
+        "type": type(exc).__name__,
+    })
+    if len(_mcp_merge_corruptions) > _MAX_MCP_MERGE_CORRUPTION_ENTRIES:
+        del _mcp_merge_corruptions[
+            : len(_mcp_merge_corruptions) - _MAX_MCP_MERGE_CORRUPTION_ENTRIES
+        ]
+
+
+def _load_servers_block(path: Path) -> dict[str, Any] | None:
+    """Load the ``servers:`` sub-block from a mcp.yaml.
+
+    Returns:
+    - ``None`` if the file does not exist (legitimate empty layer)
+    - ``{}`` if the file exists but cannot be parsed (corruption; caller
+      should still proceed without this layer; corruption is recorded)
+    - the parsed ``servers`` dict on success (may be empty)
+    """
+    if not path.is_file():
+        return None
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        _record_corruption(path, exc)
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    block = data.get("servers")
+    return block if isinstance(block, dict) else {}
+
 @dataclass(frozen=True)
 class McpConfigLayer:
     label: str
@@ -64,12 +126,10 @@ def find_server_config_path(
     if global_path.is_file():
         candidates.append(global_path)
     for path in candidates:
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception:
+        block = _load_servers_block(path)
+        if block is None or not block:
             continue
-        block = data.get("servers") if isinstance(data, dict) else None
-        if isinstance(block, dict) and sid in block:
+        if sid in block:
             return path
     return None
 
@@ -128,27 +188,15 @@ def _path_label(path: Path, workspace: Path | None) -> str:
 
 
 def _read_server_ids(path: Path) -> tuple[str, ...]:
-    if not path.is_file():
-        return ()
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
-        return ()
-    block = data.get("servers") if isinstance(data, dict) else None
-    if not isinstance(block, dict):
+    block = _load_servers_block(path)
+    if not block:
         return ()
     return tuple(sorted(str(k) for k in block if k))
 
 
 def _read_server_block(path: Path, server_id: str) -> dict[str, Any]:
-    if not path.is_file():
-        return {}
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    block = data.get("servers") if isinstance(data, dict) else None
-    if not isinstance(block, dict):
+    block = _load_servers_block(path)
+    if not block:
         return {}
     raw = block.get(server_id)
     return raw if isinstance(raw, dict) else {}
