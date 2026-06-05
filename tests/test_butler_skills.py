@@ -374,8 +374,13 @@ class TestConsolidatorWithLLM:
         assert set(merged["triggers"]) == {"a", "b"}
 
     def test_fallback_when_llm_fails(self):
+        # Audit R2-1: LLM-unavailable is a known, catchable condition that
+        # triggers a deterministic fallback. A generic RuntimeError is no
+        # longer caught — only ConsolidatorLLMUnavailable (or subclasses).
+        from butler.skills.consolidator import ConsolidatorLLMUnavailable
+
         def llm_fn(prompt):
-            raise RuntimeError("llm unavailable")
+            raise ConsolidatorLLMUnavailable("llm unavailable")
 
         cons = SkillConsolidator(llm_fn=llm_fn)
         skills = [
@@ -387,3 +392,5 @@ class TestConsolidatorWithLLM:
         assert "Body X" in merged["content"]
         assert "Body Y" in merged["content"]
         assert "t1" in merged["triggers"] and "t2" in merged["triggers"]
+        # Audit R2-1: callers can now detect silent fallbacks.
+        assert merged["fallback_used"] is True
