@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 import logging
 
+from butler.io.safe_load import safe_load_json
+
 logger = logging.getLogger(__name__)
 
 _SECTION_ORDER = (
@@ -455,12 +457,14 @@ class ProjectFactsStore:
 
     def _load(self) -> None:
         with self._lock:
-            if self.path.exists():
-                try:
-                    self._facts = json.loads(self.path.read_text(encoding="utf-8"))
-                except (json.JSONDecodeError, OSError):
-                    self._facts = {}
-            else:
+            # Audit R2-19: corrupt project facts file used to silently
+            # drop every fact on the next read. safe_load renames
+            # the corrupt file for forensic retention, logs WARNING
+            # with exc_info, and records the event for /诊断.
+            self._facts = safe_load_json(
+                self.path, default={}, kind="memory_project_facts",
+            )
+            if not isinstance(self._facts, dict):
                 self._facts = {}
 
     def _save_unlocked(self) -> None:

@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import yaml
 
 from butler.env_parse import env_truthy
+from butler.io.safe_load import safe_load_yaml
 from butler.mcp.types import McpServerConfig, McpToolPolicy
 
 logger = logging.getLogger(__name__)
@@ -193,11 +194,11 @@ def _parse_server(server_id: str, raw: dict[str, Any]) -> McpServerConfig | None
 def load_mcp_servers(*, workspace: Path | None = None) -> list[McpServerConfig]:
     servers: dict[str, McpServerConfig] = {}
     for path in _resolve_config_paths(workspace):
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("MCP config %s unreadable: %s", path, exc)
-            continue
+        # Audit R2-19: corrupt MCP config used to silently skip
+        # every server in that file. Now the safe_load helper
+        # renames the corrupt file for forensic retention, logs
+        # WARNING with exc_info, and records the event for /诊断.
+        data = safe_load_yaml(path, default={}, kind="mcp_servers")
         if not isinstance(data, dict):
             continue
         block = data.get("servers")

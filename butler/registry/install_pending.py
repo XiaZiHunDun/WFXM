@@ -13,6 +13,7 @@ from typing import Any, Iterator
 
 from butler.config import get_butler_home
 from butler.io.atomic_write import atomic_write_text
+from butler.io.safe_load import safe_load_json
 
 
 @dataclass
@@ -43,14 +44,14 @@ def _pending_path() -> Path:
 
 def _load_all() -> dict[str, Any]:
     path = _pending_path()
-    if not path.is_file():
-        return {"entries": {}}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"entries": {}}
+    # Audit R2-19: corrupt pending-installs.json used to silently
+    # drop every pending confirmation. safe_load renames the
+    # corrupt file for forensic retention, logs WARNING with
+    # exc_info, and records the event for /诊断.
+    default_seed: dict[str, Any] = {"entries": {}}
+    data = safe_load_json(path, default=default_seed, kind="registry_install_pending")
     if not isinstance(data, dict):
-        return {"entries": {}}
+        return default_seed
     data.setdefault("entries", {})
     return data
 

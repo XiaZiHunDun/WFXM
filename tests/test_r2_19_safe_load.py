@@ -380,3 +380,53 @@ class TestRenameFailedBranch:
         assert len(records) == 1
         assert records[0]["backup_path"] is None
         assert records[0]["kind"] == "my_kind"
+
+
+@pytest.mark.unit
+class TestSymlinkHandling:
+    """corrupt 目标是 symlink 时, 不 rename (避免破坏下游 symlink 守卫).
+
+    Regression: Sprint 9 ``test_save_pending_rejects_symlink_target``
+    relies on ``_load_all`` leaving the symlink intact so that
+    ``atomic_write_text``'s symlink-rejection guard can still fire.
+    Renaming the symlink would destroy it and let the write succeed.
+    """
+
+    def test_corrupt_symlink_not_renamed(self, tmp_path: Path):
+        # external target with corrupt content
+        external = tmp_path / "external.json"
+        external.write_text("not json", encoding="utf-8")
+
+        # symlink: pending.json -> external.json
+        link_path = tmp_path / "pending.json"
+        link_path.symlink_to(external)
+
+        result = safe_load_json(link_path, default={"d": 1}, kind="my_kind")
+        assert result == {"d": 1}, "corrupt symlink 应返回 default"
+
+        # symlink 应仍在原位 (没被 rename 走)
+        assert link_path.is_symlink(), (
+            "corrupt symlink 不应被 rename 走 (会破坏 atomic_write_text "
+            "的 symlink 守卫)"
+        )
+        # 没有 .corrupt-* 备份被创建
+        assert list(tmp_path.glob("*.corrupt-*")) == []
+
+        # diagnostics 仍记录事件, 但 backup_path=None
+        records = recent_state_file_corruption()
+        assert len(records) == 1
+        assert records[0]["backup_path"] is None
+
+    def test_corrupt_symlink_does_not_modify_target(self, tmp_path: Path):
+        """symlink 不动 target 文件 (target 是另一文件, 不应被旁路)."""
+        external = tmp_path / "external.json"
+        external.write_text("not json", encoding="utf-8")
+
+        link_path = tmp_path / "pending.json"
+        link_path.symlink_to(external)
+
+        safe_load_json(link_path, default={}, kind="my_kind")
+
+        # external.json 应仍在原位, 内容不变
+        assert external.exists()
+        assert external.read_text(encoding="utf-8") == "not json"

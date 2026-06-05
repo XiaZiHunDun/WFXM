@@ -84,11 +84,25 @@ def _quarantine_corrupt_file(path: Path) -> str | None:
     """Rename ``path`` to ``<path>.corrupt-<ns_ts>`` for forensic retention.
 
     Returns the backup path string, or ``None`` if the rename failed
-    (e.g. cross-device, permission denied). When the rename fails,
-    the original file is left in place — callers must decide how to
-    proceed (in our case: still return ``default`` to avoid
-    wedging the caller on bad data).
+    (e.g. cross-device, permission denied, or path is a symlink).
+    When the rename fails, the original file is left in place —
+    callers must decide how to proceed (in our case: still return
+    ``default`` to avoid wedging the caller on bad data).
+
+    Symlink handling: if the path is a symlink, we **do not rename
+    it**. ``os.replace`` on a symlink replaces the symlink itself
+    (not the target), which can break downstream guards that
+    expect the symlink to remain (e.g. ``atomic_write_text``'s
+    symlink-rejection check). For symlinks, we log the corruption
+    but leave the symlink in place.
     """
+    if path.is_symlink():
+        logger.warning(
+            "Corrupt state file %s is a symlink; leaving it in place so "
+            "downstream symlink guards can still reject writes.",
+            path,
+        )
+        return None
     backup_name = f"{path.name}.corrupt-{time.time_ns()}"
     backup_path = path.with_name(backup_name)
     try:

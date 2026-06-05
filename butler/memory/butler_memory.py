@@ -13,6 +13,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from butler.io.safe_load import safe_load_json
+
 logger = logging.getLogger(__name__)
 
 _INJECTION_PATTERNS = re.compile(
@@ -37,15 +39,21 @@ class ProfileStore:
 
     def load(self) -> None:
         with self._lock:
-            if self.path.exists():
-                try:
-                    data = json.loads(self.path.read_text(encoding="utf-8"))
-                    entries = data.get("entries", [])
-                    self._entries = [str(e).strip() for e in entries if str(e).strip()]
-                except (json.JSONDecodeError, OSError):
-                    self._entries = []
-            else:
+            # Audit R2-19: corrupt experience file used to silently
+            # lose every entry on the next read. safe_load renames
+            # the corrupt file for forensic retention, logs WARNING
+            # with exc_info, and records the event for /诊断.
+            data = safe_load_json(
+                self.path, default={}, kind="memory_experience",
+            )
+            if not isinstance(data, dict):
                 self._entries = []
+                return
+            entries = data.get("entries", [])
+            if not isinstance(entries, list):
+                self._entries = []
+                return
+            self._entries = [str(e).strip() for e in entries if str(e).strip()]
 
     def _save_unlocked(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
+from butler.io.safe_load import safe_load_json
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +62,16 @@ def approvals_path(session_key: str) -> Path:
 
 def _load(session_key: str) -> dict[str, Any]:
     path = approvals_path(session_key)
-    if not path.is_file():
-        return {"always": [], "once": [], "pending": None}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {"always": [], "once": [], "pending": None}
+    # Audit R2-19: corrupt approvals.json used to silently drop all
+    # "always allow" entries, causing heavy re-prompting. Now the
+    # safe_load helper renames the corrupt file for forensic
+    # retention, logs WARNING with exc_info, and records the event
+    # for /诊断. Default seed is provided to keep the caller in a
+    # known shape (``always``/``once``/``pending``).
+    default_seed: dict[str, Any] = {"always": [], "once": [], "pending": None}
+    data = safe_load_json(path, default=default_seed, kind="permissions_approvals")
     if not isinstance(data, dict):
-        return {"always": [], "once": [], "pending": None}
+        return default_seed
     data.setdefault("always", [])
     data.setdefault("once", [])
     return data
