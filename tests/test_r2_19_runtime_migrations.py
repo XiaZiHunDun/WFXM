@@ -35,7 +35,7 @@ Each test class asserts the same three properties for its site:
 
 from __future__ import annotations
 
-import json
+import hashlib
 from pathlib import Path
 from unittest.mock import patch
 
@@ -123,7 +123,12 @@ class TestRuntimeBuiltinHandlersWorkflowState:
             "builtin:workflow_state_digest", tmp_path,
         )
         assert result["success"] is False
-        assert "损坏" in result["summary"] or "unreadable" in result["stderr"]
+        # User-facing detail includes the parse exception (restored
+        # after the R2-19 refactor surfaced the corruption).  We
+        # don't assert on the exact wording — just that the summary
+        # names workflow_state and the stderr carries exception info.
+        assert "workflow_state" in result["summary"]
+        assert "Expecting value" in result["stderr"] or "JSONDecodeError" in result["stderr"]
         # The corrupt file should have been renamed by the safe_load call.
         assert _corrupt_files_in(wf_dir)
 
@@ -179,21 +184,22 @@ class TestRuntimeLoaderJobsYaml:
     """``load_jobs_file`` must surface corruption while keeping
     ``JobsFile(jobs=[])`` contract for valid empty file."""
 
-    def test_corrupt_jobs_yaml_renamed(self, tmp_path: Path):
+    def test_corrupt_jobs_yaml_renamed(self, tmp_path: Path, caplog):
+        import logging
+
         from butler.runtime import loader
 
         runtime_dir = tmp_path / "runtime"
         runtime_dir.mkdir()
         (runtime_dir / "jobs.yaml").write_text(":\n  - [unbalanced", encoding="utf-8")
-        with patch("butler.runtime.loader.logger") as mock_logger:
+        with caplog.at_level(logging.WARNING, logger="butler.runtime.loader"):
             jf = loader.load_jobs_file(tmp_path)
         assert jf is None
         assert _corrupt_files_in(runtime_dir)
         # Verify warning was logged with exc_info
-        assert any(
-            call.kwargs.get("exc_info") is not None
-            for call in mock_logger.warning.call_args_list
-        )
+        warning_records = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        assert warning_records, "expected at least one WARNING log"
+        assert any(r.exc_info is not None for r in warning_records)
 
     def test_corrupt_jobs_yaml_records_diagnostics(self, tmp_path: Path):
         from butler.runtime import loader
@@ -348,34 +354,45 @@ class TestRuntimeWorkflowVersion:
 # ---------------------------------------------------------------------------
 
 
+def _gate_digest(sk: str) -> str:
+    return hashlib.sha256(sk.encode("utf-8")).hexdigest()[:16]
+
+
+@pytest.fixture
+def gate_dir(tmp_path: Path, monkeypatch):
+    """Provision an isolated ``gate_dir`` and patch ``human_gate._gate_dir``.
+
+    Returns the gate directory path.  The patch is automatically
+    reverted when the test finishes (monkeypatch fixture teardown).
+    """
+    from butler import human_gate
+
+    path = tmp_path / "human_gates"
+    path.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(human_gate, "_gate_dir", lambda: path)
+    return path
+
+
 @pytest.mark.unit
 class TestHumanGatePendingCorruption:
     """``_load_pending`` must rename + log + record corruption."""
 
-    def test_corrupt_pending_renamed(self, tmp_path: Path, monkeypatch):
+    def test_corrupt_pending_renamed(self, gate_dir: Path):
         from butler import human_gate
 
-        gate_dir = tmp_path / "human_gates"
-        gate_dir.mkdir(parents=True, exist_ok=True)
         sk = "test_session_pending"
-        digest = human_gate.hashlib.sha256(sk.encode("utf-8")).hexdigest()[:16]
-        path = gate_dir / f"{digest}.json"
-        path.write_text("garbage", encoding="utf-8")
-        monkeypatch.setattr(human_gate, "_gate_dir", lambda: gate_dir)
+        digest = _gate_digest(sk)
+        (gate_dir / f"{digest}.json").write_text("garbage", encoding="utf-8")
         result = human_gate._load_pending(sk)
         assert result is None
         assert _corrupt_files_in(gate_dir)
 
-    def test_corrupt_pending_records_diagnostics(self, tmp_path: Path, monkeypatch):
+    def test_corrupt_pending_records_diagnostics(self, gate_dir: Path):
         from butler import human_gate
 
-        gate_dir = tmp_path / "human_gates"
-        gate_dir.mkdir(parents=True, exist_ok=True)
         sk = "test_session_pending2"
-        digest = human_gate.hashlib.sha256(sk.encode("utf-8")).hexdigest()[:16]
-        path = gate_dir / f"{digest}.json"
-        path.write_text("garbage", encoding="utf-8")
-        monkeypatch.setattr(human_gate, "_gate_dir", lambda: gate_dir)
+        digest = _gate_digest(sk)
+        (gate_dir / f"{digest}.json").write_text("garbage", encoding="utf-8")
         human_gate._load_pending(sk)
         kinds = [r["kind"] for r in recent_state_file_corruption()]
         assert "human_gate_pending" in kinds
@@ -385,30 +402,22 @@ class TestHumanGatePendingCorruption:
 class TestHumanGateApprovedCorruption:
     """``_load_approved`` must rename + log + record corruption."""
 
-    def test_corrupt_approved_renamed(self, tmp_path: Path, monkeypatch):
+    def test_corrupt_approved_renamed(self, gate_dir: Path):
         from butler import human_gate
 
-        gate_dir = tmp_path / "human_gates"
-        gate_dir.mkdir(parents=True, exist_ok=True)
         sk = "test_session_approved"
-        digest = human_gate.hashlib.sha256(sk.encode("utf-8")).hexdigest()[:16]
-        path = gate_dir / f"{digest}.approved.json"
-        path.write_text("garbage", encoding="utf-8")
-        monkeypatch.setattr(human_gate, "_gate_dir", lambda: gate_dir)
+        digest = _gate_digest(sk)
+        (gate_dir / f"{digest}.approved.json").write_text("garbage", encoding="utf-8")
         result = human_gate._load_approved(sk)
         assert result == set()
         assert _corrupt_files_in(gate_dir)
 
-    def test_corrupt_approved_kind(self, tmp_path: Path, monkeypatch):
+    def test_corrupt_approved_kind(self, gate_dir: Path):
         from butler import human_gate
 
-        gate_dir = tmp_path / "human_gates"
-        gate_dir.mkdir(parents=True, exist_ok=True)
         sk = "test_session_approved2"
-        digest = human_gate.hashlib.sha256(sk.encode("utf-8")).hexdigest()[:16]
-        path = gate_dir / f"{digest}.approved.json"
-        path.write_text("garbage", encoding="utf-8")
-        monkeypatch.setattr(human_gate, "_gate_dir", lambda: gate_dir)
+        digest = _gate_digest(sk)
+        (gate_dir / f"{digest}.approved.json").write_text("garbage", encoding="utf-8")
         human_gate._load_approved(sk)
         kinds = [r["kind"] for r in recent_state_file_corruption()]
         assert "human_gate_approved" in kinds
@@ -418,20 +427,17 @@ class TestHumanGateApprovedCorruption:
 class TestHumanGateInjectionBypassCorruption:
     """``consume_injection_bypass`` reads the consumed file via safe_load."""
 
-    def test_corrupt_bypass_returns_false(self, tmp_path: Path, monkeypatch):
+    def test_corrupt_bypass_returns_false(self, gate_dir: Path):
         from butler import human_gate
 
-        gate_dir = tmp_path / "human_gates"
-        gate_dir.mkdir(parents=True, exist_ok=True)
         sk = "test_session_bypass"
         # Path layout: inj_bypass_<digest>.json; ``os.rename`` will
         # move it to ``.consumed`` sibling (overwriting if present).
-        digest = human_gate.hashlib.sha256(sk.encode()).hexdigest()[:16]
+        digest = _gate_digest(sk)
         bypass = gate_dir / f"inj_bypass_{digest}.json"
         # Bypass file is corrupt; after rename, consumed file has
         # the same corrupt content, so safe_load fails on it.
         bypass.write_text("garbage", encoding="utf-8")
-        monkeypatch.setattr(human_gate, "_gate_dir", lambda: gate_dir)
         result = human_gate.consume_injection_bypass(sk)
         assert result is False
         # The consumed file should be renamed by safe_load.

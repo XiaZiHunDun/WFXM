@@ -132,7 +132,10 @@ def _load_pending(session_key: str) -> PendingGate | None:
         raw_created = data.get("created_at")
         created_at = float(raw_created) if raw_created else 0.0
     except (TypeError, ValueError) as exc:
-        logger.warning("human gate schema invalid (created_at): %s", exc)
+        logger.warning(
+            "human gate schema invalid (created_at): %s", exc,
+            exc_info=exc,
+        )
         return None
     gate = PendingGate(
         kind=str(data.get("kind") or ""),

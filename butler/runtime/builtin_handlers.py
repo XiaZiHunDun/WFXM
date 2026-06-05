@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import logging
 from pathlib import Path
 from typing import Any
 
-from butler.io.safe_load import safe_load_json
+from butler.io.safe_load import quarantine_corrupt_file, record_state_file_corruption
+
+logger = logging.getLogger(__name__)
 
 
 def run_builtin(handler: str, workspace: Path) -> dict[str, Any]:
@@ -26,18 +30,36 @@ def _workflow_state_digest(workspace: Path) -> dict[str, Any]:
             "stderr": f"Missing {path}",
             "summary": "未找到 workflow_state.json",
         }
-    # Audit R2-19: corrupt workflow_state.json used to silently
-    # return a parse-error envelope. safe_load renames the corrupt
-    # file for forensic retention, logs WARNING with exc_info, and
-    # records the event for /诊断 — we still surface a parse error
-    # to the user (the corruption event is logged separately).
-    data = safe_load_json(path, default=None, kind="runtime_workflow_state")
+    # Audit R2-19: corrupt workflow_state.json used to silently swallow
+    # the error after losing the file. We do an inline try/except (rather
+    # than going through safe_load_json) so we can preserve the original
+    # user-facing ``str(exc)`` detail in the stderr/summary envelope
+    # while still routing corruption through the forensic + diagnostics
+    # pipeline via the public safe_load helpers.
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        backup = quarantine_corrupt_file(path)
+        logger.warning(
+            "Corrupt workflow_state.json %s, renamed to %s: %s",
+            path, backup or "<rename-failed>", exc,
+            exc_info=exc,
+        )
+        record_state_file_corruption(
+            "runtime_workflow_state", path, str(exc), backup,
+        )
+        return {
+            "success": False,
+            "stdout": "",
+            "stderr": str(exc),
+            "summary": f"无法解析 workflow_state: {exc}",
+        }
     if not isinstance(data, dict):
         return {
             "success": False,
             "stdout": "",
-            "stderr": "workflow_state.json unreadable or corrupt (see logs)",
-            "summary": f"无法解析 workflow_state: 文件不可读或损坏",
+            "stderr": "workflow_state.json top-level is not an object",
+            "summary": "无法解析 workflow_state: 顶层不是对象",
         }
 
     phase = data.get("current_phase") or "?"
