@@ -6,17 +6,59 @@ external gateways and Butler's AgentLoop.
 
 Information flow:
   User -> Platform Adapter -> Butler Handler -> AgentLoop -> Report Pipeline -> User
+
+R1-6 (audit ``docs/reviews/project-deep-audit-2026-06-r1to8.md`` §R1-6):
+The two god methods ``handle_message`` and ``_handle_message_locked``
+have been decomposed into composable phase functions living in
+:mod:`butler.gateway.message_pipelines` (pre-session phases) and
+:mod:`butler.gateway.locked_phases` (in-session phases). This module
+keeps the class definition, the per-session AgentLoop bookkeeping,
+and a thin orchestrator that wires the phases together.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import time as _time
 from typing import Any, Optional
 
+from butler.core.agent_loop import AgentLoop, LoopResult
+from butler.gateway.locked_phases import (
+    LockedTurnState,
+    _phase_apply_normalizers_and_slash,
+    _phase_apply_prompt_hooks,
+    _phase_augment_prompt,
+    _phase_execute_turn,
+    _phase_finalize_turn,
+    _phase_format_error_card,
+    _phase_format_turn_response,
+    _phase_hygiene_compress,
+    _phase_init_loop_role,
+    _phase_prefetch_and_callbacks,
+    _phase_resolve_turn_budget,
+    _phase_validate_loop_messages,
+)
+from butler.gateway.message_pipelines import (
+    _phase_apply_admission,
+    _phase_apply_bot_loop_guard,
+    _phase_apply_human_gate,
+    _phase_apply_idempotency,
+    _phase_apply_injection_guard,
+    _phase_apply_injection_llm,
+    _phase_apply_io_guardrail,
+    _phase_apply_mcp_profile,
+    _phase_apply_pre_dispatch_rewrites,
+    _phase_apply_prequeue_interrupt,
+    _phase_apply_queue_inbound,
+    _phase_apply_session_initializing,
+    _phase_apply_two_phase_confirm,
+    _phase_resolve_session_key,
+    _phase_transform_inbound_text,
+    queue_inbound_for_admission_failure,
+)
 from butler.orchestrator import ButlerOrchestrator
-from butler.session.keys import chat_id_from_session_key, normalize_session_key
-from butler.core.agent_loop import AgentLoop, LoopResult, LoopStatus
+from butler.session.keys import normalize_session_key
 from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory
 from butler.tools.registry import dispatch_tool
 from butler.gateway.session_registry import GatewaySessionRegistry
@@ -28,7 +70,11 @@ class ButlerMessageHandler:
     """Handles messages from any platform through Butler's pipeline.
 
     The handler maintains per-session AgentLoop instances and routes
-    messages through Butler's orchestration layer.
+    messages through Butler's orchestration layer. After the R1-6
+    split, the two big methods (``handle_message`` and
+    ``_handle_message_locked``) are thin orchestrators that wire
+    the phase functions in :mod:`message_pipelines` and
+    :mod:`locked_phases` together.
     """
 
     def __init__(
@@ -93,6 +139,8 @@ class ButlerMessageHandler:
         pm = self._orchestrator.project_manager
         cid = str(external_id or "").strip()
         if not cid and session_key:
+            from butler.session.keys import chat_id_from_session_key
+
             cid = chat_id_from_session_key(session_key)
         project = pm.get_project_name_for_chat(platform=platform, chat_id=cid or "default")
         return normalize_session_key(
@@ -250,11 +298,13 @@ class ButlerMessageHandler:
     ) -> str:
         """Process an incoming message and return the response.
 
-        This is the main entry point for all platform messages.
-        Returns formatted text appropriate for the platform.
+        R1-6: this method is now a thin orchestrator that wires the
+        pre-session phase functions from
+        :mod:`butler.gateway.message_pipelines` together. The body is
+        reduced from ~334 non-blank lines to a linear flow of phase
+        calls; each phase encapsulates one inbound guard, transform,
+        or admission step.
         """
-        import time as _time
-
         _t0 = _time.monotonic()
         self._recover_registry_if_stale()
         logger.info(
@@ -264,186 +314,55 @@ class ButlerMessageHandler:
             (text or "")[:80],
         )
 
-        session_key = self.resolve_session_key(
-            platform=platform,
-            external_id=external_id,
-            session_key=session_key,
+        session_key = _phase_resolve_session_key(
+            self, platform=platform, external_id=external_id, session_key=session_key,
         )
-        try:
-            from butler.core.message_ir import inbound_text_from_gateway
+        text = _phase_transform_inbound_text(
+            text, platform=platform, external_id=external_id, session_key=session_key,
+        )
+        _phase_apply_mcp_profile(text, session_key)
 
-            text = inbound_text_from_gateway(
-                text,
-                platform=platform,
-                external_id=external_id,
-                session_key=session_key,
-            )
-        except Exception as exc:
-            logger.debug("Inbound text transform skipped: %s", exc)
-        try:
-            from butler.mcp.profiles import (
-                mcp_profiles_enabled,
-                select_profile_for_text,
-                set_session_profile,
-            )
-
-            if mcp_profiles_enabled() and text.strip():
-                set_session_profile(
-                    session_key,
-                    select_profile_for_text(text),
-                )
-        except Exception as exc:
-            logger.debug("MCP profile selection skipped: %s", exc)
         if not text.strip():
             return ""
 
-        try:
-            from butler.core.io_guardrail import check_inbound_text, io_guardrail_enabled
+        block = _phase_apply_io_guardrail(text)
+        if block is not None:
+            return block
+        block = _phase_apply_human_gate(
+            text, session_key, platform=platform, external_id=external_id,
+        )
+        if block is not None:
+            return block
+        text, block = _phase_apply_injection_guard(text, session_key)
+        if block is not None:
+            return block
+        block = _phase_apply_injection_llm(text, session_key)
+        if block is not None:
+            return block
+        block = _phase_apply_bot_loop_guard(
+            text, session_key, external_id=external_id,
+        )
+        if block is not None:
+            return block
+        block = _phase_apply_two_phase_confirm(
+            text, session_key, platform=platform, external_id=external_id,
+        )
+        if block is not None:
+            return block
 
-            if io_guardrail_enabled():
-                guard = check_inbound_text(text)
-                if guard.tripwire and not guard.allowed:
-                    return guard.user_message or "消息未通过入站安全检查。"
-        except ImportError as exc:
-            logger.info("io_guardrail module not available: %s", exc)
-        except Exception as exc:
-            logger.error("io_guardrail check raised — fail-closed: %s", exc)
-            return "安全检查模块异常，消息已拦截。请稍后重试。"
+        block = _phase_apply_prequeue_interrupt(text, session_key, handler=self)
+        if block is not None:
+            return block
 
-        try:
-            from butler.human_gate import resolve_human_gate_message
-
-            gate_reply = resolve_human_gate_message(session_key, text)
-            if gate_reply is not None:
-                from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-
-                if not is_gateway_owner(platform=platform, external_id=external_id):
-                    return owner_required_message()
-                return gate_reply
-        except ImportError as exc:
-            logger.info("human_gate module not available: %s", exc)
-        except Exception as exc:
-            logger.error("human_gate check raised — fail-closed: %s", exc)
-            return "审批门控模块异常，消息已拦截。请稍后重试。"
-
-        try:
-            from butler.memory.injection_guard import (
-                injection_score_enabled,
-                mark_adversarial_user_text,
-                score_injection_risk,
-            )
-
-            if injection_score_enabled():
-                risk = score_injection_risk(text)
-                if risk > 0:
-                    try:
-                        from butler.core.session_transcript import append_transcript_entry
-
-                        append_transcript_entry(
-                            session_key,
-                            "injection_score",
-                            {"score": risk, "preview": text[:120]},
-                        )
-                    except Exception as exc:
-                        logger.debug("Injection score transcript skipped: %s", exc)
-            text = mark_adversarial_user_text(text)
-        except ImportError as exc:
-            logger.info("injection_guard module not available: %s", exc)
-        except Exception as exc:
-            logger.error("injection_guard raised — fail-closed: %s", exc)
-            return "注入检测模块异常，消息已拦截。请稍后重试。"
-
-        try:
-            from butler.human_gate import (
-                consume_injection_bypass,
-                format_pending_hint,
-                has_injection_review_pending,
-                request_injection_review_gate,
-            )
-            from butler.memory.injection_llm_score import (
-                injection_llm_gate_enabled,
-                injection_llm_score_enabled,
-                should_block_inbound_llm_score,
-            )
-
-            if injection_llm_score_enabled():
-                if consume_injection_bypass(session_key):
-                    pass
-                elif has_injection_review_pending(session_key):
-                    hint = format_pending_hint(session_key)
-                    if hint:
-                        return hint
-                else:
-                    blocked, llm_score, block_msg = should_block_inbound_llm_score(text)
-                    if llm_score is not None:
-                        try:
-                            from butler.core.session_transcript import append_transcript_entry
-
-                            append_transcript_entry(
-                                session_key,
-                                "injection_llm_score",
-                                {"score": llm_score, "preview": text[:120]},
-                            )
-                        except Exception as exc:
-                            logger.debug("Injection LLM score transcript skipped: %s", exc)
-                    if blocked:
-                        if injection_llm_gate_enabled() and llm_score is not None:
-                            request_injection_review_gate(session_key, score=llm_score)
-                            return format_pending_hint(session_key) or block_msg
-                        return block_msg
-        except ImportError as exc:
-            logger.info("injection_llm_score module not available: %s", exc)
-        except Exception as exc:
-            logger.error("injection_llm_score raised — fail-closed: %s", exc)
-            return "LLM 注入检测模块异常，消息已拦截。请稍后重试。"
-
-        try:
-            from butler.gateway.bot_loop_guard import record_and_should_suppress
-
-            chat_id = session_key.split(":")[-1] if ":" in session_key else session_key
-            suppress, _reason = record_and_should_suppress(
-                chat_id=chat_id,
-                sender_id=str(external_id or ""),
-                text=text,
-            )
-            if suppress:
-                return "（已忽略：群聊 bot 互回复环防护）"
-        except Exception as exc:
-            logger.debug("Bot loop guard skipped: %s", exc)
-
-        try:
-            from butler.core.two_phase_confirm import (
-                cancel_pending_unless_confirm,
-                try_execute_pending_confirm,
-            )
-
-            pending_reply = try_execute_pending_confirm(text, session_key=session_key)
-            if pending_reply is not None:
-                from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-
-                if not is_gateway_owner(platform=platform, external_id=external_id):
-                    return owner_required_message()
-                return pending_reply
-            cancel_note = cancel_pending_unless_confirm(text, session_key=session_key)
-            if cancel_note:
-                text = f"{cancel_note}\n\n{text}"
-        except Exception as exc:
-            logger.debug("Two-phase confirm skipped: %s", exc)
-
-
-        if _is_prequeue_interrupt_command(text):
-            return self._format_prequeue_interrupt_reply(session_key)
-
-        continued = apply_auto_continue_rewrite(session_key, text)
-        if continued:
-            text = continued
-
-        from butler.gateway.hooks import apply_pre_gateway_dispatch
-        rewritten = apply_pre_gateway_dispatch(text, session_key=session_key, platform=platform)
+        rewritten = _phase_apply_pre_dispatch_rewrites(
+            text, session_key, platform=platform,
+        )
+        if rewritten == "":
+            return ""
         if rewritten is not None:
-            if not rewritten.strip():
-                return ""
             text = rewritten
+
+        from butler.gateway.handler_helpers import _is_sessionless_command
 
         if _is_sessionless_command(text):
             out = self._handle_message_locked(
@@ -460,126 +379,33 @@ class ButlerMessageHandler:
             )
             return out
 
-        # Sprint 14 REL-11-1: 提前初始化，避免 try 块异常时 finally 引用
-        # 未定义变量抛 UnboundLocalError → complete_inbound 永不调用 → inflight 假阴性泄漏
-        _idempotency_reserved = False
-        try:
-            from butler.gateway.inbound_idempotency import (
-                check_and_reserve_inbound,
-                complete_inbound,
-                record_duplicate_skip,
-            )
+        idem_reply, _idempotency_reserved, _idempotency_inbound_id = _phase_apply_idempotency(
+            text, session_key, external_id=external_id,
+        )
+        if idem_reply is not None:
+            return idem_reply
 
-            inbound_id = str(external_id or "").strip()
-            if inbound_id and inbound_id == chat_id_from_session_key(session_key):
-                # ``external_id`` is usually the platform chat/user id, not a per-message id.
-                # Treating it as an idempotency key would suppress every later turn.
-                inbound_id = ""
-            _idem = check_and_reserve_inbound(
-                session_key,
-                inbound_id,
-                text_preview=text[:80],
-            )
-            if _idem.skip:
-                record_duplicate_skip(
-                    session_key,
-                    reason=_idem.reason,
-                    external_id=inbound_id,
-                    preview=text[:80],
-                )
-                return _idem.user_reply or "（重复消息已忽略。）"
-            _idempotency_reserved = True
-        except Exception as exc:
-            logger.debug("Idempotency check skipped: %s", exc)
+        block = _phase_apply_session_initializing(
+            text,
+            session_key,
+            platform=platform,
+            external_id=external_id,
+            orchestrator=self._orchestrator,
+        )
+        if block is not None:
+            return block
 
-        try:
-            from butler.gateway.message_queue import (
-                enqueue_inbound,
-                format_queued_ack,
-                pending_count,
-            )
-            from butler.gateway.session_lifecycle import (
-                format_initializing_ack,
-                session_initializing_enabled,
-                try_enter_session,
-            )
+        block = _phase_apply_queue_inbound(
+            text, session_key, platform=platform, external_id=external_id, handler=self,
+        )
+        if block is not None:
+            return block
 
-            if session_initializing_enabled():
-
-                def _warm() -> None:
-                    try:
-                        from butler.skills.similarity import _ensure_jieba
-
-                        _ensure_jieba()
-                    except Exception as exc:
-                        logger.debug("Jieba warm-up skipped: %s", exc)
-                    mgr = getattr(self._orchestrator, "_skill_manager", None)
-                    if mgr is not None:
-                        mgr.list_skills()
-
-                state = try_enter_session(session_key, _warm)
-                if state == "queued":
-                    if enqueue_inbound(
-                        session_key,
-                        text,
-                        platform=platform,
-                        external_id=external_id or "",
-                    ):
-                        return format_initializing_ack(pending=pending_count(session_key))
-                    return format_initializing_ack()
-        except Exception as exc:
-            logger.debug("Session initializing skipped: %s", exc)
-
-        if self._should_queue_inbound(session_key, text):
-            from butler.gateway.message_queue import (
-                enqueue_inbound,
-                format_queued_ack,
-                pending_count,
-            )
-            from butler.gateway.queue_settings import get_queue_mode
-
-            mode = get_queue_mode(session_key)
-            if mode == "steer":
-                from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
-
-                if is_run_active(session_key) and steer(text, session_key=session_key):
-                    return format_steer_gateway_reply(accepted=True, active=True)
-            elif mode == "interrupt":
-                self._format_prequeue_interrupt_reply(session_key)
-            else:
-                if enqueue_inbound(
-                    session_key,
-                    text,
-                    platform=platform,
-                    external_id=external_id or "",
-                ):
-                    return format_queued_ack(
-                        pending=pending_count(session_key),
-                        session_key=session_key,
-                    )
-                from butler.gateway.queue_settings import session_drop_policy
-
-                if session_drop_policy(session_key) == "new":
-                    return "队列已满，最新消息未入队。可发 /queue 调整 cap 或 /诊断 查看。"
-                return format_queued_ack(pending=pending_count(session_key), session_key=session_key)
-
-        from butler.gateway.reply_admission import release, try_admit
-
-        admission = try_admit(session_key)
+        admission = _phase_apply_admission(text, session_key)
         if admission is None:
-            from butler.gateway.message_queue import enqueue_inbound, format_queued_ack, pending_count
-
-            if enqueue_inbound(
-                session_key,
-                text,
-                platform=platform,
-                external_id=external_id or "",
-            ):
-                return format_queued_ack(
-                    pending=pending_count(session_key),
-                    session_key=session_key,
-                )
-            return "会话处理中，请稍候…"
+            return queue_inbound_for_admission_failure(
+                text, session_key, platform=platform, external_id=external_id,
+            )
 
         logger.info("Gateway enter_session session=%s", session_key)
         session_lock = self._session_registry.enter_session(session_key)
@@ -599,19 +425,25 @@ class ButlerMessageHandler:
             )
         finally:
             self._session_registry.exit_session(session_key, session_lock)
+            from butler.gateway.reply_admission import release
+
             release(admission)
             if _idempotency_reserved:
                 try:
-                    complete_inbound(session_key, inbound_id)
+                    from butler.gateway.inbound_idempotency import complete_inbound
+
+                    complete_inbound(session_key, _idempotency_inbound_id)
                 except Exception as exc:
-                    logger.warning("Inbound completion record failed (idempotency may leak): %s", exc)
+                    logger.warning(
+                        "Inbound completion record failed (idempotency may leak): %s",
+                        exc,
+                    )
         follow = self._drain_queued_inbound(
             session_key,
             platform=platform,
             external_id=external_id,
             primary_reply=out,
         )
-        # follow 非空表示未走 bridge 单独推送（成功时 _drain 返回 ""）
         if follow:
             out = f"{out}\n\n---\n\n{follow}" if out else follow
         return out
@@ -624,49 +456,31 @@ class ButlerMessageHandler:
         platform: str = "unknown",
         external_id: str | None = None,
     ) -> str:
+        """In-session pipeline orchestrator.
+
+        R1-6: this method is now a thin orchestrator that wires the
+        in-session phase functions from
+        :mod:`butler.gateway.locked_phases` together. The body is
+        reduced from ~272 non-blank lines to a linear flow of phase
+        calls plus a single try/except for telemetry + error card
+        rendering.
+        """
         if not text.strip():
             return ""
 
+        from butler.gateway.handler_helpers import _maybe_welcome_prefix
+
+        state = LockedTurnState(
+            text=text, session_key=session_key, platform=platform, external_id=external_id,
+        )
         welcome_prefix = _maybe_welcome_prefix(session_key)
 
-        for normalizer in (
-            _normalize_detail_request,
-            _normalize_switch_request,
-            _normalize_status_request,
-            _normalize_new_session_request,
-            _normalize_memo_request,
-            _normalize_contacts_request,
-            _normalize_expense_request,
-            _normalize_habits_request,
-        ):
-            cmd = normalizer(text)
-            if cmd is not None:
-                response = self._handle_command(
-                    cmd,
-                    session_key=session_key,
-                    platform=platform,
-                    external_id=external_id,
-                )
-                if response is not None:
-                    return response
+        response = _phase_apply_normalizers_and_slash(self, state)
+        if response is not None:
+            return response
 
-        if text.startswith("/"):
-            response = self._handle_command(
-                text,
-                session_key=session_key,
-                platform=platform,
-                external_id=external_id,
-            )
-            if response is not None:
-                return response
-
-        from butler.execution_context import use_execution_context
-        from butler.gateway.hooks import apply_pre_llm_context
-        from butler.hooks.runner import run_user_prompt_submit_hooks
-
-        import time as _time
-
-        _turn_started = _time.monotonic()
+        _phase_init_loop_role(self, state)
+        state.turn_started = _time.monotonic()
         logger.info(
             "Gateway turn start session=%s platform=%s preview=%r",
             session_key,
@@ -674,246 +488,43 @@ class ButlerMessageHandler:
             text[:80],
         )
 
-        prompt_hooks = run_user_prompt_submit_hooks(
-            text.strip(),
-            session_key=session_key,
-            platform=platform,
-        )
-        if prompt_hooks.blocked:
-            return prompt_hooks.block_message
-        if prompt_hooks.prevent_continuation:
-            return prompt_hooks.stop_message or "已停止（UserPromptSubmit hook）"
+        response = _phase_apply_prompt_hooks(state)
+        if response is not None:
+            return response
+
+        from butler.execution_context import use_execution_context
 
         with use_execution_context(self._orchestrator, session_key=session_key):
-            from butler.project.lead import gateway_loop_role
-
-            pm = self._orchestrator.project_manager
-            proj_name = pm.resolve_active_project_name(session_key=session_key)
-            proj = pm.get_current(session_key=session_key)
-            from butler.plan.mode import is_plan_mode
-
-            loop_role = gateway_loop_role(proj_name, project=proj)
-            if is_plan_mode(session_key):
-                loop_role = "plan"
-            health: dict[str, Any] = {
-                "session_key": session_key,
-                "platform": platform,
-                "platform_chat_id": external_id or "",
-                "last_user_query": text.strip()[:500],
-                "gateway_agent_role": loop_role,
-            }
-            augmented = apply_pre_llm_context(
-                self._orchestrator.inject_skill_context(text, diagnostics=health),
-                session_key=session_key,
-                orchestrator=self._orchestrator,
-            )
-            ephemeral_system = None
-            ephemeral_parts: list[str] = []
+            _phase_augment_prompt(self, state)
+            state.loop = self._get_or_create_loop(session_key)
+            state.original_loop_config = state.loop.config
             try:
-                from butler.core.intent_keywords import detect_intent_banner
-
-                intent_banner = detect_intent_banner(text)
-                if intent_banner:
-                    ephemeral_parts.append(intent_banner)
-                    health["intent_keyword_banner"] = True
+                response = _phase_validate_loop_messages(state)
+                if response is not None:
+                    return response
+                _phase_resolve_turn_budget(state)
+                _phase_hygiene_compress(self, state)
+                _phase_prefetch_and_callbacks(self, state)
+                _phase_execute_turn(state)
+                _phase_finalize_turn(self, state)
+                _phase_format_turn_response(self, state, welcome_prefix=welcome_prefix)
+                return state.out
             except Exception as exc:
-                logger.debug("Intent keyword detection skipped: %s", exc)
-            try:
-                from butler.core.mode_classifier import detect_mode_suggestion_banner
-
-                mode_banner = detect_mode_suggestion_banner(text, session_key=session_key)
-                if mode_banner:
-                    ephemeral_parts.append(mode_banner)
-                    health["mode_classifier_banner"] = True
-            except Exception as exc:
-                logger.debug("Mode classifier detection skipped: %s", exc)
-            if ephemeral_parts:
-                ephemeral_system = "\n\n".join(ephemeral_parts)
-            if prompt_hooks.additional_context:
-                hook_ctx = "\n\n".join(prompt_hooks.additional_context)
-                augmented = f"{hook_ctx}\n\n{augmented}"
-
-            loop = self._get_or_create_loop(session_key)
-            original_loop_config = loop.config
-            try:
-                from butler.gateway.inbound_validate import validate_loop_messages_before_turn
-
-                seq_err = validate_loop_messages_before_turn(loop.messages)
-                if seq_err:
-                    return seq_err
-            except Exception as exc:
-                logger.debug("Loop message validation skipped: %s", exc)
-            from butler.core.turn_token_budget import resolve_turn_budget
-
-            loop.config, turn_budget, augmented = resolve_turn_budget(augmented, loop.config)
-            if turn_budget:
-                health["turn_token_budget"] = turn_budget
-                health["turn_max_iterations"] = loop.config.max_iterations
-
-            try:
-                try:
-                    from butler.core.model_context import resolve_max_output_tokens
-
-                    max_out = resolve_max_output_tokens(
-                        self._orchestrator,
-                        session_key=session_key,
-                        role=loop_role,
-                    )
-                    hygiene_compressed = loop.hygiene_compress_if_needed(
-                        max_output_tokens=max_out,
-                    )
-                    health["hygiene_compressed"] = hygiene_compressed
-                    health.update({
-                        k: v for k, v in getattr(loop, "diagnostics", {}).items()
-                        if str(k).startswith(("hygiene_", "context_"))
-                    })
-                except Exception as exc:
-                    health["hygiene_error"] = str(exc)
-                    logger.warning("Gateway hygiene compression skipped: %s", exc)
-                attach_turn_memory_prefetch(
-                    loop,
-                    self._orchestrator,
-                    text,
-                    role=loop_role,
-                    diagnostics=health,
-                )
-                run_callbacks = _gateway_run_callbacks()
-
-                def _run_turn(msg: str) -> LoopResult:
-                    run_kwargs: dict[str, Any] = {}
-                    if ephemeral_system:
-                        run_kwargs["ephemeral_system"] = ephemeral_system
-                    try:
-                        if run_callbacks is not None:
-                            return loop.run(
-                                msg,
-                                run_callbacks=run_callbacks,
-                                **run_kwargs,
-                            )
-                        return loop.run(msg, **run_kwargs)
-                    except TypeError:
-                        if run_callbacks is not None:
-                            return loop.run(msg, run_callbacks=run_callbacks)
-                        return loop.run(msg)
-
-                try:
-                    from butler.core.todo_continuation import run_with_todo_continuation
-                    from butler.core.goal_loop import maybe_run_goal_continuation
-
-                    result = run_with_todo_continuation(
-                        loop,
-                        augmented,
-                        session_key,
-                        run_fn=_run_turn,
-                        run_callbacks=run_callbacks,
-                    )
-                    result = maybe_run_goal_continuation(
-                        loop,
-                        result,
-                        session_key,
-                        run_fn=_run_turn,
-                    )
-                except Exception as exc:
-                    logger.debug("Todo/goal continuation fallback: %s", exc)
-                    result = _run_turn(augmented)
-                health["loop"] = dict(getattr(result, "diagnostics", {}) or {})
-                if getattr(result, "transition_reason", ""):
-                    health["loop_transition_reason"] = result.transition_reason
-                if result.status == LoopStatus.INTERRUPTED:
-                    try:
-                        from butler.core.auto_continue import capture_auto_continue_pending
-
-                        capture_auto_continue_pending(
-                            session_key,
-                            user_preview=augmented,
-                            reason="interrupt",
-                            diagnostics=health.get("loop") if isinstance(health.get("loop"), dict) else None,
-                        )
-                    except Exception as exc:
-                        logger.debug("Auto continue capture skipped: %s", exc)
-                sync_result = sync_turn_memory(
-                    self._orchestrator,
-                    text,
-                    result.final_response or "",
-                    interrupted=result.status == LoopStatus.INTERRUPTED,
-                    status=result.status,
-                    session_id=session_key,
-                )
-                health["memory_sync"] = sync_result
-                from butler.session.lifecycle import queue_prefetch_after_turn
-
-                queue_prefetch_after_turn(
-                    self._orchestrator,
-                    text,
-                    role=loop_role,
-                    session_id=session_key,
-                )
-                self._session_registry.set_health(session_key, health)
-                out = self._format_response(result, platform)
-                turn_elapsed = _time.monotonic() - _turn_started
-                from butler.gateway.outbound_bridge import get_current_bridge
-
-                br = get_current_bridge()
-                if br is not None:
-                    br.record_turn_elapsed(turn_elapsed)
-                    health["outbound_events"] = br.recent_outbound_events()[-8:]
-                try:
-                    from butler.gateway.item_event_sink import recent_thread_items
-
-                    items = recent_thread_items(8)
-                    if items:
-                        health["thread_items"] = items
-                except Exception as exc:
-                    logger.debug("Thread items collection skipped: %s", exc)
-                logger.info(
-                    "Gateway turn done session=%s elapsed=%.1fs out_len=%d",
-                    session_key,
-                    turn_elapsed,
-                    len(out or ""),
-                )
-                if welcome_prefix:
-                    out = f"{welcome_prefix}\n\n---\n\n{out}" if out else welcome_prefix
-                return out
-            except Exception as exc:
-                health["error"] = str(exc)
-                self._session_registry.set_health(session_key, health)
+                state.health["error"] = str(exc)
+                self._session_registry.set_health(session_key, state.health)
                 logger.error(
                     "Message handling failed session=%s elapsed=%.1fs: %s",
                     session_key,
-                    _time.monotonic() - _turn_started,
+                    _time.monotonic() - state.turn_started,
                     exc,
                     exc_info=True,
                 )
+                card = _phase_format_error_card(exc, _time.monotonic() - state.turn_started)
                 from butler.gateway.user_errors import format_gateway_user_error
 
-                card = None
-                try:
-                    from butler.gateway.error_cards import format_error_card
-
-                    exc_type = type(exc).__name__
-                    if "timeout" in exc_type.lower() or "Timeout" in exc_type:
-                        card = format_error_card(
-                            "delegate_timeout",
-                            role="agent",
-                            elapsed=round(_time.monotonic() - _turn_started),
-                        )
-                    elif "Permission" in exc_type:
-                        card = format_error_card(
-                            "permission_deny",
-                            tool="message_handler",
-                            reason=str(exc)[:200],
-                        )
-                    else:
-                        card = format_error_card(
-                            "tool_error",
-                            tool="message_handler",
-                            error=str(exc),
-                        )
-                except Exception:
-                    pass
                 return card or format_gateway_user_error(exc)
             finally:
-                loop.config = original_loop_config
+                state.loop.config = state.original_loop_config
 
     def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
         """Return the latest best-effort runtime diagnostics for a session."""
@@ -980,7 +591,6 @@ class ButlerMessageHandler:
         if not result.final_response:
             return "（执行完成，无文字输出）"
         return result.final_response
-
 
 
 from butler.gateway.handler_helpers import (  # noqa: F401, E402
