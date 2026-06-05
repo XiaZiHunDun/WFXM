@@ -98,6 +98,16 @@ class LLMClient:
         """
         from butler.transport.tool_wire import wire_tools_for_provider
 
+        # Broad except is intentional: ``wire_tools_for_provider`` is the
+        # safety net for an opaque third-party-style conversion path
+        # (provider-specific transport adapters). It does not document a
+        # concrete exception contract, and narrowing here would risk
+        # surfacing a half-broken turn to the caller. The fallback is
+        # *empty* (not a generic OpenAI-shaped schema), so the worst case
+        # is the model proceeds without tools — never a 400 from a
+        # provider that rejects the schema. The original exception is
+        # preserved on ``self._last_tool_wire_error`` for caller
+        # inspection.
         try:
             return wire_tools_for_provider(
                 self.provider_name or "",
@@ -107,8 +117,7 @@ class LLMClient:
         except Exception as exc:
             logger.error(
                 "wire_tools_for_provider failed; using empty tool list "
-                "(provider-specific schema could not be built): %s",
-                exc,
+                "(provider-specific schema could not be built)",
                 exc_info=exc,
             )
             self._last_tool_wire_error = exc
