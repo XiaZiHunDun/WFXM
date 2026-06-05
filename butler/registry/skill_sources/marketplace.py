@@ -95,21 +95,26 @@ def _fetch_marketplace_url(url: str) -> dict[str, Any] | None:
 
 
 def _raw_base_from_github_marketplace_url(url: str) -> str | None:
-    """https://github.com/o/r/.../marketplace.json -> raw.githubusercontent.com base."""
-    try:
-        parsed = urlparse(url)
-        if parsed.hostname != "github.com":
-            return None
-        parts = [p for p in parsed.path.split("/") if p]
-        if len(parts) < 2:
-            return None
-        owner, repo = parts[0], parts[1]
-        ref = "main"
-        if len(parts) > 3 and parts[2] in ("blob", "tree"):
-            ref = parts[3]
-        return f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}"
-    except Exception:
+    """https://github.com/o/r/.../marketplace.json -> raw.githubusercontent.com base.
+
+    Audit R2-17: the previous ``except Exception: return None`` swallowed
+    every parse failure as a generic "URL invalid" — masking real bugs
+    (e.g. urlparse corruption, attribute errors). Now the function only
+    returns ``None`` for the well-defined "not a GitHub URL" case; any
+    genuine parse exception propagates so callers can distinguish
+    "URL 损坏" (raise) from "URL 失效" (None).
+    """
+    parsed = urlparse(url)
+    if parsed.hostname != "github.com":
         return None
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) < 2:
+        return None
+    owner, repo = parts[0], parts[1]
+    ref = "main"
+    if len(parts) > 3 and parts[2] in ("blob", "tree"):
+        ref = parts[3]
+    return f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}"
 
 
 def _catalog_entries() -> list[_MarketplaceCatalog]:
