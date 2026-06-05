@@ -53,6 +53,11 @@ def _l2_normalize(vec: list[float]) -> list[float]:
 
 
 class Embedder(Protocol):
+    # Audit R2-3: True iff the embedder was instantiated through a fallback
+    # path (fastembed init / API key / probe failure). Used by /诊断 to surface
+    # recall-quality collapse instead of silently degrading to local hashing.
+    degraded: bool
+
     @property
     def model_id(self) -> str:
         ...
@@ -68,9 +73,23 @@ class Embedder(Protocol):
 class HashingEmbedder:
     """Deterministic character/token hashing embedder — offline, good for tests and P0."""
 
-    def __init__(self, *, dimension: int = 96, model_id: str = "hashing-v1") -> None:
+    def __init__(
+        self,
+        *,
+        dimension: int = 96,
+        model_id: str = "hashing-v1",
+        degraded: bool = False,
+        requested_provider: str = "",
+        requested_model: str = "",
+    ) -> None:
         self._dim = max(8, int(dimension))
         self._model_id = model_id
+        # Audit R2-3: degraded=True marks fallback instances created when the
+        # configured embedding provider failed. requested_provider/model preserve
+        # what the user actually asked for so /诊断 can surface the gap.
+        self.degraded = bool(degraded)
+        self.requested_provider = str(requested_provider or "")
+        self.requested_model = str(requested_model or "")
 
     @property
     def model_id(self) -> str:
@@ -96,6 +115,9 @@ class HashingEmbedder:
 
 class OpenAIEmbedder:
     """OpenAI-compatible embeddings API (OpenAI, DeepSeek-compatible gateways)."""
+
+    # Audit R2-3: real (non-fallback) providers are not degraded.
+    degraded: bool = False
 
     def __init__(
         self,
@@ -135,6 +157,9 @@ class OpenAIEmbedder:
 
 class MinimaxEmbedder:
     """MiniMax OpenAI-compatible embeddings endpoint."""
+
+    # Audit R2-3: real (non-fallback) providers are not degraded.
+    degraded: bool = False
 
     def __init__(
         self,
@@ -185,6 +210,9 @@ class FastEmbedEmbedder:
     _DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
     _DEFAULT_DIM = 384
 
+    # Audit R2-3: real (non-fallback) providers are not degraded.
+    degraded: bool = False
+
     def __init__(self, *, model_name: str = "") -> None:
         self._model_name = model_name or self._DEFAULT_MODEL
         self._dim = self._DEFAULT_DIM
@@ -217,7 +245,8 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
     if provider == "openai":
         key = os.getenv("OPENAI_API_KEY", "").strip()
         if not key:
-            logger.warning("BUTLER_EMBEDDING_PROVIDER=openai but OPENAI_API_KEY unset")
+            # Audit R2-3: missing API key collapses recall to local hashing.
+            logger.error("BUTLER_EMBEDDING_PROVIDER=openai but OPENAI_API_KEY unset")
             return None
         m = model if model and model != "hashing-v1" else _DEFAULT_OPENAI_MODEL
         base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
@@ -226,7 +255,8 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
     if provider == "minimax":
         key = os.getenv("MINIMAX_API_KEY", "").strip()
         if not key:
-            logger.warning("BUTLER_EMBEDDING_PROVIDER=minimax but MINIMAX_API_KEY unset")
+            # Audit R2-3: missing API key collapses recall to local hashing.
+            logger.error("BUTLER_EMBEDDING_PROVIDER=minimax but MINIMAX_API_KEY unset")
             return None
         m = model if model and model != "hashing-v1" else _DEFAULT_MINIMAX_MODEL
         base = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1").strip()
@@ -244,12 +274,20 @@ def _resolve_fastembed(model: str) -> Embedder | None:
         if probe:
             return embedder
     except ImportError:
-        logger.warning(
+        # Audit R2-3: missing library means the entire memory subsystem will
+        # silently fall back to local hashing. Escalate to ERROR so operators
+        # see it in production logs (the previous .warning was too quiet).
+        logger.error(
             "BUTLER_EMBEDDING_PROVIDER=fastembed but fastembed not installed; "
             "pip install 'butler-system[embeddings]'"
         )
     except Exception as exc:
-        logger.warning("fastembed init failed (%s); falling back to local hashing", exc)
+        # Audit R2-3: capture the traceback via exc_info — .warning loses it.
+        logger.error(
+            "fastembed init failed (%s); falling back to local hashing",
+            exc,
+            exc_info=exc,
+        )
     return None
 
 
@@ -288,6 +326,13 @@ class _CachedEmbedder:
     def dimension(self) -> int:
         return self._inner.dimension
 
+    @property
+    def degraded(self) -> bool:
+        # Audit R2-3: proxy degraded flag so /诊断 can detect a wrapped
+        # fallback embedder (in practice we don't wrap HashingEmbedder, but the
+        # contract must be respected for any future Embedder).
+        return bool(getattr(self._inner, "degraded", False))
+
     def embed(self, text: str) -> list[float]:
         key = _embed_cache_key(text)
         if key in self._cache:
@@ -322,6 +367,21 @@ def _build_embedder(provider: str, model: str) -> Embedder:
     return _CachedEmbedder(raw)
 
 
+def _degraded_hashing(provider: str, model: str) -> "HashingEmbedder":
+    """Build a fallback HashingEmbedder tagged with the requested provider/model.
+
+    Audit R2-3: every fallback embedder must carry `degraded=True` plus the
+    user-requested provider/model so /诊断 can surface the gap (e.g.
+    'requested openai/text-embedding-3-small → actually using hashing-v1').
+    """
+    return HashingEmbedder(
+        model_id="hashing-v1",
+        degraded=True,
+        requested_provider=provider or "",
+        requested_model=model or "",
+    )
+
+
 def _build_raw_embedder(provider: str, model: str) -> Embedder:
     if provider in ("local", "hash", "hashing", ""):
         logger.debug("Embedding provider: local HashingEmbedder (%s)", model or "hashing-v1")
@@ -332,8 +392,13 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
         if fe is not None:
             logger.info("Embedding provider: fastembed (%s)", fe.model_id)
             return fe
-        logger.warning("fastembed unavailable → fallback to local HashingEmbedder")
-        return HashingEmbedder(model_id="hashing-v1")
+        # Audit R2-3: escalate to ERROR — recall quality is collapsing.
+        logger.error(
+            "fastembed unavailable → fallback to local HashingEmbedder "
+            "(requested fastembed/%s)",
+            model or "default",
+        )
+        return _degraded_hashing("fastembed", model)
 
     api = _resolve_api_embedder(provider, model)
     if api is not None:
@@ -343,14 +408,18 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
                 logger.info("Embedding provider: %s (%s)", provider, api.model_id)
                 return api
         except Exception as exc:
-            logger.warning(
+            # Audit R2-3: probe failure means recall is degraded. exc_info
+            # captures the traceback that .warning would have lost.
+            logger.error(
                 "Embedding provider %r probe failed (%s) → fallback to HashingEmbedder",
                 provider,
                 exc,
+                exc_info=exc,
             )
     else:
-        logger.warning(
+        # Audit R2-3: missing API key / unsupported provider → degraded.
+        logger.error(
             "Embedding provider %r unavailable (missing API key?) → fallback to HashingEmbedder",
             provider,
         )
-    return HashingEmbedder(model_id="hashing-v1")
+    return _degraded_hashing(provider, model)

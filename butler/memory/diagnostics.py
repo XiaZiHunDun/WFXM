@@ -120,6 +120,25 @@ def collect_memory_layer_stats(
                 )
             except Exception as exc:
                 logger.debug("collect memory layer stats skipped: %s", exc)
+            # Audit R2-3: surface embedding provider degradation.
+            # When the configured embedder failed and fell back to local
+            # hashing, the embedder instance carries `degraded=True` plus the
+            # user-requested provider/model. /诊断 needs this so the user/LLM
+            # can see "嵌入质量降级: 请求 X → 实际 Y".
+            embedder = getattr(sem, "embedder", None)
+            if embedder is not None:
+                stats["embedding_degraded"] = bool(
+                    getattr(embedder, "degraded", False)
+                )
+                stats["embedding_requested_provider"] = str(
+                    getattr(embedder, "requested_provider", "") or ""
+                )
+                stats["embedding_requested_model"] = str(
+                    getattr(embedder, "requested_model", "") or ""
+                )
+                stats["embedding_used_model"] = str(
+                    getattr(embedder, "model_id", "") or ""
+                )
         tri = bm.triplet_index() if hasattr(bm, "triplet_index") else None
         if tri is not None:
             try:

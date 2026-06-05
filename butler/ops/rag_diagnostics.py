@@ -30,6 +30,17 @@ def format_rag_diagnostic_lines(
             f"  向量行数: {stats.get('vector_rows', 0)} "
             f"(model={stats.get('vector_model') or '?'})"
         )
+    # Audit R2-3: embedding provider degradation (e.g. openai key missing,
+    # fastembed init failed, API probe timed out). Without this line the user
+    # silently gets 64-bit hashing recall and never knows.
+    if stats.get("embedding_degraded"):
+        req_provider = str(stats.get("embedding_requested_provider") or "?")
+        req_model = str(stats.get("embedding_requested_model") or "?")
+        used_model = str(stats.get("embedding_used_model") or "hashing-v1")
+        lines.append(
+            f"  嵌入质量降级: 请求 {req_provider}/{req_model} → "
+            f"实际使用 {used_model}"
+        )
     kdb = stats.get("knowledge_db_keys")
     if kdb is not None:
         lines.append(f"  项目 knowledge.db keys: {kdb}")
