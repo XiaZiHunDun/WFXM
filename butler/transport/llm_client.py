@@ -41,6 +41,10 @@ class LLMClient:
 
         self._profile: Optional[ProviderProfile] = None
         self._client: Any = None
+        # R2-10: Stash the original exception when tool wiring fails so the
+        # caller can inspect it. ``None`` means the most recent call wired
+        # tools successfully (or no tools were provided).
+        self._last_tool_wire_error: Optional[BaseException] = None
 
         self._resolve_config()
 
@@ -74,6 +78,41 @@ class LLMClient:
         return self._api_mode or "chat_completions"
 
     _MAX_RETRIES = 0  # 重试由外层 llm_retry 中间件统一处理，关闭 SDK 默认重试避免双层放大（Sprint 10 PERF-NEW-3）
+
+    def _wire_tools_or_empty(self, tools: list[dict]) -> list[dict]:
+        """R2-10: Wire tools for the active provider; on failure, return [].
+
+        Behaviour change vs. the previous bad_fallback: when
+        ``wire_tools_for_provider`` raises, we used to fall back to
+        ``transport.convert_tools(tools)`` (generic OpenAI-style schema).
+        Providers with strict schema validation (Anthropic, certain
+        OpenAI-compatible gateways) would then reject the request with a
+        400 *after* the model had already emitted tool_calls based on the
+        "known" tool set, leaving the caller with a half-broken turn.
+
+        The safe fallback is an empty tool list: the model proceeds
+        without any tools, so it cannot emit tool_calls the provider
+        would reject. The original exception is preserved on
+        ``self._last_tool_wire_error`` for caller inspection and is
+        logged at ERROR with a full traceback.
+        """
+        from butler.transport.tool_wire import wire_tools_for_provider
+
+        try:
+            return wire_tools_for_provider(
+                self.provider_name or "",
+                tools,
+                api_mode=self.api_mode,
+            )
+        except Exception as exc:
+            logger.error(
+                "wire_tools_for_provider failed; using empty tool list "
+                "(provider-specific schema could not be built): %s",
+                exc,
+                exc_info=exc,
+            )
+            self._last_tool_wire_error = exc
+            return []
 
     def _get_openai_client(self):
         if self._client is None:
@@ -138,17 +177,7 @@ class LLMClient:
 
         converted_tools = None
         if tools:
-            try:
-                from butler.transport.tool_wire import wire_tools_for_provider
-
-                converted_tools = wire_tools_for_provider(
-                    self.provider_name or "",
-                    tools,
-                    api_mode=self.api_mode,
-                )
-            except Exception as exc:
-                logger.warning("wire_tools_for_provider failed, falling back: %s", exc)
-                converted_tools = transport.convert_tools(tools)
+            converted_tools = self._wire_tools_or_empty(tools)
 
         params = {
             "temperature": kwargs.get("temperature", self.temperature),
@@ -200,17 +229,7 @@ class LLMClient:
 
         converted_tools = None
         if tools:
-            try:
-                from butler.transport.tool_wire import wire_tools_for_provider
-
-                converted_tools = wire_tools_for_provider(
-                    self.provider_name or "",
-                    tools,
-                    api_mode=self.api_mode,
-                )
-            except Exception as exc:
-                logger.warning("wire_tools_for_provider (stream) failed, falling back: %s", exc)
-                converted_tools = transport.convert_tools(tools)
+            converted_tools = self._wire_tools_or_empty(tools)
 
         params = {
             "temperature": kwargs.get("temperature", self.temperature),
