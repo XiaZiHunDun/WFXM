@@ -15,6 +15,43 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+# R2-11: uniform fail-closed for permission check failures. The buffer holds
+# the most recent failures so /诊断 can surface them (otherwise a malfunctioning
+# experiment-mode detector or step resolver silently disables safety controls).
+_MAX_PERMISSION_FAILURE_ENTRIES = 50
+_MAX_PERMISSION_FAILURE_ERROR_LEN = 200
+_permission_failures: list[dict[str, Any]] = []
+
+
+def recent_permission_failures() -> list[dict[str, Any]]:
+    """Read the module-level permission-failure diagnostics buffer."""
+    return list(_permission_failures)
+
+
+def reset_permission_failures() -> None:
+    """Clear the permission-failure diagnostics buffer (test helper)."""
+    _permission_failures.clear()
+
+
+def _record_permission_failure(check: str, exc: BaseException) -> None:
+    """Append a permission-check failure to the diagnostics buffer (FIFO bounded)."""
+    logger.error(
+        "Permission check %s failed (fail-closed); %s",
+        check,
+        exc,
+        exc_info=exc,
+    )
+    _permission_failures.append({
+        "check": check,
+        "error": str(exc)[:_MAX_PERMISSION_FAILURE_ERROR_LEN],
+        "type": type(exc).__name__,
+    })
+    if len(_permission_failures) > _MAX_PERMISSION_FAILURE_ENTRIES:
+        del _permission_failures[
+            : len(_permission_failures) - _MAX_PERMISSION_FAILURE_ENTRIES
+        ]
+
+
 _PATH_TOOLS = frozenset(
     {
         "read_file",
@@ -459,6 +496,113 @@ def _current_session_key() -> str:
         return ""
 
 
+def _experiment_block_or_fail_closed(
+    tool_name: str,
+    args: dict[str, Any],
+    workspace: Path,
+) -> str | None:
+    """Run ``check_experiment_mode_block``; fail-CLOSED on detector error.
+
+    Returns a block reason string when the experiment-mode detector blocks
+    the call OR raises. The previous implementation caught detector errors
+    and continued, silently disabling a safety control. Fail-closed means a
+    broken detector blocks the call until the detector is repaired, never
+    silently bypasses it.
+    """
+    try:
+        from butler.experiments.mode import check_experiment_mode_block
+    except Exception as exc:
+        _record_permission_failure("experiment_mode_block_import", exc)
+        return "experiment mode 守护不可用 (import 失败); 拒绝该调用"
+    try:
+        return check_experiment_mode_block(tool_name, args, workspace=workspace)
+    except Exception as exc:
+        _record_permission_failure("experiment_mode_block", exc)
+        return "experiment mode 守护异常 (fail-closed); 拒绝该调用"
+
+
+def _workflow_step_block_or_fail_closed(
+    tool_name: str,
+    workspace: Path,
+) -> str | None:
+    """Resolve the current workflow step + apply allowlist; fail-CLOSED on error.
+
+    If the step resolver raises, we cannot determine which step's allowlist
+    applies, so the safe default is to deny. A broken resolver must not
+    silently widen the allowlist to "all tools".
+    """
+    try:
+        from butler.execution_context import get_current_workflow_step
+    except Exception as exc:
+        _record_permission_failure("workflow_step_resolve_import", exc)
+        return "workflow step 解析器不可用 (import 失败); 拒绝该调用"
+    try:
+        step_id = get_current_workflow_step()
+    except Exception as exc:
+        _record_permission_failure("workflow_step_resolve", exc)
+        return "workflow step 解析器异常 (fail-closed); 拒绝该调用"
+    if not step_id:
+        return None
+    try:
+        step_decision = evaluate_workflow_step_permission(
+            tool_name, step_id, workspace=workspace,
+        )
+    except Exception as exc:
+        _record_permission_failure("workflow_step_decision", exc)
+        return "workflow step 决策异常 (fail-closed); 拒绝该调用"
+    if step_decision is not None and not step_decision.allowed:
+        return step_decision.reason
+    return None
+
+
+def _apply_decision_or_none(
+    decision: PermissionDecision | None,
+    tool_name: str,
+    args: dict[str, Any],
+    *,
+    session_key: str,
+) -> str | None:
+    """Translate one PermissionDecision into a block reason or None.
+
+    Encapsulates the allow/ask/deny branching that is repeated for each
+    rule source (external_directory, tool_policy, permission rules).
+    Returns:
+    - ``None`` when the decision is None or allows the call
+    - a denial reason when the decision denies
+    - the formatted ask-message when the decision is ``ask`` and not
+      pre-approved by the session
+    """
+    if decision is None or decision.allowed:
+        return None
+    if decision.action == "ask":
+        blocked = _decision_with_approval(decision, tool_name, args, session_key=session_key)
+        if blocked is None:
+            return None
+        return _format_ask_message(blocked)
+    return decision.reason
+
+
+def _external_directory_block_or_none(
+    tool_name: str,
+    args: dict[str, Any],
+    workspace: Path,
+    *,
+    session_key: str,
+) -> str | None:
+    """Apply external_directory rules for path-tools; ``None`` if N/A or allowed."""
+    path_val = _resolve_path_arg(args)
+    if not path_val or tool_name not in _PATH_TOOLS:
+        return None
+    ext = evaluate_external_directory(
+        path_val,
+        workspace=workspace,
+        for_write=tool_name in ("write_file", "patch", "delete_file"),
+    )
+    return _apply_decision_or_none(
+        ext, tool_name, args, session_key=session_key,
+    )
+
+
 def check_project_permission_block(
     tool_name: str,
     args: dict[str, Any],
@@ -479,67 +623,27 @@ def check_project_permission_block(
     if bl is not None and not bl.allowed:
         return bl.reason
 
-    try:
-        from butler.experiments.mode import check_experiment_mode_block
+    exp_block = _experiment_block_or_fail_closed(tool_name, args, workspace)
+    if exp_block:
+        return exp_block
 
-        exp_block = check_experiment_mode_block(tool_name, args, workspace=workspace)
-        if exp_block:
-            return exp_block
-    except Exception as exc:
-        logger.warning("Experiment mode block check failed: %s", exc)
+    step_block = _workflow_step_block_or_fail_closed(tool_name, workspace)
+    if step_block:
+        return step_block
 
-    try:
-        from butler.execution_context import get_current_workflow_step
+    ext_block = _external_directory_block_or_none(
+        tool_name, args, workspace, session_key=session_key,
+    )
+    if ext_block:
+        return ext_block
 
-        step_id = get_current_workflow_step()
-        if step_id:
-            step_decision = evaluate_workflow_step_permission(
-                tool_name,
-                step_id,
-                workspace=workspace,
-            )
-            if step_decision is not None and not step_decision.allowed:
-                return step_decision.reason
-    except Exception as exc:
-        logger.warning("Workflow step permission check failed: %s", exc)
-
-    path_val = _resolve_path_arg(args)
-    if path_val and tool_name in _PATH_TOOLS:
-        ext = evaluate_external_directory(
-            path_val,
-            workspace=workspace,
-            for_write=tool_name in ("write_file", "patch", "delete_file"),
-        )
-        if ext is not None:
-            if ext.allowed:
-                pass
-            elif ext.action == "ask":
-                blocked = _decision_with_approval(ext, tool_name, args, session_key=session_key)
-                if blocked is not None:
-                    return _format_ask_message(blocked)
-            else:
-                return ext.reason
-
-    policy = evaluate_tool_policy(tool_name, workspace=workspace)
-    if policy is not None:
-        if policy.allowed:
-            pass
-        elif policy.action == "ask":
-            blocked = _decision_with_approval(policy, tool_name, args, session_key=session_key)
-            if blocked is not None:
-                return _format_ask_message(blocked)
-        else:
-            return policy.reason
-
-    decision = evaluate_permission(tool_name, args, workspace=workspace)
-    if decision is None or decision.allowed:
-        return None
-    if decision.action == "ask":
-        blocked = _decision_with_approval(decision, tool_name, args, session_key=session_key)
-        if blocked is None:
-            return None
-        return _format_ask_message(blocked)
-    return decision.reason
+    return _apply_decision_or_none(
+        evaluate_tool_policy(tool_name, workspace=workspace),
+        tool_name, args, session_key=session_key,
+    ) or _apply_decision_or_none(
+        evaluate_permission(tool_name, args, workspace=workspace),
+        tool_name, args, session_key=session_key,
+    )
 
 
 def _format_ask_message(decision: PermissionDecision) -> str:
