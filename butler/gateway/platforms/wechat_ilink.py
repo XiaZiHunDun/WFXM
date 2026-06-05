@@ -513,60 +513,29 @@ class WeChatAdapter(ButlerPlatformAdapter):
     SUPPORTS_MESSAGE_EDITING = False
 
     def __init__(self, config: PlatformConfig):
+        # R1-4a: thin orchestrator — delegates to 4 phase functions in
+        # ``wechat_ilink_phases.py``. The phases collectively own the
+        # env/config/extra resolution; this method only sets up the
+        # transport-agnostic state.
         super().__init__(config, "wechat")
-        extra = config.extra or {}
-        data_home = str(get_butler_home())
-        self._data_home = data_home
-        self._token_store = ContextTokenStore(data_home)
+        self._data_home = str(get_butler_home())
+        self._token_store = ContextTokenStore(self._data_home)
         self._typing_cache = TypingTicketCache()
         self._poll_session: Optional[aiohttp.ClientSession] = None
         self._send_session: Optional[aiohttp.ClientSession] = None
         self._poll_task: Optional[asyncio.Task] = None
-        self._id_dedup = MessageDeduplicator(ttl_seconds=_message_id_dedup_ttl())
-        self._content_dedup = MessageDeduplicator(ttl_seconds=_content_dedup_ttl())
-
-        self._account_id = str(extra.get("account_id") or os.getenv("WECHAT_ACCOUNT_ID", "")).strip()
         self._bg_typing_tasks: set[asyncio.Task] = set()
-        self._token = str(config.token or extra.get("token") or os.getenv("WECHAT_TOKEN", "")).strip()
-        self._base_url = str(extra.get("base_url") or os.getenv("WECHAT_BASE_URL", ILINK_BASE_URL)).strip().rstrip("/")
-        self._cdn_base_url = str(
-            extra.get("cdn_base_url") or os.getenv("WECHAT_CDN_BASE_URL", WECHAT_CDN_BASE_URL)
-        ).strip().rstrip("/")
-        self._send_chunk_delay_seconds = float(
-            extra.get("send_chunk_delay_seconds") or os.getenv("WECHAT_SEND_CHUNK_DELAY_SECONDS", "1.5")
-        )
-        self._send_chunk_retries = int(
-            extra.get("send_chunk_retries") or os.getenv("WECHAT_SEND_CHUNK_RETRIES", "4")
-        )
-        self._send_chunk_retry_delay_seconds = float(
-            extra.get("send_chunk_retry_delay_seconds")
-            or os.getenv("WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS", "1.0")
-        )
-        self._dm_policy = str(
-            extra.get("dm_policy") or os.getenv("WECHAT_DM_POLICY", "open")
-        ).strip().lower()
-        self._group_policy = str(
-            extra.get("group_policy") or os.getenv("WECHAT_GROUP_POLICY", "disabled")
-        ).strip().lower()
-        allow_from = extra.get("allow_from")
-        if allow_from is None:
-            allow_from = os.getenv("WECHAT_ALLOWED_USERS", "")
-        group_allow_from = extra.get("group_allow_from")
-        if group_allow_from is None:
-            group_allow_from = os.getenv("WECHAT_GROUP_ALLOWED_USERS", "")
-        self._allow_from = self._coerce_list(allow_from)
-        self._group_allow_from = self._coerce_list(group_allow_from)
-        self._split_multiline_messages = _coerce_bool(
-            extra.get("split_multiline_messages")
-            or os.getenv("WECHAT_SPLIT_MULTILINE_MESSAGES"),
-            default=False,
+        from butler.gateway.platforms.wechat_ilink_phases import (
+            _phase_init_account,
+            _phase_init_chunks,
+            _phase_init_dedup,
+            _phase_init_policies,
         )
 
-        if self._account_id and not self._token:
-            persisted = load_wechat_account(data_home, self._account_id)
-            if persisted:
-                self._token = str(persisted.get("token") or "").strip()
-                self._base_url = str(persisted.get("base_url") or self._base_url).strip().rstrip("/")
+        _phase_init_account(self, config)
+        _phase_init_chunks(self, config)
+        _phase_init_policies(self, config)
+        _phase_init_dedup(self)
 
     @staticmethod
     def _coerce_list(value: Any) -> List[str]:
@@ -588,57 +557,17 @@ class WeChatAdapter(ButlerPlatformAdapter):
         task.add_done_callback(self._bg_typing_tasks.discard)
 
     async def connect(self) -> bool:
-        if not check_wechat_requirements():
-            message = "WeChat startup failed: aiohttp and cryptography are required"
-            self._set_fatal_error("wechat_missing_dependency", message, retryable=False)
-            logger.warning("[%s] %s", self.name, message)
-            return False
-        if not self._token:
-            message = "WeChat startup failed: WECHAT_TOKEN is required"
-            self._set_fatal_error("wechat_missing_token", message, retryable=False)
-            logger.warning("[%s] %s", self.name, message)
-            return False
-        if not self._account_id:
-            message = "WeChat startup failed: WECHAT_ACCOUNT_ID is required"
-            self._set_fatal_error("wechat_missing_account", message, retryable=False)
-            logger.warning("[%s] %s", self.name, message)
-            return False
-
-        try:
-            if not self._acquire_platform_lock('wechat-bot-token', self._token, 'WeChat bot token'):
-                return False
-        except Exception as exc:
-            logger.debug("[%s] Token lock unavailable (non-fatal): %s", self.name, exc)
-
-        self._poll_session = aiohttp.ClientSession(trust_env=True, connector=_make_ssl_connector())
-        # Disable aiohttp's built-in ClientTimeout (total=None) to prevent
-        # "Timeout context manager should be used inside a task" errors when
-        # send() is invoked via asyncio.run_coroutine_threadsafe() from cron.
-        # Timeout is managed externally via asyncio.wait_for() in _api_post/_api_get.
-        _no_aiohttp_timeout = aiohttp.ClientTimeout(
-            total=None, connect=None, sock_connect=None, sock_read=None
+        # R1-4a: thin orchestrator — delegates to 2 phase functions in
+        # ``wechat_ilink_phases.py``. Validation gates return; the
+        # open-sessions phase does the heavy transport setup.
+        from butler.gateway.platforms.wechat_ilink_phases import (
+            _phase_connect_open_sessions,
+            _phase_connect_validate,
         )
-        self._send_session = aiohttp.ClientSession(
-            trust_env=True,
-            connector=_make_ssl_connector(),
-            timeout=_no_aiohttp_timeout,
-        )
-        self._token_store.restore(self._account_id)
-        self._poll_task = asyncio.create_task(self._poll_loop(), name="wechat-poll")
-        self._mark_connected()
-        _LIVE_ADAPTERS[self._token] = self
-        logger.info("[%s] Connected account=%s base=%s", self.name, _safe_id(self._account_id), self._base_url)
-        if self._group_policy != "disabled":
-            logger.warning(
-                "[%s] WECHAT_GROUP_POLICY=%s is set, but QR-login connects an iLink bot "
-                "identity (e.g. ...@im.bot) which typically cannot be invited into ordinary "
-                "WeChat groups. iLink usually does not deliver ordinary-group events for "
-                "these accounts, so group messages may never reach Hermes regardless of this "
-                "policy. If group delivery doesn't work, the limitation is on the iLink side, "
-                "not in Hermes.",
-                self.name,
-                self._group_policy,
-            )
+
+        if not _phase_connect_validate(self):
+            return False
+        _phase_connect_open_sessions(self)
         return True
 
     async def disconnect(self) -> None:
@@ -671,6 +600,15 @@ class WeChatAdapter(ButlerPlatformAdapter):
         logger.info("[%s] Disconnected", self.name)
 
     async def _poll_loop(self) -> None:
+        # R1-4a: thin orchestrator — delegates per-iteration response
+        # handling to ``_phase_poll_handle_response``. The backoff
+        # ladder + message dispatch are pulled into private helpers
+        # below; this method owns the loop, the transport call, and
+        # the cancellation + error envelope only.
+        from butler.gateway.platforms.wechat_ilink_phases import (
+            _phase_poll_handle_response,
+        )
+
         assert self._poll_session is not None
         sync_buf = _load_sync_buf(self._data_home, self._account_id)
         timeout_ms = LONG_POLL_TIMEOUT_MS
@@ -688,62 +626,67 @@ class WeChatAdapter(ButlerPlatformAdapter):
                 suggested_timeout = response.get("longpolling_timeout_ms")
                 if isinstance(suggested_timeout, int) and suggested_timeout > 0:
                     timeout_ms = suggested_timeout
-
-                ret = response.get("ret", 0)
-                errcode = response.get("errcode", 0)
-                if ret not in (0, None) or errcode not in (0, None):
-                    if (ret == SESSION_EXPIRED_ERRCODE or errcode == SESSION_EXPIRED_ERRCODE
-                            or _is_stale_session_ret(ret, errcode, response.get("errmsg"))):
-                        logger.error("[%s] Session expired; pausing for 10 minutes", self.name)
-                        await asyncio.sleep(600)
-                        consecutive_failures = 0
-                        continue
-                    consecutive_failures += 1
-                    logger.warning(
-                        "[%s] getUpdates failed ret=%s errcode=%s errmsg=%s (%d/%d)",
-                        self.name,
-                        ret,
-                        errcode,
-                        response.get("errmsg", ""),
-                        consecutive_failures,
-                        MAX_CONSECUTIVE_FAILURES,
-                    )
-                    await asyncio.sleep(
-                        BACKOFF_DELAY_SECONDS
-                        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES
-                        else RETRY_DELAY_SECONDS
-                    )
-                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                        consecutive_failures = 0
-                    continue
-
-                consecutive_failures = 0
-                new_sync_buf = str(response.get("get_updates_buf") or "")
-                if new_sync_buf:
-                    sync_buf = new_sync_buf
-                    _save_sync_buf(self._data_home, self._account_id, sync_buf)
-
-                for message in response.get("msgs") or []:
-                    # Serialize within a poll batch — create_task caused registry races.
-                    await self._process_message_safe(message)
+                consecutive_failures = await self._dispatch_poll_response(
+                    response, consecutive_failures, _phase_poll_handle_response,
+                )
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                consecutive_failures += 1
-                logger.error(
-                    "[%s] poll error (%d/%d): %s",
-                    self.name,
-                    consecutive_failures,
-                    MAX_CONSECUTIVE_FAILURES,
-                    exc,
+                consecutive_failures = await self._handle_poll_exception(
+                    exc, consecutive_failures,
                 )
-                await asyncio.sleep(
-                    BACKOFF_DELAY_SECONDS
-                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES
-                    else RETRY_DELAY_SECONDS
-                )
-                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                    consecutive_failures = 0
+
+    async def _dispatch_poll_response(
+        self,
+        response: Dict[str, Any],
+        consecutive_failures: int,
+        handle_response: Any,
+    ) -> int:
+        """Dispatch one poll response. Returns the updated failure counter."""
+        signal, messages = handle_response(self, response)
+        if signal == "session_expired":
+            await asyncio.sleep(600)
+            return 0
+        ret = response.get("ret", 0)
+        errcode = response.get("errcode", 0)
+        if ret not in (0, None) or errcode not in (0, None):
+            consecutive_failures += 1
+            logger.warning(
+                "[%s] getUpdates failed ret=%s errcode=%s errmsg=%s (%d/%d)",
+                self.name, ret, errcode, response.get("errmsg", ""),
+                consecutive_failures, MAX_CONSECUTIVE_FAILURES,
+            )
+            await asyncio.sleep(self._poll_backoff_seconds(consecutive_failures))
+            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                return 0
+            return consecutive_failures
+        for message in messages:
+            # Serialize within a poll batch — create_task caused registry races.
+            await self._process_message_safe(message)
+        return 0
+
+    @staticmethod
+    def _poll_backoff_seconds(consecutive_failures: int) -> float:
+        """Pick BACKOFF_DELAY (>=MAX) or RETRY_DELAY based on failure ladder."""
+        return (
+            BACKOFF_DELAY_SECONDS
+            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES
+            else RETRY_DELAY_SECONDS
+        )
+
+    async def _handle_poll_exception(
+        self, exc: Exception, consecutive_failures: int,
+    ) -> int:
+        """Outer-exception backoff branch for ``_poll_loop``. Returns updated counter."""
+        consecutive_failures += 1
+        logger.error(
+            "[%s] poll error (%d/%d): %s",
+            self.name, consecutive_failures, MAX_CONSECUTIVE_FAILURES, exc,
+        )
+        await asyncio.sleep(self._poll_backoff_seconds(consecutive_failures))
+        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+            return 0
+        return consecutive_failures
 
     async def _process_message_safe(self, message: Dict[str, Any]) -> None:
         try:
@@ -758,6 +701,16 @@ class WeChatAdapter(ButlerPlatformAdapter):
             )
 
     async def _process_message(self, message: Dict[str, Any]) -> None:
+        # R1-4a: thin orchestrator — delegates dedup / chat-policy /
+        # event-construction to 3 phase functions in
+        # ``wechat_ilink_phases.py``. This method owns the iLink
+        # self-id skip + token-store write + media collection.
+        from butler.gateway.platforms.wechat_ilink_phases import (
+            _phase_inbound_build_event,
+            _phase_inbound_chat_policy,
+            _phase_inbound_dedup,
+        )
+
         assert self._poll_session is not None
         sender_id = str(message.get("from_user_id") or "").strip()
         if not sender_id:
@@ -766,30 +719,14 @@ class WeChatAdapter(ButlerPlatformAdapter):
             return
 
         message_id = str(message.get("message_id") or "").strip()
-        if message_id and self._id_dedup.is_duplicate(message_id):
-            return
-
-        # Secondary content-fingerprint dedup for text messages (short TTL — not user resend)
         item_list = message.get("item_list") or []
         text = _extract_text(item_list)
-        if text:
-            content_key = f"content:{sender_id}:{hashlib.md5(text.encode()).hexdigest()}"
-            if self._content_dedup.is_duplicate(content_key):
-                logger.info(
-                    "[%s] Content-dedup: skipping duplicate text from %s (same body within %.0fs)",
-                    self.name,
-                    sender_id,
-                    _content_dedup_ttl(),
-                )
-                return
+
+        if not _phase_inbound_dedup(self, message, sender_id, text):
+            return
 
         chat_type, effective_chat_id = _guess_chat_type(message, self._account_id)
-        if chat_type == "group":
-            if self._group_policy == "disabled":
-                return
-            if self._group_policy == "allowlist" and effective_chat_id not in self._group_allow_from:
-                return
-        elif not self._is_dm_allowed(sender_id):
+        if not _phase_inbound_chat_policy(self, chat_type, effective_chat_id, sender_id):
             return
 
         context_token = str(message.get("context_token") or "").strip()
@@ -799,7 +736,6 @@ class WeChatAdapter(ButlerPlatformAdapter):
 
         media_paths: List[str] = []
         media_types: List[str] = []
-
         for item in item_list:
             await self._collect_media(item, media_paths, media_types)
             ref_message = item.get("ref_msg") or {}
@@ -810,28 +746,9 @@ class WeChatAdapter(ButlerPlatformAdapter):
         if not text and not media_paths:
             return
 
-        source = self.build_source(
-            chat_id=effective_chat_id,
-            chat_type=chat_type,
-            user_id=sender_id,
-            user_name=sender_id,
-        )
-        event = MessageEvent(
-            text=text,
-            message_type=_message_type_from_media(media_types, text),
-            source=source,
-            raw_message=message,
-            message_id=message_id or None,
-            media_urls=media_paths,
-            media_types=media_types,
-            timestamp=datetime.now(),
-        )
-        logger.info(
-            "[%s] inbound from=%s type=%s media=%d",
-            self.name,
-            _safe_id(sender_id),
-            source.chat_type,
-            len(media_paths),
+        event = _phase_inbound_build_event(
+            self, message, sender_id, text, media_paths, media_types,
+            effective_chat_id, chat_type, message_id,
         )
         await self.handle_message(event)
 
@@ -988,108 +905,77 @@ class WeChatAdapter(ButlerPlatformAdapter):
     ) -> None:
         """Send a single text chunk with per-chunk retry and backoff.
 
-        On session-expired errors (errcode -14), automatically retries
-        *without* ``context_token`` — iLink accepts tokenless sends as a
-        degraded fallback, which keeps cron-initiated push messages working
-        even when no user message has refreshed the session recently.
+        R1-4a: thin orchestrator — delegates per-attempt transport +
+        response classification to 2 phase functions in
+        ``wechat_ilink_phases.py``. On session-expired (errcode -14)
+        retries once *without* ``context_token`` (tokenless fallback).
         """
+        from butler.gateway.platforms.wechat_ilink_phases import (
+            WeChatSendState,
+            _phase_chunk_attempt,
+            _phase_chunk_handle_response,
+        )
+
         last_error: Optional[Exception] = None
-        retried_without_token = False
+        state = WeChatSendState()
         for attempt in range(self._send_chunk_retries + 1):
             try:
-                resp = await _send_message(
-                    self._send_session,
-                    base_url=self._base_url,
-                    token=self._token,
-                    to=chat_id,
-                    text=chunk,
-                    context_token=context_token,
-                    client_id=client_id,
+                resp = await _phase_chunk_attempt(
+                    self, chat_id=chat_id, chunk=chunk,
+                    context_token=context_token, client_id=client_id,
                 )
-                # Check iLink response for session-expired error
-                if resp and isinstance(resp, dict):
-                    ret = resp.get("ret")
-                    errcode = resp.get("errcode")
-                    if (ret is not None and ret not in (0,)) or (errcode is not None and errcode not in (0,)):
-                        is_session_expired = (
-                            ret == SESSION_EXPIRED_ERRCODE
-                            or errcode == SESSION_EXPIRED_ERRCODE
-                            or _is_stale_session_ret(ret, errcode, resp.get("errmsg"))
-                        )
-                        # Session expired — strip token and retry once
-                        if is_session_expired and not retried_without_token and context_token:
-                            retried_without_token = True
-                            context_token = None
-                            self._token_store._cache.pop(
-                                self._token_store._key(self._account_id, chat_id), None
-                            )
-                            logger.warning(
-                                "[%s] session expired for %s; retrying without context_token",
-                                self.name, _safe_id(chat_id),
-                            )
-                            continue
-                        # Rate limit (-2) — backoff and retry
-                        is_rate_limited = (
-                            ret == RATE_LIMIT_ERRCODE
-                            or errcode == RATE_LIMIT_ERRCODE
-                        )
-                        if is_rate_limited:
-                            errmsg = resp.get("errmsg") or resp.get("msg") or "rate limited"
-                            # Record the error so we raise a descriptive
-                            # RuntimeError (instead of AssertionError) if the
-                            # loop exhausts with the server still rate-limiting.
-                            last_error = RuntimeError(
-                                f"iLink sendmessage rate limited: ret={ret} errcode={errcode} errmsg={errmsg}"
-                            )
-                            if attempt >= self._send_chunk_retries:
-                                break
-                            # Exponential backoff for iLink -2 (cap via env)
-                            cap = 90.0
-                            try:
-                                cap = max(
-                                    10.0,
-                                    float(
-                                        os.getenv(
-                                            "BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX",
-                                            "90",
-                                        )
-                                    ),
-                                )
-                            except ValueError:
-                                cap = 90.0
-                            wait = min(
-                                cap,
-                                self._send_chunk_retry_delay_seconds * (3 ** attempt),
-                            )
-                            logger.warning(
-                                "[%s] rate limited for %s; backing off %.1fs before retry",
-                                self.name, _safe_id(chat_id), wait,
-                            )
-                            await asyncio.sleep(wait)
-                            continue
-                        errmsg = resp.get("errmsg") or resp.get("msg") or "unknown error"
-                        raise RuntimeError(
-                            f"iLink sendmessage error: ret={ret} errcode={errcode} errmsg={errmsg}"
-                        )
-                return
+                action, new_token, err = _phase_chunk_handle_response(
+                    self, resp, chat_id=chat_id,
+                    context_token=context_token, state=state,
+                )
+                if action == "ok":
+                    return
+                if action == "retry_without_token":
+                    context_token = new_token
+                elif action == "raise":
+                    raise err
+                elif action == "retry":
+                    last_error = err
+                    if attempt >= self._send_chunk_retries:
+                        break
+                    await self._backoff_for_rate_limit(chat_id, attempt)
             except Exception as exc:
                 last_error = exc
                 if attempt >= self._send_chunk_retries:
                     break
-                wait = self._send_chunk_retry_delay_seconds * (attempt + 1)
-                logger.warning(
-                    "[%s] send chunk failed to=%s attempt=%d/%d, retrying in %.2fs: %s",
-                    self.name,
-                    _safe_id(chat_id),
-                    attempt + 1,
-                    self._send_chunk_retries + 1,
-                    wait,
-                    exc,
-                )
-                if wait > 0:
-                    await asyncio.sleep(wait)
+                await self._backoff_for_transport_error(chat_id, attempt, exc)
         assert last_error is not None
         raise last_error
+
+    async def _backoff_for_rate_limit(self, chat_id: str, attempt: int) -> None:
+        """Sleep per the rate-limit backoff ladder (exponential, capped)."""
+        cap = 90.0
+        try:
+            cap = max(
+                10.0,
+                float(os.getenv("BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX", "90")),
+            )
+        except ValueError:
+            cap = 90.0
+        wait = min(cap, self._send_chunk_retry_delay_seconds * (3 ** attempt))
+        logger.warning(
+            "[%s] rate limited for %s; backing off %.1fs before retry",
+            self.name, _safe_id(chat_id), wait,
+        )
+        await asyncio.sleep(wait)
+
+    async def _backoff_for_transport_error(
+        self, chat_id: str, attempt: int, exc: Exception,
+    ) -> None:
+        """Linear backoff after a transport-level failure (non-rate-limit)."""
+        wait = self._send_chunk_retry_delay_seconds * (attempt + 1)
+        logger.warning(
+            "[%s] send chunk failed to=%s attempt=%d/%d, retrying in %.2fs: %s",
+            self.name, _safe_id(chat_id),
+            attempt + 1, self._send_chunk_retries + 1, wait, exc,
+        )
+        if wait > 0:
+            await asyncio.sleep(wait)
 
     async def send(
         self,
@@ -1098,65 +984,32 @@ class WeChatAdapter(ButlerPlatformAdapter):
         reply_to: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
+        # R1-4a: thin orchestrator — extracts media + local files, then
+        # delegates delivery to 2 phase functions in
+        # ``wechat_ilink_phases.py``. This method owns the
+        # connection-state gate + outer try/except only.
+        from butler.gateway.platforms.wechat_ilink_phases import (
+            _phase_send_attachments,
+            _phase_send_text_chunks,
+        )
+
+        del reply_to
         if not self._send_session or not self._token:
             return SendResult(success=False, error="Not connected")
         context_token = self._token_store.get(self._account_id, chat_id)
-        last_message_id: Optional[str] = None
 
         # Extract MEDIA: tags and bare local file paths before text delivery.
         media_files, cleaned_content = self.extract_media(content)
         _, image_cleaned = self.extract_images(cleaned_content)
         local_files, final_content = self.extract_local_files(image_cleaned)
 
-        _AUDIO_EXTS = {".ogg", ".opus", ".mp3", ".wav", ".m4a", ".flac"}
-        _VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp"}
-        _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-
-        async def _deliver_media(path: str, is_voice: bool = False) -> None:
-            ext = Path(path).suffix.lower()
-            if is_voice or ext in _AUDIO_EXTS:
-                await self.send_voice(chat_id=chat_id, audio_path=path, metadata=metadata)
-            elif ext in _VIDEO_EXTS:
-                await self.send_video(chat_id=chat_id, video_path=path, metadata=metadata)
-            elif ext in _IMAGE_EXTS:
-                await self.send_image_file(chat_id=chat_id, image_path=path, metadata=metadata)
-            else:
-                await self.send_document(chat_id=chat_id, file_path=path, metadata=metadata)
-
         try:
-            # Deliver extracted MEDIA: attachments first.
-            for media_path, is_voice in media_files:
-                try:
-                    await _deliver_media(media_path, is_voice)
-                except Exception as exc:
-                    logger.warning("[%s] media delivery failed for %s: %s", self.name, media_path, exc)
-
-            # Deliver bare local file paths.
-            for file_path in local_files:
-                try:
-                    await _deliver_media(file_path, is_voice=False)
-                except Exception as exc:
-                    logger.warning("[%s] local file delivery failed for %s: %s", self.name, file_path, exc)
-
-            # Deliver text content.
-            chunks = [c for c in self._split_text(self.format_message(final_content)) if c and c.strip()]
-            for idx, chunk in enumerate(chunks):
-                client_id = f"hermes-wechat-{uuid.uuid4().hex}"
-                await self._send_text_chunk(
-                    chat_id=chat_id,
-                    chunk=chunk,
-                    context_token=context_token,
-                    client_id=client_id,
-                )
-                last_message_id = client_id
-                if idx < len(chunks) - 1:
-                    from butler.gateway.outbound_delay import inter_chunk_delay_seconds
-
-                    delay = inter_chunk_delay_seconds(
-                        fallback_seconds=self._send_chunk_delay_seconds,
-                    )
-                    if delay > 0:
-                        await asyncio.sleep(delay)
+            await _phase_send_attachments(
+                self, media_files, local_files, chat_id, metadata,
+            )
+            last_message_id = await _phase_send_text_chunks(
+                self, final_content, chat_id, context_token,
+            )
             return SendResult(success=True, message_id=last_message_id)
         except Exception as exc:
             logger.error("[%s] send failed to=%s: %s", self.name, _safe_id(chat_id), exc)
@@ -1330,54 +1183,67 @@ class WeChatAdapter(ButlerPlatformAdapter):
         caption: str,
         force_file_attachment: bool = False,
     ) -> str:
+        # R1-4a: thin orchestrator — delegates CDN upload + envelope
+        # dispatch to 2 phase functions in ``wechat_ilink_phases.py``.
+        from butler.gateway.platforms.wechat_ilink_phases import (
+            _phase_file_dispatch_message,
+            _phase_file_request_upload,
+        )
+
         assert self._send_session is not None and self._token is not None
         plaintext = Path(path).read_bytes()
-        media_type, item_builder = self._outbound_media_builder(path, force_file_attachment=force_file_attachment)
+        media_type, item_builder = self._outbound_media_builder(
+            path, force_file_attachment=force_file_attachment,
+        )
         filekey = secrets.token_hex(16)
         aes_key = secrets.token_bytes(16)
         rawsize = len(plaintext)
         rawfilemd5 = hashlib.md5(plaintext).hexdigest()
-        upload_response = await _get_upload_url(
-            self._send_session,
-            base_url=self._base_url,
-            token=self._token,
-            to_user_id=chat_id,
-            media_type=media_type,
-            filekey=filekey,
-            rawsize=rawsize,
-            rawfilemd5=rawfilemd5,
+        _upload_url, encrypted_query_param, ciphertext = await _phase_file_request_upload(
+            self, chat_id=chat_id, media_type=media_type,
+            filekey=filekey, aes_key=aes_key, plaintext=plaintext,
+            rawsize=rawsize, rawfilemd5=rawfilemd5,
             filesize=_aes_padded_size(rawsize),
-            aeskey_hex=aes_key.hex(),
-        )
-        upload_param = str(upload_response.get("upload_param") or "")
-        upload_full_url = str(upload_response.get("upload_full_url") or "")
-        ciphertext = _aes128_ecb_encrypt(plaintext, aes_key)
-
-        # Prefer upload_full_url (direct CDN), fall back to constructed CDN URL
-        # from upload_param.  Both paths use POST — the old PUT for
-        # upload_full_url caused 404s on the WeChat CDN.
-        if upload_full_url:
-            upload_url = upload_full_url
-        elif upload_param:
-            upload_url = _cdn_upload_url(self._cdn_base_url, upload_param, filekey)
-        else:
-            raise RuntimeError(f"getUploadUrl returned neither upload_param nor upload_full_url: {upload_response}")
-
-        encrypted_query_param = await _upload_ciphertext(
-            self._send_session,
-            ciphertext=ciphertext,
-            upload_url=upload_url,
         )
         context_token = self._token_store.get(self._account_id, chat_id)
-        # The iLink API expects aes_key as base64(hex_string), not base64(raw_bytes).
-        # Sending base64(raw_bytes) causes images to show as grey boxes on the
-        # receiver side because the decryption key doesn't match.
+        media_item = self._build_outbound_media_item(
+            path, media_type, item_builder,
+            encrypted_query_param=encrypted_query_param,
+            aes_key=aes_key,
+            ciphertext_size=len(ciphertext),
+            plaintext_size=rawsize,
+            rawfilemd5=rawfilemd5,
+        )
+        return _phase_file_dispatch_message(
+            self, chat_id=chat_id, media_item=media_item,
+            caption=caption, context_token=context_token,
+        )
+
+    def _build_outbound_media_item(
+        self,
+        path: str,
+        media_type: int,
+        item_builder: Any,
+        *,
+        encrypted_query_param: str,
+        aes_key: bytes,
+        ciphertext_size: int,
+        plaintext_size: int,
+        rawfilemd5: str,
+    ) -> Dict[str, Any]:
+        """Assemble kwargs for the per-mime item builder; add silk voice metadata.
+
+        The iLink API expects ``aes_key`` as ``base64(hex_string)``,
+        not ``base64(raw_bytes)`` — sending the latter produces grey
+        boxes on the receiver side because the decryption key doesn't
+        match.
+        """
         aes_key_for_api = base64.b64encode(aes_key.hex().encode("ascii")).decode("ascii")
-        item_kwargs = {
+        item_kwargs: Dict[str, Any] = {
             "encrypt_query_param": encrypted_query_param,
             "aes_key_for_api": aes_key_for_api,
-            "ciphertext_size": len(ciphertext),
-            "plaintext_size": rawsize,
+            "ciphertext_size": ciphertext_size,
+            "plaintext_size": plaintext_size,
             "filename": Path(path).name,
             "rawfilemd5": rawfilemd5,
         }
@@ -1385,110 +1251,39 @@ class WeChatAdapter(ButlerPlatformAdapter):
             item_kwargs["encode_type"] = 6
             item_kwargs["sample_rate"] = 24000
             item_kwargs["bits_per_sample"] = 16
-        media_item = item_builder(**item_kwargs)
-
-        last_message_id = None
-        if caption:
-            last_message_id = f"hermes-wechat-{uuid.uuid4().hex}"
-            await _send_message(
-                self._send_session,
-                base_url=self._base_url,
-                token=self._token,
-                to=chat_id,
-                text=self.format_message(caption),
-                context_token=context_token,
-                client_id=last_message_id,
-            )
-
-        last_message_id = f"hermes-wechat-{uuid.uuid4().hex}"
-        await _api_post(
-            self._send_session,
-            base_url=self._base_url,
-            endpoint=EP_SEND_MESSAGE,
-            payload={
-                "msg": {
-                    "from_user_id": "",
-                    "to_user_id": chat_id,
-                    "client_id": last_message_id,
-                    "message_type": MSG_TYPE_BOT,
-                    "message_state": MSG_STATE_FINISH,
-                    "item_list": [media_item],
-                    **({"context_token": context_token} if context_token else {}),
-                }
-            },
-            token=self._token,
-            timeout_ms=API_TIMEOUT_MS,
+        return item_builder(**item_kwargs)
+        return _phase_file_dispatch_message(
+            self,
+            chat_id=chat_id,
+            media_item=media_item,
+            caption=caption,
+            context_token=context_token,
         )
-        return last_message_id
 
     def _outbound_media_builder(self, path: str, force_file_attachment: bool = False):
+        # R1-4a: thin orchestrator — guess MIME, then delegate to a
+        # per-mime builder factory in ``wechat_ilink_phases.py``. The
+        # 5-line dispatch table replaces the original 68L body.
+        import mimetypes
+
+        from butler.gateway.platforms.wechat_ilink_phases import (
+            _build_audio_item,
+            _build_file_item,
+            _build_image_item,
+            _build_video_item,
+            _build_voice_item,
+        )
+
         mime = mimetypes.guess_type(path)[0] or "application/octet-stream"
         if mime.startswith("image/"):
-            return MEDIA_IMAGE, lambda **kw: {
-                "type": ITEM_IMAGE,
-                "image_item": {
-                    "media": {
-                        "encrypt_query_param": kw["encrypt_query_param"],
-                        "aes_key": kw["aes_key_for_api"],
-                        "encrypt_type": 1,
-                    },
-                    "mid_size": kw["ciphertext_size"],
-                },
-            }
+            return MEDIA_IMAGE, _build_image_item
         if mime.startswith("video/"):
-            return MEDIA_VIDEO, lambda **kw: {
-                "type": ITEM_VIDEO,
-                "video_item": {
-                    "media": {
-                        "encrypt_query_param": kw["encrypt_query_param"],
-                        "aes_key": kw["aes_key_for_api"],
-                        "encrypt_type": 1,
-                    },
-                    "video_size": kw["ciphertext_size"],
-                    "play_length": kw.get("play_length", 0),
-                    "video_md5": kw.get("rawfilemd5", ""),
-                },
-            }
+            return MEDIA_VIDEO, _build_video_item
         if path.endswith(".silk") and not force_file_attachment:
-            return MEDIA_VOICE, lambda **kw: {
-                "type": ITEM_VOICE,
-                "voice_item": {
-                    "media": {
-                        "encrypt_query_param": kw["encrypt_query_param"],
-                        "aes_key": kw["aes_key_for_api"],
-                        "encrypt_type": 1,
-                    },
-                    "encode_type": kw.get("encode_type"),
-                    "bits_per_sample": kw.get("bits_per_sample"),
-                    "sample_rate": kw.get("sample_rate"),
-                    "playtime": kw.get("playtime", 0),
-                },
-            }
+            return MEDIA_VOICE, _build_voice_item
         if mime.startswith("audio/"):
-            return MEDIA_FILE, lambda **kw: {
-                "type": ITEM_FILE,
-                "file_item": {
-                    "media": {
-                        "encrypt_query_param": kw["encrypt_query_param"],
-                        "aes_key": kw["aes_key_for_api"],
-                        "encrypt_type": 1,
-                    },
-                    "file_name": kw["filename"],
-                    "len": str(kw["plaintext_size"]),
-                },
-            }
-        return MEDIA_FILE, lambda **kw: {
-            "type": ITEM_FILE,
-            "file_item": {
-                "media": {
-                    "encrypt_query_param": kw["encrypt_query_param"],
-                    "aes_key": kw["aes_key_for_api"],
-                    "encrypt_type": 1,
-                },
-                "file_name": kw["filename"],
-                "len": str(kw["plaintext_size"]),
-            },
-        }
+            return MEDIA_FILE, _build_audio_item
+        return MEDIA_FILE, _build_file_item
 
     async def get_chat_info(self, chat_id: str) -> Dict[str, Any]:
         chat_type = "group" if chat_id.endswith("@chatroom") else "dm"

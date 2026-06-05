@@ -1,4 +1,4 @@
-"""R1-4 wechat_ilink.py god-module split — backward-compat guard.
+"""R1-4 + R1-4a wechat_ilink.py god-module split — backward-compat guard.
 
 Asserts the public API of the original ``wechat_ilink`` module still works
 exactly as before, even after extraction of pure constants and pure
@@ -7,6 +7,8 @@ utility helpers into sibling modules.
 New sibling modules:
 - ``butler.gateway.platforms.wechat_ilink_constants`` (URLs / codes / enums)
 - ``butler.gateway.platforms.wechat_ilink_utils`` (crypto / CDN / account / parsing)
+- ``butler.gateway.platforms.wechat_ilink_phases`` (R1-4a — WeChatAdapter
+  god-method phase functions, mirroring the R1-6 / R1-8 pattern)
 
 Backward-compat: every previously-importable symbol must still be reachable
 via ``butler.gateway.platforms.wechat_ilink`` (the adapter module).
@@ -15,6 +17,7 @@ via ``butler.gateway.platforms.wechat_ilink`` (the adapter module).
 from __future__ import annotations
 
 import importlib
+import inspect
 
 import pytest
 
@@ -22,6 +25,7 @@ import pytest
 WECHAT_ILINK_PATH = "butler.gateway.platforms.wechat_ilink"
 WECHAT_ILINK_CONSTANTS_PATH = "butler.gateway.platforms.wechat_ilink_constants"
 WECHAT_ILINK_UTILS_PATH = "butler.gateway.platforms.wechat_ilink_utils"
+WECHAT_ILINK_PHASES_PATH = "butler.gateway.platforms.wechat_ilink_phases"
 
 
 @pytest.mark.unit
@@ -154,3 +158,270 @@ class TestUtilsModuleContent:
         from butler.gateway.platforms.wechat_ilink_utils import _assert_wechat_cdn_url
 
         _assert_wechat_cdn_url("https://novac2c.cdn.wechat.qq.com/c2c/abc")
+
+
+# ---------------------------------------------------------------------------
+# R1-4a — WeChatAdapter god-method phase split
+# ---------------------------------------------------------------------------
+
+import ast as _ast
+import pathlib as _pathlib
+
+
+# The 9 WeChatAdapter god methods that R1-4a must thin to < 50L. Each
+# keeps its public/class signature unchanged; the body is reduced to
+# thin orchestrators that delegate to phase functions in
+# ``wechat_ilink_phases.py``.
+WECHAT_GOD_METHODS = [
+    "__init__",
+    "connect",
+    "_poll_loop",
+    "_process_message",
+    "_send_text_chunk",
+    "send",
+    "_send_file",
+    "_outbound_media_builder",
+    # _coerce_list (8L) is below the cap; locked here for back-compat.
+    "_coerce_list",
+    # _split_text (4L) is a stable helper; locked here for back-compat.
+    "_split_text",
+]
+
+
+# Phase functions that the new ``wechat_ilink_phases`` module must export.
+# These are the new building blocks the thinned host methods call into.
+WECHAT_PHASE_FUNCTIONS = [
+    # init sub-phases
+    "_phase_init_account",
+    "_phase_init_chunks",
+    "_phase_init_policies",
+    "_phase_init_dedup",
+    # connect sub-phases
+    "_phase_connect_validate",
+    "_phase_connect_open_sessions",
+    # poll sub-phases
+    "_phase_poll_handle_response",
+    # process_message sub-phases
+    "_phase_inbound_dedup",
+    "_phase_inbound_chat_policy",
+    "_phase_inbound_build_event",
+    # send_text_chunk sub-phases
+    "_phase_chunk_attempt",
+    "_phase_chunk_handle_response",
+    # send sub-phases
+    "_phase_send_attachments",
+    "_phase_send_text_chunks",
+    # _send_file sub-phases
+    "_phase_file_request_upload",
+    "_phase_file_dispatch_message",
+    # _outbound_media_builder sub-phases
+    "_build_image_item",
+    "_build_video_item",
+    "_build_voice_item",
+    "_build_audio_item",
+    "_build_file_item",
+]
+
+
+@pytest.mark.unit
+class TestR14aPhasesModuleExists:
+    """R1-4a introduces ``wechat_ilink_phases.py`` — verify it loads and
+    carries the audit-required docstring marker."""
+
+    def test_phases_module_loads(self):
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        assert mod is not None
+
+    def test_phases_module_docstring_mentions_r14a(self):
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        assert mod.__doc__ and "R1-4a" in mod.__doc__, (
+            f"{WECHAT_ILINK_PHASES_PATH} docstring must reference R1-4a audit source"
+        )
+
+    def test_phases_module_logger(self):
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        assert hasattr(mod, "logger"), (
+            f"{WECHAT_ILINK_PHASES_PATH} must define module-level logger"
+        )
+
+
+@pytest.mark.unit
+class TestR14aPhaseFunctionsPresent:
+    @pytest.mark.parametrize("name", WECHAT_PHASE_FUNCTIONS)
+    def test_phase_symbol_present(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        assert hasattr(mod, name), (
+            f"{WECHAT_ILINK_PHASES_PATH}.{name} missing — extraction is incomplete"
+        )
+        assert callable(getattr(mod, name)), (
+            f"{WECHAT_ILINK_PHASES_PATH}.{name} must be callable"
+        )
+
+
+@pytest.mark.unit
+class TestR14aPhaseFunctionsUnder50Lines:
+    """R1-4a size contract: every phase helper must be < 50 source lines."""
+
+    @pytest.mark.parametrize("name", WECHAT_PHASE_FUNCTIONS)
+    def test_phase_function_under_50_lines(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_PHASES_PATH)
+        assert hasattr(mod, name), f"{WECHAT_ILINK_PHASES_PATH}.{name} missing"
+        fn = getattr(mod, name)
+        assert callable(fn), f"{WECHAT_ILINK_PHASES_PATH}.{name} not callable"
+        src = inspect.getsource(fn)
+        body_lines = [ln for ln in src.splitlines() if ln.strip()]
+        assert len(body_lines) < 50, (
+            f"{WECHAT_ILINK_PHASES_PATH}.{name} is {len(body_lines)} non-blank lines; "
+            f"R1-4a size contract requires < 50. Split into helpers."
+        )
+
+
+@pytest.mark.unit
+class TestR14aWeChatAdapterGodMethodsThinned:
+    """All 9 WeChatAdapter god methods must be < 50L after R1-4a."""
+
+    @pytest.mark.parametrize("name", WECHAT_GOD_METHODS)
+    def test_god_method_under_50_lines(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_PATH)
+        cls = mod.WeChatAdapter
+        assert hasattr(cls, name), f"WeChatAdapter.{name} disappeared"
+        method = getattr(cls, name)
+        # Some methods are static/classmethod/staticmethod wrapped
+        src = inspect.getsource(method)
+        body_lines = [ln for ln in src.splitlines() if ln.strip()]
+        assert len(body_lines) < 50, (
+            f"WeChatAdapter.{name} is {len(body_lines)} non-blank lines; "
+            f"R1-4a split target is < 50."
+        )
+
+
+# R1-4b reserved: ``qr_login`` (top-level) and ``send_wechat_direct`` are NOT
+# in this R1-4a issue; they are deferred to R1-4b. The global AST scan
+# below must skip them so R1-4a does not depend on R1-4b landing first.
+R14B_RESERVED = frozenset({"qr_login", "send_wechat_direct"})
+
+
+@pytest.mark.unit
+class TestR14aWeChatAdapterAllMethodsUnder50Lines:
+    """Project-wide rule from common/coding-style.md: every method ≤ 50 lines.
+
+    AST-walk ``wechat_ilink.py`` and assert each function/method body is
+    below the cap. Catches the next god-method refactor. R1-4b reserved
+    methods are exempted — they belong to a follow-up issue.
+    """
+
+    def test_no_method_exceeds_50_lines(self):
+        src_path = _pathlib.Path(importlib.import_module(WECHAT_ILINK_PATH).__file__)
+        text = src_path.read_text(encoding="utf-8")
+        tree = _ast.parse(text)
+        offenders: list[tuple[str, int, int]] = []
+        for node in _ast.walk(tree):
+            if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)):
+                if node.name in R14B_RESERVED:
+                    continue  # R1-4b: not in this issue's scope
+                end = getattr(node, "end_lineno", None) or node.lineno
+                src_lines = text.splitlines()
+                body = src_lines[node.lineno - 1:end]
+                non_blank = [ln for ln in body if ln.strip()]
+                if len(non_blank) > 50:
+                    offenders.append((node.name, node.lineno, len(non_blank)))
+        assert not offenders, (
+            "wechat_ilink.py methods over 50 lines: "
+            + ", ".join(f"{n}@{ln}={sz}L" for n, ln, sz in offenders)
+        )
+
+
+@pytest.mark.unit
+class TestR14aBackwardsCompat:
+    """R1-4a must not remove anything from the public WeChatAdapter surface."""
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "_coerce_list",
+            "_schedule_typing_ticket_bg",
+            "connect",
+            "disconnect",
+            "_poll_loop",
+            "_process_message",
+            "_is_dm_allowed",
+            "_collect_media",
+            "_send_text_chunk",
+            "send",
+            "send_typing",
+            "stop_typing",
+            "send_image",
+            "send_image_file",
+            "send_document",
+            "send_video",
+            "send_voice",
+            "_send_file",
+            "_outbound_media_builder",
+            "get_chat_info",
+            "extract_local_files",
+            "format_message",
+            "_split_text",
+        ],
+    )
+    def test_method_still_on_wechat_adapter(self, name: str):
+        mod = importlib.import_module(WECHAT_ILINK_PATH)
+        cls = mod.WeChatAdapter
+        assert hasattr(cls, name), f"WeChatAdapter.{name} disappeared after R1-4a"
+        assert callable(getattr(cls, name)), (
+            f"WeChatAdapter.{name} must remain callable"
+        )
+
+    def test_split_text_helper_preserved(self):
+        """The 4-line ``_split_text`` helper signature must be preserved.
+
+        Tests and other call sites use it; R1-4a leaves it as a thin
+        wrapper around ``_split_text_for_wechat_delivery``.
+        """
+        from butler.gateway.platforms.wechat_ilink import WeChatAdapter
+
+        mod = importlib.import_module("butler.gateway.platforms.wechat_ilink")
+        # The class has it as a method
+        assert hasattr(WeChatAdapter, "_split_text")
+        # Module-level backward-compat re-export may or may not exist —
+        # we just verify the class method is still callable.
+        assert callable(getattr(WeChatAdapter, "_split_text"))
+
+
+@pytest.mark.unit
+class TestR14aSplitTextBehaviour:
+    """Behavioral smoke: ``_split_text`` still produces expected chunks."""
+
+    def test_split_text_passes_max_length(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        from butler.gateway.platforms.types import PlatformConfig
+        from butler.gateway.platforms.wechat_ilink import WeChatAdapter
+
+        adapter = WeChatAdapter(PlatformConfig(token="t", extra={"account_id": "a"}))
+        chunks = adapter._split_text("abcdefghij" * 100)
+        # _split_text_for_wechat_delivery respects MAX_MESSAGE_LENGTH = 2000
+        assert all(len(c) <= WeChatAdapter.MAX_MESSAGE_LENGTH for c in chunks)
+        # All non-empty
+        assert all(c.strip() for c in chunks)
+
+
+@pytest.mark.unit
+class TestR14aSendStateDataclass:
+    """``WeChatSendState`` carrier mirrors the R1-8 ``TurnBodyState`` pattern."""
+
+    def test_wechat_send_state_is_dataclass(self):
+        from dataclasses import is_dataclass
+
+        from butler.gateway.platforms.wechat_ilink_phases import WeChatSendState
+
+        assert is_dataclass(WeChatSendState), (
+            "WeChatSendState must be a @dataclass to serve as a phase carrier"
+        )
+
+    def test_wechat_send_state_has_expected_fields(self):
+        from butler.gateway.platforms.wechat_ilink_phases import WeChatSendState
+
+        field_names = {f.name for f in WeChatSendState.__dataclass_fields__.values()}
+        for expected in ("retried_without_token",):
+            assert expected in field_names, (
+                f"WeChatSendState missing field: {expected}"
+            )
