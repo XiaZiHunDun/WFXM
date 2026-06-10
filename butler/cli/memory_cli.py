@@ -36,6 +36,23 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     _add_reindex_args(mreindex)
     mreindex.set_defaults(func=_butler_main._cmd_memory_reindex)
 
+    mseed = mem_sub.add_parser(
+        "seed",
+        help="清理 MB5 bench filler 并幂等写入 owner 经验指针种子",
+    )
+    mseed.add_argument("--tenant", default="default", help="租户 id（默认 default）")
+    mseed.add_argument(
+        "--seed-path",
+        default="",
+        help="种子 JSON 路径（默认 data/seed_owner_experiences.json）",
+    )
+    mseed.add_argument(
+        "--no-purge",
+        action="store_true",
+        help="跳过 bench/cap filler 清理",
+    )
+    mseed.set_defaults(func=_cmd_memory_seed)
+
     # Legacy top-level alias (kept for backward compat with old scripts).
     ri = sub.add_parser(
         "memory-reindex",
@@ -110,6 +127,25 @@ def _cmd_memory_search(ns: argparse.Namespace) -> int:
     if not payload.get("ok"):
         return 1
     return 0
+
+
+def _cmd_memory_seed(ns: argparse.Namespace) -> int:
+    import json
+    from pathlib import Path
+
+    from butler.config import get_butler_home
+    from butler.memory.owner_experience_seed import run_owner_experience_seed
+
+    seed_path = Path(ns.seed_path).expanduser() if str(ns.seed_path or "").strip() else None
+    result = run_owner_experience_seed(
+        get_butler_home(),
+        tenant_id=str(ns.tenant or "default"),
+        seed_path=seed_path,
+        purge_filler=not bool(ns.no_purge),
+    )
+    console = Console()
+    console.print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result.get("ok") else 1
 
 
 def _cmd_memory_reindex(ns: argparse.Namespace) -> int:

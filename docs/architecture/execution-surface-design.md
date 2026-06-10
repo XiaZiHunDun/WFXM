@@ -318,13 +318,13 @@ Deferred 核心 API：
 
 ### P1 — 路径与 SSOT 统一
 
-- [ ] **S1** 文档化并自动化：`projects/<slug>/skills/` → `.butler/skills/` 为 release 必经步骤（CI 或 preflight 检查）。
-- [ ] **S2** Legacy `~/.butler/skills/` 迁移脚本 + 一次性 doctor 告警。
+- [x] **S1** preflight `skills_sync_stale`：`project_skills_sync_issues` 检测 git `skills/` 与 `.butler/skills/` 漂移。
+- [x] **S2** `butler doctor` + `/诊断` 对遗留 `~/.butler/skills/` 告警（`check_legacy_global_skills`）。
 - [ ] **S3** Registry 安装产物与运行时 glob 对齐（directory skill flatten 规范）。
 
 ### P1 — 可观测
 
-- [ ] **O1** `/诊断` 聚合执行面：skill_injection_*、experience_pinned_tools、promoted MCP 列表、tool_selector 裁剪率。
+- [x] **O1** `/诊断` 聚合执行面：`butler/ops/execution_surface_diagnostics.py` → `health_report` + `butler doctor` 遗留 Skill 路径。
 - [ ] **O2** LangFuse / runtime_metrics 可选计数：fallback_skip、ref_only_load、pointer_pin。
 
 ### P2 — 行为优化
@@ -335,7 +335,7 @@ Deferred 核心 API：
 
 ### P2 — Authoring 工具
 
-- [ ] **A1** `butler experience seed` CLI 子命令（包装 `owner_experience_seed`）。
+- [x] **A1** `butler memory seed` CLI 子命令（包装 `owner_experience_seed`）。
 - [ ] **A2** skill lint：frontmatter 缺 `preferred_tools` 时对齐 triggers 给 warn（不阻断）。
 - [ ] **A3** 微信运维话术：如何写指针、如何验证级联（链到 `memory-ops`）。
 
@@ -365,3 +365,4 @@ Deferred 核心 API：
 | 日期 | 变更 |
 |------|------|
 | 2026-06-10 | 初稿：执行面三组件、信任级联接线、Backlog、诊断字段 |
+| 2026-06-10 | P1 落地：execution_surface_diagnostics、preflight sync、doctor 遗留路径、`butler memory seed` |

@@ -140,6 +140,25 @@ def _shared_diagnostic_lines(
     except Exception as exc:
         logger.debug("shared diagnostic lines skipped: %s", exc)
     try:
+        from butler.ops.execution_surface_diagnostics import (
+            collect_execution_surface_stats,
+            format_execution_surface_diagnostic_lines,
+        )
+
+        es_stats = collect_execution_surface_stats(
+            inp.orchestrator,
+            health=inp.health,
+            session_key=inp.session_key,
+        )
+        es_lines = format_execution_surface_diagnostic_lines(
+            es_stats, session_key=inp.session_key
+        )
+        if es_lines:
+            lines.append("")
+            lines.extend(es_lines)
+    except Exception as exc:
+        logger.debug("execution surface diagnostic lines skipped: %s", exc)
+    try:
         from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
 
         if proj is not None:

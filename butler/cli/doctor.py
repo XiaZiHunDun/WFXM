@@ -135,6 +135,19 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"  (不可用: {exc})")
 
+    print("\n[执行面 Skill 路径]")
+    try:
+        from butler.ops.execution_surface_diagnostics import check_legacy_global_skills
+
+        legacy = check_legacy_global_skills(butler_home)
+        if legacy:
+            for line in legacy:
+                print(f"  ⚠ {line}")
+        else:
+            print("  遗留 ~/.butler/skills/: ✓（无或已迁移）")
+    except Exception as exc:
+        print(f"  (不可用: {exc})")
+
     print("\n[安全审计]")
     findings = run_security_audit(workspace=workspace)
     print(format_audit_report(findings))

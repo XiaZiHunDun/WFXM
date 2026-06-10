@@ -140,6 +140,7 @@ from butler.cli.projects_cli import (  # noqa: E402
 from butler.cli.memory_cli import (  # noqa: E402
     _cmd_memory_reindex,
     _cmd_memory_search,
+    _cmd_memory_seed,
 )
 
 # runtime subcommands

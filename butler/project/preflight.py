@@ -392,6 +392,22 @@ def run_preflight(
             )
         )
 
+    try:
+        from butler.ops.execution_surface_diagnostics import project_skills_sync_issues
+
+        sync_issues = project_skills_sync_issues(ws)
+        if sync_issues:
+            items.append(
+                PreflightItem(
+                    CheckLevel.WARN,
+                    "skills_sync_stale",
+                    "git skills/ 与 .butler/skills/ 不同步",
+                    "bash scripts/sync-project-skills.sh 或 sync-lingwen-project-skills.sh",
+                )
+            )
+    except Exception as exc:
+        logger.debug("skills sync preflight skipped: %s", exc)
+
     if project_name and is_lead_project(project_name, project=proj):
         from butler.project.lead import lead_project_names
 
