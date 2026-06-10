@@ -6,8 +6,9 @@ to api_mode, base_url, env_var for API key, etc.
 
 from __future__ import annotations
 
-import os
 import logging
+import os
+import threading
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -34,28 +35,37 @@ class ProviderProfile:
 
 _REGISTRY: Dict[str, ProviderProfile] = {}
 _ALIASES: Dict[str, str] = {}
+_REGISTRY_LOCK = threading.RLock()
 
 
 def register_provider(profile: ProviderProfile) -> None:
-    _REGISTRY[profile.name] = profile
-    for alias in profile.aliases:
-        _ALIASES[alias] = profile.name
+    with _REGISTRY_LOCK:
+        _REGISTRY[profile.name] = profile
+        for alias in profile.aliases:
+            _ALIASES[alias] = profile.name
 
 
 def get_provider(name: str) -> Optional[ProviderProfile]:
-    if not _REGISTRY:
-        _register_builtin()
-    canonical = _ALIASES.get(name, name)
-    return _REGISTRY.get(canonical)
+    with _REGISTRY_LOCK:
+        if not _REGISTRY:
+            _register_builtin_unlocked()
+        canonical = _ALIASES.get(name, name)
+        return _REGISTRY.get(canonical)
 
 
 def list_providers() -> List[ProviderProfile]:
-    if not _REGISTRY:
-        _register_builtin()
-    return list(_REGISTRY.values())
+    with _REGISTRY_LOCK:
+        if not _REGISTRY:
+            _register_builtin_unlocked()
+        return list(_REGISTRY.values())
 
 
 def _register_builtin() -> None:
+    with _REGISTRY_LOCK:
+        _register_builtin_unlocked()
+
+
+def _register_builtin_unlocked() -> None:
     """Register commonly used providers."""
     builtins = [
         ProviderProfile(
@@ -126,4 +136,6 @@ def _register_builtin() -> None:
         ),
     ]
     for p in builtins:
-        register_provider(p)
+        _REGISTRY[p.name] = p
+        for alias in p.aliases:
+            _ALIASES[alias] = p.name
