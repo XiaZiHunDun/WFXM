@@ -4,13 +4,27 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 from butler.io.safe_load import safe_load_json
+
+_TASK_LOCKS: dict[str, threading.Lock] = {}
+_TASK_LOCKS_GUARD = threading.Lock()
+
+
+def _lock_for_task(task_id: str) -> threading.Lock:
+    key = str(task_id or "").strip()
+    with _TASK_LOCKS_GUARD:
+        lock = _TASK_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _TASK_LOCKS[key] = lock
+        return lock
 
 
 def _tasks_root() -> Path:
@@ -27,7 +41,7 @@ def new_task_id() -> str:
 
 def task_stale_minutes() -> int:
     try:
-        return max(5, int(os.getenv("BUTLER_TASK_STALE_MINUTES", "") or "60"))
+        return max(5, int_env("BUTLER_TASK_STALE_MINUTES", 60))
     except ValueError:
         return 60
 
@@ -132,13 +146,14 @@ def create_task(
 
 
 def update_task(task_id: str, **fields: Any) -> dict[str, Any] | None:
-    record = get_task(task_id)
-    if record is None:
-        return None
-    record.update(fields)
-    record["updated_at"] = datetime.now(timezone.utc).isoformat()
-    _write(task_id, record)
-    return record
+    with _lock_for_task(task_id):
+        record = get_task(task_id)
+        if record is None:
+            return None
+        record.update(fields)
+        record["updated_at"] = datetime.now(timezone.utc).isoformat()
+        _write(task_id, record)
+        return record
 
 
 def complete_task(
