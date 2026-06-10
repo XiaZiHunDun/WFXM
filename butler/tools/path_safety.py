@@ -122,6 +122,12 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
     if sensitive_error:
         return PathSafetyResult(False, resolved, sensitive_error)
 
+    hooks_error = _hooks_config_write_error(
+        resolved, root, for_write=for_write
+    )
+    if hooks_error:
+        return PathSafetyResult(False, resolved, hooks_error)
+
     if root is not None and not _is_relative_to(resolved, root):
         try:
             from butler.permissions import check_external_path_override
@@ -372,6 +378,37 @@ def _is_windows_absolute_path(path_str: str) -> bool:
     if not s:
         return False
     return bool(_WINDOWS_DRIVE_PATH.match(s) or _WINDOWS_UNC_PATH.match(s))
+
+
+_HOOK_CONFIG_NAMES = frozenset({"hooks.yaml", "hooks.yml"})
+
+
+def _hooks_config_write_error(
+    path: Path,
+    workspace_root: Path | None,
+    *,
+    for_write: bool,
+) -> str:
+    """R3-2: block LLM tool writes to hook rule files (persistent RCE chain)."""
+    if not for_write:
+        return ""
+    resolved = path.resolve(strict=False)
+    try:
+        from butler.config import get_butler_settings
+
+        global_dir = (
+            get_butler_settings().butler_home / ".butler"
+        ).resolve(strict=False)
+        if _is_relative_to(resolved, global_dir) and resolved.name in _HOOK_CONFIG_NAMES:
+            return "Access denied: path targets hooks configuration"
+    except Exception:
+        pass
+    if workspace_root is None:
+        return ""
+    butler_dir = (workspace_root / ".butler").resolve(strict=False)
+    if _is_relative_to(resolved, butler_dir) and resolved.name in _HOOK_CONFIG_NAMES:
+        return "Access denied: path targets hooks configuration"
+    return ""
 
 
 def _sensitive_path_error(path: Path, *, for_write: bool) -> str:

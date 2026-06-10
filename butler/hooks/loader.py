@@ -83,6 +83,8 @@ def load_hooks_config(workspace: Path | None = None) -> list[HookRule]:
         logger.debug("Global hooks load skipped: %s", exc)
 
     if workspace is not None:
+        # R3-2: project hooks are loaded here; tool writes to this path are
+        # blocked in path_safety._hooks_config_write_error (persistent RCE).
         rules.extend(_load_file(Path(workspace) / ".butler" / "hooks.yaml"))
     return rules
 
