@@ -28,6 +28,7 @@ import os
 import secrets
 import struct
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -228,6 +229,7 @@ class ContextTokenStore:
     def __init__(self, data_home: str):
         self._root = _account_dir(data_home)
         self._cache: Dict[str, str] = {}
+        self._lock = threading.RLock()
 
     def _path(self, account_id: str) -> Path:
         return self._root / f"{account_id}.context-tokens.json"
@@ -245,21 +247,28 @@ class ContextTokenStore:
             logger.warning("wechat: failed to restore context tokens for %s: %s", _safe_id(account_id), exc)
             return
         restored = 0
-        for user_id, token in data.items():
-            if isinstance(token, str) and token:
-                self._cache[self._key(account_id, user_id)] = token
-                restored += 1
+        with self._lock:
+            for user_id, token in data.items():
+                if isinstance(token, str) and token:
+                    self._cache[self._key(account_id, user_id)] = token
+                    restored += 1
         if restored:
             logger.info("wechat: restored %d context token(s) for %s", restored, _safe_id(account_id))
 
     def get(self, account_id: str, user_id: str) -> Optional[str]:
-        return self._cache.get(self._key(account_id, user_id))
+        with self._lock:
+            return self._cache.get(self._key(account_id, user_id))
 
     def set(self, account_id: str, user_id: str, token: str) -> None:
-        self._cache[self._key(account_id, user_id)] = token
-        self._persist(account_id)
+        with self._lock:
+            self._cache[self._key(account_id, user_id)] = token
+            self._persist_unlocked(account_id)
 
     def _persist(self, account_id: str) -> None:
+        with self._lock:
+            self._persist_unlocked(account_id)
+
+    def _persist_unlocked(self, account_id: str) -> None:
         prefix = f"{account_id}:"
         payload = {
             key[len(prefix) :]: value
