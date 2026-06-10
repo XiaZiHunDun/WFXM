@@ -6,7 +6,7 @@
 
 | 阶段 | 脚本 | 内容 |
 |------|------|------|
-| **A** 基建 | `bash scripts/butler-memory-phase-a.sh` | `SEMANTIC_MEMORY=1` + fastembed + reindex + MB1–MB7 + doctor |
+| **A** 基建 | `bash scripts/butler-memory-phase-a.sh` | `SEMANTIC_MEMORY=1` + fastembed + reindex + MB1–MB7（**隔离 tmp**，不污染经验库）+ doctor |
 | **B** 运营 | `bash scripts/butler-memory-phase-b.sh` | `SYNC_CONVERSATION=0` + queue_prefetch + recall 冒烟 + 微信 M1–M7 话术 |
 | **C** 工程 | `bash scripts/butler-memory-phase-c.sh` | `add_experience` IndexSync + 向量陈旧检测 + 守门 pytest |
 | **种子** 经验指针 | `bash scripts/butler-memory-seed-owner-experiences.sh` | 清理 MB5 filler + 写入 `skill:`/`tool:` 种子（幂等） |

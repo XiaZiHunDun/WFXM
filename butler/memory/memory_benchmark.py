@@ -349,7 +349,14 @@ _BENCHMARKS = [
 
 
 def run_benchmarks(butler_home: Path | None = None) -> BenchmarkReport:
-    """Run all memory benchmarks and return a report."""
+    """Run all memory benchmarks and return a report.
+
+    Default (``butler_home=None``): each MB* task uses its own temporary
+    ``bench_home`` — safe for phase-a / CI / ``memory_metrics`` tool.
+
+    Passing a real ``~/.butler`` path reuses that home for every task and
+    **persists** bench rows (MB5 filler), profile writes (MB1), etc.
+    """
     report = BenchmarkReport()
 
     for bench_fn in _BENCHMARKS:

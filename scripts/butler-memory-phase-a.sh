@@ -37,15 +37,15 @@ echo "=== 阶段 A：语义索引重建 ==="
 python3 -m butler.main memory-reindex --tenant "${BUTLER_TENANT_ID:-default}"
 
 echo ""
-echo "=== 阶段 A：MB1–MB7 生产基准（~/.butler）==="
+echo "=== 阶段 A：MB1–MB7 隔离基准（临时目录，不写 ~/.butler）==="
 python3 - <<'PY'
 import json
 import sys
 
-from butler.config import get_butler_home
 from butler.memory.memory_benchmark import run_benchmarks
 
-report = run_benchmarks(get_butler_home())
+# 勿传 get_butler_home()：MB2/MB3/MB5 会向 experience.db 写入 bench/* 测试行。
+report = run_benchmarks()
 summary = report.summary()
 print(json.dumps(summary, indent=2, ensure_ascii=False))
 if summary.get("failed", 0):
