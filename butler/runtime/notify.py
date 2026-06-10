@@ -137,6 +137,17 @@ def mark_wechat_push_sent() -> None:
     _write_last_push_monotonic(time.monotonic())
 
 
+def _reject_running_event_loop(caller: str) -> None:
+    """``push_runtime_message`` / cooldown sleep must run from sync threads only."""
+    try:
+        import asyncio
+
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    raise RuntimeError(f"{caller} must not be called from a running event loop")
+
+
 def _wait_push_cooldown() -> float:
     """Sleep if the previous runtime push was too recent. Returns seconds slept."""
     cooldown = _push_cooldown_seconds()
@@ -148,6 +159,7 @@ def _wait_push_cooldown() -> float:
     elapsed = time.monotonic() - last
     if elapsed >= cooldown:
         return 0.0
+    _reject_running_event_loop("_wait_push_cooldown")
     wait = cooldown - elapsed
     logger.info(
         "Runtime push cooldown: sleeping %.1fs (BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS=%.0f)",
