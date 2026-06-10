@@ -14,9 +14,15 @@ from butler.env_parse import env_truthy
 
 _LOCK = threading.RLock()
 _MAX_ENTRIES = 100
+_MAX_SESSIONS = 512
 _MAX_CONTENT_BYTES = 25 * 1024 * 1024
 _BY_SESSION: dict[str, OrderedDict[str, "ReadStateEntry"]] = {}
 _RECENT_EDITS: dict[str, list[str]] = {}
+
+
+def _evict_oldest_session_locked(store: dict[str, Any], *, keep: str) -> None:
+    while len(store) >= _MAX_SESSIONS and keep not in store:
+        store.pop(next(iter(store)))
 
 
 @dataclass(frozen=True)
@@ -92,6 +98,7 @@ def record_read_state(
     with _LOCK:
         sk = _session_key(session_key)
         if sk not in _BY_SESSION:
+            _evict_oldest_session_locked(_BY_SESSION, keep=sk)
             _BY_SESSION[sk] = OrderedDict()
         store = _BY_SESSION[sk]
         turn = len(store) + 1
@@ -131,6 +138,8 @@ def record_edit_path(path: str | os.PathLike[str], *, session_key: str | None = 
     sk = _session_key(session_key)
     path_key = str(Path(path).resolve())
     with _LOCK:
+        if sk not in _RECENT_EDITS:
+            _evict_oldest_session_locked(_RECENT_EDITS, keep=sk)
         recent = _RECENT_EDITS.setdefault(sk, [])
         if path_key in recent:
             recent.remove(path_key)
