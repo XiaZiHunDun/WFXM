@@ -1,6 +1,6 @@
-"""R1-12 — thread-safe, GC-friendly registry for live WeChat adapters.
+"""R1-12 / R4-7 — thread-safe, GC-friendly registry for live WeChat adapters.
 
-Audit source: ``docs/reviews/project-deep-audit-2026-06-r1to8.md`` §R1-12
+Audit source: ``docs/reviews/project-deep-audit-2026-06-r1to8.md`` §R1-12, §R4-7
 
 The original ``butler/gateway/platforms/wechat_ilink.py`` carried a
 module-level ``_LIVE_ADAPTERS: Dict[str, Any] = {}`` with no lock.
