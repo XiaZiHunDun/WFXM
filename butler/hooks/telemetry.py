@@ -12,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
 _MAX_PER_SESSION = 12
+_MAX_SESSION_BUCKETS = 512
 _RECORDS: dict[str, deque[dict[str, Any]]] = {}
+
+
+def _evict_oldest_session_bucket_locked() -> None:
+    while len(_RECORDS) >= _MAX_SESSION_BUCKETS:
+        oldest = next(iter(_RECORDS))
+        _RECORDS.pop(oldest, None)
 
 
 def record_hook_run(
@@ -30,7 +37,11 @@ def record_hook_run(
         "preview": (preview or "")[:120],
     }
     with _LOCK:
-        bucket = _RECORDS.setdefault(key, deque(maxlen=_MAX_PER_SESSION))
+        bucket = _RECORDS.get(key)
+        if bucket is None:
+            _evict_oldest_session_bucket_locked()
+            bucket = deque(maxlen=_MAX_PER_SESSION)
+            _RECORDS[key] = bucket
         bucket.append(entry)
     try:
         from butler.ops.runtime_metrics import inc
