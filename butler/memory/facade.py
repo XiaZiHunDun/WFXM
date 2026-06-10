@@ -244,6 +244,12 @@ class ButlerMemoryService:
             self._butler_global is None
             or getattr(self._butler_global, "tenant_id", None) != tid
         ):
+            prev = self._butler_global
+            if prev is not None:
+                try:
+                    prev.close()
+                except Exception as exc:
+                    logger.debug("ButlerMemory close on tenant switch skipped: %s", exc)
             self._butler_global = ButlerMemory(settings.butler_home, tenant_id=tid)
 
     def _reload_project_branch(self) -> None:
