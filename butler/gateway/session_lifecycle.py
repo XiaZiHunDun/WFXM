@@ -62,8 +62,6 @@ def try_enter_session(
     if not session_initializing_enabled():
         return "ready"
     key = str(session_key or "default")
-    if is_session_warmed(key):
-        return "ready"
     lock = _warming_lock(key)
     if not lock.acquire(blocking=False):
         return "queued"
