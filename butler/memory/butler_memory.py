@@ -395,6 +395,40 @@ class ExperienceStore:
             conn.commit()
             return int(cur.rowcount or 0)
 
+    def purge_benchmark_capacity_entries(self) -> list[int]:
+        """Remove MB5 capacity-benchmark filler rows (project=bench, category=cap)."""
+        with self._lock:
+            conn = self._conn
+            rows = conn.execute(
+                """
+                SELECT id FROM experiences
+                WHERE project = ? AND category = ?
+                """,
+                ("bench", "cap"),
+            ).fetchall()
+            ids = [int(r[0]) for r in rows]
+            if not ids:
+                return []
+            placeholders = ",".join("?" * len(ids))
+            conn.execute(
+                f"DELETE FROM experiences WHERE id IN ({placeholders})",
+                ids,
+            )
+            conn.commit()
+            return ids
+
+    def has_tag_substring(self, needle: str) -> bool:
+        """Return True if any experience row's tags contain ``needle``."""
+        tag = (needle or "").strip()
+        if not tag:
+            return False
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT 1 FROM experiences WHERE tags LIKE ? LIMIT 1",
+                (f"%{tag}%",),
+            ).fetchone()
+            return row is not None
+
     def prune_conversation_older_than(self, max_age_days: float = 30.0) -> int:
         """Drop stale ephemeral conversation rows (personal butler hygiene)."""
         cutoff = time.time() - max(1.0, float(max_age_days)) * 86400.0

@@ -8,6 +8,11 @@ triggers:
   - 竞品分析
   - 文献综述
 version: 1
+preferred_tools:
+  - search_project_knowledge
+  - butler_recall
+  - web_fetch
+  - read_file
 ---
 
 # deep-research

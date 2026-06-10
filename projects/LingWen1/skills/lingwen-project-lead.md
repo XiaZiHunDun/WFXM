@@ -19,6 +19,11 @@ triggers:
   - 阶段大纲
   - 一致性检查
   - 发布
+preferred_tools:
+  - read_file
+  - run_workflow
+  - delegate_task
+  - butler_remember
 ---
 
 # 灵文1号 · 项目 Lead（厂长）Skill

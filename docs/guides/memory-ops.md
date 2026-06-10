@@ -9,6 +9,7 @@
 | **A** 基建 | `bash scripts/butler-memory-phase-a.sh` | `SEMANTIC_MEMORY=1` + fastembed + reindex + MB1–MB7 + doctor |
 | **B** 运营 | `bash scripts/butler-memory-phase-b.sh` | `SYNC_CONVERSATION=0` + queue_prefetch + recall 冒烟 + 微信 M1–M7 话术 |
 | **C** 工程 | `bash scripts/butler-memory-phase-c.sh` | `add_experience` IndexSync + 向量陈旧检测 + 守门 pytest |
+| **种子** 经验指针 | `bash scripts/butler-memory-seed-owner-experiences.sh` | 清理 MB5 filler + 写入 `skill:`/`tool:` 种子（幂等） |
 
 发版 / 升级记忆模块后：**先 A 再 B 再 C**；网关改 `.env` 后需 `systemctl restart butler-gateway`。
 

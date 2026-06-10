@@ -108,6 +108,15 @@ def _validate_name(name: str) -> Optional[str]:
     return None
 
 
+def _preferred_tools_from_fm(fm: dict[str, Any]) -> list[str]:
+    pt = fm.get("preferred_tools") or []
+    if isinstance(pt, str):
+        return [pt.strip()] if pt.strip() else []
+    if isinstance(pt, list):
+        return [str(t).strip() for t in pt if str(t).strip()]
+    return []
+
+
 def _parse_skill_md(text: str, path: Path, source: str) -> Optional[dict[str, Any]]:
     m = _FRONTMATTER_RE.match(text)
     if not m:
@@ -135,7 +144,7 @@ def _parse_skill_md(text: str, path: Path, source: str) -> Optional[dict[str, An
     if isinstance(triggers, str):
         triggers = [triggers]
     triggers = [str(t) for t in triggers]
-    return {
+    out: dict[str, Any] = {
         "name": name,
         "description": str(fm.get("description", "")),
         "triggers": triggers,
@@ -145,6 +154,10 @@ def _parse_skill_md(text: str, path: Path, source: str) -> Optional[dict[str, An
         "_path": path,
         "_source": source,
     }
+    pt = _preferred_tools_from_fm(fm)
+    if pt:
+        out["preferred_tools"] = pt
+    return out
 
 
 def _parse_skill_frontmatter(frontmatter: str, path: Path, source: str) -> Optional[dict[str, Any]]:
@@ -172,6 +185,9 @@ def _parse_skill_frontmatter(frontmatter: str, path: Path, source: str) -> Optio
     if str(fm.get("install_type") or "") == "directory":
         out["install_type"] = "directory"
         out["content_path"] = str(fm.get("content_path") or "")
+    pt = _preferred_tools_from_fm(fm)
+    if pt:
+        out["preferred_tools"] = pt
     return out
 
 
@@ -462,16 +478,18 @@ class SkillManager:
         """Metadata summaries (no full body)."""
         summaries: list[dict[str, Any]] = []
         for sk in self._load_metadata_all():
-            summaries.append(
-                {
-                    "name": sk["name"],
-                    "description": sk.get("description", ""),
-                    "triggers": list(sk.get("triggers") or []),
-                    "version": sk.get("version", 1),
-                    "created": sk.get("created", ""),
-                    "source": sk.get("_source", "project"),
-                }
-            )
+            item: dict[str, Any] = {
+                "name": sk["name"],
+                "description": sk.get("description", ""),
+                "triggers": list(sk.get("triggers") or []),
+                "version": sk.get("version", 1),
+                "created": sk.get("created", ""),
+                "source": sk.get("_source", "project"),
+            }
+            pt = sk.get("preferred_tools")
+            if pt:
+                item["preferred_tools"] = list(pt)
+            summaries.append(item)
         return summaries
 
     def get_skill(self, name: str) -> Optional[dict[str, Any]]:

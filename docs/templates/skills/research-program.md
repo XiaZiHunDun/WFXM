@@ -10,6 +10,10 @@ triggers:
   - discard
   - 研究
 version: 1
+preferred_tools:
+  - read_file
+  - run_runtime_job
+  - search_project_knowledge
 ---
 
 # research-program

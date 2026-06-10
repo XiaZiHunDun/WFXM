@@ -10,6 +10,9 @@ triggers:
   - 界面
   - 样式
 version: 1
+preferred_tools:
+  - read_file
+  - list_directory
 ---
 
 # design-system

@@ -1,0 +1,108 @@
+[
+  {
+    "seed_id": "owner-seed-lingwen-lead",
+    "project": "灵文1号",
+    "category": "workflow",
+    "tags": [
+      "seed:owner-experience",
+      "seed:id:owner-seed-lingwen-lead",
+      "skill:lingwen-project-lead",
+      "tool:read_file",
+      "tool:run_workflow",
+      "tool:delegate_task"
+    ],
+    "content": "灵文厂长模式：回答阶段/进度前必须先 read_file novel-factory/workflow_state.json；批量推进用 run_workflow 或指引脚本；改工厂正文须 delegate_task（dev/content/review），Lead 禁止直接 patch/terminal。"
+  },
+  {
+    "seed_id": "owner-seed-deep-research",
+    "project": "",
+    "category": "workflow",
+    "tags": [
+      "seed:owner-experience",
+      "seed:id:owner-seed-deep-research",
+      "skill:deep-research",
+      "tool:search_project_knowledge",
+      "tool:butler_recall",
+      "tool:web_fetch",
+      "tool:read_file"
+    ],
+    "content": "深度调研顺序：先 search_project_knowledge / butler_recall 查本地材料，再 read_file 关键文档，对外 URL 用 web_fetch；输出须标注来源，勿臆造链接。"
+  },
+  {
+    "seed_id": "owner-seed-memory-release",
+    "project": "",
+    "category": "ops",
+    "tags": [
+      "seed:owner-experience",
+      "seed:id:owner-seed-memory-release",
+      "tool:butler_recall"
+    ],
+    "content": "记忆模块发版或升级后：在仓库根执行 bash scripts/butler-memory-phase-c.sh 守门；合并记忆相关代码后执行 butler memory reindex；可用 butler_recall 核对近期决策是否仍可召回。"
+  },
+  {
+    "seed_id": "owner-seed-design-system",
+    "project": "",
+    "category": "workflow",
+    "tags": [
+      "seed:owner-experience",
+      "seed:id:owner-seed-design-system",
+      "skill:design-system",
+      "tool:read_file"
+    ],
+    "content": "UI/前端任务：先 skill:design-system，用 read_file 读 DESIGN.md 或 .butler/design/DESIGN.md，按 token 单组件迭代，无 DESIGN 不得声称符合品牌。"
+  },
+  {
+    "seed_id": "owner-seed-research-program",
+    "project": "",
+    "category": "workflow",
+    "tags": [
+      "seed:owner-experience",
+      "seed:id:owner-seed-research-program",
+      "skill:research-program",
+      "tool:read_file",
+      "tool:run_runtime_job",
+      "tool:search_project_knowledge"
+    ],
+    "content": "研究/harness 模式：先 read_file PROGRAM.md；勿改 .butler/harness/；评测用 run_runtime_job；从 stdout 解析 METRIC；结论写入 experiments/ 记账 keep/discard。"
+  },
+  {
+    "seed_id": "owner-seed-demo-lead",
+    "project": "演示试点",
+    "category": "workflow",
+    "tags": [
+      "seed:owner-experience",
+      "seed:id:owner-seed-demo-lead",
+      "skill:demo-project-lead",
+      "tool:read_file",
+      "tool:list_directory",
+      "tool:delegate_task"
+    ],
+    "content": "演示试点 Lead：只读探路用 read_file/list_directory；改代码与测试 delegate_task role dev；写文档 delegate content；Lead 禁止直接 patch/terminal/write_file。"
+  },
+  {
+    "seed_id": "owner-seed-memory-ops",
+    "project": "",
+    "category": "ops",
+    "tags": [
+      "seed:owner-experience",
+      "seed:id:owner-seed-memory-ops",
+      "tool:butler_recall",
+      "tool:butler_remember"
+    ],
+    "content": "跨项目决策与约定：写入用 butler_remember（含 Pending 审批流）；召回用 butler_recall。微信 /记忆待审 /批准记忆 处理 Pending，勿把整份 state 或长正文入库。"
+  },
+  {
+    "seed_id": "owner-seed-smoke-doc",
+    "project": "灵文1号",
+    "category": "workflow",
+    "tags": [
+      "seed:owner-experience",
+      "seed:id:owner-seed-smoke-doc",
+      "skill:create-and-verify-smoke-doc",
+      "tool:read_file",
+      "tool:write_file",
+      "tool:delegate_task"
+    ],
+    "content": "创建验收/冒烟文档：优先 delegate_task content 写 docs/；完成后 read_file 验证前几行；灵文项目勿改 novel-factory/08_已发布/。"
+  }
+]
