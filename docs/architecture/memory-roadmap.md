@@ -33,7 +33,8 @@
 | `tool:<builtin_name>` | — | pin 到 `tool_selector` |
 | `mcp:<registered>` 或 `mcp:<server>/<tool>` | — | deferred 模式下 `promote_tools`（下轮可用完整 schema） |
 
-**实现**：`butler/skills/injection_policy.py`、`experience_pointers.py`、`skill_tool_bridge.py`、`orchestrator.inject_skill_context`。
+**实现**：`butler/skills/injection_policy.py`、`experience_pointers.py`、`skill_tool_bridge.py`、`orchestrator.inject_skill_context`。  
+**工程详设**：[`execution-surface-design.md`](execution-surface-design.md)（Skill/Tool/MCP 全链路，不改 MA/MT）。
 
 ---
 

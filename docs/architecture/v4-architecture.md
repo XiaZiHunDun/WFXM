@@ -429,6 +429,7 @@ while not done and iterations < budget:
 | MCP 自助安装 | `tools/mcp_self_service.py` | `BUTLER_MCP_SELF_SERVICE=1`；`mcp_catalog_search`、`mcp_install`、`mcp_remove` |
 | 压缩前 Fact 提取 | `core/fact_extraction.py` → `post_compact_cleanup.py` | `BUTLER_FACT_EXTRACTION=1`（默认开）；压缩后注入事实锚点 |
 | Skill preferred_tools | `skills/router.py` → `core/skill_tool_bridge.py` → `core/tool_selector.py` | Skill frontmatter `preferred_tools` 字段保留工具不被筛掉 |
+| 执行面详设 | [`execution-surface-design.md`](execution-surface-design.md) | Skill/Tool/MCP 管理、信任级联、诊断与 Backlog（L3，不改 MA/MT） |
 
 守门：`pytest tests/test_orchestration_improvements.py -q`
 

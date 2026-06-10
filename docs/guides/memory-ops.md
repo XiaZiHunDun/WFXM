@@ -23,7 +23,7 @@
 | `tool:<builtin_name>` | pin 内置工具（如 `tool:run_workflow`） |
 | `mcp:<registered>` 或 `mcp:<server>/<tool>` | deferred MCP 下 promote 点名工具 |
 
-见 [`memory-roadmap.md`](../architecture/memory-roadmap.md) §检索信任级联、§执行信任级联。
+见 [`memory-roadmap.md`](../architecture/memory-roadmap.md) §检索信任级联、§执行信任级联；全链路工程详设见 [`execution-surface-design.md`](../architecture/execution-surface-design.md)。
 
 灵文试点写入边界与 O1–O8：[`projects/LingWen1/docs/memory-guide.md`](../../projects/LingWen1/docs/memory-guide.md)。
 
