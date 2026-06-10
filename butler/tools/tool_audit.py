@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 _TOOL_AUDIT_EVENTS: deque[dict[str, Any]] = deque(maxlen=200)
 _TOOL_AUDIT_EVENTS_BY_SESSION: dict[str, deque[dict[str, Any]]] = {}
 _TOOL_AUDIT_LOCK = threading.RLock()
+_MAX_SESSION_BUCKETS = 512
+
+
+def _evict_oldest_session_bucket_locked() -> None:
+    while len(_TOOL_AUDIT_EVENTS_BY_SESSION) >= _MAX_SESSION_BUCKETS:
+        oldest = next(iter(_TOOL_AUDIT_EVENTS_BY_SESSION))
+        _TOOL_AUDIT_EVENTS_BY_SESSION.pop(oldest, None)
 
 
 def _parse_json_object(text: str) -> dict[str, Any] | None:
@@ -101,10 +108,12 @@ def _record_tool_audit(
     }
     with _TOOL_AUDIT_LOCK:
         _TOOL_AUDIT_EVENTS.append(event)
-        bucket = _TOOL_AUDIT_EVENTS_BY_SESSION.setdefault(
-            event["session_key"],
-            deque(maxlen=200),
-        )
+        sk = event["session_key"]
+        bucket = _TOOL_AUDIT_EVENTS_BY_SESSION.get(sk)
+        if bucket is None:
+            _evict_oldest_session_bucket_locked()
+            bucket = deque(maxlen=200)
+            _TOOL_AUDIT_EVENTS_BY_SESSION[sk] = bucket
         bucket.append(event)
 
 
