@@ -46,7 +46,6 @@ class McpConnectionManager:
         self._global_handles: dict[str, _ServerHandle] = {}
         self._session_handles: dict[str, dict[str, _ServerHandle]] = {}
         self._tool_refs: dict[str, dict[str, McpToolRef]] = {}
-        self._last_errors: dict[str, str] = {}
 
     def _scope_key(self, session_key: str) -> str:
         if session_scoped():
@@ -174,7 +173,6 @@ class McpConnectionManager:
                     msg = str(exc)[:300]
                     handle.status.last_error = msg
                     handle.status.degraded = True
-                    self._last_errors[f"{sk}:{cfg.server_id}"] = msg
                     # Audit R2-6: surface connect failure at ERROR with full
                     # traceback so operators (and the /诊断 view downstream)
                     # can see WHICH MCP server is down, not just the user-side
