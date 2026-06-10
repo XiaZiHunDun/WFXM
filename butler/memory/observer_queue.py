@@ -18,7 +18,13 @@ logger = logging.getLogger(__name__)
 
 _LOCK = threading.Lock()
 _QUEUES: dict[str, deque[dict[str, str]]] = {}
+_MAX_WORKSPACES = 64
 _FLUSH_BATCH = 8
+
+
+def _evict_oldest_workspace_locked(*, keep: str) -> None:
+    while len(_QUEUES) >= _MAX_WORKSPACES and keep not in _QUEUES:
+        _QUEUES.pop(next(iter(_QUEUES)))
 
 
 def observer_queue_enabled() -> bool:
@@ -53,8 +59,10 @@ def _workspace_key(workspace: Path) -> str:
 
 
 def _queue_for_key(key: str) -> deque[dict[str, str]]:
+    """Return workspace queue; caller must hold ``_LOCK``."""
     q = _QUEUES.get(key)
     if q is None:
+        _evict_oldest_workspace_locked(keep=key)
         q = deque(maxlen=256)
         _QUEUES[key] = q
     return q
