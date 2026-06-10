@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def session_todos_enabled() -> bool:
 
 def max_todos_items() -> int:
     try:
-        return max(1, min(100, int(os.getenv("BUTLER_SESSION_TODOS_MAX_ITEMS", "30"))))
+        return int_env("BUTLER_SESSION_TODOS_MAX_ITEMS", 30, min=1, max=100)
     except ValueError:
         return 30
 
@@ -85,6 +85,33 @@ def _normalize_item(raw: Any, position: int) -> dict[str, str] | None:
     }
 
 
+def _persist_session_todos_file(
+    sk: str,
+    normalized: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Write todos.json; caller must hold ``_LOCK``."""
+    record = {
+        "session_key": sk,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "items": normalized,
+    }
+    path = todos_path(sk)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    payload = json.dumps(record, ensure_ascii=False, indent=2)
+    try:
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as exc:
+        logger.warning("Session todos write failed: %s", exc)
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return {"ok": False, "error": str(exc)}
+    return {"ok": True, "count": len(normalized)}
+
+
 def replace_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
     """Atomically replace the session todo list (delete-all + insert)."""
     if not session_todos_enabled():
@@ -102,34 +129,17 @@ def replace_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
         if item is not None:
             normalized.append(item)
 
-    record = {
-        "session_key": sk,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        "items": normalized,
-    }
-    path = todos_path(sk)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".json.tmp")
-    payload = json.dumps(record, ensure_ascii=False, indent=2)
     with _LOCK:
+        result = _persist_session_todos_file(sk, normalized)
+
+    if result.get("ok"):
         try:
-            tmp.write_text(payload, encoding="utf-8")
-            os.replace(tmp, path)
-        except OSError as exc:
-            logger.warning("Session todos write failed: %s", exc)
-            try:
-                tmp.unlink(missing_ok=True)
-            except OSError:
-                pass
-            return {"ok": False, "error": str(exc)}
+            from butler.core.session_transcript import record_todo_updated
 
-    try:
-        from butler.core.session_transcript import record_todo_updated
-
-        record_todo_updated(sk, count=len(normalized))
-    except Exception as exc:
-        logger.debug("replace session todos skipped: %s", exc)
-    return {"ok": True, "count": len(normalized)}
+            record_todo_updated(sk, count=len(normalized))
+        except Exception as exc:
+            logger.debug("replace session todos skipped: %s", exc)
+    return result
 
 
 def _apply_merge_patch(existing: dict[str, dict[str, str]], raw: Any) -> bool:
@@ -166,20 +176,32 @@ def merge_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
     if not session_todos_enabled():
         return {"skipped": True, "reason": "disabled"}
     sk = _resolve_session_key(session_key)
-    existing = {str(t.get("id") or ""): dict(t) for t in load_session_todos(sk)}
-    for raw in items or []:
-        if _apply_merge_patch(existing, raw):
-            continue
-        item = _normalize_item(raw, len(existing) + 1)
-        if item is None:
-            continue
-        iid = str(item.get("id") or "")
-        if iid in existing:
-            existing[iid].update(item)
-        else:
-            existing[iid] = item
-    merged = list(existing.values())[: max_todos_items()]
-    return replace_session_todos(sk, merged)
+    if not sk:
+        return {"skipped": True, "reason": "empty_session"}
+    with _LOCK:
+        existing = {str(t.get("id") or ""): dict(t) for t in load_session_todos(sk)}
+        for raw in items or []:
+            if _apply_merge_patch(existing, raw):
+                continue
+            item = _normalize_item(raw, len(existing) + 1)
+            if item is None:
+                continue
+            iid = str(item.get("id") or "")
+            if iid in existing:
+                existing[iid].update(item)
+            else:
+                existing[iid] = item
+        merged = list(existing.values())[: max_todos_items()]
+        result = _persist_session_todos_file(sk, merged)
+
+    if result.get("ok"):
+        try:
+            from butler.core.session_transcript import record_todo_updated
+
+            record_todo_updated(sk, count=result.get("count", 0))
+        except Exception as exc:
+            logger.debug("merge session todos skipped: %s", exc)
+    return result
 
 
 def load_session_todos(session_key: str) -> list[dict[str, str]]:
