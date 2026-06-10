@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import atexit
 import logging
+import signal
 import threading
 from typing import Any, Coroutine, TypeVar
 
@@ -14,8 +15,12 @@ logger = logging.getLogger(__name__)
 
 _loop: asyncio.AbstractEventLoop | None = None
 _thread: threading.Thread | None = None
-_lock = threading.Lock()
+_lock = threading.RLock()
 _atexit_registered = False
+_signal_registered = False
+_prev_signal_handlers: dict[int, Any] = {}
+_shutdown_once = threading.Lock()
+_shutdown_done = False
 
 
 def _ensure_loop() -> asyncio.AbstractEventLoop:
@@ -43,6 +48,7 @@ def _ensure_loop() -> asyncio.AbstractEventLoop:
         if not _atexit_registered:
             atexit.register(_atexit_shutdown)
             _atexit_registered = True
+        _register_signal_shutdown()
         return loop
 
 
@@ -112,12 +118,74 @@ def shutdown_async_runner(*, timeout: float = 5.0) -> bool:
     return joined
 
 
+def _disconnect_mcp_connections() -> None:
+    """Run MCP transport cleanup while the dedicated loop is still alive."""
+    try:
+        from butler.mcp.config import mcp_enabled
+
+        if not mcp_enabled():
+            return
+        from butler.mcp.manager import get_manager
+
+        get_manager().disconnect_all()
+    except Exception as exc:
+        logger.debug("MCP disconnect during shutdown: %s", exc)
+
+
+def graceful_shutdown_mcp_stack(*, timeout: float = 5.0) -> bool:
+    """Disconnect MCP stdio/http sessions, then stop the MCP asyncio loop."""
+    global _shutdown_done
+    with _shutdown_once:
+        if _shutdown_done:
+            return True
+        _shutdown_done = True
+    _disconnect_mcp_connections()
+    return shutdown_async_runner(timeout=timeout)
+
+
+def _register_signal_shutdown() -> None:
+    """Register SIGTERM/SIGINT to drain MCP before loop teardown (R5-13)."""
+    global _signal_registered
+    with _lock:
+        if _signal_registered:
+            return
+        _signal_registered = True
+
+    def _handler(signum: int, frame: Any) -> None:
+        try:
+            graceful_shutdown_mcp_stack(timeout=5.0)
+        except Exception as exc:
+            logger.debug("async_runner signal shutdown error: %s", exc)
+        prev = _prev_signal_handlers.get(signum)
+        if callable(prev) and prev not in (signal.SIG_DFL, signal.SIG_IGN):
+            try:
+                prev(signum, frame)
+            except Exception as exc:
+                logger.debug("async_runner chained signal handler error: %s", exc)
+
+    for sig_name in ("SIGTERM", "SIGINT"):
+        sig = getattr(signal, sig_name, None)
+        if sig is None:
+            continue
+        try:
+            _prev_signal_handlers[sig] = signal.getsignal(sig)
+            signal.signal(sig, _handler)
+        except (ValueError, OSError) as exc:
+            logger.debug("async_runner signal register %s skipped: %s", sig_name, exc)
+
+
 def _atexit_shutdown() -> None:
     """atexit 钩子: 进程退出前清理 MCP 异步线程。
 
     用较短的 timeout (2s) 因为 atexit 阶段不应长时间阻塞进程退出。
     """
     try:
+        global _shutdown_done
+        with _shutdown_once:
+            if _shutdown_done:
+                return
+            _shutdown_done = True
+        _disconnect_mcp_connections()
         shutdown_async_runner(timeout=2.0)
     except Exception as exc:
         logger.debug("async_runner atexit shutdown error: %s", exc)

@@ -29,12 +29,21 @@ from butler.mcp import async_runner
 def _isolate_async_runner_state():
     """每个测试前重置 module-level globals, 测后清理 thread。"""
     # 保存原状态
+    try:
+        async_runner.shutdown_async_runner(timeout=2.0)
+    except Exception:
+        pass
+
     saved_loop = async_runner._loop
     saved_thread = async_runner._thread
-    saved_lock = async_runner._lock
+    saved_shutdown_done = async_runner._shutdown_done
+    saved_signal_registered = async_runner._signal_registered
 
     async_runner._loop = None
     async_runner._thread = None
+    async_runner._shutdown_done = False
+    async_runner._signal_registered = False
+    async_runner._prev_signal_handlers.clear()
 
     yield
 
@@ -45,6 +54,8 @@ def _isolate_async_runner_state():
         pass
     async_runner._loop = saved_loop
     async_runner._thread = saved_thread
+    async_runner._shutdown_done = saved_shutdown_done
+    async_runner._signal_registered = saved_signal_registered
 
 
 # ── 基础: 未启动时 shutdown 安全 ─────────────────────────

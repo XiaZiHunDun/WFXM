@@ -282,6 +282,14 @@ async def run_gateway_async(platforms: list[str]) -> int:
             "exiting anyway (LLM calls may be aborted by OS)",
             grace,
         )
+
+    try:
+        from butler.mcp.async_runner import graceful_shutdown_mcp_stack
+
+        graceful_shutdown_mcp_stack(timeout=5.0)
+    except Exception as exc:
+        logger.debug("Gateway MCP stack shutdown: %s", exc)
+
     return 0
 
 

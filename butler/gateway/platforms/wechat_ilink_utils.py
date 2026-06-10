@@ -22,6 +22,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from collections import OrderedDict
 import logging
 import mimetypes
 import os
@@ -223,13 +224,17 @@ def load_wechat_account(data_home: str, account_id: str) -> Optional[Dict[str, A
 # ---------------------------------------------------------------------------
 
 
+_MAX_CONTEXT_TOKEN_ENTRIES = 5000
+
+
 class ContextTokenStore:
     """Disk-backed ``context_token`` cache keyed by account + peer."""
 
-    def __init__(self, data_home: str):
+    def __init__(self, data_home: str, *, max_entries: int = _MAX_CONTEXT_TOKEN_ENTRIES):
         self._root = _account_dir(data_home)
-        self._cache: Dict[str, str] = {}
+        self._cache: OrderedDict[str, str] = OrderedDict()
         self._lock = threading.RLock()
+        self._max_entries = max(1, int(max_entries))
 
     def _path(self, account_id: str) -> Path:
         return self._root / f"{account_id}.context-tokens.json"
@@ -250,18 +255,30 @@ class ContextTokenStore:
         with self._lock:
             for user_id, token in data.items():
                 if isinstance(token, str) and token:
-                    self._cache[self._key(account_id, user_id)] = token
+                    self._remember(self._key(account_id, user_id), token)
                     restored += 1
         if restored:
             logger.info("wechat: restored %d context token(s) for %s", restored, _safe_id(account_id))
 
+    def _remember(self, key: str, token: str) -> None:
+        """Insert/update with LRU eviction (caller must hold ``_lock``)."""
+        if key in self._cache:
+            del self._cache[key]
+        self._cache[key] = token
+        while len(self._cache) > self._max_entries:
+            self._cache.popitem(last=False)
+
     def get(self, account_id: str, user_id: str) -> Optional[str]:
         with self._lock:
-            return self._cache.get(self._key(account_id, user_id))
+            key = self._key(account_id, user_id)
+            token = self._cache.get(key)
+            if token is not None:
+                self._cache.move_to_end(key)
+            return token
 
     def set(self, account_id: str, user_id: str, token: str) -> None:
         with self._lock:
-            self._cache[self._key(account_id, user_id)] = token
+            self._remember(self._key(account_id, user_id), token)
             self._persist_unlocked(account_id)
 
     def _persist(self, account_id: str) -> None:
