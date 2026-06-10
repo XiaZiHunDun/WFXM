@@ -65,8 +65,6 @@ def shutdown_async_runner(*, timeout: float = 5.0) -> bool:
             return True
         loop = _loop
         thread = _thread
-        _loop = None
-        _thread = None
 
     # 1) Signal the loop to stop (thread-safe).
     try:
@@ -74,17 +72,17 @@ def shutdown_async_runner(*, timeout: float = 5.0) -> bool:
     except RuntimeError:
         pass  # loop already closed
 
-    # 2) Join the thread with timeout.
+    # 2) Join the thread with timeout (keep globals until join completes).
     thread.join(timeout=timeout)
-    if thread.is_alive():
+    joined = not thread.is_alive()
+    if not joined:
         logger.warning(
             "async_runner shutdown timeout: 守护线程未在 %.1fs 内退出, "
             "残留资源可能未被清理",
             timeout,
         )
-        return False
 
-    # 3) Cancel pending tasks and close the loop (only after thread is gone).
+    # 3) Cancel pending tasks and close the loop.
     try:
         pending = [t for t in asyncio.all_tasks(loop=loop) if not t.done()]
         for task in pending:
@@ -105,7 +103,13 @@ def shutdown_async_runner(*, timeout: float = 5.0) -> bool:
             loop.close()
     except Exception as exc:
         logger.debug("async_runner loop close error: %s", exc)
-    return True
+
+    if joined:
+        with _lock:
+            if _loop is loop and _thread is thread:
+                _loop = None
+                _thread = None
+    return joined
 
 
 def _atexit_shutdown() -> None:
