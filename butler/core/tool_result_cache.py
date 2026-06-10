@@ -5,11 +5,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 import time
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, float_env
 
 _CACHEABLE = frozenset({
     "read_file",
@@ -21,7 +23,9 @@ _CACHEABLE = frozenset({
     "skill_view",
 })
 
-_STORE: dict[str, dict[str, _CacheEntry]] = {}
+_STORE_LOCK = threading.RLock()
+_STORE: dict[str, OrderedDict[str, "_CacheEntry"]] = {}
+_MAX_PER_SCOPE = 200
 
 
 @dataclass
@@ -36,7 +40,7 @@ def tool_result_cache_enabled() -> bool:
 
 def tool_result_cache_ttl_seconds() -> float:
     try:
-        return max(5.0, float(os.getenv("BUTLER_TOOL_RESULT_CACHE_TTL", "120")))
+        return float_env("BUTLER_TOOL_RESULT_CACHE_TTL", 120, min=5.0)
     except ValueError:
         return 120.0
 
@@ -67,14 +71,21 @@ def get_cached_result(
 ) -> str | None:
     if not tool_result_cache_enabled() or not is_cacheable_tool(tool_name):
         return None
-    bucket = _STORE.get(_session_bucket(session_key), {})
-    entry = bucket.get(cache_key(tool_name, args))
-    if entry is None:
-        return None
-    if time.time() > entry.expires_at:
-        bucket.pop(cache_key(tool_name, args), None)
-        return None
-    return entry.result
+    sk = _session_bucket(session_key)
+    key = cache_key(tool_name, args)
+    now = time.time()
+    with _STORE_LOCK:
+        bucket = _STORE.get(sk)
+        if bucket is None:
+            return None
+        entry = bucket.get(key)
+        if entry is None:
+            return None
+        if now > entry.expires_at:
+            bucket.pop(key, None)
+            return None
+        bucket.move_to_end(key)
+        return entry.result
 
 
 def set_cached_result(
@@ -89,16 +100,18 @@ def set_cached_result(
     if not (result or "").strip():
         return
     sk = _session_bucket(session_key)
-    bucket = _STORE.setdefault(sk, {})
-    if len(bucket) > 200:
-        oldest = sorted(bucket.items(), key=lambda kv: kv[1].expires_at)[:50]
-        for k, _ in oldest:
-            bucket.pop(k, None)
-    bucket[cache_key(tool_name, args)] = _CacheEntry(
-        result=result,
-        expires_at=time.time() + tool_result_cache_ttl_seconds(),
-    )
+    key = cache_key(tool_name, args)
+    with _STORE_LOCK:
+        bucket = _STORE.setdefault(sk, OrderedDict())
+        bucket[key] = _CacheEntry(
+            result=result,
+            expires_at=time.time() + tool_result_cache_ttl_seconds(),
+        )
+        bucket.move_to_end(key)
+        while len(bucket) > _MAX_PER_SCOPE:
+            bucket.popitem(last=False)
 
 
 def clear_session_tool_cache(session_key: str = "") -> None:
-    _STORE.pop(_session_bucket(session_key), None)
+    with _STORE_LOCK:
+        _STORE.pop(_session_bucket(session_key), None)
