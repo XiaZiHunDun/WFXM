@@ -1,7 +1,53 @@
 # 记忆模块路线图（含向量语义）
 
 > 版本：2026-05-22 | 个人管家 · 单租户 · 微信主场景  
-> 当前实现：`butler/memory/` + `session_lifecycle` + `post_session`（FTS5 + 可选本地向量 hybrid）
+> 当前实现：`butler/memory/` + `session_lifecycle` + `post_session`（FTS5 + 可选本地向量 hybrid）  
+> **检索信任策略（当前）**：经验 + 契约记忆 **优先**；Skill 为**未验证兜底**（[`§检索信任级联`](#检索信任级联)）。  
+> ~~沉积层 v2 合一草案~~：[`v4-skill-memory-theory.md`](v4-skill-memory-theory.md) **已搁置**。
+
+---
+
+## 检索信任级联（Experience-first · Skill-fallback）
+
+> 2026-06-09 确认 | **不改** [`v4-memory-theory.md`](v4-memory-theory.md) MA/MT 公理
+
+| 层 | 信任 | 检索顺序 | 产品承诺 |
+|----|------|----------|----------|
+| 契约（Profile / MEMORY / facts） | 高 | 与经验一并优先（prefetch） | 管家负责 |
+| 经验 \(\mathcal{K}_E\) | 高 | **第一优先** | 管家负责 |
+| Skill（生态目录） | 低 | **兜底** 或经验 `skill:<名>` 点名 | **不负责**正确性 |
+
+**注入策略**（`BUTLER_SKILL_INJECTION_MODE`，默认 `fallback`）：
+
+1. `prefetch_turn_memory` 先注入经验/契约（`<memory-context>` 围栏）。  
+2. `inject_skill_context` 查 `peek_experience_hits`：  
+   - 命中 ≥ `BUTLER_SKILL_FALLBACK_MIN_EXPERIENCE_HITS` → **跳过** Router 全文（除非经验含 `skill:<名>`）。  
+   - 无命中 → SkillRouter top-k（未验证参考）。  
+3. system 中 skill 摘要带「未验证目录」免责声明。
+
+**经验指针约定**（`tags` 或正文）：
+
+| 指针 | 检索层 | 执行层 |
+|------|--------|--------|
+| `skill:<kebab-name>` | 仅注入该 Skill 正文 | 读取 frontmatter `preferred_tools` 并 pin（无需正文） |
+| `tool:<builtin_name>` | — | pin 到 `tool_selector` |
+| `mcp:<registered>` 或 `mcp:<server>/<tool>` | — | deferred 模式下 `promote_tools`（下轮可用完整 schema） |
+
+**实现**：`butler/skills/injection_policy.py`、`experience_pointers.py`、`skill_tool_bridge.py`、`orchestrator.inject_skill_context`。
+
+---
+
+## 执行信任级联（Experience-first · Tool/MCP pins）
+
+> 2026-06-09 | **不改** MA/MT | 与检索级联同构
+
+| 执行面 | 默认 | 有经验命中 |
+|--------|------|------------|
+| Builtin Tool | 高信任，selector 正常裁剪 | 经验 `tool:` + `skill:` 的 `preferred_tools` **额外 pin** |
+| MCP（deferred） | 仅 catalog + 显式 `load_mcp_tools` | 经验 `mcp:` **仅 promote 点名**；无指针则不自动 promote |
+| Skill `preferred_tools` | 依赖 Skill 正文注入 | 经验 `skill:` 时**只读 frontmatter**，正文可跳过 |
+
+**入口**：`agent_loop_phases._phase_enrich_user_text` → `collect_pinned_tools`。
 
 ---
 

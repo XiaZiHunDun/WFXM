@@ -463,6 +463,8 @@
 | `BUTLER_TURN_BUDGET_MAX_ITERATIONS` | 60 | 轮预算最大迭代次数 |
 | `BUTLER_TERMINAL_PIPE` | 0 | `1` 允许 terminal 工具有限管道（`\|`），仅白名单命令间可管道，最多 5 段 |
 | `BUTLER_WORKFLOW_AUTO_RESUME` | 0 | `1` workflow 步骤确认后自动续跑（无需再发 `/workflow`） |
+| `BUTLER_SKILL_INJECTION_MODE` | fallback | `fallback`：有经验命中则跳过未验证 Skill 全文；`ref_only`：仅经验 `skill:<名>` 指针；`always`：每轮 Router 注入（旧行为） |
+| `BUTLER_SKILL_FALLBACK_MIN_EXPERIENCE_HITS` | 1 | `fallback`/`ref_only` 下视为「经验已覆盖」的最少命中条数 |
 | `BUTLER_SKILL_SEMANTIC_ROUTING` | 1 | `1` Skill 路由使用 embedding 语义匹配（需非 hashing embedder） |
 | `BUTLER_TOOL_SEMANTIC_SELECT` | 1 | `1` 工具选择加入 embedding 语义评分 |
 | `BUTLER_MCP_SELF_SERVICE` | 1 | `1` 注册 `mcp_catalog_search`/`mcp_install`/`mcp_remove` Agent 工具 |

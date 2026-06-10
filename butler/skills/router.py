@@ -185,3 +185,18 @@ class SkillRouter:
             if isinstance(pt, list):
                 tools.update(str(t) for t in pt if t)
         return tools
+
+    def get_preferred_tools_for_names(self, names: list[str]) -> set[str]:
+        """Return preferred_tools for explicitly named skills (experience ``skill:`` refs)."""
+        wanted = {str(n).strip().lower() for n in names if str(n).strip()}
+        if not wanted:
+            return set()
+        tools: set[str] = set()
+        for skill in self._skills:
+            name = str(skill.get("name") or "").strip().lower()
+            if name not in wanted:
+                continue
+            pt = skill.get("preferred_tools") or []
+            if isinstance(pt, list):
+                tools.update(str(t) for t in pt if t)
+        return tools

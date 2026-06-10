@@ -107,6 +107,45 @@ def _resolve_project_memory_for_turn(orchestrator: Any) -> Any:
     return pmem
 
 
+def peek_experience_hits(
+    orchestrator: Any,
+    query: str,
+    *,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Experience hybrid hits for skill injection policy (no full prefetch assembly)."""
+    q = (query or "").strip()
+    if not q:
+        return []
+    caps = prefetch_limits()
+    hit_limit = limit if limit is not None else caps["experience_hits"]
+    bm = getattr(orchestrator, "butler_memory", None)
+    if bm is None:
+        return []
+    exp = getattr(bm, "experience", None)
+    if exp is None:
+        return []
+    try:
+        from butler.memory.semantic_index import SemanticMemoryIndex, hybrid_experience_search
+
+        semantic = getattr(bm, "semantic", None)
+        if not isinstance(semantic, SemanticMemoryIndex):
+            semantic = None
+        return _filter_ephemeral_experience(
+            hybrid_experience_search(
+                semantic,
+                exp.search,
+                q,
+                project=_current_project(orchestrator) or None,
+                limit=hit_limit,
+                experience_store=exp,
+            )
+        )
+    except Exception as exc:
+        logger.debug("peek experience hits skipped: %s", exc)
+        return []
+
+
 def prefetch_turn_memory(
     orchestrator: Any,
     query: str,
@@ -148,22 +187,9 @@ def prefetch_turn_memory(
             logger.debug("Butler memory prefetch skipped: %s", exc)
 
         try:
-            exp = getattr(bm, "experience", None)
-            if exp is not None and (query or "").strip():
-                from butler.memory.semantic_index import SemanticMemoryIndex, hybrid_experience_search
-
-                semantic = getattr(bm, "semantic", None)
-                if not isinstance(semantic, SemanticMemoryIndex):
-                    semantic = None
-                hits = _filter_ephemeral_experience(
-                    hybrid_experience_search(
-                        semantic,
-                        exp.search,
-                        query,
-                        project=current_project or None,
-                        limit=hit_limit,
-                        experience_store=exp,
-                    )
+            if (query or "").strip():
+                hits = peek_experience_hits(
+                    orchestrator, query, limit=hit_limit
                 )
                 if hits:
                     lines = [

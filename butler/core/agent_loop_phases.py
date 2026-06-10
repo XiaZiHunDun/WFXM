@@ -682,11 +682,22 @@ def _phase_enrich_user_text(
 
         skill_pt: set[str] = set()
         try:
-            from butler.core.skill_tool_bridge import (
-                extract_skill_preferred_tools,
-            )
+            from butler.core.skill_tool_bridge import collect_pinned_tools
 
-            skill_pt = extract_skill_preferred_tools(user_content)
+            skill_pt, exp_mcp = collect_pinned_tools(user_content)
+            if exp_mcp:
+                try:
+                    from butler.core.harness_flags import mcp_deferred_tools_enabled
+                    from butler.mcp.deferred import promote_tools
+
+                    if mcp_deferred_tools_enabled():
+                        added = promote_tools(exp_mcp, session_key=steer_session)
+                        if added:
+                            loop.diagnostics["experience_mcp_promoted"] = len(added)
+                except Exception as mcp_exc:  # noqa: BLE001 — best-effort promote
+                    logger.debug("Experience MCP promote skipped: %s", mcp_exc)
+            if skill_pt:
+                loop.diagnostics["experience_pinned_tools"] = len(skill_pt)
         except Exception as exc:  # noqa: BLE001 — best-effort extraction
             logger.warning("Skill preferred tools extraction skipped: %s", exc)
 

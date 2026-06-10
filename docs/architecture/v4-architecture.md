@@ -425,7 +425,7 @@ while not done and iterations < budget:
 | 记账 | `tools/expense.py` | `BUTLER_EXPENSE_ENABLED=1`；tenant 级跨项目，4 工具（add/summary/list/delete），`/记账` 斜杠命令 |
 | 习惯打卡 | `tools/habits.py` | `BUTLER_HABITS_ENABLED=1`；tenant 级跨项目，5 工具（create/checkin/stats/list/delete），`/打卡` 斜杠命令 |
 | 向量检索层 | `memory/vector_store.py` | `[vectors]` extra（ChromaDB 优先，fallback 内存暴力搜） |
-| Skill/工具语义路由 | `skills/router.py`、`core/tool_selector.py` | `BUTLER_SKILL_SEMANTIC_ROUTING`、`BUTLER_TOOL_SEMANTIC_SELECT`（需非 hashing embedder） |
+| Skill/工具语义路由 | `skills/router.py`、`skills/injection_policy.py`、`core/tool_selector.py` | `BUTLER_SKILL_INJECTION_MODE`（默认 fallback：经验优先）、`BUTLER_SKILL_SEMANTIC_ROUTING`、`BUTLER_TOOL_SEMANTIC_SELECT` |
 | MCP 自助安装 | `tools/mcp_self_service.py` | `BUTLER_MCP_SELF_SERVICE=1`；`mcp_catalog_search`、`mcp_install`、`mcp_remove` |
 | 压缩前 Fact 提取 | `core/fact_extraction.py` → `post_compact_cleanup.py` | `BUTLER_FACT_EXTRACTION=1`（默认开）；压缩后注入事实锚点 |
 | Skill preferred_tools | `skills/router.py` → `core/skill_tool_bridge.py` → `core/tool_selector.py` | Skill frontmatter `preferred_tools` 字段保留工具不被筛掉 |

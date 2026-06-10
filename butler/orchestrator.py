@@ -93,6 +93,15 @@ def _format_skill_summaries(skills: list[dict[str, Any]], max_items: int = 20) -
     if not skills:
         return "(尚无技能文件 — 可在 ~/.butler/tenants/<tenant>/skills 或项目 `.butler/skills` 中添加)"
     lines: list[str] = []
+    try:
+        from butler.skills.injection_policy import skill_summary_disclaimer
+
+        disclaimer = skill_summary_disclaimer()
+        if disclaimer:
+            lines.append(disclaimer)
+            lines.append("")
+    except Exception:
+        pass
     for sk in skills[:max_items]:
         name = sk.get("name", "")
         desc = (sk.get("description") or "").strip()
@@ -723,37 +732,16 @@ class ButlerOrchestrator:
         self._rebuild_skill_router()
         self._refresh_memory_provider_for_project_switch()
 
-    def inject_skill_context(
+    def _build_skill_injection_sections(
         self,
-        task_description: str,
-        top_k: int = 3,
+        matched: list[dict[str, Any]],
         *,
-        diagnostics: dict[str, Any] | None = None,
-    ) -> str:
-        """Augment ``task_description`` with bodies from :class:`~butler.skills.router.SkillRouter`."""
-        if not task_description.strip():
-            if diagnostics is not None:
-                diagnostics["skill_context_injected"] = False
-                diagnostics["skill_matches"] = []
-            return task_description
-        if self._skill_router is None:
-            if diagnostics is not None:
-                diagnostics["skill_context_injected"] = False
-                diagnostics["skill_matches"] = []
-            return task_description
-        matched = self._skill_router.match(task_description, top_k=top_k)
-        if not matched:
-            if diagnostics is not None:
-                diagnostics["skill_context_injected"] = False
-                diagnostics["skill_matches"] = []
-            return task_description
-        if diagnostics is not None:
-            diagnostics["skill_matches"] = [str(sk.get("name")) for sk in matched if sk.get("name")]
-
+        header_note: str,
+    ) -> list[str]:
         sections: list[str] = [
             "## 相关知识（Butler Skill）",
             "",
-            "> 以下内容来自与本任务相关的 Butler 技能，仅作上下文参考。",
+            header_note,
         ]
         for sk in matched:
             content = str(sk.get("content") or "").strip()
@@ -764,11 +752,85 @@ class ButlerOrchestrator:
             hdr = f"### `{name}`" + (f" (相关性 {score})" if score is not None else "")
             sections.append(hdr)
             sections.append(content)
+        return sections
 
+    def inject_skill_context(
+        self,
+        task_description: str,
+        top_k: int = 3,
+        *,
+        diagnostics: dict[str, Any] | None = None,
+    ) -> str:
+        """Augment user text with skill bodies (experience-first policy via injection_policy)."""
+        if not task_description.strip():
+            if diagnostics is not None:
+                diagnostics["skill_context_injected"] = False
+                diagnostics["skill_matches"] = []
+            return task_description
+        if self._skill_router is None:
+            if diagnostics is not None:
+                diagnostics["skill_context_injected"] = False
+                diagnostics["skill_matches"] = []
+            return task_description
+
+        from butler.skills.injection_policy import resolve_skill_injection
+
+        decision = resolve_skill_injection(
+            self, task_description, diagnostics=diagnostics
+        )
+        if diagnostics is not None:
+            diagnostics["skill_injection_reason"] = decision.reason
+
+        router_note = (
+            "> 以下内容来自与本任务相关的 Butler 技能（未验证参考），仅作上下文参考。"
+        )
+        ref_note = (
+            "> 以下 Skill 由经验层 `skill:<名>` 指针点名加载（未验证参考）。"
+        )
+
+        if decision.skip:
+            if diagnostics is not None:
+                diagnostics["skill_context_injected"] = False
+                diagnostics["skill_matches"] = []
+            return task_description
+
+        matched: list[dict[str, Any]] = []
+        if decision.skill_names:
+            manager = self._skill_manager
+            if manager is None:
+                if diagnostics is not None:
+                    diagnostics["skill_context_injected"] = False
+                    diagnostics["skill_matches"] = []
+                return task_description
+            loaded = manager.get_skills(list(decision.skill_names))
+            for name in decision.skill_names:
+                sk = loaded.get(name)
+                if sk:
+                    matched.append({**sk, "match_score": None})
+            header_note = ref_note
+        else:
+            matched = self._skill_router.match(task_description, top_k=top_k)
+            header_note = router_note
+
+        if not matched:
+            if diagnostics is not None:
+                diagnostics["skill_context_injected"] = False
+                diagnostics["skill_matches"] = []
+            return task_description
+        if diagnostics is not None:
+            diagnostics["skill_matches"] = [
+                str(sk.get("name")) for sk in matched if sk.get("name")
+            ]
+
+        sections = self._build_skill_injection_sections(
+            matched, header_note=header_note
+        )
         if len(sections) == 3:
             if diagnostics is not None:
                 diagnostics["skill_context_injected"] = False
-                diagnostics["skill_empty_matches"] = [str(sk.get("name")) for sk in matched if sk.get("name")]
+                diagnostics["skill_empty_matches"] = [
+                    str(sk.get("name")) for sk in matched if sk.get("name")
+                ]
             return task_description
 
         sections.append("")

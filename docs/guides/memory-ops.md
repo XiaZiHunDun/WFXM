@@ -14,6 +14,16 @@
 
 **ChromaDB**：`butler/memory/vector_store.py` 未接入主召回链；生产语义检索走 `SemanticMemoryIndex`（`memory_vectors.db`）。
 
+**Skill 与经验**：默认 `BUTLER_SKILL_INJECTION_MODE=fallback` — 有经验召回时跳过未验证 Skill 全文；经验可用指针点名：
+
+| 指针 | 作用 |
+|------|------|
+| `skill:<kebab-name>` | 加载 Skill 正文；并 pin 其 `preferred_tools`（即使跳过正文） |
+| `tool:<builtin_name>` | pin 内置工具（如 `tool:run_workflow`） |
+| `mcp:<registered>` 或 `mcp:<server>/<tool>` | deferred MCP 下 promote 点名工具 |
+
+见 [`memory-roadmap.md`](../architecture/memory-roadmap.md) §检索信任级联、§执行信任级联。
+
 灵文试点写入边界与 O1–O8：[`projects/LingWen1/docs/memory-guide.md`](../../projects/LingWen1/docs/memory-guide.md)。
 
 ## 生产推荐 `.env`
