@@ -303,12 +303,27 @@ class ContextTokenStore:
             logger.warning("wechat: failed to persist context tokens for %s: %s", _safe_id(account_id), exc)
 
 
+_MAX_TYPING_TICKET_ENTRIES = 1000
+
+
 class TypingTicketCache:
     """Short-lived typing ticket cache from ``getconfig``."""
 
-    def __init__(self, ttl_seconds: float = 600.0):
+    def __init__(self, ttl_seconds: float = 600.0, *, max_entries: int = _MAX_TYPING_TICKET_ENTRIES):
         self._ttl_seconds = ttl_seconds
-        self._cache: Dict[str, Tuple[str, float]] = {}
+        self._cache: OrderedDict[str, Tuple[str, float]] = OrderedDict()
+        self._max_entries = max(1, int(max_entries))
+
+    def _sweep_expired_unlocked(self) -> None:
+        """Drop TTL-expired entries (caller must not hold external locks)."""
+        now = time.time()
+        expired = [
+            user_id
+            for user_id, (_, ts) in self._cache.items()
+            if now - ts >= self._ttl_seconds
+        ]
+        for user_id in expired:
+            del self._cache[user_id]
 
     def get(self, user_id: str) -> Optional[str]:
         entry = self._cache.get(user_id)
@@ -317,10 +332,18 @@ class TypingTicketCache:
         if time.time() - entry[1] >= self._ttl_seconds:
             self._cache.pop(user_id, None)
             return None
+        self._cache.move_to_end(user_id)
         return entry[0]
 
     def set(self, user_id: str, ticket: str) -> None:
-        self._cache[user_id] = (ticket, time.time())
+        now = time.time()
+        if user_id in self._cache:
+            del self._cache[user_id]
+        self._cache[user_id] = (ticket, now)
+        if len(self._cache) > self._max_entries:
+            self._sweep_expired_unlocked()
+        while len(self._cache) > self._max_entries:
+            self._cache.popitem(last=False)
 
 
 # ---------------------------------------------------------------------------

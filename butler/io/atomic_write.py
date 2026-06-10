@@ -28,17 +28,11 @@ def atomic_write_text(path: Path, content: str, *, encoding: str = "utf-8") -> N
             os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0),
             0o600,
         )
-        try:
-            with os.fdopen(fd, "w", encoding=encoding) as f:
-                f.write(content)
-                f.flush()
-                os.fsync(f.fileno())
-        except Exception:
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-            raise
+        # os.fdopen takes ownership of the descriptor; never close it again here.
+        with os.fdopen(fd, "w", encoding=encoding) as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp, target)
     finally:
         if tmp.is_file() and tmp != target:

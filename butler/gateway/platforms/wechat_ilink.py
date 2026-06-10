@@ -494,8 +494,22 @@ class WeChatAdapter(ButlerPlatformAdapter):
 
         if not _phase_connect_validate(self):
             return False
-        _phase_connect_open_sessions(self)
-        return True
+        try:
+            _phase_connect_open_sessions(self)
+            return self.is_connected
+        except Exception as exc:
+            logger.warning("[%s] connect failed: %s", self.name, exc)
+            if not self.is_connected:
+                try:
+                    await self.disconnect()
+                except Exception as d_exc:
+                    logger.debug("[%s] connect rollback disconnect: %s", self.name, d_exc)
+            self._set_fatal_error(
+                "wechat_connect_failed",
+                str(exc)[:300],
+                retryable=True,
+            )
+            return False
 
     async def disconnect(self) -> None:
         _ADAPTER_REGISTRY.unregister(self._token)
