@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import float_env
 import hashlib
 import json
 import logging
@@ -53,7 +54,7 @@ def _gate_ttl_seconds() -> float:
     import os
 
     try:
-        return max(60.0, float(os.getenv("BUTLER_GATEWAY_HUMAN_GATE_TTL", "3600")))
+        return float_env("BUTLER_GATEWAY_HUMAN_GATE_TTL", 3600, min=60.0)
     except ValueError:
         return 3600.0
 
@@ -188,7 +189,8 @@ def _approval_key(workflow: str, step_id: str) -> str:
 
 
 def is_step_approved(session_key: str, workflow: str, step_id: str) -> bool:
-    return _approval_key(workflow, step_id) in _load_approved(session_key)
+    with _gate_lock:
+        return _approval_key(workflow, step_id) in _load_approved(session_key)
 
 
 def mark_step_approved(session_key: str, workflow: str, step_id: str) -> None:
@@ -199,17 +201,20 @@ def mark_step_approved(session_key: str, workflow: str, step_id: str) -> None:
 
 
 def clear_session_gates(session_key: str) -> None:
-    _save_pending(session_key, None)
-    _save_approved(session_key, set())
+    with _gate_lock:
+        _save_pending(session_key, None)
+        _save_approved(session_key, set())
 
 
 def has_pending_gate(session_key: str) -> bool:
-    return _load_pending(session_key) is not None
+    with _gate_lock:
+        return _load_pending(session_key) is not None
 
 
 def has_injection_review_pending(session_key: str) -> bool:
-    pending = _load_pending(session_key)
-    return pending is not None and pending.kind == "injection_review"
+    with _gate_lock:
+        pending = _load_pending(session_key)
+        return pending is not None and pending.kind == "injection_review"
 
 
 def check_workflow_step_approval(
@@ -219,26 +224,28 @@ def check_workflow_step_approval(
 ) -> bool:
     """Return True to run the step; False waits for 确认/取消 on WeChat."""
     sk = str(session_key or "").strip()
-    if is_step_approved(sk, workflow_name, step_id):
-        return True
-    pending = _load_pending(sk)
-    if pending is not None:
-        if pending.workflow == workflow_name and pending.step_id == step_id:
-            return False
-    _save_pending(
-        sk,
-        PendingGate(
-            kind="workflow_step",
-            workflow=workflow_name,
-            step_id=step_id,
-            created_at=time.time(),
-        ),
-    )
-    return False
+    with _gate_lock:
+        if _approval_key(workflow_name, step_id) in _load_approved(sk):
+            return True
+        pending = _load_pending(sk)
+        if pending is not None:
+            if pending.workflow == workflow_name and pending.step_id == step_id:
+                return False
+        _save_pending(
+            sk,
+            PendingGate(
+                kind="workflow_step",
+                workflow=workflow_name,
+                step_id=step_id,
+                created_at=time.time(),
+            ),
+        )
+        return False
 
 
 def format_pending_hint(session_key: str) -> str:
-    pending = _load_pending(session_key)
+    with _gate_lock:
+        pending = _load_pending(session_key)
     if pending is None:
         return ""
     if pending.kind == "injection_review":
@@ -255,15 +262,16 @@ def format_pending_hint(session_key: str) -> str:
 def request_injection_review_gate(session_key: str, *, score: int) -> None:
     """Owner must 确认 before retrying a high-risk inbound message."""
     sk = str(session_key or "").strip()
-    _save_pending(
-        sk,
-        PendingGate(
-            kind="injection_review",
-            workflow="",
-            step_id=str(int(score)),
-            created_at=time.time(),
-        ),
-    )
+    with _gate_lock:
+        _save_pending(
+            sk,
+            PendingGate(
+                kind="injection_review",
+                workflow="",
+                step_id=str(int(score)),
+                created_at=time.time(),
+            ),
+        )
 
 
 def _injection_bypass_path(session_key: str) -> Path:
@@ -322,8 +330,18 @@ def consume_injection_bypass(session_key: str) -> bool:
     return True
 
 
-def resolve_human_gate_message(session_key: str, text: str) -> str | None:
-    """Consume 确认/取消 for a pending gate; return user-visible reply or None."""
+def resolve_human_gate_message(
+    session_key: str,
+    text: str,
+    *,
+    owner_verified: bool = False,
+) -> str | None:
+    """Consume 确认/取消 for a pending gate; return user-visible reply or None.
+
+    ``owner_verified`` must be set to ``True`` by the caller after
+    confirming gateway-owner identity.  When ``False`` (default) the
+    function refuses to grant any approval — fail-closed per T6.
+    """
     stripped = (text or "").strip()
     if stripped not in _CONFIRM and stripped not in _CANCEL:
         return None
@@ -338,6 +356,15 @@ def resolve_human_gate_message(session_key: str, text: str) -> str | None:
             if pending.kind == "injection_review":
                 return "已取消高风险入站确认；请修改消息内容后重试。"
             return f"已取消工作流步骤「{pending.step_id}」（{pending.workflow}）。"
+
+        # T6 fail-closed: confirm/approve requires owner verification.
+        if not owner_verified:
+            logger.warning(
+                "resolve_human_gate_message: approval attempt without owner "
+                "verification (session=%s) — rejected",
+                session_key,
+            )
+            return "⛔ 确认操作需要 Owner 身份验证。"
 
         if pending.kind == "injection_review":
             grant_injection_bypass(session_key)
