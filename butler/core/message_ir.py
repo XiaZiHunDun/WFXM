@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable
@@ -47,17 +48,20 @@ def message_ir_enabled() -> bool:
 ConverterFn = Callable[[Any], CanonicalMessage]
 
 _CONVERTERS: dict[str, ConverterFn] = {}
+_CONVERTER_LOCK = threading.RLock()
 
 
 def register_converter(channel: str, fn: ConverterFn) -> None:
     key = str(channel or "").strip().lower()
     if key:
-        _CONVERTERS[key] = fn
+        with _CONVERTER_LOCK:
+            _CONVERTERS[key] = fn
 
 
 def convert_inbound(channel: str, payload: Any) -> CanonicalMessage:
     key = str(channel or "").strip().lower() or "text"
-    fn = _CONVERTERS.get(key)
+    with _CONVERTER_LOCK:
+        fn = _CONVERTERS.get(key)
     if fn is not None:
         return fn(payload)
     if isinstance(payload, CanonicalMessage):
