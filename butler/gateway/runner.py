@@ -240,7 +240,17 @@ async def run_gateway_async(platforms: list[str]) -> int:
         try:
             loop.add_signal_handler(sig, _on_signal)
         except NotImplementedError:
-            signal.signal(sig, lambda *_: request_stop(stop))
+            # R4-11: signal.signal fallback must not call asyncio.Event.set()
+            # directly (not signal-safe). Set threading event only, then
+            # schedule asyncio stop on the loop thread.
+            def _on_signal_fallback(*_args: Any) -> None:
+                _SHUTDOWN_EVENT.set()
+                try:
+                    loop.call_soon_threadsafe(stop.set)
+                except RuntimeError:
+                    pass
+
+            signal.signal(sig, _on_signal_fallback)
 
     await stop.wait()
 
