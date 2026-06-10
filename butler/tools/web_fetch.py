@@ -7,10 +7,9 @@ import os
 import re
 from html import unescape
 from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+import httpx
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env, float_env
 
 
 def web_fetch_enabled() -> bool:
@@ -19,14 +18,14 @@ def web_fetch_enabled() -> bool:
 
 def _max_bytes() -> int:
     try:
-        return max(4096, int(os.getenv("BUTLER_WEB_FETCH_MAX_BYTES", "") or "65536"))
+        return max(4096, int_env("BUTLER_WEB_FETCH_MAX_BYTES", 65536))
     except ValueError:
         return 65536
 
 
 def _timeout_seconds() -> float:
     try:
-        return max(3.0, float(os.getenv("BUTLER_WEB_FETCH_TIMEOUT", "") or "20"))
+        return max(3.0, float_env("BUTLER_WEB_FETCH_TIMEOUT", 20))
     except ValueError:
         return 20.0
 
@@ -94,18 +93,25 @@ def tool_web_fetch(url: str, *, max_chars: int = 8000, **_: Any) -> str:
     if not is_safe_url(target):
         return json.dumps({"error": "URL 未通过安全校验（私网/非法主机）"})
     cap = max(500, min(32_000, int(max_chars or 8000)))
-    req = Request(
-        target,
-        headers={"User-Agent": "Butler-web-fetch/1.0", "Accept": "text/html,application/json,*/*"},
-    )
+    from butler.registry.url_safety import safe_http_get_bytes
+
     try:
-        with urlopen(req, timeout=_timeout_seconds()) as resp:
-            raw = resp.read(_max_bytes() + 1)
-            ctype = str(resp.headers.get("Content-Type") or "")
-    except HTTPError as exc:
-        return json.dumps({"error": f"HTTP {exc.code}", "url": target})
-    except URLError as exc:
-        return json.dumps({"error": str(exc.reason or exc), "url": target})
+        raw, ctype = safe_http_get_bytes(
+            target,
+            timeout=_timeout_seconds(),
+            max_bytes=_max_bytes() + 1,
+            headers={
+                "User-Agent": "Butler-web-fetch/1.0",
+                "Accept": "text/html,application/json,*/*",
+            },
+        )
+    except httpx.HTTPStatusError as exc:
+        code = exc.response.status_code if exc.response is not None else 0
+        return json.dumps({"error": f"HTTP {code}", "url": target})
+    except ValueError as exc:
+        return json.dumps({"error": str(exc), "url": target})
+    except httpx.HTTPError as exc:
+        return json.dumps({"error": str(exc), "url": target})
     except Exception as exc:
         return json.dumps({"error": str(exc), "url": target})
 

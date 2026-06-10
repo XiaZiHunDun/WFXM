@@ -148,6 +148,47 @@ def _resolve_public_ips(host: str) -> list[str]:
     return public_ips
 
 
+def safe_http_get_bytes(
+    url: str,
+    *,
+    timeout: float = 25.0,
+    max_bytes: int | None = None,
+    headers: dict[str, str] | None = None,
+) -> tuple[bytes, str]:
+    """HTTP GET with DNS pinning and no redirects (stdlib/httpx fetch helper).
+
+    R3-1: Mitigates DNS rebinding between validation and connection for
+    ``web_fetch`` and similar tools that must not follow redirects.
+    """
+    import httpx
+
+    if not is_safe_url(url):
+        raise ValueError(f"unsafe url: {url}")
+    parsed = urlparse(url.strip())
+    host = parsed.hostname
+    if not host:
+        raise ValueError(f"URL has no host: {url}")
+
+    pinned_ips = _resolve_public_ips(host)
+    hdrs = dict(headers or {})
+    with _pinned_dns({host: pinned_ips}):
+        with httpx.Client(timeout=timeout, follow_redirects=False) as client:
+            resp = client.get(url, headers=hdrs)
+    if resp.status_code in (301, 302, 303, 307, 308):
+        raise ValueError("redirect not allowed")
+    if resp.status_code >= 400:
+        raise httpx.HTTPStatusError(
+            f"HTTP {resp.status_code}",
+            request=resp.request,
+            response=resp,
+        )
+    body = resp.content
+    if max_bytes is not None and len(body) > max_bytes:
+        body = body[:max_bytes]
+    ctype = str(resp.headers.get("Content-Type") or "")
+    return body, ctype
+
+
 def safe_registry_get(url: str, **kwargs: object) -> object:
     """HTTP GET with no auto-redirects and one validated Location hop.
 
