@@ -177,7 +177,12 @@ class ButlerOrchestrator:
             if mem is None:
                 if len(self._memory_by_tenant) >= 64:
                     oldest = next(iter(self._memory_by_tenant))
-                    self._memory_by_tenant.pop(oldest, None)
+                    evicted = self._memory_by_tenant.pop(oldest, None)
+                    if evicted is not None:
+                        try:
+                            evicted.close()
+                        except Exception as exc:
+                            logger.debug("tenant memory close on evict skipped: %s", exc)
                 mem = ButlerMemory(self._settings.butler_home, tenant_id=tid)
                 self._memory_by_tenant[tid] = mem
         return mem

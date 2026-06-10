@@ -613,6 +613,19 @@ class ButlerMemory:
             return "(No Butler-level memory yet.)"
         return "\n\n".join(parts)
 
+    def close(self) -> None:
+        """Release sqlite connections held by experience and semantic stores."""
+        try:
+            self.experience.close()
+        except Exception:
+            pass
+        sem = self.semantic
+        if sem is not None:
+            try:
+                sem.close()
+            except Exception:
+                pass
+
     def sync_profile_vectors(self) -> int:
         """Rebuild owner_profile rows in the vector index from profile.json."""
         sem = self.semantic
