@@ -43,6 +43,12 @@ def clear_session_boundary_memory(
 
     clear_prefetch_cache(session_id)
     try:
+        from butler.gateway.inbound_idempotency import reset_session as reset_inbound_idempotency
+
+        reset_inbound_idempotency(session_id)
+    except Exception as exc:
+        logger.debug("Inbound idempotency reset skipped: %s", exc)
+    try:
         from butler.memory.retrieval_telemetry import clear_last_retrieval
 
         clear_last_retrieval(session_id)
