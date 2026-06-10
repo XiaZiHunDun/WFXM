@@ -35,7 +35,9 @@ def read_before_edit_enabled() -> bool:
 
 def read_state_max_entries() -> int:
     try:
-        return max(10, int(os.getenv("BUTLER_READ_STATE_MAX_ENTRIES", "") or _MAX_ENTRIES))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_READ_STATE_MAX_ENTRIES", _MAX_ENTRIES, min=10)
     except ValueError:
         return _MAX_ENTRIES
 
@@ -56,14 +58,6 @@ def _session_key(explicit: str | None = None) -> str:
     from butler.execution_context import get_audit_session_key
 
     return get_audit_session_key(fallback="_global")
-
-
-def _bucket(session_key: str | None = None) -> OrderedDict[str, ReadStateEntry]:
-    key = _session_key(session_key)
-    with _LOCK:
-        if key not in _BY_SESSION:
-            _BY_SESSION[key] = OrderedDict()
-        return _BY_SESSION[key]
 
 
 def _evict_lru(store: OrderedDict[str, ReadStateEntry]) -> None:
@@ -95,17 +89,20 @@ def record_read_state(
     if len(content) > _MAX_CONTENT_BYTES:
         is_partial_view = True
     path_key = str(resolved_path.resolve())
-    store = _bucket(session_key)
-    turn = len(store) + 1
-    entry = ReadStateEntry(
-        path=path_key,
-        mtime_ns=_mtime_ns(stat_result),
-        size=int(stat_result.st_size),
-        content_hash=_content_hash(content),
-        read_turn=turn,
-        is_partial_view=is_partial_view,
-    )
     with _LOCK:
+        sk = _session_key(session_key)
+        if sk not in _BY_SESSION:
+            _BY_SESSION[sk] = OrderedDict()
+        store = _BY_SESSION[sk]
+        turn = len(store) + 1
+        entry = ReadStateEntry(
+            path=path_key,
+            mtime_ns=_mtime_ns(stat_result),
+            size=int(stat_result.st_size),
+            content_hash=_content_hash(content),
+            read_turn=turn,
+            is_partial_view=is_partial_view,
+        )
         if path_key in store:
             store.move_to_end(path_key)
         store[path_key] = entry
@@ -149,11 +146,15 @@ def get_recent_edit_paths(*, session_key: str | None = None, limit: int = 5) -> 
 
 def get_read_state(resolved_path: Path, *, session_key: str | None = None) -> ReadStateEntry | None:
     path_key = str(resolved_path.resolve())
-    store = _bucket(session_key)
-    entry = store.get(path_key)
-    if entry is not None:
-        store.move_to_end(path_key)
-    return entry
+    with _LOCK:
+        sk = _session_key(session_key)
+        store = _BY_SESSION.get(sk)
+        if store is None:
+            return None
+        entry = store.get(path_key)
+        if entry is not None:
+            store.move_to_end(path_key)
+        return entry
 
 
 def _mtime_ns(st: os.stat_result) -> int:
@@ -277,9 +278,13 @@ def rehydrate_read_state_from_messages(
 
 
 def read_state_summary(*, session_key: str | None = None) -> dict[str, Any]:
-    store = _bucket(session_key)
-    return {
-        "tracked_files": len(store),
-        "paths": list(store.keys())[:5],
-        "partial_views": sum(1 for e in store.values() if e.is_partial_view),
-    }
+    with _LOCK:
+        sk = _session_key(session_key)
+        store = _BY_SESSION.get(sk)
+        if store is None:
+            return {"tracked_files": 0, "paths": [], "partial_views": 0}
+        return {
+            "tracked_files": len(store),
+            "paths": list(store.keys())[:5],
+            "partial_views": sum(1 for e in store.values() if e.is_partial_view),
+        }
