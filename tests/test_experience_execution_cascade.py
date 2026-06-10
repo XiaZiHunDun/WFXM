@@ -171,7 +171,10 @@ class TestAgentLoopExperienceMcpPromote:
                 "butler.mcp.naming.is_mcp_registered_name",
                 return_value=True,
             ),
-            patch("butler.mcp.deferred.promote_tools", return_value=["mcp_test_server_foo"]) as promote,
+            patch(
+                "butler.mcp.deferred.promote_experience_mcp_tools",
+                return_value=(["mcp_test_server_foo"], []),
+            ) as promote,
         ):
             _phase_enrich_user_text(loop, "发版", "sess-1")
 

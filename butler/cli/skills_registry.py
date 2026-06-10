@@ -49,6 +49,14 @@ def register_skills_parser(sub: argparse._SubParsersAction) -> None:
     p_sync.add_argument("--dry-run", action="store_true")
     p_sync.set_defaults(func=_cmd_sync)
 
+    p_lint = sp.add_parser("lint", help="检查技能 frontmatter（warn 不阻断）")
+    p_lint.add_argument(
+        "--project",
+        default="",
+        help="项目 workspace 路径（默认仅租户全局 skills）",
+    )
+    p_lint.set_defaults(func=_cmd_lint)
+
 
 def _tenant_id() -> str:
     try:
@@ -155,3 +163,25 @@ def _cmd_list(ns: argparse.Namespace) -> int:
     for r in rows:
         print(f"• {r.name} [{r.source}] {r.identifier} ({r.scan_verdict})")
     return 0
+
+
+def _cmd_lint(ns: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from butler.config import load_settings
+    from butler.skills.lint import format_lint_report, lint_skill_summaries
+    from butler.skills.manager import SkillManager
+    from butler.tenant import tenant_skills_dir
+
+    settings = load_settings()
+    tenant_id = _tenant_id()
+    global_dir = tenant_skills_dir(settings.butler_home, tenant_id)
+    project_ws = (ns.project or "").strip()
+    if project_ws:
+        proj_skills = Path(project_ws).expanduser().resolve() / ".butler" / "skills"
+        mgr = SkillManager(skills_dir=proj_skills, global_skills_dir=global_dir)
+    else:
+        mgr = SkillManager(skills_dir=global_dir, global_skills_dir=None)
+    issues = lint_skill_summaries(mgr.list_skills())
+    print(format_lint_report(issues))
+    return 1 if issues else 0

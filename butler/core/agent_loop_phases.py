@@ -687,13 +687,41 @@ def _phase_enrich_user_text(
             skill_pt, exp_mcp = collect_pinned_tools(user_content)
             if exp_mcp:
                 try:
-                    from butler.core.harness_flags import mcp_deferred_tools_enabled
-                    from butler.mcp.deferred import promote_tools
+                    from butler.core.harness_flags import (
+                        mcp_deferred_same_turn_enabled,
+                        mcp_deferred_tools_enabled,
+                    )
+                    from butler.mcp.deferred import (
+                        merge_deferred_mcp_into_turn_tools,
+                        promote_experience_mcp_tools,
+                    )
 
                     if mcp_deferred_tools_enabled():
-                        added = promote_tools(exp_mcp, session_key=steer_session)
+                        added, rejected = promote_experience_mcp_tools(
+                            exp_mcp,
+                            session_key=steer_session,
+                        )
                         if added:
                             loop.diagnostics["experience_mcp_promoted"] = len(added)
+                            try:
+                                from butler.ops.runtime_metrics import inc
+
+                                inc(
+                                    "execution_pointer_pin",
+                                    value=len(added),
+                                    labels={"source": "experience_mcp"},
+                                    session_key=steer_session,
+                                )
+                            except Exception:  # noqa: BLE001 — metrics optional
+                                pass
+                        if rejected:
+                            loop.diagnostics["experience_mcp_rejected"] = rejected
+                        if added and mcp_deferred_same_turn_enabled():
+                            turn_tools = merge_deferred_mcp_into_turn_tools(
+                                turn_tools,
+                                session_key=steer_session,
+                            )
+                            loop.diagnostics["experience_mcp_same_turn"] = len(added)
                 except Exception as mcp_exc:  # noqa: BLE001 — best-effort promote
                     logger.debug("Experience MCP promote skipped: %s", mcp_exc)
             if skill_pt:

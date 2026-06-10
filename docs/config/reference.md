@@ -277,6 +277,7 @@
 | `BUTLER_MESSAGE_IR` | 1 | 入站经 Canonical Message IR 规范化 |
 | `BUTLER_TOOL_WIRE` | 1 | 按 provider 适配 tool schema / tool_calls |
 | `BUTLER_MCP_DEFERRED_TOOLS` | 0 | `1` 时 MCP 仅注入已 promote 工具 + `mcp_tool_search` / `load_mcp_tools` |
+| `BUTLER_MCP_DEFERRED_SAME_TURN` | 0 | `1` 时经验 `mcp:` promote 后同轮合并 schema 进 `turn_tools`（默认下一轮） |
 | `BUTLER_ASK_CLARIFICATION` | 1 | 启用 `ask_clarification` 工具（结束本轮追问） |
 | `BUTLER_STATIC_SYSTEM_REMINDER` | 0 | `1` 时静态 system + 动态 `<system-reminder>` 进 user 轮 |
 | `BUTLER_EXP_CACHE` | 0 | 无 tools 的 LLM 请求指纹缓存（`.butler/experiences/llm_cache.jsonl`） |

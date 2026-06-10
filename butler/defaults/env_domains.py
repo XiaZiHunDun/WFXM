@@ -132,6 +132,7 @@ ENV_DOMAINS: Final[tuple[EnvDomain, ...]] = (
         ("butler/core/harness_flags.py",),
         (
             "BUTLER_MCP_DEFERRED_TOOLS",
+            "BUTLER_MCP_DEFERRED_SAME_TURN",
             "BUTLER_ASK_CLARIFICATION",
             "BUTLER_STATIC_SYSTEM_REMINDER",
         ),

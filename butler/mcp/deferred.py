@@ -53,6 +53,68 @@ def promote_tools(names: list[str], *, session_key: str = "") -> list[str]:
     return added
 
 
+def _tool_def_name(defn: dict[str, Any]) -> str:
+    fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
+    return str(fn.get("name") or defn.get("name") or "").strip()
+
+
+def promote_experience_mcp_tools(
+    names: list[str],
+    *,
+    session_key: str = "",
+) -> tuple[list[str], list[dict[str, str]]]:
+    """Validate MCP refs exist, then promote. Returns ``(added, rejected)``."""
+    sk = _session_key(session_key)
+    cleaned = [str(n or "").strip() for n in (names or []) if str(n or "").strip()]
+    if not cleaned:
+        return [], []
+
+    if not mcp_enabled():
+        return [], [{"name": n, "reason": "mcp_disabled"} for n in cleaned]
+
+    rejected: list[dict[str, str]] = []
+    to_promote: list[str] = []
+    try:
+        _all_mcp_refs(sk)
+    except Exception as exc:  # noqa: BLE001 — surface connect failure
+        logger.debug("MCP connect for experience promote failed: %s", exc)
+        return [], [{"name": n, "reason": "connect_failed"} for n in cleaned]
+
+    from butler.mcp.manager import get_manager
+
+    mgr = get_manager()
+    for name in cleaned:
+        if not is_mcp_registered_name(name):
+            rejected.append({"name": name, "reason": "invalid_registered_name"})
+            continue
+        if mgr.get_tool_ref(sk, name) is None:
+            rejected.append({"name": name, "reason": "tool_not_found"})
+            continue
+        to_promote.append(name)
+
+    added = promote_tools(to_promote, session_key=sk)
+    return added, rejected
+
+
+def merge_deferred_mcp_into_turn_tools(
+    tools: list[dict[str, Any]],
+    *,
+    session_key: str = "",
+) -> list[dict[str, Any]]:
+    """Append promoted MCP OpenAI schemas to the per-turn tool list."""
+    mcp_defs = get_deferred_mcp_definitions(session_key)
+    if not mcp_defs:
+        return tools
+    seen = {_tool_def_name(t) for t in tools if _tool_def_name(t)}
+    out = list(tools)
+    for defn in mcp_defs:
+        name = _tool_def_name(defn)
+        if name and name not in seen:
+            out.append(defn)
+            seen.add(name)
+    return out
+
+
 def clear_promoted(session_key: str = "") -> None:
     sk = _session_key(session_key)
     with _lock:
@@ -172,6 +234,8 @@ __all__ = [
     "get_deferred_mcp_definitions",
     "get_promoted_tools",
     "load_mcp_tools_handler",
+    "merge_deferred_mcp_into_turn_tools",
+    "promote_experience_mcp_tools",
     "promote_tools",
     "search_mcp_tools",
     "tool_search_handler",

@@ -25,6 +25,33 @@
 
 见 [`memory-roadmap.md`](../architecture/memory-roadmap.md) §检索信任级联、§执行信任级联；全链路工程详设见 [`execution-surface-design.md`](../architecture/execution-surface-design.md)。
 
+### 经验指针 Authoring（微信可照抄）
+
+写入 `tags` 或 `content` 即可（与正文长度无关）：
+
+| 场景 | 示例 tags / content 片段 |
+|------|--------------------------|
+| 发版走 workflow | `skill:lingwen-project-lead tool:run_workflow` |
+| 记忆检索优先 | `tool:butler_recall` |
+| GitHub MCP（需 `mcp.yaml`） | `mcp:github/search` 或 `mcp:mcp_github_search` |
+
+**种子（幂等）**：`butler memory seed` — 见 `data/seed_owner_experiences.json`。
+
+**技能 lint**：`butler skills lint`（有 triggers 缺 `preferred_tools` 时 warn，不阻断）。
+
+### 级联验证话术（微信冒烟）
+
+| # | 发送 | 期望 |
+|---|------|------|
+| C1 | `/诊断` | 执行面块含 `skill_injection_mode`、经验条数；有 MCP 时见连接行 |
+| C2 | 问一句**已有经验覆盖**的流程（如「发版流程」） | 回复引用经验要点；**不**堆砌未验证 Skill 目录 |
+| C3 | 同上后发 `/诊断` 或看 loop diagnostics | `experience_pinned_tools` ≥ 1；含 `run_workflow` 等 pin |
+| C4 | `butler memory search "发版" --scope experience --verbose` | 命中种子/自写经验，tags 含 `skill:` 或 `tool:` |
+| C5 | 改 `BUTLER_SKILL_INJECTION_MODE=always` 后重启网关再问同句 | 应注入 Skill 正文（对照组）；测完改回 `fallback` |
+| C6 | 经验含 `mcp:` 但未配置 MCP | `/诊断` 或 `experience_mcp_rejected` 提示 `mcp_disabled` / `tool_not_found` |
+
+可选：`BUTLER_MCP_DEFERRED_SAME_TURN=1` — 经验 `mcp:` promote 后**同轮**可见 MCP schema（默认下一轮）。
+
 灵文试点写入边界与 O1–O8：[`projects/LingWen1/docs/memory-guide.md`](../../projects/LingWen1/docs/memory-guide.md)。
 
 ## 生产推荐 `.env`

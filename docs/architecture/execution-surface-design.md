@@ -202,6 +202,8 @@ loop.tools（全量注册）
 | `tool_selector_input` / `output` / `dropped` | 裁剪前后数量 |
 | `experience_pinned_tools` | 经验+Skill pin 数量 |
 | `experience_mcp_promoted` | 当轮 MCP promote 数 |
+| `experience_mcp_rejected` | promote 前校验失败（`mcp_disabled` / `tool_not_found` 等） |
+| `experience_mcp_same_turn` | `BUTLER_MCP_DEFERRED_SAME_TURN=1` 时同轮并入 schema 数 |
 
 ---
 
@@ -325,19 +327,19 @@ Deferred 核心 API：
 ### P1 — 可观测
 
 - [x] **O1** `/诊断` 聚合执行面：`butler/ops/execution_surface_diagnostics.py` → `health_report` + `butler doctor` 遗留 Skill 路径。
-- [ ] **O2** LangFuse / runtime_metrics 可选计数：fallback_skip、ref_only_load、pointer_pin。
+- [x] **O2** runtime_metrics 计数：`execution_fallback_skip`、`execution_ref_only_load`、`execution_pointer_pin`。
 
 ### P2 — 行为优化
 
-- [ ] **E1** `mcp:` promote 后可选同轮刷新 `turn_tools`（配置项，默认保持下一轮）。
-- [ ] **E2** promote 前校验 server 已连接，失败写 diagnostics 而非静默。
-- [ ] **E3** `skill_tool_bridge` 从注入段解析技能名时用结构化 header，少依赖正则。
+- [x] **E1** `BUTLER_MCP_DEFERRED_SAME_TURN`：经验 `mcp:` promote 后可选同轮刷新 `turn_tools`（默认 off）。
+- [x] **E2** promote 前 `get_tool_ref` 校验；失败写 `experience_mcp_rejected` diagnostics。
+- [x] **E3** `extract_injected_skill_names` 解析 `### \`name\`` header，点名查 `preferred_tools`。
 
 ### P2 — Authoring 工具
 
 - [x] **A1** `butler memory seed` CLI 子命令（包装 `owner_experience_seed`）。
-- [ ] **A2** skill lint：frontmatter 缺 `preferred_tools` 时对齐 triggers 给 warn（不阻断）。
-- [ ] **A3** 微信运维话术：如何写指针、如何验证级联（链到 `memory-ops`）。
+- [x] **A2** `butler skills lint`：有 triggers 缺 `preferred_tools` 时 warn（不阻断）。
+- [x] **A3** 微信运维话术 C1–C6：[`memory-ops.md`](../guides/memory-ops.md) §经验指针 / 级联验证。
 
 ### 否决（勿纳入本详设）
 
@@ -366,3 +368,4 @@ Deferred 核心 API：
 |------|------|
 | 2026-06-10 | 初稿：执行面三组件、信任级联接线、Backlog、诊断字段 |
 | 2026-06-10 | P1 落地：execution_surface_diagnostics、preflight sync、doctor 遗留路径、`butler memory seed` |
+| 2026-06-10 | P2 落地：MCP promote 校验/同轮、skill header 解析、runtime_metrics、skills lint、memory-ops C1–C6 |

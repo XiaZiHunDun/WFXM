@@ -54,6 +54,19 @@ class TestResolveSkillInjection:
         assert d.skip is False
         assert d.reason == "always"
 
+    def test_records_fallback_skip_metric(self, monkeypatch):
+        from butler.ops import runtime_metrics as rm
+
+        monkeypatch.setenv("BUTLER_SKILL_INJECTION_MODE", "fallback")
+        rm.reset_global()
+        with patch(
+            "butler.session.memory_prefetch.peek_experience_hits",
+            return_value=[{"content": "known", "tags": ""}],
+        ):
+            resolve_skill_injection(MagicMock(), "q", diagnostics={})  # noqa: magicmock-no-spec
+        snap = rm.snapshot_global()
+        assert snap["counters"].get("execution_fallback_skip") == 1
+
 
 @pytest.mark.integration
 class TestOrchestratorSkillInjectionPolicy:
