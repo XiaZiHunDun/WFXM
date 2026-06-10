@@ -490,16 +490,7 @@ class ButlerMemoryService:
             proj = _active_project_name()
 
             cat = category or "delegation_note"
-            row_id = self._butler_global.experience.add(
-                project=proj,
-                category=cat,
-                content=content,
-            )
-            from butler.memory.semantic_index import index_experience_row
-
-            index_experience_row(
-                getattr(self._butler_global, "semantic", None),
-                row_id,
+            row_id = self._butler_global.add_experience(
                 project=proj,
                 category=cat,
                 content=content,

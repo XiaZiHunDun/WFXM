@@ -225,18 +225,9 @@ def _persist_project_memory(
 def _persist_experience_memory(
     content: str, butler_memory: Any, project_name: str
 ) -> None:
-    """Persist an experience memory update. Raises on experience.add failure."""
-    row_id = butler_memory.experience.add(
+    """Persist an experience memory update. Raises on add_experience failure."""
+    butler_memory.add_experience(
         project=project_name, category="experience", content=content,
-    )
-    from butler.memory.semantic_index import index_experience_row
-
-    index_experience_row(
-        getattr(butler_memory, "semantic", None),
-        row_id,
-        project=project_name,
-        category="experience",
-        content=content,
     )
 
 

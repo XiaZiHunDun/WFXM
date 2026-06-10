@@ -143,7 +143,7 @@ def sync_turn_memory(
                     turn_parts.append(f"Q: {public_user[:200]}")
                 if public_assistant:
                     turn_parts.append(f"A: {public_assistant[:300]}")
-                bm.experience.add(
+                bm.add_experience(
                     project=_current_project(orchestrator),
                     category=CONVERSATION_CATEGORY,
                     content=" → ".join(turn_parts),

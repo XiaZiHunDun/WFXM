@@ -161,6 +161,19 @@ def collect_memory_layer_stats(
             stats["experience_long_term"] = sum(
                 n for k, n in by_cat.items() if k != CONVERSATION_CATEGORY
             )
+            if stats.get("semantic_enabled") and sem is not None:
+                try:
+                    from butler.memory.semantic_index import SOURCE_EXPERIENCE
+                    from butler.memory.semantic_health import experience_vector_drift
+
+                    vec_exp = sem.count_by_source(SOURCE_EXPERIENCE)
+                    drift = experience_vector_drift(
+                        experience_long_term=stats["experience_long_term"],
+                        experience_vectors=vec_exp,
+                    )
+                    stats.update(drift)
+                except Exception as exc:
+                    logger.debug("collect memory layer stats skipped: %s", exc)
 
     pm, proj_name = _resolve_project_memory(orchestrator, session_key)
     if pm is not None:
@@ -268,6 +281,13 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         kdb_n = stats.get("knowledge_db_keys", 0)
         if kdb_n:
             lines.append(f"  knowledge.db: {kdb_n} 键（与 facts.json 同步）")
+        idx_exp = stats.get("experience_indexable")
+        vec_exp = stats.get("experience_vectors")
+        if idx_exp is not None and vec_exp is not None:
+            sync_line = f"  向量同步: experience {vec_exp}/{idx_exp}"
+            if stats.get("semantic_index_stale"):
+                sync_line += " — 陈旧，建议 butler memory-reindex"
+            lines.append(sync_line)
     else:
         lines.append("  向量索引: 关 (BUTLER_SEMANTIC_MEMORY=0)")
     try:

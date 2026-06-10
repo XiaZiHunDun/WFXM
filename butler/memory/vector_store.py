@@ -1,4 +1,9 @@
-"""Unified vector store abstraction with ChromaDB backend (optional).
+"""ChromaDB vector store abstraction (optional, **not on production recall path**).
+
+Production semantic recall uses ``SemanticMemoryIndex`` (sqlite ``memory_vectors.db``
++ hybrid FTS) via ``butler/memory/semantic_index.py``. ``get_vector_store()`` here
+is for tests, doctor probes, and future experiments only — no gateway/loop caller
+indexes experiences through this module today.
 
 Falls back to in-memory brute-force search when ChromaDB is not installed.
 """

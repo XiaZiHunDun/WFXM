@@ -2,6 +2,20 @@
 
 > 个人管家试点：开满语义记忆 + 预取，用运维表与冒烟话术验证「记得住、记得准」。
 
+## 两阶段落地（推荐顺序）
+
+| 阶段 | 脚本 | 内容 |
+|------|------|------|
+| **A** 基建 | `bash scripts/butler-memory-phase-a.sh` | `SEMANTIC_MEMORY=1` + fastembed + reindex + MB1–MB7 + doctor |
+| **B** 运营 | `bash scripts/butler-memory-phase-b.sh` | `SYNC_CONVERSATION=0` + queue_prefetch + recall 冒烟 + 微信 M1–M7 话术 |
+| **C** 工程 | `bash scripts/butler-memory-phase-c.sh` | `add_experience` IndexSync + 向量陈旧检测 + 守门 pytest |
+
+发版 / 升级记忆模块后：**先 A 再 B 再 C**；网关改 `.env` 后需 `systemctl restart butler-gateway`。
+
+**ChromaDB**：`butler/memory/vector_store.py` 未接入主召回链；生产语义检索走 `SemanticMemoryIndex`（`memory_vectors.db`）。
+
+灵文试点写入边界与 O1–O8：[`projects/LingWen1/docs/memory-guide.md`](../../projects/LingWen1/docs/memory-guide.md)。
+
 ## 生产推荐 `.env`
 
 | 变量 | 推荐 |

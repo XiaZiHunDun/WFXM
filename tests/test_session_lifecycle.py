@@ -135,7 +135,7 @@ def test_sync_turn_memory_skips_interrupted_and_failed_status():
     sync_turn_memory(orch, "q", "a", interrupted=True)
     sync_turn_memory(orch, "q", "a", status=LoopStatus.ERROR)
 
-    orch.butler_memory.experience.add.assert_not_called()
+    orch.butler_memory.add_experience.assert_not_called()
 
 
 def test_sync_turn_memory_skipped_when_conversation_sync_off(monkeypatch):
@@ -147,7 +147,7 @@ def test_sync_turn_memory_skipped_when_conversation_sync_off(monkeypatch):
 
     assert result["skipped"] is True
     assert result["reason"] == "conversation_sync_off"
-    orch.butler_memory.experience.add.assert_not_called()
+    orch.butler_memory.add_experience.assert_not_called()
 
 
 def test_sync_turn_memory_records_on_explicit_remember(monkeypatch):
@@ -163,7 +163,7 @@ def test_sync_turn_memory_records_on_explicit_remember(monkeypatch):
     )
 
     assert result["experience_updates"] == 1
-    orch.butler_memory.experience.add.assert_called_once()
+    orch.butler_memory.add_experience.assert_called_once()
 
 
 def test_sync_turn_memory_records_success_and_provider(monkeypatch):
@@ -182,8 +182,8 @@ def test_sync_turn_memory_records_success_and_provider(monkeypatch):
 
     assert result["experience_updates"] == 1
     assert result["provider_synced"] is True
-    orch.butler_memory.experience.add.assert_called_once()
-    add_kwargs = orch.butler_memory.experience.add.call_args.kwargs
+    orch.butler_memory.add_experience.assert_called_once()
+    add_kwargs = orch.butler_memory.add_experience.call_args.kwargs
     assert add_kwargs.get("tags") == session_experience_tag("wechat:u1")
     provider.sync_turn.assert_called_once_with("question", "answer", session_id="wechat:u1")
 
@@ -203,7 +203,7 @@ def test_sync_turn_memory_strips_private_tags_before_persist(monkeypatch):
     )
 
     assert result["skipped"] is False
-    add_kwargs = orch.butler_memory.experience.add.call_args.kwargs
+    add_kwargs = orch.butler_memory.add_experience.call_args.kwargs
     assert "secret-q" not in add_kwargs["content"]
     assert "secret-a" not in add_kwargs["content"]
     assert "公开问题" in add_kwargs["content"]
@@ -227,7 +227,7 @@ def test_sync_turn_memory_skips_fully_private_turn(monkeypatch):
 
     assert result["skipped"] is True
     assert result["reason"] == "private_only"
-    orch.butler_memory.experience.add.assert_not_called()
+    orch.butler_memory.add_experience.assert_not_called()
     provider.sync_turn.assert_not_called()
 
 
@@ -248,7 +248,7 @@ def test_sync_turn_memory_fails_closed_when_private_filter_errors(monkeypatch):
 
     assert result["skipped"] is True
     assert result["reason"] == "private_filter_error"
-    orch.butler_memory.experience.add.assert_not_called()
+    orch.butler_memory.add_experience.assert_not_called()
     provider.sync_turn.assert_not_called()
 
 

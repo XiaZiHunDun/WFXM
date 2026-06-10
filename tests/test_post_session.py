@@ -174,7 +174,7 @@ class TestExtractMemories:
             proc._extract_memories(self._long_messages(), butler_memory, None, "MyProj")
         )
         assert count == 1
-        butler_memory.experience.add.assert_called_once_with(
+        butler_memory.add_experience.assert_called_once_with(
             project="MyProj",
             category="experience",
             content="always test auth",
@@ -202,7 +202,7 @@ class TestExtractMemories:
         assert count == 3
         butler_memory.profile.add.assert_called_once_with("prefers dark  mode")
         project_memory.markdown.append.assert_called_once_with("Architecture", "uses  FastAPI")
-        butler_memory.experience.add.assert_called_once_with(
+        butler_memory.add_experience.assert_called_once_with(
             project="MyProj",
             category="experience",
             content="always test auth",
@@ -227,7 +227,7 @@ class TestExtractMemories:
 
         assert count == 0
         butler_memory.profile.add.assert_not_called()
-        butler_memory.experience.add.assert_not_called()
+        butler_memory.add_experience.assert_not_called()
 
     def test_invalid_target_skipped(self):
         async def llm_call(prompt):

@@ -613,6 +613,27 @@ class ButlerMemory:
             return "(No Butler-level memory yet.)"
         return "\n\n".join(parts)
 
+    def add_experience(
+        self,
+        project: str,
+        category: str,
+        content: str,
+        tags: str | list[str] | None = None,
+    ) -> int:
+        """Write experience row and sync semantic index when enabled."""
+        row_id = self.experience.add(project, category, content, tags=tags)
+        if row_id > 0:
+            from butler.memory.semantic_index import index_experience_row
+
+            index_experience_row(
+                self.semantic,
+                row_id,
+                project=project or "",
+                category=category or "",
+                content=content,
+            )
+        return row_id
+
     def close(self) -> None:
         """Release sqlite connections held by experience and semantic stores."""
         try:

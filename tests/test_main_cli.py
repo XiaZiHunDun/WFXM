@@ -138,16 +138,16 @@ class TestSyncMemory:
         monkeypatch.setenv("BUTLER_SYNC_CONVERSATION_MEMORY", "1")
         orch = _mock_orchestrator()
         _sync_memory(orch, "user question", "assistant answer")
-        orch.butler_memory.experience.add.assert_called_once()
+        orch.butler_memory.add_experience.assert_called_once()
 
     def test_empty_user_msg_skipped(self):
         orch = _mock_orchestrator()
         _sync_memory(orch, "", "answer")
-        orch.butler_memory.experience.add.assert_not_called()
+        orch.butler_memory.add_experience.assert_not_called()
 
     def test_exception_silently_caught(self):
         orch = _mock_orchestrator()
-        orch.butler_memory.experience.add.side_effect = RuntimeError("db error")
+        orch.butler_memory.add_experience.side_effect = RuntimeError("db error")
         _sync_memory(orch, "user", "assistant")
 
 
