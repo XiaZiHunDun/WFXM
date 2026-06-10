@@ -8,7 +8,11 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.defaults.env_defaults import (
+    PROVIDER_CIRCUIT_FAILURES,
+    PROVIDER_CIRCUIT_OPEN_SECONDS,
+)
+from butler.env_parse import env_truthy, float_env, int_env
 from butler.transport.fallback import FallbackEntry
 
 _STATE_LOCK = threading.Lock()
@@ -27,44 +31,41 @@ def provider_circuit_enabled() -> bool:
 
 
 def _failure_threshold() -> int:
-    try:
-        return max(2, int(os.getenv("BUTLER_PROVIDER_CIRCUIT_FAILURES", "3")))
-    except ValueError:
-        return 3
+    return int_env(
+        "BUTLER_PROVIDER_CIRCUIT_FAILURES",
+        PROVIDER_CIRCUIT_FAILURES,
+        min=2,
+    )
 
 
 def _open_seconds() -> float:
-    try:
-        return max(30.0, float(os.getenv("BUTLER_PROVIDER_CIRCUIT_OPEN_SECONDS", "120")))
-    except ValueError:
-        return 120.0
+    return float_env(
+        "BUTLER_PROVIDER_CIRCUIT_OPEN_SECONDS",
+        float(PROVIDER_CIRCUIT_OPEN_SECONDS),
+        min=30.0,
+        warn_on_clamp=False,
+    )
 
 
 def provider_key(provider: str, model: str) -> str:
     return f"{provider or '?'}:{model or '?'}"
 
 
-def _get_state(key: str) -> _CircuitState:
-    with _STATE_LOCK:
-        st = _STATE.get(key)
-        if st is None:
-            st = _CircuitState()
-            _STATE[key] = st
-        return st
-
-
 def is_circuit_open(provider: str, model: str) -> bool:
     if not provider_circuit_enabled():
         return False
     key = provider_key(provider, model)
-    st = _get_state(key)
     now = time.time()
-    if st.open_until and now < st.open_until:
-        return True
-    if st.open_until and now >= st.open_until:
-        st.open_until = 0.0
-        st.failures = 0
-    return False
+    with _STATE_LOCK:
+        st = _STATE.get(key)
+        if st is None:
+            return False
+        if st.open_until and now < st.open_until:
+            return True
+        if st.open_until and now >= st.open_until:
+            st.open_until = 0.0
+            st.failures = 0
+        return False
 
 
 def record_provider_success(provider: str, model: str) -> None:
@@ -82,9 +83,12 @@ def record_provider_failure(provider: str, model: str) -> None:
     if not provider_circuit_enabled():
         return
     key = provider_key(provider, model)
-    st = _get_state(key)
     now = time.time()
     with _STATE_LOCK:
+        st = _STATE.get(key)
+        if st is None:
+            st = _CircuitState()
+            _STATE[key] = st
         st.failures += 1
         st.last_failure = now
         if st.failures >= _failure_threshold():
