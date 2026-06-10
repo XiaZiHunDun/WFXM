@@ -66,6 +66,8 @@ class TestCmdDoctorBasics:
         assert "[核心依赖]" in captured.out
         assert "[可选依赖]" in captured.out
         assert "[配置]" in captured.out
+        assert "[有效模型]" in captured.out
+        assert "--- 有效模型 ---" in captured.out
         assert "[安全审计]" in captured.out
 
     def test_returns_one_when_critical_found(self, isolated_butler_home, fake_security_audit, capsys):
@@ -185,6 +187,7 @@ class TestConfigSection:
         doctor.cmd_doctor(argparse.Namespace())
         out = capsys.readouterr().out
         assert "MINIMAX_API_KEY: ✗ (unset)" in out
+        assert "凭证文件:" in out
 
 
 # ── Workspace 探测 (projects/AGENTS.md) ──

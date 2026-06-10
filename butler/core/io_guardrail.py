@@ -6,7 +6,7 @@ import os
 import re
 from dataclasses import dataclass
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 _SECRET_PATTERNS = [
     re.compile(r"(?i)\b(api[_-]?key|secret|token|password)\s*[:=]\s*['\"]?\S{8,}"),
@@ -62,7 +62,7 @@ def check_inbound_text(text: str) -> IoGuardrailResult:
                 )
     max_len = 0
     try:
-        max_len = int(os.getenv("BUTLER_IO_GUARDRAIL_MAX_CHARS", "") or "0")
+        max_len = int_env("BUTLER_IO_GUARDRAIL_MAX_CHARS", 0)
     except ValueError:
         max_len = 0
     if max_len > 0 and len(body) > max_len:

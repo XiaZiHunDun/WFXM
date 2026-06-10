@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 
-from butler.env_parse import env_truthy
+from butler.memory_settings import resolve_memory_config
 
 _FAILURE_HINTS = (
     "error",
@@ -19,7 +19,7 @@ _FAILURE_HINTS = (
 
 
 def corrective_recall_enabled() -> bool:
-    return env_truthy("BUTLER_CORRECTIVE_RECALL", default=True)
+    return resolve_memory_config().corrective_recall_enabled
 
 
 def should_trigger_corrective(tool_name: str, result_text: str) -> bool:

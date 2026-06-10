@@ -21,7 +21,9 @@ def prefetch_limits() -> dict[str, int]:
 
     def _int(name: str, default: int) -> int:
         try:
-            return max(0, int(os.getenv(name, str(default)).strip() or default))
+            from butler.env_parse import int_env
+
+            return int_env(name, default, min=0)
         except ValueError:
             return default
 
@@ -33,6 +35,59 @@ def prefetch_limits() -> dict[str, int]:
         "facts_max_chars": _int("BUTLER_PREFETCH_FACTS_MAX_CHARS", 400),
         "total_max_chars": _int("BUTLER_PREFETCH_TOTAL_MAX_CHARS", 3500),
     }
+
+
+def _prefetch_retrieval_counts(diagnostics: dict[str, Any] | None) -> tuple[int, int]:
+    """Estimate injected memory item counts for P_r/R_r L2 metrics."""
+    if not diagnostics:
+        return 0, 0
+    total = 0
+    for key in (
+        "memory_experience_hits",
+        "memory_profile_vector_hits",
+        "memory_project_query_hits",
+    ):
+        total += int(diagnostics.get(key, 0) or 0)
+    for flag in (
+        "memory_butler_context",
+        "memory_project_context",
+        "memory_pim_injected",
+    ):
+        if diagnostics.get(flag):
+            total += 1
+    if int(diagnostics.get("memory_facts_chars", 0) or 0) > 0:
+        total += 1
+    return total, total
+
+
+def _emit_prefetch_metrics(
+    query: str,
+    *,
+    hit: bool,
+    result_count: int,
+    diagnostics: dict[str, Any] | None,
+) -> None:
+    try:
+        from butler.memory.memory_metrics import get_collector
+
+        collector = get_collector()
+        collector.on_prefetch(
+            query=(query or "")[:120],
+            hit=hit,
+            result_count=result_count,
+        )
+        total, relevant = _prefetch_retrieval_counts(diagnostics)
+        if total > 0:
+            collector.on_retrieval(
+                total_returned=total,
+                relevant=relevant,
+                used_by_llm=0,
+            )
+        from butler.memory.metrics_persist import flush_memory_metrics
+
+        flush_memory_metrics()
+    except Exception:
+        pass
 
 
 def _session_key_for_prefetch() -> str:
@@ -238,6 +293,18 @@ def prefetch_turn_memory(
                 diagnostics["memory_project_error"] = str(exc)
             logger.debug("Project memory prefetch skipped: %s", exc)
 
+    try:
+        from butler.core.pim_state import load_pim_state
+
+        pim = load_pim_state()
+        pim_line = pim.summary_line()
+        if pim_line and pim_line != "(empty)":
+            parts.append(f"## PIM overview\n{pim_line}")
+            if diagnostics is not None:
+                diagnostics["memory_pim_injected"] = True
+    except Exception as exc:
+        logger.debug("PIM prefetch skipped: %s", exc)
+
     merged = "\n\n".join(p for p in parts if p.strip())
     total_cap = caps["total_max_chars"]
     if total_cap and len(merged) > total_cap:
@@ -256,6 +323,25 @@ def prefetch_turn_memory(
         from butler.memory.prefetch_cache import set_cached_prefetch
 
         set_cached_prefetch(session_key, query, merged)
+
+    hit = bool(merged.strip())
+    result_count = int(diagnostics.get("memory_experience_hits", 0) if diagnostics else 0)
+    _emit_prefetch_metrics(query, hit=hit, result_count=result_count, diagnostics=diagnostics)
+
+    try:
+        from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
+        if langfuse_enabled():
+            ctx = get_current_trace(session_key=session_key)
+            if ctx is not None:
+                ctx.on_memory_prefetch(
+                    query=(query or "")[:120],
+                    hit=hit,
+                    result_count=result_count,
+                    chars=len(merged),
+                )
+    except Exception:
+        pass
+
     return merged
 
 

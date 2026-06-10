@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 import yaml
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 from butler.io.safe_load import safe_load_yaml
 from butler.mcp.types import McpServerConfig, McpToolPolicy
 
@@ -41,14 +41,14 @@ def mcp_enabled() -> bool:
 
 def max_servers() -> int:
     try:
-        return max(0, min(20, int(os.getenv("BUTLER_MCP_MAX_SERVERS", "3"))))
+        return int_env("BUTLER_MCP_MAX_SERVERS", 3, min=0, max=20)
     except ValueError:
         return 3
 
 
 def max_tools() -> int:
     try:
-        return max(0, min(100, int(os.getenv("BUTLER_MCP_MAX_TOOLS", "20"))))
+        return int_env("BUTLER_MCP_MAX_TOOLS", 20, min=0, max=100)
     except ValueError:
         return 20
 

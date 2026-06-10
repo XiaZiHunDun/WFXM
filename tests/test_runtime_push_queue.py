@@ -50,3 +50,33 @@ def test_drain_queue_success(butler_home_q, monkeypatch):
         out = push_queue.drain_push_queue(max_items=2)
     assert out["sent"] == 1
     assert out["remaining"] == 0
+
+
+def test_drain_skipped_during_rate_limit_cooldown(butler_home_q, monkeypatch):
+    monkeypatch.setenv("BUTLER_RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS", "300")
+    push_queue.enqueue_failed_push("A", "one")
+    from butler.runtime import notify
+
+    notify.record_rate_limit_failure()
+    out = push_queue.drain_push_queue(max_items=2)
+    assert out["skipped"] == "rate_limit_cooldown"
+    assert out["drained"] == 0
+    assert out["remaining"] == 1
+
+
+def test_drain_stops_after_rate_limit_failure(butler_home_q, monkeypatch):
+    monkeypatch.setenv("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", "0")
+    monkeypatch.setenv("BUTLER_RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS", "300")
+    push_queue.enqueue_failed_push("A", "one")
+    push_queue.enqueue_failed_push("B", "two")
+
+    def _fail_rate_limit(*_args, **_kwargs):
+        from butler.runtime import notify
+
+        notify.record_rate_limit_failure()
+        return False
+
+    with patch("butler.runtime.notify.push_runtime_message", side_effect=_fail_rate_limit):
+        out = push_queue.drain_push_queue(max_items=2)
+    assert out["failed"] == 1
+    assert out["remaining"] == 2

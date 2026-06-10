@@ -15,7 +15,7 @@
    Butler Orchestrator          ← 记忆、Skill、分层模型
          │
          ▼
-   Agent Loop (agent_loop.py)   ← 编排 ~780 行
+   Agent Loop (agent_loop.py)   ← 编排 ~560 行（2026-06-09）
          ├─ context_pipeline     ← 压缩 / hygiene
          ├─ llm_retry            ← 重试 / failover
          ├─ tool_batch           ← 工具批次 / spill / guardrails
@@ -94,17 +94,21 @@ scripts/               # 网关安装与 butler-gateway-ops 运维
 
 ## 支持的 LLM Provider
 
-| Provider | 用途 | 环境变量 |
-|----------|------|----------|
-| Claude | 代码开发、复杂推理 | `ANTHROPIC_API_KEY` |
-| OpenAI | 通用任务 | `OPENAI_API_KEY` |
-| DeepSeek | 代码、中文 | `DEEPSEEK_API_KEY` |
-| 通义千问 | 中文内容 | `DASHSCOPE_API_KEY` |
-| 智谱 GLM | 中文内容 | `ZHIPUAI_API_KEY` |
-| Moonshot | 中文长文本 | `MOONSHOT_API_KEY` |
-| MiniMax | 中文、推理 | `MINIMAX_API_KEY` |
+内置注册 **9 家**（以 [`butler/transport/providers.py`](butler/transport/providers.py) 为准）：
 
-详见 [`butler/transport/providers.py`](butler/transport/providers.py) 与 [`.env.example`](.env.example)。
+| 注册名 | 常见称呼 | 环境变量 |
+|--------|----------|----------|
+| `anthropic` | Claude | `ANTHROPIC_API_KEY` |
+| `openai` | OpenAI | `OPENAI_API_KEY` |
+| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` |
+| `qwen` | 通义千问 | `DASHSCOPE_API_KEY` / `QWEN_API_KEY` |
+| `zhipu` | 智谱 GLM | `ZHIPU_API_KEY` |
+| `minimax` | MiniMax 国际 | `MINIMAX_API_KEY` |
+| `minimax-cn` | MiniMax 国内 | `MINIMAX_CN_API_KEY` |
+| `openrouter` | OpenRouter | `OPENROUTER_API_KEY` |
+| `siliconflow` | 硅基流动 | `SILICONFLOW_API_KEY` |
+
+新增厂商请改 `providers.py` 的 `_register_builtin()`，并同步本表与 [`.env.example`](.env.example)。
 
 ## CLI 命令（节选）
 

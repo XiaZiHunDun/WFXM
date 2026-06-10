@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 _MAX_FACTS_PER_SESSION = 50
 _MAX_FACT_VALUE_LEN = 300
 
+from butler.tools.pim_schema import ALL_PIM_TOOLS as _PIM_TOOL_NAMES
+
 
 def fact_extraction_enabled() -> bool:
     return os.getenv("BUTLER_FACT_EXTRACTION", "1").strip() in ("1", "true")
@@ -63,8 +65,11 @@ def _extract_facts_from_messages(messages: list[dict]) -> list[dict[str, Any]]:
     - Task completions / status changes
     - User preferences / corrections
     """
+    from butler.core.tool_prune_policy import build_tool_name_index
+
     facts: list[dict[str, Any]] = []
     now = time.time()
+    id_to_name = build_tool_name_index(messages)
 
     for msg in messages:
         role = msg.get("role", "")
@@ -77,6 +82,10 @@ def _extract_facts_from_messages(messages: list[dict]) -> list[dict[str, Any]]:
         elif role == "user":
             _extract_user_facts(content, facts, now)
         elif role == "tool":
+            tid = str(msg.get("tool_call_id") or "").strip()
+            tool_name = id_to_name.get(tid, "").strip().lower()
+            if tool_name in _PIM_TOOL_NAMES:
+                continue
             _extract_tool_facts(msg, facts, now)
 
     return facts
@@ -173,15 +182,25 @@ def extract_pre_compact_facts(
     existing_values = {f.get("value") for f in existing}
     deduped = [f for f in new_facts if f.get("value") not in existing_values]
 
+    pre_count = len(existing)
+    post_count = pre_count
     if deduped:
         merged = existing + deduped
         save_facts(session_key, merged)
+        post_count = len(merged)
         logger.debug(
             "Extracted %d new facts (total %d) for session %s",
             len(deduped),
             len(merged),
             session_key[:20],
         )
+
+    try:
+        from butler.memory.memory_metrics import get_collector
+
+        get_collector().on_fact_extraction(pre_count=pre_count, post_count=post_count)
+    except Exception:
+        pass
 
     return deduped
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def injection_llm_block_threshold() -> int:
     import os
 
     try:
-        return max(0, min(100, int(os.getenv("BUTLER_INJECTION_LLM_BLOCK", "85"))))
+        return int_env("BUTLER_INJECTION_LLM_BLOCK", 85, min=0, max=100)
     except ValueError:
         return 85
 

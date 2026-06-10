@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import json
 import os
 import threading
@@ -39,7 +40,7 @@ def enabled_detectors() -> frozenset[str]:
 
 def circuit_breaker_limit() -> int:
     try:
-        return max(10, int(os.getenv("BUTLER_TOOL_LOOP_CIRCUIT_LIMIT", "40")))
+        return int_env("BUTLER_TOOL_LOOP_CIRCUIT_LIMIT", 40, min=10)
     except ValueError:
         return 40
 

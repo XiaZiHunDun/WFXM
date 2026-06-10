@@ -1,5 +1,6 @@
 # Copy to ~/.butler/config.yaml and adjust (bash scripts/setup-butler-config.sh).
-# Stable defaults here; secrets only in .env (MINIMAX_API_KEY, WECHAT_TOKEN, …).
+# Stable defaults here. API keys: .env and/or ~/.butler/secrets.yaml — NOT config.yaml.
+# See docs/config/config-surfaces.md
 # Env overrides gateway fields when set. See docs/config/reference.md
 # See docs/architecture/layered-model-config.md
 
@@ -23,6 +24,69 @@ auxiliary:
     provider: deepseek
     model: deepseek-chat
 
+embedding:
+  provider: fastembed
+  model: BAAI/bge-small-en-v1.5
+
+llm_fallback:
+  enabled: true
+  chain: auto              # auto | [] | [{ provider, model }, ...]
+
+remote_compact:
+  model: ""                # empty = auxiliary.compression.model
+
+memory:
+  semantic_enabled: false
+  hybrid:
+    vector_weight: 0.5
+    # fts_weight omitted → 1 - vector_weight
+  search_limit: 8
+  index:
+    max_lines: 200
+    max_bytes: 25600
+  ranking:
+    half_life_days: 30
+    access_boost: 0.12
+  recall_layers_enabled: true
+  preread_enabled: true
+  observer_queue_enabled: false
+  observation:
+    ttl_days: 90
+    max_rows: 0
+  metrics_persist: true
+  corrective_recall_enabled: true
+  private_tags_enabled: true
+
+context:
+  budget:
+    output_reserve: 20000
+    compact_reserve: 13000
+    warning_buffer: 20000
+    error_buffer: 20000
+    blocking_buffer: 3000
+    compact_max_failures: 3
+  turn_budget:
+    enabled: true
+    default: 500000
+    min_iterations: 30
+    max_iterations: 60
+    max_continuations: 3
+    min_delta: 500
+  tool_prune:
+    keep_recent: 4
+    pim_keep_recent: 2
+    pii_chars: 200
+    clearable_chars: 400
+    preserve_chars: 2400
+    default_chars: 800
+    backward_enabled: true
+    backward_minimum: 20000
+    backward_protect: 40000
+  instruction_walkup:
+    enabled: true
+    max_chars: 4000
+    max_files: 3
+
 gateway:
   inbound_media:
     enabled: true
@@ -36,6 +100,11 @@ gateway:
       prefer_ilink_text: true   # true=有 iLink 转写则跳过本地 STT
       stt_provider: local       # local | off
       whisper_model: small
+  queue:
+    mode: followup            # followup | collect | interrupt | steer
+    cap: 20
+    drop: summarize           # summarize | old | new
+    collect_debounce_ms: 500  # collect 模式合并 debounce
 
 # 识图失败时 fallback（env 可覆盖）：openai,ocr
 # BUTLER_WECHAT_VISION_FALLBACK=openai,ocr

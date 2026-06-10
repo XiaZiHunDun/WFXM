@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import float_env
 import hashlib
 import logging
 import os
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def _max_bytes() -> int:
     try:
-        mb = float(os.getenv("BUTLER_SKILL_INSTALL_MAX_MB", "2"))
+        mb = float_env("BUTLER_SKILL_INSTALL_MAX_MB", 2)
         return int(mb * 1024 * 1024)
     except ValueError:
         return 2 * 1024 * 1024

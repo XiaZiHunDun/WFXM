@@ -14,6 +14,18 @@
 
 详见 [`.env.example`](../../.env.example) 与 [`memory-roadmap.md`](../architecture/memory-roadmap.md)。
 
+## 效果度量（D2-4/D2-5）
+
+微信 `/诊断` 展示 **记忆效果度量 (L2)**：`S_w` 写入存活率、`H_1` 首轮命中率、`E_d` 衰减误杀率。
+
+```bash
+bash scripts/butler-memory-metrics-smoke.sh
+# CLI 工具
+butler memory metrics   # 若已注册；或 agent 调用 butler_memory_metrics
+```
+
+持久化路径：`~/.butler/metrics/memory_metrics.json`（`BUTLER_MEMORY_METRICS_PERSIST=1` 默认开）
+
 ## 命令速查
 
 | 命令 | 作用 |

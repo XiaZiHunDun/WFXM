@@ -2,50 +2,37 @@
 
 from __future__ import annotations
 
-import os
-
 from butler.core.tool_prune_policy import (
     CLEARED_TOOL_RESULT_MESSAGE,
     classify_tool,
     is_persisted_tool_result,
 )
 
-PRUNE_MINIMUM_CHARS = 20_000
-PRUNE_PROTECT_CHARS = 40_000
 _PRUNE_PROTECTED_TOOLS = frozenset({"skill_view", "skills_list"})
 
 
-def _int_env(name: str, default: int) -> int:
-    try:
-        return max(0, int(os.getenv(name, "").strip() or default))
-    except ValueError:
-        return default
+def _tool_prune_settings():
+    from butler.context_settings import resolve_context_config
+
+    return resolve_context_config().tool_prune
 
 
 def prune_minimum_chars() -> int:
-    return _int_env("BUTLER_TOOL_PRUNE_BACKWARD_MINIMUM", PRUNE_MINIMUM_CHARS)
+    return _tool_prune_settings().backward_minimum
 
 
 def clear_at_least_chars() -> int:
     """LangChain ClearToolUsesEdit-style floor (alias for minimum by default)."""
-    raw = os.getenv("BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST", "").strip()
-    if raw:
-        return _int_env("BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST", PRUNE_MINIMUM_CHARS)
-    return prune_minimum_chars()
+    return _tool_prune_settings().backward_minimum
 
 
 def prune_protect_chars() -> int:
-    return _int_env("BUTLER_TOOL_PRUNE_BACKWARD_PROTECT", PRUNE_PROTECT_CHARS)
+    return _tool_prune_settings().backward_protect
 
 
 def backward_prune_tool_outputs(messages: list[dict]) -> list[dict]:
     """Erase older tool message bodies when prunable volume exceeds minimum."""
-    if os.getenv("BUTLER_TOOL_PRUNE_BACKWARD", "1").strip().lower() in (
-        "0",
-        "false",
-        "no",
-        "off",
-    ):
+    if not _tool_prune_settings().backward_enabled:
         return messages
 
     tool_idxs = [i for i, m in enumerate(messages) if m.get("role") == "tool"]

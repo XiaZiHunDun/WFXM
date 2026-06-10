@@ -110,11 +110,18 @@ class ButlerPlatformAdapter(ABC):
             try:
                 response = await self._message_handler(event)
                 if response:
-                    if bridge is not None:
-                        bridge.mark_final_sent()
-                    await self.send(chat_id, response)
-                    if bridge is not None:
-                        bridge.maybe_notify_turn_complete_after_reply()
+                    send_result = await self.send(chat_id, response)
+                    if isinstance(send_result, SendResult) and not send_result.success:
+                        logger.error(
+                            "[%s] outbound send failed chat=%s: %s",
+                            self.name,
+                            chat_id[:24],
+                            send_result.error or "unknown",
+                        )
+                    else:
+                        if bridge is not None:
+                            bridge.mark_final_sent()
+                            bridge.maybe_notify_turn_complete_after_reply()
             except Exception as exc:
                 logger.error("[%s] handler failed: %s", self.name, exc, exc_info=True)
                 try:

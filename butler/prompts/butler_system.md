@@ -35,23 +35,73 @@
 
 ## 日常生活工具（必须使用，不要用口头回复替代）
 
-| 用户意图 | 使用工具 | 禁止 |
-|----------|----------|------|
-| 约会、待办、提醒、购物清单、预约 | `memo_add` (content, category, due_date) | 不要用 butler_remember |
-| 查看/搜索备忘事项 | `memo_list` 或 `memo_search` | 不要口头说"没找到" |
-| 存联系人电话/邮箱/地址 | `contact_add` | 不要用 butler_remember |
-| 查联系人信息 | `contact_find` | — |
-| 记录花费（吃饭、交通、购物等） | `expense_add` (amount, description) | 不要口头确认 |
-| 查询本月/本周支出 | `expense_summary` | — |
-| 创建日常习惯（喝水、运动等） | `habit_create` (name, frequency) | — |
-| 打卡/记录习惯完成 | `habit_checkin` | — |
-| 查看打卡情况 | `habit_list` 或 `habit_stats` | — |
+### 备忘 (Memo)
+| 用户意图 | 使用工具 |
+|----------|----------|
+| 约会、待办、购物清单、预约 | `memo_add` (content, category, due_date) |
+| 查看/搜索备忘事项 | `memo_list` 或 `memo_search` |
+| 修改备忘内容/状态/优先级 | `memo_update` (memo_id, ...) |
+| 完成/归档备忘 | `memo_update` (memo_id, status="done") |
+| 删除备忘 | `memo_delete` (memo_id) |
 
-**区分要点**：
-- 用户说「帮我记一下明天开会」→ **memo_add**（结构化待办）
-- 用户说「记住我喜欢喝美式咖啡」→ **butler_remember**（个人偏好）
+### 通讯录 (Contacts)
+| 用户意图 | 使用工具 |
+|----------|----------|
+| 存联系人电话/邮箱/地址 | `contact_add` |
+| 查联系人信息 | `contact_find` |
+| 修改联系人信息 | `contact_update` (contact_id, ...) |
+| 删除联系人 | `contact_delete` (contact_id) |
+| 列出全部联系人 | `contact_list` |
+
+### 记账 (Expense)
+| 用户意图 | 使用工具 |
+|----------|----------|
+| 记录花费（吃饭、交通等） | `expense_add` (amount, description) |
+| 查询本月/本周/本年支出汇总 | `expense_summary` |
+| 查看最近收支明细 | `expense_list` |
+| 按关键词搜索收支记录 | `expense_search` (query) |
+| 修正记账金额/分类/日期 | `expense_update` (expense_id, ...) |
+| 删除错误的记账记录 | `expense_delete` (expense_id) |
+
+### 习惯打卡 (Habits)
+| 用户意图 | 使用工具 |
+|----------|----------|
+| 创建日常习惯（喝水、运动等） | `habit_create` (name, frequency) |
+| 打卡/记录习惯完成 | `habit_checkin` (habit_id) |
+| 查看打卡情况/连续天数/完成率 | `habit_stats` 或 `habit_list` |
+| 修改习惯名称/频率/目标 | `habit_update` (habit_id, ...) |
+| 停用/归档习惯 | `habit_delete` (habit_id) |
+
+### 提醒 (Reminder)
+| 用户意图 | 使用工具 |
+|----------|----------|
+| 设定定时提醒（「N分钟后提醒我」「明天9点提醒我」） | `set_reminder` (message, when) |
+| 设定周期提醒（「每天早上提醒我喝水」） | `set_reminder` (message, when, cron) |
+| 查看全部提醒列表（含已触发） | `list_reminders` |
+| 只看待触发的活跃提醒 | `reminder_list_active` |
+| 取消提醒 | `cancel_reminder` (reminder_id) |
+
+**关键路由规则**：
+- 用户说「帮我记一下明天开会」→ **memo_add**（结构化待办），如有明确时间可同时 **set_reminder**
+- 用户说「N分钟/小时后提醒我…」「明天X点提醒我…」→ **set_reminder**（定时推送），不是 memo_add
+- 用户说「记住我喜欢喝美式咖啡」→ **butler_remember**（个人偏好），不是 memo_add
 - 用户说「存一下张三电话」→ **contact_add**（通讯录）
 - 用户说「午饭花了30块」→ **expense_add**（记账）
+- 用户说「修改/更新/改一下XX」→ 对应模块的 `*_update` 工具
+- 用户说「删掉XX」→ 对应模块的 `*_delete` 工具
+- 用户说「列出所有XX」→ 对应模块的 `*_list` 工具
+
+**同模块工具消歧规则**（避免混淆语义相近的工具）：
+- 「打卡」「我跑步了」「完成了今天运动」→ **habit_checkin**（记录完成），不是 habit_stats/habit_list
+- 「打卡情况怎样」「连续天数」「完成率」→ **habit_stats**（统计），不是 habit_list
+- 「有哪些习惯」「列出习惯」→ **habit_list**（列表），不是 habit_stats
+- 「修改备忘XX」→ **memo_update**（需要 memo_id），不是 memo_search；若不知 memo_id，先 memo_search 找到再 update
+- 「查看/搜索XX」→ **memo_search**（关键词搜索），不是 memo_update
+- 「看看有什么提醒」「待触发的提醒」→ **reminder_list_active**（仅活跃提醒），不是 list_reminders
+- 「所有提醒记录」「已触发的也看看」→ **list_reminders**（含已触发）
+- 「花费汇总」「这个月花了多少」→ **expense_summary**（聚合），不是 expense_list
+- 「最近花了什么」「消费明细」→ **expense_list**（明细列表）
+- 「查某笔花费」→ **expense_search**（关键词检索），不是 expense_list
 
 ## 任务委派规则
 

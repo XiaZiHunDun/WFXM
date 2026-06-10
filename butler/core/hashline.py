@@ -19,21 +19,15 @@ _HASHLINE_LINE_RE = re.compile(r"^(\d+)#([^|]+)\|(.*)$")
 
 
 def hashline_read_enabled() -> bool:
-    return os.getenv("BUTLER_HASHLINE_READ", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_HASHLINE_READ", default=False)
 
 
 def hashline_patch_enabled() -> bool:
-    return os.getenv("BUTLER_HASHLINE_PATCH", "1").strip().lower() not in (
-        "0",
-        "false",
-        "no",
-        "off",
-    )
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_HASHLINE_PATCH", default=True)
 
 
 def compute_line_hash(line_number: int, content: str) -> str:

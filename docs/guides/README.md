@@ -1,6 +1,6 @@
 # 指南文档索引
 
-> 更新：2026-05-26 | 个人助手 Butler：**主场景为微信**；CLI 为本地开发与调试。  
+> 更新：2026-06-09 | 个人助手 Butler：**主场景为微信**；CLI 为本地开发与调试。  
 > 文档体系：[`../DOCUMENTATION.md`](../DOCUMENTATION.md) · 发版：[`release-runbook-2026-05.md`](./release-runbook-2026-05.md) · 否决/Backlog：[`../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)  
 > 四报告 Sprint A–D 总索引：[sprint-roadmap-2026-05.md](./sprint-roadmap-2026-05.md)
 
@@ -34,9 +34,15 @@
 | [wechat-daily-smoke-checklist.md](./wechat-daily-smoke-checklist.md) | **发版后真机冒烟**（H1–H10，约 15–25 分钟） |
 | [wechat-core-scenario.md](./wechat-core-scenario.md) | 微信八步剧本详解与 FAQ |
 | [owner-profile-setup.md](./owner-profile-setup.md) | Owner 画像配置 |
+| [phase5-multi-project-runbook.md](./phase5-multi-project-runbook.md) | **Phase 5**：O9 B9 + 多项目 C |
+| [default-project-policy.md](./default-project-policy.md) | **C2** 默认项目解析策略 |
+| [phase4-ops-runbook.md](./phase4-ops-runbook.md) | **Phase 4**：运营巩固 A + 灵文样板 B（含 PIM opt-in、末批真机指针） |
+| [../plans/decisions/theory-implementation-gap-register-2026-06.md](../plans/decisions/theory-implementation-gap-register-2026-06.md) | **理论—实现差距**登记册（G1–G4；Phase 9 SSOT） |
+| [cost-calibration.md](./cost-calibration.md) | **A5** 成本模型实测标定（`/成本` vs 账单） |
 | [memory-ops.md](./memory-ops.md) | **记忆运维**：推荐 env、smoke/reindex、灵文检查表 |
 | [dev-tools-ops.md](./dev-tools-ops.md) | **开发操作工具**：terminal / git / env 与 Runtime 分工 |
 | [project-onboarding.md](./project-onboarding.md) | **项目接入**：preflight、模板、微信验收 |
+| [langfuse-multi-project.md](./langfuse-multi-project.md) | **LangFuse 多项目共享**：per-project key、动态 client、CI 集成 |
 | [manual-testing-guide.md](./manual-testing-guide.md) | CLI + 微信完整人工测试手册 |
 | [../ops/diagnostic-thresholds.md](../ops/diagnostic-thresholds.md) | `/诊断` **运行指标**阈值（外部对标 P0） |
 | [../config/reference.md](../config/reference.md) | `BUTLER_*`（含队列 mode、workflow 权限） |
@@ -55,6 +61,10 @@
 | `scripts/butler-runtime-smoke.sh` | Runtime 运维冒烟（灵文1号） |
 | `scripts/butler-demo-pilot-smoke.sh` | 演示试点 E2E |
 | `scripts/butler-dev-tools-smoke.sh` | 开发工具链实战冒烟 |
+| `scripts/butler-g1-checklist.sh` | G1 开放项守门 + 真机话术提示 |
+| `scripts/butler-gap-observability.sh` | G1/G2 边界观测（`boundary_observability`） |
+| `scripts/butler-eval-regression.sh` | 开发质量回归（含 B9 oracle） |
+| `scripts/butler-eval-llm-benchmark.sh` | LLM 基准 + B9 audit 落盘 |
 
 ## 推荐顺序
 

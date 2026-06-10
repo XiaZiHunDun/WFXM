@@ -3,7 +3,7 @@ type: software
 description: Butler 第二试点（轻量模板，无 novel-factory；用于多项目切换与 runtime 冒烟）
 status: active
 lifecycle: active
-lead: false
+lead: true
 workspace: projects/DemoPilot
 models:
   dev_agent:

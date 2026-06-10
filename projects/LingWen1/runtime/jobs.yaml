@@ -45,6 +45,18 @@ jobs:
       on_failure: true
       max_summary_chars: 800
 
+  # D3-6 经验挖掘：只读扫描→定理审查→待审队列（默认不自动入库；见 BUTLER_EXPERIENCE_MINING_AUTO_INGEST）
+  - id: experience-mining-weekly
+    description: 经验挖掘周报（候选入 pending，Owner 用 /经验挖掘 或 approve 入库）
+    schedule: "0 4 * * 0"
+    mode: readonly
+    enabled: true
+    handler: builtin:experience_mining_weekly
+    notify:
+      on_success: true
+      on_failure: true
+      max_summary_chars: 800
+
   # 只读预检：run_publish.sh preflight（不 archive/merge）；改盘仍须 /批准运行 + 单独 mutating job
   - id: publish-preflight
     description: 发布前只读预检（workflow 版本 + 目录检查，不写入）

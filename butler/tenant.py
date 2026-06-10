@@ -72,6 +72,10 @@ def migrate_legacy_memory_layout(butler_home: Path) -> None:
         shutil.move(str(legacy_skills), str(target_skills))
         logger.info("Migrated Butler skills to %s", target_skills)
 
+    from butler.tools.reminder import migrate_legacy_reminders
+
+    migrate_legacy_reminders(home)
+
 
 __all__ = [
     "DEFAULT_TENANT",

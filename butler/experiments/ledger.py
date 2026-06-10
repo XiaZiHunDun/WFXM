@@ -131,7 +131,9 @@ def maybe_write_last_run_log(workspace: Path, stdout: str, stderr: str) -> Path 
     lines_out = len((stdout or "").splitlines())
     lines_err = len((stderr or "").splitlines())
     try:
-        threshold = max(50, int(os.getenv("BUTLER_EXPERIMENT_LOG_LINES", "200") or "200"))
+        from butler.env_parse import int_env
+
+        threshold = int_env("BUTLER_EXPERIMENT_LOG_LINES", 200, min=50)
     except ValueError:
         threshold = 200
     if lines_out < threshold and lines_err < max(20, threshold // 4):

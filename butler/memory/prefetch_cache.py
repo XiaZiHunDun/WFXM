@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import logging
 import os
 import threading
@@ -25,7 +26,7 @@ def queue_prefetch_enabled() -> bool:
 
 def prefetch_cache_ttl_seconds() -> int:
     try:
-        return max(5, int(os.getenv("BUTLER_PREFETCH_CACHE_TTL", "90")))
+        return int_env("BUTLER_PREFETCH_CACHE_TTL", 90, min=5)
     except ValueError:
         return 90
 

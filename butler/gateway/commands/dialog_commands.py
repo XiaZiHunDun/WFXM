@@ -62,7 +62,7 @@ def _cmd_approve(ctx: CommandContext) -> Optional[str]:
         return gate
     from butler.human_gate import resolve_human_gate_message
 
-    return resolve_human_gate_message(ctx.session_key, "确认") or "当前没有待确认的工作流步骤。"
+    return resolve_human_gate_message(ctx.session_key, "确认", owner_verified=True) or "当前没有待确认的工作流步骤。"
 
 
 def _cmd_cancel(ctx: CommandContext) -> Optional[str]:
@@ -71,7 +71,7 @@ def _cmd_cancel(ctx: CommandContext) -> Optional[str]:
         return gate
     from butler.human_gate import resolve_human_gate_message
 
-    return resolve_human_gate_message(ctx.session_key, "取消") or "当前没有待确认的工作流步骤。"
+    return resolve_human_gate_message(ctx.session_key, "取消", owner_verified=True) or "当前没有待确认的工作流步骤。"
 
 
 def _cmd_goal_loop(ctx: CommandContext) -> Optional[str]:

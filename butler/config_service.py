@@ -12,6 +12,8 @@ import logging
 import os
 from dataclasses import dataclass
 
+from butler.defaults.env_defaults import ONBOARDING_WELCOME_DEFAULT
+
 logger = logging.getLogger(__name__)
 
 
@@ -98,7 +100,7 @@ _register("BUTLER_SKILL_REGISTRY", "扩展", "Skill 目录搜索", "1")
 _register("BUTLER_LOG_LEVEL", "系统", "日志级别", "INFO", vtype="str")
 _register("BUTLER_DISABLE_AUTO_COMPACT", "系统", "关闭自动压缩", "0")
 _register("BUTLER_AUTO_CONTINUE", "系统", "中断后自动恢复", "1")
-_register("BUTLER_ONBOARDING_WELCOME", "系统", "新会话欢迎语", "0")
+_register("BUTLER_ONBOARDING_WELCOME", "系统", "新会话欢迎语", ONBOARDING_WELCOME_DEFAULT)
 _register("BUTLER_POST_SESSION_LAYERED", "系统", "会话后自动偏好学习", "0")
 
 # Category display order

@@ -137,8 +137,18 @@ def try_remote_summarize(middle: list[dict], previous_summary: str = "") -> str 
             }
         ]
 
+    from butler.config import get_butler_settings
+
+    compact_model = (
+        getattr(client, "model", None)
+        or get_butler_settings().remote_compact_model_name()
+        or ""
+    )
+    if not compact_model:
+        return None
+
     body: dict[str, Any] = {
-        "model": getattr(client, "model", None) or "gpt-4.1-mini",
+        "model": compact_model,
         "input": input_items,
         "instructions": (
             "Compress the conversation into structured handoff notes. "

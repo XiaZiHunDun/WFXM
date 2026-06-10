@@ -6,17 +6,14 @@ import json
 import re
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.memory_settings import resolve_memory_config
 from butler.memory.search_result import chunk_id_for_hit, enrich_search_hit, source_path_for_hit
 import logging
 
 logger = logging.getLogger(__name__)
 
-_LAYER_ENV = "BUTLER_MEMORY_RECALL_LAYERS"
-
-
 def recall_layers_enabled() -> bool:
-    return env_truthy(_LAYER_ENV, default=True)
+    return resolve_memory_config().recall_layers_enabled
 
 
 def _parse_experience_id(chunk_id: str) -> int | None:

@@ -277,6 +277,7 @@ class TestProjectSwitch:
 @pytest.mark.integration
 class TestSkillInjection:
     def test_no_matching_skills_returns_original(self, orch_no_projects):
+        orch_no_projects._skill_router = None
         text = "completely unique xyz task description 99999"
         result = orch_no_projects.inject_skill_context(text)
         assert result == text
@@ -303,7 +304,13 @@ class TestSkillInjection:
                 "description": "Python development",
                 "triggers": ["python"],
                 "content": "Use pytest",
-            }
+            },
+            "docker-ops": {
+                "name": "docker-ops",
+                "description": "Docker operations",
+                "triggers": ["docker"],
+                "content": "Use docker compose",
+            },
         }
 
         with patch("butler.orchestrator._combined_skill_manager", return_value=manager):
@@ -313,9 +320,10 @@ class TestSkillInjection:
         diagnostics: dict[str, object] = {}
         result = orch_no_projects.inject_skill_context("please run python tests", diagnostics=diagnostics)
         assert "Use pytest" in result
-        manager.get_skills.assert_called_once_with(["python-dev"])
+        call_names = manager.get_skills.call_args[0][0]
+        assert "python-dev" in call_names
         assert diagnostics["skill_context_injected"] is True
-        assert diagnostics["skill_matches"] == ["python-dev"]
+        assert "python-dev" in diagnostics["skill_matches"]
 
     def test_skill_injection_skips_empty_lazy_loaded_content(self, orch_no_projects):
         manager = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低

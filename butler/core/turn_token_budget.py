@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, replace
 
 from butler.core.loop_types import LoopConfig
-from butler.env_parse import env_truthy
 
 _BUDGET_CMD_RE = re.compile(
     r"^/budget\s+(\d+(?:\.\d+)?)\s*([kmb])?\s*$",
@@ -25,8 +23,14 @@ _MULT = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}
 _TURN_BUDGET_PHRASES = ("本轮尽量做完", "尽量做完", "多用点token", "多用点 token")
 
 
+def _turn_budget_settings():
+    from butler.context_settings import resolve_context_config
+
+    return resolve_context_config().turn_budget
+
+
 def turn_token_budget_enabled() -> bool:
-    return env_truthy("BUTLER_TURN_TOKEN_BUDGET", default=True)
+    return _turn_budget_settings().enabled
 
 
 def _scale(value: str, suffix: str) -> int:
@@ -67,11 +71,9 @@ def strip_budget_markers(text: str) -> str:
 
 def budget_to_max_iterations(budget_tokens: int, base: int) -> int:
     """Map declared budget to a higher iteration cap (heuristic)."""
-    try:
-        floor = max(base, int(os.getenv("BUTLER_TURN_BUDGET_MIN_ITERATIONS", "30") or "30"))
-        cap = max(floor, int(os.getenv("BUTLER_TURN_BUDGET_MAX_ITERATIONS", "60") or "60"))
-    except ValueError:
-        floor, cap = max(base, 30), 60
+    tb = _turn_budget_settings()
+    floor = max(base, tb.min_iterations)
+    cap = max(floor, tb.max_iterations)
     extra = max(0, int(budget_tokens) // 80_000)
     return min(cap, floor + extra)
 
@@ -84,10 +86,7 @@ def resolve_turn_budget(
     cleaned = text
     budget = parse_token_budget_text(text)
     if budget is None and wants_extended_turn(text):
-        try:
-            budget = int(os.getenv("BUTLER_TURN_BUDGET_DEFAULT", "500000") or "500000")
-        except ValueError:
-            budget = 500_000
+        budget = _turn_budget_settings().default_tokens
     if budget is None:
         return config, None, cleaned
     cleaned = strip_budget_markers(text)
@@ -139,9 +138,5 @@ class TurnBudgetState:
 
 
 def continuation_limits() -> tuple[int, int]:
-    try:
-        max_cont = max(1, int(os.getenv("BUTLER_TURN_BUDGET_MAX_CONTINUATIONS", "3") or "3"))
-        min_delta = max(0, int(os.getenv("BUTLER_TURN_BUDGET_MIN_DELTA", "500") or "500"))
-    except ValueError:
-        max_cont, min_delta = 3, 500
-    return max_cont, min_delta
+    tb = _turn_budget_settings()
+    return tb.max_continuations, tb.min_delta

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from butler.config import get_butler_home
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +31,7 @@ def transcript_enabled() -> bool:
 
 
 def transcript_max_bytes() -> int:
-    try:
-        return max(1_000_000, int(os.getenv("BUTLER_SESSION_TRANSCRIPT_MAX_BYTES", "") or _DEFAULT_MAX_BYTES))
-    except ValueError:
-        return _DEFAULT_MAX_BYTES
+    return int_env("BUTLER_SESSION_TRANSCRIPT_MAX_BYTES", _DEFAULT_MAX_BYTES, min=1_000_000)
 
 
 def _safe_segment(value: str) -> str:

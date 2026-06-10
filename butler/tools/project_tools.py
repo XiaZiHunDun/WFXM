@@ -30,17 +30,32 @@ _BUTLER_EXTRA_TOOLS = frozenset({
     "butler_recall",
     "list_runtime_jobs",
     "run_runtime_job",
+    "contact_add",
+    "contact_find",
+    "contact_update",
+    "contact_delete",
+    "contact_list",
     "memo_add",
     "memo_list",
     "memo_search",
-    "contact_add",
-    "contact_find",
+    "memo_update",
+    "memo_delete",
     "expense_add",
     "expense_summary",
+    "expense_list",
+    "expense_update",
+    "expense_search",
+    "expense_delete",
     "habit_create",
     "habit_checkin",
-    "habit_list",
     "habit_stats",
+    "habit_list",
+    "habit_update",
+    "habit_delete",
+    "set_reminder",
+    "list_reminders",
+    "reminder_list_active",
+    "cancel_reminder",
 })
 
 # Project Lead: read-only + orchestration (no write/shell even if listed in project.yaml).
@@ -72,6 +87,41 @@ _LEAD_EXTRA_TOOLS = frozenset({
     "list_runtime_jobs",
     "run_runtime_job",
 })
+
+_DEV_EXTRA_TOOLS = frozenset({
+    "dev_status",
+    "dev_verify",
+    "dev_rollback",
+    "dev_search_symbols",
+})
+
+# A3/T8: butler main loop must not inherit project mutating tools from project.yaml.
+_BUTLER_BLOCKED_PROJECT_TOOLS = frozenset({
+    "write_file",
+    "patch",
+    "delete_file",
+    "terminal",
+    "git_add",
+    "git_commit",
+    "execute_code",
+})
+
+
+def _butler_tools_from_project(mapped: set[str]) -> set[str]:
+    """Read-only / orchestration tools from project.yaml; strip file/shell mutators."""
+    return {name for name in mapped if name not in _BUTLER_BLOCKED_PROJECT_TOOLS}
+
+
+def _butler_allowed_tools(mapped: set[str]) -> set[str]:
+    extras = set(_BUTLER_EXTRA_TOOLS)
+    try:
+        from butler.extensions.opencode import opencode_enabled
+
+        if opencode_enabled():
+            extras.add("opencode_task")
+    except Exception:
+        pass
+    return _butler_tools_from_project(mapped) | extras
 
 
 def canonical_tool_name(name: str) -> str:
@@ -110,7 +160,7 @@ def allowed_tool_names_for_project(
                 read_only = mode_set & _LEAD_READ_TOOLS if mode_set else set(_LEAD_READ_TOOLS)
                 return read_only | _LEAD_EXTRA_TOOLS
             if norm in {"butler", "default", ""} or role == "butler":
-                return mode_set | _BUTLER_EXTRA_TOOLS
+                return _butler_allowed_tools(mode_set)
             return mode_set
     if norm == "plan":
         return set(_PLAN_MODE_TOOLS)
@@ -118,7 +168,17 @@ def allowed_tool_names_for_project(
         read_only = {n for n in mapped if n in _LEAD_READ_TOOLS}
         return read_only | _LEAD_EXTRA_TOOLS
     if norm in {"butler", "default", ""} or role == "butler":
-        return mapped | _BUTLER_EXTRA_TOOLS
+        return _butler_allowed_tools(mapped)
+    if norm == "dev":
+        dev_extras = set()
+        try:
+            from butler.dev_engine.dev_tools import dev_engine_enabled
+
+            if dev_engine_enabled():
+                dev_extras = set(_DEV_EXTRA_TOOLS)
+        except Exception:
+            pass
+        return mapped | dev_extras
     return mapped
 
 

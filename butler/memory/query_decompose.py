@@ -22,14 +22,18 @@ def subquery_enabled() -> bool:
 
 def max_subqueries() -> int:
     try:
-        return max(1, min(5, int(os.getenv("BUTLER_RAG_SUBQUERY_MAX", "3") or "3")))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_RAG_SUBQUERY_MAX", 3, min=1, max=5)
     except ValueError:
         return 3
 
 
 def min_chars_for_split() -> int:
     try:
-        return max(40, int(os.getenv("BUTLER_RAG_SUBQUERY_MIN_CHARS", "72") or "72"))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_RAG_SUBQUERY_MIN_CHARS", 72, min=40)
     except ValueError:
         return 72
 

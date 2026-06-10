@@ -20,7 +20,7 @@ def _connected_adapter(monkeypatch, tmp_butler_home) -> WeChatAdapter:
         PlatformConfig(token="api-token", extra={"account_id": "bot-acc"}),
     )
     adapter._account_id = "bot-acc"
-    adapter._send_session = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+    adapter._send_session = MagicMock()  # noqa: magicmock-no-spec
     adapter._token = "api-token"
     adapter._base_url = "https://ilink.test"
     adapter._send_chunk_retries = 2
@@ -38,16 +38,16 @@ class TestWechatIlinkOutboundSend:
         adapter._token_store.set("bot-acc", "peer-1", "ctx-outbound-99")
         captured: list[str | None] = []
 
-        async def _fake_send(session, **kwargs):
-            del session
-            captured.append(kwargs.get("context_token"))
-            return {"ret": 0}
+        original = adapter._send_text_chunk
 
-        with patch(
-            "butler.gateway.platforms.wechat_ilink._send_message",
-            side_effect=_fake_send,
-        ):
+        async def _fake_chunk(*, chat_id, chunk, context_token, client_id):
+            captured.append(context_token)
+
+        adapter._send_text_chunk = _fake_chunk
+        try:
             result = await adapter.send("peer-1", "你好 Butler")
+        finally:
+            adapter._send_text_chunk = original
 
         assert result.success is True
         assert captured == ["ctx-outbound-99"]
@@ -60,17 +60,15 @@ class TestWechatIlinkOutboundSend:
         adapter._token_store.set("bot-acc", "peer-2", "stale-token")
         calls: list[str | None] = []
 
-        async def _fake_send(session, **kwargs):
-            del session
-            token = kwargs.get("context_token")
-            calls.append(token)
-            if token:
+        async def _fake_attempt(adapter_self, *, chat_id, chunk, context_token, client_id):
+            calls.append(context_token)
+            if context_token:
                 return {"ret": SESSION_EXPIRED_ERRCODE, "errcode": SESSION_EXPIRED_ERRCODE}
             return {"ret": 0}
 
         with patch(
-            "butler.gateway.platforms.wechat_ilink._send_message",
-            side_effect=_fake_send,
+            "butler.gateway.platforms.wechat_ilink_phases._phase_chunk_attempt",
+            side_effect=_fake_attempt,
         ):
             await adapter._send_text_chunk(
                 chat_id="peer-2",
@@ -107,7 +105,7 @@ class TestWechatIlinkOutboundTyping:
         self, monkeypatch, tmp_butler_home
     ):
         adapter = _connected_adapter(monkeypatch, tmp_butler_home)
-        adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        adapter._poll_session = MagicMock()  # noqa: magicmock-no-spec
 
         with patch(
             "butler.gateway.platforms.wechat_ilink._get_config",

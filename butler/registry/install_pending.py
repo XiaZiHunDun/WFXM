@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import contextlib
 import fcntl
 import json
@@ -31,7 +32,7 @@ class PendingSkillInstall:
 
 def pending_ttl_seconds() -> int:
     try:
-        return max(300, int(os.getenv("BUTLER_REGISTRY_PENDING_TTL", "1800")))
+        return int_env("BUTLER_REGISTRY_PENDING_TTL", 1800, min=300)
     except ValueError:
         return 1800
 

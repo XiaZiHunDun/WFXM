@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ def auto_continue_enabled() -> bool:
 
 def auto_continue_max_age_seconds() -> int:
     try:
-        return max(60, int(os.getenv("BUTLER_AUTO_CONTINUE_MAX_AGE", "3600")))
+        return int_env("BUTLER_AUTO_CONTINUE_MAX_AGE", 3600, min=60)
     except ValueError:
         return 3600
 

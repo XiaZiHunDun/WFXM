@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, float_env
 
 logger = logging.getLogger(__name__)
 
@@ -45,21 +45,25 @@ def markdown_chunking_enabled() -> bool:
 
 def chunk_min_chars() -> int:
     try:
-        return max(64, int(os.getenv("BUTLER_MARKDOWN_CHUNK_MIN_CHARS", "256") or "256"))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_MARKDOWN_CHUNK_MIN_CHARS", 256, min=64)
     except ValueError:
         return 256
 
 
 def chunk_max_chars() -> int:
     try:
-        return max(512, int(os.getenv("BUTLER_MARKDOWN_CHUNK_MAX_CHARS", "4000") or "4000"))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_MARKDOWN_CHUNK_MAX_CHARS", 4000, min=512)
     except ValueError:
         return 4000
 
 
 def heading_boost_per_token() -> float:
     try:
-        return max(0.0, float(os.getenv("BUTLER_MARKDOWN_HEADING_BOOST", "0.18") or "0.18"))
+        return max(0.0, float_env("BUTLER_MARKDOWN_HEADING_BOOST", 0.18))
     except ValueError:
         return 0.18
 

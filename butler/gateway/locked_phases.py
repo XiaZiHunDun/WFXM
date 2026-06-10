@@ -224,6 +224,14 @@ def _phase_init_loop_role(
             "gateway_agent_role": state.loop_role,
         }
     )
+    try:
+        from butler.memory.memory_metrics import get_collector
+        from butler.memory.metrics_persist import load_persisted_metrics
+
+        load_persisted_metrics()
+        get_collector().start_session(state.session_key)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +301,41 @@ def _phase_hygiene_compress(
         logger.warning("Gateway hygiene compression skipped: %s", exc)
 
 
+def _chain_callbacks(base: Any, extra: Any) -> Any:
+    """Chain two LoopCallbacks so both get called for each event."""
+    from butler.core.loop_types import LoopCallbacks
+
+    if base is None:
+        return extra
+    if extra is None:
+        return base
+
+    def _chain(name: str) -> Any:
+        fn_a = getattr(base, name, None)
+        fn_b = getattr(extra, name, None)
+        if fn_a is None:
+            return fn_b
+        if fn_b is None:
+            return fn_a
+
+        def chained(*args: Any, **kwargs: Any) -> Any:
+            try:
+                fn_a(*args, **kwargs)
+            except Exception:
+                pass
+            try:
+                return fn_b(*args, **kwargs)
+            except Exception:
+                pass
+            return None
+
+        return chained
+
+    return LoopCallbacks(**{
+        f.name: _chain(f.name) for f in LoopCallbacks.__dataclass_fields__.values()
+    })
+
+
 # ---------------------------------------------------------------------------
 # Phase 5d — memory prefetch + run-callback wiring.
 # ---------------------------------------------------------------------------
@@ -313,6 +356,22 @@ def _phase_prefetch_and_callbacks(
         diagnostics=state.health,
     )
     state.run_callbacks = _gateway_run_callbacks()
+
+    try:
+        from butler.ops.langfuse_tracer import langfuse_enabled
+        if langfuse_enabled():
+            from butler.ops.langfuse_tracer import get_current_trace, langfuse_callbacks
+            from butler.core.loop_types import LoopCallbacks
+
+            lf_cbs = langfuse_callbacks(session_key=state.session_key)
+            if lf_cbs:
+                lf_loop_cbs = LoopCallbacks(**lf_cbs)
+                state.run_callbacks = _chain_callbacks(state.run_callbacks, lf_loop_cbs)
+            ctx = get_current_trace(session_key=state.session_key)
+            if ctx is not None:
+                ctx.on_gateway_inbound(state.session_key, state.platform, len(state.text))
+    except Exception as exc:
+        logger.debug("LangFuse callback wiring skipped: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -365,31 +424,38 @@ def _phase_execute_turn(state: LockedTurnState) -> None:
 # Phase 7 — finalize turn: diagnostics, memory sync, queue, health.
 # ---------------------------------------------------------------------------
 
-def _phase_finalize_turn(
-    handler: "ButlerMessageHandler",
-    state: LockedTurnState,
-) -> None:
-    """Phase: capture diagnostics + memory sync + queue + set health."""
-    from butler.core.agent_loop import LoopStatus
-
+def _phase_finalize_loop_diagnostics(state: LockedTurnState) -> None:
     state.health["loop"] = dict(getattr(state.result, "diagnostics", {}) or {})
     if getattr(state.result, "transition_reason", ""):
         state.health["loop_transition_reason"] = state.result.transition_reason
-    if state.result.status == LoopStatus.INTERRUPTED:
-        try:
-            from butler.core.auto_continue import capture_auto_continue_pending
 
-            capture_auto_continue_pending(
-                state.session_key,
-                user_preview=state.augmented,
-                reason="interrupt",
-                diagnostics=state.health.get("loop")
-                if isinstance(state.health.get("loop"), dict)
-                else None,
-            )
-        except Exception as exc:
-            logger.debug("Auto continue capture skipped: %s", exc)
-    from butler.session.lifecycle import sync_turn_memory
+
+def _phase_finalize_interrupt_capture(state: LockedTurnState) -> None:
+    from butler.core.agent_loop import LoopStatus
+
+    if state.result.status != LoopStatus.INTERRUPTED:
+        return
+    try:
+        from butler.core.auto_continue import capture_auto_continue_pending
+
+        capture_auto_continue_pending(
+            state.session_key,
+            user_preview=state.augmented,
+            reason="interrupt",
+            diagnostics=state.health.get("loop")
+            if isinstance(state.health.get("loop"), dict)
+            else None,
+        )
+    except Exception as exc:
+        logger.debug("Auto continue capture skipped: %s", exc)
+
+
+def _phase_finalize_memory_sync(
+    handler: "ButlerMessageHandler",
+    state: LockedTurnState,
+) -> None:
+    from butler.core.agent_loop import LoopStatus
+    from butler.session.lifecycle import queue_prefetch_after_turn, sync_turn_memory
 
     sync_result = sync_turn_memory(
         handler._orchestrator,
@@ -400,15 +466,64 @@ def _phase_finalize_turn(
         session_id=state.session_key,
     )
     state.health["memory_sync"] = sync_result
-    from butler.session.lifecycle import queue_prefetch_after_turn
-
     queue_prefetch_after_turn(
         handler._orchestrator,
         state.text,
         role=state.loop_role,
         session_id=state.session_key,
     )
+
+
+def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
+    try:
+        from butler.ops.langfuse_tracer import (
+            end_trace,
+            flush_langfuse,
+            get_current_trace,
+            langfuse_enabled,
+        )
+
+        if langfuse_enabled():
+            trace_id = ""
+            ctx = get_current_trace(session_key=state.session_key)
+            if ctx is not None:
+                trace_id = ctx.trace_id
+            from butler.ops.eval_turn import extract_tools_used, push_turn_scores
+
+            multi, eval_report = push_turn_scores(
+                user_text=state.text,
+                response_text=state.result.final_response or "",
+                tools_used=extract_tools_used(getattr(state.result, "diagnostics", None)),
+                session_id=state.session_key,
+                trace_id=trace_id,
+            )
+            state.health["eval_turn"] = {
+                "overall": round(multi.overall, 3),
+                "dims": multi.by_dimension(),
+                "scores_pushed": eval_report.scores_pushed,
+            }
+            end_trace(session_key=state.session_key, result=state.result)
+            flush_langfuse()
+    except Exception as exc:
+        logger.debug("LangFuse turn-end flush skipped: %s", exc)
+    try:
+        from butler.memory.metrics_persist import flush_memory_metrics
+
+        flush_memory_metrics(force=True)
+    except Exception as exc:
+        logger.debug("memory metrics flush skipped: %s", exc)
+
+
+def _phase_finalize_turn(
+    handler: "ButlerMessageHandler",
+    state: LockedTurnState,
+) -> None:
+    """Phase: capture diagnostics + memory sync + queue + set health."""
+    _phase_finalize_loop_diagnostics(state)
+    _phase_finalize_interrupt_capture(state)
+    _phase_finalize_memory_sync(handler, state)
     handler._session_registry.set_health(state.session_key, state.health)
+    _phase_finalize_eval_observability(state)
 
 
 # ---------------------------------------------------------------------------
@@ -445,6 +560,14 @@ def _phase_format_turn_response(
         state.turn_elapsed,
         len(state.out or ""),
     )
+    try:
+        from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
+        if langfuse_enabled():
+            ctx = get_current_trace(session_key=state.session_key)
+            if ctx is not None:
+                ctx.on_gateway_outbound(state.session_key, len(state.out or ""), state.turn_elapsed)
+    except Exception:
+        pass
     if welcome_prefix:
         state.out = f"{welcome_prefix}\n\n---\n\n{state.out}" if state.out else welcome_prefix
 

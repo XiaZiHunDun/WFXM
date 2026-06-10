@@ -13,13 +13,11 @@ from pathlib import Path
 from typing import Any, Final
 
 import yaml
-from dotenv import load_dotenv
 import logging
 
+from butler.env_parse import init_dotenv
 
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 
 _ROLE_NAMES: Final[tuple[str, ...]] = (
     "butler",
@@ -147,6 +145,13 @@ class LayeredModelConfig:
     def from_dict(cls, data: dict[str, Any] | None) -> LayeredModelConfig:
         if not data:
             return cls()
+        unknown = [str(k) for k in data if str(k) not in _ROLE_NAMES]
+        if unknown:
+            logger.warning(
+                "config.yaml models: unknown role key(s) %s (ignored); valid: %s",
+                ", ".join(sorted(unknown)),
+                ", ".join(_ROLE_NAMES),
+            )
         return cls(
             butler=ModelConfig.from_dict(data.get("butler")),
             dev_agent=ModelConfig.from_dict(data.get("dev_agent")),
@@ -181,6 +186,9 @@ class ButlerSettings:
     providers: dict[str, ProviderConfig] = field(default_factory=dict)
     models: LayeredModelConfig = field(default_factory=LayeredModelConfig)
     auxiliary: dict[str, Any] = field(default_factory=dict)
+    embedding: dict[str, Any] = field(default_factory=dict)
+    llm_fallback: dict[str, Any] = field(default_factory=dict)
+    remote_compact: dict[str, Any] = field(default_factory=dict)
     butler_name: str = "莎丽"
     owner_name: str = "主公"
     default_tenant: str = ""
@@ -203,38 +211,40 @@ class ButlerSettings:
         return self.butler_home / "config.yaml"
 
     def _load_env_providers(self) -> None:
+        from butler.defaults.model_defaults import PROVIDER_ENV_DEFAULT_MODEL
+
         if key := os.getenv("ANTHROPIC_API_KEY"):
             self.providers["claude"] = ProviderConfig(
                 name="claude",
                 api_key=key,
-                model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
+                model=os.getenv("CLAUDE_MODEL", PROVIDER_ENV_DEFAULT_MODEL["claude"]),
             )
         if key := os.getenv("OPENAI_API_KEY"):
             self.providers["openai"] = ProviderConfig(
                 name="openai",
                 api_key=key,
-                model=os.getenv("OPENAI_MODEL", "gpt-4o"),
+                model=os.getenv("OPENAI_MODEL", PROVIDER_ENV_DEFAULT_MODEL["openai"]),
             )
         if key := os.getenv("DEEPSEEK_API_KEY"):
             self.providers["deepseek"] = ProviderConfig(
                 name="deepseek",
                 api_key=key,
                 base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-                model=os.getenv("DEEPSEEK_MODEL", "deepseek-chat"),
+                model=os.getenv("DEEPSEEK_MODEL", PROVIDER_ENV_DEFAULT_MODEL["deepseek"]),
             )
         if key := os.getenv("DASHSCOPE_API_KEY"):
             self.providers["qwen"] = ProviderConfig(
                 name="qwen",
                 api_key=key,
                 base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-                model=os.getenv("QWEN_MODEL", "qwen-max"),
+                model=os.getenv("QWEN_MODEL", PROVIDER_ENV_DEFAULT_MODEL["qwen"]),
             )
         if key := os.getenv("MINIMAX_API_KEY"):
             self.providers["minimax"] = ProviderConfig(
                 name="minimax",
                 api_key=key,
                 base_url=os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1"),
-                model=os.getenv("MINIMAX_MODEL", "MiniMax-M2.7"),
+                model=os.getenv("MINIMAX_MODEL", PROVIDER_ENV_DEFAULT_MODEL["minimax"]),
             )
 
     def _ensure_default_models_from_provider(self) -> None:
@@ -267,12 +277,54 @@ class ButlerSettings:
     def clear_runtime_model_overrides(self) -> None:
         self._runtime_model_overrides.clear()
 
-    def get_model_config(self, role: str) -> ModelConfig:
-        """Merged model config: system defaults → ``config.yaml`` → runtime override."""
-        merged = self._system_default_for_role(role).merge_with(self._yaml_merged_for_role(role))
-        if override := self._runtime_model_overrides.get(role):
-            merged = merged.merge_with(override)
-        return merged
+    def get_model_config(
+        self,
+        role: str,
+        *,
+        project: Any | None = None,
+    ) -> ModelConfig:
+        """Effective model for ``role`` via ``resolve_effective_model`` (L0–L3)."""
+        from butler.model_resolve import resolve_effective_model
+
+        return resolve_effective_model(role, project=project, settings=self).config
+
+    def llm_fallback_extra_configs(self, primary: ModelConfig) -> list[ModelConfig]:
+        """Configured LLM fallback entries after primary (empty = no auto extras)."""
+        from butler.defaults.model_defaults import AUTO_FALLBACK_PROVIDERS
+
+        raw = self.llm_fallback if isinstance(self.llm_fallback, dict) else {}
+        if raw.get("enabled") is False:
+            return []
+
+        chain = raw.get("chain")
+        if chain is None or chain == "auto":
+            if (primary.provider or "").strip().lower() != "minimax":
+                return []
+            out: list[ModelConfig] = []
+            for alt in AUTO_FALLBACK_PROVIDERS:
+                if alt in self.providers:
+                    out.append(
+                        ModelConfig(provider=alt, model=self.providers[alt].model or "")
+                    )
+            return out
+
+        if not isinstance(chain, list):
+            return []
+
+        extras: list[ModelConfig] = []
+        for entry in chain:
+            if isinstance(entry, dict) and (entry.get("provider") or entry.get("model")):
+                extras.append(ModelConfig.from_dict(entry))
+        return extras
+
+    def remote_compact_model_name(self) -> str:
+        """Model for OpenAI-style ``/responses/compact``; empty inherits auxiliary compression."""
+        raw = self.remote_compact if isinstance(self.remote_compact, dict) else {}
+        explicit = str(raw.get("model") or "").strip()
+        if explicit:
+            return explicit
+        aux = self.get_auxiliary_task_config("compression")
+        return (aux.model or "").strip()
 
     def save_butler_config(self) -> None:
         """Persist Butler settings to ``~/.butler/config.yaml``."""
@@ -283,7 +335,15 @@ class ButlerSettings:
             try:
                 raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
                 if isinstance(raw, dict):
-                    for key in ("gateway", "auxiliary"):
+                    for key in (
+                        "gateway",
+                        "memory",
+                        "context",
+                        "auxiliary",
+                        "embedding",
+                        "llm_fallback",
+                        "remote_compact",
+                    ):
                         if key in raw:
                             preserved[key] = raw[key]
             except Exception as exc:
@@ -324,6 +384,12 @@ class ButlerSettings:
             self.models = LayeredModelConfig.from_dict(data["models"])
         if "auxiliary" in data and isinstance(data["auxiliary"], dict):
             self.auxiliary = dict(data["auxiliary"])
+        if "embedding" in data and isinstance(data["embedding"], dict):
+            self.embedding = dict(data["embedding"])
+        if "llm_fallback" in data and isinstance(data["llm_fallback"], dict):
+            self.llm_fallback = dict(data["llm_fallback"])
+        if "remote_compact" in data and isinstance(data["remote_compact"], dict):
+            self.remote_compact = dict(data["remote_compact"])
         self._ensure_default_models_from_provider()
 
     def get_auxiliary_task_config(self, task: str = "compression") -> ModelConfig:
@@ -369,6 +435,7 @@ def get_butler_settings() -> ButlerSettings:
     if _settings is None:
         with _settings_lock:
             if _settings is None:
+                init_dotenv()
                 _settings = ButlerSettings.load()
     return _settings
 
@@ -379,6 +446,7 @@ load_settings = get_butler_settings
 def reload_butler_settings() -> ButlerSettings:
     """Reload from disk (new singleton)."""
     global _settings
+    init_dotenv()
     _settings = ButlerSettings.load()
     return _settings
 
@@ -388,14 +456,30 @@ def save_butler_config() -> None:
     get_butler_settings().save_butler_config()
 
 
-def get_model_config(role: str) -> ModelConfig:
-    """Return merged model configuration for ``role`` (see ``ButlerSettings``)."""
-    return get_butler_settings().get_model_config(role)
+def get_model_config(role: str, *, project: Any | None = None) -> ModelConfig:
+    """Return effective model configuration for ``role`` (L0–L3, optional project L2)."""
+    return get_butler_settings().get_model_config(role, project=project)
 
 
 def get_butler_home() -> Path:
     """``~/.butler/`` (via ``BUTLER_HOME`` when set)."""
     return get_butler_settings().butler_home
+
+
+def get_project_langfuse_config(project_id: str) -> dict:
+    """Load per-project LangFuse configuration from ``~/.butler/projects/<id>/langfuse.json``.
+
+    Returns empty dict if the config file doesn't exist.
+    """
+    import json
+
+    config_path = get_butler_home() / "projects" / project_id / "langfuse.json"
+    if not config_path.is_file():
+        return {}
+    try:
+        return json.loads(config_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
 
 
 __all__ = [
@@ -406,6 +490,7 @@ __all__ = [
     "get_butler_home",
     "get_butler_settings",
     "get_model_config",
+    "get_project_langfuse_config",
     "reload_butler_settings",
     "save_butler_config",
     "BUTLER_RUNTIME_DIRS",

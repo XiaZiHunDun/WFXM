@@ -7,7 +7,7 @@ import json
 import os
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 _DEFAULT_SHARED_CHARS = 4096
 _DEFAULT_MESSAGES_PREFIX_CHARS = 2048
@@ -18,20 +18,15 @@ def cache_safe_delegate_enabled() -> bool:
 
 
 def shared_prefix_max_chars() -> int:
-    try:
-        return max(512, int(os.getenv("BUTLER_CACHE_SAFE_SHARED_CHARS", "") or _DEFAULT_SHARED_CHARS))
-    except ValueError:
-        return _DEFAULT_SHARED_CHARS
+    return int_env("BUTLER_CACHE_SAFE_SHARED_CHARS", _DEFAULT_SHARED_CHARS, min=512)
 
 
 def messages_prefix_max_chars() -> int:
-    try:
-        return max(
-            256,
-            int(os.getenv("BUTLER_CACHE_SAFE_MESSAGES_CHARS", "") or _DEFAULT_MESSAGES_PREFIX_CHARS),
-        )
-    except ValueError:
-        return _DEFAULT_MESSAGES_PREFIX_CHARS
+    return int_env(
+        "BUTLER_CACHE_SAFE_MESSAGES_CHARS",
+        _DEFAULT_MESSAGES_PREFIX_CHARS,
+        min=256,
+    )
 
 
 def system_prompt_fingerprint(text: str) -> str:

@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def transcript_memory_max_lines() -> int:
     import os
 
     try:
-        return max(20, int(os.getenv("BUTLER_TRANSCRIPT_MEMORY_MAX_LINES", "") or "400"))
+        return max(20, int_env("BUTLER_TRANSCRIPT_MEMORY_MAX_LINES", 400))
     except ValueError:
         return 400
 

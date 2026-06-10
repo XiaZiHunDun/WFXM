@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import asyncio
 import logging
 import threading
@@ -20,7 +21,7 @@ def post_session_buffer_threshold() -> int:
     import os
 
     try:
-        return max(4, int(os.getenv("BUTLER_POST_SESSION_BUFFER_MESSAGES", "8")))
+        return int_env("BUTLER_POST_SESSION_BUFFER_MESSAGES", 8, min=4)
     except ValueError:
         return 8
 

@@ -35,11 +35,11 @@ def _yesterday() -> str:
 def _tmp_habits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     habits_dir = tmp_path / "habits"
     habits_dir.mkdir()
-    monkeypatch.setattr("butler.tools.habits._habits_dir", lambda: habits_dir)
-    monkeypatch.setattr("butler.tools.habits._checkins_dir",
-                        lambda: habits_dir / "checkins")
+    checkins_dir = habits_dir / "checkins"
+    checkins_dir.mkdir()
+    monkeypatch.setattr("butler.tools.habits._store.storage_dir", lambda: habits_dir)
+    monkeypatch.setattr("butler.tools.habits._checkin_store.storage_dir", lambda: checkins_dir)
     monkeypatch.setenv("BUTLER_HABITS_ENABLED", "1")
-    (habits_dir / "checkins").mkdir()
     yield habits_dir
 
 
@@ -345,7 +345,7 @@ class TestRegistration:
     def test_register(self):
         registered = {}
         register_habit_tools(lambda name, **kw: registered.update({name: kw}))
-        expected = {"habit_create", "habit_checkin", "habit_stats", "habit_list", "habit_delete"}
+        expected = {"habit_create", "habit_checkin", "habit_stats", "habit_list", "habit_update", "habit_delete"}
         assert set(registered.keys()) == expected
         for info in registered.values():
             assert info.get("toolset") == "habits"

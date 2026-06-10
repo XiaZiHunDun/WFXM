@@ -48,6 +48,8 @@ def lingwen_gateway_live(tmp_path, monkeypatch, tmp_butler_home):
     clear_report_cache()
     proj = _setup_lingwen_gateway_project(tmp_path, monkeypatch)
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
+    monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "u1")
+    monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "0")
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
     handler._orchestrator.project_manager.switch_project_for_chat(

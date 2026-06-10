@@ -81,7 +81,10 @@ def _shared_diagnostic_lines(
     from butler.memory.diagnostics import format_memory_diagnostic_lines
     from butler.model_resolve import format_model_diagnostic_lines
     from butler.ops.snapshot import format_ops_diagnostic_lines
-    from butler.project.meta import format_project_meta_lines
+    from butler.project.meta import (
+        format_default_project_policy_lines,
+        format_project_meta_lines,
+    )
     from butler.runtime.diagnostics import format_runtime_diagnostic_lines
 
     lines: list[str] = []
@@ -108,6 +111,9 @@ def _shared_diagnostic_lines(
             )
     except Exception as exc:
         logger.debug("approval diagnostic lines skipped: %s", exc)
+    lines.extend(
+        format_default_project_policy_lines(inp.orchestrator, inp.session_key)
+    )
     proj = inp.orchestrator.project_manager.get_current(session_key=inp.session_key)
     if proj is not None:
         lines.append("项目元数据:")
@@ -146,6 +152,33 @@ def _shared_diagnostic_lines(
         lines.extend(format_usage_ledger_lines())
     except Exception as exc:
         logger.debug("shared diagnostic lines skipped: %s", exc)
+    try:
+        from butler.ops.cost_calibration import format_rollup_lines
+
+        cal = format_rollup_lines()
+        if cal:
+            lines.append("")
+            lines.extend(cal)
+    except Exception as exc:
+        logger.debug("shared diagnostic lines skipped: %s", exc)
+    try:
+        from butler.ops.eval_diagnostics import format_eval_quality_lines
+
+        eq = format_eval_quality_lines()
+        if eq:
+            lines.append("")
+            lines.extend(eq)
+    except Exception as exc:
+        logger.debug("eval quality diagnostic lines skipped: %s", exc)
+    try:
+        from butler.ops.boundary_observability import format_boundary_observability_lines
+
+        bo = format_boundary_observability_lines()
+        if bo:
+            lines.append("")
+            lines.extend(bo)
+    except Exception as exc:
+        logger.debug("boundary observability lines skipped: %s", exc)
     try:
         from butler.transport.stream_probe import format_stream_probe_lines
 
@@ -197,8 +230,10 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         else "对话引擎: 管家 Butler"
     )
     from butler.core.context_budget import format_context_budget_line
+    from butler.context_settings import format_context_config_source_line
 
     context_line = format_context_budget_line(health)
+    context_config_line = format_context_config_source_line()
     try:
         from butler.core.compaction_status import format_compaction_status_line
 
@@ -266,6 +301,7 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         f"平台: {health.get('platform') or '-'}",
         engine_line,
         context_line,
+        context_config_line,
         f"记忆提炼模型(post_session): {aux_label}",
         f"压缩: {compact_note}",
         f"Schema 降级: {'是' if schema_recovered else '否'}",

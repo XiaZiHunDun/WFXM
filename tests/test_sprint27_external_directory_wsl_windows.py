@@ -30,8 +30,10 @@ import pytest
 
 from butler.execution_context import use_execution_context
 from butler.permissions.approvals import (
+    _load,
+    _save,
     grant_always,
-    grant_once,
+    once_ttl_seconds,
     summarize_approvals,
 )
 from butler.tools.path_safety import check_tool_path
@@ -148,11 +150,20 @@ class TestSummarizeApprovalsExternalDirectory:
         from butler.config import reload_butler_settings
 
         reload_butler_settings()
+        import time as _time
+
         sk = "sprint27:approvals:basic"
-        # 写 2 always (1 external_directory, 1 other) + 1 once (external_directory)
         grant_always(sk, permission="external_directory", tool="read_file", pattern="/tmp/x")
         grant_always(sk, permission="doom_loop", tool="read_file", pattern="**")
-        grant_once(sk, permission="external_directory", tool="write_file", pattern="/tmp/y")
+        data = _load(sk)
+        data.setdefault("once", []).append({
+            "permission": "external_directory",
+            "tool": "write_file",
+            "pattern": "/tmp/y",
+            "fingerprint": "test-fp",
+            "expires_at": _time.time() + once_ttl_seconds(),
+        })
+        _save(sk, data)
 
         summary = summarize_approvals(sk)
         assert summary["external_directory_always_count"] == 1

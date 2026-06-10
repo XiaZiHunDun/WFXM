@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, float_env
 
 
 def loop_budget_nudge_enabled() -> bool:
@@ -13,10 +13,13 @@ def loop_budget_nudge_enabled() -> bool:
 
 
 def loop_budget_warn_ratio() -> float:
-    try:
-        return max(0.5, min(0.95, float(os.getenv("BUTLER_LOOP_BUDGET_WARN_RATIO", "0.75"))))
-    except ValueError:
-        return 0.75
+    return float_env(
+        "BUTLER_LOOP_BUDGET_WARN_RATIO",
+        0.75,
+        min=0.5,
+        max=0.95,
+        warn_on_clamp=True,
+    )
 
 
 def iteration_budget_nudge_message(*, iteration: int, max_iterations: int) -> str:

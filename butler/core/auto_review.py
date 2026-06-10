@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def max_denials_per_turn() -> int:
     import os
 
     try:
-        return max(1, int(os.getenv("BUTLER_AUTO_REVIEW_MAX_DENIALS", "") or "3"))
+        return max(1, int_env("BUTLER_AUTO_REVIEW_MAX_DENIALS", 3))
     except ValueError:
         return 3
 

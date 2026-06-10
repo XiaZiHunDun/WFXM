@@ -13,7 +13,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -227,9 +227,9 @@ class TestReminderTools:
             assert result["ok"] is False
 
     def test_list_reminders(self, tmp_path):
-        from butler.tools.reminder import tool_set_reminder, tool_list_reminders
+        from butler.tools.reminder import tool_set_reminder, tool_list_reminders, _reminder_store
 
-        with patch("butler.tools.reminder._reminders_dir", return_value=tmp_path):
+        with patch.object(_reminder_store, "storage_dir", return_value=tmp_path):
             tool_set_reminder(message="r1", when="1小时")
             tool_set_reminder(message="r2", when="2小时")
             result = json.loads(tool_list_reminders())
@@ -237,9 +237,9 @@ class TestReminderTools:
             assert result["pending"] == 2
 
     def test_cancel_reminder(self, tmp_path):
-        from butler.tools.reminder import tool_set_reminder, tool_cancel_reminder, tool_list_reminders
+        from butler.tools.reminder import tool_set_reminder, tool_cancel_reminder, tool_list_reminders, _reminder_store
 
-        with patch("butler.tools.reminder._reminders_dir", return_value=tmp_path):
+        with patch.object(_reminder_store, "storage_dir", return_value=tmp_path):
             created = json.loads(tool_set_reminder(message="cancel me", when="1天"))
             rid = created["id"]
             cancel_result = json.loads(tool_cancel_reminder(reminder_id=rid))
@@ -345,13 +345,13 @@ class TestOutboxReplay:
         from butler.gateway.runner import _replay_pending_outbox
 
         mock_adapter = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
-        mock_adapter.send_text = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
+        mock_adapter.send = AsyncMock()
 
         with patch("butler.gateway.durable_outbox.durable_outbox_enabled", return_value=True), \
              patch("butler.gateway.durable_outbox.list_pending_outbox", return_value=[
-                 {"id": "e1", "chat_id": "user1", "text": "hello"},
+                 {"entry_id": "e1", "chat_id": "user1", "body": "hello"},
              ]), \
              patch("butler.gateway.durable_outbox.mark_outbox_sent") as mock_mark:
             _replay_pending_outbox([mock_adapter])
-            mock_adapter.send_text.assert_called_once_with("user1", "hello")
+            mock_adapter.send.assert_called_once_with("user1", "hello")
             mock_mark.assert_called_once_with("e1")

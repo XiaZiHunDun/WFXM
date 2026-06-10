@@ -460,6 +460,8 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
         except Exception as exc:
             logger.debug("edit path tracking skipped: %s", exc)
         payload: dict[str, Any] = {"success": True, "replacements": 1}
+        if _written_path is not None:
+            payload["path"] = str(_written_path)
         if fuzzy:
             payload["fuzzy_quotes"] = True
         if _written_path is not None:

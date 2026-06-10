@@ -194,10 +194,9 @@ def reset_default_backend(backend: CacheBackend | None = None) -> None:
 
 
 def _resolve_max_entries() -> int:
-    try:
-        raw = int(os.getenv("BUTLER_EXP_CACHE_MAX", str(_DEFAULT_MAX_ENTRIES)))
-    except ValueError:
-        return _DEFAULT_MAX_ENTRIES
+    from butler.env_parse import int_env
+
+    raw = int_env("BUTLER_EXP_CACHE_MAX", _DEFAULT_MAX_ENTRIES)
     return max(_MAX_ENTRIES_FLOOR, min(_MAX_ENTRIES_CEILING, raw))
 
 

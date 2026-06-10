@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 from butler.core.tool_result_storage import is_persisted_tool_result
 
 CLEARED_TOOL_RESULT_MESSAGE = "[旧工具结果已清空]"
@@ -23,6 +21,15 @@ _COMPACTABLE = frozenset({
     "web_fetch",
 })
 
+# PIM read/list tools return personal data — aggressive prune + faster clear.
+_PIM_SENSITIVE = frozenset({
+    "contact_find", "contact_list",
+    "memo_list", "memo_search",
+    "expense_list", "expense_summary", "expense_search",
+    "habit_list", "habit_stats",
+    "list_reminders", "reminder_list_active",
+})
+
 # Writes and delegation reports keep a longer inline summary.
 _PRESERVE = frozenset({
     "write_file",
@@ -35,28 +42,36 @@ _PRESERVE = frozenset({
 })
 
 
-def _int_env(name: str, default: int) -> int:
-    try:
-        return int(os.getenv(name, "").strip() or default)
-    except ValueError:
-        return default
+def _tool_prune_settings():
+    from butler.context_settings import resolve_context_config
+
+    return resolve_context_config().tool_prune
 
 
 def keep_recent_tool_messages() -> int:
-    return max(1, _int_env("BUTLER_TOOL_PRUNE_KEEP_RECENT", 4))
+    return _tool_prune_settings().keep_recent
+
+
+def keep_recent_pim_tool_messages() -> int:
+    return _tool_prune_settings().pim_keep_recent
 
 
 def prune_limit_chars(policy: str) -> int:
+    tp = _tool_prune_settings()
+    if policy == "pii_clearable":
+        return tp.pii_chars
     if policy == "clearable":
-        return max(200, _int_env("BUTLER_TOOL_PRUNE_CLEARABLE_CHARS", 400))
+        return tp.clearable_chars
     if policy == "preserve":
-        return max(400, _int_env("BUTLER_TOOL_PRUNE_PRESERVE_CHARS", 2400))
-    return max(200, _int_env("BUTLER_TOOL_PRUNE_DEFAULT_CHARS", 800))
+        return tp.preserve_chars
+    return tp.default_chars
 
 
 def classify_tool(tool_name: str) -> str:
-    """Return ``clearable`` | ``preserve`` | ``default``."""
+    """Return ``pii_clearable`` | ``clearable`` | ``preserve`` | ``default``."""
     name = str(tool_name or "").strip().lower()
+    if name in _PIM_SENSITIVE:
+        return "pii_clearable"
     if name in _COMPACTABLE:
         return "clearable"
     if name in _PRESERVE:
@@ -100,6 +115,8 @@ def prune_tool_message_content(
     if is_persisted_tool_result(content):
         return content
     policy = classify_tool(tool_name)
+    if policy == "pii_clearable" and is_stale:
+        return CLEARED_TOOL_RESULT_MESSAGE
     if policy == "clearable" and is_stale:
         return CLEARED_TOOL_RESULT_MESSAGE
     limit = prune_limit_chars(policy)

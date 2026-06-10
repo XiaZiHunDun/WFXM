@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Any, Callable
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ def run_compaction_turn(
     compressed = compress(
         list(messages),
         threshold_ratio=0.0,
-        min_messages_to_compress=max(6, int(os.getenv("BUTLER_COMPACTION_TURN_MIN_MSGS", "8"))),
+        min_messages_to_compress=int_env("BUTLER_COMPACTION_TURN_MIN_MSGS", 8, min=6),
         diagnostics=diag,
     )
     after_est = before_est

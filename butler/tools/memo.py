@@ -17,30 +17,36 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+from butler.tools.pim_schema import (
+    MAX_ACTIVE_MEMOS as _MAX_ACTIVE,
+    MAX_MEMO_CONTENT_LEN as _MAX_CONTENT_LEN,
+    MAX_MEMO_TAGS as _MAX_TAGS,
+    MAX_TAG_LEN as _MAX_TAG_LEN,
+    MEMO_CATEGORIES as _VALID_CATEGORIES,
+    MEMO_CATEGORY_LABELS as _CATEGORY_LABELS,
+    MEMO_PRIORITIES as _VALID_PRIORITIES,
+    MEMO_PRIORITY_RANK as _PRIORITY_RANK,
+    MEMO_STATUSES as _VALID_STATUSES,
+)
 from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
 
-_MAX_ACTIVE = 200
-_MAX_CONTENT_LEN = 2000
-_MAX_TAGS = 10
-_MAX_TAG_LEN = 30
-
-_VALID_CATEGORIES = frozenset({
-    "general", "health", "finance", "travel",
-    "shopping", "social", "work",
-})
-_VALID_STATUSES = frozenset({"active", "done", "archived"})
-_VALID_PRIORITIES = frozenset({"low", "normal", "high", "urgent"})
-
-_PRIORITY_RANK = {"urgent": 0, "high": 1, "normal": 2, "low": 3}
-_CATEGORY_LABELS = {
-    "general": "通用", "health": "健康", "finance": "财务",
-    "travel": "出行", "shopping": "购物", "social": "社交", "work": "工作",
-}
 _STATUS_LABELS = {"active": "活跃", "done": "已完成", "archived": "已归档"}
 
-_store = TenantStore("memos", env_toggle="BUTLER_MEMO_ENABLED", skip_files=frozenset({"index.json"}))
+_base_store = TenantStore(
+    "memos", env_toggle="BUTLER_MEMO_ENABLED", skip_files=frozenset({"index.json"}),
+)
+
+
+class _MemosStore(TenantStore):
+    def storage_dir(self) -> Path:
+        return _memos_dir()
+
+
+_store = _MemosStore(
+    "memos", env_toggle="BUTLER_MEMO_ENABLED", skip_files=frozenset({"index.json"}),
+)
 
 
 def _memo_enabled() -> bool:
@@ -48,51 +54,7 @@ def _memo_enabled() -> bool:
 
 
 def _memos_dir() -> Path:
-    return _store.storage_dir()
-
-
-def _save_memo(memo: dict[str, Any]) -> Path:
-    d = _memos_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    path = d / f"{memo['id']}.json"
-    path.write_text(json.dumps(memo, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
-
-
-def _load_all() -> list[dict[str, Any]]:
-    d = _memos_dir()
-    if not d.is_dir():
-        return []
-    result: list[dict[str, Any]] = []
-    for f in sorted(d.glob("*.json")):
-        if f.name == "index.json":
-            continue
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and "id" in data:
-                result.append(data)
-        except (json.JSONDecodeError, OSError):
-            continue
-    return result
-
-
-def _load_memo(memo_id: str) -> dict[str, Any] | None:
-    path = _memos_dir() / f"{memo_id}.json"
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) and data.get("id") == memo_id else None
-    except (json.JSONDecodeError, OSError):
-        return None
-
-
-def _delete_memo(memo_id: str) -> bool:
-    path = _memos_dir() / f"{memo_id}.json"
-    if path.is_file():
-        path.unlink()
-        return True
-    return False
+    return _base_store.storage_dir()
 
 
 def _normalize_tags(raw: Any) -> list[str]:
@@ -153,7 +115,7 @@ def tool_memo_add(
         return json.dumps({"ok": False, "error": "content is required"})
     content = content[:_MAX_CONTENT_LEN]
 
-    active_count = sum(1 for m in _load_all() if m.get("status") == "active")
+    active_count = sum(1 for m in _store.load_all() if m.get("status") == "active")
     if active_count >= _MAX_ACTIVE:
         return json.dumps({
             "ok": False,
@@ -174,7 +136,7 @@ def tool_memo_add(
         "updated_at": now,
         "source": "tool",
     }
-    _save_memo(memo)
+    _store.save(memo)
 
     result: dict[str, Any] = {
         "ok": True,
@@ -200,7 +162,7 @@ def tool_memo_list(
     if not _memo_enabled():
         return json.dumps({"ok": False, "error": "BUTLER_MEMO_ENABLED=0"})
 
-    all_memos = _load_all()
+    all_memos = _store.load_all()
     target_status = _normalize_status(status) if status else "active"
 
     filtered = [m for m in all_memos if m.get("status") == target_status]
@@ -235,7 +197,7 @@ def tool_memo_search(
     if not q:
         return tool_memo_list()
 
-    all_memos = _load_all()
+    all_memos = _store.load_all()
     matched: list[dict[str, Any]] = []
     for m in all_memos:
         text = (m.get("content", "") + " " + " ".join(m.get("tags", []))).lower()
@@ -269,15 +231,10 @@ def tool_memo_update(
     if not mid:
         return json.dumps({"ok": False, "error": "memo_id is required"})
 
-    memo = _load_memo(mid)
-    if memo is None:
-        for m in _load_all():
-            if m.get("id", "").startswith(mid):
-                memo = m
-                mid = m["id"]
-                break
+    memo = _store.find_by_prefix(mid)
     if memo is None:
         return json.dumps({"ok": False, "error": f"Memo '{mid}' not found"})
+    mid = memo["id"]
 
     changed = False
     if content and content.strip():
@@ -302,7 +259,7 @@ def tool_memo_update(
 
     if changed:
         memo["updated_at"] = time.time()
-        _save_memo(memo)
+        _store.save(memo)
 
     return json.dumps({
         "ok": True,
@@ -320,13 +277,9 @@ def tool_memo_delete(memo_id: str, **_: Any) -> str:
     if not mid:
         return json.dumps({"ok": False, "error": "memo_id is required"})
 
-    if _delete_memo(mid):
-        return json.dumps({"ok": True, "deleted": mid})
-
-    for m in _load_all():
-        if m.get("id", "").startswith(mid):
-            if _delete_memo(m["id"]):
-                return json.dumps({"ok": True, "deleted": m["id"]})
+    memo = _store.find_by_prefix(mid)
+    if memo is not None and _store.delete(memo["id"]):
+        return json.dumps({"ok": True, "deleted": memo["id"]})
 
     return json.dumps({"ok": False, "error": f"Memo '{mid}' not found"})
 
@@ -368,7 +321,7 @@ def format_memos_for_wechat(arg: str = "", *, limit: int = 15) -> str:
 
 
 def _format_memo_list(*, limit: int = 15) -> str:
-    all_memos = _load_all()
+    all_memos = _store.load_all()
     active = _sort_memos([m for m in all_memos if m.get("status") == "active"])
     done_count = sum(1 for m in all_memos if m.get("status") == "done")
 
@@ -436,8 +389,9 @@ def register_memo_tools(register: Callable[..., None]) -> None:
         name="memo_add",
         description=(
             "为主人创建备忘录条目。用于记录日常事务、约会、购物清单、健康信息等。"
-            "用户说「帮我记一下…」「提醒我…」「别忘了…」时应使用此工具。"
-            "如果有明确时间，设置 due_date 并建议 set_reminder。"
+            "用户说「帮我记一下…」「别忘了…」时应使用此工具。"
+            "如果有明确时间点且需要推送提醒，应配合 set_reminder 使用。"
+            "注意：定时推送提醒请用 set_reminder，个人偏好请用 butler_remember。"
         ),
         schema={
             "type": "object",
@@ -497,7 +451,7 @@ def register_memo_tools(register: Callable[..., None]) -> None:
 
     register(
         name="memo_search",
-        description="按关键词搜索备忘录内容和标签。",
+        description="按关键词搜索备忘录内容和标签。用户说「查看/搜索XX备忘」时使用。注意：修改备忘请用 memo_update（需要 memo_id）。",
         schema={
             "type": "object",
             "properties": {
@@ -512,7 +466,7 @@ def register_memo_tools(register: Callable[..., None]) -> None:
 
     register(
         name="memo_update",
-        description="更新备忘录的状态、内容或优先级。标记完成用 status='done'。",
+        description="更新备忘录的状态、内容或优先级。标记完成用 status='done'。需要 memo_id 参数；若不知 memo_id，先用 memo_search 查找。",
         schema={
             "type": "object",
             "properties": {

@@ -166,7 +166,7 @@ jobs:
 | 配置加载 | `butler/runtime/loader.py` | 读 `projects/*/runtime/jobs.yaml` |
 | 调度解析 | `butler/runtime/schedule.py` | cron 匹配「是否该跑」；`next_run` |
 | 执行器 | `butler/runtime/runner.py` | `subprocess` + timeout + cwd=workspace；捕获 stdout/stderr |
-| 内置 handler | `butler/runtime/builtin_handlers.py` | `workflow_state_digest` 等只读 |
+| 内置 handler | `butler/runtime/builtin_handlers.py` | `workflow_state_digest`、`memory_offline_consolidate`、`experience_mining_weekly` 等只读 |
 | 批准存储 | `butler/runtime/approval.py` | `~/.butler/runtime/approvals/<job_id>.json` |
 | 运行审计 | `butler/runtime/audit.py` | 每次 run 写 JSON + 退出码 |
 | 通知 | `butler/runtime/notify.py` | 封装 `send_wechat_direct` |

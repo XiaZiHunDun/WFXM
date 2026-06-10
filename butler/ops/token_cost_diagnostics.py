@@ -1,8 +1,63 @@
-"""Token usage / cost hints for /诊断 (support line E)."""
+"""Token usage / cost hints for /诊断 (support line E).
+
+A5/D4 成本模型数值标定：价格表按厂商公开定价维护（USD / 1M tokens）。
+"""
 
 from __future__ import annotations
 
 from typing import Any
+
+# (input_usd_per_1M, output_usd_per_1M)  — 按模型关键字从具体到通用排列
+_PRICE_TABLE: list[tuple[tuple[str, ...], float, float]] = [
+    # --- DeepSeek ---
+    (("deepseek-chat", "deepseek-v3"), 0.27, 1.10),
+    (("deepseek-reasoner", "deepseek-r1"), 0.55, 2.19),
+    (("deepseek",), 0.27, 1.10),
+    # --- MiniMax ---
+    (("minimax-m3",), 0.20, 0.80),
+    (("minimax-m2.7",), 0.12, 0.50),
+    (("minimax-text-01",), 0.07, 0.28),
+    (("minimax",), 0.20, 0.80),
+    # --- Qwen / DashScope ---
+    (("qwen-max",), 1.60, 6.40),
+    (("qwen-plus",), 0.40, 1.20),
+    (("qwen-turbo",), 0.05, 0.20),
+    (("qwen-long",), 0.05, 0.20),
+    (("qwen",), 0.40, 1.20),
+    (("tongyi", "dashscope"), 0.40, 1.20),
+    # --- Anthropic ---
+    (("claude-sonnet-4", "claude-4-sonnet"), 3.0, 15.0),
+    (("claude-opus-4", "claude-4-opus"), 15.0, 75.0),
+    (("claude-3.5-sonnet", "claude-3-5-sonnet"), 3.0, 15.0),
+    (("claude-3.5-haiku", "claude-3-5-haiku"), 0.80, 4.0),
+    (("claude",), 3.0, 15.0),
+    # --- OpenAI ---
+    (("gpt-4o-mini",), 0.15, 0.60),
+    (("gpt-4o",), 2.50, 10.0),
+    (("gpt-4-turbo",), 10.0, 30.0),
+    (("gpt-4",), 30.0, 60.0),
+    (("gpt-3.5",), 0.50, 1.50),
+    (("o1-mini",), 3.0, 12.0),
+    (("o1",), 15.0, 60.0),
+    (("openai",), 2.50, 10.0),
+    # --- ZhiPu / GLM ---
+    (("glm-4-plus",), 0.50, 0.50),
+    (("glm-4",), 0.10, 0.10),
+    (("glm", "zhipu", "chatglm"), 0.50, 0.50),
+    # --- SiliconFlow (pass-through) ---
+    (("siliconflow",), 0.30, 1.00),
+]
+
+_FALLBACK_IN, _FALLBACK_OUT = 1.0, 3.0
+
+
+def _lookup_rate(model: str) -> tuple[float, float]:
+    """Return (input, output) rate for model string (USD per 1M tokens)."""
+    m = model.lower()
+    for keywords, in_rate, out_rate in _PRICE_TABLE:
+        if any(k in m for k in keywords):
+            return in_rate, out_rate
+    return _FALLBACK_IN, _FALLBACK_OUT
 
 
 def _estimate_cost_usd(
@@ -11,21 +66,12 @@ def _estimate_cost_usd(
     *,
     model: str = "",
 ) -> float | None:
-    """Rough list-price estimate when BUTLER_TOKEN_COST_ESTIMATE=1 (not billing truth)."""
-    m = str(model or "").lower()
+    """List-price estimate. Intentionally a rough upper bound, not billing truth."""
     pin = max(0, int(prompt_tokens or 0))
     pout = max(0, int(completion_tokens or 0))
     if pin + pout <= 0:
         return None
-    # USD per 1M tokens (very rough defaults)
-    if "claude" in m or "anthropic" in m:
-        in_rate, out_rate = 3.0, 15.0
-    elif "gpt" in m or "openai" in m:
-        in_rate, out_rate = 2.5, 10.0
-    elif "minimax" in m:
-        in_rate, out_rate = 0.3, 1.2
-    else:
-        in_rate, out_rate = 1.0, 3.0
+    in_rate, out_rate = _lookup_rate(model)
     return (pin * in_rate + pout * out_rate) / 1_000_000.0
 
 

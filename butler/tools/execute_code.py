@@ -23,7 +23,9 @@ def execute_code_enabled() -> bool:
 
 def execute_code_timeout_seconds() -> int:
     try:
-        return max(5, min(120, int(os.getenv("BUTLER_EXECUTE_CODE_TIMEOUT", str(_DEFAULT_TIMEOUT)))))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_EXECUTE_CODE_TIMEOUT", _DEFAULT_TIMEOUT, min=5, max=120)
     except ValueError:
         return _DEFAULT_TIMEOUT
 

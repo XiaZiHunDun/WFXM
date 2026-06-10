@@ -137,12 +137,13 @@ def _phase_apply_human_gate(
     try:
         from butler.human_gate import resolve_human_gate_message
 
-        gate_reply = resolve_human_gate_message(session_key, text)
-        if gate_reply is not None:
-            from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+        from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
-            if not is_gateway_owner(platform=platform, external_id=external_id):
-                return owner_required_message()
+        is_owner = is_gateway_owner(platform=platform, external_id=external_id)
+        gate_reply = resolve_human_gate_message(
+            session_key, text, owner_verified=is_owner,
+        )
+        if gate_reply is not None:
             return gate_reply
     except ImportError as exc:
         logger.info("human_gate module not available: %s", exc)

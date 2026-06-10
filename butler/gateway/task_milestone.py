@@ -11,14 +11,14 @@ if TYPE_CHECKING:
 
 
 def task_milestone_enabled() -> bool:
-    from butler.env_parse import env_truthy
+    from butler.env_parse import env_truthy, float_env
 
     return env_truthy("BUTLER_GATEWAY_TASK_MILESTONE", default=False)
 
 
 def task_milestone_min_seconds() -> float:
     try:
-        return max(30.0, float(os.getenv("BUTLER_GATEWAY_TASK_MILESTONE_SECONDS", "") or "90"))
+        return max(30.0, float_env("BUTLER_GATEWAY_TASK_MILESTONE_SECONDS", 90))
     except ValueError:
         return 90.0
 

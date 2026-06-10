@@ -7,6 +7,7 @@ Import this package to ensure all handlers are wired up.
 from butler.gateway.commands import (
     dev_commands,
     dialog_commands,
+    experience_commands,
     info_commands,
     lifecycle_commands,
     memory_commands,
@@ -18,6 +19,7 @@ from butler.gateway.commands import (
 __all__ = [
     "dev_commands",
     "dialog_commands",
+    "experience_commands",
     "info_commands",
     "lifecycle_commands",
     "memory_commands",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 from pathlib import Path
 
 import yaml
@@ -169,7 +170,7 @@ def _prompt_eval_live_max_cases() -> int:
     import os
 
     try:
-        return max(0, int(os.getenv("BUTLER_PROMPT_EVAL_LIVE_MAX", "12")))
+        return int_env("BUTLER_PROMPT_EVAL_LIVE_MAX", 12, min=0)
     except ValueError:
         return 12
 

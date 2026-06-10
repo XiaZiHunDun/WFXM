@@ -74,7 +74,7 @@ def test_injection_review_gate_confirm(monkeypatch, tmp_path):
     sk = "wechat:test"
     request_injection_review_gate(sk, score=92)
     assert has_injection_review_pending(sk)
-    reply = resolve_human_gate_message(sk, "确认")
+    reply = resolve_human_gate_message(sk, "确认", owner_verified=True)
     assert reply and "重新发送" in reply
     assert not has_injection_review_pending(sk)
     assert consume_injection_bypass(sk)

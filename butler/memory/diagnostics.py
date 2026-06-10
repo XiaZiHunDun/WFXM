@@ -229,13 +229,26 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
     if not stats:
         return ["记忆分层: 无数据"]
 
-    lines = [
-        "记忆分层:",
-        f"  Owner 画像: {stats.get('profile_entries', 0)} 条 / "
-        f"{stats.get('profile_chars', 0)} 字",
-        f"  Experience: 长期 {stats.get('experience_long_term', 0)} 条, "
-        f"会话回声 {stats.get('conversation_rows', 0)} 条",
-    ]
+    try:
+        from butler.memory_settings import format_memory_config_source_line
+
+        config_line = format_memory_config_source_line()
+    except Exception as exc:
+        logger.debug("format memory config source skipped: %s", exc)
+        config_line = ""
+
+    lines: list[str] = []
+    if config_line:
+        lines.append(config_line)
+    lines.extend(
+        [
+            "记忆分层:",
+            f"  Owner 画像: {stats.get('profile_entries', 0)} 条 / "
+            f"{stats.get('profile_chars', 0)} 字",
+            f"  Experience: 长期 {stats.get('experience_long_term', 0)} 条, "
+            f"会话回声 {stats.get('conversation_rows', 0)} 条",
+        ]
+    )
     proj = stats.get("project_name") or "（未选项目）"
     lines.append(
         f"  项目 MEMORY ({proj}): 正式条目 {stats.get('project_bullets', 0)} 条, "
@@ -297,4 +310,13 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
     mode = stats.get("memory_project_prefetch_mode")
     if mode:
         lines.append(f"  项目预取模式: {mode}")
+    try:
+        from butler.memory.metrics_persist import format_effectiveness_lines
+
+        eff = format_effectiveness_lines()
+        if eff:
+            lines.append("")
+            lines.extend(eff)
+    except Exception as exc:
+        logger.debug("format memory diagnostic lines skipped: %s", exc)
     return lines

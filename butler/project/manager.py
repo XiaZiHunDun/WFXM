@@ -151,7 +151,7 @@ class ProjectManager:
                 key = ""
         if key:
             from_session = project_from_session_key(key)
-            if from_session:
+            if from_session and from_session in self._projects:
                 return from_session
             parts = key.split(":", 2)
             if len(parts) >= 2:

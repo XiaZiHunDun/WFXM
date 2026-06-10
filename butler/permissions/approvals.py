@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import float_env
 import hashlib
 import json
 import logging
@@ -41,7 +42,7 @@ class ApprovalRequest:
 
 def once_ttl_seconds() -> float:
     try:
-        return max(60.0, float(os.getenv("BUTLER_PERMISSION_ONCE_TTL", "") or _ONCE_TTL_SEC))
+        return float_env("BUTLER_PERMISSION_ONCE_TTL", _ONCE_TTL_SEC, min=60.0)
     except ValueError:
         return _ONCE_TTL_SEC
 

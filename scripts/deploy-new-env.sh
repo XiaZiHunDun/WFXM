@@ -8,6 +8,7 @@ BUTLER_HOME="${BUTLER_HOME:-$HOME/.butler}"
 EXTRAS=""
 USE_LOCK=0
 INSTALL_SYSTEMD=0
+INSTALL_LANGFUSE=0
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
@@ -15,6 +16,7 @@ while [[ $# -gt 0 ]]; do
     --extras) EXTRAS="$2"; shift ;;
     --lock) USE_LOCK=1 ;;
     --systemd) INSTALL_SYSTEMD=1 ;;
+    --langfuse) INSTALL_LANGFUSE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     -h|--help)
       cat <<HELP
@@ -24,15 +26,17 @@ Usage:
   bash scripts/deploy-new-env.sh [OPTIONS]
 
 Options:
-  --extras EXTRA1,EXTRA2   安装额外的 optional extras（如 mcp,vectors,embeddings）
+  --extras EXTRA1,EXTRA2   安装额外的 optional extras（如 mcp,vectors,embeddings,observability）
   --lock                   使用 requirements.lock 锁定版本安装
   --systemd                安装 systemd 用户服务（网关 + runtime timer）
+  --langfuse               部署 LangFuse 可观测栈（docker compose）
   --dry-run                仅打印将执行的操作，不实际执行
   -h, --help               显示此帮助
 
 Examples:
   bash scripts/deploy-new-env.sh
   bash scripts/deploy-new-env.sh --extras mcp,vectors --systemd
+  bash scripts/deploy-new-env.sh --extras observability --langfuse
   bash scripts/deploy-new-env.sh --lock
   bash scripts/deploy-new-env.sh --dry-run
 HELP
@@ -141,8 +145,23 @@ else
 fi
 
 # --- Step 7: systemd 服务（可选） ---
+if [[ "$INSTALL_LANGFUSE" -eq 1 ]]; then
+  echo "[7/8] 部署 LangFuse 可观测栈..."
+  if [[ -f "$ROOT/scripts/langfuse-setup.sh" ]]; then
+    run_cmd bash "$ROOT/scripts/langfuse-setup.sh"
+    if [[ -f "$ROOT/scripts/butler-observability-provision.sh" ]]; then
+      run_cmd bash "$ROOT/scripts/butler-observability-provision.sh"
+    fi
+    echo "  LangFuse 部署完成 ✓"
+  else
+    echo "  WARNING: langfuse-setup.sh 未找到"
+  fi
+else
+  echo "[7/8] 跳过 LangFuse（使用 --langfuse 启用）"
+fi
+
 if [[ "$INSTALL_SYSTEMD" -eq 1 ]]; then
-  echo "[7/7] 安装 systemd 服务..."
+  echo "[8/8] 安装 systemd 服务..."
   if [[ -f "$ROOT/scripts/install-butler-gateway-service.sh" ]]; then
     bash "$ROOT/scripts/install-butler-gateway-service.sh" --no-restart
   fi
@@ -151,7 +170,7 @@ if [[ "$INSTALL_SYSTEMD" -eq 1 ]]; then
   fi
   echo "  systemd 服务已安装 ✓"
 else
-  echo "[7/7] 跳过 systemd（使用 --systemd 启用）"
+  echo "[8/8] 跳过 systemd（使用 --systemd 启用）"
 fi
 
 echo ""

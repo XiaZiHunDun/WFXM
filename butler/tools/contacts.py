@@ -16,26 +16,29 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
-from butler.tools._file_cache import read_json_cached
+from butler.tools.pim_schema import (
+    CONTACT_CATEGORIES as _VALID_CATEGORIES,
+    CONTACT_CATEGORY_LABELS as _CATEGORY_LABELS,
+    MAX_CONTACTS as _MAX_CONTACTS,
+    MAX_CONTACT_NOTES as _MAX_CONTACT_NOTES,
+    MAX_CONTACT_TAGS as _MAX_CONTACT_TAGS,
+    MAX_EMAILS as _MAX_EMAILS,
+    MAX_PHONES as _MAX_PHONES,
+    MAX_TAG_LEN as _MAX_TAG_LEN,
+)
 from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
 
-_MAX_CONTACTS = 500
-_MAX_PHONES = 5
-_MAX_EMAILS = 5
-_MAX_TAGS = 10
-_MAX_TAG_LEN = 30
+_base_store = TenantStore("contacts", env_toggle="BUTLER_CONTACTS_ENABLED")
 
-_VALID_CATEGORIES = frozenset({
-    "personal", "work", "service", "medical", "other",
-})
-_CATEGORY_LABELS = {
-    "personal": "个人", "work": "工作", "service": "服务",
-    "medical": "医疗", "other": "其他",
-}
 
-_store = TenantStore("contacts", env_toggle="BUTLER_CONTACTS_ENABLED")
+class _ContactsStore(TenantStore):
+    def storage_dir(self) -> Path:
+        return _contacts_dir()
+
+
+_store = _ContactsStore("contacts", env_toggle="BUTLER_CONTACTS_ENABLED")
 
 
 def _contacts_enabled() -> bool:
@@ -43,43 +46,7 @@ def _contacts_enabled() -> bool:
 
 
 def _contacts_dir() -> Path:
-    return _store.storage_dir()
-
-
-def _save_contact(contact: dict[str, Any]) -> Path:
-    d = _contacts_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    path = d / f"{contact['id']}.json"
-    path.write_text(json.dumps(contact, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
-
-
-def _load_all() -> list[dict[str, Any]]:
-    d = _contacts_dir()
-    if not d.is_dir():
-        return []
-    result: list[dict[str, Any]] = []
-    for f in sorted(d.glob("*.json")):
-        data = read_json_cached(f)
-        if isinstance(data, dict) and "id" in data:
-            result.append(data)
-    return result
-
-
-def _load_contact(cid: str) -> dict[str, Any] | None:
-    path = _contacts_dir() / f"{cid}.json"
-    if not path.is_file():
-        return None
-    data = read_json_cached(path)
-    return data if isinstance(data, dict) and data.get("id") == cid else None
-
-
-def _delete_contact(cid: str) -> bool:
-    path = _contacts_dir() / f"{cid}.json"
-    if path.is_file():
-        path.unlink()
-        return True
-    return False
+    return _base_store.storage_dir()
 
 
 def _normalize_phones(raw: Any) -> list[str]:
@@ -128,7 +95,7 @@ def _normalize_tags(raw: Any) -> list[str]:
         s = str(t).strip()[:_MAX_TAG_LEN]
         if s and s not in tags:
             tags.append(s)
-        if len(tags) >= _MAX_TAGS:
+        if len(tags) >= _MAX_CONTACT_TAGS:
             break
     return tags
 
@@ -143,7 +110,7 @@ def _find_by_name(name: str) -> list[dict[str, Any]]:
     q = name.strip().lower()
     if not q:
         return []
-    all_contacts = _load_all()
+    all_contacts = _store.load_all()
     exact = [c for c in all_contacts if c.get("name", "").lower() == q]
     if exact:
         return exact
@@ -153,7 +120,7 @@ def _find_by_name(name: str) -> list[dict[str, Any]]:
 def _check_duplicate(name: str, exclude_id: str = "") -> dict[str, Any] | None:
     """Check if a contact with the same name already exists."""
     q = name.strip().lower()
-    for c in _load_all():
+    for c in _store.load_all():
         if c.get("name", "").lower() == q and c.get("id") != exclude_id:
             return c
     return None
@@ -175,11 +142,11 @@ def tool_contact_add(
     if not _contacts_enabled():
         return json.dumps({"ok": False, "error": "BUTLER_CONTACTS_ENABLED=0"})
 
-    name = (name or "").strip()
+    name = (name or "").strip()[:100]
     if not name:
         return json.dumps({"ok": False, "error": "name is required"})
 
-    total = len(_load_all())
+    total = len(_store.load_all())
     if total >= _MAX_CONTACTS:
         return json.dumps({
             "ok": False,
@@ -195,14 +162,14 @@ def tool_contact_add(
         "name": name,
         "phone": _normalize_phones(phone),
         "email": _normalize_emails(email),
-        "address": (address or "").strip(),
+        "address": (address or "").strip()[:500],
         "category": _normalize_category(category),
         "tags": _normalize_tags(tags),
-        "notes": (notes or "").strip()[:500],
+        "notes": (notes or "").strip()[:_MAX_CONTACT_NOTES],
         "created_at": now,
         "updated_at": now,
     }
-    _save_contact(contact)
+    _store.save(contact)
 
     result: dict[str, Any] = {
         "ok": True,
@@ -224,7 +191,7 @@ def tool_contact_find(
         return json.dumps({"ok": False, "error": "BUTLER_CONTACTS_ENABLED=0"})
 
     q = (query or "").strip().lower()
-    all_contacts = _load_all()
+    all_contacts = _store.load_all()
 
     if q:
         matched: list[dict[str, Any]] = []
@@ -275,15 +242,10 @@ def tool_contact_update(
     if not cid:
         return json.dumps({"ok": False, "error": "contact_id is required"})
 
-    contact = _load_contact(cid)
-    if contact is None:
-        for c in _load_all():
-            if c.get("id", "").startswith(cid):
-                contact = c
-                cid = c["id"]
-                break
+    contact = _store.find_by_prefix(cid)
     if contact is None:
         return json.dumps({"ok": False, "error": f"Contact '{cid}' not found"})
+    cid = contact["id"]
 
     changed = False
     if name and name.strip():
@@ -296,7 +258,7 @@ def tool_contact_update(
         contact["email"] = _normalize_emails(email)
         changed = True
     if address is not None and address != "":
-        contact["address"] = address.strip()
+        contact["address"] = address.strip()[:500]
         changed = True
     if category and category.strip():
         new_cat = _normalize_category(category)
@@ -307,12 +269,12 @@ def tool_contact_update(
         contact["tags"] = _normalize_tags(tags)
         changed = True
     if notes is not None and notes != "":
-        contact["notes"] = notes.strip()[:500]
+        contact["notes"] = notes.strip()[:_MAX_CONTACT_NOTES]
         changed = True
 
     if changed:
         contact["updated_at"] = time.time()
-        _save_contact(contact)
+        _store.save(contact)
 
     return json.dumps({
         "ok": True,
@@ -330,13 +292,9 @@ def tool_contact_delete(contact_id: str, **_: Any) -> str:
     if not cid:
         return json.dumps({"ok": False, "error": "contact_id is required"})
 
-    if _delete_contact(cid):
-        return json.dumps({"ok": True, "deleted": cid})
-
-    for c in _load_all():
-        if c.get("id", "").startswith(cid):
-            if _delete_contact(c["id"]):
-                return json.dumps({"ok": True, "deleted": c["id"]})
+    contact = _store.find_by_prefix(cid)
+    if contact is not None and _store.delete(contact["id"]):
+        return json.dumps({"ok": True, "deleted": contact["id"]})
 
     return json.dumps({"ok": False, "error": f"Contact '{cid}' not found"})
 
@@ -349,7 +307,7 @@ def tool_contact_list(
     if not _contacts_enabled():
         return json.dumps({"ok": False, "error": "BUTLER_CONTACTS_ENABLED=0"})
 
-    all_contacts = _load_all()
+    all_contacts = _store.load_all()
     filtered = list(all_contacts)
 
     if category:
@@ -415,7 +373,7 @@ def format_contacts_for_wechat(arg: str = "", *, limit: int = 20) -> str:
 
 
 def _format_contact_list(*, limit: int = 20) -> str:
-    all_contacts = _load_all()
+    all_contacts = _store.load_all()
     all_contacts.sort(key=lambda c: c.get("name", "").lower())
 
     if not all_contacts:

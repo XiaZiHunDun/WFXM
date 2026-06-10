@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from butler.env_parse import env_truthy
+from butler.memory_settings import resolve_memory_config
 
 _PRIVATE_BLOCK_RE = re.compile(
     r"<private\b[^>]*>(.*?)</private>",
@@ -13,7 +13,7 @@ _PRIVATE_BLOCK_RE = re.compile(
 
 
 def private_tags_enabled() -> bool:
-    return env_truthy("BUTLER_MEMORY_PRIVATE_TAGS", default=True)
+    return resolve_memory_config().private_tags_enabled
 
 
 def strip_private_tags(text: str) -> tuple[str, bool]:

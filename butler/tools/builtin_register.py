@@ -47,6 +47,56 @@ def _tool_ask_clarification(question: str, options: list | None = None) -> str:
     )
 
 
+def _tool_opencode_task(task: str, workspace: str = "", timeout_seconds: int = 0) -> str:
+    import json as _json
+
+    from butler.extensions.opencode import get_opencode_bridge
+
+    bridge = get_opencode_bridge()
+    if not workspace:
+        from butler.tools.safe_root import get_tool_safe_root
+
+        workspace = str(get_tool_safe_root())
+    result = bridge.execute_task(
+        task,
+        workspace=workspace,
+        timeout_seconds=timeout_seconds or 600,
+    )
+    return _json.dumps(result, ensure_ascii=False)
+
+
+def _register_opencode_tool() -> None:
+    register(
+        name="opencode_task",
+        description=(
+            "Delegate a coding task to OpenCode AI agent. "
+            "OpenCode can read, edit, grep, run commands, and manage code in a workspace. "
+            "Use for complex coding tasks that need multi-step file operations."
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "The coding task description for OpenCode",
+                },
+                "workspace": {
+                    "type": "string",
+                    "description": "Workspace directory path (defaults to current project root)",
+                },
+                "timeout_seconds": {
+                    "type": "integer",
+                    "description": "Max seconds to wait (default 600)",
+                    "default": 600,
+                },
+            },
+            "required": ["task"],
+        },
+        handler=_tool_opencode_task,
+        toolset="opencode",
+    )
+
+
 def _register_builtin_tools() -> None:
     """Register Butler's core development tools."""
     from butler.tools.tool_schemas import (
@@ -272,3 +322,15 @@ def _register_builtin_tools() -> None:
     from butler.tools.config_tools import register_config_tools
 
     register_config_tools(register)
+
+    from butler.extensions.opencode import opencode_enabled
+
+    if opencode_enabled():
+        _register_opencode_tool()
+
+    try:
+        from butler.dev_engine.dev_tools import register_dev_engine_tools
+
+        register_dev_engine_tools(register)
+    except Exception as exc:
+        logger.debug("Dev engine tools registration skipped: %s", exc)

@@ -17,26 +17,18 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from butler.tools._file_cache import read_json_cached
+from butler.tools.pim_schema import (
+    EXPENSE_CATEGORIES as _VALID_CATEGORIES,
+    EXPENSE_CATEGORY_LABELS as _CATEGORY_LABELS,
+    EXPENSE_DIRECTIONS as _VALID_DIRECTIONS,
+    MAX_EXPENSE_DESC_LEN as _MAX_DESC_LEN,
+    MAX_EXPENSE_RECORDS as _MAX_RECORDS,
+)
 from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
 
 _CN_TZ = timezone(timedelta(hours=8))
-_MAX_RECORDS = 5000
-
-_VALID_DIRECTIONS = frozenset({"income", "expense"})
-_VALID_CATEGORIES = frozenset({
-    "food", "transport", "housing", "medical", "entertainment",
-    "shopping", "education", "social", "salary", "investment", "other",
-})
-_CATEGORY_LABELS = {
-    "food": "餐饮", "transport": "交通", "housing": "住房",
-    "medical": "医疗", "entertainment": "娱乐", "shopping": "购物",
-    "education": "教育", "social": "社交", "salary": "薪资",
-    "investment": "投资", "other": "其他",
-}
-_DIR_LABELS = {"income": "收入", "expense": "支出"}
 
 _store = TenantStore("expenses", env_toggle="BUTLER_EXPENSE_ENABLED")
 
@@ -47,34 +39,6 @@ def _expense_enabled() -> bool:
 
 def _expenses_dir() -> Path:
     return _store.storage_dir()
-
-
-def _save_record(record: dict[str, Any]) -> Path:
-    d = _expenses_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    path = d / f"{record['id']}.json"
-    path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
-
-
-def _load_all() -> list[dict[str, Any]]:
-    d = _expenses_dir()
-    if not d.is_dir():
-        return []
-    result: list[dict[str, Any]] = []
-    for f in sorted(d.glob("*.json")):
-        data = read_json_cached(f)
-        if isinstance(data, dict) and "id" in data:
-            result.append(data)
-    return result
-
-
-def _delete_record(rid: str) -> bool:
-    path = _expenses_dir() / f"{rid}.json"
-    if path.is_file():
-        path.unlink()
-        return True
-    return False
 
 
 def _normalize_category(raw: Any) -> str:
@@ -142,7 +106,7 @@ def tool_expense_add(
     if amt <= 0:
         return json.dumps({"ok": False, "error": "amount must be positive"})
 
-    total = len(_load_all())
+    total = len(_store.load_all())
     if total >= _MAX_RECORDS:
         return json.dumps({
             "ok": False,
@@ -167,12 +131,12 @@ def tool_expense_add(
         "amount": amt,
         "direction": dirn,
         "category": cat,
-        "description": (description or "").strip()[:200],
+        "description": (description or "").strip()[:_MAX_DESC_LEN],
         "date": record_date,
         "tags": tags_list[:10],
         "created_at": now,
     }
-    _save_record(record)
+    _store.save(record)
 
     return json.dumps({
         "ok": True,
@@ -197,7 +161,7 @@ def tool_expense_summary(
     y = int(year) if year else now_cn.year
     m = int(month) if month else now_cn.month
 
-    all_records = _load_all()
+    all_records = _store.load_all()
 
     if period == "year":
         start = f"{y:04d}-01-01"
@@ -255,7 +219,7 @@ def tool_expense_list(
     if not _expense_enabled():
         return json.dumps({"ok": False, "error": "BUTLER_EXPENSE_ENABLED=0"})
 
-    all_records = _load_all()
+    all_records = _store.load_all()
     filtered = list(all_records)
 
     if category:
@@ -276,6 +240,110 @@ def tool_expense_list(
     }, ensure_ascii=False)
 
 
+def tool_expense_update(
+    expense_id: str,
+    amount: Any = None,
+    description: str = "",
+    category: str = "",
+    direction: str = "",
+    date: str = "",
+    tags: Any = None,
+    **_: Any,
+) -> str:
+    if not _expense_enabled():
+        return json.dumps({"ok": False, "error": "BUTLER_EXPENSE_ENABLED=0"})
+
+    eid = (expense_id or "").strip()
+    if not eid:
+        return json.dumps({"ok": False, "error": "expense_id is required"})
+
+    record = _store.find_by_prefix(eid)
+    if record is None:
+        return json.dumps({"ok": False, "error": f"Record '{eid}' not found"})
+
+    updated_fields: list[str] = []
+
+    if amount is not None:
+        try:
+            amt = round(float(amount), 2)
+        except (TypeError, ValueError):
+            return json.dumps({"ok": False, "error": "amount must be a number"})
+        if amt <= 0:
+            return json.dumps({"ok": False, "error": "amount must be positive"})
+        record["amount"] = amt
+        updated_fields.append("amount")
+
+    if description and description.strip():
+        record["description"] = description.strip()[:_MAX_DESC_LEN]
+        updated_fields.append("description")
+
+    if category and category.strip():
+        cat = category.strip().lower()
+        if cat not in _VALID_CATEGORIES:
+            return json.dumps({
+                "ok": False,
+                "error": f"Invalid category '{category}'. Use: {', '.join(sorted(_VALID_CATEGORIES))}",
+            })
+        record["category"] = cat
+        updated_fields.append("category")
+
+    if direction and direction.strip():
+        dirn = direction.strip().lower()
+        if dirn not in _VALID_DIRECTIONS:
+            return json.dumps({
+                "ok": False,
+                "error": f"Invalid direction '{direction}'. Use: {', '.join(sorted(_VALID_DIRECTIONS))}",
+            })
+        record["direction"] = dirn
+        updated_fields.append("direction")
+
+    if date and date.strip():
+        record["date"] = _parse_date(date)
+        updated_fields.append("date")
+
+    if tags is not None:
+        tags_list: list[str] = []
+        if isinstance(tags, str):
+            tags_list = [t.strip() for t in tags.replace("，", ",").split(",") if t.strip()]
+        elif isinstance(tags, list):
+            tags_list = [str(t).strip() for t in tags if str(t).strip()]
+        record["tags"] = tags_list[:10]
+        updated_fields.append("tags")
+
+    if updated_fields:
+        _store.save(record)
+
+    return json.dumps({
+        "ok": True,
+        "expense_id": record["id"],
+        "updated_fields": updated_fields,
+    }, ensure_ascii=False)
+
+
+def tool_expense_search(
+    query: str,
+    limit: int = 20,
+    **_: Any,
+) -> str:
+    if not _expense_enabled():
+        return json.dumps({"ok": False, "error": "BUTLER_EXPENSE_ENABLED=0"})
+
+    q = (query or "").strip()
+    if not q:
+        return json.dumps({"ok": False, "error": "query is required"})
+
+    matched = _store.search(q, fields=["description", "tags"])
+    matched.sort(key=lambda r: r.get("date", ""), reverse=True)
+    limit = max(1, min(int(limit or 20), 50))
+
+    return json.dumps({
+        "ok": True,
+        "query": q,
+        "count": len(matched),
+        "records": matched[:limit],
+    }, ensure_ascii=False)
+
+
 def tool_expense_delete(record_id: str, **_: Any) -> str:
     if not _expense_enabled():
         return json.dumps({"ok": False, "error": "BUTLER_EXPENSE_ENABLED=0"})
@@ -284,13 +352,12 @@ def tool_expense_delete(record_id: str, **_: Any) -> str:
     if not rid:
         return json.dumps({"ok": False, "error": "record_id is required"})
 
-    if _delete_record(rid):
+    if _store.delete(rid):
         return json.dumps({"ok": True, "deleted": rid})
 
-    for r in _load_all():
-        if r.get("id", "").startswith(rid):
-            if _delete_record(r["id"]):
-                return json.dumps({"ok": True, "deleted": r["id"]})
+    record = _store.find_by_prefix(rid)
+    if record is not None and _store.delete(record["id"]):
+        return json.dumps({"ok": True, "deleted": record["id"]})
 
     return json.dumps({"ok": False, "error": f"Record '{rid}' not found"})
 
@@ -454,8 +521,9 @@ def register_expense_tools(register: Callable[..., None]) -> None:
     register(
         name="expense_summary",
         description=(
-            "查看收支汇总统计。可按月/周/年查看，含分类明细。"
-            "「这个月花了多少」「本周支出」「交通费花了多少」。"
+            "查看收支汇总统计（聚合）。可按月/周/年查看，含分类明细。"
+            "用户说「这个月花了多少」「本周支出」「交通费花了多少」时使用。"
+            "注意：查看逐笔明细请用 expense_list，按关键词搜索请用 expense_search。"
         ),
         schema={
             "type": "object",
@@ -475,7 +543,7 @@ def register_expense_tools(register: Callable[..., None]) -> None:
 
     register(
         name="expense_list",
-        description="列出最近的收支明细记录。",
+        description="列出最近的收支明细记录（逐笔）。用户说「最近花了什么」「消费明细」时使用。查看汇总请用 expense_summary。",
         schema={
             "type": "object",
             "properties": {
@@ -493,6 +561,53 @@ def register_expense_tools(register: Callable[..., None]) -> None:
             },
         },
         handler=tool_expense_list,
+        toolset="expense",
+    )
+
+    register(
+        name="expense_update",
+        description="修改一条收支记录的金额、描述、分类、方向、日期或标签。",
+        schema={
+            "type": "object",
+            "properties": {
+                "expense_id": {"type": "string", "description": "记录 ID（支持前缀匹配）"},
+                "amount": {"type": "number", "description": "新金额（正数）"},
+                "description": {"type": "string", "description": "新描述"},
+                "category": {
+                    "type": "string",
+                    "enum": list(_VALID_CATEGORIES),
+                    "description": "新分类",
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": list(_VALID_DIRECTIONS),
+                    "description": "新收支方向",
+                },
+                "date": {"type": "string", "description": "新日期 YYYY-MM-DD"},
+                "tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "替换标签列表",
+                },
+            },
+            "required": ["expense_id"],
+        },
+        handler=tool_expense_update,
+        toolset="expense",
+    )
+
+    register(
+        name="expense_search",
+        description="按描述关键词搜索收支记录。",
+        schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "搜索关键词"},
+                "limit": {"type": "integer", "description": "最多返回条数（默认 20）"},
+            },
+            "required": ["query"],
+        },
+        handler=tool_expense_search,
         toolset="expense",
     )
 

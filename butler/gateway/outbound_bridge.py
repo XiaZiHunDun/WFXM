@@ -38,10 +38,9 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 def _env_float(name: str, default: float) -> float:
-    try:
-        return float(os.getenv(name, "").strip() or default)
-    except ValueError:
-        return default
+    from butler.env_parse import float_env
+
+    return float_env(name, default)
 
 
 def set_current_bridge(bridge: GatewayOutboundBridge | None) -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import logging
 import os
 import re
@@ -23,7 +24,7 @@ def default_section_names() -> tuple[str, ...]:
 
 def max_section_chars() -> int:
     try:
-        return max(200, min(8000, int(os.getenv("BUTLER_POST_COMPACT_AGENTS_MAX_CHARS", "2000"))))
+        return int_env("BUTLER_POST_COMPACT_AGENTS_MAX_CHARS", 2000, min=200, max=8000)
     except ValueError:
         return 2000
 

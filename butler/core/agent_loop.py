@@ -497,6 +497,12 @@ class AgentLoop:
         )
         self._tool_prefetch.clear()
         self._tool_calls_count += stats.tools_started
+        if response.tool_calls:
+            used = self.diagnostics.setdefault("tools_used", [])
+            for tc in response.tool_calls:
+                name = getattr(tc, "name", "") or ""
+                if name and name not in used:
+                    used.append(name)
         try:
             self._messages[:] = self._plugins.after_tools(
                 self._messages,

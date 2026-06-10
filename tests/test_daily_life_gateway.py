@@ -141,8 +141,8 @@ class TestRegistrationIntegration:
 
         assert memo_tools == {"memo_add", "memo_list", "memo_search", "memo_update", "memo_delete"}
         assert contact_tools == {"contact_add", "contact_find", "contact_update", "contact_delete", "contact_list"}
-        assert expense_tools == {"expense_add", "expense_summary", "expense_list", "expense_delete"}
-        assert habit_tools == {"habit_create", "habit_checkin", "habit_stats", "habit_list", "habit_delete"}
+        assert expense_tools == {"expense_add", "expense_summary", "expense_list", "expense_update", "expense_search", "expense_delete"}
+        assert habit_tools == {"habit_create", "habit_checkin", "habit_stats", "habit_list", "habit_update", "habit_delete"}
 
     def test_all_handlers_callable(self, monkeypatch):
         monkeypatch.setenv("BUTLER_MEMO_ENABLED", "1")

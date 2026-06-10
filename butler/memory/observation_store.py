@@ -8,6 +8,8 @@ import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from butler.memory_settings import resolve_memory_config
+
 _SCHEMA_VERSION = 2
 
 
@@ -105,23 +107,11 @@ class ObservationStore:
 
     @staticmethod
     def _ttl_days() -> int:
-        raw = os.getenv("BUTLER_OBSERVATION_TTL_DAYS", "").strip()
-        if not raw:
-            return 90
-        try:
-            return max(0, int(raw))
-        except ValueError:
-            return 90
+        return resolve_memory_config().observation_ttl_days
 
     @staticmethod
     def _max_rows() -> int:
-        raw = os.getenv("BUTLER_MEMORY_OBSERVATION_MAX_ROWS", "").strip()
-        if not raw:
-            return 0
-        try:
-            return max(0, int(raw))
-        except ValueError:
-            return 0
+        return resolve_memory_config().observation_max_rows
 
     def _prune_locked(self, conn: sqlite3.Connection) -> None:
         ttl_days = self._ttl_days()

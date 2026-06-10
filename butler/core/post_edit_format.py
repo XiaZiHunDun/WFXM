@@ -8,7 +8,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, float_env
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ def maybe_format_after_edit(path: Path) -> dict[str, str] | None:
     argv = [tool] + [part.format(path=path_str) for part in argv_template[1:]]
     timeout = 30.0
     try:
-        timeout = max(5.0, float(os.getenv("BUTLER_POST_EDIT_FORMAT_TIMEOUT", "30")))
+        timeout = float_env("BUTLER_POST_EDIT_FORMAT_TIMEOUT", 30, min=5.0)
     except ValueError:
         pass
     try:

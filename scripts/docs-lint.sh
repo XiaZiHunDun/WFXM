@@ -77,6 +77,12 @@ REF_VARS=$(rg -o 'BUTLER_[A-Z_]+' docs/config/reference.md 2>/dev/null | sort -u
 ENV_VARS=$(rg -o 'BUTLER_[A-Z_]+' .env.example 2>/dev/null | sort -u | wc -l)
 echo "reference.md env vars: $REF_VARS / .env.example env vars: $ENV_VARS"
 
+echo ""
+echo "== docs-lint: dead env keys (reference.md vs butler/ readers) =="
+if ! bash scripts/check-dead-env.sh; then
+  FAIL=1
+fi
+
 if [[ "$FAIL" -ne 0 ]]; then
   exit 1
 fi

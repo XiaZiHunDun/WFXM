@@ -186,6 +186,53 @@ def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
     )
 
 
+def _cmd_pim(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.tools.pim_schema import (
+        MAX_CONTACTS, MAX_ACTIVE_MEMOS, MAX_EXPENSE_RECORDS, MAX_ACTIVE_HABITS,
+    )
+    from butler.tools.tenant_store import TenantStore
+
+    stores = {
+        "通讯录": (TenantStore("contacts"), MAX_CONTACTS),
+        "备忘录": (TenantStore("memos", skip_files=frozenset({"_meta.json"})), MAX_ACTIVE_MEMOS),
+        "记账": (TenantStore("expenses"), MAX_EXPENSE_RECORDS),
+        "习惯": (TenantStore("habits", skip_files=frozenset({"_meta.json"})), MAX_ACTIVE_HABITS),
+    }
+
+    lines = ["📋 PIM 数据概览", ""]
+    for label, (store, limit) in stores.items():
+        try:
+            count = store.count()
+            pct = int(count / limit * 100) if limit else 0
+            bar = "█" * (pct // 10) + "░" * (10 - pct // 10)
+            lines.append(f"{label}: {count}/{limit} ({pct}%) {bar}")
+        except Exception:
+            lines.append(f"{label}: 读取失败")
+
+    try:
+        from butler.tools.reminder import _load_all
+        reminders = _load_all()
+        pending = sum(1 for r in reminders if r.get("status") == "pending")
+        fired = sum(1 for r in reminders if r.get("status") == "fired")
+        lines.append(f"提醒: {pending} 待触发 / {fired} 已触发")
+    except Exception:
+        lines.append("提醒: 读取失败")
+
+    return "\n".join(lines)
+
+
+def _cmd_cost(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.ops.cost_calibration import format_cost_with_calibration
+
+    return format_cost_with_calibration(ctx.session_key)
+
+
 def _cmd_health(ctx: CommandContext) -> Optional[str]:
     """Sprint 11 TST-10-5: 从 inline 迁移 — 等价于原 handler._format_health_summary。"""
     gate = require_owner(ctx)
@@ -222,6 +269,7 @@ _INFO_COMMANDS = [
     CommandDef("/通讯录", ("/contacts",), "日常生活", "查看通讯录", handler=_cmd_contacts),
     CommandDef("/记账", ("/expense",), "日常生活", "查看记账概览", handler=_cmd_expense),
     CommandDef("/打卡", ("/habits",), "日常生活", "查看习惯打卡", handler=_cmd_habits),
+    CommandDef("/pim", (), "日常生活", "PIM 数据使用概览", handler=_cmd_pim),
     CommandDef("/项目待办", ("/project-todos",), "项目管理", "项目级待办事项", handler=_cmd_project_todos),
     CommandDef("/记忆状态", ("/memory-status",), "记忆", "查看记忆系统状态", handler=_cmd_memory_status),
     CommandDef("/详细", ("/detail",), "对话控制", "查看详细报告", handler=_cmd_detail),
@@ -229,7 +277,14 @@ _INFO_COMMANDS = [
     # Sprint 11 TST-10-5: 从 inline 迁移过来的命令
     CommandDef("/会话", ("/sessions",), "对话控制", "查看/管理会话", handler=_cmd_sessions),
     CommandDef("/评价", ("/outcome",), "系统管理", "评估/评价当前结果", handler=_cmd_outcome),
-    CommandDef("/诊断", ("/health",), "系统管理", "系统诊断", handler=_cmd_health),
+    CommandDef(
+        "/诊断",
+        ("/health",),
+        "系统管理",
+        "会话健康报告（记忆/模型/队列；非 /doctor 安全审计）",
+        handler=_cmd_health,
+    ),
+    CommandDef("/成本", ("/cost",), "系统管理", "查看会话成本概览", handler=_cmd_cost),
 ]
 
 

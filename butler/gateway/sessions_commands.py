@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import os
 from typing import Any
 
@@ -25,7 +26,7 @@ def handle_sessions_command(
     from butler.cli.sessions_cli import list_sessions
 
     try:
-        limit = int(os.getenv("BUTLER_SESSIONS_LIST_LIMIT", "20"))
+        limit = int_env("BUTLER_SESSIONS_LIST_LIMIT", 20)
     except ValueError:
         limit = 20
     text = (arg or "").strip()

@@ -320,17 +320,23 @@ def _cdn_upload_url(cdn_base_url: str, upload_param: str, filekey: str) -> str:
 
 
 def _message_id_dedup_ttl() -> float:
-    try:
-        return max(5.0, float(os.getenv("BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL", str(MESSAGE_ID_DEDUP_TTL_SECONDS))))
-    except ValueError:
-        return float(MESSAGE_ID_DEDUP_TTL_SECONDS)
+    from butler.env_parse import float_env
+
+    return float_env(
+        "BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL",
+        float(MESSAGE_ID_DEDUP_TTL_SECONDS),
+        min=5.0,
+    )
 
 
 def _content_dedup_ttl() -> float:
-    try:
-        return max(2.0, float(os.getenv("BUTLER_WECHAT_CONTENT_DEDUP_TTL", str(CONTENT_DEDUP_TTL_SECONDS))))
-    except ValueError:
-        return float(CONTENT_DEDUP_TTL_SECONDS)
+    from butler.env_parse import float_env
+
+    return float_env(
+        "BUTLER_WECHAT_CONTENT_DEDUP_TTL",
+        float(CONTENT_DEDUP_TTL_SECONDS),
+        min=2.0,
+    )
 
 
 def _is_stale_session_ret(

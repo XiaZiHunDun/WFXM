@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import json
 import logging
 import os
@@ -18,7 +19,7 @@ _LOCK = threading.RLock()
 
 def revert_keep_lines_default() -> int:
     try:
-        return max(5, int(os.getenv("BUTLER_TRANSCRIPT_REVERT_KEEP_LINES", "40")))
+        return int_env("BUTLER_TRANSCRIPT_REVERT_KEEP_LINES", 40, min=5)
     except ValueError:
         return 40
 

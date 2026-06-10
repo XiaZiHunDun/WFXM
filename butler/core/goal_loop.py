@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import json
 import logging
 import os
@@ -61,7 +62,7 @@ def goal_token_budget_default() -> int:
     import os
 
     try:
-        return max(0, int(os.getenv("BUTLER_GOAL_TOKEN_BUDGET", "") or "0"))
+        return max(0, int_env("BUTLER_GOAL_TOKEN_BUDGET", 0))
     except ValueError:
         return 0
 

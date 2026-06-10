@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly Butler WeChat dataset sync to LangFuse
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

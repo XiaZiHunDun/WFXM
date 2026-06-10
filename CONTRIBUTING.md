@@ -77,11 +77,14 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
   tests/test_experiment_ledger.py tests/test_query_decompose.py tests/test_support_line_e.py \
   tests/test_roadmap_remainder.py tests/test_markdown_chunking.py tests/test_loop_pr2_entropy.py -q
 
-# 五报告 P5–P10（SSOT / eval / registry / harness）— 一条命令
+# 配置文档卫生（reference 无 dead env）
+bash scripts/check-dead-env.sh
+
+# 五报告 P5–P10 + PR-F1–F6（SSOT / eval / registry / harness / LobeHub 基线）— 一条命令
 ./scripts/butler-five-reports-gate.sh
 # 可选 live：BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=… butler prompt eval --corpus-live-smoke
 
-# 五报告 PR-F1–F6（主线 F–J 基线）
+# 五报告 PR-F1–F6 单跑（与 gate 第二段相同）
 PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_contracts.py \
   tests/test_memory_recall_layers.py tests/test_provider_health.py tests/test_sessions_cli.py \
   tests/test_outcome_reflection.py tests/test_task_orchestrator_handoff.py tests/test_five_reports_f6.py -q

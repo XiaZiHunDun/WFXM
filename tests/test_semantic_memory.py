@@ -72,6 +72,10 @@ class TestSemanticMemoryIndex:
 @pytest.mark.module_test
 class TestButlerMemorySemanticFlag:
     def test_semantic_disabled_by_default(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path / "butler_home"))
+        from butler.config import reload_butler_settings
+
+        reload_butler_settings()
         monkeypatch.delenv("BUTLER_SEMANTIC_MEMORY", raising=False)
         assert semantic_memory_enabled() is False
         bm = ButlerMemory(tmp_path / "home", tenant_id="default")

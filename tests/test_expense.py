@@ -26,7 +26,7 @@ from butler.tools.expense import (
 def _tmp_expenses(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     expenses_dir = tmp_path / "expenses"
     expenses_dir.mkdir()
-    monkeypatch.setattr("butler.tools.expense._expenses_dir", lambda: expenses_dir)
+    monkeypatch.setattr("butler.tools.expense._store.storage_dir", lambda: expenses_dir)
     monkeypatch.setenv("BUTLER_EXPENSE_ENABLED", "1")
     yield expenses_dir
 
@@ -354,7 +354,7 @@ class TestRegistration:
     def test_register(self):
         registered = {}
         register_expense_tools(lambda name, **kw: registered.update({name: kw}))
-        expected = {"expense_add", "expense_summary", "expense_list", "expense_delete"}
+        expected = {"expense_add", "expense_summary", "expense_list", "expense_update", "expense_search", "expense_delete"}
         assert set(registered.keys()) == expected
         for info in registered.values():
             assert info.get("toolset") == "expense"

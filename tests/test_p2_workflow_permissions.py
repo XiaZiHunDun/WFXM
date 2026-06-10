@@ -82,7 +82,7 @@ def test_human_gate_confirm_flow(tmp_butler_home):
     sk = "wechat:gate-1"
     clear_session_gates(sk)
     assert not check_workflow_step_approval(sk, "novel-factory", "review")
-    out = resolve_human_gate_message(sk, "确认")
+    out = resolve_human_gate_message(sk, "确认", owner_verified=True)
     assert out is not None and "已确认" in out
     assert is_step_approved(sk, "novel-factory", "review")
     assert check_workflow_step_approval(sk, "novel-factory", "review")

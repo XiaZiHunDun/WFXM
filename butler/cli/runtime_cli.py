@@ -152,6 +152,16 @@ def _cmd_runtime_drain_push(ns: argparse.Namespace) -> int:
     from butler.runtime.push_queue import drain_push_queue
 
     out = drain_push_queue(max_items=int(getattr(ns, "max_items", 3) or 3))
+    skipped = out.get("skipped")
+    if skipped == "rate_limit_cooldown":
+        from butler.runtime.notify import rate_limit_drain_wait_seconds
+
+        wait_s = rate_limit_drain_wait_seconds()
+        print(
+            f"推送队列: 跳过 drain（iLink 限流冷却中，约 {wait_s:.0f}s 后再试）, "
+            f"剩余 {out.get('remaining', 0)}"
+        )
+        return 0
     print(
         f"推送队列: 尝试 {out.get('drained', 0)} 条, "
         f"成功 {out.get('sent', 0)}, 失败 {out.get('failed', 0)}, "

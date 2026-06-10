@@ -34,6 +34,23 @@ def resolved_session_key(handler: ButlerMessageHandler, entry: dict) -> str:
     )
 
 
+def catalog_message_kwargs(
+    session_key: str,
+    *,
+    platform: str = "wechat",
+    external_id: str | None = None,
+) -> dict[str, str]:
+    """Match real gateway inbound: always pass external_id so session keys stay canonical."""
+    from butler.session.keys import chat_id_from_session_key
+
+    chat_id = str(external_id or chat_id_from_session_key(session_key) or "default").strip()
+    return {
+        "session_key": session_key,
+        "platform": platform,
+        "external_id": chat_id or "default",
+    }
+
+
 @pytest.fixture
 def patch_llm(mock_llm_response):
     with (
@@ -64,6 +81,7 @@ def catalog_handlers(tmp_path, monkeypatch, tmp_butler_home):
     )
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
     monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "u1")
+    monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "0")
     _reset_singletons()
 
     dual = ButlerMessageHandler(channel="gateway")
@@ -128,7 +146,7 @@ def extended_catalog_setup(
 
     if setup == "prior_chat_turn":
         _bind_llm_script(mock_complete, mock_stream, [_text_response("好的，已读取 README。")])
-        handler.handle_message("请先读 README", session_key=sk, platform="wechat")
+        handler.handle_message("请先读 README", **catalog_message_kwargs(sk))
         return sk
 
     if setup == "prior_chat_then_new":
@@ -137,8 +155,8 @@ def extended_catalog_setup(
             mock_stream,
             [_text_response("已读完 wechat-smoke 文件。")],
         )
-        handler.handle_message("请读取 wechat-smoke", session_key=sk, platform="wechat")
-        handler.handle_message("/新对话", session_key=sk, platform="wechat")
+        handler.handle_message("请读取 wechat-smoke", **catalog_message_kwargs(sk))
+        handler.handle_message("/新对话", **catalog_message_kwargs(sk))
         return sk
 
     apply_catalog_setup(
@@ -148,4 +166,5 @@ def extended_catalog_setup(
         session_key=sk,
         helpers=helpers_with_bind,
     )
-    return sk
+    # Re-resolve after setup hooks (e.g. /切换) so audit/tool lookups use the active project.
+    return resolved_session_key(handler, entry)

@@ -6,7 +6,7 @@ import os
 import time
 from typing import Callable
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env, float_env
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def tool_retry_enabled() -> bool:
 
 def tool_retry_max_attempts() -> int:
     try:
-        return max(1, min(5, int(os.getenv("BUTLER_TOOL_RETRY_MAX", "2"))))
+        return int_env("BUTLER_TOOL_RETRY_MAX", 2, min=1, max=5)
     except ValueError:
         return 2
 
@@ -39,7 +39,7 @@ def tool_retry_max_attempts() -> int:
 def tool_retry_backoff_seconds(attempt: int) -> float:
     base = 0.4
     try:
-        base = float(os.getenv("BUTLER_TOOL_RETRY_BACKOFF_SECONDS", "0.4"))
+        base = float_env("BUTLER_TOOL_RETRY_BACKOFF_SECONDS", 0.4)
     except ValueError:
         pass
     return base * (attempt + 1)

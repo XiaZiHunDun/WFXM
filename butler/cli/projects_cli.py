@@ -178,7 +178,16 @@ def _cmd_project_register(ns: argparse.Namespace) -> int:
     from butler.config import get_butler_settings
     from butler.project.manager import get_project_manager
 
-    path = Path(ns.path).expanduser().resolve()
+    raw_path = ns.path.strip()
+    if _is_git_url(raw_path):
+        ok, resolved_or_msg = _clone_for_register(raw_path)
+        if not ok:
+            print(f"Git clone failed: {resolved_or_msg}", file=sys.stderr)
+            return 1
+        print(f"Cloned {raw_path} → {resolved_or_msg}")
+        path = Path(resolved_or_msg)
+    else:
+        path = Path(raw_path).expanduser().resolve()
     mgr = get_project_manager()
     try:
         proj = mgr.register_workspace(
@@ -264,3 +273,42 @@ def _cmd_project_preflight(ns: argparse.Namespace) -> int:
     else:
         print(format_report(report))
     return 0 if report.ok else 1
+
+
+def _is_git_url(path: str) -> bool:
+    """C1: support Git URL in CLI register (mirrors Gateway is_git_url)."""
+    p = (path or "").strip()
+    return p.startswith("https://") or p.startswith("git@")
+
+
+def _clone_for_register(url: str) -> tuple[bool, str]:
+    """Clone a Git repo into BUTLER_PROJECTS_DIR and return (ok, path_or_msg)."""
+    import subprocess
+
+    from butler.config import get_butler_settings
+
+    settings = get_butler_settings()
+    slug = url.rstrip("/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    if slug.endswith(".git"):
+        slug = slug[:-4]
+    slug = slug or "repo"
+
+    target = settings.projects_dir.expanduser().resolve() / slug
+    if target.exists():
+        return False, f"目标目录已存在: {target}"
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        result = subprocess.run(
+            ["git", "clone", "--depth", "1", url, str(target)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            return False, result.stderr.strip() or f"git clone exited {result.returncode}"
+        return True, str(target)
+    except subprocess.TimeoutExpired:
+        return False, "git clone timed out (300s)"
+    except FileNotFoundError:
+        return False, "git not found on PATH"

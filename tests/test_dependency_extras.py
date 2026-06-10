@@ -24,28 +24,40 @@ class TestFastEmbedEmbedder:
 
     def test_get_embedder_fastembed_fallback_when_not_installed(self):
         """When fastembed is not installed, should fall back to HashingEmbedder."""
-        with patch.dict("os.environ", {
-            "BUTLER_EMBEDDING_PROVIDER": "fastembed",
-            "BUTLER_EMBEDDING_MODEL": "BAAI/bge-small-en-v1.5",
-        }):
-            with patch("butler.memory.embedding._resolve_fastembed", return_value=None):
-                from butler.memory.embedding import get_embedder
-                embedder = get_embedder()
-                assert embedder.model_id == "hashing-v1"
+        from butler.memory.embedding import _cached_embedder, get_embedder
+
+        _cached_embedder.cache_clear()
+        try:
+            with patch.dict("os.environ", {
+                "BUTLER_EMBEDDING_PROVIDER": "fastembed",
+                "BUTLER_EMBEDDING_MODEL": "BAAI/bge-small-en-v1.5",
+            }):
+                with patch("butler.memory.embedding._resolve_fastembed", return_value=None):
+                    _cached_embedder.cache_clear()
+                    embedder = get_embedder()
+                    assert embedder.model_id == "hashing-v1"
+        finally:
+            _cached_embedder.cache_clear()
 
     def test_get_embedder_fastembed_success(self):
         """When fastembed resolves, should return the FastEmbedEmbedder."""
+        from butler.memory.embedding import _cached_embedder, get_embedder
+
+        _cached_embedder.cache_clear()
         mock_embedder = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_embedder.model_id = "fastembed/test-model"
         mock_embedder.dimension = 384
 
-        with patch.dict("os.environ", {
-            "BUTLER_EMBEDDING_PROVIDER": "fastembed",
-        }):
-            with patch("butler.memory.embedding._resolve_fastembed", return_value=mock_embedder):
-                from butler.memory.embedding import get_embedder
-                embedder = get_embedder()
-                assert embedder.model_id == "fastembed/test-model"
+        try:
+            with patch.dict("os.environ", {
+                "BUTLER_EMBEDDING_PROVIDER": "fastembed",
+            }):
+                with patch("butler.memory.embedding._resolve_fastembed", return_value=mock_embedder):
+                    _cached_embedder.cache_clear()
+                    embedder = get_embedder()
+                    assert embedder.model_id == "fastembed/test-model"
+        finally:
+            _cached_embedder.cache_clear()
 
     def test_fastembed_embed_method_signature(self):
         """FastEmbedEmbedder.embed() should accept text and return list[float]."""

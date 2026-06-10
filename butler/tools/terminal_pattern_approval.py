@@ -7,7 +7,7 @@ import os
 import time
 from pathlib import Path
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, float_env
 import logging
 
 
@@ -19,7 +19,7 @@ def smart_pattern_approve_enabled() -> bool:
 
 def _ttl_seconds() -> float:
     try:
-        return max(300.0, float(os.getenv("BUTLER_TERMINAL_PATTERN_APPROVE_TTL", "86400")))
+        return float_env("BUTLER_TERMINAL_PATTERN_APPROVE_TTL", 86400, min=300.0)
     except ValueError:
         return 86400.0
 

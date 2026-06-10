@@ -180,6 +180,9 @@ def apply_catalog_setup(
     setup = entry.get("setup")
     if not setup:
         return
+    from tests.corpus.conftest_gateway import catalog_message_kwargs
+
+    msg_kw = catalog_message_kwargs(session_key)
     if setup == "cached_report_delete":
         from butler.report import AgentReport, Change, cache_report, clear_report_cache
 
@@ -219,21 +222,12 @@ def apply_catalog_setup(
         helpers["bind_script"](helpers["delegate_create_hello_script"]())
         handler.handle_message(
             "那你在灵文一号项目下面尝试新建一个文件，然后往里面写一点代码",
-            session_key=session_key,
-            platform="wechat",
+            **msg_kw,
         )
     elif setup == "switch_to_demo":
-        handler.handle_message(
-            "/切换 演示试点",
-            session_key=session_key,
-            platform="wechat",
-        )
+        handler.handle_message("/切换 演示试点", **msg_kw)
     elif setup == "switch_to_lingwen":
-        handler.handle_message(
-            "/切换 灵文1号",
-            session_key=session_key,
-            platform="wechat",
-        )
+        handler.handle_message("/切换 灵文1号", **msg_kw)
     elif setup == "workflow_state_on_disk":
         wf = proj / "novel-factory" / "workflow_state.json"
         wf.parent.mkdir(parents=True, exist_ok=True)
@@ -365,9 +359,13 @@ def run_catalog_turn(
                     names.append(name)
         return names
 
-    msg_kw: dict[str, Any] = {"session_key": session_key, "platform": platform}
-    if external_id is not None:
-        msg_kw["external_id"] = external_id
+    from tests.corpus.conftest_gateway import catalog_message_kwargs
+
+    msg_kw = catalog_message_kwargs(
+        session_key,
+        platform=platform,
+        external_id=external_id,
+    )
 
     if kind in ("command", "detail"):
         with patch.object(handler, "_get_or_create_loop") as mock_loop:

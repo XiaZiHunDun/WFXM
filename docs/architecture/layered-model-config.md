@@ -54,10 +54,10 @@ flowchart TB
 
 | # | 能力点 | 设计稿（`design.md` §3） | 代码事实（2026-05-21） | 差距 |
 |---|--------|--------------------------|------------------------|------|
-| 1 | 合并顺序 | 系统 → 管家 → 项目 → 运行时 | `Project.resolve_model()` 已实现三级 + runtime；`get_model_config()` 仅管家 + runtime | 见 #2 |
-| 2 | **厂长 / Lead** 主对话 | 应能继承项目层（隐含在「各层独立」） | `_model_credentials` → `resolve_effective_model(..., project=current)` | **已实施 M2** |
-| 3 | **委派 Agent** | dev/content/review 用项目配置 | `get_project_agent_kwargs()` → `proj.resolve_model(r)` | **已对齐设计** |
-| 4 | `project.yaml` 的 `butler` 键 | 可配（设计示例侧重 dev/content） | 即使写了也**不影响**莎丽主 Loop | 与 #2 同源 |
+| 1 | 合并顺序 | 系统 → 管家 → 项目 → 运行时 | `resolve_effective_model` / `get_model_config` 均 L0→L3（含 L2） | **已对齐** |
+| 2 | **厂长 / Lead** 主对话 | 应能继承项目层 | `_model_credentials` → `resolve_effective_model(..., project=current)`；`lead` 别名→`butler` | **已实施 M2** |
+| 3 | **委派 Agent** | dev/content/review 用项目配置 | `get_project_agent_kwargs()` → `resolve_effective_model(r, project=…)` | **已对齐设计** |
+| 4 | `project.yaml` 的 `butler` 键 | 可配 | **读**路径会 merge；`/model save butler` 只写 global YAML | 读写不对称见 §3.1 |
 | 5 | `/model` 查看 | 各层有效配置 | `format_effective_models` + 来源标签 | **已实施 M3** |
 | 6 | `/model` 写入 | 管家 → `config.yaml`；项目 → `project.yaml` | `save` 持久化；无 `save` 为 runtime 临时 | **已实施 M3** |
 | 7 | **auxiliary** | 压缩等用便宜模型 | `auxiliary_client` 读 `config.yaml` 的 `auxiliary.*` | **已实现**（与角色栈正交） |
@@ -69,7 +69,7 @@ flowchart TB
 
 | 消费方 | 解析入口 | L0 | L1 管家 YAML | L2 项目 YAML | L3 runtime | 备注 |
 |--------|----------|:--:|:------------:|:------------:|:----------:|------|
-| 莎丽 / Lead `AgentLoop` | `_model_credentials("butler")` | ✓ | ✓ | **✗** | ✓ | 微信/CLI 主对话 |
+| 莎丽 / Lead `AgentLoop` | `_model_credentials("butler")` | ✓ | ✓ | **✓** | ✓ | 微信/CLI 主对话；`lead`→`butler` |
 | `delegate_task` → dev/content/review | `get_project_agent_kwargs` | ✓ | ✓ | ✓ | ✓ | 有当前项目时 |
 | 无项目时委派 | `get_project_agent_kwargs` | ✓ | ✓ | — | ✓ | 退回全局 |
 | 上下文压缩 / post_session | `resolve_auxiliary_config` | — | `auxiliary.*` | — | — | 独立栈 |
@@ -82,7 +82,8 @@ flowchart TB
 |----------|--------|----------|
 | 「莎丽看不到图」 | G 未跑或失败 | 网关日志 `WeChat vision ok/failed`；`BUTLER_WECHAT_INBOUND_MEDIA`；VLM Host 与 `MINIMAX_BASE_URL` 一致 |
 | dev 报告「project 无 vision」 | 查错层 | M2.7 无需 vision；应在 **G 层** 识图后注入文本 |
-| 改 `project.yaml` 三个 Agent 无效（对莎丽） | #2 | 改 `~/.butler/config.yaml` 的 `models.butler` 或实现 #2 合并 |
+| 改 `project.yaml` dev 无效（对莎丽） | 查错角色 | 莎丽用 `models.butler`；委派用 `dev_agent` 等 |
+| `/model save butler` 未写入 project | 写路径 | butler 持久化到 `~/.butler/config.yaml`；项目 butler 需手改 `project.yaml` |
 
 ---
 
@@ -203,3 +204,4 @@ steps:
 |------|------|
 | 2026-05-21 | 初稿：四层栈、设计/实现对照、M1–M5 完善路线、`/model` 与微信识图边界 |
 | 2026-05-21 | M5：workflow step `model` 字段与 builtin novel-factory-status deepseek 只读步 |
+| 2026-06-09 | 维护收口：`get_model_config` 统一走 `resolve_effective_model`；§3.1 butler L2 ✓；`embedding`/`llm_fallback`/`remote_compact` 配置面见 [`model-config-maintainability-2026-06.md`](../plans/active/model-config-maintainability-2026-06.md) |

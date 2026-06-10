@@ -456,7 +456,7 @@ async def _phase_chunk_attempt(
     """
     from butler.gateway.platforms.wechat_ilink import _send_message
 
-    return _send_message(  # type: ignore[return-value]
+    return await _send_message(
         adapter._send_session,
         base_url=adapter._base_url,
         token=adapter._token,
@@ -486,7 +486,13 @@ def _phase_chunk_handle_response(
     * ``"retry"`` — caller should backoff + ``continue`` the loop.
     * ``"raise"`` — caller should ``raise last_error`` (already built).
     """
-    if not resp or not isinstance(resp, dict):
+    if not isinstance(resp, dict):
+        return (
+            "raise",
+            context_token,
+            RuntimeError(f"iLink sendmessage returned non-dict: {type(resp).__name__}"),
+        )
+    if not resp:
         return ("ok", context_token, None)
     ret, errcode = resp.get("ret"), resp.get("errcode")
     if ret in (0, None) and errcode in (0, None):
@@ -605,10 +611,15 @@ async def _phase_send_text_chunks(
     """
     from butler.gateway.outbound_delay import inter_chunk_delay_seconds
 
-    chunks = [
-        c for c in adapter._split_text(adapter.format_message(final_content))
-        if c and c.strip()
-    ]
+    formatted = adapter.format_message(final_content)
+    chunks = [c for c in adapter._split_text(formatted) if c and c.strip()]
+    if not chunks and (final_content or "").strip():
+        logger.warning(
+            "[%s] outbound text empty after format/split (raw_len=%d formatted_len=%d)",
+            adapter.name,
+            len(final_content or ""),
+            len(formatted or ""),
+        )
     last_message_id: Optional[str] = None
     for idx, chunk in enumerate(chunks):
         client_id = f"hermes-wechat-{uuid.uuid4().hex}"
@@ -707,7 +718,7 @@ async def _resolve_upload_url(
     )
 
 
-def _phase_file_dispatch_message(
+async def _phase_file_dispatch_message(
     adapter: "WeChatAdapter",
     *,
     chat_id: str,
@@ -724,11 +735,11 @@ def _phase_file_dispatch_message(
     client_id is intentionally discarded).
     """
     if caption:
-        _send_caption_first(adapter, chat_id, caption, context_token)
-    return _send_media_envelope(adapter, chat_id, media_item, context_token)
+        await _send_caption_first(adapter, chat_id, caption, context_token)
+    return await _send_media_envelope(adapter, chat_id, media_item, context_token)
 
 
-def _send_caption_first(
+async def _send_caption_first(
     adapter: "WeChatAdapter",
     chat_id: str,
     caption: str,
@@ -737,7 +748,7 @@ def _send_caption_first(
     """Dispatch a separate text message for the caption (client_id discarded)."""
     from butler.gateway.platforms.wechat_ilink import _send_message
 
-    _send_message(
+    await _send_message(
         adapter._send_session,
         base_url=adapter._base_url,
         token=adapter._token,
@@ -748,7 +759,7 @@ def _send_caption_first(
     )
 
 
-def _send_media_envelope(
+async def _send_media_envelope(
     adapter: "WeChatAdapter",
     chat_id: str,
     media_item: Dict[str, Any],
@@ -763,7 +774,7 @@ def _send_media_envelope(
     )
 
     last_message_id = f"hermes-wechat-{uuid.uuid4().hex}"
-    _api_post(
+    await _api_post(
         adapter._send_session,
         base_url=adapter._base_url,
         endpoint=EP_SEND_MESSAGE,

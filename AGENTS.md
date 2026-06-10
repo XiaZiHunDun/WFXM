@@ -7,9 +7,10 @@
 | # | 文档 | 何时读 |
 |---|------|--------|
 | 1 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | 改 Loop / Gateway / 模块 |
-| 2 | [`docs/config/reference.md`](docs/config/reference.md) + [`.env.example`](.env.example) | 查 `BUTLER_*`（勿猜默认值） |
+| 2 | [`docs/config/reference.md`](docs/config/reference.md) + [`docs/config/config-surfaces.md`](docs/config/config-surfaces.md) + [`.env.example`](.env.example) | 查 `BUTLER_*`、配置放哪（勿猜默认值） |
 | 3 | [`docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | **提需求 / 否决 / Backlog** |
 | 4 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层、语料、规划索引、维护规则 |
+| 5 | [`docs/plans/decisions/theory-implementation-gap-register-2026-06.md`](docs/plans/decisions/theory-implementation-gap-register-2026-06.md) | 理论—实现差距（G1–G4）；Phase 9 核对见 `post-consolidation-roadmap` §9 |
 
 **发版**：[`docs/guides/release-runbook-2026-05.md`](docs/guides/release-runbook-2026-05.md)
 
@@ -29,6 +30,7 @@
 | Skill 工具桥接 | `butler/core/skill_tool_bridge.py` |
 | 工具/委派 | `butler/tools/registry.py` |
 | 项目级持久待办 | `butler/tools/project_todos.py` |
+| 编码知识层 | `butler/dev_engine/coding_knowledge.py` |
 | CLI | `butler/main.py` |
 
 ## 改代码前守门
@@ -44,8 +46,18 @@ PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command
 PYTHONPATH=. pytest tests/test_p2_remaining_features.py -q
 # 编排质量（cron 提醒/向量/语义路由/MCP 自助/fact/Skill 工具联动）
 PYTHONPATH=. pytest tests/test_orchestration_improvements.py -q
+# 记忆子理论（前提验证 + 度量/基准）
+PYTHONPATH=. pytest tests/test_premise_memory_theory.py tests/test_memory_metrics_benchmark.py -q
+# 编码知识层（CA1-CA4 / CT1-CT5 / H6/H8/H11）
+PYTHONPATH=. pytest tests/test_premise_coding_knowledge.py -q
+# 工程桥接（D3-7/8/9 + PIM 注入 + 经验持久化）
+PYTHONPATH=. pytest tests/test_engineering_bridge.py -q
 # 五报告 P5–P10
 ./scripts/butler-five-reports-gate.sh
+# 配置 env 文档卫生（改 reference.md 时）
+bash scripts/check-dead-env.sh
+# R8 env_parse（init_dotenv / int_env / float_env）
+PYTHONPATH=. pytest tests/test_env_parse_r8.py -q
 ```
 
 ## 勿作实现依据

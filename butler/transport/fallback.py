@@ -55,10 +55,8 @@ def build_fallback_chain(
         _add(cfg)
 
     settings = get_butler_settings()
-    if primary.provider == "minimax":
-        for alt in ("deepseek", "qwen", "openai"):
-            if alt in settings.providers:
-                _add(ModelConfig(provider=alt, model=settings.providers[alt].model))
+    for cfg in settings.llm_fallback_extra_configs(primary):
+        _add(cfg)
 
     return chain
 

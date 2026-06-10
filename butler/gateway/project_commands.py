@@ -1,11 +1,65 @@
-"""WeChat slash commands for project onboarding (/项目 新建|体检)."""
+"""WeChat slash commands for project onboarding (/项目 新建|体检|register)."""
 
 from __future__ import annotations
 
+import logging
+import re
+import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
+
+logger = logging.getLogger(__name__)
+
+_GIT_CLONE_TIMEOUT = 300
+
+
+def is_git_url(path: str) -> bool:
+    """Return True if *path* looks like a Git remote URL (D-L5-1)."""
+    p = (path or "").strip()
+    return p.startswith("https://") or p.startswith("git@")
+
+
+def _slug_from_git_url(url: str) -> str:
+    """Extract a reasonable slug from a git URL.
+
+    ``https://github.com/user/repo.git`` → ``repo``
+    ``git@github.com:user/repo.git``     → ``repo``
+    """
+    name = url.rstrip("/").rsplit("/", 1)[-1]
+    name = name.rsplit(":", 1)[-1]
+    if name.endswith(".git"):
+        name = name[:-4]
+    name = re.sub(r"[^\w\-.]", "_", name)
+    return name or "project"
+
+
+def _clone_git_repo(url: str, target_dir: Path) -> tuple[bool, str]:
+    """Clone a git repo into target_dir. Returns (success, message)."""
+    if target_dir.exists():
+        return False, f"目标目录已存在: {target_dir}"
+    target_dir.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        result = subprocess.run(
+            ["git", "clone", "--depth", "1", url, str(target_dir)],
+            capture_output=True,
+            text=True,
+            timeout=_GIT_CLONE_TIMEOUT,
+        )
+        if result.returncode != 0:
+            err = (result.stderr or result.stdout or "unknown error").strip()
+            if len(err) > 300:
+                err = err[:300] + "…"
+            return False, f"git clone 失败 (exit {result.returncode}): {err}"
+        return True, str(target_dir)
+    except FileNotFoundError:
+        return False, "系统未安装 git，请先安装后重试"
+    except subprocess.TimeoutExpired:
+        return False, f"git clone 超时 ({_GIT_CLONE_TIMEOUT}s)，仓库可能过大或网络异常"
+    except Exception as exc:
+        return False, f"git clone 异常: {exc}"
 
 
 def handle_project_onboarding_command(
@@ -17,7 +71,7 @@ def handle_project_onboarding_command(
     platform: str = "unknown",
     external_id: str | None = None,
 ) -> str | None:
-    """Handle /项目 新建|体检. Returns None if not matched."""
+    """Handle /项目 新建|体检|register. Returns None if not matched."""
     if cmd != "/项目":
         return None
 
@@ -35,8 +89,75 @@ def handle_project_onboarding_command(
         )
     if sub in ("体检", "preflight", "检查"):
         return _project_preflight_wechat(orchestrator, session_key=session_key)
+    if sub in ("register", "注册", "绑定"):
+        return _project_register_wechat(
+            orchestrator,
+            rest,
+            platform=platform,
+            external_id=external_id,
+            session_key=session_key,
+        )
 
     return None
+
+
+def _project_register_wechat(
+    orchestrator: "ButlerOrchestrator",
+    args: list[str],
+    *,
+    platform: str = "unknown",
+    external_id: str | None = None,
+    session_key: str = "",
+) -> str:
+    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+
+    if not is_gateway_owner(
+        platform=platform,
+        external_id=external_id,
+        session_key=session_key,
+    ):
+        return owner_required_message()
+
+    if len(args) < 2:
+        return (
+            "用法: /项目 register <显示名> <路径或Git URL>\n"
+            "  显示名: 微信 /切换 使用的项目名\n"
+            "  路径: 本机目录，或 Git URL（https://… / git@…）"
+        )
+
+    display_name = args[0].strip()
+    path_arg = " ".join(args[1:]).strip()
+
+    if is_git_url(path_arg):
+        from butler.config import get_butler_settings
+
+        projects_dir = get_butler_settings().projects_dir
+        slug = _slug_from_git_url(path_arg)
+        target = projects_dir / slug
+        logger.info("Git clone: %s → %s", path_arg, target)
+        ok, msg = _clone_git_repo(path_arg, target)
+        if not ok:
+            return f"克隆失败: {msg}"
+        path_arg = str(target)
+
+    pm = orchestrator.project_manager
+    try:
+        proj = pm.register_workspace(
+            Path(path_arg),
+            display_name=display_name,
+        )
+    except ValueError as exc:
+        return f"注册失败: {exc}"
+    except FileNotFoundError as exc:
+        return f"注册失败: {exc}"
+
+    return (
+        f"已登记项目 {proj.name!r}\n"
+        f"  目录: {proj.workspace}\n"
+        f"下一步:\n"
+        f"  1. /切换 {proj.name}\n"
+        f"  2. /项目 体检"
+    )
 
 
 def _project_create_wechat(

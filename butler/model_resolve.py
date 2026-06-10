@@ -164,6 +164,34 @@ def format_model_diagnostic_lines(
         lines.append("  auxiliary: 未配置")
 
     try:
+        from butler.memory.semantic_config import resolve_embedding_config
+
+        ep, em = resolve_embedding_config()
+        lines.append(f"  embedding: {ep or '-'}/{em or '-'}")
+    except Exception:
+        lines.append("  embedding: 未配置")
+
+    try:
+        primary = resolve_effective_model("butler", project=project, settings=settings)
+        extras = settings.llm_fallback_extra_configs(primary.config)
+        if extras:
+            fb = ", ".join(f"{c.provider or '-'}/{c.model or '-'}" for c in extras)
+            lines.append(f"  llm_fallback: auto → {fb}")
+        elif isinstance(settings.llm_fallback, dict) and settings.llm_fallback.get("enabled") is False:
+            lines.append("  llm_fallback: 关")
+        else:
+            lines.append("  llm_fallback: 仅 primary")
+    except Exception:
+        lines.append("  llm_fallback: 未配置")
+
+    try:
+        from butler.gateway_settings import (
+            format_gateway_inbound_config_source_line,
+            format_gateway_queue_config_source_line,
+        )
+
+        lines.append(format_gateway_inbound_config_source_line())
+        lines.append(format_gateway_queue_config_source_line())
         from butler.gateway.inbound_media import inbound_media_enabled
 
         if inbound_media_enabled():
@@ -189,8 +217,6 @@ def format_model_diagnostic_lines(
                 lines.extend(format_media_diagnostic_lines())
             except Exception as exc:
                 logger.debug("format model diagnostic lines skipped: %s", exc)
-        else:
-            lines.append("  gateway(入站媒体): 关")
     except Exception:
         lines.append("  gateway(入站媒体): 不可用")
 

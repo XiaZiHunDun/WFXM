@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
@@ -35,8 +37,6 @@ def test_merge_mcp_yaml(tmp_path, monkeypatch):
 
 @pytest.mark.unit
 def test_remote_mcp_catalog_merge(monkeypatch):
-    from unittest.mock import MagicMock, patch
-
     payload = {
         "version": 1,
         "servers": [
@@ -52,9 +52,10 @@ def test_remote_mcp_catalog_merge(monkeypatch):
     }
     monkeypatch.setenv("BUTLER_MCP_CATALOG_URLS", "https://example.com/mcp-catalog.json")
 
-    with patch("butler.registry.mcp_catalog_remote.httpx.get") as mock_get:
-        mock_get.return_value = MagicMock(status_code=200, json=lambda: payload)  # noqa: magicmock-no-spec — mcp catalog httpx shim
-        with patch("butler.registry.mcp_catalog_remote.is_safe_url", return_value=True):
+    fake_resp = MagicMock(status_code=200, text=json.dumps(payload))  # noqa: magicmock-no-spec — httpx response shim
+    fake_resp.json.return_value = payload
+    with patch("butler.registry.mcp_catalog_remote.is_safe_url", return_value=True):
+        with patch("butler.registry.url_safety.safe_registry_get", return_value=fake_resp):
             with patch("butler.registry.mcp_catalog_remote.read_cache", return_value=None):
                 with patch("butler.registry.mcp_catalog_remote.write_cache"):
                     from butler.registry.mcp_catalog import McpCatalogService

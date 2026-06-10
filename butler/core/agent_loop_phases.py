@@ -117,6 +117,27 @@ def _phase_init(
     )
     loop._turn_tools = state.turn_tools
 
+    try:
+        from butler.ops.eval_feedback import get_feedback_context
+
+        feedback = get_feedback_context(lookback_hours=24.0)
+        if feedback:
+            loop._turn_ephemeral_system = (
+                (loop._turn_ephemeral_system or "") + "\n" + feedback
+            ).strip()
+            loop.diagnostics["eval_feedback_injected"] = True
+    except Exception:
+        pass
+
+    try:
+        from butler.ops.eval_actions import apply_hard_feedback
+
+        hard = apply_hard_feedback()
+        if hard.get("applied"):
+            loop.diagnostics["eval_hard_feedback"] = hard
+    except Exception:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Per-iteration helpers — interrupt + compaction (called by orchestrator).
@@ -279,6 +300,22 @@ def _record_usage(
         total_tokens=usage.total_tokens,
         cached_tokens=usage.cached_tokens,
     )
+    try:
+        from butler.ops.cost_tracker import get_session_cost
+        from butler.execution_context import get_current_session_key
+
+        session_key = str(get_current_session_key() or "").strip()
+        if not session_key:
+            session_key = str(getattr(loop, "session_key", "") or "").strip()
+        if session_key:
+            model_name = str(getattr(loop.client, "model", "") or getattr(loop.client, "model_name", "") or "")
+            get_session_cost(session_key).record_llm_call(
+                input_tokens=usage.prompt_tokens,
+                output_tokens=usage.completion_tokens,
+                model=model_name,
+            )
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------

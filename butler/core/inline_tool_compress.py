@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 
 def inline_tool_compress_enabled() -> bool:
@@ -13,14 +13,14 @@ def inline_tool_compress_enabled() -> bool:
 
 def _max_tool_chars() -> int:
     try:
-        return max(50, int(os.getenv("BUTLER_INLINE_TOOL_COMPRESS_MAX_CHARS", "1200")))
+        return int_env("BUTLER_INLINE_TOOL_COMPRESS_MAX_CHARS", 1200, min=50)
     except ValueError:
         return 1200
 
 
 def _keep_tail_tool_messages() -> int:
     try:
-        return max(2, int(os.getenv("BUTLER_INLINE_TOOL_COMPRESS_KEEP", "6")))
+        return int_env("BUTLER_INLINE_TOOL_COMPRESS_KEEP", 6, min=2)
     except ValueError:
         return 6
 

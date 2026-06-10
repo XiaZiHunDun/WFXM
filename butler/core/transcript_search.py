@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import json
 import os
 import re
@@ -13,14 +14,14 @@ from butler.core.session_transcript import transcript_enabled, transcript_path
 
 def search_max_sessions() -> int:
     try:
-        return max(1, min(20, int(os.getenv("BUTLER_TRANSCRIPT_SEARCH_MAX_SESSIONS", "5"))))
+        return int_env("BUTLER_TRANSCRIPT_SEARCH_MAX_SESSIONS", 5, min=1, max=20)
     except ValueError:
         return 5
 
 
 def search_max_hits() -> int:
     try:
-        return max(1, min(50, int(os.getenv("BUTLER_TRANSCRIPT_SEARCH_MAX_HITS", "15"))))
+        return int_env("BUTLER_TRANSCRIPT_SEARCH_MAX_HITS", 15, min=1, max=50)
     except ValueError:
         return 15
 

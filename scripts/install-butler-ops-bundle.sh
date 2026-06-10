@@ -32,6 +32,12 @@ echo "== push queue drain timer =="
 bash "$ROOT/scripts/install-butler-push-drain.sh" "${_enable_args[@]}"
 
 echo ""
+echo "== eval dataset sync timer (weekly) =="
+if [[ -f "$ROOT/scripts/install-butler-eval-sync-timer.sh" ]]; then
+  bash "$ROOT/scripts/install-butler-eval-sync-timer.sh" "${_enable_args[@]}"
+fi
+
+echo ""
 echo "== logrotate =="
 if [[ "$INSTALL_LOGROTATE_CRON" -eq 1 ]]; then
   bash "$ROOT/scripts/install-butler-logrotate.sh" user --install-cron

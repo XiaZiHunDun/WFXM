@@ -102,7 +102,9 @@ def message_tool_budget_max_chars() -> int:
 
 def spill_preview_chars() -> int:
     try:
-        return max(200, int(os.getenv("BUTLER_TOOL_RESULT_SPILL_PREVIEW_CHARS", "") or _DEFAULT_PREVIEW_CHARS))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_TOOL_RESULT_SPILL_PREVIEW_CHARS", _DEFAULT_PREVIEW_CHARS, min=200)
     except ValueError:
         return _DEFAULT_PREVIEW_CHARS
 

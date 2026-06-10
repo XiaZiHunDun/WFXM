@@ -5,14 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from butler.env_parse import env_truthy
 import logging
+
+from butler.memory_settings import resolve_memory_config
 
 
 logger = logging.getLogger(__name__)
 
 def preread_enabled() -> bool:
-    return env_truthy("BUTLER_MEMORY_PREREAD", default=True)
+    return resolve_memory_config().preread_enabled
 
 
 def build_preread_block(workspace: Path | None, file_path: str) -> str:

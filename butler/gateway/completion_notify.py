@@ -11,6 +11,9 @@ if TYPE_CHECKING:
     from butler.gateway.outbound_bridge import GatewayOutboundBridge
     from butler.report import AgentReport
 
+from butler.defaults.env_defaults import GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS
+from butler.env_parse import int_env
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,10 +24,9 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 def _env_float(name: str, default: float) -> float:
-    try:
-        return float(os.getenv(name, "").strip() or default)
-    except ValueError:
-        return default
+    from butler.env_parse import float_env
+
+    return float_env(name, default)
 
 
 def completion_notify_enabled() -> bool:
@@ -32,7 +34,13 @@ def completion_notify_enabled() -> bool:
 
 
 def min_elapsed_for_push() -> float:
-    return max(0.0, _env_float("BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS", 90.0))
+    return max(
+        0.0,
+        _env_float(
+            "BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS",
+            GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS,
+        ),
+    )
 
 
 def delegate_completion_enabled() -> bool:
@@ -57,10 +65,13 @@ def delegate_completion_mode() -> str:
 
 
 def delegate_completion_max_each() -> int:
-    try:
-        return max(1, int(os.getenv("BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH", "3") or "3"))
-    except ValueError:
-        return 3
+    from butler.defaults.env_defaults import GATEWAY_DELEGATE_COMPLETION_MAX_EACH
+
+    return int_env(
+        "BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH",
+        GATEWAY_DELEGATE_COMPLETION_MAX_EACH,
+        min=1,
+    )
 
 
 def format_outbound_diagnostic_lines(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import json
 import os
 import re
@@ -15,7 +16,7 @@ from butler.core.session_transcript import transcript_enabled, transcript_path
 
 def export_max_lines_default() -> int:
     try:
-        return max(50, int(os.getenv("BUTLER_TRANSCRIPT_EXPORT_MAX_LINES", "500")))
+        return int_env("BUTLER_TRANSCRIPT_EXPORT_MAX_LINES", 500, min=50)
     except ValueError:
         return 500
 

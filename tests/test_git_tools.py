@@ -15,6 +15,9 @@ from butler.tools.path_safety import _allowed_terminal_commands
 @pytest.fixture(autouse=True)
 def _safe_root(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+    from butler.plan.mode import _PLAN_BY_SESSION
+    _PLAN_BY_SESSION.clear()
+    monkeypatch.setattr("butler.plan.mode.is_plan_mode", lambda session_key="": False)
 
 
 @pytest.mark.module_test

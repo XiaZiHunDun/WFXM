@@ -12,6 +12,7 @@ Design notes:
 
 from __future__ import annotations
 
+from butler.env_parse import float_env
 import asyncio
 import base64
 import hashlib
@@ -76,6 +77,7 @@ from butler.config import get_butler_home  # noqa: E402
 # ``from butler.gateway.platforms.wechat_ilink import SESSION_EXPIRED_ERRCODE``
 # (and similar) keeps working unchanged after audit R1-4 split.
 from butler.gateway.platforms.wechat_ilink_constants import (  # noqa: E402, F401
+    API_TIMEOUT_MS,
     BACKOFF_DELAY_SECONDS,
     CHANNEL_VERSION,
     CONFIG_TIMEOUT_MS,
@@ -803,7 +805,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
         if not event.source:
             return
         chat_id = event.source.chat_id
-        timeout = float(os.getenv("BUTLER_GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS", "2") or "2")
+        timeout = float_env("BUTLER_GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS", 2)
         context_token = ""
         raw = event.raw_message if isinstance(event.raw_message, dict) else {}
         context_token = str(raw.get("context_token") or "").strip()
@@ -878,7 +880,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
         try:
             cap = max(
                 10.0,
-                float(os.getenv("BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX", "90")),
+                float_env("BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX", 90),
             )
         except ValueError:
             cap = 90.0
@@ -1139,7 +1141,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
             plaintext_size=rawsize,
             rawfilemd5=rawfilemd5,
         )
-        return _phase_file_dispatch_message(
+        return await _phase_file_dispatch_message(
             self, chat_id=chat_id, media_item=media_item,
             caption=caption, context_token=context_token,
         )
@@ -1177,13 +1179,6 @@ class WeChatAdapter(ButlerPlatformAdapter):
             item_kwargs["sample_rate"] = 24000
             item_kwargs["bits_per_sample"] = 16
         return item_builder(**item_kwargs)
-        return _phase_file_dispatch_message(
-            self,
-            chat_id=chat_id,
-            media_item=media_item,
-            caption=caption,
-            context_token=context_token,
-        )
 
     def _outbound_media_builder(self, path: str, force_file_attachment: bool = False):
         # R1-4a: thin orchestrator — guess MIME, then delegate to a

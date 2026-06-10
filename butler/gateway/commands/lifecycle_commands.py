@@ -232,7 +232,13 @@ def _cmd_workflow(ctx: CommandContext) -> Optional[str]:
 
 
 _LIFECYCLE_COMMANDS = [
-    CommandDef("/doctor", (), "系统管理", "安全审计报告", handler=_cmd_doctor),
+    CommandDef(
+        "/doctor",
+        (),
+        "系统管理",
+        "安全审计报告（非 /诊断 全量健康；Owner）",
+        handler=_cmd_doctor,
+    ),
     CommandDef("/导出", ("/export", "/export-session", "/导出会话"), "系统管理", "导出会话为 Markdown", handler=_cmd_export),
     CommandDef("/回滚", ("/transcript-revert", "/revert-transcript"), "系统管理", "回滚 transcript", handler=_cmd_revert),
     CommandDef("/分叉", ("/fork-transcript", "/transcript-fork", "/fork"), "系统管理", "会话分叉", handler=_cmd_fork),

@@ -10,11 +10,13 @@ from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
+from butler.env_parse import float_env
 from butler.io.safe_load import safe_load_json
 
 logger = logging.getLogger(__name__)
 
 _LAST_PUSH_FILE = "runtime/last_push_at.json"
+_RATE_LIMIT_FILE = "runtime/last_rate_limit_at.json"
 
 
 def resolve_owner_wechat_chat_id() -> str:
@@ -30,10 +32,67 @@ def runtime_push_enabled() -> bool:
 
 def _push_cooldown_seconds() -> float:
     raw = os.getenv("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", "25").strip()
+    if raw == "0":
+        logger.warning(
+            "BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS=0 disables push cooldown (storm risk); using minimum 1.0s",
+        )
+    return float_env("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", 25.0, min=1.0)
+
+
+def _rate_limit_drain_cooldown_seconds() -> float:
+    raw = os.getenv("BUTLER_RUNTIME_PUSH_DRAIN_COOLDOWN_SECONDS", "300").strip()
     try:
         return max(0.0, float(raw))
     except ValueError:
-        return 25.0
+        return 300.0
+
+
+def is_rate_limit_error(err: str | None) -> bool:
+    msg = (err or "").lower()
+    return "rate limit" in msg or "rate limited" in msg
+
+
+def _rate_limit_path() -> Path:
+    return get_butler_home() / _RATE_LIMIT_FILE
+
+
+def _read_last_rate_limit_wall() -> float | None:
+    data = safe_load_json(_rate_limit_path(), default=None, kind="runtime_last_rate_limit")
+    if not isinstance(data, dict):
+        return None
+    try:
+        return float(data.get("wall"))
+    except (TypeError, ValueError):
+        return None
+
+
+def record_rate_limit_failure() -> None:
+    path = _rate_limit_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"wall": time.time(), "monotonic": time.monotonic()}, indent=0),
+        encoding="utf-8",
+    )
+
+
+def rate_limit_drain_blocked() -> bool:
+    """True when a recent iLink rate-limit should block queue drain retries."""
+    cooldown = _rate_limit_drain_cooldown_seconds()
+    if cooldown <= 0:
+        return False
+    last = _read_last_rate_limit_wall()
+    if last is None:
+        return False
+    return (time.time() - last) < cooldown
+
+
+def rate_limit_drain_wait_seconds() -> float:
+    cooldown = _rate_limit_drain_cooldown_seconds()
+    last = _read_last_rate_limit_wall()
+    if last is None or cooldown <= 0:
+        return 0.0
+    remaining = cooldown - (time.time() - last)
+    return max(0.0, remaining)
 
 
 def _last_push_path() -> Path:
@@ -148,6 +207,8 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
         else:
             err = result.get("error")
             logger.warning("Runtime wechat push failed: %s", err)
+            if is_rate_limit_error(str(err)):
+                record_rate_limit_failure()
             if should_enqueue_wechat_push_failure(err):
                 from butler.runtime.push_queue import enqueue_failed_push
 
@@ -155,6 +216,8 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
         return ok
     except Exception as exc:
         logger.exception("Runtime wechat push failed: %s", exc)
+        if is_rate_limit_error(str(exc)):
+            record_rate_limit_failure()
         if should_enqueue_wechat_push_failure(str(exc)):
             from butler.runtime.push_queue import enqueue_failed_push
 
@@ -190,5 +253,4 @@ def _should_enqueue_on_failure(err: str | None) -> bool:
         "off",
     ):
         return False
-    msg = (err or "").lower()
-    return "rate limit" in msg or "rate limited" in msg
+    return is_rate_limit_error(err)

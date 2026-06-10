@@ -9,12 +9,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Claude Code v2.1.88 defaults (services/compact/autoCompact.ts)
-_MAX_OUTPUT_TOKENS_FOR_SUMMARY = 20_000
-_AUTOCOMPACT_BUFFER_TOKENS = 13_000
-_WARNING_THRESHOLD_BUFFER_TOKENS = 20_000
-_ERROR_THRESHOLD_BUFFER_TOKENS = 20_000
-_MANUAL_COMPACT_BUFFER_TOKENS = 3_000
 
 
 @dataclass(frozen=True)
@@ -30,11 +24,10 @@ class ContextBudgetThresholds:
     max_consecutive_compact_failures: int
 
 
-def _int_env(name: str, default: int) -> int:
-    try:
-        return max(0, int(os.getenv(name, str(default)).strip() or default))
-    except ValueError:
-        return default
+def _budget_settings():
+    from butler.context_settings import resolve_context_config
+
+    return resolve_context_config().budget
 
 
 def usage_billable_tokens(
@@ -92,7 +85,7 @@ def record_usage_in_diagnostics(
 
 def get_output_reserve_tokens(*, max_output_tokens: int | None = None) -> int:
     """Tokens reserved for model output during compaction (CC: min(maxOutput, 20k))."""
-    cap = _int_env("BUTLER_CONTEXT_OUTPUT_RESERVE", _MAX_OUTPUT_TOKENS_FOR_SUMMARY)
+    cap = _budget_settings().output_reserve
     if max_output_tokens is not None and max_output_tokens > 0:
         return min(max_output_tokens, cap)
     return cap
@@ -117,7 +110,7 @@ def get_auto_compact_threshold(
         max_context_tokens,
         max_output_tokens=max_output_tokens,
     )
-    buffer = _int_env("BUTLER_CONTEXT_COMPACT_RESERVE", _AUTOCOMPACT_BUFFER_TOKENS)
+    buffer = _budget_settings().compact_reserve
     candidate = effective - buffer
     # CC formula assumes 100k+ windows; tiny test/sandbox configs fall back to 85%.
     ratio_floor = int(effective * 0.85)
@@ -134,20 +127,15 @@ def load_context_thresholds(
     max_tok = max(1000, int(max_context_tokens or 128_000))
     effective = get_effective_context_window(max_tok, max_output_tokens=max_output_tokens)
     auto_at = get_auto_compact_threshold(max_tok, max_output_tokens=max_output_tokens)
-    warn_buf = _int_env("BUTLER_CONTEXT_WARNING_BUFFER", _WARNING_THRESHOLD_BUFFER_TOKENS)
-    err_buf = _int_env("BUTLER_CONTEXT_ERROR_BUFFER", _ERROR_THRESHOLD_BUFFER_TOKENS)
-    block_buf = _int_env("BUTLER_CONTEXT_BLOCKING_BUFFER", _MANUAL_COMPACT_BUFFER_TOKENS)
+    budget = _budget_settings()
     return ContextBudgetThresholds(
         max_context_tokens=max_tok,
         effective_context_tokens=effective,
         auto_compact_at_tokens=auto_at,
-        warn_at_tokens=max(0, auto_at - warn_buf),
-        error_at_tokens=max(0, auto_at - err_buf),
-        blocking_at_tokens=max(0, effective - block_buf),
-        max_consecutive_compact_failures=_int_env(
-            "BUTLER_CONTEXT_COMPACT_MAX_FAILURES",
-            3,
-        ),
+        warn_at_tokens=max(0, auto_at - budget.warning_buffer),
+        error_at_tokens=max(0, auto_at - budget.error_buffer),
+        blocking_at_tokens=max(0, effective - budget.blocking_buffer),
+        max_consecutive_compact_failures=budget.compact_max_failures,
     )
 
 

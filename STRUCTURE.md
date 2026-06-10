@@ -7,25 +7,30 @@
 ```
 WFXM/
 ├── butler/                      # ★ Butler v4 产品代码
-│   ├── core/                    #   Agent Loop 栈（含 design_md_sections、tool_implicit_context）
+│   ├── core/                    #   Agent Loop 栈（context_pipeline、tool_batch…）
 │   ├── experiments/             #   研究模式账本、METRIC、crash_guard
 │   ├── transport/               #   LLM Provider / 客户端
-│   ├── gateway/                 #   消息处理、session、/health
+│   ├── gateway/                 #   消息处理、session、/诊断
 │   │   └── platforms/           #   wechat_ilink.py（iLink）
-│   ├── runtime/ workflows/    #   定时任务、短工作流
-│   ├── tools/ memory/ skills/ cli/ ops/   # memory: chunking、query_decompose、semantic_index
+│   ├── runtime/                 #   定时任务、runtime jobs
+│   ├── workflows/               #   短工作流 YAML / runner
+│   ├── tools/                   #   工具注册与实现
+│   ├── memory/                  #   chunking、semantic_index、observation store
+│   ├── skills/                  #   Skill 管理
+│   ├── cli/                     #   butler 子命令注册（doctor、registry、mcp…）
+│   ├── ops/                     #   health_report、metrics、LangFuse
 │   ├── project*.py              #   项目注册 / Lead / preflight
 │   └── main.py                  #   `butler` CLI 入口
 ├── scripts/                     #   见 scripts/README.md（含 butler-five-reports-gate.sh）
 ├── docs/
-│   ├── architecture/            #   v4 架构、ADR、Hermes 解耦（已完成）
+│   ├── architecture/            #   v4 架构、ADR、项目激活/门控/扩展路径
 │   ├── design/                  #   产品设计
 │   ├── guides/                  #   运维、冒烟、接入
 │   ├── config/                  #   config.yaml.example、reference.md
 │   ├── plans/                   #   规划索引 README + CC/整理/外部对标
-│   ├── ops/                     #   /诊断 阈值等运维说明
+│   ├── ops/                     #   /诊断 入口矩阵、阈值
 │   └── reviews/                 #   项目评估
-├── tests/                       #   默认 ~1816 passed（排除 live_llm）
+├── tests/                       #   默认全量 pytest（排除 live_llm）
 ├── projects/                    #   LingWen1、DemoPilot 等工作区
 ├── logs/                        #   butler-gateway.log（gitignore *.log）
 ├── archive/                     #   README + Git 标签 archive/butler-v1-20260522
@@ -41,14 +46,14 @@ cp .env.example .env              # 配置 MINIMAX_API_KEY 等
 
 butler chat                       # CLI
 butler project preflight --project 灵文1号
-butler doctor                     # 静态安全配置审计
+butler doctor                     # 部署诊断（见 docs/ops/diagnostic-entrypoints.md）
 butler wechat-setup               # 微信扫码绑定
 bash scripts/install-butler-gateway-service.sh   # systemd 用户服务
 bash scripts/butler-gateway-ops.sh status        # 网关运维
 bash scripts/butler-pre-release-smoke.sh         # 发版守门
 
 PYTHONPATH=. pytest -q
-./scripts/butler-five-reports-gate.sh   # 五报告 P5–P10 守门
+./scripts/butler-five-reports-gate.sh   # 五报告 P5–P10 + PR-F 守门
 butler registry verify
 ```
 
@@ -66,6 +71,7 @@ butler registry verify
 | [`docs/guides/four-reports-capabilities-2026-05.md`](docs/guides/four-reports-capabilities-2026-05.md) | 四报告已落地能力速查 |
 | [`docs/plans/decisions/four-reports-out-of-scope-2026-05.md`](docs/plans/decisions/four-reports-out-of-scope-2026-05.md) | 四报告明确不做清单 |
 | [`docs/plans/archive/reference-learning-plan-2026-05.md`](docs/plans/archive/reference-learning-plan-2026-05.md) | 外部对标（已收口） |
+| [`docs/ops/diagnostic-entrypoints.md`](docs/ops/diagnostic-entrypoints.md) | `/诊断` vs `butler doctor` vs `/doctor` |
 | [`docs/ops/diagnostic-thresholds.md`](docs/ops/diagnostic-thresholds.md) | `/诊断` 运行指标阈值 |
 | [`docs/guides/wechat-gateway-ops.md`](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |
 | [`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟 |

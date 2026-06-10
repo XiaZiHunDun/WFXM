@@ -12,6 +12,7 @@ def test_queue_slash_command(tmp_path, monkeypatch, tmp_butler_home):
     empty_projects = tmp_path / "empty-projects"
     empty_projects.mkdir()
     monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(empty_projects))
+    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
     sk = "wechat:queue-u1"

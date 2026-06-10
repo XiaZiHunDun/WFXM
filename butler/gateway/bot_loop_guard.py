@@ -9,7 +9,7 @@ import threading
 import time
 from collections import deque
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ def bot_loop_guard_enabled() -> bool:
 
 def pair_threshold() -> int:
     try:
-        return max(2, int(os.getenv("BUTLER_BOT_LOOP_PAIR_THRESHOLD", "6")))
+        return int_env("BUTLER_BOT_LOOP_PAIR_THRESHOLD", 6, min=2)
     except ValueError:
         return 6
 

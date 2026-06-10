@@ -66,10 +66,9 @@ def turn_compaction_enabled() -> bool:
 
 
 def tail_turns_limit() -> int:
-    try:
-        return max(0, int(os.getenv("BUTLER_COMPACTION_TAIL_TURNS", str(_DEFAULT_TAIL_TURNS))))
-    except ValueError:
-        return _DEFAULT_TAIL_TURNS
+    from butler.env_parse import int_env
+
+    return int_env("BUTLER_COMPACTION_TAIL_TURNS", _DEFAULT_TAIL_TURNS, min=0)
 
 
 def split_turn_enabled() -> bool:
@@ -85,14 +84,18 @@ def preserve_recent_token_budget(
     from butler.core.context_budget import get_effective_context_window
 
     usable = get_effective_context_window(max_context_tokens, max_output_tokens=max_output_tokens)
-    try:
-        fixed = int(os.getenv("BUTLER_COMPACTION_PRESERVE_RECENT_TOKENS", "").strip() or 0)
-    except ValueError:
-        fixed = 0
+    from butler.env_parse import int_env
+
+    fixed = int_env("BUTLER_COMPACTION_PRESERVE_RECENT_TOKENS", 0)
     if fixed > 0:
         return max(_MIN_PRESERVE_RECENT, min(_MAX_PRESERVE_RECENT, fixed))
     try:
-        ratio = float(os.getenv("BUTLER_COMPACTION_PRESERVE_RECENT_RATIO", str(_DEFAULT_PRESERVE_RATIO)))
+        from butler.env_parse import float_env
+
+        ratio = float_env(
+            "BUTLER_COMPACTION_PRESERVE_RECENT_RATIO",
+            float(_DEFAULT_PRESERVE_RATIO),
+        )
     except ValueError:
         ratio = _DEFAULT_PRESERVE_RATIO
     scaled = int(usable * ratio)

@@ -55,6 +55,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def _register_per_area_parsers(sub: argparse._SubParsersAction) -> None:
     """Per-area registrations (R1-7 extraction targets)."""
     from butler.cli.chat_cli import register_chat_parser
+    from butler.cli.cost_cli import register_cost_parser
     from butler.cli.gateway_cli import register_gateway_parser
     from butler.cli.mcp_cli import register_mcp_parser
     from butler.cli.memory_cli import register_memory_parser
@@ -62,6 +63,7 @@ def _register_per_area_parsers(sub: argparse._SubParsersAction) -> None:
     from butler.cli.runtime_cli import register_runtime_parser
 
     register_chat_parser(sub)
+    register_cost_parser(sub)
     register_projects_parser(sub)
     register_memory_parser(sub)
     register_runtime_parser(sub)
@@ -98,8 +100,10 @@ def _cmd_doctor(ns: argparse.Namespace) -> int:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    from butler.env_parse import init_dotenv
     from butler.logging_config import configure_logging
 
+    init_dotenv()
     configure_logging()
     args = _build_parser().parse_args(argv)
     code = args.func(args)

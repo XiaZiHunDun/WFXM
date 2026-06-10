@@ -281,7 +281,7 @@ class TestWorkflowAutoResume:
         _save_pending("sk1", PendingGate(
             workflow="test-wf", step_id="step1", kind="workflow_step",
         ))
-        result = resolve_human_gate_message("sk1", "确认")
+        result = resolve_human_gate_message("sk1", "确认", owner_verified=True)
         assert result is not None
         assert "step1" in result
         assert "请再次发送" in result
@@ -302,6 +302,6 @@ class TestWorkflowAutoResume:
             "butler.human_gate._auto_resume_workflow",
             return_value="工作流完成 (2/2 步成功)",
         ):
-            result = resolve_human_gate_message("sk2", "确认")
+            result = resolve_human_gate_message("sk2", "确认", owner_verified=True)
             assert "自动继续执行" in result
             assert "工作流完成" in result

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import json
 import os
 from collections import defaultdict
@@ -16,7 +17,7 @@ def per_tool_limit_enabled() -> bool:
 
 def per_tool_call_limit() -> int:
     try:
-        return max(0, int(os.getenv("BUTLER_TOOL_CALL_LIMIT_PER_TOOL", "0")))
+        return int_env("BUTLER_TOOL_CALL_LIMIT_PER_TOOL", 0, min=0)
     except ValueError:
         return _DEFAULT_LIMIT
 

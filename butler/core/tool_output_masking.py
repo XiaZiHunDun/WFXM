@@ -19,7 +19,9 @@ def tool_masking_enabled() -> bool:
 
 def _int_env(name: str, default: int) -> int:
     try:
-        return max(0, int(os.getenv(name, "").strip() or default))
+        from butler.env_parse import int_env
+
+        return int_env(name, default, min=0)
     except ValueError:
         return default
 
@@ -33,7 +35,8 @@ def min_prunable_token_budget() -> int:
 
 
 def _estimate_tokens(text: str) -> int:
-    return max(1, len(text) // 4)
+    from butler.core.context_compressor import _heuristic_count
+    return max(1, _heuristic_count(text))
 
 
 def _tool_name_for_message(messages: list[dict], idx: int) -> str:

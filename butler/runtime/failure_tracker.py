@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import json
 import logging
 import os
@@ -22,7 +23,7 @@ def _streaks_path() -> Path:
 
 def _alert_threshold() -> int:
     try:
-        return max(1, int(os.getenv("BUTLER_RUNTIME_FAIL_ALERT_STREAK", "3")))
+        return int_env("BUTLER_RUNTIME_FAIL_ALERT_STREAK", 3, min=1)
     except ValueError:
         return 3
 

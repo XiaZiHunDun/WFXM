@@ -150,6 +150,11 @@ def sync_turn_memory(
                     tags=tag or None,
                 )
                 updates += 1
+                try:
+                    from butler.memory.memory_metrics import get_collector
+                    get_collector().on_write("experience", success=True)
+                except Exception:
+                    pass
             provider = getattr(orchestrator, "memory_provider", None) or getattr(orchestrator, "_memory_provider", None)
             provider_synced = False
             provider_error = ""

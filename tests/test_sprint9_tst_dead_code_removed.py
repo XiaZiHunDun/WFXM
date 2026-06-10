@@ -1,20 +1,17 @@
-"""Sprint 9 audit fix: TST-9-12 + Sprint 8 TST-1 — 3 死代码文件集中删 1070 行
+"""Sprint 9 audit fix: TST-9-12 + Sprint 8 TST-1 — 2 死代码文件集中删 617 行
 
-Sprint 9 TST-9 ~ 12 + Sprint 8 TST-1：以下 3 个文件 0 importer、0 测试，
-累计 1070 行死代码：
+Sprint 9 TST-9 ~ 12 + Sprint 8 TST-1：以下 2 个文件 0 importer、0 测试，
+累计 617 行死代码：
   - butler/gateway/turn_runner.py    (212)
   - butler/core/loop_turn.py         (405)
-  - butler/gateway/inbound_pipeline.py (453)
 
-Sprint 9 审计误报 4 个文件，实际**不是死代码**：
+不是死代码（保留）：
+  - butler/gateway/inbound_pipeline.py — 被 message_handler.py 主动 import
   - butler/runtime/schedule.py (51) — 有 3 importers (diagnostics / service / test_runtime)
   - butler/gateway/commands/{lifecycle,dialog,info}_commands.py (432) — module-load
-    ``register()`` 调用注册命令处理器（/config / /技能 / /mcp / /detail / ...）
-    是命令注册机制的载体，被 ``butler.gateway.commands.__init__`` 主动 import，
-    再被 ``message_handler.py:975`` 主动 import。Sprint 9 审计漏报此 side effect
-    → 误判为死代码。**保留不删**。
+    ``register()`` 调用注册命令处理器
 
-修复：删除 3 个文件。
+修复：删除 2 个文件。
 """
 
 from __future__ import annotations
@@ -28,7 +25,6 @@ import pytest
 DEAD_CODE_FILES = [
     "butler/gateway/turn_runner.py",
     "butler/core/loop_turn.py",
-    "butler/gateway/inbound_pipeline.py",
 ]
 
 
@@ -46,7 +42,6 @@ def test_no_module_can_import_removed_submodules():
     for module in [
         "butler.gateway.turn_runner",
         "butler.core.loop_turn",
-        "butler.gateway.inbound_pipeline",
     ]:
         with pytest.raises(ModuleNotFoundError):
             __import__(module)
@@ -78,7 +73,14 @@ def test_commands_package_kept_intentionally():
 
 
 @pytest.mark.unit
-def test_total_lines_removed_is_1070():
-    """累计应删除 1070 行（212+405+453） — 防止漏删某个文件。"""
-    expected_total = 212 + 405 + 453
-    assert expected_total == 1070
+def test_total_lines_removed_is_617():
+    """累计应删除 617 行（212+405） — 防止漏删某个文件。"""
+    expected_total = 212 + 405
+    assert expected_total == 617
+
+
+@pytest.mark.unit
+def test_inbound_pipeline_is_active_not_dead():
+    """``butler.gateway.inbound_pipeline`` 被 message_handler 主动 import，保留不删。"""
+    from butler.gateway import inbound_pipeline
+    assert hasattr(inbound_pipeline, "build_default_inbound_pipeline")

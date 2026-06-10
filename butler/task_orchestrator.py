@@ -345,6 +345,13 @@ class TaskOrchestrator:
         serial: bool = False,
     ) -> TaskGraphResult:
         """Execute a DAG of tasks with dependency resolution."""
+        from butler.core.meta_flags import MAX_DAG_NODES
+
+        if len(nodes) > MAX_DAG_NODES:
+            raise ValueError(
+                f"DAG exceeds maximum node count ({len(nodes)} > {MAX_DAG_NODES})"
+            )
+
         graph_result = TaskGraphResult()
         node_map = {n.id: n for n in nodes}
         completed: dict[str, AgentResult] = {}
@@ -410,8 +417,8 @@ class TaskOrchestrator:
                         (node.config.context or "") + "\n\n" + sup
                     ).strip()
 
-                if node.requires_approval and on_approval:
-                    if not on_approval(node):
+                if node.requires_approval:
+                    if on_approval is None or not on_approval(node):
                         completed[node_id] = AgentResult(
                             success=False,
                             error="workflow_step_approval_pending",

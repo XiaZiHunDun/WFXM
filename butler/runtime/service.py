@@ -108,6 +108,7 @@ def run_job(
         ):
             return {
                 "success": False,
+                "status": "REJECTED",
                 "error": (
                     f"任务 {job_id} 为改盘任务，须先 /批准运行 {job_id} "
                     f"（有效期 {job.approval.expires_hours}h）"

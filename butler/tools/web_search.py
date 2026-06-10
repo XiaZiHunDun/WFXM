@@ -16,7 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from urllib.parse import quote_plus
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, float_env
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ def web_search_enabled() -> bool:
 
 def _timeout() -> float:
     try:
-        return max(3.0, float(os.getenv("BUTLER_WEB_SEARCH_TIMEOUT", "") or "15"))
+        return max(3.0, float_env("BUTLER_WEB_SEARCH_TIMEOUT", 15))
     except ValueError:
         return 15.0
 

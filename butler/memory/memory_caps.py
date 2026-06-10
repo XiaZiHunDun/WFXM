@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-import os
 from typing import Tuple
+
+from butler.memory_settings import resolve_memory_config
 
 
 def memory_index_caps() -> dict[str, int]:
-    def _int(name: str, default: int) -> int:
-        try:
-            return max(0, int(os.getenv(name, str(default)).strip() or default))
-        except ValueError:
-            return default
-
-    return {
-        "max_lines": _int("BUTLER_MEMORY_MAX_LINES", 200),
-        "max_bytes": _int("BUTLER_MEMORY_MAX_BYTES", 25 * 1024),
-    }
+    cfg = resolve_memory_config()
+    return {"max_lines": cfg.max_lines, "max_bytes": cfg.max_bytes}
 
 
 def truncate_memory_text(text: str) -> Tuple[str, bool]:

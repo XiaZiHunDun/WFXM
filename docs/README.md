@@ -1,6 +1,6 @@
 # Butler 文档索引
 
-> 更新：**2026-05-29** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
+> 更新：**2026-06-09** | 主线：**Butler v4**（自建 Agent Loop，**仅微信**网关）  
 > **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md)  
 > **文档体系**：[`DOCUMENTATION.md`](DOCUMENTATION.md)（分层、维护规则、勿从对照报告抽待办）
 
@@ -10,12 +10,19 @@
 |--------|--------|
 | 改代码 / 查模块 | [`architecture/v4-architecture.md`](architecture/v4-architecture.md) |
 | 查环境变量 | [`config/reference.md`](config/reference.md) + [`../.env.example`](../.env.example) |
+| 配置放哪（env/yaml/secrets） | [`config/config-surfaces.md`](config/config-surfaces.md) |
+| `/诊断` vs `butler doctor` vs `/doctor` | [`ops/diagnostic-entrypoints.md`](ops/diagnostic-entrypoints.md) |
+| 切换项目后影响什么 | [`architecture/project-activation.md`](architecture/project-activation.md) |
+| Hook/MCP/Skill 放哪 | [`architecture/extension-registry-paths.md`](architecture/extension-registry-paths.md) |
+| 权限门控改哪 | [`architecture/permission-gate-stack.md`](architecture/permission-gate-stack.md) |
 | **看项目现状 / 已实现 / 未实现 / 依赖** | [`guides/capabilities-index-2026-05.md`](guides/capabilities-index-2026-05.md) |
 | **发版一条链** | [`guides/release-runbook-2026-05.md`](guides/release-runbook-2026-05.md) |
 | 微信发版 / 运维 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) → [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) |
 | 看 CC 能力是否已有 | [`plans/cc-butler-gap-analysis-2026-05.md`](plans/active/cc-butler-gap-analysis-2026-05.md) |
 | 看规划与命名 | [`plans/README.md`](plans/README.md) |
 | **否决 / 未做 / Backlog（统一）** | [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) |
+| **理论—实现差距（G1–G4）** | [`plans/decisions/theory-implementation-gap-register-2026-06.md`](plans/decisions/theory-implementation-gap-register-2026-06.md) |
+| **Phase 4/9 运营与收口** | [`guides/phase4-ops-runbook.md`](guides/phase4-ops-runbook.md) · [`plans/active/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md) §9 |
 | 四报告已落地 / 18 项不做 | [`guides/four-reports-capabilities-2026-05.md`](guides/four-reports-capabilities-2026-05.md) · [`plans/four-reports-out-of-scope-2026-05.md`](plans/decisions/four-reports-out-of-scope-2026-05.md) |
 | 五报告已落地 / S1–S11 | [`guides/five-reports-capabilities-2026-05.md`](guides/five-reports-capabilities-2026-05.md) · [`plans/five-reports-not-done-2026-05.md`](plans/decisions/five-reports-not-done-2026-05.md) |
 | 外部 Agent 路线图（PR-X 已落地） | [`plans/external-agent-reports-improvement-roadmap-2026-05.md`](plans/roadmaps/external-agent-reports-improvement-roadmap-2026-05.md) |
@@ -27,7 +34,7 @@
 | 文档 | 说明 |
 |------|------|
 | [`architecture/v4-architecture.md`](architecture/v4-architecture.md) | **当前架构**：Loop、Gateway、CC 线束 + 外部对标落地 |
-| [`design/design.md`](design/design.md) | 产品设计摘要；§9 对照表（§11+ 可能滞后） |
+| [`design/design.md`](design/design.md) | 产品设计摘要；§9 对照表（附录可能滞后，勿作实现 SSOT） |
 | [`architecture/project-lead-decision.md`](architecture/project-lead-decision.md) | 莎丽门户 + 厂长主控 |
 | [`architecture/project-runtime-automation.md`](architecture/project-runtime-automation.md) | Runtime 定时任务 |
 | [`architecture/wechat-inbound-media.md`](architecture/wechat-inbound-media.md) | 入站图片 VLM + 语音转写 |
@@ -47,6 +54,7 @@
 | [`guides/wechat-core-scenario.md`](guides/wechat-core-scenario.md) | 微信八步剧本 |
 | [`guides/manual-testing-guide.md`](guides/manual-testing-guide.md) | CLI + 微信人工测试 |
 | [`guides/runtime-ops.md`](guides/runtime-ops.md) | Runtime timer |
+| [`guides/phase4-ops-runbook.md`](guides/phase4-ops-runbook.md) | Phase 4 运营巩固 + 灵文样板 |
 | [`guides/memory-ops.md`](guides/memory-ops.md) | 记忆运维 |
 | [`guides/project-onboarding.md`](guides/project-onboarding.md) | 项目接入 preflight |
 | [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md) | `/诊断` 运行指标阈值说明 |

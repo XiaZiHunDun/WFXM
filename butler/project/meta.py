@@ -51,6 +51,29 @@ def lifecycle_operating_hint(project: "Project | None") -> str:
     return ""
 
 
+def format_default_project_policy_lines(
+    orchestrator: Any,
+    session_key: str,
+) -> list[str]:
+    """C2: default project resolution policy for /诊断."""
+    import os
+
+    pm = orchestrator.project_manager
+    default_env = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip() or "(未设置)"
+    session_proj = pm.resolve_active_project_name(session_key=session_key) or "(无)"
+    lines = [
+        "默认项目策略:",
+        f"  BUTLER_DEFAULT_PROJECT: {default_env}",
+        f"  本会话当前项目: {session_proj}",
+    ]
+    if default_env != "(未设置)" and session_proj == "(无)":
+        lines.append("  解析: 新会话将使用环境默认项目")
+    elif session_proj != "(无)":
+        lines.append("  解析: 会话绑定优先于环境默认")
+    lines.append("  切换: /切换 <项目名> · 新建: /项目 新建 <slug>")
+    return lines
+
+
 def format_project_meta_lines(
     project: "Project | None",
     *,

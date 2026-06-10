@@ -8,7 +8,7 @@ import os
 import re
 from typing import Literal
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def mode_classifier_auto_plan() -> bool:
 
 def _min_chars() -> int:
     try:
-        return max(20, int(os.getenv("BUTLER_MODE_CLASSIFIER_MIN_CHARS", "") or "36"))
+        return max(20, int_env("BUTLER_MODE_CLASSIFIER_MIN_CHARS", 36))
     except ValueError:
         return 36
 

@@ -307,6 +307,21 @@ def pop_all_merged(session_key: str) -> QueuedInbound | None:
     )
 
 
+def newest_enqueued_at(session_key: str) -> float:
+    """Return the monotonic timestamp of the newest queued item, or 0."""
+    key = str(session_key or "default")
+    with _LOCK:
+        bucket = _QUEUES.get(key)
+        if not bucket:
+            return 0.0
+        latest = 0.0
+        for p in _PRIORITIES:
+            for item in bucket[p]:
+                if item.enqueued_at > latest:
+                    latest = item.enqueued_at
+        return latest
+
+
 def pending_count(session_key: str = "") -> int:
     key = str(session_key or "default")
     with _LOCK:

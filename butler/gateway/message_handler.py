@@ -41,18 +41,9 @@ from butler.gateway.locked_phases import (
 )
 from butler.gateway.message_pipelines import (
     _phase_apply_admission,
-    _phase_apply_bot_loop_guard,
-    _phase_apply_human_gate,
     _phase_apply_idempotency,
-    _phase_apply_injection_guard,
-    _phase_apply_injection_llm,
-    _phase_apply_io_guardrail,
-    _phase_apply_mcp_profile,
-    _phase_apply_pre_dispatch_rewrites,
-    _phase_apply_prequeue_interrupt,
     _phase_apply_queue_inbound,
     _phase_apply_session_initializing,
-    _phase_apply_two_phase_confirm,
     _phase_resolve_session_key,
     _phase_transform_inbound_text,
     queue_inbound_for_admission_failure,
@@ -93,6 +84,9 @@ class ButlerMessageHandler:
         )
         self._sessions: dict[str, AgentLoop] = self._session_registry.sessions
         self._health_by_session: dict[str, dict[str, Any]] = self._session_registry.health_by_session
+        from butler.gateway.inbound_pipeline import build_default_inbound_pipeline
+
+        self._inbound_pipeline = build_default_inbound_pipeline()
 
     def _create_loop_for_session(self, session_key: str) -> AgentLoop:
         pm = self._orchestrator.project_manager
@@ -205,10 +199,11 @@ class ButlerMessageHandler:
 
         from butler.gateway.message_queue import (
             message_queue_enabled,
+            newest_enqueued_at,
             pop_all_merged,
             pop_next,
         )
-        from butler.gateway.queue_settings import get_queue_mode
+        from butler.gateway.queue_settings import collect_debounce_ms, get_queue_mode
 
         if not message_queue_enabled():
             return ""
@@ -217,6 +212,14 @@ class ButlerMessageHandler:
         parts: list[str] = []
 
         if mode == "collect":
+            debounce_s = collect_debounce_ms(session_key) / 1000.0
+            if debounce_s > 0:
+                import time as _t
+                last_ts = newest_enqueued_at(session_key)
+                if last_ts > 0:
+                    elapsed = _t.monotonic() - last_ts
+                    if elapsed < debounce_s:
+                        _t.sleep(debounce_s - elapsed)
             item = pop_all_merged(session_key)
             if item is not None and not self._session_registry.is_session_active(session_key):
                 logger.info(
@@ -234,12 +237,14 @@ class ButlerMessageHandler:
                     parts.append(part)
         else:
             try:
-                max_drain = max(0, int(os.getenv("BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN", "1") or "1"))
+                from butler.env_parse import int_env
+
+                max_drain = int_env("BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN", 1, min=0)
             except ValueError:
                 max_drain = 1
             if mode == "followup":
                 try:
-                    max_drain = max(max_drain, int(os.getenv("BUTLER_GATEWAY_QUEUE_DRAIN_FOLLOWUP", "1") or "1"))
+                    max_drain = max(max_drain, int_env("BUTLER_GATEWAY_QUEUE_DRAIN_FOLLOWUP", 1, min=0))
                 except ValueError:
                     pass
             for _ in range(max_drain):
@@ -320,47 +325,28 @@ class ButlerMessageHandler:
         text = _phase_transform_inbound_text(
             text, platform=platform, external_id=external_id, session_key=session_key,
         )
-        _phase_apply_mcp_profile(text, session_key)
 
         if not text.strip():
             return ""
 
-        block = _phase_apply_io_guardrail(text)
-        if block is not None:
-            return block
-        block = _phase_apply_human_gate(
-            text, session_key, platform=platform, external_id=external_id,
+        from butler.gateway.inbound_pipeline import (
+            InboundTurnContext,
+            run_inbound_pipeline,
         )
-        if block is not None:
-            return block
-        text, block = _phase_apply_injection_guard(text, session_key)
-        if block is not None:
-            return block
-        block = _phase_apply_injection_llm(text, session_key)
-        if block is not None:
-            return block
-        block = _phase_apply_bot_loop_guard(
-            text, session_key, external_id=external_id,
-        )
-        if block is not None:
-            return block
-        block = _phase_apply_two_phase_confirm(
-            text, session_key, platform=platform, external_id=external_id,
-        )
-        if block is not None:
-            return block
 
-        block = _phase_apply_prequeue_interrupt(text, session_key, handler=self)
-        if block is not None:
-            return block
-
-        rewritten = _phase_apply_pre_dispatch_rewrites(
-            text, session_key, platform=platform,
+        pipeline_ctx = InboundTurnContext(
+            handler=self,
+            text=text,
+            session_key=session_key,
+            platform=platform,
+            external_id=external_id,
         )
-        if rewritten == "":
-            return ""
-        if rewritten is not None:
-            text = rewritten
+        pipeline_result = run_inbound_pipeline(self._inbound_pipeline, pipeline_ctx)
+        if pipeline_result.blocked:
+            if pipeline_result.block_reply == "drop":
+                return ""
+            return pipeline_result.block_reply
+        text = pipeline_result.text
 
         from butler.gateway.handler_helpers import _is_sessionless_command
 

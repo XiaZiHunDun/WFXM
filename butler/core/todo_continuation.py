@@ -22,20 +22,25 @@ CONTINUATION_USER_MESSAGE = (
 
 
 def todo_continuation_enabled() -> bool:
-    raw = os.getenv("BUTLER_TODO_CONTINUATION", "1").strip().lower()
-    return raw not in ("0", "false", "no", "off")
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_TODO_CONTINUATION", default=True)
 
 
 def max_continuations() -> int:
     try:
-        return max(0, int(os.getenv("BUTLER_TODO_CONTINUATION_MAX", "2").strip() or "2"))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_TODO_CONTINUATION_MAX", 2, min=0)
     except ValueError:
         return 2
 
 
 def stagnation_limit() -> int:
     try:
-        return max(2, int(os.getenv("BUTLER_TODO_STAGNATION_MAX", "2").strip() or "2"))
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_TODO_STAGNATION_MAX", 2, min=2)
     except ValueError:
         return 2
 

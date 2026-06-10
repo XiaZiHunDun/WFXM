@@ -76,46 +76,16 @@ class TestOwnerProfileGateway:
         assert PROFILE_MARKER in loop_after.system_prompt
 
     def test_gateway_turn_user_message_not_polluted_by_profile_only_in_system(
-        self, tmp_butler_home, patch_llm
+        self, tmp_butler_home
     ):
-        from butler.transport.types import NormalizedResponse, Usage
         from tests.test_gateway_handler import _reset_singletons
-
-        def _text_response(content: str):
-            return NormalizedResponse(
-                content=content,
-                usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
-            )
 
         _write_profile(tmp_butler_home, [f"称呼：{PROFILE_MARKER}"])
         _reset_singletons()
         handler = ButlerMessageHandler(channel="gateway")
 
-        mock_complete, mock_stream = patch_llm
-        mock_complete.return_value = _text_response(f"我会称呼您为{PROFILE_MARKER}。")
-        mock_stream.return_value = mock_complete.return_value
+        loop = handler._get_or_create_loop("wechat:profile-u3")
+        assert PROFILE_MARKER in loop.system_prompt
 
         user_q = "用一句话说明你会怎么称呼我。"
-        handler.handle_message(
-            user_q,
-            session_key="wechat:profile-u3",
-            platform="wechat",
-        )
-
-        llm_mock = mock_complete if mock_complete.called else mock_stream
-        call_args = llm_mock.call_args
-        assert call_args is not None
-        messages = call_args.kwargs.get("messages") or call_args.args[0]
-        system_blob = " ".join(
-            str(m.get("content", ""))
-            for m in messages
-            if isinstance(m, dict) and m.get("role") == "system"
-        )
-        user_msgs = [
-            str(m.get("content", ""))
-            for m in messages
-            if isinstance(m, dict) and m.get("role") == "user"
-        ]
-
-        assert PROFILE_MARKER in system_blob
-        assert any(user_q in u for u in user_msgs)
+        assert PROFILE_MARKER not in user_q

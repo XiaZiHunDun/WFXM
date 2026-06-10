@@ -180,16 +180,28 @@ def test_live_gateway_delegate_writes_file(tmp_butler_home, tmp_path, monkeypatc
 
     from tests.test_gateway_handler import _reset_singletons
 
+    monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "live-delegate")
+    monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "0")
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
     handler._orchestrator.project_manager.switch_project("live-gw-proj")
-    sk = "wechat:live-delegate"
+    handler._orchestrator.project_manager.switch_project_for_chat(
+        platform="wechat",
+        chat_id="live-delegate",
+        name="live-gw-proj",
+    )
+    sk = handler.resolve_session_key(
+        platform="wechat",
+        external_id="live-delegate",
+    )
 
     with patch("butler.session.lifecycle.sync_turn_memory", return_value={}):
         out = handler.handle_message(
-            f"请交给内容代理：在 {doc_rel} 写一行正文「{body_marker}」，不要改其它文件。",
+            f"请交给内容代理：用 write_file 工具在 {doc_rel} 写一行正文「{body_marker}」，"
+            "不要用 terminal，不要改其它文件。",
             session_key=sk,
             platform="wechat",
+            external_id="live-delegate",
         )
 
     assert doc_path.is_file(), f"expected file at {doc_path}; gateway out={out[:500]!r}"

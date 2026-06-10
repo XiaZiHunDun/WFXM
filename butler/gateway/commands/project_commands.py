@@ -4,8 +4,9 @@
 
   - /项目   (/projects)                → _cmd_project_list
   - /状态   (/status)                   → _cmd_butler_status
-  - /项目 新建  (子命令, arg="新建 ...")  → 经 /项目 handler 委派
-  - /项目 体检  (子命令, arg="体检")      → 经 /项目 handler 委派
+  - /项目 新建     (子命令, arg="新建 ...")     → 经 /项目 handler 委派
+  - /项目 体检     (子命令, arg="体检")         → 经 /项目 handler 委派
+  - /项目 register (子命令, arg="register ...") → 经 /项目 handler 委派
 
 迁移要点:
   - 内联块 32 行 (项目列表 + 委派 onboard) 抽到 format_project_list().
@@ -40,7 +41,7 @@ def format_project_list(
     platform: str = "unknown",
     external_id: str | None = None,
 ) -> str:
-    """List all projects, or dispatch to /项目 新建|体检 onboarding."""
+    """List all projects, or dispatch to /项目 新建|体检|register onboarding."""
     from butler.gateway.project_commands import handle_project_onboarding_command
 
     onboard = handle_project_onboarding_command(
@@ -63,6 +64,7 @@ def format_project_list(
     lines = [
         "项目列表（* 当前）",
         "  /项目 新建 <slug> [模板]",
+        "  /项目 register <显示名> <路径>",
         "  /项目 体检",
         "",
     ]
@@ -107,7 +109,7 @@ def format_butler_status(
 
 
 def _cmd_project_list(ctx: CommandContext) -> Optional[str]:
-    """handler for /项目 — 包含 /项目 新建|体检 子命令委派."""
+    """handler for /项目 — 包含 /项目 新建|体检|register 子命令委派."""
     gate = require_owner(ctx)
     if gate:
         return gate
@@ -134,7 +136,7 @@ _PROJECT_COMMANDS: list[CommandDef] = [
         "/项目",
         ("/projects",),
         "项目管理",
-        "列出所有项目 (含 /项目 新建|体检 子命令)",
+        "列出所有项目 (含 /项目 新建|register|体检 子命令)",
         handler=_cmd_project_list,
     ),
     CommandDef(

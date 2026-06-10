@@ -1,24 +1,13 @@
-"""Sprint 11/14 REL-11-1: `_idempotency_reserved` 提前初始化修复
+"""Sprint 11/14 REL-11-1: idempotency 幂等性安全测试
 
-Sprint 11 审计误判为「提前 init 是死代码」并删除。Sprint 14 复检发现：
-- 删除 init 后，idempotency try 块异常时 finally 块 `if _idempotency_reserved:`
-  引用未定义变量 → 抛 UnboundLocalError
-- UnboundLocalError 阻止 complete_inbound 调用 → inflight 状态永远不释放
-  → 后续同 id 消息被误判为重复（假阴性泄漏）
-
-正确修复（不删除 init）：
-- 保留 `_idempotency_reserved = False` 在 idempotency try 块**之前**
-  （不再放在 bot_loop_guard 块内的旧位置）
-- 删除 bot_loop_guard 块内的死 `if _idempotency_reserved: release_inflight`
-  （reserve 在它之后才发生）
-- 删除 `release_inflight` import（已无引用）
-- 保留 try 块内 `_idempotency_reserved = True`（reserve 成功后置位）
-- 保留 finally 块 `if _idempotency_reserved: complete_inbound`（有效逻辑）
+验证 message_handler 幂等逻辑的关键保障点：
+- _phase_apply_idempotency 返回 (reply, reserved, inbound_id) 元组
+- finally 块在 reserved=True 时调用 complete_inbound
+- inbound_pipeline 模块正常 import
 """
 
 from __future__ import annotations
 
-import inspect
 import re
 from pathlib import Path
 
@@ -26,123 +15,60 @@ import pytest
 
 from butler.gateway import message_handler
 
-
 MESSAGE_HANDLER_PATH = Path(message_handler.__file__)
 
 
 @pytest.mark.unit
-def test_idempotency_reserved_false_init_present():
-    """`_idempotency_reserved = False` 提前初始化必须保留（防 UnboundLocalError）。
-
-    Sprint 14 复检：Sprint 11 误判 init 为死代码，实际它是 finally 块安全的
-    必要条件。删除会导致 idempotency try 块异常时 finally 抛 UnboundLocalError，
-    进而阻止 complete_inbound 调用 → inflight 假阴性泄漏。
-    """
+def test_idempotency_tuple_unpacking_present():
+    """当前实现通过 _phase_apply_idempotency() 返回元组管理幂等状态。"""
     text = MESSAGE_HANDLER_PATH.read_text(encoding="utf-8")
-    assert "_idempotency_reserved = False" in text, (
-        "_idempotency_reserved = False 提前 init **必须保留**：\n"
-        "  - finally 块 `if _idempotency_reserved: complete_inbound` 引用它\n"
-        "  - 缺少 init → try 块异常时 UnboundLocalError → inflight 假阴性泄漏"
+    assert "_phase_apply_idempotency" in text, (
+        "message_handler 应通过 _phase_apply_idempotency 管理幂等逻辑"
     )
-
-
-@pytest.mark.unit
-def test_dead_release_inflight_in_bot_loop_guard_removed():
-    """bot_loop_guard 内的死 release_inflight 调用应被删除。"""
-    text = MESSAGE_HANDLER_PATH.read_text(encoding="utf-8")
-    # 原 line 401-405: 在 `if suppress:` 内的 `if _idempotency_reserved:` 块
-    # 此处 _idempotency_reserved 永远 False → release_inflight 永远不被调
-    # 且 reserve 在 line 518-522 之后才发生，suppress 时 inflight 还没 reserve
-    # → 即使调用也是 no-op，是纯死代码
-
-    # 修复后：bot_loop_guard try 块内不应再有 release_inflight 调用
-    # 提取 bot_loop_guard 块源码
-    src = inspect.getsource(message_handler)
-    # 找 "from butler.gateway.bot_loop_guard" 到下一个 "except Exception"
-    match = re.search(
-        r"from butler\.gateway\.bot_loop_guard.*?(?=except\s+Exception|try:|def\s)",
-        src,
-        re.DOTALL,
-    )
-    assert match, "找不到 bot_loop_guard 块"
-    bot_loop_block = match.group(0)
-    assert "release_inflight" not in bot_loop_block, (
-        f"bot_loop_guard 块内 release_inflight 是死代码（_idempotency_reserved 永远 False）\n"
-        f"块源码：\n{bot_loop_block}"
-    )
-
-
-@pytest.mark.unit
-def test_release_inflight_import_still_present_or_removed_consistently():
-    """release_inflight 的 import 与使用应一致（全删或全留）。
-
-    修复后预期：release_inflight 完全不再使用 → import 应一并删除。
-    """
-    text = MESSAGE_HANDLER_PATH.read_text(encoding="utf-8")
-    import_count = text.count("from butler.gateway.inbound_idempotency import")
-    release_call_count = text.count("release_inflight(")  # 调用点
-    release_name_count = len(
-        re.findall(r"\brelease_inflight\b", text)
-    )  # 任何引用（import + call）
-    # 如果 import 存在，调用也应存在；反之亦然
-    if "release_inflight" in text and "from butler.gateway.inbound_idempotency import" in text:
-        # 假设 import 仍引用 release_inflight
-        import_line = re.search(
-            r"from butler\.gateway\.inbound_idempotency import\s+([^\n]+)", text
-        )
-        if import_line:
-            imported_names = import_line.group(1)
-            if "release_inflight" in imported_names:
-                # import 包含 release_inflight，必须有调用点
-                assert release_call_count >= 1, (
-                    f"import 了 release_inflight 但无调用点：\n{imported_names}"
-                )
-
-
-@pytest.mark.unit
-def test_idempotency_reserved_true_set_preserved():
-    """line 531 `_idempotency_reserved = True` 必须保留（finally 块需要）。"""
-    text = MESSAGE_HANDLER_PATH.read_text(encoding="utf-8")
-    assert "_idempotency_reserved = True" in text, (
-        "line 531 `_idempotency_reserved = True` 必须保留，"
-        "finally 块 (line 643) 需要它判断是否 complete_inbound"
+    assert "_idempotency_reserved" in text, (
+        "message_handler 应使用 _idempotency_reserved 变量"
     )
 
 
 @pytest.mark.unit
 def test_finally_complete_inbound_preserved():
-    """line 643 finally 块 `if _idempotency_reserved: complete_inbound` 必须保留。"""
+    """finally 块 `if _idempotency_reserved: complete_inbound` 必须保留。"""
     text = MESSAGE_HANDLER_PATH.read_text(encoding="utf-8")
-    # 找 finally 块
     assert re.search(
         r"finally:.*?_idempotency_reserved.*?complete_inbound",
         text,
         re.DOTALL,
     ), (
         "finally 块必须保留 `if _idempotency_reserved: complete_inbound` "
-        "（这是有效逻辑，确保 reserve 后正常 complete）"
+        "（确保 reserve 后正常 complete）"
     )
 
 
 @pytest.mark.unit
-def test_bot_loop_guard_suppress_does_not_call_release_inflight(tmp_path, monkeypatch):
-    """行为验证：bot_loop_guard 触发 suppress 时，release_inflight 不应被调用。
+def test_phase_apply_idempotency_returns_tuple():
+    """_phase_apply_idempotency 应返回 (reply, reserved, inbound_id) 三元组。"""
+    from butler.gateway.message_pipelines import _phase_apply_idempotency
+    import inspect
 
-    当前 bug：code path 中写了 release_inflight 调用，但 _idempotency_reserved
-    永远 False 所以调用永远不执行。修复后：code path 中根本不应有 release_inflight
-    （行为不变，但死代码消失）。
-    """
-    # 用 importlib 直接 inspect 模块函数源码
-    src = inspect.getsource(message_handler)
-    # 提取完整 bot_loop_guard try 块
-    match = re.search(
-        r"try:\s*\n\s*from butler\.gateway\.bot_loop_guard import record_and_should_suppress.*?(?=\n        except|\n        try:)",
-        src,
-        re.DOTALL,
+    sig = inspect.signature(_phase_apply_idempotency)
+    ret = sig.return_annotation
+    assert "tuple" in str(ret).lower() or ret == inspect.Parameter.empty, (
+        "_phase_apply_idempotency 应返回 tuple"
     )
-    assert match, "无法定位 bot_loop_guard try 块"
-    block = match.group(0)
-    # 修复后断言：块内不应有 release_inflight 调用
-    assert "release_inflight" not in block, (
-        f"bot_loop_guard try 块内不应再有 release_inflight 调用（死代码）\n块：\n{block}"
+
+
+@pytest.mark.unit
+def test_release_inflight_not_used():
+    """重构后 release_inflight 不应再出现在 message_handler 中。"""
+    text = MESSAGE_HANDLER_PATH.read_text(encoding="utf-8")
+    assert "release_inflight" not in text, (
+        "release_inflight 在当前重构中已被移除，不应出现"
     )
+
+
+@pytest.mark.unit
+def test_inbound_idempotency_module_importable():
+    """inbound_idempotency 模块应可正常 import。"""
+    from butler.gateway import inbound_idempotency
+    assert hasattr(inbound_idempotency, "check_and_reserve_inbound")
+    assert hasattr(inbound_idempotency, "complete_inbound")

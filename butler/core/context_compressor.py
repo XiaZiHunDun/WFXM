@@ -8,6 +8,7 @@ Simplified port of Hermes ``agent/context_compressor.py``:
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import json
 import logging
 from typing import Any
@@ -28,10 +29,77 @@ _MIN_MESSAGES_TO_COMPRESS = 12
 
 
 def _estimate_tokens(messages: list[dict]) -> int:
+    counter = _get_token_counter()
     total = 0
     for m in messages:
-        total += len(json.dumps(m, ensure_ascii=False, default=str)) // 4
+        text = json.dumps(m, ensure_ascii=False, default=str)
+        total += counter(text)
     return total
+
+
+def _heuristic_count(text: str) -> int:
+    """Estimate token count with CJK-aware heuristic.
+
+    English/ASCII: ~4 chars per token (len//4).
+    CJK characters: ~0.77 chars per token (each CJK char ≈ 1.3 tokens for
+    Claude/GPT BPE tokenizers — empirically measured on Chinese text).
+    Punctuation between CJK chars typically merges, so we use a blended
+    rate rather than counting every character as a full token.
+    """
+    cjk = 0
+    for ch in text:
+        cp = ord(ch)
+        if (0x4E00 <= cp <= 0x9FFF      # CJK Unified Ideographs
+                or 0x3400 <= cp <= 0x4DBF  # Extension A
+                or 0x3000 <= cp <= 0x303F  # CJK Symbols
+                or 0xFF00 <= cp <= 0xFFEF  # Fullwidth Forms
+                or 0x3040 <= cp <= 0x30FF):  # Hiragana + Katakana
+            cjk += 1
+    ascii_len = len(text) - cjk
+    return int(ascii_len / 4 + cjk * 1.3)
+
+
+_token_counter_cache: dict[str, Any] = {}
+
+
+def _get_token_counter():
+    """Return a callable(str) -> int based on BUTLER_TOKEN_COUNTER env var.
+
+    Supported values:
+      - "heuristic" (default): len(json) // 4
+      - "tiktoken": precise BPE counting via tiktoken (requires `pip install tiktoken`)
+      - "tiktoken:<encoding>": use a specific tiktoken encoding (e.g. tiktoken:o200k_base)
+    """
+    import os
+
+    mode = (os.getenv("BUTLER_TOKEN_COUNTER", "heuristic") or "heuristic").strip().lower()
+    if mode == "heuristic":
+        return _heuristic_count
+
+    cached = _token_counter_cache.get(mode)
+    if cached is not None:
+        return cached
+
+    if mode.startswith("tiktoken"):
+        parts = mode.split(":", 1)
+        encoding_name = parts[1] if len(parts) > 1 else "o200k_base"
+        try:
+            import tiktoken
+
+            enc = tiktoken.get_encoding(encoding_name)
+
+            def _tiktoken_count(text: str) -> int:
+                return len(enc.encode(text, disallowed_special=()))
+
+            _token_counter_cache[mode] = _tiktoken_count
+            logger.info("Token counter: tiktoken/%s", encoding_name)
+            return _tiktoken_count
+        except ImportError:
+            logger.warning("tiktoken not installed; falling back to heuristic. Install: pip install tiktoken")
+        except Exception as exc:
+            logger.warning("tiktoken init failed (%s); falling back to heuristic", exc)
+
+    return _heuristic_count
 
 
 def prune_tool_outputs(messages: list[dict]) -> list[dict]:
@@ -42,6 +110,8 @@ def prune_tool_outputs(messages: list[dict]) -> list[dict]:
 def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
     from butler.core.tool_prune_policy import (
         build_tool_name_index,
+        classify_tool,
+        keep_recent_pim_tool_messages,
         keep_recent_tool_messages,
         prune_tool_message_content,
         _tool_message_indices,
@@ -50,6 +120,11 @@ def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
     id_to_name = build_tool_name_index(messages)
     tool_idxs = _tool_message_indices(messages)
     recent = set(tool_idxs[-keep_recent_tool_messages() :])
+    pim_sensitive_idxs = [
+        i for i in tool_idxs
+        if classify_tool(id_to_name.get(str(messages[i].get("tool_call_id") or ""), "")) == "pii_clearable"
+    ]
+    pim_recent = set(pim_sensitive_idxs[-keep_recent_pim_tool_messages() :])
 
     out: list[dict] = []
     for i, m in enumerate(messages):
@@ -58,10 +133,12 @@ def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
             continue
         content = str(m.get("content") or "")
         tool_name = id_to_name.get(str(m.get("tool_call_id") or ""), "")
+        policy = classify_tool(tool_name)
+        is_stale = i not in (pim_recent if policy == "pii_clearable" else recent)
         new_content = prune_tool_message_content(
             content,
             tool_name=tool_name,
-            is_stale=i not in recent,
+            is_stale=is_stale,
         )
         if new_content == content:
             out.append(m)
@@ -106,7 +183,7 @@ def compress_tool_response_budget_tokens() -> int:
     import os
 
     try:
-        return max(5000, int(os.getenv("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", "") or "50000"))
+        return max(5000, int_env("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", 50000))
     except ValueError:
         return 50_000
 

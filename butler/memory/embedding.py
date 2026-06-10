@@ -69,6 +69,9 @@ class Embedder(Protocol):
     def embed(self, text: str) -> list[float]:
         ...
 
+    def batch_embed(self, texts: list[str]) -> list[list[float]]:
+        ...
+
 
 class HashingEmbedder:
     """Deterministic character/token hashing embedder — offline, good for tests and P0."""
@@ -112,6 +115,9 @@ class HashingEmbedder:
             vec[idx] += sign
         return _l2_normalize(vec)
 
+    def batch_embed(self, texts: list[str]) -> list[list[float]]:
+        return [self.embed(t) for t in texts]
+
 
 class OpenAIEmbedder:
     """OpenAI-compatible embeddings API (OpenAI, DeepSeek-compatible gateways)."""
@@ -154,6 +160,19 @@ class OpenAIEmbedder:
         self._dim = len(vec)
         return _l2_normalize(vec)
 
+    def batch_embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        client = self._get_client()
+        inputs = [(t or "").strip() for t in texts]
+        resp = client.embeddings.create(model=self._model, input=inputs)
+        vecs: list[list[float]] = []
+        for item in sorted(resp.data, key=lambda d: d.index):
+            vec = list(item.embedding)
+            self._dim = len(vec)
+            vecs.append(_l2_normalize(vec))
+        return vecs
+
 
 class MinimaxEmbedder:
     """MiniMax OpenAI-compatible embeddings endpoint."""
@@ -195,6 +214,19 @@ class MinimaxEmbedder:
         vec = list(resp.data[0].embedding)
         self._dim = len(vec)
         return _l2_normalize(vec)
+
+    def batch_embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        client = self._get_client()
+        inputs = [(t or "").strip() for t in texts]
+        resp = client.embeddings.create(model=self._model, input=inputs)
+        vecs: list[list[float]] = []
+        for item in sorted(resp.data, key=lambda d: d.index):
+            vec = list(item.embedding)
+            self._dim = len(vec)
+            vecs.append(_l2_normalize(vec))
+        return vecs
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -240,6 +272,18 @@ class FastEmbedEmbedder:
         self._dim = len(vec)
         return _l2_normalize(vec)
 
+    def batch_embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        model = self._ensure_model()
+        inputs = [t.strip() or "." for t in texts]
+        vecs: list[list[float]] = []
+        for result in model.embed(inputs):
+            vec = [float(x) for x in result]
+            self._dim = len(vec)
+            vecs.append(_l2_normalize(vec))
+        return vecs
+
 
 def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
     if provider == "openai":
@@ -255,12 +299,21 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
     if provider == "minimax":
         key = os.getenv("MINIMAX_API_KEY", "").strip()
         if not key:
-            # Audit R2-3: missing API key collapses recall to local hashing.
             logger.error("BUTLER_EMBEDDING_PROVIDER=minimax but MINIMAX_API_KEY unset")
             return None
         m = model if model and model != "hashing-v1" else _DEFAULT_MINIMAX_MODEL
         base = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1").strip()
         return MinimaxEmbedder(api_key=key, model=m, base_url=base)
+
+    if provider in ("dashscope", "qwen", "tongyi"):
+        key = os.getenv("DASHSCOPE_API_KEY", os.getenv("QWEN_API_KEY", "")).strip()
+        if not key:
+            logger.error("BUTLER_EMBEDDING_PROVIDER=%s but DASHSCOPE_API_KEY unset",
+                         provider)
+            return None
+        m = model if model and model != "hashing-v1" else "text-embedding-v3"
+        base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        return OpenAIEmbedder(api_key=key, model=m, base_url=base)
 
     return None
 
@@ -344,6 +397,31 @@ class _CachedEmbedder:
         if len(self._cache) > self._max_size:
             self._cache.popitem(last=False)
         return vec
+
+    def batch_embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        results: list[list[float] | None] = [None] * len(texts)
+        miss_indices: list[int] = []
+        miss_texts: list[str] = []
+        for i, text in enumerate(texts):
+            key = _embed_cache_key(text)
+            if key in self._cache:
+                self._cache.move_to_end(key)
+                results[i] = self._cache[key]
+            else:
+                miss_indices.append(i)
+                miss_texts.append(text)
+        if miss_texts:
+            new_vecs = self._inner.batch_embed(miss_texts)
+            for idx, text, vec in zip(miss_indices, miss_texts, new_vecs):
+                key = _embed_cache_key(text)
+                self._cache[key] = vec
+                self._cache.move_to_end(key)
+                results[idx] = vec
+            while len(self._cache) > self._max_size:
+                self._cache.popitem(last=False)
+        return [vec for vec in results if vec is not None]
 
 
 @functools.lru_cache(maxsize=4)

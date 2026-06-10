@@ -82,6 +82,48 @@ _RECALL_SCHEMA = {
 }
 
 
+def _emit_write_metric(scope: str, success: bool, *, content: str = "") -> None:
+    """Emit write event to memory metrics collector (best-effort)."""
+    try:
+        from butler.memory.memory_metrics import get_collector
+        from butler.memory.metrics_persist import flush_memory_metrics
+
+        get_collector().on_write(scope, success, content=content)
+        flush_memory_metrics()
+    except Exception:
+        pass
+
+
+def _emit_recall_metric(
+    scope: str,
+    query: str,
+    count: int,
+    *,
+    hit_texts: list[str] | None = None,
+) -> None:
+    """Emit recall event to memory metrics collector (best-effort)."""
+    try:
+        from butler.memory.memory_metrics import get_collector
+        from butler.memory.metrics_persist import flush_memory_metrics
+
+        get_collector().on_recall(scope, query, count, hit_texts=hit_texts)
+        flush_memory_metrics()
+    except Exception:
+        pass
+
+
+def _extract_hit_texts(rows: list[dict]) -> list[str]:
+    texts: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        for key in ("content", "text", "bullet", "fact"):
+            val = row.get(key)
+            if val:
+                texts.append(str(val))
+    return texts
+
+
 def _project_root_explicit() -> Path | None:
     raw = os.environ.get("BUTLER_PROJECT_ROOT", "").strip()
     if not raw:
@@ -432,6 +474,7 @@ class ButlerMemoryService:
                     self._butler_global.sync_profile_vectors()
                 except Exception as exc:
                     logger.debug("Profile vector sync skipped: %s", exc)
+            _emit_write_metric(scope, ok, content=content if ok else "")
             payload: dict[str, Any] = {"ok": ok, "scope": scope, "action": action}
             if not ok:
                 payload["error"] = result.get("error", "profile write failed")
@@ -455,6 +498,7 @@ class ButlerMemoryService:
                 category=cat,
                 content=content,
             )
+            _emit_write_metric(scope, True, content=content)
             return json.dumps({"ok": True, "id": row_id, "scope": scope})
 
         if scope == "project_notes":
@@ -520,6 +564,10 @@ class ButlerMemoryService:
                 sem, proj_name, section, content, cls_result
             )
 
+            if cls_result != "pending":
+                _emit_write_metric(scope, True, content=content)
+            else:
+                _emit_write_metric(scope, True)
             payload: dict[str, Any] = {
                 "ok": True,
                 "scope": scope,
@@ -620,6 +668,12 @@ class ButlerMemoryService:
                     record_last_retrieval(get_current_session_key() or "", tel)
                 except Exception as exc:
                     logger.debug("recall skipped: %s", exc)
+            _emit_recall_metric(
+                "project",
+                query,
+                len(hits),
+                hit_texts=_extract_hit_texts(hits) + ([facts_text] if facts_text else []),
+            )
             return json.dumps(
                 {
                     "ok": True,
@@ -656,6 +710,12 @@ class ButlerMemoryService:
                     experience_store=self._butler_global.experience,
                 )
             )
+        _emit_recall_metric(
+            "experience",
+            query,
+            len(rows),
+            hit_texts=_extract_hit_texts(rows),
+        )
         return json.dumps({"ok": True, "results": rows, "semantic": semantic is not None})
 
     def on_session_switch(

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import threading
 from pathlib import Path
 import logging
@@ -14,24 +13,16 @@ _PENDING: dict[str, list[str]] = {}
 _LOCK = threading.RLock()
 
 _INSTRUCTION_FILENAMES = ("AGENTS.md", "CLAUDE.md", "RULES.md")
-_MAX_BLOCK_CHARS = 4000
-_MAX_FILES_PER_TURN = 3
 
 
-def _int_env(name: str, default: int) -> int:
-    try:
-        return max(0, int(os.getenv(name, "").strip() or default))
-    except ValueError:
-        return default
+def _walkup_settings():
+    from butler.context_settings import resolve_context_config
+
+    return resolve_context_config().instruction_walkup
 
 
 def walkup_enabled() -> bool:
-    return os.getenv("BUTLER_INSTRUCTION_WALKUP", "1").strip().lower() not in (
-        "0",
-        "false",
-        "no",
-        "off",
-    )
+    return _walkup_settings().enabled
 
 
 def _session_key(session_key: str = "") -> str:
@@ -81,16 +72,13 @@ def record_read_path(
         seen = _CLAIMS.setdefault(key, set())
         if claim in seen:
             return
-        if len(_PENDING.get(key, [])) >= _int_env(
-            "BUTLER_INSTRUCTION_WALKUP_MAX_FILES",
-            _MAX_FILES_PER_TURN,
-        ):
+        if len(_PENDING.get(key, [])) >= _walkup_settings().max_files:
             return
         try:
             body = inst.read_text(encoding="utf-8", errors="replace").strip()
         except OSError:
             return
-        cap = _int_env("BUTLER_INSTRUCTION_WALKUP_MAX_CHARS", _MAX_BLOCK_CHARS)
+        cap = _walkup_settings().max_chars
         if len(body) > cap:
             body = body[: cap - 20] + "\n…(truncated)"
         block = (

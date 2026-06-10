@@ -22,7 +22,8 @@ from butler.workflows.loader import resolve_workflow
 
 @pytest.mark.module_test
 class TestPendingMemoryCommands:
-    def test_list_and_approve_pending(self, tmp_path):
+    def test_list_and_approve_pending(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
         proj_dir = tmp_path / "p"
         proj_dir.mkdir()
         (proj_dir / "project.yaml").write_text(
@@ -47,7 +48,8 @@ class TestPendingMemoryCommands:
         body = pm.markdown.get_section("Decisions")
         assert "pytest" in body
 
-    def test_approve_all(self, tmp_path):
+    def test_approve_all(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
         proj_dir = tmp_path / "p2"
         proj_dir.mkdir()
         pm = ProjectMemory(proj_dir)

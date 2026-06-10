@@ -24,11 +24,15 @@ def resolve_auxiliary_config(task: str = "compression") -> ModelConfig:
     if preferred and (pc := settings.providers.get(preferred)):
         return ModelConfig(provider=preferred, model=pc.model or "")
 
-    butler_cfg = settings.get_model_config("butler")
+    from butler.model_resolve import resolve_effective_model
+
+    butler_cfg = resolve_effective_model("butler", settings=settings).config
     if not butler_cfg.is_empty():
         return butler_cfg
 
-    for name in ("minimax", "deepseek", "openai", "claude"):
+    from butler.defaults.model_defaults import AUXILIARY_SCAN_PROVIDERS
+
+    for name in AUXILIARY_SCAN_PROVIDERS:
         if (pc := settings.providers.get(name)):
             return ModelConfig(provider=name, model=pc.model or "")
     return ModelConfig(provider=preferred or "minimax", model="")
@@ -54,6 +58,7 @@ def auxiliary_complete(
     *,
     task: str = "compression",
     system: str = "You are a concise assistant.",
+    session_key: str = "",
 ) -> str:
     """Single-shot completion for side tasks."""
     client = create_auxiliary_client(task)
@@ -63,7 +68,28 @@ def auxiliary_complete(
             {"role": "user", "content": prompt},
         ],
     )
+    sk = session_key or _current_session_key()
+    if sk and resp.usage:
+        try:
+            from butler.ops.cost_tracker import get_session_cost
+
+            get_session_cost(sk).record_llm_call(
+                input_tokens=getattr(resp.usage, "prompt_tokens", 0) or 0,
+                output_tokens=getattr(resp.usage, "completion_tokens", 0) or 0,
+            )
+        except Exception:
+            pass
     return resp.content or ""
+
+
+def _current_session_key() -> str:
+    """Best-effort retrieval of the active session key."""
+    try:
+        from butler.core.session_key import get_current_session_key
+
+        return str(get_current_session_key() or "")
+    except Exception:
+        return ""
 
 
 def auxiliary_llm_call_factory(

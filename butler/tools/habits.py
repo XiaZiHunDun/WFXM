@@ -19,17 +19,19 @@ from pathlib import Path
 from typing import Any, Callable
 
 from butler.tools._file_cache import read_json_cached
+from butler.tools.pim_schema import (
+    HABIT_FREQUENCIES as _VALID_FREQUENCIES,
+    HABIT_FREQ_LABELS as _FREQ_LABELS,
+    MAX_ACTIVE_HABITS as _MAX_HABITS,
+)
 from butler.tools.tenant_store import TenantStore
 
 logger = logging.getLogger(__name__)
 
 _CN_TZ = timezone(timedelta(hours=8))
-_MAX_HABITS = 30
-
-_VALID_FREQUENCIES = frozenset({"daily", "weekly"})
-_FREQ_LABELS = {"daily": "每日", "weekly": "每周"}
 
 _store = TenantStore("habits", env_toggle="BUTLER_HABITS_ENABLED")
+_checkin_store = TenantStore("habits/checkins", env_toggle="BUTLER_HABITS_ENABLED")
 
 
 def _habits_enabled() -> bool:
@@ -41,50 +43,9 @@ def _habits_dir() -> Path:
 
 
 def _checkins_dir() -> Path:
-    d = _habits_dir() / "checkins"
+    d = _checkin_store.storage_dir()
     d.mkdir(parents=True, exist_ok=True)
     return d
-
-
-def _save_habit(habit: dict[str, Any]) -> Path:
-    d = _habits_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    path = d / f"{habit['id']}.json"
-    path.write_text(json.dumps(habit, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
-
-
-def _load_all_habits() -> list[dict[str, Any]]:
-    d = _habits_dir()
-    if not d.is_dir():
-        return []
-    result: list[dict[str, Any]] = []
-    for f in sorted(d.glob("*.json")):
-        if f.parent.name == "checkins":
-            continue
-        data = read_json_cached(f)
-        if isinstance(data, dict) and "id" in data and "name" in data:
-            result.append(data)
-    return result
-
-
-def _load_habit(hid: str) -> dict[str, Any] | None:
-    path = _habits_dir() / f"{hid}.json"
-    if not path.is_file():
-        return None
-    data = read_json_cached(path)
-    return data if isinstance(data, dict) and data.get("id") == hid else None
-
-
-def _delete_habit(hid: str) -> bool:
-    path = _habits_dir() / f"{hid}.json"
-    if path.is_file():
-        path.unlink()
-        cd = _checkins_dir()
-        for f in cd.glob(f"{hid}_*.json"):
-            f.unlink()
-        return True
-    return False
 
 
 def _today_str() -> str:
@@ -92,17 +53,15 @@ def _today_str() -> str:
 
 
 def _save_checkin(habit_id: str, date: str, count: int = 1, note: str = "") -> Path:
-    cd = _checkins_dir()
-    path = cd / f"{habit_id}_{date}.json"
     data: dict[str, Any] = {
+        "id": f"{habit_id}_{date}",
         "habit_id": habit_id,
         "date": date,
         "count": count,
         "note": note,
         "created_at": time.time(),
     }
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
+    return _checkin_store.save(data)
 
 
 def _load_checkins(habit_id: str, days: int = 30) -> list[dict[str, Any]]:
@@ -169,10 +128,10 @@ def _find_habit_by_prefix_or_name(identifier: str) -> dict[str, Any] | None:
     hid = identifier.strip()
     if not hid:
         return None
-    habit = _load_habit(hid)
+    habit = _store.load_one(hid)
     if habit:
         return habit
-    for h in _load_all_habits():
+    for h in _store.load_all():
         if h["id"].startswith(hid) or h.get("name", "").lower() == hid.lower():
             return h
     return None
@@ -190,11 +149,11 @@ def tool_habit_create(
     if not _habits_enabled():
         return json.dumps({"ok": False, "error": "BUTLER_HABITS_ENABLED=0"})
 
-    name = (name or "").strip()
+    name = (name or "").strip()[:100]
     if not name:
         return json.dumps({"ok": False, "error": "name is required"})
 
-    all_habits = _load_all_habits()
+    all_habits = _store.load_all()
     active = [h for h in all_habits if h.get("active", True)]
     if len(active) >= _MAX_HABITS:
         return json.dumps({
@@ -222,7 +181,7 @@ def tool_habit_create(
         "active": True,
         "created_at": time.time(),
     }
-    _save_habit(habit)
+    _store.save(habit)
 
     return json.dumps({
         "ok": True,
@@ -258,15 +217,17 @@ def tool_habit_checkin(
     existing = _get_checkin(hid, checkin_date)
     cnt = max(1, int(count or 1))
 
+    clean_note = (note or "").strip()[:500]
+
     if existing:
         existing["count"] = existing.get("count", 0) + cnt
-        if note:
-            existing["note"] = ((existing.get("note") or "") + "; " + note).strip("; ")
+        if clean_note:
+            existing["note"] = ((existing.get("note") or "") + "; " + clean_note).strip("; ")[:1000]
         path = _checkins_dir() / f"{hid}_{checkin_date}.json"
         path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
         total_count = existing["count"]
     else:
-        _save_checkin(hid, checkin_date, cnt, (note or "").strip())
+        _save_checkin(hid, checkin_date, cnt, clean_note)
         total_count = cnt
 
     streak = _calc_streak(hid)
@@ -293,7 +254,7 @@ def tool_habit_stats(
             return json.dumps({"ok": False, "error": f"Habit '{habit_id}' not found"})
         return _single_habit_stats(habit)
 
-    all_habits = [h for h in _load_all_habits() if h.get("active", True)]
+    all_habits = [h for h in _store.load_all() if h.get("active", True)]
     if not all_habits:
         return json.dumps({"ok": True, "habits": [], "message": "No active habits"})
 
@@ -347,7 +308,7 @@ def tool_habit_list(**_: Any) -> str:
     if not _habits_enabled():
         return json.dumps({"ok": False, "error": "BUTLER_HABITS_ENABLED=0"})
 
-    all_habits = _load_all_habits()
+    all_habits = _store.load_all()
     active = [h for h in all_habits if h.get("active", True)]
     archived = [h for h in all_habits if not h.get("active", True)]
 
@@ -356,6 +317,54 @@ def tool_habit_list(**_: Any) -> str:
         "active_count": len(active),
         "archived_count": len(archived),
         "habits": active,
+    }, ensure_ascii=False)
+
+
+def tool_habit_update(
+    habit_id: str,
+    name: str = "",
+    frequency: str = "",
+    target_count: Any = None,
+    **_: Any,
+) -> str:
+    if not _habits_enabled():
+        return json.dumps({"ok": False, "error": "BUTLER_HABITS_ENABLED=0"})
+
+    hid = (habit_id or "").strip()
+    if not hid:
+        return json.dumps({"ok": False, "error": "habit_id is required"})
+
+    habit = _store.find_by_prefix(hid)
+    if habit is None:
+        return json.dumps({"ok": False, "error": f"Habit '{hid}' not found"})
+
+    updated_fields: list[str] = []
+
+    if name and name.strip():
+        habit["name"] = name.strip()
+        updated_fields.append("name")
+
+    if frequency and frequency.strip():
+        freq = frequency.strip().lower()
+        if freq not in _VALID_FREQUENCIES:
+            return json.dumps({
+                "ok": False,
+                "error": f"Invalid frequency '{frequency}'. Use: {', '.join(sorted(_VALID_FREQUENCIES))}",
+            })
+        habit["frequency"] = freq
+        updated_fields.append("frequency")
+
+    if target_count is not None:
+        habit["target_count"] = max(1, int(target_count))
+        updated_fields.append("target_count")
+
+    if updated_fields:
+        _store.save(habit)
+
+    return json.dumps({
+        "ok": True,
+        "habit_id": habit["id"],
+        "updated_fields": updated_fields,
     }, ensure_ascii=False)
 
 
@@ -371,7 +380,7 @@ def tool_habit_delete(habit_id: str, **_: Any) -> str:
     name = habit.get("name", "")
 
     habit["active"] = False
-    _save_habit(habit)
+    _store.save(habit)
 
     return json.dumps({
         "ok": True,
@@ -414,7 +423,7 @@ def format_habits_for_wechat(arg: str = "") -> str:
 
 
 def _format_habit_dashboard() -> str:
-    active = [h for h in _load_all_habits() if h.get("active", True)]
+    active = [h for h in _store.load_all() if h.get("active", True)]
     if not active:
         return "📋 暂无习惯\n\n创建: /打卡 创建 <习惯名>\n或对话中说「我要每天跑步」"
 
@@ -477,8 +486,9 @@ def register_habit_tools(register: Callable[..., None]) -> None:
     register(
         name="habit_checkin",
         description=(
-            "为习惯打卡。支持按名称或ID，可指定日期和次数。"
-            "同一天多次打卡会累加次数。"
+            "为习惯打卡（记录完成）。用户说「打卡」「我跑步了」「完成了运动」时使用此工具。"
+            "支持按名称或ID，可指定日期和次数。同一天多次打卡会累加次数。"
+            "注意：查看统计请用 habit_stats，列出习惯请用 habit_list。"
         ),
         schema={
             "type": "object",
@@ -497,8 +507,10 @@ def register_habit_tools(register: Callable[..., None]) -> None:
     register(
         name="habit_stats",
         description=(
-            "查看习惯统计：连续天数、7天/30天完成率。"
+            "查看习惯统计：连续天数、7天/30天完成率、今日是否完成。"
+            "用户问「打卡情况怎样」「连续多少天」「完成率」时使用此工具。"
             "不指定 habit_id 返回全部习惯概览。"
+            "注意：打卡请用 habit_checkin，仅列出习惯名请用 habit_list。"
         ),
         schema={
             "type": "object",
@@ -512,9 +524,30 @@ def register_habit_tools(register: Callable[..., None]) -> None:
 
     register(
         name="habit_list",
-        description="列出所有活跃的习惯。",
+        description="列出所有活跃习惯的名称和基本信息。用户说「有哪些习惯」「列出习惯」时使用。查看统计详情请用 habit_stats。",
         schema={"type": "object", "properties": {}},
         handler=tool_habit_list,
+        toolset="habits",
+    )
+
+    register(
+        name="habit_update",
+        description="修改习惯的名称、频率或目标次数。",
+        schema={
+            "type": "object",
+            "properties": {
+                "habit_id": {"type": "string", "description": "习惯 ID 或名称"},
+                "name": {"type": "string", "description": "新名称"},
+                "frequency": {
+                    "type": "string",
+                    "enum": list(_VALID_FREQUENCIES),
+                    "description": "新频率",
+                },
+                "target_count": {"type": "integer", "description": "新目标次数"},
+            },
+            "required": ["habit_id"],
+        },
+        handler=tool_habit_update,
         toolset="habits",
     )
 

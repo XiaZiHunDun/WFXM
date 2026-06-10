@@ -6,6 +6,7 @@ from pathlib import Path
 
 from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
 from butler.permissions.rules import _load_permissions_yaml
+from butler.tools.pim_schema import ALL_PIM_TOOLS
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,9 @@ def filter_tools_for_subagent(
         denied.update(str(t).strip() for t in extra if str(t).strip())
 
     role_key = str(role or "").strip().lower()
+    # T3 enforcement: non-butler roles must never receive PIM tools.
+    if role_key not in ("butler", "default", ""):
+        denied |= ALL_PIM_TOOLS
     by_role = sub_cfg.get("roles")
     if isinstance(by_role, dict) and role_key:
         role_cfg = by_role.get(role_key)

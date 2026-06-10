@@ -22,6 +22,161 @@ from butler.transport.types import NormalizedResponse
 logger = logging.getLogger(__name__)
 
 
+_EDIT_TOOL_NAMES = frozenset({"write_file", "patch", "delete_file"})
+
+_OP_NAME_MAP = {"write_file": "write", "delete_file": "delete", "patch": "patch"}
+
+_pre_edit_snapshots: dict[str, str] = {}
+
+
+def _capture_pre_edit_snapshot(name: str, args: dict) -> None:
+    """Capture file content before an edit tool runs (for rollback)."""
+    if name not in _EDIT_TOOL_NAMES:
+        return
+    path = str(args.get("path") or "")
+    if not path:
+        return
+    try:
+        from pathlib import Path as _Path
+        p = _Path(path)
+        if not p.is_absolute():
+            from butler.tools.safe_root import get_tool_safe_root
+            p = get_tool_safe_root() / p
+        if p.is_file() and p.stat().st_size < 512_000:
+            _pre_edit_snapshots[str(p.resolve())] = p.read_text(encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _fetch_pre_edit_snapshot(path: str) -> str | None:
+    """Pop a pre-edit snapshot if available."""
+    try:
+        from pathlib import Path as _Path
+        p = _Path(path)
+        if not p.is_absolute():
+            from butler.tools.safe_root import get_tool_safe_root
+            p = get_tool_safe_root() / p
+        return _pre_edit_snapshots.pop(str(p.resolve()), None)
+    except Exception:
+        return None
+
+
+def _dev_engine_post_edit(name: str, args: dict, result: str) -> None:
+    """Record edit in DevState with proper snapshots for rollback (DD4).
+
+    Called from ``_dispatch_one`` after a successful edit tool,
+    where both ``args`` and ``result`` are available.
+    """
+    if name not in _EDIT_TOOL_NAMES:
+        return
+    if _tool_result_outcome(result) != "ok":
+        return
+    try:
+        from butler.dev_engine.dev_tools import (
+            _active_states,
+            dev_engine_enabled,
+        )
+
+        if not dev_engine_enabled():
+            return
+        from butler.execution_context import get_current_session_key
+
+        sk = str(get_current_session_key() or "").strip() or "_default"
+        state = _active_states.get(sk)
+        if state is None:
+            return
+
+        import time
+
+        from butler.dev_engine.dev_state import EditRecord
+
+        path = str(args.get("path") or "")
+        if not path:
+            try:
+                import json as _j
+                parsed = _j.loads(result)
+                path = str(parsed.get("path") or parsed.get("file") or "")
+            except Exception:
+                pass
+
+        op = _OP_NAME_MAP.get(name, name)
+        record = EditRecord(path=path, operation=op, timestamp=time.time())
+
+        snapshot = _fetch_pre_edit_snapshot(path)
+        if op == "patch":
+            record.patch_old = str(args.get("old_string") or "")
+            record.patch_new = str(args.get("new_string") or "")
+            record.original_content = snapshot
+        elif op == "write":
+            record.new_content = str(args.get("content") or "")
+            record.original_content = snapshot
+        elif op == "delete":
+            record.original_content = snapshot
+
+        from butler.dev_engine.dev_loop import transition
+        transition(state, "edit_success", edit_record=record)
+
+        from butler.dev_engine.dev_tools import auto_verify_enabled
+        if auto_verify_enabled() and path:
+            _run_auto_verify(state, path)
+    except Exception:
+        pass
+
+
+def _run_auto_verify(state: Any, path: str) -> None:
+    """Run auto-verify after edit and inject fix hints (DD2 + DA4 + CA4)."""
+    try:
+        from pathlib import Path as _Path
+
+        from butler.dev_engine.dev_loop import transition
+        from butler.dev_engine.dev_state import DevPhase
+        from butler.dev_engine.verify import verify_layered
+
+        try:
+            from butler.tools.safe_root import get_tool_safe_root
+            ws = _Path(get_tool_safe_root())
+        except Exception:
+            ws = _Path(path).parent
+        from butler.dev_engine.verify import auto_verify_levels, verify_level_for_edit
+
+        edited_files = [path] if path else []
+        levels = auto_verify_levels() or verify_level_for_edit(edited_files)
+        result = verify_layered(ws, levels=levels)
+
+        thm_violations: list[str] = []
+        activated = getattr(state, "_coding_knowledge_theorems", None)
+        if activated and state.edit_history:
+            try:
+                from butler.dev_engine.coding_knowledge import dual_verify as ck_dual_verify
+                last_edit = state.edit_history[-1]
+                code = last_edit.new_content or last_edit.patch_new or ""
+                if code:
+                    ck_result = ck_dual_verify(
+                        code, activated,
+                        test_passed=result.passed,
+                        test_detail=f"auto-verify: {result.status.value}",
+                    )
+                    thm_violations = ck_result.violated_theorems
+                    state.coding_knowledge.violated_theorems = thm_violations
+            except Exception:
+                pass
+
+        if result.passed and not thm_violations:
+            transition(state, "verify_pass")
+        else:
+            transition(state, "verify_fail", verify_result=result)
+            if state.phase == DevPhase.FIX:
+                transition(state, "fix_applied")
+            try:
+                from butler.dev_engine.fix_strategy import suggest_fix_action
+                fix_level = suggest_fix_action(result.diagnostics, state)
+                state._last_fix_hint = fix_level.value
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
 def _tool_result_outcome(result: str) -> str:
     text = (result or "").strip()
     if not text:
@@ -200,6 +355,7 @@ def process_tool_calls(
                     return finalize_fallback_tool_result(name, args, synthetic_result(before))
             if before.should_halt:
                 return finalize_fallback_tool_result(name, args, synthetic_result(before))
+        _capture_pre_edit_snapshot(name, args)
         result = run_tool_with_retry(name, args, dispatch_tool)
         try:
             from butler.core.tool_error_policy import (
@@ -238,6 +394,7 @@ def process_tool_calls(
                 result = append_guidance(result, pending_warn)
         if batch_guard is not None:
             batch_guard.note_tool_result(name, args, result)
+        _dev_engine_post_edit(name, args, result)
         return result
 
     def _transcript_source() -> str:
@@ -285,6 +442,22 @@ def process_tool_calls(
             inc("tool_call", labels={"tool": tool_label, "outcome": outcome})
         except Exception as exc:
             logger.debug("on complete skipped: %s", exc)
+        try:
+            from butler.ops.cost_tracker import get_session_cost
+
+            session_key = str(get_current_session_key() or "").strip()
+            if session_key:
+                get_session_cost(session_key).record_tool_call(name)
+        except Exception:
+            pass
+        try:
+            from butler.core.pim_state import on_pim_tool_success
+
+            outcome = _tool_result_outcome(result)
+            if outcome == "ok":
+                on_pim_tool_success(name)
+        except Exception:
+            pass
         if callbacks.on_tool_complete:
             callbacks.on_tool_complete(name, result)
 

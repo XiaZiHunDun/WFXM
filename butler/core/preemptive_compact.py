@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,7 @@ def preemptive_compact_enabled() -> bool:
 
 def truncate_buffer_tokens() -> int:
     try:
-        return max(256, int(os.getenv("BUTLER_PREEMPTIVE_TRUNCATE_BUFFER", "512")))
+        return int_env("BUTLER_PREEMPTIVE_TRUNCATE_BUFFER", 512, min=256)
     except ValueError:
         return 512
 

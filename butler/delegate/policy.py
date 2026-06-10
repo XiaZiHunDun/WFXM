@@ -14,7 +14,7 @@ MAX_DELEGATE_DEPTH = 2
 
 def delegate_one_tool_per_iteration() -> bool:
     """Manus-style single tool call per delegate iteration (default off — slower reads)."""
-    from butler.env_parse import env_truthy
+    from butler.env_parse import env_truthy, int_env
 
     return env_truthy("BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION", default=False)
 
@@ -29,6 +29,6 @@ def resolve_delegate_max_iterations(category_meta: dict | None = None) -> int:
         except (TypeError, ValueError):
             pass
     try:
-        return max(1, min(200, int(os.getenv("BUTLER_DELEGATE_MAX_ITERATIONS", "24"))))
+        return int_env("BUTLER_DELEGATE_MAX_ITERATIONS", 24, min=1, max=200)
     except ValueError:
         return 24

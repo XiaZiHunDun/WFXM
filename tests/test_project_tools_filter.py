@@ -59,12 +59,14 @@ class TestProjectToolFilter:
         proj = _project_with_tools(tmp_path)
         allowed = allowed_tool_names_for_project(proj, role="butler")
         assert "read_file" in allowed
-        assert "patch" in allowed
+        assert "search_files" in allowed
         assert "delegate_task" in allowed
         assert "skills_list" in allowed
         assert "butler_remember" in allowed
         assert "butler_recall" in allowed
-        assert "terminal" in allowed  # run_shell alias
+        assert "patch" not in allowed
+        assert "write_file" not in allowed
+        assert "terminal" not in allowed
 
     def test_dev_role_excludes_delegate(self, tmp_path):
         proj = _project_with_tools(tmp_path)
@@ -125,5 +127,6 @@ class TestGatewayUsesProjectTools:
         names = {t["function"]["name"] for t in loop.tools}
         assert "read_file" in names
         assert "delegate_task" in names
+        assert "write_file" not in names
         assert "terminal" not in names
         assert "patch" not in names

@@ -7,7 +7,7 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 if TYPE_CHECKING:
     from butler.prompt_eval.runner import PromptEvalCase
@@ -23,7 +23,7 @@ def prompt_eval_llm_min_score() -> int:
     import os
 
     try:
-        return max(0, min(100, int(os.getenv("BUTLER_PROMPT_EVAL_LLM_MIN", "70"))))
+        return int_env("BUTLER_PROMPT_EVAL_LLM_MIN", 70, min=0, max=100)
     except ValueError:
         return 70
 

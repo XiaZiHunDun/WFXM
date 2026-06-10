@@ -79,6 +79,19 @@ class TestLayeredModelConfig:
 
 
 class TestButlerSettings:
+    def test_models_unknown_role_logs_warning(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="butler.config"):
+            LayeredModelConfig.from_dict(
+                {
+                    "butler": {"provider": "minimax", "model": "M2"},
+                    "dev_agnet": {"provider": "deepseek", "model": "chat"},
+                }
+            )
+        assert any("dev_agnet" in r.message for r in caplog.records)
+        assert any("unknown role" in r.message.lower() for r in caplog.records)
+
     def test_env_providers(self, monkeypatch):
         monkeypatch.setenv("MINIMAX_API_KEY", "test-key")
         monkeypatch.setenv("MINIMAX_MODEL", "test-model")

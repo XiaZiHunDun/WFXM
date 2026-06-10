@@ -140,6 +140,51 @@ def tool_butler_recall(
     return svc.handle_tool_call("butler_recall", payload)
 
 
+_METRICS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "detail": {
+            "type": "string",
+            "enum": ["summary", "session", "benchmark"],
+            "default": "summary",
+            "description": "summary=聚合指标; session=当前会话; benchmark=运行 7 项基准测试",
+        },
+        "session_id": {
+            "type": "string",
+            "description": "detail=session 时指定会话 ID",
+        },
+    },
+    "required": [],
+}
+
+
+def tool_memory_metrics(
+    detail: str = "summary",
+    session_id: str = "",
+    **_: Any,
+) -> str:
+    import json
+
+    if detail == "benchmark":
+        from butler.memory.memory_benchmark import run_benchmarks
+
+        report = run_benchmarks()
+        return json.dumps(report.summary(), ensure_ascii=False)
+
+    from butler.memory.memory_metrics import get_collector
+
+    collector = get_collector()
+    if detail == "session":
+        return json.dumps(
+            collector.get_session_metrics(session_id),
+            ensure_ascii=False,
+        )
+    return json.dumps(
+        collector.get_aggregate().to_dict(),
+        ensure_ascii=False,
+    )
+
+
 def register_memory_tools(register_fn) -> None:
     """Register memory tools into the Butler tool registry."""
     register_fn(
@@ -162,10 +207,21 @@ def register_memory_tools(register_fn) -> None:
         handler=tool_butler_recall,
         toolset="memory",
     )
+    register_fn(
+        name="memory_metrics",
+        description=(
+            "记忆效果度量：summary=聚合统计; session=当前会话指标; "
+            "benchmark=运行 7 项标准基准测试 (MB1-MB7)"
+        ),
+        schema=_METRICS_SCHEMA,
+        handler=tool_memory_metrics,
+        toolset="memory",
+    )
 
 
 __all__ = [
     "register_memory_tools",
     "tool_butler_remember",
     "tool_butler_recall",
+    "tool_memory_metrics",
 ]

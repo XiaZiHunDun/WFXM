@@ -64,6 +64,7 @@ class TestProjectMemoryVectors:
 
     def test_remember_pending_then_approve_syncs_vectors(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")
+        monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
         proj_dir = tmp_path / "lw"
         proj_dir.mkdir()
         (proj_dir / "project.yaml").write_text(

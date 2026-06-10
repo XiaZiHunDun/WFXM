@@ -21,6 +21,9 @@ from butler.gateway.platforms.types import MessageEvent, PlatformConfig  # noqa:
 # calls the shims in core.events_sink; this is what makes them run for real
 # when the gateway is up.
 from butler.gateway import events_sink_impl  # noqa: E402, F401
+from butler.env_parse import float_env, init_dotenv  # noqa: E402
+
+init_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +49,11 @@ _HANDLER_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
     max_workers=_handler_worker_count(),
     thread_name_prefix="butler-gw-handler",
 )
-_HANDLER_TIMEOUT_SECONDS = float(os.getenv("BUTLER_GATEWAY_HANDLER_TIMEOUT", "600"))
-_HANDLER_SHUTDOWN_GRACE_SECONDS = float(
-    os.getenv("BUTLER_GATEWAY_HANDLER_SHUTDOWN_GRACE", "30"),
+_HANDLER_TIMEOUT_SECONDS = float_env("BUTLER_GATEWAY_HANDLER_TIMEOUT", 600.0, min=1.0)
+_HANDLER_SHUTDOWN_GRACE_SECONDS = float_env(
+    "BUTLER_GATEWAY_HANDLER_SHUTDOWN_GRACE",
+    30.0,
+    min=0.0,
 )
 
 # Sprint 16 REL-11-4: 让 in-flight handler (executor 线程) 能感知 shutdown
@@ -270,9 +275,38 @@ async def run_gateway_async(platforms: list[str]) -> int:
     return 0
 
 
+def _sync_send_via_adapter(adapters: list[Any], chat_id: str, text: str) -> bool:
+    """Send a message through the first available adapter (sync-safe).
+
+    Bridges sync context (reminder loop, outbox replay) to async adapter.send().
+    """
+    if not chat_id or not text:
+        return False
+    for adapter in adapters:
+        if hasattr(adapter, "send"):
+            try:
+                loop = None
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    pass
+                if loop and loop.is_running():
+                    asyncio.run_coroutine_threadsafe(
+                        adapter.send(chat_id, text), loop
+                    ).result(timeout=30)
+                else:
+                    asyncio.run(adapter.send(chat_id, text))
+                return True
+            except Exception as exc:
+                logger.warning("_sync_send_via_adapter failed: %s", exc)
+                continue
+    logger.warning("No adapter with send() available")
+    return False
+
+
 async def _poll_reminders_loop(adapters: list[Any]) -> None:
     """Background coroutine that checks for due reminders every 60s."""
-    poll_interval = float(os.getenv("BUTLER_REMINDER_POLL_SECONDS", "60"))
+    poll_interval = float_env("BUTLER_REMINDER_POLL_SECONDS", 60)
     while True:
         await asyncio.sleep(poll_interval)
         try:
@@ -281,22 +315,30 @@ async def _poll_reminders_loop(adapters: list[Any]) -> None:
             fired = poll_due_reminders()
             if not fired:
                 continue
-            bridge = None
-            for adapter in adapters:
-                if hasattr(adapter, "send_text"):
-                    bridge = adapter
-                    break
-            if bridge is None:
-                continue
             for reminder in fired:
                 text = f"⏰ 提醒：{reminder.get('message', '')}\n（设定时间：{reminder.get('due_human', '')}）"
+                chat_id = os.getenv("BUTLER_OWNER_WECHAT_ID", "")
+                if not chat_id:
+                    logger.warning("BUTLER_OWNER_WECHAT_ID not set, reminder not pushed: %s", reminder.get("id"))
+                    continue
                 try:
-                    chat_id = os.getenv("BUTLER_OWNER_WECHAT_ID", "")
-                    if chat_id:
-                        bridge.send_text(chat_id, text)
-                        logger.info("Reminder fired: %s", reminder.get("id"))
+                    from butler.gateway.durable_outbox import durable_outbox_enabled, enqueue_outbox_message
+
+                    if durable_outbox_enabled():
+                        entry_id = enqueue_outbox_message(chat_id, text, kind="reminder")
+                        if _sync_send_via_adapter(adapters, chat_id, text):
+                            from butler.gateway.durable_outbox import mark_outbox_sent
+                            mark_outbox_sent(entry_id)
+                            logger.info("Reminder sent+marked via outbox: %s", reminder.get("id"))
+                        else:
+                            logger.warning("Reminder enqueued but send failed (will retry on replay): %s", reminder.get("id"))
                     else:
-                        logger.warning("BUTLER_OWNER_WECHAT_ID not set, reminder not pushed: %s", reminder.get("id"))
+                        if _sync_send_via_adapter(adapters, chat_id, text):
+                            logger.info("Reminder fired (direct): %s", reminder.get("id"))
+                        else:
+                            logger.warning(
+                                "Reminder direct send failed: %s", reminder.get("id")
+                            )
                 except Exception as exc:
                     logger.warning("Reminder push failed: %s", exc)
         except Exception as exc:
@@ -320,25 +362,18 @@ def _replay_pending_outbox(adapters: list[Any]) -> None:
             return
 
         logger.info("Replaying %d pending outbox entries", len(pending))
-        bridge = None
-        for adapter in adapters:
-            if hasattr(adapter, "send_text"):
-                bridge = adapter
-                break
-
-        if bridge is None:
-            logger.warning("No adapter with send_text — skipping outbox replay")
-            return
 
         sent = 0
         for entry in pending:
             chat_id = entry.get("chat_id", "")
-            text = entry.get("text", "")
-            entry_id = entry.get("id", "")
-            if not chat_id or not text:
+            body = entry.get("body", "")
+            entry_id = entry.get("entry_id", "")
+            if not chat_id or not body:
                 continue
             try:
-                bridge.send_text(chat_id, text)
+                if not _sync_send_via_adapter(adapters, chat_id, body):
+                    logger.warning("Outbox replay send failed for entry %s", entry_id)
+                    continue
                 mark_outbox_sent(entry_id)
                 sent += 1
             except Exception as exc:

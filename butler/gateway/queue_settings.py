@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import threading
 from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
+from butler.gateway_settings import resolve_gateway_queue_config
 
 logger = logging.getLogger(__name__)
 
@@ -74,8 +74,7 @@ def clear_session_override(session_key: str) -> None:
 
 
 def default_queue_mode() -> str:
-    raw = (os.getenv("BUTLER_GATEWAY_QUEUE_MODE", "followup") or "followup").strip().lower()
-    return raw if raw in _VALID_MODES else "followup"
+    return resolve_gateway_queue_config().mode
 
 
 def get_queue_mode(session_key: str) -> str:
@@ -87,15 +86,11 @@ def get_queue_mode(session_key: str) -> str:
 
 
 def queue_cap() -> int:
-    try:
-        return max(1, int(os.getenv("BUTLER_GATEWAY_QUEUE_CAP", "20") or "20"))
-    except ValueError:
-        return 20
+    return resolve_gateway_queue_config().cap
 
 
 def queue_drop_policy() -> str:
-    raw = (os.getenv("BUTLER_GATEWAY_QUEUE_DROP", "summarize") or "summarize").strip().lower()
-    return raw if raw in _VALID_DROP else "summarize"
+    return resolve_gateway_queue_config().drop
 
 
 def session_queue_cap(session_key: str) -> int:
@@ -123,10 +118,7 @@ def collect_debounce_ms(session_key: str) -> int:
             return max(0, int(override["debounce_ms"]))
         except (TypeError, ValueError):
             pass
-    try:
-        return max(0, int(os.getenv("BUTLER_GATEWAY_QUEUE_COLLECT_DEBOUNCE_MS", "500") or "500"))
-    except ValueError:
-        return 500
+    return resolve_gateway_queue_config().collect_debounce_ms
 
 
 def _parse_duration_ms(token: str) -> int | None:

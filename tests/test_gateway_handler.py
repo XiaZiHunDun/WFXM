@@ -509,9 +509,9 @@ class TestHandleMessage:
         mock_loop.hygiene_compress_if_needed.return_value = True
         mock_loop.run.return_value.diagnostics = {"schema_recovered": True}
         with patch.object(handler, "_get_or_create_loop", return_value=mock_loop):
-            with patch("butler.gateway.message_handler.attach_turn_memory_prefetch") as prefetch:
+            with patch("butler.session.lifecycle.attach_turn_memory_prefetch") as prefetch:
                 with patch(
-                    "butler.gateway.message_handler.sync_turn_memory",
+                    "butler.session.lifecycle.sync_turn_memory",
                     return_value={"skipped": False, "provider_synced": True},
                 ) as sync:
                     text = handler.handle_message("hello", session_key="s1")
@@ -529,7 +529,7 @@ class TestHandleMessage:
     def test_normal_message_binds_execution_context(self, handler, mock_loop):
         from butler.execution_context import get_current_orchestrator, get_current_session_key
 
-        def _run(_message: str) -> LoopResult:
+        def _run(_message: str, **kwargs: object) -> LoopResult:
             assert get_current_orchestrator() is handler._orchestrator
             assert get_current_session_key() == "s1"
             return LoopResult(status=LoopStatus.COMPLETED, final_response="assistant reply")

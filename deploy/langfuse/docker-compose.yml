@@ -1,0 +1,116 @@
+# LangFuse v3 self-hosted — Butler observability stack
+# Usage: cd deploy/langfuse && docker compose up -d
+# UI: http://localhost:3000
+#
+# 版本策略: 锁定主版本 :3 (自动获取 patch/minor 更新，不跨大版本)
+# 架构: all-in-one (langfuse/langfuse:3) — 适合单机部署
+
+services:
+  langfuse:
+    image: langfuse/langfuse:3
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://langfuse:langfuse@postgres:5432/langfuse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: langfuse
+      CLICKHOUSE_CLUSTER_ENABLED: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-CHANGEME_nextauth_secret}
+      SALT: ${SALT:-CHANGEME_salt}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      NEXTAUTH_URL: http://localhost:3000
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: us-east-1
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minioadmin
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: minioadmin
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
+      LANGFUSE_INIT_ORG_ID: butler-org
+      LANGFUSE_INIT_ORG_NAME: Butler
+      LANGFUSE_INIT_PROJECT_ID: butler-v4
+      LANGFUSE_INIT_PROJECT_NAME: Butler v4
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: pk-butler-dev
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: sk-butler-dev
+      LANGFUSE_INIT_USER_EMAIL: admin@butler.local
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_ADMIN_PASSWORD:-butler_admin_2026}
+      LANGFUSE_INIT_USER_NAME: Butler Admin
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_PASSWORD: langfuse
+      POSTGRES_DB: langfuse
+    volumes:
+      - langfuse_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_DB: langfuse
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: langfuse
+    volumes:
+      - langfuse_ch_data:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8123/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server /data --console-address ":9001"'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  langfuse_pg_data:
+  langfuse_ch_data:
+  langfuse_minio_data:

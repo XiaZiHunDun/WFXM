@@ -11,7 +11,7 @@ from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 
-from butler.env_parse import env_truthy
+from butler.memory_settings import resolve_memory_config
 from butler.memory.observation_store import ObservationStore, observations_db_path
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ _FLUSH_BATCH = 8
 
 
 def observer_queue_enabled() -> bool:
-    return env_truthy("BUTLER_MEMORY_OBSERVER_QUEUE", default=False)
+    return resolve_memory_config().observer_queue_enabled
 
 
 def observations_path(workspace: Path) -> Path:

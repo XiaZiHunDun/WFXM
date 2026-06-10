@@ -7,7 +7,7 @@ import os
 import re
 from collections import OrderedDict
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,6 +24,8 @@ _CORE_TOOLS = frozenset({
     "contact_add",
     "expense_add",
     "habit_create",
+    "set_reminder",
+    "butler_remember",
 })
 
 _TOOL_EMBED_CACHE_MAX = 256
@@ -48,7 +50,7 @@ def tool_selector_enabled() -> bool:
 
 def tool_selector_threshold() -> int:
     try:
-        return max(4, min(40, int(os.getenv("BUTLER_TOOL_SELECTOR_THRESHOLD", "12"))))
+        return int_env("BUTLER_TOOL_SELECTOR_THRESHOLD", 12, min=4, max=40)
     except ValueError:
         return 12
 

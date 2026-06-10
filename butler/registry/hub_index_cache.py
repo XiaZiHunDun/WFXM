@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.env_parse import int_env
 import hashlib
 import json
 import logging
@@ -20,7 +21,7 @@ _GLOBAL_CACHE_TENANT = "__global__"
 
 def cache_ttl_seconds() -> int:
     try:
-        return max(60, int(os.getenv("BUTLER_REGISTRY_CACHE_TTL", "3600")))
+        return int_env("BUTLER_REGISTRY_CACHE_TTL", 3600, min=60)
     except ValueError:
         return 3600
 

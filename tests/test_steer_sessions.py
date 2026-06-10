@@ -78,7 +78,8 @@ def test_apply_steer_uses_execution_context_session():
         assert drain_steer("ctx-s") is None
 
 
-def test_gateway_steer_requires_active_run():
+def test_gateway_steer_requires_active_run(monkeypatch):
+    monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
     from butler.gateway.message_handler import ButlerMessageHandler
 
     h = ButlerMessageHandler(channel="test")

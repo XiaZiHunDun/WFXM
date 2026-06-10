@@ -7,7 +7,7 @@ import threading
 from contextlib import contextmanager
 from typing import Iterator
 
-from butler.env_parse import env_truthy
+from butler.env_parse import env_truthy, int_env
 
 _LOCK = threading.Lock()
 _SESSION_SLOTS: dict[str, int] = {}
@@ -19,7 +19,7 @@ def delegate_concurrency_enabled() -> bool:
 
 def max_concurrent_delegates() -> int:
     try:
-        return max(1, int(os.getenv("BUTLER_DELEGATE_MAX_CONCURRENT", "") or "2"))
+        return max(1, int_env("BUTLER_DELEGATE_MAX_CONCURRENT", 2))
     except ValueError:
         return 2
 

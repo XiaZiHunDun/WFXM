@@ -31,7 +31,7 @@ def default_section_names() -> tuple[str, ...]:
 
 def max_section_chars() -> int:
     try:
-        return max(200, min(8000, int(os.getenv("BUTLER_POST_COMPACT_DESIGN_MAX_CHARS", "2500"))))
+        return int_env("BUTLER_POST_COMPACT_DESIGN_MAX_CHARS", 2500, min=200, max=8000)
     except ValueError:
         return 2500
 
@@ -213,12 +213,9 @@ def extract_design_md_sections(
 
 
 def design_context_enabled() -> bool:
-    return os.getenv("BUTLER_DESIGN_CONTEXT_INJECT", "1").strip().lower() not in (
-        "0",
-        "false",
-        "no",
-        "off",
-    )
+    from butler.env_parse import env_truthy, int_env
+
+    return env_truthy("BUTLER_DESIGN_CONTEXT_INJECT", default=True)
 
 
 def build_design_context_block(

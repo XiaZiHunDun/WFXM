@@ -18,6 +18,8 @@ def run_builtin(handler: str, workspace: Path) -> dict[str, Any]:
         return _workflow_state_digest(workspace)
     if name == "builtin:memory_offline_consolidate":
         return _memory_offline_consolidate(workspace)
+    if name == "builtin:experience_mining_weekly":
+        return _experience_mining_weekly(workspace)
     raise ValueError(f"Unknown builtin handler: {handler}")
 
 
@@ -114,4 +116,32 @@ def _memory_offline_consolidate(workspace: Path) -> dict[str, Any]:
         "stdout": "\n".join(lines),
         "stderr": "",
         "summary": summary,
+    }
+
+
+def _experience_mining_weekly(workspace: Path) -> dict[str, Any]:
+    """D3-6 weekly mining: scan → review → pending queue (no default auto-ingest)."""
+    from butler.memory.experience_mining import (
+        default_mining_days,
+        format_pipeline_report,
+        mining_enabled,
+        run_pipeline,
+    )
+
+    if not mining_enabled():
+        return {
+            "success": True,
+            "stdout": "BUTLER_EXPERIENCE_MINING=0，跳过经验挖掘",
+            "stderr": "",
+            "summary": "经验挖掘：已跳过（挖掘关闭）",
+        }
+
+    days = default_mining_days()
+    result = run_pipeline(workspace, days=days, auto_ingest=False)
+    report_text = format_pipeline_report(result)
+    return {
+        "success": True,
+        "stdout": report_text,
+        "stderr": "",
+        "summary": report_text,
     }

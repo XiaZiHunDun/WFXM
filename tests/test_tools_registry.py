@@ -452,7 +452,9 @@ class TestPatch:
             "patch",
             {"path": str(f), "old_string": "replace me", "new_string": "done"},
         )
-        assert json.loads(result) == {"success": True, "replacements": 1}
+        data = json.loads(result)
+        assert data["success"] is True
+        assert data["replacements"] == 1
 
     def test_denies_patch_outside_current_workspace(self, tmp_path):
         workspace = tmp_path / "workspace"

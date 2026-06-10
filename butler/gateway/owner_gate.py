@@ -54,7 +54,9 @@ def is_gateway_owner(
     dev / test / 未设 env 时 BYPASS 仍生效 (开发体验 + 向后兼容).
     """
     # Sprint 18-2: prod 环境硬拒绝 BYPASS, 防止越权开关被滥用.
-    if os.getenv("BUTLER_ENV", "").strip().lower() == "prod":
+    from butler.env_parse import is_butler_prod
+
+    if is_butler_prod():
         # 跳过 BYPASS, 走正常 allowlist 校验
         pass
     elif os.getenv("BUTLER_PROJECT_CREATE_OPEN", "").strip().lower() in (

@@ -91,6 +91,29 @@ TASK_DECOMPOSITION = """
 """
 
 
+_DEV_ENGINE_APPENDIX = ""
+
+
+def _load_dev_engine_appendix() -> str:
+    """Load the dev engine system prompt (lazy, cached)."""
+    global _DEV_ENGINE_APPENDIX
+    if _DEV_ENGINE_APPENDIX:
+        return _DEV_ENGINE_APPENDIX
+    try:
+        from butler.dev_engine.dev_tools import dev_engine_enabled
+
+        if not dev_engine_enabled():
+            return ""
+        from pathlib import Path
+
+        md_path = Path(__file__).parent / "prompts" / "dev_engine_system.md"
+        if md_path.is_file():
+            _DEV_ENGINE_APPENDIX = "\n\n" + md_path.read_text(encoding="utf-8").strip()
+    except Exception:
+        pass
+    return _DEV_ENGINE_APPENDIX
+
+
 DEV_AGENT = AgentProfile(
     role="dev_agent",
     description="代码开发 Agent — 可读写文件、执行命令、搜索代码、Git 操作",
@@ -102,6 +125,11 @@ DEV_AGENT = AgentProfile(
         + TASK_DECOMPOSITION
     ),
 )
+
+
+def get_dev_agent_prompt() -> str:
+    """Return DEV_AGENT system prompt, appending dev engine section if enabled."""
+    return DEV_AGENT.system_prompt + _load_dev_engine_appendix()
 
 CONTENT_AGENT = AgentProfile(
     role="content_agent",

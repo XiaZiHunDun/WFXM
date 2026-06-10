@@ -42,8 +42,14 @@
 | `project-health-report.sh` | 基于 `project-health-check.sh` 产出带时间戳的体检报告（`logs/maintenance/`） |
 | `repo-cleanup-audit.sh` | 仓库清理审计：结构漂移、tracked 大文件、git 工作区变更概览 |
 | `butler-smoke.sh` | `--tier=quick`（preflight + 快测）/ `standard`（+ 域冒烟）/ `full`（= pre-release） |
+| `butler-phase4-smoke.sh` | **Phase 4 守门**：standard/full + Lead + runtime + 媒体 + 回归门 |
+| `butler-phase5-smoke.sh` | **Phase 5 守门**：B9 + 多项目 C + 双 Lead smoke |
+| `butler-eval-llm-benchmark.sh` | **O9** B9 LLM delegate 基准（oracle / live） |
+| `sync-project-skills.sh` | 任意项目 `skills/` → `.butler/skills/` |
+| `butler-memory-metrics-smoke.sh` | **D2-4/D2-5** 记忆效果度量接线测试 |
 | `butler-pre-release-smoke.sh` | 1 gateway → 2 pytest → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot |
-| `butler-five-reports-gate.sh` | 五报告 P5–P10 单测 + `prompt-eval.sh` + `registry verify` |
+| `butler-five-reports-gate.sh` | 五报告 P5–P10 + PR-F 单测 + `prompt-eval.sh` + `registry verify` |
+| `check-dead-env.sh` | `reference.md` 中 `BUTLER_*` 须在 `butler/` 有 reader（脚本/测试 key 白名单） |
 | `prompt-eval.sh` | Prompt pattern rubric + `test_five_reports_p7/p9/p10` |
 
 ## 分域冒烟（被 pre-release 或文档调用）

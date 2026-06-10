@@ -294,6 +294,21 @@ def _configure_subagent_policy(state: DelegateRunState) -> None:
         logger.debug("delegate one-tool-per-iteration policy skipped: %s", exc)
 
 
+def _inject_dev_engine_prompt(state: DelegateRunState) -> None:
+    """Append dev engine system prompt when role=dev and engine enabled (2g)."""
+    norm = state.role.replace("_agent", "").strip().lower()
+    if norm != "dev":
+        return
+    try:
+        from butler.agent_profiles import get_dev_agent_prompt
+
+        enhanced = get_dev_agent_prompt()
+        if enhanced and len(enhanced) > len(state.agent.system_prompt):
+            state.agent.system_prompt = enhanced
+    except Exception as exc:  # noqa: BLE001 — best-effort injection
+        logger.debug("dev engine prompt injection skipped: %s", exc)
+
+
 def _resolve_subagent(state: DelegateRunState) -> None:
     """Phase 2: build the project agent loop with cache-safe prompt.
 
@@ -308,6 +323,7 @@ def _resolve_subagent(state: DelegateRunState) -> None:
     _build_subagent_tools(state)
     _apply_subagent_tool_filters(state)
     _create_project_agent_loop(state)
+    _inject_dev_engine_prompt(state)
     _apply_cache_safe_prompt(state)
     _configure_subagent_policy(state)
     state.agent.reset()
@@ -414,6 +430,80 @@ def _record_delegate_started_events(state: DelegateRunState) -> None:
     )
 
 
+def _init_dev_engine_state(state: DelegateRunState) -> None:
+    """Initialize DevState + register DevEnginePlugin for dev delegates (4g).
+
+    Also runs coding knowledge layer activation (D3-7 bridge).
+    """
+    norm = state.role.replace("_agent", "").strip().lower()
+    if norm != "dev":
+        return
+    try:
+        from butler.dev_engine.dev_tools import dev_engine_enabled
+        from butler.dev_engine.dev_loop import create_dev_state
+
+        if not dev_engine_enabled():
+            return
+        sk = state.child_session_key or state.session_key or "_default"
+        ds = create_dev_state(task_description=state.task)
+
+        try:
+            from butler.dev_engine.coding_knowledge import (
+                ExperienceLibrary,
+                TheoremLibrary,
+                process_task,
+            )
+            from butler.dev_engine.dev_state import CodingKnowledgeSummary
+
+            import os as _os
+            from butler.config import get_butler_home as _get_butler_home
+
+            keywords = state.task.lower().split() if state.task else []
+            tlib = TheoremLibrary()
+            xlib_path = _os.path.join(_get_butler_home(), "coding_experiences.json")
+            xlib = ExperienceLibrary.load_from_file(xlib_path, theorem_lib=tlib)
+            xlib.load_seed_if_empty()
+            ctx = process_task(keywords, tlib, xlib)
+            ds.coding_knowledge = CodingKnowledgeSummary(
+                mode=ctx.mode,
+                activated_theorem_ids=sorted(ctx.activated_theorems.keys()),
+                activated_elements=[e.value for e in ctx.activated_elements],
+                experience_id=(ctx.selected_experience.id
+                               if ctx.selected_experience else ""),
+                experience_title=(ctx.selected_experience.title
+                                  if ctx.selected_experience else ""),
+            )
+            ds._coding_knowledge_theorems = ctx.activated_theorems
+            ds._coding_knowledge_ctx = ctx
+        except Exception as exc:
+            logger.debug("coding knowledge activation skipped: %s", exc)
+
+        from butler.dev_engine.dev_tools import _active_states
+
+        _active_states[sk] = ds
+
+        if state.agent is not None:
+            try:
+                from butler.dev_engine.loop_plugin import create_dev_engine_plugin
+
+                plugin = create_dev_engine_plugin(session_key=sk)
+                plugins = getattr(state.agent, "_plugins", None)
+                if plugins is not None:
+                    plugins.plugins.append(plugin)
+                    before_hook = getattr(plugin, "before_model", None)
+                    if callable(before_hook):
+                        plugins._before_llm_hooks.append(before_hook)
+                    after_hook = getattr(plugin, "after_tools", None)
+                    if callable(after_hook):
+                        plugins._after_tools_hooks.append(after_hook)
+            except Exception as exc:
+                logger.debug("DevEnginePlugin registration skipped: %s", exc)
+
+        logger.debug("DevState initialized for session %s", sk)
+    except Exception as exc:  # noqa: BLE001 — best-effort init
+        logger.debug("DevState initialization skipped: %s", exc)
+
+
 def _record_delegate_state(state: DelegateRunState) -> None:
     """Phase 4: prefetch, semaphore, task record, hooks, transcript.
 
@@ -429,6 +519,7 @@ def _record_delegate_state(state: DelegateRunState) -> None:
     if not _acquire_delegate_slot(state):
         return
     _create_delegate_task_record(state)
+    _init_dev_engine_state(state)
     _run_subagent_start_hooks(state)
     _record_delegate_started_events(state)
 
@@ -635,7 +726,85 @@ def _build_result_payload(state: DelegateRunState, report: Any, result: Any) -> 
         payload["category"] = state.category_meta["category"]
     if not (result.final_response or "").strip():
         payload["code"] = "DELEGATE_EMPTY_RESPONSE"
+    _attach_dev_engine_summary(state, payload)
     return payload
+
+
+def _attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any]) -> None:
+    """Attach DevState summary to delegate result when engine active (6g, DA6).
+
+    Also extracts a candidate experience on success (CT3 closed-loop).
+    """
+    norm = state.role.replace("_agent", "").strip().lower()
+    if norm != "dev":
+        return
+    try:
+        from butler.dev_engine.dev_tools import _active_states, dev_engine_enabled
+
+        if not dev_engine_enabled():
+            return
+        sk = state.child_session_key or state.session_key or "_default"
+        ds = _active_states.pop(sk, None)
+        if ds is None:
+            return
+        payload["dev_engine"] = {
+            "phase": ds.phase.value,
+            "iterations": ds.iteration,
+            "edits": len(ds.edit_history),
+            "fixes": ds.fix_count,
+            "verify_passed": ds.verify_result.passed,
+        }
+        if ds.coding_knowledge.mode:
+            payload["dev_engine"]["coding_knowledge"] = ds.coding_knowledge.to_dict()
+
+        _try_extract_experience(ds, state)
+    except Exception as exc:  # noqa: BLE001 — best-effort summary
+        logger.debug("DevState summary attachment skipped: %s", exc)
+
+
+def _try_extract_experience(ds: Any, state: DelegateRunState) -> None:
+    """Best-effort: extract and persist a coding experience on task success."""
+    try:
+        from butler.dev_engine.dev_state import DevPhase
+        if ds.phase != DevPhase.DONE or not ds.verify_result.passed:
+            return
+
+        activated = getattr(ds, "_coding_knowledge_theorems", None)
+        if not activated:
+            return
+
+        snippets = [
+            e.new_content for e in ds.edit_history
+            if e.new_content and len(e.new_content) > 20
+        ]
+        if not snippets:
+            return
+
+        from butler.dev_engine.coding_knowledge import (
+            ExperienceLibrary,
+            TheoremLibrary,
+            extract_experience_candidate,
+        )
+
+        candidate = extract_experience_candidate(
+            ds.task_description, snippets, activated,
+        )
+        if candidate is None:
+            return
+
+        import os
+        from butler.config import get_butler_home
+
+        xlib_path = os.path.join(
+            get_butler_home(), "coding_experiences.json")
+        tlib = TheoremLibrary()
+        xlib = ExperienceLibrary.load_from_file(xlib_path, theorem_lib=tlib)
+        ok, _ = xlib.add(candidate)
+        if ok:
+            xlib.save_to_file(xlib_path)
+            logger.debug("Extracted coding experience %s", candidate.id)
+    except Exception as exc:
+        logger.debug("Experience extraction skipped: %s", exc)
 
 
 def _format_delegate_result(state: DelegateRunState, result: Any) -> str:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from butler.defaults.env_defaults import OUTPUT_SCHEMA_REPAIR_MAX
 from butler.env_parse import env_truthy
 
 
@@ -21,9 +22,10 @@ def output_schema_repair_max_rounds() -> int:
     import os
 
     try:
-        return max(1, min(3, int(os.getenv("BUTLER_OUTPUT_SCHEMA_REPAIR_MAX", "2"))))
+        raw = os.getenv("BUTLER_OUTPUT_SCHEMA_REPAIR_MAX", str(OUTPUT_SCHEMA_REPAIR_MAX))
+        return max(1, min(3, int(raw)))
     except ValueError:
-        return 2
+        return OUTPUT_SCHEMA_REPAIR_MAX
 
 
 __all__ = [

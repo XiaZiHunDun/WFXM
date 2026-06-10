@@ -44,7 +44,9 @@ async def _maybe_replan_dev_qa_loop(
     if qa.success or not qa_response_is_fail(qa.response or ""):
         return graph
     try:
-        max_replan = max(0, int(os.getenv("BUTLER_WORKFLOW_QA_REPLAN_MAX", "1") or "1"))
+        from butler.env_parse import int_env
+
+        max_replan = int_env("BUTLER_WORKFLOW_QA_REPLAN_MAX", 1, min=0)
     except ValueError:
         max_replan = 1
     if max_replan <= 0 or not env_truthy("BUTLER_WORKFLOW_QA_REPLAN", default=True):

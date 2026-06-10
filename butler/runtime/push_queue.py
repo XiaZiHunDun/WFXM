@@ -93,7 +93,7 @@ def drain_push_queue(*, max_items: int = 3) -> dict[str, Any]:
     """
     Retry queued pushes (newest first). Called from runtime due / manual ops.
     """
-    from butler.runtime.notify import push_runtime_message
+    from butler.runtime.notify import push_runtime_message, rate_limit_drain_blocked
 
     path = _queue_path()
     if not path.is_file():
@@ -104,13 +104,26 @@ def drain_push_queue(*, max_items: int = 3) -> dict[str, Any]:
         return {"drained": 0, "remaining": 0, "sent": 0, "failed": 0}
 
     pending = [json.loads(ln) for ln in lines]
+    if rate_limit_drain_blocked():
+        logger.info(
+            "Runtime push queue drain skipped: iLink rate-limit cooldown active (%d pending)",
+            len(pending),
+        )
+        return {
+            "drained": 0,
+            "remaining": len(pending),
+            "sent": 0,
+            "failed": 0,
+            "skipped": "rate_limit_cooldown",
+        }
+
     pending.reverse()  # newest first
     to_try = pending[: max(1, max_items)]
     tail = pending[max_items:]
 
     sent = failed = 0
     retry_later: list[dict[str, Any]] = []
-    for item in to_try:
+    for idx, item in enumerate(to_try):
         ok = push_runtime_message(
             item.get("title") or "[Butler]",
             item.get("body") or "",
@@ -121,6 +134,10 @@ def drain_push_queue(*, max_items: int = 3) -> dict[str, Any]:
         else:
             failed += 1
             retry_later.append(item)
+            if rate_limit_drain_blocked():
+                retry_later.extend(to_try[idx + 1 :])
+                logger.info("Runtime push queue drain stopped after rate-limit failure")
+                break
 
     rest = retry_later + tail
     rest.reverse()

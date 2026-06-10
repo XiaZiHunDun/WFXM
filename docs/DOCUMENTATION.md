@@ -1,6 +1,6 @@
 # Butler 文档体系与维护说明
 
-> **更新**：2026-05-26 | **读者**：主公、Cursor Agent、贡献者  
+> **更新**：2026-06-09 | **读者**：主公、Cursor Agent、贡献者  
 > **新会话**：[`../AGENTS.md`](../AGENTS.md) → [`architecture/v4-architecture.md`](architecture/v4-architecture.md) → 本文（按需）
 
 ---
@@ -9,21 +9,22 @@
 
 ```text
 L0  Agent 入口          AGENTS.md、.cursor/rules/
-L1  实现事实来源        v4-architecture.md、config/reference.md、.env.example
+L1  实现事实来源        v4-architecture.md、config/*、architecture/*（激活/扩展/门控）、ops/diagnostic-entrypoints.md、.env.example
 L2  决策与边界          roadmap-backlog-and-boundaries（否决 / Backlog）
 L3  已落地速查          *-capabilities-2026-05.md、各路线图 §9/§10
 L4  对照全文（归档读）  *-comparison-report / *-learning-plan 正文
-L5  历史（勿作实现依据） docs/history/、design.md §11+
+L5  历史（勿作实现依据） docs/history/、design.md 附录（勿当实现 SSOT）
 ```
 
 | 层级 | 典型路径 | 用途 |
 |------|----------|------|
-| **L1 架构** | `docs/architecture/` | 模块划分、Loop/Gateway、ADR |
+| **L1 架构** | `docs/architecture/` | 模块划分、Loop/Gateway、ADR；[项目激活](architecture/project-activation.md)、[扩展路径](architecture/extension-registry-paths.md)、[门控栈](architecture/permission-gate-stack.md) |
 | **L1 配置** | `docs/config/`、`/.env.example` | `BUTLER_*` 权威默认值 |
 | **L2 决策** | `docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md` | 否决、深化边界、可选 Backlog |
+| **L2 理论差距** | `docs/plans/decisions/theory-implementation-gap-register-2026-06.md` | 理论声称 vs 代码/运营（G1–G4 登记册） |
 | **L2 规划索引** | `docs/plans/README.md` | 命名对照（CC / 整理 / 外部对标） |
 | **L3 运维指南** | `docs/guides/` | 微信发版、冒烟、Runtime、外部对标验收 |
-| **L3 运维阈值** | `docs/ops/` | `/诊断` 指标说明 |
+| **L3 运维阈值** | `docs/ops/` | `/诊断` 指标说明、诊断入口矩阵 |
 | **L4 对照报告** | `docs/plans/*-comparison*.md` | 竞品对照归档；**正文旧表非待办** |
 | **L4 路线图** | `docs/plans/*-improvement-roadmap*.md` | PR 核对表（§9/§10）；历史 PR 叙述 |
 | **L5 历史** | `docs/history/` | v0.5–v3，已删除实现 |
@@ -60,6 +61,12 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 
 **仍活跃的产品规划**：[`plans/post-consolidation-roadmap-2026-05.md`](plans/active/post-consolidation-roadmap-2026-05.md)（运营、语料、多项目 — 与对标正交）
 
+| 主线 | 路线图 / 速查 | 守门 |
+|------|----------------|------|
+| 闭环优化 Phase 0–8 | `post-consolidation-roadmap` §3 | eval / experience / cost 相关 tests |
+| **Phase 9 工程/文档收口** | `post-consolidation-roadmap` **§9** + `theory-implementation-gap-register` | `butler-gap-observability.sh` |
+| 末批真机（Phase 4 A/B） | `projects/LingWen1/docs/pilot-log.md` §真机验收策略 | 微信人工勾选 |
+
 ---
 
 ## 4. 目录索引（按文件夹）
@@ -82,7 +89,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | 类别 | 代表文档 |
 |------|----------|
 | **项目总览 / 依赖** | `capabilities-index-2026-05`、`dependency-policy-2026-05` |
-| **生产运维** | `wechat-gateway-ops`、`wechat-daily-smoke-checklist` |
+| **生产运维** | `wechat-gateway-ops`、`wechat-daily-smoke-checklist`、`phase4-ops-runbook` |
 | **能力速查** | `four-reports-capabilities`、`five-reports-capabilities`、`external-agent-reports-capabilities` |
 | **外部对标验收** | `external-reference-roadmap`、`phase-abc-external-reference`、`external-reference-deferred` |
 | **Sprint / Codex** | `sprint-roadmap`、`sprint-codex-c0/c1/c2` |
@@ -95,7 +102,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | 子目录 | 说明 |
 |--------|------|
 | `active/` | `post-consolidation`、`cc-butler-gap-analysis` |
-| `decisions/` | **roadmap-backlog**、out-of-scope、five-reports-not-done |
+| `decisions/` | **roadmap-backlog**、**theory-implementation-gap-register**、out-of-scope、five-reports-not-done |
 | `roadmaps/` | 四/五/外部 Agent 已收口路线图 §9/§10 |
 | `comparisons/` | 对照全文（**非待办**） |
 | `corpus/` | 语料与微信场景 |
@@ -156,7 +163,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 
 ### 6.4 禁止事项
 
-- 从 `docs/history/` 或 `design.md` §11+ 推断当前模块路径  
+- 从 `docs/history/` 或 `design.md` 附录推断当前模块路径（正文仅到第十章 + 附录）  
 - 从对照报告正文 P0/P2 表直接排期（未经 roadmap-backlog 决策流）  
 - 在多个文档重复维护同一否决列表（以 roadmap-backlog + out-of-scope 为 SSOT）  
 - 将 `reference/`（gitignore）当作 Butler 运行时依赖
@@ -171,6 +178,7 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | 规划命名 | [`plans/README.md`](plans/README.md) |
 | 指南列表 | [`guides/README.md`](guides/README.md) |
 | 否决 / Backlog | [`plans/roadmap-backlog-and-boundaries-2026-05.md`](plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) |
+| 理论—实现差距 | [`plans/decisions/theory-implementation-gap-register-2026-06.md`](plans/decisions/theory-implementation-gap-register-2026-06.md) |
 | 目录与命令 | [`../STRUCTURE.md`](../STRUCTURE.md) |
 | Agent 规则 | [`../AGENTS.md`](../AGENTS.md) |
 
@@ -185,3 +193,4 @@ L5  历史（勿作实现依据） docs/history/、design.md §11+
 | 2026-05-25 | 合并 phase-a/b/c → phase-abc；语料 v1–v4 → corpus-history；精简 plans/README、reference-learning-plan |
 | 2026-05-25 | plans/ 分子目录；瘦身 AGENTS；release-runbook、capabilities-index、docs-lint.sh |
 | 2026-05-26 | 新增项目状态总览与依赖策略索引；补充 pyproject 依赖分层同步规则 |
+| 2026-06-09 | Phase 9 + G1–G4 批次收口：差距登记册全表、`post-consolidation` **v2.5** §9、末批真机；开放仅 G1-04 |

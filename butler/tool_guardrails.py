@@ -32,7 +32,7 @@ IDEMPOTENT_TOOLS = frozenset({
     "skills_list",
     "skill_view",
     "butler_recall",
-    "list_runtime_jobs",
+    "list_runtime_jobs",  # 仍为 registry 工具名（非仅 CLI `butler runtime list`）
 })
 
 MUTATING_TOOLS = frozenset({
@@ -43,7 +43,7 @@ MUTATING_TOOLS = frozenset({
     "patch",
     "git_add",
     "git_commit",
-    "run_runtime_job",
+    "run_runtime_job",  # registry 工具；mutating job 须 /批准运行
     "download_file",
 })
 
@@ -102,10 +102,9 @@ def _sha256(value: str) -> str:
 
 def doom_loop_threshold() -> int:
     """Consecutive identical tool calls before block (OpenCode processor; 0=off)."""
-    try:
-        return max(0, int(os.getenv("BUTLER_DOOM_LOOP_THRESHOLD", "3").strip() or "3"))
-    except ValueError:
-        return 3
+    from butler.env_parse import int_env
+
+    return int_env("BUTLER_DOOM_LOOP_THRESHOLD", 3, min=0)
 
 
 def doom_loop_mode() -> str:
