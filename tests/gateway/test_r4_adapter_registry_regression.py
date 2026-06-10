@@ -11,7 +11,7 @@ from butler.gateway.platforms.wechat_ilink_registry import AdapterRegistry
 
 
 def _fake_adapter(token: str) -> MagicMock:
-    a = MagicMock()
+    a = MagicMock(spec=["_token"])
     a._token = token
     return a
 

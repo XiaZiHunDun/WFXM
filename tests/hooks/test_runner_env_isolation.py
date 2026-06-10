@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from unittest import mock
 
 from butler.hooks.runner import _run_hook
@@ -17,11 +18,12 @@ def test_run_hook_uses_sanitized_env(monkeypatch):
 
     def fake_run(cmd, **kwargs):
         captured["env"] = dict(kwargs.get("env") or {})
-        proc = mock.Mock()
-        proc.returncode = 0
-        proc.stdout = "ok"
-        proc.stderr = ""
-        return proc
+        return subprocess.CompletedProcess(
+            args=cmd,
+            returncode=0,
+            stdout="ok",
+            stderr="",
+        )
 
     rule = HookRule(
         event="PreToolUse",
