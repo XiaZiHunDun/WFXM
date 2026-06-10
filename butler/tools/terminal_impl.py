@@ -162,30 +162,34 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
             watcher = threading.Thread(target=_watch, daemon=True)
             watcher.start()
             try:
-                stdout, stderr, truncated = _communicate_limited(
-                    proc,
-                    timeout=timeout,
-                    max_output_chars=MAX_TERMINAL_OUTPUT_CHARS,
-                )
-            except subprocess.TimeoutExpired:
-                proc.kill()
                 try:
-                    proc.wait(timeout=1)
-                finally:
-                    _close_pipe(proc.stdout)
-                    _close_pipe(proc.stderr)
-                return json.dumps({"error": f"Command timed out after {timeout}s"})
-            if interrupted:
-                return json.dumps({"error": "interrupted", "output": ""})
-            output = stdout or ""
-            if stderr:
-                output += "\n[stderr]\n" + stderr
-            if truncated or len(output) > MAX_TERMINAL_OUTPUT_CHARS:
-                output = output[:MAX_TERMINAL_OUTPUT_CHARS] + "\n... (truncated)"
-            return json.dumps({
-                "exit_code": proc.returncode,
-                "output": output,
-            })
+                    stdout, stderr, truncated = _communicate_limited(
+                        proc,
+                        timeout=timeout,
+                        max_output_chars=MAX_TERMINAL_OUTPUT_CHARS,
+                    )
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    try:
+                        proc.wait(timeout=1)
+                    finally:
+                        _close_pipe(proc.stdout)
+                        _close_pipe(proc.stderr)
+                    return json.dumps({"error": f"Command timed out after {timeout}s"})
+                if interrupted:
+                    return json.dumps({"error": "interrupted", "output": ""})
+                output = stdout or ""
+                if stderr:
+                    output += "\n[stderr]\n" + stderr
+                if truncated or len(output) > MAX_TERMINAL_OUTPUT_CHARS:
+                    output = output[:MAX_TERMINAL_OUTPUT_CHARS] + "\n... (truncated)"
+                return json.dumps({
+                    "exit_code": proc.returncode,
+                    "output": output,
+                })
+            finally:
+                _close_pipe(proc.stdout)
+                _close_pipe(proc.stderr)
         except Exception as exc:
             return json.dumps({"error": str(exc)})
 
