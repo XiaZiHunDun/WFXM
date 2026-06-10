@@ -512,12 +512,14 @@ def _run_hook(
 ) -> tuple[int | None, str, str]:
     cwd = rule.cwd or os.getcwd()
     stdin_json = json.dumps(payload, ensure_ascii=False)
-    env = {
-        **os.environ,
+    from butler.tools.path_safety import safe_subprocess_env
+
+    env = safe_subprocess_env()
+    env.update({
         "BUTLER_HOOK_EVENT": str(payload.get("hook_event_name") or rule.event),
         "BUTLER_HOOK_TOOL": str(payload.get("tool_name") or ""),
         "BUTLER_HOOK_INPUT": stdin_json[:8000],
-    }
+    })
     try:
         proc = subprocess.run(
             ["bash", "-c", rule.command],
