@@ -7,11 +7,13 @@ import logging
 import os
 import threading
 import time
+from collections import OrderedDict
 from typing import Callable
 
 logger = logging.getLogger(__name__)
 
-_CACHE: dict[str, tuple[str, str, float]] = {}
+_CACHE: OrderedDict[str, tuple[str, str, float]] = OrderedDict()
+_CACHE_MAX = 512
 _LOCK = threading.RLock()
 
 
@@ -51,6 +53,7 @@ def get_cached_prefetch(session_key: str, query: str) -> str | None:
         if now - ts > ttl:
             _CACHE.pop(key, None)
             return None
+        _CACHE.move_to_end(key)
         return ctx
 
 
@@ -61,6 +64,9 @@ def set_cached_prefetch(session_key: str, query: str, ctx: str) -> None:
     key = _cache_key(session_key, q)
     with _LOCK:
         _CACHE[key] = (q, ctx.strip(), time.monotonic())
+        _CACHE.move_to_end(key)
+        while len(_CACHE) > _CACHE_MAX:
+            _CACHE.popitem(last=False)
 
 
 def clear_prefetch_cache(session_key: str = "") -> None:
