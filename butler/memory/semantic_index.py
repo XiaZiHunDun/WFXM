@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import atexit
 import json
 import logging
 import sqlite3
 import threading
 import time
+import weakref
 from pathlib import Path
 from typing import Any, Callable
 
@@ -24,6 +26,26 @@ SOURCE_EXPERIENCE = "experience"
 SOURCE_PROJECT = "project_memory"
 SOURCE_OWNER_PROFILE = "owner_profile"
 
+_ACTIVE_INDICES: weakref.WeakSet[SemanticMemoryIndex] = weakref.WeakSet()
+_atexit_registered = False
+
+
+def close_all_semantic_indices() -> None:
+    """Close every live ``SemanticMemoryIndex`` (atexit / gateway shutdown)."""
+    for index in list(_ACTIVE_INDICES):
+        try:
+            index.close()
+        except Exception as exc:
+            logger.debug("semantic_index shutdown close skipped: %s", exc)
+
+
+def _register_semantic_index(index: SemanticMemoryIndex) -> None:
+    global _atexit_registered
+    _ACTIVE_INDICES.add(index)
+    if not _atexit_registered:
+        atexit.register(close_all_semantic_indices)
+        _atexit_registered = True
+
 
 class SemanticMemoryIndex:
     """SQLite-backed embedding index with hybrid FTS merge."""
@@ -40,6 +62,7 @@ class SemanticMemoryIndex:
         self._lock = self._write_lock
         self._conn = self._open_conn()
         self._init_schema()
+        _register_semantic_index(self)
 
     def _open_conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
@@ -48,10 +71,15 @@ class SemanticMemoryIndex:
 
     def close(self) -> None:
         with self._write_lock:
+            conn = self._conn
+            if conn is None:
+                return
             try:
-                self._conn.close()
+                conn.close()
             except Exception:
                 pass
+            finally:
+                self._conn = None
 
     def _init_schema(self) -> None:
         with self._write_lock:

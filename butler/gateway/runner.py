@@ -290,6 +290,13 @@ async def run_gateway_async(platforms: list[str]) -> int:
     except Exception as exc:
         logger.debug("Gateway MCP stack shutdown: %s", exc)
 
+    try:
+        from butler.memory.semantic_index import close_all_semantic_indices
+
+        close_all_semantic_indices()
+    except Exception as exc:
+        logger.debug("Gateway semantic index shutdown: %s", exc)
+
     return 0
 
 
