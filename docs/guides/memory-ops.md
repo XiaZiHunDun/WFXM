@@ -39,6 +39,8 @@
 
 **技能 lint**：`butler skills lint`（有 triggers 缺 `preferred_tools` 时 warn，不阻断）。
 
+**目录型 skill 同步**：`bash scripts/sync-project-skills.sh <slug>` — 扁平 `*.md` 与 `foo/SKILL.md`（写 `foo.md` stub + `foo/`）一并同步到 `.butler/skills/`。
+
 ### 级联验证话术（微信冒烟）
 
 | # | 发送 | 期望 |

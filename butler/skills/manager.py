@@ -298,16 +298,16 @@ class SkillManager:
         return self._skills_dir
 
     def _iter_skill_files(self) -> list[tuple[Path, str]]:
+        from butler.skills.layout import iter_skill_entry_paths
+
         out: list[tuple[Path, str]] = []
         if self._global_skills_dir is not None:
-            for p in sorted(self._global_skills_dir.glob("*.md")):
-                if p.name.startswith("."):
-                    continue
-                out.append((p, "global"))
-        for p in sorted(self._skills_dir.glob("*.md")):
-            if p.name.startswith(".") or p.parent.name == ".archive":
+            for entry in iter_skill_entry_paths(self._global_skills_dir):
+                out.append((entry.path, "global"))
+        for entry in iter_skill_entry_paths(self._skills_dir):
+            if entry.path.parent.name == ".archive":
                 continue
-            out.append((p, "project"))
+            out.append((entry.path, "project"))
         return out
 
     def _apply_directory_content(
@@ -349,6 +349,43 @@ class SkillManager:
         sk["triggers"] = inner.get("triggers") or sk.get("triggers") or []
         sk["content"] = inner.get("content") or ""
         sk["_content_path"] = content_path
+        inner_pt = inner.get("preferred_tools")
+        if inner_pt:
+            sk["preferred_tools"] = inner_pt
+        return sk
+
+    def _merge_directory_metadata(
+        self,
+        sk: dict[str, Any],
+        fm: dict[str, Any],
+        rel: str,
+        path: Path,
+        source: str,
+    ) -> dict[str, Any]:
+        """Merge triggers/preferred_tools from inner SKILL.md for list_skills."""
+        root = self._skills_root_for(path, source)
+        content_path = (root / rel).resolve()
+        try:
+            content_path.relative_to(root.resolve())
+        except ValueError:
+            return sk
+        if not content_path.is_file():
+            return sk
+        inner_fm_text = _read_frontmatter_only(content_path)
+        if not inner_fm_text:
+            return sk
+        inner_sk = _parse_skill_frontmatter(inner_fm_text, content_path, source)
+        if not inner_sk:
+            return sk
+        sk["description"] = str(
+            fm.get("description") or inner_sk.get("description") or sk.get("description") or ""
+        )
+        sk["triggers"] = inner_sk.get("triggers") or sk.get("triggers") or []
+        inner_pt = inner_sk.get("preferred_tools")
+        if inner_pt:
+            sk["preferred_tools"] = inner_pt
+        elif sk.get("preferred_tools"):
+            pass
         return sk
 
     def _load_skill_from_path(self, path: Path, source: str) -> Optional[dict[str, Any]]:
@@ -448,6 +485,15 @@ class SkillManager:
         if not sk:
             self._metadata_cache.pop(key, None)
             return None
+
+        if sk.get("install_type") == "directory":
+            try:
+                fm = yaml.safe_load(frontmatter) or {}
+            except yaml.YAMLError:
+                fm = {}
+            rel = str((fm if isinstance(fm, dict) else {}).get("content_path") or "").strip()
+            if rel:
+                sk = self._merge_directory_metadata(sk, fm if isinstance(fm, dict) else {}, rel, path, source)
 
         self._metadata_cache[key] = (sig, dict(sk))
         return sk

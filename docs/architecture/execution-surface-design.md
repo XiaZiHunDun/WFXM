@@ -133,7 +133,7 @@ authoring (git / 租户目录 / registry install)
 |------|------|------|
 | Registry `ProjectSource` | `projects/*/skills/` | 与运行时 `.butler/skills/` 双轨 |
 | Legacy 全局目录 | `~/.butler/skills/` 仍可能存在 | 迁移到 `tenants/default/skills/` 后废弃 |
-| 运行时无子目录 `SKILL.md` | 仅扁平 `*.md` | Registry 目录型 skill 安装后需 flatten 或扩展 glob |
+| 运行时无子目录 `SKILL.md` | 扁平 `*.md` + 无 stub 的 `<name>/SKILL.md` | Registry/同步：`<name>.md` stub + `<name>/` 内容（`skills/layout.py`） |
 | Hub 未使用 | 多数环境无 `.hub` | 文档化「catalog 搜索 vs 运行时加载」分工 |
 
 ### 2.6 Skill 诊断字段（建议 `/诊断` 扩展）
@@ -322,7 +322,7 @@ Deferred 核心 API：
 
 - [x] **S1** preflight `skills_sync_stale`：`project_skills_sync_issues` 检测 git `skills/` 与 `.butler/skills/` 漂移。
 - [x] **S2** `butler doctor` + `/诊断` 对遗留 `~/.butler/skills/` 告警（`check_legacy_global_skills`）。
-- [ ] **S3** Registry 安装产物与运行时 glob 对齐（directory skill flatten 规范）。
+- [x] **S3** Registry/同步与运行时 glob 对齐：`skills/layout.py`（stub + orphan `SKILL.md`；`sync-project-skills.sh`）。
 
 ### P1 — 可观测
 
@@ -369,3 +369,4 @@ Deferred 核心 API：
 | 2026-06-10 | 初稿：执行面三组件、信任级联接线、Backlog、诊断字段 |
 | 2026-06-10 | P1 落地：execution_surface_diagnostics、preflight sync、doctor 遗留路径、`butler memory seed` |
 | 2026-06-10 | P2 落地：MCP promote 校验/同轮、skill header 解析、runtime_metrics、skills lint、memory-ops C1–C6 |
+| 2026-06-10 | S3：`skills/layout.py` 目录型 skill 发现/同步；`list_skills` 合并 inner 元数据 |

@@ -37,23 +37,9 @@ def check_legacy_global_skills(butler_home: Path) -> list[str]:
 
 def project_skills_sync_issues(workspace: Path) -> list[str]:
     """Detect git ``skills/`` vs runtime ``.butler/skills/`` drift."""
-    ws = Path(workspace).expanduser().resolve()
-    git_dir = ws / "skills"
-    runtime_dir = ws / ".butler" / "skills"
-    if not git_dir.is_dir():
-        return []
-    issues: list[str] = []
-    for src in sorted(git_dir.glob("*.md")):
-        dest = runtime_dir / src.name
-        if not dest.is_file():
-            issues.append(f"  缺同步: {src.name}（skills/ → .butler/skills/）")
-            continue
-        try:
-            if src.stat().st_mtime > dest.stat().st_mtime + 1.0:
-                issues.append(f"  可能过期: {src.name}（git 源较新，请跑 sync 脚本）")
-        except OSError:
-            continue
-    return issues
+    from butler.skills.layout import project_skills_sync_issues as _layout_issues
+
+    return _layout_issues(workspace)
 
 
 def collect_execution_surface_stats(
