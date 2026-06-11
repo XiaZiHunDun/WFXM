@@ -323,6 +323,29 @@ def resolve_b9_mode() -> B9Mode:
     return B9Mode.ORACLE
 
 
+_B9_LIVE_PROJECT_NAME = "__b9_live_benchmark__"
+
+
+def _bind_b9_live_project(workspace: Path, orch: Any, *, session_key: str) -> None:
+    """Register ephemeral project + bind session so delegate resolves workspace."""
+    from butler.project.model import Project
+
+    ws = workspace.resolve()
+    pm = orch.project_manager
+    pm._projects[_B9_LIVE_PROJECT_NAME] = Project(
+        name=_B9_LIVE_PROJECT_NAME,
+        type="software",
+        description="B9 LIVE benchmark ephemeral project",
+        workspace=ws,
+    )
+    parts = str(session_key or "b9:benchmark").split(":", 1)
+    platform = parts[0] or "b9"
+    chat_id = parts[1] if len(parts) > 1 else "benchmark"
+    pm.switch_project_for_chat(platform=platform, chat_id=chat_id, name=_B9_LIVE_PROJECT_NAME)
+    # Child delegate loops use child_session_key; global fallback ensures permissions resolve workspace.
+    pm.switch_project(_B9_LIVE_PROJECT_NAME)
+
+
 def _run_live_delegate(
     workspace: Path,
     spec: B9TaskSpec,
@@ -337,21 +360,29 @@ def _run_live_delegate(
 
         orch = ButlerOrchestrator(user_id="b9-benchmark", channel="cli")
         session_key = "b9:benchmark"
+        ws = workspace.resolve()
         with use_execution_context(orch, session_key=session_key):
+            _bind_b9_live_project(ws, orch, session_key=session_key)
             monkeypatch_root = os.environ.get("BUTLER_TOOL_SAFE_ROOT", "")
-            os.environ["BUTLER_TOOL_SAFE_ROOT"] = str(workspace.resolve())
+            os.environ["BUTLER_TOOL_SAFE_ROOT"] = str(ws)
             try:
                 raw = dispatch_tool(
                     "delegate_task",
                     {
                         "role": "dev",
                         "task": spec.delegate_prompt,
-                        "context": f"workspace={workspace}",
+                        "context": (
+                            f"B9 benchmark workspace (project-bound). "
+                            f"All edits must stay under: {ws}\n"
+                            f"Run pytest in this directory when tests exist."
+                        ),
                     },
                 )
             finally:
                 if monkeypatch_root:
                     os.environ["BUTLER_TOOL_SAFE_ROOT"] = monkeypatch_root
+                elif "BUTLER_TOOL_SAFE_ROOT" in os.environ:
+                    del os.environ["BUTLER_TOOL_SAFE_ROOT"]
         data = json.loads(raw) if isinstance(raw, str) and raw.strip().startswith("{") else {}
         if isinstance(data, dict):
             tools_used = list(data.get("tools_used") or [])

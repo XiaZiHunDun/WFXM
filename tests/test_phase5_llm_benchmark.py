@@ -7,9 +7,26 @@ from pathlib import Path
 from butler.dev_engine.llm_delegate_benchmark import (
     B9Mode,
     B9_TASKS,
+    _bind_b9_live_project,
     run_b9_task,
     run_llm_delegate_benchmarks,
 )
+from butler.orchestrator import ButlerOrchestrator
+
+
+class TestB9LiveProjectBind:
+    def test_bind_b9_live_project_resolves_workspace(self, tmp_path):
+        ws = tmp_path / "task_ws"
+        ws.mkdir()
+        orch = ButlerOrchestrator(user_id="b9-test", channel="cli")
+        _bind_b9_live_project(ws, orch, session_key="b9:benchmark")
+        pm = orch.project_manager
+        proj = pm.get_current(session_key="b9:benchmark")
+        assert proj is not None
+        assert proj.workspace.resolve() == ws.resolve()
+        assert pm.current_project == "__b9_live_benchmark__"
+        child_sk = "b9:benchmark:delegate:task-1"
+        assert pm.get_current(session_key=child_sk) is not None
 
 
 class TestB9OracleBenchmark:
