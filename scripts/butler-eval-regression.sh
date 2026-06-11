@@ -51,7 +51,7 @@ print(f"Memory:    {report.mem_passed}/{report.mem_total} ({report.mem_pass_rate
 if report.scores_pushed:
     print(f"LangFuse:  pushed {report.scores_pushed} scores")
 if report.dataset_synced:
-    print("Dataset:   WeChat corpus synced")
+    print("Dataset:   wechat + memory + dev + swebench + b9 synced")
 if not report.passed:
     print("REGRESSION GATE: FAILED", file=sys.stderr)
     for f in report.failures:

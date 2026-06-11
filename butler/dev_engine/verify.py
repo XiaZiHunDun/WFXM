@@ -246,7 +246,13 @@ def verify_level_for_edit(edited_files: list[str]) -> str:
 
 def auto_verify_levels() -> str:
     """Return the auto-verify levels from env (default: lint,test)."""
-    return os.getenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", "lint,test").strip()
+    default = os.getenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", "lint,test").strip()
+    try:
+        from butler.ops.eval_config_overrides import effective_dev_auto_verify_levels
+
+        return effective_dev_auto_verify_levels(default)
+    except Exception:
+        return default
 
 
 def _has_tool(name: str) -> bool:

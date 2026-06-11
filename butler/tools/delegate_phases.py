@@ -463,7 +463,13 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
             xlib_path = _os.path.join(_get_butler_home(), "coding_experiences.json")
             xlib = ExperienceLibrary.load_from_file(xlib_path, theorem_lib=tlib)
             xlib.load_seed_if_empty()
-            ctx = process_task(keywords, tlib, xlib)
+            try:
+                from butler.ops.eval_config_overrides import effective_coding_knowledge_strict
+
+                strict = effective_coding_knowledge_strict(True)
+            except Exception:
+                strict = True
+            ctx = process_task(keywords, tlib, xlib, strict_experience=strict)
             ds.coding_knowledge = CodingKnowledgeSummary(
                 mode=ctx.mode,
                 activated_theorem_ids=sorted(ctx.activated_theorems.keys()),
@@ -575,6 +581,23 @@ def _dispatch_async_delegate(state: DelegateRunState) -> str | None:
     )
 
 
+def _delegate_langfuse_run_callbacks(state: DelegateRunState) -> Any | None:
+    """Optional nested LangFuse callbacks for sync delegate sub-loops."""
+    try:
+        from butler.ops.langfuse_tracer import delegate_run_callbacks
+
+        return delegate_run_callbacks(
+            parent_session_key=state.session_key,
+            child_session_key=state.child_session_key or state.session_key,
+            role=state.role,
+            task=state.task,
+            task_id=state.task_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort tracing
+        logger.debug("delegate LangFuse callbacks skipped: %s", exc)
+        return None
+
+
 def _run_sync_delegate(state: DelegateRunState) -> None:
     """Sync run: register, run, unregister, release slot (5b)."""
     from butler.core.delegate_semaphore import release_delegate_slot
@@ -584,13 +607,19 @@ def _run_sync_delegate(state: DelegateRunState) -> None:
         unregister_delegate_loop,
     )
 
+    run_cbs = _delegate_langfuse_run_callbacks(state)
     try:
         with use_execution_context(
             state.orch, session_key=state.child_session_key or state.session_key
         ):
             try:
                 register_delegate_loop(state.session_key, state.agent)
-                state.sync_result = state.agent.run(state.user_msg)
+                if run_cbs is not None:
+                    state.sync_result = state.agent.run(
+                        state.user_msg, run_callbacks=run_cbs,
+                    )
+                else:
+                    state.sync_result = state.agent.run(state.user_msg)
             finally:
                 try:
                     unregister_delegate_loop(state.session_key, state.agent)
@@ -807,6 +836,103 @@ def _try_extract_experience(ds: Any, state: DelegateRunState) -> None:
         logger.debug("Experience extraction skipped: %s", exc)
 
 
+def peek_dev_engine_summary(session_key: str, role: str) -> dict[str, Any] | None:
+    """Read DevState summary without popping (for background delegate jobs)."""
+    norm = str(role or "").replace("_agent", "").strip().lower()
+    if norm != "dev":
+        return None
+    try:
+        from butler.dev_engine.dev_tools import _active_states, dev_engine_enabled
+
+        if not dev_engine_enabled():
+            return None
+        ds = _active_states.get(session_key or "_default")
+        if ds is None:
+            return None
+        summary = {
+            "phase": ds.phase.value,
+            "iterations": ds.iteration,
+            "edits": len(ds.edit_history),
+            "fixes": ds.fix_count,
+            "verify_passed": ds.verify_result.passed,
+        }
+        if ds.coding_knowledge.mode:
+            summary["coding_knowledge"] = ds.coding_knowledge.to_dict()
+        return summary
+    except Exception as exc:  # noqa: BLE001 — best-effort read
+        logger.debug("peek dev engine summary skipped: %s", exc)
+        return None
+
+
+def _finalize_delegate_observability(
+    state: DelegateRunState,
+    report: Any,
+    issues: list[str],
+    payload: dict[str, Any],
+) -> None:
+    """Close delegate LangFuse span and capture production failures."""
+    dev_engine = payload.get("dev_engine") if isinstance(payload.get("dev_engine"), dict) else None
+    try:
+        from butler.ops.langfuse_tracer import finish_delegate_trace
+
+        finish_delegate_trace(
+            state.child_session_key or state.session_key,
+            success=report.success,
+            metadata={
+                "task_id": state.task_id,
+                "role": state.role,
+                "issues": issues[:3],
+                "dev_engine": dev_engine or {},
+            },
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort tracing
+        logger.debug("delegate LangFuse finalize skipped: %s", exc)
+
+    trace_id = ""
+    try:
+        from butler.ops.langfuse_tracer import get_current_trace, get_delegate_trace
+
+        delegate_ctx = get_delegate_trace(state.child_session_key or state.session_key)
+        if delegate_ctx is not None:
+            trace_id = delegate_ctx.trace_id
+        parent = get_current_trace(state.session_key)
+        if not trace_id and parent is not None:
+            trace_id = parent.trace_id
+    except Exception as exc:  # noqa: BLE001 — best-effort trace lookup
+        logger.debug("delegate trace id lookup skipped: %s", exc)
+
+    try:
+        from butler.ops.delegate_judge import maybe_judge_and_push
+
+        maybe_judge_and_push(
+            success=report.success,
+            issues=issues,
+            dev_engine=dev_engine,
+            task=state.task,
+            summary=getattr(report, "summary", ""),
+            trace_id=trace_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort judge
+        logger.debug("delegate judge skipped: %s", exc)
+
+    try:
+        from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
+
+        maybe_capture_from_delegate_result(
+            role=state.role,
+            task=state.task,
+            context=state.original_context or state.context,
+            success=report.success,
+            issues=issues,
+            parent_session_key=state.session_key,
+            child_session_key=state.child_session_key or state.session_key,
+            task_id=state.task_id,
+            dev_engine=dev_engine,
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort capture
+        logger.debug("delegate failure capture skipped: %s", exc)
+
+
 def _format_delegate_result(state: DelegateRunState, result: Any) -> str:
     """Phase 6: memory sync, report, cache, complete_task, hooks, payload."""
     from butler.tools.delegate_impl import (
@@ -821,4 +947,5 @@ def _format_delegate_result(state: DelegateRunState, result: Any) -> str:
     _record_delegate_turn_done(state, report.success, result)
     _finalize_delegate_task(state, report)
     payload = _build_result_payload(state, report, result)
+    _finalize_delegate_observability(state, report, issues, payload)
     return json.dumps(payload, ensure_ascii=False)

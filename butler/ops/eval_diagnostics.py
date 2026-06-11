@@ -173,6 +173,15 @@ def format_eval_quality_lines() -> list[str]:
     lines.append(
         f"  B9 模式: {'live LLM' if live else 'oracle (CI/默认)'}"
     )
+
+    try:
+        from butler.ops.assistant_health import format_assistant_health_lines
+
+        lines.append("")
+        lines.extend(format_assistant_health_lines())
+    except Exception as exc:
+        logger.debug("assistant health diagnostics skipped: %s", exc)
+
     return lines
 
 

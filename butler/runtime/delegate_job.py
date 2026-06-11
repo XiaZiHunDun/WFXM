@@ -140,8 +140,24 @@ def run_delegate_job(job: DelegateJob) -> None:
             )
 
             register_delegate_loop(job.session_key, job.agent)
+            run_cbs = None
             try:
-                result = job.agent.run(job.user_msg)
+                from butler.ops.langfuse_tracer import delegate_run_callbacks
+
+                run_cbs = delegate_run_callbacks(
+                    parent_session_key=job.session_key,
+                    child_session_key=job.child_session_key or job.session_key,
+                    role=job.role,
+                    task=job.task,
+                    task_id=job.task_id,
+                )
+            except Exception as exc:
+                logger.debug("background delegate LangFuse callbacks skipped: %s", exc)
+            try:
+                if run_cbs is not None:
+                    result = job.agent.run(job.user_msg, run_callbacks=run_cbs)
+                else:
+                    result = job.agent.run(job.user_msg)
             finally:
                 unregister_delegate_loop(job.session_key, job.agent)
 
@@ -233,6 +249,38 @@ def run_delegate_job(job: DelegateJob) -> None:
             push_target=job.push_target,
             use_async_push=job.use_async_push,
         )
+        try:
+            from butler.tools.delegate_phases import peek_dev_engine_summary
+
+            dev_engine = peek_dev_engine_summary(
+                job.child_session_key or job.session_key,
+                job.role,
+            )
+            from butler.ops.langfuse_tracer import finish_delegate_trace
+            from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
+
+            finish_delegate_trace(
+                job.child_session_key or job.session_key,
+                success=success,
+                metadata={
+                    "task_id": job.task_id,
+                    "role": job.role,
+                    "background": True,
+                    "dev_engine": dev_engine or {},
+                },
+            )
+            maybe_capture_from_delegate_result(
+                role=job.role,
+                task=job.task,
+                success=success,
+                issues=issues,
+                parent_session_key=job.session_key,
+                child_session_key=job.child_session_key or job.session_key,
+                task_id=job.task_id,
+                dev_engine=dev_engine,
+            )
+        except Exception as obs_exc:
+            logger.debug("background delegate observability skipped: %s", obs_exc)
         logger.info(
             "Background delegate finished task_id=%s success=%s",
             job.task_id,

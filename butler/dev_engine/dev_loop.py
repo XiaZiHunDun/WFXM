@@ -36,7 +36,16 @@ def create_dev_state(
     """
     import uuid
 
-    k_max = max_fix_rounds or int_env("BUTLER_DEV_MAX_FIX_ROUNDS", 3)
+    env_fix = int_env("BUTLER_DEV_MAX_FIX_ROUNDS", 3)
+    if max_fix_rounds is None:
+        try:
+            from butler.ops.eval_config_overrides import effective_dev_max_fix_rounds
+
+            k_max = effective_dev_max_fix_rounds(env_fix)
+        except Exception:
+            k_max = env_fix
+    else:
+        k_max = max_fix_rounds
     i_max = max_iterations or 24
     state = DevState(
         task_description=task_description,

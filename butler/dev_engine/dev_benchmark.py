@@ -16,6 +16,8 @@ Benchmark categories:
   B5: Fix failing test    — edit to match test expectation
   B6: Impossible fix      — should terminate as STUCK
   B7: Multi-edit rollback — edit, fail, rollback, re-edit
+  B8: SWE-bench Lite      — 15 oracle instances
+  B10: Verify layered     — V3 test FAIL → fix → PASS
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ class BenchmarkCategory(str, Enum):
     FIX_TEST = "fix_test"
     IMPOSSIBLE = "impossible"
     ROLLBACK = "rollback"
+    VERIFY_LAYERED = "verify_layered"
 
 
 @dataclass
@@ -518,7 +521,61 @@ def _find_completed(collector: MetricsCollector, task_id: str) -> DevTaskMetrics
 # ── Benchmark Runner ────────────────────────────────────────────
 
 
-def _run_b8_swebench(workspace: Path, collector: MetricsCollector) -> BenchmarkResult:
+def _run_b10_verify_layers(tmp_path: Path, collector: MetricsCollector) -> BenchmarkResult:
+    """B10: Layered verify — pytest FAIL before fix, PASS after oracle fix."""
+    from butler.dev_engine.dev_state import VerifyStatus
+    from butler.dev_engine.verify import verify_test
+
+    task_id = "b10_verify_layers"
+    expected = None
+    failures: list[str] = []
+
+    lib = tmp_path / "b10_widget.py"
+    test_file = "test_b10_widget.py"
+    lib.write_text(
+        "def area(w, h):\n    return w + h  # bug: should multiply\n",
+        encoding="utf-8",
+    )
+    (tmp_path / test_file).write_text(
+        "from b10_widget import area\n\n\ndef test_area():\n    assert area(2, 3) == 6\n",
+        encoding="utf-8",
+    )
+
+    vr_before = verify_test(tmp_path, test_files=[test_file])
+    if vr_before.status != VerifyStatus.FAIL:
+        failures.append(f"expected test FAIL before fix, got {vr_before.status.value}")
+
+    _, err = apply_patch(lib, "w + h", "w * h")
+    if err:
+        failures.append(f"oracle patch failed: {err}")
+
+    import shutil
+
+    for stale in (tmp_path / "__pycache__", lib.with_suffix(".pyc")):
+        if stale.exists():
+            if stale.is_dir():
+                shutil.rmtree(stale, ignore_errors=True)
+            else:
+                stale.unlink(missing_ok=True)
+
+    vr_after = verify_test(tmp_path, test_files=[test_file])
+    if vr_after.status != VerifyStatus.PASS:
+        failures.append(f"expected test PASS after fix, got {vr_after.status.value}")
+
+    m = None
+
+    return BenchmarkResult(
+        task_id=task_id,
+        category=BenchmarkCategory.VERIFY_LAYERED,
+        description="分层验证 V3 test：修复前 FAIL → 修复后 PASS",
+        passed=len(failures) == 0,
+        metrics=m,
+        expected=expected,
+        failure_reasons=failures,
+    )
+
+
+def _run_b8_swebench(workspace: Path, _collector: MetricsCollector) -> BenchmarkResult:
     """B8: SWE-bench Lite adapted — oracle-apply + verify on 15 instances."""
     from butler.dev_engine.swebench_lite import _instances
 
@@ -563,6 +620,7 @@ _BUILTIN_BENCHMARKS: list[Callable[[Path, MetricsCollector], BenchmarkResult]] =
     _run_b6_impossible,
     _run_b7_rollback,
     _run_b8_swebench,
+    _run_b10_verify_layers,
 ]
 
 

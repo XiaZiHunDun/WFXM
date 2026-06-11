@@ -92,6 +92,36 @@ def _apply_memory_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
     return action
 
 
+def _apply_dev_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
+    from butler.ops.eval_config_overrides import adjust_dev_coding_guidance
+
+    action = adjust_dev_coding_guidance(strict=True, max_cases=8)
+    action["metric"] = suggestion.metric_name
+    action["metric_value"] = suggestion.metric_value
+    _append_audit(action)
+    return action
+
+
+def _apply_tool_selection_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
+    from butler.ops.eval_config_overrides import adjust_delegate_routing
+
+    action = adjust_delegate_routing(enable_hint=True)
+    action["metric"] = suggestion.metric_name
+    action["metric_value"] = suggestion.metric_value
+    _append_audit(action)
+    return action
+
+
+def _apply_llm_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
+    from butler.ops.eval_config_overrides import adjust_delegate_rescue
+
+    action = adjust_delegate_rescue()
+    action["metric"] = suggestion.metric_name
+    action["metric_value"] = suggestion.metric_value
+    _append_audit(action)
+    return action
+
+
 def _apply_experience_lifecycle(report: FeedbackReport) -> dict[str, Any]:
     """Demote experiences when dev/memory benchmarks are critically low."""
     try:
@@ -144,6 +174,12 @@ def apply_hard_feedback(report: FeedbackReport | None = None) -> dict[str, Any]:
     for suggestion in report.suggestions:
         if suggestion.metric_name in ("memory_effectiveness", "memory_benchmark.pass_rate"):
             actions.append(_apply_memory_action(suggestion))
+        elif suggestion.metric_name == "dev_benchmark.pass_rate":
+            actions.append(_apply_dev_benchmark_action(suggestion))
+        elif suggestion.metric_name == "llm_benchmark.pass_rate":
+            actions.append(_apply_llm_benchmark_action(suggestion))
+        elif suggestion.metric_name in ("tool_selection", "delegate_routing"):
+            actions.append(_apply_tool_selection_action(suggestion))
 
     if any(s.severity == "critical" for s in report.suggestions):
         actions.append(_apply_experience_lifecycle(report))

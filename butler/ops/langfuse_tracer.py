@@ -378,3 +378,262 @@ def langfuse_callbacks(session_key: str = "") -> dict[str, Any]:
         "on_tool_start": ctx.on_tool_start,
         "on_tool_complete": ctx.on_tool_complete,
     }
+
+
+class DelegateTracingContext:
+    """Nested (or standalone) tracing for delegate sub-agent loops."""
+
+    def __init__(
+        self,
+        *,
+        role: str,
+        task: str,
+        task_id: str = "",
+        parent_session_key: str = "",
+        child_session_key: str = "",
+        parent_trace_id: str = "",
+    ):
+        self.role = role
+        self.task_id = task_id
+        self.child_session_key = child_session_key or task_id or "_delegate"
+        self._root: Any = None
+        self._delegate_span: Any = None
+        self._standalone_trace: Any = None
+        self._llm_span: Any = None
+        self._llm_start_time: float = 0.0
+        self._tool_spans: dict[str, tuple[Any, float]] = {}
+        self._trace_id = parent_trace_id or ""
+        self._observation_id = ""
+
+        parent_ctx = get_current_trace(parent_session_key) if parent_session_key else None
+        parent_trace = getattr(parent_ctx, "_trace", None) if parent_ctx else None
+
+        if parent_trace is not None:
+            try:
+                self._delegate_span = parent_trace.span(
+                    name=f"delegate:{role}",
+                    input={
+                        "role": role,
+                        "task": task[:500],
+                        "task_id": task_id,
+                        "child_session_key": child_session_key,
+                    },
+                )
+                self._root = self._delegate_span
+                self._trace_id = str(getattr(parent_trace, "id", "") or self._trace_id)
+                self._observation_id = str(getattr(self._delegate_span, "id", ""))
+            except Exception as exc:
+                logger.debug("LangFuse delegate nested span: %s", exc)
+        else:
+            client = _get_client()
+            if client is not None:
+                try:
+                    self._standalone_trace = client.trace(
+                        name="delegate-turn",
+                        session_id=child_session_key or f"delegate:{role}",
+                        metadata={
+                            "role": role,
+                            "task_id": task_id,
+                            "parent_trace_id": parent_trace_id,
+                            "parent_session_key": parent_session_key,
+                        },
+                        tags=[f"delegate:{role}"],
+                    )
+                    self._root = self._standalone_trace
+                    self._trace_id = str(getattr(self._standalone_trace, "id", ""))
+                except Exception as exc:
+                    logger.debug("LangFuse delegate standalone trace: %s", exc)
+
+    @property
+    def active(self) -> bool:
+        return self._root is not None
+
+    @property
+    def trace_id(self) -> str:
+        return self._trace_id
+
+    @property
+    def observation_id(self) -> str:
+        return self._observation_id
+
+    def on_llm_start(self, messages: list[dict]) -> None:
+        if self._root is None:
+            return
+        try:
+            msg_count = len(messages)
+            self._llm_start_time = time.monotonic()
+            self._llm_span = self._root.generation(
+                name="delegate-llm",
+                input={
+                    "message_count": msg_count,
+                    "last_role": messages[-1].get("role", "") if messages else "",
+                },
+            )
+        except Exception as exc:
+            logger.debug("LangFuse delegate on_llm_start: %s", exc)
+
+    def on_llm_complete(self, response: Any) -> None:
+        if self._llm_span is None:
+            return
+        try:
+            elapsed_ms = (time.monotonic() - self._llm_start_time) * 1000.0
+            usage = getattr(response, "usage", None)
+            usage_dict: dict[str, int] = {}
+            if usage is not None:
+                usage_dict = {
+                    "input": getattr(usage, "prompt_tokens", 0) or 0,
+                    "output": getattr(usage, "completion_tokens", 0) or 0,
+                    "total": getattr(usage, "total_tokens", 0) or 0,
+                }
+            content = str(getattr(response, "content", "") or "")
+            tool_calls = getattr(response, "tool_calls", None)
+            self._llm_span.end(
+                output=content[:500] if content else "(tool_calls)" if tool_calls else "(empty)",
+                usage=usage_dict or None,
+                metadata={"elapsed_ms": round(elapsed_ms, 1)},
+            )
+        except Exception as exc:
+            logger.debug("LangFuse delegate on_llm_complete: %s", exc)
+        finally:
+            self._llm_span = None
+
+    def on_llm_error(self, exc: Exception, attempt: int) -> None:
+        if self._llm_span is None:
+            return
+        try:
+            self._llm_span.end(
+                output=f"ERROR (attempt {attempt}): {type(exc).__name__}: {exc}",
+                level="ERROR",
+            )
+        except Exception as log_exc:
+            logger.debug("LangFuse delegate on_llm_error: %s", log_exc)
+        finally:
+            self._llm_span = None
+
+    def on_tool_start(self, name: str, args: dict) -> None:
+        if self._root is None:
+            return
+        try:
+            key = f"{name}:{len(self._tool_spans)}"
+            span = self._root.span(
+                name=f"tool:{name}",
+                input={
+                    "tool": name,
+                    "args_keys": list(args.keys()) if args else [],
+                    "path": str(args.get("path") or args.get("file") or "")[:200],
+                },
+            )
+            self._tool_spans[key] = (span, time.monotonic())
+        except Exception as exc:
+            logger.debug("LangFuse delegate on_tool_start: %s", exc)
+
+    def on_tool_complete(self, name: str, result: str) -> None:
+        matches = [k for k in self._tool_spans if k.startswith(f"{name}:")]
+        if not matches:
+            return
+        key = matches[-1]
+        entry = self._tool_spans.pop(key, None)
+        if entry is None:
+            return
+        span, start_time = entry
+        try:
+            elapsed_ms = (time.monotonic() - start_time) * 1000.0
+            lowered = (result or "").lower()
+            patch_hint = any(tok in lowered for tok in ("patch", "write_file", "replacements"))
+            span.end(
+                output=(result or "")[:400],
+                metadata={
+                    "elapsed_ms": round(elapsed_ms, 1),
+                    "result_len": len(result or ""),
+                    "patch_like": patch_hint,
+                },
+            )
+        except Exception as exc:
+            logger.debug("LangFuse delegate on_tool_complete: %s", exc)
+
+    def finish(
+        self,
+        *,
+        success: bool,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        meta = dict(metadata or {})
+        meta["success"] = success
+        if self._delegate_span is not None:
+            try:
+                self._delegate_span.end(
+                    output="success" if success else "failed",
+                    metadata=meta,
+                    level=None if success else "WARNING",
+                )
+            except Exception as exc:
+                logger.debug("LangFuse delegate span end: %s", exc)
+        elif self._standalone_trace is not None:
+            try:
+                self._standalone_trace.update(metadata=meta)
+            except Exception as exc:
+                logger.debug("LangFuse delegate trace update: %s", exc)
+
+
+_delegate_ctx_store: dict[str, DelegateTracingContext] = {}
+
+
+def delegate_run_callbacks(
+    *,
+    parent_session_key: str = "",
+    child_session_key: str = "",
+    role: str,
+    task: str,
+    task_id: str = "",
+    parent_trace_id: str = "",
+) -> Any | None:
+    """Build per-run LoopCallbacks for a delegate sub-agent loop."""
+    if not langfuse_enabled():
+        return None
+
+    ctx = DelegateTracingContext(
+        role=role,
+        task=task,
+        task_id=task_id,
+        parent_session_key=parent_session_key,
+        child_session_key=child_session_key,
+        parent_trace_id=parent_trace_id,
+    )
+    if not ctx.active:
+        return None
+
+    store_key = child_session_key or task_id or f"delegate:{role}"
+    _delegate_ctx_store[store_key] = ctx
+
+    from butler.core.loop_types import LoopCallbacks
+
+    return LoopCallbacks(
+        on_llm_start=ctx.on_llm_start,
+        on_llm_complete=ctx.on_llm_complete,
+        on_error=ctx.on_llm_error,
+        on_tool_start=ctx.on_tool_start,
+        on_tool_complete=ctx.on_tool_complete,
+    )
+
+
+def finish_delegate_trace(
+    child_session_key: str = "",
+    *,
+    success: bool,
+    metadata: dict[str, Any] | None = None,
+) -> DelegateTracingContext | None:
+    """Close an active delegate tracing context."""
+    ctx = _delegate_ctx_store.pop(child_session_key or "", None)
+    if ctx is None:
+        for key in list(_delegate_ctx_store):
+            if key.startswith("delegate:"):
+                ctx = _delegate_ctx_store.pop(key, None)
+                break
+    if ctx is not None:
+        ctx.finish(success=success, metadata=metadata)
+        flush_langfuse()
+    return ctx
+
+
+def get_delegate_trace(child_session_key: str = "") -> DelegateTracingContext | None:
+    return _delegate_ctx_store.get(child_session_key or "")

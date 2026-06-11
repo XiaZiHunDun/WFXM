@@ -15,6 +15,8 @@ def _reset_tracer(monkeypatch):
     mod._langfuse_client = None
     mod._initialised = False
     mod._thread_local_ctx.clear()
+    mod._delegate_ctx_store.clear()
+    mod._delegate_ctx_store.clear()
     monkeypatch.delenv("BUTLER_LANGFUSE_ENABLED", raising=False)
     monkeypatch.delenv("LANGFUSE_HOST", raising=False)
     monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
@@ -23,6 +25,7 @@ def _reset_tracer(monkeypatch):
     mod._langfuse_client = None
     mod._initialised = False
     mod._thread_local_ctx.clear()
+    mod._delegate_ctx_store.clear()
 
 
 class TestLangfuseEnabled:
@@ -193,6 +196,40 @@ class TestPublicAPI:
         mod.end_trace(session_key="s1", result=mock_result)
         assert mod.get_current_trace(session_key="s1") is None
         mock_trace.update.assert_called_once()
+
+
+class TestDelegateTracing:
+    def test_delegate_run_callbacks_nested_span(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_LANGFUSE_ENABLED", "1")
+        import butler.ops.langfuse_tracer as mod
+
+        mock_client = MagicMock()
+        mock_trace = MagicMock()
+        mock_trace.id = "parent-trace"
+        mock_delegate_span = MagicMock()
+        mock_delegate_span.id = "delegate-span"
+        mock_trace.span.return_value = mock_delegate_span
+        mock_client.trace.return_value = mock_trace
+        mod._langfuse_client = mock_client
+        mod._initialised = True
+
+        parent = mod.TracingContext(session_key="wechat:u1")
+        mod._thread_local_ctx["wechat:u1"] = parent
+
+        run_cbs = mod.delegate_run_callbacks(
+            parent_session_key="wechat:u1",
+            child_session_key="child:1",
+            role="dev",
+            task="fix bug",
+            task_id="t-1",
+        )
+        assert run_cbs is not None
+        mock_trace.span.assert_called()
+        run_cbs.on_tool_start("write_file", {"path": "a.py"})
+        run_cbs.on_tool_complete("write_file", '{"success": true}')
+        finished = mod.finish_delegate_trace("child:1", success=True, metadata={"edits": 1})
+        assert finished is not None
+        mock_delegate_span.end.assert_called_once()
 
 
 class TestM2DeepTracing:

@@ -56,7 +56,14 @@ def dev_state_context_block(state: DevState) -> str:
         try:
             from butler.dev_engine.coding_knowledge import format_coding_guidance_block
 
-            guidance = format_coding_guidance_block(ctx)
+            max_cases = 6
+            try:
+                from butler.ops.eval_config_overrides import effective_coding_guidance_max_cases
+
+                max_cases = effective_coding_guidance_max_cases(6)
+            except Exception:
+                pass
+            guidance = format_coding_guidance_block(ctx, max_cases=max_cases)
             if guidance.strip():
                 lines.append(guidance)
         except Exception as exc:

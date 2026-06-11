@@ -1,4 +1,4 @@
-"""B1–B8 / MB1–MB7 regression gate for deploy and CI (O7)."""
+"""B1–B10 / MB1–MB7 regression gate for deploy and CI (O7)."""
 
 from __future__ import annotations
 
@@ -179,14 +179,15 @@ def run_regression_gate(
 
     if sync_dataset:
         try:
-            from butler.ops.wechat_dataset import load_and_push_wechat_dataset
+            from butler.ops.dev_eval import sync_all_eval_datasets
 
-            ds_summary = load_and_push_wechat_dataset()
-            report.dataset_synced = bool(
-                ds_summary.get("single_turn_items") or ds_summary.get("multi_turn_items")
-            )
+            ds_summary = sync_all_eval_datasets(dev_report=dev, mem_report=mem)
+            report.dataset_synced = bool(ds_summary.get("any_pushed"))
+            if ds_summary.get("errors"):
+                for err in ds_summary["errors"]:
+                    report.failures.append(f"dataset_sync: {err}")
         except Exception as exc:
-            logger.warning("WeChat dataset sync failed: %s", exc)
+            logger.warning("Eval dataset sync failed: %s", exc)
             report.failures.append(f"dataset_sync: {exc}")
 
     _append_audit(report.summary())

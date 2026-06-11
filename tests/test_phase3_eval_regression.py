@@ -87,3 +87,23 @@ class TestRegressionGate:
         assert report.b9_total == 2
         assert report.passed is True
         assert (tmp_path / "audit" / "b9_benchmark.jsonl").is_file()
+
+    def test_sync_dataset_uses_unified_sync(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        monkeypatch.setenv("BUTLER_LANGFUSE_ENABLED", "0")
+
+        sync_summary = {
+            "any_pushed": True,
+            "total_items": 42,
+            "datasets": {},
+            "errors": [],
+        }
+
+        with patch("butler.dev_engine.dev_benchmark.run_benchmarks", return_value=_fake_dev_report()), \
+             patch("butler.memory.memory_benchmark.run_benchmarks", return_value=_fake_mem_report()), \
+             patch("butler.ops.eval_diagnostics.b9_in_regression_enabled", return_value=False), \
+             patch("butler.ops.dev_eval.sync_all_eval_datasets", return_value=sync_summary) as sync:
+            report = run_regression_gate(push_langfuse=False, sync_dataset=True)
+
+        sync.assert_called_once()
+        assert report.dataset_synced is True

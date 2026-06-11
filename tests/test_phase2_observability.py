@@ -117,3 +117,68 @@ class TestHardFeedback:
         assert len(lines) >= 1
         record = json.loads(lines[0])
         assert record["action"] == "adjust_memory_half_life"
+
+    def test_apply_hard_feedback_dev_action(self, tmp_path, monkeypatch):
+        self._reload_home(monkeypatch, tmp_path)
+        monkeypatch.setenv("BUTLER_EVAL_HARD_FEEDBACK", "1")
+        monkeypatch.setenv("BUTLER_EVAL_HARD_FEEDBACK_HOURS", "0")
+        report = FeedbackReport(
+            suggestions=[
+                FeedbackSuggestion(
+                    category="quality",
+                    severity="critical",
+                    message="dev low",
+                    metric_name="dev_benchmark.pass_rate",
+                    metric_value=0.5,
+                    threshold=0.7,
+                )
+            ]
+        )
+        result = apply_hard_feedback(report)
+        assert result.get("applied") is True
+        overrides = load_overrides()
+        assert overrides.get("coding_knowledge_strict_experience") is True
+        assert overrides.get("coding_guidance_max_cases") == 8
+
+    def test_apply_hard_feedback_llm_action(self, tmp_path, monkeypatch):
+        self._reload_home(monkeypatch, tmp_path)
+        monkeypatch.setenv("BUTLER_EVAL_HARD_FEEDBACK", "1")
+        monkeypatch.setenv("BUTLER_EVAL_HARD_FEEDBACK_HOURS", "0")
+        report = FeedbackReport(
+            suggestions=[
+                FeedbackSuggestion(
+                    category="quality",
+                    severity="warning",
+                    message="b9 low",
+                    metric_name="llm_benchmark.pass_rate",
+                    metric_value=0.6,
+                    threshold=1.0,
+                )
+            ]
+        )
+        result = apply_hard_feedback(report)
+        assert result.get("applied") is True
+        overrides = load_overrides()
+        assert overrides.get("dev_max_fix_rounds") == 4
+        assert overrides.get("delegate_max_iterations") == 28
+
+    def test_apply_hard_feedback_tool_routing_action(self, tmp_path, monkeypatch):
+        self._reload_home(monkeypatch, tmp_path)
+        monkeypatch.setenv("BUTLER_EVAL_HARD_FEEDBACK", "1")
+        monkeypatch.setenv("BUTLER_EVAL_HARD_FEEDBACK_HOURS", "0")
+        report = FeedbackReport(
+            suggestions=[
+                FeedbackSuggestion(
+                    category="reliability",
+                    severity="warning",
+                    message="routing low",
+                    metric_name="delegate_routing",
+                    metric_value=0.4,
+                    threshold=0.6,
+                )
+            ]
+        )
+        result = apply_hard_feedback(report)
+        assert result.get("applied") is True
+        overrides = load_overrides()
+        assert overrides.get("delegate_routing_hint") is True

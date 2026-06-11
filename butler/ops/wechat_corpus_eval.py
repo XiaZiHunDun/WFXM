@@ -1,0 +1,168 @@
+"""WeChat gateway corpus → LangFuse scores (phase 4 non-dev regression)."""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+_CORPUS_NAME = "wechat_gateway"
+_PYTEST_SUMMARY_RE = re.compile(
+    r"(?P<passed>\d+)\s+passed(?:,\s*(?P<failed>\d+)\s+failed)?",
+)
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _audit_path() -> Path:
+    from butler.config import get_butler_home
+
+    return get_butler_home() / "audit" / "wechat_corpus_eval.jsonl"
+
+
+def catalog_delegate_stats() -> dict[str, Any]:
+    """Static stats from utterance catalogs (no pytest run)."""
+    try:
+        from tests.corpus.harness.gateway_catalog import load_utterance_catalog
+
+        rows = load_utterance_catalog(include_smoke_reference=False)
+        delegate_rows = [
+            r for r in rows
+            if (r.get("expect") or {}).get("uses_delegate")
+        ]
+        return {
+            "catalog_total": len(rows),
+            "delegate_entries": len(delegate_rows),
+            "delegate_ratio": round(len(delegate_rows) / max(1, len(rows)), 4),
+        }
+    except Exception as exc:
+        logger.debug("catalog delegate stats skipped: %s", exc)
+        return {}
+
+
+def _parse_pytest_output(output: str) -> dict[str, int]:
+    passed = 0
+    failed = 0
+    for line in output.splitlines():
+        m = _PYTEST_SUMMARY_RE.search(line)
+        if m:
+            passed = int(m.group("passed"))
+            failed = int(m.group("failed") or 0)
+            break
+    return {"passed": passed, "failed": failed, "total": passed + failed}
+
+
+def run_wechat_gateway_corpus(
+    *,
+    extra_args: list[str] | None = None,
+) -> dict[str, Any]:
+    """Run mock gateway utterance catalog tests and return pass/fail summary."""
+    root = _repo_root()
+    cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "tests/corpus/runners/test_gateway_utterance_catalog.py",
+        "-m",
+        "corpus_mock",
+        "-q",
+        "--tb=no",
+    ]
+    if extra_args:
+        cmd.extend(extra_args)
+
+    proc = subprocess.run(
+        cmd,
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+        env={**dict(__import__("os").environ), "PYTHONPATH": str(root)},
+    )
+    combined = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    counts = _parse_pytest_output(combined)
+    if counts["total"] == 0:
+        try:
+            from tests.corpus.harness.gateway_catalog import parametrized_catalog_ids
+
+            counts["total"] = len(parametrized_catalog_ids())
+            counts["passed"] = counts["total"] if proc.returncode == 0 else 0
+            counts["failed"] = counts["total"] - counts["passed"]
+        except Exception as exc:
+            logger.debug("corpus id fallback skipped: %s", exc)
+
+    pass_rate = counts["passed"] / max(1, counts["total"])
+    return {
+        "corpus": _CORPUS_NAME,
+        "passed": counts["passed"],
+        "failed": counts["failed"],
+        "total": counts["total"],
+        "pass_rate": round(pass_rate, 4),
+        "exit_code": proc.returncode,
+        "catalog": catalog_delegate_stats(),
+    }
+
+
+def _append_audit(record: dict[str, Any]) -> None:
+    path = _audit_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record.setdefault("ts", time.time())
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def push_wechat_corpus_scores(summary: dict[str, Any]) -> dict[str, Any]:
+    from butler.ops.eval_bridge import corpus_run_to_scores, push_scores
+
+    total = int(summary.get("total") or 0)
+    passed = int(summary.get("passed") or 0)
+    catalog = summary.get("catalog") or {}
+    delegate_ratio = float(catalog.get("delegate_ratio") or 0.0)
+
+    scores = corpus_run_to_scores(
+        _CORPUS_NAME,
+        total=total,
+        passed=passed,
+        tool_accuracy=delegate_ratio if delegate_ratio else 0.0,
+    )
+    # Alias for assistant_health cross-dimension view
+    if scores:
+        scores[0].name = f"corpus.{_CORPUS_NAME}.pass_rate"
+    push_report = push_scores(scores)
+    return {
+        "scores_pushed": push_report.scores_pushed,
+        "pass_rate": summary.get("pass_rate"),
+        "total": total,
+    }
+
+
+def run_and_push_wechat_corpus_eval(
+    *,
+    push_langfuse: bool = True,
+) -> dict[str, Any]:
+    """Run gateway corpus gate and optionally push LangFuse scores."""
+    summary = run_wechat_gateway_corpus()
+    _append_audit(summary)
+    if push_langfuse:
+        try:
+            summary["langfuse"] = push_wechat_corpus_scores(summary)
+        except Exception as exc:
+            logger.warning("wechat corpus LangFuse push failed: %s", exc)
+            summary["langfuse_error"] = str(exc)
+    return summary
+
+
+__all__ = [
+    "catalog_delegate_stats",
+    "push_wechat_corpus_scores",
+    "run_and_push_wechat_corpus_eval",
+    "run_wechat_gateway_corpus",
+]

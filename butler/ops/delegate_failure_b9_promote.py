@@ -1,0 +1,237 @@
+"""Promote production delegate failures into the B9 promotion queue.
+
+Workflow:
+  1. ``export_b9_candidates`` / weekly review surfaces candidates
+  2. Annotate in LangFuse (tool_wrong / patch_wrong / no_test / verify_fail)
+  3. ``promote_from_audit`` enqueues + emits Python scaffold for ``b9_*_tasks.py``
+  4. Human completes setup/verify/oracle → append to ``b9_prod_shaped_tasks`` or LIVE set
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+from typing import Any
+
+from butler.ops.delegate_failure_b9_import import (
+    export_b9_candidates,
+    failure_to_b9_candidate,
+    load_failure_records,
+)
+
+DEMO_AUDIT_RECORD: dict[str, Any] = {
+    "role": "dev",
+    "task_id": "demo-fix-greet-return",
+    "trace_id": "trace-demo-greet-001",
+    "failure_reason": "verify_fail",
+    "task_preview": (
+        "Fix greet.py so greet() returns 'hello' instead of 'hi'. "
+        "Only modify greet.py; test_b9.py must pass."
+    ),
+    "issues": ["pytest failed: assert 'hi' == 'hello'"],
+    "verify_passed": False,
+}
+
+_QUEUE_NAME = "b9_promotion_queue.jsonl"
+
+
+def _queue_path() -> Path:
+    from butler.config import get_butler_home
+
+    return get_butler_home() / "audit" / _QUEUE_NAME
+
+
+def _append_queue(record: dict[str, Any]) -> Path:
+    path = _queue_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    record.setdefault("queued_at", time.time())
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return path
+
+
+def generate_task_scaffold(candidate: dict[str, Any]) -> str:
+    """Emit a copy-paste Python skeleton for a new B9TaskSpec."""
+    task_id = candidate.get("suggested_task_id") or "B9L_prod_new_case"
+    description = candidate.get("description") or "Production delegate failure"
+    prompt = candidate.get("delegate_prompt") or "Fix the workspace so tests pass."
+    reason = candidate.get("failure_reason") or "unknown"
+    slug = task_id.replace("B9L_prod_", "")
+
+    return f'''# Paste into butler/dev_engine/b9_prod_shaped_tasks.py after implementing hooks.
+# failure_reason: {reason}
+
+def _setup_{slug}(ws: Path) -> None:
+    ws.mkdir(parents=True, exist_ok=True)
+    # TODO: reproduce workspace from sanitized production context
+    raise NotImplementedError("setup for {task_id}")
+
+
+def _oracle_{slug}(ws: Path) -> None:
+    # TODO: oracle patch that makes verify pass in CI
+    raise NotImplementedError("oracle for {task_id}")
+
+
+def _verify_{slug}(ws: Path) -> tuple[bool, str]:
+    # TODO: pytest or structural assertion
+    return False, "not implemented"
+
+
+B9TaskSpec(
+    task_id="{task_id}",
+    description="{description}",
+    delegate_prompt={prompt!r},
+    setup=_setup_{slug},
+    verify=_verify_{slug},
+    oracle_apply=_oracle_{slug},
+    tags=("prod_shaped", "{reason}", "pytest"),
+),
+'''
+
+
+def promote_from_audit(
+    *,
+    index: int = -1,
+    annotate_reason: str = "",
+) -> dict[str, Any]:
+    """Enqueue one audit record and return scaffold for implementation."""
+    records = load_failure_records()
+    if not records:
+        return {
+            "promoted": False,
+            "reason": "empty_audit",
+            "hint": "Run dev delegate with BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES=1 first",
+            "queue_path": str(_queue_path()),
+        }
+
+    rec = records[index]
+    cand = failure_to_b9_candidate(rec)
+    if annotate_reason:
+        cand["failure_reason"] = annotate_reason
+        cand["description"] = f"Production delegate failure ({annotate_reason})"
+
+    scaffold = generate_task_scaffold(cand)
+    queue_rec = {
+        "candidate": cand,
+        "scaffold_lines": scaffold.count("\n") + 1,
+        "status": "pending_implementation",
+    }
+    path = _append_queue(queue_rec)
+
+    return {
+        "promoted": True,
+        "queue_path": str(path),
+        "candidate": cand,
+        "scaffold": scaffold,
+        "modeled_templates": {
+            "verify_fail": "B9L_prod_verify_fail",
+            "patch_wrong": "B9L_prod_patch_wrong",
+            "no_test": "B9L_prod_no_test",
+        },
+    }
+
+
+def promotion_queue_summary(*, limit: int = 50) -> dict[str, Any]:
+    path = _queue_path()
+    if not path.is_file():
+        return {"total": 0, "pending": 0, "recent": [], "queue_path": str(path)}
+
+    recent: list[dict[str, Any]] = []
+    pending = 0
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            if rec.get("status") == "pending_implementation":
+                pending += 1
+            recent.append(rec)
+    except Exception:
+        pass
+    return {
+        "total": len(recent),
+        "pending": pending,
+        "recent": recent[-limit:],
+        "queue_path": str(path),
+    }
+
+
+def seed_demo_failure_audit(*, force: bool = False) -> dict[str, Any]:
+    """Append one realistic demo row to ``delegate_failures.jsonl``."""
+    from butler.ops.delegate_failure_capture import failure_audit_summary
+
+    summary = failure_audit_summary()
+    if summary.get("total") and not force:
+        return {
+            "seeded": False,
+            "reason": "audit_not_empty",
+            "audit_path": summary.get("audit_path"),
+            "total": summary.get("total"),
+        }
+
+    record = {**DEMO_AUDIT_RECORD, "ts": time.time(), "demo": True}
+    from butler.ops.delegate_failure_capture import _append_audit
+
+    _append_audit(record)
+    return {
+        "seeded": True,
+        "audit_path": failure_audit_summary().get("audit_path"),
+        "record": record,
+    }
+
+
+def run_promotion_demo(*, force_seed: bool = False) -> dict[str, Any]:
+    """Seed demo audit (if empty) → promote → export bundle. For pipeline smoke."""
+    seed = seed_demo_failure_audit(force=force_seed)
+    promote = promote_from_audit(index=-1)
+    bundle = export_promotion_bundle(audit_limit=10)
+    queue = promotion_queue_summary()
+    return {
+        "seed": seed,
+        "promote": {k: v for k, v in promote.items() if k != "scaffold"},
+        "scaffold": promote.get("scaffold", ""),
+        "bundle": bundle,
+        "queue_pending": queue.get("pending", 0),
+        "modeled_templates": promote.get("modeled_templates", {}),
+    }
+
+
+def export_promotion_bundle(
+    *,
+    audit_limit: int = 20,
+    out_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Write candidates + queue summary for offline review."""
+    from butler.config import get_butler_home
+
+    base = out_dir or (get_butler_home() / "audit" / "b9_promotion")
+    base.mkdir(parents=True, exist_ok=True)
+
+    candidates_path = base / "candidates.json"
+    export_b9_candidates(limit=audit_limit, out_path=candidates_path)
+
+    summary = promotion_queue_summary()
+    summary_path = base / "queue_summary.json"
+    summary_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    return {
+        "candidates_path": str(candidates_path),
+        "queue_summary_path": str(summary_path),
+        "audit_total": export_b9_candidates(limit=audit_limit).get("total", 0),
+        "queue_pending": summary.get("pending", 0),
+    }
+
+
+__all__ = [
+    "DEMO_AUDIT_RECORD",
+    "export_promotion_bundle",
+    "generate_task_scaffold",
+    "promote_from_audit",
+    "promotion_queue_summary",
+    "run_promotion_demo",
+    "seed_demo_failure_audit",
+]

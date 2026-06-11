@@ -7,7 +7,8 @@ import re
 from typing import Any
 
 from butler.ops.eval_bridge import EvalReport, push_scores
-from butler.ops.eval_scoring import MultiDimScore, ScoreResult, score_response_quality, score_tool_selection
+from butler.ops.eval_scoring import MultiDimScore, ScoreResult, score_response_quality
+from butler.ops.tool_routing import score_delegate_routing, score_runtime_tool_routing
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,8 @@ def score_runtime_turn(
     """Score a production turn without dataset labels."""
     result = MultiDimScore()
     result.scores.append(score_runtime_intent(user_text, response_text))
-    result.scores.append(score_tool_selection([], tools_used or []))
+    result.scores.append(score_runtime_tool_routing(user_text, tools_used))
+    result.scores.append(score_delegate_routing(user_text, tools_used))
     result.scores.append(score_response_quality(response_text=response_text))
 
     if include_memory and session_id:
@@ -110,6 +112,7 @@ def push_turn_scores(
     alias_map = {
         "eval.intent_accuracy": "intent_accuracy",
         "eval.tool_selection": "tool_selection",
+        "eval.delegate_routing": "delegate_routing",
         "eval.response_quality": "response_quality",
         "eval.memory_effectiveness": "memory_effectiveness",
     }

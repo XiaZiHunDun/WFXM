@@ -217,6 +217,21 @@ def _finalize_delegate_failure(
         summary_preview=summary,
     )
     try:
+        from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
+
+        maybe_capture_from_delegate_result(
+            role=role,
+            task=task,
+            success=False,
+            issues=[summary[:500]],
+            parent_session_key=session_key,
+            child_session_key=session_key,
+            task_id=task_id,
+            dev_engine=None,
+        )
+    except Exception as cap_exc:
+        logger.debug("delegate failure capture on exception skipped: %s", cap_exc)
+    try:
         # R1-10: bridge lookup routed through the execution_context seam
         # so tools → gateway stays a one-way dependency.
         from butler.execution_context import get_current_turn_bridge

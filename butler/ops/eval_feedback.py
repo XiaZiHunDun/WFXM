@@ -77,6 +77,7 @@ class FeedbackReport:
 _SCORE_THRESHOLDS: dict[str, tuple[float, str, str]] = {
     "intent_accuracy": (0.7, "critical", "quality"),
     "tool_selection": (0.6, "warning", "reliability"),
+    "delegate_routing": (0.6, "warning", "reliability"),
     "response_quality": (0.5, "warning", "quality"),
     "memory_effectiveness": (0.5, "warning", "performance"),
     "dev_benchmark.pass_rate": (0.7, "critical", "quality"),
@@ -86,7 +87,8 @@ _SCORE_THRESHOLDS: dict[str, tuple[float, str, str]] = {
 
 _SUGGESTIONS_MAP: dict[str, str] = {
     "intent_accuracy": "Intent accuracy below threshold — review prompt templates and routing logic.",
-    "tool_selection": "Tool selection degraded — check tool registry descriptions and routing.",
+    "tool_selection": "Tool selection degraded — check if dev tasks should use delegate_task instead of terminal.",
+    "delegate_routing": "Delegate routing degraded — dev-like turns may be using terminal/write_file directly.",
     "response_quality": "Response quality dropping — review system prompt and context assembly.",
     "memory_effectiveness": "Memory recall declining — check embedding quality and retrieval ranking.",
     "dev_benchmark.pass_rate": "DevEngine benchmark pass rate low — review coding knowledge checkers.",
@@ -207,7 +209,18 @@ def get_feedback_context(lookback_hours: float = 24.0) -> str:
     """
     try:
         report = analyse_scores(lookback_hours=lookback_hours)
-        return report.as_context_injection()
+        parts = []
+        if report.suggestions:
+            parts.append(report.as_context_injection())
+        try:
+            from butler.ops.tool_routing import routing_hint_from_overrides
+
+            hint = routing_hint_from_overrides()
+            if hint:
+                parts.append(hint)
+        except Exception:
+            pass
+        return "\n".join(p for p in parts if p)
     except Exception as exc:
         logger.debug("eval_feedback context: %s", exc)
         return ""

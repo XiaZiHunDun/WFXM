@@ -247,6 +247,32 @@ def llm_benchmark_to_scores(report: Any) -> list[EvalScore]:
     return scores
 
 
+def swebench_live_to_scores(report: Any) -> list[EvalScore]:
+    """Convert SWE live subset report to EvalScores (distinct from oracle B8)."""
+    scores: list[EvalScore] = []
+    mode = getattr(report, "mode", "oracle")
+    week = getattr(report, "week", 0)
+    scores.append(EvalScore(
+        name="B8_swebench_live.pass_rate",
+        value=getattr(report, "pass_rate", 0.0),
+        comment=f"{getattr(report, 'passed', 0)}/{getattr(report, 'total', 0)} mode={mode} week={week}",
+        category="swebench_live",
+        metadata={"mode": mode, "week": week},
+    ))
+    for r in getattr(report, "results", []):
+        iid = getattr(r, "instance_id", "unknown")
+        scores.append(EvalScore(
+            name=f"B8_swebench_live.{iid}",
+            value=1.0 if getattr(r, "passed", False) else 0.0,
+            comment="; ".join(getattr(r, "failure_reasons", [])[:2]) or (
+                "passed" if r.passed else "failed"
+            ),
+            category=getattr(r, "category", "swebench_live"),
+            metadata={"mode": getattr(r, "mode", mode)},
+        ))
+    return scores
+
+
 def memory_benchmark_to_scores(report: Any) -> list[EvalScore]:
     """Convert a Memory BenchmarkReport to EvalScores.
 
