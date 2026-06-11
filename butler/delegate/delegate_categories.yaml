@@ -52,6 +52,21 @@ categories:
       - search_code
       - butler_recall
       - search_project_knowledge
+  b9-benchmark:
+    role: dev
+    description: B9 LIVE benchmark — pytest gate required
+    background: true
+    prompt_append: |
+      [category:b9-benchmark] Benchmark rules:
+      1. read_file test_b9.py first — that is the acceptance spec
+      2. fix implementation with patch (preferred) or write_file
+      3. after each edit run terminal: python3 -m pytest test_b9.py -q
+      4. do not finish until pytest exits 0
+      5. stay in workspace; avoid unrelated files and butler_config
+    max_iterations: 32
+    deny_tools:
+      - delegate_task
+      - butler_config
   ui-build:
     role: dev
     description: UI implementation — DESIGN.md tokens, single-component iteration

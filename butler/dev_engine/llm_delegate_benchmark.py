@@ -351,8 +351,21 @@ def _run_live_delegate(
     spec: B9TaskSpec,
 ) -> tuple[bool, list[str], list[str]]:
     """Run delegate_task with real LLM. Returns (ok, tools_used, errors)."""
+    from contextlib import nullcontext
+
+    from butler.dev_engine.b9_live_tuning import (
+        b9_live_runtime_env,
+        b9_live_tuning_patch,
+        build_b9_delegate_args,
+    )
+    from butler.ops.eval_config_overrides import temporary_overrides
+
     errors: list[str] = []
     tools_used: list[str] = []
+    tuning_patch = b9_live_tuning_patch()
+    override_ctx = (
+        temporary_overrides(tuning_patch) if tuning_patch else nullcontext()
+    )
     try:
         from butler.execution_context import use_execution_context
         from butler.orchestrator import ButlerOrchestrator
@@ -361,22 +374,16 @@ def _run_live_delegate(
         orch = ButlerOrchestrator(user_id="b9-benchmark", channel="cli")
         session_key = "b9:benchmark"
         ws = workspace.resolve()
-        with use_execution_context(orch, session_key=session_key):
+        with override_ctx, b9_live_runtime_env(), use_execution_context(
+            orch, session_key=session_key,
+        ):
             _bind_b9_live_project(ws, orch, session_key=session_key)
             monkeypatch_root = os.environ.get("BUTLER_TOOL_SAFE_ROOT", "")
             os.environ["BUTLER_TOOL_SAFE_ROOT"] = str(ws)
             try:
                 raw = dispatch_tool(
                     "delegate_task",
-                    {
-                        "role": "dev",
-                        "task": spec.delegate_prompt,
-                        "context": (
-                            f"B9 benchmark workspace (project-bound). "
-                            f"All edits must stay under: {ws}\n"
-                            f"Run pytest in this directory when tests exist."
-                        ),
-                    },
+                    build_b9_delegate_args(spec, ws),
                 )
             finally:
                 if monkeypatch_root:
