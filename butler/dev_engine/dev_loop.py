@@ -139,6 +139,9 @@ _TRANSITION_TABLE: dict[tuple[DevPhase, str], DevPhase] = {
     (DevPhase.EDIT, "edit_success"): DevPhase.VERIFY,
     (DevPhase.EDIT, "edit_conflict"): DevPhase.LOCATE,
     (DevPhase.EDIT, "edit_fail"): DevPhase.FIX,
+    # Re-edit after auto-verify failure (delegate child loop stays in VERIFY/FIX)
+    (DevPhase.VERIFY, "edit_success"): DevPhase.VERIFY,
+    (DevPhase.FIX, "edit_success"): DevPhase.VERIFY,
     (DevPhase.VERIFY, "verify_pass"): DevPhase.DONE,
     (DevPhase.VERIFY, "verify_fail"): DevPhase.FIX,
     (DevPhase.VERIFY, "verify_skip"): DevPhase.REVIEW,

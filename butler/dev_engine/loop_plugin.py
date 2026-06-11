@@ -95,20 +95,34 @@ class DevEnginePlugin:
 
             if state.verify_result.status != VerifyStatus.FAIL:
                 return messages
-            if not state.diagnostics:
-                return messages
 
-            diag_lines = ["<dev-diagnostics>"]
-            for d in state.diagnostics[:10]:
-                diag_lines.append(
-                    f"  {d.file}:{d.line} [{d.severity.value}] {d.message}"
+            lines = ["<dev-verify-feedback>"]
+            if state.diagnostics:
+                lines.append("diagnostics:")
+                for d in state.diagnostics[:10]:
+                    lines.append(
+                        f"  {d.file}:{d.line} [{d.severity.value}] {d.message}"
+                    )
+            else:
+                vr = state.verify_result
+                lines.append(
+                    f"verify_failed: command={vr.command or 'unknown'}"
+                    f" exit_code={vr.exit_code}"
                 )
-            diag_lines.append("</dev-diagnostics>")
+                tail = getattr(vr, "output_tail", "") or ""
+                if tail.strip():
+                    lines.append("output_tail:")
+                    lines.append(tail.strip()[-1200:])
+            fix_hint = getattr(state, "_last_fix_hint", None)
+            if fix_hint:
+                lines.append(f"fix_recommendation: {fix_hint}")
+                state._last_fix_hint = None
+            lines.append("</dev-verify-feedback>")
 
             out = list(messages)
             out.append({
                 "role": "system",
-                "content": "\n".join(diag_lines),
+                "content": "\n".join(lines),
             })
             return out
         except Exception as exc:

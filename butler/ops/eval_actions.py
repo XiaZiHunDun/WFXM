@@ -156,6 +156,41 @@ def _apply_experience_lifecycle(report: FeedbackReport) -> dict[str, Any]:
         return {"action": "experience_lifecycle", "error": str(exc)}
 
 
+def maybe_apply_b9_live_rescue(
+    report: Any,
+    *,
+    min_solvable_rate: float | None = None,
+) -> dict[str, Any] | None:
+    """Persist delegate_rescue overrides when B9 LIVE solvable pass rate is low."""
+    if min_solvable_rate is None:
+        min_solvable_rate = float_env("BUTLER_EVAL_B9_RESCUE_PASS_RATE_MIN", 0.5)
+    stuck_ids = {"B9L_stuck_unsolvable"}
+    results = list(getattr(report, "results", []) or [])
+    solvable = [r for r in results if getattr(r, "task_id", "") not in stuck_ids]
+    if not solvable:
+        return None
+    passed = sum(1 for r in solvable if getattr(r, "passed", False))
+    rate = passed / len(solvable)
+    if rate >= min_solvable_rate:
+        return None
+    from butler.ops.eval_config_overrides import adjust_delegate_rescue
+
+    action = adjust_delegate_rescue()
+    action.update({
+        "trigger": "b9_live_low_pass",
+        "solvable_pass_rate": round(rate, 4),
+        "solvable_passed": passed,
+        "solvable_total": len(solvable),
+    })
+    _append_audit(action)
+    logger.info(
+        "B9 LIVE solvable pass rate %.0f%% < %.0f%% — applied delegate_rescue overrides",
+        rate * 100,
+        min_solvable_rate * 100,
+    )
+    return action
+
+
 def apply_hard_feedback(report: FeedbackReport | None = None) -> dict[str, Any]:
     """Apply bounded hard feedback from LangFuse score analysis."""
     if not hard_feedback_enabled():
@@ -193,4 +228,4 @@ def apply_hard_feedback(report: FeedbackReport | None = None) -> dict[str, Any]:
     return summary
 
 
-__all__ = ["apply_hard_feedback", "hard_feedback_enabled"]
+__all__ = ["apply_hard_feedback", "hard_feedback_enabled", "maybe_apply_b9_live_rescue"]

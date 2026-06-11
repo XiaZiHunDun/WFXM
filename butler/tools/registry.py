@@ -251,6 +251,12 @@ def dispatch_tool(name: str, args: dict) -> str:
         logger.debug("Pre tool hooks skipped: %s", exc)
 
     call_args = dict(args)
+    try:
+        from butler.tools.tool_arg_normalize import normalize_tool_args
+
+        call_args = normalize_tool_args(name, call_args)
+    except Exception as exc:
+        logger.debug("tool arg normalize skipped: %s", exc)
     if name == "read_file":
         try:
             from butler.core.preread_context import build_preread_block, inject_preread_into_args

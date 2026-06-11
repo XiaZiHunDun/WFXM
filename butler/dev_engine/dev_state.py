@@ -109,6 +109,7 @@ class VerifyResult:
     command: str = ""
     elapsed_seconds: float = 0.0
     exit_code: int | None = None
+    output_tail: str = ""
 
     @property
     def passed(self) -> bool:
@@ -126,6 +127,7 @@ class VerifyResult:
             "command": self.command,
             "elapsed_seconds": round(self.elapsed_seconds, 2),
             "exit_code": self.exit_code,
+            "output_tail": self.output_tail[:500] if self.output_tail else "",
         }
 
 

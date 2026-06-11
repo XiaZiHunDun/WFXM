@@ -30,6 +30,13 @@ from butler.ops.eval_diagnostics import append_b9_audit
 
 report = run_b9_live_fixed_benchmarks(mode=B9Mode.LIVE)
 append_b9_audit(report)
+summary_rescue = None
+try:
+    from butler.ops.eval_actions import maybe_apply_b9_live_rescue
+
+    summary_rescue = maybe_apply_b9_live_rescue(report)
+except Exception:
+    pass
 try:
     push_scores(llm_benchmark_to_scores(report))
 except Exception:
@@ -55,6 +62,8 @@ summary = {
     "stuck_ok": stuck_ok,
     "results": [r.to_dict() for r in report.results],
 }
+if summary_rescue is not None:
+    summary["delegate_rescue_applied"] = summary_rescue
 print(json.dumps(summary, ensure_ascii=False, indent=2))
 print()
 print(f"B9 LIVE fixed: {report.passed}/{report.total} ({report.pass_rate:.0%})")

@@ -51,12 +51,14 @@ def _run_command(
                 elapsed_seconds=elapsed,
                 exit_code=0,
             )
+        tail = combined.strip()[-1500:] if combined.strip() else ""
         return VerifyResult(
             status=VerifyStatus.FAIL,
             diagnostics=diagnostics,
             command=" ".join(cmd),
             elapsed_seconds=elapsed,
             exit_code=result.returncode,
+            output_tail=tail,
         )
     except subprocess.TimeoutExpired:
         return VerifyResult(

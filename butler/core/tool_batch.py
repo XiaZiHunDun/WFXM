@@ -114,6 +114,12 @@ def _dev_engine_post_edit(name: str, args: dict, result: str) -> None:
             record.original_content = snapshot
 
         from butler.dev_engine.dev_loop import transition
+        from butler.dev_engine.dev_state import DevPhase
+
+        if state.phase == DevPhase.PLAN:
+            transition(state, "plan_trivial")
+        elif state.phase == DevPhase.LOCATE:
+            transition(state, "files_found")
         transition(state, "edit_success", edit_record=record)
 
         from butler.dev_engine.dev_tools import auto_verify_enabled

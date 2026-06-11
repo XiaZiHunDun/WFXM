@@ -191,6 +191,29 @@ class TestDevStateDelegateLifecycle:
             assert ds.phase.value == "PLAN"
             _active_states.clear()
 
+    def test_init_registers_plugin_on_child_agent(self):
+        from butler.core.loop_plugins import LoopPluginRegistry
+        from butler.tools.delegate_phases import DelegateRunState, _init_dev_engine_state
+
+        class _FakeAgent:
+            def __init__(self):
+                self._plugins = LoopPluginRegistry()
+
+        state = DelegateRunState(role="dev", task="patch test_b9")
+        state.child_session_key = "parent::child::9"
+        state.agent = _FakeAgent()
+
+        with mock.patch.dict(os.environ, {"BUTLER_DEV_ENGINE": "1"}):
+            from butler.dev_engine.dev_tools import _active_states
+
+            _active_states.clear()
+            _init_dev_engine_state(state)
+
+            assert len(state.agent._plugins._after_tools_hooks) == 1
+            assert len(state.agent._plugins._before_llm_hooks) == 1
+            assert "parent::child::9" in _active_states
+            _active_states.clear()
+
     def test_init_skipped_for_non_dev_role(self):
         from butler.tools.delegate_phases import DelegateRunState, _init_dev_engine_state
 
@@ -414,6 +437,55 @@ class TestEditRecordSnapshots:
 
 
 class TestAutoVerify:
+    def test_post_edit_from_plan_primes_edit_phase(self):
+        """Delegate child DevState starts in PLAN; first edit must still record."""
+        from butler.core.tool_batch import _dev_engine_post_edit
+        from butler.dev_engine.dev_loop import create_dev_state
+        from butler.dev_engine.dev_state import DevPhase
+        from butler.dev_engine.dev_tools import _active_states
+
+        ds = create_dev_state("delegate task")
+        assert ds.phase == DevPhase.PLAN
+        _active_states["child::1"] = ds
+
+        args = {"path": "/tmp/x.py", "old_string": "a", "new_string": "b"}
+        result = json.dumps({"success": True, "path": "/tmp/x.py"})
+        with mock.patch(
+            "butler.execution_context.get_current_session_key", return_value="child::1"
+        ), mock.patch.dict(os.environ, {"BUTLER_DEV_ENGINE": "1", "BUTLER_DEV_AUTO_VERIFY": "0"}):
+            _dev_engine_post_edit("patch", args, result)
+
+        assert len(ds.edit_history) == 1
+        assert ds.phase == DevPhase.VERIFY
+        _active_states.clear()
+
+    def test_post_edit_from_verify_allows_fix_loop(self):
+        """After auto-verify failure (VERIFY), re-edit must record and re-verify."""
+        from butler.core.tool_batch import _dev_engine_post_edit
+        from butler.dev_engine.dev_loop import create_dev_state, transition
+        from butler.dev_engine.dev_state import DevPhase
+        from butler.dev_engine.dev_tools import _active_states
+
+        ds = create_dev_state("fix loop")
+        ds = transition(ds, "plan_trivial")
+        ds = transition(ds, "edit_success")
+        ds = transition(ds, "verify_fail")
+        ds = transition(ds, "fix_applied")
+        assert ds.phase == DevPhase.VERIFY
+        _active_states["child::2"] = ds
+
+        args = {"path": "/tmp/y.py", "old_string": "1", "new_string": "2"}
+        result = json.dumps({"success": True, "path": "/tmp/y.py"})
+        with mock.patch(
+            "butler.execution_context.get_current_session_key", return_value="child::2"
+        ), mock.patch.dict(os.environ, {"BUTLER_DEV_ENGINE": "1", "BUTLER_DEV_AUTO_VERIFY": "0"}):
+            _dev_engine_post_edit("patch", args, result)
+
+        assert len(ds.edit_history) == 1
+        assert ds.edit_history[0].path == "/tmp/y.py"
+        assert ds.phase == DevPhase.VERIFY
+        _active_states.clear()
+
     def test_post_edit_transitions_to_verify(self):
         """After successful edit, state advances from EDIT → VERIFY."""
         from butler.core.tool_batch import _dev_engine_post_edit
@@ -495,8 +567,51 @@ class TestDevEnginePlugin:
             out = plugin.after_tools(msgs)
 
         assert len(out) == 2
-        assert "<dev-diagnostics>" in out[-1]["content"]
+        assert "<dev-verify-feedback>" in out[-1]["content"]
         assert "undefined name" in out[-1]["content"]
+        _active_states.clear()
+
+    def test_after_tools_injects_when_diagnostics_empty(self):
+        from butler.dev_engine.dev_loop import create_dev_state
+        from butler.dev_engine.dev_state import VerifyResult, VerifyStatus
+        from butler.dev_engine.dev_tools import _active_states
+        from butler.dev_engine.loop_plugin import DevEnginePlugin
+
+        ds = create_dev_state("fix bug")
+        ds.verify_result = VerifyResult(
+            status=VerifyStatus.FAIL,
+            command="pytest -q",
+            exit_code=1,
+        )
+        _active_states["test_sk3"] = ds
+
+        plugin = DevEnginePlugin(session_key="test_sk3")
+        msgs = [{"role": "user", "content": "fix it"}]
+        with mock.patch.dict(os.environ, {"BUTLER_DEV_ENGINE": "1", "BUTLER_DEV_DIAGNOSTICS_INJECT": "1"}):
+            out = plugin.after_tools(msgs)
+
+        assert len(out) == 2
+        assert "verify_failed" in out[-1]["content"]
+        assert "pytest -q" in out[-1]["content"]
+        _active_states.clear()
+
+    def test_after_tools_injects_fix_hint_same_turn(self):
+        from butler.dev_engine.dev_loop import create_dev_state
+        from butler.dev_engine.dev_state import VerifyResult, VerifyStatus
+        from butler.dev_engine.dev_tools import _active_states
+        from butler.dev_engine.loop_plugin import DevEnginePlugin
+
+        ds = create_dev_state("fix bug")
+        ds.verify_result = VerifyResult(status=VerifyStatus.FAIL)
+        ds._last_fix_hint = "structural"
+        _active_states["test_sk4"] = ds
+
+        plugin = DevEnginePlugin(session_key="test_sk4")
+        with mock.patch.dict(os.environ, {"BUTLER_DEV_ENGINE": "1", "BUTLER_DEV_DIAGNOSTICS_INJECT": "1"}):
+            out = plugin.after_tools([{"role": "user", "content": "x"}])
+
+        assert "fix_recommendation: structural" in out[-1]["content"]
+        assert ds._last_fix_hint is None
         _active_states.clear()
 
 

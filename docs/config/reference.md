@@ -607,6 +607,7 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_EVAL_MEM_PASS_RATE_MIN` | `0.7` | 发版回归门 Memory（MB1–MB7）通过率下限 |
 | `BUTLER_EVAL_B9_IN_REGRESSION` | `1` | `0` = 发版回归门跳过 B9 oracle |
 | `BUTLER_EVAL_B9_PASS_RATE_MIN` | `1.0` | B9 通过率下限（oracle 默认 2/2） |
+| `BUTLER_EVAL_B9_RESCUE_PASS_RATE_MIN` | `0.5` | B9 LIVE 可解项通过率低于此值时自动 `adjust_delegate_rescue` 写入 `eval_overrides.json` |
 | `BUTLER_EVAL_LLM_BENCHMARK` | `0` | `1` = B9 基准使用真实 `delegate_task`+LLM；`0` = oracle 模式（CI） |
 | `BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES` | LangFuse 开则开 | `1`/`all` = 生产委派失败写入 `butler-delegate-failures`；`0` = 关闭 |
 | `BUTLER_EVAL_SWE_LIVE_COUNT` | `3` | 每周 SWE-bench Lite LIVE 子集实例数（1–15） |

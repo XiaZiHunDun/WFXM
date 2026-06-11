@@ -474,17 +474,25 @@ def _current_workspace() -> Path | None:
         from butler.execution_context import get_current_orchestrator, get_current_session_key
 
         orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return None
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        if proj is None:
-            return None
-        return Path(proj.workspace)
+        if orch is not None:
+            pm = getattr(orch, "project_manager", None)
+            if pm is not None:
+                proj = pm.get_current(session_key=str(get_current_session_key() or ""))
+                if proj is not None:
+                    return Path(proj.workspace)
     except Exception:
-        return None
+        pass
+    try:
+        import os
+
+        raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
+        if raw:
+            p = Path(raw).expanduser()
+            if p.is_dir():
+                return p.resolve()
+    except Exception:
+        pass
+    return None
 
 
 def _current_session_key() -> str:

@@ -149,6 +149,12 @@ class ProjectManager:
                 key = str(get_current_session_key() or "").strip()
             except Exception:
                 key = ""
+        if key and "::delegate::" in key:
+            parent_key = key.split("::delegate::", 1)[0].strip()
+            if parent_key and parent_key != key:
+                inherited = self.resolve_active_project_name(session_key=parent_key)
+                if inherited:
+                    return inherited
         if key:
             from_session = project_from_session_key(key)
             if from_session and from_session in self._projects:
