@@ -31,7 +31,7 @@
 |------|--------|--------|
 | `skill:<kebab-name>` | 仅注入该 Skill 正文 | 读取 frontmatter `preferred_tools` 并 pin（无需正文） |
 | `tool:<builtin_name>` | — | pin 到 `tool_selector` |
-| `mcp:<registered>` 或 `mcp:<server>/<tool>` | — | deferred 模式下 `promote_tools`（下轮可用完整 schema） |
+| `mcp:<registered>` 或 `mcp:<server>/<tool>` | — | deferred 下 `promote_tools`（默认下轮 schema；`BUTLER_MCP_DEFERRED_SAME_TURN=1` 同轮） |
 
 **实现**：`butler/skills/injection_policy.py`、`experience_pointers.py`、`skill_tool_bridge.py`、`orchestrator.inject_skill_context`。  
 **工程详设**：[`execution-surface-design.md`](execution-surface-design.md)（Skill/Tool/MCP 全链路，不改 MA/MT）。
@@ -49,6 +49,8 @@
 | Skill `preferred_tools` | 依赖 Skill 正文注入 | 经验 `skill:` 时**只读 frontmatter**，正文可跳过 |
 
 **入口**：`agent_loop_phases._phase_enrich_user_text` → `collect_pinned_tools`。
+
+**可观测**：`/诊断` 执行面块展示 `execution_fallback_skip` / `execution_ref_only_load` / `execution_pointer_pin`（`runtime_metrics`）及 `experience_mcp_rejected`。
 
 ---
 

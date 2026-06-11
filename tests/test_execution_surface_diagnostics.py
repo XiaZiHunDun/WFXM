@@ -7,10 +7,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from butler.ops import runtime_metrics as rm
 from butler.ops.execution_surface_diagnostics import (
     check_legacy_global_skills,
     collect_execution_surface_stats,
+    collect_execution_trust_metrics,
     format_execution_surface_diagnostic_lines,
+    mcp_degraded_hints,
     project_skills_sync_issues,
 )
 
@@ -85,3 +88,50 @@ def test_collect_stats_from_health_dict():
     stats = collect_execution_surface_stats(orch, health=health, session_key="s1")
     assert stats.get("skill_injection_reason") == "router_fallback_no_experience"
     assert stats.get("skill_catalog_count") == 1
+
+
+def test_mcp_degraded_hints_when_config_missing(monkeypatch, tmp_path: Path):
+    monkeypatch.setenv("BUTLER_MCP_ENABLED", "0")
+    monkeypatch.setattr(
+        "butler.registry.paths.default_mcp_config_path",
+        lambda: tmp_path / "missing-mcp.yaml",
+    )
+    hints = mcp_degraded_hints(
+        mcp_rejected=[{"name": "mcp_foo", "reason": "mcp_disabled"}],
+    )
+    assert any("mcp.yaml" in h or "MCP" in h for h in hints)
+
+
+def test_collect_execution_trust_metrics(monkeypatch):
+    rm.reset_global()
+    rm.inc("execution_fallback_skip", value=2)
+    rm.inc("execution_pointer_pin", value=3, labels={"source": "experience_tool"})
+    snap = collect_execution_trust_metrics()
+    assert snap.get("execution_fallback_skip") == 2
+    assert snap.get("execution_pointer_pin") == 3
+    assert snap.get("execution_pointer_pin_by_source", {}).get("experience_tool") == 3
+
+
+def test_format_shows_mcp_rejected_and_trust_metrics():
+    stats = {
+        "skill_injection_mode": "fallback",
+        "mcp_enabled": False,
+        "mcp_deferred": False,
+        "experience_mcp_rejected": [
+            {"name": "mcp_github_search", "reason": "mcp_disabled"},
+        ],
+        "mcp_degraded_hints": [
+            "未找到 MCP 配置；经验 mcp: 指针不会 promote",
+        ],
+        "execution_trust_metrics": {
+            "execution_fallback_skip": 5,
+            "execution_ref_only_load": 2,
+            "execution_pointer_pin": 4,
+            "execution_pointer_pin_by_source": {"experience_tool": 3, "injected_skill": 1},
+        },
+    }
+    text = "\n".join(format_execution_surface_diagnostic_lines(stats))
+    assert "拒绝" in text
+    assert "fallback_skip: 5" in text
+    assert "experience_tool: 3" in text
+    assert "未找到 MCP" in text or "mcp:" in text

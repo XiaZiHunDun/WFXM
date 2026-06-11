@@ -242,7 +242,7 @@ Deferred 核心 API：
 | `mcp:<registered_name>` | `experience_pointers.resolve_mcp_refs_to_registered` | deferred 开启时 `promote_tools` |
 | `mcp:<server>/<tool>` | `build_registered_name` | 同上 |
 
-**语义**：与 `load_mcp_tools` 一致 — promote 后 **下一轮** LLM 才可见完整 schema（当轮 `turn_tools` 已快照）。
+**语义**：与 `load_mcp_tools` 一致 — 默认 promote 后 **下一轮** 可见完整 schema；`BUTLER_MCP_DEFERRED_SAME_TURN=1` 时同轮并入 `turn_tools`。
 
 **无经验 `mcp:` 指针**：不自动 promote（与 Skill 跳过全文同构）。
 
@@ -259,9 +259,9 @@ Deferred 核心 API：
 
 | 项 | 说明 |
 |----|------|
-| 未配置时降级文案 | 经验含 `mcp:` 但无 `mcp.yaml` → 诊断明确提示 |
-| promote 与 turn_tools 同轮 | 可选：promote 后刷新 MCP defs（当前刻意下一轮） |
-| 经验指针与 catalog 校验 | promote 前检查 `get_tool_ref` 是否存在 |
+| 未配置时降级文案 | `/诊断` 执行面块：`mcp_degraded_hints` + `experience_mcp_rejected` |
+| promote 与 turn_tools 同轮 | `BUTLER_MCP_DEFERRED_SAME_TURN`（默认 off） |
+| 经验指针与 catalog 校验 | promote 前 `get_tool_ref`；失败写 diagnostics |
 | SSOT lock | `mcp.lock.json` / `mcp-ssot.yaml` 与项目层合并文档化 |
 
 ---
@@ -370,3 +370,4 @@ Deferred 核心 API：
 | 2026-06-10 | P1 落地：execution_surface_diagnostics、preflight sync、doctor 遗留路径、`butler memory seed` |
 | 2026-06-10 | P2 落地：MCP promote 校验/同轮、skill header 解析、runtime_metrics、skills lint、memory-ops C1–C6 |
 | 2026-06-10 | S3：`skills/layout.py` 目录型 skill 发现/同步；`list_skills` 合并 inner 元数据 |
+| 2026-06-10 | 诊断增强：MCP 降级提示、`experience_mcp_rejected`、信任级联 runtime_metrics |
