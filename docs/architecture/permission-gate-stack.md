@@ -101,7 +101,55 @@ Agent Loop → 工具调用
 
 ---
 
-## 7. 理论边界
+## 7. 人工门控 vs「检查点」语义（勿混淆）
+
+仓库里 **gate** 与 **checkpoint** 是两套机制；理论（T6 / 定义 3.17 `Approve`）只要求 **审批前置**，不要求 LangGraph 式执行断点续跑。
+
+### 7.1 人工门控（审批态 — 理论必需）
+
+| 项 | 说明 |
+|----|------|
+| **目的** | Owner 确认前，带 `requires_approval` 的 workflow 步骤 **不** 调用子 Agent（T6 / P-T6a–d） |
+| **持久化** | `~/.butler/human_gates/<session-hash>.json`（pending）+ `*.approved.json`（已批准 `workflow::step_id`） |
+| **微信话术** | 待审时提示；Owner 发 `确认` / `取消`（须 `is_gateway_owner`） |
+| **续跑** | 默认：再发 `/workflow <name>`；`BUTLER_WORKFLOW_AUTO_RESUME=1` 时确认后自动重跑 workflow |
+| **过期** | `BUTLER_GATEWAY_HUMAN_GATE_TTL`（默认 3600s）清除过期 pending |
+
+模块：`butler/human_gate.py`；DAG 回调：`workflows/runner.py` → `task_orchestrator.execute_graph(on_approval=…)`。
+
+**这不是「从第 N 步接着跑」**：批准的是 **权限**，不是 **缓存上一步的子 Agent 输出**。
+
+### 7.2 Workflow 快照 / 检查点（执行进度 — 仅写、诊断用）
+
+| 文件 | 路径 | 写入 | 续跑时是否读取 |
+|------|------|------|----------------|
+| 逐步 checkpoint | `<workspace>/.butler/workflow_runs/<wf>-checkpoint.json` | 每步 `done` 后（`BUTLER_WORKFLOW_CHECKPOINT=1`，默认开） | **否** |
+| 跑完 snapshot | `...-<wf>-latest.json` | workflow 结束时 | **否**（排障 / AgentReport） |
+| pause 状态 | `<workspace>/.butler/workflow_pause.json` 或 `~/.butler/workflow_pause/` | gate 阻塞时 `save_workflow_pause` | **否**（`load_workflow_pause` 未接入 runner） |
+
+因此：**再次 `/workflow` 会重新调度整个 DAG**。已通过 gate 的步骤会因 `approved.json` 而 **不再等待确认**，但 **无 `requires_approval` 且上轮已完成的步骤会再执行一遍**（除非步骤自身幂等或由 YAML 设计避免重复副作用）。
+
+### 7.3 上下文压缩 checkpoint（第三类 — 与 workflow 无关）
+
+| 文件 | 路径 | 作用 |
+|------|------|------|
+| compact checkpoint | `~/.butler/sessions/<session>/compact_checkpoint.json` | 长会话 **micro/auto 压缩** 后保留 model / todos 摘要；`/新对话` 可清理 |
+
+模块：`butler/core/compaction_checkpoint.py`；与 §7.1 审批、§7.2 DAG 进度 **无耦合**。
+
+### 7.4 产品边界与何时考虑增强
+
+| 立场 | 说明 |
+|------|------|
+| **保持** | 人工门控 + 审批持久化 + 手动/可选 auto-resume — 满足当前单人微信管家与 T6 |
+| **不做（否决）** | LangGraph / SQLite Checkpointer 进 core、workflow 无门控自动续跑 — 见 [`roadmap-backlog-and-boundaries-2026-05.md`](../plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) §1 |
+| **可选 Backlog** | 长 DAG 重跑成本高时：续跑读取 `checkpoint.json` / 修好 `pause_state.completed_steps` 并 **跳过已完成节点** — **纯工程**，不改 MA/MT |
+
+配置速查：`BUTLER_WORKFLOW_CHECKPOINT`、`BUTLER_WORKFLOW_RUN_SNAPSHOT`、`BUTLER_WORKFLOW_AUTO_RESUME` — [`config/reference.md`](../config/reference.md)。
+
+---
+
+## 8. 理论边界
 
 - 本文档 **不** 主张合并门控实现或放宽默认。
 - 登记册 **G4**：未经前提测试的默认变更（如 prod 下放开 bypass）视为理论风险。
@@ -109,8 +157,9 @@ Agent Loop → 工具调用
 
 ---
 
-## 8. 修订记录
+## 9. 修订记录
 
 | 日期 | 变更 |
 |------|------|
 | 2026-06-09 | Phase C4 初稿 |
+| 2026-06-11 | §7：人工门控 vs workflow/compaction 三类「检查点」语义 |

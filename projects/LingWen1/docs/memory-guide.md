@@ -64,6 +64,9 @@ bash scripts/butler-memory-reindex.sh
 | O6 | MEMORY 无重复/过时大段 | 人工扫 Notes/Decisions，删重复 bullet |
 | O7 | 画像向量与三元组 | `/诊断` 有 Owner 画像向量条数；`/记忆图谱` 可列出三元组 |
 | O8 | 检索衰减参数 | `/诊断` 显示半衰期与访问加权（与 `.env` 一致） |
+| O9 | 会话回声修剪 | `memory-offline-weekly` 已启用（周日 03:00）；或 `butler runtime run memory-offline-weekly --project 灵文1号` |
+
+周期表与分层说明：[`docs/guides/memory-ops.md`](../../../docs/guides/memory-ops.md) §记忆卫生。
 
 ## 微信常用话术
 

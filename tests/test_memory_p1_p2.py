@@ -183,5 +183,5 @@ class TestExperiencePrune:
                 (old,),
             )
             conn.commit()
-        removed = bm.experience.prune_conversation_older_than(30)
+        removed, _ids = bm.experience.prune_conversation_older_than(30)
         assert removed >= 1

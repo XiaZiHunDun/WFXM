@@ -413,6 +413,8 @@ while not done and iterations < budget:
 | 首次使用引导 | `gateway/message_handler._maybe_welcome_prefix` | `BUTLER_ONBOARDING_WELCOME=1` |
 | Workflow 确认自动续跑 | `human_gate._auto_resume_workflow` | `BUTLER_WORKFLOW_AUTO_RESUME=1` |
 
+**门控 vs 检查点**：审批门控（T6）与 workflow/compaction 三类「checkpoint」语义分述见 [`permission-gate-stack.md`](permission-gate-stack.md) §7；`.butler/workflow_runs/*-checkpoint.json` 默认 **只写不读**，重跑 `/workflow` 不跳过已完成步。
+
 守门：`pytest tests/test_p2_remaining_features.py -q`
 
 ### 编排质量增强（2026-05）

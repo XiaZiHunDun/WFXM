@@ -53,6 +53,18 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     )
     mseed.set_defaults(func=_cmd_memory_seed)
 
+    mgc = mem_sub.add_parser(
+        "gc",
+        help="扫描并清理 experience 向量孤儿（默认 dry-run）",
+    )
+    mgc.add_argument("--tenant", default="default", help="租户 id（默认 default）")
+    mgc.add_argument(
+        "--apply",
+        action="store_true",
+        help="执行删除（默认仅报告）",
+    )
+    mgc.set_defaults(func=_cmd_memory_gc)
+
     # Legacy top-level alias (kept for backward compat with old scripts).
     ri = sub.add_parser(
         "memory-reindex",
@@ -146,6 +158,32 @@ def _cmd_memory_seed(ns: argparse.Namespace) -> int:
     console = Console()
     console.print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result.get("ok") else 1
+
+
+def _cmd_memory_gc(ns: argparse.Namespace) -> int:
+    import json
+
+    from butler.config import get_butler_home
+    from butler.memory.vector_gc import run_memory_gc
+
+    result = run_memory_gc(
+        get_butler_home(),
+        tenant_id=str(ns.tenant or "default"),
+        apply=bool(ns.apply),
+    )
+    console = Console()
+    console.print(json.dumps(result, ensure_ascii=False, indent=2))
+    if not result.get("ok"):
+        return 1
+    if result.get("dry_run"):
+        orphans = int(result.get("orphan_experience_vectors") or 0)
+        conv = int(result.get("conversation_vectors") or 0)
+        if orphans or conv:
+            console.print(
+                "[yellow]dry-run：加 --apply 执行删除；"
+                "大范围陈旧仍建议 butler memory reindex[/yellow]"
+            )
+    return 0
 
 
 def _cmd_memory_reindex(ns: argparse.Namespace) -> int:

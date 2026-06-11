@@ -489,7 +489,7 @@ Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → **循环内**注入 u
 | `BUTLER_CLI_STREAM_MODE` | CLI 流式 `live` / `off` |
 | `BUTLER_RUN_REAL_API_SMOKE` | 0 | `1` 跑真实 API 冒烟测试 |
 | `BUTLER_PERMISSIONS_PARAM_BLACKLIST` | — | 权限参数黑名单 |
-| `BUTLER_EXPERIENCE_PRUNE_DAYS` | 90 | 经验数据过期天数 |
+| `BUTLER_EXPERIENCE_PRUNE_DAYS` | 90 | **仅** `category=conversation` 会话回声硬删除（天）；`0`=关闭；**不**删 ops/note 长期经验 — 见 [`memory-ops.md`](../guides/memory-ops.md) §记忆卫生 |
 
 ### 脚本 / 测试专用（`butler/` 无 reader）
 

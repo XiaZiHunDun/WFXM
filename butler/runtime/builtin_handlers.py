@@ -104,13 +104,19 @@ def _memory_offline_consolidate(workspace: Path) -> dict[str, Any]:
         days = 30.0
 
     mem = ButlerMemory(get_butler_home())
-    removed = mem.experience.prune_conversation_older_than(days)
+    purge = mem.prune_conversation_older_than(days)
+    removed = int(purge.get("removed_rows") or 0)
+    removed_vectors = int(purge.get("removed_vectors") or 0)
     lines = [
         f"workspace: {workspace}",
         f"pruned_conversation_rows: {removed}",
+        f"pruned_conversation_vectors: {removed_vectors}",
         f"max_age_days: {days}",
     ]
-    summary = f"记忆离线整理：删除 {removed} 条过期 conversation 经验（>{days:.0f} 天）"
+    summary = (
+        f"记忆离线整理：删除 {removed} 条过期 conversation 经验（>{days:.0f} 天）"
+        + (f"，同步 {removed_vectors} 条向量" if removed_vectors else "")
+    )
     return {
         "success": True,
         "stdout": "\n".join(lines),

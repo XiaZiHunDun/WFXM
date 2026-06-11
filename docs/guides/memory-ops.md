@@ -85,8 +85,57 @@ butler memory search "lingwen-project-lead" --scope experience --verbose
 | `BUTLER_SYNC_CONVERSATION_MEMORY` | `0` |
 | `BUTLER_MEMORY_HALF_LIFE_DAYS` | `30`（检索时间衰减） |
 | `BUTLER_MEMORY_ACCESS_BOOST` | `0.12`（访问次数加权） |
+| `BUTLER_EXPERIENCE_PRUNE_DAYS` | `30`（**仅** `category=conversation` 会话回声；`0`=关闭） |
+| `BUTLER_MEMORY_OBSERVATION_MAX_ROWS` | `0`（可选；observation store 行数上限） |
+| `BUTLER_OBSERVATION_TTL_DAYS` | `90`（observation store TTL） |
 
 详见 [`.env.example`](../../.env.example) 与 [`memory-roadmap.md`](../architecture/memory-roadmap.md)。
+
+## 记忆卫生（清理与有界）
+
+理论（MA5/MA6）在工程上分三层：**检索软遗忘**（排序降权，不删行）、**会话硬删除**、**派生向量重建**。完整分层见 [`v4-memory-theory.md`](../architecture/v4-memory-theory.md) §MT5–MT6。
+
+### 各层怎么「清理」
+
+| 层 | 硬删除 | 软遗忘（仍占库） |
+|----|--------|------------------|
+| Owner 画像 | 人工编辑 `profile.json` | — |
+| 项目 MEMORY | `/拒绝记忆`、删 Pending | 读时超 200 行/25KB 截断 |
+| Facts | reindex 刷新 | 每会话提取 ≤50 条 |
+| Experience **长期**（ops/note/seed） | 仅 `butler memory seed --` purge bench | `BUTLER_MEMORY_HALF_LIFE_DAYS` 检索降权 |
+| Experience **conversation** | prune / `/新对话` | 更快衰减（`type_adjusted_half_life`） |
+| 向量 `memory_vectors.db` | `butler memory gc --apply` 删孤儿；`butler memory reindex` 全量重建 | `/诊断` 陈旧时 reindex |
+| Observation | TTL + 行数上限（env） | — |
+
+**注意**：`BUTLER_EXPERIENCE_PRUNE_DAYS` **不会**删除 ops/note 类长期经验；长期库可增长，靠衰减 + 少写入废话控制质量。
+
+### 周期运维表
+
+| 时机 | 动作 | 验收 |
+|------|------|------|
+| **发版 / 合并记忆相关代码** | `bash scripts/butler-memory-reindex.sh` | 输出 `ok: true`；`/诊断` 向量同步比正常 |
+| **每周（推荐）** | 灵文：`butler runtime run memory-offline-weekly --project 灵文1号`（或等 systemd timer） | 微信摘要含 `pruned_conversation_rows` |
+| **网关/管家进程启动** | 自动：`ButlerMemory()` 内 `_maybe_prune_stale_conversations` | 过期 conversation 行被删（若 `PRUNE_DAYS>0`） |
+| **日常** | 保持 `BUTLER_SYNC_CONVERSATION_MEMORY=0`；换话题用 `/新对话` | `/诊断` 会话回声条数可控 |
+| **C4/bench 异常**（Top1 为 bench filler） | `butler memory seed` + reindex | `memory search "phase-c"` Top1 为种子 #218 类 |
+| **`/诊断` 提示向量陈旧** | `butler memory gc`（dry-run）→ `--apply` 或 reindex | `向量同步: experience N/M` 且无不合理 gap |
+| **prune / `/新对话` 后** | 自动同步删对应 `experience` 向量（阶段 B） | 无需手工；大范围 gap 仍用 gc/reindex |
+
+### 离线修剪（Runtime）
+
+内置 handler：`builtin:memory_offline_consolidate` — 与启动时 prune **相同逻辑**（删超龄 `conversation` 行）。
+
+```bash
+# 手动（任意项目 workspace，只读 handler，不改项目盘）
+butler runtime run memory-offline-weekly --project 灵文1号
+```
+
+灵文注册表：`projects/LingWen1/runtime/jobs.yaml` → `memory-offline-weekly`（周日 03:00，readonly）。
+
+### `/新对话` 清理范围
+
+- **删**：当前会话 `category=conversation` 回声、预取缓存、检索 telemetry、工具结果替换状态、压缩 checkpoint（见下文）
+- **保留**：Owner 画像、项目 MEMORY、经验库长期行、种子
 
 ## 效果度量（D2-4/D2-5）
 
@@ -105,13 +154,14 @@ butler memory metrics   # 若已注册；或 agent 调用 butler_memory_metrics
 | 命令 | 作用 |
 |------|------|
 | `butler memory search "<词>" --verbose` | CLI 检索调试：mode、fallback、chunk_id、混合权重 |
+| `butler memory gc` / `butler memory gc --apply` | 扫描 experience 向量孤儿（默认 dry-run）；`--apply` 删孤儿 + conversation 向量 |
 | `/诊断` | 向量条数、画像向量、三元组条数、衰减参数、最近检索 telemetry |
 | `/记忆图谱` | 三元组只读展示（不参与检索） |
 | `/记忆待审` / `/批准记忆` / `/拒绝记忆` | Pending 审批 |
 
 ## 发版 / 升级后必做
 
-部署或合并记忆相关代码后，在仓库根目录执行一次（需 `.env` 中 `BUTLER_SEMANTIC_MEMORY=1`）：
+见上文 **§记忆卫生 → 周期运维表**（发版后 reindex）。简述：
 
 ```bash
 bash scripts/butler-memory-reindex.sh
@@ -134,6 +184,8 @@ bash scripts/butler-memory-reindex.sh    # 重建向量（改 MEMORY / 升级记
 完整写入边界、运维检查表 O1–O6、微信冒烟 M1–M7：[`projects/LingWen1/docs/memory-guide.md`](../../projects/LingWen1/docs/memory-guide.md)。
 
 ## `/新对话` 行为
+
+详见 **§记忆卫生 → `/新对话` 清理范围**。简述：
 
 - 清空**本轮** Agent 上下文与会话回声
 - **保留** Owner 画像、项目 MEMORY、经验库

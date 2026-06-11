@@ -18,13 +18,22 @@ def clear_session_boundary_memory(
     removed = 0
     tag = session_experience_tag(session_id)
     bm = getattr(orchestrator, "butler_memory", None)
-    exp = getattr(bm, "experience", None) if bm is not None else None
-    if exp is not None and hasattr(exp, "delete_conversation_for_session"):
+    if bm is not None and hasattr(bm, "delete_conversation_for_session"):
         try:
-            removed = int(exp.delete_conversation_for_session(tag))
+            purge = bm.delete_conversation_for_session(tag)
+            removed = int(purge.get("removed_rows") or 0)
         except Exception as exc:
             logger.debug("Conversation experience purge skipped: %s", exc)
             return {"removed": 0, "error": str(exc)}
+    else:
+        exp = getattr(bm, "experience", None) if bm is not None else None
+        if exp is not None and hasattr(exp, "delete_conversation_for_session"):
+            try:
+                removed, _ids = exp.delete_conversation_for_session(tag)
+                removed = int(removed)
+            except Exception as exc:
+                logger.debug("Conversation experience purge skipped: %s", exc)
+                return {"removed": 0, "error": str(exc)}
 
     provider = getattr(orchestrator, "memory_provider", None) or getattr(
         orchestrator, "_memory_provider", None

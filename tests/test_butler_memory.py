@@ -81,7 +81,7 @@ class TestExperienceStore:
             es = ExperienceStore(Path(td) / "exp.db")
             es.add("", "conversation", "Q: ephemeral → A: ok", tags="session:wechat:u1")
             es.add("", "experience", "long-term fact", tags="")
-            removed = es.delete_conversation_for_session("session:wechat:u1")
+            removed, _ids = es.delete_conversation_for_session("session:wechat:u1")
             assert removed == 1
             assert es.search("ephemeral") == []
             assert es.search("long-term") != []

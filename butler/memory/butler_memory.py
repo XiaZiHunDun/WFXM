@@ -374,12 +374,23 @@ class ExperienceStore:
 
             return rerank_memory_hits(out)
 
-    def delete_conversation_for_session(self, session_tag: str) -> int:
-        """Remove ephemeral per-session chat logs (used after /new)."""
+    def delete_conversation_for_session(self, session_tag: str) -> tuple[int, list[int]]:
+        """Remove ephemeral per-session chat logs (used after /new).
+
+        Returns ``(deleted_row_count, deleted_row_ids)``.
+        """
         tag = (session_tag or "").strip()
         with self._lock:
             conn = self._conn
             if tag:
+                rows = conn.execute(
+                    """
+                    SELECT id FROM experiences
+                    WHERE category = ? AND (tags = ? OR tags = '')
+                    """,
+                    ("conversation", tag),
+                ).fetchall()
+                ids = [int(r[0]) for r in rows]
                 cur = conn.execute(
                     """
                     DELETE FROM experiences
@@ -388,12 +399,17 @@ class ExperienceStore:
                     ("conversation", tag),
                 )
             else:
+                rows = conn.execute(
+                    "SELECT id FROM experiences WHERE category = ?",
+                    ("conversation",),
+                ).fetchall()
+                ids = [int(r[0]) for r in rows]
                 cur = conn.execute(
                     "DELETE FROM experiences WHERE category = ?",
                     ("conversation",),
                 )
             conn.commit()
-            return int(cur.rowcount or 0)
+            return int(cur.rowcount or 0), ids
 
     def purge_benchmark_capacity_entries(self) -> list[int]:
         """Remove MB5 capacity-benchmark filler rows (project=bench, category=cap)."""
@@ -429,11 +445,24 @@ class ExperienceStore:
             ).fetchone()
             return row is not None
 
-    def prune_conversation_older_than(self, max_age_days: float = 30.0) -> int:
-        """Drop stale ephemeral conversation rows (personal butler hygiene)."""
+    def prune_conversation_older_than(self, max_age_days: float = 30.0) -> tuple[int, list[int]]:
+        """Drop stale ephemeral conversation rows (personal butler hygiene).
+
+        Returns ``(deleted_row_count, deleted_row_ids)``.
+        """
         cutoff = time.time() - max(1.0, float(max_age_days)) * 86400.0
         with self._lock:
             conn = self._conn
+            rows = conn.execute(
+                """
+                SELECT id FROM experiences
+                WHERE category = ? AND created_at < ?
+                """,
+                ("conversation", cutoff),
+            ).fetchall()
+            ids = [int(r[0]) for r in rows]
+            if not ids:
+                return 0, []
             cur = conn.execute(
                 """
                 DELETE FROM experiences
@@ -442,7 +471,7 @@ class ExperienceStore:
                 ("conversation", cutoff),
             )
             conn.commit()
-            return int(cur.rowcount or 0)
+            return int(cur.rowcount or 0), ids
 
     def fetch_by_ids(self, row_ids: list[int]) -> list[dict[str, Any]]:
         ids = [int(x) for x in row_ids if x is not None]
@@ -604,9 +633,41 @@ class ButlerMemory:
             days = float(raw)
         except ValueError:
             days = 30.0
-        removed = self.experience.prune_conversation_older_than(days)
-        if removed:
-            logger.info("Pruned %d stale conversation experience row(s)", removed)
+        result = self.prune_conversation_older_than(days)
+        if int(result.get("removed_rows") or 0):
+            logger.info(
+                "Pruned %d stale conversation experience row(s), %d vector(s)",
+                int(result.get("removed_rows") or 0),
+                int(result.get("removed_vectors") or 0),
+            )
+
+    def purge_experience_vectors(self, row_ids: list[int]) -> int:
+        """Delete ``experience`` source vectors for the given experience row ids."""
+        sem = self.semantic
+        if sem is None or not row_ids:
+            return 0
+        from butler.memory.semantic_index import SOURCE_EXPERIENCE
+
+        removed = 0
+        for rid in row_ids:
+            try:
+                sem.delete(SOURCE_EXPERIENCE, str(rid))
+                removed += 1
+            except Exception as exc:
+                logger.debug("Vector delete skipped for experience %s: %s", rid, exc)
+        return removed
+
+    def delete_conversation_for_session(self, session_tag: str) -> dict[str, int]:
+        """Purge session conversation rows and sync derivative vectors."""
+        removed, ids = self.experience.delete_conversation_for_session(session_tag)
+        vec = self.purge_experience_vectors(ids)
+        return {"removed_rows": removed, "removed_vectors": vec}
+
+    def prune_conversation_older_than(self, max_age_days: float = 30.0) -> dict[str, int]:
+        """Purge stale conversation rows and sync derivative vectors."""
+        removed, ids = self.experience.prune_conversation_older_than(max_age_days)
+        vec = self.purge_experience_vectors(ids)
+        return {"removed_rows": removed, "removed_vectors": vec}
 
     @classmethod
     def default(cls, *, tenant_id: str = "default") -> ButlerMemory:

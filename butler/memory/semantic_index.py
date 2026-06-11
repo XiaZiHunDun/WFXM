@@ -356,6 +356,19 @@ class SemanticMemoryIndex:
             conn.commit()
             return int(cur.rowcount or 0)
 
+    def delete_by_category(self, category: str) -> int:
+        cat = (category or "").strip()
+        if not cat:
+            return 0
+        with self._write_lock:
+            conn = self._conn
+            cur = conn.execute(
+                "DELETE FROM memory_vectors WHERE category = ?",
+                (cat,),
+            )
+            conn.commit()
+            return int(cur.rowcount or 0)
+
     def search_owner_profile(self, query: str, *, limit: int = 4) -> list[dict[str, Any]]:
         """Vector search limited to owner profile entries."""
         q = (query or "").strip()
