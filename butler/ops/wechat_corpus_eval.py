@@ -14,9 +14,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _CORPUS_NAME = "wechat_gateway"
-_PYTEST_SUMMARY_RE = re.compile(
-    r"(?P<passed>\d+)\s+passed(?:,\s*(?P<failed>\d+)\s+failed)?",
-)
+_PASSED_RE = re.compile(r"(?P<passed>\d+)\s+passed")
+_FAILED_RE = re.compile(r"(?P<failed>\d+)\s+failed")
 
 
 def _repo_root() -> Path:
@@ -53,11 +52,13 @@ def _parse_pytest_output(output: str) -> dict[str, int]:
     passed = 0
     failed = 0
     for line in output.splitlines():
-        m = _PYTEST_SUMMARY_RE.search(line)
-        if m:
-            passed = int(m.group("passed"))
-            failed = int(m.group("failed") or 0)
-            break
+        pm = _PASSED_RE.search(line)
+        fm = _FAILED_RE.search(line)
+        if pm or fm:
+            if pm:
+                passed = int(pm.group("passed"))
+            if fm:
+                failed = int(fm.group("failed"))
     return {"passed": passed, "failed": failed, "total": passed + failed}
 
 

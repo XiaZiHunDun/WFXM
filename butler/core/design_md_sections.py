@@ -10,6 +10,8 @@ from typing import Any
 
 import yaml
 
+from butler.env_parse import int_env
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_SECTIONS = (
@@ -213,7 +215,7 @@ def extract_design_md_sections(
 
 
 def design_context_enabled() -> bool:
-    from butler.env_parse import env_truthy, int_env
+    from butler.env_parse import env_truthy
 
     return env_truthy("BUTLER_DESIGN_CONTEXT_INJECT", default=True)
 

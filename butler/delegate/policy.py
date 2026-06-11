@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from butler.env_parse import env_truthy, int_env
 
 DELEGATE_BLOCKED_TOOLS = frozenset({
     "delegate_task",
@@ -14,8 +14,6 @@ MAX_DELEGATE_DEPTH = 2
 
 def delegate_one_tool_per_iteration() -> bool:
     """Manus-style single tool call per delegate iteration (default off — slower reads)."""
-    from butler.env_parse import env_truthy, int_env
-
     return env_truthy("BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION", default=False)
 
 

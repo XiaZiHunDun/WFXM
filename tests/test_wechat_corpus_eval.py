@@ -15,7 +15,16 @@ def test_parse_pytest_output():
     out = "....................\n120 passed in 4.32s"
     counts = _parse_pytest_output(out)
     assert counts["passed"] == 120
+    assert counts["failed"] == 0
     assert counts["total"] == 120
+
+
+def test_parse_pytest_output_failed_before_passed():
+    out = "5 failed, 220 passed in 576.71s (0:09:36)"
+    counts = _parse_pytest_output(out)
+    assert counts["passed"] == 220
+    assert counts["failed"] == 5
+    assert counts["total"] == 225
 
 
 def test_catalog_delegate_stats():
