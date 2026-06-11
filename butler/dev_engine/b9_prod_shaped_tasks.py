@@ -111,6 +111,35 @@ def _verify_b9l_prod_no_test(ws: Path) -> tuple[bool, str]:
     return _pytest_verify(ws)
 
 
+def _setup_b9l_prod_demo_fix_greet_return(ws: Path) -> None:
+    ws.mkdir(parents=True, exist_ok=True)
+    (ws / "greet.py").write_text(
+        "def greet():\n    return 'hi'\n",
+        encoding="utf-8",
+    )
+    (ws / "test_b9.py").write_text(
+        "from greet import greet\n\n\ndef test_greet_returns_hello():\n"
+        "    assert greet() == 'hello'\n",
+        encoding="utf-8",
+    )
+
+
+def _oracle_b9l_prod_demo_fix_greet_return(ws: Path) -> None:
+    from butler.dev_engine.edit_ops import apply_patch
+
+    _rec, err = apply_patch(
+        ws / "greet.py",
+        "return 'hi'",
+        "return 'hello'",
+    )
+    if err:
+        raise RuntimeError(err)
+
+
+def _verify_b9l_prod_demo_fix_greet_return(ws: Path) -> tuple[bool, str]:
+    return _pytest_verify(ws)
+
+
 B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
     B9TaskSpec(
         task_id="B9L_prod_verify_fail",
@@ -146,6 +175,18 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
         verify=_verify_b9l_prod_no_test,
         oracle_apply=_oracle_b9l_prod_no_test,
         tags=("prod_shaped", "no_test", "pytest"),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_demo_fix_greet_return",
+        description="Prod-shaped verify_fail: greet() must return hello",
+        delegate_prompt=(
+            "Fix greet.py so greet() returns 'hello' instead of 'hi'. "
+            "Only modify greet.py; test_b9.py must pass."
+        ),
+        setup=_setup_b9l_prod_demo_fix_greet_return,
+        verify=_verify_b9l_prod_demo_fix_greet_return,
+        oracle_apply=_oracle_b9l_prod_demo_fix_greet_return,
+        tags=("prod_shaped", "verify_fail", "pytest", "promoted"),
     ),
 ]
 
