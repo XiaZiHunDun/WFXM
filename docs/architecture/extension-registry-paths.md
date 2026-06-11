@@ -59,6 +59,15 @@
 
 损坏的 yaml：层内解析失败会记入 `recent_mcp_merge_corruptions()`，**不阻塞**其他层。
 
+### 3.3 SSOT 快照（非运行时配置）
+
+| 文件 | 路径 | 说明 |
+|------|------|------|
+| `mcp.lock.json` | `~/.butler/mcp.lock.json` | `butler mcp add` probe 成功后写入；安装审计 |
+| `mcp-ssot.yaml` | `<workspace>/.butler/mcp-ssot.yaml` 或 `~/.butler/mcp-ssot.yaml` | `butler mcp sync` 生成的 **只读** 合并索引 |
+
+详述与运维话术：[`execution-surface-design.md`](execution-surface-design.md) §4.6。
+
 ---
 
 ## 4. Skills

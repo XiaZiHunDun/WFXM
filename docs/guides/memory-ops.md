@@ -48,11 +48,31 @@
 | C1 | `/诊断` | 执行面块含 `skill_injection_mode`、经验条数；有 MCP 时见连接行 |
 | C2 | 问一句**已有经验覆盖**的流程（如「发版流程」） | 回复引用经验要点；**不**堆砌未验证 Skill 目录 |
 | C3 | 同上后发 `/诊断` 或看 loop diagnostics | `experience_pinned_tools` ≥ 1；含 `run_workflow` 等 pin |
-| C4 | `butler memory search "发版" --scope experience --verbose` | 命中种子/自写经验，tags 含 `skill:` 或 `tool:` |
+| C4 | `butler memory search "phase-c" --scope experience --verbose` | Top1 为种子 `owner-seed-memory-release`（常见 id **218**），`tags` 含 `tool:butler_recall` |
 | C5 | 改 `BUTLER_SKILL_INJECTION_MODE=always` 后重启网关再问同句 | 应注入 Skill 正文（对照组）；测完改回 `fallback` |
 | C6 | 经验含 `mcp:` 但未配置 MCP | `/诊断` 或 `experience_mcp_rejected` 提示 `mcp_disabled` / `tool_not_found` |
 
 可选：`BUTLER_MCP_DEFERRED_SAME_TURN=1` — 经验 `mcp:` promote 后**同轮**可见 MCP schema（默认下一轮）。
+
+**C4 CLI 示例**（需已执行 `butler memory seed`；`BUTLER_SEMANTIC_MEMORY=1`）：
+
+```bash
+# 推荐：记忆发版种子（#218）
+butler memory search "phase-c" --scope experience --verbose
+butler memory search "butler-memory-phase-c" --scope experience --verbose
+
+# 对照：厂长 Lead 种子（#216，含 skill: + tool:）
+butler memory search "lingwen-project-lead" --scope experience --verbose
+```
+
+| query | 常见 Top1 | C4 判定 |
+|-------|-----------|---------|
+| `phase-c` / `butler-memory-phase-c` | #218 `tool:butler_recall` | ✅ 推荐 |
+| `lingwen-project-lead` | #216 `skill:lingwen-project-lead` + `tool:run_workflow` | ✅ |
+| `发版` | #216 厂长种子（非记忆发版） | ⚠️ 有指针但易误判 |
+| `记忆模块发版` / `记忆模块发版流程` | #54/#107 bench filler，**无 tags** | ❌ 勿用 |
+
+`--verbose` 应看到 `mode: hybrid`（或 `fts`）且 Top1 为 `experience:218` 一类种子行；查 `tags` 用 `--json`（`results[0].tags` 须含 `skill:` 或 `tool:`）。若长期只有 bench filler，先 `butler memory seed` 再 `bash scripts/butler-memory-reindex.sh`。
 
 灵文试点写入边界与 O1–O8：[`projects/LingWen1/docs/memory-guide.md`](../../projects/LingWen1/docs/memory-guide.md)。
 

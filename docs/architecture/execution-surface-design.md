@@ -262,7 +262,115 @@ Deferred 核心 API：
 | 未配置时降级文案 | `/诊断` 执行面块：`mcp_degraded_hints` + `experience_mcp_rejected` |
 | promote 与 turn_tools 同轮 | `BUTLER_MCP_DEFERRED_SAME_TURN`（默认 off） |
 | 经验指针与 catalog 校验 | promote 前 `get_tool_ref`；失败写 diagnostics |
-| SSOT lock | `mcp.lock.json` / `mcp-ssot.yaml` 与项目层合并文档化 |
+| SSOT lock | ✅ 见 **§4.6**（`mcp.lock.json` / `mcp-ssot.yaml` + 配置层合并） |
+
+### 4.6 MCP SSOT 与配置层合并
+
+Butler 将 **运行时合并**（读 `mcp.yaml`）与 **两份快照**（安装审计 / 排障索引）分开；勿把 `mcp-ssot.yaml` 当作第二份可编辑配置。
+
+#### 4.6.1 两份快照文件
+
+| 文件 | 默认路径 | 写入时机 | 用途 |
+|------|----------|----------|------|
+| **`mcp.lock.json`** | `~/.butler/mcp.lock.json` | `butler mcp add` 且 **probe 成功** 后 | 安装审计：`installed_at`、`probed_at`、`probe.tool_count` / `probe.error`；`/诊断` 在探测失败时展示 `MCP lock <id>: …` |
+| **`mcp-ssot.yaml`** | 有 workspace：`<workspace>/.butler/mcp-ssot.yaml`；否则 `~/.butler/mcp-ssot.yaml` | `butler mcp sync`（可 `--dry-run`） | **只读**合并视图索引：`layers` + `servers`（effective 结果），供排障与 opt-in ToolsEngine 过滤 |
+
+实现：`butler/registry/paths.py`（`mcp_lock_path`）、`butler/registry/mcp_ssot.py`、`butler/registry/mcp_install.py`（写 lock）。
+
+**注意**：`mcp.lock.json` 仅记录在 **全局** `~/.butler/`；项目层 `butler mcp add --project` 仍写 `<workspace>/.butler/mcp.yaml`，lock 条目以 server_id 为键合并进同一份 lock。
+
+#### 4.6.2 配置层合并（运行时 SSOT）
+
+`load_mcp_servers` / `effective_mcp_servers` 按层叠加；**同名 `server_id` 以后层为准**（非列表追加）：
+
+```text
+1. <workspace>/.butler/mcp.yaml   （label: project）
+2. $BUTLER_MCP_CONFIG             （label: config，若设置）
+3. ~/.butler/mcp.yaml             （label: global）
+```
+
+模块：`butler/mcp/config.py::_resolve_config_paths`、`butler/registry/mcp_merge.py`。
+
+| 场景 | 行为 |
+|------|------|
+| 项目与全局同 id | 项目层 transport/env 覆盖全局 |
+| 仅全局安装 | effective 仅 global/config 层 |
+| yaml 损坏 | 该层跳过并记入 `recent_mcp_merge_corruptions()`，不阻塞其他层 |
+| 会话绑定项目 | `resolve_workspace_for_session()` 解析 workspace，merge 诊断带项目层 |
+
+诊断：`/诊断` → `format_mcp_merge_diagnostic_lines`（配置层列表 + 生效合并前 8 条）。
+
+路径 SSOT 简表：[`extension-registry-paths.md`](extension-registry-paths.md) §3。
+
+#### 4.6.3 `mcp.lock.json` 结构（示例）
+
+```json
+{
+  "version": 1,
+  "servers": {
+    "github": {
+      "installed_at": "2026-06-11T02:00:00+00:00",
+      "probed_at": "2026-06-11T02:00:00+00:00",
+      "probe": { "ok": true, "tool_count": 12 }
+    }
+  }
+}
+```
+
+- **probe 失败**：不写 `mcp.yaml`、不更新 lock（`mcp_install.install_catalog_server`）。
+- lock 为 **append/merge** 语义：多次安装不同 server_id 共存于 `servers` 映射。
+
+#### 4.6.4 `mcp-ssot.yaml` 结构（示例）
+
+```yaml
+version: 1
+generated_at: "2026-06-11T02:00:00+00:00"
+workspace: "/path/to/project"
+layers:
+  - label: project
+    path: "/path/to/project/.butler/mcp.yaml"
+    server_ids: [demo]
+servers:
+  - server_id: demo
+    source: project
+    transport: stdio
+    config_path: "/path/to/project/.butler/mcp.yaml"
+```
+
+- **不**参与运行时加载；改 hand-edit 无效，须改各层 `mcp.yaml` 后重跑 `butler mcp sync`。
+- 无 workspace 时 `workspace: ""`，写入 `~/.butler/mcp-ssot.yaml`。
+
+#### 4.6.5 ToolsEngine SSOT 过滤（可选）
+
+| 变量 | 默认 | 行为 |
+|------|------|------|
+| `BUTLER_TOOLS_ENGINE_SSOT` | `0` | `1` 时 `filter_tools_by_mcp_ssot` 丢弃 **effective 合并视图中不存在** 的 `mcp_*` 工具 schema |
+
+模块：`butler/mcp/tools_manifest.py`；与 deferred promote **正交**（过滤的是已注册工具列表，不替代 MCP 连接）。
+
+#### 4.6.6 运维命令
+
+```bash
+# 刷新合并视图索引（发版 / 手改 mcp.yaml 后建议执行）
+butler mcp sync --workspace /path/to/project
+butler mcp sync --reload          # 写入 SSOT 后断开连接，下轮重读 yaml
+
+# 查看层与生效 server（等同微信 /mcp 状态）
+butler mcp status [--workspace PATH]
+butler mcp list [--workspace PATH]
+
+# 安装（写 yaml + lock；失败不写）
+butler mcp add <catalog-id> [--project] [--workspace PATH]
+```
+
+微信：`/诊断` 看 MCP 配置层与 lock 探测错误；`/mcp` 安装走项目层或全局（见 [`butler-mcp-capability-2026-05.md`](../plans/comparisons/butler-mcp-capability-2026-05.md)）。
+
+#### 4.6.7 与 Skill SSOT 对照
+
+| 扩展 | 快照 | 同步 CLI |
+|------|------|----------|
+| MCP | `mcp-ssot.yaml` + `mcp.lock.json` | `butler mcp sync` |
+| Skill Registry | `~/.butler/tenants/<tenant>/skills-ssot.yaml` | `butler skills sync` |
 
 ---
 
@@ -371,3 +479,4 @@ Deferred 核心 API：
 | 2026-06-10 | P2 落地：MCP promote 校验/同轮、skill header 解析、runtime_metrics、skills lint、memory-ops C1–C6 |
 | 2026-06-10 | S3：`skills/layout.py` 目录型 skill 发现/同步；`list_skills` 合并 inner 元数据 |
 | 2026-06-10 | 诊断增强：MCP 降级提示、`experience_mcp_rejected`、信任级联 runtime_metrics |
+| 2026-06-11 | §4.6：MCP SSOT（`mcp.lock.json` / `mcp-ssot.yaml`）与配置层合并运维契约 |

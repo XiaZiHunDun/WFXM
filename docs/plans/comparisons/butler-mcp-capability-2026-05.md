@@ -17,6 +17,17 @@
 
 全局：`~/.butler/mcp.yaml` 或 `BUTLER_MCP_CONFIG`。项目可覆盖：`<workspace>/.butler/mcp.yaml`。
 
+**合并规则**：project → `BUTLER_MCP_CONFIG` → global；同名 `server_id` **后层覆盖**。路径 SSOT：[`extension-registry-paths.md`](../../architecture/extension-registry-paths.md) §3。
+
+**SSOT 快照**（只读索引 / 安装审计，非第二份配置）：
+
+| 文件 | 路径 | CLI |
+|------|------|-----|
+| `mcp.lock.json` | `~/.butler/mcp.lock.json` | `butler mcp add` 成功后自动更新 |
+| `mcp-ssot.yaml` | 项目 `.butler/` 或 `~/.butler/` | `butler mcp sync [--workspace PATH] [--reload]` |
+
+运维契约（结构示例、`BUTLER_TOOLS_ENGINE_SSOT`）：[`execution-surface-design.md`](../../architecture/execution-surface-design.md) §4.6。
+
 示例见仓库根目录 [`.butler/mcp.yaml.example`](../../.butler/mcp.yaml.example)。
 
 ## 环境变量
@@ -39,7 +50,11 @@ rules:
 ## CLI
 
 ```bash
-butler mcp serve   # stdio Server，供 Cursor 连接 Butler 只读工具
+butler mcp serve                    # stdio Server，供 Cursor 连接 Butler 只读工具
+butler mcp add <id> [--project]     # 安装 + probe → mcp.yaml + mcp.lock.json
+butler mcp sync [--workspace PATH]  # 刷新 mcp-ssot.yaml（合并视图）
+butler mcp status                   # 配置层 + 生效 server
+butler mcp reload                   # 断开连接，下轮重读 yaml
 ```
 
 ## 模块

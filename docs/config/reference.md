@@ -305,7 +305,7 @@
 | `BUTLER_INSTALL_PRE_SCAN_FAIL_CLOSED` | 1 | 扫描 `block` 时拒绝安装 |
 | `BUTLER_POST_SESSION_LAYERED` | 0 | `1` 时 post_session 抽取 persona/preference/experience 写入 `session_summary.json`（默认 0，推荐按需设为 1） |
 | `BUTLER_TOOLS_ENGINE` | 1 | `0` 关闭 FC 能力检查；`BUTLER_TOOLS_ENGINE_FORCE_OFF=1` 强制无 tools |
-| `BUTLER_TOOLS_ENGINE_SSOT` | 0 | `1` 时仅保留 effective mcp.yaml 中 server 的 `mcp_*` 工具 |
+| `BUTLER_TOOLS_ENGINE_SSOT` | 0 | `1` 时仅保留 effective mcp.yaml 合并视图中 server 的 `mcp_*` 工具；effective 见 [`execution-surface-design.md`](../architecture/execution-surface-design.md) §4.6 |
 | `BUTLER_PROMPT_EVAL_LLM` | 0 | `1` 时 `butler prompt eval --llm` 对 pattern 通过项做辅助模型打分 |
 | `BUTLER_PROMPT_EVAL_LLM_MIN` | 70 | LLM rubric 最低分（0–100） |
 | `BUTLER_PROMPT_EVAL_LIVE_MAX` | 12 | `prompt eval --corpus-live-full` 单轮 case 上限 |
