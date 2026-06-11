@@ -252,9 +252,17 @@ def dispatch_tool(name: str, args: dict) -> str:
 
     call_args = dict(args)
     try:
-        from butler.tools.tool_arg_normalize import normalize_tool_args
+        from butler.tools.tool_arg_normalize import normalize_tool_args, validate_tool_args
 
         call_args = normalize_tool_args(name, call_args)
+        arg_err = validate_tool_args(name, call_args)
+        if arg_err is not None:
+            return _apply_post_tool_hooks(
+                name,
+                args,
+                _finalize_tool_result(name, args, arg_err, started_at=started_at),
+                failed=True,
+            )
     except Exception as exc:
         logger.debug("tool arg normalize skipped: %s", exc)
     if name == "read_file":

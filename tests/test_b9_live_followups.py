@@ -32,6 +32,30 @@ class TestToolArgNormalize:
         out = normalize_tool_args("patch", {"file": "a.py", "old_string": "x", "new_string": "y"})
         assert out["path"] == "a.py"
 
+    def test_validate_patch_missing_path(self):
+        from butler.tools.tool_arg_normalize import validate_tool_args
+
+        err = validate_tool_args("patch", {"old_string": "a", "new_string": "b"})
+        assert err is not None
+        assert err["code"] == "TOOL_ARGS_INVALID"
+        assert "path" in err["missing"]
+        assert "hint" in err
+
+    def test_validate_patch_allows_empty_new_string(self):
+        from butler.tools.tool_arg_normalize import validate_tool_args
+
+        assert validate_tool_args("patch", {"path": "a.py", "old_string": "x", "new_string": ""}) is None
+
+    def test_dispatch_patch_missing_args_returns_structured_error(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        from butler.tools.registry import dispatch_tool
+
+        raw = dispatch_tool("patch", {"old_string": "x"})
+        data = json.loads(raw)
+        assert data.get("code") == "TOOL_ARGS_INVALID"
+        assert "path" in data.get("missing", [])
+        assert "missing 1 required positional argument" not in data.get("error", "").lower()
+
 
 class TestDelegateChildProjectResolution:
     def test_child_session_inherits_parent_chat_binding(self):
