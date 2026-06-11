@@ -277,6 +277,7 @@ class SemanticMemoryIndex:
         *,
         project: str | None = None,
         limit: int | None = None,
+        vector_sources: tuple[str, ...] | None = None,
     ) -> list[dict[str, Any]]:
         """Merge vector top-K with FTS hits (RRF-style), dedupe by content."""
         cap = limit if limit is not None else semantic_search_limit()
@@ -284,6 +285,9 @@ class SemanticMemoryIndex:
         fts_weight = hybrid_fts_weight()
 
         vec_hits = self.search(query, project=project, limit=cap * 2)
+        if vector_sources:
+            allowed = set(vector_sources)
+            vec_hits = [h for h in vec_hits if str(h.get("source") or "") in allowed]
         scores: dict[str, float] = {}
         rows: dict[str, dict[str, Any]] = {}
 
@@ -411,6 +415,74 @@ def _hit_key(hit: dict[str, Any]) -> str:
     return f"content:{hash(content) & 0xFFFFFFFF:08x}"
 
 
+def _is_experience_hit(hit: dict[str, Any]) -> bool:
+    src = str(hit.get("source") or "").strip()
+    if src == SOURCE_EXPERIENCE:
+        return True
+    if src in (SOURCE_OWNER_PROFILE, SOURCE_PROJECT):
+        return False
+    if src:
+        return False
+    raw_id = hit.get("id") or hit.get("source_id")
+    if raw_id is None:
+        return False
+    try:
+        int(raw_id)
+        return True
+    except (TypeError, ValueError):
+        return False
+
+
+def filter_experience_hits(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [h for h in hits if _is_experience_hit(h)]
+
+
+def enrich_experience_hit_tags(
+    hits: list[dict[str, Any]],
+    experience_store: Any | None,
+) -> list[dict[str, Any]]:
+    if not hits:
+        return hits
+    need_ids: list[int] = []
+    for h in hits:
+        if str(h.get("tags") or "").strip():
+            continue
+        if not _is_experience_hit(h):
+            continue
+        raw = h.get("id") or h.get("source_id")
+        try:
+            need_ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    rows_by_id: dict[int, dict[str, Any]] = {}
+    if need_ids and experience_store is not None and hasattr(experience_store, "fetch_by_ids"):
+        try:
+            rows_by_id = {int(r["id"]): r for r in experience_store.fetch_by_ids(need_ids)}
+        except Exception as exc:
+            logger.debug("enrich experience tags skipped: %s", exc)
+    out: list[dict[str, Any]] = []
+    for h in hits:
+        item = dict(h)
+        if not str(item.get("source") or "").strip():
+            item["source"] = SOURCE_EXPERIENCE
+        if item.get("id") is None:
+            raw = item.get("source_id")
+            try:
+                item["id"] = int(raw)
+            except (TypeError, ValueError):
+                pass
+        if not str(item.get("tags") or "").strip():
+            rid = item.get("id")
+            try:
+                row = rows_by_id.get(int(rid)) if rid is not None else None
+            except (TypeError, ValueError):
+                row = None
+            if row and row.get("tags"):
+                item["tags"] = row["tags"]
+        out.append(item)
+    return out
+
+
 def index_experience_row(
     semantic: SemanticMemoryIndex | None,
     row_id: int,
@@ -493,7 +565,13 @@ def _hybrid_experience_search_once(
         out = fts_hits[:limit]
     else:
         try:
-            out = semantic.hybrid_search(query, fts_hits, project=project, limit=limit)
+            out = semantic.hybrid_search(
+                query,
+                fts_hits,
+                project=project,
+                limit=limit,
+                vector_sources=(SOURCE_EXPERIENCE,),
+            )
         except Exception as exc:
             # Audit R2-2: degraded quality must be loud (ERROR + exc_info)
             # so ops sees the underlying embed OOM / DB lock / provider auth
@@ -511,7 +589,13 @@ def _hybrid_experience_search_once(
             mode = "fts-fallback-global"
         else:
             try:
-                out = semantic.hybrid_search(query, global_fts_hits, project=None, limit=limit)
+                out = semantic.hybrid_search(
+                    query,
+                    global_fts_hits,
+                    project=None,
+                    limit=limit,
+                    vector_sources=(SOURCE_EXPERIENCE,),
+                )
                 mode = "hybrid-fallback-global"
             except Exception as exc:
                 logger.error("Hybrid global fallback failed, using FTS", exc_info=exc)
@@ -618,6 +702,8 @@ def hybrid_experience_search(
             semantic, fts_search, q, project=project, limit=limit
         )
 
+    out = filter_experience_hits(out)
+    out = enrich_experience_hit_tags(out, experience_store)
     _record_experience_access_from_hits(experience_store, out)
     try:
         from butler.execution_context import get_current_session_key

@@ -10,12 +10,84 @@ from butler.core.skill_tool_bridge import (
     collect_pinned_tools,
     resolve_experience_pinned_tools,
 )
+from butler.memory.embedding import HashingEmbedder
+from butler.memory.semantic_index import (
+    SOURCE_EXPERIENCE,
+    SOURCE_OWNER_PROFILE,
+    SemanticMemoryIndex,
+    enrich_experience_hit_tags,
+    filter_experience_hits,
+    hybrid_experience_search,
+)
 from butler.skills.experience_pointers import (
     extract_mcp_refs_from_hits,
     extract_tool_refs_from_hits,
     resolve_mcp_refs_to_registered,
 )
 from butler.skills.router import SkillRouter
+
+
+class TestExperienceHitEnrichment:
+    def test_filter_drops_owner_profile_vector_hits(self):
+        hits = [
+            {"source": SOURCE_OWNER_PROFILE, "source_id": "entry:5", "content": "profile"},
+            {"source": SOURCE_EXPERIENCE, "source_id": "218", "content": "发版流程"},
+            {"id": 219, "content": "fts row"},
+        ]
+        out = filter_experience_hits(hits)
+        assert len(out) == 2
+        assert all(h.get("source") != SOURCE_OWNER_PROFILE for h in out)
+
+    def test_enrich_fills_tags_from_store(self):
+        store = MagicMock()  # noqa: magicmock-no-spec
+        store.fetch_by_ids.return_value = [
+            {"id": 218, "tags": "tool:butler_recall,skill:phase-c"},
+        ]
+        hits = [
+            {"source": SOURCE_EXPERIENCE, "source_id": "218", "content": "发版", "tags": ""},
+        ]
+        out = enrich_experience_hit_tags(hits, store)
+        assert out[0]["tags"] == "tool:butler_recall,skill:phase-c"
+        assert out[0]["id"] == 218
+        store.fetch_by_ids.assert_called_once_with([218])
+
+    def test_hybrid_experience_search_pins_tools_after_enrich(self, tmp_path):
+        idx = SemanticMemoryIndex(tmp_path / "vec.db", HashingEmbedder(dimension=64))
+        idx.upsert(
+            source=SOURCE_EXPERIENCE,
+            source_id="42",
+            content="记忆模块发版流程 butler_recall",
+            project="",
+            category="ops",
+        )
+        idx.upsert(
+            source=SOURCE_OWNER_PROFILE,
+            source_id="entry:9",
+            content="owner 偏好 记忆模块发版流程",
+            project="",
+            category="profile",
+        )
+
+        store = MagicMock()  # noqa: magicmock-no-spec
+        store.fetch_by_ids.return_value = [
+            {"id": 42, "tags": "tool:butler_recall,skill:butler-memory-phase-c"},
+        ]
+
+        def fts_search(_q: str, *, project=None, limit=8):
+            return []
+
+        out = hybrid_experience_search(
+            idx,
+            fts_search,
+            "记忆模块发版流程",
+            limit=5,
+            experience_store=store,
+        )
+        assert out
+        assert all(h.get("source") != SOURCE_OWNER_PROFILE for h in out)
+        assert any("tool:butler_recall" in str(h.get("tags") or "") for h in out)
+        refs = extract_tool_refs_from_hits(out)
+        assert "butler_recall" in refs
 
 
 class TestExperiencePointerParsing:
