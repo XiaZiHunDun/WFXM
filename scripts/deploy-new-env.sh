@@ -146,18 +146,19 @@ fi
 
 # --- Step 7: systemd 服务（可选） ---
 if [[ "$INSTALL_LANGFUSE" -eq 1 ]]; then
-  echo "[7/8] 部署 LangFuse 可观测栈..."
-  if [[ -f "$ROOT/scripts/langfuse-setup.sh" ]]; then
-    run_cmd bash "$ROOT/scripts/langfuse-setup.sh"
+  echo "[7/8] 部署 LangFuse 可观测栈（~/gongju/langfuse）..."
+  GONGJU_OPS="${GONGJU_LANGFUSE:-$HOME/gongju/langfuse}/ops.sh"
+  if [[ -x "$GONGJU_OPS" ]]; then
+    run_cmd bash "$GONGJU_OPS" up
     if [[ -f "$ROOT/scripts/butler-observability-provision.sh" ]]; then
       run_cmd bash "$ROOT/scripts/butler-observability-provision.sh"
     fi
     echo "  LangFuse 部署完成 ✓"
   else
-    echo "  WARNING: langfuse-setup.sh 未找到"
+    echo "  WARNING: $GONGJU_OPS 未找到 — 请先初始化 ~/gongju/langfuse"
   fi
 else
-  echo "[7/8] 跳过 LangFuse（使用 --langfuse 启用）"
+  echo "[7/8] 跳过 LangFuse（使用 --langfuse 启用；栈在 ~/gongju/langfuse）"
 fi
 
 if [[ "$INSTALL_SYSTEMD" -eq 1 ]]; then

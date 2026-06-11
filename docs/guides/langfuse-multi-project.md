@@ -17,8 +17,8 @@ LangFuse (共享基础设施, localhost:3000)
 ### 1. 创建新项目
 
 ```bash
-# 自动生成配置文件
-bash scripts/langfuse-setup.sh --create-project "灵文1号"
+# 自动生成 ~/.butler/projects/<id>/langfuse.json（栈须在 ~/gongju/langfuse 运行）
+bash scripts/butler-langfuse-project.sh "灵文1号"
 ```
 
 这会在 `~/.butler/projects/<project-id>/langfuse.json` 创建配置：

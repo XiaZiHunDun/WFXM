@@ -617,7 +617,7 @@ Butler 的长期演化可类比模型训练的三段回路：
 
 #### 2.7.5 多项目 LangFuse 共享
 
-LangFuse 实例为**基础设施层共享服务**（`deploy/langfuse/`），各 Butler 托管项目通过独立 API Key 隔离 Trace：
+LangFuse 实例为**基础设施层共享服务**（`~/gongju/langfuse`，独立于 WFXM），各 Butler 托管项目通过独立 API Key 隔离 Trace：
 
 \[
 \text{LangFuse}_{\text{shared}} \xrightarrow{\text{project\_id}} \text{Trace}_{\text{butler-v4}} \cup \text{Trace}_{\text{lingwen}} \cup \cdots
@@ -1361,5 +1361,5 @@ HashingEmbedder 是确定性哈希嵌入器，Recall@3 ≈ 50-67%。生产环境
 | 软反馈注入 | `butler/core/agent_loop_phases.py` |
 | CI 基准推送 | `.github/workflows/ci.yml` (eval-push job) |
 | 多项目 LangFuse | `butler/config.py::get_project_langfuse_config` |
-| LangFuse 部署 | `scripts/langfuse-setup.sh`, `scripts/butler-deploy.sh` |
+| LangFuse 栈 | `~/gongju/langfuse/ops.sh`；Butler 客户端 `langfuse_tracer.py` |
 | 观测指南 | `docs/guides/evaluation-guide.md`, `langfuse-multi-project.md` |

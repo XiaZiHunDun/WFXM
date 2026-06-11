@@ -32,10 +32,10 @@
 ### LangFuse 服务
 
 ```bash
-./scripts/langfuse-setup.sh
+cd ~/gongju/langfuse && ./ops.sh up
 ```
 
-详见 [langfuse-deployment.md](langfuse-deployment.md)。
+详见 [langfuse-deployment.md](langfuse-deployment.md)（Butler 连接；栈在 `~/gongju/langfuse`）。
 
 ### Butler 配置
 

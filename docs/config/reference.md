@@ -609,7 +609,7 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_EVAL_B9_PASS_RATE_MIN` | `1.0` | B9 通过率下限（oracle 默认 2/2） |
 | `BUTLER_EVAL_LLM_BENCHMARK` | `0` | `1` = B9 基准使用真实 `delegate_task`+LLM；`0` = oracle 模式（CI） |
 | `BUTLER_MEMORY_METRICS_PERSIST` | `1` | `1` = 记忆效果度量 S_w/H_1/E_d 持久化到 `~/.butler/metrics/memory_metrics.json` |
-| `LANGFUSE_HOST` | `http://localhost:3000` | LangFuse 服务地址（自托管：`./scripts/langfuse-setup.sh`） |
+| `LANGFUSE_HOST` | `http://localhost:3000` | LangFuse 服务地址（栈运维：`~/gongju/langfuse/ops.sh`） |
 | `LANGFUSE_PUBLIC_KEY` | — | LangFuse 公钥（默认初始化 `pk-butler-dev`） |
 | `LANGFUSE_SECRET_KEY` | — | LangFuse 私钥（默认初始化 `sk-butler-dev`） |
 

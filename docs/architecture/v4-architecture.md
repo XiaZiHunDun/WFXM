@@ -565,7 +565,8 @@ while not done and iterations < budget:
 | Memory Eval | `butler/ops/memory_eval.py` | ⏳ 手动/脚本 |
 | WeChat Dataset | `butler/ops/wechat_dataset.py` | ⏳ 手动同步 |
 | 多项目配置 | `butler/config.py::get_project_langfuse_config` | ✅ |
-| 统一部署 | `scripts/butler-deploy.sh`, `scripts/langfuse-setup.sh` | ✅ |
+| LangFuse 栈 | `~/gongju/langfuse/ops.sh`（独立于 WFXM） | ✅ |
+| Butler 观测客户端 | `langfuse_tracer.py`, `eval_bridge.py` | ✅ opt-in |
 
 指南：[`evaluation-guide.md`](../guides/evaluation-guide.md)、[`langfuse-multi-project.md`](../guides/langfuse-multi-project.md)。
 

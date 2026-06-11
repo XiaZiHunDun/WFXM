@@ -7,12 +7,13 @@
 #   bash scripts/butler-deploy.sh update      # 增量更新（git pull + deps + restart + verify）
 #   bash scripts/butler-deploy.sh status      # 全栈状态检查
 #   bash scripts/butler-deploy.sh rollback    # 回滚到上一版本
-#   bash scripts/butler-deploy.sh langfuse    # 仅管理 LangFuse 栈
+#   LangFuse 栈独立运维: ~/gongju/langfuse/ops.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUTLER_HOME="${BUTLER_HOME:-$HOME/.butler}"
-COMPOSE_DIR="$ROOT/deploy/langfuse"
+GONGJU_LANGFUSE="${GONGJU_LANGFUSE:-$HOME/gongju/langfuse}"
+LANGFUSE_OPS="$GONGJU_LANGFUSE/ops.sh"
 UNIT=butler-gateway.service
 LOG="$ROOT/logs/butler-gateway.log"
 
@@ -34,58 +35,35 @@ Butler v4 统一部署工具
 Usage: $(basename "$0") <command> [options]
 
 Commands:
-  init     [--systemd] [--skip-langfuse]   全新环境部署（venv + deps + config + dirs + LangFuse）
-  update   [--skip-langfuse] [--skip-reindex] [--skip-benchmark]   增量更新（git pull + deps + restart + LangFuse + 基准回归）
-  status                                    全栈状态（Butler + LangFuse + systemd）
+  init     [--systemd] [--with-langfuse]     全新环境部署（默认不启 LangFuse 栈）
+  update   [--with-langfuse] [--skip-reindex] [--skip-benchmark]   增量更新
+  status                                    全栈状态（Butler + LangFuse 可达性 + systemd）
   rollback [--steps N]                      回滚到上一版本（git + deps + restart）
-  langfuse [up|down|status|logs|pull]       仅管理 LangFuse 栈
+
+LangFuse 栈: cd ~/gongju/langfuse && ./ops.sh {up|down|status|logs|pull}
 
 Examples:
   bash scripts/butler-deploy.sh init
   bash scripts/butler-deploy.sh update
   bash scripts/butler-deploy.sh status
   bash scripts/butler-deploy.sh rollback
-  bash scripts/butler-deploy.sh langfuse up
-  bash scripts/butler-deploy.sh langfuse pull   # 拉取新镜像并重启
 EOF
 }
 
 # ─── LangFuse 管理 ───
 
-_langfuse_is_running() {
-  if command -v docker &>/dev/null; then
-    local running
-    running=$(docker compose -f "$COMPOSE_DIR/docker-compose.yml" ps --status running -q 2>/dev/null | wc -l)
-    [[ "$running" -gt 0 ]]
-  else
-    return 1
-  fi
-}
-
 _langfuse_health() {
-  curl -sf http://localhost:3000/api/public/health > /dev/null 2>&1
+  local host="${LANGFUSE_HOST:-http://localhost:3000}"
+  curl -sf "${host%/}/api/public/health" > /dev/null 2>&1
 }
 
 _langfuse_up() {
-  _info "启动 LangFuse 栈..."
-  if ! command -v docker &>/dev/null; then
-    _warn "未安装 Docker，跳过 LangFuse"
+  if [[ ! -x "$LANGFUSE_OPS" ]]; then
+    _warn "LangFuse ops 未找到: $LANGFUSE_OPS"
     return 1
   fi
-  bash "$ROOT/scripts/langfuse-setup.sh"
-}
-
-_langfuse_down() {
-  _info "停止 LangFuse 栈..."
-  bash "$ROOT/scripts/langfuse-setup.sh" --down
-}
-
-_langfuse_pull() {
-  _info "拉取 LangFuse 最新镜像并重启..."
-  cd "$COMPOSE_DIR"
-  docker compose pull
-  docker compose up -d
-  _ok "LangFuse 镜像已更新"
+  _info "启动 LangFuse（$GONGJU_LANGFUSE）..."
+  bash "$LANGFUSE_OPS" up
 }
 
 _observability_status() {
@@ -118,28 +96,16 @@ import sys; sys.exit(0 if not r.degraded else 1)
 }
 
 _langfuse_status() {
-  if ! command -v docker &>/dev/null; then
-    echo "  Docker: 未安装"
-    return
-  fi
-  echo "  === LangFuse Stack ==="
-  if _langfuse_is_running; then
-    _ok "LangFuse 容器运行中"
-    docker compose -f "$COMPOSE_DIR/docker-compose.yml" ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true
-    if _langfuse_health; then
-      _ok "LangFuse API 健康"
-    else
-      _warn "LangFuse API 未响应（可能正在启动）"
-    fi
+  echo "  === LangFuse（外部栈: $GONGJU_LANGFUSE）==="
+  if _langfuse_health; then
+    _ok "LangFuse API 健康 (${LANGFUSE_HOST:-http://localhost:3000})"
   else
-    echo "  LangFuse: 未运行"
-    echo "  启动: bash scripts/butler-deploy.sh langfuse up"
+    _warn "LangFuse API 未响应"
+    echo "  启动: cd $GONGJU_LANGFUSE && ./ops.sh up"
   fi
-}
-
-_langfuse_logs() {
-  cd "$COMPOSE_DIR"
-  docker compose logs -f --tail 50
+  if [[ -x "$LANGFUSE_OPS" ]]; then
+    bash "$LANGFUSE_OPS" status 2>/dev/null || true
+  fi
 }
 
 # ─── Butler 状态 ───
@@ -188,11 +154,12 @@ print(f\"  Butler: v{info['version']} (commit={info['git_sha']}, python={info['p
 
 _cmd_init() {
   local install_systemd=0
-  local skip_langfuse=0
+  local with_langfuse=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --systemd) install_systemd=1 ;;
-      --skip-langfuse) skip_langfuse=1 ;;
+      --with-langfuse) with_langfuse=1 ;;
+      --skip-langfuse) with_langfuse=0 ;;
       *) _err "Unknown init option: $1"; _usage; exit 1 ;;
     esac
     shift
@@ -206,11 +173,11 @@ _cmd_init() {
 
   local extra_args=""
   [[ "$install_systemd" -eq 1 ]] && extra_args="$extra_args --systemd"
-  [[ "$skip_langfuse" -eq 0 ]] && extra_args="$extra_args --langfuse"
+  [[ "$with_langfuse" -eq 1 ]] && extra_args="$extra_args --langfuse"
 
   bash "$ROOT/scripts/deploy-new-env.sh" $extra_args
 
-  if [[ "$skip_langfuse" -eq 0 ]]; then
+  if [[ "$with_langfuse" -eq 1 ]]; then
     _info "配置观测演化生产默认值..."
     bash "$ROOT/scripts/butler-observability-provision.sh" 2>/dev/null || _warn "观测配置跳过"
     if [[ -f "$ROOT/scripts/install-butler-eval-sync-timer.sh" ]]; then
@@ -229,12 +196,13 @@ _cmd_init() {
 # ─── Update（增量更新） ───
 
 _cmd_update() {
-  local skip_langfuse=0
+  local with_langfuse=0
   local skip_reindex=0
   local skip_benchmark=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --skip-langfuse) skip_langfuse=1 ;;
+      --with-langfuse) with_langfuse=1 ;;
+      --skip-langfuse) with_langfuse=0 ;;
       --skip-reindex) skip_reindex=1 ;;
       --skip-benchmark) skip_benchmark=1 ;;
       *) _err "Unknown update option: $1"; _usage; exit 1 ;;
@@ -296,34 +264,25 @@ _cmd_update() {
     _info "Gateway 未运行，跳过重启"
   fi
 
-  # Step 5: LangFuse update
-  if [[ "$skip_langfuse" -eq 0 ]]; then
+  # Step 5: LangFuse（可选；默认栈在 ~/gongju/langfuse）
+  if [[ "$with_langfuse" -eq 1 ]]; then
     _info "[5/7] 更新 LangFuse 栈..."
-    if _langfuse_is_running; then
-      cd "$COMPOSE_DIR"
-      docker compose pull --quiet 2>/dev/null || true
-      docker compose up -d 2>/dev/null || _warn "LangFuse 更新失败（非致命）"
-      _ok "LangFuse 已更新"
-    elif command -v docker &>/dev/null; then
-      _info "LangFuse 未运行，启动中..."
-      _langfuse_up || _warn "LangFuse 启动失败（非致命）"
+    if [[ -x "$LANGFUSE_OPS" ]]; then
+      bash "$LANGFUSE_OPS" pull 2>/dev/null || _langfuse_up || _warn "LangFuse 更新失败（非致命）"
     else
-      _info "Docker 未安装，跳过 LangFuse"
+      _warn "LangFuse ops 未找到: $LANGFUSE_OPS"
     fi
-  else
-    _info "[5/7] 跳过 LangFuse（--skip-langfuse）"
-  fi
-
-  if [[ "$skip_langfuse" -eq 0 ]]; then
     _info "同步观测演化配置..."
     bash "$ROOT/scripts/butler-observability-provision.sh" 2>/dev/null || _warn "观测配置跳过"
+  else
+    _info "[5/7] 跳过 LangFuse 栈（独立运维: $GONGJU_LANGFUSE）"
   fi
 
   # Step 6: Benchmark regression gate (O7)
   if [[ "$skip_benchmark" -eq 0 ]]; then
     _info "[6/7] 基准回归门 (B1–B8 / MB1–MB7)..."
     local bench_args=""
-    if [[ "$skip_langfuse" -eq 0 ]] && _langfuse_health 2>/dev/null; then
+    if _langfuse_health 2>/dev/null; then
       bench_args="--sync-dataset"
     fi
     if bash "$ROOT/scripts/butler-eval-regression.sh" $bench_args 2>&1; then
@@ -435,25 +394,6 @@ _cmd_status() {
   echo ""
 }
 
-# ─── Langfuse 子命令 ───
-
-_cmd_langfuse() {
-  local subcmd="${1:-status}"
-  shift || true
-  case "$subcmd" in
-    up|start) _langfuse_up ;;
-    down|stop) _langfuse_down ;;
-    status) _langfuse_status ;;
-    logs) _langfuse_logs ;;
-    pull|upgrade) _langfuse_pull ;;
-    *)
-      _err "Unknown langfuse subcommand: $subcmd"
-      echo "  Available: up, down, status, logs, pull"
-      exit 1
-      ;;
-  esac
-}
-
 # ─── Main ───
 
 main() {
@@ -464,7 +404,6 @@ main() {
     update|upgrade) _cmd_update "$@" ;;
     status) _cmd_status ;;
     rollback) _cmd_rollback "$@" ;;
-    langfuse) _cmd_langfuse "$@" ;;
     -h|--help|help|"") _usage ;;
     *)
       _err "Unknown command: $cmd"
