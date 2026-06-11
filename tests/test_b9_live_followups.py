@@ -9,6 +9,22 @@ from unittest import mock
 import pytest
 
 
+class TestSafeRootShim:
+    def test_get_tool_safe_root_importable(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        from butler.tools.safe_root import get_tool_safe_root
+
+        assert get_tool_safe_root().resolve() == tmp_path.resolve()
+
+    def test_dev_verify_handler_resolves_workspace(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        from butler.dev_engine.dev_tools import _handler_dev_verify
+
+        raw = _handler_dev_verify(levels="lint")
+        data = json.loads(raw)
+        assert "error" not in data or "No module named" not in str(data.get("error", ""))
+
+
 class TestToolArgNormalize:
     def test_patch_file_alias_maps_to_path(self):
         from butler.tools.tool_arg_normalize import normalize_tool_args
