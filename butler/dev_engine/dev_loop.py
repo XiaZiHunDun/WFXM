@@ -133,6 +133,7 @@ def _emit_metrics(state: DevState, from_phase: str, event: str, to_phase: str) -
 _TRANSITION_TABLE: dict[tuple[DevPhase, str], DevPhase] = {
     (DevPhase.PLAN, "plan_complete"): DevPhase.LOCATE,
     (DevPhase.PLAN, "plan_trivial"): DevPhase.EDIT,
+    (DevPhase.PLAN, "files_found"): DevPhase.EDIT,
     (DevPhase.LOCATE, "files_found"): DevPhase.EDIT,
     (DevPhase.LOCATE, "not_found"): DevPhase.PLAN,
     (DevPhase.LOCATE, "locate_timeout"): DevPhase.STUCK,
@@ -146,7 +147,10 @@ _TRANSITION_TABLE: dict[tuple[DevPhase, str], DevPhase] = {
     (DevPhase.EDIT, "verify_pass"): DevPhase.DONE,
     # Re-edit after auto-verify failure (delegate child loop stays in VERIFY/FIX)
     (DevPhase.VERIFY, "edit_success"): DevPhase.VERIFY,
+    (DevPhase.VERIFY, "files_found"): DevPhase.EDIT,
     (DevPhase.FIX, "edit_success"): DevPhase.VERIFY,
+    (DevPhase.FIX, "files_found"): DevPhase.EDIT,
+    (DevPhase.FIX, "verify_fail"): DevPhase.FIX,
     (DevPhase.VERIFY, "verify_pass"): DevPhase.DONE,
     (DevPhase.VERIFY, "verify_fail"): DevPhase.FIX,
     (DevPhase.VERIFY, "verify_skip"): DevPhase.REVIEW,

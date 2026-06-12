@@ -199,13 +199,23 @@ def _handler_dev_rollback(n: int = 1, **kwargs: Any) -> str:
     )
 
 
-def _handler_dev_search_symbols(name: str, **kwargs: Any) -> str:
+def _handler_dev_search_symbols(**kwargs: Any) -> str:
     from butler.tools.safe_root import get_tool_safe_root
 
+    name = kwargs.get("name") or kwargs.get("query") or kwargs.get("symbol")
+    if not name or not str(name).strip():
+        return json.dumps(
+            {
+                "error": "dev_search_symbols missing required argument: name",
+                "code": "TOOL_ARGS_INVALID",
+                "hint": "Pass name (function/class/variable to search).",
+            },
+            ensure_ascii=False,
+        )
     workspace = str(get_tool_safe_root())
     sk = _resolve_session_key()
     return json.dumps(
-        tool_dev_search_symbols(name, workspace, session_key=sk),
+        tool_dev_search_symbols(str(name).strip(), workspace, session_key=sk),
         ensure_ascii=False,
     )
 

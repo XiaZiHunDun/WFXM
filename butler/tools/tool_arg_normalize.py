@@ -13,7 +13,10 @@ _TOOL_REQUIRED: dict[str, tuple[str, ...]] = {
     "patch": ("path", "old_string", "new_string"),
     "delete_file": ("path",),
     "terminal": ("command",),
+    "dev_search_symbols": ("name",),
 }
+
+_NAME_ALIASES = ("query", "symbol")
 
 # Keys that must be present and non-blank strings (empty new_string is allowed for patch).
 _NON_EMPTY_STRING: dict[str, frozenset[str]] = {
@@ -30,12 +33,19 @@ _TOOL_HINTS: dict[str, str] = {
     "read_file": "read_file requires: path.",
     "delete_file": "delete_file requires: path.",
     "terminal": "terminal requires: command.",
+    "dev_search_symbols": "dev_search_symbols requires: name (function/class/variable).",
 }
 
 
 def normalize_tool_args(name: str, args: dict[str, Any] | None) -> dict[str, Any]:
     """Coerce alternate keys (e.g. ``file`` → ``path``) for path-scoped tools."""
     out = dict(args or {})
+    if name == "dev_search_symbols" and not out.get("name"):
+        for alt in _NAME_ALIASES:
+            val = out.get(alt)
+            if val:
+                out["name"] = val
+                break
     if name not in _PATH_TOOLS or out.get("path"):
         return out
     for alt in _PATH_ALIASES:

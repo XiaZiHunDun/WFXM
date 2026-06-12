@@ -46,6 +46,13 @@ class TestToolArgNormalize:
 
         assert validate_tool_args("patch", {"path": "a.py", "old_string": "x", "new_string": ""}) is None
 
+    def test_dev_search_symbols_query_alias_maps_to_name(self):
+        from butler.tools.tool_arg_normalize import normalize_tool_args, validate_tool_args
+
+        out = normalize_tool_args("dev_search_symbols", {"query": "my_func"})
+        assert out["name"] == "my_func"
+        assert validate_tool_args("dev_search_symbols", out) is None
+
     def test_dispatch_patch_missing_args_returns_structured_error(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
         from butler.tools.registry import dispatch_tool
