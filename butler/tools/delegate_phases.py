@@ -510,6 +510,39 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
         logger.debug("DevState initialization skipped: %s", exc)
 
 
+def _prepare_b9_benchmark_workspace(state: DelegateRunState) -> None:
+    """Seed B9 workspace read_state and inject file preamble into delegate context."""
+    from butler.dev_engine.b9_delegate_gate import (
+        is_b9_benchmark_category,
+        prepare_b9_subagent_workspace,
+    )
+    from butler.tools.delegate_impl import (
+        _inject_project_agent_skills,
+        _project_agent_raw_message,
+    )
+
+    if not is_b9_benchmark_category(
+        state.category,
+        state.category_meta,
+    ):
+        return
+    ws = None
+    if state.project is not None and getattr(state.project, "workspace", None):
+        try:
+            ws = Path(state.project.workspace)
+        except (TypeError, ValueError, OSError):
+            ws = None
+    if ws is None or not ws.is_dir():
+        return
+    sk = state.child_session_key or state.session_key or "_default"
+    preamble = prepare_b9_subagent_workspace(ws, session_key=sk)
+    if not preamble:
+        return
+    state.context = f"{preamble}\n\n{state.context}".strip()
+    state.raw_user_msg = _project_agent_raw_message(task=state.task, context=state.context)
+    state.user_msg = _inject_project_agent_skills(state.orch, state.raw_user_msg)
+
+
 def _record_delegate_state(state: DelegateRunState) -> None:
     """Phase 4: prefetch, semaphore, task record, hooks, transcript.
 
@@ -525,6 +558,7 @@ def _record_delegate_state(state: DelegateRunState) -> None:
     if not _acquire_delegate_slot(state):
         return
     _create_delegate_task_record(state)
+    _prepare_b9_benchmark_workspace(state)
     _init_dev_engine_state(state)
     _run_subagent_start_hooks(state)
     _record_delegate_started_events(state)
@@ -666,10 +700,17 @@ def _build_delegate_report(
     from butler.report import AgentReport
     from butler.tools.delegate_impl import (
         _delegate_role_label,
-        _delegate_task_succeeded,
+        finalize_delegate_success,
     )
 
-    success = _delegate_task_succeeded(result, changes, issues)
+    success, issues = finalize_delegate_success(
+        result,
+        changes,
+        issues,
+        category=str(state.category_meta.get("category") or state.category or ""),
+        category_meta=state.category_meta,
+        project=state.project,
+    )
     role_label = _delegate_role_label(state.role)
     headline = f"{role_label}已完成任务" if success else f"{role_label}未能完成任务"
     task_preview = (state.task or "").strip()[:200]

@@ -172,8 +172,8 @@ def run_delegate_job(job: DelegateJob) -> None:
             session_id=job.session_key,
         )
 
+        from butler.tools.delegate_impl import finalize_delegate_success
         from butler.tools.registry import (
-            _delegate_task_succeeded,
             _extract_changes_from_messages,
             _extract_issues_from_messages,
             _run_subagent_stop_hooks,
@@ -181,7 +181,22 @@ def run_delegate_job(job: DelegateJob) -> None:
 
         changes = _extract_changes_from_messages(result.messages) if result else []
         issues = _extract_issues_from_messages(result.messages) if result else []
-        success = _delegate_task_succeeded(result, changes, issues) if result else False
+        project = None
+        try:
+            project = job.orch.project_manager.get_current() if job.orch else None
+        except Exception:
+            project = None
+        if result:
+            success, issues = finalize_delegate_success(
+                result,
+                changes,
+                issues,
+                category=str(job.category_meta.get("category") or ""),
+                category_meta=job.category_meta,
+                project=project,
+            )
+        else:
+            success = False
         role_label = _delegate_role_label(job.role)
         headline = f"{role_label}已完成任务" if success else f"{role_label}未能完成任务"
         summary_text = (result.final_response or "").strip() if result else ""

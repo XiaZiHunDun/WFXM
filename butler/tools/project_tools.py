@@ -93,6 +93,7 @@ _DEV_EXTRA_TOOLS = frozenset({
     "dev_verify",
     "dev_rollback",
     "dev_search_symbols",
+    "run_pytest",
 })
 
 # A3/T8: butler main loop must not inherit project mutating tools from project.yaml.

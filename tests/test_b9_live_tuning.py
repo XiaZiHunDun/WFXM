@@ -86,6 +86,30 @@ def test_build_b9_no_edit_retry_banner():
     assert "base context" in banner
 
 
+def test_build_b9_no_edit_retry_banner_import_hint():
+    banner = build_b9_no_edit_retry_banner(
+        "base",
+        failure_tail="ImportError: cannot import name 'ping' from 'service'",
+    )
+    assert "ImportError" in banner
+    assert "write_file or patch" in banner
+
+
+def test_classify_run_pytest_counts_as_verify():
+    assert classify_b9_failure(
+        task_id="B9L_test_driven_add",
+        passed=False,
+        tools_used=["write_file", "run_pytest"],
+        failure_reasons=["AssertionError"],
+    ) == "wrong_patch"
+    assert classify_b9_failure(
+        task_id="B9L_test_driven_add",
+        passed=False,
+        tools_used=["write_file"],
+        failure_reasons=["assert False"],
+    ) == "patch_no_verify"
+
+
 def test_tier1_playbook_test_driven_add(tmp_path):
     spec = next(t for t in B9_LIVE_FIXED_TASKS if t.task_id == "B9L_test_driven_add")
     args = build_b9_delegate_args(spec, tmp_path)

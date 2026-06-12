@@ -82,6 +82,32 @@ def _delegate_task_succeeded(result: Any, changes: list, issues: list) -> bool:
     return True
 
 
+def finalize_delegate_success(
+    result: Any,
+    changes: list,
+    issues: list,
+    *,
+    category: str = "",
+    category_meta: dict[str, Any] | None = None,
+    project: Any = None,
+) -> tuple[bool, list[str]]:
+    """Base delegate success + optional category gates (B9 pytest)."""
+    base = _delegate_task_succeeded(result, changes, issues)
+    try:
+        from butler.dev_engine.b9_delegate_gate import apply_b9_pytest_success_gate
+
+        return apply_b9_pytest_success_gate(
+            category=category,
+            category_meta=category_meta,
+            project=project,
+            base_success=base,
+            issues=issues,
+        )
+    except Exception as exc:
+        logger.debug("delegate success gate skipped: %s", exc)
+        return base, list(issues or [])
+
+
 def _extract_changes_from_messages(messages: list) -> list:
     import json as _json
 

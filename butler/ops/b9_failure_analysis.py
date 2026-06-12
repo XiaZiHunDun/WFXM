@@ -21,12 +21,12 @@ def classify_b9_failure(
     tools = {str(t).strip().lower() for t in (tools_used or []) if t}
     reasons = " ".join(failure_reasons or []).lower()
     has_patch = "patch" in tools or "write_file" in tools
-    has_terminal = "terminal" in tools
+    has_verify = "terminal" in tools or "run_pytest" in tools or "dev_verify" in tools
     if not has_patch:
         return "no_edit"
-    if has_patch and has_terminal and ("failed" in reasons or "error" in reasons):
+    if has_patch and has_verify and ("failed" in reasons or "error" in reasons):
         return "wrong_patch"
-    if has_patch and not has_terminal:
+    if has_patch and not has_verify:
         return "patch_no_verify"
     if "modulenotfounderror" in reasons or "importerror" in reasons:
         return "import_fix_incomplete"

@@ -38,7 +38,8 @@ B9_TASK_PLAYBOOKS: dict[str, str] = {
     # Tier-1 gate (release subset)
     "B9L_test_driven_add": (
         "Playbook: read test_b9.py — needs ping() returning 'pong'. service.py is nearly empty. "
-        "write_file or patch service.py: add `def ping():\\n    return 'pong'\\n`."
+        "write_file or patch service.py: add `def ping():\\n    return 'pong'\\n`. "
+        "Then run_pytest until passed=true."
     ),
     "B9L_add_missing_method": (
         "Playbook: read store.py and test_b9.py. Store has put() but no get(); put overwrites _data. "
@@ -121,7 +122,7 @@ def build_b9_delegate_context(workspace: Path) -> str:
     lines = [
         f"B9 benchmark workspace (project-bound). All edits under: {ws}",
         "Workflow: read test_b9.py → patch/write source → "
-        "`python3 -m pytest test_b9.py -q` via terminal until green.",
+        "run_pytest (preferred) or `python3 -m pytest test_b9.py -q` until green.",
         "Do not claim done before pytest passes.",
     ]
     if effective_b9_enhanced_delegate_context():
@@ -200,13 +201,24 @@ def b9_has_edit_tools(tools_used: list[str] | None) -> bool:
     return bool(tools & B9_EDIT_TOOL_NAMES)
 
 
-def build_b9_no_edit_retry_banner(prior_context: str) -> str:
+def build_b9_no_edit_retry_banner(
+    prior_context: str,
+    *,
+    failure_tail: str = "",
+) -> str:
+    extra = ""
+    lower = (failure_tail or "").lower()
+    if "cannot import name" in lower or "importerror" in lower:
+        extra = (
+            "\nImportError: the test imports a symbol missing from the module — "
+            "write_file or patch the implementation file to define that function/class.\n"
+        )
     return (
         "## NO-EDIT RETRY (mandatory)\n"
         "The previous delegate attempt only read/listed files — no patch or write_file. "
         "This benchmark cannot pass without editing source. "
-        "read_file the target module, then patch or write_file now.\n\n"
-        f"{prior_context}"
+        "read_file the target module, then patch or write_file now."
+        f"{extra}\n\n{prior_context}"
     )
 
 

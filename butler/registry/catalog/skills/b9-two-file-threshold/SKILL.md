@@ -10,6 +10,7 @@ triggers:
 preferred_tools:
   - read_file
   - patch
+  - run_pytest
   - terminal
   - list_directory
 ---
@@ -21,6 +22,6 @@ When `test_b9.py` expects `keep(5)` to be False and `keep(15)` True:
 1. `read_file test_b9.py` — confirm expected predicate.
 2. `read_file config.py` — locate `THRESHOLD` (used by `filter.py`).
 3. `patch config.py` — lower `THRESHOLD` so `keep(5)` becomes False (e.g. 10 → 5).
-4. `terminal`: `python3 -m pytest test_b9.py -q` until green.
+4. `run_pytest` (preferred) or `terminal`: `python3 -m pytest test_b9.py -q` until green.
 
 Do not edit `test_b9.py`. Prefer patching the constant in `config.py` over rewriting `filter.py` logic.

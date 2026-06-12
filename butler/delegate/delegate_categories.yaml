@@ -61,7 +61,7 @@ categories:
       1. read_file test_b9.py first — that is the acceptance spec
       2. read_file the implementation file you will edit before any patch
       3. fix implementation with patch (preferred) or write_file; old_string must match file exactly
-      4. after each edit run terminal: python3 -m pytest test_b9.py -q
+      4. after each edit run run_pytest (preferred) or terminal: python3 -m pytest test_b9.py -q
       5. ModuleNotFoundError → list_directory and fix import to match real .py filename
       6. assert failures → fix source return/operator, never edit test_b9.py
       7. ImportError cannot import name → add the missing function to the module (write_file or patch)

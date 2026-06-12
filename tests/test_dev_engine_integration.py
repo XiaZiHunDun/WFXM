@@ -42,7 +42,14 @@ class TestDevEngineToolRegistration:
 
             register_dev_engine_tools(fake_register)
 
-        expected = {"dev_status", "dev_verify", "dev_rollback", "dev_search_symbols", "dev_metrics"}
+        expected = {
+            "dev_status",
+            "dev_verify",
+            "dev_rollback",
+            "dev_search_symbols",
+            "dev_metrics",
+            "run_pytest",
+        }
         assert expected == set(registered), f"Missing tools: {expected - set(registered)}"
         for name in expected:
             assert registered[name]["toolset"] == "dev_engine"
@@ -99,7 +106,7 @@ class TestDevToolsAllowlist:
     def test_dev_extra_tools_constant(self):
         from butler.tools.project_tools import _DEV_EXTRA_TOOLS
 
-        expected = {"dev_status", "dev_verify", "dev_rollback", "dev_search_symbols"}
+        expected = {"dev_status", "dev_verify", "dev_rollback", "dev_search_symbols", "run_pytest"}
         assert expected == set(_DEV_EXTRA_TOOLS)
 
     def test_dev_role_includes_dev_tools_in_allowlist(self):

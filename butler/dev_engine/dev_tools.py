@@ -220,6 +220,78 @@ def _handler_dev_search_symbols(**kwargs: Any) -> str:
     )
 
 
+def tool_run_pytest(
+    path: str = "test_b9.py",
+    *,
+    timeout: int = 60,
+    session_key: str = "_default",
+) -> dict[str, Any]:
+    """Run pytest on a single test file in the workspace (B9/dev benchmark helper)."""
+    import subprocess
+
+    from butler.tools.path_safety import check_tool_path, tool_safe_root
+
+    rel = (path or "test_b9.py").strip()
+    safety = check_tool_path(rel, for_write=False)
+    if not safety.allowed:
+        return {"error": safety.error or "path denied", "code": "PATH_DENIED"}
+
+    ws = tool_safe_root()
+    test_fp = safety.path
+    try:
+        test_arg = str(test_fp.relative_to(ws))
+    except ValueError:
+        test_arg = test_fp.name
+
+    try:
+        proc = subprocess.run(
+            ["python3", "-m", "pytest", test_arg, "-q", "--tb=short"],
+            cwd=str(ws),
+            capture_output=True,
+            text=True,
+            timeout=max(5, min(int(timeout), 120)),
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "passed": False,
+            "exit_code": -1,
+            "path": rel,
+            "error": "pytest timeout",
+            "hint": "Tests took too long; fix implementation or reduce scope.",
+        }
+    except Exception as exc:
+        return {"error": str(exc), "code": "PYTEST_RUN_FAILED"}
+
+    out = f"{proc.stdout or ''}{proc.stderr or ''}"
+    passed = proc.returncode == 0
+    payload: dict[str, Any] = {
+        "passed": passed,
+        "exit_code": proc.returncode,
+        "path": rel,
+        "output_tail": out[-4000:],
+    }
+    if not passed:
+        hint = "Fix implementation source files (not the test) and call run_pytest again."
+        try:
+            from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
+
+            b9_hint = build_b9_verify_hint(out)
+            if b9_hint:
+                hint = b9_hint
+        except Exception:
+            pass
+        payload["hint"] = hint
+    return payload
+
+
+def _handler_run_pytest(path: str = "test_b9.py", timeout: int = 60, **kwargs: Any) -> str:
+    sk = _resolve_session_key()
+    return json.dumps(
+        tool_run_pytest(path, timeout=timeout, session_key=sk),
+        ensure_ascii=False,
+    )
+
+
 def tool_dev_metrics(
     detail: str = "summary",
     task_id: str = "",
@@ -317,6 +389,31 @@ def register_dev_engine_tools(register_fn: Any) -> None:
             },
         },
         handler=_handler_dev_rollback,
+        toolset="dev_engine",
+    )
+
+    register_fn(
+        name="run_pytest",
+        description=(
+            "在 workspace 内运行 pytest（默认 test_b9.py）。"
+            "B9 基准推荐用此工具代替手写 terminal 命令。"
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "测试文件路径（默认 test_b9.py）",
+                    "default": "test_b9.py",
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "超时秒数（5–120，默认 60）",
+                    "default": 60,
+                },
+            },
+        },
+        handler=_handler_run_pytest,
         toolset="dev_engine",
     )
 

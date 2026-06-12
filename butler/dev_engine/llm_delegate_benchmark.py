@@ -353,6 +353,10 @@ def _run_live_delegate(
     """Run delegate_task with real LLM. Returns (ok, tools_used, errors)."""
     from contextlib import nullcontext
 
+    from butler.dev_engine.b9_delegate_gate import (
+        build_b9_wrong_patch_retry_banner,
+        format_oracle_replay_block,
+    )
     from butler.dev_engine.b9_live_tuning import (
         b9_has_edit_tools,
         b9_live_runtime_env,
@@ -360,6 +364,8 @@ def _run_live_delegate(
         build_b9_delegate_args,
         build_b9_no_edit_retry_banner,
     )
+
+    _B9_LIVE_MAX_ATTEMPTS = 3
     from butler.ops.eval_config_overrides import temporary_overrides
 
     errors: list[str] = []
@@ -384,17 +390,25 @@ def _run_live_delegate(
             monkeypatch_root = os.environ.get("BUTLER_TOOL_SAFE_ROOT", "")
             os.environ["BUTLER_TOOL_SAFE_ROOT"] = str(ws)
             try:
-                for attempt in range(2):
-                    args = (
-                        delegate_args
-                        if attempt == 0
-                        else {
+                failure_tail = ""
+                base_context = delegate_args["context"]
+                for attempt in range(_B9_LIVE_MAX_ATTEMPTS):
+                    if attempt == 0:
+                        args = delegate_args
+                    else:
+                        replay = format_oracle_replay_block(spec.task_id)
+                        if not b9_has_edit_tools(tools_used):
+                            banner = build_b9_no_edit_retry_banner(
+                                base_context,
+                                failure_tail=failure_tail,
+                            )
+                        else:
+                            banner = build_b9_wrong_patch_retry_banner(failure_tail)
+                        extra = "\n\n".join(x for x in (replay, banner) if x)
+                        args = {
                             **delegate_args,
-                            "context": build_b9_no_edit_retry_banner(
-                                delegate_args["context"],
-                            ),
+                            "context": f"{extra}\n\n{base_context}",
                         }
-                    )
                     raw = dispatch_tool("delegate_task", args)
                     data = (
                         json.loads(raw)
@@ -411,7 +425,10 @@ def _run_live_delegate(
                     if verify_ok:
                         errors.clear()
                         break
-                    if b9_has_edit_tools(tools_used) or attempt == 1:
+                    failure_tail = verify_msg or ""
+                    if errors:
+                        failure_tail = f"{failure_tail}\n{errors[-1]}"
+                    if attempt >= _B9_LIVE_MAX_ATTEMPTS - 1:
                         if verify_msg:
                             errors.append(verify_msg)
                         break
