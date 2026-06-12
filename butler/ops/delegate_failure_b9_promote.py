@@ -182,6 +182,37 @@ def mark_promotion_implemented(
     return {"updated": True, "task_id": task_id, "rows_updated": updated, "queue_path": str(path)}
 
 
+def dismiss_spurious_promotion_queue_items() -> dict[str, Any]:
+    """Mark pending queue rows that match SWE/benchmark noise as dismissed."""
+    path = _queue_path()
+    if not path.is_file():
+        return {"dismissed": 0}
+    dismissed = 0
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        cand = rec.get("candidate") or {}
+        preview = str(cand.get("delegate_prompt") or "").lower()
+        tid = str(cand.get("suggested_task_id") or "")
+        if (
+            rec.get("status") == "pending_implementation"
+            and ("swe-benchmark" in preview or "[category:swe" in preview)
+        ):
+            rec["status"] = "dismissed"
+            rec["dismissed_at"] = time.time()
+            rec["dismiss_reason"] = "swe_benchmark_noise"
+            dismissed += 1
+        rows.append(rec)
+    if dismissed:
+        path.write_text(
+            "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
+            encoding="utf-8",
+        )
+    return {"dismissed": dismissed, "queue_path": str(path)}
+
+
 def sync_promotion_queue_with_tasks() -> dict[str, Any]:
     """Auto-mark queue items implemented when task_id exists in B9_PROD_SHAPED_TASKS."""
     from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASK_IDS
@@ -293,6 +324,7 @@ def export_promotion_bundle(
 
 __all__ = [
     "DEMO_AUDIT_RECORD",
+    "dismiss_spurious_promotion_queue_items",
     "enqueue_b9_candidate",
     "export_promotion_bundle",
     "generate_task_scaffold",

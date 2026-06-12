@@ -86,9 +86,11 @@ snap = record_production_delegate_snapshot()
 print(format_production_delegate_report(snap))
 print(format_production_delegate_delta(snap.get("delta")))
 print(f"b9_experience_backfill_updated={backfill.get('updated', 0)}")
+from butler.ops.lingwen1_failure_seed import seed_lingwen1_failure_audit
 from butler.ops.b9_prod_promoted_registry import LINGWEN1_CAPTURE_NOTE
 from butler.ops.experience_selection_telemetry import summarize_experience_selections
 
+print("lingwen1_seed=", seed_lingwen1_failure_audit())
 print(f"lingwen1_note={LINGWEN1_CAPTURE_NOTE}")
 print("experience_selections=", summarize_experience_selections())
 PY
@@ -115,11 +117,13 @@ import json
 
 from butler.ops.b9_prod_weekly import promote_latest_production_failure
 from butler.ops.delegate_failure_b9_promote import (
+    dismiss_spurious_promotion_queue_items,
     export_promotion_bundle,
     promotion_queue_summary,
     sync_promotion_queue_with_tasks,
 )
 
+dismissed = dismiss_spurious_promotion_queue_items()
 synced = sync_promotion_queue_with_tasks()
 promote = promote_latest_production_failure()
 bundle = export_promotion_bundle(audit_limit=20)
@@ -127,6 +131,7 @@ summary = promotion_queue_summary()
 print(
     json.dumps(
         {
+            "promotion_dismissed": dismissed.get("dismissed", 0),
             "promotion_synced": synced.get("synced", 0),
             "production_promoted": promote.get("promoted", False),
             "production_promote_reason": promote.get("reason", ""),

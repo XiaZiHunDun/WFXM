@@ -7,6 +7,7 @@ import json
 from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASKS
 from butler.dev_engine.llm_delegate_benchmark import B9Mode, run_b9_task
 from butler.ops.delegate_failure_b9_promote import (
+    dismiss_spurious_promotion_queue_items,
     generate_task_scaffold,
     mark_promotion_implemented,
     promote_from_audit,
@@ -190,3 +191,31 @@ def test_run_promotion_demo_force_seed(tmp_path, monkeypatch):
     assert demo["seed"]["seeded"] is True
     assert demo["promote"]["promoted"] is True
     assert demo["queue_pending"] >= 1
+
+
+def test_dismiss_spurious_promotion_queue_items(tmp_path, monkeypatch):
+    monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+    queue = tmp_path / "audit" / "b9_promotion_queue.jsonl"
+    queue.parent.mkdir(parents=True)
+    rows = [
+        {
+            "status": "pending_implementation",
+            "candidate": {
+                "suggested_task_id": "B9L_prod_task_372720fe1f5d",
+                "delegate_prompt": "[category:swe-benchmark] fix api response",
+            },
+        },
+        {
+            "status": "pending_implementation",
+            "candidate": {
+                "suggested_task_id": "B9L_prod_lingwen_demo_add",
+                "delegate_prompt": "Fix demo/hello.py in LingWen1",
+            },
+        },
+    ]
+    queue.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    out = dismiss_spurious_promotion_queue_items()
+    assert out["dismissed"] == 1
+    updated = [json.loads(line) for line in queue.read_text(encoding="utf-8").splitlines()]
+    assert updated[0]["status"] == "dismissed"
+    assert updated[1]["status"] == "pending_implementation"

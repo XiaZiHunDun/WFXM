@@ -25,6 +25,8 @@ _PREVIEW_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("formatter", "label"), "B9L_prod_no_test"),
     (("getdata", "get_data", "pkg/client"), "B9L_prod_cross_module_rename"),
     (("rename", "getdata", "client.py"), "B9L_prod_cross_module_rename"),
+    (("lingwen1", "demo/hello", "add"), "B9L_prod_lingwen_demo_add"),
+    (("demo/hello.py", "add(a, b)"), "B9L_prod_lingwen_demo_add"),
 )
 
 BINDINGS: tuple[ProdPromotedBinding, ...] = (
@@ -56,11 +58,17 @@ BINDINGS: tuple[ProdPromotedBinding, ...] = (
         pattern_summary="Rename getData→get_data in pkg/client.py; read_file both files before patch",
         audit_trace_id="",
     ),
+    ProdPromotedBinding(
+        task_id="B9L_prod_lingwen_demo_add",
+        source_task_id="lingwen1-demo-add-fix",
+        failure_reason="verify_fail",
+        pattern_summary="LingWen1 demo/hello.py add() uses subtraction — patch to a + b",
+        audit_trace_id="trace-lingwen1-demo-add-001",
+    ),
 )
 
-# LingWen1: enable BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES on dev delegate — rows flow via promote_latest.
 LINGWEN1_CAPTURE_NOTE = (
-    "No LingWen1 rows in delegate_failures yet; next prod task awaits first captured dev failure."
+    "LingWen1 audit seeded as lingwen1-demo-add-fix; live capture via BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES."
 )
 
 PROMOTED_TASK_IDS: frozenset[str] = frozenset(b.task_id for b in BINDINGS)

@@ -45,6 +45,7 @@ def test_promoted_prod_skills_exist():
         "b9-prod-read-before-edit",
         "b9-prod-main-helpers-import",
         "b9-prod-cross-module-rename",
+        "b9-prod-lingwen-demo-add",
     ):
         assert (skills_root / name / "SKILL.md").is_file()
 

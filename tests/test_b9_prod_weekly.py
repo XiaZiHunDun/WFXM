@@ -106,6 +106,41 @@ def test_run_promoted_prod_oracle_probe():
     assert probe["passed"] == probe["total"]
 
 
+def test_is_production_delegate_row_accepts_lingwen():
+    assert is_production_delegate_row(
+        {
+            "role": "dev",
+            "project": "LingWen1",
+            "task_preview": "Fix demo/hello.py add()",
+            "failure_reason": "verify_fail",
+        }
+    )
+
+
+def test_promote_resolves_lingwen_implemented(tmp_path, monkeypatch):
+    audit = tmp_path / "audit"
+    audit.mkdir()
+    path = audit / "delegate_failures.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "role": "dev",
+                "project": "LingWen1",
+                "failure_reason": "verify_fail",
+                "task_preview": "Fix demo/hello.py in LingWen1: add(a, b) must return a + b.",
+                "task_id": "lingwen1-demo-add-fix",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+    monkeypatch.setattr("butler.ops.b9_prod_weekly._audit_path", lambda: path)
+    out = promote_latest_production_failure()
+    assert out["reason"] == "already_implemented"
+    assert out["resolved_task_id"] == "B9L_prod_lingwen_demo_add"
+
+
 def test_promote_resolves_implemented_task(tmp_path, monkeypatch):
     audit = tmp_path / "audit"
     audit.mkdir()

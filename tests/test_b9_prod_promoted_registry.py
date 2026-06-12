@@ -41,7 +41,16 @@ def test_resolve_cross_module_rename():
     assert resolve_production_failure_to_task(rec) == "B9L_prod_cross_module_rename"
 
 
+def test_resolve_lingwen_demo_add():
+    rec = {
+        "project": "LingWen1",
+        "task_preview": "Fix demo/hello.py in LingWen1: add(a, b) must return a + b.",
+        "issues": ["pytest failed: assert -1.0 == 8.0"],
+    }
+    assert resolve_production_failure_to_task(rec) == "B9L_prod_lingwen_demo_add"
+
+
 def test_promoted_tasks_exist_in_prod_shaped():
-    assert len(PROMOTED_TASK_IDS) == 4
+    assert len(PROMOTED_TASK_IDS) == 5
     for tid in PROMOTED_TASK_IDS:
         assert tid in B9_PROD_SHAPED_TASK_IDS

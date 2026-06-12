@@ -13,8 +13,8 @@ from butler.dev_engine.llm_delegate_benchmark import (
 
 class TestB9LiveFixedTasks:
     def test_fixed_set_count(self):
-        assert len(B9_LIVE_FIXED_TASKS) == 17
-        assert len(B9_LIVE_FIXED_TASK_IDS) == 17
+        assert len(B9_LIVE_FIXED_TASKS) == 18
+        assert len(B9_LIVE_FIXED_TASK_IDS) == 18
 
     def test_all_tasks_merged_into_b9_tasks(self):
         for spec in B9_LIVE_FIXED_TASKS:
@@ -23,8 +23,8 @@ class TestB9LiveFixedTasks:
     def test_oracle_all_pass(self, tmp_path, monkeypatch):
         monkeypatch.delenv("BUTLER_EVAL_LLM_BENCHMARK", raising=False)
         report = run_b9_live_fixed_benchmarks(workspace=tmp_path, mode=B9Mode.ORACLE)
-        assert report.total == 17
-        assert report.passed == 17
+        assert report.total == 18
+        assert report.passed == 18
 
     def test_full_b9_oracle_includes_live_fixed(self, tmp_path, monkeypatch):
         monkeypatch.delenv("BUTLER_EVAL_LLM_BENCHMARK", raising=False)

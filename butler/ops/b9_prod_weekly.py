@@ -55,6 +55,11 @@ def is_production_delegate_row(rec: dict[str, Any]) -> bool:
     preview = str(rec.get("task_preview") or rec.get("category") or "").lower()
     if "swe-benchmark" in preview or "[category:swe" in preview:
         return False
+    if "test_b9.py" in preview and "b9l_" not in preview:
+        # Isolated B9 pytest workspace prompts (unless LingWen1 / project tagged).
+        if str(rec.get("project") or "") != "LingWen1" and "lingwen" not in preview:
+            if "demo/hello" not in preview and "lingwen1" not in preview:
+                return False
     return True
 
 

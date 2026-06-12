@@ -850,6 +850,21 @@ def _attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any])
         if ds.coding_knowledge.mode:
             payload["dev_engine"]["coding_knowledge"] = ds.coding_knowledge.to_dict()
 
+        exp_id = ds.coding_knowledge.experience_id or ""
+        if exp_id:
+            try:
+                from butler.ops.experience_selection_telemetry import (
+                    apply_selected_experience_lifecycle,
+                )
+
+                lifecycle = apply_selected_experience_lifecycle(
+                    experience_id=exp_id,
+                    success=bool(ds.verify_result.passed),
+                )
+                payload["dev_engine"]["experience_lifecycle"] = lifecycle
+            except Exception:
+                pass
+
         _try_extract_experience(ds, state)
     except Exception as exc:  # noqa: BLE001 — best-effort summary
         logger.debug("DevState summary attachment skipped: %s", exc)

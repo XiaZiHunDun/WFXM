@@ -184,6 +184,42 @@ def _verify_b9l_prod_cross_module_rename(ws: Path) -> tuple[bool, str]:
     return _pytest_verify(ws)
 
 
+def _setup_b9l_prod_lingwen_demo_add(ws: Path) -> None:
+    ws.mkdir(parents=True, exist_ok=True)
+    demo = ws / "demo"
+    demo.mkdir(exist_ok=True)
+    (demo / "__init__.py").write_text("", encoding="utf-8")
+    (demo / "hello.py").write_text(
+        '"""LingWen1 demo — add() bug for prod-shaped benchmark."""\n\n'
+        "def greet(name: str) -> str:\n"
+        '    return f"你好，{name}！"\n\n\n'
+        "def add(a: float, b: float) -> float:\n"
+        "    return a - b\n",
+        encoding="utf-8",
+    )
+    (ws / "test_b9.py").write_text(
+        "from demo.hello import add\n\n\ndef test_add_sum():\n"
+        "    assert add(3.5, 4.5) == 8.0\n",
+        encoding="utf-8",
+    )
+
+
+def _oracle_b9l_prod_lingwen_demo_add(ws: Path) -> None:
+    from butler.dev_engine.edit_ops import apply_patch
+
+    _rec, err = apply_patch(
+        ws / "demo" / "hello.py",
+        "return a - b",
+        "return a + b",
+    )
+    if err:
+        raise RuntimeError(err)
+
+
+def _verify_b9l_prod_lingwen_demo_add(ws: Path) -> tuple[bool, str]:
+    return _pytest_verify(ws)
+
+
 _READ_STATE_CONTEXT = (
     "## PRODUCTION LESSON (READ_STATE_REQUIRED)\n"
     "Previous delegate failed because patch/write ran before read_file.\n"
@@ -276,6 +312,18 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
         verify=_verify_b9l_prod_cross_module_rename,
         oracle_apply=_oracle_b9l_prod_cross_module_rename,
         tags=("prod_shaped", "multi_file", "refactor", "verify_failed", "pytest", "promoted", "source:task_1c1398702de8"),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_lingwen_demo_add",
+        description="LingWen1 prod: fix demo/hello.py add() operator",
+        delegate_prompt=(
+            "Fix demo/hello.py in LingWen1 workspace: add(a, b) must return a + b. "
+            "test_b9.py expects add(3.5, 4.5) == 8.0. Only edit demo/hello.py."
+        ),
+        setup=_setup_b9l_prod_lingwen_demo_add,
+        verify=_verify_b9l_prod_lingwen_demo_add,
+        oracle_apply=_oracle_b9l_prod_lingwen_demo_add,
+        tags=("prod_shaped", "lingwen1", "verify_fail", "pytest", "promoted", "source:lingwen1-demo-add-fix"),
     ),
 ]
 

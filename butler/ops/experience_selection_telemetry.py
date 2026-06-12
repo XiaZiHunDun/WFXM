@@ -66,7 +66,40 @@ def summarize_experience_selections(*, limit: int = 200) -> dict[str, Any]:
     }
 
 
+def apply_selected_experience_lifecycle(
+    *,
+    experience_id: str,
+    success: bool,
+    renew_days: float = 30.0,
+    demote_days: float = 14.0,
+) -> dict[str, Any]:
+    """Renew or demote the experience that guided this delegate run."""
+    if not experience_id or not experience_id.strip():
+        return {"action": "none"}
+    import os
+
+    from butler.config import get_butler_home
+    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
+
+    path = os.path.join(get_butler_home(), "coding_experiences.json")
+    tlib = TheoremLibrary()
+    xlib = ExperienceLibrary.load_from_file(path, theorem_lib=tlib)
+    exp = xlib.get(experience_id)
+    if exp is None:
+        return {"action": "missing", "experience_id": experience_id}
+    if success:
+        ok = xlib.renew(experience_id, extend_days=renew_days)
+        action = "renewed" if ok else "renew_failed"
+    else:
+        ok = xlib.demote(experience_id, shrink_days=demote_days)
+        action = "demoted" if ok else "demote_failed"
+    if ok:
+        xlib.save_to_file(path)
+    return {"action": action, "experience_id": experience_id, "success": success}
+
+
 __all__ = [
+    "apply_selected_experience_lifecycle",
     "record_experience_selection",
     "selections_path",
     "summarize_experience_selections",
