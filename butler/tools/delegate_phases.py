@@ -470,6 +470,22 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
             except Exception:
                 strict = True
             ctx = process_task(keywords, tlib, xlib, strict_experience=strict)
+            if ctx.selected_experience is not None:
+                try:
+                    from butler.ops.experience_selection_telemetry import (
+                        record_experience_selection,
+                    )
+
+                    record_experience_selection(
+                        session_key=sk,
+                        task_preview=state.task,
+                        experience_id=ctx.selected_experience.id,
+                        experience_mode=ctx.mode,
+                        keywords=keywords[:24],
+                        role=state.role,
+                    )
+                except Exception:
+                    pass
             ds.coding_knowledge = CodingKnowledgeSummary(
                 mode=ctx.mode,
                 activated_theorem_ids=sorted(ctx.activated_theorems.keys()),

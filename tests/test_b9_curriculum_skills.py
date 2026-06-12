@@ -41,7 +41,11 @@ def test_tier2_prod_greet_skill_exists():
 
 def test_promoted_prod_skills_exist():
     skills_root = Path(__file__).resolve().parents[1] / "butler/registry/catalog/skills"
-    for name in ("b9-prod-read-before-edit", "b9-prod-main-helpers-import"):
+    for name in (
+        "b9-prod-read-before-edit",
+        "b9-prod-main-helpers-import",
+        "b9-prod-cross-module-rename",
+    ):
         assert (skills_root / name / "SKILL.md").is_file()
 
 

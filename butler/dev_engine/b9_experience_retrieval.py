@@ -23,6 +23,9 @@ TASK_RETRIEVAL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "B9L_prod_main_helpers_import": (
         "main", "helpers", "helper", "import", "module", "importerror", "list_directory", "pytest",
     ),
+    "B9L_prod_cross_module_rename": (
+        "rename", "getdata", "get_data", "client", "pkg", "refactor", "multi_file", "pytest",
+    ),
     "B9L_prod_verify_fail": ("divide", "zero", "division", "verify", "pytest", "handler"),
     "B9L_prod_patch_wrong": ("patch", "wrong", "operator", "fix", "implementation", "pytest"),
     "B9L_prod_no_test": ("no", "test", "read", "only", "edit", "patch", "pytest"),
@@ -163,6 +166,7 @@ def _seed_missing_prod_experiences(xlib: Any, path: str) -> int:
         "B9L_prod_demo_fix_greet_return",
         "B9L_prod_read_state_greet",
         "B9L_prod_main_helpers_import",
+        "B9L_prod_cross_module_rename",
         "B9L_prod_verify_fail",
         "B9L_prod_patch_wrong",
         "B9L_prod_no_test",

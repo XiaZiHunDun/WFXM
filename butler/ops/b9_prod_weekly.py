@@ -46,11 +46,16 @@ def _norm_failure_reason(raw: str) -> str:
 
 
 def is_production_delegate_row(rec: dict[str, Any]) -> bool:
-    """Dev delegate failures that are not B9 benchmark rows."""
+    """Dev delegate failures that are not B9/SWE benchmark rows."""
     role = str(rec.get("role") or "").replace("_agent", "").strip().lower()
     if role and role != "dev":
         return False
-    return not _is_b9_row(rec)
+    if _is_b9_row(rec):
+        return False
+    preview = str(rec.get("task_preview") or rec.get("category") or "").lower()
+    if "swe-benchmark" in preview or "[category:swe" in preview:
+        return False
+    return True
 
 
 def load_production_failure_rows(*, limit: int = 500) -> list[dict[str, Any]]:
@@ -174,19 +179,29 @@ def promote_latest_production_failure() -> dict[str, Any]:
             "queue_path": str(_queue_path()),
         }
 
-    latest = rows[-1]
-    resolved = resolve_production_failure_to_task(latest)
-    if resolved and resolved in B9_PROD_SHAPED_TASK_IDS:
-        binding = binding_for_task(resolved)
-        mark_promotion_implemented(
-            resolved,
-            note=f"auto: matched production audit source={binding.source_task_id if binding else ''}",
-        )
+    latest: dict[str, Any] | None = None
+    for rec in reversed(rows):
+        hit = resolve_production_failure_to_task(rec)
+        if hit and hit in B9_PROD_SHAPED_TASK_IDS:
+            binding = binding_for_task(hit)
+            mark_promotion_implemented(
+                hit,
+                note=f"auto: matched production audit source={binding.source_task_id if binding else ''}",
+            )
+            return {
+                "promoted": False,
+                "reason": "already_implemented",
+                "resolved_task_id": hit,
+                "source_task_id": binding.source_task_id if binding else "",
+                "queue_path": str(_queue_path()),
+            }
+        if latest is None:
+            latest = rec
+
+    if latest is None:
         return {
             "promoted": False,
-            "reason": "already_implemented",
-            "resolved_task_id": resolved,
-            "source_task_id": binding.source_task_id if binding else "",
+            "reason": "no_production_failures",
             "queue_path": str(_queue_path()),
         }
 

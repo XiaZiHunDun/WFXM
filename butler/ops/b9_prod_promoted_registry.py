@@ -23,6 +23,8 @@ _PREVIEW_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("clamp", "logic.py"), "B9L_prod_patch_wrong"),
     (("divider", "divide"), "B9L_prod_verify_fail"),
     (("formatter", "label"), "B9L_prod_no_test"),
+    (("getdata", "get_data", "pkg/client"), "B9L_prod_cross_module_rename"),
+    (("rename", "getdata", "client.py"), "B9L_prod_cross_module_rename"),
 )
 
 BINDINGS: tuple[ProdPromotedBinding, ...] = (
@@ -47,6 +49,18 @@ BINDINGS: tuple[ProdPromotedBinding, ...] = (
         pattern_summary="main.py imports helper but module is helpers.py — list_directory then patch import",
         audit_trace_id="",
     ),
+    ProdPromotedBinding(
+        task_id="B9L_prod_cross_module_rename",
+        source_task_id="task_1c1398702de8",
+        failure_reason="verify_failed",
+        pattern_summary="Rename getData→get_data in pkg/client.py; read_file both files before patch",
+        audit_trace_id="",
+    ),
+)
+
+# LingWen1: enable BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES on dev delegate — rows flow via promote_latest.
+LINGWEN1_CAPTURE_NOTE = (
+    "No LingWen1 rows in delegate_failures yet; next prod task awaits first captured dev failure."
 )
 
 PROMOTED_TASK_IDS: frozenset[str] = frozenset(b.task_id for b in BINDINGS)
@@ -83,6 +97,7 @@ def promoted_probe_task_ids() -> list[str]:
 
 __all__ = [
     "BINDINGS",
+    "LINGWEN1_CAPTURE_NOTE",
     "PROMOTED_TASK_IDS",
     "ProdPromotedBinding",
     "binding_for_task",

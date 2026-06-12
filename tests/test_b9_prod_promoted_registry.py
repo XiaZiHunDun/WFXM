@@ -33,6 +33,15 @@ def test_resolve_main_helpers_import():
     assert resolve_production_failure_to_task(rec) == "B9L_prod_main_helpers_import"
 
 
+def test_resolve_cross_module_rename():
+    rec = {
+        "task_preview": "Rename method getData to get_data in pkg/client.py and update pkg/__init__.py.",
+        "issues": ["READ_STATE_REQUIRED"],
+    }
+    assert resolve_production_failure_to_task(rec) == "B9L_prod_cross_module_rename"
+
+
 def test_promoted_tasks_exist_in_prod_shaped():
+    assert len(PROMOTED_TASK_IDS) == 4
     for tid in PROMOTED_TASK_IDS:
         assert tid in B9_PROD_SHAPED_TASK_IDS

@@ -86,6 +86,11 @@ snap = record_production_delegate_snapshot()
 print(format_production_delegate_report(snap))
 print(format_production_delegate_delta(snap.get("delta")))
 print(f"b9_experience_backfill_updated={backfill.get('updated', 0)}")
+from butler.ops.b9_prod_promoted_registry import LINGWEN1_CAPTURE_NOTE
+from butler.ops.experience_selection_telemetry import summarize_experience_selections
+
+print(f"lingwen1_note={LINGWEN1_CAPTURE_NOTE}")
+print("experience_selections=", summarize_experience_selections())
 PY
 
 echo ""
@@ -99,8 +104,9 @@ print(json.dumps(probe, ensure_ascii=False, indent=2))
 print(f"\nPromoted prod ({probe.get('mode')}): {probe.get('passed')}/{probe.get('total')}")
 if probe.get("passed", 0) < probe.get("total", 0):
     print("PROMOTED PROD BENCHMARK: had failures", file=sys.stderr)
+    raise SystemExit(1)
 PY
-|| echo "(promoted prod probe had failures — stretch only)"
+if [ $? -ne 0 ]; then echo "(promoted prod probe had failures — stretch only)"; fi
 
 echo ""
 echo "=== B9 weekly: promotion queue sync + bundle ==="

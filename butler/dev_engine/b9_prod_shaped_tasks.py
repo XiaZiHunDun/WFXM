@@ -168,6 +168,22 @@ def _verify_b9l_prod_main_helpers_import(ws: Path) -> tuple[bool, str]:
     return _pytest_verify(ws)
 
 
+def _setup_b9l_prod_cross_module_rename(ws: Path) -> None:
+    from butler.dev_engine.b9_live_fixed_tasks import _setup_b9l_cross_module_rename
+
+    _setup_b9l_cross_module_rename(ws)
+
+
+def _oracle_b9l_prod_cross_module_rename(ws: Path) -> None:
+    from butler.dev_engine.b9_live_fixed_tasks import _oracle_b9l_cross_module_rename
+
+    _oracle_b9l_cross_module_rename(ws)
+
+
+def _verify_b9l_prod_cross_module_rename(ws: Path) -> tuple[bool, str]:
+    return _pytest_verify(ws)
+
+
 _READ_STATE_CONTEXT = (
     "## PRODUCTION LESSON (READ_STATE_REQUIRED)\n"
     "Previous delegate failed because patch/write ran before read_file.\n"
@@ -248,6 +264,18 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
         verify=_verify_b9l_prod_main_helpers_import,
         oracle_apply=_oracle_b9l_prod_main_helpers_import,
         tags=("prod_shaped", "tool_wrong", "verify_failed", "pytest", "promoted", "source:task_12f8eb65e703"),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_cross_module_rename",
+        description="Prod promoted: rename getData→get_data in pkg/client.py",
+        delegate_prompt=(
+            "Rename method getData to get_data in pkg/client.py and update pkg/__init__.py. "
+            "test_b9.py must pass. read_file before patch."
+        ),
+        setup=_setup_b9l_prod_cross_module_rename,
+        verify=_verify_b9l_prod_cross_module_rename,
+        oracle_apply=_oracle_b9l_prod_cross_module_rename,
+        tags=("prod_shaped", "multi_file", "refactor", "verify_failed", "pytest", "promoted", "source:task_1c1398702de8"),
     ),
 ]
 

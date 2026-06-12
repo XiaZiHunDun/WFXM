@@ -43,6 +43,10 @@ B9_TASK_PLAYBOOKS: dict[str, str] = {
         "Playbook (production import failure): list_directory, read main.py. "
         "Wrong import `from helper` — patch to `from helpers import run`. Use run_pytest."
     ),
+    "B9L_prod_cross_module_rename": (
+        "Playbook (production rename): read_file pkg/client.py and pkg/__init__.py. "
+        "Rename method getData → get_data in client.py; update exports if needed. run_pytest."
+    ),
     # Tier-1 gate (release subset)
     "B9L_test_driven_add": (
         "Playbook: read test_b9.py — needs ping() returning 'pong'. service.py is nearly empty. "

@@ -22,6 +22,13 @@ def test_is_production_delegate_row_filters_b9():
     assert not is_production_delegate_row(
         {"role": "dev", "category": "b9-benchmark", "failure_reason": "wrong_patch"}
     )
+    assert not is_production_delegate_row(
+        {
+            "role": "dev",
+            "task_preview": "[category:swe-benchmark] SWE instance rules",
+            "failure_reason": "verify_failed",
+        }
+    )
 
 
 def test_summarize_production_delegate_quality(tmp_path, monkeypatch):
