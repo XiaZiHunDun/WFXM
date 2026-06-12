@@ -105,6 +105,11 @@ def build_b9_delegate_context(workspace: Path) -> str:
             "read_file the target source before patch; old_string must match file content exactly.",
             "patch always needs path, old_string, and new_string.",
         ])
+    from butler.dev_engine.b9_oracle_fewshot import format_b9_oracle_fewshot_block
+
+    fewshot = format_b9_oracle_fewshot_block(max_cases=2)
+    if fewshot:
+        lines.append(fewshot)
     return "\n".join(lines)
 
 

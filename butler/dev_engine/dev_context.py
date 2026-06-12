@@ -66,6 +66,14 @@ def dev_state_context_block(state: DevState) -> str:
             guidance = format_coding_guidance_block(ctx, max_cases=max_cases)
             if guidance.strip():
                 lines.append(guidance)
+            try:
+                from butler.dev_engine.b9_oracle_fewshot import format_b9_oracle_fewshot_block
+
+                fewshot = format_b9_oracle_fewshot_block(max_cases=2)
+                if fewshot:
+                    lines.append(fewshot)
+            except Exception:
+                pass
         except Exception as exc:
             import logging
             logging.getLogger(__name__).debug("coding guidance block skipped: %s", exc)
