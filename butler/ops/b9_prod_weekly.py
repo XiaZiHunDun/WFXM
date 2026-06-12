@@ -45,6 +45,14 @@ def _norm_failure_reason(raw: str) -> str:
     return "other"
 
 
+def _is_lingwen_production_project(rec: dict[str, Any]) -> bool:
+    project = str(rec.get("project") or "").strip()
+    if project in ("LingWen1", "灵文1号", "灵文1"):
+        return True
+    preview = str(rec.get("task_preview") or "").lower()
+    return "lingwen" in preview or "灵文" in preview
+
+
 def is_production_delegate_row(rec: dict[str, Any]) -> bool:
     """Dev delegate failures that are not B9/SWE benchmark rows."""
     role = str(rec.get("role") or "").replace("_agent", "").strip().lower()
@@ -55,9 +63,11 @@ def is_production_delegate_row(rec: dict[str, Any]) -> bool:
     preview = str(rec.get("task_preview") or rec.get("category") or "").lower()
     if "swe-benchmark" in preview or "[category:swe" in preview:
         return False
+    if str(rec.get("project") or "") == "__b9_live_benchmark__":
+        return False
     if "test_b9.py" in preview and "b9l_" not in preview:
         # Isolated B9 pytest workspace prompts (unless LingWen1 / project tagged).
-        if str(rec.get("project") or "") != "LingWen1" and "lingwen" not in preview:
+        if not _is_lingwen_production_project(rec):
             if "demo/hello" not in preview and "lingwen1" not in preview:
                 return False
     return True

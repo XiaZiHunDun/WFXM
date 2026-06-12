@@ -115,6 +115,23 @@ def test_is_production_delegate_row_accepts_lingwen():
             "failure_reason": "verify_fail",
         }
     )
+    assert is_production_delegate_row(
+        {
+            "role": "dev",
+            "project": "灵文1号",
+            "task_preview": "Fix demo/hello.py drill",
+            "failure_reason": "verify_failed",
+            "capture_source": "delegate_pipeline",
+        }
+    )
+    assert not is_production_delegate_row(
+        {
+            "role": "dev",
+            "project": "__b9_live_benchmark__",
+            "task_preview": "fix greet",
+            "failure_reason": "verify_failed",
+        }
+    )
 
 
 def test_promote_resolves_lingwen_implemented(tmp_path, monkeypatch):

@@ -211,6 +211,7 @@ def _finalize_delegate_failure(
     exc: Exception,
     task_id: str = "",
     session_key: str = "",
+    project: str = "",
 ) -> str:
     from butler.report import AgentReport, cache_report
     from butler.runtime.task_store import complete_task
@@ -253,6 +254,7 @@ def _finalize_delegate_failure(
             parent_session_key=session_key,
             child_session_key=session_key,
             task_id=task_id,
+            project=project,
             dev_engine=None,
         )
     except Exception as cap_exc:
@@ -343,10 +345,14 @@ def _tool_delegate_task(
 
     except Exception as exc:
         logger.error("Delegation to %s failed: %s", role, exc)
+        project_name = ""
+        if state.project is not None:
+            project_name = str(getattr(state.project, "name", "") or "")
         return _finalize_delegate_failure(
             role=state.role,
             task=state.task,
             exc=exc,
             task_id=state.task_id,
             session_key=state.session_key,
+            project=project_name,
         )
