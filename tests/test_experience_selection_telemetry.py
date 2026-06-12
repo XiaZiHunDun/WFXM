@@ -6,7 +6,9 @@ import json
 
 from butler.ops.experience_selection_telemetry import (
     apply_selected_experience_lifecycle,
+    lifecycle_path,
     record_experience_selection,
+    summarize_experience_lifecycle,
     summarize_experience_selections,
 )
 from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary, TheoremLibrary
@@ -39,6 +41,10 @@ def test_record_and_summarize(tmp_path, monkeypatch):
 
 def test_apply_selected_experience_lifecycle_renew_and_demote(tmp_path, monkeypatch):
     monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+    monkeypatch.setattr(
+        "butler.ops.experience_selection_telemetry.lifecycle_path",
+        lambda: tmp_path / "audit" / "experience_lifecycle.jsonl",
+    )
     path = tmp_path / "coding_experiences.json"
     tlib = TheoremLibrary()
     xlib = ExperienceLibrary(theorem_lib=tlib)
@@ -72,3 +78,7 @@ def test_apply_selected_experience_lifecycle_renew_and_demote(tmp_path, monkeypa
         demote_days=5.0,
     )
     assert out_fail["action"] == "demoted"
+    summary = summarize_experience_lifecycle()
+    assert summary["total"] == 2
+    assert summary["by_action"].get("renewed") == 1
+    assert summary["by_action"].get("demoted") == 1

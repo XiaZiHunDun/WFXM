@@ -16,6 +16,7 @@ B9_TIER2_TASK_IDS: frozenset[str] = frozenset({
     "B9L_prod_main_helpers_import",
     "B9L_prod_cross_module_rename",
     "B9L_prod_lingwen_demo_add",
+    "B9L_prod_lingwen_workflow_guard",
 })
 
 # STUCK expects verify to fail (agent should not fix); excluded from Tier-1 pass_rate.

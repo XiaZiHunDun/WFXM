@@ -51,6 +51,10 @@ B9_TASK_PLAYBOOKS: dict[str, str] = {
         "Playbook (LingWen1): read_file demo/hello.py and test_b9.py. "
         "add() wrongly uses a - b; patch to return a + b. Only edit demo/hello.py."
     ),
+    "B9L_prod_lingwen_workflow_guard": (
+        "Playbook (LingWen1 novel-factory): read_file scripts/workflow_guard.py and test_b9.py. "
+        "has_open_completed returns False on 待修复; patch inner branch to return True."
+    ),
     # Tier-1 gate (release subset)
     "B9L_test_driven_add": (
         "Playbook: read test_b9.py — needs ping() returning 'pong'. service.py is nearly empty. "

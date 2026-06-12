@@ -860,6 +860,9 @@ def _attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any])
                 lifecycle = apply_selected_experience_lifecycle(
                     experience_id=exp_id,
                     success=bool(ds.verify_result.passed),
+                    session_key=state.child_session_key or state.session_key or "",
+                    task_preview=state.task or "",
+                    role=state.role,
                 )
                 payload["dev_engine"]["experience_lifecycle"] = lifecycle
             except Exception:

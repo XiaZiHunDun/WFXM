@@ -220,6 +220,51 @@ def _verify_b9l_prod_lingwen_demo_add(ws: Path) -> tuple[bool, str]:
     return _pytest_verify(ws)
 
 
+def _setup_b9l_prod_lingwen_workflow_guard(ws: Path) -> None:
+    ws.mkdir(parents=True, exist_ok=True)
+    scripts = ws / "scripts"
+    scripts.mkdir(exist_ok=True)
+    (scripts / "__init__.py").write_text("", encoding="utf-8")
+    (scripts / "workflow_guard.py").write_text(
+        '"""LingWen1 novel-factory/scripts — detect open completed batches."""\n\n'
+        "from __future__ import annotations\n\n"
+        "from typing import Any\n\n\n"
+        "def has_open_completed(state: dict[str, Any]) -> bool:\n"
+        '    """Return True when a completed batch still has open result text."""\n'
+        '    completed = (state.get("review_queue") or {}).get("completed") or []\n'
+        "    for entry in completed:\n"
+        '        result = str(entry.get("result") or "")\n'
+        '        if "待修复" in result or "未通过" in result:\n'
+        "            return False\n"
+        "    return False\n",
+        encoding="utf-8",
+    )
+    (ws / "test_b9.py").write_text(
+        "from scripts.workflow_guard import has_open_completed\n\n\n"
+        "def test_open_batch_detected():\n"
+        '    state = {"review_queue": {"completed": [{"batch_id": "b1", "result": "待修复 P0"}]}}\n'
+        "    assert has_open_completed(state) is True\n",
+        encoding="utf-8",
+    )
+
+
+def _oracle_b9l_prod_lingwen_workflow_guard(ws: Path) -> None:
+    from butler.dev_engine.edit_ops import apply_patch
+
+    target = ws / "scripts" / "workflow_guard.py"
+    _rec, err = apply_patch(
+        target,
+        '        if "待修复" in result or "未通过" in result:\n            return False',
+        '        if "待修复" in result or "未通过" in result:\n            return True',
+    )
+    if err:
+        raise RuntimeError(err)
+
+
+def _verify_b9l_prod_lingwen_workflow_guard(ws: Path) -> tuple[bool, str]:
+    return _pytest_verify(ws)
+
+
 _READ_STATE_CONTEXT = (
     "## PRODUCTION LESSON (READ_STATE_REQUIRED)\n"
     "Previous delegate failed because patch/write ran before read_file.\n"
@@ -324,6 +369,27 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
         verify=_verify_b9l_prod_lingwen_demo_add,
         oracle_apply=_oracle_b9l_prod_lingwen_demo_add,
         tags=("prod_shaped", "lingwen1", "verify_fail", "pytest", "promoted", "source:lingwen1-demo-add-fix"),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_lingwen_workflow_guard",
+        description="LingWen1 prod: fix workflow_guard open-batch detection",
+        delegate_prompt=(
+            "Fix scripts/workflow_guard.py in LingWen1 novel-factory workspace: "
+            "has_open_completed() must return True when completed batch result contains 待修复. "
+            "test_b9.py must pass. Only edit scripts/workflow_guard.py."
+        ),
+        setup=_setup_b9l_prod_lingwen_workflow_guard,
+        verify=_verify_b9l_prod_lingwen_workflow_guard,
+        oracle_apply=_oracle_b9l_prod_lingwen_workflow_guard,
+        tags=(
+            "prod_shaped",
+            "lingwen1",
+            "novel_factory",
+            "verify_fail",
+            "pytest",
+            "promoted",
+            "source:lingwen1-workflow-guard-fix",
+        ),
     ),
 ]
 

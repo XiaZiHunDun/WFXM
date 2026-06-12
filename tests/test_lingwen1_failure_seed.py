@@ -17,12 +17,12 @@ def test_seed_lingwen1_failure_audit(tmp_path, monkeypatch):
 
     assert not lingwen1_audit_present()
     out = seed_lingwen1_failure_audit()
-    assert out["seeded"] is True
+    assert LINGWEN1_AUDIT_RECORD["task_id"] in out["seeded"]
     assert path.is_file()
-    row = json.loads(path.read_text(encoding="utf-8").strip())
-    assert row["task_id"] == LINGWEN1_AUDIT_RECORD["task_id"]
-    assert row["project"] == "LingWen1"
+    rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert any(r["task_id"] == LINGWEN1_AUDIT_RECORD["task_id"] for r in rows)
+    assert rows[0]["project"] == "LingWen1"
 
     out2 = seed_lingwen1_failure_audit()
-    assert out2["seeded"] is False
-    assert out2["reason"] == "already_present"
+    assert out2["seeded"] == []
+    assert LINGWEN1_AUDIT_RECORD["task_id"] in out2["skipped"]

@@ -50,7 +50,16 @@ def test_resolve_lingwen_demo_add():
     assert resolve_production_failure_to_task(rec) == "B9L_prod_lingwen_demo_add"
 
 
+def test_resolve_lingwen_workflow_guard():
+    rec = {
+        "project": "LingWen1",
+        "task_preview": "Fix scripts/workflow_guard.py has_open_completed 待修复",
+        "issues": ["pytest failed"],
+    }
+    assert resolve_production_failure_to_task(rec) == "B9L_prod_lingwen_workflow_guard"
+
+
 def test_promoted_tasks_exist_in_prod_shaped():
-    assert len(PROMOTED_TASK_IDS) == 5
+    assert len(PROMOTED_TASK_IDS) == 6
     for tid in PROMOTED_TASK_IDS:
         assert tid in B9_PROD_SHAPED_TASK_IDS

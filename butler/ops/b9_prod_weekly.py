@@ -151,7 +151,8 @@ def format_production_delegate_report(summary: dict[str, Any] | None = None) -> 
 
 def format_production_delegate_delta(delta: dict[str, Any] | None) -> str:
     if not delta or delta.get("snapshots", 0) < 2:
-        return "prod_delta=(insufficient snapshots)"
+        note = (delta or {}).get("note", "need 2+ snapshots for delta")
+        return f"prod_delta=(insufficient snapshots: {note}; baseline after is_production_delegate_row filter)"
     parts = [
         f"verify_fail {delta.get('verify_fail_rate_delta', 0):+.4f}",
         f"patch_wrong {delta.get('patch_wrong_rate_delta', 0):+.4f}",

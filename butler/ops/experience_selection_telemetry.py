@@ -14,6 +14,12 @@ def selections_path() -> Path:
     return get_butler_home() / "audit" / "experience_selections.jsonl"
 
 
+def lifecycle_path() -> Path:
+    from butler.config import get_butler_home
+
+    return get_butler_home() / "audit" / "experience_lifecycle.jsonl"
+
+
 def record_experience_selection(
     *,
     session_key: str = "",
@@ -66,12 +72,72 @@ def summarize_experience_selections(*, limit: int = 200) -> dict[str, Any]:
     }
 
 
+def record_experience_lifecycle(
+    *,
+    experience_id: str,
+    action: str,
+    success: bool,
+    session_key: str = "",
+    task_preview: str = "",
+    role: str = "dev",
+) -> None:
+    if not experience_id or action in ("none", ""):
+        return
+    path = lifecycle_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {
+        "ts": time.time(),
+        "session_key": session_key,
+        "role": role,
+        "task_preview": (task_preview or "")[:300],
+        "experience_id": experience_id,
+        "action": action,
+        "verify_passed": success,
+    }
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def summarize_experience_lifecycle(*, limit: int = 200) -> dict[str, Any]:
+    path = lifecycle_path()
+    if not path.is_file():
+        return {"total": 0, "by_action": {}, "by_experience": {}, "path": str(path)}
+    from collections import Counter
+
+    by_action: Counter[str] = Counter()
+    by_exp: Counter[str] = Counter()
+    total = 0
+    for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        total += 1
+        act = str(row.get("action") or "")
+        if act:
+            by_action[act] += 1
+        eid = str(row.get("experience_id") or "")
+        if eid:
+            by_exp[eid] += 1
+    return {
+        "total": total,
+        "by_action": dict(by_action.most_common(8)),
+        "by_experience": dict(by_exp.most_common(12)),
+        "path": str(path),
+    }
+
+
 def apply_selected_experience_lifecycle(
     *,
     experience_id: str,
     success: bool,
     renew_days: float = 30.0,
     demote_days: float = 14.0,
+    session_key: str = "",
+    task_preview: str = "",
+    role: str = "dev",
 ) -> dict[str, Any]:
     """Renew or demote the experience that guided this delegate run."""
     if not experience_id or not experience_id.strip():
@@ -95,12 +161,27 @@ def apply_selected_experience_lifecycle(
         action = "demoted" if ok else "demote_failed"
     if ok:
         xlib.save_to_file(path)
-    return {"action": action, "experience_id": experience_id, "success": success}
+    result = {"action": action, "experience_id": experience_id, "success": success}
+    try:
+        record_experience_lifecycle(
+            experience_id=experience_id,
+            action=action,
+            success=success,
+            session_key=session_key,
+            task_preview=task_preview,
+            role=role,
+        )
+    except Exception:
+        pass
+    return result
 
 
 __all__ = [
     "apply_selected_experience_lifecycle",
+    "lifecycle_path",
+    "record_experience_lifecycle",
     "record_experience_selection",
     "selections_path",
+    "summarize_experience_lifecycle",
     "summarize_experience_selections",
 ]

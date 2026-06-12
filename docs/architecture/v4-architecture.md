@@ -632,6 +632,12 @@ while not done and iterations < budget:
 - **B9 委派门控**：`b9_delegate_gate.py` — `finalize_delegate_success` 在 `b9-benchmark`/`swe-benchmark` 下要求 verify 绿；子 agent 预载 read_state + `<benchmark-workspace-files>`；LIVE 失败最多 3 轮 oracle replay
 - **发版/周循环**：`butler-b9-release-gate.sh`（oracle Tier-1，进 pre-release smoke）；`butler-b9-weekly-learning.sh`（Tier-1 LIVE + Tier-2 probe + SWE 子集）
 - **失败分析**：`butler/ops/b9_failure_analysis.py`；harness 摩擦 `b9_harness_audit.py`（READ_STATE / TOOL_ERROR 趋势）；生产晋升 `delegate_failure_b9_promote.py`
+- **生产内循环（Phase C）**：
+  - `b9_prod_weekly.py` — 生产 delegate 质量聚合、`prod_delegate_snapshots.jsonl` 周快照与 `prod_delta`（`is_production_delegate_row` 过滤 B9/SWE 噪声）
+  - `b9_prod_promoted_registry.py` — 审计行 → 已实现 `B9L_prod_*` 绑定；`run_promoted_prod_live_probe` 周探针
+  - `experience_selection_telemetry.py` — 委派经验命中 `experience_selections.jsonl`；选中经验 **renew/demote** 写 `experience_lifecycle.jsonl`
+  - `lingwen1_failure_seed.py` — LingWen1 形生产失败种子（demo/add、workflow_guard 等）供晋升管道演练
+  - `delegate_failure_b9_promote.dismiss_spurious_promotion_queue_items` — SWE-benchmark 误晋升队列清理
 - **模型对照**：`scripts/butler-eval-b9-probe-model.sh`（`--tier1` / `--compare` + `temporary_model_override`）
 
 ### 新增 Dev Engine 模块索引

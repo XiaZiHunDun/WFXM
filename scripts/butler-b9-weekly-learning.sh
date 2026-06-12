@@ -88,11 +88,15 @@ print(format_production_delegate_delta(snap.get("delta")))
 print(f"b9_experience_backfill_updated={backfill.get('updated', 0)}")
 from butler.ops.lingwen1_failure_seed import seed_lingwen1_failure_audit
 from butler.ops.b9_prod_promoted_registry import LINGWEN1_CAPTURE_NOTE
-from butler.ops.experience_selection_telemetry import summarize_experience_selections
+from butler.ops.experience_selection_telemetry import (
+    summarize_experience_lifecycle,
+    summarize_experience_selections,
+)
 
 print("lingwen1_seed=", seed_lingwen1_failure_audit())
 print(f"lingwen1_note={LINGWEN1_CAPTURE_NOTE}")
 print("experience_selections=", summarize_experience_selections())
+print("experience_lifecycle=", summarize_experience_lifecycle())
 PY
 
 echo ""

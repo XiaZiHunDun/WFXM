@@ -27,6 +27,9 @@ _PREVIEW_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("rename", "getdata", "client.py"), "B9L_prod_cross_module_rename"),
     (("lingwen1", "demo/hello", "add"), "B9L_prod_lingwen_demo_add"),
     (("demo/hello.py", "add(a, b)"), "B9L_prod_lingwen_demo_add"),
+    (("workflow_guard", "待修复"), "B9L_prod_lingwen_workflow_guard"),
+    (("workflow_guard", "待修复", "novel-factory"), "B9L_prod_lingwen_workflow_guard"),
+    (("has_open_completed", "completed", "待修复"), "B9L_prod_lingwen_workflow_guard"),
 )
 
 BINDINGS: tuple[ProdPromotedBinding, ...] = (
@@ -65,10 +68,17 @@ BINDINGS: tuple[ProdPromotedBinding, ...] = (
         pattern_summary="LingWen1 demo/hello.py add() uses subtraction — patch to a + b",
         audit_trace_id="trace-lingwen1-demo-add-001",
     ),
+    ProdPromotedBinding(
+        task_id="B9L_prod_lingwen_workflow_guard",
+        source_task_id="lingwen1-workflow-guard-fix",
+        failure_reason="verify_fail",
+        pattern_summary="workflow_guard has_open_completed ignores 待修复 — return True in open branch",
+        audit_trace_id="trace-lingwen1-workflow-guard-001",
+    ),
 )
 
 LINGWEN1_CAPTURE_NOTE = (
-    "LingWen1 audit seeded as lingwen1-demo-add-fix; live capture via BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES."
+    "LingWen1 audit seeds: demo-add + workflow-guard; live capture via BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES."
 )
 
 PROMOTED_TASK_IDS: frozenset[str] = frozenset(b.task_id for b in BINDINGS)
