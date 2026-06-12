@@ -80,6 +80,24 @@ def test_capture_delegate_failure_pushes(mock_create, mock_item, mock_score, mon
     assert audit["total"] >= 1
 
 
+def test_capture_records_project_and_source(monkeypatch, tmp_path):
+    monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+    monkeypatch.setenv("BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES", "1")
+    capture_delegate_failure(
+        role="dev",
+        task="fix demo/hello.py add",
+        success=False,
+        task_id="lw-1",
+        project="LingWen1",
+        capture_source="delegate_pipeline",
+        dev_engine={"verify_passed": False},
+    )
+    audit_path = tmp_path / "audit" / "delegate_failures.jsonl"
+    row = json.loads(audit_path.read_text(encoding="utf-8").strip())
+    assert row["project"] == "LingWen1"
+    assert row["capture_source"] == "delegate_pipeline"
+
+
 def test_capture_skipped_when_disabled(monkeypatch):
     monkeypatch.setenv("BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES", "0")
     summary = capture_delegate_failure(role="dev", task="x", success=False)

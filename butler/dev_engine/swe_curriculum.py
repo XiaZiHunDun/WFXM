@@ -44,10 +44,12 @@ SWE_PLAYBOOKS: dict[str, SWEPlaybook] = {
     "SWE-015": SWEPlaybook(
         instance_id="SWE-015",
         title="PriorityQueue pop highest priority first",
-        pattern_summary="pop() must return item with lowest priority number (min-heap behavior).",
+        pattern_summary=(
+            "After sort(), pop(0) not pop(): lowest priority number = highest priority item."
+        ),
         steps=(
-            "read_file queue.py",
-            "patch pop to select min priority entry",
+            "read_file queue.py — locate PriorityQueue.pop",
+            "patch pop: keep self._items.sort(); change return self._items.pop()[1] to pop(0)[1]",
             "terminal: python -m pytest _swe_test.py -q",
         ),
         skill_name="b9-swe-priority-queue",
@@ -96,6 +98,18 @@ def format_swe_replay_block(instance_id: str) -> str:
             "                pass",
             "        return unsubscribe",
             "```",
+        ])
+    if instance_id == "SWE-015":
+        lines.extend([
+            "",
+            "bug: pop() removes the LAST tuple after sort (highest priority number).",
+            "fix: use pop(0) to take the FIRST tuple (lowest priority number = highest priority).",
+            "patch target in pop():",
+            "```python",
+            "        self._items.sort()",
+            "        return self._items.pop(0)[1]",
+            "```",
+            "do NOT reverse sort or use max(); only change pop() to pop(0).",
         ])
     return "\n".join(lines)
 

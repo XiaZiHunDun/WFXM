@@ -18,6 +18,7 @@ LINGWEN1_AUDIT_RECORD: dict[str, Any] = {
     "issues": ["pytest failed: assert -1.0 == 8.0"],
     "verify_passed": False,
     "demo": False,
+    "capture_source": "seed",
 }
 
 LINGWEN1_VALIDATE_AUDIT_RECORD: dict[str, Any] = {
@@ -34,6 +35,7 @@ LINGWEN1_VALIDATE_AUDIT_RECORD: dict[str, Any] = {
     "issues": ["pytest failed: assert False is True"],
     "verify_passed": False,
     "demo": False,
+    "capture_source": "seed",
 }
 
 LINGWEN1_AUDIT_RECORDS: tuple[dict[str, Any], ...] = (

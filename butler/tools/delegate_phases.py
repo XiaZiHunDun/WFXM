@@ -1000,6 +1000,9 @@ def _finalize_delegate_observability(
     try:
         from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
 
+        project_name = ""
+        if state.project is not None:
+            project_name = str(getattr(state.project, "name", "") or "")
         maybe_capture_from_delegate_result(
             role=state.role,
             task=state.task,
@@ -1009,6 +1012,7 @@ def _finalize_delegate_observability(
             parent_session_key=state.session_key,
             child_session_key=state.child_session_key or state.session_key,
             task_id=state.task_id,
+            project=project_name,
             dev_engine=dev_engine,
         )
     except Exception as exc:  # noqa: BLE001 — best-effort capture

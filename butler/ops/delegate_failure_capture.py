@@ -170,6 +170,8 @@ def capture_delegate_failure(
     issues: list[str] | None = None,
     trace_id: str = "",
     task_id: str = "",
+    project: str = "",
+    capture_source: str = "",
     dev_engine: dict[str, Any] | None = None,
     failure_reason: str = "",
 ) -> dict[str, Any]:
@@ -199,6 +201,10 @@ def capture_delegate_failure(
         "issues": [sanitize_text(i, limit=200) for i in (issues or [])[:3]],
         "verify_passed": None if dev_engine is None else dev_engine.get("verify_passed"),
     }
+    if project:
+        audit_rec["project"] = project
+    if capture_source:
+        audit_rec["capture_source"] = capture_source
     try:
         _append_audit(audit_rec)
     except Exception as exc:
@@ -256,6 +262,7 @@ def maybe_capture_from_delegate_result(
     parent_session_key: str = "",
     child_session_key: str = "",
     task_id: str = "",
+    project: str = "",
     dev_engine: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve trace id from active delegate/parent context and capture if needed."""
@@ -284,6 +291,8 @@ def maybe_capture_from_delegate_result(
         issues=issues,
         trace_id=trace_id,
         task_id=task_id,
+        project=project,
+        capture_source="delegate_pipeline",
         dev_engine=dev_engine,
     )
 

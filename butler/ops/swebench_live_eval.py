@@ -80,10 +80,16 @@ def select_weekly_instances(count: int | None = None) -> list[Any]:
 
 
 def _instance_delegate_prompt(inst: Any) -> str:
+    hint = ""
+    if inst.instance_id == "SWE-015":
+        hint = (
+            "\n\nHint: after sorting by priority ascending, remove index 0 (pop(0)), "
+            "not pop() which removes the last element."
+        )
     return (
         f"Fix the issue in this repository.\n\n"
         f"# {inst.issue_title}\n\n{inst.issue_body}\n\n"
-        f"Apply the minimal patch and ensure tests pass."
+        f"Apply the minimal patch and ensure tests pass.{hint}"
     )
 
 

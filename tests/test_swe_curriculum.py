@@ -32,6 +32,20 @@ def test_build_swe_delegate_context_includes_replay_on_first_attempt():
     assert "write_file entire source" in ctx
 
 
+def test_swe_015_replay_block_includes_pop_zero_hint():
+    block = format_swe_replay_block("SWE-015")
+    assert "pop(0)" in block
+    assert "pop()" in block
+    assert "do NOT reverse sort" in block
+
+
+def test_build_swe_delegate_context_includes_swe_015_replay():
+    inst = next(i for i in get_all_instances() if i.instance_id == "SWE-015")
+    ctx = build_swe_delegate_context(inst)
+    assert "SWE ORACLE REPLAY" in ctx
+    assert "pop(0)" in ctx
+
+
 def test_unknown_swe_instance_returns_empty_replay():
     assert format_swe_replay_block("SWE-999") == ""
     assert build_swe_playbook_block("SWE-999") == ""

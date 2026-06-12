@@ -253,6 +253,19 @@ def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
         playbook = build_b9_task_playbook(spec.task_id)
         if playbook:
             extra.insert(0, f"## TASK PLAYBOOK (priority — follow before generic workflow)\n{playbook}")
+    elif category == "swe-benchmark":
+        from butler.dev_engine.swe_curriculum import format_swe_replay_block, get_swe_playbook
+
+        replay = format_swe_replay_block(spec.task_id)
+        if replay:
+            extra.insert(0, replay)
+        _append_b9_learning_blocks(extra, spec.task_id)
+        pb = get_swe_playbook(spec.task_id)
+        if pb and pb.skill_name:
+            extra.insert(
+                0,
+                f"## SWE SKILL ({pb.skill_name}): {pb.pattern_summary}",
+            )
     if extra:
         context = "\n\n".join([*extra, context])
     return {

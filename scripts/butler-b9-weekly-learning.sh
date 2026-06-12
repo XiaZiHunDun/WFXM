@@ -86,6 +86,7 @@ snap = record_production_delegate_snapshot()
 print(format_production_delegate_report(snap))
 print(format_production_delegate_delta(snap.get("delta")))
 print(f"b9_experience_backfill_updated={backfill.get('updated', 0)}")
+from butler.ops.lingwen1_capture_probe import run_lingwen1_capture_probe
 from butler.ops.lingwen1_failure_seed import seed_lingwen1_failure_audit
 from butler.ops.b9_prod_promoted_registry import LINGWEN1_CAPTURE_NOTE
 from butler.ops.experience_selection_telemetry import (
@@ -94,6 +95,7 @@ from butler.ops.experience_selection_telemetry import (
 )
 
 print("lingwen1_seed=", seed_lingwen1_failure_audit())
+print("lingwen1_capture_probe=", run_lingwen1_capture_probe())
 print(f"lingwen1_note={LINGWEN1_CAPTURE_NOTE}")
 print("experience_selections=", summarize_experience_selections())
 print("experience_lifecycle=", summarize_experience_lifecycle())

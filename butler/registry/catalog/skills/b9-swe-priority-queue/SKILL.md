@@ -19,7 +19,7 @@ Issue: `PriorityQueue.pop()` must return the item with the **lowest** priority n
 Workflow:
 
 1. `read_file queue.py` — locate `PriorityQueue.pop`.
-2. `patch queue.py` — select entry with minimum `priority` before removing from `_items`.
+2. `patch queue.py` — in `pop()`, keep `self._items.sort()` but change `self._items.pop()[1]` to `self._items.pop(0)[1]`.
 3. `terminal`: `python -m pytest _swe_test.py -q` until green.
 
-Do not edit `_swe_test.py`. Higher priority means lower numeric priority value.
+Do not edit `_swe_test.py`. After ascending sort, index 0 is the lowest priority number (highest priority item). `pop()` without index removes the last element — that is the bug.
