@@ -11,7 +11,10 @@ from typing import Any, Callable, Iterator
 from butler.dev_engine.b9_live_tuning import B9_LIVE_CATEGORY
 
 SWE_LIVE_CATEGORY = "swe-benchmark"
-BENCHMARK_CATEGORIES: frozenset[str] = frozenset({B9_LIVE_CATEGORY, SWE_LIVE_CATEGORY})
+LINGWEN_DRILL_CATEGORY = "lingwen-drill"
+BENCHMARK_CATEGORIES: frozenset[str] = frozenset(
+    {B9_LIVE_CATEGORY, SWE_LIVE_CATEGORY, LINGWEN_DRILL_CATEGORY}
+)
 
 _B9_PREAMBLE_MAX_BYTES = 12_000
 _B9_PREAMBLE_PER_FILE = 4_000

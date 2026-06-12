@@ -87,6 +87,22 @@ categories:
     deny_tools:
       - delegate_task
       - butler_config
+  lingwen-drill:
+    role: dev
+    description: LingWen1 delegate drill — patch-only one-line fix
+    background: true
+    prompt_append: |
+      [category:lingwen-drill] Drill rules:
+      1. read_file demo/hello.py and test_drill.py before any edit
+      2. patch demo/hello.py ONLY — change `return a - b` to `return a + b`
+      3. run_pytest on test_drill.py until passed=true (do not use raw terminal)
+      4. write_file is denied — patch only; never edit test_drill.py
+    max_iterations: 24
+    deny_tools:
+      - write_file
+      - delete_file
+      - delegate_task
+      - butler_config
   ui-build:
     role: dev
     description: UI implementation — DESIGN.md tokens, single-component iteration

@@ -11,6 +11,27 @@ LINGWEN_PROJECT_NAME = "灵文1号"
 DRILL_TASK_ID_PREFIX = "lingwen1-delegate-drill"
 DRILL_SESSION = "cli:lingwen1-drill"
 
+LINGWEN_DRILL_PLAYBOOK = """## LINGWEN DRILL PLAYBOOK (mandatory — patch only)
+1. read_file demo/hello.py and test_drill.py before any edit.
+2. patch demo/hello.py ONLY — change `return a - b` to `return a + b`.
+3. run_pytest on test_drill.py until passed=true (not raw terminal).
+
+Constraints:
+- Do NOT write_file / rewrite the whole hello.py module.
+- Do NOT edit test_drill.py.
+- One-line operator fix is sufficient."""
+
+
+def build_lingwen_drill_context(*, workspace: Path) -> str:
+    return "\n\n".join(
+        [
+            LINGWEN_DRILL_PLAYBOOK,
+            f"Project: {LINGWEN_PROJECT_NAME}. Drill workspace: {workspace.resolve()}.",
+            "Pre-loaded: demo/hello.py has add() returning a - b (bug).",
+            "Exact patch: old_string `    return a - b` → new_string `    return a + b`.",
+        ]
+    )
+
 
 def drill_workspace_path() -> Path:
     from butler.config import get_butler_home
@@ -74,13 +95,11 @@ def run_lingwen1_delegate_drill(
 
     ws = setup_drill_workspace(force=force_workspace)
     task = (
-        "Fix demo/hello.py in this LingWen1 drill workspace: add(a, b) must return a + b. "
-        "test_drill.py expects add(3.5, 4.5) == 8.0. Only edit demo/hello.py."
+        "Fix demo/hello.py: add(a, b) must return a + b. "
+        "test_drill.py expects add(3.5, 4.5) == 8.0. "
+        "Use read_file then patch on demo/hello.py only (no write_file)."
     )
-    context = (
-        f"Project: {LINGWEN_PROJECT_NAME}. Drill workspace: {ws}. "
-        "Run pytest via terminal on test_drill.py after patch."
-    )
+    context = build_lingwen_drill_context(workspace=ws)
 
     if live:
         os.environ["BUTLER_EVAL_LLM_BENCHMARK"] = "1"
@@ -115,6 +134,7 @@ def run_lingwen1_delegate_drill(
                 "delegate_task",
                 {
                     "role": "dev",
+                    "category": "lingwen-drill",
                     "task": task,
                     "context": context,
                 },
@@ -133,7 +153,7 @@ def run_lingwen1_delegate_drill(
     dev_engine = payload.get("dev_engine") if isinstance(payload.get("dev_engine"), dict) else {}
     verify_passed = dev_engine.get("verify_passed")
     success = bool(payload.get("success"))
-    pipeline_capture = _audit_has_pipeline_capture()
+    pipeline_capture = _audit_has_pipeline_capture(task_id=delegate_task_id)
 
     return {
         "ok": True,
@@ -152,7 +172,9 @@ def run_lingwen1_delegate_drill(
 
 __all__ = [
     "DRILL_SESSION",
+    "LINGWEN_DRILL_PLAYBOOK",
     "LINGWEN_PROJECT_NAME",
+    "build_lingwen_drill_context",
     "drill_workspace_path",
     "run_lingwen1_delegate_drill",
     "setup_drill_workspace",

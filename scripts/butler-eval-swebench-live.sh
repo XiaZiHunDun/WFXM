@@ -19,6 +19,7 @@ fi
 
 python3 - <<'PY'
 import json, sys
+from butler.ops.swebench_entry_gate import record_swe_weekly_snapshot
 from butler.ops.swebench_live_eval import (
     push_swebench_live_scores,
     resolve_swe_live_mode,
@@ -40,6 +41,14 @@ summary = {
     "scores_pushed": push.get("scores_pushed", 0),
     "results": [r.to_dict() for r in report.results],
 }
+snap = record_swe_weekly_snapshot(
+    week=report.week,
+    passed=report.passed,
+    total=report.total,
+    mode=mode,
+    instance_ids=ids,
+)
+summary["weekly_snapshot"] = snap
 print(json.dumps(summary, ensure_ascii=False, indent=2))
 print()
 print(f"SWE live ({mode}): {report.passed}/{report.total} ({report.pass_rate:.0%}) week={report.week}")

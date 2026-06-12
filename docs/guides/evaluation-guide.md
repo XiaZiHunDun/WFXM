@@ -347,6 +347,20 @@ BUTLER_EVAL_LLM_BENCHMARK=1 bash scripts/butler-eval-swebench-live.sh
 | `BUTLER_EVAL_SWE_LIVE_COUNT` | `3` | 每周轮换实例数 |
 | `BUTLER_EVAL_DELEGATE_JUDGE` | `heuristic` | 委派完成启发式评分；`off` 关闭 |
 
+每周子集结果写入 `~/.butler/audit/swe_weekly_snapshots.jsonl`（同 ISO 周覆盖更新）。
+
+### SWE-bench Lite 全量 LIVE（门控）
+
+连续 **2 周** 子集 3/3（`pass_rate=1.0`）后才允许跑全 15 题：
+
+```bash
+bash scripts/butler-eval-swebench-live-full.sh          # 门控未开则 exit 2
+bash scripts/butler-eval-swebench-live-full.sh --force  # 跳过门控（stretch）
+BUTLER_EVAL_LLM_BENCHMARK=1 bash scripts/butler-eval-swebench-live-full.sh
+```
+
+门控状态：`python3 -c "from butler.ops.swebench_entry_gate import evaluate_swe_full_entry_gate; print(evaluate_swe_full_entry_gate())"`
+
 ## 助手全局健康（阶段 4）
 
 ### 工具路由（delegate vs terminal）
