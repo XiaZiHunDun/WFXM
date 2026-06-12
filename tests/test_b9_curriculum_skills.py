@@ -39,6 +39,12 @@ def test_tier2_prod_greet_skill_exists():
     assert (skills_root / "b9-fix-greet-return" / "SKILL.md").is_file()
 
 
+def test_promoted_prod_skills_exist():
+    skills_root = Path(__file__).resolve().parents[1] / "butler/registry/catalog/skills"
+    for name in ("b9-prod-read-before-edit", "b9-prod-main-helpers-import"):
+        assert (skills_root / name / "SKILL.md").is_file()
+
+
 def test_swe_playbook_skills_exist():
     from butler.dev_engine.swe_curriculum import SWE_PLAYBOOKS
 

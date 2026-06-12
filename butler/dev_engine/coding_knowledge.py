@@ -827,6 +827,29 @@ class ExperienceLibrary:
     def count(self) -> int:
         return len(self._experiences)
 
+    @staticmethod
+    def _is_b9_experience(exp: "CodingExperience") -> bool:
+        return any(str(d).lower() == "b9" for d in exp.domain)
+
+    @staticmethod
+    def _experience_search_blob(exp: "CodingExperience") -> str:
+        parts = [exp.context, exp.title, exp.pattern[:400]]
+        parts.extend(str(d) for d in exp.domain)
+        parts.extend(str(v) for v in exp.benchmarks.values())
+        return " ".join(parts).lower()
+
+    @classmethod
+    def _keyword_match_score(cls, exp: "CodingExperience", normalized: Set[str]) -> int:
+        blob = cls._experience_search_blob(exp)
+        retrieval = str(exp.benchmarks.get("retrieval_keywords", "")).lower()
+        score = 0
+        for kw in normalized:
+            if retrieval and kw in retrieval:
+                score += 3
+            elif kw in blob:
+                score += 1
+        return score
+
     def search(self, keywords: Set[str], activated_theorems: Set[str],
                now: Optional[float] = None,
                strict_coverage: bool = False) -> List[CodingExperience]:
@@ -835,27 +858,34 @@ class ExperienceLibrary:
         Args:
             strict_coverage: If True, require theorem_basis ⊇ activated_theorems
                            (CD5b). If False, allow partial overlap.
+                           B9-tagged experiences use partial overlap even when strict.
         """
         normalized = _normalize_keywords(keywords)
         results = []
         for exp in self._experiences.values():
             if not exp.is_valid(now):
                 continue
-            kw_match = any(
-                kw in exp.context.lower() or
-                any(kw in d.lower() for d in exp.domain)
-                for kw in normalized
-            )
-            if not kw_match:
+            if self._keyword_match_score(exp, normalized) <= 0:
                 continue
-            if strict_coverage and activated_theorems:
-                if not exp.covers_theorems(activated_theorems):
-                    continue
-            elif activated_theorems:
-                if not bool(exp.theorem_basis & activated_theorems):
+            if activated_theorems:
+                is_b9 = self._is_b9_experience(exp)
+                if strict_coverage and not is_b9:
+                    if not exp.covers_theorems(activated_theorems):
+                        continue
+                elif strict_coverage and is_b9:
+                    if not bool(exp.theorem_basis & activated_theorems):
+                        continue
+                elif not bool(exp.theorem_basis & activated_theorems):
                     continue
             results.append(exp)
-        results.sort(key=lambda e: len(e.theorem_basis), reverse=True)
+        results.sort(
+            key=lambda e: (
+                self._keyword_match_score(e, normalized),
+                1 if self._is_b9_experience(e) else 0,
+                len(e.theorem_basis),
+            ),
+            reverse=True,
+        )
         return results
 
     def replace(self, old_id: str, new_exp: CodingExperience,

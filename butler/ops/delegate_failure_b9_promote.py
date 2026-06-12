@@ -90,6 +90,21 @@ B9TaskSpec(
 '''
 
 
+def enqueue_b9_candidate(
+    candidate: dict[str, Any],
+    *,
+    source: str = "manual",
+) -> dict[str, Any]:
+    """Append a B9 candidate dict to the promotion queue."""
+    queue_rec = {
+        "candidate": candidate,
+        "status": "pending_implementation",
+        "source": source,
+    }
+    path = _append_queue(queue_rec)
+    return {"queued": True, "queue_path": str(path), "candidate": candidate}
+
+
 def promote_from_audit(
     *,
     index: int = -1,
@@ -278,6 +293,7 @@ def export_promotion_bundle(
 
 __all__ = [
     "DEMO_AUDIT_RECORD",
+    "enqueue_b9_candidate",
     "export_promotion_bundle",
     "generate_task_scaffold",
     "mark_promotion_implemented",

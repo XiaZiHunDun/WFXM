@@ -140,6 +140,41 @@ def _verify_b9l_prod_demo_fix_greet_return(ws: Path) -> tuple[bool, str]:
     return _pytest_verify(ws)
 
 
+def _setup_b9l_prod_read_state_greet(ws: Path) -> None:
+    _setup_b9l_prod_demo_fix_greet_return(ws)
+
+
+def _oracle_b9l_prod_read_state_greet(ws: Path) -> None:
+    _oracle_b9l_prod_demo_fix_greet_return(ws)
+
+
+def _verify_b9l_prod_read_state_greet(ws: Path) -> tuple[bool, str]:
+    return _pytest_verify(ws)
+
+
+def _setup_b9l_prod_main_helpers_import(ws: Path) -> None:
+    from butler.dev_engine.b9_live_fixed_tasks import _setup_b9l_multi_file_import
+
+    _setup_b9l_multi_file_import(ws)
+
+
+def _oracle_b9l_prod_main_helpers_import(ws: Path) -> None:
+    from butler.dev_engine.b9_live_fixed_tasks import _oracle_b9l_multi_file_import
+
+    _oracle_b9l_multi_file_import(ws)
+
+
+def _verify_b9l_prod_main_helpers_import(ws: Path) -> tuple[bool, str]:
+    return _pytest_verify(ws)
+
+
+_READ_STATE_CONTEXT = (
+    "## PRODUCTION LESSON (READ_STATE_REQUIRED)\n"
+    "Previous delegate failed because patch/write ran before read_file.\n"
+    "Mandatory: read_file greet.py AND test_b9.py first, then patch greet.py only."
+)
+
+
 B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
     B9TaskSpec(
         task_id="B9L_prod_verify_fail",
@@ -186,7 +221,33 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
         setup=_setup_b9l_prod_demo_fix_greet_return,
         verify=_verify_b9l_prod_demo_fix_greet_return,
         oracle_apply=_oracle_b9l_prod_demo_fix_greet_return,
-        tags=("prod_shaped", "verify_fail", "pytest", "promoted"),
+        tags=("prod_shaped", "verify_fail", "pytest", "promoted", "source:demo-fix-greet-return"),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_read_state_greet",
+        description="Prod promoted: READ_STATE then fix greet() return",
+        delegate_prompt=(
+            "Fix greet.py so greet() returns 'hello' instead of 'hi'. "
+            "You MUST read_file greet.py and test_b9.py before any patch. "
+            "Only modify greet.py; test_b9.py must pass."
+        ),
+        setup=_setup_b9l_prod_read_state_greet,
+        verify=_verify_b9l_prod_read_state_greet,
+        oracle_apply=_oracle_b9l_prod_read_state_greet,
+        benchmark_context_extra=_READ_STATE_CONTEXT,
+        tags=("prod_shaped", "read_state", "verify_failed", "pytest", "promoted", "source:task_3a0bc9cf7f14"),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_main_helpers_import",
+        description="Prod promoted: fix main.py import helpers module name",
+        delegate_prompt=(
+            "Fix main.py so it imports from helpers.py correctly. "
+            "Tests in test_b9.py must pass. Only edit files in this workspace."
+        ),
+        setup=_setup_b9l_prod_main_helpers_import,
+        verify=_verify_b9l_prod_main_helpers_import,
+        oracle_apply=_oracle_b9l_prod_main_helpers_import,
+        tags=("prod_shaped", "tool_wrong", "verify_failed", "pytest", "promoted", "source:task_12f8eb65e703"),
     ),
 ]
 

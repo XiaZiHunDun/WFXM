@@ -72,10 +72,42 @@ print(format_harness_friction_delta(snap.get("delta")))
 PY
 
 echo ""
+echo "=== B9 weekly: production delegate quality snapshot ==="
+python3 - <<'PY'
+from butler.dev_engine.b9_experience_retrieval import backfill_b9_experience_retrieval
+from butler.ops.b9_prod_weekly import (
+    format_production_delegate_delta,
+    format_production_delegate_report,
+    record_production_delegate_snapshot,
+)
+
+backfill = backfill_b9_experience_retrieval()
+snap = record_production_delegate_snapshot()
+print(format_production_delegate_report(snap))
+print(format_production_delegate_delta(snap.get("delta")))
+print(f"b9_experience_backfill_updated={backfill.get('updated', 0)}")
+PY
+
+echo ""
+echo "=== B9 weekly: promoted prod LIVE probe (phase C, non-blocking) ==="
+python3 - <<'PY'
+import json, sys
+from butler.ops.b9_prod_weekly import run_promoted_prod_live_probe
+
+probe = run_promoted_prod_live_probe()
+print(json.dumps(probe, ensure_ascii=False, indent=2))
+print(f"\nPromoted prod ({probe.get('mode')}): {probe.get('passed')}/{probe.get('total')}")
+if probe.get("passed", 0) < probe.get("total", 0):
+    print("PROMOTED PROD BENCHMARK: had failures", file=sys.stderr)
+PY
+|| echo "(promoted prod probe had failures — stretch only)"
+
+echo ""
 echo "=== B9 weekly: promotion queue sync + bundle ==="
 python3 - <<'PY'
 import json
 
+from butler.ops.b9_prod_weekly import promote_latest_production_failure
 from butler.ops.delegate_failure_b9_promote import (
     export_promotion_bundle,
     promotion_queue_summary,
@@ -83,12 +115,15 @@ from butler.ops.delegate_failure_b9_promote import (
 )
 
 synced = sync_promotion_queue_with_tasks()
+promote = promote_latest_production_failure()
 bundle = export_promotion_bundle(audit_limit=20)
 summary = promotion_queue_summary()
 print(
     json.dumps(
         {
             "promotion_synced": synced.get("synced", 0),
+            "production_promoted": promote.get("promoted", False),
+            "production_promote_reason": promote.get("reason", ""),
             "queue_pending": summary.get("pending", 0),
             "candidates_path": bundle.get("candidates_path"),
             "queue_summary_path": bundle.get("queue_summary_path"),

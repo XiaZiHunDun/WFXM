@@ -35,6 +35,14 @@ B9_TASK_PLAYBOOKS: dict[str, str] = {
         "Playbook: read greet.py and test_b9.py. greet() returns 'hi' but test expects 'hello'. "
         "Patch greet.py return literal only; do not edit test_b9.py."
     ),
+    "B9L_prod_read_state_greet": (
+        "Playbook (production READ_STATE failure): read_file greet.py AND test_b9.py FIRST. "
+        "Then patch greet.py: return 'hello' not 'hi'. Use run_pytest not raw shell."
+    ),
+    "B9L_prod_main_helpers_import": (
+        "Playbook (production import failure): list_directory, read main.py. "
+        "Wrong import `from helper` — patch to `from helpers import run`. Use run_pytest."
+    ),
     # Tier-1 gate (release subset)
     "B9L_test_driven_add": (
         "Playbook: read test_b9.py — needs ping() returning 'pong'. service.py is nearly empty. "

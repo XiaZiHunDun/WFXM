@@ -180,14 +180,24 @@ def upsert_failure_experience(
         f"evidence: {(failure_tail or '')[:800]}"
     )
     xlib_path, xlib = _experience_library_paths()
+    from butler.dev_engine.b9_experience_retrieval import (
+        B9_EXPERIENCE_THEOREM_BASIS,
+        apply_retrieval_benchmarks,
+        enrich_b9_experience_context,
+    )
+
     exp = CodingExperience(
         id=exp_id,
         title=f"B9 failure {task_id} ({classification})",
         domain=["b9", "failure", classification],
-        theorem_basis={"T01", "T04"},
-        context=task_id,
+        theorem_basis=set(B9_EXPERIENCE_THEOREM_BASIS),
+        context=enrich_b9_experience_context(task_id, classification=classification),
         pattern=pattern[:2000],
-        benchmarks={"b9_task": task_id, "failure_class": classification},
+        benchmarks=apply_retrieval_benchmarks(
+            {"b9_task": task_id, "failure_class": classification},
+            task_id,
+            classification=classification,
+        ),
         validity_start=time.time(),
         validity_end=time.time() + 180 * 86400,
     )
@@ -237,14 +247,20 @@ def promote_episode_to_experience(ep: B9CurriculumEpisode, *, skip_if_exists: bo
         return False, "exists"
     steps_text = "\n".join(f"{s.action} {s.target}: {s.detail}" for s in ep.steps)
     pattern = f"{ep.pattern_summary}\n\nsteps:\n{steps_text}"
+    from butler.dev_engine.b9_experience_retrieval import (
+        B9_EXPERIENCE_THEOREM_BASIS,
+        apply_retrieval_benchmarks,
+        enrich_b9_experience_context,
+    )
+
     exp = CodingExperience(
         id=exp_id,
         title=f"B9 {ep.title}",
         domain=["b9", *list(ep.tags)],
-        theorem_basis={"T01", "T04"},
-        context=ep.task_id,
+        theorem_basis=set(B9_EXPERIENCE_THEOREM_BASIS),
+        context=enrich_b9_experience_context(ep.task_id),
         pattern=pattern[:2000],
-        benchmarks={"b9_task": ep.task_id},
+        benchmarks=apply_retrieval_benchmarks({"b9_task": ep.task_id}, ep.task_id),
         validity_start=time.time(),
         validity_end=time.time() + 365 * 86400,
     )
