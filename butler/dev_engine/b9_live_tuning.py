@@ -18,8 +18,9 @@ B9_TUNING_PROBE_TASK_IDS: tuple[str, ...] = (
 
 B9_LIVE_CATEGORY = "b9-benchmark"
 
-# Task-specific playbooks for top wrong_patch probes (injected into delegate context).
-B9_PROBE_PLAYBOOKS: dict[str, str] = {
+# Task-specific playbooks (probe + Tier-1 gate tasks); injected into delegate context.
+B9_TASK_PLAYBOOKS: dict[str, str] = {
+    # Tier-2 probe (stretch)
     "B9L_multi_file_import": (
         "Playbook: list_directory first. helpers.py exists; main.py wrongly imports helper. "
         "Patch main.py: change import line to `from helpers import run` (module name must match file)."
@@ -32,7 +33,31 @@ B9_PROBE_PLAYBOOKS: dict[str, str] = {
         "Playbook: read greet.py and test_b9.py. greet() returns 'hi' but test expects 'hello'. "
         "Patch greet.py return literal only; do not edit test_b9.py."
     ),
+    # Tier-1 gate (release subset)
+    "B9L_test_driven_add": (
+        "Playbook: read test_b9.py — needs ping() returning 'pong'. service.py is nearly empty. "
+        "write_file or patch service.py: add `def ping():\\n    return 'pong'\\n`."
+    ),
+    "B9L_add_missing_method": (
+        "Playbook: read store.py and test_b9.py. Store has put() but no get(); put overwrites _data. "
+        "Patch store.py: add __init__ with self._data={}, fix put to self._data[k]=v, add get(self,k)."
+    ),
+    "B9L_fix_exception_handler": (
+        "Playbook: read parser.py and test_b9.py. Bare `except:` swallows ValueError; test expects raise. "
+        "Patch parser.py: replace `except:\\n        return None` with `except ValueError:\\n        raise`."
+    ),
+    "B9L_fix_off_by_one_loop": (
+        "Playbook: read loops.py and test_b9.py. sum_until(4) should be 6 (0+1+2+3). "
+        "Patch loops.py: change `range(n + 1)` to `range(n)`."
+    ),
+    "B9L_prod_no_test": (
+        "Playbook: read formatter.py and test_b9.py. label('ok') must equal 'ok' (no padding). "
+        "Patch formatter.py return: add `.strip()` on the f-string result."
+    ),
 }
+
+# Back-compat alias
+B9_PROBE_PLAYBOOKS = B9_TASK_PLAYBOOKS
 
 _DELEGATE_RESCUE_PATCH: dict[str, Any] = {
     "dev_max_fix_rounds": 4,
@@ -107,15 +132,15 @@ def build_b9_delegate_context(workspace: Path) -> str:
         ])
     from butler.dev_engine.b9_oracle_fewshot import format_b9_oracle_fewshot_block
 
-    fewshot = format_b9_oracle_fewshot_block(max_cases=2)
+    fewshot = format_b9_oracle_fewshot_block(max_cases=3)
     if fewshot:
         lines.append(fewshot)
     return "\n".join(lines)
 
 
 def build_b9_task_playbook(task_id: str) -> str:
-    """Return optional task-specific fix playbook for probe / shaped tasks."""
-    return B9_PROBE_PLAYBOOKS.get(task_id, "")
+    """Return optional task-specific fix playbook for probe / Tier-1 / shaped tasks."""
+    return B9_TASK_PLAYBOOKS.get(task_id, "")
 
 
 def build_b9_verify_hint(output_tail: str) -> str:
@@ -128,8 +153,18 @@ def build_b9_verify_hint(output_tail: str) -> str:
         return (
             "import mismatch: list_directory, then patch import in source to match the real .py module name"
         )
-    if "importerror" in lower:
-        return "import error: read failing module and test_b9.py; fix import path or symbol in source only"
+    if "importerror" in lower or "cannot import name" in lower:
+        return (
+            "missing symbol: read test_b9.py and target module; add the function/class "
+            "or fix import — implementation must export what the test imports"
+        )
+    if "attributeerror" in lower and "has no attribute" in lower:
+        return "missing method: read test_b9.py; add the method/attribute to the class in source"
+    if "did not raise" in lower:
+        return (
+            "exception test: bare except swallowed the error — narrow except or re-raise ValueError "
+            "so pytest.raises(ValueError) passes"
+        )
     if "assert" in lower and "==" in tail:
         return (
             "assertion failed: read implementation under test; fix return value/operator in source, not test_b9.py"
@@ -143,7 +178,7 @@ def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
     context = build_b9_delegate_context(workspace)
     playbook = build_b9_task_playbook(spec.task_id)
     if playbook:
-        context = f"{context}\n{playbook}"
+        context = f"## TASK PLAYBOOK (priority — follow before generic workflow)\n{playbook}\n\n{context}"
     return {
         "role": "dev",
         "task": spec.delegate_prompt,
@@ -188,6 +223,7 @@ def filter_tasks_by_ids(
 __all__ = [
     "B9_LIVE_CATEGORY",
     "B9_PROBE_PLAYBOOKS",
+    "B9_TASK_PLAYBOOKS",
     "B9_TUNING_PROBE_TASK_IDS",
     "build_b9_task_playbook",
     "build_b9_verify_hint",

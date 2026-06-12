@@ -64,7 +64,10 @@ categories:
       4. after each edit run terminal: python3 -m pytest test_b9.py -q
       5. ModuleNotFoundError → list_directory and fix import to match real .py filename
       6. assert failures → fix source return/operator, never edit test_b9.py
-      7. do not finish until pytest exits 0; stay in workspace; avoid butler_config
+      7. ImportError cannot import name → add the missing function to the module (write_file or patch)
+      8. AttributeError has no attribute → add the missing method on the class
+      9. DID NOT RAISE → fix bare except: catch specific type or re-raise instead of return None
+      10. do not finish until pytest exits 0; you must patch or write_file at least once; avoid butler_config
     max_iterations: 32
     deny_tools:
       - delegate_task

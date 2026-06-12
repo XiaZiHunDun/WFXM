@@ -56,10 +56,27 @@ def test_build_b9_verify_hint_import():
     assert "import" in hint.lower()
 
 
+def test_build_b9_verify_hint_missing_symbol():
+    hint = build_b9_verify_hint("ImportError: cannot import name 'ping' from 'service'")
+    assert "missing symbol" in hint.lower()
+
+
+def test_build_b9_verify_hint_did_not_raise():
+    hint = build_b9_verify_hint("Failed: DID NOT RAISE <class 'ValueError'>")
+    assert "exception" in hint.lower()
+
+
 def test_build_b9_delegate_args_includes_playbook(tmp_path):
     spec = next(t for t in B9_LIVE_FIXED_TASKS if t.task_id == "B9L_pytest_fix_impl")
     args = build_b9_delegate_args(spec, tmp_path)
     assert "a * b" in args["context"] or "multiplication" in args["context"]
+
+
+def test_tier1_playbook_test_driven_add(tmp_path):
+    spec = next(t for t in B9_LIVE_FIXED_TASKS if t.task_id == "B9L_test_driven_add")
+    args = build_b9_delegate_args(spec, tmp_path)
+    assert "ping" in args["context"].lower()
+    assert "pong" in args["context"].lower()
 
 
 def test_classify_wrong_patch():

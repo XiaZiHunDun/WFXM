@@ -28,6 +28,16 @@ B9_ORACLE_FEWSHOT_CASES: tuple[dict[str, str], ...] = (
         "steps": "read_file test_b9.py → read_file config.py → patch constant → pytest",
         "patch_hint": "adjust THRESHOLD (or similar) so predicate in test passes; do not edit test_b9.py",
     },
+    {
+        "title": "add missing function/method (test-driven)",
+        "steps": "read_file test_b9.py → read_file source → write_file or patch to add function → pytest",
+        "patch_hint": "implement the function/method the test calls; match return type and literals exactly",
+    },
+    {
+        "title": "off-by-one / loop bound",
+        "steps": "read_file test_b9.py → read_file loops module → patch range bound → pytest",
+        "patch_hint": "if sum 0..n-1 expected, use range(n) not range(n+1)",
+    },
 )
 
 
