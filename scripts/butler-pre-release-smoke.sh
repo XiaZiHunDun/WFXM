@@ -46,8 +46,12 @@ echo "== 8/9 dev delegate smoke =="
 bash scripts/butler-dev-delegate-smoke.sh
 
 echo ""
-echo "== 9/9 DemoPilot project smoke =="
+echo "== 9/10 DemoPilot project smoke =="
 bash scripts/butler-demo-pilot-smoke.sh
+
+echo ""
+echo "== 10/10 B9 oracle Tier-1 release gate =="
+bash scripts/butler-b9-release-gate.sh
 
 echo ""
 echo "Pre-release smoke: ALL PASSED"

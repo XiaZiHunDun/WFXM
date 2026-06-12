@@ -223,19 +223,23 @@ def build_b9_no_edit_retry_banner(
 
 
 def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
+    category = (spec.benchmark_category or B9_LIVE_CATEGORY).strip()
     context = build_b9_delegate_context(workspace)
+    if spec.benchmark_context_extra:
+        context = f"{spec.benchmark_context_extra}\n\n{context}"
     extra: list[str] = []
-    _append_b9_learning_blocks(extra, spec.task_id)
-    playbook = build_b9_task_playbook(spec.task_id)
-    if playbook:
-        extra.insert(0, f"## TASK PLAYBOOK (priority — follow before generic workflow)\n{playbook}")
+    if category == B9_LIVE_CATEGORY:
+        _append_b9_learning_blocks(extra, spec.task_id)
+        playbook = build_b9_task_playbook(spec.task_id)
+        if playbook:
+            extra.insert(0, f"## TASK PLAYBOOK (priority — follow before generic workflow)\n{playbook}")
     if extra:
         context = "\n\n".join([*extra, context])
     return {
         "role": "dev",
         "task": spec.delegate_prompt,
         "context": context,
-        "category": B9_LIVE_CATEGORY,
+        "category": category,
     }
 
 

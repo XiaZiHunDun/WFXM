@@ -87,7 +87,19 @@ def _instance_delegate_prompt(inst: Any) -> str:
     )
 
 
+def build_swe_delegate_context(inst: Any) -> str:
+    files = ", ".join(sorted(inst.files.keys()))
+    return (
+        f"SWE-bench instance {inst.instance_id} ({inst.category}, {inst.difficulty}).\n"
+        f"Repo files: {files}\n"
+        "Workflow: read issue → patch implementation → "
+        "`python -m pytest _swe_test.py -q` until green.\n"
+        "Pre-loaded sources may appear in <benchmark-workspace-files>."
+    )
+
+
 def _swe_instance_to_task_spec(inst: Any) -> Any:
+    from butler.dev_engine.b9_delegate_gate import SWE_LIVE_CATEGORY
     from butler.dev_engine.llm_delegate_benchmark import B9TaskSpec
 
     def setup(ws: Path) -> None:
@@ -110,6 +122,8 @@ def _swe_instance_to_task_spec(inst: Any) -> Any:
         setup=setup,
         verify=verify,
         oracle_apply=oracle_apply,
+        benchmark_category=SWE_LIVE_CATEGORY,
+        benchmark_context_extra=build_swe_delegate_context(inst),
     )
 
 
@@ -131,7 +145,10 @@ def run_swe_instance(
     b9_mode = B9Mode.LIVE if mode_str == "live" else B9Mode.ORACLE
     spec = _swe_instance_to_task_spec(inst)
     t0 = time.time()
-    b9_result = run_b9_task(spec, workspace, mode=b9_mode)
+    from butler.dev_engine.b9_delegate_gate import benchmark_verify_context
+
+    with benchmark_verify_context(spec.verify):
+        b9_result = run_b9_task(spec, workspace, mode=b9_mode)
     return SWELiveResult(
         instance_id=inst.instance_id,
         category=inst.category,
@@ -185,6 +202,7 @@ def push_swebench_live_scores(report: SWELiveReport) -> dict[str, Any]:
 __all__ = [
     "SWELiveReport",
     "SWELiveResult",
+    "build_swe_delegate_context",
     "push_swebench_live_scores",
     "resolve_swe_live_mode",
     "run_swebench_live_benchmark",

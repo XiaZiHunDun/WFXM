@@ -14,8 +14,11 @@
 | 3 | `bash scripts/butler-pre-release-smoke.sh` | 输出 `ALL PASSED` |
 | 4 | 改 gateway / 语料时：`./scripts/corpus-test.sh pr-gate` | 见 [CONTRIBUTING.md](../../CONTRIBUTING.md) |
 | 5 | 改五报告 P5–P10：`./scripts/butler-five-reports-gate.sh` | 退出 0 |
+| 6 | `bash scripts/butler-pre-release-smoke.sh` 含 **B9 oracle Tier-1**（`butler-b9-release-gate.sh`） | 退出 0 |
 
 pytest 基线：[`tests/README.md`](../../tests/README.md)（`PYTHONPATH=. pytest -q`）。
+
+**B9 LIVE 周循环**（防回退，需 API）：`bash scripts/butler-b9-weekly-learning.sh` 或 `bash scripts/butler-eval-weekly.sh`。
 
 ---
 

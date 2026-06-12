@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterator
 
 from butler.dev_engine.b9_live_tuning import B9_LIVE_CATEGORY
 
+SWE_LIVE_CATEGORY = "swe-benchmark"
+BENCHMARK_CATEGORIES: frozenset[str] = frozenset({B9_LIVE_CATEGORY, SWE_LIVE_CATEGORY})
+
 _B9_PREAMBLE_MAX_BYTES = 12_000
 _B9_PREAMBLE_PER_FILE = 4_000
+_BENCHMARK_VERIFY: ContextVar[Callable[[Path], tuple[bool, str]] | None] = ContextVar(
+    "benchmark_verify",
+    default=None,
+)
 
 
 def is_b9_benchmark_category(
@@ -18,6 +27,26 @@ def is_b9_benchmark_category(
 ) -> bool:
     cat = str(category or (category_meta or {}).get("category") or "").strip()
     return cat == B9_LIVE_CATEGORY
+
+
+def is_benchmark_category(
+    category: str = "",
+    category_meta: dict[str, Any] | None = None,
+) -> bool:
+    cat = str(category or (category_meta or {}).get("category") or "").strip()
+    return cat in BENCHMARK_CATEGORIES
+
+
+@contextmanager
+def benchmark_verify_context(
+    verify_fn: Callable[[Path], tuple[bool, str]],
+) -> Iterator[None]:
+    """Thread delegate success gate to task-specific verify (e.g. SWE instances)."""
+    token = _BENCHMARK_VERIFY.set(verify_fn)
+    try:
+        yield
+    finally:
+        _BENCHMARK_VERIFY.reset(token)
 
 
 def resolve_b9_workspace(project: Any = None) -> Path | None:
@@ -52,17 +81,23 @@ def apply_b9_pytest_success_gate(
     out = list(issues or [])
     if not base_success:
         return False, out
-    if not is_b9_benchmark_category(category, category_meta):
+    if not is_benchmark_category(category, category_meta):
         return True, out
     ws = resolve_b9_workspace(project)
     if ws is None:
-        msg = "B9_PYTEST_GATE: workspace unresolved"
+        msg = "BENCHMARK_PYTEST_GATE: workspace unresolved"
         if msg not in out:
             out.append(msg)
         return False, out
-    from butler.dev_engine.b9_verify_utils import pytest_verify
+    hook = _BENCHMARK_VERIFY.get()
+    if hook is not None:
+        ok, tail = hook(ws)
+    elif is_b9_benchmark_category(category, category_meta):
+        from butler.dev_engine.b9_verify_utils import pytest_verify
 
-    ok, tail = pytest_verify(ws)
+        ok, tail = pytest_verify(ws)
+    else:
+        return True, out
     if ok:
         return True, out
     hint = ""
@@ -72,7 +107,7 @@ def apply_b9_pytest_success_gate(
         hint = build_b9_verify_hint(tail)
     except Exception:
         pass
-    msg = f"B9_PYTEST_GATE: pytest not green — {(tail or 'failed')[:360]}"
+    msg = f"BENCHMARK_PYTEST_GATE: verify not green — {(tail or 'failed')[:360]}"
     if hint:
         msg = f"{msg} | hint: {hint}"
     if msg not in out:
@@ -80,10 +115,40 @@ def apply_b9_pytest_success_gate(
     return False, out
 
 
+def _iter_workspace_py_files(
+    workspace: Path,
+    *,
+    max_depth: int = 2,
+    max_files: int = 24,
+) -> list[Path]:
+    ws = workspace.resolve()
+    found: list[Path] = []
+    for depth in range(max_depth + 1):
+        pattern = "/".join(["*"] * depth) + ("/*.py" if depth else "*.py")
+        for fp in sorted(ws.glob(pattern)):
+            if fp.is_file() and fp.suffix == ".py" and fp.name != "_swe_test.py":
+                found.append(fp)
+        if len(found) >= max_files:
+            break
+    # de-dup while preserving order
+    seen: set[Path] = set()
+    unique: list[Path] = []
+    for fp in found:
+        key = fp.resolve()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(fp)
+        if len(unique) >= max_files:
+            break
+    return unique
+
+
 def seed_b9_workspace_read_state(
     workspace: Path,
     *,
     session_key: str,
+    max_depth: int = 1,
 ) -> int:
     """Pre-record read_file state for workspace .py files (READ_STATE relief)."""
     from butler.core.read_state import record_read_state
@@ -92,7 +157,7 @@ def seed_b9_workspace_read_state(
     if not ws.is_dir():
         return 0
     count = 0
-    paths = sorted(ws.glob("*.py"), key=lambda p: (p.name != "test_b9.py", p.name))
+    paths = _iter_workspace_py_files(ws, max_depth=max_depth)
     for fp in paths:
         if not fp.is_file():
             continue
@@ -110,17 +175,18 @@ def build_b9_workspace_preamble(
     *,
     max_total_bytes: int = _B9_PREAMBLE_MAX_BYTES,
     max_per_file: int = _B9_PREAMBLE_PER_FILE,
+    max_depth: int = 1,
 ) -> str:
     """Inject workspace source snapshot so delegate can patch without READ_STATE friction."""
     ws = workspace.resolve()
     if not ws.is_dir():
         return ""
     lines = [
-        "<b9-workspace-files>",
+        "<benchmark-workspace-files>",
         "Pre-loaded workspace sources (also seeded in read_state — patch/write allowed):",
     ]
     used = 0
-    for fp in sorted(ws.glob("*.py"), key=lambda p: (p.name != "test_b9.py", p.name)):
+    for fp in _iter_workspace_py_files(ws, max_depth=max_depth):
         if used >= max_total_bytes:
             lines.append("... (truncated)")
             break
@@ -131,12 +197,13 @@ def build_b9_workspace_preamble(
         chunk = text[:max_per_file]
         if len(text) > len(chunk):
             chunk += "\n... (truncated)"
-        lines.append(f"### {fp.name}")
+        rel = fp.relative_to(ws) if fp.is_relative_to(ws) else fp.name
+        lines.append(f"### {rel}")
         lines.append("```python")
         lines.append(chunk.rstrip())
         lines.append("```")
         used += len(chunk)
-    lines.append("</b9-workspace-files>")
+    lines.append("</benchmark-workspace-files>")
     return "\n".join(lines) if used else ""
 
 
@@ -144,10 +211,11 @@ def prepare_b9_subagent_workspace(
     workspace: Path,
     *,
     session_key: str,
+    max_depth: int = 1,
 ) -> str:
-    """Seed read_state + return context preamble for B9 delegate."""
-    seed_b9_workspace_read_state(workspace, session_key=session_key)
-    return build_b9_workspace_preamble(workspace)
+    """Seed read_state + return context preamble for benchmark delegate."""
+    seed_b9_workspace_read_state(workspace, session_key=session_key, max_depth=max_depth)
+    return build_b9_workspace_preamble(workspace, max_depth=max_depth)
 
 
 def format_oracle_replay_block(task_id: str) -> str:
@@ -202,11 +270,15 @@ def build_b9_wrong_patch_retry_banner(failure_tail: str) -> str:
 
 
 __all__ = [
+    "BENCHMARK_CATEGORIES",
+    "SWE_LIVE_CATEGORY",
     "apply_b9_pytest_success_gate",
+    "benchmark_verify_context",
     "build_b9_wrong_patch_retry_banner",
     "build_b9_workspace_preamble",
     "format_oracle_replay_block",
     "is_b9_benchmark_category",
+    "is_benchmark_category",
     "prepare_b9_subagent_workspace",
     "resolve_b9_workspace",
     "seed_b9_workspace_read_state",

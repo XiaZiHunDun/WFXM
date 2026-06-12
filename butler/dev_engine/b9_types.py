@@ -23,6 +23,8 @@ class B9TaskSpec:
     oracle_apply: Callable[[Path], None]
     expect_pass: bool = True
     tags: tuple[str, ...] = ()
+    benchmark_category: str = ""
+    benchmark_context_extra: str = ""
 
 
 @dataclass

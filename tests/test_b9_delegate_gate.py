@@ -47,7 +47,7 @@ def test_pytest_gate_blocks_when_red(tmp_path, monkeypatch):
         issues=[],
     )
     assert ok is False
-    assert any("B9_PYTEST_GATE" in i for i in issues)
+    assert any("BENCHMARK_PYTEST_GATE" in i for i in issues)
 
 
 def test_pytest_gate_passes_when_green(tmp_path, monkeypatch):
@@ -99,7 +99,7 @@ def test_workspace_preamble_includes_files(tmp_path):
     (tmp_path / "test_b9.py").write_text("assert True\n", encoding="utf-8")
     (tmp_path / "service.py").write_text("x = 1\n", encoding="utf-8")
     block = build_b9_workspace_preamble(tmp_path)
-    assert "b9-workspace-files" in block
+    assert "benchmark-workspace-files" in block
     assert "test_b9.py" in block
     assert "service.py" in block
 
@@ -108,7 +108,7 @@ def test_prepare_b9_subagent_workspace(tmp_path):
     reset_read_state("_prep")
     (tmp_path / "test_b9.py").write_text("def test_x():\n    pass\n", encoding="utf-8")
     preamble = prepare_b9_subagent_workspace(tmp_path, session_key="_prep")
-    assert "b9-workspace-files" in preamble
+    assert "benchmark-workspace-files" in preamble
     assert get_read_state(tmp_path / "test_b9.py", session_key="_prep") is not None
 
 
@@ -117,3 +117,25 @@ def test_oracle_replay_test_driven_add():
     assert "ORACLE REPLAY" in block
     assert "service.py" in block
     assert "ping" in block
+
+
+def test_swe_verify_hook_gate(tmp_path, monkeypatch):
+    from butler.dev_engine.b9_delegate_gate import (
+        SWE_LIVE_CATEGORY,
+        benchmark_verify_context,
+    )
+
+    monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+
+    def _verify(ws: Path) -> tuple[bool, str]:
+        return False, "swe tests failed"
+
+    with benchmark_verify_context(_verify):
+        ok, issues = apply_b9_pytest_success_gate(
+            category=SWE_LIVE_CATEGORY,
+            project=__import__("types").SimpleNamespace(workspace=tmp_path),
+            base_success=True,
+            issues=[],
+        )
+    assert ok is False
+    assert any("BENCHMARK_PYTEST_GATE" in i for i in issues)

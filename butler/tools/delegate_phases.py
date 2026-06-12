@@ -513,7 +513,8 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
 def _prepare_b9_benchmark_workspace(state: DelegateRunState) -> None:
     """Seed B9 workspace read_state and inject file preamble into delegate context."""
     from butler.dev_engine.b9_delegate_gate import (
-        is_b9_benchmark_category,
+        SWE_LIVE_CATEGORY,
+        is_benchmark_category,
         prepare_b9_subagent_workspace,
     )
     from butler.tools.delegate_impl import (
@@ -521,7 +522,7 @@ def _prepare_b9_benchmark_workspace(state: DelegateRunState) -> None:
         _project_agent_raw_message,
     )
 
-    if not is_b9_benchmark_category(
+    if not is_benchmark_category(
         state.category,
         state.category_meta,
     ):
@@ -535,7 +536,9 @@ def _prepare_b9_benchmark_workspace(state: DelegateRunState) -> None:
     if ws is None or not ws.is_dir():
         return
     sk = state.child_session_key or state.session_key or "_default"
-    preamble = prepare_b9_subagent_workspace(ws, session_key=sk)
+    cat = str(state.category_meta.get("category") or state.category or "")
+    depth = 2 if cat == SWE_LIVE_CATEGORY else 1
+    preamble = prepare_b9_subagent_workspace(ws, session_key=sk, max_depth=depth)
     if not preamble:
         return
     state.context = f"{preamble}\n\n{state.context}".strip()

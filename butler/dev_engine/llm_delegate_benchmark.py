@@ -375,6 +375,8 @@ def _run_live_delegate(
         temporary_overrides(tuning_patch) if tuning_patch else nullcontext()
     )
     delegate_args = build_b9_delegate_args(spec, workspace.resolve())
+    from butler.dev_engine.b9_delegate_gate import benchmark_verify_context
+
     try:
         from butler.execution_context import use_execution_context
         from butler.orchestrator import ButlerOrchestrator
@@ -383,8 +385,11 @@ def _run_live_delegate(
         orch = ButlerOrchestrator(user_id="b9-benchmark", channel="cli")
         session_key = "b9:benchmark"
         ws = workspace.resolve()
-        with override_ctx, b9_live_runtime_env(), use_execution_context(
-            orch, session_key=session_key,
+        with (
+            override_ctx,
+            b9_live_runtime_env(),
+            benchmark_verify_context(spec.verify),
+            use_execution_context(orch, session_key=session_key),
         ):
             _bind_b9_live_project(ws, orch, session_key=session_key)
             monkeypatch_root = os.environ.get("BUTLER_TOOL_SAFE_ROOT", "")
@@ -396,7 +401,11 @@ def _run_live_delegate(
                     if attempt == 0:
                         args = delegate_args
                     else:
-                        replay = format_oracle_replay_block(spec.task_id)
+                        replay = (
+                            format_oracle_replay_block(spec.task_id)
+                            if spec.task_id.startswith("B9L_")
+                            else ""
+                        )
                         if not b9_has_edit_tools(tools_used):
                             banner = build_b9_no_edit_retry_banner(
                                 base_context,

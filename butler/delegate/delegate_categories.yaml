@@ -72,6 +72,21 @@ categories:
     deny_tools:
       - delegate_task
       - butler_config
+  swe-benchmark:
+    role: dev
+    description: SWE-bench Lite weekly LIVE — instance verify gate required
+    background: true
+    prompt_append: |
+      [category:swe-benchmark] SWE instance rules:
+      1. read issue + list_directory — understand repo layout
+      2. read_file files you will edit before patch/write_file
+      3. minimal patch only — match issue acceptance
+      4. after each edit run terminal: python -m pytest _swe_test.py -q (or dev_verify)
+      5. do not finish until instance tests pass; avoid butler_config
+    max_iterations: 32
+    deny_tools:
+      - delegate_task
+      - butler_config
   ui-build:
     role: dev
     description: UI implementation — DESIGN.md tokens, single-component iteration
