@@ -33,6 +33,15 @@ class DevEnginePlugin:
             if not dev_engine_enabled():
                 return messages
 
+            try:
+                from butler.core.read_state import rehydrate_read_state_from_messages
+
+                rehydrate_read_state_from_messages(
+                    messages, session_key=self._session_key,
+                )
+            except Exception as exc:
+                logger.debug("read_state rehydrate skipped: %s", exc)
+
             state = _active_states.get(self._session_key)
             if state is None:
                 return messages

@@ -61,6 +61,71 @@ def batch_has_destructive_and_reads(tool_calls: list[Any]) -> bool:
     return has_write and has_read
 
 
+def _tool_call_name(tc: Any) -> str:
+    if isinstance(tc, dict):
+        return str((tc.get("function") or {}).get("name") or tc.get("name") or "")
+    return str(getattr(tc, "name", "") or "")
+
+
+def _tool_call_args(tc: Any) -> dict[str, Any]:
+    try:
+        if hasattr(tc, "args_dict"):
+            return tc.args_dict()
+        if isinstance(tc, dict):
+            import json as _json
+
+            raw = (tc.get("function") or {}).get("arguments", "{}")
+            return _json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+    except Exception:
+        pass
+    return {}
+
+
+def reorder_reads_before_destructive(tool_calls: list[Any]) -> list[Any]:
+    """Move read_file ahead of patch on the same path within one batch (read-before-edit)."""
+    if not batch_has_destructive_and_reads(tool_calls):
+        return tool_calls
+    ordered = list(tool_calls)
+    changed = True
+    while changed:
+        changed = False
+        for i, dest_tc in enumerate(ordered):
+            dest_name = _tool_call_name(dest_tc)
+            if dest_name != "patch":
+                continue
+            dest_paths = extract_tool_scope_paths(dest_name, _tool_call_args(dest_tc))
+            has_prior_read = False
+            for k in range(0, i):
+                if _tool_call_name(ordered[k]) != "read_file":
+                    continue
+                prior_paths = extract_tool_scope_paths(
+                    "read_file", _tool_call_args(ordered[k]),
+                )
+                if any(
+                    _paths_overlap(dp, rp) for dp in dest_paths for rp in prior_paths
+                ):
+                    has_prior_read = True
+                    break
+            if has_prior_read:
+                continue
+            for j in range(i + 1, len(ordered)):
+                read_name = _tool_call_name(ordered[j])
+                if read_name != "read_file":
+                    continue
+                read_paths = extract_tool_scope_paths(read_name, _tool_call_args(ordered[j]))
+                if not any(
+                    _paths_overlap(dp, rp) for dp in dest_paths for rp in read_paths
+                ):
+                    continue
+                read_tc = ordered.pop(j)
+                ordered.insert(i, read_tc)
+                changed = True
+                break
+            if changed:
+                break
+    return ordered
+
+
 def _normalize_path(path: str) -> str:
     try:
         return str(Path(path).expanduser().resolve())
@@ -206,6 +271,7 @@ __all__ = [
     "STALE_PREFETCH_CODE",
     "STALE_SKIP_CODE",
     "batch_has_destructive_and_reads",
+    "reorder_reads_before_destructive",
     "batch_stale_guard_enabled",
     "build_stale_batch_skip_payload",
     "destructive_tool_succeeded",

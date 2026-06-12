@@ -11,6 +11,7 @@ from butler.core.batch_sequence_guard import (
     BatchSequenceGuard,
     batch_has_destructive_and_reads,
     destructive_tool_succeeded,
+    reorder_reads_before_destructive,
 )
 from butler.core.parallel_tools import should_parallelize_tool_batch
 from butler.core.loop_types import LoopCallbacks, LoopConfig
@@ -33,6 +34,28 @@ def test_batch_has_destructive_and_reads():
         build_tool_call("c2", "patch", {"path": "/tmp/a.py"}),
     ]
     assert batch_has_destructive_and_reads(calls)
+
+
+def test_reorder_reads_before_patch_same_path():
+    calls = [
+        build_tool_call("c1", "patch", {"path": "/tmp/a.py"}),
+        build_tool_call("c2", "read_file", {"path": "/tmp/a.py"}),
+        build_tool_call("c3", "terminal", {"command": "pytest -q"}),
+    ]
+    ordered = reorder_reads_before_destructive(calls)
+    names = [getattr(tc, "name", "") for tc in ordered]
+    assert names == ["read_file", "patch", "terminal"]
+
+
+@pytest.mark.module_test
+def test_reorder_skips_unrelated_paths():
+    calls = [
+        build_tool_call("c1", "read_file", {"path": "/tmp/test_b9.py"}),
+        build_tool_call("c2", "patch", {"path": "/tmp/calc.py"}),
+    ]
+    ordered = reorder_reads_before_destructive(calls)
+    names = [getattr(tc, "name", "") for tc in ordered]
+    assert names == ["read_file", "patch"]
 
 
 @pytest.mark.module_test

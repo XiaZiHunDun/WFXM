@@ -259,6 +259,12 @@ def process_tool_calls(
             response.tool_calls = truncated
     except Exception as exc:
         logger.debug("process tool calls skipped: %s", exc)
+    try:
+        from butler.core.batch_sequence_guard import reorder_reads_before_destructive
+
+        response.tool_calls = reorder_reads_before_destructive(list(response.tool_calls))
+    except Exception as exc:
+        logger.debug("tool batch reorder skipped: %s", exc)
     if callbacks.on_stream_boundary:
         callbacks.on_stream_boundary()
 
