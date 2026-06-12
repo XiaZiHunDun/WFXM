@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+import re
+from collections import Counter
+from pathlib import Path
 from typing import Any
 
 
@@ -66,8 +70,80 @@ def analyze_probe_tasks(results: list[dict[str, Any]]) -> dict[str, Any]:
     return analyze_b9_live_results(subset)
 
 
+def _failure_signature(text: str) -> str:
+    """Normalize failure text into a coarse bucket for mining."""
+    t = (text or "").lower()
+    code_m = re.search(r"code:\s*([A-Z0-9_]+)", text or "")
+    if code_m:
+        return f"code:{code_m.group(1)}"
+    if "read_state_required" in t or "必须先调用 read_file" in text:
+        return "code:READ_STATE_REQUIRED"
+    if "not in the allowlist" in t or "terminal command is not" in t:
+        return "code:TERMINAL_NOT_ALLOWED"
+    if "modulenotfounderror" in t or "no module named" in t:
+        m = re.search(r"no module named ['\"]?(\w+)['\"]?", t)
+        return f"import:{m.group(1) if m else 'unknown'}"
+    if "assert" in t and "==" in text:
+        m = re.search(r"assert\s+(.{0,40})==", text)
+        return f"assert:{m.group(1).strip() if m else 'expr'}"
+    if "assertionerror" in t:
+        return "assertionerror"
+    if "typeerror" in t:
+        return "typeerror"
+    if "syntaxerror" in t:
+        return "syntaxerror"
+    return "other"
+
+
+def mine_delegate_failure_signatures(
+    *,
+    limit: int = 200,
+    min_count: int = 3,
+) -> dict[str, Any]:
+    """Mine top B9-benchmark failure signatures from delegate_failures audit."""
+    from butler.config import get_butler_home
+
+    path = get_butler_home() / "audit" / "delegate_failures.jsonl"
+    if not path.is_file():
+        return {"total": 0, "signatures": [], "audit_path": str(path)}
+
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        preview = str(rec.get("task_preview") or "")
+        if "b9-benchmark" not in preview and "B9L" not in preview:
+            continue
+        issues = rec.get("issues") or []
+        blob = " ".join(str(i) for i in issues) + " " + preview
+        sig = _failure_signature(blob)
+        rows.append({
+            "signature": sig,
+            "failure_reason": rec.get("failure_reason"),
+            "task_preview": preview[:120],
+        })
+
+    counts = Counter(r["signature"] for r in rows)
+    top = [
+        {"signature": sig, "count": cnt}
+        for sig, cnt in counts.most_common()
+        if cnt >= min_count
+    ]
+    return {
+        "total": len(rows),
+        "signatures": top,
+        "audit_path": str(path),
+        "samples": rows[-5:],
+    }
+
+
 __all__ = [
     "analyze_b9_live_results",
     "analyze_probe_tasks",
     "classify_b9_failure",
+    "mine_delegate_failure_signatures",
 ]

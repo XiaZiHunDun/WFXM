@@ -18,6 +18,22 @@ B9_TUNING_PROBE_TASK_IDS: tuple[str, ...] = (
 
 B9_LIVE_CATEGORY = "b9-benchmark"
 
+# Task-specific playbooks for top wrong_patch probes (injected into delegate context).
+B9_PROBE_PLAYBOOKS: dict[str, str] = {
+    "B9L_multi_file_import": (
+        "Playbook: list_directory first. helpers.py exists; main.py wrongly imports helper. "
+        "Patch main.py: change import line to `from helpers import run` (module name must match file)."
+    ),
+    "B9L_pytest_fix_impl": (
+        "Playbook: read calc.py and test_b9.py. mul() uses + but test expects multiplication. "
+        "Patch calc.py body: replace `a + b` with `a * b` in mul()."
+    ),
+    "B9L_prod_demo_fix_greet_return": (
+        "Playbook: read greet.py and test_b9.py. greet() returns 'hi' but test expects 'hello'. "
+        "Patch greet.py return literal only; do not edit test_b9.py."
+    ),
+}
+
 _DELEGATE_RESCUE_PATCH: dict[str, Any] = {
     "dev_max_fix_rounds": 4,
     "delegate_max_iterations": 32,
@@ -85,17 +101,48 @@ def build_b9_delegate_context(workspace: Path) -> str:
         lines.extend([
             "After each edit, auto-verify injects pytest/lint feedback — fix before claiming done.",
             "If pytest shows assert X == Y, fix implementation so X equals Y (never edit the test).",
-            "For ImportError/ModuleNotFoundError, fix imports or rename modules consistently.",
+            "For ImportError/ModuleNotFoundError, list_directory then align import with actual .py filename.",
+            "read_file the target source before patch; old_string must match file content exactly.",
             "patch always needs path, old_string, and new_string.",
         ])
     return "\n".join(lines)
 
 
+def build_b9_task_playbook(task_id: str) -> str:
+    """Return optional task-specific fix playbook for probe / shaped tasks."""
+    return B9_PROBE_PLAYBOOKS.get(task_id, "")
+
+
+def build_b9_verify_hint(output_tail: str) -> str:
+    """Turn pytest/lint tail into an actionable delegate hint (wrong_patch recovery)."""
+    tail = (output_tail or "").strip()
+    if not tail:
+        return ""
+    lower = tail.lower()
+    if "modulenotfounderror" in lower or "no module named" in lower:
+        return (
+            "import mismatch: list_directory, then patch import in source to match the real .py module name"
+        )
+    if "importerror" in lower:
+        return "import error: read failing module and test_b9.py; fix import path or symbol in source only"
+    if "assert" in lower and "==" in tail:
+        return (
+            "assertion failed: read implementation under test; fix return value/operator in source, not test_b9.py"
+        )
+    if "assertionerror" in lower:
+        return "assertion failed: adjust implementation to satisfy test_b9.py expectations"
+    return ""
+
+
 def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
+    context = build_b9_delegate_context(workspace)
+    playbook = build_b9_task_playbook(spec.task_id)
+    if playbook:
+        context = f"{context}\n{playbook}"
     return {
         "role": "dev",
         "task": spec.delegate_prompt,
-        "context": build_b9_delegate_context(workspace),
+        "context": context,
         "category": B9_LIVE_CATEGORY,
     }
 
@@ -107,9 +154,11 @@ def b9_live_runtime_env() -> Iterator[None]:
         "BUTLER_ENABLE_TERMINAL",
         "BUTLER_DEV_AUTO_VERIFY",
         "BUTLER_DEV_AUTO_VERIFY_LEVELS",
+        "BUTLER_TERMINAL_PROFILE",
     )
     backup = {k: os.environ.get(k) for k in keys}
     os.environ["BUTLER_ENABLE_TERMINAL"] = "1"
+    os.environ["BUTLER_TERMINAL_PROFILE"] = "dev"
     os.environ["BUTLER_DEV_AUTO_VERIFY"] = "1"
     if not os.environ.get("BUTLER_DEV_AUTO_VERIFY_LEVELS", "").strip():
         os.environ["BUTLER_DEV_AUTO_VERIFY_LEVELS"] = "lint,test"
@@ -133,7 +182,10 @@ def filter_tasks_by_ids(
 
 __all__ = [
     "B9_LIVE_CATEGORY",
+    "B9_PROBE_PLAYBOOKS",
     "B9_TUNING_PROBE_TASK_IDS",
+    "build_b9_task_playbook",
+    "build_b9_verify_hint",
     "b9_live_runtime_env",
     "b9_live_tuning_enabled",
     "b9_failure_class_tuning_patch",

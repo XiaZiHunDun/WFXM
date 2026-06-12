@@ -59,10 +59,12 @@ categories:
     prompt_append: |
       [category:b9-benchmark] Benchmark rules:
       1. read_file test_b9.py first — that is the acceptance spec
-      2. fix implementation with patch (preferred) or write_file
-      3. after each edit run terminal: python3 -m pytest test_b9.py -q
-      4. do not finish until pytest exits 0
-      5. stay in workspace; avoid unrelated files and butler_config
+      2. read_file the implementation file you will edit before any patch
+      3. fix implementation with patch (preferred) or write_file; old_string must match file exactly
+      4. after each edit run terminal: python3 -m pytest test_b9.py -q
+      5. ModuleNotFoundError → list_directory and fix import to match real .py filename
+      6. assert failures → fix source return/operator, never edit test_b9.py
+      7. do not finish until pytest exits 0; stay in workspace; avoid butler_config
     max_iterations: 32
     deny_tools:
       - delegate_task

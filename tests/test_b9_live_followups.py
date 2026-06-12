@@ -110,6 +110,25 @@ class TestVerifyOutputTail:
         _active_states.clear()
 
 
+class TestMineDelegateFailures:
+    def test_mine_signatures_from_audit(self, tmp_path, monkeypatch):
+        from butler.ops.b9_failure_analysis import mine_delegate_failure_signatures
+
+        audit = tmp_path / "audit" / "delegate_failures.jsonl"
+        audit.parent.mkdir(parents=True)
+        audit.write_text(
+            '{"task_preview":"[category:b9-benchmark] fix import","issues":["ModuleNotFoundError: No module named helper"],"failure_reason":"verify_failed"}\n'
+            '{"task_preview":"[category:b9-benchmark] fix mul","issues":["assert 5 == 6"],"failure_reason":"verify_failed"}\n'
+            '{"task_preview":"[category:b9-benchmark] fix mul","issues":["assert 5 == 6"],"failure_reason":"verify_failed"}\n',
+            encoding="utf-8",
+        )
+        monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+        out = mine_delegate_failure_signatures(min_count=2)
+        assert out["total"] == 3
+        sigs = {s["signature"] for s in out["signatures"]}
+        assert "assert:5" in sigs or "import:helper" in sigs
+
+
 class TestB9FailureClassOverrides:
     def test_apply_when_wrong_patch_dominant(self, tmp_path, monkeypatch):
         from butler.ops.eval_config_overrides import apply_b9_failure_class_overrides, load_overrides

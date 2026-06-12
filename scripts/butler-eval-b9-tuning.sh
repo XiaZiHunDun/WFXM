@@ -35,7 +35,11 @@ python3 - <<PY
 import json, sys
 from pathlib import Path
 
-from butler.ops.b9_failure_analysis import analyze_b9_live_results, analyze_probe_tasks
+from butler.ops.b9_failure_analysis import (
+    analyze_b9_live_results,
+    analyze_probe_tasks,
+    mine_delegate_failure_signatures,
+)
 from butler.ops.eval_diagnostics import b9_audit_path
 
 audit = b9_audit_path()
@@ -49,6 +53,10 @@ if audit.is_file():
     print(json.dumps(analyze_probe_tasks(results), ensure_ascii=False, indent=2))
 else:
     print("(no b9_benchmark.jsonl yet)")
+
+print()
+print("=== Mined delegate failure signatures (b9-benchmark) ===")
+print(json.dumps(mine_delegate_failure_signatures(), ensure_ascii=False, indent=2))
 
 if int(${ANALYZE_ONLY:-0}):
     sys.exit(0)
