@@ -69,3 +69,28 @@ def test_run_variant_benchmark_applies_patch(mock_b9, tmp_path, monkeypatch):
     from butler.ops.eval_config_overrides import load_overrides
 
     assert load_overrides() == {}
+
+
+def test_experiment_variants_include_failure_class():
+    assert "failure_class" in EXPERIMENT_VARIANTS
+    assert "strict_ck_rescue" in EXPERIMENT_VARIANTS
+    assert EXPERIMENT_VARIANTS["failure_class"]["coding_guidance_max_cases"] == 8
+
+
+def test_promote_b9_experiment_winner_strict_ck(tmp_path, monkeypatch):
+    from butler.ops.eval_config_overrides import load_overrides, promote_b9_experiment_winner
+    from butler.ops.eval_experiment import VariantResult
+
+    monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+    (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+
+    variants = [
+        VariantResult(variant="baseline", b9_passed=6, b9_total=22, b9_pass_rate=6 / 22),
+        VariantResult(variant="strict_ck", b9_passed=7, b9_total=22, b9_pass_rate=7 / 22),
+    ]
+    action = promote_b9_experiment_winner(variants)
+    assert action is not None
+    assert action["winner"] == "strict_ck"
+    data = load_overrides()
+    assert data.get("coding_guidance_max_cases") == 8
+    assert data.get("coding_knowledge_strict_experience") is True

@@ -132,6 +132,56 @@ def promote_from_audit(
     }
 
 
+def mark_promotion_implemented(
+    task_id: str,
+    *,
+    note: str = "",
+) -> dict[str, Any]:
+    """Mark a queued B9 candidate as implemented (rewrites matching queue rows)."""
+    path = _queue_path()
+    if not path.is_file():
+        return {"updated": False, "reason": "queue_missing", "task_id": task_id}
+
+    updated = 0
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        rec = json.loads(line)
+        cand_id = (rec.get("candidate") or {}).get("suggested_task_id", "")
+        if cand_id == task_id and rec.get("status") == "pending_implementation":
+            rec["status"] = "implemented"
+            rec["implemented_at"] = time.time()
+            if note:
+                rec["implementation_note"] = note
+            updated += 1
+        rows.append(rec)
+
+    if not updated:
+        return {"updated": False, "reason": "not_found_or_already_done", "task_id": task_id}
+
+    path.write_text(
+        "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
+        encoding="utf-8",
+    )
+    return {"updated": True, "task_id": task_id, "rows_updated": updated, "queue_path": str(path)}
+
+
+def sync_promotion_queue_with_tasks() -> dict[str, Any]:
+    """Auto-mark queue items implemented when task_id exists in B9_PROD_SHAPED_TASKS."""
+    from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASK_IDS
+
+    results: list[dict[str, Any]] = []
+    for task_id in B9_PROD_SHAPED_TASK_IDS:
+        out = mark_promotion_implemented(
+            task_id,
+            note="auto: task present in b9_prod_shaped_tasks",
+        )
+        if out.get("updated"):
+            results.append(out)
+    return {"synced": len(results), "items": results}
+
+
 def promotion_queue_summary(*, limit: int = 50) -> dict[str, Any]:
     path = _queue_path()
     if not path.is_file():
@@ -230,8 +280,10 @@ __all__ = [
     "DEMO_AUDIT_RECORD",
     "export_promotion_bundle",
     "generate_task_scaffold",
+    "mark_promotion_implemented",
     "promote_from_audit",
     "promotion_queue_summary",
     "run_promotion_demo",
     "seed_demo_failure_audit",
+    "sync_promotion_queue_with_tasks",
 ]

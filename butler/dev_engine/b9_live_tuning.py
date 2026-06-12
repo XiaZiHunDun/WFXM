@@ -9,11 +9,11 @@ from typing import Any, Iterator
 
 from butler.dev_engine.b9_types import B9TaskSpec
 
-# Top failure probes from 2026-06-11 baseline (tools_used + verify gap).
+# Top failure probes (wrong_patch / prod-shaped).
 B9_TUNING_PROBE_TASK_IDS: tuple[str, ...] = (
     "B9L_multi_file_import",
     "B9L_pytest_fix_impl",
-    "B9L_cross_module_rename",
+    "B9L_prod_demo_fix_greet_return",
 )
 
 B9_LIVE_CATEGORY = "b9-benchmark"
@@ -31,20 +31,64 @@ def b9_live_tuning_enabled() -> bool:
 
 
 def b9_live_tuning_patch() -> dict[str, Any]:
-    """Eval override patch applied during B9 LIVE runs (delegate_rescue variant)."""
+    """Eval override patch applied during B9 LIVE runs (merged with persisted overrides)."""
     if not b9_live_tuning_enabled():
         return {}
-    return dict(_DELEGATE_RESCUE_PATCH)
+    from butler.ops.eval_config_overrides import load_overrides
+
+    patch = dict(_DELEGATE_RESCUE_PATCH)
+    data = load_overrides()
+    for key in (
+        "dev_max_fix_rounds",
+        "delegate_max_iterations",
+        "dev_auto_verify_levels",
+        "coding_knowledge_strict_experience",
+        "coding_guidance_max_cases",
+        "b9_enhanced_delegate_context",
+    ):
+        if key in data and data[key] is not None:
+            patch[key] = data[key]
+    patch["dev_max_fix_rounds"] = max(
+        int(patch.get("dev_max_fix_rounds") or _DELEGATE_RESCUE_PATCH["dev_max_fix_rounds"]),
+        _DELEGATE_RESCUE_PATCH["dev_max_fix_rounds"],
+    )
+    patch["delegate_max_iterations"] = max(
+        int(patch.get("delegate_max_iterations") or _DELEGATE_RESCUE_PATCH["delegate_max_iterations"]),
+        _DELEGATE_RESCUE_PATCH["delegate_max_iterations"],
+    )
+    return patch
+
+
+def b9_failure_class_tuning_patch() -> dict[str, Any]:
+    """Probe variant: rescue floors + coding guidance + enhanced delegate context."""
+    patch = b9_live_tuning_patch()
+    patch.update({
+        "coding_knowledge_strict_experience": True,
+        "coding_guidance_max_cases": 8,
+        "b9_enhanced_delegate_context": True,
+        "dev_auto_verify_levels": "lint,typecheck,test",
+    })
+    return patch
 
 
 def build_b9_delegate_context(workspace: Path) -> str:
+    from butler.ops.eval_config_overrides import effective_b9_enhanced_delegate_context
+
     ws = workspace.resolve()
-    return (
-        f"B9 benchmark workspace (project-bound). All edits under: {ws}\n"
+    lines = [
+        f"B9 benchmark workspace (project-bound). All edits under: {ws}",
         "Workflow: read test_b9.py → patch/write source → "
-        "`python3 -m pytest test_b9.py -q` via terminal until green.\n"
-        "Do not claim done before pytest passes."
-    )
+        "`python3 -m pytest test_b9.py -q` via terminal until green.",
+        "Do not claim done before pytest passes.",
+    ]
+    if effective_b9_enhanced_delegate_context():
+        lines.extend([
+            "After each edit, auto-verify injects pytest/lint feedback — fix before claiming done.",
+            "If pytest shows assert X == Y, fix implementation so X equals Y (never edit the test).",
+            "For ImportError/ModuleNotFoundError, fix imports or rename modules consistently.",
+            "patch always needs path, old_string, and new_string.",
+        ])
+    return "\n".join(lines)
 
 
 def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
@@ -92,6 +136,7 @@ __all__ = [
     "B9_TUNING_PROBE_TASK_IDS",
     "b9_live_runtime_env",
     "b9_live_tuning_enabled",
+    "b9_failure_class_tuning_patch",
     "b9_live_tuning_patch",
     "build_b9_delegate_args",
     "build_b9_delegate_context",

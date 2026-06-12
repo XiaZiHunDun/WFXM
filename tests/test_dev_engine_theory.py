@@ -1014,13 +1014,23 @@ class TestDE5MissingTransitions:
 class TestDE5InvalidTransitions:
     """DE-5: invalid transitions are rejected (phase unchanged)."""
 
-    def test_plan_verify_pass_invalid(self):
+    def test_plan_verify_pass_advances_to_done(self):
         from butler.dev_engine.dev_loop import create_dev_state, transition
 
-        state = create_dev_state("bad transition")
+        state = create_dev_state("early verify pass")
         assert state.phase.value == "PLAN"
         state = transition(state, "verify_pass")
-        assert state.phase.value == "PLAN"
+        assert state.phase.value == "DONE"
+
+    def test_plan_verify_fail_advances_to_fix(self):
+        from butler.dev_engine.dev_loop import create_dev_state, transition
+        from butler.dev_engine.dev_state import VerifyResult, VerifyStatus
+
+        state = create_dev_state("early verify fail")
+        vr = VerifyResult(status=VerifyStatus.FAIL, command="pytest -q", exit_code=1)
+        state = transition(state, "verify_fail", verify_result=vr)
+        assert state.phase.value == "FIX"
+        assert state.verify_result is vr
 
     def test_edit_owner_approve_invalid(self):
         from butler.dev_engine.dev_loop import create_dev_state, transition

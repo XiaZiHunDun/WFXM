@@ -13,7 +13,7 @@ from butler.ops.b9_failure_analysis import classify_b9_failure
 
 
 def test_build_b9_delegate_args_uses_category(tmp_path):
-    spec = B9_LIVE_FIXED_TASKS[0]
+    spec = next(t for t in B9_LIVE_FIXED_TASKS if t.task_id == "B9L_multi_file_import")
     args = build_b9_delegate_args(spec, tmp_path)
     assert args["category"] == B9_LIVE_CATEGORY
     assert "pytest" in args["context"].lower()

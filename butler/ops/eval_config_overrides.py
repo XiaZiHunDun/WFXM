@@ -139,6 +139,58 @@ def adjust_dev_coding_guidance(*, strict: bool = True, max_cases: int = 8) -> di
     return action
 
 
+def effective_b9_enhanced_delegate_context(default: bool = False) -> bool:
+    raw = load_overrides().get("b9_enhanced_delegate_context")
+    if raw is None:
+        return default
+    if isinstance(raw, bool):
+        return raw
+    return str(raw).strip().lower() in ("1", "true", "yes")
+
+
+def apply_b9_failure_class_overrides(analysis: dict[str, Any]) -> dict[str, Any] | None:
+    """Persist coding-guidance + B9 context overrides when wrong_patch dominates."""
+    by_class = analysis.get("by_classification") or {}
+    wrong = int(by_class.get("wrong_patch") or 0)
+    total = int(analysis.get("total") or 0)
+    if total < 3 or wrong < 3:
+        return None
+    if wrong < max(by_class.values(), default=0):
+        return None
+    data = load_overrides()
+    prev = {
+        "coding_knowledge_strict_experience": data.get("coding_knowledge_strict_experience"),
+        "coding_guidance_max_cases": data.get("coding_guidance_max_cases"),
+        "b9_enhanced_delegate_context": data.get("b9_enhanced_delegate_context"),
+        "dev_auto_verify_levels": data.get("dev_auto_verify_levels"),
+    }
+    data["coding_knowledge_strict_experience"] = True
+    # Experiment winner (strict_ck): guidance_max_cases=8 beats baseline and failure_class@10.
+    data["coding_guidance_max_cases"] = max(
+        _MIN_GUIDANCE_CASES,
+        min(_MAX_GUIDANCE_CASES, 8),
+    )
+    data["b9_enhanced_delegate_context"] = True
+    if not str(data.get("dev_auto_verify_levels") or "").strip():
+        data["dev_auto_verify_levels"] = "lint,typecheck,test"
+    data["updated_at"] = time.time()
+    save_overrides(data)
+    action = {
+        "action": "apply_b9_failure_class_overrides",
+        "trigger": "wrong_patch_dominant",
+        "wrong_patch_count": wrong,
+        "by_classification": by_class,
+        "coding_guidance_max_cases": data["coding_guidance_max_cases"],
+        "previous": prev,
+    }
+    logger.info(
+        "eval override: B9 failure-class wrong_patch=%s → guidance=%s enhanced_context=1",
+        wrong,
+        data["coding_guidance_max_cases"],
+    )
+    return action
+
+
 def adjust_delegate_rescue(
     *,
     fix_rounds_step: int = 1,
@@ -199,6 +251,58 @@ def adjust_delegate_routing(*, enable_hint: bool = True) -> dict[str, Any]:
     }
 
 
+def promote_b9_experiment_winner(variants: list[Any]) -> dict[str, Any] | None:
+    """Persist coding-guidance overrides when an experiment variant beats baseline."""
+    if not variants:
+        return None
+    baseline = next((v for v in variants if getattr(v, "variant", "") == "baseline"), None)
+    best = max(
+        variants,
+        key=lambda v: (getattr(v, "b9_pass_rate", 0.0), getattr(v, "b9_passed", 0)),
+    )
+    if getattr(best, "b9_passed", 0) <= 0:
+        return None
+    if baseline is not None:
+        base_key = (getattr(baseline, "b9_pass_rate", 0.0), getattr(baseline, "b9_passed", 0))
+        best_key = (getattr(best, "b9_pass_rate", 0.0), getattr(best, "b9_passed", 0))
+        if best_key <= base_key:
+            return None
+    from butler.ops.eval_experiment import EXPERIMENT_VARIANTS
+
+    winner_patch = EXPERIMENT_VARIANTS.get(getattr(best, "variant", ""), {})
+    actions: list[dict[str, Any]] = []
+    if winner_patch.get("coding_knowledge_strict_experience"):
+        max_cases = int(winner_patch.get("coding_guidance_max_cases") or 8)
+        actions.append(adjust_dev_coding_guidance(strict=True, max_cases=max_cases))
+    if winner_patch.get("b9_enhanced_delegate_context"):
+        data = load_overrides()
+        prev = data.get("b9_enhanced_delegate_context")
+        data["b9_enhanced_delegate_context"] = True
+        data["updated_at"] = time.time()
+        save_overrides(data)
+        actions.append({
+            "action": "enable_b9_enhanced_delegate_context",
+            "previous": prev,
+        })
+    if not actions:
+        return None
+    action = {
+        "action": "promote_b9_experiment_winner",
+        "winner": getattr(best, "variant", ""),
+        "b9_passed": getattr(best, "b9_passed", 0),
+        "b9_total": getattr(best, "b9_total", 0),
+        "b9_pass_rate": getattr(best, "b9_pass_rate", 0.0),
+        "steps": actions,
+    }
+    logger.info(
+        "eval override: promoted experiment winner %s (%s/%s)",
+        action["winner"],
+        action["b9_passed"],
+        action["b9_total"],
+    )
+    return action
+
+
 @contextmanager
 def temporary_overrides(patch: dict[str, Any]) -> Iterator[dict[str, Any]]:
     """Apply override patch for the duration of an eval experiment."""
@@ -216,11 +320,13 @@ def temporary_overrides(patch: dict[str, Any]) -> Iterator[dict[str, Any]]:
 
 
 __all__ = [
+    "apply_b9_failure_class_overrides",
     "adjust_delegate_rescue",
     "adjust_delegate_routing",
     "adjust_dev_coding_guidance",
     "delegate_routing_hint_enabled",
     "adjust_memory_half_life",
+    "effective_b9_enhanced_delegate_context",
     "effective_coding_guidance_max_cases",
     "effective_coding_knowledge_strict",
     "effective_delegate_max_iterations",
@@ -228,6 +334,7 @@ __all__ = [
     "effective_dev_max_fix_rounds",
     "effective_memory_half_life_days",
     "load_overrides",
+    "promote_b9_experiment_winner",
     "save_overrides",
     "temporary_overrides",
 ]

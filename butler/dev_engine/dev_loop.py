@@ -139,6 +139,11 @@ _TRANSITION_TABLE: dict[tuple[DevPhase, str], DevPhase] = {
     (DevPhase.EDIT, "edit_success"): DevPhase.VERIFY,
     (DevPhase.EDIT, "edit_conflict"): DevPhase.LOCATE,
     (DevPhase.EDIT, "edit_fail"): DevPhase.FIX,
+    # dev_verify / auto-verify may run before edit_success transitions (delegate PLAN)
+    (DevPhase.PLAN, "verify_fail"): DevPhase.FIX,
+    (DevPhase.EDIT, "verify_fail"): DevPhase.FIX,
+    (DevPhase.PLAN, "verify_pass"): DevPhase.DONE,
+    (DevPhase.EDIT, "verify_pass"): DevPhase.DONE,
     # Re-edit after auto-verify failure (delegate child loop stays in VERIFY/FIX)
     (DevPhase.VERIFY, "edit_success"): DevPhase.VERIFY,
     (DevPhase.FIX, "edit_success"): DevPhase.VERIFY,

@@ -59,11 +59,9 @@ def analyze_b9_live_results(results: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def analyze_probe_tasks(results: list[dict[str, Any]]) -> dict[str, Any]:
-    wanted = {
-        "B9L_multi_file_import",
-        "B9L_pytest_fix_impl",
-        "B9L_cross_module_rename",
-    }
+    from butler.dev_engine.b9_live_tuning import B9_TUNING_PROBE_TASK_IDS
+
+    wanted = set(B9_TUNING_PROBE_TASK_IDS)
     subset = [r for r in results if r.get("task_id") in wanted]
     return analyze_b9_live_results(subset)
 

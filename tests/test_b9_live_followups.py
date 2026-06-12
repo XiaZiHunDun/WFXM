@@ -110,6 +110,36 @@ class TestVerifyOutputTail:
         _active_states.clear()
 
 
+class TestB9FailureClassOverrides:
+    def test_apply_when_wrong_patch_dominant(self, tmp_path, monkeypatch):
+        from butler.ops.eval_config_overrides import apply_b9_failure_class_overrides, load_overrides
+
+        monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+        (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+
+        analysis = {
+            "total": 14,
+            "by_classification": {"wrong_patch": 9, "passed": 4, "no_edit": 1},
+        }
+        action = apply_b9_failure_class_overrides(analysis)
+        assert action is not None
+        data = load_overrides()
+        assert data.get("b9_enhanced_delegate_context") is True
+        assert data.get("coding_guidance_max_cases") == 8
+
+    def test_enhanced_delegate_context_when_flag_set(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+        (tmp_path / "config").mkdir(parents=True, exist_ok=True)
+        from butler.ops.eval_config_overrides import save_overrides
+
+        save_overrides({"b9_enhanced_delegate_context": True})
+        from butler.dev_engine.b9_live_tuning import build_b9_delegate_context
+
+        ctx = build_b9_delegate_context(tmp_path)
+        assert "assert X == Y" in ctx
+        assert "old_string" in ctx
+
+
 class TestB9LiveRescueOverride:
     def test_maybe_apply_b9_live_rescue_writes_overrides(self, tmp_path, monkeypatch):
         from butler.config import get_butler_home

@@ -15,21 +15,31 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_STRICT_CK_PATCH: dict[str, Any] = {
+    "coding_knowledge_strict_experience": True,
+    "coding_guidance_max_cases": 8,
+}
+_DELEGATE_RESCUE_PATCH: dict[str, Any] = {
+    "dev_max_fix_rounds": 4,
+    "delegate_max_iterations": 32,
+    "dev_auto_verify_levels": "lint,typecheck,test",
+}
+_FAILURE_CLASS_PATCH: dict[str, Any] = {
+    **_DELEGATE_RESCUE_PATCH,
+    **_STRICT_CK_PATCH,
+    "b9_enhanced_delegate_context": True,
+}
+
 EXPERIMENT_VARIANTS: dict[str, dict[str, Any]] = {
     "baseline": {},
-    "strict_ck": {
-        "coding_knowledge_strict_experience": True,
-        "coding_guidance_max_cases": 8,
-    },
-    "delegate_rescue": {
-        "dev_max_fix_rounds": 4,
-        "delegate_max_iterations": 32,
-        "dev_auto_verify_levels": "lint,typecheck,test",
-    },
+    "strict_ck": dict(_STRICT_CK_PATCH),
+    "delegate_rescue": dict(_DELEGATE_RESCUE_PATCH),
     "full_verify": {
         "dev_auto_verify_levels": "lint,typecheck,test,build",
-        "coding_guidance_max_cases": 10,
+        "coding_guidance_max_cases": 8,
     },
+    "strict_ck_rescue": {**_STRICT_CK_PATCH, **_DELEGATE_RESCUE_PATCH},
+    "failure_class": dict(_FAILURE_CLASS_PATCH),
 }
 
 
@@ -177,6 +187,15 @@ def run_eval_experiment(
             push_scores(all_scores)
         except Exception as exc:
             logger.warning("experiment LangFuse push failed: %s", exc)
+
+    try:
+        from butler.ops.eval_config_overrides import promote_b9_experiment_winner
+
+        promoted = promote_b9_experiment_winner(report.variants)
+        if promoted:
+            _append_audit({"type": "experiment_winner_promoted", **promoted})
+    except Exception as exc:
+        logger.warning("experiment winner promote failed: %s", exc)
 
     return report
 

@@ -8,10 +8,12 @@ from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASKS
 from butler.dev_engine.llm_delegate_benchmark import B9Mode, run_b9_task
 from butler.ops.delegate_failure_b9_promote import (
     generate_task_scaffold,
+    mark_promotion_implemented,
     promote_from_audit,
     promotion_queue_summary,
     run_promotion_demo,
     seed_demo_failure_audit,
+    sync_promotion_queue_with_tasks,
 )
 
 
@@ -114,6 +116,42 @@ def test_seed_demo_and_promote_e2e(tmp_path, monkeypatch):
     bundle = export_promotion_bundle(audit_limit=5, out_dir=promo_dir)
     assert (promo_dir / "candidates.json").is_file()
     assert bundle["audit_total"] == 1
+
+
+def test_mark_promotion_implemented(tmp_path, monkeypatch):
+    queue = tmp_path / "b9_promotion_queue.jsonl"
+    queue.write_text(
+        json.dumps({
+            "candidate": {"suggested_task_id": "B9L_prod_demo_fix_greet_return"},
+            "status": "pending_implementation",
+        }, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "butler.ops.delegate_failure_b9_promote._queue_path",
+        lambda: queue,
+    )
+    out = mark_promotion_implemented("B9L_prod_demo_fix_greet_return")
+    assert out["updated"] is True
+    rec = json.loads(queue.read_text(encoding="utf-8").strip())
+    assert rec["status"] == "implemented"
+
+
+def test_sync_promotion_queue_with_tasks(tmp_path, monkeypatch):
+    queue = tmp_path / "b9_promotion_queue.jsonl"
+    queue.write_text(
+        json.dumps({
+            "candidate": {"suggested_task_id": "B9L_prod_demo_fix_greet_return"},
+            "status": "pending_implementation",
+        }, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "butler.ops.delegate_failure_b9_promote._queue_path",
+        lambda: queue,
+    )
+    synced = sync_promotion_queue_with_tasks()
+    assert synced["synced"] >= 1
 
 
 def test_run_promotion_demo_force_seed(tmp_path, monkeypatch):
