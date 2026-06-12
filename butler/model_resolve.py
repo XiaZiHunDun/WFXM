@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterator
 
 from butler.config import ModelConfig, get_butler_settings, save_butler_config
 import logging
@@ -325,6 +326,27 @@ def workflow_step_spawn_model_config(step_model: ModelConfig | None) -> dict[str
     if not d:
         return None
     return d
+
+
+@contextmanager
+def temporary_model_override(
+    spec: str,
+    *,
+    role: str = "dev_agent",
+) -> Iterator[ModelConfig]:
+    """Apply a runtime model override for the duration of a benchmark or eval."""
+    settings = get_butler_settings()
+    role_n = normalize_role(role)
+    prev = settings._runtime_model_overrides.get(role_n)
+    cfg = parse_model_spec(spec)
+    settings.set_runtime_model_override(role_n, cfg)
+    try:
+        yield cfg
+    finally:
+        if prev is None:
+            settings.set_runtime_model_override(role_n, None)
+        else:
+            settings.set_runtime_model_override(role_n, prev)
 
 
 def model_config_to_credentials(
