@@ -627,7 +627,7 @@ while not done and iterations < budget:
 - **任务集**：`b9_live_fixed_tasks.py`（base）+ `b9_prod_shaped_tasks.py`（prod-shaped）；oracle 模式供 CI，`BUTLER_EVAL_LLM_BENCHMARK=1` 走真实 `delegate_task`
 - **Tier 分层**：`b9_tiers.py` — **Tier-1** 发版门控（`BUTLER_EVAL_B9_TIER1_PASS_RATE_MIN`，默认 0.5）；**Tier-2** stretch（多文件 import / prod-shaped 等）不阻塞 exit
 - **调优**：`b9_live_tuning.py`（playbook、`b9_live_runtime_env` terminal dev profile）；`b9_oracle_fewshot.py`（`BUTLER_B9_ORACLE_FEWSHOT`）；`eval_overrides.json` 持久化 rescue/guidance
-- **修学循环**：`b9_oracle_curriculum.py`（Oracle 金标 episode）；`b9_lessons.py`（`~/.butler/audit/b9_lessons.jsonl`）；`scripts/butler-b9-export-curriculum.sh` 导出课表并 seed `coding_experiences.json`（`B9_EX_*`）；`scripts/butler-b9-weekly-learning.sh` 周循环含 harness 摩擦审计
+- **修学循环**：`b9_oracle_curriculum.py`（Oracle 金标 episode）；`b9_lessons.py`（`~/.butler/audit/b9_lessons.jsonl`；LIVE 成功 **renew** `B9_EX_*`、失败 **upsert** `B9_FAIL_*`）；`scripts/butler-b9-export-curriculum.sh` 导出课表并 seed `coding_experiences.json`（`B9_EX_*`）；`scripts/butler-b9-weekly-learning.sh` 周循环含 harness 摩擦审计与 **周对比快照**（`b9_harness_snapshots.jsonl`）
 - **B9 工具**：`dev_tools.run_pytest`（workspace 内 pytest，替代裸 terminal）；Skill `b9-test-driven-add` / `b9-two-file-threshold`
 - **B9 委派门控**：`b9_delegate_gate.py` — `finalize_delegate_success` 在 `b9-benchmark`/`swe-benchmark` 下要求 verify 绿；子 agent 预载 read_state + `<benchmark-workspace-files>`；LIVE 失败最多 3 轮 oracle replay
 - **发版/周循环**：`butler-b9-release-gate.sh`（oracle Tier-1，进 pre-release smoke）；`butler-b9-weekly-learning.sh`（Tier-1 LIVE + Tier-2 probe + SWE 子集）

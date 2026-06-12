@@ -14,6 +14,7 @@ B9_TIER2_TASK_IDS: frozenset[str] = frozenset({
     "B9L_prod_demo_fix_greet_return",
 })
 
+# STUCK expects verify to fail (agent should not fix); excluded from Tier-1 pass_rate.
 B9_STUCK_TASK_IDS: frozenset[str] = frozenset({"B9L_stuck_unsolvable"})
 
 

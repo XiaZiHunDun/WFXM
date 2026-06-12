@@ -120,20 +120,112 @@ def record_b9_run_lesson(result: B9Result, spec: B9TaskSpec) -> dict[str, Any]:
             "anti_patterns": list(ep.anti_patterns) if ep else [],
         }
     record_b9_lesson(row)
+    try:
+        row["experience_followup"] = follow_up_lesson_experience(row, result, spec)
+    except Exception:
+        row["experience_followup"] = {"action": "skipped", "detail": "error"}
     return row
+
+
+def _experience_library_paths() -> tuple[str, Any]:
+    import os
+
+    from butler.config import get_butler_home
+    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
+
+    xlib_path = os.path.join(get_butler_home(), "coding_experiences.json")
+    tlib = TheoremLibrary()
+    xlib = ExperienceLibrary.load_from_file(xlib_path, theorem_lib=tlib)
+    return xlib_path, xlib
+
+
+def renew_or_promote_live_success(ep: B9CurriculumEpisode) -> tuple[str, str]:
+    """Extend B9_EX_* on LIVE pass, or seed from oracle episode if missing."""
+    exp_id = f"B9_EX_{ep.task_id.replace('B9L_', '')}"
+    xlib_path, xlib = _experience_library_paths()
+    if xlib.get(exp_id) is not None:
+        if xlib.renew(exp_id, extend_days=90):
+            xlib.save_to_file(xlib_path)
+            return "renewed", exp_id
+        return "renew_failed", exp_id
+    ok, detail = promote_episode_to_experience(ep, skip_if_exists=False)
+    return ("promoted" if ok else "promote_failed"), detail
+
+
+def upsert_failure_experience(
+    *,
+    task_id: str,
+    classification: str,
+    failure_tail: str,
+    pattern_summary: str,
+    anti_patterns: list[str] | None = None,
+) -> tuple[bool, str]:
+    """Record LIVE failure anti-pattern as B9_FAIL_* experience."""
+    from butler.dev_engine.coding_knowledge import CodingExperience
+
+    slug = task_id.replace("B9L_", "").replace("SWE-", "swe_")
+    exp_id = f"B9_FAIL_{slug}"
+    anti = "; ".join(anti_patterns or []) or "see failure_tail"
+    pattern = (
+        f"Task {task_id} failed with classification={classification}.\n"
+        f"pattern: {pattern_summary}\n"
+        f"avoid: {anti}\n"
+        f"evidence: {(failure_tail or '')[:800]}"
+    )
+    xlib_path, xlib = _experience_library_paths()
+    exp = CodingExperience(
+        id=exp_id,
+        title=f"B9 failure {task_id} ({classification})",
+        domain=["b9", "failure", classification],
+        theorem_basis={"T01", "T04"},
+        context=task_id,
+        pattern=pattern[:2000],
+        benchmarks={"b9_task": task_id, "failure_class": classification},
+        validity_start=time.time(),
+        validity_end=time.time() + 180 * 86400,
+    )
+    ok, detail = xlib.add(exp, skip_validation=True)
+    if ok:
+        xlib.save_to_file(xlib_path)
+    return ok, detail
+
+
+def follow_up_lesson_experience(
+    row: dict[str, Any],
+    result: B9Result,
+    spec: B9TaskSpec,
+) -> dict[str, Any]:
+    """A2: lesson → coding_experiences.json (renew gold / upsert failure)."""
+    ep = episode_for_spec(spec)
+    if result.passed and result.mode == "live" and ep is not None:
+        action, detail = renew_or_promote_live_success(ep)
+        return {"action": action, "detail": detail, "task_id": result.task_id}
+    if (
+        not result.passed
+        and result.mode == "live"
+        and row.get("kind") == "live_failure"
+    ):
+        ok, detail = upsert_failure_experience(
+            task_id=result.task_id,
+            classification=str(row.get("classification") or "other_fail"),
+            failure_tail=str(row.get("failure_tail") or ""),
+            pattern_summary=str(row.get("pattern_summary") or row.get("lesson") or ""),
+            anti_patterns=list(row.get("anti_patterns") or []),
+        )
+        return {
+            "action": "failure_upserted" if ok else "failure_upsert_failed",
+            "detail": detail,
+            "task_id": result.task_id,
+        }
+    return {"action": "none", "task_id": result.task_id}
 
 
 def promote_episode_to_experience(ep: B9CurriculumEpisode, *, skip_if_exists: bool = True) -> tuple[bool, str]:
     """Promote oracle episode to ~/.butler/coding_experiences.json (B9_EX_*)."""
-    import os
-
-    from butler.config import get_butler_home
-    from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary, TheoremLibrary
+    from butler.dev_engine.coding_knowledge import CodingExperience
 
     exp_id = f"B9_EX_{ep.task_id.replace('B9L_', '')}"
-    xlib_path = os.path.join(get_butler_home(), "coding_experiences.json")
-    tlib = TheoremLibrary()
-    xlib = ExperienceLibrary.load_from_file(xlib_path, theorem_lib=tlib)
+    xlib_path, xlib = _experience_library_paths()
     if skip_if_exists and xlib.get(exp_id) is not None:
         return False, "exists"
     steps_text = "\n".join(f"{s.action} {s.target}: {s.detail}" for s in ep.steps)
@@ -192,10 +284,13 @@ def export_curriculum_and_seed_experiences(
 __all__ = [
     "b9_lessons_path",
     "export_curriculum_and_seed_experiences",
+    "follow_up_lesson_experience",
     "format_b9_lessons_block",
     "load_lessons_for_task",
     "promote_episode_to_experience",
     "record_b9_lesson",
     "record_b9_run_lesson",
     "record_oracle_gold_lesson",
+    "renew_or_promote_live_success",
+    "upsert_failure_experience",
 ]

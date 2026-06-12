@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -110,6 +111,63 @@ def summarize_harness_friction(
     }
 
 
+_SNAPSHOTS_NAME = "b9_harness_snapshots.jsonl"
+
+
+def harness_snapshots_path() -> Path:
+    from butler.config import get_butler_home
+
+    return get_butler_home() / "audit" / _SNAPSHOTS_NAME
+
+
+def record_harness_friction_snapshot() -> dict[str, Any]:
+    """Append current friction summary and return week-over-week delta."""
+    summary = summarize_harness_friction()
+    summary["recorded_at"] = time.time()
+    path = harness_snapshots_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(summary, ensure_ascii=False) + "\n")
+    summary["delta"] = compare_harness_friction_delta()
+    return summary
+
+
+def compare_harness_friction_delta(*, keep: int = 2) -> dict[str, Any]:
+    """Delta between the last two harness snapshots (A3 weekly trend)."""
+    path = harness_snapshots_path()
+    if not path.is_file():
+        return {"snapshots": 0}
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    if len(rows) < 2:
+        return {"snapshots": len(rows), "note": "need 2+ snapshots for delta"}
+    prev, cur = rows[-2], rows[-1]
+    return {
+        "snapshots": len(rows),
+        "read_state_total_delta": int(cur.get("read_state_total", 0))
+        - int(prev.get("read_state_total", 0)),
+        "tool_error_total_delta": int(cur.get("tool_error_total", 0))
+        - int(prev.get("tool_error_total", 0)),
+        "prev_recorded_at": prev.get("recorded_at"),
+        "cur_recorded_at": cur.get("recorded_at"),
+    }
+
+
+def format_harness_friction_delta(delta: dict[str, Any] | None) -> str:
+    if not delta or delta.get("snapshots", 0) < 2:
+        return "harness_delta=(insufficient snapshots)"
+    return (
+        "harness_delta="
+        f"read_state {delta.get('read_state_total_delta', 0):+d}, "
+        f"tool_error {delta.get('tool_error_total_delta', 0):+d}"
+    )
+
+
 def format_harness_friction_report(summary: dict[str, Any] | None = None) -> str:
     data = summary if summary is not None else summarize_harness_friction()
     lines = [
@@ -127,6 +185,10 @@ def format_harness_friction_report(summary: dict[str, Any] | None = None) -> str
 
 
 __all__ = [
+    "compare_harness_friction_delta",
+    "format_harness_friction_delta",
     "format_harness_friction_report",
+    "harness_snapshots_path",
+    "record_harness_friction_snapshot",
     "summarize_harness_friction",
 ]

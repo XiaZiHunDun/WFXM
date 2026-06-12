@@ -59,8 +59,14 @@ classes = Counter(r.get("classification") for r in rows)
 print(f"lessons_total={len(rows)} kinds={dict(kinds)} classifications={dict(classes)}")
 print(f"path={p}")
 
-from butler.ops.b9_harness_audit import format_harness_friction_report
+from butler.ops.b9_harness_audit import (
+    format_harness_friction_delta,
+    format_harness_friction_report,
+    record_harness_friction_snapshot,
+)
 
 print()
-print(format_harness_friction_report())
+snap = record_harness_friction_snapshot()
+print(format_harness_friction_report(snap))
+print(format_harness_friction_delta(snap.get("delta")))
 PY
