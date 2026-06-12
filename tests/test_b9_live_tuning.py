@@ -6,7 +6,9 @@ from butler.dev_engine.b9_live_fixed_tasks import B9_LIVE_FIXED_TASKS
 from butler.dev_engine.b9_live_tuning import (
     B9_LIVE_CATEGORY,
     B9_TUNING_PROBE_TASK_IDS,
+    b9_has_edit_tools,
     build_b9_delegate_args,
+    build_b9_no_edit_retry_banner,
     build_b9_task_playbook,
     build_b9_verify_hint,
     filter_tasks_by_ids,
@@ -70,6 +72,18 @@ def test_build_b9_delegate_args_includes_playbook(tmp_path):
     spec = next(t for t in B9_LIVE_FIXED_TASKS if t.task_id == "B9L_pytest_fix_impl")
     args = build_b9_delegate_args(spec, tmp_path)
     assert "a * b" in args["context"] or "multiplication" in args["context"]
+
+
+def test_b9_has_edit_tools():
+    assert b9_has_edit_tools(["read_file", "patch"])
+    assert not b9_has_edit_tools(["read_file", "list_directory"])
+
+
+def test_build_b9_no_edit_retry_banner():
+    banner = build_b9_no_edit_retry_banner("base context")
+    assert "NO-EDIT RETRY" in banner
+    assert "patch or write_file" in banner
+    assert "base context" in banner
 
 
 def test_tier1_playbook_test_driven_add(tmp_path):

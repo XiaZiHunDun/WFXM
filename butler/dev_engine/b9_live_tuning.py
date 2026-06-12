@@ -18,6 +18,8 @@ B9_TUNING_PROBE_TASK_IDS: tuple[str, ...] = (
 
 B9_LIVE_CATEGORY = "b9-benchmark"
 
+B9_EDIT_TOOL_NAMES: frozenset[str] = frozenset({"patch", "write_file", "delete_file"})
+
 # Task-specific playbooks (probe + Tier-1 gate tasks); injected into delegate context.
 B9_TASK_PLAYBOOKS: dict[str, str] = {
     # Tier-2 probe (stretch)
@@ -174,6 +176,21 @@ def build_b9_verify_hint(output_tail: str) -> str:
     return ""
 
 
+def b9_has_edit_tools(tools_used: list[str] | None) -> bool:
+    tools = {str(t).strip().lower() for t in (tools_used or []) if t}
+    return bool(tools & B9_EDIT_TOOL_NAMES)
+
+
+def build_b9_no_edit_retry_banner(prior_context: str) -> str:
+    return (
+        "## NO-EDIT RETRY (mandatory)\n"
+        "The previous delegate attempt only read/listed files — no patch or write_file. "
+        "This benchmark cannot pass without editing source. "
+        "read_file the target module, then patch or write_file now.\n\n"
+        f"{prior_context}"
+    )
+
+
 def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
     context = build_b9_delegate_context(workspace)
     playbook = build_b9_task_playbook(spec.task_id)
@@ -221,10 +238,13 @@ def filter_tasks_by_ids(
 
 
 __all__ = [
+    "B9_EDIT_TOOL_NAMES",
     "B9_LIVE_CATEGORY",
     "B9_PROBE_PLAYBOOKS",
     "B9_TASK_PLAYBOOKS",
     "B9_TUNING_PROBE_TASK_IDS",
+    "b9_has_edit_tools",
+    "build_b9_no_edit_retry_banner",
     "build_b9_task_playbook",
     "build_b9_verify_hint",
     "b9_live_runtime_env",

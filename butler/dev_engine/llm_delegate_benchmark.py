@@ -354,9 +354,11 @@ def _run_live_delegate(
     from contextlib import nullcontext
 
     from butler.dev_engine.b9_live_tuning import (
+        b9_has_edit_tools,
         b9_live_runtime_env,
         b9_live_tuning_patch,
         build_b9_delegate_args,
+        build_b9_no_edit_retry_banner,
     )
     from butler.ops.eval_config_overrides import temporary_overrides
 
@@ -366,6 +368,7 @@ def _run_live_delegate(
     override_ctx = (
         temporary_overrides(tuning_patch) if tuning_patch else nullcontext()
     )
+    delegate_args = build_b9_delegate_args(spec, workspace.resolve())
     try:
         from butler.execution_context import use_execution_context
         from butler.orchestrator import ButlerOrchestrator
@@ -381,26 +384,48 @@ def _run_live_delegate(
             monkeypatch_root = os.environ.get("BUTLER_TOOL_SAFE_ROOT", "")
             os.environ["BUTLER_TOOL_SAFE_ROOT"] = str(ws)
             try:
-                raw = dispatch_tool(
-                    "delegate_task",
-                    build_b9_delegate_args(spec, ws),
-                )
+                for attempt in range(2):
+                    args = (
+                        delegate_args
+                        if attempt == 0
+                        else {
+                            **delegate_args,
+                            "context": build_b9_no_edit_retry_banner(
+                                delegate_args["context"],
+                            ),
+                        }
+                    )
+                    raw = dispatch_tool("delegate_task", args)
+                    data = (
+                        json.loads(raw)
+                        if isinstance(raw, str) and raw.strip().startswith("{")
+                        else {}
+                    )
+                    if isinstance(data, dict):
+                        for name in data.get("tools_used") or []:
+                            if name and name not in tools_used:
+                                tools_used.append(str(name))
+                        if not data.get("success", True) and data.get("error"):
+                            errors.append(str(data["error"]))
+                    verify_ok, verify_msg = spec.verify(ws)
+                    if verify_ok:
+                        errors.clear()
+                        break
+                    if b9_has_edit_tools(tools_used) or attempt == 1:
+                        if verify_msg:
+                            errors.append(verify_msg)
+                        break
             finally:
                 if monkeypatch_root:
                     os.environ["BUTLER_TOOL_SAFE_ROOT"] = monkeypatch_root
                 elif "BUTLER_TOOL_SAFE_ROOT" in os.environ:
                     del os.environ["BUTLER_TOOL_SAFE_ROOT"]
-        data = json.loads(raw) if isinstance(raw, str) and raw.strip().startswith("{") else {}
-        if isinstance(data, dict):
-            tools_used = list(data.get("tools_used") or [])
-            if not data.get("success", True) and data.get("error"):
-                errors.append(str(data["error"]))
     except Exception as exc:
         errors.append(str(exc))
         return False, tools_used, errors
 
     ok, msg = spec.verify(workspace)
-    if not ok:
+    if not ok and msg and msg not in errors:
         errors.append(msg)
     return ok and not errors, tools_used, errors
 
