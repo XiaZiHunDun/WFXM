@@ -475,6 +475,12 @@ def run_b9_task(
     except Exception as exc:
         result.failure_reasons.append(str(exc))
     result.elapsed_seconds = time.time() - t0
+    try:
+        from butler.ops.b9_lessons import record_b9_run_lesson
+
+        record_b9_run_lesson(result, spec)
+    except Exception:
+        pass
     return result
 
 

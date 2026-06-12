@@ -1,0 +1,201 @@
+"""B9 learning loop — lessons from oracle gold and LIVE runs."""
+
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+from typing import Any
+
+from butler.dev_engine.b9_oracle_curriculum import (
+    B9_ORACLE_EPISODES,
+    B9CurriculumEpisode,
+    episode_for_spec,
+    export_curriculum_to_disk,
+    get_episode,
+)
+from butler.dev_engine.b9_types import B9Result, B9TaskSpec
+from butler.ops.b9_failure_analysis import classify_b9_failure
+
+_LESSONS_NAME = "b9_lessons.jsonl"
+
+
+def b9_lessons_path() -> Path:
+    from butler.config import get_butler_home
+
+    return get_butler_home() / "audit" / _LESSONS_NAME
+
+
+def record_b9_lesson(record: dict[str, Any]) -> Path:
+    path = b9_lessons_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    row = {**record, "ts": record.get("ts", time.time())}
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    return path
+
+
+def load_lessons_for_task(task_id: str, *, limit: int = 3) -> list[dict[str, Any]]:
+    path = b9_lessons_path()
+    if not path.is_file() or limit <= 0:
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if str(row.get("task_id") or "") == task_id:
+            rows.append(row)
+    return rows[-limit:]
+
+
+def format_b9_lessons_block(task_id: str, *, limit: int = 2) -> str:
+    lessons = load_lessons_for_task(task_id, limit=limit)
+    if not lessons:
+        return ""
+    lines = ["<b9-lessons>", f"## Prior runs for {task_id}"]
+    for row in lessons:
+        kind = row.get("kind", "?")
+        cls = row.get("classification", "")
+        passed = row.get("passed")
+        summary = str(row.get("pattern_summary") or row.get("lesson") or "")[:240]
+        lines.append(f"- [{kind}/{cls}] passed={passed}: {summary}")
+    lines.append("</b9-lessons>")
+    return "\n".join(lines)
+
+
+def _lesson_from_episode(ep: B9CurriculumEpisode, *, kind: str = "oracle_gold") -> dict[str, Any]:
+    return {
+        "task_id": ep.task_id,
+        "kind": kind,
+        "classification": "passed",
+        "passed": True,
+        "skill_name": ep.skill_name,
+        "pattern_summary": ep.pattern_summary,
+        "steps": [s.to_dict() for s in ep.steps],
+        "tags": list(ep.tags),
+    }
+
+
+def record_oracle_gold_lesson(task_id: str) -> dict[str, Any] | None:
+    ep = get_episode(task_id)
+    if ep is None:
+        return None
+    row = _lesson_from_episode(ep)
+    record_b9_lesson(row)
+    return row
+
+
+def record_b9_run_lesson(result: B9Result, spec: B9TaskSpec) -> dict[str, Any]:
+    """Record a lesson from a B9 task run (oracle or LIVE)."""
+    classification = classify_b9_failure(
+        task_id=result.task_id,
+        passed=result.passed,
+        tools_used=result.tools_used,
+        failure_reasons=result.failure_reasons,
+    )
+    ep = episode_for_spec(spec)
+    if result.passed and ep is not None:
+        row = _lesson_from_episode(ep, kind="live_success" if result.mode == "live" else "oracle_gold")
+    else:
+        tail = ""
+        if result.failure_reasons:
+            tail = str(result.failure_reasons[-1])[:400]
+        lesson = f"classification={classification}"
+        if ep is not None:
+            lesson = f"{ep.pattern_summary} | failed: {classification}"
+        row = {
+            "task_id": result.task_id,
+            "kind": "live_failure" if result.mode == "live" else "oracle_miss",
+            "classification": classification,
+            "passed": result.passed,
+            "mode": result.mode,
+            "tools_used": list(result.tools_used),
+            "failure_tail": tail,
+            "lesson": lesson,
+            "pattern_summary": ep.pattern_summary if ep else "",
+            "anti_patterns": list(ep.anti_patterns) if ep else [],
+        }
+    record_b9_lesson(row)
+    return row
+
+
+def promote_episode_to_experience(ep: B9CurriculumEpisode, *, skip_if_exists: bool = True) -> tuple[bool, str]:
+    """Promote oracle episode to ~/.butler/coding_experiences.json (B9_EX_*)."""
+    import os
+
+    from butler.config import get_butler_home
+    from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary, TheoremLibrary
+
+    exp_id = f"B9_EX_{ep.task_id.replace('B9L_', '')}"
+    xlib_path = os.path.join(get_butler_home(), "coding_experiences.json")
+    tlib = TheoremLibrary()
+    xlib = ExperienceLibrary.load_from_file(xlib_path, theorem_lib=tlib)
+    if skip_if_exists and xlib.get(exp_id) is not None:
+        return False, "exists"
+    steps_text = "\n".join(f"{s.action} {s.target}: {s.detail}" for s in ep.steps)
+    pattern = f"{ep.pattern_summary}\n\nsteps:\n{steps_text}"
+    exp = CodingExperience(
+        id=exp_id,
+        title=f"B9 {ep.title}",
+        domain=["b9", *list(ep.tags)],
+        theorem_basis={"T01", "T04"},
+        context=ep.task_id,
+        pattern=pattern[:2000],
+        benchmarks={"b9_task": ep.task_id},
+        validity_start=time.time(),
+        validity_end=time.time() + 365 * 86400,
+    )
+    ok, detail = xlib.add(exp, skip_validation=True)
+    if ok:
+        xlib.save_to_file(xlib_path)
+    return ok, detail
+
+
+def export_curriculum_and_seed_experiences(
+    *,
+    task_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """Export curriculum JSON + seed CodingExperience for listed tasks (default Tier-1)."""
+    from butler.dev_engine.b9_tiers import b9_task_tier
+
+    curriculum_path = export_curriculum_to_disk()
+    lessons_recorded = 0
+    experiences_added = 0
+    experiences_skipped = 0
+    targets = task_ids or list(B9_ORACLE_EPISODES.keys())
+    for tid in targets:
+        ep = get_episode(tid)
+        if ep is None:
+            continue
+        if record_oracle_gold_lesson(tid) is not None:
+            lessons_recorded += 1
+        ok, detail = promote_episode_to_experience(ep)
+        if ok:
+            experiences_added += 1
+        elif detail == "exists":
+            experiences_skipped += 1
+    tier1_eps = [tid for tid in targets if b9_task_tier(tid) == 1]
+    return {
+        "curriculum_path": str(curriculum_path),
+        "lessons_recorded": lessons_recorded,
+        "experiences_added": experiences_added,
+        "experiences_skipped": experiences_skipped,
+        "tier1_episodes": tier1_eps,
+        "episode_count": len(B9_ORACLE_EPISODES),
+    }
+
+
+__all__ = [
+    "b9_lessons_path",
+    "export_curriculum_and_seed_experiences",
+    "format_b9_lessons_block",
+    "load_lessons_for_task",
+    "promote_episode_to_experience",
+    "record_b9_lesson",
+    "record_b9_run_lesson",
+    "record_oracle_gold_lesson",
+]

@@ -156,6 +156,8 @@ def classify_tool_error(
         return ToolErrorKind.retry
     if any(m in blob for m in _REPLAN_MARKERS):
         return ToolErrorKind.replan
+    if "read_state" in blob or "patch_old_string" in blob:
+        return ToolErrorKind.replan
     return ToolErrorKind.replan
 
 
@@ -165,6 +167,16 @@ def _kind_label(kind: ToolErrorKind) -> str:
         ToolErrorKind.replan: "需调整",
         ToolErrorKind.stop: "应停止",
     }.get(kind, "错误")
+
+
+def _hint_from_payload(result: str) -> str:
+    try:
+        payload = json.loads(result or "")
+    except json.JSONDecodeError:
+        return ""
+    if isinstance(payload, dict):
+        return str(payload.get("hint") or "").strip()
+    return ""
 
 
 def _next_step_hint(kind: ToolErrorKind, tool_name: str) -> str:
@@ -183,11 +195,12 @@ def format_tool_error_observation(
     kind: ToolErrorKind,
     tool_name: str = "",
     code: str = "",
+    hint_override: str = "",
 ) -> str:
     """PEG-style: 错误类型 | 原因 | 建议下一步"""
     label = _kind_label(kind)
     reason = (message or "工具执行失败").strip()
-    hint = _next_step_hint(kind, tool_name)
+    hint = (hint_override or "").strip() or _next_step_hint(kind, tool_name)
     parts = [f"错误类型: {label}", f"原因: {reason}"]
     if hint:
         parts.append(f"建议下一步: {hint}")
@@ -231,7 +244,13 @@ def apply_tool_error_policy(
     else:
         msg = result[:500]
 
-    observation = format_tool_error_observation(msg, kind=kind, tool_name=tool_name, code=code)
+    observation = format_tool_error_observation(
+        msg,
+        kind=kind,
+        tool_name=tool_name,
+        code=code,
+        hint_override=_hint_from_payload(result),
+    )
 
     if result.strip().startswith("{"):
         try:

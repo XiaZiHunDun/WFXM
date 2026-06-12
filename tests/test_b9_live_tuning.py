@@ -93,6 +93,13 @@ def test_tier1_playbook_test_driven_add(tmp_path):
     assert "pong" in args["context"].lower()
 
 
+def test_delegate_args_include_curriculum(tmp_path):
+    spec = next(t for t in B9_LIVE_FIXED_TASKS if t.task_id == "B9L_two_file_patch")
+    args = build_b9_delegate_args(spec, tmp_path)
+    assert "b9-curriculum" in args["context"]
+    assert "THRESHOLD" in args["context"]
+
+
 def test_classify_wrong_patch():
     assert classify_b9_failure(
         task_id="B9L_cross_module_rename",

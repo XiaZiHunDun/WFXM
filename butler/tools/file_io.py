@@ -425,7 +425,14 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
                 new_string = normalize_quotes(new_string)
                 fuzzy = True
         if count == 0:
-            return json.dumps({"error": "old_string not found in file"})
+            return json.dumps({
+                "error": "old_string not found in file",
+                "code": "PATCH_OLD_STRING_NOT_FOUND",
+                "hint": (
+                    "read_file the path again and copy old_string verbatim from the file "
+                    "(indentation, quotes, and trailing newlines must match)."
+                ),
+            }, ensure_ascii=False)
         if count > 1:
             matches: list[dict[str, Any]] = []
             start = 0

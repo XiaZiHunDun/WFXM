@@ -627,6 +627,7 @@ while not done and iterations < budget:
 - **任务集**：`b9_live_fixed_tasks.py`（base）+ `b9_prod_shaped_tasks.py`（prod-shaped）；oracle 模式供 CI，`BUTLER_EVAL_LLM_BENCHMARK=1` 走真实 `delegate_task`
 - **Tier 分层**：`b9_tiers.py` — **Tier-1** 发版门控（`BUTLER_EVAL_B9_TIER1_PASS_RATE_MIN`，默认 0.5）；**Tier-2** stretch（多文件 import / prod-shaped 等）不阻塞 exit
 - **调优**：`b9_live_tuning.py`（playbook、`b9_live_runtime_env` terminal dev profile）；`b9_oracle_fewshot.py`（`BUTLER_B9_ORACLE_FEWSHOT`）；`eval_overrides.json` 持久化 rescue/guidance
+- **修学循环**：`b9_oracle_curriculum.py`（Oracle 金标 episode）；`b9_lessons.py`（`~/.butler/audit/b9_lessons.jsonl`）；`scripts/butler-b9-export-curriculum.sh` 导出课表并 seed `coding_experiences.json`（`B9_EX_*`）
 - **失败分析**：`butler/ops/b9_failure_analysis.py`；生产晋升 `delegate_failure_b9_promote.py`
 - **模型对照**：`scripts/butler-eval-b9-probe-model.sh`（`--tier1` / `--compare` + `temporary_model_override`）
 

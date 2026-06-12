@@ -47,6 +47,8 @@ def test_require_blocks_without_read(tmp_path, monkeypatch):
     err = check_read_state_for_resolved(f.resolve())
     assert err is not None
     assert err["code"] == "READ_STATE_REQUIRED"
+    assert "hint" in err
+    assert "read_file" in err["hint"].lower()
 
 
 @pytest.mark.unit

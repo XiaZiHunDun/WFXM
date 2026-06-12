@@ -140,6 +140,25 @@ def build_b9_delegate_context(workspace: Path) -> str:
     return "\n".join(lines)
 
 
+def _append_b9_learning_blocks(lines: list[str], task_id: str) -> None:
+    try:
+        from butler.dev_engine.b9_oracle_curriculum import format_curriculum_block
+
+        block = format_curriculum_block(task_id, max_steps=4)
+        if block:
+            lines.append(block)
+    except Exception:
+        pass
+    try:
+        from butler.ops.b9_lessons import format_b9_lessons_block
+
+        lessons = format_b9_lessons_block(task_id, limit=2)
+        if lessons:
+            lines.append(lessons)
+    except Exception:
+        pass
+
+
 def build_b9_task_playbook(task_id: str) -> str:
     """Return optional task-specific fix playbook for probe / Tier-1 / shaped tasks."""
     return B9_TASK_PLAYBOOKS.get(task_id, "")
@@ -193,9 +212,13 @@ def build_b9_no_edit_retry_banner(prior_context: str) -> str:
 
 def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
     context = build_b9_delegate_context(workspace)
+    extra: list[str] = []
+    _append_b9_learning_blocks(extra, spec.task_id)
     playbook = build_b9_task_playbook(spec.task_id)
     if playbook:
-        context = f"## TASK PLAYBOOK (priority — follow before generic workflow)\n{playbook}\n\n{context}"
+        extra.insert(0, f"## TASK PLAYBOOK (priority — follow before generic workflow)\n{playbook}")
+    if extra:
+        context = "\n\n".join([*extra, context])
     return {
         "role": "dev",
         "task": spec.delegate_prompt,

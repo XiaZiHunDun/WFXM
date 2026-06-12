@@ -183,6 +183,33 @@ def _stat_matches(entry: ReadStateEntry, current: os.stat_result) -> bool:
     return True
 
 
+def read_state_hint(code: str) -> str:
+    """Actionable hint for read-before-edit guard codes."""
+    return {
+        "READ_STATE_REQUIRED": (
+            "Call read_file on this path first, then patch/write with content copied "
+            "exactly from that output (whitespace and quotes matter)."
+        ),
+        "READ_STATE_PARTIAL_VIEW": (
+            "read_file the full file without offset/limit, then edit."
+        ),
+        "READ_STATE_STALE": (
+            "File changed since read_file — read_file again, then retry patch."
+        ),
+        "READ_STATE_NOT_FILE": "read-before-edit applies to regular files only.",
+        "READ_STATE_STAT_FAILED": "Could not stat file; verify path with list_directory.",
+    }.get(code, "")
+
+
+def _guard_payload(code: str, error: str, path: str, **extra: Any) -> dict[str, Any]:
+    payload: dict[str, Any] = {"ok": False, "error": error, "code": code, "path": path}
+    hint = read_state_hint(code)
+    if hint:
+        payload["hint"] = hint
+    payload.update(extra)
+    return payload
+
+
 def check_read_state_for_resolved(resolved: Path) -> dict[str, Any] | None:
     """Validate read state for an already-resolved path (no workspace re-check)."""
     if not read_before_edit_enabled():
@@ -190,39 +217,35 @@ def check_read_state_for_resolved(resolved: Path) -> dict[str, Any] | None:
     if not resolved.exists():
         return None
     if not resolved.is_file():
-        return {
-            "ok": False,
-            "error": "read-before-edit 仅适用于普通文件",
-            "code": "READ_STATE_NOT_FILE",
-            "path": str(resolved),
-        }
+        return _guard_payload(
+            "READ_STATE_NOT_FILE",
+            "read-before-edit 仅适用于普通文件",
+            str(resolved),
+        )
 
     entry = get_read_state(resolved)
     if entry is None:
-        return {
-            "ok": False,
-            "error": "必须先调用 read_file 读取该文件后再编辑",
-            "code": "READ_STATE_REQUIRED",
-            "path": str(resolved),
-        }
+        return _guard_payload(
+            "READ_STATE_REQUIRED",
+            "必须先调用 read_file 读取该文件后再编辑",
+            str(resolved),
+        )
 
     if entry.is_partial_view:
-        return {
-            "ok": False,
-            "error": "当前为部分视图（如自动注入摘要），请 read_file 完整读取后再编辑",
-            "code": "READ_STATE_PARTIAL_VIEW",
-            "path": str(resolved),
-        }
+        return _guard_payload(
+            "READ_STATE_PARTIAL_VIEW",
+            "当前为部分视图（如自动注入摘要），请 read_file 完整读取后再编辑",
+            str(resolved),
+        )
 
     try:
         current = resolved.stat()
     except OSError as exc:
-        return {
-            "ok": False,
-            "error": str(exc),
-            "code": "READ_STATE_STAT_FAILED",
-            "path": str(resolved),
-        }
+        return _guard_payload(
+            "READ_STATE_STAT_FAILED",
+            str(exc),
+            str(resolved),
+        )
 
     if not _stat_matches(entry, current):
         try:
@@ -231,14 +254,13 @@ def check_read_state_for_resolved(resolved: Path) -> dict[str, Any] | None:
                 return None
         except OSError:
             pass
-        return {
-            "ok": False,
-            "error": "文件在 read_file 之后已被外部修改，请重新 read_file 后再编辑",
-            "code": "READ_STATE_STALE",
-            "path": str(resolved),
-            "read_mtime_ns": entry.mtime_ns,
-            "current_mtime_ns": _mtime_ns(current),
-        }
+        return _guard_payload(
+            "READ_STATE_STALE",
+            "文件在 read_file 之后已被外部修改，请重新 read_file 后再编辑",
+            str(resolved),
+            read_mtime_ns=entry.mtime_ns,
+            current_mtime_ns=_mtime_ns(current),
+        )
     return None
 
 
