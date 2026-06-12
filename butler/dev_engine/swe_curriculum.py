@@ -1,0 +1,108 @@
+"""SWE-bench Lite playbooks and oracle replay hints for LIVE delegate."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class SWEPlaybook:
+    instance_id: str
+    title: str
+    pattern_summary: str
+    steps: tuple[str, ...]
+    skill_name: str = ""
+
+
+SWE_PLAYBOOKS: dict[str, SWEPlaybook] = {
+    "SWE-013": SWEPlaybook(
+        instance_id="SWE-013",
+        title="Add status field to API response",
+        pattern_summary="make_response must set status ok/error from HTTP code.",
+        steps=(
+            "read_file api/response.py",
+            "patch make_response to add status: ok if code < 400 else error",
+            "terminal: python -m pytest _swe_test.py -q",
+        ),
+        skill_name="b9-swe-api-status",
+    ),
+    "SWE-014": SWEPlaybook(
+        instance_id="SWE-014",
+        title="EventBus.on returns unsubscribe callable",
+        pattern_summary=(
+            "EventBus.on(event, callback) must return unsubscribe() that removes "
+            "callback from self._listeners[event]. Patch on() only; never write_file "
+            "the whole module."
+        ),
+        steps=(
+            "read_file events.py — locate EventBus.on",
+            "patch on(): after append(callback), define unsubscribe() removing callback; return it",
+            "terminal: python -m pytest _swe_test.py -q",
+        ),
+        skill_name="b9-swe-event-unsubscribe",
+    ),
+    "SWE-015": SWEPlaybook(
+        instance_id="SWE-015",
+        title="PriorityQueue pop highest priority first",
+        pattern_summary="pop() must return item with lowest priority number (min-heap behavior).",
+        steps=(
+            "read_file queue.py",
+            "patch pop to select min priority entry",
+            "terminal: python -m pytest _swe_test.py -q",
+        ),
+        skill_name="b9-swe-priority-queue",
+    ),
+}
+
+
+def get_swe_playbook(instance_id: str) -> SWEPlaybook | None:
+    return SWE_PLAYBOOKS.get(instance_id)
+
+
+def build_swe_playbook_block(instance_id: str) -> str:
+    pb = get_swe_playbook(instance_id)
+    if pb is None:
+        return ""
+    lines = [
+        f"## SWE PLAYBOOK ({pb.instance_id})",
+        pb.pattern_summary,
+        "steps:",
+        *[f"- {s}" for s in pb.steps],
+    ]
+    return "\n".join(lines)
+
+
+def format_swe_replay_block(instance_id: str) -> str:
+    pb = get_swe_playbook(instance_id)
+    if pb is None:
+        return ""
+    lines = [
+        "## SWE ORACLE REPLAY (mandatory)",
+        f"Instance {pb.instance_id}: {pb.title}",
+        f"pattern: {pb.pattern_summary}",
+        "Execute:",
+        *[f"- {s}" for s in pb.steps],
+    ]
+    lines.append("avoid: write_file entire source; use patch on the target function only.")
+    if instance_id == "SWE-014":
+        lines.extend([
+            "",
+            "patch template inside on() before return:",
+            "```python",
+            "        def unsubscribe():",
+            "            try:",
+            "                self._listeners[event].remove(callback)",
+            "            except (KeyError, ValueError):",
+            "                pass",
+            "        return unsubscribe",
+            "```",
+        ])
+    return "\n".join(lines)
+
+
+__all__ = [
+    "SWE_PLAYBOOKS",
+    "build_swe_playbook_block",
+    "format_swe_replay_block",
+    "get_swe_playbook",
+]

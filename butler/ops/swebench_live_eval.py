@@ -88,14 +88,29 @@ def _instance_delegate_prompt(inst: Any) -> str:
 
 
 def build_swe_delegate_context(inst: Any) -> str:
+    from butler.dev_engine.swe_curriculum import (
+        build_swe_playbook_block,
+        format_swe_replay_block,
+    )
+
     files = ", ".join(sorted(inst.files.keys()))
-    return (
+    parts: list[str] = []
+    # Inject full replay on attempt 0 — retries still get replay via llm_delegate_benchmark.
+    replay = format_swe_replay_block(inst.instance_id)
+    if replay:
+        parts.append(replay)
+    else:
+        playbook = build_swe_playbook_block(inst.instance_id)
+        if playbook:
+            parts.append(playbook)
+    parts.append(
         f"SWE-bench instance {inst.instance_id} ({inst.category}, {inst.difficulty}).\n"
         f"Repo files: {files}\n"
         "Workflow: read issue → patch implementation → "
         "`python -m pytest _swe_test.py -q` until green.\n"
         "Pre-loaded sources may appear in <benchmark-workspace-files>."
     )
+    return "\n\n".join(parts)
 
 
 def _swe_instance_to_task_spec(inst: Any) -> Any:

@@ -107,6 +107,13 @@ def record_b9_run_lesson(result: B9Result, spec: B9TaskSpec) -> dict[str, Any]:
         lesson = f"classification={classification}"
         if ep is not None:
             lesson = f"{ep.pattern_summary} | failed: {classification}"
+        pattern_summary = ep.pattern_summary if ep else ""
+        if not pattern_summary and result.task_id.startswith("SWE-"):
+            from butler.dev_engine.swe_curriculum import get_swe_playbook
+
+            swe_pb = get_swe_playbook(result.task_id)
+            if swe_pb is not None:
+                pattern_summary = swe_pb.pattern_summary
         row = {
             "task_id": result.task_id,
             "kind": "live_failure" if result.mode == "live" else "oracle_miss",
@@ -116,7 +123,7 @@ def record_b9_run_lesson(result: B9Result, spec: B9TaskSpec) -> dict[str, Any]:
             "tools_used": list(result.tools_used),
             "failure_tail": tail,
             "lesson": lesson,
-            "pattern_summary": ep.pattern_summary if ep else "",
+            "pattern_summary": pattern_summary,
             "anti_patterns": list(ep.anti_patterns) if ep else [],
         }
     record_b9_lesson(row)

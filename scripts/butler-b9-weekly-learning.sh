@@ -70,3 +70,31 @@ snap = record_harness_friction_snapshot()
 print(format_harness_friction_report(snap))
 print(format_harness_friction_delta(snap.get("delta")))
 PY
+
+echo ""
+echo "=== B9 weekly: promotion queue sync + bundle ==="
+python3 - <<'PY'
+import json
+
+from butler.ops.delegate_failure_b9_promote import (
+    export_promotion_bundle,
+    promotion_queue_summary,
+    sync_promotion_queue_with_tasks,
+)
+
+synced = sync_promotion_queue_with_tasks()
+bundle = export_promotion_bundle(audit_limit=20)
+summary = promotion_queue_summary()
+print(
+    json.dumps(
+        {
+            "promotion_synced": synced.get("synced", 0),
+            "queue_pending": summary.get("pending", 0),
+            "candidates_path": bundle.get("candidates_path"),
+            "queue_summary_path": bundle.get("queue_summary_path"),
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+)
+PY

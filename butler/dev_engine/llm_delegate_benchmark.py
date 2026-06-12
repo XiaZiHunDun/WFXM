@@ -401,11 +401,16 @@ def _run_live_delegate(
                     if attempt == 0:
                         args = delegate_args
                     else:
-                        replay = (
-                            format_oracle_replay_block(spec.task_id)
-                            if spec.task_id.startswith("B9L_")
-                            else ""
-                        )
+                        if spec.task_id.startswith("B9L_"):
+                            replay = format_oracle_replay_block(spec.task_id)
+                        elif spec.task_id.startswith("SWE-"):
+                            from butler.dev_engine.swe_curriculum import (
+                                format_swe_replay_block,
+                            )
+
+                            replay = format_swe_replay_block(spec.task_id)
+                        else:
+                            replay = ""
                         if not b9_has_edit_tools(tools_used):
                             banner = build_b9_no_edit_retry_banner(
                                 base_context,
