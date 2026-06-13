@@ -30,8 +30,9 @@ def test_record_live_failure_lesson(tmp_path, monkeypatch):
         tools_used=["read_file"],
         failure_reasons=["assert failed"],
     )
-    row = record_b9_run_lesson(result, spec)
+    row = record_b9_run_lesson(result, spec, project="灵文1号")
     assert row["kind"] == "live_failure"
+    assert row["project"] == "灵文1号"
     assert row["classification"] == "no_edit"
     loaded = load_lessons_for_task(spec.task_id)
     assert len(loaded) == 1

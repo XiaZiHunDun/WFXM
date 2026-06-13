@@ -761,6 +761,12 @@ class TheoremLibrary:
 # CD4: Experience Library (CA3a/CA3b)
 # ═══════════════════════════════════════════════════════════════════
 
+def _default_memory_scope() -> "MemoryScope":
+    from butler.memory.memory_scope import MemoryScope
+
+    return MemoryScope()
+
+
 @dataclass
 class CodingExperience:
     """A coding experience: a time-bound best practice (CA3, CD4)."""
@@ -775,6 +781,7 @@ class CodingExperience:
     validity_start: float = 0.0
     validity_end: float = float("inf")
     supersedes: Optional[str] = None
+    scope: "MemoryScope" = field(default_factory=lambda: _default_memory_scope())
 
     def is_valid(self, now: Optional[float] = None) -> bool:
         t = now if now is not None else time.time()
@@ -852,19 +859,28 @@ class ExperienceLibrary:
 
     def search(self, keywords: Set[str], activated_theorems: Set[str],
                now: Optional[float] = None,
-               strict_coverage: bool = False) -> List[CodingExperience]:
+               strict_coverage: bool = False,
+               *,
+               project_id: str = "",
+               stack_tags: frozenset[str] | set[str] | None = None) -> List[CodingExperience]:
         """Retrieve valid, compatible experiences sorted by coverage.
 
         Args:
             strict_coverage: If True, require theorem_basis ⊇ activated_theorems
                            (CD5b). If False, allow partial overlap.
                            B9-tagged experiences use partial overlap even when strict.
+            project_id: When set, filter by MemoryScope visibility (multi-project).
+            stack_tags: Project stack tags for visibility=stack matching.
         """
         normalized = _normalize_keywords(keywords)
+        scope_tags = frozenset(stack_tags or ())
         results = []
         for exp in self._experiences.values():
             if not exp.is_valid(now):
                 continue
+            if project_id or scope_tags:
+                if not exp.scope.visible_to(project_id=project_id, stack_tags=scope_tags):
+                    continue
             if self._keyword_match_score(exp, normalized) <= 0:
                 continue
             if activated_theorems:
@@ -887,6 +903,35 @@ class ExperienceLibrary:
             reverse=True,
         )
         return results
+
+    @classmethod
+    def load_merged_for_project(
+        cls,
+        *,
+        tenant_path: str,
+        project_workspace: str | None = None,
+        theorem_lib: Optional["TheoremLibrary"] = None,
+    ) -> "ExperienceLibrary":
+        """Load L4 tenant corpus + optional L3 project file into one library."""
+        merged = cls.load_from_file(tenant_path, theorem_lib=theorem_lib)
+        if project_workspace:
+            from butler.memory.memory_scope import project_coding_experiences_path
+
+            proj_path = project_coding_experiences_path(project_workspace)
+            proj_lib = cls.load_from_file(str(proj_path), theorem_lib=theorem_lib)
+            for exp_id, exp in proj_lib._experiences.items():
+                merged._experiences[exp_id] = exp
+        return merged
+
+    def backfill_scopes(self) -> int:
+        """Infer MemoryScope on legacy rows; return count updated."""
+        from butler.memory.memory_scope import backfill_experience_scope
+
+        updated = 0
+        for exp in self._experiences.values():
+            if backfill_experience_scope(exp):
+                updated += 1
+        return updated
 
     def replace(self, old_id: str, new_exp: CodingExperience,
                 skip_validation: bool = False) -> Tuple[bool, str]:
@@ -975,6 +1020,7 @@ class ExperienceLibrary:
                 "validity_start": exp.validity_start,
                 "validity_end": exp.validity_end,
                 "supersedes": exp.supersedes,
+                "scope": exp.scope.to_dict(),
             })
         p = _Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -998,6 +1044,16 @@ class ExperienceLibrary:
         except (json.JSONDecodeError, OSError):
             return lib
         for rec in records:
+            from butler.memory.memory_scope import MemoryScope, infer_default_scope
+
+            scope_raw = rec.get("scope")
+            if scope_raw:
+                scope = MemoryScope.from_dict(scope_raw)
+            else:
+                scope = infer_default_scope(
+                    exp_id=str(rec.get("id", "")),
+                    domain=rec.get("domain", []),
+                )
             exp = CodingExperience(
                 id=rec.get("id", ""),
                 title=rec.get("title", ""),
@@ -1009,6 +1065,7 @@ class ExperienceLibrary:
                 validity_start=rec.get("validity_start", 0.0),
                 validity_end=rec.get("validity_end", float("inf")),
                 supersedes=rec.get("supersedes"),
+                scope=scope,
             )
             lib.add(exp, skip_validation=True)
         return lib
@@ -1033,6 +1090,8 @@ class ExperienceLibrary:
             return 0
         loaded = 0
         for rec in records:
+            from butler.memory.memory_scope import infer_default_scope
+
             exp = CodingExperience(
                 id=rec.get("id", ""),
                 title=rec.get("title", ""),
@@ -1044,6 +1103,10 @@ class ExperienceLibrary:
                 validity_start=rec.get("validity_start", 0.0),
                 validity_end=rec.get("validity_end", float("inf")),
                 supersedes=rec.get("supersedes"),
+                scope=infer_default_scope(
+                    exp_id=str(rec.get("id", "")),
+                    domain=rec.get("domain", []),
+                ),
             )
             ok, _ = self.add(exp, skip_validation=True)
             if ok:
@@ -1118,7 +1181,10 @@ def process_task(keywords: List[str],
                  theorem_lib: TheoremLibrary,
                  experience_lib: ExperienceLibrary,
                  now: Optional[float] = None,
-                 strict_experience: bool = True) -> CodingKnowledgeContext:
+                 strict_experience: bool = True,
+                 *,
+                 project_id: str = "",
+                 stack_tags: frozenset[str] | set[str] | None = None) -> CodingKnowledgeContext:
     """End-to-end coding knowledge processing (CD7).
 
     PLAN phase: decompose → activate theorems → search experience.
@@ -1131,6 +1197,8 @@ def process_task(keywords: List[str],
     candidates = experience_lib.search(
         kw_set, activated_ids, now,
         strict_coverage=strict_experience,
+        project_id=project_id,
+        stack_tags=stack_tags,
     )
     selected = candidates[0] if candidates else None
     mode = "experience_guided" if selected else "theorem_only"

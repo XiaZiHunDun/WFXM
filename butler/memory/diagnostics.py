@@ -234,6 +234,17 @@ def collect_memory_layer_stats(
                     stats["rag_last_sub_queries"] = int(last.get("sub_query_count") or 0)
         except Exception as exc:
             logger.debug("collect memory layer stats skipped: %s", exc)
+    try:
+        from butler.config import get_butler_home
+        from butler.memory.scope_diagnostics import collect_memory_scope_stats
+
+        scope_stats = collect_memory_scope_stats(
+            butler_home=get_butler_home(),
+            project_name=str(stats.get("project_name") or ""),
+        )
+        stats["memory_scope"] = scope_stats
+    except Exception as exc:
+        logger.debug("collect memory scope stats skipped: %s", exc)
     return stats
 
 
@@ -339,4 +350,13 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
             lines.extend(eff)
     except Exception as exc:
         logger.debug("format memory diagnostic lines skipped: %s", exc)
+    scope = stats.get("memory_scope")
+    if scope:
+        lines.append("")
+        try:
+            from butler.memory.scope_diagnostics import format_memory_scope_diagnostic_lines
+
+            lines.extend(format_memory_scope_diagnostic_lines(scope))
+        except Exception as exc:
+            logger.debug("format memory scope lines skipped: %s", exc)
     return lines

@@ -221,6 +221,63 @@ class TestDevStateDelegateLifecycle:
             assert "parent::child::9" in _active_states
             _active_states.clear()
 
+    def test_init_dev_engine_state_scoped_experience(self, tmp_path):
+        from types import SimpleNamespace
+
+        from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary
+        from butler.memory.memory_scope import infer_default_scope
+        from butler.tools.delegate_phases import DelegateRunState, _init_dev_engine_state
+
+        butler_home = tmp_path / "butler"
+        butler_home.mkdir()
+        xlib = ExperienceLibrary()
+        xlib.add(
+            CodingExperience(
+                id="B9_EX_prod_lingwen_demo_add",
+                title="lw",
+                domain=["b9"],
+                theorem_basis={"T01", "T03", "T04", "T10"},
+                context="lingwen demo",
+                pattern="p",
+                benchmarks={"retrieval_keywords": "lingwen,demo,add"},
+                scope=infer_default_scope(
+                    exp_id="B9_EX_prod_lingwen_demo_add", domain=["b9"]
+                ),
+            ),
+            skip_validation=True,
+        )
+        xlib.save_to_file(str(butler_home / "coding_experiences.json"))
+
+        ws = tmp_path / "demo"
+        ws.mkdir()
+        project = SimpleNamespace(
+            name="演示试点",
+            workspace=ws,
+            pack="",
+            type="software",
+        )
+        state = DelegateRunState(
+            role="dev",
+            task="fix lingwen demo add operator",
+            project=project,
+        )
+        state.child_session_key = "scope::child"
+        state.session_key = "scope::parent"
+
+        with mock.patch.dict(os.environ, {"BUTLER_DEV_ENGINE": "1"}):
+            with mock.patch(
+                "butler.config.get_butler_home",
+                return_value=str(butler_home),
+            ):
+                from butler.dev_engine.dev_tools import _active_states
+
+                _active_states.clear()
+                _init_dev_engine_state(state)
+                ds = _active_states.get("scope::child")
+                assert ds is not None
+                assert ds.coding_knowledge.experience_id != "B9_EX_prod_lingwen_demo_add"
+                _active_states.clear()
+
     def test_init_skipped_for_non_dev_role(self):
         from butler.tools.delegate_phases import DelegateRunState, _init_dev_engine_state
 

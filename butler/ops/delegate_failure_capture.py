@@ -211,6 +211,24 @@ def capture_delegate_failure(
         logger.debug("delegate failure audit append skipped: %s", exc)
 
     try:
+        from butler.ops.production_failure_experience import follow_up_production_capture
+
+        summary["experience_followup"] = follow_up_production_capture(
+            role=role,
+            task=task,
+            success=success,
+            project=project,
+            capture_source=capture_source,
+            task_id=task_id,
+            task_preview=audit_rec.get("task_preview", ""),
+            failure_reason=summary["failure_reason"],
+            issues=issues,
+            dev_engine=dev_engine,
+        )
+    except Exception as exc:
+        logger.debug("production failure experience followup skipped: %s", exc)
+
+    try:
         from butler.ops.eval_bridge import EvalScore, create_dataset, push_dataset_item, push_score
 
         create_dataset(

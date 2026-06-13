@@ -449,27 +449,41 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
 
         try:
             from butler.dev_engine.coding_knowledge import (
-                ExperienceLibrary,
                 TheoremLibrary,
                 process_task,
             )
             from butler.dev_engine.dev_state import CodingKnowledgeSummary
+            from butler.memory.memory_scope import (
+                delegate_project_id,
+                load_delegate_experience_library,
+                stack_tags_for_project,
+            )
 
-            import os as _os
             from butler.config import get_butler_home as _get_butler_home
 
             keywords = state.task.lower().split() if state.task else []
             tlib = TheoremLibrary()
-            xlib_path = _os.path.join(_get_butler_home(), "coding_experiences.json")
-            xlib = ExperienceLibrary.load_from_file(xlib_path, theorem_lib=tlib)
-            xlib.load_seed_if_empty()
+            xlib = load_delegate_experience_library(
+                butler_home=_get_butler_home(),
+                project=state.project,
+                theorem_lib=tlib,
+            )
+            project_id = delegate_project_id(state.project)
+            stack_tags = stack_tags_for_project(state.project)
             try:
                 from butler.ops.eval_config_overrides import effective_coding_knowledge_strict
 
                 strict = effective_coding_knowledge_strict(True)
             except Exception:
                 strict = True
-            ctx = process_task(keywords, tlib, xlib, strict_experience=strict)
+            ctx = process_task(
+                keywords,
+                tlib,
+                xlib,
+                strict_experience=strict,
+                project_id=project_id,
+                stack_tags=stack_tags,
+            )
             if ctx.selected_experience is not None:
                 try:
                     from butler.ops.experience_selection_telemetry import (
@@ -896,6 +910,10 @@ def _try_extract_experience(ds: Any, state: DelegateRunState) -> None:
             TheoremLibrary,
             extract_experience_candidate,
         )
+        from butler.memory.memory_scope import (
+            coding_experiences_save_path,
+            scope_for_extracted_experience,
+        )
 
         candidate = extract_experience_candidate(
             ds.task_description, snippets, activated,
@@ -903,17 +921,24 @@ def _try_extract_experience(ds: Any, state: DelegateRunState) -> None:
         if candidate is None:
             return
 
-        import os
         from butler.config import get_butler_home
 
-        xlib_path = os.path.join(
-            get_butler_home(), "coding_experiences.json")
+        butler_home = get_butler_home()
+        save_path = coding_experiences_save_path(
+            butler_home=butler_home,
+            project=state.project,
+        )
+        candidate.scope = scope_for_extracted_experience(state.project)
         tlib = TheoremLibrary()
-        xlib = ExperienceLibrary.load_from_file(xlib_path, theorem_lib=tlib)
+        xlib = ExperienceLibrary.load_from_file(str(save_path), theorem_lib=tlib)
         ok, _ = xlib.add(candidate)
         if ok:
-            xlib.save_to_file(xlib_path)
-            logger.debug("Extracted coding experience %s", candidate.id)
+            xlib.save_to_file(str(save_path))
+            logger.debug(
+                "Extracted coding experience %s → %s",
+                candidate.id,
+                save_path,
+            )
     except Exception as exc:
         logger.debug("Experience extraction skipped: %s", exc)
 

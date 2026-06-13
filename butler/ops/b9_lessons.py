@@ -89,7 +89,12 @@ def record_oracle_gold_lesson(task_id: str) -> dict[str, Any] | None:
     return row
 
 
-def record_b9_run_lesson(result: B9Result, spec: B9TaskSpec) -> dict[str, Any]:
+def record_b9_run_lesson(
+    result: B9Result,
+    spec: B9TaskSpec,
+    *,
+    project: str = "",
+) -> dict[str, Any]:
     """Record a lesson from a B9 task run (oracle or LIVE)."""
     classification = classify_b9_failure(
         task_id=result.task_id,
@@ -100,6 +105,8 @@ def record_b9_run_lesson(result: B9Result, spec: B9TaskSpec) -> dict[str, Any]:
     ep = episode_for_spec(spec)
     if result.passed and ep is not None:
         row = _lesson_from_episode(ep, kind="live_success" if result.mode == "live" else "oracle_gold")
+        if project:
+            row["project"] = project
     else:
         tail = ""
         if result.failure_reasons:
@@ -116,6 +123,7 @@ def record_b9_run_lesson(result: B9Result, spec: B9TaskSpec) -> dict[str, Any]:
                 pattern_summary = swe_pb.pattern_summary
         row = {
             "task_id": result.task_id,
+            "project": project,
             "kind": "live_failure" if result.mode == "live" else "oracle_miss",
             "classification": classification,
             "passed": result.passed,

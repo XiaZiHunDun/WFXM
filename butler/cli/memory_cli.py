@@ -65,6 +65,19 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     )
     mgc.set_defaults(func=_cmd_memory_gc)
 
+    mdiagnose = mem_sub.add_parser(
+        "diagnose",
+        help="六层记忆作用域快照（L3/L4 编码经验 + 生产 lesson）",
+    )
+    mdiagnose.add_argument(
+        "--project",
+        default="",
+        help="项目注册名（空=租户 L4 + 各项目 L3 概览）",
+    )
+    mdiagnose.add_argument("--tenant", default="default", help="租户 id（预留）")
+    mdiagnose.add_argument("--json", action="store_true", help="输出 JSON")
+    mdiagnose.set_defaults(func=_cmd_memory_diagnose)
+
     # Legacy top-level alias (kept for backward compat with old scripts).
     ri = sub.add_parser(
         "memory-reindex",
@@ -184,6 +197,26 @@ def _cmd_memory_gc(ns: argparse.Namespace) -> int:
                 "大范围陈旧仍建议 butler memory reindex[/yellow]"
             )
     return 0
+
+
+def _cmd_memory_diagnose(ns: argparse.Namespace) -> int:
+    import json
+
+    from butler.config import get_butler_home
+    from butler.memory.scope_diagnostics import run_memory_scope_diagnose
+
+    payload = run_memory_scope_diagnose(
+        butler_home=get_butler_home(),
+        project=str(ns.project or ""),
+        json_out=bool(ns.json),
+    )
+    if bool(ns.json):
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        console = Console()
+        for line in payload.get("lines") or []:
+            console.print(line)
+    return 0 if payload.get("ok") else 1
 
 
 def _cmd_memory_reindex(ns: argparse.Namespace) -> int:

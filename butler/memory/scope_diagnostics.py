@@ -1,0 +1,250 @@
+"""Multi-project memory scope diagnostics (L3/L4 coding experiences)."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from butler.memory.memory_scope import (
+    project_coding_experiences_path,
+    tenant_coding_experiences_path,
+)
+
+
+def _load_json_experiences(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _scope_summary_from_records(records: list[dict[str, Any]]) -> dict[str, Any]:
+    by_vis: dict[str, int] = {}
+    by_project: dict[str, int] = {}
+    by_source: dict[str, int] = {}
+    for rec in records:
+        scope = rec.get("scope") if isinstance(rec.get("scope"), dict) else {}
+        vis = str(scope.get("visibility") or "global")
+        by_vis[vis] = by_vis.get(vis, 0) + 1
+        pid = str(scope.get("project_id") or "").strip()
+        if pid:
+            by_project[pid] = by_project.get(pid, 0) + 1
+        src = str(scope.get("source") or "manual")
+        by_source[src] = by_source.get(src, 0) + 1
+    return {
+        "total": len(records),
+        "by_visibility": by_vis,
+        "by_project_id": by_project,
+        "by_source": by_source,
+    }
+
+
+def _lessons_for_project(
+    lessons_path: Path,
+    *,
+    project_name: str = "",
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    if not lessons_path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in lessons_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if project_name and str(row.get("project") or "") != project_name:
+            continue
+        rows.append(row)
+    return rows[-limit:]
+
+
+def _resolve_workspace(project_name: str) -> Path | None:
+    if not project_name.strip():
+        return None
+    try:
+        from butler.project.manager import get_project_manager
+
+        proj = get_project_manager().get_project(project_name.strip())
+        if proj is None or not getattr(proj, "workspace", None):
+            return None
+        return Path(proj.workspace).expanduser().resolve()
+    except Exception:
+        return None
+
+
+def collect_memory_scope_stats(
+    *,
+    butler_home: Path,
+    project_name: str = "",
+) -> dict[str, Any]:
+    """Snapshot L3/L4 coding experience scope + recent production lessons."""
+    home = Path(butler_home).expanduser().resolve()
+    pname = str(project_name or "").strip()
+
+    l4_path = tenant_coding_experiences_path(home)
+    l4_records = _load_json_experiences(l4_path)
+    l4_all = _scope_summary_from_records(l4_records)
+
+    l4_visible = l4_all
+    if pname:
+        from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
+        from butler.memory.memory_scope import stack_tags_for_project
+
+        ws = _resolve_workspace(pname)
+        stack_tags: frozenset[str] = frozenset()
+        if ws is not None:
+            try:
+                from butler.project.manager import get_project_manager
+
+                proj = get_project_manager().get_project(pname)
+                stack_tags = stack_tags_for_project(proj)
+            except Exception:
+                stack_tags = frozenset()
+
+        xlib = ExperienceLibrary.load_from_file(str(l4_path), theorem_lib=TheoremLibrary())
+        visible = 0
+        by_vis: dict[str, int] = {}
+        for exp in xlib._experiences.values():
+            if not exp.scope.visible_to(project_id=pname, stack_tags=stack_tags):
+                continue
+            visible += 1
+            by_vis[exp.scope.visibility] = by_vis.get(exp.scope.visibility, 0) + 1
+        l4_visible = {
+            "total": visible,
+            "by_visibility": by_vis,
+            "filter_project": pname,
+        }
+
+    l3_path: Path | None = None
+    l3_summary: dict[str, Any] = {"total": 0, "by_visibility": {}, "by_source": {}}
+    ws = _resolve_workspace(pname) if pname else None
+    if ws is not None:
+        l3_path = project_coding_experiences_path(ws)
+        l3_summary = _scope_summary_from_records(_load_json_experiences(l3_path))
+
+    lessons_path = home / "audit" / "b9_lessons.jsonl"
+    recent_lessons = _lessons_for_project(lessons_path, project_name=pname, limit=5)
+    prod_lessons = sum(
+        1
+        for row in _lessons_for_project(lessons_path, project_name=pname, limit=10_000)
+        if str(row.get("kind") or "") == "production_failure"
+    )
+
+    projects_overview: list[dict[str, Any]] = []
+    if not pname:
+        try:
+            from butler.project.manager import get_project_manager
+
+            for proj in get_project_manager().list_projects():
+                pws = Path(proj.workspace).expanduser().resolve()
+                l3p = project_coding_experiences_path(pws)
+                recs = _load_json_experiences(l3p)
+                if not recs:
+                    continue
+                projects_overview.append(
+                    {
+                        "project": proj.name,
+                        "l3_total": len(recs),
+                        "l3_path": str(l3p),
+                    }
+                )
+        except Exception:
+            projects_overview = []
+
+    return {
+        "project": pname or None,
+        "l4_tenant_path": str(l4_path),
+        "l4_tenant": l4_all,
+        "l4_visible_to_project": l4_visible if pname else None,
+        "l3_project_path": str(l3_path) if l3_path else None,
+        "l3_project": l3_summary,
+        "b9_lessons_path": str(lessons_path),
+        "production_failure_lessons": prod_lessons,
+        "recent_lessons": recent_lessons,
+        "projects_l3_overview": projects_overview,
+    }
+
+
+def format_memory_scope_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
+    """Human-readable lines for /诊断 and ``butler memory diagnose``."""
+    if not stats:
+        return []
+
+    lines = ["编码经验作用域 (L3/L4):"]
+    l4 = stats.get("l4_tenant") or {}
+    lines.append(
+        f"  L4 租户库: {l4.get('total', 0)} 条 "
+        f"(global={l4.get('by_visibility', {}).get('global', 0)}, "
+        f"private={l4.get('by_visibility', {}).get('private', 0)}, "
+        f"stack={l4.get('by_visibility', {}).get('stack', 0)})"
+    )
+
+    proj = stats.get("project")
+    if proj:
+        l4v = stats.get("l4_visible_to_project") or {}
+        lines.append(
+            f"  L4→{proj} 可见: {l4v.get('total', 0)} 条"
+        )
+        l3 = stats.get("l3_project") or {}
+        lines.append(
+            f"  L3 项目库 ({proj}): {l3.get('total', 0)} 条 "
+            f"(source={l3.get('by_source', {})})"
+        )
+        pf = int(stats.get("production_failure_lessons") or 0)
+        if pf:
+            lines.append(f"  生产失败 lesson: {pf} 条 (b9_lessons)")
+        recent = stats.get("recent_lessons") or []
+        if recent:
+            last = recent[-1]
+            lines.append(
+                f"  最近 lesson: [{last.get('kind')}] "
+                f"{str(last.get('classification') or '')} "
+                f"task={str(last.get('task_id') or '')[:24]}"
+            )
+    else:
+        overview = stats.get("projects_l3_overview") or []
+        if overview:
+            lines.append("  L3 项目库概览:")
+            for row in overview[:8]:
+                lines.append(
+                    f"    · {row.get('project')}: {row.get('l3_total', 0)} 条"
+                )
+        else:
+            lines.append("  L3 项目库: （尚无 per-project coding_experiences.json）")
+
+    return lines
+
+
+def run_memory_scope_diagnose(
+    *,
+    butler_home: Path,
+    project: str = "",
+    json_out: bool = False,
+) -> dict[str, Any]:
+    stats = collect_memory_scope_stats(
+        butler_home=butler_home,
+        project_name=project,
+    )
+    payload = {
+        "ok": True,
+        "project": project or None,
+        "stats": stats,
+        "lines": format_memory_scope_diagnostic_lines(stats),
+    }
+    if json_out:
+        return payload
+    return payload
+
+
+__all__ = [
+    "collect_memory_scope_stats",
+    "format_memory_scope_diagnostic_lines",
+    "run_memory_scope_diagnose",
+]
