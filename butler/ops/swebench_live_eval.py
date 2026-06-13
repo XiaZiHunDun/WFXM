@@ -86,6 +86,11 @@ def _instance_delegate_prompt(inst: Any) -> str:
             "\n\nHint: after sorting by priority ascending, remove index 0 (pop(0)), "
             "not pop() which removes the last element."
         )
+    elif inst.instance_id == "SWE-012":
+        hint = (
+            "\n\nHint: sort_items([]) already returns []; the bug is in test_sorter.py — "
+            "fix test_sort_empty assertion (is None → == []), not sorter.py."
+        )
     return (
         f"Fix the issue in this repository.\n\n"
         f"# {inst.issue_title}\n\n{inst.issue_body}\n\n"

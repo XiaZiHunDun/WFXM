@@ -11,6 +11,21 @@ from butler.ops.swebench_live_eval import build_swe_delegate_context
 from butler.dev_engine.swebench_lite import get_all_instances
 
 
+def test_swe_012_replay_block_targets_test_file():
+    block = format_swe_replay_block("SWE-012")
+    assert "test_sorter.py" in block
+    assert "is None" in block
+    assert "== []" in block
+    assert "do NOT change sorter.py" in block
+
+
+def test_build_swe_delegate_context_includes_swe_012_replay():
+    inst = next(i for i in get_all_instances() if i.instance_id == "SWE-012")
+    ctx = build_swe_delegate_context(inst)
+    assert "SWE ORACLE REPLAY" in ctx
+    assert "test_sorter.py" in ctx
+
+
 def test_swe_014_playbook_exists():
     pb = get_swe_playbook("SWE-014")
     assert pb is not None

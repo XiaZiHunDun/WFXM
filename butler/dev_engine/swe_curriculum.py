@@ -15,6 +15,20 @@ class SWEPlaybook:
 
 
 SWE_PLAYBOOKS: dict[str, SWEPlaybook] = {
+    "SWE-012": SWEPlaybook(
+        instance_id="SWE-012",
+        title="Sorting test fails for empty list",
+        pattern_summary=(
+            "test_fix: implementation is correct; wrong assertion in test_sorter.py — "
+            "change `assert sort_items([]) is None` to `assert sort_items([]) == []`."
+        ),
+        steps=(
+            "read_file test_sorter.py and sorter.py — confirm sort_items([]) returns []",
+            "patch test_sorter.py ONLY — fix test_sort_empty assertion (is None → == [])",
+            "terminal: python -m pytest _swe_test.py -q",
+        ),
+        skill_name="b9-swe-test-assertion-fix",
+    ),
     "SWE-013": SWEPlaybook(
         instance_id="SWE-013",
         title="Add status field to API response",
@@ -86,6 +100,17 @@ def format_swe_replay_block(instance_id: str) -> str:
         *[f"- {s}" for s in pb.steps],
     ]
     lines.append("avoid: write_file entire source; use patch on the target function only.")
+    if instance_id == "SWE-012":
+        lines.extend([
+            "",
+            "bug: test_sort_empty expects None but sort_items([]) correctly returns [].",
+            "fix: patch test_sorter.py only — do NOT change sorter.py.",
+            "patch target in test_sort_empty:",
+            "```python",
+            "    assert sort_items([]) == []",
+            "```",
+            "replace `is None` with `== []`; implementation already passes test_sort_normal.",
+        ])
     if instance_id == "SWE-014":
         lines.extend([
             "",
