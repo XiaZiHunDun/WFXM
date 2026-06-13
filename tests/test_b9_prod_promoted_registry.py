@@ -84,3 +84,26 @@ def test_promoted_tasks_exist_in_prod_shaped():
     assert len(PROMOTED_TASK_IDS) == 8
     for tid in PROMOTED_TASK_IDS:
         assert tid in B9_PROD_SHAPED_TASK_IDS
+
+
+def test_promoted_stretch_validate_progress_only():
+    from butler.ops.b9_prod_promoted_registry import (
+        PROMOTED_CORE_TASK_IDS,
+        PROMOTED_STRETCH_TASK_IDS,
+        promoted_core_task_ids,
+        summarize_promoted_probe_layers,
+    )
+
+    assert PROMOTED_STRETCH_TASK_IDS == frozenset({"B9L_prod_lingwen_validate_progress"})
+    assert len(PROMOTED_CORE_TASK_IDS) == 7
+    assert len(promoted_core_task_ids()) == 7
+    layers = summarize_promoted_probe_layers(
+        [
+            {"task_id": "B9L_prod_lingwen_demo_add", "passed": True},
+            {"task_id": "B9L_prod_lingwen_validate_progress", "passed": False},
+        ]
+    )
+    assert layers["core"]["passed"] == 1
+    assert layers["core"]["total"] == 1
+    assert layers["stretch"]["passed"] == 0
+    assert layers["stretch"]["total"] == 1

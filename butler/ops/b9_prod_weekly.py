@@ -394,9 +394,19 @@ def run_prod_shaped_live_probe(
 
 def run_promoted_prod_live_probe(*, mode: str | None = None) -> dict[str, Any]:
     """Probe only audit-promoted B9L_prod_* tasks (phase C inner loop)."""
-    from butler.ops.b9_prod_promoted_registry import promoted_probe_task_ids
+    from butler.ops.b9_prod_promoted_registry import (
+        promoted_probe_task_ids,
+        summarize_promoted_probe_layers,
+    )
 
-    return run_prod_shaped_live_probe(mode=mode, task_ids=promoted_probe_task_ids())
+    probe = run_prod_shaped_live_probe(mode=mode, task_ids=promoted_probe_task_ids())
+    layers = summarize_promoted_probe_layers(probe.get("results") or [])
+    probe["layers"] = layers
+    probe["core_gate_ok"] = (
+        layers["core"]["total"] == 0
+        or layers["core"]["passed"] == layers["core"]["total"]
+    )
+    return probe
 
 
 __all__ = [

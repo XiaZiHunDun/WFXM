@@ -426,7 +426,31 @@ bash scripts/butler-delegate-failure-promote.sh --bundle  # 导出 candidates.js
 bash scripts/butler-delegate-failure-promote-demo.sh
 ```
 
-LIVE 固定集（`b9_live_fixed_tasks` + `b9_prod_shaped_tasks`）共 **19 项**，含 8 条 prod-shaped（含 6 条已晋升 `B9L_prod_*`）。生产 delegate 周指标见 `butler-b9-weekly-learning.sh` → `prod_delegate_snapshots.jsonl`；需 **2+ 周快照** 才有可信 `prod_delta`（清洗后首周仅作基线）。
+LIVE 固定集（`b9_live_fixed_tasks` + `b9_prod_shaped_tasks`）共 **19 项**，含 8 条 prod-shaped（**7 core + 1 stretch** 已晋升 `B9L_prod_*`）。生产 delegate 周指标见 `butler-b9-weekly-learning.sh` → `prod_delegate_snapshots.jsonl`；需 **4+ 周 clean 快照** 才有可信 `prod_delta` 趋势（2 周仅作基线对比）。
+
+### Promoted prod 分层（运营证明口径）
+
+| 层 | 任务数 | 门控 | 说明 |
+|----|--------|------|------|
+| **core** | 7 | 周循环 **blocking**（core 全绿才算 Promoted 门通过） | 真实 audit 晋升的改码题（greet/import/灵文 demo 等） |
+| **stretch** | 1 | **non-blocking** | `B9L_prod_lingwen_validate_progress` — 隔离工作区 LIVE 可能挂，但灵文 prod sample 3/3 已通过 |
+
+周报收两行：`Promoted prod core: 7/7` + `Promoted prod stretch: 0/1`（stretch 失败不阻断后续灵文 sample / promotion）。
+
+### 运营证明看板（优先于测评刷分）
+
+| 指标 | 目标 | 脚本 |
+|------|------|------|
+| `experience_selection_forward` | ≥ 0.95 | `butler-b9-weekly-learning.sh` |
+| `prod_delta_clean` 趋势 | 4 周后 verify_fail 率下降 | `butler-prod-delta-observe.sh` |
+| 灵文 prod sample | 3/3 | `butler-lingwen1-prod-sample.sh` |
+| L3 `PROD_FAIL_*` | 真实委派失败写入 | `butler-lingwen-live-capture-checklist.sh` |
+| G1-04 | 06-23 窗满结案 | `butler-g1-04-closure-check.sh` |
+
+```bash
+bash scripts/butler-lingwen-live-capture-checklist.sh   # 灵文 live 捕获检查清单
+bash scripts/butler-prod-delta-observe.sh               # 周中 prod 快照
+```
 
 经验闭环遥测：`~/.butler/audit/experience_selections.jsonl`（命中）、`experience_lifecycle.jsonl`（renew/demote）。
 

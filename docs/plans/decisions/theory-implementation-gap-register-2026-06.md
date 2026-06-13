@@ -154,6 +154,7 @@
 | 2026-06-14 | **第 8 道 prod 晋升**：`B9L_prod_lingwen_validate_progress`（灵文 validate_progress 样本）；Promoted oracle **8/8** |
 | 2026-06-14 | **周循环韧性**：Promoted 失败不阻断后续阶段；validate_progress playbook + oracle curriculum；LIVE 仍 7/8（模型 patch 未生效） |
 | 2026-06-14 | **validate_progress Skill**：`b9-prod-lingwen-validate-progress` + `format_episode_skill_block` 强制注入；ASCII 单行 state；LIVE 仍 0/1（MiniMax 边界） |
+| 2026-06-14 | **运营证明路线**：Promoted **core 7 + stretch 1**；`butler-lingwen-live-capture-checklist.sh`；`evaluation-guide` 运营看板 |
 
 ---
 

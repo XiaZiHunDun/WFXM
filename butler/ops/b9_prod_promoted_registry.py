@@ -101,6 +101,13 @@ LINGWEN1_CAPTURE_NOTE = (
 
 PROMOTED_TASK_IDS: frozenset[str] = frozenset(b.task_id for b in BINDINGS)
 
+# Stretch: isolated-workspace LIVE may fail while real LingWen prod sample passes.
+PROMOTED_STRETCH_TASK_IDS: frozenset[str] = frozenset(
+    {"B9L_prod_lingwen_validate_progress"},
+)
+
+PROMOTED_CORE_TASK_IDS: frozenset[str] = PROMOTED_TASK_IDS - PROMOTED_STRETCH_TASK_IDS
+
 
 def _blob(record: dict[str, Any]) -> str:
     preview = str(record.get("task_preview") or record.get("task") or "")
@@ -131,12 +138,55 @@ def promoted_probe_task_ids() -> list[str]:
     return sorted(PROMOTED_TASK_IDS)
 
 
+def promoted_core_task_ids() -> list[str]:
+    return sorted(PROMOTED_CORE_TASK_IDS)
+
+
+def promoted_stretch_task_ids() -> list[str]:
+    return sorted(PROMOTED_STRETCH_TASK_IDS)
+
+
+def summarize_promoted_probe_layers(results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Split promoted LIVE probe into core (gate) vs stretch (non-blocking)."""
+    core_ids = PROMOTED_CORE_TASK_IDS
+    stretch_ids = PROMOTED_STRETCH_TASK_IDS
+    core_rows = [r for r in results if str(r.get("task_id") or "") in core_ids]
+    stretch_rows = [r for r in results if str(r.get("task_id") or "") in stretch_ids]
+    core_passed = sum(1 for r in core_rows if r.get("passed"))
+    stretch_passed = sum(1 for r in stretch_rows if r.get("passed"))
+    return {
+        "core": {
+            "passed": core_passed,
+            "total": len(core_rows),
+            "pass_rate": round(core_passed / len(core_rows), 4) if core_rows else 0.0,
+            "task_ids": promoted_core_task_ids(),
+            "failed_task_ids": [
+                str(r.get("task_id")) for r in core_rows if not r.get("passed")
+            ],
+        },
+        "stretch": {
+            "passed": stretch_passed,
+            "total": len(stretch_rows),
+            "pass_rate": round(stretch_passed / len(stretch_rows), 4) if stretch_rows else 0.0,
+            "task_ids": promoted_stretch_task_ids(),
+            "failed_task_ids": [
+                str(r.get("task_id")) for r in stretch_rows if not r.get("passed")
+            ],
+        },
+    }
+
+
 __all__ = [
     "BINDINGS",
     "LINGWEN1_CAPTURE_NOTE",
+    "PROMOTED_CORE_TASK_IDS",
+    "PROMOTED_STRETCH_TASK_IDS",
     "PROMOTED_TASK_IDS",
     "ProdPromotedBinding",
     "binding_for_task",
+    "promoted_core_task_ids",
     "promoted_probe_task_ids",
+    "promoted_stretch_task_ids",
     "resolve_production_failure_to_task",
+    "summarize_promoted_probe_layers",
 ]

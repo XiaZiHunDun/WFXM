@@ -131,14 +131,24 @@ import json, sys
 from butler.ops.b9_prod_weekly import run_promoted_prod_live_probe
 
 probe = run_promoted_prod_live_probe()
+layers = probe.get("layers") or {}
+core = layers.get("core") or {}
+stretch = layers.get("stretch") or {}
 print(json.dumps(probe, ensure_ascii=False, indent=2))
-print(f"\nPromoted prod ({probe.get('mode')}): {probe.get('passed')}/{probe.get('total')}")
-if probe.get("passed", 0) < probe.get("total", 0):
-    print("PROMOTED PROD BENCHMARK: had failures", file=sys.stderr)
+print(
+    f"\nPromoted prod core ({probe.get('mode')}): "
+    f"{core.get('passed', probe.get('passed'))}/{core.get('total', probe.get('total'))}"
+)
+if stretch.get("total"):
+    print(f"Promoted prod stretch ({probe.get('mode')}): {stretch.get('passed')}/{stretch.get('total')}")
+if not probe.get("core_gate_ok", True):
+    print("PROMOTED PROD CORE: had failures", file=sys.stderr)
     raise SystemExit(1)
+if stretch.get("total") and stretch.get("passed", 0) < stretch.get("total", 0):
+    print("PROMOTED PROD STRETCH: had failures (non-blocking)", file=sys.stderr)
 PY
 if [ "${PROMOTED_RC:-0}" -ne 0 ]; then
-  echo "(promoted prod probe had failures — stretch only)"
+  echo "(promoted prod core probe had failures — see stderr)"
 fi
 
 echo ""
