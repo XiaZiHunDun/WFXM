@@ -520,6 +520,7 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
                 strict_experience=strict,
                 project_id=project_id,
                 stack_tags=stack_tags,
+                inferred_task_id=inferred_task_id,
             )
             if ctx.selected_experience is not None:
                 try:

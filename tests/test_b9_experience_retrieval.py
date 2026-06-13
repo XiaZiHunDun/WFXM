@@ -88,3 +88,83 @@ def test_backfill_updates_existing_b9_experiences(tmp_path, monkeypatch):
     assert out["updated"] >= 1
     rows2 = json.loads(open(path, encoding="utf-8").read())
     assert any("retrieval_keywords" in r.get("benchmarks", {}) for r in rows2)
+
+
+def test_greet_task_prefers_prod_over_test_driven_add():
+    tlib = TheoremLibrary()
+    xlib = ExperienceLibrary(theorem_lib=tlib)
+    benchmarks_greet = apply_retrieval_benchmarks(
+        {"b9_task": "B9L_prod_demo_fix_greet_return"},
+        "B9L_prod_demo_fix_greet_return",
+    )
+    xlib.add(
+        CodingExperience(
+            id="B9_EX_prod_demo_fix_greet_return",
+            title="greet",
+            domain=["b9", "prod_shaped"],
+            theorem_basis={"T01", "T04", "T03", "T10"},
+            context="greet hello",
+            pattern="return hello",
+            benchmarks=benchmarks_greet,
+            validity_start=0,
+            validity_end=1e12,
+        ),
+        skip_validation=True,
+    )
+    xlib.add(
+        CodingExperience(
+            id="B9_EX_test_driven_add",
+            title="ping",
+            domain=["b9"],
+            theorem_basis={"T01", "T04", "T03", "T10"},
+            context="ping pong implement pytest",
+            pattern="ping",
+            benchmarks={
+                "b9_task": "B9L_test_driven_add",
+                "retrieval_keywords": "ping,pong,implement,pytest",
+            },
+            validity_start=0,
+            validity_end=1e12,
+        ),
+        skip_validation=True,
+    )
+    ctx = process_task(
+        ["fix", "greet", "return", "hello", "pytest"],
+        tlib,
+        xlib,
+        strict_experience=True,
+        inferred_task_id="B9L_prod_demo_fix_greet_return",
+    )
+    assert ctx.selected_experience is not None
+    assert ctx.selected_experience.id == "B9_EX_prod_demo_fix_greet_return"
+
+
+def test_test_driven_add_still_selected_for_ping_pong():
+    tlib = TheoremLibrary()
+    xlib = ExperienceLibrary(theorem_lib=tlib)
+    xlib.add(
+        CodingExperience(
+            id="B9_EX_test_driven_add",
+            title="ping",
+            domain=["b9"],
+            theorem_basis={"T01", "T04", "T03", "T10"},
+            context="ping pong",
+            pattern="p",
+            benchmarks={
+                "b9_task": "B9L_test_driven_add",
+                "retrieval_keywords": "ping,pong,implement,pytest",
+            },
+            validity_start=0,
+            validity_end=1e12,
+        ),
+        skip_validation=True,
+    )
+    ctx = process_task(
+        ["ping", "pong", "implement", "pytest"],
+        tlib,
+        xlib,
+        strict_experience=True,
+        inferred_task_id="B9L_test_driven_add",
+    )
+    assert ctx.selected_experience is not None
+    assert ctx.selected_experience.id == "B9_EX_test_driven_add"

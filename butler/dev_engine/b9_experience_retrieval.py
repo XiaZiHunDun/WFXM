@@ -43,6 +43,13 @@ TASK_RETRIEVAL_KEYWORDS: dict[str, tuple[str, ...]] = {
 # Theorems injected into all B9 experiences so strict retrieval matches prod tasks.
 B9_EXPERIENCE_THEOREM_BASIS: frozenset[str] = frozenset({"T01", "T04", "T03", "T10"})
 
+# Broad benchmark experiences require task-specific anchor tokens (or inferred task match).
+GENERIC_BENCHMARK_EXPERIENCE_ANCHORS: dict[str, frozenset[str]] = {
+    "B9_EX_test_driven_add": frozenset(
+        {"ping", "pong", "test_driven_add", "b9l_test_driven_add"},
+    ),
+}
+
 FAILURE_CLASS_KEYWORDS: dict[str, tuple[str, ...]] = {
     "verify_fail": ("pytest", "assert", "verify", "test", "failed", "green"),
     "patch_wrong": ("patch", "wrong", "assert", "implementation", "fix", "operator"),
@@ -104,6 +111,72 @@ def enrich_b9_experience_context(task_id: str, *, classification: str = "") -> s
     if not kws:
         return task_id
     return f"{task_id}; production keywords: {', '.join(kws[:16])}"
+
+
+def experience_retrieval_eligible(
+    experience_id: str,
+    *,
+    normalized_keywords: set[str],
+    inferred_task_id: str = "",
+    benchmarks: dict[str, Any] | None = None,
+) -> bool:
+    """Filter over-broad benchmark experiences (e.g. test_driven_add on greet tasks)."""
+    anchors = GENERIC_BENCHMARK_EXPERIENCE_ANCHORS.get(experience_id)
+    if not anchors:
+        return True
+    tid = (inferred_task_id or "").strip()
+    if tid:
+        try:
+            from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
+
+            aff = experience_task_affinity(experience_id, inferred_task_id=tid)
+            if aff:
+                return True
+        except Exception:
+            pass
+    b9_task = str((benchmarks or {}).get("b9_task") or "").strip()
+    if tid and b9_task and b9_task == tid:
+        return True
+    return bool(normalized_keywords & anchors)
+
+
+def experience_retrieval_rank_bonus(
+    *,
+    experience_id: str,
+    normalized_keywords: set[str],
+    inferred_task_id: str = "",
+    project_id: str = "",
+    benchmarks: dict[str, Any] | None = None,
+    scope_level: str = "",
+    scope_project_id: str = "",
+    scope_source: str = "",
+    domain: list[str] | None = None,
+) -> int:
+    """Boost prod/L3/task-aligned experiences in search ranking."""
+    bonus = 0
+    tid = (inferred_task_id or "").strip()
+    if tid:
+        try:
+            from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
+
+            if experience_task_affinity(experience_id, inferred_task_id=tid):
+                bonus += 100
+        except Exception:
+            pass
+    b9_task = str((benchmarks or {}).get("b9_task") or "").strip()
+    if tid and b9_task == tid:
+        bonus += 80
+    if project_id and scope_project_id == project_id:
+        bonus += 40
+    if scope_level == "project":
+        bonus += 10
+    if scope_source == "prod_failure":
+        bonus += 25
+    eid_lower = experience_id.lower()
+    domains = [str(d).lower() for d in (domain or [])]
+    if "prod" in eid_lower or "prod_shaped" in domains:
+        bonus += 15
+    return bonus
 
 
 def backfill_b9_experience_retrieval(*, xlib_path: str | None = None) -> dict[str, Any]:

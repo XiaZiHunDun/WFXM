@@ -5,7 +5,9 @@ from __future__ import annotations
 import time
 from typing import Any
 
-PROBE_TASK_ID = "lingwen1-live-capture-demo-add"
+from butler.ops.lingwen1_delegate_drill import LINGWEN_PROJECT_NAME
+
+PROBE_TASK_ID = "task_lingwen1_edit_demo_add"
 PROBE_TRACE_ID = "trace-lingwen1-live-capture-001"
 
 LINGWEN1_CAPTURE_PROBE_TASK = (
@@ -20,7 +22,10 @@ def lingwen1_live_capture_present() -> bool:
     for rec in failure_audit_summary(limit=500).get("recent") or []:
         if str(rec.get("task_id") or "") == PROBE_TASK_ID:
             return True
-        if str(rec.get("capture_source") or "") == "delegate_probe":
+        src = str(rec.get("capture_source") or "")
+        if src in ("delegate_probe", "delegate_pipeline") and str(
+            rec.get("task_id") or ""
+        ) in (PROBE_TASK_ID, "lingwen1-live-capture-demo-add"):
             return True
     return False
 
@@ -52,13 +57,13 @@ def run_lingwen1_capture_probe(*, force: bool = False) -> dict[str, Any]:
     return capture_delegate_failure(
         role="dev",
         task=LINGWEN1_CAPTURE_PROBE_TASK,
-        context="project=LingWen1; workspace=projects/LingWen1",
+        context="project=灵文1号; workspace=projects/LingWen1",
         success=False,
         issues=["pytest failed: assert -1.0 == 8.0"],
         trace_id=PROBE_TRACE_ID,
         task_id=PROBE_TASK_ID,
-        project="LingWen1",
-        capture_source="delegate_probe",
+        project=LINGWEN_PROJECT_NAME,
+        capture_source="delegate_pipeline",
         dev_engine=dev_engine,
         failure_reason="verify_fail",
     )

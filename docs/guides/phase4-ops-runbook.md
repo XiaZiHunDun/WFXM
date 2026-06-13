@@ -115,6 +115,8 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 ```bash
 bash scripts/butler-g1-checklist.sh        # G1 开放项：成本/inbound/真机话术提示
+bash scripts/butler-g1-04-closure-check.sh # G1-04：06-23 后结案检查（exit 0=可更新登记册）
+bash scripts/butler-lingwen1-edit-capture.sh # 灵文改码失败 → L3 捕获演练
 bash scripts/butler-gap-observability.sh   # 全量 verbose；warn>0 时 exit 1
 ```
 

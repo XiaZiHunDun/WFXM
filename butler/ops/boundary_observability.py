@@ -339,15 +339,15 @@ def collect_boundary_observations() -> list[BoundaryObservation]:
         out.append(BoundaryObservation(
             "G2-08",
             "warn",
-            "CA4 strict env=1（生产未接线）",
-            "与默认相同：AUTO_VERIFY 软检查；硬阻断待理论分析 G2-08",
+            "CA4 strict=1 pilot 已接",
+            "生产 pilot 类别定理违例 → CODING_STRICT_GATE；默认 strict=0 advisory",
         ))
     else:
         out.append(BoundaryObservation(
             "G2-08",
             "ok",
             "CA4 advisory（默认关 strict）",
-            "AUTO_VERIFY 软检查已接；硬阻断未实现，登记册保持现状",
+            "AUTO_VERIFY 软检查已接；strict=1 时 pilot 类别硬阻断可选",
         ))
 
     try:

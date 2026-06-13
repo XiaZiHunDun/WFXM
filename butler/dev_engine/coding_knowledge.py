@@ -891,7 +891,8 @@ class ExperienceLibrary:
                *,
                project_id: str = "",
                stack_tags: frozenset[str] | set[str] | None = None,
-               failure_class: str = "") -> List[CodingExperience]:
+               failure_class: str = "",
+               inferred_task_id: str = "") -> List[CodingExperience]:
         """Retrieve valid, compatible experiences sorted by coverage.
 
         Args:
@@ -899,14 +900,29 @@ class ExperienceLibrary:
                            (CD5b). If False, allow partial overlap.
                            B9-tagged experiences use partial overlap even when strict.
             failure_class: When set, allow B9_FAIL_* only if benchmarks/domain match.
+            inferred_task_id: Optional B9L_* task from production delegate bridge.
         """
         normalized = _normalize_keywords(keywords)
+        task_id = (inferred_task_id or "").strip()
+        if not task_id:
+            try:
+                from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+
+                task_id = infer_b9_task_id(" ".join(sorted(keywords)))
+            except Exception:
+                task_id = ""
         scope_tags = frozenset(stack_tags or ())
         results = []
         for exp in self._experiences.values():
             if not exp.is_valid(now):
                 continue
             if not self._failure_experience_allowed(exp, failure_class=failure_class):
+                continue
+            if not self._retrieval_eligible(
+                exp,
+                normalized,
+                inferred_task_id=task_id,
+            ):
                 continue
             if project_id or scope_tags:
                 if not exp.scope.visible_to(project_id=project_id, stack_tags=scope_tags):
@@ -926,13 +942,59 @@ class ExperienceLibrary:
             results.append(exp)
         results.sort(
             key=lambda e: (
-                self._keyword_match_score(e, normalized),
+                self._keyword_match_score(e, normalized)
+                + self._retrieval_rank_bonus(e, normalized, task_id, project_id),
                 1 if self._is_b9_experience(e) else 0,
                 len(e.theorem_basis),
             ),
             reverse=True,
         )
         return results
+
+    @classmethod
+    def _retrieval_eligible(
+        cls,
+        exp: "CodingExperience",
+        normalized: Set[str],
+        *,
+        inferred_task_id: str,
+    ) -> bool:
+        try:
+            from butler.dev_engine.b9_experience_retrieval import experience_retrieval_eligible
+
+            return experience_retrieval_eligible(
+                exp.id,
+                normalized_keywords=normalized,
+                inferred_task_id=inferred_task_id,
+                benchmarks=exp.benchmarks,
+            )
+        except Exception:
+            return True
+
+    @classmethod
+    def _retrieval_rank_bonus(
+        cls,
+        exp: "CodingExperience",
+        normalized: Set[str],
+        inferred_task_id: str,
+        project_id: str,
+    ) -> int:
+        try:
+            from butler.dev_engine.b9_experience_retrieval import experience_retrieval_rank_bonus
+
+            return experience_retrieval_rank_bonus(
+                experience_id=exp.id,
+                normalized_keywords=normalized,
+                inferred_task_id=inferred_task_id,
+                project_id=project_id,
+                benchmarks=exp.benchmarks,
+                scope_level=exp.scope.level,
+                scope_project_id=exp.scope.project_id,
+                scope_source=exp.scope.source,
+                domain=list(exp.domain),
+            )
+        except Exception:
+            return 0
 
     @classmethod
     def load_merged_for_project(
@@ -1214,7 +1276,8 @@ def process_task(keywords: List[str],
                  strict_experience: bool = True,
                  *,
                  project_id: str = "",
-                 stack_tags: frozenset[str] | set[str] | None = None) -> CodingKnowledgeContext:
+                 stack_tags: frozenset[str] | set[str] | None = None,
+                 inferred_task_id: str = "") -> CodingKnowledgeContext:
     """End-to-end coding knowledge processing (CD7).
 
     PLAN phase: decompose → activate theorems → search experience.
@@ -1229,6 +1292,7 @@ def process_task(keywords: List[str],
         strict_coverage=strict_experience,
         project_id=project_id,
         stack_tags=stack_tags,
+        inferred_task_id=inferred_task_id,
     )
     selected = candidates[0] if candidates else None
     mode = "experience_guided" if selected else "theorem_only"
