@@ -107,6 +107,8 @@ from butler.ops.experience_selection_telemetry import (
     summarize_experience_lifecycle,
     summarize_experience_selections,
     summarize_selection_precision,
+    replay_selection_precision,
+    forward_selection_precision,
 )
 
 print("lingwen1_seed=", seed_lingwen1_failure_audit())
@@ -116,6 +118,8 @@ bf = backfill_selection_task_affinity(dry_run=False)
 print(f"experience_affinity_backfill={bf}")
 print("experience_selections=", summarize_experience_selections())
 print("experience_selection_precision=", summarize_selection_precision())
+print("experience_selection_replay=", replay_selection_precision())
+print("experience_selection_forward=", forward_selection_precision())
 print("experience_lifecycle=", summarize_experience_lifecycle())
 PY
 

@@ -186,6 +186,110 @@ def summarize_selection_precision(*, limit: int = 200) -> dict[str, Any]:
     }
 
 
+def replay_selection_precision(*, limit: int = 200) -> dict[str, Any]:
+    """Re-score historical rows with current retrieval eligibility + affinity."""
+    path = selections_path()
+    if not path.is_file():
+        return {"replayed": 0, "precision": None}
+    from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+
+    replayed = aligned = misaligned = 0
+    for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        eid = str(row.get("experience_id") or "")
+        if not eid:
+            continue
+        preview = str(row.get("task_preview") or "")
+        inferred = str(row.get("inferred_task_id") or "") or infer_b9_task_id(preview)
+        aff = _resolve_row_task_affinity({**row, "inferred_task_id": inferred})
+        replayed += 1
+        if aff is True:
+            aligned += 1
+        elif aff is False:
+            misaligned += 1
+    precision = round(aligned / replayed, 3) if replayed else None
+    return {
+        "replayed": replayed,
+        "aligned": aligned,
+        "misaligned": misaligned,
+        "precision": precision,
+        "path": str(path),
+    }
+
+
+def forward_selection_precision(*, limit: int = 200) -> dict[str, Any]:
+    """Replay process_task on historical previews — measures new retrieval rules."""
+    path = selections_path()
+    if not path.is_file():
+        return {"replayed": 0, "precision": None}
+    from butler.config import get_butler_home
+    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary, process_task
+    from butler.dev_engine.prod_delegate_bridge import (
+        experience_task_affinity,
+        infer_b9_task_id,
+        production_delegate_keywords,
+    )
+    from butler.memory.memory_scope import (
+        delegate_project_id,
+        load_delegate_experience_library,
+        stack_tags_for_project,
+    )
+
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+        if line.strip():
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    if not rows:
+        return {"replayed": 0, "precision": None, "path": str(path)}
+
+    tlib = TheoremLibrary()
+    xlib = load_delegate_experience_library(
+        butler_home=get_butler_home(),
+        project="灵文1号",
+        theorem_lib=tlib,
+    )
+    aligned = none = 0
+    for row in rows:
+        preview = str(row.get("task_preview") or "")
+        if not preview.strip():
+            continue
+        inferred = infer_b9_task_id(preview)
+        kws = production_delegate_keywords(preview)
+        ctx = process_task(
+            kws,
+            tlib,
+            xlib,
+            strict_experience=True,
+            project_id=delegate_project_id("灵文1号"),
+            stack_tags=stack_tags_for_project("灵文1号"),
+            inferred_task_id=inferred,
+        )
+        sel = ctx.selected_experience
+        if sel is None:
+            none += 1
+            continue
+        if experience_task_affinity(sel.id, inferred_task_id=inferred):
+            aligned += 1
+    scored = len(rows) - none
+    precision = round(aligned / scored, 3) if scored else None
+    return {
+        "replayed": len(rows),
+        "scored": scored,
+        "aligned": aligned,
+        "none": none,
+        "precision": precision,
+        "path": str(path),
+    }
+
+
 def record_experience_lifecycle(
     *,
     experience_id: str,
@@ -300,4 +404,6 @@ __all__ = [
     "summarize_experience_lifecycle",
     "summarize_experience_selections",
     "summarize_selection_precision",
+    "replay_selection_precision",
+    "forward_selection_precision",
 ]

@@ -168,3 +168,66 @@ def test_test_driven_add_still_selected_for_ping_pong():
     )
     assert ctx.selected_experience is not None
     assert ctx.selected_experience.id == "B9_EX_test_driven_add"
+
+
+def test_add_missing_method_not_selected_for_greet():
+    tlib = TheoremLibrary()
+    xlib = ExperienceLibrary(theorem_lib=tlib)
+    xlib.add(
+        CodingExperience(
+            id="B9_EX_add_missing_method",
+            title="method",
+            domain=["b9"],
+            theorem_basis={"T01", "T04", "T03", "T10"},
+            context="get put store",
+            pattern="m",
+            benchmarks={
+                "b9_task": "B9L_add_missing_method",
+                "retrieval_keywords": "get,put,store,method,pytest",
+            },
+            validity_start=0,
+            validity_end=1e12,
+        ),
+        skip_validation=True,
+    )
+    xlib.add(
+        CodingExperience(
+            id="B9_EX_prod_demo_fix_greet_return",
+            title="greet",
+            domain=["b9", "prod_shaped"],
+            theorem_basis={"T01", "T04", "T03", "T10"},
+            context="greet hello",
+            pattern="hello",
+            benchmarks=apply_retrieval_benchmarks(
+                {"b9_task": "B9L_prod_demo_fix_greet_return"},
+                "B9L_prod_demo_fix_greet_return",
+            ),
+            validity_start=0,
+            validity_end=1e12,
+        ),
+        skip_validation=True,
+    )
+    ctx = process_task(
+        ["fix", "greet", "hello", "pytest"],
+        tlib,
+        xlib,
+        strict_experience=True,
+        inferred_task_id="B9L_prod_demo_fix_greet_return",
+    )
+    assert ctx.selected_experience is not None
+    assert ctx.selected_experience.id == "B9_EX_prod_demo_fix_greet_return"
+
+
+def test_read_state_greet_requires_read_state_anchor():
+    from butler.dev_engine.b9_experience_retrieval import experience_retrieval_eligible
+
+    assert not experience_retrieval_eligible(
+        "B9_EX_prod_read_state_greet",
+        normalized_keywords={"fix", "greet", "hello", "pytest"},
+        benchmarks={"b9_task": "B9L_prod_read_state_greet"},
+    )
+    assert experience_retrieval_eligible(
+        "B9_EX_prod_read_state_greet",
+        normalized_keywords={"greet", "read_state", "before", "pytest"},
+        benchmarks={"b9_task": "B9L_prod_read_state_greet"},
+    )

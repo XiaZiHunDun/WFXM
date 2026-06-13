@@ -48,7 +48,107 @@ GENERIC_BENCHMARK_EXPERIENCE_ANCHORS: dict[str, frozenset[str]] = {
     "B9_EX_test_driven_add": frozenset(
         {"ping", "pong", "test_driven_add", "b9l_test_driven_add"},
     ),
+    "B9_EX_prod_read_state_greet": frozenset(
+        {"read_state", "before", "b9l_prod_read_state_greet", "prod_read_state_greet"},
+    ),
 }
+
+# Low-signal tokens that alone should not unlock a B9_EX benchmark experience.
+GENERIC_RETRIEVAL_TOKENS: frozenset[str] = frozenset(
+    {
+        "pytest",
+        "test",
+        "tests",
+        "implement",
+        "fix",
+        "fixed",
+        "patch",
+        "edit",
+        "verify",
+        "failed",
+        "fail",
+        "run",
+        "missing",
+        "function",
+        "import",
+        "return",
+        "only",
+        "read",
+        "wrong",
+        "green",
+        "assert",
+        "add",
+        "hello",
+        "demo",
+    },
+)
+
+
+def task_specific_anchors(b9_task: str) -> frozenset[str]:
+    """Non-generic keywords for a B9L task — used as eligibility anchors."""
+    kws = TASK_RETRIEVAL_KEYWORDS.get((b9_task or "").strip(), ())
+    specific = {k for k in kws if k not in GENERIC_RETRIEVAL_TOKENS}
+    tid = (b9_task or "").strip().lower()
+    if tid:
+        specific.add(tid)
+        specific.add(tid.removeprefix("b9l_"))
+    return frozenset(specific)
+
+
+def _experience_task_affinity_match(
+    experience_id: str,
+    *,
+    inferred_task_id: str,
+    benchmarks: dict[str, Any] | None,
+) -> bool:
+    tid = (inferred_task_id or "").strip()
+    if tid:
+        try:
+            from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
+
+            if experience_task_affinity(experience_id, inferred_task_id=tid):
+                return True
+        except Exception:
+            pass
+    b9_task = str((benchmarks or {}).get("b9_task") or "").strip()
+    return bool(tid and b9_task and b9_task == tid)
+
+
+def experience_retrieval_eligible(
+    experience_id: str,
+    *,
+    normalized_keywords: set[str],
+    inferred_task_id: str = "",
+    benchmarks: dict[str, Any] | None = None,
+) -> bool:
+    """Filter over-broad benchmark experiences (e.g. test_driven_add on greet tasks)."""
+    if experience_id.startswith("PROD_FAIL_"):
+        return True
+    if _experience_task_affinity_match(
+        experience_id,
+        inferred_task_id=inferred_task_id,
+        benchmarks=benchmarks,
+    ):
+        return True
+
+    b9_task = str((benchmarks or {}).get("b9_task") or "").strip()
+    manual = GENERIC_BENCHMARK_EXPERIENCE_ANCHORS.get(experience_id)
+    if manual:
+        return bool(normalized_keywords & manual)
+
+    if experience_id.startswith("B9_EX_") and b9_task:
+        specific = task_specific_anchors(b9_task)
+        if specific:
+            return bool(normalized_keywords & specific)
+
+    if experience_id.startswith("B9_EX_") and not b9_task:
+        return True
+
+    if experience_id.startswith("B9_EX_"):
+        return False
+
+    return True
+
 
 FAILURE_CLASS_KEYWORDS: dict[str, tuple[str, ...]] = {
     "verify_fail": ("pytest", "assert", "verify", "test", "failed", "green"),
@@ -111,33 +211,6 @@ def enrich_b9_experience_context(task_id: str, *, classification: str = "") -> s
     if not kws:
         return task_id
     return f"{task_id}; production keywords: {', '.join(kws[:16])}"
-
-
-def experience_retrieval_eligible(
-    experience_id: str,
-    *,
-    normalized_keywords: set[str],
-    inferred_task_id: str = "",
-    benchmarks: dict[str, Any] | None = None,
-) -> bool:
-    """Filter over-broad benchmark experiences (e.g. test_driven_add on greet tasks)."""
-    anchors = GENERIC_BENCHMARK_EXPERIENCE_ANCHORS.get(experience_id)
-    if not anchors:
-        return True
-    tid = (inferred_task_id or "").strip()
-    if tid:
-        try:
-            from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
-
-            aff = experience_task_affinity(experience_id, inferred_task_id=tid)
-            if aff:
-                return True
-        except Exception:
-            pass
-    b9_task = str((benchmarks or {}).get("b9_task") or "").strip()
-    if tid and b9_task and b9_task == tid:
-        return True
-    return bool(normalized_keywords & anchors)
 
 
 def experience_retrieval_rank_bonus(

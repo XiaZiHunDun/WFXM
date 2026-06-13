@@ -148,6 +148,7 @@
 | 2026-06-09 | **G1–G4 批次收口**：G2-01/04/05/06/07/09 标「边界已接受」；§0 批次摘要；同步 `post-consolidation` **v2.5** §9、`phase4-ops-runbook`、`pilot-log` |
 | 2026-06-13 | **G1-04 观测打卡**：窗内 3 条 feedback，剩 10d；**G2-08 pilot**：`CODING_STRICT_GATE` 接生产类别；B9 周循环增 `experience_selection_precision` + affinity backfill |
 | 2026-06-14 | **检索纠偏**：`test_driven_add` 需 anchor/inferred task；L3 灵文 edit capture probe；`butler-g1-04-closure-check.sh` |
+| 2026-06-14 | **检索纠偏 v2**：`b9_task` 自动 anchor + 通用词过滤；周循环 `forward_selection_precision` |
 
 ---
 
