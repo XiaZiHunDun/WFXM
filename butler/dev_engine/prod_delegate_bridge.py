@@ -43,7 +43,7 @@ _SKIP_PLAYBOOK_CATEGORIES: frozenset[str] = frozenset(
 
 LINGWEN_SAMPLE_TO_B9_TASK: dict[str, str] = {
     "lingwen1-sample-demo-import": "B9L_prod_lingwen_demo_add",
-    "lingwen1-sample-constants-comment": "B9L_prod_lingwen_workflow_guard",
+    "lingwen1-sample-constants-comment": "B9L_prod_lingwen_constants_docstring",
     "lingwen1-sample-validate-progress": "B9L_prod_lingwen_workflow_guard",
 }
 

@@ -59,7 +59,16 @@ def test_resolve_lingwen_workflow_guard():
     assert resolve_production_failure_to_task(rec) == "B9L_prod_lingwen_workflow_guard"
 
 
+def test_resolve_lingwen_constants_docstring():
+    rec = {
+        "project": "灵文1号",
+        "task_preview": "Read constants.py. If the file has no module docstring, patch to add a one-line docstring",
+        "issues": ["verify_failed"],
+    }
+    assert resolve_production_failure_to_task(rec) == "B9L_prod_lingwen_constants_docstring"
+
+
 def test_promoted_tasks_exist_in_prod_shaped():
-    assert len(PROMOTED_TASK_IDS) == 6
+    assert len(PROMOTED_TASK_IDS) == 7
     for tid in PROMOTED_TASK_IDS:
         assert tid in B9_PROD_SHAPED_TASK_IDS

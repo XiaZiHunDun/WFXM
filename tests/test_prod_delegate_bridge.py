@@ -46,6 +46,15 @@ def test_infer_lingwen_sample_task_id():
     assert tid == "B9L_prod_lingwen_demo_add"
 
 
+def test_infer_lingwen_constants_sample_task_id():
+    tid = infer_b9_task_id(
+        "Verify constants.py has module docstring",
+        "lingwen1-sample-constants-comment context",
+        category="lingwen-prod-sample",
+    )
+    assert tid == "B9L_prod_lingwen_constants_docstring"
+
+
 def test_production_keywords_include_retrieval_aliases():
     kws = production_delegate_keywords(
         "fix greet return hello pytest",

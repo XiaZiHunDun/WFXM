@@ -265,6 +265,33 @@ def _verify_b9l_prod_lingwen_workflow_guard(ws: Path) -> tuple[bool, str]:
     return _pytest_verify(ws)
 
 
+def _setup_b9l_prod_lingwen_constants_docstring(ws: Path) -> None:
+    ws.mkdir(parents=True, exist_ok=True)
+    (ws / "constants.py").write_text("MAX_RETRIES = 3\n", encoding="utf-8")
+    (ws / "test_b9.py").write_text(
+        "import constants\n\n\ndef test_module_docstring_and_retries():\n"
+        "    assert constants.__doc__ and constants.__doc__.strip()\n"
+        "    assert constants.MAX_RETRIES == 3\n",
+        encoding="utf-8",
+    )
+
+
+def _oracle_b9l_prod_lingwen_constants_docstring(ws: Path) -> None:
+    from butler.dev_engine.edit_ops import apply_write
+
+    content = (
+        '"""LingWen1 project constants."""\n\n'
+        "MAX_RETRIES = 3\n"
+    )
+    _rec, err = apply_write(ws / "constants.py", content)
+    if err:
+        raise RuntimeError(err)
+
+
+def _verify_b9l_prod_lingwen_constants_docstring(ws: Path) -> tuple[bool, str]:
+    return _pytest_verify(ws)
+
+
 _READ_STATE_CONTEXT = (
     "## PRODUCTION LESSON (READ_STATE_REQUIRED)\n"
     "Previous delegate failed because patch/write ran before read_file.\n"
@@ -389,6 +416,26 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
             "pytest",
             "promoted",
             "source:lingwen1-workflow-guard-fix",
+        ),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_lingwen_constants_docstring",
+        description="LingWen1 prod: add module docstring to constants.py",
+        delegate_prompt=(
+            "Fix constants.py in LingWen1 workspace: add a one-line module docstring "
+            "before MAX_RETRIES. MAX_RETRIES must stay 3. test_b9.py must pass. "
+            "read_file constants.py before patch. No terminal."
+        ),
+        setup=_setup_b9l_prod_lingwen_constants_docstring,
+        verify=_verify_b9l_prod_lingwen_constants_docstring,
+        oracle_apply=_oracle_b9l_prod_lingwen_constants_docstring,
+        tags=(
+            "prod_shaped",
+            "lingwen1",
+            "verify_fail",
+            "pytest",
+            "promoted",
+            "source:lingwen1-sample-constants-comment",
         ),
     ),
 ]
