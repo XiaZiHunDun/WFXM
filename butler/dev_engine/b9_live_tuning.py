@@ -60,9 +60,9 @@ B9_TASK_PLAYBOOKS: dict[str, str] = {
         "Module docstring missing — prepend one-line docstring before MAX_RETRIES; keep MAX_RETRIES=3."
     ),
     "B9L_prod_lingwen_validate_progress": (
-        "Playbook (LingWen1 novel-factory): read_file workflow_state.json. "
-        "Unclosed completed batch (待修复) blocks validate_progress — patch result to 已通过, "
-        "then terminal: python3 novel-factory/scripts/validate_progress.py."
+        "Playbook (LingWen1 novel-factory): read_file novel-factory/workflow_state.json "
+        '(one line: "待修复 P0"). patch old_string 待修复 P0 → new_string 已通过. '
+        "Then terminal: python3 novel-factory/scripts/validate_progress.py — expect 进度验证: 通过."
     ),
     # Tier-1 gate (release subset)
     "B9L_test_driven_add": (

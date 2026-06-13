@@ -170,6 +170,35 @@ B9_ORACLE_EPISODES: dict[str, B9CurriculumEpisode] = {
             B9CurriculumStep("terminal", "pytest", "python3 -m pytest test_b9.py -q"),
         ],
     ),
+    "B9L_prod_lingwen_validate_progress": B9CurriculumEpisode(
+        task_id="B9L_prod_lingwen_validate_progress",
+        title="Close LingWen workflow_state batch result",
+        tags=("prod_shaped", "lingwen1", "novel_factory", "tier1"),
+        skill_name="b9-lingwen-validate-progress",
+        pattern_summary=(
+            "workflow_state.json is one line 待修复 P0 — patch to 已通过, "
+            "then run validate_progress.py."
+        ),
+        anti_patterns=("write_file entire JSON", "Skipping terminal validator"),
+        steps=[
+            B9CurriculumStep(
+                "read_file",
+                "novel-factory/workflow_state.json",
+                "Single line: 待修复 P0",
+            ),
+            B9CurriculumStep(
+                "patch",
+                "novel-factory/workflow_state.json",
+                'old_string 待修复 P0 → new_string 已通过',
+            ),
+            B9CurriculumStep(
+                "terminal",
+                "novel-factory/scripts/validate_progress.py",
+                "python3 novel-factory/scripts/validate_progress.py — expect 进度验证: 通过",
+            ),
+            B9CurriculumStep("terminal", "pytest", "python3 -m pytest test_b9.py -q"),
+        ],
+    ),
 }
 
 

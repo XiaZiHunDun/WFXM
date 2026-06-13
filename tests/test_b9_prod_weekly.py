@@ -110,6 +110,18 @@ def test_run_promoted_prod_oracle_probe():
     assert probe["passed"] == probe["total"]
 
 
+def test_b9l_prod_lingwen_validate_progress_setup_oracle(tmp_path):
+    from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASKS
+
+    spec = next(t for t in B9_PROD_SHAPED_TASKS if t.task_id == "B9L_prod_lingwen_validate_progress")
+    spec.setup(tmp_path)
+    ok, msg = spec.verify(tmp_path)
+    assert not ok, msg
+    spec.oracle_apply(tmp_path)
+    ok2, msg2 = spec.verify(tmp_path)
+    assert ok2, msg2
+
+
 def test_is_production_delegate_row_accepts_lingwen():
     assert is_production_delegate_row(
         {

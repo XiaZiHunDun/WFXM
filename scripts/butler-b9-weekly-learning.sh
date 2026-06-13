@@ -125,7 +125,8 @@ PY
 
 echo ""
 echo "=== B9 weekly: promoted prod LIVE probe (phase C, non-blocking) ==="
-python3 - <<'PY'
+PROMOTED_RC=0
+python3 - <<'PY' || PROMOTED_RC=$?
 import json, sys
 from butler.ops.b9_prod_weekly import run_promoted_prod_live_probe
 
@@ -136,7 +137,9 @@ if probe.get("passed", 0) < probe.get("total", 0):
     print("PROMOTED PROD BENCHMARK: had failures", file=sys.stderr)
     raise SystemExit(1)
 PY
-if [ $? -ne 0 ]; then echo "(promoted prod probe had failures — stretch only)"; fi
+if [ "${PROMOTED_RC:-0}" -ne 0 ]; then
+  echo "(promoted prod probe had failures — stretch only)"
+fi
 
 echo ""
 echo "=== B9 weekly: LingWen1 prod sample (phase C, non-blocking) ==="
