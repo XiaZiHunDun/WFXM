@@ -361,6 +361,13 @@ BUTLER_EVAL_LLM_BENCHMARK=1 bash scripts/butler-eval-swebench-live-full.sh
 
 门控状态：`python3 -c "from butler.ops.swebench_entry_gate import evaluate_swe_full_entry_gate; print(evaluate_swe_full_entry_gate())"`
 
+**自动化（推荐）**：周日 03:30 跑周循环，门控打开后自动接全量 LIVE：
+
+```bash
+bash scripts/install-butler-b9-weekly-timer.sh   # systemd user timer
+bash scripts/butler-b9-weekly-gate-followup.sh   # 手动：周循环 + 门控则全量
+```
+
 ## 助手全局健康（阶段 4）
 
 ### 工具路由（delegate vs terminal）

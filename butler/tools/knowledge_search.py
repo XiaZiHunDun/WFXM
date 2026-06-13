@@ -81,9 +81,6 @@ def register_knowledge_tools(register_fn) -> None:
             },
             "required": ["query"],
         },
-        handler=lambda args: tool_search_project_knowledge(
-            query=str((args or {}).get("query") or ""),
-            limit=int((args or {}).get("limit") or 8),
-        ),
+        handler=tool_search_project_knowledge,
         toolset="memory",
     )

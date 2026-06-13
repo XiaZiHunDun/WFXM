@@ -19,6 +19,7 @@
 | `install-butler-ops-bundle.sh` | runtime timer + push-drain + logrotate 一键 |
 | `install-butler-runtime-timer.sh` | 灵文 runtime 定时器 |
 | `install-butler-push-drain.sh` | 推送队列重试 timer |
+| `install-butler-b9-weekly-timer.sh` | B9 周循环 + SWE 门控全量（周日 03:30） |
 | `install-butler-logrotate.sh` | 日志轮转 |
 | `setup-butler-config.sh` | 生成 `~/.butler/config.yaml` |
 | `lib/butler-gateway-preflight.sh` | 网关启动前检查（被 ops 调用） |
@@ -45,6 +46,7 @@
 | `butler-phase4-smoke.sh` | **Phase 4 守门**：standard/full + Lead + runtime + 媒体 + 回归门 |
 | `butler-phase5-smoke.sh` | **Phase 5 守门**：B9 + 多项目 C + 双 Lead smoke |
 | `butler-eval-llm-benchmark.sh` | **O9** B9 LLM delegate 基准（oracle / live） |
+| `butler-b9-weekly-gate-followup.sh` | B9 周循环 + SWE 双周门控通过后自动全量 LIVE |
 | `sync-project-skills.sh` | 任意项目 `skills/` → `.butler/skills/` |
 | `butler-memory-metrics-smoke.sh` | **D2-4/D2-5** 记忆效果度量接线测试 |
 | `butler-pre-release-smoke.sh` | 1 gateway → 2 pytest → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot |

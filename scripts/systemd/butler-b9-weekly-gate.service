@@ -1,0 +1,15 @@
+[Unit]
+Description=Butler B9 weekly learning + SWE gate follow-up
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@WFXM_ROOT@
+Environment=PYTHONPATH=@WFXM_ROOT@
+EnvironmentFile=-@WFXM_ROOT@/.env
+ExecStart=/bin/bash @WFXM_ROOT@/scripts/butler-b9-weekly-gate-followup.sh
+StandardOutput=append:@WFXM_ROOT@/logs/butler-b9-weekly-gate.log
+StandardError=append:@WFXM_ROOT@/logs/butler-b9-weekly-gate.log
+
+[Install]
+WantedBy=default.target

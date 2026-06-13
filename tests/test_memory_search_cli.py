@@ -59,6 +59,24 @@ def test_tool_search_project_knowledge_enriches_json(monkeypatch):
 
 
 @pytest.mark.module_test
+def test_dispatch_search_project_knowledge_accepts_query_kwarg(monkeypatch):
+    """Registry calls handler(**kwargs); must not use lambda args dict."""
+    from butler.tools.registry import dispatch_tool
+
+    monkeypatch.setattr(
+        "butler.tools.memory_tools.tool_butler_recall",
+        lambda **_: json.dumps({"ok": True, "results": []}, ensure_ascii=False),
+    )
+    monkeypatch.setattr(
+        "butler.memory.corpus_router.corpus_routing_enabled",
+        lambda: False,
+    )
+    out = dispatch_tool("search_project_knowledge", {"query": "B9 playbook"})
+    data = json.loads(out)
+    assert data.get("ok") is True
+
+
+@pytest.mark.module_test
 def test_run_memory_search_experience_fts(tmp_path, monkeypatch):
     from butler.memory.butler_memory import ButlerMemory
     from butler.memory.search_cli import run_memory_search

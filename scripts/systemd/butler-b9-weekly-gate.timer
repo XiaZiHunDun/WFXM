@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly B9 learning + SWE full LIVE when gate opens (Sunday 03:30)
+
+[Timer]
+OnCalendar=Sun *-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=600
+
+[Install]
+WantedBy=timers.target

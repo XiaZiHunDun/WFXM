@@ -38,6 +38,12 @@ if [[ -f "$ROOT/scripts/install-butler-eval-sync-timer.sh" ]]; then
 fi
 
 echo ""
+echo "== B9 weekly gate timer (Sunday 03:30) =="
+if [[ -f "$ROOT/scripts/install-butler-b9-weekly-timer.sh" ]]; then
+  bash "$ROOT/scripts/install-butler-b9-weekly-timer.sh" "${_enable_args[@]}"
+fi
+
+echo ""
 echo "== logrotate =="
 if [[ "$INSTALL_LOGROTATE_CRON" -eq 1 ]]; then
   bash "$ROOT/scripts/install-butler-logrotate.sh" user --install-cron
