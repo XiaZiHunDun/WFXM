@@ -352,13 +352,16 @@ BUTLER_EVAL_LLM_BENCHMARK=1 bash scripts/butler-eval-swebench-live.sh
 
 ### SWE-bench Lite 全量 LIVE（门控）
 
-连续 **2 周** 子集 3/3（`pass_rate=1.0`）后才允许跑全 15 题：
+默认连续 **2 周** 子集 3/3（`pass_rate=1.0`）后才允许跑全 15 题；已稳一周可设 `BUTLER_EVAL_SWE_GATE_MIN_WEEKS=1` 立即入场。
 
 ```bash
 bash scripts/butler-eval-swebench-live-full.sh          # 门控未开则 exit 2
-bash scripts/butler-eval-swebench-live-full.sh --force  # 跳过门控（stretch）
+BUTLER_EVAL_SWE_GATE_MIN_WEEKS=1 bash scripts/butler-eval-swebench-live-full.sh  # stretch 入场
+bash scripts/butler-eval-swebench-live-full.sh --force  # 跳过门控
 BUTLER_EVAL_LLM_BENCHMARK=1 bash scripts/butler-eval-swebench-live-full.sh
 ```
+
+**里程碑（2026-06-13）**：正式全量 LIVE **15/15**（`BUTLER_EVAL_SWE_GATE_MIN_WEEKS=1`，无 `--force`）。
 
 门控状态：`python3 -c "from butler.ops.swebench_entry_gate import evaluate_swe_full_entry_gate; print(evaluate_swe_full_entry_gate())"`
 

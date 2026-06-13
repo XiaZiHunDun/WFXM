@@ -630,7 +630,7 @@ while not done and iterations < budget:
 - **修学循环**：`b9_oracle_curriculum.py`（Oracle 金标 episode）；`b9_lessons.py`（`~/.butler/audit/b9_lessons.jsonl`；LIVE 成功 **renew** `B9_EX_*`、失败 **upsert** `B9_FAIL_*`）；`scripts/butler-b9-export-curriculum.sh` 导出课表并 seed `coding_experiences.json`（`B9_EX_*`）；`scripts/butler-b9-weekly-learning.sh` 周循环含 harness 摩擦审计与 **周对比快照**（`b9_harness_snapshots.jsonl`）
 - **B9 工具**：`dev_tools.run_pytest`（workspace 内 pytest，替代裸 terminal）；Skill `b9-test-driven-add` / `b9-two-file-threshold`
 - **B9 委派门控**：`b9_delegate_gate.py` — `finalize_delegate_success` 在 `b9-benchmark`/`swe-benchmark` 下要求 verify 绿；子 agent 预载 read_state + `<benchmark-workspace-files>`；LIVE 失败最多 3 轮 oracle replay
-- **发版/周循环**：`butler-b9-release-gate.sh`（oracle Tier-1，进 pre-release smoke）；`butler-b9-weekly-learning.sh`（Tier-1 LIVE + Tier-2 probe + SWE 子集）
+- **发版/周循环**：`butler-b9-release-gate.sh`（oracle Tier-1，进 pre-release smoke）；`butler-b9-weekly-learning.sh`（Tier-1 LIVE + Tier-2 probe + SWE 子集）；`swebench_entry_gate.py` + `butler-eval-swebench-live-full.sh`（全量 15 题 LIVE 门控；2026-06-13 正式 **15/15**）
 - **失败分析**：`butler/ops/b9_failure_analysis.py`；harness 摩擦 `b9_harness_audit.py`（READ_STATE / TOOL_ERROR 趋势）；生产晋升 `delegate_failure_b9_promote.py`
 - **生产内循环（Phase C）**：
   - `b9_prod_weekly.py` — 生产 delegate 质量聚合、`prod_delegate_snapshots.jsonl` 周快照与 `prod_delta`（`is_production_delegate_row` 过滤 B9/SWE 噪声）
