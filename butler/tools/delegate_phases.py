@@ -765,9 +765,19 @@ def _build_delegate_report(
         category=str(state.category_meta.get("category") or state.category or ""),
         category_meta=state.category_meta,
         project=state.project,
+        role=state.role,
+        dev_engine=peek_dev_engine_summary(
+            state.child_session_key or state.session_key or "_default",
+            state.role,
+        ),
     )
     role_label = _delegate_role_label(state.role)
-    headline = f"{role_label}已完成任务" if success else f"{role_label}未能完成任务"
+    if success:
+        headline = f"{role_label}已完成任务"
+    elif any("DEV_VERIFY_GATE" in str(i) for i in issues):
+        headline = f"{role_label}已完成编辑但未通过验证"
+    else:
+        headline = f"{role_label}未能完成任务"
     task_preview = (state.task or "").strip()[:200]
     summary_text = (result.final_response or "").strip()
     if not summary_text:

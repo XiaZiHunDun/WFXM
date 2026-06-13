@@ -6,6 +6,7 @@ from butler.dev_engine.b9_live_fixed_tasks import B9_LIVE_FIXED_TASKS
 from butler.dev_engine.b9_tiers import (
     B9_TIER2_TASK_IDS,
     b9_task_tier,
+    evaluate_tier2_probe_gate,
     filter_tier_tasks,
     summarize_tier_results,
 )
@@ -35,3 +36,37 @@ def test_summarize_tier_results_excludes_stuck():
     assert tiers["tier1"]["total"] == 1
     assert tiers["tier2"]["passed"] == 0
     assert tiers["tier2"]["total"] == 1
+
+
+def test_tier2_probe_gate_default(monkeypatch):
+    monkeypatch.delenv("BUTLER_B9_TIER2_GATE_ENABLED", raising=False)
+    monkeypatch.delenv("BUTLER_B9_TIER2_GATE_MIN_PASSED", raising=False)
+    gate = evaluate_tier2_probe_gate(passed=2, total=3)
+    assert gate["enabled"] is True
+    assert gate["min_passed"] == 2
+    assert gate["ok"] is True
+    gate_fail = evaluate_tier2_probe_gate(passed=1, total=3)
+    assert gate_fail["ok"] is False
+
+
+def test_tier2_probe_gate_disabled(monkeypatch):
+    monkeypatch.setenv("BUTLER_B9_TIER2_GATE_ENABLED", "0")
+    gate = evaluate_tier2_probe_gate(passed=0, total=3)
+    assert gate["ok"] is True
+
+
+def test_tier2_probe_gate_default(monkeypatch):
+    monkeypatch.delenv("BUTLER_B9_TIER2_GATE_ENABLED", raising=False)
+    monkeypatch.delenv("BUTLER_B9_TIER2_GATE_MIN_PASSED", raising=False)
+    gate = evaluate_tier2_probe_gate(passed=2, total=3)
+    assert gate["enabled"] is True
+    assert gate["min_passed"] == 2
+    assert gate["ok"] is True
+    gate_fail = evaluate_tier2_probe_gate(passed=1, total=3)
+    assert gate_fail["ok"] is False
+
+
+def test_tier2_probe_gate_disabled(monkeypatch):
+    monkeypatch.setenv("BUTLER_B9_TIER2_GATE_ENABLED", "0")
+    gate = evaluate_tier2_probe_gate(passed=0, total=3)
+    assert gate["ok"] is True

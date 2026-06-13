@@ -273,13 +273,69 @@ def build_b9_wrong_patch_retry_banner(failure_tail: str) -> str:
     )
 
 
+def dev_verify_success_gate_enabled() -> bool:
+    raw = os.getenv("BUTLER_DEV_VERIFY_SUCCESS_GATE", "1").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+def apply_dev_auto_verify_success_gate(
+    *,
+    role: str = "",
+    base_success: bool,
+    issues: list[str] | None = None,
+    dev_engine: dict[str, Any] | None = None,
+) -> tuple[bool, list[str]]:
+    """Production dev: edits without green verify must not count as delegate success."""
+    out = list(issues or [])
+    if not base_success:
+        return False, out
+    norm = str(role or "").replace("_agent", "").strip().lower()
+    if norm != "dev":
+        return True, out
+    if not dev_verify_success_gate_enabled():
+        return True, out
+    try:
+        from butler.dev_engine.dev_tools import auto_verify_enabled
+
+        if not auto_verify_enabled():
+            return True, out
+    except Exception:
+        return True, out
+
+    de = dev_engine if isinstance(dev_engine, dict) else {}
+    edits = int(de.get("edits") or 0)
+    if edits <= 0:
+        return True, out
+    if de.get("verify_passed") is True:
+        return True, out
+    if de.get("verify_passed") is not False:
+        return True, out
+
+    tail = ""
+    hint = ""
+    try:
+        from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
+
+        hint = build_b9_verify_hint(tail)
+    except Exception:
+        pass
+    msg = "DEV_VERIFY_GATE: 有编辑但自动验证未通过"
+    if hint:
+        msg += f" | hint: {hint}"
+    if msg not in out:
+        out.append(msg)
+    return False, out
+
+
 __all__ = [
     "BENCHMARK_CATEGORIES",
     "SWE_LIVE_CATEGORY",
     "apply_b9_pytest_success_gate",
+    "apply_dev_auto_verify_success_gate",
     "benchmark_verify_context",
     "build_b9_wrong_patch_retry_banner",
     "build_b9_workspace_preamble",
+    "dev_verify_success_gate_enabled",
     "format_oracle_replay_block",
     "is_b9_benchmark_category",
     "is_benchmark_category",

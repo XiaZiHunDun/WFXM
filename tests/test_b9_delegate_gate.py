@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from butler.core.read_state import get_read_state, reset_read_state
 from butler.dev_engine.b9_delegate_gate import (
     apply_b9_pytest_success_gate,
+    apply_dev_auto_verify_success_gate,
     build_b9_workspace_preamble,
     format_oracle_replay_block,
     is_b9_benchmark_category,
@@ -84,6 +85,46 @@ def test_finalize_delegate_success_applies_b9_gate(tmp_path, monkeypatch):
     )
     assert success is False
     assert issues
+
+
+    assert any("BENCHMARK_PYTEST_GATE" in i for i in issues)
+
+
+def test_dev_verify_gate_blocks_edits_without_green():
+    ok, issues = apply_dev_auto_verify_success_gate(
+        role="dev",
+        base_success=True,
+        issues=[],
+        dev_engine={"edits": 2, "verify_passed": False},
+    )
+    assert ok is False
+    assert any("DEV_VERIFY_GATE" in i for i in issues)
+
+
+def test_dev_verify_gate_allows_read_only():
+    ok, issues = apply_dev_auto_verify_success_gate(
+        role="dev",
+        base_success=True,
+        issues=[],
+        dev_engine={"edits": 0, "verify_passed": False},
+    )
+    assert ok is True
+    assert issues == []
+
+
+def test_finalize_dev_verify_gate(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_DEV_VERIFY_SUCCESS_GATE", "1")
+    monkeypatch.setenv("BUTLER_DEV_AUTO_VERIFY", "1")
+    success, issues = finalize_delegate_success(
+        _FakeResult(),
+        changes=[SimpleNamespace()],
+        issues=[],
+        category="deep",
+        role="dev",
+        dev_engine={"edits": 1, "verify_passed": False},
+    )
+    assert success is False
+    assert any("DEV_VERIFY_GATE" in i for i in issues)
 
 
 def test_seed_b9_workspace_read_state(tmp_path):

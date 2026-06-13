@@ -582,6 +582,7 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 |------|--------|------|
 | `BUTLER_DEV_ENGINE` | `1` | `0` = 关闭内置开发引擎；关闭后 dev 角色使用传统工作流 |
 | `BUTLER_DEV_AUTO_VERIFY` | `1` | `0` = 关闭编辑后自动验证；手动调 `dev_verify` |
+| `BUTLER_DEV_VERIFY_SUCCESS_GATE` | `1` | `1` = dev 委派有编辑但 verify 未绿时 `success=false`（`DEV_VERIFY_GATE`） |
 | `BUTLER_DEV_VERIFY_TIMEOUT` | `300` | `dev_verify` 单个验证层级超时（秒） |
 | `BUTLER_DEV_MAX_FIX_ROUNDS` | `3` | 同一类错误最大修复轮次，超限报 STUCK |
 | `BUTLER_DEV_ROLLBACK_ENABLED` | `1` | `0` = 禁用 `dev_rollback` 工具 |
@@ -609,6 +610,8 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_EVAL_B9_PASS_RATE_MIN` | `1.0` | B9 通过率下限（oracle 默认 2/2） |
 | `BUTLER_EVAL_B9_RESCUE_PASS_RATE_MIN` | `0.5` | B9 LIVE 可解项通过率低于此值时自动 `adjust_delegate_rescue` 写入 `eval_overrides.json` |
 | `BUTLER_EVAL_B9_TIER1_PASS_RATE_MIN` | `0.5` | B9 LIVE 发版门控：仅 Tier-1 可解项通过率下限（Tier-2 stretch 不阻塞） |
+| `BUTLER_B9_TIER2_GATE_ENABLED` | `1` | `1` = 周循环 3-task probe 启用条件门控 |
+| `BUTLER_B9_TIER2_GATE_MIN_PASSED` | `2` | Tier-2 probe 最低通过数（默认 2/3） |
 | `BUTLER_B9_ORACLE_FEWSHOT` | `1` | `1` = B9 delegate 注入 oracle 金标 few-shot 修复范式 |
 | `BUTLER_EVAL_LLM_BENCHMARK` | `0` | `1` = B9 基准使用真实 `delegate_task`+LLM；`0` = oracle 模式（CI） |
 | `BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES` | LangFuse 开则开 | `1`/`all` = 生产委派失败写入 `butler-delegate-failures`；`0` = 关闭 |

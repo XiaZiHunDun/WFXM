@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 # Stretch: import/cross-file/prod-shaped wrong_patch probes.
@@ -53,10 +54,39 @@ def summarize_tier_results(results: list[dict[str, Any]]) -> dict[str, Any]:
     return tiers
 
 
+def tier2_probe_gate_enabled() -> bool:
+    raw = os.getenv("BUTLER_B9_TIER2_GATE_ENABLED", "1").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+def tier2_probe_gate_min_passed() -> int:
+    try:
+        return max(0, int(os.getenv("BUTLER_B9_TIER2_GATE_MIN_PASSED", "2")))
+    except ValueError:
+        return 2
+
+
+def evaluate_tier2_probe_gate(*, passed: int, total: int) -> dict[str, Any]:
+    """Conditional weekly gate for B9_TUNING_PROBE_TASK_IDS (default 2/3)."""
+    enabled = tier2_probe_gate_enabled()
+    min_passed = tier2_probe_gate_min_passed()
+    ok = (not enabled) or (int(passed) >= min_passed)
+    return {
+        "enabled": enabled,
+        "min_passed": min_passed,
+        "passed": int(passed),
+        "total": int(total),
+        "ok": ok,
+    }
+
+
 __all__ = [
     "B9_STUCK_TASK_IDS",
     "B9_TIER2_TASK_IDS",
     "b9_task_tier",
+    "evaluate_tier2_probe_gate",
     "filter_tier_tasks",
     "summarize_tier_results",
+    "tier2_probe_gate_enabled",
+    "tier2_probe_gate_min_passed",
 ]

@@ -30,8 +30,18 @@ echo "=== B9 weekly: Tier-1 LIVE model=$MODEL ==="
 bash "$ROOT/scripts/butler-eval-b9-probe-model.sh" --tier1 "$MODEL"
 
 echo ""
-echo "=== B9 weekly: Tier-2 probe (stretch, non-blocking) ==="
-bash "$ROOT/scripts/butler-eval-b9-probe-model.sh" "$MODEL" || echo "(tier2 probe had failures — stretch only)"
+echo "=== B9 weekly: Tier-2 probe (conditional gate) ==="
+TIER2_GATE_ENABLED="${BUTLER_B9_TIER2_GATE_ENABLED:-1}"
+TIER2_MIN="${BUTLER_B9_TIER2_GATE_MIN_PASSED:-2}"
+if bash "$ROOT/scripts/butler-eval-b9-probe-model.sh" "$MODEL"; then
+  echo "Tier-2 probe: gate passed (enabled=${TIER2_GATE_ENABLED}, min=${TIER2_MIN})"
+else
+  if [[ "$TIER2_GATE_ENABLED" == "1" ]]; then
+    echo "B9 TIER2 PROBE GATE: FAILED (need >=${TIER2_MIN}/3)" >&2
+    exit 1
+  fi
+  echo "(tier2 probe had failures — stretch only; BUTLER_B9_TIER2_GATE_ENABLED=0)"
+fi
 
 echo ""
 echo "=== B9 weekly: SWE-bench subset (non-blocking) ==="

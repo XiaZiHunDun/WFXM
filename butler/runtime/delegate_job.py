@@ -187,6 +187,12 @@ def run_delegate_job(job: DelegateJob) -> None:
         except Exception:
             project = None
         if result:
+            from butler.tools.delegate_phases import peek_dev_engine_summary
+
+            dev_engine = peek_dev_engine_summary(
+                job.child_session_key or job.session_key or "_default",
+                job.role,
+            )
             success, issues = finalize_delegate_success(
                 result,
                 changes,
@@ -194,11 +200,19 @@ def run_delegate_job(job: DelegateJob) -> None:
                 category=str(job.category_meta.get("category") or ""),
                 category_meta=job.category_meta,
                 project=project,
+                role=job.role,
+                dev_engine=dev_engine,
             )
         else:
             success = False
+            dev_engine = None
         role_label = _delegate_role_label(job.role)
-        headline = f"{role_label}已完成任务" if success else f"{role_label}未能完成任务"
+        if success:
+            headline = f"{role_label}已完成任务"
+        elif any("DEV_VERIFY_GATE" in str(i) for i in issues):
+            headline = f"{role_label}已完成编辑但未通过验证"
+        else:
+            headline = f"{role_label}未能完成任务"
         summary_text = (result.final_response or "").strip() if result else ""
         if not summary_text:
             summary_text = (

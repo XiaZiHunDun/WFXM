@@ -120,4 +120,20 @@ for row in results:
 best = max(results, key=lambda r: (r["passed"], r["pass_rate"]), default=None)
 if best:
     print(f"Best model: {best['model']}")
+
+if not tier1_mode and not compare and results:
+    from butler.dev_engine.b9_tiers import evaluate_tier2_probe_gate
+
+    last = results[-1]
+    gate = evaluate_tier2_probe_gate(passed=last["passed"], total=last["total"])
+    print()
+    print("=== TIER2 PROBE GATE ===")
+    print(json.dumps(gate, ensure_ascii=False, indent=2))
+    if not gate.get("ok"):
+        print(
+            f"B9 TIER2 PROBE GATE: need {gate.get('min_passed')}/{gate.get('total')} "
+            f"got {gate.get('passed')}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 PY
