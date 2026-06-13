@@ -63,7 +63,7 @@
 
 | ID | 理论依据 | 现状 | 影响 | 建议 |
 |----|----------|------|------|------|
-| G1-04 | OT2 有条件目标 | 硬反馈已接；**`eval_feedback.jsonl` 观测中**（3 条/7d，`adjust_delegate_rescue`） | OT2 待观测窗满后标为已证 | 窗 2026-06-09→06-23；`butler-gap-observability.sh` |
+| G1-04 | OT2 有条件目标 | 硬反馈已接；**观测中**（窗内 3 条 `adjust_delegate_rescue`，剩 10d→06-23） | OT2 窗满且 ≥1 条后 `closure_ready` | `butler-gap-observability.sh`；06-23 结案 |
 
 ---
 
@@ -81,7 +81,7 @@
 | G2-05 | §1.5 单进程无跨记录事务 | `TenantStore` 单文件 `atomic_write_text` | ✅ **边界已接受**（2026-06-09）：原子写已接；崩溃窗口为诚实边界 |
 | G2-06 | FINDING-2 Hashing Recall 低 | 默认 fastembed + semantic memory | ✅ **边界已接受**（2026-06-09）：semantic=1 + fastembed；Recall 信号正常（doctor / MB1） |
 | G2-07 | LangFuse opt-in | `BUTLER_LANGFUSE_ENABLED` 与 `BUTLER_EVAL_HARD_FEEDBACK` 独立 | ✅ **边界已接受**（2026-06-09）：二者独立配置；无 LangFuse 时硬反馈读本地 audit |
-| G2-08 | CA4 严格模式默认 advisory（§9 CA4 / `v4-dev-engine-theory` §8.5 T3） | `BUTLER_CODING_STRICT=0`（默认）；`coding_strict_enabled()` 仅定义+单测，**零生产调用**；编辑后软检查由 `BUTLER_DEV_AUTO_VERIFY=1` → `_run_auto_verify` + `dual_verify`（诊断注入，不阻断 delegate） | ⏸️ **保持现状**（2026-06-09）：边界已诚实声明；`strict=0`/`1` 行为相同。opt-in 硬阻断待 CA4 理论分析后立项 |
+| G2-08 | CA4 严格模式 pilot（§9 CA4） | 默认 `BUTLER_CODING_STRICT=0`；`strict=1` 时生产 pilot 类别定理违例 → `CODING_STRICT_GATE`；软检查仍由 `BUTLER_DEV_AUTO_VERIFY` | ⏸️ **pilot opt-in**（2026-06-13）：默认 advisory；测评/灵文 sample 可 `strict=1` 观察 |
 | G2-09 | MA1/MT1 索引最终一致 | 写后索引 + `reindex` 兜底 | ✅ **边界已接受**（2026-06-09）：Mem 基准 100%；偶发 miss 为 MB1 诚实边界 |
 
 ---
@@ -146,6 +146,7 @@
 | 2026-06-09 | **G2-03 收口**：P-PIM live 门检 MiniMax 94% / DeepSeek 92%（`test_premise_v3_llm_live.py::TestPPIMLiveRouting`） |
 | 2026-06-09 | **G3-08/G3-09 收口**：登记册 §3 标 ✅；G3-09 章节引用修正为 `v4-dev-engine-theory` §8.5 |
 | 2026-06-09 | **G1–G4 批次收口**：G2-01/04/05/06/07/09 标「边界已接受」；§0 批次摘要；同步 `post-consolidation` **v2.5** §9、`phase4-ops-runbook`、`pilot-log` |
+| 2026-06-13 | **G1-04 观测打卡**：窗内 3 条 feedback，剩 10d；**G2-08 pilot**：`CODING_STRICT_GATE` 接生产类别；B9 周循环增 `experience_selection_precision` + affinity backfill |
 
 ---
 

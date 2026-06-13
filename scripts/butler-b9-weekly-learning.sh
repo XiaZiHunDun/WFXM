@@ -103,6 +103,7 @@ from butler.ops.lingwen1_capture_probe import run_lingwen1_capture_probe
 from butler.ops.lingwen1_failure_seed import seed_lingwen1_failure_audit
 from butler.ops.b9_prod_promoted_registry import LINGWEN1_CAPTURE_NOTE
 from butler.ops.experience_selection_telemetry import (
+    backfill_selection_task_affinity,
     summarize_experience_lifecycle,
     summarize_experience_selections,
     summarize_selection_precision,
@@ -111,6 +112,8 @@ from butler.ops.experience_selection_telemetry import (
 print("lingwen1_seed=", seed_lingwen1_failure_audit())
 print("lingwen1_capture_probe=", run_lingwen1_capture_probe())
 print(f"lingwen1_note={LINGWEN1_CAPTURE_NOTE}")
+bf = backfill_selection_task_affinity(dry_run=False)
+print(f"experience_affinity_backfill={bf}")
 print("experience_selections=", summarize_experience_selections())
 print("experience_selection_precision=", summarize_selection_precision())
 print("experience_lifecycle=", summarize_experience_lifecycle())

@@ -6,6 +6,7 @@ import json
 
 from butler.ops.experience_selection_telemetry import (
     apply_selected_experience_lifecycle,
+    backfill_selection_task_affinity,
     lifecycle_path,
     record_experience_selection,
     summarize_experience_lifecycle,
@@ -61,6 +62,27 @@ def test_selection_precision_summary(tmp_path, monkeypatch):
     assert prec["aligned"] == 1
     assert prec["misaligned"] == 1
     assert prec["precision"] == 0.5
+
+
+def test_backfill_selection_affinity(tmp_path, monkeypatch):
+    audit = tmp_path / "audit"
+    audit.mkdir()
+    path = audit / "experience_selections.jsonl"
+    monkeypatch.setattr(
+        "butler.ops.experience_selection_telemetry.selections_path",
+        lambda: path,
+    )
+    row = {
+        "ts": 1.0,
+        "experience_id": "B9_EX_prod_demo_fix_greet_return",
+        "task_preview": "fix greet return hello pytest",
+    }
+    path.write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+    out = backfill_selection_task_affinity(dry_run=False)
+    assert out["updated"] == 1
+    saved = json.loads(path.read_text(encoding="utf-8").splitlines()[0])
+    assert saved.get("task_affinity") is True
+    assert saved.get("inferred_task_id")
 
 
 def test_apply_selected_experience_lifecycle_renew_and_demote(tmp_path, monkeypatch):

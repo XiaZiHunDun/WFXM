@@ -60,6 +60,71 @@ def record_experience_selection(
         fh.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def _resolve_row_task_affinity(row: dict[str, Any]) -> bool | None:
+    """Use stored affinity or infer from task_preview + experience_id."""
+    affinity = row.get("task_affinity")
+    if affinity is True or affinity is False:
+        return bool(affinity)
+    eid = str(row.get("experience_id") or "").strip()
+    if not eid:
+        return None
+    tid = str(row.get("inferred_task_id") or "").strip()
+    if not tid:
+        preview = str(row.get("task_preview") or "")
+        try:
+            from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+
+            tid = infer_b9_task_id(preview)
+        except Exception:
+            tid = ""
+    if not tid:
+        return None
+    try:
+        from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
+
+        return experience_task_affinity(eid, inferred_task_id=tid)
+    except Exception:
+        return None
+
+
+def backfill_selection_task_affinity(*, dry_run: bool = True) -> dict[str, Any]:
+    """Persist inferred task_affinity on historical selection rows."""
+    path = selections_path()
+    if not path.is_file():
+        return {"updated": 0, "total": 0, "dry_run": dry_run}
+    rows: list[dict[str, Any]] = []
+    updated = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if row.get("task_affinity") is None and row.get("experience_id"):
+            inferred = _resolve_row_task_affinity(row)
+            if inferred is not None:
+                row["task_affinity"] = inferred
+                if not row.get("inferred_task_id"):
+                    preview = str(row.get("task_preview") or "")
+                    try:
+                        from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+
+                        tid = infer_b9_task_id(preview)
+                        if tid:
+                            row["inferred_task_id"] = tid
+                    except Exception:
+                        pass
+                updated += 1
+        rows.append(row)
+    if not dry_run and updated:
+        path.write_text(
+            "\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n",
+            encoding="utf-8",
+        )
+    return {"updated": updated, "total": len(rows), "dry_run": dry_run, "path": str(path)}
+
+
 def summarize_experience_selections(*, limit: int = 200) -> dict[str, Any]:
     path = selections_path()
     if not path.is_file():
@@ -101,7 +166,7 @@ def summarize_selection_precision(*, limit: int = 200) -> dict[str, Any]:
             continue
         if not row.get("experience_id"):
             continue
-        affinity = row.get("task_affinity")
+        affinity = _resolve_row_task_affinity(row)
         if affinity is True:
             scored += 1
             aligned += 1
@@ -227,6 +292,7 @@ def apply_selected_experience_lifecycle(
 
 __all__ = [
     "apply_selected_experience_lifecycle",
+    "backfill_selection_task_affinity",
     "lifecycle_path",
     "record_experience_lifecycle",
     "record_experience_selection",
