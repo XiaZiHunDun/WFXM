@@ -345,6 +345,7 @@ BUTLER_EVAL_LLM_BENCHMARK=1 bash scripts/butler-eval-swebench-live.sh
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `BUTLER_EVAL_SWE_LIVE_COUNT` | `3` | 每周轮换实例数 |
+| `BUTLER_EVAL_SWE_GATE_MIN_WEEKS` | `2` | 全量入场连续周数；已稳一周可设 `1` 立即入场 |
 | `BUTLER_EVAL_DELEGATE_JUDGE` | `heuristic` | 委派完成启发式评分；`off` 关闭 |
 
 每周子集结果写入 `~/.butler/audit/swe_weekly_snapshots.jsonl`（同 ISO 周覆盖更新）。

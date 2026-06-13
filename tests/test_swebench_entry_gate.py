@@ -71,3 +71,18 @@ def test_evaluate_gate_breaks_on_failed_week(tmp_path, monkeypatch):
     gate = evaluate_swe_full_entry_gate()
     assert gate["allowed"] is False
     assert gate["qualifying_weeks"] == [9]
+
+
+def test_swe_gate_min_weeks_env_stretch(tmp_path, monkeypatch):
+    audit = tmp_path / "audit"
+    audit.mkdir()
+    path = audit / "swe_weekly_snapshots.jsonl"
+    monkeypatch.setattr(
+        "butler.ops.swebench_entry_gate.snapshots_path",
+        lambda: path,
+    )
+    monkeypatch.setenv("BUTLER_EVAL_SWE_GATE_MIN_WEEKS", "1")
+    record_swe_weekly_snapshot(week=24, passed=3, total=3, mode="live")
+    gate = evaluate_swe_full_entry_gate()
+    assert gate["allowed"] is True
+    assert gate["min_consecutive_weeks"] == 1

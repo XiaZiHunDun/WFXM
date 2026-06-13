@@ -613,6 +613,7 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_EVAL_LLM_BENCHMARK` | `0` | `1` = B9 基准使用真实 `delegate_task`+LLM；`0` = oracle 模式（CI） |
 | `BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES` | LangFuse 开则开 | `1`/`all` = 生产委派失败写入 `butler-delegate-failures`；`0` = 关闭 |
 | `BUTLER_EVAL_SWE_LIVE_COUNT` | `3` | 每周 SWE-bench Lite LIVE 子集实例数（1–15） |
+| `BUTLER_EVAL_SWE_GATE_MIN_WEEKS` | `2` | 全量 LIVE 入场需连续 N 周子集 100%（stretch：`1`） |
 | `BUTLER_EVAL_DELEGATE_JUDGE` | `heuristic` | 委派完成启发式评分挂 trace；`off` = 关闭 |
 | `BUTLER_MEMORY_METRICS_PERSIST` | `1` | `1` = 记忆效果度量 S_w/H_1/E_d 持久化到 `~/.butler/metrics/memory_metrics.json` |
 | `LANGFUSE_HOST` | `http://localhost:3000` | LangFuse 服务地址（栈运维：`~/gongju/langfuse/ops.sh`） |

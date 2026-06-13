@@ -12,6 +12,16 @@ _DEFAULT_MIN_WEEKS = 2
 _DEFAULT_MIN_PASS_RATE = 1.0
 
 
+def swe_gate_min_weeks() -> int:
+    """Min consecutive ISO weeks at 100% subset pass (default 2; stretch: 1)."""
+    try:
+        from butler.env_parse import int_env
+
+        return int_env("BUTLER_EVAL_SWE_GATE_MIN_WEEKS", _DEFAULT_MIN_WEEKS, min=1, max=4)
+    except ValueError:
+        return _DEFAULT_MIN_WEEKS
+
+
 def snapshots_path() -> Path:
     from butler.config import get_butler_home
 
@@ -60,10 +70,12 @@ def record_swe_weekly_snapshot(
 
 def evaluate_swe_full_entry_gate(
     *,
-    min_consecutive_weeks: int = _DEFAULT_MIN_WEEKS,
+    min_consecutive_weeks: int | None = None,
     min_pass_rate: float = _DEFAULT_MIN_PASS_RATE,
 ) -> dict[str, Any]:
     """Return whether full SWE-bench Lite LIVE is allowed."""
+    if min_consecutive_weeks is None:
+        min_consecutive_weeks = swe_gate_min_weeks()
     path = snapshots_path()
     if not path.is_file():
         return {
@@ -113,4 +125,5 @@ __all__ = [
     "evaluate_swe_full_entry_gate",
     "record_swe_weekly_snapshot",
     "snapshots_path",
+    "swe_gate_min_weeks",
 ]
