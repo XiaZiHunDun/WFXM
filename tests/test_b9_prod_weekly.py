@@ -54,6 +54,10 @@ def test_production_snapshot_delta(tmp_path, monkeypatch):
     monkeypatch.setattr("butler.ops.b9_prod_weekly._audit_path", lambda: audit / "delegate_failures.jsonl")
     snap_path = audit / "prod_delegate_snapshots.jsonl"
     monkeypatch.setattr("butler.ops.b9_prod_weekly.production_snapshots_path", lambda: snap_path)
+    monkeypatch.setattr(
+        "butler.ops.b9_prod_weekly.production_clean_snapshots_path",
+        lambda: audit / "prod_delegate_snapshots_clean.jsonl",
+    )
     (audit / "delegate_failures.jsonl").write_text(
         json.dumps({"role": "dev", "failure_reason": "verify_fail", "task_preview": "x"}) + "\n",
         encoding="utf-8",
@@ -179,3 +183,62 @@ def test_promote_resolves_implemented_task(tmp_path, monkeypatch):
     out = promote_latest_production_failure()
     assert out["reason"] == "already_implemented"
     assert out["resolved_task_id"] == "B9L_prod_demo_fix_greet_return"
+
+
+def test_is_production_audit_noise_excludes_seed_and_probe():
+    from butler.ops.b9_prod_weekly import (
+        is_production_audit_noise,
+        is_production_delegate_row_clean,
+    )
+
+    assert is_production_audit_noise({"capture_source": "seed", "task_id": "x"})
+    assert is_production_audit_noise(
+        {"capture_source": "delegate_probe", "task_id": "lingwen1-live-capture-demo-add"}
+    )
+    assert not is_production_delegate_row_clean(
+        {
+            "role": "dev",
+            "project": "灵文1号",
+            "capture_source": "seed",
+            "failure_reason": "verify_fail",
+            "task_preview": "seed row",
+        }
+    )
+    assert is_production_delegate_row_clean(
+        {
+            "role": "dev",
+            "project": "灵文1号",
+            "capture_source": "delegate_pipeline",
+            "failure_reason": "verify_fail",
+            "task_preview": "real prod failure",
+        }
+    )
+
+
+def test_summarize_clean_excludes_noise(tmp_path, monkeypatch):
+    audit = tmp_path / "audit"
+    audit.mkdir()
+    path = audit / "delegate_failures.jsonl"
+    rows = [
+        {
+            "role": "dev",
+            "project": "灵文1号",
+            "capture_source": "seed",
+            "failure_reason": "verify_fail",
+            "task_preview": "seed",
+        },
+        {
+            "role": "dev",
+            "project": "灵文1号",
+            "capture_source": "delegate_pipeline",
+            "failure_reason": "verify_fail",
+            "task_preview": "real",
+        },
+    ]
+    path.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr("butler.ops.b9_prod_weekly._audit_path", lambda: path)
+    all_summary = summarize_production_delegate_quality()
+    clean_summary = summarize_production_delegate_quality(clean=True)
+    assert all_summary["production_failures_total"] == 2
+    assert clean_summary["production_failures_total"] == 1
+    assert clean_summary["by_capture_source"]["delegate_pipeline"] == 1

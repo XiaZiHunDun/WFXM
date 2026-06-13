@@ -22,6 +22,16 @@ PROD_FAILURE_BUCKETS: tuple[str, ...] = (
 )
 
 _SNAPSHOTS_NAME = "prod_delegate_snapshots.jsonl"
+_CLEAN_SNAPSHOTS_NAME = "prod_delegate_snapshots_clean.jsonl"
+
+# Audit rows from seeds / probes / drills — excluded from clean production metrics.
+PRODUCTION_NOISE_CAPTURE_SOURCES: frozenset[str] = frozenset(
+    {"seed", "delegate_probe"}
+)
+PRODUCTION_NOISE_TASK_ID_PREFIXES: tuple[str, ...] = (
+    "lingwen1-live-capture",
+    "lingwen1-delegate-drill",
+)
 
 
 def _audit_path() -> Path:
@@ -34,6 +44,32 @@ def production_snapshots_path() -> Path:
     from butler.config import get_butler_home
 
     return get_butler_home() / "audit" / _SNAPSHOTS_NAME
+
+
+def production_clean_snapshots_path() -> Path:
+    from butler.config import get_butler_home
+
+    return get_butler_home() / "audit" / _CLEAN_SNAPSHOTS_NAME
+
+
+def is_production_audit_noise(rec: dict[str, Any]) -> bool:
+    """Seed/probe/drill rows — keep in audit but drop from clean prod metrics."""
+    src = str(rec.get("capture_source") or "").strip().lower()
+    if src in PRODUCTION_NOISE_CAPTURE_SOURCES:
+        return True
+    tid = str(rec.get("task_id") or "")
+    if any(tid.startswith(p) for p in PRODUCTION_NOISE_TASK_ID_PREFIXES):
+        return True
+    preview = str(rec.get("task_preview") or "")
+    if "[category:lingwen-drill]" in preview or "lingwen1-delegate-drill" in tid:
+        return True
+    if "cli:lingwen1-drill" in preview:
+        return True
+    return False
+
+
+def is_production_delegate_row_clean(rec: dict[str, Any]) -> bool:
+    return is_production_delegate_row(rec) and not is_production_audit_noise(rec)
 
 
 def _norm_failure_reason(raw: str) -> str:
@@ -73,7 +109,7 @@ def is_production_delegate_row(rec: dict[str, Any]) -> bool:
     return True
 
 
-def load_production_failure_rows(*, limit: int = 500) -> list[dict[str, Any]]:
+def load_production_failure_rows(*, limit: int = 500, clean: bool = False) -> list[dict[str, Any]]:
     path = _audit_path()
     if not path.is_file():
         return []
@@ -85,33 +121,54 @@ def load_production_failure_rows(*, limit: int = 500) -> list[dict[str, Any]]:
             rec = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if is_production_delegate_row(rec):
+        if clean:
+            if is_production_delegate_row_clean(rec):
+                rows.append(rec)
+        elif is_production_delegate_row(rec):
             rows.append(rec)
     return rows[-limit:]
 
 
-def summarize_production_delegate_quality(*, limit: int = 500) -> dict[str, Any]:
+def summarize_production_delegate_quality(*, limit: int = 500, clean: bool = False) -> dict[str, Any]:
     """Aggregate production dev delegate failure taxonomy (excludes B9 benchmark)."""
-    rows = load_production_failure_rows(limit=limit)
+    rows = load_production_failure_rows(limit=limit, clean=clean)
     by_reason: Counter[str] = Counter()
+    by_capture_source: Counter[str] = Counter()
     for rec in rows:
         by_reason[_norm_failure_reason(str(rec.get("failure_reason") or ""))] += 1
+        src = str(rec.get("capture_source") or "").strip() or "unknown"
+        by_capture_source[src] += 1
     total = len(rows)
     rates = {
         k: round(by_reason.get(k, 0) / total, 4) if total else 0.0
         for k in ("verify_fail", "patch_wrong", "no_test", "tool_wrong", "other")
     }
-    return {
+    out: dict[str, Any] = {
         "production_failures_total": total,
         "by_failure_reason": dict(by_reason),
         "rates": rates,
         "audit_path": str(_audit_path()),
         "window_limit": limit,
     }
+    if clean:
+        out["clean"] = True
+        out["by_capture_source"] = dict(by_capture_source)
+        out["noise_excluded"] = (
+            "seed",
+            "delegate_probe",
+            "lingwen-drill",
+        )
+    return out
 
 
-def compare_production_delegate_delta(*, keep: int = 2) -> dict[str, Any]:
-    path = production_snapshots_path()
+def compare_production_delegate_delta(
+    *, keep: int = 2, clean: bool = False
+) -> dict[str, Any]:
+    path = (
+        production_clean_snapshots_path()
+        if clean
+        else production_snapshots_path()
+    )
     if not path.is_file():
         return {"snapshots": 0}
     rows: list[dict[str, Any]] = []
@@ -138,38 +195,62 @@ def compare_production_delegate_delta(*, keep: int = 2) -> dict[str, Any]:
 
 
 def record_production_delegate_snapshot(*, limit: int = 500) -> dict[str, Any]:
-    summary = summarize_production_delegate_quality(limit=limit)
+    summary = summarize_production_delegate_quality(limit=limit, clean=False)
     summary["recorded_at"] = time.time()
     path = production_snapshots_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(summary, ensure_ascii=False) + "\n")
-    summary["delta"] = compare_production_delegate_delta()
+    summary["delta"] = compare_production_delegate_delta(clean=False)
+
+    clean_summary = summarize_production_delegate_quality(limit=limit, clean=True)
+    clean_summary["recorded_at"] = time.time()
+    clean_path = production_clean_snapshots_path()
+    clean_path.parent.mkdir(parents=True, exist_ok=True)
+    with clean_path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(clean_summary, ensure_ascii=False) + "\n")
+    summary["clean"] = clean_summary
+    summary["clean_delta"] = compare_production_delegate_delta(clean=True)
     return summary
 
 
-def format_production_delegate_report(summary: dict[str, Any] | None = None) -> str:
-    data = summary if summary is not None else summarize_production_delegate_quality()
+def format_production_delegate_report(
+    summary: dict[str, Any] | None = None, *, clean: bool = False
+) -> str:
+    data = (
+        summary
+        if summary is not None
+        else summarize_production_delegate_quality(clean=clean)
+    )
+    label = "clean" if clean or data.get("clean") else "all"
     lines = [
-        "=== Production delegate quality ===",
+        f"=== Production delegate quality ({label}) ===",
         f"production_failures_total={data.get('production_failures_total', 0)}",
         f"by_failure_reason={data.get('by_failure_reason', {})}",
         f"rates={data.get('rates', {})}",
     ]
+    if data.get("by_capture_source"):
+        lines.append(f"by_capture_source={data.get('by_capture_source')}")
     return "\n".join(lines)
 
 
-def format_production_delegate_delta(delta: dict[str, Any] | None) -> str:
+def format_production_delegate_delta(
+    delta: dict[str, Any] | None, *, clean: bool = False
+) -> str:
+    prefix = "prod_delta_clean" if clean else "prod_delta"
     if not delta or delta.get("snapshots", 0) < 2:
         note = (delta or {}).get("note", "need 2+ snapshots for delta")
-        return f"prod_delta=(insufficient snapshots: {note}; baseline after is_production_delegate_row filter)"
+        return (
+            f"{prefix}=(insufficient snapshots: {note}; "
+            "baseline after is_production_delegate_row filter)"
+        )
     parts = [
         f"verify_fail {delta.get('verify_fail_rate_delta', 0):+.4f}",
         f"patch_wrong {delta.get('patch_wrong_rate_delta', 0):+.4f}",
         f"no_test {delta.get('no_test_rate_delta', 0):+.4f}",
         f"tool_wrong {delta.get('tool_wrong_rate_delta', 0):+.4f}",
     ]
-    return "prod_delta=" + ", ".join(parts)
+    return prefix + "=" + ", ".join(parts)
 
 
 def promote_latest_production_failure() -> dict[str, Any]:
@@ -322,9 +403,12 @@ __all__ = [
     "compare_production_delegate_delta",
     "format_production_delegate_delta",
     "format_production_delegate_report",
+    "is_production_audit_noise",
     "is_production_delegate_row",
+    "is_production_delegate_row_clean",
     "load_production_failure_rows",
     "promote_latest_production_failure",
+    "production_clean_snapshots_path",
     "production_snapshots_path",
     "record_production_delegate_snapshot",
     "run_prod_shaped_live_probe",

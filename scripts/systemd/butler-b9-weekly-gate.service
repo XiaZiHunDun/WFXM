@@ -6,6 +6,7 @@ After=network-online.target
 Type=oneshot
 WorkingDirectory=@WFXM_ROOT@
 Environment=PYTHONPATH=@WFXM_ROOT@
+Environment=BUTLER_EVAL_SWE_GATE_MIN_WEEKS=1
 EnvironmentFile=-@WFXM_ROOT@/.env
 ExecStart=/bin/bash @WFXM_ROOT@/scripts/butler-b9-weekly-gate-followup.sh
 StandardOutput=append:@WFXM_ROOT@/logs/butler-b9-weekly-gate.log

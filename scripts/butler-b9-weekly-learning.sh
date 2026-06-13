@@ -85,6 +85,9 @@ backfill = backfill_b9_experience_retrieval()
 snap = record_production_delegate_snapshot()
 print(format_production_delegate_report(snap))
 print(format_production_delegate_delta(snap.get("delta")))
+clean = snap.get("clean") or {}
+print(format_production_delegate_report(clean, clean=True))
+print(format_production_delegate_delta(snap.get("clean_delta"), clean=True))
 print(f"b9_experience_backfill_updated={backfill.get('updated', 0)}")
 from butler.ops.lingwen1_capture_probe import run_lingwen1_capture_probe
 from butler.ops.lingwen1_failure_seed import seed_lingwen1_failure_audit
