@@ -28,9 +28,21 @@ def record_experience_selection(
     experience_mode: str = "",
     keywords: list[str] | None = None,
     role: str = "dev",
+    inferred_task_id: str = "",
+    task_affinity: bool | None = None,
 ) -> None:
     if not experience_id:
         return
+    if task_affinity is None and inferred_task_id:
+        try:
+            from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
+
+            task_affinity = experience_task_affinity(
+                experience_id,
+                inferred_task_id=inferred_task_id,
+            )
+        except Exception:
+            task_affinity = None
     path = selections_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     row = {
@@ -41,6 +53,8 @@ def record_experience_selection(
         "experience_id": experience_id,
         "experience_mode": experience_mode,
         "keywords": (keywords or [])[:24],
+        "inferred_task_id": (inferred_task_id or "")[:80],
+        "task_affinity": task_affinity,
     }
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -68,6 +82,41 @@ def summarize_experience_selections(*, limit: int = 200) -> dict[str, Any]:
     return {
         "total": total,
         "by_experience": dict(by_exp.most_common(12)),
+        "path": str(path),
+    }
+
+
+def summarize_selection_precision(*, limit: int = 200) -> dict[str, Any]:
+    """Share of experience hits that align with inferred B9 task id."""
+    path = selections_path()
+    if not path.is_file():
+        return {"scored": 0, "aligned": 0, "misaligned": 0, "unknown": 0, "precision": None}
+    scored = aligned = misaligned = unknown = 0
+    for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not row.get("experience_id"):
+            continue
+        affinity = row.get("task_affinity")
+        if affinity is True:
+            scored += 1
+            aligned += 1
+        elif affinity is False:
+            scored += 1
+            misaligned += 1
+        else:
+            unknown += 1
+    precision = round(aligned / scored, 3) if scored else None
+    return {
+        "scored": scored,
+        "aligned": aligned,
+        "misaligned": misaligned,
+        "unknown": unknown,
+        "precision": precision,
         "path": str(path),
     }
 
@@ -184,4 +233,5 @@ __all__ = [
     "selections_path",
     "summarize_experience_lifecycle",
     "summarize_experience_selections",
+    "summarize_selection_precision",
 ]

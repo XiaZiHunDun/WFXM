@@ -105,12 +105,14 @@ from butler.ops.b9_prod_promoted_registry import LINGWEN1_CAPTURE_NOTE
 from butler.ops.experience_selection_telemetry import (
     summarize_experience_lifecycle,
     summarize_experience_selections,
+    summarize_selection_precision,
 )
 
 print("lingwen1_seed=", seed_lingwen1_failure_audit())
 print("lingwen1_capture_probe=", run_lingwen1_capture_probe())
 print(f"lingwen1_note={LINGWEN1_CAPTURE_NOTE}")
 print("experience_selections=", summarize_experience_selections())
+print("experience_selection_precision=", summarize_selection_precision())
 print("experience_lifecycle=", summarize_experience_lifecycle())
 PY
 

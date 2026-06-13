@@ -462,6 +462,9 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
             return
         sk = state.child_session_key or state.session_key or "_default"
         ds = create_dev_state(task_description=state.task)
+        ds._delegate_category = str(
+            state.category_meta.get("category") or state.category or ""
+        )
 
         try:
             from butler.dev_engine.coding_knowledge import (
@@ -484,6 +487,18 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
                 category=state.category,
                 category_meta=state.category_meta,
             )
+            inferred_task_id = ""
+            try:
+                from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+
+                inferred_task_id = infer_b9_task_id(
+                    state.task,
+                    state.context,
+                    category=state.category,
+                    category_meta=state.category_meta,
+                )
+            except Exception:
+                inferred_task_id = ""
             tlib = TheoremLibrary()
             xlib = load_delegate_experience_library(
                 butler_home=_get_butler_home(),
@@ -519,6 +534,7 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
                         experience_mode=ctx.mode,
                         keywords=keywords[:24],
                         role=state.role,
+                        inferred_task_id=inferred_task_id,
                     )
                 except Exception:
                     pass
@@ -995,6 +1011,9 @@ def peek_dev_engine_summary(session_key: str, role: str) -> dict[str, Any] | Non
             "fixes": ds.fix_count,
             "verify_passed": ds.verify_result.passed,
         }
+        tail = getattr(ds.verify_result, "output_tail", "") or ""
+        if tail.strip():
+            summary["verify_output_tail"] = tail.strip()[-800:]
         if ds.coding_knowledge.mode:
             summary["coding_knowledge"] = ds.coding_knowledge.to_dict()
         return summary

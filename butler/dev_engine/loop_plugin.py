@@ -14,6 +14,26 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def verify_fix_pin_enabled() -> bool:
+    import os
+
+    raw = os.getenv("BUTLER_DEV_VERIFY_FIX_PIN", "1")
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _insert_before_last_user(messages: list[dict], content: str) -> list[dict]:
+    """Pin feedback immediately before the latest user turn."""
+    out = list(messages)
+    last_user = -1
+    for i in range(len(out) - 1, -1, -1):
+        if out[i].get("role") == "user":
+            last_user = i
+            break
+    insert_at = last_user if last_user >= 0 else len(out)
+    out.insert(insert_at, {"role": "system", "content": content})
+    return out
+
+
 class DevEnginePlugin:
     """Loop plugin that injects DevState into LLM context (DD1/DD2)."""
 
@@ -128,11 +148,11 @@ class DevEnginePlugin:
                 state._last_fix_hint = None
             lines.append("</dev-verify-feedback>")
 
+            block = "\n".join(lines)
+            if verify_fix_pin_enabled():
+                return _insert_before_last_user(messages, block)
             out = list(messages)
-            out.append({
-                "role": "system",
-                "content": "\n".join(lines),
-            })
+            out.append({"role": "system", "content": block})
             return out
         except Exception as exc:
             logger.debug("DevEnginePlugin after_tools failed: %s", exc)

@@ -631,8 +631,11 @@ class TestDevEnginePlugin:
             out = plugin.after_tools(msgs)
 
         assert len(out) == 2
-        assert "<dev-verify-feedback>" in out[-1]["content"]
-        assert "undefined name" in out[-1]["content"]
+        feedback = next(
+            m["content"] for m in out
+            if m.get("role") == "system" and "<dev-verify-feedback>" in m.get("content", "")
+        )
+        assert "undefined name" in feedback
         _active_states.clear()
 
     def test_after_tools_injects_when_diagnostics_empty(self):
@@ -655,8 +658,11 @@ class TestDevEnginePlugin:
             out = plugin.after_tools(msgs)
 
         assert len(out) == 2
-        assert "verify_failed" in out[-1]["content"]
-        assert "pytest -q" in out[-1]["content"]
+        feedback = next(
+            m["content"] for m in out
+            if m.get("role") == "system" and "verify_failed" in m.get("content", "")
+        )
+        assert "pytest -q" in feedback
         _active_states.clear()
 
     def test_after_tools_injects_fix_hint_same_turn(self):
@@ -674,7 +680,11 @@ class TestDevEnginePlugin:
         with mock.patch.dict(os.environ, {"BUTLER_DEV_ENGINE": "1", "BUTLER_DEV_DIAGNOSTICS_INJECT": "1"}):
             out = plugin.after_tools([{"role": "user", "content": "x"}])
 
-        assert "fix_recommendation: structural" in out[-1]["content"]
+        feedback = next(
+            m["content"] for m in out
+            if m.get("role") == "system" and "fix_recommendation" in m.get("content", "")
+        )
+        assert "fix_recommendation: structural" in feedback
         assert ds._last_fix_hint is None
         _active_states.clear()
 

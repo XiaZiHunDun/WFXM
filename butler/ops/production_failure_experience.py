@@ -10,6 +10,58 @@ from typing import Any
 
 from butler.memory.memory_scope import MemoryScope
 
+FAILURE_CLASS_GUIDANCE: dict[str, str] = {
+    "verify_fail": (
+        "Run run_pytest after each edit; fix implementation (not tests) until green. "
+        "Re-read failing assertion and output_tail before patching."
+    ),
+    "read_state": (
+        "read_file target sources before patch/write; satisfy READ_STATE_REQUIRED."
+    ),
+    "tool_wrong": (
+        "Use read_file/patch/run_pytest only; avoid shell metacharacters and unsafe paths."
+    ),
+    "patch_wrong": (
+        "Match oracle replay: smallest correct patch; do not change test expectations."
+    ),
+    "no_test": (
+        "Add or run pytest coverage for the edited module before declaring done."
+    ),
+    "other_fail": (
+        "Narrow scope, verify locally, capture failure_tail for next delegate."
+    ),
+}
+
+
+def build_production_failure_pattern(
+    *,
+    project: str,
+    task: str,
+    failure_reason: str,
+    classification: str,
+    issues: list[str] | None = None,
+    inferred_task_id: str = "",
+) -> str:
+    """Actionable L3 pattern for production failures (not bare audit dump)."""
+    tail = ""
+    if issues:
+        tail = str(issues[-1])[:800]
+    guidance = FAILURE_CLASS_GUIDANCE.get(
+        classification,
+        FAILURE_CLASS_GUIDANCE["other_fail"],
+    )
+    lines = [
+        f"Production failure in {project} ({classification}).",
+        f"task: {(task or '')[:400]}",
+        f"reason: {failure_reason}",
+        f"next_time: {guidance}",
+    ]
+    if inferred_task_id:
+        lines.append(f"related_b9_task: {inferred_task_id}")
+    if tail:
+        lines.append(f"evidence: {tail}")
+    return "\n".join(lines)[:2000]
+
 
 def classify_production_failure(
     *,
@@ -150,20 +202,34 @@ def upsert_production_failure_experience(
         dev_engine=dev_engine,
     )
     exp_id = _prod_fail_experience_id(project=project, task_id=task_id, task=task)
-    tail = ""
-    if issues:
-        tail = str(issues[-1])[:800]
-    kws = list(FAILURE_CLASS_KEYWORDS.get(classification, ()))
+    inferred_task_id = ""
+    try:
+        from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+
+        inferred_task_id = infer_b9_task_id(task)
+    except Exception:
+        pass
+    kws = list(
+        FAILURE_CLASS_KEYWORDS.get(classification, FAILURE_CLASS_KEYWORDS.get("other_fail", ()))
+    )
+    if inferred_task_id:
+        from butler.dev_engine.b9_experience_retrieval import retrieval_keywords_for_task
+
+        kws.extend(
+            retrieval_keywords_for_task(inferred_task_id, classification=classification)
+        )
     preview_tokens = re.findall(r"[a-z0-9_]{3,}", (task or "").lower())
     kws.extend(preview_tokens[:8])
     keywords = ",".join(dict.fromkeys(kws))
 
-    pattern = (
-        f"Production failure in {project} ({classification}).\n"
-        f"task: {(task or '')[:400]}\n"
-        f"reason: {failure_reason}\n"
-        f"evidence: {tail}"
-    )[:2000]
+    pattern = build_production_failure_pattern(
+        project=project,
+        task=task,
+        failure_reason=failure_reason,
+        classification=classification,
+        issues=issues,
+        inferred_task_id=inferred_task_id,
+    )
 
     scope = MemoryScope(
         level="project",
@@ -183,6 +249,7 @@ def upsert_production_failure_experience(
             "failure_class": classification,
             "project": project,
             "retrieval_keywords": keywords,
+            "inferred_b9_task": inferred_task_id,
         },
         validity_start=time.time(),
         validity_end=time.time() + 180 * 86400,
@@ -255,6 +322,8 @@ def follow_up_production_capture(
 
 
 __all__ = [
+    "FAILURE_CLASS_GUIDANCE",
+    "build_production_failure_pattern",
     "classify_production_failure",
     "follow_up_production_capture",
     "record_production_failure_lesson",

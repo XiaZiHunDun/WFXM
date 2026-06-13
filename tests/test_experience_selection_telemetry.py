@@ -10,6 +10,7 @@ from butler.ops.experience_selection_telemetry import (
     record_experience_selection,
     summarize_experience_lifecycle,
     summarize_experience_selections,
+    summarize_selection_precision,
 )
 from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary, TheoremLibrary
 
@@ -37,6 +38,29 @@ def test_record_and_summarize(tmp_path, monkeypatch):
     summary = summarize_experience_selections()
     assert summary["total"] == 1
     assert "B9_EX_prod_demo_fix_greet_return" in summary["by_experience"]
+
+
+def test_selection_precision_summary(tmp_path, monkeypatch):
+    audit = tmp_path / "audit"
+    audit.mkdir()
+    path = audit / "experience_selections.jsonl"
+    monkeypatch.setattr(
+        "butler.ops.experience_selection_telemetry.selections_path",
+        lambda: path,
+    )
+    record_experience_selection(
+        experience_id="B9_EX_prod_demo_fix_greet_return",
+        inferred_task_id="B9L_prod_demo_fix_greet_return",
+    )
+    record_experience_selection(
+        experience_id="B9_EX_test_driven_add",
+        inferred_task_id="B9L_prod_demo_fix_greet_return",
+    )
+    prec = summarize_selection_precision()
+    assert prec["scored"] == 2
+    assert prec["aligned"] == 1
+    assert prec["misaligned"] == 1
+    assert prec["precision"] == 0.5
 
 
 def test_apply_selected_experience_lifecycle_renew_and_demote(tmp_path, monkeypatch):

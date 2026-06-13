@@ -587,7 +587,8 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_DEV_MAX_FIX_ROUNDS` | `3` | 同一类错误最大修复轮次，超限报 STUCK |
 | `BUTLER_DEV_ROLLBACK_ENABLED` | `1` | `0` = 禁用 `dev_rollback` 工具 |
 | `BUTLER_DEV_DIAGNOSTICS_INJECT` | `1` | `0` = 不将验证诊断注入下一轮上下文 |
-| `BUTLER_CODING_STRICT` | `0` | `1` = CA4 严格模式（设计：定理+测试双门全 pass 方输出）。**当前生产路径未接线**，`0`/`1` 行为相同；实际软检查见 `BUTLER_DEV_AUTO_VERIFY`。详情见登记册 G2-08 |
+| `BUTLER_CODING_STRICT` | `0` | `1` = CA4 严格模式；生产 pilot 类别（`deep`/`quick`/`nexus-sprint`/`lingwen-*` 等）若 `coding_knowledge.violated` 非空则 `success=false`（`CODING_STRICT_GATE`）。默认 `0` 不阻断 |
+| `BUTLER_DEV_VERIFY_FIX_PIN` | `1` | `1` = verify 失败后将 `<dev-verify-feedback>` 置顶到最近 user 轮之前 |
 | `BUTLER_GENTC_MUTATION_MIN_SCORE` | `0.6` | P-CT4a/H10：GenTC 变异测试得分下限（`evaluate_pct4a`） |
 | `BUTLER_EXPERIENCE_MINING` | `1` | `0` = 关闭 D3-6 经验挖掘（含 runtime `builtin:experience_mining_weekly`） |
 | `BUTLER_EXPERIENCE_MINING_AUTO_INGEST` | `0` | `1` = 高置信且定理通过时自动写入 `coding_experiences.json`；**runtime weekly job 固定不自动入库** |

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from butler.ops.b9_lessons import b9_lessons_path, load_lessons_for_task
 from butler.ops.production_failure_experience import (
+    build_production_failure_pattern,
     classify_production_failure,
     follow_up_production_capture,
     should_upsert_production_failure_experience,
@@ -46,6 +47,20 @@ def test_should_accept_production_pipeline():
     )
 
 
+def test_build_pattern_includes_guidance():
+    pattern = build_production_failure_pattern(
+        project="灵文1号",
+        task="fix greet",
+        failure_reason="verify_failed",
+        classification="verify_fail",
+        issues=["AssertionError"],
+        inferred_task_id="B9L_prod_demo_fix_greet_return",
+    )
+    assert "next_time:" in pattern
+    assert "run_pytest" in pattern.lower()
+    assert "B9L_prod_demo_fix_greet_return" in pattern
+
+
 def test_upsert_writes_l3_and_lesson(tmp_path, monkeypatch):
     ws = tmp_path / "lingwen"
     ws.mkdir()
@@ -65,7 +80,7 @@ def test_upsert_writes_l3_and_lesson(tmp_path, monkeypatch):
 
     out = upsert_production_failure_experience(
         project="灵文1号",
-        task="Verify constants.py module docstring",
+        task="fix greet return hello pytest",
         task_id="task_abc",
         failure_reason="verify_failed",
         issues=["verify failed after patch"],
@@ -78,6 +93,8 @@ def test_upsert_writes_l3_and_lesson(tmp_path, monkeypatch):
     assert len(records) == 1
     assert records[0]["scope"]["visibility"] == "private"
     assert records[0]["scope"]["project_id"] == "灵文1号"
+    assert "next_time:" in records[0]["pattern"]
+    assert records[0]["benchmarks"].get("inferred_b9_task")
 
     lessons = load_lessons_for_task("task_abc")
     assert len(lessons) == 1

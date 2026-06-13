@@ -105,6 +105,41 @@ def infer_b9_task_id(
     return ""
 
 
+PRODUCTION_AUTO_VERIFY_LEVELS = "lint,typecheck,test"
+
+
+def production_auto_verify_levels(
+    category: str = "",
+    category_meta: dict[str, Any] | None = None,
+) -> str:
+    """Benchmark-aligned verify levels for production-shaped dev delegates."""
+    cat = _category_name(category, category_meta)
+    if cat in PROD_PLAYBOOK_CATEGORIES or not cat:
+        return PRODUCTION_AUTO_VERIFY_LEVELS
+    return ""
+
+
+def experience_task_affinity(
+    experience_id: str,
+    *,
+    inferred_task_id: str = "",
+) -> bool | None:
+    """True when selected experience aligns with inferred B9 task; None if unknown."""
+    eid = (experience_id or "").strip()
+    tid = (inferred_task_id or "").strip()
+    if not eid or not tid:
+        return None
+    exp_core = eid.removeprefix("B9_EX_").removeprefix("PROD_FAIL_").lower()
+    task_core = tid.removeprefix("B9L_").lower()
+    if exp_core == task_core:
+        return True
+    if exp_core in task_core or task_core in exp_core:
+        return True
+    if exp_core.startswith("prod_") and task_core.startswith("prod_"):
+        return exp_core.split("_", 2)[-1] == task_core.split("_", 2)[-1]
+    return False
+
+
 def production_delegate_keywords(
     task: str,
     context: str = "",
@@ -284,10 +319,13 @@ def migrate_lingwen_experiences_to_l3(
 
 __all__ = [
     "PROD_PLAYBOOK_CATEGORIES",
+    "PRODUCTION_AUTO_VERIFY_LEVELS",
     "build_production_delegate_blocks",
     "enrich_delegate_context_for_production",
+    "experience_task_affinity",
     "infer_b9_task_id",
     "migrate_lingwen_experiences_to_l3",
+    "production_auto_verify_levels",
     "production_delegate_keywords",
     "should_apply_prod_delegate_bridge",
 ]

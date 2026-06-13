@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from butler.core.read_state import get_read_state, reset_read_state
 from butler.dev_engine.b9_delegate_gate import (
     apply_b9_pytest_success_gate,
+    apply_coding_strict_pilot_gate,
     apply_dev_auto_verify_success_gate,
     build_b9_workspace_preamble,
     format_oracle_replay_block,
@@ -125,6 +126,36 @@ def test_finalize_dev_verify_gate(tmp_path, monkeypatch):
     )
     assert success is False
     assert any("DEV_VERIFY_GATE" in i for i in issues)
+
+
+def test_coding_strict_pilot_blocks_violations(monkeypatch):
+    monkeypatch.setenv("BUTLER_CODING_STRICT", "1")
+    ok, issues = apply_coding_strict_pilot_gate(
+        role="dev",
+        category="deep",
+        base_success=True,
+        issues=[],
+        dev_engine={
+            "coding_knowledge": {"violated": ["T04"]},
+            "verify_passed": True,
+            "edits": 1,
+        },
+    )
+    assert ok is False
+    assert any("CODING_STRICT_GATE" in i for i in issues)
+
+
+def test_coding_strict_pilot_skips_non_pilot_category(monkeypatch):
+    monkeypatch.setenv("BUTLER_CODING_STRICT", "1")
+    ok, issues = apply_coding_strict_pilot_gate(
+        role="dev",
+        category="b9-benchmark",
+        base_success=True,
+        issues=[],
+        dev_engine={"coding_knowledge": {"violated": ["T04"]}},
+    )
+    assert ok is True
+    assert issues == []
 
 
 def test_seed_b9_workspace_read_state(tmp_path):

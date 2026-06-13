@@ -311,7 +311,7 @@ def apply_dev_auto_verify_success_gate(
     if de.get("verify_passed") is not False:
         return True, out
 
-    tail = ""
+    tail = str(de.get("verify_output_tail") or "")
     hint = ""
     try:
         from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
@@ -327,10 +327,63 @@ def apply_dev_auto_verify_success_gate(
     return False, out
 
 
+def coding_strict_pilot_categories() -> frozenset[str]:
+    try:
+        from butler.dev_engine.prod_delegate_bridge import PROD_PLAYBOOK_CATEGORIES
+
+        return PROD_PLAYBOOK_CATEGORIES
+    except Exception:
+        return frozenset({"deep", "quick", "nexus-sprint"})
+
+
+def apply_coding_strict_pilot_gate(
+    *,
+    category: str = "",
+    category_meta: dict[str, Any] | None = None,
+    role: str = "",
+    base_success: bool,
+    issues: list[str] | None = None,
+    dev_engine: dict[str, Any] | None = None,
+) -> tuple[bool, list[str]]:
+    """CA4 pilot: strict mode blocks dev delegate when theorem violations remain."""
+    out = list(issues or [])
+    if not base_success:
+        return False, out
+    try:
+        from butler.dev_engine.dev_tools import coding_strict_enabled
+
+        if not coding_strict_enabled():
+            return True, out
+    except Exception:
+        return True, out
+
+    norm = str(role or "").replace("_agent", "").strip().lower()
+    if norm != "dev":
+        return True, out
+
+    cat = str(category or (category_meta or {}).get("category") or "").strip()
+    pilot = coding_strict_pilot_categories()
+    if cat and cat not in pilot:
+        return True, out
+
+    de = dev_engine if isinstance(dev_engine, dict) else {}
+    ck = de.get("coding_knowledge") if isinstance(de.get("coding_knowledge"), dict) else {}
+    violated = ck.get("violated") or ck.get("violated_theorems") or []
+    if not violated:
+        return True, out
+
+    ids = [str(v) for v in violated if v]
+    msg = f"CODING_STRICT_GATE: theorem violations remain ({', '.join(ids[:5])})"
+    if msg not in out:
+        out.append(msg)
+    return False, out
+
+
 __all__ = [
     "BENCHMARK_CATEGORIES",
     "SWE_LIVE_CATEGORY",
     "apply_b9_pytest_success_gate",
+    "apply_coding_strict_pilot_gate",
     "apply_dev_auto_verify_success_gate",
     "benchmark_verify_context",
     "build_b9_wrong_patch_retry_banner",

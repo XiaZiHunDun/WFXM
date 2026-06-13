@@ -99,6 +99,7 @@ def finalize_delegate_success(
     try:
         from butler.dev_engine.b9_delegate_gate import (
             apply_b9_pytest_success_gate,
+            apply_coding_strict_pilot_gate,
             apply_dev_auto_verify_success_gate,
         )
 
@@ -109,7 +110,15 @@ def finalize_delegate_success(
             base_success=base,
             issues=out_issues,
         )
-        return apply_dev_auto_verify_success_gate(
+        ok, out_issues = apply_dev_auto_verify_success_gate(
+            role=role,
+            base_success=ok,
+            issues=out_issues,
+            dev_engine=dev_engine,
+        )
+        return apply_coding_strict_pilot_gate(
+            category=category,
+            category_meta=category_meta,
             role=role,
             base_success=ok,
             issues=out_issues,

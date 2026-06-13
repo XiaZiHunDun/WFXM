@@ -13,8 +13,10 @@ from butler.dev_engine.coding_knowledge import (
 )
 from butler.dev_engine.prod_delegate_bridge import (
     enrich_delegate_context_for_production,
+    experience_task_affinity,
     infer_b9_task_id,
     migrate_lingwen_experiences_to_l3,
+    production_auto_verify_levels,
     production_delegate_keywords,
     should_apply_prod_delegate_bridge,
 )
@@ -52,6 +54,22 @@ def test_production_keywords_include_retrieval_aliases():
     )
     assert "greet" in kws
     assert "hello" in kws
+
+
+def test_production_auto_verify_levels_for_prod_category():
+    assert production_auto_verify_levels("deep") == "lint,typecheck,test"
+    assert production_auto_verify_levels("b9-benchmark") == ""
+
+
+def test_experience_task_affinity_match():
+    assert experience_task_affinity(
+        "B9_EX_prod_lingwen_demo_add",
+        inferred_task_id="B9L_prod_lingwen_demo_add",
+    )
+    assert experience_task_affinity(
+        "B9_EX_test_driven_add",
+        inferred_task_id="B9L_prod_lingwen_demo_add",
+    ) is False
 
 
 def test_enrich_context_injects_playbook():
