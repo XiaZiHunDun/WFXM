@@ -63,7 +63,7 @@
 
 | ID | 理论依据 | 现状 | 影响 | 建议 |
 |----|----------|------|------|------|
-| G1-04 | OT2 有条件目标 | 硬反馈已接；**无生产 `eval_feedback.jsonl`** | OT2 不能标为已证 | 真机日常使用后观测审计；见 `boundary_observability` |
+| G1-04 | OT2 有条件目标 | 硬反馈已接；**`eval_feedback.jsonl` 观测中**（3 条/7d，`adjust_delegate_rescue`） | OT2 待观测窗满后标为已证 | 窗 2026-06-09→06-23；`butler-gap-observability.sh` |
 
 ---
 
