@@ -174,9 +174,9 @@ B9_ORACLE_EPISODES: dict[str, B9CurriculumEpisode] = {
         task_id="B9L_prod_lingwen_validate_progress",
         title="Close LingWen workflow_state batch result",
         tags=("prod_shaped", "lingwen1", "novel_factory", "tier1"),
-        skill_name="b9-lingwen-validate-progress",
+        skill_name="b9-prod-lingwen-validate-progress",
         pattern_summary=(
-            "workflow_state.json is one line 待修复 P0 — patch to 已通过, "
+            "workflow_state.json one line status:OPEN_FIX — patch to status:PASSED, "
             "then run validate_progress.py."
         ),
         anti_patterns=("write_file entire JSON", "Skipping terminal validator"),
@@ -184,12 +184,12 @@ B9_ORACLE_EPISODES: dict[str, B9CurriculumEpisode] = {
             B9CurriculumStep(
                 "read_file",
                 "novel-factory/workflow_state.json",
-                "Single line: 待修复 P0",
+                "Single line: batch:reviewer-batch-01 status:OPEN_FIX",
             ),
             B9CurriculumStep(
                 "patch",
                 "novel-factory/workflow_state.json",
-                'old_string 待修复 P0 → new_string 已通过',
+                "old_string status:OPEN_FIX → new_string status:PASSED",
             ),
             B9CurriculumStep(
                 "terminal",
@@ -248,6 +248,29 @@ def format_curriculum_block(task_id: str, *, max_steps: int = 4) -> str:
     return "\n".join(lines)
 
 
+_CATALOG_SKILLS_ROOT = (
+    Path(__file__).resolve().parents[1] / "registry" / "catalog" / "skills"
+)
+
+
+def format_episode_skill_block(task_id: str) -> str:
+    """Load catalog SKILL.md body for a curriculum episode (B9 LIVE injection)."""
+    import re
+
+    ep = get_episode(task_id)
+    if ep is None or not ep.skill_name:
+        return ""
+    path = _CATALOG_SKILLS_ROOT / ep.skill_name / "SKILL.md"
+    if not path.is_file():
+        return ""
+    text = path.read_text(encoding="utf-8")
+    match = re.match(r"\A---\s*\n.*?\n---\s*\n(.*)\Z", text, re.DOTALL)
+    body = match.group(1).strip() if match else text.strip()
+    if not body:
+        return ""
+    return f"### `{ep.skill_name}`\n{body}"
+
+
 __all__ = [
     "B9_ORACLE_EPISODES",
     "B9CurriculumEpisode",
@@ -256,5 +279,6 @@ __all__ = [
     "episode_for_spec",
     "export_curriculum_to_disk",
     "format_curriculum_block",
+    "format_episode_skill_block",
     "get_episode",
 ]

@@ -39,6 +39,15 @@ def test_tier2_prod_greet_skill_exists():
     assert (skills_root / "b9-fix-greet-return" / "SKILL.md").is_file()
 
 
+def test_format_episode_skill_block_validate_progress():
+    from butler.dev_engine.b9_oracle_curriculum import format_episode_skill_block
+
+    block = format_episode_skill_block("B9L_prod_lingwen_validate_progress")
+    assert "b9-prod-lingwen-validate-progress" in block
+    assert "status:OPEN_FIX" in block
+    assert "patch" in block.lower()
+
+
 def test_promoted_prod_skills_exist():
     skills_root = Path(__file__).resolve().parents[1] / "butler/registry/catalog/skills"
     for name in (
@@ -47,6 +56,7 @@ def test_promoted_prod_skills_exist():
         "b9-prod-cross-module-rename",
         "b9-prod-lingwen-demo-add",
         "b9-prod-lingwen-workflow-guard",
+        "b9-prod-lingwen-validate-progress",
     ):
         assert (skills_root / name / "SKILL.md").is_file()
 

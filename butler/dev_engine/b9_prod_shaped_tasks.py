@@ -308,10 +308,10 @@ def main() -> int:
         print(f"缺少 {STATE_FILE}", file=sys.stderr)
         return 1
     text = STATE_FILE.read_text(encoding="utf-8")
-    if "待修复" in text or "未通过" in text:
+    if "OPEN_FIX" in text or "待修复" in text or "未通过" in text:
         print(f"错误: completed 批次 reviewer-batch-01 result 仍为未闭合: {text.strip()}")
         return 1
-    if "已通过" not in text:
+    if "PASSED" not in text and "已通过" not in text:
         print("错误: workflow_state 未标记已通过", file=sys.stderr)
         return 1
     print("进度验证: 通过")
@@ -330,7 +330,7 @@ def _setup_b9l_prod_lingwen_validate_progress(ws: Path) -> None:
     scripts.mkdir(parents=True)
     (scripts / "validate_progress.py").write_text(_VALIDATE_PROGRESS_SCRIPT, encoding="utf-8")
     # Single-line state file — prod-shaped simplification for reliable patch in LIVE.
-    (nf / "workflow_state.json").write_text("待修复 P0\n", encoding="utf-8")
+    (nf / "workflow_state.json").write_text("batch:reviewer-batch-01 status:OPEN_FIX\n", encoding="utf-8")
     (ws / "test_b9.py").write_text(
         "import subprocess\nimport sys\nfrom pathlib import Path\n\n\n"
         "def test_validate_progress_passes():\n"
@@ -352,7 +352,7 @@ def _oracle_b9l_prod_lingwen_validate_progress(ws: Path) -> None:
     from butler.dev_engine.edit_ops import apply_patch
 
     target = ws / "novel-factory" / "workflow_state.json"
-    _rec, err = apply_patch(target, "待修复 P0", "已通过")
+    _rec, err = apply_patch(target, "status:OPEN_FIX", "status:PASSED")
     if err:
         raise RuntimeError(err)
 
@@ -370,11 +370,11 @@ _READ_STATE_CONTEXT = (
 _VALIDATE_PROGRESS_CONTEXT = (
     "## PRODUCTION LESSON (workflow_state unclosed batch)\n"
     "novel-factory/scripts/validate_progress.py exits 1 when "
-    "review_queue.completed[].result still contains 待修复 or 未通过.\n"
+    "workflow_state.json still contains OPEN_FIX.\n"
     "Mandatory steps:\n"
     "1. read_file novel-factory/workflow_state.json\n"
-    "2. patch novel-factory/workflow_state.json: old_string \"待修复 P0\" → new_string \"已通过\" "
-    "(file is one line; use patch not write_file)\n"
+    "2. patch: old_string status:OPEN_FIX → new_string status:PASSED "
+    "(one line; patch only, not write_file)\n"
     "3. terminal: python3 novel-factory/scripts/validate_progress.py "
     "— stdout must include 进度验证: 通过\n"
     "Do not edit files under 06_意见仓库."
@@ -525,8 +525,8 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
         description="LingWen1 prod: fix workflow_state for validate_progress",
         delegate_prompt=(
             "Fix novel-factory/workflow_state.json so validate_progress passes. "
-            'The file contains "待修复 P0" — patch it to "已通过" (exact substring). '
-            "read_file first; use patch with old_string/new_string, not write_file. "
+            'File is one line with status:OPEN_FIX — patch to status:PASSED. '
+            "read_file first; patch only (no write_file). "
             "Then run python3 novel-factory/scripts/validate_progress.py — expect 进度验证: 通过."
         ),
         setup=_setup_b9l_prod_lingwen_validate_progress,

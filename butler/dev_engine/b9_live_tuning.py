@@ -61,7 +61,7 @@ B9_TASK_PLAYBOOKS: dict[str, str] = {
     ),
     "B9L_prod_lingwen_validate_progress": (
         "Playbook (LingWen1 novel-factory): read_file novel-factory/workflow_state.json "
-        '(one line: "待修复 P0"). patch old_string 待修复 P0 → new_string 已通过. '
+        '(one line: status:OPEN_FIX). patch old_string status:OPEN_FIX → new_string status:PASSED. '
         "Then terminal: python3 novel-factory/scripts/validate_progress.py — expect 进度验证: 通过."
     ),
     # Tier-1 gate (release subset)
@@ -258,6 +258,11 @@ def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
         context = f"{spec.benchmark_context_extra}\n\n{context}"
     extra: list[str] = []
     if category == B9_LIVE_CATEGORY:
+        from butler.dev_engine.b9_oracle_curriculum import format_episode_skill_block
+
+        skill_block = format_episode_skill_block(spec.task_id)
+        if skill_block:
+            extra.insert(0, f"## B9 SKILL (mandatory — follow before generic workflow)\n{skill_block}")
         _append_b9_learning_blocks(extra, spec.task_id)
         playbook = build_b9_task_playbook(spec.task_id)
         if playbook:
