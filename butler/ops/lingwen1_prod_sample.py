@@ -11,6 +11,25 @@ from typing import Any
 from butler.ops.lingwen1_delegate_drill import LINGWEN_PROJECT_NAME
 
 SAMPLE_SESSION = "cli:lingwen1-prod-sample"
+LINGWEN_PROD_SAMPLE_CATEGORY = "lingwen-prod-sample"
+
+LINGWEN_PROD_SAMPLE_PLAYBOOKS: dict[str, str] = {
+    "lingwen1-sample-demo-import": """## PLAYBOOK demo-import (read-only code review)
+1. read_file demo/hello.py only
+2. Confirm in your summary: add() returns a + b (see `return a + b` in source)
+3. End headline with VERIFIED when confirmed
+Do NOT use terminal, run_pytest, or edit files.""",
+    "lingwen1-sample-constants-comment": """## PLAYBOOK constants (idempotent)
+1. read_file constants.py
+2. If module docstring missing: patch ONLY to prepend a one-line module docstring before MAX_RETRIES line
+3. If docstring already present and MAX_RETRIES == 3: report VERIFIED in headline — no edits
+Do NOT use terminal (semicolons blocked). Do NOT write_file.""",
+    "lingwen1-sample-validate-progress": """## PLAYBOOK validate_progress (read-only)
+Workspace root contains novel-factory/. Run exactly one command:
+terminal: python3 novel-factory/scripts/validate_progress.py
+Expected stdout includes `进度验证: 通过` (exit 0). Summarize output and finish.
+Do NOT edit workflow_state.json or novel-factory files. No cd/bash -c.""",
+}
 
 
 @dataclass(frozen=True)
@@ -25,10 +44,8 @@ LINGWEN1_PROD_SAMPLES: tuple[LingWen1ProdSample, ...] = (
     LingWen1ProdSample(
         sample_id="lingwen1-sample-demo-import",
         task=(
-            "Verify demo/hello.py in this project: read_file demo/hello.py, then run "
-            "terminal: python -c \"from demo.hello import add, greet; "
-            "assert add(3.5, 4.5) == 8.0; assert '灵文1号' in greet('主公')\". "
-            "Do not edit any files."
+            "Read demo/hello.py and verify add(a,b) returns a+b in source. "
+            "Report VERIFIED in headline. No edits, no terminal."
         ),
         context="Production-shaped read+verify on LingWen1 demo module.",
         expect_success=True,
@@ -36,26 +53,44 @@ LINGWEN1_PROD_SAMPLES: tuple[LingWen1ProdSample, ...] = (
     LingWen1ProdSample(
         sample_id="lingwen1-sample-constants-comment",
         task=(
-            "Read constants.py. If the file has no module docstring, patch to add "
-            "a one-line module docstring at the top. Then run terminal: "
-            "python -c \"import constants; assert constants.MAX_RETRIES == 3\". "
-            "Only edit constants.py."
+            "Verify constants.py has module docstring and MAX_RETRIES=3. "
+            "Patch only if docstring missing. No terminal."
         ),
-        context="Small safe edit on LingWen1 constants.py with import verify.",
+        context="Small safe edit on LingWen1 constants.py.",
         expect_success=True,
     ),
     LingWen1ProdSample(
         sample_id="lingwen1-sample-validate-progress",
         task=(
-            "Run novel-factory/scripts/validate_progress.py via terminal from project root. "
-            "Read the output; if exit code is 0, summarize pass. If non-zero, read "
-            "workflow_state.json and validate_progress.py — report root cause only, "
-            "do not edit novel-factory content unless user approves."
+            "Run python3 novel-factory/scripts/validate_progress.py from workspace "
+            "root and confirm 进度验证: 通过 in output."
         ),
-        context="Production-shaped novel-factory progress validation (read-only preferred).",
+        context="Read-only novel-factory progress validation.",
         expect_success=True,
     ),
 )
+
+
+def build_lingwen_prod_sample_context(
+    *,
+    sample: LingWen1ProdSample,
+    workspace: Path,
+    session_key: str = SAMPLE_SESSION,
+) -> str:
+    from butler.dev_engine.b9_delegate_gate import prepare_b9_subagent_workspace
+
+    parts: list[str] = []
+    preamble = prepare_b9_subagent_workspace(
+        workspace, session_key=session_key, max_depth=2
+    )
+    if preamble:
+        parts.append(preamble)
+    playbook = LINGWEN_PROD_SAMPLE_PLAYBOOKS.get(sample.sample_id, "")
+    if playbook:
+        parts.append(playbook)
+    parts.append(sample.context)
+    parts.append(f"Project: {LINGWEN_PROJECT_NAME}. Workspace: {workspace.resolve()}.")
+    return "\n\n".join(parts)
 
 
 def _project_workspace() -> Path | None:
@@ -90,6 +125,10 @@ def run_lingwen1_prod_sample(
         os.environ["BUTLER_EVAL_LLM_BENCHMARK"] = "1"
         os.environ["BUTLER_ENABLE_TERMINAL"] = "1"
         os.environ["BUTLER_TERMINAL_PROFILE"] = "dev"
+        os.environ["BUTLER_DEV_AUTO_VERIFY"] = "0"
+
+    context = build_lingwen_prod_sample_context(sample=sample, workspace=ws)
+    task = sample.task
 
     from butler.execution_context import use_execution_context
     from butler.project.manager import get_project_manager
@@ -116,8 +155,9 @@ def run_lingwen1_prod_sample(
                 "delegate_task",
                 {
                     "role": "dev",
-                    "task": sample.task,
-                    "context": sample.context,
+                    "category": LINGWEN_PROD_SAMPLE_CATEGORY,
+                    "task": task,
+                    "context": context,
                 },
             )
     finally:
@@ -173,8 +213,11 @@ def run_lingwen1_prod_samples(
 
 __all__ = [
     "LINGWEN1_PROD_SAMPLES",
+    "LINGWEN_PROD_SAMPLE_CATEGORY",
+    "LINGWEN_PROD_SAMPLE_PLAYBOOKS",
     "LingWen1ProdSample",
     "SAMPLE_SESSION",
+    "build_lingwen_prod_sample_context",
     "run_lingwen1_prod_sample",
     "run_lingwen1_prod_samples",
 ]

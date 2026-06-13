@@ -103,6 +103,22 @@ categories:
       - delete_file
       - delegate_task
       - butler_config
+  lingwen-prod-sample:
+    role: dev
+    description: LingWen1 real workspace samples — patch-only edits, explicit python3
+    background: true
+    prompt_append: |
+      [category:lingwen-prod-sample] Production sample rules:
+      1. read_file target file before any patch
+      2. patch only — write_file/delete_file denied
+      3. terminal: use python3 one-shot commands from project workspace root (no cd/bash -c)
+      4. novel-factory paths are under novel-factory/ relative to workspace root
+    max_iterations: 24
+    deny_tools:
+      - write_file
+      - delete_file
+      - delegate_task
+      - butler_config
   ui-build:
     role: dev
     description: UI implementation — DESIGN.md tokens, single-component iteration
