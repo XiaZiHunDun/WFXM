@@ -151,6 +151,7 @@
 | 2026-06-14 | **检索纠偏 v2**：`b9_task` 自动 anchor + 通用词过滤；周循环 `forward_selection_precision` |
 | 2026-06-14 | **B9 周循环 v2 验证**：Tier-1 7/7、Tier-2 3/3、SWE 3/3、Promoted 6/6、灵文 3/3；`forward`=1.0（stored 27.5% 为历史误命中）；`prod_delta_clean` 仍 ±0 |
 | 2026-06-14 | **第 7 道 prod 晋升**：`B9L_prod_lingwen_constants_docstring`（灵文 constants 样本）；`butler-prod-delta-observe.sh`；L3 capture OK |
+| 2026-06-14 | **第 8 道 prod 晋升**：`B9L_prod_lingwen_validate_progress`（灵文 validate_progress 样本）；Promoted oracle **8/8** |
 
 ---
 

@@ -59,6 +59,11 @@ B9_TASK_PLAYBOOKS: dict[str, str] = {
         "Playbook (LingWen1): read_file constants.py and test_b9.py. "
         "Module docstring missing — prepend one-line docstring before MAX_RETRIES; keep MAX_RETRIES=3."
     ),
+    "B9L_prod_lingwen_validate_progress": (
+        "Playbook (LingWen1 novel-factory): read_file workflow_state.json. "
+        "Unclosed completed batch (待修复) blocks validate_progress — patch result to 已通过, "
+        "then terminal: python3 novel-factory/scripts/validate_progress.py."
+    ),
     # Tier-1 gate (release subset)
     "B9L_test_driven_add": (
         "Playbook: read test_b9.py — needs ping() returning 'pong'. service.py is nearly empty. "

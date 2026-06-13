@@ -55,6 +55,15 @@ def test_infer_lingwen_constants_sample_task_id():
     assert tid == "B9L_prod_lingwen_constants_docstring"
 
 
+def test_infer_lingwen_validate_progress_sample_task_id():
+    tid = infer_b9_task_id(
+        "Run validate_progress and confirm output",
+        "lingwen1-sample-validate-progress context",
+        category="lingwen-prod-sample",
+    )
+    assert tid == "B9L_prod_lingwen_validate_progress"
+
+
 def test_production_keywords_include_retrieval_aliases():
     kws = production_delegate_keywords(
         "fix greet return hello pytest",

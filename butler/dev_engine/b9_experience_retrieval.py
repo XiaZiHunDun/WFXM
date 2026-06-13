@@ -35,6 +35,9 @@ TASK_RETRIEVAL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "B9L_prod_lingwen_constants_docstring": (
         "lingwen", "lingwen1", "constants", "docstring", "module", "max_retries", "pytest", "灵文",
     ),
+    "B9L_prod_lingwen_validate_progress": (
+        "lingwen", "lingwen1", "novel", "factory", "validate", "progress", "workflow", "进度验证", "pytest",
+    ),
     "B9L_prod_verify_fail": ("divide", "zero", "division", "verify", "pytest", "handler"),
     "B9L_prod_patch_wrong": ("patch", "wrong", "operator", "fix", "implementation", "pytest"),
     "B9L_prod_no_test": ("no", "test", "read", "only", "edit", "patch", "pytest"),
@@ -325,6 +328,7 @@ def _seed_missing_prod_experiences(xlib: Any, path: str) -> int:
         "B9L_prod_lingwen_demo_add",
         "B9L_prod_lingwen_workflow_guard",
         "B9L_prod_lingwen_constants_docstring",
+        "B9L_prod_lingwen_validate_progress",
         "B9L_prod_verify_fail",
         "B9L_prod_patch_wrong",
         "B9L_prod_no_test",

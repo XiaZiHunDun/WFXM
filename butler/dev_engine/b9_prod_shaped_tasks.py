@@ -292,6 +292,99 @@ def _verify_b9l_prod_lingwen_constants_docstring(ws: Path) -> tuple[bool, str]:
     return _pytest_verify(ws)
 
 
+_VALIDATE_PROGRESS_SCRIPT = '''#!/usr/bin/env python3
+"""Minimal novel-factory progress validator for B9 prod-shaped benchmark."""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+STATE_FILE = ROOT / "workflow_state.json"
+
+
+def main() -> int:
+    if not STATE_FILE.is_file():
+        print(f"缺少 {STATE_FILE}", file=sys.stderr)
+        return 1
+    state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    completed = (state.get("review_queue") or {}).get("completed") or []
+    errors: list[str] = []
+    for entry in completed:
+        if not isinstance(entry, dict):
+            continue
+        batch_id = str(entry.get("batch_id") or "").strip()
+        result = str(entry.get("result") or "").strip()
+        if result and ("待修复" in result or "未通过" in result):
+            errors.append(f"completed 批次 {batch_id} result 仍为未闭合: {result}")
+    if errors:
+        print("错误:")
+        for e in errors:
+            print(f"  - {e}")
+        return 1
+    print("进度验证: 通过")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+def _setup_b9l_prod_lingwen_validate_progress(ws: Path) -> None:
+    import json
+
+    ws.mkdir(parents=True, exist_ok=True)
+    nf = ws / "novel-factory"
+    scripts = nf / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "validate_progress.py").write_text(_VALIDATE_PROGRESS_SCRIPT, encoding="utf-8")
+    state = {
+        "current_phase": "WRITING",
+        "current_step": "review",
+        "review_queue": {
+            "completed": [
+                {"batch_id": "reviewer-batch-01", "result": "待修复 P0", "chapters": ["ch001"]},
+            ],
+        },
+    }
+    (nf / "workflow_state.json").write_text(
+        json.dumps(state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (ws / "test_b9.py").write_text(
+        "import subprocess\nimport sys\nfrom pathlib import Path\n\n\n"
+        "def test_validate_progress_passes():\n"
+        "    script = Path('novel-factory/scripts/validate_progress.py')\n"
+        "    proc = subprocess.run(\n"
+        "        [sys.executable, str(script)],\n"
+        "        capture_output=True,\n"
+        "        text=True,\n"
+        "        cwd=Path('.'),\n"
+        "        check=False,\n"
+        "    )\n"
+        "    assert proc.returncode == 0, proc.stdout + proc.stderr\n"
+        "    assert '进度验证: 通过' in proc.stdout\n",
+        encoding="utf-8",
+    )
+
+
+def _oracle_b9l_prod_lingwen_validate_progress(ws: Path) -> None:
+    import json
+
+    state_path = ws / "novel-factory" / "workflow_state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    completed = (state.get("review_queue") or {}).get("completed") or []
+    if completed and isinstance(completed[0], dict):
+        completed[0]["result"] = "已通过"
+    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _verify_b9l_prod_lingwen_validate_progress(ws: Path) -> tuple[bool, str]:
+    return _pytest_verify(ws)
+
+
 _READ_STATE_CONTEXT = (
     "## PRODUCTION LESSON (READ_STATE_REQUIRED)\n"
     "Previous delegate failed because patch/write ran before read_file.\n"
@@ -436,6 +529,27 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
             "pytest",
             "promoted",
             "source:lingwen1-sample-constants-comment",
+        ),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_lingwen_validate_progress",
+        description="LingWen1 prod: fix workflow_state for validate_progress",
+        delegate_prompt=(
+            "Fix novel-factory/workflow_state.json so "
+            "python3 novel-factory/scripts/validate_progress.py prints 进度验证: 通过. "
+            "Run the script to confirm. Do not edit audit reports under 06_意见仓库."
+        ),
+        setup=_setup_b9l_prod_lingwen_validate_progress,
+        verify=_verify_b9l_prod_lingwen_validate_progress,
+        oracle_apply=_oracle_b9l_prod_lingwen_validate_progress,
+        tags=(
+            "prod_shaped",
+            "lingwen1",
+            "novel_factory",
+            "verify_fail",
+            "pytest",
+            "promoted",
+            "source:lingwen1-sample-validate-progress",
         ),
     ),
 ]

@@ -32,6 +32,8 @@ _PREVIEW_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("has_open_completed", "completed", "待修复"), "B9L_prod_lingwen_workflow_guard"),
     (("constants.py", "docstring", "max_retries"), "B9L_prod_lingwen_constants_docstring"),
     (("constants.py", "module docstring"), "B9L_prod_lingwen_constants_docstring"),
+    (("validate_progress", "进度验证"), "B9L_prod_lingwen_validate_progress"),
+    (("novel-factory/scripts/validate_progress", "进度验证"), "B9L_prod_lingwen_validate_progress"),
 )
 
 BINDINGS: tuple[ProdPromotedBinding, ...] = (
@@ -82,6 +84,13 @@ BINDINGS: tuple[ProdPromotedBinding, ...] = (
         source_task_id="lingwen1-sample-constants-comment",
         failure_reason="verify_fail",
         pattern_summary="LingWen1 constants.py missing module docstring — read_file then prepend docstring",
+        audit_trace_id="",
+    ),
+    ProdPromotedBinding(
+        task_id="B9L_prod_lingwen_validate_progress",
+        source_task_id="lingwen1-sample-validate-progress",
+        failure_reason="verify_fail",
+        pattern_summary="Run novel-factory validate_progress; fix workflow_state unclosed completed batch",
         audit_trace_id="",
     ),
 )

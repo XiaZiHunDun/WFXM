@@ -68,7 +68,19 @@ def test_resolve_lingwen_constants_docstring():
     assert resolve_production_failure_to_task(rec) == "B9L_prod_lingwen_constants_docstring"
 
 
+def test_resolve_lingwen_validate_progress():
+    rec = {
+        "project": "LingWen1",
+        "task_preview": (
+            "Run python3 novel-factory/scripts/validate_progress.py "
+            "and confirm 进度验证: 通过 in output."
+        ),
+        "issues": ["verify_failed"],
+    }
+    assert resolve_production_failure_to_task(rec) == "B9L_prod_lingwen_validate_progress"
+
+
 def test_promoted_tasks_exist_in_prod_shaped():
-    assert len(PROMOTED_TASK_IDS) == 7
+    assert len(PROMOTED_TASK_IDS) == 8
     for tid in PROMOTED_TASK_IDS:
         assert tid in B9_PROD_SHAPED_TASK_IDS
