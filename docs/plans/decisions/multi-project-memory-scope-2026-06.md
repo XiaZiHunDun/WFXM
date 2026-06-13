@@ -1,6 +1,6 @@
 # ADR — 多项目记忆作用域（L3/L4 编码经验层）
 
-> **状态**：已采纳（2026-06-13）| **阶段**：P0 数据模型落地中  
+> **状态**：已采纳（2026-06-13）| **阶段**：P0–P5 已落地  
 > **理论 SSOT**：[`v4-memory-theory.md`](../../architecture/v4-memory-theory.md)（M8 扩展）  
 > **实现 SSOT**：`butler/memory/memory_scope.py`、`butler/dev_engine/coding_knowledge.py`  
 > **边界**：不合并 Owner 叙事经验（`experience.db`）与编码 pattern；不引入 SQL 会话库 / Redis
@@ -61,7 +61,7 @@
 | **P2** | `delegate_phases` 传入 `project_id` / `stack_tags`；`search` 硬过滤 | ✅ |
 | **P3** | prod 失败写 L3；`b9_lessons` 带 `project` | ✅ |
 | **P4** | `/诊断` + `butler memory diagnose --project` | ✅ |
-| **P5** | 灵文 private 条目迁 L3 或保持 L4+scope | 进行中（`butler memory backfill-scopes`） |
+| **P5** | 灵文 private 条目迁 L3 或保持 L4+scope | ✅（`butler memory backfill-scopes --apply` 已写回 22 条 scope） |
 
 ## 4. 守门
 

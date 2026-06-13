@@ -45,13 +45,13 @@
 | G3-08 | G3 | 智能遗忘 `type_adjusted_half_life` | ✅ `v4-memory-theory` v1.2 §4.3 |
 | G3-09 | G3 | 编码知识层成熟度收窄 | ✅ `v4-dev-engine-theory` §8.5（`process_task` T2；CD0/6/8 T1） |
 
-| 2026-06-13 | **G1-09** 多项目编码经验作用域（L3/L4）| P0 `MemoryScope` + ADR；P2 委派硬过滤待办 | 见 [`multi-project-memory-scope-2026-06.md`](multi-project-memory-scope-2026-06.md) |
+| 2026-06-13 | **G1-09** 多项目编码经验作用域（L3/L4）| P0–P5 ✅：`MemoryScope`、委派硬过滤、`backfill-scopes` | 见 [`multi-project-memory-scope-2026-06.md`](multi-project-memory-scope-2026-06.md) |
 
 **开放 G1（2026-06-13）**
 
 | ID | 类 | 项 | 处置 |
 |----|-----|-----|------|
-| G1-09 | G1 | 编码经验库无 project 硬隔离 | P0–P4 ✅；P5 灵文 L3 迁移可选 |
+| G1-09 | G1 | 编码经验库无 project 硬隔离 | ✅ P0–P5 已落地（L4 scope 写回 + L3 生产失败路径） |
 
 ---
 

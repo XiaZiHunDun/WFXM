@@ -120,6 +120,10 @@ PY
 if [ $? -ne 0 ]; then echo "(promoted prod probe had failures — stretch only)"; fi
 
 echo ""
+echo "=== B9 weekly: LingWen1 prod sample (phase C, non-blocking) ==="
+bash "$ROOT/scripts/butler-lingwen1-prod-sample.sh" 2>&1 || echo "(lingwen prod sample had failures — stretch only)"
+
+echo ""
 echo "=== B9 weekly: promotion queue sync + bundle ==="
 python3 - <<'PY'
 import json
