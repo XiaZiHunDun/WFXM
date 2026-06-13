@@ -178,9 +178,25 @@ def _prepare_delegate_task(state: DelegateRunState) -> None:
     _apply_category_resolver(state)
     _inject_handoff_block(state)
     _inject_verify_checklist(state)
+    _inject_production_playbook_bridge(state)
     if state.bridge is not None:
         state.bridge.notify_delegate_start(state.role, preview=state.task[:80])
     _check_delegate_depth(state)
+
+
+def _inject_production_playbook_bridge(state: DelegateRunState) -> None:
+    """Prepend B9 seed playbooks for production-shaped dev delegates (P0 bridge)."""
+    try:
+        from butler.dev_engine.prod_delegate_bridge import enrich_delegate_context_for_production
+
+        state.context = enrich_delegate_context_for_production(
+            state.context,
+            task=state.task,
+            category=state.category,
+            category_meta=state.category_meta,
+        )
+    except Exception as exc:  # noqa: BLE001 — best-effort enrichment
+        logger.debug("production playbook bridge skipped: %s", exc)
 
 
 def _attach_agents_md_context(state: DelegateRunState) -> None:
@@ -460,8 +476,14 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
             )
 
             from butler.config import get_butler_home as _get_butler_home
+            from butler.dev_engine.prod_delegate_bridge import production_delegate_keywords
 
-            keywords = state.task.lower().split() if state.task else []
+            keywords = production_delegate_keywords(
+                state.task,
+                state.context,
+                category=state.category,
+                category_meta=state.category_meta,
+            )
             tlib = TheoremLibrary()
             xlib = load_delegate_experience_library(
                 butler_home=_get_butler_home(),

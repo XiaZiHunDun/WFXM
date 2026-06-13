@@ -61,13 +61,14 @@
 | **P2** | `delegate_phases` 传入 `project_id` / `stack_tags`；`search` 硬过滤 | ✅ |
 | **P3** | prod 失败写 L3；`b9_lessons` 带 `project` | ✅ |
 | **P4** | `/诊断` + `butler memory diagnose --project` | ✅ |
-| **P5** | 灵文 private 条目迁 L3 或保持 L4+scope | ✅（`butler memory backfill-scopes --apply` 已写回 22 条 scope） |
+| **P5** | 灵文 private 条目迁 L3 或保持 L4+scope | ✅（`backfill-scopes --apply` + `migrate-lingwen-l3`） |
 
 ## 4. 守门
 
 ```bash
-PYTHONPATH=. pytest tests/test_memory_scope_diagnostics.py tests/test_memory_scope.py tests/test_production_failure_experience.py -q
+PYTHONPATH=. pytest tests/test_prod_delegate_bridge.py tests/test_memory_scope_diagnostics.py tests/test_memory_scope.py -q
 butler memory diagnose --project 灵文1号
+butler memory migrate-lingwen-l3 --apply
 ```
 
 ## 5. 变更记录

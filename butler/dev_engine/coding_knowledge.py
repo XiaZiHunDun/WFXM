@@ -857,26 +857,56 @@ class ExperienceLibrary:
                 score += 1
         return score
 
+    @staticmethod
+    def _is_failure_experience(exp: "CodingExperience") -> bool:
+        return (
+            str(exp.id).startswith("B9_FAIL_")
+            or "failure" in [str(d).lower() for d in exp.domain]
+        )
+
+    @staticmethod
+    def _failure_experience_allowed(
+        exp: "CodingExperience",
+        *,
+        failure_class: str,
+    ) -> bool:
+        """B9_FAIL_* rows only when classification explicitly matches."""
+        if not ExperienceLibrary._is_failure_experience(exp):
+            return True
+        want = (failure_class or "").strip().lower()
+        if not want:
+            return False
+        have = str(exp.benchmarks.get("failure_class") or "").strip().lower()
+        if have:
+            return have == want
+        for dom in exp.domain:
+            d = str(dom).lower()
+            if d not in ("b9", "failure", "auto", "prod_shaped", "pytest"):
+                return d == want
+        return False
+
     def search(self, keywords: Set[str], activated_theorems: Set[str],
                now: Optional[float] = None,
                strict_coverage: bool = False,
                *,
                project_id: str = "",
-               stack_tags: frozenset[str] | set[str] | None = None) -> List[CodingExperience]:
+               stack_tags: frozenset[str] | set[str] | None = None,
+               failure_class: str = "") -> List[CodingExperience]:
         """Retrieve valid, compatible experiences sorted by coverage.
 
         Args:
             strict_coverage: If True, require theorem_basis ⊇ activated_theorems
                            (CD5b). If False, allow partial overlap.
                            B9-tagged experiences use partial overlap even when strict.
-            project_id: When set, filter by MemoryScope visibility (multi-project).
-            stack_tags: Project stack tags for visibility=stack matching.
+            failure_class: When set, allow B9_FAIL_* only if benchmarks/domain match.
         """
         normalized = _normalize_keywords(keywords)
         scope_tags = frozenset(stack_tags or ())
         results = []
         for exp in self._experiences.values():
             if not exp.is_valid(now):
+                continue
+            if not self._failure_experience_allowed(exp, failure_class=failure_class):
                 continue
             if project_id or scope_tags:
                 if not exp.scope.visible_to(project_id=project_id, stack_tags=scope_tags):

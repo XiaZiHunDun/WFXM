@@ -89,6 +89,17 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     )
     mbackfill.set_defaults(func=_cmd_memory_backfill_scopes)
 
+    mmigrate = mem_sub.add_parser(
+        "migrate-lingwen-l3",
+        help="将灵文 private B9 经验从 L4 迁到项目 L3",
+    )
+    mmigrate.add_argument(
+        "--apply",
+        action="store_true",
+        help="写回 L4/L3 JSON（默认 dry-run）",
+    )
+    mmigrate.set_defaults(func=_cmd_memory_migrate_lingwen_l3)
+
     # Legacy top-level alias (kept for backward compat with old scripts).
     ri = sub.add_parser(
         "memory-reindex",
@@ -246,6 +257,25 @@ def _cmd_memory_backfill_scopes(ns: argparse.Namespace) -> int:
         return 1
     if result.get("dry_run") and int(result.get("updated") or 0) > 0:
         console.print("[yellow]dry-run：加 --apply 写回 L4 scope 字段[/yellow]")
+    return 0
+
+
+def _cmd_memory_migrate_lingwen_l3(ns: argparse.Namespace) -> int:
+    import json
+
+    from butler.config import get_butler_home
+    from butler.dev_engine.prod_delegate_bridge import migrate_lingwen_experiences_to_l3
+
+    result = migrate_lingwen_experiences_to_l3(
+        butler_home=get_butler_home(),
+        dry_run=not bool(ns.apply),
+    )
+    console = Console()
+    console.print(json.dumps(result, ensure_ascii=False, indent=2))
+    if not result.get("ok"):
+        return 1
+    if result.get("dry_run") and result.get("migrated"):
+        console.print("[yellow]dry-run：加 --apply 执行 L4→L3 迁移[/yellow]")
     return 0
 
 
