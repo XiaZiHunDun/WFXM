@@ -57,6 +57,36 @@ def test_format_lines_in_health_report(tmp_path, monkeypatch):
     assert any("诚实边界观测" in ln for ln in lines)
 
 
+def test_g1_04_window_status_counts_in_window(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    from butler.config import reload_butler_settings
+    from butler.ops.boundary_observability import (
+        G1_04_WINDOW_START,
+        g1_04_observation_window_status,
+    )
+
+    reload_butler_settings()
+    audit = tmp_path / "audit"
+    audit.mkdir(parents=True)
+    start_ts, _ = __import__(
+        "butler.ops.boundary_observability", fromlist=["_window_epoch_bounds"]
+    )._window_epoch_bounds()
+    rows = [
+        {"ts": start_ts + 100, "action": "adjust_delegate_rescue"},
+        {"ts": start_ts + 200, "action": "adjust_delegate_rescue"},
+        {"ts": start_ts - 10, "action": "old"},
+    ]
+    (audit / "eval_feedback.jsonl").write_text(
+        "\n".join(json.dumps(r) for r in rows) + "\n",
+        encoding="utf-8",
+    )
+    mid = G1_04_WINDOW_START.replace(day=15)
+    status = g1_04_observation_window_status(butler_home=tmp_path, today=mid)
+    assert status["feedback_in_window"] == 2
+    assert status["window_open"] is True
+    assert status["feedback_actions_in_window"]["adjust_delegate_rescue"] == 2
+
+
 def test_format_boundary_lines():
     lines = format_boundary_observability_lines()
     assert lines[0].startswith("诚实边界观测")

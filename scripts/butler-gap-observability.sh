@@ -28,6 +28,20 @@ for o in obs:
     print(o.line(verbose=True))
 print()
 print(json.dumps(summary, ensure_ascii=False, indent=2))
+g1 = summary.get("g1_04_window") or {}
+if g1:
+    print()
+    print("=== G1-04 OT2 observation window ===")
+    print(
+        f"  window: {g1.get('window_start')} → {g1.get('window_end')} "
+        f"(today={g1.get('today')}, remaining={g1.get('days_remaining')}d)"
+    )
+    print(
+        f"  feedback: in_window={g1.get('feedback_in_window')} "
+        f"7d={g1.get('feedback_7d')} actions={g1.get('feedback_actions_in_window')}"
+    )
+    if g1.get("closure_ready"):
+        print("  closure_ready: true — 可更新 gap register 标 OT2 观测完成")
 warn = int(summary.get("warn") or 0)
 sys.exit(1 if warn else 0)
 PY

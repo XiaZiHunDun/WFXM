@@ -316,7 +316,7 @@ graph LR
 | 序 | 方向 | 理由 | 入口 |
 |----|------|------|------|
 | **1** | **B9 委派质量持续提升** | 唯一衡量「LLM 真编码能力」的生产指标；已有完整 harness | `scripts/butler-b9-weekly-learning.sh`, [`evaluation-guide.md`](./evaluation-guide.md) |
-| **2** | **OT2 闭环观测** | 硬反馈已接，缺生产 `eval_feedback.jsonl` 证据 | G1-04, `butler/ops/boundary_observability.py` |
+| **2** | **OT2 闭环观测** | 硬反馈已接；`eval_feedback.jsonl` 窗内积累 | G1-04, `g1_04_observation_window_status` |
 | **3** | **经验库 ↔ B9 修学循环** | 闭环规划指出的「梯度未回传」 | `b9_lessons`, `coding_experiences.json` |
 | **4** | **定理 checker 硬化** | T02/T07 stub 削弱结构保证 | 根目录 `butler_闭环优化规划_2026-06-09.plan.md` FP-1/FP-2 |
 | **5** | **灵文维护态运营** | 单项目样板已收口，日常 smoke + Lead job | `projects/LingWen1/docs/pilot-log.md` |

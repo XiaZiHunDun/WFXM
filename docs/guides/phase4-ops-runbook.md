@@ -121,7 +121,7 @@ bash scripts/butler-gap-observability.sh   # 全量 verbose；warn>0 时 exit 1
 | ID | 自动化信号 | 仍须人工 |
 |----|------------|----------|
 | G1-02 | 成本基线是否已设 | ⏸️ **搁置**（现阶段不做账单对照；`/诊断` 提示可忽略） |
-| G1-04 | `eval_feedback.jsonl` 7d 条数 | 真机日常使用后观测 OT2 |
+| G1-04 | `eval_feedback.jsonl` 7d + 观测窗 | `butler-gap-observability.sh` 看 `g1_04_window`（窗 06-09→06-23） |
 | G1-06 | M-img / M-voice 真机 | ✅ 2026-06-10 `pilot-log` |
 | G1-08 | — | ⏸️ **搁置**（灵文试点；非平台 G1） |
 | G2-01 | PII 压缩规则 | ✅ 边界已接受；`/诊断` 观测 |

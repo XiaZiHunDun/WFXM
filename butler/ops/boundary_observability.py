@@ -7,12 +7,18 @@ import logging
 import os
 import time
 from dataclasses import dataclass
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
 BoundaryStatus = Literal["ok", "warn", "info", "manual", "deferred"]
+
+# G1-04 OT2 passive observation window (pilot-log §G1, gap register 2026-06-09).
+G1_04_WINDOW_START = date(2026, 6, 9)
+G1_04_WINDOW_END = date(2026, 6, 23)
+G1_04_MIN_FEEDBACK_FOR_CLOSURE = 1
 
 
 @dataclass
@@ -62,6 +68,110 @@ def _read_jsonl_stats(path: Path, *, since_seconds: float | None = None) -> dict
     return {"count": count, "last_ts": last_ts}
 
 
+def _window_epoch_bounds() -> tuple[float, float]:
+    start = datetime(
+        G1_04_WINDOW_START.year,
+        G1_04_WINDOW_START.month,
+        G1_04_WINDOW_START.day,
+        tzinfo=timezone.utc,
+    ).timestamp()
+    end = datetime(
+        G1_04_WINDOW_END.year,
+        G1_04_WINDOW_END.month,
+        G1_04_WINDOW_END.day,
+        23,
+        59,
+        59,
+        tzinfo=timezone.utc,
+    ).timestamp()
+    return start, end
+
+
+def _read_jsonl_between(
+    path: Path,
+    *,
+    start_ts: float,
+    end_ts: float,
+) -> dict[str, Any]:
+    if not path.is_file():
+        return {"count": 0, "last_ts": None, "actions": {}}
+    count = 0
+    last_ts: float | None = None
+    actions: dict[str, int] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        ts = row.get("ts")
+        try:
+            ts_f = float(ts) if ts is not None else None
+        except (TypeError, ValueError):
+            ts_f = None
+        if ts_f is None or ts_f < start_ts or ts_f > end_ts:
+            continue
+        count += 1
+        last_ts = ts_f if last_ts is None else max(last_ts, ts_f)
+        act = str(row.get("action") or "unknown")
+        actions[act] = actions.get(act, 0) + 1
+    return {"count": count, "last_ts": last_ts, "actions": actions}
+
+
+def g1_04_observation_window_status(
+    *,
+    butler_home: Path | str | None = None,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """G1-04 OT2 window progress for ops scripts and /诊断."""
+    from butler.config import get_butler_home
+
+    home = Path(butler_home or get_butler_home()).expanduser().resolve()
+    day = today or date.today()
+    days_remaining = (G1_04_WINDOW_END - day).days
+    window_open = G1_04_WINDOW_START <= day <= G1_04_WINDOW_END
+    window_complete = day > G1_04_WINDOW_END
+    start_ts, end_ts = _window_epoch_bounds()
+    fb_path = home / "audit" / "eval_feedback.jsonl"
+    in_window = _read_jsonl_between(fb_path, start_ts=start_ts, end_ts=end_ts)
+    fb_7d = _read_jsonl_stats(fb_path, since_seconds=7 * 86400)
+    closure_ready = (
+        window_complete
+        and int(in_window.get("count") or 0) >= G1_04_MIN_FEEDBACK_FOR_CLOSURE
+    )
+    return {
+        "window_start": G1_04_WINDOW_START.isoformat(),
+        "window_end": G1_04_WINDOW_END.isoformat(),
+        "today": day.isoformat(),
+        "window_open": window_open,
+        "window_complete": window_complete,
+        "days_remaining": max(0, days_remaining) if window_open else 0,
+        "feedback_in_window": int(in_window.get("count") or 0),
+        "feedback_7d": int(fb_7d.get("count") or 0),
+        "feedback_actions_in_window": in_window.get("actions") or {},
+        "last_feedback_ts": in_window.get("last_ts"),
+        "closure_ready": closure_ready,
+        "eval_feedback_path": str(fb_path),
+    }
+
+
+def _g1_04_detail(*, fb_7d: dict[str, Any], window: dict[str, Any]) -> str:
+    parts = [
+        f"窗 {G1_04_WINDOW_START.strftime('%m-%d')}→{G1_04_WINDOW_END.strftime('%m-%d')}",
+    ]
+    if window.get("window_open"):
+        parts.append(f"剩 {window.get('days_remaining', 0)}d")
+    elif window.get("window_complete"):
+        parts.append("窗已结束")
+    parts.append(f"窗内 {window.get('feedback_in_window', 0)} 条")
+    if fb_7d.get("count"):
+        parts.append(f"最近 {_fmt_age(fb_7d.get('last_ts'))}")
+    if window.get("closure_ready"):
+        parts.append("可结案")
+    return " · ".join(parts)
+
+
 def _fmt_age(ts: float | None) -> str:
     if ts is None:
         return "无记录"
@@ -105,19 +215,27 @@ def collect_boundary_observations() -> list[BoundaryObservation]:
 
     fb_path = home / "audit" / "eval_feedback.jsonl"
     fb = _read_jsonl_stats(fb_path, since_seconds=7 * 86400)
+    g1_window = g1_04_observation_window_status(butler_home=home)
     if fb["count"]:
         out.append(BoundaryObservation(
             "G1-04",
             "ok",
             f"OT2 硬反馈审计 {fb['count']} 条/7d",
-            f"最近 {_fmt_age(fb['last_ts'])}",
+            _g1_04_detail(fb_7d=fb, window=g1_window),
         ))
-    else:
+    elif g1_window.get("window_open"):
         out.append(BoundaryObservation(
             "G1-04",
             "info",
             "OT2 硬反馈审计暂无",
-            "生产运行后观测 eval_feedback.jsonl",
+            _g1_04_detail(fb_7d=fb, window=g1_window),
+        ))
+    else:
+        out.append(BoundaryObservation(
+            "G1-04",
+            "warn" if not g1_window.get("closure_ready") else "info",
+            "OT2 观测窗已结束但证据不足" if not g1_window.get("closure_ready") else "OT2 观测窗已结束",
+            _g1_04_detail(fb_7d=fb, window=g1_window),
         ))
 
     out.append(BoundaryObservation(
@@ -284,6 +402,7 @@ def boundary_observability_summary() -> dict[str, Any]:
         "warn": sum(1 for o in obs if o.status == "warn"),
         "deferred": sum(1 for o in obs if o.status == "deferred"),
         "manual": sum(1 for o in obs if o.status == "manual"),
+        "g1_04_window": g1_04_observation_window_status(),
         "items": [
             {"id": o.gap_id, "status": o.status, "summary": o.summary, "detail": o.detail}
             for o in obs
@@ -293,7 +412,11 @@ def boundary_observability_summary() -> dict[str, Any]:
 
 __all__ = [
     "BoundaryObservation",
+    "G1_04_MIN_FEEDBACK_FOR_CLOSURE",
+    "G1_04_WINDOW_END",
+    "G1_04_WINDOW_START",
     "boundary_observability_summary",
     "collect_boundary_observations",
     "format_boundary_observability_lines",
+    "g1_04_observation_window_status",
 ]

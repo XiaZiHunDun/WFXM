@@ -296,7 +296,7 @@ PIM 工具 schema 为固定 token 成本，不随对话长度增长。
 
 **前提**：P-OT2a 审计；P-OT2b 参数上下界；P-OT2c L2 接线完整。
 
-**状态**：**有条件目标** — **G1-04 开放**（无生产 `eval_feedback.jsonl` 长期证据）。
+**状态**：**有条件目标** — **G1-04 观测中**（`eval_feedback.jsonl` 窗内积累，06-23 可结案）。
 
 **工程**：`eval_actions.py`, `ExperienceLibrary.lifecycle_pass()` — 硬反馈 opt-in `BUTLER_EVAL_HARD_FEEDBACK`。
 
@@ -463,7 +463,7 @@ PIM 工具 schema 为固定 token 成本，不随对话长度增长。
 
 | ID | 类 | 项 | 状态 |
 |----|-----|-----|------|
-| G1-04 | G1 | OT2 生产 eval 证据 | **开放** — 长期观测 |
+| G1-04 | G1 | OT2 生产 eval 证据 | **观测中** — 窗 2026-06-09→06-23 |
 | G1-02 | G1 | 账单 baseline | **搁置** |
 | G1-08 | G1 | 灵文新书态探针 | **搁置** |
 | G2-08 | G2 | CA4 strict 生产硬阻断 | **保持现状** |
