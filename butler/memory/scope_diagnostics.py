@@ -22,12 +22,25 @@ def _load_json_experiences(path: Path) -> list[dict[str, Any]]:
     return data if isinstance(data, list) else []
 
 
+def _scope_dict_from_record(rec: dict[str, Any]) -> dict[str, Any]:
+    scope = rec.get("scope") if isinstance(rec.get("scope"), dict) else {}
+    if scope:
+        return scope
+    from butler.memory.memory_scope import infer_default_scope
+
+    inferred = infer_default_scope(
+        exp_id=str(rec.get("id") or ""),
+        domain=rec.get("domain") if isinstance(rec.get("domain"), list) else None,
+    )
+    return inferred.to_dict()
+
+
 def _scope_summary_from_records(records: list[dict[str, Any]]) -> dict[str, Any]:
     by_vis: dict[str, int] = {}
     by_project: dict[str, int] = {}
     by_source: dict[str, int] = {}
     for rec in records:
-        scope = rec.get("scope") if isinstance(rec.get("scope"), dict) else {}
+        scope = _scope_dict_from_record(rec)
         vis = str(scope.get("visibility") or "global")
         by_vis[vis] = by_vis.get(vis, 0) + 1
         pid = str(scope.get("project_id") or "").strip()
@@ -243,7 +256,44 @@ def run_memory_scope_diagnose(
     return payload
 
 
+def backfill_tenant_coding_scopes(
+    *,
+    butler_home: Path,
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    """P5: persist inferred MemoryScope onto legacy L4 tenant rows."""
+    from butler.memory.memory_scope import MemoryScope, infer_default_scope
+
+    l4_path = tenant_coding_experiences_path(butler_home)
+    records = _load_json_experiences(l4_path)
+    updated = 0
+    for rec in records:
+        if isinstance(rec.get("scope"), dict) and rec["scope"]:
+            continue
+        inferred = infer_default_scope(
+            exp_id=str(rec.get("id") or ""),
+            domain=rec.get("domain") if isinstance(rec.get("domain"), list) else None,
+        )
+        if inferred == MemoryScope():
+            continue
+        rec["scope"] = inferred.to_dict()
+        updated += 1
+    if updated and not dry_run:
+        l4_path.write_text(
+            json.dumps(records, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    return {
+        "ok": True,
+        "path": str(l4_path),
+        "updated": updated,
+        "dry_run": dry_run,
+        "total": len(records),
+    }
+
+
 __all__ = [
+    "backfill_tenant_coding_scopes",
     "collect_memory_scope_stats",
     "format_memory_scope_diagnostic_lines",
     "run_memory_scope_diagnose",

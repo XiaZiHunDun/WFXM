@@ -61,7 +61,7 @@
 | **P2** | `delegate_phases` 传入 `project_id` / `stack_tags`；`search` 硬过滤 | ✅ |
 | **P3** | prod 失败写 L3；`b9_lessons` 带 `project` | ✅ |
 | **P4** | `/诊断` + `butler memory diagnose --project` | ✅ |
-| **P5** | 灵文 private 条目迁 L3 或保持 L4+scope | 待办 |
+| **P5** | 灵文 private 条目迁 L3 或保持 L4+scope | 进行中（`butler memory backfill-scopes`） |
 
 ## 4. 守门
 

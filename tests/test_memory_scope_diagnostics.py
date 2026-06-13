@@ -48,6 +48,59 @@ def test_collect_scope_stats_l4_only(tmp_path):
     assert stats["l4_tenant"]["by_visibility"]["private"] == 1
 
 
+def test_collect_scope_stats_infers_legacy_lingwen_private(tmp_path):
+    """Legacy rows without scope field still count as private via infer_default_scope."""
+    l4 = tmp_path / "coding_experiences.json"
+    l4.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "B9_EX_prod_lingwen_demo_add",
+                    "title": "lw",
+                    "domain": ["b9"],
+                    "theorem_basis": ["T01"],
+                    "context": "c",
+                    "pattern": "p",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    stats = collect_memory_scope_stats(butler_home=tmp_path, project_name="")
+    assert stats["l4_tenant"]["by_visibility"]["private"] == 1
+
+
+def test_backfill_tenant_scopes_dry_run(tmp_path):
+    l4 = tmp_path / "coding_experiences.json"
+    l4.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "B9_EX_prod_lingwen_demo_add",
+                    "title": "lw",
+                    "domain": ["b9"],
+                    "theorem_basis": ["T01"],
+                    "context": "c",
+                    "pattern": "p",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    from butler.memory.scope_diagnostics import backfill_tenant_coding_scopes
+
+    result = backfill_tenant_coding_scopes(butler_home=tmp_path, dry_run=True)
+    assert result["updated"] == 1
+    raw = json.loads(l4.read_text(encoding="utf-8"))
+    assert "scope" not in raw[0]
+
+    result2 = backfill_tenant_coding_scopes(butler_home=tmp_path, dry_run=False)
+    assert result2["updated"] == 1
+    raw2 = json.loads(l4.read_text(encoding="utf-8"))
+    assert raw2[0]["scope"]["visibility"] == "private"
+    assert raw2[0]["scope"]["project_id"] == "灵文1号"
+
+
 def test_collect_scope_stats_project_filter(tmp_path, monkeypatch):
     from types import SimpleNamespace
 

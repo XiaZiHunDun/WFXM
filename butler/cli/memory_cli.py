@@ -78,6 +78,17 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     mdiagnose.add_argument("--json", action="store_true", help="输出 JSON")
     mdiagnose.set_defaults(func=_cmd_memory_diagnose)
 
+    mbackfill = mem_sub.add_parser(
+        "backfill-scopes",
+        help="将 legacy L4 编码经验推断的 MemoryScope 写回 JSON（P5）",
+    )
+    mbackfill.add_argument(
+        "--apply",
+        action="store_true",
+        help="写回 ~/.butler/coding_experiences.json（默认 dry-run）",
+    )
+    mbackfill.set_defaults(func=_cmd_memory_backfill_scopes)
+
     # Legacy top-level alias (kept for backward compat with old scripts).
     ri = sub.add_parser(
         "memory-reindex",
@@ -217,6 +228,25 @@ def _cmd_memory_diagnose(ns: argparse.Namespace) -> int:
         for line in payload.get("lines") or []:
             console.print(line)
     return 0 if payload.get("ok") else 1
+
+
+def _cmd_memory_backfill_scopes(ns: argparse.Namespace) -> int:
+    import json
+
+    from butler.config import get_butler_home
+    from butler.memory.scope_diagnostics import backfill_tenant_coding_scopes
+
+    result = backfill_tenant_coding_scopes(
+        butler_home=get_butler_home(),
+        dry_run=not bool(ns.apply),
+    )
+    console = Console()
+    console.print(json.dumps(result, ensure_ascii=False, indent=2))
+    if not result.get("ok"):
+        return 1
+    if result.get("dry_run") and int(result.get("updated") or 0) > 0:
+        console.print("[yellow]dry-run：加 --apply 写回 L4 scope 字段[/yellow]")
+    return 0
 
 
 def _cmd_memory_reindex(ns: argparse.Namespace) -> int:
