@@ -143,8 +143,8 @@ def register_mcp_self_service_tools(register: Callable[..., None]) -> None:
     register(
         name="mcp_catalog_search",
         description=(
-            "Search the MCP server catalog for available integrations. "
-            "Returns matching servers with id, description, and install status."
+            "【marketplace·discover】Search curated MCP catalog by keyword; "
+            "returns server_id candidates from the index. Read-only; no local yaml scan."
         ),
         schema={
             "type": "object",
@@ -161,9 +161,8 @@ def register_mcp_self_service_tools(register: Callable[..., None]) -> None:
     register(
         name="mcp_install",
         description=(
-            "Install an MCP server from the catalog by server_id. "
-            "Scope can be 'global' (default, ~/.butler/mcp.yaml) or 'project' (project .butler/mcp.yaml). "
-            "Use mcp_catalog_search first to find available servers."
+            "【install·mutation】Add a catalog server_id into mcp.yaml (global or project scope). "
+            "Requires server_id; performs config write."
         ),
         schema={
             "type": "object",
@@ -200,7 +199,10 @@ def register_mcp_self_service_tools(register: Callable[..., None]) -> None:
     )
     register(
         name="mcp_list_installed",
-        description="List all currently installed MCP servers with their status.",
+        description=(
+            "【local·inventory】List MCP servers already in mcp.yaml with runtime status. "
+            "No marketplace keyword search."
+        ),
         schema={"type": "object", "properties": {}},
         handler=_tool_mcp_list_installed,
         toolset="mcp_self_service",

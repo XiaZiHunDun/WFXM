@@ -48,6 +48,7 @@ def test_converged_tool_pairs_below_threshold():
         ("contact_add", "contact_find"),
         ("habit_stats", "habit_list"),
     )
+    mcp_pairs = (("mcp_catalog_search", "mcp_list_installed"),)
     pairs_domain = (
         ("expense_summary", "expense_list"),
     )
@@ -55,6 +56,11 @@ def test_converged_tool_pairs_below_threshold():
     domain_threshold = 0.88
     for a, b in pairs_strict:
         assert a in by_name and b in by_name, f"missing tool {a} or {b}"
+        sim = cosine_similarity(by_name[a], by_name[b])
+        assert sim < threshold, f"{a}↔{b} cosine={sim:.3f} still ≥ {threshold}"
+    for a, b in mcp_pairs:
+        if a not in by_name or b not in by_name:
+            pytest.skip("MCP self-service tools not registered (BUTLER_MCP_ENABLED=0)")
         sim = cosine_similarity(by_name[a], by_name[b])
         assert sim < threshold, f"{a}↔{b} cosine={sim:.3f} still ≥ {threshold}"
     for a, b in pairs_domain:
