@@ -451,7 +451,11 @@ def register_memo_tools(register: Callable[..., None]) -> None:
 
     register(
         name="memo_search",
-        description="按关键词搜索备忘录内容和标签。用户说「查看/搜索XX备忘」时使用。注意：修改备忘请用 memo_update（需要 memo_id）。",
+        description=(
+            "【read-only·query】按关键词检索备忘录正文与 tags，返回 memo_id 与摘要。"
+            "场景：找备忘、不知道 id 时先搜。"
+            "不写库、不改 status。"
+        ),
         schema={
             "type": "object",
             "properties": {
@@ -466,7 +470,11 @@ def register_memo_tools(register: Callable[..., None]) -> None:
 
     register(
         name="memo_update",
-        description="更新备忘录的状态、内容或优先级。标记完成用 status='done'。需要 memo_id 参数；若不知 memo_id，先用 memo_search 查找。",
+        description=(
+            "【mutation·patch】按 memo_id 更新 status/content/priority/tags。"
+            "场景：标记完成、改文案。"
+            "不执行关键词检索。"
+        ),
         schema={
             "type": "object",
             "properties": {

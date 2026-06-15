@@ -13,9 +13,14 @@ def _tool_name(defn: dict[str, Any]) -> str:
     return str(fn.get("name") or defn.get("name") or "").strip()
 
 
-def _tool_text(defn: dict[str, Any]) -> str:
+def _tool_description(defn: dict[str, Any]) -> str:
     fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
-    return f"{fn.get('name', '')} {fn.get('description', '')}".lower()
+    return str(fn.get("description") or "").strip().lower()
+
+
+def _tool_text(defn: dict[str, Any]) -> str:
+    """Embedding text for orthogonality: description only (names are fixed API)."""
+    return _tool_description(defn)
 
 
 def _toolset_for(name: str) -> str:

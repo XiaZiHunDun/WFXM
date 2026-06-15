@@ -483,14 +483,22 @@ def register_reminder_tools(register: Callable[..., None]) -> None:
     )
     register(
         name="list_reminders",
-        description="列出全部提醒（含 pending 和已触发 fired 的记录）。用户说「所有提醒记录」「已触发的也看看」时使用。仅看活跃提醒请用 reminder_list_active。",
+        description=(
+            "【audit·全状态 dump】导出 reminders 表全部行：fired / cancelled / pending 均含。"
+            "场景：复盘「以前设过什么」「上次响了吗」。"
+            "非日程预览； upcoming 队列用 reminder_list_active。"
+        ),
         schema={"type": "object", "properties": {}},
         handler=tool_list_reminders,
         toolset="reminder",
     )
     register(
         name="reminder_list_active",
-        description="仅列出待触发的活跃提醒，按到期时间排序。用户说「看看有什么提醒」「待触发的提醒」时使用。查看全部记录请用 list_reminders。",
+        description=(
+            "【schedule·upcoming queue】filter status=pending，按 trigger_at 排序的下一次闹钟。"
+            "场景：「接下来要响什么」「最近几个闹钟」。"
+            "无 fired/cancelled 归档；全量审计用 list_reminders。"
+        ),
         schema={"type": "object", "properties": {}},
         handler=tool_reminder_list_active,
         toolset="reminder",

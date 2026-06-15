@@ -521,9 +521,9 @@ def register_expense_tools(register: Callable[..., None]) -> None:
     register(
         name="expense_summary",
         description=(
-            "查看收支汇总统计（聚合）。可按月/周/年查看，含分类明细。"
-            "用户说「这个月花了多少」「本周支出」「交通费花了多少」时使用。"
-            "注意：查看逐笔明细请用 expense_list，按关键词搜索请用 expense_search。"
+            "【rollup-only】按 month/week/year 输出 expense_totals 与各 category_breakdown。"
+            "场景：问周期总额、分类占比。"
+            "禁止返回单笔 transaction 行。"
         ),
         schema={
             "type": "object",
@@ -543,7 +543,11 @@ def register_expense_tools(register: Callable[..., None]) -> None:
 
     register(
         name="expense_list",
-        description="列出最近的收支明细记录（逐笔）。用户说「最近花了什么」「消费明细」时使用。查看汇总请用 expense_summary。",
+        description=(
+            "【transaction-only】按时间倒序输出 ledger rows（amount、category、date）。"
+            "场景：问「买了什么」「列流水」。"
+            "禁止 period_total 或 category_breakdown。"
+        ),
         schema={
             "type": "object",
             "properties": {
@@ -598,7 +602,10 @@ def register_expense_tools(register: Callable[..., None]) -> None:
 
     register(
         name="expense_search",
-        description="按描述关键词搜索收支记录。",
+        description=(
+            "【read-only·keyword】按描述关键词检索收支行，返回 record_id 与摘要。"
+            "场景：找某笔消费。不删除、不修改。"
+        ),
         schema={
             "type": "object",
             "properties": {
@@ -613,7 +620,10 @@ def register_expense_tools(register: Callable[..., None]) -> None:
 
     register(
         name="expense_delete",
-        description="删除一条收支记录。",
+        description=(
+            "【mutation·purge】按 record_id 永久删除一条收支。"
+            "场景：记错账需移除。不执行关键词搜索。"
+        ),
         schema={
             "type": "object",
             "properties": {

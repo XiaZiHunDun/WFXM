@@ -195,8 +195,8 @@ def register_project_todos_tools(register: Callable[..., None]) -> None:
     register(
         name="project_todos_write",
         description=(
-            "Replace or merge the project-level persistent todo list. "
-            "Set merge=true to update by id. These persist across sessions."
+            "【persistent·project JSON】Replace or merge project-level todos on disk. "
+            "merge=true updates by id. Survives gateway restarts and /new."
         ),
         schema={
             "type": "object",

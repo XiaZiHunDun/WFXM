@@ -278,7 +278,10 @@ def register_git_tools(register: Callable[..., None]) -> None:
 
     register(
         name="git_status",
-        description="Show git status (short, with branch). Requires BUTLER_ENABLE_GIT=1.",
+        description=(
+            "【porcelain·names】Branch plus modified/staged/untracked path buckets. "
+            "Filenames only; zero +/- line content."
+        ),
         schema={
             "type": "object",
             "properties": {
@@ -291,7 +294,10 @@ def register_git_tools(register: Callable[..., None]) -> None:
 
     register(
         name="git_diff",
-        description="Show git diff. Requires BUTLER_ENABLE_GIT=1.",
+        description=(
+            "【unified-patch】+/- line hunks for staged or unstaged changes (stat/ref/file). "
+            "Patch text only; zero branch name, zero path inventory table."
+        ),
         schema={
             "type": "object",
             "properties": {
@@ -308,7 +314,10 @@ def register_git_tools(register: Callable[..., None]) -> None:
 
     register(
         name="git_log",
-        description="Show recent git commits. Requires BUTLER_ENABLE_GIT=1.",
+        description=(
+            "【history·timeline】Recent commits: sha, author, date, subject. "
+            "Optional file/author/since filters. No working-tree status, no diff hunks."
+        ),
         schema={
             "type": "object",
             "properties": {
@@ -349,7 +358,9 @@ def register_git_tools(register: Callable[..., None]) -> None:
 
     register(
         name="git_add",
-        description="Stage files for commit. Requires BUTLER_ENABLE_GIT_WRITE=1.",
+        description=(
+            "【stage·index】Put paths into the git index; no commit object is created."
+        ),
         schema={
             "type": "object",
             "properties": {
@@ -369,7 +380,8 @@ def register_git_tools(register: Callable[..., None]) -> None:
     register(
         name="git_commit",
         description=(
-            "Commit staged changes (run git_add first). Requires BUTLER_ENABLE_GIT_WRITE=1."
+            "【snapshot·hash】Finalize the staged index into a new commit with message. "
+            "Requires BUTLER_ENABLE_GIT_WRITE=1."
         ),
         schema={
             "type": "object",

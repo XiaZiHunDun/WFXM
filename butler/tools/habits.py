@@ -486,9 +486,9 @@ def register_habit_tools(register: Callable[..., None]) -> None:
     register(
         name="habit_checkin",
         description=(
-            "为习惯打卡（记录完成）。用户说「打卡」「我跑步了」「完成了运动」时使用此工具。"
-            "支持按名称或ID，可指定日期和次数。同一天多次打卡会累加次数。"
-            "注意：查看统计请用 habit_stats，列出习惯请用 habit_list。"
+            "【mutation·append】向 check-in 日志写入一次完成事件（habit_id、count、date）。"
+            "场景：用户刚做完（「跑了步」「喝水打卡」）。"
+            "仅返回写入确认；analytics 用 habit_stats。"
         ),
         schema={
             "type": "object",
@@ -507,10 +507,8 @@ def register_habit_tools(register: Callable[..., None]) -> None:
     register(
         name="habit_stats",
         description=(
-            "查看习惯统计：连续天数、7天/30天完成率、今日是否完成。"
-            "用户问「打卡情况怎样」「连续多少天」「完成率」时使用此工具。"
-            "不指定 habit_id 返回全部习惯概览。"
-            "注意：打卡请用 habit_checkin，仅列出习惯名请用 habit_list。"
+            "【metrics-only】streak、completion_rate、今日完成 flag。"
+            "场景：连续几天、完成率。禁止输出名称清单。"
         ),
         schema={
             "type": "object",
@@ -524,7 +522,10 @@ def register_habit_tools(register: Callable[..., None]) -> None:
 
     register(
         name="habit_list",
-        description="列出所有活跃习惯的名称和基本信息。用户说「有哪些习惯」「列出习惯」时使用。查看统计详情请用 habit_stats。",
+        description=(
+            "【roster-only】活跃习惯名称与 id 列表。"
+            "场景：「有哪些习惯」。禁止 streak、rate、百分比。"
+        ),
         schema={"type": "object", "properties": {}},
         handler=tool_habit_list,
         toolset="habits",

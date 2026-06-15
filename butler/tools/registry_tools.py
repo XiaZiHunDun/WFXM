@@ -10,7 +10,10 @@ from butler.registry.skill_service import SkillRegistryService
 def register_registry_tools(register) -> None:
     register(
         name="registry_search_skills",
-        description="Search skill catalogs (read-only). Returns identifiers for Owner install.",
+        description=(
+            "【catalog·read-only】Query skill indexes (bundled/github/marketplace); "
+            "returns identifier hits. Zero download, zero filesystem writes."
+        ),
         schema={
             "type": "object",
             "properties": {
@@ -30,8 +33,8 @@ def register_registry_tools(register) -> None:
     register(
         name="registry_propose_skill_install",
         description=(
-            "Return Owner-only install command for a skill identifier. "
-            "Does not install."
+            "【owner-hint·text】Compose slash/WeChat install instructions for an identifier. "
+            "Returns command text only; does not copy files."
         ),
         schema={
             "type": "object",
@@ -47,8 +50,8 @@ def register_registry_tools(register) -> None:
     register(
         name="registry_install_skill",
         description=(
-            "Install a skill from the registry. Requires Owner approval. "
-            "Use registry_search_skills first to find the identifier."
+            "【install·mutation】Copy skill package into tenant store after Owner gate. "
+            "Requires identifier; performs download/write."
         ),
         schema={
             "type": "object",

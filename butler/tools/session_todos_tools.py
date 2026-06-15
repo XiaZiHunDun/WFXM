@@ -82,8 +82,8 @@ def register_session_todos_tools(register: Callable[..., None]) -> None:
     register(
         name="session_todos_write",
         description=(
-            "Replace or merge the session todo list. Pass the full checklist you are tracking "
-            "(OpenCode todowrite style). Set merge=true to update by id without dropping others."
+            "【ephemeral·WeChat session】Replace or merge the in-memory session checklist "
+            "(OpenCode todowrite style). merge=true updates by id. Cleared on /new."
         ),
         schema={
             "type": "object",

@@ -445,8 +445,8 @@ def register_contact_tools(register: Callable[..., None]) -> None:
     register(
         name="contact_add",
         description=(
-            "添加联系人到主人的通讯录。记录姓名、电话、邮箱、地址等。"
-            "用于记录医生、维修工、朋友、同事等联系方式。"
+            "【mutation·create】Insert a new contact card (name, phone, email, tags, notes). "
+            "场景：首次记录某人联系方式。不执行模糊查找。"
         ),
         schema={
             "type": "object",
@@ -483,7 +483,10 @@ def register_contact_tools(register: Callable[..., None]) -> None:
 
     register(
         name="contact_find",
-        description="按姓名、电话、标签等关键词搜索联系人。",
+        description=(
+            "【read-only·lookup】Fuzzy search existing contact cards by query/category. "
+            "场景：找电话/邮箱。不创建新卡片。"
+        ),
         schema={
             "type": "object",
             "properties": {
