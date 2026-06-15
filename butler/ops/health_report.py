@@ -254,6 +254,14 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
     context_line = format_context_budget_line(health)
     context_config_line = format_context_config_source_line()
     try:
+        from butler.tools.path_safety import format_tool_workspace_line
+
+        workspace_line = format_tool_workspace_line(
+            str(health.get("session_key") or inp.session_key or "")
+        )
+    except Exception:
+        workspace_line = ""
+    try:
         from butler.core.compaction_status import format_compaction_status_line
 
         compact_note = format_compaction_status_line(health).replace("压缩状态: ", "")
@@ -321,8 +329,22 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
         engine_line,
         context_line,
         context_config_line,
+    ]
+    if workspace_line:
+        out.append(workspace_line)
+    out += [
         f"记忆提炼模型(post_session): {aux_label}",
         f"压缩: {compact_note}",
+    ]
+    try:
+        from butler.core.compaction_status import format_fact_survival_line
+
+        fact_line = format_fact_survival_line(health)
+        if fact_line:
+            out.append(fact_line)
+    except Exception as exc:
+        logger.debug("fact survival diagnostic line skipped: %s", exc)
+    out += [
         f"Schema 降级: {'是' if schema_recovered else '否'}",
         f"剥离关键字: {schema_keywords}",
         f"Skill: {'已注入' if health.get('skill_context_injected') else '未注入'}",

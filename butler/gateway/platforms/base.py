@@ -120,7 +120,7 @@ class ButlerPlatformAdapter(ABC):
                         )
                     else:
                         if bridge is not None:
-                            bridge.mark_final_sent()
+                            bridge.mark_final_sent(main_reply_chars=len(response or ""))
                             bridge.maybe_notify_turn_complete_after_reply()
             except Exception as exc:
                 logger.error("[%s] handler failed: %s", self.name, exc, exc_info=True)

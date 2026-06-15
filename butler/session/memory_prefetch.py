@@ -83,6 +83,8 @@ def _emit_prefetch_metrics(
                 relevant=relevant,
                 used_by_llm=0,
             )
+            if diagnostics is not None:
+                diagnostics["memory_prefetch_retrieval_total"] = total
         from butler.memory.metrics_persist import flush_memory_metrics
 
         flush_memory_metrics()
@@ -171,6 +173,18 @@ def prefetch_turn_memory(
     caps = prefetch_limits()
     hit_limit = limit if limit is not None else caps["experience_hits"]
     parts: list[str] = []
+
+    try:
+        from butler.core.session_recall_intent import is_session_read_recall_intent
+
+        if is_session_read_recall_intent(query):
+            if diagnostics is not None:
+                diagnostics["memory_prefetch_skipped"] = "session_read_recall"
+            _emit_prefetch_metrics(query, hit=False, result_count=0, diagnostics=diagnostics)
+            return ""
+    except Exception as exc:
+        logger.debug("session read recall prefetch gate skipped: %s", exc)
+
     current_project = _current_project(orchestrator)
 
     bm = getattr(orchestrator, "butler_memory", None)
@@ -187,6 +201,11 @@ def prefetch_turn_memory(
             logger.debug("Butler memory prefetch skipped: %s", exc)
 
         try:
+            from butler.memory.semantic_index import SemanticMemoryIndex
+
+            semantic = getattr(bm, "semantic", None)
+            if not isinstance(semantic, SemanticMemoryIndex):
+                semantic = None
             if (query or "").strip():
                 hits = peek_experience_hits(
                     orchestrator, query, limit=hit_limit
@@ -349,6 +368,12 @@ def prefetch_turn_memory(
         from butler.memory.prefetch_cache import set_cached_prefetch
 
         set_cached_prefetch(session_key, query, merged)
+        try:
+            from butler.memory.prefetch_retrieval_metrics import record_prefetch_snippets
+
+            record_prefetch_snippets(diagnostics, merged)
+        except Exception as exc:
+            logger.debug("prefetch snippet capture skipped: %s", exc)
 
     hit = bool(merged.strip())
     result_count = int(diagnostics.get("memory_experience_hits", 0) if diagnostics else 0)

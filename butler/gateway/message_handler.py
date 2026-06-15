@@ -26,6 +26,7 @@ from typing import Any, Optional
 from butler.core.agent_loop import AgentLoop, LoopResult
 from butler.gateway.locked_phases import (
     LockedTurnState,
+    _phase_apply_correction_intent,
     _phase_apply_normalizers_and_slash,
     _phase_apply_prompt_hooks,
     _phase_augment_prompt,
@@ -111,6 +112,9 @@ class ButlerMessageHandler:
             session_key=session_key,
         )
         _inject_previous_session_summary(loop, project)
+        from butler.core.session_hydration import hydrate_loop_on_create
+
+        hydrate_loop_on_create(loop, session_key, project)
         return loop
 
     def _finalize_session(self, loop: AgentLoop) -> None:
@@ -459,9 +463,13 @@ class ButlerMessageHandler:
         state = LockedTurnState(
             text=text, session_key=session_key, platform=platform, external_id=external_id,
         )
-        welcome_prefix = _maybe_welcome_prefix(session_key)
+        welcome_prefix = _maybe_welcome_prefix(session_key, text)
 
         response = _phase_apply_normalizers_and_slash(self, state)
+        if response is not None:
+            return response
+
+        response = _phase_apply_correction_intent(self, state)
         if response is not None:
             return response
 

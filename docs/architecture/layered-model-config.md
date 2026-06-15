@@ -123,6 +123,7 @@ models:
 auxiliary:
   compression: { provider: deepseek, model: deepseek-chat }
   post_session: { provider: deepseek, model: deepseek-chat }
+  fusion: { provider: minimax, model: MiniMax-M2.7 }   # Skill/经验合并；BUTLER_SKILL_FUSION=1 时生效
 gateway:   # 新增段（可选，与 env 二选一或 env 覆盖）
   inbound_media:
     vision:

@@ -59,6 +59,8 @@
 | `BUTLER_GATEWAY_PROGRESS_ACK_SECONDS` | 30 | 进度确认间隔（秒） |
 | `BUTLER_GATEWAY_TIMEOUT_COMPLETION_NOTIFY` | 1 | 超时完成推送 |
 | `BUTLER_GATEWAY_TURN_COMPLETION_NOTIFY` | 1 | 轮次完成推送 |
+| `BUTLER_GATEWAY_SUPPRESS_COMPLETION_AFTER_MAIN` | 1 | 主回复已发则抑制委派/整轮/工作流完成推送（防刷屏） |
+| `BUTLER_GATEWAY_MAX_SUPPLEMENTARY_PER_TURN` | 2 | 每轮最多额外微信条数（完成推送、队列 drain、里程碑等） |
 | `BUTLER_GATEWAY_WORKFLOW_COMPLETION_NOTIFY` | 1 | 工作流完成推送 |
 | `BUTLER_GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS` | 90 | 完成推送最短等待时间（≥ progress ack 间隔） |
 | `BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH` | 3 | `DELEGATE_COMPLETION_MODE=each` 时每轮最多推送次数 |
@@ -226,6 +228,14 @@
 | `GITHUB_TOKEN` | — | GitHub API（技能拉取） |
 | `BUTLER_SESSION_TRANSCRIPT` | 1 | `~/.butler/sessions/<key>/transcript.jsonl`；含 compact / `bot_loop_suppressed` 等事件 |
 | `BUTLER_SESSION_TRANSCRIPT_MAX_BYTES` | 52428800 | transcript 轮转阈值 |
+| `BUTLER_SESSION_HYDRATE` | 1 | 新建 Loop 时从 transcript 注入 read_file 事实块 |
+| `BUTLER_SESSION_TOOL_INDEX` | 1 | 从 transcript 解析本轮 `read_file` 路径索引 |
+| `BUTLER_SESSION_RECOVERY_NOTICE` | 1 | 冷启动后首条回复附会话恢复提示 |
+| `BUTLER_WORKSPACE_ANCHOR_STRICT` | 1 | 相对路径优先锚定当前项目 workspace |
+| `BUTLER_TURN_SUMMARY_LINE` | 0 | `1` 时长回复前附一行工具摘要（`读了N文件·…`） |
+| `BUTLER_TURN_SUMMARY_MIN_CHARS` | 400 | 触发摘要的最小回复长度 |
+| `BUTLER_MORNING_BRIEF` | 0 | `1` 时每日 timer 向 Owner 微信推送 `/简报` 内容 |
+| `BUTLER_TOOL_AUDIT_PERSIST` | 1 | tool_audit 追加写入 `sessions/<key>/tool_audit.jsonl` |
 | `BUTLER_READ_BEFORE_EDIT` | 1 | patch/write 前须 read_file + mtime |
 | `BUTLER_READ_STATE_MAX_ENTRIES` | 100 | read state LRU 上限 |
 | `BUTLER_DISABLE_AUTO_COMPACT` | 0 | `1` 关闭 LLM 摘要压缩 |
@@ -413,7 +423,7 @@
 | `BUTLER_DELEGATE_ONE_TOOL_PER_ITERATION` | 0 | 委派子 Agent 每轮单工具（关并行） |
 | `BUTLER_COMPACTION_PREFLIGHT_CHECKLIST` | 1 | 压缩摘要附带完成前自检要点 |
 | `BUTLER_WECHAT_CONTENT_DEDUP_TTL` | 20 | 微信内容去重 TTL（秒） |
-| `BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL` | 300 | 微信消息 ID 去重 TTL（秒） |
+| `BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL` | 86400 | 微信消息 ID 去重 TTL（秒）；防 iLink 重复投递重放旧消息 |
 | `BUTLER_GATEWAY_EXTERNAL_ID_DEDUPE` | 1 | 微信 `external_id` 入站幂等（防重投双跑 Loop） |
 | `BUTLER_TASK_STALE_MINUTES` | 60 | `running` 委派超过此时长标 stale |
 | `BUTLER_TASK_STALE_AUTO_FAIL` | 0 | 是否自动将 stale 任务标为 failed |
@@ -594,6 +604,12 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_EXPERIENCE_MINING_AUTO_INGEST` | `0` | `1` = 高置信且定理通过时自动写入 `coding_experiences.json`；**runtime weekly job 固定不自动入库** |
 | `BUTLER_EXPERIENCE_MINING_MIN_CONFIDENCE` | `0.7` | 自动入库置信度下限 |
 | `BUTLER_EXPERIENCE_MINING_DAYS` | `7` | 近期文件扫描天数；runtime job `experience-mining-weekly` 使用同一窗口 |
+| `BUTLER_EXPERIENCE_MERGE` | `1` | 经验写入前向量近邻消化（相似则融合或入队待审） |
+| `BUTLER_EXPERIENCE_MERGE_AUTO` | `0.92` | 向量相似度 ≥ 此值且融合 LLM 成功 → 原地合并 |
+| `BUTLER_EXPERIENCE_MERGE_REVIEW` | `0.78` | 相似度 ≥ 此值但未自动合并 → `metrics/experience_merge_pending.json` |
+| `BUTLER_SKILL_FUSION` | `1` | Skill 相似合并使用可信模型（`auxiliary.fusion` 或 butler 栈） |
+
+CLI：`butler memory merge-pending` 列出待审；`--apply KEY` / `--dismiss KEY` 应用或驳回（队列文件 `~/.butler/metrics/experience_merge_pending.json`）。
 
 ### 可观测（LangFuse）
 

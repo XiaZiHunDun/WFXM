@@ -567,6 +567,9 @@ class WeChatAdapter(ButlerPlatformAdapter):
                 suggested_timeout = response.get("longpolling_timeout_ms")
                 if isinstance(suggested_timeout, int) and suggested_timeout > 0:
                     timeout_ms = suggested_timeout
+                new_sync_buf = str(response.get("get_updates_buf") or "").strip()
+                if new_sync_buf:
+                    sync_buf = new_sync_buf
                 consecutive_failures = await self._dispatch_poll_response(
                     response, consecutive_failures, _phase_poll_handle_response,
                 )

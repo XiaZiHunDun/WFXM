@@ -32,6 +32,10 @@ print(format_production_delegate_delta(snap.get("delta")))
 clean = snap.get("clean") or {}
 print(format_production_delegate_report(clean, clean=True))
 print(format_production_delegate_delta(snap.get("clean_delta"), clean=True))
+from butler.ops.prod_experience_effectiveness import format_prod_experience_effectiveness
+
+print()
+print(format_prod_experience_effectiveness())
 delta = compare_production_delegate_delta(clean=True)
 print(json.dumps({"clean_delta_detail": delta}, ensure_ascii=False, indent=2))
 if int(delta.get("snapshots") or 0) < 2:

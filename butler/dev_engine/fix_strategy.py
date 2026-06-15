@@ -86,6 +86,20 @@ def _is_direct_fix(msg: str, rule: str, source: str) -> bool:
     return False
 
 
+def enrich_fix_hint(fix_level: FixLevel, state: DevState) -> str:
+    """Append experience pattern for structural fixes when guidance is available."""
+    hint = fix_level.value
+    if fix_level != FixLevel.STRUCTURAL:
+        return hint
+    ctx = getattr(state, "_coding_knowledge_ctx", None)
+    if ctx is None or ctx.selected_experience is None:
+        return hint
+    pattern = str(ctx.selected_experience.pattern or "").strip()
+    if not pattern:
+        return hint
+    return f"{hint}: {pattern[:240]}"
+
+
 def _is_structural_fix(msg: str, source: str) -> bool:
     structural_patterns = [
         "assert",

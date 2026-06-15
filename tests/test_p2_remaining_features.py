@@ -211,6 +211,25 @@ class TestOnboardingWelcome:
         assert first != ""
         assert second == ""
 
+    def test_welcome_skipped_when_user_asks_self_intro(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "1")
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        from butler.gateway.message_handler import _WELCOMED_SESSIONS, _maybe_welcome_prefix
+
+        _WELCOMED_SESSIONS.discard("test:intro_user")
+        result = _maybe_welcome_prefix("test:intro_user", "介绍一下你自己")
+        assert result == ""
+        assert "test:intro_user" in _WELCOMED_SESSIONS
+        assert _maybe_welcome_prefix("test:intro_user", "你好") == ""
+
+    def test_welcome_skipped_for_capabilities_question(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "1")
+        monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+        from butler.gateway.message_handler import _WELCOMED_SESSIONS, _maybe_welcome_prefix
+
+        _WELCOMED_SESSIONS.discard("test:cap_user")
+        assert _maybe_welcome_prefix("test:cap_user", "看下你都可以干什么") == ""
+
     def test_welcome_atomic_under_concurrent_threads(self, monkeypatch, tmp_path):
         """Audit 3.2.1: the in-check + set.add pair is racy. We replace
         _WELCOMED_SESSIONS with a set subclass whose add() sleeps briefly,

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import threading
 from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING
@@ -326,12 +327,51 @@ _WELCOME_TEXT = """Hi，我是你的 Butler 管家！首次对话，快速了解
 
 如有任何问题，直接跟我说就好！"""
 
+# User already asked for identity/capabilities — LLM reply supersedes static welcome.
+_WELCOME_SUPERSEDED_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"介绍.{0,8}(自己|你)|自我介绍", re.I),
+    re.compile(r"你是谁|你叫什么|什么名字|who\s+are\s+you", re.I),
+    re.compile(r"(可以|能|会).{0,12}(干什么|做什么|帮我|什么)", re.I),
+    re.compile(r"(什么|哪些).{0,8}(能力|功能|命令)", re.I),
+    re.compile(r"^/?帮助$", re.I),
+)
 
-def _maybe_welcome_prefix(session_key: str) -> str:
+
+def _user_turn_supersedes_welcome(user_text: str) -> bool:
+    text = (user_text or "").strip()
+    if not text:
+        return False
+    return any(pat.search(text) for pat in _WELCOME_SUPERSEDED_PATTERNS)
+
+
+def _mark_session_welcomed(session_key: str) -> None:
+    """Persist first-contact marker without emitting welcome text."""
+    with _WELCOMED_LOCK:
+        if session_key in _WELCOMED_SESSIONS:
+            return
+        _WELCOMED_SESSIONS.add(session_key)
+
+    marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
+    try:
+        if marker.is_file():
+            known = set(marker.read_text(encoding="utf-8").strip().splitlines())
+            if session_key in known:
+                return
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        with open(marker, "a", encoding="utf-8") as f:
+            f.write(session_key + "\n")
+    except Exception as exc:
+        logger.debug("mark session welcomed skipped: %s", exc)
+
+
+def _maybe_welcome_prefix(session_key: str, user_text: str = "") -> str:
     """Return welcome text for first-time sessions, empty string otherwise."""
     from butler.defaults.env_defaults import ONBOARDING_WELCOME_DEFAULT
 
     if os.getenv("BUTLER_ONBOARDING_WELCOME", ONBOARDING_WELCOME_DEFAULT).strip() == "0":
+        return ""
+    if _user_turn_supersedes_welcome(user_text):
+        _mark_session_welcomed(session_key)
         return ""
     with _WELCOMED_LOCK:
         if session_key in _WELCOMED_SESSIONS:

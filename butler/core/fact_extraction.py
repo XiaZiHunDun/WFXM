@@ -205,6 +205,40 @@ def extract_pre_compact_facts(
     return deduped
 
 
+def count_facts_for_anchor(session_key: str) -> tuple[int, int]:
+    """Return (store_count, anchor_count) for S_f telemetry.
+
+    ``anchor_count`` matches ``format_facts_for_anchor`` (recent 20 cap).
+    """
+    facts = load_facts(session_key)
+    store = len(facts)
+    if store == 0:
+        return 0, 0
+    return store, min(store, 20)
+
+
+def record_fact_anchor_metrics(
+    session_key: str,
+    *,
+    diagnostics: dict[str, Any] | None = None,
+) -> tuple[int, int]:
+    """Record per-compaction fact survival for /诊断 and L2 metrics."""
+    store, anchor = count_facts_for_anchor(session_key)
+    if diagnostics is not None:
+        diagnostics["facts_store_count"] = store
+        diagnostics["facts_anchor_count"] = anchor
+        if store > 0:
+            diagnostics["fact_survival_rate_turn"] = round(anchor / store, 4)
+    if store > 0:
+        try:
+            from butler.memory.memory_metrics import get_collector
+
+            get_collector().on_fact_anchor_survival(store_count=store, anchor_count=anchor)
+        except Exception:
+            pass
+    return store, anchor
+
+
 def format_facts_for_anchor(session_key: str, *, max_chars: int = 2000) -> str:
     """Format stored facts as a post-compact anchor block."""
     facts = load_facts(session_key)

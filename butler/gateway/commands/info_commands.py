@@ -233,6 +233,109 @@ def _cmd_cost(ctx: CommandContext) -> Optional[str]:
     return format_cost_with_calibration(ctx.session_key)
 
 
+def _cmd_session_reads(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.core.session_tool_index import format_session_read_files_block
+
+    pm = ctx.orchestrator.project_manager
+    proj = pm.get_current(session_key=ctx.session_key)
+    ws = getattr(proj, "workspace", None) if proj else None
+    return format_session_read_files_block(
+        ctx.session_key,
+        workspace=ws,
+        title="本轮 read_file 清单（transcript 事实）",
+    )
+
+
+def _cmd_session_tools(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    arg = str(ctx.arg or "").strip().lower()
+    if arg in ("raw", "原始"):
+        from butler.core.session_epoch import load_epoch_transcript_rows
+
+        rows = load_epoch_transcript_rows(ctx.session_key, max_lines=120)
+        actions = [
+            r for r in rows
+            if str(r.get("type") or "") == "tool_action"
+        ][-10:]
+        if not actions:
+            return "本轮尚无工具调用记录（transcript）。"
+        lines = ["最近工具调用（transcript，最多 10 条）："]
+        for row in actions:
+            tool = str(row.get("tool") or "?")
+            src = str(row.get("source") or "")
+            preview = str(row.get("args_preview") or "")[:80]
+            lines.append(f"- {tool} [{src}] {preview}")
+        return "\n".join(lines)
+
+    from butler.core.tool_narrative import format_session_tool_narrative
+
+    return format_session_tool_narrative(ctx.session_key)
+
+
+def _cmd_brief(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.ops.butler_inbox import format_owner_brief
+
+    health = ctx.session_registry.get_health(ctx.session_key)
+    return format_owner_brief(ctx.orchestrator, ctx.session_key, health=health)
+
+
+def _cmd_inbox(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.ops.butler_inbox import format_owner_inbox
+
+    health = ctx.session_registry.get_health(ctx.session_key)
+    return format_owner_inbox(ctx.orchestrator, ctx.session_key, health=health)
+
+
+def _cmd_delegate_quality(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.ops.owner_quality_surface import format_delegate_quality_report
+
+    return format_delegate_quality_report()
+
+
+def _cmd_compaction_report(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.core.compaction_status import format_compaction_report
+
+    health = ctx.session_registry.get_health(ctx.session_key)
+    return format_compaction_report(ctx.session_key, health)
+
+
+def _cmd_trust(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.ops.owner_trust_surface import format_trust_report
+
+    health = ctx.session_registry.get_health(ctx.session_key)
+    return format_trust_report(ctx.orchestrator, ctx.session_key, health=health)
+
+
+def _cmd_memory_sources(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.core.memory_source_surface import format_memory_sources_report
+
+    health = ctx.session_registry.get_health(ctx.session_key)
+    return format_memory_sources_report(health)
+
+
 def _cmd_health(ctx: CommandContext) -> Optional[str]:
     """Sprint 11 TST-10-5: 从 inline 迁移 — 等价于原 handler._format_health_summary。"""
     gate = require_owner(ctx)
@@ -285,6 +388,44 @@ _INFO_COMMANDS = [
         handler=_cmd_health,
     ),
     CommandDef("/成本", ("/cost",), "系统管理", "查看会话成本概览", handler=_cmd_cost),
+    CommandDef("/本轮已读", ("/reads",), "对话控制", "本轮 read_file 路径清单", handler=_cmd_session_reads),
+    CommandDef(
+        "/本轮工具",
+        ("/tools",),
+        "对话控制",
+        "本轮工具叙事（加 raw 看原始参数）",
+        handler=_cmd_session_tools,
+    ),
+    CommandDef("/简报", ("/brief",), "对话控制", "管家简报（待办/提醒/待审汇总）", handler=_cmd_brief),
+    CommandDef("/inbox", (), "对话控制", "管家收件箱详情", handler=_cmd_inbox),
+    CommandDef(
+        "/委派质量",
+        ("/delegate-quality", "/b9"),
+        "系统管理",
+        "B9 基准与生产委派质量",
+        handler=_cmd_delegate_quality,
+    ),
+    CommandDef(
+        "/压缩报告",
+        ("/compact", "/compression"),
+        "对话控制",
+        "本会话压缩状态与摘要节选",
+        handler=_cmd_compaction_report,
+    ),
+    CommandDef(
+        "/信任",
+        ("/trust",),
+        "对话控制",
+        "信任与透明度（权限/Skill/记忆来源）",
+        handler=_cmd_trust,
+    ),
+    CommandDef(
+        "/记忆来源",
+        ("/memory-sources",),
+        "记忆",
+        "上轮记忆预取与注入来源（脱敏）",
+        handler=_cmd_memory_sources,
+    ),
 ]
 
 

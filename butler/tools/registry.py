@@ -207,6 +207,20 @@ def dispatch_tool(name: str, args: dict) -> str:
         )
 
     try:
+        from butler.core.session_recall_intent import check_session_read_recall_tool_block
+
+        recall_block = check_session_read_recall_tool_block(name)
+        if recall_block:
+            return _permission_denied_tool_result(
+                name,
+                args,
+                recall_block,
+                code="SESSION_READ_RECALL_BLOCKED",
+            )
+    except Exception as exc:
+        logger.debug("Session read recall tool gate skipped: %s", exc)
+
+    try:
         from butler.permissions import check_project_permission_block
 
         perm_block = check_project_permission_block(name, args)

@@ -130,9 +130,43 @@ class AgentLoop:
         self._empty_retries = 0
         self._truncation_retries = 0
         self._tool_prefetch: dict[str, str] = {}
+        self._orchestrator: Any | None = None
+        self._session_key: str = ""
         from butler.core.loop_plugins import default_plugin_registry
 
         self._plugins = default_plugin_registry(self.config)
+
+    def bind_execution(
+        self,
+        orchestrator: Any | None = None,
+        *,
+        session_key: str = "",
+    ) -> None:
+        """Bind orchestrator/session for tool dispatch when contextvars are missing."""
+        if orchestrator is not None:
+            self._orchestrator = orchestrator
+        self._session_key = str(session_key or self._session_key or "")
+
+    def _tool_execution_context(self):
+        from contextlib import contextmanager
+
+        from butler.execution_context import (
+            get_current_orchestrator,
+            get_current_session_key,
+            use_execution_context,
+        )
+
+        @contextmanager
+        def _ctx():
+            orch = get_current_orchestrator() or self._orchestrator
+            sk = str(get_current_session_key() or self._session_key or "")
+            if orch is None and not sk:
+                yield
+                return
+            with use_execution_context(orch, session_key=sk):
+                yield
+
+        return _ctx()
 
     @property
     def _compression_summary(self) -> str:
@@ -530,7 +564,8 @@ class AgentLoop:
         def _inner(n: str, a: dict) -> str:
             return dispatch_tool_with_envelope(self.tool_dispatcher, n, a)
 
-        return self._plugins.wrap_tool_call(name, args, _inner)
+        with self._tool_execution_context():
+            return self._plugins.wrap_tool_call(name, args, _inner)
 
     @property
     def messages(self) -> list[dict]:

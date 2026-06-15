@@ -100,6 +100,25 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     )
     mmigrate.set_defaults(func=_cmd_memory_migrate_lingwen_l3)
 
+    mmerge = mem_sub.add_parser(
+        "merge-pending",
+        help="查看/应用/驳回经验向量近邻合并待审队列",
+    )
+    mmerge.add_argument(
+        "--apply",
+        metavar="KEY",
+        default="",
+        help="将待审项合并写入已有 experience 行",
+    )
+    mmerge.add_argument(
+        "--dismiss",
+        metavar="KEY",
+        default="",
+        help="从待审队列移除（不写入）",
+    )
+    mmerge.add_argument("--json", action="store_true", help="输出 JSON")
+    mmerge.set_defaults(func=_cmd_memory_merge_pending)
+
     # Legacy top-level alias (kept for backward compat with old scripts).
     ri = sub.add_parser(
         "memory-reindex",
@@ -276,6 +295,62 @@ def _cmd_memory_migrate_lingwen_l3(ns: argparse.Namespace) -> int:
         return 1
     if result.get("dry_run") and result.get("migrated"):
         console.print("[yellow]dry-run：加 --apply 执行 L4→L3 迁移[/yellow]")
+    return 0
+
+
+def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:
+    import json
+
+    from butler.config import get_butler_home
+    from butler.memory.experience_consolidation import (
+        apply_merge_pending,
+        dismiss_merge_pending,
+        format_merge_pending_report,
+        load_merge_pending,
+    )
+
+    apply_key = str(ns.apply or "").strip()
+    dismiss_key = str(ns.dismiss or "").strip()
+    if apply_key and dismiss_key:
+        console = Console()
+        console.print("[red]不能同时指定 --apply 与 --dismiss[/red]")
+        return 1
+
+    if apply_key:
+        result = apply_merge_pending(apply_key, butler_home=get_butler_home())
+        if bool(ns.json):
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            console = Console()
+            if result.get("ok"):
+                console.print(
+                    f"[green]已合并[/green] key={result.get('key')} "
+                    f"id={result.get('row_id')} sim={result.get('similarity')}"
+                )
+            else:
+                console.print(f"[red]{result.get('error', 'apply failed')}[/red]")
+        return 0 if result.get("ok") else 1
+
+    if dismiss_key:
+        result = dismiss_merge_pending(dismiss_key)
+        if bool(ns.json):
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            console = Console()
+            if result.get("ok"):
+                console.print(f"[yellow]已驳回[/yellow] key={result.get('key')}")
+            else:
+                console.print(f"[red]{result.get('error', 'dismiss failed')}[/red]")
+        return 0 if result.get("ok") else 1
+
+    pending = load_merge_pending()
+    if bool(ns.json):
+        print(json.dumps({"ok": True, "count": len(pending), "entries": pending}, ensure_ascii=False, indent=2))
+        return 0
+
+    console = Console()
+    for line in format_merge_pending_report(pending):
+        console.print(line)
     return 0
 
 

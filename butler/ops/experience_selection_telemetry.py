@@ -30,6 +30,7 @@ def record_experience_selection(
     role: str = "dev",
     inferred_task_id: str = "",
     task_affinity: bool | None = None,
+    selection_phase: str = "delegate_start",
 ) -> None:
     if not experience_id:
         return
@@ -55,6 +56,7 @@ def record_experience_selection(
         "keywords": (keywords or [])[:24],
         "inferred_task_id": (inferred_task_id or "")[:80],
         "task_affinity": task_affinity,
+        "selection_phase": (selection_phase or "delegate_start")[:32],
     }
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(row, ensure_ascii=False) + "\n")

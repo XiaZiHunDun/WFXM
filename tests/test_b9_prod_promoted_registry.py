@@ -80,8 +80,16 @@ def test_resolve_lingwen_validate_progress():
     assert resolve_production_failure_to_task(rec) == "B9L_prod_lingwen_validate_progress"
 
 
+def test_resolve_b9_benchmark_read_spec():
+    rec = {
+        "task_preview": "[category:b9-benchmark] read_file test_b9.py first",
+        "issues": ["READ_STATE_REQUIRED", "Shell metacharacters are not allowed"],
+    }
+    assert resolve_production_failure_to_task(rec) == "B9L_prod_task_6d5304648da4"
+
+
 def test_promoted_tasks_exist_in_prod_shaped():
-    assert len(PROMOTED_TASK_IDS) == 8
+    assert len(PROMOTED_TASK_IDS) == 9
     for tid in PROMOTED_TASK_IDS:
         assert tid in B9_PROD_SHAPED_TASK_IDS
 
@@ -95,8 +103,8 @@ def test_promoted_stretch_validate_progress_only():
     )
 
     assert PROMOTED_STRETCH_TASK_IDS == frozenset({"B9L_prod_lingwen_validate_progress"})
-    assert len(PROMOTED_CORE_TASK_IDS) == 7
-    assert len(promoted_core_task_ids()) == 7
+    assert len(PROMOTED_CORE_TASK_IDS) == 8
+    assert len(promoted_core_task_ids()) == 8
     layers = summarize_promoted_probe_layers(
         [
             {"task_id": "B9L_prod_lingwen_demo_add", "passed": True},

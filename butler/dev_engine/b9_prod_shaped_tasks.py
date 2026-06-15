@@ -329,8 +329,8 @@ def _setup_b9l_prod_lingwen_validate_progress(ws: Path) -> None:
     scripts = nf / "scripts"
     scripts.mkdir(parents=True)
     (scripts / "validate_progress.py").write_text(_VALIDATE_PROGRESS_SCRIPT, encoding="utf-8")
-    # Single-line state file — prod-shaped simplification for reliable patch in LIVE.
-    (nf / "workflow_state.json").write_text("batch:reviewer-batch-01 status:OPEN_FIX\n", encoding="utf-8")
+    # Single-line state — minimal patch target for LIVE delegate.
+    (nf / "workflow_state.json").write_text("status:OPEN_FIX\n", encoding="utf-8")
     (ws / "test_b9.py").write_text(
         "import subprocess\nimport sys\nfrom pathlib import Path\n\n\n"
         "def test_validate_progress_passes():\n"
@@ -372,12 +372,21 @@ _VALIDATE_PROGRESS_CONTEXT = (
     "novel-factory/scripts/validate_progress.py exits 1 when "
     "workflow_state.json still contains OPEN_FIX.\n"
     "Mandatory steps:\n"
-    "1. read_file novel-factory/workflow_state.json\n"
-    "2. patch: old_string status:OPEN_FIX → new_string status:PASSED "
-    "(one line; patch only, not write_file)\n"
+    "1. read_file novel-factory/workflow_state.json (one line: status:OPEN_FIX)\n"
+    "2. patch novel-factory/workflow_state.json: old_string status:OPEN_FIX → "
+    "new_string status:PASSED (copy exact text from read_file; patch only, not write_file)\n"
     "3. terminal: python3 novel-factory/scripts/validate_progress.py "
     "— stdout must include 进度验证: 通过\n"
     "Do not edit files under 06_意见仓库."
+)
+
+_BENCHMARK_READ_SPEC_CONTEXT = (
+    "## PRODUCTION LESSON (b9-benchmark READ_STATE + no shell)\n"
+    "Benchmark rules:\n"
+    "1. read_file test_b9.py first — that is the acceptance spec\n"
+    "2. read_file the implementation file before any patch\n"
+    "3. patch only to fix greet.py; do NOT use terminal with shell metacharacters\n"
+    "Previous failure: READ_STATE_REQUIRED and TOOL_ERROR from disallowed shell."
 )
 
 
@@ -525,9 +534,10 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
         description="LingWen1 prod: fix workflow_state for validate_progress",
         delegate_prompt=(
             "Fix novel-factory/workflow_state.json so validate_progress passes. "
-            'File is one line with status:OPEN_FIX — patch to status:PASSED. '
-            "read_file first; patch only (no write_file). "
-            "Then run python3 novel-factory/scripts/validate_progress.py — expect 进度验证: 通过."
+            "read_file first — file is exactly one line: status:OPEN_FIX. "
+            "patch only: old_string status:OPEN_FIX → new_string status:PASSED. "
+            "read_file again to confirm, then "
+            "python3 novel-factory/scripts/validate_progress.py — expect 进度验证: 通过."
         ),
         setup=_setup_b9l_prod_lingwen_validate_progress,
         verify=_verify_b9l_prod_lingwen_validate_progress,
@@ -541,6 +551,29 @@ B9_PROD_SHAPED_TASKS: list[B9TaskSpec] = [
             "pytest",
             "promoted",
             "source:lingwen1-sample-validate-progress",
+        ),
+    ),
+    B9TaskSpec(
+        task_id="B9L_prod_task_6d5304648da4",
+        description="Prod promoted: b9-benchmark READ_STATE — read spec then patch greet",
+        delegate_prompt=(
+            "[category:b9-benchmark] Benchmark rules:\n"
+            "1. read_file test_b9.py first — that is the acceptance spec\n"
+            "2. read_file greet.py before any patch\n"
+            "3. fix greet.py so greet() returns 'hello'; test_b9.py must pass. "
+            "Do not use terminal with shell metacharacters."
+        ),
+        setup=_setup_b9l_prod_read_state_greet,
+        verify=_verify_b9l_prod_read_state_greet,
+        oracle_apply=_oracle_b9l_prod_read_state_greet,
+        benchmark_context_extra=_BENCHMARK_READ_SPEC_CONTEXT,
+        tags=(
+            "prod_shaped",
+            "read_state",
+            "verify_fail",
+            "pytest",
+            "promoted",
+            "source:task_6d5304648da4",
         ),
     ),
 ]

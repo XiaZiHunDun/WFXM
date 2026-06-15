@@ -20,6 +20,9 @@ TASK_RETRIEVAL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "B9L_prod_read_state_greet": (
         "greet", "hello", "read_file", "read_state", "patch", "before", "edit", "pytest",
     ),
+    "B9L_prod_task_6d5304648da4": (
+        "b9-benchmark", "test_b9", "read_file", "read_state", "greet", "shell", "metacharacter", "pytest",
+    ),
     "B9L_prod_main_helpers_import": (
         "main", "helpers", "helper", "import", "module", "importerror", "list_directory", "pytest",
     ),
@@ -323,6 +326,7 @@ def _seed_missing_prod_experiences(xlib: Any, path: str) -> int:
     prod_tasks = (
         "B9L_prod_demo_fix_greet_return",
         "B9L_prod_read_state_greet",
+        "B9L_prod_task_6d5304648da4",
         "B9L_prod_main_helpers_import",
         "B9L_prod_cross_module_rename",
         "B9L_prod_lingwen_demo_add",

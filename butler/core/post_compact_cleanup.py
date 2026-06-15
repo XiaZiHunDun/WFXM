@@ -138,6 +138,9 @@ def build_post_compact_anchor_text(
             parts.append(facts_block)
             if diagnostics is not None:
                 diagnostics["post_compact_facts"] = True
+            from butler.core.fact_extraction import record_fact_anchor_metrics
+
+            record_fact_anchor_metrics(sk, diagnostics=diagnostics)
     except Exception as exc:
         logger.debug("Post-compact facts anchor skipped: %s", exc)
 

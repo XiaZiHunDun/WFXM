@@ -602,6 +602,13 @@ class SkillManager:
         if similar:
             to_merge_raw = [new_skill] + [s for s, _ in similar]
             merged = self._consolidator.consolidate(to_merge_raw)
+            if merged.get("fallback_used"):
+                try:
+                    from butler.ops.runtime_metrics import inc
+
+                    inc("digestion_skill_fallback_merge")
+                except Exception:
+                    pass
 
             old_names = {s["name"] for s in to_merge_raw if s.get("name")}
             for sk in existing:

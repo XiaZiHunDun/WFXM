@@ -67,6 +67,25 @@ def resolve_skill_injection(
     from butler.session.memory_prefetch import peek_experience_hits
 
     mode = skill_injection_mode()
+    try:
+        from butler.core.session_recall_intent import is_session_read_recall_intent
+
+        if is_session_read_recall_intent(query):
+            decision = SkillInjectionDecision(
+                mode=mode,
+                skip=True,
+                skill_names=(),
+                experience_hits=0,
+                reason="session_read_recall",
+            )
+            if diagnostics is not None:
+                diagnostics["skill_injection_mode"] = mode
+                diagnostics["skill_injection_experience_hits"] = 0
+            _record_injection_metrics(decision)
+            return decision
+    except Exception:
+        pass
+
     hits = peek_experience_hits(orchestrator, query)
     n_exp = len(hits)
     refs = extract_skill_refs_from_hits(hits)

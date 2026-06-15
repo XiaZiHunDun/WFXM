@@ -18,7 +18,7 @@ preferred_tools:
 
 `novel-factory/workflow_state.json` is **one line**:
 
-`batch:reviewer-batch-01 status:OPEN_FIX`
+`status:OPEN_FIX`
 
 `validate_progress.py` fails until `status:OPEN_FIX` becomes `status:PASSED`.
 

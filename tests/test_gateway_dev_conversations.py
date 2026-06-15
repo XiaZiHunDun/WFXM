@@ -222,6 +222,9 @@ def lingwen_handler(tmp_path, monkeypatch, tmp_butler_home):
     proj = _setup_lingwen_gateway_project(tmp_path, monkeypatch)
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
     monkeypatch.setenv("BUTLER_PROJECT_CREATE_OPEN", "1")
+    # Mock LLM scripts do not simulate dev_verify; disable auto-verify so
+    # DEV_VERIFY_GATE does not mark dialogue-flow regressions as failed.
+    monkeypatch.setenv("BUTLER_DEV_AUTO_VERIFY", "0")
     _reset_singletons()
     handler = ButlerMessageHandler(channel="gateway")
     handler._orchestrator.project_manager.switch_project_for_chat(

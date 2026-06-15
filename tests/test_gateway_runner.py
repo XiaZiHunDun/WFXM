@@ -244,3 +244,21 @@ class TestWeChatAdapterWiring:
         assert out == "ok"
         butler.handle_message.assert_called_once()
         assert butler.handle_message.call_args.kwargs["platform"] == "wechat"
+
+    @pytest.mark.asyncio
+    async def test_external_id_uses_chat_id_not_message_id(self):
+        from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
+        from butler.gateway.runner import _butler_message_handler
+
+        butler = MagicMock()  # noqa: magicmock-no-spec — gateway runner facade (ns/butler)
+        butler.handle_message.return_value = "ok"
+        for message_id in ("7472107431910875784", "7472107622483313800"):
+            event = MessageEvent(
+                text="你好",
+                message_type=MessageType.TEXT,
+                message_id=message_id,
+                source=SessionSource(platform="wechat", chat_id="o9cq805e", user_id="o9cq805e"),
+            )
+            out = await _butler_message_handler(butler, event)
+            assert out == "ok"
+            assert butler.handle_message.call_args.kwargs["external_id"] == "o9cq805e"

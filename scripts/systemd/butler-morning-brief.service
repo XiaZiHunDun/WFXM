@@ -1,0 +1,16 @@
+# Push morning brief to Owner WeChat (requires BUTLER_MORNING_BRIEF=1).
+
+[Unit]
+Description=Butler morning brief push (WeChat /简报)
+
+[Service]
+Type=oneshot
+WorkingDirectory=@WFXM_ROOT@
+Environment=PYTHONPATH=@WFXM_ROOT@
+EnvironmentFile=-@WFXM_ROOT@/.env
+ExecStart=/bin/bash @WFXM_ROOT@/scripts/butler-morning-brief-push.sh
+StandardOutput=append:@WFXM_ROOT@/logs/butler-morning-brief.log
+StandardError=append:@WFXM_ROOT@/logs/butler-morning-brief.log
+
+[Install]
+WantedBy=default.target

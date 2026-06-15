@@ -28,7 +28,7 @@ def _orch() -> MagicMock:
     orch.butler_memory.get_system_context.return_value = "global memory"
     orch.butler_memory.semantic = None
     orch.butler_memory.experience.search.return_value = [
-        {"project": "proj", "content": "use pytest -q"}
+        {"id": 1, "project": "proj", "content": "use pytest -q"}
     ]
     orch._project_memory.get_context_for_agent.return_value = "project memory"
     return orch
@@ -49,8 +49,18 @@ def test_inject_turn_memory_adds_relevant_context():
 def test_prefetch_skips_conversation_experience():
     orch = _orch()
     orch.butler_memory.experience.search.return_value = [
-        {"project": "proj", "category": "conversation", "content": "Q: 秘密词XYZ → A: 好的"},
-        {"project": "proj", "category": "experience", "content": "use pytest -q"},
+        {
+            "id": 1,
+            "project": "proj",
+            "category": "conversation",
+            "content": "Q: 秘密词XYZ → A: 好的",
+        },
+        {
+            "id": 2,
+            "project": "proj",
+            "category": "experience",
+            "content": "use pytest -q",
+        },
     ]
 
     out = inject_turn_memory(orch, "我们刚才聊过什么？")

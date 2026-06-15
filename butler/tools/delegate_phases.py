@@ -260,6 +260,7 @@ def _create_project_agent_loop(state: DelegateRunState) -> None:
         tools=state.delegated_tools,
         tool_dispatcher=lambda name, args: _safe_dispatch(name, args, state.depth + 1),
         callbacks=child_callbacks(parent_cb),
+        session_key=state.child_session_key or state.session_key,
     )
 
 
@@ -331,10 +332,12 @@ def _resolve_subagent(state: DelegateRunState) -> None:
     Populates ``state.orch``, ``state.project``, ``state.tools``,
     ``state.delegated_tools``, ``state.agent``.
     """
+    from butler.execution_context import get_current_session_key
     from butler.tools.delegate_impl import _orchestrator_for_tool
 
     state.orch = _orchestrator_for_tool(channel="cli")
-    state.project = state.orch.project_manager.get_current()
+    parent_sk = str(get_current_session_key() or "").strip()
+    state.project = state.orch.project_manager.get_current(session_key=parent_sk)
     _attach_agents_md_context(state)
     _build_subagent_tools(state)
     _apply_subagent_tool_filters(state)
@@ -550,6 +553,12 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
             )
             ds._coding_knowledge_theorems = ctx.activated_theorems
             ds._coding_knowledge_ctx = ctx
+            ds._delegate_keywords = keywords
+            ds._delegate_project_id = project_id
+            ds._delegate_stack_tags = stack_tags
+            ds._inferred_task_id = inferred_task_id
+            ds._delegate_project = state.project
+            ds._delegate_session_key = sk
         except Exception as exc:
             logger.debug("coding knowledge activation skipped: %s", exc)
 
@@ -932,6 +941,28 @@ def _attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any])
                 pass
 
         _try_extract_experience(ds, state)
+        try:
+            from butler.memory.memory_scope import delegate_project_id
+            from butler.ops.prod_experience_effectiveness import record_dev_delegate_outcome
+
+            record_dev_delegate_outcome(
+                session_key=state.child_session_key or state.session_key or "",
+                role=state.role,
+                project=delegate_project_id(state.project),
+                task_id=state.task_id,
+                task_preview=state.task or "",
+                category=state.category,
+                category_meta=state.category_meta,
+                success=bool(ds.verify_result.passed),
+                verify_passed=bool(ds.verify_result.passed),
+                experience_id=ds.coding_knowledge.experience_id,
+                experience_mode=ds.coding_knowledge.mode,
+                reactivation_count=int(
+                    getattr(ds, "_coding_knowledge_reactivation_count", 0) or 0
+                ),
+            )
+        except Exception:
+            pass
     except Exception as exc:  # noqa: BLE001 — best-effort summary
         logger.debug("DevState summary attachment skipped: %s", exc)
 

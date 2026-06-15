@@ -128,10 +128,18 @@ def _combined_skill_manager(
     global_dir = tenant_skills_dir(settings.butler_home, tenant_id)
     global_dir.mkdir(parents=True, exist_ok=True)
     if project_workspace is None:
-        return SkillManager(skills_dir=global_dir, global_skills_dir=None)
+        mgr = SkillManager(skills_dir=global_dir, global_skills_dir=None)
+        from butler.skills.fusion_wiring import wire_skill_manager_fusion
+
+        wire_skill_manager_fusion(mgr)
+        return mgr
     proj_skills = Path(project_workspace).expanduser().resolve() / ".butler" / "skills"
     proj_skills.mkdir(parents=True, exist_ok=True)
-    return SkillManager(skills_dir=proj_skills, global_skills_dir=global_dir)
+    mgr = SkillManager(skills_dir=proj_skills, global_skills_dir=global_dir)
+    from butler.skills.fusion_wiring import wire_skill_manager_fusion
+
+    wire_skill_manager_fusion(mgr)
+    return mgr
 
 
 class ButlerOrchestrator:
@@ -607,7 +615,7 @@ class ButlerOrchestrator:
             except Exception as exc:
                 logger.debug("Plan mode appendix skipped: %s", exc)
 
-        return AgentLoop(
+        loop = AgentLoop(
             client=client,
             system_prompt=system_prompt,
             tools=tools or [],
@@ -622,6 +630,8 @@ class ButlerOrchestrator:
             ),
             callbacks=callbacks,
         )
+        loop.bind_execution(self, session_key=sk)
+        return loop
 
     def create_project_agent_loop(
         self,
@@ -630,6 +640,7 @@ class ButlerOrchestrator:
         tools: list[dict] | None = None,
         tool_dispatcher: Any = None,
         callbacks: Any = None,
+        session_key: str = "",
     ) -> AgentLoop:
         """Create an AgentLoop configured for a project-level agent."""
         from butler.core.agent_loop import AgentLoop, LoopConfig
@@ -669,7 +680,7 @@ class ButlerOrchestrator:
         )
         fallback_chain = build_fallback_chain(primary)
 
-        return AgentLoop(
+        loop = AgentLoop(
             client=client,
             system_prompt=system_prompt,
             tools=tools or [],
@@ -684,6 +695,8 @@ class ButlerOrchestrator:
             ),
             callbacks=callbacks,
         )
+        loop.bind_execution(self, session_key=str(session_key or ""))
+        return loop
 
     def get_project_agent_kwargs(self, role: str) -> dict[str, Any]:
         """Return kwargs for project-level agents (dev/content/review)."""

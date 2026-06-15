@@ -17,6 +17,7 @@ class ProdPromotedBinding:
 
 # Substrings matched against lowercased task_preview (+ issues blob).
 _PREVIEW_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("b9-benchmark", "test_b9.py", "read_file"), "B9L_prod_task_6d5304648da4"),
     (("read_file", "greet.py", "read_state"), "B9L_prod_read_state_greet"),
     (("greet.py", "hello", "hi"), "B9L_prod_demo_fix_greet_return"),
     (("main.py", "helpers"), "B9L_prod_main_helpers_import"),
@@ -91,6 +92,13 @@ BINDINGS: tuple[ProdPromotedBinding, ...] = (
         source_task_id="lingwen1-sample-validate-progress",
         failure_reason="verify_fail",
         pattern_summary="Run novel-factory validate_progress; fix workflow_state unclosed completed batch",
+        audit_trace_id="",
+    ),
+    ProdPromotedBinding(
+        task_id="B9L_prod_task_6d5304648da4",
+        source_task_id="task_6d5304648da4",
+        failure_reason="verify_fail",
+        pattern_summary="b9-benchmark: read test_b9.py + greet.py before patch; no shell metacharacters",
         audit_trace_id="",
     ),
 )

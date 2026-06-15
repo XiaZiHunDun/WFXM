@@ -275,6 +275,39 @@ class ExperienceStore:
             conn.commit()
             return int(cur.lastrowid or 0)
 
+    def update_content(
+        self,
+        row_id: int,
+        content: str,
+        *,
+        tags: str | list[str] | None = None,
+    ) -> bool:
+        if _reject_injection(content or ""):
+            return False
+        if row_id <= 0:
+            return False
+        tag_str: str | None = None
+        if tags is not None:
+            if isinstance(tags, list):
+                tag_str = ",".join(t.strip() for t in tags if str(t).strip())
+            else:
+                tag_str = str(tags).strip()
+
+        with self._lock:
+            conn = self._conn
+            if tag_str is not None:
+                cur = conn.execute(
+                    "UPDATE experiences SET content = ?, tags = ? WHERE id = ?",
+                    (content, tag_str, row_id),
+                )
+            else:
+                cur = conn.execute(
+                    "UPDATE experiences SET content = ? WHERE id = ?",
+                    (content, row_id),
+                )
+            conn.commit()
+            return int(cur.rowcount or 0) > 0
+
     def search(
         self,
         query: str,
@@ -708,14 +741,13 @@ class ButlerMemory:
             return "(No Butler-level memory yet.)"
         return "\n\n".join(parts)
 
-    def add_experience(
+    def _append_experience_row(
         self,
         project: str,
         category: str,
         content: str,
         tags: str | list[str] | None = None,
     ) -> int:
-        """Write experience row and sync semantic index when enabled."""
         row_id = self.experience.add(project, category, content, tags=tags)
         if row_id > 0:
             from butler.memory.semantic_index import index_experience_row
@@ -728,6 +760,25 @@ class ButlerMemory:
                 content=content,
             )
         return row_id
+
+    def add_experience(
+        self,
+        project: str,
+        category: str,
+        content: str,
+        tags: str | list[str] | None = None,
+    ) -> int:
+        """Write experience row and sync semantic index when enabled."""
+        from butler.memory.experience_consolidation import (
+            digest_experience_add,
+            experience_merge_enabled,
+        )
+
+        if experience_merge_enabled():
+            return digest_experience_add(
+                self, project, category, content, tags=tags,
+            )
+        return self._append_experience_row(project, category, content, tags=tags)
 
     def close(self) -> None:
         """Release sqlite connections held by experience and semantic stores."""

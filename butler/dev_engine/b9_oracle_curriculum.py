@@ -184,7 +184,7 @@ B9_ORACLE_EPISODES: dict[str, B9CurriculumEpisode] = {
             B9CurriculumStep(
                 "read_file",
                 "novel-factory/workflow_state.json",
-                "Single line: batch:reviewer-batch-01 status:OPEN_FIX",
+                "One line only: status:OPEN_FIX",
             ),
             B9CurriculumStep(
                 "patch",

@@ -207,6 +207,12 @@ def format_new_session_reply(
     from butler.session.new_session import handle_new_session_command
 
     loop = sessions.get(session_key)
+    try:
+        from butler.core.session_transcript import record_session_reset
+
+        record_session_reset(session_key, reason="new")
+    except Exception as exc:
+        logger.debug("session_reset transcript marker skipped: %s", exc)
     session_registry.reset(session_key, skip_finalize=True)
     from butler.tools.tool_audit import reset_tool_audit_events
 

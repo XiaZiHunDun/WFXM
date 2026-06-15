@@ -211,6 +211,14 @@ def record_production_delegate_snapshot(*, limit: int = 500) -> dict[str, Any]:
         fh.write(json.dumps(clean_summary, ensure_ascii=False) + "\n")
     summary["clean"] = clean_summary
     summary["clean_delta"] = compare_production_delegate_delta(clean=True)
+    try:
+        from butler.ops.prod_experience_effectiveness import (
+            summarize_prod_experience_effectiveness,
+        )
+
+        summary["experience_effectiveness"] = summarize_prod_experience_effectiveness()
+    except Exception:
+        pass
     return summary
 
 

@@ -74,33 +74,130 @@ class CommandSafetyResult:
     is_pipe: bool = False
 
 
-def current_workspace_root() -> Path | None:
-    """Return the active Butler project workspace, if a turn has one."""
+def _workspace_from_project(project: object | None) -> Path | None:
+    workspace = getattr(project, "workspace", None) if project is not None else None
+    if not workspace:
+        return None
     try:
-        orch = _current_orchestrator()
-        if orch is None:
-            return None
-        manager = getattr(orch, "project_manager", None)
-        session_key = ""
-        try:
-            from butler.execution_context import get_current_session_key
+        from butler.project.worktree import effective_workspace
 
-            session_key = str(get_current_session_key() or "").strip()
-        except Exception:
-            session_key = ""
-        project = (
-            manager.get_current(session_key=session_key)
-            if manager and hasattr(manager, "get_current")
-            else None
-        )
-        workspace = getattr(project, "workspace", None)
-        if workspace:
-            from butler.project.worktree import effective_workspace
+        return effective_workspace(Path(workspace))
+    except Exception:
+        return Path(workspace).expanduser().resolve(strict=False)
 
-            return effective_workspace(Path(workspace))
+
+def _workspace_for_session_key(session_key: str) -> Path | None:
+    sk = str(session_key or "").strip()
+    if not sk:
+        return None
+    try:
+        from butler.project.manager import get_project_manager
+
+        pm = get_project_manager()
+        return _workspace_from_project(pm.get_current(session_key=sk))
     except Exception:
         return None
+
+
+def _default_project_workspace() -> Path | None:
+    name = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+    if not name:
+        return None
+    try:
+        from butler.project.manager import get_project_manager
+
+        return _workspace_from_project(get_project_manager().get_project(name))
+    except Exception:
+        return None
+
+
+def _remap_projects_docs_trap(resolved: Path, *, session_ws: Path | None) -> Path:
+    """Avoid ``projects/docs`` fixture dir when a project workspace is active."""
+    safe = _configured_safe_root()
+    if safe is None:
+        return resolved
+    trap = (safe / "docs").resolve(strict=False)
+    try:
+        if not resolved.is_relative_to(trap):
+            return resolved
+    except ValueError:
+        return resolved
+    ws = session_ws or _default_project_workspace()
+    if ws is None:
+        return resolved
+    try:
+        rel = resolved.relative_to(trap)
+        candidate = (ws / "docs" / rel).resolve(strict=False)
+    except ValueError:
+        return resolved
+    if candidate.exists():
+        return candidate
+    if not resolved.exists():
+        return candidate
+    return resolved
+
+
+def current_workspace_root() -> Path | None:
+    """Return the active Butler project workspace, if a turn has one."""
+    session_key = ""
+    try:
+        from butler.execution_context import get_current_session_key
+
+        session_key = str(get_current_session_key() or "").strip()
+    except Exception:
+        session_key = ""
+    try:
+        orch = _current_orchestrator()
+        if orch is not None:
+            manager = getattr(orch, "project_manager", None)
+            project = (
+                manager.get_current(session_key=session_key)
+                if manager and hasattr(manager, "get_current")
+                else None
+            )
+            ws = _workspace_from_project(project)
+            if ws is not None:
+                return ws
+    except Exception:
+        pass
+    if session_key:
+        ws = _workspace_for_session_key(session_key)
+        if ws is not None:
+            return ws
+    try:
+        from butler.execution_context import get_audit_session_key
+
+        sk = str(get_audit_session_key(fallback="") or "").strip()
+        if sk and sk != session_key:
+            return _workspace_for_session_key(sk)
+    except Exception:
+        pass
+    ws = _default_project_workspace()
+    if ws is not None:
+        return ws
     return None
+
+
+def workspace_anchor_strict_enabled() -> bool:
+    return os.getenv("BUTLER_WORKSPACE_ANCHOR_STRICT", "1").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def format_tool_workspace_line(session_key: str = "") -> str:
+    sk = str(session_key or "").strip()
+    ws = _workspace_for_session_key(sk) if sk else None
+    if ws is None:
+        ws = current_workspace_root()
+    if ws is not None:
+        return f"工具工作区: {ws}"
+    root = _configured_safe_root()
+    if root is not None:
+        return f"工具工作区: (safe_root) {root}"
+    return "工具工作区: (cwd) " + str(Path.cwd().resolve())
 
 
 def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) -> PathSafetyResult:
@@ -115,8 +212,23 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
             raw,
             f"Access denied: Windows path is outside workspace ({raw})",
         )
-    root = tool_safe_root()
+    session_ws = current_workspace_root()
+    rel = not Path(raw).expanduser().is_absolute()
+    if workspace_anchor_strict_enabled() and session_ws is not None and rel:
+        root = session_ws
+    else:
+        root = tool_safe_root()
     resolved = _resolve_tool_path(raw, root)
+    if workspace_anchor_strict_enabled() and session_ws is not None and rel:
+        try:
+            if not resolved.is_relative_to(session_ws.resolve(strict=False)):
+                alt = _resolve_tool_path(raw, session_ws)
+                if alt.is_relative_to(session_ws.resolve(strict=False)):
+                    resolved = alt
+        except (ValueError, AttributeError):
+            pass
+
+    resolved = _remap_projects_docs_trap(resolved, session_ws=session_ws)
 
     sensitive_error = _sensitive_path_error(resolved, for_write=for_write)
     if sensitive_error:
@@ -156,7 +268,10 @@ def default_tool_workdir() -> PathSafetyResult:
 
 def tool_safe_root() -> Path:
     """Return the active root that tools may access."""
-    return current_workspace_root() or _configured_safe_root() or Path.cwd().resolve()
+    ws = current_workspace_root()
+    if ws is not None:
+        return ws
+    return _configured_safe_root() or Path.cwd().resolve()
 
 
 def _pipe_mode_enabled() -> bool:

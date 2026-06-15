@@ -55,6 +55,26 @@ def get_gateway_bridge_optional() -> GatewayOutboundBridge | None:
     return get_current_bridge()
 
 
+def _env_int(name: str, default: int, *, min_value: int = 0) -> int:
+    from butler.env_parse import int_env
+
+    return int_env(name, default, min=min_value)
+
+
+def suppress_completion_after_main_enabled() -> bool:
+    return _env_bool("BUTLER_GATEWAY_SUPPRESS_COMPLETION_AFTER_MAIN", True)
+
+
+def max_supplementary_per_turn() -> int:
+    from butler.defaults.env_defaults import GATEWAY_MAX_SUPPLEMENTARY_PER_TURN
+
+    return _env_int(
+        "BUTLER_GATEWAY_MAX_SUPPLEMENTARY_PER_TURN",
+        GATEWAY_MAX_SUPPLEMENTARY_PER_TURN,
+        min_value=0,
+    )
+
+
 @dataclass
 class GatewayOutboundBridge:
     """Coordinates typing refresh and at-most-one ack per inbound turn."""
@@ -94,6 +114,9 @@ class GatewayOutboundBridge:
     workflow_step_total: int = field(default=0, init=False)
     last_tool_name: str = field(default="", init=False)
     _last_turn_elapsed: float = field(default=0.0, init=False)
+    _main_reply_chars: int = field(default=0, init=False)
+    _supplementary_scheduled: int = field(default=0, init=False)
+    _delegate_push_inflight: int = field(default=0, init=False)
     _outbound_events: list[Any] = field(default_factory=list, init=False)
     _stream_preview: str = field(default="", init=False)
     _stream_chars: int = field(default=0, init=False)
@@ -152,6 +175,9 @@ class GatewayOutboundBridge:
         self._task_milestone_sent = False
         self.delegate_role = ""
         self.workflow_name = ""
+        self._main_reply_chars = 0
+        self._supplementary_scheduled = 0
+        self._delegate_push_inflight = 0
 
         ensure = getattr(self, "_ensure_typing", None)
         if callable(ensure):
@@ -200,8 +226,29 @@ class GatewayOutboundBridge:
         if self.typing_enabled:
             await self._safe_stop_typing()
 
-    def mark_final_sent(self) -> None:
+    def mark_final_sent(self, *, main_reply_chars: int = 0) -> None:
         self._final_sent = True
+        self._main_reply_chars = max(0, int(main_reply_chars or 0))
+
+    def _should_suppress_redundant_completion(self, kind: str) -> bool:
+        if not suppress_completion_after_main_enabled():
+            return False
+        if not self._final_sent or self._main_reply_chars <= 0:
+            return False
+        return kind in ("turn", "delegate", "workflow")
+
+    def _reserve_supplementary_slot(self) -> bool:
+        cap = max_supplementary_per_turn()
+        if cap <= 0:
+            return False
+        if self._supplementary_scheduled >= cap:
+            return False
+        self._supplementary_scheduled += 1
+        return True
+
+    def _release_supplementary_slot(self) -> None:
+        if self._supplementary_scheduled > 0:
+            self._supplementary_scheduled -= 1
 
     def emit_threadsafe(self, fn: Callable[[], None]) -> None:
         if self._closed:
@@ -375,6 +422,15 @@ class GatewayOutboundBridge:
         """Send an extra user-visible message (e.g. drained inbound queue)."""
         if self._closed or not (text or "").strip():
             return False
+        if self._final_sent and kind in ("queued", "progressive_stream"):
+            return False
+        if not self._reserve_supplementary_slot():
+            logger.info(
+                "Gateway supplementary reply capped kind=%s chat_id=%s",
+                kind,
+                self.chat_id[:12],
+            )
+            return False
         body = (text or "").strip()
         from butler.gateway.pii_scrub import scrub_outbound_text
 
@@ -392,12 +448,14 @@ class GatewayOutboundBridge:
                     len(body),
                 )
             except Exception as exc:
+                self._release_supplementary_slot()
                 logger.warning("Gateway supplementary reply failed: %s", exc)
 
         try:
             asyncio.run_coroutine_threadsafe(_send(), self.loop)
             return True
         except Exception as exc:
+            self._release_supplementary_slot()
             logger.warning("Gateway supplementary schedule failed: %s", exc)
             return False
 
@@ -405,9 +463,39 @@ class GatewayOutboundBridge:
         """Thread-safe: send an extra completion message."""
         if self._closed or not (text or "").strip():
             return False
+        if self._should_suppress_redundant_completion(kind):
+            if kind == "delegate":
+                self.take_pending_delegate_report()
+            logger.info(
+                "Gateway completion push suppressed after main reply kind=%s",
+                kind,
+            )
+            return False
         if kind in ("turn", "workflow") and self._completion_push_sent:
             return False
         if kind == "timeout" and (self._timeout_notified or self._completion_push_sent):
+            return False
+        if kind == "delegate":
+            from butler.gateway.completion_notify import (
+                delegate_completion_max_each,
+                delegate_completion_mode,
+            )
+
+            mode = delegate_completion_mode()
+            if mode == "each":
+                max_each = delegate_completion_max_each()
+                inflight = self._delegate_push_count + self._delegate_push_inflight
+                if inflight >= max_each:
+                    return False
+                self._delegate_push_inflight += 1
+        if not self._reserve_supplementary_slot():
+            if kind == "delegate" and self._delegate_push_inflight > 0:
+                self._delegate_push_inflight -= 1
+            logger.info(
+                "Gateway completion push capped kind=%s chat_id=%s",
+                kind,
+                self.chat_id[:12],
+            )
             return False
         body = (text or "").strip()
         from butler.gateway.pii_scrub import scrub_outbound_text
@@ -438,11 +526,18 @@ class GatewayOutboundBridge:
                     self.chat_id[:12],
                     len(body),
                 )
+            else:
+                self._release_supplementary_slot()
+            if kind == "delegate" and self._delegate_push_inflight > 0:
+                self._delegate_push_inflight -= 1
 
         try:
             asyncio.run_coroutine_threadsafe(_send(), self.loop)
             return True
         except Exception as exc:
+            self._release_supplementary_slot()
+            if kind == "delegate" and self._delegate_push_inflight > 0:
+                self._delegate_push_inflight -= 1
             logger.warning("Gateway completion push schedule failed: %s", exc)
             return False
 
@@ -570,6 +665,8 @@ __all__ = [
     "GatewayOutboundBridge",
     "get_current_bridge",
     "get_gateway_bridge_optional",
+    "max_supplementary_per_turn",
     "merge_loop_callbacks",
     "set_current_bridge",
+    "suppress_completion_after_main_enabled",
 ]

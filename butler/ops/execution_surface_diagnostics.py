@@ -137,6 +137,60 @@ def project_skills_sync_issues(workspace: Path) -> list[str]:
     return _layout_issues(workspace)
 
 
+def collect_digestion_health() -> dict[str, Any]:
+    """Skill/experience/tool digestion signals for /诊断."""
+    out: dict[str, Any] = {}
+    try:
+        from butler.memory.experience_consolidation import load_merge_pending
+
+        pending = load_merge_pending()
+        if pending:
+            out["experience_merge_pending"] = len(pending)
+    except Exception as exc:
+        logger.debug("experience merge pending skipped: %s", exc)
+
+    try:
+        from butler.skills.similarity import recent_dedup_status
+
+        dedup = recent_dedup_status()
+        if dedup:
+            out["skill_dedup_events"] = dedup[-5:]
+    except Exception as exc:
+        logger.debug("skill dedup status skipped: %s", exc)
+
+    try:
+        from butler.ops.runtime_metrics import snapshot_global
+
+        counters = (snapshot_global().get("counters") or {})
+        for key in (
+            "digestion_skill_fallback_merge",
+            "digestion_experience_merged",
+            "digestion_experience_merge_pending",
+        ):
+            if key in counters:
+                out[key] = int(counters[key])
+    except Exception as exc:
+        logger.debug("digestion counters skipped: %s", exc)
+
+    try:
+        from butler.tools.registry import get_tool_definitions
+
+        out["builtin_tool_count"] = len(get_tool_definitions())
+    except Exception as exc:
+        logger.debug("builtin tool count skipped: %s", exc)
+
+    try:
+        from butler.tools.orthogonality_lint import lint_builtin_tool_orthogonality
+
+        ortho = lint_builtin_tool_orthogonality(max_pairs=3)
+        if ortho and not ortho[0].startswith("orthogonality lint skipped"):
+            out["tool_orthogonality_warnings"] = ortho
+    except Exception as exc:
+        logger.debug("tool orthogonality lint skipped: %s", exc)
+
+    return out
+
+
 def collect_execution_surface_stats(
     orchestrator: Any,
     *,
@@ -233,6 +287,13 @@ def collect_execution_surface_stats(
             stats["execution_trust_metrics"] = trust_metrics
     except Exception as exc:
         logger.debug("execution trust metrics collect skipped: %s", exc)
+
+    try:
+        digestion = collect_digestion_health()
+        if digestion:
+            stats["digestion_health"] = digestion
+    except Exception as exc:
+        logger.debug("digestion health collect skipped: %s", exc)
 
     rejected = stats.get("experience_mcp_rejected")
     if isinstance(rejected, list):
@@ -349,6 +410,25 @@ def format_execution_surface_diagnostic_lines(
             parts = [f"{k}={v}" for k, v in sorted(sess.items())]
             lines.append(f"    本会话: {', '.join(parts)}")
 
+    digestion = stats.get("digestion_health") or {}
+    if digestion:
+        lines.append("  消化健康度:")
+        n_tools = digestion.get("builtin_tool_count")
+        if n_tools is not None:
+            lines.append(f"    builtin 工具注册: {n_tools}")
+        for key, label in (
+            ("digestion_skill_fallback_merge", "Skill 合并降级"),
+            ("digestion_experience_merged", "经验自动合并"),
+            ("digestion_experience_merge_pending", "经验合并入队"),
+        ):
+            if key in digestion:
+                lines.append(f"    {label}: {digestion[key]}")
+        pend = digestion.get("experience_merge_pending")
+        if pend:
+            lines.append(f"    经验合并待审: {pend} 条")
+        for warn in digestion.get("tool_orthogonality_warnings") or []:
+            lines.append(f"    ⚠ 工具重叠: {warn}")
+
     sync_issues = stats.get("skills_sync_issues") or []
     if sync_issues:
         lines.append("  项目 Skill 同步:")
@@ -380,6 +460,7 @@ def format_execution_surface_diagnostic_lines(
 
 __all__ = [
     "check_legacy_global_skills",
+    "collect_digestion_health",
     "collect_execution_surface_stats",
     "collect_execution_trust_metrics",
     "format_execution_surface_diagnostic_lines",

@@ -36,6 +36,7 @@ def _run_coro(coro, loop):
 
 def test_delegate_last_mode_only_pushes_on_flush(monkeypatch):
     monkeypatch.setenv("BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE", "last")
+    monkeypatch.setenv("BUTLER_GATEWAY_SUPPRESS_COMPLETION_AFTER_MAIN", "0")
     assert delegate_completion_mode() == "last"
     br = _bridge(ack_sent=True)
     r1 = AgentReport(headline="第一次", summary="a", success=True)

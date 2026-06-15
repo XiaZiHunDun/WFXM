@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 from collections import deque
@@ -84,6 +85,35 @@ def _tool_result_code(name: str, payload: dict[str, Any], *, ok: bool) -> str:
     return "TOOL_ERROR"
 
 
+def _tool_audit_persist_enabled() -> bool:
+    return os.getenv("BUTLER_TOOL_AUDIT_PERSIST", "1").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
+def _persist_tool_audit_event(event: dict[str, Any]) -> None:
+    if not _tool_audit_persist_enabled():
+        return
+    sk = str(event.get("session_key") or "").strip()
+    if not sk:
+        return
+    try:
+        from butler.core.session_transcript import transcript_path
+
+        path = transcript_path(sk).parent / "tool_audit.jsonl"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        import json
+
+        line = json.dumps(event, ensure_ascii=False) + "\n"
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(line)
+    except OSError as exc:
+        logger.debug("tool audit persist skipped: %s", exc)
+
+
 def _record_tool_audit(
     name: str,
     args: dict,
@@ -115,6 +145,7 @@ def _record_tool_audit(
             bucket = deque(maxlen=200)
             _TOOL_AUDIT_EVENTS_BY_SESSION[sk] = bucket
         bucket.append(event)
+    _persist_tool_audit_event(event)
 
 
 def get_tool_audit_events(

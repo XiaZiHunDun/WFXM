@@ -120,7 +120,17 @@ context: …
 
 详见 [`docs/memory-guide.md`](../docs/memory-guide.md) 运维检查表与微信冒烟 M1–M7。
 
-## 6. 硬边界
+## 6. 回忆「刚才读过哪些文件」
+
+用户问「刚才读过哪些文件」「列个清单」「我们读过什么 docs」等时：
+
+1. **以与 `/本轮已读` 相同的 transcript 索引为准**：本轮 epoch 内所有 `read_file` 成功路径（含你直接调用与 `delegate_task` 子代理调用）
+2. **禁止**调用 `butler_recall` / `search_project_knowledge` / `delegate_task` / `search_files` / `list_directory` 来「找清单」——事实已在 ephemeral 横幅
+3. **禁止**把 `search_files` 命中、`list_directory`、MEMORY 预取或「上次会话摘要」混入清单
+4. 索引为空时直接答「本轮尚未 read_file 任何文件」，**不要**编造或让用户回忆
+5. **说明机制时**：`read_file` 路径由 transcript 自动记录（`/本轮已读`），与 `butler_remember` 长期记忆是两层
+
+## 7. 硬边界
 
 - 管家/厂长 **不得** 在项目内 `write_file` / `edit_file` / `terminal` 直接改工厂正文或发布物
 - 工人 **不得** 再 `delegate_task`

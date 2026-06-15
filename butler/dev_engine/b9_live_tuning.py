@@ -61,8 +61,10 @@ B9_TASK_PLAYBOOKS: dict[str, str] = {
     ),
     "B9L_prod_lingwen_validate_progress": (
         "Playbook (LingWen1 novel-factory): read_file novel-factory/workflow_state.json "
-        '(one line: status:OPEN_FIX). patch old_string status:OPEN_FIX → new_string status:PASSED. '
-        "Then terminal: python3 novel-factory/scripts/validate_progress.py — expect 进度验证: 通过."
+        "(exactly one line: status:OPEN_FIX). patch path novel-factory/workflow_state.json "
+        "old_string status:OPEN_FIX new_string status:PASSED — copy old_string verbatim from read_file. "
+        "read_file again (must show status:PASSED only), then "
+        "python3 novel-factory/scripts/validate_progress.py — expect 进度验证: 通过."
     ),
     # Tier-1 gate (release subset)
     "B9L_test_driven_add": (
@@ -222,6 +224,11 @@ def build_b9_verify_hint(output_tail: str) -> str:
         )
     if "assertionerror" in lower:
         return "assertion failed: adjust implementation to satisfy test_b9.py expectations"
+    if "open_fix" in lower or ("进度验证" in tail and "未通过" in tail):
+        return (
+            "workflow_state still OPEN_FIX: read_file novel-factory/workflow_state.json, "
+            "patch status:OPEN_FIX → status:PASSED (exact old_string from file; no write_file)"
+        )
     return ""
 
 
@@ -251,6 +258,19 @@ def build_b9_no_edit_retry_banner(
     )
 
 
+def _validate_progress_context_block(workspace: Path) -> str:
+    fp = workspace / "novel-factory" / "workflow_state.json"
+    if not fp.is_file():
+        return ""
+    body = fp.read_text(encoding="utf-8").rstrip()
+    return (
+        "## WORKFLOW_STATE FILE (patch target — copy old_string verbatim)\n"
+        "Path: novel-factory/workflow_state.json\n"
+        f"Current content:\n```\n{body}\n```\n"
+        "Required: patch old_string `status:OPEN_FIX` → new_string `status:PASSED`"
+    )
+
+
 def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
     category = (spec.benchmark_category or B9_LIVE_CATEGORY).strip()
     context = build_b9_delegate_context(workspace)
@@ -267,6 +287,10 @@ def build_b9_delegate_args(spec: B9TaskSpec, workspace: Path) -> dict[str, Any]:
         playbook = build_b9_task_playbook(spec.task_id)
         if playbook:
             extra.insert(0, f"## TASK PLAYBOOK (priority — follow before generic workflow)\n{playbook}")
+        if spec.task_id == "B9L_prod_lingwen_validate_progress":
+            block = _validate_progress_context_block(workspace.resolve())
+            if block:
+                extra.insert(0, block)
     elif category == "swe-benchmark":
         from butler.dev_engine.swe_curriculum import format_swe_replay_block, get_swe_playbook
 

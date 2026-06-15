@@ -1,0 +1,12 @@
+# Daily 07:30 local — opt-in via BUTLER_MORNING_BRIEF=1 in .env
+
+[Unit]
+Description=Butler morning brief timer (daily 07:30)
+
+[Timer]
+OnCalendar=*-*-* 07:30:00
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

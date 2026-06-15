@@ -183,15 +183,24 @@ def _run_auto_verify(state: Any, path: str) -> None:
             if state.phase == DevPhase.FIX:
                 transition(state, "fix_applied")
             try:
-                from butler.dev_engine.fix_strategy import suggest_fix_action
+                from butler.dev_engine.coding_knowledge_fixup import (
+                    reactivate_coding_knowledge_on_verify_fail,
+                )
+
+                reactivate_coding_knowledge_on_verify_fail(state)
+            except Exception:
+                pass
+            try:
+                from butler.dev_engine.fix_strategy import enrich_fix_hint, suggest_fix_action
+
                 fix_level = suggest_fix_action(result.diagnostics, state)
-                hint = fix_level.value
+                hint = enrich_fix_hint(fix_level, state)
                 tail = getattr(result, "output_tail", "") or ""
                 try:
                     from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
                     b9_hint = build_b9_verify_hint(tail)
                     if b9_hint:
-                        hint = f"{fix_level.value}: {b9_hint}"
+                        hint = f"{hint}: {b9_hint}"
                 except Exception:
                     pass
                 state._last_fix_hint = hint

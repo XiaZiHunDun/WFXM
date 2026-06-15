@@ -65,6 +65,7 @@ class LockedTurnState:
     out: str = ""
     turn_started: float = 0.0
     turn_elapsed: float = 0.0
+    session_read_recall_gate: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -102,6 +103,24 @@ def _load_normalizers() -> tuple[Callable[[str], Optional[str]], ...]:
         _normalize_expense_request,
         _normalize_habits_request,
     )
+
+
+def _phase_apply_correction_intent(
+    handler: "ButlerMessageHandler",
+    state: LockedTurnState,
+) -> Optional[str]:
+    """Phase: H4 owner correction intent — persist without LLM."""
+    try:
+        from butler.core.correction_intent import try_handle_correction_intent
+
+        return try_handle_correction_intent(
+            handler._orchestrator,
+            state.text,
+            session_key=state.session_key,
+        )
+    except Exception as exc:
+        logger.debug("Correction intent skipped: %s", exc)
+        return None
 
 
 def _phase_apply_normalizers_and_slash(
@@ -181,6 +200,26 @@ def _phase_augment_prompt(
             state.health["intent_keyword_banner"] = True
     except Exception as exc:
         logger.debug("Intent keyword detection skipped: %s", exc)
+    try:
+        from butler.core.session_recall_intent import (
+            detect_session_read_recall_banner,
+            is_session_read_recall_intent,
+        )
+
+        state.session_read_recall_gate = is_session_read_recall_intent(state.text)
+        pm = handler._orchestrator.project_manager
+        proj = pm.get_current(session_key=state.session_key)
+        ws = getattr(proj, "workspace", None) if proj else None
+        recall_banner = detect_session_read_recall_banner(
+            state.text,
+            state.session_key,
+            workspace=ws,
+        )
+        if recall_banner:
+            ephemeral_parts.append(recall_banner)
+            state.health["session_read_recall_banner"] = True
+    except Exception as exc:
+        logger.debug("Session read recall banner skipped: %s", exc)
     try:
         from butler.core.mode_classifier import detect_mode_suggestion_banner
 
@@ -380,6 +419,13 @@ def _phase_prefetch_and_callbacks(
 
 def _phase_execute_turn(state: LockedTurnState) -> None:
     """Phase: run the AgentLoop with todo/goal continuation fallback."""
+    from butler.execution_context import use_session_read_recall_gate
+
+    with use_session_read_recall_gate(state.session_read_recall_gate):
+        _phase_execute_turn_inner(state)
+
+
+def _phase_execute_turn_inner(state: LockedTurnState) -> None:
     ephemeral_system = state.ephemeral_system
 
     def _run_turn(msg: str) -> "LoopResult":
@@ -425,9 +471,30 @@ def _phase_execute_turn(state: LockedTurnState) -> None:
 # ---------------------------------------------------------------------------
 
 def _phase_finalize_loop_diagnostics(state: LockedTurnState) -> None:
-    state.health["loop"] = dict(getattr(state.result, "diagnostics", {}) or {})
+    loop_diag = dict(getattr(state.result, "diagnostics", {}) or {})
+    state.health["loop"] = loop_diag
     if getattr(state.result, "transition_reason", ""):
         state.health["loop_transition_reason"] = state.result.transition_reason
+    try:
+        from butler.core.compaction_status import promote_compaction_diagnostics_to_health
+        from butler.memory.memory_metrics import get_collector
+
+        promote_compaction_diagnostics_to_health(state.health, loop_diag)
+        mm = get_collector().get_session_metrics(state.session_key)
+        if "error" not in mm:
+            state.health["memory_metrics"] = mm.get("computed") or {}
+            for key in (
+                "facts_pre_compact",
+                "facts_post_compact",
+                "anchor_facts_pre",
+                "anchor_facts_post",
+                "prefetch_turns",
+                "prefetch_hits",
+            ):
+                if key in mm:
+                    state.health[key] = mm[key]
+    except Exception as exc:
+        logger.debug("Compaction/memory diagnostics promote skipped: %s", exc)
 
 
 def _phase_finalize_interrupt_capture(state: LockedTurnState) -> None:
@@ -514,6 +581,19 @@ def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
         logger.debug("memory metrics flush skipped: %s", exc)
 
 
+def _phase_finalize_prefetch_pr(state: LockedTurnState) -> None:
+    try:
+        from butler.memory.prefetch_retrieval_metrics import finalize_prefetch_retrieval_metrics
+
+        finalize_prefetch_retrieval_metrics(
+            state.session_key,
+            state.result.final_response or "",
+            state.health,
+        )
+    except Exception as exc:
+        logger.debug("Prefetch P_r finalize skipped: %s", exc)
+
+
 def _phase_finalize_turn(
     handler: "ButlerMessageHandler",
     state: LockedTurnState,
@@ -522,6 +602,13 @@ def _phase_finalize_turn(
     _phase_finalize_loop_diagnostics(state)
     _phase_finalize_interrupt_capture(state)
     _phase_finalize_memory_sync(handler, state)
+    _phase_finalize_prefetch_pr(state)
+    try:
+        from butler.core.memory_source_surface import snapshot_last_turn_memory_sources
+
+        snapshot_last_turn_memory_sources(state.health)
+    except Exception as exc:
+        logger.debug("Memory sources snapshot skipped: %s", exc)
     handler._session_registry.set_health(state.session_key, state.health)
     _phase_finalize_eval_observability(state)
 
@@ -570,6 +657,22 @@ def _phase_format_turn_response(
         pass
     if welcome_prefix:
         state.out = f"{welcome_prefix}\n\n---\n\n{state.out}" if state.out else welcome_prefix
+    try:
+        if getattr(state.loop, "_session_recovery_pending", None) is True:
+            from butler.core.session_hydration import recovery_notice_text
+
+            note = recovery_notice_text()
+            state.out = f"{note}\n\n{state.out}" if state.out else note
+            setattr(state.loop, "_session_recovery_pending", False)
+            state.health["session_recovery_notice"] = True
+    except Exception as exc:
+        logger.debug("Session recovery notice skipped: %s", exc)
+    try:
+        from butler.core.turn_summary_line import maybe_prepend_turn_summary
+
+        state.out = maybe_prepend_turn_summary(state.session_key, state.out or "")
+    except Exception as exc:
+        logger.debug("Turn summary line skipped: %s", exc)
 
 
 # ---------------------------------------------------------------------------

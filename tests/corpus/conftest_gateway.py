@@ -82,6 +82,7 @@ def catalog_handlers(tmp_path, monkeypatch, tmp_butler_home):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_butler_home))
     monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "u1")
     monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "0")
+    monkeypatch.setenv("BUTLER_DEV_AUTO_VERIFY", "0")
     _reset_singletons()
 
     dual = ButlerMessageHandler(channel="gateway")

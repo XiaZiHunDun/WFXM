@@ -121,6 +121,10 @@ print("experience_selection_precision=", summarize_selection_precision())
 print("experience_selection_replay=", replay_selection_precision())
 print("experience_selection_forward=", forward_selection_precision())
 print("experience_lifecycle=", summarize_experience_lifecycle())
+from butler.ops.prod_experience_effectiveness import format_prod_experience_effectiveness
+
+print()
+print(format_prod_experience_effectiveness())
 PY
 
 echo ""

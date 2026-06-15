@@ -148,20 +148,40 @@ def _iter_workspace_py_files(
     return unique
 
 
+def _iter_workspace_seed_files(
+    workspace: Path,
+    *,
+    max_depth: int = 2,
+    max_files: int = 24,
+) -> list[Path]:
+    """Workspace files seeded into read_state and delegate preamble."""
+    ws = workspace.resolve()
+    found = _iter_workspace_py_files(ws, max_depth=max_depth, max_files=max_files)
+    seen = {fp.resolve() for fp in found}
+    for rel in ("test_b9.py", "novel-factory/workflow_state.json"):
+        fp = ws / rel
+        if fp.is_file():
+            key = fp.resolve()
+            if key not in seen:
+                found.insert(0, fp)
+                seen.add(key)
+    return found[:max_files]
+
+
 def seed_b9_workspace_read_state(
     workspace: Path,
     *,
     session_key: str,
     max_depth: int = 1,
 ) -> int:
-    """Pre-record read_file state for workspace .py files (READ_STATE relief)."""
+    """Pre-record read_file state for workspace benchmark files (READ_STATE relief)."""
     from butler.core.read_state import record_read_state
 
     ws = workspace.resolve()
     if not ws.is_dir():
         return 0
     count = 0
-    paths = _iter_workspace_py_files(ws, max_depth=max_depth)
+    paths = _iter_workspace_seed_files(ws, max_depth=max_depth)
     for fp in paths:
         if not fp.is_file():
             continue
@@ -190,7 +210,7 @@ def build_b9_workspace_preamble(
         "Pre-loaded workspace sources (also seeded in read_state — patch/write allowed):",
     ]
     used = 0
-    for fp in _iter_workspace_py_files(ws, max_depth=max_depth):
+    for fp in _iter_workspace_seed_files(ws, max_depth=max_depth):
         if used >= max_total_bytes:
             lines.append("... (truncated)")
             break
@@ -203,7 +223,8 @@ def build_b9_workspace_preamble(
             chunk += "\n... (truncated)"
         rel = fp.relative_to(ws) if fp.is_relative_to(ws) else fp.name
         lines.append(f"### {rel}")
-        lines.append("```python")
+        fence = "json" if fp.suffix == ".json" else "python"
+        lines.append(f"```{fence}")
         lines.append(chunk.rstrip())
         lines.append("```")
         used += len(chunk)
@@ -252,10 +273,24 @@ def format_oracle_replay_block(task_id: str) -> str:
             "    return 'pong'",
             "```",
         ])
+    if task_id == "B9L_prod_lingwen_validate_progress":
+        lines.extend([
+            "",
+            "EXACT patch (workflow_state.json is ONE line):",
+            "  path: novel-factory/workflow_state.json",
+            "  old_string: status:OPEN_FIX",
+            "  new_string: status:PASSED",
+            "After patch the file must read exactly: status:PASSED",
+            "Then: python3 novel-factory/scripts/validate_progress.py",
+        ])
     return "\n".join(lines)
 
 
-def build_b9_wrong_patch_retry_banner(failure_tail: str) -> str:
+def build_b9_wrong_patch_retry_banner(
+    failure_tail: str,
+    *,
+    task_id: str = "",
+) -> str:
     extra = ""
     try:
         from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
@@ -265,11 +300,18 @@ def build_b9_wrong_patch_retry_banner(failure_tail: str) -> str:
             extra = f"\nHint: {hint}\n"
     except Exception:
         pass
+    task_block = ""
+    if task_id == "B9L_prod_lingwen_validate_progress" or "open_fix" in (failure_tail or "").lower():
+        task_block = (
+            "\nValidate-progress fix: read_file novel-factory/workflow_state.json, "
+            "then patch old_string `status:OPEN_FIX` → new_string `status:PASSED` "
+            "(verbatim; do not write_file unless patch keeps failing).\n"
+        )
     return (
         "## WRONG-PATCH RETRY (mandatory)\n"
         "Previous edit did not make pytest pass. Follow ORACLE REPLAY steps; "
         "fix implementation (not test_b9.py) and run run_pytest until green."
-        f"{extra}"
+        f"{task_block}{extra}"
     )
 
 

@@ -27,6 +27,7 @@
 3. 25 步主流程在 `novel-factory/tools/` 脚本域；Butler 短工作流仅 `novel-factory` / `novel-factory-status`
 4. 决策与试点进度 → `butler_remember` `project_notes`；Pending 提醒 `/记忆待审`；勿把 workflow_state JSON/正文入库
 5. `/新对话` 只清空本轮聊天；长期 MEMORY 仍在。用户问「刚才聊啥」应说明已开新会话，不编造上轮细节
+6. 用户问「刚才读过哪些文件」「列清单」→ **与 `/本轮已读` 同源**；禁 `butler_recall`/委派/搜目录；空索引答「本轮尚未 read_file」；说明机制时 transcript 自动记 read_file，与 butler_remember 分层
 
 ## 委派
 

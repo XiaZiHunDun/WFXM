@@ -417,7 +417,9 @@ def _run_live_delegate(
                                 failure_tail=failure_tail,
                             )
                         else:
-                            banner = build_b9_wrong_patch_retry_banner(failure_tail)
+                            banner = build_b9_wrong_patch_retry_banner(
+                                failure_tail, task_id=spec.task_id
+                            )
                         extra = "\n\n".join(x for x in (replay, banner) if x)
                         args = {
                             **delegate_args,

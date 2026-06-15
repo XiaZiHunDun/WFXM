@@ -69,8 +69,104 @@ def format_compaction_status_line(health: dict[str, Any] | None) -> str:
     return line
 
 
+def format_fact_survival_line(health: dict[str, Any] | None) -> str:
+    """Turn-level and session-level S_f for /诊断."""
+    h = health or {}
+    store = h.get("facts_store_count")
+    anchor = h.get("facts_anchor_count")
+    if store is not None and anchor is not None and int(store) > 0:
+        rate = h.get("fact_survival_rate_turn")
+        if rate is None:
+            rate = round(int(anchor) / int(store), 4)
+        return f"事实锚点: {store}条存储→{anchor}条入锚 (S_f≈{float(rate):.0%})"
+
+    mm = h.get("memory_metrics") if isinstance(h.get("memory_metrics"), dict) else {}
+    anchor_sf = mm.get("anchor_fact_survival_rate")
+    if anchor_sf is not None and h.get("anchor_facts_pre", 0):
+        pre = h.get("anchor_facts_pre")
+        post = h.get("anchor_facts_post")
+        return f"记忆度量 S_f(锚点): {post}/{pre} ({float(anchor_sf):.0%})"
+
+    extract_sf = mm.get("fact_survival_rate")
+    if extract_sf is not None and h.get("facts_pre_compact", 0):
+        pre = h.get("facts_pre_compact")
+        post = h.get("facts_post_compact")
+        return f"记忆度量 S_f(提取): {post}/{pre} ({float(extract_sf):.0%})"
+
+    return ""
+
+
+def promote_compaction_diagnostics_to_health(health: dict[str, Any], loop_diag: dict[str, Any]) -> None:
+    """Copy compaction / fact fields from loop diagnostics into top-level health."""
+    prefixes = ("compaction_", "post_compact_", "facts_", "hygiene_", "context_", "preemptive_")
+    for key, value in loop_diag.items():
+        if key.startswith(prefixes) or key in {
+            "hygiene_compressed",
+            "context_compressed",
+            "reactive_context_compact",
+        }:
+            health[key] = value
+
+
+def format_compaction_report(
+    session_key: str,
+    health: dict[str, Any] | None = None,
+) -> str:
+    """WeChat-facing compaction summary (checkpoint + transcript + turn health)."""
+    sk = str(session_key or "").strip()
+    h = health or {}
+    lines = ["## 压缩报告", format_compaction_status_line(h)]
+    fact_line = format_fact_survival_line(h)
+    if fact_line:
+        lines.append(fact_line)
+
+    ckpt: dict[str, Any] | None = None
+    if sk:
+        try:
+            from butler.core.compaction_checkpoint import load_checkpoint
+
+            loaded = load_checkpoint(sk)
+            ckpt = loaded if isinstance(loaded, dict) else None
+        except Exception:
+            ckpt = None
+    if ckpt:
+        captured = str(ckpt.get("captured_at") or "").strip()
+        if captured:
+            lines.append(f"检查点: {captured}")
+        preview = str(ckpt.get("compression_summary_preview") or "").strip()
+        if preview:
+            lines.append(f"摘要节选 ({len(preview)}字):\n{preview}")
+
+    if sk:
+        try:
+            from butler.core.session_epoch import load_epoch_transcript_rows
+
+            rows = load_epoch_transcript_rows(sk, max_lines=120)
+            done = [r for r in rows if str(r.get("type") or "") == "compact_done"]
+            if done:
+                last = done[-1]
+                after = last.get("tokens_after")
+                summary_chars = last.get("summary_chars")
+                ts = str(last.get("ts") or "").strip()
+                detail = f"tokens≈{after}" if after is not None else ""
+                if summary_chars:
+                    detail = f"{detail} · 摘要{summary_chars}字".strip(" ·")
+                if ts:
+                    detail = f"{ts} · {detail}".strip(" ·")
+                lines.append(f"最近 transcript 压缩: {detail or '已完成'}")
+        except Exception:
+            pass
+
+    if len(lines) <= 2 and derive_compaction_status(h) == "none" and not ckpt:
+        lines.append("本会话尚无压缩记录。")
+    return "\n".join(lines)
+
+
 __all__ = [
     "derive_compaction_status",
     "format_compaction_detail_line",
+    "format_compaction_report",
     "format_compaction_status_line",
+    "format_fact_survival_line",
+    "promote_compaction_diagnostics_to_health",
 ]

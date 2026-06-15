@@ -20,6 +20,7 @@ CONTEXT_COMPACT_MAX_FAILURES: Final[int] = 3
 
 # --- Gateway completion notify ---
 GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS: Final[float] = 90.0
+GATEWAY_MAX_SUPPLEMENTARY_PER_TURN: Final[int] = 2
 
 # --- Provider circuit breaker ---
 PROVIDER_CIRCUIT_FAILURES: Final[int] = 3

@@ -68,6 +68,12 @@ def test_build_b9_verify_hint_did_not_raise():
     assert "exception" in hint.lower()
 
 
+def test_build_b9_verify_hint_open_fix():
+    hint = build_b9_verify_hint("错误: completed 批次 result 仍为未闭合: status:OPEN_FIX")
+    assert "workflow_state" in hint.lower()
+    assert "open_fix" in hint.lower() or "status:passed" in hint.lower()
+
+
 def test_build_b9_delegate_args_includes_playbook(tmp_path):
     spec = next(t for t in B9_LIVE_FIXED_TASKS if t.task_id == "B9L_pytest_fix_impl")
     args = build_b9_delegate_args(spec, tmp_path)

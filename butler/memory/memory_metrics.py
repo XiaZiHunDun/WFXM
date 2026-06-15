@@ -71,6 +71,8 @@ class SessionMemoryMetrics:
 
     facts_pre_compact: int = 0
     facts_post_compact: int = 0
+    anchor_facts_pre: int = 0
+    anchor_facts_post: int = 0
 
     decay_evaluations: int = 0
     decay_false_kills: int = 0
@@ -100,10 +102,17 @@ class SessionMemoryMetrics:
 
     @property
     def fact_survival_rate(self) -> float:
-        """S_f: post-compact facts / pre-compact facts."""
+        """S_f: post-compact facts / pre-compact facts (extraction path)."""
         if self.facts_pre_compact == 0:
             return 1.0
         return self.facts_post_compact / self.facts_pre_compact
+
+    @property
+    def anchor_fact_survival_rate(self) -> float:
+        """S_f (anchor): facts injected into post-compact anchor / store size."""
+        if self.anchor_facts_pre == 0:
+            return 1.0
+        return self.anchor_facts_post / self.anchor_facts_pre
 
     @property
     def decay_error_rate(self) -> float:
@@ -140,6 +149,8 @@ class SessionMemoryMetrics:
             "prefetch_hits": self.prefetch_hits,
             "facts_pre_compact": self.facts_pre_compact,
             "facts_post_compact": self.facts_post_compact,
+            "anchor_facts_pre": self.anchor_facts_pre,
+            "anchor_facts_post": self.anchor_facts_post,
             "decay_evaluations": self.decay_evaluations,
             "decay_false_kills": self.decay_false_kills,
             "retrieval_total": self.retrieval_total,
@@ -149,6 +160,7 @@ class SessionMemoryMetrics:
                 "write_survival_rate": round(self.write_survival_rate, 4),
                 "first_turn_hit_rate": round(self.first_turn_hit_rate, 4),
                 "fact_survival_rate": round(self.fact_survival_rate, 4),
+                "anchor_fact_survival_rate": round(self.anchor_fact_survival_rate, 4),
                 "decay_error_rate": round(self.decay_error_rate, 4),
                 "retrieval_precision": round(self.retrieval_precision, 4),
                 "retrieval_recall": round(self.retrieval_recall, 4),
@@ -173,6 +185,14 @@ class AggregateMemoryMetrics:
     total_facts_post: int = 0
     total_decay_evals: int = 0
     total_decay_kills: int = 0
+    total_retrieval_total: int = 0
+    total_retrieval_used: int = 0
+
+    @property
+    def retrieval_precision(self) -> float:
+        if self.total_retrieval_total == 0:
+            return 1.0
+        return self.total_retrieval_used / self.total_retrieval_total
 
     @property
     def write_survival_rate(self) -> float:
@@ -216,6 +236,7 @@ class AggregateMemoryMetrics:
                 "first_turn_hit_rate": round(self.first_turn_hit_rate, 4),
                 "fact_survival_rate": round(self.fact_survival_rate, 4),
                 "decay_error_rate": round(self.decay_error_rate, 4),
+                "retrieval_precision": round(self.retrieval_precision, 4),
             },
         }
 
@@ -337,6 +358,18 @@ class MemoryMetricsCollector:
             metadata={"pre": pre_count, "post": post_count},
         ))
 
+    def on_fact_anchor_survival(self, store_count: int, anchor_count: int) -> None:
+        """S_f: facts surviving into post-compact anchor block."""
+        m = self._current()
+        if m is None:
+            return
+        m.anchor_facts_pre += store_count
+        m.anchor_facts_post += anchor_count
+        m.ops.append(MemoryOpRecord(
+            op_type="fact_anchor",
+            metadata={"store": store_count, "anchor": anchor_count},
+        ))
+
     def on_retrieval(self, total_returned: int, relevant: int = 0, used_by_llm: int = 0) -> None:
         """Track P_r / R_r retrieval precision/recall."""
         m = self._current()
@@ -348,6 +381,20 @@ class MemoryMetricsCollector:
         m.ops.append(MemoryOpRecord(
             op_type="retrieval",
             metadata={"total": total_returned, "relevant": relevant, "used": used_by_llm},
+        ))
+
+    def add_retrieval_used(self, used_count: int) -> None:
+        """Add P_r usage count after the assistant reply (prefetch already recorded total)."""
+        m = self._current()
+        if m is None:
+            return
+        delta = max(0, int(used_count))
+        if delta <= 0:
+            return
+        m.retrieval_used_by_llm += delta
+        m.ops.append(MemoryOpRecord(
+            op_type="retrieval_used",
+            metadata={"used": delta},
         ))
 
     def on_decay_evaluation(self, total_important: int, killed: int) -> None:
@@ -383,6 +430,8 @@ class MemoryMetricsCollector:
             agg.total_facts_post += m.facts_post_compact
             agg.total_decay_evals += m.decay_evaluations
             agg.total_decay_kills += m.decay_false_kills
+            agg.total_retrieval_total += m.retrieval_total
+            agg.total_retrieval_used += m.retrieval_used_by_llm
         return agg
 
     def export_json(self) -> str:
@@ -421,8 +470,13 @@ class MemoryMetricsCollector:
                 m.prefetch_hits = sdata.get("prefetch_hits", 0)
                 m.facts_pre_compact = sdata.get("facts_pre_compact", 0)
                 m.facts_post_compact = sdata.get("facts_post_compact", 0)
+                m.anchor_facts_pre = sdata.get("anchor_facts_pre", 0)
+                m.anchor_facts_post = sdata.get("anchor_facts_post", 0)
                 m.decay_evaluations = sdata.get("decay_evaluations", 0)
                 m.decay_false_kills = sdata.get("decay_false_kills", 0)
+                m.retrieval_total = sdata.get("retrieval_total", 0)
+                m.retrieval_relevant = sdata.get("retrieval_relevant", 0)
+                m.retrieval_used_by_llm = sdata.get("retrieval_used_by_llm", 0)
                 self._sessions[sid] = m
         except Exception as exc:
             logger.warning("Failed to load memory metrics: %s", exc)

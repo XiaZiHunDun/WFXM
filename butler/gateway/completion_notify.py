@@ -244,6 +244,14 @@ def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
     report = bridge.take_pending_delegate_report()
     if report is None:
         return False
+    if (
+        getattr(bridge, "_final_sent", False)
+        and getattr(bridge, "_main_reply_chars", 0) > 0
+    ):
+        from butler.gateway.outbound_bridge import suppress_completion_after_main_enabled
+
+        if suppress_completion_after_main_enabled():
+            return False
     elapsed = time.monotonic() - bridge.turn_started_at if bridge.turn_started_at else 0.0
     if not should_push_delegate_completion(bridge, elapsed):
         return False

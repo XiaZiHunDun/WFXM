@@ -25,6 +25,7 @@ from butler.ops.b9_prod_weekly import (
 )
 from butler.ops.boundary_observability import g1_04_observation_window_status
 from butler.ops.experience_selection_telemetry import forward_selection_precision
+from butler.ops.prod_experience_effectiveness import format_prod_experience_effectiveness
 from butler.ops.lingwen1_delegate_drill import LINGWEN_PROJECT_NAME
 from butler.project.manager import get_project_manager
 
@@ -87,6 +88,9 @@ print(
     f"7. G1-04 window feedback={g1.get('feedback_in_window')} "
     f"remaining={g1.get('days_remaining')}d closure_ready={g1.get('closure_ready')}"
 )
+
+print()
+print(format_prod_experience_effectiveness())
 
 print()
 print("=== Weekly rhythm (ops proof) ===")

@@ -233,6 +233,15 @@ def record_assistant_message(session_key: str, content: str, *, tool_calls: int 
     )
 
 
+def record_session_reset(session_key: str, *, reason: str = "new") -> None:
+    """Mark a /new (or equivalent) boundary — tool-truth indexes only read rows after this."""
+    append_transcript_entry(
+        session_key,
+        "session_reset",
+        {"reason": str(reason or "new")[:32]},
+    )
+
+
 def record_compact_boundary(session_key: str, summary_chars: int) -> None:
     append_transcript_entry(
         session_key,

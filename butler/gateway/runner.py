@@ -124,6 +124,12 @@ async def _butler_message_handler(
         return None
     bridge = getattr(event, "gateway_bridge", None)
     handler_timeout = _HANDLER_TIMEOUT_SECONDS
+    # Session/owner/welcome keys must use stable chat_id, not per-message message_id.
+    # Per-message dedup is handled in wechat_ilink (_phase_inbound_dedup) and optionally
+    # via inbound_idempotency when a distinct inbound id is supplied.
+    external_id = ""
+    if source is not None:
+        external_id = str(source.chat_id or "").strip()
 
     def _run_in_worker() -> str:
         from butler.gateway.outbound_bridge import set_current_bridge
@@ -134,7 +140,7 @@ async def _butler_message_handler(
             return butler.handle_message(
                 text,
                 platform=platform,
-                external_id=source.chat_id,
+                external_id=external_id or None,
             )
         finally:
             if bridge is not None:

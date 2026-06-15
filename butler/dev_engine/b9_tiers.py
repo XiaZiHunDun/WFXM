@@ -14,6 +14,7 @@ B9_TIER2_TASK_IDS: frozenset[str] = frozenset({
     "B9L_prod_patch_wrong",
     "B9L_prod_demo_fix_greet_return",
     "B9L_prod_read_state_greet",
+    "B9L_prod_task_6d5304648da4",
     "B9L_prod_main_helpers_import",
     "B9L_prod_cross_module_rename",
     "B9L_prod_lingwen_demo_add",

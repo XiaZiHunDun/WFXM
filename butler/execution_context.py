@@ -85,6 +85,25 @@ def use_workflow_step(step_id: str) -> Iterator[None]:
         _current_workflow_step.reset(token)
 
 
+_session_read_recall_gate: ContextVar[bool] = ContextVar(
+    "butler_session_read_recall_gate",
+    default=False,
+)
+
+
+def is_session_read_recall_gate_active() -> bool:
+    return bool(_session_read_recall_gate.get())
+
+
+@contextmanager
+def use_session_read_recall_gate(active: bool = True) -> Iterator[None]:
+    token = _session_read_recall_gate.set(bool(active))
+    try:
+        yield
+    finally:
+        _session_read_recall_gate.reset(token)
+
+
 @contextmanager
 def use_execution_context(
     orchestrator: "ButlerOrchestrator | None" = None,

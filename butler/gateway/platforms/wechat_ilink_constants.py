@@ -59,9 +59,9 @@ RATE_LIMIT_ERRCODE = -2
 # De-duplication TTLs (seconds)
 # ---------------------------------------------------------------------------
 
-MESSAGE_ID_DEDUP_TTL_SECONDS = 300
+MESSAGE_ID_DEDUP_TTL_SECONDS = 86_400
 # Short window: only suppress iLink duplicate delivery bursts, not intentional
-# user resends (M4).
+# user resends (M4). Content fingerprint uses a separate short TTL.
 CONTENT_DEDUP_TTL_SECONDS = 20
 
 # ---------------------------------------------------------------------------

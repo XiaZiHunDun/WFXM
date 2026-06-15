@@ -804,9 +804,15 @@ class TestAgentLoopContext:
         loop.messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]
         compressed = [{"role": "user", "content": "summary"}]
 
-        with patch.object(loop._context, "estimate_tokens", return_value=100_000):
-            with patch.object(loop._context, "compress_context", return_value=compressed) as compress:
-                did = loop.hygiene_compress_if_needed()
+        with patch.object(loop._context, "estimate_tokens", return_value=120_000):
+            with patch(
+                "butler.core.hygiene_preflight.get_auto_compact_threshold",
+                return_value=108_800,
+            ):
+                with patch.object(
+                    loop._context, "compress_context", return_value=compressed
+                ) as compress:
+                    did = loop.hygiene_compress_if_needed()
 
         assert did is True
         assert any(m.get("content") == "summary" for m in loop.messages)

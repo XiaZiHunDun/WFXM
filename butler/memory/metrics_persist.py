@@ -78,6 +78,11 @@ def format_effectiveness_lines() -> list[str]:
             f"  E_d 衰减误杀率: {comp.get('decay_error_rate', 0.0):.0%}"
             f" ({agg.total_decay_kills}/{agg.total_decay_evals} evals)",
         ]
+        if agg.total_retrieval_total > 0:
+            lines.append(
+                f"  P_r 预取引用率: {comp.get('retrieval_precision', 1.0):.0%}"
+                f" ({agg.total_retrieval_used}/{agg.total_retrieval_total} items)"
+            )
         if metrics_enabled():
             lines.append(f"  持久化: {metrics_path()}")
         return lines
