@@ -26,7 +26,7 @@ servers:
     description: 只读 HTTP 请求 MCP 模板（opt-in BUTLER_MCP_ENABLED=1；无写工具）
     trust: trusted
     transport: stdio
-    command: npx
-    args: ["-y", "@modelcontextprotocol/server-fetch"]
+    command: uvx
+    args: ["mcp-server-fetch"]
     env_hints: []
     note: "管家试点只读外联模板；安装：butler mcp add fetch-readonly --workspace <dir>"

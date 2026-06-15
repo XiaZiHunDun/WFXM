@@ -19,9 +19,15 @@ _PROTECTED_ENV_KEYS = frozenset({
 
 
 def _build_stdio_env(config: McpServerConfig) -> dict[str, str]:
+    import os
+
     from butler.tools.path_safety import safe_subprocess_env
 
     base = safe_subprocess_env()
+    host_path = os.environ.get("PATH", "").strip()
+    if host_path:
+        # Allowlisted commands (npx, uvx, …) are often outside /usr/bin.
+        base["PATH"] = host_path
     for key, value in (config.env or {}).items():
         if value is not None:
             k = str(key)

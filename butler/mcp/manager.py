@@ -28,6 +28,7 @@ class _ServerHandle:
         "session",
         "cleanup",
         "status",
+        "_cached_tools",
     )
 
     def __init__(self, config: McpServerConfig) -> None:
@@ -38,6 +39,7 @@ class _ServerHandle:
             server_id=config.server_id,
             transport=config.transport,
         )
+        self._cached_tools: list[Any] | None = None
 
 
 class McpConnectionManager:

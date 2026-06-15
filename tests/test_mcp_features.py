@@ -60,7 +60,8 @@ def test_classify_mutating_vs_readonly():
     assert is_mutating_classification("mutating") is True
 
 
-def test_stdio_command_allowlist():
+def test_stdio_command_allowlist(monkeypatch):
+    monkeypatch.setenv("BUTLER_MCP_STDIO_ALLOW_COMMANDS", "python3,python")
     cfg = McpServerConfig(server_id="x", transport="stdio", command="npx", args=())
     assert validate_stdio_command(cfg) is not None
     cfg2 = McpServerConfig(server_id="x", transport="stdio", command="python3", args=())
