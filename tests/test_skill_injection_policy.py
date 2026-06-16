@@ -90,14 +90,25 @@ class TestOrchestratorSkillInjectionPolicy:
                 "content": "SKILL BODY",
             },
         ]
-        with patch("butler.orchestrator._combined_skill_manager", return_value=manager):
+        with (
+            patch(
+                "butler.session.memory_prefetch.peek_experience_hits",
+                return_value=[
+                    {
+                        "content": "发版必须先跑 butler-memory-phase-c 守门",
+                        "tags": "",
+                    }
+                ],
+            ),
+            patch("butler.orchestrator._combined_skill_manager", return_value=manager),
+        ):
             butler_orchestrator._rebuild_skill_router()
 
-        diagnostics: dict = {}
-        out = butler_orchestrator.inject_skill_context(
-            "发版守门 butler-memory-phase-c",
-            diagnostics=diagnostics,
-        )
+            diagnostics: dict = {}
+            out = butler_orchestrator.inject_skill_context(
+                "发版守门 butler-memory-phase-c",
+                diagnostics=diagnostics,
+            )
         assert out == "发版守门 butler-memory-phase-c"
         assert diagnostics.get("skill_context_injected") is False
         assert diagnostics.get("skill_injection_reason") == (

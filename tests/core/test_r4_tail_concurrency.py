@@ -243,6 +243,8 @@ def test_message_ir_register_concurrent():
 
 @pytest.mark.unit
 def test_provider_registry_concurrent():
+    orig_registry = dict(providers._REGISTRY)
+    orig_aliases = dict(providers._ALIASES)
     errors: list[BaseException] = []
     lock = threading.Lock()
     stop = threading.Event()
@@ -260,14 +262,21 @@ def test_provider_registry_concurrent():
             with lock:
                 errors.append(exc)
 
-    threads = [threading.Thread(target=worker, args=(i,)) for i in range(4)]
-    for t in threads:
-        t.start()
-    stop.set()
-    for t in threads:
-        t.join(timeout=5)
-        assert not t.is_alive()
-    assert not errors, f"providers race: {errors!r}"
+    try:
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(4)]
+        for t in threads:
+            t.start()
+        stop.set()
+        for t in threads:
+            t.join(timeout=5)
+            assert not t.is_alive()
+        assert not errors, f"providers race: {errors!r}"
+    finally:
+        with providers._REGISTRY_LOCK:
+            providers._REGISTRY.clear()
+            providers._REGISTRY.update(orig_registry)
+            providers._ALIASES.clear()
+            providers._ALIASES.update(orig_aliases)
 
 
 @pytest.fixture

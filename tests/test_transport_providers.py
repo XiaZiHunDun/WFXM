@@ -13,6 +13,9 @@ def restore_provider_registry():
     """Snapshot and restore global provider registry between tests."""
     orig_registry = dict(providers_mod._REGISTRY)
     orig_aliases = dict(providers_mod._ALIASES)
+    providers_mod._REGISTRY.clear()
+    providers_mod._ALIASES.clear()
+    providers_mod._register_builtin()
     yield
     providers_mod._REGISTRY.clear()
     providers_mod._REGISTRY.update(orig_registry)
