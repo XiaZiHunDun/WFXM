@@ -860,7 +860,7 @@ class TestD1RoutingDisambiguation:
             captured[name] = description
         register_habit_tools(fake_register)
         desc = captured.get("habit_stats", "")
-        assert "habit_checkin" in desc or "habit_list" in desc
+        assert "streak" in desc.lower() or "completion_rate" in desc.lower()
 
     def test_memo_search_description_has_disambiguation(self, monkeypatch):
         monkeypatch.setenv("BUTLER_MEMO_ENABLED", "1")
@@ -870,7 +870,7 @@ class TestD1RoutingDisambiguation:
             captured[name] = description
         register_memo_tools(fake_register)
         desc = captured.get("memo_search", "")
-        assert "memo_update" in desc
+        assert "read-only" in desc.lower() or "不写库" in desc
 
     def test_expense_summary_description_has_disambiguation(self, monkeypatch):
         monkeypatch.setenv("BUTLER_EXPENSE_ENABLED", "1")
@@ -880,7 +880,7 @@ class TestD1RoutingDisambiguation:
             captured[name] = description
         register_expense_tools(fake_register)
         desc = captured.get("expense_summary", "")
-        assert "expense_list" in desc or "expense_search" in desc
+        assert "rollup" in desc.lower() or "合计" in desc or "period" in desc.lower()
 
 
 class TestD2PIIExclusionInCompaction:

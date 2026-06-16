@@ -12,6 +12,10 @@ import pytest
 class TestSafeRootShim:
     def test_get_tool_safe_root_importable(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
+        monkeypatch.setattr(
+            "butler.tools.path_safety.current_workspace_root",
+            lambda: None,
+        )
         from butler.tools.safe_root import get_tool_safe_root
 
         assert get_tool_safe_root().resolve() == tmp_path.resolve()
@@ -110,7 +114,14 @@ class TestVerifyOutputTail:
         )
         _active_states["sk_tail"] = ds
         plugin = DevEnginePlugin(session_key="sk_tail")
-        with mock.patch.dict("os.environ", {"BUTLER_DEV_ENGINE": "1", "BUTLER_DEV_DIAGNOSTICS_INJECT": "1"}):
+        with mock.patch.dict(
+            "os.environ",
+            {
+                "BUTLER_DEV_ENGINE": "1",
+                "BUTLER_DEV_DIAGNOSTICS_INJECT": "1",
+                "BUTLER_DEV_VERIFY_FIX_PIN": "0",
+            },
+        ):
             out = plugin.after_tools([{"role": "user", "content": "fix"}])
         assert "output_tail:" in out[-1]["content"]
         assert "assert 5 == 6" in out[-1]["content"]

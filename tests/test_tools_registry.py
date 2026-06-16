@@ -178,8 +178,9 @@ class TestToolResultEnvelope:
         assert event["ok"] is False
         assert event["code"] == "TOOL_EXIT_NONZERO"
 
-    def test_patch_missing_old_string_is_generic_tool_error(self, tmp_path):
+    def test_patch_missing_old_string_is_generic_tool_error(self, tmp_path, monkeypatch):
         reset_tool_audit_events()
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
         target = tmp_path / "patchme.txt"
         target.write_text("hello", encoding="utf-8")
 
@@ -189,9 +190,9 @@ class TestToolResultEnvelope:
         )
 
         data = json.loads(result)
-        assert data["code"] == "TOOL_ERROR"
+        assert data["code"] == "PATCH_OLD_STRING_NOT_FOUND"
         event = get_tool_audit_events()[-1]
-        assert event["code"] == "TOOL_ERROR"
+        assert event["code"] == "PATCH_OLD_STRING_NOT_FOUND"
 
 
 @pytest.mark.module_test
@@ -1038,7 +1039,7 @@ class TestDelegateTask:
         mock_orch = MagicMock()  # noqa: magicmock-no-spec — tools registry facade (orch / agent / proc)
         mock_orch.inject_skill_context.side_effect = lambda text, **_: text
 
-        def _run(_message: str) -> LoopResult:
+        def _run(_message: str, **kwargs) -> LoopResult:
             assert get_current_orchestrator() is mock_orch
             return LoopResult(status=LoopStatus.COMPLETED, final_response="delegation done")
 

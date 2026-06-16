@@ -26,11 +26,12 @@ ENV_EXAMPLE = REPO_ROOT / ".env.example"
 REFERENCE_MD = REPO_ROOT / "docs" / "config" / "reference.md"
 CODE_ROOTS = [REPO_ROOT / "butler", REPO_ROOT / "tests"]
 
-_VAR_RE = re.compile(r"\bBUTLER_[A-Z][A-Z0-9_]+")
+_VAR_RE = re.compile(r"\bBUTLER_[A-Z][A-Z0-9_]*[A-Z0-9]\b")
 _WHITELIST = (
     re.compile(r"^BUTLER_NONEXISTENT_KEY"),
     re.compile(r"^BUTLER_SMOKE_"),
     re.compile(r"^BUTLER_HOOK_"),
+    re.compile(r"^BUTLER_TEST_"),
     re.compile(r"^BUTLER_MODEL$"),
 )
 

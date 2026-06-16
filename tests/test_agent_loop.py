@@ -921,7 +921,7 @@ class TestAgentLoopContext:
         ]
 
         before_tokens = loop._estimate_tokens(loop.messages)
-        token_reads = [100_000, 500]
+        token_reads = [120_000, 500]
 
         def _est(_msgs):
             return token_reads.pop(0) if token_reads else 500

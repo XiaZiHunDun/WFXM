@@ -178,18 +178,10 @@ def _phase_apply_prompt_hooks(state: LockedTurnState) -> Optional[str]:
 # Phase 3 — inject skill context + ephemeral system banners.
 # ---------------------------------------------------------------------------
 
-def _phase_augment_prompt(
+def _collect_ephemeral_gateway_banners(
     handler: "ButlerMessageHandler",
     state: LockedTurnState,
-) -> None:
-    """Phase: skill-context + pre-LLM hook + ephemeral banners."""
-    from butler.gateway.hooks import apply_pre_llm_context
-
-    state.augmented = apply_pre_llm_context(
-        handler._orchestrator.inject_skill_context(state.text, diagnostics=state.health),
-        session_key=state.session_key,
-        orchestrator=handler._orchestrator,
-    )
+) -> list[str]:
     ephemeral_parts: list[str] = []
     try:
         from butler.core.intent_keywords import detect_intent_banner
@@ -229,6 +221,22 @@ def _phase_augment_prompt(
             state.health["mode_classifier_banner"] = True
     except Exception as exc:
         logger.debug("Mode classifier detection skipped: %s", exc)
+    return ephemeral_parts
+
+
+def _phase_augment_prompt(
+    handler: "ButlerMessageHandler",
+    state: LockedTurnState,
+) -> None:
+    """Phase: skill-context + pre-LLM hook + ephemeral banners."""
+    from butler.gateway.hooks import apply_pre_llm_context
+
+    state.augmented = apply_pre_llm_context(
+        handler._orchestrator.inject_skill_context(state.text, diagnostics=state.health),
+        session_key=state.session_key,
+        orchestrator=handler._orchestrator,
+    )
+    ephemeral_parts = _collect_ephemeral_gateway_banners(handler, state)
     if ephemeral_parts:
         state.ephemeral_system = "\n\n".join(ephemeral_parts)
     if state.prompt_hooks.additional_context:
@@ -617,6 +625,39 @@ def _phase_finalize_turn(
 # Phase 8 — format the final response + record outbound telemetry.
 # ---------------------------------------------------------------------------
 
+def _record_format_turn_langfuse(state: LockedTurnState) -> None:
+    try:
+        from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
+
+        if langfuse_enabled():
+            ctx = get_current_trace(session_key=state.session_key)
+            if ctx is not None:
+                ctx.on_gateway_outbound(state.session_key, len(state.out or ""), state.turn_elapsed)
+    except Exception:
+        pass
+
+
+def _append_format_turn_extras(state: LockedTurnState, welcome_prefix: str = "") -> None:
+    if welcome_prefix:
+        state.out = f"{welcome_prefix}\n\n---\n\n{state.out}" if state.out else welcome_prefix
+    try:
+        if getattr(state.loop, "_session_recovery_pending", None) is True:
+            from butler.core.session_hydration import recovery_notice_text
+
+            note = recovery_notice_text()
+            state.out = f"{note}\n\n{state.out}" if state.out else note
+            setattr(state.loop, "_session_recovery_pending", False)
+            state.health["session_recovery_notice"] = True
+    except Exception as exc:
+        logger.debug("Session recovery notice skipped: %s", exc)
+    try:
+        from butler.core.turn_summary_line import maybe_prepend_turn_summary
+
+        state.out = maybe_prepend_turn_summary(state.session_key, state.out or "")
+    except Exception as exc:
+        logger.debug("Turn summary line skipped: %s", exc)
+
+
 def _phase_format_turn_response(
     handler: "ButlerMessageHandler",
     state: LockedTurnState,
@@ -647,32 +688,8 @@ def _phase_format_turn_response(
         state.turn_elapsed,
         len(state.out or ""),
     )
-    try:
-        from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
-        if langfuse_enabled():
-            ctx = get_current_trace(session_key=state.session_key)
-            if ctx is not None:
-                ctx.on_gateway_outbound(state.session_key, len(state.out or ""), state.turn_elapsed)
-    except Exception:
-        pass
-    if welcome_prefix:
-        state.out = f"{welcome_prefix}\n\n---\n\n{state.out}" if state.out else welcome_prefix
-    try:
-        if getattr(state.loop, "_session_recovery_pending", None) is True:
-            from butler.core.session_hydration import recovery_notice_text
-
-            note = recovery_notice_text()
-            state.out = f"{note}\n\n{state.out}" if state.out else note
-            setattr(state.loop, "_session_recovery_pending", False)
-            state.health["session_recovery_notice"] = True
-    except Exception as exc:
-        logger.debug("Session recovery notice skipped: %s", exc)
-    try:
-        from butler.core.turn_summary_line import maybe_prepend_turn_summary
-
-        state.out = maybe_prepend_turn_summary(state.session_key, state.out or "")
-    except Exception as exc:
-        logger.debug("Turn summary line skipped: %s", exc)
+    _record_format_turn_langfuse(state)
+    _append_format_turn_extras(state, welcome_prefix)
 
 
 # ---------------------------------------------------------------------------

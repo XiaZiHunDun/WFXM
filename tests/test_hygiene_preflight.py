@@ -41,7 +41,7 @@ def test_hygiene_preflight_compresses_when_over_auto_threshold():
         messages,
         max_context_tokens=128_000,
         diagnostics=diagnostics,
-        estimate_tokens=lambda _: 100_000,
+        estimate_tokens=lambda _: 120_000,
         compress=compress,
     )
 
@@ -80,7 +80,7 @@ def test_hygiene_preflight_circuit_breaker_skips_compress():
         messages,
         max_context_tokens=128_000,
         diagnostics=diagnostics,
-        estimate_tokens=lambda _: 100_000,
+        estimate_tokens=lambda _: 120_000,
         compress=compress,
         consecutive_compact_failures=3,
     )
@@ -99,7 +99,7 @@ def test_hygiene_preflight_noop_does_not_increment_failures():
         messages,
         max_context_tokens=128_000,
         diagnostics=diagnostics,
-        estimate_tokens=lambda _: 100_000,
+        estimate_tokens=lambda _: 120_000,
         compress=compress,
         consecutive_compact_failures=2,
     )
@@ -120,7 +120,7 @@ def test_hygiene_preflight_exception_increments_failures():
         messages,
         max_context_tokens=128_000,
         diagnostics=diagnostics,
-        estimate_tokens=lambda _: 100_000,
+        estimate_tokens=lambda _: 120_000,
         compress=_boom,
         consecutive_compact_failures=1,
     )

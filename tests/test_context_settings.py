@@ -93,12 +93,13 @@ def test_context_turn_budget_and_tool_prune_yaml(butler_home, monkeypatch):
     assert not instruction_walkup.walkup_enabled()
 
 
-def test_format_context_config_source_line_yaml(butler_home):
+def test_format_context_config_source_line_yaml(butler_home, monkeypatch):
     (butler_home / "config.yaml").write_text(
         yaml.safe_dump({"context": {"budget": {"compact_reserve": 11_000}}}),
         encoding="utf-8",
     )
     reload_butler_settings()
+    monkeypatch.delenv("BUTLER_CONTEXT_COMPACT_RESERVE", raising=False)
     line = format_context_config_source_line()
     assert "来源=yaml+env" in line
     assert "压缩缓冲=11000" in line

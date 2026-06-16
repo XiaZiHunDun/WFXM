@@ -8,7 +8,7 @@ import butler.transport.providers as providers_mod
 from butler.transport.providers import ProviderProfile, get_provider, list_providers, register_provider
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def restore_provider_registry():
     """Snapshot and restore global provider registry between tests."""
     orig_registry = dict(providers_mod._REGISTRY)

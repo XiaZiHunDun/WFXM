@@ -21,7 +21,23 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
 
     mem = sub.add_parser("memory", help="本地记忆检索与语义索引")
     mem_sub = mem.add_subparsers(dest="memory_cmd", required=True)
+    _register_memory_subcommands(mem_sub, _butler_main)
 
+    ri = sub.add_parser(
+        "memory-reindex",
+        help="重建本地语义向量索引（需 BUTLER_SEMANTIC_MEMORY=1，无云存储）",
+    )
+    _add_reindex_args(ri)
+    ri.set_defaults(func=_butler_main._cmd_memory_reindex)
+
+
+def _register_memory_subcommands(mem_sub: argparse._SubParsersAction, _butler_main) -> None:
+    _register_memory_search_reindex(mem_sub, _butler_main)
+    _register_memory_ops_parsers(mem_sub)
+    _register_memory_migrate_parsers(mem_sub)
+
+
+def _register_memory_search_reindex(mem_sub: argparse._SubParsersAction, _butler_main) -> None:
     msearch = mem_sub.add_parser(
         "search",
         help="检索 experience / 项目 MEMORY（--verbose 输出 fallback 与分数分解）",
@@ -36,6 +52,8 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     _add_reindex_args(mreindex)
     mreindex.set_defaults(func=_butler_main._cmd_memory_reindex)
 
+
+def _register_memory_ops_parsers(mem_sub: argparse._SubParsersAction) -> None:
     mseed = mem_sub.add_parser(
         "seed",
         help="清理 MB5 bench filler 并幂等写入 owner 经验指针种子",
@@ -78,6 +96,8 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     mdiagnose.add_argument("--json", action="store_true", help="输出 JSON")
     mdiagnose.set_defaults(func=_cmd_memory_diagnose)
 
+
+def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> None:
     mbackfill = mem_sub.add_parser(
         "backfill-scopes",
         help="将 legacy L4 编码经验推断的 MemoryScope 写回 JSON（P5）",
@@ -118,14 +138,6 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     )
     mmerge.add_argument("--json", action="store_true", help="输出 JSON")
     mmerge.set_defaults(func=_cmd_memory_merge_pending)
-
-    # Legacy top-level alias (kept for backward compat with old scripts).
-    ri = sub.add_parser(
-        "memory-reindex",
-        help="重建本地语义向量索引（需 BUTLER_SEMANTIC_MEMORY=1，无云存储）",
-    )
-    _add_reindex_args(ri)
-    ri.set_defaults(func=_butler_main._cmd_memory_reindex)
 
 
 def _add_search_args(msearch: argparse.ArgumentParser) -> None:
@@ -298,9 +310,23 @@ def _cmd_memory_migrate_lingwen_l3(ns: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:
+def _merge_pending_emit(result: dict, *, json_out: bool, ok_label: str, err_default: str) -> int:
     import json
 
+    from rich.console import Console
+
+    if json_out:
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        console = Console()
+        if result.get("ok"):
+            console.print(ok_label)
+        else:
+            console.print(f"[red]{result.get('error', err_default)}[/red]")
+    return 0 if result.get("ok") else 1
+
+
+def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:
     from butler.config import get_butler_home
     from butler.memory.experience_consolidation import (
         apply_merge_pending,
@@ -312,45 +338,39 @@ def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:
     apply_key = str(ns.apply or "").strip()
     dismiss_key = str(ns.dismiss or "").strip()
     if apply_key and dismiss_key:
-        console = Console()
-        console.print("[red]不能同时指定 --apply 与 --dismiss[/red]")
+        from rich.console import Console
+
+        Console().print("[red]不能同时指定 --apply 与 --dismiss[/red]")
         return 1
 
     if apply_key:
         result = apply_merge_pending(apply_key, butler_home=get_butler_home())
-        if bool(ns.json):
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-        else:
-            console = Console()
-            if result.get("ok"):
-                console.print(
-                    f"[green]已合并[/green] key={result.get('key')} "
-                    f"id={result.get('row_id')} sim={result.get('similarity')}"
-                )
-            else:
-                console.print(f"[red]{result.get('error', 'apply failed')}[/red]")
-        return 0 if result.get("ok") else 1
+        label = (
+            f"[green]已合并[/green] key={result.get('key')} "
+            f"id={result.get('row_id')} sim={result.get('similarity')}"
+        )
+        return _merge_pending_emit(
+            result, json_out=bool(ns.json), ok_label=label, err_default="apply failed",
+        )
 
     if dismiss_key:
         result = dismiss_merge_pending(dismiss_key)
-        if bool(ns.json):
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-        else:
-            console = Console()
-            if result.get("ok"):
-                console.print(f"[yellow]已驳回[/yellow] key={result.get('key')}")
-            else:
-                console.print(f"[red]{result.get('error', 'dismiss failed')}[/red]")
-        return 0 if result.get("ok") else 1
+        label = f"[yellow]已驳回[/yellow] key={result.get('key')}"
+        return _merge_pending_emit(
+            result, json_out=bool(ns.json), ok_label=label, err_default="dismiss failed",
+        )
 
     pending = load_merge_pending()
     if bool(ns.json):
+        import json
+
         print(json.dumps({"ok": True, "count": len(pending), "entries": pending}, ensure_ascii=False, indent=2))
         return 0
 
-    console = Console()
+    from rich.console import Console
+
     for line in format_merge_pending_report(pending):
-        console.print(line)
+        Console().print(line)
     return 0
 
 

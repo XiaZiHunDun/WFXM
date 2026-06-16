@@ -630,6 +630,7 @@ CLI：`butler memory merge-pending` 列出待审；`--apply KEY` / `--dismiss KE
 | `BUTLER_B9_TIER2_GATE_ENABLED` | `1` | `1` = 周循环 3-task probe 启用条件门控 |
 | `BUTLER_B9_TIER2_GATE_MIN_PASSED` | `2` | Tier-2 probe 最低通过数（默认 2/3） |
 | `BUTLER_B9_ORACLE_FEWSHOT` | `1` | `1` = B9 delegate 注入 oracle 金标 few-shot 修复范式 |
+| `BUTLER_B9_LIVE_TUNING` | `1` | `1` = B9 LIVE 启用 delegate_rescue 覆盖 + b9-benchmark 类别；`0` = 关闭 |
 | `BUTLER_EVAL_LLM_BENCHMARK` | `0` | `1` = B9 基准使用真实 `delegate_task`+LLM；`0` = oracle 模式（CI） |
 | `BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES` | LangFuse 开则开 | `1`/`all` = 生产委派失败写入 `butler-delegate-failures`；`0` = 关闭 |
 | `BUTLER_EVAL_SWE_LIVE_COUNT` | `3` | 每周 SWE-bench Lite LIVE 子集实例数（1–15） |

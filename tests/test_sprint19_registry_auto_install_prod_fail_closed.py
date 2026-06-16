@@ -103,7 +103,7 @@ class TestStaticContract:
         from butler.registry import skill_service
 
         src = inspect.getsource(skill_service.SkillRegistryService.needs_install_confirmation)
-        assert "BUTLER_ENV" in src, (
-            "needs_install_confirmation 必须含 BUTLER_ENV 检查 (prod fail-closed)"
+        assert "is_butler_prod" in src, (
+            "needs_install_confirmation 必须含 prod fail-closed 检查"
         )
         assert "prod" in src, "needs_install_confirmation 必须显式拦截 prod"

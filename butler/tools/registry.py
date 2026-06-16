@@ -88,7 +88,7 @@ def get_tool_definitions() -> List[dict]:
         mcp_available = False
     result = []
     for entry in _REGISTRY.values():
-        if entry.toolset == "mcp" and not mcp_available:
+        if entry.toolset in ("mcp", "mcp_self_service") and not mcp_available:
             continue
         result.append({
             "type": "function",
