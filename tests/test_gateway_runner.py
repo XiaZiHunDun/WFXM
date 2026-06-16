@@ -169,6 +169,8 @@ class TestPlatformAdapterStubs:
 class TestButlerMessageHandlerRunner:
     @pytest.mark.asyncio
     async def test_handler_timeout_returns_wechat_message(self):
+        import asyncio
+
         from butler.gateway.platforms.types import MessageEvent, MessageType, SessionSource
         from butler.gateway.runner import _butler_message_handler
 
@@ -179,13 +181,20 @@ class TestButlerMessageHandlerRunner:
             source=SessionSource(platform="wechat", chat_id="u-timeout", user_id="u-timeout"),
         )
 
-        async def _timeout_wait_for(awaitable, *args, **kwargs):
-            awaitable.close() if hasattr(awaitable, "close") else None
+        loop = asyncio.get_running_loop()
+        pending: asyncio.Future[str] = loop.create_future()
+
+        def _timeout_wait_for(awaitable, *args, **kwargs):
+            if hasattr(awaitable, "close"):
+                awaitable.close()
             raise TimeoutError
 
-        with patch(
-            "butler.gateway.runner.asyncio.wait_for",
-            side_effect=_timeout_wait_for,
+        with (
+            patch(
+                "butler.gateway.runner.asyncio.wait_for",
+                side_effect=_timeout_wait_for,
+            ),
+            patch.object(loop, "run_in_executor", return_value=pending),
         ):
             out = await _butler_message_handler(butler, event)
 
