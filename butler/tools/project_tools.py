@@ -88,6 +88,11 @@ _LEAD_EXTRA_TOOLS = frozenset({
     "run_runtime_job",
 })
 
+# Lead may opt in read-only network tools from project.yaml (no shell / no fetch by default).
+_LEAD_NETWORK_TOOLS = frozenset({
+    "web_search",
+})
+
 _DEV_EXTRA_TOOLS = frozenset({
     "dev_status",
     "dev_verify",
@@ -122,10 +127,20 @@ def _mcp_allowlist_from_mapped(mapped: set[str]) -> set[str]:
     }
 
 
+def _lead_network_from_mapped(mapped: set[str]) -> set[str]:
+    """Preserve project.yaml opt-in for read-only Lead network tools."""
+    return {name for name in mapped if name in _LEAD_NETWORK_TOOLS}
+
+
 def _lead_allowed_tools(mapped: set[str]) -> set[str]:
     """Lead read-only core + orchestration; honor MCP opt-in from project.yaml."""
     read_only = {n for n in mapped if n in _LEAD_READ_TOOLS}
-    return read_only | set(_LEAD_EXTRA_TOOLS) | _mcp_allowlist_from_mapped(mapped)
+    return (
+        read_only
+        | set(_LEAD_EXTRA_TOOLS)
+        | _mcp_allowlist_from_mapped(mapped)
+        | _lead_network_from_mapped(mapped)
+    )
 
 
 def _butler_allowed_tools(mapped: set[str]) -> set[str]:
@@ -174,7 +189,12 @@ def allowed_tool_names_for_project(
                 return mode_set & set(_PLAN_MODE_TOOLS) if mode_set else set(_PLAN_MODE_TOOLS)
             if norm == "lead":
                 read_only = mode_set & _LEAD_READ_TOOLS if mode_set else set(_LEAD_READ_TOOLS)
-                return read_only | set(_LEAD_EXTRA_TOOLS) | _mcp_allowlist_from_mapped(mapped)
+                return (
+                    read_only
+                    | set(_LEAD_EXTRA_TOOLS)
+                    | _mcp_allowlist_from_mapped(mapped)
+                    | _lead_network_from_mapped(mapped)
+                )
             if norm in {"butler", "default", ""} or role == "butler":
                 return _butler_allowed_tools(mode_set)
             return mode_set

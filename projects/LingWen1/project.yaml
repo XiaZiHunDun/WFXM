@@ -26,6 +26,7 @@ tools:
 - delete_file
 - patch
 - search_files
+- web_search
 - terminal
 - list_directory
 - git_status

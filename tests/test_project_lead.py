@@ -86,6 +86,26 @@ class TestLeadToolAllowlist:
         assert "mcp_*" in allowed
         assert "write_file" not in allowed
 
+    def test_lead_honors_web_search_opt_in(self, tmp_path):
+        d = tmp_path / "lw-search"
+        d.mkdir()
+        (d / "project.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "灵文Search",
+                    "workspace": str(d),
+                    "tools": ["read_file", "write_file", "web_search"],
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        proj = Project.from_yaml(d / "project.yaml")
+        allowed = allowed_tool_names_for_project(proj, role="lead")
+        assert allowed is not None
+        assert "web_search" in allowed
+        assert "write_file" not in allowed
+
     def test_butler_excludes_write_and_shell(self, tmp_path):
         proj = self._project(tmp_path)
         allowed = allowed_tool_names_for_project(proj, role="butler")
