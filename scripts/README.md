@@ -74,4 +74,4 @@
 
 `systemd/butler-gateway.service`、`butler-runtime-lingwen.timer` 等 — 由 install 脚本链接到 `~/.config/systemd/user/`。
 
-**systemd + `.env` PATH**：若 `.env` 含 `PATH=…:$PATH`，在 timer 下 `$PATH` 可能为空导致 **127**；bash 类 oneshot 经 `scripts/lib/butler-systemd-wrap.sh` 启动（见 `butler-eval-sync` / `butler-b9-weekly-gate` / `butler-morning-brief` unit）。
+**systemd + `.env` PATH**：若 `.env` 含 `PATH=…:$PATH`，在 timer/gateway 下 `$PATH` 可能为空或字面量，导致 **127** 或 MCP **`spawn sh ENOENT`**；gateway 经 `scripts/butler-gateway-exec.sh` 启动；bash 类 oneshot 经 `scripts/lib/butler-systemd-wrap.sh`（见 `butler-eval-sync` / `butler-b9-weekly-gate` / `butler-morning-brief` unit）。

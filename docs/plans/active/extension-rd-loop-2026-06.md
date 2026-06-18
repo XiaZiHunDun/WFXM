@@ -102,7 +102,7 @@ MCP（薄 Client，默认关）
 
 | 维度 | 内容 |
 |------|------|
-| **状态** | Decide ✅ · Integrate 待 Owner 配置 `FIRECRAWL_API_KEY` |
+| **状态** | Decide ✅ · Integrate ✅ · **Verify ✅**（2026-06-18 微信真机） |
 | **痛点** | 内置 `web_fetch` 适合轻量 HTTP→文本；复杂站点（JS 渲染、反爬、批量 crawl）自建成本高、调试久 |
 | **信号** | 查资料类任务失败率；对照 [`firecrawl-butler-comparison`](../comparisons/firecrawl-butler-comparison-2026-05.md)、[`browser-use-butler-comparison`](../comparisons/browser-use-butler-comparison-report-2026-05.md) Phase D |
 | **候选** | **Firecrawl MCP**（scrape/crawl API）；自建薄 `web_fetch` 仅保留 fallback；Browser MCP（真交互，权限 `ask`） |

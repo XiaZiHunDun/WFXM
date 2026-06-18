@@ -117,6 +117,28 @@ class TestBuildStdioEnv:
         env = _build_stdio_env(cfg)
         assert env["42"] == "numeric_key"
 
+    def test_host_path_missing_bin_merged(self, monkeypatch):
+        """Broken gateway PATH (nvm only) still gets /bin for npx sh."""
+        monkeypatch.setenv(
+            "PATH",
+            "/home/ailearn/.nvm/versions/node/v20.20.1/bin:$PATH",
+        )
+        cfg = McpServerConfig(server_id="s", transport="stdio", env={})
+        env = _build_stdio_env(cfg)
+        parts = env["PATH"].split(":")
+        assert "/bin" in parts
+        assert "/usr/bin" in parts
+        assert "/home/ailearn/.nvm/versions/node/v20.20.1/bin" in parts
+
+    def test_nvm_node_promoted_before_conda(self, monkeypatch):
+        monkeypatch.setenv(
+            "PATH",
+            "/home/ailearn/miniconda3/bin:/home/ailearn/.nvm/versions/node/v20.20.1/bin",
+        )
+        cfg = McpServerConfig(server_id="s", transport="stdio", env={})
+        env = _build_stdio_env(cfg)
+        assert env["PATH"].startswith("/home/ailearn/.nvm/versions/node/v20.20.1/bin:")
+
 
 # ── client_stdio._resolve_cwd ──
 

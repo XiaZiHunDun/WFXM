@@ -113,6 +113,21 @@ def _butler_tools_from_project(mapped: set[str]) -> set[str]:
     return {name for name in mapped if name not in _BUTLER_BLOCKED_PROJECT_TOOLS}
 
 
+def _mcp_allowlist_from_mapped(mapped: set[str]) -> set[str]:
+    """Preserve project.yaml MCP opt-in (``mcp_*`` or explicit ``mcp_`` names)."""
+    return {
+        name
+        for name in mapped
+        if name == "mcp_*" or (isinstance(name, str) and name.startswith("mcp_"))
+    }
+
+
+def _lead_allowed_tools(mapped: set[str]) -> set[str]:
+    """Lead read-only core + orchestration; honor MCP opt-in from project.yaml."""
+    read_only = {n for n in mapped if n in _LEAD_READ_TOOLS}
+    return read_only | set(_LEAD_EXTRA_TOOLS) | _mcp_allowlist_from_mapped(mapped)
+
+
 def _butler_allowed_tools(mapped: set[str]) -> set[str]:
     extras = set(_BUTLER_EXTRA_TOOLS)
     try:
@@ -159,15 +174,14 @@ def allowed_tool_names_for_project(
                 return mode_set & set(_PLAN_MODE_TOOLS) if mode_set else set(_PLAN_MODE_TOOLS)
             if norm == "lead":
                 read_only = mode_set & _LEAD_READ_TOOLS if mode_set else set(_LEAD_READ_TOOLS)
-                return read_only | _LEAD_EXTRA_TOOLS
+                return read_only | set(_LEAD_EXTRA_TOOLS) | _mcp_allowlist_from_mapped(mapped)
             if norm in {"butler", "default", ""} or role == "butler":
                 return _butler_allowed_tools(mode_set)
             return mode_set
     if norm == "plan":
         return set(_PLAN_MODE_TOOLS)
     if norm == "lead":
-        read_only = {n for n in mapped if n in _LEAD_READ_TOOLS}
-        return read_only | _LEAD_EXTRA_TOOLS
+        return _lead_allowed_tools(mapped)
     if norm in {"butler", "default", ""} or role == "butler":
         return _butler_allowed_tools(mapped)
     if norm == "dev":

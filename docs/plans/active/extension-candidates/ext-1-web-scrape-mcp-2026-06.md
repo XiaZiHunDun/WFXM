@@ -1,6 +1,6 @@
 # EXT-1：网页采集增强（Firecrawl MCP）
 
-> **状态**：Decide ✅（2026-06-18）· Integrate **待 Owner 配置 API Key**  
+> **状态**：Decide ✅ · Integrate ✅ · **Verify ✅**（2026-06-18 微信真机 `mcp_firecrawl_firecrawl_scrape`）  
 > **规程**：[`extension-rd-loop-2026-06.md`](../extension-rd-loop-2026-06.md)  
 > **对照**：[`firecrawl-butler-comparison-2026-05.md`](../../comparisons/firecrawl-butler-comparison-2026-05.md)
 
@@ -115,6 +115,8 @@ tools:
   - mcp_*          # 或仅 mcp_firecrawl_*
 ```
 
+**Lead（厂长）模式**：微信默认项目为灵文时走 `lead` 角色；`project.yaml` 中的 `mcp_*` 会保留进工具白名单（v4 修复前 Lead 会误过滤 MCP）。
+
 `permissions.yaml`（建议 scrape/crawl 走确认）：
 
 ```yaml
@@ -158,6 +160,12 @@ bash scripts/butler-gateway-ops.sh restart
 | 2–4 周使用 | eval / Owner 反馈 → Experience 或调整 permissions |
 | 失败 | 记录原因；考虑 EXT-1b 或仅 web_fetch |
 
+**Integrate 记录（2026-06-18）**：`FIRECRAWL_API_KEY` → `.env`；`~/.butler/mcp.yaml` firecrawl；gateway 经 `butler-gateway-exec.sh`；CLI + 微信 `mcp_firecrawl_firecrawl_scrape(https://example.com)` 均 ok；守门 22 passed。
+
+**Verify 记录（2026-06-18）**：微信 `/新对话` 后抽测通过（session transcript 有 `tool_action` + `ok`）。**Track**：2–4 周观察查资料类任务；勿与 `fetch-readonly`（uvx）等陈旧项目 MCP 混装（会刷 ERROR 日志，已自灵文 `.butler/mcp.yaml` 移除）。
+
+微信抽测话术：「请用 Firecrawl 抓取 https://example.com 并三句话总结」。
+
 ---
 
 ## 9. 变更记录
@@ -165,3 +173,6 @@ bash scripts/butler-gateway-ops.sh restart
 | 日期 | 说明 |
 |------|------|
 | 2026-06-18 | 选型一页纸；推荐 Firecrawl MCP；接入步骤与验收定稿 |
+| 2026-06-18 | Integrate ✅：Key + mcp.yaml + live scrape + pytest 守门 |
+| 2026-06-18 | 修复：Lead `mcp_*` 白名单；gateway PATH（`/bin` + nvm 优先于 conda `npx`） |
+| 2026-06-18 | Verify ✅：微信真机 scrape；移除灵文陈旧 `fetch-readonly` 项目 MCP |

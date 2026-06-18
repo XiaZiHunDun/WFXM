@@ -20,7 +20,7 @@ Type=simple
 WorkingDirectory=@WFXM_ROOT@
 Environment=PYTHONPATH=@WFXM_ROOT@
 EnvironmentFile=-@WFXM_ROOT@/.env
-ExecStart=@PYTHON@ -m butler.main gateway --platforms wechat
+ExecStart=/bin/bash @WFXM_ROOT@/scripts/butler-gateway-exec.sh --platforms wechat
 ExecStartPost=-/bin/bash -c '/usr/bin/sleep 5 && /bin/bash @WFXM_ROOT@/scripts/butler-gateway-ops.sh verify >> @WFXM_ROOT@/logs/butler-gateway.log 2>&1 || true'
 Restart=on-failure
 RestartSec=30

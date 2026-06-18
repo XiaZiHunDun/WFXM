@@ -66,6 +66,26 @@ class TestLeadToolAllowlist:
         assert "patch" not in allowed
         assert "terminal" not in allowed
 
+    def test_lead_honors_mcp_opt_in(self, tmp_path):
+        d = tmp_path / "lw-mcp"
+        d.mkdir()
+        (d / "project.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "灵文MCP",
+                    "workspace": str(d),
+                    "tools": ["read_file", "write_file", "mcp_*"],
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        proj = Project.from_yaml(d / "project.yaml")
+        allowed = allowed_tool_names_for_project(proj, role="lead")
+        assert allowed is not None
+        assert "mcp_*" in allowed
+        assert "write_file" not in allowed
+
     def test_butler_excludes_write_and_shell(self, tmp_path):
         proj = self._project(tmp_path)
         allowed = allowed_tool_names_for_project(proj, role="butler")

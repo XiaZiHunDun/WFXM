@@ -18,6 +18,40 @@ _PROTECTED_ENV_KEYS = frozenset({
 })
 
 
+def _merge_stdio_path(host_path: str) -> str:
+    """Ensure stdio MCP subprocesses can find ``sh`` and allowlisted commands.
+
+    Gateway systemd may load ``.env`` with ``PATH=...:$PATH`` where ``$PATH`` is
+    literal and ``/bin`` is missing — ``npx`` then fails with ``spawn sh ENOENT``.
+    """
+    required = (
+        "/usr/local/sbin",
+        "/usr/local/bin",
+        "/usr/sbin",
+        "/usr/bin",
+        "/sbin",
+        "/bin",
+    )
+    parts: list[str] = []
+    seen: set[str] = set()
+    for segment in str(host_path or "").split(":"):
+        s = segment.strip()
+        if not s or s == "$PATH":
+            continue
+        if s not in seen:
+            parts.append(s)
+            seen.add(s)
+    for req in required:
+        if req not in seen:
+            parts.append(req)
+            seen.add(req)
+    nvm = [p for p in parts if "/.nvm/versions/node/" in p]
+    if nvm:
+        other = [p for p in parts if p not in nvm]
+        return ":".join(nvm + other)
+    return ":".join(parts)
+
+
 def _build_stdio_env(config: McpServerConfig) -> dict[str, str]:
     import os
 
@@ -25,9 +59,7 @@ def _build_stdio_env(config: McpServerConfig) -> dict[str, str]:
 
     base = safe_subprocess_env()
     host_path = os.environ.get("PATH", "").strip()
-    if host_path:
-        # Allowlisted commands (npx, uvx, …) are often outside /usr/bin.
-        base["PATH"] = host_path
+    base["PATH"] = _merge_stdio_path(host_path) if host_path else base["PATH"]
     for key, value in (config.env or {}).items():
         if value is not None:
             k = str(key)
