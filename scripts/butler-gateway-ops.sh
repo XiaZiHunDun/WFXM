@@ -47,6 +47,11 @@ _cmd_status() {
 }
 
 _cmd_restart() {
+  for pid in $(pgrep -f 'butler.main gateway' 2>/dev/null || true); do
+    echo "Stopping gateway pid=$pid"
+    kill "$pid" 2>/dev/null || true
+  done
+  sleep 1
   systemctl --user restart "$UNIT"
   sleep 1
   systemctl --user --no-pager status "$UNIT" | head -12

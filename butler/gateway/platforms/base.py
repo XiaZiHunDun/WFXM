@@ -110,7 +110,15 @@ class ButlerPlatformAdapter(ABC):
             try:
                 response = await self._message_handler(event)
                 if response:
-                    send_result = await self.send(chat_id, response)
+                    send_metadata: dict[str, Any] = {}
+                    if bridge is not None and getattr(bridge, "slash_single_bubble", False):
+                        send_metadata["force_single_bubble"] = True
+                        bridge.slash_single_bubble = False
+                    send_result = await self.send(
+                        chat_id,
+                        response,
+                        metadata=send_metadata or None,
+                    )
                     if isinstance(send_result, SendResult) and not send_result.success:
                         logger.error(
                             "[%s] outbound send failed chat=%s: %s",

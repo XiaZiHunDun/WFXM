@@ -170,7 +170,9 @@ async def _butler_message_handler(
 async def run_gateway_async(platforms: list[str]) -> int:
     """Start native adapters; blocks until cancelled."""
     from butler import format_build_identity_line, mark_start_time
+    from butler.gateway.singleton_lock import acquire_gateway_singleton_lock
 
+    acquire_gateway_singleton_lock()
     mark_start_time()
     logger.info("%s starting", format_build_identity_line())
 

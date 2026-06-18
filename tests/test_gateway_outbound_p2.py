@@ -34,6 +34,25 @@ class TestSlashSingleBubble:
         assert consume_single_bubble_reply() is True
         assert consume_single_bubble_reply() is False
 
+    def test_bridge_single_bubble_and_scrape_dedup(self):
+        from butler.gateway.outbound_bridge import GatewayOutboundBridge
+
+        loop = __import__("asyncio").new_event_loop()
+        bridge = GatewayOutboundBridge.for_event(object(), chat_id="c1", loop=loop)
+        from butler.gateway.outbound_bridge import set_current_bridge
+
+        set_current_bridge(bridge)
+        try:
+            bridge.slash_single_bubble = True
+            assert consume_single_bubble_reply(bridge=bridge) is True
+            assert consume_single_bubble_reply(bridge=bridge) is False
+
+            assert check_and_record_scrape("https://example.com") is None
+            assert check_and_record_scrape("https://example.com/") is not None
+        finally:
+            set_current_bridge(None)
+            loop.close()
+
 
 @pytest.mark.unit
 class TestTurnScrapeDedup:

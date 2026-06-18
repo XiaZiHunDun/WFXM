@@ -834,10 +834,15 @@ class WeChatAdapter(ButlerPlatformAdapter):
         except asyncio.TimeoutError:
             logger.debug("[%s] typing ticket fetch timed out for %s", self.name, _safe_id(chat_id))
 
-    def _split_text(self, content: str) -> List[str]:
-        from butler.gateway.outbound_prefs import consume_single_bubble_reply
+    def _split_text(
+        self,
+        content: str,
+        *,
+        metadata: dict[str, Any] | None = None,
+    ) -> List[str]:
+        from butler.gateway.outbound_prefs import pop_single_bubble_from_metadata
 
-        force_single = consume_single_bubble_reply()
+        force_single = pop_single_bubble_from_metadata(metadata)
         return _split_text_for_wechat_delivery(
             content,
             self.MAX_MESSAGE_LENGTH,
@@ -958,7 +963,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
                 self, media_files, local_files, chat_id, metadata,
             )
             last_message_id = await _phase_send_text_chunks(
-                self, final_content, chat_id, context_token,
+                self, final_content, chat_id, context_token, metadata=metadata,
             )
             return SendResult(success=True, message_id=last_message_id)
         except Exception as exc:

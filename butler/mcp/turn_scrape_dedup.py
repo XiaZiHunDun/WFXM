@@ -47,21 +47,49 @@ def scrape_url_from_args(args: dict) -> str:
     return ""
 
 
+def _bridge_bucket() -> set[str] | None:
+    try:
+        from butler.execution_context import get_current_turn_bridge
+
+        bridge = get_current_turn_bridge()
+        if bridge is None:
+            return None
+        bucket = getattr(bridge, "scrape_urls_seen", None)
+        if bucket is None:
+            bridge.scrape_urls_seen = set()
+            bucket = bridge.scrape_urls_seen
+        return bucket
+    except Exception:
+        return None
+
+
 def check_and_record_scrape(url: str) -> str | None:
     """Return user-facing error if URL already scraped this turn; else record."""
     norm = normalize_scrape_url(url)
     if not norm:
         return None
-    bucket = _urls.get()
-    if bucket is None:
+
+    buckets: list[set[str]] = []
+    bridge_bucket = _bridge_bucket()
+    if bridge_bucket is not None:
+        buckets.append(bridge_bucket)
+    ctx_bucket = _urls.get()
+    if ctx_bucket is not None and ctx_bucket is not bridge_bucket:
+        buckets.append(ctx_bucket)
+
+    if not buckets:
         bucket = set()
         _urls.set(bucket)
-    if norm in bucket:
-        return (
-            f"同一轮已抓取过 {norm}，请勿重复调用 scrape；"
-            "请根据上一轮工具结果直接总结。"
-        )
-    bucket.add(norm)
+        buckets.append(bucket)
+
+    for bucket in buckets:
+        if norm in bucket:
+            return (
+                f"同一轮已抓取过 {norm}，请勿重复调用 scrape；"
+                "请根据上一轮工具结果直接总结。"
+            )
+    for bucket in buckets:
+        bucket.add(norm)
     return None
 
 

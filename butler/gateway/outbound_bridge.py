@@ -121,6 +121,8 @@ class GatewayOutboundBridge:
     _stream_preview: str = field(default="", init=False)
     _stream_chars: int = field(default=0, init=False)
     workflow_step_phase: str = field(default="", init=False)
+    slash_single_bubble: bool = field(default=False, init=False)
+    scrape_urls_seen: set[str] = field(default_factory=set, init=False)
 
     @property
     def turn_started_at(self) -> float:
@@ -178,6 +180,7 @@ class GatewayOutboundBridge:
         self._main_reply_chars = 0
         self._supplementary_scheduled = 0
         self._delegate_push_inflight = 0
+        self.scrape_urls_seen = set()
 
         ensure = getattr(self, "_ensure_typing", None)
         if callable(ensure):

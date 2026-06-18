@@ -601,6 +601,8 @@ async def _phase_send_text_chunks(
     final_content: str,
     chat_id: str,
     context_token: Optional[str],
+    *,
+    metadata: Optional[Dict[str, Any]] = None,
 ) -> Optional[str]:
     """Phase S2: split + deliver the text portion of a send.
 
@@ -612,7 +614,9 @@ async def _phase_send_text_chunks(
     from butler.gateway.outbound_delay import inter_chunk_delay_seconds
 
     formatted = adapter.format_message(final_content)
-    chunks = [c for c in adapter._split_text(formatted) if c and c.strip()]
+    chunks = [
+        c for c in adapter._split_text(formatted, metadata=metadata) if c and c.strip()
+    ]
     if not chunks and (final_content or "").strip():
         logger.warning(
             "[%s] outbound text empty after format/split (raw_len=%d formatted_len=%d)",
