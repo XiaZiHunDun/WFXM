@@ -243,16 +243,18 @@ class AgentLoop:
         try:
             with transcript_batch(_steer_session):
                 from butler.mcp.turn_scrape_dedup import turn_scrape_dedup_scope
+                from butler.tools.network_search_policy import turn_network_search_scope
 
-                with turn_scrape_dedup_scope():
-                    return self._run_turn_body(
-                        user_message,
-                        run_callbacks=run_callbacks,
-                        saved_callbacks=saved_callbacks,
-                        pre_run_diagnostics=pre_run_diagnostics,
-                        start_time=start_time,
-                        steer_session=_steer_session,
-                    )
+                with turn_network_search_scope(user_message):
+                    with turn_scrape_dedup_scope():
+                        return self._run_turn_body(
+                            user_message,
+                            run_callbacks=run_callbacks,
+                            saved_callbacks=saved_callbacks,
+                            pre_run_diagnostics=pre_run_diagnostics,
+                            start_time=start_time,
+                            steer_session=_steer_session,
+                        )
         finally:
             mark_run_inactive(_steer_session)
 

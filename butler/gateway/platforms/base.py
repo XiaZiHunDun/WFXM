@@ -100,6 +100,7 @@ class ButlerPlatformAdapter(ABC):
         bridge = self._create_outbound_bridge(event)
         if bridge is not None:
             event.gateway_bridge = bridge
+            bridge.inbound_user_text = (event.text or "").strip()
 
         # Serialize per chat, not per project — one WeChat user may switch projects.
         chat_lock_key = f"{self.platform_name}:{chat_id}"

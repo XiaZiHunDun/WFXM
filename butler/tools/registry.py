@@ -178,6 +178,19 @@ def _dispatch_mcp_tool(name: str, args: dict) -> str:
 def dispatch_tool(name: str, args: dict) -> str:
     """Dispatch a tool call by name. Returns result as string."""
     _ensure_builtins()
+    started_at = time.monotonic()
+    try:
+        from butler.tools.network_search_policy import (
+            check_network_search_tool_block,
+            record_network_search_tool,
+        )
+
+        block = check_network_search_tool_block(name, args if isinstance(args, dict) else {})
+        if block:
+            return _finalize_tool_result(name, args, block, started_at=started_at)
+        record_network_search_tool(name)
+    except Exception as exc:
+        logger.debug("network search policy skipped: %s", exc)
     try:
         from butler.mcp.registry_hook import is_mcp_tool
 

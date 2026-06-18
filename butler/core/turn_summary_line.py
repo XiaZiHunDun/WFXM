@@ -51,22 +51,21 @@ def _parse_args(raw: str) -> dict[str, Any]:
         return {}
 
 
-def _epoch_tool_actions(session_key: str) -> list[dict[str, Any]]:
+def _turn_tool_actions(session_key: str) -> list[dict[str, Any]]:
     sk = str(session_key or "").strip()
     if not sk:
         return []
     try:
-        from butler.core.session_epoch import load_epoch_transcript_rows
+        from butler.core.session_epoch import load_current_turn_tool_actions
     except Exception as exc:
         logger.debug("turn summary load skipped: %s", exc)
         return []
-    rows = load_epoch_transcript_rows(sk, max_lines=500)
-    return [r for r in rows if str(r.get("type") or "") == "tool_action"]
+    return load_current_turn_tool_actions(sk, max_lines=500)
 
 
 def build_turn_summary_line(session_key: str) -> str | None:
     """Compact Chinese summary like ``读了3文件·检索1次·无委派``."""
-    actions = _epoch_tool_actions(session_key)
+    actions = _turn_tool_actions(session_key)
     if not actions:
         return None
 

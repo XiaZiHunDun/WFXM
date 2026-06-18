@@ -443,6 +443,8 @@
 | `BUTLER_DATA_QUERY` | 1 | 启用 `data_query` 工具（duckdb） |
 | `BUTLER_ENABLE_WEB_FETCH` | 0 | 启用薄 `web_fetch`（公网 URL，SSRF 校验） |
 | `BUTLER_ENABLE_WEB_SEARCH` | 0 | 启用 `web_search` 工具（DuckDuckGo） |
+| `BUTLER_NETWORK_SEARCH_GATE` | 1 | 检索意图下须先 `web_search` 再 Firecrawl search |
+| `BUTLER_FIRECRAWL_SEARCH_MAX_PER_TURN` | 3 | 每轮 `mcp_firecrawl_*_search` 上限 |
 | `BUTLER_WEB_SEARCH_TIMEOUT` | 15 | web_search 超时（秒） |
 | `BUTLER_IMAGE_GENERATION` | 1 | 启用 `generate_image`（MiniMax image-01） |
 | `BUTLER_TTS` | 1 | 启用 `synthesize_speech`（MiniMax TTS HD） |

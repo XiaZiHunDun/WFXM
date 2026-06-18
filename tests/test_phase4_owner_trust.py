@@ -28,6 +28,7 @@ def test_turn_summary_counts_network_search(tmp_path, monkeypatch):
     from butler.core.session_transcript import append_transcript_entry
 
     sk = "sk:phase4-net"
+    append_transcript_entry(sk, "user", {"content_preview": "帮我搜一下"})
     append_transcript_entry(
         sk,
         "tool_action",
@@ -47,11 +48,36 @@ def test_turn_summary_counts_network_search(tmp_path, monkeypatch):
     assert "检索2次" in line
 
 
+def test_turn_summary_ignores_prior_turn_tools(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
+    from butler.core.session_transcript import append_transcript_entry
+
+    sk = "sk:phase4-turn"
+    append_transcript_entry(sk, "user", {"content_preview": "第一轮"})
+    append_transcript_entry(
+        sk,
+        "tool_action",
+        {"tool": "mcp_firecrawl_firecrawl_search", "args_preview": "{}", "source": "loop"},
+    )
+    append_transcript_entry(sk, "assistant", {"content_preview": "done"})
+    append_transcript_entry(sk, "user", {"content_preview": "第二轮"})
+    append_transcript_entry(
+        sk,
+        "tool_action",
+        {"tool": "grep", "args_preview": "{}", "source": "loop"},
+    )
+    line = build_turn_summary_line(sk)
+    assert line is not None
+    assert "检索1次" in line
+    assert "检索2次" not in line
+
+
 def test_turn_summary_counts_reads_and_delegate(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
     from butler.core.session_transcript import append_transcript_entry
 
     sk = "sk:phase4"
+    append_transcript_entry(sk, "user", {"content_preview": "读几个文件"})
     for path in ("a.md", "b.md", "c.md"):
         append_transcript_entry(
             sk,
