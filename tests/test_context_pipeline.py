@@ -62,6 +62,27 @@ def test_hygiene_compress_skips_below_threshold():
 
 
 @pytest.mark.unit
+def test_hygiene_applies_tool_prune_before_preflight():
+    """Gateway hygiene calls apply_tool_prune_pipeline before hygiene preflight."""
+    from butler.core.context_pipeline import apply_tool_prune_pipeline
+
+    pipeline = ContextPipeline(LoopConfig(max_context_tokens=1000))
+    messages = [{"role": "user", "content": "short"} for _ in range(6)]
+    diagnostics: dict = {}
+
+    with patch(
+        "butler.core.context_pipeline.apply_tool_prune_pipeline",
+        wraps=apply_tool_prune_pipeline,
+    ) as prune:
+        with patch.object(pipeline, "compress_context") as compress:
+            compressed, updated = pipeline.hygiene_compress_if_needed(messages, diagnostics)
+
+    prune.assert_called_once_with(messages)
+    assert compressed is False
+    compress.assert_not_called()
+
+
+@pytest.mark.unit
 def test_hygiene_compress_when_over_auto_threshold():
     pipeline = ContextPipeline(LoopConfig(max_context_tokens=128_000))
     messages = [{"role": "user", "content": "x" * 100} for _ in range(20)]

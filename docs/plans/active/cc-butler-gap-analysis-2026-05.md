@@ -67,11 +67,11 @@
 
 **CC**：`microCompact.ts` 按工具类型清空旧 read/bash/grep；`autoCompact.ts` 达阈值 LLM 摘要；`postCompactCleanup.ts` 补注入附件。
 
-**Butler 缺口**：
+**Butler 缺口**（2026-06-09 收口）：
 
-1. **每轮固定顺序**：`prune_tool_outputs` → **仅当** token > 阈值才 `compress_context`（顺序已有，需避免 hygiene/多处重复 prune 行为不一致）。
-2. **按工具名分级剪枝**：read/search/terminal 可清；write/patch/delegate 报告保留更长摘要或指针。
-3. **压缩后重注入**：扩展 `run_post_compact_cleanup`：当前项目 `MEMORY.md` 摘要、活跃 Skill、任务锚点（对齐 CC postCompactCleanup 语义）。
+1. ~~**每轮固定顺序**~~：hygiene 与 `prepare_messages_for_api` 共用 `apply_tool_prune_pipeline`（micro + backward）；`scripts/butler-cc-harness-gate.sh` 守门。
+2. ~~**按工具名分级剪枝**~~：✅ `tool_prune_policy.py`
+3. ~~**压缩后重注入**~~：✅ `post_compact_cleanup.py`
 
 **参考**：`reference/.../services/compact/microCompact.ts`、`autoCompact.ts`  
 **改动**：`butler/core/context_pipeline.py`、`context_compressor.py`、`post_compact_cleanup.py`

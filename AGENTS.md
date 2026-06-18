@@ -37,6 +37,9 @@
 
 ```bash
 cd /path/to/WFXM
+# CC 线束（改 core/context/gateway 队列与压缩时）
+./scripts/butler-cc-harness-gate.sh
+# 或子集：
 PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py \
   tests/test_tool_result_storage.py -q
 # gateway / 队列 / workflow

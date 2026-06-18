@@ -66,6 +66,9 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 - **发版后真机抽测（约 10 分钟）**：[`docs/guides/wechat-daily-smoke-checklist.md`](docs/guides/wechat-daily-smoke-checklist.md#线束与长任务完成提醒发版后建议-10-分钟) 表 **H1–H10**（规划、Hooks、委派完成推送、progress ack、入队 drain）
 
 ```bash
+# CC 线束 P0–P4（上下文 / spill / 队列 / 流式 / read-state）— 一条命令
+./scripts/butler-cc-harness-gate.sh
+
 # 文档/队列/workflow 相关守门
 PYTHONPATH=. pytest tests/test_runtime_metrics.py tests/test_message_queue.py \
   tests/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py \

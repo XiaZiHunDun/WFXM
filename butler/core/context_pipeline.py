@@ -37,6 +37,12 @@ from butler.core.message_sanitize import (
 logger = logging.getLogger(__name__)
 
 
+def apply_tool_prune_pipeline(messages: list[dict]) -> list[dict]:
+    """Forward micro prune + backward volume prune (prepare_messages_for_api order)."""
+    out = prune_tool_outputs(list(messages))
+    return backward_prune_tool_outputs(out)
+
+
 @dataclass
 class ContextPipeline:
     """Compress conversation history and prepare messages for the LLM API."""
@@ -209,8 +215,7 @@ class ContextPipeline:
             return enforce_message_tool_budget(out, session_key=sk)
 
         def _prune(msgs: list[dict]) -> list[dict]:
-            out = prune_tool_outputs(list(msgs))
-            return backward_prune_tool_outputs(out)
+            return apply_tool_prune_pipeline(msgs)
 
         def _mask(msgs: list[dict]) -> list[dict]:
             try:
@@ -326,7 +331,9 @@ class ContextPipeline:
         max_output_tokens: int | None = None,
     ) -> tuple[bool, list[dict]]:
         """Run gateway preflight compression; return (compressed, updated_messages)."""
-        snapshot = list(messages)
+        snapshot = apply_tool_prune_pipeline(messages)
+        if snapshot is not messages:
+            diagnostics["hygiene_pruned_before_compact"] = True
         result = run_hygiene_preflight(
             snapshot,
             max_context_tokens=self.config.max_context_tokens,
@@ -342,6 +349,8 @@ class ContextPipeline:
             diagnostics.get("context_compact_consecutive_failures", 0) or 0
         )
         if not result.compressed:
+            if diagnostics.get("hygiene_pruned_before_compact"):
+                return False, snapshot
             return False, messages
 
         anchored = run_post_compact_cleanup(diagnostics, messages=result.messages) or result.messages
