@@ -85,15 +85,21 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
             )
 
     if os.getenv("BUTLER_MCP_ENABLED", "0").strip() in ("1", "true", "yes"):
-        hosts = os.getenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", "").strip()
-        if not hosts:
-            findings.append(
-                AuditFinding(
-                    "warn",
-                    "MCP_HTTP_HOSTS_OPEN",
-                    "BUTLER_MCP_ENABLED=1 但 BUTLER_MCP_HTTP_HOSTS_ALLOW 为空",
-                )
-            )
+        try:
+            from butler.mcp.config import http_mcp_servers_configured
+
+            if http_mcp_servers_configured(workspace=workspace):
+                hosts = os.getenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", "").strip()
+                if not hosts:
+                    findings.append(
+                        AuditFinding(
+                            "warn",
+                            "MCP_HTTP_HOSTS_OPEN",
+                            "已配置 HTTP MCP server 但 BUTLER_MCP_HTTP_HOSTS_ALLOW 为空",
+                        )
+                    )
+        except Exception:
+            pass
 
     if os.getenv("BUTLER_MCP_HTTP_ALLOW_PRIVATE", "0").strip() in ("1", "true", "yes"):
         findings.append(

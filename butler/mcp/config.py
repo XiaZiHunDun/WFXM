@@ -191,6 +191,14 @@ def _parse_server(server_id: str, raw: dict[str, Any]) -> McpServerConfig | None
     )
 
 
+def http_mcp_servers_configured(*, workspace: Path | None = None) -> bool:
+    """True if any loaded MCP server uses HTTP transport."""
+    try:
+        return any(s.transport == "http" for s in load_mcp_servers(workspace=workspace))
+    except Exception:
+        return False
+
+
 def load_mcp_servers(*, workspace: Path | None = None) -> list[McpServerConfig]:
     servers: dict[str, McpServerConfig] = {}
     for path in _resolve_config_paths(workspace):

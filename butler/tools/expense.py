@@ -521,9 +521,9 @@ def register_expense_tools(register: Callable[..., None]) -> None:
     register(
         name="expense_summary",
         description=(
-            "【rollup-only】按 month/week/year 输出 expense_totals 与各 category_breakdown。"
-            "场景：问周期总额、分类占比。"
-            "禁止返回单笔 transaction 行。"
+            "Period spend aggregates: totals and category_breakdown for month|week|year. "
+            "For «how much spent» / budget burn questions. "
+            "Never list individual purchases."
         ),
         schema={
             "type": "object",
@@ -544,9 +544,9 @@ def register_expense_tools(register: Callable[..., None]) -> None:
     register(
         name="expense_list",
         description=(
-            "【transaction-only】按时间倒序输出 ledger rows（amount、category、date）。"
-            "场景：问「买了什么」「列流水」。"
-            "禁止 period_total 或 category_breakdown。"
+            "Chronological purchase ledger: each row with expense_id, amount, category, date. "
+            "For «what did I buy» / itemized history. "
+            "Never totals or category pie."
         ),
         schema={
             "type": "object",

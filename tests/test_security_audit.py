@@ -25,12 +25,32 @@ def test_audit_terminal_warn(monkeypatch):
     assert any(f.code == "TERMINAL_ENABLED" for f in findings)
 
 
-def test_audit_mcp_hosts_warn(monkeypatch):
+def test_audit_mcp_hosts_warn_when_http_servers(monkeypatch, tmp_path):
     monkeypatch.setenv("BUTLER_MCP_ENABLED", "1")
     monkeypatch.delenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", raising=False)
     monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "x")
+    mcp_yaml = tmp_path / "mcp.yaml"
+    mcp_yaml.write_text(
+        "servers:\n  remote:\n    transport: http\n    url: https://api.example.com/mcp\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("BUTLER_MCP_CONFIG", str(mcp_yaml))
     findings = run_security_audit()
     assert any(f.code == "MCP_HTTP_HOSTS_OPEN" for f in findings)
+
+
+def test_audit_stdio_mcp_no_http_hosts_warn(monkeypatch, tmp_path):
+    monkeypatch.setenv("BUTLER_MCP_ENABLED", "1")
+    monkeypatch.delenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", raising=False)
+    monkeypatch.setenv("BUTLER_OWNER_WECHAT_ID", "x")
+    mcp_yaml = tmp_path / "mcp.yaml"
+    mcp_yaml.write_text(
+        "servers:\n  fetch:\n    transport: stdio\n    command: uvx\n    args: [mcp-server-fetch]\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("BUTLER_MCP_CONFIG", str(mcp_yaml))
+    findings = run_security_audit()
+    assert not any(f.code == "MCP_HTTP_HOSTS_OPEN" for f in findings)
 
 
 def test_audit_accepts_wechat_allowed_users_as_gateway_owner(monkeypatch):

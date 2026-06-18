@@ -202,7 +202,7 @@
 | `BUTLER_MCP_MAX_TOOLS` | 20 | 注入模型的 MCP 工具总数 |
 | `BUTLER_MCP_TOOL_PREFIX` | mcp | 注册工具名前缀 |
 | `BUTLER_MCP_STDIO_ALLOW_COMMANDS` | python,python3,uvx | stdio 可执行命令白名单 |
-| `BUTLER_MCP_HTTP_HOSTS_ALLOW` | 空 | 额外允许的 HTTP Host |
+| `BUTLER_MCP_HTTP_HOSTS_ALLOW` | 空 | **HTTP transport** MCP server 额外允许的 Host；纯 stdio MCP 可留空 |
 | `BUTLER_MCP_SESSION_SCOPED` | 1 | 按 `session_key` 隔离连接 |
 | `BUTLER_MCP_HTTP_ALLOW_PRIVATE` | 0 | 是否允许 127.0.0.1 等内网 Host |
 | `BUTLER_SKILL_REGISTRY` | 1 | Skill 目录搜索/安装 |
