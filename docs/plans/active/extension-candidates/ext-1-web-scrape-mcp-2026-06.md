@@ -176,3 +176,4 @@ bash scripts/butler-gateway-ops.sh restart
 | 2026-06-18 | Integrate ✅：Key + mcp.yaml + live scrape + pytest 守门 |
 | 2026-06-18 | 修复：Lead `mcp_*` 白名单；gateway PATH（`/bin` + nvm 优先于 conda `npx`） |
 | 2026-06-18 | Verify ✅：微信真机 scrape；移除灵文陈旧 `fetch-readonly` 项目 MCP |
+| 2026-06-18 | P2：`/新对话` 等 slash 单气泡；同轮 Firecrawl scrape URL 去重 |

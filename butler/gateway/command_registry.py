@@ -110,6 +110,10 @@ def dispatch(ctx: CommandContext) -> tuple[bool, str | None]:
         return False, None
     try:
         result = cmd_def.handler(ctx)
+        if result is not None:
+            from butler.gateway.outbound_prefs import mark_slash_reply_single_bubble
+
+            mark_slash_reply_single_bubble()
         return True, result
     except Exception as exc:
         logger.error("Command handler %s failed: %s", ctx.cmd, exc, exc_info=True)

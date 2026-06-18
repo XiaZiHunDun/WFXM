@@ -304,6 +304,7 @@ def _pack_markdown_blocks_for_wechat(content: str, max_length: int) -> List[str]
 
 def _split_text_for_wechat_delivery(
     content: str, max_length: int, split_per_line: bool = False,
+    *, force_single_message: bool = False,
 ) -> List[str]:
     """Split content into sequential WeChat messages.
 
@@ -322,6 +323,8 @@ def _split_text_for_wechat_delivery(
     """
     if not content:
         return []
+    if force_single_message and len(content) <= max_length:
+        return [content]
     if split_per_line:
         # Legacy: one message per top-level delivery unit.
         if len(content) <= max_length and "\n" not in content:

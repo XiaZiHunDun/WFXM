@@ -49,6 +49,13 @@ class TestSplitTextForWechatDelivery:
     def test_short_single_message_compact_mode(self):
         assert wf._split_text_for_wechat_delivery("hello", 2000) == ["hello"]
 
+    def test_force_single_message_overrides_chatty_split(self):
+        content = "你好\n收到\n明白"
+        chunks = wf._split_text_for_wechat_delivery(
+            content, 2000, force_single_message=True,
+        )
+        assert chunks == [content]
+
     def test_splits_short_chatty_multiline_block(self):
         content = "你好\n收到\n明白"
         chunks = wf._split_text_for_wechat_delivery(content, 2000)

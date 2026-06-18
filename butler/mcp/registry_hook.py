@@ -11,6 +11,7 @@ from butler.mcp.bridge import format_call_result, refs_to_openai_definitions
 from butler.mcp.config import mcp_enabled, mcp_sdk_available
 from butler.mcp.manager import get_manager
 from butler.mcp.naming import is_mcp_registered_name
+from butler.mcp.turn_scrape_dedup import is_firecrawl_scrape_tool
 from butler.mcp.classify import is_mutating_classification
 
 logger = logging.getLogger(__name__)
@@ -121,6 +122,23 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
             "code": "PLAN_MODE_BLOCKED",
         }, ensure_ascii=False)
 
+    if not isinstance(args, dict):
+        args = {}
+
+    if is_firecrawl_scrape_tool(name):
+        from butler.mcp.turn_scrape_dedup import (
+            check_and_record_scrape,
+            scrape_url_from_args,
+        )
+
+        dup = check_and_record_scrape(scrape_url_from_args(args))
+        if dup:
+            return json.dumps({
+                "ok": False,
+                "error": dup,
+                "code": "MCP_SCRAPE_DUPLICATE",
+            }, ensure_ascii=False)
+
     sk = _session_key_fallback()
     ref = get_manager().get_tool_ref(sk, name)
     if ref is None:
@@ -132,9 +150,6 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
             "error": f"Unknown MCP tool: {name}",
             "code": "MCP_TOOL_UNKNOWN",
         }, ensure_ascii=False)
-
-    if not isinstance(args, dict):
-        args = {}
 
     def _call() -> str:
         return get_manager().call_tool(sk, ref, args, workspace=_resolve_workspace())

@@ -835,8 +835,14 @@ class WeChatAdapter(ButlerPlatformAdapter):
             logger.debug("[%s] typing ticket fetch timed out for %s", self.name, _safe_id(chat_id))
 
     def _split_text(self, content: str) -> List[str]:
+        from butler.gateway.outbound_prefs import consume_single_bubble_reply
+
+        force_single = consume_single_bubble_reply()
         return _split_text_for_wechat_delivery(
-            content, self.MAX_MESSAGE_LENGTH, self._split_multiline_messages,
+            content,
+            self.MAX_MESSAGE_LENGTH,
+            self._split_multiline_messages,
+            force_single_message=force_single,
         )
 
     async def _send_text_chunk(
