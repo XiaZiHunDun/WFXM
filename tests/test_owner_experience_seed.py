@@ -57,10 +57,31 @@ def test_seed_idempotent(tmp_path, seed_json: Path):
     assert first["added"] == 1
     assert second["skipped"] == 1
     assert second["added"] == 0
+    assert second.get("updated", 0) == 0
 
     bm = ButlerMemory(home, tenant_id="default")
     assert bm.experience.has_tag_substring("seed:id:test-seed-one")
     bm.close()
+
+
+def test_seed_updates_content_when_changed(tmp_path, seed_json: Path):
+    home = tmp_path / "butler"
+    first = seed_owner_experiences(home, seed_path=seed_json)
+    assert first["added"] == 1
+
+    data = json.loads(seed_json.read_text(encoding="utf-8"))
+    data[0]["content"] = "更新后的种子经验：先 web_search 再 scrape。"
+    seed_json.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+    second = seed_owner_experiences(home, seed_path=seed_json)
+    assert second["skipped"] == 0
+    assert second["added"] == 0
+    assert second["updated"] == 1
+
+    bm = ButlerMemory(home, tenant_id="default")
+    rows = bm.experience.get_recent(limit=5)
+    bm.close()
+    assert any("web_search" in str(r.get("content") or "") for r in rows)
 
 
 def test_run_pipeline(tmp_path, seed_json: Path):

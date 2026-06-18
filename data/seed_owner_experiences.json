@@ -23,10 +23,12 @@
       "skill:deep-research",
       "tool:search_project_knowledge",
       "tool:butler_recall",
+      "tool:web_search",
       "tool:web_fetch",
+      "tool:mcp_firecrawl_scrape",
       "tool:read_file"
     ],
-    "content": "深度调研顺序：先 search_project_knowledge / butler_recall 查本地材料，再 read_file 关键文档，对外 URL 用 web_fetch；输出须标注来源，勿臆造链接。"
+    "content": "深度调研顺序：先 search_project_knowledge / butler_recall 与 read_file 查本地；对外先用 web_search 找 URL，再 web_fetch 或 mcp_firecrawl_scrape 读正文。有 web_search 时禁止一轮内狂打 firecrawl_search（每轮≤3）；输出每条结论须标注来源 URL/路径，勿臆造。"
   },
   {
     "seed_id": "owner-seed-memory-release",

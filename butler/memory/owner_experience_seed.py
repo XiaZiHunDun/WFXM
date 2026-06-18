@@ -21,6 +21,67 @@ def _seed_tag(seed_id: str) -> str:
     return f"seed:id:{seed_id}"
 
 
+def _normalize_seed_tags(rec: dict[str, Any], seed_id: str) -> list[str]:
+    tags = rec.get("tags") or []
+    if isinstance(tags, str):
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+    elif isinstance(tags, list):
+        tag_list = [str(t).strip() for t in tags if str(t).strip()]
+    else:
+        tag_list = []
+    if _SEED_MARKER not in tag_list:
+        tag_list.insert(0, _SEED_MARKER)
+    marker = _seed_tag(seed_id)
+    if marker not in tag_list:
+        tag_list.append(marker)
+    return tag_list
+
+
+def _tags_match(stored: str, expected: list[str]) -> bool:
+    stored_set = {t.strip() for t in str(stored or "").split(",") if t.strip()}
+    expected_set = {t.strip() for t in expected if t.strip()}
+    return stored_set == expected_set
+
+
+def _find_seed_row(experience_store: Any, seed_id: str) -> dict[str, Any] | None:
+    tag = _seed_tag(seed_id)
+    with experience_store._lock:
+        row = experience_store._conn.execute(
+            """
+            SELECT id, project, category, content, tags
+            FROM experiences
+            WHERE tags LIKE ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (f"%{tag}%",),
+        ).fetchone()
+    if row is None:
+        return None
+    return {
+        "id": int(row[0]),
+        "project": str(row[1] or ""),
+        "category": str(row[2] or ""),
+        "content": str(row[3] or ""),
+        "tags": str(row[4] or ""),
+    }
+
+
+def _reindex_experience_row(bm: ButlerMemory, row: dict[str, Any], content: str) -> None:
+    sem = bm.semantic
+    if sem is None:
+        return
+    from butler.memory.semantic_index import index_experience_row
+
+    index_experience_row(
+        sem,
+        int(row["id"]),
+        project=str(row.get("project") or ""),
+        category=str(row.get("category") or ""),
+        content=content,
+    )
+
+
 def purge_benchmark_filler(
     butler_home: Path,
     *,
@@ -71,6 +132,7 @@ def seed_owner_experiences(
     bm = ButlerMemory(Path(butler_home).expanduser().resolve(), tenant_id=tenant_id)
     added = 0
     skipped = 0
+    updated = 0
     errors: list[str] = []
 
     for rec in records:
@@ -80,28 +142,33 @@ def seed_owner_experiences(
         content = str(rec.get("content") or "").strip()
         if not seed_id or not content:
             continue
-        if bm.experience.has_tag_substring(_seed_tag(seed_id)):
-            skipped += 1
+        tag_list = _normalize_seed_tags(rec, seed_id)
+        project = str(rec.get("project") or "")
+        category = str(rec.get("category") or "note")
+        existing = _find_seed_row(bm.experience, seed_id)
+        if existing is not None:
+            same_content = str(existing.get("content") or "").strip() == content
+            same_tags = _tags_match(str(existing.get("tags") or ""), tag_list)
+            if same_content and same_tags:
+                skipped += 1
+                continue
+            row_id = int(existing["id"])
+            if bm.experience.update_content(row_id, content, tags=tag_list):
+                _reindex_experience_row(
+                    bm,
+                    {
+                        "id": row_id,
+                        "project": project or str(existing.get("project") or ""),
+                        "category": category or str(existing.get("category") or ""),
+                    },
+                    content,
+                )
+                updated += 1
+            else:
+                errors.append(seed_id)
             continue
 
-        tags = rec.get("tags") or []
-        if isinstance(tags, str):
-            tag_list = [t.strip() for t in tags.split(",") if t.strip()]
-        elif isinstance(tags, list):
-            tag_list = [str(t).strip() for t in tags if str(t).strip()]
-        else:
-            tag_list = []
-        if _SEED_MARKER not in tag_list:
-            tag_list.insert(0, _SEED_MARKER)
-        if _seed_tag(seed_id) not in tag_list:
-            tag_list.append(_seed_tag(seed_id))
-
-        row_id = bm.add_experience(
-            str(rec.get("project") or ""),
-            str(rec.get("category") or "note"),
-            content,
-            tags=tag_list,
-        )
+        row_id = bm.add_experience(project, category, content, tags=tag_list)
         if row_id > 0:
             added += 1
         else:
@@ -116,6 +183,7 @@ def seed_owner_experiences(
         "ok": len(errors) == 0,
         "added": added,
         "skipped": skipped,
+        "updated": updated,
         "errors": errors,
         "seed_path": str(path),
     }

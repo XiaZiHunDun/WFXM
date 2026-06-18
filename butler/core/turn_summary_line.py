@@ -10,10 +10,19 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _READ_TOOLS = frozenset({"read_file"})
-_SEARCH_TOOLS = frozenset({"grep", "search_files", "glob"})
+_LOCAL_SEARCH_TOOLS = frozenset({"grep", "search_files", "glob"})
+_NETWORK_SEARCH_TOOLS = frozenset({"web_search"})
 _DELEGATE_TOOLS = frozenset({"delegate_task"})
 _MEMORY_TOOLS = frozenset({"butler_recall", "butler_remember"})
 _RUN_TOOLS = frozenset({"run_terminal", "run_runtime_job"})
+
+
+def _is_network_search_tool(tool: str) -> bool:
+    """Count DuckDuckGo web_search and Firecrawl MCP search tools."""
+    name = str(tool or "").strip().lower()
+    if name in _NETWORK_SEARCH_TOOLS:
+        return True
+    return "firecrawl" in name and "search" in name
 
 
 def turn_summary_enabled() -> bool:
@@ -74,7 +83,7 @@ def build_turn_summary_line(session_key: str) -> str | None:
             path = str(args.get("path") or "").strip()
             if path:
                 read_paths.add(path)
-        elif tool in _SEARCH_TOOLS:
+        elif tool in _LOCAL_SEARCH_TOOLS or _is_network_search_tool(tool):
             search_n += 1
         elif tool in _DELEGATE_TOOLS:
             delegate_n += 1

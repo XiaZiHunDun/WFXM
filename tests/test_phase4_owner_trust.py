@@ -23,6 +23,30 @@ from butler.core.turn_summary_line import (
 from butler.ops.owner_trust_surface import format_trust_owner_line, format_trust_report
 
 
+def test_turn_summary_counts_network_search(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
+    from butler.core.session_transcript import append_transcript_entry
+
+    sk = "sk:phase4-net"
+    append_transcript_entry(
+        sk,
+        "tool_action",
+        {"tool": "web_search", "args_preview": "{}", "source": "loop"},
+    )
+    append_transcript_entry(
+        sk,
+        "tool_action",
+        {
+            "tool": "mcp_firecrawl_firecrawl_search",
+            "args_preview": "{}",
+            "source": "delegate",
+        },
+    )
+    line = build_turn_summary_line(sk)
+    assert line is not None
+    assert "检索2次" in line
+
+
 def test_turn_summary_counts_reads_and_delegate(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
     from butler.core.session_transcript import append_transcript_entry
