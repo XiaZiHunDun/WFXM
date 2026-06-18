@@ -16,6 +16,10 @@ def _dev_env(tmp_path, monkeypatch):
     ws = tmp_path / "workspace"
     ws.mkdir()
     monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(ws))
+    monkeypatch.setattr(
+        "butler.tools.path_safety.current_workspace_root",
+        lambda: None,
+    )
     monkeypatch.setenv("BUTLER_ENABLE_TERMINAL", "1")
     monkeypatch.setenv("BUTLER_TERMINAL_PROFILE", "dev")
     monkeypatch.setenv("BUTLER_ENABLE_GIT", "1")
