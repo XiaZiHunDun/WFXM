@@ -51,6 +51,7 @@
 | `butler-memory-metrics-smoke.sh` | **D2-4/D2-5** 记忆效果度量接线测试 |
 | `butler-pre-release-smoke.sh` | 1 gateway → 2 pytest → **2b orthogonality** → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot → 10 B9 |
 | `butler-five-reports-gate.sh` | 五报告 P5–P10 + PR-F 单测 + `prompt-eval.sh` + `registry verify` |
+| `butler-extension-ext1-preflight.sh` | EXT-1 Firecrawl MCP 就绪检查（Node/npx/配置） |
 | `check-dead-env.sh` | `reference.md` 中 `BUTLER_*` 须在 `butler/` 有 reader（脚本/测试 key 白名单） |
 | `prompt-eval.sh` | Prompt pattern rubric + `test_five_reports_p7/p9/p10` |
 

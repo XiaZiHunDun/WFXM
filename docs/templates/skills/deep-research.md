@@ -12,6 +12,7 @@ preferred_tools:
   - search_project_knowledge
   - butler_recall
   - web_fetch
+  - mcp_firecrawl_scrape
   - read_file
 ---
 
@@ -21,7 +22,7 @@ preferred_tools:
 2. **检索顺序**：
    - `search_project_knowledge` / `butler_recall` 查项目已有材料；
    - `read_file` 读关键本地文档；
-   - 对外 URL 用 `web_fetch`（若工具可用），勿臆造链接内容。
+   - 对外 URL：先用 `web_fetch`（`BUTLER_ENABLE_WEB_FETCH=1`）；若失败或需 JS/crawl 且 MCP 已开，用 `mcp_firecrawl_*`（见 [`ext-1-web-scrape-mcp`](../../plans/active/extension-candidates/ext-1-web-scrape-mcp-2026-06.md)）；勿臆造链接内容。
 3. **综合**：按「背景 → 发现 → 对比 → 风险 → 建议」输出；每条结论标注来源（文件路径或 URL）。
 4. **交付**：Markdown 摘要 + 可选写入 `docs/research/<topic>-YYYY-MM.md`（需用户同意改仓库）。
 5. **禁止**：未验证来源、一次性超长 paste；优先 delegate 子代理 `content` 或 `review` 角色写终稿。

@@ -201,7 +201,7 @@
 | `BUTLER_MCP_MAX_SERVERS` | 3 | 同时连接 Server 数 |
 | `BUTLER_MCP_MAX_TOOLS` | 20 | 注入模型的 MCP 工具总数 |
 | `BUTLER_MCP_TOOL_PREFIX` | mcp | 注册工具名前缀 |
-| `BUTLER_MCP_STDIO_ALLOW_COMMANDS` | python,python3,uvx | stdio 可执行命令白名单 |
+| `BUTLER_MCP_STDIO_ALLOW_COMMANDS` | python,python3,uvx | stdio 可执行命令白名单；**EXT-1 Firecrawl** 须加 `npx` |
 | `BUTLER_MCP_HTTP_HOSTS_ALLOW` | 空 | **HTTP transport** MCP server 额外允许的 Host；纯 stdio MCP 可留空 |
 | `BUTLER_MCP_SESSION_SCOPED` | 1 | 按 `session_key` 隔离连接 |
 | `BUTLER_MCP_HTTP_ALLOW_PRIVATE` | 0 | 是否允许 127.0.0.1 等内网 Host |
@@ -448,6 +448,7 @@
 | `BUTLER_TTS` | 1 | 启用 `synthesize_speech`（MiniMax TTS HD） |
 | `BUTLER_WEB_FETCH_MAX_BYTES` | 65536 | web_fetch 响应字节上限 |
 | `BUTLER_WEB_FETCH_TIMEOUT` | 20 | web_fetch 超时（秒） |
+| `FIRECRAWL_API_KEY` | — | **EXT-1** Firecrawl MCP；推荐 `~/.butler/secrets.yaml`，勿提交 git |
 | `BUTLER_DELEGATE_CONCURRENCY_LIMIT` | 1 | 同会话并发委派槽位限制 |
 | `BUTLER_DELEGATE_MAX_CONCURRENT` | 2 | 每会话最大并行委派数 |
 | `BUTLER_MID_TURN_COMPACT` | 1 | turn 内多轮 tool 后 mid-turn 压缩相位 |

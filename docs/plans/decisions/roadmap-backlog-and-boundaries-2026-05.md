@@ -19,6 +19,7 @@
 | 我想… | 读这里 |
 |--------|--------|
 | **否决 / 不做** | 本文 **§1** |
+| **接开源 / MCP / 外购能力** | [`extension-rd-loop-2026-06.md`](../active/extension-rd-loop-2026-06.md) |
 | **报告写「未做」但可能已有** | 本文 **§2** + §4 速查 |
 | **真要排期新功能** | 本文 **§3** |
 | **查已落地能力** | 本文 **§4** |
@@ -133,6 +134,15 @@
 
 **不属于否决**，也 **未承诺排期**。立项时需写验收标准与 `BUTLER_*` 开关。
 
+### 3.0 扩展选型与接入（Extension R&D Loop）
+
+**规程 SSOT**：[`active/extension-rd-loop-2026-06.md`](../active/extension-rd-loop-2026-06.md)
+
+- **原则**：Loop/Gateway/记忆自建；长尾能力 **MCP → optional-extra → builtin（最后）**  
+- **闭环**：Observe → Research → Decide（Owner）→ Integrate（opt-in）→ Verify → Track  
+- **2026-Q3 首批试点**：EXT-1 网页采集 MCP（[一页纸](extension-candidates/ext-1-web-scrape-mcp-2026-06.md)）· EXT-2 OpenAPI/HTTP · EXT-3 文档 ingest（见规程 §5）  
+- **Agent 可** 起草选型一页纸；**不可** 无人值守改 core 依赖或绕过白名单
+
 ### 3.1 安全 / 凭证 / 网关
 
 | 项 | 来源 | 说明 |
@@ -146,8 +156,8 @@
 
 | 项 | 来源 | 说明 |
 |----|------|------|
-| 全量 RAG **ingest 管线** | Dify | 已有 search；ingest 另立项 |
-| OpenAPI 声明式 HTTP 工具 | Dify | `.butler/tools/*.yaml` 需产品定义 |
+| 全量 RAG **ingest 管线** | Dify | 已有 search；ingest 另立项 — **规程** [`extension-rd-loop` §5 EXT-3](../active/extension-rd-loop-2026-06.md) |
+| OpenAPI 声明式 HTTP 工具 | Dify | `.butler/tools/*.yaml` 需产品定义 — **规程** [`extension-rd-loop` §5 EXT-2](../active/extension-rd-loop-2026-06.md) |
 | LLM 工具模拟器 | LangChain | 仅测试路径，ROI 低 |
 | LangChain **Checkpointer** 断点续跑 | LangChain | 单进程微信非刚需 |
 | **corpus live 全量**（非 smoke） | PEG | 成本高；已有 `--corpus-live-full` 上限子集 |
@@ -185,6 +195,7 @@
 | 外部 Agent PR-X1–X6 | [`external-agent-reports-improvement-roadmap-2026-05.md`](../roadmaps/external-agent-reports-improvement-roadmap-2026-05.md) §10 | `tests/test_external_agent_*.py` 等 |
 | OpenCode / OpenClaw / OMO | 各 learning-plan | 各 `test_opencode_*` 等 |
 | MCP 薄客户端 | [`butler-mcp-capability-2026-05.md`](../comparisons/butler-mcp-capability-2026-05.md) | `BUTLER_MCP_ENABLED` |
+| **扩展选型规程** | [`active/extension-rd-loop-2026-06.md`](../active/extension-rd-loop-2026-06.md) | MCP 守门 · 选型一页纸 |
 
 ---
 

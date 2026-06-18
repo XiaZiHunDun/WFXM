@@ -20,3 +20,19 @@ servers:
   #   headers:
   #     Authorization: "Bearer ${MCP_CORP_TOKEN}"
   #   hosts_allow: ["mcp.example.com"]
+
+  # EXT-1: Firecrawl web scrape/crawl (see docs/plans/active/extension-candidates/ext-1-web-scrape-mcp-2026-06.md)
+  # Requires: Node 18+, npx in BUTLER_MCP_STDIO_ALLOW_COMMANDS, FIRECRAWL_API_KEY in secrets or env
+  # firecrawl:
+  #   transport: stdio
+  #   command: npx
+  #   args: ["-y", "firecrawl-mcp"]
+  #   timeout_seconds: 120
+  #   env:
+  #     FIRECRAWL_API_KEY: "${FIRECRAWL_API_KEY}"
+  #   tools:
+  #     allow: []   # empty = all tools from server after probe
+  #   classify:
+  #     firecrawl_scrape: readonly
+  #     firecrawl_crawl: readonly
+  #     firecrawl_map: readonly
