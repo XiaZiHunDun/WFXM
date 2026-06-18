@@ -315,6 +315,13 @@ def dispatch_tool(name: str, args: dict) -> str:
 
         call_args = merge_implicit_tool_args(call_args)
         result = entry.handler(**call_args)
+        if name == "web_search":
+            try:
+                from butler.tools.network_search_policy import note_web_search_outcome
+
+                note_web_search_outcome(result)
+            except Exception as exc:
+                logger.debug("web_search outcome note skipped: %s", exc)
         return _apply_post_tool_hooks(
             name,
             args,

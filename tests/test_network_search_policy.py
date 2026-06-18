@@ -56,7 +56,7 @@ def test_firecrawl_search_quota(monkeypatch):
         assert block["code"] == "FIRECRAWL_SEARCH_QUOTA"
 
 
-def test_dispatch_tool_applies_gate(monkeypatch):
+def test_firecrawl_search_quota(monkeypatch):
     monkeypatch.setattr(
         "butler.tools.network_search_policy._web_search_in_current_toolset",
         lambda: True,
@@ -88,3 +88,19 @@ def test_dispatch_tool_applies_gate(monkeypatch):
         )
         ok = registry.dispatch_tool("mcp_firecrawl_firecrawl_search", {"query": "x"})
         assert '"ok": true' in ok.replace(" ", "").lower() or '"ok":true' in ok.replace(" ", "").lower()
+
+
+def test_web_search_empty_exhausted(monkeypatch):
+    monkeypatch.setenv("BUTLER_WEB_SEARCH_EMPTY_MAX_PER_TURN", "2")
+    monkeypatch.setattr(
+        "butler.tools.network_search_policy._web_search_in_current_toolset",
+        lambda: True,
+    )
+    from butler.tools.network_search_policy import note_web_search_outcome
+
+    with turn_network_search_scope("帮我搜一下竞品"):
+        note_web_search_outcome(json.dumps({"ok": True, "results": []}))
+        note_web_search_outcome(json.dumps({"ok": True, "results": []}))
+        block = check_network_search_tool_block("web_search", {"query": "x"})
+        assert block is not None
+        assert block["code"] == "WEB_SEARCH_EXHAUSTED"

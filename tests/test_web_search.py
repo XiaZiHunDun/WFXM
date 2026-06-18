@@ -40,12 +40,23 @@ class TestWebSearchEnabled:
 
 
 class TestSearchParsing:
-    def test_duckduckgo_parser_empty(self):
+    def test_parse_ddg_html_results(self):
+        from butler.tools.web_search import parse_ddg_html_results
+
+        html = """
+        <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com%2Fa">Title A</a>
+        <a class="result__snippet">Snippet A</a>
+        """
+        rows = parse_ddg_html_results(html, 3)
+        assert len(rows) == 1
+        assert rows[0]["title"] == "Title A"
+        assert rows[0]["url"] == "https://example.com/a"
+
+    def test_duckduckgo_parser_empty_query(self):
         from butler.tools.web_search import _search_duckduckgo
-        # This will likely fail with network errors in CI, but should not crash
-        # The function returns [] on error
+
         results = _search_duckduckgo("", max_results=1)
-        assert isinstance(results, list)
+        assert results == []
 
     def test_max_results_clamped(self, monkeypatch):
         monkeypatch.setenv("BUTLER_ENABLE_WEB_SEARCH", "1")

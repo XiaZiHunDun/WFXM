@@ -30,6 +30,13 @@ def max_firecrawl_search_per_turn() -> int:
         return 3
 
 
+def max_web_search_empty_per_turn() -> int:
+    try:
+        return max(0, int_env("BUTLER_WEB_SEARCH_EMPTY_MAX_PER_TURN", 2, min=0))
+    except ValueError:
+        return 2
+
+
 def is_firecrawl_search_tool(tool_name: str) -> bool:
     name = str(tool_name or "").lower()
     return "firecrawl" in name and "search" in name
@@ -59,6 +66,7 @@ def turn_network_search_scope(inbound_user_text: str = "") -> Iterator[None]:
         {
             "web_search_used": False,
             "firecrawl_search_count": 0,
+            "web_search_empty_count": 0,
             "inbound_user_text": str(inbound_user_text or "").strip(),
         }
     )
@@ -83,6 +91,7 @@ def _ctx_state() -> dict[str, Any]:
         bucket = {
             "web_search_used": False,
             "firecrawl_search_count": 0,
+            "web_search_empty_count": 0,
             "inbound_user_text": "",
         }
         _CTX.set(bucket)
@@ -118,6 +127,23 @@ def _inc_firecrawl_search_count() -> int:
     bucket = _ctx_state()
     bucket["firecrawl_search_count"] = int(bucket.get("firecrawl_search_count") or 0) + 1
     return int(bucket["firecrawl_search_count"])
+
+
+def _web_search_empty_count() -> int:
+    bridge = _bridge_state()
+    if bridge is not None:
+        return int(getattr(bridge, "web_search_empty_count", 0) or 0)
+    return int(_ctx_state().get("web_search_empty_count") or 0)
+
+
+def _inc_web_search_empty_count() -> int:
+    bridge = _bridge_state()
+    if bridge is not None:
+        bridge.web_search_empty_count = int(getattr(bridge, "web_search_empty_count", 0) or 0) + 1
+        return int(bridge.web_search_empty_count)
+    bucket = _ctx_state()
+    bucket["web_search_empty_count"] = int(bucket.get("web_search_empty_count") or 0) + 1
+    return int(bucket["web_search_empty_count"])
 
 
 def _turn_user_query() -> str:
@@ -182,6 +208,18 @@ def check_network_search_tool_block(tool_name: str, args: dict[str, Any] | None 
     if not name or not _gate_active():
         return None
     if is_web_search_tool(name):
+        if is_web_search_intent(_turn_user_query()):
+            cap = max_web_search_empty_per_turn()
+            if cap >= 0 and _web_search_empty_count() >= cap:
+                return {
+                    "ok": False,
+                    "code": "WEB_SEARCH_EXHAUSTED",
+                    "error": (
+                        f"本轮 web_search 已连续空结果 {cap} 次；"
+                        "请改用 mcp_firecrawl_firecrawl_search / scrape 或直接总结。"
+                    ),
+                    "hint": "勿再重复 web_search；Firecrawl 已在 web_search 之后可用",
+                }
         return None
     if not is_firecrawl_search_tool(name):
         return None
@@ -221,13 +259,35 @@ def record_network_search_tool(tool_name: str) -> None:
         _inc_firecrawl_search_count()
 
 
+def note_web_search_outcome(result_text: str) -> None:
+    """Track empty web_search results to cap pointless retries."""
+    text = str(result_text or "").strip()
+    if not text:
+        _inc_web_search_empty_count()
+        return
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return
+    if not isinstance(payload, dict):
+        return
+    if payload.get("error"):
+        _inc_web_search_empty_count()
+        return
+    results = payload.get("results")
+    if isinstance(results, list) and len(results) == 0:
+        _inc_web_search_empty_count()
+
+
 __all__ = [
     "check_network_search_tool_block",
     "is_firecrawl_search_tool",
     "is_web_search_intent",
     "is_web_search_tool",
     "max_firecrawl_search_per_turn",
+    "max_web_search_empty_per_turn",
     "network_search_gate_enabled",
+    "note_web_search_outcome",
     "record_network_search_tool",
     "turn_network_search_scope",
 ]

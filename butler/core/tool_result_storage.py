@@ -223,6 +223,30 @@ def tool_results_dir(session_key: str) -> Path:
     return get_butler_home() / _SESSIONS_SUBDIR / sk / TOOL_RESULTS_SUBDIR
 
 
+def is_readable_session_tool_result_path(
+    path_str: str,
+    *,
+    session_key: str = "",
+) -> bool:
+    """Read-only spill files for the active session (outside project workspace)."""
+    raw = str(path_str or "").strip()
+    if not raw:
+        return False
+    try:
+        from butler.execution_context import get_current_session_key
+
+        sk = str(session_key or get_current_session_key() or "").strip()
+        if not sk:
+            return False
+        allowed_dir = tool_results_dir(sk).resolve(strict=False)
+        target = Path(raw).expanduser().resolve(strict=False)
+        if not target.is_file():
+            return False
+        return target.is_relative_to(allowed_dir)
+    except Exception:
+        return False
+
+
 def tool_result_path(session_key: str, tool_use_id: str) -> Path:
     tid = _safe_path_segment(tool_use_id, fallback="tool")
     return tool_results_dir(session_key) / f"{tid}.txt"

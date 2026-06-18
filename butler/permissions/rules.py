@@ -116,11 +116,20 @@ def _path_outside_workspace(path_str: str, workspace: Path) -> bool:
     if not path_str:
         return False
     try:
+        from butler.core.tool_result_storage import is_readable_session_tool_result_path
+
+        if is_readable_session_tool_result_path(path_str):
+            return False
+    except Exception as exc:
+        logger.debug("session tool-result outside-workspace check skipped: %s", exc)
+    try:
         from butler.tools.path_safety import check_tool_path
 
         result = check_tool_path(path_str, for_write=False)
         if not result.allowed and "outside workspace" in (result.error or "").lower():
             return True
+        if result.allowed:
+            return False
     except Exception as exc:
         logger.warning("path_outside_workspace check failed (fail-closed): %s", exc)
         return True

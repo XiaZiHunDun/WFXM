@@ -112,3 +112,26 @@ def test_tool_batch_spills_on_append(monkeypatch, tmp_path):
     tool_msg = [m for m in messages if m.get("role") == "tool"][0]
     assert PERSISTED_OUTPUT_TAG in tool_msg["content"]
     assert tool_result_path("batch-sess", "call_spill").is_file()
+
+
+def test_session_tool_result_path_readable(monkeypatch, tmp_path):
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    reload_butler_settings()
+    from butler.core.tool_result_storage import (
+        is_readable_session_tool_result_path,
+        persist_tool_result_text,
+        tool_result_path,
+    )
+    from butler.execution_context import use_execution_context
+    from butler.tools.path_safety import check_tool_path
+
+    sk = "wechat:test-session"
+    body = "scrape body\nline2\n"
+    persisted = persist_tool_result_text(body, tool_use_id="call_abc", session_key=sk)
+    assert persisted is not None
+    path = tool_result_path(sk, "call_abc")
+
+    with use_execution_context(session_key=sk):
+        assert is_readable_session_tool_result_path(str(path))
+        safety = check_tool_path(str(path), for_write=False)
+        assert safety.allowed, safety.error

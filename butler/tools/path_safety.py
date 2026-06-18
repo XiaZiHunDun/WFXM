@@ -240,6 +240,15 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
     if hooks_error:
         return PathSafetyResult(False, resolved, hooks_error)
 
+    if not for_write:
+        try:
+            from butler.core.tool_result_storage import is_readable_session_tool_result_path
+
+            if is_readable_session_tool_result_path(str(resolved)):
+                return PathSafetyResult(True, resolved)
+        except Exception as exc:
+            logger.debug("session tool-result path check skipped: %s", exc)
+
     if root is not None and not _is_relative_to(resolved, root):
         try:
             from butler.permissions import check_external_path_override
