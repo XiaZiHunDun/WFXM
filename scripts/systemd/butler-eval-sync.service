@@ -7,7 +7,7 @@ Type=oneshot
 WorkingDirectory=@WFXM_ROOT@
 Environment=PYTHONPATH=@WFXM_ROOT@
 EnvironmentFile=-@WFXM_ROOT@/.env
-ExecStart=/bin/bash @WFXM_ROOT@/scripts/butler-wechat-dataset-sync.sh
+ExecStart=/bin/bash @WFXM_ROOT@/scripts/lib/butler-systemd-wrap.sh @WFXM_ROOT@/scripts/butler-wechat-dataset-sync.sh
 StandardOutput=append:@WFXM_ROOT@/logs/butler-eval-sync.log
 StandardError=append:@WFXM_ROOT@/logs/butler-eval-sync.log
 

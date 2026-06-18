@@ -3,6 +3,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib/butler-systemd-install.sh
+source "$ROOT/scripts/lib/butler-systemd-install.sh"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 SVC_T="$ROOT/scripts/systemd/butler-eval-sync.service"
 TMR_T="$ROOT/scripts/systemd/butler-eval-sync.timer"
@@ -23,10 +25,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 mkdir -p "$UNIT_DIR" "$ROOT/logs"
+chmod +x "$ROOT/scripts/lib/butler-systemd-wrap.sh"
 for pair in "$SVC_T:$SVC_D" "$TMR_T:$TMR_D"; do
   src="${pair%%:*}"
   dst="${pair##*:}"
-  sed "s|@WFXM_ROOT@|$ROOT|g" "$src" >"$dst"
+  butler_render_systemd_unit "$src" "$dst" "$ROOT"
 done
 
 systemctl --user daemon-reload

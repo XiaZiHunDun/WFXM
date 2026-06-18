@@ -11,26 +11,27 @@
 #   30 3 * * 0 cd /path/to/WFXM && bash scripts/butler-b9-weekly-gate-followup.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(/usr/bin/dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 export PYTHONPATH="$ROOT"
 export BUTLER_EVAL_LLM_BENCHMARK="${BUTLER_EVAL_LLM_BENCHMARK:-1}"
 
 MODEL="${BUTLER_B9_WEEKLY_MODEL:-minimax/MiniMax-M3}"
 LOG="${BUTLER_B9_WEEKLY_LOG:-$ROOT/logs/butler-b9-weekly-gate.log}"
-mkdir -p "$(dirname "$LOG")"
+mkdir -p "$(/usr/bin/dirname "$LOG")"
 
-if [[ -f "$ROOT/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$ROOT/.env" 2>/dev/null || true
-  set +a
-fi
+# shellcheck source=scripts/lib/butler-source-env.sh
+source "$ROOT/scripts/lib/butler-source-env.sh"
+butler_source_env "$ROOT/.env" || true
+
+# shellcheck source=scripts/lib/butler-systemd-install.sh
+source "$ROOT/scripts/lib/butler-systemd-install.sh"
+PY="$(butler_resolve_python3)"
 
 echo "=== B9 weekly-gate followup: model=$MODEL ===" | tee -a "$LOG"
 bash "$ROOT/scripts/butler-b9-weekly-learning.sh" "$MODEL" 2>&1 | tee -a "$LOG"
 
-python3 - <<PY | tee -a "$LOG"
+"$PY" - <<PY | tee -a "$LOG"
 import json
 import os
 import subprocess

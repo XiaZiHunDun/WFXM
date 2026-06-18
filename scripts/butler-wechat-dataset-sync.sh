@@ -5,18 +5,19 @@
 #   bash scripts/butler-wechat-dataset-sync.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(/usr/bin/dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 export PYTHONPATH="$ROOT"
 
-if [[ -f "$ROOT/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$ROOT/.env" 2>/dev/null || true
-  set +a
-fi
+# shellcheck source=scripts/lib/butler-source-env.sh
+source "$ROOT/scripts/lib/butler-source-env.sh"
+butler_source_env "$ROOT/.env" || true
 
-python3 - <<'PY'
+# shellcheck source=scripts/lib/butler-systemd-install.sh
+source "$ROOT/scripts/lib/butler-systemd-install.sh"
+PY="$(butler_resolve_python3)"
+
+"$PY" - <<'PY'
 import json
 from butler.ops.wechat_dataset import load_and_push_wechat_dataset
 

@@ -3,7 +3,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PYTHON="$(command -v python3)"
+# shellcheck source=scripts/lib/butler-systemd-install.sh
+source "$ROOT/scripts/lib/butler-systemd-install.sh"
+PYTHON="$(butler_resolve_python3)"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 SVC_T="$ROOT/scripts/systemd/butler-runtime-lingwen.service"
 TMR_T="$ROOT/scripts/systemd/butler-runtime-lingwen.timer"
@@ -27,7 +29,7 @@ mkdir -p "$UNIT_DIR" "$ROOT/logs"
 for pair in "$SVC_T:$SVC_D" "$TMR_T:$TMR_D"; do
   src="${pair%%:*}"
   dst="${pair##*:}"
-  sed "s|@WFXM_ROOT@|$ROOT|g; s|@PYTHON@|$PYTHON|g" "$src" >"$dst"
+  butler_render_systemd_unit "$src" "$dst" "$ROOT" "$PYTHON"
 done
 
 systemctl --user daemon-reload

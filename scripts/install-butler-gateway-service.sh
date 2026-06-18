@@ -5,8 +5,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/lib/butler-gateway-preflight.sh
 source "$ROOT/scripts/lib/butler-gateway-preflight.sh"
+# shellcheck source=scripts/lib/butler-systemd-install.sh
+source "$ROOT/scripts/lib/butler-systemd-install.sh"
 
-PYTHON="$(command -v python3)"
+PYTHON="$(butler_resolve_python3)"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 TEMPLATE="$ROOT/scripts/systemd/butler-gateway.service"
 DEST="$UNIT_DIR/butler-gateway.service"
@@ -50,7 +52,7 @@ if systemctl --user cat hermes-gateway.service >/dev/null 2>&1; then
 fi
 
 mkdir -p "$UNIT_DIR" "$ROOT/logs"
-sed "s|@WFXM_ROOT@|$ROOT|g; s|@PYTHON@|$PYTHON|g" "$TEMPLATE" >"$DEST"
+butler_render_systemd_unit "$TEMPLATE" "$DEST" "$ROOT" "$PYTHON"
 systemctl --user daemon-reload
 systemctl --user enable butler-gateway.service
 
