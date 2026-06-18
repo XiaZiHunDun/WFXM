@@ -162,7 +162,7 @@ bash scripts/butler-gateway-ops.sh restart
 
 **Integrate 记录（2026-06-18）**：`FIRECRAWL_API_KEY` → `.env`；`~/.butler/mcp.yaml` firecrawl；gateway 经 `butler-gateway-exec.sh`；CLI + 微信 `mcp_firecrawl_firecrawl_scrape(https://example.com)` 均 ok；守门 22 passed。
 
-**Verify 记录（2026-06-18）**：微信 `/新对话` 后抽测通过（session transcript 有 `tool_action` + `ok`）。**Track**：2–4 周观察查资料类任务；勿与 `fetch-readonly`（uvx）等陈旧项目 MCP 混装（会刷 ERROR 日志，已自灵文 `.butler/mcp.yaml` 移除）。
+**Verify 记录（2026-06-18）**：微信 `/新对话` 后抽测通过（session transcript 有 `tool_action` + `ok`）。**Track（2026-06-18 起，2–4 周）**：日常查资料类任务优先 Firecrawl；观察成功率与 `permissions.yaml` 的 `ask` 体验；勿与 `fetch-readonly`（uvx）等陈旧项目 MCP 混装。
 
 微信抽测话术：「请用 Firecrawl 抓取 https://example.com 并三句话总结」。
 
@@ -177,3 +177,4 @@ bash scripts/butler-gateway-ops.sh restart
 | 2026-06-18 | 修复：Lead `mcp_*` 白名单；gateway PATH（`/bin` + nvm 优先于 conda `npx`） |
 | 2026-06-18 | Verify ✅：微信真机 scrape；移除灵文陈旧 `fetch-readonly` 项目 MCP |
 | 2026-06-18 | P2：`/新对话` 等 slash 单气泡；同轮 Firecrawl scrape URL 去重 |
+| 2026-06-18 | 双回复根因：gateway 单实例 flock + restart 清孤儿；P2 改经 bridge/metadata 跨线程 |
