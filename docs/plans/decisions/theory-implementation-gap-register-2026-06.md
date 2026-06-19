@@ -63,7 +63,7 @@
 
 | ID | 理论依据 | 现状 | 影响 | 建议 |
 |----|----------|------|------|------|
-| G1-04 | OT2 有条件目标 | 硬反馈已接；**观测中**（窗内 3 条 `adjust_delegate_rescue`，剩 9d→06-23） | OT2 窗满且 ≥1 条后 `closure_ready` | `butler-g1-04-closure-check.sh`；06-23 结案 |
+| G1-04 | OT2 有条件目标 | 硬反馈已接；**观测中**（窗内 3 条 `adjust_delegate_rescue`，剩 4d→06-23） | OT2 窗满且 ≥1 条后 `closure_ready` | `butler-g1-04-closure-check.sh`；06-23 结案 |
 
 ---
 
@@ -149,6 +149,7 @@
 | 2026-06-13 | **G1-04 观测打卡**：窗内 3 条 feedback，剩 10d；**G2-08 pilot**：`CODING_STRICT_GATE` 接生产类别；B9 周循环增 `experience_selection_precision` + affinity backfill |
 | 2026-06-14 | **检索纠偏**：`test_driven_add` 需 anchor/inferred task；L3 灵文 edit capture probe；`butler-g1-04-closure-check.sh` |
 | 2026-06-14 | **检索纠偏 v2**：`b9_task` 自动 anchor + 通用词过滤；周循环 `forward_selection_precision` |
+| 2026-06-19 | **G1-04 观测打卡**：检索链真机 ✅；`butler-g1-04-closure-check.sh` 窗未结束（→06-23 结案）；EXT-1 Track 继续 |
 | 2026-06-14 | **B9 周循环 v2 验证**：Tier-1 7/7、Tier-2 3/3、SWE 3/3、Promoted 6/6、灵文 3/3；`forward`=1.0（stored 27.5% 为历史误命中）；`prod_delta_clean` 仍 ±0 |
 | 2026-06-14 | **第 7 道 prod 晋升**：`B9L_prod_lingwen_constants_docstring`（灵文 constants 样本）；`butler-prod-delta-observe.sh`；L3 capture OK |
 | 2026-06-14 | **第 8 道 prod 晋升**：`B9L_prod_lingwen_validate_progress`（灵文 validate_progress 样本）；Promoted oracle **8/8** |

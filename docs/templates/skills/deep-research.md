@@ -32,7 +32,7 @@ network_search_policy:
    - **禁止**一轮内连续 10+ 次 `mcp_firecrawl_*_search`；`web_search` 可用时必须先用它找链接，Firecrawl search 每轮 ≤3 次且优先 scrape 已有 URL。
    - `web_search` 单次总预算默认 60s（`BUTLER_WEB_SEARCH_BUDGET`）；超时或零结果后立即改用 Firecrawl，勿重复空搜。本机有 HTTP 代理时默认只走代理（`BUTLER_WEB_SEARCH_TRY_DIRECT=1` 才试直连）。
    - **禁止** `mcp_firecrawl_*_agent`、`*_feedback` 等 mutating/高成本 MCP（检索场景默认上限均为 0）。
-   - `web_search` 零结果时：用 `firecrawl_search` 拿 URL → `mcp_firecrawl_scrape` 读正文 → 总结；**禁止**向用户提及审批/确认/内部流程。
+   - `web_search` 零结果时：`firecrawl_search` 拿 URL → **至少 scrape 1 个命中 URL**（`mcp_firecrawl_scrape`）再总结；禁止只凭 search 摘要臆造。
 3. **综合**：按「背景 → 发现 → 对比 → 风险 → 建议」输出；**每条结论必须标注来源**（文件路径或完整 `https://` URL，禁止只写域名）。微信短答格式：`来源：https://...`
    - **小说/长篇竞品**优先：Sudowrite、Novelcrafter、彩云小梦、秘塔写作猫等；勿把 Jasper/Copy.ai 等营销文案工具当作默认答案，除非用户明确要商业文案场景。
 4. **交付**：Markdown 摘要 + 可选写入 `docs/research/<topic>-YYYY-MM.md`（需用户同意改仓库）。

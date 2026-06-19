@@ -453,6 +453,9 @@
 | `BUTLER_WEB_SEARCH_RETRIES` | 2 | DuckDuckGo 多后端重试轮数 |
 | `BUTLER_WEB_SEARCH_TIMEOUT` | 15 | 单次 HTTP 尝试超时（秒，上限 30） |
 | `BUTLER_WEB_SEARCH_BUDGET` | 60 | 单次 `web_search` 总时间预算（秒，上限 300） |
+
+**`web_search` 运维**：Gateway 内间歇零结果时运行 `bash scripts/butler-web-search-probe.sh`（与 systemd 同 `.env`）；有 `HTTP(S)_PROXY` 时默认只走代理（`BUTLER_WEB_SEARCH_TRY_DIRECT=1` 才试直连）。检索任务以 Firecrawl 兜底，勿重复空搜。详见 EXT-1 [`ext-1-web-scrape-mcp-2026-06.md`](../plans/active/extension-candidates/ext-1-web-scrape-mcp-2026-06.md)。
+
 | `BUTLER_IMAGE_GENERATION` | 1 | 启用 `generate_image`（MiniMax image-01） |
 | `BUTLER_TTS` | 1 | 启用 `synthesize_speech`（MiniMax TTS HD） |
 | `BUTLER_WEB_FETCH_MAX_BYTES` | 65536 | web_fetch 响应字节上限 |
