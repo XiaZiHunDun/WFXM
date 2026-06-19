@@ -57,7 +57,10 @@ def _register(key: str, cat: str, desc: str, default: str, level: str = "A", vty
 # --- 网络 ---
 _register("BUTLER_ENABLE_WEB_FETCH", "网络", "公网 URL 抓取", "0")
 _register("BUTLER_ENABLE_WEB_SEARCH", "网络", "网络搜索", "0")
-_register("BUTLER_WEB_SEARCH_TIMEOUT", "网络", "web_search 超时（秒）", "15", vtype="int")
+_register("BUTLER_WEB_SEARCH_TIMEOUT", "网络", "web_search 单次尝试超时（秒）", "15", vtype="int")
+_register("BUTLER_WEB_SEARCH_BUDGET", "网络", "web_search 总时间预算（秒）", "60", vtype="int")
+_register("BUTLER_FIRECRAWL_AGENT_MAX_PER_TURN", "网络", "firecrawl_agent 每轮上限", "0", vtype="int")
+_register("BUTLER_FIRECRAWL_FEEDBACK_MAX_PER_TURN", "网络", "firecrawl_feedback 每轮上限", "0", vtype="int")
 _register("BUTLER_ENABLE_DOWNLOAD", "网络", "HTTPS 文件下载", "0")
 _register("BUTLER_IMAGE_GENERATION", "网络", "图像生成工具", "1")
 _register("BUTLER_TTS", "网络", "语音合成工具", "1")

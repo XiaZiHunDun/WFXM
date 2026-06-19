@@ -56,7 +56,38 @@ def test_firecrawl_search_quota(monkeypatch):
         assert block["code"] == "FIRECRAWL_SEARCH_QUOTA"
 
 
-def test_firecrawl_search_quota(monkeypatch):
+def test_firecrawl_agent_disabled_on_search_intent(monkeypatch):
+    monkeypatch.setattr(
+        "butler.tools.network_search_policy._web_search_in_current_toolset",
+        lambda: True,
+    )
+    with turn_network_search_scope("帮我搜一下竞品"):
+        record_network_search_tool("web_search")
+        block = check_network_search_tool_block("mcp_firecrawl_firecrawl_agent", {})
+        assert block is not None
+        assert block["code"] == "FIRECRAWL_AGENT_DISABLED"
+
+
+def test_firecrawl_feedback_disabled_on_search_intent(monkeypatch):
+    monkeypatch.setattr(
+        "butler.tools.network_search_policy._web_search_in_current_toolset",
+        lambda: True,
+    )
+    with turn_network_search_scope("帮我搜一下竞品"):
+        record_network_search_tool("web_search")
+        block = check_network_search_tool_block("mcp_firecrawl_firecrawl_search_feedback", {})
+        assert block is not None
+        assert block["code"] == "FIRECRAWL_FEEDBACK_DISABLED"
+
+
+def test_search_feedback_not_counted_as_search_tool():
+    from butler.tools.network_search_policy import is_firecrawl_search_tool
+
+    assert not is_firecrawl_search_tool("mcp_firecrawl_firecrawl_search_feedback")
+    assert is_firecrawl_search_tool("mcp_firecrawl_firecrawl_search")
+
+
+def test_firecrawl_search_quota_via_registry(monkeypatch):
     monkeypatch.setattr(
         "butler.tools.network_search_policy._web_search_in_current_toolset",
         lambda: True,

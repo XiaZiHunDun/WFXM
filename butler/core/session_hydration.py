@@ -41,7 +41,7 @@ def _last_transcript_assistant_ts(session_key: str) -> float | None:
 
 def should_show_recovery_notice(session_key: str, *, gap_seconds: float = 300.0) -> bool:
     """True when transcript has history but this is a fresh in-memory loop."""
-    if not env_truthy("BUTLER_SESSION_RECOVERY_NOTICE", default=True):
+    if not env_truthy("BUTLER_SESSION_RECOVERY_NOTICE", default=False):
         return False
     from butler.core.session_tool_index import list_session_read_files
 

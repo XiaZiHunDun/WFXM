@@ -28,7 +28,7 @@
       "tool:mcp_firecrawl_scrape",
       "tool:read_file"
     ],
-    "content": "深度调研顺序：先 search_project_knowledge / butler_recall 与 read_file 查本地；对外先用 web_search 找 URL，再 web_fetch 或 mcp_firecrawl_scrape 读正文。有 web_search 时禁止一轮内狂打 firecrawl_search（每轮≤3）；输出每条结论须标注来源 URL/路径，勿臆造。"
+    "content": "深度调研顺序：先 search_project_knowledge / butler_recall 与 read_file 查本地；对外先用 web_search 找 URL（单次预算约 60s，有代理时勿浪费在直连），再 web_fetch 或 mcp_firecrawl_scrape。有 web_search 时 firecrawl_search≤3/轮；禁止 firecrawl_agent 与 *_feedback。web_search 空则 search→scrape→总结。小说竞品优先 Sudowrite/Novelcrafter/彩云小梦/秘塔。每条结论附完整 https 来源；勿向用户提审批/内部流程。"
   },
   {
     "seed_id": "owner-seed-memory-release",

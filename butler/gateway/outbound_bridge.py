@@ -126,6 +126,8 @@ class GatewayOutboundBridge:
     inbound_user_text: str = field(default="", init=False)
     network_search_web_used: bool = field(default=False, init=False)
     firecrawl_search_count: int = field(default=0, init=False)
+    firecrawl_agent_count: int = field(default=0, init=False)
+    firecrawl_feedback_count: int = field(default=0, init=False)
     web_search_empty_count: int = field(default=0, init=False)
 
     @property
@@ -188,6 +190,8 @@ class GatewayOutboundBridge:
         self.inbound_user_text = ""
         self.network_search_web_used = False
         self.firecrawl_search_count = 0
+        self.firecrawl_agent_count = 0
+        self.firecrawl_feedback_count = 0
         self.web_search_empty_count = 0
 
         ensure = getattr(self, "_ensure_typing", None)

@@ -445,9 +445,14 @@
 | `BUTLER_ENABLE_WEB_SEARCH` | 0 | 启用 `web_search` 工具（DuckDuckGo） |
 | `BUTLER_NETWORK_SEARCH_GATE` | 1 | 检索意图下须先 `web_search` 再 Firecrawl search |
 | `BUTLER_FIRECRAWL_SEARCH_MAX_PER_TURN` | 3 | 每轮 `mcp_firecrawl_*_search` 上限 |
+| `BUTLER_FIRECRAWL_AGENT_MAX_PER_TURN` | 0 | 每轮 `mcp_firecrawl_*_agent` 上限（0=检索场景禁用） |
+| `BUTLER_FIRECRAWL_FEEDBACK_MAX_PER_TURN` | 0 | 每轮 `mcp_firecrawl_*_feedback` 上限（0=禁用） |
+| `BUTLER_SESSION_RECOVERY_NOTICE` | 0 | 是否在回复前展示 transcript 恢复提示 |
+| `BUTLER_WEB_SEARCH_TRY_DIRECT` | 0 | 有代理时是否仍尝试直连（默认否，省预算） |
 | `BUTLER_WEB_SEARCH_EMPTY_MAX_PER_TURN` | 2 | 每轮空 `web_search` 上限（超出改 Firecrawl） |
 | `BUTLER_WEB_SEARCH_RETRIES` | 2 | DuckDuckGo 多后端重试轮数 |
-| `BUTLER_WEB_SEARCH_TIMEOUT` | 15 | web_search 超时（秒） |
+| `BUTLER_WEB_SEARCH_TIMEOUT` | 15 | 单次 HTTP 尝试超时（秒，上限 30） |
+| `BUTLER_WEB_SEARCH_BUDGET` | 60 | 单次 `web_search` 总时间预算（秒，上限 300） |
 | `BUTLER_IMAGE_GENERATION` | 1 | 启用 `generate_image`（MiniMax image-01） |
 | `BUTLER_TTS` | 1 | 启用 `synthesize_speech`（MiniMax TTS HD） |
 | `BUTLER_WEB_FETCH_MAX_BYTES` | 65536 | web_fetch 响应字节上限 |

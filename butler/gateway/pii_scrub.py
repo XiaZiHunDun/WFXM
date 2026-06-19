@@ -62,4 +62,10 @@ def scrub_outbound_text(text: str) -> str:
     out = _JWT.sub("[JWT令牌已脱敏]", out)
     out = _IPV4_PRIVATE.sub("[内网IP已脱敏]", out)
     out = _CARD_DIGITS.sub(_scrub_card, out)
+    try:
+        from butler.gateway.internal_leak_scrub import scrub_internal_ops_leaks
+
+        out = scrub_internal_ops_leaks(out)
+    except Exception:
+        pass
     return out

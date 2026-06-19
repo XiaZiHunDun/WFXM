@@ -37,8 +37,34 @@ def max_web_search_empty_per_turn() -> int:
         return 2
 
 
+def max_firecrawl_agent_per_turn() -> int:
+    try:
+        return max(0, int_env("BUTLER_FIRECRAWL_AGENT_MAX_PER_TURN", 0, min=0))
+    except ValueError:
+        return 0
+
+
+def max_firecrawl_feedback_per_turn() -> int:
+    try:
+        return max(0, int_env("BUTLER_FIRECRAWL_FEEDBACK_MAX_PER_TURN", 0, min=0))
+    except ValueError:
+        return 0
+
+
+def is_firecrawl_agent_tool(tool_name: str) -> bool:
+    name = str(tool_name or "").lower()
+    return "firecrawl" in name and "agent" in name
+
+
+def is_firecrawl_feedback_tool(tool_name: str) -> bool:
+    name = str(tool_name or "").lower()
+    return "firecrawl" in name and "feedback" in name
+
+
 def is_firecrawl_search_tool(tool_name: str) -> bool:
     name = str(tool_name or "").lower()
+    if "feedback" in name or "agent" in name:
+        return False
     return "firecrawl" in name and "search" in name
 
 
@@ -66,6 +92,8 @@ def turn_network_search_scope(inbound_user_text: str = "") -> Iterator[None]:
         {
             "web_search_used": False,
             "firecrawl_search_count": 0,
+            "firecrawl_agent_count": 0,
+            "firecrawl_feedback_count": 0,
             "web_search_empty_count": 0,
             "inbound_user_text": str(inbound_user_text or "").strip(),
         }
@@ -91,6 +119,8 @@ def _ctx_state() -> dict[str, Any]:
         bucket = {
             "web_search_used": False,
             "firecrawl_search_count": 0,
+            "firecrawl_agent_count": 0,
+            "firecrawl_feedback_count": 0,
             "web_search_empty_count": 0,
             "inbound_user_text": "",
         }
@@ -127,6 +157,40 @@ def _inc_firecrawl_search_count() -> int:
     bucket = _ctx_state()
     bucket["firecrawl_search_count"] = int(bucket.get("firecrawl_search_count") or 0) + 1
     return int(bucket["firecrawl_search_count"])
+
+
+def _firecrawl_agent_count() -> int:
+    bridge = _bridge_state()
+    if bridge is not None:
+        return int(getattr(bridge, "firecrawl_agent_count", 0) or 0)
+    return int(_ctx_state().get("firecrawl_agent_count") or 0)
+
+
+def _inc_firecrawl_agent_count() -> int:
+    bridge = _bridge_state()
+    if bridge is not None:
+        bridge.firecrawl_agent_count = int(getattr(bridge, "firecrawl_agent_count", 0) or 0) + 1
+        return int(bridge.firecrawl_agent_count)
+    bucket = _ctx_state()
+    bucket["firecrawl_agent_count"] = int(bucket.get("firecrawl_agent_count") or 0) + 1
+    return int(bucket["firecrawl_agent_count"])
+
+
+def _firecrawl_feedback_count() -> int:
+    bridge = _bridge_state()
+    if bridge is not None:
+        return int(getattr(bridge, "firecrawl_feedback_count", 0) or 0)
+    return int(_ctx_state().get("firecrawl_feedback_count") or 0)
+
+
+def _inc_firecrawl_feedback_count() -> int:
+    bridge = _bridge_state()
+    if bridge is not None:
+        bridge.firecrawl_feedback_count = int(getattr(bridge, "firecrawl_feedback_count", 0) or 0) + 1
+        return int(bridge.firecrawl_feedback_count)
+    bucket = _ctx_state()
+    bucket["firecrawl_feedback_count"] = int(bucket.get("firecrawl_feedback_count") or 0) + 1
+    return int(bucket["firecrawl_feedback_count"])
 
 
 def _web_search_empty_count() -> int:
@@ -201,6 +265,74 @@ def _gate_active() -> bool:
     return network_search_gate_enabled() and _web_search_in_current_toolset()
 
 
+def _firecrawl_aux_block(tool_name: str, *, disabled_code: str, disabled_msg: str, quota_code: str) -> dict[str, Any] | None:
+    cap = max_firecrawl_agent_per_turn() if is_firecrawl_agent_tool(tool_name) else max_firecrawl_feedback_per_turn()
+    if cap <= 0:
+        return {
+            "ok": False,
+            "code": disabled_code,
+            "error": disabled_msg,
+            "hint": "勿向用户提及审批流程；用 firecrawl_search 结果的 URL 做 scrape 或直接总结",
+        }
+    count = _firecrawl_agent_count() if is_firecrawl_agent_tool(tool_name) else _firecrawl_feedback_count()
+    if count >= cap:
+        return {
+            "ok": False,
+            "code": quota_code,
+            "error": f"本轮该 Firecrawl 工具已达上限（{cap} 次）；请 scrape 已有 URL 或直接总结。",
+            "hint": "勿向用户提及审批流程",
+        }
+    return None
+
+
+def _firecrawl_gate_block(tool_name: str) -> dict[str, Any] | None:
+    """Shared gate for Firecrawl search/agent/feedback on retrieval-intent turns."""
+    if not is_web_search_intent(_turn_user_query()):
+        return None
+    if not _web_search_used():
+        return {
+            "ok": False,
+            "code": "WEB_SEARCH_REQUIRED",
+            "error": (
+                "本轮须先用 web_search 检索链接，再调用 Firecrawl search/scrape；"
+                "请改用 web_search(query=...) 获取 URL 列表。"
+            ),
+            "hint": "deep-research：web_search → web_fetch / mcp_firecrawl_scrape",
+        }
+    if is_firecrawl_feedback_tool(tool_name):
+        return _firecrawl_aux_block(
+            tool_name,
+            disabled_code="FIRECRAWL_FEEDBACK_DISABLED",
+            disabled_msg=(
+                "检索任务禁止 mcp_firecrawl_*_feedback；"
+                "请根据 firecrawl_search 结果 scrape URL 或直接总结。"
+            ),
+            quota_code="FIRECRAWL_FEEDBACK_QUOTA",
+        )
+    if is_firecrawl_agent_tool(tool_name):
+        return _firecrawl_aux_block(
+            tool_name,
+            disabled_code="FIRECRAWL_AGENT_DISABLED",
+            disabled_msg=(
+                "检索任务禁止 mcp_firecrawl_*_agent（高成本）；"
+                "请根据 firecrawl_search 结果 scrape 已有 URL 或直接总结。"
+            ),
+            quota_code="FIRECRAWL_AGENT_QUOTA",
+        )
+    cap = max_firecrawl_search_per_turn()
+    if cap >= 0 and _firecrawl_search_count() >= cap:
+        return {
+            "ok": False,
+            "code": "FIRECRAWL_SEARCH_QUOTA",
+            "error": (
+                f"本轮 mcp_firecrawl_*_search 已达上限（{cap} 次）；"
+                "请根据已有搜索结果选用 URL 做 scrape，或直接总结。"
+            ),
+            "hint": "优先 mcp_firecrawl_scrape 已有 URL，勿调 feedback/agent",
+        }
+    return None
+
+
 def check_network_search_tool_block(tool_name: str, args: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Return error payload if tool call violates network search policy."""
     _ = args
@@ -221,40 +353,24 @@ def check_network_search_tool_block(tool_name: str, args: dict[str, Any] | None 
                     "hint": "勿再重复 web_search；Firecrawl 已在 web_search 之后可用",
                 }
         return None
-    if not is_firecrawl_search_tool(name):
+    if (
+        not is_firecrawl_search_tool(name)
+        and not is_firecrawl_agent_tool(name)
+        and not is_firecrawl_feedback_tool(name)
+    ):
         return None
-    if not is_web_search_intent(_turn_user_query()):
-        return None
-
-    if not _web_search_used():
-        return {
-            "ok": False,
-            "code": "WEB_SEARCH_REQUIRED",
-            "error": (
-                "本轮须先用 web_search 检索链接，再调用 Firecrawl search/scrape；"
-                "请改用 web_search(query=...) 获取 URL 列表。"
-            ),
-            "hint": "deep-research：web_search → web_fetch / mcp_firecrawl_scrape",
-        }
-
-    cap = max_firecrawl_search_per_turn()
-    if cap >= 0 and _firecrawl_search_count() >= cap:
-        return {
-            "ok": False,
-            "code": "FIRECRAWL_SEARCH_QUOTA",
-            "error": (
-                f"本轮 mcp_firecrawl_*_search 已达上限（{cap} 次）；"
-                "请根据已有搜索结果选用 URL 做 scrape，或直接总结。"
-            ),
-        }
-    return None
+    return _firecrawl_gate_block(name)
 
 
 def record_network_search_tool(tool_name: str) -> None:
-    """Record web_search / firecrawl_search usage for the current turn."""
+    """Record web_search / firecrawl search/agent/feedback usage for the current turn."""
     name = str(tool_name or "").strip()
     if is_web_search_tool(name):
         _set_web_search_used()
+    elif is_firecrawl_feedback_tool(name):
+        _inc_firecrawl_feedback_count()
+    elif is_firecrawl_agent_tool(name):
+        _inc_firecrawl_agent_count()
     elif is_firecrawl_search_tool(name):
         _inc_firecrawl_search_count()
 
@@ -281,9 +397,13 @@ def note_web_search_outcome(result_text: str) -> None:
 
 __all__ = [
     "check_network_search_tool_block",
+    "is_firecrawl_agent_tool",
+    "is_firecrawl_feedback_tool",
     "is_firecrawl_search_tool",
     "is_web_search_intent",
     "is_web_search_tool",
+    "max_firecrawl_agent_per_turn",
+    "max_firecrawl_feedback_per_turn",
     "max_firecrawl_search_per_turn",
     "max_web_search_empty_per_turn",
     "network_search_gate_enabled",

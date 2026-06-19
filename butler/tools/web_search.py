@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import time
 from html import unescape
 from typing import Any
 from urllib.parse import quote_plus, unquote
@@ -13,7 +15,11 @@ from butler.env_parse import env_truthy, float_env, int_env
 
 logger = logging.getLogger(__name__)
 
+_BUDGET_MAX_SEC = 300.0
+_PER_ATTEMPT_TIMEOUT_MAX_SEC = 30.0
+
 _DDG_HTML_URL = "https://html.duckduckgo.com/html/"
+_DDG_LITE_URL = "https://lite.duckduckgo.com/lite/"
 _DDG_API_URL = "https://api.duckduckgo.com/"
 
 _HEADERS = {
@@ -30,11 +36,51 @@ def web_search_enabled() -> bool:
     return env_truthy("BUTLER_ENABLE_WEB_SEARCH", default=False)
 
 
-def _timeout() -> float:
+def _per_attempt_timeout_cap() -> float:
     try:
-        return max(3.0, float_env("BUTLER_WEB_SEARCH_TIMEOUT", 15))
+        raw = float_env("BUTLER_WEB_SEARCH_TIMEOUT", 15)
+        return min(_PER_ATTEMPT_TIMEOUT_MAX_SEC, max(3.0, raw))
     except ValueError:
         return 15.0
+
+
+def _total_budget() -> float:
+    try:
+        raw = float_env("BUTLER_WEB_SEARCH_BUDGET", 60)
+        return min(_BUDGET_MAX_SEC, max(5.0, raw))
+    except ValueError:
+        return 60.0
+
+
+def _proxy_configured() -> bool:
+    for key in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ):
+        if str(os.environ.get(key) or "").strip():
+            return True
+    return False
+
+
+def _try_direct_with_proxy() -> bool:
+    """When proxy env is set, skip direct attempts unless explicitly enabled."""
+    if not _proxy_configured():
+        return True
+    return env_truthy("BUTLER_WEB_SEARCH_TRY_DIRECT", default=False)
+
+
+def _search_strategies() -> list[tuple[str, bool]]:
+    """Return (kind, trust_env). Proxy-only hosts skip direct to preserve budget."""
+    kinds = ("html_post", "html_lite", "api")
+    if _proxy_configured() and not _try_direct_with_proxy():
+        return [(kind, True) for kind in kinds]
+    if _proxy_configured():
+        return [(kind, False) for kind in kinds] + [(kind, True) for kind in kinds]
+    return [(kind, True) for kind in kinds] + [(kind, False) for kind in kinds]
 
 
 def _max_retries() -> int:
@@ -140,13 +186,21 @@ def _fetch_with_httpx(
     url: str,
     *,
     trust_env: bool,
+    timeout: float,
     data: dict[str, str] | None = None,
 ) -> str:
     import httpx
 
-    timeout = _timeout()
+    per = max(3.0, timeout)
+    connect_cap = 5.0 if trust_env else 3.0
+    timeouts = httpx.Timeout(
+        connect=min(connect_cap, per),
+        read=per,
+        write=min(10.0, per),
+        pool=min(5.0, per),
+    )
     with httpx.Client(
-        timeout=timeout,
+        timeout=timeouts,
         follow_redirects=True,
         trust_env=trust_env,
         headers=_HEADERS,
@@ -159,59 +213,104 @@ def _fetch_with_httpx(
         return resp.text
 
 
-def _search_ddg_html_post(query: str, max_results: int, *, trust_env: bool) -> list[dict[str, str]]:
+def _search_ddg_html_post(
+    query: str,
+    max_results: int,
+    *,
+    trust_env: bool,
+    timeout: float,
+) -> list[dict[str, str]]:
     html = _fetch_with_httpx(
         "post",
         _DDG_HTML_URL,
         trust_env=trust_env,
+        timeout=timeout,
         data={"q": query},
     )
     return parse_ddg_html_results(html, max_results)
 
 
-def _search_ddg_api(query: str, max_results: int, *, trust_env: bool) -> list[dict[str, str]]:
+def _search_ddg_api(
+    query: str,
+    max_results: int,
+    *,
+    trust_env: bool,
+    timeout: float,
+) -> list[dict[str, str]]:
     url = (
         f"{_DDG_API_URL}?q={quote_plus(query)}"
         "&format=json&no_html=1&no_redirect=1&skip_disambig=1"
     )
-    text = _fetch_with_httpx("get", url, trust_env=trust_env)
+    text = _fetch_with_httpx("get", url, trust_env=trust_env, timeout=timeout)
     payload = json.loads(text)
     if not isinstance(payload, dict):
         return []
     return _parse_ddg_api_payload(payload, max_results)
 
 
+def _search_ddg_lite_get(
+    query: str,
+    max_results: int,
+    *,
+    trust_env: bool,
+    timeout: float,
+) -> list[dict[str, str]]:
+    url = f"{_DDG_LITE_URL}?q={quote_plus(query)}"
+    html = _fetch_with_httpx("get", url, trust_env=trust_env, timeout=timeout)
+    return parse_ddg_html_results(html, max_results)
+
+
 def _search_duckduckgo(query: str, max_results: int = 5) -> list[dict[str, str]]:
-    """Try DDG HTML POST then instant-answer API; alternate trust_env for proxy TLS."""
+    """Try DDG backends within a total time budget; direct-first when proxy env is set."""
     q = str(query or "").strip()
     if not q:
         return []
 
-    strategies: list[tuple[str, bool]] = [
-        ("html_post", True),
-        ("html_post", False),
-        ("api", True),
-        ("api", False),
-    ]
-    retries = _max_retries()
+    budget = _total_budget()
+    deadline = time.monotonic() + budget
+    strategies = _search_strategies()
+    max_rounds = _max_retries()
     last_exc: Exception | None = None
+    round_idx = 0
 
-    for attempt in range(retries):
+    while time.monotonic() < deadline and round_idx < max_rounds:
+        round_idx += 1
         for kind, trust_env in strategies:
+            remaining = deadline - time.monotonic()
+            if remaining < 2.5:
+                break
+            per_timeout = min(_per_attempt_timeout_cap(), max(3.0, remaining))
             try:
                 if kind == "html_post":
-                    rows = _search_ddg_html_post(q, max_results, trust_env=trust_env)
+                    rows = _search_ddg_html_post(
+                        q,
+                        max_results,
+                        trust_env=trust_env,
+                        timeout=per_timeout,
+                    )
+                elif kind == "html_lite":
+                    rows = _search_ddg_lite_get(
+                        q,
+                        max_results,
+                        trust_env=trust_env,
+                        timeout=per_timeout,
+                    )
                 else:
-                    rows = _search_ddg_api(q, max_results, trust_env=trust_env)
+                    rows = _search_ddg_api(
+                        q,
+                        max_results,
+                        trust_env=trust_env,
+                        timeout=per_timeout,
+                    )
                 if rows:
                     return rows[:max_results]
             except Exception as exc:
                 last_exc = exc
                 logger.warning(
-                    "DuckDuckGo %s trust_env=%s attempt=%s failed: %s",
+                    "DuckDuckGo %s trust_env=%s round=%s failed: %s",
                     kind,
                     trust_env,
-                    attempt + 1,
+                    round_idx,
                     exc,
                 )
     if last_exc is not None:
@@ -232,18 +331,25 @@ def tool_web_search(query: str = "", max_results: int = 5, **_: Any) -> str:
         return json.dumps({"error": "query is required"}, ensure_ascii=False)
 
     cap = max(1, min(10, int(max_results or 5)))
+    started = time.monotonic()
     results = _search_duckduckgo(q, max_results=cap)
+    elapsed = round(time.monotonic() - started, 2)
 
     if not results:
         return json.dumps({
             "ok": True,
             "query": q,
             "results": [],
+            "elapsed_seconds": elapsed,
+            "budget_seconds": _total_budget(),
             "message": "No results found or search service unavailable",
             "hint": (
-                "DuckDuckGo 不可达或零结果；可改用 mcp_firecrawl_firecrawl_search / "
-                "mcp_firecrawl_scrape，勿重复空搜 web_search。"
+                "DuckDuckGo 不可达或零结果（已用尽本轮 web_search 时间预算）。"
+                "下一步：1) mcp_firecrawl_firecrawl_search 取 URL；"
+                "2) 对命中 URL 用 mcp_firecrawl_scrape 读正文；"
+                "3) 直接总结并附完整 https 来源。勿重复 web_search，勿调 feedback/agent。"
             ),
+            "fallback": "firecrawl_search_then_scrape",
         }, ensure_ascii=False)
 
     return json.dumps({
@@ -289,5 +395,9 @@ __all__ = [
     "register_web_search_tool",
     "tool_web_search",
     "web_search_enabled",
+    "_proxy_configured",
     "_search_duckduckgo",
+    "_search_strategies",
+    "_total_budget",
+    "_try_direct_with_proxy",
 ]
