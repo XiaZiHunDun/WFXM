@@ -22,6 +22,23 @@ bash scripts/butler-phase4-smoke.sh --tier=full
 bash scripts/butler-phase4-smoke.sh --with-consistency
 ```
 
+### Gateway 生产依赖清单（`[gateway]` extra）
+
+微信 Gateway 机推荐 **`pip install -e ".[gateway]"`**（`butler-gateway-ops.sh upgrade` 已对齐）。声明式 SSOT：[`projects/LingWen1/stack.yaml`](../../projects/LingWen1/stack.yaml)。
+
+| 组件 | 安装/配置 | 验收 |
+|------|-----------|------|
+| Python `[gateway]` | wechat + mcp + embeddings + vectors + web | `bash scripts/butler-gateway-ops.sh preflight` |
+| Node 18+ / npx | 系统包 | preflight `npx present`（`BUTLER_MCP_ENABLED=1` 时） |
+| Firecrawl MCP | `~/.butler/mcp.yaml` + `FIRECRAWL_API_KEY` | `butler mcp status` / EXT-1 已验 |
+| HTTP 代理 | 如 `127.0.0.1:7890` | `web_search` 省钱轨；**Firecrawl = 检索 SLA** |
+| 语义记忆 | `BUTLER_SEMANTIC_MEMORY=1` + fastembed | `butler doctor` Recall@3 |
+| 可选技能 | `bash scripts/butler-lingwen-skills-install.sh` | `butler skills list` 含 webnovel-*（**GitHub 远程**，非 `~/.claude/plugins`） |
+
+**不装**在 Gateway：`dev`、`cli`、`documents`（EXT-3 ingest 走开发机或 sidecar）。
+
+**部署剖面**：`BUTLER_DEPLOY_PROFILE=gateway|dev|all`（默认：Gateway 在跑 → `gateway`）。`butler-deploy.sh update` 与 [`dependency-terminology-2026-06.md`](dependency-terminology-2026-06.md) §4。
+
 覆盖项：
 
 | 路线图 ID | 自动化覆盖 |
@@ -85,7 +102,10 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 |------|------|
 | 日常合并 | `bash scripts/butler-smoke.sh --tier=standard` |
 | 发版 / 大改 gateway | `bash scripts/butler-pre-release-smoke.sh` 或 `--tier=full` |
+| 微信/工具子集（非全量 pytest） | `pytest tests/test_gateway_handler.py tests/test_tools_registry.py tests/test_intent_keywords.py tests/test_network_search_policy.py tests/test_tool_pair_repair.py -q` |
 | 部署 | `bash scripts/butler-deploy.sh update`（含回归门） |
+
+> **pytest 全量**：`pytest tests/` 仍有跨测状态泄漏（~100 fail，主集中 `test_tools_registry`）；**不以全绿为发版硬 gate**，见 `pilot-log` §分层 gate（2026-06-21）。发版以 `butler-pre-release-smoke.sh` + corpus 分层为准。
 
 ### A5 · 成本模型实测标定
 

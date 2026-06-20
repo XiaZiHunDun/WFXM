@@ -106,6 +106,12 @@ def clear_plan_mode(session_key: str = "") -> None:
     set_plan_mode(_resolve_session_key(session_key), False)
 
 
+def clear_all_plan_modes() -> None:
+    """Reset in-memory plan flags (test isolation; does not touch on-disk store)."""
+    with _LOCK:
+        _PLAN_BY_SESSION.clear()
+
+
 def check_plan_mode_block(
     tool_name: str,
     args: dict[str, Any] | None = None,

@@ -674,7 +674,12 @@ class TestEveryRegisteredCommandDispatches:
             "请检查 _register_defaults 是否被覆盖"
         )
 
+        # /计划 等会改写进程内 plan_mode 状态；无 session_key 时落到 default 会话。
+        skip_stateful = frozenset({"/计划", "/执行", "/确认", "/取消"})
+
         for name in every_command:
+            if name in skip_stateful:
+                continue
             try:
                 result = handler._handle_command(name)
             except Exception as exc:
