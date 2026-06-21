@@ -204,8 +204,10 @@ sys.exit(0 if check_wechat_requirements() else 1)
   else
     _bg_warn "BUTLER_REASONING_TRACE=0 — /诊断 不展示推理摘要行"
   fi
-  if [[ "${BUTLER_PLAN_REASON_GRAPH:-0}" =~ ^(1|true|yes|on)$ ]]; then
-    _bg_ok "BUTLER_PLAN_REASON_GRAPH=1 (规划 DoT-lite 试点)"
+  if [[ "${BUTLER_PLAN_REASON_GRAPH:-1}" =~ ^(1|true|yes|on)$ ]]; then
+    _bg_ok "BUTLER_PLAN_REASON_GRAPH enabled (规划 DoT-lite)"
+  else
+    _bg_warn "BUTLER_PLAN_REASON_GRAPH=0 — 规划模式不写推理图"
   fi
 
   if [[ "$errors" -gt 0 ]]; then

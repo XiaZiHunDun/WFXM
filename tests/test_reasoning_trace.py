@@ -149,9 +149,11 @@ def test_plan_reason_graph_append_and_sync(butler_home, monkeypatch):
 
 def test_plan_graph_appendix_only_when_enabled(monkeypatch):
     monkeypatch.delenv("BUTLER_PLAN_REASON_GRAPH", raising=False)
-    assert get_plan_mode_graph_appendix() == ""
-    monkeypatch.setenv("BUTLER_PLAN_REASON_GRAPH", "1")
+    assert plan_reason_graph_enabled()
     assert "DoT-lite" in get_plan_mode_graph_appendix()
+    monkeypatch.setenv("BUTLER_PLAN_REASON_GRAPH", "0")
+    assert not plan_reason_graph_enabled()
+    assert get_plan_mode_graph_appendix() == ""
 
 
 def test_reasoning_trace_disabled(monkeypatch, butler_home):

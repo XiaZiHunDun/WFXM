@@ -19,7 +19,7 @@ def reasoning_trace_enabled() -> bool:
 
 
 def plan_reason_graph_enabled() -> bool:
-    return env_truthy("BUTLER_PLAN_REASON_GRAPH", default=False)
+    return env_truthy("BUTLER_PLAN_REASON_GRAPH", default=True)
 
 
 def summarize_reasoning_text(text: str, *, max_len: int = _SUMMARY_MAX) -> str:
@@ -263,7 +263,7 @@ def get_plan_mode_graph_appendix() -> str:
     if not plan_reason_graph_enabled():
         return ""
     return (
-        "\n\n### 推理图（DoT-lite，opt-in）\n"
+        "\n\n### 推理图（DoT-lite）\n"
         "规划时按 **事实 / 假设 / 步骤 / 风险** 四类记录；系统会写入会话 "
         "`reason_graph.json` 与 transcript。\n"
         "- **fact**：已从代码/文档确认的事实（附 evidence 路径或命令）\n"
