@@ -256,6 +256,32 @@ def discover_markdown_files(project_dir: Path, workspace: Path) -> list[Path]:
                     continue
                 seen.add(key)
                 found.append(hit.resolve())
+    ingest_root = workspace.resolve() / ".butler" / "ingest"
+    if ingest_root.is_dir():
+        for hit in sorted(ingest_root.rglob("*.md")):
+            if not hit.is_file():
+                continue
+            key = str(hit.resolve())
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append(hit.resolve())
+    try:
+        from butler.memory.document_ingest import pilot_dirs_from_stack
+
+        for pilot_root in pilot_dirs_from_stack(workspace):
+            if not pilot_root.is_dir():
+                continue
+            for hit in sorted(pilot_root.rglob("*.md")):
+                if not hit.is_file():
+                    continue
+                key = str(hit.resolve())
+                if key in seen:
+                    continue
+                seen.add(key)
+                found.append(hit.resolve())
+    except ImportError:
+        logger.debug("document_ingest unavailable; skip ingest_pilot_dirs markdown")
     return found
 
 

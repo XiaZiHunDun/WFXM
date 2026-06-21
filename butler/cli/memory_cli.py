@@ -52,6 +52,30 @@ def _register_memory_search_reindex(mem_sub: argparse._SubParsersAction, _butler
     _add_reindex_args(mreindex)
     mreindex.set_defaults(func=_butler_main._cmd_memory_reindex)
 
+    mingest = mem_sub.add_parser(
+        "ingest",
+        help="EXT-3：试点目录文档转 Markdown → .butler/ingest（需 BUTLER_INGEST_ENABLED=1）",
+    )
+    mingest.add_argument(
+        "--project",
+        default="",
+        help="项目名（默认 BUTLER_DEFAULT_PROJECT）",
+    )
+    mingest.add_argument(
+        "--workspace",
+        default="",
+        help="直接指定 workspace（优先于 --project）",
+    )
+    mingest.add_argument("--dir", action="append", default=[], help="额外扫描目录（可重复）")
+    mingest.add_argument("--dry-run", action="store_true")
+    mingest.add_argument("--force", action="store_true", help="忽略 manifest 跳过未变更文件")
+    mingest.add_argument(
+        "--reindex",
+        action="store_true",
+        help="ingest 成功后重建语义索引",
+    )
+    mingest.set_defaults(func=_cmd_memory_ingest)
+
 
 def _register_memory_ops_parsers(mem_sub: argparse._SubParsersAction) -> None:
     mseed = mem_sub.add_parser(
@@ -408,4 +432,81 @@ def _cmd_memory_reindex(ns: argparse.Namespace) -> int:
         f"  Markdown 层级块: {result.get('indexed_markdown_chunks', 0)}\n"
         f"  向量表合计: {result.get('vector_rows', 0)}"
     )
+    return 0
+
+
+def _resolve_ingest_workspace(ns: argparse.Namespace):
+    from pathlib import Path
+
+    ws_raw = (getattr(ns, "workspace", "") or "").strip()
+    if ws_raw:
+        return Path(ws_raw).expanduser().resolve()
+    project = (getattr(ns, "project", "") or "").strip()
+    if not project:
+        import os
+
+        project = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+    if not project:
+        return None
+    try:
+        from butler.project.manager import get_project_manager
+
+        proj = get_project_manager().get_project(project)
+        if proj is None or not getattr(proj, "workspace", None):
+            return None
+        return Path(str(proj.workspace)).expanduser().resolve()
+    except Exception:
+        return None
+
+
+def _cmd_memory_ingest(ns: argparse.Namespace) -> int:
+    from butler.memory.document_ingest import ingest_workspace
+
+    ws = _resolve_ingest_workspace(ns)
+    if ws is None:
+        Console().print("[red]请指定 --workspace 或 --project / BUTLER_DEFAULT_PROJECT[/red]")
+        return 1
+    extra_dirs = []
+    for d in ns.dir or []:
+        if str(d).strip():
+            from pathlib import Path
+
+            extra_dirs.append(Path(d).expanduser().resolve())
+    result = ingest_workspace(
+        ws,
+        dirs=extra_dirs or None,
+        dry_run=bool(ns.dry_run),
+        force=bool(ns.force),
+    )
+    console = Console()
+    if not result.get("ok") and result.get("error"):
+        console.print(f"[red]{result['error']}[/red]")
+        if not result.get("results"):
+            return 1
+    console.print(
+        f"[bold]文档 ingest[/bold] workspace={result.get('workspace', ws)}\n"
+        f"  写入: {result.get('written', 0)}  跳过: {result.get('skipped', 0)} "
+        f"  失败: {result.get('failed', 0)}"
+    )
+    for row in result.get("results") or []:
+        status = row.get("status")
+        src = row.get("source", "")
+        detail = row.get("detail", "")
+        color = "green" if status == "written" else ("yellow" if status == "skipped" else "red")
+        console.print(f"  [{color}]{status}[/{color}] {src} {detail}")
+    if result.get("failed", 0):
+        return 1
+    if bool(getattr(ns, "reindex", False)) and not bool(ns.dry_run):
+        import os
+        from argparse import Namespace
+
+        reindex_ns = Namespace(
+            tenant=getattr(ns, "tenant", "default"),
+            project=(getattr(ns, "project", "") or "").strip()
+            or os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
+            or None,
+            experience_only=False,
+            no_clear=False,
+        )
+        return _cmd_memory_reindex(reindex_ns)
     return 0

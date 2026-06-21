@@ -149,3 +149,17 @@ def test_discover_markdown_files(tmp_path, monkeypatch):
 @pytest.mark.module_test
 def test_markdown_chunking_enabled_default():
     assert markdown_chunking_enabled() is True
+
+
+@pytest.mark.module_test
+def test_discover_markdown_files_ingest_pilot_dirs(tmp_path):
+    ws = tmp_path / "proj"
+    refs = ws / "novel-factory" / "references"
+    refs.mkdir(parents=True)
+    (refs / "canon.md").write_text("# Canon\n", encoding="utf-8")
+    (ws / "stack.yaml").write_text(
+        "ingest_pilot_dirs:\n  - novel-factory/references\n",
+        encoding="utf-8",
+    )
+    found = discover_markdown_files(ws, ws)
+    assert any(p.name == "canon.md" for p in found)
