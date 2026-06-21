@@ -25,6 +25,18 @@ def test_web_search_intent_detects_chinese_search():
     assert is_web_search_intent("帮我搜一下AI写作助手竞品")
     assert is_web_search_intent("竞品分析 笔灵")
     assert not is_web_search_intent("read workflow_state.json")
+    assert not is_web_search_intent("用Todoist列出所有项目")
+
+
+def test_todoist_query_blocks_web_search(monkeypatch):
+    monkeypatch.setattr(
+        "butler.tools.network_search_policy._web_search_in_current_toolset",
+        lambda: True,
+    )
+    with turn_network_search_scope("Todoist里Inbox有哪些任务"):
+        block = check_network_search_tool_block("web_search", {"query": "todoist api"})
+        assert block is not None
+        assert block["code"] == "TODOIST_USE_MCP"
 
 
 def test_firecrawl_blocked_until_web_search(monkeypatch):

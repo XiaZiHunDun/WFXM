@@ -36,3 +36,27 @@ servers:
   #     firecrawl_scrape: readonly
   #     firecrawl_crawl: readonly
   #     firecrawl_map: readonly
+
+  # EXT-2: Todoist REST v2 read-only (see docs/plans/active/extension-candidates/ext-2-openapi-http-2026-06.md)
+  # Requires: Node 18+, npx in BUTLER_MCP_STDIO_ALLOW_COMMANDS, TODOIST_API_TOKEN in secrets or env
+  # Pin spec: curl -o ~/.butler/openapi/todoist-rest-v2.yml <raw url in ext-2 doc>
+  # todoist:
+  #   transport: stdio
+  #   command: npx
+  #   args:
+  #     - "-y"
+  #     - "@ivotoby/openapi-mcp-server"
+  #     - "--api-base-url"
+  #     - "https://api.todoist.com/rest/v2"
+  #     - "--openapi-spec"
+  #     - "${HOME}/.butler/openapi/todoist-rest-v2.yml"
+  #   timeout_seconds: 90
+  #   env:
+  #     API_HEADERS: "Authorization:Bearer ${TODOIST_API_TOKEN}"
+  #   tools:
+  #     allow:
+  #       - getAllProjects
+  #       - getActiveTasks
+  #   classify:
+  #     getAllProjects: readonly
+  #     getActiveTasks: readonly

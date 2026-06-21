@@ -16,6 +16,14 @@ def test_detect_ultrawork_banner(monkeypatch):
     assert "ultrawork" in banner.lower() or "全力" in banner
 
 
+def test_detect_todoist_mcp_banner(monkeypatch):
+    monkeypatch.delenv("BUTLER_INTENT_KEYWORDS_OFF", raising=False)
+    banner = detect_intent_banner("用Todoist列出所有项目")
+    assert banner is not None
+    assert "mcp_todoist" in banner
+    assert "web_search" in banner
+
+
 def test_category_from_intent():
     assert category_from_intent("ultrawork now") == "quick"
     assert category_from_intent("深审一下") == "ultrabrain"

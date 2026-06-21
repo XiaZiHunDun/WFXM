@@ -68,6 +68,35 @@ def is_firecrawl_search_tool(tool_name: str) -> bool:
     return "firecrawl" in name and "search" in name
 
 
+def is_todoist_mcp_intent(query: str) -> bool:
+    """Todoist 列项目/任务应走 MCP，不走 web 检索或 API 文档臆造。"""
+    text = str(query or "").strip().lower()
+    if "todoist" not in text:
+        return False
+    hints = (
+        "项目", "待办", "任务", "inbox", "列出", "哪些", "今天", "明天",
+        "project", "task", "list",
+    )
+    return any(h in text for h in hints)
+
+
+def _todoist_mcp_block(tool_name: str) -> dict[str, Any] | None:
+    if not is_todoist_mcp_intent(_turn_user_query()):
+        return None
+    name = str(tool_name or "").strip().lower()
+    if is_web_search_tool(name) or name == "web_fetch":
+        return {
+            "ok": False,
+            "code": "TODOIST_USE_MCP",
+            "error": (
+                "Todoist 查询须调用 mcp_todoist_lst_projects / mcp_todoist_lst_tasks 等 MCP 工具，"
+                "禁止 web_search 或 web_fetch 查 API 文档。"
+            ),
+            "hint": "mcp_todoist_lst_projects · mcp_todoist_lst_tasks",
+        }
+    return None
+
+
 def is_web_search_tool(tool_name: str) -> bool:
     return str(tool_name or "").strip().lower() == "web_search"
 
@@ -75,6 +104,8 @@ def is_web_search_tool(tool_name: str) -> bool:
 def is_web_search_intent(query: str) -> bool:
     text = str(query or "").strip()
     if not text:
+        return False
+    if is_todoist_mcp_intent(text):
         return False
     if _SEARCH_INTENT_RE.search(text):
         return True
@@ -337,6 +368,9 @@ def check_network_search_tool_block(tool_name: str, args: dict[str, Any] | None 
     """Return error payload if tool call violates network search policy."""
     _ = args
     name = str(tool_name or "").strip()
+    todoist_block = _todoist_mcp_block(name)
+    if todoist_block is not None:
+        return todoist_block
     if not name or not _gate_active():
         return None
     if is_web_search_tool(name):

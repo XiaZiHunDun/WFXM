@@ -110,26 +110,28 @@ MCP（薄 Client，默认关）
 | **验收** | `BUTLER_MCP_ENABLED=1` + project 白名单 `mcp_firecrawl_*`；`bash scripts/butler-extension-ext1-preflight.sh`；`/诊断` MCP 段 |
 | **守门** | `test_mcp_features.py` · 可选 live（API key） |
 
-### EXT-2 — 声明式 HTTP / OpenAPI 工具（MCP 或 YAML）
+### EXT-2 — 声明式 HTTP / OpenAPI 工具（MCP 或 YAML） → [`extension-candidates/ext-2-openapi-http-2026-06.md`](extension-candidates/ext-2-openapi-http-2026-06.md)
 
 | 维度 | 内容 |
 |------|------|
+| **状态** | Research ✅ · Decide ✅ · Integrate ✅ · **Verify ✅**（2026-06-20 微信真机 Todoist） |
 | **痛点** | 每个 SaaS（日历、工单、内部 REST）写 builtin 周期长；Dify 类「OpenAPI → tool」成熟 |
 | **信号** | Backlog §3.2 OpenAPI；Owner 重复「接某某 API」需求 |
-| **候选** | **openapi-mcp** 类 Server；Butler 侧 `.butler/tools/*.yaml` 声明（Backlog，需产品 schema）；社区 REST MCP |
-| **推荐** | 先 **MCP 生态已有 Server**；YAML 声明仅当 MCP 覆盖不足且需微信无 Node 依赖时立项 |
-| **验收** | 1 个试点 API（如 readonly GET）；`permissions.yaml` last-match；secrets 仅 `secrets.yaml` |
-| **守门** | SSRF 测试 · `test_security_audit` 相关 |
+| **候选** | **A** `npx @ivotoby/openapi-mcp-server`（首选）· **B** `uvx mcp-openapi` · **C** FastMCP 自建 · **E** `.butler/tools/*.yaml`（延后） |
+| **推荐** | Decide 时选 A 或 B + **1 个试点 OpenAPI**（只读 GET）；**不做**远程 HTTP MCP 默认真机路径 |
+| **验收** | 1 试点 API；`permissions` + `secrets.yaml`；`test_mcp_features` + 安全子集 |
 
-### EXT-3 — 文档 ingest（RAG 进料，非 RAG 平台）
+### EXT-3 — 文档 ingest（RAG 进料，非 RAG 平台） → [`extension-candidates/ext-3-document-ingest-2026-06.md`](extension-candidates/ext-3-document-ingest-2026-06.md)
 
 | 维度 | 内容 |
 |------|------|
+| **状态** | **Decide ✅**（2026-06-19）· **Integrate ✅** · **Verify ✅**（2026-06-20，灵文参考书试点） |
 | **痛点** | 已有 `semantic_index` + search；**缺** PDF/Office/批量目录 ingest；自建 MinerU/Docling 全家桶已否决 |
-| **信号** | Backlog §3.2 全量 RAG ingest；四报告 RF-P2 **不做** 重管线 |
-| **候选** | Unstructured / MarkItDown **MCP**；一次性 CLI + `memory reindex`；外部 cron 写 chunk 文件再 index |
-| **推荐** | **sidecar/MCP ingest** → 写入现有 index 路径；**不**接 RAGFlow/Dify Graph |
-| **验收** | 指定 `docs/` 或 PDF 目录 ingest → `butler memory search` 可召回；默认关；无新 core 重依赖 |
+| **信号** | 灵文参考书/竞品 PDF；`docs/research/` 与 `novel-factory/references/` 需入库 |
+| **候选** | MarkItDown **MCP/CLI**；Unstructured MCP；外部 cron + `memory reindex` |
+| **推荐** | **sidecar CLI ingest** → 现有 index；试点见灵文 [`stack.yaml`](../../../projects/LingWen1/stack.yaml) |
+| **验收** | 10 册参考书 + `--scope project` 检索；PDF 放 `external/` opt-in；守门 pytest 绿 |
+| **验收** | 试点目录 ingest → `butler memory search` 可召回；默认关 |
 | **守门** | `test_ragflow_p0_retrieval.py` · `test_markdown_chunking.py` |
 
 ---

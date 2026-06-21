@@ -296,6 +296,15 @@ def _phase_validate_loop_messages(state: LockedTurnState) -> Optional[str]:
 
         seq_err = validate_loop_messages_before_turn(state.loop.messages)
         if seq_err:
+            from butler.core.tool_pair_repair import repair_tool_pairs_json_safe
+
+            repaired, count = repair_tool_pairs_json_safe(list(state.loop.messages))
+            if count > 0:
+                state.loop.messages = repaired
+                seq_err = validate_loop_messages_before_turn(state.loop.messages)
+                if not seq_err:
+                    state.health["tool_pair_repair_pre_turn"] = count
+                    return None
             return seq_err
     except Exception as exc:
         logger.debug("Loop message validation skipped: %s", exc)

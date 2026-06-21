@@ -21,6 +21,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# EXT-2 / 外部 SaaS：含这些词时不走 Butler 多项目 /总览、/项目 归一化
+_EXTERNAL_INTEGRATION_MARKERS = (
+    "todoist",
+    "notion",
+    "linear",
+    "trello",
+    "asana",
+)
+
+
+def _mentions_external_integrations(text: str) -> bool:
+    lower = (text or "").strip().lower()
+    return any(marker in lower for marker in _EXTERNAL_INTEGRATION_MARKERS)
+
+
 def _normalize_switch_request(text: str) -> str | None:
     """Map「切换到 <项目>」to ``/切换 <项目>`` (WeChat natural phrasing)."""
     stripped = (text or "").strip().rstrip("。.!！?？")
@@ -99,11 +114,15 @@ def _normalize_status_request(text: str) -> str | None:
         phrase in stripped
         for phrase in ("有哪些项目", "项目列表", "哪些workspace", "几个项目")
     ):
+        if _mentions_external_integrations(stripped):
+            return None
         return "/项目"
     if any(
         phrase in stripped
         for phrase in ("总览", "全部项目状态", "所有项目", "项目仪表盘", "dashboard")
     ):
+        if _mentions_external_integrations(stripped):
+            return None
         return "/总览"
     return None
 

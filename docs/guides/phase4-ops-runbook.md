@@ -146,6 +146,13 @@ bash scripts/butler-gap-observability.sh   # 全量 verbose；warn>0 时 exit 1
 |----|------------|----------|
 | G1-02 | 成本基线是否已设 | ⏸️ **搁置**（现阶段不做账单对照；`/诊断` 提示可忽略） |
 | G1-04 | `eval_feedback.jsonl` 7d + 观测窗 | `butler-gap-observability.sh` 看 `g1_04_window`（窗 06-09→06-23） |
+
+**G1-04 结案日（2026-06-23 及之后）**
+
+1. `bash scripts/butler-g1-04-closure-check.sh` — exit **0** 表示 `closure_ready`
+2. 更新 [`theory-implementation-gap-register-2026-06.md`](../plans/decisions/theory-implementation-gap-register-2026-06.md) §1：G1-04 标 ✅（OT2 试点窗证据已够；收敛仍诚实边界）
+3. `projects/LingWen1/docs/pilot-log.md` 补一行结案（本地 gitignore，仅运营留档）
+
 | G1-06 | M-img / M-voice 真机 | ✅ 2026-06-10 `pilot-log` |
 | G1-08 | — | ⏸️ **搁置**（灵文试点；非平台 G1） |
 | G2-01 | PII 压缩规则 | ✅ 边界已接受；`/诊断` 观测 |

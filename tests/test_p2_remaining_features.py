@@ -55,6 +55,8 @@ class TestProjectOverview:
 
         assert _normalize_status_request("总览") == "/总览"
         assert _normalize_status_request("所有项目") == "/总览"
+        assert _normalize_status_request("列出我Todoist里的所有项目") is None
+        assert _normalize_status_request("Todoist今天有哪些待办") is None
 
 
 class TestProjectTodos:

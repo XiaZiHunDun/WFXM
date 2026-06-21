@@ -24,6 +24,15 @@ _DEFAULT_RULES: list[dict[str, str]] = [
             "未经明确要求不要改文件。"
         ),
     },
+    {
+        "keywords": "todoist",
+        "banner": (
+            "[Intent: todoist-mcp] 用户问的是 Todoist 外部待办，不是 Butler 多项目总览。"
+            "必须调用 mcp_todoist_lst_projects / mcp_todoist_lst_tasks / mcp_todoist_get_project / "
+            "mcp_todoist_get_task 获取真实数据；禁止 web_search、web_fetch 或读本地文件查 Todoist API 文档；"
+            "REST v2 已废弃，勿编造 curl/Python 示例。"
+        ),
+    },
 ]
 
 

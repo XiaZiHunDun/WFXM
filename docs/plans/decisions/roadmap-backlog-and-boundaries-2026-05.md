@@ -140,7 +140,7 @@
 
 - **原则**：Loop/Gateway/记忆自建；长尾能力 **MCP → optional-extra → builtin（最后）**  
 - **闭环**：Observe → Research → Decide（Owner）→ Integrate（opt-in）→ Verify → Track  
-- **2026-Q3 首批试点**：EXT-1 网页采集 MCP（[一页纸](extension-candidates/ext-1-web-scrape-mcp-2026-06.md)）· EXT-2 OpenAPI/HTTP · EXT-3 文档 ingest（见规程 §5）  
+- **2026-Q3 首批试点**：EXT-1 ✅ · EXT-3 ✅ · **EXT-2 ✅**（[一页纸](../active/extension-candidates/ext-2-openapi-http-2026-06.md)，Todoist v1 OpenAPI MCP，2026-06-20 微信 Verify）  
 - **Agent 可** 起草选型一页纸；**不可** 无人值守改 core 依赖或绕过白名单
 
 ### 3.1 安全 / 凭证 / 网关
