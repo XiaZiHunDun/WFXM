@@ -29,6 +29,13 @@ def handle_confirm_install_command(
     )
 
 
+def _append_install_followup(svc, identifier: str, base: str, *, record=None) -> str:
+    followup = svc.install_followup(identifier, record=record)
+    if followup:
+        return f"{base}\n{followup}"
+    return base
+
+
 def _confirm_skill_install(
     identifier: str,
     *,
@@ -57,7 +64,12 @@ def _confirm_skill_install(
         external_id=external_id,
         identifier=ident,
     )
-    return f"已确认并安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）"
+    return _append_install_followup(
+        svc,
+        ident,
+        f"已确认并安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）",
+        record=rec,
+    )
 
 
 def handle_registry_command(
@@ -176,7 +188,12 @@ def _handle_skills(
             rec = svc.install(rest, force=True, confirmed=True)
         except ValueError as exc:
             return f"安装失败: {exc}"
-        return f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）"
+        return _append_install_followup(
+            svc,
+            rest,
+            f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）",
+            record=rec,
+        )
 
     if sub in ("安装", "install"):
         gate = require_owner_kw(platform, external_id, session_key)
@@ -215,7 +232,12 @@ def _handle_skills(
                 return f"安装失败: {exc}"
             raise
         warn = "（community 源）" if rec.trust == "community" else ""
-        return f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）{warn}"
+        return _append_install_followup(
+            svc,
+            rest,
+            f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）{warn}",
+            record=rec,
+        )
 
     if sub in ("升级", "upgrade"):
         gate = require_owner_kw(platform, external_id, session_key)
@@ -230,7 +252,12 @@ def _handle_skills(
                 rec = svc.upgrade(name=rest)
         except ValueError as exc:
             return f"升级失败: {exc}"
-        return f"已升级技能 {rec.name}（hash={rec.content_hash}）"
+        return _append_install_followup(
+            svc,
+            rest if "/" in rest else rec.identifier,
+            f"已升级技能 {rec.name}（hash={rec.content_hash}）",
+            record=rec,
+        )
 
     if sub in ("卸载", "uninstall"):
         gate = require_owner_kw(platform, external_id, session_key)

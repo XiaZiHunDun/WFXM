@@ -42,6 +42,26 @@ def test_marketplace_search_and_fetch():
 
 
 @pytest.mark.unit
+def test_webnovel_marketplace_catalog_index():
+    """Regression: marketplaces.yaml path must load webnovel-writer-marketplace.json."""
+    from butler.registry.skill_sources.marketplace import (
+        ClaudeMarketplaceSource,
+        _catalog_entries,
+        _find_plugin,
+        _marketplace_json_for,
+    )
+
+    cat = next(c for c in _catalog_entries() if c.id == "webnovel-writer")
+    data = _marketplace_json_for(cat)
+    assert data is not None
+    assert _find_plugin(data, "webnovel-write") is not None
+    assert _find_plugin(data, "webnovel-review") is not None
+    hits = ClaudeMarketplaceSource().search("webnovel", limit=10)
+    ids = {h.identifier for h in hits}
+    assert "marketplace:webnovel-writer/webnovel-write" in ids
+
+
+@pytest.mark.unit
 def test_marketplace_directory_install(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_SKILL_REGISTRY", "1")
     monkeypatch.setenv("BUTLER_SKILL_REGISTRY_SOURCES", "marketplace")

@@ -16,7 +16,7 @@ import yaml
 
 from butler.registry.paths import catalog_dir
 from butler.registry.skill_sources.base import SkillSource
-from butler.registry.skill_sources.github import GitHubSource
+from butler.registry.skill_sources.github import GitHubSource, fetch_github_directory
 from butler.registry.skill_types import SkillBundle, SkillSearchHit
 from butler.registry.url_safety import is_safe_url
 
@@ -41,6 +41,7 @@ class _MarketplaceCatalog:
     trust: str
     base_path: Path | None
     base_raw_url: str
+    json_file: Path | None = None
 
 
 def _slug(s: str) -> str:
@@ -132,10 +133,13 @@ def _catalog_entries() -> list[_MarketplaceCatalog]:
                     continue
                 rel = str(row.get("path") or "").strip()
                 base_path = (catalog_dir() / "skills" / rel).resolve() if rel else None
+                json_file: Path | None = None
+                parent = catalog_dir() / "skills"
                 if base_path and base_path.is_file():
+                    json_file = base_path
                     parent = base_path.parent
-                else:
-                    parent = catalog_dir() / "skills"
+                elif base_path and base_path.is_dir():
+                    parent = base_path
                 out.append(
                     _MarketplaceCatalog(
                         id=str(row["id"]),
@@ -143,6 +147,7 @@ def _catalog_entries() -> list[_MarketplaceCatalog]:
                         trust=str(row.get("trust") or "trusted"),
                         base_path=parent,
                         base_raw_url="",
+                        json_file=json_file,
                     )
                 )
     for url in os.getenv("BUTLER_CLAUDE_MARKETPLACE_URLS", "").split(","):
@@ -164,6 +169,8 @@ def _catalog_entries() -> list[_MarketplaceCatalog]:
 
 
 def _marketplace_json_for(catalog: _MarketplaceCatalog) -> dict[str, Any] | None:
+    if catalog.json_file is not None and catalog.json_file.is_file():
+        return _load_marketplace_json(catalog.json_file)
     if catalog.base_path is not None:
         for name in (
             "marketplace.json",
@@ -299,8 +306,20 @@ def _resolve_plugin_files(
         if str(source.get("source") or "").lower() == "github":
             repo = str(source.get("repo") or "").strip()
             if repo:
-                gh = GitHubSource()
+                parts = repo.split("/", 1)
+                if len(parts) != 2:
+                    return None
+                owner, repo_name = parts[0], parts[1]
                 subpath = str(source.get("path") or "SKILL.md").strip()
+                install_mode = str(
+                    plugin.get("install_mode") or source.get("install_mode") or "directory"
+                ).lower()
+                ref = str(source.get("ref") or source.get("branch") or "").strip()
+                if install_mode == "directory":
+                    files = fetch_github_directory(owner, repo_name, subpath, ref=ref)
+                    if files:
+                        return files
+                gh = GitHubSource()
                 bundle = gh.fetch(f"github:{repo}/{subpath}")
                 if bundle:
                     return {k: v if isinstance(v, str) else v.decode() for k, v in bundle.files.items()}
@@ -421,13 +440,19 @@ class ClaudeMarketplaceSource(SkillSource):
                 if not files:
                     return None
                 skill_name = _slug(str(plugin.get("name") or plugin_name))
+                compat = data.get("compatibility") if isinstance(data.get("compatibility"), dict) else {}
                 return SkillBundle(
                     name=skill_name,
                     files=files,
                     source=self.source_id,
                     identifier=_normalize_identifier(mp_id, plugin_name),
                     trust=catalog.trust if catalog.trust != "builtin" else "trusted",
-                    metadata={"marketplace": mp_id, "version": plugin.get("version")},
+                    metadata={
+                        "marketplace": mp_id,
+                        "version": plugin.get("version"),
+                        "install_mode": plugin.get("install_mode") or "directory",
+                        "compatibility": compat,
+                    },
                 )
         except ValueError as exc:
             # Audit R2-15: ``safe_registry_get`` rejected a marketplace URL

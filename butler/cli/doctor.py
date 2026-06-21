@@ -152,4 +152,36 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
     findings = run_security_audit(workspace=workspace)
     print(format_audit_report(findings))
     critical = sum(1 for f in findings if f.level == "critical")
+
+    print("\n[项目 stack 依赖清单]")
+    try:
+        from butler.tools.path_safety import _default_project_workspace
+
+        stack_ws = _default_project_workspace()
+        if stack_ws is not None and (stack_ws / "stack.yaml").is_file():
+            from butler.ops.stack_diagnostics import format_stack_diagnostic_lines
+
+            for line in format_stack_diagnostic_lines(stack_ws):
+                print(f"  {line}" if line.startswith("  ") else line)
+        else:
+            print("  （无 BUTLER_DEFAULT_PROJECT 或 stack.yaml）")
+    except Exception as exc:
+        print(f"  (不可用: {exc})")
+
+    print("\n[G1-04 OT2 进化观测]")
+    try:
+        from butler.ops.boundary_observability import g1_04_observation_window_status
+
+        w = g1_04_observation_window_status()
+        print(
+            f"  窗进度: {w.get('days_elapsed', '?')}/{w.get('window_days', '?')} 天 "
+            f"（剩 {w.get('days_remaining', '?')}）"
+        )
+        print(f"  硬反馈: {w.get('feedback_count', 0)} 条")
+        print(f"  closure_ready: {'✓' if w.get('closure_ready') else '—'}")
+        if w.get("window_complete"):
+            print("  结案: bash scripts/butler-g1-04-closure-check.sh")
+    except Exception as exc:
+        print(f"  (不可用: {exc})")
+
     return 1 if critical else 0

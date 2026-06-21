@@ -1,0 +1,56 @@
+{
+  "name": "webnovel-writer",
+  "description": "长篇网文创作技能（GitHub 远程拉取；非 ~/.claude/plugins）",
+  "owner": { "name": "lingfengQAQ" },
+  "compatibility": {
+    "claude_plugin": "webnovel-writer",
+    "adopted": {
+      "skills": [
+        "webnovel-write",
+        "webnovel-review",
+        "webnovel-plan",
+        "webnovel-init"
+      ],
+      "mcp": ["firecrawl"],
+      "l2": ["novel-factory"]
+    },
+    "not_adopted": [
+      "scripts/*",
+      "agents/*",
+      "hooks",
+      "RAG data chain"
+    ],
+    "mcp_suggested": [
+      {
+        "id": "firecrawl",
+        "reason": "深度检索与素材采集（配合 deep-research）"
+      }
+    ]
+  },
+  "plugins": [
+    {
+      "name": "webnovel-write",
+      "description": "产出可发布章节：上下文→起草→审查→润色→提交",
+      "version": "6.0.0",
+      "install_mode": "directory",
+      "source": {
+        "source": "github",
+        "repo": "lingfengQAQ/webnovel-writer",
+        "ref": "master",
+        "path": "webnovel-writer/skills/webnovel-write"
+      }
+    },
+    {
+      "name": "webnovel-review",
+      "description": "章节质量审查与结构化报告",
+      "version": "6.0.0",
+      "install_mode": "directory",
+      "source": {
+        "source": "github",
+        "repo": "lingfengQAQ/webnovel-writer",
+        "ref": "master",
+        "path": "webnovel-writer/skills/webnovel-review"
+      }
+    }
+  ]
+}

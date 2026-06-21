@@ -200,3 +200,132 @@ def _name_from_frontmatter(text: str) -> str | None:
         if line.strip().lower().startswith("name:"):
             return line.split(":", 1)[1].strip().strip('"').strip("'")
     return None
+
+
+_TREE_SUFFIXES = (".md", ".txt", ".json", ".yaml", ".yml")
+_MAX_TREE_FILES = 120
+_MAX_TREE_BYTES = 2 * 1024 * 1024
+
+
+def _github_dir_path(path: str) -> str:
+    normalized = str(path or "").replace("\\", "/").strip("/")
+    low = normalized.lower()
+    if low.endswith("/skill.md") or low.endswith("/skills.md"):
+        return normalized.rsplit("/", 1)[0]
+    if low.endswith(".md"):
+        return normalized.rsplit("/", 1)[0]
+    return normalized
+
+
+def fetch_github_directory(
+    owner: str,
+    repo: str,
+    dir_path: str,
+    *,
+    ref: str = "",
+) -> dict[str, str] | None:
+    """Recursively fetch text files under a GitHub directory via Contents API."""
+    root = _github_dir_path(dir_path)
+    if not root:
+        return None
+    refs = [ref.strip()] if ref.strip() else []
+    refs.extend(b for b in ("master", "main") if b not in refs)
+    for branch in refs:
+        files = _fetch_contents_tree(owner, repo, root, ref=branch, require_skill_md=False)
+        if files and ("SKILL.md" in files or "skill.md" in files):
+            return files
+    return None
+
+
+def _fetch_contents_tree(
+    owner: str,
+    repo: str,
+    path: str,
+    *,
+    ref: str,
+    require_skill_md: bool = True,
+) -> dict[str, str] | None:
+    url = f"{_GH_API}/repos/{owner}/{repo}/contents/{path}"
+    params = {"ref": ref} if ref else None
+    try:
+        resp = httpx.get(url, headers=_auth_headers(), params=params, timeout=25.0)
+    except httpx.HTTPError as exc:
+        logger.debug("github contents tree %s: %s", path, exc)
+        return None
+    if resp.status_code != 200:
+        return None
+    data = resp.json()
+    if not isinstance(data, list):
+        return None
+    out: dict[str, str] = {}
+    total = 0
+    pending_dirs: list[str] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "")
+        item_path = str(item.get("path") or "")
+        if item.get("type") == "dir":
+            pending_dirs.append(item_path)
+            continue
+        if item.get("type") != "file":
+            continue
+        if not name.lower().endswith(_TREE_SUFFIXES):
+            continue
+        rel = item_path
+        if rel.startswith(f"{path}/"):
+            rel = rel[len(path) + 1 :]
+        elif rel == path:
+            rel = name
+        text = _download_github_file(item)
+        if text is None:
+            continue
+        piece = text.encode("utf-8")
+        total += len(piece)
+        if total > _MAX_TREE_BYTES or len(out) >= _MAX_TREE_FILES:
+            break
+        out[rel] = text
+    for sub in pending_dirs:
+        if len(out) >= _MAX_TREE_FILES or total >= _MAX_TREE_BYTES:
+            break
+        sub_files = _fetch_contents_tree(
+            owner, repo, sub, ref=ref, require_skill_md=False
+        )
+        if not sub_files:
+            continue
+        prefix = sub
+        if prefix.startswith(f"{path}/"):
+            prefix = prefix[len(path) + 1 :]
+        for rel, text in sub_files.items():
+            key = f"{prefix}/{rel}" if prefix else rel
+            piece = text.encode("utf-8")
+            if total + len(piece) > _MAX_TREE_BYTES or len(out) >= _MAX_TREE_FILES:
+                break
+            total += len(piece)
+            out[key] = text
+    if require_skill_md and "SKILL.md" not in out and "skill.md" not in out:
+        return None
+    return out or None
+
+
+def _download_github_file(item: dict[str, Any]) -> str | None:
+    download = str(item.get("download_url") or "").strip()
+    if download:
+        try:
+            from butler.registry.url_safety import safe_registry_get
+
+            resp = safe_registry_get(download, timeout=20.0)
+            if resp.status_code == 200:
+                return resp.text
+        except httpx.HTTPError as exc:
+            logger.debug("github download_url failed: %s", exc)
+        except ValueError:
+            raise
+    enc = item.get("content")
+    if not enc:
+        return None
+    try:
+        raw = base64.b64decode(enc)
+        return raw.decode("utf-8", errors="replace")
+    except (ValueError, TypeError):
+        return None

@@ -159,6 +159,16 @@ def _shared_diagnostic_lines(
     except Exception as exc:
         logger.debug("execution surface diagnostic lines skipped: %s", exc)
     try:
+        from butler.ops.stack_diagnostics import format_stack_diagnostic_lines
+
+        if proj is not None:
+            stack_lines = format_stack_diagnostic_lines(Path(proj.workspace))
+            if stack_lines:
+                lines.append("")
+                lines.extend(stack_lines)
+    except Exception as exc:
+        logger.debug("stack diagnostic lines skipped: %s", exc)
+    try:
         from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
 
         if proj is not None:

@@ -1,0 +1,106 @@
+# 灵文1号 · 依赖清单（L0–L3 声明式 SSOT）
+# schema v2：process_env · skills_expected · /诊断 stack 段
+# 术语：docs/guides/dependency-terminology-2026-06.md
+
+version: 2
+project: 灵文1号
+workspace: projects/LingWen1
+
+python_extras:
+  install: gateway
+  includes: [wechat, mcp, embeddings, vectors, web]
+  optional_host:
+    - wechat-ocr
+    - observability
+
+# 进程级 env（非 BUTLER_*）；Gateway .env 或 systemd EnvironmentFile
+process_env:
+  HTTP_PROXY: "http://127.0.0.1:7890"
+  HTTPS_PROXY: "http://127.0.0.1:7890"
+
+host:
+  - name: butler-gateway
+    unit: butler-gateway.service
+    script: scripts/butler-gateway-ops.sh
+    required: true
+  - name: http-proxy
+    endpoint: "http://127.0.0.1:7890"
+    env: [HTTP_PROXY, HTTPS_PROXY]
+    required_for: [web_search]
+  - name: node
+    min_version: "18"
+    required_for: [mcp_firecrawl]
+  - name: butler-runtime-lingwen
+    timer: butler-runtime-lingwen.timer
+    required: false
+  - name: langfuse
+    endpoint_env: LANGFUSE_HOST
+    default: "http://localhost:3000"
+    required: false
+
+apis:
+  - id: minimax
+    env: [MINIMAX_API_KEY, MINIMAX_CN_API_KEY]
+    required: true
+  - id: ilink-wechat
+    env: [WECHAT_TOKEN, WECHAT_ACCOUNT_ID]
+    required: true
+  - id: firecrawl
+    env: [FIRECRAWL_API_KEY]
+    required_for: [deep-research, mcp_firecrawl]
+    ext: EXT-1
+
+runtime:
+  jobs: projects/LingWen1/runtime/jobs.yaml
+  pack: novel-factory
+
+skills:
+  bundled_tenant: [deep-research, design-system, research-program]
+  project:
+    - lingwen-project-lead
+  marketplace_install:
+    - marketplace:webnovel-writer/webnovel-write
+    - marketplace:webnovel-writer/webnovel-review
+  skills_expected:
+    - deep-research
+    - lingwen-project-lead
+    - webnovel-write
+    - webnovel-review
+  directory_skills:
+    - webnovel-write
+    - webnovel-review
+  boundaries:
+    - "Lead 进度：read_file novel-factory/workflow_state.json（L2）"
+    - "写章/审查：delegate + skill:webnovel-*（L3）"
+    - "调研：skill:deep-research；Firecrawl = 检索 SLA"
+
+ingest_pilot_dirs:
+  - novel-factory/references
+  - docs/research
+
+env_recommended:
+  BUTLER_MCP_ENABLED: "1"
+  BUTLER_ENABLE_WEB_SEARCH: "1"
+  BUTLER_ENABLE_WEB_FETCH: "1"
+  BUTLER_SEMANTIC_MEMORY: "1"
+  BUTLER_EMBEDDING_PROVIDER: fastembed
+  BUTLER_DEFAULT_PROJECT: 灵文1号
+  BUTLER_INGEST_ENABLED: "1"
+
+deploy_profile: gateway
+
+# Claude Plugin 兼容卡（Butler 解构进口，非整包安装）
+plugin_adoption:
+  claude_plugin: webnovel-writer
+  adopted:
+    skills: [webnovel-write, webnovel-review, webnovel-plan, webnovel-init]
+    mcp: [firecrawl]
+    l2: [novel-factory]
+  not_adopted:
+    - scripts/*
+    - agents/*
+    - hooks
+    - RAG data chain
+  mcp_suggested:
+    - id: firecrawl
+      reason: 深度检索与素材采集

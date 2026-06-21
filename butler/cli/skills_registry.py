@@ -45,8 +45,22 @@ def register_skills_parser(sub: argparse._SubParsersAction) -> None:
     p_up.add_argument("--force", action="store_true", default=True)
     p_up.set_defaults(func=_cmd_upgrade)
 
-    p_sync = sp.add_parser("sync", help="刷新 Skills SSOT 索引（lockfile 快照）")
+    p_sync = sp.add_parser(
+        "sync",
+        help="刷新 SSOT 索引，或将租户 registry 技能同步到项目 .butler/skills",
+    )
     p_sync.add_argument("--dry-run", action="store_true")
+    p_sync.add_argument(
+        "--project",
+        default="",
+        metavar="WORKSPACE",
+        help="项目 workspace；将 lockfile 技能从租户目录复制到 .butler/skills",
+    )
+    p_sync.add_argument(
+        "--only",
+        default="",
+        help="仅同步指定技能名（逗号分隔）；默认读 stack.yaml skills_expected ∩ lockfile",
+    )
     p_sync.set_defaults(func=_cmd_sync)
 
     p_lint = sp.add_parser("lint", help="检查技能 frontmatter（warn 不阻断）")
@@ -99,6 +113,9 @@ def _cmd_install(ns: argparse.Namespace) -> int:
             return 1
         raise
     print(f"已安装: {rec.name} → {rec.install_path} ({rec.scan_verdict})")
+    followup = svc.install_followup(ns.identifier, record=rec)
+    if followup:
+        print(followup)
     return 0
 
 
@@ -140,10 +157,31 @@ def _cmd_upgrade(ns: argparse.Namespace) -> int:
         print(f"升级失败: {exc}")
         return 1
     print(f"已升级: {rec.name} ({rec.content_hash})")
+    ident = target if ("/" in target or target.startswith("clawhub:") or target.startswith("marketplace:")) else rec.identifier
+    followup = svc.install_followup(ident, record=rec)
+    if followup:
+        print(followup)
     return 0
 
 
 def _cmd_sync(ns: argparse.Namespace) -> int:
+    project = (getattr(ns, "project", "") or "").strip()
+    if project:
+        from butler.registry.skills_project_sync import sync_tenant_skills_to_project
+
+        only_raw = (getattr(ns, "only", "") or "").strip()
+        only = [s.strip() for s in only_raw.split(",") if s.strip()] or None
+        ok, msg, actions = sync_tenant_skills_to_project(
+            project,
+            tenant_id=_tenant_id(),
+            only=only,
+            dry_run=bool(getattr(ns, "dry_run", False)),
+        )
+        print(msg)
+        for line in actions:
+            print(f"  • {line}")
+        return 0 if ok else 1
+
     from butler.registry.skills_ssot import sync_skills_ssot
 
     ok, msg = sync_skills_ssot(

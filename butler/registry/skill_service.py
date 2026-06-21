@@ -313,3 +313,22 @@ class SkillRegistryService:
             f"  CLI: butler skills install {identifier}\n"
             f"  微信: /技能 安装 {identifier}"
         )
+
+    def install_followup(
+        self,
+        identifier: str,
+        *,
+        record: InstalledSkillRecord | None = None,
+    ) -> str:
+        from butler.registry.marketplace_compat import format_install_followup
+        from butler.registry.skills_project_sync import maybe_sync_after_registry_install
+
+        parts: list[str] = []
+        compat = format_install_followup(identifier)
+        if compat:
+            parts.append(compat)
+        if record is not None:
+            sync_msg = maybe_sync_after_registry_install(record, tenant_id=self.tenant_id)
+            if sync_msg:
+                parts.append(sync_msg)
+        return "\n".join(parts)

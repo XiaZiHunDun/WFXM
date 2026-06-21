@@ -5,3 +5,9 @@ marketplaces:
     description: 内置示例（本地 JSON，用于测试 marketplace 适配器）
     trust: builtin
     path: marketplace-demo.json
+
+  - id: webnovel-writer
+    title: Webnovel Writer（GitHub 远程）
+    description: 网文写作/审查技能；install 时从 GitHub 拉取 SKILL.md（需公网或 GITHUB_TOKEN）
+    trust: community
+    path: webnovel-writer-marketplace.json

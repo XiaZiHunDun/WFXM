@@ -1,0 +1,39 @@
+# 新项目依赖清单模板（复制到 projects/<名>/stack.yaml 后按需修改）
+# 术语：docs/guides/dependency-terminology-2026-06.md
+
+version: 2
+project: <项目显示名>
+workspace: projects/<目录名>
+
+python_extras:
+  install: gateway
+  includes: [wechat, mcp, embeddings, vectors, web]
+
+process_env: {}
+
+host:
+  - name: butler-gateway
+    unit: butler-gateway.service
+    required: true
+
+apis: []
+
+runtime:
+  jobs: projects/<目录名>/runtime/jobs.yaml
+  pack: <L2-pack-id>
+
+skills:
+  bundled_tenant: []
+  project: []
+  marketplace_install: []
+  skills_expected: []
+  directory_skills: []
+
+ingest_pilot_dirs: []
+
+env_recommended:
+  BUTLER_MCP_ENABLED: "1"
+  BUTLER_SEMANTIC_MEMORY: "1"
+  BUTLER_INGEST_ENABLED: "0"
+
+deploy_profile: gateway

@@ -4,6 +4,8 @@
 
 | 文档 | 用途 |
 |------|------|
+| [../stack.yaml](../stack.yaml) | **依赖清单 SSOT**（v2：`process_env` / `skills_expected`） |
+| [dependency-terminology](../../../docs/guides/dependency-terminology-2026-06.md) | Skill / MCP / 插件术语对照 |
 | [pilot-setup.md](./pilot-setup.md) | 试点边界、路径、Lead 阶段、发版节奏 |
 | [dual-playbook.md](./dual-playbook.md) | **维护态 / 新书态**双剧本 + 微信验收句（B1） |
 | [pilot-log.md](./pilot-log.md) | 时间线与验收结论 |
@@ -28,4 +30,6 @@
 bash scripts/butler-phase4-smoke.sh          # Phase 4 自动化守门
 bash scripts/butler-lingwen-lead-smoke.sh    # Lead 白名单
 bash scripts/sync-lingwen-project-skills.sh  # 同步 Skill 到 .butler/skills
+bash scripts/butler-lingwen-skills-install.sh  # ClawHub：webnovel-write / webnovel-review
+bash scripts/butler-gateway-ops.sh preflight # Gateway [gateway] extra 检查
 ```
