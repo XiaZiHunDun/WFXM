@@ -9,6 +9,7 @@ EXTRAS=""
 USE_LOCK=0
 INSTALL_SYSTEMD=0
 INSTALL_LANGFUSE=0
+INSTALL_GATEWAY=0
 DRY_RUN=0
 
 while [[ $# -gt 0 ]]; do
@@ -16,6 +17,7 @@ while [[ $# -gt 0 ]]; do
     --extras) EXTRAS="$2"; shift ;;
     --lock) USE_LOCK=1 ;;
     --systemd) INSTALL_SYSTEMD=1 ;;
+    --gateway) INSTALL_GATEWAY=1 ;;
     --langfuse) INSTALL_LANGFUSE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     -h|--help)
@@ -26,7 +28,8 @@ Usage:
   bash scripts/deploy-new-env.sh [OPTIONS]
 
 Options:
-  --extras EXTRA1,EXTRA2   安装额外的 optional extras（如 mcp,vectors,embeddings,observability）
+  --extras EXTRA1,EXTRA2   安装额外的 optional extras（如 dev,observability）
+  --gateway                安装 [gateway] 剖面（微信生产推荐；与 --systemd 联用）
   --lock                   使用 requirements.lock 锁定版本安装
   --systemd                安装 systemd 用户服务（网关 + runtime timer）
   --langfuse               部署 LangFuse 可观测栈（docker compose）
@@ -35,7 +38,7 @@ Options:
 
 Examples:
   bash scripts/deploy-new-env.sh
-  bash scripts/deploy-new-env.sh --extras mcp,vectors --systemd
+  bash scripts/deploy-new-env.sh --gateway --systemd
   bash scripts/deploy-new-env.sh --extras observability --langfuse
   bash scripts/deploy-new-env.sh --lock
   bash scripts/deploy-new-env.sh --dry-run
@@ -102,6 +105,8 @@ if [[ "$USE_LOCK" -eq 1 ]] && [[ -f "$ROOT/requirements.lock" ]]; then
   echo "  使用 requirements.lock 锁定版本..."
   run_cmd pip install -r "$ROOT/requirements.lock" -q
   run_cmd pip install -e "$ROOT" -q
+elif [[ "$INSTALL_GATEWAY" -eq 1 ]] || [[ "$INSTALL_SYSTEMD" -eq 1 ]]; then
+  run_cmd pip install -e "$ROOT[gateway]" -q
 else
   run_cmd pip install -e "$ROOT[all]" -q
 fi

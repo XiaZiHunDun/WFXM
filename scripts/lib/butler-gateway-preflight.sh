@@ -45,9 +45,46 @@ from butler.gateway.platforms.wechat import check_wechat_requirements
 import sys
 sys.exit(0 if check_wechat_requirements() else 1)
 " 2>/dev/null; then
-    _bg_fail 'wechat extras missing: pip install -e ".[wechat]"'
+    _bg_fail 'wechat extras missing: pip install -e ".[gateway]"'
   else
     _bg_ok "wechat Python deps"
+  fi
+
+  local _gw_extra_ok=1
+  PYTHONPATH="$root" python3 -c "import mcp" 2>/dev/null || _gw_extra_ok=0
+  if [[ "$_gw_extra_ok" -eq 0 ]]; then
+    _bg_fail 'mcp extra missing: pip install -e ".[gateway]"'
+  else
+    _bg_ok "mcp Python deps"
+  fi
+  _gw_extra_ok=1
+  PYTHONPATH="$root" python3 -c "import fastembed" 2>/dev/null || _gw_extra_ok=0
+  if [[ "$_gw_extra_ok" -eq 0 ]]; then
+    _bg_warn "fastembed missing — semantic memory degraded: pip install -e \".[gateway]\""
+  else
+    _bg_ok "fastembed (embeddings)"
+  fi
+  _gw_extra_ok=1
+  PYTHONPATH="$root" python3 -c "import chromadb" 2>/dev/null || _gw_extra_ok=0
+  if [[ "$_gw_extra_ok" -eq 0 ]]; then
+    _bg_warn "chromadb missing — vector store degraded: pip install -e \".[gateway]\""
+  else
+    _bg_ok "chromadb (vectors)"
+  fi
+  _gw_extra_ok=1
+  PYTHONPATH="$root" python3 -c "import trafilatura" 2>/dev/null || _gw_extra_ok=0
+  if [[ "$_gw_extra_ok" -eq 0 ]]; then
+    _bg_warn "trafilatura missing — web_fetch uses regex fallback: pip install -e \".[gateway]\""
+  else
+    _bg_ok "trafilatura (web_fetch)"
+  fi
+
+  if [[ "${BUTLER_MCP_ENABLED:-0}" =~ ^(1|true|yes|on)$ ]]; then
+    if ! command -v npx >/dev/null 2>&1; then
+      _bg_warn "BUTLER_MCP_ENABLED=1 but npx not in PATH (Firecrawl MCP needs Node 18+)"
+    else
+      _bg_ok "npx present (MCP stdio)"
+    fi
   fi
 
   local butler_home="${BUTLER_HOME:-$HOME/.butler}"

@@ -10,9 +10,13 @@ if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
 
 
-def _active_project_name(orchestrator: "ButlerOrchestrator") -> str:
+def _active_project_name(
+    orchestrator: "ButlerOrchestrator",
+    *,
+    session_key: str = "",
+) -> str:
     pm = orchestrator.project_manager
-    proj = pm.get_current()
+    proj = pm.get_current(session_key=session_key)
     return proj.name if proj else ""
 
 
@@ -32,7 +36,7 @@ def handle_runtime_command(
     if cmd in ("/定时", "/runtime", "/定时任务"):
         from butler.runtime.service import format_jobs_list_text
 
-        name = _active_project_name(orchestrator)
+        name = _active_project_name(orchestrator, session_key=session_key)
         if not name:
             return "请先 /切换 到试点项目（如 灵文1号），再查看定时任务。"
         return format_jobs_list_text(name)
@@ -46,7 +50,7 @@ def handle_runtime_command(
         job_id = (arg or "").strip()
         if not job_id:
             return "用法: /批准运行 <任务id>\n例: /批准运行 publish-preflight"
-        name = _active_project_name(orchestrator)
+        name = _active_project_name(orchestrator, session_key=session_key)
         if not name:
             return "请先 /切换 到试点项目。"
         from butler.runtime.service import approve_and_run
@@ -77,7 +81,7 @@ def handle_runtime_command(
     if not job_id:
         return "用法: /运行 <任务id>\n例: /运行 factory-status-daily\n先发送 /定时 查看列表。"
 
-    name = _active_project_name(orchestrator)
+    name = _active_project_name(orchestrator, session_key=session_key)
     if not name:
         return "请先 /切换 到试点项目。"
 

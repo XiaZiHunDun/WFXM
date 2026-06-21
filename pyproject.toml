@@ -55,6 +55,13 @@ notify = ["apprise>=1.9,<2"]
 analytics = ["duckdb>=1.1,<2"]
 vectors = ["chromadb>=0.6,<1"]
 observability = ["langfuse>=2.0,<3"]
+gateway = [
+  "butler-system[wechat]",
+  "butler-system[mcp]",
+  "butler-system[embeddings]",
+  "butler-system[vectors]",
+  "butler-system[web]",
+]
 all = [
   "butler-system[wechat]",
   "butler-system[wechat-ocr]",

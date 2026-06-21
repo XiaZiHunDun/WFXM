@@ -99,8 +99,16 @@ _cmd_upgrade() {
   echo "== clean stale __pycache__ =="
   find "$ROOT" -path '*/butler*/__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
   find "$ROOT" -path '*/tests*/__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
-  echo "== sync dependencies =="
-  pip install -e "$ROOT" --quiet 2>/dev/null || echo "pip install skipped (non-fatal)" >&2
+  echo "== sync dependencies (gateway extras) =="
+  if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+    pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
+  elif [[ -d "$ROOT/.venv/bin" ]]; then
+    # shellcheck source=/dev/null
+    source "$ROOT/.venv/bin/activate"
+    pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
+  else
+    pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
+  fi
   bash "$ROOT/scripts/install-butler-gateway-service.sh"
   echo "== refresh ops timers (runtime all-projects, push-drain) =="
   bash "$ROOT/scripts/install-butler-ops-bundle.sh" --no-enable || true

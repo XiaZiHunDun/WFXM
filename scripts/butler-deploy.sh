@@ -28,6 +28,9 @@ _ok()    { echo -e "${GREEN}[OK]${NC}    $*"; }
 _warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 _err()   { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 
+# shellcheck source=scripts/lib/butler-pip-extras.sh
+source "$ROOT/scripts/lib/butler-pip-extras.sh"
+
 _usage() {
   cat <<EOF
 Butler v4 统一部署工具
@@ -241,13 +244,14 @@ _cmd_update() {
   find "$ROOT" -path '*/tests*/__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
 
   # Step 3: Sync dependencies
-  _info "[3/7] 同步依赖..."
+  _info "[3/7] 同步依赖（profile=$(butler_resolve_pip_profile), extras=[$(butler_pip_extra_spec)]）..."
   if [[ -n "${VIRTUAL_ENV:-}" ]]; then
-    pip install -e "$ROOT[all]" --quiet 2>/dev/null || _warn "pip install 失败（非致命）"
+    butler_pip_install_extras "$ROOT" || _warn "pip install 失败（非致命）"
   else
     if [[ -d "$ROOT/.venv" ]]; then
+      # shellcheck source=/dev/null
       source "$ROOT/.venv/bin/activate"
-      pip install -e "$ROOT[all]" --quiet 2>/dev/null || _warn "pip install 失败（非致命）"
+      butler_pip_install_extras "$ROOT" || _warn "pip install 失败（非致命）"
     else
       _warn "无 venv，跳过 pip install"
     fi
@@ -363,8 +367,8 @@ _cmd_rollback() {
     exit 1
   }
 
-  _info "同步依赖..."
-  pip install -e "$ROOT[all]" --quiet 2>/dev/null || true
+  _info "同步依赖（profile=$(butler_resolve_pip_profile)）..."
+  butler_pip_install_extras "$ROOT" || true
 
   if systemctl --user is-active "$UNIT" >/dev/null 2>&1; then
     _info "重启服务..."

@@ -11,6 +11,7 @@
 | [release-runbook-2026-05.md](./release-runbook-2026-05.md) | **发版一条链**（preflight → smoke → 部署 → 真机） |
 | [capabilities-index-2026-05.md](./capabilities-index-2026-05.md) | 项目状态总览（已实现 / 未实现 / 依赖） |
 | [dependency-policy-2026-05.md](./dependency-policy-2026-05.md) | 依赖分层与引入策略（core / extras / 明确不引入） |
+| [dependency-terminology-2026-06.md](./dependency-terminology-2026-06.md) | Skill / MCP / `plugins:` 术语对照与部署剖面 |
 | [wechat-gateway-ops.md](./wechat-gateway-ops.md) | **生产运维**：systemd 安装、发版、日志、排障 |
 | [opencode-parity.md](./opencode-parity.md) | **OpenCode 对标速查**：slash、异步委派、transcript、env 验收 |
 | [external-reference-roadmap-2026-05.md](./external-reference-roadmap-2026-05.md) | **外部对标验收索引**（阶段 A/B/C 已落地；defer 见 deferred） |

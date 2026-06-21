@@ -73,6 +73,7 @@
 | `BUTLER_TOOL_SAFE_ROOT` | 工具路径沙箱根 |
 | `BUTLER_LEAD_PROJECTS` | 厂长模式项目列表（逗号分隔；可被 `project.yaml` `lead: true` 补充） |
 | `BUTLER_HOME` | `~/.butler` | Butler 数据根目录 |
+| `BUTLER_DATA_HOME` | `~/.butler` | 网关单例锁目录（`gateway.singleton.lock`；默认同 `BUTLER_HOME`） |
 | `BUTLER_TENANT` | default | 多租户隔离键；日常工具数据存于 `~/.butler/tenants/<tenant>/` |
 | `BUTLER_PROJECT_ROOT` | — | 记忆层项目根覆盖（默认当前项目 workspace） |
 | `BUTLER_SECRETS_PATH` | — | 凭证文件路径覆盖（默认 `~/.butler/secrets.yaml`） |
@@ -151,6 +152,7 @@
 | `BUTLER_MARKDOWN_CHUNK_MAX_CHARS` | 4000 | 单块最大字符 |
 | `BUTLER_MARKDOWN_HEADING_BOOST` | 0.18 | 检索 query 与 `[headings: …]` 重合时的分数加成系数 |
 | `BUTLER_MARKDOWN_INDEX_PATHS` | 见下 | 逗号分隔或 JSON 数组；默认 MEMORY/DESIGN/AGENTS/架构 doc |
+| `BUTLER_INGEST_ENABLED` | 0 | EXT-3：`butler memory ingest` 将 PDF/Office 转为 `.butler/ingest/*.md` |
 | `BUTLER_BATCH_STALE_GUARD` | 1 | 同批 `patch`/`write_file` 成功后跳过后续过时的 `read_file`/`grep` 等 |
 | `BUTLER_TOOL_RESULT_SPILL_MIN_CHARS` | 8192 | 默认单条落盘阈值（≥256） |
 | `BUTLER_TOOL_RESULT_THRESHOLDS` | — | JSON 按工具名覆盖阈值；`read_file` 等默认不落盘 |
@@ -221,6 +223,8 @@
 | `BUTLER_REGISTRY_CACHE_TTL` | 3600 | 远程技能索引（ClawHub 等）缓存秒数 |
 | `BUTLER_SKILL_TRUSTED_REPOS` | 空 | 可信 GitHub `owner/repo` CSV |
 | `BUTLER_SKILL_INSTALL_MAX_MB` | 2 | 单技能安装体积上限 |
+| `BUTLER_SKILL_AUTO_SYNC_PROJECT` | 1 | registry `install`/`upgrade` 后自动 `skills sync --project`（目标为 `BUTLER_DEFAULT_PROJECT` 且含 `stack.yaml`） |
+| `BUTLER_DEPLOY_PROFILE` | （空） | pip 剖面：`gateway` / `dev` / `all`；与 `stack.yaml` `deploy_profile` 对照 |
 | `BUTLER_MCP_CATALOG` | 1 | MCP 目录 `butler mcp add` |
 | `BUTLER_MCP_CATALOG_URLS` | 空 | 远程 MCP catalog JSON/YAML URL（CSV，SSRF 校验；与内置 catalog 合并，同名以内置为准） |
 | （CLI） | — | `butler mcp add <id> --workspace <dir>` 写入项目 `.butler/mcp.yaml`；`--global` 强制全局；probe 失败不写 yaml |
@@ -361,7 +365,10 @@
 | `pip install -e ".[cli]"` | CLI 菜单增强 |
 | `pip install -e ".[dev]"` | 开发 / 测试 / lint 依赖 |
 | `pip install -e ".[pty]"` | PTY 兼容层 |
-| `pip install -e ".[all]"` | 便捷安装集合（含 `wechat` / `wechat-ocr` / `cli` / `dev` / `voice` / `pty`，**不含** `mcp` 及以下五项） |
+| `pip install -e ".[all]"` | 便捷安装集合（含 `wechat` / `wechat-ocr` / `cli` / `dev` / `voice` / `pty` / `embeddings` / `vectors` / `observability` / `tokens`，**不含** `mcp` / `web` / `documents` / `notify` / `analytics`） |
+| `pip install -e ".[gateway]"` | **微信 Gateway 生产推荐**：`wechat` + `mcp` + `embeddings` + `vectors` + `web`（`butler-gateway-ops.sh upgrade` 使用） |
+
+**主机代理（非 `BUTLER_*`）**：Gateway `.env` 可设 `HTTP_PROXY` / `HTTPS_PROXY`（如 Mihomo `127.0.0.1:7890`），供 `web_search`、Skill Registry GitHub 拉取、httpx 外联；与 `BUTLER_WEB_SEARCH_TRY_DIRECT` 配合（有代理时默认不走直连）。
 | `pip install -e ".[embeddings]"` | 本地 ONNX 语义嵌入（fastembed，替代 hashing / API） |
 | `pip install -e ".[documents]"` | 文档转 Markdown（markitdown：PDF/Word/Excel/PPT） |
 | `pip install -e ".[web]"` | 网页正文智能提取（trafilatura，替代正则） |

@@ -12,6 +12,8 @@ Butler v4 的依赖策略只有三条：
 2. 微信、MCP、OCR、voice、PTY、开发工具等能力优先进入 `optional-dependencies`。
 3. 文件 / JSONL 仍是事实源；SQLite 是派生索引层，不因为引入 `aiosqlite` 就把 Butler 改成 SQL 平台。
 
+**术语表**（Skill / MCP / `plugins:` 等叫法）：[`dependency-terminology-2026-06.md`](dependency-terminology-2026-06.md)
+
 对应架构说明见 [`../architecture/v4-architecture.md`](../architecture/v4-architecture.md) §依赖分层与本地状态原则。
 
 ## 2. 已引入的 core 依赖
@@ -45,16 +47,21 @@ Butler v4 的依赖策略只有三条：
 | `cli` | `pip install -e ".[cli]"` | `simple-term-menu` | CLI 菜单增强 |
 | `pty` | `pip install -e ".[pty]"` | `ptyprocess` 或 `pywinpty` | PTY 兼容层 |
 | `dev` | `pip install -e ".[dev]"` | `debugpy`、`pytest`、`pytest-asyncio`、`ruff` | 开发 / 测试 / Lint |
-| `all` | `pip install -e ".[all]"` | 聚合 `wechat`、`wechat-ocr`、`cli`、`dev`、`voice`、`pty` | 便捷安装集合 |
+| `all` | `pip install -e ".[all]"` | 聚合 `wechat`、`wechat-ocr`、`cli`、`dev`、`voice`、`pty`、`embeddings`、`vectors`、`observability`、`tokens` | 开发便捷安装（**不含** `mcp`/`web`） |
 | `embeddings` | `pip install -e ".[embeddings]"` | `fastembed` | 本地 ONNX 语义嵌入（替代 hashing / API） |
 | `documents` | `pip install -e ".[documents]"` | `markitdown[pdf,docx,xlsx,pptx]` | 文档转 Markdown（PDF/Word/Excel/PPT） |
 | `web` | `pip install -e ".[web]"` | `trafilatura` | 网页正文智能提取（替代正则） |
 | `notify` | `pip install -e ".[notify]"` | `apprise` | 多渠道通知（Telegram/Email/Slack 等 130+） |
 | `analytics` | `pip install -e ".[analytics]"` | `duckdb` | 本地数据查询（CSV/JSON/Parquet/SQLite） |
+| `vectors` | `pip install -e ".[vectors]"` | `chromadb` | 向量持久化（`BUTLER_SEMANTIC_MEMORY=1`） |
+| `observability` | `pip install -e ".[observability]"` | `langfuse` | LLM trace（需独立 LangFuse 栈） |
+| **`gateway`** | `pip install -e ".[gateway]"` | 聚合 `wechat`+`mcp`+`embeddings`+`vectors`+`web` | **微信 Gateway 生产机推荐**（`butler-gateway-ops.sh upgrade`） |
 
 补充说明：
 
-- `all` **不包含** `mcp`、`embeddings`、`documents`、`web`、`notify`、`analytics`，需要时仍应单独安装。
+- `all` 含 `wechat` / `wechat-ocr` / `cli` / `dev` / `voice` / `pty` / `embeddings` / `vectors` / `observability` / `tokens`，**不含** `mcp`、`web`、`documents`、`notify`、`analytics`。
+- **`gateway`** 与 `all` 分工：`gateway` = 真机微信 + 检索 + MCP；`all` = 开发便捷集（仍不含 MCP/web）。
+- 需要 Gateway + 开发测试时：`pip install -e ".[gateway,dev]"`。
 - `cryptography` 虽已在 `wechat` extra 中存在，但“凭证 Fernet 加密”仍属于产品层待选能力，不等于该能力已经默认启用。
 - `mcp` 只是可选薄客户端，功能开关仍受 `BUTLER_MCP_ENABLED` 控制。
 - `fastembed` 使用 ONNX Runtime 推理，无需 PyTorch，安装体积约 200MB；`BUTLER_EMBEDDING_PROVIDER=fastembed` 启用。
