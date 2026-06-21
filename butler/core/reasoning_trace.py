@@ -148,6 +148,76 @@ def record_verify_fail_reflect(state: Any, verify_result: Any) -> None:
     )
 
 
+def record_stuck_reflect(
+    loop: Any,
+    stuck_message: str,
+    *,
+    trigger: str = "guardrail_stuck",
+    source: str = "loop",
+) -> None:
+    """Record reflect_step when Loop enters STUCK (guardrail / doom loop)."""
+    session_key = _resolve_session_key(str(getattr(loop, "_session_key", "") or ""))
+    cause = summarize_reasoning_text(stuck_message, max_len=200) or "loop stuck"
+    strategy = "ask_clarification_or_narrow_scope"
+    code = ""
+    guardrails = getattr(loop, "_guardrails", None)
+    dec = getattr(guardrails, "halt_decision", None) if guardrails else None
+    if dec is not None:
+        code = str(getattr(dec, "code", "") or "")
+        if code == "doom_loop":
+            trigger = "doom_loop"
+            strategy = "approve_once_or_change_approach"
+        elif code.startswith("ping_pong"):
+            trigger = "ping_pong"
+            strategy = "avoid_repeat_tool_pattern"
+    record_reflect_step(
+        session_key,
+        trigger=trigger,
+        cause=cause,
+        strategy=strategy,
+        detail=code[:64],
+        source=source,
+    )
+
+
+def maybe_record_guardrail_reflect(
+    loop: Any,
+    decision: Any,
+    tool_name: str,
+) -> None:
+    """Best-effort reflect when doom_loop blocks a tool call."""
+    if decision is None:
+        return
+    code = str(getattr(decision, "code", "") or "")
+    action = str(getattr(decision, "action", "") or "")
+    if code != "doom_loop" or action not in ("ask", "block"):
+        return
+    msg = str(getattr(decision, "message", "") or "").strip()
+    record_stuck_reflect(
+        loop,
+        msg or f"doom_loop on {tool_name}",
+        trigger="doom_loop",
+        source="guardrail",
+    )
+
+
+def record_doom_loop_reflect(
+    session_key: str,
+    message: str,
+    *,
+    tool_name: str = "",
+) -> None:
+    if not reasoning_trace_enabled():
+        return
+    record_reflect_step(
+        session_key,
+        trigger="doom_loop",
+        cause=summarize_reasoning_text(message, max_len=200),
+        strategy="approve_once_or_change_approach",
+        detail=(tool_name or "")[:64],
+        source="guardrail",
+    )
+
 def maybe_sync_plan_step_to_graph(
     session_key: str,
     *,
@@ -252,12 +322,15 @@ def format_reasoning_diagnostic_lines(session_key: str) -> list[str]:
 __all__ = [
     "format_reasoning_diagnostic_lines",
     "get_plan_mode_graph_appendix",
+    "maybe_record_guardrail_reflect",
     "maybe_record_llm_reasoning",
     "maybe_sync_plan_step_to_graph",
     "plan_reason_graph_enabled",
     "reasoning_trace_enabled",
+    "record_doom_loop_reflect",
     "record_reflect_step",
     "record_reasoning_step",
+    "record_stuck_reflect",
     "record_verify_fail_reflect",
     "summarize_reasoning_text",
 ]

@@ -170,3 +170,48 @@ def test_load_plan_mode_appendix_includes_graph_when_enabled(monkeypatch):
     body = load_plan_mode_system_appendix()
     assert "step_kind" in body or "fact" in body
     assert "DoT-lite" in body
+
+
+def test_record_stuck_reflect(butler_home):
+    sk = "test:stuck:_"
+    loop = SimpleNamespace(
+        _session_key=sk,
+        _guardrails=SimpleNamespace(
+            halt_decision=SimpleNamespace(code="ping_pong", message="read loop", action="block"),
+        ),
+    )
+    from butler.core.reasoning_trace import record_stuck_reflect
+
+    record_stuck_reflect(loop, "工具循环检测")
+    rows = load_transcript_tail(sk, max_lines=5)
+    assert any(r.get("type") == "reflect_step" for r in rows)
+
+
+def test_plan_markdown_sync(butler_home, monkeypatch, tmp_path):
+    monkeypatch.setenv("BUTLER_PLAN_REASON_GRAPH", "0")
+    sk = "test:plan:sync:_"
+    set_plan_mode(sk, True)
+    try:
+        md = """## 已知事实
+- agent_loop 在 butler/core/agent_loop.py 证据: grep
+
+## 步骤
+- [step] 改 agent_loop_phases 挂 reasoning hook
+
+## 风险
+- 勿破坏 gateway 测试
+"""
+        from butler.plan.markdown_sync import (
+            extract_plan_steps_from_markdown,
+            sync_plan_file_to_transcript,
+        )
+
+        steps = extract_plan_steps_from_markdown(md)
+        assert len(steps) >= 3
+        n = sync_plan_file_to_transcript(sk, ".butler/plan/session-plan.md", md)
+        assert n >= 3
+        rows = load_transcript_tail(sk, max_lines=30)
+        plan_rows = [r for r in rows if r.get("type") == "plan_step" and r.get("phase") == "sync"]
+        assert len(plan_rows) >= 3
+    finally:
+        clear_plan_mode(sk)

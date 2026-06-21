@@ -129,6 +129,48 @@ def _dev_engine_post_edit(name: str, args: dict, result: str) -> None:
         pass
 
 
+def _plan_mode_post_edit(name: str, args: dict, result: str) -> None:
+    """Sync plan markdown bullets to transcript plan_step rows."""
+    if name not in ("write_file", "patch"):
+        return
+    if _tool_result_outcome(result) != "ok":
+        return
+    path = str(args.get("path") or args.get("file_path") or "")
+    try:
+        import json as _json
+
+        parsed = _json.loads(result)
+        path = path or str(parsed.get("path") or parsed.get("file") or "")
+    except Exception:
+        pass
+    if not path:
+        return
+    content = str(args.get("content") or "")
+    if not content and name == "write_file":
+        return
+    if not content:
+        try:
+            from pathlib import Path as _Path
+
+            from butler.tools.safe_root import get_tool_safe_root
+
+            p = _Path(path)
+            if not p.is_absolute():
+                p = get_tool_safe_root() / p
+            if p.is_file():
+                content = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return
+    try:
+        from butler.execution_context import get_current_session_key
+        from butler.plan.markdown_sync import sync_plan_file_to_transcript
+
+        sk = str(get_current_session_key() or "").strip() or "default"
+        sync_plan_file_to_transcript(sk, path, content)
+    except Exception:
+        pass
+
+
 def _run_auto_verify(state: Any, path: str) -> None:
     """Run auto-verify after edit and inject fix hints (DD2 + DA4 + CA4)."""
     try:
@@ -387,6 +429,12 @@ def process_tool_calls(
 
                     block_msg = check_doom_loop_ask(before, name, args)
                     if block_msg:
+                        try:
+                            from butler.core.reasoning_trace import record_doom_loop_reflect
+
+                            record_doom_loop_reflect(session_key, block_msg, tool_name=name)
+                        except Exception:
+                            pass
                         ask_dec = GuardrailDecision(
                             action="block",
                             code="doom_loop",
@@ -440,6 +488,7 @@ def process_tool_calls(
         if batch_guard is not None:
             batch_guard.note_tool_result(name, args, result)
         _dev_engine_post_edit(name, args, result)
+        _plan_mode_post_edit(name, args, result)
         return result
 
     def _transcript_source() -> str:

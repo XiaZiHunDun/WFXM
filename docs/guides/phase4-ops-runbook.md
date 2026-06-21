@@ -136,6 +136,8 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 ```bash
 bash scripts/butler-g1-checklist.sh        # G1 开放项：成本/inbound/真机话术提示
 bash scripts/butler-g1-04-closure-check.sh # G1-04：06-23 后结案检查（exit 0=可更新登记册）
+bash scripts/butler-ops-followup-check.sh  # 日常：G1-04 窗 + boundary + 推理 smoke + EXT-2
+bash scripts/butler-reasoning-trace-smoke.sh # 推理 transcript 烟测（无 LLM）
 bash scripts/butler-lingwen1-edit-capture.sh # 灵文改码失败 → L3 捕获演练
 bash scripts/butler-lingwen-live-capture-checklist.sh # 灵文 live 捕获运营检查清单
 bash scripts/butler-prod-delta-observe.sh    # 周中 prod_delta 快照（非周日也可跑）
@@ -152,6 +154,18 @@ bash scripts/butler-gap-observability.sh   # 全量 verbose；warn>0 时 exit 1
 1. `bash scripts/butler-g1-04-closure-check.sh` — exit **0** 表示 `closure_ready`
 2. 更新 [`theory-implementation-gap-register-2026-06.md`](../plans/decisions/theory-implementation-gap-register-2026-06.md) §1：G1-04 标 ✅（OT2 试点窗证据已够；收敛仍诚实边界）
 3. `projects/LingWen1/docs/pilot-log.md` 补一行结案（本地 gitignore，仅运营留档）
+
+**认知层试点（2026-06-21 起）**
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_REASONING_TRACE` | `1` | LLM 推理摘要 + verify/stuck 反思 → transcript；`/诊断` 可见 |
+| `BUTLER_PLAN_REASON_GRAPH` | `0` | `1` = `/计划` 时同步 DoT-lite 至 `~/.butler/sessions/<key>/reason_graph.json` |
+
+```bash
+# 烟测 + 日常 follow-up（G1-04 窗内 exit 2 为预期）
+bash scripts/butler-ops-followup-check.sh
+```
 
 | G1-06 | M-img / M-voice 真机 | ✅ 2026-06-10 `pilot-log` |
 | G1-08 | — | ⏸️ **搁置**（灵文试点；非平台 G1） |

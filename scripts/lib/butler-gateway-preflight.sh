@@ -199,6 +199,15 @@ sys.exit(0 if check_wechat_requirements() else 1)
     fi
   fi
 
+  if [[ "${BUTLER_REASONING_TRACE:-1}" =~ ^(1|true|yes|on)$ ]]; then
+    _bg_ok "BUTLER_REASONING_TRACE enabled (transcript 推理摘要)"
+  else
+    _bg_warn "BUTLER_REASONING_TRACE=0 — /诊断 不展示推理摘要行"
+  fi
+  if [[ "${BUTLER_PLAN_REASON_GRAPH:-0}" =~ ^(1|true|yes|on)$ ]]; then
+    _bg_ok "BUTLER_PLAN_REASON_GRAPH=1 (规划 DoT-lite 试点)"
+  fi
+
   if [[ "$errors" -gt 0 ]]; then
     echo "Preflight: $errors error(s), $warns warning(s)"
     return 1

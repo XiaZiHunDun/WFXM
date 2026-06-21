@@ -371,6 +371,12 @@ def _dispatch_tool_response(
 
     stuck = _get_stuck_message(loop)
     if stuck:
+        try:
+            from butler.core.reasoning_trace import record_stuck_reflect
+
+            record_stuck_reflect(loop, stuck)
+        except Exception as exc:  # noqa: BLE001 — best-effort observability
+            logger.debug("Stuck reflect skipped: %s", exc)
         state.final_text = stuck
         state.status = LoopStatus.STUCK
         state.transition = LoopTransitionReason.STUCK
