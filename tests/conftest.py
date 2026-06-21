@@ -25,9 +25,12 @@ pytest_plugins = ["tests.corpus.conftest_gateway"]
 def _isolate_butler_home(tmp_path, monkeypatch):
     """Every test gets its own BUTLER_HOME so nothing leaks."""
     from butler.plan.mode import clear_all_plan_modes
+    from butler.permissions.rules import reset_permission_failures
     from butler.project.manager import ProjectManager
-    from butler.tools.registry import reset_tool_audit_events
+    from butler.tools.registry import reset_tool_audit_events, reset_tool_registry
 
+    reset_tool_registry()
+    reset_permission_failures()
     clear_all_plan_modes()
     reset_tool_audit_events()
     ProjectManager._instance = None
@@ -40,6 +43,8 @@ def _isolate_butler_home(tmp_path, monkeypatch):
 
     reload_butler_settings()
     yield home
+    reset_tool_registry()
+    reset_permission_failures()
     clear_all_plan_modes()
     reset_tool_audit_events()
     ProjectManager._instance = None

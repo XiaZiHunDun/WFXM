@@ -115,9 +115,8 @@ def test_combo_attack_all_eight_turned_off_at_runtime_fails():
 @pytest.mark.unit
 def test_total_mutable_keys_decreased_by_eight():
     """_MUTABLE_KEYS 总数减少 8 — 防止有重复注册未清。"""
-    # 移出前共 43 项（8 网络 + 5 安全 + 4 记忆 + 7 开发 + 7 网关 + 4 日常 + 3 扩展 + 5 系统）
-    # 移出 5 安全 + 3 dev = 8 项后剩 35
-    expected_existing = 35
+    # 移出 5 安全 + 3 dev = 8 项后剩 35；后续新增 3 项可写 env（2026-06）
+    expected_existing = 38
     actual = len(cs._MUTABLE_KEYS)
     assert actual == expected_existing, (
         f"_MUTABLE_KEYS 期望 {expected_existing} 项（移出 8 个后），"

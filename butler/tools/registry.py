@@ -418,6 +418,13 @@ def _apply_post_tool_hooks(
 _builtins_loaded = False
 
 
+def reset_tool_registry() -> None:
+    """Clear in-process tool registry (test isolation / diagnostics)."""
+    global _builtins_loaded
+    _REGISTRY.clear()
+    _builtins_loaded = False
+
+
 def _ensure_builtins() -> None:
     global _builtins_loaded
     if _builtins_loaded:

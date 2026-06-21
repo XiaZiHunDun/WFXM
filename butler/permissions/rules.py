@@ -123,33 +123,18 @@ def _path_outside_workspace(path_str: str, workspace: Path) -> bool:
     except Exception as exc:
         logger.debug("session tool-result outside-workspace check skipped: %s", exc)
     try:
-        from butler.tools.path_safety import check_tool_path
-
-        result = check_tool_path(path_str, for_write=False)
-        if not result.allowed and "outside workspace" in (result.error or "").lower():
-            return True
-        if result.allowed:
-            return False
-    except Exception as exc:
-        logger.warning("path_outside_workspace check failed (fail-closed): %s", exc)
-        return True
-    try:
         root = workspace.expanduser().resolve()
         target = Path(path_str).expanduser()
         if not target.is_absolute():
             target = (root / target).resolve()
         else:
             target = target.resolve()
-        # Sprint 21-1 SEC-21-A-1: 用 is_relative_to 替换裸 startswith.
-        # str(target).startswith(str(root)) 漏判 sibling-prefix 场景
-        # (workspace=/tmp/proj, target=/tmp/proj_evil/x.md 会被误判为
-        # inside) + 跨平台大小写不敏感 + /tmp symlink. is_relative_to
-        # 做 path component 级比较, 行为统一. 镜像 Sprint 20-3
-        # quarantine_bundle 修复 (Sprint 21-4 uninstall_skill 进一步统一).
+        # Sprint 21-1 SEC-21-A-1: component-level check only; do not call
+        # check_tool_path here (would recurse via check_external_path_override).
         return not target.is_relative_to(root)
-    except Exception:
-        return False
-    return False
+    except Exception as exc:
+        logger.warning("path_outside_workspace check failed (fail-closed): %s", exc)
+        return True
 
 
 def evaluate_external_directory(

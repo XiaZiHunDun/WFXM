@@ -78,7 +78,11 @@ def test_owner_passes_through_approve_run(monkeypatch):
     """Owner 调 /批准运行 应能继续到 run_job 逻辑（不被 gate 拦）。"""
     # 模拟 orchestrator 有 project
     fake_orch = type("O", (), {})()
-    fake_pm = type("PM", (), {"get_current": staticmethod(lambda: type("P", (), {"name": "test_proj"})())})()
+    fake_pm = type(
+        "PM",
+        (),
+        {"get_current": lambda self, session_key="": type("P", (), {"name": "test_proj"})()},
+    )()
     fake_orch.project_manager = fake_pm
 
     with patch("butler.gateway.runtime_commands.is_gateway_owner", return_value=True), \
@@ -101,7 +105,11 @@ def test_owner_passes_through_approve_run(monkeypatch):
 def test_owner_passes_through_run_job(monkeypatch):
     """Owner 调 /运行 应能继续到 run_job 逻辑。"""
     fake_orch = type("O", (), {})()
-    fake_pm = type("PM", (), {"get_current": staticmethod(lambda: type("P", (), {"name": "test_proj"})())})()
+    fake_pm = type(
+        "PM",
+        (),
+        {"get_current": lambda self, session_key="": type("P", (), {"name": "test_proj"})()},
+    )()
     fake_orch.project_manager = fake_pm
 
     with patch("butler.gateway.runtime_commands.is_gateway_owner", return_value=True), \
