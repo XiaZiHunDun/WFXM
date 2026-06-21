@@ -274,18 +274,27 @@ def get_plan_mode_graph_appendix() -> str:
     )
 
 
+def _transcript_row_fields(row: dict) -> dict:
+    payload = row.get("payload")
+    return payload if isinstance(payload, dict) else row
+
+
 def format_reasoning_diagnostic_lines(session_key: str) -> list[str]:
     if not reasoning_trace_enabled():
         return []
     try:
-        from butler.core.session_transcript import load_transcript_tail, transcript_enabled
+        from butler.core.session_transcript import (
+            find_last_transcript_types,
+            transcript_enabled,
+        )
     except Exception:
         return []
     if not transcript_enabled():
         return []
-    rows = load_transcript_tail(session_key, max_lines=80)
-    reasoning = [r for r in rows if r.get("type") == "reasoning_step"]
-    reflects = [r for r in rows if r.get("type") == "reflect_step"]
+    trace_types = frozenset({"reasoning_step", "reflect_step"})
+    last_by_type, counts = find_last_transcript_types(session_key, trace_types)
+    reasoning_n = int(counts.get("reasoning_step") or 0)
+    reflect_n = int(counts.get("reflect_step") or 0)
     graph_line: str | None = None
     if plan_reason_graph_enabled():
         try:
@@ -298,25 +307,25 @@ def format_reasoning_diagnostic_lines(session_key: str) -> list[str]:
                 )
         except Exception:
             pass
-    if not reasoning and not reflects and not graph_line:
+    if not reasoning_n and not reflect_n and not graph_line:
         return []
     lines: list[str] = []
-    if reasoning or reflects:
+    if reasoning_n or reflect_n:
         lines.append(
-            f"推理摘要: 近 {len(rows)} 条 transcript 中含 reasoning={len(reasoning)} reflect={len(reflects)}",
+            f"推理摘要: 近窗 reasoning={reasoning_n} reflect={reflect_n}",
         )
-    if reasoning:
-        last = reasoning[-1]
-        payload = last.get("payload") if isinstance(last.get("payload"), dict) else last
-        summary = str(payload.get("summary") or "")[:160]
-        phase = str(payload.get("phase") or "")
+    last_reason = last_by_type.get("reasoning_step")
+    if last_reason:
+        fields = _transcript_row_fields(last_reason)
+        summary = str(fields.get("summary") or "")[:160]
+        phase = str(fields.get("phase") or "")
         if summary:
             lines.append(f"最近推理({phase}): {summary}")
-    if reflects:
-        last_r = reflects[-1]
-        payload = last_r.get("payload") if isinstance(last_r.get("payload"), dict) else last_r
-        cause = str(payload.get("cause") or "")[:120]
-        strategy = str(payload.get("strategy") or "")[:64]
+    last_reflect = last_by_type.get("reflect_step")
+    if last_reflect:
+        fields = _transcript_row_fields(last_reflect)
+        cause = str(fields.get("cause") or "")[:120]
+        strategy = str(fields.get("strategy") or "")[:64]
         if cause or strategy:
             lines.append(f"最近反思: {cause} → 策略 {strategy or '-'}")
     if graph_line:

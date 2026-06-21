@@ -226,3 +226,16 @@ def test_reasoning_diagnostic_graph_only(butler_home, monkeypatch):
     append_node(sk, text="fact node", role="fact", title="t")
     lines = format_reasoning_diagnostic_lines(sk)
     assert any("Plan 推理图" in ln for ln in lines), lines
+
+
+def test_reasoning_diagnostic_finds_last_beyond_short_tail(butler_home, monkeypatch):
+    """Long sessions: reasoning must not be lost when tail is mostly user rows."""
+    from butler.core.session_transcript import append_transcript_entry, record_reasoning_step
+
+    sk = "test:long:tail:_"
+    for i in range(120):
+        append_transcript_entry(sk, "user", {"content_preview": f"fill-{i}"})
+    record_reasoning_step(sk, phase="text", summary="deep reasoning summary for diagnostic")
+    lines = format_reasoning_diagnostic_lines(sk)
+    assert any("最近推理" in ln and "deep reasoning" in ln for ln in lines), lines
+    assert any("reasoning=1" in ln for ln in lines), lines

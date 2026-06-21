@@ -559,14 +559,28 @@ def load_transcript_tail(session_key: str, *, max_lines: int = 50) -> list[dict[
         return load_tail_rows(path, max_lines=max(1, int(max_lines)))
     except Exception as exc:
         logger.debug("load transcript tail skipped: %s", exc)
+    return _load_transcript_lines_from_path(path, max_lines=max_lines)
+
+
+def reasoning_diag_scan_lines() -> int:
+    return int_env("BUTLER_REASONING_DIAG_SCAN_LINES", 2000, min=80)
+
+
+def _load_transcript_lines_from_path(path: Path, *, max_lines: int) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
+    try:
+        from butler.core.transcript_index import _load_tail_full_read
+
+        return _load_tail_full_read(path, max_lines=max(1, int(max_lines)))
+    except Exception:
+        pass
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return []
     out: list[dict[str, Any]] = []
-    for ln in lines[-max_lines:]:
+    for ln in lines[-max(1, int(max_lines)):]:
         try:
             row = json.loads(ln)
             if isinstance(row, dict):
@@ -574,3 +588,23 @@ def load_transcript_tail(session_key: str, *, max_lines: int = 50) -> list[dict[
         except json.JSONDecodeError:
             continue
     return out
+
+
+def find_last_transcript_types(
+    session_key: str,
+    types: frozenset[str],
+    *,
+    max_scan_lines: int | None = None,
+) -> tuple[dict[str, dict[str, Any]], dict[str, int]]:
+    """Scan recent transcript from EOF; return newest row per type + counts."""
+    limit = reasoning_diag_scan_lines() if max_scan_lines is None else max(1, int(max_scan_lines))
+    rows = _load_transcript_lines_from_path(transcript_path(session_key), max_lines=limit)
+    counts = {t: 0 for t in types}
+    last_by_type: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        t = str(row.get("type") or "")
+        if t not in types:
+            continue
+        counts[t] = counts.get(t, 0) + 1
+        last_by_type[t] = row
+    return last_by_type, counts
