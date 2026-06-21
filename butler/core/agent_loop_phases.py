@@ -219,6 +219,12 @@ def _phase_call_llm(
         _mark_no_response(loop, state)
         return None
     _record_usage(loop, response, state)
+    try:
+        from butler.core.reasoning_trace import maybe_record_llm_reasoning
+
+        maybe_record_llm_reasoning(loop, response, iteration=state.iteration)
+    except Exception as exc:  # noqa: BLE001 — best-effort observability
+        logger.debug("Reasoning trace skipped: %s", exc)
     return response
 
 

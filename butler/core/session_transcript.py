@@ -370,6 +370,9 @@ def record_plan_step(
     title: str = "",
     phase: str = "active",
     detail: str = "",
+    assumption: str = "",
+    evidence: str = "",
+    step_kind: str = "",
 ) -> None:
     append_transcript_entry(
         session_key,
@@ -378,6 +381,86 @@ def record_plan_step(
             "title": (title or "")[:120],
             "phase": str(phase or "active")[:32],
             "detail": (detail or "")[:300],
+            "assumption": (assumption or "")[:300],
+            "evidence": (evidence or "")[:300],
+            "step_kind": str(step_kind or "")[:32],
+        },
+    )
+    try:
+        from butler.core.reasoning_trace import maybe_sync_plan_step_to_graph
+
+        maybe_sync_plan_step_to_graph(
+            session_key,
+            title=title,
+            step_kind=step_kind,
+            assumption=assumption,
+            evidence=evidence,
+            detail=detail,
+        )
+    except Exception as exc:
+        logger.debug("plan step graph sync skipped: %s", exc)
+
+
+def record_reasoning_step(
+    session_key: str,
+    *,
+    phase: str = "llm",
+    summary: str = "",
+    tool_intent: str = "",
+    iteration: int = 0,
+    source: str = "loop",
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "reasoning_step",
+        {
+            "phase": str(phase or "llm")[:32],
+            "summary": (summary or "")[:280],
+            "tool_intent": (tool_intent or "")[:120],
+            "iteration": max(0, int(iteration)),
+            "source": str(source or "loop")[:32],
+        },
+    )
+
+
+def record_reflect_step(
+    session_key: str,
+    *,
+    trigger: str = "verify_fail",
+    cause: str = "",
+    strategy: str = "",
+    detail: str = "",
+    source: str = "delegate",
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "reflect_step",
+        {
+            "trigger": str(trigger or "verify_fail")[:32],
+            "cause": (cause or "")[:200],
+            "strategy": (strategy or "")[:64],
+            "detail": (detail or "")[:200],
+            "source": str(source or "delegate")[:32],
+        },
+    )
+
+
+def record_reason_graph_event(
+    session_key: str,
+    *,
+    action: str = "node_added",
+    node_id: str = "",
+    role: str = "",
+    preview: str = "",
+) -> None:
+    append_transcript_entry(
+        session_key,
+        "reason_graph",
+        {
+            "action": str(action or "node_added")[:32],
+            "node_id": str(node_id or "")[:16],
+            "role": str(role or "")[:32],
+            "preview": (preview or "")[:120],
         },
     )
 

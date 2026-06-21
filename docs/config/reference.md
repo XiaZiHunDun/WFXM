@@ -232,6 +232,8 @@
 | `GITHUB_TOKEN` | — | GitHub API（技能拉取） |
 | `BUTLER_SESSION_TRANSCRIPT` | 1 | `~/.butler/sessions/<key>/transcript.jsonl`；含 compact / `bot_loop_suppressed` 等事件 |
 | `BUTLER_SESSION_TRANSCRIPT_MAX_BYTES` | 52428800 | transcript 轮转阈值 |
+| `BUTLER_REASONING_TRACE` | 1 | `0` 关闭 transcript `reasoning_step` / `reflect_step` 与 `/诊断` 推理摘要行 |
+| `BUTLER_PLAN_REASON_GRAPH` | 0 | `1` 时规划模式同步 DoT-lite 图至 `~/.butler/sessions/<key>/reason_graph.json` |
 | `BUTLER_SESSION_HYDRATE` | 1 | 新建 Loop 时从 transcript 注入 read_file 事实块 |
 | `BUTLER_SESSION_TOOL_INDEX` | 1 | 从 transcript 解析本轮 `read_file` 路径索引 |
 | `BUTLER_SESSION_RECOVERY_NOTICE` | 1 | 冷启动后首条回复附会话恢复提示 |

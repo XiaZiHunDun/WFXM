@@ -54,6 +54,12 @@ def format_transcript_diagnostic_lines(session_key: str) -> list[str]:
         lines.extend(format_mcp_diagnostic_lines(session_key))
     except Exception as exc:
         logger.debug("format transcript diagnostic lines skipped: %s", exc)
+    try:
+        from butler.core.reasoning_trace import format_reasoning_diagnostic_lines
+
+        lines.extend(format_reasoning_diagnostic_lines(session_key))
+    except Exception as exc:
+        logger.debug("reasoning diagnostic lines skipped: %s", exc)
     return lines
 
 

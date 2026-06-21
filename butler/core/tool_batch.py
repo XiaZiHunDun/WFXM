@@ -191,6 +191,12 @@ def _run_auto_verify(state: Any, path: str) -> None:
             except Exception:
                 pass
             try:
+                from butler.core.reasoning_trace import record_verify_fail_reflect
+
+                record_verify_fail_reflect(state, result)
+            except Exception:
+                pass
+            try:
                 from butler.dev_engine.fix_strategy import enrich_fix_hint, suggest_fix_action
 
                 fix_level = suggest_fix_action(result.diagnostics, state)

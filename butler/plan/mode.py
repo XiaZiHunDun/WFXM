@@ -55,14 +55,31 @@ def _tool_target_path(tool_name: str, args: dict[str, Any]) -> str:
 def load_plan_mode_system_appendix() -> str:
     from pathlib import Path
 
-    path = Path(__file__).resolve().parent / "prompts" / "butler_plan_mode.md"
-    try:
-        return path.read_text(encoding="utf-8").strip()
-    except OSError:
-        return (
+    base = Path(__file__).resolve().parent
+    candidates = (
+        base / "prompts" / "butler_plan_mode.md",
+        base.parent / "prompts" / "butler_plan_mode.md",
+    )
+    body = ""
+    for path in candidates:
+        try:
+            if path.is_file():
+                body = path.read_text(encoding="utf-8").strip()
+                break
+        except OSError:
+            continue
+    if not body:
+        body = (
             "## 规划模式\n只读探索并写 plan 文件；"
             "禁止 delegate_task、terminal 与业务源码写入。用户 /执行 后退出。"
         )
+    try:
+        from butler.core.reasoning_trace import get_plan_mode_graph_appendix
+
+        body += get_plan_mode_graph_appendix()
+    except Exception as exc:
+        logger.debug("plan graph appendix skipped: %s", exc)
+    return body
 
 
 def set_plan_mode(session_key: str, enabled: bool) -> None:
