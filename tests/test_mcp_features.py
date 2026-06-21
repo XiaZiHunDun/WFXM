@@ -186,3 +186,25 @@ def test_dispatch_mcp_tool_mock(mock_get_manager, monkeypatch):
                     out = json.loads(dispatch_tool(ref.registered_name, {}))
     assert out.get("ok") is True
     mgr.call_tool.assert_called_once()
+
+
+@patch("butler.mcp.registry_hook.get_manager")
+def test_mcp_status_lines_warms_on_diagnostic(mock_get_manager, monkeypatch):
+    """Audit: /诊断 must not show empty MCP before first tool call."""
+    monkeypatch.setenv("BUTLER_MCP_ENABLED", "1")
+    from butler.mcp.registry_hook import mcp_status_lines
+    from butler.mcp.types import McpServerStatus
+
+    mgr = MagicMock()
+    mgr.status_snapshot.return_value = [
+        McpServerStatus(server_id="todoist", transport="stdio", connected=True, tool_count=3),
+    ]
+    mock_get_manager.return_value = mgr
+
+    with patch("butler.mcp.registry_hook.mcp_sdk_available", return_value=True):
+        with patch("butler.mcp.registry_hook.mcp_enabled", return_value=True):
+            lines = mcp_status_lines("diag-session")
+
+    mgr.ensure_connected.assert_called_once()
+    assert lines[0] == "MCP: 已开启"
+    assert "todoist" in lines[1]

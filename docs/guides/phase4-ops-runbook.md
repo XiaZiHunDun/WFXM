@@ -154,8 +154,8 @@ bash scripts/butler-gap-observability.sh   # 全量 verbose；warn>0 时 exit 1
 **G1-04 结案日（2026-06-23 及之后）**
 
 1. `bash scripts/butler-g1-04-closure-check.sh` — exit **0** 表示 `closure_ready`
-2. 更新 [`theory-implementation-gap-register-2026-06.md`](../plans/decisions/theory-implementation-gap-register-2026-06.md) §1：G1-04 标 ✅（OT2 试点窗证据已够；收敛仍诚实边界）
-3. `projects/LingWen1/docs/pilot-log.md` 补一行结案（本地 gitignore，仅运营留档）
+2. `bash scripts/butler-g1-04-closure-apply.sh` — 自动改 gap register + 追加 pilot-log 行
+3. 人工复核 diff 后 commit
 
 **认知层试点（2026-06-21 起）**
 

@@ -63,7 +63,7 @@
 
 | ID | 理论依据 | 现状 | 影响 | 建议 |
 |----|----------|------|------|------|
-| G1-04 | OT2 有条件目标 | 硬反馈已接；**观测中**（窗内 3 条 `adjust_delegate_rescue`，剩 **2d**→06-23，2026-06-21 打卡） | OT2 窗满且 ≥1 条后 `closure_ready` | `butler-g1-04-closure-check.sh`；**06-23** 结案 |
+| G1-04 | OT2 有条件目标 | 硬反馈已接；**观测中**（窗内 3 条 `adjust_delegate_rescue`，剩 **2d**→06-23，2026-06-21 follow-up ✅） | OT2 窗满且 ≥1 条后 `closure_ready` | `butler-g1-04-closure-apply.sh`（**06-23**） |
 
 ---
 

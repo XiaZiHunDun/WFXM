@@ -173,16 +173,28 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
 
 
 def mcp_status_lines(session_key: str = "") -> list[str]:
-    from butler.mcp.config import mcp_enabled as enabled_fn
+    from butler.mcp.config import load_mcp_servers, mcp_enabled as enabled_fn
 
     if not enabled_fn():
         return ["MCP: 已关闭 (BUTLER_MCP_ENABLED=0 或未安装 butler-system[mcp])"]
     if not mcp_sdk_available():
         return ["MCP: 已开启但缺少 SDK (pip install butler-system[mcp])"]
     sk = str(session_key or _session_key_fallback()).strip() or "default"
-    statuses = get_manager().status_snapshot(sk)
+    mgr = get_manager()
+    # /诊断 须在首条 agent 消息前也能看到 MCP 状态；ensure_connected 与工具派发同源。
+    try:
+        mgr.ensure_connected(sk, workspace=_resolve_workspace())
+    except Exception as exc:
+        logger.debug("MCP diagnostic warm-up skipped: %s", exc)
+    statuses = mgr.status_snapshot(sk)
     if not statuses:
-        return ["MCP: 已开启，无已连接 server（检查 ~/.butler/mcp.yaml）"]
+        try:
+            cfg_count = len(load_mcp_servers(workspace=_resolve_workspace()))
+        except Exception:
+            cfg_count = 0
+        if cfg_count == 0:
+            return ["MCP: 已开启，mcp.yaml 无 server 配置（检查 ~/.butler/mcp.yaml）"]
+        return ["MCP: 已开启，server 均未连接（见上方日志或重试 /诊断）"]
     lines = ["MCP: 已开启"]
     for st in statuses:
         mark = "ok" if st.connected else "down"
