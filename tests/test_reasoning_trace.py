@@ -215,3 +215,14 @@ def test_plan_markdown_sync(butler_home, monkeypatch, tmp_path):
         assert len(plan_rows) >= 3
     finally:
         clear_plan_mode(sk)
+
+
+def test_reasoning_diagnostic_graph_only(butler_home, monkeypatch):
+    monkeypatch.setenv("BUTLER_PLAN_REASON_GRAPH", "1")
+    sk = "test:graph:diag:_"
+    from butler.core.plan_reason_graph import append_node
+    from butler.core.reasoning_trace import format_reasoning_diagnostic_lines
+
+    append_node(sk, text="fact node", role="fact", title="t")
+    lines = format_reasoning_diagnostic_lines(sk)
+    assert any("Plan 推理图" in ln for ln in lines), lines

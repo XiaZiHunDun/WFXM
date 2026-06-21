@@ -136,8 +136,10 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 ```bash
 bash scripts/butler-g1-checklist.sh        # G1 开放项：成本/inbound/真机话术提示
 bash scripts/butler-g1-04-closure-check.sh # G1-04：06-23 后结案检查（exit 0=可更新登记册）
-bash scripts/butler-ops-followup-check.sh  # 日常：G1-04 窗 + boundary + 推理 smoke + EXT-2
+bash scripts/butler-ops-followup-check.sh  # 日常：G1-04 窗 + boundary + 推理/DoT smoke + EXT-2
 bash scripts/butler-reasoning-trace-smoke.sh # 推理 transcript 烟测（无 LLM）
+bash scripts/butler-dot-lite-smoke.sh      # DoT-lite plan 图烟测（需 BUTLER_PLAN_REASON_GRAPH=1）
+bash scripts/butler-pytest-bisect.sh       # 分层 pytest gate（全量见 RUN_FULL=1）
 bash scripts/butler-lingwen1-edit-capture.sh # 灵文改码失败 → L3 捕获演练
 bash scripts/butler-lingwen-live-capture-checklist.sh # 灵文 live 捕获运营检查清单
 bash scripts/butler-prod-delta-observe.sh    # 周中 prod_delta 快照（非周日也可跑）

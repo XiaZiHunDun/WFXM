@@ -52,6 +52,7 @@ echo "Butler ops follow-up check ($(date -Iseconds))"
 _run_warn_ok "G1-04 closure / window" bash "$ROOT/scripts/butler-g1-04-closure-check.sh"
 _run_warn_ok "G1/G2 boundary observability" bash "$ROOT/scripts/butler-gap-observability.sh"
 _run "Reasoning trace smoke" bash "$ROOT/scripts/butler-reasoning-trace-smoke.sh"
+_run "DoT-lite smoke" bash "$ROOT/scripts/butler-dot-lite-smoke.sh"
 _run "EXT-2 Todoist preflight" bash "$ROOT/scripts/butler-extension-ext2-preflight.sh"
 
 echo ""

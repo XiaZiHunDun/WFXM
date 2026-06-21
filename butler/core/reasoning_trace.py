@@ -286,11 +286,25 @@ def format_reasoning_diagnostic_lines(session_key: str) -> list[str]:
     rows = load_transcript_tail(session_key, max_lines=80)
     reasoning = [r for r in rows if r.get("type") == "reasoning_step"]
     reflects = [r for r in rows if r.get("type") == "reflect_step"]
-    if not reasoning and not reflects:
+    graph_line: str | None = None
+    if plan_reason_graph_enabled():
+        try:
+            from butler.core.plan_reason_graph import summarize_graph
+
+            stats = summarize_graph(session_key)
+            if stats.get("nodes"):
+                graph_line = (
+                    f"Plan 推理图: {stats.get('nodes', 0)} 节点 · {stats.get('edges', 0)} 边"
+                )
+        except Exception:
+            pass
+    if not reasoning and not reflects and not graph_line:
         return []
-    lines: list[str] = [
-        f"推理摘要: 近 {len(rows)} 条 transcript 中含 reasoning={len(reasoning)} reflect={len(reflects)}",
-    ]
+    lines: list[str] = []
+    if reasoning or reflects:
+        lines.append(
+            f"推理摘要: 近 {len(rows)} 条 transcript 中含 reasoning={len(reasoning)} reflect={len(reflects)}",
+        )
     if reasoning:
         last = reasoning[-1]
         payload = last.get("payload") if isinstance(last.get("payload"), dict) else last
@@ -305,17 +319,8 @@ def format_reasoning_diagnostic_lines(session_key: str) -> list[str]:
         strategy = str(payload.get("strategy") or "")[:64]
         if cause or strategy:
             lines.append(f"最近反思: {cause} → 策略 {strategy or '-'}")
-    if plan_reason_graph_enabled():
-        try:
-            from butler.core.plan_reason_graph import summarize_graph
-
-            stats = summarize_graph(session_key)
-            if stats.get("nodes"):
-                lines.append(
-                    f"Plan 推理图: {stats.get('nodes', 0)} 节点 · {stats.get('edges', 0)} 边"
-                )
-        except Exception:
-            pass
+    if graph_line:
+        lines.append(graph_line)
     return lines
 
 

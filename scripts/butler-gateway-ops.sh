@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # Butler WeChat gateway — daily ops (status / restart / logs / preflight / install / upgrade).
 set -euo pipefail
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(/usr/bin/dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=scripts/lib/butler-gateway-preflight.sh
 source "$ROOT/scripts/lib/butler-gateway-preflight.sh"
+# shellcheck source=scripts/lib/butler-systemd-install.sh
+source "$ROOT/scripts/lib/butler-systemd-install.sh"
+
+BUTLER_PY="$(butler_resolve_python3)"
 
 UNIT=butler-gateway.service
 LOG="$ROOT/logs/butler-gateway.log"
@@ -101,13 +106,13 @@ _cmd_upgrade() {
   find "$ROOT" -path '*/tests*/__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
   echo "== sync dependencies (gateway extras) =="
   if [[ -n "${VIRTUAL_ENV:-}" ]]; then
-    pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
+    "$BUTLER_PY" -m pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
   elif [[ -d "$ROOT/.venv/bin" ]]; then
     # shellcheck source=/dev/null
     source "$ROOT/.venv/bin/activate"
-    pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
+    "$BUTLER_PY" -m pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
   else
-    pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
+    "$BUTLER_PY" -m pip install -e "$ROOT[gateway]" --quiet 2>/dev/null || echo "pip install [gateway] skipped (non-fatal)" >&2
   fi
   bash "$ROOT/scripts/install-butler-gateway-service.sh"
   echo "== refresh ops timers (runtime all-projects, push-drain) =="
@@ -143,7 +148,7 @@ _cmd_verify() {
   fi
 
   local fail=0
-  PYTHONPATH="$ROOT" python3 -c "
+  PYTHONPATH="$ROOT" "$BUTLER_PY" -c "
 from butler.project.lead import gateway_loop_role
 from butler.project.manager import get_project_manager
 from butler.gateway.message_handler import ButlerMessageHandler
@@ -157,7 +162,7 @@ print(f\"  [ok] Butler v{info['version']} (commit={info['git_sha']}, python={inf
   fi
 
   echo "  -- handler smoke test --"
-  PYTHONPATH="$ROOT" python3 -c "
+  PYTHONPATH="$ROOT" "$BUTLER_PY" -c "
 from butler.gateway.message_handler import ButlerMessageHandler
 h = ButlerMessageHandler(channel='gateway')
 r = h.handle_message('/状态', session_key='deploy-verify', platform='cli')
