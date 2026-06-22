@@ -93,6 +93,24 @@ class TestPhasesModuleContent:
 
         assert is_dataclass(DelegateRunState)
 
+    def test_inject_workspace_root_context(self, tmp_path):
+        from butler.tools.delegate_phases import (
+            DelegateRunState,
+            _inject_workspace_root_context,
+        )
+
+        ws = tmp_path / "LingWen1"
+        ws.mkdir()
+        project = type("P", (), {"workspace": str(ws), "name": "灵文1号"})()
+        state = DelegateRunState(role="dev", task="读 docs/foo.md", context="用户原话")
+        state.project = project
+        _inject_workspace_root_context(state)
+        assert "## 工作区（必守）" in state.context
+        assert "docs/foo.md" in state.context
+        assert "LingWen1/docs" in state.context
+        _inject_workspace_root_context(state)
+        assert state.context.count("## 工作区（必守）") == 1
+
     def test_run_subagent_loop_returns_optional_string(self):
         from butler.tools.delegate_phases import _run_subagent_loop
 

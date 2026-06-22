@@ -326,6 +326,29 @@ def _inject_dev_engine_prompt(state: DelegateRunState) -> None:
         logger.debug("dev engine prompt injection skipped: %s", exc)
 
 
+def _inject_workspace_root_context(state: DelegateRunState) -> None:
+    """Prepend deterministic workspace-relative path rules for sub-agents."""
+    if state.project is None:
+        return
+    try:
+        ws = Path(state.project.workspace).resolve()
+    except (TypeError, ValueError, OSError):
+        return
+    if not ws.is_dir():
+        return
+    marker = "## 工作区（必守）"
+    if marker in str(state.context or ""):
+        return
+    dir_name = ws.name
+    block = (
+        f"{marker}\n"
+        f"- 项目 workspace 根目录：`{ws}`\n"
+        "- 所有 read_file / write_file / patch 路径必须**相对此根**（例：`docs/foo.md`）\n"
+        f"- **禁止** `{dir_name}/docs/...`、项目目录名前缀、或 workspace 外的绝对路径\n"
+    )
+    state.context = f"{block}\n{state.context}".strip() if state.context else block
+
+
 def _resolve_subagent(state: DelegateRunState) -> None:
     """Phase 2: build the project agent loop with cache-safe prompt.
 
@@ -338,6 +361,7 @@ def _resolve_subagent(state: DelegateRunState) -> None:
     state.orch = _orchestrator_for_tool(channel="cli")
     parent_sk = str(get_current_session_key() or "").strip()
     state.project = state.orch.project_manager.get_current(session_key=parent_sk)
+    _inject_workspace_root_context(state)
     _attach_agents_md_context(state)
     _build_subagent_tools(state)
     _apply_subagent_tool_filters(state)
