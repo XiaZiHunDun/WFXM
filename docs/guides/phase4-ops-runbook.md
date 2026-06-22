@@ -135,8 +135,14 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 ```bash
 bash scripts/butler-g1-checklist.sh        # G1 开放项：成本/inbound/真机话术提示
-bash scripts/butler-g1-04-closure-check.sh # G1-04：06-23 后结案检查（exit 0=可更新登记册）
-bash scripts/butler-ops-followup-check.sh  # 日常：G1-04 窗 + boundary + 推理/DoT smoke + EXT-2
+bash scripts/butler-g1-04-closure-check.sh # G1-04：窗 06-09→07-31；exit 0=生产证据可结案
+bash scripts/butler-ops-followup-check.sh  # 日常：G1-04 窗 + boundary + 推理/DoT smoke + secrets 契约 + EXT verify/sim
+bash scripts/butler-secrets-contract-check.sh   # G1-13：extension + 平台 env 契约
+bash scripts/butler-wechat-owner-sim.sh --quick # Owner manifest 模拟（core/slash/memory/search）
+bash scripts/butler-wechat-owner-sim.sh --track ext,delegate  # MCP + 委派（写 owner-sim-smoke.md）
+bash scripts/butler-wechat-core-sim.sh          # G1-11：核心微信剧本 handler 模拟（~60s，需 LLM）
+bash scripts/butler-web-search-route-sim.sh     # G1-12 policy；--handler soft；--handler --strict-handler 发版前
+bash scripts/butler-extension-wechat-sim.sh   # 单独：扩展验收话术（不经 iLink，~40s，需 MCP+LLM）
 bash scripts/butler-reasoning-trace-smoke.sh # 推理 transcript 烟测（无 LLM）
 bash scripts/butler-dot-lite-smoke.sh      # DoT-lite plan 图烟测（默认开；=0 时 skip 图断言）
 bash scripts/butler-pytest-bisect.sh       # 分层 pytest gate（全量见 RUN_FULL=1）
@@ -149,13 +155,21 @@ bash scripts/butler-gap-observability.sh   # 全量 verbose；warn>0 时 exit 1
 | ID | 自动化信号 | 仍须人工 |
 |----|------------|----------|
 | G1-02 | 成本基线是否已设 | ⏸️ **搁置**（现阶段不做账单对照；`/诊断` 提示可忽略） |
-| G1-04 | `eval_feedback.jsonl` 7d + 观测窗 | `butler-gap-observability.sh` 看 `g1_04_window`（窗 06-09→06-23） |
+| G1-04 | `eval_feedback.jsonl` 窗内 + trigger 分类 | `butler-gap-observability.sh` / `butler doctor` 看 `g1_04_window`（窗 **06-09→07-31**） |
 
-**G1-04 结案日（2026-06-23 及之后）**
+**G1-04 结案（窗满后）**
 
-1. `bash scripts/butler-g1-04-closure-check.sh` — exit **0** 表示 `closure_ready`
-2. `bash scripts/butler-g1-04-closure-apply.sh` — 自动改 gap register + 追加 pilot-log 行
-3. 人工复核 diff 后 commit
+| 条件 | 命令 | 登记册表述 |
+|------|------|------------|
+| 窗满 + ≥1 **生产**来源硬反馈（`trigger` 非 B9） | `butler-g1-04-closure-apply.sh` | 管线已验 + 生产硬反馈 |
+| 窗满但**仅 B9 测评** | `butler-g1-04-closure-apply.sh --pipeline-only` | 管线已验；**OT2 未证** |
+| 窗未结束 | check exit **2** | 不结案（开发期预期） |
+
+`butler-g1-04-closure-run-if-ready.sh` **不会**自动 `--pipeline-only`。
+
+```bash
+bash scripts/butler-g1-04-closure-check.sh   # exit 0/1/2/3 见脚本头注释
+```
 
 **认知层（2026-06-21 试点 → prod 默认开）**
 

@@ -337,7 +337,7 @@ PIM 查询 → 结果 2 轮 pii_clearable 清空 → fact extraction 跳过 PIM 
 | G3 | 文档同步 G3-01～09 | v3.1.1 + 子理论 §8.5 / memory v1.2 | ✅ |
 | G1-02 | 成本 baseline | — | ⏸️ **搁置** |
 | G1-08 | 灵文新书态 | 维护态已验 | ⏸️ **搁置**（试点业务） |
-| G1-04 | OT2 硬反馈生产证据 | `eval_feedback.jsonl` | ⏳ 观测中 窗内 3 条（剩 10d→06-23；`closure_ready` 待窗满） |
+| G1-04 | OT2 硬反馈生产证据 | `eval_feedback.jsonl` | ⏳ 观测中 窗 **06-09→07-31**；窗内 3 条仅 B9；`ot2_closure_ready` 待生产 trigger |
 | G1-06 | 入站媒体真机 | inbound pytest ✅ + 真机 M-img/M-voice | ✅ 2026-06-10 |
 | doc-sync | 文档索引与降级说明 | 本文 §9 + `DOCUMENTATION` / `README` / `external-services` | ✅ |
 

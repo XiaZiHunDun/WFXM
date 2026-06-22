@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Daily follow-up bundle: G1-04 window, boundary observability, reasoning trace, EXT-2.
-# G1-04 exit 2 before window end is expected (not a failure).
+# Daily follow-up bundle: G1-04 window, boundary observability, reasoning trace, EXT verify/sim.
+# G1-04 exit 2 before window end is expected; exit 3 = B9-only evidence (skip apply).
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -59,6 +59,13 @@ _run "Demo pilot smoke" bash "$ROOT/scripts/butler-demo-pilot-smoke.sh"
 _run_warn_ok "Production delegate delta" bash "$ROOT/scripts/butler-prod-delta-observe.sh"
 _run "EXT-2 Todoist preflight" bash "$ROOT/scripts/butler-extension-ext2-preflight.sh"
 _run_warn_ok "EXT-4 GitHub preflight" bash "$ROOT/scripts/butler-extension-ext4-preflight.sh"
+_run "Secrets contract (G1-13)" bash "$ROOT/scripts/butler-secrets-contract-check.sh"
+_run_warn_ok "Extension Verify (golden)" bash "$ROOT/scripts/butler-extension-verify.sh"
+_run_warn_ok "Extension WeChat sim (handler)" bash "$ROOT/scripts/butler-extension-wechat-sim.sh"
+_run_warn_ok "WeChat core sim (handler)" bash "$ROOT/scripts/butler-wechat-core-sim.sh"
+_run_warn_ok "WeChat owner sim (manifest)" bash "$ROOT/scripts/butler-wechat-owner-sim.sh" --quick
+_run "Network search route policy" bash "$ROOT/scripts/butler-web-search-route-sim.sh"
+_run_warn_ok "Network search route handler" bash "$ROOT/scripts/butler-web-search-route-sim.sh" --handler
 
 echo ""
 echo "summary: fail=$fail warn=$warn"

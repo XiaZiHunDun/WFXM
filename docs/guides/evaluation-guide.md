@@ -483,7 +483,7 @@ LIVE 固定集（`b9_live_fixed_tasks` + `b9_prod_shaped_tasks`）共 **19 项**
 | `prod_delta_clean` 趋势 | 4 周后 verify_fail 率下降 | `butler-prod-delta-observe.sh` |
 | 灵文 prod sample | 3/3 | `butler-lingwen1-prod-sample.sh` |
 | L3 `PROD_FAIL_*` | 真实委派失败写入 | `butler-lingwen-live-capture-checklist.sh` |
-| G1-04 | 06-23 窗满结案 | `butler-g1-04-closure-check.sh` |
+| G1-04 | 窗 07-31 满后结案 | `butler-g1-04-closure-check.sh`（需生产 trigger；B9-only 用 `--pipeline-only`） |
 
 ```bash
 bash scripts/butler-lingwen-live-capture-checklist.sh   # 灵文 live 捕获检查清单

@@ -129,6 +129,20 @@ PYTHONPATH=. python -m pytest \
 
 ---
 
+**自动化模拟（不经 iLink，需 LLM key）**
+
+| 脚本 | 范围 |
+|------|------|
+| `bash scripts/butler-wechat-owner-sim.sh --list` | 查看全部 track |
+| `bash scripts/butler-wechat-owner-sim.sh --quick` | **推荐**：core + slash + memory + search（约 5–15 分钟） |
+| `bash scripts/butler-wechat-owner-sim.sh` | 含 ext / delegate 全量 |
+| `bash scripts/butler-wechat-owner-sim.sh --track ext,delegate` | MCP + 委派（步骤 4–5 写/读 `docs/owner-sim-smoke.md`） |
+| `bash scripts/butler-wechat-core-sim.sh` | G1-11 子集（与 owner-sim `core` track 重叠） |
+
+Manifest：`.butler/simulation/wechat-owner-scenarios.yaml`（可增删 case，不必改 Python）。委派验收写 `docs/owner-sim-smoke-{日期}.md`（已 gitignore，跑前清理旧文件）。
+
+---
+
 ## 四、结果记录表
 
 复制到 `manual-testing-guide.md` §六 或 issue 评论：

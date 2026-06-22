@@ -11,7 +11,7 @@
 |----|-------------|----------|
 | 1 | `bash scripts/butler-gateway-ops.sh preflight` | 无 FAIL |
 | 2 | `butler doctor` | 无关键 WARN（见 [wechat-gateway-ops](./wechat-gateway-ops.md)） |
-| 3 | `bash scripts/butler-pre-release-smoke.sh` | 输出 `ALL PASSED` |
+| 3 | `bash scripts/butler-pre-release-smoke.sh` | 输出 `ALL PASSED`（含 step 12 **strict handler** warn-only；发版前可单独跑 `bash scripts/butler-web-search-route-sim.sh --handler --strict-handler` 作硬验收） |
 | 4 | 改 gateway / 语料时：`./scripts/corpus-test.sh pr-gate` | 见 [CONTRIBUTING.md](../../CONTRIBUTING.md) |
 | 5 | 改五报告 P5–P10：`./scripts/butler-five-reports-gate.sh` | 退出 0 |
 | 6 | `bash scripts/butler-pre-release-smoke.sh` 含 **B9 oracle Tier-1**（`butler-b9-release-gate.sh`） | 退出 0 |

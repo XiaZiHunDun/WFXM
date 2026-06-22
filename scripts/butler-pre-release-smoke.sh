@@ -55,8 +55,28 @@ echo "== 9/11 DemoPilot project smoke =="
 bash scripts/butler-demo-pilot-smoke.sh
 
 echo ""
-echo "== 10/11 B9 oracle Tier-1 release gate =="
+echo "== 10/13 B9 oracle Tier-1 release gate =="
 bash scripts/butler-b9-release-gate.sh
+
+echo ""
+echo "== 11/13 network route policy =="
+bash scripts/butler-web-search-route-sim.sh
+
+echo ""
+echo "== 12/13 network route strict handler (warn-only) =="
+if bash scripts/butler-web-search-route-sim.sh --handler --strict-handler; then
+  echo "  strict handler: ok"
+else
+  echo "  WARN: strict handler failed — review LLM tool routing before prod (daily follow-up uses soft --handler)"
+fi
+
+echo ""
+echo "== 13/13 wechat owner sim --quick (warn-only) =="
+if bash scripts/butler-wechat-owner-sim.sh --quick; then
+  echo "  owner sim: ok"
+else
+  echo "  WARN: owner sim failed — review handler scenarios before prod (needs LLM key)"
+fi
 
 echo ""
 echo "Pre-release smoke: ALL PASSED"
