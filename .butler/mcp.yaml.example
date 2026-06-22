@@ -60,3 +60,7 @@ servers:
   #   classify:
   #     getAllProjects: readonly
   #     getActiveTasks: readonly
+
+  # EXT-4: GitHub REST read-only (ext-4-second-openapi-2026-06.md)
+  # bash scripts/butler-github-openapi-spec-install.sh && bash scripts/butler-extension-ext4-integrate.sh
+  # github: … see ext-4 doc §4

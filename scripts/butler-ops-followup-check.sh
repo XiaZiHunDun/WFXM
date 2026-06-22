@@ -58,6 +58,7 @@ _run "DoT-lite smoke" bash "$ROOT/scripts/butler-dot-lite-smoke.sh"
 _run "Demo pilot smoke" bash "$ROOT/scripts/butler-demo-pilot-smoke.sh"
 _run_warn_ok "Production delegate delta" bash "$ROOT/scripts/butler-prod-delta-observe.sh"
 _run "EXT-2 Todoist preflight" bash "$ROOT/scripts/butler-extension-ext2-preflight.sh"
+_run_warn_ok "EXT-4 GitHub preflight" bash "$ROOT/scripts/butler-extension-ext4-preflight.sh"
 
 echo ""
 echo "summary: fail=$fail warn=$warn"

@@ -229,7 +229,7 @@
 | `BUTLER_MCP_CATALOG_URLS` | 空 | 远程 MCP catalog JSON/YAML URL（CSV，SSRF 校验；与内置 catalog 合并，同名以内置为准） |
 | （CLI） | — | `butler mcp add <id> --workspace <dir>` 写入项目 `.butler/mcp.yaml`；`--global` 强制全局；probe 失败不写 yaml |
 | `BUTLER_MCP_AUTO_PROJECT_TOOLS` | 1 | 项目层 MCP 安装后自动向 `project.yaml` tools 追加 `mcp_*`（仅当 tools 非空且尚无 mcp 项） |
-| `GITHUB_TOKEN` | — | GitHub API（技能拉取） |
+| `GITHUB_TOKEN` | — | GitHub API（技能拉取；EXT-4 OpenAPI MCP 只读 PAT） |
 | `BUTLER_SESSION_TRANSCRIPT` | 1 | `~/.butler/sessions/<key>/transcript.jsonl`；含 compact / `bot_loop_suppressed` 等事件 |
 | `BUTLER_SESSION_TRANSCRIPT_MAX_BYTES` | 52428800 | transcript 轮转阈值 |
 | `BUTLER_REASONING_TRACE` | 1 | `0` 关闭 transcript `reasoning_step` / `reflect_step` 与 `/诊断` 推理摘要行 |

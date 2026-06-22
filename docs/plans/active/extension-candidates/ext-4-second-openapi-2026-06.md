@@ -1,52 +1,101 @@
-# EXT-4：第二 OpenAPI MCP（候选队列）
+# EXT-4：第二 OpenAPI MCP — GitHub REST（路径 A）
 
-> **状态**：Research（2026-06-22）· **未 Decide** — 须 Owner 选试点 API + token  
+> **状态**：Decide ✅ **A（OpenAPI）**（2026-06-22）· Integrate ✅（spec + scripts）· **Verify 待 token**  
 > **规程**：[`extension-rd-loop-2026-06.md`](../extension-rd-loop-2026-06.md)  
-> **前置**：EXT-2 Todoist ✅（OpenAPI MCP 路径已验）
+> **前置**：EXT-2 Todoist ✅（同型 `@ivotoby/openapi-mcp-server`）
 
 ---
 
-## 1. 痛点与信号
+## 1. Decide（Owner：A）
 
-| 项 | 内容 |
+| 项 | 决定 |
 |----|------|
-| **现象** | 已有 Firecrawl + Todoist；Owner 可能重复「接某某 REST」 |
-| **信号** | P2 backlog「第二个 OpenAPI MCP」；`/诊断` 工具重叠需降噪（2026-06-22 已接 orthogonality lint） |
-| **约束** | 同 EXT-2：stdio + npx + 只读 GET 试点 + `secrets.yaml` |
+| **路径** | **A** — OpenAPI MCP（非专用 `@modelcontextprotocol/server-github`） |
+| **试点 API** | GitHub REST `https://api.github.com` |
+| **Spec SSOT** | 仓库 [`.butler/openapi/github-readonly.yml`](../../../../.butler/openapi/github-readonly.yml) → pin `~/.butler/openapi/` |
+| **鉴权** | `GITHUB_TOKEN`（fine-grained 或 classic PAT，只读 scope） |
+| **只读工具** | 4× GET（见 §3） |
 
 ---
 
-## 2. 候选（2–3）
+## 2. 与 B（专用 MCP）的差异（已否决 B）
 
-| 候选 | 类型 | 只读试点 | fit | 依赖 |
-|------|------|----------|-----|------|
-| **A. GitHub REST** | OpenAPI MCP | `GET /user`、`GET /repos/{owner}/{repo}` | 高（工程管家常查 repo/issue） | `GITHUB_TOKEN` |
-| **B. 专用 `github` MCP** | 专用 MCP Server | `search_repositories` 等 | 高（catalog 已有模板） | 同左；非 OpenAPI 通用路径 |
-| **C. 内网只读 OpenAPI** | OpenAPI MCP | 1 个 GET 健康检查 | 中（无公网依赖） | 内网 token |
-
-**推荐（Research）**：若目标是 **验证第二条 OpenAPI 复用 EXT-2 管线** → **A**（pin `~/.butler/openapi/github-readonly.yml`）；若目标是 **最快可用** → **B**（`butler mcp add github`，见 `skill-mcp-registry`）。
+| | **A（本方案）** | B（未选） |
+|--|-----------------|-----------|
+| Server | `@ivotoby/openapi-mcp-server` | `@modelcontextprotocol/server-github` |
+| 复用 EXT-2 | ✅ | ❌ |
+| 工具面 | 自维护 OpenAPI 裁剪 | 上游手写工具集 |
 
 ---
 
-## 3. 验收标准（Decide 后）
+## 3. 只读工具映射
 
-- `~/.butler/mcp.yaml` 新 server 块 + preflight 脚本 `butler-extension-ext4-preflight.sh`
-- `project.yaml` / permissions 只读白名单
-- 微信：`/诊断` MCP 段显示 `[ok]`；一句只读查询真机
-- 守门：`test_mcp_features.py` 子集 + `butler-pre-release-smoke.sh`
+| OpenAPI | MCP `tools.allow` 名 | 用途 |
+|---------|----------------------|------|
+| `GET /user` | `get-authenticated-usr` | 当前认证用户 |
+| `GET /user/repos` | `lst-repos-authenticated-usr` | 列仓库 |
+| `GET /repos/{owner}/{repo}` | `get-repo` | 单仓库 |
+| `GET /repos/{owner}/{repo}/issues` | `lst-repo-issues` | 列 issues |
 
----
-
-## 4. 不做什么
-
-- 不写 POST/merge/issue 变更类工具（首期）
-- 不默认启用（须 `BUTLER_MCP_ENABLED=1` + Owner token）
-- 不替代 EXT-1 Firecrawl / EXT-3 ingest
+> 工具名由 openapi-mcp-server 从 path 生成；以 `npx …` 启动日志为准。
 
 ---
 
-## 5. 下一步（Owner）
+## 4. Integrate（一键）
 
-1. 选 **A（OpenAPI）** 或 **B（专用 github MCP）**
-2. 提供 token / 试点项目
-3. Agent 走 Integrate → Verify → 更新 `extension-rd-loop` Track 表
+```bash
+cd /path/to/WFXM
+bash scripts/butler-github-openapi-spec-install.sh
+bash scripts/butler-extension-ext4-integrate.sh   # 追加 ~/.butler/mcp.yaml github 段
+```
+
+`secrets.yaml` 或 `.env`：
+
+```yaml
+GITHUB_TOKEN: "ghp_…"   # 或 fine-grained PAT
+```
+
+```bash
+# 经典 PAT 若 Bearer 不通，可改 API_HEADERS 为 token 前缀（见 GitHub 文档）
+export GITHUB_TOKEN=ghp_…
+bash scripts/butler-extension-ext4-preflight.sh
+```
+
+项目 `project.yaml` 已有 `mcp_*` 时可全用；收窄示例：
+
+```yaml
+tools:
+  allow:
+    - mcp_github_get-authenticated-usr
+    - mcp_github_lst-repos-authenticated-usr
+    - mcp_github_get-repo
+    - mcp_github_lst-repo-issues
+```
+
+（注册名前缀以 Butler `BUTLER_MCP_TOOL_PREFIX` 为准，默认 `mcp_github_*`。）
+
+---
+
+## 5. Verify
+
+| 步 | 命令 / 动作 |
+|----|-------------|
+| Preflight | `bash scripts/butler-extension-ext4-preflight.sh` |
+| 网关 | `butler-gateway-ops.sh restart && verify` |
+| 微信 | `/诊断` → MCP 段含 `github [ok]` |
+| 真机一句 | 「用 GitHub 列出我的仓库」或「查 WFXM 仓库信息」 |
+
+---
+
+## 6. 回滚
+
+1. 从 `~/.butler/mcp.yaml` 删除 `github:` 段或 `BUTLER_MCP_ENABLED=0`
+2. 项目 `tools` 去掉 `mcp_github_*`
+
+---
+
+## 7. Track
+
+| 日期 | 事件 |
+|------|------|
+| 2026-06-22 | Decide **A**；仓库 spec + integrate/preflight 脚本 |

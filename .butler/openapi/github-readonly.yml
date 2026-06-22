@@ -1,0 +1,131 @@
+openapi: 3.1.0
+info:
+  title: GitHub REST Readonly Pilot
+  version: 1.0.0
+  description: >
+    Butler EXT-4 minimal readonly spec (WFXM-maintained).
+    Docs: https://docs.github.com/en/rest
+servers:
+  - url: https://api.github.com
+    description: GitHub REST API
+paths:
+  /user:
+    get:
+      operationId: getAuthenticatedUser
+      summary: Get the authenticated user
+      tags: [Users]
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /user/repos:
+    get:
+      operationId: listReposForAuthenticatedUser
+      summary: List repositories for the authenticated user
+      tags: [Repositories]
+      security:
+        - bearer: []
+      parameters:
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+            maximum: 100
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [created, updated, pushed, full_name]
+      responses:
+        "200":
+          description: Repository list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+  /repos/{owner}/{repo}:
+    get:
+      operationId: getRepository
+      summary: Get a repository
+      tags: [Repositories]
+      security:
+        - bearer: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Repository
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /repos/{owner}/{repo}/issues:
+    get:
+      operationId: listRepositoryIssues
+      summary: List repository issues
+      tags: [Issues]
+      security:
+        - bearer: []
+      parameters:
+        - name: owner
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: repo
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+        - name: per_page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 30
+            maximum: 100
+      responses:
+        "200":
+          description: Issue list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: token
