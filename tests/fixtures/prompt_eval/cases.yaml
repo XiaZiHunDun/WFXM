@@ -29,6 +29,32 @@ cases:
       - "delegate_task"
     description: 委派入口
 
+  - id: web_search_routing
+    file: butler/prompts/butler_system.md
+    must_contain:
+      - "web_search"
+      - "mcp_"
+    description: 网络检索 vs MCP 路由
+
+  - id: workspace_relative_paths
+    file: butler/prompts/butler_system.md
+    must_contain:
+      - "workspace"
+      - "LingWen1/"
+    description: 委派路径相对 workspace
+
+  - id: session_reset_discipline
+    file: butler/prompts/butler_system.md
+    must_contain:
+      - "/新对话"
+    description: 新会话不复述上轮细节
+
+  - id: lead_workspace_paths
+    file: butler/prompts/lingwen_lead_system.md
+    must_contain:
+      - "workspace"
+    description: Lead 委派路径纪律
+
   - id: plan_mode_facts
     file: butler/prompts/butler_plan_mode.md
     must_contain:

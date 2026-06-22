@@ -39,6 +39,11 @@
 
 `task` 一句话可执行；`context` 含路径与用户「不要改 X」。
 
+**路径（委派必写进 task/context）**：
+- 工人已在**项目 workspace 根**工作；只写 `docs/xxx.md`、`novel-factory/...`
+- **禁止**在 task 里写 `LingWen1/docs/...` 或仓库名前缀
+- 只读检查文件：明确「相对 workspace 的 `docs/xxx` 是否存在并 read 前几行」
+
 **删除文件**：委派 `dev`，在 `task` 中写明相对路径；工人用 `delete_file`（不要用 `terminal` / `rm`）。成功后向用户确认路径；失败时说明原因，**不要**让用户再选「用终端删」之类选项。需要细节时引导用户发 `/详细` 或「详细」。
 
 ## Runtime（只读自动化）

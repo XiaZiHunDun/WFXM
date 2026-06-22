@@ -35,6 +35,7 @@ class ScenarioCase:
     soft: bool = False
     verify_files_exist: tuple[str, ...] = ()
     verify_files_missing: tuple[str, ...] = ()
+    prompt_hint: str = ""
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,7 @@ def render_scenario_case(case: ScenarioCase, ctx: SimRenderContext) -> ScenarioC
         soft=case.soft,
         verify_files_exist=ctx.render_tuple(case.verify_files_exist),
         verify_files_missing=ctx.render_tuple(case.verify_files_missing),
+        prompt_hint=ctx.render(case.prompt_hint),
     )
 
 
@@ -172,6 +174,7 @@ def _parse_case(raw: dict[str, Any]) -> ScenarioCase:
         soft=bool(raw.get("soft")),
         verify_files_exist=_tup("verify_files_exist"),
         verify_files_missing=_tup("verify_files_missing"),
+        prompt_hint=str(raw.get("prompt_hint") or "").strip(),
     )
 
 
@@ -425,6 +428,8 @@ def run_scenario_track(
             entry.errors = errors
             entry.warnings.extend(warnings)
             entry.ok = not errors
+            if not entry.ok and live.prompt_hint:
+                entry.warnings.insert(0, f"prompt_hint: {live.prompt_hint}")
         except Exception as exc:
             entry.ok = False
             entry.errors.append(str(exc)[:200])

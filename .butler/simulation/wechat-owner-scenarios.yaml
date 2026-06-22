@@ -78,6 +78,7 @@ tracks:
         user_text: 我们刚才聊的测试代号是什么？
         reject_reply_any: [紫罗兰-42]
         soft: true
+        prompt_hint: butler/prompts/butler_system.md §会话重置；lingwen_lead_system.md §5
         tier: standard
       - name: 步骤7 项目记忆
         user_text: 当前是什么项目？灵文1号项目是做什么的？
@@ -96,12 +97,14 @@ tracks:
         forbid_tools: [mcp_firecrawl_firecrawl_search]
         prefer_tools_any: [web_search]
         expect_reply_any: [助手, 写作, AI]
+        prompt_hint: butler/prompts/butler_system.md §网络检索与 MCP 路由
         tier: standard
       - name: GitHub 不走 web_fetch
         user_text: 列出我的 GitHub 仓库
         forbid_tools: [web_search, web_fetch]
         prefer_tools_any: [mcp_github_lst-repos-authenticated-usr]
         expect_reply_any: [仓库, GitHub, WFXM]
+        prompt_hint: butler/prompts/butler_system.md §网络检索（GitHub→mcp_*）
         tier: standard
         requires_mcp: true
 
@@ -146,6 +149,7 @@ tracks:
         expect_reply_any: [委派, owner-sim-smoke, 内容, 代理]
         verify_files_exist:
           - "docs/{sim_smoke_file}"
+        prompt_hint: butler/prompts/butler_system.md §任务委派
         tier: slow
         max_seconds: 480
       - name: 步骤5 dev 只读检查
@@ -153,6 +157,7 @@ tracks:
         prefer_tools_any: [delegate_task]
         expect_reply_any: [已完成, 开发代理, 委派]
         reject_reply_any: [File not found, TOOL_NOT_FOUND]
+        prompt_hint: lingwen_lead_system.md §路径；butler_system.md §任务委派 context
         tier: slow
         max_seconds: 180
       - name: 步骤5b /详细 报告
