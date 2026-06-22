@@ -39,10 +39,13 @@ from butler.ops.boundary_observability import g1_04_observation_window_status
 w = g1_04_observation_window_status()
 print(
     f"  窗 {w['window_start']}→{w['window_end']} "
-    f"剩 {w['days_remaining']}d · 窗内 {w['feedback_in_window']} 条 · 7d {w['feedback_7d']} 条"
+    f"剩 {w['days_remaining']}d · 窗内 {w['feedback_in_window']} 条 "
+    f"(B9 {w.get('feedback_evidence_b9_eval', 0)} / 生产 {w.get('feedback_evidence_production', 0)})"
 )
-if w.get("closure_ready"):
-    print("  ✅ closure_ready — 可结案更新 theory-implementation-gap-register")
+if w.get("ot2_closure_ready"):
+    print("  ✅ ot2_closure_ready — 可结案（含生产硬反馈）")
+elif w.get("pipeline_closure_ready") and w.get("feedback_b9_eval_only"):
+    print("  ⚠️ 仅 B9 测评 — 管线结案: closure-apply.sh --pipeline-only")
 print(json.dumps(w, ensure_ascii=False, indent=2))
 PY
 

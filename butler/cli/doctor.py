@@ -177,10 +177,21 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
             f"  窗进度: {w.get('days_elapsed', '?')}/{w.get('window_days', '?')} 天 "
             f"（剩 {w.get('days_remaining', '?')}）"
         )
-        print(f"  硬反馈: {w.get('feedback_count', 0)} 条")
-        print(f"  closure_ready: {'✓' if w.get('closure_ready') else '—'}")
+        print(f"  硬反馈: 窗内 {w.get('feedback_in_window', 0)} 条 "
+              f"(B9 {w.get('feedback_evidence_b9_eval', 0)} / "
+              f"生产 {w.get('feedback_evidence_production', 0)})")
+        if w.get("feedback_triggers_in_window"):
+            print(f"  triggers: {w.get('feedback_triggers_in_window')}")
+        print(f"  ot2_closure_ready: {'✓' if w.get('ot2_closure_ready') else '—'}")
+        if w.get("feedback_b9_eval_only") and w.get("feedback_in_window"):
+            print("  提示: 当前仅 B9 测评证据，勿当 OT2 已证")
         if w.get("window_complete"):
-            print("  结案: bash scripts/butler-g1-04-closure-check.sh")
+            if w.get("ot2_closure_ready"):
+                print("  结案: bash scripts/butler-g1-04-closure-apply.sh")
+            elif w.get("pipeline_closure_ready"):
+                print("  管线结案(可选): bash scripts/butler-g1-04-closure-apply.sh --pipeline-only")
+            else:
+                print("  结案: bash scripts/butler-g1-04-closure-check.sh")
     except Exception as exc:
         print(f"  (不可用: {exc})")
 

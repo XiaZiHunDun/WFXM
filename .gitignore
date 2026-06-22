@@ -36,6 +36,7 @@ Thumbs.db
 *.db-wal
 projects/*/.butler/
 projects/*/docs/workflow-output.md
+projects/*/docs/owner-sim-smoke*.md
 
 # LingWen1 novel content — IP / personal creative data (keep tools skeleton only)
 projects/LingWen1/novel-factory/01_灵感库/

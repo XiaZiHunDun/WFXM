@@ -1,0 +1,161 @@
+# WeChat Owner 场景模拟（handler，不经 iLink）
+# 运行: bash scripts/butler-wechat-owner-sim.sh [--quick] [--track core,...]
+# SSOT 对照: docs/guides/wechat-core-scenario.md · wechat-daily-smoke-checklist.md
+
+title: WeChat Owner Scenario Sim
+version: "2026-06-22"
+default_project: 灵文1号
+verify_phrases:
+  - "bash scripts/butler-wechat-owner-sim.sh --quick"
+  - "bash scripts/butler-wechat-owner-sim.sh --track core,memory,slash"
+
+tracks:
+  - id: core
+    title: 核心路径（管家 / 切换 / 读项目 / 诊断）
+    session_mode: shared
+    quick: true
+    cases:
+      - name: 步骤1 /状态
+        user_text: /状态
+        expect_reply_any: [项目, Butler, 管家, Provider, 当前]
+        tier: fast
+      - name: 步骤2 /切换项目
+        user_text: /切换 灵文1号
+        expect_reply_any: [灵文1号, 切换, 项目]
+        tier: fast
+      - name: 步骤2b /状态确认项目
+        user_text: /状态
+        expect_reply_any: [灵文1号]
+        tier: fast
+      - name: 步骤3 读 project.yaml
+        user_text: 请读取当前项目 project.yaml 的前 15 行，用纯文字摘要，必须包含 name 字段的值
+        expect_reply_any: [灵文]
+        reject_reply_any: [/nonexistent/, 无法访问]
+        prefer_tools_any: [read_file]
+        tier: standard
+      - name: 步骤6 /诊断
+        user_text: /诊断
+        expect_reply_any: [诊断, Butler, 记忆]
+        tier: fast
+
+  - id: slash
+    title: 斜杠与运维（无 LLM 或轻量）
+    session_mode: shared
+    quick: true
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: /项目 列表
+        user_text: /项目
+        expect_reply_any: [项目, 灵文]
+        tier: fast
+      - name: /工作流 list
+        user_text: /工作流 list
+        expect_reply_any: [工作流, novel-factory, 列表]
+        tier: fast
+      - name: /简报
+        user_text: /简报
+        expect_reply_any: [简报, 项目, 收件箱, 管家]
+        tier: standard
+      - name: /help
+        user_text: /help
+        expect_reply_any: [/切换, /诊断, 命令]
+        tier: fast
+
+  - id: memory
+    title: 会话重置与项目记忆
+    session_mode: shared
+    quick: true
+    setup:
+      - /切换 灵文1号
+      - 请记住：本轮测试代号是「紫罗兰-42」，仅用于验收。
+    cases:
+      - name: 步骤6 /新对话
+        user_text: /新对话
+        expect_reply_any: [清空, 上下文, 记忆]
+        tier: fast
+      - name: 步骤6b 不应复述上轮细节
+        user_text: 我们刚才聊的测试代号是什么？
+        reject_reply_any: [紫罗兰-42]
+        soft: true
+        tier: standard
+      - name: 步骤7 项目记忆
+        user_text: 当前是什么项目？灵文1号项目是做什么的？
+        expect_reply_any: [灵文1号]
+        tier: standard
+
+  - id: search
+    title: 网络检索路由
+    session_mode: fresh
+    quick: true
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: 竞品检索
+        user_text: 帮我搜一下 AI 写作助手 竞品，列 3 个名字
+        forbid_tools: [mcp_firecrawl_firecrawl_search]
+        prefer_tools_any: [web_search]
+        expect_reply_any: [助手, 写作, AI]
+        tier: standard
+      - name: GitHub 不走 web_fetch
+        user_text: 列出我的 GitHub 仓库
+        forbid_tools: [web_search, web_fetch]
+        prefer_tools_any: [mcp_github_lst-repos-authenticated-usr]
+        expect_reply_any: [仓库, GitHub, WFXM]
+        tier: standard
+        requires_mcp: true
+
+  - id: ext
+    title: Extension MCP（Todoist / GitHub / 诊断）
+    session_mode: fresh
+    quick: false
+    requires_mcp: true
+    cases:
+      - name: EXT-4 GitHub 仓库
+        user_text: 列出我的 GitHub 仓库
+        expect_reply_any: [WFXM, 仓库]
+        reject_reply_any: [japanese-learning, fake-repo]
+        tier: standard
+      - name: EXT-4 GitHub issues
+        user_text: 列出 WFXM 的 issues
+        expect_reply_any: [WFXM, issue]
+        reject_reply_any: [japanese-learning]
+        tier: standard
+      - name: EXT-2 Todoist 项目
+        user_text: 用 Todoist 列出所有项目
+        expect_reply_any: [Todoist, 项目]
+        reject_reply_any: [japanese-learning, 示例项目A]
+        tier: standard
+      - name: /诊断 Extension
+        user_text: /诊断
+        expect_reply_any: [Extension Verify, github-readonly]
+        tier: fast
+
+  - id: delegate
+    title: 委派（慢，默认跳过 quick）
+    session_mode: shared
+    quick: false
+    cleanup_globs:
+      - docs/owner-sim-smoke*.md
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: 步骤4 content 写 docs
+        user_text: "请交给内容代理：在 docs 目录写一份 {sim_smoke_file}，标题「微信验收」，正文写今天日期（{sim_date}）和一句说明，不要改其他文件"
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [委派, owner-sim-smoke, 内容, 代理]
+        verify_files_exist:
+          - "docs/{sim_smoke_file}"
+        tier: slow
+        max_seconds: 480
+      - name: 步骤5 dev 只读检查
+        user_text: "请委派开发代理：只检查项目 workspace 下 docs/{sim_smoke_file} 是否存在并读前几行，路径不要用 LingWen1/ 前缀，不要改代码"
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [已完成, 开发代理, 委派]
+        reject_reply_any: [File not found, TOOL_NOT_FOUND]
+        tier: slow
+        max_seconds: 180
+      - name: 步骤5b /详细 报告
+        user_text: /详细
+        expect_reply_any: [owner-sim-smoke, 微信验收, 变更, 报告]
+        tier: fast
