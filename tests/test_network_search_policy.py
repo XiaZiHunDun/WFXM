@@ -39,6 +39,17 @@ def test_todoist_query_blocks_web_search(monkeypatch):
         assert block["code"] == "TODOIST_USE_MCP"
 
 
+def test_github_repo_list_blocks_web_search(monkeypatch):
+    monkeypatch.setattr(
+        "butler.tools.network_search_policy._web_search_in_current_toolset",
+        lambda: True,
+    )
+    with turn_network_search_scope("列出我的 GitHub 仓库"):
+        block = check_network_search_tool_block("web_search", {"query": "github repos"})
+        assert block is not None
+        assert block["code"] == "GITHUB_USE_MCP"
+
+
 def test_firecrawl_blocked_until_web_search(monkeypatch):
     monkeypatch.setattr(
         "butler.tools.network_search_policy._web_search_in_current_toolset",

@@ -1,0 +1,81 @@
+# G1-12: network search / MCP tool routing (handler policy SSOT)
+version: 1
+title: Network search routing
+
+# Policy golden cases — exercised by butler-web-search-route-sim.sh (no LLM)
+golden_cases:
+  - name: todoist blocks web_search
+    user_text: 用 Todoist 列出所有项目
+    tool: web_search
+    expect_code: TODOIST_USE_MCP
+
+  - name: todoist blocks web_fetch
+    user_text: Todoist里Inbox有哪些任务
+    tool: web_fetch
+    expect_code: TODOIST_USE_MCP
+
+  - name: github repo list blocks web_search
+    user_text: 列出我的 GitHub 仓库
+    tool: web_search
+    expect_code: GITHUB_USE_MCP
+
+  - name: github issues blocks web_fetch
+    user_text: 列出 WFXM 的 issues
+    tool: web_fetch
+    expect_code: GITHUB_USE_MCP
+
+  - name: firecrawl search requires web_search first
+    user_text: 帮我搜一下 AI 写作助手竞品
+    tool: mcp_firecrawl_firecrawl_search
+    expect_code: WEB_SEARCH_REQUIRED
+
+  - name: firecrawl search allowed after web_search
+    user_text: 帮我搜一下竞品
+    tool: mcp_firecrawl_firecrawl_search
+    prereq_tools:
+      - web_search
+    expect_code: null
+
+  - name: non-search intent allows firecrawl search
+    user_text: read workflow_state.json
+    tool: mcp_firecrawl_firecrawl_search
+    expect_code: null
+
+verify_phrases:
+  - 帮我搜一下 AI 写作助手竞品
+  - 用 Todoist 列出所有项目
+
+probe:
+  query: AI写作助手 竞品
+  max_results: 3
+
+# G1-12b: handler sim (LLM) — butler-web-search-route-sim.sh --handler
+handler_cases:
+  - name: search web_search before firecrawl search
+    user_text: 帮我搜一下 AI 写作助手竞品，务必先调用 web_search，需要时再用 firecrawl search
+    forbid_tools:
+      - web_fetch
+    web_search_before_firecrawl_search: true
+    prefer_tools_any:
+      - web_search
+
+  - name: todoist avoids web tools
+    user_text: 用 Todoist 列出所有项目
+    forbid_tools:
+      - web_search
+      - web_fetch
+    prefer_tools_any:
+      - mcp_todoist_lst_projects
+    expect_reply_any:
+      - 项目
+      - Todoist
+    allow_empty_tools: true
+
+  - name: github issues avoids web tools
+    user_text: 列出 WFXM 的 issues
+    forbid_tools:
+      - web_search
+      - web_fetch
+    expect_reply_any:
+      - WFXM
+    allow_empty_tools: true

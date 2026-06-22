@@ -80,6 +80,36 @@ def is_todoist_mcp_intent(query: str) -> bool:
     return any(h in text for h in hints)
 
 
+def is_github_mcp_intent(query: str) -> bool:
+    """GitHub 列仓库/issues 应走 MCP，不走 web 检索。"""
+    try:
+        from butler.mcp.github_grounding import (
+            is_github_issue_list_intent,
+            is_github_repo_list_intent,
+        )
+
+        return is_github_repo_list_intent(query) or is_github_issue_list_intent(query)
+    except Exception:
+        return False
+
+
+def _github_mcp_block(tool_name: str) -> dict[str, Any] | None:
+    if not is_github_mcp_intent(_turn_user_query()):
+        return None
+    name = str(tool_name or "").strip().lower()
+    if is_web_search_tool(name) or name == "web_fetch":
+        return {
+            "ok": False,
+            "code": "GITHUB_USE_MCP",
+            "error": (
+                "GitHub 仓库/issues 须调用 mcp_github_lst_repos_authenticated_usr / "
+                "mcp_github_lst_repo_issues 等 MCP 工具，禁止 web_search 或 web_fetch。"
+            ),
+            "hint": "mcp_github_lst_repos_authenticated_usr · mcp_github_lst_repo_issues",
+        }
+    return None
+
+
 def _todoist_mcp_block(tool_name: str) -> dict[str, Any] | None:
     if not is_todoist_mcp_intent(_turn_user_query()):
         return None
@@ -368,6 +398,9 @@ def check_network_search_tool_block(tool_name: str, args: dict[str, Any] | None 
     """Return error payload if tool call violates network search policy."""
     _ = args
     name = str(tool_name or "").strip()
+    github_block = _github_mcp_block(name)
+    if github_block is not None:
+        return github_block
     todoist_block = _todoist_mcp_block(name)
     if todoist_block is not None:
         return todoist_block
@@ -434,6 +467,7 @@ __all__ = [
     "is_firecrawl_agent_tool",
     "is_firecrawl_feedback_tool",
     "is_firecrawl_search_tool",
+    "is_github_mcp_intent",
     "is_web_search_intent",
     "is_web_search_tool",
     "max_firecrawl_agent_per_turn",
