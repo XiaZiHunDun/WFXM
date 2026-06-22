@@ -451,6 +451,29 @@ def build_memory_pre_llm_transform(
     """Build an API-time memory injection transform that does not mutate history."""
 
     def _transform(messages: list[dict]) -> list[dict]:
+        try:
+            from butler.mcp.github_grounding import find_latest_github_repo_list_envelope
+
+            if find_latest_github_repo_list_envelope(messages) is not None:
+                if diagnostics is not None:
+                    diagnostics["memory_context_injected"] = False
+                    diagnostics["memory_prefetch_skipped_github_grounding"] = True
+                out = [dict(m) if isinstance(m, dict) else m for m in messages]
+                if existing:
+                    return existing(out)
+                return out
+            from butler.mcp.github_grounding import find_latest_github_issue_list_envelope
+
+            if find_latest_github_issue_list_envelope(messages) is not None:
+                if diagnostics is not None:
+                    diagnostics["memory_context_injected"] = False
+                    diagnostics["memory_prefetch_skipped_github_grounding"] = True
+                out = [dict(m) if isinstance(m, dict) else m for m in messages]
+                if existing:
+                    return existing(out)
+                return out
+        except Exception as exc:
+            logger.debug("GitHub grounding prefetch skip check failed: %s", exc)
         ctx = prefetch_turn_memory(orchestrator, query, role=role, diagnostics=diagnostics)
         if not ctx.strip():
             if diagnostics is not None:

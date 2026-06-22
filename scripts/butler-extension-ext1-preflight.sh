@@ -58,7 +58,33 @@ esac
 if [[ -n "${FIRECRAWL_API_KEY:-}" ]]; then
   _pass "FIRECRAWL_API_KEY set (len=${#FIRECRAWL_API_KEY})"
 else
-  _warn "FIRECRAWL_API_KEY unset — add to secrets.yaml or .env before live scrape"
+  secrets_key=""
+  if [[ -f "${BUTLER_SECRETS_PATH:-$HOME/.butler/secrets.yaml}" ]]; then
+    secrets_key="$(python3 - "${BUTLER_SECRETS_PATH:-$HOME/.butler/secrets.yaml}" <<'PY'
+import sys
+from pathlib import Path
+import yaml
+path = Path(sys.argv[1])
+if not path.is_file():
+    sys.exit(0)
+data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+val = str(data.get("FIRECRAWL_API_KEY") or "").strip()
+if val:
+    print(val)
+PY
+)"
+  fi
+  if [[ -n "$secrets_key" ]]; then
+    if [[ "${BUTLER_MCP_ENABLED:-0}" == "1" ]]; then
+      _fail "FIRECRAWL_API_KEY in secrets.yaml but not process env — run: bash scripts/butler-firecrawl-api-key-sync.sh"
+    else
+      _warn "FIRECRAWL_API_KEY only in secrets.yaml — sync before MCP live calls"
+    fi
+  elif [[ "${BUTLER_MCP_ENABLED:-0}" == "1" ]]; then
+    _fail "FIRECRAWL_API_KEY unset — add to secrets.yaml then bash scripts/butler-firecrawl-api-key-sync.sh"
+  else
+    _warn "FIRECRAWL_API_KEY unset — add to secrets.yaml or .env before live scrape"
+  fi
 fi
 
 for cfg in "$HOME/.butler/mcp.yaml" "$ROOT/.butler/mcp.yaml"; do

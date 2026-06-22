@@ -244,6 +244,9 @@ class GatewayOutboundBridge:
     def mark_final_sent(self, *, main_reply_chars: int = 0) -> None:
         self._final_sent = True
         self._main_reply_chars = max(0, int(main_reply_chars or 0))
+        if self._ack_task and not self._ack_task.done():
+            self._ack_task.cancel()
+            self._ack_task = None
 
     def _should_suppress_redundant_completion(self, kind: str) -> bool:
         if not suppress_completion_after_main_enabled():

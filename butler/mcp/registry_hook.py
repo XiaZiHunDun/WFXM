@@ -105,7 +105,32 @@ def _session_key_fallback() -> str:
 
 def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
     """Return result string if this is an MCP tool; None to fall through."""
-    if not mcp_enabled() or not is_mcp_tool(name):
+    resolved_name = name
+    normalized_args = args
+    if str(name or "").startswith("mcp_github_"):
+        from butler.mcp.github_tool_aliases import (
+            normalize_github_mcp_args,
+            resolve_github_mcp_tool_name,
+        )
+
+        resolved_name = resolve_github_mcp_tool_name(name)
+        normalized_args = normalize_github_mcp_args(
+            resolved_name,
+            args if isinstance(args, dict) else {},
+            user_text="",
+        )
+    elif str(name or "").startswith("mcp_todoist_"):
+        from butler.mcp.todoist_tool_aliases import (
+            normalize_todoist_mcp_args,
+            resolve_todoist_mcp_tool_name,
+        )
+
+        resolved_name = resolve_todoist_mcp_tool_name(name)
+        normalized_args = normalize_todoist_mcp_args(
+            resolved_name,
+            args if isinstance(args, dict) else {},
+        )
+    if not mcp_enabled() or not is_mcp_tool(resolved_name):
         return None
     if not mcp_sdk_available():
         return json.dumps({
@@ -114,7 +139,7 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
             "code": "MCP_SDK_MISSING",
         }, ensure_ascii=False)
 
-    plan_block = check_plan_mode_mcp_block(name)
+    plan_block = check_plan_mode_mcp_block(resolved_name)
     if plan_block:
         return json.dumps({
             "ok": False,
@@ -122,16 +147,16 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
             "code": "PLAN_MODE_BLOCKED",
         }, ensure_ascii=False)
 
-    if not isinstance(args, dict):
-        args = {}
+    if not isinstance(normalized_args, dict):
+        normalized_args = {}
 
-    if is_firecrawl_scrape_tool(name):
+    if is_firecrawl_scrape_tool(resolved_name):
         from butler.mcp.turn_scrape_dedup import (
             check_and_record_scrape,
             scrape_url_from_args,
         )
 
-        dup = check_and_record_scrape(scrape_url_from_args(args))
+        dup = check_and_record_scrape(scrape_url_from_args(normalized_args))
         if dup:
             return json.dumps({
                 "ok": False,
@@ -140,10 +165,10 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
             }, ensure_ascii=False)
 
     sk = _session_key_fallback()
-    ref = get_manager().get_tool_ref(sk, name)
+    ref = get_manager().get_tool_ref(sk, resolved_name)
     if ref is None:
         ensure_mcp_for_session(sk)
-        ref = get_manager().get_tool_ref(sk, name)
+        ref = get_manager().get_tool_ref(sk, resolved_name)
     if ref is None:
         return json.dumps({
             "ok": False,
@@ -152,15 +177,15 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
         }, ensure_ascii=False)
 
     def _call() -> str:
-        return get_manager().call_tool(sk, ref, args, workspace=_resolve_workspace())
+        return get_manager().call_tool(sk, ref, normalized_args, workspace=_resolve_workspace())
 
     try:
         from butler.core.tool_orchestrator import run_mcp_with_gates
 
         text = run_mcp_with_gates(
             server_id=ref.server_id,
-            tool_name=name,
-            args=args,
+            tool_name=resolved_name,
+            args=normalized_args,
             session_key=sk,
             classification=str(ref.classification or ""),
             run_fn=_call,
@@ -169,7 +194,7 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
         text = _call()
     if text.strip().startswith("{") and '"ok": false' in text.replace(" ", "").lower():
         return text
-    return format_call_result(text, tool_name=name, server_id=ref.server_id)
+    return format_call_result(text, tool_name=resolved_name, server_id=ref.server_id)
 
 
 def mcp_status_lines(session_key: str = "") -> list[str]:
@@ -202,4 +227,10 @@ def mcp_status_lines(session_key: str = "") -> list[str]:
         lines.append(
             f"  - {st.server_id} ({st.transport}) [{mark}] tools={st.tool_count}{err}"
         )
+    try:
+        from butler.mcp.extension_verify import extension_verify_status_lines
+
+        lines.extend(extension_verify_status_lines())
+    except Exception as exc:
+        logger.debug("Extension verify diagnostic skipped: %s", exc)
     return lines

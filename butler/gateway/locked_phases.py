@@ -123,6 +123,21 @@ def _phase_apply_correction_intent(
         return None
 
 
+def _phase_apply_github_issues_intent(
+    handler: "ButlerMessageHandler",
+    state: LockedTurnState,
+) -> Optional[str]:
+    """Phase: EXT-4 GitHub issues list — MCP direct reply without LLM."""
+    del handler
+    try:
+        from butler.mcp.github_grounding import try_handle_github_issues_intent
+
+        return try_handle_github_issues_intent(state.text)
+    except Exception as exc:
+        logger.debug("GitHub issues intent skipped: %s", exc)
+        return None
+
+
 def _phase_apply_normalizers_and_slash(
     handler: "ButlerMessageHandler",
     state: LockedTurnState,

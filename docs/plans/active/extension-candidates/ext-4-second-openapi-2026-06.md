@@ -1,6 +1,6 @@
 # EXT-4：第二 OpenAPI MCP — GitHub REST（路径 A）
 
-> **状态**：Decide ✅ **A（OpenAPI）**（2026-06-22）· Integrate ✅（spec + scripts）· **Verify 待 token**  
+> **状态**：Decide ✅ **A（OpenAPI）**（2026-06-22）· Integrate ✅ · **Verify ✅**（2026-06-22 真机：仓库列表 + issues）  
 > **规程**：[`extension-rd-loop-2026-06.md`](../extension-rd-loop-2026-06.md)  
 > **前置**：EXT-2 Todoist ✅（同型 `@ivotoby/openapi-mcp-server`）
 
@@ -80,10 +80,14 @@ tools:
 
 | 步 | 命令 / 动作 |
 |----|-------------|
-| Preflight | `bash scripts/butler-extension-ext4-preflight.sh` |
+| Token 同步 | `bash scripts/butler-github-token-sync.sh`（secrets → `.env`，MCP 子进程必读 env） |
+| Preflight | `bash scripts/butler-extension-ext4-preflight.sh`（MCP 开启时 token 仅 secrets → **硬失败**） |
+| Extension Verify | `bash scripts/butler-extension-verify.sh github-readonly`（manifest golden cases） |
 | 网关 | `butler-gateway-ops.sh restart && verify` |
-| 微信 | `/诊断` → MCP 段含 `github [ok]` |
-| 真机一句 | 「用 GitHub 列出我的仓库」或「查 WFXM 仓库信息」 |
+| 微信 | `/诊断` → MCP 段含 `github [ok]` + **Extension Verify** 行 |
+| 真机一句 | 「列出我的 GitHub 仓库」；「列出 WFXM 的 issues」 |
+
+Manifest SSOT：[`.butler/extensions/github-readonly/manifest.yaml`](../../../../.butler/extensions/github-readonly/manifest.yaml)
 
 ---
 
@@ -99,3 +103,4 @@ tools:
 | 日期 | 事件 |
 |------|------|
 | 2026-06-22 | Decide **A**；仓库 spec + integrate/preflight 脚本 |
+| 2026-06-22 | Verify ✅ 真机（12 repos + WFXM issues）；Extension Manifest + `butler-extension-verify.sh` |

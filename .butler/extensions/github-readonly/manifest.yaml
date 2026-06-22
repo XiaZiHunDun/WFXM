@@ -1,0 +1,91 @@
+# EXT-4 GitHub OpenAPI MCP — extension manifest (L0 SSOT)
+id: github-readonly
+ext_id: ext-4
+title: GitHub REST (read-only OpenAPI)
+server_id: github
+mcp_enabled_required: true
+
+secrets:
+  - env: GITHUB_TOKEN
+    alt_envs:
+      - GITHUB_PERSONAL_ACCESS_TOKEN
+    secrets_yaml_key: GITHUB_TOKEN
+    require_in_process_env: true
+    sync_script: scripts/butler-github-token-sync.sh
+
+grounding:
+  repo_list_direct_env: BUTLER_GITHUB_REPO_LIST_DIRECT
+  issue_list_direct_env: BUTLER_GITHUB_ISSUE_LIST_DIRECT
+  default_owner_env: BUTLER_GITHUB_DEFAULT_OWNER
+  default_owner: XiaZiHunDun
+  intents:
+    - kind: repo_list
+      enabled_env: BUTLER_GITHUB_REPO_LIST_DIRECT
+      patterns:
+        - "(列出|列举|list|显示|查看|查|看看).{0,16}(github|gh|GitHub).{0,16}(仓库|repo|repositories)?"
+      fallback_keywords:
+        - github
+        - 仓库
+    - kind: issue_list
+      enabled_env: BUTLER_GITHUB_ISSUE_LIST_DIRECT
+      patterns:
+        - "(?i)(issues?|问题|工单)"
+
+tools:
+  - registered: mcp_github_lst_repos_authenticated_usr
+    openapi_tool: lst-repos-authenticated-usr
+    aliases:
+      - mcp_github_list_repos
+      - mcp_github_list_repositories
+    grounding:
+      kind: repo_list
+      direct_reply: true
+    golden:
+      args:
+        per_page: 100
+        sort: updated
+      expect_min_items: 1
+      expect_fields:
+        - full_name
+
+  - registered: mcp_github_lst_repo_issues
+    openapi_tool: lst-repo-issues
+    aliases:
+      - mcp_github_get_issues
+      - mcp_github_list_issues
+      - mcp_github_list_repo_issues
+      - mcp_github_get_repository_issues
+    grounding:
+      kind: issue_list
+      direct_reply: true
+    golden:
+      args:
+        owner: XiaZiHunDun
+        repo: WFXM
+        state: open
+      expect_min_items: 0
+      expect_fields:
+        - number
+
+  - registered: mcp_github_get_authenticated_usr
+    openapi_tool: get-authenticated-usr
+    golden:
+      args: {}
+      expect_min_items: 0
+      expect_fields:
+        - login
+
+  - registered: mcp_github_get_repo
+    openapi_tool: get-repo
+    golden:
+      args:
+        owner: XiaZiHunDun
+        repo: WFXM
+      expect_min_items: 0
+      expect_fields:
+        - full_name
+
+preflight_script: scripts/butler-extension-ext4-preflight.sh
+verify_phrases:
+  - 列出我的 GitHub 仓库
+  - 列出 WFXM 的 issues

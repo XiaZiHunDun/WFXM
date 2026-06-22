@@ -82,7 +82,27 @@ def _tool_mcp_install(
             workspace=workspace,
             use_project=use_project,
         )
-        return json.dumps({"ok": ok, "message": msg}, ensure_ascii=False)
+        payload: dict[str, Any] = {"ok": ok, "message": msg}
+        if ok:
+            try:
+                from butler.mcp.extension_manifest import get_manifest_by_server_id
+                from butler.mcp.extension_verify import (
+                    format_post_install_verify_hint,
+                    verify_for_server_id,
+                    write_verify_cache,
+                )
+
+                manifest = get_manifest_by_server_id(sid, workspace)
+                if manifest is not None:
+                    report = verify_for_server_id(sid, workspace=workspace, run_golden=False)
+                    if report is not None:
+                        write_verify_cache({manifest.id: report})
+                        payload["extension_verify"] = format_post_install_verify_hint(
+                            report, manifest
+                        )
+            except Exception as exc:
+                logger.debug("post-install extension verify skipped: %s", exc)
+        return json.dumps(payload, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"ok": False, "error": str(exc)[:300]})
 

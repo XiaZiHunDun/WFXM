@@ -65,7 +65,13 @@ def refs_to_openai_definitions(refs: list[McpToolRef]) -> list[dict[str, Any]]:
 
 
 def format_call_result(text: str, *, tool_name: str, server_id: str) -> str:
-    stripped = str(text or "").strip()
+    from butler.mcp.result_slim import slim_mcp_raw_result
+
+    stripped = slim_mcp_raw_result(
+        str(text or "").strip(),
+        tool_name=tool_name,
+        server_id=server_id,
+    )
     if not stripped:
         return json.dumps({
             "ok": True,
@@ -82,6 +88,53 @@ def format_call_result(text: str, *, tool_name: str, server_id: str) -> str:
             parsed.setdefault("tool", tool_name)
             parsed.setdefault("server", server_id)
             return json.dumps(parsed, ensure_ascii=False, default=str)
+        if isinstance(parsed, list) and server_id == "github":
+            from butler.mcp.result_slim import build_github_repo_list_envelope
+
+            norm = tool_name.replace("mcp_github_", "").replace("_", "-")
+            if "lst-repos" in norm or "listrepos" in norm.replace("-", ""):
+                envelope = build_github_repo_list_envelope(
+                    parsed,
+                    tool_name=tool_name,
+                    server_id=server_id,
+                )
+                return json.dumps(envelope, ensure_ascii=False, default=str)
+            if "lst-repo-issues" in norm or "listrepositoryissues" in norm.replace("-", ""):
+                from butler.mcp.result_slim import build_github_issue_list_envelope
+
+                envelope = build_github_issue_list_envelope(
+                    parsed,
+                    tool_name=tool_name,
+                    server_id=server_id,
+                )
+                return json.dumps(envelope, ensure_ascii=False, default=str)
+            if parsed and isinstance(parsed[0], dict) and "number" in parsed[0] and "title" in parsed[0]:
+                from butler.mcp.result_slim import build_github_issue_list_envelope
+
+                envelope = build_github_issue_list_envelope(
+                    parsed,
+                    tool_name=tool_name,
+                    server_id=server_id,
+                )
+                return json.dumps(envelope, ensure_ascii=False, default=str)
+        if isinstance(parsed, list) and server_id == "todoist":
+            from butler.mcp.result_slim import build_todoist_project_list_envelope
+
+            norm = tool_name.replace("mcp_todoist_", "").replace("_", "-")
+            if "lst-project" in norm or "getallproject" in norm.replace("-", ""):
+                envelope = build_todoist_project_list_envelope(
+                    parsed,
+                    tool_name=tool_name,
+                    server_id=server_id,
+                )
+                return json.dumps(envelope, ensure_ascii=False, default=str)
+            if parsed and isinstance(parsed[0], dict) and "name" in parsed[0] and "id" in parsed[0]:
+                envelope = build_todoist_project_list_envelope(
+                    parsed,
+                    tool_name=tool_name,
+                    server_id=server_id,
+                )
+                return json.dumps(envelope, ensure_ascii=False, default=str)
     except json.JSONDecodeError:
         pass
     return json.dumps({

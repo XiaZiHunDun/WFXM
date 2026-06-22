@@ -361,6 +361,54 @@ def _dispatch_tool_response(
     """
     batch_stats = loop._process_tool_calls(response)
 
+    try:
+        from butler.mcp.github_grounding import try_github_repo_list_direct_reply
+
+        direct = try_github_repo_list_direct_reply(
+            loop._messages,
+            user_text=state.user_content,
+        )
+        if direct:
+            state.final_text = direct
+            state.status = LoopStatus.COMPLETED
+            state.transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
+            loop.diagnostics["github_repo_list_direct"] = True
+            return False
+    except Exception as exc:
+        logger.debug("GitHub repo list direct reply skipped: %s", exc)
+
+    try:
+        from butler.mcp.github_grounding import try_github_issue_list_direct_reply
+
+        direct_issues = try_github_issue_list_direct_reply(
+            loop._messages,
+            user_text=state.user_content,
+        )
+        if direct_issues:
+            state.final_text = direct_issues
+            state.status = LoopStatus.COMPLETED
+            state.transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
+            loop.diagnostics["github_issue_list_direct"] = True
+            return False
+    except Exception as exc:
+        logger.debug("GitHub issue list direct reply skipped: %s", exc)
+
+    try:
+        from butler.mcp.todoist_grounding import try_todoist_project_list_direct_reply
+
+        direct_todoist = try_todoist_project_list_direct_reply(
+            loop._messages,
+            user_text=state.user_content,
+        )
+        if direct_todoist:
+            state.final_text = direct_todoist
+            state.status = LoopStatus.COMPLETED
+            state.transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
+            loop.diagnostics["todoist_project_list_direct"] = True
+            return False
+    except Exception as exc:
+        logger.debug("Todoist project list direct reply skipped: %s", exc)
+
     waiting = getattr(batch_stats, "waiting_confirmation_message", None)
     if waiting:
         state.final_text = waiting
@@ -426,6 +474,19 @@ def _dispatch_text_response(
     """
     state.final_text = response.content
     state.final_reasoning = response.reasoning
+    try:
+        from butler.mcp.outbound_grounding_gate import try_correct_ungrounded_list_reply
+
+        corrected = try_correct_ungrounded_list_reply(
+            state.user_content,
+            state.final_text,
+            loop._messages,
+        )
+        if corrected:
+            state.final_text = corrected
+            loop.diagnostics["mcp_outbound_grounding"] = True
+    except Exception as exc:
+        logger.debug("MCP outbound grounding gate skipped: %s", exc)
     if _try_truncation_continue(loop, response, state):
         return
     if _try_stop_hook_continue(loop, state, start_time, steer_session):

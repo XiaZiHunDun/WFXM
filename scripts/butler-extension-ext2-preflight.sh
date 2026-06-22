@@ -58,7 +58,33 @@ esac
 if [[ -n "${TODOIST_API_TOKEN:-}" ]]; then
   _pass "TODOIST_API_TOKEN set (len=${#TODOIST_API_TOKEN})"
 else
-  _warn "TODOIST_API_TOKEN unset — add to secrets.yaml or .env before live calls"
+  secrets_token=""
+  if [[ -f "${BUTLER_SECRETS_PATH:-$HOME/.butler/secrets.yaml}" ]]; then
+    secrets_token="$(python3 - "${BUTLER_SECRETS_PATH:-$HOME/.butler/secrets.yaml}" <<'PY'
+import sys
+from pathlib import Path
+import yaml
+path = Path(sys.argv[1])
+if not path.is_file():
+    sys.exit(0)
+data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+val = str(data.get("TODOIST_API_TOKEN") or "").strip()
+if val:
+    print(val)
+PY
+)"
+  fi
+  if [[ -n "$secrets_token" ]]; then
+    if [[ "${BUTLER_MCP_ENABLED:-0}" == "1" ]]; then
+      _fail "TODOIST_API_TOKEN in secrets.yaml but not process env — run: bash scripts/butler-todoist-token-sync.sh"
+    else
+      _warn "TODOIST_API_TOKEN only in secrets.yaml — sync before MCP live calls"
+    fi
+  elif [[ "${BUTLER_MCP_ENABLED:-0}" == "1" ]]; then
+    _fail "TODOIST_API_TOKEN unset — add to secrets.yaml then bash scripts/butler-todoist-token-sync.sh"
+  else
+    _warn "TODOIST_API_TOKEN unset — add to secrets.yaml or .env before live calls"
+  fi
 fi
 
 spec_pin="$HOME/.butler/openapi/todoist-rest-v2.yml"

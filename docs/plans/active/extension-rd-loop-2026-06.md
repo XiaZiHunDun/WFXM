@@ -37,7 +37,7 @@ MCP（薄 Client，默认关）
 | **R** | Research 选型 | 缺口 + `docs/plans/comparisons/*` + 社区 MCP 目录 | **选型一页纸**（见 §4 模板） | Agent |
 | **D** | Decide 决策 | 一页纸 | Backlog 行或 **否决记录**；须过 §0 决策流 | Owner |
 | **I** | Integrate 接入 | 批准 | `mcp.yaml` / optional-extra / 文档；**opt-in** env | 开发 + 发版 |
-| **V** | Verify 验证 | 接入 PR | 守门脚本 + 可选 corpus live；`/诊断` 新行 | CI + 真机抽测 |
+| **V** | Verify 验证 | 接入 PR | **manifest + `butler-extension-verify.sh`** + preflight 硬失败；`/诊断` Extension Verify 行 | CI + 真机抽测 |
 | **T** | Track/Retire 跟踪 | 生产 2–4 周 | 保留 / 升级 / 下线；经验写入 tenant Experience | Owner + eval |
 
 **自动化边界**：
@@ -57,6 +57,30 @@ MCP（薄 Client，默认关）
 | **Skill** | 流程参考，非高信任执行 | tenant/project `skills/` | 语料 / 不替代 builtin |
 
 路径合并：[`extension-registry-paths.md`](../../architecture/extension-registry-paths.md)。
+
+### 3.4 Extension Manifest（L0，2026-06-22）
+
+每个已接入 MCP 扩展在 **`.butler/extensions/<id>/manifest.yaml`** 登记：
+
+| 字段 | 用途 |
+|------|------|
+| `server_id` / `tools[]` | 注册名、OpenAPI 原名、**别名**、golden case |
+| `secrets[]` | `secrets.yaml` ↔ 进程 env 契约（MCP 子进程只读 env） |
+| `grounding` | 列表类 direct reply / 默认 owner |
+| `preflight_script` | Integrate 后守门 |
+| `verify_phrases` | 真机验收话术 |
+
+加载：`butler/mcp/extension_manifest.py`；校验：`bash scripts/butler-extension-verify.sh [ext-id]`；缓存：`~/.butler/extension-verify-cache.json`（`/诊断` 展示）。Handler 模拟（不经 iLink）：`bash scripts/butler-extension-wechat-sim.sh`（已接入 `butler-ops-followup-check.sh`，`BUTLER_EXTENSION_WECHAT_SIM=0` 可跳过）。
+
+**Grounding 分层**（EXT-4 试点 → 框架）：
+
+| 层 | 模块 | 作用 |
+|----|------|------|
+| L2 | `result_slim` + manifest 别名 | 大结果瘦身、工具名纠错 |
+| L2 | `github_grounding`（首版） | 列表意图 → direct reply |
+| L3 | `outbound_grounding_gate` | LLM 编造时回退工具 summary |
+
+**网络检索路由**（G1-12 / G1-12b）：[`.butler/routing/network-search-routes.yaml`](../../../../.butler/routing/network-search-routes.yaml) — policy golden + 可选 `bash scripts/butler-web-search-route-sim.sh --handler`（soft）/ `--handler --strict-handler`（发版前硬断言）。
 
 ---
 
@@ -107,7 +131,7 @@ MCP（薄 Client，默认关）
 | **信号** | 查资料类任务失败率；对照 [`firecrawl-butler-comparison`](../comparisons/firecrawl-butler-comparison-2026-05.md)、[`browser-use-butler-comparison`](../comparisons/browser-use-butler-comparison-report-2026-05.md) Phase D |
 | **候选** | **Firecrawl MCP**（scrape/crawl API）；自建薄 `web_fetch` 仅保留 fallback；Browser MCP（真交互，权限 `ask`） |
 | **推荐** | MCP 外挂 + 保留 builtin 薄层；**不**引入 Playwright 集群进 core |
-| **验收** | `BUTLER_MCP_ENABLED=1` + project 白名单 `mcp_firecrawl_*`；`bash scripts/butler-extension-ext1-preflight.sh`；`/诊断` MCP 段 |
+| **验收** | `BUTLER_MCP_ENABLED=1` + project 白名单 `mcp_firecrawl_*`；`bash scripts/butler-extension-ext1-preflight.sh`；`bash scripts/butler-extension-verify.sh firecrawl`；`/诊断` MCP 段 |
 | **守门** | `test_mcp_features.py` · 可选 live（API key） |
 
 ### EXT-2 — 声明式 HTTP / OpenAPI 工具（MCP 或 YAML） → [`extension-candidates/ext-2-openapi-http-2026-06.md`](extension-candidates/ext-2-openapi-http-2026-06.md)
@@ -119,7 +143,7 @@ MCP（薄 Client，默认关）
 | **信号** | Backlog §3.2 OpenAPI；Owner 重复「接某某 API」需求 |
 | **候选** | **A** `npx @ivotoby/openapi-mcp-server`（首选）· **B** `uvx mcp-openapi` · **C** FastMCP 自建 · **E** `.butler/tools/*.yaml`（延后） |
 | **推荐** | Decide 时选 A 或 B + **1 个试点 OpenAPI**（只读 GET）；**不做**远程 HTTP MCP 默认真机路径 |
-| **验收** | 1 试点 API；`permissions` + `secrets.yaml`；`test_mcp_features` + 安全子集 |
+| **验收** | 1 试点 API；`permissions` + `secrets.yaml`；`bash scripts/butler-extension-verify.sh todoist-readonly`；`test_mcp_features` + 安全子集 |
 
 ### EXT-3 — 文档 ingest（RAG 进料，非 RAG 平台） → [`extension-candidates/ext-3-document-ingest-2026-06.md`](extension-candidates/ext-3-document-ingest-2026-06.md)
 

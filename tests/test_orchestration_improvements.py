@@ -231,6 +231,36 @@ class TestMcpSelfService:
         assert result["ok"] is False
         assert "required" in result["error"]
 
+    def test_install_runs_extension_verify_hint(self, monkeypatch):
+        from butler.tools.mcp_self_service import _tool_mcp_install
+
+        monkeypatch.setenv("BUTLER_MCP_ENABLED", "1")
+        with patch("butler.registry.mcp_install.install_catalog_server", return_value=(True, "installed")):
+            with patch("butler.mcp.extension_manifest.get_manifest_by_server_id") as mock_manifest:
+                mock_manifest.return_value = type(
+                    "M",
+                    (),
+                    {
+                        "id": "github-readonly",
+                        "ext_id": "ext-4",
+                        "verify_phrases": ("列出我的 GitHub 仓库",),
+                        "secrets": (),
+                    },
+                )()
+                with patch("butler.mcp.extension_verify.verify_for_server_id") as mock_verify:
+                    from butler.mcp.extension_verify import VerifyReport
+
+                    mock_verify.return_value = VerifyReport(
+                        ext_id="github-readonly",
+                        ok=True,
+                        at="2026-06-22T00:00:00+00:00",
+                    )
+                    with patch("butler.mcp.extension_verify.write_verify_cache"):
+                        result = json.loads(_tool_mcp_install("github"))
+        assert result["ok"] is True
+        assert "extension_verify" in result
+        assert result["extension_verify"]["acceptance_phrases"]
+
 
 # ── #5 Fact Extraction ──
 

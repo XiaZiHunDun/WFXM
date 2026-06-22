@@ -27,6 +27,7 @@ from butler.core.agent_loop import AgentLoop, LoopResult
 from butler.gateway.locked_phases import (
     LockedTurnState,
     _phase_apply_correction_intent,
+    _phase_apply_github_issues_intent,
     _phase_apply_normalizers_and_slash,
     _phase_apply_prompt_hooks,
     _phase_augment_prompt,
@@ -470,6 +471,10 @@ class ButlerMessageHandler:
             return response
 
         response = _phase_apply_correction_intent(self, state)
+        if response is not None:
+            return response
+
+        response = _phase_apply_github_issues_intent(self, state)
         if response is not None:
             return response
 

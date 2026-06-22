@@ -1,0 +1,58 @@
+# EXT-2 Todoist OpenAPI MCP — extension manifest (L0 SSOT)
+id: todoist-readonly
+ext_id: ext-2
+title: Todoist REST (read-only OpenAPI)
+server_id: todoist
+mcp_enabled_required: true
+
+secrets:
+  - env: TODOIST_API_TOKEN
+    secrets_yaml_key: TODOIST_API_TOKEN
+    require_in_process_env: true
+    sync_script: scripts/butler-todoist-token-sync.sh
+
+grounding:
+  project_list_direct_env: BUTLER_TODOIST_PROJECT_LIST_DIRECT
+  intents:
+    - kind: project_list
+      enabled_env: BUTLER_TODOIST_PROJECT_LIST_DIRECT
+      patterns:
+        - "(?i)(列出|列举|list|显示|查看|查).{0,16}(todoist|待办).{0,12}(项目|project)"
+        - "(?i)(todoist|待办).{0,12}(项目|project)"
+      fallback_keywords:
+        - todoist
+        - 待办
+        - 项目
+
+tools:
+  - registered: mcp_todoist_lst_projects
+    openapi_tool: lst-projects
+    aliases:
+      - mcp_todoist_getAllProjects
+      - mcp_todoist_list_projects
+      - mcp_todoist_get_projects
+    grounding:
+      kind: project_list
+      direct_reply: true
+    golden:
+      args: {}
+      expect_min_items: 0
+      expect_fields:
+        - name
+
+  - registered: mcp_todoist_lst_tasks
+    openapi_tool: lst-tasks
+    aliases:
+      - mcp_todoist_getActiveTasks
+      - mcp_todoist_list_tasks
+    golden:
+      args:
+        limit: 5
+      expect_min_items: 0
+      expect_fields:
+        - content
+
+preflight_script: scripts/butler-extension-ext2-preflight.sh
+verify_phrases:
+  - 用 Todoist 列出所有项目
+  - 列出我的待办任务

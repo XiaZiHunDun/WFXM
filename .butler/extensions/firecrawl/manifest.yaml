@@ -1,0 +1,27 @@
+# EXT-1 Firecrawl MCP — extension manifest (L0 SSOT)
+id: firecrawl
+ext_id: ext-1
+title: Firecrawl web scrape MCP
+server_id: firecrawl
+mcp_enabled_required: true
+
+secrets:
+  - env: FIRECRAWL_API_KEY
+    secrets_yaml_key: FIRECRAWL_API_KEY
+    require_in_process_env: true
+    sync_script: scripts/butler-firecrawl-api-key-sync.sh
+
+tools:
+  - registered: mcp_firecrawl_firecrawl_scrape
+    aliases:
+      - mcp_firecrawl_scrape
+    golden:
+      skip: true
+
+  - registered: mcp_firecrawl_firecrawl_map
+    golden:
+      skip: true
+
+preflight_script: scripts/butler-extension-ext1-preflight.sh
+verify_phrases:
+  - 用 Firecrawl 抓取 https://example.com 的正文

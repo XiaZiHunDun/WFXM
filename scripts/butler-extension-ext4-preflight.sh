@@ -66,10 +66,38 @@ else
 fi
 
 token="${GITHUB_TOKEN:-${GITHUB_PERSONAL_ACCESS_TOKEN:-}}"
+secrets_token=""
+if [[ -f "${BUTLER_SECRETS_PATH:-$HOME/.butler/secrets.yaml}" ]]; then
+  secrets_token="$(python3 - "${BUTLER_SECRETS_PATH:-$HOME/.butler/secrets.yaml}" <<'PY'
+import sys
+from pathlib import Path
+import yaml
+path = Path(sys.argv[1])
+if not path.is_file():
+    sys.exit(0)
+data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+for key in ("GITHUB_TOKEN", "GITHUB_PERSONAL_ACCESS_TOKEN"):
+    val = str(data.get(key) or "").strip()
+    if val:
+        print(val)
+        break
+PY
+)"
+fi
 if [[ -n "$token" ]]; then
   _pass "GITHUB_TOKEN set (len=${#token})"
+elif [[ -n "$secrets_token" ]]; then
+  if [[ "${BUTLER_MCP_ENABLED:-0}" == "1" ]]; then
+    _fail "GITHUB_TOKEN in secrets.yaml but not process env — run: bash scripts/butler-github-token-sync.sh"
+  else
+    _warn "GITHUB_TOKEN only in secrets.yaml — sync before MCP live calls"
+  fi
 else
-  _warn "GITHUB_TOKEN unset — add to ~/.butler/secrets.yaml or .env before live calls"
+  if [[ "${BUTLER_MCP_ENABLED:-0}" == "1" ]]; then
+    _fail "GITHUB_TOKEN unset — add to ~/.butler/secrets.yaml then bash scripts/butler-github-token-sync.sh"
+  else
+    _warn "GITHUB_TOKEN unset — add to ~/.butler/secrets.yaml or .env before live calls"
+  fi
 fi
 
 found_github=0
