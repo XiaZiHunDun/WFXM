@@ -229,6 +229,56 @@ def load_wechat_scenario_manifest(
     return None
 
 
+def _norm_tool_name(name: str) -> str:
+    return str(name or "").replace("-", "_")
+
+
+def _tool_in_list(needle: str, tools: list[str]) -> bool:
+    want = _norm_tool_name(needle)
+    return any(_norm_tool_name(t) == want for t in tools)
+
+
+def _any_tool_in_list(needles: tuple[str, ...], tools: list[str]) -> bool:
+    return any(_tool_in_list(n, tools) for n in needles)
+
+
+def resolve_handler_session_key(
+    handler: Any,
+    *,
+    owner_id: str,
+    session_key: str,
+    platform: str = "wechat",
+) -> str:
+    """Session key the gateway actually uses (external_id wins over sim suffix)."""
+    return handler.resolve_session_key(
+        platform=platform,
+        external_id=owner_id,
+        session_key=session_key,
+    )
+
+
+def load_turn_tools(
+    handler: Any,
+    *,
+    owner_id: str,
+    session_key: str,
+    platform: str = "wechat",
+) -> list[str]:
+    from butler.core.session_epoch import load_current_turn_tool_actions
+
+    canonical = resolve_handler_session_key(
+        handler,
+        owner_id=owner_id,
+        session_key=session_key,
+        platform=platform,
+    )
+    return [
+        str(row.get("tool") or "").strip()
+        for row in load_current_turn_tool_actions(canonical)
+        if str(row.get("tool") or "").strip()
+    ]
+
+
 def evaluate_scenario_case(
     tools: list[str],
     reply: str,
@@ -242,7 +292,7 @@ def evaluate_scenario_case(
         if bad in reply:
             errors.append(f"reply must not contain {bad!r}")
     for tool in case.forbid_tools:
-        if tool in tools:
+        if _tool_in_list(tool, tools):
             errors.append(f"forbidden tool {tool}")
     if case.expect_reply_any:
         if not any(needle in reply for needle in case.expect_reply_any):
@@ -251,13 +301,13 @@ def evaluate_scenario_case(
                 warnings.append(msg)
             else:
                 errors.append(msg)
-    if case.expect_tools_any and not any(t in tools for t in case.expect_tools_any):
+    if case.expect_tools_any and not _any_tool_in_list(case.expect_tools_any, tools):
         msg = f"expected tools any of {case.expect_tools_any}, got {tools}"
         if strict and not case.soft:
             errors.append(msg)
         else:
             warnings.append(msg)
-    if case.prefer_tools_any and not any(t in tools for t in case.prefer_tools_any):
+    if case.prefer_tools_any and not _any_tool_in_list(case.prefer_tools_any, tools):
         direct_ok = bool(case.expect_reply_any) and any(x in reply for x in case.expect_reply_any)
         msg = f"preferred tools {case.prefer_tools_any}, got {tools}"
         if strict and not direct_ok and not case.soft:
@@ -284,10 +334,13 @@ def _has_llm_key() -> bool:
     )
 
 
-def _project_workspace(session_key: str) -> Path | None:
+def _project_workspace(session_key: str, *, handler: Any | None = None, owner_id: str = "") -> Path | None:
     from butler.project.manager import ProjectManager
 
-    proj = ProjectManager().get_current(session_key=session_key)
+    sk = session_key
+    if handler is not None and owner_id:
+        sk = resolve_handler_session_key(handler, owner_id=owner_id, session_key=session_key)
+    proj = ProjectManager().get_current(session_key=sk)
     if proj is None:
         return None
     return Path(proj.workspace)
@@ -296,11 +349,14 @@ def _project_workspace(session_key: str) -> Path | None:
 def _verify_files_on_disk(
     case: ScenarioCase,
     session_key: str,
+    *,
+    handler: Any | None = None,
+    owner_id: str = "",
 ) -> list[str]:
     errors: list[str] = []
     if not case.verify_files_exist and not case.verify_files_missing:
         return errors
-    ws = _project_workspace(session_key)
+    ws = _project_workspace(session_key, handler=handler, owner_id=owner_id)
     if ws is None:
         return ["no current project workspace for file verify"]
     for rel in case.verify_files_exist:
@@ -343,8 +399,6 @@ def run_scenario_track(
     session_ns: int | None = None,
     render_ctx: SimRenderContext | None = None,
 ) -> list[ScenarioCaseResult]:
-    from butler.core.session_epoch import load_current_turn_tool_actions
-
     if track.requires_mcp and not _mcp_enabled():
         return [
             ScenarioCaseResult(
@@ -413,17 +467,19 @@ def run_scenario_track(
             elapsed = time.time() - t0
             entry.elapsed_seconds = elapsed
             entry.reply_preview = reply.replace("\n", " ")[:240]
-            entry.tools = [
-                str(row.get("tool") or "").strip()
-                for row in load_current_turn_tool_actions(session_key)
-                if str(row.get("tool") or "").strip()
-            ]
+            entry.tools = load_turn_tools(
+                handler,
+                owner_id=owner_id,
+                session_key=session_key,
+            )
             if elapsed > live.max_seconds:
                 entry.warnings.append(f"slow: {elapsed:.1f}s > {live.max_seconds}s")
             errors, warnings = evaluate_scenario_case(
                 entry.tools, reply, live, strict=strict,
             )
-            file_errors = _verify_files_on_disk(live, session_key)
+            file_errors = _verify_files_on_disk(
+                live, session_key, handler=handler, owner_id=owner_id,
+            )
             errors.extend(file_errors)
             entry.errors = errors
             entry.warnings.extend(warnings)

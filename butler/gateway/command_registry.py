@@ -111,8 +111,14 @@ def dispatch(ctx: CommandContext) -> tuple[bool, str | None]:
     try:
         result = cmd_def.handler(ctx)
         if result is not None:
+            from butler.gateway.gateway_transcript import record_gateway_tool_action
             from butler.gateway.outbound_prefs import mark_slash_reply_single_bubble
 
+            record_gateway_tool_action(
+                ctx.session_key,
+                tool_name=f"slash:{ctx.cmd}",
+                args_preview=str(ctx.arg or "")[:400],
+            )
             mark_slash_reply_single_bubble()
         return True, result
     except Exception as exc:

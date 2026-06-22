@@ -205,7 +205,6 @@ def run_handler_route_cases(
 ) -> HandlerRouteReport:
     import time
 
-    from butler.core.session_epoch import load_current_turn_tool_actions
     from butler.gateway.message_handler import ButlerMessageHandler
 
     report = HandlerRouteReport(ok=True)
@@ -228,11 +227,13 @@ def run_handler_route_cases(
                 platform="wechat",
                 external_id=owner_id,
             ) or ""
-            tools = [
-                str(row.get("tool") or "").strip()
-                for row in load_current_turn_tool_actions(sk)
-                if str(row.get("tool") or "").strip()
-            ]
+            from butler.gateway.wechat_scenario_sim import load_turn_tools
+
+            tools = load_turn_tools(
+                handler,
+                owner_id=owner_id,
+                session_key=sk,
+            )
             entry["tools"] = tools
             entry["reply_preview"] = reply.replace("\n", " ")[:200]
             entry["strict"] = strict

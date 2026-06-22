@@ -61,6 +61,13 @@ DELEGATE_VERIFY_CHECKLIST = """
 - [ ] 若失败，说明阻塞点与建议下一步
 """
 
+WORKSPACE_PATH_RULE = """
+## 路径纪律（必守）
+- 你已在**项目 workspace 根目录**工作；read_file / write_file / patch 路径必须**相对 workspace 根**
+- 正确：`docs/foo.md`、`novel-factory/bar.md`
+- **禁止**：`LingWen1/docs/...`、仓库名或项目目录前缀、workspace 外的绝对路径
+"""
+
 VERIFICATION_GUIDANCE = """
 ## 验证要求
 
@@ -119,6 +126,7 @@ DEV_AGENT = AgentProfile(
     description="代码开发 Agent — 可读写文件、执行命令、搜索代码、Git 操作",
     system_prompt=(
         "你是一个专业的软件开发 Agent。你的任务是根据指令修改代码。\n\n"
+        + WORKSPACE_PATH_RULE
         + TOOL_USE_ENFORCEMENT
         + DEV_WORKFLOW_EXAMPLES
         + VERIFICATION_GUIDANCE
@@ -140,6 +148,7 @@ CONTENT_AGENT = AgentProfile(
         "- 保持文笔流畅，风格一致\n"
         "- 必要时参考已有文件中的风格和设定\n"
         "- 将创作结果写入指定文件\n"
+        + WORKSPACE_PATH_RULE
         + TOOL_USE_ENFORCEMENT
     ),
 )

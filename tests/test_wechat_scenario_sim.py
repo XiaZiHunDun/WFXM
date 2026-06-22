@@ -70,6 +70,54 @@ def test_evaluate_scenario_strict_requires_preferred():
 
 
 @pytest.mark.unit
+def test_tool_name_hyphen_underscore_match():
+    case = ScenarioCase(
+        name="gh",
+        user_text="?",
+        prefer_tools_any=("mcp_github_lst-repos-authenticated-usr",),
+    )
+    _, warnings = evaluate_scenario_case(
+        ["mcp_github_lst_repos_authenticated_usr"],
+        "WFXM 仓库",
+        case,
+    )
+    assert not warnings
+
+
+@pytest.mark.unit
+def test_record_gateway_slash_transcript(monkeypatch):
+    from butler.gateway.command_registry import CommandContext, CommandDef, dispatch, register
+
+    recorded: list[str] = []
+
+    def _fake_record(sk: str, *, tool_name: str, args_preview: str = "") -> None:
+        recorded.append(f"{sk}|{tool_name}|{args_preview}")
+
+    monkeypatch.setattr(
+        "butler.gateway.gateway_transcript.record_gateway_tool_action",
+        _fake_record,
+    )
+
+    def _cmd(ctx: CommandContext) -> str:
+        return "ok"
+
+    register(CommandDef("/simtest", category="test", help_text="sim", handler=_cmd))
+    handled, out = dispatch(
+        CommandContext(
+            cmd="/simtest",
+            arg="arg1",
+            session_key="wechat:u1:proj",
+            platform="wechat",
+            external_id="u1",
+            orchestrator=None,
+            session_registry=None,
+        )
+    )
+    assert handled and out == "ok"
+    assert recorded == ["wechat:u1:proj|slash:/simtest|arg1"]
+
+
+@pytest.mark.unit
 def test_verify_files_on_disk(tmp_path, monkeypatch):
     from butler.gateway import wechat_scenario_sim as mod
     from butler.gateway.wechat_scenario_sim import ScenarioCase
@@ -77,7 +125,7 @@ def test_verify_files_on_disk(tmp_path, monkeypatch):
     ws = tmp_path / "proj"
     (ws / "docs").mkdir(parents=True)
     (ws / "docs" / "owner-sim-smoke.md").write_text("ok", encoding="utf-8")
-    monkeypatch.setattr(mod, "_project_workspace", lambda _sk: ws)
+    monkeypatch.setattr(mod, "_project_workspace", lambda _sk, **_: ws)
 
     case = ScenarioCase(
         name="f",
@@ -125,7 +173,7 @@ def test_cleanup_track_artifacts(tmp_path, monkeypatch):
     docs.mkdir(parents=True)
     old = docs / "owner-sim-smoke-2026-06-20.md"
     old.write_text("old", encoding="utf-8")
-    monkeypatch.setattr(mod, "_project_workspace", lambda _sk: ws)
+    monkeypatch.setattr(mod, "_project_workspace", lambda _sk, **_: ws)
 
     track = ScenarioTrack(
         id="delegate",

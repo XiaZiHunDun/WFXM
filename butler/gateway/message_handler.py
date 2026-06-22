@@ -476,6 +476,13 @@ class ButlerMessageHandler:
 
         response = _phase_apply_github_issues_intent(self, state)
         if response is not None:
+            from butler.gateway.gateway_transcript import record_gateway_tool_action
+
+            record_gateway_tool_action(
+                state.session_key,
+                tool_name="mcp_github_lst_repo_issues",
+                args_preview=state.text.strip()[:400],
+            )
             return response
 
         _phase_init_loop_role(self, state)
