@@ -239,7 +239,7 @@
 | `BUTLER_SESSION_TOOL_INDEX` | 1 | 从 transcript 解析本轮 `read_file` 路径索引 |
 | `BUTLER_SESSION_RECOVERY_NOTICE` | 1 | 冷启动后首条回复附会话恢复提示 |
 | `BUTLER_WORKSPACE_ANCHOR_STRICT` | 1 | 相对路径优先锚定当前项目 workspace |
-| `BUTLER_TURN_SUMMARY_LINE` | 0 | `1` 时长回复前附一行工具摘要（`读了N文件·…`） |
+| `BUTLER_TURN_SUMMARY_LINE` | 1 | `0` 关闭长回复前工具摘要行（`📎 读了N文件·…`） |
 | `BUTLER_TURN_SUMMARY_MIN_CHARS` | 400 | 触发摘要的最小回复长度 |
 | `BUTLER_MORNING_BRIEF` | 0 | `1` 时每日 timer 向 Owner 微信推送 `/简报` 内容 |
 | `BUTLER_TOOL_AUDIT_PERSIST` | 1 | tool_audit 追加写入 `sessions/<key>/tool_audit.jsonl` |

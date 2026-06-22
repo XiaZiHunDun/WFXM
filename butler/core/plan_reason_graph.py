@@ -47,6 +47,48 @@ def _save_graph(session_key: str, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _last_node_id_of_role(nodes: list[Any], role: str, *, exclude_id: str = "") -> str:
+    for node in reversed(nodes):
+        if not isinstance(node, dict):
+            continue
+        if str(node.get("id") or "") == exclude_id:
+            continue
+        if str(node.get("role") or "") == role:
+            return str(node.get("id") or "")
+    return ""
+
+
+def maybe_auto_link_plan_node(session_key: str, node: dict[str, Any]) -> list[dict[str, Any]]:
+    """Link a new plan node to prior nodes by DoT-lite role semantics."""
+    node_id = str(node.get("id") or "")
+    kind = str(node.get("role") or "step")
+    if not node_id:
+        return []
+    data = load_graph(session_key)
+    nodes = [n for n in (data.get("nodes") or []) if isinstance(n, dict)]
+    links: list[tuple[str, str, str]] = []
+    if kind == "hypothesis":
+        fact_id = _last_node_id_of_role(nodes, "fact", exclude_id=node_id)
+        if fact_id:
+            links.append((fact_id, node_id, "supports"))
+    elif kind == "step":
+        hyp_id = _last_node_id_of_role(nodes, "hypothesis", exclude_id=node_id)
+        if hyp_id:
+            links.append((hyp_id, node_id, "depends"))
+        else:
+            fact_id = _last_node_id_of_role(nodes, "fact", exclude_id=node_id)
+            if fact_id:
+                links.append((fact_id, node_id, "depends"))
+    elif kind == "risk":
+        step_id = _last_node_id_of_role(nodes, "step", exclude_id=node_id)
+        if step_id:
+            links.append((step_id, node_id, "depends"))
+    added: list[dict[str, Any]] = []
+    for from_id, to_id, rel in links:
+        added.append(append_edge(session_key, from_id=from_id, to_id=to_id, rel=rel))
+    return added
+
+
 def append_node(
     session_key: str,
     *,
@@ -136,6 +178,7 @@ __all__ = [
     "append_node",
     "clear_graph",
     "load_graph",
+    "maybe_auto_link_plan_node",
     "reason_graph_path",
     "summarize_graph",
 ]

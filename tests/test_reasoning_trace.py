@@ -11,6 +11,7 @@ from butler.core.plan_reason_graph import (
     append_node,
     clear_graph,
     load_graph,
+    maybe_auto_link_plan_node,
     summarize_graph,
 )
 from butler.core.reasoning_trace import (
@@ -187,6 +188,52 @@ def test_record_stuck_reflect(butler_home):
     record_stuck_reflect(loop, "工具循环检测")
     rows = load_transcript_tail(sk, max_lines=5)
     assert any(r.get("type") == "reflect_step" for r in rows)
+
+
+def test_plan_markdown_sync_auto_edges(butler_home, monkeypatch):
+    monkeypatch.setenv("BUTLER_PLAN_REASON_GRAPH", "1")
+    sk = "test:plan:edges:_"
+    set_plan_mode(sk, True)
+    try:
+        md = """## 已知事实
+- agent_loop 在 butler/core/agent_loop.py 证据: grep
+
+## 待验证
+- [hypothesis] gateway 已加载最新 commit
+
+## 步骤
+- [step] 改 agent_loop_phases 挂 reasoning hook
+
+## 风险
+- 勿破坏 gateway 测试
+"""
+        from butler.plan.markdown_sync import sync_plan_file_to_transcript
+
+        n = sync_plan_file_to_transcript(sk, ".butler/plan/session-plan.md", md)
+        assert n >= 4
+        graph = load_graph(sk)
+        assert len(graph.get("nodes") or []) >= 4
+        assert len(graph.get("edges") or []) >= 3
+        stats = summarize_graph(sk)
+        assert stats["edges"] >= 3
+    finally:
+        clear_plan_mode(sk)
+        clear_graph(sk)
+
+
+def test_maybe_auto_link_plan_node_roles(butler_home):
+    sk = "test:auto:link:_"
+    fact = append_node(sk, text="fact", role="fact", title="f")
+    hyp = append_node(sk, text="hyp", role="hypothesis", title="h")
+    edges = maybe_auto_link_plan_node(sk, hyp)
+    assert len(edges) == 1
+    assert edges[0]["rel"] == "supports"
+    assert edges[0]["from"] == fact["id"]
+    step = append_node(sk, text="step", role="step", title="s")
+    step_edges = maybe_auto_link_plan_node(sk, step)
+    assert len(step_edges) == 1
+    assert step_edges[0]["from"] == hyp["id"]
+    clear_graph(sk)
 
 
 def test_plan_markdown_sync(butler_home, monkeypatch, tmp_path):

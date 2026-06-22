@@ -162,7 +162,8 @@ bash scripts/butler-gap-observability.sh   # 全量 verbose；warn>0 时 exit 1
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `BUTLER_REASONING_TRACE` | `1` | LLM 推理摘要 + verify/stuck 反思 → transcript；`/诊断` 可见 |
-| `BUTLER_PLAN_REASON_GRAPH` | `1` | 规划 `write_file` → DoT-lite 至 `~/.butler/sessions/<key>/reason_graph.json`；`=0` 关闭 |
+| `BUTLER_PLAN_REASON_GRAPH` | `1` | 规划 `write_file` → DoT-lite 至 `~/.butler/sessions/<key>/reason_graph.json`；自动连边 fact→hypothesis→step→risk；`=0` 关闭 |
+| `BUTLER_TURN_SUMMARY_LINE` | `1` | 长回复前附 `📎` 工具摘要；`=0` 关闭 |
 
 ```bash
 # 烟测 + 日常 follow-up（G1-04 窗内 exit 2 为预期）

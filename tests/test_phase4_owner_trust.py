@@ -110,8 +110,11 @@ def test_maybe_prepend_turn_summary_opt_in(monkeypatch):
     assert out == "y" * 20
 
 
-def test_turn_summary_enabled_default_off(monkeypatch):
+def test_turn_summary_enabled_default_on(monkeypatch):
     monkeypatch.delenv("BUTLER_TURN_SUMMARY_LINE", raising=False)
+    assert turn_summary_enabled() is True
+
+    monkeypatch.setenv("BUTLER_TURN_SUMMARY_LINE", "0")
     assert turn_summary_enabled() is False
 
 

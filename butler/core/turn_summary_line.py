@@ -7,6 +7,8 @@ import logging
 import os
 from typing import Any
 
+from butler.env_parse import env_truthy
+
 logger = logging.getLogger(__name__)
 
 _READ_TOOLS = frozenset({"read_file"})
@@ -26,11 +28,7 @@ def _is_network_search_tool(tool: str) -> bool:
 
 
 def turn_summary_enabled() -> bool:
-    return os.getenv("BUTLER_TURN_SUMMARY_LINE", "0").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-    )
+    return env_truthy("BUTLER_TURN_SUMMARY_LINE", default=True)
 
 
 def turn_summary_min_out_chars() -> int:

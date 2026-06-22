@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# DoT-lite plan mode smoke (no WeChat): plan markdown → plan_step + reason_graph.
+# DoT-lite plan mode smoke (no WeChat): plan markdown → plan_step + reason_graph + edges.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -36,14 +36,17 @@ try:
     assert n >= 4, n
     graph = load_graph(sk)
     assert len(graph.get("nodes") or []) >= 4, graph
+    assert len(graph.get("edges") or []) >= 3, graph
     stats = summarize_graph(sk)
+    assert stats.get("edges", 0) >= 3, stats
     rows = load_transcript_tail(sk, max_lines=40)
     plan_sync = [r for r in rows if r.get("type") == "plan_step" and r.get("phase") == "sync"]
     assert len(plan_sync) >= 4, len(plan_sync)
     lines = format_reasoning_diagnostic_lines(sk)
     assert any("Plan 推理图" in ln for ln in lines), lines
+    assert any("边" in ln and "0 边" not in ln for ln in lines), lines
     print("dot-lite-smoke: OK")
-    print(f"  plan_step sync={len(plan_sync)} graph_nodes={stats.get('nodes')}")
+    print(f"  plan_step sync={len(plan_sync)} graph_nodes={stats.get('nodes')} graph_edges={stats.get('edges')}")
     for ln in lines:
         if "Plan 推理图" in ln:
             print(f"  {ln}")

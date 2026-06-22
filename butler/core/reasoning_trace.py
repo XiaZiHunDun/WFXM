@@ -233,7 +233,7 @@ def maybe_sync_plan_step_to_graph(
     if kind not in _GRAPH_STEP_KINDS:
         return
     try:
-        from butler.core.plan_reason_graph import append_node
+        from butler.core.plan_reason_graph import append_node, maybe_auto_link_plan_node
         from butler.plan.mode import is_plan_mode
 
         if not is_plan_mode(session_key):
@@ -246,6 +246,7 @@ def maybe_sync_plan_step_to_graph(
             assumption=assumption,
             evidence=evidence,
         )
+        edges = maybe_auto_link_plan_node(session_key, node)
         from butler.core.session_transcript import record_reason_graph_event
 
         record_reason_graph_event(
@@ -255,6 +256,14 @@ def maybe_sync_plan_step_to_graph(
             role=kind,
             preview=(title or detail or "")[:120],
         )
+        for edge in edges:
+            record_reason_graph_event(
+                session_key,
+                action="edge_added",
+                node_id=f"{edge.get('from')}->{edge.get('to')}",
+                role=str(edge.get("rel") or "depends"),
+                preview=(title or detail or "")[:120],
+            )
     except Exception as exc:
         logger.debug("plan reason graph sync skipped: %s", exc)
 
@@ -270,7 +279,8 @@ def get_plan_mode_graph_appendix() -> str:
         "- **hypothesis**：待验证假设（附 assumption 与验证方式）\n"
         "- **step**：可执行步骤（含文件路径）\n"
         "- **risk**：风险与回滚点\n"
-        "在 plan 正文用同级标题标注类型即可；无需手写 JSON。"
+        "在 plan 正文用同级标题标注类型即可；无需手写 JSON。\n"
+        "系统会按 **fact→hypothesis→step→risk** 自动连边（supports/depends）。"
     )
 
 
