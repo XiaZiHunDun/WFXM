@@ -146,6 +146,12 @@ def config_set(key: str, value: str) -> ConfigResult:
     return ConfigResult(ok=True, message=f"{key} 已设为 {value}（立即生效）")
 
 
+def reset_runtime_config_env() -> None:
+    """Remove runtime-mutable BUTLER_* keys from os.environ (pytest isolation)."""
+    for key in _MUTABLE_KEYS:
+        os.environ.pop(key, None)
+
+
 def config_list(category: str = "") -> list[ConfigValue]:
     """List config keys, optionally filtered by category."""
     cat = category.strip()

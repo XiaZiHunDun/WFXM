@@ -89,8 +89,9 @@ def test_config_get_still_reads_env_for_protected_key(key, category, monkeypatch
 
 
 @pytest.mark.unit
-def test_non_protected_keys_still_mutable():
+def test_non_protected_keys_still_mutable(monkeypatch):
     """非保护 key 仍可正常 set（回归保护）。"""
+    monkeypatch.delenv("BUTLER_LOG_LEVEL", raising=False)
     result = cs.config_set("BUTLER_LOG_LEVEL", "DEBUG")
     assert result.ok is True
     assert result.message.startswith("BUTLER_LOG_LEVEL 已设为 DEBUG")
