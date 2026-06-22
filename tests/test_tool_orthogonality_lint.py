@@ -14,6 +14,17 @@ def test_orthogonality_lint_runs():
 
 
 @pytest.mark.unit
+def test_diagnostic_orthogonality_dedupes_benign_search_mcp():
+    """web_search ↔ firecrawl should not spam /诊断."""
+    from butler.tools.orthogonality_lint import lint_tool_orthogonality_for_diagnostics, _is_benign_overlap
+
+    assert _is_benign_overlap("web_search", "mcp_firecrawl_firecrawl_scrape")
+    assert _is_benign_overlap("web_fetch", "mcp_firecrawl_firecrawl_map")
+    issues = lint_tool_orthogonality_for_diagnostics(max_pairs=5)
+    assert not any("web_search" in i and "firecrawl" in i for i in issues)
+
+
+@pytest.mark.unit
 def test_converged_tool_pairs_below_threshold():
     """已收敛工具对的 description cosine 应低于阈值。"""
     from butler.memory.embedding import cosine_similarity, get_embedder

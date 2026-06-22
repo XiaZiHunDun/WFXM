@@ -180,10 +180,10 @@ def collect_digestion_health() -> dict[str, Any]:
         logger.debug("builtin tool count skipped: %s", exc)
 
     try:
-        from butler.tools.orthogonality_lint import lint_builtin_tool_orthogonality
+        from butler.tools.orthogonality_lint import lint_tool_orthogonality_for_diagnostics
 
-        ortho = lint_builtin_tool_orthogonality(max_pairs=3)
-        if ortho and not ortho[0].startswith("orthogonality lint skipped"):
+        ortho = lint_tool_orthogonality_for_diagnostics(max_pairs=2)
+        if ortho:
             out["tool_orthogonality_warnings"] = ortho
     except Exception as exc:
         logger.debug("tool orthogonality lint skipped: %s", exc)

@@ -50,9 +50,13 @@ _run_warn_ok() {
 echo "Butler ops follow-up check ($(date -Iseconds))"
 
 _run_warn_ok "G1-04 closure / window" bash "$ROOT/scripts/butler-g1-04-closure-check.sh"
+_run_warn_ok "G1-04 closure apply (if ready)" bash "$ROOT/scripts/butler-g1-04-closure-run-if-ready.sh"
 _run_warn_ok "G1/G2 boundary observability" bash "$ROOT/scripts/butler-gap-observability.sh"
+_run "P1 live probe" bash "$ROOT/scripts/butler-p1-live-probe.sh"
 _run "Reasoning trace smoke" bash "$ROOT/scripts/butler-reasoning-trace-smoke.sh"
 _run "DoT-lite smoke" bash "$ROOT/scripts/butler-dot-lite-smoke.sh"
+_run "Demo pilot smoke" bash "$ROOT/scripts/butler-demo-pilot-smoke.sh"
+_run_warn_ok "Production delegate delta" bash "$ROOT/scripts/butler-prod-delta-observe.sh"
 _run "EXT-2 Todoist preflight" bash "$ROOT/scripts/butler-extension-ext2-preflight.sh"
 
 echo ""
