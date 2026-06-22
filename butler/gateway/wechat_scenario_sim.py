@@ -35,7 +35,14 @@ class ScenarioCase:
     soft: bool = False
     verify_files_exist: tuple[str, ...] = ()
     verify_files_missing: tuple[str, ...] = ()
+    verify_file_contains: tuple["FileContainsSpec", ...] = ()
     prompt_hint: str = ""
+
+
+@dataclass(frozen=True)
+class FileContainsSpec:
+    path: str
+    substrings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -61,11 +68,21 @@ class SimRenderContext:
     def sim_smoke_file(self) -> str:
         return f"owner-sim-smoke-{self.sim_date}.md"
 
+    @property
+    def sim_dev_md(self) -> str:
+        return f"dev-delegate-sim-{self.sim_date}.md"
+
+    @property
+    def sim_dev_py(self) -> str:
+        return f"dev-delegate-sim-{self.sim_id}.py"
+
     def render(self, text: str) -> str:
         if not text:
             return text
         return (
             text.replace("{sim_smoke_file}", self.sim_smoke_file)
+            .replace("{sim_dev_md}", self.sim_dev_md)
+            .replace("{sim_dev_py}", self.sim_dev_py)
             .replace("{sim_date}", self.sim_date)
             .replace("{sim_id}", self.sim_id)
         )
@@ -100,6 +117,7 @@ def render_scenario_case(case: ScenarioCase, ctx: SimRenderContext) -> ScenarioC
         soft=case.soft,
         verify_files_exist=ctx.render_tuple(case.verify_files_exist),
         verify_files_missing=ctx.render_tuple(case.verify_files_missing),
+        verify_file_contains=_render_file_contains(case.verify_file_contains, ctx),
         prompt_hint=ctx.render(case.prompt_hint),
     )
 
@@ -148,6 +166,44 @@ def _simulation_roots(workspace: Path | str | None = None) -> list[Path]:
     return roots
 
 
+def _parse_file_contains(raw: Any) -> tuple[FileContainsSpec, ...]:
+    if not raw:
+        return ()
+    specs: list[FileContainsSpec] = []
+    if isinstance(raw, dict):
+        raw = [raw]
+    if not isinstance(raw, list):
+        return ()
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or "").strip()
+        if not path:
+            continue
+        any_raw = item.get("any") or item.get("substrings") or item.get("contains") or []
+        if isinstance(any_raw, str):
+            needles = (any_raw,)
+        else:
+            needles = tuple(str(x) for x in any_raw if str(x).strip())
+        specs.append(FileContainsSpec(path=path, substrings=needles))
+    return tuple(specs)
+
+
+def _render_file_contains(
+    specs: tuple[FileContainsSpec, ...],
+    ctx: SimRenderContext,
+) -> tuple[FileContainsSpec, ...]:
+    out: list[FileContainsSpec] = []
+    for spec in specs:
+        out.append(
+            FileContainsSpec(
+                path=ctx.render(spec.path),
+                substrings=ctx.render_tuple(spec.substrings),
+            )
+        )
+    return tuple(out)
+
+
 def _parse_case(raw: dict[str, Any]) -> ScenarioCase:
     def _tup(key: str) -> tuple[str, ...]:
         val = raw.get(key) or []
@@ -174,6 +230,7 @@ def _parse_case(raw: dict[str, Any]) -> ScenarioCase:
         soft=bool(raw.get("soft")),
         verify_files_exist=_tup("verify_files_exist"),
         verify_files_missing=_tup("verify_files_missing"),
+        verify_file_contains=_parse_file_contains(raw.get("verify_file_contains")),
         prompt_hint=str(raw.get("prompt_hint") or "").strip(),
     )
 
@@ -279,6 +336,37 @@ def load_turn_tools(
     ]
 
 
+def evaluation_reply_text(
+    handler: Any,
+    *,
+    owner_id: str,
+    session_key: str,
+    reply: str,
+    tools: list[str],
+    platform: str = "wechat",
+) -> str:
+    """Lead 回复常省略子代理正文；委派轮次合并 report.summary 供 rubric 匹配。"""
+    if not _any_tool_in_list(("delegate_task",), tools):
+        return reply
+    try:
+        from butler.report import get_last_report
+    except Exception:
+        return reply
+    canonical = resolve_handler_session_key(
+        handler,
+        owner_id=owner_id,
+        session_key=session_key,
+        platform=platform,
+    )
+    report = get_last_report(canonical)
+    if report is None:
+        return reply
+    summary = (report.summary or "").strip()
+    if not summary or summary in reply:
+        return reply
+    return f"{reply}\n\n{summary}"
+
+
 def evaluate_scenario_case(
     tools: list[str],
     reply: str,
@@ -354,7 +442,11 @@ def _verify_files_on_disk(
     owner_id: str = "",
 ) -> list[str]:
     errors: list[str] = []
-    if not case.verify_files_exist and not case.verify_files_missing:
+    if (
+        not case.verify_files_exist
+        and not case.verify_files_missing
+        and not case.verify_file_contains
+    ):
         return errors
     ws = _project_workspace(session_key, handler=handler, owner_id=owner_id)
     if ws is None:
@@ -367,6 +459,20 @@ def _verify_files_on_disk(
         path = (ws / rel).resolve()
         if path.exists():
             errors.append(f"file should not exist: {rel}")
+    for spec in case.verify_file_contains:
+        path = (ws / spec.path).resolve()
+        if not path.is_file():
+            errors.append(f"file missing for content check: {spec.path}")
+            continue
+        try:
+            body = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            errors.append(f"cannot read {spec.path}: {exc}")
+            continue
+        if spec.substrings and not any(needle in body for needle in spec.substrings):
+            errors.append(
+                f"file {spec.path} missing any of {spec.substrings}"
+            )
     return errors
 
 
@@ -456,9 +562,10 @@ def run_scenario_track(
             session_key = f"{base_sk}-{live.name}-{time.time_ns()}"
             for msg in track.setup:
                 _send(msg)
-            post_cleanup = _cleanup_track_artifacts(track, session_key, ctx)
-            if post_cleanup and not post_cleanup[0].startswith("no workspace"):
-                print(f"  cleanup {track.id}/{live.name}: removed {post_cleanup}")
+            if track.session_mode == "fresh":
+                post_cleanup = _cleanup_track_artifacts(track, session_key, ctx)
+                if post_cleanup and not post_cleanup[0].startswith("no workspace"):
+                    print(f"  cleanup {track.id}/{live.name}: removed {post_cleanup}")
 
         t0 = time.time()
         entry = ScenarioCaseResult(name=live.name, track_id=track.id, ok=True)
@@ -474,8 +581,15 @@ def run_scenario_track(
             )
             if elapsed > live.max_seconds:
                 entry.warnings.append(f"slow: {elapsed:.1f}s > {live.max_seconds}s")
+            eval_reply = evaluation_reply_text(
+                handler,
+                owner_id=owner_id,
+                session_key=session_key,
+                reply=reply,
+                tools=entry.tools,
+            )
             errors, warnings = evaluate_scenario_case(
-                entry.tools, reply, live, strict=strict,
+                entry.tools, eval_reply, live, strict=strict,
             )
             file_errors = _verify_files_on_disk(
                 live, session_key, handler=handler, owner_id=owner_id,

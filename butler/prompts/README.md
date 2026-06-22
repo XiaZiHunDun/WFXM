@@ -51,5 +51,6 @@ Fixtures：[`tests/fixtures/prompt_eval/cases.yaml`](../../tests/fixtures/prompt
 | `search` GitHub | `butler_system.md` §网络检索 + MCP |
 | `delegate` | `butler_system.md` §任务委派 + `lingwen_lead_system.md` §路径 |
 | `memory` /新对话 | `butler_system.md` §会话重置；Lead §5 |
+| **dev 委派 batch** | [`wechat-dev-delegate-scenarios.yaml`](../../.butler/simulation/wechat-dev-delegate-scenarios.yaml) · `butler-wechat-dev-delegate-sim.sh` |
 
-Manifest： [`.butler/simulation/wechat-owner-scenarios.yaml`](../../.butler/simulation/wechat-owner-scenarios.yaml)
+Manifest： [`.butler/simulation/wechat-owner-scenarios.yaml`](../../.butler/simulation/wechat-owner-scenarios.yaml) · Dev 委派：[`wechat-dev-delegate-scenarios.yaml`](../../.butler/simulation/wechat-dev-delegate-scenarios.yaml)

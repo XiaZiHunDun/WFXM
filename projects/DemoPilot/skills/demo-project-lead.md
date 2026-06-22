@@ -14,5 +14,5 @@ triggers:
 1. 只读探路用 `read_file` / `list_directory`
 2. 改代码、跑测试 → `delegate_task` role **dev**
 3. 写文档 → `delegate_task` role **content**
-4. **禁止** Lead 直接 `patch` / `terminal` / `write_file`
+4. **禁止** Lead 直接 `patch` / `terminal` / `write_file`；**禁止** `run_workflow`（本项目无 novel-factory）
 5. 巡检用 `/运行 pilot-heartbeat` 或 runtime 只读 job

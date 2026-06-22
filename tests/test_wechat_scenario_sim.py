@@ -160,6 +160,49 @@ def test_sim_render_context_templates():
 
 
 @pytest.mark.unit
+def test_load_dev_delegate_manifest():
+    manifest = load_wechat_scenario_manifest(filename="wechat-dev-delegate-scenarios.yaml")
+    assert manifest is not None
+    ids = {t.id for t in manifest.tracks}
+    assert "lingwen" in ids
+    assert "demopilot" in ids
+
+
+@pytest.mark.unit
+def test_verify_file_contains_on_disk(tmp_path, monkeypatch):
+    from butler.gateway import wechat_scenario_sim as mod
+    from butler.gateway.wechat_scenario_sim import FileContainsSpec, ScenarioCase
+
+    ws = tmp_path / "proj"
+    (ws / "docs").mkdir(parents=True)
+    (ws / "docs" / "dev-delegate-sim-2026-06-22.md").write_text(
+        "Dev 委派验收\n灵文1号\n2026-06-22\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "_project_workspace", lambda _sk, **_: ws)
+
+    case = ScenarioCase(
+        name="c",
+        user_text="x",
+        verify_file_contains=(
+            FileContainsSpec(
+                path="docs/dev-delegate-sim-2026-06-22.md",
+                substrings=("灵文1号", "2026-06-22"),
+            ),
+        ),
+    )
+    assert not mod._verify_files_on_disk(case, "any")
+    bad = ScenarioCase(
+        name="c",
+        user_text="x",
+        verify_file_contains=(
+            FileContainsSpec(path="docs/dev-delegate-sim-2026-06-22.md", substrings=("missing",)),
+        ),
+    )
+    assert mod._verify_files_on_disk(bad, "any")
+
+
+@pytest.mark.unit
 def test_cleanup_track_artifacts(tmp_path, monkeypatch):
     from butler.gateway import wechat_scenario_sim as mod
     from butler.gateway.wechat_scenario_sim import (
@@ -185,6 +228,39 @@ def test_cleanup_track_artifacts(tmp_path, monkeypatch):
     removed = mod._cleanup_track_artifacts(track, "sk", ctx)
     assert "docs/owner-sim-smoke-2026-06-20.md" in removed
     assert not old.exists()
+
+
+@pytest.mark.unit
+def test_evaluation_reply_text_includes_delegate_summary(monkeypatch):
+    from butler.gateway.wechat_scenario_sim import evaluation_reply_text
+
+    class _Handler:
+        def resolve_session_key(self, **_: object) -> str:
+            return "wechat:u1:proj"
+
+    class _Report:
+        summary = "PASS\n标题与日期齐全。"
+
+    monkeypatch.setattr(
+        "butler.report.get_last_report",
+        lambda _sk: _Report(),
+    )
+    out = evaluation_reply_text(
+        _Handler(),
+        owner_id="u1",
+        session_key="wechat:u1:proj",
+        reply="审核代理已完成任务",
+        tools=["delegate_task"],
+    )
+    assert "PASS" in out
+    unchanged = evaluation_reply_text(
+        _Handler(),
+        owner_id="u1",
+        session_key="wechat:u1:proj",
+        reply="审核代理已完成任务",
+        tools=["read_file"],
+    )
+    assert unchanged == "审核代理已完成任务"
 
 
 @pytest.mark.unit

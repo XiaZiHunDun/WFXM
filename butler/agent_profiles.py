@@ -147,7 +147,8 @@ CONTENT_AGENT = AgentProfile(
         "根据给定的要求创作高质量内容。\n"
         "- 保持文笔流畅，风格一致\n"
         "- 必要时参考已有文件中的风格和设定\n"
-        "- 将创作结果写入指定文件\n"
+        "- 将创作结果写入指定文件（新建用 write_file）\n"
+        "- **禁止** delegate_task；你是末端工人，不得再委派\n"
         + WORKSPACE_PATH_RULE
         + TOOL_USE_ENFORCEMENT
     ),
@@ -170,7 +171,9 @@ REVIEW_AGENT = AgentProfile(
         "2. 改进建议\n"
         "3. 优点总结\n\n"
         "审核时可以读取文件和搜索代码来验证一致性。\n"
+        "- 文档/文案审查：read_file 后首行输出 PASS 或 FAIL；**禁止** terminal\n"
         + _EVIDENCE_FIRST_REVIEW
+        + WORKSPACE_PATH_RULE
         + TOOL_USE_ENFORCEMENT
     ),
 )

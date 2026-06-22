@@ -1,0 +1,128 @@
+# 多项目 Dev 委派模拟（handler，不经 iLink）
+# 运行: bash scripts/butler-wechat-dev-delegate-sim.sh [--quick] [--track lingwen,demopilot]
+# 产物: docs/dev-delegate-sim-*.{md,py}（gitignore；跑前 cleanup）
+# 成功委派会走真实 delegate 路径，可触发经验候选提取（与真机一致）
+
+title: WeChat Dev Delegate Scenario Sim
+version: "2026-06-22"
+default_project: 灵文1号
+verify_phrases:
+  - "bash scripts/butler-wechat-dev-delegate-sim.sh --quick"
+  - "bash scripts/butler-wechat-dev-delegate-sim.sh --track lingwen"
+
+tracks:
+  - id: lingwen
+    title: 灵文1号 — content / dev / review
+    session_mode: shared
+    quick: true
+    cleanup_globs:
+      - docs/dev-delegate-sim*.md
+      - docs/dev-delegate-sim*.py
+      - docs/owner-sim-smoke*.md
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: content 写验收 md
+        user_text: >-
+          请交给内容代理（role 必须是 content，不要用 dev）：在 docs 目录写 {sim_dev_md}，
+          一级标题「Dev 委派验收」，正文包含今天日期 {sim_date} 和项目名灵文1号，不要改其他文件。
+          子代理必须用 write_file 创建文件，禁止再 delegate_task
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [委派, 内容, dev-delegate, 新建, 完成]
+        verify_files_exist:
+          - "docs/{sim_dev_md}"
+        verify_file_contains:
+          - path: "docs/{sim_dev_md}"
+            any: [Dev 委派验收, 灵文1号, "{sim_date}"]
+        reject_reply_any: [LingWen1/docs, outside workspace]
+        prompt_hint: lingwen_lead §委派 content；butler_system §任务委派 role=content
+        tier: slow
+        max_seconds: 480
+
+      - name: dev 只读检查 md
+        user_text: >-
+          请委派开发代理：只检查 workspace 下 docs/{sim_dev_md} 是否存在，
+          read_file 读前 10 行并摘要，路径相对 workspace 根，不要 LingWen1/ 前缀，不要改代码
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [开发, dev-delegate, 存在, 委派]
+        reject_reply_any: [File not found, TOOL_NOT_FOUND, LingWen1/]
+        tier: standard
+        max_seconds: 240
+
+      - name: review 审查 md
+        user_text: >-
+          请委派审核代理（role=review）：read_file docs/{sim_dev_md} 并给出审查结论。
+          你向用户回复时首行必须是 PASS 或 FAIL（复述审核结论），附一条理由；不要修改文件，不要用 terminal
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [PASS, FAIL]
+        reject_reply_any: [不存在, 无法审查, LingWen1/docs]
+        verify_files_exist:
+          - "docs/{sim_dev_md}"
+        tier: standard
+        max_seconds: 240
+        skip_in_quick: true
+
+      - name: dev 读 workflow_state
+        user_text: >-
+          请委派开发代理（role=dev）：read_file 读取 novel-factory/workflow_state.json 前 30 行，
+          摘要 phase 或 step 字段，不要修改任何文件
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [workflow, 委派, phase, step, novel-factory, workflow_state, 阶段, PHASE, STEP, 厂情]
+        reject_reply_any: [File not found, write_file, patch]
+        fresh_session: true
+        tier: slow
+        max_seconds: 360
+
+  - id: demopilot
+    title: 演示试点 — content / dev 轻量代码
+    session_mode: fresh
+    quick: true
+    cleanup_globs:
+      - docs/dev-delegate-sim*.md
+      - docs/dev-delegate-sim*.py
+    setup:
+      - /切换 演示试点
+    cases:
+      - name: content 写试点 md
+        user_text: >-
+          请交给内容代理（role=content）：在 docs 写 {sim_dev_md}，说明这是 DemoPilot 委派模拟，
+          含日期 {sim_date}，不要改其他文件。子代理必须用 write_file，路径相对 workspace 根，禁止 LingWen1/ 前缀
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [委派, DemoPilot, 内容]
+        verify_files_exist:
+          - "docs/{sim_dev_md}"
+        verify_file_contains:
+          - path: "docs/{sim_dev_md}"
+            any: [DemoPilot, "{sim_date}"]
+        reject_reply_any: [outside workspace]
+        tier: slow
+        max_seconds: 420
+
+      - name: dev 创建并 py_compile
+        user_text: >-
+          请委派开发代理（role=dev，禁止 run_workflow）：在 docs 创建 {sim_dev_py}，内容为合法 Python：
+          def sim_ok(): 换行缩进 return 42；
+          然后用 terminal 执行 python -m py_compile docs/{sim_dev_py} 验证；
+          路径相对 workspace，不要 LingWen1/ 前缀，不要改其他文件
+        prefer_tools_any: [delegate_task]
+        expect_tools_any: [delegate_task]
+        forbid_tools: [run_workflow, terminal]
+        expect_reply_any: [开发, 委派, sim_ok, 完成]
+        verify_files_exist:
+          - "docs/{sim_dev_py}"
+        verify_file_contains:
+          - path: "docs/{sim_dev_py}"
+            any: ["def sim_ok", "return 42"]
+        reject_reply_any: [DEV_VERIFY_GATE, outside workspace, SyntaxError, 工作流, novel-factory]
+        tier: slow
+        max_seconds: 480
+        skip_in_quick: true
+
+      - name: dev 读 README 摘要
+        user_text: >-
+          请委派开发代理（role=dev）：read_file README.md 前 20 行并中文摘要，不要修改文件，不要 run_workflow
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [README, 委派, 开发, 摘要, DemoPilot, Butler]
+        reject_reply_any: [工作流 novel-factory, novel-factory 完成]
+        tier: standard
+        max_seconds: 180

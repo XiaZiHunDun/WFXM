@@ -55,6 +55,12 @@ cases:
       - "workspace"
     description: Lead 委派路径纪律
 
+  - id: lead_content_role
+    file: butler/prompts/lingwen_lead_system.md
+    must_contain:
+      - "role=content"
+    description: Lead 内容任务必须用 content 角色
+
   - id: plan_mode_facts
     file: butler/prompts/butler_plan_mode.md
     must_contain:

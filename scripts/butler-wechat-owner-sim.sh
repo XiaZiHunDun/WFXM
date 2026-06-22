@@ -7,6 +7,7 @@
 #   bash scripts/butler-wechat-owner-sim.sh --track core,memory
 #   bash scripts/butler-wechat-owner-sim.sh --list
 #   bash scripts/butler-wechat-owner-sim.sh --strict             # prefer/expect tools 硬断言
+#   bash scripts/butler-wechat-owner-sim.sh --manifest wechat-dev-delegate-scenarios.yaml
 #
 # Skip (exit 0): BUTLER_WECHAT_OWNER_SIM=0 or no LLM key
 #
@@ -32,11 +33,17 @@ STRICT=0
 LIST=0
 TRACKS=""
 JSON_OUT=""
+MANIFEST="wechat-owner-scenarios.yaml"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --quick) QUICK=1 ;;
     --strict) STRICT=1 ;;
     --list) LIST=1 ;;
+    --manifest)
+      shift
+      MANIFEST="${1:-}"
+      ;;
+    --manifest=*) MANIFEST="${1#--manifest=}" ;;
     --track)
       shift
       TRACKS="${1:-}"
@@ -55,7 +62,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-exec python3 - "$QUICK" "$STRICT" "$LIST" "$TRACKS" "$JSON_OUT" <<'PY'
+exec python3 - "$QUICK" "$STRICT" "$LIST" "$TRACKS" "$JSON_OUT" "$MANIFEST" <<'PY'
 import json
 import os
 import sys
@@ -71,10 +78,11 @@ strict = sys.argv[2] == "1"
 list_only = sys.argv[3] == "1"
 tracks_arg = sys.argv[4].strip()
 json_out = sys.argv[5].strip()
+manifest_name = sys.argv[6].strip() or "wechat-owner-scenarios.yaml"
 
-manifest = load_wechat_scenario_manifest()
+manifest = load_wechat_scenario_manifest(filename=manifest_name)
 if manifest is None:
-    print("FAIL: .butler/simulation/wechat-owner-scenarios.yaml not found")
+    print(f"FAIL: .butler/simulation/{manifest_name} not found")
     raise SystemExit(1)
 
 if list_only:

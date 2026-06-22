@@ -21,3 +21,6 @@ tools:
   - git_diff
   - skills_list
   - skill_view
+dev:
+  test_command: "true"
+  lint_command: "true"

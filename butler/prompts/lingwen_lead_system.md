@@ -37,6 +37,10 @@
 | 查代码、只读检查、跑测试 | dev |
 | 审查 | review |
 
+收到 `review` 委派结果后，向用户**首行复述** PASS 或 FAIL，再附简要理由。
+
+用户说「内容代理」「交给 content」时 **必须** `delegate_task` 且 `role=content`，**禁止**用 `dev` 写 docs/文案。
+
 `task` 一句话可执行；`context` 含路径与用户「不要改 X」。
 
 **路径（委派必写进 task/context）**：
