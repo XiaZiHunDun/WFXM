@@ -9,7 +9,7 @@ export BUTLER_SESSION_TRANSCRIPT=1
 export BUTLER_REASONING_TRACE=1
 export BUTLER_PLAN_REASON_GRAPH=1
 
-SK="smoke:dot:$(date +%s)"
+SK="smoke:dot:$(date +%s%N)"
 python3 - <<PY
 from butler.core.plan_reason_graph import load_graph, summarize_graph
 from butler.core.reasoning_trace import format_reasoning_diagnostic_lines

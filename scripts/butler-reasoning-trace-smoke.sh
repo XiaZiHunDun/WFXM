@@ -8,7 +8,7 @@ export BUTLER_HOME="${BUTLER_HOME:-$HOME/.butler}"
 export BUTLER_SESSION_TRANSCRIPT=1
 export BUTLER_REASONING_TRACE=1
 
-SK="smoke:reasoning:$(date +%s)"
+SK="smoke:reasoning:$(date +%s%N)"
 python3 - <<PY
 from types import SimpleNamespace
 
