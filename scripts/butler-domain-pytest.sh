@@ -13,7 +13,8 @@ paths=()
 for d in "${DOMAINS[@]}"; do
   case "$d" in
     all)
-      exec python3 -m pytest tests/ -q --tb=line
+      PY="$(command -v python || command -v python3)"
+      exec "${PY}" -m pytest tests/ -q --tb=line
       ;;
     gateway|ops|dev_engine|memory|core|tools|runtime|io|transport|hooks)
       if [[ -d "tests/$d" ]]; then
@@ -30,4 +31,5 @@ for d in "${DOMAINS[@]}"; do
   esac
 done
 
-python3 -m pytest "${paths[@]}" -q --tb=line
+PYTHON_BIN="$(command -v python || command -v python3)"
+"${PYTHON_BIN}" -m pytest "${paths[@]}" -q --tb=line
