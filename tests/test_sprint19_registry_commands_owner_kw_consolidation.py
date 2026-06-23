@@ -80,14 +80,14 @@ class TestRegistryCommandsUsesCanonicalSource:
     """registry_commands 必须用 command_registry.require_owner_kw 真源, 无本地副本."""
 
     def test_no_local_require_owner_function(self):
-        from butler.gateway import registry_commands
+        from butler.gateway.commands import registry_handlers as registry_commands
 
         assert not hasattr(registry_commands, "_require_owner"), (
             "registry_commands 不应再有 _require_owner, 已合并到 command_registry.require_owner_kw"
         )
 
     def test_no_direct_owner_gate_imports(self):
-        from butler.gateway import registry_commands
+        from butler.gateway.commands import registry_handlers as registry_commands
 
         src = inspect.getsource(registry_commands)
         tree = ast.parse(src)

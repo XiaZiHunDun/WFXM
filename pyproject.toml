@@ -85,7 +85,7 @@ include = ["butler", "butler.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-norecursedirs = ["archive", ".git", "node_modules", "venv"]
+norecursedirs = ["archive", "fixtures", ".git", "node_modules", "venv"]
 markers = [
     "unit: L1 unit tests (fast, no I/O)",
     "module_test: L2 module tests (mocked I/O)",

@@ -21,7 +21,7 @@ from unittest.mock import patch
 
 import pytest
 
-from butler.gateway import sessions_commands
+from butler.gateway.commands import sessions_handlers as sessions_commands
 
 
 @pytest.mark.unit

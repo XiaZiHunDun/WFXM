@@ -21,7 +21,7 @@ from unittest.mock import patch
 
 import pytest
 
-from butler.gateway import runtime_commands
+from butler.gateway.commands import runtime_commands
 
 
 @pytest.mark.unit

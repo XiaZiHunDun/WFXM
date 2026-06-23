@@ -21,7 +21,7 @@ from unittest.mock import patch
 
 import pytest
 
-from butler.gateway import outcome_commands
+from butler.gateway.commands import outcome_handlers as outcome_commands
 
 
 @pytest.mark.unit

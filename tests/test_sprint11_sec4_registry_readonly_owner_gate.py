@@ -19,7 +19,7 @@ from unittest.mock import patch
 
 import pytest
 
-from butler.gateway import registry_commands
+from butler.gateway.commands import registry_handlers as registry_commands
 
 
 @pytest.mark.unit
