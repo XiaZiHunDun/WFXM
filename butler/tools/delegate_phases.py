@@ -166,16 +166,22 @@ def _check_delegate_depth(state: DelegateRunState) -> None:
 
 
 def _prepare_delegate_task(state: DelegateRunState) -> None:
-    """Phase 1: enrich (role, task, context, category) and check depth.
+    """Phase 1: enrich (role, task, context, category) and check depth."""
+    from butler.tools.delegate_role_guard import (
+        apply_user_role_override,
+        user_explicit_delegate_role,
+        _explicit_role_from_state,
+        _turn_user_text,
+    )
 
-    Populates ``state.category_meta``, ``state.context``, and sets
-    ``state.early_return`` when ``depth >= MAX_DELEGATE_DEPTH``.
-    Order preserved from the original host: category inference → category
-    resolver → handoff block → verify checklist → bridge notify → depth check.
-    """
-    if not str(state.category or "").strip():
+    pinned = user_explicit_delegate_role(_turn_user_text()) or _explicit_role_from_state(state)
+    if pinned:
+        state.role = pinned
+    elif not str(state.category or "").strip():
         state.category = _infer_delegate_category(state.task)
-    _apply_category_resolver(state)
+    if not pinned:
+        _apply_category_resolver(state)
+    apply_user_role_override(state)
     _inject_handoff_block(state)
     _inject_verify_checklist(state)
     _inject_production_playbook_bridge(state)
@@ -413,6 +419,9 @@ def _acquire_delegate_slot(state: DelegateRunState) -> bool:
 def _create_delegate_task_record(state: DelegateRunState) -> None:
     """Create the task record and pull back task_id / child_session_key (4d)."""
     from butler.runtime.task_store import create_task, delegate_group_id
+    from butler.tools.delegate_role_guard import apply_user_role_override
+
+    apply_user_role_override(state)
 
     project_name = ""
     if state.project is not None:
@@ -837,7 +846,7 @@ def _build_delegate_report(
         )
         success = False
         headline = f"{role_label}返回空结果"
-    return AgentReport(
+    report = AgentReport(
         headline=headline,
         summary=summary_text or "(无输出)",
         changes=changes,
@@ -851,6 +860,7 @@ def _build_delegate_report(
         tokens_used=result.total_tokens,
         elapsed_seconds=result.elapsed_seconds,
     )
+    return report
 
 
 def _record_delegate_turn_done(state: DelegateRunState, success: bool, result: Any) -> None:
@@ -872,17 +882,18 @@ def _record_delegate_turn_done(state: DelegateRunState, success: bool, result: A
 
 def _finalize_delegate_task(state: DelegateRunState, report: Any) -> None:
     """Cache report, complete task, stop hooks, bridge notify (6e)."""
-    from butler.report import cache_report
+    from butler.report import cache_report, attach_delegate_task_times
     from butler.runtime.task_store import complete_task
     from butler.tools.delegate_impl import _run_subagent_stop_hooks
 
-    cache_report(report, session_key=state.session_key)
     complete_task(
         state.task_id,
         success=report.success,
         report_headline=report.headline,
         summary=report.summary,
     )
+    attach_delegate_task_times(report, state.task_id)
+    cache_report(report, session_key=state.session_key)
     _run_subagent_stop_hooks(
         role=state.role,
         agent_id=state.task_id or f"delegate-{state.role}",

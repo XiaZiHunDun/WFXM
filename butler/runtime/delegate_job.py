@@ -238,7 +238,7 @@ def run_delegate_job(job: DelegateJob) -> None:
                 )
             except Exception as exc:
                 logger.debug("run delegate job skipped: %s", exc)
-        from butler.report import AgentReport, cache_report
+        from butler.report import AgentReport, cache_report, attach_delegate_task_times
         from butler.runtime.task_store import complete_task
 
         task_preview = (job.task or "").strip()[:200]
@@ -256,13 +256,14 @@ def run_delegate_job(job: DelegateJob) -> None:
             tokens_used=getattr(result, "total_tokens", 0) if result else 0,
             elapsed_seconds=getattr(result, "elapsed_seconds", 0.0) if result else 0.0,
         )
-        cache_report(report, session_key=job.session_key)
         complete_task(
             job.task_id,
             success=success,
             report_headline=report.headline,
             summary=report.summary,
         )
+        attach_delegate_task_times(report, job.task_id)
+        cache_report(report, session_key=job.session_key)
         _run_subagent_stop_hooks(
             role=job.role,
             agent_id=job.task_id or f"delegate-{job.role}",

@@ -185,19 +185,11 @@ def _run_auto_verify(state: Any, path: str) -> None:
             ws = _Path(get_tool_safe_root())
         except Exception:
             ws = _Path(path).parent
-        from butler.dev_engine.verify import auto_verify_levels, verify_level_for_edit
+        from butler.dev_engine.verify import select_auto_verify_levels
 
         edited_files = [path] if path else []
-        prod_levels = ""
         delegate_cat = str(getattr(state, "_delegate_category", "") or "")
-        if delegate_cat:
-            try:
-                from butler.dev_engine.prod_delegate_bridge import production_auto_verify_levels
-
-                prod_levels = production_auto_verify_levels(delegate_cat)
-            except Exception:
-                prod_levels = ""
-        levels = prod_levels or auto_verify_levels() or verify_level_for_edit(edited_files)
+        levels = select_auto_verify_levels(edited_files, delegate_category=delegate_cat)
         result = verify_layered(ws, levels=levels)
 
         thm_violations: list[str] = []
@@ -743,7 +735,16 @@ def finalize_guardrail_halt_result(
 def finalize_unenveloped_failure_result(name: str, args: dict, result: str) -> str:
     payload = parse_tool_result_object(result)
     if not isinstance(payload, dict):
-        return result
+        try:
+            from butler.tools.registry import finalize_tool_result
+
+            return finalize_tool_result(
+                name,
+                args,
+                {"preview": str(result)[:200]},
+            )
+        except Exception:
+            return result
     if payload.get("ok") is False and payload.get("tool") and payload.get("code"):
         return result
     failed = (

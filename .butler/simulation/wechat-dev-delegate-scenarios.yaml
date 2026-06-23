@@ -18,6 +18,7 @@ tracks:
     cleanup_globs:
       - docs/dev-delegate-sim*.md
       - docs/dev-delegate-sim*.py
+      - docs/dev-flywheel-role-sim-*.md
       - docs/owner-sim-smoke*.md
     setup:
       - /切换 灵文1号
@@ -75,6 +76,24 @@ tracks:
         fresh_session: true
         tier: slow
         max_seconds: 360
+
+      - name: dev 飞轮验收 md（用户显式 role=dev）
+        user_text: >-
+          请 delegate_task，role=dev（禁止用 content）：
+          在 docs/ 覆写 dev-flywheel-role-sim-{sim_date}.md，正文仅一行「验收戳 {sim_date}」；
+          先 read_file 再 write_file，再 read_file 确认；不要改其它文件。
+        prefer_tools_any: [delegate_task]
+        expect_reply_any: [开发, dev, 委派, 后台]
+        reject_reply_any: [已派 content, 内容代理已完成, "role\": \"content\""]
+        verify_files_exist:
+          - "docs/dev-flywheel-role-sim-{sim_date}.md"
+        verify_file_contains:
+          - path: "docs/dev-flywheel-role-sim-{sim_date}.md"
+            any: ["验收戳 {sim_date}"]
+        fresh_session: true
+        prompt_hint: lingwen_lead §用户显式 role=dev；delegate_role_guard
+        tier: slow
+        max_seconds: 420
 
   - id: demopilot
     title: 演示试点 — content / dev 轻量代码

@@ -34,13 +34,19 @@
 
 | 类型 | role |
 |------|------|
-| 写 docs、文案 | content |
-| 查代码、只读检查、跑测试 | dev |
+| 写 docs、文案（默认） | content |
+| 查代码、只读检查、跑测试、**用户指定开发** | dev |
 | 审查 | review |
 
 收到 `review` 委派结果后，向用户**首行复述** PASS 或 FAIL，再附简要理由。
 
-用户说「内容代理」「交给 content」时 **必须** `delegate_task` 且 `role=content`，**禁止**用 `dev` 写 docs/文案。
+**用户显式指定 role 时（优先级高于上表）**：
+
+- 用户说「委派开发 / 开发代理 / `role=dev` / 禁止 content」→ **必须** `delegate_task` 且 `role=dev`（**即使**任务是写 `docs/`）；`task` 中写明 write_file / read_file 步骤
+- 用户说「内容代理 / 交给 content / `role=content` / 禁止 dev」→ **必须** `role=content`，**禁止**用 `dev` 写 docs/文案
+- 用户已写 `role=dev` 时：**不要**再派 content；同步回复须写「已派 **开发** 代理」
+
+**维护态例外**：用户显式 `role=dev` 且任务与读/写 docs 或验收文件相关时，**不必**先读本线程 `workflow_state.json` 再委派；直接把用户原话写进 `task`/`context`。
 
 `task` 一句话可执行；`context` 含路径与用户「不要改 X」。
 

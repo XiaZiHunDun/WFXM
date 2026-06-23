@@ -153,17 +153,37 @@ def get_recent_edit_paths(*, session_key: str | None = None, limit: int = 5) -> 
         return list(_RECENT_EDITS.get(sk, [])[-limit:])
 
 
+def _parent_delegate_session_key(session_key: str) -> str | None:
+    """Parent session key for ``{parent}::delegate::{task_id}`` child sessions."""
+    sk = str(session_key or "").strip()
+    marker = "::delegate::"
+    if marker not in sk:
+        return None
+    parent = sk.split(marker, 1)[0].strip()
+    return parent if parent and parent != sk else None
+
+
 def get_read_state(resolved_path: Path, *, session_key: str | None = None) -> ReadStateEntry | None:
     path_key = str(resolved_path.resolve())
     with _LOCK:
         sk = _session_key(session_key)
-        store = _BY_SESSION.get(sk)
-        if store is None:
-            return None
-        entry = store.get(path_key)
+        entry = _lookup_read_state_locked(path_key, sk)
         if entry is not None:
-            store.move_to_end(path_key)
-        return entry
+            return entry
+        parent_sk = _parent_delegate_session_key(sk)
+        if parent_sk:
+            return _lookup_read_state_locked(path_key, parent_sk)
+        return None
+
+
+def _lookup_read_state_locked(path_key: str, sk: str) -> ReadStateEntry | None:
+    store = _BY_SESSION.get(sk)
+    if store is None:
+        return None
+    entry = store.get(path_key)
+    if entry is not None:
+        store.move_to_end(path_key)
+    return entry
 
 
 def _mtime_ns(st: os.stat_result) -> int:

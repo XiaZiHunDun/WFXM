@@ -312,8 +312,14 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
                 )
         if _p is not None and _stat is not None:
             from butler.core.read_state import record_read_state
+            from butler.execution_context import get_current_session_key
 
-            record_read_state(_p, _stat, data)
+            record_read_state(
+                _p,
+                _stat,
+                data,
+                session_key=str(get_current_session_key() or "").strip() or None,
+            )
             try:
                 from butler.core.instruction_walkup import record_read_path
                 from butler.execution_context import get_current_orchestrator

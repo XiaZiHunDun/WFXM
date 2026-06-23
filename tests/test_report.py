@@ -83,6 +83,18 @@ class TestFormatters:
         text = format_for_wechat(sample_report)
         assert sample_report.headline in text
 
+    def test_format_for_wechat_shows_delegate_timestamps(self):
+        report = AgentReport(
+            headline="开发代理已完成任务",
+            task_id="task_abc",
+            task_created_at="2026-06-23T03:33:55.412331+00:00",
+            task_completed_at="2026-06-23T03:35:17.877735+00:00",
+        )
+        text = format_for_wechat(report)
+        assert "⏱" in text
+        assert "提交" in text
+        assert "完成" in text
+
     def test_format_for_wechat_shows_issues_on_failure(self):
         report = AgentReport(
             headline="开发代理未能完成任务",

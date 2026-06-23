@@ -8,6 +8,7 @@ from butler.report.generator import (  # noqa: F401
     clear_report_cache,
     enrich_output_schema,
     enrich_report_decisions,
+    attach_delegate_task_times,
     format_detail,
     format_for_butler_tool_result,
     format_for_cli,

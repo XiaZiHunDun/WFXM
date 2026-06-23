@@ -317,6 +317,42 @@ def verify_level_for_edit(edited_files: list[str]) -> str:
     return ",".join(levels)
 
 
+def _normalize_edit_path(path: str) -> str:
+    return str(path or "").replace("\\", "/").strip().lstrip("./")
+
+
+def is_docs_markdown_only_edit(edited_files: list[str]) -> bool:
+    """True when every edited path is under docs/ and is markdown/text (pilot docs flywheel)."""
+    paths = [_normalize_edit_path(p) for p in edited_files if str(p or "").strip()]
+    if not paths:
+        return False
+    return all(
+        p.startswith("docs/") and p.endswith((".md", ".markdown", ".txt"))
+        for p in paths
+    )
+
+
+def select_auto_verify_levels(
+    edited_files: list[str],
+    *,
+    delegate_category: str = "",
+) -> str:
+    """Choose verify levels after an edit (edit-scoped docs vs production/full suite)."""
+    edit_levels = verify_level_for_edit(edited_files)
+    if is_docs_markdown_only_edit(edited_files):
+        return edit_levels
+    prod_levels = ""
+    cat = str(delegate_category or "").strip()
+    if cat:
+        try:
+            from butler.dev_engine.prod_delegate_bridge import production_auto_verify_levels
+
+            prod_levels = production_auto_verify_levels(cat)
+        except Exception:
+            prod_levels = ""
+    return prod_levels or auto_verify_levels() or edit_levels
+
+
 def auto_verify_levels() -> str:
     """Return the auto-verify levels from env (default: lint,test)."""
     default = os.getenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", "lint,test").strip()

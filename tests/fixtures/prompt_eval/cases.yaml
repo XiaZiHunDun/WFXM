@@ -61,6 +61,13 @@ cases:
       - "role=content"
     description: Lead 内容任务必须用 content 角色
 
+  - id: lead_dev_role_override
+    file: butler/prompts/lingwen_lead_system.md
+    must_contain:
+      - "role=dev"
+      - "禁止 content"
+    description: Lead 用户显式 dev 时覆盖 docs→content 默认
+
   - id: plan_mode_facts
     file: butler/prompts/butler_plan_mode.md
     must_contain:

@@ -128,6 +128,24 @@ def test_write_existing_requires_read(tmp_path, monkeypatch):
     assert data["code"] == "READ_STATE_REQUIRED"
 
 
+@pytest.mark.unit
+def test_delegate_child_inherits_parent_read_state(tmp_path, monkeypatch):
+    monkeypatch.setenv("BUTLER_READ_BEFORE_EDIT", "1")
+    f = tmp_path / "d.txt"
+    f.write_text("old", encoding="utf-8")
+    parent = "wechat:owner:proj"
+    child = f"{parent}::delegate::task_abc"
+    reset_read_state(parent)
+    reset_read_state(child)
+    st = f.stat()
+    record_read_state(f, st, f.read_bytes(), session_key=parent)
+    with use_execution_context(_orchestrator_for_workspace(tmp_path), session_key=child):
+        result = dispatch_tool("write_file", {"path": str(f), "content": "new"})
+    data = json.loads(result)
+    assert data.get("success") is True
+    assert f.read_text(encoding="utf-8") == "new"
+
+
 @pytest.mark.module_test
 def test_write_new_file_without_read(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_READ_BEFORE_EDIT", "1")

@@ -39,6 +39,8 @@ class AgentReport:
     tool_calls: int = 0
     tokens_used: int = 0
     elapsed_seconds: float = 0.0
+    task_created_at: str = ""
+    task_completed_at: str = ""
     failed_steps: list[str] = field(default_factory=list)
     step_outcomes: dict[str, str] = field(default_factory=dict)
     structured_output: dict[str, Any] = field(default_factory=dict)
@@ -61,6 +63,8 @@ class AgentReport:
             "tool_calls": self.tool_calls,
             "tokens_used": self.tokens_used,
             "elapsed_seconds": self.elapsed_seconds,
+            "task_created_at": self.task_created_at,
+            "task_completed_at": self.task_completed_at,
             "failed_steps": list(self.failed_steps),
             "step_outcomes": dict(self.step_outcomes),
             "structured_output": dict(self.structured_output),
@@ -94,6 +98,12 @@ class AgentReport:
             task_preview=str(raw.get("task_preview", "") or ""),
             task_id=str(raw.get("task_id", "") or ""),
             child_session_key=str(raw.get("child_session_key", "") or ""),
+            iterations=int(raw.get("iterations") or 0),
+            tool_calls=int(raw.get("tool_calls") or 0),
+            tokens_used=int(raw.get("tokens_used") or 0),
+            elapsed_seconds=float(raw.get("elapsed_seconds") or 0.0),
+            task_created_at=str(raw.get("task_created_at", "") or ""),
+            task_completed_at=str(raw.get("task_completed_at", "") or ""),
             failed_steps=[str(x) for x in (raw.get("failed_steps") or [])],
             step_outcomes={
                 str(k): str(v)
@@ -459,9 +469,59 @@ def format_for_cli(report: AgentReport) -> str:
     return "\n".join(parts)
 
 
+def attach_delegate_task_times(report: AgentReport, task_id: str = "") -> AgentReport:
+    """Fill created/completed ISO timestamps from runtime task store for WeChat push."""
+    tid = str(task_id or report.task_id or "").strip()
+    if not tid:
+        return report
+    try:
+        from datetime import datetime, timezone
+        from butler.runtime.task_store import get_task
+
+        rec = get_task(tid)
+        if rec:
+            report.task_created_at = str(rec.get("created_at") or "")
+            report.task_completed_at = str(rec.get("updated_at") or "")
+        if not report.task_completed_at:
+            report.task_completed_at = datetime.now(timezone.utc).isoformat()
+    except Exception as exc:
+        logger.debug("attach delegate task times skipped: %s", exc)
+    return report
+
+
+def _format_task_time(iso: str) -> str:
+    """Compact local time for WeChat delegate push (Asia/Shanghai)."""
+    from datetime import datetime, timezone
+
+    raw = str(iso or "").strip()
+    if not raw:
+        return ""
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        try:
+            from zoneinfo import ZoneInfo
+
+            dt = dt.astimezone(ZoneInfo("Asia/Shanghai"))
+        except Exception:
+            pass
+        return dt.strftime("%m-%d %H:%M")
+    except ValueError:
+        return raw[:16]
+
+
 def format_for_wechat(report: AgentReport) -> str:
     """Compact WeChat format with drilldown hint."""
     parts: list[str] = [report.headline]
+
+    time_bits: list[str] = []
+    if report.task_created_at:
+        time_bits.append(f"提交 {_format_task_time(report.task_created_at)}")
+    if report.task_completed_at:
+        time_bits.append(f"完成 {_format_task_time(report.task_completed_at)}")
+    if time_bits:
+        parts.append("⏱ " + " · ".join(time_bits))
 
     if not report.success:
         parts[0] = report.headline or "任务未完成"
@@ -661,6 +721,7 @@ def clear_report_cache(session_key: str = "") -> None:
 __all__ = [
     "AgentReport",
     "Change",
+    "attach_delegate_task_times",
     "build_schema_repair_prompt",
     "enrich_report_decisions",
     "maybe_repair_structured_output",

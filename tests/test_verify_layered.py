@@ -250,3 +250,27 @@ class TestVerifyLayered:
                 result = verify_layered(tmp_path, levels="lint,test")
         assert result.status == VerifyStatus.PASS
         assert "lint,test" in result.command
+
+
+@pytest.mark.unit
+class TestSelectAutoVerifyLevels:
+    def test_docs_markdown_only_uses_edit_scoped_lint(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", "lint,typecheck,test")
+        from butler.dev_engine.verify import select_auto_verify_levels
+
+        levels = select_auto_verify_levels(["docs/dev-flywheel-2026-06-23.md"])
+        assert levels == "lint"
+
+    def test_source_edit_uses_full_auto_levels(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", "lint,typecheck,test")
+        from butler.dev_engine.verify import select_auto_verify_levels
+
+        levels = select_auto_verify_levels(["butler/main.py"])
+        assert levels == "lint,typecheck,test"
+
+    def test_is_docs_markdown_only_edit(self):
+        from butler.dev_engine.verify import is_docs_markdown_only_edit
+
+        assert is_docs_markdown_only_edit(["docs/a.md"])
+        assert not is_docs_markdown_only_edit(["butler/a.py"])
+        assert not is_docs_markdown_only_edit(["novel-factory/x.md"])
