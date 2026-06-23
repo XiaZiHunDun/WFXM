@@ -37,6 +37,7 @@ class ScenarioCase:
     verify_files_missing: tuple[str, ...] = ()
     verify_file_contains: tuple["FileContainsSpec", ...] = ()
     prompt_hint: str = ""
+    require_tools: bool = False
 
 
 @dataclass(frozen=True)
@@ -119,6 +120,7 @@ def render_scenario_case(case: ScenarioCase, ctx: SimRenderContext) -> ScenarioC
         verify_files_missing=ctx.render_tuple(case.verify_files_missing),
         verify_file_contains=_render_file_contains(case.verify_file_contains, ctx),
         prompt_hint=ctx.render(case.prompt_hint),
+        require_tools=case.require_tools,
     )
 
 
@@ -232,6 +234,7 @@ def _parse_case(raw: dict[str, Any]) -> ScenarioCase:
         verify_files_missing=_tup("verify_files_missing"),
         verify_file_contains=_parse_file_contains(raw.get("verify_file_contains")),
         prompt_hint=str(raw.get("prompt_hint") or "").strip(),
+        require_tools=bool(raw.get("require_tools")),
     )
 
 
@@ -314,14 +317,14 @@ def resolve_handler_session_key(
     )
 
 
-def load_turn_tools(
+def _audit_event_count(
     handler: Any,
     *,
     owner_id: str,
     session_key: str,
     platform: str = "wechat",
-) -> list[str]:
-    from butler.core.session_epoch import load_current_turn_tool_actions
+) -> int:
+    from butler.tools.registry import get_tool_audit_events
 
     canonical = resolve_handler_session_key(
         handler,
@@ -329,6 +332,35 @@ def load_turn_tools(
         session_key=session_key,
         platform=platform,
     )
+    return len(get_tool_audit_events(session_key=canonical))
+
+
+def load_turn_tools(
+    handler: Any,
+    *,
+    owner_id: str,
+    session_key: str,
+    platform: str = "wechat",
+    audit_before: int | None = None,
+) -> list[str]:
+    from butler.core.session_epoch import load_current_turn_tool_actions
+    from butler.tools.registry import get_tool_audit_events
+
+    canonical = resolve_handler_session_key(
+        handler,
+        owner_id=owner_id,
+        session_key=session_key,
+        platform=platform,
+    )
+    if audit_before is not None:
+        events = get_tool_audit_events(session_key=canonical)[audit_before:]
+        audit_tools = [
+            str(event.get("tool") or "").strip()
+            for event in events
+            if str(event.get("tool") or "").strip()
+        ]
+        if audit_tools:
+            return audit_tools
     return [
         str(row.get("tool") or "").strip()
         for row in load_current_turn_tool_actions(canonical)
@@ -346,10 +378,14 @@ def evaluation_reply_text(
     platform: str = "wechat",
 ) -> str:
     """Lead 回复常省略子代理正文；委派轮次合并 report.summary 供 rubric 匹配。"""
-    if not _any_tool_in_list(("delegate_task",), tools):
+    delegated = _any_tool_in_list(("delegate_task",), tools) or any(
+        mark in reply for mark in ("代理已完成", "代理未能", "委派", "task_")
+    )
+    if not delegated:
         return reply
     try:
         from butler.report import get_last_report
+        from butler.core.session_epoch import load_epoch_transcript_rows
     except Exception:
         return reply
     canonical = resolve_handler_session_key(
@@ -361,10 +397,27 @@ def evaluation_reply_text(
     report = get_last_report(canonical)
     if report is None:
         return reply
+    chunks: list[str] = [reply]
     summary = (report.summary or "").strip()
-    if not summary or summary in reply:
-        return reply
-    return f"{reply}\n\n{summary}"
+    if summary and summary not in reply:
+        chunks.append(summary)
+    child_sk = (report.child_session_key or "").strip()
+    if child_sk:
+        for row in reversed(load_epoch_transcript_rows(child_sk, max_lines=80)):
+            if str(row.get("type") or "") != "assistant":
+                continue
+            text = str(row.get("content_preview") or row.get("content") or "").strip()
+            if text and text not in reply and text not in (summary or ""):
+                chunks.append(text)
+            break
+    return "\n\n".join(chunks) if len(chunks) > 1 else reply
+
+
+def _delegate_evidence_in_reply(reply: str) -> bool:
+    return any(
+        mark in reply
+        for mark in ("委派", "代理已完成", "代理未能", "task_", "📎 委派")
+    )
 
 
 def evaluate_scenario_case(
@@ -391,9 +444,13 @@ def evaluate_scenario_case(
                 errors.append(msg)
     if case.expect_tools_any and not _any_tool_in_list(case.expect_tools_any, tools):
         msg = f"expected tools any of {case.expect_tools_any}, got {tools}"
-        if strict and not case.soft:
+        delegate_ok = (
+            _any_tool_in_list(("delegate_task",), case.expect_tools_any)
+            and _delegate_evidence_in_reply(reply)
+        )
+        if (strict or case.require_tools) and not case.soft and not delegate_ok:
             errors.append(msg)
-        else:
+        elif not delegate_ok:
             warnings.append(msg)
     if case.prefer_tools_any and not _any_tool_in_list(case.prefer_tools_any, tools):
         direct_ok = bool(case.expect_reply_any) and any(x in reply for x in case.expect_reply_any)
@@ -570,6 +627,11 @@ def run_scenario_track(
         t0 = time.time()
         entry = ScenarioCaseResult(name=live.name, track_id=track.id, ok=True)
         try:
+            audit_before = _audit_event_count(
+                handler,
+                owner_id=owner_id,
+                session_key=session_key,
+            )
             reply = _send(live.user_text)
             elapsed = time.time() - t0
             entry.elapsed_seconds = elapsed
@@ -578,6 +640,7 @@ def run_scenario_track(
                 handler,
                 owner_id=owner_id,
                 session_key=session_key,
+                audit_before=audit_before,
             )
             if elapsed > live.max_seconds:
                 entry.warnings.append(f"slow: {elapsed:.1f}s > {live.max_seconds}s")

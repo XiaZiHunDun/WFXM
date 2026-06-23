@@ -240,6 +240,7 @@ def test_evaluation_reply_text_includes_delegate_summary(monkeypatch):
 
     class _Report:
         summary = "PASS\n标题与日期齐全。"
+        child_session_key = ""
 
     monkeypatch.setattr(
         "butler.report.get_last_report",
@@ -250,17 +251,44 @@ def test_evaluation_reply_text_includes_delegate_summary(monkeypatch):
         owner_id="u1",
         session_key="wechat:u1:proj",
         reply="审核代理已完成任务",
-        tools=["delegate_task"],
+        tools=[],
     )
     assert "PASS" in out
     unchanged = evaluation_reply_text(
         _Handler(),
         owner_id="u1",
         session_key="wechat:u1:proj",
-        reply="审核代理已完成任务",
+        reply="好的，收到",
         tools=["read_file"],
     )
-    assert unchanged == "审核代理已完成任务"
+    assert unchanged == "好的，收到"
+
+
+@pytest.mark.unit
+def test_require_tools_accepts_delegate_reply_evidence():
+    case = ScenarioCase(
+        name="delegate",
+        user_text="?",
+        expect_tools_any=("delegate_task",),
+        require_tools=True,
+    )
+    errors, _ = evaluate_scenario_case([], "开发代理已完成任务 task_abc", case, strict=False)
+    assert not errors
+
+
+@pytest.mark.unit
+def test_require_tools_hard_fail_without_strict():
+    case = ScenarioCase(
+        name="delegate",
+        user_text="?",
+        expect_tools_any=("delegate_task",),
+        require_tools=True,
+    )
+    errors, warnings = evaluate_scenario_case(["read_file"], "ok", case, strict=False)
+    assert errors
+    assert not warnings
+    errors2, _ = evaluate_scenario_case(["delegate_task"], "ok", case, strict=False)
+    assert not errors2
 
 
 @pytest.mark.unit

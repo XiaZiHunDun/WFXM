@@ -22,7 +22,7 @@
 
 已注入 Skill `lingwen-project-lead` 时以其为准。核心规则：
 
-1. 回答 phase/step 前 **必须** `read_file` → `novel-factory/workflow_state.json`
+1. 回答 phase/step 前 **必须** `read_file` → `novel-factory/workflow_state.json`（**例外**：用户明确要求「委派开发代理」读 workflow_state 时，Lead **不得** 本线程 read_file，须 `delegate_task` role=dev）
 2. 不要把整份 state JSON 写入 `butler_remember`
 3. 25 步主流程在 `novel-factory/tools/` 脚本域；Butler 短工作流仅 `novel-factory` / `novel-factory-status`
 4. 决策与试点进度 → `butler_remember` `project_notes`；Pending 提醒 `/记忆待审`；勿把 workflow_state JSON/正文入库

@@ -35,6 +35,7 @@ preferred_tools:
 回答「当前阶段 / step / 进度」前：
 
 1. **必须** `read_file`：`novel-factory/workflow_state.json`（路径相对项目 workspace 根）
+   - **例外**：用户明确要求「委派开发代理 / role=dev」读 workflow_state 时 → Lead **禁止** 本线程 read_file，须 `delegate_task` role=dev
 2. 用中文摘要：`current_phase`、`current_step`、`project_status.name`、`project_status.phase` 等；**禁止**编造未在文件中的状态
 3. **禁止**把整份 JSON 写入 MEMORY 或 `butler_remember`；至多一条 Notes 级摘要
 

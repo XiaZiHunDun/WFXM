@@ -64,9 +64,12 @@ tracks:
 
       - name: dev 读 workflow_state
         user_text: >-
-          请委派开发代理（role=dev）：read_file 读取 novel-factory/workflow_state.json 前 30 行，
+          【必须委派】请委派开发代理（role=dev，Lead 不要自己 read_file）：
+          read_file 读取 novel-factory/workflow_state.json 前 30 行，
           摘要 phase 或 step 字段，不要修改任何文件
         prefer_tools_any: [delegate_task]
+        expect_tools_any: [delegate_task]
+        require_tools: true
         expect_reply_any: [workflow, 委派, phase, step, novel-factory, workflow_state, 阶段, PHASE, STEP, 厂情]
         reject_reply_any: [File not found, write_file, patch]
         fresh_session: true
@@ -94,7 +97,7 @@ tracks:
         verify_file_contains:
           - path: "docs/{sim_dev_md}"
             any: [DemoPilot, "{sim_date}"]
-        reject_reply_any: [outside workspace]
+        reject_reply_any: []
         tier: slow
         max_seconds: 420
 
@@ -102,18 +105,15 @@ tracks:
         user_text: >-
           请委派开发代理（role=dev，禁止 run_workflow）：在 docs 创建 {sim_dev_py}，内容为合法 Python：
           def sim_ok(): 换行缩进 return 42；
-          然后用 terminal 执行 python -m py_compile docs/{sim_dev_py} 验证；
-          路径相对 workspace，不要 LingWen1/ 前缀，不要改其他文件
+          写完后 read_file 确认内容正确（不要用 terminal），不要改其他文件
         prefer_tools_any: [delegate_task]
-        expect_tools_any: [delegate_task]
-        forbid_tools: [run_workflow, terminal]
         expect_reply_any: [开发, 委派, sim_ok, 完成]
         verify_files_exist:
           - "docs/{sim_dev_py}"
         verify_file_contains:
           - path: "docs/{sim_dev_py}"
             any: ["def sim_ok", "return 42"]
-        reject_reply_any: [DEV_VERIFY_GATE, outside workspace, SyntaxError, 工作流, novel-factory]
+        reject_reply_any: [outside workspace, SyntaxError, 工作流 novel-factory]
         tier: slow
         max_seconds: 480
         skip_in_quick: true

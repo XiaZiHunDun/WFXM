@@ -12,5 +12,9 @@
 #
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Sub-agent py_compile / verify needs terminal in handler sim (Lead forbid_tools still blocks Lead shell).
+export BUTLER_ENABLE_TERMINAL="${BUTLER_ENABLE_TERMINAL:-1}"
+export BUTLER_TERMINAL_PROFILE="${BUTLER_TERMINAL_PROFILE:-dev}"
+export BUTLER_TERMINAL_ALLOWLIST_EXTRA="${BUTLER_TERMINAL_ALLOWLIST_EXTRA:-python,python3}"
 exec bash "$ROOT/scripts/butler-wechat-owner-sim.sh" \
   --manifest wechat-dev-delegate-scenarios.yaml "$@"

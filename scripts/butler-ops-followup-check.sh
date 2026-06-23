@@ -65,6 +65,7 @@ _run_warn_ok "Extension WeChat sim (handler)" bash "$ROOT/scripts/butler-extensi
 _run_warn_ok "WeChat core sim (handler)" bash "$ROOT/scripts/butler-wechat-core-sim.sh"
 _run_warn_ok "WeChat owner sim (manifest)" bash "$ROOT/scripts/butler-wechat-owner-sim.sh" --quick
 _run_warn_ok "WeChat dev delegate sim" bash "$ROOT/scripts/butler-wechat-dev-delegate-sim.sh" --quick
+_run_warn_ok "Dev delegate experience probe" bash "$ROOT/scripts/butler-dev-delegate-experience-probe.sh"
 _run "Network search route policy" bash "$ROOT/scripts/butler-web-search-route-sim.sh"
 _run_warn_ok "Network search route handler" bash "$ROOT/scripts/butler-web-search-route-sim.sh" --handler
 
