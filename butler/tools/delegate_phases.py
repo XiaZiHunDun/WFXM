@@ -985,6 +985,22 @@ def _attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any])
                     getattr(ds, "_coding_knowledge_reactivation_count", 0) or 0
                 ),
             )
+            try:
+                from butler.ops.g1_04_prod_evidence import record_g1_04_production_evidence
+
+                record_g1_04_production_evidence(
+                    role=state.role,
+                    project=delegate_project_id(state.project),
+                    success=bool(ds.verify_result.passed),
+                    verify_passed=bool(ds.verify_result.passed),
+                    task_id=state.task_id,
+                    task_preview=state.task or "",
+                    capture_source="delegate_pipeline",
+                    category=state.category,
+                    category_meta=state.category_meta,
+                )
+            except Exception:
+                pass
         except Exception:
             pass
     except Exception as exc:  # noqa: BLE001 — best-effort summary

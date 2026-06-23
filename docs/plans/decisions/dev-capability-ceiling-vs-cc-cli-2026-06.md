@@ -105,6 +105,22 @@ bash scripts/butler-wechat-lead-readonly-sim.sh --quick  # Lead 厂情禁 delega
 
 `prod_playbook_seeds` 注入 `build_production_delegate_blocks`；`/测试` 与 VERIFY 共用 `project_dev_subprocess_env()`。
 
+**P3 CC 桥接（暂缓）**：见 [`dev-cc-bridge-optional-2026-06.md`](dev-cc-bridge-optional-2026-06.md) — 不立项；重任务仍走委派飞轮。
+
+**G1-04 生产证据（2026-06-23）**：
+
+- 真机 dev 委派成功/失败 → `eval_feedback` trigger `prod_delegate_verify_pass` / `prod_delegate_failure`（`BUTLER_EVAL_PROD_EVIDENCE=1`）
+- 核对：`bash scripts/butler-dev-prod-evidence-checklist.sh`
+
+```bash
+# 网关推荐 .env（真机 terminal dev）
+BUTLER_DEV_ENGINE=1
+BUTLER_ENABLE_TERMINAL=1
+BUTLER_TERMINAL_PROFILE=dev
+BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES=1
+BUTLER_EVAL_PROD_EVIDENCE=1
+```
+
 ## 5. Agent 引用规则
 
 - 讨论 **Dev 能力上限** → 引用 **本文**，勿用「Cursor 级」作默认参照。
@@ -120,3 +136,4 @@ bash scripts/butler-wechat-lead-readonly-sim.sh --quick  # Lead 厂情禁 delega
 | 2026-06-23 | P1：`verify_test`/`verify_lint` 接入 `project.yaml` dev 命令 |
 | 2026-06-23 | P1 飞轮：`butler-dev-live-flywheel-checklist.sh` + LingWen dev 路径修正 + `verify_build` |
 | 2026-06-23 | P2：`prod_playbook_seeds` + Lead 只读 sim + gateway `/测试` env 对齐 |
+| 2026-06-23 | P3 一页纸 + G1-04 `prod_delegate_*` 生产证据接线 |

@@ -51,6 +51,11 @@ def _append_audit(record: dict[str, Any]) -> None:
         fh.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+def append_eval_feedback(record: dict[str, Any]) -> None:
+    """Public append for production/G1-04 evidence rows."""
+    _append_audit(record)
+
+
 def _should_run() -> bool:
     path = _state_path()
     if not path.is_file():
@@ -228,4 +233,4 @@ def apply_hard_feedback(report: FeedbackReport | None = None) -> dict[str, Any]:
     return summary
 
 
-__all__ = ["apply_hard_feedback", "hard_feedback_enabled", "maybe_apply_b9_live_rescue"]
+__all__ = ["append_eval_feedback", "apply_hard_feedback", "hard_feedback_enabled", "maybe_apply_b9_live_rescue"]

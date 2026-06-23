@@ -67,6 +67,7 @@ _run_warn_ok "WeChat owner sim (manifest)" bash "$ROOT/scripts/butler-wechat-own
 _run_warn_ok "WeChat dev delegate sim" bash "$ROOT/scripts/butler-wechat-dev-delegate-sim.sh" --quick
 _run_warn_ok "Dev delegate experience probe" bash "$ROOT/scripts/butler-dev-delegate-experience-probe.sh"
 _run_warn_ok "Dev live flywheel checklist" bash "$ROOT/scripts/butler-dev-live-flywheel-checklist.sh"
+_run_warn_ok "Dev prod evidence · G1-04" bash "$ROOT/scripts/butler-dev-prod-evidence-checklist.sh"
 _run_warn_ok "WeChat lead readonly sim" bash "$ROOT/scripts/butler-wechat-lead-readonly-sim.sh" --quick
 _run_warn_ok "Prod playbook seed (dry-run)" bash "$ROOT/scripts/butler-prod-playbook-seed.sh"
 _run "Network search route policy" bash "$ROOT/scripts/butler-web-search-route-sim.sh"

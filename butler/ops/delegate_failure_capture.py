@@ -229,6 +229,22 @@ def capture_delegate_failure(
         logger.debug("production failure experience followup skipped: %s", exc)
 
     try:
+        from butler.ops.g1_04_prod_evidence import record_g1_04_production_evidence
+
+        summary["g1_04_evidence"] = record_g1_04_production_evidence(
+            role=role,
+            project=project,
+            success=success,
+            verify_passed=None if dev_engine is None else dev_engine.get("verify_passed"),
+            task_id=task_id,
+            task_preview=audit_rec.get("task_preview", ""),
+            failure_reason=summary["failure_reason"],
+            capture_source=capture_source or "delegate_pipeline",
+        )
+    except Exception as exc:
+        logger.debug("G1-04 production evidence skipped: %s", exc)
+
+    try:
         from butler.ops.eval_bridge import EvalScore, create_dataset, push_dataset_item, push_score
 
         create_dataset(

@@ -644,6 +644,7 @@ CLI：`butler memory merge-pending` 列出待审；`--apply KEY` / `--dismiss KE
 | `BUTLER_PROJECT_NAME` | `butler-v4` | LangFuse 默认项目名（多项目见 [`langfuse-multi-project.md`](../guides/langfuse-multi-project.md)） |
 | `BUTLER_EVAL_HARD_FEEDBACK` | `1` | `1` = 启用评估硬反馈（记忆半衰期调参、经验降权）；`0` 仅软反馈注入 |
 | `BUTLER_EVAL_HARD_FEEDBACK_HOURS` | `1` | 硬反馈最小执行间隔（小时） |
+| `BUTLER_EVAL_PROD_EVIDENCE` | `1` | `1` = 真机 dev 委派成功/失败写入 `eval_feedback`（trigger `prod_delegate_*`，供 G1-04 生产证据）；`0` = 关闭 |
 | `BUTLER_EVAL_DEV_PASS_RATE_MIN` | `0.85` | 发版回归门 DevEngine（B1–B8）通过率下限 |
 | `BUTLER_EVAL_MEM_PASS_RATE_MIN` | `0.7` | 发版回归门 Memory（MB1–MB7）通过率下限 |
 | `BUTLER_EVAL_B9_IN_REGRESSION` | `1` | `0` = 发版回归门跳过 B9 oracle |
