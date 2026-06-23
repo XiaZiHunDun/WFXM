@@ -1,0 +1,42 @@
+# Lead 只读厂情 — 压降 workflow 类任务的 delegate_task 越权
+# 运行: bash scripts/butler-wechat-lead-readonly-sim.sh [--quick]
+# 产物: 无（只读断言，不写 sim 文件）
+
+title: WeChat Lead Readonly Scenario Sim
+version: "2026-06-23"
+default_project: 灵文1号
+verify_phrases:
+  - "bash scripts/butler-wechat-lead-readonly-sim.sh --quick"
+
+tracks:
+  - id: lingwen-lead
+    title: 灵文 Lead — 只读厂情禁委派
+    session_mode: fresh
+    quick: true
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: Lead read_file 厂情（禁 delegate）
+        user_text: >-
+          当前灵文1号 novel-factory 流水线到什么阶段了？请你自己 read_file
+          novel-factory/workflow_state.json 后给 phase/step 中文摘要。
+          不要委派子代理，不要改任何文件。
+        forbid_tools: [delegate_task]
+        expect_tools_any: [read_file]
+        expect_reply_any: [phase, step, 阶段, PHASE, STEP, workflow, 厂, 完成, COMPLETE]
+        reject_reply_any: [已委派, 已派, delegate_task]
+        tier: standard
+        max_seconds: 240
+        fresh_session: true
+
+      - name: Lead run_workflow 只读状态（禁 delegate）
+        user_text: >-
+          用 run_workflow 只读汇报 novel-factory-status（或等价只读工作流），
+          不要 delegate_task，不要 write_file/patch。
+        forbid_tools: [delegate_task, write_file, patch]
+        expect_tools_any: [run_workflow, read_file]
+        expect_reply_any: [workflow, phase, step, 阶段, 流水线, 状态]
+        reject_reply_any: [已委派开发, delegate_task]
+        tier: slow
+        max_seconds: 360
+        skip_in_quick: true

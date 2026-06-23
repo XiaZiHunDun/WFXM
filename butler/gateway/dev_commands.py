@@ -263,7 +263,7 @@ def format_test_for_wechat(arg: str = "") -> str:
 
 
 def _run_project_command(ws: Path, cmd: str, *, label: str = "命令") -> str:
-    from butler.tools.path_safety import safe_subprocess_env
+    from butler.dev_engine.project_dev_env import project_dev_subprocess_env
 
     argv = cmd.split()
     start = time.time()
@@ -274,7 +274,7 @@ def _run_project_command(ws: Path, cmd: str, *, label: str = "命令") -> str:
             capture_output=True,
             text=True,
             timeout=120,
-            env={**safe_subprocess_env(), "PYTHONPATH": str(_repo_root())},
+            env=project_dev_subprocess_env(),
         )
     except subprocess.TimeoutExpired:
         return f"⏰ {label}超时 (>120s)"

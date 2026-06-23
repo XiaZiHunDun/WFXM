@@ -24,8 +24,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_VERIFY_TIMEOUT = int_env("BUTLER_DEV_VERIFY_TIMEOUT", 300)
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
+def _project_dev_env() -> dict[str, str]:
+    from butler.dev_engine.project_dev_env import project_dev_subprocess_env
+
+    return project_dev_subprocess_env()
 
 
 def _load_project_dev_config(workspace: Path) -> dict[str, Any]:
@@ -47,13 +49,6 @@ def _argv_from_dev_command(cmd: str, extra_args: list[str] | None = None) -> lis
     if extra_args:
         argv.extend(extra_args)
     return argv
-
-
-def _project_dev_env() -> dict[str, str]:
-    """Env for project.yaml dev commands — inherit Butler process env + repo PYTHONPATH."""
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(_repo_root())
-    return env
 
 
 def _run_command(

@@ -185,6 +185,13 @@ def build_production_delegate_blocks(
     blob = f"{task}\n{context}"
 
     try:
+        from butler.dev_engine.prod_playbook_seeds import build_prod_playbook_blocks
+
+        blocks.extend(build_prod_playbook_blocks(task, context))
+    except Exception:
+        pass
+
+    try:
         from butler.ops.lingwen1_prod_sample import LINGWEN_PROD_SAMPLE_PLAYBOOKS
 
         for sample_id, playbook in LINGWEN_PROD_SAMPLE_PLAYBOOKS.items():
