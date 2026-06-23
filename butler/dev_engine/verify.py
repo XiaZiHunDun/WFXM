@@ -50,9 +50,10 @@ def _argv_from_dev_command(cmd: str, extra_args: list[str] | None = None) -> lis
 
 
 def _project_dev_env() -> dict[str, str]:
-    from butler.tools.path_safety import safe_subprocess_env
-
-    return {**safe_subprocess_env(), "PYTHONPATH": str(_repo_root())}
+    """Env for project.yaml dev commands — inherit Butler process env + repo PYTHONPATH."""
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(_repo_root())
+    return env
 
 
 def _run_command(
@@ -235,6 +236,13 @@ def verify_build(
     """V5: Build verification."""
     if timeout is None:
         timeout = DEFAULT_VERIFY_TIMEOUT
+
+    dev = _load_project_dev_config(workspace)
+    build_cmd = str(dev.get("build_command") or "").strip()
+    if build_cmd:
+        return _run_project_dev_command(
+            workspace, build_cmd, timeout=timeout, source="project-build",
+        )
 
     if (workspace / "Makefile").exists():
         return _run_command(["make", "-q"], workspace, timeout, "make")

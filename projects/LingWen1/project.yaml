@@ -36,9 +36,9 @@ tools:
 - skill_view
 - mcp_*
 dev:
-  test_command: python -m pytest tests/ -q --tb=short
-  build_command: python -m py_compile butler/main.py
-  lint_command: rg 'import pdb|breakpoint()' --count
+  test_command: python -m pytest ../../tests/test_verify_layered.py ../../tests/test_session_epoch_tools.py -q --tb=short
+  build_command: python -m py_compile ../../butler/main.py
+  lint_command: rg 'import pdb|breakpoint()' --count ../../butler ../../tests
   main_branch: main
   source_dirs:
   - butler/

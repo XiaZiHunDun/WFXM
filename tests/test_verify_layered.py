@@ -196,6 +196,19 @@ class TestVerifyBuild:
         cmd = mock_run.call_args[0][0]
         assert "py_compile" in " ".join(cmd)
 
+    def test_uses_project_build_command(self, tmp_path: Path):
+        (tmp_path / "project.yaml").write_text('dev:\n  build_command: "true"\n')
+        result = verify_build(tmp_path)
+        assert result.status == VerifyStatus.PASS
+        assert result.command == "true"
+
+    def test_project_build_takes_priority_over_makefile(self, tmp_path: Path):
+        (tmp_path / "project.yaml").write_text('dev:\n  build_command: "true"\n')
+        (tmp_path / "Makefile").write_text("all:\n\techo ok\n")
+        with patch("butler.dev_engine.verify._run_command", return_value=VerifyResult(status=VerifyStatus.PASS)) as mock_run:
+            verify_build(tmp_path)
+        assert mock_run.call_args[0][0] == ["true"]
+
 
 @pytest.mark.unit
 class TestVerifyLayered:
