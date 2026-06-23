@@ -23,6 +23,7 @@
 | **报告写「未做」但可能已有** | 本文 **§2** + §4 速查 |
 | **真要排期新功能** | 本文 **§3** |
 | **查已落地能力** | 本文 **§4** |
+| **Dev 能力上限 / 对标 CC CLI** | [`dev-capability-ceiling-vs-cc-cli-2026-06.md`](dev-capability-ceiling-vs-cc-cli-2026-06.md) |
 | **四报告 18 项详情** | [`four-reports-out-of-scope-2026-05.md`](../decisions/four-reports-out-of-scope-2026-05.md) |
 | **五报告 S1–S11 原文** | [`five-reports-improvement-roadmap-2026-05.md`](../roadmaps/five-reports-improvement-roadmap-2026-05.md) §6 |
 
@@ -119,7 +120,17 @@
 | OpenCode 对照 P2/P3 | SQLite 全量、LSP、Share URL | **暂缓/不做**；见 [`opencode-butler-comparison-report-2026-05.md`](../comparisons/opencode-butler-comparison-report-2026-05.md) |
 | OpenCode learning plan | SQLite 全量模型 | **仍暂缓** |
 
-### 2.4 依赖分层 / 本地状态（外部依赖策略）
+### 2.4 Dev 能力（勿报「达不到 Cursor」）
+
+| 常见误判 | 实际 |
+|----------|------|
+| 「Dev 要对标 Cursor IDE Agent」 | **不对标**；IDE 层（LSP、内联 diff）非 Butler 形态 |
+| 「Dev 达不到顶级 coding agent」 | 应对标 **Claude Code CLI**；Loop 层 CC 线束已收口 |
+| 「必须无限制 shell 才算 dev」 | **产品否决**；见 dev profile 白名单 + 委派 |
+
+**SSOT**：[`dev-capability-ceiling-vs-cc-cli-2026-06.md`](../decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md)
+
+### 2.5 依赖分层 / 本地状态（外部依赖策略）
 
 | 常见误判 | Butler 现行策略 |
 |----------|-----------------|

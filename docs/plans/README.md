@@ -23,6 +23,7 @@
 | [`decisions/roadmap-backlog-and-boundaries-2026-05.md`](decisions/roadmap-backlog-and-boundaries-2026-05.md) | 否决、深化边界、可选 Backlog |
 | [`active/extension-rd-loop-2026-06.md`](active/extension-rd-loop-2026-06.md) | 开源/MCP 选型与接入闭环（EXT-1–3 试点） |
 | [`decisions/theory-implementation-gap-register-2026-06.md`](decisions/theory-implementation-gap-register-2026-06.md) | 理论—实现差距登记册（G1–G4） |
+| [`decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md`](decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md) | Dev 能力上限：对标 CC CLI（非 Cursor） |
 | [`decisions/four-reports-out-of-scope-2026-05.md`](decisions/four-reports-out-of-scope-2026-05.md) | 四报告 18 项否决 |
 | [`decisions/five-reports-not-done-2026-05.md`](decisions/five-reports-not-done-2026-05.md) | 五报告 S1–S11 速查 |
 
