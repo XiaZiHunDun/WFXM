@@ -37,7 +37,7 @@
 2. **顶层** gateway turn（`depth=0`），且有 outbound bridge（微信长连接）
 3. 类别未显式 `background: false`
 
-内置 [`butler/delegate_categories.yaml`](../../butler/delegate_categories.yaml)：
+内置 [`butler/delegate/delegate_categories.yaml`](../../butler/delegate/delegate_categories.yaml)：
 
 | 类别 | `background` | 含义 |
 |------|--------------|------|

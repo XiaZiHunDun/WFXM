@@ -24,5 +24,5 @@
 ## 待后续（阶段 2+）
 
 - ~~Gateway 命令单轨（`gateway/` 根 → `gateway/commands/`）~~ **2026-06-23 已完成**（handlers 迁入 `commands/*_handlers.py`，删除根级 `*_commands.py`）
-- ~~`tests/` 域化（新测进子目录，旧 sprint 保留）~~ **2026-06-23 已完成**（gateway/ops/dev_engine + `butler-domain-pytest.sh` + CI `domain-gates`）
+- ~~`tests/` 域化（新测进子目录，旧 sprint 保留）~~ **2026-06-23 已完成**（gateway 547 passed；CI `domain-gates` 已推送 `3cdac40`）
 - ~~`dev-cc-head-to-head.md` 与 verify 状态同步~~ **2026-06-23 已完成**

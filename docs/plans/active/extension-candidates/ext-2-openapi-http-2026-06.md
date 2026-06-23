@@ -2,7 +2,7 @@
 
 > **状态**：Research ✅（2026-06-20）· Decide ✅（2026-06-19，试点 **Todoist**）· Integrate ✅（2026-06-20）· **Verify ✅**（2026-06-20 微信真机）  
 > **规程**：[`extension-rd-loop-2026-06.md`](../extension-rd-loop-2026-06.md)  
-> **对照**：[`dify-butler-comparison-2026-05.md`](../../comparisons/dify-butler-comparison-2026-05.md) §3.4 · [`butler-mcp-capability-2026-05.md`](../../../guides/butler-mcp-capability-2026-05.md)
+> **对照**：[`dify-butler-comparison-2026-05.md`](../../comparisons/dify-butler-comparison-2026-05.md) §3.4 · [`butler-mcp-capability-2026-05.md`](../../comparisons/butler-mcp-capability-2026-05.md)
 
 ---
 
@@ -338,4 +338,4 @@ TODOIST_API_TOKEN_NEW='粘贴新token' bash scripts/butler-todoist-token-rotate.
 | ivo-toby/openapi-mcp-server | https://github.com/ivo-toby/mcp-openapi-server |
 | rmasters/mcp-openapi | https://github.com/rmasters/mcp-openapi |
 | FastMCP OpenAPI | https://gofastmcp.com/integrations/openapi |
-| Butler MCP 能力 | [`butler-mcp-capability-2026-05.md`](../../../guides/butler-mcp-capability-2026-05.md) |
+| Butler MCP 能力 | [`butler-mcp-capability-2026-05.md`](../../comparisons/butler-mcp-capability-2026-05.md) |

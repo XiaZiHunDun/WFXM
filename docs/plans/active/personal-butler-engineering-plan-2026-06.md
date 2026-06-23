@@ -2,7 +2,7 @@
 
 > **状态**：✅ 已结案（Phase 0–4 + 真机补验 2026-06-15）  
 > **后续**：B9 运维提质 · 可选 Backlog（H2/MCP/晨间推送）见文末  
-> **边界**：[`roadmap-backlog-and-boundaries-2026-05.md`](decisions/roadmap-backlog-and-boundaries-2026-05.md)
+> **边界**：[`roadmap-backlog-and-boundaries-2026-05.md`](../decisions/roadmap-backlog-and-boundaries-2026-05.md)
 
 ## 目标
 

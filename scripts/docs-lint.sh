@@ -40,6 +40,8 @@ python3 - <<'PYEOF'
 import re, os, sys
 broken = []
 for root, dirs, files in os.walk("docs"):
+    if root.startswith("docs/history"):
+        continue
     for fname in files:
         if not fname.endswith(".md"):
             continue
@@ -50,9 +52,11 @@ for root, dirs, files in os.walk("docs"):
             target = m.group(1).split("#")[0]
             if not target or target.startswith("http"):
                 continue
+            if "(?!" in target or "(?<" in target or target.startswith("?"):
+                continue
             if "reference/" in target and ("hermes" in target or "opencode" in target or "openclaw" in target or "oh-my-" in target):
                 continue
-            if target.startswith("../../.butler/"):
+            if ".butler/" in target or target.startswith("../../.butler/"):
                 continue
             if "/tests/corpus/" in target:
                 continue

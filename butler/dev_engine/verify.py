@@ -265,7 +265,7 @@ def verify_layered(
     if timeout is None:
         timeout = DEFAULT_VERIFY_TIMEOUT
 
-    level_list = [l.strip() for l in levels.split(",") if l.strip()]
+    level_list = [lvl.strip() for lvl in levels.split(",") if lvl.strip()]
     dispatch = {
         "lint": lambda: verify_lint(workspace, files=files, timeout=min(60, timeout)),
         "typecheck": lambda: verify_typecheck(workspace, files=files, timeout=min(120, timeout)),

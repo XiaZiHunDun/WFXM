@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # Regenerate gateway catalog YAMLs and fail if git working tree differs.
+# reference/用户语料 is gitignored (主公维护); CI runners skip regen and trust committed YAML.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
+
+REF_CORPUS="reference/用户语料/1.md"
+if [[ ! -f "$REF_CORPUS" ]]; then
+  echo "SKIP: $REF_CORPUS not present (reference/ is local-only)"
+  echo "OK: corpus drift regen skipped on CI; committed catalog YAMLs are SSOT on runner"
+  exit 0
+fi
 
 echo "==> build_reference_strict_catalog.py"
 python3 scripts/build_reference_strict_catalog.py

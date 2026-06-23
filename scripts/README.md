@@ -96,6 +96,7 @@
 | 脚本 | 用途 |
 |------|------|
 | `butler-domain-pytest.sh` | 按域跑 pytest：`gateway` / `ops` / `dev_engine` / `memory` / `core` / `all` |
+| `ci-ruff-gate.sh` | CI 与 `project-health-check` 对齐的 Ruff 子集（`E,F`） |
 
 ## 微信 handler 模拟 / Dev 飞轮
 

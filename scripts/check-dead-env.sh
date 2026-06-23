@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# R8-6: flag BUTLER_* keys in reference.md with no string occurrence in butler/ (reader or default).
+# R8-6: flag BUTLER_* keys in reference.md with no string occurrence in butler/ or scripts/.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,7 +20,7 @@ while read -r env; do
   if echo "$env" | grep -qE "^($ALLOWLIST_EXACT)$"; then
     continue
   fi
-  if rg -qF "$env" butler/ 2>/dev/null; then
+  if rg -qF "$env" butler/ scripts/ 2>/dev/null; then
     continue
   fi
   echo "DEAD (no butler/ reader): $env"

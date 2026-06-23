@@ -8,4 +8,4 @@
 | `plans/` | 分步实施计划（P1-3 compaction diagnostics、audit-fix） |
 | `specs/` | 对应设计稿 |
 
-实现以 `butler/core/` + [`v4-architecture.md`](../../architecture/v4-architecture.md) 为准；勿从本文档推断当前模块路径。
+实现以 `butler/core/` + [`v4-architecture.md`](../../../architecture/v4-architecture.md) 为准；勿从本文档推断当前模块路径。

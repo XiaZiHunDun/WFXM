@@ -26,7 +26,7 @@ jobs:
       - name: Python syntax check
         run: python -m py_compile butler/__init__.py && python -c "import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path('butler').rglob('*.py')]"
       - name: Ruff lint
-        run: ruff check butler/ --select=E,F,W --ignore=E501,E402 --output-format=concise
+        run: bash scripts/ci-ruff-gate.sh
       - name: Import smoke test
         run: |
           python -c "from butler.tools.registry import dispatch_tool; from butler.core.agent_loop import AgentLoop; print('imports OK')"

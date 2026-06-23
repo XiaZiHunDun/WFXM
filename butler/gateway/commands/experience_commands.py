@@ -29,7 +29,6 @@ def _cmd_experience_mine(ctx: CommandContext) -> Optional[str]:
         approve_pending,
         format_pending_lines,
         format_pipeline_report,
-        load_pending,
         run_pipeline,
     )
 
