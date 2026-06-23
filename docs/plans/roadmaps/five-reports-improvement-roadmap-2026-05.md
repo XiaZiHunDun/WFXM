@@ -262,7 +262,7 @@ PYTHONPATH=. pytest tests/test_provider_health.py tests/test_sessions_cli.py \
 
 # 回归：四报告 + CC 线束（勿破坏已收口能力）
 PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sections.py \
-  tests/test_experiment_ledger.py tests/test_tool_result_storage.py tests/test_message_queue.py -q
+  tests/test_experiment_ledger.py tests/test_tool_result_storage.py tests/gateway/test_message_queue.py -q
 ```
 
 （`test_lobehub_p0_features.py` 等文件名在 PR 实现时创建，此处为预定守门。）

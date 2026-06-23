@@ -33,7 +33,7 @@ jobs:
         python3 -m pytest -q \
           tests/test_project_preflight.py \
           tests/test_project_archetypes.py \
-          tests/test_project_commands.py \
+          tests/gateway/test_project_commands.py \
           tests/test_project_lead.py \
           tests/test_owner_gate.py \
           --tb=line

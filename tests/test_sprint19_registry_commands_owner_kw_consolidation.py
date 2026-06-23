@@ -23,7 +23,7 @@ from unittest.mock import patch
 
 import pytest
 
-from butler.gateway.registry_commands import (
+from butler.gateway.commands.registry_handlers import (
     _handle_mcp,
     _handle_skills,
     handle_confirm_install_command,

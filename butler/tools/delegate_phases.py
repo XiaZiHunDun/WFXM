@@ -169,10 +169,16 @@ def _prepare_delegate_task(state: DelegateRunState) -> None:
     """Phase 1: enrich (role, task, context, category) and check depth."""
     from butler.tools.delegate_role_guard import (
         apply_user_role_override,
+        block_lead_readonly_delegate,
         user_explicit_delegate_role,
         _explicit_role_from_state,
         _turn_user_text,
     )
+
+    blocked = block_lead_readonly_delegate(depth=state.depth)
+    if blocked:
+        state.early_return = blocked
+        return
 
     pinned = user_explicit_delegate_role(_turn_user_text()) or _explicit_role_from_state(state)
     if pinned:
@@ -657,6 +663,28 @@ def _prepare_b9_benchmark_workspace(state: DelegateRunState) -> None:
     state.user_msg = _inject_project_agent_skills(state.orch, state.raw_user_msg)
 
 
+def _prepare_isolated_workspace_read_state(state: DelegateRunState) -> None:
+    """Seed read_state for drill / head-to-head isolated workspaces (READ_STATE relief)."""
+    cat = str(state.category_meta.get("category") or state.category or "").strip().lower()
+    if not (cat.startswith("head-to-head") or cat.endswith("-drill") or "drill" in cat):
+        return
+    ws = None
+    if state.project is not None and getattr(state.project, "workspace", None):
+        try:
+            ws = Path(state.project.workspace)
+        except (TypeError, ValueError, OSError):
+            ws = None
+    if ws is None or not ws.is_dir():
+        return
+    sk = state.child_session_key or state.session_key or "_default"
+    try:
+        from butler.dev_engine.b9_delegate_gate import seed_b9_workspace_read_state
+
+        seed_b9_workspace_read_state(ws, session_key=sk, max_depth=2)
+    except Exception as exc:
+        logger.debug("isolated workspace read_state seed skipped: %s", exc)
+
+
 def _record_delegate_state(state: DelegateRunState) -> None:
     """Phase 4: prefetch, semaphore, task record, hooks, transcript.
 
@@ -673,6 +701,7 @@ def _record_delegate_state(state: DelegateRunState) -> None:
         return
     _create_delegate_task_record(state)
     _prepare_b9_benchmark_workspace(state)
+    _prepare_isolated_workspace_read_state(state)
     _init_dev_engine_state(state)
     _run_subagent_start_hooks(state)
     _record_delegate_started_events(state)

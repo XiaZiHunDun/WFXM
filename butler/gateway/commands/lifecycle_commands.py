@@ -40,7 +40,7 @@ def _cmd_export(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
         return gate
-    from butler.gateway.export_commands import handle_export_session_command
+    from butler.gateway.commands.export_handlers import handle_export_session_command
 
     return handle_export_session_command(
         ctx.arg,
@@ -128,7 +128,7 @@ def _cmd_confirm_install(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
         return gate
-    from butler.gateway.registry_commands import handle_confirm_install_command
+    from butler.gateway.commands.registry_handlers import handle_confirm_install_command
 
     return handle_confirm_install_command(
         ctx.arg,
@@ -142,7 +142,7 @@ def _cmd_registry(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
         return gate
-    from butler.gateway.registry_commands import handle_registry_command
+    from butler.gateway.commands.registry_handlers import handle_registry_command
 
     return handle_registry_command(
         ctx.cmd,

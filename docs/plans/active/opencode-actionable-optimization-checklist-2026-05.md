@@ -243,15 +243,15 @@
 
 ```bash
 cd /path/to/WFXM
-PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py tests/test_tool_result_storage.py -q
-PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
+PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/ops/test_runtime_metrics.py tests/test_tool_result_storage.py -q
+PYTHONPATH=. pytest tests/gateway/test_message_queue.py tests/gateway/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py tests/gateway/test_gateway_handler.py -q
 ```
 
 若改动委派 / transcript / permissions，补充对应专项用例：
 
 - `tests/test_cc_p3_p4_features.py`
-- `tests/test_gateway_handler.py`
-- `tests/test_message_queue.py`
+- `tests/gateway/test_gateway_handler.py`
+- `tests/gateway/test_message_queue.py`
 
 ---
 

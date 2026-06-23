@@ -82,7 +82,7 @@
 bash scripts/butler-wechat-dev-delegate-sim.sh --track lingwen   # 4/4 handler
 bash scripts/butler-wechat-dev-delegate-sim.sh --quick
 bash scripts/butler-dev-delegate-experience-probe.sh           # L3/L4 信息探针
-PYTHONPATH=. pytest tests/test_verify_layered.py -q            # project.yaml → VERIFY
+PYTHONPATH=. pytest tests/dev_engine/test_verify_layered.py -q            # project.yaml → VERIFY
 ```
 
 **P1 project.yaml VERIFY（2026-06-23）**：`butler/dev_engine/verify.py` 的 `verify_test` / `verify_lint` / `verify_build` 优先读取工作区 `project.yaml` → `dev.test_command` / `lint_command` / `build_command`（与 `/测试` 同 cwd + `PYTHONPATH=repo_root`）；未配置时 fallback 原有 pytest/ruff 逻辑。

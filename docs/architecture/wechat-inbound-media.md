@@ -197,7 +197,7 @@ ffmpeg -y -i voice.silk -ar 16000 -ac 1 voice.wav
 | 类型 | 内容 |
 |------|------|
 | 单元 | `build_inbound_user_text`：mock vision/stt；纯 text 不变；失败降级 |
-| 集成 | 复用 `tests/test_wechat_ilink_media.py` 缓存路径 + mock HTTP |
+| 集成 | 复用 `tests/gateway/test_wechat_ilink_media.py` 缓存路径 + mock HTTP |
 | 真机 | `wechat-daily-smoke-checklist` 增加：发截图 + 发语音（见下） |
 
 **真机话术（草案）**：

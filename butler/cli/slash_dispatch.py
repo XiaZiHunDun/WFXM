@@ -257,7 +257,7 @@ def _handle_steer(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str
 
 def _handle_memory(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional[str]:
     """Handle /记忆待审, /记忆图谱, /批准记忆, /拒绝记忆."""
-    from butler.gateway.memory_commands import handle_memory_pending_command
+    from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 
     # Caller passes the bare command as ``arg`` is the suffix; we use
     # the original cmd through a side-channel — see dispatch().
@@ -485,7 +485,7 @@ def dispatch_slash_command(
 
     # Memory commands live in gateway-side helper; they accept /记忆*
     # /批准记忆 /拒绝记忆 etc. and return the response text.
-    from butler.gateway.memory_commands import handle_memory_pending_command
+    from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 
     mem_resp = handle_memory_pending_command(orchestrator, command, arg)
     if mem_resp is not None:

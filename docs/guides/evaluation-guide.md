@@ -287,10 +287,10 @@ PYTHONPATH=. pytest tests/corpus/runners/ -q
 PYTHONPATH=. pytest tests/test_memory_theory_verification.py -q
 
 # 开发基准
-PYTHONPATH=. pytest tests/test_dev_engine_theory.py -q
+PYTHONPATH=. pytest tests/dev_engine/test_dev_engine_theory.py -q
 
 # 评测桥接
-PYTHONPATH=. pytest tests/test_eval_bridge.py tests/test_wechat_dataset.py tests/test_memory_eval.py tests/test_dev_eval.py tests/test_delegate_failure_capture.py tests/test_eval_experiment.py tests/test_swebench_live_eval.py tests/test_delegate_judge.py tests/test_tool_routing.py tests/test_assistant_health.py tests/test_wechat_corpus_eval.py tests/test_eval_scoring.py -q
+PYTHONPATH=. pytest tests/ops/test_eval_bridge.py tests/gateway/test_wechat_dataset.py tests/memory/test_memory_eval.py tests/dev_engine/test_dev_eval.py tests/test_delegate_failure_capture.py tests/ops/test_eval_experiment.py tests/test_swebench_live_eval.py tests/test_delegate_judge.py tests/test_tool_routing.py tests/test_assistant_health.py tests/gateway/test_wechat_corpus_eval.py tests/ops/test_eval_scoring.py -q
 ```
 
 ## 生产委派失败采集（阶段 2）

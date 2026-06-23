@@ -42,7 +42,7 @@ def format_project_list(
     external_id: str | None = None,
 ) -> str:
     """List all projects, or dispatch to /项目 新建|体检|register onboarding."""
-    from butler.gateway.project_commands import handle_project_onboarding_command
+    from butler.gateway.commands.project_handlers import handle_project_onboarding_command
 
     onboard = handle_project_onboarding_command(
         orchestrator,

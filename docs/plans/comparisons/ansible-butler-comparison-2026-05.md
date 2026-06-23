@@ -300,7 +300,7 @@ flowchart LR
 cd /path/to/WFXM
 # workflow / DAG 改动
 PYTHONPATH=. pytest tests/test_p2_workflow_permissions.py \
-  tests/test_message_queue.py -q
+  tests/gateway/test_message_queue.py -q
 # 若新增 schema 字段
 PYTHONPATH=. pytest tests/test_workflow_*.py -q  # 按新增测试文件调整
 ```

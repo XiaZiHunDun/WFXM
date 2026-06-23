@@ -9,6 +9,8 @@ import pytest
 from butler.tools.delegate_phases import DelegateRunState
 from butler.tools.delegate_role_guard import (
     apply_user_role_override,
+    block_lead_readonly_delegate,
+    lead_forbids_delegate,
     user_explicit_delegate_role,
 )
 
@@ -90,3 +92,31 @@ class TestApplyUserRoleOverride:
             return_value=True,
         ):
             assert apply_user_role_override(state) is False
+
+
+class TestLeadReadonlyDelegateBlock:
+    def test_forbids_delegate_when_user_says_no_delegate(self):
+        text = (
+            "流水线到什么阶段？请你自己 read_file novel-factory/workflow_state.json。"
+            "不要委派子代理，不要改任何文件。"
+        )
+        assert lead_forbids_delegate(text) is True
+
+    def test_allows_explicit_role_dev(self):
+        text = "请 delegate_task role=dev 读 workflow_state"
+        assert lead_forbids_delegate(text) is False
+
+    def test_block_returns_json_on_lead_turn(self):
+        with (
+            patch(
+                "butler.tools.delegate_role_guard._is_lead_turn",
+                return_value=True,
+            ),
+            patch(
+                "butler.tools.delegate_role_guard._turn_user_text",
+                return_value="不要委派，你自己 read_file workflow_state.json 看阶段",
+            ),
+        ):
+            raw = block_lead_readonly_delegate(depth=0)
+        assert raw is not None
+        assert "LEAD_READONLY_NO_DELEGATE" in raw

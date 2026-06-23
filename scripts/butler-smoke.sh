@@ -43,7 +43,7 @@ case "$TIER" in
     python3 -m pytest -q --tb=line \
       tests/test_project_preflight.py \
       tests/test_project_lead.py \
-      tests/test_gateway_handler.py \
+      tests/gateway/test_gateway_handler.py \
       tests/test_owner_gate.py \
       tests/test_butler_v4.py
     echo ""
@@ -56,7 +56,7 @@ case "$TIER" in
     python3 -m pytest -q --tb=line \
       tests/test_project_preflight.py \
       tests/test_project_lead.py \
-      tests/test_gateway_handler.py \
+      tests/gateway/test_gateway_handler.py \
       tests/test_owner_gate.py \
       tests/test_butler_v4.py
     echo ""

@@ -7,21 +7,24 @@
 ```
 WFXM/
 ├── butler/                      # ★ Butler v4 产品代码
-│   ├── core/                    #   Agent Loop 栈（context_pipeline、tool_batch…）
+│   ├── core/                    #   Agent Loop 栈（agent_loop、context_pipeline、tool_batch…）
+│   ├── dev_engine/              #   Dev 委派、VERIFY、B9 课程与 live 评测
 │   ├── experiments/             #   研究模式账本、METRIC、crash_guard
 │   ├── transport/               #   LLM Provider / 客户端
-│   ├── gateway/                 #   消息处理、session、/诊断
+│   ├── gateway/                 #   消息处理、session、斜杠命令（`commands/` 单轨）
+│   │   ├── commands/            #   斜杠命令实现 + handlers（dev/project/registry…）
 │   │   └── platforms/           #   wechat_ilink.py（iLink）
 │   ├── runtime/                 #   定时任务、runtime jobs
 │   ├── workflows/               #   短工作流 YAML / runner
-│   ├── tools/                   #   工具注册与实现
+│   ├── tools/                   #   工具注册与实现（含 delegate_task）
 │   ├── memory/                  #   chunking、semantic_index、observation store
 │   ├── skills/                  #   Skill 管理
+│   ├── project/                 #   项目注册、Lead、preflight、archetypes
 │   ├── cli/                     #   butler 子命令注册（doctor、registry、mcp…）
-│   ├── ops/                     #   health_report、metrics、LangFuse
-│   ├── project*.py              #   项目注册 / Lead / preflight
+│   ├── ops/                     #   eval、B9、head_to_head、prod 观测、health_report
+│   ├── human_gate.py            #   Workflow 门控
 │   └── main.py                  #   `butler` CLI 入口
-├── scripts/                     #   见 scripts/README.md（含 butler-five-reports-gate.sh）
+├── scripts/                     #   见 scripts/README.md（eval/B9/sim/head-to-head 索引）
 ├── docs/
 │   ├── architecture/            #   v4 架构、ADR、项目激活/门控/扩展路径
 │   ├── design/                  #   产品设计
@@ -78,4 +81,6 @@ butler registry verify
 | [`tests/README.md`](tests/README.md) | 测试分层与守门命令 |
 | [`scripts/README.md`](scripts/README.md) | 脚本索引 |
 | [`docs/plans/archive/consolidation-2026-05.md`](docs/plans/archive/consolidation-2026-05.md) | 整理与瘦身方案 |
+| [`docs/plans/archive/butler-closed-loop-optimization-plan-2026-06-09.md`](docs/plans/archive/butler-closed-loop-optimization-plan-2026-06-09.md) | 闭环优化规划（归档） |
+| [`projects/LingWen1/docs/pilot-log.md`](projects/LingWen1/docs/pilot-log.md) | 灵文试点时间线与验收 |
 | [`docs/config/reference.md`](docs/config/reference.md) | 环境变量速查 |

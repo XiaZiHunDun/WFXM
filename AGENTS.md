@@ -40,11 +40,12 @@ cd /path/to/WFXM
 # CC 线束（改 core/context/gateway 队列与压缩时）
 ./scripts/butler-cc-harness-gate.sh
 # 或子集：
-PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py \
+PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/ops/test_runtime_metrics.py \
   tests/test_tool_result_storage.py -q
 # gateway / 队列 / workflow
-PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_queue_command.py \
- tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
+PYTHONPATH=. pytest tests/gateway/test_message_queue.py tests/gateway/test_gateway_queue_command.py \
+ tests/test_p2_workflow_permissions.py tests/gateway/test_gateway_handler.py -q
+# 或按域：bash scripts/butler-domain-pytest.sh gateway   # ops | dev_engine | memory | core
 # 体验增强（总览/待办/管道/引导/自动续跑）
 PYTHONPATH=. pytest tests/test_p2_remaining_features.py -q
 # 编排质量（cron 提醒/向量/语义路由/MCP 自助/fact/Skill 工具联动）

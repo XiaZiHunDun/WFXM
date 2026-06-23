@@ -19,7 +19,7 @@ echo "== context / compaction pytest subset =="
   tests/test_post_compact_agents_sections.py \
   tests/test_fact_extraction.py \
   tests/test_context_pipeline.py \
-  tests/test_phase1_observability.py \
+  tests/ops/test_phase1_observability.py \
   tests/test_memory_metrics_benchmark.py::TestMemoryBenchmark::test_mb6_fact_compaction \
   -q --tb=line
 

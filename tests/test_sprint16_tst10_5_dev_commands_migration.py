@@ -107,7 +107,7 @@ class TestDispatch:
                 session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
             )
             with patch(
-                "butler.gateway.dev_commands.handle_dev_command",
+                "butler.gateway.commands.dev_handlers.handle_dev_command",
                 return_value="dev-reply",
             ) as h:
                 handled, result = dispatch(ctx)
@@ -134,7 +134,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         )
         with patch(
-            "butler.gateway.dev_commands.handle_dev_command",
+            "butler.gateway.commands.dev_handlers.handle_dev_command",
             return_value="git-status-text",
         ) as h:
             result = dev_cmds_module._dev_delegate(ctx)
@@ -160,7 +160,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         )
         with patch(
-            "butler.gateway.dev_commands.handle_dev_command",
+            "butler.gateway.commands.dev_handlers.handle_dev_command",
             return_value=None,
         ):
             assert dev_cmds_module._dev_delegate(ctx) is None
@@ -185,7 +185,7 @@ class TestOwnerGate:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         )
         with patch(
-            "butler.gateway.dev_commands.handle_dev_command",
+            "butler.gateway.commands.dev_handlers.handle_dev_command",
             return_value=owner_required_message(),
         ):
             result = dev_cmds._dev_delegate(ctx)
@@ -202,7 +202,7 @@ class TestOwnerGate:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — dev command facade (orch / session_registry)
         )
         with patch(
-            "butler.gateway.dev_commands.handle_dev_command",
+            "butler.gateway.commands.dev_handlers.handle_dev_command",
             return_value="ok-for-owner",
         ):
             result = dev_cmds._dev_delegate(ctx)

@@ -1,0 +1,6 @@
+name: head-to-head-fixture
+type: software
+workspace: .
+dev:
+  test_command: python3 -m pytest test_pkg.py -q --tb=short
+  lint_command: "true"

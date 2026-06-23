@@ -259,7 +259,7 @@ PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_tool_result_stora
   tests/test_context_pipeline.py tests/test_tool_prune_policy.py -q
 
 # 若改 gateway / 队列
-PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_handler.py -q
+PYTHONPATH=. pytest tests/gateway/test_message_queue.py tests/gateway/test_gateway_handler.py -q
 ```
 
 ---

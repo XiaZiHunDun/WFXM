@@ -141,7 +141,7 @@ class TestCmdExport:
         """owner 调 /导出 → 委托给 handle_export_session_command, 传 session 上下文。"""
         ctx = _make_ctx(cmd="/导出", arg="last")
         with patch(
-            "butler.gateway.export_commands.handle_export_session_command",
+            "butler.gateway.commands.export_handlers.handle_export_session_command",
             return_value="(exported)",
         ) as handler:
             result = lifecycle_commands._cmd_export(ctx)
@@ -339,7 +339,7 @@ class TestCmdConfirmInstall:
     def test_happy_path_delegates(self, owner_env):
         """owner 调 /确认安装 → 委托给 handle_confirm_install_command。"""
         ctx = _make_ctx(cmd="/确认安装", arg="skill:foo")
-        with patch("butler.gateway.registry_commands.handle_confirm_install_command",
+        with patch("butler.gateway.commands.registry_handlers.handle_confirm_install_command",
                    return_value="(confirmed)") as handler:
             result = lifecycle_commands._cmd_confirm_install(ctx)
         assert result == "(confirmed)"
@@ -364,7 +364,7 @@ class TestCmdRegistry:
         """_cmd_registry 应把 ctx.cmd 传给 handle_registry_command。"""
         for cmd in ("/技能", "/mcp", "/skills"):
             ctx = _make_ctx(cmd=cmd, arg="search foo")
-            with patch("butler.gateway.registry_commands.handle_registry_command",
+            with patch("butler.gateway.commands.registry_handlers.handle_registry_command",
                        return_value=f"(handled {cmd})") as handler:
                 result = lifecycle_commands._cmd_registry(ctx)
             assert result == f"(handled {cmd})"

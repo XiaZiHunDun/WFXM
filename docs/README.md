@@ -111,11 +111,11 @@ cd /path/to/WFXM
 PYTHONPATH=. pytest -q    # 默认 1200+ passed（排除 live_llm；corpus 按需）
 
 # 守门子集
-PYTHONPATH=. pytest tests/test_runtime_metrics.py tests/test_message_queue.py \
+PYTHONPATH=. pytest tests/ops/test_runtime_metrics.py tests/gateway/test_message_queue.py \
   tests/test_p2_workflow_permissions.py tests/test_cc_p3_p4_features.py -q
 
 # 微信网关 live（发版前可选）
-BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
+BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/gateway/test_wechat_gateway_live_smoke.py -v
 ```
 
 ```bash

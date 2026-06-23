@@ -288,8 +288,8 @@ flowchart TB
 
 ```bash
 cd /path/to/WFXM
-PYTHONPATH=. pytest tests/test_gateway_handler.py tests/test_message_queue.py -q
-PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py -q
+PYTHONPATH=. pytest tests/gateway/test_gateway_handler.py tests/gateway/test_message_queue.py -q
+PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/ops/test_runtime_metrics.py -q
 # P0 落地后追加：
 # PYTHONPATH=. pytest tests/test_message_ir.py -q
 ```

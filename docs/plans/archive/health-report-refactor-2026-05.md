@@ -26,7 +26,7 @@
 
 ## 3. 验收
 
-- 现有 `tests/test_gateway_handler.py` health 相关用例全部通过
+- 现有 `tests/gateway/test_gateway_handler.py` health 相关用例全部通过
 - `pytest` 全仓绿；`butler-smoke.sh --tier=standard` 绿
 
 ---

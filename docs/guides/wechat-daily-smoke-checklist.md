@@ -2,7 +2,7 @@
 
 > 推送代码或重启 `butler-gateway` 后，用本表在**微信私聊 Bot** 走一遍（约 15–25 分钟）。  
 > 完整剧本见 [wechat-core-scenario.md](./wechat-core-scenario.md)。  
-> **对话自动化（人工测试前建议先跑）**：真机衍射 + 习惯全集 + 话术目录 → `pytest tests/test_gateway_dev_conversations.py tests/corpus/runners/test_gateway_utterance_catalog.py -q`（**66** 项：LW-REAL/DEV 手写 **16** + 数据驱动话术 **49** + schema **1**）  
+> **对话自动化（人工测试前建议先跑）**：真机衍射 + 习惯全集 + 话术目录 → `pytest tests/gateway/test_gateway_dev_conversations.py tests/corpus/runners/test_gateway_utterance_catalog.py -q`（**66** 项：LW-REAL/DEV 手写 **16** + 数据驱动话术 **49** + schema **1**）  
 > **网关安装/发版/排障**见 [wechat-gateway-ops.md](./wechat-gateway-ops.md)。  
 > **验收项目**：WFXM 仓库内 **`灵文1号`**（`projects/LingWen1/`），与仓库外「正式灵文」隔离。
 
@@ -50,7 +50,7 @@ bash scripts/butler-runtime-smoke.sh 灵文1号
 
 ```bash
 BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. \
-  pytest -m live_llm tests/test_cli_live_smoke.py tests/test_wechat_gateway_live_smoke.py -v
+  pytest -m live_llm tests/test_cli_live_smoke.py tests/gateway/test_wechat_gateway_live_smoke.py -v
 ```
 
 **Runtime 推送真机（间隔发送，防限流）**：
@@ -135,7 +135,7 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 | H7 | `/任务` | 最近委派任务列表含 task_id | ☐ | |
 | H8 | `/新对话` | 清空；hook 最近记录重置 | ☐ | |
 | H9 | `butler runtime due` 或等 push-drain timer | 若曾限流入队，`/诊断` 队列待发减少 | ☐ | 可选 |
-| H10 | 自动化：`pytest tests/test_completion_notify.py tests/test_hooks_runner.py -q` | 全绿 | ☐ | 发版前 |
+| H10 | 自动化：`pytest tests/gateway/test_completion_notify.py tests/test_hooks_runner.py -q` | 全绿 | ☐ | 发版前 |
 | H11 | 长任务进行中再发一条**非斜杠**用户消息 | 先收到「已入队」；主回复后收到 **第二条** 排队正文（或拼入主回复若关 `QUEUE_PUSH_VIA_BRIDGE`） | ☐ | 需 `MESSAGE_QUEUE=1` |
 
 ---
@@ -189,7 +189,7 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 |------|------|
 | 无回复 / 超时 | `journalctl --user -u butler-gateway -f`；API Key；长任务应见「正在输入」，>30s 可能有一条「仍在处理」 |
 | 不委派、自己 read/write | 措辞用「交给内容代理 / 委派开发代理」；`/health` 工具计数 |
-| `/新对话` 仍复述上轮 | 是否重启 gateway；`tests/test_wechat_session_reset.py` |
+| `/新对话` 仍复述上轮 | 是否重启 gateway；`tests/gateway/test_wechat_session_reset.py` |
 | `/详细` 显示旧报告 | 先完成步骤 4 或 8 再 `/详细` |
 | `/工作流` 找不到 | 是否已 `/切换` 到含 `workflows` 的项目 |
 

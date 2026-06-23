@@ -80,12 +80,12 @@ pytest \
   tests/test_cc_p3_p4_features.py \
   tests/test_p2_remaining_features.py \
   tests/test_orchestration_improvements.py \
-  tests/test_runtime_metrics.py \
+  tests/ops/test_runtime_metrics.py \
   tests/test_tool_result_storage.py \
-  tests/test_message_queue.py \
-  tests/test_gateway_queue_command.py \
+  tests/gateway/test_message_queue.py \
+  tests/gateway/test_gateway_queue_command.py \
   tests/test_p2_workflow_permissions.py \
-  tests/test_gateway_handler.py \
+  tests/gateway/test_gateway_handler.py \
   -q -o "addopts="
 
 echo "== 5) Product tools tests =="

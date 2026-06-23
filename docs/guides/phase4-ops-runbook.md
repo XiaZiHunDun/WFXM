@@ -102,7 +102,7 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 |------|------|
 | 日常合并 | `bash scripts/butler-smoke.sh --tier=standard` |
 | 发版 / 大改 gateway | `bash scripts/butler-pre-release-smoke.sh` 或 `--tier=full` |
-| 微信/工具子集（非全量 pytest） | `pytest tests/test_gateway_handler.py tests/test_tools_registry.py tests/test_intent_keywords.py tests/test_network_search_policy.py tests/test_tool_pair_repair.py -q` |
+| 微信/工具子集（非全量 pytest） | `pytest tests/gateway/test_gateway_handler.py tests/test_tools_registry.py tests/test_intent_keywords.py tests/test_network_search_policy.py tests/test_tool_pair_repair.py -q` |
 | 部署 | `bash scripts/butler-deploy.sh update`（含回归门） |
 
 > **pytest 全量**：`pytest tests/` 仍有跨测状态泄漏（~100 fail，主集中 `test_tools_registry`）；**不以全绿为发版硬 gate**，见 `pilot-log` §分层 gate（2026-06-21）。发版以 `butler-pre-release-smoke.sh` + corpus 分层为准。

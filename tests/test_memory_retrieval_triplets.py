@@ -132,7 +132,7 @@ def test_pending_bullet_indexes_triplets(tmp_path, monkeypatch):
 
 
 def test_memory_graph_command(tmp_path, monkeypatch):
-    from butler.gateway.memory_commands import format_memory_triplet_graph
+    from butler.gateway.commands.memory_handlers import format_memory_triplet_graph
     from butler.orchestrator import ButlerOrchestrator
 
     monkeypatch.setenv("BUTLER_SEMANTIC_MEMORY", "1")

@@ -25,7 +25,7 @@ This module owns concerns 1-3 as small phase functions:
 The host ``send_wechat_direct`` function in ``wechat_ilink.py``
 becomes a thin orchestrator (< 50 source lines) that picks between
 the live and fresh paths. Each phase is also < 50 lines, enforced
-by ``tests/test_wechat_ilink_split.py`` (R1-4b size contract).
+by ``tests/gateway/test_wechat_ilink_split.py`` (R1-4b size contract).
 """
 
 from __future__ import annotations

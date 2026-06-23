@@ -70,7 +70,7 @@ bash scripts/project-health-report.sh quick  # 生成体检报告（logs/mainten
 bash scripts/repo-cleanup-audit.sh           # 仓库结构与大文件审计
 
 # 微信改动的快守门（见 tests/README.md）
-PYTHONPATH=. pytest tests/test_gateway_acceptance.py tests/test_wechat_ilink_*.py -q
+PYTHONPATH=. pytest tests/gateway/test_gateway_acceptance.py tests/gateway/test_wechat_ilink_*.py -q
 ```
 
 ## 项目结构（核心）

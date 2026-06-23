@@ -91,7 +91,7 @@
 **Butler**：`butler/core/read_state.py`；`read_file` 记录 mtime/哈希；`patch`/`write_file`（已有文件）返回 `READ_STATE_REQUIRED` / `READ_STATE_STALE`；`patch` 支持弯引号模糊匹配；`/新对话` 重置。
 
 - 环境变量：`BUTLER_READ_BEFORE_EDIT`（默认 `1`）
-- 测试：`tests/test_read_state.py`（pytest 默认关闭以免破坏旧用例）
+- 测试：`tests/dev_engine/test_read_state.py`（pytest 默认关闭以免破坏旧用例）
 
 ### 4.4 循环 transition 原因 + 可观测性 ✅ 已落地（2026-05-22）
 

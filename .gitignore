@@ -101,7 +101,9 @@ vendor/
 !.cursor/rules/
 !.cursor/rules/**
 .coverage
+coverage.json
 htmlcov/
+.mypy_cache/
 MagicMock/
 # Accidental pytest mock path leaks at repo root
 <MagicMock*

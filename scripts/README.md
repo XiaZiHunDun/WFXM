@@ -70,6 +70,92 @@
 | `butler-memory-smoke.sh` | 记忆 recall 子集 |
 | `butler-wechat-push-verify.sh` | 真机推送验证（可选） |
 
+## Eval / B9 评测族
+
+| 脚本 | 用途 |
+|------|------|
+| `butler-eval-b9-live.sh` | B9 LIVE 合成编码评测 |
+| `butler-eval-b9-tuning.sh` | B9 调参 / tier 探测 |
+| `butler-eval-b9-probe-model.sh` | B9 模型探针 |
+| `butler-b9-release-gate.sh` | B9 发版门控 |
+| `butler-b9-weekly-learning.sh` | B9 周循环修学 |
+| `butler-b9-weekly-gate-followup.sh` | B9 周门控通过后自动全量 LIVE |
+| `butler-b9-export-curriculum.sh` | B9 课程导出 |
+| `butler-eval-swebench-live.sh` | SWE-bench live 子集 |
+| `butler-eval-swebench-live-full.sh` | SWE-bench 全量 |
+| `butler-eval-llm-benchmark.sh` | O9 B9 LLM delegate 基准 |
+| `butler-eval-weekly.sh` | 周度 eval 汇总 |
+| `butler-eval-regression.sh` | eval 回归 |
+| `butler-eval-experiment.sh` | 实验 harness |
+| `butler-eval-wechat-corpus.sh` | 微信语料 eval |
+| `butler-eval-assistant-health.sh` | 助手健康度 |
+| `butler-cc-harness-gate.sh` | CC 线束守门 |
+
+## 测试域
+
+| 脚本 | 用途 |
+|------|------|
+| `butler-domain-pytest.sh` | 按域跑 pytest：`gateway` / `ops` / `dev_engine` / `memory` / `core` / `all` |
+
+## 微信 handler 模拟 / Dev 飞轮
+
+| 脚本 | 用途 |
+|------|------|
+| `butler-wechat-dev-flywheel-sim.sh` | Dev 飞轮 handler 话术 sim（覆写 `dev-flywheel-{date}.md`） |
+| `butler-wechat-dev-delegate-sim.sh` | Dev 委派多场景 sim（`--track lingwen`） |
+| `butler-wechat-lead-readonly-sim.sh` | Lead 只读厂情门控 sim |
+| `butler-wechat-owner-sim.sh` | Owner 话术 sim |
+| `butler-wechat-core-sim.sh` | 核心对话 sim |
+| `butler-web-search-route-sim.sh` | 联网搜索路由 sim |
+| `butler-extension-wechat-sim.sh` | 扩展能力微信 sim |
+| `butler-dev-delegate-smoke.sh` | Dev 委派 pytest 守门 |
+| `butler-dev-tools-smoke.sh` | terminal / git / patch |
+| `butler-dev-live-flywheel-checklist.sh` | Dev 飞轮 LIVE 清单 |
+| `butler-dev-prod-evidence-checklist.sh` | 生产委派证据清单 |
+| `butler-dev-delegate-experience-probe.sh` | 委派经验探针 |
+
+## Head-to-head（Dev vs CC CLI）
+
+| 脚本 | 用途 |
+|------|------|
+| `butler-head-to-head.sh` | T1–T5 全量头对头 |
+| `butler-head-to-head-t1.sh` … `t5.sh` | 单题包装（fixture `tests/fixtures/head_to_head_t*`） |
+
+实现：`butler/ops/head_to_head*.py`；记录见 `projects/LingWen1/docs/dev-cc-head-to-head.md`。
+
+## G1 / Ops follow-up / 观测
+
+| 脚本 | 用途 |
+|------|------|
+| `butler-ops-followup-check.sh` | 运营 follow-up 全包（fail/warn 汇总） |
+| `butler-g1-checklist.sh` | G1 清单 |
+| `butler-g1-04-closure-check.sh` | G1-04 窗状态 |
+| `butler-g1-04-closure-run-if-ready.sh` | 窗满则尝试闭合 |
+| `butler-g1-04-closure-apply.sh` | G1-04 闭合应用 |
+| `butler-gap-observability.sh` | 差距登记册观测 |
+| `butler-prod-delta-observe.sh` | 生产 delta 观测 |
+| `butler-p1-live-probe.sh` | P1 live 探针 |
+
+## Extension / MCP 预检
+
+| 脚本 | 用途 |
+|------|------|
+| `butler-extension-ext1-preflight.sh` | EXT-1 Firecrawl MCP |
+| `butler-extension-ext2-preflight.sh` | EXT-2 OpenAPI HTTP |
+| `butler-extension-ext4-preflight.sh` | EXT-4 第二 OpenAPI |
+| `butler-extension-ext4-integrate.sh` | EXT-4 集成 |
+| `butler-extension-verify.sh` | 扩展 verify 汇总 |
+| `butler-secrets-contract-check.sh` | 密钥契约检查 |
+
+## 日常四条（速记）
+
+| 脚本 | 用途 |
+|------|------|
+| `butler-gateway-ops.sh` | 网关 status / restart / logs |
+| `butler-smoke.sh` | quick / standard / full 分层冒烟 |
+| `butler-pre-release-smoke.sh` | 发版全量守门 |
+| `sync-lingwen-project-skills.sh` | 灵文 Skill 同步 |
+
 ## systemd 单元
 
 `systemd/butler-gateway.service`、`butler-runtime-lingwen.timer` 等 — 由 install 脚本链接到 `~/.config/systemd/user/`。

@@ -594,7 +594,7 @@ PYTHONPATH=. pytest tests/test_prompt_corpus_patterns.py tests/test_plan_mode.py
 PYTHONPATH=. pytest tests/test_prompt_corpus_patterns.py -q
 
 # 改 gateway / 记忆 prefetch 后
-PYTHONPATH=. pytest tests/test_gateway_handler.py tests/test_message_queue.py -q
+PYTHONPATH=. pytest tests/gateway/test_gateway_handler.py tests/gateway/test_message_queue.py -q
 ```
 
 人工抽测：微信多步任务（是否说明跳步）、空记忆问答（是否承认不确定）、工具连续失败（是否换路径）。

@@ -667,8 +667,8 @@ while not done and iterations < budget:
 | Dev Context | `butler/dev_engine/dev_context.py` | 代码感知上下文（DA6） |
 | Dev Tools | `butler/dev_engine/dev_tools.py` | LLM 工具接口（DA5/DA7） |
 | Loop Plugin | `butler/dev_engine/loop_plugin.py` | DevEnginePlugin（before_model + after_tools） |
-| Theory Tests | `tests/test_dev_engine_theory.py` | P-DA/P-DT 验证（56 tests） |
-| Integration Tests | `tests/test_dev_engine_integration.py` | Loop 集成验证（35 tests） |
+| Theory Tests | `tests/dev_engine/test_dev_engine_theory.py` | P-DA/P-DT 验证（56 tests） |
+| Integration Tests | `tests/dev_engine/test_dev_engine_integration.py` | Loop 集成验证（35 tests） |
 
 ### 测试验证状态
 

@@ -100,6 +100,9 @@ markers = [
     "conversational: human-like conversational tests with real LLM (implies live_llm)",
     "live_vlm: requires real MiniMax VLM API (image recognition tests)",
     "live_multimodal: requires real MiniMax multimodal API (image gen / TTS tests)",
+    "gateway: tests/gateway/ domain (微信网关、斜杠命令)",
+    "ops: tests/ops/ domain (eval、观测、metrics)",
+    "dev_engine: tests/dev_engine/ domain (VERIFY、委派验证)",
 ]
 addopts = "-m 'not live_llm'"
 filterwarnings = [

@@ -116,8 +116,8 @@ BUTLER_RUNTIME_PUSH_QUEUE=1                    # 限流失败入队，due 时 dr
 ```bash
 cd ~/projects/WFXM
 git pull
-PYTHONPATH=. pytest tests/test_gateway_acceptance.py tests/test_wechat_ilink_*.py -q   # 快守门
-# 可选: BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
+PYTHONPATH=. pytest tests/gateway/test_gateway_acceptance.py tests/gateway/test_wechat_ilink_*.py -q   # 快守门
+# 可选: BUTLER_RUN_REAL_API_SMOKE=1 pytest -m live_llm tests/gateway/test_wechat_gateway_live_smoke.py -v
 bash scripts/butler-gateway-ops.sh upgrade    # 或 install + restart
 bash scripts/butler-gateway-ops.sh status
 # 大改时: 微信走 wechat-daily-smoke-checklist 真机 0–8c

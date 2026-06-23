@@ -342,7 +342,7 @@ class ActionLoopDetector(BaseModel):
 
 ```bash
 cd /path/to/WFXM
-PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py \
+PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/ops/test_runtime_metrics.py \
   tests/test_tool_result_storage.py -q
 # 若改 guardrails / loop
 PYTHONPATH=. pytest tests/ -k "guardrail or doom_loop or tool_batch" -q

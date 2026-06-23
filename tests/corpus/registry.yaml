@@ -13,12 +13,12 @@ cross_channel:
     - runners/test_gateway_multiturn_catalog.py
     - runners/test_gateway_golden.py
     - runners/test_gateway_production_ops.py
-    - tests/test_gateway_dev_conversations.py
+    - tests/gateway/test_gateway_dev_conversations.py
   pr_gate_paths:
     - butler/gateway/message_handler.py
     - butler/gateway/
     - tests/corpus/
-    - tests/test_gateway_dev_conversations.py
+    - tests/gateway/test_gateway_dev_conversations.py
 
 suites:
   - suite_id: dev_assistant.v1

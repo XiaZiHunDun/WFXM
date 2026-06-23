@@ -7,7 +7,7 @@ GATE_PATHS=(
   butler/gateway/message_handler.py
   butler/gateway/
   tests/corpus/
-  tests/test_gateway_dev_conversations.py
+  tests/gateway/test_gateway_dev_conversations.py
 )
 
 if [[ "${CORPUS_PR_GATE_FORCE:-}" == "1" ]]; then

@@ -188,7 +188,7 @@
 **建议测试**：
 
 ```bash
-PYTHONPATH=. pytest tests/test_sprint_bcd.py tests/test_runtime_metrics.py -q
+PYTHONPATH=. pytest tests/test_sprint_bcd.py tests/ops/test_runtime_metrics.py -q
 ```
 
 新增建议：

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 
-from butler.gateway.memory_commands import (
+from butler.gateway.commands.memory_handlers import (
     format_pending_memory_list,
     handle_memory_pending_command,
 )

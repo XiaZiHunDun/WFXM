@@ -38,7 +38,7 @@
 
 | 套件 | 通道 | 测试 | 结果 |
 |------|------|------|------|
-| `wechat_real.lw_real` | `gateway_wechat` | [`test_gateway_dev_conversations.py`](../../../tests/test_gateway_dev_conversations.py) | **16 passed**（integration，mock LLM + 真工具） |
+| `wechat_real.lw_real` | `gateway_wechat` | [`test_gateway_dev_conversations.py`](../../../tests/gateway/test_gateway_dev_conversations.py) | **16 passed**（integration，mock LLM + 真工具） |
 | schema | registry | [`test_gateway_scripted.py`](../../../tests/corpus/runners/test_gateway_scripted.py) | ✅ |
 
 LW-REAL **不走** `corpus_live`（无逐条关键词 rubric）；与 AgentLoop 语料 **互补**：
@@ -49,7 +49,7 @@ LW-REAL **不走** `corpus_live`（无逐条关键词 rubric）；与 AgentLoop 
 ```bash
 ./scripts/corpus-test.sh gateway
 # 或
-PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
+PYTHONPATH=. pytest tests/gateway/test_gateway_dev_conversations.py -q
 ```
 
 ---

@@ -26,7 +26,7 @@ def _cmd_runtime_jobs_list(ctx: CommandContext) -> Optional[str]:
         platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
     ):
         return owner_required_message()
-    from butler.gateway.runtime_commands import handle_runtime_command
+    from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
     return handle_runtime_command(
         ctx.orchestrator,
@@ -43,7 +43,7 @@ def _cmd_runtime_approve_run(ctx: CommandContext) -> Optional[str]:
         platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
     ):
         return owner_required_message()
-    from butler.gateway.runtime_commands import handle_runtime_command
+    from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
     return handle_runtime_command(
         ctx.orchestrator,
@@ -60,7 +60,7 @@ def _cmd_runtime_run(ctx: CommandContext) -> Optional[str]:
         platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
     ):
         return owner_required_message()
-    from butler.gateway.runtime_commands import handle_runtime_command
+    from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
     return handle_runtime_command(
         ctx.orchestrator,

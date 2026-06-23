@@ -9,8 +9,8 @@ import pytest
 
 from butler.gateway.message_handler import ButlerMessageHandler
 from tests.corpus.harness.gateway_scripts import pad_script
-from tests.test_gateway_acceptance import LLM_PATCH, _text_response
-from tests.test_gateway_dev_conversations import (
+from tests.gateway.test_gateway_acceptance import LLM_PATCH, _text_response
+from tests.gateway.test_gateway_dev_conversations import (
     HELLO_CONTENT,
     HELLO_REL,
     _bind_llm_script,
@@ -67,7 +67,7 @@ def patch_llm(mock_llm_response):
 def catalog_handlers(tmp_path, monkeypatch, tmp_butler_home):
     import yaml as _yaml
     from butler.report import clear_report_cache
-    from tests.test_gateway_handler import _reset_singletons
+    from tests.gateway.test_gateway_handler import _reset_singletons
 
     clear_report_cache()
     _setup_dual_gateway_projects(tmp_path, monkeypatch)

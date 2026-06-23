@@ -9,6 +9,9 @@
 | [pilot-setup.md](./pilot-setup.md) | 试点边界、路径、Lead 阶段、发版节奏 |
 | [dual-playbook.md](./dual-playbook.md) | **维护态 / 新书态**双剧本 + 微信验收句（B1） |
 | [pilot-log.md](./pilot-log.md) | 时间线与验收结论 |
+| [dev-cc-head-to-head.md](./dev-cc-head-to-head.md) | Dev vs CC CLI 头对头 T1–T5 |
+| [consolidation-audit-2026-06-23.md](./consolidation-audit-2026-06-23.md) | 仓库整理审计快照 |
+| [archive/dev-flywheel/](./archive/dev-flywheel/README.md) | Dev 飞轮调试稿归档 |
 | [memory-guide.md](./memory-guide.md) | 记忆写入边界、O1–O6 运维 |
 | [project-lead-scope.md](./project-lead-scope.md) | 厂长五条能力、禁止项 |
 | [lead-phase1-check.md](./lead-phase1-check.md) | Lead 阶段 1 检查 |

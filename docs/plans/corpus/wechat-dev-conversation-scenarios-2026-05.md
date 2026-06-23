@@ -3,8 +3,8 @@
 > **目的**：在你再次真机验收前，用「开发者日常行为习惯」组织一套可重复的对话剧本，默认 **mock LLM + 真工具 + 真 handler**，覆盖 P0/P1（`delete_file`、委派成败、`/详细` 话术）及 Lead 边界。  
 > **真机黄金路径（优先）**：[`wechat-real-dialogue-test-scenarios-2026-05.md`](wechat-real-dialogue-test-scenarios-2026-05.md) — 2026-05-22 鹿角象对话衍射。  
 > **机器可读目录**：[`tests/scenarios/wechat_dev_conversations.yaml`](../../../tests/scenarios/wechat_dev_conversations.yaml)  
-> **实现入口**：[`tests/test_gateway_dev_conversations.py`](../../../tests/test_gateway_dev_conversations.py)  
-> **与既有关系**：补全 [`test_gateway_acceptance.py`](../../../tests/test_gateway_acceptance.py) / [wechat-core-scenario.md](../../guides/wechat-core-scenario.md) 未覆盖的**开发协作微流程**，不替代 live_llm 真机。
+> **实现入口**：[`tests/gateway/test_gateway_dev_conversations.py`](../../../tests/gateway/test_gateway_dev_conversations.py)  
+> **与既有关系**：补全 [`test_gateway_acceptance.py`](../../../tests/gateway/test_gateway_acceptance.py) / [wechat-core-scenario.md](../../guides/wechat-core-scenario.md) 未覆盖的**开发协作微流程**，不替代 live_llm 真机。
 
 ---
 
@@ -130,8 +130,8 @@ flowchart TB
 
 ```bash
 cd ~/projects/WFXM
-PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
-PYTHONPATH=. pytest tests/test_gateway_acceptance.py tests/test_gateway_handler.py -q
+PYTHONPATH=. pytest tests/gateway/test_gateway_dev_conversations.py -q
+PYTHONPATH=. pytest tests/gateway/test_gateway_acceptance.py tests/gateway/test_gateway_handler.py -q
 bash scripts/butler-wechat-gateway-smoke.sh
 ```
 
@@ -139,7 +139,7 @@ bash scripts/butler-wechat-gateway-smoke.sh
 
 ```bash
 BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. \
-  pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
+  pytest -m live_llm tests/gateway/test_wechat_gateway_live_smoke.py -v
 ```
 
 建议为 live 增加（待实现）：
@@ -151,7 +151,7 @@ BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. \
 
 ## 五、Mock LLM 剧本模板
 
-与 [`test_gateway_acceptance.py`](../../../tests/test_gateway_acceptance.py) 相同辅助函数：
+与 [`test_gateway_acceptance.py`](../../../tests/gateway/test_gateway_acceptance.py) 相同辅助函数：
 
 ```python
 _tool_response("delegate_task", {"role": "dev", "task": "删除 docs/smoke.md"})

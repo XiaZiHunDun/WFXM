@@ -146,7 +146,7 @@ class TestDispatch:
 
 class TestDelegation:
     def test_memory_graph_delegates_to_format_triplet_graph(self, ensure_registered):
-        from butler.gateway.memory_commands import format_memory_triplet_graph
+        from butler.gateway.commands.memory_handlers import format_memory_triplet_graph
 
         orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         ctx = CommandContext(
@@ -159,7 +159,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
-            "butler.gateway.memory_commands.format_memory_triplet_graph",
+            "butler.gateway.commands.memory_handlers.format_memory_triplet_graph",
             return_value="graph-text",
         ) as fmt:
             result = mem_cmds._cmd_memory_graph(ctx)
@@ -167,7 +167,7 @@ class TestDelegation:
         fmt.assert_called_once_with(orch)
 
     def test_pending_list_delegates_to_format_pending_list(self, ensure_registered):
-        from butler.gateway.memory_commands import format_pending_memory_list
+        from butler.gateway.commands.memory_handlers import format_pending_memory_list
 
         orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         ctx = CommandContext(
@@ -180,7 +180,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
-            "butler.gateway.memory_commands.format_pending_memory_list",
+            "butler.gateway.commands.memory_handlers.format_pending_memory_list",
             return_value="pending-text",
         ) as fmt:
             result = mem_cmds._cmd_memory_pending_list(ctx)
@@ -189,7 +189,7 @@ class TestDelegation:
 
     def test_reject_passes_canonical_cmd_and_ctx_args(self, ensure_registered):
         """/拒绝记忆 handler 委派到 handle_memory_pending_command, 强制 cmd='/拒绝记忆'。"""
-        from butler.gateway.memory_commands import handle_memory_pending_command
+        from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 
         orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         ctx = CommandContext(
@@ -202,7 +202,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch(
-            "butler.gateway.memory_commands.handle_memory_pending_command",
+            "butler.gateway.commands.memory_handlers.handle_memory_pending_command",
             return_value="rejected-1",
         ) as h:
             result = mem_cmds._cmd_memory_reject(ctx)
@@ -219,7 +219,7 @@ class TestDelegation:
 
     def test_approve_passes_canonical_cmd_and_ctx_args(self, ensure_registered):
         """/批准记忆 handler 委派到 handle_memory_pending_command, 强制 cmd='/批准记忆'。"""
-        from butler.gateway.memory_commands import handle_memory_pending_command
+        from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 
         orch = MagicMock()  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         ctx = CommandContext(
@@ -232,7 +232,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch.object(mem_cmds, "is_gateway_owner", return_value=True), patch(
-            "butler.gateway.memory_commands.handle_memory_pending_command",
+            "butler.gateway.commands.memory_handlers.handle_memory_pending_command",
             return_value="approved-2",
         ) as h:
             result = mem_cmds._cmd_memory_approve(ctx)
@@ -279,7 +279,7 @@ class TestOwnerGate:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — memory command facade (orch / session_registry)
         )
         with patch.object(mem_cmds, "is_gateway_owner", return_value=True) as gate, patch(
-            "butler.gateway.memory_commands.handle_memory_pending_command",
+            "butler.gateway.commands.memory_handlers.handle_memory_pending_command",
             return_value="ok",
         ):
             mem_cmds._cmd_memory_approve(ctx)
@@ -301,7 +301,7 @@ class TestOwnerGate:
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=False
         ) as gate, patch(
-            "butler.gateway.memory_commands.handle_memory_pending_command",
+            "butler.gateway.commands.memory_handlers.handle_memory_pending_command",
             return_value="rejected",
         ):
             result = mem_cmds._cmd_memory_reject(ctx)
@@ -323,7 +323,7 @@ class TestOwnerGate:
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=False
         ) as gate, patch(
-            "butler.gateway.memory_commands.format_memory_triplet_graph",
+            "butler.gateway.commands.memory_handlers.format_memory_triplet_graph",
             return_value="graph",
         ):
             result = mem_cmds._cmd_memory_graph(ctx)

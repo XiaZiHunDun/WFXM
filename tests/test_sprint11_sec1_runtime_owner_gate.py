@@ -40,7 +40,7 @@ def test_approve_run_blocked_for_non_owner():
     """/批准运行 路径：非 Owner 应被 owner_required_message 守门。"""
     from butler.gateway.owner_gate import owner_required_message
 
-    with patch("butler.gateway.runtime_commands.is_gateway_owner", return_value=False):
+    with patch("butler.gateway.commands.runtime_handlers.is_gateway_owner", return_value=False):
         out = runtime_commands.handle_runtime_command(
             orchestrator=None,  # type: ignore[arg-type]
             cmd="/批准运行",
@@ -59,7 +59,7 @@ def test_run_job_blocked_for_non_owner():
     """/运行 路径：非 Owner 应被 owner_required_message 守门。"""
     from butler.gateway.owner_gate import owner_required_message
 
-    with patch("butler.gateway.runtime_commands.is_gateway_owner", return_value=False):
+    with patch("butler.gateway.commands.runtime_handlers.is_gateway_owner", return_value=False):
         out = runtime_commands.handle_runtime_command(
             orchestrator=None,  # type: ignore[arg-type]
             cmd="/运行",
@@ -85,7 +85,7 @@ def test_owner_passes_through_approve_run(monkeypatch):
     )()
     fake_orch.project_manager = fake_pm
 
-    with patch("butler.gateway.runtime_commands.is_gateway_owner", return_value=True), \
+    with patch("butler.gateway.commands.runtime_handlers.is_gateway_owner", return_value=True), \
          patch("butler.runtime.service.approve_and_run") as mock_run:
         mock_run.return_value = {"success": True, "summary": "ok"}
         out = runtime_commands.handle_runtime_command(
@@ -112,7 +112,7 @@ def test_owner_passes_through_run_job(monkeypatch):
     )()
     fake_orch.project_manager = fake_pm
 
-    with patch("butler.gateway.runtime_commands.is_gateway_owner", return_value=True), \
+    with patch("butler.gateway.commands.runtime_handlers.is_gateway_owner", return_value=True), \
          patch("butler.runtime.service.run_job") as mock_run:
         mock_run.return_value = {"success": True, "summary": "ok"}
         out = runtime_commands.handle_runtime_command(
@@ -130,7 +130,7 @@ def test_owner_passes_through_run_job(monkeypatch):
 @pytest.mark.unit
 def test_unrelated_command_returns_none_without_owner_check():
     """未识别的 cmd 应返 None（不强制 owner gate，避免误伤其它路径）。"""
-    with patch("butler.gateway.runtime_commands.is_gateway_owner", return_value=False):
+    with patch("butler.gateway.commands.runtime_handlers.is_gateway_owner", return_value=False):
         out = runtime_commands.handle_runtime_command(
             orchestrator=None,  # type: ignore[arg-type]
             cmd="/unknown",

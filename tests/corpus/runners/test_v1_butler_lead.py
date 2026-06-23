@@ -8,8 +8,8 @@ import pytest
 
 from butler.tools.registry import dispatch_tool
 from tests.corpus.harness.registry import get_suite, load_suite_corpus
-from tests.test_gateway_acceptance import _text_response, _tool_response
-from tests.test_gateway_dev_conversations import _bind_llm_script
+from tests.gateway.test_gateway_acceptance import _text_response, _tool_response
+from tests.gateway.test_gateway_dev_conversations import _bind_llm_script
 
 
 @pytest.mark.corpus
@@ -53,8 +53,8 @@ class TestDevAssistantV1ButlerLead:
 def lingwen_handler(tmp_path, monkeypatch, tmp_butler_home):
     from butler.gateway.message_handler import ButlerMessageHandler
     from butler.report import clear_report_cache
-    from tests.test_gateway_dev_conversations import _setup_lingwen_gateway_project
-    from tests.test_gateway_handler import _reset_singletons
+    from tests.gateway.test_gateway_dev_conversations import _setup_lingwen_gateway_project
+    from tests.gateway.test_gateway_handler import _reset_singletons
 
     clear_report_cache()
     _setup_lingwen_gateway_project(tmp_path, monkeypatch)
@@ -71,7 +71,7 @@ def lingwen_handler(tmp_path, monkeypatch, tmp_butler_home):
 
 @pytest.fixture
 def patch_llm(mock_llm_response):
-    from tests.test_gateway_acceptance import LLM_PATCH
+    from tests.gateway.test_gateway_acceptance import LLM_PATCH
     from unittest.mock import patch
 
     with (

@@ -36,7 +36,7 @@ GATEWAY_MODULES = [
     "butler.gateway.queue_settings",
     "butler.gateway.outbound_bridge",
     "butler.gateway.owner_gate",
-    "butler.gateway.permission_commands",
+    "butler.gateway.commands.dev_handlers",
     "butler.gateway.bot_loop_guard",
     "butler.gateway.completion_notify",
     "butler.gateway.error_cards",

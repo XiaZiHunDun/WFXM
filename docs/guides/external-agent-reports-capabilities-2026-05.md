@@ -62,7 +62,7 @@ plugins:
 cd /path/to/WFXM
 
 PYTHONPATH=. pytest tests/test_external_agent_*.py tests/test_message_ir.py \
-  tests/test_mcp_deferred.py tests/test_gateway_handler.py -q
+  tests/test_mcp_deferred.py tests/gateway/test_gateway_handler.py -q
 ```
 
 ---

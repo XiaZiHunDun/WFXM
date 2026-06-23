@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from butler.gateway.memory_commands import handle_memory_pending_command
+from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 from butler.memory import ButlerMemory
 from butler.memory.embedding import HashingEmbedder, get_embedder
 from butler.memory.semantic_index import SOURCE_PROJECT, SemanticMemoryIndex

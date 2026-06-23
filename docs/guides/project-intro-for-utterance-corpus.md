@@ -150,7 +150,7 @@
 |------|------|
 | `tests/corpus/suites/wechat_real/lw_real/utterance_catalog.yaml` | 话术目录（权威） |
 | `tests/corpus/runners/test_gateway_utterance_catalog.py` | 数据驱动执行 |
-| `tests/test_gateway_dev_conversations.py` | LW-REAL 黄金路径手写测试 |
+| `tests/gateway/test_gateway_dev_conversations.py` | LW-REAL 黄金路径手写测试 |
 | `docs/guides/wechat-daily-smoke-checklist.md` | 真机冒烟步骤 |
 | `docs/plans/corpus/wechat-dev-conversation-scenarios-2026-05.md` | 场景全集设计 |
 

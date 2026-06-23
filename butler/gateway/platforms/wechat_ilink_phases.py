@@ -49,7 +49,7 @@ The host ``qr_login`` function in ``wechat_ilink.py`` delegates to
 these phases and stays a thin state-machine < 50 source lines.
 
 Each phase helper is a thin orchestrator (< 50 source lines, R1-5.2
-size contract, enforced by ``tests/test_wechat_ilink_split.py``).
+size contract, enforced by ``tests/gateway/test_wechat_ilink_split.py``).
 """
 
 from __future__ import annotations

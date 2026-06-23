@@ -338,11 +338,14 @@ def select_auto_verify_levels(
     delegate_category: str = "",
 ) -> str:
     """Choose verify levels after an edit (edit-scoped docs vs production/full suite)."""
+    cat = str(delegate_category or "").strip().lower()
+    if cat.startswith("head-to-head"):
+        return "test"
+
     edit_levels = verify_level_for_edit(edited_files)
     if is_docs_markdown_only_edit(edited_files):
         return edit_levels
     prod_levels = ""
-    cat = str(delegate_category or "").strip()
     if cat:
         try:
             from butler.dev_engine.prod_delegate_bridge import production_auto_verify_levels

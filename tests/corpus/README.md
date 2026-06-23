@@ -1,6 +1,6 @@
 # 语料测试模块 (`tests/corpus`)
 
-开发对话与微信真机场景的**语料驱动回归**，与 `tests/test_gateway_*` 等产品单测互补。
+开发对话与微信真机场景的**语料驱动回归**，与 `tests/gateway/test_gateway_*` 等产品单测互补。
 
 **总体设计**：[`docs/plans/corpus/corpus-testing-module-design-2026-05.md`](../../docs/plans/corpus/corpus-testing-module-design-2026-05.md)
 
@@ -99,7 +99,7 @@ python3 scripts/generate_production_catalog.py      # 30 条生产脱敏话术
 python3 scripts/ingest_reference_user_corpus.py    # 1–5.md → smoke 清单
 
 # 微信 LW-REAL 黄金路径（手写 16 条）
-PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
+PYTHONPATH=. pytest tests/gateway/test_gateway_dev_conversations.py -q
 ```
 
 或使用：[`scripts/corpus-test.sh`](../../scripts/corpus-test.sh) `mock|smoke|live|archive`

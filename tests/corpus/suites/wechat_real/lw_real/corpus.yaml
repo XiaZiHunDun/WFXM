@@ -1,6 +1,6 @@
 # WeChat conversation scenarios — general habits + LingWen real dialogue (2026-05-22).
 # Design: docs/plans/wechat-real-dialogue-test-scenarios-2026-05.md
-# Runner: tests/test_gateway_dev_conversations.py (corpus: tests/corpus/runners/test_gateway_scripted.py)
+# Runner: tests/gateway/test_gateway_dev_conversations.py (corpus: tests/corpus/runners/test_gateway_scripted.py)
 
 meta:
   version: "2026-05-22-r3"

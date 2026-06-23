@@ -42,7 +42,7 @@ def test_sessions_list_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.sessions_commands.is_gateway_owner", return_value=False
+        "butler.gateway.commands.sessions_handlers.is_gateway_owner", return_value=False
     ):
         out = sessions_commands.handle_sessions_command(
             orchestrator=None,  # type: ignore[arg-type]
@@ -62,7 +62,7 @@ def test_sessions_search_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.sessions_commands.is_gateway_owner", return_value=False
+        "butler.gateway.commands.sessions_handlers.is_gateway_owner", return_value=False
     ):
         out = sessions_commands.handle_sessions_command(
             orchestrator=None,  # type: ignore[arg-type]
@@ -84,7 +84,7 @@ def test_owner_passes_through_sessions_list(monkeypatch):
     fake_orch.project_manager = fake_pm
 
     with patch(
-        "butler.gateway.sessions_commands.is_gateway_owner", return_value=True
+        "butler.gateway.commands.sessions_handlers.is_gateway_owner", return_value=True
     ), patch("butler.cli.sessions_cli.list_sessions", return_value=[]) as mock_list:
         out = sessions_commands.handle_sessions_command(
             orchestrator=fake_orch,  # type: ignore[arg-type]

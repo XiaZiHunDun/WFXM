@@ -116,7 +116,7 @@ class TestInfoHandlerGates:
             "butler.gateway.owner_gate.is_gateway_owner",
             return_value=True,
         ), patch(
-            "butler.gateway.sessions_commands.handle_sessions_command",
+            "butler.gateway.commands.sessions_handlers.handle_sessions_command",
             return_value="sessions list",
         ) as mock_handle:
             out = info_commands._cmd_sessions(
@@ -131,7 +131,7 @@ class TestInfoHandlerGates:
             "butler.gateway.owner_gate.is_gateway_owner",
             return_value=True,
         ), patch(
-            "butler.gateway.outcome_commands.handle_outcome_command",
+            "butler.gateway.commands.outcome_handlers.handle_outcome_command",
             return_value="outcome list",
         ) as mock_handle:
             out = info_commands._cmd_outcome(
@@ -259,7 +259,7 @@ class TestRuntimeHandlerGates:
             "butler.gateway.commands.runtime_commands.is_gateway_owner",
             return_value=True,
         ), patch(
-            "butler.gateway.runtime_commands.handle_runtime_command",
+            "butler.gateway.commands.runtime_handlers.handle_runtime_command",
             return_value="jobs list",
         ) as mock_handle:
             out = runtime_commands._cmd_runtime_jobs_list(
@@ -342,7 +342,7 @@ class TestMemoryHandlerOptOut:
         )
         # 运行时验证: 非 Owner 调 /记忆图谱 应能正常返 format 结果 (不被拒)
         with patch(
-            "butler.gateway.memory_commands.format_memory_triplet_graph",
+            "butler.gateway.commands.memory_handlers.format_memory_triplet_graph",
             return_value="graph ok",
         ) as mock_fmt:
             out = memory_commands._cmd_memory_graph(

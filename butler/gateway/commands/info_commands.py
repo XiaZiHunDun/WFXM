@@ -36,7 +36,7 @@ def _cmd_help(ctx: CommandContext) -> Optional[str]:
 
     owner-gate-opt-out: 公共只读，无 owner 数据；命令帮助对所有白名单用户开放
     """
-    from butler.gateway.help_commands import format_help_text
+    from butler.gateway.commands.help_handlers import format_help_text
 
     return format_help_text(ctx.arg)
 
@@ -104,7 +104,7 @@ def _cmd_memory_status(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
         return gate
-    from butler.gateway.memory_commands import format_memory_status
+    from butler.gateway.commands.memory_handlers import format_memory_status
 
     return format_memory_status(ctx.orchestrator, session_key=ctx.session_key)
 
@@ -160,7 +160,7 @@ def _cmd_sessions(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
         return gate
-    from butler.gateway.sessions_commands import handle_sessions_command
+    from butler.gateway.commands.sessions_handlers import handle_sessions_command
 
     return handle_sessions_command(
         ctx.orchestrator,
@@ -175,7 +175,7 @@ def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
         return gate
-    from butler.gateway.outcome_commands import handle_outcome_command
+    from butler.gateway.commands.outcome_handlers import handle_outcome_command
 
     return handle_outcome_command(
         ctx.orchestrator,

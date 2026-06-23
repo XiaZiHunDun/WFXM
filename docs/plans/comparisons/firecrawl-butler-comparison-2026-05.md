@@ -226,8 +226,8 @@ flowchart TB
 
 ```bash
 cd /path/to/WFXM
-PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_handler.py \
-  tests/test_runtime_metrics.py -q
+PYTHONPATH=. pytest tests/gateway/test_message_queue.py tests/gateway/test_gateway_handler.py \
+  tests/ops/test_runtime_metrics.py -q
 ```
 
 ---

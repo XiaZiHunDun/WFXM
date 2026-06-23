@@ -307,7 +307,7 @@ BUTLER_RUN_REAL_API_SMOKE=1 CORPUS_ARCHIVE=1 PYTHONPATH=. \
 | `tests/scenarios/wechat_dev_conversations.yaml` | `suites/wechat_real/lw_real/corpus.yaml` | gateway_scripted |
 | `tests/corpus_harness.py` | `tests/corpus/harness/` | — |
 | `tests/test_dev_assistant_corpus*.py` | `runners/test_agent_loop_rubric.py` | 合并参数化 |
-| `tests/test_gateway_dev_conversations.py` | `runners/test_gateway_scripted.py` | 逻辑迁移 |
+| `tests/gateway/test_gateway_dev_conversations.py` | `runners/test_gateway_scripted.py` | 逻辑迁移 |
 
 **统计（当前未迁移前）**：
 

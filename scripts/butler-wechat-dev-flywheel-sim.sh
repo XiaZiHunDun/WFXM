@@ -133,10 +133,11 @@ def last_task_id(reply: str = "") -> str:
 errors: list[str] = []
 ws = workspace()
 target = ws / md_rel
-if target.is_file():
-    print(f"pre-existing file ({target.stat().st_size} bytes) — 覆写场景")
-elif not no_cleanup:
-    pass  # 真机文件名：不存在则 dev 新建，不预建
+if not no_cleanup and target.is_file():
+    target.unlink()
+    print(f"removed pre-existing {md_rel} for overwrite sim")
+elif target.is_file():
+    print(f"pre-existing file ({target.stat().st_size} bytes) — 覆写场景（--no-cleanup）")
 
 print("=== Dev flywheel WeChat sim (真机文件名) ===")
 print(f"session: {session_key}")
@@ -148,6 +149,7 @@ send("/新对话")
 user_msg = (
     f"请 delegate_task，role=dev（禁止用 content）：\n"
     f"在 docs/ 覆写 {md_name}，正文仅一行「验收戳 {today}」；\n"
+    f"即使该文件已存在也必须重新 write_file 覆写；\n"
     f"先 read_file 再 write_file，再 read_file 确认；不要改其它文件。"
 )
 reply = send(user_msg)

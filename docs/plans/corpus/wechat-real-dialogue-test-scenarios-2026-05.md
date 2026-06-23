@@ -1,9 +1,9 @@
 # 灵文1号真机对话衍射 — 自动化测试场景
 
 > **来源**：2026-05-22 微信对话（鹿角象 × 灵文1号 Lead），见会话记录。  
-> **实现**：[`tests/test_gateway_dev_conversations.py`](../../../tests/test_gateway_dev_conversations.py)  
+> **实现**：[`tests/gateway/test_gateway_dev_conversations.py`](../../../tests/gateway/test_gateway_dev_conversations.py)  
 > **目录**：[`tests/scenarios/wechat_dev_conversations.yaml`](../../../tests/scenarios/wechat_dev_conversations.yaml)  
-> **运行**：`PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q`
+> **运行**：`PYTHONPATH=. pytest tests/gateway/test_gateway_dev_conversations.py -q`
 
 ---
 
@@ -105,6 +105,6 @@ sequenceDiagram
 CI 推荐：
 
 ```bash
-PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
+PYTHONPATH=. pytest tests/gateway/test_gateway_dev_conversations.py -q
 bash scripts/butler-wechat-gateway-smoke.sh   # 已含本文件
 ```

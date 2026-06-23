@@ -194,7 +194,7 @@ flowchart LR
 
 ```bash
 # 现有回归（改 core/orchestrator 时）
-PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py -q
+PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/ops/test_runtime_metrics.py -q
 
 # 若新增 design_md_sections / project preset
 PYTHONPATH=. pytest tests/test_design_md_sections.py -q

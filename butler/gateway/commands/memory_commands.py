@@ -24,7 +24,7 @@ def _cmd_memory_graph(ctx: CommandContext) -> Optional[str]:
     test_sprint11_sec2_memory_approve_owner.py::
     test_unrelated_command_not_blocked_by_owner_gate 明确豁免.
     """
-    from butler.gateway.memory_commands import format_memory_triplet_graph
+    from butler.gateway.commands.memory_handlers import format_memory_triplet_graph
 
     return format_memory_triplet_graph(ctx.orchestrator)
 
@@ -36,7 +36,7 @@ def _cmd_memory_pending_list(ctx: CommandContext) -> Optional[str]:
     才能用（他们看不到就没法决定批准/拒绝）. 既有契约
     test_sprint11_sec2_memory_approve_owner.py 明确豁免.
     """
-    from butler.gateway.memory_commands import format_pending_memory_list
+    from butler.gateway.commands.memory_handlers import format_pending_memory_list
 
     return format_pending_memory_list(ctx.orchestrator)
 
@@ -49,7 +49,7 @@ def _cmd_memory_reject(ctx: CommandContext) -> Optional[str]:
     test_sprint11_sec2_memory_approve_owner.py 明确豁免.
     /批准记忆 才是 SEC-11-2 owner-gated 改盘路径, 单独走 _cmd_memory_approve.
     """
-    from butler.gateway.memory_commands import handle_memory_pending_command
+    from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 
     return handle_memory_pending_command(
         ctx.orchestrator,
@@ -66,7 +66,7 @@ def _cmd_memory_approve(ctx: CommandContext) -> Optional[str]:
         platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
     ):
         return owner_required_message()
-    from butler.gateway.memory_commands import handle_memory_pending_command
+    from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 
     return handle_memory_pending_command(
         ctx.orchestrator,

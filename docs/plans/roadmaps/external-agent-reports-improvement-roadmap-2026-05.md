@@ -265,7 +265,7 @@ flowchart LR
 cd /path/to/WFXM
 
 # 第 1 波
-PYTHONPATH=. pytest tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
+PYTHONPATH=. pytest tests/test_p2_workflow_permissions.py tests/gateway/test_gateway_handler.py -q
 # PR-X1/X2 落地后追加：
 # PYTHONPATH=. pytest tests/test_workflow_rescue.py tests/test_loop_safety.py -q
 
@@ -274,7 +274,7 @@ PYTHONPATH=. pytest tests/test_p2_workflow_permissions.py tests/test_gateway_han
 
 # 回归：五报告 + CC（勿破坏已收口能力）
 PYTHONPATH=. pytest tests/test_five_reports_f6.py tests/test_outcome_reflection.py \
-  tests/test_cc_p3_p4_features.py tests/test_runtime_metrics.py -q
+  tests/test_cc_p3_p4_features.py tests/ops/test_runtime_metrics.py -q
 ```
 
 ---

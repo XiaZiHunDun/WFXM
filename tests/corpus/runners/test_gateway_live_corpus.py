@@ -23,8 +23,8 @@ from tests.corpus.harness.gateway_live import (
     validate_live_smoke_ids,
 )
 from tests.corpus.harness.gateway_meta import load_gateway_meta
-from tests.test_gateway_dev_conversations import _setup_lingwen_gateway_project
-from tests.test_wechat_gateway_live_smoke import _require_minimax_for_gateway
+from tests.gateway.test_gateway_dev_conversations import _setup_lingwen_gateway_project
+from tests.gateway.test_wechat_gateway_live_smoke import _require_minimax_for_gateway
 
 
 def _resolved_session_key(handler: ButlerMessageHandler, entry: dict) -> str:
@@ -43,7 +43,7 @@ def _resolved_session_key(handler: ButlerMessageHandler, entry: dict) -> str:
 
 @pytest.fixture
 def lingwen_gateway_live(tmp_path, monkeypatch, tmp_butler_home):
-    from tests.test_gateway_handler import _reset_singletons
+    from tests.gateway.test_gateway_handler import _reset_singletons
 
     clear_report_cache()
     proj = _setup_lingwen_gateway_project(tmp_path, monkeypatch)

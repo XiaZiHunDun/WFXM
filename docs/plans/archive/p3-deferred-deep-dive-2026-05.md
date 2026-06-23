@@ -106,7 +106,7 @@ ButlerOrchestrator
 ### 1.5 测试与回归清单
 
 - 单元：`tests/test_memory_*`、`test_semantic_memory_p1.py`、`test_orchestrator.py`（provider 初始化）  
-- 网关：`tests/test_gateway_handler.py` 记忆诊断行  
+- 网关：`tests/gateway/test_gateway_handler.py` 记忆诊断行  
 - 工具：remember → recall 同一 orchestrator 会话内可见  
 - **新增建议**（M1）：`test_memory_single_instance` — 断言 `id(orch.butler_memory) == id(orch.memory_provider._butler_global)`  
 - **新增建议**（M3）：post_session 只触发一次（mock `PostSessionProcessor.process` 调用计数）
@@ -141,7 +141,7 @@ ButlerOrchestrator
 
 ### 2.2 风险：静默回归
 
-已有 **15+** 测试直接断言 `_format_health_summary` 子串（`tests/test_gateway_handler.py`、`test_cli_acceptance.py`、`test_semantic_memory_p1.py` 等），包括：
+已有 **15+** 测试直接断言 `_format_health_summary` 子串（`tests/gateway/test_gateway_handler.py`、`test_cli_acceptance.py`、`test_semantic_memory_p1.py` 等），包括：
 
 - 会话隔离（不能读其他 session 的 health）  
 - 工具审计按 session 分桶  

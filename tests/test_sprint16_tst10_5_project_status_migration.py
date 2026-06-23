@@ -227,7 +227,7 @@ class TestSubcommandRouting:
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
-            "butler.gateway.project_commands.handle_project_onboarding_command",
+            "butler.gateway.commands.project_handlers.handle_project_onboarding_command",
             return_value="用法: /项目 新建 <slug> [模板]",
         ) as onboard:
             result = proj_cmds_module._cmd_project_list(ctx)
@@ -247,7 +247,7 @@ class TestSubcommandRouting:
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
-            "butler.gateway.project_commands.handle_project_onboarding_command",
+            "butler.gateway.commands.project_handlers.handle_project_onboarding_command",
             return_value="预检报告: 全部通过",
         ) as onboard:
             result = proj_cmds_module._cmd_project_list(ctx)
@@ -266,7 +266,7 @@ class TestSubcommandRouting:
         with patch(
             "butler.gateway.owner_gate.is_gateway_owner", return_value=True,
         ), patch(
-            "butler.gateway.project_commands.handle_project_onboarding_command",
+            "butler.gateway.commands.project_handlers.handle_project_onboarding_command",
             return_value=None,
         ):
             result = proj_cmds_module._cmd_project_list(ctx)

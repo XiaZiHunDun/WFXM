@@ -26,12 +26,12 @@ echo "Butler pytest bisect ($(date -Iseconds))"
 
 _run "Layer A: reasoning + gateway + queue" \
   tests/test_reasoning_trace.py \
-  tests/test_gateway_handler.py \
-  tests/test_message_queue.py
+  tests/gateway/test_gateway_handler.py \
+  tests/gateway/test_message_queue.py
 
 _run "Layer B: CC harness subset" \
   tests/test_cc_p3_p4_features.py \
-  tests/test_runtime_metrics.py \
+  tests/ops/test_runtime_metrics.py \
   tests/test_tool_result_storage.py
 
 _run "Layer C: tools_registry (isolated)" \

@@ -42,7 +42,7 @@ def test_outcome_list_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.outcome_commands.is_gateway_owner", return_value=False
+        "butler.gateway.commands.outcome_handlers.is_gateway_owner", return_value=False
     ):
         out = outcome_commands.handle_outcome_command(
             orchestrator=None,  # type: ignore[arg-type]
@@ -62,7 +62,7 @@ def test_outcome_resolve_blocked_for_non_owner():
     from butler.gateway.owner_gate import owner_required_message
 
     with patch(
-        "butler.gateway.outcome_commands.is_gateway_owner", return_value=False
+        "butler.gateway.commands.outcome_handlers.is_gateway_owner", return_value=False
     ):
         out = outcome_commands.handle_outcome_command(
             orchestrator=None,  # type: ignore[arg-type]
@@ -84,7 +84,7 @@ def test_owner_passes_through_outcome_list(monkeypatch):
     fake_orch.project_manager = fake_pm
 
     with patch(
-        "butler.gateway.outcome_commands.is_gateway_owner", return_value=True
+        "butler.gateway.commands.outcome_handlers.is_gateway_owner", return_value=True
     ), patch("butler.experiments.outcomes.list_pending", return_value=[]) as mock_list:
         out = outcome_commands.handle_outcome_command(
             orchestrator=fake_orch,  # type: ignore[arg-type]

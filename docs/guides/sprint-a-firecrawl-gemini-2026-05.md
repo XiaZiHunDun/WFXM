@@ -16,7 +16,7 @@
 ## 验收
 
 ```bash
-PYTHONPATH=. pytest tests/test_sprint_a_gateway.py tests/test_message_queue.py -q
+PYTHONPATH=. pytest tests/test_sprint_a_gateway.py tests/gateway/test_message_queue.py -q
 ```
 
 ## 后续 Sprint（已落地）

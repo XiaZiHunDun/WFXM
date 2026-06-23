@@ -271,5 +271,5 @@ def touch_paths_for_unified_gate() -> list[str]:
         "butler/gateway/message_handler.py",
         "butler/gateway/",
         "tests/corpus/",
-        "tests/test_gateway_dev_conversations.py",
+        "tests/gateway/test_gateway_dev_conversations.py",
     ]

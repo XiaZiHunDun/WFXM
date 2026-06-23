@@ -30,13 +30,37 @@ PYTHONPATH=. pytest tests/corpus -m corpus_mock -q
 # 或：./scripts/corpus-test.sh mock
 ```
 
-## 文件分组（按域）
+## 目录域（2026-06-23 起）
+
+新测优先放入子目录；`test_sprint*` 等历史文件暂留 `tests/` 根目录。
+
+| 目录 | 职责 | 守门命令 |
+|------|------|----------|
+| [`gateway/`](gateway/README.md) | 微信网关、斜杠命令、入站队列 | `bash scripts/butler-domain-pytest.sh gateway` |
+| [`ops/`](ops/README.md) | eval、metrics、health report、G1 证据 | `bash scripts/butler-domain-pytest.sh ops` |
+| [`dev_engine/`](dev_engine/README.md) | VERIFY、read_state、dev 集成 | `bash scripts/butler-domain-pytest.sh dev_engine` |
+| [`memory/`](memory/) | 记忆子系统、R5 并发 | 见目录内测试 |
+| [`core/`](core/) | Loop / context 并发 | 见目录内测试 |
+| [`corpus/`](corpus/README.md) | 语料评测（独立体系） | `./scripts/corpus-test.sh mock` |
+| `tests/` 根 | 历史 sprint / 跨域集成 | 全量 `pytest -q` |
+
+```bash
+bash scripts/butler-domain-pytest.sh gateway ops dev_engine   # 多域
+bash scripts/butler-domain-pytest.sh all                      # 等同全量 pytest
+```
+
+## 文件分组（按域 · 根目录遗留）
+
+> 下列前缀文件已迁入上表子目录；根目录仅保留 sprint 与跨域集成。
 
 | 前缀 / 文件 | 域 |
 |-------------|-----|
+| `tests/gateway/test_gateway_*`, `test_wechat_*` | Gateway（已迁入） |
+| `tests/ops/test_eval_*`, `test_runtime_metrics.py` | Ops（已迁入） |
+| `tests/dev_engine/test_verify_*` | DevEngine（已迁入） |
 | `test_agent_loop.py`, `test_tool_batch.py`, `test_context_pipeline.py` | Agent Loop 栈 |
 | `test_transport_*`, `test_llm_client.py`, `test_retry_*` | Transport / LLM |
-| `test_gateway_*`, `test_wechat_*`, `test_session_lifecycle.py` | Gateway / 微信 iLink / Session |
+| `test_gateway_*`, `test_wechat_*`, `test_session_lifecycle.py` | Gateway / 微信 iLink / Session（→ `tests/gateway/`） |
 | `test_preemptive_compact.py`, `test_post_compact_agents_sections.py`, `test_gateway_openclaw.py`, `test_security_audit.py` | OpenClaw OC-P0–P2 |
 | `test_sprint_codex_c0.py`, `test_sprint_codex_c1.py`, `test_sprint_codex_c2.py` | Codex 对标 Sprint C0–C2 |
 | `test_hermes_extraction.py`, `test_run_agent_extraction.py` | Hermes 提炼回归 |
@@ -57,14 +81,14 @@ PYTHONPATH=. pytest \
   tests/test_report_format.py \
   tests/test_tenant_isolation.py \
   tests/test_workflows.py \
-  tests/test_wechat_session_reset.py \
-  tests/test_gateway_acceptance.py \
-  tests/test_wechat_ilink_inbound.py \
-  tests/test_wechat_ilink_outbound.py \
-  tests/test_wechat_ilink_media.py \
-  tests/test_owner_profile_gateway.py \
-  tests/test_wechat_account_persistence.py \
-  tests/test_gateway_runner.py::TestButlerMessageHandlerRunner \
+  tests/gateway/test_wechat_session_reset.py \
+  tests/gateway/test_gateway_acceptance.py \
+  tests/gateway/test_wechat_ilink_inbound.py \
+  tests/gateway/test_wechat_ilink_outbound.py \
+  tests/gateway/test_wechat_ilink_media.py \
+  tests/gateway/test_owner_profile_gateway.py \
+  tests/gateway/test_wechat_account_persistence.py \
+  tests/gateway/test_gateway_runner.py::TestButlerMessageHandlerRunner \
   tests/test_main_cli.py::TestWechatSetupCommand \
   tests/test_session_lifecycle.py \
   tests/test_post_session.py \
@@ -97,7 +121,7 @@ BUTLER_RUN_REAL_API_SMOKE=1 PYTHONPATH=. pytest -m live_llm tests/test_cli_live_
 
 ```bash
 BUTLER_RUN_REAL_API_SMOKE=1 MINIMAX_API_KEY=... PYTHONPATH=. \
-  pytest -m live_llm tests/test_wechat_gateway_live_smoke.py -v
+  pytest -m live_llm tests/gateway/test_wechat_gateway_live_smoke.py -v
 ```
 
 含：单轮问候、README 直读（步骤 3）、委派写文件（步骤 4–4c）、Owner 称呼。

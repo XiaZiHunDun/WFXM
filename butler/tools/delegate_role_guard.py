@@ -31,6 +31,19 @@ _CONTENT_SIGNALS: tuple[re.Pattern[str], ...] = (
     re.compile(r"禁止\s*开发代理", re.I),
 )
 
+_FORBID_DELEGATE_SIGNALS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"不要委派", re.I),
+    re.compile(r"禁止委派", re.I),
+    re.compile(r"不(要|许)委派", re.I),
+    re.compile(r"不要\s*delegate", re.I),
+    re.compile(r"勿\s*委派", re.I),
+)
+
+_LEAD_SELF_READ_FILE = re.compile(
+    r"(自己|请你|请你先|本线程).{0,12}read_file|read_file.{0,40}(后|然后)",
+    re.I,
+)
+
 
 def _normalize_role(role: str) -> str:
     return str(role or "").replace("_agent", "").strip().lower()
@@ -125,6 +138,53 @@ def _is_lead_turn() -> bool:
         return False
 
 
+def lead_forbids_delegate(user_text: str) -> bool:
+    """True when Lead must answer read-only (no delegate_task) from user intent."""
+    text = _user_query_head(user_text)
+    if not text:
+        return False
+    if user_explicit_delegate_role(text):
+        return False
+    if any(p.search(text) for p in _FORBID_DELEGATE_SIGNALS):
+        return True
+    lowered = text.lower()
+    factory_ctx = (
+        "workflow_state" in lowered
+        or "novel-factory" in lowered
+        or "流水线" in text
+    )
+    status_ask = any(
+        token in text
+        for token in ("阶段", "进度", "厂情", "step", "phase", "STEP", "PHASE")
+    )
+    if factory_ctx and status_ask and _LEAD_SELF_READ_FILE.search(text):
+        return True
+    return False
+
+
+def block_lead_readonly_delegate(*, depth: int = 0) -> str | None:
+    """Return tool-error JSON when Lead turn must not delegate; else None."""
+    if int(depth or 0) > 0:
+        return None
+    if not _is_lead_turn():
+        return None
+    if not lead_forbids_delegate(_turn_user_text()):
+        return None
+    import json
+
+    return json.dumps(
+        {
+            "error": (
+                "Lead 只读厂情：请本线程 read_file novel-factory/workflow_state.json "
+                "或 run_workflow(novel-factory-status)，勿 delegate_task"
+            ),
+            "code": "LEAD_READONLY_NO_DELEGATE",
+            "hint": "用户要求只读或不委派时，Lead 不得 delegate_task。",
+        },
+        ensure_ascii=False,
+    )
+
+
 def apply_user_role_override(state: "DelegateRunState") -> bool:
     """If user pinned role=dev/content on a Lead turn, override model-chosen role."""
     if int(getattr(state, "depth", 0) or 0) > 0:
@@ -154,4 +214,9 @@ def apply_user_role_override(state: "DelegateRunState") -> bool:
     return True
 
 
-__all__ = ["apply_user_role_override", "user_explicit_delegate_role"]
+__all__ = [
+    "apply_user_role_override",
+    "block_lead_readonly_delegate",
+    "lead_forbids_delegate",
+    "user_explicit_delegate_role",
+]

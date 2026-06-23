@@ -1349,8 +1349,8 @@ HashingEmbedder 是确定性哈希嵌入器，Recall@3 ≈ 50-67%。生产环境
 | **v3.0 结构性前提** | `tests/test_premise_v3_new.py` (77 tests) |
 | **v3.0 LLM-in-loop** | `tests/test_premise_v3_llm_live.py` (10 tests, `live_llm` gate) |
 | P-E 扩展点安全 | `tests/test_premise_extension_points.py` (22 tests) |
-| P-DA/DT DevEngine | `tests/test_dev_engine_theory.py` (56 tests) |
-| P-DT 集成 | `tests/test_dev_engine_integration.py` (35 tests) |
+| P-DA/DT DevEngine | `tests/dev_engine/test_dev_engine_theory.py` (56 tests) |
+| P-DT 集成 | `tests/dev_engine/test_dev_engine_integration.py` (35 tests) |
 | V4 详设回归 | `tests/test_v4_design_regression.py` (17 tests) |
 | P-CA/CT 编码知识层 | `tests/test_premise_coding_knowledge.py` (99 tests) |
 | **L7 观测演化** | |

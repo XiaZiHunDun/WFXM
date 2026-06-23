@@ -379,7 +379,7 @@ PYTHONPATH=. python -m butler.main exec "你好，请用一句话自我介绍"
 ## 三、微信网关测试（Butler 原生，无 Hermes 子进程）
 
 > **P0 业务验收（推荐先做）**：[wechat-core-scenario.md](./wechat-core-scenario.md) — 七步真机剧本（`/状态` → `/切换 灵文1号` → 读写项目 → `delegate_task` → `/新对话` → 项目记忆）。  
-> 下文 §3.4–3.5 为分项清单；自动化见 `tests/test_gateway_acceptance.py`。
+> 下文 §3.4–3.5 为分项清单；自动化见 `tests/gateway/test_gateway_acceptance.py`。
 
 > v4.1 起：`butler gateway` 默认走 `butler/gateway/runner.py` + iLink 适配器。  
 > 产品仅支持微信：`butler gateway`（无需 `--platforms`）。
@@ -498,7 +498,7 @@ pgrep -af 'butler.main gateway'
 
 ```bash
 cd ~/projects/WFXM
-PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gateway_handler.py tests/test_gateway_runner.py -q
+PYTHONPATH=. python -m pytest tests/gateway/test_gateway_acceptance.py tests/gateway/test_gateway_handler.py tests/gateway/test_gateway_runner.py -q
 ```
 
 ### 3.4 微信对话测试（真机）
@@ -720,7 +720,7 @@ PYTHONPATH=. python -m pytest tests/test_gateway_acceptance.py tests/test_gatewa
 
 ### 微信测试结果
 
-> **验收批次**：2026-05-20 | Butler 原生网关 | `tests/test_gateway_acceptance.py` **19 passed** + 真机 3.4.1
+> **验收批次**：2026-05-20 | Butler 原生网关 | `tests/gateway/test_gateway_acceptance.py` **19 passed** + 真机 3.4.1
 
 | 编号 | 测试项 | 状态 | 备注 |
 |------|-------|------|------|

@@ -378,7 +378,7 @@ catalog.get(id)
 | **REG-P2** ✅ | 目录型 skill（`install_type: directory` + stub）；`ClaudeMarketplaceSource`（`marketplace.json`）；内置 demo marketplace | `tests/test_skill_registry_p2.py` |
 | **REG-P3** ✅ | `ProjectSource`（`projects/*/skills` 只读索引 + 可安装到租户） | `tests/test_project_source.py` |
 | **MCP-P2** ✅ | 远程 MCP catalog（`BUTLER_MCP_CATALOG_URLS` + TTL 缓存） | `tests/test_mcp_catalog.py` |
-| **REG-P4** ✅ | `LobeHubSource`（API token 或 market-cli）；微信 `/确认安装` + pending | `tests/test_lobehub_source.py`, `tests/test_install_pending.py` |
+| **REG-P4** ✅ | `LobeHubSource`（API token 或 market-cli）；微信 `/确认安装` + pending | `tests/test_lobehub_source.py`, `tests/gateway/test_install_pending.py` |
 | **加固** ✅ | MCP probe 失败不写 yaml；`mcp add --workspace` / 微信有项目时写 `.butler/mcp.yaml` | `tests/test_mcp_catalog.py` |
 
 **建议顺序**：REG-P0 → MCP-P0 → REG-P1 → MCP-P1（先打通 Skill 闭环，再 MCP 装配）。

@@ -1,6 +1,6 @@
 """L2 golden paths — ``corpus.yaml`` index + registry entry for L2.
 
-Implementation tests remain in ``tests/test_gateway_dev_conversations.py`` (fixtures).
+Implementation tests remain in ``tests/gateway/test_gateway_dev_conversations.py`` (fixtures).
 CI one-shot runs both via ``./scripts/corpus-test.sh gateway``.
 
 Run index only:

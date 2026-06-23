@@ -1,8 +1,8 @@
 """Gateway scripted corpus (LW-REAL) — schema + registry wiring.
 
-Implementation tests live in ``tests/test_gateway_dev_conversations.py`` (mock LLM scripts).
+Implementation tests live in ``tests/gateway/test_gateway_dev_conversations.py`` (mock LLM scripts).
 Run gateway scenarios:
-  PYTHONPATH=. pytest tests/test_gateway_dev_conversations.py -q
+  PYTHONPATH=. pytest tests/gateway/test_gateway_dev_conversations.py -q
 """
 
 from __future__ import annotations

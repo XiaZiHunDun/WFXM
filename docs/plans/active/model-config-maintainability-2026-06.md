@@ -173,7 +173,7 @@ remote_compact:                       # 新增
 PYTHONPATH=. pytest tests/test_butler_config.py tests/test_model_resolve.py -q
 
 # gateway / auxiliary
-PYTHONPATH=. pytest tests/test_message_queue.py tests/test_gateway_handler.py \
+PYTHONPATH=. pytest tests/gateway/test_message_queue.py tests/gateway/test_gateway_handler.py \
   tests/test_vision_fallback.py -q
 
 # 记忆嵌入

@@ -38,7 +38,7 @@ case "$MODE" in
       tests/corpus/runners/test_gateway_utterance_variants.py \
       tests/corpus/runners/test_gateway_multiturn_catalog.py \
       tests/corpus/runners/test_gateway_golden.py \
-      tests/test_gateway_dev_conversations.py \
+      tests/gateway/test_gateway_dev_conversations.py \
       -m "corpus and corpus_mock" -q "$@"
     ;;
   gateway-live)
@@ -85,7 +85,7 @@ case "$MODE" in
       tests/corpus/runners/test_gateway_multiturn_catalog.py \
       tests/corpus/runners/test_gateway_golden.py \
       tests/corpus/runners/test_gateway_production_ops.py \
-      tests/test_gateway_dev_conversations.py \
+      tests/gateway/test_gateway_dev_conversations.py \
       -m "corpus and corpus_mock" -q "$@"
     ;;
   pr-gate)

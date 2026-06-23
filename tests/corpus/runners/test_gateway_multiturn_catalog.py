@@ -16,7 +16,7 @@ from tests.corpus.harness.gateway_catalog import (
     run_catalog_turn,
 )
 from tests.corpus.harness.gateway_scripts import pad_script
-from tests.test_gateway_dev_conversations import _bind_llm_script
+from tests.gateway.test_gateway_dev_conversations import _bind_llm_script
 
 
 def _multiturn_by_id() -> dict[str, dict]:

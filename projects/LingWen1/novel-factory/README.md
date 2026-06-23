@@ -221,12 +221,10 @@ python3 update_index.py --verify
 
 ## 设计文档
 
-详细设计文档位于 `docs/superpowers/`：
+Butler compaction 相关的 Cursor Superpowers 实施稿已归档至仓库级  
+[`docs/plans/archive/superpowers/`](../../../docs/plans/archive/superpowers/README.md)。
 
-- `specs/2026-05-12-novel-factory-design.md` - 整体架构设计
-- `specs/2026-05-14-inspiration-dept-design.md` - 灵感部门细化
-- `specs/2026-05-14-writer-dept-design.md` - 作家部门细化
-- `plans/` - 各部门实施计划
+小说工厂领域设计可参考 `docs/reference-snapshot/`（本地快照，gitignore）或主公维护的 `reference/`。
 
 ## 当前项目状态
 

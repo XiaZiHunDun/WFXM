@@ -110,7 +110,7 @@ class TestDispatch:
 class TestDelegation:
     def test_jobs_list_passes_canonical_cmd(self, ensure_registered):
         """/定时 handler 强制 cmd='/定时' 委派到 handle_runtime_command。"""
-        from butler.gateway.runtime_commands import handle_runtime_command
+        from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
         orch = MagicMock()  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         ctx = CommandContext(
@@ -123,7 +123,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
-            "butler.gateway.runtime_commands.handle_runtime_command",
+            "butler.gateway.commands.runtime_handlers.handle_runtime_command",
             return_value="jobs-text",
         ) as h:
             result = rt_cmds._cmd_runtime_jobs_list(ctx)
@@ -132,7 +132,7 @@ class TestDelegation:
         assert args[1] == "/定时", f"应强制 canonical cmd, 实际 {args[1]!r}"
 
     def test_approve_run_passes_canonical_cmd(self, ensure_registered):
-        from butler.gateway.runtime_commands import handle_runtime_command
+        from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
         orch = MagicMock()  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         ctx = CommandContext(
@@ -145,7 +145,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
-            "butler.gateway.runtime_commands.handle_runtime_command",
+            "butler.gateway.commands.runtime_handlers.handle_runtime_command",
             return_value="approved",
         ) as h:
             result = rt_cmds._cmd_runtime_approve_run(ctx)
@@ -155,7 +155,7 @@ class TestDelegation:
         assert args[2] == "job-1"
 
     def test_run_passes_canonical_cmd(self, ensure_registered):
-        from butler.gateway.runtime_commands import handle_runtime_command
+        from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
         orch = MagicMock()  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         ctx = CommandContext(
@@ -168,7 +168,7 @@ class TestDelegation:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
-            "butler.gateway.runtime_commands.handle_runtime_command",
+            "butler.gateway.commands.runtime_handlers.handle_runtime_command",
             return_value="ran",
         ) as h:
             result = rt_cmds._cmd_runtime_run(ctx)
@@ -217,7 +217,7 @@ class TestOwnerGate:
             session_registry=MagicMock(),  # noqa: magicmock-no-spec — runtime command facade (orch / session_registry)
         )
         with patch.object(rt_cmds, "is_gateway_owner", return_value=True), patch(
-            "butler.gateway.runtime_commands.handle_runtime_command",
+            "butler.gateway.commands.runtime_handlers.handle_runtime_command",
             return_value="jobs",
         ) as h:
             result = rt_cmds._cmd_runtime_jobs_list(ctx)

@@ -1,0 +1,20 @@
+{
+  "deep-research": {
+    "creates": 0,
+    "views": 1,
+    "uses": 0,
+    "deletes": 0,
+    "merges_in": 0,
+    "last_event": "view",
+    "last_event_at": 1782202372.8022046
+  },
+  "research-program": {
+    "creates": 0,
+    "views": 1,
+    "uses": 0,
+    "deletes": 0,
+    "merges_in": 0,
+    "last_event": "view",
+    "last_event_at": 1782202372.8080924
+  }
+}

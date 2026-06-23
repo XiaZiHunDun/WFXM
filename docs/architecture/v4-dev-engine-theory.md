@@ -730,7 +730,7 @@ OpenCode 等外部工具通过 `opencode_task` 工具可选接入。核心循环
 
 | 层次 | 度量内容 | 实现 | 状态 |
 |------|---------|------|------|
-| **L1: 结构正确性** | 状态机转移合法、回滚成功、终止有界 | `tests/test_dev_engine_theory.py` (120+ tests) | ✅ |
+| **L1: 结构正确性** | 状态机转移合法、回滚成功、终止有界 | `tests/dev_engine/test_dev_engine_theory.py` (120+ tests) | ✅ |
 | **L2: 运行时效果** | 任务完成率、编辑精度、修复收敛率、首次通过率 | `butler/dev_engine/dev_metrics.py` | ✅ |
 | **L3: 对比基准** | 标准化任务集上的端到端表现 | `butler/dev_engine/dev_benchmark.py` | ✅ |
 

@@ -408,7 +408,7 @@ Sprint 7 修掉一批典型的一阶问题后，剩余项集中在**三个深层
 
 ### 5.9 [🟠 HIGH] TST-9 `test_timeout_push_when_ack_sent` 单测 25 秒
 
-- **位置**: `tests/test_completion_notify_p2.py:56-63`
+- **位置**: `tests/gateway/test_completion_notify_p2.py:56-63`
 - **影响**: 拖慢全 suite；CI 超时风险
 - **建议**: 加 `monkeypatch.setenv("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", "0")` 降到 <1s
 
@@ -419,11 +419,11 @@ Sprint 7 修掉一批典型的一阶问题后，剩余项集中在**三个深层
 
 ### 5.11 [🟠 HIGH] TST-11 MemoryDeduplicator adapter 内 0 集成测试
 
-- `tests/test_wechat_content_dedup.py` 只测 helper class 单元；adapter 内"重复消息静默丢弃"路径 0 测试
+- `tests/gateway/test_wechat_content_dedup.py` 只测 helper class 单元；adapter 内"重复消息静默丢弃"路径 0 测试
 
 ### 5.12 其他 18 项
 
-- TST-12 `tests/test_completion_notify_p2.py::_run_coro` 用 `loop.run_until_complete` 共享 loop 风险
+- TST-12 `tests/gateway/test_completion_notify_p2.py::_run_coro` 用 `loop.run_until_complete` 共享 loop 风险
 - TST-13 `prefetch_cache` / `mcp async_runner` fire-and-forget 无测试
 - TST-14 `butler_home_q` fixture 在 2 个测试文件重复定义
 - TST-15 `test_welcome_atomic_under_concurrent_threads` 靠 `time.sleep(0.05)` 扩大 race

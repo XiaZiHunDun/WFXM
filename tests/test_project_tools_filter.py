@@ -113,7 +113,7 @@ class TestGatewayUsesProjectTools:
             ),
             encoding="utf-8",
         )
-        from tests.test_gateway_handler import _reset_singletons
+        from tests.gateway.test_gateway_handler import _reset_singletons
 
         monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(projects_dir))
         _reset_singletons()

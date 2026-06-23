@@ -7,7 +7,7 @@ from typing import Any
 
 from tests.corpus.harness.registry import get_suite, load_suite_corpus
 
-_DEV_MODULE = "tests.test_gateway_dev_conversations"
+_DEV_MODULE = "tests.gateway.test_gateway_dev_conversations"
 
 
 def golden_blocks(corpus: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:

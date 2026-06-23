@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from butler.gateway.memory_commands import handle_memory_pending_command
+from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 from butler.memory import ButlerMemory
 from butler.memory.prefetch_cache import clear_prefetch_cache
 from butler.memory.project_memory import ProjectMemory

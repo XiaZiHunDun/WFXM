@@ -17,7 +17,7 @@ class TestC1ExternalRepo:
 
     def test_wechat_register_git_clone(self, tmp_path, monkeypatch):
         from butler.config import ButlerSettings
-        from butler.gateway.project_commands import _project_register_wechat
+        from butler.gateway.commands.project_handlers import _project_register_wechat
 
         monkeypatch.setenv("BUTLER_PROJECTS_DIR", str(tmp_path / "projects"))
         settings = ButlerSettings()
@@ -33,7 +33,7 @@ class TestC1ExternalRepo:
         with patch("butler.gateway.owner_gate.is_gateway_owner", return_value=True), \
              patch("butler.config.get_butler_settings", return_value=settings), \
              patch(
-                 "butler.gateway.project_commands._clone_git_repo",
+                 "butler.gateway.commands.project_handlers._clone_git_repo",
                  return_value=(True, str(tmp_path / "projects" / "repo")),
              ):
             out = _project_register_wechat(
@@ -120,7 +120,7 @@ class TestC4ProjectCreateTemplate:
         assert created.type == "content" or created.name == "知识试点"
 
     def test_wechat_create_usage_hint(self):
-        from butler.gateway.project_commands import _project_create_wechat
+        from butler.gateway.commands.project_handlers import _project_create_wechat
 
         orch = MagicMock()
         with patch("butler.gateway.owner_gate.is_gateway_owner", return_value=True):

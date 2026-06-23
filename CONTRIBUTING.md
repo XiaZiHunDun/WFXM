@@ -6,7 +6,7 @@
 
 - `butler/gateway/message_handler.py` 及 `butler/gateway/`
 - `tests/corpus/`
-- `tests/test_gateway_dev_conversations.py`
+- `tests/gateway/test_gateway_dev_conversations.py`
 
 ```bash
 ./scripts/corpus-test.sh drift    # 生成物与脚本一致
@@ -70,8 +70,8 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 ./scripts/butler-cc-harness-gate.sh
 
 # 文档/队列/workflow 相关守门
-PYTHONPATH=. pytest tests/test_runtime_metrics.py tests/test_message_queue.py \
-  tests/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py \
+PYTHONPATH=. pytest tests/ops/test_runtime_metrics.py tests/gateway/test_message_queue.py \
+  tests/gateway/test_gateway_queue_command.py tests/test_p2_workflow_permissions.py \
   tests/test_opencode_features.py tests/test_opencode_p2_features.py \
   tests/test_mcp_features.py -q
 
@@ -96,7 +96,7 @@ PYTHONPATH=. pytest tests/test_lobehub_p0_features.py tests/test_peg_prompt_cont
 PYTHONPATH=. pytest tests/test_external_agent_x1_x2.py tests/test_external_agent_x5_x6.py \
   tests/test_external_agent_m_confirm.py tests/test_external_agent_m_followup.py \
   tests/test_external_agent_p1_p4.py tests/test_message_ir.py tests/test_mcp_deferred.py \
-  tests/test_p2_workflow_permissions.py tests/test_gateway_handler.py -q
+  tests/test_p2_workflow_permissions.py tests/gateway/test_gateway_handler.py -q
 ```
 
 运维速查：[`docs/guides/external-agent-reports-capabilities-2026-05.md`](docs/guides/external-agent-reports-capabilities-2026-05.md)

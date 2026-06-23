@@ -13,10 +13,10 @@ echo "== CC harness P0–P2 (spill / prune / read-state / transition / queue / s
 "$PY" -m pytest \
   tests/test_tool_result_storage.py \
   tests/test_tool_prune_policy.py \
-  tests/test_read_state.py \
+  tests/dev_engine/test_read_state.py \
   tests/test_loop_transition.py \
-  tests/test_message_queue.py \
-  tests/test_gateway_queue_drain_push.py \
+  tests/gateway/test_message_queue.py \
+  tests/gateway/test_gateway_queue_drain_push.py \
   tests/test_streaming_tools.py \
   tests/test_cache_safe_delegate.py \
   -q "$@"

@@ -1,0 +1,35 @@
+[
+  {
+    "id": "PROD_FAIL_e707b7fd0f26",
+    "title": "Prod failure 灵文1号 (tool_wrong)",
+    "domain": [
+      "prod",
+      "failure",
+      "tool_wrong"
+    ],
+    "theorem_basis": [
+      "T01",
+      "T03",
+      "T04",
+      "T10"
+    ],
+    "context": "灵文1号; tool_wrong; verify_failed",
+    "pattern": "Production failure in 灵文1号 (tool_wrong).\ntask: Fix calc.py: mul(a, b) must return a * b (multiply). test_calc.py expects mul(3, 4) == 12. Use read_file then patch on calc.py only; then run pytest on test_calc.py.\nreason: verify_failed\nnext_time: Use read_file/patch/run_pytest only; avoid shell metacharacters and unsafe paths.\nrelated_b9_task: B9L_prod_no_test\nevidence: 错误类型: 需调整 | 原因: Terminal command is not in the allowlist | 建议下一步: 请换参数、换工具或先 read_file 核对路径，勿重复相同 terminal | code: TOOL_ERROR",
+    "benchmarks": {
+      "failure_class": "tool_wrong",
+      "project": "灵文1号",
+      "retrieval_keywords": "tool,terminal,read_file,patch,no,test,read,only,edit,pytest,fix,calc,mul,must,return,multiply,test_calc,expects",
+      "inferred_b9_task": "B9L_prod_no_test"
+    },
+    "validity_start": 1782197851.502674,
+    "validity_end": 1797749851.502674,
+    "supersedes": null,
+    "scope": {
+      "level": "project",
+      "project_id": "灵文1号",
+      "visibility": "private",
+      "stack_tags": [],
+      "source": "prod_failure"
+    }
+  }
+]

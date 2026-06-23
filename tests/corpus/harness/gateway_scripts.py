@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from tests.test_gateway_acceptance import _text_response, _tool_response
-from tests.test_gateway_dev_conversations import (
+from tests.gateway.test_gateway_acceptance import _text_response, _tool_response
+from tests.gateway.test_gateway_dev_conversations import (
     HELLO_REL,
     _delegate_create_hello_script,
     _delegate_create_py_script,

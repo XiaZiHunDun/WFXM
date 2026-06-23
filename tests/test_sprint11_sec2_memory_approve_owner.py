@@ -41,7 +41,7 @@ def test_approve_all_blocked_for_non_owner():
     """/批准记忆 全部：非 Owner 应被 owner_required_message 守门。"""
     from butler.gateway.owner_gate import owner_required_message
 
-    with patch("butler.gateway.memory_commands.is_gateway_owner", return_value=False):
+    with patch("butler.gateway.commands.memory_handlers.is_gateway_owner", return_value=False):
         out = memory_commands.handle_memory_pending_command(
             orchestrator=None,  # type: ignore[arg-type]
             cmd="/批准记忆",
@@ -60,7 +60,7 @@ def test_approve_single_blocked_for_non_owner():
     """/批准记忆 <序号>：非 Owner 应被 owner_required_message 守门。"""
     from butler.gateway.owner_gate import owner_required_message
 
-    with patch("butler.gateway.memory_commands.is_gateway_owner", return_value=False):
+    with patch("butler.gateway.commands.memory_handlers.is_gateway_owner", return_value=False):
         out = memory_commands.handle_memory_pending_command(
             orchestrator=None,  # type: ignore[arg-type]
             cmd="/批准记忆",
@@ -84,7 +84,7 @@ def test_owner_passes_through_approve_all():
     fake_pmem.markdown.approve_all.return_value = 1
     fake_orch._project_memory = fake_pmem
 
-    with patch("butler.gateway.memory_commands.is_gateway_owner", return_value=True):
+    with patch("butler.gateway.commands.memory_handlers.is_gateway_owner", return_value=True):
         out = memory_commands.handle_memory_pending_command(
             orchestrator=fake_orch,
             cmd="/批准记忆",
@@ -112,7 +112,7 @@ def test_unrelated_command_not_blocked_by_owner_gate():
     fake_pmem.markdown.list_pending.return_value = []
     fake_orch._project_memory = fake_pmem
 
-    with patch("butler.gateway.memory_commands.is_gateway_owner", return_value=False):
+    with patch("butler.gateway.commands.memory_handlers.is_gateway_owner", return_value=False):
         out = memory_commands.handle_memory_pending_command(
             orchestrator=fake_orch,
             cmd="/记忆待审",

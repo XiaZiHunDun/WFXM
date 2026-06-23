@@ -17,8 +17,8 @@ from butler.gateway.command_registry import CommandContext, CommandDef, register
 
 
 def _dev_delegate(ctx: CommandContext) -> Optional[str]:
-    """统一委派到 dev_commands.handle_dev_command (含 owner gate)."""
-    from butler.gateway.dev_commands import handle_dev_command
+    """统一委派到 dev_handlers.handle_dev_command (含 owner gate)."""
+    from butler.gateway.commands.dev_handlers import handle_dev_command
 
     return handle_dev_command(
         ctx.cmd,

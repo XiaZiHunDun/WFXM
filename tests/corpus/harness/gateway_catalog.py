@@ -339,7 +339,7 @@ def run_catalog_turn(
         pad_script,
         script_profiles,
     )
-    from tests.test_gateway_dev_conversations import _bind_llm_script
+    from tests.gateway.test_gateway_dev_conversations import _bind_llm_script
 
     entry_id = entry.get("id", "?")
     mock_complete, mock_stream = patch_llm
