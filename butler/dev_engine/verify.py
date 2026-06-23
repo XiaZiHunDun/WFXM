@@ -10,9 +10,11 @@ from __future__ import annotations
 from butler.env_parse import int_env
 import logging
 import os
+import shlex
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 from butler.dev_engine.dev_state import VerifyResult, VerifyStatus
 from butler.dev_engine.diagnostics import parse_diagnostics
@@ -22,14 +24,48 @@ logger = logging.getLogger(__name__)
 DEFAULT_VERIFY_TIMEOUT = int_env("BUTLER_DEV_VERIFY_TIMEOUT", 300)
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _load_project_dev_config(workspace: Path) -> dict[str, Any]:
+    """Load ``dev:`` block from ``workspace/project.yaml`` when present."""
+    cfg_path = workspace / "project.yaml"
+    if not cfg_path.is_file():
+        return {}
+    try:
+        from butler.project.model import Project
+
+        return dict(Project.from_yaml(cfg_path).dev or {})
+    except Exception as exc:
+        logger.debug("project dev config load skipped: %s", exc)
+        return {}
+
+
+def _argv_from_dev_command(cmd: str, extra_args: list[str] | None = None) -> list[str]:
+    argv = shlex.split(cmd.strip())
+    if extra_args:
+        argv.extend(extra_args)
+    return argv
+
+
+def _project_dev_env() -> dict[str, str]:
+    from butler.tools.path_safety import safe_subprocess_env
+
+    return {**safe_subprocess_env(), "PYTHONPATH": str(_repo_root())}
+
+
 def _run_command(
     cmd: list[str],
     workspace: Path,
     timeout: int,
     source: str,
+    *,
+    env: dict[str, str] | None = None,
 ) -> VerifyResult:
     """Run a verification command and parse output."""
     t0 = time.time()
+    run_env = env if env is not None else {**os.environ, "PYTHONPATH": str(workspace)}
     try:
         result = subprocess.run(
             cmd,
@@ -37,7 +73,7 @@ def _run_command(
             text=True,
             timeout=timeout,
             cwd=str(workspace),
-            env={**os.environ, "PYTHONPATH": str(workspace)},
+            env=run_env,
         )
         elapsed = time.time() - t0
         combined = result.stdout + "\n" + result.stderr
@@ -81,6 +117,20 @@ def _run_command(
         )
 
 
+def _run_project_dev_command(
+    workspace: Path,
+    cmd: str,
+    *,
+    timeout: int,
+    source: str,
+    extra_args: list[str] | None = None,
+) -> VerifyResult:
+    argv = _argv_from_dev_command(cmd, extra_args)
+    if not argv:
+        return VerifyResult(status=VerifyStatus.SKIP, command=cmd or "project dev (empty)")
+    return _run_command(argv, workspace, timeout, source, env=_project_dev_env())
+
+
 def verify_lint(
     workspace: Path,
     *,
@@ -88,6 +138,13 @@ def verify_lint(
     timeout: int = 60,
 ) -> VerifyResult:
     """V1: Lint / format check."""
+    dev = _load_project_dev_config(workspace)
+    lint_cmd = str(dev.get("lint_command") or "").strip()
+    if lint_cmd:
+        return _run_project_dev_command(
+            workspace, lint_cmd, timeout=timeout, source="project-lint",
+        )
+
     cmd: list[str]
     if _has_tool("ruff"):
         cmd = ["ruff", "check", "--no-fix"]
@@ -133,6 +190,17 @@ def verify_test(
     """V3: Unit tests."""
     if timeout is None:
         timeout = DEFAULT_VERIFY_TIMEOUT
+
+    dev = _load_project_dev_config(workspace)
+    test_cmd = str(dev.get("test_command") or "").strip()
+    if test_cmd:
+        return _run_project_dev_command(
+            workspace,
+            test_cmd,
+            timeout=timeout,
+            source="project-test",
+            extra_args=test_files,
+        )
 
     if _has_tool("pytest"):
         cmd = ["python", "-m", "pytest", "-x", "-q", "--tb=short", "--no-header"]

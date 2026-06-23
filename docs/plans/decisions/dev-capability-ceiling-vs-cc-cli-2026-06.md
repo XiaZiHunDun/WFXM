@@ -82,7 +82,10 @@
 bash scripts/butler-wechat-dev-delegate-sim.sh --track lingwen   # 4/4 handler
 bash scripts/butler-wechat-dev-delegate-sim.sh --quick
 bash scripts/butler-dev-delegate-experience-probe.sh           # L3/L4 信息探针
+PYTHONPATH=. pytest tests/test_verify_layered.py -q            # project.yaml → VERIFY
 ```
+
+**P1 project.yaml VERIFY（2026-06-23）**：`butler/dev_engine/verify.py` 的 `verify_test` / `verify_lint` 优先读取工作区 `project.yaml` → `dev.test_command` / `dev.lint_command`（与 `/测试` 同 cwd + `PYTHONPATH=repo_root`）；未配置时 fallback 原有 pytest/ruff 逻辑。
 
 ## 5. Agent 引用规则
 
@@ -96,3 +99,4 @@ bash scripts/butler-dev-delegate-experience-probe.sh           # L3/L4 信息探
 | 日期 | 说明 |
 |------|------|
 | 2026-06-23 | 初版：主公确认 Dev 对标 CC CLI 非 Cursor；纳入 sim 守门与 Backlog 五项 |
+| 2026-06-23 | P1：`verify_test`/`verify_lint` 接入 `project.yaml` dev 命令 |

@@ -14,6 +14,7 @@ import pytest
 
 from butler.dev_engine.dev_state import VerifyResult, VerifyStatus
 from butler.dev_engine.verify import (
+    _load_project_dev_config,
     _run_command,
     verify_build,
     verify_layered,
@@ -122,6 +123,57 @@ class TestVerifyTest:
                 verify_test(tmp_path, test_files=["tests/test_foo.py"])
         cmd = mock_run.call_args[0][0]
         assert "tests/test_foo.py" in cmd
+
+
+@pytest.mark.unit
+class TestProjectDevCommands:
+    def test_load_project_dev_config_from_yaml(self, tmp_path: Path):
+        (tmp_path / "project.yaml").write_text(
+            "dev:\n  test_command: python -m pytest tests/ -q\n  lint_command: 'true'\n"
+        )
+        dev = _load_project_dev_config(tmp_path)
+        assert "test_command" in dev
+        assert dev["lint_command"] == "true"
+
+    def test_verify_lint_uses_project_lint_command(self, tmp_path: Path):
+        (tmp_path / "project.yaml").write_text('dev:\n  lint_command: "true"\n')
+        result = verify_lint(tmp_path)
+        assert result.status == VerifyStatus.PASS
+        assert result.command == "true"
+
+    def test_verify_test_uses_project_test_command(self, tmp_path: Path):
+        (tmp_path / "project.yaml").write_text('dev:\n  test_command: "true"\n')
+        result = verify_test(tmp_path)
+        assert result.status == VerifyStatus.PASS
+        assert result.command == "true"
+
+    def test_project_lint_takes_priority_over_ruff(self, tmp_path: Path):
+        (tmp_path / "project.yaml").write_text('dev:\n  lint_command: "true"\n')
+        with patch("butler.dev_engine.verify._has_tool", return_value=True):
+            with patch("butler.dev_engine.verify._run_command", return_value=VerifyResult(status=VerifyStatus.PASS)) as mock_run:
+                verify_lint(tmp_path)
+        assert mock_run.call_args[0][0] == ["true"]
+        assert mock_run.call_args[1]["env"] is not None
+
+    def test_project_test_appends_test_files(self, tmp_path: Path):
+        (tmp_path / "project.yaml").write_text('dev:\n  test_command: "echo test"\n')
+        with patch("butler.dev_engine.verify._run_command", return_value=VerifyResult(status=VerifyStatus.PASS)) as mock_run:
+            verify_test(tmp_path, test_files=["tests/test_foo.py"])
+        assert mock_run.call_args[0][0] == ["echo", "test", "tests/test_foo.py"]
+
+    def test_fallback_lint_when_no_project_yaml(self, tmp_path: Path):
+        with patch("butler.dev_engine.verify._has_tool", return_value=False):
+            result = verify_lint(tmp_path)
+        assert result.status == VerifyStatus.SKIP
+        assert "no tool" in result.command.lower()
+
+    def test_quoted_lint_command_parsed_with_shlex(self, tmp_path: Path):
+        (tmp_path / "project.yaml").write_text(
+            "dev:\n  lint_command: rg 'import pdb|breakpoint()' --count\n"
+        )
+        with patch("butler.dev_engine.verify._run_command", return_value=VerifyResult(status=VerifyStatus.PASS)) as mock_run:
+            verify_lint(tmp_path)
+        assert mock_run.call_args[0][0] == ["rg", "import pdb|breakpoint()", "--count"]
 
 
 @pytest.mark.unit
