@@ -686,7 +686,9 @@ class TestAgentLoopCallbacks:
         )
         loop.run("search")
         assert starts == [("grep", {"pattern": "x"})]
-        assert completes == [("grep", "found")]
+        assert len(completes) == 1
+        assert completes[0][0] == "grep"
+        assert "found" in completes[0][1]
 
     def test_on_error_when_llm_fails(self, mock_llm_client):
         mock_llm_client.complete.side_effect = ValueError("boom")

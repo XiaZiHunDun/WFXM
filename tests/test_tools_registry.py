@@ -698,21 +698,32 @@ class TestTerminal:
         data = json.loads(result)
         assert "allowlist" in data["error"]
 
-    def test_denies_search_commands_in_terminal_allowlist(self, tmp_path):
+    def test_denies_search_commands_in_terminal_allowlist(self, tmp_path, monkeypatch):
         workspace = tmp_path / "workspace"
         workspace.mkdir()
+        monkeypatch.delenv("BUTLER_TERMINAL_PROFILE", raising=False)
 
         with use_execution_context(_orchestrator_for_workspace(workspace)):
             result = dispatch_tool("terminal", {"command": "rg --pre sh ."})
 
         data = json.loads(result)
-        assert "allowlist" in data["error"]
+        assert data.get("ok") is False
+        assert data.get("error")
+        assert any(
+            token in data["error"]
+            for token in ("allowlist", "--pre", "not allowed")
+        )
 
         with use_execution_context(_orchestrator_for_workspace(workspace)):
             result = dispatch_tool("terminal", {"command": "grep --file=../outside.txt hit.txt"})
 
         data = json.loads(result)
-        assert "allowlist" in data["error"]
+        assert data.get("ok") is False
+        assert data.get("error")
+        assert any(
+            token in data["error"]
+            for token in ("allowlist", "--file", "not allowed", "outside workspace")
+        )
 
     def test_denies_symlink_argument_escaping_workspace(self, tmp_path):
         workspace = tmp_path / "workspace"

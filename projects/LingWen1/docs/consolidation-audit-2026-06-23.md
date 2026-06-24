@@ -24,5 +24,20 @@
 ## 待后续（阶段 2+）
 
 - ~~Gateway 命令单轨（`gateway/` 根 → `gateway/commands/`）~~ **2026-06-23 已完成**（handlers 迁入 `commands/*_handlers.py`，删除根级 `*_commands.py`）
-- ~~`tests/` 域化（新测进子目录，旧 sprint 保留）~~ **2026-06-23 已完成**（gateway 547 passed；CI `domain-gates` 已推送 `3cdac40`）
+- ~~`tests/` 域化（新测进子目录，旧 sprint 保留）~~ **2026-06-23 已完成**（gateway 547 passed；CI `domain-gates` gateway/ops/memory/core 已绿）
 - ~~`dev-cc-head-to-head.md` 与 verify 状态同步~~ **2026-06-23 已完成**
+
+## CI 状态（2026-06-24）
+
+| Job | 状态 | 备注 |
+|-----|------|------|
+| lint / corpus-drift / smoke | ✅ | `11ccd1f` 起 |
+| domain-gates gateway/ops/memory/core | ✅ | `dc40025` 起 |
+| docs-lint | 🔧 | 本地绿；CI 疑 `python3`/rg 路径 → `docs-lint.sh` 加固 |
+| pytest / dev_engine | 🔧 | sprint11 导入、env 同步、terminal `--pre` 等已修 |
+
+## 阶段 3（待办）
+
+- 旧 sprint 测迁入域目录或标记 legacy
+- `reference.md` ↔ `.env.example` 数量对齐（505/497，差 8 为注释项）
+- `post-consolidation-roadmap` 测试基线数字更新

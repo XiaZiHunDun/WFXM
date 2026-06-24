@@ -4,6 +4,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 FAIL=0
+DOCS_LINT_PY="$(command -v python3 || command -v python || true)"
+if [[ -z "$DOCS_LINT_PY" ]]; then
+  echo "FAIL: python3/python not found (install Python or use actions/setup-python)"
+  exit 1
+fi
+if ! command -v rg >/dev/null 2>&1; then
+  echo "FAIL: ripgrep (rg) not found (apt install ripgrep / brew install ripgrep)"
+  exit 1
+fi
 
 echo "== docs-lint: stale status in plans/ (exclude comparisons archive stubs) =="
 # Stub redirect files may still contain 规划中 in historical quotes; scan active dirs only
@@ -36,7 +45,7 @@ fi
 
 echo ""
 echo "== docs-lint: broken relative links in docs/ =="
-python3 - <<'PYEOF'
+if ! "${DOCS_LINT_PY}" - <<'PYEOF'
 import re, os, sys
 broken = []
 for root, dirs, files in os.walk("docs"):
@@ -68,7 +77,7 @@ if broken:
         print(b)
     sys.exit(1)
 PYEOF
-if [[ $? -ne 0 ]]; then
+then
   echo "FAIL: broken relative links found"
   FAIL=1
 else
@@ -77,8 +86,8 @@ fi
 
 echo ""
 echo "== docs-lint: reference.md vs .env.example env var consistency =="
-REF_VARS=$(rg -o 'BUTLER_[A-Z_]+' docs/config/reference.md 2>/dev/null | sort -u | wc -l)
-ENV_VARS=$(rg -o 'BUTLER_[A-Z_]+' .env.example 2>/dev/null | sort -u | wc -l)
+REF_VARS=$(rg -o 'BUTLER_[A-Z_]+' docs/config/reference.md 2>/dev/null | sort -u | wc -l | tr -d ' ') || REF_VARS=0
+ENV_VARS=$(rg -o 'BUTLER_[A-Z_]+' .env.example 2>/dev/null | sort -u | wc -l | tr -d ' ') || ENV_VARS=0
 echo "reference.md env vars: $REF_VARS / .env.example env vars: $ENV_VARS"
 
 echo ""

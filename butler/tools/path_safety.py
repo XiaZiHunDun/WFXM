@@ -308,11 +308,27 @@ def _validate_pipe_segment(segment: str, allowed: set[str]) -> CommandSafetyResu
     all_allowed = allowed | _PIPE_SAFE_COMMANDS
     if "/" in argv[0] or cmd_name not in all_allowed:
         return CommandSafetyResult(False, [], f"Pipe segment command '{cmd_name}' not in allowlist")
+    blocked = _dangerous_search_flags(cmd_name, argv)
+    if blocked:
+        return CommandSafetyResult(False, [], blocked)
     if _uses_dynamic_interpreter(argv):
         return CommandSafetyResult(False, [], "Dynamic interpreter in pipe segment")
     if any("$" in token for token in argv):
         return CommandSafetyResult(False, [], "Shell variables in pipe segment")
     return CommandSafetyResult(True, argv)
+
+
+def _dangerous_search_flags(command_name: str, argv: list[str]) -> str | None:
+    """Block search tools flags that bypass workspace boundaries or run shell."""
+    if command_name == "rg":
+        for tok in argv[1:]:
+            if tok == "--pre" or tok.startswith("--pre="):
+                return "rg --pre executes arbitrary commands and is not allowed in terminal commands"
+    if command_name == "grep":
+        for tok in argv[1:]:
+            if tok.startswith("--file="):
+                return "grep --file with embedded path is not allowed in terminal commands"
+    return None
 
 
 def prepare_shell_command(command: str) -> CommandSafetyResult:
@@ -351,6 +367,9 @@ def prepare_shell_command(command: str) -> CommandSafetyResult:
     command_name = Path(argv[0]).name
     if "/" in argv[0] or command_name not in _allowed_terminal_commands():
         return CommandSafetyResult(False, [], "Terminal command is not in the allowlist")
+    blocked = _dangerous_search_flags(command_name, argv)
+    if blocked:
+        return CommandSafetyResult(False, [], blocked)
     if _has_shell_metacharacters(text):
         return CommandSafetyResult(False, [], "Shell metacharacters are not allowed in terminal commands")
     if _uses_dynamic_interpreter(argv):

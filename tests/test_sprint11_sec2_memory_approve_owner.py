@@ -21,7 +21,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from butler.gateway.commands import memory_commands
+from butler.gateway.commands import memory_handlers as memory_commands
 
 
 @pytest.mark.unit

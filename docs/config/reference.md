@@ -207,6 +207,12 @@
 | `BUTLER_MCP_HTTP_HOSTS_ALLOW` | 空 | **HTTP transport** MCP server 额外允许的 Host；纯 stdio MCP 可留空 |
 | `BUTLER_MCP_SESSION_SCOPED` | 1 | 按 `session_key` 隔离连接 |
 | `BUTLER_MCP_HTTP_ALLOW_PRIVATE` | 0 | 是否允许 127.0.0.1 等内网 Host |
+| `BUTLER_GITHUB_DEFAULT_OWNER` | XiaZiHunDun | GitHub MCP 默认 org/user |
+| `BUTLER_GITHUB_ISSUE_LIST_DIRECT` | 1 | GitHub issue list 走 direct API（非 MCP 工具） |
+| `BUTLER_GITHUB_REPO_LIST_DIRECT` | 1 | GitHub repo list 走 direct API |
+| `BUTLER_TODOIST_PROJECT_LIST_DIRECT` | 1 | Todoist project list 走 direct API |
+| `BUTLER_SECRETS_GATEWAY_EXPECTED` | 0 | `1` 时 secrets contract 检查期望 gateway systemd unit |
+| `BUTLER_GATEWAY_SYSTEMD_UNIT` | butler-gateway.service | Gateway systemd unit 名（secrets contract） |
 | `BUTLER_SKILL_REGISTRY` | 1 | Skill 目录搜索/安装 |
 | `BUTLER_SKILL_REGISTRY_SOURCES` | bundled,project,github,url,clawhub,marketplace,lobehub | 启用的技能源 |
 | `BUTLER_REGISTRY_PENDING_TTL` | 1800 | 微信待确认安装过期秒数 |
