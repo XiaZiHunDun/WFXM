@@ -53,7 +53,15 @@ jobs:
           pip install -e ".[dev,mcp,observability]"
 
       - name: Run unit tests with coverage (exclude live_llm)
-        run: python -m pytest -q --tb=line --cov=butler --cov-report=term-missing:skip-covered --cov-report=html:htmlcov
+        run: |
+          python -m pytest -q --tb=line \
+            --cov=butler \
+            --cov-report=term-missing:skip-covered \
+            --cov-fail-under=55
+
+      - name: Write HTML coverage (artifact only)
+        if: matrix.python-version == '3.11'
+        run: python -m coverage html -d htmlcov
 
       - name: Upload coverage report
         if: matrix.python-version == '3.11'
