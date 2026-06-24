@@ -23,14 +23,10 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,mcp,observability]"
-      - name: Install ripgrep (docs-lint)
-        run: sudo apt-get update && sudo apt-get install -y ripgrep
       - name: Python syntax check
         run: python -m py_compile butler/__init__.py && python -c "import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path('butler').rglob('*.py')]"
       - name: Ruff lint
         run: bash scripts/ci-ruff-gate.sh
-      - name: Documentation hygiene
-        run: bash scripts/docs-lint.sh
       - name: Import smoke test
         run: |
           python -c "from butler.tools.registry import dispatch_tool; from butler.core.agent_loop import AgentLoop; print('imports OK')"

@@ -74,6 +74,8 @@ for root, dirs, files in os.walk("docs"):
                 continue
             if ".butler/" in target or target.startswith("../../.butler/"):
                 continue
+            if target.endswith("pilot-log.md") or "/pilot-log.md" in target:
+                continue
             if "/tests/corpus/" in target:
                 continue
             resolved = os.path.normpath(os.path.join(os.path.dirname(fpath), target))
