@@ -21,9 +21,7 @@ TEST_FILE = "tests/test_dependency_extras.py"
 
 
 @pytest.mark.unit
-def test_apprise_adapter_module_does_not_exist():
-    """死代码文件应已被删除。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
+def test_apprise_adapter_module_does_not_exist(repo_root: Path):
     assert not (repo_root / APPRISE_ADAPTER).exists(), (
         f"死代码文件应被删除: {APPRISE_ADAPTER}"
     )
@@ -37,9 +35,8 @@ def test_no_module_can_import_apprise_adapter():
 
 
 @pytest.mark.unit
-def test_test_dependency_extras_apprise_tests_removed():
+def test_test_dependency_extras_apprise_tests_removed(repo_root: Path):
     """tests/test_dependency_extras.py 中 TestAppriseAdapter 整类应已删。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
     text = (repo_root / TEST_FILE).read_text(encoding="utf-8")
     assert "class TestAppriseAdapter" not in text, (
         "TestAppriseAdapter 整类应已删（4 个测试覆盖死代码）"
@@ -50,9 +47,8 @@ def test_test_dependency_extras_apprise_tests_removed():
 
 
 @pytest.mark.unit
-def test_production_code_does_not_import_apprise_adapter():
+def test_production_code_does_not_import_apprise_adapter(repo_root: Path):
     """butler/ 下除被删模块自身外，应无 import apprise_adapter。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
     py_files = list((repo_root / "butler").rglob("*.py"))
     hits = []
     for p in py_files:
@@ -67,9 +63,8 @@ def test_production_code_does_not_import_apprise_adapter():
 
 
 @pytest.mark.unit
-def test_extras_test_extras_section_still_works():
+def test_extras_test_extras_section_still_works(repo_root: Path):
     """extras 测试读 pyproject.toml，与删 apprise 适配器无关 — 应保留不删。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
     text = (repo_root / TEST_FILE).read_text(encoding="utf-8")
     # extras 测试查 pyproject.toml 的 notify extras 是否含 apprise 包
     # apprise 仍可能在 pyproject extras 里（仅模块被删，extras 包保留无意义可后续清理）
@@ -80,9 +75,8 @@ def test_extras_test_extras_section_still_works():
 
 
 @pytest.mark.unit
-def test_no_prod_test_depends_on_apprise_module_symbols():
+def test_no_prod_test_depends_on_apprise_module_symbols(repo_root: Path):
     """Sprint 9 SEC-9.2 误报"已修"，实际：本文档应成为唯一引用 apprise_adapter 的源。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
     # 扫所有 .py（含本测试文件）
     all_py = list((repo_root / "butler").rglob("*.py")) + list((repo_root / "tests").rglob("*.py"))
     offenders = []

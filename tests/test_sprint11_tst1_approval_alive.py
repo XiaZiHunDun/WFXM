@@ -21,9 +21,7 @@ APPROVAL_FILE = "butler/runtime/approval.py"
 
 
 @pytest.mark.unit
-def test_approval_module_still_exists():
-    """approval.py 应保留 — Sprint 11 误报撤回。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
+def test_approval_module_still_exists(repo_root: Path):
     assert (repo_root / APPROVAL_FILE).exists(), (
         f"approval.py 应保留（service.py 真引用）：{APPROVAL_FILE}"
     )
@@ -38,9 +36,7 @@ def test_approval_module_can_be_imported():
 
 
 @pytest.mark.unit
-def test_approval_namespace_import_in_service():
-    """service.py:12 显式 import approval（namespace 形式）— 这是 Sprint 11 漏检的真引用。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
+def test_approval_namespace_import_in_service(repo_root: Path):
     service_path = repo_root / "butler" / "runtime" / "service.py"
     text = service_path.read_text(encoding="utf-8")
     # 匹配 "from butler.runtime import" 后接 approval
@@ -53,9 +49,7 @@ def test_approval_namespace_import_in_service():
 
 
 @pytest.mark.unit
-def test_approval_used_by_service_functions():
-    """service.py 多个函数调 approval.* — approval 是 active API。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
+def test_approval_used_by_service_functions(repo_root: Path):
     service_path = repo_root / "butler" / "runtime" / "service.py"
     text = service_path.read_text(encoding="utf-8")
     # 至少 3 处 approval.* 调用
@@ -66,9 +60,7 @@ def test_approval_used_by_service_functions():
 
 
 @pytest.mark.unit
-def test_approval_imports_comprehensive_check():
-    """回归保护：两种 import 形式都应被检测到（修复 Sprint 11 subagent 漏检）。"""
-    repo_root = Path("/home/ailearn/projects/WFXM")
+def test_approval_imports_comprehensive_check(repo_root: Path):
     py_files = list((repo_root / "butler").rglob("*.py")) + list((repo_root / "tests").rglob("*.py"))
     hits = []
     for p in py_files:

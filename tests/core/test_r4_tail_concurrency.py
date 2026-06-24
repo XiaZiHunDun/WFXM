@@ -47,17 +47,17 @@ def test_try_enter_session_warms_once(monkeypatch):
 
     def warmup() -> None:
         calls.append("warm")
-        time.sleep(0.05)
+        time.sleep(0.15)
 
     def worker() -> None:
-        barrier.wait(timeout=5)
+        barrier.wait(timeout=10)
         gw_session.try_enter_session("sk-r4-8", warmup)
 
     threads = [threading.Thread(target=worker) for _ in range(4)]
     for t in threads:
         t.start()
     for t in threads:
-        t.join(timeout=10)
+        t.join(timeout=15)
         assert not t.is_alive()
     assert calls == ["warm"], f"expected single warmup, got {calls!r}"
 

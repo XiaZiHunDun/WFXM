@@ -1113,7 +1113,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
             return SendResult(success=False, error=str(exc))
 
     async def _download_remote_media(self, url: str) -> str:
-        from tools.url_safety import is_safe_url
+        from butler.registry.url_safety import is_safe_url
 
         if not is_safe_url(url):
             raise ValueError(f"Blocked unsafe URL (SSRF protection): {url}")

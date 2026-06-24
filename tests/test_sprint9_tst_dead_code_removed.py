@@ -30,7 +30,7 @@ DEAD_CODE_FILES = [
 
 @pytest.mark.unit
 @pytest.mark.parametrize("rel_path", DEAD_CODE_FILES)
-def test_dead_code_file_does_not_exist(rel_path, repo_root: Path = Path("/home/ailearn/projects/WFXM")):
+def test_dead_code_file_does_not_exist(rel_path, repo_root: Path):
     """死代码文件应已被删除。"""
     full = repo_root / rel_path
     assert not full.exists(), f"死代码文件应被删除: {rel_path}"

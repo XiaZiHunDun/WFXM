@@ -27,6 +27,8 @@ jobs:
         run: python -m py_compile butler/__init__.py && python -c "import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path('butler').rglob('*.py')]"
       - name: Ruff lint
         run: bash scripts/ci-ruff-gate.sh
+      - name: Documentation hygiene
+        run: bash scripts/docs-lint.sh
       - name: Import smoke test
         run: |
           python -c "from butler.tools.registry import dispatch_tool; from butler.core.agent_loop import AgentLoop; print('imports OK')"
@@ -236,6 +238,7 @@ jobs:
 
   docs-lint:
     runs-on: ubuntu-latest
+    needs: lint
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
@@ -244,8 +247,16 @@ jobs:
           python-version: "3.11"
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
-      - name: Documentation hygiene
-        run: bash scripts/docs-lint.sh
+      - name: Stale plan status
+        run: bash scripts/docs-lint.sh stale-status
+      - name: Flat plans root
+        run: bash scripts/docs-lint.sh flat-plans
+      - name: Bare plans links
+        run: bash scripts/docs-lint.sh bare-plans-links
+      - name: Broken relative links
+        run: bash scripts/docs-lint.sh broken-links
+      - name: Dead env keys
+        run: bash scripts/docs-lint.sh dead-env
 
   maintenance-full-health:
     runs-on: ubuntu-latest

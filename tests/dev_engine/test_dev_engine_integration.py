@@ -475,19 +475,25 @@ class TestEditRecordSnapshots:
         assert rec.new_content == "print('hello')"
         _active_states.clear()
 
-    def test_patch_tool_returns_path(self):
+    def test_patch_tool_returns_path(self, tmp_path, monkeypatch):
         """Verify _tool_patch includes 'path' in result JSON."""
-        from pathlib import Path
+        from types import SimpleNamespace
 
-        test_dir = Path("/home/ailearn/projects/WFXM/projects/docs")
-        test_dir.mkdir(parents=True, exist_ok=True)
-        fpath = test_dir / "_test_patch_path.py"
+        from butler.execution_context import use_execution_context
+
+        workspace = tmp_path / "ws"
+        workspace.mkdir()
+        fpath = workspace / "_test_patch_path.py"
         fpath.write_text("hello world\n", encoding="utf-8")
+        monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(workspace))
+
+        orch = mock.MagicMock()
+        orch.project_manager.get_current.return_value = SimpleNamespace(workspace=workspace)
 
         try:
             with mock.patch(
                 "butler.core.read_state.require_read_before_edit", return_value=None
-            ):
+            ), use_execution_context(orch, session_key="patch-test"):
                 from butler.tools.file_io import _tool_patch
 
                 result = json.loads(_tool_patch(str(fpath), "hello", "goodbye"))

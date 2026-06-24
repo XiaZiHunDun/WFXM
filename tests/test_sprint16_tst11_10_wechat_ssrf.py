@@ -10,9 +10,8 @@ bug: audit 标记 0 e2e with redirector/IPv6/0.0.0.0:
 
 修复: 补全 SSRF 覆盖, 重点是常见绕过向量 (0.0.0.0, IPv6, metadata)。
 
-注意: wechat_ilink._download_remote_media 用 `from tools.url_safety import
-is_safe_url` (hermes 命名空间包, 行为与 butler.registry.url_safety 不同),
-所以 _download_remote_media 集成测试必须 patch tools.url_safety.is_safe_url。
+注意: wechat_ilink._download_remote_media 使用 ``butler.registry.url_safety.is_safe_url``；
+集成测试 patch ``butler.registry.url_safety.is_safe_url``。
 """
 
 from __future__ import annotations
@@ -332,8 +331,7 @@ class TestSafeRegistryGet:
 
 
 class TestDownloadRemoteMedia:
-    """WeChatAdapter._download_remote_media 走 `from tools.url_safety import is_safe_url`
-    (hermes 命名空间包), 所以测试必须 patch tools.url_safety.is_safe_url。"""
+    """WeChatAdapter._download_remote_media 使用 butler.registry.url_safety.is_safe_url。"""
 
     @pytest.fixture
     def adapter(self, tmp_path, monkeypatch):
@@ -358,7 +356,7 @@ class TestDownloadRemoteMedia:
     async def test_blocks_unsafe_url(self, adapter, unsafe_url):
         """_download_remote_media 调 is_safe_url 拦截不安全 URL。
         这些 URL 即使在 hermes impl 也被拦 (metadata / 私有 IP)。"""
-        with patch("tools.url_safety.is_safe_url", return_value=False):
+        with patch("butler.registry.url_safety.is_safe_url", return_value=False):
             with pytest.raises(ValueError, match="SSRF"):
                 await adapter._download_remote_media(unsafe_url)
         adapter._send_session.get.assert_not_called()
@@ -366,7 +364,7 @@ class TestDownloadRemoteMedia:
     @pytest.mark.asyncio
     async def test_blocks_when_is_safe_url_returns_false(self, adapter):
         """is_safe_url 返 False (无论什么原因) → 抛 ValueError。"""
-        with patch("tools.url_safety.is_safe_url", return_value=False):
+        with patch("butler.registry.url_safety.is_safe_url", return_value=False):
             with pytest.raises(ValueError, match="SSRF"):
                 await adapter._download_remote_media("http://anything.example/")
 
@@ -374,7 +372,7 @@ class TestDownloadRemoteMedia:
     async def test_value_error_includes_offending_url(self, adapter):
         """ValueError 消息应含原 URL, 便于诊断。"""
         url = "http://169.254.169.254/latest/meta-data/"
-        with patch("tools.url_safety.is_safe_url", return_value=False):
+        with patch("butler.registry.url_safety.is_safe_url", return_value=False):
             with pytest.raises(ValueError) as exc_info:
                 await adapter._download_remote_media(url)
         assert url in str(exc_info.value)
@@ -382,7 +380,7 @@ class TestDownloadRemoteMedia:
     @pytest.mark.asyncio
     async def test_downloads_safe_url_to_tempfile(self, adapter):
         """is_safe_url 通过 → 调 session.get → 写到临时文件, 后缀来自 URL。"""
-        with patch("tools.url_safety.is_safe_url", return_value=True):
+        with patch("butler.registry.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"FAKE-IMAGE-DATA")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
@@ -406,7 +404,7 @@ class TestDownloadRemoteMedia:
     @pytest.mark.asyncio
     async def test_default_bin_suffix_when_no_extension(self, adapter):
         """URL 无后缀 → .bin。"""
-        with patch("tools.url_safety.is_safe_url", return_value=True):
+        with patch("butler.registry.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"X")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
@@ -427,7 +425,7 @@ class TestDownloadRemoteMedia:
     @pytest.mark.asyncio
     async def test_strips_query_string_for_suffix(self, adapter):
         """URL 含 ?query → 取 ? 前部分决定后缀。"""
-        with patch("tools.url_safety.is_safe_url", return_value=True):
+        with patch("butler.registry.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"X")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
@@ -448,7 +446,7 @@ class TestDownloadRemoteMedia:
     @pytest.mark.asyncio
     async def test_30_second_timeout_wraps_fetch(self, adapter):
         """asyncio.wait_for 用 30s 超时。"""
-        with patch("tools.url_safety.is_safe_url", return_value=True):
+        with patch("butler.registry.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"X")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
@@ -471,7 +469,7 @@ class TestDownloadRemoteMedia:
     @pytest.mark.asyncio
     async def test_session_get_called_with_url(self, adapter):
         """session.get 应被调用且 url 参数匹配。"""
-        with patch("tools.url_safety.is_safe_url", return_value=True):
+        with patch("butler.registry.url_safety.is_safe_url", return_value=True):
             fake_resp = MagicMock()  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
             fake_resp.raise_for_status = MagicMock()  # noqa: magicmock-no-spec — method shim on mock resp
             fake_resp.read = AsyncMock(return_value=b"X")  # noqa: magicmock-no-spec — httpx Response/AsyncClient/ContextManager
