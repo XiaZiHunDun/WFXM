@@ -37,8 +37,11 @@ jobs:
     needs: lint
     timeout-minutes: 25
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
+    env:
+      PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -52,14 +55,12 @@ jobs:
           pip install -e ".[dev,mcp,observability]"
 
       - name: Run unit tests with coverage (exclude live_llm)
+        run: bash scripts/ci-pytest-gate.sh
+
+      - name: Capture pytest output on failure
+        if: failure() && matrix.python-version == '3.11'
         run: |
-          set -o pipefail
-          python -m pytest --tb=short \
-            --cov=butler \
-            --cov-report=term-missing:skip-covered \
-            --cov-fail-under=55 \
-            -ra 2>&1 | tee pytest-output.txt
-          exit ${PIPESTATUS[0]}
+          python -m pytest --tb=long -ra --maxfail=5 -q 2>&1 | tee pytest-output.txt || true
 
       - name: Upload pytest log on failure
         if: failure() && matrix.python-version == '3.11'

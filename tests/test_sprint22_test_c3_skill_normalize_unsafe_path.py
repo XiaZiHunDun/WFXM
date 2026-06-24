@@ -80,8 +80,9 @@ class TestSafeRelPathRejectsAbsoluteAndDrive:
 
     def test_windows_backslash_drive_rejected(self):
         """Windows 反斜杠路径 `C:\\evil.md` 必须被拒 (replace \\ -> / 之后仍有 C: 段)."""
-        assert _safe_rel_path("C:\\evil.md") is None, (
-            f"反斜杠盘符路径应被拒, 实际: {_safe_rel_path('C:\\\\evil.md')!r}"
+        backslash_path = "C:\\evil.md"
+        assert _safe_rel_path(backslash_path) is None, (
+            f"反斜杠盘符路径应被拒, 实际: {_safe_rel_path(backslash_path)!r}"
         )
         assert _safe_rel_path("d:\\path\\file.md") is None
 

@@ -101,6 +101,7 @@ vendor/
 !.cursor/rules/
 !.cursor/rules/**
 .coverage
+.coverage.*
 coverage.json
 htmlcov/
 .mypy_cache/
