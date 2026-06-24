@@ -487,7 +487,7 @@ class TestEditRecordSnapshots:
         fpath.write_text("hello world\n", encoding="utf-8")
         monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(workspace))
 
-        orch = mock.MagicMock()
+        orch = mock.MagicMock()  # noqa: magicmock-no-spec
         orch.project_manager.get_current.return_value = SimpleNamespace(workspace=workspace)
 
         try:

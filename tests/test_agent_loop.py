@@ -757,7 +757,11 @@ class TestAgentLoopContext:
         msgs = [{"role": "system", "content": "system prompt"}]
         for i in range(20):
             msgs.append({"role": "user", "content": "x" * 200})
-        compressed = loop._compress_context(msgs)
+        with patch(
+            "butler.core.context_compressor.auxiliary_complete",
+            return_value="## Active Task\n- compressed summary",
+        ):
+            compressed = loop._compress_context(msgs)
         assert any(m.get("role") == "system" for m in compressed)
         from butler.core.context_compressor import SUMMARY_PREFIX
         assert len(compressed) < len(msgs) or any(

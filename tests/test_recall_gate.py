@@ -105,6 +105,7 @@ class TestRecallGate:
 
     def test_fastembed_recall_at_3_if_available(self):
         """FastEmbedEmbedder should achieve Recall@3 ≥ 0.80 (skipped if not installed)."""
+        pytest.importorskip("fastembed")
         try:
             from butler.memory.embedding import FastEmbedEmbedder
         except ImportError:

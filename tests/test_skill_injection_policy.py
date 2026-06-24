@@ -137,9 +137,20 @@ class TestOrchestratorSkillInjectionPolicy:
                 "content": "Draft steps here",
             },
         }
-        with patch("butler.orchestrator._combined_skill_manager", return_value=manager):
+        with (
+            patch(
+                "butler.session.memory_prefetch.peek_experience_hits",
+                return_value=[
+                    {
+                        "content": "章节写作请用 skill:chapter-draft",
+                        "tags": "skill:chapter-draft",
+                    }
+                ],
+            ),
+            patch("butler.orchestrator._combined_skill_manager", return_value=manager),
+        ):
             butler_orchestrator._rebuild_skill_router()
 
-        out = butler_orchestrator.inject_skill_context("写下一章")
+            out = butler_orchestrator.inject_skill_context("写下一章")
         assert "Draft steps here" in out
         manager.get_skills.assert_called_once()

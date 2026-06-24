@@ -32,10 +32,9 @@
 | Job | 状态 | 备注 |
 |-----|------|------|
 | lint / corpus-drift / smoke | ✅ | `11ccd1f` 起 |
-| domain-gates gateway/ops/memory | ✅ | `dc40025` 起 |
-| domain-gates dev_engine/core | 🔧 | 硬编码路径 + `tools.url_safety` 遗留导入已修（`1f29103` 后） |
-| docs-lint | 🔧 | 本地绿；CI 拆步 + 并入 lint job |
-| pytest | 🔧 | SSRF 11 项 + 路径可移植性已修 |
+| domain-gates gateway/ops/memory/dev_engine/core | ✅ | `b44d062` 起 |
+| docs-lint | ✅ | 跳过 gitignore 的 pilot-log / reference / history 链 |
+| pytest + coverage | 🔧 | 压缩 mock、fastembed skip、skill 注入 patch（`b44d062` 后） |
 
 ## 阶段 3（待办）
 

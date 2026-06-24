@@ -26,7 +26,11 @@ def test_compress_context_long_drops_middle():
     msgs = [{"role": "system", "content": "system prompt"}]
     for _ in range(20):
         msgs.append({"role": "user", "content": "x" * 200})
-    compressed = pipeline.compress_context(msgs)
+    with patch(
+        "butler.core.context_compressor.auxiliary_complete",
+        return_value="## Active Task\n- compressed summary",
+    ):
+        compressed = pipeline.compress_context(msgs)
     assert any(m.get("role") == "system" for m in compressed)
     from butler.core.context_compressor import SUMMARY_PREFIX
 
