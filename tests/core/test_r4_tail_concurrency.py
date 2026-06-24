@@ -188,7 +188,7 @@ def test_context_token_store_concurrent(tmp_path):
 
     def worker(i: int) -> None:
         try:
-            uid = f"u{i % 3}"
+            uid = f"u{i}"
             while not stop.is_set():
                 store.set("acct", uid, f"tok-{i}")
                 assert store.get("acct", uid) == f"tok-{i}"

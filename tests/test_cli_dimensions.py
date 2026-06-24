@@ -39,7 +39,7 @@ from tests.cli_harness import (
     invoke_ui_tool_callbacks,
     make_loop_result,
     mock_orchestrator_for_chat,
-    rendered_text,
+    plain_rendered_text,
     run_scripted_interactive_chat,
 )
 
@@ -247,7 +247,7 @@ class TestCliSlashCommandMatrix:
     def test_help_lists_core_commands(self, cmd):
         console, buf = _console()
         assert _handle_slash_command(cmd, _orch(), console) == "handled"
-        text = rendered_text(buf)
+        text = plain_rendered_text(buf)
         for token in ("/projects", "/switch", "/model", "/new", "/health", "/quit"):
             assert token in text
 

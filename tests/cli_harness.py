@@ -32,6 +32,14 @@ def rendered_text(buf: StringIO) -> str:
     return buf.getvalue()
 
 
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def plain_rendered_text(buf: StringIO) -> str:
+    """Strip Rich ANSI codes so assertions can match command tokens like /projects."""
+    return _ANSI_ESCAPE_RE.sub("", rendered_text(buf))
+
+
 def panel_bodies(buf: StringIO) -> list[str]:
     """Extract visible panel body text from captured Rich output."""
     text = rendered_text(buf)

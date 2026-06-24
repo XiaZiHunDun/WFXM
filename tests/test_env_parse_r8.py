@@ -86,6 +86,11 @@ def test_float_env_invalid_falls_back(monkeypatch, caplog):
 def test_no_raw_float_getenv_in_butler():
     import subprocess
 
+    try:
+        subprocess.run(["rg", "--version"], capture_output=True, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pytest.skip("ripgrep not installed")
+
     out = subprocess.run(
         ["rg", "float\\(os\\.getenv", "butler/", "-l"],
         capture_output=True,
