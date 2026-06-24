@@ -40,6 +40,7 @@ from tests.cli_harness import (
     make_loop_result,
     mock_orchestrator_for_chat,
     plain_rendered_text,
+    rendered_text,
     run_scripted_interactive_chat,
 )
 
