@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 FAIL=0
-DOCS_LINT_PY="$(command -v python3 || command -v python || true)"
+DOCS_LINT_PY="$(command -v python || command -v python3 || true)"
 if [[ -z "$DOCS_LINT_PY" ]]; then
   echo "FAIL: python3/python not found (install Python or use actions/setup-python)"
   exit 1
@@ -97,6 +97,8 @@ if ! bash scripts/check-dead-env.sh; then
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
+  echo ""
+  echo "docs-lint: FAILED (see sections above marked FAIL)"
   exit 1
 fi
 echo ""

@@ -138,6 +138,7 @@ class TestTerminalExtraAllowlist:
 
     def test_python3_blocked_without_extra(self, monkeypatch):
         monkeypatch.delenv("BUTLER_TERMINAL_ALLOWLIST_EXTRA", raising=False)
+        monkeypatch.delenv("BUTLER_TERMINAL_PROFILE", raising=False)
         result = prepare_shell_command("python3 --version")
         assert not result.allowed
 
