@@ -45,7 +45,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
 
       - name: Install package and test deps
         run: |
@@ -54,10 +53,21 @@ jobs:
 
       - name: Run unit tests with coverage (exclude live_llm)
         run: |
-          python -m pytest -q --tb=line \
+          set -o pipefail
+          python -m pytest --tb=short \
             --cov=butler \
             --cov-report=term-missing:skip-covered \
-            --cov-fail-under=55
+            --cov-fail-under=55 \
+            -ra 2>&1 | tee pytest-output.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload pytest log on failure
+        if: failure() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-log-${{ github.run_id }}
+          path: pytest-output.txt
+          if-no-files-found: error
 
       - name: Write HTML coverage (artifact only)
         if: matrix.python-version == '3.11'
