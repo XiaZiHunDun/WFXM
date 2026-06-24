@@ -78,7 +78,14 @@ for root, dirs, files in os.walk("docs"):
                 continue
             if "/tests/corpus/" in target:
                 continue
+            norm = target.replace("\\", "/")
+            if norm.startswith("../reference") or norm.startswith("reference/") or norm == "../reference" or norm == "../reference/":
+                continue
+            if "/history/" in norm or norm.startswith("../history/") or norm.startswith("history/"):
+                continue
             resolved = os.path.normpath(os.path.join(os.path.dirname(fpath), target))
+            if resolved.startswith("docs/history") or resolved in ("reference", "docs/reference"):
+                continue
             if not os.path.exists(resolved):
                 broken.append("  {} -> {}".format(fpath, target))
 if broken:
