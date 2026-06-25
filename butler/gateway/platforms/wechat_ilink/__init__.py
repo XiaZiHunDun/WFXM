@@ -76,7 +76,7 @@ from butler.config import get_butler_home  # noqa: E402
 # Re-export all constants/enums from the extracted sibling module so
 # ``from butler.gateway.platforms.wechat_ilink import SESSION_EXPIRED_ERRCODE``
 # (and similar) keeps working unchanged after audit R1-4 split.
-from butler.gateway.platforms.wechat_ilink_constants import (  # noqa: E402, F401
+from butler.gateway.platforms.wechat_ilink.constants import (  # noqa: E402, F401
     API_TIMEOUT_MS,
     BACKOFF_DELAY_SECONDS,
     CHANNEL_VERSION,
@@ -118,7 +118,7 @@ from butler.gateway.platforms.wechat_ilink_constants import (  # noqa: E402, F40
 # Re-export utility helpers from the extracted utils sibling module.
 # See ``wechat_ilink_utils.py`` for the canonical home; this block is a
 # shim for backward compatibility after audit R1-4 split.
-from butler.gateway.platforms.wechat_ilink_utils import (  # noqa: E402, F401
+from butler.gateway.platforms.wechat_ilink._utils_legacy import (  # noqa: E402, F401
     ContextTokenStore,
     TypingTicketCache,
     _account_dir,
@@ -156,11 +156,15 @@ from butler.gateway.platforms.wechat_ilink_utils import (  # noqa: E402, F401
     load_wechat_account,
     save_wechat_account,
 )
-# Async download helper stays in this module to avoid a circular import
-# with the CDN/utility module — tests patch it on this module path.
-from butler.gateway.platforms.wechat_ilink_utils import (  # noqa: E402, F401
-    _download_and_decrypt_media,
+# Tests patch ``wechat_ilink_utils._download_bytes``; delegate via shim module.
+from butler.gateway.platforms.wechat_ilink._utils_legacy import (  # noqa: E402
+    _download_and_decrypt_media as _download_and_decrypt_media_impl,
 )
+
+
+async def _download_and_decrypt_media(*args, **kwargs):  # noqa: D401
+    """Re-export with patch-friendly indirection (PROD-P2-01 subpackage)."""
+    return await _download_and_decrypt_media_impl(*args, **kwargs)
 
 
 # R1-12 — thread-safe registry for live WeChat adapters. Replaces the
@@ -170,215 +174,20 @@ from butler.gateway.platforms.wechat_ilink_utils import (  # noqa: E402, F401
 # registry pairs a ``weakref.WeakValueDictionary`` (so dropped
 # adapters are reclaimed automatically) with a ``threading.RLock``
 # (so concurrent mutations are serialised).
-from butler.gateway.platforms.wechat_ilink_registry import (  # noqa: E402
+from butler.gateway.platforms.wechat_ilink.registry import (  # noqa: E402
     AdapterRegistry,
     _ADAPTER_REGISTRY,
 )
-
-
-async def _api_post(
-    session: "aiohttp.ClientSession",
-    *,
-    base_url: str,
-    endpoint: str,
-    payload: Dict[str, Any],
-    token: Optional[str],
-    timeout_ms: int,
-) -> Dict[str, Any]:
-    body = _json_dumps({**payload, "base_info": _base_info()})
-    url = f"{base_url.rstrip('/')}/{endpoint}"
-    timeout = aiohttp.ClientTimeout(total=timeout_ms / 1000)
-    async with session.post(url, data=body, headers=_headers(token, body), timeout=timeout) as response:
-        raw = await response.text()
-        if not response.ok:
-            raise RuntimeError(f"iLink POST {endpoint} HTTP {response.status}: {raw[:200]}")
-        return json.loads(raw)
-
-
-async def _api_get(
-    session: "aiohttp.ClientSession",
-    *,
-    base_url: str,
-    endpoint: str,
-    timeout_ms: int,
-) -> Dict[str, Any]:
-    url = f"{base_url.rstrip('/')}/{endpoint}"
-    headers = {
-        "iLink-App-Id": ILINK_APP_ID,
-        "iLink-App-ClientVersion": str(ILINK_APP_CLIENT_VERSION),
-    }
-    timeout = aiohttp.ClientTimeout(total=timeout_ms / 1000)
-    async with session.get(url, headers=headers, timeout=timeout) as response:
-        raw = await response.text()
-        if not response.ok:
-            raise RuntimeError(f"iLink GET {endpoint} HTTP {response.status}: {raw[:200]}")
-        return json.loads(raw)
-
-
-async def _get_updates(
-    session: "aiohttp.ClientSession",
-    *,
-    base_url: str,
-    token: str,
-    sync_buf: str,
-    timeout_ms: int,
-) -> Dict[str, Any]:
-    try:
-        return await _api_post(
-            session,
-            base_url=base_url,
-            endpoint=EP_GET_UPDATES,
-            payload={"get_updates_buf": sync_buf},
-            token=token,
-            timeout_ms=timeout_ms,
-        )
-    except asyncio.TimeoutError:
-        return {"ret": 0, "msgs": [], "get_updates_buf": sync_buf}
-
-
-async def _send_message(
-    session: "aiohttp.ClientSession",
-    *,
-    base_url: str,
-    token: str,
-    to: str,
-    text: str,
-    context_token: Optional[str],
-    client_id: str,
-) -> Dict[str, Any]:
-    """Send a text message via iLink sendmessage API.
-
-    Returns the raw API response dict (may contain error codes like
-    ``errcode: -14`` for session expiry that the caller can inspect).
-    """
-    if not text or not text.strip():
-        raise ValueError("_send_message: text must not be empty")
-    message: Dict[str, Any] = {
-        "from_user_id": "",
-        "to_user_id": to,
-        "client_id": client_id,
-        "message_type": MSG_TYPE_BOT,
-        "message_state": MSG_STATE_FINISH,
-        "item_list": [{"type": ITEM_TEXT, "text_item": {"text": text}}],
-    }
-    if context_token:
-        message["context_token"] = context_token
-    return await _api_post(
-        session,
-        base_url=base_url,
-        endpoint=EP_SEND_MESSAGE,
-        payload={"msg": message},
-        token=token,
-        timeout_ms=API_TIMEOUT_MS,
-    )
-
-
-async def _send_typing(
-    session: "aiohttp.ClientSession",
-    *,
-    base_url: str,
-    token: str,
-    to_user_id: str,
-    typing_ticket: str,
-    status: int,
-) -> None:
-    await _api_post(
-        session,
-        base_url=base_url,
-        endpoint=EP_SEND_TYPING,
-        payload={
-            "ilink_user_id": to_user_id,
-            "typing_ticket": typing_ticket,
-            "status": status,
-        },
-        token=token,
-        timeout_ms=CONFIG_TIMEOUT_MS,
-    )
-
-
-async def _get_config(
-    session: "aiohttp.ClientSession",
-    *,
-    base_url: str,
-    token: str,
-    user_id: str,
-    context_token: Optional[str],
-) -> Dict[str, Any]:
-    payload: Dict[str, Any] = {"ilink_user_id": user_id}
-    if context_token:
-        payload["context_token"] = context_token
-    return await _api_post(
-        session,
-        base_url=base_url,
-        endpoint=EP_GET_CONFIG,
-        payload=payload,
-        token=token,
-        timeout_ms=CONFIG_TIMEOUT_MS,
-    )
-
-
-async def _get_upload_url(
-    session: "aiohttp.ClientSession",
-    *,
-    base_url: str,
-    token: str,
-    to_user_id: str,
-    media_type: int,
-    filekey: str,
-    rawsize: int,
-    rawfilemd5: str,
-    filesize: int,
-    aeskey_hex: str,
-) -> Dict[str, Any]:
-    return await _api_post(
-        session,
-        base_url=base_url,
-        endpoint=EP_GET_UPLOAD_URL,
-        payload={
-            "filekey": filekey,
-            "media_type": media_type,
-            "to_user_id": to_user_id,
-            "rawsize": rawsize,
-            "rawfilemd5": rawfilemd5,
-            "filesize": filesize,
-            "no_need_thumb": True,
-            "aeskey": aeskey_hex,
-        },
-        token=token,
-        timeout_ms=API_TIMEOUT_MS,
-    )
-
-
-async def _upload_ciphertext(
-    session: "aiohttp.ClientSession",
-    *,
-    ciphertext: bytes,
-    upload_url: str,
-) -> str:
-    """Upload encrypted media to the CDN.
-
-    Accepts either a constructed CDN URL (from upload_param) or a direct
-    upload_full_url — both use POST with the raw ciphertext as the body.
-    """
-    # Use asyncio.wait_for() instead of aiohttp ClientTimeout to avoid
-    # "Timeout context manager should be used inside a task" errors when
-    # invoked via asyncio.run_coroutine_threadsafe() from cron jobs.
-    async def _do_upload() -> str:
-        async with session.post(
-            upload_url,
-            data=ciphertext,
-            headers={"Content-Type": "application/octet-stream"},
-        ) as response:
-            if response.status == 200:
-                encrypted_param = response.headers.get("x-encrypted-param")
-                if encrypted_param:
-                    await response.read()
-                    return encrypted_param
-                raw = await response.text()
-                raise RuntimeError(f"CDN upload missing x-encrypted-param header: {raw[:200]}")
-            raw = await response.text()
-            raise RuntimeError(f"CDN upload HTTP {response.status}: {raw[:200]}")
-    return await asyncio.wait_for(_do_upload(), timeout=120)
+from butler.gateway.platforms.wechat_ilink.transport import (  # noqa: E402, F401
+    _api_get,
+    _api_post,
+    _get_config,
+    _get_updates,
+    _get_upload_url,
+    _send_message,
+    _send_typing,
+    _upload_ciphertext,
+)
 
 
 async def qr_login(

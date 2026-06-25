@@ -210,7 +210,7 @@
 | [PROD-P1-01](#prod-p1-01-dev-委派-verify-与-lead-门控) | P1 | Dev 委派 verify 与 Lead 门控 | 1–2 月 | **done** 2026-06-22 |
 | [PROD-P1-02](#prod-p1-02-owner-默认路径简报--onboarding) | P1 | Owner 默认路径（简报 + onboarding） | 1–2 月 | **done** 2026-06-26 |
 | [PROD-P1-03](#prod-p1-03-记忆月度探针运营化) | P1 | 记忆月度探针运营化 | 1–2 月 | **done** 2026-06-25 |
-| [PROD-P2-01](#prod-p2-01-wechat_ilink-结构拆分) | P2 | `wechat_ilink` 结构拆分 | Backlog | backlog |
+| [PROD-P2-01](#prod-p2-01-wechat_ilink-结构拆分) | P2 | `wechat_ilink` 结构拆分 | Backlog | **done** 2026-06-25 |
 | [PROD-P2-02](#prod-p2-02-observation-store-收口) | P2 | Observation Store 收口 | Backlog | 见 §3.2.1 |
 | [PROD-P2-03](#prod-p2-03-安全信任补丁批次) | P2 | 安全信任补丁批次 | Backlog | 见 §3.1 |
 | [PROD-P2-04](#prod-p2-04-extension-ext-4) | P2 | Extension EXT-4+ 选型 | 季度 | 见 §3.0 |
