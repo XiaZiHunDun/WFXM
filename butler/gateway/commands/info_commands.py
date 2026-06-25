@@ -141,7 +141,7 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
             name_prefix=f"child_{child_sk[-40:]}",
             workspace=resolve_export_workspace(ctx.session_key),
             enabled=attach_detail_enabled(),
-            attach_hint="（完整子会话 transcript 见 .md 附件）",
+            attach_hint="（完整子会话 transcript 见 .txt 附件）",
         )
 
     report = get_last_report(ctx.session_key)
@@ -163,7 +163,7 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
             name_prefix=f"detail_{report.task_id or 'report'}",
             workspace=resolve_export_workspace(ctx.session_key),
             enabled=attach_detail_enabled(),
-            attach_hint="（完整 /详细 报告见 .md 附件）",
+            attach_hint="（完整 /详细 报告见 .txt 附件）",
         )
     return "暂无可展示的详细报告。"
 
@@ -444,7 +444,7 @@ def _cmd_health(ctx: CommandContext) -> Optional[str]:
         name_prefix="diagnostic_full",
         workspace=resolve_export_workspace(session_key),
         enabled=attach_diagnostic_enabled(),
-        attach_hint="（完整运维诊断见 .md 附件）",
+        attach_hint="（完整运维诊断见 .txt 附件）",
     )
 
 

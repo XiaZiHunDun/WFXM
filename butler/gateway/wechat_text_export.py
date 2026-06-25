@@ -1,7 +1,8 @@
-"""Package long Owner-facing text as .md/.txt exports for WeChat file delivery."""
+"""Package long Owner-facing text as .txt/.md exports for WeChat file delivery."""
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +40,16 @@ def attach_runtime_enabled() -> bool:
     return env_truthy("BUTLER_WECHAT_ATTACH_RUNTIME", default=True) and export_wechat_file_enabled()
 
 
+def wechat_attach_suffix() -> str:
+    """WeChat file attachment extension; default ``.txt`` (phone-friendly plain text)."""
+    raw = os.getenv("BUTLER_WECHAT_ATTACH_SUFFIX", ".txt").strip().lower()
+    if raw in ("txt", ".txt"):
+        return ".txt"
+    if raw in ("md", "markdown", ".md", ".markdown"):
+        return ".md" if raw.startswith(".") else f".{raw}"
+    return ".txt"
+
+
 def _safe_segment(value: str) -> str:
     raw = str(value or "").strip() or "export"
     return re.sub(r"[^a-zA-Z0-9._+-]+", "_", raw)[:80] or "export"
@@ -58,7 +69,7 @@ def write_text_export(
     *,
     name_prefix: str,
     workspace: Path | None = None,
-    suffix: str = ".md",
+    suffix: str | None = None,
 ) -> Path | None:
     """Write scrubbed text under exports/; return path or None on failure."""
     from butler.gateway.pii_scrub import scrub_outbound_text
@@ -67,9 +78,10 @@ def write_text_export(
     if not text.strip():
         return None
 
-    ext = suffix if suffix.startswith(".") else f".{suffix}"
+    ext = suffix if suffix is not None else wechat_attach_suffix()
+    ext = ext if ext.startswith(".") else f".{ext}"
     if ext.lower() not in (".md", ".markdown", ".txt"):
-        ext = ".md"
+        ext = wechat_attach_suffix()
 
     max_bytes = export_wechat_max_bytes()
     encoded = text.encode("utf-8")
@@ -98,7 +110,7 @@ def maybe_attach_wechat_file(
     workspace: Path | None = None,
     enabled: bool = True,
     min_chars: int | None = None,
-    suffix: str = ".md",
+    suffix: str | None = None,
     attach_hint: str = "（完整内容见附件）",
 ) -> str:
     """
@@ -140,7 +152,7 @@ def build_delegate_completion_message(
     platform: str = "wechat",
     workspace: Path | None = None,
 ) -> str:
-    """Compact WeChat text plus optional full report .md attachment."""
+    """Compact WeChat text plus optional full report file attachment."""
     from butler.report import format_detail, format_for_wechat
 
     body = format_for_wechat(report)
@@ -157,7 +169,7 @@ def build_delegate_completion_message(
         name_prefix=f"delegate_{tid}",
         workspace=workspace,
         enabled=True,
-        attach_hint="（完整委派报告见 .md 附件）",
+        attach_hint="（完整委派报告见 .txt 附件）",
     )
 
 
@@ -170,5 +182,6 @@ __all__ = [
     "build_delegate_completion_message",
     "is_wechat_platform",
     "maybe_attach_wechat_file",
+    "wechat_attach_suffix",
     "write_text_export",
 ]

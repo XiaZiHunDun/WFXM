@@ -1,4 +1,4 @@
-"""Integration: /详细 on WeChat attaches long report as .md export."""
+"""Integration: /详细 on WeChat attaches long report as .txt export."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ def test_cmd_detail_attaches_md_on_wechat_long_report(tmp_path, monkeypatch):
 
     assert out is not None
     assert "附件" in out
-    files = list((tmp_path / "exports").glob("detail_task_attach_smoke_*.md"))
+    files = list((tmp_path / "exports").glob("detail_task_attach_smoke_*.txt"))
     assert len(files) == 1
     assert str(files[0].resolve()) in out
 
@@ -78,7 +78,7 @@ def test_cmd_detail_skips_attach_for_short_report(tmp_path, monkeypatch):
 
     assert out is not None
     assert "附件" not in out
-    assert not (tmp_path / "exports").exists() or not list((tmp_path / "exports").glob("*.md"))
+    assert not (tmp_path / "exports").exists() or not list((tmp_path / "exports").glob("*.txt"))
 
 
 @pytest.mark.unit

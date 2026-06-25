@@ -25,18 +25,25 @@ def handle_export_session_command(
     )
 
     ws = resolve_export_workspace(session_key)
+    plat = str(platform or "").strip().lower()
+    export_suffix = ".md"
+    if plat in ("wechat", "weixin"):
+        from butler.gateway.wechat_text_export import wechat_attach_suffix
+
+        export_suffix = wechat_attach_suffix()
     result = export_session_markdown(
         session_key,
         max_lines=max_lines or None,
         workspace=ws,
+        suffix=export_suffix,
     )
     if not result.get("ok"):
         return f"导出失败: {result.get('error', '?')}"
 
     path = result.get("path") or ""
-    plat = str(platform or "").strip().lower()
+    label = "TXT" if export_suffix == ".txt" else "Markdown"
     msg = (
-        f"已导出会话 Markdown（{result.get('sections', 0)} 段）\n"
+        f"已导出会话（{result.get('sections', 0)} 段）\n"
         f"大小: {result.get('bytes', 0)} 字节"
     )
     if plat in ("wechat", "weixin"):
@@ -46,6 +53,6 @@ def handle_export_session_command(
         )
 
         if export_wechat_file_enabled() and path:
-            msg += "\n\n（正在发送 .md 文件…）"
+            msg += f"\n\n（正在发送 {label} 文件…）"
             return append_wechat_file_delivery_line(msg, path)
     return f"{msg}\n路径: {path}"

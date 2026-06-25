@@ -21,7 +21,7 @@ def test_write_text_export_under_butler_home(tmp_path, monkeypatch):
     path = write_text_export("# title\n\nbody", name_prefix="test_report")
     assert path is not None
     assert path.parent == tmp_path / "exports"
-    assert path.suffix == ".md"
+    assert path.suffix == ".txt"
     assert "body" in path.read_text(encoding="utf-8")
 
 
@@ -54,7 +54,7 @@ def test_maybe_attach_appends_path_line(tmp_path, monkeypatch):
     )
     assert "summary" in out
     assert "附件" in out
-    files = list((tmp_path / "exports").glob("detail_task_*.md"))
+    files = list((tmp_path / "exports").glob("detail_task_*.txt"))
     assert len(files) == 1
     assert str(files[0].resolve()) in out
 
@@ -65,6 +65,22 @@ def test_maybe_attach_non_wechat_returns_full(tmp_path, monkeypatch):
     full = "y" * 800
     out = maybe_attach_wechat_file("a", full, platform="cli", name_prefix="n")
     assert out == "a"
+
+
+@pytest.mark.unit
+def test_wechat_attach_suffix_defaults_txt(monkeypatch):
+    monkeypatch.delenv("BUTLER_WECHAT_ATTACH_SUFFIX", raising=False)
+    from butler.gateway.wechat_text_export import wechat_attach_suffix
+
+    assert wechat_attach_suffix() == ".txt"
+
+
+@pytest.mark.unit
+def test_wechat_attach_suffix_md_override(monkeypatch):
+    monkeypatch.setenv("BUTLER_WECHAT_ATTACH_SUFFIX", "md")
+    from butler.gateway.wechat_text_export import wechat_attach_suffix
+
+    assert wechat_attach_suffix() == ".md"
 
 
 @pytest.mark.unit
@@ -83,4 +99,4 @@ def test_build_delegate_completion_message_attaches(tmp_path, monkeypatch):
     out = build_delegate_completion_message(report, platform="wechat")
     assert attach_delegate_enabled()
     assert "task_deadbeef1234" in out or "delegate_" in out
-    assert str(tmp_path / "exports") in out or any((tmp_path / "exports").glob("delegate_*.md"))
+    assert str(tmp_path / "exports") in out or any((tmp_path / "exports").glob("delegate_*.txt"))

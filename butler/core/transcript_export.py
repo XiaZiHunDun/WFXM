@@ -201,10 +201,11 @@ def export_session_markdown(
     *,
     max_lines: int | None = None,
     workspace: Path | None = None,
+    suffix: str = ".md",
 ) -> dict[str, Any]:
     """
-    Write markdown export under ``~/.butler/exports/`` or ``<workspace>/.butler/exports/``.
-    Returns {ok, path, lines, ...}.
+    Write session export under ``~/.butler/exports/`` or ``<workspace>/.butler/exports/``.
+    Returns {ok, path, lines, ...}. Body is markdown; ``suffix`` controls the file extension.
     """
     if not transcript_enabled():
         return {"ok": False, "error": "BUTLER_SESSION_TRANSCRIPT=0"}
@@ -215,7 +216,10 @@ def export_session_markdown(
 
     body = build_session_markdown(sk, max_lines=max_lines)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    name = f"{_safe_segment(sk)}_{stamp}.md"
+    ext = suffix if str(suffix or "").startswith(".") else f".{suffix or 'md'}"
+    if ext.lower() not in (".md", ".markdown", ".txt"):
+        ext = ".md"
+    name = f"{_safe_segment(sk)}_{stamp}{ext}"
 
     if workspace is not None:
         out_dir = Path(workspace) / ".butler" / "exports"
