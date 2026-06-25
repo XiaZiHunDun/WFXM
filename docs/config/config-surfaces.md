@@ -32,7 +32,7 @@ Butler 配置落在四个**正交面**，合并顺序与可写入口不同。改
 | 面 | 路径 / 入口 | 放什么 | 不放什么 |
 |----|-------------|--------|----------|
 | **A. 环境变量** | 仓库 `.env`、systemd `Environment=`、shell `export` | Provider **API Key**（`*_API_KEY`）、微信凭证、部署路径（`BUTLER_HOME`、`BUTLER_PROJECTS_DIR`）、大量 `BUTLER_*` 开关与阈值 | 结构化多字段配置（用 C 面）；密钥重复写进 `config.yaml` |
-| **B. 密钥文件** | `~/.butler/secrets.yaml`（`BUTLER_SECRETS_PATH` 可覆盖） | Provider `api_key` 明文（`butler secrets set` 写入，mode 600） | 模型名、非密钥业务配置 |
+| **B. 密钥文件** | `~/.butler/secrets.yaml`（`BUTLER_SECRETS_PATH` 可覆盖） | Provider `api_key`（`butler secrets set` 写入，mode 600；可选 `BUTLER_SECRETS_ENCRYPT=1` → `FERNET:` 密文） | 模型名、非密钥业务配置 |
 | **C. 管家 YAML** | `~/.butler/config.yaml` | `default_provider`、`models.*`、`auxiliary.*`、`embedding.*`、`llm_fallback.*`、`gateway.*`、`butler_name` 等 | API Key（用 A/B）；绝大多数 `BUTLER_*` 尚未迁 YAML（见 §4） |
 | **D. 运行时服务** | 微信 `/config`、`butler_config` 工具、`config_service.py` | **白名单内** `BUTLER_*` 的 `os.environ` 临时写入 | API Key、路径、安全/终端类（见 §5） |
 

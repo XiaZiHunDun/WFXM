@@ -147,6 +147,10 @@
 | `butler-extension-ext2-preflight.sh` | EXT-2 OpenAPI HTTP |
 | `butler-extension-ext4-preflight.sh` | EXT-4 第二 OpenAPI |
 | `butler-extension-ext4-integrate.sh` | EXT-4 集成 |
+| `butler-extension-ext4-gate.sh` | EXT-4 pytest 守门（PROD-P2-04） |
+| `butler-extension-ext5-preflight.sh` | EXT-5 MarkItDown MCP |
+| `butler-extension-ext5-integrate.sh` | EXT-5 集成 |
+| `butler-extension-ext5-gate.sh` | EXT-5 pytest 守门 |
 | `butler-extension-verify.sh` | 扩展 verify 汇总 |
 | `butler-secrets-contract-check.sh` | 密钥契约检查 |
 

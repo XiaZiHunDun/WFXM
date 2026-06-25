@@ -42,7 +42,7 @@ def _ensure_private_mode(path: Path) -> None:
         logger.warning("secrets chmod failed (file may be world-readable): %s", exc)
 
 
-def load_secrets_dict(home: Path | None = None) -> dict[str, Any]:
+def load_secrets_dict(home: Path | None = None, *, decrypt: bool = False) -> dict[str, Any]:
     if not secrets_file_enabled():
         return {}
     path = secrets_path(home)
@@ -50,15 +50,45 @@ def load_secrets_dict(home: Path | None = None) -> dict[str, Any]:
         return {}
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            return {}
+        if decrypt:
+            return _decrypt_secrets_dict(data)
+        return data
     except Exception as exc:
         logger.warning("secrets.yaml read failed: %s", exc)
         return {}
 
 
+def _decrypt_secrets_dict(data: dict[str, Any]) -> dict[str, Any]:
+    from butler.config_secrets_crypto import decrypt_secret_value
+
+    out = dict(data)
+    providers = out.get("providers")
+    if isinstance(providers, dict):
+        decrypted_providers: dict[str, Any] = {}
+        for name, entry in providers.items():
+            if isinstance(entry, str):
+                decrypted_providers[str(name)] = decrypt_secret_value(entry)
+            elif isinstance(entry, dict):
+                row = dict(entry)
+                for field in ("api_key", "key", "token", "secret"):
+                    if field in row:
+                        row[field] = decrypt_secret_value(str(row.get(field) or ""))
+                decrypted_providers[str(name)] = row
+            else:
+                decrypted_providers[str(name)] = entry
+        out["providers"] = decrypted_providers
+    for key, val in list(out.items()):
+        if key == "providers" or not isinstance(val, str):
+            continue
+        out[key] = decrypt_secret_value(val)
+    return out
+
+
 def provider_secrets(home: Path | None = None) -> dict[str, str]:
     """Map provider name -> api_key from secrets file."""
-    data = load_secrets_dict(home)
+    data = load_secrets_dict(home, decrypt=True)
     providers = data.get("providers")
     if not isinstance(providers, dict):
         return {}
@@ -97,6 +127,8 @@ def write_provider_secret(
     *,
     home: Path | None = None,
 ) -> Path:
+    from butler.config_secrets_crypto import encrypt_secret_value
+
     path = secrets_path(home)
     _ensure_private_mode(path)
     data = load_secrets_dict(home)
@@ -104,7 +136,8 @@ def write_provider_secret(
     if not isinstance(providers, dict):
         providers = {}
         data["providers"] = providers
-    providers[str(provider).strip()] = {"api_key": str(api_key).strip()}
+    stored_key = encrypt_secret_value(str(api_key).strip())
+    providers[str(provider).strip()] = {"api_key": stored_key}
     path.write_text(
         yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
@@ -113,7 +146,48 @@ def write_provider_secret(
     return path
 
 
+def encrypt_secrets_file(*, home: Path | None = None, dry_run: bool = True) -> dict[str, Any]:
+    """Encrypt plaintext entries in secrets.yaml (requires BUTLER_SECRETS_ENCRYPT=1)."""
+    from butler.config_secrets_crypto import (
+        count_encrypted_entries,
+        encrypt_secrets_dict,
+        secrets_encrypt_enabled,
+    )
+
+    path = secrets_path(home)
+    if not secrets_file_enabled():
+        return {"ok": False, "error": "BUTLER_SECRETS_FILE=0"}
+    if not secrets_encrypt_enabled():
+        return {"ok": False, "error": "BUTLER_SECRETS_ENCRYPT 未开"}
+    if not path.is_file():
+        return {"ok": False, "error": f"no secrets file: {path}"}
+    data = load_secrets_dict(home)
+    before_enc, before_total = count_encrypted_entries(data)
+    changed = encrypt_secrets_dict(data)
+    after_enc, after_total = count_encrypted_entries(data)
+    result = {
+        "ok": True,
+        "path": str(path),
+        "dry_run": dry_run,
+        "changed": changed,
+        "encrypted_before": before_enc,
+        "encrypted_after": after_enc,
+        "total_secrets": after_total or before_total,
+    }
+    if dry_run or changed <= 0:
+        return result
+    _ensure_private_mode(path)
+    path.write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False),
+        encoding="utf-8",
+    )
+    _ensure_private_mode(path)
+    return result
+
+
 def secrets_status_line(home: Path | None = None) -> str:
+    from butler.config_secrets_crypto import count_encrypted_entries, secrets_encrypt_enabled
+
     path = secrets_path(home)
     if not secrets_file_enabled():
         return "凭证文件: 关 (BUTLER_SECRETS_FILE=0)"
@@ -124,4 +198,10 @@ def secrets_status_line(home: Path | None = None) -> str:
     except OSError:
         mode = "?"
     n = len(provider_secrets(home))
-    return f"凭证文件: {path.name} mode={mode} providers={n}"
+    enc_flag = "开" if secrets_encrypt_enabled() else "关"
+    raw = load_secrets_dict(home)
+    enc_n, total_n = count_encrypted_entries(raw)
+    enc_note = f" · 加密={enc_flag}"
+    if total_n:
+        enc_note += f" ({enc_n}/{total_n} 条目已加密)"
+    return f"凭证文件: {path.name} mode={mode} providers={n}{enc_note}"

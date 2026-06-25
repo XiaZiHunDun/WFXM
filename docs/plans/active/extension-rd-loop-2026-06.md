@@ -158,6 +158,33 @@ MCP（薄 Client，默认关）
 | **验收** | 试点目录 ingest → `butler memory search` 可召回；默认关 |
 | **守门** | `test_ragflow_p0_retrieval.py` · `test_markdown_chunking.py` |
 
+### EXT-4 — 第二 OpenAPI MCP（GitHub REST 只读） → [`extension-candidates/ext-4-second-openapi-2026-06.md`](extension-candidates/ext-4-second-openapi-2026-06.md)
+
+| 维度 | 内容 |
+|------|------|
+| **状态** | Decide ✅ **A（OpenAPI）** · Integrate ✅ · **Verify ✅**（2026-06-22 真机：仓库 + issues） |
+| **痛点** | EXT-2 验证 OpenAPI 模板后，Owner 重复「查 GitHub 仓库 / issues」；专用 `@modelcontextprotocol/server-github` 不复用 EXT-2 栈 |
+| **推荐** | 同 `@ivotoby/openapi-mcp-server` + 仓库维护 [`.butler/openapi/github-readonly.yml`](../../../.butler/openapi/github-readonly.yml) |
+| **验收** | manifest `github-readonly` · grounding L2 · `bash scripts/butler-extension-ext4-gate.sh` |
+| **守门** | `tests/test_github_openapi_ext4.py` · `tests/test_github_grounding.py` · `butler-extension-verify.sh github-readonly` |
+
+### EXT-5 — MarkItDown MCP（文档 ingest 触达） → [`extension-candidates/ext-5-markitdown-mcp-2026-06.md`](extension-candidates/ext-5-markitdown-mcp-2026-06.md)
+
+| 维度 | 内容 |
+|------|------|
+| **状态** | Decide ✅ **A** · Integrate ✅ · **Verify ⏳**（2026-06-25） |
+| **痛点** | EXT-3 CLI ingest 已绿；微信/Loop 缺 stdio MCP `convert_to_markdown` |
+| **推荐** | Microsoft `markitdown-mcp` via `uvx`；manifest `markitdown-ingest` |
+| **验收** | `bash scripts/butler-extension-ext5-gate.sh` · preflight · 真机 convert + reindex |
+| **守门** | `tests/test_markitdown_ext5.py` |
+
+### EXT-6+ — 后续队列
+
+| 维度 | 内容 |
+|------|------|
+| **评审 SSOT** | [`extension-quarterly-review-2026-06.md`](extension-quarterly-review-2026-06.md) |
+| **暂缓** | EXT-5b Browser MCP · EXT-6 第三 OpenAPI（按需） |
+
 ---
 
 ## 6. 与现有运维节奏对齐
@@ -166,7 +193,7 @@ MCP（薄 Client，默认关）
 |------|------|
 | **发版前** | 若 EXT 项已接入：`butler-pre-release-smoke.sh` + MCP 子集 |
 | **每周** | B9 / eval-sync 弱项 → 是否触发 O 步 |
-| **每季度** | 评审 §5 队列；更新一页纸；关闭或移入 [`roadmap-backlog` §3](../decisions/roadmap-backlog-and-boundaries-2026-05.md) |
+| **每季度** | 评审 §5 队列 + [`extension-quarterly-review-2026-06.md`](extension-quarterly-review-2026-06.md)；更新一页纸；关闭或移入 [`roadmap-backlog` §3](../decisions/roadmap-backlog-and-boundaries-2026-05.md) |
 | **G1-04 窗后** | OT2 硬反馈是否指向某 EXT（如 delegate 救援 vs 新 MCP） |
 
 ---

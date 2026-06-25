@@ -176,6 +176,16 @@ def _shared_diagnostic_lines(
     except Exception as exc:
         logger.debug("shared diagnostic lines skipped: %s", exc)
     try:
+        from butler.ops.observation_diagnostics import format_observation_diagnostic_lines
+
+        if proj is not None:
+            obs_lines = format_observation_diagnostic_lines(Path(proj.workspace))
+            if obs_lines:
+                lines.append("")
+                lines.extend(obs_lines)
+    except Exception as exc:
+        logger.debug("observation diagnostic lines skipped: %s", exc)
+    try:
         from butler.ops.usage_ledger import format_usage_ledger_lines
 
         lines.extend(format_usage_ledger_lines())

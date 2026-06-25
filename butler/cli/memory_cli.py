@@ -122,6 +122,33 @@ def _register_memory_ops_parsers(mem_sub: argparse._SubParsersAction) -> None:
 
 
 def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> None:
+    mobs = mem_sub.add_parser(
+        "observations",
+        help="workspace observation store 统计（只读）；--migrate 导入遗留 observations.tsv",
+    )
+    mobs.add_argument(
+        "--project",
+        default="",
+        help="项目名（默认 BUTLER_DEFAULT_PROJECT）",
+    )
+    mobs.add_argument(
+        "--workspace",
+        default="",
+        help="直接指定 workspace（优先于 --project）",
+    )
+    mobs.add_argument(
+        "--migrate",
+        action="store_true",
+        help="将 .butler/observations.tsv 一次性导入 observations.db",
+    )
+    mobs.add_argument(
+        "--force",
+        action="store_true",
+        help="与 --migrate 联用：DB 非空仍合并导入",
+    )
+    mobs.add_argument("--json", action="store_true", help="输出 JSON")
+    mobs.set_defaults(func=_cmd_memory_observations)
+
     mbackfill = mem_sub.add_parser(
         "backfill-scopes",
         help="将 legacy L4 编码经验推断的 MemoryScope 写回 JSON（P5）",
@@ -332,6 +359,42 @@ def _cmd_memory_migrate_lingwen_l3(ns: argparse.Namespace) -> int:
     if result.get("dry_run") and result.get("migrated"):
         console.print("[yellow]dry-run：加 --apply 执行 L4→L3 迁移[/yellow]")
     return 0
+
+
+def _cmd_memory_observations(ns: argparse.Namespace) -> int:
+    import json
+
+    from butler.ops.observation_diagnostics import (
+        collect_observation_store_stats,
+        format_observation_diagnostic_lines,
+    )
+
+    ws = _resolve_ingest_workspace(ns)
+    if ws is None:
+        Console().print("[red]请指定 --workspace 或 --project / BUTLER_DEFAULT_PROJECT[/red]")
+        return 1
+    if bool(getattr(ns, "migrate", False)):
+        from butler.memory.observation_migrate import migrate_tsv_to_db
+
+        result = migrate_tsv_to_db(ws, force=bool(getattr(ns, "force", False)))
+        if bool(ns.json):
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+        else:
+            console = Console()
+            console.print(
+                f"[bold]observation migrate[/bold] imported={result.get('imported')} "
+                f"reason={result.get('reason')}"
+            )
+            if result.get("archived_to"):
+                console.print(f"  archived: {result.get('archived_to')}")
+        return 0 if result.get("ok") else 1
+    stats = collect_observation_store_stats(ws)
+    if bool(ns.json):
+        print(json.dumps(stats, ensure_ascii=False, indent=2))
+        return 0 if stats.get("ok") else 1
+    for line in format_observation_diagnostic_lines(ws):
+        Console().print(line)
+    return 0 if stats.get("ok") else 1
 
 
 def _merge_pending_emit(result: dict, *, json_out: bool, ok_label: str, err_default: str) -> int:

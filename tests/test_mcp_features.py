@@ -78,6 +78,16 @@ def test_http_private_host_blocked():
     assert validate_http_url(cfg) is not None
 
 
+def test_http_metadata_ip_blocked_even_with_hosts_allow():
+    cfg = McpServerConfig(
+        server_id="x",
+        transport="http",
+        url="http://169.254.169.254/mcp",
+        hosts_allow=("169.254.169.254",),
+    )
+    assert validate_http_url(cfg) is not None
+
+
 def test_http_hosts_allow_strict_subdomain():
     """Substring bypass must be rejected: `notapi.com` ≠ allowlisted `api.com`."""
     cfg = McpServerConfig(

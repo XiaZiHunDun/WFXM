@@ -14,17 +14,22 @@ _EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _API_KEY = re.compile(r"\bsk[-_][A-Za-z0-9]{20,}\b")
 # JWT: three base64url segments separated by dots, header always starts with eyJ
 _JWT = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b")
-# IPv4 private ranges: 10/8, 172.16/12, 192.168/16, 127/8
+# IPv4 private ranges: 10/8, 172.16/12, 192.168/16, 127/8, link-local 169.254/16
 _IPV4_PRIVATE = re.compile(
     r"\b(?:"
     r"10(?:\.\d{1,3}){3}"
     r"|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}"
     r"|192\.168(?:\.\d{1,3}){2}"
     r"|127(?:\.\d{1,3}){3}"
+    r"|169\.254(?:\.\d{1,3}){2}"
     r")\b"
 )
 # Bank card: 13-19 digit run, Luhn-validated
 _CARD_DIGITS = re.compile(r"(?<!\d)(\d{13,19})(?!\d)")
+# AWS access key id, GitHub PAT, Bearer authorization header fragments
+_AWS_ACCESS_KEY = re.compile(r"\bAKIA[0-9A-Z]{16}\b")
+_GITHUB_PAT = re.compile(r"\b(?:ghp_|github_pat_)[A-Za-z0-9_]{20,}\b")
+_BEARER = re.compile(r"\bBearer\s+[A-Za-z0-9._-]{20,}\b", re.IGNORECASE)
 
 
 def _luhn_ok(digits: str) -> bool:
@@ -60,6 +65,9 @@ def scrub_outbound_text(text: str) -> str:
         out = _EMAIL.sub("[邮箱已脱敏]", out)
     out = _API_KEY.sub("[API密钥已脱敏]", out)
     out = _JWT.sub("[JWT令牌已脱敏]", out)
+    out = _BEARER.sub("[Bearer令牌已脱敏]", out)
+    out = _AWS_ACCESS_KEY.sub("[云凭证已脱敏]", out)
+    out = _GITHUB_PAT.sub("[GitHub令牌已脱敏]", out)
     out = _IPV4_PRIVATE.sub("[内网IP已脱敏]", out)
     out = _CARD_DIGITS.sub(_scrub_card, out)
     try:

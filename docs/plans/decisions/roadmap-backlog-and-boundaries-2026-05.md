@@ -152,14 +152,15 @@
 
 - **原则**：Loop/Gateway/记忆自建；长尾能力 **MCP → optional-extra → builtin（最后）**  
 - **闭环**：Observe → Research → Decide（Owner）→ Integrate（opt-in）→ Verify → Track  
-- **2026-Q3 首批试点**：EXT-1 ✅ · EXT-3 ✅ · **EXT-2 ✅**（[一页纸](../active/extension-candidates/ext-2-openapi-http-2026-06.md)，Todoist v1 OpenAPI MCP，2026-06-20 微信 Verify）  
+- **2026-Q3 首批试点**：EXT-1 ✅ · EXT-2 ✅ · EXT-3 ✅ · **EXT-4 ✅**（[GitHub OpenAPI](../active/extension-candidates/ext-4-second-openapi-2026-06.md)，2026-06-22 Verify）  
+- **2026-Q4 推荐**：EXT-5 MarkItDown MCP **Integrate ✅**（[一页纸](../active/extension-candidates/ext-5-markitdown-mcp-2026-06.md)）— 见 [季度评审](../active/extension-quarterly-review-2026-06.md)
 - **Agent 可** 起草选型一页纸；**不可** 无人值守改 core 依赖或绕过白名单
 
 ### 3.1 安全 / 凭证 / 网关
 
 | 项 | 来源 | 说明 |
 |----|------|------|
-| `secrets.yaml` **Fernet 加密** | Dify 对标 | 明文+600 为过渡；`cryptography` 可选 |
+| `secrets.yaml` **Fernet 加密** | Dify 对标 | ✅ `BUTLER_SECRETS_ENCRYPT` + `butler secrets encrypt`（2026-06 P2-03） |
 | `execute_code` 生产开放 | Hermes | 默认 `BUTLER_EXECUTE_CODE=0`；须安全评审 |
 | 微信真·流式**编辑**回复 | Hermes | 依赖 iLink 能力；现有 progressive 为补充消息 |
 | 权限 **LLM 分类器** | Hermes | 与「无 classifier」原则冲突 |
@@ -169,7 +170,7 @@
 | 项 | 来源 | 说明 |
 |----|------|------|
 | 全量 RAG **ingest 管线** | Dify | 已有 search；ingest 另立项 — **规程** [`extension-rd-loop` §5 EXT-3](../active/extension-rd-loop-2026-06.md) |
-| OpenAPI 声明式 HTTP 工具 | Dify | `.butler/tools/*.yaml` 需产品定义 — **规程** [`extension-rd-loop` §5 EXT-2](../active/extension-rd-loop-2026-06.md) |
+| OpenAPI 声明式 HTTP 工具 | Dify | EXT-2 Todoist + **EXT-4 GitHub** ✅；下一模板见 EXT-6 季度评审 |
 | LLM 工具模拟器 | LangChain | 仅测试路径，ROI 低 |
 | LangChain **Checkpointer** 断点续跑 | LangChain | 单进程微信非刚需 |
 | **corpus live 全量**（非 smoke） | PEG | 成本高；已有 `--corpus-live-full` 上限子集 |
@@ -178,9 +179,9 @@
 
 | 项 | 来源 | 说明 |
 |----|------|------|
-| `observations.tsv` -> `observations.db` 一次性迁移 | SQLite observation store 首版 | 兼容早期试用数据；可在首次发现 DB 缺失且 TSV 存在时导入 |
-| observation 路径历史排序/权重优化 | SQLite observation store 收口 | 当前以最近命中为主；后续可按工具类型、成功率、访问频次细化排序 |
-| observation 导出/诊断命令 | SQLite observation store 收口 | 目前主要经 `PreRead` 与 `read_file` 隐式消费；如需人工排障可另加只读诊断命令 |
+| `observations.tsv` -> `observations.db` 一次性迁移 | SQLite observation store 首版 | ✅ `observation_migrate.py` + `butler memory observations --migrate` |
+| observation 路径历史排序/权重优化 | SQLite observation store 收口 | 当前以最近命中为主（文档化）；工具/成功率权重仍 Backlog |
+| observation 导出/诊断命令 | SQLite observation store 收口 | ✅ `/诊断 详细` + `butler memory observations` |
 
 ### 3.3 OpenCode 净新增（P2/P3）
 
@@ -211,9 +212,9 @@
 | [PROD-P1-02](#prod-p1-02-owner-默认路径简报--onboarding) | P1 | Owner 默认路径（简报 + onboarding） | 1–2 月 | **done** 2026-06-26 |
 | [PROD-P1-03](#prod-p1-03-记忆月度探针运营化) | P1 | 记忆月度探针运营化 | 1–2 月 | **done** 2026-06-25 |
 | [PROD-P2-01](#prod-p2-01-wechat_ilink-结构拆分) | P2 | `wechat_ilink` 结构拆分 | Backlog | **done** 2026-06-25 |
-| [PROD-P2-02](#prod-p2-02-observation-store-收口) | P2 | Observation Store 收口 | Backlog | 见 §3.2.1 |
-| [PROD-P2-03](#prod-p2-03-安全信任补丁批次) | P2 | 安全信任补丁批次 | Backlog | 见 §3.1 |
-| [PROD-P2-04](#prod-p2-04-extension-ext-4) | P2 | Extension EXT-4+ 选型 | 季度 | 见 §3.0 |
+| [PROD-P2-02](#prod-p2-02-observation-store-收口) | P2 | Observation Store 收口 | Backlog | **done** 2026-06-22 |
+| [PROD-P2-03](#prod-p2-03-安全信任补丁批次) | P2 | 安全信任补丁批次 | Backlog | **done** 2026-06-22 |
+| [PROD-P2-04](#prod-p2-04-extension-ext-4) | P2 | Extension EXT-4+ 选型 | 季度 | **done** 2026-06-22 |
 
 **建议执行顺序（开发会话对齐）**：
 
@@ -410,17 +411,42 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 
 见上文 **§3.2.1**；验收：TSV→DB 迁移脚本、`/诊断` 或只读命令可导出 observation 统计、PreRead 排序权重文档化。
 
+| 字段 | 内容 |
+|------|------|
+| **状态** | **done** 2026-06-22 |
+| **迁移** | `butler/memory/observation_migrate.py` · `scripts/butler-observation-migrate.sh` · 空 DB 首次打开自动导入 |
+| **诊断** | `/诊断 详细` Observation Store 段 · `butler memory observations` |
+| **文档** | [`observation-store-preread-2026-06.md`](../../guides/observation-store-preread-2026-06.md) |
+| **测试** | `tests/test_observation_migrate.py` · `tests/test_observation_store.py` |
+
 ---
 
 #### PROD-P2-03：安全信任补丁批次
 
 见 **§3.1** 子集批次立项：PII 扩展、`secrets.yaml` Fernet、MCP SSRF 守门；每批 ≤5 项，附 `tests/` 与发版 note。
 
+| 字段 | 内容 |
+|------|------|
+| **状态** | **done** 2026-06-22 |
+| **PII** | `pii_scrub.py`：Bearer / AWS AKIA / GitHub PAT / 169.254 link-local |
+| **Secrets** | `config_secrets_crypto.py` · `butler secrets encrypt` · `BUTLER_SECRETS_ENCRYPT*` |
+| **MCP SSRF** | `validate_http_url` + `ipaddress` 字面量私网/metadata 拦截 |
+| **文档** | [`trust-security-p2-batch-2026-06.md`](../../guides/trust-security-p2-batch-2026-06.md) |
+| **守门** | `scripts/butler-trust-p2-gate.sh` · `tests/test_trust_p2_batch.py` |
+
 ---
 
 #### PROD-P2-04：Extension EXT-4+
 
-见 **§3.0** 规程；下一候选 [`ext-4-second-openapi-2026-06.md`](../active/extension-candidates/ext-4-second-openapi-2026-06.md)；须 Observe→一页纸→Owner Decide，禁止直改 core 依赖。
+见 **§3.0** 规程；EXT-4 GitHub OpenAPI ✅；Q4 **EXT-5** 一页纸已起草（Decide 待 Owner）。
+
+| 字段 | 内容 |
+|------|------|
+| **状态** | **done** 2026-06-22（选型闭环；EXT-5 Integrate 未开） |
+| **EXT-4** | [ext-4-second-openapi-2026-06.md](../active/extension-candidates/ext-4-second-openapi-2026-06.md) · Verify ✅ |
+| **季度评审** | [extension-quarterly-review-2026-06.md](../active/extension-quarterly-review-2026-06.md) |
+| **EXT-5** | [ext-5-markitdown-mcp-2026-06.md](../active/extension-candidates/ext-5-markitdown-mcp-2026-06.md) · Integrate ✅ |
+| **守门** | `scripts/butler-extension-ext4-gate.sh` |
 
 ---
 
@@ -439,7 +465,8 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | 外部 Agent PR-X1–X6 | [`external-agent-reports-improvement-roadmap-2026-05.md`](../roadmaps/external-agent-reports-improvement-roadmap-2026-05.md) §10 | `tests/test_external_agent_*.py` 等 |
 | OpenCode / OpenClaw / OMO | 各 learning-plan | 各 `test_opencode_*` 等 |
 | MCP 薄客户端 | [`butler-mcp-capability-2026-05.md`](../comparisons/butler-mcp-capability-2026-05.md) | `BUTLER_MCP_ENABLED` |
-| **扩展选型规程** | [`active/extension-rd-loop-2026-06.md`](../active/extension-rd-loop-2026-06.md) | MCP 守门 · 选型一页纸 |
+| **扩展选型规程** | [`active/extension-rd-loop-2026-06.md`](../active/extension-rd-loop-2026-06.md) | MCP 守门 · 选型一页纸 · EXT-4 gate |
+| **EXT-4 GitHub OpenAPI** | [`ext-4-second-openapi-2026-06.md`](../active/extension-candidates/ext-4-second-openapi-2026-06.md) | `butler-extension-ext4-gate.sh` |
 
 ---
 
@@ -476,3 +503,5 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | 2026-05-26 | 记录 SQLite observation store 首版落地后的残留风险与后续收口项 |
 | 2026-06-26 | **§3.6** 产品评估立项表（PROD-P0-01…P2-04）：G1-04、配置剖面、pytest 叙事、Dev/Owner/记忆 P1、工程 P2 |
 | 2026-06-26 | **PROD-P1-02** `/简报` 四块 + onboarding 三步欢迎 |
+| 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
+| 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |

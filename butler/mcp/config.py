@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import ipaddress
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -230,6 +231,27 @@ def validate_stdio_command(config: McpServerConfig) -> str | None:
     return None
 
 
+def _host_is_private_or_metadata(host: str) -> bool:
+    norm = str(host or "").strip().lower()
+    if not norm:
+        return True
+    if norm in _PRIVATE_HOSTS:
+        return True
+    if norm.endswith(".local") or norm.endswith(".internal"):
+        return True
+    try:
+        addr = ipaddress.ip_address(norm)
+    except ValueError:
+        return False
+    return bool(
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local
+        or addr.is_reserved
+        or addr.is_multicast
+    )
+
+
 def validate_http_url(config: McpServerConfig) -> str | None:
     try:
         parsed = urlparse(config.url)
@@ -240,7 +262,7 @@ def validate_http_url(config: McpServerConfig) -> str | None:
     host = (parsed.hostname or "").lower()
     if not host:
         return "missing host"
-    if not allow_private_http() and host in _PRIVATE_HOSTS:
+    if not allow_private_http() and _host_is_private_or_metadata(host):
         return f"private host blocked: {host}"
     allowed = set(config.hosts_allow) | set(http_hosts_allow_extra())
     if allowed and not any(host == h or host.endswith("." + h) for h in allowed):

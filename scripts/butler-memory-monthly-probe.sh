@@ -110,6 +110,8 @@ _probe M7 "记住 → 批准 → 向量同步" \
 echo ""
 _probe_optional M1b "/记忆图谱 三元组展示" \
   tests/test_memory_retrieval_triplets.py::test_memory_graph_command
+_probe_optional M1c "observation store 迁移/诊断" \
+  tests/test_observation_migrate.py
 
 echo ""
 if [[ "$FAIL" -ne 0 ]]; then

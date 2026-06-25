@@ -256,7 +256,11 @@ def read_secrets_yaml_value(key: str, secrets_path: Path | None = None) -> str:
     if not isinstance(data, dict):
         return ""
     val = data.get(key)
-    return str(val or "").strip()
+    if val is None:
+        return ""
+    from butler.config_secrets_crypto import decrypt_secret_value
+
+    return decrypt_secret_value(str(val)).strip()
 
 
 def env_secret_value(contract: SecretContract) -> str:

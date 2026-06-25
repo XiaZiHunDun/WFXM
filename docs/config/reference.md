@@ -510,6 +510,8 @@
 | `BUTLER_EXECUTE_CODE_TIMEOUT` | 30 | 代码执行超时（秒） |
 | `BUTLER_EXECUTE_CODE_ALLOW_NETWORK` | 0 | `1` 允许沙箱网络访问 |
 | `BUTLER_SECRETS_FILE` | 1 | 从 `~/.butler/secrets.yaml` 加载 provider API key |
+| `BUTLER_SECRETS_ENCRYPT` | 0 | `1` = provider key 写入 `FERNET:` 密文（需 `cryptography` + `BUTLER_SECRETS_ENCRYPT_KEY`） |
+| `BUTLER_SECRETS_ENCRYPT_KEY` | — | Fernet base64 密钥；`butler secrets encrypt --apply` 迁移明文 |
 | `BUTLER_TERMINAL_SMART_APPROVE` | 1 | `/批准模式 <pattern>` 本会话放行危险 terminal |
 | `BUTLER_TOOL_PRUNE_CLEAR_AT_LEAST` | — | 向后剪枝最少回收字符数 |
 | `BUTLER_BOT_LOOP_WHITELIST` | — | 逗号分隔 chat_id 白名单 |

@@ -11,7 +11,7 @@
 
 | 主线 | 能力 | 主要模块 |
 |------|------|----------|
-| **F 记忆** | `<private>`、三层 `butler_recall`、SQLite observation store、PreRead、session_summary | `private_tags.py`、`recall_layers.py`、`observer_queue.py`、`observation_store.py`、`preread_context.py` |
+| **F 记忆** | `<private>`、三层 `butler_recall`、SQLite observation store、PreRead、session_summary | `private_tags.py`、`recall_layers.py`、`observer_queue.py`、`observation_store.py`、`preread_context.py` · [observation-store-preread](observation-store-preread-2026-06.md) |
 | **G 运维** | 熔断/failover、`sessions list`、`/会话`、流式探活、用量盘、原子写 | `provider_health.py`、`sessions_cli.py`、`usage_ledger.py`、`stream_probe.py`、`io/atomic_write.py` |
 | **H Prompt** | 任务纪律、RAG 忠实度、工具错误格式、Reflexion、规划 Generated Knowledge | `butler_system.md`、`tool_error_policy.py`、`reflexion_ephemeral.py` |
 | **I 编排** | outcomes.tsv、`/评价`、handoff 依赖、clear_child、output_schema、决策解析 | `outcomes.py`、`task_orchestrator.py`、`report.py` |

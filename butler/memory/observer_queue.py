@@ -36,7 +36,15 @@ def observations_path(workspace: Path) -> Path:
 
 
 def observations_db(workspace: Path) -> ObservationStore:
-    return ObservationStore(observations_db_path(Path(workspace)))
+    ws = Path(workspace).expanduser().resolve()
+    store = ObservationStore(observations_db_path(ws))
+    try:
+        from butler.memory.observation_migrate import migrate_tsv_if_needed
+
+        migrate_tsv_if_needed(ws, store=store)
+    except Exception as exc:
+        logger.debug("observation tsv auto-migrate skipped: %s", exc)
+    return store
 
 
 def _resolve_workspace() -> Path | None:

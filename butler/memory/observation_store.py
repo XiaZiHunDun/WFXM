@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import os
 import sqlite3
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 from butler.memory_settings import resolve_memory_config
 
@@ -202,6 +202,49 @@ class ObservationStore:
         ]
         result.reverse()
         return result
+
+    def stats(self) -> dict[str, Any]:
+        with self._lock:
+            with self._connect() as conn:
+                row_count = int(
+                    conn.execute("SELECT COUNT(*) FROM observations").fetchone()[0]
+                )
+                distinct_paths = int(
+                    conn.execute(
+                        "SELECT COUNT(DISTINCT path) FROM observations WHERE path != ''"
+                    ).fetchone()[0]
+                )
+                ok_count = int(
+                    conn.execute("SELECT COUNT(*) FROM observations WHERE ok = 1").fetchone()[0]
+                )
+                fail_count = int(
+                    conn.execute("SELECT COUNT(*) FROM observations WHERE ok = 0").fetchone()[0]
+                )
+                oldest = conn.execute(
+                    "SELECT MIN(timestamp) FROM observations WHERE timestamp != ''"
+                ).fetchone()[0]
+                newest = conn.execute(
+                    "SELECT MAX(timestamp) FROM observations WHERE timestamp != ''"
+                ).fetchone()[0]
+                tool_rows = conn.execute(
+                    """
+                    SELECT tool, COUNT(*) AS cnt
+                    FROM observations
+                    WHERE tool != ''
+                    GROUP BY tool
+                    ORDER BY cnt DESC, tool ASC
+                    """
+                ).fetchall()
+        return {
+            "row_count": row_count,
+            "distinct_paths": distinct_paths,
+            "ok_count": ok_count,
+            "fail_count": fail_count,
+            "oldest_timestamp": str(oldest or ""),
+            "newest_timestamp": str(newest or ""),
+            "tool_counts": {str(row["tool"]): int(row["cnt"]) for row in tool_rows},
+            "db_path": str(self.db_path),
+        }
 
 
 __all__ = ["ObservationStore", "observations_db_path"]
