@@ -6,9 +6,10 @@ from butler.gateway.error_cards import format_error_card
 class TestFormatErrorCard:
     def test_doom_loop(self):
         result = format_error_card("doom_loop", tool="terminal", count=5)
-        assert "拦截" in result
+        assert "需要您批准" in result
         assert "terminal" in result
         assert "5" in result
+        assert "/批准一次" in result
 
     def test_permission_deny(self):
         result = format_error_card("permission_deny", tool="write_file", reason="blocked")

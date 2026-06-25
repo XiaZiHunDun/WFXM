@@ -148,6 +148,21 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"  (不可用: {exc})")
 
+    print("\n[Terminal 沙箱]")
+    try:
+        from butler.ops.terminal_sandbox_diagnostics import (
+            collect_terminal_sandbox_status,
+            format_terminal_sandbox_diagnostic_lines,
+        )
+
+        st = collect_terminal_sandbox_status(workspace=workspace)
+        for line in format_terminal_sandbox_diagnostic_lines(workspace=workspace):
+            print(f"  {line}" if not line.startswith("Terminal") else line)
+        if st.terminal_enabled and st.linux_host and not st.bwrap_available:
+            print("  安装: sudo apt install bubblewrap   # Debian/Ubuntu")
+    except Exception as exc:
+        print(f"  (不可用: {exc})")
+
     print("\n[安全审计]")
     findings = run_security_audit(workspace=workspace)
     print(format_audit_report(findings))

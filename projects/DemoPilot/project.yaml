@@ -22,5 +22,6 @@ tools:
   - skills_list
   - skill_view
 dev:
-  test_command: "true"
-  lint_command: "true"
+  test_command: "python3 -m pytest ../../tests/test_owner_surface.py ../../tests/test_sandbox_commands.py ../../tests/test_cc_bridge.py -q --tb=short"
+  lint_command: "python3 -m py_compile ../../butler/runtime/cc_bridge.py ../../butler/gateway/commands/sandbox_commands.py"
+  build_command: "true"

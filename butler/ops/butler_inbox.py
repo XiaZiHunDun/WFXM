@@ -199,8 +199,12 @@ def format_owner_brief(
     health: dict | None = None,
 ) -> str:
     """Compact morning-style brief for /简报."""
+    from butler.gateway.owner_surface import format_owner_status_header
+
     snap = collect_inbox_snapshot(orchestrator, session_key, health=health)
     lines = ["📬 管家简报", ""]
+    lines.extend(format_owner_status_header(orchestrator, session_key, health=health))
+    lines.append("")
     if snap.project_name:
         lines.append(f"项目：{snap.project_name}")
     if snap.workspace:

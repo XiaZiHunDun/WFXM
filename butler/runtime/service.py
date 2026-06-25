@@ -239,14 +239,48 @@ def _maybe_notify(
         return
     status = "成功" if ok else "失败"
     title = f"[Butler] {project_name} / {job.id} {status}"
-    body = (result.get("summary") or result.get("stderr") or "")[: job.notify.max_summary_chars]
-    if not ok and audit_path:
+    summary = (result.get("summary") or result.get("stderr") or "")[: job.notify.max_summary_chars]
+    full_body = "\n".join(
+        part
+        for part in (
+            f"# Runtime {project_name} / {job.id}",
+            f"status: {status}",
+            "",
+            "## summary",
+            str(result.get("summary") or ""),
+            "",
+            "## stdout",
+            str(result.get("stdout") or ""),
+            "",
+            "## stderr",
+            str(result.get("stderr") or ""),
+        )
+        if part is not None
+    ).strip()
+    if audit_path:
+        full_body += f"\n\n## audit\n{audit_path}\n"
+
+    from butler.gateway.wechat_text_export import (
+        attach_runtime_enabled,
+        maybe_attach_wechat_file,
+    )
+
+    ws = _project_workspace(project_name)
+    body = maybe_attach_wechat_file(
+        summary,
+        full_body,
+        platform="wechat",
+        name_prefix=f"runtime_{job.id}",
+        workspace=ws,
+        enabled=attach_runtime_enabled() and not ok,
+        min_chars=job.notify.max_summary_chars,
+        attach_hint="（完整运行日志见 .txt 附件）",
+        suffix=".txt",
+    )
+    if not ok and audit_path and audit_path not in body:
         tail = f"\n\n审计: {audit_path}"
-        room = job.notify.max_summary_chars - len(tail)
-        if room > 0:
-            body = body[:room] + tail
-        else:
-            body = f"审计: {audit_path}"
+        if len(body) + len(tail) <= 4000:
+            body = body + tail
     notify.push_runtime_message(title, body)
 
 

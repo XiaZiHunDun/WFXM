@@ -330,21 +330,22 @@ def _reset_tool_audit_events(session_key: str | None = None) -> None:
 _WELCOMED_SESSIONS: set[str] = set()
 _WELCOMED_LOCK = threading.Lock()
 
-_WELCOME_TEXT = """Hi，我是你的 Butler 管家！首次对话，快速了解我的能力：
+_WELCOME_TEXT = """你好，我是 Butler 管家（莎丽）。
 
-项目管理：/项目 | /切换 | /总览
-代码操作：读写文件、搜索、委派开发/审核
-记忆系统：跨会话记住你的偏好和决策
-提醒功能：设置定时提醒（如「提醒我明天开会」）
-待办管理：/待办（会话级）| /项目待办（持久）
-诊断运维：/诊断（会话全量）| /doctor（仅安全审计）| /状态
+常用命令：
+  /状态   — 健康与当前项目
+  /今日   — 本项目优先事项
+  /简报   — 待办与提醒
+  /分工   — 我与 CC/Cursor 怎么配合
+  /切换   — 换项目（附摘要）
+  /帮助   — 常用命令；/帮助 高级 看全部
 
-推荐先试试这 3 个命令：
-  /项目   — 查看和管理你的项目
-  /帮助   — 查看所有可用命令
-  /诊断   — 系统健康检查
+Lead 推荐：
+  · 查资料、看状态 → 直接说
+  · 改代码、跑测试 → 「交给开发代理…」或 /运行
+  · 重编码 → 本机 Claude Code；我负责派工与验收
 
-如有任何问题，直接跟我说就好！"""
+直接说需求即可。"""
 
 # User already asked for identity/capabilities — LLM reply supersedes static welcome.
 _WELCOME_SUPERSEDED_PATTERNS: tuple[re.Pattern[str], ...] = (

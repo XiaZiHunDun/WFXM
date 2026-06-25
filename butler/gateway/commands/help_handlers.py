@@ -8,7 +8,7 @@ _HELP_GROUPS: dict[str, tuple[str, str]] = {
 /项目            列出所有项目
 /切换 <名称>     切换当前项目
 /状态            当前项目与管家状态
-/项目概况        项目仪表盘（代码/任务/工具统计）
+/项目概况        项目概况（Owner）；/项目概况 详细 看运维统计
 /项目待办        项目级待办事项"""),
 
     "模型": ("模型与预设", """
@@ -26,6 +26,8 @@ _HELP_GROUPS: dict[str, tuple[str, str]] = {
 /queue [模式]    入站队列模式（followup/collect/interrupt/steer）
 /待办            查看/管理会话待办
 /简报            管家简报（待办/提醒/待审汇总）
+/今日            本项目今日优先事项
+/分工            Butler 与 CC/Cursor 分工（/cc）
 /inbox           管家收件箱详情
 /委派质量         B9 基准与生产委派质量（/b9）
 /本轮已读        本轮 read_file 路径清单
@@ -47,6 +49,7 @@ _HELP_GROUPS: dict[str, tuple[str, str]] = {
 /批准一次        放行一次被拦截的操作
 /始终允许 <权限>  永久放行某类操作
 /批准执行 <命令>  批准 terminal 命令
+/批准沙箱外 <命令>  沙箱失败后无 bubblewrap 重试
 /批准模式 <模式>  按模式批准（24h 有效）
 /确认安装 <id>   确认 Skill/MCP 安装"""),
 
@@ -55,7 +58,9 @@ _HELP_GROUPS: dict[str, tuple[str, str]] = {
 /测试            运行项目测试
 /构建            运行项目构建
 /开发状态        开发环境概况
-/开发验收        跑开发冒烟测试"""),
+/开发验收        跑开发冒烟测试
+/沙箱            终端沙箱诊断与 sandbox.json
+/cc-bridge       Claude Code CLI 重任务（opt-in）"""),
 
     "日常": ("日常生活", """
 /备忘            查看备忘录
@@ -67,9 +72,10 @@ _HELP_GROUPS: dict[str, tuple[str, str]] = {
     "管理": ("系统管理", """
 /config          查看/修改系统配置
 /配置            同上
-/诊断            会话健康报告（记忆/模型/队列；非安全审计）
+/诊断            简要健康（Owner 可读）
+/诊断 详细        全量运维快照（记忆/模型/队列）
 /health          同 /诊断
-/doctor          仅安全审计（Owner；完整运维请用 /诊断 或 butler doctor）
+/doctor          仅安全审计（Owner；运维请用 /诊断 详细）
 /成本             查看会话成本概览
 /导出 [行数]     导出会话为 Markdown
 /回滚 [行数]     回滚 transcript
@@ -103,42 +109,36 @@ _GROUP_ALIASES: dict[str, str] = {
 def format_help_text(topic: str = "") -> str:
     """Return help text; if topic given, show that group only.
 
-    Falls through to the command registry for single-command lookups.
+    Default (no topic): Owner tier-1 commands only.
+    Topic ``高级`` / ``advanced``: full command index.
     """
     topic = topic.strip()
 
-    if topic:
-        group = _GROUP_ALIASES.get(topic.lower(), topic)
-        entry = _HELP_GROUPS.get(group)
-        if entry:
-            title, body = entry
-            return f"Butler 帮助 — {title}\n{body.strip()}"
-        try:
-            from butler.gateway.command_registry import format_registry_help
+    if not topic:
+        from butler.gateway.owner_surface import format_owner_help_default
 
-            registry_result = format_registry_help(topic)
-            if not registry_result.startswith("未找到"):
-                return registry_result
-        except Exception:
-            pass
-        return (
-            f"未找到帮助主题: {topic}\n\n"
-            f"可用主题: {', '.join(_HELP_GROUPS.keys())}"
-        )
+        return format_owner_help_default()
 
+    if topic.lower() in ("高级", "advanced", "all", "全部"):
+        from butler.gateway.owner_surface import format_owner_help_advanced
+
+        return format_owner_help_advanced()
+
+    group = _GROUP_ALIASES.get(topic.lower(), topic)
+    entry = _HELP_GROUPS.get(group)
+    if entry:
+        title, body = entry
+        return f"Butler 帮助 — {title}\n{body.strip()}"
     try:
         from butler.gateway.command_registry import format_registry_help
 
-        return format_registry_help()
+        registry_result = format_registry_help(topic)
+        if not registry_result.startswith("未找到"):
+            return registry_result
     except Exception:
         pass
-
-    lines = ["Butler 命令帮助\n"]
-    for group, (title, _body) in _HELP_GROUPS.items():
-        lines.append(f"  {group} — {title}")
-    lines.append("")
-    lines.append("查看详情: /帮助 <主题>")
-    lines.append("例如: /帮助 开发  或  /帮助 日常")
-    lines.append("")
-    lines.append("快捷: /帮助 记忆  /帮助 权限  /帮助 管理")
-    return "\n".join(lines)
+    return (
+        f"未找到帮助主题: {topic}\n\n"
+        f"可用主题: {', '.join(_HELP_GROUPS.keys())}\n"
+        "或发 /帮助 高级 查看全部"
+    )

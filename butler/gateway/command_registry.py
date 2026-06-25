@@ -196,6 +196,7 @@ def _register_defaults() -> None:
         CommandDef("/批准一次", (), "权限安全", "放行一次被拦截的操作"),
         CommandDef("/始终允许", (), "权限安全", "永久放行某类操作"),
         CommandDef("/批准执行", (), "权限安全", "批准 terminal 命令"),
+        CommandDef("/批准沙箱外", ("/approve-unsandboxed",), "权限安全", "批准 terminal 沙箱外执行"),
         CommandDef("/批准模式", (), "权限安全", "按模式批准（24h 有效）"),
         CommandDef("/确认安装", (), "权限安全", "确认 Skill/MCP 安装"),
         CommandDef("/确认", ("/approve",), "规划模式", "确认 workflow 步骤"),

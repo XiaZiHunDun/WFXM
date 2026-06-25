@@ -255,7 +255,11 @@ def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
     elapsed = time.monotonic() - bridge.turn_started_at if bridge.turn_started_at else 0.0
     if not should_push_delegate_completion(bridge, elapsed):
         return False
-    text = build_report_push_text(report, prefix="📋 委派阶段完成")
+    text = build_delegate_completion_message(
+        report,
+        prefix="📋 委派阶段完成",
+        platform="wechat",
+    )
     return bridge.schedule_completion_push(text, kind="delegate")
 
 

@@ -49,14 +49,14 @@ def build_async_delegate_tool_result(
         "async": True,
         "task_id": task_id,
         "child_session_key": child_session_key,
-        "headline": f"{role_label}已在后台执行",
+        "headline": f"{role_label}已接单，后台执行中",
         "summary": (
-            "委派任务已提交后台；完成后将单独微信通知。"
-            "可用 /任务 查看状态，/详细 查看最近报告。"
+            "进度：已提交 → 执行中 → 完成后微信通知。\n"
+            "可查：/任务（状态）· /详细（完整报告）· /继续（若中断）"
         ),
         "message": (
-            f"已后台委派 {role_label}（task_id={task_id}）。"
-            "父会话可继续其它工作。"
+            f"已委派 {role_label}（task_id={task_id}）。"
+            "完成后会单独通知；您可继续其它对话。"
         ),
     }
     if category:

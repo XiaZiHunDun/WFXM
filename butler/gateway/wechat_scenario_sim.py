@@ -679,11 +679,12 @@ def run_wechat_scenario_sim(
     owner_id: str | None = None,
     strict: bool = False,
     quick: bool = False,
+    require_llm: bool = True,
 ) -> ScenarioSimReport:
     from butler.gateway.message_handler import ButlerMessageHandler
 
     report = ScenarioSimReport()
-    if not _has_llm_key():
+    if require_llm and not _has_llm_key():
         report.ok = False
         report.errors.append("no LLM API key in env")
         return report

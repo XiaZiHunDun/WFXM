@@ -680,6 +680,16 @@ def _append_format_turn_extras(state: LockedTurnState, welcome_prefix: str = "")
         state.out = maybe_prepend_turn_summary(state.session_key, state.out or "")
     except Exception as exc:
         logger.debug("Turn summary line skipped: %s", exc)
+    try:
+        from butler.core.memory_recap_line import maybe_prepend_memory_recap
+
+        state.out = maybe_prepend_memory_recap(
+            state.session_key,
+            state.out or "",
+            health=state.health,
+        )
+    except Exception as exc:
+        logger.debug("Memory recap line skipped: %s", exc)
 
 
 def _phase_format_turn_response(

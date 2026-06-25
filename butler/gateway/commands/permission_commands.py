@@ -108,6 +108,28 @@ def _cmd_perm_exec(ctx: CommandContext) -> Optional[str]:
     return f"已批准 terminal 命令（5 分钟内有效）:\n{cmd[:200]}"
 
 
+def _cmd_perm_unsandboxed(ctx: CommandContext) -> Optional[str]:
+    """handler for /批准沙箱外 <cmd> — 5 分钟内无 OS 沙箱执行."""
+    gate = require_owner(ctx)
+    if gate is not None:
+        return gate
+    cmd = ctx.arg.strip()
+    if not cmd:
+        return "用法: /批准沙箱外 <terminal 命令>"
+    from butler.tools.terminal_approval import store_approval
+
+    store_approval(cmd, session_key=ctx.session_key, unsandboxed=True)
+    try:
+        from butler.ops.runtime_metrics import inc
+
+        inc("terminal_sandbox_escalation_approved", session_key=ctx.session_key)
+    except Exception:
+        pass
+    return (
+        f"已批准沙箱外 terminal 命令（5 分钟内有效，跳过 bubblewrap）:\n{cmd[:200]}"
+    )
+
+
 def _cmd_perm_pattern(ctx: CommandContext) -> Optional[str]:
     """handler for /批准模式 <pattern> — 24h 内同类 terminal 命令放行."""
     gate = require_owner(ctx)
@@ -172,6 +194,13 @@ _PERMISSION_COMMANDS: list[CommandDef] = [
         "权限安全",
         "批准 terminal 命令",
         handler=_cmd_perm_exec,
+    ),
+    CommandDef(
+        "/批准沙箱外",
+        ("/approve-unsandboxed",),
+        "权限安全",
+        "批准 terminal 沙箱外执行",
+        handler=_cmd_perm_unsandboxed,
     ),
     CommandDef(
         "/批准模式",

@@ -76,8 +76,8 @@ class TestStaticContract:
     def test_module_defines_7_command_defs(self):
         from butler.gateway.commands.permission_commands import _PERMISSION_COMMANDS
 
-        # Sprint 24 P1-3.2: 5 → 7 (新增 /撤销批准 + /清除始终允许)
-        assert len(_PERMISSION_COMMANDS) == 7
+        # Sprint 24 P1-3.2: 5 → 7 (新增 /撤销批准 + /清除始终允许); +/批准沙箱外
+        assert len(_PERMISSION_COMMANDS) == 8
         for cmd in _PERMISSION_COMMANDS:
             assert isinstance(cmd, CommandDef)
             assert cmd.handler is not None

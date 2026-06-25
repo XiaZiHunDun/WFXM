@@ -58,6 +58,49 @@ _DECISION_KEYWORDS = frozenset(
     }
 )
 
+_SENSITIVE_PII_RE = re.compile(
+    r"("
+    r"1[3-9]\d{9}"
+    r"|sk-[a-z0-9]{8,}"
+    r"|eyJ[a-z0-9_-]{10,}\.[a-z0-9_-]+\.[a-z0-9_-]+"
+    r"|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}"
+    r"|\b(?:api[_-]?key|secret|password|token|credential)s?\b"
+    r"|密码|密钥|口令|身份证|银行卡|手机号"
+    r")",
+    re.I,
+)
+
+_SENSITIVE_PENDING_KEYWORDS = frozenset(
+    {
+        "批准",
+        "permission",
+        "owner only",
+        "始终允许",
+        "wechat_id",
+        "chat_id",
+        "credential",
+        "credentials",
+    }
+)
+
+
+def memory_auto_fact_enabled() -> bool:
+    """When false, ``classification=auto`` always queues for Owner review."""
+    from butler.env_parse import env_truthy
+
+    return env_truthy("BUTLER_MEMORY_AUTO_FACT", default=True)
+
+
+def _looks_sensitive_memory(content: str) -> bool:
+    text = (content or "").strip()
+    if not text:
+        return False
+    if _SENSITIVE_PII_RE.search(text):
+        return True
+    lower = text.lower()
+    return any(kw in lower for kw in _SENSITIVE_PENDING_KEYWORDS)
+
+
 _PENDING_UNCERTAIN = frozenset(
     {
         "maybe",
@@ -200,11 +243,15 @@ class MarkdownMemory:
     @staticmethod
     def _auto_classify(content: str) -> str:
         lower = content.lower()
+        if _looks_sensitive_memory(content):
+            return "pending"
         if any(u in lower for u in _PENDING_UNCERTAIN):
             return "pending"
         for kw in _DECISION_KEYWORDS:
             if kw in lower:
                 return "pending"
+        if not memory_auto_fact_enabled():
+            return "pending"
         return "fact"
 
     def append(

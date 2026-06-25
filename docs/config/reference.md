@@ -108,6 +108,7 @@
 | 变量 | 默认 | 说明 |
 |------|------|------|
 | `BUTLER_SEMANTIC_MEMORY` | 0 | 启用本地向量；`config.yaml` `memory.semantic_enabled` ← env 覆盖 |
+| `BUTLER_MEMORY_AUTO_FACT` | 1 | `0` 时 project MEMORY `auto` 分类一律进待审（仅显式 fact 直写） |
 | `BUTLER_SEMANTIC_SEARCH_LIMIT` | 8 | 单次语义搜索返回条数；yaml `memory.search_limit` ← env 覆盖 |
 | `BUTLER_SYNC_CONVERSATION_MEMORY` | 0 | 不把每轮聊天写入 experience |
 | `BUTLER_QUEUE_PREFETCH` | 1 | 推荐：下轮预取缓存 |
@@ -195,8 +196,13 @@
 | `BUTLER_PROJECT_WORKTREE` | 0 | `1` 且 `project.yaml` 含 `worktree:` 时工具 cwd 指向 worktree |
 | `BUTLER_DELEGATE_ASYNC` | 1 | 微信 gateway 下 `delegate_task` 后台执行并单独推送完成摘要 |
 | `BUTLER_TRANSCRIPT_EXPORT_MAX_LINES` | 500 | `/导出` 大文件时最多写入的行数 |
-| `BUTLER_EXPORT_SEND_WECHAT_FILE` | 1 | `/导出` 成功后微信附带发送 `.md`（仅允许 exports 目录） |
+| `BUTLER_EXPORT_SEND_WECHAT_FILE` | 1 | 微信出站附带 `exports/` 下 `.md`/`.txt`（`/导出`、委派 `/详细` 等） |
 | `BUTLER_EXPORT_SEND_WECHAT_MAX_BYTES` | 5242880 | 微信附件大小上限（5MB 默认） |
+| `BUTLER_WECHAT_ATTACH_MIN_CHARS` | 400 | 超过此长度才生成附件（短内容仍只发文字） |
+| `BUTLER_WECHAT_ATTACH_DELEGATE` | 1 | 委派完成推送附带完整报告 `.md` |
+| `BUTLER_WECHAT_ATTACH_DETAIL` | 1 | `/详细` 附带完整报告 `.md` |
+| `BUTLER_WECHAT_ATTACH_DIAGNOSTIC` | 1 | `/诊断 详细` 附带运维快照 `.md` |
+| `BUTLER_WECHAT_ATTACH_RUNTIME` | 1 | Runtime 任务**失败**推送附带 stdout/stderr `.txt` |
 | `BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY` | 1 | 委派完成微信提醒（见 `BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE`） |
 | `BUTLER_INSTRUCTION_WALKUP*` | 见 example | read_file 后注入邻近 AGENTS.md |
 | `BUTLER_SESSION_TODOS` | 1 | 会话 `todos.json`；`/待办`；工具 `session_todos_list` / `session_todos_write`；项支持 `priority`: high/medium/low |
@@ -251,6 +257,8 @@
 | `BUTLER_WORKSPACE_ANCHOR_STRICT` | 1 | 相对路径优先锚定当前项目 workspace |
 | `BUTLER_TURN_SUMMARY_LINE` | 1 | `0` 关闭长回复前工具摘要行（`📎 读了N文件·…`） |
 | `BUTLER_TURN_SUMMARY_MIN_CHARS` | 400 | 触发摘要的最小回复长度 |
+| `BUTLER_MEMORY_RECAP_LINE` | 1 | `0` 关闭长回复前记忆复述（`💭 记得：…`） |
+| `BUTLER_MEMORY_RECAP_MIN_CHARS` | 300 | 触发记忆复述的最小回复长度 |
 | `BUTLER_MORNING_BRIEF` | 0 | `1` 时每日 timer 向 Owner 微信推送 `/简报` 内容 |
 | `BUTLER_TOOL_AUDIT_PERSIST` | 1 | tool_audit 追加写入 `sessions/<key>/tool_audit.jsonl` |
 | `BUTLER_READ_BEFORE_EDIT` | 1 | patch/write 前须 read_file + mtime |
@@ -506,6 +514,14 @@
 | `BUTLER_TURN_BUDGET_DEFAULT` | 500000 | 默认轮预算 token 数 |
 | `BUTLER_TURN_BUDGET_MAX_ITERATIONS` | 60 | 轮预算最大迭代次数 |
 | `BUTLER_TERMINAL_PIPE` | 0 | `1` 允许 terminal 工具有限管道（`\|`），仅白名单命令间可管道，最多 5 段 |
+| `BUTLER_TERMINAL_SANDBOX` | 0 | `1` Linux 上对 terminal 套 **bubblewrap** OS 沙箱（需 `bwrap`）；配置见 `.butler/sandbox.json` |
+| `BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE` | 0 | `1` 且未安装 `bwrap` 时 terminal 硬失败（默认降级为无沙箱并打 warning） |
+| `BUTLER_TERMINAL_SANDBOX_NETWORK_ALLOWLIST` | 0 | `1` 且 `sandbox.json` 的 `networkPolicy.allow` 非空时 **不** `--unshare-net`（无域代理；信任宿主机） |
+| `BUTLER_SANDBOX_CREDENTIAL_ENV` | — | 沙箱子进程 unset 的 env 名（逗号分隔）；默认含 `GITHUB_TOKEN`、`AWS_*` 等 |
+| `BUTLER_ENV_PROFILE` | — | 终端策略：`lead` \| `dev-gateway` \| `dev-local` \| **`dev-remote`**（远程开发+CC桥接）；见 `apply-butler-env-profile.py` |
+| `BUTLER_CC_BRIDGE` | 0 | `1` 启用 Claude Code CLI 桥接（`/cc-bridge`）；`dev-remote` profile 默认开 |
+| `BUTLER_CC_CLI` | — | `claude` 可执行文件路径（默认 PATH 查找 `claude`） |
+| `BUTLER_CC_BRIDGE_TIMEOUT` | `900` | CC 子进程超时（秒） |
 | `BUTLER_WORKFLOW_AUTO_RESUME` | 0 | `1` workflow 步骤确认后自动续跑（无需再发 `/workflow`） |
 | `BUTLER_SKILL_INJECTION_MODE` | fallback | `fallback`：有经验命中则跳过未验证 Skill 全文；`ref_only`：仅经验 `skill:<名>` 指针；`always`：每轮 Router 注入（旧行为） |
 | `BUTLER_SKILL_FALLBACK_MIN_EXPERIENCE_HITS` | 1 | `fallback`/`ref_only` 下视为「经验已覆盖」的最少命中条数 |

@@ -1,0 +1,5 @@
+# 敏感路径 — 文件工具不可读；terminal 凭证路径由 bubblewrap 另行遮蔽
+secrets/
+*.pem
+.env
+.env.*

@@ -141,6 +141,21 @@ run_cmd mkdir -p "$BUTLER_HOME"/{sessions,runtime,skills,wechat,exports,gateway}
 run_cmd mkdir -p "$BUTLER_HOME"/gateway/{outbox/pending,outbox/sent,outbox/failed}
 echo "  $BUTLER_HOME 结构就绪 ✓"
 
+# --- bubblewrap（网关 + terminal 沙箱推荐）---
+if [[ "$INSTALL_GATEWAY" -eq 1 ]] && [[ "$(uname -s)" == "Linux" ]]; then
+  if command -v bwrap >/dev/null 2>&1 || command -v bubblewrap >/dev/null 2>&1; then
+    echo "  bubblewrap: ✓"
+  else
+    echo "  bubblewrap: — (未安装；启用 BUTLER_TERMINAL_SANDBOX=1 前建议安装)"
+    if command -v apt-get >/dev/null 2>&1 && [[ "$DRY_RUN" -eq 0 ]]; then
+      echo "  尝试安装: sudo apt-get install -y bubblewrap"
+      if sudo -n true 2>/dev/null; then
+        sudo apt-get install -y bubblewrap -qq || true
+      fi
+    fi
+  fi
+fi
+
 # --- Step 6: 健康检查 ---
 echo "[6/7] 运行健康检查..."
 if python3 -m butler doctor 2>/dev/null; then
@@ -188,5 +203,7 @@ echo "  2. 编辑 $BUTLER_HOME/config.yaml 调整模型配置"
 echo "  3. 启动 CLI:    butler"
 echo "  4. 启动网关:    butler wechat serve"
 echo "  5. 快速冒烟:    PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py -q"
+echo "  6. 终端沙箱:    BUTLER_ENABLE_TERMINAL=1 时建议 BUTLER_TERMINAL_SANDBOX=1 + bubblewrap"
+echo "  7. Env profile: python3 scripts/apply-butler-env-profile.py lead|dev-gateway|dev-local"
 echo ""
 echo "如需迁移旧数据: bash scripts/restore-butler-data.sh <backup.tar.gz>"

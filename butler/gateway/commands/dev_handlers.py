@@ -27,16 +27,40 @@ def _env_on(name: str) -> bool:
 
 def _get_active_project() -> Any:
     """Return the active Project or None."""
+    return _resolve_project()
+
+
+def _resolve_project(
+    *,
+    orchestrator: Any = None,
+    session_key: str = "",
+) -> Any:
+    sk = str(session_key or "").strip()
+    orch = orchestrator or _get_orchestrator()
+    if orch is not None:
+        try:
+            if sk:
+                return orch.project_manager.get_current(session_key=sk)
+            return orch.project_manager.active_project
+        except Exception as exc:
+            logger.debug("resolve project from orchestrator skipped: %s", exc)
     try:
-        from butler.gateway.message_handler import GatewayMessageHandler
-        handler = GatewayMessageHandler._instance  # type: ignore[attr-defined]
+        from butler.gateway.message_handler import ButlerMessageHandler
+
+        handler = getattr(ButlerMessageHandler, "_instance", None)
         if handler and hasattr(handler, "_orchestrator"):
-            return handler._orchestrator.project_manager.active_project
+            pm = handler._orchestrator.project_manager
+            if sk:
+                return pm.get_current(session_key=sk)
+            return pm.active_project
     except Exception as exc:
-        logger.debug("get active project skipped: %s", exc)
+        logger.debug("resolve project from handler singleton skipped: %s", exc)
     try:
         from butler.project.manager import ProjectManager
+
         pm = ProjectManager()
+        if sk:
+            return pm.get_current(session_key=sk)
         return pm.active_project
     except Exception:
         return None
@@ -387,8 +411,43 @@ def format_build_for_wechat(arg: str = "") -> str:
 # ── /项目概况 command ──────────────────────────────────────────
 
 
-def format_project_dashboard(arg: str = "") -> str:
-    proj = _get_active_project()
+def _get_orchestrator() -> Any:
+    try:
+        from butler.gateway.message_handler import ButlerMessageHandler
+
+        handler = getattr(ButlerMessageHandler, "_instance", None)
+        if handler and hasattr(handler, "_orchestrator"):
+            return handler._orchestrator
+    except Exception as exc:
+        logger.debug("get orchestrator skipped: %s", exc)
+    return None
+
+
+def format_project_dashboard(
+    arg: str = "",
+    *,
+    orchestrator: Any = None,
+    session_key: str = "",
+) -> str:
+    """Owner overview by default; ``详细`` for dev/git/file stats."""
+    topic = (arg or "").strip().lower()
+    orch = orchestrator or _get_orchestrator()
+    sk = str(session_key or "").strip()
+    if topic not in ("详细", "detail", "dev", "运维"):
+        if orch is not None:
+            from butler.gateway.owner_surface import format_project_overview_owner
+
+            return format_project_overview_owner(orch, sk)
+    return format_project_dashboard_dev(arg, orchestrator=orch, session_key=sk)
+
+
+def format_project_dashboard_dev(
+    arg: str = "",
+    *,
+    orchestrator: Any = None,
+    session_key: str = "",
+) -> str:
+    proj = _resolve_project(orchestrator=orchestrator, session_key=session_key)
     if not proj:
         return "无活跃项目，请先 /切换 到目标项目"
 
@@ -513,6 +572,7 @@ def handle_dev_command(
     platform: str = "",
     external_id: str | None = None,
     session_key: str = "",
+    orchestrator: Any = None,
 ) -> str | None:
     """Return reply for dev slash commands, or None.
 
@@ -533,5 +593,9 @@ def handle_dev_command(
     if cmd in ("/构建", "/build"):
         return format_build_for_wechat(arg)
     if cmd in ("/项目概况", "/project-dashboard"):
-        return format_project_dashboard(arg)
+        return format_project_dashboard(
+            arg,
+            orchestrator=orchestrator or _get_orchestrator(),
+            session_key=session_key,
+        )
     return None

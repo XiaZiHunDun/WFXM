@@ -84,7 +84,7 @@ class TestHandleDevCommandRouting:
                 "/项目概况", "",
                 platform="wechat", external_id="owner", session_key="k",
             )
-            m.assert_called_once_with("")
+            m.assert_called_once_with("", orchestrator=None, session_key="k")
 
     def test_dashboard_command_routed_en(self, _owner):
         from butler.gateway.commands.dev_handlers import handle_dev_command
@@ -94,7 +94,7 @@ class TestHandleDevCommandRouting:
                 "/project-dashboard", "",
                 platform="wechat", external_id="owner", session_key="k",
             )
-            m.assert_called_once_with("")
+            m.assert_called_once_with("", orchestrator=None, session_key="k")
 
     def test_existing_commands_still_work(self, _owner):
         from butler.gateway.commands.dev_handlers import handle_dev_command
@@ -291,31 +291,42 @@ class TestBuildForWechat:
 
 class TestProjectDashboard:
     def test_no_active_project(self):
-        from butler.gateway.commands.dev_handlers import format_project_dashboard
+        from butler.gateway.commands.dev_handlers import format_project_dashboard_dev
 
-        with patch("butler.gateway.commands.dev_handlers._get_active_project", return_value=None):
-            result = format_project_dashboard()
+        with patch("butler.gateway.commands.dev_handlers._resolve_project", return_value=None):
+            result = format_project_dashboard_dev()
             assert "无活跃项目" in result
 
     def test_dashboard_with_project(self):
-        from butler.gateway.commands.dev_handlers import format_project_dashboard
+        from butler.gateway.commands.dev_handlers import format_project_dashboard_dev
 
         mock_proj = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
         mock_proj.name = "TestProject"
         mock_proj.workspace = Path("/tmp")
         mock_proj.dev = {"test_command": "pytest -q"}
 
-        with patch("butler.gateway.commands.dev_handlers._get_active_project", return_value=mock_proj):
+        with patch("butler.gateway.commands.dev_handlers._resolve_project", return_value=mock_proj):
             with patch("butler.gateway.commands.dev_handlers._count_files", return_value=42):
                 with patch("butler.gateway.commands.dev_handlers._append_git_summary"):
                     with patch("butler.gateway.commands.dev_handlers._append_todos_summary"):
                         with patch("butler.gateway.commands.dev_handlers._append_runtime_summary"):
                             with patch("butler.gateway.commands.dev_handlers._append_memory_summary"):
-                                result = format_project_dashboard()
+                                result = format_project_dashboard_dev()
                                 assert "TestProject" in result
                                 assert "项目概况" in result
                                 assert "42" in result
                                 assert "pytest -q" in result
+
+    def test_dashboard_owner_default(self):
+        from butler.gateway.commands.dev_handlers import format_project_dashboard
+
+        orch = MagicMock()
+        with patch(
+            "butler.gateway.owner_surface.format_project_overview_owner",
+            return_value="owner-dash",
+        ):
+            result = format_project_dashboard("", orchestrator=orch, session_key="sk1")
+        assert result == "owner-dash"
 
 
 # ── Test history persistence ───────────────────────────────────

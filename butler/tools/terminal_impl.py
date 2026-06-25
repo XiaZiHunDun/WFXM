@@ -138,6 +138,55 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
     if not safety.path.is_dir():
         return json.dumps({"error": f"Not a directory: {workdir or safety.path}"})
     resolved_workdir = str(safety.path)
+    workspace_path = safety.path
+
+    from butler.tools.terminal_approval import approval_allows_unsandboxed
+    from butler.tools.terminal_sandbox import (
+        classify_sandbox_failure,
+        enrich_subprocess_env,
+        format_sandbox_error_payload,
+        load_terminal_sandbox_config,
+        sandbox_runtime_available,
+        scrub_credential_env,
+        should_run_sandboxed,
+        wrap_argv_with_bubblewrap,
+    )
+
+    sandbox_config = load_terminal_sandbox_config(workspace_path)
+    unsandboxed = approval_allows_unsandboxed(
+        cmd_text,
+        cwd=resolved_workdir,
+        session_key=session_key,
+    )
+    run_sandboxed = should_run_sandboxed(
+        sandbox_config,
+        unsandboxed_approved=unsandboxed,
+    )
+    if run_sandboxed and not sandbox_runtime_available():
+        if sandbox_config.fail_if_unavailable:
+            return json.dumps({
+                "error": "bubblewrap (bwrap) 未安装，且 BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE=1",
+                "code": "SANDBOX_UNAVAILABLE",
+            })
+        logger.warning("terminal sandbox enabled but bwrap missing; running unsandboxed")
+        run_sandboxed = False
+        try:
+            from butler.ops.runtime_metrics import inc
+
+            inc("terminal_sandbox_unavailable_fallback")
+        except Exception:
+            pass
+
+    exec_argv = list(command_safety.argv)
+    if run_sandboxed:
+        try:
+            exec_argv = wrap_argv_with_bubblewrap(
+                exec_argv,
+                workspace=workspace_path,
+                config=sandbox_config,
+            )
+        except RuntimeError as exc:
+            return json.dumps({"error": str(exc), "code": "SANDBOX_UNAVAILABLE"})
 
     def _watch() -> None:
         nonlocal interrupted
@@ -151,13 +200,28 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
     def _run_subprocess() -> str:
         nonlocal proc, interrupted
         try:
+            base_env = safe_subprocess_env()
+            if run_sandboxed:
+                base_env = scrub_credential_env(base_env, sandbox_config)
+            proc_env = enrich_subprocess_env(base_env, sandboxed=run_sandboxed)
+            if run_sandboxed:
+                try:
+                    from butler.ops.runtime_metrics import inc
+
+                    inc(
+                        "terminal_sandbox_run",
+                        labels={"sandboxed": "1"},
+                        session_key=session_key,
+                    )
+                except Exception:
+                    pass
             proc = subprocess.Popen(
-                command_safety.argv,
+                exec_argv,
                 shell=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 cwd=resolved_workdir,
-                env=safe_subprocess_env(),
+                env=proc_env,
             )
             watcher = threading.Thread(target=_watch, daemon=True)
             watcher.start()
@@ -183,9 +247,36 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
                     output += "\n[stderr]\n" + stderr
                 if truncated or len(output) > MAX_TERMINAL_OUTPUT_CHARS:
                     output = output[:MAX_TERMINAL_OUTPUT_CHARS] + "\n... (truncated)"
+                failure = classify_sandbox_failure(
+                    exit_code=proc.returncode,
+                    stdout=stdout or "",
+                    stderr=stderr or "",
+                    sandboxed=run_sandboxed,
+                )
+                if failure is not None:
+                    try:
+                        from butler.ops.runtime_metrics import inc
+
+                        inc(
+                            "terminal_sandbox_failure",
+                            labels={"constraint": failure.constraint},
+                            session_key=session_key,
+                        )
+                    except Exception:
+                        pass
+                    return json.dumps(
+                        format_sandbox_error_payload(
+                            failure,
+                            command=cmd_text,
+                            exit_code=proc.returncode,
+                            output=output,
+                        ),
+                        ensure_ascii=False,
+                    )
                 return json.dumps({
                     "exit_code": proc.returncode,
                     "output": output,
+                    "sandboxed": run_sandboxed,
                 })
             finally:
                 _close_pipe(proc.stdout)

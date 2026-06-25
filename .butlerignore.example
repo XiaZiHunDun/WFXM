@@ -1,0 +1,5 @@
+# 敏感路径 — Agent 文件工具不可读；terminal 沙箱内凭证路径另行遮蔽
+secrets/
+*.pem
+.env
+.env.*

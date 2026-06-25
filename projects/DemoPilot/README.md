@@ -13,6 +13,8 @@ bash scripts/butler-demo-pilot-smoke.sh
 ```
 
 - **lifecycle**: `active`（非厂长项目）
+- **Owner 飞轮**: [`docs/pilot-flywheel.md`](docs/pilot-flywheel.md)（P1 第二条 software 试点）
 - **运营说明**: [`docs/pilot-setup.md`](docs/pilot-setup.md)
+- **开发测试**: [`docs/guides/pilot-project-dev-testing.md`](../../docs/guides/pilot-project-dev-testing.md)
 
 完整小说工厂能力请使用 **灵文1号**（`projects/LingWen1/`）。

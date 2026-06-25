@@ -52,12 +52,14 @@ def store_approval(
     cwd: str = "",
     session_key: str = "",
     ttl_sec: float | None = None,
+    unsandboxed: bool = False,
 ) -> str:
     fp = argv_fingerprint(command, cwd=cwd)
     record = {
         "command": command.strip(),
         "cwd": (cwd or "").strip(),
         "session_key": str(session_key or "").strip(),
+        "unsandboxed": bool(unsandboxed),
         "expires_at": time.time() + (ttl_sec if ttl_sec is not None else _TTL_SEC),
     }
     path = _approvals_dir() / f"{fp}.json"
@@ -86,33 +88,80 @@ def check_approval(
         logger.debug("check approval skipped: %s", exc)
     fp = argv_fingerprint(command, cwd=cwd)
     path = _approvals_dir() / f"{fp}.json"
+    from butler.gateway.approval_cards import format_terminal_exec_card
+
     if not path.is_file():
-        return (
-            "terminal 需 Owner 批准：发「/批准执行 <完整命令>」后再重试 "
-            f"(fp={fp[:8]})"
+        return format_terminal_exec_card(
+            command,
+            reason="终端命令需 Owner 批准后再执行",
         )
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return "terminal 批准记录损坏"
+        return format_terminal_exec_card(command, reason="批准记录损坏，请重新批准")
     if not isinstance(data, dict):
-        return "terminal 批准记录无效"
+        return format_terminal_exec_card(command, reason="批准记录无效，请重新批准")
     if time.time() > float(data.get("expires_at") or 0):
         path.unlink(missing_ok=True)
-        return "terminal 批准已过期，请重新 /批准执行"
+        return format_terminal_exec_card(command, reason="批准已过期（5 分钟），请重新批准")
     if data.get("command", "").strip() != command.strip():
-        return "terminal 命令与批准记录不一致"
+        return format_terminal_exec_card(
+            command,
+            reason="命令与批准记录不一致，请重新 /批准执行",
+        )
     recorded_sk = str(data.get("session_key") or "").strip()
     want_sk = str(session_key or "").strip()
     if recorded_sk and want_sk and recorded_sk != want_sk:
-        return "terminal 批准记录属于其他会话，请在本会话重新 /批准执行"
+        return format_terminal_exec_card(
+            command,
+            reason="批准属于其他会话，请在本会话重新 /批准执行",
+        )
     return None
+
+
+def approval_allows_unsandboxed(
+    command: str,
+    *,
+    cwd: str = "",
+    session_key: str = "",
+) -> bool:
+    """True when a valid approval record explicitly allows running outside sandbox."""
+    fp = argv_fingerprint(command, cwd=cwd)
+    path = _approvals_dir() / f"{fp}.json"
+    if not path.is_file():
+        return False
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(data, dict):
+        return False
+    if time.time() > float(data.get("expires_at") or 0):
+        path.unlink(missing_ok=True)
+        return False
+    if data.get("command", "").strip() != command.strip():
+        return False
+    recorded_sk = str(data.get("session_key") or "").strip()
+    want_sk = str(session_key or "").strip()
+    if recorded_sk and want_sk and recorded_sk != want_sk:
+        return False
+    return bool(data.get("unsandboxed"))
 
 
 def parse_approve_command(text: str) -> str | None:
     """Extract command from `/批准执行 ...` or `/approve-exec ...`."""
     raw = (text or "").strip()
     for prefix in ("/批准执行", "/approve-exec", "/approve_exec"):
+        if raw.lower().startswith(prefix.lower()):
+            rest = raw[len(prefix) :].strip()
+            return rest or None
+    return None
+
+
+def parse_approve_unsandboxed_command(text: str) -> str | None:
+    """Extract command from ``/批准沙箱外`` or ``/approve-unsandboxed``."""
+    raw = (text or "").strip()
+    for prefix in ("/批准沙箱外", "/approve-unsandboxed", "/approve_unsandboxed"):
         if raw.lower().startswith(prefix.lower()):
             rest = raw[len(prefix) :].strip()
             return rest or None

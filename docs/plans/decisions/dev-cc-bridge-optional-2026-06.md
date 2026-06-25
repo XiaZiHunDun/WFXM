@@ -1,6 +1,6 @@
 # ADR — 本机 Claude Code CLI 桥接（可选 · 暂缓立项）
 
-> **状态**：**暂缓**（2026-06-23）— 仅决策一页纸，**不实现**  
+> **状态**：**部分落地**（2026-06-25）— `butler/runtime/cc_bridge.py` + `/cc-bridge`；全量 systemd watcher 仍可选  
 > **上级 ADR**：[`dev-capability-ceiling-vs-cc-cli-2026-06.md`](dev-capability-ceiling-vs-cc-cli-2026-06.md) §4 P3  
 > **产品边界**：[`roadmap-backlog-and-boundaries-2026-05.md`](roadmap-backlog-and-boundaries-2026-05.md) §1.3
 

@@ -26,6 +26,7 @@ def _dev_delegate(ctx: CommandContext) -> Optional[str]:
         platform=ctx.platform,
         external_id=ctx.external_id,
         session_key=ctx.session_key,
+        orchestrator=ctx.orchestrator,
     )
 
 
@@ -39,7 +40,7 @@ _DEV_COMMANDS: list[CommandDef] = [
         "/项目概况",
         ("/project-dashboard",),
         "项目管理",
-        "项目仪表盘（代码/任务/工具统计）",
+        "项目概况（Owner）；/项目概况 详细 运维统计",
         handler=_dev_delegate,
     ),
 ]

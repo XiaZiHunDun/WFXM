@@ -12,18 +12,21 @@ def format_error_card(event_type: str, **kwargs) -> str | None:
     if event_type == "doom_loop":
         tool = kwargs.get("tool", "unknown")
         count = kwargs.get("count", 0)
-        return (
-            f"[拦截] 检测到重复操作: {tool}（已连续 {count} 次）\n"
-            "可发 /批准一次 放行，或 /始终允许 doom_loop 解除限制"
+        from butler.gateway.approval_cards import format_approval_card
+
+        return format_approval_card(
+            reason=f"检测到重复操作 {tool}（已连续 {count} 次）",
+            approve_command="/批准一次",
+            extra="或 /始终允许 doom_loop 解除限制",
         )
 
     if event_type == "permission_deny":
         tool = kwargs.get("tool", "unknown")
         reason = kwargs.get("reason", "")
-        return (
-            f"[权限] {tool} 被拒绝\n"
-            f"原因: {reason}\n"
-            "可发 /批准执行 或 /批准一次 放行"
+        from butler.gateway.approval_cards import format_permission_once_card
+
+        return format_permission_once_card(tool=tool) + (
+            f"\n详情: {reason}" if reason else ""
         )
 
     if event_type == "delegate_timeout":

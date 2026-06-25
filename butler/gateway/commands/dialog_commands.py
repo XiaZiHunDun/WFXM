@@ -151,10 +151,17 @@ def format_switch_project_reply(
         from butler.project.lead import lead_mode_switch_suffix
 
         lead_note = lead_mode_switch_suffix(new_name)
+        brief = ""
+        try:
+            from butler.gateway.owner_surface import format_project_switch_brief
+
+            brief = format_project_switch_brief(orchestrator, session_key, new_name)
+        except Exception:
+            pass
         return (
             f"已切换到项目: {new_name}\n"
             "（下一条消息起使用新项目工具与 workspace。）"
-            f"{extra}{lead_note}"
+            f"{extra}{lead_note}{brief}"
         )
     available = pm.list_projects()
     if available:

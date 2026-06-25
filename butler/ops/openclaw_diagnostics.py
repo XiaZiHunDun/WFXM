@@ -93,6 +93,16 @@ def format_openclaw_diagnostic_lines(
             lines.append(f"Terminal 危险模式: 开 (smart_approve={flag})")
     except Exception as exc:
         logger.debug("format openclaw diagnostic lines skipped: %s", exc)
+    try:
+        from butler.ops.terminal_sandbox_diagnostics import (
+            format_terminal_sandbox_diagnostic_lines,
+        )
+        from butler.tools.path_safety import current_workspace_root
+
+        ws = current_workspace_root()
+        lines.extend(format_terminal_sandbox_diagnostic_lines(workspace=ws))
+    except Exception as exc:
+        logger.debug("terminal sandbox diagnostics skipped: %s", exc)
     loop_tools = loop.get("tool_selector_output") or h.get("tool_selector_output")
     if loop_tools is not None:
         dropped = loop.get("tool_selector_dropped") or h.get("tool_selector_dropped") or 0

@@ -5,6 +5,7 @@ Import this package to ensure all handlers are wired up.
 """
 
 from butler.gateway.commands import (
+    cc_bridge_commands,
     dev_commands,
     dialog_commands,
     experience_commands,
@@ -14,9 +15,11 @@ from butler.gateway.commands import (
     permission_commands,
     project_commands,
     runtime_commands,
+    sandbox_commands,
 )
 
 __all__ = [
+    "cc_bridge_commands",
     "dev_commands",
     "dialog_commands",
     "experience_commands",
@@ -26,4 +29,5 @@ __all__ = [
     "permission_commands",
     "project_commands",
     "runtime_commands",
+    "sandbox_commands",
 ]

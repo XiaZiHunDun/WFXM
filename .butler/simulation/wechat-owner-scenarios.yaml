@@ -35,7 +35,8 @@ tracks:
         tier: standard
       - name: 步骤6 /诊断
         user_text: /诊断
-        expect_reply_any: [诊断, Butler, 记忆]
+        expect_reply_any: [简要诊断, 健康概览]
+        reject_reply_any: [Butler 诊断]
         tier: fast
 
   - id: slash
@@ -59,7 +60,81 @@ tracks:
         tier: standard
       - name: /help
         user_text: /help
-        expect_reply_any: [/切换, /诊断, 命令]
+        expect_reply_any: [/切换, /状态, 常用]
+        tier: fast
+
+  - id: owner-ux
+    title: Owner 体验 P0–P2（斜杠模拟，无 LLM）
+    session_mode: shared
+    quick: true
+    setup:
+      - /切换 演示试点
+    cases:
+      - name: Tier1 /帮助
+        user_text: /帮助
+        expect_reply_any: [/状态, /简报, /今日, Lead]
+        tier: fast
+      - name: /高级 全量索引
+        user_text: /高级
+        expect_reply_any: [全部, 主题, /帮助]
+        tier: fast
+      - name: /今日 优先事项
+        user_text: /今日
+        expect_reply_any: [今日, 优先事项, 健康概览]
+        tier: fast
+      - name: /简报 含健康灯
+        user_text: /简报
+        expect_reply_any: [简报, 健康概览, 收件箱]
+        tier: fast
+      - name: /分工 CC 说明
+        user_text: /分工
+        expect_reply_any: [Claude Code, 委派, CC]
+        tier: fast
+      - name: /诊断 Owner 简要
+        user_text: /诊断
+        expect_reply_any: [简要诊断, 健康概览, /诊断 详细]
+        reject_reply_any: [Butler 诊断]
+        tier: fast
+      - name: /诊断 详细 运维
+        user_text: /诊断 详细
+        expect_reply_any: [Butler 诊断, 会话]
+        tier: fast
+      - name: /项目概况 Owner
+        user_text: /项目概况
+        expect_reply_any: [项目概况, 今日焦点, 演示试点]
+        reject_reply_any: ["📁 文件"]
+        tier: fast
+      - name: /项目概况 详细
+        user_text: /项目概况 详细
+        expect_reply_any: [项目概况, 文件, Git]
+        tier: fast
+      - name: /切换 附摘要
+        user_text: /切换 灵文1号
+        expect_reply_any: [项目摘要, 灵文1号]
+        tier: fast
+
+  - id: remote-dev
+    title: 远程开发（dev-remote · 沙箱 · CC 桥接）
+    session_mode: shared
+    quick: true
+    setup:
+      - /切换 演示试点
+    cases:
+      - name: /沙箱 诊断
+        user_text: /沙箱
+        expect_reply_any: [终端沙箱, dev-remote, CC 桥接]
+        tier: fast
+      - name: /沙箱 策略
+        user_text: /沙箱 策略
+        expect_reply_any: [项目沙箱策略, sandbox]
+        tier: fast
+      - name: /cc-bridge 状态
+        user_text: /cc-bridge
+        expect_reply_any: [CC CLI 桥接, claude, /cc-bridge]
+        tier: fast
+      - name: /分工 含 CC
+        user_text: /分工
+        expect_reply_any: [/cc-bridge, 开发代理, Claude Code]
         tier: fast
 
   - id: memory
@@ -130,8 +205,8 @@ tracks:
         reject_reply_any: [japanese-learning, 示例项目A]
         tier: standard
       - name: /诊断 Extension
-        user_text: /诊断
-        expect_reply_any: [Extension Verify, github-readonly]
+        user_text: /诊断 详细
+        expect_reply_any: [Extension Verify, github-readonly, Butler 诊断]
         tier: fast
 
   - id: delegate

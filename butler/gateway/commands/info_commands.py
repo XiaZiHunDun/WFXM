@@ -38,7 +38,10 @@ def _cmd_help(ctx: CommandContext) -> Optional[str]:
     """
     from butler.gateway.commands.help_handlers import format_help_text
 
-    return format_help_text(ctx.arg)
+    arg = (ctx.arg or "").strip()
+    if ctx.cmd in ("/高级", "/advanced") and not arg:
+        arg = "高级"
+    return format_help_text(arg)
 
 
 def _cmd_todos(ctx: CommandContext) -> Optional[str]:
@@ -123,11 +126,45 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
     # Sprint 28 P1-3.4: --child <child_sk> 优先于 report 路径.
     remaining, child_sk = parse_child_arg(ctx.arg)
     if child_sk:
-        return format_child_session_detail(child_sk)
+        from butler.core.transcript_export import resolve_export_workspace
+        from butler.gateway.wechat_text_export import (
+            attach_detail_enabled,
+            maybe_attach_wechat_file,
+        )
+
+        full = format_child_session_detail(child_sk)
+        brief = full if len(full) <= 500 else full[:480].rstrip() + "…"
+        return maybe_attach_wechat_file(
+            brief,
+            full,
+            platform=ctx.platform,
+            name_prefix=f"child_{child_sk[-40:]}",
+            workspace=resolve_export_workspace(ctx.session_key),
+            enabled=attach_detail_enabled(),
+            attach_hint="（完整子会话 transcript 见 .md 附件）",
+        )
 
     report = get_last_report(ctx.session_key)
     if report:
-        return format_detail(report, section=parse_detail_section(remaining))
+        from butler.core.transcript_export import resolve_export_workspace
+        from butler.gateway.wechat_text_export import (
+            attach_detail_enabled,
+            maybe_attach_wechat_file,
+        )
+
+        full = format_detail(report, section=parse_detail_section(remaining))
+        brief = full
+        if len(full) > 500:
+            brief = full[:480].rstrip() + "…"
+        return maybe_attach_wechat_file(
+            brief,
+            full,
+            platform=ctx.platform,
+            name_prefix=f"detail_{report.task_id or 'report'}",
+            workspace=resolve_export_workspace(ctx.session_key),
+            enabled=attach_detail_enabled(),
+            attach_hint="（完整 /详细 报告见 .md 附件）",
+        )
     return "暂无可展示的详细报告。"
 
 
@@ -287,6 +324,23 @@ def _cmd_brief(ctx: CommandContext) -> Optional[str]:
     return format_owner_brief(ctx.orchestrator, ctx.session_key, health=health)
 
 
+def _cmd_today(ctx: CommandContext) -> Optional[str]:
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.gateway.owner_surface import format_project_today_view
+
+    health = ctx.session_registry.get_health(ctx.session_key)
+    return format_project_today_view(ctx.orchestrator, ctx.session_key, health=health)
+
+
+def _cmd_roles(ctx: CommandContext) -> Optional[str]:
+    """CC/Cursor complement — owner-gate-opt-out: static product copy."""
+    from butler.gateway.owner_surface import format_cc_complement_message
+
+    return format_cc_complement_message()
+
+
 def _cmd_inbox(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
@@ -337,20 +391,35 @@ def _cmd_memory_sources(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_health(ctx: CommandContext) -> Optional[str]:
-    """Sprint 11 TST-10-5: 从 inline 迁移 — 等价于原 handler._format_health_summary。"""
+    """Owner brief by default; ``/诊断 详细`` for full ops snapshot."""
     gate = require_owner(ctx)
     if gate:
         return gate
+
+    session_key = ctx.session_key
+    health = ctx.session_registry.get_health(session_key)
+    arg = (ctx.arg or "").strip()
+    first = arg.split(None, 1)[0].lower() if arg else ""
+    if first not in ("详细", "detail", "full", "完整", "运维", "advanced"):
+        from butler.gateway.owner_surface import format_owner_diagnostic_brief
+
+        return format_owner_diagnostic_brief(
+            ctx.orchestrator, session_key, health=health
+        )
+
     from butler.ops.health_report import (
         HealthReportInput,
         build_health_report,
         collect_mem_stats_for_health,
     )
     from butler.gateway.handler_helpers import _tool_audit_summary
+    from butler.core.transcript_export import resolve_export_workspace
+    from butler.gateway.wechat_text_export import (
+        attach_diagnostic_enabled,
+        maybe_attach_wechat_file,
+    )
 
-    session_key = ctx.session_key
-    health = ctx.session_registry.get_health(session_key)
-    return build_health_report(
+    full = build_health_report(
         HealthReportInput(
             session_key=session_key,
             health=health,
@@ -361,12 +430,26 @@ def _cmd_health(ctx: CommandContext) -> Optional[str]:
             orchestrator=ctx.orchestrator,
         )
     )
+    brief_lines = full.splitlines()[:12]
+    brief = "\n".join(brief_lines)
+    if len(full.splitlines()) > 12:
+        brief += "\n…"
+    return maybe_attach_wechat_file(
+        brief,
+        full,
+        platform=ctx.platform,
+        name_prefix="diagnostic_full",
+        workspace=resolve_export_workspace(session_key),
+        enabled=attach_diagnostic_enabled(),
+        attach_hint="（完整运维诊断见 .md 附件）",
+    )
 
 
 _INFO_COMMANDS = [
     CommandDef("/总览", ("/overview",), "项目管理", "项目总览与概要", handler=_cmd_overview),
     CommandDef("/预设", (), "模型", "列出 butler:// 预设", handler=_cmd_presets),
-    CommandDef("/帮助", ("/help",), "系统管理", "命令帮助", handler=_cmd_help),
+    CommandDef("/帮助", ("/help",), "系统管理", "命令帮助（默认常用；/帮助 高级 全部）", handler=_cmd_help),
+    CommandDef("/高级", ("/advanced",), "系统管理", "全部命令索引", handler=_cmd_help),
     CommandDef("/待办", ("/todo",), "对话控制", "查看/管理会话待办", handler=_cmd_todos),
     CommandDef("/备忘", ("/memo",), "日常生活", "查看备忘录", handler=_cmd_memo),
     CommandDef("/通讯录", ("/contacts",), "日常生活", "查看通讯录", handler=_cmd_contacts),
@@ -384,7 +467,7 @@ _INFO_COMMANDS = [
         "/诊断",
         ("/health",),
         "系统管理",
-        "会话健康报告（记忆/模型/队列；非 /doctor 安全审计）",
+        "简要健康（Owner）；/诊断 详细 为全量运维",
         handler=_cmd_health,
     ),
     CommandDef("/成本", ("/cost",), "系统管理", "查看会话成本概览", handler=_cmd_cost),
@@ -397,6 +480,14 @@ _INFO_COMMANDS = [
         handler=_cmd_session_tools,
     ),
     CommandDef("/简报", ("/brief",), "对话控制", "管家简报（待办/提醒/待审汇总）", handler=_cmd_brief),
+    CommandDef("/今日", ("/today",), "对话控制", "本项目今日优先事项", handler=_cmd_today),
+    CommandDef(
+        "/分工",
+        ("/cc", "/roles"),
+        "对话控制",
+        "Butler 与 CC/Cursor 分工说明",
+        handler=_cmd_roles,
+    ),
     CommandDef("/inbox", (), "对话控制", "管家收件箱详情", handler=_cmd_inbox),
     CommandDef(
         "/委派质量",

@@ -2,8 +2,8 @@
 # Dev live flywheel checklist — gateway env, project.yaml VERIFY commands, optional probe.
 #
 # Rhythm (ops):
-#   Monthly: bash scripts/butler-wechat-dev-delegate-sim.sh --track lingwen
-#            + pilot-log entry in projects/LingWen1/docs/pilot-log.md
+#   Monthly: bash scripts/butler-dev-flywheel-monthly.sh
+#            + WeChat manual: docs/guides/dev-flywheel-monthly.md
 #   Weekly:  bash scripts/butler-prod-delta-observe.sh
 #            bash scripts/butler-lingwen-live-capture-checklist.sh
 #
@@ -73,7 +73,10 @@ print()
 de = dev_engine_enabled()
 term = _truthy("BUTLER_ENABLE_TERMINAL")
 profile = (os.getenv("BUTLER_TERMINAL_PROFILE") or "").strip() or "(unset)"
+env_profile = (os.getenv("BUTLER_ENV_PROFILE") or "").strip() or "(unset)"
+sandbox = _truthy("BUTLER_TERMINAL_SANDBOX")
 capture = (os.getenv("BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES") or "").strip() or "(unset)"
+bwrap = Path("/usr/bin/bwrap").is_file() or Path("/bin/bwrap").is_file()
 
 print("1. Gateway env (production dev delegate)")
 check("BUTLER_DEV_ENGINE on", de, action="set BUTLER_DEV_ENGINE=1 in .env")
@@ -84,11 +87,26 @@ check(
     action="set BUTLER_TERMINAL_PROFILE=dev for pytest/git in terminal whitelist",
 )
 check(
+    "BUTLER_ENV_PROFILE (dev-remote|dev-gateway|dev-local)",
+    env_profile in ("dev-remote", "dev-gateway", "dev-local"),
+    action="apply: python3 scripts/apply-butler-env-profile.py dev-remote",
+)
+if sandbox:
+    check(
+        "bubblewrap (bwrap) for terminal sandbox",
+        bwrap,
+        action="install bubblewrap (apt install bubblewrap)",
+        hard=True,
+    )
+check(
     "BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES",
     capture in ("1", "true", "yes", "on", "all"),
     action="set BUTLER_EVAL_CAPTURE_DELEGATE_FAILURES=1 (or all) for live failure audit",
 )
-print(f"   values: dev_engine={de} terminal={term} profile={profile} capture={capture}")
+print(
+    f"   values: dev_engine={de} terminal={term} term_profile={profile}"
+    f" env_profile={env_profile} sandbox={sandbox} bwrap={bwrap} capture={capture}"
+)
 print()
 
 print("2. project.yaml dev commands (VERIFY + /测试)")
@@ -148,8 +166,8 @@ else:
     print()
 
 print("=== Ops rhythm ===")
-print("  Monthly: bash scripts/butler-wechat-dev-delegate-sim.sh --track lingwen")
-print("           update projects/LingWen1/docs/pilot-log.md")
+print("  Monthly: bash scripts/butler-dev-flywheel-monthly.sh")
+print("           docs/guides/dev-flywheel-monthly.md (WeChat manual)")
 print("  Weekly:  bash scripts/butler-prod-delta-observe.sh")
 print("           bash scripts/butler-lingwen-live-capture-checklist.sh")
 print("  Daily:   bash scripts/butler-ops-followup-check.sh  # includes dev sim --quick")

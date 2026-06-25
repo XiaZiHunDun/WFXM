@@ -92,11 +92,19 @@ def format_butler_status(
     default_proj = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip() or "(未设置)"
     lines = [
         "Butler 状态",
-        f"  管家: {s.butler_name}",
-        f"  当前项目: {current}",
-        f"  环境默认项目: {default_proj}",
-        f"  默认 Provider: {s.default_provider}",
     ]
+    try:
+        from butler.gateway.owner_surface import format_owner_status_header
+
+        lines.extend(format_owner_status_header(orchestrator, session_key))
+        lines.append("")
+    except Exception:
+        pass
+    s = orchestrator._settings
+    lines.append(f"  管家: {s.butler_name}")
+    lines.append(f"  当前项目: {current}")
+    lines.append(f"  环境默认项目: {default_proj}")
+    lines.append(f"  默认 Provider: {s.default_provider}")
     if proj is not None:
         lines.append(
             f"  对话引擎: {'项目 Lead（厂长）' if is_lead_project(proj.name, project=proj) else '管家 Butler'}"

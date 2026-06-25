@@ -6,9 +6,12 @@ from butler.gateway.commands.help_handlers import format_help_text
 class TestFormatHelpText:
     def test_no_topic_returns_overview(self):
         result = format_help_text()
-        assert "帮助" in result or "命令" in result
+        assert "/状态" in result
+        assert "/简报" in result
 
-    def test_valid_topic(self):
+    def test_advanced_topic(self):
+        result = format_help_text("高级")
+        assert "全部" in result or "主题" in result
         result = format_help_text("开发")
         assert "开发" in result
 

@@ -79,6 +79,16 @@ def try_auto_review_terminal(
         _record_denial(diagnostics)
         return AutoReviewResult(allowed=False, reason="write_or_network_hint")
 
+    try:
+        from butler.tools.terminal_sandbox import terminal_sandbox_enabled
+
+        if terminal_sandbox_enabled() and _READ_ONLY_HINTS.search(text):
+            if isinstance(diagnostics, dict):
+                diagnostics["auto_review_allowed"] = True
+            return AutoReviewResult(allowed=True, reason="sandboxed_read_only")
+    except Exception as exc:
+        logger.debug("sandbox auto-review shortcut skipped: %s", exc)
+
     if not _READ_ONLY_HINTS.search(text):
         _record_denial(diagnostics)
         return AutoReviewResult(allowed=False, reason="not_read_only_heuristic")

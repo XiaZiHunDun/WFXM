@@ -127,6 +127,7 @@
 | 「Dev 要对标 Cursor IDE Agent」 | **不对标**；IDE 层（LSP、内联 diff）非 Butler 形态 |
 | 「Dev 达不到顶级 coding agent」 | 应对标 **Claude Code CLI**；Loop 层 CC 线束已收口 |
 | 「必须无限制 shell 才算 dev」 | **产品否决**；见 dev profile 白名单 + 委派 |
+| 「需要 Docker 会话沙箱才算隔离」 | **产品否决**；Linux **terminal bubblewrap**（`BUTLER_TERMINAL_SANDBOX`）+ 应用层门控为上限；见 `v4-architecture.md` §执行隔离 |
 
 **SSOT**：[`dev-capability-ceiling-vs-cc-cli-2026-06.md`](../decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md)
 

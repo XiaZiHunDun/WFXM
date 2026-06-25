@@ -56,6 +56,8 @@ def _allowed_terminal_commands() -> set[str]:
             name = part.strip()
             if name:
                 allowed.add(name)
+    if os.getenv("BUTLER_CC_BRIDGE", "").strip().lower() in ("1", "true", "yes", "on"):
+        allowed.add("claude")
     return allowed
 
 
@@ -266,6 +268,26 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
     hardlink_error = _hardlink_error(resolved)
     if hardlink_error:
         return PathSafetyResult(False, resolved, hardlink_error)
+
+    try:
+        from butler.tools.butlerignore import is_butlerignored, is_protected_write_path
+
+        ws = session_ws or root
+        if ws is not None:
+            if not for_write and is_butlerignored(resolved, workspace=ws):
+                return PathSafetyResult(
+                    False,
+                    resolved,
+                    "Access denied: path matches .butlerignore",
+                )
+            if for_write and is_protected_write_path(resolved, workspace=ws):
+                return PathSafetyResult(
+                    False,
+                    resolved,
+                    "Access denied: protected path (sandbox policy)",
+                )
+    except Exception as exc:
+        logger.debug("butlerignore check skipped: %s", exc)
 
     return PathSafetyResult(True, resolved)
 

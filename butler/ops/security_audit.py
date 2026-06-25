@@ -144,6 +144,13 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
             )
         )
 
+    try:
+        from butler.ops.terminal_sandbox_diagnostics import audit_terminal_sandbox_findings
+
+        findings.extend(audit_terminal_sandbox_findings(workspace=workspace))
+    except Exception:
+        pass
+
     return findings
 
 

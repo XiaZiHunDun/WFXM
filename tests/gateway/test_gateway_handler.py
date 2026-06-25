@@ -97,13 +97,20 @@ class TestSlashCommands:
         assert "当前项目" in text
 
     def test_health_shows_static_memory_layers_without_turn(self, handler):
-        text = handler._handle_command("/诊断")
+        text = handler._handle_command("/诊断 详细")
         assert "Butler 诊断" in text
         assert "轮次诊断: 暂无" in text
         assert "记忆分层" in text
         assert "Owner 画像" in text
         assert "--- 有效模型 ---" in text
         assert "gateway(识图)" in text or "gateway(入站媒体)" in text
+
+    def test_health_owner_brief_default(self, handler):
+        text = handler._handle_command("/诊断")
+        assert "简要诊断" in text
+        assert "健康概览" in text
+        assert "/诊断 详细" in text
+        assert "Butler 诊断" not in text
 
     def test_health_shows_tool_audit_without_health_snapshot(self, handler):
         from butler.tools.registry import dispatch_tool, reset_tool_audit_events
@@ -112,7 +119,7 @@ class TestSlashCommands:
         with use_execution_context(handler._orchestrator, session_key="default"):
             dispatch_tool("missing_tool", {})
 
-        text = handler._handle_command("/health")
+        text = handler._handle_command("/health 详细")
 
         assert "Butler 诊断" in text
         assert "会话: default" in text
@@ -139,7 +146,7 @@ class TestSlashCommands:
             },
         }
 
-        text = handler._handle_command("/health")
+        text = handler._handle_command("/health 详细")
 
         assert "Butler 诊断" in text
         assert "会话: default" in text
@@ -158,7 +165,7 @@ class TestSlashCommands:
             "hygiene_compressed": False,
         }
 
-        text = handler.handle_message("/health", session_key="s1")
+        text = handler.handle_message("/health 详细", session_key="s1")
 
         assert "会话: s1" in text
         assert "会话: default" not in text
@@ -169,8 +176,9 @@ class TestSlashCommands:
 
         text = handler._handle_command("/health s1")
 
-        assert "会话: default" in text
+        assert "简要诊断" in text
         assert "会话: s1" not in text
+        assert "会话: default" not in text
 
     def test_health_command_does_not_read_other_session_by_arg_from_gateway(self, handler):
         handler._health_by_session["default"] = {"session_key": "default"}
@@ -178,8 +186,9 @@ class TestSlashCommands:
 
         text = handler.handle_message("/health s1", session_key="default")
 
-        assert "会话: default" in text
+        assert "简要诊断" in text
         assert "会话: s1" not in text
+        assert "会话: default" not in text
 
     def test_health_redacts_error_details(self, handler):
         handler._health_by_session["default"] = {
@@ -188,7 +197,7 @@ class TestSlashCommands:
             "hygiene_error": "/tmp/private/path failed",
         }
 
-        text = handler._handle_command("/health")
+        text = handler._handle_command("/health 详细")
 
         assert "错误: 有（查看日志）" in text
         assert "压缩错误: 有（查看日志）" in text
@@ -203,7 +212,7 @@ class TestSlashCommands:
         with use_execution_context(handler._orchestrator, session_key="default"):
             dispatch_tool("missing_tool", {})
 
-        text = handler._handle_command("/health")
+        text = handler._handle_command("/health 详细")
 
         assert "工具调用: 1" in text
         assert "工具失败: 1" in text

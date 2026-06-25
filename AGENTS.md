@@ -48,6 +48,8 @@ PYTHONPATH=. pytest tests/gateway/test_message_queue.py tests/gateway/test_gatew
 # 或按域：bash scripts/butler-domain-pytest.sh gateway   # ops | dev_engine | memory | core
 # 体验增强（总览/待办/管道/引导/自动续跑）
 PYTHONPATH=. pytest tests/test_p2_remaining_features.py -q
+# 试点项目开发测试（演示试点 / 灵文1号）
+bash scripts/butler-pilot-dev-testing.sh
 # 编排质量（cron 提醒/向量/语义路由/MCP 自助/fact/Skill 工具联动）
 PYTHONPATH=. pytest tests/test_orchestration_improvements.py -q
 # 记忆子理论（前提验证 + 度量/基准）

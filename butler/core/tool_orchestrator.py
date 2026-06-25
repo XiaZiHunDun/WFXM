@@ -1,4 +1,4 @@
-"""Tool execution orchestration (Codex ToolOrchestrator subset — no OS sandbox)."""
+"""Tool execution orchestration (Codex ToolOrchestrator subset; optional Linux bubblewrap)."""
 
 from __future__ import annotations
 
@@ -21,6 +21,8 @@ def run_terminal_with_gates(
     run_fn: Callable[[], str],
 ) -> str:
     """Policy → danger → approval → execpolicy path for terminal."""
+    from butler.gateway.approval_cards import format_terminal_pattern_card
+
     try:
         from butler.tools.terminal_danger import check_dangerous_command, set_terminal_session_context
 
@@ -43,15 +45,17 @@ def run_terminal_with_gates(
                     )
                     return _deny(
                         "TERMINAL_RISK_ASK",
-                        (
-                            f"{danger.reason}\n"
-                            "（Owner：/批准执行 <命令> 或 /批准模式 "
-                            f"{danger.pattern}> 后重试）"
+                        format_terminal_pattern_card(
+                            danger.pattern or "danger",
+                            command_preview=command,
                         ),
                     )
             except Exception as exc:
                 logger.debug("run terminal with gates skipped: %s", exc)
-            return _deny("TERMINAL_DANGER_PATTERN", danger.reason)
+            return _deny("TERMINAL_DANGER_PATTERN", format_terminal_pattern_card(
+                danger.pattern or "danger",
+                command_preview=command,
+            ) if danger.pattern else danger.reason)
     except Exception as exc:
         logger.debug("terminal danger gate: %s", exc)
 
@@ -60,7 +64,12 @@ def run_terminal_with_gates(
 
         block = check_approval(command, cwd=cwd, session_key=session_key)
         if block:
-            return _deny("TERMINAL_APPROVAL_REQUIRED", block)
+            from butler.gateway.approval_cards import format_terminal_approval_message
+
+            return _deny(
+                "TERMINAL_APPROVAL_REQUIRED",
+                format_terminal_approval_message(command, block),
+            )
     except Exception as exc:
         logger.debug("terminal approval gate: %s", exc)
 
