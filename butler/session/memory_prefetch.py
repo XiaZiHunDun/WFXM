@@ -474,6 +474,13 @@ def build_memory_pre_llm_transform(
                 return out
         except Exception as exc:
             logger.debug("GitHub grounding prefetch skip check failed: %s", exc)
+        try:
+            from butler.core.input_stage import begin_input_stage, normalize_inbound_text
+
+            begin_input_stage(diagnostics)
+            query = normalize_inbound_text(query)
+        except Exception as exc:
+            logger.debug("Input stage normalize skipped: %s", exc)
         ctx = prefetch_turn_memory(orchestrator, query, role=role, diagnostics=diagnostics)
         if not ctx.strip():
             if diagnostics is not None:

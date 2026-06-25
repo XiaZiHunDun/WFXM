@@ -118,6 +118,10 @@
 | `BUTLER_PREFETCH_PROJECT_MAX_CHARS` | 3000 | 项目层预取字符上限 |
 | `BUTLER_PREFETCH_EXPERIENCE_HITS` | 5 | 经验层预取条数 |
 | `BUTLER_PREFETCH_FACTS_MAX_CHARS` | 2000 | 事实预取字符上限 |
+| `BUTLER_INPUT_STAGE` | 1 | 显式输入阶段：预取前轻量文本规范化 |
+| `BUTLER_MEMORY_PREFETCH_GROUNDING` | 1 | 回复与预取记忆低重叠时附事实免责注 |
+| `BUTLER_CALC_GROUNDING` | 1 | 用户简单四则提问时附演算校验注 |
+| `BUTLER_COMPACT_EVIDENCE_LINES` | 3 | 上下文压缩前自动摘录证据行（0=关闭） |
 | `BUTLER_MEMORY_RECALL_LAYERS` | 1 | 分层召回 index/fetch/timeline；yaml `memory.recall_layers_enabled` ← env 覆盖 |
 | `BUTLER_MEMORY_ACCESS_BOOST` | 0.12 | 记忆访问频率权重加成；yaml `memory.ranking.access_boost` |
 | `BUTLER_MEMORY_HALF_LIFE_DAYS` | 30 | 记忆衰减半衰期（天）；yaml `memory.ranking.half_life_days` |

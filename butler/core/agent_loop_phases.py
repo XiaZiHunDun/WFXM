@@ -487,6 +487,16 @@ def _dispatch_text_response(
             loop.diagnostics["mcp_outbound_grounding"] = True
     except Exception as exc:
         logger.debug("MCP outbound grounding gate skipped: %s", exc)
+    try:
+        from butler.core.output_grounding import apply_output_grounding
+
+        state.final_text = apply_output_grounding(
+            state.user_content,
+            state.final_text,
+            loop.diagnostics,
+        )
+    except Exception as exc:
+        logger.debug("Output grounding skipped: %s", exc)
     if _try_truncation_continue(loop, response, state):
         return
     if _try_stop_hook_continue(loop, state, start_time, steer_session):

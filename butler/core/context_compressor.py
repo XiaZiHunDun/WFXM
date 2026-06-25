@@ -420,6 +420,12 @@ def compress_messages(
 
     middle = truncate_tool_responses_to_budget(middle)
     summary, used_remote = _summarize_middle(middle, previous_summary)
+    try:
+        from butler.core.evidence_extract import append_evidence_to_summary
+
+        summary = append_evidence_to_summary(summary, middle, diagnostics)
+    except Exception as exc:
+        logger.debug("Compact evidence extract skipped: %s", exc)
     if not summary.strip():
         logger.warning("Summary generation failed; preserving original messages instead of compressing")
         if skill_rescued:
