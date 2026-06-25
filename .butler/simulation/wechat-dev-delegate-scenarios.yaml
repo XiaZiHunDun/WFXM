@@ -49,6 +49,7 @@ tracks:
         reject_reply_any: [File not found, TOOL_NOT_FOUND, LingWen1/]
         tier: standard
         max_seconds: 240
+        skip_in_quick: true
 
       - name: review 审查 md
         user_text: >-

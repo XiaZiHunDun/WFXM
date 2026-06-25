@@ -49,6 +49,9 @@ run_step() {
 run_step "flywheel checklist (--probe)" \
   bash "$ROOT/scripts/butler-dev-live-flywheel-checklist.sh" --probe
 
+run_step "G1-04 prod evidence (read-only)" \
+  bash "$ROOT/scripts/butler-dev-prod-evidence-checklist.sh"
+
 run_step "handler sim: remote-dev" \
   bash "$ROOT/scripts/butler-wechat-remote-dev-sim.sh"
 
@@ -56,8 +59,8 @@ run_step "handler sim: owner-ux" \
   bash "$ROOT/scripts/butler-wechat-owner-ux-sim.sh"
 
 if [[ "${BUTLER_WECHAT_DEV_DELEGATE_SIM:-1}" != "0" ]]; then
-  run_step "handler sim: dev-delegate lingwen (--quick)" \
-    bash "$ROOT/scripts/butler-wechat-dev-delegate-sim.sh" --track lingwen --quick
+  run_step "handler sim: dev-delegate lingwen (full)" \
+    bash "$ROOT/scripts/butler-wechat-dev-delegate-sim.sh" --track lingwen
   run_step "handler sim: dev-delegate demopilot (--quick)" \
     bash "$ROOT/scripts/butler-wechat-dev-delegate-sim.sh" --track demopilot --quick
 else

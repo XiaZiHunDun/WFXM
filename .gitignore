@@ -39,6 +39,9 @@ projects/*/docs/workflow-output.md
 projects/*/docs/owner-sim-smoke*.md
 projects/*/docs/dev-delegate-sim*.md
 projects/*/docs/dev-delegate-sim*.py
+projects/*/docs/dev-flywheel-manual-*.md
+projects/*/docs/dev-flywheel-role-sim-*.md
+projects/*/docs/dev-flywheel-20*.md
 projects/*/demo/dev-delegate-sim*.py
 
 # LingWen1 novel content — IP / personal creative data (keep tools skeleton only)
