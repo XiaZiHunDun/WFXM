@@ -31,13 +31,16 @@
 
 | Job | 状态 | 备注 |
 |-----|------|------|
-| lint / corpus-drift / smoke | ✅ | `11ccd1f` 起 |
-| domain-gates gateway/ops/memory/dev_engine/core | ✅ | `b44d062` 起 |
-| docs-lint | ✅ | 跳过 gitignore 的 pilot-log / reference / history 链 |
-| pytest + coverage | 🔧 | 压缩 mock、fastembed skip、skill 注入 patch（`b44d062` 后） |
+| lint / corpus-drift / smoke / docs-lint | ✅ | |
+| domain-gates（5 域） | ✅ | |
+| pytest 3.11 + 3.12 + coverage | ✅ | `f879787` 起全绿 |
 
-## 阶段 3（待办）
+## 阶段 3
 
-- 旧 sprint 测迁入域目录或标记 legacy
-- `reference.md` ↔ `.env.example` 数量对齐（505/497，差 8 为注释项）
-- `post-consolidation-roadmap` 测试基线数字更新
+| 项 | 状态 |
+|----|------|
+| `legacy_sprint` marker + 迁移策略 | ✅ 2026-06-24 |
+| `check-env-reference-sync.sh` | ✅ 2026-06-24 |
+| `post-consolidation-roadmap` 基线数字 | ✅ 2026-06-24 |
+| pytest 失败日志 tee（去掉二次全量） | ✅ 2026-06-24 |
+| 旧 sprint 文件物理迁入域目录 | 低优先级 backlog |

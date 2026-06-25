@@ -8,8 +8,9 @@ export PYTHONPATH=.
 rm -f .coverage
 find . -maxdepth 1 -name '.coverage.*' -delete 2>/dev/null || true
 
-exec python -m pytest --tb=short \
+python -m pytest --tb=short \
   --cov=butler \
   --cov-report=term-missing:skip-covered \
   --cov-fail-under=55 \
-  -ra
+  -ra 2>&1 | tee pytest-output.txt
+exit "${PIPESTATUS[0]}"

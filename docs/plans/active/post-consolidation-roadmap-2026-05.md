@@ -32,7 +32,7 @@
 | 成本模型 | 框架建立 + 分类正确 + 仅观测 | P-COST (14 tests) |
 | LLM 适配 | MiniMax/DeepSeek 双 provider 验证通过 | P-PIM/P1-LIVE (94%/90%, 100% parse) |
 | 事实提取 | 压缩前提取 + 锚点重注入 + PIM 跳过 | P6-LIVE (100%/91.7%) |
-| 工程验证 | 5040 tests 全部通过（含 77 结构 + 10 LLM-in-loop + 47 记忆理论 + 175 编码知识层 + 56 增强测试 + 46 编排质量 + 全量回归 0 failures） | 第六章完整矩阵 |
+| 工程验证 | 全量 pytest **6565 selected**（CI 3.11/3.12 + coverage ≥55%）；含语料、域守门、历史 sprint 回归 | 第六章完整矩阵 |
 
 **已完成的阶段性工作**：
 
@@ -43,7 +43,7 @@
 | 四/五报告改进 | ✅ |
 | 外部对标 A/B/C | ✅ |
 | 理论基线 v1→v2.1→v3.0 | ✅ |
-| 前提验证（344 tests） | ✅ |
+| 前提验证（344 tests，2026-05 基线） | ✅ |
 | Sprint 1–6 详设落地 | ✅ |
 | 记忆双轨合并 M1–M4 | ✅ |
 | `/health` 诊断格式化 | ✅ |
@@ -51,7 +51,7 @@
 | DevEngine 子理论 + 度量/基准（91 tests） | ✅ |
 | 记忆子理论 MA1-MA7 / MT1-MT7 + 度量/基准（47 tests） | ✅ |
 | 编码能力理论 CA1-CA4 / CT1-CT5 集成 + 99 tests | ✅ |
-| 全量回归测试修复（54→0 failures, 5040 passed） | ✅ |
+| 全量回归测试修复（54→0 failures；2026-06 基线 **6565+ selected**） | ✅ |
 | TenantStore 测试隔离修复 + 工具注册同步 | ✅ |
 | Gateway 重部署（v4.0.0, commit=a8f98c3） | ✅ |
 | **闭环优化 Phase 4**（butler-deploy.sh / LangFuse docker / CI eval-push） | ✅ |
@@ -293,7 +293,7 @@ PIM 查询 → 结果 2 轮 pii_clearable 清空 → fact extraction 跳过 PIM 
 
 | 项 | 说明 | 理论映射 |
 |----|------|----------|
-| pytest 基线 | `PYTHONPATH=. pytest -q` 全仓 344+ tests | 第六章 |
+| pytest 基线 | `PYTHONPATH=. pytest -q` 全仓 **6565 selected**（7110 collected，545 `live_llm` deselected） | 第六章 |
 | 发版冒烟 | `bash scripts/butler-pre-release-smoke.sh` | 发版手册 |
 | v1 源码 | `git archive archive/butler-v1-20260522 archive/butler-v1` | — |
 | 理论-实施同步 | 每完成一个 D 系列项，更新 `v4-theoretical-baseline.md` 对应节 | §6 |

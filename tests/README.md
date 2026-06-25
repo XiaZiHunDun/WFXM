@@ -2,7 +2,7 @@
 
 ```bash
 cd /path/to/WFXM
-PYTHONPATH=. pytest -q          # 默认全量 ~2100+ passed，排除 live_llm（见 pyproject addopts）
+PYTHONPATH=. pytest -q          # 默认 ~6565 selected / 7110 collected（排除 live_llm 545）
 bash scripts/project-health-check.sh quick   # 统一体检（代码+配置+关键测试）
 bash scripts/project-health-check.sh full    # 加跑 corpus + 五报告守门
 bash scripts/project-health-report.sh quick  # 体检并落盘报告
@@ -32,7 +32,7 @@ PYTHONPATH=. pytest tests/corpus -m corpus_mock -q
 
 ## 目录域（2026-06-23 起）
 
-新测优先放入子目录；`test_sprint*` 等历史文件暂留 `tests/` 根目录。
+新测优先放入子目录；`test_sprint*` 等历史文件暂留 `tests/` 根目录（自动打 `legacy_sprint` marker，见 `pyproject.toml`）。
 
 | 目录 | 职责 | 守门命令 |
 |------|------|----------|
@@ -42,7 +42,9 @@ PYTHONPATH=. pytest tests/corpus -m corpus_mock -q
 | [`memory/`](memory/) | 记忆子系统、R5 并发 | 见目录内测试 |
 | [`core/`](core/) | Loop / context 并发 | 见目录内测试 |
 | [`corpus/`](corpus/README.md) | 语料评测（独立体系） | `./scripts/corpus-test.sh mock` |
-| `tests/` 根 | 历史 sprint / 跨域集成 | 全量 `pytest -q` |
+| `tests/` 根 | 历史 sprint（`legacy_sprint`）/ 跨域集成 | 全量 `pytest -q` |
+
+**`legacy_sprint` 迁移策略**：新功能测写入 `tests/<domain>/`；根目录 `test_sprint*` 仅做回归保留，不新增。可选跳过：`pytest -m 'not legacy_sprint'`。
 
 ```bash
 bash scripts/butler-domain-pytest.sh gateway ops dev_engine   # 多域

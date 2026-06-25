@@ -53,6 +53,7 @@
 | `butler-five-reports-gate.sh` | 五报告 P5–P10 + PR-F 单测 + `prompt-eval.sh` + `registry verify` |
 | `butler-extension-ext1-preflight.sh` | EXT-1 Firecrawl MCP 就绪检查（Node/npx/配置） |
 | `check-dead-env.sh` | `reference.md` 中 `BUTLER_*` 须在 `butler/` 有 reader（脚本/测试 key 白名单） |
+| `check-env-reference-sync.sh` | `reference.md` 主表 ↔ `.env.example` 键对齐（含 `*` 前缀行） |
 | `prompt-eval.sh` | Prompt pattern rubric + `test_five_reports_p7/p9/p10` |
 
 ## 分域冒烟（被 pre-release 或文档调用）

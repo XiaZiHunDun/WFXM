@@ -103,10 +103,7 @@ PYEOF
 _docs_lint_env_counts() {
   echo ""
   echo "== docs-lint: reference.md vs .env.example env var consistency =="
-  local ref_vars env_vars
-  ref_vars=$(rg -o 'BUTLER_[A-Z_]+' docs/config/reference.md 2>/dev/null | sort -u | wc -l | tr -d ' ') || ref_vars=0
-  env_vars=$(rg -o 'BUTLER_[A-Z_]+' .env.example 2>/dev/null | sort -u | wc -l | tr -d ' ') || env_vars=0
-  echo "reference.md env vars: $ref_vars / .env.example env vars: $env_vars"
+  bash scripts/check-env-reference-sync.sh
 }
 
 _docs_lint_dead_env() {

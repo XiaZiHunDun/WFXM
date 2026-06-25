@@ -174,3 +174,12 @@ def sample_report():
         tokens_used=1500,
         elapsed_seconds=8.2,
     )
+
+
+def pytest_collection_modifyitems(config, items):
+    """Tag historical sprint regression files at tests/ root (domain migration backlog)."""
+    legacy = pytest.mark.legacy_sprint
+    for item in items:
+        path = Path(str(item.fspath))
+        if path.name.startswith("test_sprint") and path.parent == _REPO_ROOT / "tests":
+            item.add_marker(legacy)
