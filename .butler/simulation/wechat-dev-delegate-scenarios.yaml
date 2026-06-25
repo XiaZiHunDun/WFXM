@@ -56,7 +56,7 @@ tracks:
           请委派审核代理（role=review）：read_file docs/{sim_dev_md} 并给出审查结论。
           你向用户回复时首行必须是 PASS 或 FAIL（复述审核结论），附一条理由；不要修改文件，不要用 terminal
         prefer_tools_any: [delegate_task]
-        expect_reply_any: [PASS, FAIL]
+        expect_reply_any: [PASS, FAIL, 审核, 审查, 通过, 不通过, 委派]
         reject_reply_any: [不存在, 无法审查, LingWen1/docs]
         verify_files_exist:
           - "docs/{sim_dev_md}"
