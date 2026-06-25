@@ -123,6 +123,7 @@ from butler.gateway.platforms.wechat_ilink_utils import (  # noqa: E402, F401
     TypingTicketCache,
     _account_dir,
     _account_file,
+    _aes_padded_size,
     _assert_wechat_cdn_url,
     _base_info,
     _cdn_download_url,

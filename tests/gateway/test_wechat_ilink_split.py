@@ -401,6 +401,15 @@ class TestR14aBackwardsCompat:
 
 
 @pytest.mark.unit
+def test_aes_padded_size_reexported_for_send_file():
+    """Regression: _send_file uses _aes_padded_size; must be imported after R1-4 split."""
+    mod = importlib.import_module("butler.gateway.platforms.wechat_ilink")
+    assert hasattr(mod, "_aes_padded_size")
+    assert mod._aes_padded_size(1) == 16
+    assert mod._aes_padded_size(16) == 32
+
+
+@pytest.mark.unit
 class TestR14aSplitTextBehaviour:
     """Behavioral smoke: ``_split_text`` still produces expected chunks."""
 
