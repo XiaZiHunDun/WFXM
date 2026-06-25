@@ -97,7 +97,7 @@ tracks:
         tier: fast
       - name: /诊断 详细 运维
         user_text: /诊断 详细
-        expect_reply_any: [Butler 诊断, 会话]
+        expect_reply_any: [Butler 诊断, 会话, 附件]
         tier: fast
       - name: /项目概况 Owner
         user_text: /项目概况
@@ -111,6 +111,18 @@ tracks:
       - name: /切换 附摘要
         user_text: /切换 灵文1号
         expect_reply_any: [项目摘要, 灵文1号]
+        tier: fast
+
+  - id: attach
+    title: 微信附件契约（handler，无 LLM）
+    session_mode: fresh
+    quick: true
+    setup:
+      - /切换 演示试点
+    cases:
+      - name: /诊断 详细 附 txt
+        user_text: /诊断 详细
+        expect_reply_any: [Butler 诊断, 附件]
         tier: fast
 
   - id: remote-dev

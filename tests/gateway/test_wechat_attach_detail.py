@@ -55,6 +55,37 @@ def test_cmd_detail_attaches_md_on_wechat_long_report(tmp_path, monkeypatch):
 
 
 @pytest.mark.unit
+def test_cmd_detail_caps_brief_when_attach(tmp_path, monkeypatch):
+    monkeypatch.setattr("butler.gateway.wechat_text_export.get_butler_home", lambda: tmp_path)
+    monkeypatch.setattr("butler.gateway.outbound_files.get_butler_home", lambda: tmp_path)
+    monkeypatch.setenv("BUTLER_EXPORT_SEND_WECHAT_FILE", "1")
+    monkeypatch.setenv("BUTLER_WECHAT_ATTACH_DETAIL", "1")
+
+    clear_report_cache()
+    sk = "wechat:owner1:proj"
+    cache_report(
+        AgentReport(
+            headline="开发代理已完成任务",
+            summary="变更摘要\n" + ("详细行 " * 120),
+            success=True,
+            task_id="task_brief_cap",
+            changes=[],
+        ),
+        session_key=sk,
+    )
+
+    with patch("butler.gateway.owner_gate.is_gateway_owner", return_value=True):
+        out = info_commands._cmd_detail(_ctx(session_key=sk))
+
+    assert out is not None
+    assert "附件" in out
+    assert "…" in out
+    path_lines = [ln for ln in out.splitlines() if ln.strip().startswith("/")]
+    body = "\n".join(ln for ln in out.splitlines() if ln not in path_lines)
+    assert len(body) <= 360
+
+
+@pytest.mark.unit
 def test_cmd_detail_skips_attach_for_short_report(tmp_path, monkeypatch):
     monkeypatch.setattr("butler.gateway.wechat_text_export.get_butler_home", lambda: tmp_path)
     monkeypatch.setenv("BUTLER_EXPORT_SEND_WECHAT_FILE", "1")

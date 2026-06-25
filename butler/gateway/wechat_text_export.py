@@ -24,6 +24,19 @@ def attach_min_chars() -> int:
     return int_env("BUTLER_WECHAT_ATTACH_MIN_CHARS", 400, min=0)
 
 
+def wechat_attach_brief_chars() -> int:
+    """Max chars for WeChat chat bubble when a file attachment is also sent."""
+    return int_env("BUTLER_WECHAT_ATTACH_BRIEF_CHARS", 280, min=80)
+
+
+def _cap_wechat_attach_summary(text: str) -> str:
+    cap = wechat_attach_brief_chars()
+    body = (text or "").strip()
+    if len(body) <= cap:
+        return body
+    return body[: cap - 1].rstrip() + "…"
+
+
 def attach_delegate_enabled() -> bool:
     return env_truthy("BUTLER_WECHAT_ATTACH_DELEGATE", default=True) and export_wechat_file_enabled()
 
@@ -138,8 +151,9 @@ def maybe_attach_wechat_file(
 
     summary = (chat_text or "").strip()
     if not summary:
-        summary = full[: min(280, threshold)] + f"\n\n{attach_hint}"
-    elif attach_hint not in summary:
+        summary = full[: min(wechat_attach_brief_chars(), threshold)]
+    summary = _cap_wechat_attach_summary(summary)
+    if attach_hint not in summary:
         summary = f"{summary}\n\n{attach_hint}"
 
     return append_wechat_file_delivery_line(summary, path)
@@ -179,6 +193,7 @@ __all__ = [
     "attach_diagnostic_enabled",
     "attach_runtime_enabled",
     "attach_min_chars",
+    "wechat_attach_brief_chars",
     "build_delegate_completion_message",
     "is_wechat_platform",
     "maybe_attach_wechat_file",

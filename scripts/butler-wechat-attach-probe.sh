@@ -25,7 +25,7 @@ from unittest.mock import patch
 
 from butler.gateway.message_handler import ButlerMessageHandler
 from butler.gateway.outbound_files import is_deliverable_export_file
-from butler.gateway.wechat_text_export import build_delegate_completion_message
+from butler.gateway.wechat_text_export import build_delegate_completion_message, wechat_attach_brief_chars
 from butler.report import AgentReport, cache_report, clear_report_cache
 
 os.environ.setdefault("BUTLER_EXPORT_SEND_WECHAT_FILE", "1")
@@ -48,6 +48,16 @@ def has_export_path(text: str) -> bool:
     return False
 
 
+def chat_body_before_path(text: str) -> str:
+    lines: list[str] = []
+    for line in (text or "").splitlines():
+        candidate = line.strip()
+        if candidate.startswith("/") and is_deliverable_export_file(candidate):
+            break
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
 def ends_with_brief_truncation(text: str) -> bool:
     return bool(re.search(r"\n…\s*$", (text or "").rstrip()))
 
@@ -60,6 +70,14 @@ def check(name: str, text: str, *, need_attach: bool, need_hint: bool = True) ->
         errors.append(f"{name}: missing deliverable exports/ path line")
     if need_hint and "附件" not in text:
         errors.append(f"{name}: missing 附件 hint")
+    if need_attach:
+        body = chat_body_before_path(text)
+        cap = wechat_attach_brief_chars()
+        main = body.split("（完整")[0].strip() if "（完整" in body else body
+        if len(main) > cap + 5 and "…" not in body:
+            errors.append(f"{name}: expected brief truncation (…)")
+        if len(body) > cap + 100:
+            errors.append(f"{name}: chat brief too long ({len(body)} chars)")
 
 
 print("=== WeChat attach probe (handler + Owner session) ===")

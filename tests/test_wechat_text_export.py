@@ -41,6 +41,25 @@ def test_maybe_attach_skips_short_text(tmp_path, monkeypatch):
 
 
 @pytest.mark.unit
+def test_maybe_attach_caps_long_chat_summary(tmp_path, monkeypatch):
+    monkeypatch.setattr("butler.gateway.wechat_text_export.get_butler_home", lambda: tmp_path)
+    monkeypatch.setattr("butler.gateway.outbound_files.get_butler_home", lambda: tmp_path)
+    monkeypatch.setenv("BUTLER_EXPORT_SEND_WECHAT_FILE", "1")
+    full = "行内容\n" * 100
+    out = maybe_attach_wechat_file(
+        full,
+        full,
+        platform="wechat",
+        name_prefix="detail_task",
+    )
+    assert "…" in out
+    assert "附件" in out
+    path_lines = [ln for ln in out.splitlines() if ln.strip().startswith("/")]
+    body = "\n".join(ln for ln in out.splitlines() if ln not in path_lines)
+    assert len(body) <= 360
+
+
+@pytest.mark.unit
 def test_maybe_attach_appends_path_line(tmp_path, monkeypatch):
     monkeypatch.setattr("butler.gateway.wechat_text_export.get_butler_home", lambda: tmp_path)
     monkeypatch.setattr("butler.gateway.outbound_files.get_butler_home", lambda: tmp_path)

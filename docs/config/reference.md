@@ -199,6 +199,7 @@
 | `BUTLER_EXPORT_SEND_WECHAT_FILE` | 1 | 微信出站附带 `exports/` 下 `.md`/`.txt`（`/导出`、委派 `/详细` 等） |
 | `BUTLER_EXPORT_SEND_WECHAT_MAX_BYTES` | 5242880 | 微信附件大小上限（5MB 默认） |
 | `BUTLER_WECHAT_ATTACH_MIN_CHARS` | 400 | 超过此长度才生成附件（短内容仍只发文字） |
+| `BUTLER_WECHAT_ATTACH_BRIEF_CHARS` | 280 | 附 `.txt` 时聊天气泡摘要上限（避免与附件重复） |
 | `BUTLER_WECHAT_ATTACH_SUFFIX` | `.txt` | 微信附件扩展名（`.txt` 手机易读；可改 `.md`） |
 | `BUTLER_WECHAT_ATTACH_DELEGATE` | 1 | 委派完成推送附带完整报告 `.txt` |
 | `BUTLER_WECHAT_ATTACH_DETAIL` | 1 | `/详细` 附带完整报告 `.txt` |

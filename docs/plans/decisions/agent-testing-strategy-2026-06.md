@@ -127,7 +127,7 @@ L-D 质量层       live_llm / corpus_live / LangFuse / G1-04   → 阈值 + 归
 | P2 | `tests/fixtures/llm_responses/` + `test_llm_response_fixtures.py` | ✅ 2026-06-25 |
 | P2+ | 扩 manifest sim（更多契约，少措辞） | 持续 |
 | P3 | corpus live 通过率仪表盘 + issue map 周报 | 运营 |
-| P4 | `/详细` 附 `.txt` 时强制短摘要（体验） | backlog |
+| P4 | `/详细` 附 `.txt` 时强制短摘要（`BUTLER_WECHAT_ATTACH_BRIEF_CHARS`，默认 280） | **done** |
 
 ---
 

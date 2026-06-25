@@ -129,13 +129,16 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
         from butler.core.transcript_export import resolve_export_workspace
         from butler.gateway.wechat_text_export import (
             attach_detail_enabled,
+            is_wechat_platform,
             maybe_attach_wechat_file,
         )
 
         full = format_child_session_detail(child_sk)
-        brief = full if len(full) <= 500 else full[:480].rstrip() + "…"
+        chat = full
+        if not is_wechat_platform(ctx.platform) and len(full) > 500:
+            chat = full[:480].rstrip() + "…"
         return maybe_attach_wechat_file(
-            brief,
+            chat,
             full,
             platform=ctx.platform,
             name_prefix=f"child_{child_sk[-40:]}",
@@ -149,15 +152,16 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
         from butler.core.transcript_export import resolve_export_workspace
         from butler.gateway.wechat_text_export import (
             attach_detail_enabled,
+            is_wechat_platform,
             maybe_attach_wechat_file,
         )
 
         full = format_detail(report, section=parse_detail_section(remaining))
-        brief = full
-        if len(full) > 500:
-            brief = full[:480].rstrip() + "…"
+        chat = full
+        if not is_wechat_platform(ctx.platform) and len(full) > 500:
+            chat = full[:480].rstrip() + "…"
         return maybe_attach_wechat_file(
-            brief,
+            chat,
             full,
             platform=ctx.platform,
             name_prefix=f"detail_{report.task_id or 'report'}",

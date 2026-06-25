@@ -40,6 +40,7 @@ Butler 在出站文本末尾追加 **单独一行的绝对路径**（如 `/home/
 | `BUTLER_EXPORT_SEND_WECHAT_FILE` | `1` | **总开关**（关则只发文字路径提示） |
 | `BUTLER_EXPORT_SEND_WECHAT_MAX_BYTES` | `5242880` | 附件大小上限 |
 | `BUTLER_WECHAT_ATTACH_MIN_CHARS` | `400` | 超过此长度才生成附件 |
+| `BUTLER_WECHAT_ATTACH_BRIEF_CHARS` | `280` | 附附件时聊天摘要上限 |
 | `BUTLER_WECHAT_ATTACH_SUFFIX` | `.txt` | 附件扩展名（可改 `.md`） |
 | `BUTLER_WECHAT_ATTACH_DELEGATE` | `1` | 委派完成推送附带完整报告 |
 | `BUTLER_WECHAT_ATTACH_DETAIL` | `1` | `/详细` 附带 |
