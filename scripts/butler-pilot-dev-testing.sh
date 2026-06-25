@@ -97,6 +97,9 @@ run_step "flywheel checklist (--probe)" \
 run_step "dev tools smoke (isolated workspace)" \
   bash "$ROOT/scripts/butler-dev-tools-smoke.sh"
 
+run_step "WeChat attach probe (handler)" \
+  bash "$ROOT/scripts/butler-wechat-attach-probe.sh"
+
 run_step "handler sim: remote-dev" \
   bash "$ROOT/scripts/butler-wechat-remote-dev-sim.sh"
 

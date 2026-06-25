@@ -416,6 +416,7 @@ def _cmd_health(ctx: CommandContext) -> Optional[str]:
     from butler.core.transcript_export import resolve_export_workspace
     from butler.gateway.wechat_text_export import (
         attach_diagnostic_enabled,
+        is_wechat_platform,
         maybe_attach_wechat_file,
     )
 
@@ -430,6 +431,8 @@ def _cmd_health(ctx: CommandContext) -> Optional[str]:
             orchestrator=ctx.orchestrator,
         )
     )
+    if not is_wechat_platform(ctx.platform) or not attach_diagnostic_enabled():
+        return full
     brief_lines = full.splitlines()[:12]
     brief = "\n".join(brief_lines)
     if len(full.splitlines()) > 12:

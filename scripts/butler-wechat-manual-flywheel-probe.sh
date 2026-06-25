@@ -170,6 +170,16 @@ print(detail[:400])
 if task_id and task_id not in detail and md_name not in detail:
     if "无" in detail and "委派" in detail:
         errors.append("/详细 missing task evidence")
+if len(detail or "") >= 400 and not re.search(
+    r"exports/.*\.md|附件", detail or "", re.I
+):
+    errors.append("/详细 missing .md attach path or hint (long report)")
+
+diag_full = send("/诊断 详细")
+print("\n--- /诊断 详细 (trunc) ---")
+print(diag_full[:400])
+if not re.search(r"exports/.*\.md|附件", diag_full or "", re.I):
+    errors.append("/诊断 详细 missing .md attach path or hint")
 
 diag = send("/诊断")
 print("\n--- /诊断 (trunc) ---")

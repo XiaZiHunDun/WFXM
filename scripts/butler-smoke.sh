@@ -20,7 +20,7 @@ for arg in "$@"; do
       ;;
     -h|--help)
       echo "Usage: $0 [--tier=quick|standard|full]"
-      echo "  quick    gateway preflight + fast pytest subset"
+      echo "  quick    gateway preflight + owner/gateway/wechat-attach pytest subset"
       echo "  standard quick + wechat smokes + lingwen lead + DemoPilot preflight"
       echo "  full     butler-pre-release-smoke.sh (9 steps)"
       exit 0
@@ -44,7 +44,12 @@ case "$TIER" in
       tests/test_project_preflight.py \
       tests/test_project_lead.py \
       tests/gateway/test_gateway_handler.py \
+      tests/gateway/test_wechat_attach_detail.py \
       tests/test_owner_gate.py \
+      tests/test_owner_surface.py \
+      tests/test_wechat_text_export.py \
+      tests/test_cc_bridge.py \
+      tests/test_sandbox_commands.py \
       tests/test_butler_v4.py
     echo ""
     echo "Smoke quick: ALL PASSED"

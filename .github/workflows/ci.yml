@@ -222,7 +222,32 @@ jobs:
             tests/test_p0_memory_pilot.py \
             tests/test_critical_imports.py \
             tests/test_project_lead.py \
+            tests/test_wechat_text_export.py \
+            tests/gateway/test_wechat_attach_detail.py \
             -q --tb=line
+
+  fast-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ripgrep
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Install package and test deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,mcp,observability]"
+
+      - name: Butler pytest fast gate (smoke quick + attach + CC harness)
+        run: bash scripts/butler-pytest-fast-gate.sh
 
   corpus-gateway-live:
     runs-on: ubuntu-latest
