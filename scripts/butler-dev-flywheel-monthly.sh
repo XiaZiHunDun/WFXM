@@ -61,6 +61,9 @@ run_step "handler sim: owner-ux" \
 run_step "WeChat attach probe (handler)" \
   bash "$ROOT/scripts/butler-wechat-attach-probe.sh"
 
+run_step "memory monthly probe (M1–M7)" \
+  bash "$ROOT/scripts/butler-memory-monthly-probe.sh"
+
 if [[ "${BUTLER_WECHAT_DEV_DELEGATE_SIM:-1}" != "0" ]]; then
   run_step "handler sim: dev-delegate lingwen (full)" \
     bash "$ROOT/scripts/butler-wechat-dev-delegate-sim.sh" --track lingwen

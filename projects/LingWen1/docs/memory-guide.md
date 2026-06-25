@@ -87,7 +87,7 @@ bash scripts/butler-memory-reindex.sh
 | M6 | `/新对话` → 「我们刚才聊过什么？」 | **不**复述上轮闲聊细节；可提示已清空上下文 |
 | M7 | 「请记住：试点验收日 2026-05-22」→ `/记忆待审` → `/批准记忆 全部` | 批准后 paraphrase 可召回 |
 
-记录结果到 `pilot-log.md`。
+记录结果到 `pilot-log.md`（或 `bash scripts/butler-memory-monthly-probe.sh --log` 自动化 PASS 后追加一行）。
 
 ## 记忆质量运营
 

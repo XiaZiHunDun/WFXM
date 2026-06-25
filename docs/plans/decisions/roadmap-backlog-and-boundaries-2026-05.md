@@ -207,9 +207,9 @@
 | [PROD-P0-01](#prod-p0-01-g1-04-ot2-观测与-owner-硬反馈) | P0 | G1-04 OT2 观测与 Owner 硬反馈 | 2–4 周 | **done** 2026-06-26 |
 | [PROD-P0-02](#prod-p0-02-配置剖面产品化) | P0 | 配置剖面产品化 | 2–4 周 | **done** 2026-06-26 |
 | [PROD-P0-03](#prod-p0-03-pytest-技术债与-gate-叙事统一) | P0 | pytest 技术债与 gate 叙事统一 | 2–4 周 | **done** 2026-06-26（叙事+bisect 记录；全量修债 backlog） |
-| [PROD-P1-01](#prod-p1-01-dev-委派-verify-与-lead-门控) | P1 | Dev 委派 verify 与 Lead 门控 | 1–2 月 | backlog |
+| [PROD-P1-01](#prod-p1-01-dev-委派-verify-与-lead-门控) | P1 | Dev 委派 verify 与 Lead 门控 | 1–2 月 | **done** 2026-06-22 |
 | [PROD-P1-02](#prod-p1-02-owner-默认路径简报--onboarding) | P1 | Owner 默认路径（简报 + onboarding） | 1–2 月 | **done** 2026-06-26 |
-| [PROD-P1-03](#prod-p1-03-记忆月度探针运营化) | P1 | 记忆月度探针运营化 | 1–2 月 | backlog |
+| [PROD-P1-03](#prod-p1-03-记忆月度探针运营化) | P1 | 记忆月度探针运营化 | 1–2 月 | **done** 2026-06-25 |
 | [PROD-P2-01](#prod-p2-01-wechat_ilink-结构拆分) | P2 | `wechat_ilink` 结构拆分 | Backlog | backlog |
 | [PROD-P2-02](#prod-p2-02-observation-store-收口) | P2 | Observation Store 收口 | Backlog | 见 §3.2.1 |
 | [PROD-P2-03](#prod-p2-03-安全信任补丁批次) | P2 | 安全信任补丁批次 | Backlog | 见 §3.1 |
@@ -219,7 +219,7 @@
 
 ```text
 本周     PROD-P0-02（文档+诊断首屏）· PROD-P0-03（叙事/issue）· PROD-P0-01（/诊断 G1-04 面）
-本月     PROD-P1-01 → PROD-P1-02 → PROD-P1-03
+本月     PROD-P1-03 done 2026-06-25；P1 线收束
 窗满     PROD-P0-01 结案：butler-g1-04-closure-check.sh → 更新 gap register
 Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 ```
@@ -249,10 +249,10 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 |------|------|
 | 状态 API | `butler/ops/boundary_observability.py` → `g1_04_observation_window_status` |
 | 自动生产证据 | `butler/ops/g1_04_prod_evidence.py` · `BUTLER_EVAL_PROD_EVIDENCE` |
-| 脚本 | `scripts/butler-g1-04-closure-check.sh` · `scripts/butler-dev-prod-evidence-checklist.sh` · `scripts/butler-ops-followup-check.sh` |
+| 脚本 | `scripts/butler-g1-04-closure-check.sh` · `scripts/butler-g1-04-weekly-checkin.sh` · `scripts/butler-dev-prod-evidence-checklist.sh` · `scripts/butler-ops-followup-check.sh` |
 | 文档 | `docs/guides/evaluation-guide.md` · `docs/guides/phase4-ops-runbook.md` |
 
-**运营节奏**：窗内 **每周** `butler-g1-04-closure-check.sh` + `pilot-log` 一行打卡。
+**运营节奏**：窗内 **每周** `butler-g1-04-weekly-checkin.sh`（含 closure-check + 证据清单 + `--log` 写 pilot-log）。
 
 ---
 

@@ -170,7 +170,8 @@ print("  Monthly: bash scripts/butler-dev-flywheel-monthly.sh")
 print("           docs/guides/dev-flywheel-monthly.md (WeChat manual)")
 print("  Weekly:  bash scripts/butler-prod-delta-observe.sh")
 print("           bash scripts/butler-lingwen-live-capture-checklist.sh")
-print("  Daily:   bash scripts/butler-ops-followup-check.sh  # includes dev sim --quick")
+print("  Daily:   bash scripts/butler-ops-followup-check.sh  # includes dev sim --quick
+  Weekly:  bash scripts/butler-g1-04-weekly-checkin.sh --log")
 print()
 print(f"summary: fail={fail} warn={warn} probe={'on' if PROBE else 'off'}")
 if fail:

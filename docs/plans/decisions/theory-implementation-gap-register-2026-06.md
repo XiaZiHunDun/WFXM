@@ -63,7 +63,7 @@
 
 | ID | 理论依据 | 现状 | 影响 | 建议 |
 |----|----------|------|------|------|
-| G1-04 | OT2 有条件目标 | 硬反馈已接；**观测中**（窗 06-09→**07-31**；窗内 3 条仅 `b9_live_low_pass` B9 测评；**OT2 未证**） | 窗满 + ≥1 **生产**来源硬反馈 → `ot2_closure_ready` | `butler-g1-04-closure-check.sh` |
+| G1-04 | OT2 有条件目标 | 硬反馈已接；**观测中**（窗 06-09→**07-31**；窗内 **51** 条、生产 **48**（`prod_delegate_*`）；Owner 显式 **0**；**OT2 窗满待结**） | 窗满 + ≥1 **生产**来源硬反馈 → `ot2_closure_ready` | `butler-g1-04-weekly-checkin.sh` · `butler-g1-04-closure-check.sh` |
 | G1-10 | Extension R&D Verify 闭环 | **L0–L3 已落地**（2026-06-22）：manifest ×3、`butler-extension-verify.sh`、token sync、handler sim | 自助装 MCP 无人修 | `butler-extension-verify.sh` · `butler-extension-wechat-sim.sh` |
 | G1-11 | 核心微信路径 handler sim 不足 | ✅ **2026-06-22**：`butler-wechat-core-sim.sh`（剧本 1–3+/诊断）+ `butler-ops-followup-check.sh` | 真机前无管家/项目/读文件链验证 | `butler-wechat-core-sim.sh` |
 | G1-13 | 全站 secrets↔env 契约分散 | ✅ **2026-06-22**：`.butler/secrets-contract.yaml` + `butler-secrets-contract-check.sh`（合并 extension manifest） | MCP 外 token 断层 | follow-up 硬失败项 |
@@ -157,6 +157,7 @@
 | 2026-06-20 | **G1-04 观测打卡**：窗内 feedback=3、7d=0、剩 3d；`butler-gap-observability.sh` 全绿；EXT-2 Verify ✅ + Track 至 07-04；灵文 EXT-3 检索抽测 5/5（见 `pilot-log` §运营打卡） |
 | 2026-06-21 | **EXT-2 Track**：Todoist token 轮换 ✅（微信列项目验证）；分层 gate 152 passed |
 | 2026-06-22 | **G1-04 窗延期**：06-23 仅 B9 测评证据 → 窗延至 **07-31**；`closure_ready`→`ot2_closure_ready`（需生产 trigger）；B9-only 可 `--pipeline-only` 诚实结案 |
+| 2026-06-25 | **G1-04 周打卡**：`butler-g1-04-weekly-checkin.sh`；窗内 production=48、剩 36d；P1 线 PROD-P1-01/03 done |
 | 2026-06-21 | **认知层 prod 默认化**：`BUTLER_PLAN_REASON_GRAPH` 默认 `1`；推理 trace 维持默认开 |
 | 2026-06-14 | **B9 周循环 v2 验证**：Tier-1 7/7、Tier-2 3/3、SWE 3/3、Promoted 6/6、灵文 3/3；`forward`=1.0（stored 27.5% 为历史误命中）；`prod_delta_clean` 仍 ±0 |
 | 2026-06-14 | **第 7 道 prod 晋升**：`B9L_prod_lingwen_constants_docstring`（灵文 constants 样本）；`butler-prod-delta-observe.sh`；L3 capture OK |

@@ -78,23 +78,13 @@ echo "=== 阶段 B：post_session 契约 ==="
 pytest tests/test_post_session.py tests/test_premise_p1_p2_p6_structural.py::TestP6ExtractionPathExists -q --tb=line
 
 echo ""
-echo "=== 阶段 B：微信真机话术（须主公操作，记 pilot-log）==="
-cat <<'EOF'
-  M1  /诊断              → 向量条数、embedding model、衰减参数
-  M1b /记忆图谱          → 三元组只读展示
-  M2  「灵文试点统一测试是哪天？」（换说法）→ MEMORY 日期
-  M3  决策句 → /记忆待审 → /批准记忆
-  M4  同句连发两遍 → /诊断 → 预取缓存: 命中（20–90s 内）
-  M5  「项目技术栈/目录？」→ facts 或 novel-factory 要点
-  M6  /新对话 → 「刚才聊过什么？」→ 不复述闲聊；可提示已清空
-  M7  「请记住：…」→ /记忆待审 → /批准记忆 全部 → paraphrase 召回
-
-  写入习惯：
-  - 重要决策 → butler_remember（project_notes / owner_experience）
-  - 勿开 BUTLER_SYNC_CONVERSATION_MEMORY=1（噪声进 experience）
-  - 批量改 MEMORY / 批准后 → butler memory-reindex
-  - 详见 projects/LingWen1/docs/memory-guide.md
-EOF
+echo "=== 阶段 B：月度探针 M1–M7（自动化）==="
+if ! bash "$ROOT/scripts/butler-memory-monthly-probe.sh"; then
+  echo ""
+  echo "FAIL: 记忆月度探针未通过 — 与运营真机表不一致风险"
+  echo "  修复后重跑: bash scripts/butler-memory-monthly-probe.sh"
+  exit 1
+fi
 
 if [[ "$warn" -ne 0 ]]; then
   echo ""
@@ -102,4 +92,4 @@ if [[ "$warn" -ne 0 ]]; then
   exit 0
 fi
 echo ""
-echo "阶段 B 自动化守门完成 ✓（真机 M1–M7 待主公勾选 pilot-log）"
+echo "阶段 B 自动化守门完成 ✓（真机可选：bash scripts/butler-memory-monthly-probe.sh --manual）"

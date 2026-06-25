@@ -7,7 +7,8 @@
 | 阶段 | 脚本 | 内容 |
 |------|------|------|
 | **A** 基建 | `bash scripts/butler-memory-phase-a.sh` | `SEMANTIC_MEMORY=1` + fastembed + reindex + MB1–MB7（**隔离 tmp**，不污染经验库）+ doctor |
-| **B** 运营 | `bash scripts/butler-memory-phase-b.sh` | `SYNC_CONVERSATION=0` + queue_prefetch + recall 冒烟 + 微信 M1–M7 话术 |
+| **B** 运营 | `bash scripts/butler-memory-phase-b.sh` | `SYNC_CONVERSATION=0` + queue_prefetch + recall 冒烟 + **M1–M7 月度探针** |
+| **月度** | `bash scripts/butler-memory-monthly-probe.sh` | M1–M7 逐项 ✅/❌（pytest）；`--log` 写 pilot-log；`--manual` 打印微信话术 |
 | **C** 工程 | `bash scripts/butler-memory-phase-c.sh` | `add_experience` IndexSync + 向量陈旧检测 + 守门 pytest |
 | **种子** 经验指针 | `butler memory seed` 或 `bash scripts/butler-memory-seed-owner-experiences.sh` | 清理 MB5 filler + 写入 `skill:`/`tool:` 种子（幂等） |
 
@@ -75,6 +76,24 @@ butler memory search "lingwen-project-lead" --scope experience --verbose
 `--verbose` 应看到 `mode: hybrid`（或 `fts`）且 Top1 为 `experience:218` 一类种子行；查 `tags` 用 `--json`（`results[0].tags` 须含 `skill:` 或 `tool:`）。若长期只有 bench filler，先 `butler memory seed` 再 `bash scripts/butler-memory-reindex.sh`。
 
 灵文试点写入边界与 O1–O8：[`projects/LingWen1/docs/memory-guide.md`](../../projects/LingWen1/docs/memory-guide.md)。
+
+## 微信 5 分钟月度探针
+
+自动化守门：`bash scripts/butler-memory-monthly-probe.sh`（已纳入 `butler-memory-phase-b.sh`；探针 FAIL 则 phase-b FAIL）。
+
+真机复验（≤7 条，约 5 分钟；`--manual` 可打印）：
+
+| # | 发送 | 对应 |
+|---|------|------|
+| 1 | `/诊断` | M1 向量/衰减/分层 |
+| 2 | `灵文试点统一测试是哪天？` | M2 paraphrase |
+| 3 | `我们决定下周试点 Redis` → `/记忆待审` → `/拒绝记忆 1` | M3 Pending |
+| 4 | 重复第 2 句 → `/诊断` | M4 预取缓存命中 |
+| 5 | `项目用什么技术栈？顶层有哪些目录？` | M5 facts / novel-factory |
+| 6 | `/新对话` → `我们刚才聊过什么？` | M6 不复述闲聊 |
+| 7 | `请记住：月度探针打卡 YYYY-MM-DD` → `/记忆待审` → `/批准记忆 全部` | M7 批准后可召回 |
+
+月度 PASS 后：`bash scripts/butler-memory-monthly-probe.sh --log` 追加 `pilot-log` 一行。
 
 ## 生产推荐 `.env`
 
@@ -175,6 +194,7 @@ bash scripts/butler-memory-reindex.sh
 butler memory search "某项目决策" --scope project --verbose
 butler memory search "pytest" --scope experience --json
 bash scripts/butler-memory-smoke.sh      # recall fixture 回归
+bash scripts/butler-memory-monthly-probe.sh   # M1–M7 月度探针（--log / --manual）
 bash scripts/butler-memory-reindex.sh    # 重建向量（改 MEMORY / 升级记忆模块后）
 # 等价: butler memory reindex
 ```

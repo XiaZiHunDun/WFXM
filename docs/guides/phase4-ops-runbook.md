@@ -135,6 +135,7 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 
 ```bash
 bash scripts/butler-g1-checklist.sh        # G1 开放项：成本/inbound/真机话术提示
+bash scripts/butler-g1-04-weekly-checkin.sh   # 窗内周打卡（--log）
 bash scripts/butler-g1-04-closure-check.sh # G1-04：窗 06-09→07-31；exit 0=生产证据可结案
 bash scripts/butler-ops-followup-check.sh  # 日常：G1-04 窗 + boundary + 推理/DoT smoke + secrets 契约 + EXT verify/sim
 bash scripts/butler-secrets-contract-check.sh   # G1-13：extension + 平台 env 契约

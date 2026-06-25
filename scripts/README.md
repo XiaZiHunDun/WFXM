@@ -61,6 +61,7 @@
 | 脚本 | 项目/范围 |
 |------|-----------|
 | `butler-wechat-memory-smoke.sh` | 记忆微信门 pytest |
+| `butler-memory-monthly-probe.sh` | M1–M7 月度探针（`--log` / `--manual`） |
 | `butler-wechat-gateway-smoke.sh` | 网关核心 pytest |
 | `butler-inbound-media-smoke.sh` | 入站媒体 |
 | `butler-runtime-smoke.sh` | **灵文1号** runtime（factory-status、preflight 等） |
@@ -129,9 +130,9 @@
 
 | 脚本 | 用途 |
 |------|------|
-| `butler-ops-followup-check.sh` | 运营 follow-up 全包（fail/warn 汇总） |
+| `butler-g1-04-weekly-checkin.sh` | G1-04 窗内周打卡（`--log` → pilot-log） |
+| `butler-g1-04-closure-check.sh` | G1-04 窗满结案检查 |
 | `butler-g1-checklist.sh` | G1 清单 |
-| `butler-g1-04-closure-check.sh` | G1-04 窗状态 |
 | `butler-g1-04-closure-run-if-ready.sh` | 窗满则尝试闭合 |
 | `butler-g1-04-closure-apply.sh` | G1-04 闭合应用 |
 | `butler-gap-observability.sh` | 差距登记册观测 |
