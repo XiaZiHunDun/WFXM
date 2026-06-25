@@ -72,6 +72,7 @@
 | `BUTLER_PROJECTS_DIR` | 项目根（默认仓库 `projects/`） |
 | `BUTLER_TOOL_SAFE_ROOT` | 工具路径沙箱根 |
 | `BUTLER_LEAD_PROJECTS` | 厂长模式项目列表（逗号分隔；可被 `project.yaml` `lead: true` 补充） |
+| `BUTLER_LEAD_READONLY_GATE` | `1` | `0` = 关闭 Lead 只读/禁委派意图时对 `delegate_task` 的门控（返回 `LEAD_READONLY_NO_DELEGATE`） |
 | `BUTLER_HOME` | `~/.butler` | Butler 数据根目录 |
 | `BUTLER_DATA_HOME` | `~/.butler` | 网关单例锁目录（`gateway.singleton.lock`；默认同 `BUTLER_HOME`） |
 | `BUTLER_TENANT` | default | 多租户隔离键；日常工具数据存于 `~/.butler/tenants/<tenant>/` |

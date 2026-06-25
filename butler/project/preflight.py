@@ -323,6 +323,25 @@ def run_preflight(
                 "检测到可开发/可执行树（仓库或脚本目录）",
             )
         )
+        if proj is not None:
+            test_cmd = str((proj.dev or {}).get("test_command") or "").strip()
+            if test_cmd:
+                items.append(
+                    PreflightItem(
+                        CheckLevel.OK,
+                        "dev_test_command",
+                        "dev.test_command 已配置（VERIFY 将优先使用）",
+                    )
+                )
+            else:
+                items.append(
+                    PreflightItem(
+                        CheckLevel.WARN,
+                        "dev_test_command_missing",
+                        "有代码树但缺少 dev.test_command",
+                        "见 docs/guides/project-yaml-dev-commands-template.md 补 test_command / lint_command",
+                    )
+                )
     else:
         items.append(
             PreflightItem(

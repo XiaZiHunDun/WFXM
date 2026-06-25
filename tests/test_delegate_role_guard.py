@@ -11,6 +11,7 @@ from butler.tools.delegate_role_guard import (
     apply_user_role_override,
     block_lead_readonly_delegate,
     lead_forbids_delegate,
+    lead_readonly_gate_enabled,
     user_explicit_delegate_role,
 )
 
@@ -120,3 +121,30 @@ class TestLeadReadonlyDelegateBlock:
             raw = block_lead_readonly_delegate(depth=0)
         assert raw is not None
         assert "LEAD_READONLY_NO_DELEGATE" in raw
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("只读查看 workflow_state，不要改文件", True),
+            ("read-only check phase only", True),
+            ("只读厂情，但请委派开发代理检查 tests/", False),
+            ("请 delegate_task role=dev 只读检查", False),
+        ],
+    )
+    def test_readonly_signals(self, text: str, expected: bool):
+        assert lead_forbids_delegate(text) is expected
+
+    def test_gate_disabled_allows_block_skip(self, monkeypatch):
+        monkeypatch.setenv("BUTLER_LEAD_READONLY_GATE", "0")
+        assert lead_readonly_gate_enabled() is False
+        with (
+            patch(
+                "butler.tools.delegate_role_guard._is_lead_turn",
+                return_value=True,
+            ),
+            patch(
+                "butler.tools.delegate_role_guard._turn_user_text",
+                return_value="不要委派，只读",
+            ),
+        ):
+            assert block_lead_readonly_delegate(depth=0) is None

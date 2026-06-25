@@ -15,8 +15,8 @@ tools:
   - git_log
   - skills_list
   - skill_view
-workflows: []
-# models:  # 按需取消注释
-#   dev_agent:
-#     provider: minimax
-#     model: MiniMax-M2.7
+dev:
+  # VERIFY（/测试、dev_verify）优先使用下列命令；cwd=项目 workspace，PYTHONPATH=仓库根
+  test_command: "python3 -m pytest tests/ -q --tb=short"
+  lint_command: "python3 -m py_compile butler/main.py"
+  build_command: "true"

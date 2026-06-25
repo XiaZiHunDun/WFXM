@@ -111,6 +111,14 @@ else
   echo "=== skip dev-delegate sim (--no-delegate or BUTLER_WECHAT_DEV_DELEGATE_SIM=0) ==="
 fi
 
+if [[ "$DELEGATE" -eq 1 && "${BUTLER_WECHAT_LEAD_READONLY_SIM:-1}" != "0" ]]; then
+  run_step "handler sim: lead-readonly (--quick)" \
+    bash "$ROOT/scripts/butler-wechat-lead-readonly-sim.sh" --quick
+else
+  echo ""
+  echo "=== skip lead-readonly sim (--no-delegate or BUTLER_WECHAT_LEAD_READONLY_SIM=0) ==="
+fi
+
 echo ""
 if [[ "$FAIL" -ne 0 ]]; then
   echo "PILOT DEV TESTING: FAIL (pilot=$PROJECT)"

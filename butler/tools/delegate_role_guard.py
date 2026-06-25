@@ -6,6 +6,8 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
+from butler.env_parse import env_truthy
+
 if TYPE_CHECKING:
     from butler.tools.delegate_phases import DelegateRunState
 
@@ -37,6 +39,23 @@ _FORBID_DELEGATE_SIGNALS: tuple[re.Pattern[str], ...] = (
     re.compile(r"不(要|许)委派", re.I),
     re.compile(r"不要\s*delegate", re.I),
     re.compile(r"勿\s*委派", re.I),
+)
+
+_READONLY_ONLY_SIGNALS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"只读", re.I),
+    re.compile(r"仅查看", re.I),
+    re.compile(r"不要改", re.I),
+    re.compile(r"不要修改", re.I),
+    re.compile(r"勿改", re.I),
+    re.compile(r"read[\s-]?only", re.I),
+)
+
+_DELEGATE_INTENT_SIGNALS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"委派", re.I),
+    re.compile(r"delegate", re.I),
+    re.compile(r"交给\s*(开发|内容|review|审查)?\s*代理", re.I),
+    re.compile(r"开发代理", re.I),
+    re.compile(r"内容代理", re.I),
 )
 
 _LEAD_SELF_READ_FILE = re.compile(
@@ -138,6 +157,11 @@ def _is_lead_turn() -> bool:
         return False
 
 
+def lead_readonly_gate_enabled() -> bool:
+    """Block Lead mistaken delegate_task on read-only intents (default on)."""
+    return env_truthy("BUTLER_LEAD_READONLY_GATE", default=True)
+
+
 def lead_forbids_delegate(user_text: str) -> bool:
     """True when Lead must answer read-only (no delegate_task) from user intent."""
     text = _user_query_head(user_text)
@@ -146,6 +170,10 @@ def lead_forbids_delegate(user_text: str) -> bool:
     if user_explicit_delegate_role(text):
         return False
     if any(p.search(text) for p in _FORBID_DELEGATE_SIGNALS):
+        return True
+    if any(p.search(text) for p in _READONLY_ONLY_SIGNALS):
+        if any(p.search(text) for p in _DELEGATE_INTENT_SIGNALS):
+            return False
         return True
     lowered = text.lower()
     factory_ctx = (
@@ -164,6 +192,8 @@ def lead_forbids_delegate(user_text: str) -> bool:
 
 def block_lead_readonly_delegate(*, depth: int = 0) -> str | None:
     """Return tool-error JSON when Lead turn must not delegate; else None."""
+    if not lead_readonly_gate_enabled():
+        return None
     if int(depth or 0) > 0:
         return None
     if not _is_lead_turn():
@@ -218,5 +248,6 @@ __all__ = [
     "apply_user_role_override",
     "block_lead_readonly_delegate",
     "lead_forbids_delegate",
+    "lead_readonly_gate_enabled",
     "user_explicit_delegate_role",
 ]

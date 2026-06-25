@@ -121,3 +121,36 @@ class TestProjectPreflight:
         report = run_preflight(ws, projects_dir=projects_dir)
         assert report.suggested_template == "knowledge-light"
         assert any(i.code == "no_executable_tree" for i in report.items)
+
+    def test_warns_when_code_tree_missing_dev_test_command(self, projects_dir):
+        ws = projects_dir / "app_no_dev"
+        ws.mkdir()
+        (ws / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+        (ws / "project.yaml").write_text(
+            yaml.safe_dump(
+                {"name": "无dev", "type": "software", "tools": ["read_file"]},
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        report = run_preflight(ws, projects_dir=projects_dir)
+        assert any(i.code == "dev_test_command_missing" for i in report.items)
+
+    def test_ok_when_dev_test_command_present(self, projects_dir):
+        ws = projects_dir / "app_dev"
+        ws.mkdir()
+        (ws / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+        (ws / "project.yaml").write_text(
+            yaml.safe_dump(
+                {
+                    "name": "有dev",
+                    "type": "software",
+                    "tools": ["read_file"],
+                    "dev": {"test_command": "python3 -m pytest -q"},
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        report = run_preflight(ws, projects_dir=projects_dir)
+        assert any(i.code == "dev_test_command" for i in report.items)
