@@ -38,6 +38,7 @@ def test_load_all_manifests_non_empty():
     assert "github-readonly" in manifests
     assert "todoist-readonly" in manifests
     assert "firecrawl" in manifests
+    assert "markitdown-ingest" in manifests
 
 
 @pytest.mark.unit

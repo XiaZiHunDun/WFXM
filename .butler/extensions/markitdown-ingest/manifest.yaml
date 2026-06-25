@@ -1,0 +1,27 @@
+# EXT-5 MarkItDown MCP — extension manifest (L0 SSOT)
+id: markitdown-ingest
+ext_id: ext-5
+title: MarkItDown document convert (stdio MCP)
+server_id: markitdown
+mcp_enabled_required: true
+
+grounding:
+  ingest_hint: "转换后写入 .butler/ingest/ 并 butler memory reindex"
+
+tools:
+  - registered: mcp_markitdown_convert_to_markdown
+    openapi_tool: convert_to_markdown
+    aliases:
+      - mcp_markitdown_convert
+      - mcp_markitdown_to_markdown
+    golden:
+      skip: true
+      args:
+        uri: "file:///tmp/butler-ext5-fixture-missing"
+      expect_min_items: 0
+      expect_fields: []
+
+preflight_script: scripts/butler-extension-ext5-preflight.sh
+verify_phrases:
+  - 把这份 PDF 转成 Markdown 放进记忆
+  - 用 MarkItDown 转换项目里的参考书

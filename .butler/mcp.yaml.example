@@ -64,3 +64,16 @@ servers:
   # EXT-4: GitHub REST read-only (ext-4-second-openapi-2026-06.md)
   # bash scripts/butler-github-openapi-spec-install.sh && bash scripts/butler-extension-ext4-integrate.sh
   # github: … see ext-4 doc §4
+
+  # EXT-5: MarkItDown document convert (ext-5-markitdown-mcp-2026-06.md)
+  # bash scripts/butler-extension-ext5-integrate.sh
+  # Requires: uvx in BUTLER_MCP_STDIO_ALLOW_COMMANDS, markitdown-mcp via uvx/pip
+  # markitdown:
+  #   transport: stdio
+  #   command: uvx
+  #   args: ["markitdown-mcp"]
+  #   timeout_seconds: 120
+  #   tools:
+  #     allow: [convert_to_markdown]
+  #   classify:
+  #     convert_to_markdown: readonly
