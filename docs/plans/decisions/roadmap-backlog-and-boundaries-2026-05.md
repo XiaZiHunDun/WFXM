@@ -208,7 +208,7 @@
 | [PROD-P0-02](#prod-p0-02-配置剖面产品化) | P0 | 配置剖面产品化 | 2–4 周 | **done** 2026-06-26 |
 | [PROD-P0-03](#prod-p0-03-pytest-技术债与-gate-叙事统一) | P0 | pytest 技术债与 gate 叙事统一 | 2–4 周 | **done** 2026-06-26（叙事+bisect 记录；全量修债 backlog） |
 | [PROD-P1-01](#prod-p1-01-dev-委派-verify-与-lead-门控) | P1 | Dev 委派 verify 与 Lead 门控 | 1–2 月 | backlog |
-| [PROD-P1-02](#prod-p1-02-owner-默认路径简报--onboarding) | P1 | Owner 默认路径（简报 + onboarding） | 1–2 月 | backlog |
+| [PROD-P1-02](#prod-p1-02-owner-默认路径简报--onboarding) | P1 | Owner 默认路径（简报 + onboarding） | 1–2 月 | **done** 2026-06-26 |
 | [PROD-P1-03](#prod-p1-03-记忆月度探针运营化) | P1 | 记忆月度探针运营化 | 1–2 月 | backlog |
 | [PROD-P2-01](#prod-p2-01-wechat_ilink-结构拆分) | P2 | `wechat_ilink` 结构拆分 | Backlog | backlog |
 | [PROD-P2-02](#prod-p2-02-observation-store-收口) | P2 | Observation Store 收口 | Backlog | 见 §3.2.1 |
@@ -475,4 +475,4 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | 2026-05-25 | 链入 [`DOCUMENTATION.md`](../../DOCUMENTATION.md) 文档体系 |
 | 2026-05-26 | 记录 SQLite observation store 首版落地后的残留风险与后续收口项 |
 | 2026-06-26 | **§3.6** 产品评估立项表（PROD-P0-01…P2-04）：G1-04、配置剖面、pytest 叙事、Dev/Owner/记忆 P1、工程 P2 |
-| 2026-06-26 | 微信 attach brief（`BUTLER_WECHAT_ATTACH_BRIEF_CHARS`）— PROD-P1-02 子项 ✅ @ `4f01d23` |
+| 2026-06-26 | **PROD-P1-02** `/简报` 四块 + onboarding 三步欢迎 |

@@ -332,20 +332,13 @@ _WELCOMED_LOCK = threading.Lock()
 
 _WELCOME_TEXT = """你好，我是 Butler 管家（莎丽）。
 
-常用命令：
-  /状态   — 健康与当前项目
-  /今日   — 本项目优先事项
-  /简报   — 待办与提醒
-  /分工   — 我与 CC/Cursor 怎么配合
-  /切换   — 换项目（附摘要）
-  /帮助   — 常用命令；/帮助 高级 看全部
+建议三步上手：
+1️⃣ /切换 <项目名> — 选定当前项目（附摘要）
+2️⃣ 只读一句 — 例：「读取 README 前 10 行并摘要」
+3️⃣ 试一次委派 — 例：「交给开发代理：只读检查 docs/ 目录」
 
-Lead 推荐：
-  · 查资料、看状态 → 直接说
-  · 改代码、跑测试 → 「交给开发代理…」或 /运行
-  · 重编码 → 本机 Claude Code；我负责派工与验收
-
-直接说需求即可。"""
+日常：/状态 · /简报 · /今日 · /帮助
+分工与七步剧本：/分工 · /帮助"""
 
 # User already asked for identity/capabilities — LLM reply supersedes static welcome.
 _WELCOME_SUPERSEDED_PATTERNS: tuple[re.Pattern[str], ...] = (

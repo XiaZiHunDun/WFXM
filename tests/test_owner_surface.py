@@ -105,6 +105,8 @@ def test_brief_includes_health_header():
     text = format_owner_brief(orch, "sk1")
     assert "健康概览" in text
     assert "管家简报" in text
+    assert "【待办】" in text
+    assert "【队列】" in text
 
 
 def test_terminal_approval_message_no_double_wrap():

@@ -64,7 +64,8 @@ def test_format_owner_brief_empty_inbox(monkeypatch):
     text = format_owner_brief(_Orch(), "wechat:u:灵文1号")
     assert "管家简报" in text
     assert "灵文1号" in text
-    assert "暂无待处理" in text
+    assert "【待办】" in text
+    assert "无待办" in text
 
 
 def test_collect_inbox_counts_project_todos(monkeypatch, tmp_path):

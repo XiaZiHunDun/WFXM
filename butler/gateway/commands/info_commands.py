@@ -532,7 +532,7 @@ _INFO_COMMANDS = [
         "本轮工具叙事（加 raw 看原始参数）",
         handler=_cmd_session_tools,
     ),
-    CommandDef("/简报", ("/brief",), "对话控制", "管家简报（待办/提醒/待审汇总）", handler=_cmd_brief),
+    CommandDef("/简报", ("/brief",), "对话控制", "管家简报（待办/队列/门控/昨夜 job）", handler=_cmd_brief),
     CommandDef("/今日", ("/today",), "对话控制", "本项目今日优先事项", handler=_cmd_today),
     CommandDef(
         "/分工",

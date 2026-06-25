@@ -25,7 +25,7 @@ _HELP_GROUPS: dict[str, tuple[str, str]] = {
 /停止            中断当前任务
 /queue [模式]    入站队列模式（followup/collect/interrupt/steer）
 /待办            查看/管理会话待办
-/简报            管家简报（待办/提醒/待审汇总）
+/简报            管家简报（待办/队列/门控/昨夜 job）
 /今日            本项目今日优先事项
 /分工            Butler 与 CC/Cursor 分工（/cc）
 /inbox           管家收件箱详情

@@ -56,7 +56,7 @@ tracks:
         tier: fast
       - name: /简报
         user_text: /简报
-        expect_reply_any: [简报, 项目, 收件箱, 管家]
+        expect_reply_any: [简报, 待办, 队列, 门控]
         tier: standard
       - name: /help
         user_text: /help
@@ -84,7 +84,7 @@ tracks:
         tier: fast
       - name: /简报 含健康灯
         user_text: /简报
-        expect_reply_any: [简报, 健康概览, 收件箱]
+        expect_reply_any: [简报, 健康概览, 待办, 队列, 门控]
         tier: fast
       - name: /分工 CC 说明
         user_text: /分工

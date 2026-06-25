@@ -198,50 +198,67 @@ def format_owner_brief(
     *,
     health: dict | None = None,
 ) -> str:
-    """Compact morning-style brief for /简报."""
-    from butler.gateway.owner_surface import format_owner_status_header
+    """Owner /简报 — fixed blocks: 待办 · 队列 · 门控 · 昨夜 job (PROD-P1-02)."""
+    from butler.gateway.owner_surface import (
+        _pending_delegate_line,
+        format_owner_status_header,
+    )
+    from butler.ops.owner_brief_blocks import format_overnight_jobs_lines
 
     snap = collect_inbox_snapshot(orchestrator, session_key, health=health)
     lines = ["📬 管家简报", ""]
     lines.extend(format_owner_status_header(orchestrator, session_key, health=health))
-    lines.append("")
     if snap.project_name:
         lines.append(f"项目：{snap.project_name}")
-    if snap.workspace:
-        lines.append(f"工作区：`{snap.workspace}`")
     lines.append("")
 
-    actions = _action_count(snap)
-    if actions == 0:
-        lines.append("收件箱：暂无待处理事项 ✅")
+    # ── 1. 待办 ──
+    lines.append("【待办】")
+    todo_lines: list[str] = []
+    if snap.project_todos_open:
+        todo_lines.append(f"  项目待办 {snap.project_todos_open} 项")
+        for item in snap.project_todo_samples[:3]:
+            todo_lines.append(f"    - {item}")
+        if snap.project_todos_open > 3:
+            todo_lines.append("    … → /项目待办")
+    if snap.reminders_pending:
+        todo_lines.append(f"  提醒 {snap.reminders_pending} 个待触发")
+        for item in snap.reminder_samples[:2]:
+            todo_lines.append(f"    - {item}")
+    if snap.memory_pending:
+        todo_lines.append(f"  记忆待审 {snap.memory_pending} 条 → /记忆待审")
+    if snap.experience_pending:
+        todo_lines.append(f"  经验待审 {snap.experience_pending} 条")
+    delegate = _pending_delegate_line(session_key)
+    if delegate:
+        todo_lines.append(f"  {delegate}")
+    if not todo_lines:
+        todo_lines.append("  无待办 ✅")
+    lines.extend(todo_lines)
+
+    # ── 2. 队列 ──
+    lines.append("")
+    lines.append("【队列】")
+    if snap.queue_pending:
+        lines.append(f"  入站待发 {snap.queue_pending} 条 → /queue")
     else:
-        lines.append(f"收件箱：{actions} 类待关注")
-        if snap.project_todos_open:
-            lines.append(f"· 项目待办 {snap.project_todos_open} 项")
-        if snap.reminders_pending:
-            lines.append(f"· 提醒 {snap.reminders_pending} 个待触发")
-        if snap.memory_pending:
-            lines.append(f"· 记忆待审 {snap.memory_pending} 条 → /记忆待审")
-        if snap.experience_pending:
-            lines.append(f"· 经验挖掘待审 {snap.experience_pending} 条")
-        if snap.queue_pending:
-            lines.append(f"· 入站队列 {snap.queue_pending} 条待发")
-        if snap.workflow_gate:
-            lines.append(f"· {snap.workflow_gate[:80]}")
+        lines.append("  入站队列空 ✅")
 
-    if snap.session_reads:
-        lines.append("")
-        lines.append(f"本轮已读 {snap.session_reads} 个文件（/本轮已读）")
-    if snap.compaction_line:
-        lines.append(snap.compaction_line)
-    if snap.mcp_line:
-        lines.append(snap.mcp_line)
-    if snap.b9_line:
-        lines.append(snap.b9_line)
-    if snap.trust_line:
-        lines.append(snap.trust_line)
+    # ── 3. 门控 ──
     lines.append("")
-    lines.append("详情：/inbox · 工具轨迹：/本轮工具 · 信任：/信任")
+    lines.append("【门控】")
+    if snap.workflow_gate:
+        lines.append(f"  {snap.workflow_gate[:120]}")
+    else:
+        lines.append("  无待确认工作流 ✅")
+
+    # ── 4. 昨夜 job ──
+    lines.append("")
+    lines.append("【昨夜 job】")
+    lines.extend(format_overnight_jobs_lines(snap.project_name))
+
+    lines.append("")
+    lines.append("更多：/inbox · /今日 · /高级")
     return "\n".join(lines)
 
 

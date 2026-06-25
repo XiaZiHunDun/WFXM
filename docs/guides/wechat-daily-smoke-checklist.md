@@ -137,6 +137,8 @@ bash scripts/butler-wechat-push-verify.sh 灵文1号
 | H9 | `butler runtime due` 或等 push-drain timer | 若曾限流入队，`/诊断` 队列待发减少 | ☐ | 可选 |
 | H10 | 自动化：`pytest tests/gateway/test_completion_notify.py tests/test_hooks_runner.py -q` | 全绿 | ☐ | 发版前 |
 | H11 | 长任务进行中再发一条**非斜杠**用户消息 | 先收到「已入队」；主回复后收到 **第二条** 排队正文（或拼入主回复若关 `QUEUE_PUSH_VIA_BRIDGE`） | ☐ | 需 `MESSAGE_QUEUE=1` |
+| H12 | `/简报` | 固定四块顺序：**待办 → 队列 → 门控 → 昨夜 job**；底部「更多：/inbox」 | ☐ | PROD-P1-02 |
+| H13 | 新会话首条（`BUTLER_ONBOARDING_WELCOME=1`） | 欢迎含 **三步上手**（切换 / 只读 / 委派） | ☐ | 可 `/新对话` 后首条测 |
 
 ---
 
