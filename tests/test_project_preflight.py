@@ -9,7 +9,7 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.project.manager import ProjectManager
-from butler.project.preflight import CheckLevel, run_preflight
+from butler.project.preflight import CheckLevel, format_report, run_preflight
 
 
 def _reset_pm() -> None:
@@ -67,6 +67,28 @@ class TestProjectPreflight:
         assert report.project_name == "应用一"
         assert report.suggested_template == "software-default"
         assert report.registered is True
+
+    def test_summarize_fix_verdict(self, projects_dir):
+        ws = projects_dir / "bad"
+        ws.mkdir()
+        report = run_preflight(ws, projects_dir=projects_dir)
+        s = report.summarize()
+        assert s["verdict"] == "fix"
+        assert s["fail_count"] >= 1
+
+    def test_format_report_has_tier_headline(self, projects_dir):
+        ws = projects_dir / "app2"
+        ws.mkdir()
+        (ws / "project.yaml").write_text(
+            yaml.safe_dump(
+                {"name": "应用二", "type": "software", "tools": ["read_file"]},
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+        report = run_preflight(ws, projects_dir=projects_dir)
+        text = format_report(report)
+        assert text.startswith("【")
 
     def test_novel_factory_template_suggested(self, projects_dir):
         ws = projects_dir / "nf"

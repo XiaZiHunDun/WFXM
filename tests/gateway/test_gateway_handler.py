@@ -109,8 +109,22 @@ class TestSlashCommands:
         text = handler._handle_command("/诊断")
         assert "简要诊断" in text
         assert "健康概览" in text
+        assert "OT2" in text
+        assert "部署剖面" in text
         assert "/诊断 详细" in text
         assert "Butler 诊断" not in text
+
+    def test_feedback_records_owner_hard_feedback(self, handler, tmp_path, monkeypatch):
+        monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+        with patch("butler.gateway.owner_gate.is_gateway_owner", return_value=True):
+            out = handler._handle_command(
+                "/反馈 委派不对，应该只读",
+                platform="wechat",
+                external_id="owner-test",
+            )
+        assert out is not None
+        assert "已记录" in out
+        assert (tmp_path / "audit" / "eval_feedback.jsonl").is_file()
 
     def test_health_shows_tool_audit_without_health_snapshot(self, handler):
         from butler.tools.registry import dispatch_tool, reset_tool_audit_events

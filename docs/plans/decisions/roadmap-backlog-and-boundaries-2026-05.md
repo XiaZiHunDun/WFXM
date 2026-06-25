@@ -21,7 +21,7 @@
 | **否决 / 不做** | 本文 **§1** |
 | **接开源 / MCP / 外购能力** | [`extension-rd-loop-2026-06.md`](../active/extension-rd-loop-2026-06.md) |
 | **报告写「未做」但可能已有** | 本文 **§2** + §4 速查 |
-| **真要排期新功能** | 本文 **§3** |
+| **真要排期新功能** | 本文 **§3**（含 **§3.6 产品立项**） |
 | **查已落地能力** | 本文 **§4** |
 | **Dev 能力上限 / 对标 CC CLI** | [`dev-capability-ceiling-vs-cc-cli-2026-06.md`](dev-capability-ceiling-vs-cc-cli-2026-06.md) |
 | **四报告 18 项详情** | [`four-reports-out-of-scope-2026-05.md`](../decisions/four-reports-out-of-scope-2026-05.md) |
@@ -194,6 +194,238 @@
 
 见 [`p3-deferred-deep-dive-2026-05.md`](../archive/p3-deferred-deep-dive-2026-05.md)（双实例、记忆排查 — **非**五报告 P3）。
 
+### 3.6 产品评估立项（2026-06 — P0/P1 带验收）
+
+> **来源**：产品向评估（2026-06-25）；与 [`butler-system-assessment-and-ops-2026-06.md`](butler-system-assessment-and-ops-2026-06.md)、[`agent-testing-strategy-2026-06.md`](agent-testing-strategy-2026-06.md) 对齐。  
+> **原则**：不重复 §1 否决；在现有 Loop/Gateway/脚本上扩展；每项须可验收、可链到守门脚本。  
+> **状态**：`backlog` = 未承诺排期；`in_progress` / `done` 在变更记录或 `pilot-log` 打卡。
+
+#### 总览
+
+| ID | 优先级 | 名称 | 建议周期 | 状态 |
+|----|--------|------|----------|------|
+| [PROD-P0-01](#prod-p0-01-g1-04-ot2-观测与-owner-硬反馈) | P0 | G1-04 OT2 观测与 Owner 硬反馈 | 2–4 周 | **done** 2026-06-26 |
+| [PROD-P0-02](#prod-p0-02-配置剖面产品化) | P0 | 配置剖面产品化 | 2–4 周 | **done** 2026-06-26 |
+| [PROD-P0-03](#prod-p0-03-pytest-技术债与-gate-叙事统一) | P0 | pytest 技术债与 gate 叙事统一 | 2–4 周 | **done** 2026-06-26（叙事+bisect 记录；全量修债 backlog） |
+| [PROD-P1-01](#prod-p1-01-dev-委派-verify-与-lead-门控) | P1 | Dev 委派 verify 与 Lead 门控 | 1–2 月 | backlog |
+| [PROD-P1-02](#prod-p1-02-owner-默认路径简报--onboarding) | P1 | Owner 默认路径（简报 + onboarding） | 1–2 月 | backlog |
+| [PROD-P1-03](#prod-p1-03-记忆月度探针运营化) | P1 | 记忆月度探针运营化 | 1–2 月 | backlog |
+| [PROD-P2-01](#prod-p2-01-wechat_ilink-结构拆分) | P2 | `wechat_ilink` 结构拆分 | Backlog | backlog |
+| [PROD-P2-02](#prod-p2-02-observation-store-收口) | P2 | Observation Store 收口 | Backlog | 见 §3.2.1 |
+| [PROD-P2-03](#prod-p2-03-安全信任补丁批次) | P2 | 安全信任补丁批次 | Backlog | 见 §3.1 |
+| [PROD-P2-04](#prod-p2-04-extension-ext-4) | P2 | Extension EXT-4+ 选型 | 季度 | 见 §3.0 |
+
+**建议执行顺序（开发会话对齐）**：
+
+```text
+本周     PROD-P0-02（文档+诊断首屏）· PROD-P0-03（叙事/issue）· PROD-P0-01（/诊断 G1-04 面）
+本月     PROD-P1-01 → PROD-P1-02 → PROD-P1-03
+窗满     PROD-P0-01 结案：butler-g1-04-closure-check.sh → 更新 gap register
+Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
+```
+
+---
+
+#### PROD-P0-01：G1-04 OT2 观测与 Owner 硬反馈
+
+| 字段 | 内容 |
+|------|------|
+| **问题** | 窗 **06-09→07-31** 内已有大量 `prod_delegate_*` 自动记账，但 **Owner 显式纠正路径缺失**；`/诊断` 简要面未展示 OT2 进度；窗满前易误判「已闭环」。 |
+| **范围（做）** | Owner 硬反馈入口；`/诊断` 简要 + `/doctor` 展示 `g1_04_observation_window_status`；窗满结案与登记册同步 |
+| **范围（不做）** | 替换 `eval_feedback` 管线；LangFuse 全量 APM；自动改 prompt/权重 |
+
+**验收标准**
+
+1. **可见性**：微信 `/诊断`（非 `详细`）首屏含 **OT2 观测** 块：`窗剩余天数`、`窗内条数`、`生产/B9` 分类、`ot2_closure_ready` 人话（是/否/窗未满）。
+2. **Owner 硬反馈**：至少一种微信可触发路径写入 `eval_feedback`，`evidence=production`，`trigger` **非** `prod_delegate_*` / `b9_*`（例：`/反馈 不对 …`、`/验收 驳回 …` 或等价 slash）；含 owner-gate。
+3. **自动证据保持**：`BUTLER_EVAL_PROD_EVIDENCE=1` 时委派 verify 仍写 `prod_delegate_verify_pass` / `prod_delegate_failure`（不回归）。
+4. **运维脚本**：`bash scripts/butler-g1-04-closure-check.sh` 窗未满 **exit 2** 为预期；`bash scripts/butler-dev-prod-evidence-checklist.sh` 输出与 `/诊断` 一致。
+5. **窗满结案**（07-31 后）：`ot2_closure_ready=true` 时 `butler-g1-04-closure-check.sh` **exit 0**；[`theory-implementation-gap-register-2026-06.md`](theory-implementation-gap-register-2026-06.md) G1-04 行更新为 ✅。
+6. **测试**：`tests/ops/test_g1_04_prod_evidence.py` 扩展；Owner 反馈 handler 单测 ≥2。
+
+**既有资产**
+
+| 类型 | 路径 |
+|------|------|
+| 状态 API | `butler/ops/boundary_observability.py` → `g1_04_observation_window_status` |
+| 自动生产证据 | `butler/ops/g1_04_prod_evidence.py` · `BUTLER_EVAL_PROD_EVIDENCE` |
+| 脚本 | `scripts/butler-g1-04-closure-check.sh` · `scripts/butler-dev-prod-evidence-checklist.sh` · `scripts/butler-ops-followup-check.sh` |
+| 文档 | `docs/guides/evaluation-guide.md` · `docs/guides/phase4-ops-runbook.md` |
+
+**运营节奏**：窗内 **每周** `butler-g1-04-closure-check.sh` + `pilot-log` 一行打卡。
+
+---
+
+#### PROD-P0-02：配置剖面产品化
+
+| 字段 | 内容 |
+|------|------|
+| **问题** | `.env.example` ~540 处 `BUTLER_*`；新 Owner 不知「生产微信机最少配什么」。 |
+| **范围（做）** | 三剖面一页纸为**唯一推荐入口**；诊断/preflight 人话三档；与现有 `BUTLER_DEPLOY_PROFILE` / `BUTLER_ENV_PROFILE` 对齐 |
+| **范围（不做）** | 删减 `reference.md`；新配置中心 UI |
+
+**三剖面（SSOT 命名）**
+
+| 剖面 | pip / 部署 | 终端 profile | 典型场景 |
+|------|------------|--------------|----------|
+| **gateway** | `BUTLER_DEPLOY_PROFILE=gateway` · `pip install -e ".[gateway]"` | — | 微信生产机 |
+| **dev-local** | `BUTLER_DEPLOY_PROFILE=dev` | `BUTLER_ENV_PROFILE=dev-local` | 本机改 core + pytest |
+| **dev-remote** | `gateway` + 项目 dev-remote | `BUTLER_ENV_PROFILE=dev-remote` | 远程沙箱 + CC 桥接 opt-in |
+
+**验收标准**
+
+1. **文档**：新增 `docs/guides/deploy-profiles-2026-06.md`（≤3 页），每剖面：**必填 env ≤10**、推荐脚本、`butler doctor` 期望；`README.md` / `AGENTS.md` 链到该文而非裸 `.env.example`。
+2. **`/诊断` 简要**：根据 `BUTLER_DEPLOY_PROFILE` + 是否在跑 gateway，**只展示本剖面相关 5–8 项**（其余「展开：/诊断 详细」）。
+3. **`butler project preflight`**：输出顶栏 **通过 / 需修复 / 可忽略** 三档摘要（≤5 行人话）；微信 `/项目` 或 preflight 子命令同文案（若已有 handler 则复用）。
+4. **`butler doctor`**：增加 `deploy_profile` 与「偏离推荐剖面」警告（例：gateway 机装了 `dev` 但未跑 gateway）。
+5. **守门**：`bash scripts/check-dead-env.sh` 仍绿；剖面文档中每条必填 env 在 `reference.md` 有对应行。
+
+**既有资产**
+
+| 类型 | 路径 |
+|------|------|
+| pip 剖面 | `BUTLER_DEPLOY_PROFILE` · [`dependency-terminology-2026-06.md`](../../guides/dependency-terminology-2026-06.md) §4 |
+| 终端剖面 | `scripts/apply-butler-env-profile.py` · `BUTLER_ENV_PROFILE` |
+| 运维 | `scripts/butler-gateway-ops.sh` · `scripts/butler-deploy.sh` · `scripts/setup-butler-config.sh` |
+| 诊断 | `butler/cli/doctor.py` · `butler/gateway/owner_surface.py` |
+
+---
+
+#### PROD-P0-03：pytest 技术债与 gate 叙事统一
+
+| 字段 | 内容 |
+|------|------|
+| **问题** | 全量 `pytest tests/` 约 **101 fail**（跨测状态泄漏，`test_tools_registry` 等）；分层 gate 绿 → 两套叙事并存。 |
+| **范围（做）** | 文档明确发版 gate；bisect 根因或隔离泄漏；可选 CI 只跑分层 |
+| **范围（不做）** | 以全量 pytest 为唯一发版门槛（见 §1 评估「勿双标」） |
+
+**验收标准**
+
+1. **叙事**：`README.md` · `CONTRIBUTING.md` · [`agent-testing-strategy-2026-06.md`](agent-testing-strategy-2026-06.md) 含 **gate 矩阵表**（PR / 发版 / 月度 / 全量各自跑什么）。
+2. **根因**：`pilot-log` 或 issue 记录 bisect 结论（泄漏模块列表 + 修复 PR 或 `xfail` 理由）。
+3. **目标**：全量 fail **≤10** 或明确标注 `pytest tests/ -q` 为 **maintainer optional** 且 CI 不跑。
+4. **守门不变**：`bash scripts/butler-pytest-fast-gate.sh` · `butler-pre-release-smoke.sh` 仍绿。
+
+**既有资产**
+
+| 类型 | 路径 |
+|------|------|
+| 策略 SSOT | [`agent-testing-strategy-2026-06.md`](agent-testing-strategy-2026-06.md) |
+| Fast gate | `scripts/butler-pytest-fast-gate.sh` |
+| 记录 | `projects/LingWen1/docs/pilot-log.md` §pytest 技术债 |
+
+---
+
+#### PROD-P1-01：Dev 委派 verify 与 Lead 门控
+
+| 字段 | 内容 |
+|------|------|
+| **问题** | 头对头仍慢于 CC CLI；VERIFY 命令靠 LLM 猜；Lead 场景偶发误委派。 |
+| **范围（做）** | `project.yaml` 标准 `dev.*_command` 模板推广；`LEAD_READONLY_NO_DELEGATE` 评估默认化；B9/playbook 继续 |
+| **范围（不做）** | CC 桥接立项（见 [`dev-cc-bridge-optional-2026-06.md`](dev-cc-bridge-optional-2026-06.md)）；对标 Cursor IDE |
+
+**验收标准**
+
+1. **模板**：`projects/DemoPilot/project.yaml` + `projects/LingWen1/project.yaml` 含非空 `dev.test_command` / `dev.lint_command`；新增 `docs/guides/project-yaml-dev-commands-template.md` 可复制段。
+2. **VERIFY**：`butler/dev_engine/verify.py` 对两试点项目跑 delegate 后 **命中 project.yaml 命令**（单测或 `butler-pilot-dev-testing.sh` 日志可证）。
+3. **Lead 门控**：`bash scripts/butler-wechat-lead-readonly-sim.sh` PASS；误委派话术返回 `LEAD_READONLY_NO_DELEGATE`。
+4. **飞轮**：`bash scripts/butler-dev-flywheel-monthly.sh --log` 一月内 PASS；`pilot-log` 记录 T1/T4/T5 耗时对比（允许仍慢于 CC，但无 STUCK 回归）。
+5. **SSOT 同步**：[`dev-capability-ceiling-vs-cc-cli-2026-06.md`](dev-capability-ceiling-vs-cc-cli-2026-06.md) P1 行标进展。
+
+**既有资产**
+
+| 类型 | 路径 |
+|------|------|
+| VERIFY | `butler/dev_engine/verify.py` |
+| 门控 | `butler/tools/delegate_role_guard.py` |
+| 脚本 | `scripts/butler-pilot-dev-testing.sh` · `scripts/butler-dev-flywheel-monthly.sh` · `scripts/butler-wechat-lead-readonly-sim.sh` |
+| Playbook | `butler/dev_engine/prod_playbook_seeds.py` |
+
+---
+
+#### PROD-P1-02：Owner 默认路径（简报 + onboarding）
+
+| 字段 | 内容 |
+|------|------|
+| **问题** | 数十条微信命令分散；缺「我今天该看什么」默认路径。 |
+| **范围（做）** | `/简报` 四块固定；首次绑定 onboarding 三步；长回复摘要与 `/详细`+附件 协同 |
+| **范围（不做）** | 新 GUI；全量命令重命名 |
+
+**验收标准**
+
+1. **`/简报`**：固定顺序四块 — **待办 / 队列 / 门控 / 昨夜 job**（标题可微调，块序不变）；其余折叠为「更多：/高级」。
+2. **Onboarding**：`BUTLER_ONBOARDING_WELCOME=1` 时首会话 **3 步引导**文案：切换项目 → 只读一句 → 试一次委派（链 `wechat-core-scenario.md`）。
+3. **长回复**：`BUTLER_TURN_SUMMARY_LINE` 生产默认开；附 `.txt` 时聊天气泡受 `BUTLER_WECHAT_ATTACH_BRIEF_CHARS` 限制（**done** @ `4f01d23`）。
+4. **sim**：`bash scripts/butler-wechat-owner-sim.sh --track owner-ux` PASS；`/简报` case 断言四块关键词。
+5. **真机**：`wechat-daily-smoke-checklist.md` 增 1 行 onboarding + 简报块序勾选。
+
+**既有资产**
+
+| 类型 | 路径 |
+|------|------|
+| 简报 | `butler/gateway/owner_surface.py` · slash handlers |
+| Welcome | `butler/gateway/handler_helpers.py` · `BUTLER_ONBOARDING_WELCOME` |
+| 附件 brief | `butler/gateway/wechat_text_export.py` |
+| 剧本 | [`wechat-core-scenario.md`](../../guides/wechat-core-scenario.md) |
+| sim | `.butler/simulation/wechat-owner-scenarios.yaml` track `owner-ux` |
+
+---
+
+#### PROD-P1-03：记忆月度探针运营化
+
+| 字段 | 内容 |
+|------|------|
+| **问题** | `butler-memory-phase-a/b.sh` 自动化绿，灵文 `memory-guide` M1–M7 真机表仍有未勾项。 |
+| **范围（做）** | 5 分钟月度话术 + 固定脚本；结果写 `pilot-log` |
+| **范围（不做）** | 新记忆算法 |
+
+**验收标准**
+
+1. **脚本**：`bash scripts/butler-memory-monthly-probe.sh`（或扩展现有 `butler-memory-phase-b.sh --monthly-log`）exit 0，输出 M1–M7 逐项 ✅/❌。
+2. **文档**：[`memory-ops.md`](../../guides/memory-ops.md) 链到 **微信 5 分钟探针话术**（≤7 条 slash/自然语言）。
+3. **运营**：`butler-dev-flywheel-monthly.sh` 或 ops follow-up **可选纳入**该探针；`pilot-log` 每月 1 行。
+4. **与自动化一致**：探针 FAIL 时 phase-b 亦 FAIL（避免「脚本绿、运营红」）。
+
+**既有资产**
+
+| 类型 | 路径 |
+|------|------|
+| Phase A/B | `scripts/butler-memory-phase-a.sh` · `scripts/butler-memory-phase-b.sh` |
+| 清单 | `projects/LingWen1/docs/memory-guide.md` · [`wechat-daily-smoke-checklist.md`](../../guides/wechat-daily-smoke-checklist.md) M1–M7 |
+| 测试 | `tests/test_premise_memory_theory.py` · `tests/test_memory_metrics_benchmark.py` |
+
+---
+
+#### PROD-P2-01：`wechat_ilink` 结构拆分
+
+| 字段 | 内容 |
+|------|------|
+| **问题** | `butler/gateway/platforms/wechat_ilink.py` ~1310 行，协议/推送/媒体改动牵一发动全身。 |
+| **验收标准** | 按审计拆 `crypto/account/transport/adapter/media` 子包；**零行为变更**；现有 gateway pytest + `butler-wechat-attach-probe.sh` + 真机 smoke 绿；coverage 不下降。 |
+| **来源** | [`project-deep-audit-2026-06.md`](../../reviews/project-deep-audit-2026-06.md) §2.1.1 |
+
+---
+
+#### PROD-P2-02：Observation Store 收口
+
+见上文 **§3.2.1**；验收：TSV→DB 迁移脚本、`/诊断` 或只读命令可导出 observation 统计、PreRead 排序权重文档化。
+
+---
+
+#### PROD-P2-03：安全信任补丁批次
+
+见 **§3.1** 子集批次立项：PII 扩展、`secrets.yaml` Fernet、MCP SSRF 守门；每批 ≤5 项，附 `tests/` 与发版 note。
+
+---
+
+#### PROD-P2-04：Extension EXT-4+
+
+见 **§3.0** 规程；下一候选 [`ext-4-second-openapi-2026-06.md`](../active/extension-candidates/ext-4-second-openapi-2026-06.md)；须 Observe→一页纸→Owner Decide，禁止直改 core 依赖。
+
+---
+
+**维护**：完成某项 → 本表 `状态` 改 `done`，摘要写入 §6 变更记录 + 相关 SSOT（`gap-register` / `pilot-log`）；部分交付可拆多 PR，但验收以本表勾选为准。
+
 ---
 
 ## 4. 已落地速查（勿当「未做」）
@@ -223,6 +455,7 @@
 | [`external-agent-reports-improvement-roadmap-2026-05.md`](../roadmaps/external-agent-reports-improvement-roadmap-2026-05.md) | 外部五报告 **已落地** §10 | 同上 |
 | [`external-reference-deferred-2026-05.md`](../../guides/external-reference-deferred-2026-05.md) | Hermes/LC/Dify/LF defer 细节 | 本文 §1.3、§3 |
 | [`post-consolidation-roadmap-2026-05.md`](../active/post-consolidation-roadmap-2026-05.md) | **产品运营** backlog | 本文 §3.4 |
+| 本文 **§3.6** | **产品评估 P0/P1 立项**（2026-06） | 带验收标准与脚本链 |
 | 各 `*-comparison-report-2026-05.md` | 历史对照全文 | **不**作为待办来源；以本文 + 速查为准 |
 
 **维护规则**
@@ -241,3 +474,5 @@
 | 2026-05-25 | 初版：合并四报告/五报告/外部 Agent/OpenCode/defer/post-consolidation 未做与边界 |
 | 2026-05-25 | 链入 [`DOCUMENTATION.md`](../../DOCUMENTATION.md) 文档体系 |
 | 2026-05-26 | 记录 SQLite observation store 首版落地后的残留风险与后续收口项 |
+| 2026-06-26 | **§3.6** 产品评估立项表（PROD-P0-01…P2-04）：G1-04、配置剖面、pytest 叙事、Dev/Owner/记忆 P1、工程 P2 |
+| 2026-06-26 | 微信 attach brief（`BUTLER_WECHAT_ATTACH_BRIEF_CHARS`）— PROD-P1-02 子项 ✅ @ `4f01d23` |

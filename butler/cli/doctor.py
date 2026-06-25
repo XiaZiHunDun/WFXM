@@ -79,6 +79,31 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
 
     api_key = os.environ.get("MINIMAX_API_KEY", "")
     print(f"  MINIMAX_API_KEY: {'✓ (set)' if api_key else '✗ (unset)'}")
+
+    print("\n[部署剖面]")
+    try:
+        from butler.ops.deploy_profile import (
+            deploy_profile,
+            effective_operating_profile,
+            env_profile,
+            format_owner_profile_lines,
+            gateway_singleton_lock_held,
+            profile_deviation_warnings,
+        )
+
+        op = effective_operating_profile()
+        print(f"  推荐剖面: {op}")
+        print(f"  BUTLER_DEPLOY_PROFILE: {deploy_profile() or '(未设)'}")
+        print(f"  BUTLER_ENV_PROFILE: {env_profile() or '(未设)'}")
+        print(f"  Gateway 锁: {'运行中' if gateway_singleton_lock_held() else '未持有'}")
+        for line in format_owner_profile_lines(max_lines=6):
+            print(f"  {line}")
+        for w in profile_deviation_warnings():
+            print(f"  ⚠ {w}")
+        print("  指南: docs/guides/deploy-profiles-2026-06.md")
+    except Exception as exc:
+        print(f"  (不可用: {exc})")
+
     try:
         from butler.config_secrets import secrets_status_line
 

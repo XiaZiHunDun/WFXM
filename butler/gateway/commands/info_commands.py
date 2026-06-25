@@ -227,6 +227,45 @@ def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
     )
 
 
+def _cmd_feedback(ctx: CommandContext) -> Optional[str]:
+    """Owner hard feedback for G1-04 OT2 (explicit correction / reject)."""
+    gate = require_owner(ctx)
+    if gate:
+        return gate
+    from butler.ops.owner_feedback import (
+        format_owner_feedback_ack,
+        record_owner_hard_feedback,
+    )
+
+    raw = (ctx.arg or "").strip()
+    if not raw:
+        return (
+            "用法：/反馈 <说明>\n"
+            "例：/反馈 委派结果不对，应该只读检查\n"
+            "验收驳回：/反馈 驳回 <原因>\n"
+            "计入 OT2 Owner 硬反馈（与自动 verify 记账分开）。"
+        )
+    kind = "correction"
+    body = raw
+    lower = raw.lower()
+    if lower.startswith("驳回") or lower.startswith("reject"):
+        kind = "reject"
+        body = raw.split(None, 1)[1].strip() if len(raw.split(None, 1)) > 1 else ""
+        if not body:
+            return "用法：/反馈 驳回 <原因>"
+    try:
+        record = record_owner_hard_feedback(
+            body,
+            session_key=ctx.session_key,
+            platform=ctx.platform,
+            external_id=ctx.external_id,
+            kind=kind,
+        )
+    except ValueError as exc:
+        return str(exc)
+    return format_owner_feedback_ack(record)
+
+
 def _cmd_pim(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
@@ -470,6 +509,13 @@ _INFO_COMMANDS = [
     # Sprint 11 TST-10-5: 从 inline 迁移过来的命令
     CommandDef("/会话", ("/sessions",), "对话控制", "查看/管理会话", handler=_cmd_sessions),
     CommandDef("/评价", ("/outcome",), "系统管理", "评估/评价当前结果", handler=_cmd_outcome),
+    CommandDef(
+        "/反馈",
+        ("/feedback",),
+        "系统管理",
+        "Owner 硬反馈（计入 OT2 观测）",
+        handler=_cmd_feedback,
+    ),
     CommandDef(
         "/诊断",
         ("/health",),

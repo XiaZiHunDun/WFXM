@@ -83,6 +83,7 @@ L-D 质量层       live_llm / corpus_live / LangFuse / G1-04   → 阈值 + 归
 | `corpus_live` / `live_llm` | nightly / 手动 | ✅ | 模型质量 |
 | 月度 `butler-dev-flywheel-monthly.sh` | 月 | ✅ | 运营 gate |
 | 真机微信 | 人 | ✅ | pilot-log 签收 |
+| **全量** `pytest tests/` | **维护者可选** | 混合 | **非发版阻塞**；~101 fail 技术债（`test_tools_registry` 跨测状态，见 `pilot-log`） |
 
 默认 `pyproject.toml`：`addopts = "-m 'not live_llm'"` — **禁止**把真 API 拉进 PR 硬门禁。
 
@@ -124,6 +125,8 @@ L-D 质量层       live_llm / corpus_live / LangFuse / G1-04   → 阈值 + 归
 | 优先级 | 项 | 状态 |
 |--------|-----|------|
 | P0 | 本文 + `tests/README.md` 原则节 | ✅ 2026-06-25 |
+| P0 | PROD-P0-02/03 配置剖面 + gate 叙事 | ✅ 2026-06-26 |
+| P0 | PROD-P0-01 `/反馈` + `/诊断` OT2 面 | ✅ 2026-06-26 |
 | P2 | `tests/fixtures/llm_responses/` + `test_llm_response_fixtures.py` | ✅ 2026-06-25 |
 | P2+ | 扩 manifest sim（更多契约，少措辞） | 持续 |
 | P3 | corpus live 通过率仪表盘 + issue map 周报 | 运营 |

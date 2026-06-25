@@ -7,7 +7,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 
@@ -45,6 +45,32 @@ class PreflightReport:
     @property
     def ok(self) -> bool:
         return not any(i.level == CheckLevel.FAIL for i in self.items)
+
+    def summarize(self) -> dict[str, Any]:
+        """Three-tier verdict for Owner/CLI (PROD-P0-02)."""
+        fails = [i for i in self.items if i.level == CheckLevel.FAIL]
+        warns = [i for i in self.items if i.level == CheckLevel.WARN]
+        infos = [i for i in self.items if i.level == CheckLevel.INFO]
+        if fails:
+            verdict: Literal["pass", "fix", "ok_with_notes"] = "fix"
+            headline = f"需修复 {len(fails)} 项"
+            detail = fails[0].message
+        elif warns:
+            verdict = "ok_with_notes"
+            headline = "通过（有可忽略警告）"
+            detail = f"{len(warns)} 项警告，不影响登记"
+        else:
+            verdict = "pass"
+            headline = "通过"
+            detail = "项目目录满足 Butler 接入条件"
+        return {
+            "verdict": verdict,
+            "headline": headline,
+            "detail": detail,
+            "fail_count": len(fails),
+            "warn_count": len(warns),
+            "info_count": len(infos),
+        }
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -456,7 +482,14 @@ def run_preflight(
 
 def format_report(report: PreflightReport) -> str:
     """Human-readable preflight output."""
-    lines = [f"Preflight: {report.path}"]
+    summary = report.summarize()
+    tag = {"pass": "通过", "fix": "需修复", "ok_with_notes": "通过"}[summary["verdict"]]
+    lines = [
+        f"【{tag}】{summary['headline']}",
+        f"  {summary['detail']}",
+        "",
+        f"Preflight: {report.path}",
+    ]
     if report.project_name:
         lines.append(f"  项目名: {report.project_name}")
     lines.append(
@@ -473,7 +506,12 @@ def format_report(report: PreflightReport) -> str:
             line += f"\n         → {item.hint}"
         lines.append(line)
     lines.append("")
-    lines.append("通过" if report.ok else "未通过（存在 FAIL）")
+    if summary["verdict"] == "fix":
+        lines.append("结论：未通过 — 请先修复 FAIL 项")
+    elif summary["verdict"] == "ok_with_notes":
+        lines.append(f"结论：通过 — {summary['warn_count']} 项可忽略警告")
+    else:
+        lines.append("结论：通过")
     return "\n".join(lines)
 
 

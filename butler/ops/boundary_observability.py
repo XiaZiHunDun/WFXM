@@ -186,6 +186,12 @@ def g1_04_observation_window_status(
         feedback_in_window > 0
         and b9_eval == feedback_in_window
     )
+    triggers = in_window.get("triggers") or {}
+    from butler.ops.owner_feedback import is_owner_explicit_trigger
+
+    feedback_owner_explicit = sum(
+        int(n) for trig, n in triggers.items() if is_owner_explicit_trigger(str(trig))
+    )
     window_days = (G1_04_WINDOW_END - G1_04_WINDOW_START).days + 1
     days_elapsed = max(0, (day - G1_04_WINDOW_START).days + 1) if day >= G1_04_WINDOW_START else 0
     return {
@@ -205,6 +211,7 @@ def g1_04_observation_window_status(
         "feedback_evidence_b9_eval": b9_eval,
         "feedback_evidence_production": production,
         "feedback_evidence_unknown": unknown,
+        "feedback_owner_explicit": feedback_owner_explicit,
         "feedback_b9_eval_only": feedback_b9_eval_only,
         "last_feedback_ts": in_window.get("last_ts"),
         "pipeline_closure_ready": pipeline_closure_ready,
@@ -212,6 +219,40 @@ def g1_04_observation_window_status(
         "closure_ready": ot2_closure_ready,
         "eval_feedback_path": str(fb_path),
     }
+
+
+def format_owner_g1_04_brief_lines() -> list[str]:
+    """Owner-tier OT2 observation block for /诊断 brief."""
+    w = g1_04_observation_window_status()
+    lines = ["OT2 观测（G1-04）"]
+    if w.get("window_open"):
+        lines.append(f"  观测窗剩 {w.get('days_remaining', 0)} 天（至 {w.get('window_end', '?')}）")
+    elif w.get("window_complete"):
+        lines.append("  观测窗已结束")
+    else:
+        lines.append("  观测窗未开始")
+
+    total = int(w.get("feedback_in_window") or 0)
+    owner_x = int(w.get("feedback_owner_explicit") or 0)
+    prod = int(w.get("feedback_evidence_production") or 0)
+    b9 = int(w.get("feedback_evidence_b9_eval") or 0)
+    auto_prod = max(0, prod - owner_x)
+    lines.append(
+        f"  窗内 {total} 条：Owner显式 {owner_x} · 自动生产 {auto_prod} · B9 {b9}"
+    )
+
+    if w.get("ot2_closure_ready"):
+        closure = "可结案（含生产证据）"
+    elif w.get("window_complete") and w.get("feedback_b9_eval_only"):
+        closure = "仅 B9 证据，勿当 OT2 已证"
+    elif w.get("window_complete"):
+        closure = "窗满，待复核 eval_feedback"
+    elif owner_x < 1:
+        closure = "窗未满；建议用 /反馈 记录纠正"
+    else:
+        closure = "窗未满；已有 Owner 反馈"
+    lines.append(f"  结案状态：{closure}")
+    return lines
 
 
 def _g1_04_detail(*, fb_7d: dict[str, Any], window: dict[str, Any]) -> str:
@@ -507,5 +548,6 @@ __all__ = [
     "classify_feedback_evidence",
     "collect_boundary_observations",
     "format_boundary_observability_lines",
+    "format_owner_g1_04_brief_lines",
     "g1_04_observation_window_status",
 ]

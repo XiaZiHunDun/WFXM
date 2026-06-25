@@ -40,6 +40,19 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 
 发版顺序见 [`docs/guides/release-runbook-2026-05.md`](docs/guides/release-runbook-2026-05.md)（preflight → `butler-pre-release-smoke.sh` → 网关部署 → 真机清单）。
 
+## 测试与门禁（发版依据）
+
+**PR / 发版以分层 gate 为准**，全量 `pytest tests/` 为维护者可选（存在已知跨测泄漏，见 `agent-testing-strategy` §3）。
+
+| 场景 | 命令 |
+|------|------|
+| PR 快 gate | `bash scripts/butler-pytest-fast-gate.sh` |
+| 默认 CI pytest | `pytest -m 'not live_llm'` |
+| 发版 smoke | `bash scripts/butler-pre-release-smoke.sh` |
+| 维护者全量（非阻塞） | `PYTHONPATH=. pytest tests/ -q` |
+
+完整矩阵：[`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) §3。
+
 ## Butler 线束（规划 / 上下文 / Hooks）
 
 - 微信：`/计划`、`/执行`、`/任务`；`/诊断` 含上下文用量档位、Shell hooks 摘要、**出站策略**（完成推送/委派模式/冷却）；`/状态` 含规划模式

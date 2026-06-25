@@ -19,6 +19,7 @@ _OWNER_HELP_DEFAULT = """Butler 常用命令（Owner）
 /帮助 高级  全部命令与运维项
 /诊断          简要健康（Owner）
 /诊断 详细      完整运维快照
+/反馈          纠正或驳回（计入 OT2 观测）
 
 推荐路径（Lead 生产）：
 · 查状态、读文件 → 直接说
@@ -176,6 +177,14 @@ def format_owner_diagnostic_brief(
     lines = ["Butler 简要诊断（Owner）", ""]
     lines.extend(format_owner_status_header(orchestrator, sk, health=health))
 
+    from butler.ops.deploy_profile import format_owner_profile_lines
+    from butler.ops.boundary_observability import format_owner_g1_04_brief_lines
+
+    lines.append("")
+    lines.extend(format_owner_profile_lines())
+    lines.append("")
+    lines.extend(format_owner_g1_04_brief_lines())
+
     hints: list[str] = []
     if snap.queue_pending:
         hints.append(f"入站队列 {snap.queue_pending} 条待发")
@@ -194,8 +203,7 @@ def format_owner_diagnostic_brief(
         lines.append(f"待关注 {actions} 类 → /简报 或 /inbox")
 
     lines.append("")
-    lines.append("完整运维快照：/诊断 详细")
-    lines.append("安全审计：/doctor")
+    lines.append("完整运维快照：/诊断 详细 · 更多配置：/doctor")
     return "\n".join(lines)
 
 

@@ -7,7 +7,7 @@
 | # | 文档 | 何时读 |
 |---|------|--------|
 | 1 | [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md) | 改 Loop / Gateway / 模块 |
-| 2 | [`docs/config/reference.md`](docs/config/reference.md) + [`docs/config/config-surfaces.md`](docs/config/config-surfaces.md) + [`.env.example`](.env.example) | 查 `BUTLER_*`、配置放哪（勿猜默认值） |
+| 2 | [`docs/guides/deploy-profiles-2026-06.md`](docs/guides/deploy-profiles-2026-06.md) + [`docs/config/reference.md`](docs/config/reference.md) + [`.env.example`](.env.example) | **上手配置**用三剖面；查 `BUTLER_*` 用 reference（勿猜默认值） |
 | 3 | [`docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | **提需求 / 否决 / Backlog** |
 | 4 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层、语料、规划索引、维护规则 |
 | 5 | [`docs/plans/decisions/theory-implementation-gap-register-2026-06.md`](docs/plans/decisions/theory-implementation-gap-register-2026-06.md) | 理论—实现差距（G1–G4）；Phase 9 核对见 `post-consolidation-roadmap` §9 |

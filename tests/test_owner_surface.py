@@ -91,6 +91,8 @@ def test_owner_diagnostic_brief():
     text = format_owner_diagnostic_brief(orch, "sk1")
     assert "简要诊断" in text
     assert "健康概览" in text
+    assert "OT2" in text
+    assert "部署剖面" in text
     assert "/诊断 详细" in text
 
 

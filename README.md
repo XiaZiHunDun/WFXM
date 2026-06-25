@@ -34,6 +34,8 @@ pip install -e ".[wechat]"          # Butler + 微信 iLink 依赖（推荐）
 
 ### 2. 配置
 
+**推荐**：先读 [`docs/guides/deploy-profiles-2026-06.md`](docs/guides/deploy-profiles-2026-06.md)（gateway / dev-local / dev-remote 三剖面），再按需编辑 `.env`。
+
 ```bash
 cp .env.example .env
 # 编辑 .env，至少配置一个 LLM Provider 的 API Key
@@ -62,15 +64,12 @@ bash scripts/butler-gateway-ops.sh status        # 运维状态
 
 ### 4. 测试
 
-```bash
-PYTHONPATH=. pytest -q          # 全绿（默认排除 live_llm）
-bash scripts/project-health-check.sh quick   # 统一项目体检（推荐日常）
-bash scripts/project-health-check.sh full    # 发版前完整体检
-bash scripts/project-health-report.sh quick  # 生成体检报告（logs/maintenance）
-bash scripts/repo-cleanup-audit.sh           # 仓库结构与大文件审计
+**发版 / PR 以分层 gate 为准**（非裸跑全量 `pytest tests/`）。矩阵见 [`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) §3。
 
-# 微信改动的快守门（见 tests/README.md）
-PYTHONPATH=. pytest tests/gateway/test_gateway_acceptance.py tests/gateway/test_wechat_ilink_*.py -q
+```bash
+bash scripts/butler-pytest-fast-gate.sh   # PR 推荐
+PYTHONPATH=. pytest -q                    # 默认排除 live_llm（维护者可选全量）
+bash scripts/project-health-check.sh quick
 ```
 
 ## 项目结构（核心）
