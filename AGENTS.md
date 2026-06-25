@@ -11,6 +11,7 @@
 | 3 | [`docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) | **提需求 / 否决 / Backlog** |
 | 4 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层、语料、规划索引、维护规则 |
 | 5 | [`docs/plans/decisions/theory-implementation-gap-register-2026-06.md`](docs/plans/decisions/theory-implementation-gap-register-2026-06.md) | 理论—实现差距（G1–G4）；Phase 9 核对见 `post-consolidation-roadmap` §9 |
+| 6 | [`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) | 改测试 / 加 live_llm / handler sim 断言前 |
 
 **发版**：[`docs/guides/release-runbook-2026-05.md`](docs/guides/release-runbook-2026-05.md)
 
@@ -50,6 +51,8 @@ PYTHONPATH=. pytest tests/gateway/test_message_queue.py tests/gateway/test_gatew
 # 或按域：bash scripts/butler-domain-pytest.sh gateway   # ops | dev_engine | memory | core
 # 体验增强（总览/待办/管道/引导/自动续跑）
 PYTHONPATH=. pytest tests/test_p2_remaining_features.py -q
+# 编排 replay（mock LLM 脚本，无真 API）
+PYTHONPATH=. pytest tests/test_llm_response_fixtures.py -q
 # 试点项目开发测试（演示试点 / 灵文1号）
 bash scripts/butler-pilot-dev-testing.sh
 # 编排质量（cron 提醒/向量/语义路由/MCP 自助/fact/Skill 工具联动）

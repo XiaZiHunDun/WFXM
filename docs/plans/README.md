@@ -25,6 +25,7 @@
 | [`decisions/theory-implementation-gap-register-2026-06.md`](decisions/theory-implementation-gap-register-2026-06.md) | 理论—实现差距登记册（G1–G4） |
 | [`decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md`](decisions/dev-capability-ceiling-vs-cc-cli-2026-06.md) | Dev 能力上限：对标 CC CLI（非 Cursor） |
 | [`decisions/dev-cc-bridge-optional-2026-06.md`](decisions/dev-cc-bridge-optional-2026-06.md) | P3 本机 CC 桥接（暂缓） |
+| [`decisions/agent-testing-strategy-2026-06.md`](decisions/agent-testing-strategy-2026-06.md) | Agent/LLM 时代测试分层与断言契约 |
 | [`decisions/four-reports-out-of-scope-2026-05.md`](decisions/four-reports-out-of-scope-2026-05.md) | 四报告 18 项否决 |
 | [`decisions/five-reports-not-done-2026-05.md`](decisions/five-reports-not-done-2026-05.md) | 五报告 S1–S11 速查 |
 

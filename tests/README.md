@@ -1,5 +1,7 @@
 # Butler 测试
 
+> **Agent / LLM 时代测试原则**：[`docs/plans/decisions/agent-testing-strategy-2026-06.md`](../docs/plans/decisions/agent-testing-strategy-2026-06.md)（四层模型 · 断言契约 · CI 矩阵）
+
 ```bash
 cd /path/to/WFXM
 PYTHONPATH=. pytest -q          # 默认 ~6565 selected / 7110 collected（排除 live_llm 545）
@@ -20,6 +22,21 @@ butler doctor                   # 静态安全配置审计（OpenClaw OC-P2）
 | `e2e` | L4 端到端 |
 | `live_llm` | 真实 API（需 `BUTLER_RUN_REAL_API_SMOKE=1`）|
 | `corpus` / `corpus_mock` / `corpus_live` / `corpus_smoke` | 语料模块评测，见 [`corpus/README.md`](corpus/README.md) |
+
+## Agent 测试四层（速查）
+
+| 层 | 测什么 | 默认 CI | 入口 |
+|----|--------|---------|------|
+| **L-A 确定性** | Gateway、工具、格式化、附件 | ✅ | `butler-pytest-fast-gate.sh`、domain pytest |
+| **L-B 编排** | Loop + mock LLM 脚本 | ✅ | `tests/test_llm_response_fixtures.py`、`tests/fixtures/llm_responses/` |
+| **L-C 行为** | handler sim、文件/task 契约 | opt-in | `butler-pilot-dev-testing.sh`、`butler-wechat-*-sim.sh` |
+| **L-D 质量** | live_llm、语料 live、LangFuse | nightly/月 | `-m live_llm`、`butler-dev-flywheel-monthly.sh` |
+
+**编排 replay 示例**：
+
+```bash
+PYTHONPATH=. pytest tests/test_llm_response_fixtures.py -q
+```
 
 **语料测试（开发对话 + 微信衍射，独立目录）：**
 

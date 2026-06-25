@@ -1,0 +1,24 @@
+{
+  "description": "Lead issues delegate_task, then summarizes after tool result (delegate itself is mocked in test).",
+  "turns": [
+    {
+      "content": null,
+      "finish_reason": "tool_calls",
+      "tool_calls": [
+        {
+          "id": "call_delegate_1",
+          "name": "delegate_task",
+          "arguments": {
+            "role": "dev",
+            "task": "在 docs/ 写验收文件",
+            "context": "只读检查后再写"
+          }
+        }
+      ]
+    },
+    {
+      "content": "已委派开发代理，完成后会通知你。",
+      "finish_reason": "stop"
+    }
+  ]
+}

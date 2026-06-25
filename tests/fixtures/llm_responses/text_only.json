@@ -1,0 +1,9 @@
+{
+  "description": "Single-turn text completion (no tools).",
+  "turns": [
+    {
+      "content": "你好，我是 Butler 测试夹具。",
+      "finish_reason": "stop"
+    }
+  ]
+}
