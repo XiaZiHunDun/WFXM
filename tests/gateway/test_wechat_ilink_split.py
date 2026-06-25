@@ -410,6 +410,15 @@ def test_aes_padded_size_reexported_for_send_file():
 
 
 @pytest.mark.unit
+def test_file_upload_crypto_helpers_reexported():
+    """Regression: wechat_ilink_phases imports crypto helpers from wechat_ilink."""
+    mod = importlib.import_module("butler.gateway.platforms.wechat_ilink")
+    for name in ("_aes128_ecb_encrypt", "_aes128_ecb_decrypt", "_upload_ciphertext"):
+        assert hasattr(mod, name), f"missing re-export: {name}"
+    assert mod._aes128_ecb_encrypt(b"abc", b"\x00" * 16)
+
+
+@pytest.mark.unit
 class TestR14aSplitTextBehaviour:
     """Behavioral smoke: ``_split_text`` still produces expected chunks."""
 
