@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from butler.report.generator import AgentReport, Change
+from butler.gateway.delegate_task_kind import infer_delegate_task_kind
 
 
 def attach_delegate_acceptance_meta(
@@ -13,6 +14,9 @@ def attach_delegate_acceptance_meta(
     role: str = "",
     project: Any = None,
     dev_engine: dict[str, Any] | None = None,
+    task: str = "",
+    task_preview: str = "",
+    category_meta: dict[str, Any] | None = None,
 ) -> AgentReport:
     """Stamp ``structured_output['acceptance']`` for WeChat acceptance card."""
     norm = str(role or "").replace("_agent", "").strip().lower()
@@ -25,6 +29,15 @@ def attach_delegate_acceptance_meta(
         "test_configured": bool(str(dev_cfg.get("test_command") or "").strip()),
         "change_count": len(report.changes or []),
     }
+    task_kind = infer_delegate_task_kind(
+        role=role,
+        task=task,
+        task_preview=task_preview or report.task_preview or "",
+        changes=report.changes,
+        category_meta=category_meta,
+    )
+    if task_kind:
+        meta["task_kind"] = task_kind
     de = dev_engine if isinstance(dev_engine, dict) else {}
     if norm == "dev":
         meta["edits"] = int(de.get("edits") or meta["change_count"] or 0)
@@ -45,6 +58,8 @@ def attach_delegate_acceptance_meta(
 
 
 def _test_line(meta: dict[str, Any], report: AgentReport) -> str:
+    if meta.get("task_kind") == "ingest":
+        return "测试：—（ingest 写盘）"
     if meta.get("verify_applicable") is False:
         return "测试：—（非开发委派）"
     if not meta.get("test_configured"):

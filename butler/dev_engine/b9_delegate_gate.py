@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -9,6 +10,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterator
 
 from butler.dev_engine.b9_live_tuning import B9_LIVE_CATEGORY
+
+logger = logging.getLogger(__name__)
 
 SWE_LIVE_CATEGORY = "swe-benchmark"
 LINGWEN_DRILL_CATEGORY = "lingwen-drill"
@@ -326,6 +329,10 @@ def apply_dev_auto_verify_success_gate(
     base_success: bool,
     issues: list[str] | None = None,
     dev_engine: dict[str, Any] | None = None,
+    task: str = "",
+    task_preview: str = "",
+    changes: list | None = None,
+    category_meta: dict[str, Any] | None = None,
 ) -> tuple[bool, list[str]]:
     """Production dev: edits without green verify must not count as delegate success."""
     out = list(issues or [])
@@ -334,6 +341,19 @@ def apply_dev_auto_verify_success_gate(
     norm = str(role or "").replace("_agent", "").strip().lower()
     if norm != "dev":
         return True, out
+    try:
+        from butler.gateway.delegate_task_kind import is_dev_verify_exempt
+
+        if is_dev_verify_exempt(
+            role=role,
+            task=task,
+            task_preview=task_preview,
+            changes=changes,
+            category_meta=category_meta,
+        ):
+            return True, out
+    except Exception as exc:
+        logger.debug("dev verify exempt check skipped: %s", exc)
     if not dev_verify_success_gate_enabled():
         return True, out
     try:

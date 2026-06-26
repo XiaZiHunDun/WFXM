@@ -491,7 +491,9 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 |----|------|------|------|
 | PROD-P5-01 | 委派完成卡去陈旧（task 年龄 / outbox） | P5-A | **done** 2026-06-26 |
 | PROD-P5-02 | ingest 意图预路由（manifest 话术） | P5-B | **done** 2026-06-26 |
-| PROD-P5-03 | ingest/只读写盘跳过 DEV_VERIFY_GATE | P5-C | backlog |
+| PROD-P5-03 | ingest/只读写盘跳过 DEV_VERIFY_GATE | P5-C | **done** 2026-06-26 |
+
+**P5 线收束**（A/B/C ✅ 2026-06-26）。守门见下。
 
 守门（目标态）：`bash scripts/butler-owner-ux-p5-gate.sh` · P4/EXT-5 回归见 P5 SSOT §7
 

@@ -92,6 +92,8 @@ def finalize_delegate_success(
     project: Any = None,
     role: str = "",
     dev_engine: dict[str, Any] | None = None,
+    task: str = "",
+    task_preview: str = "",
 ) -> tuple[bool, list[str]]:
     """Base delegate success + category gates (B9 pytest) + dev auto-verify."""
     base = _delegate_task_succeeded(result, changes, issues)
@@ -115,6 +117,10 @@ def finalize_delegate_success(
             base_success=ok,
             issues=out_issues,
             dev_engine=dev_engine,
+            task=task,
+            task_preview=task_preview or (task or "")[:200],
+            changes=changes,
+            category_meta=category_meta,
         )
         return apply_coding_strict_pilot_gate(
             category=category,

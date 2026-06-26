@@ -209,6 +209,7 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
                 project=project,
                 role=job.role,
                 dev_engine=dev_engine,
+                task=job.task or "",
             )
         else:
             success = False
@@ -262,6 +263,17 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
             tool_calls=getattr(result, "tool_calls_made", 0) if result else 0,
             tokens_used=getattr(result, "total_tokens", 0) if result else 0,
             elapsed_seconds=getattr(result, "elapsed_seconds", 0.0) if result else 0.0,
+        )
+        from butler.report.acceptance_card import attach_delegate_acceptance_meta
+
+        attach_delegate_acceptance_meta(
+            report,
+            role=job.role,
+            project=project,
+            dev_engine=dev_engine,
+            task=job.task or "",
+            task_preview=task_preview,
+            category_meta=job.category_meta,
         )
         complete_task(
             job.task_id,

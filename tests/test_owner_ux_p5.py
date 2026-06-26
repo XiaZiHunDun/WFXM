@@ -112,6 +112,79 @@ def test_p5_02_edit_slash_takes_priority_over_ingest():
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="PROD-P5-03 backlog: ingest skips DEV_VERIFY_GATE")
-def test_p5_03_ingest_delegate_success_without_verify_gate():
-    raise NotImplementedError
+def test_p5_03_ingest_delegate_success_without_verify_gate(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("BUTLER_DEV_VERIFY_SUCCESS_GATE", "1")
+    from butler.dev_engine.b9_delegate_gate import apply_dev_auto_verify_success_gate
+    from butler.report import AgentReport
+    from butler.report.acceptance_card import (
+        attach_delegate_acceptance_meta,
+        format_delegate_acceptance_card,
+    )
+    from butler.tools.delegate_impl import finalize_delegate_success
+
+    task = "【EXT-5 ingest 路由】把 docs/x.txt 转成 Markdown 放进 .butler/ingest/"
+    changes = [
+        SimpleNamespace(
+            file="projects/LingWen1/.butler/ingest/docs/x.md",
+            action="created",
+        )
+    ]
+    dev_engine = {"edits": 1, "verify_passed": False}
+
+    ok, issues = apply_dev_auto_verify_success_gate(
+        role="dev",
+        base_success=True,
+        issues=[],
+        dev_engine=dev_engine,
+        task=task,
+        changes=changes,
+    )
+    assert ok is True
+    assert issues == []
+
+    ok_code, code_issues = apply_dev_auto_verify_success_gate(
+        role="dev",
+        base_success=True,
+        issues=[],
+        dev_engine=dev_engine,
+        task="fix butler/core/foo.py",
+        changes=[SimpleNamespace(file="butler/core/foo.py", action="modified")],
+    )
+    assert ok_code is False
+    assert any("DEV_VERIFY_GATE" in i for i in code_issues)
+
+    result = SimpleNamespace(
+        final_response="done",
+        status=SimpleNamespace(value="completed"),
+    )
+    success, fin_issues = finalize_delegate_success(
+        result,
+        changes=changes,
+        issues=[],
+        role="dev",
+        dev_engine=dev_engine,
+        task=task,
+    )
+    assert success is True
+    assert not any("DEV_VERIFY_GATE" in i for i in fin_issues)
+
+    report = AgentReport(
+        headline="开发代理已完成任务",
+        summary="ingest ok",
+        changes=changes,
+        issues=fin_issues,
+        success=success,
+        task_preview=task[:200],
+    )
+    attach_delegate_acceptance_meta(
+        report,
+        role="dev",
+        project=type("P", (), {"dev": {"test_command": "pytest"}})(),
+        dev_engine=dev_engine,
+        task=task,
+    )
+    card = format_delegate_acceptance_card(report)
+    assert "ingest 写盘" in card
+    assert "未通过" not in card

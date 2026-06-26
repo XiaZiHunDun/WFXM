@@ -859,6 +859,7 @@ def _build_delegate_report(
         project=state.project,
         role=state.role,
         dev_engine=de_summary,
+        task=state.task or "",
     )
     role_label = _delegate_role_label(state.role)
     if success:
@@ -897,6 +898,9 @@ def _build_delegate_report(
         role=state.role,
         project=state.project,
         dev_engine=de_summary,
+        task=state.task or "",
+        task_preview=task_preview,
+        category_meta=state.category_meta,
     )
     return report
 
