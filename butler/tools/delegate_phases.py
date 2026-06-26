@@ -846,6 +846,10 @@ def _build_delegate_report(
         finalize_delegate_success,
     )
 
+    de_summary = peek_dev_engine_summary(
+        state.child_session_key or state.session_key or "_default",
+        state.role,
+    )
     success, issues = finalize_delegate_success(
         result,
         changes,
@@ -854,10 +858,7 @@ def _build_delegate_report(
         category_meta=state.category_meta,
         project=state.project,
         role=state.role,
-        dev_engine=peek_dev_engine_summary(
-            state.child_session_key or state.session_key or "_default",
-            state.role,
-        ),
+        dev_engine=de_summary,
     )
     role_label = _delegate_role_label(state.role)
     if success:
@@ -888,6 +889,14 @@ def _build_delegate_report(
         tool_calls=result.tool_calls_made,
         tokens_used=result.total_tokens,
         elapsed_seconds=result.elapsed_seconds,
+    )
+    from butler.report.acceptance_card import attach_delegate_acceptance_meta
+
+    attach_delegate_acceptance_meta(
+        report,
+        role=state.role,
+        project=state.project,
+        dev_engine=de_summary,
     )
     return report
 

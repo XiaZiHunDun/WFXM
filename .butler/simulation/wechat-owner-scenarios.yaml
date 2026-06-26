@@ -92,8 +92,8 @@ tracks:
         tier: fast
       - name: /诊断 Owner 简要
         user_text: /诊断
-        expect_reply_any: [简要诊断, 健康概览, /诊断 详细]
-        reject_reply_any: [Butler 诊断]
+        expect_reply_any: [简要诊断, 网关, 项目, 待办, /诊断 详细]
+        reject_reply_any: [OT2, G1-04, Butler 诊断]
         tier: fast
       - name: /诊断 详细 运维
         user_text: /诊断 详细
@@ -137,7 +137,23 @@ tracks:
         tier: fast
       - name: P3-05 /帮助 常用面
         user_text: /帮助
-        expect_reply_any: [/简报, /状态, /分工]
+        expect_reply_any: [五个说法, 查, /简报, /反馈]
+        reject_reply_any: [Butler 常用命令（Owner）]
+        tier: fast
+
+  - id: owner-p4
+    title: Owner UX P4（五意图 · 诊断三行）
+    session_mode: fresh
+    quick: true
+    cases:
+      - name: P4-01 /帮助 五意图
+        user_text: /帮助
+        expect_reply_any: [五个说法, 查, 改, 批, 记, 管]
+        tier: fast
+      - name: P4-05 /诊断 三行无 OT2
+        user_text: /诊断
+        expect_reply_any: [简要诊断, 网关, 项目, 待办, /诊断 详细]
+        reject_reply_any: [OT2, G1-04, 部署剖面]
         tier: fast
 
   - id: attach

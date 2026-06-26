@@ -108,9 +108,10 @@ class TestSlashCommands:
     def test_health_owner_brief_default(self, handler):
         text = handler._handle_command("/诊断")
         assert "简要诊断" in text
-        assert "健康概览" in text
-        assert "OT2" in text
-        assert "部署剖面" in text
+        assert "网关：" in text
+        assert "项目：" in text
+        assert "待办：" in text
+        assert "OT2" not in text
         assert "/诊断 详细" in text
         assert "Butler 诊断" not in text
 

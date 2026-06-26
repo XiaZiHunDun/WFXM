@@ -6,27 +6,15 @@ import os
 from pathlib import Path
 from typing import Any
 
-_OWNER_HELP_DEFAULT = """Butler 常用命令（Owner）
+_OWNER_HELP_DEFAULT = """Butler — 五个说法就够
 
-/状态      健康灯 + 当前项目
-/切换      切换项目（附摘要）
-/简报      待办 · 队列 · 门控 · 昨夜 job
-/今日      本项目今日优先事项
-/分工      Butler 与 CC/Cursor 怎么配合
-/待办      本会话待办
-/新对话    清空会话（项目记忆保留）
-/确认      工作流步骤确认
-/帮助 高级  全部命令与运维项
-/诊断          简要健康（Owner）
-/诊断 详细      完整运维快照
-/反馈          纠正或驳回（计入 OT2 观测）
+查  /状态  /简报  — 什么状况、今天要干嘛
+改  交给开发代理… 或 /运行  — 小改动与测试
+批  /确认  /停止  — 流程与中断
+记  刚才不对…  /反馈  — 纠正我
+管  /切换  /项目  /分工  — 项目与和 CC 配合
 
-推荐路径（Lead 生产）：
-· 查状态、读文件 → 直接说
-· 改代码、跑测试 → 「交给开发代理…」或 /运行 <任务>
-· 重编码 → 本机 Claude Code；我负责派工与验收
-
-发 /帮助 开发|记忆|权限 查看专题。"""
+详细命令：/帮助 高级"""
 
 
 def format_owner_help_default() -> str:
@@ -167,43 +155,37 @@ def format_owner_diagnostic_brief(
     *,
     health: dict | None = None,
 ) -> str:
-    """Owner-tier /诊断 — non-technical; full ops via ``/诊断 详细``."""
+    """Owner-tier /诊断 — three human lines; full ops via ``/诊断 详细``."""
     from butler.ops.butler_inbox import collect_inbox_snapshot, _action_count
 
     sk = str(session_key or "").strip()
     snap = collect_inbox_snapshot(orchestrator, sk, health=health)
     actions = _action_count(snap)
 
-    lines = ["Butler 简要诊断（Owner）", ""]
-    lines.extend(format_owner_status_header(orchestrator, sk, health=health))
+    proj_ok = bool(snap.project_name and snap.project_name != "(无)")
+    proj_name = snap.project_name or "未选择"
 
-    from butler.ops.deploy_profile import format_owner_profile_lines
-    from butler.ops.boundary_observability import format_owner_g1_04_brief_lines
+    delegate = _pending_delegate_line(sk)
+    todo_warn = actions > 0 or bool(delegate)
 
-    lines.append("")
-    lines.extend(format_owner_profile_lines())
-    lines.append("")
-    lines.extend(format_owner_g1_04_brief_lines())
-
-    hints: list[str] = []
-    if snap.queue_pending:
-        hints.append(f"入站队列 {snap.queue_pending} 条待发")
-    if snap.compaction_line and "否" not in snap.compaction_line:
-        hints.append(snap.compaction_line.replace("压缩状态: ", "上下文："))
-    if snap.mcp_line:
-        hints.append(snap.mcp_line)
-    if hints:
-        lines.append("")
-        lines.append("会话")
-        for h in hints[:4]:
-            lines.append(f"  · {h}")
-
-    if actions:
-        lines.append("")
-        lines.append(f"待关注 {actions} 类 → /简报 或 /inbox")
+    lines = [
+        "Butler 简要诊断",
+        "",
+        f"网关：{_health_icon(True)} 在线",
+        f"项目：{_health_icon(proj_ok)} {proj_name}",
+    ]
+    if todo_warn:
+        bits: list[str] = []
+        if actions:
+            bits.append(f"{actions} 类待关注")
+        if delegate:
+            bits.append("委派进行中")
+        lines.append(f"待办：{_health_icon(False, warn=True)} {' · '.join(bits)} → /简报")
+    else:
+        lines.append(f"待办：{_health_icon(True)} 无")
 
     lines.append("")
-    lines.append("完整运维快照：/诊断 详细 · 更多配置：/doctor")
+    lines.append("完整快照：/诊断 详细")
     return "\n".join(lines)
 
 

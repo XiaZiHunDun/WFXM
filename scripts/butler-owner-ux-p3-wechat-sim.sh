@@ -56,7 +56,7 @@ if manifest is None:
 
 report = run_wechat_scenario_sim(
     manifest,
-    track_ids=("owner-p3",),
+    track_ids=("owner-p3", "owner-p4"),
     owner_id=owner,
     quick=True,
     require_llm=False,

@@ -23,11 +23,10 @@ from butler.gateway.owner_surface import (
 
 def test_default_help_is_tier1():
     text = format_help_text()
-    assert "/状态" in text
+    assert "查" in text and "改" in text and "批" in text
     assert "/简报" in text
-    assert "/今日" in text
-    assert "Lead 生产" in text or "Lead" in text
-    assert len(text.splitlines()) < 28
+    assert "/帮助 高级" in text or "高级" in text
+    assert len(text.splitlines()) < 20
 
 
 def test_advanced_help_topic():
@@ -79,20 +78,26 @@ def test_project_switch_brief_includes_todos(tmp_path):
     assert "待办" in brief
 
 
-def test_owner_help_default_mentions_advanced():
-    assert "高级" in format_owner_help_default()
-    assert "/诊断" in format_owner_help_default()
+def test_owner_help_default_five_intents():
+    text = format_owner_help_default()
+    assert "五个说法" in text
+    for kw in ("查", "改", "批", "记", "管"):
+        assert kw in text
+    assert "高级" in text
 
 
-def test_owner_diagnostic_brief():
+def test_owner_diagnostic_brief_three_lines():
     orch = MagicMock()
     orch._settings.default_provider = "minimax"
     orch.project_manager.get_current.return_value = SimpleNamespace(name="Demo")
     text = format_owner_diagnostic_brief(orch, "sk1")
     assert "简要诊断" in text
-    assert "健康概览" in text
-    assert "OT2" in text
-    assert "部署剖面" in text
+    assert "网关：" in text
+    assert "项目：" in text
+    assert "待办：" in text
+    assert "OT2" not in text
+    assert "G1-04" not in text
+    assert "部署剖面" not in text
     assert "/诊断 详细" in text
 
 

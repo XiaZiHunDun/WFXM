@@ -567,7 +567,14 @@ def format_for_wechat(report: AgentReport) -> str:
         parts.append(" · ".join(meta_parts) + " · 发 /任务 可查记录")
     if report.child_session_key:
         parts.append(f"子会话 {report.child_session_key}")
-    parts.append("\n回复「/详细」或「详细」查看完整报告")
+
+    from butler.report.acceptance_card import format_delegate_acceptance_card
+
+    if report.task_id or report.changes or (report.structured_output or {}).get("acceptance"):
+        parts.append("")
+        parts.append(format_delegate_acceptance_card(report))
+    else:
+        parts.append("\n回复「/详细」或「详细」查看完整报告")
     return "\n".join(parts)
 
 

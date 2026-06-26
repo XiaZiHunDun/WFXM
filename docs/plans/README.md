@@ -7,7 +7,7 @@
 
 | 子目录 | 内容 |
 |--------|------|
-| [`active/`](active/) | 活跃产品与 CC 对照（`post-consolidation`、`cc-butler-gap-analysis`、**`extension-rd-loop`**） |
+| [`active/`](active/) | 活跃产品与 CC 对照（`post-consolidation`、`cc-butler-gap-analysis`、**`extension-rd-loop`**、**`owner-dev-journey-redesign`**） |
 | [`decisions/`](decisions/) | 否决、边界、Backlog（**决策入口**） |
 | [`roadmaps/`](roadmaps/) | 四/五/外部 Agent 已收口路线图（§9/§10 核对） |
 | [`comparisons/`](comparisons/) | 竞品对照全文与学习计划（**非待办**） |
