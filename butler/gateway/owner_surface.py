@@ -149,6 +149,44 @@ def format_project_switch_brief(
     return "\n".join(lines)
 
 
+def _owner_outbound_brief_line(*, session_key: str = "", chat_id: str = "") -> str | None:
+    """One human line when outbound push/outbox looks unhealthy."""
+    key = str(chat_id or session_key or "").strip()
+    try:
+        from butler.gateway.completion_telemetry import (
+            completion_push_stats,
+            push_queue_pending_count,
+        )
+        from butler.gateway.durable_outbox import outbox_counts
+
+        counts = outbox_counts(chat_id=key)
+        pending_outbox = int(counts.get("pending") or 0)
+        failed_outbox = int(counts.get("failed") or 0)
+        pending_queue = push_queue_pending_count(chat_id=key)
+        stats = completion_push_stats(key)
+        failed_push = int(stats.get("failed") or 0)
+
+        if failed_outbox > 0:
+            return (
+                f"出站：{_health_icon(False)} "
+                f"有 {failed_outbox} 条发送失败 → 运维见 wechat-gateway-ops · /诊断 详细"
+            )
+        if pending_outbox > 3 or pending_queue > 3:
+            total = max(pending_outbox, pending_queue)
+            return (
+                f"出站：{_health_icon(False, warn=True)} "
+                f"待发约 {total} 条 → 稍候或 /诊断 详细"
+            )
+        if failed_push > 0:
+            return (
+                f"出站：{_health_icon(False, warn=True)} "
+                f"本轮推送失败 {failed_push} 次 → /诊断 详细"
+            )
+    except Exception:
+        return None
+    return None
+
+
 def format_owner_diagnostic_brief(
     orchestrator: Any,
     session_key: str,
@@ -183,6 +221,10 @@ def format_owner_diagnostic_brief(
         lines.append(f"待办：{_health_icon(False, warn=True)} {' · '.join(bits)} → /简报")
     else:
         lines.append(f"待办：{_health_icon(True)} 无")
+
+    outbound = _owner_outbound_brief_line(session_key=sk)
+    if outbound:
+        lines.append(outbound)
 
     lines.append("")
     lines.append("完整快照：/诊断 详细")

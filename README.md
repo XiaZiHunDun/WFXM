@@ -93,6 +93,9 @@ cp .env.example .env
 ### 3. 运行
 
 ```bash
+# 新机 / 新 Owner 上手（一页纸清单）
+butler onboard --profile gateway
+
 # 终端对话
 butler chat
 

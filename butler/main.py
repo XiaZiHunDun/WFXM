@@ -59,11 +59,13 @@ def _register_per_area_parsers(sub: argparse._SubParsersAction) -> None:
     from butler.cli.gateway_cli import register_gateway_parser
     from butler.cli.mcp_cli import register_mcp_parser
     from butler.cli.memory_cli import register_memory_parser
+    from butler.cli.onboard_cli import register_onboard_parser
     from butler.cli.projects_cli import register_projects_parser
     from butler.cli.runtime_cli import register_runtime_parser
 
     register_chat_parser(sub)
     register_cost_parser(sub)
+    register_onboard_parser(sub)
     register_projects_parser(sub)
     register_memory_parser(sub)
     register_runtime_parser(sub)

@@ -497,6 +497,29 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 
 守门（目标态）：`bash scripts/butler-owner-ux-p5-gate.sh` · P4/EXT-5 回归见 P5 SSOT §7
 
+### 3.10 运营期抛光 P6（2026-06）
+
+> **来源**：P0–P5 收束后的运营 + 体验抛光；SSOT [`owner-ux-p6-candidates-2026-06.md`](../active/owner-ux-p6-candidates-2026-06.md)  
+> **并行**：G1-04 观测窗（06-09→07-31）；窗满前以 **运营 + P6-A** 为主。
+
+| ID | 名称 | 批次 | 状态 |
+|----|------|------|------|
+| PROD-P6-01 | `butler onboard` 一页纸向导 | P6-A | **done** 2026-06-26 |
+| PROD-P6-02 | `/诊断` 出站失败人话行 | P6-A | **done** 2026-06-26 |
+| PROD-P6-03 | 运维节奏 `butler-ops-cadence.sh` | P6-A | **done** 2026-06-26 |
+| PROD-P6-04 | G1-04 窗满结案（07-31） | P6-B | **backlog** |
+| PROD-P6-05 | Owner PMF 复盘（P4-08） | P6-B | **backlog** |
+| PROD-P6-06 | pytest 全量泄漏逐模块修 | P6-C | **backlog** |
+| PROD-P6-07 | model_resolve 单路径收敛 | P6-C | **backlog** |
+
+**运营节奏**：
+
+```bash
+bash scripts/butler-ops-cadence.sh --weekly    # 每周 G1-04 + pilot-log
+bash scripts/butler-ops-cadence.sh --release  # 发版前 + P5/fast gate
+butler onboard --profile gateway              # 新机上手
+```
+
 ---
 
 **维护**：完成某项 → 本表 `状态` 改 `done`，摘要写入 §6 变更记录 + 相关 SSOT（`gap-register` / `pilot-log`）；部分交付可拆多 PR，但验收以本表勾选为准。
@@ -555,5 +578,6 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | 2026-06-26 | **EXT-5 Verify 真机 ✅** — 话术卡四句 + gateway PATH/uvx；ingest 真机 |
 | 2026-06-26 | **§3.8 P4-C** MEMORY_AUTO_APPROVE · OWNER_PMF_METRICS · pmf report |
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
+| 2026-06-22 | **§3.10 PROD-P6** 运营期抛光立项（onboard · 出站诊断 · ops cadence · 窗满后 PMF） |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |

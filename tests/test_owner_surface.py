@@ -98,7 +98,32 @@ def test_owner_diagnostic_brief_three_lines():
     assert "OT2" not in text
     assert "G1-04" not in text
     assert "部署剖面" not in text
-    assert "/诊断 详细" in text
+
+
+@patch("butler.gateway.owner_surface._owner_outbound_brief_line", return_value="出站：🔴 有 2 条发送失败 → 运维见 wechat-gateway-ops · /诊断 详细")
+def test_owner_diagnostic_brief_shows_outbound_issue(_mock_outbound):
+    orch = MagicMock()
+    orch._settings.default_provider = "minimax"
+    orch.project_manager.get_current.return_value = SimpleNamespace(name="Demo")
+    text = format_owner_diagnostic_brief(orch, "sk1")
+    assert "发送失败" in text
+    assert "wechat-gateway-ops" in text
+
+
+@patch("butler.gateway.durable_outbox.outbox_counts", return_value={"pending": 0, "sent": 1, "failed": 2})
+@patch("butler.gateway.completion_telemetry.push_queue_pending_count", return_value=0)
+@patch(
+    "butler.gateway.completion_telemetry.completion_push_stats",
+    return_value={"sent": 0, "failed": 0, "enqueued": 0},
+)
+def test_owner_outbound_brief_line_failed_outbox(_stats, _queue, _counts):
+    from butler.gateway.owner_surface import _owner_outbound_brief_line
+
+    line = _owner_outbound_brief_line(session_key="wechat:x:Demo")
+    assert line is not None
+    assert "发送失败" in line
+    assert "2" in line
+    assert "/诊断 详细" in line
 
 
 def test_brief_includes_health_header():
