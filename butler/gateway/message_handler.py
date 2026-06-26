@@ -498,11 +498,20 @@ class ButlerMessageHandler:
             resolve_project_context,
             try_expand_owner_edit_slash,
         )
+        from butler.gateway.owner_ingest_shortcuts import try_expand_owner_ingest_phrase
 
-        _pname, _ = resolve_project_context(self._orchestrator, session_key)
+        _pname, _pws = resolve_project_context(self._orchestrator, session_key)
         _expanded = try_expand_owner_edit_slash(state.text, project_name=_pname)
         if _expanded:
             state.text = _expanded
+        else:
+            _ingest = try_expand_owner_ingest_phrase(
+                state.text,
+                project_name=_pname,
+                workspace=_pws,
+            )
+            if _ingest:
+                state.text = _ingest
 
         response = _phase_apply_normalizers_and_slash(self, state)
         if response is not None:

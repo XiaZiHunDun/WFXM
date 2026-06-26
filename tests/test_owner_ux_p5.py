@@ -68,9 +68,47 @@ def test_p5_01_defers_push_during_inbound(monkeypatch):
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="PROD-P5-02 backlog: ingest phrase pre-dispatch")
-def test_p5_02_ingest_phrase_expands_without_remember_prompt():
-    raise NotImplementedError
+def test_p5_02_ingest_intent_detection():
+    from butler.gateway.owner_ingest_shortcuts import looks_owner_ingest_intent
+
+    assert looks_owner_ingest_intent(
+        "把 docs/ext5-fixture-sample.txt 转成 Markdown 放进记忆"
+    )
+    assert looks_owner_ingest_intent(
+        "把 docs/ext5-fixture-sample.txt 转成 Markdown 放进记忆 ingest"
+    )
+    assert not looks_owner_ingest_intent("把 docs/x 转成 Markdown")
+    assert not looks_owner_ingest_intent("请记住：称呼主公")
+    assert not looks_owner_ingest_intent("/简报")
+
+
+@pytest.mark.unit
+def test_p5_02_ingest_phrase_expands_to_mcp_ingest_path():
+    from butler.gateway.owner_ingest_shortcuts import try_expand_owner_ingest_phrase
+
+    text = "把 docs/ext5-fixture-sample.txt 转成 Markdown 放进记忆"
+    out = try_expand_owner_ingest_phrase(
+        text,
+        project_name="灵文1号",
+        workspace="/home/ailearn/projects/WFXM/projects/LingWen1",
+    )
+    assert out
+    assert "MarkItDown MCP" in out
+    assert "mcp_markitdown_convert_to_markdown" in out
+    assert ".butler/ingest/docs/ext5-fixture-sample.md" in out
+    assert "butler_remember" in out
+    assert "不要反问" in out
+    assert "ingest" in out.lower()
+
+
+@pytest.mark.unit
+def test_p5_02_edit_slash_takes_priority_over_ingest():
+    from butler.gateway.owner_delegate_shortcuts import try_expand_owner_edit_slash
+    from butler.gateway.owner_ingest_shortcuts import try_expand_owner_ingest_phrase
+
+    text = "/改 docs/foo.md 加 ingest 说明"
+    assert try_expand_owner_edit_slash(text, project_name="P") is not None
+    assert try_expand_owner_ingest_phrase(text, project_name="P") is None
 
 
 @pytest.mark.unit
