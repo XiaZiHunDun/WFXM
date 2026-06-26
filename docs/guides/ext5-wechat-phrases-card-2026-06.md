@@ -99,7 +99,7 @@
 
 ## 结案勾选
 
-真机 #1–#4 全通过后，SSH 执行：
+真机 #1–#4 全通过后（**或** verify 指南 §2.1 handler sim 全绿），SSH 执行：
 
 ```bash
 cd /path/to/WFXM
@@ -107,6 +107,8 @@ bash scripts/butler-extension-verify.sh markitdown-ingest
 ```
 
 然后在 [`ext-5-markitdown-mcp-2026-06.md`](../plans/active/extension-candidates/ext-5-markitdown-mcp-2026-06.md) §8 勾 **Verify 真机 ✅**。
+
+**handler sim 复跑戳**（P5 收束后）：见 [`ext5-wechat-verify`](ext5-wechat-verify-2026-06.md) §2.1（2026-06-26 全 PASS）。
 
 ---
 

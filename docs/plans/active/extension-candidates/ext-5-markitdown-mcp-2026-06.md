@@ -133,3 +133,4 @@ butler memory reindex --project <name>
 | 2026-06-25 | handler sim + `BUTLER_MCP_MAX_SERVERS=4`；verify 指南 |
 | 2026-06-26 | `butler-owner-week1-ops-sim` + ext5-verify 全量 PASS；G1-04 首条 owner_hard_feedback |
 | 2026-06-26 | **Verify 真机 ✅** — 话术卡四句 + PATH/uvx 修复；ingest `ext5-fixture-sample.md` |
+| 2026-06-26 | **P5 收束后 handler sim 复跑** — 话术卡 #1–4 + `/简报` `/反馈` 全 PASS；#3 无 `DEV_VERIFY_GATE`；见 verify 指南 §2.1 |
