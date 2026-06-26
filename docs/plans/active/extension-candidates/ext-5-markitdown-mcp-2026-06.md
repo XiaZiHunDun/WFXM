@@ -120,7 +120,7 @@ butler memory reindex --project <name>
 
 - [x] **批准 EXT-5 A** — Integrate ✅ 2026-06-25
 - [x] **Verify 自动化** — `butler-extension-ext5-verify.sh` + handler sim ✅ 2026-06-26（全量 PASS）
-- [ ] **Verify 真机话术** — 微信 §3 四句（自动化见 [`ext5-wechat-verify`](../../../guides/ext5-wechat-verify-2026-06.md) §0）
+- [ ] **Verify 真机话术** — 微信 §3 四句（[`话术卡`](../../../guides/ext5-wechat-phrases-card-2026-06.md) · `butler-ext5-wechat-phrases-card.sh`）
 
 ---
 

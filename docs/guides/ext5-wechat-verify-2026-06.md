@@ -68,6 +68,8 @@ bash scripts/butler-extension-ext5-verify.sh --quick  # 仅 /诊断 + MCP
 
 ## 3. 微信真机话术
 
+**可复制话术卡（推荐）**：[`ext5-wechat-phrases-card-2026-06.md`](ext5-wechat-phrases-card-2026-06.md) · 终端 `bash scripts/butler-ext5-wechat-phrases-card.sh`
+
 | # | 发送内容 | 期望 |
 |---|----------|------|
 | 1 | `/诊断 详细` | 附件 `.txt` 含 `markitdown (stdio) [ok]`、`Extension Verify` 行 `markitdown-ingest [ok]` |

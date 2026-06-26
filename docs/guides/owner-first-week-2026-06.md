@@ -13,7 +13,7 @@
 bash scripts/butler-owner-week1-ops-sim.sh --log-g1
 ```
 
-真机对照本文「每天 30 秒」三条即可。
+真机对照本文「每天 30 秒」三条即可。EXT-5 四句见 [`ext5-wechat-phrases-card-2026-06.md`](ext5-wechat-phrases-card-2026-06.md)。
 
 ---
 
