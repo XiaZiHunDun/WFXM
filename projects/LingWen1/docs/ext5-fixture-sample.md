@@ -1,9 +1,9 @@
-# EXT-5 Fixture Sample
+# Butler EXT-5 Fixture
 
-> Butler EXT-5 fixture — MarkItDown MCP golden smoke (optional live verify).
+**目的**：MarkItDown MCP 验收冒烟文档（可选实时验证）
+
+**来源**：灵文1号试点 · EXT-5 fixture 示例
 
 ---
 
-- 源文件：`docs/ext5-fixture-sample.txt`
-- 转换工具：MarkItDown MCP
-- 用途：烟测试 / 验收验证
+Butler EXT-5 fixture — MarkItDown MCP golden smoke (optional live verify).
