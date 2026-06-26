@@ -12,16 +12,16 @@
 |--------|--------------|------|
 | EXT Verify | firecrawl / todoist-readonly / **github-readonly** manifest + golden | OpenAPI 复用路径已验证（EXT-2 → EXT-4） |
 | `/诊断` MCP 段 | `github [ok]` + Extension Verify 行（真机 2026-06-22） | 第二 OpenAPI 试点生产可用 |
-| 记忆 ingest | EXT-3 CLI `butler memory ingest` 绿；灵文参考书试点 | PDF/Office **进料**仍偏 CLI，微信侧缺「发文件即 ingest」 |
+| 记忆 ingest | EXT-3 CLI 绿；**EXT-5** 微信 MarkItDown + `.butler/ingest/`（真机 + handler sim ✅ 2026-06-26） | PDF 附件直发 ingest 仍待抽测 |
 | 网页采集 | EXT-1 Firecrawl + builtin `web_fetch` | JS/反爬仍依赖 MCP；Browser 交互 **未**接 |
 | eval / B9 | delegate 与记忆探针 PASS | 暂无「必须新 MCP 才能过门」硬阻塞 |
 | Owner 原话（归纳） | 「接某某 API」「参考书入库」「查 GitHub」 | OpenAPI 型需求重复；ingest 与 Browser 分列 |
 
-**缺口陈述（1 段）**：Q3 四条 EXT 试点（采集 / OpenAPI×2 / ingest CLI）已覆盖 80% 长尾；**Q4 优先**应是 **EXT-3 的 MCP 化（MarkItDown）** 以补微信触达，而非再开重型 builtin 或 Browser 默认路径。
+**缺口陈述（1 段）**：Q3 四条 EXT 试点 + **Q4 EXT-5 MarkItDown** 已覆盖 OpenAPI 与微信 ingest 主路径；下一按需项为 **EXT-6 第三 OpenAPI** 或 PDF 附件直发硬化，而非 Browser 默认路径。
 
 ---
 
-## 2. Track — EXT-1 … EXT-4 状态
+## 2. Track — EXT-1 … EXT-5 状态
 
 | ID | 能力 | Decide | Integrate | Verify | 一页纸 |
 |----|------|--------|-----------|--------|--------|
@@ -29,8 +29,11 @@
 | EXT-2 | Todoist OpenAPI MCP | ✅ | ✅ | ✅ 2026-06-20 | [ext-2](extension-candidates/ext-2-openapi-http-2026-06.md) |
 | EXT-3 | 文档 ingest CLI | ✅ | ✅ | ✅ 2026-06-20 | [ext-3](extension-candidates/ext-3-document-ingest-2026-06.md) |
 | EXT-4 | GitHub OpenAPI MCP | ✅ A | ✅ | ✅ 2026-06-22 | [ext-4](extension-candidates/ext-4-second-openapi-2026-06.md) |
+| EXT-5 | MarkItDown MCP + ingest | ✅ A | ✅ | ✅ 2026-06-26（真机 + handler sim §2.1） | [ext-5](extension-candidates/ext-5-markitdown-mcp-2026-06.md) |
 
 **EXT-4 守门**：`bash scripts/butler-extension-ext4-gate.sh` · manifest [`.butler/extensions/github-readonly/manifest.yaml`](../../../.butler/extensions/github-readonly/manifest.yaml)
+
+**EXT-5 守门**：`bash scripts/butler-extension-ext5-gate.sh` · `butler-extension-ext5-wechat-sim.sh` · handler sim `ext` track（`verify_files_exist`）
 
 ---
 
@@ -52,18 +55,19 @@
 | 项 | 状态 |
 |----|------|
 | EXT-4 GitHub OpenAPI | ✅ **已 Decide + Verify**（见 ext-4 一页纸） |
-| EXT-5 MarkItDown MCP | ✅ **Owner 批准 A** · Integrate ✅ — [ext-5](extension-candidates/ext-5-markitdown-mcp-2026-06.md) · Verify sim ✅ · 真机话术 ⏳ |
+| EXT-5 MarkItDown MCP | ✅ **Decide + Integrate + Verify**（真机话术 + P5 后 handler sim 复跑 ✅ 2026-06-26）— [ext-5](extension-candidates/ext-5-markitdown-mcp-2026-06.md) · [verify §2.1](../../guides/ext5-wechat-verify-2026-06.md) |
 | EXT-5b Browser MCP | ❌ **暂不立项**（安全 + ROI） |
 | EXT-6 第三 OpenAPI | ⏸ **按需**（Owner 指定 SaaS 后复制 EXT-4 规程） |
 
 ---
 
-## 5. 下一动作（Verify 阶段）
+## 5. 下一动作
 
-1. **EXT-5 真机**：微信 §3 四句 — [`ext5-wechat-verify-2026-06.md`](../../guides/ext5-wechat-verify-2026-06.md)  
-2. **运营节奏**：每周 `bash scripts/butler-owner-week1-ops-sim.sh --log-g1`  
-3. **G1-04**：窗满（07-31）后 `butler-g1-04-closure-check.sh` → 更新 gap register  
-4. **EXT-6**：Owner 指定 SaaS 后再 Decide
+1. **EXT-5 回归**：`bash scripts/butler-owner-ux-p5-gate.sh` · `bash scripts/butler-wechat-owner-sim.sh --track ext`（含 `verify_files_exist`）  
+2. **运营节奏**：每周 `bash scripts/butler-g1-04-weekly-checkin.sh --log` · 每日 `/简报`  
+3. **G1-04**：窗满（**07-31**）后 `butler-g1-04-closure-check.sh` → 更新 gap register  
+4. **EXT-6**：Owner 指定 SaaS 后再 Decide  
+5. **可选**：微信 PDF 附件 → ingest 真机抽测（话术卡 #3a）
 
 ---
 

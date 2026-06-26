@@ -300,6 +300,11 @@ tracks:
     session_mode: fresh
     quick: false
     requires_mcp: true
+    setup:
+      - /切换 灵文1号
+    cleanup_globs:
+      - docs/ext5-fixture-sample.md
+      - .butler/ingest/docs/ext5-fixture-sample.md
     cases:
       - name: EXT-4 GitHub 仓库
         user_text: 列出我的 GitHub 仓库
@@ -329,16 +334,42 @@ tracks:
         prefer_tools_any: [mcp_markitdown_convert_to_markdown, read_document]
         expect_reply_any: [EXT-5 fixture, MarkItDown, Markdown, 转换]
         reject_reply_any: [japanese-learning, fake-repo, 没有找到]
+        verify_files_exist:
+          - docs/ext5-fixture-sample.md
+        verify_file_contains:
+          - path: docs/ext5-fixture-sample.md
+            any: [EXT-5 fixture]
         tier: slow
         max_seconds: 300
         requires_mcp: true
-      - name: EXT-5 验收话术
-        user_text: 把 docs/ext5-fixture-sample.txt 转成 Markdown 放进记忆 ingest
-        prefer_tools_any: [mcp_markitdown_convert_to_markdown, read_document, mcp_markitdown_convert]
-        expect_reply_any: [ingest, Markdown, EXT-5, 记忆, 转换]
+        fresh_session: true
+      - name: "EXT-5 话术 #2 docs Markdown"
+        user_text: 把 docs/ext5-fixture-sample.txt 转成 Markdown
+        expect_reply_any: [ext5-fixture-sample, 已完成, 内容, 代理, Markdown]
+        reject_reply_any: [japanese-learning, DEV_VERIFY_GATE, 未通过验证]
+        verify_files_exist:
+          - docs/ext5-fixture-sample.md
+        verify_file_contains:
+          - path: docs/ext5-fixture-sample.md
+            any: [EXT-5 fixture]
         tier: slow
         max_seconds: 300
         requires_mcp: true
+        fresh_session: true
+      - name: EXT-5 验收话术 ingest
+        user_text: 把 docs/ext5-fixture-sample.txt 转成 Markdown 放进记忆
+        prefer_tools_any: [mcp_markitdown_convert_to_markdown, read_document, mcp_markitdown_convert, delegate_task]
+        expect_reply_any: [ingest, Markdown, EXT-5, 记忆, 转换, 已完成]
+        reject_reply_any: [japanese-learning, DEV_VERIFY_GATE, 未通过验证, butler_remember, 长期记忆太短]
+        verify_files_exist:
+          - .butler/ingest/docs/ext5-fixture-sample.md
+        verify_file_contains:
+          - path: .butler/ingest/docs/ext5-fixture-sample.md
+            any: [EXT-5 fixture]
+        tier: slow
+        max_seconds: 300
+        requires_mcp: true
+        fresh_session: true
 
   - id: delegate
     title: 委派（慢，默认跳过 quick）
