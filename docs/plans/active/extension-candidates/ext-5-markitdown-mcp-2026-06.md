@@ -119,8 +119,8 @@ butler memory reindex --project <name>
 ## 8. Owner Decide
 
 - [x] **批准 EXT-5 A** — Integrate ✅ 2026-06-25
-- [x] **Verify 自动化** — `butler-extension-ext5-verify.sh` + handler sim ✅ 2026-06-25
-- [ ] **Verify 真机话术** — 微信 manifest 两句 + `/诊断 详细`（见 verify 指南）
+- [x] **Verify 自动化** — `butler-extension-ext5-verify.sh` + handler sim ✅ 2026-06-26（全量 PASS）
+- [ ] **Verify 真机话术** — 微信 §3 四句（自动化见 [`ext5-wechat-verify`](../../../guides/ext5-wechat-verify-2026-06.md) §0）
 
 ---
 
@@ -131,3 +131,4 @@ butler memory reindex --project <name>
 | 2026-06-22 | Research + 季度评审 P0 推荐 |
 | 2026-06-25 | Owner 批准 A；manifest + integrate/preflight/gate |
 | 2026-06-25 | handler sim + `BUTLER_MCP_MAX_SERVERS=4`；verify 指南 |
+| 2026-06-26 | `butler-owner-week1-ops-sim` + ext5-verify 全量 PASS；G1-04 首条 owner_hard_feedback |

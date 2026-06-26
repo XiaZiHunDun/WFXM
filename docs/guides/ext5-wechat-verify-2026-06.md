@@ -5,6 +5,26 @@
 
 ---
 
+## 0. 自动化验收（SSH，真机前必跑）
+
+```bash
+cd /path/to/WFXM
+bash scripts/butler-extension-ext5-verify.sh        # 全量（preflight + MCP + handler sim）
+bash scripts/butler-owner-week1-ops-sim.sh          # 首周 playbook + G1-04 /反馈 烟测
+bash scripts/butler-g1-04-weekly-checkin.sh --log   # OT2 周打卡写 pilot-log
+```
+
+| 检查项 | 自动化 | 真机 |
+|--------|--------|------|
+| markitdown MCP `[ok]` | `ext5-verify` | `/诊断 详细` 附件 |
+| markitdown-ingest | `extension-verify` | 话术 #2–4 |
+| Owner `/简报` `/切换` `/反馈` | `owner-week1-ops-sim` | playbook 每天 30 秒 |
+| OT2 Owner 硬反馈 | handler `/反馈` 烟测 | 微信发 `/反馈 …` |
+
+自动化通过后，再跑下方 §3 真机话术。§2 为 ext5 专项快速命令。
+
+---
+
 ## 1. Gateway 配置（一次性）
 
 在 **gateway 宿主机** `WFXM/.env`：
@@ -34,7 +54,7 @@ bash scripts/butler-gateway-ops.sh preflight   # 应无 MCP_MAX_SERVERS 告警
 
 ---
 
-## 2. 自动化验收（SSH，不经微信）
+## 2. EXT-5 专项自动化（不经微信）
 
 ```bash
 cd /path/to/WFXM

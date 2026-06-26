@@ -58,11 +58,12 @@
 
 ---
 
-## 5. 下一动作（Integrate 前）
+## 5. 下一动作（Verify 阶段）
 
-1. Owner 读 EXT-5 一页纸 → 确认 / 否决 / 改候选  
-2. 若批准 EXT-5：`manifest.yaml` + `butler-extension-ext5-*` + `butler-extension-verify.sh markitdown-ingest`  
-3. 季度末更新本文 Track 表与 `roadmap-backlog` §3.0
+1. **EXT-5 真机**：微信 §3 四句 — [`ext5-wechat-verify-2026-06.md`](../../guides/ext5-wechat-verify-2026-06.md)  
+2. **运营节奏**：每周 `bash scripts/butler-owner-week1-ops-sim.sh --log-g1`  
+3. **G1-04**：窗满（07-31）后 `butler-g1-04-closure-check.sh` → 更新 gap register  
+4. **EXT-6**：Owner 指定 SaaS 后再 Decide
 
 ---
 

@@ -460,7 +460,7 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | PROD-P3-04 | 大改码 CC 路由建议（启发式） | **done** 2026-06-26 |
 | PROD-P3-05 | Owner 首周 playbook | **done** 2026-06-26 |
 
-守门：`bash scripts/butler-owner-ux-p3-gate.sh` · 文档 [`owner-first-week-2026-06.md`](../../guides/owner-first-week-2026-06.md)
+守门：`bash scripts/butler-owner-ux-p3-gate.sh` · handler sim：`butler-owner-ux-p3-wechat-sim.sh` · 首周节奏：`butler-owner-week1-ops-sim.sh` · 文档 [`owner-first-week-2026-06.md`](../../guides/owner-first-week-2026-06.md)
 
 ---
 
@@ -516,6 +516,6 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | 2026-05-25 | 链入 [`DOCUMENTATION.md`](../../DOCUMENTATION.md) 文档体系 |
 | 2026-05-26 | 记录 SQLite observation store 首版落地后的残留风险与后续收口项 |
 | 2026-06-26 | **§3.6** 产品评估立项表（PROD-P0-01…P2-04）：G1-04、配置剖面、pytest 叙事、Dev/Owner/记忆 P1、工程 P2 |
-| 2026-06-26 | **PROD-P1-02** `/简报` 四块 + onboarding 三步欢迎 |
+| 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |
