@@ -448,6 +448,20 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | **EXT-5** | [ext-5-markitdown-mcp-2026-06.md](../active/extension-candidates/ext-5-markitdown-mcp-2026-06.md) · Integrate ✅ |
 | **守门** | `scripts/butler-extension-ext4-gate.sh` |
 
+### 3.7 产品体验 P3（Owner ROI — 2026-06）
+
+> **来源**：Owner 产品评估（微信用户视角）；与 PROD-P1-02 正交，聚焦「少概念、多下一步」。
+
+| ID | 名称 | 状态 |
+|----|------|------|
+| PROD-P3-01 | `/切换` slug 纠错 + Did-you-mean | **done** 2026-06-26 |
+| PROD-P3-02 | 委派过程心跳 `DELEGATE_PROGRESS_NOTIFY` | **done** 2026-06-26 |
+| PROD-P3-03 | 门控消息模板 + workflow 续跑提示 | **done** 2026-06-26 |
+| PROD-P3-04 | 大改码 CC 路由建议（启发式） | **done** 2026-06-26 |
+| PROD-P3-05 | Owner 首周 playbook | **done** 2026-06-26 |
+
+守门：`bash scripts/butler-owner-ux-p3-gate.sh` · 文档 [`owner-first-week-2026-06.md`](../../guides/owner-first-week-2026-06.md)
+
 ---
 
 **维护**：完成某项 → 本表 `状态` 改 `done`，摘要写入 §6 变更记录 + 相关 SSOT（`gap-register` / `pilot-log`）；部分交付可拆多 PR，但验收以本表勾选为准。

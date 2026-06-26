@@ -207,6 +207,11 @@
 | `BUTLER_WECHAT_ATTACH_DIAGNOSTIC` | 1 | `/诊断 详细` 附带运维快照 `.txt` |
 | `BUTLER_WECHAT_ATTACH_RUNTIME` | 1 | Runtime 任务**失败**推送附带 stdout/stderr `.txt` |
 | `BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY` | 1 | 委派完成微信提醒（见 `BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE`） |
+| `BUTLER_GATEWAY_DELEGATE_PROGRESS_NOTIFY` | 0 | `1` 时长委派微信心跳（gateway 推荐开） |
+| `BUTLER_GATEWAY_DELEGATE_PROGRESS_SECONDS` | 90 | 心跳间隔秒（≥45） |
+| `BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX` | 5 | 单次委派最多心跳条数 |
+| `BUTLER_GATEWAY_TASK_MILESTONE_MAX` | 3 | 同轮进度里程碑上限（`DELEGATE_PROGRESS=1` 时默认 3） |
+| `BUTLER_CC_ROUTE_HINTS` | 1 | 大改码意图时注入 CC 路由建议（非硬拒） |
 | `BUTLER_INSTRUCTION_WALKUP*` | 见 example | read_file 后注入邻近 AGENTS.md |
 | `BUTLER_SESSION_TODOS` | 1 | 会话 `todos.json`；`/待办`；工具 `session_todos_list` / `session_todos_write`；项支持 `priority`: high/medium/low |
 | `BUTLER_SESSION_TODOS_MAX_ITEMS` | 30 | 单会话待办条数上限（1–100） |

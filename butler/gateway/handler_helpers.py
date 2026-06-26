@@ -338,6 +338,7 @@ _WELCOME_TEXT = """你好，我是 Butler 管家（莎丽）。
 3️⃣ 试一次委派 — 例：「交给开发代理：只读检查 docs/ 目录」
 
 日常：/状态 · /简报 · /今日 · /帮助
+首周 playbook：docs/guides/owner-first-week-2026-06.md
 分工与七步剧本：/分工 · /帮助"""
 
 # User already asked for identity/capabilities — LLM reply supersedes static welcome.

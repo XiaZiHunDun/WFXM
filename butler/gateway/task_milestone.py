@@ -13,6 +13,13 @@ if TYPE_CHECKING:
 def task_milestone_enabled() -> bool:
     from butler.env_parse import env_truthy, float_env
 
+    try:
+        from butler.gateway.completion_notify import delegate_progress_notify_enabled
+
+        if delegate_progress_notify_enabled():
+            return True
+    except Exception:
+        pass
     return env_truthy("BUTLER_GATEWAY_TASK_MILESTONE", default=False)
 
 
@@ -54,29 +61,48 @@ def build_milestone_text(bridge: "GatewayOutboundBridge", *, elapsed: int) -> st
     return f"【进度】{phase} | {doing} | {nxt}（约 {elapsed} 秒）"
 
 
+def task_milestone_max_per_turn() -> int:
+    try:
+        from butler.env_parse import int_env
+        from butler.gateway.completion_notify import delegate_progress_notify_enabled
+
+        default = 3 if delegate_progress_notify_enabled() else 1
+        return int_env("BUTLER_GATEWAY_TASK_MILESTONE_MAX", default, min=1, max=8)
+    except ValueError:
+        return 3
+
+
 def maybe_schedule_task_milestone(bridge: Any) -> None:
-    """Send at most one milestone per turn after ack threshold (requires ack already sent)."""
+    """Send periodic milestones after ack threshold (delegate progress may repeat)."""
     if not task_milestone_enabled():
         return
     if getattr(bridge, "_closed", True) or getattr(bridge, "_final_sent", False):
         return
     if not getattr(bridge, "_ack_sent", False):
         return
-    if getattr(bridge, "_task_milestone_sent", False):
+    max_n = task_milestone_max_per_turn()
+    sent = int(getattr(bridge, "_task_milestone_count", 0) or 0)
+    if sent >= max_n:
         return
     started = getattr(bridge, "_started_at", 0.0) or 0.0
     elapsed = int(time.monotonic() - started) if started else 0
-    if elapsed < int(task_milestone_min_seconds()):
+    min_elapsed = int(task_milestone_min_seconds()) * max(1, sent)
+    if elapsed < min_elapsed:
         return
 
     text = build_milestone_text(bridge, elapsed=elapsed)
+    if sent > 0:
+        text = f"{text}\n（进度 {sent + 1}/{max_n} · 可发 /停止 中断）"
     if bridge.schedule_supplementary_reply(text, kind="task_milestone"):
-        bridge._task_milestone_sent = True
+        bridge._task_milestone_count = sent + 1  # type: ignore[attr-defined]
+        if sent == 0:
+            bridge._task_milestone_sent = True
 
 
 __all__ = [
     "build_milestone_text",
     "maybe_schedule_task_milestone",
     "task_milestone_enabled",
+    "task_milestone_max_per_turn",
     "task_milestone_min_seconds",
 ]

@@ -236,6 +236,15 @@ def _collect_ephemeral_gateway_banners(
             state.health["mode_classifier_banner"] = True
     except Exception as exc:
         logger.debug("Mode classifier detection skipped: %s", exc)
+    try:
+        from butler.core.task_route_hints import detect_cc_route_banner
+
+        cc_banner = detect_cc_route_banner(state.text)
+        if cc_banner:
+            ephemeral_parts.append(cc_banner)
+            state.health["cc_route_banner"] = True
+    except Exception as exc:
+        logger.debug("CC route banner skipped: %s", exc)
     return ephemeral_parts
 
 

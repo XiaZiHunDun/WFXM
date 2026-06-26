@@ -80,7 +80,7 @@ class ProjectManager:
         return f"{plat}:{cid}"
 
     def resolve_project_name(self, name: str) -> str | None:
-        """Match a user-provided project name (exact, then unique case-insensitive, then unique substring)."""
+        """Match display name, slug (folder), case-insensitive, or unique substring."""
         raw = str(name or "").strip()
         if not raw:
             return None
@@ -95,7 +95,62 @@ class ProjectManager:
         substr = [p for p in self._projects if lower in p.lower()]
         if len(substr) == 1:
             return substr[0]
+        by_slug = self._resolve_by_workspace_slug(raw)
+        if by_slug is not None:
+            return by_slug
         return None
+
+    def _resolve_by_workspace_slug(self, raw: str) -> str | None:
+        """Map ``projects/<slug>`` folder name to ``project.yaml`` display name."""
+        lower = str(raw or "").strip().lower()
+        if not lower:
+            return None
+        matches: list[str] = []
+        for proj in self._projects.values():
+            try:
+                slug = proj.workspace.name.lower()
+            except (OSError, ValueError, TypeError):
+                continue
+            if slug == lower:
+                matches.append(proj.name)
+        if len(matches) == 1:
+            return matches[0]
+        return None
+
+    def suggest_project_names(self, query: str, *, limit: int = 3) -> list[str]:
+        """Did-you-mean hints when ``/切换`` fails (slug / display name)."""
+        q = str(query or "").strip().lower()
+        if not q or limit <= 0:
+            return []
+        scored: list[tuple[int, str]] = []
+        for proj in self._projects.values():
+            name = proj.name
+            try:
+                slug = proj.workspace.name.lower()
+            except (OSError, ValueError, TypeError):
+                slug = ""
+            score = 0
+            if q == slug:
+                score = 100
+            elif slug and (q in slug or slug in q):
+                score = 85
+            elif q in name.lower():
+                score = 70
+            elif name.lower() in q:
+                score = 60
+            if score:
+                scored.append((score, name))
+        scored.sort(key=lambda x: (-x[0], x[1]))
+        out: list[str] = []
+        seen: set[str] = set()
+        for _, name in scored:
+            if name in seen:
+                continue
+            seen.add(name)
+            out.append(name)
+            if len(out) >= limit:
+                break
+        return out
 
     def switch_project(self, name: str) -> bool:
         matched = self.resolve_project_name(name)

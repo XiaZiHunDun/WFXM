@@ -121,6 +121,13 @@ def push_delegate_completion(
 
 def run_delegate_job(job: DelegateJob) -> None:
     """Execute delegate agent loop (intended for background thread)."""
+    from butler.runtime.delegate_progress import delegate_progress_heartbeat
+
+    with delegate_progress_heartbeat(job):
+        _run_delegate_job_inner(job)
+
+
+def _run_delegate_job_inner(job: DelegateJob) -> None:
     result = None
     success = False
     try:

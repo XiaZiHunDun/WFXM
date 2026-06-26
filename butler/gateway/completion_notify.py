@@ -47,6 +47,11 @@ def delegate_completion_enabled() -> bool:
     return _env_bool("BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY", True)
 
 
+def delegate_progress_notify_enabled() -> bool:
+    """Mid-flight WeChat progress for long delegates (also enables task milestones)."""
+    return _env_bool("BUTLER_GATEWAY_DELEGATE_PROGRESS_NOTIFY", False)
+
+
 def turn_completion_enabled() -> bool:
     return _env_bool("BUTLER_GATEWAY_TURN_COMPLETION_NOTIFY", True)
 

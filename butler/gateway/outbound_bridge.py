@@ -105,6 +105,7 @@ class GatewayOutboundBridge:
     _ack_task: asyncio.Task[None] | None = field(default=None, init=False)
     _closed: bool = field(default=False, init=False)
     _task_milestone_sent: bool = field(default=False, init=False)
+    _task_milestone_count: int = field(default=0, init=False)
     _milestone_task: asyncio.Task[None] | None = field(default=None, init=False)
 
     delegate_role: str = field(default="", init=False)
@@ -181,6 +182,7 @@ class GatewayOutboundBridge:
         self._timeout_notified = False
         self._closed = False
         self._task_milestone_sent = False
+        self._task_milestone_count = 0
         self.delegate_role = ""
         self.workflow_name = ""
         self._main_reply_chars = 0

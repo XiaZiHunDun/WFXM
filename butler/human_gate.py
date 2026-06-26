@@ -244,18 +244,20 @@ def check_workflow_step_approval(
 
 
 def format_pending_hint(session_key: str) -> str:
+    from butler.gateway.gate_reply_templates import (
+        injection_gate_pending_hint,
+        workflow_gate_pending_hint,
+    )
+
     with _gate_lock:
         pending = _load_pending(session_key)
     if pending is None:
         return ""
     if pending.kind == "injection_review":
-        return (
-            f"入站消息安全评分 {pending.step_id} 偏高，等待 Owner 确认。"
-            "回复「确认」后请重发上一条消息，或「取消」忽略。"
-        )
-    return (
-        f"工作流「{pending.workflow}」步骤「{pending.step_id}」等待确认。"
-        "回复「确认」继续（随后请再次发送 /workflow），或「取消」中止。"
+        return injection_gate_pending_hint(score=pending.step_id)
+    return workflow_gate_pending_hint(
+        workflow=pending.workflow,
+        step_id=pending.step_id,
     )
 
 
@@ -369,25 +371,32 @@ def resolve_human_gate_message(
         if pending.kind == "injection_review":
             grant_injection_bypass(session_key)
             _save_pending(session_key, None)
-            return (
-                f"已确认入站安全评分 {pending.step_id}。"
-                "请重新发送上一条消息以继续处理。"
-            )
+            from butler.gateway.gate_reply_templates import injection_gate_confirmed_hint
+
+            return injection_gate_confirmed_hint(score=pending.step_id)
 
         keys = _load_approved(session_key)
         keys.add(_approval_key(pending.workflow, pending.step_id))
         _save_approved(session_key, keys)
+        wf_name = pending.workflow
+        step_id = pending.step_id
         _save_pending(session_key, None)
 
     if _workflow_auto_resume_enabled():
         try:
-            resume_reply = _auto_resume_workflow(session_key, pending.workflow)
+            resume_reply = _auto_resume_workflow(session_key, wf_name)
             if resume_reply:
-                return f"已确认步骤「{pending.step_id}」，自动继续执行…\n\n{resume_reply}"
+                from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
+
+                head = workflow_gate_confirmed_hint(
+                    workflow=wf_name, auto_resumed=True, step_id=step_id
+                )
+                return f"{head}\n\n{resume_reply}"
         except Exception as exc:
             logger.warning("Workflow auto-resume failed: %s", exc)
 
-    return (
-        f"已确认步骤「{pending.step_id}」。"
-        f"请再次发送 /workflow {pending.workflow} 以继续执行该步骤及后续节点。"
+    from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
+
+    return workflow_gate_confirmed_hint(
+        workflow=wf_name, auto_resumed=False, step_id=step_id
     )

@@ -166,11 +166,30 @@ def format_switch_project_reply(
     available = pm.list_projects()
     if available:
         names = [p.name for p in available]
-        return (
-            f"未找到项目: {arg}\n\n"
-            f"可用项目: {', '.join(names)}\n"
-            "提示: 名称需精确或唯一匹配。"
-        )
+        slug_hint = ""
+        try:
+            slug_map = [
+                f"{p.workspace.name}→{p.name}"
+                for p in available
+                if getattr(p, "workspace", None)
+            ]
+            if slug_map:
+                slug_hint = f"\n目录名对照: {', '.join(slug_map[:6])}"
+        except Exception:
+            slug_hint = ""
+        suggestions = pm.suggest_project_names(arg, limit=3)
+        body = [f"未找到项目: {arg}"]
+        if suggestions:
+            primary = suggestions[0]
+            body.append(f"你是不是指：**{primary}**？")
+            body.append(f"回复：/切换 {primary}")
+            if len(suggestions) > 1:
+                body.append(f"其他可能: {', '.join(suggestions[1:])}")
+        body.append(f"\n可用项目: {', '.join(names)}")
+        body.append("提示: 可用显示名或项目目录名（如 LingWen1）。")
+        if slug_hint:
+            body.append(slug_hint)
+        return "\n".join(body)
     return f"未找到项目: {arg}（当前无已注册项目，请先用 /项目 新建 创建）"
 
 

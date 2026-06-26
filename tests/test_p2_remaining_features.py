@@ -305,7 +305,7 @@ class TestWorkflowAutoResume:
         result = resolve_human_gate_message("sk1", "确认", owner_verified=True)
         assert result is not None
         assert "step1" in result
-        assert "请再次发送" in result
+        assert "/工作流 test-wf" in result
 
     def test_resolve_gate_with_auto_resume(self, tmp_path, monkeypatch):
         monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
@@ -324,5 +324,5 @@ class TestWorkflowAutoResume:
             return_value="工作流完成 (2/2 步成功)",
         ):
             result = resolve_human_gate_message("sk2", "确认", owner_verified=True)
-            assert "自动继续执行" in result
+            assert "自动续跑" in result
             assert "工作流完成" in result

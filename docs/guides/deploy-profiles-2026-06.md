@@ -36,7 +36,17 @@ python3 scripts/apply-butler-env-profile.py dev-remote
 | `BUTLER_EVAL_PROD_EVIDENCE` | G1-04 委派生产记账（默认 `1`） |
 | `BUTLER_GATEWAY_DURABLE_OUTBOX` | 完成推送 outbox（默认 `1`） |
 
-可选：`BUTLER_MCP_ENABLED=1` · `BUTLER_SEMANTIC_MEMORY=1` · `BUTLER_ONBOARDING_WELCOME=1`
+**推荐（Owner UX，PROD-P3）**：
+
+| 变量 | 说明 |
+|------|------|
+| `BUTLER_GATEWAY_DELEGATE_PROGRESS_NOTIFY=1` | 委派执行中心跳（长任务防「卡死」感） |
+| `BUTLER_WORKFLOW_AUTO_RESUME=1` | 工作流确认后自动续跑（灵文 DAG） |
+| `BUTLER_ONBOARDING_WELCOME=1` | 首次绑定三步引导 |
+
+可选：`BUTLER_MCP_ENABLED=1` · `BUTLER_SEMANTIC_MEMORY=1`
+
+**Owner 首周**：[`owner-first-week-2026-06.md`](owner-first-week-2026-06.md)
 
 **期望**：`butler doctor` 显示 `推荐剖面: gateway`；`butler-gateway-ops.sh status` active；微信 `/诊断` 见部署剖面 + OT2 块。
 
