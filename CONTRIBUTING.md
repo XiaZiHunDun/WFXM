@@ -53,6 +53,13 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 
 完整矩阵：[`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) §3。
 
+## 代码复杂度约定（ENG-1）
+
+- 生产代码单函数建议 **≤80 行**；超过须在 PR 说明或继续拆分 phase。
+- 单文件 **>600 行** 视为维护热点，新增逻辑优先抽子模块。
+- 本地度量：`bash scripts/butler-complexity-report.sh`（可选 `--json`）。
+- 工程整理 backlog：[`software-engineering-refactor-2026-06.md`](docs/plans/active/software-engineering-refactor-2026-06.md)。
+
 ## Butler 线束（规划 / 上下文 / Hooks）
 
 - 微信：`/计划`、`/执行`、`/任务`；`/诊断` 含上下文用量档位、Shell hooks 摘要、**出站策略**（完成推送/委派模式/冷却）；`/状态` 含规划模式

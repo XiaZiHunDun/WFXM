@@ -520,6 +520,26 @@ bash scripts/butler-ops-cadence.sh --release  # 发版前 + P5/fast gate
 butler onboard --profile gateway              # 新机上手
 ```
 
+### 3.11 软件工程整理 ENG（2026-06）
+
+> **SSOT**：[`software-engineering-refactor-2026-06.md`](../active/software-engineering-refactor-2026-06.md)  
+> **并行**：G1-04 观测窗；与 PROD-P6-B/C 正交。
+
+| ID | 名称 | 批次 | 状态 |
+|----|------|------|------|
+| ENG-1 | 复杂度预算 + 度量脚本 | 基线 | **done** 2026-06-26 |
+| ENG-2 | `delegate_phases` 按阶段拆包 | A | **in_progress**（`delegate_init` ✅） |
+| ENG-3 | `message_handler` 后段薄化 | A | **backlog** |
+| ENG-4 | `task_orchestrator` 图执行拆分 | A | **backlog** |
+| ENG-5 | `wechat_ilink/phases` 第二轮拆分 | B | **backlog** |
+| ENG-6 | `butler/contracts/` + EventsSink | B | **backlog** |
+| ENG-7 | tools→gateway 经 execution_context | B | **backlog** |
+| ENG-8 | 记忆/embedding 降级显性化 | C | **backlog** |
+| ENG-9 | pytest 全量泄漏修债 | C | **in_progress**（registry fixture ✅） |
+| ENG-10 | `model_defaults` 剩余硬编码 | C | **backlog**（≈PROD-P6-07） |
+| ENG-11 | `locked_phases` phase 注册表 | D | **backlog** |
+| ENG-12 | `orchestrator` 子系统门面 | D | **backlog** |
+
 ---
 
 **维护**：完成某项 → 本表 `状态` 改 `done`，摘要写入 §6 变更记录 + 相关 SSOT（`gap-register` / `pilot-log`）；部分交付可拆多 PR，但验收以本表勾选为准。
@@ -579,5 +599,6 @@ butler onboard --profile gateway              # 新机上手
 | 2026-06-26 | **§3.8 P4-C** MEMORY_AUTO_APPROVE · OWNER_PMF_METRICS · pmf report |
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
 | 2026-06-22 | **§3.10 PROD-P6** 运营期抛光立项（onboard · 出站诊断 · ops cadence · 窗满后 PMF） |
+| 2026-06-26 | **§3.11 ENG** 软件工程整理计划（复杂度 · 分层 · pytest · R2 显性化） |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |

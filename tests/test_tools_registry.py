@@ -32,6 +32,18 @@ def _tool_safe_root(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_TOOL_SAFE_ROOT", str(tmp_path))
 
 
+@pytest.fixture(autouse=True)
+def _isolate_tool_registry_per_test():
+    """Re-reset registry around each test (ENG-9; reinforces global conftest)."""
+    from butler.tools.registry import reset_tool_audit_events, reset_tool_registry
+
+    reset_tool_registry()
+    reset_tool_audit_events()
+    yield
+    reset_tool_registry()
+    reset_tool_audit_events()
+
+
 @pytest.mark.module_test
 class TestToolDefinitions:
     def test_get_tool_definitions_includes_memory_tools(self):
