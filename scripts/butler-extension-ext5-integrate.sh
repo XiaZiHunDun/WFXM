@@ -36,4 +36,9 @@ cat >>"$MCP_CFG" <<'YAML'
 YAML
 
 echo "Appended markitdown server to $MCP_CFG"
-echo "Next: pip install 'markitdown-mcp' or ensure uvx can fetch it; then bash scripts/butler-extension-ext5-preflight.sh"
+echo "Next:"
+echo "  1. Add to .env: BUTLER_MCP_MAX_SERVERS=4  (4 MCP servers; default 3 drops markitdown)"
+echo "  2. pip install markitdown-mcp  OR  ensure uvx can fetch it"
+echo "  3. bash scripts/butler-extension-ext5-preflight.sh"
+echo "  4. systemctl --user restart butler-gateway.service  (or butler-gateway-ops.sh restart)"
+echo "  5. docs/guides/ext5-wechat-verify-2026-06.md"

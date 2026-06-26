@@ -1,6 +1,6 @@
 # EXT-5：MarkItDown MCP（文档 ingest 微信触达）
 
-> **状态**：Decide ✅ **A**（Owner 2026-06-25）· Integrate ✅ · **Verify ⏳**（manifest golden skip；真机需 `uvx markitdown-mcp`）  
+> **状态**：Decide ✅ **A**（Owner 2026-06-25）· Integrate ✅ · **Verify** handler sim ✅ 2026-06-25 · **真机话术** ⏳（见 [`ext5-wechat-verify`](../../guides/ext5-wechat-verify-2026-06.md)）  
 > **规程**：[`extension-rd-loop-2026-06.md`](../extension-rd-loop-2026-06.md) · [`extension-quarterly-review-2026-06.md`](../extension-quarterly-review-2026-06.md)  
 > **前置**：EXT-3 sidecar CLI ingest ✅ · EXT-4 manifest/verify 模板 ✅
 
@@ -49,6 +49,15 @@
 cd /path/to/WFXM
 bash scripts/butler-extension-ext5-integrate.sh
 bash scripts/butler-extension-ext5-preflight.sh
+bash scripts/butler-extension-ext5-verify.sh    # 自动化验收（含 handler sim）
+```
+
+真机话术：[`docs/guides/ext5-wechat-verify-2026-06.md`](../../guides/ext5-wechat-verify-2026-06.md)
+
+`.env` **必填**（与 EXT-1..4 并存时）：
+
+```bash
+BUTLER_MCP_MAX_SERVERS=4
 ```
 
 依赖（二选一）：
@@ -110,7 +119,8 @@ butler memory reindex --project <name>
 ## 8. Owner Decide
 
 - [x] **批准 EXT-5 A** — Integrate ✅ 2026-06-25
-- [ ] **Verify 真机** — `butler-extension-verify.sh markitdown-ingest`（需 MCP + markitdown-mcp）
+- [x] **Verify 自动化** — `butler-extension-ext5-verify.sh` + handler sim ✅ 2026-06-25
+- [ ] **Verify 真机话术** — 微信 manifest 两句 + `/诊断 详细`（见 verify 指南）
 
 ---
 
@@ -120,3 +130,4 @@ butler memory reindex --project <name>
 |------|------|
 | 2026-06-22 | Research + 季度评审 P0 推荐 |
 | 2026-06-25 | Owner 批准 A；manifest + integrate/preflight/gate |
+| 2026-06-25 | handler sim + `BUTLER_MCP_MAX_SERVERS=4`；verify 指南 |

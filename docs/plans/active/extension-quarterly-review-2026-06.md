@@ -52,7 +52,7 @@
 | 项 | 状态 |
 |----|------|
 | EXT-4 GitHub OpenAPI | ✅ **已 Decide + Verify**（见 ext-4 一页纸） |
-| EXT-5 MarkItDown MCP | ✅ **Owner 批准 A** · Integrate ✅ — [ext-5](extension-candidates/ext-5-markitdown-mcp-2026-06.md) · Verify ⏳ |
+| EXT-5 MarkItDown MCP | ✅ **Owner 批准 A** · Integrate ✅ — [ext-5](extension-candidates/ext-5-markitdown-mcp-2026-06.md) · Verify sim ✅ · 真机话术 ⏳ |
 | EXT-5b Browser MCP | ❌ **暂不立项**（安全 + ROI） |
 | EXT-6 第三 OpenAPI | ⏸ **按需**（Owner 指定 SaaS 后复制 EXT-4 规程） |
 

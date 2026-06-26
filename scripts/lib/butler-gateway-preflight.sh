@@ -85,6 +85,25 @@ sys.exit(0 if check_wechat_requirements() else 1)
     else
       _bg_ok "npx present (MCP stdio)"
     fi
+    local mcp_cfg="${BUTLER_MCP_CONFIG:-$HOME/.butler/mcp.yaml}"
+    local max_srv="${BUTLER_MCP_MAX_SERVERS:-3}"
+    if [[ -f "$mcp_cfg" ]]; then
+      local cfg_n
+      cfg_n="$(PYTHONPATH="$root" MCP_CFG="$mcp_cfg" python3 - <<'PY'
+import os, yaml
+from pathlib import Path
+p = Path(os.environ["MCP_CFG"])
+data = yaml.safe_load(p.read_text(encoding="utf-8")) if p.is_file() else {}
+s = data.get("servers") or {}
+print(len(s) if isinstance(s, dict) else 0)
+PY
+)"
+      if [[ "${cfg_n:-0}" -gt "${max_srv}" ]]; then
+        _bg_warn "BUTLER_MCP_MAX_SERVERS=${max_srv} but mcp.yaml has ${cfg_n} servers — raise to ≥${cfg_n} (EXT-5 markitdown)"
+      else
+        _bg_ok "MCP_MAX_SERVERS=${max_srv} ≥ configured servers (${cfg_n:-0})"
+      fi
+    fi
   fi
 
   local butler_home="${BUTLER_HOME:-$HOME/.butler}"

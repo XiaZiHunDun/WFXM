@@ -172,10 +172,10 @@ MCP（薄 Client，默认关）
 
 | 维度 | 内容 |
 |------|------|
-| **状态** | Decide ✅ **A** · Integrate ✅ · **Verify ⏳**（2026-06-25） |
+| **状态** | Decide ✅ **A** · Integrate ✅ · Verify handler sim ✅ · **真机话术** ⏳ |
 | **痛点** | EXT-3 CLI ingest 已绿；微信/Loop 缺 stdio MCP `convert_to_markdown` |
 | **推荐** | Microsoft `markitdown-mcp` via `uvx`；manifest `markitdown-ingest` |
-| **验收** | `bash scripts/butler-extension-ext5-gate.sh` · preflight · 真机 convert + reindex |
+| **验收** | `bash scripts/butler-extension-ext5-verify.sh` · 真机 [`ext5-wechat-verify`](../../guides/ext5-wechat-verify-2026-06.md) |
 | **守门** | `tests/test_markitdown_ext5.py` |
 
 ### EXT-6+ — 后续队列
