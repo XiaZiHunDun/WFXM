@@ -82,6 +82,21 @@ bash scripts/butler-extension-ext5-verify.sh --quick  # 仅 /诊断 + MCP
 
 **运维提示**：#2 在同会话连跑时曾出现「委派报 PASS 但 `docs/*.md` 未落盘」；验收宜 **逐条单独发** 或 **独立 session**（与真机话术卡顺序一致）。本地观测写 `projects/LingWen1/docs/pilot-log.md`（gitignore，不进仓）。
 
+### 2.2 话术卡 #3a PDF 附件（handler sim · 2026-06-26）
+
+> **方式**：`build_inbound_user_text` 模拟微信 PDF 入站 → 再发「放进记忆」  
+> **脚本**：`bash scripts/butler-ext5-pdf-ingest-sim.sh`  
+> **fixture**：`tests/fixtures/ext5/sample.pdf`
+
+| 步 | 模拟 | 通过标准 |
+|----|------|----------|
+| 1 | PDF 附件 → inbound 文本含 `EXT-5 fixture` | 委派或 ingest 完成；无 `DEV_VERIFY_GATE` |
+| 2 | `把这份 PDF 转成 Markdown 放进记忆` | `.butler/ingest/**/*.md` 含 PDF 正文；无 `butler_remember` 反问 |
+
+**说明**：Lead 可能在第 1 步即完成 ingest（与真机「先发 PDF、再发话术」等价结果）。iLink 真机附件链路仍建议偶尔抽测。
+
+**回归**：`bash scripts/butler-wechat-owner-sim.sh --track ext` — **8/8 PASS**（2026-06-26，`verify_files_exist` 仅用于写盘话术 case）。
+
 ---
 
 ## 3. 微信真机话术

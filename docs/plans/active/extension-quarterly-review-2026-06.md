@@ -67,7 +67,7 @@
 2. **运营节奏**：每周 `bash scripts/butler-g1-04-weekly-checkin.sh --log` · 每日 `/简报`  
 3. **G1-04**：窗满（**07-31**）后 `butler-g1-04-closure-check.sh` → 更新 gap register  
 4. **EXT-6**：Owner 指定 SaaS 后再 Decide  
-5. **可选**：微信 PDF 附件 → ingest 真机抽测（话术卡 #3a）
+5. **可选**：微信 PDF 附件 → ingest 真机抽测（话术卡 #3a）；handler sim：`bash scripts/butler-ext5-pdf-ingest-sim.sh`
 
 ---
 
