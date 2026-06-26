@@ -496,61 +496,15 @@ def _init_dev_engine_state(state: DelegateRunState) -> None:
 
 
 def _prepare_b9_benchmark_workspace(state: DelegateRunState) -> None:
-    """Seed B9 workspace read_state and inject file preamble into delegate context."""
-    from butler.dev_engine.b9_delegate_gate import (
-        SWE_LIVE_CATEGORY,
-        is_benchmark_category,
-        prepare_b9_subagent_workspace,
-    )
-    from butler.tools.delegate_impl import (
-        _inject_project_agent_skills,
-        _project_agent_raw_message,
-    )
+    from butler.dev_engine.delegate_workspace import prepare_b9_benchmark_workspace
 
-    if not is_benchmark_category(
-        state.category,
-        state.category_meta,
-    ):
-        return
-    ws = None
-    if state.project is not None and getattr(state.project, "workspace", None):
-        try:
-            ws = Path(state.project.workspace)
-        except (TypeError, ValueError, OSError):
-            ws = None
-    if ws is None or not ws.is_dir():
-        return
-    sk = state.child_session_key or state.session_key or "_default"
-    cat = str(state.category_meta.get("category") or state.category or "")
-    depth = 2 if cat == SWE_LIVE_CATEGORY else 1
-    preamble = prepare_b9_subagent_workspace(ws, session_key=sk, max_depth=depth)
-    if not preamble:
-        return
-    state.context = f"{preamble}\n\n{state.context}".strip()
-    state.raw_user_msg = _project_agent_raw_message(task=state.task, context=state.context)
-    state.user_msg = _inject_project_agent_skills(state.orch, state.raw_user_msg)
+    prepare_b9_benchmark_workspace(state)
 
 
 def _prepare_isolated_workspace_read_state(state: DelegateRunState) -> None:
-    """Seed read_state for drill / head-to-head isolated workspaces (READ_STATE relief)."""
-    cat = str(state.category_meta.get("category") or state.category or "").strip().lower()
-    if not (cat.startswith("head-to-head") or cat.endswith("-drill") or "drill" in cat):
-        return
-    ws = None
-    if state.project is not None and getattr(state.project, "workspace", None):
-        try:
-            ws = Path(state.project.workspace)
-        except (TypeError, ValueError, OSError):
-            ws = None
-    if ws is None or not ws.is_dir():
-        return
-    sk = state.child_session_key or state.session_key or "_default"
-    try:
-        from butler.dev_engine.b9_delegate_gate import seed_b9_workspace_read_state
+    from butler.dev_engine.delegate_workspace import prepare_isolated_workspace_read_state
 
-        seed_b9_workspace_read_state(ws, session_key=sk, max_depth=2)
-    except Exception as exc:
-        logger.debug("isolated workspace read_state seed skipped: %s", exc)
+    prepare_isolated_workspace_read_state(state)
 
 
 def _record_delegate_state(state: DelegateRunState) -> None:
@@ -847,178 +801,12 @@ def _build_result_payload(state: DelegateRunState, report: Any, result: Any) -> 
 
 
 def _attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any]) -> None:
-    """Attach DevState summary to delegate result when engine active (6g, DA6).
+    from butler.dev_engine.delegate_finalize import attach_dev_engine_summary
 
-    Also extracts a candidate experience on success (CT3 closed-loop).
-    """
-    norm = state.role.replace("_agent", "").strip().lower()
-    if norm != "dev":
-        return
-    try:
-        from butler.dev_engine.dev_tools import _active_states, dev_engine_enabled
-
-        if not dev_engine_enabled():
-            return
-        sk = state.child_session_key or state.session_key or "_default"
-        ds = _active_states.pop(sk, None)
-        if ds is None:
-            return
-        payload["dev_engine"] = {
-            "phase": ds.phase.value,
-            "iterations": ds.iteration,
-            "edits": len(ds.edit_history),
-            "fixes": ds.fix_count,
-            "verify_passed": ds.verify_result.passed,
-        }
-        if ds.coding_knowledge.mode:
-            payload["dev_engine"]["coding_knowledge"] = ds.coding_knowledge.to_dict()
-
-        exp_id = ds.coding_knowledge.experience_id or ""
-        if exp_id:
-            try:
-                from butler.ops.experience_selection_telemetry import (
-                    apply_selected_experience_lifecycle,
-                )
-
-                lifecycle = apply_selected_experience_lifecycle(
-                    experience_id=exp_id,
-                    success=bool(ds.verify_result.passed),
-                    session_key=state.child_session_key or state.session_key or "",
-                    task_preview=state.task or "",
-                    role=state.role,
-                )
-                payload["dev_engine"]["experience_lifecycle"] = lifecycle
-            except Exception:
-                pass
-
-        _try_extract_experience(ds, state)
-        try:
-            from butler.memory.memory_scope import delegate_project_id
-            from butler.ops.prod_experience_effectiveness import record_dev_delegate_outcome
-
-            record_dev_delegate_outcome(
-                session_key=state.child_session_key or state.session_key or "",
-                role=state.role,
-                project=delegate_project_id(state.project),
-                task_id=state.task_id,
-                task_preview=state.task or "",
-                category=state.category,
-                category_meta=state.category_meta,
-                success=bool(ds.verify_result.passed),
-                verify_passed=bool(ds.verify_result.passed),
-                experience_id=ds.coding_knowledge.experience_id,
-                experience_mode=ds.coding_knowledge.mode,
-                reactivation_count=int(
-                    getattr(ds, "_coding_knowledge_reactivation_count", 0) or 0
-                ),
-            )
-            try:
-                from butler.ops.g1_04_prod_evidence import record_g1_04_production_evidence
-
-                record_g1_04_production_evidence(
-                    role=state.role,
-                    project=delegate_project_id(state.project),
-                    success=bool(ds.verify_result.passed),
-                    verify_passed=bool(ds.verify_result.passed),
-                    task_id=state.task_id,
-                    task_preview=state.task or "",
-                    capture_source="delegate_pipeline",
-                    category=state.category,
-                    category_meta=state.category_meta,
-                )
-            except Exception:
-                pass
-        except Exception:
-            pass
-    except Exception as exc:  # noqa: BLE001 — best-effort summary
-        logger.debug("DevState summary attachment skipped: %s", exc)
+    attach_dev_engine_summary(state, payload)
 
 
-def _try_extract_experience(ds: Any, state: DelegateRunState) -> None:
-    """Best-effort: extract and persist a coding experience on task success."""
-    try:
-        from butler.dev_engine.dev_state import DevPhase
-        if ds.phase != DevPhase.DONE or not ds.verify_result.passed:
-            return
-
-        activated = getattr(ds, "_coding_knowledge_theorems", None)
-        if not activated:
-            return
-
-        snippets = [
-            e.new_content for e in ds.edit_history
-            if e.new_content and len(e.new_content) > 20
-        ]
-        if not snippets:
-            return
-
-        from butler.dev_engine.coding_knowledge import (
-            ExperienceLibrary,
-            TheoremLibrary,
-            extract_experience_candidate,
-        )
-        from butler.memory.memory_scope import (
-            coding_experiences_save_path,
-            scope_for_extracted_experience,
-        )
-
-        candidate = extract_experience_candidate(
-            ds.task_description, snippets, activated,
-        )
-        if candidate is None:
-            return
-
-        from butler.config import get_butler_home
-
-        butler_home = get_butler_home()
-        save_path = coding_experiences_save_path(
-            butler_home=butler_home,
-            project=state.project,
-        )
-        candidate.scope = scope_for_extracted_experience(state.project)
-        tlib = TheoremLibrary()
-        xlib = ExperienceLibrary.load_from_file(str(save_path), theorem_lib=tlib)
-        ok, _ = xlib.add(candidate)
-        if ok:
-            xlib.save_to_file(str(save_path))
-            logger.debug(
-                "Extracted coding experience %s → %s",
-                candidate.id,
-                save_path,
-            )
-    except Exception as exc:
-        logger.debug("Experience extraction skipped: %s", exc)
-
-
-def peek_dev_engine_summary(session_key: str, role: str) -> dict[str, Any] | None:
-    """Read DevState summary without popping (for background delegate jobs)."""
-    norm = str(role or "").replace("_agent", "").strip().lower()
-    if norm != "dev":
-        return None
-    try:
-        from butler.dev_engine.dev_tools import _active_states, dev_engine_enabled
-
-        if not dev_engine_enabled():
-            return None
-        ds = _active_states.get(session_key or "_default")
-        if ds is None:
-            return None
-        summary = {
-            "phase": ds.phase.value,
-            "iterations": ds.iteration,
-            "edits": len(ds.edit_history),
-            "fixes": ds.fix_count,
-            "verify_passed": ds.verify_result.passed,
-        }
-        tail = getattr(ds.verify_result, "output_tail", "") or ""
-        if tail.strip():
-            summary["verify_output_tail"] = tail.strip()[-800:]
-        if ds.coding_knowledge.mode:
-            summary["coding_knowledge"] = ds.coding_knowledge.to_dict()
-        return summary
-    except Exception as exc:  # noqa: BLE001 — best-effort read
-        logger.debug("peek dev engine summary skipped: %s", exc)
-        return None
+from butler.dev_engine.delegate_finalize import peek_dev_engine_summary  # noqa: F401 re-export
 
 
 def _finalize_delegate_observability(

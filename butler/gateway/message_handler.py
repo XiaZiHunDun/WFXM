@@ -48,7 +48,6 @@ from butler.gateway.message_pipelines import (
     _phase_apply_session_initializing,
     _phase_resolve_session_key,
     _phase_transform_inbound_text,
-    queue_inbound_for_admission_failure,
 )
 from butler.orchestrator import ButlerOrchestrator
 from butler.session.keys import normalize_session_key
@@ -338,12 +337,15 @@ class ButlerMessageHandler:
         from butler.gateway.delegate_push_dedup import gateway_inbound_guard
 
         with gateway_inbound_guard(chat_id):
-            return self._handle_message_after_pipeline(
+            from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
+
+            return run_turn_post_inbound_pipeline(
+                self,
                 text,
                 session_key=session_key,
                 platform=platform,
                 external_id=external_id,
-                _t0=_t0,
+                t0=_t0,
             )
 
     def _handle_message_after_pipeline(
@@ -355,117 +357,17 @@ class ButlerMessageHandler:
         external_id: str | None,
         _t0: float,
     ) -> str:
-        from butler.gateway.inbound_pipeline import (
-            InboundTurnContext,
-            run_inbound_pipeline,
-        )
+        """Backward-compatible alias; prefer :func:`turn_post_pipeline.run_turn_post_inbound_pipeline`."""
+        from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
 
-        pipeline_ctx = InboundTurnContext(
-            handler=self,
-            text=text,
+        return run_turn_post_inbound_pipeline(
+            self,
+            text,
             session_key=session_key,
             platform=platform,
             external_id=external_id,
+            t0=_t0,
         )
-        pipeline_result = run_inbound_pipeline(self._inbound_pipeline, pipeline_ctx)
-        if pipeline_result.blocked:
-            if pipeline_result.block_reply == "drop":
-                return ""
-            return pipeline_result.block_reply
-        text = pipeline_result.text
-
-        try:
-            from butler.ops.owner_pmf_metrics import maybe_record_post_feedback_retry
-
-            maybe_record_post_feedback_retry(text, session_key=session_key)
-        except Exception:
-            pass
-
-        from butler.gateway.handler_helpers import _is_sessionless_command
-
-        if _is_sessionless_command(text):
-            out = self._handle_message_locked(
-                text,
-                session_key=session_key,
-                platform=platform,
-                external_id=external_id,
-            )
-            logger.info(
-                "Gateway handle_message done (slash) session=%s elapsed=%.1fs out_len=%d",
-                session_key,
-                _time.monotonic() - _t0,
-                len(out or ""),
-            )
-            return out
-
-        idem_reply, _idempotency_reserved, _idempotency_inbound_id = _phase_apply_idempotency(
-            text, session_key, external_id=external_id,
-        )
-        if idem_reply is not None:
-            return idem_reply
-
-        block = _phase_apply_session_initializing(
-            text,
-            session_key,
-            platform=platform,
-            external_id=external_id,
-            orchestrator=self._orchestrator,
-        )
-        if block is not None:
-            return block
-
-        block = _phase_apply_queue_inbound(
-            text, session_key, platform=platform, external_id=external_id, handler=self,
-        )
-        if block is not None:
-            return block
-
-        admission = _phase_apply_admission(text, session_key)
-        if admission is None:
-            return queue_inbound_for_admission_failure(
-                text, session_key, platform=platform, external_id=external_id,
-            )
-
-        logger.info("Gateway enter_session session=%s", session_key)
-        session_lock = self._session_registry.enter_session(session_key)
-        out = ""
-        try:
-            out = self._handle_message_locked(
-                text,
-                session_key=session_key,
-                platform=platform,
-                external_id=external_id,
-            )
-            logger.info(
-                "Gateway handle_message done session=%s elapsed=%.1fs out_len=%d",
-                session_key,
-                _time.monotonic() - _t0,
-                len(out or ""),
-            )
-        finally:
-            self._session_registry.exit_session(session_key, session_lock)
-            from butler.gateway.reply_admission import release
-
-            release(admission)
-            if _idempotency_reserved:
-                try:
-                    from butler.gateway.inbound_idempotency import complete_inbound
-
-                    complete_inbound(session_key, _idempotency_inbound_id)
-                except Exception as exc:
-                    logger.warning(
-                        "Inbound completion record failed (idempotency may leak): %s",
-                        exc,
-                    )
-        follow = self._drain_queued_inbound(
-            session_key,
-            platform=platform,
-            external_id=external_id,
-            primary_reply=out,
-        )
-        if follow:
-            out = f"{out}\n\n---\n\n{follow}" if out else follow
-        return out
 
     def _handle_message_locked(
         self,

@@ -528,8 +528,8 @@ butler onboard --profile gateway              # 新机上手
 | ID | 名称 | 批次 | 状态 |
 |----|------|------|------|
 | ENG-1 | 复杂度预算 + 度量脚本 | 基线 | **done** 2026-06-26 |
-| ENG-2 | `delegate_phases` 按阶段拆包 | A | **in_progress**（`delegate_init` ✅） |
-| ENG-3 | `message_handler` 后段薄化 | A | **backlog** |
+| ENG-2 | `delegate_phases` 按阶段拆包 | A | **in_progress**（`delegate_init/workspace/finalize` ✅） |
+| ENG-3 | `message_handler` 后段薄化 | A | **in_progress**（`turn_post_pipeline` ✅） |
 | ENG-4 | `task_orchestrator` 图执行拆分 | A | **backlog** |
 | ENG-5 | `wechat_ilink/phases` 第二轮拆分 | B | **backlog** |
 | ENG-6 | `butler/contracts/` + EventsSink | B | **backlog** |
@@ -600,5 +600,6 @@ butler onboard --profile gateway              # 新机上手
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
 | 2026-06-22 | **§3.10 PROD-P6** 运营期抛光立项（onboard · 出站诊断 · ops cadence · 窗满后 PMF） |
 | 2026-06-26 | **§3.11 ENG** 软件工程整理计划（复杂度 · 分层 · pytest · R2 显性化） |
+| 2026-06-26 | **ENG-1/2/9** 复杂度脚本 · `delegate_init` · registry 测试隔离 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |
