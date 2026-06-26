@@ -246,9 +246,10 @@ def test_memory_auto_classify_sensitive_goes_pending(tmp_path):
     assert mm.list_pending()
 
 
-def test_memory_auto_classify_low_risk_fact(tmp_path):
+def test_memory_auto_classify_low_risk_fact(tmp_path, monkeypatch):
     from butler.memory.project_memory import MarkdownMemory
 
+    monkeypatch.delenv("BUTLER_MEMORY_AUTO_APPROVE", raising=False)
     mm = MarkdownMemory(tmp_path / "MEMORY.md")
     assert mm.append("Notes", "默认测试框架为 pytest", classification="auto") == "fact"
     assert not mm.list_pending()
