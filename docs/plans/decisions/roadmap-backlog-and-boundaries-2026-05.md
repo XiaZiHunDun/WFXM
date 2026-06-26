@@ -471,16 +471,16 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 |----|------|------|------|
 | PROD-P4-01 | 五意图 `/帮助` 首屏 | P4-A | **done** 2026-06-26 |
 | PROD-P4-02 | 委派结束「验收卡」 | P4-A | **done** 2026-06-26 |
-| PROD-P4-03 | `/改` 结构化委派入口 | P4-B | backlog |
-| PROD-P4-04 | `/转交CC` 任务包 | P4-B | backlog |
+| PROD-P4-03 | `/改` 结构化委派入口 | P4-B | **done** 2026-06-26 |
+| PROD-P4-04 | `/转交CC` 任务包 | P4-B | **done** 2026-06-26 |
 | PROD-P4-05 | `/诊断` Owner 三行人话 | P4-A | **done** 2026-06-26 |
 | PROD-P4-06 | 记忆待审降摩擦（高信任） | P4-C | backlog |
-| PROD-P4-07 | DemoPilot 七步 onboarding 镜像 | P4-B | backlog |
+| PROD-P4-07 | DemoPilot 七步 onboarding 镜像 | P4-B | **done** 2026-06-26 |
 | PROD-P4-08 | Owner PMF 指标（简报/验收卡/反馈） | P4-C | backlog |
 
-**建议顺序**：P4-B → P4-C（P4-A ✅ 2026-06-26）。
+**建议顺序**：P4-C（记忆、PMF）。P4-A ✅ · P4-B ✅ 2026-06-26。
 
-守门：`bash scripts/butler-owner-ux-p4-gate.sh` · sim：`butler-owner-ux-p3-wechat-sim.sh`（含 owner-p4 track）
+守门：`bash scripts/butler-owner-ux-p4-gate.sh` · sim：`butler-owner-ux-p4b-wechat-sim.sh` · `butler-wechat-owner-sim.sh --track demopilot`
 
 ---
 
@@ -536,7 +536,7 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | 2026-05-25 | 链入 [`DOCUMENTATION.md`](../../DOCUMENTATION.md) 文档体系 |
 | 2026-05-26 | 记录 SQLite observation store 首版落地后的残留风险与后续收口项 |
 | 2026-06-26 | **§3.6** 产品评估立项表（PROD-P0-01…P2-04）：G1-04、配置剖面、pytest 叙事、Dev/Owner/记忆 P1、工程 P2 |
-| 2026-06-26 | **§3.8 P4-A** 五意图帮助、诊断三行、委派验收卡 + `butler-owner-ux-p4-gate.sh` |
+| 2026-06-26 | **§3.8 P4-B** `/改` · `/转交CC` · DemoPilot sim track |
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |

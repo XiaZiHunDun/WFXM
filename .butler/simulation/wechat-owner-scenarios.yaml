@@ -35,8 +35,8 @@ tracks:
         tier: standard
       - name: 步骤6 /诊断
         user_text: /诊断
-        expect_reply_any: [简要诊断, 健康概览]
-        reject_reply_any: [Butler 诊断]
+        expect_reply_any: [简要诊断, 网关, 项目, 待办]
+        reject_reply_any: [Butler 诊断, OT2]
         tier: fast
 
   - id: slash
@@ -154,6 +154,63 @@ tracks:
         user_text: /诊断
         expect_reply_any: [简要诊断, 网关, 项目, 待办, /诊断 详细]
         reject_reply_any: [OT2, G1-04, 部署剖面]
+        tier: fast
+
+  - id: owner-p4b
+    title: Owner UX P4-B（/改 · /转交CC）
+    session_mode: fresh
+    quick: true
+    setup:
+      - /切换 演示试点
+    cases:
+      - name: P4-03 /改 用法
+        user_text: /改
+        expect_reply_any: [用法, /改, 路径]
+        tier: fast
+      - name: P4-04 /转交CC 任务包
+        user_text: /转交CC 重构 auth 模块
+        expect_reply_any: [CC 任务包, 范围, /cc-bridge, 演示试点]
+        tier: fast
+      - name: P4-04 /转交CC 用法
+        user_text: /转交CC
+        expect_reply_any: [用法, /转交CC]
+        tier: fast
+
+  - id: demopilot
+    title: DemoPilot 七步 onboarding 镜像（软件试点）
+    session_mode: fresh
+    quick: true
+    setup:
+      - /切换 演示试点
+    cases:
+      - name: 步骤1 /状态
+        user_text: /状态
+        expect_reply_any: [网关, 项目]
+        tier: fast
+      - name: 步骤2 /切换 slug
+        user_text: /切换 DemoPilot
+        expect_reply_any: [演示试点, 切换]
+        tier: fast
+      - name: 步骤3 /简报
+        user_text: /简报
+        expect_reply_any: [简报, 待办]
+        tier: fast
+      - name: 步骤4 /分工
+        user_text: /分工
+        expect_reply_any: [CC, 委派]
+        tier: fast
+      - name: 步骤5 /转交CC
+        user_text: /转交CC 重构 auth 模块
+        expect_reply_any: [CC 任务包, 范围]
+        tier: fast
+      - name: 步骤6 /改 用法
+        user_text: /改
+        expect_reply_any: [用法, /改]
+        tier: fast
+      - name: 步骤7 /诊断
+        user_text: /诊断
+        expect_reply_any: [简要诊断, 网关, 待办]
+        reject_reply_any: [OT2]
         tier: fast
 
   - id: attach

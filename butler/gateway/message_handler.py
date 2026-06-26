@@ -466,6 +466,16 @@ class ButlerMessageHandler:
         )
         welcome_prefix = _maybe_welcome_prefix(session_key, text)
 
+        from butler.gateway.owner_delegate_shortcuts import (
+            resolve_project_context,
+            try_expand_owner_edit_slash,
+        )
+
+        _pname, _ = resolve_project_context(self._orchestrator, session_key)
+        _expanded = try_expand_owner_edit_slash(state.text, project_name=_pname)
+        if _expanded:
+            state.text = _expanded
+
         response = _phase_apply_normalizers_and_slash(self, state)
         if response is not None:
             return response
