@@ -110,6 +110,8 @@
 |------|------|------|
 | `BUTLER_SEMANTIC_MEMORY` | 0 | 启用本地向量；`config.yaml` `memory.semantic_enabled` ← env 覆盖 |
 | `BUTLER_MEMORY_AUTO_FACT` | 1 | `0` 时 project MEMORY `auto` 分类一律进待审（仅显式 fact 直写） |
+| `BUTLER_MEMORY_AUTO_APPROVE` | （空） | gateway 高信任推荐 `correction`：仅纠正类 auto 直写 fact；`all` 等同 legacy auto-fact |
+| `BUTLER_OWNER_PMF_METRICS` | 0 | `1` 时落盘 `~/.butler/metrics/owner_pmf_YYYYMM.jsonl`（简报/验收卡/反馈 PMF） |
 | `BUTLER_SEMANTIC_SEARCH_LIMIT` | 8 | 单次语义搜索返回条数；yaml `memory.search_limit` ← env 覆盖 |
 | `BUTLER_SYNC_CONVERSATION_MEMORY` | 0 | 不把每轮聊天写入 experience |
 | `BUTLER_QUEUE_PREFETCH` | 1 | 推荐：下轮预取缓存 |

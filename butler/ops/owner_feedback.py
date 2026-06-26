@@ -57,6 +57,12 @@ def record_owner_hard_feedback(
 
     append_eval_feedback(record)
     logger.info("owner hard feedback recorded trigger=%s len=%d", trigger, len(body))
+    try:
+        from butler.ops.owner_pmf_metrics import record_owner_feedback_pmf
+
+        record_owner_feedback_pmf(session_key=session_key, trigger=trigger)
+    except Exception:
+        pass
     return record
 
 

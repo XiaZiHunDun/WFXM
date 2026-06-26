@@ -364,7 +364,14 @@ def _cmd_brief(ctx: CommandContext) -> Optional[str]:
     from butler.ops.butler_inbox import format_owner_brief
 
     health = ctx.session_registry.get_health(ctx.session_key)
-    return format_owner_brief(ctx.orchestrator, ctx.session_key, health=health)
+    out = format_owner_brief(ctx.orchestrator, ctx.session_key, health=health)
+    try:
+        from butler.ops.owner_pmf_metrics import record_brief_view
+
+        record_brief_view(session_key=ctx.session_key)
+    except Exception:
+        pass
+    return out
 
 
 def _cmd_today(ctx: CommandContext) -> Optional[str]:

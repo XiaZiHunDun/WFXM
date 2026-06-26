@@ -351,4 +351,4 @@ bash scripts/butler-wechat-dev-delegate-sim.sh --track demopilot   # P4-07 后
 
 | 日期 | 说明 |
 |------|------|
-| 2026-06-26 | **P4-B** `/改` 展开委派 · `/转交CC` 任务包 · DemoPilot sim track ✅ |
+| 2026-06-26 | **P4-C** `BUTLER_MEMORY_AUTO_APPROVE` · `BUTLER_OWNER_PMF_METRICS` + pmf report ✅ |

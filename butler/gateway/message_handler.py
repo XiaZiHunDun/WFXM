@@ -353,6 +353,13 @@ class ButlerMessageHandler:
             return pipeline_result.block_reply
         text = pipeline_result.text
 
+        try:
+            from butler.ops.owner_pmf_metrics import maybe_record_post_feedback_retry
+
+            maybe_record_post_feedback_retry(text, session_key=session_key)
+        except Exception:
+            pass
+
         from butler.gateway.handler_helpers import _is_sessionless_command
 
         if _is_sessionless_command(text):

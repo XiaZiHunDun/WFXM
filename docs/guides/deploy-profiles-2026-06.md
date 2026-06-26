@@ -36,13 +36,15 @@ python3 scripts/apply-butler-env-profile.py dev-remote
 | `BUTLER_EVAL_PROD_EVIDENCE` | G1-04 委派生产记账（默认 `1`） |
 | `BUTLER_GATEWAY_DURABLE_OUTBOX` | 完成推送 outbox（默认 `1`） |
 
-**推荐（Owner UX，PROD-P3）**：
+**推荐（Owner UX，PROD-P3/P4）**：
 
 | 变量 | 说明 |
 |------|------|
 | `BUTLER_GATEWAY_DELEGATE_PROGRESS_NOTIFY=1` | 委派执行中心跳（长任务防「卡死」感） |
 | `BUTLER_WORKFLOW_AUTO_RESUME=1` | 工作流确认后自动续跑（灵文 DAG） |
 | `BUTLER_ONBOARDING_WELCOME=1` | 首次绑定三步引导 |
+| `BUTLER_MEMORY_AUTO_APPROVE=correction` | 高信任：仅纠正类记忆自动入库（其余待审） |
+| `BUTLER_OWNER_PMF_METRICS=1` | Owner PMF 周报（`butler-owner-pmf-report.sh`） |
 
 可选：`BUTLER_MCP_ENABLED=1` · `BUTLER_SEMANTIC_MEMORY=1`
 

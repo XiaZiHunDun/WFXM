@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-import logging
 
 from butler.io.safe_load import safe_load_json
 
@@ -89,6 +90,43 @@ def memory_auto_fact_enabled() -> bool:
     from butler.env_parse import env_truthy
 
     return env_truthy("BUTLER_MEMORY_AUTO_FACT", default=True)
+
+
+def memory_auto_approve_mode() -> str:
+    """
+    High-trust MEMORY auto-approve (PROD-P4-06).
+
+    - ``''`` — legacy ``BUTLER_MEMORY_AUTO_FACT`` only
+    - ``correction`` — only correction-like bullets auto-fact; rest pending
+    - ``all`` — same as legacy auto-fact path for non-sensitive content
+    """
+    raw = os.getenv("BUTLER_MEMORY_AUTO_APPROVE", "").strip().lower()
+    if not raw or raw in ("0", "off", "false", "no"):
+        return ""
+    if raw in ("1", "all", "true", "yes", "on"):
+        return "all"
+    if raw == "correction":
+        return "correction"
+    return ""
+
+
+def looks_correction_memory(content: str) -> bool:
+    """Heuristic: Owner correction / remember-this bullets."""
+    body = (content or "").strip()
+    if not body:
+        return False
+    if body.startswith("[纠正]") or "category=correction" in body.lower():
+        return True
+    try:
+        from butler.core.correction_intent import is_correction_intent
+
+        if is_correction_intent(body):
+            return True
+    except Exception:
+        pass
+    lower = body.lower()
+    markers = ("纠正", "刚才不对", "请记住", "以后请", "别再用", "不要再")
+    return any(m in lower for m in markers)
 
 
 def _looks_sensitive_memory(content: str) -> bool:
@@ -250,6 +288,11 @@ class MarkdownMemory:
         for kw in _DECISION_KEYWORDS:
             if kw in lower:
                 return "pending"
+        mode = memory_auto_approve_mode()
+        if mode == "correction":
+            return "fact" if looks_correction_memory(content) else "pending"
+        if mode == "all":
+            return "fact" if memory_auto_fact_enabled() else "pending"
         if not memory_auto_fact_enabled():
             return "pending"
         return "fact"

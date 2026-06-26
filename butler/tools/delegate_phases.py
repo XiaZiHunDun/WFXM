@@ -932,6 +932,12 @@ def _finalize_delegate_task(state: DelegateRunState, report: Any) -> None:
     )
     attach_delegate_task_times(report, state.task_id)
     cache_report(report, session_key=state.session_key)
+    try:
+        from butler.ops.owner_pmf_metrics import record_acceptance_card
+
+        record_acceptance_card(report, session_key=state.session_key)
+    except Exception:
+        pass
     _run_subagent_stop_hooks(
         role=state.role,
         agent_id=state.task_id or f"delegate-{state.role}",
