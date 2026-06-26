@@ -244,3 +244,4 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 |------|------|
 | 2026-06-26 | 初版：基线度量 + ENG-1～12 立项 + 批次与验收 |
 | 2026-06-26 | **ENG-1** `butler-complexity-report.sh` · **ENG-2** `delegate_init.py` · **ENG-9** registry fixture |
+| 2026-06-26 | **ENG-2** `delegate_workspace` + `delegate_finalize`；**ENG-3** `turn_post_pipeline`（handler 672→574） |
