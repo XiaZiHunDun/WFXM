@@ -23,6 +23,16 @@ if [[ -f "$ROOT/.env" ]]; then
   butler_source_env "$ROOT/.env" 2>/dev/null || true
 fi
 
+export BUTLER_MCP_MAX_SERVERS="${BUTLER_MCP_MAX_SERVERS:-4}"
+
+# EXT-5 fixture for ext track (docs/ext5-fixture-sample.txt)
+_ext5_ws="$ROOT/projects/LingWen1"
+_ext5_src="$ROOT/tests/fixtures/ext5/sample.txt"
+if [[ -f "$_ext5_src" ]]; then
+  mkdir -p "$_ext5_ws/docs"
+  cp -f "$_ext5_src" "$_ext5_ws/docs/ext5-fixture-sample.txt"
+fi
+
 if [[ "${BUTLER_WECHAT_OWNER_SIM:-1}" == "0" ]]; then
   echo "skip: BUTLER_WECHAT_OWNER_SIM=0"
   exit 0

@@ -117,3 +117,19 @@ def extract_deliverable_local_files(content: str) -> tuple[list[str], str]:
     if files and not cleaned:
         cleaned = ""
     return files, cleaned
+
+
+def expand_reply_with_wechat_attachments(reply: str) -> str:
+    """Merge deliverable export file bodies into reply text (handler sim rubrics)."""
+    files, _ = extract_deliverable_local_files(reply)
+    if not files:
+        return reply
+    parts: list[str] = [reply]
+    for fp in files:
+        try:
+            body = Path(fp).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if body.strip():
+            parts.append(body)
+    return "\n\n".join(parts)

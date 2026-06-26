@@ -8,6 +8,7 @@ import pytest
 
 from butler.gateway.outbound_files import (
     append_wechat_file_delivery_line,
+    expand_reply_with_wechat_attachments,
     extract_deliverable_local_files,
     is_deliverable_export_file,
 )
@@ -53,6 +54,21 @@ def test_extract_and_append(tmp_path, monkeypatch):
     out = append_wechat_file_delivery_line("已导出", md)
     assert p in out
     assert out.endswith(p) or f"\n\n{p}" in out
+
+
+@pytest.mark.unit
+def test_expand_reply_with_attachments(tmp_path, monkeypatch):
+    monkeypatch.setattr("butler.gateway.outbound_files.get_butler_home", lambda: tmp_path)
+    monkeypatch.setenv("BUTLER_EXPORT_SEND_WECHAT_FILE", "1")
+    exp = tmp_path / "exports"
+    exp.mkdir(parents=True)
+    txt = exp / "diagnostic_full_test.txt"
+    txt.write_text("Extension Verify:\n  - markitdown-ingest [ok]\n", encoding="utf-8")
+    p = str(txt.resolve())
+    raw = f"Butler 简要诊断\n\n（完整运维诊断见 .txt 附件）\n\n{p}"
+    merged = expand_reply_with_wechat_attachments(raw)
+    assert "markitdown-ingest" in merged
+    assert "Extension Verify" in merged
 
 
 @pytest.mark.unit

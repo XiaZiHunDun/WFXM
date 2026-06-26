@@ -220,6 +220,25 @@ tracks:
         user_text: /诊断 详细
         expect_reply_any: [Extension Verify, github-readonly, Butler 诊断]
         tier: fast
+      - name: EXT-5 /诊断 markitdown
+        user_text: /诊断 详细
+        expect_reply_any: [markitdown-ingest, Extension Verify, Observation Store]
+        tier: fast
+      - name: EXT-5 转换样例 txt
+        user_text: 请用 MarkItDown 把项目里 docs/ext5-fixture-sample.txt 转成 Markdown，回复里要包含「EXT-5 fixture」原文
+        prefer_tools_any: [mcp_markitdown_convert_to_markdown, read_document]
+        expect_reply_any: [EXT-5 fixture, MarkItDown, Markdown, 转换]
+        reject_reply_any: [japanese-learning, fake-repo, 没有找到]
+        tier: slow
+        max_seconds: 300
+        requires_mcp: true
+      - name: EXT-5 验收话术
+        user_text: 把 docs/ext5-fixture-sample.txt 转成 Markdown 放进记忆 ingest
+        prefer_tools_any: [mcp_markitdown_convert_to_markdown, read_document, mcp_markitdown_convert]
+        expect_reply_any: [ingest, Markdown, EXT-5, 记忆, 转换]
+        tier: slow
+        max_seconds: 300
+        requires_mcp: true
 
   - id: delegate
     title: 委派（慢，默认跳过 quick）

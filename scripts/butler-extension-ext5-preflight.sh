@@ -71,6 +71,22 @@ else
   _warn "no markitdown in $MCP_CFG — run: bash scripts/butler-extension-ext5-integrate.sh"
 fi
 
+_max="${BUTLER_MCP_MAX_SERVERS:-3}"
+export MCP_CFG
+_cfg_n="$(PYTHONPATH="$ROOT" MCP_CFG="$MCP_CFG" python3 - <<'PY'
+import yaml
+from pathlib import Path
+import os
+p = Path(os.environ.get("MCP_CFG", ""))
+data = yaml.safe_load(p.read_text(encoding="utf-8")) if p.is_file() else {}
+servers = data.get("servers") or {}
+print(len(servers) if isinstance(servers, dict) else 0)
+PY
+)"
+if [[ "${_cfg_n:-0}" -gt "${_max}" ]]; then
+  _warn "BUTLER_MCP_MAX_SERVERS=${_max} but mcp.yaml has ${_cfg_n} servers (raise to ≥${_cfg_n} for markitdown)"
+fi
+
 echo ""
 echo "summary: ok=$ok warn=$warn fail=$fail"
 if [[ "$fail" -gt 0 ]]; then

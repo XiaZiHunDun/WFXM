@@ -19,6 +19,8 @@ if [[ -f "$ROOT/.env" ]]; then
   butler_source_env "$ROOT/.env" 2>/dev/null || true
 fi
 
+export BUTLER_MCP_MAX_SERVERS="${BUTLER_MCP_MAX_SERVERS:-4}"
+
 if [[ "${BUTLER_EXTENSION_WECHAT_SIM:-1}" == "0" ]]; then
   echo "skip: BUTLER_EXTENSION_WECHAT_SIM=0"
   exit 0
@@ -58,6 +60,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from butler.gateway.message_handler import ButlerMessageHandler
+from butler.gateway.outbound_files import expand_reply_with_wechat_attachments
 
 QUICK = sys.argv[1] == "1"
 OWNER = os.getenv("BUTLER_OWNER_WECHAT_ID", "owner-wechat-sim")
@@ -76,17 +79,18 @@ def run_case(
     print(f"\n== {name} ==")
     print(f"IN:  {msg}")
     t0 = time.time()
-    out = handler.handle_message(msg, session_key=sk, platform="wechat", external_id=OWNER) or ""
+    raw = handler.handle_message(msg, session_key=sk, platform="wechat", external_id=OWNER) or ""
+    out = expand_reply_with_wechat_attachments(raw)
     elapsed = time.time() - t0
-    preview = out.replace("\n", " ")[:320]
-    print(f"OUT ({elapsed:.1f}s): {preview}{'…' if len(out) > 320 else ''}")
+    preview = raw.replace("\n", " ")[:320]
+    print(f"OUT ({elapsed:.1f}s): {preview}{'…' if len(raw) > 320 else ''}")
     ok = True
     for needle in expect_any:
         if needle not in out:
             print(f"  FAIL: missing {needle!r}")
             ok = False
     for bad in reject_any:
-        if bad in out:
+        if bad in out or bad in raw:
             print(f"  FAIL: hallucination {bad!r}")
             ok = False
     if ok:
@@ -123,6 +127,17 @@ run_case(
     "/诊断 Extension Verify",
     "/诊断",
     expect_any=("Extension Verify", "github-readonly"),
+)
+run_case(
+    "EXT-5 /诊断 markitdown",
+    "/诊断 详细",
+    expect_any=("Extension Verify", "markitdown"),
+)
+run_case(
+    "EXT-5 转换 fixture",
+    "请把 docs/ext5-fixture-sample.txt 转成 Markdown，回复要包含 EXT-5 fixture 原文",
+    expect_any=("EXT-5", "fixture"),
+    reject_any=("japanese-learning", "没有找到"),
 )
 
 print(f"\next-wechat-sim: {'ALL PASS' if not failures else failures}")

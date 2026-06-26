@@ -381,8 +381,10 @@ def evaluation_reply_text(
     delegated = _any_tool_in_list(("delegate_task",), tools) or any(
         mark in reply for mark in ("代理已完成", "代理未能", "委派", "task_")
     )
+    from butler.gateway.outbound_files import expand_reply_with_wechat_attachments
+
     if not delegated:
-        return reply
+        return expand_reply_with_wechat_attachments(reply)
     try:
         from butler.report import get_last_report
         from butler.core.session_epoch import load_epoch_transcript_rows
@@ -410,7 +412,8 @@ def evaluation_reply_text(
             if text and text not in reply and text not in (summary or ""):
                 chunks.append(text)
             break
-    return "\n\n".join(chunks) if len(chunks) > 1 else reply
+    merged = "\n\n".join(chunks) if len(chunks) > 1 else reply
+    return expand_reply_with_wechat_attachments(merged)
 
 
 def _delegate_evidence_in_reply(reply: str) -> bool:
