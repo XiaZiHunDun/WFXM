@@ -120,7 +120,7 @@ butler memory reindex --project <name>
 
 - [x] **批准 EXT-5 A** — Integrate ✅ 2026-06-25
 - [x] **Verify 自动化** — `butler-extension-ext5-verify.sh` + handler sim ✅ 2026-06-26（全量 PASS）
-- [ ] **Verify 真机话术** — 微信 §3 四句（[`话术卡`](../../../guides/ext5-wechat-phrases-card-2026-06.md) · `butler-ext5-wechat-phrases-card.sh`）
+- [x] **Verify 真机话术** — 微信 §3 四句 ✅ 2026-06-26（markitdown `[ok]` · ingest → `projects/LingWen1/.butler/ingest/`）
 
 ---
 
@@ -132,3 +132,4 @@ butler memory reindex --project <name>
 | 2026-06-25 | Owner 批准 A；manifest + integrate/preflight/gate |
 | 2026-06-25 | handler sim + `BUTLER_MCP_MAX_SERVERS=4`；verify 指南 |
 | 2026-06-26 | `butler-owner-week1-ops-sim` + ext5-verify 全量 PASS；G1-04 首条 owner_hard_feedback |
+| 2026-06-26 | **Verify 真机 ✅** — 话术卡四句 + PATH/uvx 修复；ingest `ext5-fixture-sample.md` |

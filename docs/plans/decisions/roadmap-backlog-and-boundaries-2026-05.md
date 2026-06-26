@@ -445,7 +445,7 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | **状态** | **done** 2026-06-22（选型闭环；EXT-5 Integrate 未开） |
 | **EXT-4** | [ext-4-second-openapi-2026-06.md](../active/extension-candidates/ext-4-second-openapi-2026-06.md) · Verify ✅ |
 | **季度评审** | [extension-quarterly-review-2026-06.md](../active/extension-quarterly-review-2026-06.md) |
-| **EXT-5** | [ext-5-markitdown-mcp-2026-06.md](../active/extension-candidates/ext-5-markitdown-mcp-2026-06.md) · Integrate ✅ |
+| **EXT-5** | [ext-5-markitdown-mcp-2026-06.md](../active/extension-candidates/ext-5-markitdown-mcp-2026-06.md) · Integrate ✅ · **Verify 真机 ✅** 2026-06-26 |
 | **守门** | `scripts/butler-extension-ext4-gate.sh` |
 
 ### 3.7 产品体验 P3（Owner ROI — 2026-06）
@@ -536,6 +536,7 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | 2026-05-25 | 链入 [`DOCUMENTATION.md`](../../DOCUMENTATION.md) 文档体系 |
 | 2026-05-26 | 记录 SQLite observation store 首版落地后的残留风险与后续收口项 |
 | 2026-06-26 | **§3.6** 产品评估立项表（PROD-P0-01…P2-04）：G1-04、配置剖面、pytest 叙事、Dev/Owner/记忆 P1、工程 P2 |
+| 2026-06-26 | **EXT-5 Verify 真机 ✅** — 话术卡四句 + gateway PATH/uvx；ingest 真机 |
 | 2026-06-26 | **§3.8 P4-C** MEMORY_AUTO_APPROVE · OWNER_PMF_METRICS · pmf report |
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
