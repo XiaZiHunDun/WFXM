@@ -113,6 +113,33 @@ tracks:
         expect_reply_any: [项目摘要, 灵文1号]
         tier: fast
 
+  - id: owner-p3
+    title: Owner UX P3（切换纠错 · 无 LLM）
+    session_mode: fresh
+    quick: true
+    cases:
+      - name: P3-01 /切换 slug LingWen1
+        user_text: /切换 LingWen1
+        expect_reply_any: [灵文1号, 切换]
+        reject_reply_any: [未找到项目]
+        tier: fast
+      - name: P3-01 /切换 slug 小写
+        user_text: /切换 lingwen1
+        expect_reply_any: [灵文1号]
+        tier: fast
+      - name: P3-01 /切换 未知 slug 提示
+        user_text: /切换 ZZZ_NoSuchProject_999
+        expect_reply_any: [未找到项目, 可用项目]
+        tier: fast
+      - name: P3-01 Did-you-mean 近义 slug
+        user_text: /切换 LingWen
+        expect_reply_any: [灵文1号, 你是不是指, 可用项目]
+        tier: fast
+      - name: P3-05 /帮助 常用面
+        user_text: /帮助
+        expect_reply_any: [/简报, /状态, /分工]
+        tier: fast
+
   - id: attach
     title: 微信附件契约（handler，无 LLM）
     session_mode: fresh
