@@ -528,13 +528,13 @@ butler onboard --profile gateway              # 新机上手
 | ID | 名称 | 批次 | 状态 |
 |----|------|------|------|
 | ENG-1 | 复杂度预算 + 度量脚本 | 基线 | **done** 2026-06-26 |
-| ENG-2 | `delegate_phases` 按阶段拆包 | A | **in_progress**（`delegate_init/workspace/finalize` ✅） |
+| ENG-2 | `delegate_phases` 按阶段拆包 | A | **done** 2026-06-26（`delegate_phases` 125L 门面 + 6 子模块） |
 | ENG-3 | `message_handler` 后段薄化 | A | **in_progress**（`turn_post_pipeline` ✅） |
 | ENG-4 | `task_orchestrator` 图执行拆分 | A | **backlog** |
 | ENG-5 | `wechat_ilink/phases` 第二轮拆分 | B | **backlog** |
 | ENG-6 | `butler/contracts/` + EventsSink | B | **backlog** |
 | ENG-7 | tools→gateway 经 execution_context | B | **backlog** |
-| ENG-8 | 记忆/embedding 降级显性化 | C | **backlog** |
+| ENG-8 | 记忆/embedding 降级显性化 | C | **in_progress**（简要 `/诊断` 一行 ✅；详细页已有） |
 | ENG-9 | pytest 全量泄漏修债 | C | **in_progress**（registry fixture ✅） |
 | ENG-10 | `model_defaults` 剩余硬编码 | C | **backlog**（≈PROD-P6-07） |
 | ENG-11 | `locked_phases` phase 注册表 | D | **backlog** |

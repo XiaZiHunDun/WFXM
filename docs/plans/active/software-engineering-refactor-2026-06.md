@@ -245,3 +245,5 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-26 | 初版：基线度量 + ENG-1～12 立项 + 批次与验收 |
 | 2026-06-26 | **ENG-1** `butler-complexity-report.sh` · **ENG-2** `delegate_init.py` · **ENG-9** registry fixture |
 | 2026-06-26 | **ENG-2** `delegate_workspace` + `delegate_finalize`；**ENG-3** `turn_post_pipeline`（handler 672→574） |
+| 2026-06-26 | **ENG-2 done**：`delegate_run_state/prepare/subagent/record/run/report`；`delegate_phases` 901→125 行 |
+| 2026-06-26 | **ENG-8** 首步：`/诊断` 简要增记忆降级一行（嵌入/FTS/离线） |

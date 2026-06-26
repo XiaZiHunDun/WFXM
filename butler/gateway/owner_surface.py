@@ -187,6 +187,42 @@ def _owner_outbound_brief_line(*, session_key: str = "", chat_id: str = "") -> s
     return None
 
 
+def _owner_memory_degradation_brief_line(
+    orchestrator: Any,
+    *,
+    session_key: str = "",
+    health: dict | None = None,
+) -> str | None:
+    """One human line when memory / embedding / recall is degraded (ENG-8)."""
+    try:
+        from butler.ops.health_report import collect_mem_stats_for_health
+
+        stats = collect_mem_stats_for_health(
+            orchestrator, str(session_key or "").strip(), health
+        )
+    except Exception:
+        return None
+
+    if stats.get("memory_offline"):
+        return (
+            f"记忆：{_health_icon(False)} "
+            "子系统离线 → /诊断 详细"
+        )
+    bits: list[str] = []
+    if stats.get("embedding_degraded"):
+        used = str(stats.get("embedding_used_model") or "hashing-v1")
+        bits.append(f"嵌入降级({used})")
+    if stats.get("rag_last_recall_degraded"):
+        bits.append("检索降级(仅FTS)")
+    if not bits:
+        return None
+    warn = len(bits) == 1 and not stats.get("memory_offline")
+    return (
+        f"记忆：{_health_icon(False, warn=warn)} "
+        f"{' · '.join(bits)} → /诊断 详细"
+    )
+
+
 def format_owner_diagnostic_brief(
     orchestrator: Any,
     session_key: str,
@@ -225,6 +261,12 @@ def format_owner_diagnostic_brief(
     outbound = _owner_outbound_brief_line(session_key=sk)
     if outbound:
         lines.append(outbound)
+
+    memory = _owner_memory_degradation_brief_line(
+        orchestrator, session_key=sk, health=health
+    )
+    if memory:
+        lines.append(memory)
 
     lines.append("")
     lines.append("完整快照：/诊断 详细")
