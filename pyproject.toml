@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "butler-system"
 version = "4.0.0"
-description = "Butler AI 管家系统 v4 - 自建 Agent Loop 的多项目 AI 协助平台"
+description = "Butler v4 — 多项目微信 AI 管家：自建 Agent Loop、委派代理与分层记忆"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

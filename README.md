@@ -1,151 +1,178 @@
-# 管家系统 (Butler System)
+# Butler · 微信 AI 管家
 
-多项目 AI 协助系统 —— 通过 CLI 或微信指挥 AI 管家管理和推进多个项目。
+> **English**: A self-hosted **personal AI butler** for **multiple projects** — talk on **WeChat** or the **CLI**, delegate coding and writing to role agents, with layered memory and optional MCP extensions.
 
-**当前版本：Butler v4** — 自建 Agent Loop + 模块化 Hermes 提炼，不再 `import` Hermes `AIAgent`。  
-**在 Cursor 中开发**：先读 [`AGENTS.md`](AGENTS.md)。  
-架构见 [`docs/architecture/v4-architecture.md`](docs/architecture/v4-architecture.md)；文档体系 [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md)；规划与否决 [`docs/plans/README.md`](docs/plans/README.md)、[`roadmap-backlog-and-boundaries`](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)；总索引 [`docs/README.md`](docs/README.md)。
+**Butler v4** 是自建的 Agent 平台：核心循环在 `butler/core/`，微信网关为 Butler 原生实现（**不**依赖 Hermes `AIAgent` 或 IDE 子进程）。  
+适合「远程用手机指挥多个仓库/小说/软件项目」的个人或小团队场景。
 
-## 架构（v4 概要）
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+---
+
+## 是什么
+
+Butler 是 **多项目 AI 管家**：
+
+- 你在 **微信** 或终端里用自然语言 / 斜杠命令下指令  
+- Butler（Lead）理解意图后，**委派**给开发 / 内容 / 审核等子代理改代码、写文档、跑验证  
+- **分层记忆**（Owner 画像、项目 MEMORY、向量检索、ingest 写盘）跨会话延续上下文  
+- 每个项目在独立 **workspace** 下运行，带权限门控与人工确认
+
+**典型主路径**：`/切换 项目` → `/简报` 看状态 → 「交给开发代理…」或 `/改` 结构化委派 → 验收卡确认结果。
+
+---
+
+## 核心能力
+
+| 能力 | 说明 |
+|------|------|
+| **微信网关** | `butler gateway` + iLink；入站队列、`/steer`、出站重试与 durable outbox |
+| **自建 Agent Loop** | 上下文压缩、工具结果落盘、read-before-edit、委派 cache-safe 前缀 |
+| **多项目** | `project.yaml`、Lead 模式、项目切换、runtime 定时任务 |
+| **委派与验收** | `delegate_task`、Dev 自动 verify 门控、Owner **验收卡**（ingest 等只读写盘单独语义） |
+| **记忆** | 语义检索、fact 提取、记忆待审、`butler memory ingest`、EXT-5 MarkItDown → `.butler/ingest/` |
+| **扩展（opt-in）** | 薄 MCP 客户端（GitHub / Todoist / Firecrawl / MarkItDown 等）；见 Extension R&D 规程 |
+| **可观测** | `/诊断`、`butler doctor`、runtime 指标；LangFuse 可选 |
+
+---
+
+## 不是什么
+
+为避免误解，下列能力 **不在产品边界内**（详见 [roadmap §1 否决](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md)）：
+
+- 全量 MCP Host / IDE 内置 Agent / 多租户 SaaS  
+- 用 LangGraph 等 **替换** 自建 Loop  
+- 微信内代码 diff 阅读器、无限制 shell、浏览器自动化默认路径  
+
+我们对标的是 **「微信 + 多项目管家」**，Dev 能力上限参考 Claude Code **CLI** 线束，而非 Cursor IDE 全家桶。
+
+---
+
+## 架构一览
 
 ```
-用户 ─→ CLI / 微信 / Gateway 平台
-         │
-         ▼
-   Butler Orchestrator          ← 记忆、Skill、分层模型
-         │
-         ▼
-   Agent Loop (agent_loop.py)   ← 编排 ~560 行（2026-06-09）
-         ├─ context_pipeline     ← 压缩 / hygiene
-         ├─ llm_retry            ← 重试 / failover
-         ├─ tool_batch           ← 工具批次 / spill / guardrails
-         ├─ streaming_tools      ← 流式只读预取（可选）
-         └─ Transport + Tools    ← LLM 协议与工具注册表
+Owner ──→ 微信 / CLI / Gateway
+              │
+              ▼
+        Butler Orchestrator     记忆 · Skill · 分层模型
+              │
+              ▼
+        Agent Loop (core/)      context · retry · tool_batch · delegate
+              │
+              ├─ Transport      多 Provider（OpenAI 兼容 / Anthropic）
+              ├─ Tools          内置 + 可选 MCP + 项目白名单
+              └─ Gateway        message_handler · 队列 · 出站
 ```
+
+实现细节：[v4-architecture.md](docs/architecture/v4-architecture.md) · 解耦说明：[hermes-decoupling.md](docs/architecture/hermes-decoupling.md)
+
+---
 
 ## 快速开始
 
 ### 1. 安装
 
 ```bash
-cd /path/to/WFXM
-pip install -e ".[wechat]"          # Butler + 微信 iLink 依赖（推荐）
+git clone https://github.com/XiaZiHunDun/WFXM.git
+cd WFXM
+pip install -e ".[wechat]"    # Butler + 微信网关依赖
 ```
 
 ### 2. 配置
 
-**推荐**：先读 [`docs/guides/deploy-profiles-2026-06.md`](docs/guides/deploy-profiles-2026-06.md)（gateway / dev-local / dev-remote 三剖面），再按需编辑 `.env`。
+先读 **[部署三剖面](docs/guides/deploy-profiles-2026-06.md)**（gateway / dev-local / dev-remote），再编辑环境变量：
 
 ```bash
 cp .env.example .env
-# 编辑 .env，至少配置一个 LLM Provider 的 API Key
+# 至少配置一个 LLM API Key（如 MINIMAX_API_KEY、DEEPSEEK_API_KEY）
 ```
 
-### 3. 启动
+变量全集：[config/reference.md](docs/config/reference.md) · 示例：[`.env.example`](.env.example)
+
+### 3. 运行
 
 ```bash
-# 交互式 CLI
+# 终端对话
 butler chat
 
 # 单条指令
 butler exec "列出所有项目"
 
-# 项目列表 / 创建
-butler projects
-butler create MyApp --name "我的新应用" --type software
-butler project register projects/MyApp   # 已有目录时登记
-butler project preflight --project "我的新应用"
-
-# 微信（个人助手主场景）
-butler wechat-setup                              # 扫码绑定
-bash scripts/install-butler-gateway-service.sh   # systemd 常驻网关
-bash scripts/butler-gateway-ops.sh status        # 运维状态
+# 微信网关（生产主场景）
+butler wechat-setup
+bash scripts/install-butler-gateway-service.sh
+bash scripts/butler-gateway-ops.sh status
 ```
 
-### 4. 测试
+### 4. 验证
 
-**发版 / PR 以分层 gate 为准**（非裸跑全量 `pytest tests/`）。矩阵见 [`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) §3。
+发版以 **分层 gate** 为准（非裸跑全量 `pytest tests/`）：
 
 ```bash
-bash scripts/butler-pytest-fast-gate.sh   # PR 推荐
-PYTHONPATH=. pytest -q                    # 默认排除 live_llm（维护者可选全量）
+bash scripts/butler-pytest-fast-gate.sh
 bash scripts/project-health-check.sh quick
 ```
 
-## 项目结构（核心）
+策略说明：[agent-testing-strategy](docs/plans/decisions/agent-testing-strategy-2026-06.md)
+
+---
+
+## 微信 Owner 常用命令
+
+| 说法 / 命令 | 作用 |
+|-------------|------|
+| `/切换 项目名` | 切换当前工作项目 |
+| `/简报` | 待办 · 队列 · 门控 · 昨夜 job |
+| `/帮助` | 五意图首屏（查 · 改 · 批 · 记 · 管） |
+| `/改 …` | 结构化开发/内容委派 |
+| `/诊断` | 运行时健康与 MCP Extension 状态 |
+| `/反馈 …` | Owner 硬反馈（观测闭环） |
+
+扩展验收话术：[EXT-5 微信话术卡](docs/guides/ext5-wechat-phrases-card-2026-06.md)
+
+---
+
+## 仓库结构
 
 ```
 butler/
-├── core/              # Agent Loop 栈（agent_loop, tool_batch, llm_retry, context_pipeline, …）
-├── transport/         # LLM 协议、Provider、重试与 schema 兼容
-├── gateway/           # 消息网关、session 注册、/health
-├── tools/             # 工具注册表、审计、路径安全
-├── memory/            # 分层记忆
-├── skills/            # Skill 加载 / 路由 / 合并
-├── task_orchestrator.py
-├── orchestrator.py
-├── post_session.py
-└── main.py
-docs/                  # 架构与设计（索引 docs/README.md；后续规划见 docs/plans/active/post-consolidation-roadmap-2026-05.md）
-tests/                 # 1200+ 自动化测试（v3 archive 已移除）
-scripts/               # 网关安装与 butler-gateway-ops 运维
+├── core/           Agent Loop、上下文、委派门控
+├── gateway/        微信入站/出站、message_handler
+├── transport/      LLM Provider 与协议
+├── tools/          工具注册表、MCP、delegate
+├── memory/         向量、ingest、observation store
+├── dev_engine/     开发验证与编码知识层
+└── main.py         CLI 入口
+docs/               架构、配置、规划（索引 docs/README.md）
+scripts/            网关运维与守门脚本
+tests/              自动化测试（分层 gate）
 ```
 
-## 支持的 LLM Provider
+更完整目录说明：[STRUCTURE.md](STRUCTURE.md)
 
-内置注册 **9 家**（以 [`butler/transport/providers.py`](butler/transport/providers.py) 为准）：
+---
 
-| 注册名 | 常见称呼 | 环境变量 |
-|--------|----------|----------|
-| `anthropic` | Claude | `ANTHROPIC_API_KEY` |
-| `openai` | OpenAI | `OPENAI_API_KEY` |
-| `deepseek` | DeepSeek | `DEEPSEEK_API_KEY` |
-| `qwen` | 通义千问 | `DASHSCOPE_API_KEY` / `QWEN_API_KEY` |
-| `zhipu` | 智谱 GLM | `ZHIPU_API_KEY` |
-| `minimax` | MiniMax 国际 | `MINIMAX_API_KEY` |
-| `minimax-cn` | MiniMax 国内 | `MINIMAX_CN_API_KEY` |
-| `openrouter` | OpenRouter | `OPENROUTER_API_KEY` |
-| `siliconflow` | 硅基流动 | `SILICONFLOW_API_KEY` |
+## 文档导航
 
-新增厂商请改 `providers.py` 的 `_register_builtin()`，并同步本表与 [`.env.example`](.env.example)。
+| 读者 | 从这里开始 |
+|------|------------|
+| **新用户 / 运维** | [deploy-profiles](docs/guides/deploy-profiles-2026-06.md) → [wechat-gateway-ops](docs/guides/wechat-gateway-ops.md) |
+| **开发者** | [AGENTS.md](AGENTS.md) → [v4-architecture](docs/architecture/v4-architecture.md) |
+| **提需求 / 边界** | [roadmap-backlog](docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md) |
+| **发版** | [release-runbook](docs/guides/release-runbook-2026-05.md) |
+| **文档体系** | [DOCUMENTATION.md](docs/DOCUMENTATION.md) |
 
-## CLI 命令（节选）
+---
 
-| 命令 | 说明 |
-|------|------|
-| `/projects` | 列出所有项目 |
-| `/switch <名称>` | 切换项目 |
-| `/model` | 查看 / 设置分层模型 |
-| `/health`、`/诊断` | 运行时诊断与工具审计摘要 |
-| `/steer <文本>` | 向运行中 Agent 插入指引（不打断工具）|
-| `/new` | 新会话（自动提炼旧会话记忆）|
-| `/status` | 系统状态 |
-| `/help` | 帮助 |
+## 参与开发
 
-完整列表见 [`docs/design/design.md`](docs/design/design.md) 附录。
+- 改 `butler/core` 或 `butler/gateway` 前请读 [AGENTS.md](AGENTS.md) 守门清单  
+- 贡献约定：[CONTRIBUTING.md](CONTRIBUTING.md)  
+- Cursor 规则：`.cursor/rules/`
 
-## 使用场景
+---
 
-- **CLI 对话开发**：终端与管家对话，委派 Dev / Content / Review 等角色 Agent。
-- **微信远程开发**：`butler gateway --platforms wechat`（Butler 原生 iLink 网关，需 `aiohttp` + `cryptography`）。生产部署见 [`docs/guides/wechat-gateway-ops.md`](docs/guides/wechat-gateway-ops.md)。
+## License
 
-## 扩展
-
-- **Provider**：在 `butler/transport/` 扩展协议与注册。
-- **工具**：`butler/tools/` + `@register_tool`。
-- **网关**：`butler/gateway/` 适配新平台。
-
-## 文档
-
-| 文档 | 内容 |
-|------|------|
-| [STRUCTURE.md](STRUCTURE.md) | 仓库目录与职责边界 |
-| [docs/README.md](docs/README.md) | 文档总索引 |
-| [docs/guides/README.md](docs/guides/README.md) | 微信运维与冒烟指南索引 |
-| [docs/architecture/v4-architecture.md](docs/architecture/v4-architecture.md) | v4 架构、数据流、观测 |
-| [docs/architecture/hermes-decoupling.md](docs/architecture/hermes-decoupling.md) | Hermes 解耦（已完成） |
-| [docs/guides/wechat-gateway-ops.md](docs/guides/wechat-gateway-ops.md) | 微信网关 systemd 运维 |
-| [docs/guides/wechat-daily-smoke-checklist.md](docs/guides/wechat-daily-smoke-checklist.md) | 发版真机冒烟检查表 |
-| [docs/design/design.md](docs/design/design.md) | v4 产品设计摘要 |
-| [docs/plans/active/post-consolidation-roadmap-2026-05.md](docs/plans/active/post-consolidation-roadmap-2026-05.md) | 整理后后续规划 |
-| [docs/reviews/project-deep-audit-2026-06.md](docs/reviews/project-deep-audit-2026-06.md) | 项目成熟度评估 |
+MIT — 见 [LICENSE](LICENSE)。
