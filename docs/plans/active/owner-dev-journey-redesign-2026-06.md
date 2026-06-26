@@ -351,4 +351,5 @@ bash scripts/butler-wechat-dev-delegate-sim.sh --track demopilot   # P4-07 后
 
 | 日期 | 说明 |
 |------|------|
+| 2026-06-26 | **PROD-P5 立项** + **P5-A done** — [`owner-ux-p5-debt-2026-06.md`](owner-ux-p5-debt-2026-06.md) |
 | 2026-06-26 | **P4-C** `BUTLER_MEMORY_AUTO_APPROVE` · `BUTLER_OWNER_PMF_METRICS` + pmf report ✅ |

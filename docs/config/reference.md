@@ -209,6 +209,9 @@
 | `BUTLER_WECHAT_ATTACH_DIAGNOSTIC` | 1 | `/诊断 详细` 附带运维快照 `.txt` |
 | `BUTLER_WECHAT_ATTACH_RUNTIME` | 1 | Runtime 任务**失败**推送附带 stdout/stderr `.txt` |
 | `BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY` | 1 | 委派完成微信提醒（见 `BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE`） |
+| `BUTLER_GATEWAY_DELEGATE_PUSH_DEDUP` | 1 | PROD-P5-01：同 chat+task_id 委派完成卡只推一次 |
+| `BUTLER_GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS` | 600 | 任务完成后超过此秒数不再推委派完成卡（冷却迟推兜底） |
+| `BUTLER_GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND` | 1 | 处理入站消息期间暂存委派完成卡，turn 结束后再推 |
 | `BUTLER_GATEWAY_DELEGATE_PROGRESS_NOTIFY` | 0 | `1` 时长委派微信心跳（gateway 推荐开） |
 | `BUTLER_GATEWAY_DELEGATE_PROGRESS_SECONDS` | 90 | 心跳间隔秒（≥45） |
 | `BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX` | 5 | 单次委派最多心跳条数 |

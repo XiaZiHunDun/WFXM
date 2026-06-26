@@ -334,6 +334,27 @@ class ButlerMessageHandler:
         if not text.strip():
             return ""
 
+        chat_id = str(external_id or "").strip()
+        from butler.gateway.delegate_push_dedup import gateway_inbound_guard
+
+        with gateway_inbound_guard(chat_id):
+            return self._handle_message_after_pipeline(
+                text,
+                session_key=session_key,
+                platform=platform,
+                external_id=external_id,
+                _t0=_t0,
+            )
+
+    def _handle_message_after_pipeline(
+        self,
+        text: str,
+        *,
+        session_key: str | None,
+        platform: str,
+        external_id: str | None,
+        _t0: float,
+    ) -> str:
         from butler.gateway.inbound_pipeline import (
             InboundTurnContext,
             run_inbound_pipeline,

@@ -249,6 +249,18 @@ def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
     report = bridge.take_pending_delegate_report()
     if report is None:
         return False
+    from butler.gateway.delegate_push_dedup import should_deliver_delegate_push
+
+    tid = str(getattr(report, "task_id", "") or "").strip()
+    ok, reason = should_deliver_delegate_push(bridge.chat_id, tid)
+    if not ok:
+        logger.info(
+            "pending delegate flush suppressed chat=%s task=%s reason=%s",
+            str(bridge.chat_id or "")[:12],
+            tid,
+            reason,
+        )
+        return False
     if (
         getattr(bridge, "_final_sent", False)
         and getattr(bridge, "_main_reply_chars", 0) > 0
@@ -260,6 +272,8 @@ def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
     elapsed = time.monotonic() - bridge.turn_started_at if bridge.turn_started_at else 0.0
     if not should_push_delegate_completion(bridge, elapsed):
         return False
+    from butler.gateway.wechat_text_export import build_delegate_completion_message
+
     text = build_delegate_completion_message(
         report,
         prefix="📋 委派阶段完成",
@@ -306,6 +320,23 @@ async def deliver_completion_push(
     from butler.gateway.pii_scrub import scrub_outbound_text
 
     body = scrub_outbound_text(body)
+    if kind == "delegate":
+        from butler.gateway.delegate_push_dedup import (
+            mark_delegate_push_delivered,
+            maybe_defer_delegate_push,
+            should_deliver_delegate_push,
+        )
+
+        if maybe_defer_delegate_push(chat_id, body, kind=kind):
+            return True
+        ok, reason = should_deliver_delegate_push(chat_id, "", body=body)
+        if not ok:
+            logger.info(
+                "Gateway delegate push suppressed chat=%s reason=%s",
+                str(chat_id or "")[:12],
+                reason,
+            )
+            return False
     outbox_id = enqueue_outbox_message(chat_id, body, kind=kind)
     await asyncio.to_thread(wait_wechat_push_cooldown)
     title = f"[Butler] {kind}完成提醒"
@@ -318,6 +349,10 @@ async def deliver_completion_push(
         await asyncio.to_thread(mark_wechat_push_sent)
         mark_outbox_sent(outbox_id)
         record_completion_push_sent(session_key=telemetry_key)
+        if kind == "delegate":
+            from butler.gateway.delegate_push_dedup import mark_delegate_push_delivered
+
+            mark_delegate_push_delivered(chat_id, "", body=body)
         return True
     except Exception as exc:
         logger.warning("Gateway completion push failed kind=%s: %s", kind, exc)

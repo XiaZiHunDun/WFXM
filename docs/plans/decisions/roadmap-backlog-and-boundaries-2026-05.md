@@ -482,6 +482,19 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 
 守门：`bash scripts/butler-owner-ux-p4-gate.sh` · `butler-owner-ux-p4b-wechat-sim.sh` · `butler-owner-ux-p4c-gate.sh` · `butler-owner-pmf-report.sh`
 
+### 3.9 产品体验 P5 — 真机 UX 债（2026-06）
+
+> **来源**：EXT-5 / P4 真机验收暴露；SSOT [`owner-ux-p5-debt-2026-06.md`](../active/owner-ux-p5-debt-2026-06.md)  
+> **并行**：G1-04 观测窗（06-09→07-31）不阻塞本线小批交付。
+
+| ID | 名称 | 批次 | 状态 |
+|----|------|------|------|
+| PROD-P5-01 | 委派完成卡去陈旧（task 年龄 / outbox） | P5-A | **done** 2026-06-26 |
+| PROD-P5-02 | ingest 意图预路由（manifest 话术） | P5-B | backlog |
+| PROD-P5-03 | ingest/只读写盘跳过 DEV_VERIFY_GATE | P5-C | backlog |
+
+守门（目标态）：`bash scripts/butler-owner-ux-p5-gate.sh` · P4/EXT-5 回归见 P5 SSOT §7
+
 ---
 
 **维护**：完成某项 → 本表 `状态` 改 `done`，摘要写入 §6 变更记录 + 相关 SSOT（`gap-register` / `pilot-log`）；部分交付可拆多 PR，但验收以本表勾选为准。
@@ -536,6 +549,7 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | 2026-05-25 | 链入 [`DOCUMENTATION.md`](../../DOCUMENTATION.md) 文档体系 |
 | 2026-05-26 | 记录 SQLite observation store 首版落地后的残留风险与后续收口项 |
 | 2026-06-26 | **§3.6** 产品评估立项表（PROD-P0-01…P2-04）：G1-04、配置剖面、pytest 叙事、Dev/Owner/记忆 P1、工程 P2 |
+| 2026-06-26 | **§3.9 PROD-P5** 立项 + **P5-01 done**（delegate push dedup/defer/max-age） |
 | 2026-06-26 | **EXT-5 Verify 真机 ✅** — 话术卡四句 + gateway PATH/uvx；ingest 真机 |
 | 2026-06-26 | **§3.8 P4-C** MEMORY_AUTO_APPROVE · OWNER_PMF_METRICS · pmf report |
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
