@@ -182,7 +182,7 @@ class TestManualGuide34Dialog:
 
     def test_346_health_command(self, gateway_handler):
         out = gateway_handler.handle_message("/health", session_key="wechat:u1", platform="wechat")
-        assert "Butler 诊断" in out or "暂无诊断" in out
+        assert "Butler 简要诊断" in out or "Butler 诊断" in out or "暂无诊断" in out
 
 
 @pytest.mark.integration

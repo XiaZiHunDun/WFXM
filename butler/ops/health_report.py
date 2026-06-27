@@ -88,6 +88,19 @@ def _shared_diagnostic_lines(
     from butler.runtime.diagnostics import format_runtime_diagnostic_lines
 
     lines: list[str] = []
+    try:
+        from butler.ops.degradation_registry import (
+            format_diagnostic_lines,
+            sync_memory_degradations_from_stats,
+        )
+
+        sync_memory_degradations_from_stats(inp.mem_stats)
+        deg = format_diagnostic_lines()
+        if deg:
+            lines.extend(deg)
+            lines.append("")
+    except Exception as exc:
+        logger.debug("degradation diagnostic lines skipped: %s", exc)
     lines.extend(format_memory_diagnostic_lines(inp.mem_stats))
     # Sprint 24 P1-3.2: 权限批准缓存统计
     try:

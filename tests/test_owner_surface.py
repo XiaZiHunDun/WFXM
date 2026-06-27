@@ -111,8 +111,8 @@ def test_owner_diagnostic_brief_shows_outbound_issue(_mock_outbound):
 
 
 @patch(
-    "butler.gateway.owner_surface._owner_memory_degradation_brief_line",
-    return_value="记忆：🟡 嵌入降级(hashing-v1) → /诊断 详细",
+    "butler.gateway.owner_surface._owner_degradation_brief_line",
+    return_value="降级：🟡 嵌入降级(hashing-v1) → /诊断 详细",
 )
 def test_owner_diagnostic_brief_shows_memory_degradation(_mock_memory):
     orch = MagicMock()
@@ -120,6 +120,30 @@ def test_owner_diagnostic_brief_shows_memory_degradation(_mock_memory):
     orch.project_manager.get_current.return_value = SimpleNamespace(name="Demo")
     text = format_owner_diagnostic_brief(orch, "sk1")
     assert "嵌入降级" in text
+
+
+@patch("butler.ops.health_report.collect_mem_stats_for_health")
+def test_owner_degradation_brief_line_embedding(mock_stats):
+    from butler.gateway.owner_surface import _owner_degradation_brief_line
+
+    mock_stats.return_value = {
+        "embedding_degraded": True,
+        "embedding_used_model": "hashing-v1",
+    }
+    line = _owner_degradation_brief_line(MagicMock(), session_key="sk1")
+    assert line is not None
+    assert "嵌入" in line
+    assert "hashing-v1" not in line or "嵌入" in line
+
+
+@patch("butler.ops.health_report.collect_mem_stats_for_health")
+def test_owner_degradation_brief_line_offline(mock_stats):
+    from butler.gateway.owner_surface import _owner_degradation_brief_line
+
+    mock_stats.return_value = {"memory_offline": True}
+    line = _owner_degradation_brief_line(MagicMock(), session_key="sk1")
+    assert line is not None
+    assert "记忆" in line
 
 
 @patch("butler.ops.health_report.collect_mem_stats_for_health")

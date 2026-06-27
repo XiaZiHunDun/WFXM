@@ -530,6 +530,9 @@
 | `BUTLER_TURN_BUDGET_MAX_ITERATIONS` | 60 | 轮预算最大迭代次数 |
 | `BUTLER_TERMINAL_PIPE` | 0 | `1` 允许 terminal 工具有限管道（`\|`），仅白名单命令间可管道，最多 5 段 |
 | `BUTLER_TERMINAL_SANDBOX` | 0 | `1` Linux 上对 terminal 套 **bubblewrap** OS 沙箱（需 `bwrap`）；配置见 `.butler/sandbox.json` |
+| `BUTLER_SANDBOX` | — | 沙箱子进程内标记（由 bubblewrap 包装器注入，值为 `1`） |
+| `BUTLER_ORIG_UID` | — | 沙箱包装前宿主机 UID（子进程内可读，用于权限回退） |
+| `BUTLER_ORIG_GID` | — | 沙箱包装前宿主机 GID（子进程内可读，用于权限回退） |
 | `BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE` | 0 | `1` 且未安装 `bwrap` 时 terminal 硬失败（默认降级为无沙箱并打 warning） |
 | `BUTLER_TERMINAL_SANDBOX_NETWORK_ALLOWLIST` | 0 | `1` 且 `sandbox.json` 的 `networkPolicy.allow` 非空时 **不** `--unshare-net`（无域代理；信任宿主机） |
 | `BUTLER_SANDBOX_CREDENTIAL_ENV` | — | 沙箱子进程 unset 的 env 名（逗号分隔）；默认含 `GITHUB_TOKEN`、`AWS_*` 等 |
@@ -537,6 +540,7 @@
 | `BUTLER_CC_BRIDGE` | 0 | `1` 启用 Claude Code CLI 桥接（`/cc-bridge`）；`dev-remote` profile 默认开 |
 | `BUTLER_CC_CLI` | — | `claude` 可执行文件路径（默认 PATH 查找 `claude`） |
 | `BUTLER_CC_BRIDGE_TIMEOUT` | `900` | CC 子进程超时（秒） |
+| `BUTLER_CC_BRIDGE_CHILD` | — | CC 子进程内标记（`cc_bridge` 注入，值为 `1`） |
 | `BUTLER_WORKFLOW_AUTO_RESUME` | 0 | `1` workflow 步骤确认后自动续跑（无需再发 `/workflow`） |
 | `BUTLER_SKILL_INJECTION_MODE` | fallback | `fallback`：有经验命中则跳过未验证 Skill 全文；`ref_only`：仅经验 `skill:<名>` 指针；`always`：每轮 Router 注入（旧行为） |
 | `BUTLER_SKILL_FALLBACK_MIN_EXPERIENCE_HITS` | 1 | `fallback`/`ref_only` 下视为「经验已覆盖」的最少命中条数 |

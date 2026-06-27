@@ -452,6 +452,15 @@ def _degraded_hashing(provider: str, model: str) -> "HashingEmbedder":
     user-requested provider/model so /诊断 can surface the gap (e.g.
     'requested openai/text-embedding-3-small → actually using hashing-v1').
     """
+    try:
+        from butler.ops.degradation_registry import register_degradation
+
+        register_degradation(
+            "embedding",
+            f"请求 {provider or '?'}/{model or '?'} → hashing-v1",
+        )
+    except Exception:
+        pass
     return HashingEmbedder(
         model_id="hashing-v1",
         degraded=True,
@@ -469,6 +478,12 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
         fe = _resolve_fastembed(model)
         if fe is not None:
             logger.info("Embedding provider: fastembed (%s)", fe.model_id)
+            try:
+                from butler.ops.degradation_registry import clear_degradation
+
+                clear_degradation("embedding")
+            except Exception:
+                pass
             return fe
         # Audit R2-3: escalate to ERROR — recall quality is collapsing.
         logger.error(
@@ -484,6 +499,12 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
             probe = api.embed("ping")
             if probe:
                 logger.info("Embedding provider: %s (%s)", provider, api.model_id)
+                try:
+                    from butler.ops.degradation_registry import clear_degradation
+
+                    clear_degradation("embedding")
+                except Exception:
+                    pass
                 return api
         except Exception as exc:
             # Audit R2-3: probe failure means recall is degraded. exc_info

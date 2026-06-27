@@ -2,7 +2,7 @@
 
 > **状态**：立项 **2026-06-26**  
 > **性质**：纯工程（**不**改产品边界；与 G1-04 观测窗 **并行**）  
-> **登记**：[`roadmap-backlog`](../decisions/roadmap-backlog-and-boundaries-2026-05.md) §3.11（待写入）  
+> **登记**：[`roadmap-backlog`](../decisions/roadmap-backlog-and-boundaries-2026-05.md) §3.11  
 > **证据**：[`project-deep-audit-2026-06-r1to8.md`](../../reviews/project-deep-audit-2026-06-r1to8.md) · [`model-config-maintainability-2026-06.md`](model-config-maintainability-2026-06.md) · [`agent-testing-strategy-2026-06.md`](../decisions/agent-testing-strategy-2026-06.md)
 
 ---
@@ -32,7 +32,7 @@
 | `wechat_ilink` | **子包** | ✅ PROD-P2-01；`phases.py` 仍 1205 行 |
 | 延迟 `from butler.` | **~2454** | 环靠 lazy import 维持 |
 | `core/` → `gateway/` 顶层 import | **1 文件** | 较审计改善，未归零 |
-| 全量 `pytest tests/` | **~101 fail** | 泄漏 + `.env` 耦合；发版 gate 绿 |
+| 全量 `pytest tests/` | **~16 fail**（2026-06-26；排除 corpus） | 泄漏 + `.env` 耦合；发版 gate 绿 |
 | `get_model_config` | 已委托 `resolve_effective_model` | P0-1 部分完成 |
 
 ### 1.1 已收口（勿重复立项）
@@ -247,3 +247,11 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-26 | **ENG-2** `delegate_workspace` + `delegate_finalize`；**ENG-3** `turn_post_pipeline`（handler 672→574） |
 | 2026-06-26 | **ENG-2 done**：`delegate_run_state/prepare/subagent/record/run/report`；`delegate_phases` 901→125 行 |
 | 2026-06-26 | **ENG-8** 首步：`/诊断` 简要增记忆降级一行（嵌入/FTS/离线） |
+| 2026-06-26 | **P0-B** `degradation_registry` + doctor/诊断；**P0-A** `safe_best_effort` + `tool_batch` 首步 |
+| 2026-06-26 | **P1-C** `tool_dispatch` + `tool_batch_hooks`；**P0-A 续** locked/agent_loop phases |
+| 2026-06-27 | **P0-A done**：`best_effort` 最近跳过 ring + `/诊断` 明细；三热点 `except Exception` 降 ~40%+ |
+| 2026-06-27 | **P1-C done**：`llm_retry_helpers` + `context_compress_support` |
+| 2026-06-27 | **P1-D done**：`contracts/events` + `EventsSink` `@runtime_checkable` + gateway 注册 |
+| 2026-06-27 | **P2-E**：`conftest` session env 默认 + sprint11/registry/sprint23 修债 |
+| 2026-06-27 | **P2-F**：`pyproject.toml` mypy strict on `butler/contracts` + `delegate_run_state` |
+| 2026-06-27 | **P2-G**：文档 9 处矛盾修正（architecture / DOCUMENTATION / roadmap 等） |

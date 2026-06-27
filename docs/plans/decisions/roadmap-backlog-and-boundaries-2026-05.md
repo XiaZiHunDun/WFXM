@@ -534,8 +534,8 @@ butler onboard --profile gateway              # 新机上手
 | ENG-5 | `wechat_ilink/phases` 第二轮拆分 | B | **backlog** |
 | ENG-6 | `butler/contracts/` + EventsSink | B | **backlog** |
 | ENG-7 | tools→gateway 经 execution_context | B | **backlog** |
-| ENG-8 | 记忆/embedding 降级显性化 | C | **in_progress**（简要 `/诊断` 一行 ✅；详细页已有） |
-| ENG-9 | pytest 全量泄漏修债 | C | **in_progress**（registry fixture ✅） |
+| ENG-8 | 记忆/embedding 降级显性化 | C | **in_progress**（`degradation_registry` + doctor/诊断 ✅） |
+| ENG-9 | pytest 全量泄漏修债 | C | **in_progress**（registry fixture + sprint11/terminal 修 ✅） |
 | ENG-10 | `model_defaults` 剩余硬编码 | C | **backlog**（≈PROD-P6-07） |
 | ENG-11 | `locked_phases` phase 注册表 | D | **backlog** |
 | ENG-12 | `orchestrator` 子系统门面 | D | **backlog** |

@@ -33,11 +33,11 @@ async def test_connect_disconnects_when_open_sessions_raises(monkeypatch):
         ad._send_session = send_sess
 
     monkeypatch.setattr(
-        "butler.gateway.platforms.wechat_ilink_phases._acquire_token_lock",
+        "butler.gateway.platforms.wechat_ilink.phases._acquire_token_lock",
         lambda _ad: True,
     )
     monkeypatch.setattr(
-        "butler.gateway.platforms.wechat_ilink_phases._open_aiohttp_sessions",
+        "butler.gateway.platforms.wechat_ilink.phases._open_aiohttp_sessions",
         _fake_open,
     )
 
@@ -45,7 +45,7 @@ async def test_connect_disconnects_when_open_sessions_raises(monkeypatch):
         raise RuntimeError("register failed")
 
     monkeypatch.setattr(
-        "butler.gateway.platforms.wechat_ilink_phases._start_poll_and_register",
+        "butler.gateway.platforms.wechat_ilink.phases._start_poll_and_register",
         _boom,
     )
 

@@ -125,8 +125,21 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
         report = check_embedding_recall(min_recall=0.5)
         status = "✓" if report.ok(min_recall=0.5) else "⚠"
         print(f"  Embedding Recall@3: {status} {report.recall_at_3:.0%} — {report.message}")
+        if report.degraded:
+            print("  ⚠ Embedding 已降级为 HashingEmbedder（召回质量下降）")
     except Exception as exc:
         print(f"  Embedding Recall@3: ✗ ({exc})")
+
+    try:
+        from butler.ops.degradation_registry import format_diagnostic_lines
+
+        deg = format_diagnostic_lines()
+        if deg:
+            print("\n[运行降级]")
+            for line in deg:
+                print(f"  {line}" if line.startswith("  ") else line)
+    except Exception as exc:
+        print(f"\n[运行降级] (不可用: {exc})")
 
     print("\n[开发质量 O7/O9]")
     try:

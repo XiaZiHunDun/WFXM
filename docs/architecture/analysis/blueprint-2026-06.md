@@ -351,7 +351,7 @@ systemd butler-gateway.service
 | 编码知识 | `test_premise_coding_knowledge`, `test_engineering_bridge` |
 | 五报告 | `./scripts/butler-five-reports-gate.sh` |
 | B9 发版 | `butler-b9-release-gate.sh` |
-| 全量 | `PYTHONPATH=. pytest -q` (~5040) |
+| 全量 | `PYTHONPATH=. pytest tests/ -q`（maintainer optional；发版以 fast-gate 为准） |
 
 ---
 

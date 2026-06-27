@@ -30,6 +30,8 @@ if TYPE_CHECKING:
     from butler.core.agent_loop import AgentLoop, LoopResult
     from butler.gateway.message_handler import ButlerMessageHandler
 
+from butler.core.best_effort import safe_best_effort
+
 logger = logging.getLogger(__name__)
 
 
@@ -110,7 +112,8 @@ def _phase_apply_correction_intent(
     state: LockedTurnState,
 ) -> Optional[str]:
     """Phase: H4 owner correction intent — persist without LLM."""
-    try:
+
+    def _run() -> Optional[str]:
         from butler.core.correction_intent import try_handle_correction_intent
 
         return try_handle_correction_intent(
@@ -118,9 +121,8 @@ def _phase_apply_correction_intent(
             state.text,
             session_key=state.session_key,
         )
-    except Exception as exc:
-        logger.debug("Correction intent skipped: %s", exc)
-        return None
+
+    return safe_best_effort(_run, label="locked_phases.correction_intent")
 
 
 def _phase_apply_github_issues_intent(
@@ -129,13 +131,13 @@ def _phase_apply_github_issues_intent(
 ) -> Optional[str]:
     """Phase: EXT-4 GitHub issues list — MCP direct reply without LLM."""
     del handler
-    try:
+
+    def _run() -> Optional[str]:
         from butler.mcp.github_grounding import try_handle_github_issues_intent
 
         return try_handle_github_issues_intent(state.text)
-    except Exception as exc:
-        logger.debug("GitHub issues intent skipped: %s", exc)
-        return None
+
+    return safe_best_effort(_run, label="locked_phases.github_issues_intent")
 
 
 def _phase_apply_normalizers_and_slash(
@@ -198,16 +200,18 @@ def _collect_ephemeral_gateway_banners(
     state: LockedTurnState,
 ) -> list[str]:
     ephemeral_parts: list[str] = []
-    try:
+
+    def _intent_banner() -> None:
         from butler.core.intent_keywords import detect_intent_banner
 
-        intent_banner = detect_intent_banner(state.text)
-        if intent_banner:
-            ephemeral_parts.append(intent_banner)
+        banner = detect_intent_banner(state.text)
+        if banner:
+            ephemeral_parts.append(banner)
             state.health["intent_keyword_banner"] = True
-    except Exception as exc:
-        logger.debug("Intent keyword detection skipped: %s", exc)
-    try:
+
+    safe_best_effort(_intent_banner, label="locked_phases.intent_banner")
+
+    def _recall_banner() -> None:
         from butler.core.session_recall_intent import (
             detect_session_read_recall_banner,
             is_session_read_recall_intent,
@@ -217,34 +221,36 @@ def _collect_ephemeral_gateway_banners(
         pm = handler._orchestrator.project_manager
         proj = pm.get_current(session_key=state.session_key)
         ws = getattr(proj, "workspace", None) if proj else None
-        recall_banner = detect_session_read_recall_banner(
+        banner = detect_session_read_recall_banner(
             state.text,
             state.session_key,
             workspace=ws,
         )
-        if recall_banner:
-            ephemeral_parts.append(recall_banner)
+        if banner:
+            ephemeral_parts.append(banner)
             state.health["session_read_recall_banner"] = True
-    except Exception as exc:
-        logger.debug("Session read recall banner skipped: %s", exc)
-    try:
+
+    safe_best_effort(_recall_banner, label="locked_phases.recall_banner")
+
+    def _mode_banner() -> None:
         from butler.core.mode_classifier import detect_mode_suggestion_banner
 
-        mode_banner = detect_mode_suggestion_banner(state.text, session_key=state.session_key)
-        if mode_banner:
-            ephemeral_parts.append(mode_banner)
+        banner = detect_mode_suggestion_banner(state.text, session_key=state.session_key)
+        if banner:
+            ephemeral_parts.append(banner)
             state.health["mode_classifier_banner"] = True
-    except Exception as exc:
-        logger.debug("Mode classifier detection skipped: %s", exc)
-    try:
+
+    safe_best_effort(_mode_banner, label="locked_phases.mode_banner")
+
+    def _cc_banner() -> None:
         from butler.core.task_route_hints import detect_cc_route_banner
 
-        cc_banner = detect_cc_route_banner(state.text)
-        if cc_banner:
-            ephemeral_parts.append(cc_banner)
+        banner = detect_cc_route_banner(state.text)
+        if banner:
+            ephemeral_parts.append(banner)
             state.health["cc_route_banner"] = True
-    except Exception as exc:
-        logger.debug("CC route banner skipped: %s", exc)
+
+    safe_best_effort(_cc_banner, label="locked_phases.cc_route_banner")
     return ephemeral_parts
 
 
@@ -295,14 +301,14 @@ def _phase_init_loop_role(
             "gateway_agent_role": state.loop_role,
         }
     )
-    try:
+    def _start_metrics_session() -> None:
         from butler.memory.memory_metrics import get_collector
         from butler.memory.metrics_persist import load_persisted_metrics
 
         load_persisted_metrics()
         get_collector().start_session(state.session_key)
-    except Exception:
-        pass
+
+    safe_best_effort(_start_metrics_session, label="locked_phases.memory_metrics")
 
 
 # ---------------------------------------------------------------------------
@@ -437,21 +443,23 @@ def _phase_prefetch_and_callbacks(
     )
     state.run_callbacks = _gateway_run_callbacks()
 
-    try:
+    def _wire_langfuse() -> None:
         from butler.ops.langfuse_tracer import langfuse_enabled
-        if langfuse_enabled():
-            from butler.ops.langfuse_tracer import get_current_trace, langfuse_callbacks
-            from butler.core.loop_types import LoopCallbacks
 
-            lf_cbs = langfuse_callbacks(session_key=state.session_key)
-            if lf_cbs:
-                lf_loop_cbs = LoopCallbacks(**lf_cbs)
-                state.run_callbacks = _chain_callbacks(state.run_callbacks, lf_loop_cbs)
-            ctx = get_current_trace(session_key=state.session_key)
-            if ctx is not None:
-                ctx.on_gateway_inbound(state.session_key, state.platform, len(state.text))
-    except Exception as exc:
-        logger.debug("LangFuse callback wiring skipped: %s", exc)
+        if not langfuse_enabled():
+            return
+        from butler.ops.langfuse_tracer import get_current_trace, langfuse_callbacks
+        from butler.core.loop_types import LoopCallbacks
+
+        lf_cbs = langfuse_callbacks(session_key=state.session_key)
+        if lf_cbs:
+            lf_loop_cbs = LoopCallbacks(**lf_cbs)
+            state.run_callbacks = _chain_callbacks(state.run_callbacks, lf_loop_cbs)
+        ctx = get_current_trace(session_key=state.session_key)
+        if ctx is not None:
+            ctx.on_gateway_inbound(state.session_key, state.platform, len(state.text))
+
+    safe_best_effort(_wire_langfuse, label="locked_phases.langfuse_callbacks")
 
 
 # ---------------------------------------------------------------------------
@@ -484,7 +492,7 @@ def _phase_execute_turn_inner(state: LockedTurnState) -> None:
                 return state.loop.run(msg, run_callbacks=state.run_callbacks)
             return state.loop.run(msg)
 
-    try:
+    def _run_with_continuations() -> "LoopResult":
         from butler.core.goal_loop import maybe_run_goal_continuation
         from butler.core.todo_continuation import run_with_todo_continuation
 
@@ -495,14 +503,18 @@ def _phase_execute_turn_inner(state: LockedTurnState) -> None:
             run_fn=_run_turn,
             run_callbacks=state.run_callbacks,
         )
-        result = maybe_run_goal_continuation(
+        return maybe_run_goal_continuation(
             state.loop,
             result,
             state.session_key,
             run_fn=_run_turn,
         )
-    except Exception as exc:
-        logger.debug("Todo/goal continuation fallback: %s", exc)
+
+    result = safe_best_effort(
+        _run_with_continuations,
+        label="locked_phases.todo_goal_continuation",
+    )
+    if result is None:
         result = _run_turn(state.augmented)
     state.result = result
 
@@ -516,7 +528,7 @@ def _phase_finalize_loop_diagnostics(state: LockedTurnState) -> None:
     state.health["loop"] = loop_diag
     if getattr(state.result, "transition_reason", ""):
         state.health["loop_transition_reason"] = state.result.transition_reason
-    try:
+    def _promote_diag() -> None:
         from butler.core.compaction_status import promote_compaction_diagnostics_to_health
         from butler.memory.memory_metrics import get_collector
 
@@ -534,8 +546,8 @@ def _phase_finalize_loop_diagnostics(state: LockedTurnState) -> None:
             ):
                 if key in mm:
                     state.health[key] = mm[key]
-    except Exception as exc:
-        logger.debug("Compaction/memory diagnostics promote skipped: %s", exc)
+
+    safe_best_effort(_promote_diag, label="locked_phases.compaction_diag")
 
 
 def _phase_finalize_interrupt_capture(state: LockedTurnState) -> None:
@@ -543,7 +555,7 @@ def _phase_finalize_interrupt_capture(state: LockedTurnState) -> None:
 
     if state.result.status != LoopStatus.INTERRUPTED:
         return
-    try:
+    def _capture_interrupt() -> None:
         from butler.core.auto_continue import capture_auto_continue_pending
 
         capture_auto_continue_pending(
@@ -554,8 +566,8 @@ def _phase_finalize_interrupt_capture(state: LockedTurnState) -> None:
             if isinstance(state.health.get("loop"), dict)
             else None,
         )
-    except Exception as exc:
-        logger.debug("Auto continue capture skipped: %s", exc)
+
+    safe_best_effort(_capture_interrupt, label="locked_phases.auto_continue_capture")
 
 
 def _phase_finalize_memory_sync(

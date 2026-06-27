@@ -178,6 +178,7 @@ class TestToolResultEnvelope:
 
     def test_nonzero_terminal_exit_is_coded_as_failure(self, monkeypatch):
         monkeypatch.setenv("BUTLER_ENABLE_TERMINAL", "1")
+        monkeypatch.setenv("BUTLER_TERMINAL_SANDBOX", "0")
         reset_tool_audit_events()
 
         result = dispatch_tool("terminal", {"command": "false"})

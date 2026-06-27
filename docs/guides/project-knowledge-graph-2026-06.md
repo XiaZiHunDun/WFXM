@@ -442,7 +442,7 @@ PYTHONPATH=. pytest tests/test_engineering_bridge.py -q
 bash scripts/butler-pre-release-smoke.sh   # 含 B9 oracle Tier-1
 ```
 
-**规模参考**：post-consolidation 记载 ~5040 tests 全绿（2026-06-09 基线）。
+**规模参考**：发版以分层 gate 为准；全量 pytest（不含 corpus）约 6200+ passed（2026-06-26 快照）。
 
 ---
 

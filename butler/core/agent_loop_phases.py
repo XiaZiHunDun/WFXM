@@ -36,6 +36,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
+from butler.core.best_effort import safe_best_effort
 from butler.core.loop_types import (
     LoopResult,
     LoopStatus,
@@ -117,7 +118,9 @@ def _phase_init(
     )
     loop._turn_tools = state.turn_tools
 
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _inject_feedback() -> None:
         from butler.ops.eval_feedback import get_feedback_context
 
         feedback = get_feedback_context(lookback_hours=24.0)
@@ -126,17 +129,17 @@ def _phase_init(
                 (loop._turn_ephemeral_system or "") + "\n" + feedback
             ).strip()
             loop.diagnostics["eval_feedback_injected"] = True
-    except Exception:
-        pass
 
-    try:
+    safe_best_effort(_inject_feedback, label="agent_loop.eval_feedback")
+
+    def _apply_hard_feedback() -> None:
         from butler.ops.eval_actions import apply_hard_feedback
 
         hard = apply_hard_feedback()
         if hard.get("applied"):
             loop.diagnostics["eval_hard_feedback"] = hard
-    except Exception:
-        pass
+
+    safe_best_effort(_apply_hard_feedback, label="agent_loop.hard_feedback")
 
 
 # ---------------------------------------------------------------------------
@@ -182,18 +185,18 @@ def _phase_maybe_compact_turn(
     if not did_compact:
         return False
     loop._messages[:] = new_msgs
-    try:
-        from butler.core.compaction_steer_bridge import (
-            apply_compaction_turn_followup,
-        )
+    from butler.core.best_effort import safe_best_effort
+
+    def _apply_followup() -> None:
+        from butler.core.compaction_steer_bridge import apply_compaction_turn_followup
         from butler.execution_context import get_audit_session_key
 
         sk = get_audit_session_key(fallback="default")
         loop._messages[:] = apply_compaction_turn_followup(
             loop._messages, sk, loop.diagnostics,
         )
-    except Exception as exc:  # noqa: BLE001 — best-effort followup
-        logger.debug("Compaction turn followup skipped: %s", exc, exc_info=True)
+
+    safe_best_effort(_apply_followup, label="agent_loop.compaction_followup")
     state.transition = LoopTransitionReason.COMPACTION_TURN
     return True
 
@@ -306,7 +309,7 @@ def _record_usage(
         total_tokens=usage.total_tokens,
         cached_tokens=usage.cached_tokens,
     )
-    try:
+    def _record_cost() -> None:
         from butler.ops.cost_tracker import get_session_cost
         from butler.execution_context import get_current_session_key
 
@@ -314,14 +317,18 @@ def _record_usage(
         if not session_key:
             session_key = str(getattr(loop, "session_key", "") or "").strip()
         if session_key:
-            model_name = str(getattr(loop.client, "model", "") or getattr(loop.client, "model_name", "") or "")
+            model_name = str(
+                getattr(loop.client, "model", "")
+                or getattr(loop.client, "model_name", "")
+                or ""
+            )
             get_session_cost(session_key).record_llm_call(
                 input_tokens=usage.prompt_tokens,
                 output_tokens=usage.completion_tokens,
                 model=model_name,
             )
-    except Exception:
-        pass
+
+    safe_best_effort(_record_cost, label="agent_loop.cost_record")
 
 
 # ---------------------------------------------------------------------------
@@ -361,7 +368,7 @@ def _dispatch_tool_response(
     """
     batch_stats = loop._process_tool_calls(response)
 
-    try:
+    def _try_github_repo_direct() -> bool:
         from butler.mcp.github_grounding import try_github_repo_list_direct_reply
 
         direct = try_github_repo_list_direct_reply(
@@ -373,11 +380,13 @@ def _dispatch_tool_response(
             state.status = LoopStatus.COMPLETED
             state.transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
             loop.diagnostics["github_repo_list_direct"] = True
-            return False
-    except Exception as exc:
-        logger.debug("GitHub repo list direct reply skipped: %s", exc)
+            return True
+        return False
 
-    try:
+    if safe_best_effort(_try_github_repo_direct, label="agent_loop.github_repo_direct"):
+        return False
+
+    def _try_github_issue_direct() -> bool:
         from butler.mcp.github_grounding import try_github_issue_list_direct_reply
 
         direct_issues = try_github_issue_list_direct_reply(
@@ -389,11 +398,13 @@ def _dispatch_tool_response(
             state.status = LoopStatus.COMPLETED
             state.transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
             loop.diagnostics["github_issue_list_direct"] = True
-            return False
-    except Exception as exc:
-        logger.debug("GitHub issue list direct reply skipped: %s", exc)
+            return True
+        return False
 
-    try:
+    if safe_best_effort(_try_github_issue_direct, label="agent_loop.github_issue_direct"):
+        return False
+
+    def _try_todoist_direct() -> bool:
         from butler.mcp.todoist_grounding import try_todoist_project_list_direct_reply
 
         direct_todoist = try_todoist_project_list_direct_reply(
@@ -405,9 +416,11 @@ def _dispatch_tool_response(
             state.status = LoopStatus.COMPLETED
             state.transition = LoopTransitionReason.SHOULD_CONTINUE_FALSE
             loop.diagnostics["todoist_project_list_direct"] = True
-            return False
-    except Exception as exc:
-        logger.debug("Todoist project list direct reply skipped: %s", exc)
+            return True
+        return False
+
+    if safe_best_effort(_try_todoist_direct, label="agent_loop.todoist_direct"):
+        return False
 
     waiting = getattr(batch_stats, "waiting_confirmation_message", None)
     if waiting:
@@ -419,12 +432,12 @@ def _dispatch_tool_response(
 
     stuck = _get_stuck_message(loop)
     if stuck:
-        try:
+        def _reflect_stuck() -> None:
             from butler.core.reasoning_trace import record_stuck_reflect
 
             record_stuck_reflect(loop, stuck)
-        except Exception as exc:  # noqa: BLE001 — best-effort observability
-            logger.debug("Stuck reflect skipped: %s", exc)
+
+        safe_best_effort(_reflect_stuck, label="agent_loop.stuck_reflect")
         state.final_text = stuck
         state.status = LoopStatus.STUCK
         state.transition = LoopTransitionReason.STUCK
@@ -452,13 +465,12 @@ def _dispatch_tool_response(
 
 def _get_stuck_message(loop: "AgentLoop") -> Optional[str]:
     """Return guardrail stuck message or None (best-effort)."""
-    try:
+    def _check() -> Optional[str]:
         from butler.core.loop_stuck import guardrail_stuck_message
 
         return guardrail_stuck_message(loop._guardrails)
-    except Exception as exc:  # noqa: BLE001 — best-effort check
-        logger.warning("Stuck message check skipped: %s", exc)
-        return None
+
+    return safe_best_effort(_check, label="agent_loop.stuck_check")
 
 
 def _dispatch_text_response(
@@ -474,7 +486,7 @@ def _dispatch_text_response(
     """
     state.final_text = response.content
     state.final_reasoning = response.reasoning
-    try:
+    def _apply_grounding_gate() -> None:
         from butler.mcp.outbound_grounding_gate import try_correct_ungrounded_list_reply
 
         corrected = try_correct_ungrounded_list_reply(
@@ -485,9 +497,10 @@ def _dispatch_text_response(
         if corrected:
             state.final_text = corrected
             loop.diagnostics["mcp_outbound_grounding"] = True
-    except Exception as exc:
-        logger.debug("MCP outbound grounding gate skipped: %s", exc)
-    try:
+
+    safe_best_effort(_apply_grounding_gate, label="agent_loop.outbound_grounding")
+
+    def _apply_output_grounding() -> None:
         from butler.core.output_grounding import apply_output_grounding
 
         state.final_text = apply_output_grounding(
@@ -495,8 +508,8 @@ def _dispatch_text_response(
             state.final_text,
             loop.diagnostics,
         )
-    except Exception as exc:
-        logger.debug("Output grounding skipped: %s", exc)
+
+    safe_best_effort(_apply_output_grounding, label="agent_loop.output_grounding")
     if _try_truncation_continue(loop, response, state):
         return
     if _try_stop_hook_continue(loop, state, start_time, steer_session):
@@ -628,14 +641,14 @@ def _store_final_message(
     msg = {"role": "assistant", "content": state.final_text}
     store_reasoning_on_message(msg, state.final_reasoning)
     loop._messages.append(msg)
-    try:
-        record_assistant_message(
+    safe_best_effort(
+        lambda: record_assistant_message(
             steer_session,
             state.final_text,
             tool_calls=loop._tool_calls_count,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort record
-        logger.debug("Assistant transcript record skipped: %s", exc, exc_info=True)
+        ),
+        label="agent_loop.transcript_assistant",
+    )
 
 
 def _record_turn_metrics(
@@ -645,7 +658,7 @@ def _record_turn_metrics(
     steer_session: str,
 ) -> None:
     """Emit turn_duration + turn_finished metrics (best-effort)."""
-    try:
+    def _emit_metrics() -> None:
         from butler.ops.runtime_metrics import inc, observe_ms
 
         labels = {
@@ -659,8 +672,8 @@ def _record_turn_metrics(
             session_key=steer_session,
         )
         inc("turn_finished", labels=labels, session_key=steer_session)
-    except Exception as exc:  # noqa: BLE001 — best-effort metrics
-        logger.warning("Turn metrics recording skipped: %s", exc, exc_info=True)
+
+    safe_best_effort(_emit_metrics, label="agent_loop.turn_metrics")
 
 
 def _build_loop_result(
@@ -700,7 +713,7 @@ def _maybe_run_stop_hooks(
         return
     if state.status != LoopStatus.COMPLETED:
         return
-    try:
+    def _run_hooks() -> None:
         from butler.hooks.runner import run_stop_hooks
 
         stop_hooks = run_stop_hooks(
@@ -715,8 +728,8 @@ def _maybe_run_stop_hooks(
             loop.diagnostics["stop_hook_context"] = list(
                 stop_hooks.additional_context
             )
-    except Exception as exc:  # noqa: BLE001 — best-effort hooks
-        logger.debug("Stop hooks context skipped: %s", exc, exc_info=True)
+
+    safe_best_effort(_run_hooks, label="agent_loop.stop_hooks")
 
 
 # ---------------------------------------------------------------------------
@@ -739,12 +752,18 @@ def _phase_resolve_user_text(
             )
 
     user_content = sanitize_surrogates(user_message)
-    try:
+    def _prepend_reminder() -> str:
         from butler.core.system_reminder import maybe_prepend_system_reminder
 
-        user_content = maybe_prepend_system_reminder(user_content)
-    except Exception as exc:  # noqa: BLE001 — best-effort reminder
-        logger.warning("System reminder skipped: %s", exc)
+        return maybe_prepend_system_reminder(user_content)
+
+    reminded = safe_best_effort(
+        _prepend_reminder,
+        label="agent_loop.system_reminder",
+        default=user_content,
+    )
+    if reminded is not None:
+        user_content = reminded
     loop._messages.append({"role": "user", "content": user_content})
     return user_content
 
@@ -835,12 +854,12 @@ def _phase_enrich_user_text(
     except Exception as exc:  # noqa: BLE001 — best-effort selector
         logger.warning("Tool selector skipped: %s", exc)
 
-    try:
+    def _record_user() -> None:
         from butler.core.session_transcript import record_user_message
 
         record_user_message(steer_session, user_content)
-    except Exception as exc:  # noqa: BLE001 — best-effort record
-        logger.debug("Session transcript record skipped: %s", exc, exc_info=True)
+
+    safe_best_effort(_record_user, label="agent_loop.transcript_user")
 
     return turn_tools
 

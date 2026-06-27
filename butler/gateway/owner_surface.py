@@ -187,6 +187,32 @@ def _owner_outbound_brief_line(*, session_key: str = "", chat_id: str = "") -> s
     return None
 
 
+def _owner_degradation_brief_line(
+    orchestrator: Any,
+    *,
+    session_key: str = "",
+    health: dict | None = None,
+) -> str | None:
+    """Sync memory stats into registry and return one degradation summary line."""
+    try:
+        from butler.ops.degradation_registry import (
+            format_brief_line,
+            sync_memory_degradations_from_stats,
+        )
+        from butler.ops.health_report import collect_mem_stats_for_health
+
+        stats = collect_mem_stats_for_health(
+            orchestrator, str(session_key or "").strip(), health
+        )
+        sync_memory_degradations_from_stats(stats)
+        body = format_brief_line()
+        if not body:
+            return None
+        return body.replace("降级：", f"降级：{_health_icon(False, warn=True)} ", 1)
+    except Exception:
+        return None
+
+
 def _owner_memory_degradation_brief_line(
     orchestrator: Any,
     *,
@@ -262,11 +288,11 @@ def format_owner_diagnostic_brief(
     if outbound:
         lines.append(outbound)
 
-    memory = _owner_memory_degradation_brief_line(
+    degradation = _owner_degradation_brief_line(
         orchestrator, session_key=sk, health=health
     )
-    if memory:
-        lines.append(memory)
+    if degradation:
+        lines.append(degradation)
 
     lines.append("")
     lines.append("完整快照：/诊断 详细")

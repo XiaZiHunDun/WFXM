@@ -508,7 +508,7 @@ while not done and iterations < budget:
 |--------|------|------|
 | S1 安全/可靠性 | 原子写入 5 处、write_file/patch 二次确认、Human Gate TOCTOU 锁、ExecPolicy fail-closed、符号链接检测、Permissions 审计日志、Session Key 验证、Observation TTL 90d |
 | S2 可观测性 | logger.debug→warning 16 处、exc_info 9 处、Gateway 错误分类 5 类、error_cards 接入、`/诊断` 增运行错误计数与 context metrics |
-| S3 UX | `command_registry` 集中注册、帮助体系补全 ~15 命令、Welcome 默认启用、项目切换失败提示改善、处理中 ETA 反馈 |
+| S3 UX | `command_registry` 集中注册、帮助体系补全 ~15 命令、Welcome opt-in（`BUTLER_ONBOARDING_WELCOME=1`）、项目切换失败提示改善、处理中 ETA 反馈 |
 | S4 架构/性能 | `LoopContext` Protocol 解耦、embedder LRU 复用、ProjectManager RLock、内存泄漏修复 4 处（_SEEN/orchestrator/embedding/enqueue）、`tool_schemas.py` 拆分、TaskOrchestrator 并发锁 |
 | S5 功能补强 | Workflow DAG `/工作流 preview`、步骤失败实时 log、`/记忆状态`、委派摘要增强（决策高亮+文件统计）、`auto_title` 会话标题生成 |
 | S6 测试/文档 | core 模块测试 4 个、gateway 模块测试 5 个、env 文档同步、覆盖率阈值 50→55 |
@@ -708,7 +708,7 @@ while not done and iterations < budget:
 - 编排改进测试：24 tests ✅
 - **编码知识层验证：175 tests ✅**（CA1-CA4 / CT1-CT5 / CL1 / ExperienceLibrary）
 - **记忆理论验证：47 tests ✅**（MA1-MA7 / MT1-MT7 / MB1-MB7）
-- **全量回归：5040 tests 全部通过（0 failures）**
+- **全量回归**：发版以 `butler-pytest-fast-gate.sh` 等分层 gate 为准；`pytest tests/`（不含 corpus）约 6200+ passed / 十余 fail（2026-06-26 快照），非发版硬门槛
 - **理论覆盖**：10 定理 / 7 公理 / 9 个评审盲区 + 编码子理论 5 定理 + 记忆子理论 7 定理
 - **实施落地**：D1 路由消歧 / D2 PII 加固 / D3 PIM 消毒 / D5 中文 Token / D6 提醒上限 / 成本增强 / 编码能力理论集成 / 测试隔离全面修复
 

@@ -173,6 +173,9 @@ async def run_gateway_async(platforms: list[str]) -> int:
     from butler.gateway.singleton_lock import acquire_gateway_singleton_lock
 
     acquire_gateway_singleton_lock()
+    from butler.gateway.events_sink import register_gateway_events_sink
+
+    register_gateway_events_sink()
     mark_start_time()
     logger.info("%s starting", format_build_identity_line())
 

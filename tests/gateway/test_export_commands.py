@@ -41,6 +41,10 @@ def test_export_appends_wechat_file_line(tmp_path, monkeypatch):
         )
 
     assert "已导出" in reply
-    deliver = [ln.strip() for ln in reply.splitlines() if ln.strip().endswith(".md")]
+    deliver = [
+        ln.strip()
+        for ln in reply.splitlines()
+        if ln.strip().endswith((".md", ".txt"))
+    ]
     assert deliver
     assert Path(deliver[-1]).is_file()

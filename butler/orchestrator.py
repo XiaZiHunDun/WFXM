@@ -235,6 +235,12 @@ class ButlerOrchestrator:
             self.memory_provider = provider
             self.memory_offline = False
             self._memory_init_error = ""
+            try:
+                from butler.ops.degradation_registry import clear_degradation
+
+                clear_degradation("memory")
+            except Exception:
+                pass
         except Exception as exc:
             # Audit R2-4: previously .warning with no exc_info — silently
             # disabled the whole memory subsystem. Surface as ERROR with
@@ -248,6 +254,16 @@ class ButlerOrchestrator:
             self.memory_provider = None
             self.memory_offline = True
             self._memory_init_error = f"{type(exc).__name__}: {exc}"
+            try:
+                from butler.ops.degradation_registry import register_degradation
+
+                register_degradation(
+                    "memory",
+                    "初始化失败",
+                    detail=self._memory_init_error[:200],
+                )
+            except Exception:
+                pass
 
     def _refresh_memory_provider_for_project_switch(self) -> None:
         provider = getattr(self, "memory_provider", None)

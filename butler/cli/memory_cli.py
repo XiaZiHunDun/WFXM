@@ -122,6 +122,13 @@ def _register_memory_ops_parsers(mem_sub: argparse._SubParsersAction) -> None:
 
 
 def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> None:
+    _register_memory_observations_parser(mem_sub)
+    _register_memory_backfill_scopes_parser(mem_sub)
+    _register_memory_migrate_lingwen_parser(mem_sub)
+    _register_memory_merge_pending_parser(mem_sub)
+
+
+def _register_memory_observations_parser(mem_sub: argparse._SubParsersAction) -> None:
     mobs = mem_sub.add_parser(
         "observations",
         help="workspace observation store 统计（只读）；--migrate 导入遗留 observations.tsv",
@@ -149,6 +156,8 @@ def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> Non
     mobs.add_argument("--json", action="store_true", help="输出 JSON")
     mobs.set_defaults(func=_cmd_memory_observations)
 
+
+def _register_memory_backfill_scopes_parser(mem_sub: argparse._SubParsersAction) -> None:
     mbackfill = mem_sub.add_parser(
         "backfill-scopes",
         help="将 legacy L4 编码经验推断的 MemoryScope 写回 JSON（P5）",
@@ -160,6 +169,8 @@ def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> Non
     )
     mbackfill.set_defaults(func=_cmd_memory_backfill_scopes)
 
+
+def _register_memory_migrate_lingwen_parser(mem_sub: argparse._SubParsersAction) -> None:
     mmigrate = mem_sub.add_parser(
         "migrate-lingwen-l3",
         help="将灵文 private B9 经验从 L4 迁到项目 L3",
@@ -171,6 +182,8 @@ def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> Non
     )
     mmigrate.set_defaults(func=_cmd_memory_migrate_lingwen_l3)
 
+
+def _register_memory_merge_pending_parser(mem_sub: argparse._SubParsersAction) -> None:
     mmerge = mem_sub.add_parser(
         "merge-pending",
         help="查看/应用/驳回经验向量近邻合并待审队列",

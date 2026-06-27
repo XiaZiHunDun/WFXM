@@ -12,7 +12,7 @@ class TestErrorCards:
 
         msg = format_error_card("doom_loop", tool="terminal", count=3)
         assert msg is not None
-        assert "拦截" in msg
+        assert "需要您批准" in msg or "拦截" in msg
         assert "terminal" in msg
 
     def test_permission_deny_card(self):

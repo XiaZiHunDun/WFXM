@@ -62,56 +62,24 @@ def call_llm_with_retry(
     last_error: Exception | None = None
     compress_attempted = False
     schema_recovery_attempted = False
-    tools_to_send = tools or None
-    if tools_to_send:
-        def _optimize() -> None:
-            from butler.core.schema_optimizer import optimize_tool_definitions
-            nonlocal tools_to_send
-            tools_to_send = optimize_tool_definitions(
-                tools_to_send,
-                diagnostics=diagnostics,
-                provider=str(getattr(client, "provider_name", "") or ""),
-            )
+    from butler.core.llm_retry_helpers import (
+        apply_reactive_compact_retry,
+        prepare_tools_for_llm,
+        record_llm_success_side_effects,
+        try_exp_cache_response,
+    )
 
-        _safe_call(_optimize, "call llm with retry skipped")
-        if tools_to_send:
-            def _filter() -> None:
-                from butler.mcp.tools_engine import filter_tools_for_model
-                nonlocal tools_to_send
-                tools_to_send, te_diag = filter_tools_for_model(
-                    tools_to_send,
-                    provider=str(getattr(client, "provider_name", "") or ""),
-                    model=str(getattr(client, "model", "") or ""),
-                )
-                diagnostics.update(te_diag)
-
-            _safe_call(_filter, "call llm with retry skipped")
+    tools_to_send = prepare_tools_for_llm(tools, client=client, diagnostics=diagnostics)
     interrupted = False
 
-    cache_fp = ""
-
-    def _exp_cache_lookup() -> str | None:
-        from butler.core.exp_cache import (
-            fingerprint_llm_request,
-            lookup_cached_response,
-        )
-        from butler.core.meta_flags import exp_cache_enabled
-
-        nonlocal cache_fp
-        if not (exp_cache_enabled() and not tools_to_send):
-            return None
-        cache_fp = fingerprint_llm_request(
-            provider=str(getattr(client, "provider_name", "") or ""),
-            model=str(getattr(client, "model", "") or ""),
-            messages=messages_to_send,
-            tools=tools_to_send,
-        )
-        return lookup_cached_response(cache_fp)
-
-    cached = _safe_call(_exp_cache_lookup, "exp_cache lookup skipped")
-    if cached:
-        diagnostics["exp_cache_hit"] = True
-        return NormalizedResponse(content=cached, finish_reason="stop"), False
+    cache_fp, cached = try_exp_cache_response(
+        client=client,
+        messages=messages_to_send,
+        tools_to_send=tools_to_send,
+        diagnostics=diagnostics,
+    )
+    if cached is not None:
+        return cached, False
 
     effective_retries = min(config.max_retries, 20)
     for attempt in range(effective_retries):
@@ -170,17 +138,13 @@ def call_llm_with_retry(
 
             if _safe_call(_safety_finish, "safety finish skipped"):
                 return response, False
-            def _record_ok_latency() -> None:
-                from butler.ops.runtime_metrics import inc, observe_ms
-
-                observe_ms(
-                    "llm_latency",
-                    (time.monotonic() - llm_started) * 1000.0,
-                    labels={"provider": provider, "outcome": "ok"},
-                )
-                inc("llm_request", labels={"provider": provider, "outcome": "ok"})
-
-            _safe_call(_record_ok_latency, "record ok latency skipped")
+            record_llm_success_side_effects(
+                client=client,
+                response=response,
+                cache_fp=cache_fp,
+                llm_started=llm_started,
+                diagnostics=diagnostics,
+            )
             if (
                 needs_empty_content_retry(response)
                 and empty_retries[0] < config.max_empty_content_retries
@@ -191,33 +155,6 @@ def call_llm_with_retry(
                 if messages_to_send is None:
                     return None, False
                 continue
-
-            def _record_provider_success() -> None:
-                from butler.transport.provider_health import record_provider_success
-
-                record_provider_success(
-                    str(getattr(client, "provider", "") or ""),
-                    str(getattr(client, "model", "") or ""),
-                )
-
-            _safe_call(_record_provider_success, "record provider success skipped")
-            if cache_fp and response and not response.tool_calls:
-
-                def _exp_cache_store() -> None:
-                    from butler.core.exp_cache import store_cached_response
-
-                    fr = getattr(response, "finish_reason", None) or ""
-                    text = str(response.content or "").strip()
-                    if text and fr not in ("error", "content_filter"):
-                        store_cached_response(
-                            cache_fp,
-                            text,
-                            provider=str(getattr(client, "provider_name", "") or ""),
-                            model=str(getattr(client, "model", "") or ""),
-                        )
-                        diagnostics["exp_cache_store"] = True
-
-                _safe_call(_exp_cache_store, "exp_cache store skipped")
             if callbacks.on_llm_complete:
                 callbacks.on_llm_complete(response)
             return response, False
@@ -275,24 +212,12 @@ def call_llm_with_retry(
             if classified.should_compress and not compress_attempted:
                 compress_attempted = True
                 diagnostics["reactive_compact_reason"] = classified.reason.value
-
-                def _record_reactive_compact() -> None:
-                    from butler.ops.retry_buckets import record_recovery_event
-
-                    record_recovery_event("reactive_compact")
-
-                _safe_call(_record_reactive_compact, "record reactive compact skipped")
-                from butler.core.reactive_compact import apply_reactive_compact_to_messages
-
-                applied = apply_reactive_compact_to_messages(
-                    messages,
-                    compress_fn=compress_messages,
+                messages_to_send = apply_reactive_compact_retry(
+                    messages=messages,
+                    compress_messages=compress_messages,
+                    prepare_messages=prepare_messages,
                     diagnostics=diagnostics,
                 )
-                if not applied:
-                    messages[:] = compress_messages(list(messages))
-                    diagnostics["reactive_context_compact"] = True
-                messages_to_send = prepare_messages_or_abort(prepare_messages, diagnostics)
                 if messages_to_send is None:
                     return None, False
                 continue

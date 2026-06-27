@@ -8,6 +8,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from butler.core.best_effort import safe_best_effort
 from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.core.parallel_tools import execute_tools_parallel
 from butler.core.steer import apply_steer_to_tool_results
@@ -309,20 +310,21 @@ def process_tool_calls(
     if not response.tool_calls:
         return ToolBatchStats()
 
-    try:
+    def _maybe_truncate_finish() -> None:
         from butler.core.finish_tool_truncate import truncate_tool_calls_at_finish
 
         truncated = truncate_tool_calls_at_finish(list(response.tool_calls))
         if len(truncated) < len(response.tool_calls):
             response.tool_calls = truncated
-    except Exception as exc:
-        logger.debug("process tool calls skipped: %s", exc)
-    try:
+
+    safe_best_effort(_maybe_truncate_finish, label="tool_batch.finish_truncate")
+
+    def _maybe_reorder_reads() -> None:
         from butler.core.batch_sequence_guard import reorder_reads_before_destructive
 
         response.tool_calls = reorder_reads_before_destructive(list(response.tool_calls))
-    except Exception as exc:
-        logger.debug("tool batch reorder skipped: %s", exc)
+
+    safe_best_effort(_maybe_reorder_reads, label="tool_batch.reorder_reads")
     if callbacks.on_stream_boundary:
         callbacks.on_stream_boundary()
 
@@ -333,251 +335,46 @@ def process_tool_calls(
 
     tools_started = 0
     batch_guard = None
-    try:
+
+    def _init_batch_guard() -> None:
+        nonlocal batch_guard
         from butler.core.batch_sequence_guard import BatchSequenceGuard, batch_stale_guard_enabled
 
         if batch_stale_guard_enabled():
             batch_guard = BatchSequenceGuard()
-    except Exception:
-        batch_guard = None
 
-    from butler.core.tool_call_limits import get_tool_call_limiter
-    from butler.core.tool_retry import run_tool_with_retry
-    from butler.core.tool_result_cache import get_cached_result, set_cached_result
+    safe_best_effort(_init_batch_guard, label="tool_batch.stale_guard_init")
+
+    from butler.core.tool_batch_hooks import build_tool_batch_hooks
+    from butler.core.tool_dispatch import dispatch_one_tool
     from butler.execution_context import get_current_session_key
 
+    on_start, on_complete, precheck_tool, hook_state = build_tool_batch_hooks(
+        callbacks=callbacks,
+        guardrails=guardrails,
+        batch_guard=batch_guard,
+        interrupt_check=interrupt_check,
+    )
+
     def _dispatch_one(name: str, args: dict, *, tool_call_id: str = "") -> str:
-        try:
-            from butler.core.two_phase_confirm import two_phase_block_message
-
-            block = two_phase_block_message(
-                name,
-                args,
-                tool_call_id=tool_call_id,
-            )
-            if block:
-                return finalize_fallback_tool_result(
-                    name,
-                    args,
-                    {
-                        "ok": False,
-                        "code": "TWO_PHASE_PENDING",
-                        "error": block,
-                        "tool": name,
-                    },
-                )
-        except Exception as exc:
-            logger.debug("dispatch one skipped: %s", exc)
-        if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
-            from butler.core.batch_sequence_guard import (
-                STALE_PREFETCH_CODE,
-                STALE_SKIP_CODE,
-                stale_skip_result,
-            )
-
-            code = (
-                STALE_PREFETCH_CODE
-                if prefetched and tool_call_id and tool_call_id in prefetched
-                else STALE_SKIP_CODE
-            )
-            payload = stale_skip_result(name, args, guard=batch_guard, code=code)
-            return finalize_fallback_tool_result(name, args, payload)
-        if prefetched and tool_call_id and tool_call_id in prefetched:
-            result = prefetched[tool_call_id]
-            if batch_guard is not None:
-                batch_guard.note_tool_result(name, args, result)
-            return result
-        session_key = str(get_current_session_key() or "").strip()
-        cached = get_cached_result(name, args, session_key=session_key)
-        if cached is not None:
-            result = cached
-            pending_warn = None
-            if guardrails:
-                before = guardrails.before_call(name, args)
-                if before.action == "warn" and before.code == "doom_loop_soft_nudge":
-                    pending_warn = before
-                if before.should_halt:
-                    return finalize_fallback_tool_result(name, args, synthetic_result(before))
-                after = guardrails.after_call(name, args, result)
-                if after.should_halt:
-                    guardrails.set_halt_decision(after)
-                    return finalize_guardrail_halt_result(name, args, result, after)
-                if after.action == "warn":
-                    result = append_guidance(result, after)
-                elif pending_warn is not None:
-                    result = append_guidance(result, pending_warn)
-            return result
-        blocked = get_tool_call_limiter().before_call(name)
-        if blocked:
-            return finalize_fallback_tool_result(name, args, blocked)
-        pending_warn = None
-        if guardrails:
-            before = guardrails.before_call(name, args)
-            if before.action == "warn" and before.code == "doom_loop_soft_nudge":
-                pending_warn = before
-            if before.action == "ask" and before.code == "doom_loop":
-                try:
-                    from butler.permissions.doom_loop import check_doom_loop_ask
-
-                    block_msg = check_doom_loop_ask(before, name, args)
-                    if block_msg:
-                        try:
-                            from butler.core.reasoning_trace import record_doom_loop_reflect
-
-                            record_doom_loop_reflect(session_key, block_msg, tool_name=name)
-                        except Exception:
-                            pass
-                        ask_dec = GuardrailDecision(
-                            action="block",
-                            code="doom_loop",
-                            message=block_msg,
-                            tool_name=name,
-                        )
-                        return finalize_fallback_tool_result(
-                            name, args, synthetic_result(ask_dec)
-                        )
-                except Exception:
-                    return finalize_fallback_tool_result(name, args, synthetic_result(before))
-            if before.should_halt:
-                return finalize_fallback_tool_result(name, args, synthetic_result(before))
-        _capture_pre_edit_snapshot(name, args)
-        result = run_tool_with_retry(name, args, dispatch_tool)
-        try:
-            from butler.core.tool_error_policy import (
-                apply_tool_error_policy,
-                should_halt_loop_on_tool_error,
-            )
-
-            result = apply_tool_error_policy(result, tool_name=name)
-            if should_halt_loop_on_tool_error(result, tool_name=name) and guardrails:
-                guardrails.set_halt_decision(
-                    GuardrailDecision(
-                        action="block",
-                        code="tool_error_stop",
-                        message="工具错误策略: stop（勿重复同调用）",
-                        tool_name=name,
-                    )
-                )
-        except Exception as exc:
-            logger.debug("dispatch one skipped: %s", exc)
-        set_cached_result(name, args, result, session_key=session_key)
-        if guardrails:
-            after = guardrails.after_call(name, args, result)
-            if after.should_halt:
-                guardrails.set_halt_decision(after)
-                try:
-                    from butler.ops.retry_buckets import record_recovery_event
-
-                    reason = str(getattr(after, "reason", "") or "tool_guardrail_halt")[:32]
-                    record_recovery_event(reason or "tool_guardrail_halt")
-                except Exception as exc:
-                    logger.debug("dispatch one skipped: %s", exc)
-                result = finalize_guardrail_halt_result(name, args, result, after)
-            elif after.action == "warn":
-                result = append_guidance(result, after)
-            elif pending_warn is not None:
-                result = append_guidance(result, pending_warn)
-        if batch_guard is not None:
-            batch_guard.note_tool_result(name, args, result)
-        _dev_engine_post_edit(name, args, result)
-        _plan_mode_post_edit(name, args, result)
-        return result
-
-    def _transcript_source() -> str:
-        try:
-            from butler.execution_context import get_current_workflow_step
-
-            if get_current_workflow_step():
-                return "workflow"
-            from butler.core.delegate_context import get_parent_messages
-
-            if get_parent_messages():
-                return "delegate"
-        except Exception as exc:
-            logger.debug("transcript source skipped: %s", exc)
-        return "loop"
-
-    def _on_start(name: str, args: dict) -> None:
-        nonlocal tools_started
-        tools_started += 1
-        try:
-            import json as _json
-
-            from butler.core.session_transcript import record_tool_action
-            from butler.execution_context import get_current_session_key
-
-            sk = str(get_current_session_key() or "").strip()
-            if sk:
-                record_tool_action(
-                    sk,
-                    tool_name=name,
-                    args_preview=_json.dumps(args, ensure_ascii=False, default=str)[:400],
-                    source=_transcript_source(),
-                )
-        except Exception as exc:
-            logger.debug("on start skipped: %s", exc)
-        if callbacks.on_tool_start:
-            callbacks.on_tool_start(name, args)
-
-    def _on_complete(name: str, result: str) -> None:
-        try:
-            from butler.ops.runtime_metrics import inc
-
-            outcome = _tool_result_outcome(result)
-            tool_label = str(name or "?")[:48]
-            inc("tool_call", labels={"tool": tool_label, "outcome": outcome})
-        except Exception as exc:
-            logger.debug("on complete skipped: %s", exc)
-        try:
-            from butler.ops.cost_tracker import get_session_cost
-
-            session_key = str(get_current_session_key() or "").strip()
-            if session_key:
-                get_session_cost(session_key).record_tool_call(name)
-        except Exception:
-            pass
-        try:
-            from butler.core.pim_state import on_pim_tool_success
-
-            outcome = _tool_result_outcome(result)
-            if outcome == "ok":
-                on_pim_tool_success(name)
-        except Exception:
-            pass
-        if callbacks.on_tool_complete:
-            callbacks.on_tool_complete(name, result)
-
-    def _precheck_tool(name: str, args: dict) -> str | None:
-        if interrupt_check():
-            return finalize_fallback_tool_result(
-                name,
-                args,
-                {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
-            )
-        if guardrails and guardrails.halt_decision:
-            return finalize_fallback_tool_result(
-                name,
-                args,
-                synthetic_result(guardrails.halt_decision),
-            )
-        if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
-            from butler.core.batch_sequence_guard import stale_skip_result
-
-            return finalize_fallback_tool_result(
-                name,
-                args,
-                stale_skip_result(name, args, guard=batch_guard),
-            )
-        return None
+        return dispatch_one_tool(
+            name,
+            args,
+            tool_call_id=tool_call_id,
+            batch_guard=batch_guard,
+            prefetched=prefetched,
+            guardrails=guardrails,
+            dispatch_tool=dispatch_tool,
+        )
 
     if config.enable_parallel_tools and len(response.tool_calls) > 1:
         pairs = execute_tools_parallel(
             response.tool_calls,
             lambda n, a, *, tool_call_id="": _dispatch_one(n, a, tool_call_id=tool_call_id),
-            on_start=_on_start,
-            on_complete=_on_complete,
+            on_start=on_start,
+            on_complete=on_complete,
             check_interrupt=interrupt_check,
-            precheck_tool=_precheck_tool,
+            precheck_tool=precheck_tool,
             prefetched=prefetched,
         )
     else:
@@ -620,9 +417,9 @@ def process_tool_calls(
                     ),
                 ))
                 continue
-            _on_start(tc.name, args)
+            on_start(tc.name, args)
             result = _dispatch_one(tc.name, args, tool_call_id=str(tc.id or ""))
-            _on_complete(tc.name, result)
+            on_complete(tc.name, result)
             pairs.append((tc, result))
             if interrupt_check():
                 batch_interrupted = True
@@ -665,7 +462,7 @@ def process_tool_calls(
                 break
 
     return ToolBatchStats(
-        tools_started=tools_started,
+        tools_started=hook_state.tools_started,
         clarification_question=clarification,
         waiting_confirmation_message=waiting,
     )

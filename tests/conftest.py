@@ -12,6 +12,26 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _session_env_defaults():
+    """Session-wide defaults so cross-test env coupling stays predictable (P2-E)."""
+    import os
+
+    defaults = {
+        "BUTLER_TERMINAL_SANDBOX": "0",
+        "BUTLER_READ_BEFORE_EDIT": "0",
+    }
+    saved = {k: os.environ.get(k) for k in defaults}
+    for key, value in defaults.items():
+        os.environ[key] = value
+    yield
+    for key, prior in saved.items():
+        if prior is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = prior
+
+
 @pytest.fixture(scope="session")
 def repo_root() -> Path:
     """Repository root (portable on CI runners)."""
@@ -47,6 +67,10 @@ def _isolate_butler_home(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(home))
     monkeypatch.setenv("BUTLER_READ_BEFORE_EDIT", "0")
     monkeypatch.delenv("BUTLER_DEFAULT_PROJECT", raising=False)
+    # Isolate deploy-profile switches that leak from repo .env (P2-E).
+    monkeypatch.setenv("BUTLER_WORKFLOW_AUTO_RESUME", "0")
+    monkeypatch.setenv("BUTLER_MEMORY_AUTO_APPROVE", "")
+    monkeypatch.setenv("BUTLER_MEMORY_AUTO_FACT", "1")
     from butler.config import reload_butler_settings
 
     reload_butler_settings()

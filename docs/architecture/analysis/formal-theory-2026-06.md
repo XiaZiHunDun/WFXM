@@ -426,7 +426,7 @@ PIM 工具 schema 为固定 token 成本，不随对话长度增长。
 | CA/CT/H* | 编码知识 | ✅ 99+ | test_premise_coding_knowledge |
 | B9 LIVE | LLM delegate E2E | ✅ Tier-1 门控 | test_b9_*, llm_delegate_benchmark |
 
-**规模参考**：post-consolidation ~5040 pytest（2026-06-09 基线）。
+**规模参考**：发版以 `butler-pytest-fast-gate.sh` 等分层 gate 为准（2026-06-26）。
 
 ---
 
