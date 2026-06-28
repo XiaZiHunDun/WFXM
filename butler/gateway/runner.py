@@ -98,6 +98,12 @@ def _warmup_gateway_runtime(butler: ButlerMessageHandler) -> None:
         logger.info("Gateway runtime warmup complete (skills/jieba)")
     except Exception as exc:
         logger.debug("Gateway warmup skipped: %s", exc)
+    try:
+        from butler.ops.degradation_registry import sync_mcp_degradations_at_startup
+
+        sync_mcp_degradations_at_startup()
+    except Exception as exc:
+        logger.debug("Gateway MCP degradation sync skipped: %s", exc)
 
 
 async def _butler_message_handler(

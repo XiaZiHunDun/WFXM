@@ -60,3 +60,12 @@ def test_clear_degradation():
     register_degradation("memory", "offline")
     clear_degradation("memory")
     assert format_brief_line() is None
+
+
+def test_sync_mcp_degradations_when_disabled(monkeypatch):
+    monkeypatch.setenv("BUTLER_MCP_ENABLED", "0")
+    from butler.ops.degradation_registry import sync_mcp_degradations_at_startup
+
+    sync_mcp_degradations_at_startup()
+    rows = {r.component: r.reason for r in list_degradations()}
+    assert "mcp" not in rows or "未开" in rows.get("mcp", "")

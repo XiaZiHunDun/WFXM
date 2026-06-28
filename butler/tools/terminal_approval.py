@@ -88,7 +88,7 @@ def check_approval(
         logger.debug("check approval skipped: %s", exc)
     fp = argv_fingerprint(command, cwd=cwd)
     path = _approvals_dir() / f"{fp}.json"
-    from butler.gateway.approval_cards import format_terminal_exec_card
+    from butler.core.approval_cards import format_terminal_exec_card
 
     if not path.is_file():
         return format_terminal_exec_card(

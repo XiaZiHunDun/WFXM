@@ -338,7 +338,7 @@ def format_sandbox_error_payload(
     exit_code: int | None,
     output: str,
 ) -> dict[str, Any]:
-    from butler.gateway.approval_cards import format_terminal_sandbox_card
+    from butler.core.approval_cards import format_terminal_sandbox_card
 
     card = format_terminal_sandbox_card(command, constraint=failure.constraint)
     return {

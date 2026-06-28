@@ -200,89 +200,15 @@ class ButlerMessageHandler:
         external_id: str | None,
         primary_reply: str = "",
     ) -> str:
+        from butler.gateway.inbound_drain import drain_queued_inbound
 
-        from butler.gateway.message_queue import (
-            message_queue_enabled,
-            newest_enqueued_at,
-            pop_all_merged,
-            pop_next,
+        return drain_queued_inbound(
+            self,
+            session_key,
+            platform=platform,
+            external_id=external_id,
+            primary_reply=primary_reply,
         )
-        from butler.gateway.queue_settings import collect_debounce_ms, get_queue_mode
-
-        if not message_queue_enabled():
-            return ""
-
-        mode = get_queue_mode(session_key)
-        parts: list[str] = []
-
-        if mode == "collect":
-            debounce_s = collect_debounce_ms(session_key) / 1000.0
-            if debounce_s > 0:
-                import time as _t
-                last_ts = newest_enqueued_at(session_key)
-                if last_ts > 0:
-                    elapsed = _t.monotonic() - last_ts
-                    if elapsed < debounce_s:
-                        _t.sleep(debounce_s - elapsed)
-            item = pop_all_merged(session_key)
-            if item is not None and not self._session_registry.is_session_active(session_key):
-                logger.info(
-                    "Gateway drain collect session=%s preview=%r",
-                    session_key,
-                    item.text[:80],
-                )
-                part = self.handle_message(
-                    item.text,
-                    session_key=session_key,
-                    platform=item.platform or platform,
-                    external_id=item.external_id or external_id,
-                )
-                if part:
-                    parts.append(part)
-        else:
-            try:
-                from butler.env_parse import int_env
-
-                max_drain = int_env("BUTLER_GATEWAY_QUEUE_DRAIN_PER_TURN", 1, min=0)
-            except ValueError:
-                max_drain = 1
-            if mode == "followup":
-                try:
-                    max_drain = max(max_drain, int_env("BUTLER_GATEWAY_QUEUE_DRAIN_FOLLOWUP", 1, min=0))
-                except ValueError:
-                    pass
-            for _ in range(max_drain):
-                item = pop_next(session_key)
-                if item is None:
-                    break
-                if self._session_registry.is_session_active(session_key):
-                    break
-                logger.info(
-                    "Gateway drain queued session=%s priority=%s preview=%r",
-                    session_key,
-                    item.priority,
-                    item.text[:60],
-                )
-                part = self.handle_message(
-                    item.text,
-                    session_key=session_key,
-                    platform=item.platform or platform,
-                    external_id=item.external_id or external_id,
-                )
-                if part:
-                    parts.append(part)
-
-        if not parts:
-            return ""
-        combined = "\n\n---\n\n".join(parts) if len(parts) > 1 else parts[0]
-        if self._queue_push_via_bridge() and primary_reply.strip():
-            from butler.gateway.outbound_bridge import get_current_bridge
-
-            br = get_current_bridge()
-            if br is not None:
-                br.schedule_supplementary_reply(combined, kind="queued")
-                return ""
-        return combined
 
     def _recover_registry_if_stale(self) -> None:
         """Clear a stuck ``reset_all`` flag that would block ``enter_session`` forever."""

@@ -12,7 +12,7 @@ def format_error_card(event_type: str, **kwargs) -> str | None:
     if event_type == "doom_loop":
         tool = kwargs.get("tool", "unknown")
         count = kwargs.get("count", 0)
-        from butler.gateway.approval_cards import format_approval_card
+        from butler.core.approval_cards import format_approval_card
 
         return format_approval_card(
             reason=f"检测到重复操作 {tool}（已连续 {count} 次）",
@@ -23,7 +23,7 @@ def format_error_card(event_type: str, **kwargs) -> str | None:
     if event_type == "permission_deny":
         tool = kwargs.get("tool", "unknown")
         reason = kwargs.get("reason", "")
-        from butler.gateway.approval_cards import format_permission_once_card
+        from butler.core.approval_cards import format_permission_once_card
 
         return format_permission_once_card(tool=tool) + (
             f"\n详情: {reason}" if reason else ""

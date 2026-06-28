@@ -258,3 +258,8 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **ENG-6 续**：`GatewayEventsSink` 实现 contracts + 统一双注册表 |
 | 2026-06-27 | **ENG-8 续**：Skill merge fallback → `degradation_registry` |
 | 2026-06-27 | **ENG-9 done**：全量 pytest 0 fail（6250 pass） |
+| 2026-06-27 | **ENG-7 首步**：`core/approval_cards`；tools/core 去 gateway import |
+| 2026-06-27 | **ENG-8 续**：MCP warm-up → `sync_mcp_degradations_at_startup` |
+| 2026-06-27 | **ENG-13 首步**：`health_report` 可选诊断块 → `safe_best_effort` |
+| 2026-06-27 | **ENG-3 续**：`inbound_drain.py`；`message_handler` 500 行 |
+| 2026-06-27 | **ENG-14 续**：mypy strict on `approval_cards` + `terminal_approval` |

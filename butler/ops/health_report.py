@@ -8,7 +8,23 @@ from typing import Any
 import logging
 
 
+from butler.core.best_effort import safe_best_effort
+
 logger = logging.getLogger(__name__)
+
+_EMPTY_APPROVAL_STATS: dict[str, Any] = {
+    "always_count": 0,
+    "once_active_count": 0,
+    "has_pending": False,
+    "external_directory_always_count": 0,
+    "external_directory_once_count": 0,
+}
+
+
+def _append_diag_lines(lines: list[str], label: str, fn) -> None:
+    extra = safe_best_effort(fn, label=f"health_report.{label}", default=[])
+    if extra:
+        lines.extend(extra)
 
 @dataclass
 class HealthReportInput:
@@ -52,25 +68,18 @@ def collect_mem_stats_for_health(
 
 
 def collect_approval_stats_for_health(session_key: str) -> dict[str, Any]:
-    """Sprint 24 P1-3.2: /诊断 集成 — 读 session approvals.json 统计.
-
-    返回 dict 形如: {always_count, once_active_count, has_pending,
-    external_directory_always_count, external_directory_once_count}.
-    与 collect_mem_stats_for_health 平行, 在 _shared_diagnostic_lines 中调用.
-    """
-    try:
+    """Sprint 24 P1-3.2: /诊断 集成 — 读 session approvals.json 统计."""
+    def _load() -> dict[str, Any]:
         from butler.permissions.approvals import summarize_approvals
 
         return summarize_approvals(session_key)
-    except Exception as exc:
-        logger.debug("collect approval stats skipped: %s", exc)
-        return {
-            "always_count": 0,
-            "once_active_count": 0,
-            "has_pending": False,
-            "external_directory_always_count": 0,
-            "external_directory_once_count": 0,
-        }
+
+    result = safe_best_effort(
+        _load,
+        label="health_report.approval_stats",
+        default=_EMPTY_APPROVAL_STATS,
+    )
+    return result if isinstance(result, dict) else _EMPTY_APPROVAL_STATS
 
 
 def _shared_diagnostic_lines(
@@ -144,15 +153,15 @@ def _shared_diagnostic_lines(
         )
     )
     lines.extend(format_ops_diagnostic_lines())
-    try:
+
+    def _rag_lines() -> list[str]:
         from butler.ops.rag_diagnostics import format_rag_diagnostic_lines
 
-        lines.extend(
-            format_rag_diagnostic_lines(inp.mem_stats, session_key=inp.session_key)
-        )
-    except Exception as exc:
-        logger.debug("shared diagnostic lines skipped: %s", exc)
-    try:
+        return format_rag_diagnostic_lines(inp.mem_stats, session_key=inp.session_key)
+
+    _append_diag_lines(lines, "rag", _rag_lines)
+
+    def _execution_surface_lines() -> list[str]:
         from butler.ops.execution_surface_diagnostics import (
             collect_execution_surface_stats,
             format_execution_surface_diagnostic_lines,
@@ -166,71 +175,69 @@ def _shared_diagnostic_lines(
         es_lines = format_execution_surface_diagnostic_lines(
             es_stats, session_key=inp.session_key
         )
-        if es_lines:
-            lines.append("")
-            lines.extend(es_lines)
-    except Exception as exc:
-        logger.debug("execution surface diagnostic lines skipped: %s", exc)
-    try:
+        return ["", *es_lines] if es_lines else []
+
+    _append_diag_lines(lines, "execution_surface", _execution_surface_lines)
+
+    def _stack_lines() -> list[str]:
+        if proj is None:
+            return []
         from butler.ops.stack_diagnostics import format_stack_diagnostic_lines
 
-        if proj is not None:
-            stack_lines = format_stack_diagnostic_lines(Path(proj.workspace))
-            if stack_lines:
-                lines.append("")
-                lines.extend(stack_lines)
-    except Exception as exc:
-        logger.debug("stack diagnostic lines skipped: %s", exc)
-    try:
+        stack_lines = format_stack_diagnostic_lines(Path(proj.workspace))
+        return ["", *stack_lines] if stack_lines else []
+
+    _append_diag_lines(lines, "stack", _stack_lines)
+
+    def _experiment_lines() -> list[str]:
+        if proj is None:
+            return []
         from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
 
-        if proj is not None:
-            lines.extend(format_experiment_diagnostic_lines(Path(proj.workspace)))
-    except Exception as exc:
-        logger.debug("shared diagnostic lines skipped: %s", exc)
-    try:
+        return format_experiment_diagnostic_lines(Path(proj.workspace))
+
+    _append_diag_lines(lines, "experiment", _experiment_lines)
+
+    def _observation_lines() -> list[str]:
+        if proj is None:
+            return []
         from butler.ops.observation_diagnostics import format_observation_diagnostic_lines
 
-        if proj is not None:
-            obs_lines = format_observation_diagnostic_lines(Path(proj.workspace))
-            if obs_lines:
-                lines.append("")
-                lines.extend(obs_lines)
-    except Exception as exc:
-        logger.debug("observation diagnostic lines skipped: %s", exc)
-    try:
+        obs_lines = format_observation_diagnostic_lines(Path(proj.workspace))
+        return ["", *obs_lines] if obs_lines else []
+
+    _append_diag_lines(lines, "observation", _observation_lines)
+
+    def _usage_lines() -> list[str]:
         from butler.ops.usage_ledger import format_usage_ledger_lines
 
-        lines.extend(format_usage_ledger_lines())
-    except Exception as exc:
-        logger.debug("shared diagnostic lines skipped: %s", exc)
-    try:
+        return format_usage_ledger_lines()
+
+    _append_diag_lines(lines, "usage_ledger", _usage_lines)
+
+    def _calibration_lines() -> list[str]:
         from butler.ops.cost_calibration import format_rollup_lines
 
         cal = format_rollup_lines()
-        if cal:
-            lines.append("")
-            lines.extend(cal)
-    except Exception as exc:
-        logger.debug("shared diagnostic lines skipped: %s", exc)
-    try:
+        return ["", *cal] if cal else []
+
+    _append_diag_lines(lines, "cost_calibration", _calibration_lines)
+
+    def _eval_lines() -> list[str]:
         from butler.ops.eval_diagnostics import format_eval_quality_lines
 
         eq = format_eval_quality_lines()
-        if eq:
-            lines.append("")
-            lines.extend(eq)
-    except Exception as exc:
-        logger.debug("eval quality diagnostic lines skipped: %s", exc)
-    try:
+        return ["", *eq] if eq else []
+
+    _append_diag_lines(lines, "eval_quality", _eval_lines)
+
+    def _boundary_lines() -> list[str]:
         from butler.ops.boundary_observability import format_boundary_observability_lines
 
         bo = format_boundary_observability_lines()
-        if bo:
-            lines.append("")
-            lines.extend(bo)
-    except Exception as exc:
-        logger.debug("boundary observability lines skipped: %s", exc)
+        return ["", *bo] if bo else []
+
+    _append_diag_lines(lines, "boundary_obs", _boundary_lines)
     try:
         from butler.transport.stream_probe import format_stream_probe_lines
 

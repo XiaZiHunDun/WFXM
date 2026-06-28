@@ -158,6 +158,61 @@ def format_diagnostic_lines() -> list[str]:
     return lines
 
 
+def sync_mcp_degradations_at_startup(*, session_key: str = "gateway:warmup") -> None:
+    """Probe MCP at gateway warm-up; register active degradations (ENG-8 续)."""
+    try:
+        from butler.mcp.config import load_mcp_servers, mcp_enabled, mcp_sdk_available
+        from butler.registry.paths import default_mcp_config_path
+    except Exception as exc:
+        logger.debug("mcp degradation sync import skipped: %s", exc)
+        return
+
+    if not mcp_enabled():
+        if default_mcp_config_path().is_file():
+            register_degradation("mcp", "已配置但 BUTLER_MCP_ENABLED 未开")
+        else:
+            clear_degradation("mcp")
+        return
+
+    if not mcp_sdk_available():
+        register_degradation("mcp", "缺少 MCP SDK (pip install butler-system[mcp])")
+        return
+
+    sk = str(session_key or "gateway:warmup").strip() or "gateway:warmup"
+    try:
+        from butler.mcp.manager import get_manager
+
+        mgr = get_manager()
+        mgr.ensure_connected(sk, workspace=None)
+    except Exception as exc:
+        logger.debug("mcp warm-up connect skipped: %s", exc)
+
+    try:
+        from butler.mcp.manager import get_manager
+
+        statuses = get_manager().status_snapshot(sk)
+    except Exception as exc:
+        logger.debug("mcp status snapshot skipped: %s", exc)
+        return
+
+    if not statuses:
+        try:
+            cfg_count = len(load_mcp_servers(workspace=None))
+        except Exception:
+            cfg_count = 0
+        if cfg_count > 0:
+            register_degradation("mcp", f"{cfg_count} 个 server 均未连接")
+        else:
+            clear_degradation("mcp")
+        return
+
+    down = [st for st in statuses if not st.connected]
+    if down:
+        register_degradation("mcp", f"{len(down)}/{len(statuses)} 个 server 不可用")
+    else:
+        clear_degradation("mcp")
+
+
 def _sync_metrics() -> None:
     try:
         from butler.ops.runtime_metrics import set_gauge
@@ -177,5 +232,6 @@ __all__ = [
     "format_diagnostic_lines",
     "list_degradations",
     "register_degradation",
+    "sync_mcp_degradations_at_startup",
     "sync_memory_degradations_from_stats",
 ]

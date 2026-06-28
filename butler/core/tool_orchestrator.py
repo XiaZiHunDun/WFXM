@@ -21,7 +21,7 @@ def run_terminal_with_gates(
     run_fn: Callable[[], str],
 ) -> str:
     """Policy → danger → approval → execpolicy path for terminal."""
-    from butler.gateway.approval_cards import format_terminal_pattern_card
+    from butler.core.approval_cards import format_terminal_pattern_card
 
     try:
         from butler.tools.terminal_danger import check_dangerous_command, set_terminal_session_context
@@ -64,7 +64,7 @@ def run_terminal_with_gates(
 
         block = check_approval(command, cwd=cwd, session_key=session_key)
         if block:
-            from butler.gateway.approval_cards import format_terminal_approval_message
+            from butler.core.approval_cards import format_terminal_approval_message
 
             return _deny(
                 "TERMINAL_APPROVAL_REQUIRED",

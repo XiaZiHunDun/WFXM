@@ -136,6 +136,13 @@ strict = true
 module = "butler.tools.delegate_run_state"
 strict = true
 
+[[tool.mypy.overrides]]
+module = [
+    "butler.core.approval_cards",
+    "butler.tools.terminal_approval",
+]
+strict = true
+
 [tool.coverage.run]
 source = ["butler"]
 omit = [
