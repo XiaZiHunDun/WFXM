@@ -60,3 +60,59 @@ def test_gateway_sink_satisfies_contracts_protocol():
 
     sink = install_gateway_events_sink()
     assert isinstance(sink, EventsSink)
+
+
+def test_gateway_sink_delegates_transcript_writes(monkeypatch):
+    generic: list[tuple[str, str, dict]] = []
+    tools: list[tuple[str, str, str, str]] = []
+
+    def _record_generic(session_key: str, event_type: str, data: dict) -> None:
+        generic.append((session_key, event_type, data))
+
+    def _record_tool(
+        session_key: str,
+        *,
+        tool_name: str,
+        args_preview: str = "",
+        source: str = "",
+    ) -> None:
+        tools.append((session_key, tool_name, args_preview, source))
+
+    monkeypatch.setattr(
+        "butler.core.session_transcript.record_generic_event",
+        _record_generic,
+    )
+    monkeypatch.setattr(
+        "butler.core.session_transcript.record_tool_action",
+        _record_tool,
+    )
+
+    sink = GatewayEventsSink()
+    sink.record_generic_event("wechat:u1", "turn_end", {"status": "ok"})
+    sink.record_tool_action(
+        session_key="wechat:u1",
+        tool_name="read_file",
+        args_preview='{"path":"x"}',
+        source="loop",
+    )
+
+    assert generic == [("wechat:u1", "turn_end", {"status": "ok"})]
+    assert tools == [("wechat:u1", "read_file", '{"path":"x"}', "loop")]
+
+
+def test_contracts_registry_gateway_sink_writes(monkeypatch):
+    generic: list[tuple[str, str, dict]] = []
+
+    monkeypatch.setattr(
+        "butler.core.session_transcript.record_generic_event",
+        lambda sk, et, data: generic.append((sk, et, data)),
+    )
+    set_events_sink(None)
+    register_gateway_events_sink()
+    try:
+        sink = get_events_sink()
+        assert sink is not None
+        sink.record_generic_event("sk", "workflow_step", {"step": "review"})
+        assert generic == [("sk", "workflow_step", {"step": "review"})]
+    finally:
+        set_events_sink(None)

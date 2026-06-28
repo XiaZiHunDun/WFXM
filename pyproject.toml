@@ -142,6 +142,7 @@ module = [
     "butler.tools.terminal_approval",
     "butler.dag_scheduler",
     "butler.gateway.network_route_verify_runner",
+    "butler.workflow_step_runner",
 ]
 strict = true
 

@@ -17,7 +17,7 @@ _TTL_SEC = 300.0
 def _approvals_dir() -> Path:
     from butler.config import get_butler_home
 
-    path = get_butler_home() / "exec_approvals"
+    path = Path(get_butler_home()) / "exec_approvals"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -91,31 +91,31 @@ def check_approval(
     from butler.core.approval_cards import format_terminal_exec_card
 
     if not path.is_file():
-        return format_terminal_exec_card(
+        return str(format_terminal_exec_card(
             command,
             reason="终端命令需 Owner 批准后再执行",
-        )
+        ))
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return format_terminal_exec_card(command, reason="批准记录损坏，请重新批准")
+        return str(format_terminal_exec_card(command, reason="批准记录损坏，请重新批准"))
     if not isinstance(data, dict):
-        return format_terminal_exec_card(command, reason="批准记录无效，请重新批准")
+        return str(format_terminal_exec_card(command, reason="批准记录无效，请重新批准"))
     if time.time() > float(data.get("expires_at") or 0):
         path.unlink(missing_ok=True)
-        return format_terminal_exec_card(command, reason="批准已过期（5 分钟），请重新批准")
+        return str(format_terminal_exec_card(command, reason="批准已过期（5 分钟），请重新批准"))
     if data.get("command", "").strip() != command.strip():
-        return format_terminal_exec_card(
+        return str(format_terminal_exec_card(
             command,
             reason="命令与批准记录不一致，请重新 /批准执行",
-        )
+        ))
     recorded_sk = str(data.get("session_key") or "").strip()
     want_sk = str(session_key or "").strip()
     if recorded_sk and want_sk and recorded_sk != want_sk:
-        return format_terminal_exec_card(
+        return str(format_terminal_exec_card(
             command,
             reason="批准属于其他会话，请在本会话重新 /批准执行",
-        )
+        ))
     return None
 
 

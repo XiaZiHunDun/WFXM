@@ -15,4 +15,6 @@ bash scripts/butler-wechat-attach-probe.sh
 echo ""
 bash scripts/butler-cc-harness-gate.sh
 echo ""
+bash scripts/butler-mypy-strict-gate.sh
+echo ""
 echo "Fast gate: ALL PASSED"

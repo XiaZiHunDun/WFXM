@@ -41,7 +41,8 @@
 ```bash
 cd /path/to/WFXM
 # 本地/PR 快速门禁（smoke quick + 微信附件 + CC 线束，约 3–5 分钟）
-./scripts/butler-pytest-fast-gate.sh
+./scripts/butler-pytest-fast-gate.sh   # smoke + attach + CC harness + mypy strict（约 3–5 分钟）
+bash scripts/butler-mypy-strict-gate.sh  # 仅 mypy strict 子集
 # CC 线束（改 core/context/gateway 队列与压缩时）
 ./scripts/butler-cc-harness-gate.sh
 # 或子集：

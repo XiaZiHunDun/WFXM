@@ -272,3 +272,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **ENG-4 续**：`prepare_layer_node` / router / batch helper 入 `dag_scheduler` |
 | 2026-06-27 | **ENG-13 done**：langfuse 全路径 `_lf_void` / `_lf_best_effort` |
 | 2026-06-27 | **ENG-14 续**：mypy strict on `dag_scheduler` + `network_route_verify_runner` |
+| 2026-06-27 | **ENG-5 done**：`qr_phases.py`；`phases` 门面 ~370 行 |
+| 2026-06-27 | **ENG-4 done**：`workflow_step_runner`（retry/rescue）；`task_orchestrator` 532 行 |
+| 2026-06-27 | **ENG-14 done**：`butler-mypy-strict-gate.sh` 入 fast-gate |
+| 2026-06-27 | **ENG-6 续**：contracts 测试覆盖 gateway→transcript 写入路径 |
