@@ -32,7 +32,7 @@
 | `wechat_ilink` | **子包** | ✅ PROD-P2-01；`phases.py` 仍 1205 行 |
 | 延迟 `from butler.` | **~2454** | 环靠 lazy import 维持 |
 | `core/` → `gateway/` 顶层 import | **1 文件** | 较审计改善，未归零 |
-| 全量 `pytest tests/` | **~16 fail**（2026-06-26；排除 corpus） | 泄漏 + `.env` 耦合；发版 gate 绿 |
+| 全量 `pytest tests/` | **0 fail**（2026-06-27；6250 pass，排除 corpus） | 泄漏 + `.env` 耦合已修；发版 gate 绿 |
 | `get_model_config` | 已委托 `resolve_effective_model` | P0-1 部分完成 |
 
 ### 1.1 已收口（勿重复立项）
@@ -107,7 +107,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 
 | 项 | 现状 | 目标 |
 |----|------|------|
-| 全量 pytest | ~101 fail | ≤10 或 CI 永不跑全量 |
+| 全量 pytest | ~~101 fail~~ **0 fail**（2026-06-27） | ≤10 或 CI 永不跑全量 |
 | 根因 | `test_tools_registry` 跨测状态 + `.env` 泄漏 | bisect 清单在 `pilot-log` |
 | 隔离 | `MEMORY_AUTO_APPROVE=correction` 致单测失败 | `monkeypatch` / session fixture |
 | 守门 | fast-gate + domain gate | 保持为发版 SSOT |
@@ -255,3 +255,6 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **P2-E**：`conftest` session env 默认 + sprint11/registry/sprint23 修债 |
 | 2026-06-27 | **P2-F**：`pyproject.toml` mypy strict on `butler/contracts` + `delegate_run_state` |
 | 2026-06-27 | **P2-G**：文档 9 处矛盾修正（architecture / DOCUMENTATION / roadmap 等） |
+| 2026-06-27 | **ENG-6 续**：`GatewayEventsSink` 实现 contracts + 统一双注册表 |
+| 2026-06-27 | **ENG-8 续**：Skill merge fallback → `degradation_registry` |
+| 2026-06-27 | **ENG-9 done**：全量 pytest 0 fail（6250 pass） |

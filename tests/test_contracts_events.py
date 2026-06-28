@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from butler.contracts.events import EventsSink
 from butler.contracts.sink_registry import get_events_sink, set_events_sink
-from butler.gateway.events_sink import TranscriptEventsSink, register_gateway_events_sink
+from butler.gateway.events_sink import register_gateway_events_sink
+from butler.gateway.events_sink_impl import GatewayEventsSink
 
 
 class _RecordingSink:
@@ -46,6 +47,6 @@ def test_register_gateway_events_sink():
     set_events_sink(None)
     register_gateway_events_sink()
     try:
-        assert isinstance(get_events_sink(), TranscriptEventsSink)
+        assert isinstance(get_events_sink(), GatewayEventsSink)
     finally:
         set_events_sink(None)

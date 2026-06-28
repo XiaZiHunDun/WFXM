@@ -22,6 +22,33 @@ logger = logging.getLogger(__name__)
 class GatewayEventsSink:
     """Adapter from core's :class:`EventsSink` protocol to gateway's facilities."""
 
+    def record_generic_event(
+        self,
+        session_key: str,
+        event_type: str,
+        data: dict[str, Any],
+    ) -> None:
+        from butler.core.session_transcript import record_generic_event
+
+        record_generic_event(session_key, event_type, data)
+
+    def record_tool_action(
+        self,
+        *,
+        session_key: str,
+        tool_name: str,
+        args_preview: str = "",
+        source: str = "",
+    ) -> None:
+        from butler.core.session_transcript import record_tool_action
+
+        record_tool_action(
+            session_key,
+            tool_name=tool_name,
+            args_preview=args_preview,
+            source=source,
+        )
+
     def invoke_hook(self, name: str, **kwargs: Any) -> list[Any]:
         # Local import: gateway depends on core, core does not depend on gateway.
         from butler.gateway.hooks import invoke_hook as _invoke_hook

@@ -33,6 +33,13 @@ def test_format_brief_line_chinese_labels():
     assert "检索" in line
 
 
+def test_format_brief_line_skills_label():
+    register_degradation("skills", "merge fallback")
+    line = format_brief_line()
+    assert line is not None
+    assert "Skill" in line
+
+
 def test_sync_memory_degradations_from_stats():
     sync_memory_degradations_from_stats({
         "memory_offline": True,

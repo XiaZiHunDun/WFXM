@@ -532,10 +532,10 @@ butler onboard --profile gateway              # 新机上手
 | ENG-3 | `message_handler` 后段薄化 | A | **in_progress**（`turn_post_pipeline` ✅） |
 | ENG-4 | `task_orchestrator` 图执行拆分 | A | **backlog** |
 | ENG-5 | `wechat_ilink/phases` 第二轮拆分 | B | **backlog** |
-| ENG-6 | `butler/contracts/` + EventsSink | B | **backlog** |
+| ENG-6 | `butler/contracts/` + EventsSink | B | **in_progress**（R1-3 core sink ✅；contracts 与 GatewayEventsSink 统一 ✅） |
 | ENG-7 | tools→gateway 经 execution_context | B | **backlog** |
-| ENG-8 | 记忆/embedding 降级显性化 | C | **in_progress**（`degradation_registry` + doctor/诊断 ✅） |
-| ENG-9 | pytest 全量泄漏修债 | C | **in_progress**（registry fixture + sprint11/terminal 修 ✅） |
+| ENG-8 | 记忆/embedding 降级显性化 | C | **in_progress**（registry + doctor/诊断 ✅；Skill merge fallback ✅） |
+| ENG-9 | pytest 全量泄漏修债 | C | **done** 2026-06-27（6250 pass / 0 fail） |
 | ENG-10 | `model_defaults` 剩余硬编码 | C | **backlog**（≈PROD-P6-07） |
 | ENG-11 | `locked_phases` phase 注册表 | D | **backlog** |
 | ENG-12 | `orchestrator` 子系统门面 | D | **backlog** |

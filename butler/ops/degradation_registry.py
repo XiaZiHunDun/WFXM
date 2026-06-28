@@ -117,6 +117,7 @@ _COMPONENT_LABELS: dict[str, str] = {
     "recall": "检索",
     "memory": "记忆",
     "mcp": "MCP",
+    "skills": "Skill",
 }
 
 

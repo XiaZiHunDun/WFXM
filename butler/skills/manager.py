@@ -604,8 +604,13 @@ class SkillManager:
             merged = self._consolidator.consolidate(to_merge_raw)
             if merged.get("fallback_used"):
                 try:
+                    from butler.ops.degradation_registry import register_degradation
                     from butler.ops.runtime_metrics import inc
 
+                    register_degradation(
+                        "skills",
+                        "合并使用确定性 fallback（LLM 不可用或无 JSON）",
+                    )
                     inc("digestion_skill_fallback_merge")
                 except Exception:
                     pass

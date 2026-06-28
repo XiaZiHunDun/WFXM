@@ -1,45 +1,29 @@
-"""Gateway implementation of :class:`butler.contracts.events.EventsSink`."""
+"""Gateway wiring for :class:`butler.contracts.events.EventsSink` (ENG-6 续).
+
+The compaction / hooks sink lives in ``butler.core.events_sink`` and is
+installed by ``events_sink_impl`` on import. This module registers the **same**
+``GatewayEventsSink`` instance with ``butler.contracts.sink_registry`` so
+transcript-oriented callers can use the contracts Protocol without importing
+gateway from core.
+"""
 
 from __future__ import annotations
 
-from typing import Any
+from butler.gateway.events_sink_impl import GatewayEventsSink
 
 
-class TranscriptEventsSink:
-    """Forward events to ``butler.core.session_transcript`` (file SSOT)."""
+def register_gateway_events_sink() -> GatewayEventsSink:
+    """Wire contracts registry to the live ``GatewayEventsSink`` (idempotent)."""
+    from butler.contracts.sink_registry import set_events_sink as set_contracts_sink
+    from butler.core.events_sink import get_events_sink
 
-    def record_generic_event(
-        self,
-        session_key: str,
-        event_type: str,
-        data: dict[str, Any],
-    ) -> None:
-        from butler.core.session_transcript import record_generic_event
+    sink = get_events_sink()
+    if not isinstance(sink, GatewayEventsSink):
+        from butler.gateway.events_sink_impl import install_gateway_events_sink
 
-        record_generic_event(session_key, event_type, data)
-
-    def record_tool_action(
-        self,
-        *,
-        session_key: str,
-        tool_name: str,
-        args_preview: str = "",
-        source: str = "",
-    ) -> None:
-        from butler.core.session_transcript import record_tool_action
-
-        record_tool_action(
-            session_key,
-            tool_name=tool_name,
-            args_preview=args_preview,
-            source=source,
-        )
+        sink = install_gateway_events_sink()
+    set_contracts_sink(sink)
+    return sink
 
 
-def register_gateway_events_sink() -> None:
-    from butler.contracts.sink_registry import set_events_sink
-
-    set_events_sink(TranscriptEventsSink())
-
-
-__all__ = ["TranscriptEventsSink", "register_gateway_events_sink"]
+__all__ = ["GatewayEventsSink", "register_gateway_events_sink"]
