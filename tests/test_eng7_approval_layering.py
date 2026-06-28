@@ -11,6 +11,7 @@ _LAYERING_FILES = (
     "butler/core/tool_orchestrator.py",
     "butler/tools/terminal_approval.py",
     "butler/tools/terminal_sandbox.py",
+    "butler/tools/network_route_verify.py",
 )
 
 

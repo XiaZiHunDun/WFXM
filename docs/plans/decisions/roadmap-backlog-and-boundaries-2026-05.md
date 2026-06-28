@@ -530,10 +530,10 @@ butler onboard --profile gateway              # 新机上手
 | ENG-1 | 复杂度预算 + 度量脚本 | 基线 | **done** 2026-06-26 |
 | ENG-2 | `delegate_phases` 按阶段拆包 | A | **done** 2026-06-26（`delegate_phases` 125L 门面 + 6 子模块） |
 | ENG-3 | `message_handler` 后段薄化 | A | **in_progress**（`turn_post_pipeline` ✅） |
-| ENG-4 | `task_orchestrator` 图执行拆分 | A | **backlog** |
-| ENG-5 | `wechat_ilink/phases` 第二轮拆分 | B | **backlog** |
-| ENG-6 | `butler/contracts/` + EventsSink | B | **in_progress**（R1-3 + contracts 统一注册 ✅） |
-| ENG-7 | tools→gateway 经 execution_context | B | **in_progress**（approval_cards → core ✅） |
+| ENG-4 | `task_orchestrator` 图执行拆分 | A | **in_progress**（`dag_scheduler` 首步 ✅） |
+| ENG-5 | `wechat_ilink/phases` 第二轮拆分 | B | **in_progress**（`connect_phases` 首步 ✅） |
+| ENG-6 | `butler/contracts/` + EventsSink | B | **in_progress**（R1-3 + contracts 统一注册 + sink 契约测试 ✅） |
+| ENG-7 | tools→gateway 经 execution_context | B | **in_progress**（approval_cards → core ✅；route verify → gateway ✅） |
 | ENG-8 | 记忆/embedding 降级显性化 | C | **in_progress**（registry + doctor/诊断 ✅；Skill merge fallback ✅） |
 | ENG-9 | pytest 全量泄漏修债 | C | **done** 2026-06-27（6250 pass / 0 fail） |
 | ENG-10 | `model_defaults` 剩余硬编码 | C | **backlog**（≈PROD-P6-07） |

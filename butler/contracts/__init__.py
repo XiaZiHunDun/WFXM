@@ -1,11 +1,13 @@
 """Cross-layer Protocol contracts (ENG-6 / P1-D).
 
-* ``butler.contracts.events.EventsSink`` — transcript / tool-audit surface
+Two complementary sink protocols (do not merge — different lifecycles):
+
+* :class:`EventsSink` — transcript / tool-audit (this module)
 * ``butler.core.events_sink.EventsSink`` — compaction hooks + urgent inbound
 
-Gateway's :class:`butler.gateway.events_sink_impl.GatewayEventsSink` implements
-both; ``register_gateway_events_sink()`` wires the contracts registry to the
-same live instance installed for core compaction.
+Gateway :class:`butler.gateway.events_sink_impl.GatewayEventsSink` implements
+**both**; ``register_gateway_events_sink()`` wires the contracts registry to
+the live core instance.
 """
 
 from butler.contracts.events import EventsSink

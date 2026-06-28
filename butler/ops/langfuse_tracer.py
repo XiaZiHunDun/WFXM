@@ -33,6 +33,12 @@ _initialised = False
 _project_clients: dict[str, Any] = {}
 
 
+def _lf_best_effort(fn, label: str, default: Any = None) -> Any:
+    from butler.core.best_effort import safe_best_effort
+
+    return safe_best_effort(fn, label=f"langfuse.{label}", default=default)
+
+
 def langfuse_enabled() -> bool:
     return os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in ("1", "true", "yes")
 
@@ -91,23 +97,25 @@ def _get_client(project_id: str = "") -> Any:
 
 def flush_langfuse() -> None:
     """Flush pending events. Call at turn boundary or shutdown."""
-    client = _get_client()
-    if client is not None:
-        try:
+
+    def _flush() -> None:
+        client = _get_client()
+        if client is not None:
             client.flush()
-        except Exception as exc:
-            logger.debug("LangFuse flush: %s", exc)
+
+    _lf_best_effort(_flush, "flush")
 
 
 def shutdown_langfuse() -> None:
     """Graceful shutdown. Call at process exit."""
     global _langfuse_client, _initialised
     client = _langfuse_client
-    if client is not None:
-        try:
+
+    def _shutdown() -> None:
+        if client is not None:
             client.shutdown()
-        except Exception:
-            pass
+
+    _lf_best_effort(_shutdown, "shutdown")
     _langfuse_client = None
     _initialised = False
 
@@ -152,7 +160,7 @@ class TracingContext:
         self._metadata.setdefault("session_source", _detect_session_source(session_key))
 
         if self._client is not None:
-            try:
+            def _create_trace() -> None:
                 tags = [f"project:{self._metadata.get('project_name', '')}"]
                 if self._metadata.get("tenant"):
                     tags.append(f"tenant:{self._metadata['tenant']}")
@@ -162,8 +170,8 @@ class TracingContext:
                     metadata=self._metadata,
                     tags=tags,
                 )
-            except Exception as exc:
-                logger.debug("LangFuse trace create: %s", exc)
+
+            _lf_best_effort(_create_trace, "trace_create")
 
     @property
     def active(self) -> bool:

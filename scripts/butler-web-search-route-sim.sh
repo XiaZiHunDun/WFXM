@@ -43,10 +43,8 @@ import json
 import os
 import sys
 
+from butler.gateway.network_route_verify_runner import run_handler_route_cases
 from butler.tools.network_route_verify import (
-    load_network_route_manifest,
-    run_handler_route_cases,
-    run_policy_golden_cases,
     run_web_search_probe,
 )
 

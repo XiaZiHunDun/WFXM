@@ -47,6 +47,16 @@ def test_register_gateway_events_sink():
     set_events_sink(None)
     register_gateway_events_sink()
     try:
-        assert isinstance(get_events_sink(), GatewayEventsSink)
+        sink = get_events_sink()
+        assert isinstance(sink, GatewayEventsSink)
+        sink.record_generic_event("sk", "ping", {"ok": True})
+        sink.record_tool_action(session_key="sk", tool_name="read_file", source="loop")
     finally:
         set_events_sink(None)
+
+
+def test_gateway_sink_satisfies_contracts_protocol():
+    from butler.gateway.events_sink_impl import install_gateway_events_sink
+
+    sink = install_gateway_events_sink()
+    assert isinstance(sink, EventsSink)

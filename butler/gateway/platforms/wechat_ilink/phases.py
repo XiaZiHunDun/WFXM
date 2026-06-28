@@ -191,111 +191,17 @@ def _phase_init_dedup(adapter: "WeChatAdapter") -> None:
 
 
 # ===========================================================================
-# connect sub-phases
+# connect sub-phases (ENG-5: butler.gateway.platforms.wechat_ilink.connect_phases)
 # ===========================================================================
 
-def _phase_connect_validate(adapter: "WeChatAdapter") -> bool:
-    """Phase C1: validate runtime deps + token + account_id.
-
-    Returns True if validation passed; False if any fatal error was set.
-    """
-    from butler.gateway.platforms.wechat_ilink import check_wechat_requirements
-
-    if not check_wechat_requirements():
-        message = "WeChat startup failed: aiohttp and cryptography are required"
-        adapter._set_fatal_error("wechat_missing_dependency", message, retryable=False)
-        logger.warning("[%s] %s", adapter.name, message)
-        return False
-    if not adapter._token:
-        message = "WeChat startup failed: WECHAT_TOKEN is required"
-        adapter._set_fatal_error("wechat_missing_token", message, retryable=False)
-        logger.warning("[%s] %s", adapter.name, message)
-        return False
-    if not adapter._account_id:
-        message = "WeChat startup failed: WECHAT_ACCOUNT_ID is required"
-        adapter._set_fatal_error("wechat_missing_account", message, retryable=False)
-        logger.warning("[%s] %s", adapter.name, message)
-        return False
-    return True
-
-
-def _phase_connect_open_sessions(adapter: "WeChatAdapter") -> None:
-    """Phase C2: acquire lock, open poll/send sessions, register, mark connected.
-
-    Caller has already validated deps + token + account_id. We disable
-    aiohttp's built-in ClientTimeout on the send session (managed
-    externally via ``asyncio.wait_for``) to avoid the "Timeout context
-    manager should be used inside a task" error when ``send()`` is
-    invoked via ``asyncio.run_coroutine_threadsafe`` from cron.
-    """
-    if not _acquire_token_lock(adapter):
-        return
-    _open_aiohttp_sessions(adapter)
-    _start_poll_and_register(adapter)
-
-
-def _acquire_token_lock(adapter: "WeChatAdapter") -> bool:
-    """Acquire the platform-wide bot-token lock (best-effort)."""
-    try:
-        return bool(adapter._acquire_platform_lock(
-            "wechat-bot-token", adapter._token, "WeChat bot token",
-        ))
-    except Exception as exc:
-        logger.debug(
-            "[%s] Token lock unavailable (non-fatal): %s", adapter.name, exc,
-        )
-        return True  # treat as "proceed"
-
-
-def _open_aiohttp_sessions(adapter: "WeChatAdapter") -> None:
-    """Open the poll + send aiohttp sessions (no built-in timeout)."""
-    import aiohttp
-
-    from butler.gateway.platforms.wechat_ilink import _make_ssl_connector
-
-    connector = _make_ssl_connector()
-    adapter._poll_session = aiohttp.ClientSession(trust_env=True, connector=connector)
-    adapter._send_session = aiohttp.ClientSession(
-        trust_env=True,
-        connector=connector,
-        timeout=aiohttp.ClientTimeout(
-            total=None, connect=None, sock_connect=None, sock_read=None
-        ),
-    )
-
-
-def _start_poll_and_register(adapter: "WeChatAdapter") -> None:
-    """Restore token store, start poll task, mark connected, register."""
-    from butler.gateway.platforms.wechat_ilink import _safe_id
-    from butler.gateway.platforms.wechat_ilink.registry import _ADAPTER_REGISTRY
-
-    adapter._token_store.restore(adapter._account_id)
-    adapter._poll_task = asyncio.create_task(adapter._poll_loop(), name="wechat-poll")
-    adapter._mark_connected()
-    _ADAPTER_REGISTRY.register(adapter._token, adapter)
-    logger.info(
-        "[%s] Connected account=%s base=%s",
-        adapter.name, _safe_id(adapter._account_id), adapter._base_url,
-    )
-    if adapter._group_policy != "disabled":
-        _warn_group_policy_limitation(adapter)
-
-
-def _warn_group_policy_limitation(adapter: "WeChatAdapter") -> None:
-    """Log a one-shot warning when group_policy != 'disabled'.
-
-    iLink bot identities can't join ordinary WeChat groups; we tell
-    the operator so the silent-no-events outcome is at least expected.
-    """
-    logger.warning(
-        "[%s] WECHAT_GROUP_POLICY=%s is set, but QR-login connects an iLink bot "
-        "identity (e.g. ...@im.bot) which typically cannot be invited into ordinary "
-        "WeChat groups. iLink usually does not deliver ordinary-group events for "
-        "these accounts, so group messages may never reach Hermes regardless of this "
-        "policy. If group delivery doesn't work, the limitation is on the iLink side, "
-        "not in Hermes.",
-        adapter.name, adapter._group_policy,
-    )
+from butler.gateway.platforms.wechat_ilink.connect_phases import (  # noqa: E402
+    _acquire_token_lock,
+    _open_aiohttp_sessions,
+    _phase_connect_open_sessions,
+    _phase_connect_validate,
+    _start_poll_and_register,
+    _warn_group_policy_limitation,
+)
 
 
 # ===========================================================================
