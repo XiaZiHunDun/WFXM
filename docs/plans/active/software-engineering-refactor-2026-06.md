@@ -268,3 +268,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **ENG-7 续**：`network_route_verify_runner` 入 gateway；tools 去 handler wrapper |
 | 2026-06-27 | **ENG-6 续**：contracts 双 Protocol 说明 + gateway sink 契约测试 |
 | 2026-06-27 | **ENG-13 续**：langfuse trace 创建/flush/shutdown → `safe_best_effort` |
+| 2026-06-27 | **ENG-5 续**：`poll_phases.py` + `send_phases.py`；`phases` 639 行 |
+| 2026-06-27 | **ENG-4 续**：`prepare_layer_node` / router / batch helper 入 `dag_scheduler` |
+| 2026-06-27 | **ENG-13 done**：langfuse 全路径 `_lf_void` / `_lf_best_effort` |
+| 2026-06-27 | **ENG-14 续**：mypy strict on `dag_scheduler` + `network_route_verify_runner` |

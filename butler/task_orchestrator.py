@@ -359,13 +359,12 @@ class TaskOrchestrator:
         errors: list[str] = []
 
         from butler.dag_scheduler import (
-            cancel_direct_dependents,
-            direct_dependents as list_direct_dependents,
-            first_cancelled_dependency,
-            first_failed_dependency,
-            format_dependency_context,
+            apply_node_router,
+            finalize_unexecuted_nodes,
             graph_all_required_ok,
             group_into_layers,
+            prepare_layer_node,
+            split_layer_batches,
             topological_sort,
         )
 
@@ -388,68 +387,25 @@ class TaskOrchestrator:
                 if node_id in completed or node_id in cancelled:
                     continue
 
-                cancelled_dep = first_cancelled_dependency(node, cancelled)
-                if cancelled_dep:
-                    completed[node_id] = AgentResult(
-                        success=False,
-                        error=f"Skipped due to cancelled dependency: {cancelled_dep}",
-                    )
+                skip = prepare_layer_node(
+                    node,
+                    completed=completed,
+                    cancelled=cancelled,
+                    node_map=node_map,
+                    on_approval=on_approval,
+                )
+                if skip is not None:
+                    completed[node_id] = skip
                     continue
-
-                failed_dep = first_failed_dependency(node, completed, node_map)
-                if failed_dep:
-                    completed[node_id] = AgentResult(
-                        success=False,
-                        error=f"Skipped due to failed dependency: {failed_dep}",
-                    )
-                    continue
-
-                if node.depends_on:
-                    dep_contexts = []
-                    for dep_id in node.depends_on:
-                        dep_result = completed.get(dep_id)
-                        if dep_result is None:
-                            continue
-                        block = format_dependency_context(
-                            dep_id,
-                            dep_result,
-                            handoff_only=node.handoff_only,
-                        )
-                        if block:
-                            dep_contexts.append(block)
-                    if dep_contexts:
-                        node.config.context = (
-                            (node.config.context or "") + "\n\n" + "\n".join(dep_contexts)
-                        )
-
-                if node.supervisor_note.strip():
-                    sup = f"## Supervisor 指令\n{node.supervisor_note.strip()[:600]}"
-                    node.config.context = (
-                        (node.config.context or "") + "\n\n" + sup
-                    ).strip()
-
-                if node.requires_approval:
-                    if on_approval is None or not on_approval(node):
-                        completed[node_id] = AgentResult(
-                            success=False,
-                            error="workflow_step_approval_pending",
-                        )
-                        continue
 
                 layer_tasks.append((node_id, node))
 
             if not layer_tasks:
                 continue
 
-            if serial:
-                batches = [[item] for item in layer_tasks]
-            elif max_parallel and max_parallel > 0:
-                batches = [
-                    layer_tasks[i : i + max_parallel]
-                    for i in range(0, len(layer_tasks), max_parallel)
-                ]
-            else:
-                batches = [layer_tasks]
+            batches = split_layer_batches(
+                layer_tasks, serial=serial, max_parallel=max_parallel,
+            )
 
             for batch in batches:
                 if len(batch) == 1:
@@ -486,41 +442,19 @@ class TaskOrchestrator:
             for nid in [lid for lid, _ in layer_tasks]:
                 node = node_map[nid]
                 result = completed[nid]
-                if node.router and result.success:
-                    try:
-                        next_id = node.router(result)
-                    except Exception as exc:
-                        errors.append(f"Router for {nid!r} failed: {exc}")
-                        cancel_direct_dependents(node_map, nid, cancelled)
-                        continue
-                    if not next_id:
-                        continue
-                    if next_id not in node_map:
-                        errors.append(f"Router for {nid!r} returned unknown target {next_id!r}")
-                        cancel_direct_dependents(node_map, nid, cancelled)
-                        continue
-                    deps = list_direct_dependents(node_map, nid)
-                    if next_id not in {dependent.id for dependent in deps}:
-                        errors.append(
-                            f"Router for {nid!r} returned non-direct dependent {next_id!r}"
-                        )
-                        cancel_direct_dependents(node_map, nid, cancelled)
-                        continue
-                    for dependent in deps:
-                        if dependent.id != next_id:
-                            cancelled.add(dependent.id)
-
-        for node_id in order:
-            if node_id in completed or node_id in cancelled:
-                continue
-            cancelled_dep = first_cancelled_dependency(node_map[node_id], cancelled)
-            if cancelled_dep:
-                completed[node_id] = AgentResult(
-                    success=False,
-                    error=f"Skipped due to cancelled dependency: {cancelled_dep}",
+                errors.extend(
+                    apply_node_router(
+                        nid, node, result, node_map=node_map, cancelled=cancelled,
+                    )
                 )
-            else:
-                errors.append(f"Node {node_id!r} was not executed")
+
+        finalize_unexecuted_nodes(
+            order,
+            completed=completed,
+            cancelled=cancelled,
+            node_map=node_map,
+            errors=errors,
+        )
 
         graph_result.nodes = completed
         graph_result.error = "; ".join(errors)

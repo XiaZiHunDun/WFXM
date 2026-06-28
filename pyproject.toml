@@ -140,6 +140,8 @@ strict = true
 module = [
     "butler.core.approval_cards",
     "butler.tools.terminal_approval",
+    "butler.dag_scheduler",
+    "butler.gateway.network_route_verify_runner",
 ]
 strict = true
 

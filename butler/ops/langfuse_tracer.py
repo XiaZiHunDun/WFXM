@@ -39,6 +39,10 @@ def _lf_best_effort(fn, label: str, default: Any = None) -> Any:
     return safe_best_effort(fn, label=f"langfuse.{label}", default=default)
 
 
+def _lf_void(fn, label: str) -> None:
+    _lf_best_effort(fn, label)
+
+
 def langfuse_enabled() -> bool:
     return os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in ("1", "true", "yes")
 
@@ -53,25 +57,26 @@ def _get_client(project_id: str = "") -> Any:
         return _project_clients[project_id]
 
     if project_id:
-        try:
+        def _init_project() -> Any:
             from butler.config import get_project_langfuse_config
 
             cfg = get_project_langfuse_config(project_id)
-            if cfg and cfg.get("langfuse_public_key"):
-                from langfuse import Langfuse  # type: ignore[import-untyped]
+            if not cfg or not cfg.get("langfuse_public_key"):
+                return None
+            from langfuse import Langfuse  # type: ignore[import-untyped]
 
-                client = Langfuse(
-                    host=cfg.get("langfuse_host", os.getenv("LANGFUSE_HOST", "http://localhost:3000")),
-                    public_key=cfg["langfuse_public_key"],
-                    secret_key=cfg.get("langfuse_secret_key", ""),
-                )
-                _project_clients[project_id] = client
-                logger.info("LangFuse project client for %s initialised", project_id)
-                return client
-        except ImportError:
-            pass
-        except Exception as exc:
-            logger.debug("LangFuse project client init for %s: %s", project_id, exc)
+            client = Langfuse(
+                host=cfg.get("langfuse_host", os.getenv("LANGFUSE_HOST", "http://localhost:3000")),
+                public_key=cfg["langfuse_public_key"],
+                secret_key=cfg.get("langfuse_secret_key", ""),
+            )
+            logger.info("LangFuse project client for %s initialised", project_id)
+            return client
+
+        client = _lf_best_effort(_init_project, f"project_client.{project_id}")
+        if client is not None:
+            _project_clients[project_id] = client
+            return client
 
     global _langfuse_client, _initialised
     if _initialised:
@@ -79,19 +84,21 @@ def _get_client(project_id: str = "") -> Any:
     _initialised = True
     if not langfuse_enabled():
         return None
-    try:
+
+    def _init_global() -> Any:
         from langfuse import Langfuse  # type: ignore[import-untyped]
 
-        _langfuse_client = Langfuse(
+        client = Langfuse(
             host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
             public_key=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
             secret_key=os.getenv("LANGFUSE_SECRET_KEY", ""),
         )
         logger.info("LangFuse tracer initialised (host=%s)", os.getenv("LANGFUSE_HOST"))
-    except ImportError:
-        logger.debug("langfuse package not installed; tracing disabled")
-    except Exception as exc:
-        logger.warning("LangFuse init failed: %s", exc)
+        return client
+
+    client = _lf_best_effort(_init_global, "client_init")
+    if client is not None:
+        _langfuse_client = client
     return _langfuse_client
 
 
@@ -186,7 +193,8 @@ class TracingContext:
     def on_llm_start(self, messages: list[dict]) -> None:
         if self._trace is None:
             return
-        try:
+
+        def _do() -> None:
             msg_count = len(messages)
             self._llm_start_time = time.monotonic()
             self._llm_span = self._trace.generation(
@@ -194,37 +202,38 @@ class TracingContext:
                 input={"message_count": msg_count, "last_role": messages[-1].get("role", "") if messages else ""},
                 metadata={"message_count": msg_count},
             )
-        except Exception as exc:
-            logger.debug("LangFuse on_llm_start: %s", exc)
+
+        _lf_void(_do, "on_llm_start")
 
     def on_llm_complete(self, response: Any) -> None:
         if self._llm_span is None:
             return
         try:
-            elapsed_ms = (time.monotonic() - self._llm_start_time) * 1000.0
-            usage = getattr(response, "usage", None)
-            usage_dict: dict[str, int] = {}
-            if usage is not None:
-                usage_dict = {
-                    "input": getattr(usage, "prompt_tokens", 0) or 0,
-                    "output": getattr(usage, "completion_tokens", 0) or 0,
-                    "total": getattr(usage, "total_tokens", 0) or 0,
-                }
+            def _do() -> None:
+                elapsed_ms = (time.monotonic() - self._llm_start_time) * 1000.0
+                usage = getattr(response, "usage", None)
+                usage_dict: dict[str, int] = {}
+                if usage is not None:
+                    usage_dict = {
+                        "input": getattr(usage, "prompt_tokens", 0) or 0,
+                        "output": getattr(usage, "completion_tokens", 0) or 0,
+                        "total": getattr(usage, "total_tokens", 0) or 0,
+                    }
 
-            content = str(getattr(response, "content", "") or "")
-            tool_calls = getattr(response, "tool_calls", None)
+                content = str(getattr(response, "content", "") or "")
+                tool_calls = getattr(response, "tool_calls", None)
 
-            self._llm_span.end(
-                output=content[:500] if content else "(tool_calls)" if tool_calls else "(empty)",
-                usage=usage_dict or None,
-                metadata={
-                    "elapsed_ms": round(elapsed_ms, 1),
-                    "finish_reason": getattr(response, "finish_reason", ""),
-                    "has_tool_calls": bool(tool_calls),
-                },
-            )
-        except Exception as exc:
-            logger.debug("LangFuse on_llm_complete: %s", exc)
+                self._llm_span.end(
+                    output=content[:500] if content else "(tool_calls)" if tool_calls else "(empty)",
+                    usage=usage_dict or None,
+                    metadata={
+                        "elapsed_ms": round(elapsed_ms, 1),
+                        "finish_reason": getattr(response, "finish_reason", ""),
+                        "has_tool_calls": bool(tool_calls),
+                    },
+                )
+
+            _lf_void(_do, "on_llm_complete")
         finally:
             self._llm_span = None
 
@@ -232,48 +241,52 @@ class TracingContext:
         if self._llm_span is None:
             return
         try:
-            self._llm_span.end(
-                output=f"ERROR (attempt {attempt}): {type(exc).__name__}: {exc}",
-                level="ERROR",
-                status_message=str(exc)[:200],
-            )
-        except Exception as log_exc:
-            logger.debug("LangFuse on_llm_error: %s", log_exc)
+            def _do() -> None:
+                self._llm_span.end(
+                    output=f"ERROR (attempt {attempt}): {type(exc).__name__}: {exc}",
+                    level="ERROR",
+                    status_message=str(exc)[:200],
+                )
+
+            _lf_void(_do, "on_llm_error")
         finally:
             self._llm_span = None
 
     def on_tool_start(self, name: str, args: dict) -> None:
         if self._trace is None:
             return
-        try:
+
+        def _do() -> None:
             span = self._trace.span(
                 name=f"tool:{name}",
                 input={"tool": name, "args_keys": list(args.keys()) if args else []},
             )
             self._tool_spans[name] = (span, time.monotonic())
-        except Exception as exc:
-            logger.debug("LangFuse on_tool_start: %s", exc)
+
+        _lf_void(_do, "on_tool_start")
 
     def on_tool_complete(self, name: str, result: str) -> None:
         entry = self._tool_spans.pop(name, None)
         if entry is None:
             return
         span, start_time = entry
-        try:
+
+        def _do() -> None:
             elapsed_ms = (time.monotonic() - start_time) * 1000.0
             truncated = result[:300] if result else "(empty)"
             span.end(
                 output=truncated,
                 metadata={"elapsed_ms": round(elapsed_ms, 1), "result_len": len(result or "")},
             )
-        except Exception as exc:
-            logger.debug("LangFuse on_tool_complete: %s", exc)
+
+        _lf_void(_do, "on_tool_complete")
 
     def on_memory_prefetch(self, query: str, hit: bool, result_count: int = 0, chars: int = 0) -> None:
         """M2: trace memory prefetch as a span."""
         if self._trace is None:
             return
-        try:
+
+        def _do() -> None:
             span = self._trace.span(
                 name="memory:prefetch",
                 input={"query": query[:120], "hit": hit, "result_count": result_count},
@@ -282,14 +295,15 @@ class TracingContext:
                 output=f"hit={hit} results={result_count} chars={chars}",
                 metadata={"hit": hit, "result_count": result_count, "chars": chars},
             )
-        except Exception as exc:
-            logger.debug("LangFuse on_memory_prefetch: %s", exc)
+
+        _lf_void(_do, "on_memory_prefetch")
 
     def on_memory_write(self, scope: str, success: bool) -> None:
         """M2: trace memory write operations."""
         if self._trace is None:
             return
-        try:
+
+        def _do() -> None:
             span = self._trace.span(
                 name=f"memory:write:{scope}",
                 input={"scope": scope, "success": success},
@@ -298,26 +312,28 @@ class TracingContext:
                 output=f"success={success}",
                 metadata={"scope": scope, "success": success},
             )
-        except Exception as exc:
-            logger.debug("LangFuse on_memory_write: %s", exc)
+
+        _lf_void(_do, "on_memory_write")
 
     def on_gateway_inbound(self, session_key: str, platform: str, text_len: int) -> None:
         """M2: trace gateway inbound message."""
         if self._trace is None:
             return
-        try:
+
+        def _do() -> None:
             self._trace.span(
                 name="gateway:inbound",
                 input={"session_key": session_key, "platform": platform, "text_len": text_len},
             ).end(output=f"session={session_key} platform={platform}")
-        except Exception as exc:
-            logger.debug("LangFuse on_gateway_inbound: %s", exc)
+
+        _lf_void(_do, "on_gateway_inbound")
 
     def on_gateway_outbound(self, session_key: str, out_len: int, elapsed_s: float = 0.0) -> None:
         """M2: trace gateway outbound response."""
         if self._trace is None:
             return
-        try:
+
+        def _do() -> None:
             self._trace.span(
                 name="gateway:outbound",
                 input={"session_key": session_key, "out_len": out_len},
@@ -325,14 +341,15 @@ class TracingContext:
                 output=f"out_len={out_len} elapsed={elapsed_s:.1f}s",
                 metadata={"out_len": out_len, "elapsed_s": round(elapsed_s, 2)},
             )
-        except Exception as exc:
-            logger.debug("LangFuse on_gateway_outbound: %s", exc)
+
+        _lf_void(_do, "on_gateway_outbound")
 
     def finish(self, result: Optional[Any] = None) -> None:
         """Close the trace with final result metadata."""
         if self._trace is None:
             return
-        try:
+
+        def _do() -> None:
             meta: dict[str, Any] = {}
             if result is not None:
                 meta["status"] = getattr(result, "status", "unknown")
@@ -341,8 +358,8 @@ class TracingContext:
                 meta["tool_calls_made"] = getattr(result, "tool_calls_made", 0)
                 meta["elapsed_seconds"] = getattr(result, "elapsed_seconds", 0.0)
             self._trace.update(metadata=meta)
-        except Exception as exc:
-            logger.debug("LangFuse finish: %s", exc)
+
+        _lf_void(_do, "finish")
 
 
 _thread_local_ctx: dict[str, TracingContext] = {}
@@ -417,7 +434,7 @@ class DelegateTracingContext:
         parent_trace = getattr(parent_ctx, "_trace", None) if parent_ctx else None
 
         if parent_trace is not None:
-            try:
+            def _nested() -> None:
                 self._delegate_span = parent_trace.span(
                     name=f"delegate:{role}",
                     input={
@@ -430,12 +447,12 @@ class DelegateTracingContext:
                 self._root = self._delegate_span
                 self._trace_id = str(getattr(parent_trace, "id", "") or self._trace_id)
                 self._observation_id = str(getattr(self._delegate_span, "id", ""))
-            except Exception as exc:
-                logger.debug("LangFuse delegate nested span: %s", exc)
+
+            _lf_void(_nested, "delegate_nested_span")
         else:
             client = _get_client()
             if client is not None:
-                try:
+                def _standalone() -> None:
                     self._standalone_trace = client.trace(
                         name="delegate-turn",
                         session_id=child_session_key or f"delegate:{role}",
@@ -449,8 +466,8 @@ class DelegateTracingContext:
                     )
                     self._root = self._standalone_trace
                     self._trace_id = str(getattr(self._standalone_trace, "id", ""))
-                except Exception as exc:
-                    logger.debug("LangFuse delegate standalone trace: %s", exc)
+
+                _lf_void(_standalone, "delegate_standalone_trace")
 
     @property
     def active(self) -> bool:
@@ -467,7 +484,8 @@ class DelegateTracingContext:
     def on_llm_start(self, messages: list[dict]) -> None:
         if self._root is None:
             return
-        try:
+
+        def _do() -> None:
             msg_count = len(messages)
             self._llm_start_time = time.monotonic()
             self._llm_span = self._root.generation(
@@ -477,31 +495,32 @@ class DelegateTracingContext:
                     "last_role": messages[-1].get("role", "") if messages else "",
                 },
             )
-        except Exception as exc:
-            logger.debug("LangFuse delegate on_llm_start: %s", exc)
+
+        _lf_void(_do, "delegate_on_llm_start")
 
     def on_llm_complete(self, response: Any) -> None:
         if self._llm_span is None:
             return
         try:
-            elapsed_ms = (time.monotonic() - self._llm_start_time) * 1000.0
-            usage = getattr(response, "usage", None)
-            usage_dict: dict[str, int] = {}
-            if usage is not None:
-                usage_dict = {
-                    "input": getattr(usage, "prompt_tokens", 0) or 0,
-                    "output": getattr(usage, "completion_tokens", 0) or 0,
-                    "total": getattr(usage, "total_tokens", 0) or 0,
-                }
-            content = str(getattr(response, "content", "") or "")
-            tool_calls = getattr(response, "tool_calls", None)
-            self._llm_span.end(
-                output=content[:500] if content else "(tool_calls)" if tool_calls else "(empty)",
-                usage=usage_dict or None,
-                metadata={"elapsed_ms": round(elapsed_ms, 1)},
-            )
-        except Exception as exc:
-            logger.debug("LangFuse delegate on_llm_complete: %s", exc)
+            def _do() -> None:
+                elapsed_ms = (time.monotonic() - self._llm_start_time) * 1000.0
+                usage = getattr(response, "usage", None)
+                usage_dict: dict[str, int] = {}
+                if usage is not None:
+                    usage_dict = {
+                        "input": getattr(usage, "prompt_tokens", 0) or 0,
+                        "output": getattr(usage, "completion_tokens", 0) or 0,
+                        "total": getattr(usage, "total_tokens", 0) or 0,
+                    }
+                content = str(getattr(response, "content", "") or "")
+                tool_calls = getattr(response, "tool_calls", None)
+                self._llm_span.end(
+                    output=content[:500] if content else "(tool_calls)" if tool_calls else "(empty)",
+                    usage=usage_dict or None,
+                    metadata={"elapsed_ms": round(elapsed_ms, 1)},
+                )
+
+            _lf_void(_do, "delegate_on_llm_complete")
         finally:
             self._llm_span = None
 
@@ -509,19 +528,21 @@ class DelegateTracingContext:
         if self._llm_span is None:
             return
         try:
-            self._llm_span.end(
-                output=f"ERROR (attempt {attempt}): {type(exc).__name__}: {exc}",
-                level="ERROR",
-            )
-        except Exception as log_exc:
-            logger.debug("LangFuse delegate on_llm_error: %s", log_exc)
+            def _do() -> None:
+                self._llm_span.end(
+                    output=f"ERROR (attempt {attempt}): {type(exc).__name__}: {exc}",
+                    level="ERROR",
+                )
+
+            _lf_void(_do, "delegate_on_llm_error")
         finally:
             self._llm_span = None
 
     def on_tool_start(self, name: str, args: dict) -> None:
         if self._root is None:
             return
-        try:
+
+        def _do() -> None:
             key = f"{name}:{len(self._tool_spans)}"
             span = self._root.span(
                 name=f"tool:{name}",
@@ -532,8 +553,8 @@ class DelegateTracingContext:
                 },
             )
             self._tool_spans[key] = (span, time.monotonic())
-        except Exception as exc:
-            logger.debug("LangFuse delegate on_tool_start: %s", exc)
+
+        _lf_void(_do, "delegate_on_tool_start")
 
     def on_tool_complete(self, name: str, result: str) -> None:
         matches = [k for k in self._tool_spans if k.startswith(f"{name}:")]
@@ -544,7 +565,8 @@ class DelegateTracingContext:
         if entry is None:
             return
         span, start_time = entry
-        try:
+
+        def _do() -> None:
             elapsed_ms = (time.monotonic() - start_time) * 1000.0
             lowered = (result or "").lower()
             patch_hint = any(tok in lowered for tok in ("patch", "write_file", "replacements"))
@@ -556,8 +578,8 @@ class DelegateTracingContext:
                     "patch_like": patch_hint,
                 },
             )
-        except Exception as exc:
-            logger.debug("LangFuse delegate on_tool_complete: %s", exc)
+
+        _lf_void(_do, "delegate_on_tool_complete")
 
     def finish(
         self,
@@ -568,19 +590,19 @@ class DelegateTracingContext:
         meta = dict(metadata or {})
         meta["success"] = success
         if self._delegate_span is not None:
-            try:
+            def _end_span() -> None:
                 self._delegate_span.end(
                     output="success" if success else "failed",
                     metadata=meta,
                     level=None if success else "WARNING",
                 )
-            except Exception as exc:
-                logger.debug("LangFuse delegate span end: %s", exc)
+
+            _lf_void(_end_span, "delegate_span_end")
         elif self._standalone_trace is not None:
-            try:
+            def _update() -> None:
                 self._standalone_trace.update(metadata=meta)
-            except Exception as exc:
-                logger.debug("LangFuse delegate trace update: %s", exc)
+
+            _lf_void(_update, "delegate_trace_update")
 
 
 _delegate_ctx_store: dict[str, DelegateTracingContext] = {}
