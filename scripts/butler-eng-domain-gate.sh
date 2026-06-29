@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# ENG-9 domain gate: gateway + memory + tools pytest subsets (~2–4 min).
+# Usage: bash scripts/butler-eng-domain-gate.sh
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+export PYTHONPATH=.
+
+echo "== Butler ENG domain gate =="
+bash scripts/butler-domain-pytest.sh gateway memory tools
+PYTHON_BIN="$(command -v python || command -v python3)"
+"${PYTHON_BIN}" -m pytest \
+  tests/test_locked_phase_registry.py \
+  tests/test_model_defaults_literals.py \
+  tests/test_eng7_approval_layering.py \
+  -q --tb=line
+echo "ENG domain gate: OK"

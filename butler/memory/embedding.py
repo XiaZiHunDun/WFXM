@@ -20,9 +20,6 @@ _JIEBA = None
 _JIEBA_TRIED = False
 _JIEBA_LOCK = threading.Lock()
 
-_DEFAULT_OPENAI_MODEL = "text-embedding-3-small"
-_DEFAULT_MINIMAX_MODEL = "embo-01"
-
 
 def _tokenize(text: str) -> list[str]:
     global _JIEBA, _JIEBA_TRIED
@@ -80,13 +77,15 @@ class HashingEmbedder:
         self,
         *,
         dimension: int = 96,
-        model_id: str = "hashing-v1",
+        model_id: str | None = None,
         degraded: bool = False,
         requested_provider: str = "",
         requested_model: str = "",
     ) -> None:
+        from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
+
         self._dim = max(8, int(dimension))
-        self._model_id = model_id
+        self._model_id = model_id or DEFAULT_EMBEDDING_MODEL
         # Audit R2-3: degraded=True marks fallback instances created when the
         # configured embedding provider failed. requested_provider/model preserve
         # what the user actually asked for so /诊断 can surface the gap.
@@ -286,13 +285,21 @@ class FastEmbedEmbedder:
 
 
 def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
+    from butler.defaults.model_defaults import (
+        DEFAULT_EMBEDDING_MODEL,
+        MINIMAX_EMBEDDING_MODEL,
+        OPENAI_EMBEDDING_MODEL,
+        QWEN_EMBEDDING_MODEL,
+    )
+
+    fallback = DEFAULT_EMBEDDING_MODEL
     if provider == "openai":
         key = os.getenv("OPENAI_API_KEY", "").strip()
         if not key:
             # Audit R2-3: missing API key collapses recall to local hashing.
             logger.error("BUTLER_EMBEDDING_PROVIDER=openai but OPENAI_API_KEY unset")
             return None
-        m = model if model and model != "hashing-v1" else _DEFAULT_OPENAI_MODEL
+        m = model if model and model != fallback else OPENAI_EMBEDDING_MODEL
         base = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").strip()
         return OpenAIEmbedder(api_key=key, model=m, base_url=base)
 
@@ -301,7 +308,7 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
         if not key:
             logger.error("BUTLER_EMBEDDING_PROVIDER=minimax but MINIMAX_API_KEY unset")
             return None
-        m = model if model and model != "hashing-v1" else _DEFAULT_MINIMAX_MODEL
+        m = model if model and model != fallback else MINIMAX_EMBEDDING_MODEL
         base = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.chat/v1").strip()
         return MinimaxEmbedder(api_key=key, model=m, base_url=base)
 
@@ -311,7 +318,7 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
             logger.error("BUTLER_EMBEDDING_PROVIDER=%s but DASHSCOPE_API_KEY unset",
                          provider)
             return None
-        m = model if model and model != "hashing-v1" else "text-embedding-v3"
+        m = model if model and model != fallback else QWEN_EMBEDDING_MODEL
         base = "https://dashscope.aliyuncs.com/compatible-mode/v1"
         return OpenAIEmbedder(api_key=key, model=m, base_url=base)
 
@@ -320,8 +327,10 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
 
 def _resolve_fastembed(model: str) -> Embedder | None:
     """Try to instantiate a fastembed embedder; return None if library unavailable."""
+    from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
+
     try:
-        m = model if model and model != "hashing-v1" else FastEmbedEmbedder._DEFAULT_MODEL
+        m = model if model and model != DEFAULT_EMBEDDING_MODEL else FastEmbedEmbedder._DEFAULT_MODEL
         embedder = FastEmbedEmbedder(model_name=m)
         probe = embedder.embed("ping")
         if probe:
@@ -450,19 +459,22 @@ def _degraded_hashing(provider: str, model: str) -> "HashingEmbedder":
 
     Audit R2-3: every fallback embedder must carry `degraded=True` plus the
     user-requested provider/model so /诊断 can surface the gap (e.g.
-    'requested openai/text-embedding-3-small → actually using hashing-v1').
+    requested openai embedding → local hashing fallback).
     """
     try:
+        from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
         from butler.ops.degradation_registry import register_degradation
 
         register_degradation(
             "embedding",
-            f"请求 {provider or '?'}/{model or '?'} → hashing-v1",
+            f"请求 {provider or '?'}/{model or '?'} → {DEFAULT_EMBEDDING_MODEL}",
         )
     except Exception:
         pass
+    from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
+
     return HashingEmbedder(
-        model_id="hashing-v1",
+        model_id=DEFAULT_EMBEDDING_MODEL,
         degraded=True,
         requested_provider=provider or "",
         requested_model=model or "",
@@ -470,9 +482,12 @@ def _degraded_hashing(provider: str, model: str) -> "HashingEmbedder":
 
 
 def _build_raw_embedder(provider: str, model: str) -> Embedder:
+    from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
+
     if provider in ("local", "hash", "hashing", ""):
-        logger.debug("Embedding provider: local HashingEmbedder (%s)", model or "hashing-v1")
-        return HashingEmbedder(model_id=model or "hashing-v1")
+        mid = model or DEFAULT_EMBEDDING_MODEL
+        logger.debug("Embedding provider: local HashingEmbedder (%s)", mid)
+        return HashingEmbedder(model_id=mid)
 
     if provider == "fastembed":
         fe = _resolve_fastembed(model)

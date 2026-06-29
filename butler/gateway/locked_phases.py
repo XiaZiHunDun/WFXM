@@ -75,12 +75,7 @@ class LockedTurnState:
 # ---------------------------------------------------------------------------
 
 # The list mirrors the 8 normalizers originally iterated inline at
-# ``_handle_message_locked:632-651``. Extracting it to a module-level
-# constant makes the order explicit and testable.
-NORMALIZERS: tuple[Callable[[str], Optional[str]], ...] = (
-    # imported lazily to avoid forcing handler_helpers on every import
-    lambda: None,  # placeholder, populated in _load_normalizers()
-)
+# ``_handle_message_locked:632-651``. Order lives in ``_load_normalizers()``.
 
 
 def _load_normalizers() -> tuple[Callable[[str], Optional[str]], ...]:

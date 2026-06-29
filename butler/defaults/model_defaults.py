@@ -30,6 +30,16 @@ AUXILIARY_SCAN_PROVIDERS: Final[tuple[str, ...]] = (
 DEFAULT_EMBEDDING_PROVIDER: Final[str] = "local"
 DEFAULT_EMBEDDING_MODEL: Final[str] = "hashing-v1"
 
+OPENAI_EMBEDDING_MODEL: Final[str] = "text-embedding-3-small"
+MINIMAX_EMBEDDING_MODEL: Final[str] = "embo-01"
+QWEN_EMBEDDING_MODEL: Final[str] = "text-embedding-v3"
+
 GATEWAY_VISION_PROVIDER: Final[str] = "minimax"
 GATEWAY_VISION_ENDPOINT: Final[str] = "coding_plan/vlm"
 GATEWAY_WHISPER_MODEL: Final[str] = "small"
+
+
+def provider_default_model(provider: str) -> str:
+    """Default chat model id for a provider name (L0 registry lookup)."""
+    key = str(provider or "").strip().lower()
+    return PROVIDER_ENV_DEFAULT_MODEL.get(key, "")

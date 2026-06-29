@@ -535,11 +535,9 @@ butler onboard --profile gateway              # 新机上手
 | ENG-6 | `butler/contracts/` + EventsSink | B | **done** 2026-06-27（双注册 + transcript 契约测试） |
 | ENG-7 | tools→gateway 经 execution_context | B | **done** 2026-06-27（全 tools/core AST 守门） |
 | ENG-8 | 记忆/embedding 降级显性化 | C | **done** 2026-06-27（全组件 brief + live MCP） |
-| ENG-9 | pytest 全量泄漏修债 | C | **done** 2026-06-27（6250 pass / 0 fail） |
-| ENG-13 | langfuse / health 异常治理 | C | **done** 2026-06-27（langfuse 全 `_lf_void`） |
-| ENG-14 | mypy strict 扩面 | C | **done** 2026-06-27（8 模块 + strict gate 脚本） |
-| ENG-10 | `model_defaults` 剩余硬编码 | C | **backlog**（≈PROD-P6-07） |
-| ENG-11 | `locked_phases` phase 注册表 | D | **backlog** |
+| ENG-9 | pytest 全量泄漏修债 | C | **done** 2026-06-27（6250 pass + eng domain gate） |
+| ENG-10 | `model_defaults` 剩余硬编码 | C | **in_progress**（embedding/provider 首步 ✅） |
+| ENG-11 | `locked_phases` phase 注册表 | D | **done** 2026-06-27（`locked_phase_registry`） |
 | ENG-12 | `orchestrator` 子系统门面 | D | **backlog** |
 
 ---

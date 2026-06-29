@@ -412,7 +412,7 @@ class TestWechatSmokeDelegate:
 
         handler._session_registry.reset_all()
         with patch(
-            "butler.gateway.message_handler.dispatch_tool",
+            "butler.tools.registry.dispatch_tool",
             wraps=dispatch_tool,
         ) as spy:
             out = handler.handle_message(
@@ -598,7 +598,7 @@ class TestWechatSmokeDevDelegate:
 
         handler._session_registry.reset_all()
         with patch(
-            "butler.gateway.message_handler.dispatch_tool",
+            "butler.tools.registry.dispatch_tool",
             wraps=dispatch_tool,
         ) as spy:
             out = handler.handle_message(

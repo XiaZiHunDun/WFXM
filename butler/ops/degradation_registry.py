@@ -73,9 +73,11 @@ def sync_memory_degradations_from_stats(stats: dict[str, Any]) -> None:
         clear_degradation("memory")
 
     if stats.get("embedding_degraded"):
+        from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
+
         req_p = str(stats.get("embedding_requested_provider") or "?")
         req_m = str(stats.get("embedding_requested_model") or "?")
-        used = str(stats.get("embedding_used_model") or "hashing-v1")
+        used = str(stats.get("embedding_used_model") or DEFAULT_EMBEDDING_MODEL)
         register_degradation(
             "embedding",
             f"请求 {req_p}/{req_m} → {used}",

@@ -67,13 +67,15 @@ def _register_builtin() -> None:
 
 def _register_builtin_unlocked() -> None:
     """Register commonly used providers."""
+    from butler.defaults.model_defaults import PROVIDER_ENV_DEFAULT_MODEL
+
     builtins = [
         ProviderProfile(
             name="deepseek",
             aliases=("deepseek-chat",),
             base_url="https://api.deepseek.com/v1",
             env_vars=("DEEPSEEK_API_KEY",),
-            default_model="deepseek-chat",
+            default_model=PROVIDER_ENV_DEFAULT_MODEL["deepseek"],
         ),
         ProviderProfile(
             name="minimax",
@@ -81,7 +83,7 @@ def _register_builtin_unlocked() -> None:
             api_mode="chat_completions",
             base_url="https://api.minimax.chat/v1",
             env_vars=("MINIMAX_API_KEY",),
-            default_model="MiniMax-M2.7",
+            default_model=PROVIDER_ENV_DEFAULT_MODEL["minimax"],
             default_max_tokens=4096,
         ),
         ProviderProfile(
@@ -90,7 +92,7 @@ def _register_builtin_unlocked() -> None:
             api_mode="chat_completions",
             base_url="https://api.minimaxi.com/v1",
             env_vars=("MINIMAX_CN_API_KEY",),
-            default_model="MiniMax-M2.7",
+            default_model=PROVIDER_ENV_DEFAULT_MODEL["minimax"],
             default_max_tokens=4096,
         ),
         ProviderProfile(
@@ -98,7 +100,7 @@ def _register_builtin_unlocked() -> None:
             aliases=("gpt",),
             base_url="https://api.openai.com/v1",
             env_vars=("OPENAI_API_KEY",),
-            default_model="gpt-4o",
+            default_model=PROVIDER_ENV_DEFAULT_MODEL["openai"],
         ),
         ProviderProfile(
             name="anthropic",
@@ -106,7 +108,7 @@ def _register_builtin_unlocked() -> None:
             api_mode="anthropic_messages",
             base_url="https://api.anthropic.com",
             env_vars=("ANTHROPIC_API_KEY",),
-            default_model="claude-sonnet-4-20250514",
+            default_model=PROVIDER_ENV_DEFAULT_MODEL["claude"],
             default_max_tokens=4096,
         ),
         ProviderProfile(
@@ -114,7 +116,7 @@ def _register_builtin_unlocked() -> None:
             aliases=("tongyi", "dashscope"),
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
             env_vars=("DASHSCOPE_API_KEY", "QWEN_API_KEY"),
-            default_model="qwen-max",
+            default_model=PROVIDER_ENV_DEFAULT_MODEL["qwen"],
         ),
         ProviderProfile(
             name="openrouter",

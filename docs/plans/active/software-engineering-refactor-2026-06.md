@@ -279,3 +279,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **ENG-3 done**：`locked_turn_orchestrator` + `handler_commands`；handler 332 行 |
 | 2026-06-27 | **ENG-7 done**：tools/core 全量 AST 分层守门 + execution_context 唯一 seam |
 | 2026-06-27 | **ENG-8 done**：`refresh_degradations_for_owner_brief` + live MCP 并入简要 /诊断 |
+| 2026-06-27 | **ENG-11 首步**：`locked_phase_registry.py`；orchestrator 注册表驱动 |
+| 2026-06-27 | **ENG-10 首步**：embedding/provider 字面量收口 `model_defaults` + 静态守门 |
+| 2026-06-27 | **ENG-9 续**：`butler-eng-domain-gate.sh`（gateway/memory/tools 子集） |
+| 2026-06-27 | **ENG-11 done**：pre-lock / in-context 双段 phase 注册表 + 测试 |

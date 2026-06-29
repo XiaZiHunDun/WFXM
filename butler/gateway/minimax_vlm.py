@@ -86,6 +86,7 @@ def _describe_minimax(path: str, *, caption: str = "", timeout: float) -> str:
 def describe_image(path: str, *, caption: str = "", timeout: float | None = None) -> str:
     """MiniMax VLM, then optional OpenAI/OCR fallbacks. Records telemetry."""
     from butler.gateway.media_telemetry import record_media_event
+    from butler.defaults.model_defaults import GATEWAY_VISION_PROVIDER
     from butler.gateway_settings import resolve_gateway_inbound_config
 
     to = timeout if timeout is not None else resolve_gateway_inbound_config().vision.timeout_seconds
@@ -95,7 +96,7 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
         text = _describe_minimax(path, caption=caption, timeout=to)
         record_media_event(
             "vision",
-            provider="minimax",
+            provider=GATEWAY_VISION_PROVIDER,
             ok=True,
             duration_ms=(time.monotonic() - t0) * 1000,
         )

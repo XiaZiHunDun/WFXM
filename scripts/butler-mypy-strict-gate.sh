@@ -25,6 +25,8 @@ MODULES=(
   butler/dag_scheduler.py
   butler/gateway/network_route_verify_runner.py
   butler/workflow_step_runner.py
+  butler/gateway/locked_phase_registry.py
+  butler/defaults/model_defaults.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="
