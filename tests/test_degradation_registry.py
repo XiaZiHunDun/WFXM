@@ -62,6 +62,40 @@ def test_clear_degradation():
     assert format_brief_line() is None
 
 
+def test_refresh_degradations_for_owner_brief_merges_mcp(monkeypatch):
+    from butler.ops.degradation_registry import (
+        clear_degradation,
+        list_degradations,
+        refresh_degradations_for_owner_brief,
+    )
+
+    for rec in list_degradations():
+        clear_degradation(rec.component)
+
+    class _St:
+        connected = False
+        name = "test-server"
+
+    monkeypatch.setattr(
+        "butler.mcp.config.mcp_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        "butler.mcp.manager.get_manager",
+        lambda: type("M", (), {"status_snapshot": lambda _self, _sk: [_St()]})(),
+    )
+    monkeypatch.setattr(
+        "butler.ops.health_report.collect_mem_stats_for_health",
+        lambda *_a, **_k: {},
+    )
+
+    line = refresh_degradations_for_owner_brief(object(), session_key="sk1")
+    assert line is not None
+    assert "MCP" in line or "mcp" in line.lower()
+    rows = {r.component for r in list_degradations()}
+    assert "mcp" in rows
+
+
 def test_sync_mcp_degradations_when_disabled(monkeypatch):
     monkeypatch.setenv("BUTLER_MCP_ENABLED", "0")
     from butler.ops.degradation_registry import sync_mcp_degradations_at_startup

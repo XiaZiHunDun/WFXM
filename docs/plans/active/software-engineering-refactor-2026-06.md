@@ -276,3 +276,6 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **ENG-4 done**：`workflow_step_runner`（retry/rescue）；`task_orchestrator` 532 行 |
 | 2026-06-27 | **ENG-14 done**：`butler-mypy-strict-gate.sh` 入 fast-gate |
 | 2026-06-27 | **ENG-6 续**：contracts 测试覆盖 gateway→transcript 写入路径 |
+| 2026-06-27 | **ENG-3 done**：`locked_turn_orchestrator` + `handler_commands`；handler 332 行 |
+| 2026-06-27 | **ENG-7 done**：tools/core 全量 AST 分层守门 + execution_context 唯一 seam |
+| 2026-06-27 | **ENG-8 done**：`refresh_degradations_for_owner_brief` + live MCP 并入简要 /诊断 |

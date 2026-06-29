@@ -232,10 +232,10 @@ class TestHostMethodsThinned:
         cls = mod.ButlerMessageHandler
         src = inspect.getsource(cls._handle_message_locked)
         body_lines = [ln for ln in src.splitlines() if ln.strip()]
-        # Pre-split: 272 non-blank lines. Post-split target: well under half.
-        assert len(body_lines) < 100, (
+        # ENG-3: orchestrator-only; logic lives in locked_turn_orchestrator.
+        assert len(body_lines) < 20, (
             f"ButlerMessageHandler._handle_message_locked is {len(body_lines)} "
-            f"non-blank lines; R1-6 split target is under 100 (was 272)"
+            f"non-blank lines; ENG-3 target is under 20 (orchestrator-only)"
         )
 
 
@@ -245,6 +245,23 @@ class TestHostMethodsThinned:
 
 @pytest.mark.unit
 class TestMainFileSize:
+    def test_message_handler_under_550_lines(self):
+        import os
+
+        path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "butler",
+            "gateway",
+            "message_handler.py",
+        )
+        with open(path, encoding="utf-8") as f:
+            total_lines = sum(1 for _ in f)
+        assert total_lines < 550, (
+            f"butler/gateway/message_handler.py is {total_lines} lines; "
+            f"ENG-3 target is under 550"
+        )
+
     def test_message_handler_under_800_lines(self):
         import os
 

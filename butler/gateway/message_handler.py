@@ -24,23 +24,6 @@ import time as _time
 from typing import Any, Optional
 
 from butler.core.agent_loop import AgentLoop, LoopResult
-from butler.gateway.locked_phases import (
-    LockedTurnState,
-    _phase_apply_correction_intent,
-    _phase_apply_github_issues_intent,
-    _phase_apply_normalizers_and_slash,
-    _phase_apply_prompt_hooks,
-    _phase_augment_prompt,
-    _phase_execute_turn,
-    _phase_finalize_turn,
-    _phase_format_error_card,
-    _phase_format_turn_response,
-    _phase_hygiene_compress,
-    _phase_init_loop_role,
-    _phase_prefetch_and_callbacks,
-    _phase_resolve_turn_budget,
-    _phase_validate_loop_messages,
-)
 from butler.gateway.message_pipelines import (
     _phase_apply_admission,
     _phase_apply_idempotency,
@@ -52,7 +35,6 @@ from butler.gateway.message_pipelines import (
 from butler.orchestrator import ButlerOrchestrator
 from butler.session.keys import normalize_session_key
 from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory
-from butler.tools.registry import dispatch_tool
 from butler.gateway.session_registry import GatewaySessionRegistry
 
 logger = logging.getLogger(__name__)
@@ -90,32 +72,9 @@ class ButlerMessageHandler:
         self._inbound_pipeline = build_default_inbound_pipeline()
 
     def _create_loop_for_session(self, session_key: str) -> AgentLoop:
-        pm = self._orchestrator.project_manager
-        project = pm.get_current(session_key=session_key)
-        proj_name = (
-            str(getattr(project, "name", "") or "").strip()
-            or pm.resolve_active_project_name(session_key=session_key)
-        )
-        from butler.project.lead import gateway_loop_role
-        from butler.tools.project_tools import get_tool_definitions_for_project
+        from butler.gateway.session_loop_factory import create_gateway_loop
 
-        from butler.plan.mode import is_plan_mode
-
-        loop_role = gateway_loop_role(proj_name, project=project)
-        if is_plan_mode(session_key):
-            loop_role = "plan"
-        tools = get_tool_definitions_for_project(project, role=loop_role)
-        loop = self._orchestrator.create_agent_loop(
-            role=loop_role,
-            tools=tools,
-            tool_dispatcher=dispatch_tool,
-            session_key=session_key,
-        )
-        _inject_previous_session_summary(loop, project)
-        from butler.core.session_hydration import hydrate_loop_on_create
-
-        hydrate_loop_on_create(loop, session_key, project)
-        return loop
+        return create_gateway_loop(self, session_key)
 
     def _finalize_session(self, loop: AgentLoop) -> None:
         from butler.session.lifecycle import trigger_session_end
@@ -303,109 +262,16 @@ class ButlerMessageHandler:
         platform: str = "unknown",
         external_id: str | None = None,
     ) -> str:
-        """In-session pipeline orchestrator.
+        """In-session pipeline orchestrator (ENG-3 → locked_turn_orchestrator)."""
+        from butler.gateway.locked_turn_orchestrator import run_locked_message_turn
 
-        R1-6: this method is now a thin orchestrator that wires the
-        in-session phase functions from
-        :mod:`butler.gateway.locked_phases` together. The body is
-        reduced from ~272 non-blank lines to a linear flow of phase
-        calls plus a single try/except for telemetry + error card
-        rendering.
-        """
-        if not text.strip():
-            return ""
-
-        from butler.gateway.handler_helpers import _maybe_welcome_prefix
-
-        state = LockedTurnState(
-            text=text, session_key=session_key, platform=platform, external_id=external_id,
+        return run_locked_message_turn(
+            self,
+            text,
+            session_key=session_key,
+            platform=platform,
+            external_id=external_id,
         )
-        welcome_prefix = _maybe_welcome_prefix(session_key, text)
-
-        from butler.gateway.owner_delegate_shortcuts import (
-            resolve_project_context,
-            try_expand_owner_edit_slash,
-        )
-        from butler.gateway.owner_ingest_shortcuts import try_expand_owner_ingest_phrase
-
-        _pname, _pws = resolve_project_context(self._orchestrator, session_key)
-        _expanded = try_expand_owner_edit_slash(state.text, project_name=_pname)
-        if _expanded:
-            state.text = _expanded
-        else:
-            _ingest = try_expand_owner_ingest_phrase(
-                state.text,
-                project_name=_pname,
-                workspace=_pws,
-            )
-            if _ingest:
-                state.text = _ingest
-
-        response = _phase_apply_normalizers_and_slash(self, state)
-        if response is not None:
-            return response
-
-        response = _phase_apply_correction_intent(self, state)
-        if response is not None:
-            return response
-
-        response = _phase_apply_github_issues_intent(self, state)
-        if response is not None:
-            from butler.gateway.gateway_transcript import record_gateway_tool_action
-
-            record_gateway_tool_action(
-                state.session_key,
-                tool_name="mcp_github_lst_repo_issues",
-                args_preview=state.text.strip()[:400],
-            )
-            return response
-
-        _phase_init_loop_role(self, state)
-        state.turn_started = _time.monotonic()
-        logger.info(
-            "Gateway turn start session=%s platform=%s preview=%r",
-            session_key,
-            platform,
-            text[:80],
-        )
-
-        response = _phase_apply_prompt_hooks(state)
-        if response is not None:
-            return response
-
-        from butler.execution_context import use_execution_context
-
-        with use_execution_context(self._orchestrator, session_key=session_key):
-            _phase_augment_prompt(self, state)
-            state.loop = self._get_or_create_loop(session_key)
-            state.original_loop_config = state.loop.config
-            try:
-                response = _phase_validate_loop_messages(state)
-                if response is not None:
-                    return response
-                _phase_resolve_turn_budget(state)
-                _phase_hygiene_compress(self, state)
-                _phase_prefetch_and_callbacks(self, state)
-                _phase_execute_turn(state)
-                _phase_finalize_turn(self, state)
-                _phase_format_turn_response(self, state, welcome_prefix=welcome_prefix)
-                return state.out
-            except Exception as exc:
-                state.health["error"] = str(exc)
-                self._session_registry.set_health(session_key, state.health)
-                logger.error(
-                    "Message handling failed session=%s elapsed=%.1fs: %s",
-                    session_key,
-                    _time.monotonic() - state.turn_started,
-                    exc,
-                    exc_info=True,
-                )
-                card = _phase_format_error_card(exc, _time.monotonic() - state.turn_started)
-                from butler.gateway.user_errors import format_gateway_user_error
-
-                return card or format_gateway_user_error(exc)
-            finally:
-                state.loop.config = state.original_loop_config
 
     def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
         """Return the latest best-effort runtime diagnostics for a session."""
@@ -419,59 +285,25 @@ class ButlerMessageHandler:
         platform: str = "unknown",
         external_id: str | None = None,
     ) -> Optional[str]:
-        """Handle Butler slash commands. Returns response or None."""
-        parts = text.strip().split(maxsplit=1)
-        cmd = parts[0].lower()
-        arg = parts[1].strip() if len(parts) > 1 else ""
+        from butler.gateway.handler_commands import handle_slash_command
 
-        import butler.gateway.commands  # noqa: F401 — ensure handlers registered
-        from butler.gateway.command_registry import CommandContext, dispatch
-
-        ctx = CommandContext(
-            cmd=cmd,
-            arg=arg,
+        return handle_slash_command(
+            self,
+            text,
             session_key=session_key,
             platform=platform,
             external_id=external_id,
-            orchestrator=self._orchestrator,
-            session_registry=self._session_registry,
         )
-        handled, result = dispatch(ctx)
-        if handled:
-            return result
-
-        return None
 
     def _format_health_summary(self, session_key: str = "default") -> str:
-        from butler.ops.health_report import (
-            HealthReportInput,
-            build_health_report,
-            collect_mem_stats_for_health,
-        )
+        from butler.gateway.handler_commands import format_health_summary
 
-        health = self.last_health_summary(session_key)
-        return build_health_report(
-            HealthReportInput(
-                session_key=session_key,
-                health=health,
-                tool_summary=_tool_audit_summary(session_key),
-                mem_stats=collect_mem_stats_for_health(
-                    self._orchestrator, session_key, health
-                ),
-                orchestrator=self._orchestrator,
-            )
-        )
+        return format_health_summary(self, session_key)
 
     def _format_response(self, result: LoopResult, platform: str) -> str:
-        """Format the response appropriately for the platform."""
-        if platform in ("wechat", "weixin"):
-            from butler.report.format import wechat_response_text
+        from butler.gateway.handler_commands import format_loop_response
 
-            return wechat_response_text(result)
-
-        if not result.final_response:
-            return "（执行完成，无文字输出）"
-        return result.final_response
+        return format_loop_response(result, platform)
 
 
 from butler.gateway.handler_helpers import (  # noqa: F401, E402

@@ -193,19 +193,15 @@ def _owner_degradation_brief_line(
     session_key: str = "",
     health: dict | None = None,
 ) -> str | None:
-    """Sync memory stats into registry and return one degradation summary line."""
+    """Sync registry and return one degradation summary line (ENG-8)."""
     try:
-        from butler.ops.degradation_registry import (
-            format_brief_line,
-            sync_memory_degradations_from_stats,
-        )
-        from butler.ops.health_report import collect_mem_stats_for_health
+        from butler.ops.degradation_registry import refresh_degradations_for_owner_brief
 
-        stats = collect_mem_stats_for_health(
-            orchestrator, str(session_key or "").strip(), health
+        body = refresh_degradations_for_owner_brief(
+            orchestrator,
+            session_key=str(session_key or "").strip(),
+            health=health,
         )
-        sync_memory_degradations_from_stats(stats)
-        body = format_brief_line()
         if not body:
             return None
         return body.replace("降级：", f"降级：{_health_icon(False, warn=True)} ", 1)
@@ -219,33 +215,9 @@ def _owner_memory_degradation_brief_line(
     session_key: str = "",
     health: dict | None = None,
 ) -> str | None:
-    """One human line when memory / embedding / recall is degraded (ENG-8)."""
-    try:
-        from butler.ops.health_report import collect_mem_stats_for_health
-
-        stats = collect_mem_stats_for_health(
-            orchestrator, str(session_key or "").strip(), health
-        )
-    except Exception:
-        return None
-
-    if stats.get("memory_offline"):
-        return (
-            f"记忆：{_health_icon(False)} "
-            "子系统离线 → /诊断 详细"
-        )
-    bits: list[str] = []
-    if stats.get("embedding_degraded"):
-        used = str(stats.get("embedding_used_model") or "hashing-v1")
-        bits.append(f"嵌入降级({used})")
-    if stats.get("rag_last_recall_degraded"):
-        bits.append("检索降级(仅FTS)")
-    if not bits:
-        return None
-    warn = len(bits) == 1 and not stats.get("memory_offline")
-    return (
-        f"记忆：{_health_icon(False, warn=warn)} "
-        f"{' · '.join(bits)} → /诊断 详细"
+    """Backward-compat alias — prefer :func:`_owner_degradation_brief_line`."""
+    return _owner_degradation_brief_line(
+        orchestrator, session_key=session_key, health=health
     )
 
 

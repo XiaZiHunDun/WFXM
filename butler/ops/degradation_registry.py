@@ -213,6 +213,56 @@ def sync_mcp_degradations_at_startup(*, session_key: str = "gateway:warmup") -> 
         clear_degradation("mcp")
 
 
+def enrich_stats_with_live_mcp(
+    stats: dict[str, Any],
+    *,
+    session_key: str = "",
+) -> dict[str, Any]:
+    """Attach live MCP snapshot for owner brief / diagnostic sync (ENG-8)."""
+    out = dict(stats)
+    try:
+        from butler.mcp.config import mcp_enabled
+
+        if not mcp_enabled():
+            return out
+        from butler.mcp.manager import get_manager
+
+        sk = str(session_key or "").strip() or "gateway:diagnostic"
+        statuses = get_manager().status_snapshot(sk)
+        down = [st for st in statuses if not st.connected]
+        if down:
+            out["mcp_degraded"] = [
+                str(getattr(st, "name", None) or getattr(st, "server_id", "?"))
+                for st in down
+            ]
+        elif statuses:
+            out.pop("mcp_degraded", None)
+    except Exception as exc:
+        logger.debug("live mcp enrichment skipped: %s", exc)
+    return out
+
+
+def refresh_degradations_for_owner_brief(
+    orchestrator: Any,
+    *,
+    session_key: str = "",
+    health: dict[str, Any] | None = None,
+) -> str | None:
+    """Sync memory + MCP into registry; return one brief line for Owner /诊断."""
+    try:
+        from butler.ops.health_report import collect_mem_stats_for_health
+
+        stats = collect_mem_stats_for_health(
+            orchestrator, str(session_key or "").strip(), health
+        )
+        stats = enrich_stats_with_live_mcp(stats, session_key=session_key)
+        sync_memory_degradations_from_stats(stats)
+        return format_brief_line()
+    except Exception as exc:
+        logger.debug("refresh degradations skipped: %s", exc)
+        return None
+
+
 def _sync_metrics() -> None:
     try:
         from butler.ops.runtime_metrics import set_gauge
@@ -228,9 +278,11 @@ __all__ = [
     "DegradationRecord",
     "best_effort_skip_total",
     "clear_degradation",
+    "enrich_stats_with_live_mcp",
     "format_brief_line",
     "format_diagnostic_lines",
     "list_degradations",
+    "refresh_degradations_for_owner_brief",
     "register_degradation",
     "sync_mcp_degradations_at_startup",
     "sync_memory_degradations_from_stats",
