@@ -1,6 +1,6 @@
 # wechat_ilink 第三轮拆分（ENG-13）— 范围与验收
 
-> **状态**：**条件触发 backlog**（2026-06-29）· **PR-1 进行中**（`adapter_inbound.py`）· **非**发版硬门槛  
+> **状态**：**done**（2026-06-29）· PR-1～PR-3 完成 · **非**发版硬门槛  
 > **登记**：[`roadmap-backlog` §3.12](../decisions/roadmap-backlog-and-boundaries-2026-05.md#312-条件触发工程债-2026-06)  
 > **前置**：ENG-5 ✅（`connect_phases` / `poll_phases` / `send_phases` / `qr_phases`）；`phases.py` 门面 ~370 行  
 > **原则**：零行为变更；只薄化 `WeChatAdapter` 宿主；真机 smoke 为最终验收
@@ -26,9 +26,9 @@
 
 | 路径 | 行数 | 说明 |
 |------|------|------|
-| `gateway/platforms/wechat_ilink/__init__.py` | **~1119** | **第三轮主目标** — Adapter 宿主 + 薄编排 |
-| `gateway/platforms/wechat_ilink/phases.py` | ~369 | ENG-5 已拆；本轮 **不扩 scope** |
-| `connect_phases.py` / `poll_phases.py` / `send_phases.py` / `qr_phases.py` | 已存在 | 复用，不合并回单体 |
+| `gateway/platforms/wechat_ilink/__init__.py` | **~46** | PR-3 收口（re-export + 薄 wrapper） |
+| `gateway/platforms/wechat_ilink/adapter.py` | ~360 | `WeChatAdapter` 类壳 + 委托 |
+| `adapter_lifecycle.py` / `adapter_inbound.py` / `adapter_outbound.py` / `adapter_media.py` | 已存在 | ENG-13 职责拆分 |
 
 守门：`tests/gateway/test_wechat_ilink_split.py`（R1-4a/b 契约 + 行数上限）
 
@@ -109,5 +109,7 @@ bash scripts/butler-wechat-attach-probe.sh
 
 | 日期 | 说明 |
 |------|------|
+| 2026-06-29 | PR-3：`__init__.py` <50 行；`adapter.py` + `adapter_lifecycle.py` + `_compat.py` + `qr_login.py` |
+| 2026-06-29 | PR-2：`adapter_outbound.py` + `adapter_media.py`（出站/typing/媒体下载） |
 | 2026-06-29 | PR-1：`adapter_inbound.py`（poll 分发 + 入站 process_message） |
 | 2026-06-29 | 初稿：ENG-13 条件触发范围 + 验收 + PR 切分 |

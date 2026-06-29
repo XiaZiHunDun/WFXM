@@ -360,15 +360,26 @@ class TestCallSiteWiring:
         assert isinstance(mod._ADAPTER_REGISTRY, AdapterRegistry)
 
     def test_disconnect_uses_registry_unregister(self):
-        from butler.gateway.platforms.wechat_ilink import WeChatAdapter
+        from butler.gateway.platforms.wechat_ilink.adapter_lifecycle import disconnect
 
-        src = inspect.getsource(WeChatAdapter.disconnect)
-        assert "_ADAPTER_REGISTRY.unregister(self._token)" in src, (
+        src = inspect.getsource(disconnect)
+        assert "_ADAPTER_REGISTRY.unregister(adapter._token)" in src, (
             "disconnect() must route through AdapterRegistry.unregister; "
             "raw _LIVE_ADAPTERS.pop is the R1-12 audit target."
         )
         assert "_LIVE_ADAPTERS" not in src, (
             "disconnect() must no longer touch the module-level dict"
+        )
+
+    def test_send_wechat_direct_uses_registry_get(self):
+        from butler.gateway.platforms.wechat_ilink.direct import send_wechat_direct
+
+        src = inspect.getsource(send_wechat_direct)
+        assert "_ADAPTER_REGISTRY.get(" in src, (
+            "send_wechat_direct must look up live adapter via AdapterRegistry.get"
+        )
+        assert "_LIVE_ADAPTERS" not in src, (
+            "send_wechat_direct must no longer touch the module-level dict"
         )
 
     def test_connect_assigns_via_registry(self):
@@ -384,17 +395,6 @@ class TestCallSiteWiring:
         )
         assert "_LIVE_ADAPTERS" not in src, (
             "_start_poll_and_register must no longer touch the module-level dict"
-        )
-
-    def test_send_wechat_direct_uses_registry_get(self):
-        from butler.gateway.platforms.wechat_ilink import send_wechat_direct
-
-        src = inspect.getsource(send_wechat_direct)
-        assert "_ADAPTER_REGISTRY.get(" in src, (
-            "send_wechat_direct must look up live adapter via AdapterRegistry.get"
-        )
-        assert "_LIVE_ADAPTERS" not in src, (
-            "send_wechat_direct must no longer touch the module-level dict"
         )
 
     def test_disconnect_drops_adapter_from_registry(self, fresh_registry):

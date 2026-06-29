@@ -7,7 +7,7 @@ import logging
 from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
-    from butler.gateway.platforms.wechat_ilink import WeChatAdapter
+    from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter
 
 logger = logging.getLogger(__name__)
 

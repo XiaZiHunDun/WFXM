@@ -246,8 +246,56 @@ async def _dispatch_message_and_media(
     )
 
 
+async def send_wechat_direct(
+    *,
+    extra: Dict[str, Any],
+    token: Optional[str],
+    chat_id: str,
+    message: str,
+    media_files: Optional[List[Tuple[str, bool]]] = None,
+) -> Dict[str, Any]:
+    """One-shot send helper for ``send_message`` and cron delivery."""
+    from butler.config import get_butler_home
+    from butler.gateway.platforms.wechat_ilink._compat import (
+        ContextTokenStore,
+        _ADAPTER_REGISTRY,
+    )
+
+    creds = _phase_direct_resolve_credentials(extra, token)
+    if "error" in creds:
+        return creds
+    resolved_token = creds["token"]
+    account_id = creds["account_id"]
+
+    token_store = ContextTokenStore(str(get_butler_home()))
+    token_store.restore(account_id)
+    context_token = token_store.get(account_id, chat_id)
+
+    live_adapter = _ADAPTER_REGISTRY.get(resolved_token)
+    send_session = getattr(live_adapter, "_send_session", None)
+    if (live_adapter is not None and send_session is not None
+            and not send_session.closed
+            and send_session._loop is asyncio.get_running_loop()):
+        return await _phase_direct_send_via_live_adapter(
+            live_adapter,
+            chat_id=chat_id,
+            message=message,
+            media_files=media_files,
+            context_token=context_token,
+        )
+    return await _phase_direct_send_via_fresh_adapter(
+        creds=creds,
+        chat_id=chat_id,
+        message=message,
+        media_files=media_files,
+        context_token=context_token,
+        token_store=token_store,
+    )
+
+
 __all__ = [
     "_phase_direct_resolve_credentials",
     "_phase_direct_send_via_live_adapter",
     "_phase_direct_send_via_fresh_adapter",
+    "send_wechat_direct",
 ]

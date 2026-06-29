@@ -318,14 +318,14 @@ R14B_RESERVED = frozenset()
 class TestR14aWeChatAdapterAllMethodsUnder50Lines:
     """Project-wide rule from common/coding-style.md: every method ≤ 50 lines.
 
-    AST-walk ``wechat_ilink.py`` and assert each function/method body is
-    below the cap. Catches the next god-method refactor. R1-4b reserved
-    methods are exempted — they belong to a follow-up issue.
+    AST-walk ``adapter.py`` (ENG-13 PR-3: class moved out of ``__init__.py``).
     """
 
     def test_no_method_exceeds_50_lines(self):
-        src_path = _pathlib.Path(importlib.import_module(WECHAT_ILINK_PATH).__file__)
-        text = src_path.read_text(encoding="utf-8")
+        adapter_path = _pathlib.Path(
+            importlib.import_module("butler.gateway.platforms.wechat_ilink.adapter").__file__
+        )
+        text = adapter_path.read_text(encoding="utf-8")
         tree = _ast.parse(text)
         offenders: list[tuple[str, int, int]] = []
         for node in _ast.walk(tree):
@@ -339,7 +339,7 @@ class TestR14aWeChatAdapterAllMethodsUnder50Lines:
                 if len(non_blank) > 50:
                     offenders.append((node.name, node.lineno, len(non_blank)))
         assert not offenders, (
-            "wechat_ilink.py methods over 50 lines: "
+            "wechat_ilink adapter.py methods over 50 lines: "
             + ", ".join(f"{n}@{ln}={sz}L" for n, ln, sz in offenders)
         )
 
@@ -702,6 +702,109 @@ class TestEng13AdapterInbound:
 
         assert poll_backoff_seconds(1) == RETRY_DELAY_SECONDS
         assert poll_backoff_seconds(MAX_CONSECUTIVE_FAILURES) == BACKOFF_DELAY_SECONDS
+
+
+@pytest.mark.unit
+class TestEng13AdapterOutbound:
+    def test_adapter_outbound_module_exists(self):
+        mod = importlib.import_module(
+            "butler.gateway.platforms.wechat_ilink.adapter_outbound"
+        )
+        for name in (
+            "send_message",
+            "send_text_chunk",
+            "split_text",
+            "send_typing",
+            "stop_typing",
+            "send_file",
+            "outbound_media_builder",
+        ):
+            assert hasattr(mod, name), f"missing {name}"
+
+    def test_adapter_outbound_split_text_delegates(self, monkeypatch):
+        from butler.gateway.platforms.wechat_ilink import WeChatAdapter
+        from butler.gateway.platforms.wechat_ilink.adapter_outbound import split_text
+        from butler.gateway.platforms.types import PlatformConfig
+
+        calls: list = []
+
+        def fake_split(*args, **kwargs):
+            calls.append((args, kwargs))
+            return ["chunk-a"]
+
+        monkeypatch.setattr(
+            "butler.gateway.platforms.wechat_ilink._split_text_for_wechat_delivery",
+            fake_split,
+        )
+        adapter = WeChatAdapter(PlatformConfig(token="t", extra={"account_id": "a"}))
+        adapter._split_multiline_messages = True
+        result = split_text(adapter, "hello", metadata=None)
+        assert result == ["chunk-a"]
+        assert len(calls) == 1
+
+
+@pytest.mark.unit
+class TestEng13AdapterMedia:
+    def test_adapter_media_module_exists(self):
+        mod = importlib.import_module(
+            "butler.gateway.platforms.wechat_ilink.adapter_media"
+        )
+        for name in (
+            "collect_media",
+            "download_image",
+            "download_video",
+            "download_file",
+            "download_voice",
+            "download_remote_media",
+        ):
+            assert hasattr(mod, name), f"missing {name}"
+
+    def test_wechat_adapter_collect_media_delegates(self, monkeypatch):
+        from butler.gateway.platforms.wechat_ilink import WeChatAdapter
+        from butler.gateway.platforms.types import PlatformConfig
+
+        captured: list = []
+
+        async def fake_collect(adapter, item, paths, types):
+            captured.append((item, paths, types))
+
+        monkeypatch.setattr(
+            "butler.gateway.platforms.wechat_ilink.adapter_media.collect_media",
+            fake_collect,
+        )
+        adapter = WeChatAdapter(PlatformConfig(token="t", extra={"account_id": "a"}))
+        paths: list = []
+        types: list = []
+        import asyncio
+
+        asyncio.run(adapter._collect_media({"type": 1}, paths, types))
+        assert len(captured) == 1
+
+
+@pytest.mark.unit
+class TestEng13InitSlim:
+    ENG13_INIT_MAX_LINES = 400
+
+    def test_init_py_under_400_lines(self):
+        init_path = _pathlib.Path(
+            importlib.import_module(WECHAT_ILINK_PATH).__file__
+        )
+        line_count = len(init_path.read_text(encoding="utf-8").splitlines())
+        assert line_count < self.ENG13_INIT_MAX_LINES, (
+            f"{WECHAT_ILINK_PATH}/__init__.py is {line_count} lines; "
+            f"ENG-13 target is < {self.ENG13_INIT_MAX_LINES}"
+        )
+
+    def test_adapter_module_exists(self):
+        mod = importlib.import_module("butler.gateway.platforms.wechat_ilink.adapter")
+        assert hasattr(mod, "WeChatAdapter")
+
+    def test_lifecycle_module_exists(self):
+        mod = importlib.import_module(
+            "butler.gateway.platforms.wechat_ilink.adapter_lifecycle"
+        )
+        for name in ("connect", "disconnect", "poll_loop"):
+            assert hasattr(mod, name), f"missing {name}"
 
 
 @pytest.mark.unit
