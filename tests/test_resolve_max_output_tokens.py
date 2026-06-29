@@ -6,13 +6,17 @@ from unittest.mock import MagicMock, patch
 
 from butler.config import ModelConfig
 from butler.core.model_context import resolve_max_output_tokens
+from butler.model_resolve import EffectiveModel
 
 
 def test_resolve_max_output_tokens_from_role_config():
     orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
     orch.project_manager.get_current.return_value = None
-    with patch("butler.config.get_model_config") as gm:
-        gm.return_value = ModelConfig(max_tokens=8192)
+    with patch("butler.model_resolve.resolve_effective_model") as rem:
+        rem.return_value = EffectiveModel(
+            config=ModelConfig(max_tokens=8192),
+            sources=("system",),
+        )
         with patch(
             "butler.project.lead.gateway_loop_role",
             return_value="butler",
@@ -25,8 +29,8 @@ def test_resolve_max_output_tokens_from_role_config():
 
 def test_resolve_max_output_tokens_none_when_unset():
     orch = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
-    with patch("butler.config.get_model_config") as gm:
-        gm.return_value = ModelConfig()
+    with patch("butler.model_resolve.resolve_effective_model") as rem:
+        rem.return_value = EffectiveModel(config=ModelConfig(), sources=("system",))
         with patch(
             "butler.project.lead.gateway_loop_role",
             return_value="butler",

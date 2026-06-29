@@ -372,3 +372,33 @@ def model_config_to_credentials(
     if mc.context_length is not None:
         out["context_length"] = mc.context_length
     return out
+
+
+def resolve_auxiliary_config(task: str = "compression") -> ModelConfig:
+    """Re-export: auxiliary stack (compression, post_session, …)."""
+    from butler.transport.auxiliary_client import resolve_auxiliary_config as _resolve
+
+    return _resolve(task)
+
+
+def resolve_embedding_config() -> tuple[str, str]:
+    """Re-export: embedding provider/model (yaml → env → defaults)."""
+    from butler.memory.semantic_config import resolve_embedding_config as _resolve
+
+    return _resolve()
+
+
+__all__ = [
+    "EffectiveModel",
+    "format_effective_models",
+    "format_model_diagnostic_lines",
+    "handle_model_command",
+    "model_config_to_credentials",
+    "normalize_role",
+    "parse_model_spec",
+    "resolve_auxiliary_config",
+    "resolve_effective_model",
+    "resolve_embedding_config",
+    "temporary_model_override",
+    "workflow_step_spawn_model_config",
+]

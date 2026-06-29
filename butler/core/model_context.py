@@ -16,9 +16,9 @@ def resolve_max_output_tokens(
 ) -> int | None:
     """Return configured max_tokens for the active loop role, if set."""
     try:
-        from butler.config import get_model_config
+        from butler.model_resolve import normalize_role, resolve_effective_model
 
-        loop_role = str(role or "butler").strip() or "butler"
+        loop_role = normalize_role(str(role or "butler").strip() or "butler")
         proj = None
         if orchestrator is not None:
             pm = getattr(orchestrator, "project_manager", None)
@@ -32,7 +32,7 @@ def resolve_max_output_tokens(
 
                 proj = pm.get_current(session_key=session_key) if hasattr(pm, "get_current") else None
                 loop_role = gateway_loop_role(proj_name, project=proj)
-        cfg = get_model_config(loop_role, project=proj)
+        cfg = resolve_effective_model(loop_role, project=proj).config
         if cfg.max_tokens and int(cfg.max_tokens) > 0:
             return int(cfg.max_tokens)
     except Exception as exc:

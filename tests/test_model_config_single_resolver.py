@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pathlib
+
 import yaml
 
 import pytest
@@ -110,6 +112,29 @@ class TestSingleResolver:
             "provider": "fastembed",
             "model": "BAAI/bge-small-en-v1.5",
         }
-        from butler.memory.semantic_config import resolve_embedding_config
+        from butler.model_resolve import resolve_embedding_config
 
         assert resolve_embedding_config() == ("fastembed", "BAAI/bge-small-en-v1.5")
+
+
+def test_business_code_does_not_import_get_model_config():
+    """PROD-P6-07: ``get_model_config`` is only the config.py thin wrapper."""
+    allowlist = frozenset({"butler/config.py"})
+    offenders: list[str] = []
+    for path in sorted(pathlib.Path("butler").rglob("*.py")):
+        rel = path.as_posix()
+        if rel in allowlist:
+            continue
+        if "get_model_config" in path.read_text(encoding="utf-8"):
+            offenders.append(rel)
+    assert not offenders, (
+        "Use resolve_effective_model / resolve_*_config instead:\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_model_resolve_reexports_auxiliary_and_embedding():
+    from butler.model_resolve import resolve_auxiliary_config, resolve_embedding_config
+
+    assert callable(resolve_auxiliary_config)
+    assert callable(resolve_embedding_config)
