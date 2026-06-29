@@ -113,7 +113,9 @@ class TestDevToolsAllowlist:
         """When role=dev and engine enabled, dev tools in allowed set."""
         from unittest.mock import MagicMock
 
-        project = MagicMock()
+        from butler.project.model import Project
+
+        project = MagicMock(spec=Project)
         project.tools = ["read_file", "write_file", "patch", "terminal", "search_files"]
         project.tool_modes = {}
 
@@ -129,7 +131,9 @@ class TestDevToolsAllowlist:
     def test_dev_role_excludes_dev_tools_when_disabled(self):
         from unittest.mock import MagicMock
 
-        project = MagicMock()
+        from butler.project.model import Project
+
+        project = MagicMock(spec=Project)
         project.tools = ["read_file", "write_file"]
         project.tool_modes = {}
 

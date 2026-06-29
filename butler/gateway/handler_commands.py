@@ -17,7 +17,11 @@ def handle_slash_command(
     platform: str = "unknown",
     external_id: str | None = None,
 ) -> Optional[str]:
-    """Handle Butler slash commands. Returns response or None."""
+    """Handle Butler slash commands. Returns response or None.
+
+    owner-gate-opt-out: 纯 dispatch 路由；各子命令 handler 在 command_registry 内
+    自行调用 require_owner / is_gateway_owner，本函数不重复 gate。
+    """
     parts = text.strip().split(maxsplit=1)
     cmd = parts[0].lower()
     arg = parts[1].strip() if len(parts) > 1 else ""
