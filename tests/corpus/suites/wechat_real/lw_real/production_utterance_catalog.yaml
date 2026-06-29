@@ -479,7 +479,7 @@ utterance_catalog:
   expect:
     no_llm: true
     response_contains:
-    - 上下文用量
+    - 简要诊断
 - id: PROD-035
   user: /状态
   category: harness_plan

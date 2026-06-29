@@ -34,7 +34,7 @@ def test_apply_provider_preset_to_project_yaml(tmp_path):
         encoding="utf-8",
     )
     ok, msg = apply_provider_preset(
-        "deepseek-chat",
+        "deepseek-default",
         role="dev_agent",
         workspace=tmp_path,
         persist=True,

@@ -35,7 +35,7 @@ class TestDevAssistantV1ButlerLead:
         )
 
         with patch(
-            "butler.gateway.message_handler.dispatch_tool",
+            "butler.tools.registry.dispatch_tool",
             wraps=dispatch_tool,
         ) as spy:
             handler.handle_message(

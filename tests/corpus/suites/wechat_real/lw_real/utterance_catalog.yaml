@@ -221,7 +221,7 @@ utterance_catalog:
     fixture: lingwen
     kind: command
     expect:
-      response_contains: [Butler 诊断]
+      response_contains: [简要诊断]
 
   - id: SMK-M1b
     user: "/记忆图谱"
@@ -344,7 +344,7 @@ utterance_catalog:
     fixture: lingwen
     kind: command
     expect:
-      response_contains: [Butler 诊断]
+      response_contains: [简要诊断]
 
   - id: DEV-G02
     user: "读取 ../../../etc/passwd 前几行"

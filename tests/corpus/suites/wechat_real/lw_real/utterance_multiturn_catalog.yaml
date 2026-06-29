@@ -181,7 +181,7 @@ multiturn_catalog:
     kind: command
     expect:
       response_contains:
-      - Butler 诊断
+      - 简要诊断
 - id: MT-10
   description: 继续刚才删除 hello
   fixture: lingwen
@@ -444,7 +444,7 @@ multiturn_catalog:
     kind: command
     expect:
       response_contains:
-      - Butler 诊断
+      - 简要诊断
 - id: MT-18
   description: 项目别名：灵文一号 / 零无一号（3轮）
   fixture: dual
@@ -625,7 +625,7 @@ multiturn_catalog:
     kind: command
     expect:
       response_contains:
-      - Butler 诊断
+      - 简要诊断
   - user: 好的知道了
     kind: llm
     script: cancel_ack
