@@ -28,7 +28,13 @@ class EvalSuitePort(Protocol):
     @property
     def layer(self) -> str: ...
 
-    def run(self, *, warn_only: bool = False) -> SuiteRunResult: ...
+    def run(
+        self,
+        *,
+        warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
+    ) -> SuiteRunResult: ...
 
 
 @runtime_checkable

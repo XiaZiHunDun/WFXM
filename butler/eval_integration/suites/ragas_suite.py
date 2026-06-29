@@ -18,7 +18,13 @@ class RagasMemorySuite:
     suite_id = "ragas_memory"
     layer = "L-D"
 
-    def run(self, *, warn_only: bool = False) -> SuiteRunResult:
+    def run(
+        self,
+        *,
+        warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
+    ) -> SuiteRunResult:
         if not _ragas_available():
             return SuiteRunResult(
                 suite_id=self.suite_id,

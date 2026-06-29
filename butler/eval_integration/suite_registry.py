@@ -29,11 +29,15 @@ def _register_builtins() -> None:
     from butler.eval_integration.suites.capability_suite import CapabilitySuite
     from butler.eval_integration.suites.deepeval_suite import DeepEvalAgentSuite
     from butler.eval_integration.suites.ragas_suite import RagasMemorySuite
+    from butler.eval_integration.suites.regression_suite import RegressionSuite
     from butler.eval_integration.suites.tcr_suite import TcrSuite
+    from butler.eval_integration.suites.wechat_corpus_suite import WechatCorpusSuite
 
     register_suite_factory("tcr", TcrSuite)
     register_suite_factory("agent_weekly", AgentWeeklySuite)
     register_suite_factory("capability", CapabilitySuite)
+    register_suite_factory("regression", RegressionSuite)
+    register_suite_factory("wechat_corpus", WechatCorpusSuite)
     register_suite_factory("deepeval_agent", DeepEvalAgentSuite)
     register_suite_factory("ragas_memory", RagasMemorySuite)
 

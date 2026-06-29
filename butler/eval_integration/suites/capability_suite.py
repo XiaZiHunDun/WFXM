@@ -16,7 +16,13 @@ class CapabilitySuite:
     suite_id = "capability"
     layer = "L-D"
 
-    def run(self, *, warn_only: bool = False) -> SuiteRunResult:
+    def run(
+        self,
+        *,
+        warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
+    ) -> SuiteRunResult:
         script = ROOT / "scripts" / "butler-capability-baseline.sh"
         proc = subprocess.run(
             ["bash", str(script)],

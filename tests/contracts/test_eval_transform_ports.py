@@ -10,7 +10,13 @@ class _StubSuite:
     suite_id = "stub"
     layer = "L-A"
 
-    def run(self, *, warn_only: bool = False) -> SuiteRunResult:
+    def run(
+        self,
+        *,
+        warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
+    ) -> SuiteRunResult:
         return SuiteRunResult(suite_id="stub", ok=True, layer="L-A")
 
 

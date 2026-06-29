@@ -33,16 +33,24 @@ class EvalIntegrationManager:
         suite_ids: list[str],
         *,
         warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
     ) -> list[SuiteRunResult]:
         results: list[SuiteRunResult] = []
         for sid in suite_ids:
             suite = get_suite(sid)
-            result = suite.run(warn_only=warn_only)
+            result = suite.run(
+                warn_only=warn_only,
+                sync_dataset=sync_dataset,
+                push_langfuse=push_langfuse,
+            )
             payload = {"suite_id": sid, "metrics": result.metrics, "ok": result.ok}
             for sink in self._sinks:
-                if sink.backend_id in ("langfuse",) and sid not in (
+                if sink.backend_id == "langfuse" and sid not in (
                     "agent_weekly",
                     "regression",
+                    "wechat_corpus",
+                    "tcr",
                 ):
                     continue
                 try:
@@ -67,8 +75,15 @@ class EvalIntegrationManager:
         *,
         out: Path = DEFAULT_REPORT,
         warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
     ) -> tuple[dict[str, Any], list[SuiteRunResult]]:
-        results = self.run_suites(suite_ids, warn_only=warn_only)
+        results = self.run_suites(
+            suite_ids,
+            warn_only=warn_only,
+            sync_dataset=sync_dataset,
+            push_langfuse=push_langfuse,
+        )
         for r in results:
             if r.suite_id == "tcr":
                 rate = r.metrics.get("trajectory_compliance_rate")

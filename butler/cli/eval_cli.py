@@ -28,10 +28,13 @@ def _cmd_eval_run(ns: argparse.Namespace) -> int:
         console.print("[red]请指定 --suite（逗号分隔）[/red]")
         return 2
     mgr = EvalIntegrationManager()
+    push_langfuse = False if ns.no_langfuse else None
     report, results = mgr.run_and_write(
         suites,
         out=Path(ns.out),
         warn_only=bool(ns.warn_only),
+        sync_dataset=bool(ns.sync_dataset),
+        push_langfuse=push_langfuse,
     )
     for r in results:
         status = "OK" if r.ok else "FAIL"
@@ -84,6 +87,8 @@ def register_eval_parser(sub: argparse._SubParsersAction) -> None:
         help="EvalReport v1 输出路径",
     )
     run_p.add_argument("--warn-only", action="store_true", help="TCR 等 warn-only 模式")
+    run_p.add_argument("--sync-dataset", action="store_true", help="regression 时同步 LangFuse dataset")
+    run_p.add_argument("--no-langfuse", action="store_true", help="不向 LangFuse 推送")
     run_p.set_defaults(func=_cmd_eval_run)
 
     rep_p = ev.add_parser("report", help="打印或生成 EvalReport")

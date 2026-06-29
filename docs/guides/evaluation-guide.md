@@ -42,6 +42,13 @@ butler eval sync --suite tcr
 
 可选 OSS suite（`pip install butler-system[eval-deepeval]` / `[eval-ragas]`）：`deepeval_agent` · `ragas_memory`
 
+已注册 suite：`tcr` · `agent_weekly` · `capability` · `regression` · `wechat_corpus` · …
+
+```bash
+butler eval run --suite regression --sync-dataset
+butler eval run --suite wechat_corpus --no-langfuse
+```
+
 ## 前置条件
 
 ### LangFuse 服务

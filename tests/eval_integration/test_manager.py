@@ -24,11 +24,27 @@ def test_build_unified_report_schema():
     assert report["dimensions"]["reliability"]["tcr"] == 1.0
 
 
-def test_manager_list_suites():
+@patch("butler.ops.eval_regression.run_regression_gate")
+def test_regression_suite_mock(mock_run):
+    from butler.eval_integration.suites.regression_suite import RegressionSuite
+    from butler.ops.eval_regression import RegressionReport
+
+    mock_run.return_value = RegressionReport(
+        passed=True,
+        dev_pass_rate=0.9,
+        mem_pass_rate=0.8,
+    )
+    result = RegressionSuite().run(push_langfuse=False)
+    assert result.ok
+    assert result.suite_id == "regression"
+
+
+def test_manager_list_includes_regression_wechat():
     mgr = EvalIntegrationManager()
     ids = mgr.list_suites()
     assert "tcr" in ids
-    assert "agent_weekly" in ids
+    assert "regression" in ids
+    assert "wechat_corpus" in ids
 
 
 @patch("butler.eval_integration.suites.tcr_suite.TcrSuite.run")

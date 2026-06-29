@@ -14,7 +14,13 @@ class TcrSuite:
     suite_id = "tcr"
     layer = "L-B"
 
-    def run(self, *, warn_only: bool = False) -> SuiteRunResult:
+    def run(
+        self,
+        *,
+        warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
+    ) -> SuiteRunResult:
         from butler.ops import tcr_report
 
         argv = ["--warn-only"] if warn_only else []

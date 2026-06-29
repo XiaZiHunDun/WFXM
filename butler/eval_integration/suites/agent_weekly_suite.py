@@ -9,7 +9,13 @@ class AgentWeeklySuite:
     suite_id = "agent_weekly"
     layer = "L-D"
 
-    def run(self, *, warn_only: bool = False) -> SuiteRunResult:
+    def run(
+        self,
+        *,
+        warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
+    ) -> SuiteRunResult:
         from butler.ops.agent_eval_weekly import build_weekly_report
 
         report = build_weekly_report()

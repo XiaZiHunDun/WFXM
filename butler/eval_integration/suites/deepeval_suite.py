@@ -18,7 +18,13 @@ class DeepEvalAgentSuite:
     suite_id = "deepeval_agent"
     layer = "L-D"
 
-    def run(self, *, warn_only: bool = False) -> SuiteRunResult:
+    def run(
+        self,
+        *,
+        warn_only: bool = False,
+        sync_dataset: bool = False,
+        push_langfuse: bool | None = None,
+    ) -> SuiteRunResult:
         if not _deepeval_available():
             return SuiteRunResult(
                 suite_id=self.suite_id,
