@@ -1,0 +1,18 @@
+# Example model transform profiles (copy to ~/.butler/model-transforms.yaml)
+version: 1
+profiles:
+  - match: { provider: anthropic, model: "claude-*" }
+    transforms:
+      - id: thinking_protocol
+        priority: 50
+        params: {}
+  - match: { provider: deepseek, model: "*" }
+    transforms:
+      - id: fc_hint_extra
+        priority: 60
+        params: { locale: zh }
+  - match: { provider: "*", model: "*" }
+    transforms:
+      - id: thinking_protocol
+        priority: 50
+        params: {}

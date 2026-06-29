@@ -580,6 +580,28 @@ butler onboard --profile gateway                # 新机上手
 | AP-15 | OTLP 导出 StructuredEvent | D | **ADR** · 条件 |
 | AP-16 | `terminal` argv 白名单 | D | **ADR** · 接 D9 |
 
+### 3.14 模块化 Eval / Context（MOD，2026 H2）
+
+> **SSOT**：[`v4.5-modular-eval-context-theory.md`](../architecture/v4.5-modular-eval-context-theory.md)  
+> **ADR**：[`eval-integration-manager-adr-2026-07.md`](eval-integration-manager-adr-2026-07.md) · [`context-transform-registry-adr-2026-07.md`](context-transform-registry-adr-2026-07.md)
+
+| ID | 名称 | Phase | 状态 |
+|----|------|-------|------|
+| MOD-1 | v4.5 理论 + ADR | 0 | **done** 2026-06-29 |
+| MOD-2 | contracts Eval/Transform Port | 1 | **done** 2026-06-29 |
+| MOD-3 | `eval_integration` + `butler eval` CLI | 1 | **done** 2026-06-29 |
+| MOD-4 | EvalReport v1 + shell 薄包装 | 1 | **done** 2026-06-29 |
+| MOD-5 | ContextTransformRegistry + YAML | 2 | **done** 2026-06-29 |
+| MOD-6 | thinking_protocol 迁入 registry | 2 | **done** 2026-06-29 |
+| MOD-7 | transform 反馈调参 + `/诊断` | 3 | **done** 2026-06-29 |
+| MOD-8 | DeepEval/RAGAS optional suite | 4 | **done** 2026-06-29 |
+
+```bash
+butler eval list
+butler eval run --suite tcr,agent_weekly
+butler eval report --out .butler/reports/eval-unified.json
+```
+
 ---
 
 **维护**：完成某项 → 本表 `状态` 改 `done`，摘要写入 §6 变更记录 + 相关 SSOT（`gap-register` / `pilot-log`）；部分交付可拆多 PR，但验收以本表勾选为准。
@@ -639,6 +661,7 @@ butler onboard --profile gateway                # 新机上手
 | 2026-06-26 | **§3.8 P4-C** MEMORY_AUTO_APPROVE · OWNER_PMF_METRICS · pmf report |
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
 | 2026-06-22 | **§3.10 PROD-P6** 运营期抛光立项（onboard · 出站诊断 · ops cadence · 窗满后 PMF） |
+| 2026-06-29 | **§3.14 MOD-1～8** Eval 统一管理器 + Context Transform Registry |
 | 2026-06-29 | **AP-1–AP-12 done**；AP-13–16 ADR；Agent 生产化 §3.13 |
 | 2026-06-26 | **ENG-1/2/9** 复杂度脚本 · `delegate_init` · registry 测试隔离 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |

@@ -465,6 +465,12 @@ class AgentLoop:
                 continue
             self.client = create_client_from_entry(entry)
             logger.info("Fallback activated: %s/%s", entry.provider, entry.model)
+            try:
+                from butler.core.context_transform_registry import refresh_model_binding
+
+                refresh_model_binding(self)
+            except Exception as exc:
+                self._record_skipped_plugin("refresh_model_binding", exc)
             if self.callbacks.on_fallback:
                 self.callbacks.on_fallback(entry.provider, entry.model)
             return True

@@ -235,9 +235,9 @@ class ContextPipeline:
                 logger.debug("Inline tool compress skipped: %s", exc)
                 return list(msgs)
 
-        def _thinking_protocol(msgs: list[dict]) -> list[dict]:
+        def _model_transform(msgs: list[dict]) -> list[dict]:
             try:
-                from butler.transport.thinking_protocol import maybe_append_thinking_system_hint
+                from butler.core.context_transform_registry import apply_model_transforms
 
                 loop = getattr(pipeline, "_attached_loop", None)
                 client = getattr(loop, "client", None) if loop else None
@@ -245,19 +245,14 @@ class ContextPipeline:
                     return list(msgs)
                 provider = str(getattr(client, "provider_name", "") or "")
                 model = str(getattr(client, "model", "") or "")
-                out: list[dict] = []
-                for msg in msgs:
-                    copy = dict(msg)
-                    if copy.get("role") == "system":
-                        copy["content"] = maybe_append_thinking_system_hint(
-                            str(copy.get("content") or ""),
-                            provider=provider,
-                            model=model,
-                        )
-                    out.append(copy)
-                return out
+                return apply_model_transforms(
+                    list(msgs),
+                    provider=provider,
+                    model=model,
+                    diagnostics=diag or None,
+                )
             except Exception as exc:
-                logger.debug("Thinking protocol skipped: %s", exc)
+                logger.debug("Model transform skipped: %s", exc)
                 return list(msgs)
 
         def _preemptive(msgs: list[dict]) -> list[dict]:
@@ -308,7 +303,7 @@ class ContextPipeline:
             PipelineStep("prune_tools", _prune),
             PipelineStep("mask_tools", _mask),
             PipelineStep("inline_tool_compress", _inline_compress_step),
-            PipelineStep("thinking_protocol", _thinking_protocol),
+            PipelineStep("model_transform", _model_transform),
             PipelineStep("preemptive_compact", _preemptive),
             PipelineStep("compress", _compress),
             PipelineStep("repair_sanitize", _repair),

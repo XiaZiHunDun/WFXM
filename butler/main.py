@@ -76,6 +76,7 @@ def _register_per_area_parsers(sub: argparse._SubParsersAction) -> None:
 def _register_preexisting_parsers(sub: argparse._SubParsersAction) -> None:
     """Pre-existing delegations — keep them here so the orchestrator
     surface is the single point of truth for "what does `butler` do?"."""
+    from butler.cli.eval_cli import register_eval_parser
     from butler.cli.experiment_cli import register_experiment_parser
     from butler.cli.prompt_eval_cli import register_prompt_eval_parser
     from butler.cli.provider_presets_cli import register_provider_presets_parser
@@ -85,6 +86,7 @@ def _register_preexisting_parsers(sub: argparse._SubParsersAction) -> None:
     from butler.cli.skills_registry import register_skills_parser
     from butler.cli.workflow_cli import register_workflow_subparser
 
+    register_eval_parser(sub)
     register_skills_parser(sub)
     register_workflow_subparser(sub)
     register_experiment_parser(sub)

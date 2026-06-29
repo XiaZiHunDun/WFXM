@@ -27,6 +27,21 @@
 | 数据 | 预定义 fixture | 真实用户交互 |
 | 输出 | 测试报告 | 仪表盘 + 评分 |
 
+## 统一 Eval 接入（MOD-3，2026-06）
+
+多后端并列 SSOT：`LangFuse` · `junit`/`tcr-latest.json` · `~/.butler/audit/eval_unified.jsonl`。
+
+```bash
+butler eval list
+butler eval run --suite tcr,agent_weekly --warn-only
+butler eval report --out .butler/reports/eval-unified.json
+butler eval sync --suite tcr
+```
+
+理论/ADR：[`v4.5-modular-eval-context-theory.md`](../architecture/v4.5-modular-eval-context-theory.md) · [`eval-integration-manager-adr-2026-07.md`](../plans/decisions/eval-integration-manager-adr-2026-07.md)
+
+可选 OSS suite（`pip install butler-system[eval-deepeval]` / `[eval-ragas]`）：`deepeval_agent` · `ragas_memory`
+
 ## 前置条件
 
 ### LangFuse 服务

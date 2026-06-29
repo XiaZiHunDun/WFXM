@@ -55,6 +55,8 @@ notify = ["apprise>=1.9,<2"]
 analytics = ["duckdb>=1.1,<2"]
 vectors = ["chromadb>=0.6,<1"]
 observability = ["langfuse>=2.0,<3"]
+eval-deepeval = ["deepeval>=2.0,<4"]
+eval-ragas = ["ragas>=0.2,<1"]
 gateway = [
   "butler-system[wechat]",
   "butler-system[mcp]",

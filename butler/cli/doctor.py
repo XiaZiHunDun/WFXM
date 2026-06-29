@@ -150,6 +150,14 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
     except Exception as exc:
         print(f"  (不可用: {exc})")
 
+    try:
+        from butler.core.transform_overrides import format_transform_diagnostic_lines
+
+        for line in format_transform_diagnostic_lines():
+            print(f"  {line}")
+    except Exception as exc:
+        print(f"  transform: (不可用: {exc})")
+
     print("\n[诚实边界 G1/G2]")
     try:
         from butler.ops.boundary_observability import format_boundary_observability_lines

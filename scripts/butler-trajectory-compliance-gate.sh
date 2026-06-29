@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# AP-2: Trajectory Compliance Rate gate (strict production corpus + tool boundaries).
-# Usage: bash scripts/butler-trajectory-compliance-gate.sh [--strict]
-# Env: BUTLER_TCR_THRESHOLD=0.98 (default); warn-only via --warn-only
+# AP-2: Trajectory Compliance Rate gate (via EvalIntegrationManager).
+# Usage: bash scripts/butler-trajectory-compliance-gate.sh [--strict|--warn-only]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,9 +16,9 @@ for arg in "$@"; do
 done
 
 echo "== Butler TCR gate =="
-ARGS=()
+RUN_ARGS=(eval run --suite tcr --out "$ROOT/.butler/reports/eval-unified-tcr.json")
 if [[ "$WARN_ONLY" == "1" ]]; then
-  ARGS+=(--warn-only)
+  RUN_ARGS+=(--warn-only)
 fi
-python -m butler.ops.tcr_report "${ARGS[@]}"
+python -m butler.main "${RUN_ARGS[@]}"
 echo "TCR gate: OK"

@@ -617,6 +617,22 @@ def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
                 "dims": multi.by_dimension(),
                 "scores_pushed": eval_report.scores_pushed,
             }
+            try:
+                from butler.core.transform_feedback import maybe_apply_turn_feedback
+
+                provider = ""
+                loop = getattr(state.result, "loop", None)
+                client = getattr(loop, "client", None) if loop else None
+                if client is not None:
+                    provider = str(getattr(client, "provider_name", "") or "")
+                actions = maybe_apply_turn_feedback(
+                    multi.by_dimension(),
+                    provider=provider,
+                )
+                if actions:
+                    state.health["transform_feedback"] = actions
+            except Exception as exc:
+                logger.debug("Transform feedback skipped: %s", exc)
             end_trace(session_key=state.session_key, result=state.result)
             flush_langfuse()
     except Exception as exc:
