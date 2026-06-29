@@ -515,9 +515,10 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 **运营节奏**：
 
 ```bash
-bash scripts/butler-ops-cadence.sh --weekly    # 每周 G1-04 + pilot-log
-bash scripts/butler-ops-cadence.sh --release  # 发版前 + P5/fast gate
-butler onboard --profile gateway              # 新机上手
+bash scripts/butler-ops-cadence.sh --weekly     # 每周 G1-04 + agent eval
+bash scripts/butler-ops-cadence.sh --quarterly  # 每季 + capability baseline
+bash scripts/butler-ops-cadence.sh --release    # 发版前 + P5/fast gate
+butler onboard --profile gateway                # 新机上手
 ```
 
 ### 3.11 软件工程整理 ENG（2026-06）
@@ -558,7 +559,7 @@ butler onboard --profile gateway              # 新机上手
 ### 3.13 Agent 生产化（AP-1–AP-16，2026 H2）
 
 > **SSOT**：[`agent-production-gap-2026-06.md`](../active/agent-production-gap-2026-06.md)  
-> **守门**：`butler-trajectory-compliance-gate.sh` · `butler-agent-eval-weekly.sh`
+> **守门**：`butler-trajectory-compliance-gate.sh` · `butler-agent-eval-weekly.sh` · `butler-capability-baseline.sh`（`ops-cadence --quarterly`）
 
 | ID | 名称 | Phase | 状态 |
 |----|------|-------|------|

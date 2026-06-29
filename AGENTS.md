@@ -34,7 +34,7 @@
 | 编码知识层 | `butler/dev_engine/coding_knowledge.py` |
 | CLI | `butler/main.py` |
 | 上手向导 | `butler onboard` · [`deploy-profiles-2026-06.md`](docs/guides/deploy-profiles-2026-06.md) |
-| 运营节奏 | `bash scripts/butler-ops-cadence.sh --weekly` |
+| 运营节奏 | `bash scripts/butler-ops-cadence.sh --weekly` · 每季 `--quarterly` |
 
 ## 改代码前守门
 

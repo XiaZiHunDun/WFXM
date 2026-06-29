@@ -2,8 +2,9 @@
 # Post-P5 operations cadence — G1-04 weekly + optional release gates (PROD-P6-03).
 #
 # Usage:
-#   bash scripts/butler-ops-cadence.sh --weekly    # G1-04 check-in + pilot-log
-#   bash scripts/butler-ops-cadence.sh --release   # weekly + P5 gate + fast pytest gate
+#   bash scripts/butler-ops-cadence.sh --weekly     # G1-04 check-in + agent eval weekly
+#   bash scripts/butler-ops-cadence.sh --quarterly  # --weekly + capability baseline (AP 五维)
+#   bash scripts/butler-ops-cadence.sh --release    # weekly + P5 gate + fast pytest gate
 #
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,20 +13,20 @@ cd "$ROOT"
 MODE=""
 for arg in "$@"; do
   case "$arg" in
-    --weekly|--release) MODE="$arg" ;;
+    --weekly|--release|--quarterly) MODE="$arg" ;;
     -h|--help)
-      sed -n '1,8p' "$0"
+      sed -n '1,9p' "$0"
       exit 0
       ;;
     *)
-      echo "Unknown arg: $arg (use --weekly or --release)" >&2
+      echo "Unknown arg: $arg (use --weekly, --quarterly, or --release)" >&2
       exit 2
       ;;
   esac
 done
 
 if [[ -z "$MODE" ]]; then
-  echo "Specify --weekly or --release" >&2
+  echo "Specify --weekly, --quarterly, or --release" >&2
   exit 2
 fi
 
@@ -48,8 +49,12 @@ if [[ "$MODE" == "--release" ]]; then
   bash "$ROOT/scripts/butler-pytest-fast-gate.sh" || FAIL=1
 fi
 
-if [[ "$MODE" == "--weekly" ]]; then
+if [[ "$MODE" == "--weekly" || "$MODE" == "--quarterly" ]]; then
   bash "$ROOT/scripts/butler-agent-eval-weekly.sh" || FAIL=1
+fi
+
+if [[ "$MODE" == "--quarterly" ]]; then
+  bash "$ROOT/scripts/butler-capability-baseline.sh" || FAIL=1
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then

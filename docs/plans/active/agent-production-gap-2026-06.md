@@ -28,6 +28,16 @@
 | `scripts/butler-capability-baseline.sh` | read/delegate/workflow 三件套季度跑分 |
 | `scripts/butler-pytest-fast-gate.sh` | 含 TCR warn-only |
 
+## 运营节奏
+
+| 频率 | 命令 | 产出 |
+|------|------|------|
+| 每周 | `bash scripts/butler-ops-cadence.sh --weekly` | G1-04 打卡 + `.butler/reports/agent-eval-weekly.json` |
+| 每季 | `bash scripts/butler-ops-cadence.sh --quarterly` | 周报 + `.butler/reports/capability-baseline.json` |
+| 发版 | `bash scripts/butler-ops-cadence.sh --release` | 周报 + P5/fast gate |
+
+**TCR 升级**：`butler-pytest-fast-gate.sh` 内 TCR 暂 `--warn-only`；窗内周报稳定 **4 周后**（约 **2026-07-27**）改 `--strict`（98%）。
+
 ## 条件项（AP-13–16）
 
 见 [`agent-production-conditional-adr-2026-06.md`](../decisions/agent-production-conditional-adr-2026-06.md)
