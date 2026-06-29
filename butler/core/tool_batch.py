@@ -12,6 +12,10 @@ from butler.core.best_effort import safe_best_effort
 from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.core.parallel_tools import execute_tools_parallel
 from butler.core.steer import apply_steer_to_tool_results
+from butler.core.tool_batch_state import (
+    pop_pre_edit_snapshot,
+    store_pre_edit_snapshot,
+)
 from butler.tool_guardrails import (
     GuardrailDecision,
     ToolCallGuardrailController,
@@ -26,8 +30,6 @@ logger = logging.getLogger(__name__)
 _EDIT_TOOL_NAMES = frozenset({"write_file", "patch", "delete_file"})
 
 _OP_NAME_MAP = {"write_file": "write", "delete_file": "delete", "patch": "patch"}
-
-_pre_edit_snapshots: dict[str, str] = {}
 
 
 def _capture_pre_edit_snapshot(name: str, args: dict) -> None:
@@ -47,7 +49,7 @@ def _capture_pre_edit_snapshot(name: str, args: dict) -> None:
 
             p = get_tool_safe_root() / p
         if p.is_file() and p.stat().st_size < 512_000:
-            _pre_edit_snapshots[str(p.resolve())] = p.read_text(encoding="utf-8")
+            store_pre_edit_snapshot(str(p.resolve()), p.read_text(encoding="utf-8"))
 
     safe_best_effort(_do, label="tool_batch.pre_edit_snapshot")
 
@@ -63,7 +65,7 @@ def _fetch_pre_edit_snapshot(path: str) -> str | None:
             from butler.tools.safe_root import get_tool_safe_root
 
             p = get_tool_safe_root() / p
-        return _pre_edit_snapshots.pop(str(p.resolve()), None)
+        return pop_pre_edit_snapshot(str(p.resolve()))
 
     return safe_best_effort(_do, label="tool_batch.fetch_pre_edit_snapshot", default=None)
 

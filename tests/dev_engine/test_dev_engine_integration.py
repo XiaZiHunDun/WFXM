@@ -778,10 +778,10 @@ class TestPreEditSnapshot:
         from butler.core.tool_batch import (
             _capture_pre_edit_snapshot,
             _fetch_pre_edit_snapshot,
-            _pre_edit_snapshots,
         )
+        from butler.core.tool_batch_state import clear_pre_edit_snapshots
 
-        _pre_edit_snapshots.clear()
+        clear_pre_edit_snapshots()
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
             f.write("original content\n")
             f.flush()
@@ -796,8 +796,9 @@ class TestPreEditSnapshot:
             os.unlink(fpath)
 
     def test_capture_skips_non_edit_tools(self):
-        from butler.core.tool_batch import _capture_pre_edit_snapshot, _pre_edit_snapshots
+        from butler.core.tool_batch import _capture_pre_edit_snapshot
+        from butler.core.tool_batch_state import clear_pre_edit_snapshots, pre_edit_snapshot_count
 
-        _pre_edit_snapshots.clear()
+        clear_pre_edit_snapshots()
         _capture_pre_edit_snapshot("read_file", {"path": "/tmp/x.py"})
-        assert len(_pre_edit_snapshots) == 0
+        assert pre_edit_snapshot_count() == 0

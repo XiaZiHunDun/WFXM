@@ -125,6 +125,15 @@ def format_compaction_report(
     fact_line = format_fact_survival_line(h)
     if fact_line:
         lines.append(fact_line)
+    acl_version = str(h.get("compaction_view_version") or "").strip()
+    if acl_version:
+        lines.append(f"ACL 契约: {acl_version}")
+    acl_shape = str(h.get("compaction_acl_shape") or "").strip()
+    if acl_shape:
+        lines.append(f"ACL 形态: {acl_shape}")
+    hook_ctx = str(h.get("compaction_hook_context") or "").strip()
+    if hook_ctx:
+        lines.append(f"Hook 上下文: {len(hook_ctx)}字")
 
     ckpt: dict[str, Any] | None = None
     if sk:

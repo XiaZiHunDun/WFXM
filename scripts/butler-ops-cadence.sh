@@ -51,6 +51,9 @@ fi
 
 if [[ "$MODE" == "--weekly" || "$MODE" == "--quarterly" ]]; then
   bash "$ROOT/scripts/butler-agent-eval-weekly.sh" || FAIL=1
+  echo ""
+  echo "-- TCR strict readiness (calendar flip ~2026-07-27) --"
+  bash "$ROOT/scripts/butler-tcr-strict-readiness.sh" || true
 fi
 
 if [[ "$MODE" == "--quarterly" ]]; then

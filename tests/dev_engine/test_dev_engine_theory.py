@@ -848,27 +848,25 @@ class TestDE1PatchDeleteRollbackSnapshot:
         from butler.core.tool_batch import (
             _capture_pre_edit_snapshot,
             _dev_engine_post_edit,
-            _pre_edit_snapshots,
         )
+        from butler.core.tool_batch_state import clear_pre_edit_snapshots, pre_edit_snapshot_count
 
         f = tmp_path / "code.py"
         f.write_text("line1\nline2\n")
-        _pre_edit_snapshots.clear()
+        clear_pre_edit_snapshots()
         _capture_pre_edit_snapshot("patch", {"path": str(f)})
-        assert str(f.resolve()) in _pre_edit_snapshots
+        assert pre_edit_snapshot_count() == 1
 
     def test_production_path_delete_snapshot(self, tmp_path):
         """tool_batch captures snapshot before delete."""
-        from butler.core.tool_batch import (
-            _capture_pre_edit_snapshot,
-            _pre_edit_snapshots,
-        )
+        from butler.core.tool_batch import _capture_pre_edit_snapshot
+        from butler.core.tool_batch_state import clear_pre_edit_snapshots, pre_edit_snapshot_count
 
         f = tmp_path / "doomed.py"
         f.write_text("doomed content")
-        _pre_edit_snapshots.clear()
+        clear_pre_edit_snapshots()
         _capture_pre_edit_snapshot("delete_file", {"path": str(f)})
-        assert str(f.resolve()) in _pre_edit_snapshots
+        assert pre_edit_snapshot_count() == 1
 
 
 class TestDE2FixCountTracking:

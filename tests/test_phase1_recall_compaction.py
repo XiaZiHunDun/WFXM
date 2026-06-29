@@ -130,3 +130,20 @@ def test_format_compaction_report_empty_epoch(tmp_path, monkeypatch):
 
     text = format_compaction_report("empty:session", {})
     assert "尚无压缩记录" in text
+
+
+def test_format_compaction_report_includes_acl_fields():
+    from butler.core.compaction_status import format_compaction_report
+
+    text = format_compaction_report(
+        "wechat:acl",
+        {
+            "hygiene_compressed": True,
+            "compaction_view_version": "v1",
+            "compaction_acl_shape": "v2_summary_tags",
+            "compaction_hook_context": "hook摘要",
+        },
+    )
+    assert "ACL 契约: v1" in text
+    assert "ACL 形态: v2_summary_tags" in text
+    assert "Hook 上下文" in text

@@ -549,7 +549,7 @@ butler onboard --profile gateway                # 新机上手
 | ID | 名称 | 触发摘要 | 状态 |
 |----|------|----------|------|
 | ENG-13 | `wechat_ilink/__init__` 第三轮薄化 | 改 iLink/出站/登录 | **backlog**（条件） |
-| — | `tool_batch` 辅助状态外提 | 动 tool 批逻辑时顺带 | 笔记 |
+| — | `tool_batch` 辅助状态外提 | 动 tool 批逻辑时顺带 | **done** 2026-06-29（`tool_batch_state.py`） |
 | D7 | PIM Fernet 加密 | 合规/共享主机 | **低** · post-consolidation |
 | D8 | 识图 P3 降级链 | 仅 MiniMax 剖面 | **低** · post-consolidation |
 | D9 | `terminal` 白名单 | ADR 后 | **低** · post-consolidation |

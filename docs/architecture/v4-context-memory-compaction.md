@@ -184,7 +184,7 @@ PYTHONPATH=. pytest tests/test_memory_metrics_benchmark.py::TestMemoryBenchmark:
 
 1. **PII 压缩残留**（G2-01）：`PII_EXCLUSION_RULE` 已注入摘要 prompt；残余为诚实边界。
 2. **摘要丢细节**：靠 Facts + post_compact 锚点缓解，非无损。
-3. **微信不可见摘要正文**：仅 `/诊断` 与 transcript；无 `/压缩报告` 命令（Backlog）。
+3. **微信不可见摘要正文**：`/压缩报告` 与 `/诊断` 可见；长摘要仍以 checkpoint 节选为准。
 4. **Delegate 回传**：AgentReport 全链路独立；跨轮压缩摘要不走 delegate 卡片。
 
 ---
@@ -193,8 +193,8 @@ PYTHONPATH=. pytest tests/test_memory_metrics_benchmark.py::TestMemoryBenchmark:
 
 | 优先级 | 项 |
 |--------|-----|
-| P3 | P_r 近似（预取关键词是否出现在模型回复） |
-| P4 | 微信 `/压缩报告` 或 `/诊断` 子页展示最近摘要节选 |
+| P3 | P_r 近似（预取关键词是否出现在模型回复） | **done**（`prefetch_retrieval_metrics.py`） |
+| P4 | 微信 `/压缩报告` 或 `/诊断` 子页展示最近摘要节选 | **done**（`info_commands` + ACL 行） |
 | P5 | 压缩前后 diff 抽样审计工具 |
 
 ---
