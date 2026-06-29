@@ -9,7 +9,8 @@ import yaml
 
 from butler.config import reload_butler_settings
 from butler.memory.butler_memory import ButlerMemory
-from butler.orchestrator import ButlerOrchestrator, _combined_skill_manager
+from butler.orchestrator import ButlerOrchestrator
+from butler.orchestrator.templates import combined_skill_manager
 from butler.project import Project
 from butler.project.manager import ProjectManager
 from butler.tenant import (
@@ -114,5 +115,5 @@ class TestTenantSkillDirs:
         from butler.config import ButlerSettings
 
         settings = ButlerSettings(butler_home=tmp_path / "home")
-        mgr = _combined_skill_manager(settings, None, tenant_id="acme")
+        mgr = combined_skill_manager(settings, None, tenant_id="acme")
         assert mgr._skills_dir == tenant_skills_dir(settings.butler_home, "acme")
