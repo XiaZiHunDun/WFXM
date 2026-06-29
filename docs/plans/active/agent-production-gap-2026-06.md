@@ -25,6 +25,7 @@
 |------|------|
 | `scripts/butler-trajectory-compliance-gate.sh` | strict 语料 + 边界测试 → `.butler/reports/tcr-latest.json` |
 | `scripts/butler-agent-eval-weekly.sh` | CuP/TCR/Pass@3 周报 |
+| `scripts/butler-capability-baseline.sh` | read/delegate/workflow 三件套季度跑分 |
 | `scripts/butler-pytest-fast-gate.sh` | 含 TCR warn-only |
 
 ## 条件项（AP-13–16）
