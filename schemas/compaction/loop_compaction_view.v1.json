@@ -1,0 +1,24 @@
+{
+  "description": "Invariant view consumed by ContextPipeline / AgentLoop after ACL.",
+  "properties": {
+    "content": {
+      "default": "",
+      "description": "Unified compaction text for summary/anchors",
+      "title": "Content",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "v1",
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "title": "LoopCompactionView",
+  "type": "object"
+}

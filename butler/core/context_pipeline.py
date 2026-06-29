@@ -167,8 +167,15 @@ class ContextPipeline:
             initial_injection=injection,
             diagnostics=diagnostics,
         )
-        if did and summary:
-            self.compression_summary = summary
+        if did and summary is not None:
+            from butler.core.compaction_context_adapter import (
+                apply_compaction_view_to_diagnostics,
+                to_loop_compaction_view,
+            )
+
+            view = to_loop_compaction_view(summary, source="compress_messages")
+            apply_compaction_view_to_diagnostics(view, diagnostics)
+            self.compression_summary = view.content
             self.consecutive_compact_failures = 0
             skip_anchor = False
             if isinstance(diagnostics, dict):

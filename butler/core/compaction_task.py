@@ -145,7 +145,7 @@ def run_compaction_turn(
     try:
         from butler.hooks.runner import run_post_compact_hooks
 
-        run_post_compact_hooks(
+        hook_contexts = run_post_compact_hooks(
             estimated_tokens_before=before_est,
             estimated_tokens_after=after_est,
             message_count_before=len(messages),
@@ -153,6 +153,18 @@ def run_compaction_turn(
             iteration=iteration,
             session_key=session_key,
         )
+        if hook_contexts:
+            from butler.core.compaction_context_adapter import (
+                adapt_hook_contexts,
+                apply_compaction_view_to_diagnostics,
+                to_loop_compaction_view,
+            )
+
+            adapted = adapt_hook_contexts(hook_contexts, source="post_compact_hook")
+            if adapted:
+                diag["compaction_hook_context"] = adapted
+                view = to_loop_compaction_view(adapted, source="post_compact_merged")
+                apply_compaction_view_to_diagnostics(view, diag)
     except Exception as exc:
         logger.debug("post_compact hooks skipped: %s", exc)
 

@@ -66,6 +66,12 @@ def format_compaction_status_line(health: dict[str, Any] | None) -> str:
     line = f"压缩状态: {text}{extra}"
     if detail:
         line += f"；{detail}"
+    hook_ctx = str((health or {}).get("compaction_hook_context") or "").strip()
+    if hook_ctx:
+        line += f"；hook上下文={len(hook_ctx)}字"
+    acl_deg = (health or {}).get("compaction_acl_degraded")
+    if acl_deg:
+        line += "；ACL降级"
     return line
 
 

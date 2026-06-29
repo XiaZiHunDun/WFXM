@@ -438,11 +438,11 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 
 #### PROD-P2-04：Extension EXT-4+
 
-见 **§3.0** 规程；EXT-4 GitHub OpenAPI ✅；Q4 **EXT-5** 一页纸已起草（Decide 待 Owner）。
+见 **§3.0** 规程；EXT-4 GitHub OpenAPI ✅；EXT-5 MarkItDown Integrate + Verify ✅（2026-06-26）。
 
 | 字段 | 内容 |
 |------|------|
-| **状态** | **done** 2026-06-22（选型闭环；EXT-5 Integrate 未开） |
+| **状态** | **done** 2026-06-22（选型闭环；EXT-5 Integrate ✅ 2026-06-25） |
 | **EXT-4** | [ext-4-second-openapi-2026-06.md](../active/extension-candidates/ext-4-second-openapi-2026-06.md) · Verify ✅ |
 | **季度评审** | [extension-quarterly-review-2026-06.md](../active/extension-quarterly-review-2026-06.md) |
 | **EXT-5** | [ext-5-markitdown-mcp-2026-06.md](../active/extension-candidates/ext-5-markitdown-mcp-2026-06.md) · Integrate ✅ · **Verify 真机 ✅** 2026-06-26 |
@@ -598,8 +598,25 @@ butler onboard --profile gateway                # 新机上手
 
 ```bash
 butler eval list
-butler eval run --suite tcr,agent_weekly
+butler eval run --preset release --no-langfuse
 butler eval report --out .butler/reports/eval-unified.json
+```
+
+### 3.15 压缩边界防腐层（ACL，2026 H2）
+
+> **SSOT**：[`compaction-acl-adr-2026-07.md`](compaction-acl-adr-2026-07.md)  
+> **边界**：`context_compressor` / PostCompact hooks → `ContextPipeline` / Agent Loop
+
+| ID | 名称 | 状态 |
+|----|------|------|
+| ACL-1 | `LoopCompactionView` + `CompactionContextAdapter` | **done** 2026-06-29 |
+| ACL-2 | `ContextPipeline` / `compaction_task` 接线 | **done** 2026-06-29 |
+| ACL-3 | 适配器单测 + pipeline 集成测 | **done** 2026-06-29 |
+| ACL-4 | `schemas/compaction` + `check-schema-drift.sh` | **done** 2026-06-29 |
+
+```bash
+PYTHONPATH=. pytest tests/core/test_compaction_context_adapter.py tests/core/test_context_pipeline_acl.py -q
+bash scripts/check-schema-drift.sh
 ```
 
 ---
@@ -664,5 +681,5 @@ butler eval report --out .butler/reports/eval-unified.json
 | 2026-06-29 | **§3.14 MOD-1～8** Eval 统一管理器 + Context Transform Registry |
 | 2026-06-29 | **AP-1–AP-12 done**；AP-13–16 ADR；Agent 生产化 §3.13 |
 | 2026-06-26 | **ENG-1/2/9** 复杂度脚本 · `delegate_init` · registry 测试隔离 |
-| 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
+| 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify handler sim ✅ 2026-06-26） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |
