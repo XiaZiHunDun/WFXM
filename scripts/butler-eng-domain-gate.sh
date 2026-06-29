@@ -14,5 +14,9 @@ PYTHON_BIN="$(command -v python || command -v python3)"
   tests/test_locked_phase_registry.py \
   tests/test_model_defaults_literals.py \
   tests/test_eng7_approval_layering.py \
+  tests/test_contracts_gateway_access.py \
+  tests/test_lazy_import_budget.py \
+  tests/test_owner_pmf_report.py \
+  tests/test_env_parse_r8.py \
   -q --tb=line
 echo "ENG domain gate: OK"

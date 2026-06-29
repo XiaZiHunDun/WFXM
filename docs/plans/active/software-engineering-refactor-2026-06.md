@@ -26,12 +26,12 @@
 |------|------|------|
 | `butler/` Python 文件 | ~453 | 与 06 审计同量级 |
 | **>800 行** 单文件 | **2** | `coding_knowledge.py` 1613、`delegate_phases.py` 1244 |
-| **>600 行** 单文件 | **~15** | 含 `wechat_ilink/phases.py` 1205、`message_handler` 672 |
+| **>600 行** 单文件 | **~12** | `wechat_ilink/__init__.py` ~1119；`coding_knowledge` ~1614 |
 | `main.py` | **177** | ✅ R1-7 已薄化（原 1340） |
 | `delegate_impl.py` | **385** | ✅ R1-5 已拆出 `delegate_phases` |
-| `wechat_ilink` | **子包** | ✅ PROD-P2-01；`phases.py` 仍 1205 行 |
-| 延迟 `from butler.` | **~2454** | 环靠 lazy import 维持 |
-| `core/` → `gateway/` 顶层 import | **1 文件** | 较审计改善，未归零 |
+| `wechat_ilink` | **子包** | ✅ PROD-P2-01 + ENG-5；**第三轮**见 [`wechat-ilink-round3-2026-06.md`](wechat-ilink-round3-2026-06.md) |
+| 延迟 `from butler.` | **~3356** | 预算守门 `LAZY_IMPORT_BUDGET=3400` |
+| `core/` → `gateway/` 顶层 import | **0** | ✅ R1-3：`events_sink` + AST 守门 |
 | 全量 `pytest tests/` | **0 fail**（2026-06-27；6250 pass，排除 corpus） | 泄漏 + `.env` 耦合已修；发版 gate 绿 |
 | `get_model_config` | 已委托 `resolve_effective_model` | P0-1 部分完成 |
 
@@ -43,7 +43,8 @@
 | `inbound_pipeline` | ✅ `message_handler` 编排阶段列表化 |
 | `env_defaults` Phase A–C | ✅ |
 | `exp_cache` 锁 | ✅ RLock |
-| `wechat_ilink` 结构拆分 | ✅ 子包（`phases` 仍大） |
+| `wechat_ilink` 结构拆分 | ✅ 子包 + ENG-5；ENG-13 条件触发见专文 |
+| R1-3 core→gateway | ✅ `events_sink` + `test_core_events_sink_layering.py` |
 | Owner UX P0–P6-A | ✅ 产品向，非本计划 |
 
 ---
@@ -55,7 +56,7 @@
 | 优先级 | 文件 | 行数 | 问题 |
 |--------|------|------|------|
 | **P0** | `butler/tools/delegate_phases.py` | 1244 | 委派全阶段塞单文件；`_init_dev_engine_state` 137 行 |
-| **P0** | `butler/gateway/platforms/wechat_ilink/phases.py` | 1205 | P2-01 后仍超大；协议轮询+发送混合 |
+| **P1** | `butler/gateway/platforms/wechat_ilink/__init__.py` | ~1119 | **ENG-13** 条件触发；`phases` 已 ~370 行 |
 | **P1** | `butler/dev_engine/coding_knowledge.py` | 1613 | 定理/经验/管线；可接受但需子域边界 |
 | **P1** | `butler/gateway/locked_phases.py` | 775 | turn 终态 10+ phase 函数 |
 | **P1** | `butler/task_orchestrator.py` | 798 | `execute_graph` 182 行、`spawn_agent` 135 行 |
@@ -76,15 +77,15 @@
 
 **团队约定（新增）**：生产代码单函数 **≤80 行**；超过须 PR 说明或拆 phase。
 
-### C. 分层 / 依赖（R1 开放）
+### C. 分层 / 依赖（R1 收口）
 
-| ID | 现象 | 影响 |
-|----|------|------|
-| R1-3 | `core/*` 延迟 import `gateway.*`（compact/steer/queue） | Loop 单测需 mock gateway |
-| R1-10 | `tools/*` → `gateway.outbound_bridge` / `owner_gate` | CLI 工具测试污染 |
-| R1-1 | `transport` → `core.streaming_tools` | Provider 切换测试重 |
-| R1-18 | **~2454** 延迟 import | 无 `butler/contracts/`；环靠 lazy 维持 |
-| R1-16 | `config.load_dotenv` | R8-3 已入口化，需确认测试仍隔离 |
+| ID | 现象 | 影响 | 状态 |
+|----|------|------|------|
+| R1-3 | `core/*` → `gateway.*` | Loop 单测需 mock gateway | **done** — `butler/core/events_sink.py` + `tests/test_core_events_sink_layering.py`；`core/` 无 `from butler.gateway` |
+| R1-1 | `transport` → `core.streaming_tools` | Provider 切换测试重 | **streaming_signal** ✅ |
+| R1-10 | `tools/*` → `gateway.*` | CLI 工具测试污染 | **contracts + execution_context** ✅ |
+| R1-16 | `config.load_dotenv` | 测试 env 耦合 | **import 不触发 dotenv** ✅ |
+| R1-18 | **~3356** 延迟 import | 环靠 lazy 维持 | **预算守门 3400** ✅ |
 
 **目标架构**：
 
@@ -112,13 +113,24 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 隔离 | `MEMORY_AUTO_APPROVE=correction` 致单测失败 | `monkeypatch` / session fixture |
 | 守门 | fast-gate + domain gate | 保持为发版 SSOT |
 
-### F. 配置 / 模型（PROD-P6-07 收窄）
+### F. 配置 / 模型（PROD-P6-07 ✅）
 
-`get_model_config` 已走 `resolve_effective_model`。剩余：
+`get_model_config` 已走 `resolve_effective_model`；`model_context` 直调 resolve；`model_resolve` 统一 re-export auxiliary/embedding；静态守门见 `test_model_config_single_resolver.py`。
 
-- embedding / gateway VLM 硬编码字面量 → `model_defaults.py`  
-- `llm_fallback` auto 链 → yaml 可配  
+遗留（非阻塞）：
+
 - `/model save` 读写 L2 不对称（文档已记）
+- P1-2 fallback「默认不 auto 追加」为可选行为变更，见 maintainability §5
+
+### G. 条件触发工程债（非发版门槛）
+
+> **原则**：有明确触发再做；SSOT 分文档，勿并入 ENG 主立项重复排期。
+
+| ID | 名称 | 触发 | SSOT |
+|----|------|------|------|
+| **ENG-13** | `wechat_ilink/__init__.py` 第三轮薄化 | 改 iLink/出站/登录 或 `__init__.py` 难维护 | [`wechat-ilink-round3-2026-06.md`](wechat-ilink-round3-2026-06.md) |
+| **—** | `tool_batch.py` 辅助状态外提 | 动 tool 并行/护栏/两阶段逻辑时顺带 | 本文 §2.B；`process_tool_calls` 已 ~171 行 |
+| **D7–D9** | PIM 加密 / 识图 P3 / terminal 白名单 | 产品/合规/剖面诉求 | [`post-consolidation-roadmap` §轨道 D](post-consolidation-roadmap-2026-05.md) |
 
 ---
 
@@ -138,6 +150,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | **ENG-10** | `model_defaults` 收口剩余硬编码 | C | 1w | — |
 | **ENG-11** | `locked_phases` → phase 注册表 | D | 1–2w | ENG-3 |
 | **ENG-12** | `orchestrator` 子系统门面 | D | 2w | ENG-6 | **done** |
+| **ENG-13** | `wechat_ilink/__init__` 第三轮 | 条件 | 1–2w | ENG-5 | **backlog**（见专文） |
 
 **不做（否决延续）**：`coding_knowledge` 全量重写、Loop 换框架、无测试的大重构。
 
@@ -285,4 +298,8 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **ENG-11 done**：pre-lock / in-context 双段 phase 注册表 + 测试 |
 | 2026-06-27 | **ENG-10 done**：vision/presets 收口 + 扩展字面量守门 |
 | 2026-06-27 | **ENG-12 首步**：`butler/orchestrator/` 包；`templates` + `loop_factory` |
-| 2026-06-27 | **ENG-12 done**：`memory_bridge` + `skill_bridge` + `prompt_assembler`；门面 ~190 行 |
+| 2026-06-29 | **R1 续收尾**：OwnerGate/BridgeAccess registry；**llm_retry** 拆 `invoke/errors/success/safe` |
+| 2026-06-29 | **R1-16/R1-18**：config import 不 load dotenv 单测；lazy import 预算守门 3400 |
+| 2026-06-29 | **P6-05/06**：PMF report 单测；P6-06 收束为 ENG-9 |
+| 2026-06-29 | **B1 done**：`butler-wechat-dual-playbook-probe.sh` |
+| 2026-06-29 | **R1-3 done**（文档收口）；**ENG-13** 条件触发专文 `wechat-ilink-round3-2026-06.md` |

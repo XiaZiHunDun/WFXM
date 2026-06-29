@@ -220,3 +220,4 @@ PYTHONPATH=. pytest -m "not live_llm" -q
 | 2026-06-09 | 初稿：维护向审计 + P0–P3 分期 |
 | 2026-06-09 | M0–M3 落地：单一解析、`model_defaults`、embedding/llm_fallback/remote_compact 配置面 |
 | 2026-06-09 | P3 收口：`models` 未知键 warning；`butler doctor` 复用 `format_model_diagnostic_lines`（跳过启动日志、跳过 JSON Schema） |
+| 2026-06-26 | **PROD-P6-07 done**：`model_context` 直调 `resolve_effective_model`；`model_resolve` re-export auxiliary/embedding；`test_business_code_does_not_import_get_model_config` 守门 |

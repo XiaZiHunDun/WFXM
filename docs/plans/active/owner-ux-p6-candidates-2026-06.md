@@ -20,10 +20,10 @@ P0–P5 已收束核心能力与真机 UX 债。下一阶段以 **运营观测 +
 | PROD-P6-01 | `butler onboard` 一页纸向导 | P6-A | P0 | **done** 2026-06-26 |
 | PROD-P6-02 | `/诊断` 出站失败人话行 | P6-A | P0 | **done** 2026-06-26 |
 | PROD-P6-03 | 运维节奏脚本 `butler-ops-cadence.sh` | P6-A | P0 | **done** 2026-06-26 |
-| PROD-P6-04 | G1-04 窗满结案 + gap register | P6-B | P0 | **backlog**（→07-31） |
-| PROD-P6-05 | Owner PMF 复盘（P4-08 数据） | P6-B | P1 | **backlog**（窗满后） |
-| PROD-P6-06 | pytest 全量泄漏逐模块修 | P6-C | P2 | **backlog** |
-| PROD-P6-07 | `model_resolve` 单路径收敛 | P6-C | P2 | **backlog** |
+| PROD-P6-04 | G1-04 窗满结案 + gap register | P6-B | P0 | **scheduled**（→07-31；每周 `butler-ops-cadence.sh --weekly`） |
+| PROD-P6-05 | Owner PMF 复盘（P4-08 数据） | P6-B | P1 | **done** 2026-06-29 |
+| PROD-P6-06 | pytest 全量泄漏逐模块修 | P6-C | P2 | **done** 2026-06-27（ENG-9） |
+| PROD-P6-07 | `model_resolve` 单路径收敛 | P6-C | P2 | **done** 2026-06-26 |
 
 **建议顺序**：P6-A（本周）→ 窗内每周 G1-04 打卡 → 07-31 后 P6-B → P6-C 穿插。
 

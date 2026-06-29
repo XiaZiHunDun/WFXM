@@ -230,7 +230,7 @@ butler runtime run experience-mining-weekly --project 灵文1号 --no-notify
 
 专文：[`projects/LingWen1/docs/dual-playbook.md`](../../projects/LingWen1/docs/dual-playbook.md)
 
-各发**一句**验收话术（维护态 + 新书态各 1 条）。
+各发**一句**验收话术（维护态 + 新书态各 1 条）。自动化：`bash scripts/butler-wechat-dual-playbook-probe.sh --quick`（静态必跑；有 LLM key 时跑 handler sim）。
 
 ### B2 · 微信「测试」闭环
 
@@ -263,7 +263,7 @@ Lead **不**亲自 `terminal`；测试走 runtime 只读 job 或 `delegate_task`
 | A3 | `test_approve_mutating_one_shot` 绿 + 真机 `/运行` mutating 被拒 |
 | A4 | 团队约定 `--tier` 并写入本 runbook |
 | A5 | `/成本` 与账单对照记录 1 份 |
-| B1 | dual-playbook 文档 + 微信各测 1 句 |
+| B1 | dual-playbook 文档 + `butler-wechat-dual-playbook-probe.sh` |
 | B2 | dev 委派 pytest 闭环 1 次 |
 | B3 | `/运行 factory-status-daily` 有 audit |
 | B4 | `docs/README.md` 索引无重复清单 |

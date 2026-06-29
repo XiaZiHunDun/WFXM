@@ -84,7 +84,7 @@
 
 | ID | 项 | 验收 | 理论映射 |
 |----|-----|------|----------|
-| B1 | **维护态/新书态** 双剧本 | `dual-playbook.md` ✅；微信各测一句待做 | T8 角色分离 |
+| B1 | **维护态/新书态** 双剧本 | `dual-playbook.md` ✅；`butler-wechat-dual-playbook-probe.sh` ✅ | T8 角色分离 |
 | B2 | 微信「测试」闭环：runtime 只读 job 或委派 dev pytest | runbook 话术 + lead smoke ✅ | T8 |
 | B3 | Lead 触发只读 job 场景复验 | `butler-runtime-smoke` factory-status ✅ | T6 |
 | B4 | 试点文档收口 ✅ | `projects/LingWen1/docs/README.md` | — |
@@ -113,9 +113,9 @@
 | D5 | **Token 估算中文修正** ✅ | 诚实声明 §2 + FINDING-1 | CJK-aware heuristic (4 tests) | P-T1a | 已完成 |
 | D6 | **提醒硬上限补全** ✅ | 诚实声明 §9 | MAX_ACTIVE_REMINDERS=100 + 创建检查 (3 tests) | T7 | 已完成 |
 | D6b | **成本输出增强** ✅ | P-COST 延伸 | 分桶百分比 + 预估费用 (3 tests) | P-COST | 已完成 |
-| D7 | **PIM 存储加密** | 诚实声明 §4 + 批评 4 | Fernet 加密 TenantStore | T7 | 低 |
-| D8 | 识图 P3：无 OpenAI 时 MiniMax VLM / 本地 OCR | 媒体入站完善 | — | 低 |
-| D9 | 主机工具远期：`terminal` 白名单 | ADR 修订后实施 | — | 低 |
+| D7 | **PIM 存储加密** | 诚实声明 §4 + 批评 4 | Fernet 加密 TenantStore | T7 | 低 · **条件触发**（G1-01 opt-in） |
+| D8 | 识图 P3：无 OpenAI 时 MiniMax VLM / 本地 OCR | 媒体入站完善 | — | 低 · **条件触发**（见 deploy-profiles gateway 剖面） |
+| D9 | 主机工具远期：`terminal` 白名单 | ADR 修订后实施 | — | 低 · **条件触发**（[`roadmap` §3.12](decisions/roadmap-backlog-and-boundaries-2026-05.md#312-条件触发工程债-2026-06)） |
 
 ### 轨道 D2 — 记忆理论驱动增强（v3.0 新增）
 

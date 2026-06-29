@@ -34,6 +34,7 @@ core 顶层 import `from butler.tools.interrupt import clear_interrupt, is_inter
 **建议**: `merge_loop_callbacks` 改 caller 注入;`interrupt` 下沉到 `butler/core/interrupt.py`。
 
 **R1-3 [C] layering_violation** — `butler/core/context_compressor.py:426`, `compaction_task.py:80,130,162`, `compaction_steer_bridge.py:33`  
+> **✅ 已修复（2026-06）**：`butler/core/events_sink.py` Protocol + `NullEventsSink`；守门 `tests/test_core_events_sink_layering.py`；`core/` 无 `from butler.gateway`。
 4 个 core 模块反向 import gateway:`item_events`, `gateway.hooks`, `gateway.message_queue`。每次 compact/hook/steer 触发。CLI/单元测试无法独立运行 Loop。  
 **建议**: 抽 `butler/core/events_sink.py` Protocol,gateway 端实现注册。
 

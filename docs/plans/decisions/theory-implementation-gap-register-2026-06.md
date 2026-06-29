@@ -31,7 +31,7 @@
 | G1-07 | G1 | P-CT4a 变异测试得分未测 | ✅ `gentc_mutation.py` + `test_gentc_mutation_pct4a.py`（7 tests） |
 | G1-05 | G1 | B9 未纳入日常运营看板 | ✅ `/诊断` + `butler doctor` + `eval_diagnostics` |
 | G1-02 | G1 | 账单 baseline 对照 | ⏸️ **搁置**（2026-06-09 产品决策：顶级个人助手阶段不考虑成本标定；P-COST 结构已验，数值标定待有参考用量后再做） |
-| G1-08 | G1 | 灵文新书态一句探针 | ⏸️ **搁置**（2026-06-09：灵文1号试点业务剧本，非 Butler 通用场景；维护态已验；开新书时再验见 `dual-playbook`） |
+| G1-08 | G1 | 灵文新书态一句探针 | ✅ **维护态+B1 handler sim**（2026-06-29）；真开新书时再验 `dual-playbook` |
 | G1-06 | G1 | 入站媒体真机 M-img/M-voice | ✅ 2026-06-10 真机复测通过（出站修复后）；pytest 16/16 |
 | G2-08 | G2 | CA4 严格模式默认 advisory | ⏸️ **保持现状**（2026-06-09）：`BUTLER_CODING_STRICT=0` 为设计默认；`strict=1` 生产阻断未接线；opt-in 硬阻断待开发者 CA4 理论分析后再立项 |
 | G2-01 | G2 | PII 压缩残留 §7.4 #4 | ✅ 边界已接受：`PII_EXCLUSION_RULE` + `pii_clearable` 已接；残余为诚实边界 |

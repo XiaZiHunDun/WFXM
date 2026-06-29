@@ -507,10 +507,10 @@ Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
 | PROD-P6-01 | `butler onboard` 一页纸向导 | P6-A | **done** 2026-06-26 |
 | PROD-P6-02 | `/诊断` 出站失败人话行 | P6-A | **done** 2026-06-26 |
 | PROD-P6-03 | 运维节奏 `butler-ops-cadence.sh` | P6-A | **done** 2026-06-26 |
-| PROD-P6-04 | G1-04 窗满结案（07-31） | P6-B | **backlog** |
-| PROD-P6-05 | Owner PMF 复盘（P4-08） | P6-B | **backlog** |
-| PROD-P6-06 | pytest 全量泄漏逐模块修 | P6-C | **backlog** |
-| PROD-P6-07 | model_resolve 单路径收敛 | P6-C | **backlog** |
+| PROD-P6-04 | G1-04 窗满结案（07-31） | P6-B | **scheduled**（窗满前每周打卡；`butler-g1-04-closure-apply.sh`） |
+| PROD-P6-05 | Owner PMF 复盘（P4-08） | P6-B | **done** 2026-06-29（`butler-owner-pmf-report.sh` + 单测） |
+| PROD-P6-06 | pytest 全量泄漏逐模块修 | P6-C | **done** 2026-06-27（ENG-9：6250 pass；分层 gate SSOT） |
+| PROD-P6-07 | model_resolve 单路径收敛 | P6-C | **done** 2026-06-26 |
 
 **运营节奏**：
 
@@ -538,7 +538,22 @@ butler onboard --profile gateway              # 新机上手
 | ENG-9 | pytest 全量泄漏修债 | C | **done** 2026-06-27（6250 pass + eng domain gate） |
 | ENG-10 | `model_defaults` 剩余硬编码 | C | **done** 2026-06-27（vision/presets + 扩展字面量守门） |
 | ENG-11 | `locked_phases` phase 注册表 | D | **done** 2026-06-27（`locked_phase_registry`） |
-| ENG-12 | `orchestrator` 子系统门面 | D | **done** 2026-06-27（templates/loop/memory/skill/prompt 子模块） |
+| ENG-12 | `orchestrator` 子系统门面 | D | **done** 2026-06-27 |
+
+### 3.12 条件触发工程债（2026-06）
+
+> **SSOT**：[`software-engineering-refactor-2026-06.md`](../active/software-engineering-refactor-2026-06.md) §2.G  
+> **原则**：有触发再排期；**非**发版硬门槛。
+
+| ID | 名称 | 触发摘要 | 状态 |
+|----|------|----------|------|
+| ENG-13 | `wechat_ilink/__init__` 第三轮薄化 | 改 iLink/出站/登录 | **backlog**（条件） |
+| — | `tool_batch` 辅助状态外提 | 动 tool 批逻辑时顺带 | 笔记 |
+| D7 | PIM Fernet 加密 | 合规/共享主机 | **低** · post-consolidation |
+| D8 | 识图 P3 降级链 | 仅 MiniMax 剖面 | **低** · post-consolidation |
+| D9 | `terminal` 白名单 | ADR 后 | **低** · post-consolidation |
+
+专文：[`wechat-ilink-round3-2026-06.md`](../active/wechat-ilink-round3-2026-06.md)
 
 ---
 
@@ -599,7 +614,7 @@ butler onboard --profile gateway              # 新机上手
 | 2026-06-26 | **§3.8 P4-C** MEMORY_AUTO_APPROVE · OWNER_PMF_METRICS · pmf report |
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
 | 2026-06-22 | **§3.10 PROD-P6** 运营期抛光立项（onboard · 出站诊断 · ops cadence · 窗满后 PMF） |
-| 2026-06-26 | **§3.11 ENG** 软件工程整理计划（复杂度 · 分层 · pytest · R2 显性化） |
+| 2026-06-29 | **P6-05/06 done**；P6-04 scheduled；**§3.12** 条件触发债；R1-3 done；ENG-13 专文 |
 | 2026-06-26 | **ENG-1/2/9** 复杂度脚本 · `delegate_init` · registry 测试隔离 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |

@@ -46,12 +46,11 @@
 
 **后果**：生产错误被静默吞噬，排障极难；LangFuse/诊断无法观测到被吃掉的异常。
 
-### S2 — 循环依赖系统性症状（3189 处延迟导入）
+### S2 — 循环依赖（lazy import 预算守门）
 
-- 无 `butler/contracts/` Protocol 层（ENG-6 仍 backlog）
-- `core/` 延迟 import `gateway.*`；`tools/` 延迟 import `gateway.outbound_bridge`
-- Ruff 特意忽略 `E402`（import 位置）和 `F811`（重定义）以容忍此模式
-- IDE 自动补全/跳转在延迟 import 路径上失效
+- `butler/contracts/` 已建（EventsSink + OwnerGate + BridgeAccess）
+- `core/` / `tools/` 直 import `gateway.*` 已 AST 守门（ENG-7）
+- 延迟 `from butler.*`：**~3356**（`LAZY_IMPORT_BUDGET=3400`，`tests/test_lazy_import_budget.py`）
 
 ### S3 — 大函数 / 大文件残留
 
@@ -60,7 +59,7 @@
 | 函数 | 行数 | 文件 | 职责 |
 |------|------|------|------|
 | `process_tool_calls` | 375 | `core/tool_batch.py` | 工具批执行全流程 |
-| `call_llm_with_retry` | 291 | `core/llm_retry.py` | LLM 调用重试/流式/failover |
+| `call_llm_with_retry` | ~142（编排） | `core/llm_retry.py` | 子模块 `invoke`/`errors`/`success`/`safe` |
 | `compress_messages` | 234 | `core/context_compressor.py` | 上下文压缩 |
 | `cmd_doctor` | 229 | `cli/doctor.py` | 诊断命令 |
 | `_run_delegate_job_inner` | 226 | `runtime/delegate_job.py` | 异步委派执行 |
@@ -73,25 +72,17 @@
 | `gateway/platforms/wechat_ilink/phases.py` | 1206 |
 | `gateway/platforms/wechat_ilink/__init__.py` | 1120 |
 | `core/agent_loop_phases.py` | 859 |
-| `orchestrator.py` | 857 |
+| `butler/orchestrator/` | ~590（门面） |
 
-### S4 — 测试工程债
+### S4 — 测试工程（2026-06-29）
 
-- 全量 pytest ~101 fail（已知：跨测泄漏 + `.env` 耦合 + corpus conftest import 链路）
-- 发版以 fast-gate 为准（约 3-5 分钟）
-- 无静态类型检查（mypy/pyright 未启用）；仅 43 处 `# type: ignore`
+- 全量 pytest（排除 corpus）：**0 fail**（ENG-9，6250+ pass）
+- 发版以 `butler-pytest-fast-gate.sh` + `butler-eng-domain-gate.sh` 为准
+- mypy strict 子集：`butler-mypy-strict-gate.sh` 入 fast-gate
 
-### S5 — 文档与代码不一致（9 处）
+### S5 — 文档与代码不一致（已收口 2026-06-29）
 
-1. `v4-architecture.md` 标「5040 tests 全部通过」— 实际全量 ~101 fail
-2. workflow 自动续跑否决 vs opt-in 表述混淆
-3. G1-04「开放」vs PROD-P0-01「done」语义须区分工程/观测
-4. Welcome 默认启用 vs env opt-in 矛盾
-5. G2-08 CA4 strict 时间线不一致
-6. `software-engineering-refactor` 文首「§3.11 待写入」但已存在
-7. EXT-5 历史表述滞后
-8. P0/P2/P3 多义标记
-9. `DOCUMENTATION.md` active 索引未列 `software-engineering-refactor`
+历史矛盾项已由 ENG/P2-G 与本文修订对齐；发版测试数以分层 gate 为准（见 `agent-testing-strategy`）。
 
 ### S6 — 记忆系统架构隐患
 
@@ -168,7 +159,7 @@
 
 #### 方向 C：拆解 core 三大函数
 
-**目标**：`process_tool_calls` < 120 行、`call_llm_with_retry` < 100 行。
+**目标**：`process_tool_calls` 编排 **≤150 行**（2026-06-29 已 ~171 行 + `tool_dispatch` 206 行）；**随 tool 批逻辑改动顺带**外提 `tool_batch` 辅助状态，非独立立项。
 
 **`process_tool_calls`（375 行）拆分方案**：
 
@@ -187,9 +178,7 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 **`call_llm_with_retry`（291 行）拆分方案**：
 
-- `butler/core/llm_fallback.py`：provider fallback 链逻辑
-- `butler/core/llm_stream_handler.py`：流式接收 + on_tool_call_ready 预执行
-- `call_llm_with_retry` 保留为 ~60 行重试编排
+- ✅ 2026-06-29：`llm_retry_invoke` / `llm_retry_errors` / `llm_retry_success` / `llm_retry_safe`；编排 ~142 行
 
 **验收**：
 - `wc -l` 各新文件 < 150 行
