@@ -61,6 +61,18 @@ def dispatch_one_tool(
     if isinstance(blocked, str):
         return blocked
 
+    def _boundary_block() -> str | None:
+        from butler.permissions.tool_boundary_registry import validate_tool_boundary
+
+        violation = validate_tool_boundary(name, args)
+        if violation is None:
+            return None
+        return finalize_fallback_tool_result(name, args, violation.to_error_payload())
+
+    boundary_blocked = safe_best_effort(_boundary_block, label="tool_dispatch.boundary")
+    if isinstance(boundary_blocked, str):
+        return boundary_blocked
+
     if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
         from butler.core.batch_sequence_guard import (
             STALE_PREFETCH_CODE,
@@ -123,6 +135,20 @@ def dispatch_one_tool(
 
     _capture_pre_edit_snapshot(name, args)
     result = run_tool_with_retry(name, args, dispatch_tool)
+
+    def _emit_tool_event() -> None:
+        from butler.core.structured_events import args_digest, emit_tool_action
+        from butler.execution_context import get_current_session_key
+
+        outcome = "error" if '"error"' in str(result)[:200].lower() else "ok"
+        emit_tool_action(
+            tool_name=name,
+            args_digest_value=args_digest(args),
+            outcome=outcome,
+            session_key=str(get_current_session_key() or ""),
+        )
+
+    safe_best_effort(_emit_tool_event, label="tool_dispatch.structured_event")
 
     def _apply_error_policy() -> None:
         nonlocal result

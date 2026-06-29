@@ -28,6 +28,18 @@ for o in obs:
     print(o.line(verbose=True))
 print()
 print(json.dumps(summary, ensure_ascii=False, indent=2))
+try:
+    from butler.ops import runtime_metrics
+
+    print()
+    print("=== Structured events (global) ===")
+    snap = runtime_metrics.snapshot_global()
+    counters = snap.get("counters") or {}
+    for key in sorted(counters):
+        if key.startswith("structured_event_") or "retrieval_degraded" in key or "llm_api_call" in key:
+            print(f"  {key}: {counters[key]}")
+except Exception as exc:
+    print(f"(structured metrics skipped: {exc})")
 g1 = summary.get("g1_04_window") or {}
 if g1:
     print()

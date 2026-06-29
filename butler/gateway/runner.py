@@ -21,6 +21,9 @@ from butler.gateway.platforms.types import MessageEvent, PlatformConfig  # noqa:
 # calls the shims in core.events_sink; this is what makes them run for real
 # when the gateway is up.
 from butler.gateway import events_sink_impl  # noqa: E402, F401
+from butler.ops.runtime_metrics_sink import install_runtime_metrics_sink  # noqa: E402
+
+install_runtime_metrics_sink()
 from butler.env_parse import float_env, init_dotenv  # noqa: E402
 
 init_dotenv()

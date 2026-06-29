@@ -175,6 +175,59 @@ class TestP5PermissionDecisionEnforcement:
         reset_permission_failures()
 
 
+class TestP5PermissionFailClosed:
+    """AP-4: permission subsystem errors must deny, not bypass."""
+
+    def test_experiment_block_import_failure_denies(self, tmp_path, monkeypatch):
+        from butler.execution_context import use_execution_context
+        from butler.permissions.rules import (
+            check_project_permission_block,
+            reset_permission_failures,
+        )
+
+        orch = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+        orch.project_manager.get_current.return_value = type(
+            "P", (), {"workspace": tmp_path}
+        )()
+        reset_permission_failures()
+        with use_execution_context(orch, session_key="sk"):
+            with monkeypatch.context() as m:
+                m.setattr(
+                    "butler.experiments.mode.check_experiment_mode_block",
+                    None,
+                    raising=False,
+                )
+                # Force import path failure by making module attribute missing
+                import butler.experiments.mode as em
+
+                m.delattr(em, "check_experiment_mode_block", raising=False)
+                block = check_project_permission_block("read_file", {"path": "a.txt"})
+        assert block is not None
+        assert "experiment" in block.lower() or "守护" in block
+
+    def test_workflow_step_resolver_exception_denies(self, tmp_path, monkeypatch):
+        from butler.execution_context import use_execution_context, use_workflow_step
+        from butler.permissions.rules import check_project_permission_block
+
+        orch = __import__("unittest.mock", fromlist=["MagicMock"]).MagicMock()
+        orch.project_manager.get_current.return_value = type(
+            "P", (), {"workspace": tmp_path}
+        )()
+
+        def _boom():
+            raise RuntimeError("step resolver broken")
+
+        with use_execution_context(orch, session_key="sk"):
+            with use_workflow_step("step-a"):
+                monkeypatch.setattr(
+                    "butler.execution_context.get_current_workflow_step",
+                    _boom,
+                )
+                block = check_project_permission_block("read_file", {"path": "a.txt"})
+        assert block is not None
+        assert "workflow" in block.lower() or "拒绝" in block
+
+
 class TestP5HumanGateIsolation:
     """工作流人工门控不可被绕过。"""
 

@@ -254,6 +254,22 @@ Lead **不**亲自 `terminal`；测试走 runtime 只读 job 或 `delegate_task`
 
 ---
 
+## Agent 故障 10 分钟（AP-6）
+
+> 结构化事件：`butler/core/structured_events.py` · 报告：`.butler/reports/tcr-latest.json`
+
+| 分钟 | 动作 | 命令/入口 |
+|------|------|-----------|
+| 0–2 | 看进程指标与降级计数 | `python -c "from butler.ops import runtime_metrics; print(runtime_metrics.snapshot_global())"` |
+| 2–4 | 区分 LLM vs 检索 | 查 `llm_api_call` / `retrieval_degraded` 计数；`/诊断 详细` RAG 行 |
+| 4–6 | LangFuse（若开） | `BUTLER_LANGFUSE_ENABLED=1` trace 按 session |
+| 6–8 | Loop 终止原因 | `/诊断` → `LoopTransitionReason` |
+| 8–10 | 语义层（最后） | `transcript.jsonl` 工具行；勿先捞全文 prompt |
+
+脚本：`bash scripts/butler-gap-observability.sh`（含 boundary + structured 摘要）
+
+---
+
 ## Phase 4 完成标准
 
 | ID | 完成条件 |

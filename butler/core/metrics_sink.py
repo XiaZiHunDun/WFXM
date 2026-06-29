@@ -23,7 +23,7 @@ exceptions so observability outages never break the caller).
 from __future__ import annotations
 
 import logging
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,14 @@ class MetricsSink(Protocol):
 
     def inc(self, name: str, value: int = 1) -> None: ...
 
+    def record_event(
+        self,
+        name: str,
+        fields: dict[str, Any],
+        *,
+        session_key: str = "",
+    ) -> None: ...
+
 
 class NullMetricsSink:
     """No-op sink used when no ops is wired (CLI / unit tests / transport)."""
@@ -49,6 +57,15 @@ class NullMetricsSink:
         return None
 
     def inc(self, name: str, value: int = 1) -> None:
+        return None
+
+    def record_event(
+        self,
+        name: str,
+        fields: dict[str, Any],
+        *,
+        session_key: str = "",
+    ) -> None:
         return None
 
 
@@ -85,11 +102,25 @@ def inc(name: str, value: int = 1) -> None:
         logger.debug("metrics_sink.inc skipped: %s", exc)
 
 
+def record_event(
+    name: str,
+    fields: dict[str, Any],
+    *,
+    session_key: str = "",
+) -> None:
+    """Forward structured event to the registered sink (best-effort)."""
+    try:
+        _SINK.record_event(name, fields, session_key=session_key)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("metrics_sink.record_event skipped: %s", exc)
+
+
 __all__ = [
     "MetricsSink",
     "NullMetricsSink",
     "get_default_sink",
     "inc",
     "observe_ms",
+    "record_event",
     "set_default_sink",
 ]

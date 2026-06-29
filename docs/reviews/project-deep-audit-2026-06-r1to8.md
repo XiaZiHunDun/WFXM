@@ -189,6 +189,7 @@ post-session 记忆蒸馏 + 技能抽取的 per-item 异常,只 `logger.warning`
 
 **R2-11 [H] log_continue (enforcement layer 失守)** — `butler/permissions/rules.py:51, 87, 405, 488, 503`  
 permissions 管线 5 处 `except Exception` → `logger.warning` 后继续。Line 88 `path_outside_workspace` 显式 fail-closed (返回 True),其余 4 处 (line 488/503 workflow/experiment check) 只 `continue`,**可能让本应拒绝的 tool_call 通过**。  
+> **✅ 已修复（2026-06）**：`_experiment_block_or_fail_closed` / `_workflow_step_block_or_fail_closed` fail-closed；回归 `tests/test_premise_p5_permission_isolation.py::TestP5PermissionFailClosed`。  
 **建议**: 统一 fail-closed;`logger.error(..., exc_info=True)` + "perm check broken" tag。
 
 **R2-12 [H] bad_fallback (state corruption mask)** — `butler/registry/mcp_merge.py:147-149`  
@@ -349,6 +350,7 @@ Delegate 完成路径 + stale 回收器(`mark_stale_tasks:60-90`)并发改同一
 
 **R4-3 [C] missing_lock (gate 一致性)** — `butler/human_gate.py:184-201, 313-354`  
 `_gate_lock` 只在 `mark_step_approved` (189) 和 `resolve_human_gate_message` (319) 持有。`is_step_approved` (180) / `clear_session_gates` (195) / `check_workflow_step_approval` (209-232) **绕过**。`clear_session_gates` + `resolve_human_gate_message` 并发可让刚 clear 的 approval "复活";`is_step_approved` 可读到 resolver 中途的脏数据。**Gate 是 agent 继续/阻塞的判定,stale read 是 correctness bug**。  
+> **✅ 已修复（2026-06）**：`is_step_approved` / `clear_session_gates` / pending 列表等读路径均持 `_gate_lock`。
 **建议**: 所有 read/write 走单一 `with _gate_lock:` 临界区;in-memory mutate → 持久化,避免每次从盘重读。
 
 **R4-4 [H] missing_lock (lock-released-too-early)** — `butler/transport/provider_health.py:47-67, 81-92`  

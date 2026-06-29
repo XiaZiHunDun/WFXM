@@ -396,3 +396,16 @@ tracks:
         user_text: /详细
         expect_reply_any: [owner-sim-smoke, 微信验收, 变更, 报告]
         tier: fast
+
+  - id: rag_degrade
+    title: RAG 降级可观测（AP-3）
+    session_mode: shared
+    quick: true
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: RAG-DEGRADE-01 /诊断详细含记忆检索块
+        user_text: /诊断 详细
+        expect_reply_any: [记忆, 检索, RAG, recall, 上下文]
+        reject_reply_any: [编造, hallucinat]
+        tier: fast

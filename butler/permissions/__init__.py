@@ -12,3 +12,7 @@ from butler.permissions.rules import (  # noqa: F401
     get_workflow_step_tool_allowlist,
     match_path_glob,
 )
+from butler.permissions.tool_boundary_registry import (  # noqa: F401
+    BoundaryViolation,
+    validate_tool_boundary,
+)

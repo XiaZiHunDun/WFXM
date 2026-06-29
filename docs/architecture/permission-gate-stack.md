@@ -147,6 +147,17 @@ Agent Loop → 工具调用
 
 配置速查：`BUTLER_WORKFLOW_CHECKPOINT`、`BUTLER_WORKFLOW_RUN_SNAPSHOT`、`BUTLER_WORKFLOW_AUTO_RESUME` — [`config/reference.md`](../config/reference.md)。
 
+### 7.5 续跑矩阵（AP-11）
+
+| 场景 | 默认 | `BUTLER_WORKFLOW_AUTO_RESUME=1` | checkpoint 读回（AP-14 未做） |
+|------|------|-----------------------------------|------------------------------|
+| workflow 步骤待 Owner 确认 | 阻塞子 Agent；再发 `/workflow` | 确认后自动 `run_workflow_for_project` | 不适用 |
+| 已完成无门控步骤 | 重跑 `/workflow` **再执行** | 同上 | 未来可跳过已完成节点 |
+| 入站普通聊天 | **不**因 workflow pending 阻塞 LLM | 同左 | — |
+| Injection 待审 | 入站 guard 拦截；无 LLM | 同左 | — |
+
+斜杠命令路径 **不** 调用 `AgentLoop.run`（见 `tests/gateway/test_hitl_zero_llm.py`）。
+
 ---
 
 ## 8. 理论边界

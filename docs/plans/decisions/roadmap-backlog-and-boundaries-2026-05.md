@@ -555,6 +555,30 @@ butler onboard --profile gateway              # 新机上手
 
 专文：[`wechat-ilink-round3-2026-06.md`](../active/wechat-ilink-round3-2026-06.md)
 
+### 3.13 Agent 生产化（AP-1–AP-16，2026 H2）
+
+> **SSOT**：[`agent-production-gap-2026-06.md`](../active/agent-production-gap-2026-06.md)  
+> **守门**：`butler-trajectory-compliance-gate.sh` · `butler-agent-eval-weekly.sh`
+
+| ID | 名称 | Phase | 状态 |
+|----|------|-------|------|
+| AP-1 | `tool_boundary_registry` | A | **done** |
+| AP-2 | TCR 门禁 + `tcr-latest.json` | A | **done** |
+| AP-3 | RAG 故障 E2E + sim | A | **done** |
+| AP-4 | permissions fail-closed 回归 | A | **done** |
+| AP-5 | StructuredEvent + metrics_sink | B | **done** |
+| AP-6 | 故障 10 分钟 runbook | B | **done** |
+| AP-7 | Loop 状态机 SSOT 文档 | B | **done** |
+| AP-8 | 五维 eval 周报 | C | **done** |
+| AP-9 | Pass@3 + flaky allowlist | C | **done** |
+| AP-10 | `query_relaxation` 松弛链 | C | **done** |
+| AP-11 | HITL 零 LLM 断言 | C | **done** |
+| AP-12 | 差距专文 + 本表 | C | **done** |
+| AP-13 | 异步 HITL Redis `/resume` | D | **ADR** · 条件 |
+| AP-14 | workflow checkpoint 读回续跑 | D | **ADR** · 条件 |
+| AP-15 | OTLP 导出 StructuredEvent | D | **ADR** · 条件 |
+| AP-16 | `terminal` argv 白名单 | D | **ADR** · 接 D9 |
+
 ---
 
 **维护**：完成某项 → 本表 `状态` 改 `done`，摘要写入 §6 变更记录 + 相关 SSOT（`gap-register` / `pilot-log`）；部分交付可拆多 PR，但验收以本表勾选为准。
@@ -614,7 +638,7 @@ butler onboard --profile gateway              # 新机上手
 | 2026-06-26 | **§3.8 P4-C** MEMORY_AUTO_APPROVE · OWNER_PMF_METRICS · pmf report |
 | 2026-06-26 | **§3.7** PROD-P3 done + owner-week1-ops-sim / owner-p3-wechat-sim 守门链 |
 | 2026-06-22 | **§3.10 PROD-P6** 运营期抛光立项（onboard · 出站诊断 · ops cadence · 窗满后 PMF） |
-| 2026-06-29 | **P6-05/06 done**；P6-04 scheduled；**§3.12** 条件触发债；R1-3 done；ENG-13 专文 |
+| 2026-06-29 | **AP-1–AP-12 done**；AP-13–16 ADR；Agent 生产化 §3.13 |
 | 2026-06-26 | **ENG-1/2/9** 复杂度脚本 · `delegate_init` · registry 测试隔离 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify 真机待办） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |

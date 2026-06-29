@@ -1,0 +1,3 @@
+# Flaky strict corpus cases — excluded from Pass@3 variance gate (AP-9)
+# Update when root cause fixed; do not grow without review.
+allowlist: []

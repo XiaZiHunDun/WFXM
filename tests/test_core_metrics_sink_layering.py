@@ -218,6 +218,9 @@ def test_arbitrary_class_with_methods_satisfies_protocol():
         def inc(self, name, value=1):
             pass
 
+        def record_event(self, name, fields, *, session_key=""):
+            pass
+
     assert isinstance(_Duck(), MetricsSink), (
-        "any class with observe_ms + inc methods must satisfy MetricsSink"
+        "any class with observe_ms + inc + record_event methods must satisfy MetricsSink"
     )

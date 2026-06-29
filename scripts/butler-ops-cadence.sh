@@ -48,6 +48,10 @@ if [[ "$MODE" == "--release" ]]; then
   bash "$ROOT/scripts/butler-pytest-fast-gate.sh" || FAIL=1
 fi
 
+if [[ "$MODE" == "--weekly" ]]; then
+  bash "$ROOT/scripts/butler-agent-eval-weekly.sh" || FAIL=1
+fi
+
 if [[ "$FAIL" -ne 0 ]]; then
   echo "=== ops cadence: FAIL ==="
   exit 1

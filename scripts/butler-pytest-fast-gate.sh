@@ -17,4 +17,6 @@ bash scripts/butler-cc-harness-gate.sh
 echo ""
 bash scripts/butler-mypy-strict-gate.sh
 echo ""
+bash scripts/butler-trajectory-compliance-gate.sh --warn-only
+echo ""
 echo "Fast gate: ALL PASSED"

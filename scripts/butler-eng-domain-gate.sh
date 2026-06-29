@@ -18,5 +18,10 @@ PYTHON_BIN="$(command -v python || command -v python3)"
   tests/test_lazy_import_budget.py \
   tests/test_owner_pmf_report.py \
   tests/test_env_parse_r8.py \
+  tests/test_tool_boundary_validators.py \
+  tests/gateway/test_rag_failure_degradation.py \
+  tests/test_structured_events.py \
+  tests/test_loop_transition_coverage.py \
+  tests/test_query_relaxation.py \
   -q --tb=line
 echo "ENG domain gate: OK"

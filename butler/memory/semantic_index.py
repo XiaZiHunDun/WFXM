@@ -699,6 +699,7 @@ def hybrid_experience_search(
     mode = "none"
     fallbacks = 0
     degraded = False
+    relax_note: str | None = None
     out: list[dict[str, Any]] = []
     try:
         if _should_use_subqueries(q):
@@ -707,13 +708,38 @@ def hybrid_experience_search(
             )
             mode = "hybrid-subquery"
         else:
-            out, mode, fallbacks, degraded = _hybrid_experience_search_once(
-                semantic, fts_search, q, project=project, limit=limit
+            from butler.memory.query_relaxation import hybrid_search_with_relaxation
+
+            out, mode, fallbacks, degraded, relax_note = hybrid_search_with_relaxation(
+                _hybrid_experience_search_once,
+                semantic,
+                fts_search,
+                q,
+                project=project,
+                limit=limit,
             )
+            if relax_note:
+                try:
+                    from butler.execution_context import get_current_session_key
+                    from butler.memory.retrieval_telemetry import record_last_retrieval
+
+                    sk = str(get_current_session_key() or "")
+                    prev = get_last_retrieval(sk) if sk else {}
+                    record_last_retrieval(
+                        sk,
+                        {
+                            **prev,
+                            "relaxation_note": True,
+                            "query": q,
+                        },
+                    )
+                except Exception:
+                    pass
     except Exception:
         out, mode, fallbacks, degraded = _hybrid_experience_search_once(
             semantic, fts_search, q, project=project, limit=limit
         )
+        relax_note = None
 
     out = filter_experience_hits(out)
     out = enrich_experience_hit_tags(out, experience_store)
@@ -732,6 +758,14 @@ def hybrid_experience_search(
                 sub_queries=sub_queries,
                 degraded=degraded,
             ),
+        )
+        from butler.core.structured_events import emit_retrieval
+
+        emit_retrieval(
+            mode=mode,
+            degraded=degraded,
+            fallbacks=fallbacks,
+            session_key=str(get_current_session_key() or ""),
         )
     except Exception as exc:
         logger.debug("once skipped: %s", exc)
