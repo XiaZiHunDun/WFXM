@@ -47,7 +47,7 @@ CORPUS_PR_GATE_BASE=origin/main ./scripts/corpus-test.sh pr-gate
 | 场景 | 命令 |
 |------|------|
 | PR 快 gate | `bash scripts/butler-pytest-fast-gate.sh` |
-| 契约 schema 漂移 | `bash scripts/check-schema-drift.sh`（`SCHEMA_DRIFT_STRICT=1` 发版前可选） |
+| 契约 schema 漂移 | `SCHEMA_DRIFT_STRICT=1 bash scripts/check-schema-drift.sh`（CC harness 已 strict） |
 | 默认 CI pytest | `pytest -m 'not live_llm'` |
 | 发版 smoke | `bash scripts/butler-pre-release-smoke.sh` |
 | 维护者全量（非阻塞） | `PYTHONPATH=. pytest tests/ -q` |
@@ -104,8 +104,8 @@ PYTHONPATH=. pytest tests/test_ragflow_p0_retrieval.py tests/test_design_md_sect
 # 配置文档卫生（reference 无 dead env）
 bash scripts/check-dead-env.sh
 
-# 契约 JSON Schema 漂移（压缩 ACL 等；默认 warn-only，一周后可用 SCHEMA_DRIFT_STRICT=1）
-bash scripts/check-schema-drift.sh
+# 契约 JSON Schema 漂移（压缩 ACL 等；CC harness 内 SCHEMA_DRIFT_STRICT=1）
+SCHEMA_DRIFT_STRICT=1 bash scripts/check-schema-drift.sh
 
 # 五报告 P5–P10 + PR-F1–F6（SSOT / eval / registry / harness / LobeHub 基线）— 一条命令
 ./scripts/butler-five-reports-gate.sh

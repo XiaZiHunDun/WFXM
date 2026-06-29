@@ -103,3 +103,35 @@ def test_sync_mcp_degradations_when_disabled(monkeypatch):
     sync_mcp_degradations_at_startup()
     rows = {r.component: r.reason for r in list_degradations()}
     assert "mcp" not in rows or "未开" in rows.get("mcp", "")
+
+
+def test_sync_compaction_acl_from_metrics():
+    from butler.ops.runtime_metrics import inc
+
+    inc("compaction_acl_degraded", labels={"source": "test"})
+    from butler.ops.degradation_registry import sync_compaction_acl_from_metrics
+
+    sync_compaction_acl_from_metrics()
+    rows = {r.component: r.reason for r in list_degradations()}
+    assert "compaction_acl" in rows
+    assert "降级" in rows["compaction_acl"]
+
+
+def test_sync_compaction_acl_from_recent_skips():
+    from butler.core.best_effort import record_best_effort_skip
+    from butler.ops.degradation_registry import sync_compaction_acl_from_metrics
+
+    record_best_effort_skip("compaction_acl.compress_messages", ValueError("x"))
+    sync_compaction_acl_from_metrics()
+    rows = {r.component: r.reason for r in list_degradations()}
+    assert "compaction_acl" in rows
+
+
+def test_metrics_sink_inc_forwards_labels():
+    from butler.core.metrics_sink import inc, set_default_sink
+    from butler.ops.runtime_metrics import counter_value
+    from butler.ops.runtime_metrics_sink import RuntimeMetricsSink
+
+    set_default_sink(RuntimeMetricsSink())
+    inc("compaction_acl_degraded", labels={"source": "unit"})
+    assert counter_value("compaction_acl_degraded", labels={"source": "unit"}) >= 1

@@ -120,6 +120,7 @@ _COMPONENT_LABELS: dict[str, str] = {
     "memory": "记忆",
     "mcp": "MCP",
     "skills": "Skill",
+    "compaction_acl": "压缩ACL",
 }
 
 
@@ -158,6 +159,78 @@ def format_diagnostic_lines() -> list[str]:
     except Exception:
         pass
     return lines
+
+
+def sync_embedding_degradation_light() -> None:
+    """Fast embedder probe for gateway warm-up (no Recall@K index)."""
+    try:
+        from butler.memory.embedding import HashingEmbedder, get_embedder
+        from butler.memory.semantic_config import embedding_model_name, embedding_provider_name
+
+        embedder = get_embedder()
+        provider = embedding_provider_name()
+        model = embedding_model_name()
+        if isinstance(embedder, HashingEmbedder) and provider not in ("local", ""):
+            register_degradation(
+                "embedding",
+                f"请求 {provider}/{model} → hashing fallback",
+            )
+        else:
+            clear_degradation("embedding")
+    except Exception as exc:
+        logger.debug("embedding light degradation sync skipped: %s", exc)
+
+
+def sync_embedding_degradation_from_health_check(*, min_recall: float = 0.5) -> None:
+    """Full Recall@K probe for ``butler doctor`` / release checks."""
+    try:
+        from butler.ops.embedding_health import check_embedding_recall
+
+        report = check_embedding_recall(min_recall=min_recall)
+        if report.degraded:
+            register_degradation("embedding", report.message[:200])
+        elif not report.ok(min_recall=min_recall):
+            register_degradation("embedding", f"Recall@3 偏低: {report.message[:160]}")
+        else:
+            clear_degradation("embedding")
+    except Exception as exc:
+        logger.debug("embedding health degradation sync skipped: %s", exc)
+
+
+def sync_compaction_acl_from_metrics() -> None:
+    """Register compaction ACL degradations from runtime counters / recent skips."""
+    total = 0
+    try:
+        from butler.ops.runtime_metrics import snapshot_global
+
+        counters = snapshot_global().get("counters") or {}
+        for key, value in counters.items():
+            if key == "compaction_acl_degraded" or key.startswith("compaction_acl_degraded{"):
+                total += int(value or 0)
+    except Exception as exc:
+        logger.debug("compaction acl metrics sync skipped: %s", exc)
+    if total <= 0:
+        try:
+            from butler.core.best_effort import recent_best_effort_skips
+
+            total = sum(
+                1
+                for _ts, path, _err in recent_best_effort_skips(10)
+                if str(path).startswith("compaction_acl")
+            )
+        except Exception:
+            pass
+    if total > 0:
+        register_degradation("compaction_acl", f"累计降级 {total} 次")
+    else:
+        clear_degradation("compaction_acl")
+
+
+def sync_all_startup_degradations(*, session_key: str = "gateway:warmup") -> None:
+    """Gateway warm-up: MCP + embedding light probe + compaction ACL metrics."""
+    sync_mcp_degradations_at_startup(session_key=session_key)
+    sync_embedding_degradation_light()
+    sync_compaction_acl_from_metrics()
 
 
 def sync_mcp_degradations_at_startup(*, session_key: str = "gateway:warmup") -> None:
@@ -252,6 +325,7 @@ def refresh_degradations_for_owner_brief(
 ) -> str | None:
     """Sync memory + MCP into registry; return one brief line for Owner /诊断."""
     try:
+        sync_compaction_acl_from_metrics()
         from butler.ops.health_report import collect_mem_stats_for_health
 
         stats = collect_mem_stats_for_health(
@@ -286,6 +360,10 @@ __all__ = [
     "list_degradations",
     "refresh_degradations_for_owner_brief",
     "register_degradation",
+    "sync_all_startup_degradations",
+    "sync_compaction_acl_from_metrics",
+    "sync_embedding_degradation_from_health_check",
+    "sync_embedding_degradation_light",
     "sync_mcp_degradations_at_startup",
     "sync_memory_degradations_from_stats",
 ]

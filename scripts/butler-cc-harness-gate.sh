@@ -33,8 +33,8 @@ echo "== CC harness P3–P4 + context pipeline =="
   -q "$@"
 
 echo ""
-echo "== schema drift (compaction ACL contract) =="
-bash scripts/check-schema-drift.sh
+echo "== schema drift (compaction ACL contract, strict) =="
+SCHEMA_DRIFT_STRICT=1 bash scripts/check-schema-drift.sh
 
 echo ""
 echo "== context compaction smoke subset =="

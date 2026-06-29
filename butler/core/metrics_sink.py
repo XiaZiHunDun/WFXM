@@ -39,7 +39,14 @@ class MetricsSink(Protocol):
 
     def observe_ms(self, name: str, milliseconds: float) -> None: ...
 
-    def inc(self, name: str, value: int = 1) -> None: ...
+    def inc(
+        self,
+        name: str,
+        value: int = 1,
+        *,
+        labels: dict[str, str] | None = None,
+        session_key: str = "",
+    ) -> None: ...
 
     def record_event(
         self,
@@ -56,7 +63,14 @@ class NullMetricsSink:
     def observe_ms(self, name: str, milliseconds: float) -> None:
         return None
 
-    def inc(self, name: str, value: int = 1) -> None:
+    def inc(
+        self,
+        name: str,
+        value: int = 1,
+        *,
+        labels: dict[str, str] | None = None,
+        session_key: str = "",
+    ) -> None:
         return None
 
     def record_event(
@@ -94,10 +108,21 @@ def observe_ms(name: str, milliseconds: float) -> None:
         logger.debug("metrics_sink.observe_ms skipped: %s", exc)
 
 
-def inc(name: str, value: int = 1) -> None:
+def inc(
+    name: str,
+    value: int = 1,
+    *,
+    labels: dict[str, str] | None = None,
+    session_key: str = "",
+) -> None:
     """Forward to the registered sink; swallow exceptions (best-effort)."""
     try:
-        _SINK.inc(name, value)
+        _SINK.inc(
+            name,
+            value,
+            labels=labels,
+            session_key=session_key,
+        )
     except Exception as exc:  # noqa: BLE001 — best-effort, never break the caller
         logger.debug("metrics_sink.inc skipped: %s", exc)
 

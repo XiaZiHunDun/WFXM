@@ -13,8 +13,20 @@ class RuntimeMetricsSink:
     def observe_ms(self, name: str, milliseconds: float) -> None:
         runtime_metrics.observe_ms(name, milliseconds)
 
-    def inc(self, name: str, value: int = 1) -> None:
-        runtime_metrics.inc(name, value=value)
+    def inc(
+        self,
+        name: str,
+        value: int = 1,
+        *,
+        labels: dict[str, str] | None = None,
+        session_key: str = "",
+    ) -> None:
+        runtime_metrics.inc(
+            name,
+            value=value,
+            labels=labels,
+            session_key=session_key,
+        )
 
     def record_event(
         self,

@@ -131,8 +131,14 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
         print(f"  Embedding Recall@3: ✗ ({exc})")
 
     try:
-        from butler.ops.degradation_registry import format_diagnostic_lines
+        from butler.ops.degradation_registry import (
+            format_diagnostic_lines,
+            sync_compaction_acl_from_metrics,
+            sync_embedding_degradation_from_health_check,
+        )
 
+        sync_embedding_degradation_from_health_check(min_recall=0.5)
+        sync_compaction_acl_from_metrics()
         deg = format_diagnostic_lines()
         if deg:
             print("\n[运行降级]")
