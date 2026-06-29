@@ -61,6 +61,7 @@
 
 ```bash
 bash scripts/butler-lingwen-lead-smoke.sh
+bash scripts/butler-wechat-dual-playbook-probe.sh --quick   # B1 静态 + 有 key 时 handler 各测一句
 bash scripts/butler-runtime-smoke.sh 灵文1号
 bash scripts/butler-phase4-smoke.sh
 ```

@@ -1,0 +1,68 @@
+# B1 维护态 / 新书态双剧本 — 微信各测一句（dual-playbook.md SSOT）
+# 运行: bash scripts/butler-wechat-dual-playbook-probe.sh [--quick] [--llm-only]
+# 静态: butler.ops.dual_playbook_probe.run_dual_playbook_static_probe
+
+title: WeChat Dual Playbook Scenario Sim (B1)
+version: "2026-06-26"
+default_project: 灵文1号
+verify_phrases:
+  - "bash scripts/butler-wechat-dual-playbook-probe.sh --quick"
+
+tracks:
+  - id: lingwen-dual-playbook
+    title: 灵文1号 — 维护态 + 新书态各一句
+    session_mode: fresh
+    quick: true
+    setup:
+      - /切换 灵文1号
+    cases:
+      - name: B1 维护态 — 厂情 + 只读巡检建议
+        user_text: >-
+          当前灵文1号是什么阶段？请读 workflow_state 后摘要，并建议今天适合跑哪个只读巡检。
+        forbid_tools: [write_file, patch, terminal, delete_file]
+        expect_tools_any: [read_file]
+        expect_reply_any:
+          - PHASE_COMPLETE
+          - STEP_25
+          - COMPLETE
+          - 完成
+          - 维护
+          - factory-status
+          - consistency
+          - 只读
+          - 巡检
+          - workflow
+        reject_reply_any:
+          - write_file
+          - 已改
+          - STEP_1
+          - 从零开始
+        tier: standard
+        max_seconds: 300
+        fresh_session: true
+
+      - name: B1 新书态 — 立项指引 + 委派分工
+        user_text: >-
+          我想新开一本小说，不是维护星陨纪元。请说明要从 workflow 哪一步开始，
+          以及你会委派谁做什么。
+        forbid_tools: [write_file, patch, terminal, delete_file]
+        expect_reply_any:
+          - 新开
+          - 新书
+          - 立项
+          - 选题
+          - run_workflow
+          - 委派
+          - content
+          - dev
+          - 确认
+          - init
+          - 脚本
+        reject_reply_any:
+          - 08_已发布
+          - 自动跑完
+          - 无人值守
+          - STEP_25
+        tier: standard
+        max_seconds: 300
+        fresh_session: true

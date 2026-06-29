@@ -89,6 +89,10 @@ if [[ "$PROJECT" == "demopilot" ]]; then
 else
   run_step "preflight ($BUTLER_NAME)" \
     butler project preflight --project "$BUTLER_NAME"
+  run_step "LingWen lead smoke" \
+    bash "$ROOT/scripts/butler-lingwen-lead-smoke.sh"
+  run_step "B1 dual-playbook probe (static + optional LLM)" \
+    bash "$ROOT/scripts/butler-wechat-dual-playbook-probe.sh" --quick
 fi
 
 run_step "flywheel checklist (--probe)" \

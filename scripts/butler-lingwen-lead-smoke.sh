@@ -18,11 +18,11 @@ if [[ -f .env ]]; then
 fi
 export PYTHONPATH="${PYTHONPATH:-.}:."
 
-echo "== 1/4 project preflight =="
+echo "== 1/5 project preflight =="
 butler project preflight --project "$PROJECT"
 
 echo ""
-echo "== 2/4 lead project + tool allowlist =="
+echo "== 2/5 lead project + tool allowlist =="
 python3 <<'PY'
 from butler.project.lead import gateway_loop_role, is_lead_project
 from butler.project.manager import get_project_manager
@@ -43,7 +43,7 @@ print("lead allowlist OK")
 PY
 
 echo ""
-echo "== 3/4 workflow_state.json (read-only shape) =="
+echo "== 3/5 workflow_state.json (read-only shape) =="
 python3 <<PY
 import json
 from pathlib import Path
@@ -56,8 +56,17 @@ print("workflow_state OK:", sorted(need_any))
 PY
 
 echo ""
-echo "== 4/4 lead skill on disk =="
+echo "== 4/5 lead skill on disk =="
 test -f "$LEAD_SKILL"
+
+echo ""
+echo "== 5/5 B1 dual-playbook static preflight =="
+python3 <<'PY'
+from butler.ops.dual_playbook_probe import run_dual_playbook_static_probe
+out = run_dual_playbook_static_probe()
+assert out["ok"], out.get("errors")
+print("B1 static OK:", out["details"].get("workflow_phase"), out["details"].get("workflow_step"))
+PY
 
 echo ""
 echo "LingWen lead smoke: ALL PASSED"
