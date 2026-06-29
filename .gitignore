@@ -31,6 +31,7 @@ secrets.yaml
 Thumbs.db
 
 # Butler data
+.butler/reports/
 *.db
 *.db-journal
 *.db-wal
