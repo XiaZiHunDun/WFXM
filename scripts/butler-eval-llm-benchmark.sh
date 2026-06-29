@@ -1,49 +1,24 @@
 #!/usr/bin/env bash
-# O9: B9 LLM delegate end-to-end benchmark.
+# O9: B9 LLM delegate end-to-end benchmark (via EvalIntegrationManager).
 #
 # Usage:
 #   bash scripts/butler-eval-llm-benchmark.sh              # oracle (CI)
-#   BUTLER_EVAL_LLM_BENCHMARK=1 bash scripts/butler-eval-llm-benchmark.sh
+#   BUTLER_EVAL_LLM_BENCHMARK=1 bash scripts/butler-eval-llm-benchmark.sh  # live
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-export PYTHONPATH="$ROOT"
+export PYTHONPATH=.
 
-if [[ -f "$ROOT/.env" ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source "$ROOT/.env" 2>/dev/null || true
-  set +a
+NO_LANGFUSE=0
+if [[ "${1:-}" == "--no-langfuse" ]]; then
+  NO_LANGFUSE=1
 fi
 
-python3 - <<'PY'
-import json, sys
-from butler.dev_engine.llm_delegate_benchmark import (
-    resolve_b9_mode,
-    run_llm_delegate_benchmarks,
-)
+# LIVE mode still uses b9_oracle suite id but resolve_b9_mode inside benchmark
+ARGS=(eval run --suite b9_oracle --out "$ROOT/.butler/reports/eval-unified-b9.json")
+[[ "$NO_LANGFUSE" -eq 1 ]] && ARGS+=(--no-langfuse)
 
-from butler.ops.eval_diagnostics import append_b9_audit
-
-mode = resolve_b9_mode()
-report = run_llm_delegate_benchmarks()
-append_b9_audit(report)
-summary = {
-    "mode": report.mode,
-    "passed": report.passed,
-    "total": report.total,
-    "pass_rate": report.pass_rate,
-    "results": [r.to_dict() for r in report.results],
-}
-print(json.dumps(summary, ensure_ascii=False, indent=2))
-print()
-print(f"B9 ({mode.value}): {report.passed}/{report.total} ({report.pass_rate:.0%})")
-if report.passed < report.total:
-    print("B9 BENCHMARK: FAILED", file=sys.stderr)
-    for r in report.results:
-        if not r.passed:
-            print(f"  - {r.task_id}: {'; '.join(r.failure_reasons)}", file=sys.stderr)
-    sys.exit(1)
-print("B9 BENCHMARK: PASSED")
-PY
+echo "== Butler eval B9 =="
+python -m butler.main "${ARGS[@]}"
+echo "B9 BENCHMARK: PASSED"

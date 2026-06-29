@@ -51,6 +51,8 @@ class EvalIntegrationManager:
                     "regression",
                     "wechat_corpus",
                     "tcr",
+                    "memory_mb",
+                    "b9_oracle",
                 ):
                     continue
                 try:

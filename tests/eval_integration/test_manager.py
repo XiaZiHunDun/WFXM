@@ -45,6 +45,37 @@ def test_manager_list_includes_regression_wechat():
     assert "tcr" in ids
     assert "regression" in ids
     assert "wechat_corpus" in ids
+    assert "memory_mb" in ids
+    assert "b9_oracle" in ids
+
+
+@patch("butler.memory.memory_benchmark.run_benchmarks")
+def test_memory_mb_suite_mock(mock_run):
+    from butler.eval_integration.suites.memory_mb_suite import MemoryMbSuite
+
+    class _Rep:
+        passed = 7
+        total = 7
+
+    mock_run.return_value = _Rep()
+    result = MemoryMbSuite().run(push_langfuse=False)
+    assert result.ok
+    assert result.metrics["pass_rate"] == 1.0
+
+
+@patch("butler.dev_engine.llm_delegate_benchmark.run_llm_delegate_benchmarks")
+@patch("butler.ops.eval_diagnostics.append_b9_audit")
+def test_b9_oracle_suite_mock(mock_audit, mock_run):
+    from butler.eval_integration.suites.b9_oracle_suite import B9OracleSuite
+    from butler.dev_engine.b9_types import B9Report, B9Result
+
+    mock_run.return_value = B9Report(
+        results=[B9Result(task_id="t1", description="", passed=True, mode="oracle")],
+        mode="oracle",
+    )
+    result = B9OracleSuite().run(push_langfuse=False)
+    assert result.ok
+    mock_audit.assert_called_once()
 
 
 @patch("butler.eval_integration.suites.tcr_suite.TcrSuite.run")
