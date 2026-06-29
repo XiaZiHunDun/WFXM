@@ -164,6 +164,7 @@ API 413 / 溢出:
 ```bash
 bash scripts/butler-context-compaction-smoke.sh
 bash scripts/check-schema-drift.sh
+bash scripts/butler-compaction-audit-sample.sh
 PYTHONPATH=. pytest tests/core/test_compaction_context_adapter.py tests/core/test_context_pipeline_acl.py -q
 PYTHONPATH=. pytest tests/test_memory_metrics_benchmark.py::TestMemoryBenchmark::test_mb6_fact_compaction -q
 ```
@@ -195,7 +196,7 @@ PYTHONPATH=. pytest tests/test_memory_metrics_benchmark.py::TestMemoryBenchmark:
 |--------|-----|
 | P3 | P_r 近似（预取关键词是否出现在模型回复） | **done**（`prefetch_retrieval_metrics.py`） |
 | P4 | 微信 `/压缩报告` 或 `/诊断` 子页展示最近摘要节选 | **done**（`info_commands` + ACL 行） |
-| P5 | 压缩前后 diff 抽样审计工具 |
+| P5 | 压缩前后 diff 抽样审计工具 | **done**（`butler-compaction-audit-sample.sh`） |
 
 ---
 

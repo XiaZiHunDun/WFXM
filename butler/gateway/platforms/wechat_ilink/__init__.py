@@ -398,115 +398,34 @@ class WeChatAdapter(ButlerPlatformAdapter):
         consecutive_failures: int,
         handle_response: Any,
     ) -> int:
-        """Dispatch one poll response. Returns the updated failure counter."""
-        signal, messages = handle_response(self, response)
-        if signal == "session_expired":
-            await asyncio.sleep(600)
-            return 0
-        ret = response.get("ret", 0)
-        errcode = response.get("errcode", 0)
-        if ret not in (0, None) or errcode not in (0, None):
-            consecutive_failures += 1
-            logger.warning(
-                "[%s] getUpdates failed ret=%s errcode=%s errmsg=%s (%d/%d)",
-                self.name, ret, errcode, response.get("errmsg", ""),
-                consecutive_failures, MAX_CONSECUTIVE_FAILURES,
-            )
-            await asyncio.sleep(self._poll_backoff_seconds(consecutive_failures))
-            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-                return 0
-            return consecutive_failures
-        for message in messages:
-            # Serialize within a poll batch — create_task caused registry races.
-            await self._process_message_safe(message)
-        return 0
+        from butler.gateway.platforms.wechat_ilink.adapter_inbound import dispatch_poll_response
+
+        return await dispatch_poll_response(
+            self, response, consecutive_failures, handle_response,
+        )
 
     @staticmethod
     def _poll_backoff_seconds(consecutive_failures: int) -> float:
-        """Pick BACKOFF_DELAY (>=MAX) or RETRY_DELAY based on failure ladder."""
-        return (
-            BACKOFF_DELAY_SECONDS
-            if consecutive_failures >= MAX_CONSECUTIVE_FAILURES
-            else RETRY_DELAY_SECONDS
-        )
+        from butler.gateway.platforms.wechat_ilink.adapter_inbound import poll_backoff_seconds
+
+        return poll_backoff_seconds(consecutive_failures)
 
     async def _handle_poll_exception(
         self, exc: Exception, consecutive_failures: int,
     ) -> int:
-        """Outer-exception backoff branch for ``_poll_loop``. Returns updated counter."""
-        consecutive_failures += 1
-        logger.error(
-            "[%s] poll error (%d/%d): %s",
-            self.name, consecutive_failures, MAX_CONSECUTIVE_FAILURES, exc,
-        )
-        await asyncio.sleep(self._poll_backoff_seconds(consecutive_failures))
-        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
-            return 0
-        return consecutive_failures
+        from butler.gateway.platforms.wechat_ilink.adapter_inbound import handle_poll_exception
+
+        return await handle_poll_exception(self, exc, consecutive_failures)
 
     async def _process_message_safe(self, message: Dict[str, Any]) -> None:
-        try:
-            await self._process_message(message)
-        except Exception as exc:
-            logger.error(
-                "[%s] unhandled inbound error from=%s: %s",
-                self.name,
-                _safe_id(message.get("from_user_id")),
-                exc,
-                exc_info=True,
-            )
+        from butler.gateway.platforms.wechat_ilink.adapter_inbound import process_message_safe
+
+        await process_message_safe(self, message)
 
     async def _process_message(self, message: Dict[str, Any]) -> None:
-        # R1-4a: thin orchestrator — delegates dedup / chat-policy /
-        # event-construction to 3 phase functions in
-        # ``wechat_ilink_phases.py``. This method owns the iLink
-        # self-id skip + token-store write + media collection.
-        from butler.gateway.platforms.wechat_ilink_phases import (
-            _phase_inbound_build_event,
-            _phase_inbound_chat_policy,
-            _phase_inbound_dedup,
-        )
+        from butler.gateway.platforms.wechat_ilink.adapter_inbound import process_message
 
-        assert self._poll_session is not None
-        sender_id = str(message.get("from_user_id") or "").strip()
-        if not sender_id:
-            return
-        if sender_id == self._account_id:
-            return
-
-        message_id = str(message.get("message_id") or "").strip()
-        item_list = message.get("item_list") or []
-        text = _extract_text(item_list)
-
-        if not _phase_inbound_dedup(self, message, sender_id, text):
-            return
-
-        chat_type, effective_chat_id = _guess_chat_type(message, self._account_id)
-        if not _phase_inbound_chat_policy(self, chat_type, effective_chat_id, sender_id):
-            return
-
-        context_token = str(message.get("context_token") or "").strip()
-        if context_token:
-            self._token_store.set(self._account_id, sender_id, context_token)
-        self._schedule_typing_ticket_bg(sender_id, context_token or None)
-
-        media_paths: List[str] = []
-        media_types: List[str] = []
-        for item in item_list:
-            await self._collect_media(item, media_paths, media_types)
-            ref_message = item.get("ref_msg") or {}
-            ref_item = ref_message.get("message_item")
-            if isinstance(ref_item, dict):
-                await self._collect_media(ref_item, media_paths, media_types)
-
-        if not text and not media_paths:
-            return
-
-        event = _phase_inbound_build_event(
-            self, message, sender_id, text, media_paths, media_types,
-            effective_chat_id, chat_type, message_id,
-        )
-        await self.handle_message(event)
+        await process_message(self, message)
 
     def _is_dm_allowed(self, sender_id: str) -> bool:
         if self._dm_policy == "disabled":

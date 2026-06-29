@@ -684,6 +684,27 @@ class TestR14bQrLoginStateDataclass:
 
 
 @pytest.mark.unit
+class TestEng13AdapterInbound:
+    def test_adapter_inbound_module_exists(self):
+        mod = importlib.import_module(
+            "butler.gateway.platforms.wechat_ilink.adapter_inbound"
+        )
+        assert hasattr(mod, "dispatch_poll_response")
+        assert hasattr(mod, "process_message")
+
+    def test_poll_backoff_seconds_ladder(self):
+        from butler.gateway.platforms.wechat_ilink.adapter_inbound import poll_backoff_seconds
+        from butler.gateway.platforms.wechat_ilink.constants import (
+            BACKOFF_DELAY_SECONDS,
+            MAX_CONSECUTIVE_FAILURES,
+            RETRY_DELAY_SECONDS,
+        )
+
+        assert poll_backoff_seconds(1) == RETRY_DELAY_SECONDS
+        assert poll_backoff_seconds(MAX_CONSECUTIVE_FAILURES) == BACKOFF_DELAY_SECONDS
+
+
+@pytest.mark.unit
 class TestR14bSendWechatDirectMissingToken:
     """Behavioral smoke: ``send_wechat_direct`` returns error dict (not raises)
     when the token is missing. Mirrors the original function's contract."""

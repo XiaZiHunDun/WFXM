@@ -1,6 +1,6 @@
 # wechat_ilink 第三轮拆分（ENG-13）— 范围与验收
 
-> **状态**：**条件触发 backlog**（2026-06-29）· **非**发版硬门槛  
+> **状态**：**条件触发 backlog**（2026-06-29）· **PR-1 进行中**（`adapter_inbound.py`）· **非**发版硬门槛  
 > **登记**：[`roadmap-backlog` §3.12](../decisions/roadmap-backlog-and-boundaries-2026-05.md#312-条件触发工程债-2026-06)  
 > **前置**：ENG-5 ✅（`connect_phases` / `poll_phases` / `send_phases` / `qr_phases`）；`phases.py` 门面 ~370 行  
 > **原则**：零行为变更；只薄化 `WeChatAdapter` 宿主；真机 smoke 为最终验收
@@ -109,4 +109,5 @@ bash scripts/butler-wechat-attach-probe.sh
 
 | 日期 | 说明 |
 |------|------|
+| 2026-06-29 | PR-1：`adapter_inbound.py`（poll 分发 + 入站 process_message） |
 | 2026-06-29 | 初稿：ENG-13 条件触发范围 + 验收 + PR 切分 |
