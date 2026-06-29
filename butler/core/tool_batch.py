@@ -11,17 +11,11 @@ from typing import Any, Callable
 from butler.core.best_effort import safe_best_effort
 from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.core.parallel_tools import execute_tools_parallel
-from butler.core.steer import apply_steer_to_tool_results
 from butler.core.tool_batch_state import (
     pop_pre_edit_snapshot,
     store_pre_edit_snapshot,
 )
-from butler.tool_guardrails import (
-    GuardrailDecision,
-    ToolCallGuardrailController,
-    append_guidance,
-    synthetic_result,
-)
+from butler.tool_guardrails import ToolCallGuardrailController
 from butler.transport.types import NormalizedResponse
 
 logger = logging.getLogger(__name__)
@@ -362,7 +356,6 @@ def process_tool_calls(
 
     from butler.core.tool_batch_hooks import build_tool_batch_hooks
     from butler.core.tool_dispatch import dispatch_one_tool
-    from butler.execution_context import get_current_session_key
 
     on_start, on_complete, precheck_tool, hook_state = build_tool_batch_hooks(
         callbacks=callbacks,
@@ -393,88 +386,27 @@ def process_tool_calls(
             prefetched=prefetched,
         )
     else:
-        pairs = []
-        batch_interrupted = False
-        for tc in response.tool_calls:
-            try:
-                args = tc.args_dict()
-            except Exception as exc:
-                logger.warning("args_dict() parse failed for tool %s: %s", tc.name, exc)
-                args = {}
-            if batch_interrupted or interrupt_check():
-                batch_interrupted = True
-                result = finalize_fallback_tool_result(
-                    tc.name,
-                    args,
-                    {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
-                )
-                pairs.append((tc, result))
-                continue
-            if guardrails and guardrails.halt_decision:
-                pairs.append((
-                    tc,
-                    finalize_fallback_tool_result(
-                        tc.name,
-                        args,
-                        synthetic_result(guardrails.halt_decision),
-                    ),
-                ))
-                continue
-            if batch_guard is not None and batch_guard.should_skip_stale_read(tc.name, args):
-                from butler.core.batch_sequence_guard import stale_skip_result
+        from butler.core.tool_batch_runner import run_sequential_tool_calls
 
-                pairs.append((
-                    tc,
-                    finalize_fallback_tool_result(
-                        tc.name,
-                        args,
-                        stale_skip_result(tc.name, args, guard=batch_guard),
-                    ),
-                ))
-                continue
-            on_start(tc.name, args)
-            result = _dispatch_one(tc.name, args, tool_call_id=str(tc.id or ""))
-            on_complete(tc.name, result)
-            pairs.append((tc, result))
-            if interrupt_check():
-                batch_interrupted = True
+        pairs = run_sequential_tool_calls(
+            list(response.tool_calls),
+            dispatch_one=_dispatch_one,
+            on_start=on_start,
+            on_complete=on_complete,
+            guardrails=guardrails,
+            batch_guard=batch_guard,
+            interrupt_check=interrupt_check,
+        )
 
-    from butler.core.tool_result_storage import (
-        maybe_spill_tool_result,
-        normalize_empty_tool_result,
+    from butler.core.tool_batch_runner import (
+        append_tool_role_messages,
+        extract_batch_followups,
     )
+    from butler.execution_context import get_current_session_key
 
     session_key = str(get_current_session_key() or "").strip()
-    for tc, result in pairs:
-        normalized = normalize_empty_tool_result(result, tool_name=tc.name)
-        content = maybe_spill_tool_result(
-            normalized,
-            tool_name=tc.name,
-            tool_use_id=tc.id or "",
-            session_key=session_key,
-        )
-        messages.append({
-            "role": "tool",
-            "tool_call_id": tc.id,
-            "content": content,
-        })
-
-    apply_steer_to_tool_results(messages, len(pairs))
-
-    clarification: str | None = None
-    waiting: str | None = None
-    for tc, result in pairs:
-        payload = parse_tool_result_object(result)
-        if isinstance(payload, dict) and payload.get("code") == "TWO_PHASE_PENDING":
-            waiting = str(payload.get("error") or "").strip() or None
-            if waiting:
-                break
-        if tc.name != "ask_clarification":
-            continue
-        if isinstance(payload, dict) and payload.get("code") == "CLARIFICATION":
-            clarification = str(payload.get("question") or "").strip() or None
-            if clarification:
-                break
+    append_tool_role_messages(pairs, messages, session_key=session_key)
+    clarification, waiting = extract_batch_followups(pairs)
 
     return ToolBatchStats(
         tools_started=hook_state.tools_started,

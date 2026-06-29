@@ -69,9 +69,12 @@ def test_parallel_disabled_when_write_and_read(monkeypatch):
 
 
 @pytest.mark.module_test
-def test_sequential_skips_read_after_patch(monkeypatch):
+def test_sequential_skips_read_after_patch(monkeypatch, tmp_path):
     monkeypatch.setenv("BUTLER_BATCH_STALE_GUARD", "1")
-    path = "/tmp/seq_guard_a.py"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    path = "seq_guard_a.py"
+    (tmp_path / path).write_text("old", encoding="utf-8")
     dispatched: list[str] = []
 
     def dispatch(name: str, args: dict) -> str:
@@ -103,9 +106,11 @@ def test_sequential_skips_read_after_patch(monkeypatch):
 
 
 @pytest.mark.module_test
-def test_skips_prefetched_read_after_write(monkeypatch):
+def test_skips_prefetched_read_after_write(monkeypatch, tmp_path):
     monkeypatch.setenv("BUTLER_BATCH_STALE_GUARD", "1")
-    path = "/tmp/prefetch_b.py"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
+    path = "prefetch_b.py"
     prefetched = {
         "c_read": json.dumps({"content": "prefetched", "ok": True}),
         "c_write": json.dumps({"ok": True, "path": path}),

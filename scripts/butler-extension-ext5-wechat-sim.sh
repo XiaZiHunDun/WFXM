@@ -88,6 +88,15 @@ from pathlib import Path
 ROOT = Path(os.getcwd())
 sys.path.insert(0, str(ROOT))
 
+from butler.gateway.ext5_phrases import (
+    FIXTURE_MD_REL,
+    FIXTURE_REL,
+    PHRASE_DIAG_DETAIL,
+    PHRASE_REFERENCE_BOOK,
+    PHRASE_SWITCH_LINGWEN,
+    PHRASE_TXT_TO_MD,
+    PHRASE_TXT_TO_MD_INGEST,
+)
 from butler.gateway.message_handler import ButlerMessageHandler
 from butler.gateway.outbound_files import expand_reply_with_wechat_attachments
 from butler.gateway.wechat_scenario_sim import evaluation_reply_text
@@ -155,32 +164,38 @@ def run_case(
 if QUICK:
     run_case(
         "/诊断 EXT-5",
-        "/诊断 详细",
+        PHRASE_DIAG_DETAIL,
         expect_any=("Extension Verify", "markitdown"),
     )
     print(f"\next5-wechat-sim: {'ALL PASS' if not failures else failures}")
     raise SystemExit(1 if failures else 0)
 
-file_uri = FIXTURE.as_uri()
 handler = ButlerMessageHandler(channel="gateway")
-run_case("/切换 灵文1号", "/切换 灵文1号", session_key=SESSION_SK)
+run_case("准备 /切换", PHRASE_SWITCH_LINGWEN, session_key=SESSION_SK)
 run_case(
-    "/诊断 Extension + markitdown",
-    "/诊断 详细",
+    "#1 /诊断 详细",
+    PHRASE_DIAG_DETAIL,
     expect_any=("Extension Verify", "markitdown"),
     session_key=SESSION_SK,
 )
 run_case(
-    "EXT-5 manifest 话术",
-    f"请 read_file 读取 {FIXTURE}，用 MarkItDown 或等价方式转成 Markdown 并写入 docs/ext5-fixture-sample.md",
-    verify_files=((FIXTURE.parent / "ext5-fixture-sample.md", ("EXT-5 fixture",)),),
-    reject_any=("japanese-learning",),
+    "#2 TXT→Markdown",
+    PHRASE_TXT_TO_MD,
+    expect_any=("Markdown", "转换", "委派", "task", "ext5"),
     session_key=SESSION_SK,
 )
 run_case(
-    "EXT-5 file URI 提示",
-    f"请用 MarkItDown MCP 转换这个文件并摘要第一句：{file_uri}",
-    expect_any=("EXT-5", "fixture", "MarkItDown"),
+    "#3 ingest 进记忆",
+    PHRASE_TXT_TO_MD_INGEST,
+    expect_any=("ingest", "记忆", "Markdown", "MarkItDown", "转换"),
+    reject_any=("butler_remember 还是", "写盘"),
+    session_key=SESSION_SK,
+)
+run_case(
+    "#4 参考书路径",
+    PHRASE_REFERENCE_BOOK,
+    expect_any=("ext5-fixture", "Markdown", "MarkItDown", "转换", "参考书"),
+    reject_any=("japanese-learning", "tests/fixtures"),
     session_key=SESSION_SK,
 )
 
