@@ -6,7 +6,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from butler.core.llm_retry import _safe_call
+from butler.core.llm_retry_safe import safe_call as _safe_call
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse
 
