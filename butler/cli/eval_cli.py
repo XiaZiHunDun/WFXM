@@ -21,11 +21,16 @@ def _cmd_eval_list(_ns: argparse.Namespace) -> int:
 
 def _cmd_eval_run(ns: argparse.Namespace) -> int:
     from butler.eval_integration.manager import EvalIntegrationManager
+    from butler.eval_integration.presets import resolve_suites
 
     console = Console()
-    suites = [s.strip() for s in (ns.suite or "").split(",") if s.strip()]
+    try:
+        suites = resolve_suites(suite=ns.suite, preset=ns.preset)
+    except KeyError as exc:
+        console.print(f"[red]{exc}[/red]")
+        return 2
     if not suites:
-        console.print("[red]请指定 --suite（逗号分隔）[/red]")
+        console.print("[red]请指定 --suite 或 --preset[/red]")
         return 2
     mgr = EvalIntegrationManager()
     push_langfuse = False if ns.no_langfuse else None
@@ -70,6 +75,11 @@ def _cmd_eval_sync(ns: argparse.Namespace) -> int:
     sid = (ns.suite or "tcr").strip()
     out = mgr.sync_check(sid)
     console.print(json.dumps(out, ensure_ascii=False, indent=2))
+    if out.get("warnings"):
+        for w in out["warnings"]:
+            console.print(f"[yellow]WARN[/yellow] {w}")
+    if not out.get("ok") and not ns.warn_only:
+        return 1
     return 0
 
 
@@ -80,7 +90,12 @@ def register_eval_parser(sub: argparse._SubParsersAction) -> None:
     ev.add_parser("list", help="列出已注册 suite").set_defaults(func=_cmd_eval_list)
 
     run_p = ev.add_parser("run", help="运行 suite 并写统一报告")
-    run_p.add_argument("--suite", required=True, help="逗号分隔 suite id")
+    run_p.add_argument("--suite", default="", help="逗号分隔 suite id")
+    run_p.add_argument(
+        "--preset",
+        choices=["release", "weekly", "memory", "dev"],
+        help="预设 suite 组合（与 --suite 二选一）",
+    )
     run_p.add_argument(
         "--out",
         default=".butler/reports/eval-unified.json",
@@ -98,4 +113,5 @@ def register_eval_parser(sub: argparse._SubParsersAction) -> None:
 
     sync_p = ev.add_parser("sync", help="多 sink 弱一致性检查")
     sync_p.add_argument("--suite", default="tcr")
+    sync_p.add_argument("--warn-only", action="store_true", help="不一致时仍 exit 0")
     sync_p.set_defaults(func=_cmd_eval_sync)

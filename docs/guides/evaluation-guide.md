@@ -34,13 +34,15 @@
 ```bash
 butler eval list
 butler eval run --suite tcr,agent_weekly --warn-only
+butler eval run --preset release --no-langfuse   # 发版：tcr + regression + wechat_corpus
 butler eval report --out .butler/reports/eval-unified.json
-butler eval sync --suite tcr
+butler eval sync --suite tcr          # 缺 sink 时 exit 1
+butler eval sync --suite tcr --warn-only
 ```
 
 理论/ADR：[`v4.5-modular-eval-context-theory.md`](../architecture/v4.5-modular-eval-context-theory.md) · [`eval-integration-manager-adr-2026-07.md`](../plans/decisions/eval-integration-manager-adr-2026-07.md)
 
-可选 OSS suite（`pip install butler-system[eval-deepeval]` / `[eval-ragas]`）：`deepeval_agent` · `ragas_memory`
+可选 OSS suite（`pip install butler-system[eval-deepeval]` / `[eval-ragas]`）：`deepeval_agent` · `ragas_memory`（确定性 fixture / 启发式 faithfulness；`BUTLER_EVAL_*_LLM=1` 可开 LLM pilot）
 
 已注册 suite：`tcr` · `agent_weekly` · `capability` · `regression` · `wechat_corpus` · `memory_mb` · `b9_oracle` · …
 

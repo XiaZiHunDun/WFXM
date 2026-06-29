@@ -10,8 +10,11 @@ from butler.contracts.eval_ports import ScoreSinkPort, SuiteRunResult
 from butler.eval_integration.report_schema import build_unified_report
 from butler.eval_integration.suite_registry import get_suite, list_suite_ids
 from butler.eval_integration.sinks.audit_sink import AuditSink
+from butler.eval_integration.sinks.deepeval_sink import DeepEvalSink
 from butler.eval_integration.sinks.junit_sink import JUnitSink
 from butler.eval_integration.sinks.langfuse_sink import LangFuseSink
+from butler.eval_integration.sinks.ragas_sink import RagasSink
+from butler.eval_integration.sync_policy import evaluate_sync
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_REPORT = ROOT / ".butler" / "reports" / "eval-unified.json"
@@ -23,6 +26,8 @@ class EvalIntegrationManager:
             AuditSink(),
             JUnitSink(),
             LangFuseSink(),
+            DeepEvalSink(),
+            RagasSink(),
         ]
 
     def list_suites(self) -> list[str]:
@@ -54,6 +59,10 @@ class EvalIntegrationManager:
                     "memory_mb",
                     "b9_oracle",
                 ):
+                    continue
+                if sink.backend_id == "deepeval" and sid != "deepeval_agent":
+                    continue
+                if sink.backend_id == "ragas" and sid != "ragas_memory":
                     continue
                 try:
                     ref = sink.write_suite_result(result, payload)
@@ -103,8 +112,7 @@ class EvalIntegrationManager:
 
     def sync_check(self, suite_id: str) -> dict[str, Any]:
         """Weak consistency check across sinks."""
-        out: dict[str, Any] = {"suite_id": suite_id, "sinks": {}}
+        rows: dict[str, dict[str, Any] | None] = {}
         for sink in self._sinks:
-            latest = sink.read_latest(suite_id)
-            out["sinks"][sink.backend_id] = {"present": latest is not None}
-        return out
+            rows[sink.backend_id] = sink.read_latest(suite_id)
+        return evaluate_sync(suite_id, rows)

@@ -78,6 +78,21 @@ def test_b9_oracle_suite_mock(mock_audit, mock_run):
     mock_audit.assert_called_once()
 
 
+def test_manager_sync_check_structure():
+    mgr = EvalIntegrationManager(sinks=[])
+    out = mgr.sync_check("tcr")
+    assert out["suite_id"] == "tcr"
+    assert "ok" in out
+    assert "warnings" in out
+
+
+def test_presets_release():
+    from butler.eval_integration.presets import resolve_suites
+
+    suites = resolve_suites(preset="release")
+    assert suites == ["tcr", "regression", "wechat_corpus"]
+
+
 @patch("butler.eval_integration.suites.tcr_suite.TcrSuite.run")
 def test_manager_run_tcr_mock(mock_run, tmp_path):
     mock_run.return_value = SuiteRunResult(

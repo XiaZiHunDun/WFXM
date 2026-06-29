@@ -1,0 +1,24 @@
+# Memory faithfulness heuristic cases (prefetch-style). MOD-8 pilot.
+cases:
+  - id: path_recall
+    question: 项目根目录在哪？
+    context: |
+      项目 WFXM 根目录为 /home/ailearn/projects/WFXM。
+      Agent 主循环在 butler/core/agent_loop.py。
+    answer: 根目录是 /home/ailearn/projects/WFXM，Loop 在 butler/core/agent_loop.py。
+    min_faithfulness: 0.3
+
+  - id: reject_hallucination
+    question: 默认 Redis 队列端口是多少？
+    context: |
+      Butler v4 入站队列在 butler/gateway/message_queue.py，不做多实例 MQ。
+    answer: 默认使用 Redis 6379 端口做入站队列。
+    min_faithfulness: 0.0
+    max_faithfulness: 0.4
+
+  - id: partial_overlap
+    question: 微信入站在哪？
+    context: |
+      微信入站处理在 butler/gateway/message_handler.py。
+    answer: 微信网关入口是 butler/gateway/message_handler.py。
+    min_faithfulness: 0.5

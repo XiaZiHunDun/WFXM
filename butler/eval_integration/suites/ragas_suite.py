@@ -3,15 +3,7 @@
 from __future__ import annotations
 
 from butler.contracts.eval_ports import SuiteRunResult
-
-
-def _ragas_available() -> bool:
-    try:
-        import ragas  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+from butler.eval_integration.oss.ragas_runner import ragas_available, run_ragas_memory
 
 
 class RagasMemorySuite:
@@ -25,16 +17,17 @@ class RagasMemorySuite:
         sync_dataset: bool = False,
         push_langfuse: bool | None = None,
     ) -> SuiteRunResult:
-        if not _ragas_available():
+        if not ragas_available():
             return SuiteRunResult(
                 suite_id=self.suite_id,
                 ok=True,
                 layer=self.layer,
                 metrics={"skipped": True, "reason": "ragas not installed"},
             )
+        ok, metrics = run_ragas_memory(warn_only=warn_only)
         return SuiteRunResult(
             suite_id=self.suite_id,
-            ok=True,
+            ok=ok,
             layer=self.layer,
-            metrics={"ragas_installed": True, "pilot": "stub_pass"},
+            metrics=metrics,
         )

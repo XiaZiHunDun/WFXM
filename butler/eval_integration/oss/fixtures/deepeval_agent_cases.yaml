@@ -1,0 +1,22 @@
+# Deterministic agent trajectory cases (no LLM). MOD-8 pilot.
+cases:
+  - id: list_projects
+    description: 用户请求项目列表时应调用 list_projects
+    user_input: 列出所有项目
+    trajectory_tools: [list_projects]
+    forbidden_tools: [delegate_task]
+    min_score: 1.0
+
+  - id: read_file
+    description: 读文件应使用 read 而非 shell
+    user_input: 读取 AGENTS.md 前 20 行
+    trajectory_tools: [read]
+    forbidden_tools: [run_terminal_cmd]
+    min_score: 1.0
+
+  - id: delegate_boundary
+    description: 简单问答不应委派
+    user_input: Butler v4 的 Loop 在哪个目录？
+    trajectory_tools: []
+    forbidden_tools: [delegate_task]
+    min_score: 1.0

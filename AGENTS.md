@@ -35,7 +35,7 @@
 | CLI | `butler/main.py` |
 | 上手向导 | `butler onboard` · [`deploy-profiles-2026-06.md`](docs/guides/deploy-profiles-2026-06.md) |
 | 运营节奏 | `bash scripts/butler-ops-cadence.sh --weekly` · 每季 `--quarterly` |
-| Eval 统一管理 | `butler eval list` · `butler eval run --suite tcr,agent_weekly` |
+| Eval 统一管理 | `butler eval list` · `butler eval run --preset release` · `butler eval sync` |
 
 ## 改代码前守门
 

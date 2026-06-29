@@ -3,15 +3,7 @@
 from __future__ import annotations
 
 from butler.contracts.eval_ports import SuiteRunResult
-
-
-def _deepeval_available() -> bool:
-    try:
-        import deepeval  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
+from butler.eval_integration.oss.deepeval_runner import deepeval_available, run_deepeval_agent
 
 
 class DeepEvalAgentSuite:
@@ -25,17 +17,17 @@ class DeepEvalAgentSuite:
         sync_dataset: bool = False,
         push_langfuse: bool | None = None,
     ) -> SuiteRunResult:
-        if not _deepeval_available():
+        if not deepeval_available():
             return SuiteRunResult(
                 suite_id=self.suite_id,
                 ok=True,
                 layer=self.layer,
                 metrics={"skipped": True, "reason": "deepeval not installed"},
             )
-        # Pilot: structural pass when package present; full metric harness in follow-up PR
+        ok, metrics = run_deepeval_agent(warn_only=warn_only)
         return SuiteRunResult(
             suite_id=self.suite_id,
-            ok=True,
+            ok=ok,
             layer=self.layer,
-            metrics={"deepeval_installed": True, "pilot": "stub_pass"},
+            metrics=metrics,
         )

@@ -89,6 +89,7 @@
 | `butler-eval-llm-benchmark.sh` | O9 B9 LLM delegate 基准 |
 | `butler-eval-weekly.sh` | 周度 eval 汇总 |
 | `butler-eval-regression.sh` | eval 回归 |
+| `butler-eval-release.sh` | 发版 preset（tcr + regression + wechat_corpus） |
 | `butler-eval-experiment.sh` | 实验 harness |
 | `butler-eval-wechat-corpus.sh` | 微信语料 eval |
 | `butler-eval-assistant-health.sh` | 助手健康度 |
