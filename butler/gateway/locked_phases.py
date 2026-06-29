@@ -316,7 +316,8 @@ def _phase_validate_loop_messages(state: LockedTurnState) -> Optional[str]:
     Returns a blocking reply on validation failure (rare; usually the
     loop is reset by the validator itself).
     """
-    try:
+
+    def _validate() -> Optional[str]:
         from butler.gateway.inbound_validate import validate_loop_messages_before_turn
 
         seq_err = validate_loop_messages_before_turn(state.loop.messages)
@@ -331,9 +332,13 @@ def _phase_validate_loop_messages(state: LockedTurnState) -> Optional[str]:
                     state.health["tool_pair_repair_pre_turn"] = count
                     return None
             return seq_err
-    except Exception as exc:
-        logger.debug("Loop message validation skipped: %s", exc)
-    return None
+        return None
+
+    return safe_best_effort(
+        _validate,
+        label="locked_phases.validate_messages",
+        default=None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -361,7 +366,8 @@ def _phase_hygiene_compress(
     state: LockedTurnState,
 ) -> None:
     """Phase: hygiene compression + diagnostics capture for the loop."""
-    try:
+
+    def _compress() -> None:
         from butler.core.model_context import resolve_max_output_tokens
 
         state.max_out = resolve_max_output_tokens(
@@ -377,9 +383,16 @@ def _phase_hygiene_compress(
             k: v for k, v in getattr(state.loop, "diagnostics", {}).items()
             if str(k).startswith(("hygiene_", "context_"))
         })
-    except Exception as exc:
-        state.health["hygiene_error"] = str(exc)
-        logger.warning("Gateway hygiene compression skipped: %s", exc)
+
+    def _run() -> None:
+        try:
+            _compress()
+        except Exception as exc:
+            state.health["hygiene_error"] = str(exc)
+            logger.warning("Gateway hygiene compression skipped: %s", exc)
+            raise
+
+    safe_best_effort(_run, label="locked_phases.hygiene_compress")
 
 
 def _chain_callbacks(base: Any, extra: Any) -> Any:
@@ -400,15 +413,15 @@ def _chain_callbacks(base: Any, extra: Any) -> Any:
             return fn_a
 
         def chained(*args: Any, **kwargs: Any) -> Any:
-            try:
-                fn_a(*args, **kwargs)
-            except Exception:
-                pass
-            try:
-                return fn_b(*args, **kwargs)
-            except Exception:
-                pass
-            return None
+            safe_best_effort(
+                lambda: fn_a(*args, **kwargs),
+                label="locked_phases.callback_chain",
+            )
+            return safe_best_effort(
+                lambda: fn_b(*args, **kwargs),
+                label="locked_phases.callback_chain",
+                default=None,
+            )
 
         return chained
 
@@ -590,7 +603,7 @@ def _phase_finalize_memory_sync(
 
 
 def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
-    try:
+    def _langfuse_turn_end() -> None:
         from butler.ops.langfuse_tracer import (
             end_trace,
             flush_langfuse,
@@ -598,55 +611,58 @@ def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
             langfuse_enabled,
         )
 
-        if langfuse_enabled():
-            trace_id = ""
-            ctx = get_current_trace(session_key=state.session_key)
-            if ctx is not None:
-                trace_id = ctx.trace_id
-            from butler.ops.eval_turn import extract_tools_used, push_turn_scores
+        if not langfuse_enabled():
+            return
+        trace_id = ""
+        ctx = get_current_trace(session_key=state.session_key)
+        if ctx is not None:
+            trace_id = ctx.trace_id
+        from butler.ops.eval_turn import extract_tools_used, push_turn_scores
 
-            multi, eval_report = push_turn_scores(
-                user_text=state.text,
-                response_text=state.result.final_response or "",
-                tools_used=extract_tools_used(getattr(state.result, "diagnostics", None)),
-                session_id=state.session_key,
-                trace_id=trace_id,
+        multi, eval_report = push_turn_scores(
+            user_text=state.text,
+            response_text=state.result.final_response or "",
+            tools_used=extract_tools_used(getattr(state.result, "diagnostics", None)),
+            session_id=state.session_key,
+            trace_id=trace_id,
+        )
+        state.health["eval_turn"] = {
+            "overall": round(multi.overall, 3),
+            "dims": multi.by_dimension(),
+            "scores_pushed": eval_report.scores_pushed,
+        }
+
+        def _transform_feedback() -> None:
+            from butler.core.transform_feedback import maybe_apply_turn_feedback
+
+            provider = ""
+            loop = getattr(state.result, "loop", None)
+            client = getattr(loop, "client", None) if loop else None
+            if client is not None:
+                provider = str(getattr(client, "provider_name", "") or "")
+            actions = maybe_apply_turn_feedback(
+                multi.by_dimension(),
+                provider=provider,
             )
-            state.health["eval_turn"] = {
-                "overall": round(multi.overall, 3),
-                "dims": multi.by_dimension(),
-                "scores_pushed": eval_report.scores_pushed,
-            }
-            try:
-                from butler.core.transform_feedback import maybe_apply_turn_feedback
+            if actions:
+                state.health["transform_feedback"] = actions
 
-                provider = ""
-                loop = getattr(state.result, "loop", None)
-                client = getattr(loop, "client", None) if loop else None
-                if client is not None:
-                    provider = str(getattr(client, "provider_name", "") or "")
-                actions = maybe_apply_turn_feedback(
-                    multi.by_dimension(),
-                    provider=provider,
-                )
-                if actions:
-                    state.health["transform_feedback"] = actions
-            except Exception as exc:
-                logger.debug("Transform feedback skipped: %s", exc)
-            end_trace(session_key=state.session_key, result=state.result)
-            flush_langfuse()
-    except Exception as exc:
-        logger.debug("LangFuse turn-end flush skipped: %s", exc)
-    try:
+        safe_best_effort(_transform_feedback, label="locked_phases.transform_feedback")
+        end_trace(session_key=state.session_key, result=state.result)
+        flush_langfuse()
+
+    safe_best_effort(_langfuse_turn_end, label="locked_phases.langfuse_turn_end")
+
+    def _flush_memory_metrics() -> None:
         from butler.memory.metrics_persist import flush_memory_metrics
 
         flush_memory_metrics(force=True)
-    except Exception as exc:
-        logger.debug("memory metrics flush skipped: %s", exc)
+
+    safe_best_effort(_flush_memory_metrics, label="locked_phases.memory_metrics_flush")
 
 
 def _phase_finalize_prefetch_pr(state: LockedTurnState) -> None:
-    try:
+    def _finalize() -> None:
         from butler.memory.prefetch_retrieval_metrics import finalize_prefetch_retrieval_metrics
 
         finalize_prefetch_retrieval_metrics(
@@ -654,8 +670,8 @@ def _phase_finalize_prefetch_pr(state: LockedTurnState) -> None:
             state.result.final_response or "",
             state.health,
         )
-    except Exception as exc:
-        logger.debug("Prefetch P_r finalize skipped: %s", exc)
+
+    safe_best_effort(_finalize, label="locked_phases.prefetch_pr_finalize")
 
 
 def _phase_finalize_turn(
@@ -667,12 +683,13 @@ def _phase_finalize_turn(
     _phase_finalize_interrupt_capture(state)
     _phase_finalize_memory_sync(handler, state)
     _phase_finalize_prefetch_pr(state)
-    try:
+
+    def _snapshot_sources() -> None:
         from butler.core.memory_source_surface import snapshot_last_turn_memory_sources
 
         snapshot_last_turn_memory_sources(state.health)
-    except Exception as exc:
-        logger.debug("Memory sources snapshot skipped: %s", exc)
+
+    safe_best_effort(_snapshot_sources, label="locked_phases.memory_sources_snapshot")
     handler._session_registry.set_health(state.session_key, state.health)
     _phase_finalize_eval_observability(state)
 
@@ -682,37 +699,41 @@ def _phase_finalize_turn(
 # ---------------------------------------------------------------------------
 
 def _record_format_turn_langfuse(state: LockedTurnState) -> None:
-    try:
+    def _record() -> None:
         from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
 
         if langfuse_enabled():
             ctx = get_current_trace(session_key=state.session_key)
             if ctx is not None:
                 ctx.on_gateway_outbound(state.session_key, len(state.out or ""), state.turn_elapsed)
-    except Exception:
-        pass
+
+    safe_best_effort(_record, label="locked_phases.langfuse_outbound")
 
 
 def _append_format_turn_extras(state: LockedTurnState, welcome_prefix: str = "") -> None:
     if welcome_prefix:
         state.out = f"{welcome_prefix}\n\n---\n\n{state.out}" if state.out else welcome_prefix
-    try:
-        if getattr(state.loop, "_session_recovery_pending", None) is True:
-            from butler.core.session_hydration import recovery_notice_text
 
-            note = recovery_notice_text()
-            state.out = f"{note}\n\n{state.out}" if state.out else note
-            setattr(state.loop, "_session_recovery_pending", False)
-            state.health["session_recovery_notice"] = True
-    except Exception as exc:
-        logger.debug("Session recovery notice skipped: %s", exc)
-    try:
+    def _recovery_notice() -> None:
+        if getattr(state.loop, "_session_recovery_pending", None) is not True:
+            return
+        from butler.core.session_hydration import recovery_notice_text
+
+        note = recovery_notice_text()
+        state.out = f"{note}\n\n{state.out}" if state.out else note
+        setattr(state.loop, "_session_recovery_pending", False)
+        state.health["session_recovery_notice"] = True
+
+    safe_best_effort(_recovery_notice, label="locked_phases.session_recovery_notice")
+
+    def _turn_summary() -> None:
         from butler.core.turn_summary_line import maybe_prepend_turn_summary
 
         state.out = maybe_prepend_turn_summary(state.session_key, state.out or "")
-    except Exception as exc:
-        logger.debug("Turn summary line skipped: %s", exc)
-    try:
+
+    safe_best_effort(_turn_summary, label="locked_phases.turn_summary_line")
+
+    def _memory_recap() -> None:
         from butler.core.memory_recap_line import maybe_prepend_memory_recap
 
         state.out = maybe_prepend_memory_recap(
@@ -720,8 +741,8 @@ def _append_format_turn_extras(state: LockedTurnState, welcome_prefix: str = "")
             state.out or "",
             health=state.health,
         )
-    except Exception as exc:
-        logger.debug("Memory recap line skipped: %s", exc)
+
+    safe_best_effort(_memory_recap, label="locked_phases.memory_recap_line")
 
 
 def _phase_format_turn_response(
@@ -740,14 +761,15 @@ def _phase_format_turn_response(
     if br is not None:
         br.record_turn_elapsed(state.turn_elapsed)
         state.health["outbound_events"] = br.recent_outbound_events()[-8:]
-    try:
+
+    def _thread_items() -> None:
         from butler.gateway.item_event_sink import recent_thread_items
 
         items = recent_thread_items(8)
         if items:
             state.health["thread_items"] = items
-    except Exception as exc:
-        logger.debug("Thread items collection skipped: %s", exc)
+
+    safe_best_effort(_thread_items, label="locked_phases.thread_items")
     logger.info(
         "Gateway turn done session=%s elapsed=%.1fs out_len=%d",
         state.session_key,

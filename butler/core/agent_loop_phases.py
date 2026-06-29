@@ -222,12 +222,13 @@ def _phase_call_llm(
         _mark_no_response(loop, state)
         return None
     _record_usage(loop, response, state)
-    try:
+
+    def _trace() -> None:
         from butler.core.reasoning_trace import maybe_record_llm_reasoning
 
         maybe_record_llm_reasoning(loop, response, iteration=state.iteration)
-    except Exception as exc:  # noqa: BLE001 — best-effort observability
-        logger.debug("Reasoning trace skipped: %s", exc)
+
+    safe_best_effort(_trace, label="agent_loop.reasoning_trace")
     return response
 
 
@@ -241,7 +242,8 @@ def _emit_iteration_callbacks(loop: "AgentLoop", state: TurnBodyState) -> None:
 
 def _inject_budget_nudge(loop: "AgentLoop", state: TurnBodyState) -> None:
     """Inject loop budget nudge messages (best-effort)."""
-    try:
+
+    def _nudge() -> None:
         from butler.core.loop_budget_nudge import maybe_inject_loop_budget_nudges
 
         budget_tokens = (
@@ -257,8 +259,8 @@ def _inject_budget_nudge(loop: "AgentLoop", state: TurnBodyState) -> None:
             total_tokens=loop._total_tokens,
             budget_tokens=budget_tokens,
         )
-    except Exception as exc:  # noqa: BLE001 — best-effort nudge
-        logger.warning("Loop budget nudge skipped: %s", exc)
+
+    safe_best_effort(_nudge, label="agent_loop.budget_nudge")
 
 
 def _mark_no_response(loop: "AgentLoop", state: TurnBodyState) -> None:
@@ -774,13 +776,13 @@ def _prepare_skill_tool_context(
     steer_session: str,
     turn_tools: list,
 ) -> tuple[set[str], list]:
-    skill_pt: set[str] = set()
-    try:
+    def _run() -> tuple[set[str], list]:
         from butler.core.skill_tool_bridge import collect_pinned_tools
 
+        skill_pt: set[str] = set()
         skill_pt, exp_mcp = collect_pinned_tools(user_content)
         if exp_mcp:
-            try:
+            def _promote_mcp() -> None:
                 from butler.core.harness_flags import (
                     mcp_deferred_same_turn_enabled,
                     mcp_deferred_tools_enabled,
@@ -790,39 +792,49 @@ def _prepare_skill_tool_context(
                     promote_experience_mcp_tools,
                 )
 
-                if mcp_deferred_tools_enabled():
-                    added, rejected = promote_experience_mcp_tools(
-                        exp_mcp,
-                        session_key=steer_session,
-                    )
-                    if added:
-                        loop.diagnostics["experience_mcp_promoted"] = len(added)
-                        try:
-                            from butler.ops.runtime_metrics import inc
+                nonlocal turn_tools
+                if not mcp_deferred_tools_enabled():
+                    return
+                added, rejected = promote_experience_mcp_tools(
+                    exp_mcp,
+                    session_key=steer_session,
+                )
+                if added:
+                    loop.diagnostics["experience_mcp_promoted"] = len(added)
 
-                            inc(
-                                "execution_pointer_pin",
-                                value=len(added),
-                                labels={"source": "experience_mcp"},
-                                session_key=steer_session,
-                            )
-                        except Exception:  # noqa: BLE001 — metrics optional
-                            pass
-                    if rejected:
-                        loop.diagnostics["experience_mcp_rejected"] = rejected
-                    if added and mcp_deferred_same_turn_enabled():
-                        turn_tools = merge_deferred_mcp_into_turn_tools(
-                            turn_tools,
+                    def _metric() -> None:
+                        from butler.ops.runtime_metrics import inc
+
+                        inc(
+                            "execution_pointer_pin",
+                            value=len(added),
+                            labels={"source": "experience_mcp"},
                             session_key=steer_session,
                         )
-                        loop.diagnostics["experience_mcp_same_turn"] = len(added)
-            except Exception as mcp_exc:  # noqa: BLE001 — best-effort promote
-                logger.debug("Experience MCP promote skipped: %s", mcp_exc)
+
+                    safe_best_effort(_metric, label="agent_loop.mcp_pin_metric")
+                if rejected:
+                    loop.diagnostics["experience_mcp_rejected"] = rejected
+                if added and mcp_deferred_same_turn_enabled():
+                    turn_tools = merge_deferred_mcp_into_turn_tools(
+                        turn_tools,
+                        session_key=steer_session,
+                    )
+                    loop.diagnostics["experience_mcp_same_turn"] = len(added)
+
+            safe_best_effort(_promote_mcp, label="agent_loop.mcp_promote")
         if skill_pt:
             loop.diagnostics["experience_pinned_tools"] = len(skill_pt)
-    except Exception as exc:  # noqa: BLE001 — best-effort extraction
-        logger.warning("Skill preferred tools extraction skipped: %s", exc)
-    return skill_pt, turn_tools
+        return skill_pt, turn_tools
+
+    result = safe_best_effort(
+        _run,
+        label="agent_loop.skill_tool_context",
+        default=None,
+    )
+    if result is not None:
+        return result
+    return set(), turn_tools
 
 
 def _phase_enrich_user_text(
@@ -836,23 +848,29 @@ def _phase_enrich_user_text(
     ``loop.tools`` by the selector).
     """
     turn_tools = list(loop.tools or [])
-    try:
+
+    def _select_tools() -> list[dict]:
         from butler.core.tool_selector import select_tools_for_context
 
-        skill_pt, turn_tools = _prepare_skill_tool_context(
+        skill_pt, tools = _prepare_skill_tool_context(
             loop, user_content, steer_session, turn_tools,
         )
-
         selected, sel_diag = select_tools_for_context(
-            turn_tools,
+            tools,
             user_hint=user_content,
             skill_preferred_tools=skill_pt or None,
         )
-        turn_tools = list(selected)
         for key, val in sel_diag.items():
             loop.diagnostics[key] = val
-    except Exception as exc:  # noqa: BLE001 — best-effort selector
-        logger.warning("Tool selector skipped: %s", exc)
+        return list(selected)
+
+    selected = safe_best_effort(
+        _select_tools,
+        label="agent_loop.tool_selector",
+        default=None,
+    )
+    if selected is not None:
+        turn_tools = selected
 
     def _record_user() -> None:
         from butler.core.session_transcript import record_user_message
