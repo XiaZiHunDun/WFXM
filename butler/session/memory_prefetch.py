@@ -509,10 +509,16 @@ def build_memory_pre_llm_transform(
 
                     sk = str(get_current_session_key() or "").strip()
                     if sk:
+                        snippets = None
+                        if diagnostics is not None:
+                            raw = diagnostics.get("memory_prefetch_snippets")
+                            if isinstance(raw, list):
+                                snippets = [str(s) for s in raw]
                         record_knowledge_inject(
                             sk,
                             source="memory_prefetch",
                             chars=min(len(ctx), cap),
+                            terms=snippets,
                         )
                 except Exception as exc:
                     logger.debug("Prefetch context injection budget skipped: %s", exc)

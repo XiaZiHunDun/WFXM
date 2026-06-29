@@ -23,6 +23,11 @@ def ragas_available() -> bool:
 
 
 def _load_cases() -> list[dict[str, Any]]:
+    from butler.eval_integration.oss.prefetch_audit_loader import load_prefetch_audit_cases
+
+    audit = load_prefetch_audit_cases()
+    if audit:
+        return audit
     if not _FIXTURES.is_file():
         return []
     data = yaml.safe_load(_FIXTURES.read_text(encoding="utf-8")) or {}
@@ -76,8 +81,9 @@ def run_heuristic(*, warn_only: bool = False) -> tuple[bool, dict[str, Any]]:
     avg = sum(s for s in [heuristic_faithfulness(str(c.get("context", "")), str(c.get("answer", ""))) for c in cases]) / len(cases) if cases else 0.0
     cases_passed = sum(1 for d in details if d["passed"])
     ok = cases_passed == len(cases) or warn_only
+    mode = "audit" if any(c.get("source") == "transcript_audit" for c in cases) else "heuristic"
     return ok, {
-        "mode": "heuristic",
+        "mode": mode,
         "faithfulness_avg": round(avg, 4),
         "threshold": threshold,
         "cases_total": len(cases),

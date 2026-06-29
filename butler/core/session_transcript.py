@@ -470,14 +470,18 @@ def record_knowledge_inject(
     *,
     source: str = "memory_prefetch",
     chars: int = 0,
+    terms: list[str] | None = None,
 ) -> None:
+    payload: dict[str, Any] = {
+        "source": str(source or "memory")[:32],
+        "chars": max(0, int(chars)),
+    }
+    if terms:
+        payload["terms"] = [str(t)[:80] for t in terms if str(t).strip()][:12]
     append_transcript_entry(
         session_key,
         "knowledge_inject",
-        {
-            "source": str(source or "memory")[:32],
-            "chars": max(0, int(chars)),
-        },
+        payload,
     )
 
 
