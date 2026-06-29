@@ -33,7 +33,7 @@ bash "$ROOT/scripts/butler-wechat-dual-playbook-probe.sh" --static-only || FAIL=
 echo "-- L-B delegate/workflow fixtures (mock LLM) --"
 python -m pytest tests/test_llm_response_fixtures.py -q --tb=line || FAIL=1
 
-OK=$([[ "$FAIL" -eq 0 ]] && echo true || echo false)
+OK=$([[ "$FAIL" -eq 0 ]] && echo True || echo False)
 python - <<PY
 import json
 import time
