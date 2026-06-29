@@ -48,7 +48,7 @@ class TestLogLevelAndExcInfo:
             raise RuntimeError("memory init blew up")
 
         with patch(
-            "butler.orchestrator.ButlerMemoryService", side_effect=_boom
+            "butler.memory.facade.ButlerMemoryService", side_effect=_boom
         ):
             from butler.orchestrator import ButlerOrchestrator
 
@@ -89,7 +89,7 @@ class TestLogLevelAndExcInfo:
             raise RuntimeError("memory init blew up")
 
         with patch(
-            "butler.orchestrator.ButlerMemoryService", side_effect=_boom
+            "butler.memory.facade.ButlerMemoryService", side_effect=_boom
         ):
             from butler.orchestrator import ButlerOrchestrator
 
@@ -110,7 +110,7 @@ class TestMemoryOfflineFlag:
             raise RuntimeError("memory init blew up")
 
         with patch(
-            "butler.orchestrator.ButlerMemoryService", side_effect=_boom
+            "butler.memory.facade.ButlerMemoryService", side_effect=_boom
         ):
             from butler.orchestrator import ButlerOrchestrator
 
@@ -123,7 +123,7 @@ class TestMemoryOfflineFlag:
         provider = MagicMock()
 
         with patch(
-            "butler.orchestrator.ButlerMemoryService", return_value=provider
+            "butler.memory.facade.ButlerMemoryService", return_value=provider
         ):
             from butler.orchestrator import ButlerOrchestrator
 
@@ -221,7 +221,7 @@ class TestSystemPromptWarning:
         provider = MagicMock()
 
         with patch(
-            "butler.orchestrator.ButlerMemoryService", return_value=provider
+            "butler.memory.facade.ButlerMemoryService", return_value=provider
         ):
             from butler.orchestrator import ButlerOrchestrator
 
@@ -248,7 +248,7 @@ class TestSystemPromptWarning:
         provider = MagicMock()
 
         with patch(
-            "butler.orchestrator.ButlerMemoryService", return_value=provider
+            "butler.memory.facade.ButlerMemoryService", return_value=provider
         ):
             from butler.orchestrator import ButlerOrchestrator
 
@@ -270,7 +270,7 @@ class TestSystemPromptWarning:
         provider = MagicMock()
 
         with patch(
-            "butler.orchestrator.ButlerMemoryService", return_value=provider
+            "butler.memory.facade.ButlerMemoryService", return_value=provider
         ):
             from butler.orchestrator import ButlerOrchestrator
 

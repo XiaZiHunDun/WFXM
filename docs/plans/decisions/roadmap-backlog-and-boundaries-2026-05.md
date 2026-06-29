@@ -538,7 +538,7 @@ butler onboard --profile gateway              # 新机上手
 | ENG-9 | pytest 全量泄漏修债 | C | **done** 2026-06-27（6250 pass + eng domain gate） |
 | ENG-10 | `model_defaults` 剩余硬编码 | C | **done** 2026-06-27（vision/presets + 扩展字面量守门） |
 | ENG-11 | `locked_phases` phase 注册表 | D | **done** 2026-06-27（`locked_phase_registry`） |
-| ENG-12 | `orchestrator` 子系统门面 | D | **in_progress**（`templates` + `loop_factory` 首步） |
+| ENG-12 | `orchestrator` 子系统门面 | D | **done** 2026-06-27（templates/loop/memory/skill/prompt 子模块） |
 
 ---
 

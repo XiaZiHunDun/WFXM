@@ -170,7 +170,7 @@ class TestFactoryMethods:
         _reset_singletons()
         provider = MagicMock()  # noqa: magicmock-no-spec — complex facade, spec= 收益低
 
-        with patch("butler.orchestrator.ButlerMemoryService", return_value=provider):
+        with patch("butler.memory.facade.ButlerMemoryService", return_value=provider):
             from butler.orchestrator import ButlerOrchestrator
 
             orch = ButlerOrchestrator(user_id="u1", channel="test")

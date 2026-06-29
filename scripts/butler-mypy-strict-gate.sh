@@ -29,6 +29,9 @@ MODULES=(
   butler/defaults/model_defaults.py
   butler/orchestrator/templates.py
   butler/orchestrator/loop_factory.py
+  butler/orchestrator/memory_bridge.py
+  butler/orchestrator/skill_bridge.py
+  butler/orchestrator/prompt_assembler.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="

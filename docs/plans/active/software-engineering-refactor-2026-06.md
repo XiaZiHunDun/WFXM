@@ -137,7 +137,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | **ENG-9** | pytest 泄漏修债（逐模块） | C | 2–4w | 叙事 done |
 | **ENG-10** | `model_defaults` 收口剩余硬编码 | C | 1w | — |
 | **ENG-11** | `locked_phases` → phase 注册表 | D | 1–2w | ENG-3 |
-| **ENG-12** | `orchestrator` 子系统门面 | D | 2w | ENG-6 |
+| **ENG-12** | `orchestrator` 子系统门面 | D | 2w | ENG-6 | **done** |
 
 **不做（否决延续）**：`coding_knowledge` 全量重写、Loop 换框架、无测试的大重构。
 
@@ -285,3 +285,4 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **ENG-11 done**：pre-lock / in-context 双段 phase 注册表 + 测试 |
 | 2026-06-27 | **ENG-10 done**：vision/presets 收口 + 扩展字面量守门 |
 | 2026-06-27 | **ENG-12 首步**：`butler/orchestrator/` 包；`templates` + `loop_factory` |
+| 2026-06-27 | **ENG-12 done**：`memory_bridge` + `skill_bridge` + `prompt_assembler`；门面 ~190 行 |

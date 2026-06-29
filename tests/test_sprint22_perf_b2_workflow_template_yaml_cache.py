@@ -155,51 +155,40 @@ class TestSystemTemplateCache:
 
     def test_orchestrator_uses_template_cache(self):
         """源码中应存在模板 cache dict 字段."""
-        from butler import orchestrator
+        from butler.orchestrator import templates
 
-        src_path = Path(orchestrator.__file__)
+        src_path = Path(templates.__file__)
         text = src_path.read_text(encoding="utf-8")
         assert "_TEMPLATE_CACHE" in text or "_PROMPT_CACHE" in text or "_FILE_CACHE" in text, (
-            "orchestrator.py 必须有模板 cache 字段, 源码:\n" + text[:800]
+            "templates.py 必须有模板 cache 字段, 源码:\n" + text[:800]
         )
 
     def test_template_second_call_no_reread(self, monkeypatch):
-        """`_system_prompt_placeholders` 二次调用, read_text 不应被再调."""
-        from butler import orchestrator
+        """`read_template_cached` 二次调用, read_text 不应被再调."""
+        from butler.orchestrator import templates
 
-        # 找模板路径
-        template_path = orchestrator._template_path()
-        if not template_path.is_file():
-            pytest.skip(f"template not present: {template_path}")
+        template = templates.template_path()
+        if not template.is_file():
+            pytest.skip(f"template not present: {template}")
 
-        # Reset cache to ensure first-call is not from cache
-        monkeypatch.setattr(orchestrator, "_TEMPLATE_CACHE", {})
+        monkeypatch.setattr(templates, "_TEMPLATE_CACHE", {})
 
         read_count = {"n": 0}
         original_read_text = Path.read_text
+
         def counting_read_text(self, *a, **kw):
-            # 只计 _template_path() 的 read
-            if str(self) == str(template_path):
+            if str(self) == str(template):
                 read_count["n"] += 1
             return original_read_text(self, *a, **kw)
+
         monkeypatch.setattr(Path, "read_text", counting_read_text)
 
-        # 调 helper 函数两次 (static, no instance needed if exposed)
-        # _read_template 是 static method 的话可以这样调
-        if hasattr(orchestrator, "_read_template_static"):
-            orchestrator._read_template_static(orchestrator._template_path())
-            first = read_count["n"]
-            orchestrator._read_template_static(orchestrator._template_path())
-            assert read_count["n"] == first, (
-                f"二次调 _read_template_static 必须不重读, 实际 {read_count['n']} > {first}"
-            )
-        else:
-            # 静态契约: 必须有 _read_template 函数 + _TEMPLATE_CACHE dict
-            # 二次调用语义已通过 hooks loader (Sprint 21-3) / skill_manager (Sprint 20-4)
-            # 模式验证. 这里只验证 module-level cache dict 存在.
-            assert hasattr(orchestrator, "_TEMPLATE_CACHE"), (
-                "orchestrator 必须有模块级 _TEMPLATE_CACHE 字段"
-            )
+        templates.read_template_cached(template)
+        first = read_count["n"]
+        templates.read_template_cached(template)
+        assert read_count["n"] == first, (
+            f"二次调 read_template_cached 必须不重读, 实际 {read_count['n']} > {first}"
+        )
 
 
 @pytest.mark.unit
