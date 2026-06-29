@@ -20,6 +20,7 @@
 | `install-butler-runtime-timer.sh` | 灵文 runtime 定时器 |
 | `install-butler-push-drain.sh` | 推送队列重试 timer |
 | `install-butler-b9-weekly-timer.sh` | B9 周循环 + SWE 门控全量（周日 03:30） |
+| `install-butler-ops-cadence-timer.sh` | G1-04 周报（周日 05:00）+ 季度 capability（季初 05:30） |
 | `install-butler-logrotate.sh` | 日志轮转 |
 | `setup-butler-config.sh` | 生成 `~/.butler/config.yaml` |
 | `lib/butler-gateway-preflight.sh` | 网关启动前检查（被 ops 调用） |

@@ -33,8 +33,10 @@
 | 频率 | 命令 | 产出 |
 |------|------|------|
 | 每周 | `bash scripts/butler-ops-cadence.sh --weekly` | G1-04 打卡 + `.butler/reports/agent-eval-weekly.json` |
-| 每季 | `bash scripts/butler-ops-cadence.sh --quarterly` | 周报 + `.butler/reports/capability-baseline.json` |
+| 每季 | `bash scripts/butler-ops-cadence.sh --quarterly` | 周报 + baseline + `archive/capability-baseline-YYYY-QN.json` |
 | 发版 | `bash scripts/butler-ops-cadence.sh --release` | 周报 + P5/fast gate |
+| 定时 | `bash scripts/install-butler-ops-cadence-timer.sh` | user systemd：周日 05:00 / 季初 05:30 |
+| TCR 升级检查 | `bash scripts/butler-tcr-strict-readiness.sh` | 达标且过 `BUTLER_TCR_STRICT_AFTER` 后改 fast-gate `--strict` |
 
 **TCR 升级**：`butler-pytest-fast-gate.sh` 内 TCR 暂 `--warn-only`；窗内周报稳定 **4 周后**（约 **2026-07-27**）改 `--strict`（98%）。
 

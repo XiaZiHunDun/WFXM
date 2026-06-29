@@ -1,0 +1,10 @@
+[Unit]
+Description=Quarterly Butler ops cadence (Jan/Apr/Jul/Oct 1st 05:30)
+
+[Timer]
+OnCalendar=*-01,04,07,10-01 05:30:00
+Persistent=true
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target

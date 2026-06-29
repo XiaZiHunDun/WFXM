@@ -1,0 +1,15 @@
+[Unit]
+Description=Butler ops cadence weekly (G1-04 + agent eval)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@WFXM_ROOT@
+Environment=PYTHONPATH=@WFXM_ROOT@
+EnvironmentFile=-@WFXM_ROOT@/.env
+ExecStart=/bin/bash @WFXM_ROOT@/scripts/lib/butler-systemd-wrap.sh @WFXM_ROOT@/scripts/butler-ops-cadence.sh --weekly
+StandardOutput=append:@WFXM_ROOT@/logs/butler-ops-cadence-weekly.log
+StandardError=append:@WFXM_ROOT@/logs/butler-ops-cadence-weekly.log
+
+[Install]
+WantedBy=default.target

@@ -52,5 +52,11 @@ else
 fi
 
 echo ""
+echo "== ops cadence timers (weekly + quarterly) =="
+if [[ -f "$ROOT/scripts/install-butler-ops-cadence-timer.sh" ]]; then
+  bash "$ROOT/scripts/install-butler-ops-cadence-timer.sh" "${_enable_args[@]}"
+fi
+
+echo ""
 echo "Ops bundle done. Timers:"
 systemctl --user --no-pager list-timers 'butler-*' 2>/dev/null || true

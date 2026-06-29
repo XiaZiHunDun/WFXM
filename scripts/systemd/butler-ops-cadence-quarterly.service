@@ -1,0 +1,15 @@
+[Unit]
+Description=Butler ops cadence quarterly (weekly + capability baseline archive)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@WFXM_ROOT@
+Environment=PYTHONPATH=@WFXM_ROOT@
+EnvironmentFile=-@WFXM_ROOT@/.env
+ExecStart=/bin/bash @WFXM_ROOT@/scripts/lib/butler-systemd-wrap.sh @WFXM_ROOT@/scripts/butler-ops-cadence.sh --quarterly
+StandardOutput=append:@WFXM_ROOT@/logs/butler-ops-cadence-quarterly.log
+StandardError=append:@WFXM_ROOT@/logs/butler-ops-cadence-quarterly.log
+
+[Install]
+WantedBy=default.target

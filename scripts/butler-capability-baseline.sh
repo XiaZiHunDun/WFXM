@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Capability baseline: read / delegate / workflow 三件套季度跑分（AP 五维 Capability）
-# Usage: bash scripts/butler-capability-baseline.sh [--log]
+# Usage: bash scripts/butler-capability-baseline.sh [--archive] [--log]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -8,11 +8,13 @@ cd "$ROOT"
 export PYTHONPATH=.
 
 LOG=0
+ARCHIVE=0
 for arg in "$@"; do
   case "$arg" in
     --log) LOG=1 ;;
+    --archive) ARCHIVE=1 ;;
     -h|--help)
-      sed -n '1,4p' "$0"
+      sed -n '1,5p' "$0"
       exit 0
       ;;
   esac
@@ -51,6 +53,15 @@ if tcr.is_file():
 out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print(f"-> {out}")
 PY
+
+if [[ "$ARCHIVE" -eq 1 && -f "$OUT" ]]; then
+  ARCHIVE_DIR="$ROOT/.butler/reports/archive"
+  mkdir -p "$ARCHIVE_DIR"
+  Q=$(( (10#$(date +%m) - 1) / 3 + 1 ))
+  ARCHIVE_PATH="$ARCHIVE_DIR/capability-baseline-$(date +%Y)-Q${Q}.json"
+  cp "$OUT" "$ARCHIVE_PATH"
+  echo "-> archived $ARCHIVE_PATH"
+fi
 
 if [[ "$FAIL" -ne 0 ]]; then
   echo "Capability baseline: FAIL"

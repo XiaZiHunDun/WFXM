@@ -54,7 +54,7 @@ if [[ "$MODE" == "--weekly" || "$MODE" == "--quarterly" ]]; then
 fi
 
 if [[ "$MODE" == "--quarterly" ]]; then
-  bash "$ROOT/scripts/butler-capability-baseline.sh" || FAIL=1
+  bash "$ROOT/scripts/butler-capability-baseline.sh" --archive || FAIL=1
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
