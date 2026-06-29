@@ -9,11 +9,16 @@ _SCATTERED_LITERALS: tuple[str, ...] = (
     "MiniMax-M2.7",
     "text-embedding-3-small",
     "embo-01",
+    "gpt-4o",
+    "deepseek-chat",
+    "qwen-max",
 )
 
 _ALLOWLIST_PREFIXES: tuple[str, ...] = (
     "butler/defaults/",
     "butler/workflows/",
+    "butler/ops/",  # token cost tables
+    "butler/transport/",  # capability/thinking heuristics
     "tests/",
     "docs/",
 )
@@ -44,4 +49,5 @@ def test_model_defaults_exports_embedding_and_provider_helpers():
 
     assert md.provider_default_model("minimax") == md.PROVIDER_ENV_DEFAULT_MODEL["minimax"]
     assert md.OPENAI_EMBEDDING_MODEL
+    assert md.OPENAI_VISION_DEFAULT_MODEL == md.provider_default_model("openai")
     assert md.DEFAULT_EMBEDDING_MODEL == "hashing-v1"

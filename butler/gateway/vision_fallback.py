@@ -9,6 +9,8 @@ from pathlib import Path
 
 import requests
 
+from butler.defaults.model_defaults import OPENAI_VISION_DEFAULT_MODEL
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,7 +26,10 @@ def describe_image_openai(path: Path, *, caption: str = "", timeout: float = 45.
     if not key:
         raise RuntimeError("OPENAI_API_KEY 未配置")
     base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
-    model = os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4o")).strip()
+    model = os.getenv(
+        "OPENAI_VISION_MODEL",
+        os.getenv("OPENAI_MODEL", OPENAI_VISION_DEFAULT_MODEL),
+    ).strip()
     data = path.read_bytes()
     b64 = base64.b64encode(data).decode("ascii")
     suffix = path.suffix.lower()

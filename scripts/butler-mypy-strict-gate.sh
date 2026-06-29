@@ -27,6 +27,8 @@ MODULES=(
   butler/workflow_step_runner.py
   butler/gateway/locked_phase_registry.py
   butler/defaults/model_defaults.py
+  butler/orchestrator/templates.py
+  butler/orchestrator/loop_factory.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 import yaml
 
 from butler.config import get_butler_home
+from butler.defaults.model_defaults import provider_default_model
 
 
 @dataclass(frozen=True)
@@ -30,8 +31,18 @@ def presets_path() -> Path:
 def _builtin_presets() -> list[ProviderPreset]:
     return [
         ProviderPreset("minimax-default", "minimax", model="", description="默认 MiniMax"),
-        ProviderPreset("deepseek-chat", "deepseek", model="deepseek-chat", description="DeepSeek 对话"),
-        ProviderPreset("openai-gpt4o", "openai", model="gpt-4o", description="OpenAI GPT-4o"),
+        ProviderPreset(
+            "deepseek-default",
+            "deepseek",
+            model=provider_default_model("deepseek"),
+            description="DeepSeek 对话",
+        ),
+        ProviderPreset(
+            "openai-gpt4o",
+            "openai",
+            model=provider_default_model("openai"),
+            description="OpenAI GPT-4o",
+        ),
     ]
 
 

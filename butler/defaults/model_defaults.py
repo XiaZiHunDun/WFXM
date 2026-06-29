@@ -38,6 +38,9 @@ GATEWAY_VISION_PROVIDER: Final[str] = "minimax"
 GATEWAY_VISION_ENDPOINT: Final[str] = "coding_plan/vlm"
 GATEWAY_WHISPER_MODEL: Final[str] = "small"
 
+# OpenAI vision fallback when env vars unset (vision_fallback.py).
+OPENAI_VISION_DEFAULT_MODEL: Final[str] = PROVIDER_ENV_DEFAULT_MODEL["openai"]
+
 
 def provider_default_model(provider: str) -> str:
     """Default chat model id for a provider name (L0 registry lookup)."""

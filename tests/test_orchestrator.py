@@ -313,7 +313,7 @@ class TestSkillInjection:
             },
         }
 
-        with patch("butler.orchestrator._combined_skill_manager", return_value=manager):
+        with patch("butler.orchestrator.templates.combined_skill_manager", return_value=manager):
             orch_no_projects._rebuild_skill_router()
 
         manager.get_skill.assert_not_called()
@@ -332,7 +332,7 @@ class TestSkillInjection:
         ]
         manager.get_skills.return_value = {}
 
-        with patch("butler.orchestrator._combined_skill_manager", return_value=manager):
+        with patch("butler.orchestrator.templates.combined_skill_manager", return_value=manager):
             orch_no_projects._rebuild_skill_router()
 
         result = orch_no_projects.inject_skill_context("python task")

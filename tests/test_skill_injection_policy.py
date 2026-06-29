@@ -100,7 +100,7 @@ class TestOrchestratorSkillInjectionPolicy:
                     }
                 ],
             ),
-            patch("butler.orchestrator._combined_skill_manager", return_value=manager),
+            patch("butler.orchestrator.templates.combined_skill_manager", return_value=manager),
         ):
             butler_orchestrator._rebuild_skill_router()
 
@@ -147,7 +147,7 @@ class TestOrchestratorSkillInjectionPolicy:
                     }
                 ],
             ),
-            patch("butler.orchestrator._combined_skill_manager", return_value=manager),
+            patch("butler.orchestrator.templates.combined_skill_manager", return_value=manager),
         ):
             butler_orchestrator._rebuild_skill_router()
 

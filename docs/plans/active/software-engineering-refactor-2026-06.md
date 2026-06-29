@@ -59,7 +59,7 @@
 | **P1** | `butler/dev_engine/coding_knowledge.py` | 1613 | 定理/经验/管线；可接受但需子域边界 |
 | **P1** | `butler/gateway/locked_phases.py` | 775 | turn 终态 10+ phase 函数 |
 | **P1** | `butler/task_orchestrator.py` | 798 | `execute_graph` 182 行、`spawn_agent` 135 行 |
-| **P2** | `butler/orchestrator.py` | 856 | 门面仍兼 Skill/Memory/Loop 工厂 |
+| **P2** | `butler/orchestrator/` | ~590 | 门面 + `templates` / `loop_factory` 子模块 |
 | **P2** | `butler/memory/facade.py` | 736 | 工具分发 + prefetch 同类 |
 
 ### B. 函数复杂度（>80 行，AST 扫描）
@@ -283,3 +283,5 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-27 | **ENG-10 首步**：embedding/provider 字面量收口 `model_defaults` + 静态守门 |
 | 2026-06-27 | **ENG-9 续**：`butler-eng-domain-gate.sh`（gateway/memory/tools 子集） |
 | 2026-06-27 | **ENG-11 done**：pre-lock / in-context 双段 phase 注册表 + 测试 |
+| 2026-06-27 | **ENG-10 done**：vision/presets 收口 + 扩展字面量守门 |
+| 2026-06-27 | **ENG-12 首步**：`butler/orchestrator/` 包；`templates` + `loop_factory` |

@@ -17,129 +17,25 @@ if TYPE_CHECKING:
     from butler.core.agent_loop import AgentLoop
     from butler.transport.llm_client import LLMClient
 
-from butler.config import ButlerSettings, get_butler_settings
+from butler.config import get_butler_settings
 from butler.memory import ButlerMemory, ProjectMemory
 from butler.memory.facade import ButlerMemoryService
+from butler.orchestrator import loop_factory
+from butler.orchestrator.templates import (
+    combined_skill_manager,
+    format_project_list,
+    format_skill_summaries,
+    lead_template_path,
+    normalize_butler_role,
+    read_template_cached,
+    template_path,
+)
 from butler.project.manager import get_project_manager
-from butler.skills.manager import SkillManager
 from butler.skills.router import SkillRouter
 
 import butler.workflows  # noqa: F401 — register workflow hooks
 
 logger = logging.getLogger(__name__)
-
-# Sprint 22-3 PERF-21-B-2: mtime+size-keyed cache for system prompt templates.
-# Mirrors skill_manager (Sprint 20-4) and hooks/loader (Sprint 21-3) pattern.
-# _system_prompt_placeholders (line 245) and build_lead_system_prompt
-# (line 386) both read template files every call. These are called from
-# each message dispatch, so caching avoids repeated disk reads + parse.
-# Key: (str(path), mtime_ns, size) — auto-invalidates on file change.
-_TEMPLATE_CACHE: dict[tuple[str, int, int], str] = {}
-
-
-def _read_template_cached(path: Path) -> str:
-    """Read template file with mtime+size cache.
-
-    Returns "" if file is missing. Cache invalidates automatically on
-    mtime/size change. Failed reads (OSError) are NOT cached so transient
-    I/O issues don't poison subsequent reads.
-    """
-    try:
-        st = path.stat()
-    except OSError as exc:
-        logger.debug("Could not stat template %s: %s", path, exc)
-        return ""
-    key = (str(path), st.st_mtime_ns, st.st_size)
-    cached = _TEMPLATE_CACHE.get(key)
-    if cached is not None:
-        return cached
-    try:
-        body = path.read_text(encoding="utf-8")
-    except OSError:
-        return ""
-    _TEMPLATE_CACHE[key] = body
-    return body
-
-
-_ROLE_ALIASES: dict[str, str] = {
-    "dev": "dev_agent",
-    "content": "content_agent",
-    "review": "review_agent",
-}
-
-
-def _normalize_butler_role(role: str) -> str:
-    key = (role or "").strip().lower()
-    return _ROLE_ALIASES.get(key, role)
-
-
-def _template_path() -> Path:
-    return Path(__file__).resolve().parent / "prompts" / "butler_system.md"
-
-
-def _lead_template_path() -> Path:
-    return Path(__file__).resolve().parent / "prompts" / "lingwen_lead_system.md"
-
-
-def _format_project_list(settings: ButlerSettings) -> str:
-    pm = get_project_manager()
-    names = sorted(p.name for p in pm.list_projects())
-    if not names:
-        return f"(无 — 在 {settings.projects_dir} 下创建 project.yaml)"
-    return ", ".join(names)
-
-
-def _format_skill_summaries(skills: list[dict[str, Any]], max_items: int = 20) -> str:
-    if not skills:
-        return "(尚无技能文件 — 可在 ~/.butler/tenants/<tenant>/skills 或项目 `.butler/skills` 中添加)"
-    lines: list[str] = []
-    try:
-        from butler.skills.injection_policy import skill_summary_disclaimer
-
-        disclaimer = skill_summary_disclaimer()
-        if disclaimer:
-            lines.append(disclaimer)
-            lines.append("")
-    except Exception:
-        pass
-    for sk in skills[:max_items]:
-        name = sk.get("name", "")
-        desc = (sk.get("description") or "").strip()
-        triggers = sk.get("triggers") or []
-        trig = ", ".join(str(t) for t in triggers[:5])
-        if trig:
-            lines.append(f"- **{name}**: {desc} (triggers: {trig})")
-        else:
-            lines.append(f"- **{name}**: {desc}")
-    if len(skills) > max_items:
-        lines.append(f"... 另有 {len(skills) - max_items} 条技能未列出")
-    return "\n".join(lines)
-
-
-def _combined_skill_manager(
-    settings: ButlerSettings,
-    project_workspace: Path | None,
-    *,
-    tenant_id: str,
-) -> SkillManager:
-    """Project-local skills override tenant-global skills with the same name."""
-    from butler.tenant import tenant_skills_dir
-
-    global_dir = tenant_skills_dir(settings.butler_home, tenant_id)
-    global_dir.mkdir(parents=True, exist_ok=True)
-    if project_workspace is None:
-        mgr = SkillManager(skills_dir=global_dir, global_skills_dir=None)
-        from butler.skills.fusion_wiring import wire_skill_manager_fusion
-
-        wire_skill_manager_fusion(mgr)
-        return mgr
-    proj_skills = Path(project_workspace).expanduser().resolve() / ".butler" / "skills"
-    proj_skills.mkdir(parents=True, exist_ok=True)
-    mgr = SkillManager(skills_dir=proj_skills, global_skills_dir=global_dir)
-    from butler.skills.fusion_wiring import wire_skill_manager_fusion
-
-    wire_skill_manager_fusion(mgr)
-    return mgr
 
 
 class ButlerOrchestrator:
@@ -154,12 +50,8 @@ class ButlerOrchestrator:
         self.project_manager = get_project_manager()
         self._project_memory: ProjectMemory | None = None
         self._skill_router: SkillRouter | None = None
-        self._skill_manager: SkillManager | None = None
+        self._skill_manager = None
         self.memory_provider = None
-        # Audit R2-4: True iff the memory facade failed to initialize.
-        # Surfaces to /诊断 (collect_memory_layer_stats → format_rag_*_lines)
-        # and to the system prompt so the model can warn the user instead of
-        # silently serving empty recalls.
         self.memory_offline: bool = False
         self._memory_init_error: str = ""
         self._reload_project_memory()
@@ -211,7 +103,7 @@ class ButlerOrchestrator:
             self.project_manager.get_current(),
             self._settings,
         )
-        mgr = _combined_skill_manager(
+        mgr = combined_skill_manager(
             self._settings,
             self._project_workspace(),
             tenant_id=tid,
@@ -242,10 +134,6 @@ class ButlerOrchestrator:
             except Exception:
                 pass
         except Exception as exc:
-            # Audit R2-4: previously .warning with no exc_info — silently
-            # disabled the whole memory subsystem. Surface as ERROR with
-            # traceback AND set memory_offline so /诊断 + system prompt
-            # can tell the operator and the model that recall is offline.
             logger.error(
                 "Butler memory provider unavailable: %s",
                 exc,
@@ -286,7 +174,7 @@ class ButlerOrchestrator:
     def _model_credentials(self, role: str) -> dict[str, Any]:
         from butler.model_resolve import model_config_to_credentials, resolve_effective_model
 
-        role = _normalize_butler_role(role)
+        role = normalize_butler_role(role)
         project = self.project_manager.get_current()
         em = resolve_effective_model(role, project=project, settings=self._settings)
         return model_config_to_credentials(em.config, settings=self._settings)
@@ -332,16 +220,14 @@ class ButlerOrchestrator:
         return "\n\n".join(c for c in chunks if c and str(c).strip())
 
     def _system_prompt_placeholders(self, *, for_role: str = "default") -> dict[str, str]:
-        template = _template_path()
-        body = _read_template_cached(template)
+        template = template_path()
+        body = read_template_cached(template)
         if not body:
-            # Don't spam the log on every call; only log once at WARNING for
-            # genuinely missing templates (OSError is returned as "").
             if not template.exists():
                 logger.warning("Butler system template missing at %s", template)
 
         current = self.project_manager.current_project or "(未选择)"
-        project_list = _format_project_list(self._settings)
+        project_list = format_project_list(self._settings)
 
         from butler.model_resolve import resolve_effective_model
 
@@ -362,7 +248,7 @@ class ButlerOrchestrator:
 
         skills_block = "(技能管理器不可用)"
         if self._skill_manager is not None:
-            skills_block = _format_skill_summaries(self._skill_manager.list_skills())
+            skills_block = format_skill_summaries(self._skill_manager.list_skills())
 
         memory_ctx = self.build_memory_context(for_role=for_role)
 
@@ -396,10 +282,6 @@ class ButlerOrchestrator:
             "## 可用技能概要\n" + ph.get("skill_summaries", ""),
             "## 项目工作流\n" + ph.get("workflows_block", ""),
         ]
-        # Audit R2-4: when the memory facade failed to initialize, the
-        # model would otherwise answer as if it had no history (which it
-        # doesn't) without warning the user. Surface a clear note so the
-        # model can tell the user "本次对话无历史记忆".
         if self.memory_offline:
             chunks.append(
                 "## 记忆子系统离线 (memory offline)\n"
@@ -465,9 +347,6 @@ class ButlerOrchestrator:
         rendered = body
         for k, v in placeholders.items():
             rendered = rendered.replace("{" + k + "}", v)
-        # Audit R2-4: when memory facade init failed, append a visible
-        # warning section so the default-system path (without the dynamic
-        # reminder wrapper) still surfaces the degradation to the model.
         offline_appendix = ""
         if self.memory_offline:
             offline_appendix = (
@@ -501,8 +380,8 @@ class ButlerOrchestrator:
         """System prompt for project Lead gateway loop (phase 2)."""
         from butler.agent_profiles import get_profile
 
-        path = _lead_template_path()
-        body = _read_template_cached(path)
+        path = lead_template_path()
+        body = read_template_cached(path)
         if not body:
             if not path.exists():
                 logger.warning("Lead system template missing at %s", path)
@@ -546,30 +425,10 @@ class ButlerOrchestrator:
         return rendered.rstrip()
 
     def get_agent_kwargs(self) -> dict[str, Any]:
-        """Return kwargs dict (kept for backward compat)."""
-        mc = self._model_credentials("butler")
-        return {
-            "model": mc.get("model", ""),
-            "provider": mc.get("provider"),
-            "base_url": mc.get("base_url") or "",
-            "api_key": mc.get("api_key") or "",
-            "max_tokens": mc.get("max_tokens"),
-            "user_id": self.user_id,
-            "platform": self.channel,
-            "ephemeral_system_prompt": self.resolve_system_prompt(role="butler")[0],
-        }
+        return loop_factory.get_agent_kwargs(self)
 
     def create_llm_client(self, role: str = "butler") -> LLMClient:
-        """Create an LLMClient for the given role."""
-        from butler.transport.llm_client import LLMClient
-        mc = self._model_credentials(role)
-        return LLMClient(
-            provider=mc.get("provider") or "",
-            model=mc.get("model") or "",
-            api_key=mc.get("api_key") or None,
-            base_url=mc.get("base_url") or None,
-            max_tokens=mc.get("max_tokens"),
-        )
+        return loop_factory.create_llm_client(self, role)
 
     def create_agent_loop(
         self,
@@ -580,74 +439,14 @@ class ButlerOrchestrator:
         callbacks: Any = None,
         session_key: str = "",
     ) -> AgentLoop:
-        """Create a fully configured AgentLoop for the given role."""
-        from butler.config import ModelConfig
-        from butler.core.agent_loop import AgentLoop, LoopConfig
-        from butler.transport.fallback import build_fallback_chain
-        from butler.transport.model_context import infer_context_length
-
-        llm_role = "butler" if role in ("lead", "plan") else role
-        client = self.create_llm_client(llm_role)
-        mc = self._model_credentials(llm_role)
-        primary = ModelConfig(provider=mc.get("provider") or "", model=mc.get("model") or "")
-        fallback_chain = build_fallback_chain(primary)
-
-        sk = str(session_key or "").strip()
-        try:
-            proj = self.project_manager.get_current(session_key=sk)
-            from butler.project.plugins import apply_project_plugins
-
-            apply_project_plugins(proj)
-        except Exception as exc:
-            logger.debug("Project plugins apply skipped: %s", exc)
-
-        user_reminder: str | None = None
-        if role == "butler":
-            system_prompt, user_reminder = self.resolve_system_prompt(role="butler", session_key=sk)
-        elif role == "lead":
-            system_prompt = self.build_lead_system_prompt(session_key=sk)
-        elif role == "plan":
-            system_prompt, user_reminder = self.resolve_system_prompt(role="plan", session_key=sk)
-            from butler.plan.mode import load_plan_mode_system_appendix
-
-            system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
-        else:
-            system_prompt = ""
-            from butler.agent_profiles import get_profile
-            profile = get_profile(role.replace("_agent", ""))
-            if profile:
-                system_prompt = profile.system_prompt
-                from butler.agent_profiles import get_model_aware_prompt_extra
-                extra = get_model_aware_prompt_extra(client.provider_name or "")
-                if extra:
-                    system_prompt += "\n\n" + extra
-
-        if sk and role != "plan":
-            try:
-                from butler.plan.mode import is_plan_mode, load_plan_mode_system_appendix
-
-                if is_plan_mode(sk):
-                    system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
-            except Exception as exc:
-                logger.debug("Plan mode appendix skipped: %s", exc)
-
-        loop = AgentLoop(
-            client=client,
-            system_prompt=system_prompt,
-            tools=tools or [],
+        return loop_factory.create_agent_loop(
+            self,
+            role,
+            tools=tools,
             tool_dispatcher=tool_dispatcher,
-            config=LoopConfig(
-                fallback_entries=fallback_chain,
-                max_context_tokens=infer_context_length(
-                    provider=mc.get("provider") or "",
-                    model=mc.get("model") or "",
-                    configured=mc.get("context_length"),
-                ),
-            ),
             callbacks=callbacks,
+            session_key=session_key,
         )
-        loop.bind_execution(self, session_key=sk)
-        return loop
 
     def create_project_agent_loop(
         self,
@@ -658,98 +457,17 @@ class ButlerOrchestrator:
         callbacks: Any = None,
         session_key: str = "",
     ) -> AgentLoop:
-        """Create an AgentLoop configured for a project-level agent."""
-        from butler.core.agent_loop import AgentLoop, LoopConfig
-        from butler.agent_profiles import get_profile, get_model_aware_prompt_extra
-
-        kw = self.get_project_agent_kwargs(role)
-
-        from butler.transport.llm_client import LLMClient
-        client = LLMClient(
-            provider=kw.get("provider") or "",
-            model=kw.get("model") or "",
-            api_key=kw.get("api_key") or None,
-            base_url=kw.get("base_url") or None,
-            max_tokens=kw.get("max_tokens"),
-        )
-
-        profile = get_profile(role)
-        system_parts = []
-        if profile:
-            system_parts.append(profile.system_prompt)
-        system_parts.append(kw.get("ephemeral_system_prompt", ""))
-
-        extra = get_model_aware_prompt_extra(client.provider_name or "")
-        if extra:
-            system_parts.append(extra)
-
-        system_prompt = "\n\n".join(p for p in system_parts if p)
-
-        from butler.config import ModelConfig
-        from butler.transport.fallback import build_fallback_chain
-        from butler.transport.model_context import infer_context_length
-
-        primary = ModelConfig(
-            provider=kw.get("provider") or "",
-            model=kw.get("model") or "",
-            context_length=kw.get("context_length"),
-        )
-        fallback_chain = build_fallback_chain(primary)
-
-        loop = AgentLoop(
-            client=client,
-            system_prompt=system_prompt,
-            tools=tools or [],
+        return loop_factory.create_project_agent_loop(
+            self,
+            role,
+            tools=tools,
             tool_dispatcher=tool_dispatcher,
-            config=LoopConfig(
-                fallback_entries=fallback_chain,
-                max_context_tokens=infer_context_length(
-                    provider=kw.get("provider") or "",
-                    model=kw.get("model") or "",
-                    configured=kw.get("context_length"),
-                ),
-            ),
             callbacks=callbacks,
+            session_key=session_key,
         )
-        loop.bind_execution(self, session_key=str(session_key or ""))
-        return loop
 
     def get_project_agent_kwargs(self, role: str) -> dict[str, Any]:
-        """Return kwargs for project-level agents (dev/content/review)."""
-        r = _normalize_butler_role(role)
-        proj = self.project_manager.get_current()
-        if proj is None:
-            mcreds = self._model_credentials(r)
-            extra_prompt = (
-                "## Butler 项目上下文\n"
-                "当前未选择 Butler 项目 — 使用全局模型配置。"
-            )
-        else:
-            from butler.model_resolve import model_config_to_credentials, resolve_effective_model
-
-            em = resolve_effective_model(r, project=proj, settings=self._settings)
-            mcreds = model_config_to_credentials(em.config, settings=self._settings)
-
-            proj_mem = ProjectMemory(proj.workspace)
-            mem_txt = proj_mem.get_context_for_agent(r)
-            extra_prompt = (
-                f"## Butler 项目: {proj.name}\n"
-                f"{proj.description}\n\n"
-                f"工作区路径: `{proj.workspace}`\n\n"
-                f"### 项目记忆\n{mem_txt}"
-            )
-
-        return {
-            "model": mcreds.get("model", ""),
-            "provider": mcreds.get("provider"),
-            "base_url": mcreds.get("base_url") or "",
-            "api_key": mcreds.get("api_key") or "",
-            "max_tokens": mcreds.get("max_tokens"),
-            "context_length": mcreds.get("context_length"),
-            "user_id": self.user_id,
-            "platform": self.channel,
-            "ephemeral_system_prompt": extra_prompt,
-        }
+        return loop_factory.get_project_agent_kwargs(self, role)
 
     def on_project_switch(self, old_project: str, new_project: str) -> None:
         logger.debug(
