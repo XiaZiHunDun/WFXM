@@ -83,6 +83,20 @@ def test_float_env_invalid_falls_back(monkeypatch, caplog):
     assert "invalid" in caplog.text.lower()
 
 
+def test_importing_config_does_not_load_dotenv(monkeypatch):
+    """R1-16: ``butler.config`` import must not eagerly load ``.env``."""
+    import importlib
+
+    import butler.env_parse as ep
+
+    ep._dotenv_loaded = False
+    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
+    import butler.config as cfg
+
+    importlib.reload(cfg)
+    assert ep._dotenv_loaded is False
+
+
 def test_no_raw_float_getenv_in_butler():
     import subprocess
 

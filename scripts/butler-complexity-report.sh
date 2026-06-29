@@ -90,6 +90,9 @@ print(f"python_files={report['python_files']}")
 print(f"files>={min_file}L={report['files_ge_600_lines']}")
 print(f"functions>={min_fn}L={report['functions_ge_80_lines']}")
 print(f"lazy_from_butler_imports={report['lazy_from_butler_imports']}")
+from butler.ops.lazy_import_budget import LAZY_IMPORT_BUDGET
+if report["lazy_from_butler_imports"] > LAZY_IMPORT_BUDGET:
+    print(f"WARN: lazy imports exceed budget {LAZY_IMPORT_BUDGET}")
 print("")
 print(f"Top files (>={min_file} lines):")
 for row in large_files[:15]:
