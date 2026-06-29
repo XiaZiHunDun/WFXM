@@ -154,7 +154,10 @@ bash scripts/butler-gap-observability.sh   # 全量 verbose；warn>0 时 exit 1
 bash scripts/butler-ops-cadence.sh --weekly     # G1-04 + agent eval 周报
 bash scripts/butler-ops-cadence.sh --quarterly  # 每季：周报 + capability baseline
 bash scripts/install-butler-ops-cadence-timer.sh  # user systemd 周日/季初自动跑
-bash scripts/butler-tcr-strict-readiness.sh     # TCR strict 升级前检查（~2min）
+bash scripts/butler-tcr-strict-readiness.sh     # TCR strict 升级前检查（~2min）→ tcr-strict-readiness.json
+# Flip 到日：docs/guides/tcr-strict-flip-runbook-2026-07.md
+bash scripts/butler-tcr-strict-apply.sh --dry-run
+bash scripts/butler-tcr-strict-apply.sh
 ```
 
 | ID | 自动化信号 | 仍须人工 |

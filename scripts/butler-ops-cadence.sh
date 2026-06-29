@@ -52,8 +52,19 @@ fi
 if [[ "$MODE" == "--weekly" || "$MODE" == "--quarterly" ]]; then
   bash "$ROOT/scripts/butler-agent-eval-weekly.sh" || FAIL=1
   echo ""
-  echo "-- TCR strict readiness (calendar flip ~2026-07-27) --"
-  bash "$ROOT/scripts/butler-tcr-strict-readiness.sh" || true
+  echo "-- TCR strict readiness (flip runbook: docs/guides/tcr-strict-flip-runbook-2026-07.md) --"
+  if bash "$ROOT/scripts/butler-tcr-strict-readiness.sh"; then
+    if [[ -f "$ROOT/.butler/reports/tcr-strict-readiness.json" ]]; then
+      python - <<'PY'
+import json
+from pathlib import Path
+r = json.loads(Path(".butler/reports/tcr-strict-readiness.json").read_text(encoding="utf-8"))
+print(f"(TCR readiness logged: status={r.get('status')} days_until_flip={r.get('days_until_flip')})")
+PY
+    fi
+  else
+    echo "(TCR readiness: FAIL — non-blocking for weekly cadence)"
+  fi
 fi
 
 if [[ "$MODE" == "--quarterly" ]]; then

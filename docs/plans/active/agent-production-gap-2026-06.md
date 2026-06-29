@@ -36,10 +36,11 @@
 | 每季 | `bash scripts/butler-ops-cadence.sh --quarterly` | 周报 + baseline + `archive/capability-baseline-YYYY-QN.json` |
 | 发版 | `bash scripts/butler-ops-cadence.sh --release` | 周报 + P5/fast gate |
 | 定时 | `bash scripts/install-butler-ops-cadence-timer.sh` | user systemd：周日 05:00 / 季初 05:30 |
-| TCR 升级检查 | `bash scripts/butler-tcr-strict-readiness.sh` | 达标且过 `BUTLER_TCR_STRICT_AFTER` 后改 fast-gate `--strict` |
+| TCR 升级检查 | `bash scripts/butler-tcr-strict-readiness.sh` | 写 `tcr-strict-readiness.json`；`status=ready` 后可 apply |
 | TCR 升级应用 | `bash scripts/butler-tcr-strict-apply.sh` | 日历到点后一键 flip（可先 `--dry-run`） |
+| **Flip runbook** | [`tcr-strict-flip-runbook-2026-07.md`](../../guides/tcr-strict-flip-runbook-2026-07.md) | 窗内每周 / 到日 4 步 / 回滚 |
 
-**TCR 升级**：`butler-pytest-fast-gate.sh` 内 TCR 暂 `--warn-only`；窗内周报稳定 **4 周后**（约 **2026-07-27**）改 `--strict`（98%）。
+**TCR 升级**：`butler-pytest-fast-gate.sh` 内 TCR 暂 `--warn-only`；窗内周报稳定 **4 周后**（默认 **2026-07-27**，`BUTLER_TCR_STRICT_AFTER`）改 `--strict`（98%）。
 
 ## 条件项（AP-13–16）
 
