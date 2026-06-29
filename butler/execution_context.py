@@ -196,7 +196,16 @@ def is_current_turn_owner(
                 session_key=session_key,
             )
         )
-    # Back-compat: tools historically used is_gateway_owner directly.
+    from butler.contracts.gateway_registry import get_owner_gate
+
+    gate = get_owner_gate()
+    if gate is not None:
+        return gate.is_gateway_owner(
+            platform=platform,
+            external_id=external_id,
+            session_key=session_key,
+        )
+    # Back-compat when gateway contracts not registered (CLI-only / legacy tests).
     from butler.gateway.owner_gate import is_gateway_owner
 
     return is_gateway_owner(
@@ -207,12 +216,12 @@ def is_current_turn_owner(
 
 
 def owner_required_message() -> str:
-    """Layering seam (R1-10) — owner-denied message string.
+    """Layering seam (R1-10) — owner-denied message string."""
+    from butler.contracts.gateway_registry import get_owner_gate
 
-    Re-exports :func:`butler.gateway.owner_gate.owner_required_message`
-    so tool code never imports from ``butler.gateway.owner_gate``
-    directly.
-    """
+    gate = get_owner_gate()
+    if gate is not None:
+        return gate.owner_required_message()
     from butler.gateway.owner_gate import owner_required_message as _msg
 
     return _msg()
@@ -225,9 +234,8 @@ def get_current_turn_bridge():
 
       1. If an orchestrator is bound and has a non-``None``
          ``gateway_bridge`` attribute set on the instance, return it.
-      2. Otherwise, fall back to ``butler.gateway.outbound_bridge
-         .get_gateway_bridge_optional()`` (thread-local bridge set by
-         the running gateway).
+      2. Otherwise, use :class:`BridgeAccess` from contracts registry.
+      3. Otherwise, fall back to ``get_gateway_bridge_optional()``.
 
     Tool code MUST call this helper instead of importing
     ``butler.gateway.outbound_bridge`` directly.
@@ -237,6 +245,11 @@ def get_current_turn_bridge():
         bridge = _orchestrator_explicit_attr(orch, "gateway_bridge")
         if bridge is not None:
             return bridge
+    from butler.contracts.gateway_registry import get_bridge_access
+
+    access = get_bridge_access()
+    if access is not None:
+        return access.get_optional_bridge()
     from butler.gateway.outbound_bridge import get_gateway_bridge_optional
 
     return get_gateway_bridge_optional()
@@ -248,16 +261,16 @@ def try_push_current_turn_workflow_failure(
     *,
     session_key: str = "",
 ) -> bool:
-    """Layering seam (R1-10) — push a workflow-failure completion message.
+    """Layering seam (R1-10) — push a workflow-failure completion message."""
+    from butler.contracts.gateway_registry import get_bridge_access
 
-    Thin wrapper around :func:`butler.gateway.completion_notify
-    .try_push_workflow_failure` that resolves the bridge from the
-    current-turn seam (:func:`get_current_turn_bridge`) instead of
-    requiring the caller to import the gateway module.
-
-    Returns ``True`` if a completion push was scheduled, ``False``
-    otherwise (no bridge bound, push thresholds not met, etc.).
-    """
+    access = get_bridge_access()
+    if access is not None:
+        return access.try_push_workflow_failure(
+            workflow_name,
+            error,
+            session_key=session_key,
+        )
     from butler.gateway.completion_notify import try_push_workflow_failure
 
     bridge = get_current_turn_bridge()
