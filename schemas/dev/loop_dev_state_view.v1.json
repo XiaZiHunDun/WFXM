@@ -1,0 +1,68 @@
+{
+  "description": "Invariant dev-loop snapshot for delegate gates / reporting after ACL.",
+  "properties": {
+    "phase": {
+      "default": "PLAN",
+      "description": "DevPhase value",
+      "title": "Phase",
+      "type": "string"
+    },
+    "verify_passed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Verify Passed"
+    },
+    "review_passed": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Review Passed"
+    },
+    "edits": {
+      "default": 0,
+      "title": "Edits",
+      "type": "integer"
+    },
+    "fixes": {
+      "default": 0,
+      "title": "Fixes",
+      "type": "integer"
+    },
+    "iterations": {
+      "default": 0,
+      "title": "Iterations",
+      "type": "integer"
+    },
+    "is_terminal": {
+      "default": false,
+      "title": "Is Terminal",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "v1",
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "title": "LoopDevStateView",
+  "type": "object"
+}

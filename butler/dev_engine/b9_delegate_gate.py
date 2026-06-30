@@ -364,15 +364,17 @@ def apply_dev_auto_verify_success_gate(
     except Exception:
         return True, out
 
-    de = dev_engine if isinstance(dev_engine, dict) else {}
-    edits = int(de.get("edits") or 0)
-    if edits <= 0:
+    from butler.core.dev_state_context_adapter import dev_engine_dict_to_view
+
+    view = dev_engine_dict_to_view(dev_engine, source="verify_gate")
+    if view.edits <= 0:
         return True, out
-    if de.get("verify_passed") is True:
+    if view.verify_passed is True:
         return True, out
-    if de.get("verify_passed") is not False:
+    if view.verify_passed is not False:
         return True, out
 
+    de = dev_engine if isinstance(dev_engine, dict) else {}
     tail = str(de.get("verify_output_tail") or "")
     hint = ""
     try:
@@ -471,13 +473,16 @@ def apply_dev_review_strict_gate(
     if cat and cat not in pilot:
         return True, out
 
-    de = dev_engine if isinstance(dev_engine, dict) else {}
-    review = de.get("review") if isinstance(de.get("review"), dict) else {}
-    if not review:
+    from butler.core.dev_state_context_adapter import dev_engine_dict_to_view
+
+    view = dev_engine_dict_to_view(dev_engine, source="review_gate")
+    if view.review_passed is None:
         return True, out
-    if review.get("passed") is not False:
+    if view.review_passed is not False:
         return True, out
 
+    de = dev_engine if isinstance(dev_engine, dict) else {}
+    review = de.get("review") if isinstance(de.get("review"), dict) else {}
     count = int(review.get("findings_count") or 0)
     msg = f"DEV_REVIEW_STRICT_GATE: review failed ({count} findings)"
     if msg not in out:

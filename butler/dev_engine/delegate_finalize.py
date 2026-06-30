@@ -24,18 +24,20 @@ def peek_dev_engine_summary(session_key: str, role: str) -> dict[str, Any] | Non
         ds = _active_states.get(session_key or "_default")
         if ds is None:
             return None
-        summary = {
-            "phase": ds.phase.value,
-            "iterations": ds.iteration,
-            "edits": len(ds.edit_history),
-            "fixes": ds.fix_count,
-            "verify_passed": ds.verify_result.passed,
-        }
+        from butler.core.dev_state_context_adapter import (
+            loop_dev_state_view_to_payload,
+            to_loop_dev_state_view,
+        )
+
+        view = to_loop_dev_state_view(ds, source="peek")
+        summary = loop_dev_state_view_to_payload(view)
         tail = getattr(ds.verify_result, "output_tail", "") or ""
         if tail.strip():
             summary["verify_output_tail"] = tail.strip()[-800:]
         if ds.coding_knowledge.mode:
             summary["coding_knowledge"] = ds.coding_knowledge.to_dict()
+        if ds.review_summary.findings_count or not ds.review_summary.passed:
+            summary["review"] = ds.review_summary.to_dict()
         return summary
     except Exception as exc:  # noqa: BLE001 — best-effort read
         logger.debug("peek dev engine summary skipped: %s", exc)
@@ -56,13 +58,13 @@ def attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any]) 
         ds = _active_states.pop(sk, None)
         if ds is None:
             return
-        payload["dev_engine"] = {
-            "phase": ds.phase.value,
-            "iterations": ds.iteration,
-            "edits": len(ds.edit_history),
-            "fixes": ds.fix_count,
-            "verify_passed": ds.verify_result.passed,
-        }
+        from butler.core.dev_state_context_adapter import (
+            loop_dev_state_view_to_payload,
+            to_loop_dev_state_view,
+        )
+
+        view = to_loop_dev_state_view(ds, source="attach")
+        payload["dev_engine"] = loop_dev_state_view_to_payload(view)
         if ds.coding_knowledge.mode:
             payload["dev_engine"]["coding_knowledge"] = ds.coding_knowledge.to_dict()
         if ds.review_summary.findings_count or not ds.review_summary.passed:

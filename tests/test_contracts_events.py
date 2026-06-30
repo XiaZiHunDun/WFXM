@@ -26,6 +26,15 @@ class _RecordingSink:
     ) -> None:
         self.tools.append((session_key, tool_name, args_preview, source))
 
+    def invoke_hook(self, name: str, **kwargs) -> list:
+        return []
+
+    def emit_context_compaction(self, **kwargs) -> None:
+        return None
+
+    def pop_urgent_inbound(self, session_key: str):
+        return None
+
 
 def test_events_sink_protocol_shape():
     sink: EventsSink = _RecordingSink()
@@ -100,6 +109,21 @@ def test_gateway_sink_delegates_transcript_writes(monkeypatch):
     assert tools == [("wechat:u1", "read_file", '{"path":"x"}', "loop")]
 
 
+def test_core_and_contracts_share_same_registry():
+    """set_events_sink via core must update contracts registry (single SSOT)."""
+    from butler.contracts.sink_registry import get_events_sink as get_contracts_sink
+    from butler.core.events_sink import get_events_sink, set_events_sink
+
+    rec = _RecordingSink()
+    saved = get_events_sink()
+    try:
+        set_events_sink(rec)
+        assert get_events_sink() is rec
+        assert get_contracts_sink() is rec
+    finally:
+        set_events_sink(saved)
+
+
 def test_contracts_registry_gateway_sink_writes(monkeypatch):
     generic: list[tuple[str, str, dict]] = []
 
@@ -111,7 +135,7 @@ def test_contracts_registry_gateway_sink_writes(monkeypatch):
     register_gateway_events_sink()
     try:
         sink = get_events_sink()
-        assert sink is not None
+        assert isinstance(sink, GatewayEventsSink)
         sink.record_generic_event("sk", "workflow_step", {"step": "review"})
         assert generic == [("sk", "workflow_step", {"step": "review"})]
     finally:

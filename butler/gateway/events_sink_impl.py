@@ -1,12 +1,7 @@
 """Concrete :class:`EventsSink` that delegates to the existing gateway modules.
 
-Registered into ``butler.core.events_sink`` at module-import time. Importing
-this module from any gateway entry point (``runner``, ``message_handler``,
-``hooks``, etc.) wires the real implementation into the core.
-
-Core never imports this directly — it only sees the :class:`EventsSink`
-Protocol in ``butler.core.events_sink``. Gateway depends on core, not the
-other way around.
+Registered into ``butler.contracts.sink_registry`` at module-import time.
+Core never imports this directly — it only sees the contracts Protocol.
 """
 
 from __future__ import annotations
@@ -14,13 +9,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from butler.core.events_sink import EventsSink, UrgentInbound, set_events_sink
+from butler.contracts.events import UrgentInbound
+from butler.contracts.sink_registry import set_events_sink
 
 logger = logging.getLogger(__name__)
 
 
 class GatewayEventsSink:
-    """Adapter from core's :class:`EventsSink` protocol to gateway's facilities."""
+    """Adapter from contracts :class:`EventsSink` to gateway facilities."""
 
     def record_generic_event(
         self,
@@ -50,7 +46,6 @@ class GatewayEventsSink:
         )
 
     def invoke_hook(self, name: str, **kwargs: Any) -> list[Any]:
-        # Local import: gateway depends on core, core does not depend on gateway.
         from butler.gateway.hooks import invoke_hook as _invoke_hook
 
         return _invoke_hook(name, **kwargs)
@@ -91,8 +86,6 @@ class GatewayEventsSink:
         item = _pop(session_key)
         if item is None:
             return None
-        # Translate gateway's QueuedInbound to core's UrgentInbound DTO so core
-        # never needs to know about gateway types.
         return UrgentInbound(text=item.text)
 
 
@@ -103,7 +96,6 @@ def install_gateway_events_sink() -> GatewayEventsSink:
     return sink
 
 
-# Auto-register on import. Idempotent — repeated imports keep the same instance.
 install_gateway_events_sink()
 
 

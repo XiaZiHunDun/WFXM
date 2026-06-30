@@ -28,9 +28,16 @@
 
 ## 非目标
 
-- DevEngine `PLAN→FIX` 状态机 ACL（另立项 → [`dev-engine-acl-adr-2026-07.md`](dev-engine-acl-adr-2026-07.md) verify 边界已落地）
 - 全量 `messages: list[dict]` Pydantic 化
 - LangGraph 替换 Loop
+
+## ACL 剩余项（2026-06-29 结案）
+
+| 项 | 状态 | 落点 |
+|----|------|------|
+| DevEngine `PLAN→FIX` 快照 ACL | ✅ | [`dev-engine-acl-adr`](dev-engine-acl-adr-2026-07.md) `LoopDevStateView` |
+| 双 EventsSink 合并 | ✅ | [`events-sink-unification-adr`](events-sink-unification-adr-2026-07.md) |
+| Memory/Message ACL | ✅ | `ef834e5` — `LoopMemoryView` / `LoopApiMessageView` |
 
 ## 扩展（ACL-5～6，2026-06-29）
 

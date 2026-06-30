@@ -20,6 +20,19 @@
 - 全量 `DevState` Pydantic 化
 - `PLAN→FIX` 转移表本身外置配置化
 
+## 扩展（DevState ACL，2026-06-29）
+
+委派门控与 finalize 读写的 `dev_engine` dict 经统一边界：
+
+1. **神圣契约**：`LoopDevStateView`（`butler/contracts/dev_state_ports.py`）
+2. **适配器**：`to_loop_dev_state_view()` / `loop_dev_state_view_to_payload()`（`butler/core/dev_state_context_adapter.py`）
+3. **单入口接线**：
+   - `delegate_finalize.attach_dev_engine_summary` / `peek_dev_engine_summary`
+   - `b9_delegate_gate.apply_dev_auto_verify_success_gate` / `apply_dev_review_strict_gate`
+4. **Schema CI**：`schemas/dev/loop_dev_state_view.v1.json`
+
+verify 边界仍由 `DevVerifyView` 覆盖（`dev_loop.transition`）；`LoopDevStateView` 覆盖 PLAN→FIX **快照**出站与门控读侧。
+
 ## 验收
 
 - `tests/core/test_dev_context_adapter.py` 绿
