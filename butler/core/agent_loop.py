@@ -368,7 +368,20 @@ class AgentLoop:
             return False
 
         if stop_hooks.additional_context:
-            self.diagnostics["stop_hook_context"] = list(stop_hooks.additional_context)
+            from butler.core.hook_context_adapter import (
+                adapt_hook_context_lines,
+                apply_hook_context_to_diagnostics,
+                to_hook_context_view,
+            )
+
+            adapted = adapt_hook_context_lines(
+                stop_hooks.additional_context,
+                source="stop_hook",
+            )
+            if adapted:
+                self.diagnostics["stop_hook_context"] = adapted
+                view = to_hook_context_view(adapted, source="stop_hook_merged")
+                apply_hook_context_to_diagnostics(view, self.diagnostics)
 
         if not stop_hooks.blocked:
             return False

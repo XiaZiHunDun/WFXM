@@ -2,6 +2,7 @@
 
 from butler.hooks.loader import load_hooks_config
 from butler.hooks.runner import (
+    PreCompactHookResult,
     StopHookResult,
     UserPromptSubmitResult,
     run_permission_denied_hooks,
@@ -20,6 +21,7 @@ from butler.hooks.runner import (
 from butler.hooks.telemetry import format_hook_diagnostic_lines, reset_hook_telemetry
 
 __all__ = [
+    "PreCompactHookResult",
     "StopHookResult",
     "UserPromptSubmitResult",
     "format_hook_diagnostic_lines",

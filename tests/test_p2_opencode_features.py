@@ -125,7 +125,7 @@ hooks:
     from butler.hooks.runner import run_pre_compact_hooks
 
     block = run_pre_compact_hooks(estimated_tokens=1000, message_count=10)
-    assert block is not None
+    assert block.blocked is not None
 
 
 @pytest.mark.unit

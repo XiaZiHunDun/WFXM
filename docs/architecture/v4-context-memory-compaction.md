@@ -49,6 +49,9 @@ flowchart LR
 |------|------|------|
 | 管线压缩 | `context_pipeline.compress_context` | `summary` → ACL → `compression_summary` |
 | 专用压缩轮 | `compaction_task.run_compaction_turn` | hook contexts → ACL → `compaction_hook_context` |
+| PreCompact hook | `compaction_task` + `hook_context_adapter` | `additionalContext` → `compaction_pre_hook_context` |
+| 通用 Hook | `locked_phases` / Stop hooks | `HookContextView` 单入口 |
+| checkpoint 读回 | `compaction_checkpoint.restore_into_diagnostics` | preview 再过 ACL |
 | 降级 | 适配异常 | 空/兜底文案 + `compaction_acl_degraded`（不抛到 Loop） |
 
 **ADR**：[`compaction-acl-adr-2026-07.md`](../plans/decisions/compaction-acl-adr-2026-07.md)  

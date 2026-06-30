@@ -97,17 +97,35 @@ def transition(state: DevState, event: str, **kwargs: Any) -> DevState:
             logger.info("Fix limit K_max reached, entering STUCK")
 
     if event == "verify_fail":
-        from butler.dev_engine.dev_state import VerifyResult
+        from butler.core.dev_context_adapter import (
+            apply_dev_verify_view_to_state,
+            to_dev_verify_view,
+            to_verify_result,
+        )
 
-        vr = kwargs.get("verify_result")
-        if isinstance(vr, VerifyResult):
-            state.verify_result = vr
-            state.diagnostics = list(vr.diagnostics)
+        raw_vr = kwargs.get("verify_result")
+        view = to_dev_verify_view(raw_vr, source="verify_fail")
+        apply_dev_verify_view_to_state(view, state)
+        vr = to_verify_result(raw_vr, source="verify_fail")
+        state.verify_result = vr
+        state.diagnostics = list(vr.diagnostics)
 
     if event == "verify_pass":
-        from butler.dev_engine.dev_state import VerifyResult
+        raw_vr = kwargs.get("verify_result")
+        if raw_vr is not None:
+            from butler.core.dev_context_adapter import (
+                apply_dev_verify_view_to_state,
+                to_dev_verify_view,
+                to_verify_result,
+            )
 
-        state.verify_result = VerifyResult(status=VerifyStatus.PASS)
+            view = to_dev_verify_view(raw_vr, source="verify_pass")
+            apply_dev_verify_view_to_state(view, state)
+            state.verify_result = to_verify_result(raw_vr, source="verify_pass")
+        else:
+            from butler.dev_engine.dev_state import VerifyResult
+
+            state.verify_result = VerifyResult(status=VerifyStatus.PASS)
         state.diagnostics = []
 
     if event == "edit_success":

@@ -28,9 +28,15 @@
 
 ## 非目标
 
-- DevEngine `PLAN→FIX` 状态机 ACL（另立项）
+- DevEngine `PLAN→FIX` 状态机 ACL（另立项 → [`dev-engine-acl-adr-2026-07.md`](dev-engine-acl-adr-2026-07.md) verify 边界已落地）
 - 全量 `messages: list[dict]` Pydantic 化
 - LangGraph 替换 Loop
+
+## 扩展（ACL-5～6，2026-06-29）
+
+- **pre_compact** `additionalContext` → `hook_context_adapter` → `compaction_pre_hook_context`
+- **checkpoint restore** 摘要 preview 再过 `to_loop_compaction_view`
+- **UserPromptSubmit / Stop** hooks → `HookContextView`（[`hook_context_ports.py`](../../butler/contracts/hook_context_ports.py)）
 
 ## 验收
 

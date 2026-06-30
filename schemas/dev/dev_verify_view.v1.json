@@ -1,0 +1,59 @@
+{
+  "description": "Invariant verify snapshot consumed by dev_loop after ACL.",
+  "properties": {
+    "status": {
+      "default": "UNKNOWN",
+      "description": "PASS|FAIL|TIMEOUT|SKIP|UNKNOWN",
+      "title": "Status",
+      "type": "string"
+    },
+    "diagnostics": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Diagnostics",
+      "type": "array"
+    },
+    "output_tail": {
+      "default": "",
+      "title": "Output Tail",
+      "type": "string"
+    },
+    "command": {
+      "default": "",
+      "title": "Command",
+      "type": "string"
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exit Code"
+    },
+    "elapsed_seconds": {
+      "default": 0.0,
+      "title": "Elapsed Seconds",
+      "type": "number"
+    },
+    "schema_version": {
+      "const": "v1",
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "title": "DevVerifyView",
+  "type": "object"
+}

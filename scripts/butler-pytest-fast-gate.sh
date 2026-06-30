@@ -15,6 +15,9 @@ bash scripts/butler-wechat-attach-probe.sh
 echo ""
 bash scripts/butler-cc-harness-gate.sh
 echo ""
+echo "== schema drift (all ACL contracts, strict) =="
+SCHEMA_DRIFT_STRICT=1 bash scripts/check-schema-drift.sh
+echo ""
 bash scripts/butler-mypy-strict-gate.sh
 echo ""
 bash scripts/butler-trajectory-compliance-gate.sh --warn-only

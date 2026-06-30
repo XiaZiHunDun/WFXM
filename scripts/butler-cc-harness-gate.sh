@@ -30,6 +30,10 @@ echo "== CC harness P3–P4 + context pipeline =="
   tests/test_post_compact_agents_sections.py \
   tests/core/test_compaction_context_adapter.py \
   tests/core/test_context_pipeline_acl.py \
+  tests/core/test_hook_context_adapter.py \
+  tests/core/test_dev_context_adapter.py \
+  tests/core/test_pre_compact_hook_acl.py \
+  tests/core/test_compaction_checkpoint_acl.py \
   -q "$@"
 
 echo ""

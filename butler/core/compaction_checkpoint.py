@@ -90,6 +90,19 @@ def restore_into_diagnostics(
     tools = ckpt.get("tool_names")
     if isinstance(tools, list) and tools:
         diagnostics["compaction_checkpoint_tool_count"] = len(tools)
+    preview = ckpt.get("compression_summary_preview")
+    if preview:
+        try:
+            from butler.core.compaction_context_adapter import (
+                apply_compaction_view_to_diagnostics,
+                to_loop_compaction_view,
+            )
+
+            view = to_loop_compaction_view(preview, source="checkpoint_restore")
+            diagnostics["compaction_checkpoint_summary_preview"] = view.content[:500]
+            apply_compaction_view_to_diagnostics(view, diagnostics)
+        except Exception as exc:
+            logger.debug("checkpoint ACL restore skipped: %s", exc)
     return ckpt
 
 

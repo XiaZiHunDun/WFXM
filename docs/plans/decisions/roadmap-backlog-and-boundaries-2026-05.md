@@ -613,6 +613,10 @@ butler eval report --out .butler/reports/eval-unified.json
 | ACL-2 | `ContextPipeline` / `compaction_task` 接线 | **done** 2026-06-29 |
 | ACL-3 | 适配器单测 + pipeline 集成测 | **done** 2026-06-29 |
 | ACL-4 | `schemas/compaction` + `check-schema-drift.sh` | **done** 2026-06-29 |
+| ACL-5 | pre_compact hook + checkpoint restore 接线 | **done** 2026-06-29 |
+| ACL-6 | Hook 上下文（UserPromptSubmit / Stop）`HookContextView` | **done** 2026-06-29 |
+| ACL-7 | DevEngine verify `DevVerifyView` + `dev_loop` 接线 | **done** 2026-06-29 |
+| ACL-8 | schema MAP 扩展 hook/dev + fast-gate strict | **done** 2026-06-29 |
 
 ```bash
 PYTHONPATH=. pytest tests/core/test_compaction_context_adapter.py tests/core/test_context_pipeline_acl.py -q

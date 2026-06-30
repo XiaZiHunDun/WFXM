@@ -1,0 +1,24 @@
+{
+  "description": "Invariant view for hook additionalContext before prompt / diagnostics.",
+  "properties": {
+    "content": {
+      "default": "",
+      "description": "Unified hook context text",
+      "title": "Content",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "v1",
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "title": "HookContextView",
+  "type": "object"
+}

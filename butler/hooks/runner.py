@@ -28,6 +28,12 @@ class UserPromptSubmitResult:
 @dataclass
 class StopHookResult:
     additional_context: list[str] = field(default_factory=list)
+
+
+@dataclass
+class PreCompactHookResult:
+    blocked: str | None = None
+    contexts: list[str] = field(default_factory=list)
     blocked: bool = False
     block_message: str = ""
     decision: str = "continue"
@@ -400,8 +406,9 @@ def run_pre_compact_hooks(
     message_count: int = 0,
     iteration: int = 0,
     session_key: str = "",
-) -> str | None:
+) -> PreCompactHookResult:
     """Run PreCompact shell hooks before context compaction."""
+    result = PreCompactHookResult()
     payload = {
         "hook_event_name": "PreCompact",
         "estimated_tokens": max(0, int(estimated_tokens)),
@@ -412,10 +419,13 @@ def run_pre_compact_hooks(
     for rule in _rules_for_event("PreCompact"):
         code, out, err = _run_hook(rule, payload)
         if code == 2:
-            return (err or out or "PreCompact hook blocked compaction").strip()[:2000]
+            result.blocked = (err or out or "PreCompact hook blocked compaction").strip()[:2000]
+            return result
+        specific = _parse_hook_stdout(out, "PreCompact")
+        result.contexts.extend(_collect_additional_context(specific, out))
         if code not in (0, None) and (out or err):
             logger.info("PreCompact hook exit %s: %s", code, (err or out)[:200])
-    return None
+    return result
 
 
 def run_post_compact_hooks(

@@ -64,15 +64,27 @@ def run_compaction_turn(
     try:
         from butler.hooks.runner import run_post_compact_hooks, run_pre_compact_hooks
 
-        block = run_pre_compact_hooks(
+        pre = run_pre_compact_hooks(
             estimated_tokens=before_est,
             message_count=len(messages),
             iteration=iteration,
             session_key=session_key,
         )
-        if block:
-            diag["compaction_turn_blocked"] = block[:500]
+        if pre.blocked:
+            diag["compaction_turn_blocked"] = pre.blocked[:500]
             return False, messages
+        if pre.contexts:
+            from butler.core.hook_context_adapter import (
+                adapt_hook_context_lines,
+                apply_hook_context_to_diagnostics,
+                to_hook_context_view,
+            )
+
+            adapted = adapt_hook_context_lines(pre.contexts, source="pre_compact_hook")
+            if adapted:
+                diag["compaction_pre_hook_context"] = adapted
+                view = to_hook_context_view(adapted, source="pre_compact_merged")
+                apply_hook_context_to_diagnostics(view, diag)
     except Exception as exc:
         logger.debug("pre_compact hooks skipped: %s", exc)
 
@@ -163,6 +175,13 @@ def run_compaction_turn(
             adapted = adapt_hook_contexts(hook_contexts, source="post_compact_hook")
             if adapted:
                 diag["compaction_hook_context"] = adapted
+                from butler.core.hook_context_adapter import (
+                    apply_hook_context_to_diagnostics,
+                    to_hook_context_view,
+                )
+
+                hook_view = to_hook_context_view(adapted, source="post_compact_merged")
+                apply_hook_context_to_diagnostics(hook_view, diag)
                 view = to_loop_compaction_view(adapted, source="post_compact_merged")
                 apply_compaction_view_to_diagnostics(view, diag)
     except Exception as exc:

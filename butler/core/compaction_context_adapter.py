@@ -119,9 +119,6 @@ def apply_compaction_view_to_diagnostics(
 
 def adapt_hook_contexts(contexts: list[str], *, source: str = "post_compact_hook") -> str:
     """Adapt PostCompact hook context lines into one ACL-safe string."""
-    parts: list[str] = []
-    for raw in contexts:
-        view = to_loop_compaction_view(raw, source=source)
-        if view.content:
-            parts.append(view.content)
-    return "\n".join(parts)
+    from butler.core.hook_context_adapter import adapt_hook_context_lines
+
+    return adapt_hook_context_lines(contexts, source=source, separator="\n")

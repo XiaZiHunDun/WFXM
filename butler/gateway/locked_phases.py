@@ -265,8 +265,14 @@ def _phase_augment_prompt(
     if ephemeral_parts:
         state.ephemeral_system = "\n\n".join(ephemeral_parts)
     if state.prompt_hooks.additional_context:
-        hook_ctx = "\n\n".join(state.prompt_hooks.additional_context)
-        state.augmented = f"{hook_ctx}\n\n{state.augmented}"
+        from butler.core.hook_context_adapter import adapt_hook_context_lines
+
+        hook_ctx = adapt_hook_context_lines(
+            state.prompt_hooks.additional_context,
+            source="user_prompt_submit_hook",
+        )
+        if hook_ctx:
+            state.augmented = f"{hook_ctx}\n\n{state.augmented}"
 
 
 # ---------------------------------------------------------------------------
