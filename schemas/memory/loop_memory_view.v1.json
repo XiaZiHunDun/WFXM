@@ -1,0 +1,24 @@
+{
+  "description": "Invariant view consumed by memory prefetch / pre_llm_transform after ACL.",
+  "properties": {
+    "content": {
+      "default": "",
+      "description": "Unified memory text for injection",
+      "title": "Content",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "v1",
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "title": "LoopMemoryView",
+  "type": "object"
+}

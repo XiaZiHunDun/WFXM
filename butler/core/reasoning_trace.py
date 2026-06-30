@@ -87,6 +87,19 @@ def record_reflect_step(
         detail=summarize_reasoning_text(detail, max_len=200),
         source=str(source or "delegate")[:32],
     )
+    try:
+        from butler.core.reflection_closure import maybe_persist_reflect_closure
+
+        maybe_persist_reflect_closure(
+            trigger=str(trigger or "verify_fail")[:48],
+            cause=summarize_reasoning_text(cause, max_len=400),
+            strategy=(strategy or "")[:120],
+            detail=summarize_reasoning_text(detail, max_len=200),
+            session_key=session_key,
+            source=str(source or "delegate")[:48],
+        )
+    except Exception as exc:
+        logger.debug("reflection closure persist skipped: %s", exc)
 
 
 def maybe_record_llm_reasoning(loop: Any, response: Any, *, iteration: int = 0) -> None:

@@ -15,6 +15,8 @@ registry. ``register_gateway_contracts()`` wires OwnerGate + BridgeAccess.
 from butler.contracts.bridge_access import BridgeAccess
 from butler.contracts.compaction_ports import LoopCompactionView, loop_compaction_view_schema_json
 from butler.contracts.dev_context_ports import DevVerifyView, dev_verify_view_schema_json
+from butler.contracts.memory_ports import LoopMemoryView, loop_memory_view_schema_json
+from butler.contracts.message_ports import LoopApiMessageView, loop_api_message_view_schema_json
 from butler.contracts.context_transform_ports import (
     ContextTransformPort,
     TransformContext,
@@ -38,7 +40,9 @@ __all__ = [
     "EvalSuitePort",
     "EventsSink",
     "HookContextView",
+    "LoopApiMessageView",
     "LoopCompactionView",
+    "LoopMemoryView",
     "OwnerGate",
     "ScoreSinkPort",
     "SuiteRunResult",
@@ -49,6 +53,8 @@ __all__ = [
     "hook_context_view_schema_json",
     "dev_verify_view_schema_json",
     "loop_compaction_view_schema_json",
+    "loop_memory_view_schema_json",
+    "loop_api_message_view_schema_json",
     "set_bridge_access",
     "set_events_sink",
     "set_owner_gate",

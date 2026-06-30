@@ -166,7 +166,7 @@ def prefetch_turn_memory(
         if cached is not None:
             if diagnostics is not None:
                 diagnostics["memory_prefetch_cache_hit"] = True
-            return cached
+            return _decorate_prefetch_for_turn(cached, diagnostics, session_key=session_key)
         if diagnostics is not None:
             diagnostics["memory_prefetch_cache_hit"] = False
 
@@ -364,6 +364,7 @@ def prefetch_turn_memory(
         merged = filter_injection_from_prefetch(merged)
     except Exception as exc:
         logger.debug("Prefetch injection filter skipped: %s", exc)
+    merged = _normalize_prefetch_body(merged, diagnostics)
     if merged.strip():
         from butler.memory.prefetch_cache import set_cached_prefetch
 
@@ -393,6 +394,35 @@ def prefetch_turn_memory(
     except Exception:
         pass
 
+    return _decorate_prefetch_for_turn(merged, diagnostics, session_key=session_key)
+
+
+def _normalize_prefetch_body(
+    body: str,
+    diagnostics: dict[str, Any] | None,
+) -> str:
+    from butler.core.memory_context_adapter import adapt_memory_prefetch_content
+
+    return adapt_memory_prefetch_content(body, source="memory_prefetch", diagnostics=diagnostics)
+
+
+def _decorate_prefetch_for_turn(
+    body: str,
+    diagnostics: dict[str, Any] | None,
+    *,
+    session_key: str = "",
+) -> str:
+    merged = str(body or "").strip()
+    try:
+        from butler.core.reflection_closure import build_reflect_closure_banner
+
+        banner = build_reflect_closure_banner(session_key=session_key)
+        if banner.strip():
+            merged = f"{banner}\n\n{merged}".strip() if merged else banner.strip()
+            if diagnostics is not None:
+                diagnostics["reflection_closure_injected"] = True
+    except Exception as exc:
+        logger.debug("reflection closure inject skipped: %s", exc)
     return merged
 
 

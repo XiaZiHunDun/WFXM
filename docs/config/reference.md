@@ -369,6 +369,10 @@
 | `BUTLER_STREAM_PROBE` | 0 | `1` 时 `/诊断` 触发最小 complete 探活 |
 | `BUTLER_USAGE_PERSIST` | 1 | 用量写入 `~/.butler/usage/YYYY-MM-DD.jsonl` |
 | `BUTLER_REFLEXION_EPHEMERAL` | 0 | `1` 时同工具连续失败注入 ephemeral 反思 |
+| `BUTLER_REFLECTION_CLOSURE` | 1 | `0` 关闭 reflect_step → experience 闭环接线 |
+| `BUTLER_REFLECTION_CLOSURE_WRITE` | 0 | `1` 时 `record_reflect_step` 写入 `reflexion.jsonl`（或与 `BUTLER_REFLEXION_WRITE_EXPERIENCE=1`） |
+| `BUTLER_REFLECTION_CLOSURE_INJECT` | 1 | `0` 关闭下轮 memory_prefetch 注入近期反思横幅 |
+| `BUTLER_API_MESSAGE_ACL` | 0 | `1` 时 `prepare_messages_for_api` 记录 API 消息边界 ACL diagnostics |
 | `BUTLER_ADVERSARIAL_MARK` | 1 | 入站消息含 injection 模式时前缀系统提示 |
 | `BUTLER_PREFETCH_INJECTION_FILTER` | 1 | 记忆预取行过滤 injection 模式 |
 | `BUTLER_PROVIDER_CIRCUIT` | 1 | 供应商熔断（见 `provider_health.py`） |

@@ -303,6 +303,12 @@ class ContextPipeline:
             repair_tool_arguments(out)
             out, _ = sanitize_api_messages(out)
             out, _ = drop_thinking_only_assistants(out)
+            try:
+                from butler.core.message_context_adapter import annotate_api_message_boundary
+
+                annotate_api_message_boundary(out, diag or None, source="prepare_messages")
+            except Exception as exc:
+                logger.debug("API message ACL skipped: %s", exc)
             return out
 
         steps = [

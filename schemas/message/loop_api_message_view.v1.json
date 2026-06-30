@@ -1,0 +1,37 @@
+{
+  "description": "Minimal invariant view for one API-bound message (not full conversation state).",
+  "properties": {
+    "role": {
+      "enum": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "content": {
+      "default": "",
+      "description": "Normalized text content for API boundary",
+      "title": "Content",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "v1",
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "required": [
+    "role"
+  ],
+  "title": "LoopApiMessageView",
+  "type": "object"
+}

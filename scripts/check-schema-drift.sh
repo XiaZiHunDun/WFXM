@@ -27,6 +27,8 @@ declare -A MAP=(
   ["schemas/compaction/loop_compaction_view.v1.json"]="butler.contracts.compaction_ports:loop_compaction_view_schema_json"
   ["schemas/hook/hook_context_view.v1.json"]="butler.contracts.hook_context_ports:hook_context_view_schema_json"
   ["schemas/dev/dev_verify_view.v1.json"]="butler.contracts.dev_context_ports:dev_verify_view_schema_json"
+  ["schemas/memory/loop_memory_view.v1.json"]="butler.contracts.memory_ports:loop_memory_view_schema_json"
+  ["schemas/message/loop_api_message_view.v1.json"]="butler.contracts.message_ports:loop_api_message_view_schema_json"
 )
 
 drift=0
