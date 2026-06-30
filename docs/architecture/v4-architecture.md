@@ -647,7 +647,7 @@ while not done and iterations < budget:
 - **修复策略**：`butler/dev_engine/fix_strategy.py`，direct/context/structural/rollback 四级分类
 - **上下文管理**：`butler/dev_engine/dev_context.py`，DevState 注入 LLM 上下文 + 相关性评分
 - **Loop 集成（完整）**：
-  - 工具注册：`register_dev_engine_tools()` → `builtin_register.py`（dev_status / dev_verify / dev_rollback / dev_search_symbols）
+  - 工具注册：`register_dev_engine_tools()` → `builtin_register.py`（dev_status / dev_verify / dev_review / dev_rollback / dev_search_symbols）
   - 白名单：`project_tools._DEV_EXTRA_TOOLS` 在 `role=dev` 时自动注入
   - 系统提示：`prompts/dev_engine_system.md` 通过 `get_dev_agent_prompt()` 注入 DEV_AGENT
   - 委派集成：`delegate_phases._init_dev_engine_state()` 初始化 DevState + `_attach_dev_engine_summary()` 输出状态摘要
@@ -688,6 +688,7 @@ while not done and iterations < budget:
 | Diagnostics | `butler/dev_engine/diagnostics.py` | 终端输出解析（DT6 完备性） |
 | Code Search | `butler/dev_engine/code_search.py` | 多策略搜索（DA3 有界性） |
 | Verify | `butler/dev_engine/verify.py` | 分层验证 V1-V5（DA2） |
+| Review | `butler/dev_engine/review_static.py` | 确定性审查 RK-* + `dev_review` |
 | Fix Strategy | `butler/dev_engine/fix_strategy.py` | 修复策略分级（DA4） |
 | Dev Context | `butler/dev_engine/dev_context.py` | 代码感知上下文（DA6） |
 | Dev Tools | `butler/dev_engine/dev_tools.py` | LLM 工具接口（DA5/DA7） |

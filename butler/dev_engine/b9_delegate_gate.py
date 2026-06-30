@@ -441,12 +441,57 @@ def apply_coding_strict_pilot_gate(
     return False, out
 
 
+def apply_dev_review_strict_gate(
+    *,
+    category: str = "",
+    category_meta: dict[str, Any] | None = None,
+    role: str = "",
+    base_success: bool,
+    issues: list[str] | None = None,
+    dev_engine: dict[str, Any] | None = None,
+) -> tuple[bool, list[str]]:
+    """Pilot: strict review blocks dev delegate when review findings remain."""
+    out = list(issues or [])
+    if not base_success:
+        return False, out
+    try:
+        from butler.dev_engine.dev_tools import review_strict_enabled
+
+        if not review_strict_enabled():
+            return True, out
+    except Exception:
+        return True, out
+
+    norm = str(role or "").replace("_agent", "").strip().lower()
+    if norm != "dev":
+        return True, out
+
+    cat = str(category or (category_meta or {}).get("category") or "").strip()
+    pilot = coding_strict_pilot_categories()
+    if cat and cat not in pilot:
+        return True, out
+
+    de = dev_engine if isinstance(dev_engine, dict) else {}
+    review = de.get("review") if isinstance(de.get("review"), dict) else {}
+    if not review:
+        return True, out
+    if review.get("passed") is not False:
+        return True, out
+
+    count = int(review.get("findings_count") or 0)
+    msg = f"DEV_REVIEW_STRICT_GATE: review failed ({count} findings)"
+    if msg not in out:
+        out.append(msg)
+    return False, out
+
+
 __all__ = [
     "BENCHMARK_CATEGORIES",
     "SWE_LIVE_CATEGORY",
     "apply_b9_pytest_success_gate",
     "apply_coding_strict_pilot_gate",
     "apply_dev_auto_verify_success_gate",
+    "apply_dev_review_strict_gate",
     "benchmark_verify_context",
     "build_b9_wrong_patch_retry_banner",
     "build_b9_workspace_preamble",

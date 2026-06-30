@@ -88,13 +88,6 @@ def transition(state: DevState, event: str, **kwargs: Any) -> DevState:
         return state
 
     new_phase = transitions
-    state.advance_phase(new_phase)
-
-    if event == "fix_applied":
-        if not state.record_fix_attempt():
-            new_phase = DevPhase.STUCK
-            state.phase = DevPhase.STUCK
-            logger.info("Fix limit K_max reached, entering STUCK")
 
     if event == "verify_fail":
         from butler.core.dev_context_adapter import (
@@ -127,6 +120,38 @@ def transition(state: DevState, event: str, **kwargs: Any) -> DevState:
 
             state.verify_result = VerifyResult(status=VerifyStatus.PASS)
         state.diagnostics = []
+        try:
+            from butler.dev_engine.dev_tools import auto_review_enabled
+
+            if auto_review_enabled() and new_phase == DevPhase.DONE:
+                new_phase = DevPhase.REVIEW
+        except Exception:
+            pass
+
+    if event == "review_fail":
+        from butler.core.review_context_adapter import (
+            apply_dev_review_view_to_state,
+            to_dev_review_view,
+        )
+
+        view = to_dev_review_view(kwargs.get("review_result"), source="review_fail")
+        apply_dev_review_view_to_state(view, state)
+
+    if event == "review_pass":
+        from butler.core.review_context_adapter import (
+            apply_dev_review_view_to_state,
+            to_dev_review_view,
+        )
+
+        view = to_dev_review_view(kwargs.get("review_result"), source="review_pass")
+        apply_dev_review_view_to_state(view, state)
+
+    state.advance_phase(new_phase)
+
+    if event == "fix_applied":
+        if not state.record_fix_attempt():
+            state.phase = DevPhase.STUCK
+            logger.info("Fix limit K_max reached, entering STUCK")
 
     if event == "edit_success":
         record = kwargs.get("edit_record")
@@ -174,8 +199,17 @@ _TRANSITION_TABLE: dict[tuple[DevPhase, str], DevPhase] = {
     (DevPhase.VERIFY, "verify_skip"): DevPhase.REVIEW,
     (DevPhase.FIX, "fix_applied"): DevPhase.VERIFY,
     (DevPhase.FIX, "fix_rollback"): DevPhase.PLAN,
+    (DevPhase.PLAN, "review_pass"): DevPhase.DONE,
+    (DevPhase.PLAN, "review_fail"): DevPhase.FIX,
+    (DevPhase.EDIT, "review_pass"): DevPhase.DONE,
+    (DevPhase.EDIT, "review_fail"): DevPhase.FIX,
+    (DevPhase.REVIEW, "review_pass"): DevPhase.DONE,
+    (DevPhase.REVIEW, "review_fail"): DevPhase.FIX,
     (DevPhase.REVIEW, "owner_approve"): DevPhase.DONE,
     (DevPhase.REVIEW, "owner_reject"): DevPhase.PLAN,
+    (DevPhase.VERIFY, "review_pass"): DevPhase.DONE,
+    (DevPhase.VERIFY, "review_fail"): DevPhase.FIX,
+    (DevPhase.DONE, "review_fail"): DevPhase.FIX,
 }
 
 

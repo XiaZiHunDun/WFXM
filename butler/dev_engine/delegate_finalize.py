@@ -65,6 +65,16 @@ def attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any]) 
         }
         if ds.coding_knowledge.mode:
             payload["dev_engine"]["coding_knowledge"] = ds.coding_knowledge.to_dict()
+        if ds.review_summary.findings_count or not ds.review_summary.passed:
+            payload["dev_engine"]["review"] = ds.review_summary.to_dict()
+        try:
+            from butler.dev_engine.review_closure import nexus_sprint_review_handoff
+
+            handoff = nexus_sprint_review_handoff(state.category)
+            if handoff:
+                payload["review_handoff"] = handoff.strip()
+        except Exception:
+            pass
 
         exp_id = ds.coding_knowledge.experience_id or ""
         if exp_id:

@@ -37,6 +37,7 @@ categories:
     background: true
     prompt_append: |
       [category:nexus-sprint] 实现后须在上下文中包含 ## Handoff（目标/验收/相关路径）。
+      完成后建议委派审查：delegate_task role=review category=nexus-micro，或 workflow dev-qa-loop。
     max_iterations: 28
   nexus-micro:
     role: review

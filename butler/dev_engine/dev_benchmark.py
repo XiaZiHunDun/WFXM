@@ -18,6 +18,7 @@ Benchmark categories:
   B7: Multi-edit rollback — edit, fail, rollback, re-edit
   B8: SWE-bench Lite      — 15 oracle instances
   B10: Verify layered     — V3 test FAIL → fix → PASS
+  B11: Review static      — deterministic smell detection
 """
 
 from __future__ import annotations
@@ -57,6 +58,7 @@ class BenchmarkCategory(str, Enum):
     IMPOSSIBLE = "impossible"
     ROLLBACK = "rollback"
     VERIFY_LAYERED = "verify_layered"
+    REVIEW_STATIC = "review_static"
 
 
 @dataclass
@@ -575,6 +577,38 @@ def _run_b10_verify_layers(tmp_path: Path, collector: MetricsCollector) -> Bench
     )
 
 
+def _run_b11_review_static(tmp_path: Path, collector: MetricsCollector) -> BenchmarkResult:
+    """B11: Static review detects planted smells."""
+    from butler.dev_engine.review_static import run_static_review
+
+    task_id = "b11_review_static"
+    smelly = tmp_path / "smelly.py"
+    smelly.write_text(
+        "api_key = 'sk-abcdefghijklmnopqrstuvwxyz'\n\n"
+        "def huge(a, b, c, d, e, f, g, h):\n"
+        + "\n".join(f"    x{i} = {i}" for i in range(85))
+        + "\n    return a\n",
+        encoding="utf-8",
+    )
+    view = run_static_review(tmp_path, changed_files=["smelly.py"])
+    rules = {f.rule_id for f in view.findings}
+    failures: list[str] = []
+    if "RK-SECURITY" not in rules:
+        failures.append("expected RK-SECURITY finding")
+    if "RK-SIZE" not in rules:
+        failures.append("expected RK-SIZE finding")
+    if view.passed:
+        failures.append("expected review FAIL on smelly file")
+
+    return BenchmarkResult(
+        task_id=task_id,
+        category=BenchmarkCategory.REVIEW_STATIC,
+        description="静态审查检出 secret + 超长函数",
+        passed=len(failures) == 0,
+        failure_reasons=failures,
+    )
+
+
 def _run_b8_swebench(workspace: Path, _collector: MetricsCollector) -> BenchmarkResult:
     """B8: SWE-bench Lite adapted — oracle-apply + verify on 15 instances."""
     from butler.dev_engine.swebench_lite import _instances
@@ -621,6 +655,7 @@ _BUILTIN_BENCHMARKS: list[Callable[[Path, MetricsCollector], BenchmarkResult]] =
     _run_b7_rollback,
     _run_b8_swebench,
     _run_b10_verify_layers,
+    _run_b11_review_static,
 ]
 
 

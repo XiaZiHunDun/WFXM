@@ -205,6 +205,16 @@ def format_delegate_quality_report() -> str:
 
     delta = snap.get("prod_delta") or {}
     lines.append("")
+    try:
+        from butler.config import get_butler_home
+
+        pending = get_butler_home() / "experiences" / "review_candidates.jsonl"
+        if pending.is_file():
+            count = sum(1 for _ in pending.open(encoding="utf-8"))
+            if count:
+                lines.append(f"**审查经验候选**: {count} 条（`review_candidates.jsonl`）")
+    except Exception:
+        pass
     if int(delta.get("snapshots") or 0) >= 2:
         lines.append("**周趋势（clean 快照）**:")
         for key in ("verify_fail", "patch_wrong", "no_test", "tool_wrong"):

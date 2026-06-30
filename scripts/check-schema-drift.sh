@@ -29,6 +29,7 @@ declare -A MAP=(
   ["schemas/dev/dev_verify_view.v1.json"]="butler.contracts.dev_context_ports:dev_verify_view_schema_json"
   ["schemas/memory/loop_memory_view.v1.json"]="butler.contracts.memory_ports:loop_memory_view_schema_json"
   ["schemas/message/loop_api_message_view.v1.json"]="butler.contracts.message_ports:loop_api_message_view_schema_json"
+  ["schemas/review/dev_review_view.v1.json"]="butler.contracts.review_ports:dev_review_view_schema_json"
 )
 
 drift=0

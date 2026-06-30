@@ -161,6 +161,30 @@ class CodingKnowledgeSummary:
 
 
 @dataclass
+class ReviewSummary:
+    """Structured dev_review snapshot on DevState."""
+
+    passed: bool = True
+    findings_count: int = 0
+    severity_max: str = ""
+    findings: list[dict[str, Any]] = field(default_factory=list)
+    suggestions: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
+            "passed": self.passed,
+            "findings_count": self.findings_count,
+        }
+        if self.severity_max:
+            d["severity_max"] = self.severity_max
+        if self.findings:
+            d["findings"] = self.findings[:12]
+        if self.suggestions:
+            d["suggestions"] = self.suggestions[:8]
+        return d
+
+
+@dataclass
 class DevState:
     """Development state for a single task (Definition D1).
 
@@ -176,6 +200,7 @@ class DevState:
     diagnostics: list[Diagnostic] = field(default_factory=list)
     coding_knowledge: CodingKnowledgeSummary = field(
         default_factory=CodingKnowledgeSummary)
+    review_summary: ReviewSummary = field(default_factory=ReviewSummary)
     fix_count: int = 0
     iteration: int = 0
     max_fix_rounds: int = 3
@@ -222,6 +247,8 @@ class DevState:
         }
         if self.coding_knowledge.mode:
             d["coding_knowledge"] = self.coding_knowledge.to_dict()
+        if self.review_summary.findings_count or not self.review_summary.passed:
+            d["review"] = self.review_summary.to_dict()
         return d
 
     def summary(self) -> str:
@@ -238,4 +265,9 @@ class DevState:
         if self.coding_knowledge.mode:
             lines.append(f"知识层: {self.coding_knowledge.mode}"
                          f" ({len(self.coding_knowledge.activated_theorem_ids)} 定理)")
+        if self.review_summary.findings_count:
+            lines.append(
+                f"审查: {'PASS' if self.review_summary.passed else 'FAIL'}"
+                f" ({self.review_summary.findings_count} findings)"
+            )
         return " | ".join(lines)

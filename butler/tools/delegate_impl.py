@@ -103,6 +103,7 @@ def finalize_delegate_success(
             apply_b9_pytest_success_gate,
             apply_coding_strict_pilot_gate,
             apply_dev_auto_verify_success_gate,
+            apply_dev_review_strict_gate,
         )
 
         ok, out_issues = apply_b9_pytest_success_gate(
@@ -122,7 +123,15 @@ def finalize_delegate_success(
             changes=changes,
             category_meta=category_meta,
         )
-        return apply_coding_strict_pilot_gate(
+        ok, out_issues = apply_coding_strict_pilot_gate(
+            category=category,
+            category_meta=category_meta,
+            role=role,
+            base_success=ok,
+            issues=out_issues,
+            dev_engine=dev_engine,
+        )
+        return apply_dev_review_strict_gate(
             category=category,
             category_meta=category_meta,
             role=role,

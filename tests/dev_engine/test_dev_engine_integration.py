@@ -45,6 +45,7 @@ class TestDevEngineToolRegistration:
         expected = {
             "dev_status",
             "dev_verify",
+            "dev_review",
             "dev_rollback",
             "dev_search_symbols",
             "dev_metrics",
@@ -106,7 +107,7 @@ class TestDevToolsAllowlist:
     def test_dev_extra_tools_constant(self):
         from butler.tools.project_tools import _DEV_EXTRA_TOOLS
 
-        expected = {"dev_status", "dev_verify", "dev_rollback", "dev_search_symbols", "run_pytest"}
+        expected = {"dev_status", "dev_verify", "dev_review", "dev_rollback", "dev_search_symbols", "run_pytest"}
         assert expected == set(_DEV_EXTRA_TOOLS)
 
     def test_dev_role_includes_dev_tools_in_allowlist(self):
@@ -125,7 +126,7 @@ class TestDevToolsAllowlist:
             allowed = allowed_tool_names_for_project(project, role="dev")
 
         assert allowed is not None
-        for tool in ["dev_status", "dev_verify", "dev_rollback", "dev_search_symbols"]:
+        for tool in ["dev_status", "dev_verify", "dev_review", "dev_rollback", "dev_search_symbols"]:
             assert tool in allowed, f"{tool} not in dev allowlist"
 
     def test_dev_role_excludes_dev_tools_when_disabled(self):

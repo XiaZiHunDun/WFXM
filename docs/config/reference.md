@@ -664,6 +664,10 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 |------|--------|------|
 | `BUTLER_DEV_ENGINE` | `1` | `0` = 关闭内置开发引擎；关闭后 dev 角色使用传统工作流 |
 | `BUTLER_DEV_AUTO_VERIFY` | `1` | `0` = 关闭编辑后自动验证；手动调 `dev_verify` |
+| `BUTLER_DEV_AUTO_REVIEW` | `0` | `1` = verify 通过后自动 static `dev_review` 并进入 REVIEW 阶段 |
+| `BUTLER_DEV_REVIEW_STRICT` | `0` | `1` = pilot 类别委派在 `dev_engine.review.passed=false` 时阻断 success |
+| `BUTLER_DEV_REVIEW_MAX_FUNCTION_LINES` | 80 | 静态审查 RK-SIZE 函数行数阈值 |
+| `BUTLER_DEV_REVIEW_MAX_FILE_LINES` | 600 | 静态审查 RK-SIZE 文件行数阈值 |
 | `BUTLER_DEV_VERIFY_SUCCESS_GATE` | `1` | `1` = dev 委派有编辑但 verify 未绿时 `success=false`（`DEV_VERIFY_GATE`） |
 | `BUTLER_DEV_VERIFY_TIMEOUT` | `300` | `dev_verify` 单个验证层级超时（秒） |
 | `BUTLER_DEV_MAX_FIX_ROUNDS` | `3` | 同一类错误最大修复轮次，超限报 STUCK |

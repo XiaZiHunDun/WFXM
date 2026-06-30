@@ -1,0 +1,82 @@
+{
+  "$defs": {
+    "ReviewFinding": {
+      "description": "Single deterministic or LLM-backed review finding.",
+      "properties": {
+        "severity": {
+          "default": "warning",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "rule_id": {
+          "default": "",
+          "description": "Rubric id e.g. RK-SIZE",
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "file": {
+          "default": "",
+          "title": "File",
+          "type": "string"
+        },
+        "line": {
+          "default": 0,
+          "title": "Line",
+          "type": "integer"
+        },
+        "message": {
+          "default": "",
+          "title": "Message",
+          "type": "string"
+        },
+        "evidence": {
+          "default": "",
+          "title": "Evidence",
+          "type": "string"
+        }
+      },
+      "title": "ReviewFinding",
+      "type": "object"
+    }
+  },
+  "description": "Invariant review snapshot consumed by dev_loop / delegate gates.",
+  "properties": {
+    "passed": {
+      "default": true,
+      "title": "Passed",
+      "type": "boolean"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/ReviewFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "suggestions": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Suggestions",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "v1",
+      "default": "v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    }
+  },
+  "title": "DevReviewView",
+  "type": "object"
+}

@@ -553,7 +553,7 @@ bash scripts/butler-eval-regression.sh --sync-dataset   # 同步全部评测 Dat
 |---------|------|
 | `butler-wechat-single-turn` / `butler-wechat-multi-turn` | 微信语料 YAML |
 | `butler-memory-benchmark` | MB1–MB7 |
-| `butler-dev-benchmark` | B1–B8 + B10 |
+| `butler-dev-benchmark` | B1–B8 + B10 + B11 review |
 | `butler-coding-knowledge-benchmark` | CK T01–T10 |
 | `butler-swebench-lite` | SWE-001…015 实例定义 |
 | `butler-llm-delegate-benchmark` | B9 任务规格 |

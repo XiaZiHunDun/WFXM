@@ -43,6 +43,16 @@ def coding_strict_enabled() -> bool:
     return raw.strip().lower() in ("1", "true", "yes")
 
 
+def auto_review_enabled() -> bool:
+    raw = os.getenv("BUTLER_DEV_AUTO_REVIEW", "0")
+    return raw.strip().lower() in ("1", "true", "yes")
+
+
+def review_strict_enabled() -> bool:
+    raw = os.getenv("BUTLER_DEV_REVIEW_STRICT", "0")
+    return raw.strip().lower() in ("1", "true", "yes")
+
+
 def get_or_create_state(session_key: str = "_default") -> Any:
     """Get or create DevState for session."""
     from butler.dev_engine.dev_loop import create_dev_state
@@ -106,6 +116,96 @@ def tool_dev_verify(
     out = result.to_dict()
     if thm_violations:
         out["theorem_violations"] = thm_violations
+    if result.passed and not thm_violations and auto_review_enabled():
+        try:
+            review_payload = tool_dev_review(
+                str(ws),
+                session_key=session_key,
+                from_auto_verify=True,
+            )
+            out["review"] = review_payload
+        except Exception as exc:
+            logger.debug("auto review after verify skipped: %s", exc)
+    return out
+
+
+def tool_dev_review(
+    workspace: str,
+    *,
+    changed_files: list[str] | None = None,
+    session_key: str = "_default",
+    llm_text: str = "",
+    from_auto_verify: bool = False,
+) -> dict[str, Any]:
+    """Run static (+ optional LLM) code review; update DevState."""
+    from butler.core.review_context_adapter import (
+        merge_review_views,
+        to_dev_review_view,
+    )
+    from butler.dev_engine.dev_loop import transition
+    from butler.dev_engine.optimize_advisory import enrich_review_with_suggestions
+    from butler.dev_engine.review_closure import (
+        maybe_persist_review_closure,
+        maybe_queue_experience_candidate,
+        summarize_review_for_delegate,
+    )
+    from butler.dev_engine.review_static import run_static_review
+
+    ws = Path(workspace)
+    state = get_or_create_state(session_key)
+    edit_paths = [e.path for e in state.edit_history if e.path]
+    static_view = run_static_review(
+        ws,
+        changed_files=changed_files,
+        edit_paths=edit_paths,
+    )
+    views = [static_view]
+    if llm_text.strip():
+        views.append(to_dev_review_view(llm_text, source="llm_review"))
+    view = enrich_review_with_suggestions(
+        ws,
+        merge_review_views(*views),
+        changed_files=changed_files,
+        edit_paths=edit_paths,
+    )
+
+    diagnostics: dict[str, Any] = {}
+    try:
+        from butler.core.review_context_adapter import apply_dev_review_view_to_diagnostics
+
+        apply_dev_review_view_to_diagnostics(view, diagnostics)
+    except Exception:
+        pass
+
+    if view.passed:
+        event = "review_pass"
+    else:
+        event = "review_fail"
+    from butler.dev_engine.dev_loop import get_valid_events, transition
+
+    if event in get_valid_events(state.phase):
+        transition(state, event, review_result=view)
+    else:
+        from butler.core.review_context_adapter import apply_dev_review_view_to_state
+
+        apply_dev_review_view_to_state(view, state)
+
+    try:
+        from butler.execution_context import get_current_session_key
+
+        sk = str(get_current_session_key() or session_key or "")
+        maybe_persist_review_closure(view, session_key=sk, source="dev_review")
+        maybe_queue_experience_candidate(view, task_preview=state.task_description[:200])
+    except Exception as exc:
+        logger.debug("review closure skipped: %s", exc)
+
+    out = summarize_review_for_delegate(view)
+    out["findings"] = [f.model_dump() for f in view.findings[:24]]
+    out["phase"] = state.phase.value
+    if from_auto_verify:
+        out["auto_review"] = True
+    if diagnostics:
+        out["diagnostics"] = diagnostics
     return out
 
 
@@ -173,6 +273,27 @@ def tool_dev_search_symbols(
 def _handler_dev_status(**kwargs: Any) -> str:
     sk = _resolve_session_key()
     return json.dumps(tool_dev_status(sk), ensure_ascii=False)
+
+
+def _handler_dev_review(
+    changed_files: str = "",
+    llm_text: str = "",
+    **kwargs: Any,
+) -> str:
+    from butler.tools.safe_root import get_tool_safe_root
+
+    workspace = str(get_tool_safe_root())
+    sk = _resolve_session_key()
+    files = [f.strip() for f in str(changed_files or "").split(",") if f.strip()]
+    return json.dumps(
+        tool_dev_review(
+            workspace,
+            changed_files=files or None,
+            session_key=sk,
+            llm_text=str(llm_text or ""),
+        ),
+        ensure_ascii=False,
+    )
 
 
 def _handler_dev_verify(
@@ -349,6 +470,31 @@ def register_dev_engine_tools(register_fn: Any) -> None:
         ),
         schema={"type": "object", "properties": {}},
         handler=_handler_dev_status,
+        toolset="dev_engine",
+    )
+
+    register_fn(
+        name="dev_review",
+        description=(
+            "运行确定性代码审查（边界/异常/体量/测试/安全）并返回结构化 findings。"
+            "VERIFY 通过后建议调用；可与 review_agent 的 PASS/FAIL 文本合并。"
+        ),
+        schema={
+            "type": "object",
+            "properties": {
+                "changed_files": {
+                    "type": "string",
+                    "description": "逗号分隔的相对路径；默认使用 EditHistory",
+                    "default": "",
+                },
+                "llm_text": {
+                    "type": "string",
+                    "description": "可选 review_agent 输出全文",
+                    "default": "",
+                },
+            },
+        },
+        handler=_handler_dev_review,
         toolset="dev_engine",
     )
 

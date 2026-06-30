@@ -68,6 +68,7 @@
 | G1-11 | 核心微信路径 handler sim 不足 | ✅ **2026-06-22**：`butler-wechat-core-sim.sh`（剧本 1–3+/诊断）+ `butler-ops-followup-check.sh` | 真机前无管家/项目/读文件链验证 | `butler-wechat-core-sim.sh` |
 | G1-13 | 全站 secrets↔env 契约分散 | ✅ **2026-06-22**：`.butler/secrets-contract.yaml` + `butler-secrets-contract-check.sh`（合并 extension manifest） | MCP 外 token 断层 | follow-up 硬失败项 |
 | G1-12 | 网络检索工具路由无 grounding | ✅ **2026-06-22**：policy golden + **G1-12b handler sim**（`--handler` soft）+ **strict-handler**（发版前硬断言）+ GitHub MCP 路由拦截 | web_search 与 MCP/Firecrawl 抢路 | `butler-web-search-route-sim.sh` |
+| G1-14 | 审查知识层未产品化 | ✅ **2026-06-30**：`dev_review` + `review_static` + ADR | Verify≠Review；无结构化 findings | [`dev-review-optimize-adr-2026-07.md`](dev-review-optimize-adr-2026-07.md) |
 
 ---
 

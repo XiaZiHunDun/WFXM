@@ -96,6 +96,7 @@ _LEAD_NETWORK_TOOLS = frozenset({
 _DEV_EXTRA_TOOLS = frozenset({
     "dev_status",
     "dev_verify",
+    "dev_review",
     "dev_rollback",
     "dev_search_symbols",
     "run_pytest",

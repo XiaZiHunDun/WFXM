@@ -17,6 +17,7 @@ from butler.contracts.compaction_ports import LoopCompactionView, loop_compactio
 from butler.contracts.dev_context_ports import DevVerifyView, dev_verify_view_schema_json
 from butler.contracts.memory_ports import LoopMemoryView, loop_memory_view_schema_json
 from butler.contracts.message_ports import LoopApiMessageView, loop_api_message_view_schema_json
+from butler.contracts.review_ports import DevReviewView, dev_review_view_schema_json
 from butler.contracts.context_transform_ports import (
     ContextTransformPort,
     TransformContext,
@@ -37,6 +38,7 @@ __all__ = [
     "BridgeAccess",
     "ContextTransformPort",
     "DevVerifyView",
+    "DevReviewView",
     "EvalSuitePort",
     "EventsSink",
     "HookContextView",
@@ -52,6 +54,7 @@ __all__ = [
     "get_owner_gate",
     "hook_context_view_schema_json",
     "dev_verify_view_schema_json",
+    "dev_review_view_schema_json",
     "loop_compaction_view_schema_json",
     "loop_memory_view_schema_json",
     "loop_api_message_view_schema_json",
