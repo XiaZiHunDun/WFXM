@@ -244,7 +244,7 @@ class TestAgentLoopRun:
             mock_llm_client,
             config=LoopConfig(max_retries=3, retry_delay=0, stream=False),
         )
-        with patch("butler.core.llm_retry.time.sleep"):
+        with patch("butler.core.llm_retry_errors.time.sleep"):
             result = loop.run("fail")
         assert result.status == LoopStatus.ERROR
         assert mock_llm_client.complete.call_count == 3
@@ -258,7 +258,7 @@ class TestAgentLoopRun:
             mock_llm_client,
             config=LoopConfig(max_retries=3, retry_delay=0, stream=False),
         )
-        with patch("butler.core.llm_retry.time.sleep"):
+        with patch("butler.core.llm_retry_errors.time.sleep"):
             result = loop.run("retry me")
         assert result.status == LoopStatus.COMPLETED
         assert result.final_response == "recovered"
@@ -276,7 +276,7 @@ class TestAgentLoopRun:
             ),
         )
 
-        with patch("butler.core.llm_retry.time.sleep") as sleep:
+        with patch("butler.core.llm_retry_errors.time.sleep") as sleep:
             result = loop.run("fail")
 
         assert result.status == LoopStatus.ERROR
@@ -699,7 +699,7 @@ class TestAgentLoopCallbacks:
             callbacks=callbacks,
             config=LoopConfig(max_retries=2, retry_delay=0, stream=False),
         )
-        with patch("butler.core.llm_retry.time.sleep"):
+        with patch("butler.core.llm_retry_errors.time.sleep"):
             loop.run("err")
         assert len(errors) == 2
         assert errors[0] == (ValueError, 1)

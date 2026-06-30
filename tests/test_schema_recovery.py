@@ -70,7 +70,7 @@ def test_schema_recovery_attempts_sanitize_even_without_pattern_format():
     )
 
     assert result.attempted is True
-    assert result.recovered is False
+    assert result.recovered is True  # sanitize collapsed anyOf → grammar-safe shape
     assert result.stripped == 0
     assert result.tools is not None
     assert result.tools[0]["function"]["parameters"]["properties"]["maybe"]["type"] == "string"

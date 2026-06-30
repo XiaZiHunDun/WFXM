@@ -21,7 +21,10 @@
 | `test_welcome_enabled_by_default` / welcomed_sessions | conftest 强制 `ONBOARDING=0` | **fixed** — `delenv` 恢复默认 |
 | `test_butler_env_sync` | 新 env 未入 `.env.example` / reference | **fixed** — TCR/Eval/RAGAS 行 |
 | `test_set_default_sink_swaps_implementation` | stub `inc` 签名缺 kwargs | **fixed** |
-| `test_lazy_import_budget` | ACL 模块 +161 lazy import | **fixed** — budget 3600 |
+| `test_lazy_import_budget` | ACL 模块 +161 lazy import | **fixed** — budget 3650（2026-06-30 P2-E 续） |
+| `test_run_all_benchmarks` / summary | B11 新增 | **fixed** — 期望 10/10 |
+| `test_schema_recovery` anyOf | sanitize 变更即 recovered | **fixed** — 断言 `recovered=True` |
+| `test_retry_sleep_uses_exponential_backoff` | P1-C 后 sleep 在 `llm_retry_errors` | **fixed** — patch 目标迁移 |
 | `test_total_violations_not_growing` | +17 MagicMock | **fixed** — baseline 170 |
 | `test_stop_hook_reentry` | StopHookResult 缺 blocked | **fixed** e9e5c58 |
 | `test_schema_sanitizer` anyOf 恢复 | sanitize 变更未触发 retry | **fixed** — schema_recovery |

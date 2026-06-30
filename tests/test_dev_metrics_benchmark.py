@@ -283,19 +283,19 @@ class TestDevMetricsTool:
 
 
 class TestBenchmarkRunner:
-    """Layer 3: Run all built-in benchmarks (B1–B8 + B10)."""
+    """Layer 3: Run all built-in benchmarks (B1–B8 + B10 + B11)."""
 
     def test_run_all_benchmarks(self, tmp_path):
         from butler.dev_engine.dev_benchmark import run_benchmarks
 
         report = run_benchmarks(workspace=tmp_path)
-        assert report.total == 9, f"Expected 9 benchmarks, got {report.total}"
+        assert report.total == 10, f"Expected 10 benchmarks, got {report.total}"
 
         for r in report.results:
             if not r.passed:
                 print(f"FAIL: {r.task_id} — {r.failure_reasons}")
 
-        assert report.passed == 9, (
+        assert report.passed == 10, (
             f"{report.failed} benchmarks failed:\n"
             + "\n".join(
                 f"  {r.task_id}: {r.failure_reasons}"
@@ -309,7 +309,7 @@ class TestBenchmarkRunner:
         report = run_benchmarks(workspace=tmp_path)
         summary = report.summary()
         assert "基准测试报告" in summary
-        assert "9/9" in summary
+        assert "10/10" in summary
 
     def test_benchmark_report_aggregate(self, tmp_path):
         from butler.dev_engine.dev_benchmark import run_benchmarks
