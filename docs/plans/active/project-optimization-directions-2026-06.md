@@ -22,17 +22,19 @@
 
 ## 二、六大核心发现
 
-### S1 — 宽泛异常吞噬（最大隐患，1296 处）
+### S1 — 宽泛异常吞噬（全仓仍多，核心路径已守门）
 
-**Top-15 热点文件**：
+> **2026-06-29 P0-A**：`tool_batch` / `agent_loop_phases` / `locked_phases` 已迁 `safe_best_effort` 或收窄；守门见 `butler-p0a-exception-gate.sh`。
+
+**Top-15 热点文件**（全仓扫描；核心三文件已不在前列）：
 
 | 文件 | `except Exception` 数 | 风险 |
 |------|----------------------|------|
 | `butler/ops/health_report.py` | 34 | 中（诊断路径不崩是合理的） |
-| `butler/core/tool_batch.py` | 30 | **高**（核心路径吞错误） |
-| `butler/gateway/locked_phases.py` | 26 | **高**（入站处理隐患） |
 | `butler/ops/langfuse_tracer.py` | 24 | 中（可观测 opt-in） |
-| `butler/core/agent_loop_phases.py` | 22 | **高**（主循环吞错误） |
+| `butler/core/tool_batch.py` | **0** | ✅ P0-A（兜底在 `tool_batch_finalize`） |
+| `butler/gateway/locked_phases.py` | **2** | ✅ P0-A（hygiene + error card 降级） |
+| `butler/core/agent_loop_phases.py` | **0** | ✅ P0-A |
 | `butler/memory/facade.py` | 21 | 中高 |
 | `butler/tools/registry.py` | 17 | 中 |
 | `butler/session/memory_prefetch.py` | 17 | 中 |
@@ -54,13 +56,13 @@
 
 ### S3 — 大函数 / 大文件残留
 
-**核心路径 Top-5 大函数（ENG-2 已解 delegate，core 尚未触及）**：
+**核心路径 Top-5 大函数（P1-C 已拆 `process_tool_calls` / `compress_messages` / `call_llm_with_retry`）**：
 
 | 函数 | 行数 | 文件 | 职责 |
 |------|------|------|------|
-| `process_tool_calls` | 375 | `core/tool_batch.py` | 工具批执行全流程 |
-| `call_llm_with_retry` | ~142（编排） | `core/llm_retry.py` | 子模块 `invoke`/`errors`/`success`/`safe` |
-| `compress_messages` | 234 | `core/context_compressor.py` | 上下文压缩 |
+| `process_tool_calls` | **~108** | `core/tool_batch.py` | 编排器；分发在 `tool_dispatch` |
+| `call_llm_with_retry` | **~142**（编排） | `core/llm_retry.py` | 子模块 `invoke`/`errors`/`success`/`safe`/`outcomes` |
+| `compress_messages` | **~31**（门面） | `core/context_compressor.py` | 委托 `context_compress_pipeline` |
 | `cmd_doctor` | 229 | `cli/doctor.py` | 诊断命令 |
 | `_run_delegate_job_inner` | 226 | `runtime/delegate_job.py` | 异步委派执行 |
 
@@ -69,10 +71,10 @@
 | 文件 | 行数 |
 |------|------|
 | `dev_engine/coding_knowledge.py` | 1614 |
-| `gateway/platforms/wechat_ilink/phases.py` | 1206 |
-| `gateway/platforms/wechat_ilink/__init__.py` | 1120 |
-| `core/agent_loop_phases.py` | 859 |
-| `butler/orchestrator/` | ~590（门面） |
+| `gateway/locked_phases.py` | 826 |
+| `core/agent_loop_phases.py` | 906 |
+| `gateway/platforms/wechat_ilink/phases.py` | ~1206 |
+| `gateway/platforms/wechat_ilink/__init__.py` | ~1120 |
 
 ### S4 — 测试工程（2026-06-29）
 
@@ -242,16 +244,17 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 2. 逐目录 override：先 `contracts/` → `tools/delegate_*.py` → `core/` → `gateway/`
 3. CI optional gate（不阻断发版，逐步扩范围）
 
-#### 方向 G：文档卫生清理
+#### 方向 G：文档卫生清理 — **done** 2026-06-29
 
-**目标**：修正 9 处已识别矛盾。
+**目标**：修正已识别矛盾并与 P0-A/B、P1-C 收口对齐。
 
-**实施文件**：
-- `docs/architecture/v4-architecture.md`：删除/修正「5040 tests 全部通过」
-- `docs/DOCUMENTATION.md`：active 索引补 `software-engineering-refactor`
-- `docs/plans/active/software-engineering-refactor-2026-06.md`：文首删「§3.11 待写入」
-- `docs/plans/decisions/roadmap-backlog-and-boundaries-2026-05.md`：EXT-5 / P 表历史清理
-- `.cursor/rules/`：统一 workflow auto_resume 表述
+**验收**（`bash scripts/butler-p2g-doc-gate.sh`）：
+- `v4-architecture`：分层 gate + **6250+** 叙事（无「5040 tests 全部通过」）
+- `DOCUMENTATION.md`：`active/` 含 `software-engineering-refactor` + `project-optimization-directions`
+- `software-engineering-refactor`：基线表与 ENG-2 `delegate_phases` 门面一致；登记 roadmap §3.11（无「待写入」）
+- `roadmap-backlog` §3.6：执行顺序改为窗满/运营导向（非过期「本周」日历）
+- `.cursor/rules/butler-v4-source-of-truth.mdc`：`BUTLER_WORKFLOW_AUTO_RESUME=1` 与 `AGENTS.md` 一致
+- 本文 §S1–S3、§四 与 P0-A/B、P1-C 守门数据一致
 
 ---
 
@@ -280,21 +283,24 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 ## 四、执行节奏建议
 
 ```
-现在 → 07-31（G1-04 窗内，低风险优先）
-├─ P0-A: 异常治理 top-3 文件（tool_batch → agent_loop_phases → locked_phases）
-├─ P0-B: degradation_registry + doctor/诊断 集成
-├─ P1-C: process_tool_calls 拆分（ENG-4 关联方向）
-└─ P2-G: 文档 9 处矛盾修正（纯文档 PR，随时可做）
+已完成（2026-06-29）
+├─ P0-A: 异常治理 top-3 文件 ✅ `butler-p0a-exception-gate.sh`
+├─ P0-B: degradation_registry + doctor/诊断 ✅ `butler-p0b-degradation-gate.sh`
+├─ P1-C: tool_batch / llm_retry / compress 拆分 ✅ `butler-p1c-gate.sh`
+└─ P2-G: 文档卫生续扫 ✅ `butler-p2g-doc-gate.sh`
+
+现在 → 07-31（G1-04 窗内）
+├─ 每周 G1-04 打卡（butler-ops-cadence.sh --weekly）
+├─ 07-27: TCR strict flip（见 ops 日历）
+└─ 07-31: G1-04 窗满结案（butler-g1-04-closure-check.sh）
 
 07-31 → 08 月（G1-04 结案后）
-├─ P1-D: contracts 首步
+├─ P1-D: contracts 首步（部分已由 ENG-6 竖切）
 ├─ P2-E: pytest 全域修债
-├─ P2-F: mypy 渐进引入
-├─ P1-C 续: call_llm_with_retry + compress_messages 拆分
+├─ P2-F: mypy 渐进引入（ENG-14 已入 fast-gate 子集）
 └─ P3-H/I: 架构演进评估决策
 
 持续：
-├─ 每周 G1-04 打卡（butler-ops-cadence.sh --weekly）
 ├─ 改 gateway 后 restart
 └─ 发版走 fast-gate + pre-release-smoke
 ```

@@ -216,13 +216,13 @@
 | [PROD-P2-03](#prod-p2-03-安全信任补丁批次) | P2 | 安全信任补丁批次 | Backlog | **done** 2026-06-22 |
 | [PROD-P2-04](#prod-p2-04-extension-ext-4) | P2 | Extension EXT-4+ 选型 | 季度 | **done** 2026-06-22 |
 
-**建议执行顺序（开发会话对齐）**：
+**建议执行顺序（开发会话对齐，2026-06-29 更新）**：
 
 ```text
-本周     PROD-P0-02（文档+诊断首屏）· PROD-P0-03（叙事/issue）· PROD-P0-01（/诊断 G1-04 面）
-本月     PROD-P1-03 done 2026-06-25；P1 线收束
-窗满     PROD-P0-01 结案：butler-g1-04-closure-check.sh → 更新 gap register
-Backlog  PROD-P2-01 … P2-04（与发版节奏穿插）
+窗内至 07-31  G1-04 运营：butler-ops-cadence.sh --weekly；07-27 TCR strict flip
+窗满 07-31    PROD-P0-01 结案：butler-g1-04-closure-check.sh → 更新 gap register
+Backlog       ENG-13（wechat_ilink 第三轮，条件触发）· P2-E pytest · P3-H 记忆统一检索
+已完成        PROD-P0–P2 表内项 · P0-A/B · P1-C · P2-G 文档卫生
 ```
 
 ---
@@ -684,6 +684,7 @@ bash scripts/check-schema-drift.sh
 | 2026-06-22 | **§3.10 PROD-P6** 运营期抛光立项（onboard · 出站诊断 · ops cadence · 窗满后 PMF） |
 | 2026-06-29 | **§3.14 MOD-1～8** Eval 统一管理器 + Context Transform Registry |
 | 2026-06-29 | **AP-1–AP-12 done**；AP-13–16 ADR；Agent 生产化 §3.13 |
+| 2026-06-29 | **§3.6** 执行顺序改为 G1-04 窗满导向；**P2-G** 文档卫生续扫 |
 | 2026-06-26 | **ENG-1/2/9** 复杂度脚本 · `delegate_init` · registry 测试隔离 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify handler sim ✅ 2026-06-26） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |

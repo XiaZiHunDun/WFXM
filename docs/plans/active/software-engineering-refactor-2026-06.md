@@ -20,14 +20,15 @@
 
 ---
 
-## 1. 当前基线（2026-06-26 命令验证）
+## 1. 当前基线（2026-06-29 命令验证）
 
 | 指标 | 数值 | 说明 |
 |------|------|------|
 | `butler/` Python 文件 | ~453 | 与 06 审计同量级 |
-| **>800 行** 单文件 | **2** | `coding_knowledge.py` 1613、`delegate_phases.py` 1244 |
-| **>600 行** 单文件 | **~12** | `wechat_ilink/__init__.py` ~1119；`coding_knowledge` ~1614 |
+| **>800 行** 单文件 | **2** | `coding_knowledge.py` 1613、`locked_phases.py` 826 |
+| **>600 行** 单文件 | **~12** | `agent_loop_phases.py` 906；`wechat_ilink/__init__.py` ~1119 |
 | `main.py` | **177** | ✅ R1-7 已薄化（原 1340） |
+| `delegate_phases.py` | **125** | ✅ ENG-2 门面；阶段在 `delegate_phases/` 子包 |
 | `delegate_impl.py` | **385** | ✅ R1-5 已拆出 `delegate_phases` |
 | `wechat_ilink` | **子包** | ✅ PROD-P2-01 + ENG-5；**第三轮**见 [`wechat-ilink-round3-2026-06.md`](wechat-ilink-round3-2026-06.md) |
 | 延迟 `from butler.` | **~3356** | 预算守门 `LAZY_IMPORT_BUDGET=3400` |
@@ -45,6 +46,7 @@
 | `exp_cache` 锁 | ✅ RLock |
 | `wechat_ilink` 结构拆分 | ✅ 子包 + ENG-5；ENG-13 条件触发见专文 |
 | R1-3 core→gateway | ✅ `events_sink` + `test_core_events_sink_layering.py` |
+| `delegate_phases` 按阶段拆包 | ✅ `delegate_phases/` 子包 + 125 行门面 |
 | Owner UX P0–P6-A | ✅ 产品向，非本计划 |
 
 ---
@@ -55,13 +57,14 @@
 
 | 优先级 | 文件 | 行数 | 问题 |
 |--------|------|------|------|
-| **P0** | `butler/tools/delegate_phases.py` | 1244 | 委派全阶段塞单文件；`_init_dev_engine_state` 137 行 |
+| **P0** | `butler/dev_engine/coding_knowledge.py` | 1613 | 定理/经验/管线；可接受但需子域边界 |
 | **P1** | `butler/gateway/platforms/wechat_ilink/__init__.py` | ~1119 | **ENG-13** 条件触发；`phases` 已 ~370 行 |
-| **P1** | `butler/dev_engine/coding_knowledge.py` | 1613 | 定理/经验/管线；可接受但需子域边界 |
-| **P1** | `butler/gateway/locked_phases.py` | 775 | turn 终态 10+ phase 函数 |
-| **P1** | `butler/task_orchestrator.py` | 798 | `execute_graph` 182 行、`spawn_agent` 135 行 |
+| **P1** | `butler/core/agent_loop_phases.py` | 906 | turn 阶段编排；P0-A 已守门 |
+| **P1** | `butler/gateway/locked_phases.py` | 826 | turn 终态 phase；ENG-11 注册表已首步 |
+| **P1** | `butler/task_orchestrator.py` | 532 | ENG-4 done；图执行在 `dag_scheduler` |
 | **P2** | `butler/orchestrator/` | ~590 | 门面 + `templates` / `loop_factory` 子模块 |
 | **P2** | `butler/memory/facade.py` | 736 | 工具分发 + prefetch 同类 |
+| — | `butler/tools/delegate_phases.py` | **125** | ✅ ENG-2 门面；勿重复立项 |
 
 ### B. 函数复杂度（>80 行，AST 扫描）
 
@@ -139,7 +142,7 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | ID | 名称 | 批次 | 周期 | 依赖 |
 |----|------|------|------|------|
 | **ENG-1** | 复杂度预算 + 热点度量脚本 | 基线 | 3d | — |
-| **ENG-2** | `delegate_phases` 按阶段拆包 | A | 1–2w | ENG-1 |
+| **ENG-2** | `delegate_phases` 按阶段拆包 | A | 1–2w | ENG-1 | **done** |
 | **ENG-3** | `message_handler` 后段再薄化 | A | 1w | inbound_pipeline |
 | **ENG-4** | `task_orchestrator` 图执行拆分 | A | 1w | — |
 | **ENG-5** | `wechat_ilink/phases` 第二轮拆分 | B | 1–2w | — |
@@ -306,3 +309,4 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-29 | **P6-05/06**：PMF report 单测；P6-06 收束为 ENG-9 |
 | 2026-06-29 | **B1 done**：`butler-wechat-dual-playbook-probe.sh` |
 | 2026-06-29 | **R1-3 done**（文档收口）；**ENG-13** 条件触发专文 `wechat-ilink-round3-2026-06.md` |
+| 2026-06-29 | **P2-G 续**：`project-optimization` S1–S3/§四 与 P0-A/B、P1-C 对齐；`butler-p2g-doc-gate.sh` |
