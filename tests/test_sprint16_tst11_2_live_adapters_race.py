@@ -305,16 +305,20 @@ class TestStaticContract:
             )
 
     def test_disconnect_uses_registry_unregister(self):
-        """disconnect() 必须用 ``_ADAPTER_REGISTRY.unregister(self._token)``。"""
+        """disconnect() 经 adapter_lifecycle 调用 ``_ADAPTER_REGISTRY.unregister``（ENG-13）。"""
         from butler.gateway.platforms.wechat_ilink import WeChatAdapter
+        from butler.gateway.platforms.wechat_ilink import adapter_lifecycle
 
-        source = inspect.getsource(WeChatAdapter.disconnect)
-        assert "_ADAPTER_REGISTRY.unregister(self._token)" in source, (
-            "disconnect() 应使用 _ADAPTER_REGISTRY.unregister 防止并发损坏"
+        adapter_source = inspect.getsource(WeChatAdapter.disconnect)
+        lifecycle_source = inspect.getsource(adapter_lifecycle.disconnect)
+        assert "adapter_lifecycle" in adapter_source, (
+            "WeChatAdapter.disconnect 应委托 adapter_lifecycle"
         )
-        # 防御: 不应再裸引用 _LIVE_ADAPTERS
-        assert "_LIVE_ADAPTERS" not in source, (
-            "disconnect() 不应再 touch _LIVE_ADAPTERS (R1-12 已替换为 registry)"
+        assert "_ADAPTER_REGISTRY.unregister" in lifecycle_source, (
+            "adapter_lifecycle.disconnect 应使用 _ADAPTER_REGISTRY.unregister"
+        )
+        assert "_LIVE_ADAPTERS" not in lifecycle_source, (
+            "disconnect 不应再 touch _LIVE_ADAPTERS (R1-12 已替换为 registry)"
         )
 
     def test_start_poll_assigns_via_registry(self):

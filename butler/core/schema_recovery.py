@@ -34,9 +34,10 @@ def recover_schema_after_error(
     if not tools or not is_schema_grammar_error(error):
         return SchemaRecoveryResult()
 
-    recovered = sanitize_tool_schemas(tools) or []
-    stripped_tools, stripped = strip_pattern_and_format(recovered)
-    if not stripped:
+    sanitized = sanitize_tool_schemas(tools) or []
+    stripped_tools, stripped = strip_pattern_and_format(sanitized)
+    changed = sanitized != tools
+    if not stripped and not changed:
         return SchemaRecoveryResult(
             tools=stripped_tools,
             stripped=0,
@@ -44,7 +45,7 @@ def recover_schema_after_error(
             attempted=True,
         )
 
-    if diagnostics is not None:
+    if diagnostics is not None and stripped:
         diagnostics.update({
             "schema_recovered": True,
             "schema_keywords_stripped": stripped,

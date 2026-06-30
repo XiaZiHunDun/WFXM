@@ -58,7 +58,7 @@ def test_compaction_turn_adapts_hook_context(mock_hooks, monkeypatch):
     from butler.core.compaction_task import run_compaction_turn
 
     monkeypatch.setenv("BUTLER_COMPACTION_EXPLICIT_TURN", "1")
-    monkeypatch.setenv("BUTLER_AUTO_COMPACT", "1")
+    monkeypatch.setenv("BUTLER_DISABLE_AUTO_COMPACT", "0")
 
     msgs = [{"role": "user", "content": f"m{i}"} for i in range(12)]
 

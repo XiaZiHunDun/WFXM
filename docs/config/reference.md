@@ -705,6 +705,14 @@ CLI：`butler memory merge-pending` 列出待审；`--apply KEY` / `--dismiss KE
 | `BUTLER_EVAL_SWE_LIVE_COUNT` | `3` | 每周 SWE-bench Lite LIVE 子集实例数（1–15） |
 | `BUTLER_EVAL_SWE_GATE_MIN_WEEKS` | `2` | 全量 LIVE 入场需连续 N 周子集 100%（stretch：`1`） |
 | `BUTLER_EVAL_DELEGATE_JUDGE` | `heuristic` | 委派完成启发式评分挂 trace；`off` = 关闭 |
+| `BUTLER_TCR_STRICT_AFTER` | `2026-07-27` | TCR strict flip 最早日期（`butler-tcr-strict-readiness.sh`） |
+| `BUTLER_TCR_THRESHOLD` | `0.98` | Trajectory compliance 阈值（`tcr_report.py`） |
+| `BUTLER_LLM_API_KEY` | — | Eval OSS（DeepEval/RAGAS）回退 API key |
+| `BUTLER_EVAL_DEEPEVAL_LLM` | `0` | `1` = DeepEval suite 使用真实 LLM judge |
+| `BUTLER_EVAL_DEEPEVAL_PASS_RATE_MIN` | `0.8` | DeepEval suite 通过率下限 |
+| `BUTLER_EVAL_RAGAS_LLM` | `0` | `1` = RAGAS suite 使用真实 LLM |
+| `BUTLER_EVAL_RAGAS_FAITHFULNESS_MIN` | `0.5` | RAGAS faithfulness 阈值 |
+| `BUTLER_EVAL_RAGAS_PREFETCH_SESSIONS` | `40` | RAGAS prefetch 审计采样会话上限 |
 | `BUTLER_MEMORY_METRICS_PERSIST` | `1` | `1` = 记忆效果度量 S_w/H_1/E_d 持久化到 `~/.butler/metrics/memory_metrics.json` |
 | `LANGFUSE_HOST` | `http://localhost:3000` | LangFuse 服务地址（栈运维：`~/gongju/langfuse/ops.sh`） |
 | `LANGFUSE_PUBLIC_KEY` | — | LangFuse 公钥（默认初始化 `pk-butler-dev`） |

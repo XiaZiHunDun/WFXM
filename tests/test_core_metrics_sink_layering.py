@@ -155,8 +155,8 @@ def test_set_default_sink_swaps_implementation():
         def observe_ms(self, name, milliseconds):
             self.calls.append(("observe_ms", (name, milliseconds)))
 
-        def inc(self, name, value=1):
-            self.calls.append(("inc", (name, value)))
+        def inc(self, name, value=1, *, labels=None, session_key=""):
+            self.calls.append(("inc", (name, value, labels, session_key)))
 
     saved = get_default_sink()
     try:
@@ -169,8 +169,8 @@ def test_set_default_sink_swaps_implementation():
 
         assert len(stub.calls) == 3
         assert stub.calls[0] == ("observe_ms", ("lat", 12.5))
-        assert stub.calls[1] == ("inc", ("counter", 1))
-        assert stub.calls[2] == ("inc", ("counter", 3))
+        assert stub.calls[1] == ("inc", ("counter", 1, None, ""))
+        assert stub.calls[2] == ("inc", ("counter", 3, None, ""))
 
         # reset back to no-op
         set_default_sink(None)

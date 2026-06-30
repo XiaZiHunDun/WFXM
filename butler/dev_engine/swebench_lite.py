@@ -637,7 +637,7 @@ def test_unsubscribe():
             issue_title="Priority queue pops in wrong order",
             issue_body="PriorityQueue should pop highest priority first (lower number = higher priority).",
             files={
-                "queue.py": """\
+                "priority_queue.py": """\
                     class PriorityQueue:
                         def __init__(self):
                             self._items = []
@@ -656,13 +656,13 @@ def test_unsubscribe():
                 """,
             },
             oracle_patch={
-                "queue.py": ("self._items.sort()\n        return self._items.pop()[1]",
+                "priority_queue.py": ("self._items.sort()\n        return self._items.pop()[1]",
                              "self._items.sort()\n        return self._items.pop(0)[1]"),
             },
             test_code="""\
 import sys, os
 sys.path.insert(0, os.getcwd())
-from queue import PriorityQueue
+from priority_queue import PriorityQueue
 
 def test_priority_order():
     pq = PriorityQueue()

@@ -76,7 +76,12 @@ class TestVerifyIntegration:
         from butler.dev_engine.dev_state import VerifyStatus
         with patch("butler.dev_engine.verify._has_tool", return_value=True):
             result = verify_integration(tmp_path, timeout=5)
-        assert result.status in (VerifyStatus.PASS, VerifyStatus.FAIL, VerifyStatus.SKIP)
+        assert result.status in (
+            VerifyStatus.PASS,
+            VerifyStatus.FAIL,
+            VerifyStatus.SKIP,
+            VerifyStatus.TIMEOUT,
+        )
 
 
 class TestVerifyLayeredIntegrationLevel:

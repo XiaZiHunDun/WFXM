@@ -208,7 +208,7 @@ def run_audit(
     else:
         keys = discover_sessions_with_compaction(limit=max_sessions)
     if not keys:
-        return "无含 compact_done 的会话 transcript（需 BUTLER_TRANSCRIPT=1 且曾压缩）。"
+        return "无含 compact_done 的会话 transcript（需 BUTLER_SESSION_TRANSCRIPT=1 且曾压缩）。"
 
     blocks: list[str] = []
     for sk in keys:

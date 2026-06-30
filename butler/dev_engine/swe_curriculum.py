@@ -62,7 +62,7 @@ SWE_PLAYBOOKS: dict[str, SWEPlaybook] = {
             "After sort(), pop(0) not pop(): lowest priority number = highest priority item."
         ),
         steps=(
-            "read_file queue.py — locate PriorityQueue.pop",
+            "read_file priority_queue.py — locate PriorityQueue.pop",
             "patch pop: keep self._items.sort(); change return self._items.pop()[1] to pop(0)[1]",
             "terminal: python -m pytest _swe_test.py -q",
         ),

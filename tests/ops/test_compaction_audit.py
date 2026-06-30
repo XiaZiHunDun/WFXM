@@ -13,7 +13,7 @@ from butler.ops.compaction_audit import (
 
 def test_collect_compaction_samples_pairs_scheduled_done(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_HOME", str(tmp_path))
-    monkeypatch.setenv("BUTLER_TRANSCRIPT", "1")
+    monkeypatch.setenv("BUTLER_SESSION_TRANSCRIPT", "1")
     sk = "wechat:audit:test"
     from butler.core.session_transcript import (
         record_compact_done,

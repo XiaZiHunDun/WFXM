@@ -148,6 +148,10 @@ def dev_verify_view_to_result(view: DevVerifyView) -> Any:
 
 def to_verify_result(incoming: Any, *, source: str = "unknown") -> Any:
     """Single entry: external verify → VerifyResult."""
+    from butler.dev_engine.dev_state import VerifyResult
+
+    if isinstance(incoming, VerifyResult):
+        return incoming
     view = to_dev_verify_view(incoming, source=source)
     return dev_verify_view_to_result(view)
 

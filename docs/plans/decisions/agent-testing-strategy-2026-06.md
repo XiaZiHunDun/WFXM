@@ -84,7 +84,7 @@ L-D 质量层       live_llm / corpus_live / LangFuse / G1-04   → 阈值 + 归
 | 月度 `butler-dev-flywheel-monthly.sh` | 月 | ✅ | 运营 gate |
 | 真机微信 | 人 | ✅ | pilot-log 签收 |
 | **分层 bisect** `butler-pytest-bisect.sh` | PR/本地 | ❌ | Layers A–D 发版前探测（**阻塞**） |
-| **全量** `pytest tests/` | **维护者可选** `RUN_FULL=1` | 混合 | **非发版阻塞**；跨文件顺序依赖仍有残余 fail（2026-06-30 探测用 `RUN_FULL=1`） |
+| **全量** `pytest tests/` | **维护者可选** `RUN_FULL=1` | 混合 | **非发版阻塞**；2026-06-30 探测 **16 fail / 7134 pass**（`butler-pytest-bisect.sh`） |
 
 **Bisect 分层（2026-06-30，[`scripts/butler-pytest-bisect.sh`](../../../scripts/butler-pytest-bisect.sh)）**：
 
