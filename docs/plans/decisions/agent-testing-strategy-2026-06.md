@@ -83,7 +83,19 @@ L-D 质量层       live_llm / corpus_live / LangFuse / G1-04   → 阈值 + 归
 | `corpus_live` / `live_llm` | nightly / 手动 | ✅ | 模型质量 |
 | 月度 `butler-dev-flywheel-monthly.sh` | 月 | ✅ | 运营 gate |
 | 真机微信 | 人 | ✅ | pilot-log 签收 |
-| **全量** `pytest tests/` | **维护者可选** | 混合 | **非发版阻塞**；~101 fail 技术债（`test_tools_registry` 跨测状态，见 `pilot-log`） |
+| **分层 bisect** `butler-pytest-bisect.sh` | PR/本地 | ❌ | Layers A–D 发版前探测（**阻塞**） |
+| **全量** `pytest tests/` | **维护者可选** `RUN_FULL=1` | 混合 | **非发版阻塞**；跨文件顺序依赖仍有残余 fail（2026-06-30 探测用 `RUN_FULL=1`） |
+
+**Bisect 分层（2026-06-30，[`scripts/butler-pytest-bisect.sh`](../../../scripts/butler-pytest-bisect.sh)）**：
+
+| Layer | 范围 | 说明 |
+|-------|------|------|
+| A | reasoning + gateway handler + queue | L-A 网关核心 |
+| B | CC harness 子集 | P3/P4 + metrics + tool spill |
+| C | `test_tools_registry` 单文件 | 隔离后 82 绿 |
+| D | ACL + hook dataclass guards | compaction/hook/dev verify |
+| E | gateway utterance catalog | 语料 L1（较慢，可选单独跑） |
+| `DOMAINS=1` | `tests/{gateway,ops,core,dev_engine,memory}` | 域目录批量 |
 
 默认 `pyproject.toml`：`addopts = "-m 'not live_llm'"` — **禁止**把真 API 拉进 PR 硬门禁。
 

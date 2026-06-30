@@ -34,6 +34,7 @@ echo "== CC harness P3–P4 + context pipeline =="
   tests/core/test_dev_context_adapter.py \
   tests/core/test_pre_compact_hook_acl.py \
   tests/core/test_compaction_checkpoint_acl.py \
+  tests/test_hook_result_dataclasses.py \
   -q "$@"
 
 echo ""

@@ -28,15 +28,15 @@ class UserPromptSubmitResult:
 @dataclass
 class StopHookResult:
     additional_context: list[str] = field(default_factory=list)
+    blocked: bool = False
+    block_message: str = ""
+    decision: str = "continue"
 
 
 @dataclass
 class PreCompactHookResult:
     blocked: str | None = None
     contexts: list[str] = field(default_factory=list)
-    blocked: bool = False
-    block_message: str = ""
-    decision: str = "continue"
 
 
 def _resolve_workspace() -> Path | None:

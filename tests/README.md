@@ -27,7 +27,7 @@ butler doctor                   # 静态安全配置审计（OpenClaw OC-P2）
 
 | 层 | 测什么 | 默认 CI | 入口 |
 |----|--------|---------|------|
-| **L-A 确定性** | Gateway、工具、格式化、附件 | ✅ | `butler-pytest-fast-gate.sh`、domain pytest |
+| **L-A 确定性** | Gateway、工具、格式化、附件 | ✅ | `butler-pytest-fast-gate.sh`、`butler-pytest-bisect.sh`（Layers A–D）、domain pytest |
 | **L-B 编排** | Loop + mock LLM 脚本 | ✅ | `tests/test_llm_response_fixtures.py`、`tests/fixtures/llm_responses/` |
 | **L-C 行为** | handler sim、文件/task 契约 | opt-in | `butler-pilot-dev-testing.sh`、`butler-wechat-*-sim.sh` |
 | **L-D 质量** | live_llm、语料 live、LangFuse | nightly/月 | `-m live_llm`、`butler-dev-flywheel-monthly.sh` |
