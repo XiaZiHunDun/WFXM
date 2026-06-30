@@ -3,7 +3,7 @@
 > **命令**：`RUN_FULL=1 bash scripts/butler-pytest-bisect.sh`  
 > **发版 gate**：仍以 `butler-pytest-fast-gate.sh` + bisect Layers A–D 为准
 
-## 全量结果（修复前）
+## 全量结果（修复前，2026-06-30 早）
 
 | 指标 | 值 |
 |------|-----|
@@ -13,7 +13,18 @@
 | deselected | 545（`live_llm`） |
 | 耗时 | ~86 min |
 
-## 16 fail 分类与处置
+## 全量结果（`--ignore=tests/corpus`，2026-06-30 午）
+
+| 指标 | 值 |
+|------|-----|
+| passed | 6674 |
+| failed | 5 |
+| skipped | 5 |
+| 耗时 | ~51 min |
+
+**5 fail** 于 **`4d064b9`** 修债（B11 基准 10/10、lazy budget 3650、schema recovery、retry sleep patch 目标）。
+
+## 16 fail 分类与处置（2026-06-30 早批）
 
 | 测试 | 根因 | 处置 |
 |------|------|------|
@@ -32,10 +43,11 @@
 | `test_verify_integration_with_pytest` | 5s timeout → TIMEOUT | **fixed** — 接受 TIMEOUT |
 | `test_run_all_benchmarks` / B8 | SWE-015 `queue.py` 遮蔽 stdlib | **fixed** — 重命名 `priority_queue.py` |
 | `test_oracle_passes[SWE-015]` | 同上 | **fixed** |
-| `test_retry_sleep_uses_exponential_backoff` | 待复跑 | 单独绿则关闭 |
 | `test_swebench_lite` batch | 依赖 SWE-015 | **fixed** |
 
-## 分层 gate（修复后预期）
+（`test_retry_sleep` 在 16-fail 批与 5-fail 批各出现一次，均已 **fixed**。）
+
+## 分层 gate（当前）
 
 ```bash
 bash scripts/butler-pytest-bisect.sh          # Layers A–E

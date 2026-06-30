@@ -31,7 +31,7 @@
 | `delegate_phases.py` | **125** | ✅ ENG-2 门面；阶段在 `delegate_phases/` 子包 |
 | `delegate_impl.py` | **385** | ✅ R1-5 已拆出 `delegate_phases` |
 | `wechat_ilink` | **子包** | ✅ PROD-P2-01 + ENG-5；**第三轮**见 [`wechat-ilink-round3-2026-06.md`](wechat-ilink-round3-2026-06.md) |
-| 延迟 `from butler.` | **~3356** | 预算守门 `LAZY_IMPORT_BUDGET=3400` |
+| 延迟 `from butler.` | **~3627** | 预算守门 `LAZY_IMPORT_BUDGET=3650` |
 | `core/` → `gateway/` 顶层 import | **0** | ✅ R1-3：`events_sink` + AST 守门 |
 | 全量 `pytest tests/` | **0 fail**（2026-06-27；6250 pass，排除 corpus） | 泄漏 + `.env` 耦合已修；发版 gate 绿 |
 | `get_model_config` | 已委托 `resolve_effective_model` | P0-1 部分完成 |
@@ -310,3 +310,4 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-29 | **B1 done**：`butler-wechat-dual-playbook-probe.sh` |
 | 2026-06-29 | **R1-3 done**（文档收口）；**ENG-13** 条件触发专文 `wechat-ilink-round3-2026-06.md` |
 | 2026-06-29 | **P2-G 续**：`project-optimization` S1–S3/§四 与 P0-A/B、P1-C 对齐；`butler-p2g-doc-gate.sh` |
+| 2026-06-30 | **P1-D 验收** + **P2-E 收口**：`project-optimization` / `agent-testing-strategy` / bisect 记录对齐 `4d064b9` |

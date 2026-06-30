@@ -221,8 +221,8 @@
 ```text
 窗内至 07-31  G1-04 运营：butler-ops-cadence.sh --weekly；07-27 TCR strict flip
 窗满 07-31    PROD-P0-01 结案：butler-g1-04-closure-check.sh → 更新 gap register
-Backlog       ENG-13（wechat_ilink 第三轮，条件触发）· P2-E pytest · P3-H 记忆统一检索
-已完成        PROD-P0–P2 表内项 · P0-A/B · P1-C · P2-G 文档卫生
+Backlog       ENG-13（wechat_ilink 第三轮，条件触发）· P2-F mypy 扩面 · P3-H 记忆统一检索
+已完成        PROD-P0–P2 表内项 · P0-A/B · P1-C · P1-D · P2-E · P2-G
 ```
 
 ---
@@ -685,6 +685,7 @@ bash scripts/check-schema-drift.sh
 | 2026-06-29 | **§3.14 MOD-1～8** Eval 统一管理器 + Context Transform Registry |
 | 2026-06-29 | **AP-1–AP-12 done**；AP-13–16 ADR；Agent 生产化 §3.13 |
 | 2026-06-29 | **§3.6** 执行顺序改为 G1-04 窗满导向；**P2-G** 文档卫生续扫 |
+| 2026-06-30 | **P1-D** contracts 验收 done；**P2-E** bisect 全绿 + 全量 5 fail 修债（`4d064b9`） |
 | 2026-06-26 | **ENG-1/2/9** 复杂度脚本 · `delegate_init` · registry 测试隔离 |
 | 2026-06-25 | **EXT-5** MarkItDown MCP manifest + integrate/preflight/gate（Verify handler sim ✅ 2026-06-26） |
 | 2026-06-22 | **PROD-P2-04** EXT-4 选型闭环 + 季度评审 |

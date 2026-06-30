@@ -83,8 +83,8 @@ L-D 质量层       live_llm / corpus_live / LangFuse / G1-04   → 阈值 + 归
 | `corpus_live` / `live_llm` | nightly / 手动 | ✅ | 模型质量 |
 | 月度 `butler-dev-flywheel-monthly.sh` | 月 | ✅ | 运营 gate |
 | 真机微信 | 人 | ✅ | pilot-log 签收 |
-| **分层 bisect** `butler-pytest-bisect.sh` | PR/本地 | ❌ | Layers A–D 发版前探测（**阻塞**） |
-| **全量** `pytest tests/` | **维护者可选** `RUN_FULL=1` | 混合 | **非发版阻塞**；2026-06-30 探测 **16 fail / 7134 pass**（`butler-pytest-bisect.sh`） |
+| **分层 bisect** `butler-pytest-bisect.sh` | PR/本地 | ❌ | Layers A–E 发版前探测（**阻塞**）；`DOMAINS=1` 五域批量 |
+| **全量** `pytest tests/` | **维护者可选** `RUN_FULL=1` | 混合 | **非发版阻塞**；2026-06-30 全量（不含 corpus）**6674 pass / 5 fail** → **`4d064b9` 修债**；分层 bisect A–E + `DOMAINS=1` 全绿 |
 
 **Bisect 分层（2026-06-30，[`scripts/butler-pytest-bisect.sh`](../../../scripts/butler-pytest-bisect.sh)）**：
 
@@ -123,7 +123,7 @@ L-D 质量层       live_llm / corpus_live / LangFuse / G1-04   → 阈值 + 归
 
 | 已有 | 在本策略中的层 |
 |------|----------------|
-| ~6500 默认 pytest | L-A + 部分 L-B |
+| ~6700 默认 pytest | L-A + 部分 L-B |
 | `tests/test_llm_response_fixtures.py` | L-B（新增 replay） |
 | `wechat_scenario_sim` / pilot 脚本 | L-C |
 | `tests/corpus/` mock vs live | L-B mock / L-D live |
@@ -140,6 +140,7 @@ L-D 质量层       live_llm / corpus_live / LangFuse / G1-04   → 阈值 + 归
 | P0 | PROD-P0-02/03 配置剖面 + gate 叙事 | ✅ 2026-06-26 |
 | P0 | PROD-P0-01 `/反馈` + `/诊断` OT2 面 | ✅ 2026-06-26 |
 | P2 | `tests/fixtures/llm_responses/` + `test_llm_response_fixtures.py` | ✅ 2026-06-25 |
+| P2 | P2-E bisect + 全量 5 fail 修债（`4d064b9`） | ✅ 2026-06-30 |
 | P2+ | 扩 manifest sim（更多契约，少措辞） | 持续 |
 | P3 | corpus live 通过率仪表盘 + issue map 周报 | 运营 |
 | P4 | `/详细` 附 `.txt` 时强制短摘要（`BUTLER_WECHAT_ATTACH_BRIEF_CHARS`，默认 280） | **done** |

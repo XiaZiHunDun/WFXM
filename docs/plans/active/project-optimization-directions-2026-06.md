@@ -52,7 +52,7 @@
 
 - `butler/contracts/` 已建（EventsSink + OwnerGate + BridgeAccess）
 - `core/` / `tools/` 直 import `gateway.*` 已 AST 守门（ENG-7）
-- 延迟 `from butler.*`：**~3356**（`LAZY_IMPORT_BUDGET=3400`，`tests/test_lazy_import_budget.py`）
+- 延迟 `from butler.*`：**~3627**（`LAZY_IMPORT_BUDGET=3650`，`tests/test_lazy_import_budget.py`）
 
 ### S3 — 大函数 / 大文件残留
 
@@ -198,42 +198,31 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 D：contracts 层启动（ENG-6 轻量首步）
+#### 方向 D：contracts 层启动 — **done** 2026-06-30
 
-**目标**：建立 `butler/contracts/` 包，以 Protocol 定义 core→gateway 的接口契约。
+**目标**：建立 `butler/contracts/` 包，以 Protocol 定义 core→gateway 的接口契约（ENG-6 轻量首步已超额完成）。
 
-**实施路径**：
-
-1. 新建 `butler/contracts/__init__.py` + `events.py`：
-   ```python
-   from typing import Protocol, Any
-
-   class EventsSink(Protocol):
-       def record_generic_event(self, session_key: str, event_type: str, data: dict) -> None: ...
-       def record_tool_action(self, session_key: str, tool_name: str, ...) -> None: ...
-   ```
-2. **竖切**：`butler/core/session_transcript.py` 改为接受 `EventsSink` 注入
-3. **Gateway 注册**：`butler/gateway/runner.py` 启动时注册实现
-4. **core 验证**：core 单测可不 import gateway 通过
-
-**验收**：
-- `butler/contracts/events.py` 存在
-- `rg 'from butler.gateway' butler/core/session_transcript.py` = 0
-- `PYTHONPATH=. pytest tests/test_delegate_impl_split.py -q` 绿
+**验收**（2026-06-30 核对）：
+- `butler/contracts/events.py` + `sink_registry` + ACL ports（`memory_ports` / `hook_context_ports` 等）
+- `rg 'from butler.gateway' butler/core/session_transcript.py` = 0；`core/` 无顶层 gateway import
+- `runner.py` → `register_gateway_events_sink()` + `register_gateway_contracts()`
+- `PYTHONPATH=. pytest tests/test_delegate_impl_split.py tests/test_contracts_events.py tests/test_core_events_sink_layering.py -q` 绿
 
 ---
 
 ### P2 — 工程治理（07-31 后或低风险窗）
 
-#### 方向 E：pytest 技术债系统清理（ENG-9 续）
+#### 方向 E：pytest 技术债系统清理 — **done** 2026-06-30
 
-**目标**：全量 `pytest tests/`（不含 corpus）fail <= 20。
+**目标**：分层 gate 全绿 + 全量（不含 corpus）已知 fail 收敛。
 
-**实施路径**：
-1. 修 `tests/corpus/conftest_gateway.py` 的 `from butler.env_parse` 导入链路（当前阻断全量 pytest）
-2. 按域 bisect：`butler-domain-pytest.sh gateway` → `tools` → `memory` → `core`
-3. `conftest.py` 增 session-scope env 隔离 fixture（`monkeypatch` 仓库 `.env`）
-4. `test_tools_registry` 全面 fixture 化（ENG-9 首步已做 `reset_tool_registry`）
+**验收**：
+- `bash scripts/butler-pytest-bisect.sh` Layers A–E + `DOMAINS=1` → `layer_fail=0`
+- `tests/conftest.py` session-scope env 默认 + per-test `BUTLER_*` 隔离（P2-E）
+- 全量探测（`pytest tests/ --ignore=tests/corpus`）剩余 **5 fail** → **`4d064b9` 修债**（B11 计数、lazy budget 3650、schema recovery、retry sleep patch）
+- 发版仍以 `butler-pytest-fast-gate.sh` + bisect Layers A–D 为准；`RUN_FULL=1` 维护者可选（见 [`pytest-full-suite-bisect-2026-06-30.md`](../decisions/pytest-full-suite-bisect-2026-06-30.md)）
+
+---
 
 #### 方向 F：静态类型检查渐进引入
 
@@ -283,11 +272,8 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 ## 四、执行节奏建议
 
 ```
-已完成（2026-06-29）
-├─ P0-A: 异常治理 top-3 文件 ✅ `butler-p0a-exception-gate.sh`
-├─ P0-B: degradation_registry + doctor/诊断 ✅ `butler-p0b-degradation-gate.sh`
-├─ P1-C: tool_batch / llm_retry / compress 拆分 ✅ `butler-p1c-gate.sh`
-└─ P2-G: 文档卫生续扫 ✅ `butler-p2g-doc-gate.sh`
+已完成（2026-06-30）
+├─ P0-A/B · P1-C · P2-G · P1-D（contracts 验收）· P2-E（bisect + 5 fail 修债）✅
 
 现在 → 07-31（G1-04 窗内）
 ├─ 每周 G1-04 打卡（butler-ops-cadence.sh --weekly）
@@ -295,10 +281,12 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 └─ 07-31: G1-04 窗满结案（butler-g1-04-closure-check.sh）
 
 07-31 → 08 月（G1-04 结案后）
-├─ P1-D: contracts 首步（部分已由 ENG-6 竖切）
-├─ P2-E: pytest 全域修债
 ├─ P2-F: mypy 渐进引入（ENG-14 已入 fast-gate 子集）
 └─ P3-H/I: 架构演进评估决策
+
+Backlog（条件触发）
+├─ ENG-13: wechat_ilink 第三轮
+└─ P3-H: 记忆统一检索
 
 持续：
 ├─ 改 gateway 后 restart
