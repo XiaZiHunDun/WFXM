@@ -7,7 +7,7 @@ Core never imports this directly — it only sees the contracts Protocol.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.contracts.events import UrgentInbound
 from butler.contracts.sink_registry import set_events_sink
@@ -48,7 +48,7 @@ class GatewayEventsSink:
     def invoke_hook(self, name: str, **kwargs: Any) -> list[Any]:
         from butler.gateway.hooks import invoke_hook as _invoke_hook
 
-        return _invoke_hook(name, **kwargs)
+        return cast(list[Any], _invoke_hook(name, **kwargs))
 
     def emit_context_compaction(
         self,

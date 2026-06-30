@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
 SCHEMA_VERSION: Literal["v1"] = "v1"
 
 
-class DevVerifyView(BaseModel):
+class DevVerifyView(BaseModel):  # type: ignore[misc]
     """Invariant verify snapshot consumed by dev_loop after ACL."""
 
     model_config = ConfigDict(strict=True)
@@ -26,7 +26,7 @@ class DevVerifyView(BaseModel):
 
 
 def dev_verify_view_schema() -> dict[str, Any]:
-    return DevVerifyView.model_json_schema()
+    return cast(dict[str, Any], DevVerifyView.model_json_schema())
 
 
 def dev_verify_view_schema_json(*, indent: int = 2) -> str:

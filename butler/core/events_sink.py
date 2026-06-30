@@ -9,7 +9,7 @@ single contracts registry.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.contracts.events import EventsSink, NullEventsSink, UrgentInbound
 from butler.contracts.sink_registry import get_events_sink, set_events_sink
@@ -20,7 +20,8 @@ logger = logging.getLogger(__name__)
 def invoke_hook(name: str, **kwargs: Any) -> list[Any]:
     """Forward to the registered sink; swallow exceptions (best-effort)."""
     try:
-        return get_events_sink().invoke_hook(name, **kwargs)
+        hooked = get_events_sink().invoke_hook(name, **kwargs)
+        return cast(list[Any], hooked)
     except Exception as exc:  # noqa: BLE001 — best-effort, never break the caller
         logger.debug("events_sink.invoke_hook skipped: %s", exc)
         return []

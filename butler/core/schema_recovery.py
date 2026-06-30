@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SchemaRecoveryResult:
-    tools: list[dict] | None = None
+    tools: list[dict[str, Any]] | None = None
     stripped: int = 0
     recovered: bool = False
     attempted: bool = False
@@ -26,7 +26,7 @@ class SchemaRecoveryResult:
 
 def recover_schema_after_error(
     error: Exception,
-    tools: list[dict] | None,
+    tools: list[dict[str, Any]] | None,
     *,
     diagnostics: dict[str, Any] | None = None,
 ) -> SchemaRecoveryResult:

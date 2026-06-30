@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
 SCHEMA_VERSION: Literal["v1"] = "v1"
 
 
-class HookContextView(BaseModel):
+class HookContextView(BaseModel):  # type: ignore[misc]
     """Invariant view for hook additionalContext before prompt / diagnostics."""
 
     model_config = ConfigDict(strict=True)
@@ -21,7 +21,7 @@ class HookContextView(BaseModel):
 
 
 def hook_context_view_schema() -> dict[str, Any]:
-    return HookContextView.model_json_schema()
+    return cast(dict[str, Any], HookContextView.model_json_schema())
 
 
 def hook_context_view_schema_json(*, indent: int = 2) -> str:

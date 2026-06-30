@@ -135,16 +135,29 @@ module = "butler.contracts.*"
 strict = true
 
 [[tool.mypy.overrides]]
-module = "butler.tools.delegate_run_state"
-strict = true
-
-[[tool.mypy.overrides]]
 module = [
+    "butler.tools.delegate_run_state",
+    "butler.tools.delegate_record",
     "butler.core.approval_cards",
+    "butler.core.events_sink",
+    "butler.core.schema_recovery",
+    "butler.core.llm_retry_errors",
+    "butler.core.llm_retry_outcomes",
+    "butler.core.tool_batch_finalize",
+    "butler.ops.lazy_import_budget",
+    "butler.ops.degradation_registry",
     "butler.tools.terminal_approval",
     "butler.dag_scheduler",
     "butler.gateway.network_route_verify_runner",
+    "butler.gateway.events_sink_impl",
     "butler.workflow_step_runner",
+    "butler.gateway.locked_phase_registry",
+    "butler.defaults.model_defaults",
+    "butler.orchestrator.templates",
+    "butler.orchestrator.loop_factory",
+    "butler.orchestrator.memory_bridge",
+    "butler.orchestrator.skill_bridge",
+    "butler.orchestrator.prompt_assembler",
 ]
 strict = true
 

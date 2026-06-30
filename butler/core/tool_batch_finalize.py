@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -12,9 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 def dispatch_tool_with_envelope(
-    tool_dispatcher: Callable[[str, dict], str] | None,
+    tool_dispatcher: Callable[[str, dict[str, Any]], str] | None,
     name: str,
-    args: dict,
+    args: dict[str, Any],
 ) -> str:
     """Dispatch through the configured handler and normalize failures."""
     if tool_dispatcher:
@@ -41,15 +41,15 @@ def dispatch_tool_with_envelope(
     )
 
 
-def finalize_fallback_tool_result(name: str, args: dict, result: Any) -> str:
+def finalize_fallback_tool_result(name: str, args: dict[str, Any], result: Any) -> str:
     from butler.tools.registry import finalize_tool_result
 
-    return finalize_tool_result(name, args, result)
+    return cast(str, finalize_tool_result(name, args, result))
 
 
 def finalize_guardrail_halt_result(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     result: str,
     decision: Any,
 ) -> str:
@@ -69,25 +69,25 @@ def finalize_guardrail_halt_result(
         "code": decision.code,
         "count": decision.count,
     }
-    return finalize_tool_result(name, args, payload)
+    return cast(str, finalize_tool_result(name, args, payload))
 
 
-def finalize_unenveloped_failure_result(name: str, args: dict, result: str) -> str:
+def finalize_unenveloped_failure_result(name: str, args: dict[str, Any], result: str) -> str:
     payload = parse_tool_result_object(result)
     if not isinstance(payload, dict):
 
         def _preview() -> str:
             from butler.tools.registry import finalize_tool_result
 
-            return finalize_tool_result(
+            return cast(str, finalize_tool_result(
                 name,
                 args,
                 {"preview": str(result)[:200]},
-            )
+            ))
 
         preview = safe_best_effort(_preview, label="tool_batch.finalize_preview")
         if preview is not None:
-            return preview
+            return cast(str, preview)
         return result
     if payload.get("ok") is False and payload.get("tool") and payload.get("code"):
         return result

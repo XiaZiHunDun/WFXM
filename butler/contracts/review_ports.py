@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,7 +12,7 @@ SCHEMA_VERSION: Literal["v1"] = "v1"
 ReviewSeverity = Literal["error", "warning", "info"]
 
 
-class ReviewFinding(BaseModel):
+class ReviewFinding(BaseModel):  # type: ignore[misc]
     """Single deterministic or LLM-backed review finding."""
 
     model_config = ConfigDict(strict=True)
@@ -25,7 +25,7 @@ class ReviewFinding(BaseModel):
     evidence: str = ""
 
 
-class DevReviewView(BaseModel):
+class DevReviewView(BaseModel):  # type: ignore[misc]
     """Invariant review snapshot consumed by dev_loop / delegate gates."""
 
     model_config = ConfigDict(strict=True)
@@ -38,7 +38,7 @@ class DevReviewView(BaseModel):
 
 
 def dev_review_view_schema() -> dict[str, Any]:
-    return DevReviewView.model_json_schema()
+    return cast(dict[str, Any], DevReviewView.model_json_schema())
 
 
 def dev_review_view_schema_json(*, indent: int = 2) -> str:

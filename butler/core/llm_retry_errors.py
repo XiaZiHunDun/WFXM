@@ -21,8 +21,8 @@ RetryAction = Literal["continue", "break", "sleep_continue"]
 @dataclass
 class LlmRetryStep:
     action: RetryAction
-    messages_to_send: list[dict] | None = None
-    tools_to_send: list[dict] | None = None
+    messages_to_send: list[dict[str, Any]] | None = None
+    tools_to_send: list[dict[str, Any]] | None = None
 
 
 def handle_classified_llm_error(
@@ -32,13 +32,13 @@ def handle_classified_llm_error(
     attempt: int,
     config: LoopConfig,
     callbacks: LoopCallbacks,
-    messages: list[dict],
-    messages_to_send: list[dict],
-    tools_to_send: list[dict] | None,
+    messages: list[dict[str, Any]],
+    messages_to_send: list[dict[str, Any]],
+    tools_to_send: list[dict[str, Any]] | None,
     compress_attempted: bool,
     schema_recovery_attempted: bool,
-    compress_messages: Callable[[list[dict]], list[dict]],
-    prepare_messages: Callable[[], list[dict]],
+    compress_messages: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
+    prepare_messages: Callable[[], list[dict[str, Any]]],
     diagnostics: dict[str, Any],
     try_activate_fallback: Callable[[], bool],
 ) -> tuple[LlmRetryStep, bool, bool]:

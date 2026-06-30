@@ -80,7 +80,7 @@
 
 - 全量 pytest（排除 corpus）：**0 fail**（ENG-9，6250+ pass）
 - 发版以 `butler-pytest-fast-gate.sh` + `butler-eng-domain-gate.sh` 为准
-- mypy strict 子集：`butler-mypy-strict-gate.sh` 入 fast-gate
+- mypy strict 子集：`butler-mypy-strict-gate.sh`（**37** 模块）入 fast-gate
 
 ### S5 — 文档与代码不一致（已收口 2026-06-29）
 
@@ -224,14 +224,16 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 F：静态类型检查渐进引入
+#### 方向 F：静态类型检查渐进引入 — **done** 2026-06-30（首批扩面）
 
-**目标**：`butler/contracts/` 和 `butler/tools/delegate_run_state.py` 通过 `mypy --strict`。
+**目标**：`butler/contracts/` 全包 + P0/P1-C 核心接缝 + ops/gateway 适配器通过 `mypy --strict`（`--follow-imports=skip`）。
 
-**实施路径**：
-1. `pyproject.toml` 添加 `[tool.mypy]` 配置（default: `check_untyped_defs = true`）
-2. 逐目录 override：先 `contracts/` → `tools/delegate_*.py` → `core/` → `gateway/`
-3. CI optional gate（不阻断发版，逐步扩范围）
+**验收**（`bash scripts/butler-mypy-strict-gate.sh`）：
+- **37** 模块 strict 绿（原 15）：contracts 全 15 文件 + `events_sink` / `schema_recovery` / `llm_retry_*` / `tool_batch_finalize` / `degradation_registry` / `lazy_import_budget` / `events_sink_impl` / `delegate_record` 等
+- `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步
+- 入 `butler-pytest-fast-gate.sh`（既有）
+
+**下一批（backlog）**：`context_compress_pipeline` · 更多 `delegate_*.py` · `core/` 宽面
 
 #### 方向 G：文档卫生清理 — **done** 2026-06-29
 
@@ -273,7 +275,7 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ```
 已完成（2026-06-30）
-├─ P0-A/B · P1-C · P2-G · P1-D（contracts 验收）· P2-E（bisect + 5 fail 修债）✅
+├─ P0-A/B · P1-C · P2-G · P1-D · P2-E · P2-F（mypy 37 模块）✅
 
 现在 → 07-31（G1-04 窗内）
 ├─ 每周 G1-04 打卡（butler-ops-cadence.sh --weekly）
@@ -281,11 +283,11 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 └─ 07-31: G1-04 窗满结案（butler-g1-04-closure-check.sh）
 
 07-31 → 08 月（G1-04 结案后）
-├─ P2-F: mypy 渐进引入（ENG-14 已入 fast-gate 子集）
 └─ P3-H/I: 架构演进评估决策
 
-Backlog（条件触发）
+Backlog（条件触发 / 下一批）
 ├─ ENG-13: wechat_ilink 第三轮
+├─ P2-F 续: context_compress_pipeline · delegate_*.py
 └─ P3-H: 记忆统一检索
 
 持续：

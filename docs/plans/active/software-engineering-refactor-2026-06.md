@@ -311,3 +311,4 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-29 | **R1-3 done**（文档收口）；**ENG-13** 条件触发专文 `wechat-ilink-round3-2026-06.md` |
 | 2026-06-29 | **P2-G 续**：`project-optimization` S1–S3/§四 与 P0-A/B、P1-C 对齐；`butler-p2g-doc-gate.sh` |
 | 2026-06-30 | **P1-D 验收** + **P2-E 收口**：`project-optimization` / `agent-testing-strategy` / bisect 记录对齐 `4d064b9` |
+| 2026-06-30 | **P2-F 扩面**：mypy strict **37** 模块（contracts 全包 + P1-C core seams）；`butler-mypy-strict-gate.sh` |

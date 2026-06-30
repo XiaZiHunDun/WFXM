@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,7 +14,7 @@ _VALID_PHASES = frozenset(
 )
 
 
-class LoopDevStateView(BaseModel):
+class LoopDevStateView(BaseModel):  # type: ignore[misc]
     """Invariant dev-loop snapshot for delegate gates / reporting after ACL."""
 
     model_config = ConfigDict(strict=True)
@@ -31,7 +31,7 @@ class LoopDevStateView(BaseModel):
 
 
 def loop_dev_state_view_schema() -> dict[str, Any]:
-    return LoopDevStateView.model_json_schema()
+    return cast(dict[str, Any], LoopDevStateView.model_json_schema())
 
 
 def loop_dev_state_view_schema_json(*, indent: int = 2) -> str:
