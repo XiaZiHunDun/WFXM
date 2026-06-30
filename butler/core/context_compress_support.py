@@ -41,4 +41,69 @@ def record_compress_started(
     safe_best_effort(_run, label="context_compress.started")
 
 
-__all__ = ["record_compact_scheduled", "record_compress_started"]
+def record_compress_completed(
+    *,
+    session_key: str,
+    summary_len: int,
+    messages_before: int,
+    messages_after: int,
+    tokens_before: int,
+    tokens_after: int,
+    summary_chars: int,
+    remote: bool,
+) -> None:
+    def _transcript() -> None:
+        from butler.core.session_transcript import (
+            record_compact_boundary,
+            record_compact_done,
+        )
+
+        record_compact_boundary(session_key, summary_len)
+        record_compact_done(
+            session_key,
+            source="context_compressor",
+            messages_after=messages_after,
+            tokens_after=tokens_after,
+            summary_chars=summary_chars,
+        )
+
+    safe_best_effort(_transcript, label="context_compress.done")
+
+    def _emit() -> None:
+        from butler.core.events_sink import emit_context_compaction
+
+        emit_context_compaction(
+            phase="completed",
+            thread_id=session_key,
+            tokens_before=tokens_before,
+            tokens_after=tokens_after,
+            messages_before=messages_before,
+            messages_after=messages_after,
+            source="context_compressor",
+            remote=remote,
+        )
+
+    safe_best_effort(_emit, label="context_compress.emit")
+
+
+def record_overflow_replay(*, session_key: str, replay_user: dict) -> None:
+    def _run() -> None:
+        from butler.core.session_transcript import record_overflow_replay
+
+        content = str(replay_user.get("content") or "")
+        record_overflow_replay(
+            session_key,
+            source="context_compressor",
+            content_preview=content,
+            replayed_chars=len(content),
+        )
+
+    safe_best_effort(_run, label="context_compress.overflow_replay")
+
+
+__all__ = [
+    "record_compress_completed",
+    "record_compress_scheduled",
+    "record_compress_started",
+    "record_overflow_replay",
+]

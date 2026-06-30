@@ -127,6 +127,36 @@ def test_sync_compaction_acl_from_recent_skips():
     assert "compaction_acl" in rows
 
 
+def test_format_diagnostic_lines_includes_since_ts():
+    register_degradation("memory", "offline", detail="boom")
+    lines = format_diagnostic_lines()
+    joined = "\n".join(lines)
+    assert "持续" in joined
+    assert "memory" in joined
+
+
+def test_register_degradation_sets_component_gauge():
+    from butler.ops.runtime_metrics import snapshot_global
+
+    register_degradation("embedding", "hashing fallback")
+    snap = snapshot_global()
+    gauges = snap.get("gauges") or {}
+    assert gauges.get("degradation_active") == 1.0
+    assert gauges.get("degradation_active{component=embedding}") == 1.0
+    clear_degradation("embedding")
+    snap2 = snapshot_global()
+    gauges2 = snap2.get("gauges") or {}
+    assert gauges2.get("degradation_active{component=embedding}") == 0.0
+
+
+def test_register_degradation_logs_warning(caplog):
+    import logging
+
+    caplog.set_level(logging.WARNING)
+    register_degradation("recall", "仅 FTS")
+    assert any("Degradation active" in rec.message for rec in caplog.records)
+
+
 def test_metrics_sink_inc_forwards_labels():
     from butler.core.metrics_sink import inc, set_default_sink
     from butler.ops.runtime_metrics import counter_value

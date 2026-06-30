@@ -199,7 +199,17 @@ class AgentLoop:
         first (FIFO). Error strings are truncated to
         ``_MAX_SKIPPED_PLUGIN_ERROR_LEN`` to keep the payload small.
         """
+        from butler.core.best_effort import record_best_effort_skip
+
+        label = f"agent_loop.{plugin_name}"
         logger.error("%s skipped: %s", plugin_name, exc, exc_info=exc)
+        record_best_effort_skip(label, exc)
+        try:
+            from butler.ops.runtime_metrics import inc
+
+            inc("best_effort_skip", labels={"path": label[:48]})
+        except Exception:
+            pass
         bucket = self.diagnostics.setdefault("skipped", [])
         bucket.append({
             "plugin": plugin_name,

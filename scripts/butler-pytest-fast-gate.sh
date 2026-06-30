@@ -15,6 +15,12 @@ bash scripts/butler-wechat-attach-probe.sh
 echo ""
 bash scripts/butler-cc-harness-gate.sh
 echo ""
+bash scripts/butler-p0a-exception-gate.sh
+echo ""
+bash scripts/butler-p0b-degradation-gate.sh
+echo ""
+bash scripts/butler-p1c-gate.sh
+echo ""
 echo "== schema drift (all ACL contracts, strict) =="
 SCHEMA_DRIFT_STRICT=1 bash scripts/check-schema-drift.sh
 echo ""

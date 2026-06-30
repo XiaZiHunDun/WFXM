@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from dataclasses import dataclass
@@ -179,13 +178,19 @@ def _run_auto_verify(state: Any, path: str) -> None:
         from butler.dev_engine.dev_state import DevPhase
         from butler.dev_engine.verify import select_auto_verify_levels, verify_layered
 
-        try:
+        def _resolve_workspace() -> _Path:
             from butler.tools.safe_root import get_tool_safe_root
 
-            ws = _Path(get_tool_safe_root())
-        except Exception as exc:
-            logger.debug("auto_verify workspace resolve skipped: %s", exc)
-            ws = _Path(path).parent
+            return _Path(get_tool_safe_root())
+
+        ws = (
+            safe_best_effort(
+                _resolve_workspace,
+                label="tool_batch.auto_verify.workspace",
+                default=_Path(path).parent if path else _Path("."),
+            )
+            or (_Path(path).parent if path else _Path("."))
+        )
 
         edited_files = [path] if path else []
         delegate_cat = str(getattr(state, "_delegate_category", "") or "")
@@ -415,102 +420,10 @@ def process_tool_calls(
     )
 
 
-def dispatch_tool_with_envelope(
-    tool_dispatcher: Callable[[str, dict], str] | None,
-    name: str,
-    args: dict,
-) -> str:
-    """Dispatch through the configured handler and normalize failures."""
-    if tool_dispatcher:
-        try:
-            result = tool_dispatcher(name, args)
-            return finalize_unenveloped_failure_result(name, args, result)
-        except Exception as exc:
-            logger.error("Tool %s failed: %s", name, exc)
-            return finalize_fallback_tool_result(
-                name,
-                args,
-                {
-                    "error": f"Tool execution failed: {exc}",
-                    "code": "TOOL_DISPATCH_ERROR",
-                },
-            )
-    return finalize_fallback_tool_result(
-        name,
-        args,
-        {
-            "error": f"No tool dispatcher configured, cannot run '{name}'",
-            "code": "TOOL_DISPATCH_ERROR",
-        },
-    )
-
-
-def finalize_fallback_tool_result(name: str, args: dict, result: Any) -> str:
-    from butler.tools.registry import finalize_tool_result
-
-    return finalize_tool_result(name, args, result)
-
-
-def finalize_guardrail_halt_result(
-    name: str,
-    args: dict,
-    result: str,
-    decision: Any,
-) -> str:
-    from butler.tools.registry import finalize_tool_result, pop_last_tool_audit_for_tool
-
-    pop_last_tool_audit_for_tool(name)
-    payload = parse_tool_result_object(result)
-    if payload is None:
-        payload = {"error": result or decision.message}
-    else:
-        payload = dict(payload)
-    for key in ("ok", "tool", "code"):
-        payload.pop(key, None)
-    payload["error"] = decision.message
-    payload["guardrail"] = {
-        "action": decision.action,
-        "code": decision.code,
-        "count": decision.count,
-    }
-    return finalize_tool_result(name, args, payload)
-
-
-def finalize_unenveloped_failure_result(name: str, args: dict, result: str) -> str:
-    payload = parse_tool_result_object(result)
-    if not isinstance(payload, dict):
-        try:
-            from butler.tools.registry import finalize_tool_result
-
-            return finalize_tool_result(
-                name,
-                args,
-                {"preview": str(result)[:200]},
-            )
-        except Exception as exc:
-            logger.debug("finalize_unenveloped preview skipped: %s", exc)
-            return result
-    if payload.get("ok") is False and payload.get("tool") and payload.get("code"):
-        return result
-    failed = (
-        "error" in payload
-        or payload.get("success") is False
-        or (isinstance(payload.get("exit_code"), int) and payload["exit_code"] != 0)
-    )
-    if failed:
-        payload = dict(payload)
-        payload.setdefault("code", "TOOL_ERROR")
-        return finalize_fallback_tool_result(name, args, payload)
-    return result
-
-
-def parse_tool_result_object(result: Any) -> dict[str, Any] | None:
-    if isinstance(result, dict):
-        return result
-    if not isinstance(result, str):
-        return None
-    try:
-        parsed = json.loads(result)
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return None
-    return parsed if isinstance(parsed, dict) else None
+from butler.core.tool_batch_finalize import (  # noqa: E402 — P1-C re-exports
+    dispatch_tool_with_envelope,
+    finalize_fallback_tool_result,
+    finalize_guardrail_halt_result,
+    finalize_unenveloped_failure_result,
+    parse_tool_result_object,
+)

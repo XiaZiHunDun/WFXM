@@ -123,10 +123,12 @@
    ```
 4. **可观测**：新增 `runtime_metrics` counter `exception_swallowed{path=...}`
 
-**验收**：
-- `rg 'except Exception' butler/core/tool_batch.py -c` <= 15
-- `rg 'except Exception' butler/core/agent_loop_phases.py -c` <= 10
-- fast-gate 绿
+**验收**（2026-06-29 守门 `butler-p0a-exception-gate.sh`）：
+- `rg 'except Exception' butler/core/tool_batch.py -c` <= 15（当前 **1**：工具分发兜底）
+- `rg 'except Exception' butler/core/agent_loop_phases.py -c` <= 10（当前 **0**，已迁 `safe_best_effort`）
+- `rg 'except Exception' butler/gateway/locked_phases.py -c` <= 10（当前 **2**：hygiene 健康位 + error card 降级）
+- `agent_loop._record_skipped_plugin` → `best_effort_skip` 指标 + `/诊断` ring
+- fast-gate 含 P0-A gate
 
 ---
 
@@ -148,10 +150,12 @@
    - 详细模式列出每项 `(component, reason, since_ts)`
 4. **Metric**：`degradation_active{component=...}` gauge
 
-**验收**：
-- 关闭 `BUTLER_EMBEDDING_PROVIDER` → `butler doctor` 输出 WARNING
-- `/诊断` 简要显示降级数
-- `PYTHONPATH=. pytest tests/test_owner_surface.py -q` 绿
+**验收**（2026-06-29 守门 `butler-p0b-degradation-gate.sh`）：
+- `degradation_registry`：`register`/`clear`/`list` + `degradation_active{component=…}` gauge
+- embedding/MCP/memory/Skill/compaction_acl 降级 → `logger.warning` + registry
+- `/诊断` 简要「降级 N 项」；详细含 `(持续 Xm)` + best_effort 最近跳过
+- `butler doctor` 输出 `[运行降级] ⚠ …` 概览行
+- `tests/test_degradation_registry.py` + owner brief 子集绿
 
 ---
 
@@ -179,8 +183,13 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 **`call_llm_with_retry`（291 行）拆分方案**：
 
 - ✅ 2026-06-29：`llm_retry_invoke` / `llm_retry_errors` / `llm_retry_success` / `llm_retry_safe`；编排 ~142 行
+- ✅ 2026-06-29 续：`llm_retry_outcomes`（interrupt/fail 指标）
 
-**验收**：
+**`compress_messages` 拆分**：
+
+- ✅ 2026-06-29 续：`context_compress_pipeline.run_compress_messages` + `context_compress_support` 生命周期钩子
+
+**验收**（守门 `butler-p1c-gate.sh`）：
 - `wc -l` 各新文件 < 150 行
 - `PYTHONPATH=. pytest tests/test_cc_p3_p4_features.py tests/test_tool_result_storage.py -q` 绿
 - fast-gate 绿

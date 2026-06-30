@@ -99,11 +99,18 @@ def _shared_diagnostic_lines(
     lines: list[str] = []
     try:
         from butler.ops.degradation_registry import (
+            enrich_stats_with_live_mcp,
             format_diagnostic_lines,
+            sync_compaction_acl_from_metrics,
             sync_memory_degradations_from_stats,
         )
 
-        sync_memory_degradations_from_stats(inp.mem_stats)
+        sync_compaction_acl_from_metrics()
+        mem_stats = enrich_stats_with_live_mcp(
+            inp.mem_stats,
+            session_key=inp.session_key,
+        )
+        sync_memory_degradations_from_stats(mem_stats)
         deg = format_diagnostic_lines()
         if deg:
             lines.extend(deg)

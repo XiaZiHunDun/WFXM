@@ -263,6 +263,9 @@ butler/tools/         # 通过 execution_context 查 gateway 能力，不直接 
 | 2026-06-26 | **P0-B** `degradation_registry` + doctor/诊断；**P0-A** `safe_best_effort` + `tool_batch` 首步 |
 | 2026-06-26 | **P1-C** `tool_dispatch` + `tool_batch_hooks`；**P0-A 续** locked/agent_loop phases |
 | 2026-06-27 | **P0-A done**：`best_effort` 最近跳过 ring + `/诊断` 明细；三热点 `except Exception` 降 ~40%+ |
+| 2026-06-29 | **P0-A 守门**：`butler-p0a-exception-gate.sh` + `agent_loop._record_skipped_plugin` 接 `best_effort_skip` 指标 |
+| 2026-06-29 | **P0-B 守门**：per-component `degradation_active` gauge + `/诊断` since 明细 + `butler-p0b-degradation-gate.sh` |
+| 2026-06-29 | **P1-C 续**：`context_compress_pipeline` + `tool_batch_finalize` + `llm_retry_outcomes` + `butler-p1c-gate.sh` |
 | 2026-06-27 | **P1-C done**：`llm_retry_helpers` + `context_compress_support` |
 | 2026-06-27 | **P1-D done**：`contracts/events` + `EventsSink` `@runtime_checkable` + gateway 注册 |
 | 2026-06-27 | **P2-E**：`conftest` session env 默认 + sprint11/registry/sprint23 修债 |

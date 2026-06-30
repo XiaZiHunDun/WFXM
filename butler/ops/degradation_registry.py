@@ -39,7 +39,13 @@ def register_degradation(
         detail=str(detail or "").strip(),
     )
     with _LOCK:
+        prev = _REGISTRY.get(key)
         _REGISTRY[key] = rec
+    if prev is None or prev.reason != rec.reason or prev.detail != rec.detail:
+        msg = f"{key}: {rec.reason}"
+        if rec.detail:
+            msg = f"{msg} ({rec.detail[:120]})"
+        logger.warning("Degradation active — %s", msg)
     _sync_metrics()
 
 
@@ -48,7 +54,10 @@ def clear_degradation(component: str) -> None:
     if not key:
         return
     with _LOCK:
-        _REGISTRY.pop(key, None)
+        removed = _REGISTRY.pop(key, None)
+    if removed is not None:
+        _set_component_gauge(key, active=False)
+        logger.info("Degradation cleared — %s", key)
     _sync_metrics()
 
 
@@ -124,6 +133,15 @@ _COMPONENT_LABELS: dict[str, str] = {
 }
 
 
+def _format_since_ts(since_ts: float) -> str:
+    age_s = max(0, int(time.time() - float(since_ts or 0)))
+    if age_s < 60:
+        return f"{age_s}s"
+    if age_s < 3600:
+        return f"{age_s // 60}m"
+    return f"{age_s // 3600}h"
+
+
 def format_brief_line() -> str | None:
     """One Owner line: ``降级：… N 项（…）→ /诊断 详细``."""
     rows = list_degradations()
@@ -144,9 +162,10 @@ def format_diagnostic_lines() -> list[str]:
         return []
     lines = ["运行降级:"]
     for rec in rows:
-        line = f"  - {rec.component}: {rec.reason}"
+        since = _format_since_ts(rec.since_ts)
+        line = f"  - {rec.component}: {rec.reason} (持续 {since})"
         if rec.detail:
-            line += f" ({rec.detail[:120]})"
+            line += f" — {rec.detail[:120]}"
         lines.append(line)
     if skip_n > 0:
         lines.append(f"  可选路径跳过: {skip_n} 次 (best_effort_skip)")
@@ -339,13 +358,29 @@ def refresh_degradations_for_owner_brief(
         return None
 
 
+def _set_component_gauge(component: str, *, active: bool) -> None:
+    try:
+        from butler.ops.runtime_metrics import set_gauge
+
+        set_gauge(
+            "degradation_active",
+            1.0 if active else 0.0,
+            labels={"component": str(component or "?")[:48]},
+        )
+    except Exception as exc:
+        logger.debug("degradation component gauge skipped: %s", exc)
+
+
 def _sync_metrics() -> None:
     try:
         from butler.ops.runtime_metrics import set_gauge
 
         with _LOCK:
             n = len(_REGISTRY)
+            components = list(_REGISTRY.keys())
         set_gauge("degradation_active", float(n))
+        for comp in components:
+            _set_component_gauge(comp, active=True)
     except Exception as exc:
         logger.debug("degradation metrics sync skipped: %s", exc)
 

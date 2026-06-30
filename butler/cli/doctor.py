@@ -132,6 +132,7 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
 
     try:
         from butler.ops.degradation_registry import (
+            format_brief_line,
             format_diagnostic_lines,
             sync_compaction_acl_from_metrics,
             sync_embedding_degradation_from_health_check,
@@ -139,11 +140,16 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
 
         sync_embedding_degradation_from_health_check(min_recall=0.5)
         sync_compaction_acl_from_metrics()
+        brief = format_brief_line()
+        if brief:
+            print(f"\n[运行降级] ⚠ {brief}")
         deg = format_diagnostic_lines()
-        if deg:
+        if deg and not brief:
             print("\n[运行降级]")
-            for line in deg:
-                print(f"  {line}" if line.startswith("  ") else line)
+        for i, line in enumerate(deg):
+            if brief and i == 0 and line == "运行降级:":
+                continue
+            print(f"  {line}" if line.startswith("  ") else line)
     except Exception as exc:
         print(f"\n[运行降级] (不可用: {exc})")
 

@@ -13,7 +13,6 @@ import json
 import logging
 from typing import Any
 
-from butler.core.turn_compaction import _write_compaction_diagnostics
 from butler.transport.auxiliary_client import auxiliary_complete
 
 logger = logging.getLogger(__name__)
@@ -303,216 +302,19 @@ def compress_messages(
     diagnostics: dict[str, Any] | None = None,
 ) -> tuple[list[dict], str, bool]:
     """Compress messages if over threshold. Returns (messages, summary, did_compress)."""
-    estimated = _estimate_tokens(messages)
-    threshold = int(max_tokens * threshold_ratio)
-    if estimated <= threshold or len(messages) < min_messages_to_compress:
-        return messages, previous_summary, False
+    from butler.core.context_compress_pipeline import run_compress_messages
 
-    try:
-        from butler.core.context_compress_support import (
-            record_compact_scheduled,
-            record_compact_started,
-        )
-        from butler.execution_context import get_audit_session_key
-
-        _sk = get_audit_session_key(fallback="_global")
-        record_compact_scheduled(
-            session_key=_sk,
-            messages_before=len(messages),
-            tokens_estimated=estimated,
-        )
-        record_compact_started(session_key=_sk, overflow_replay=overflow_replay)
-    except Exception as exc:
-        logger.debug("compress messages skipped: %s", exc)
-    pruned = _prune_tool_outputs(messages)
-    skill_rescued: list[dict] = []
-    try:
-        from butler.core.skill_compact_rescue import (
-            extract_skill_rescue_messages,
-            merge_skill_rescue_into_tail,
-        )
-
-        pruned, skill_rescued = extract_skill_rescue_messages(pruned)
-    except Exception as exc:
-        logger.debug("Skill compact rescue skipped: %s", exc)
-    replay_user = None
-    if overflow_replay:
-        try:
-            from butler.core.turn_compaction import find_overflow_replay_user
-
-            replay_user = find_overflow_replay_user(pruned)
-        except Exception as exc:
-            logger.debug("compress messages skipped: %s", exc)
-    try:
-        from butler.core.turn_compaction import split_head_tail_turns, turn_compaction_enabled
-
-        if turn_compaction_enabled():
-            system, middle, head_tail = split_head_tail_turns(
-                pruned,
-                max_context_tokens=max_tokens,
-                max_output_tokens=max_output_tokens,
-                head_count=head_count,
-                min_tail_messages=min_tail_messages,
-                estimate_fn=_estimate_tokens,
-                diagnostics=diagnostics,
-            )
-            if not middle:
-                legacy_system, legacy_middle, legacy_head_tail = _split_head_tail(
-                    pruned,
-                    head_count=head_count,
-                    max_tail_messages=max_tail_messages,
-                    min_tail_messages=min_tail_messages,
-                )
-                if legacy_middle:
-                    system, middle, head_tail = (
-                        legacy_system,
-                        legacy_middle,
-                        legacy_head_tail,
-                    )
-                    if isinstance(diagnostics, dict):
-                        diagnostics["compaction_turn_fallback"] = "legacy_split"
-        else:
-            system, middle, head_tail = _split_head_tail(
-                pruned,
-                head_count=head_count,
-                max_tail_messages=max_tail_messages,
-                min_tail_messages=min_tail_messages,
-            )
-    except Exception as exc:
-        logger.debug("Turn compaction fallback: %s", exc)
-        if isinstance(diagnostics, dict):
-            _write_compaction_diagnostics(
-                diagnostics,
-                strategy="legacy_split",
-                tail_turns_kept=0,
-                split_turn_applied=False,
-                preserved_recent_budget=0,
-                tail_token_count=0,
-                tail_start_index=0,
-            )
-            diagnostics["compaction_turn_fallback"] = "legacy_split"
-        system, middle, head_tail = _split_head_tail(
-            pruned,
-            head_count=head_count,
-            max_tail_messages=max_tail_messages,
-            min_tail_messages=min_tail_messages,
-        )
-
-    if not middle:
-        if skill_rescued:
-            head_tail = merge_skill_rescue_into_tail(head_tail, skill_rescued)
-            return system + head_tail, previous_summary, False
-        return pruned, previous_summary, False
-
-    try:
-        from butler.core.fact_extraction import extract_pre_compact_facts
-        from butler.execution_context import get_audit_session_key
-
-        sk = get_audit_session_key(fallback="_global")
-        extract_pre_compact_facts(sk, middle)
-    except Exception as exc:
-        logger.debug("Fact extraction skipped: %s", exc)
-
-    middle = truncate_tool_responses_to_budget(middle)
-    summary, used_remote = _summarize_middle(middle, previous_summary)
-    try:
-        from butler.core.evidence_extract import append_evidence_to_summary
-
-        summary = append_evidence_to_summary(summary, middle, diagnostics)
-    except Exception as exc:
-        logger.debug("Compact evidence extract skipped: %s", exc)
-    if not summary.strip():
-        logger.warning("Summary generation failed; preserving original messages instead of compressing")
-        if skill_rescued:
-            try:
-                from butler.core.skill_compact_rescue import merge_skill_rescue_into_tail as _merge
-
-                head_tail = _merge(head_tail, skill_rescued)
-            except Exception as exc:
-                logger.debug("compress messages skipped: %s", exc)
-        return system + head_tail + middle, previous_summary, False
-    if isinstance(diagnostics, dict):
-        diagnostics["compaction_remote"] = used_remote
-    summary_msg = {"role": "user", "content": SUMMARY_PREFIX + summary}
-
-    try:
-        from butler.core.compaction_phase import (
-            InitialContextInjection,
-            apply_summary_placement,
-        )
-
-        injection = initial_injection
-        if injection is None:
-            injection = InitialContextInjection.DO_NOT_INJECT
-        compressed = apply_summary_placement(system, head_tail, summary_msg, injection)
-    except Exception:
-        compressed = system + [summary_msg] + head_tail
-    if skill_rescued:
-        try:
-            from butler.core.skill_compact_rescue import merge_skill_rescue_into_tail
-
-            tail_only = [m for m in compressed if m.get("role") != "system"]
-            system_only = [m for m in compressed if m.get("role") == "system"]
-            tail_only = merge_skill_rescue_into_tail(tail_only, skill_rescued)
-            compressed = system_only + tail_only
-        except Exception as exc:
-            logger.debug("Skill rescue merge skipped: %s", exc)
-    if overflow_replay and replay_user:
-        try:
-            from butler.core.turn_compaction import append_overflow_replay
-
-            compressed = append_overflow_replay(compressed, replay_user)
-        except Exception as exc:
-            logger.debug("compress messages skipped: %s", exc)
-        try:
-            from butler.core.session_transcript import record_overflow_replay
-            from butler.execution_context import get_audit_session_key
-
-            _replay_content = str(replay_user.get("content") or "")
-            record_overflow_replay(
-                get_audit_session_key(fallback="_global"),
-                source="context_compressor",
-                content_preview=_replay_content,
-                replayed_chars=len(_replay_content),
-            )
-        except Exception as exc:
-            logger.debug("compress messages skipped: %s", exc)
-    logger.info(
-        "Context compressed: %d→%d msgs, ~%d→%d tokens",
-        len(messages), len(compressed), estimated, _estimate_tokens(compressed),
+    return run_compress_messages(
+        messages,
+        max_tokens=max_tokens,
+        threshold_ratio=threshold_ratio,
+        previous_summary=previous_summary,
+        min_messages_to_compress=min_messages_to_compress,
+        head_count=head_count,
+        max_tail_messages=max_tail_messages,
+        min_tail_messages=min_tail_messages,
+        overflow_replay=overflow_replay,
+        max_output_tokens=max_output_tokens,
+        initial_injection=initial_injection,
+        diagnostics=diagnostics,
     )
-    sk = ""
-    try:
-        from butler.core.session_transcript import (
-            record_compact_boundary,
-            record_compact_done,
-        )
-        from butler.execution_context import get_audit_session_key
-
-        sk = get_audit_session_key(fallback="_global")
-        record_compact_boundary(sk, len(summary))
-        record_compact_done(
-            sk,
-            source="context_compressor",
-            messages_after=len(compressed),
-            tokens_after=_estimate_tokens(compressed),
-            summary_chars=len(summary),
-        )
-    except Exception as exc:
-        logger.debug("compress messages skipped: %s", exc)
-    try:
-        from butler.core.events_sink import emit_context_compaction
-
-        emit_context_compaction(
-            phase="completed",
-            thread_id=sk,
-            tokens_before=estimated,
-            tokens_after=_estimate_tokens(compressed),
-            messages_before=len(messages),
-            messages_after=len(compressed),
-            source="context_compressor",
-            remote=used_remote,
-        )
-    except Exception as exc:
-        logger.debug("compress messages skipped: %s", exc)
-    return compressed, summary, True

@@ -12,6 +12,7 @@ from butler.core.llm_retry_helpers import (
     try_exp_cache_response,
 )
 from butler.core.llm_retry_invoke import execute_llm_call
+from butler.core.llm_retry_outcomes import record_llm_failure, record_llm_interrupt
 from butler.core.llm_retry_safe import safe_call
 from butler.core.llm_retry_success import process_llm_response
 from butler.core.loop_types import LoopCallbacks, LoopConfig
@@ -106,14 +107,7 @@ def call_llm_with_retry(
                 continue
 
         except InterruptedError:
-
-            def _record_interrupt() -> None:
-                from butler.ops.runtime_metrics import inc
-
-                provider = str(getattr(client, "provider_name", "") or "?")[:24]
-                inc("llm_request", labels={"provider": provider, "outcome": "interrupt"})
-
-            _safe_call(_record_interrupt, "record interrupt skipped")
+            record_llm_interrupt(client)
             return None, True
 
         except Exception as exc:
@@ -156,17 +150,7 @@ def call_llm_with_retry(
                 continue
 
     logger.error("All LLM attempts failed: %s", last_error, exc_info=last_error)
-
-    def _record_failure() -> None:
-        from butler.ops.runtime_metrics import inc
-
-        provider = str(getattr(client, "provider_name", "") or "?")[:24]
-        inc("llm_request", labels={"provider": provider, "outcome": "fail"})
-        if last_error is not None:
-            err_type = type(last_error).__name__
-            inc("llm_error", labels={"provider": provider, "error_type": err_type})
-
-    _safe_call(_record_failure, "record failure skipped")
+    record_llm_failure(client, last_error)
     return None, interrupted
 
 
