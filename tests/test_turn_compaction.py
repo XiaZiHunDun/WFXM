@@ -99,7 +99,7 @@ def test_overflow_replay_appended_after_compress():
     messages.append({"role": "user", "content": "FINAL TASK: ship it"})
 
     with patch(
-        "butler.core.context_compressor.auxiliary_complete",
+        "butler.core.context_compress_support.auxiliary_summarize_middle",
         return_value="## Active Task\n- done",
     ):
         out, _, did = compress_messages(
@@ -209,7 +209,7 @@ def test_diagnostics_via_compress_messages():
 
     diag: dict = {}
     with patch(
-        "butler.core.context_compressor.auxiliary_complete",
+        "butler.core.context_compress_support.auxiliary_summarize_middle",
         return_value="## Active Task\n- done",
     ):
         out, _, did = compress_messages(
@@ -258,7 +258,7 @@ def test_diagnostics_legacy_fallback_on_exception():
         side_effect=RuntimeError("boom"),
     ):
         with patch(
-            "butler.core.context_compressor.auxiliary_complete",
+            "butler.core.context_compress_support.auxiliary_summarize_middle",
             return_value="## Active Task\n- ok",
         ):
             out, _, did = compress_messages(

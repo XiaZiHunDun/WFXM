@@ -10,14 +10,10 @@ PIMState = (I_contacts, I_expenses, I_memos, I_habits, I_reminders)
 
 from __future__ import annotations
 
-import json
-import logging
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _PIM_TOOL_DOMAIN: dict[str, str] = {
     "contact_add": "contacts",
@@ -101,58 +97,21 @@ def _state_path() -> Path:
 
 
 def load_pim_state() -> PIMState:
-    path = _state_path()
-    if not path.is_file():
-        return PIMState()
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        state = PIMState()
-        for domain in ("contacts", "memos", "expenses", "habits", "reminders"):
-            d = data.get(domain)
-            if isinstance(d, dict):
-                setattr(state, domain, DomainIndex(
-                    count=d.get("count", 0),
-                    last_modified=d.get("last_modified", 0.0),
-                    last_tool=d.get("last_tool", ""),
-                ))
-        state.snapshot_ts = data.get("snapshot_ts", 0.0)
-        return state
-    except Exception as exc:
-        logger.debug("load_pim_state failed: %s", exc)
-        return PIMState()
+    from butler.core.pim_state_ops import load_pim_state_from_file
+
+    return load_pim_state_from_file(_state_path(), empty_state=PIMState)
 
 
 def save_pim_state(state: PIMState) -> None:
-    path = _state_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        from butler.io.atomic_write import atomic_write_text
+    from butler.core.pim_state_ops import save_pim_state_to_file
 
-        atomic_write_text(path, json.dumps(state.to_dict(), ensure_ascii=False, indent=2))
-    except Exception as exc:
-        logger.debug("save_pim_state failed: %s", exc)
+    save_pim_state_to_file(_state_path(), state)
 
 
 def _refresh_domain_count(state: PIMState, domain: str) -> None:
-    """Refresh actual record count from TenantStore."""
-    try:
-        if domain == "contacts":
-            from butler.tools.contacts import _store
-            state.contacts.count = _store.count()
-        elif domain == "memos":
-            from butler.tools.memo import _store
-            state.memos.count = _store.count()
-        elif domain == "expenses":
-            from butler.tools.expense import _store
-            state.expenses.count = _store.count()
-        elif domain == "habits":
-            from butler.tools.habits import _store
-            state.habits.count = _store.count()
-        elif domain == "reminders":
-            from butler.tools.reminder import _reminder_store
-            state.reminders.count = _reminder_store.count()
-    except Exception as exc:
-        logger.debug("_refresh_domain_count(%s) failed: %s", domain, exc)
+    from butler.core.pim_state_ops import refresh_domain_count_safe
+
+    refresh_domain_count_safe(state, domain)
 
 
 def on_pim_tool_success(tool_name: str) -> None:
@@ -160,10 +119,6 @@ def on_pim_tool_success(tool_name: str) -> None:
     domain = _PIM_TOOL_DOMAIN.get(tool_name)
     if not domain:
         return
-    try:
-        state = load_pim_state()
-        _refresh_domain_count(state, domain)
-        state.update_domain(domain, tool_name=tool_name)
-        save_pim_state(state)
-    except Exception as exc:
-        logger.debug("on_pim_tool_success(%s) skipped: %s", tool_name, exc)
+    from butler.core.pim_state_ops import update_pim_state_for_tool_safe
+
+    update_pim_state_for_tool_safe(tool_name, domain=domain)

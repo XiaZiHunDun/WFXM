@@ -758,7 +758,7 @@ class TestAgentLoopContext:
         for i in range(20):
             msgs.append({"role": "user", "content": "x" * 200})
         with patch(
-            "butler.core.context_compressor.auxiliary_complete",
+            "butler.core.context_compress_support.auxiliary_summarize_middle",
             return_value="## Active Task\n- compressed summary",
         ):
             compressed = loop._compress_context(msgs)
@@ -835,7 +835,7 @@ class TestAgentLoopContext:
         )
         loop.messages = [{"role": "user", "content": f"short {i}"} for i in range(20)]
 
-        with patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"):
+        with patch("butler.core.context_compress_support.auxiliary_summarize_middle", return_value="summary"):
             did = loop.hygiene_compress_if_needed(hard_message_limit=5)
 
         assert did is True
@@ -861,7 +861,7 @@ class TestAgentLoopContext:
             for i in range(20)
         ]
 
-        with patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"):
+        with patch("butler.core.context_compress_support.auxiliary_summarize_middle", return_value="summary"):
             did = loop.hygiene_compress_if_needed()
 
         assert did is True
@@ -887,7 +887,7 @@ class TestAgentLoopContext:
             for i in range(6)
         ]
 
-        with patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"):
+        with patch("butler.core.context_compress_support.auxiliary_summarize_middle", return_value="summary"):
             did = loop.hygiene_compress_if_needed()
 
         assert did is True
@@ -934,7 +934,7 @@ class TestAgentLoopContext:
 
         with (
             patch.object(loop._context, "estimate_tokens", side_effect=_est),
-            patch("butler.core.context_compressor.auxiliary_complete", return_value="summary"),
+            patch("butler.core.context_compress_support.auxiliary_summarize_middle", return_value="summary"),
         ):
             did = loop.hygiene_compress_if_needed()
 

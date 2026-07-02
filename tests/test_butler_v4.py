@@ -66,7 +66,7 @@ class TestAgentLoopContextCompression:
         ]
         from butler.core.context_compressor import SUMMARY_PREFIX
         with patch(
-            "butler.core.context_compressor.auxiliary_complete",
+            "butler.core.context_compress_support.auxiliary_summarize_middle",
             return_value="## Active Task\n- compressed summary",
         ):
             compressed = loop._compress_context(msgs)

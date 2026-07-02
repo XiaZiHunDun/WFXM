@@ -500,35 +500,15 @@ def index_experience_row(
     category: str,
     content: str,
 ) -> None:
-    if semantic is None or not content.strip():
-        return
-    if (category or "") == _CONVERSATION:
-        return
-    try:
-        semantic.upsert(
-            source=SOURCE_EXPERIENCE,
-            source_id=str(row_id),
-            content=content,
-            project=project or "",
-            category=category or "",
-        )
-        index_triplets_for_content(
-            semantic,
-            content,
-            project=project or "",
-            source=SOURCE_EXPERIENCE,
-            source_ref=str(row_id),
-        )
-        from butler.memory.vector_sync_telemetry import record_vector_sync
+    from butler.memory.semantic_index_ops import index_experience_row_loud
 
-        record_vector_sync("owner_experience", project=project or "")
-    except Exception as exc:
-        # Audit R2-2: write failures must preserve the stack trace so the
-        # operator can diagnose embed OOM / DB lock / provider auth issues
-        # that this code path silently swallowed before.
-        logger.error(
-            "Semantic index upsert failed for experience %s", row_id, exc_info=exc
-        )
+    index_experience_row_loud(
+        semantic,
+        row_id,
+        project=project,
+        category=category,
+        content=content,
+    )
 
 
 def index_triplets_for_content(
@@ -566,52 +546,15 @@ def _hybrid_experience_search_once(
     fall back to FTS-only. The caller (``hybrid_experience_search``) records
     this flag in retrieval telemetry so /诊断 and the LLM can react.
     """
-    fts_hits = fts_search(query, project=project, limit=limit * 2)
-    mode = "fts" if semantic is None else "hybrid"
-    fallbacks = 0
-    degraded = False
-    if semantic is None:
-        out = fts_hits[:limit]
-    else:
-        try:
-            out = semantic.hybrid_search(
-                query,
-                fts_hits,
-                project=project,
-                limit=limit,
-                vector_sources=(SOURCE_EXPERIENCE,),
-            )
-        except Exception as exc:
-            # Audit R2-2: degraded quality must be loud (ERROR + exc_info)
-            # so ops sees the underlying embed OOM / DB lock / provider auth
-            # error rather than a quiet warning that loses the stack.
-            logger.error("Hybrid search failed, using FTS", exc_info=exc)
-            out = fts_hits[:limit]
-            mode = "fts-error-fallback"
-            fallbacks += 1
-            degraded = True
-    if not out and project is not None:
-        fallbacks += 1
-        global_fts_hits = fts_search(query, project=None, limit=limit * 4)
-        if semantic is None:
-            out = global_fts_hits[:limit]
-            mode = "fts-fallback-global"
-        else:
-            try:
-                out = semantic.hybrid_search(
-                    query,
-                    global_fts_hits,
-                    project=None,
-                    limit=limit,
-                    vector_sources=(SOURCE_EXPERIENCE,),
-                )
-                mode = "hybrid-fallback-global"
-            except Exception as exc:
-                logger.error("Hybrid global fallback failed, using FTS", exc_info=exc)
-                out = global_fts_hits[:limit]
-                mode = "fts-fallback-global"
-                degraded = True
-    return out, mode, fallbacks, degraded
+    from butler.memory.semantic_index_ops import hybrid_experience_search_once_loud
+
+    return hybrid_experience_search_once_loud(
+        semantic,
+        fts_search,
+        query,
+        project=project,
+        limit=limit,
+    )
 
 
 def _should_use_subqueries(query: str) -> bool:
