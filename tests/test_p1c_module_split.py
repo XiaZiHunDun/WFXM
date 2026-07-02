@@ -22,6 +22,7 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/tools/registry_gates.py": 340,
     "butler/session/memory_prefetch_ops.py": 370,
     "butler/permissions/rules_context.py": 170,
+    "butler/ops/execution_surface_collect.py": 360,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

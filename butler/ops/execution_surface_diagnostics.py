@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
-_EXECUTION_TRUST_COUNTERS: tuple[str, ...] = (
-    "execution_fallback_skip",
-    "execution_ref_only_load",
-    "execution_pointer_pin",
+from butler.ops.execution_surface_collect import (
+    check_legacy_global_skills,
+    collect_digestion_health,
+    collect_execution_trust_metrics,
+    current_project,
+    default_mcp_config_path as _default_mcp_config_path,
+    legacy_global_skills_dir,
+    legacy_skill_warnings,
+    mcp_diagnostic_lines,
+    mcp_enabled_flag,
+    mcp_imports_available,
+    mcp_surface_flags,
+    skill_catalog_count,
+    skill_injection_mode,
 )
 
 _MCP_REJECT_REASON_HINTS: dict[str, str] = {
@@ -22,68 +29,20 @@ _MCP_REJECT_REASON_HINTS: dict[str, str] = {
 }
 
 
-def _sum_counter_matches(counters: dict[str, int], name: str) -> int:
-    return sum(
-        int(v)
-        for key, v in counters.items()
-        if key == name or key.startswith(f"{name}{{")
-    )
-
-
-def collect_execution_trust_metrics(*, session_key: str = "") -> dict[str, Any]:
-    """Process-wide (and optional session) trust-cascade runtime_metrics counters."""
-    try:
-        from butler.ops.runtime_metrics import snapshot_global, snapshot_session
-    except Exception as exc:
-        logger.debug("execution trust metrics skipped: %s", exc)
-        return {}
-
-    global_counters = (snapshot_global().get("counters") or {})
-    out: dict[str, Any] = {}
-    for name in _EXECUTION_TRUST_COUNTERS:
-        total = _sum_counter_matches(global_counters, name)
-        if total:
-            out[name] = total
-
-    pin_detail: dict[str, int] = {}
-    for key, value in global_counters.items():
-        if not key.startswith("execution_pointer_pin{"):
-            continue
-        if "source=" in key:
-            source = key.split("source=", 1)[1].rstrip("}")
-            pin_detail[source] = pin_detail.get(source, 0) + int(value)
-        else:
-            pin_detail[key] = int(value)
-    if pin_detail:
-        out["execution_pointer_pin_by_source"] = pin_detail
-
-    sk = str(session_key or "").strip()
-    if sk:
-        sess_counters = (snapshot_session(sk).get("counters") or {})
-        sess_out: dict[str, Any] = {}
-        for name in _EXECUTION_TRUST_COUNTERS:
-            total = _sum_counter_matches(sess_counters, name)
-            if total:
-                sess_out[name] = total
-        if sess_out:
-            out["session"] = sess_out
-
-    return out
-
-
 def mcp_degraded_hints(*, mcp_rejected: list[dict[str, str]] | None = None) -> list[str]:
     """Actionable hints when MCP is off or experience promote failed."""
     hints: list[str] = []
-    try:
-        from butler.mcp.config import mcp_enabled
+    if not mcp_imports_available():
+        return hints
+
+    if mcp_enabled_flag():
+        return hints
+
+    config_path = _default_mcp_config_path()
+    if config_path is None or not config_path.is_file():
         from butler.registry.paths import default_mcp_config_path
-    except Exception:
-        return hints
 
-    if mcp_enabled():
-        return hints
-
-    config_path = default_mcp_config_path()
+        config_path = default_mcp_config_path()
     if not config_path.is_file():
         hints.append(
             f"未找到 MCP 配置 ({config_path})；经验 mcp: 指针不会 promote"
@@ -104,91 +63,11 @@ def mcp_degraded_hints(*, mcp_rejected: list[dict[str, str]] | None = None) -> l
     return hints
 
 
-def legacy_global_skills_dir(butler_home: Path) -> Path:
-    return Path(butler_home).expanduser().resolve() / "skills"
-
-
-def check_legacy_global_skills(butler_home: Path) -> list[str]:
-    """Warn when pre-tenant ``~/.butler/skills/`` still has files alongside tenant dir."""
-    home = Path(butler_home).expanduser().resolve()
-    legacy = legacy_global_skills_dir(home)
-    if not legacy.is_dir():
-        return []
-    md_files = sorted(legacy.glob("*.md"))
-    if not md_files:
-        return []
-    from butler.tenant import DEFAULT_TENANT, tenant_skills_dir
-
-    tenant_dir = tenant_skills_dir(home, DEFAULT_TENANT)
-    names = ", ".join(p.name for p in md_files[:5])
-    if len(md_files) > 5:
-        names += " …"
-    return [
-        f"遗留全局 Skill 目录仍有 {len(md_files)} 个文件 ({names})",
-        f"  路径: {legacy}",
-        f"  建议: 合并到 {tenant_dir} 后删除遗留目录（runtime 不读此路径）",
-    ]
-
-
 def project_skills_sync_issues(workspace: Path) -> list[str]:
     """Detect git ``skills/`` vs runtime ``.butler/skills/`` drift."""
     from butler.skills.layout import project_skills_sync_issues as _layout_issues
 
     return _layout_issues(workspace)
-
-
-def collect_digestion_health() -> dict[str, Any]:
-    """Skill/experience/tool digestion signals for /诊断."""
-    out: dict[str, Any] = {}
-    try:
-        from butler.memory.experience_consolidation import load_merge_pending
-
-        pending = load_merge_pending()
-        if pending:
-            out["experience_merge_pending"] = len(pending)
-    except Exception as exc:
-        logger.debug("experience merge pending skipped: %s", exc)
-
-    try:
-        from butler.skills.similarity import recent_dedup_status
-
-        dedup = recent_dedup_status()
-        if dedup:
-            out["skill_dedup_events"] = dedup[-5:]
-    except Exception as exc:
-        logger.debug("skill dedup status skipped: %s", exc)
-
-    try:
-        from butler.ops.runtime_metrics import snapshot_global
-
-        counters = (snapshot_global().get("counters") or {})
-        for key in (
-            "digestion_skill_fallback_merge",
-            "digestion_experience_merged",
-            "digestion_experience_merge_pending",
-        ):
-            if key in counters:
-                out[key] = int(counters[key])
-    except Exception as exc:
-        logger.debug("digestion counters skipped: %s", exc)
-
-    try:
-        from butler.tools.registry import get_tool_definitions
-
-        out["builtin_tool_count"] = len(get_tool_definitions())
-    except Exception as exc:
-        logger.debug("builtin tool count skipped: %s", exc)
-
-    try:
-        from butler.tools.orthogonality_lint import lint_tool_orthogonality_for_diagnostics
-
-        ortho = lint_tool_orthogonality_for_diagnostics(max_pairs=2)
-        if ortho:
-            out["tool_orthogonality_warnings"] = ortho
-    except Exception as exc:
-        logger.debug("tool orthogonality lint skipped: %s", exc)
-
-    return out
 
 
 def collect_execution_surface_stats(
@@ -210,12 +89,9 @@ def collect_execution_surface_stats(
         return None
 
     stats: dict[str, Any] = {}
-    try:
-        from butler.skills.injection_policy import skill_injection_mode
-
-        stats["skill_injection_mode"] = skill_injection_mode()
-    except Exception as exc:
-        logger.debug("skill injection mode skipped: %s", exc)
+    mode = skill_injection_mode()
+    if mode:
+        stats["skill_injection_mode"] = mode
 
     for key in (
         "skill_injection_reason",
@@ -235,65 +111,32 @@ def collect_execution_surface_stats(
         if val is not None:
             stats[key] = val
 
-    try:
-        orch = orchestrator
-        mgr = getattr(orch, "_skill_manager", None)
-        if mgr is not None:
-            stats["skill_catalog_count"] = len(mgr.list_skills())
-    except Exception as exc:
-        logger.debug("skill catalog count skipped: %s", exc)
+    cat_n = skill_catalog_count(orchestrator)
+    if cat_n is not None:
+        stats["skill_catalog_count"] = cat_n
 
-    try:
-        from butler.core.harness_flags import (
-            mcp_deferred_same_turn_enabled,
-            mcp_deferred_tools_enabled,
+    stats.update(
+        mcp_surface_flags(
+            session_key=session_key,
+            health_session_key=str(h.get("session_key") or ""),
         )
-        from butler.mcp.config import mcp_enabled
-        from butler.registry.paths import default_mcp_config_path
+    )
 
-        stats["mcp_enabled"] = mcp_enabled()
-        stats["mcp_deferred"] = mcp_deferred_tools_enabled()
-        stats["mcp_deferred_same_turn"] = mcp_deferred_same_turn_enabled()
-        stats["mcp_config_present"] = default_mcp_config_path().is_file()
-        if mcp_enabled() and mcp_deferred_tools_enabled():
-            from butler.mcp.deferred import get_promoted_tools
+    legacy = legacy_skill_warnings()
+    if legacy:
+        stats["legacy_skill_warnings"] = legacy
 
-            sk = str(session_key or h.get("session_key") or "").strip()
-            promoted = sorted(get_promoted_tools(sk))
-            stats["mcp_promoted_tools"] = promoted
-    except Exception as exc:
-        logger.debug("mcp promoted tools skipped: %s", exc)
-
-    try:
-        from butler.config import get_butler_home
-
-        stats["legacy_skill_warnings"] = check_legacy_global_skills(get_butler_home())
-    except Exception as exc:
-        logger.debug("legacy skills check skipped: %s", exc)
-
-    proj = None
-    try:
-        pm = getattr(orchestrator, "project_manager", None)
-        if pm is not None:
-            proj = pm.get_current(session_key=session_key or None)
-    except Exception:
-        proj = None
+    proj = current_project(orchestrator, session_key=session_key)
     if proj is not None and getattr(proj, "workspace", None):
         stats["skills_sync_issues"] = project_skills_sync_issues(Path(proj.workspace))
 
-    try:
-        trust_metrics = collect_execution_trust_metrics(session_key=session_key)
-        if trust_metrics:
-            stats["execution_trust_metrics"] = trust_metrics
-    except Exception as exc:
-        logger.debug("execution trust metrics collect skipped: %s", exc)
+    trust_metrics = collect_execution_trust_metrics(session_key=session_key)
+    if trust_metrics:
+        stats["execution_trust_metrics"] = trust_metrics
 
-    try:
-        digestion = collect_digestion_health()
-        if digestion:
-            stats["digestion_health"] = digestion
-    except Exception as exc:
-        logger.debug("digestion health collect skipped: %s", exc)
+    digestion = collect_digestion_health()
+    if digestion:
+        stats["digestion_health"] = digestion
 
     rejected = stats.get("experience_mcp_rejected")
     if isinstance(rejected, list):
@@ -444,16 +287,11 @@ def format_execution_surface_diagnostic_lines(
     if len(lines) == 1:
         return []
 
-    try:
-        from butler.mcp.diagnostics import format_mcp_diagnostic_lines
-
-        mcp_lines = format_mcp_diagnostic_lines(session_key)
-        if mcp_lines:
-            lines.append("  --- MCP 连接 ---")
-            for ml in mcp_lines[:8]:
-                lines.append(f"  {ml}" if not ml.startswith(" ") else ml)
-    except Exception as exc:
-        logger.debug("mcp diagnostic embed skipped: %s", exc)
+    mcp_lines = mcp_diagnostic_lines(session_key)
+    if mcp_lines:
+        lines.append("  --- MCP 连接 ---")
+        for ml in mcp_lines[:8]:
+            lines.append(f"  {ml}" if not ml.startswith(" ") else ml)
 
     return lines
 
