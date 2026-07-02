@@ -10,6 +10,8 @@ Falls back to in-memory brute-force search when ChromaDB is not installed.
 
 from __future__ import annotations
 
+import logging
+
 from butler.memory.vector_store_ops import (
     chroma_delete,
     chroma_query,

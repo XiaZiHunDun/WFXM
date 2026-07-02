@@ -1,4 +1,4 @@
-"""Lightweight in-process hook bus for Gateway / AgentLoop.
+"""Gateway in-process hook bus for Gateway / AgentLoop.
 
 For shell scripts and Claude Code–compatible hooks, use ``butler.hooks.runner``
 (``hooks.yaml``). This module is for Python-only, low-latency context injection.
@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Callable
+
+from butler.gateway.hooks_ops import run_hook_call_safe, run_mutating_hook_safe
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +31,9 @@ def clear_hooks(name: str | None = None) -> None:
 def invoke_hook(name: str, **kwargs: Any) -> list[Any]:
     results: list[Any] = []
     for fn in _REGISTRY.get(name, []):
-        try:
-            results.append(fn(**kwargs))
-        except Exception as exc:
-            logger.warning("Hook %s failed: %s", name, exc)
+        result = run_hook_call_safe(name, fn, **kwargs)
+        if result is not None:
+            results.append(result)
     return results
 
 
@@ -57,17 +58,9 @@ def trigger_hooks_mutating(
     """Run hooks in order; each may mutate ``output_data`` (OpenCode Plugin.trigger subset)."""
     out = dict(output_data)
     for fn in _REGISTRY.get(name, []):
-        try:
-            result = fn(dict(input_data), out)
-            if isinstance(result, dict):
-                out.update(result)
-        except TypeError:
-            try:
-                fn(dict(input_data), out)
-            except Exception as exc:
-                logger.warning("Hook %s failed: %s", name, exc)
-        except Exception as exc:
-            logger.warning("Hook %s failed: %s", name, exc)
+        patch = run_mutating_hook_safe(name, fn, input_data, out)
+        if isinstance(patch, dict):
+            out.update(patch)
     return out
 
 

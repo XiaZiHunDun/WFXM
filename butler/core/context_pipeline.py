@@ -33,6 +33,18 @@ from butler.core.message_sanitize import (
     drop_thinking_only_assistants,
     sanitize_api_messages,
 )
+from butler.core.context_pipeline_ops import (
+    annotate_api_message_boundary_safe,
+    apply_model_transforms_safe,
+    apply_preemptive_compact_safe,
+    apply_unified_tool_masking_safe,
+    audit_session_key_safe,
+    capture_compaction_checkpoint_safe,
+    compress_inline_tool_messages_safe,
+    resolve_compaction_injection_safe,
+    restore_compaction_checkpoint_safe,
+    should_skip_post_compact_reanchor_safe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,60 +110,26 @@ class ContextPipeline:
         overflow_replay: bool = False,
         diagnostics: dict[str, Any] | None = None,
     ) -> list[dict]:
-        session_key = ""
-        try:
-            from butler.execution_context import get_audit_session_key
-
-            session_key = get_audit_session_key(fallback="")
-        except Exception as exc:
-            logger.debug("compress context skipped: %s", exc)
+        session_key = audit_session_key_safe(fallback="")
         if session_key and len(messages) >= min_messages_to_compress:
-            try:
-                from butler.core.compaction_checkpoint import capture_checkpoint
-                from butler.core.session_todos import count_open_todos, session_todos_enabled
+            from butler.core.session_todos import count_open_todos, session_todos_enabled
 
-                open_n = (
-                    count_open_todos(session_key)
-                    if session_todos_enabled()
-                    else 0
-                )
-                capture_checkpoint(
-                    session_key,
-                    open_todos=open_n,
-                    compression_summary=self.compression_summary,
-                    max_iterations=self.config.max_iterations,
-                )
-                if self._attached_loop is not None:
-                    from butler.core.compaction_checkpoint import capture_from_loop
-
-                    capture_from_loop(
-                        session_key,
-                        loop=self._attached_loop,
-                        compression_summary=self.compression_summary,
-                    )
-            except Exception as exc:
-                logger.debug("Compaction checkpoint pre-capture: %s", exc)
+            open_n = (
+                count_open_todos(session_key)
+                if session_todos_enabled()
+                else 0
+            )
+            capture_compaction_checkpoint_safe(
+                session_key=session_key,
+                open_todos=open_n,
+                compression_summary=self.compression_summary,
+                max_iterations=self.config.max_iterations,
+                attached_loop=self._attached_loop,
+            )
 
         injection = None
         if isinstance(diagnostics, dict):
-            try:
-                from butler.core.compaction_phase import (
-                    record_compaction_diagnostics,
-                    resolve_compaction_context,
-                )
-
-                iteration = int(diagnostics.get("compaction_turn_iteration") or 0)
-                reactive = bool(diagnostics.get("reactive_context_compact"))
-                phase, injection, reason = resolve_compaction_context(
-                    iteration=max(1, iteration),
-                    explicit_turn=bool(diagnostics.get("compaction_explicit_turn")),
-                    reactive=reactive,
-                )
-                record_compaction_diagnostics(
-                    diagnostics, phase=phase, reason=reason, injection=injection
-                )
-            except Exception:
-                injection = None
+            injection = resolve_compaction_injection_safe(diagnostics)
 
         compressed, summary, did = compress_messages(
             messages,
@@ -179,23 +157,11 @@ class ContextPipeline:
             self.consecutive_compact_failures = 0
             skip_anchor = False
             if isinstance(diagnostics, dict):
-                try:
-                    from butler.core.compaction_phase import (
-                        should_skip_post_compact_reanchor,
-                    )
-
-                    skip_anchor = should_skip_post_compact_reanchor(diagnostics)
-                except Exception:
-                    skip_anchor = False
+                skip_anchor = should_skip_post_compact_reanchor_safe(diagnostics)
             if not skip_anchor:
                 compressed = apply_post_compact_anchors(compressed, diagnostics)
             if session_key and isinstance(diagnostics, dict):
-                try:
-                    from butler.core.compaction_checkpoint import restore_into_diagnostics
-
-                    restore_into_diagnostics(session_key, diagnostics)
-                except Exception as exc:
-                    logger.debug("Compaction checkpoint restore: %s", exc)
+                restore_compaction_checkpoint_safe(session_key, diagnostics)
         return compressed
 
     def prepare_messages_for_api(
@@ -225,72 +191,28 @@ class ContextPipeline:
             return apply_tool_prune_pipeline(msgs)
 
         def _mask(msgs: list[dict]) -> list[dict]:
-            try:
-                from butler.core.tool_output_masking import apply_unified_tool_masking
-
-                return apply_unified_tool_masking(list(msgs))
-            except Exception as exc:
-                logger.debug("Unified tool masking skipped: %s", exc)
-                return list(msgs)
+            return apply_unified_tool_masking_safe(msgs)
 
         def _inline_compress_step(msgs: list[dict]) -> list[dict]:
-            try:
-                from butler.core.inline_tool_compress import compress_inline_tool_messages
-
-                return compress_inline_tool_messages(list(msgs))
-            except Exception as exc:
-                logger.debug("Inline tool compress skipped: %s", exc)
-                return list(msgs)
+            return compress_inline_tool_messages_safe(msgs)
 
         def _model_transform(msgs: list[dict]) -> list[dict]:
-            try:
-                from butler.core.context_transform_registry import apply_model_transforms
-
-                loop = getattr(pipeline, "_attached_loop", None)
-                client = getattr(loop, "client", None) if loop else None
-                if client is None:
-                    return list(msgs)
-                provider = str(getattr(client, "provider_name", "") or "")
-                model = str(getattr(client, "model", "") or "")
-                return apply_model_transforms(
-                    list(msgs),
-                    provider=provider,
-                    model=model,
-                    diagnostics=diag or None,
-                )
-            except Exception as exc:
-                logger.debug("Model transform skipped: %s", exc)
-                return list(msgs)
+            loop = getattr(pipeline, "_attached_loop", None)
+            client = getattr(loop, "client", None) if loop else None
+            return apply_model_transforms_safe(
+                msgs,
+                client=client,
+                diagnostics=diag or None,
+            )
 
         def _preemptive(msgs: list[dict]) -> list[dict]:
-            try:
-                from butler.core.preemptive_compact import (
-                    ContextPrecheckOverflow,
-                    apply_preemptive_pipeline,
-                    preemptive_compact_enabled,
-                )
-
-                if not preemptive_compact_enabled():
-                    return list(msgs)
-                out, decision = apply_preemptive_pipeline(
-                    list(msgs),
-                    max_context_tokens=pipeline.config.max_context_tokens,
-                    estimate_tokens=pipeline.estimate_tokens,
-                    compress=pipeline.compress_context,
-                    diagnostics=diag or None,
-                )
-                if decision.route == "overflow_fail":
-                    raise ContextPrecheckOverflow(
-                        decision.message,
-                        estimated=decision.estimated_tokens,
-                        threshold=decision.threshold_tokens,
-                    )
-                return out
-            except ContextPrecheckOverflow:
-                raise
-            except Exception as exc:
-                logger.debug("Preemptive compact skipped: %s", exc)
-                return list(msgs)
+            return apply_preemptive_compact_safe(
+                msgs,
+                max_context_tokens=pipeline.config.max_context_tokens,
+                estimate_tokens=pipeline.estimate_tokens,
+                compress=pipeline.compress_context,
+                diagnostics=diag or None,
+            )
 
         def _compress(msgs: list[dict]) -> list[dict]:
             if diag is not None:
@@ -303,12 +225,7 @@ class ContextPipeline:
             repair_tool_arguments(out)
             out, _ = sanitize_api_messages(out)
             out, _ = drop_thinking_only_assistants(out)
-            try:
-                from butler.core.message_context_adapter import annotate_api_message_boundary
-
-                annotate_api_message_boundary(out, diag or None, source="prepare_messages")
-            except Exception as exc:
-                logger.debug("API message ACL skipped: %s", exc)
+            annotate_api_message_boundary_safe(out, diag or None)
             return out
 
         steps = [

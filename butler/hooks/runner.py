@@ -5,13 +5,17 @@ from __future__ import annotations
 import json
 import logging
 import os
-import subprocess
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from butler.hooks.loader import HookRule, load_hooks_config, match_hook_query, match_tool
+from butler.hooks.runner_ops import (
+    resolve_hooks_workspace_safe,
+    run_hook_command_safe,
+    session_key_from_payload_safe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,23 +44,7 @@ class PreCompactHookResult:
 
 
 def _resolve_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator
-
-        orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return None
-        from butler.execution_context import get_current_session_key
-
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        if proj is None:
-            return None
-        return Path(proj.workspace)
-    except Exception:
-        return None
+    return resolve_hooks_workspace_safe()
 
 
 def _rules_for_event(event: str) -> list[HookRule]:
@@ -64,15 +52,7 @@ def _rules_for_event(event: str) -> list[HookRule]:
 
 
 def _session_key_from_payload(payload: dict[str, Any]) -> str:
-    sk = str(payload.get("session_key") or "").strip()
-    if sk:
-        return sk
-    try:
-        from butler.execution_context import get_current_session_key
-
-        return str(get_current_session_key() or "").strip()
-    except Exception:
-        return ""
+    return session_key_from_payload_safe(payload)
 
 
 def _collect_additional_context(specific: dict[str, Any], stdout: str) -> list[str]:
@@ -521,66 +501,9 @@ def _run_hook(
     payload: dict[str, Any],
 ) -> tuple[int | None, str, str]:
     cwd = rule.cwd or os.getcwd()
-    stdin_json = json.dumps(payload, ensure_ascii=False)
-    from butler.tools.path_safety import safe_subprocess_env
-
-    env = safe_subprocess_env()
-    env.update({
-        "BUTLER_HOOK_EVENT": str(payload.get("hook_event_name") or rule.event),
-        "BUTLER_HOOK_TOOL": str(payload.get("tool_name") or ""),
-        "BUTLER_HOOK_INPUT": stdin_json[:8000],
-    })
-    try:
-        proc = subprocess.run(
-            ["bash", "-c", rule.command],
-            shell=False,
-            cwd=cwd,
-            input=stdin_json,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        code = proc.returncode
-        stdout = proc.stdout or ""
-        stderr = proc.stderr or ""
-        preview = (stderr or stdout or "").strip()[:120]
-        try:
-            from butler.hooks.telemetry import record_hook_run
-
-            record_hook_run(
-                session_key=_session_key_from_payload(payload),
-                event=str(payload.get("hook_event_name") or rule.event),
-                exit_code=code,
-                preview=preview,
-            )
-        except Exception as exc:
-            logger.debug("run hook skipped: %s", exc)
-        return code, stdout, stderr
-    except subprocess.TimeoutExpired:
-        try:
-            from butler.hooks.telemetry import record_hook_run
-
-            record_hook_run(
-                session_key=_session_key_from_payload(payload),
-                event=str(payload.get("hook_event_name") or rule.event),
-                exit_code=None,
-                preview="hook timed out",
-            )
-        except Exception as exc:
-            logger.debug("run hook skipped: %s", exc)
-        return None, "", "hook timed out"
-    except Exception as exc:
-        logger.warning("Hook command failed: %s", exc)
-        try:
-            from butler.hooks.telemetry import record_hook_run
-
-            record_hook_run(
-                session_key=_session_key_from_payload(payload),
-                event=str(payload.get("hook_event_name") or rule.event),
-                exit_code=None,
-                preview=str(exc)[:120],
-            )
-        except Exception as exc:
-            logger.debug("run hook skipped: %s", exc)
-        return None, "", str(exc)
+    return run_hook_command_safe(
+        command=rule.command,
+        cwd=cwd,
+        payload=payload,
+        event=rule.event,
+    )
