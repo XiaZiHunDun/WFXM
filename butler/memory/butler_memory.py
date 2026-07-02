@@ -161,11 +161,10 @@ class ExperienceStore:
         return conn
 
     def close(self) -> None:
+        from butler.memory.butler_memory_ops import close_sqlite_connection
+
         with self._lock:
-            try:
-                self._conn.close()
-            except Exception:
-                pass
+            close_sqlite_connection(self._conn)
 
     def _init_db(self) -> None:
         with self._lock:
@@ -635,25 +634,17 @@ class ButlerMemory:
         self.butler_home = Path(butler_home).expanduser().resolve()
         self.tenant_id = normalize_tenant_id(tenant_id or DEFAULT_TENANT)
         migrate_legacy_memory_layout(self.butler_home)
-        try:
-            from butler.skills.seed_bundled import ensure_bundled_tenant_skills
+        from butler.memory.butler_memory_ops import seed_bundled_tenant_skills
 
-            ensure_bundled_tenant_skills(self.butler_home, self.tenant_id)
-        except Exception as exc:
-            logger.debug("Bundled skills seed skipped: %s", exc)
+        seed_bundled_tenant_skills(self.butler_home, self.tenant_id)
         mem_dir = tenant_memory_dir(self.butler_home, self.tenant_id)
         mem_dir.mkdir(parents=True, exist_ok=True)
         self.profile = ProfileStore(mem_dir / "profile.json")
         self.experience = ExperienceStore(mem_dir / "experience.db")
         self.semantic = None
-        try:
-            from butler.memory.semantic_config import semantic_memory_enabled
-            from butler.memory.semantic_index import SemanticMemoryIndex
+        from butler.memory.butler_memory_ops import open_semantic_index
 
-            if semantic_memory_enabled():
-                self.semantic = SemanticMemoryIndex(mem_dir / "memory_vectors.db")
-        except Exception as exc:
-            logger.warning("Semantic memory index disabled: %s", exc)
+        self.semantic = open_semantic_index(mem_dir)
         self._maybe_prune_stale_conversations()
 
     def _maybe_prune_stale_conversations(self) -> None:
@@ -679,15 +670,12 @@ class ButlerMemory:
         sem = self.semantic
         if sem is None or not row_ids:
             return 0
-        from butler.memory.semantic_index import SOURCE_EXPERIENCE
+        from butler.memory.butler_memory_ops import delete_experience_vector
 
         removed = 0
         for rid in row_ids:
-            try:
-                sem.delete(SOURCE_EXPERIENCE, str(rid))
+            if delete_experience_vector(sem, rid):
                 removed += 1
-            except Exception as exc:
-                logger.debug("Vector delete skipped for experience %s: %s", rid, exc)
         return removed
 
     def delete_conversation_for_session(self, session_tag: str) -> dict[str, int]:
@@ -782,16 +770,10 @@ class ButlerMemory:
 
     def close(self) -> None:
         """Release sqlite connections held by experience and semantic stores."""
-        try:
-            self.experience.close()
-        except Exception:
-            pass
-        sem = self.semantic
-        if sem is not None:
-            try:
-                sem.close()
-            except Exception:
-                pass
+        from butler.memory.butler_memory_ops import close_memory_store
+
+        close_memory_store(self.experience)
+        close_memory_store(self.semantic)
 
     def sync_profile_vectors(self) -> int:
         """Rebuild owner_profile rows in the vector index from profile.json."""

@@ -401,7 +401,7 @@ class ButlerMemoryService:
                     lambda: self._butler_global.sync_profile_vectors(),
                     label="memory.facade.sync_profile_vectors",
                 )
-            _emit_write_metric(scope, ok, content=content if ok else "")
+            emit_write_metric(scope, ok, content=content if ok else "")
             payload: dict[str, Any] = {"ok": ok, "scope": scope, "action": action}
             if not ok:
                 payload["error"] = result.get("error", "profile write failed")
@@ -416,7 +416,7 @@ class ButlerMemoryService:
                 category=cat,
                 content=content,
             )
-            _emit_write_metric(scope, True, content=content)
+            emit_write_metric(scope, True, content=content)
             return json.dumps({"ok": True, "id": row_id, "scope": scope})
 
         if scope == "project_notes":
@@ -483,9 +483,9 @@ class ButlerMemoryService:
             )
 
             if cls_result != "pending":
-                _emit_write_metric(scope, True, content=content)
+                emit_write_metric(scope, True, content=content)
             else:
-                _emit_write_metric(scope, True)
+                emit_write_metric(scope, True)
             payload: dict[str, Any] = {
                 "ok": True,
                 "scope": scope,

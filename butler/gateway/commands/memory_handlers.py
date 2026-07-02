@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
-import logging
 
+from butler.gateway.commands.memory_handlers_ops import (
+    approve_all_owner_pending,
+    approve_owner_pending_index,
+    current_project_name,
+    experience_entry_count,
+    list_owner_pending,
+    owner_pending_lines,
+    profile_entry_count,
+    project_memory_bullet_total,
+    reject_all_owner_pending,
+    reject_owner_pending_index,
+)
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -20,15 +29,10 @@ def _project_memory(orchestrator: "ButlerOrchestrator"):
 
 def format_pending_memory_list(orchestrator: "ButlerOrchestrator") -> str:
     lines: list[str] = []
-    try:
-        from butler.memory.owner_write_pending import format_owner_pending_lines
-
-        owner_lines = format_owner_pending_lines()
-        if owner_lines:
-            lines.extend(owner_lines)
-            lines.append("")
-    except Exception as exc:
-        logger.debug("owner pending list skipped: %s", exc)
+    owner_lines = owner_pending_lines()
+    if owner_lines:
+        lines.extend(owner_lines)
+        lines.append("")
 
     pmem = _project_memory(orchestrator)
     if pmem is None and not lines:
@@ -62,15 +66,7 @@ def format_memory_triplet_graph(orchestrator: "ButlerOrchestrator") -> str:
             "记忆图谱（三元组仅展示）需要开启语义索引："
             "在 .env 设置 BUTLER_SEMANTIC_MEMORY=1 后执行 memory-reindex。"
         )
-    proj_name = ""
-    pman = getattr(orchestrator, "project_manager", None)
-    if pman is not None:
-        try:
-            cur = pman.get_current()
-            if cur is not None:
-                proj_name = str(getattr(cur, "name", "") or "")
-        except Exception as exc:
-            logger.debug("format memory triplet graph skipped: %s", exc)
+    proj_name = current_project_name(orchestrator)
     total = tri.count(project=proj_name or None)
     lines = [
         "记忆图谱（三元组仅展示，不参与检索排序）",
@@ -121,15 +117,8 @@ def handle_memory_pending_command(
 def _handle_approve_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str:
     key = (arg or "").strip().lower()
     if key in ("全部", "all", "*"):
-        owner_count = 0
-        try:
-            from butler.memory.owner_write_pending import approve_all_owner_pending
-
-            bm = getattr(orchestrator, "butler_memory", None)
-            if bm is not None:
-                owner_count = approve_all_owner_pending(bm)
-        except Exception as exc:
-            logger.debug("approve all owner pending skipped: %s", exc)
+        bm = getattr(orchestrator, "butler_memory", None)
+        owner_count = approve_all_owner_pending(bm) if bm is not None else 0
         proj_count = 0
         pmem = _project_memory(orchestrator)
         if pmem is not None:
@@ -150,21 +139,17 @@ def _handle_approve_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str
     except ValueError:
         return "序号必须是数字。例: /批准记忆 1  或  /批准记忆 P1"
 
-    try:
-        from butler.memory.owner_write_pending import approve_owner_pending, list_owner_pending
-
-        bm = getattr(orchestrator, "butler_memory", None)
-        owner_pending = list_owner_pending()
-        if owner_pending and 0 <= idx < len(owner_pending):
-            if bm is None:
-                return "Butler 记忆未初始化。"
-            result = approve_owner_pending(idx, bm)
-            if result.get("ok"):
-                scope = owner_pending[idx].get("scope", "?")
-                return f"已批准所有者记忆第 {idx + 1} 条（{scope}）。"
+    bm = getattr(orchestrator, "butler_memory", None)
+    owner_pending = list_owner_pending()
+    if owner_pending and 0 <= idx < len(owner_pending):
+        if bm is None:
+            return "Butler 记忆未初始化。"
+        result = approve_owner_pending_index(idx, bm)
+        if result and result.get("ok"):
+            scope = owner_pending[idx].get("scope", "?")
+            return f"已批准所有者记忆第 {idx + 1} 条（{scope}）。"
+        if result:
             return f"批准失败: {result.get('error', 'unknown')}"
-    except Exception as exc:
-        logger.debug("approve owner pending skipped: %s", exc)
 
     return _approve_project_pending(orchestrator, raw)
 
@@ -195,13 +180,7 @@ def _approve_project_pending(orchestrator: "ButlerOrchestrator", arg: str) -> st
 def _handle_reject_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str:
     key = (arg or "").strip().lower()
     if key in ("全部", "all", "*"):
-        owner_count = 0
-        try:
-            from butler.memory.owner_write_pending import reject_all_owner_pending
-
-            owner_count = reject_all_owner_pending()
-        except Exception as exc:
-            logger.debug("reject all owner pending skipped: %s", exc)
+        owner_count = reject_all_owner_pending()
         proj_count = 0
         pmem = _project_memory(orchestrator)
         if pmem is not None:
@@ -222,16 +201,11 @@ def _handle_reject_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str:
     except ValueError:
         return "序号必须是数字。例: /拒绝记忆 1  或  /拒绝记忆 P1"
 
-    try:
-        from butler.memory.owner_write_pending import list_owner_pending, reject_owner_pending
-
-        owner_pending = list_owner_pending()
-        if owner_pending and 0 <= idx < len(owner_pending):
-            if reject_owner_pending(idx):
-                return f"已拒绝所有者记忆第 {idx + 1} 条。"
-            return "拒绝失败（条目可能已被处理）。"
-    except Exception as exc:
-        logger.debug("reject owner pending skipped: %s", exc)
+    owner_pending = list_owner_pending()
+    if owner_pending and 0 <= idx < len(owner_pending):
+        if reject_owner_pending_index(idx):
+            return f"已拒绝所有者记忆第 {idx + 1} 条。"
+        return "拒绝失败（条目可能已被处理）。"
 
     return _reject_project_pending(orchestrator, raw)
 
@@ -320,19 +294,19 @@ def format_memory_status(orchestrator: "ButlerOrchestrator", *, session_key: str
     else:
         profile = getattr(bm, "profile", None)
         if profile is not None:
-            try:
-                items = profile.list_all() if hasattr(profile, "list_all") else []
-                lines.append(f"Profile 条目数: {len(items)}")
-            except Exception:
+            count = profile_entry_count(profile)
+            if count is None:
                 lines.append("Profile: 读取失败")
+            else:
+                lines.append(f"Profile 条目数: {count}")
 
         experience = getattr(bm, "experience", None)
         if experience is not None:
-            try:
-                items = experience.list_all() if hasattr(experience, "list_all") else []
-                lines.append(f"Experience 条目数: {len(items)}")
-            except Exception:
+            count = experience_entry_count(experience)
+            if count is None:
                 lines.append("Experience: 读取失败")
+            else:
+                lines.append(f"Experience 条目数: {count}")
 
         semantic = getattr(bm, "semantic", None)
         if semantic is not None:
@@ -344,12 +318,9 @@ def format_memory_status(orchestrator: "ButlerOrchestrator", *, session_key: str
     if pmem is not None:
         pending = pmem.markdown.list_pending()
         lines.append(f"项目 MEMORY Pending: {len(pending)} 条")
-        try:
-            sections = pmem.markdown.list_sections() if hasattr(pmem.markdown, "list_sections") else []
-            total = sum(len(s.get("items", [])) for s in sections) if sections else 0
+        total = project_memory_bullet_total(pmem)
+        if total is not None:
             lines.append(f"项目 MEMORY 条目: {total} 条")
-        except Exception:
-            pass
     else:
         lines.append("项目 MEMORY: 未选择项目")
 

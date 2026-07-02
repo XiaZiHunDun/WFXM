@@ -23,6 +23,10 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/session/memory_prefetch_ops.py": 370,
     "butler/permissions/rules_context.py": 170,
     "butler/ops/execution_surface_collect.py": 360,
+    "butler/gateway/commands/memory_handlers_ops.py": 200,
+    "butler/memory/semantic_project_ops.py": 150,
+    "butler/memory/butler_memory_ops.py": 100,
+    "butler/memory/semantic_index_ops.py": 200,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

@@ -32,11 +32,10 @@ _atexit_registered = False
 
 def close_all_semantic_indices() -> None:
     """Close every live ``SemanticMemoryIndex`` (atexit / gateway shutdown)."""
+    from butler.memory.semantic_index_ops import close_semantic_index
+
     for index in list(_ACTIVE_INDICES):
-        try:
-            index.close()
-        except Exception as exc:
-            logger.debug("semantic_index shutdown close skipped: %s", exc)
+        close_semantic_index(index)
 
 
 def _register_semantic_index(index: SemanticMemoryIndex) -> None:
@@ -70,16 +69,14 @@ class SemanticMemoryIndex:
         return conn
 
     def close(self) -> None:
+        from butler.memory.butler_memory_ops import close_sqlite_connection
+
         with self._write_lock:
             conn = self._conn
             if conn is None:
                 return
-            try:
-                conn.close()
-            except Exception:
-                pass
-            finally:
-                self._conn = None
+            close_sqlite_connection(conn)
+            self._conn = None
 
     def _init_schema(self) -> None:
         with self._write_lock:
@@ -469,10 +466,9 @@ def enrich_experience_hit_tags(
             continue
     rows_by_id: dict[int, dict[str, Any]] = {}
     if need_ids and experience_store is not None and hasattr(experience_store, "fetch_by_ids"):
-        try:
-            rows_by_id = {int(r["id"]): r for r in experience_store.fetch_by_ids(need_ids)}
-        except Exception as exc:
-            logger.debug("enrich experience tags skipped: %s", exc)
+        from butler.memory.semantic_index_ops import fetch_experience_rows_by_ids
+
+        rows_by_id = fetch_experience_rows_by_ids(experience_store, need_ids)
     out: list[dict[str, Any]] = []
     for h in hits:
         item = dict(h)
@@ -545,18 +541,15 @@ def index_triplets_for_content(
 ) -> int:
     if semantic is None:
         return 0
-    from butler.memory.triplets import TripletIndex
+    from butler.memory.semantic_index_ops import index_triplets_safe
 
-    try:
-        return TripletIndex(semantic.db_path).upsert_from_content(
-            content=content,
-            project=project,
-            source=source,
-            source_ref=source_ref,
-        )
-    except Exception as exc:
-        logger.debug("Triplet index skipped: %s", exc)
-        return 0
+    return index_triplets_safe(
+        semantic,
+        content,
+        project=project,
+        source=source,
+        source_ref=source_ref,
+    )
 
 
 def _hybrid_experience_search_once(
@@ -625,13 +618,9 @@ def _should_use_subqueries(query: str) -> bool:
     """R2-2 helper: return True when subquery fan-out is enabled and useful."""
     if not query:
         return False
-    try:
-        from butler.memory.query_decompose import decompose_query, subquery_enabled
-    except Exception:
-        return False
-    if not subquery_enabled():
-        return False
-    return len(decompose_query(query)) > 1
+    from butler.memory.semantic_index_ops import subquery_enabled_for
+
+    return subquery_enabled_for(query)
 
 
 def _run_subquery_hybrid(
@@ -702,76 +691,58 @@ def hybrid_experience_search(
     mode = "none"
     fallbacks = 0
     degraded = False
-    relax_note: str | None = None
     out: list[dict[str, Any]] = []
-    try:
+    from butler.core.best_effort import safe_best_effort
+    from butler.memory.semantic_index_ops import (
+        record_hybrid_recall_telemetry,
+        record_relaxation_note,
+    )
+
+    def _run_search() -> tuple[list[dict[str, Any]], str, int, bool, str | None]:
+        nonlocal sub_queries
         if _should_use_subqueries(q):
-            out, sub_queries, degraded = _run_subquery_hybrid(
+            hits, subs, sub_degraded = _run_subquery_hybrid(
                 semantic, fts_search, q, project=project, limit=limit
             )
-            mode = "hybrid-subquery"
-        else:
-            from butler.memory.query_relaxation import hybrid_search_with_relaxation
+            sub_queries = subs
+            return hits, "hybrid-subquery", fallbacks, sub_degraded, None
+        from butler.memory.query_relaxation import hybrid_search_with_relaxation
 
-            out, mode, fallbacks, degraded, relax_note = hybrid_search_with_relaxation(
-                _hybrid_experience_search_once,
-                semantic,
-                fts_search,
-                q,
-                project=project,
-                limit=limit,
-            )
-            if relax_note:
-                try:
-                    from butler.execution_context import get_current_session_key
-                    from butler.memory.retrieval_telemetry import record_last_retrieval
+        hits, search_mode, fb, sub_degraded, note = hybrid_search_with_relaxation(
+            _hybrid_experience_search_once,
+            semantic,
+            fts_search,
+            q,
+            project=project,
+            limit=limit,
+        )
+        if note:
+            record_relaxation_note(q)
+        return hits, search_mode, fb, sub_degraded, note
 
-                    sk = str(get_current_session_key() or "")
-                    prev = get_last_retrieval(sk) if sk else {}
-                    record_last_retrieval(
-                        sk,
-                        {
-                            **prev,
-                            "relaxation_note": True,
-                            "query": q,
-                        },
-                    )
-                except Exception:
-                    pass
-    except Exception:
+    search_result = safe_best_effort(
+        _run_search,
+        label="semantic_index.hybrid_experience_search",
+        default=None,
+    )
+    if search_result is None:
         out, mode, fallbacks, degraded = _hybrid_experience_search_once(
             semantic, fts_search, q, project=project, limit=limit
         )
-        relax_note = None
+    else:
+        out, mode, fallbacks, degraded, _relax_note = search_result
 
     out = filter_experience_hits(out)
     out = enrich_experience_hit_tags(out, experience_store)
     _record_experience_access_from_hits(experience_store, out)
-    try:
-        from butler.execution_context import get_current_session_key
-        from butler.memory.retrieval_telemetry import record_last_retrieval
-
-        record_last_retrieval(
-            get_current_session_key() or "",
-            _build_recall_telemetry_payload(
-                mode=mode,
-                fallbacks=fallbacks,
-                out=out,
-                q=q,
-                sub_queries=sub_queries,
-                degraded=degraded,
-            ),
-        )
-        from butler.core.structured_events import emit_retrieval
-
-        emit_retrieval(
-            mode=mode,
-            degraded=degraded,
-            fallbacks=fallbacks,
-            session_key=str(get_current_session_key() or ""),
-        )
-    except Exception as exc:
-        logger.debug("once skipped: %s", exc)
+    record_hybrid_recall_telemetry(
+        mode=mode,
+        fallbacks=fallbacks,
+        out=out,
+        query=q,
+        sub_queries=sub_queries,
+        degraded=degraded,
+    )
     return out
 
 
@@ -791,7 +762,6 @@ def _record_experience_access_from_hits(
         except (TypeError, ValueError):
             continue
     if ids and hasattr(experience_store, "record_access"):
-        try:
-            experience_store.record_access(ids)
-        except Exception as exc:
-            logger.debug("Experience access bump skipped: %s", exc)
+        from butler.memory.semantic_index_ops import record_experience_access
+
+        record_experience_access(experience_store, ids)

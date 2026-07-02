@@ -27,6 +27,10 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/session/memory_prefetch.py": 1,
     "butler/permissions/rules.py": 8,
     "butler/ops/execution_surface_diagnostics.py": 0,
+    "butler/gateway/commands/memory_handlers.py": 0,
+    "butler/memory/semantic_project.py": 0,
+    "butler/memory/butler_memory.py": 0,
+    "butler/memory/semantic_index.py": 3,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

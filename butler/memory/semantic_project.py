@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import TYPE_CHECKING
-
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from butler.memory.semantic_index import SOURCE_PROJECT, SemanticMemoryIndex
+from butler.memory.semantic_project_ops import (
+    apply_heading_boost,
+    prefetch_with_subqueries,
+    resolve_project_display_name,
+    run_project_vector_upsert,
+    vector_search_project,
+)
 
 if TYPE_CHECKING:
     from butler.memory.project_memory import ProjectMemory
@@ -29,18 +33,6 @@ def pending_source_id(project_name: str, content: str) -> str:
     return f"{project_name}:Pending:{hash(body) & 0xFFFFFFFF:08x}"
 
 
-def resolve_project_display_name(pmem: "ProjectMemory") -> str:
-    try:
-        from butler.project import Project
-
-        yaml = Path(pmem.project_dir) / "project.yaml"
-        if yaml.is_file():
-            return Project.from_yaml(yaml).name
-    except Exception as exc:
-        logger.debug("resolve project display name skipped: %s", exc)
-    return Path(pmem.project_dir).name
-
-
 def index_pending_memory_bullet(
     semantic: SemanticMemoryIndex | None,
     project_name: str,
@@ -49,7 +41,8 @@ def index_pending_memory_bullet(
     text = (content or "").strip()
     if semantic is None or not text or not (project_name or "").strip():
         return
-    try:
+
+    def _upsert() -> None:
         sid = pending_source_id(project_name, text)
         semantic.upsert(
             source=SOURCE_PROJECT,
@@ -70,8 +63,8 @@ def index_pending_memory_bullet(
         from butler.memory.vector_sync_telemetry import record_vector_sync
 
         record_vector_sync("project_pending", project=project_name)
-    except Exception as exc:
-        logger.warning("Pending memory vector upsert failed: %s", exc)
+
+    run_project_vector_upsert("pending_upsert", _upsert)
 
 
 def sync_project_append_vectors(
@@ -108,7 +101,8 @@ def index_project_memory_bullet(
     sec = (section or "Notes").strip() or "Notes"
     if sec == "Pending":
         return
-    try:
+
+    def _upsert() -> None:
         sid = project_bullet_source_id(project_name, sec, text)
         semantic.upsert(
             source=SOURCE_PROJECT,
@@ -129,8 +123,8 @@ def index_project_memory_bullet(
         from butler.memory.vector_sync_telemetry import record_vector_sync
 
         record_vector_sync("project", project=project_name)
-    except Exception as exc:
-        logger.warning("Project memory vector upsert failed: %s", exc)
+
+    run_project_vector_upsert("bullet_upsert", _upsert)
 
 
 def invalidate_pending_vector(
@@ -144,10 +138,11 @@ def invalidate_pending_vector(
     text = (content or "").strip()
     if not text:
         return
-    try:
+
+    def _delete() -> None:
         semantic.delete(SOURCE_PROJECT, pending_source_id(project_name, text))
-    except Exception as exc:
-        logger.warning("Pending vector delete failed: %s", exc)
+
+    run_project_vector_upsert("pending_delete", _delete)
 
 
 def _query_tokens(query: str) -> set[str]:
@@ -202,10 +197,8 @@ def search_project_memory_vectors(
     proj = (project or "").strip()
     if semantic is None or not q or not proj:
         return []
-    try:
-        raw = semantic.search(q, project=proj, limit=max(limit * 2, limit))
-    except Exception as exc:
-        logger.warning("Project memory vector search failed: %s", exc)
+    raw = vector_search_project(semantic, q, project=proj, limit=limit)
+    if raw is None:
         return []
     out: list[dict[str, Any]] = []
     for hit in raw:
@@ -213,18 +206,7 @@ def search_project_memory_vectors(
             continue
         if (hit.get("category") or "") == "project_pending":
             continue
-        item = dict(hit)
-        try:
-            from butler.memory.chunking import heading_boost_factor
-
-            base = float(item.get("score") or 0.0)
-            boost = heading_boost_factor(str(item.get("content") or ""), q)
-            if boost != 1.0:
-                item["score"] = round(base * boost, 6)
-                item["heading_boost"] = round(boost, 4)
-        except Exception as exc:
-            logger.debug("search project memory vectors skipped: %s", exc)
-        out.append(item)
+        out.append(apply_heading_boost(dict(hit), q))
         if len(out) >= limit:
             break
     from butler.memory.retrieval_ranking import rerank_memory_hits
@@ -241,13 +223,14 @@ def invalidate_project_memory_bullet(
     text = (content or "").strip()
     if semantic is None or not text:
         return
-    try:
+
+    def _delete() -> None:
         semantic.delete(
             SOURCE_PROJECT,
             project_bullet_source_id(project_name, section, text),
         )
-    except Exception as exc:
-        logger.warning("Project bullet vector delete failed: %s", exc)
+
+    run_project_vector_upsert("bullet_delete", _delete)
 
 
 def _prefetch_project_once(
@@ -301,16 +284,9 @@ def prefetch_project_memory_hits(
         )
         return hits
 
-    try:
-        from butler.memory.query_decompose import decompose_query, search_with_subqueries, subquery_enabled
-
-        if subquery_enabled() and len(decompose_query(q)) > 1:
-            merged, subs = search_with_subqueries(q, _search, limit=limit)
-            if merged:
-                return merged, "subquery"
-            return [], "none"
-    except Exception as exc:
-        logger.debug("search skipped: %s", exc)
+    subquery_result = prefetch_with_subqueries(q, _search, limit=limit)
+    if subquery_result is not None:
+        return subquery_result
     return _prefetch_project_once(
         pmem,
         q,
@@ -319,3 +295,18 @@ def prefetch_project_memory_hits(
         limit=limit,
         semantic_enabled=semantic_enabled,
     )
+
+
+__all__ = [
+    "index_pending_memory_bullet",
+    "index_project_memory_bullet",
+    "invalidate_pending_vector",
+    "invalidate_project_memory_bullet",
+    "prefetch_project_memory_hits",
+    "project_bullet_source_id",
+    "pending_source_id",
+    "resolve_project_display_name",
+    "search_project_memory_keywords",
+    "search_project_memory_vectors",
+    "sync_project_append_vectors",
+]
