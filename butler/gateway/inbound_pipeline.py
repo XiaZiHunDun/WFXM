@@ -85,15 +85,30 @@ def run_inbound_pipeline(
     block status, and per-step timing diagnostics.
     """
     timings: dict[str, float] = {}
+    from butler.gateway.inbound_pipeline_ops import run_inbound_step
+
     for step in steps:
         if not step.enabled():
             continue
         t0 = time.perf_counter()
-        try:
-            if step.kind == StepKind.GUARD:
-                block = step.run(ctx)
-                elapsed = time.perf_counter() - t0
-                timings[step.name] = round(elapsed * 1000, 2)
+        if step.kind == StepKind.GUARD:
+            block = run_inbound_step(step.name, lambda: step.run(ctx))
+            elapsed = time.perf_counter() - t0
+            timings[step.name] = round(elapsed * 1000, 2)
+            if block is not None:
+                return PipelineResult(
+                    text=ctx.text,
+                    blocked=True,
+                    block_reply=block,
+                    stopped_at=step.name,
+                    step_timings=timings,
+                )
+        elif step.kind == StepKind.TRANSFORM:
+            result = run_inbound_step(step.name, lambda: step.run(ctx))
+            elapsed = time.perf_counter() - t0
+            timings[step.name] = round(elapsed * 1000, 2)
+            if isinstance(result, tuple) and len(result) == 2:
+                new_text, block = result
                 if block is not None:
                     return PipelineResult(
                         text=ctx.text,
@@ -102,31 +117,13 @@ def run_inbound_pipeline(
                         stopped_at=step.name,
                         step_timings=timings,
                     )
-            elif step.kind == StepKind.TRANSFORM:
-                result = step.run(ctx)
-                elapsed = time.perf_counter() - t0
-                timings[step.name] = round(elapsed * 1000, 2)
-                if isinstance(result, tuple) and len(result) == 2:
-                    new_text, block = result
-                    if block is not None:
-                        return PipelineResult(
-                            text=ctx.text,
-                            blocked=True,
-                            block_reply=block,
-                            stopped_at=step.name,
-                            step_timings=timings,
-                        )
-                    ctx.text = new_text
-                elif isinstance(result, str):
-                    ctx.text = result
-            elif step.kind == StepKind.GATE:
-                step.run(ctx)
-                elapsed = time.perf_counter() - t0
-                timings[step.name] = round(elapsed * 1000, 2)
-        except Exception as exc:
+                ctx.text = new_text
+            elif isinstance(result, str):
+                ctx.text = result
+        elif step.kind == StepKind.GATE:
+            run_inbound_step(step.name, lambda: step.run(ctx))
             elapsed = time.perf_counter() - t0
             timings[step.name] = round(elapsed * 1000, 2)
-            logger.warning("Inbound step %s raised: %s", step.name, exc)
 
     return PipelineResult(text=ctx.text, step_timings=timings)
 

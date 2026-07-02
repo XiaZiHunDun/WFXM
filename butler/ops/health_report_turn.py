@@ -177,21 +177,10 @@ def turn_diagnostic_lines(
         default=[],
     ) or []
     from butler import get_build_identity
+    from butler.ops.health_report import format_build_uptime
 
     bi = get_build_identity()
-    _start_ts = bi.get("start_time", "")
-    _uptime = ""
-    if _start_ts:
-        import datetime
-
-        try:
-            _st = datetime.datetime.fromisoformat(_start_ts)
-            _delta = datetime.datetime.now(tz=datetime.timezone.utc) - _st
-            _h, _rem = divmod(int(_delta.total_seconds()), 3600)
-            _m = _rem // 60
-            _uptime = f"{_h}h {_m}m"
-        except Exception:
-            pass
+    _uptime = format_build_uptime(str(bi.get("start_time") or ""))
 
     out: list[str] = [
         "Butler 诊断",

@@ -8,6 +8,9 @@ import logging
 import threading
 from typing import Any
 
+from butler.core.best_effort import safe_best_effort
+from butler.session.post_session_guard import guard_post_session
+
 logger = logging.getLogger(__name__)
 
 from butler.session.lifecycle import (
@@ -106,6 +109,76 @@ def _execute_post_session(orchestrator: Any, messages: list[Any]) -> dict[str, A
     )
 
 
+def _run_post_session_locked(
+    orchestrator: Any,
+    conv: list[dict[str, Any]],
+    *,
+    session_id: str,
+    advance_watermark: bool,
+) -> dict[str, Any]:
+    result = _execute_post_session(orchestrator, conv)
+    if advance_watermark and not result.get("skipped"):
+        _increment_post_session_watermark(orchestrator, session_id, conv)
+    if result.get("memory_updates") or result.get("skills_extracted"):
+        logger.info(
+            "Post-session extract session=%s memory=%s skills=%s",
+            session_id or "-",
+            result.get("memory_updates", 0),
+            result.get("skills_extracted", 0),
+        )
+    if not result.get("skipped"):
+        safe_best_effort(
+            lambda: __import__(
+                "butler.core.post_commit", fromlist=["flush_after_commit"]
+            ).flush_after_commit(),
+            label="post_session.flush_after_commit",
+            default=None,
+        )
+    return result
+
+
+def _resolve_session_key_for_end() -> str:
+    def _run() -> str:
+        from butler.execution_context import get_current_session_key
+
+        return str(get_current_session_key() or "").strip()
+
+    return safe_best_effort(
+        _run,
+        label="post_session.session_key",
+        default="",
+    ) or ""
+
+
+def _run_session_end_hooks(session_key: str, *, reason: str) -> None:
+    def _run() -> None:
+        from butler.hooks.runner import run_session_end_hooks
+
+        run_session_end_hooks(reason=reason, session_key=session_key)
+
+    safe_best_effort(_run, label="post_session.session_end_hooks", default=None)
+
+
+def _write_session_summary_snapshot_safe(
+    orchestrator: Any,
+    agent_loop: Any,
+    *,
+    extract_result: dict[str, Any],
+    session_id: str,
+) -> None:
+    def _run() -> None:
+        from butler.session.new_session import write_session_summary_snapshot
+
+        write_session_summary_snapshot(
+            orchestrator,
+            agent_loop,
+            extract_result=extract_result,
+            session_id=session_id,
+        )
+
+    safe_best_effort(_run, label="post_session.summary_snapshot", default=None)
+
+
 def run_post_session_extraction(
     orchestrator: Any,
     messages: list[Any],
@@ -121,28 +194,14 @@ def run_post_session_extraction(
 
     def _run() -> dict[str, Any]:
         with _POST_SESSION_LOCK:
-            try:
-                result = _execute_post_session(orchestrator, conv)
-                if advance_watermark and not result.get("skipped"):
-                    _increment_post_session_watermark(orchestrator, session_id, conv)
-                if result.get("memory_updates") or result.get("skills_extracted"):
-                    logger.info(
-                        "Post-session extract session=%s memory=%s skills=%s",
-                        session_id or "-",
-                        result.get("memory_updates", 0),
-                        result.get("skills_extracted", 0),
-                    )
-                if not result.get("skipped"):
-                    try:
-                        from butler.core.post_commit import flush_after_commit
-
-                        flush_after_commit()
-                    except Exception as exc:
-                        logger.debug("Post-commit flush skipped: %s", exc)
-                return result
-            except Exception as exc:
-                logger.warning("Post-session extraction failed: %s", exc)
-                return {"skipped": True, "reason": "error", "error": str(exc)}
+            return guard_post_session(
+                lambda: _run_post_session_locked(
+                    orchestrator,
+                    conv,
+                    session_id=session_id,
+                    advance_watermark=advance_watermark,
+                )
+            )
 
     if background:
         threading.Thread(target=_run, daemon=True).start()
@@ -199,58 +258,54 @@ def trigger_session_end(
     reason: str = "end",
 ) -> dict[str, Any]:
     """Run post-session on turns not yet covered by incremental extraction."""
-    session_key = str(session_id or "").strip()
-    if not session_key:
-        try:
-            from butler.execution_context import get_current_session_key
+    session_key = str(session_id or "").strip() or _resolve_session_key_for_end()
+    _run_session_end_hooks(session_key, reason=reason)
 
-            session_key = str(get_current_session_key() or "").strip()
-        except Exception:
-            session_key = ""
-    try:
-        from butler.hooks.runner import run_session_end_hooks
-
-        run_session_end_hooks(reason=reason, session_key=session_key)
-    except Exception as exc:
-        logger.debug("SessionEnd hooks skipped: %s", exc)
-
-    try:
-        if not agent_loop or not hasattr(agent_loop, "messages"):
-            return {"skipped": True, "reason": "no_agent_loop"}
-
-        provider = getattr(orchestrator, "memory_provider", None)
-        pending_tail = drain_post_session_buffer(provider) if provider is not None else []
-
-        to_process = _unextracted_conversation_messages(
+    return guard_post_session(
+        lambda: _trigger_session_end_body(
             orchestrator,
-            list(agent_loop.messages),
+            agent_loop,
             session_id=session_id,
-            pending_tail=pending_tail,
+            session_key=session_key,
         )
-        if len(to_process) < _POST_SESSION_MIN_CONV_MESSAGES:
-            reset_post_session_watermark(orchestrator, session_id)
-            return {"skipped": True, "reason": "short_history"}
+    )
 
-        result = run_post_session_extraction(
-            orchestrator,
-            to_process,
-            background=False,
-            session_id=session_id,
-            advance_watermark=False,
-        )
+
+def _trigger_session_end_body(
+    orchestrator: Any,
+    agent_loop: Any,
+    *,
+    session_id: str,
+    session_key: str,
+) -> dict[str, Any]:
+    if not agent_loop or not hasattr(agent_loop, "messages"):
+        return {"skipped": True, "reason": "no_agent_loop"}
+
+    provider = getattr(orchestrator, "memory_provider", None)
+    pending_tail = drain_post_session_buffer(provider) if provider is not None else []
+
+    to_process = _unextracted_conversation_messages(
+        orchestrator,
+        list(agent_loop.messages),
+        session_id=session_id,
+        pending_tail=pending_tail,
+    )
+    if len(to_process) < _POST_SESSION_MIN_CONV_MESSAGES:
         reset_post_session_watermark(orchestrator, session_id)
-        try:
-            from butler.session.new_session import write_session_summary_snapshot
+        return {"skipped": True, "reason": "short_history"}
 
-            write_session_summary_snapshot(
-                orchestrator,
-                agent_loop,
-                extract_result=result,
-                session_id=session_key,
-            )
-        except Exception as exc:
-            logger.debug("Session summary snapshot skipped: %s", exc)
-        return result
-    except Exception as exc:
-        logger.warning("Session end processing failed: %s", exc)
-        return {"skipped": True, "reason": "error", "error": str(exc)}
+    result = run_post_session_extraction(
+        orchestrator,
+        to_process,
+        background=False,
+        session_id=session_id,
+        advance_watermark=False,
+    )
+    reset_post_session_watermark(orchestrator, session_id)
+    _write_session_summary_snapshot_safe(
+        orchestrator,
+        agent_loop,
+        extract_result=result,
+        session_id=session_key,
+    )
+    return result
