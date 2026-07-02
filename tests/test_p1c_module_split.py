@@ -21,6 +21,8 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/memory/vector_store_ops.py": 80,
     "butler/core/session_transcript_ops.py": 100,
     "butler/tools/registry_invoke_ops.py": 55,
+    "butler/ops/registry_diagnostics_ops.py": 120,
+    "butler/mcp/registry_hook_ops.py": 140,
     "butler/core/tool_batch_finalize.py": 150,
     "butler/core/tool_dispatch.py": 235,
     "butler/core/tool_batch.py": 430,

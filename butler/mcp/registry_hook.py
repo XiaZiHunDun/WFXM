@@ -4,13 +4,23 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 from typing import Any
 
 from butler.mcp.bridge import format_call_result, refs_to_openai_definitions
 from butler.mcp.config import mcp_enabled, mcp_sdk_available
 from butler.mcp.manager import get_manager
 from butler.mcp.naming import is_mcp_registered_name
+from butler.mcp.registry_hook_ops import (
+    extension_verify_status_lines_safe,
+    is_plan_mode_active,
+    maybe_deferred_mcp_definitions,
+    mcp_config_count_safe,
+    mcp_warmup_safe,
+    resolve_session_key_for_connect,
+    resolve_workspace_safe,
+    run_mcp_with_gates_or_direct,
+    session_key_fallback,
+)
 from butler.mcp.turn_scrape_dedup import is_firecrawl_scrape_tool
 from butler.mcp.classify import is_mutating_classification
 
@@ -21,46 +31,22 @@ def is_mcp_tool(name: str) -> bool:
     return is_mcp_registered_name(name)
 
 
-def _resolve_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
-
-        orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return None
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        if proj is None:
-            return None
-        return Path(proj.workspace)
-    except Exception:
-        return None
+def _resolve_workspace():
+    return resolve_workspace_safe()
 
 
 def ensure_mcp_for_session(session_key: str = "") -> list[dict[str, Any]]:
     if not mcp_enabled():
         return []
-    try:
-        from butler.execution_context import get_current_session_key
-
-        sk = str(session_key or get_current_session_key() or "").strip() or "default"
-    except Exception:
-        sk = str(session_key or "default").strip() or "default"
+    sk = resolve_session_key_for_connect(session_key)
     refs = get_manager().ensure_connected(sk, workspace=_resolve_workspace())
     return refs_to_openai_definitions(refs)
 
 
 def get_mcp_tool_definitions(session_key: str = "") -> list[dict[str, Any]]:
-    try:
-        from butler.core.harness_flags import mcp_deferred_tools_enabled
-        from butler.mcp.deferred import get_deferred_mcp_definitions
-
-        if mcp_deferred_tools_enabled():
-            return get_deferred_mcp_definitions(session_key)
-    except Exception as exc:
-        logger.debug("MCP deferred definitions skipped: %s", exc)
+    deferred = maybe_deferred_mcp_definitions(session_key)
+    if deferred is not None:
+        return deferred
     return ensure_mcp_for_session(session_key)
 
 
@@ -73,15 +59,10 @@ def disconnect_mcp_session(session_key: str) -> None:
 def check_plan_mode_mcp_block(tool_name: str, *, session_key: str = "") -> str | None:
     if not is_mcp_tool(tool_name):
         return None
-    try:
-        from butler.plan.mode import is_plan_mode
-
-        if not is_plan_mode(session_key):
-            return None
-    except Exception:
+    if is_plan_mode_active(session_key) is not True:
         return None
     ref = get_manager().get_tool_ref(
-        session_key or _session_key_fallback(),
+        session_key or session_key_fallback(),
         tool_name,
     )
     if ref is None:
@@ -95,12 +76,7 @@ def check_plan_mode_mcp_block(tool_name: str, *, session_key: str = "") -> str |
 
 
 def _session_key_fallback() -> str:
-    try:
-        from butler.execution_context import get_current_session_key
-
-        return str(get_current_session_key() or "").strip() or "default"
-    except Exception:
-        return "default"
+    return session_key_fallback()
 
 
 def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
@@ -179,26 +155,21 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
     def _call() -> str:
         return get_manager().call_tool(sk, ref, normalized_args, workspace=_resolve_workspace())
 
-    try:
-        from butler.core.tool_orchestrator import run_mcp_with_gates
-
-        text = run_mcp_with_gates(
-            server_id=ref.server_id,
-            tool_name=resolved_name,
-            args=normalized_args,
-            session_key=sk,
-            classification=str(ref.classification or ""),
-            run_fn=_call,
-        )
-    except Exception:
-        text = _call()
+    text = run_mcp_with_gates_or_direct(
+        server_id=ref.server_id,
+        tool_name=resolved_name,
+        args=normalized_args,
+        session_key=sk,
+        classification=str(ref.classification or ""),
+        run_fn=_call,
+    )
     if text.strip().startswith("{") and '"ok": false' in text.replace(" ", "").lower():
         return text
     return format_call_result(text, tool_name=resolved_name, server_id=ref.server_id)
 
 
 def mcp_status_lines(session_key: str = "") -> list[str]:
-    from butler.mcp.config import load_mcp_servers, mcp_enabled as enabled_fn
+    from butler.mcp.config import mcp_enabled as enabled_fn
 
     if not enabled_fn():
         return ["MCP: 已关闭 (BUTLER_MCP_ENABLED=0 或未安装 butler-system[mcp])"]
@@ -206,17 +177,12 @@ def mcp_status_lines(session_key: str = "") -> list[str]:
         return ["MCP: 已开启但缺少 SDK (pip install butler-system[mcp])"]
     sk = str(session_key or _session_key_fallback()).strip() or "default"
     mgr = get_manager()
+    workspace = _resolve_workspace()
     # /诊断 须在首条 agent 消息前也能看到 MCP 状态；ensure_connected 与工具派发同源。
-    try:
-        mgr.ensure_connected(sk, workspace=_resolve_workspace())
-    except Exception as exc:
-        logger.debug("MCP diagnostic warm-up skipped: %s", exc)
+    mcp_warmup_safe(mgr, sk, workspace)
     statuses = mgr.status_snapshot(sk)
     if not statuses:
-        try:
-            cfg_count = len(load_mcp_servers(workspace=_resolve_workspace()))
-        except Exception:
-            cfg_count = 0
+        cfg_count = mcp_config_count_safe(workspace) or 0
         if cfg_count == 0:
             return ["MCP: 已开启，mcp.yaml 无 server 配置（检查 ~/.butler/mcp.yaml）"]
         return ["MCP: 已开启，server 均未连接（见上方日志或重试 /诊断）"]
@@ -227,10 +193,5 @@ def mcp_status_lines(session_key: str = "") -> list[str]:
         lines.append(
             f"  - {st.server_id} ({st.transport}) [{mark}] tools={st.tool_count}{err}"
         )
-    try:
-        from butler.mcp.extension_verify import extension_verify_status_lines
-
-        lines.extend(extension_verify_status_lines())
-    except Exception as exc:
-        logger.debug("Extension verify diagnostic skipped: %s", exc)
+    lines.extend(extension_verify_status_lines_safe())
     return lines
