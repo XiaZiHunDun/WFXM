@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 from typing import Any
-import logging
 
-
-logger = logging.getLogger(__name__)
+from butler.ops.rag_diagnostics_ops import (
+    append_corrective_recall_flag_line,
+    append_corpus_routing_flag_line,
+    append_hybrid_weights_line,
+    append_subquery_flag_line,
+    append_unified_recall_flag_lines,
+    append_web_fetch_flag_line,
+    mcp_profile_line,
+    recall_scope_order,
+)
 
 
 def _memory_substats_lines(stats: dict[str, Any]) -> list[str]:
@@ -20,14 +27,7 @@ def _memory_substats_lines(stats: dict[str, Any]) -> list[str]:
         lines.append(f"  记忆子系统: 离线 (initialization failed){suffix}")
     sem = stats.get("semantic_enabled")
     lines.append(f"  语义索引: {'开' if sem else '关'}")
-    try:
-        from butler.memory.semantic_config import hybrid_fts_weight, hybrid_vector_weight
-
-        lines.append(
-            f"  混合权重: 向量 {hybrid_vector_weight():.2f} / FTS {hybrid_fts_weight():.2f}"
-        )
-    except Exception as exc:
-        logger.debug("format rag diagnostic lines skipped: %s", exc)
+    append_hybrid_weights_line(lines)
     if sem:
         lines.append(
             f"  向量行数: {stats.get('vector_rows', 0)} "
@@ -57,13 +57,7 @@ def _retrieval_history_lines(stats: dict[str, Any]) -> list[str]:
     by_scope = stats.get("rag_by_scope")
     if isinstance(by_scope, dict) and by_scope:
         lines.append("  各 scope 最近召回:")
-        try:
-            from butler.memory.recall_scopes import RECALL_SCOPES
-
-            order = [s for s in RECALL_SCOPES if s in by_scope]
-            order.extend(sorted(set(by_scope.keys()) - set(order)))
-        except Exception:
-            order = sorted(by_scope.keys())
+        order = recall_scope_order(by_scope)
         for scope in order:
             item = by_scope.get(scope) or {}
             mode = str(item.get("mode") or "?").strip()
@@ -120,58 +114,12 @@ def _mcp_degraded_lines(stats: dict[str, Any]) -> list[str]:
 
 def _feature_flag_lines() -> list[str]:
     lines: list[str] = []
-    try:
-        from butler.memory.query_decompose import subquery_enabled
-
-        lines.append(f"  子 query 分解: {'开' if subquery_enabled() else '关'}")
-    except Exception as exc:
-        logger.debug("format rag diagnostic lines skipped: %s", exc)
-    try:
-        from butler.memory.corpus_router import corpus_routing_enabled
-
-        lines.append(f"  多语料库路由: {'开' if corpus_routing_enabled() else '关'}")
-    except Exception as exc:
-        logger.debug("format rag diagnostic lines skipped: %s", exc)
-    try:
-        from butler.memory.corrective_recall import corrective_recall_enabled
-
-        lines.append(f"  纠错召回: {'开' if corrective_recall_enabled() else '关'}")
-    except Exception as exc:
-        logger.debug("format rag diagnostic lines skipped: %s", exc)
-    try:
-        from butler.tools.web_fetch import web_fetch_enabled
-
-        lines.append(f"  web_fetch: {'开' if web_fetch_enabled() else '关'}")
-    except Exception as exc:
-        logger.debug("format rag diagnostic lines skipped: %s", exc)
-    try:
-        from butler.memory.unified_recall_config import (
-            observation_recall_enabled,
-            unified_recall_enabled,
-        )
-
-        lines.append(
-            f"  统一 hybrid 召回: {'开' if unified_recall_enabled() else '关'}"
-        )
-        lines.append(
-            f"  observation 辅助召回: {'开' if observation_recall_enabled() else '关'}"
-        )
-    except Exception as exc:
-        logger.debug("format rag diagnostic lines skipped: %s", exc)
+    append_subquery_flag_line(lines)
+    append_corpus_routing_flag_line(lines)
+    append_corrective_recall_flag_line(lines)
+    append_web_fetch_flag_line(lines)
+    append_unified_recall_flag_lines(lines)
     return lines
-
-
-def _mcp_profile_line(session_key: str) -> str:
-    if not str(session_key or "").strip():
-        return ""
-    try:
-        from butler.mcp.profiles import get_session_profile, mcp_profiles_enabled
-
-        if mcp_profiles_enabled():
-            return f"  MCP profile: {get_session_profile(session_key=session_key)}"
-    except Exception as exc:
-        logger.debug("format rag diagnostic lines skipped: %s", exc)
-    return ""
 
 
 def format_rag_diagnostic_lines(
@@ -185,7 +133,7 @@ def format_rag_diagnostic_lines(
     lines.extend(_retrieval_history_lines(stats))
     lines.extend(_mcp_degraded_lines(stats))
     lines.extend(_feature_flag_lines())
-    profile = _mcp_profile_line(session_key)
+    profile = mcp_profile_line(session_key)
     if profile:
         lines.append(profile)
     return lines

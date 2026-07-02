@@ -10,9 +10,13 @@ Falls back to in-memory brute-force search when ChromaDB is not installed.
 
 from __future__ import annotations
 
+from butler.memory.vector_store_ops import (
+    chroma_delete,
+    chroma_query,
+    init_vector_store,
+    load_fallback_docs,
+)
 import hashlib
-import json
-import logging
 import os
 import threading
 import time
@@ -115,10 +119,8 @@ class ChromaVectorStore:
         }
         if where:
             kwargs["where"] = where
-        try:
-            results = self._collection.query(**kwargs)
-        except Exception as exc:
-            logger.warning("ChromaDB query failed: %s", exc)
+        results = chroma_query(self._collection, kwargs)
+        if results is None:
             return []
 
         hits: list[dict[str, Any]] = []
@@ -136,11 +138,7 @@ class ChromaVectorStore:
         return hits
 
     def delete(self, doc_id: str) -> bool:
-        try:
-            self._collection.delete(ids=[doc_id])
-            return True
-        except Exception:
-            return False
+        return chroma_delete(self._collection, doc_id)
 
     def count(self) -> int:
         return self._collection.count()
@@ -157,18 +155,12 @@ class InMemoryVectorStore:
         self._load_persisted()
 
     def _load_persisted(self) -> None:
-        if not self._persist_path.is_file():
-            return
-        try:
-            for line in self._persist_path.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                entry = json.loads(line)
-                self._docs[entry["id"]] = entry
-        except Exception as exc:
-            logger.debug("Failed to load fallback vector store: %s", exc)
+        for entry in load_fallback_docs(self._persist_path):
+            self._docs[entry["id"]] = entry
 
     def _persist(self) -> None:
+        import json
+
         self._persist_path.parent.mkdir(parents=True, exist_ok=True)
         lines = [json.dumps(doc, ensure_ascii=False) for doc in self._docs.values()]
         self._persist_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -249,15 +241,18 @@ def get_vector_store(collection: str = "butler_personal") -> VectorStore:
             return cached
 
     store: VectorStore
-    try:
-        store = ChromaVectorStore(collection_name=collection)
-        logger.info("Using ChromaDB vector store (collection=%s)", collection)
-    except ImportError:
-        logger.info("ChromaDB not installed; using in-memory fallback vector store")
-        store = InMemoryVectorStore()
-    except Exception as exc:
-        logger.warning("ChromaDB init failed (%s); using fallback", exc)
-        store = InMemoryVectorStore()
+    store = init_vector_store(
+        collection=collection,
+        chroma_factory=lambda: ChromaVectorStore(collection_name=collection),
+        fallback_factory=InMemoryVectorStore,
+        on_chroma=lambda c: logger.info(
+            "Using ChromaDB vector store (collection=%s)", c
+        ),
+        on_import_error=lambda: logger.info(
+            "ChromaDB not installed; using in-memory fallback vector store"
+        ),
+        on_fallback=lambda: None,
+    )
 
     with _STORE_CACHE_LOCK:
         existing = _STORE_CACHE.get(collection)

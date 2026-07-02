@@ -17,6 +17,10 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/message_pipelines_fail_closed.py": 160,
     "butler/gateway/inbound_pipeline_ops.py": 40,
     "butler/session/post_session_guard.py": 40,
+    "butler/ops/rag_diagnostics_ops.py": 130,
+    "butler/memory/vector_store_ops.py": 80,
+    "butler/core/session_transcript_ops.py": 100,
+    "butler/tools/registry_invoke_ops.py": 55,
     "butler/core/tool_batch_finalize.py": 150,
     "butler/core/tool_dispatch.py": 235,
     "butler/core/tool_batch.py": 430,
@@ -35,7 +39,6 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/outbound_bridge_ops.py": 120,
     "butler/memory/facade_ops.py": 300,
     "butler/permissions/rules_fail_closed.py": 130,
-    "butler/tools/registry_gates.py": 360,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

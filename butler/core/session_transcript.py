@@ -12,6 +12,13 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from butler.config import get_butler_home
+from butler.core.session_transcript_ops import (
+    index_transcript_line_safe,
+    load_tail_full_read_safe,
+    load_tail_rows_safe,
+    sync_plan_step_to_graph_safe,
+    update_index_after_append_safe,
+)
 from butler.env_parse import env_truthy, int_env
 
 logger = logging.getLogger(__name__)
@@ -53,22 +60,12 @@ def _append_line(path: Path, entry: dict[str, Any]) -> None:
         offset = path.stat().st_size if path.is_file() else 0
         with path.open("a", encoding="utf-8") as fh:
             fh.write(line)
-        try:
-            from butler.core.transcript_index import update_index_after_append
-
-            update_index_after_append(path, line_byte_offset=offset, line_len=len(line.encode("utf-8")))
-        except Exception as exc:
-            logger.debug("append line skipped: %s", exc)
-        try:
-            from butler.core.transcript_fts import index_transcript_line
-
-            line_no = 0
-            with path.open(encoding="utf-8") as fh:
-                for line_no, _ in enumerate(fh, start=1):
-                    pass
-            index_transcript_line(path.parent.name, line_no=line_no, entry=entry)
-        except Exception as exc:
-            logger.debug("transcript FTS append skipped: %s", exc)
+        update_index_after_append_safe(
+            path,
+            line_byte_offset=offset,
+            line_len=len(line.encode("utf-8")),
+        )
+        index_transcript_line_safe(path, entry)
         if path.stat().st_size > transcript_max_bytes():
             _tombstone_tail(path)
 
@@ -179,14 +176,11 @@ def _flush_entries(sk: str, entries: list[dict[str, Any]]) -> None:
             offset = path.stat().st_size if path.is_file() else 0
             with path.open("a", encoding="utf-8") as fh:
                 fh.writelines(lines)
-            try:
-                from butler.core.transcript_index import update_index_after_append
-
-                update_index_after_append(
-                    path, line_byte_offset=offset, line_len=len(payload_bytes)
-                )
-            except Exception as exc:
-                logger.debug("append line skipped: %s", exc)
+            update_index_after_append_safe(
+                path,
+                line_byte_offset=offset,
+                line_len=len(payload_bytes),
+            )
             if path.stat().st_size > transcript_max_bytes():
                 _tombstone_tail(path)
     except OSError as exc:
@@ -396,19 +390,14 @@ def record_plan_step(
             "step_kind": str(step_kind or "")[:32],
         },
     )
-    try:
-        from butler.core.reasoning_trace import maybe_sync_plan_step_to_graph
-
-        maybe_sync_plan_step_to_graph(
-            session_key,
-            title=title,
-            step_kind=step_kind,
-            assumption=assumption,
-            evidence=evidence,
-            detail=detail,
-        )
-    except Exception as exc:
-        logger.debug("plan step graph sync skipped: %s", exc)
+    sync_plan_step_to_graph_safe(
+        session_key,
+        title=title,
+        step_kind=step_kind,
+        assumption=assumption,
+        evidence=evidence,
+        detail=detail,
+    )
 
 
 def record_reasoning_step(
@@ -567,12 +556,9 @@ def record_queue_drop(session_key: str, reason: str, count: int = 1) -> None:
 
 def load_transcript_tail(session_key: str, *, max_lines: int = 50) -> list[dict[str, Any]]:
     path = transcript_path(session_key)
-    try:
-        from butler.core.transcript_index import load_tail_rows
-
-        return load_tail_rows(path, max_lines=max(1, int(max_lines)))
-    except Exception as exc:
-        logger.debug("load transcript tail skipped: %s", exc)
+    indexed = load_tail_rows_safe(path, max_lines=max_lines)
+    if indexed is not None:
+        return indexed
     return _load_transcript_lines_from_path(path, max_lines=max_lines)
 
 
@@ -583,12 +569,9 @@ def reasoning_diag_scan_lines() -> int:
 def _load_transcript_lines_from_path(path: Path, *, max_lines: int) -> list[dict[str, Any]]:
     if not path.is_file():
         return []
-    try:
-        from butler.core.transcript_index import _load_tail_full_read
-
-        return _load_tail_full_read(path, max_lines=max(1, int(max_lines)))
-    except Exception:
-        pass
+    indexed = load_tail_full_read_safe(path, max_lines=max_lines)
+    if indexed is not None:
+        return indexed
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:

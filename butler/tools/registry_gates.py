@@ -278,32 +278,17 @@ def invoke_registered_tool_handler(
     finalize_result: Any,
     apply_hooks: Any,
 ) -> str:
-    import logging
+    from butler.tools.registry_invoke_ops import invoke_registered_tool_handler as _invoke
 
-    log = logging.getLogger(__name__)
-
-    try:
-        from butler.tools.tool_implicit_context import merge_implicit_tool_args
-
-        merged = merge_implicit_tool_args(call_args)
-        result = handler(**merged)
-        if name == "web_search":
-            note_web_search_outcome(result)
-        return apply_hooks(
-            name,
-            args,
-            finalize_result(name, args, result, started_at=started_at),
-        )
-    except Exception as exc:
-        log.error("Tool %s failed: %s", name, exc)
-        payload = tool_error_payload(name, exc)
-        err_result = finalize_result(
-            name,
-            args,
-            payload,
-            started_at=started_at,
-        )
-        return apply_hooks(name, args, err_result, failed=True)
+    return _invoke(
+        name=name,
+        args=args,
+        call_args=call_args,
+        handler=handler,
+        started_at=started_at,
+        finalize_result=finalize_result,
+        apply_hooks=apply_hooks,
+    )
 
 
 def tool_error_payload(name: str, exc: BaseException) -> dict[str, Any]:
