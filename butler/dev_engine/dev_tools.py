@@ -7,12 +7,9 @@ These are the LLM-facing tools that interact with DevState.
 from __future__ import annotations
 
 import json
-import logging
 import os
 from pathlib import Path
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _active_states: dict[str, Any] = {}
 
@@ -90,23 +87,16 @@ def tool_dev_verify(
     state = get_or_create_state(session_key)
     result = verify_layered(ws, levels=levels)
 
-    thm_violations: list[str] = []
     activated = getattr(state, "_coding_knowledge_theorems", None)
+    thm_violations: list[str] = []
     if activated and state.edit_history:
-        try:
-            from butler.dev_engine.coding_knowledge import dual_verify as ck_dual_verify
-            last_edit = state.edit_history[-1]
-            code = last_edit.new_content or last_edit.patch_new or ""
-            if code:
-                ck_result = ck_dual_verify(
-                    code, activated,
-                    test_passed=result.passed,
-                    test_detail=f"V1-V5: {result.status.value}",
-                )
-                thm_violations = ck_result.violated_theorems
-                state.coding_knowledge.violated_theorems = thm_violations
-        except Exception as exc:
-            logger.debug("coding knowledge verify skipped: %s", exc)
+        from butler.dev_engine.dev_tools_ops import coding_knowledge_verify_safe
+
+        thm_violations = coding_knowledge_verify_safe(
+            state,
+            test_passed=result.passed,
+            test_detail=f"V1-V5: {result.status.value}",
+        )
 
     if result.passed and not thm_violations:
         transition(state, "verify_pass")
@@ -117,15 +107,11 @@ def tool_dev_verify(
     if thm_violations:
         out["theorem_violations"] = thm_violations
     if result.passed and not thm_violations and auto_review_enabled():
-        try:
-            review_payload = tool_dev_review(
-                str(ws),
-                session_key=session_key,
-                from_auto_verify=True,
-            )
+        from butler.dev_engine.dev_tools_ops import auto_review_after_verify_safe
+
+        review_payload = auto_review_after_verify_safe(str(ws), session_key=session_key)
+        if review_payload:
             out["review"] = review_payload
-        except Exception as exc:
-            logger.debug("auto review after verify skipped: %s", exc)
     return out
 
 
@@ -144,11 +130,7 @@ def tool_dev_review(
     )
     from butler.dev_engine.dev_loop import transition
     from butler.dev_engine.optimize_advisory import enrich_review_with_suggestions
-    from butler.dev_engine.review_closure import (
-        maybe_persist_review_closure,
-        maybe_queue_experience_candidate,
-        summarize_review_for_delegate,
-    )
+    from butler.dev_engine.review_closure import summarize_review_for_delegate
     from butler.dev_engine.review_static import run_static_review
 
     ws = Path(workspace)
@@ -170,12 +152,9 @@ def tool_dev_review(
     )
 
     diagnostics: dict[str, Any] = {}
-    try:
-        from butler.core.review_context_adapter import apply_dev_review_view_to_diagnostics
+    from butler.dev_engine.dev_tools_ops import apply_dev_review_diagnostics_safe
 
-        apply_dev_review_view_to_diagnostics(view, diagnostics)
-    except Exception:
-        pass
+    apply_dev_review_diagnostics_safe(view, diagnostics)
 
     if view.passed:
         event = "review_pass"
@@ -190,14 +169,13 @@ def tool_dev_review(
 
         apply_dev_review_view_to_state(view, state)
 
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.dev_engine.dev_tools_ops import review_closure_hooks_safe
 
-        sk = str(get_current_session_key() or session_key or "")
-        maybe_persist_review_closure(view, session_key=sk, source="dev_review")
-        maybe_queue_experience_candidate(view, task_preview=state.task_description[:200])
-    except Exception as exc:
-        logger.debug("review closure skipped: %s", exc)
+    review_closure_hooks_safe(
+        view,
+        session_key=session_key,
+        task_preview=state.task_description[:200],
+    )
 
     out = summarize_review_for_delegate(view)
     out["findings"] = [f.model_dump() for f in view.findings[:24]]
@@ -348,8 +326,6 @@ def tool_run_pytest(
     session_key: str = "_default",
 ) -> dict[str, Any]:
     """Run pytest on a single test file in the workspace (B9/dev benchmark helper)."""
-    import subprocess
-
     from butler.tools.path_safety import check_tool_path, tool_safe_root
 
     rel = (path or "test_b9.py").strip()
@@ -364,24 +340,11 @@ def tool_run_pytest(
     except ValueError:
         test_arg = test_fp.name
 
-    try:
-        proc = subprocess.run(
-            ["python3", "-m", "pytest", test_arg, "-q", "--tb=short"],
-            cwd=str(ws),
-            capture_output=True,
-            text=True,
-            timeout=max(5, min(int(timeout), 120)),
-        )
-    except subprocess.TimeoutExpired:
-        return {
-            "passed": False,
-            "exit_code": -1,
-            "path": rel,
-            "error": "pytest timeout",
-            "hint": "Tests took too long; fix implementation or reduce scope.",
-        }
-    except Exception as exc:
-        return {"error": str(exc), "code": "PYTEST_RUN_FAILED"}
+    from butler.dev_engine.dev_tools_ops import run_pytest_command_loud
+
+    proc = run_pytest_command_loud(ws=ws, test_arg=test_arg, rel=rel, timeout=timeout)
+    if isinstance(proc, dict):
+        return proc
 
     out = f"{proc.stdout or ''}{proc.stderr or ''}"
     passed = proc.returncode == 0
@@ -392,15 +355,11 @@ def tool_run_pytest(
         "output_tail": out[-4000:],
     }
     if not passed:
-        hint = "Fix implementation source files (not the test) and call run_pytest again."
-        try:
-            from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
+        from butler.dev_engine.dev_tools_ops import build_b9_verify_hint_safe
 
-            b9_hint = build_b9_verify_hint(out)
-            if b9_hint:
-                hint = b9_hint
-        except Exception:
-            pass
+        hint = build_b9_verify_hint_safe(out) or (
+            "Fix implementation source files (not the test) and call run_pytest again."
+        )
         payload["hint"] = hint
     return payload
 
@@ -446,12 +405,9 @@ def _handler_dev_metrics(detail: str = "summary", task_id: str = "", **kwargs: A
 
 
 def _resolve_session_key() -> str:
-    try:
-        from butler.execution_context import get_audit_session_key
+    from butler.dev_engine.dev_tools_ops import resolve_session_key_safe
 
-        return get_audit_session_key(fallback="_default")
-    except Exception:
-        return "_default"
+    return resolve_session_key_safe()
 
 
 # ── Registration ────────────────────────────────────────────────

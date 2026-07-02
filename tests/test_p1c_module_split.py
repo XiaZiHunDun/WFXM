@@ -122,6 +122,10 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/dev_engine/b9_delegate_gate_ops.py": 120,
     "butler/report/generator_ops.py": 180,
     "butler/ops/harness_diagnostics_ops.py": 160,
+    "butler/dev_engine/delegate_finalize_ops.py": 200,
+    "butler/dev_engine/dev_tools_ops.py": 150,
+    "butler/orchestrator/memory_bridge_ops.py": 120,
+    "butler/workflows/runner_ops.py": 230,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

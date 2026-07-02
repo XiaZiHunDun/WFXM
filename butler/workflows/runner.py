@@ -66,10 +66,12 @@ async def _maybe_replan_dev_qa_loop(
             qa.response or "",
             attempt=attempt,
         )
-        try:
-            impl_node.config.task = var_pool.interpolate(impl_node.config.task)  # type: ignore[attr-defined]
-        except Exception as exc:
-            logger.debug("maybe replan dev qa loop skipped: %s", exc)
+        from butler.workflows.runner_ops import interpolate_var_pool_safe
+
+        impl_node.config.task = interpolate_var_pool_safe(
+            var_pool,
+            impl_node.config.task,
+        )
         impl_result = await orchestrator._run_with_retry(impl_node, on_progress=on_progress)
         graph.nodes["implement"] = impl_result
         update_step_outcome(snap, "implement", success=impl_result.success)
@@ -84,16 +86,11 @@ async def _maybe_replan_dev_qa_loop(
             break
         if not qa_response_is_fail(qa_result.response or ""):
             break
-    try:
-        from butler.execution_context import get_audit_session_key
+    from butler.workflows.runner_ops import current_audit_session_key_safe, record_plan_snapshot_safe
 
-        sk = get_audit_session_key(fallback="workflow")
-        if sk:
-            from butler.core.session_transcript import record_plan_snapshot
-
-            record_plan_snapshot(sk, snap.to_json())
-    except Exception as exc:
-        logger.debug("maybe replan dev qa loop skipped: %s", exc)
+    sk = current_audit_session_key_safe(fallback="workflow")
+    if sk:
+        record_plan_snapshot_safe(sk, snap.to_json())
     return graph
 
 
@@ -147,19 +144,16 @@ def _workflow_progress_callback(
 
         sk = str(session_key or "").strip()
         if sk:
-            try:
-                from butler.core.session_transcript import record_workflow_step
+            from butler.workflows.runner_ops import record_workflow_step_safe
 
-                record_workflow_step(
-                    sk,
-                    workflow=workflow_name,
-                    step_id=step_id,
-                    phase=norm_phase,
-                    step_index=index,
-                    step_total=total_steps,
-                )
-            except Exception as exc:
-                logger.debug("cb skipped: %s", exc)
+            record_workflow_step_safe(
+                sk,
+                workflow=workflow_name,
+                step_id=step_id,
+                phase=norm_phase,
+                step_index=index,
+                step_total=total_steps,
+            )
         if norm_phase == "done" and var_pool is not None and preview:
             keys = (step_output_keys or {}).get(step_id, ["output"])
             var_pool.set_step_output(step_id, preview, keys=keys)
@@ -167,22 +161,17 @@ def _workflow_progress_callback(
         if norm_phase == "done" and step_id not in completed_checkpoint:
             completed_checkpoint.append(step_id)
             if workspace is not None:
-                try:
-                    from pathlib import Path
+                from pathlib import Path
 
-                    from butler.workflows.workflow_run_snapshot import (
-                        write_workflow_step_checkpoint,
-                    )
+                from butler.workflows.runner_ops import write_workflow_step_checkpoint_safe
 
-                    write_workflow_step_checkpoint(
-                        Path(workspace),
-                        workflow_name,
-                        step_id=step_id,
-                        completed_steps=list(completed_checkpoint),
-                        session_key=session_key,
-                    )
-                except Exception as exc:
-                    logger.debug("cb skipped: %s", exc)
+                write_workflow_step_checkpoint_safe(
+                    Path(workspace),
+                    workflow_name,
+                    step_id=step_id,
+                    completed_steps=list(completed_checkpoint),
+                    session_key=session_key,
+                )
         if norm_phase == "fail" and preview:
             logger.warning(
                 "Workflow %s step %s failed: %s",
@@ -283,12 +272,9 @@ class WorkflowRunner:
         var_pool = WorkflowVariablePool()
         output_keys = {s.id: list(s.output_keys) for s in workflow.steps}
         ws = None
-        try:
-            proj = orch.project_manager.get_current(session_key=session_key)
-            if proj is not None:
-                ws = proj.workspace
-        except Exception as exc:
-            logger.debug("run async skipped: %s", exc)
+        from butler.workflows.runner_ops import project_workspace_safe
+
+        ws = project_workspace_safe(orch, session_key=session_key)
         progress_cb = _workflow_progress_callback(
             workflow.name,
             total_steps,
@@ -308,20 +294,14 @@ class WorkflowRunner:
                 node.id,
             )
             if not approved:
-                try:
-                    from butler.workflows.pause_state import WorkflowPauseState, save_workflow_pause
+                from butler.workflows.runner_ops import save_workflow_pause_safe
 
-                    save_workflow_pause(
-                        WorkflowPauseState(
-                            workflow=workflow.name,
-                            step_id=node.id,
-                            session_key=session_key or "workflow",
-                            execution_order=[n.id for n in nodes],
-                            completed_steps=[],
-                        ),
-                    )
-                except Exception as exc:
-                    logger.debug("on approval skipped: %s", exc)
+                save_workflow_pause_safe(
+                    workflow=workflow.name,
+                    step_id=node.id,
+                    session_key=session_key or "workflow",
+                    execution_order=[n.id for n in nodes],
+                )
             return approved
 
         from butler.execution_context import use_workflow_var_pool
@@ -329,13 +309,12 @@ class WorkflowRunner:
         with use_execution_context(orch, session_key=session_key or "workflow"):
             with use_workflow_var_pool(var_pool):
                 mp = workflow.max_parallel
-                try:
-                    from butler.core.meta_flags import workflow_max_parallel_default
+                from butler.workflows.runner_ops import workflow_max_parallel_default_safe
 
-                    if mp is None:
-                        mp = workflow_max_parallel_default()
-                except Exception as exc:
-                    logger.debug("on approval skipped: %s", exc)
+                if mp is None:
+                    default_mp = workflow_max_parallel_default_safe()
+                    if default_mp is not None:
+                        mp = default_mp
                 graph = await self._tasks.execute_graph(
                     nodes,
                     on_progress=progress_cb,
@@ -357,59 +336,38 @@ class WorkflowRunner:
             session_key=session_key,
             orchestrator=orch,
         )
-        try:
-            proj = orch.project_manager.get_current(session_key=session_key)
-            if proj is not None:
-                from pathlib import Path
+        from butler.workflows.runner_ops import write_workflow_run_snapshot_for_project_safe
 
-                from butler.workflows.workflow_run_snapshot import (
-                    write_workflow_run_snapshot,
-                )
-
-                write_workflow_run_snapshot(
-                    Path(proj.workspace),
-                    workflow.name,
-                    graph,
-                    session_key=session_key,
-                )
-        except Exception as exc:
-            logger.debug("workflow_run snapshot skipped: %s", exc)
+        write_workflow_run_snapshot_for_project_safe(
+            orch,
+            workflow.name,
+            graph,
+            session_key=session_key,
+        )
         if workflow.handlers:
-            try:
-                from pathlib import Path
+            from pathlib import Path
 
-                from butler.workflows.callbacks import (
-                    WorkflowCallbackContext,
-                    run_workflow_handlers,
-                )
+            from butler.workflows.runner_ops import (
+                project_workspace_safe,
+                run_workflow_handlers_safe,
+            )
 
-                step_outcomes: dict[str, str] = {}
-                for sid in graph.execution_order:
-                    result = graph.nodes.get(sid)
-                    if result is None:
-                        continue
-                    step_outcomes[sid] = "ok" if result.success else "fail"
-                ws_path = None
-                try:
-                    proj = orch.project_manager.get_current(session_key=session_key)
-                    if proj is not None:
-                        ws_path = Path(proj.workspace)
-                except Exception as exc:
-                    logger.debug("on approval skipped: %s", exc)
-                run_workflow_handlers(
-                    workflow.handlers,
-                    event="workflow_finished",
-                    ctx=WorkflowCallbackContext(
-                        workflow_name=workflow.name,
-                        session_key=session_key,
-                        workspace=ws_path,
-                        success=graph.success,
-                        summary=graph.error or "",
-                        step_outcomes=step_outcomes,
-                    ),
-                )
-            except Exception as exc:
-                logger.debug("workflow handlers skipped: %s", exc)
+            step_outcomes: dict[str, str] = {}
+            for sid in graph.execution_order:
+                result = graph.nodes.get(sid)
+                if result is None:
+                    continue
+                step_outcomes[sid] = "ok" if result.success else "fail"
+            ws_path = project_workspace_safe(orch, session_key=session_key)
+            run_workflow_handlers_safe(
+                workflow.handlers,
+                workflow_name=workflow.name,
+                session_key=session_key,
+                workspace=Path(ws_path) if ws_path is not None else None,
+                success=graph.success,
+                summary=graph.error or "",
+                step_outcomes=step_outcomes,
+            )
         return graph
 
     def run(
@@ -509,20 +467,17 @@ class WorkflowRunner:
         if orchestrator is not None:
             proj = orchestrator.project_manager.get_current(session_key=session_key)
             if proj is not None:
-                try:
-                    from pathlib import Path
+                from pathlib import Path
 
-                    from butler.experiments.outcomes import append_pending
+                from butler.workflows.runner_ops import append_pending_outcome_safe
 
-                    append_pending(
-                        Path(proj.workspace),
-                        project=str(proj.name or ""),
-                        subject=f"workflow:{workflow.name}",
-                        hypothesis=headline[:200],
-                        source="workflow",
-                    )
-                except Exception as exc:
-                    logger.debug("cache workflow report skipped: %s", exc)
+                append_pending_outcome_safe(
+                    Path(proj.workspace),
+                    project=str(proj.name or ""),
+                    subject=f"workflow:{workflow.name}",
+                    hypothesis=headline[:200],
+                )
+
     @staticmethod
     def format_graph_summary(
         workflow: WorkflowDef,
