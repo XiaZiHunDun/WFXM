@@ -59,6 +59,8 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/memory/butler_memory_ops.py": 100,
     "butler/memory/semantic_index_ops.py": 270,
     "butler/core/pim_state_ops.py": 95,
+    "butler/tool_guardrails_ops.py": 80,
+    "butler/memory/embedding_ops.py": 85,
     "butler/gateway/outbound_bridge_ops.py": 120,
     "butler/memory/facade_ops.py": 300,
     "butler/permissions/rules_fail_closed.py": 130,

@@ -99,6 +99,10 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/memory/retrieval_telemetry_ops.py": 0,
     "butler/core/pim_state.py": 0,
     "butler/core/pim_state_ops.py": 0,
+    "butler/tool_guardrails.py": 0,
+    "butler/tool_guardrails_ops.py": 0,
+    "butler/memory/embedding.py": 0,
+    "butler/memory/embedding_ops.py": 2,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

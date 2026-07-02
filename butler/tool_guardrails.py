@@ -130,23 +130,11 @@ def classify_tool_failure(tool_name: str, result: str | None) -> tuple[bool, str
     """Return (failed, suffix_hint) inferred from serialized tool output."""
     if result is None:
         return False, ""
-    try:
-        from butler.core.tool_result_classification import (
-            file_mutation_result_landed,
-            is_file_mutating_tool,
-            mutation_result_not_landed,
-        )
+    from butler.tool_guardrails_ops import mutation_classification_hint
 
-        if file_mutation_result_landed(tool_name, result):
-            return False, ""
-        if mutation_result_not_landed(tool_name, result):
-            return True, " [mutation_not_landed]"
-        if is_file_mutating_tool(tool_name):
-            data = _safe_json_loads(result or "")
-            if isinstance(data, dict) and data.get("error"):
-                return True, " [error]"
-    except Exception as exc:
-        logger.debug("mutation classification skipped: %s", exc)
+    hint = mutation_classification_hint(tool_name, result or "")
+    if hint is not None:
+        return hint
     if tool_name in {"run_shell", "terminal"}:
         data = _safe_json_loads(result)
         if isinstance(data, dict):
@@ -201,12 +189,9 @@ class ToolCallGuardrailController:
         self.reset_for_turn()
 
     def reset_for_turn(self) -> None:
-        try:
-            from butler.core.tool_loop_detect import get_tool_loop_detector
+        from butler.tool_guardrails_ops import reset_tool_loop_detector_safe
 
-            get_tool_loop_detector().reset_for_turn()
-        except Exception as exc:
-            logger.debug("reset for turn skipped: %s", exc)
+        reset_tool_loop_detector_safe()
         with self._lock:
             self._exact_failure_counts: dict[ToolCallSignature, int] = {}
             self._same_tool_failure_counts: dict[str, int] = {}
@@ -234,23 +219,20 @@ class ToolCallGuardrailController:
         self, tool_name: str, args: Mapping[str, Any] | None
     ) -> GuardrailDecision:
         signature = ToolCallSignature.from_call(tool_name, args)
-        try:
-            from butler.core.tool_loop_detect import get_tool_loop_detector
+        from butler.tool_guardrails_ops import check_tool_loop_before_call_safe
 
-            loop_dec = get_tool_loop_detector().check_before_call(tool_name, args)
-            if loop_dec is not None and loop_dec.stuck:
-                decision = GuardrailDecision(
-                    action="block" if loop_dec.level == "critical" else "warn",
-                    code=loop_dec.detector,
-                    message=loop_dec.message,
-                    tool_name=tool_name,
-                    count=loop_dec.count,
-                )
-                if loop_dec.level == "critical":
-                    self._halt_decision = decision
-                return decision
-        except Exception as exc:
-            logger.debug("before call locked skipped: %s", exc)
+        loop_dec = check_tool_loop_before_call_safe(tool_name, args)
+        if loop_dec is not None and loop_dec.stuck:
+            decision = GuardrailDecision(
+                action="block" if loop_dec.level == "critical" else "warn",
+                code=loop_dec.detector,
+                message=loop_dec.message,
+                tool_name=tool_name,
+                count=loop_dec.count,
+            )
+            if loop_dec.level == "critical":
+                self._halt_decision = decision
+            return decision
         if not self.config.hard_stop_enabled:
             return GuardrailDecision(tool_name=tool_name)
 
@@ -365,16 +347,13 @@ class ToolCallGuardrailController:
         if failed is None:
             failed, _ = classify_tool_failure(tool_name, result)
 
-        try:
-            from butler.core.tool_loop_detect import get_tool_loop_detector
+        from butler.tool_guardrails_ops import record_tool_loop_after_call_safe
 
-            get_tool_loop_detector().record_call(
-                tool_name,
-                signature.args_hash,
-                result or "",
-            )
-        except Exception as exc:
-            logger.debug("after call locked skipped: %s", exc)
+        record_tool_loop_after_call_safe(
+            tool_name,
+            signature.args_hash,
+            result or "",
+        )
         if failed:
             exact_count = self._exact_failure_counts.get(signature, 0) + 1
             self._exact_failure_counts[signature] = exact_count

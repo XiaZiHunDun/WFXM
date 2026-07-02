@@ -326,31 +326,9 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
 
 
 def _resolve_fastembed(model: str) -> Embedder | None:
-    """Try to instantiate a fastembed embedder; return None if library unavailable."""
-    from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
+    from butler.memory.embedding_ops import resolve_fastembed_loud
 
-    try:
-        m = model if model and model != DEFAULT_EMBEDDING_MODEL else FastEmbedEmbedder._DEFAULT_MODEL
-        embedder = FastEmbedEmbedder(model_name=m)
-        probe = embedder.embed("ping")
-        if probe:
-            return embedder
-    except ImportError:
-        # Audit R2-3: missing library means the entire memory subsystem will
-        # silently fall back to local hashing. Escalate to ERROR so operators
-        # see it in production logs (the previous .warning was too quiet).
-        logger.error(
-            "BUTLER_EMBEDDING_PROVIDER=fastembed but fastembed not installed; "
-            "pip install 'butler-system[embeddings]'"
-        )
-    except Exception as exc:
-        # Audit R2-3: capture the traceback via exc_info — .warning loses it.
-        logger.error(
-            "fastembed init failed (%s); falling back to local hashing",
-            exc,
-            exc_info=exc,
-        )
-    return None
+    return resolve_fastembed_loud(model)
 
 
 import functools
@@ -461,16 +439,9 @@ def _degraded_hashing(provider: str, model: str) -> "HashingEmbedder":
     user-requested provider/model so /诊断 can surface the gap (e.g.
     requested openai embedding → local hashing fallback).
     """
-    try:
-        from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
-        from butler.ops.degradation_registry import register_degradation
+    from butler.memory.embedding_ops import register_embedding_degradation_safe
 
-        register_degradation(
-            "embedding",
-            f"请求 {provider or '?'}/{model or '?'} → {DEFAULT_EMBEDDING_MODEL}",
-        )
-    except Exception:
-        pass
+    register_embedding_degradation_safe(provider=provider, model=model)
     from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
 
     return HashingEmbedder(
@@ -493,12 +464,9 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
         fe = _resolve_fastembed(model)
         if fe is not None:
             logger.info("Embedding provider: fastembed (%s)", fe.model_id)
-            try:
-                from butler.ops.degradation_registry import clear_degradation
+            from butler.memory.embedding_ops import clear_embedding_degradation_safe
 
-                clear_degradation("embedding")
-            except Exception:
-                pass
+            clear_embedding_degradation_safe()
             return fe
         # Audit R2-3: escalate to ERROR — recall quality is collapsing.
         logger.error(
@@ -510,26 +478,16 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
 
     api = _resolve_api_embedder(provider, model)
     if api is not None:
-        try:
-            probe = api.embed("ping")
-            if probe:
-                logger.info("Embedding provider: %s (%s)", provider, api.model_id)
-                try:
-                    from butler.ops.degradation_registry import clear_degradation
+        from butler.memory.embedding_ops import (
+            clear_embedding_degradation_safe,
+            probe_api_embedder_loud,
+        )
 
-                    clear_degradation("embedding")
-                except Exception:
-                    pass
-                return api
-        except Exception as exc:
-            # Audit R2-3: probe failure means recall is degraded. exc_info
-            # captures the traceback that .warning would have lost.
-            logger.error(
-                "Embedding provider %r probe failed (%s) → fallback to HashingEmbedder",
-                provider,
-                exc,
-                exc_info=exc,
-            )
+        probed = probe_api_embedder_loud(api, provider=provider)
+        if probed is not None:
+            logger.info("Embedding provider: %s (%s)", provider, probed.model_id)
+            clear_embedding_degradation_safe()
+            return probed
     else:
         # Audit R2-3: missing API key / unsupported provider → degraded.
         logger.error(
