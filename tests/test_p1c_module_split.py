@@ -41,6 +41,8 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/hooks_ops.py": 45,
     "butler/hooks/runner_ops.py": 130,
     "butler/core/context_pipeline_ops.py": 230,
+    "butler/memory/recall_ops.py": 60,
+    "butler/memory/retrieval_telemetry_ops.py": 40,
     "butler/core/tool_batch_finalize.py": 150,
     "butler/core/tool_dispatch.py": 235,
     "butler/core/tool_batch.py": 430,

@@ -54,17 +54,16 @@ def search_coding_experiences(
         return {"ok": False, "error": "query is required (≥2 char tokens)"}
 
     from butler.config import get_butler_home
-    from butler.memory.memory_scope import stack_tags_for_project
+    from butler.memory.recall_ops import stack_tags_for_project_safe
 
     home = Path(butler_home or get_butler_home()).expanduser().resolve()
     lim = max(1, min(20, int(limit or 8)))
     pid = (project_id or "").strip()
     tags = stack_tags
     if tags is None and pid:
-        try:
-            tags = stack_tags_for_project(pid)
-        except Exception:
-            tags = frozenset()
+        from butler.memory.recall_ops import stack_tags_for_project_safe
+
+        tags = stack_tags_for_project_safe(pid)
 
     libs = _experience_libraries(home, project_workspace=project_workspace)
     if not libs:

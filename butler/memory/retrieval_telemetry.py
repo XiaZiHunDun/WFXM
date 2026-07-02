@@ -75,19 +75,13 @@ def record_last_retrieval(session_key: str, payload: dict[str, Any]) -> None:
             for key, _ in oldest:
                 _LAST_BY_SESSION.pop(key, None)
     if item.get("recall_degraded"):
-        try:
-            from butler.ops.degradation_registry import register_degradation
+        from butler.memory.retrieval_telemetry_ops import sync_recall_degradation_safe
 
-            register_degradation("recall", "hybrid 异常，仅 FTS")
-        except Exception:
-            pass
+        sync_recall_degradation_safe(recall_degraded=True)
     else:
-        try:
-            from butler.ops.degradation_registry import clear_degradation
+        from butler.memory.retrieval_telemetry_ops import sync_recall_degradation_safe
 
-            clear_degradation("recall")
-        except Exception:
-            pass
+        sync_recall_degradation_safe(recall_degraded=False)
 
 
 def get_last_retrieval_by_scope(session_key: str) -> dict[str, dict[str, Any]]:

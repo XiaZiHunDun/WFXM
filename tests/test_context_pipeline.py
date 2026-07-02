@@ -27,7 +27,7 @@ def test_compress_context_long_drops_middle():
     for _ in range(20):
         msgs.append({"role": "user", "content": "x" * 200})
     with patch(
-        "butler.core.context_compressor.auxiliary_complete",
+        "butler.core.context_compress_support.auxiliary_summarize_middle",
         return_value="## Active Task\n- compressed summary",
     ):
         compressed = pipeline.compress_context(msgs)
@@ -122,7 +122,7 @@ def test_compress_context_applies_post_compact_anchor(monkeypatch):
         msgs.append({"role": "user", "content": "x" * 200})
 
     with patch(
-        "butler.core.context_compressor.auxiliary_complete",
+        "butler.core.context_compress_support.auxiliary_summarize_middle",
         return_value="## Active Task\n- keep going",
     ):
         with patch(

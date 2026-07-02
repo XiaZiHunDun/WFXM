@@ -36,24 +36,18 @@ def search_transcript_recall(
     hits = search_transcripts(q, session_key=sk, max_hits=lim, offset=off)
     mode = "transcript-fts" if fts_enabled() else "transcript-scan"
 
-    try:
-        from butler.execution_context import get_current_session_key
-        from butler.memory.retrieval_telemetry import record_last_retrieval
+    from butler.memory.recall_ops import record_scope_retrieval_safe
 
-        tel_sk = sk or get_current_session_key() or ""
-        if tel_sk:
-            record_last_retrieval(
-                tel_sk,
-                {
-                    "mode": mode,
-                    "fallbacks": 0,
-                    "candidates": len(hits),
-                    "query": q,
-                    "scope": "transcript",
-                },
-            )
-    except Exception:
-        pass
+    record_scope_retrieval_safe(
+        {
+            "mode": mode,
+            "fallbacks": 0,
+            "candidates": len(hits),
+            "query": q,
+            "scope": "transcript",
+        },
+        session_key=sk,
+    )
 
     return {
         "ok": True,

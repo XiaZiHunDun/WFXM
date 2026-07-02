@@ -27,14 +27,9 @@ def search_observation_recall(
 
     ws = project_workspace
     if ws is None:
-        try:
-            from butler.project.manager import get_project_manager
+        from butler.memory.recall_ops import resolve_observation_workspace_safe
 
-            proj = get_project_manager().get_current()
-            if proj is not None and getattr(proj, "workspace", None):
-                ws = Path(proj.workspace).expanduser().resolve()
-        except Exception:
-            ws = None
+        ws = resolve_observation_workspace_safe()
 
     if ws is None or not ws.is_dir():
         return {"ok": False, "error": "no project workspace for observation store"}
@@ -54,24 +49,17 @@ def search_observation_recall(
 
     store = ObservationStore(db_path)
     hits = store.search(q, limit=max(1, min(20, int(limit or 8))))
-    try:
-        from butler.execution_context import get_current_session_key
-        from butler.memory.retrieval_telemetry import record_last_retrieval
+    from butler.memory.recall_ops import record_scope_retrieval_safe
 
-        sk = get_current_session_key() or ""
-        if sk:
-            record_last_retrieval(
-                sk,
-                {
-                    "mode": "observation-keyword",
-                    "fallbacks": 0,
-                    "candidates": len(hits),
-                    "query": q,
-                    "scope": "observation",
-                },
-            )
-    except Exception:
-        pass
+    record_scope_retrieval_safe(
+        {
+            "mode": "observation-keyword",
+            "fallbacks": 0,
+            "candidates": len(hits),
+            "query": q,
+            "scope": "observation",
+        },
+    )
 
     return {
         "ok": True,

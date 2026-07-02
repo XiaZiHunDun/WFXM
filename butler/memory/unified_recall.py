@@ -211,24 +211,17 @@ def unified_hybrid_search(
     )
     results = merged[:lim]
 
-    try:
-        from butler.execution_context import get_current_session_key
-        from butler.memory.retrieval_telemetry import record_last_retrieval
+    from butler.memory.recall_ops import record_scope_retrieval_safe
 
-        sk = get_current_session_key() or ""
-        if sk:
-            record_last_retrieval(
-                sk,
-                {
-                    "mode": "hybrid-unified",
-                    "fallbacks": 0,
-                    "candidates": len(results),
-                    "query": q,
-                    "scope": "hybrid",
-                },
-            )
-    except Exception:
-        pass
+    record_scope_retrieval_safe(
+        {
+            "mode": "hybrid-unified",
+            "fallbacks": 0,
+            "candidates": len(results),
+            "query": q,
+            "scope": "hybrid",
+        },
+    )
 
     return {
         "ok": True,

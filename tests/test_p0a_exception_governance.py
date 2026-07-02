@@ -89,6 +89,13 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/hooks/runner_ops.py": 1,
     "butler/core/context_pipeline.py": 0,
     "butler/core/context_pipeline_ops.py": 1,
+    "butler/memory/coding_recall.py": 0,
+    "butler/memory/transcript_recall.py": 0,
+    "butler/memory/unified_recall.py": 0,
+    "butler/memory/observation_recall.py": 0,
+    "butler/memory/retrieval_telemetry.py": 0,
+    "butler/memory/recall_ops.py": 0,
+    "butler/memory/retrieval_telemetry_ops.py": 0,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)
