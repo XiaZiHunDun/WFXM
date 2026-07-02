@@ -92,7 +92,10 @@ def test_non_dict_non_str_fallback():
 
 
 @pytest.mark.unit
-@patch("butler.core.compaction_context_adapter._adapt_known_shape", side_effect=RuntimeError("boom"))
+@patch(
+    "butler.core.compaction_context_adapter_ops._adapt_known_shape",
+    side_effect=RuntimeError("boom"),
+)
 def test_degraded_on_exception(_mock):
     view = to_loop_compaction_view({"summary": "x"}, source="fail")
     assert view.metadata.get("acl_degraded") is True

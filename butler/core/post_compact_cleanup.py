@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from butler.core.context_compressor import SUMMARY_PREFIX
-
-logger = logging.getLogger(__name__)
 
 POST_COMPACT_PREFIX = (
     "[POST-COMPACT ANCHORS — REFERENCE ONLY] "
@@ -21,128 +18,35 @@ def build_post_compact_anchor_text(
     role: str = "butler",
 ) -> str:
     """Collect MEMORY / tasks / skill anchors for the active session."""
-    parts: list[str] = []
+    from butler.core.post_compact_cleanup_ops import (
+        agents_md_block_safe,
+        build_core_anchors_safe,
+        design_md_block_safe,
+        dev_changes_block_safe,
+        facts_anchor_block_safe,
+        recent_files_block_safe,
+        simplicity_anchor_safe,
+    )
 
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
-        from butler.runtime.task_store import list_recent_tasks
-        from butler.session.lifecycle import prefetch_turn_memory
-
-        sk = str(get_current_session_key() or "").strip()
-        tasks = list_recent_tasks(sk, limit=3)
-        if tasks:
-            lines = [
-                f"- {t.get('task_id', '?')}: {t.get('status', '?')} "
-                f"{(t.get('task_preview') or '')[:100]}"
-                for t in tasks
-            ]
-            parts.append("## Active tasks\n" + "\n".join(lines))
-            if diagnostics is not None:
-                diagnostics["post_compact_tasks"] = len(lines)
-
-        from butler.core.session_todos import format_open_todos_anchor, session_todos_enabled
-
-        if session_todos_enabled():
-            todo_anchor = format_open_todos_anchor(sk)
-            if todo_anchor:
-                parts.append(todo_anchor)
-                if diagnostics is not None:
-                    diagnostics["post_compact_session_todos"] = todo_anchor.count("\n")
-
-        orch = get_current_orchestrator()
-        if orch is not None:
-            mem = prefetch_turn_memory(
-                orch,
-                "[post-compact-reanchor]",
-                role=role,
-                use_cache=False,
-                diagnostics=diagnostics,
-            )
-            if mem and mem.strip():
-                parts.append("## Memory anchor\n" + mem.strip()[:4000])
-
-            inject = getattr(orch, "inject_skill_context", None)
-            if callable(inject):
-                skill = inject(
-                    "项目维护与当前会话上下文",
-                    diagnostics=diagnostics,
-                )
-                if skill and str(skill).strip():
-                    parts.append("## Skills anchor\n" + str(skill).strip()[:2000])
-    except Exception as exc:
-        logger.debug("Post-compact anchor build skipped: %s", exc)
-        if diagnostics is not None:
-            diagnostics["post_compact_anchor_error"] = str(exc)[:200]
-
-    try:
-        from butler.core.agents_md_sections import extract_agents_md_sections
-
-        agents_block = extract_agents_md_sections()
-        if agents_block:
-            parts.insert(0, agents_block)
-            if diagnostics is not None:
-                diagnostics["post_compact_agents_sections"] = len(agents_block)
-    except Exception as exc:
-        logger.debug("Post-compact AGENTS sections skipped: %s", exc)
-
-    try:
-        from butler.core.design_md_sections import extract_design_md_sections
-
-        design_block = extract_design_md_sections()
-        if design_block:
-            parts.insert(0, design_block)
-            if diagnostics is not None:
-                diagnostics["post_compact_design_sections"] = len(design_block)
-    except Exception as exc:
-        logger.debug("Post-compact DESIGN sections skipped: %s", exc)
-
-    try:
-        from butler.core.research_simplicity import format_simplicity_anchor
-
-        simplicity = format_simplicity_anchor()
-        if simplicity:
-            parts.append(simplicity)
-            if diagnostics is not None:
-                diagnostics["post_compact_simplicity"] = True
-    except Exception as exc:
-        logger.debug("Post-compact simplicity anchor skipped: %s", exc)
-
-    try:
-        from butler.core.read_state import get_recent_edit_paths
-
-        recent = get_recent_edit_paths(limit=5)
-        if recent:
-            lines = [f"- {p}" for p in recent]
-            parts.append("## Recent edited files\n" + "\n".join(lines))
-            if diagnostics is not None:
-                diagnostics["post_compact_recent_files"] = len(lines)
-    except Exception as exc:
-        logger.debug("Post-compact recent files skipped: %s", exc)
-
-    try:
-        dev_changes = _collect_dev_session_changes()
-        if dev_changes:
-            parts.append(dev_changes)
-            if diagnostics is not None:
-                diagnostics["post_compact_dev_changes"] = True
-    except Exception as exc:
-        logger.debug("Post-compact dev changes skipped: %s", exc)
-
-    try:
-        from butler.core.fact_extraction import format_facts_for_anchor
-        from butler.execution_context import get_audit_session_key
-
-        sk = get_audit_session_key(fallback="_global")
-        facts_block = format_facts_for_anchor(sk)
-        if facts_block:
-            parts.append(facts_block)
-            if diagnostics is not None:
-                diagnostics["post_compact_facts"] = True
-            from butler.core.fact_extraction import record_fact_anchor_metrics
-
-            record_fact_anchor_metrics(sk, diagnostics=diagnostics)
-    except Exception as exc:
-        logger.debug("Post-compact facts anchor skipped: %s", exc)
+    parts = build_core_anchors_safe(diagnostics, role=role)
+    agents_block = agents_md_block_safe(diagnostics)
+    if agents_block:
+        parts.insert(0, agents_block)
+    design_block = design_md_block_safe(diagnostics)
+    if design_block:
+        parts.insert(0, design_block)
+    simplicity = simplicity_anchor_safe(diagnostics)
+    if simplicity:
+        parts.append(simplicity)
+    recent = recent_files_block_safe(diagnostics)
+    if recent:
+        parts.append(recent)
+    dev_changes = dev_changes_block_safe(diagnostics)
+    if dev_changes:
+        parts.append(dev_changes)
+    facts_block = facts_anchor_block_safe(diagnostics)
+    if facts_block:
+        parts.append(facts_block)
 
     body = "\n\n".join(p for p in parts if p.strip())
     if not body:
@@ -197,74 +101,17 @@ def run_post_compact_cleanup(
         diagnostics["post_compact_cleanup"] = True
     if messages is None:
         return None
-    try:
-        from butler.core.compaction_phase import should_skip_post_compact_reanchor
+    from butler.core.post_compact_cleanup_ops import should_skip_reanchor_safe
 
-        if should_skip_post_compact_reanchor(diagnostics):
-            if diagnostics is not None:
-                diagnostics["post_compact_skipped_mid_turn"] = True
-            return messages
-    except Exception as exc:
-        logger.debug("run post compact cleanup skipped: %s", exc)
+    if should_skip_reanchor_safe(diagnostics):
+        if diagnostics is not None:
+            diagnostics["post_compact_skipped_mid_turn"] = True
+        return messages
     return apply_post_compact_anchors(messages, diagnostics, role=role)
 
 
 def _collect_dev_session_changes() -> str:
     """Build a session change log from tool audit events (write/patch/terminal/git)."""
-    try:
-        from butler.execution_context import get_audit_session_key
-        from butler.tools.registry import get_tool_audit_events
+    from butler.core.post_compact_cleanup_ops import collect_dev_session_changes_safe
 
-        sk = get_audit_session_key(fallback="_global")
-        events = get_tool_audit_events(limit=100, session_key=sk)
-    except Exception:
-        return ""
-
-    write_tools = {"write_file", "patch", "delete_file"}
-    terminal_tools = {"terminal"}
-    git_write_tools = {"git_add", "git_commit", "git_push"}
-
-    written_files: list[str] = []
-    terminal_cmds: list[str] = []
-    git_ops: list[str] = []
-
-    seen_files: set[str] = set()
-    for ev in events:
-        tool = ev.get("tool", "")
-        args = ev.get("args") or {}
-
-        if tool in write_tools:
-            path = str(args.get("path") or args.get("file") or "").strip()
-            if path and path not in seen_files:
-                seen_files.add(path)
-                action = {"write_file": "写入", "patch": "修改", "delete_file": "删除"}.get(tool, tool)
-                written_files.append(f"  [{action}] {path}")
-
-        elif tool in terminal_tools:
-            cmd = str(args.get("command") or "").strip()[:80]
-            if cmd:
-                terminal_cmds.append(f"  $ {cmd}")
-
-        elif tool in git_write_tools:
-            if tool == "git_commit":
-                msg = str(args.get("message") or "").strip()[:60]
-                git_ops.append(f"  commit: {msg}")
-            elif tool == "git_push":
-                git_ops.append("  push")
-
-    if not written_files and not terminal_cmds and not git_ops:
-        return ""
-
-    sections: list[str] = ["## Dev session changes (this session)"]
-    if written_files:
-        sections.append("Files changed:")
-        sections.extend(written_files[:20])
-        if len(written_files) > 20:
-            sections.append(f"  ... and {len(written_files) - 20} more")
-    if terminal_cmds:
-        sections.append("Terminal commands:")
-        sections.extend(terminal_cmds[-10:])
-    if git_ops:
-        sections.append("Git operations:")
-        sections.extend(git_ops[-5:])
-    return "\n".join(sections)
+    return collect_dev_session_changes_safe()

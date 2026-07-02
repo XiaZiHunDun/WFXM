@@ -137,13 +137,9 @@ def format_compaction_report(
 
     ckpt: dict[str, Any] | None = None
     if sk:
-        try:
-            from butler.core.compaction_checkpoint import load_checkpoint
+        from butler.core.compaction_status_ops import load_checkpoint_safe
 
-            loaded = load_checkpoint(sk)
-            ckpt = loaded if isinstance(loaded, dict) else None
-        except Exception:
-            ckpt = None
+        ckpt = load_checkpoint_safe(sk)
     if ckpt:
         captured = str(ckpt.get("captured_at") or "").strip()
         if captured:
@@ -153,24 +149,11 @@ def format_compaction_report(
             lines.append(f"摘要节选 ({len(preview)}字):\n{preview}")
 
     if sk:
-        try:
-            from butler.core.session_epoch import load_epoch_transcript_rows
+        from butler.core.compaction_status_ops import last_compact_transcript_line
 
-            rows = load_epoch_transcript_rows(sk, max_lines=120)
-            done = [r for r in rows if str(r.get("type") or "") == "compact_done"]
-            if done:
-                last = done[-1]
-                after = last.get("tokens_after")
-                summary_chars = last.get("summary_chars")
-                ts = str(last.get("ts") or "").strip()
-                detail = f"tokens≈{after}" if after is not None else ""
-                if summary_chars:
-                    detail = f"{detail} · 摘要{summary_chars}字".strip(" ·")
-                if ts:
-                    detail = f"{ts} · {detail}".strip(" ·")
-                lines.append(f"最近 transcript 压缩: {detail or '已完成'}")
-        except Exception:
-            pass
+        line = last_compact_transcript_line(sk)
+        if line:
+            lines.append(line)
 
     if len(lines) <= 2 and derive_compaction_status(h) == "none" and not ckpt:
         lines.append("本会话尚无压缩记录。")

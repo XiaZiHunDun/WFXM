@@ -94,6 +94,15 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/review_context_adapter_ops.py": 180,
     "butler/core/hook_context_adapter_ops.py": 55,
     "butler/core/dev_context_adapter_ops.py": 120,
+    "butler/core/compaction_context_adapter_ops.py": 110,
+    "butler/core/compaction_status_ops.py": 55,
+    "butler/core/compaction_checkpoint_ops.py": 55,
+    "butler/core/reasoning_trace_ops.py": 130,
+    "butler/core/reflection_closure_ops.py": 45,
+    "butler/core/post_compact_cleanup_ops.py": 230,
+    "butler/core/parallel_tools_ops.py": 80,
+    "butler/core/hygiene_preflight_ops.py": 85,
+    "butler/core/reactive_compact_ops.py": 110,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

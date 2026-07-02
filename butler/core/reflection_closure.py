@@ -27,25 +27,15 @@ def reflection_closure_inject_enabled() -> bool:
 
 
 def _experience_path() -> Path:
-    try:
-        from butler.core.reflexion_write import _experience_path as _reflex_path
+    from butler.core.reflection_closure_ops import experience_path_safe
 
-        return _reflex_path()
-    except Exception:
-        return Path.home() / ".butler" / "experiences" / "reflexion.jsonl"
+    return experience_path_safe()
 
 
 def _should_persist() -> bool:
-    if not reflection_closure_enabled():
-        return False
-    try:
-        from butler.core.reflexion_write import reflexion_write_enabled
+    from butler.core.reflection_closure_ops import should_persist_reflect
 
-        if reflexion_write_enabled():
-            return True
-    except Exception:
-        pass
-    return env_truthy("BUTLER_REFLECTION_CLOSURE_WRITE", default=False)
+    return should_persist_reflect()
 
 
 def persist_reflect_episode(

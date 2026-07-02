@@ -2,40 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Callable
 
-logger = logging.getLogger(__name__)
-
-
-def _record_reactive_failed(reason: str) -> None:
-    """Best-effort write of compact_failed event for reactive compact path."""
-    try:
-        from butler.core.session_transcript import record_compact_failed
-        from butler.execution_context import get_audit_session_key
-
-        record_compact_failed(
-            get_audit_session_key(fallback="_global"),
-            source="reactive",
-            reason=reason,
-        )
-    except Exception as exc:
-        logger.debug("reactive compact failed event skipped: %s", exc)
-
-
-def _record_reactive_started() -> None:
-    """Best-effort write of compact_started event for reactive compact path."""
-    try:
-        from butler.core.session_transcript import record_compact_started
-        from butler.execution_context import get_audit_session_key
-
-        record_compact_started(
-            get_audit_session_key(fallback="_global"),
-            source="reactive",
-            trigger="overflow",
-        )
-    except Exception as exc:
-        logger.debug("reactive compact started event skipped: %s", exc)
+from butler.core.reactive_compact_ops import (
+    compress_rounds_loud,
+    record_reactive_started_safe,
+    try_turn_tail_compact_loud,
+)
 
 
 def group_messages_by_api_round(messages: list[dict]) -> list[list[dict]]:
@@ -56,16 +29,6 @@ def group_messages_by_api_round(messages: list[dict]) -> list[list[dict]]:
     return rounds
 
 
-def _compress_with_overflow_replay(
-    compress_fn: Callable[..., list[dict]],
-    messages: list[dict],
-) -> list[dict]:
-    try:
-        return compress_fn(list(messages), overflow_replay=True)
-    except TypeError:
-        return compress_fn(list(messages))
-
-
 def try_reactive_compact(
     messages: list[dict],
     *,
@@ -79,42 +42,21 @@ def try_reactive_compact(
     Drop oldest API rounds then compress. Returns (ok, new_messages, reason).
     """
     if use_turn_tail:
-        try:
-            from butler.core.turn_compaction import (
-                group_messages_into_turns,
-                turn_compaction_enabled,
-            )
+        turn_result = try_turn_tail_compact_loud(
+            messages,
+            compress_fn=compress_fn,
+            min_rounds_to_drop=min_rounds_to_drop,
+            max_rounds_to_drop=max_rounds_to_drop,
+            diagnostics=diagnostics,
+        )
+        if turn_result is not None:
+            return turn_result
 
-            if turn_compaction_enabled():
-                system_msgs = [m for m in messages if m.get("role") == "system"]
-                rest = [m for m in messages if m.get("role") != "system"]
-                turns = group_messages_into_turns(rest)
-                if len(turns) <= min_rounds_to_drop + 1:
-                    return False, messages, "too_few_turns"
-                _record_reactive_started()
-                keep_turns = turns[-max(1, len(turns) - max_rounds_to_drop) :]
-                tail_start = keep_turns[0].start
-                flattened = list(system_msgs[:1]) + rest[tail_start:]
-                try:
-                    compressed = _compress_with_overflow_replay(compress_fn, flattened)
-                except Exception as exc:
-                    logger.warning("Reactive compact failed: %s", exc)
-                    _record_reactive_failed("compress_error")
-                    return False, messages, "error"
-                if len(compressed) >= len(messages):
-                    return False, messages, "exhausted"
-                if diagnostics is not None:
-                    strategy = f"turns:{len(keep_turns)}"
-                    diagnostics["compaction_strategy"] = strategy
-                    diagnostics["reactive_compact_strategy"] = strategy
-                return True, compressed, "ok"
-        except Exception as exc:
-            logger.debug("try reactive compact skipped: %s", exc)
     rounds = group_messages_by_api_round(messages)
     if len(rounds) <= min_rounds_to_drop + 1:
         return False, messages, "too_few_groups"
 
-    _record_reactive_started()
+    record_reactive_started_safe()
     system_msgs = [m for m in messages if m.get("role") == "system"]
     tail_rounds = rounds[-max(1, len(rounds) - max_rounds_to_drop) :]
     flattened: list[dict] = []
@@ -124,13 +66,9 @@ def try_reactive_compact(
     if system_msgs and (not flattened or flattened[0].get("role") != "system"):
         flattened = list(system_msgs[:1]) + flattened
 
-    try:
-        compressed = _compress_with_overflow_replay(compress_fn, flattened)
-    except Exception as exc:
-        logger.warning("Reactive compact failed: %s", exc)
-        _record_reactive_failed("compress_error")
-        return False, messages, "error"
-
+    ok, compressed, reason = compress_rounds_loud(compress_fn, flattened)
+    if not ok:
+        return False, messages, reason
     if len(compressed) >= len(messages):
         return False, messages, "exhausted"
     return True, compressed, "ok"

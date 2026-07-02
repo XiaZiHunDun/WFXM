@@ -92,17 +92,9 @@ def restore_into_diagnostics(
         diagnostics["compaction_checkpoint_tool_count"] = len(tools)
     preview = ckpt.get("compression_summary_preview")
     if preview:
-        try:
-            from butler.core.compaction_context_adapter import (
-                apply_compaction_view_to_diagnostics,
-                to_loop_compaction_view,
-            )
+        from butler.core.compaction_checkpoint_ops import restore_checkpoint_summary_acl
 
-            view = to_loop_compaction_view(preview, source="checkpoint_restore")
-            diagnostics["compaction_checkpoint_summary_preview"] = view.content[:500]
-            apply_compaction_view_to_diagnostics(view, diagnostics)
-        except Exception as exc:
-            logger.debug("checkpoint ACL restore skipped: %s", exc)
+        restore_checkpoint_summary_acl(preview, diagnostics)
     return ckpt
 
 
@@ -112,26 +104,16 @@ def capture_from_loop(
     loop: Any,
     compression_summary: str = "",
 ) -> None:
-    model = ""
-    try:
-        client = getattr(loop, "client", None)
-        model = str(getattr(client, "model", "") or "")
-    except Exception as exc:
-        logger.debug("capture from loop skipped: %s", exc)
+    from butler.core.compaction_checkpoint_ops import loop_model_name, open_todos_count
+
+    model = loop_model_name(loop)
     tool_names: list[str] = []
     for t in getattr(loop, "tools", None) or []:
         fn = (t.get("function") or {}) if isinstance(t, dict) else {}
         name = fn.get("name") if isinstance(fn, dict) else None
         if name:
             tool_names.append(str(name))
-    open_todos = 0
-    try:
-        from butler.core.session_todos import count_open_todos, session_todos_enabled
-
-        if session_todos_enabled():
-            open_todos = count_open_todos(session_key)
-    except Exception as exc:
-        logger.debug("capture from loop skipped: %s", exc)
+    open_todos = open_todos_count(session_key)
     max_iter = getattr(getattr(loop, "config", None), "max_iterations", None)
     capture_checkpoint(
         session_key,

@@ -104,28 +104,12 @@ def run_hygiene_preflight(
 
     compression_threshold = 0.0
     before_tokens = estimated
-    try:
-        from butler.execution_context import get_audit_session_key
-        from butler.core.session_transcript import (
-            record_compact_failed,
-            record_compact_scheduled,
-            record_compact_started,
-        )
+    from butler.core.hygiene_preflight_ops import record_hygiene_compact_scheduled
 
-        _sk = get_audit_session_key(fallback="_global")
-        record_compact_scheduled(
-            _sk,
-            source="hygiene",
-            messages_before=len(messages),
-            tokens_estimated=before_tokens,
-        )
-        record_compact_started(
-            _sk,
-            source="hygiene",
-            trigger="preflight",
-        )
-    except Exception as exc:
-        logger.debug("run hygiene preflight skipped: %s", exc)
+    record_hygiene_compact_scheduled(
+        messages_before=len(messages),
+        tokens_estimated=before_tokens,
+    )
     try:
         compressed = compress(
             messages,
@@ -144,16 +128,9 @@ def run_hygiene_preflight(
         )
         diagnostics["hygiene_compact_failed"] = True
         diagnostics["hygiene_compact_error"] = str(exc)[:500]
-        try:
-            from butler.execution_context import get_audit_session_key
+        from butler.core.hygiene_preflight_ops import record_hygiene_compact_failed_event
 
-            record_compact_failed(
-                get_audit_session_key(fallback="_global"),
-                source="hygiene",
-                reason="compress_error",
-            )
-        except Exception as exc2:
-            logger.debug("hygiene compact failed event skipped: %s", exc2)
+        record_hygiene_compact_failed_event()
         logger.warning("Hygiene compact raised: %s", exc)
         return HygienePreflightResult(messages=messages, compressed=False)
 
@@ -165,12 +142,11 @@ def run_hygiene_preflight(
     if not did_shrink:
         diagnostics["hygiene_compact_noop"] = True
         diagnostics.pop("hygiene_compact_failed", None)
-        try:
-            from butler.core.compaction_status import derive_compaction_status
+        from butler.core.hygiene_preflight_ops import derive_compaction_status_safe
 
-            diagnostics["compaction_status"] = derive_compaction_status(diagnostics)
-        except Exception as exc:
-            logger.debug("run hygiene preflight skipped: %s", exc)
+        status = derive_compaction_status_safe(diagnostics)
+        if status is not None:
+            diagnostics["compaction_status"] = status
         return HygienePreflightResult(messages=messages, compressed=False)
 
     diagnostics.pop("hygiene_compact_noop", None)
@@ -182,18 +158,12 @@ def run_hygiene_preflight(
         "hygiene_estimated_tokens_after": after_tokens,
         "compaction_status": "compressed",
     })
-    try:
-        from butler.execution_context import get_audit_session_key
-        from butler.core.session_transcript import record_compact_done
+    from butler.core.hygiene_preflight_ops import record_hygiene_compact_done
 
-        record_compact_done(
-            get_audit_session_key(fallback="_global"),
-            source="hygiene",
-            messages_after=len(compressed),
-            tokens_after=after_tokens,
-        )
-    except Exception as exc:
-        logger.debug("run hygiene preflight skipped: %s", exc)
+    record_hygiene_compact_done(
+        messages_after=len(compressed),
+        tokens_after=after_tokens,
+    )
     diagnostics.update(
         calculate_token_warning_state(
             after_tokens,

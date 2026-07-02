@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from contextvars import copy_context
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
@@ -17,10 +15,9 @@ _PATH_SCOPED = frozenset({"read_file", "write_file", "patch"})
 
 
 def _normalize_path(path: str) -> str:
-    try:
-        return str(Path(path).expanduser().resolve())
-    except Exception:
-        return path
+    from butler.core.parallel_tools_ops import normalize_path_safe
+
+    return normalize_path_safe(path)
 
 
 def _paths_overlap(a: str, b: str) -> bool:
@@ -39,16 +36,11 @@ def _extract_scope_path(tool_name: str, args: dict) -> str | None:
 def should_parallelize_tool_batch(tool_calls: list[Any]) -> bool:
     if len(tool_calls) <= 1:
         return False
-    try:
-        from butler.core.batch_sequence_guard import (
-            batch_has_destructive_and_reads,
-            batch_stale_guard_enabled,
-        )
+    from butler.core.parallel_tools_ops import batch_parallel_allowed
 
-        if batch_stale_guard_enabled() and batch_has_destructive_and_reads(tool_calls):
-            return False
-    except Exception as exc:
-        logger.debug("should parallelize tool batch skipped: %s", exc)
+    guard = batch_parallel_allowed(tool_calls)
+    if guard is False:
+        return False
     names = [getattr(tc, "name", "") or (tc.get("name") if isinstance(tc, dict) else "") for tc in tool_calls]
     if any(n in _NEVER_PARALLEL for n in names):
         return False
@@ -62,13 +54,10 @@ def should_parallelize_tool_batch(tool_calls: list[Any]) -> bool:
             if name not in _ALWAYS_PARALLEL:
                 return False
             continue
-        try:
-            args = tc.args_dict() if hasattr(tc, "args_dict") else json.loads(
-                (tc.get("function") or {}).get("arguments", "{}") if isinstance(tc, dict) else "{}"
-            )
-        except Exception:
-            args = {}
-        path = _extract_scope_path(name, args if isinstance(args, dict) else {})
+        from butler.core.parallel_tools_ops import parse_tool_args_safe
+
+        args = parse_tool_args_safe(tc)
+        path = _extract_scope_path(name, args)
         if path:
             if any(_paths_overlap(path, r) for r in reserved):
                 return False
@@ -88,14 +77,11 @@ def execute_tools_parallel(
     prefetched: dict[str, str] | None = None,
 ) -> list[tuple[Any, str]]:
     """Execute tool calls in parallel; return list of (tool_call, result) in original order."""
+    from butler.core.parallel_tools_ops import dispatch_parallel_tool_loud, parse_tool_args_safe
 
     def _run_one(tc: Any) -> tuple[Any, str]:
         name = tc.name if hasattr(tc, "name") else tc.get("name", "")
-        try:
-            args = tc.args_dict() if hasattr(tc, "args_dict") else {}
-        except Exception as exc:
-            logger.warning("args_dict() parse failed for tool %s: %s", name, exc)
-            args = {}
+        args = parse_tool_args_safe(tc)
         tool_id = str(getattr(tc, "id", None) or "")
         if prefetched and tool_id in prefetched:
             if on_start:
@@ -116,17 +102,13 @@ def execute_tools_parallel(
             )
         if on_start:
             on_start(name, args)
-        try:
-            result = dispatch_fn(name, args, tool_call_id=tool_id)
-        except Exception as exc:
-            result = _finalize_parallel_tool_result(
-                name,
-                args,
-                {
-                    "error": f"Tool execution failed: {exc}",
-                    "code": "TOOL_DISPATCH_ERROR",
-                },
-            )
+        result = dispatch_parallel_tool_loud(
+            dispatch_fn,
+            name,
+            args,
+            tool_id=tool_id,
+            finalize=_finalize_parallel_tool_result,
+        )
         if on_complete:
             on_complete(name, result)
         return tc, result

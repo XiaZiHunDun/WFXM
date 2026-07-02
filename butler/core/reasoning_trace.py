@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
 
 from butler.env_parse import env_truthy
-
-logger = logging.getLogger(__name__)
 
 _SUMMARY_MAX = 280
 _GRAPH_STEP_KINDS = frozenset({"fact", "hypothesis", "step", "risk"})
@@ -32,15 +29,9 @@ def summarize_reasoning_text(text: str, *, max_len: int = _SUMMARY_MAX) -> str:
 
 
 def _resolve_session_key(explicit: str = "") -> str:
-    key = str(explicit or "").strip()
-    if key:
-        return key
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.core.reasoning_trace_ops import resolve_session_key_safe
 
-        return str(get_current_session_key() or "").strip() or "default"
-    except Exception:
-        return "default"
+    return resolve_session_key_safe(explicit)
 
 
 def record_reasoning_step(
@@ -87,19 +78,16 @@ def record_reflect_step(
         detail=summarize_reasoning_text(detail, max_len=200),
         source=str(source or "delegate")[:32],
     )
-    try:
-        from butler.core.reflection_closure import maybe_persist_reflect_closure
+    from butler.core.reasoning_trace_ops import persist_reflect_closure_safe
 
-        maybe_persist_reflect_closure(
-            trigger=str(trigger or "verify_fail")[:48],
-            cause=summarize_reasoning_text(cause, max_len=400),
-            strategy=(strategy or "")[:120],
-            detail=summarize_reasoning_text(detail, max_len=200),
-            session_key=session_key,
-            source=str(source or "delegate")[:48],
-        )
-    except Exception as exc:
-        logger.debug("reflection closure persist skipped: %s", exc)
+    persist_reflect_closure_safe(
+        trigger=str(trigger or "verify_fail")[:48],
+        cause=summarize_reasoning_text(cause, max_len=400),
+        strategy=(strategy or "")[:120],
+        detail=summarize_reasoning_text(detail, max_len=200),
+        session_key=session_key,
+        source=str(source or "delegate")[:48],
+    )
 
 
 def maybe_record_llm_reasoning(loop: Any, response: Any, *, iteration: int = 0) -> None:
@@ -144,13 +132,9 @@ def record_verify_fail_reflect(state: Any, verify_result: Any) -> None:
     cause = "; ".join(messages) or "verify failed"
     strategy = str(getattr(state, "_last_fix_hint", "") or "")
     if not strategy:
-        try:
-            from butler.dev_engine.fix_strategy import enrich_fix_hint, suggest_fix_action
+        from butler.core.reasoning_trace_ops import suggest_fix_strategy_safe
 
-            level = suggest_fix_action(diags, state)
-            strategy = enrich_fix_hint(level, state)
-        except Exception:
-            strategy = "retry_fix"
+        strategy = suggest_fix_strategy_safe(state, diags)
     record_reflect_step(
         session_key,
         trigger="verify_fail",
@@ -245,40 +229,16 @@ def maybe_sync_plan_step_to_graph(
     kind = str(step_kind or "").strip().lower()
     if kind not in _GRAPH_STEP_KINDS:
         return
-    try:
-        from butler.core.plan_reason_graph import append_node, maybe_auto_link_plan_node
-        from butler.plan.mode import is_plan_mode
+    from butler.core.reasoning_trace_ops import sync_plan_step_to_graph_safe
 
-        if not is_plan_mode(session_key):
-            return
-        node = append_node(
-            session_key,
-            text=(detail or title or "")[:500],
-            role=kind,
-            title=title,
-            assumption=assumption,
-            evidence=evidence,
-        )
-        edges = maybe_auto_link_plan_node(session_key, node)
-        from butler.core.session_transcript import record_reason_graph_event
-
-        record_reason_graph_event(
-            session_key,
-            action="node_added",
-            node_id=str(node.get("id") or ""),
-            role=kind,
-            preview=(title or detail or "")[:120],
-        )
-        for edge in edges:
-            record_reason_graph_event(
-                session_key,
-                action="edge_added",
-                node_id=f"{edge.get('from')}->{edge.get('to')}",
-                role=str(edge.get("rel") or "depends"),
-                preview=(title or detail or "")[:120],
-            )
-    except Exception as exc:
-        logger.debug("plan reason graph sync skipped: %s", exc)
+    sync_plan_step_to_graph_safe(
+        session_key,
+        title=title,
+        step_kind=kind,
+        assumption=assumption,
+        evidence=evidence,
+        detail=detail,
+    )
 
 
 def get_plan_mode_graph_appendix() -> str:
@@ -305,13 +265,15 @@ def _transcript_row_fields(row: dict) -> dict:
 def format_reasoning_diagnostic_lines(session_key: str) -> list[str]:
     if not reasoning_trace_enabled():
         return []
-    try:
-        from butler.core.session_transcript import (
-            find_last_transcript_types,
-            transcript_enabled,
-        )
-    except Exception:
+    from butler.core.reasoning_trace_ops import (
+        plan_graph_summary_line,
+        transcript_trace_imports_ok,
+    )
+
+    if not transcript_trace_imports_ok():
         return []
+    from butler.core.session_transcript import find_last_transcript_types, transcript_enabled
+
     if not transcript_enabled():
         return []
     trace_types = frozenset({"reasoning_step", "reflect_step"})
@@ -320,16 +282,8 @@ def format_reasoning_diagnostic_lines(session_key: str) -> list[str]:
     reflect_n = int(counts.get("reflect_step") or 0)
     graph_line: str | None = None
     if plan_reason_graph_enabled():
-        try:
-            from butler.core.plan_reason_graph import summarize_graph
-
-            stats = summarize_graph(session_key)
-            if stats.get("nodes"):
-                graph_line = (
-                    f"Plan 推理图: {stats.get('nodes', 0)} 节点 · {stats.get('edges', 0)} 边"
-                )
-        except Exception:
-            pass
+        line = plan_graph_summary_line(session_key)
+        graph_line = line or None
     if not reasoning_n and not reflect_n and not graph_line:
         return []
     lines: list[str] = []
