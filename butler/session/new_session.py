@@ -15,34 +15,20 @@ def clear_session_boundary_memory(
     session_id: str = "",
 ) -> dict[str, Any]:
     """Drop ephemeral chat echoes after /new (loop history is already reset)."""
-    removed = 0
-    tag = session_experience_tag(session_id)
-    bm = getattr(orchestrator, "butler_memory", None)
-    if bm is not None and hasattr(bm, "delete_conversation_for_session"):
-        try:
-            purge = bm.delete_conversation_for_session(tag)
-            removed = int(purge.get("removed_rows") or 0)
-        except Exception as exc:
-            logger.debug("Conversation experience purge skipped: %s", exc)
-            return {"removed": 0, "error": str(exc)}
-    else:
-        exp = getattr(bm, "experience", None) if bm is not None else None
-        if exp is not None and hasattr(exp, "delete_conversation_for_session"):
-            try:
-                removed, _ids = exp.delete_conversation_for_session(tag)
-                removed = int(removed)
-            except Exception as exc:
-                logger.debug("Conversation experience purge skipped: %s", exc)
-                return {"removed": 0, "error": str(exc)}
-
-    provider = getattr(orchestrator, "memory_provider", None) or getattr(
-        orchestrator, "_memory_provider", None
+    from butler.session.new_session_ops import (
+        clear_provider_turn_buffer_safe,
+        clear_retrieval_telemetry_safe,
+        purge_conversation_experience_safe,
+        reset_inbound_idempotency_safe,
+        reset_tool_result_state_safe,
     )
-    if provider is not None and hasattr(provider, "clear_turn_buffer"):
-        try:
-            provider.clear_turn_buffer()
-        except Exception as exc:
-            logger.debug("Provider turn buffer clear skipped: %s", exc)
+
+    tag = session_experience_tag(session_id)
+    removed, purge_error = purge_conversation_experience_safe(orchestrator, tag)
+    if purge_error:
+        return {"removed": 0, "error": purge_error}
+
+    clear_provider_turn_buffer_safe(orchestrator)
 
     from butler.session.post_session_ops import reset_post_session_watermark
 
@@ -51,28 +37,9 @@ def clear_session_boundary_memory(
     from butler.memory.prefetch_cache import clear_prefetch_cache
 
     clear_prefetch_cache(session_id)
-    try:
-        from butler.gateway.inbound_idempotency import reset_session as reset_inbound_idempotency
-
-        reset_inbound_idempotency(session_id)
-    except Exception as exc:
-        logger.debug("Inbound idempotency reset skipped: %s", exc)
-    try:
-        from butler.memory.retrieval_telemetry import clear_last_retrieval
-
-        clear_last_retrieval(session_id)
-    except Exception as exc:
-        logger.debug("Retrieval telemetry clear skipped: %s", exc)
-    try:
-        from butler.core.tool_result_storage import (
-            reset_inject_once_state,
-            reset_replacement_state,
-        )
-
-        reset_inject_once_state(session_id)
-        reset_replacement_state(session_id)
-    except Exception as exc:
-        logger.debug("Tool result state reset skipped: %s", exc)
+    reset_inbound_idempotency_safe(session_id)
+    clear_retrieval_telemetry_safe(session_id)
+    reset_tool_result_state_safe(session_id)
     return {"removed": removed, "session_tag": tag}
 
 
@@ -101,18 +68,14 @@ def handle_new_session_command(
     agent_loop: Any | None,
 ) -> str:
     """Post-session extract, purge ephemeral echoes, return user message."""
+    from butler.session.new_session_ops import run_session_start_hooks_safe
     from butler.session.post_session_ops import trigger_session_end
 
     extract_result = trigger_session_end(
         orchestrator, agent_loop, session_id=session_id, reason="clear"
     )
     purge_result = clear_session_boundary_memory(orchestrator, session_id)
-    try:
-        from butler.hooks.runner import run_session_start_hooks
-
-        run_session_start_hooks(source="clear")
-    except Exception as exc:
-        logger.debug("SessionStart hooks skipped: %s", exc)
+    run_session_start_hooks_safe()
     return format_new_session_user_message(
         extract_result=extract_result,
         purge_result=purge_result,

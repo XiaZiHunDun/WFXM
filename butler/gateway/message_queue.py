@@ -113,20 +113,9 @@ def _should_dedupe(session_key: str, text: str) -> bool:
 
 
 def _record_queue_drop(session_key: str, *, reason: str, count: int = 1) -> None:
-    try:
-        from butler.ops.runtime_metrics import inc
+    from butler.gateway.message_queue_ops import record_queue_drop_telemetry
 
-        inc(
-            "inbound_queue_drop",
-            labels={"reason": reason[:24]},
-            session_key=session_key,
-            value=count,
-        )
-        from butler.core.session_transcript import record_queue_drop
-
-        record_queue_drop(session_key, reason, count)
-    except Exception as exc:
-        logger.debug("record queue drop skipped: %s", exc)
+    record_queue_drop_telemetry(session_key, reason=reason, count=count)
 def _summarize_dropped(text: str) -> str:
     preview = re.sub(r"\s+", " ", (text or "").strip())[:120]
     return preview or "（空消息）"
@@ -208,25 +197,16 @@ def enqueue_inbound(
     _persist_enqueue(key, item)
     logger.info("Queued inbound session=%s priority=%s len=%d", key, pri, _bucket_total(bucket))
     _refresh_queue_gauges(key)
-    try:
-        from butler.core.session_transcript import record_queue_operation
+    from butler.gateway.message_queue_ops import record_queue_operation_safe
 
-        record_queue_operation(key, pri, body)
-    except Exception as exc:
-        logger.debug("enqueue inbound skipped: %s", exc)
+    record_queue_operation_safe(key, pri, body)
     return True
 
 
 def _refresh_queue_gauges(session_key: str) -> None:
-    try:
-        from butler.ops.runtime_metrics import set_gauge
+    from butler.gateway.message_queue_ops import refresh_queue_gauges_safe
 
-        key = str(session_key or "default")
-        depth = pending_count(key)
-        set_gauge("inbound_queue_depth", float(depth), session_key=key)
-        set_gauge("inbound_queue_depth_total", float(pending_total()))
-    except Exception as exc:
-        logger.debug("refresh queue gauges skipped: %s", exc)
+    refresh_queue_gauges_safe(session_key, depth_fn=pending_count, total_fn=pending_total)
 def pending_total() -> int:
     with _LOCK:
         return sum(_bucket_total(b) for b in _QUEUES.values())
@@ -341,15 +321,9 @@ def reset_queue(session_key: str | None = None) -> None:
             _LAST_ENQUEUE.pop(key, None)
             _DROP_SUMMARIES.pop(key, None)
     _persist_clear(session_key)
-    try:
-        from butler.ops.runtime_metrics import set_gauge
+    from butler.gateway.message_queue_ops import reset_queue_gauges_safe
 
-        if session_key is None:
-            set_gauge("inbound_queue_depth_total", 0.0)
-        else:
-            _refresh_queue_gauges(session_key)
-    except Exception as exc:
-        logger.debug("reset queue skipped: %s", exc)
+    reset_queue_gauges_safe(session_key=session_key, refresh_fn=_refresh_queue_gauges)
 # ---------------------------------------------------------------------------
 # Persistence layer — JSONL-backed durable queue
 # ---------------------------------------------------------------------------
@@ -369,66 +343,35 @@ def _persist_enqueue(session_key: str, item: QueuedInbound) -> None:
     """Append a queue entry to the session's JSONL file."""
     if not _queue_persist_enabled():
         return
-    try:
-        root = _queue_persist_dir()
-        root.mkdir(parents=True, exist_ok=True)
-        safe_key = re.sub(r"[^\w\-]", "_", session_key)[:120]
-        path = root / f"{safe_key}.jsonl"
-        row = {
-            "id": item.persist_id,
-            "text": item.text,
-            "priority": item.priority,
-            "platform": item.platform,
-            "external_id": item.external_id,
-            "enqueued_at": item.enqueued_at,
-        }
-        with open(path, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-    except Exception as exc:
-        logger.warning("Queue persist write failed: %s", exc)
+    from butler.gateway.message_queue_ops import persist_enqueue_loud
+
+    row = {
+        "id": item.persist_id,
+        "text": item.text,
+        "priority": item.priority,
+        "platform": item.platform,
+        "external_id": item.external_id,
+        "enqueued_at": item.enqueued_at,
+    }
+    persist_enqueue_loud(session_key, row, persist_dir_fn=_queue_persist_dir)
 
 
 def _persist_remove(session_key: str, persist_id: str) -> None:
     """Remove a single persisted entry by its id (rewrite minus the line)."""
     if not _queue_persist_enabled() or not persist_id:
         return
-    try:
-        root = _queue_persist_dir()
-        safe_key = re.sub(r"[^\w\-]", "_", session_key)[:120]
-        path = root / f"{safe_key}.jsonl"
-        if not path.is_file():
-            return
-        lines = path.read_text(encoding="utf-8").splitlines()
-        marker = f'"id": "{persist_id}"'
-        kept = [ln for ln in lines if marker not in ln]
-        if len(kept) == len(lines):
-            return
-        if kept:
-            from butler.io.atomic_write import atomic_write_text
+    from butler.gateway.message_queue_ops import persist_remove_loud
 
-            atomic_write_text(path, "\n".join(kept) + "\n")
-        else:
-            path.unlink(missing_ok=True)
-    except Exception as exc:
-        logger.warning("Queue persist remove failed: %s", exc)
+    persist_remove_loud(session_key, persist_id, persist_dir_fn=_queue_persist_dir)
 
 
 def _persist_clear(session_key: str | None = None) -> None:
     """Clear persisted queue file(s)."""
     if not _queue_persist_enabled():
         return
-    try:
-        root = _queue_persist_dir()
-        if not root.is_dir():
-            return
-        if session_key is None:
-            for f in root.glob("*.jsonl"):
-                f.unlink(missing_ok=True)
-        else:
-            safe_key = re.sub(r"[^\w\-]", "_", session_key)[:120]
-            (root / f"{safe_key}.jsonl").unlink(missing_ok=True)
-    except Exception as exc:
-        logger.warning("Queue persist clear failed: %s", exc)
+    from butler.gateway.message_queue_ops import persist_clear_loud
+
+    persist_clear_loud(session_key, persist_dir_fn=_queue_persist_dir)
 
 
 def restore_persisted_queue() -> int:
@@ -493,12 +436,9 @@ def format_queued_ack(*, pending: int = 1, session_key: str = "") -> str:
         else "已收到，当前轮次结束后继续处理。"
     )
     if session_key:
-        try:
-            from butler.gateway.queue_settings import get_queue_mode
+        from butler.gateway.message_queue_ops import queue_mode_suffix_safe
 
-            mode = get_queue_mode(session_key)
-            if mode != "followup":
-                base += f"（队列模式：{mode}）"
-        except Exception as exc:
-            logger.debug("format queued ack skipped: %s", exc)
+        suffix = queue_mode_suffix_safe(session_key)
+        if suffix:
+            base += suffix
     return base

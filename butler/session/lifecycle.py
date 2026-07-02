@@ -70,19 +70,9 @@ def filter_non_conversation_experience(hits: list[dict[str, Any]]) -> list[dict[
 
 
 def _current_project(orchestrator: Any) -> str:
-    pm = getattr(orchestrator, "project_manager", None)
-    if pm is None:
-        return ""
-    session_key = ""
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.session.lifecycle_ops import current_project_name_safe
 
-        session_key = str(get_current_session_key() or "").strip()
-    except Exception:
-        session_key = ""
-    if hasattr(pm, "resolve_active_project_name"):
-        return str(pm.resolve_active_project_name(session_key=session_key) or "")
-    return str(getattr(pm, "current_project", "") or "")
+    return current_project_name_safe(orchestrator)
 
 
 def _render_turn_memory_context(ctx: str, user_msg: str, *, max_chars: int = 3000) -> str:
@@ -108,6 +98,15 @@ def sync_turn_memory(
     session_id: str = "",
 ) -> dict[str, Any]:
     """Sync one conversation turn to experience store."""
+    from butler.session.lifecycle_ops import (
+        flush_observer_queue_safe,
+        post_commit_flush_safe,
+        provider_sync_turn_safe,
+        record_experience_write_metric_safe,
+        strip_private_tags_safe,
+        sync_turn_memory_loud,
+    )
+
     if not should_sync_conversation_turn(user_msg, assistant_msg):
         return {
             "skipped": True,
@@ -120,17 +119,18 @@ def sync_turn_memory(
         value = getattr(status, "value", status)
         if value != "completed":
             return {"skipped": True, "reason": "not_completed", "experience_updates": 0}
-    try:
+
+    def _run_sync() -> dict[str, Any]:
         if not (user_msg and assistant_msg):
             return {"skipped": True, "reason": "empty_turn", "experience_updates": 0}
-        try:
-            from butler.memory.private_tags import strip_private_tags
-
-            public_user, _ = strip_private_tags(user_msg)
-            public_assistant, _ = strip_private_tags(assistant_msg)
-        except Exception as exc:
-            logger.warning("Private-tag filtering failed during memory sync: %s", exc)
-            return {"skipped": True, "reason": "private_filter_error", "experience_updates": 0}
+        stripped = strip_private_tags_safe(user_msg, assistant_msg)
+        if stripped is None:
+            return {
+                "skipped": True,
+                "reason": "private_filter_error",
+                "experience_updates": 0,
+            }
+        public_user, public_assistant = stripped
         if not (public_user or public_assistant):
             return {"skipped": True, "reason": "private_only", "experience_updates": 0}
         with _SYNC_TURN_LOCK:
@@ -150,21 +150,19 @@ def sync_turn_memory(
                     tags=tag or None,
                 )
                 updates += 1
-                try:
-                    from butler.memory.memory_metrics import get_collector
-                    get_collector().on_write("experience", success=True)
-                except Exception:
-                    pass
-            provider = getattr(orchestrator, "memory_provider", None) or getattr(orchestrator, "_memory_provider", None)
+                record_experience_write_metric_safe()
+            provider = getattr(orchestrator, "memory_provider", None) or getattr(
+                orchestrator, "_memory_provider", None
+            )
             provider_synced = False
             provider_error = ""
             if provider is not None and hasattr(provider, "sync_turn"):
-                try:
-                    provider.sync_turn(public_user, public_assistant, session_id=session_id)
-                    provider_synced = True
-                except Exception as exc:
-                    provider_error = str(exc)
-                    logger.warning("Provider memory sync failed: %s", exc)
+                provider_synced, provider_error = provider_sync_turn_safe(
+                    provider,
+                    public_user,
+                    public_assistant,
+                    session_id=session_id,
+                )
         result = {
             "skipped": False,
             "experience_updates": updates,
@@ -173,25 +171,17 @@ def sync_turn_memory(
         if provider_error:
             result["provider_error"] = provider_error
         if not result.get("skipped"):
-            try:
-                from butler.core.post_commit import flush_after_commit
-
-                flush_after_commit()
-            except Exception as exc:
-                logger.debug("Post-commit flush skipped: %s", exc)
-        try:
-            from butler.memory.observer_queue import flush_observer_queue
-            from pathlib import Path
-
-            proj = orchestrator.project_manager.get_current(session_key=session_id)
-            if proj is not None:
-                flush_observer_queue(Path(proj.workspace))
-        except Exception as exc:
-            logger.debug("Observer queue flush skipped: %s", exc)
+            post_commit_flush_safe()
+        flush_observer_queue_safe(orchestrator, session_id=session_id)
         return result
-    except Exception as exc:
-        logger.warning("Memory sync failed: %s", exc)
-        return {"skipped": True, "reason": "error", "error": str(exc), "experience_updates": 0}
+
+    return sync_turn_memory_loud(
+        orchestrator,
+        user_msg,
+        assistant_msg,
+        session_id=session_id,
+        run_sync=_run_sync,
+    )
 
 
 # ── Lazy re-exports for backward compatibility ──────────────────────

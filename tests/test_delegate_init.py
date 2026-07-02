@@ -44,7 +44,7 @@ def test_init_dev_engine_registers_active_state():
         "butler.dev_engine.dev_loop.create_dev_state",
         return_value=ds,
     ), patch(
-        "butler.dev_engine.delegate_init._activate_coding_knowledge",
+        "butler.dev_engine.delegate_init_ops.activate_coding_knowledge_safe",
     ), patch(
         "butler.dev_engine.dev_tools._active_states",
         active,

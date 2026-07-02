@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import stat as stat_module
 import time
 from pathlib import Path
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 MAX_READ_FILE_BYTES = 1024 * 1024
 MAX_READ_FILE_LINES = 1000
@@ -258,17 +255,19 @@ def _atomic_write_text(
 
 
 def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
-    try:
+    from butler.tools.file_io_ops import record_read_path_safe, tool_json_loud
+
+    def _run() -> str:
         try:
-            offset = int(offset)
-            limit = int(limit)
+            off = int(offset)
+            lim = int(limit)
         except (TypeError, ValueError):
             return json.dumps({"error": "read_file offset and limit must be integers"})
-        if limit < 1 or limit > MAX_READ_FILE_LINES:
+        if lim < 1 or lim > MAX_READ_FILE_LINES:
             return json.dumps({
                 "error": f"read_file limit exceeds maximum ({MAX_READ_FILE_LINES} lines)"
             })
-        if offset < 1:
+        if off < 1:
             return json.dumps({"error": "read_file offset must be >= 1"})
 
         data, _p, _stat, error = _read_regular_file_bytes(path)
@@ -283,14 +282,14 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
         )
 
         if (
-            offset == 1
+            off == 1
             and len(lines) > read_summary_threshold_lines()
-            and limit >= 100
+            and lim >= 100
         ):
             summary = build_large_file_summary(str(path), lines)
             return format_summary_message(summary)
-        start = offset - 1
-        end = start + limit
+        start = off - 1
+        end = start + lim
         selected = lines[start:end]
         if _p is not None:
             from butler.core.hashline import format_read_output
@@ -312,7 +311,7 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
                 )
         if _p is not None and _stat is not None:
             from butler.core.read_state import record_read_state
-            from butler.execution_context import get_current_session_key
+            from butler.execution_context import get_current_orchestrator, get_current_session_key
 
             record_read_state(
                 _p,
@@ -320,27 +319,27 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
                 data,
                 session_key=str(get_current_session_key() or "").strip() or None,
             )
-            try:
-                from butler.core.instruction_walkup import record_read_path
-                from butler.execution_context import get_current_orchestrator
-
-                orch = get_current_orchestrator()
-                workspace_root = None
-                if orch is not None:
-                    pm = getattr(orch, "project_manager", None)
-                    proj = pm.get_current() if pm is not None else None
-                    if proj is not None:
-                        workspace_root = Path(proj.workspace)
-                record_read_path(_p, workspace_root=workspace_root)
-            except Exception as exc:
-                logger.debug("read path tracking skipped: %s", exc)
+            orch = get_current_orchestrator()
+            workspace_root = None
+            if orch is not None:
+                pm = getattr(orch, "project_manager", None)
+                proj = pm.get_current() if pm is not None else None
+                if proj is not None:
+                    workspace_root = Path(proj.workspace)
+            record_read_path_safe(_p, workspace_root=workspace_root)
         return body
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+
+    return tool_json_loud(_run)
 
 
 def _tool_write_file(path: str, content: str, **_) -> str:
-    try:
+    from butler.tools.file_io_ops import (
+        maybe_format_after_edit_safe,
+        record_edit_path_safe,
+        tool_json_loud,
+    )
+
+    def _run() -> str:
         from butler.core.read_state import require_read_before_edit
 
         guard = require_read_before_edit(path, for_write=True)
@@ -349,29 +348,20 @@ def _tool_write_file(path: str, content: str, **_) -> str:
         p, error = _atomic_write_text(path, content)
         if error:
             return json.dumps({"error": error})
-        try:
-            from butler.core.read_state import record_edit_path
-
-            record_edit_path(p)
-        except Exception as exc:
-            logger.debug("edit path tracking skipped: %s", exc)
+        record_edit_path_safe(p)
         payload: dict = {"success": True, "path": str(p), "bytes": len(content.encode("utf-8"))}
-        try:
-            from butler.core.post_edit_format import maybe_format_after_edit
-
-            fmt = maybe_format_after_edit(p)
-            if fmt:
-                payload["post_edit_format"] = fmt
-        except Exception as exc:
-            logger.debug("post-edit format skipped: %s", exc)
+        fmt = maybe_format_after_edit_safe(p)
+        if fmt:
+            payload["post_edit_format"] = fmt
         return json.dumps(payload)
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+
+    return tool_json_loud(_run)
 
 
 def _tool_delete_file(path: str, **_) -> str:
-    """Delete one regular file inside the tool-safe workspace."""
-    try:
+    from butler.tools.file_io_ops import tool_json_loud
+
+    def _run() -> str:
         _data, p, stat_result, error = _read_regular_file_bytes(path, for_write=True)
         if error:
             return json.dumps({"error": error})
@@ -394,12 +384,19 @@ def _tool_delete_file(path: str, **_) -> str:
             return json.dumps({"error": str(exc)})
 
         return json.dumps({"success": True, "path": str(p), "action": "deleted"})
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+
+    return tool_json_loud(_run)
 
 
 def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
-    try:
+    from butler.tools.file_io_ops import (
+        maybe_format_after_edit_safe,
+        record_edit_path_safe,
+        tool_json_loud,
+        verify_hashline_anchors_safe,
+    )
+
+    def _run() -> str:
         from butler.core.read_state import normalize_quotes, require_read_before_edit
 
         guard = require_read_before_edit(path, for_write=True)
@@ -409,15 +406,9 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
         if error:
             return json.dumps({"error": error})
         if _p is not None:
-            try:
-                from butler.core.hashline import extract_anchors_from_old_string, verify_line_anchors
-
-                anchors = extract_anchors_from_old_string(old_string)
-                mismatch = verify_line_anchors(_p, anchors)
-                if mismatch:
-                    return json.dumps(mismatch, ensure_ascii=False)
-            except Exception as exc:
-                logger.debug("hashline anchor verify skipped: %s", exc)
+            mismatch = verify_hashline_anchors_safe(_p, old_string)
+            if mismatch:
+                return json.dumps(mismatch, ensure_ascii=False)
         text = data.decode("utf-8", errors="replace")
         count = text.count(old_string)
         fuzzy = False
@@ -465,27 +456,16 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
         _written_path, write_error = _atomic_write_text(path, new_text, expected_stat=expected_stat)
         if write_error:
             return json.dumps({"error": write_error})
-        try:
-            from butler.core.read_state import record_edit_path
-
-            if _written_path is not None:
-                record_edit_path(_written_path)
-        except Exception as exc:
-            logger.debug("edit path tracking skipped: %s", exc)
+        record_edit_path_safe(_written_path)
         payload: dict[str, Any] = {"success": True, "replacements": 1}
         if _written_path is not None:
             payload["path"] = str(_written_path)
         if fuzzy:
             payload["fuzzy_quotes"] = True
         if _written_path is not None:
-            try:
-                from butler.core.post_edit_format import maybe_format_after_edit
-
-                fmt = maybe_format_after_edit(_written_path)
-                if fmt:
-                    payload["post_edit_format"] = fmt
-            except Exception as exc:
-                logger.debug("post-edit format skipped: %s", exc)
+            fmt = maybe_format_after_edit_safe(_written_path)
+            if fmt:
+                payload["post_edit_format"] = fmt
         return json.dumps(payload)
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+
+    return tool_json_loud(_run)

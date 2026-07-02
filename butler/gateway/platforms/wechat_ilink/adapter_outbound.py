@@ -25,44 +25,16 @@ async def maybe_fetch_typing_ticket(
     user_id: str,
     context_token: Optional[str],
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink import _get_config, _safe_id
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import fetch_typing_ticket_safe
 
-    if not adapter._poll_session or not adapter._token:
-        return
-    if adapter._typing_cache.get(user_id):
-        return
-    try:
-        response = await _get_config(
-            adapter._poll_session,
-            base_url=adapter._base_url,
-            token=adapter._token,
-            user_id=user_id,
-            context_token=context_token,
-        )
-        typing_ticket = str(response.get("typing_ticket") or "")
-        if typing_ticket:
-            adapter._typing_cache.set(user_id, typing_ticket)
-    except Exception as exc:
-        logger.debug("[%s] getConfig failed for %s: %s", adapter.name, _safe_id(user_id), exc)
+    await fetch_typing_ticket_safe(adapter, user_id, context_token)
 
 
 async def ensure_typing_ticket_for_event(adapter: "WeChatAdapter", event: Any) -> None:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import ensure_typing_ticket_safe
 
-    if not event.source:
-        return
-    chat_id = event.source.chat_id
     timeout = float_env("BUTLER_GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS", 2)
-    context_token = ""
-    raw = event.raw_message if isinstance(event.raw_message, dict) else {}
-    context_token = str(raw.get("context_token") or "").strip()
-    try:
-        await asyncio.wait_for(
-            maybe_fetch_typing_ticket(adapter, chat_id, context_token or None),
-            timeout=timeout,
-        )
-    except asyncio.TimeoutError:
-        logger.debug("[%s] typing ticket fetch timed out for %s", adapter.name, _safe_id(chat_id))
+    await ensure_typing_ticket_safe(adapter, event, timeout=timeout)
 
 
 def split_text(
@@ -125,42 +97,15 @@ async def send_text_chunk(
     context_token: Optional[str],
     client_id: str,
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink_phases import (
-        WeChatSendState,
-        _phase_chunk_attempt,
-        _phase_chunk_handle_response,
-    )
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_text_chunk_loud
 
-    last_error: Optional[Exception] = None
-    state = WeChatSendState()
-    for attempt in range(adapter._send_chunk_retries + 1):
-        try:
-            resp = await _phase_chunk_attempt(
-                adapter, chat_id=chat_id, chunk=chunk,
-                context_token=context_token, client_id=client_id,
-            )
-            action, new_token, err = _phase_chunk_handle_response(
-                adapter, resp, chat_id=chat_id,
-                context_token=context_token, state=state,
-            )
-            if action == "ok":
-                return
-            if action == "retry_without_token":
-                context_token = new_token
-            elif action == "raise":
-                raise err
-            elif action == "retry":
-                last_error = err
-                if attempt >= adapter._send_chunk_retries:
-                    break
-                await backoff_for_rate_limit(adapter, chat_id, attempt)
-        except Exception as exc:
-            last_error = exc
-            if attempt >= adapter._send_chunk_retries:
-                break
-            await backoff_for_transport_error(adapter, chat_id, attempt, exc)
-    assert last_error is not None
-    raise last_error
+    await send_text_chunk_loud(
+        adapter,
+        chat_id=chat_id,
+        chunk=chunk,
+        context_token=context_token,
+        client_id=client_id,
+    )
 
 
 async def send_message(
@@ -185,7 +130,9 @@ async def send_message(
     _, image_cleaned = adapter.extract_images(cleaned_content)
     local_files, final_content = adapter.extract_local_files(image_cleaned)
 
-    try:
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_message_loud
+
+    async def _run_send() -> SendResult:
         await _phase_send_attachments(
             adapter, media_files, local_files, chat_id, metadata,
         )
@@ -193,9 +140,8 @@ async def send_message(
             adapter, final_content, chat_id, context_token, metadata=metadata,
         )
         return SendResult(success=True, message_id=last_message_id)
-    except Exception as exc:
-        logger.error("[%s] send failed to=%s: %s", adapter.name, _safe_id(chat_id), exc)
-        return SendResult(success=False, error=str(exc))
+
+    return await send_message_loud(adapter, chat_id, run_send=_run_send)
 
 
 async def send_typing(
@@ -203,48 +149,32 @@ async def send_typing(
     chat_id: str,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink import _safe_id, _send_typing
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_typing_status_safe
     from butler.gateway.platforms.wechat_ilink.constants import TYPING_START
 
     del metadata
     if not adapter._send_session or not adapter._token:
         return
-    typing_ticket = adapter._typing_cache.get(chat_id)
-    if not typing_ticket:
-        return
-    try:
-        await _send_typing(
-            adapter._send_session,
-            base_url=adapter._base_url,
-            token=adapter._token,
-            to_user_id=chat_id,
-            typing_ticket=typing_ticket,
-            status=TYPING_START,
-        )
-    except Exception as exc:
-        logger.debug("[%s] typing start failed for %s: %s", adapter.name, _safe_id(chat_id), exc)
+    await send_typing_status_safe(
+        adapter,
+        chat_id,
+        status=TYPING_START,
+        label=f"adapter_outbound.typing_start.{adapter.name}",
+    )
 
 
 async def stop_typing(adapter: "WeChatAdapter", chat_id: str) -> None:
-    from butler.gateway.platforms.wechat_ilink import _safe_id, _send_typing
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_typing_status_safe
     from butler.gateway.platforms.wechat_ilink.constants import TYPING_STOP
 
     if not adapter._send_session or not adapter._token:
         return
-    typing_ticket = adapter._typing_cache.get(chat_id)
-    if not typing_ticket:
-        return
-    try:
-        await _send_typing(
-            adapter._send_session,
-            base_url=adapter._base_url,
-            token=adapter._token,
-            to_user_id=chat_id,
-            typing_ticket=typing_ticket,
-            status=TYPING_STOP,
-        )
-    except Exception as exc:
-        logger.debug("[%s] typing stop failed for %s: %s", adapter.name, _safe_id(chat_id), exc)
+    await send_typing_status_safe(
+        adapter,
+        chat_id,
+        status=TYPING_STOP,
+        label=f"adapter_outbound.typing_stop.{adapter.name}",
+    )
 
 
 async def send_image(
@@ -268,11 +198,10 @@ async def send_image(
     try:
         return await send_document(adapter, chat_id, file_path, caption=caption, metadata=metadata)
     finally:
-        if cleanup and file_path and os.path.exists(file_path):
-            try:
-                os.unlink(file_path)
-            except OSError:
-                pass
+        if cleanup:
+            from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import unlink_temp_file_safe
+
+            unlink_temp_file_safe(file_path)
 
 
 async def send_image_file(
@@ -304,17 +233,16 @@ async def send_document(
     metadata: Optional[Dict[str, Any]] = None,
     **kwargs,
 ) -> SendResult:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
-
     del file_name, reply_to, metadata, kwargs
     if not adapter._send_session or not adapter._token:
         return SendResult(success=False, error="Not connected")
-    try:
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_media_loud
+
+    async def _run_send() -> SendResult:
         message_id = await send_file(adapter, chat_id, file_path, caption or "")
         return SendResult(success=True, message_id=message_id)
-    except Exception as exc:
-        logger.error("[%s] send_document failed to=%s: %s", adapter.name, _safe_id(chat_id), exc)
-        return SendResult(success=False, error=str(exc))
+
+    return await send_media_loud(adapter, chat_id, label="send_document", run_send=_run_send)
 
 
 async def send_video(
@@ -325,16 +253,15 @@ async def send_video(
     reply_to: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> SendResult:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
-
     if not adapter._send_session or not adapter._token:
         return SendResult(success=False, error="Not connected")
-    try:
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_media_loud
+
+    async def _run_send() -> SendResult:
         message_id = await send_file(adapter, chat_id, video_path, caption or "")
         return SendResult(success=True, message_id=message_id)
-    except Exception as exc:
-        logger.error("[%s] send_video failed to=%s: %s", adapter.name, _safe_id(chat_id), exc)
-        return SendResult(success=False, error=str(exc))
+
+    return await send_media_loud(adapter, chat_id, label="send_video", run_send=_run_send)
 
 
 async def send_voice(
@@ -345,13 +272,13 @@ async def send_voice(
     reply_to: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> SendResult:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
-
     if not adapter._send_session or not adapter._token:
         return SendResult(success=False, error="Not connected")
 
     fallback_caption = caption or "[voice message as attachment]"
-    try:
+    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_media_loud
+
+    async def _run_send() -> SendResult:
         message_id = await send_file(
             adapter,
             chat_id,
@@ -360,9 +287,8 @@ async def send_voice(
             force_file_attachment=True,
         )
         return SendResult(success=True, message_id=message_id)
-    except Exception as exc:
-        logger.error("[%s] send_voice failed to=%s: %s", adapter.name, _safe_id(chat_id), exc)
-        return SendResult(success=False, error=str(exc))
+
+    return await send_media_loud(adapter, chat_id, label="send_voice", run_send=_run_send)
 
 
 def build_outbound_media_item(

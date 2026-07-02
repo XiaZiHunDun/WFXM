@@ -31,16 +31,13 @@ def _ensure_loop() -> asyncio.AbstractEventLoop:
         loop = asyncio.new_event_loop()
 
         def _run() -> None:
+            from butler.mcp.async_runner_ops import close_event_loop_safe
+
             asyncio.set_event_loop(loop)
             try:
                 loop.run_forever()
             finally:
-                # 兜底: run_until_complete 调用 run_forever 退出后,
-                # 关 loop 释放资源。
-                try:
-                    loop.close()
-                except Exception:
-                    pass
+                close_event_loop_safe(loop)
 
         _thread = threading.Thread(target=_run, daemon=True, name="butler-mcp-loop")
         _thread.start()
@@ -65,6 +62,11 @@ def shutdown_async_runner(*, timeout: float = 5.0) -> bool:
     Idempotent: safe to call multiple times; safe to call before
     ``_ensure_loop()`` was ever invoked.
     """
+    from butler.mcp.async_runner_ops import (
+        close_loop_if_open_safe,
+        drain_pending_tasks_safe,
+    )
+
     global _loop, _thread
     with _lock:
         if _loop is None or _thread is None:
@@ -72,13 +74,11 @@ def shutdown_async_runner(*, timeout: float = 5.0) -> bool:
         loop = _loop
         thread = _thread
 
-    # 1) Signal the loop to stop (thread-safe).
     try:
         loop.call_soon_threadsafe(loop.stop)
     except RuntimeError:
-        pass  # loop already closed
+        pass
 
-    # 2) Join the thread with timeout (keep globals until join completes).
     thread.join(timeout=timeout)
     joined = not thread.is_alive()
     if not joined:
@@ -88,27 +88,8 @@ def shutdown_async_runner(*, timeout: float = 5.0) -> bool:
             timeout,
         )
 
-    # 3) Cancel pending tasks and close the loop.
-    try:
-        pending = [t for t in asyncio.all_tasks(loop=loop) if not t.done()]
-        for task in pending:
-            task.cancel()
-        if pending:
-            # Loop is no longer running (thread exited), so we must run
-            # a short coroutine to drain cancellations.
-            try:
-                loop.run_until_complete(
-                    asyncio.gather(*pending, return_exceptions=True)
-                )
-            except Exception as exc:
-                logger.debug("async_runner task drain error: %s", exc)
-    except Exception as exc:
-        logger.debug("async_runner task cancel error: %s", exc)
-    try:
-        if not loop.is_closed():
-            loop.close()
-    except Exception as exc:
-        logger.debug("async_runner loop close error: %s", exc)
+    drain_pending_tasks_safe(loop)
+    close_loop_if_open_safe(loop)
 
     if joined:
         with _lock:
@@ -120,16 +101,9 @@ def shutdown_async_runner(*, timeout: float = 5.0) -> bool:
 
 def _disconnect_mcp_connections() -> None:
     """Run MCP transport cleanup while the dedicated loop is still alive."""
-    try:
-        from butler.mcp.config import mcp_enabled
+    from butler.mcp.async_runner_ops import disconnect_mcp_connections_safe
 
-        if not mcp_enabled():
-            return
-        from butler.mcp.manager import get_manager
-
-        get_manager().disconnect_all()
-    except Exception as exc:
-        logger.debug("MCP disconnect during shutdown: %s", exc)
+    disconnect_mcp_connections_safe()
 
 
 def graceful_shutdown_mcp_stack(*, timeout: float = 5.0) -> bool:
@@ -152,16 +126,14 @@ def _register_signal_shutdown() -> None:
         _signal_registered = True
 
     def _handler(signum: int, frame: Any) -> None:
-        try:
-            graceful_shutdown_mcp_stack(timeout=5.0)
-        except Exception as exc:
-            logger.debug("async_runner signal shutdown error: %s", exc)
+        from butler.mcp.async_runner_ops import (
+            chain_signal_handler_safe,
+            signal_shutdown_safe,
+        )
+
+        signal_shutdown_safe()
         prev = _prev_signal_handlers.get(signum)
-        if callable(prev) and prev not in (signal.SIG_DFL, signal.SIG_IGN):
-            try:
-                prev(signum, frame)
-            except Exception as exc:
-                logger.debug("async_runner chained signal handler error: %s", exc)
+        chain_signal_handler_safe(prev, signum, frame)
 
     for sig_name in ("SIGTERM", "SIGINT"):
         sig = getattr(signal, sig_name, None)
@@ -179,13 +151,6 @@ def _atexit_shutdown() -> None:
 
     用较短的 timeout (2s) 因为 atexit 阶段不应长时间阻塞进程退出。
     """
-    try:
-        global _shutdown_done
-        with _shutdown_once:
-            if _shutdown_done:
-                return
-            _shutdown_done = True
-        _disconnect_mcp_connections()
-        shutdown_async_runner(timeout=2.0)
-    except Exception as exc:
-        logger.debug("async_runner atexit shutdown error: %s", exc)
+    from butler.mcp.async_runner_ops import atexit_shutdown_safe
+
+    atexit_shutdown_safe()
