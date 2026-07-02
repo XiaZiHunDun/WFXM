@@ -82,7 +82,10 @@ def _get_token_counter():
     if mode.startswith("tiktoken"):
         parts = mode.split(":", 1)
         encoding_name = parts[1] if len(parts) > 1 else "o200k_base"
-        try:
+
+        from butler.core.best_effort import safe_best_effort
+
+        def _init_tiktoken():
             import tiktoken
 
             enc = tiktoken.get_encoding(encoding_name)
@@ -93,10 +96,17 @@ def _get_token_counter():
             _token_counter_cache[mode] = _tiktoken_count
             logger.info("Token counter: tiktoken/%s", encoding_name)
             return _tiktoken_count
-        except ImportError:
-            logger.warning("tiktoken not installed; falling back to heuristic. Install: pip install tiktoken")
-        except Exception as exc:
-            logger.warning("tiktoken init failed (%s); falling back to heuristic", exc)
+
+        counter = safe_best_effort(
+            _init_tiktoken,
+            label="context_compressor.tiktoken_init",
+            default=None,
+        )
+        if counter is not None:
+            return counter
+        logger.warning(
+            "tiktoken unavailable; falling back to heuristic. Install: pip install tiktoken"
+        )
 
     return _heuristic_count
 

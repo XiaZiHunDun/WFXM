@@ -6,6 +6,16 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from butler.core.best_effort import safe_best_effort
+from butler.memory.diagnostics_collect import (
+    collect_embedding_snapshot_stats,
+    collect_experience_vector_drift,
+    collect_project_memory_stats,
+    collect_retrieval_telemetry,
+    collect_scope_stats,
+    collect_semantic_vector_stats,
+    collect_transcript_fts_stats,
+)
 from butler.session.lifecycle import CONVERSATION_CATEGORY
 import logging
 
@@ -41,7 +51,7 @@ def _experience_category_counts(db_path: Any) -> dict[str, int]:
         ).fetchall()
         conn.close()
         return {str(cat or ""): int(n) for cat, n in rows}
-    except Exception:
+    except sqlite3.Error:
         return {}
 
 
@@ -51,10 +61,11 @@ def _resolve_project_memory(orchestrator: Any, session_key: str = ""):
     proj = None
     pman = getattr(orchestrator, "project_manager", None)
     if pman is not None:
-        try:
-            proj = pman.get_current(session_key=session_key or "")
-        except Exception:
-            proj = None
+        proj = safe_best_effort(
+            lambda: pman.get_current(session_key=session_key or ""),
+            label="memory_diag.current_project",
+            default=None,
+        )
     if proj is not None:
         from butler.memory.project_memory import ProjectMemory
 
@@ -118,41 +129,16 @@ def collect_memory_layer_stats(
         sem = getattr(bm, "semantic", None)
         if sem is not None:
             stats["semantic_enabled"] = True
-            try:
-                stats["vector_rows"] = sem.count_rows()
-                stats["vector_model"] = getattr(sem, "model_id", "") or ""
-                from butler.memory.semantic_index import SOURCE_OWNER_PROFILE
-
-                stats["profile_vector_rows"] = sem.count_by_source(
-                    SOURCE_OWNER_PROFILE
-                )
-            except Exception as exc:
-                logger.debug("collect memory layer stats skipped: %s", exc)
-            # Audit R2-3: surface embedding provider degradation.
-            # When the configured embedder failed and fell back to local
-            # hashing, the embedder instance carries `degraded=True` plus the
-            # user-requested provider/model. /诊断 needs this so the user/LLM
-            # can see "嵌入质量降级: 请求 X → 实际 Y".
-            embedder = getattr(sem, "embedder", None)
-            if embedder is not None:
-                stats["embedding_degraded"] = bool(
-                    getattr(embedder, "degraded", False)
-                )
-                stats["embedding_requested_provider"] = str(
-                    getattr(embedder, "requested_provider", "") or ""
-                )
-                stats["embedding_requested_model"] = str(
-                    getattr(embedder, "requested_model", "") or ""
-                )
-                stats["embedding_used_model"] = str(
-                    getattr(embedder, "model_id", "") or ""
-                )
+            stats.update(collect_semantic_vector_stats(sem))
         tri = bm.triplet_index() if hasattr(bm, "triplet_index") else None
         if tri is not None:
-            try:
-                stats["triplet_rows"] = tri.count()
-            except Exception as exc:
-                logger.debug("collect memory layer stats skipped: %s", exc)
+            count = safe_best_effort(
+                tri.count,
+                label="memory_diag.triplet_count",
+                default=None,
+            )
+            if count is not None:
+                stats["triplet_rows"] = count
         exp = getattr(bm, "experience", None)
         if exp is not None:
             by_cat = _experience_category_counts(getattr(exp, "db_path", None))
@@ -162,109 +148,34 @@ def collect_memory_layer_stats(
                 n for k, n in by_cat.items() if k != CONVERSATION_CATEGORY
             )
             if stats.get("semantic_enabled") and sem is not None:
-                try:
-                    from butler.memory.semantic_index import SOURCE_EXPERIENCE
-                    from butler.memory.semantic_health import experience_vector_drift
-
-                    vec_exp = sem.count_by_source(SOURCE_EXPERIENCE)
-                    drift = experience_vector_drift(
+                stats.update(
+                    collect_experience_vector_drift(
+                        sem,
                         experience_long_term=stats["experience_long_term"],
-                        experience_vectors=vec_exp,
                     )
-                    stats.update(drift)
-                except Exception as exc:
-                    logger.debug("collect memory layer stats skipped: %s", exc)
+                )
 
     pm, proj_name = _resolve_project_memory(orchestrator, session_key)
     if pm is not None:
-        stats["project_name"] = proj_name
+        stats.update(collect_project_memory_stats(pm, proj_name))
         bm2 = getattr(orchestrator, "butler_memory", None)
         if bm2 is not None and hasattr(bm2, "triplet_index"):
             tri2 = bm2.triplet_index()
             if tri2 is not None:
-                try:
-                    stats["triplet_rows"] = tri2.count(project=proj_name or None)
-                except Exception as exc:
-                    logger.debug("collect memory layer stats skipped: %s", exc)
-        md = getattr(pm, "markdown", None)
-        if md is not None:
-            try:
-                stats["project_pending"] = len(md.list_pending())
-            except Exception:
-                stats["project_pending"] = 0
-            try:
-                sections = md.get_all_sections()
-                bullets = 0
-                chars = 0
-                for name, body in sections.items():
-                    if name == "Pending":
-                        continue
-                    for line in (body or "").splitlines():
-                        if line.strip().startswith("- "):
-                            bullets += 1
-                            chars += len(line)
-                stats["project_bullets"] = bullets
-                stats["project_chars"] = chars
-            except Exception as exc:
-                logger.debug("collect memory layer stats skipped: %s", exc)
-        facts_store = getattr(pm, "facts", None)
-        if facts_store is not None:
-            try:
-                from butler.memory.knowledge_db import ProjectKnowledgeDb
-
-                kdb = ProjectKnowledgeDb(
-                    ProjectKnowledgeDb.path_for_memory_dir(facts_store.path.parent)
+                count = safe_best_effort(
+                    lambda: tri2.count(project=proj_name or None),
+                    label="memory_diag.project_triplet_count",
+                    default=None,
                 )
-                stats["knowledge_db_keys"] = kdb.count_keys()
-            except Exception as exc:
-                logger.debug("collect memory layer stats skipped: %s", exc)
+                if count is not None:
+                    stats["triplet_rows"] = count
     if session_key:
-        try:
-            from butler.memory.retrieval_telemetry import (
-                get_last_retrieval,
-                get_last_retrieval_by_scope,
-            )
-
-            by_scope = get_last_retrieval_by_scope(session_key)
-            if by_scope:
-                stats["rag_by_scope"] = by_scope
-            last = get_last_retrieval(session_key)
-            if last:
-                stats["rag_last_mode"] = str(last.get("mode") or "")
-                stats["rag_last_fallbacks"] = int(last.get("fallbacks") or 0)
-                stats["rag_last_candidates"] = int(last.get("candidates") or 0)
-                stats["rag_last_query"] = str(last.get("query") or "")
-                # Audit R2-2: surface recall-quality collapse to /诊断.
-                stats["rag_last_recall_degraded"] = bool(last.get("recall_degraded"))
-                if last.get("sub_query_count"):
-                    stats["rag_last_sub_queries"] = int(last.get("sub_query_count") or 0)
-        except Exception as exc:
-            logger.debug("collect memory layer stats skipped: %s", exc)
-    try:
-        from butler.config import get_butler_home
-        from butler.memory.scope_diagnostics import collect_memory_scope_stats
-
-        scope_stats = collect_memory_scope_stats(
-            butler_home=get_butler_home(),
-            project_name=str(stats.get("project_name") or ""),
-        )
-        stats["memory_scope"] = scope_stats
-    except Exception as exc:
-        logger.debug("collect memory scope stats skipped: %s", exc)
-    try:
-        from butler.ops.transcript_diagnostics import transcript_fts_drift
-
-        stats.update(transcript_fts_drift(session_key=session_key))
-    except Exception as exc:
-        logger.debug("collect transcript fts drift skipped: %s", exc)
-    try:
-        from butler.ops.embedding_diagnostics import collect_embedding_snapshot
-
-        stats["embedding_snapshot"] = collect_embedding_snapshot(
-            vector_rows=int(stats.get("vector_rows") or 0),
-        )
-    except Exception as exc:
-        logger.debug("collect embedding snapshot skipped: %s", exc)
+        stats.update(collect_retrieval_telemetry(session_key))
+    stats.update(collect_scope_stats(str(stats.get("project_name") or "")))
+    stats.update(collect_transcript_fts_stats(session_key))
+    stats.update(
+        collect_embedding_snapshot_stats(int(stats.get("vector_rows") or 0))
+    )
     return stats
 
 
@@ -277,27 +188,29 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         from butler.memory_settings import format_memory_config_source_line
 
         config_line = format_memory_config_source_line()
-    except Exception as exc:
-        logger.debug("format memory config source skipped: %s", exc)
+    except ImportError:
         config_line = ""
 
     lines: list[str] = []
     if config_line:
         lines.append(config_line)
-    try:
+    def _embedding_status_line() -> str:
         from butler.ops.embedding_diagnostics import format_embedding_status_line
 
         snap = stats.get("embedding_snapshot")
         if isinstance(snap, dict):
-            lines.append(format_embedding_status_line(snap))
-        else:
-            lines.append(
-                format_embedding_status_line(
-                    vector_rows=int(stats.get("vector_rows") or 0),
-                )
-            )
-    except Exception as exc:
-        logger.debug("format embedding status skipped: %s", exc)
+            return format_embedding_status_line(snap)
+        return format_embedding_status_line(
+            vector_rows=int(stats.get("vector_rows") or 0),
+        )
+
+    embedding_line = safe_best_effort(
+        _embedding_status_line,
+        label="memory_diag.format_embedding_status",
+        default=None,
+    )
+    if embedding_line:
+        lines.append(embedding_line)
     lines.extend(
         [
             "记忆分层:",
@@ -333,12 +246,18 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
             if stats.get("semantic_index_stale"):
                 sync_line += " — 陈旧，建议 butler memory reindex"
             lines.append(sync_line)
-        try:
+        def _vector_sync_lines() -> list[str]:
             from butler.memory.vector_sync_telemetry import format_vector_sync_lines
 
-            lines.extend(format_vector_sync_lines())
-        except Exception as exc:
-            logger.debug("format vector sync lines skipped: %s", exc)
+            return format_vector_sync_lines()
+
+        vector_lines = safe_best_effort(
+            _vector_sync_lines,
+            label="memory_diag.vector_sync_lines",
+            default=[],
+        )
+        if vector_lines:
+            lines.extend(vector_lines)
     else:
         lines.append("  向量索引: 关 (BUTLER_SEMANTIC_MEMORY=0)")
     if stats.get("embedding_degraded") or (
@@ -353,23 +272,12 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         if stats.get("transcript_fts_stale"):
             tline += " — 陈旧，建议 butler transcript index --rebuild"
         lines.append(tline)
-    try:
-        from butler.memory.retrieval_ranking import (
-            memory_access_boost,
-            memory_half_life_days,
-        )
-
-        lines.append(
-            f"  检索衰减: 半衰期 {memory_half_life_days():.0f} 天, "
-            f"访问加权 {memory_access_boost():.2f}"
-        )
-        from butler.memory.semantic_config import hybrid_fts_weight, hybrid_vector_weight
-
-        lines.append(
-            f"  混合检索权重: 向量 {hybrid_vector_weight():.2f} / FTS {hybrid_fts_weight():.2f}"
-        )
-    except Exception as exc:
-        logger.debug("format memory diagnostic lines skipped: %s", exc)
+    ranking_lines = safe_best_effort(
+        lambda: _format_retrieval_ranking_lines(),
+        label="memory_diag.retrieval_ranking",
+        default=[],
+    )
+    lines.extend(ranking_lines or [])
     from butler.memory.prefetch_cache import queue_prefetch_enabled
 
     lines.append(
@@ -393,22 +301,44 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
     mode = stats.get("memory_project_prefetch_mode")
     if mode:
         lines.append(f"  项目预取模式: {mode}")
-    try:
-        from butler.memory.metrics_persist import format_effectiveness_lines
-
-        eff = format_effectiveness_lines()
-        if eff:
-            lines.append("")
-            lines.extend(eff)
-    except Exception as exc:
-        logger.debug("format memory diagnostic lines skipped: %s", exc)
+    eff_lines = safe_best_effort(
+        lambda: _format_effectiveness_lines(),
+        label="memory_diag.effectiveness",
+        default=[],
+    )
+    if eff_lines:
+        lines.append("")
+        lines.extend(eff_lines)
     scope = stats.get("memory_scope")
     if scope:
-        lines.append("")
-        try:
+        def _scope_lines() -> list[str]:
             from butler.memory.scope_diagnostics import format_memory_scope_diagnostic_lines
 
-            lines.extend(format_memory_scope_diagnostic_lines(scope))
-        except Exception as exc:
-            logger.debug("format memory scope lines skipped: %s", exc)
+            return format_memory_scope_diagnostic_lines(scope)
+
+        scope_lines = safe_best_effort(
+            _scope_lines,
+            label="memory_diag.scope_lines",
+            default=[],
+        )
+        if scope_lines:
+            lines.append("")
+            lines.extend(scope_lines)
     return lines
+
+
+def _format_retrieval_ranking_lines() -> list[str]:
+    from butler.memory.retrieval_ranking import memory_access_boost, memory_half_life_days
+    from butler.memory.semantic_config import hybrid_fts_weight, hybrid_vector_weight
+
+    return [
+        f"  检索衰减: 半衰期 {memory_half_life_days():.0f} 天, "
+        f"访问加权 {memory_access_boost():.2f}",
+        f"  混合检索权重: 向量 {hybrid_vector_weight():.2f} / FTS {hybrid_fts_weight():.2f}",
+    ]
+
+
+def _format_effectiveness_lines() -> list[str]:
+    from butler.memory.metrics_persist import format_effectiveness_lines
+
+    return format_effectiveness_lines()

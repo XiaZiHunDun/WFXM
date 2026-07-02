@@ -10,6 +10,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol
 
+from butler.core.best_effort import async_safe_best_effort, safe_best_effort
+
 logger = logging.getLogger(__name__)
 
 _thread_bridge = threading.local()
@@ -198,10 +200,11 @@ class GatewayOutboundBridge:
 
         ensure = getattr(self, "_ensure_typing", None)
         if callable(ensure):
-            try:
-                await ensure()
-            except Exception as exc:
-                logger.debug("typing ticket ensure failed: %s", exc)
+            await async_safe_best_effort(
+                ensure,
+                label="outbound_bridge.ensure_typing",
+                default=None,
+            )
 
         if self.typing_enabled:
             await self._safe_send_typing()
@@ -216,7 +219,7 @@ class GatewayOutboundBridge:
                 name=f"butler-ack-{self.chat_id[:8]}",
             )
 
-        try:
+        def _start_milestone_timer() -> None:
             from butler.gateway.task_milestone import task_milestone_enabled
 
             if task_milestone_enabled():
@@ -224,8 +227,12 @@ class GatewayOutboundBridge:
                     self._milestone_timer(),
                     name=f"butler-milestone-{self.chat_id[:8]}",
                 )
-        except Exception as exc:
-            logger.debug("start turn skipped: %s", exc)
+
+        safe_best_effort(
+            _start_milestone_timer,
+            label="outbound_bridge.milestone_timer",
+            default=None,
+        )
     async def end_turn(self) -> None:
         if self._closed:
             return
@@ -279,20 +286,27 @@ class GatewayOutboundBridge:
             logger.debug("outbound bridge loop closed; drop event")
 
     def record_outbound_event(self, event: Any) -> None:
-        try:
-            payload = event.to_dict() if hasattr(event, "to_dict") else dict(event)
-        except Exception:
+        payload = safe_best_effort(
+            lambda: event.to_dict() if hasattr(event, "to_dict") else dict(event),
+            label="outbound_bridge.event_payload",
+            default=None,
+        )
+        if payload is None:
             return
         self._outbound_events.append(payload)
         if len(self._outbound_events) > 24:
             self._outbound_events.pop(0)
         if payload.get("kind") == "thread_item":
-            try:
+            def _record_thread_item() -> None:
                 from butler.gateway.item_event_sink import record_thread_item
 
                 record_thread_item(payload)
-            except Exception as exc:
-                logger.debug("record outbound event skipped: %s", exc)
+
+            safe_best_effort(
+                _record_thread_item,
+                label="outbound_bridge.record_thread_item",
+                default=None,
+            )
     def recent_outbound_events(self) -> list[dict[str, Any]]:
         return list(self._outbound_events)
 
@@ -577,12 +591,17 @@ class GatewayOutboundBridge:
             await self.adapter.send(self.chat_id, text)
             self._ack_sent = True
             logger.info("Gateway progress ack sent chat_id=%s elapsed=%ds", self.chat_id, elapsed)
-            try:
+
+            def _schedule_task_milestone() -> None:
                 from butler.gateway.task_milestone import maybe_schedule_task_milestone
 
                 maybe_schedule_task_milestone(self)
-            except Exception as exc:
-                logger.debug("maybe send ack skipped: %s", exc)
+
+            safe_best_effort(
+                _schedule_task_milestone,
+                label="outbound_bridge.task_milestone_after_ack",
+                default=None,
+            )
         except Exception as exc:
             logger.warning("Gateway progress ack failed: %s", exc)
 
@@ -660,16 +679,24 @@ class GatewayOutboundBridge:
             raise
 
     async def _safe_send_typing(self) -> None:
-        try:
+        async def _run() -> None:
             await self.adapter.send_typing(self.chat_id)
-        except Exception as exc:
-            logger.debug("send_typing failed: %s", exc)
+
+        await async_safe_best_effort(
+            _run,
+            label="outbound_bridge.send_typing",
+            default=None,
+        )
 
     async def _safe_stop_typing(self) -> None:
-        try:
+        async def _run() -> None:
             await self.adapter.stop_typing(self.chat_id)
-        except Exception as exc:
-            logger.debug("stop_typing failed: %s", exc)
+
+        await async_safe_best_effort(
+            _run,
+            label="outbound_bridge.stop_typing",
+            default=None,
+        )
 
 
 # Backward-compatible re-export of ``merge_loop_callbacks``.
