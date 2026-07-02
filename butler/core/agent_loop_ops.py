@@ -58,11 +58,14 @@ def emit_skipped_plugin_metric(label: str) -> None:
 def maybe_compact_turn_safe(loop: Any, state: Any) -> bool:
     from butler.core.agent_loop_phases import _phase_maybe_compact_turn
 
-    try:
-        return bool(_phase_maybe_compact_turn(loop, state))
-    except Exception as exc:
-        loop._record_skipped_plugin("compact_turn", exc)
-        return False
+    return bool(
+        run_plugin_step(
+            loop,
+            "compact_turn",
+            lambda: _phase_maybe_compact_turn(loop, state),
+            default=False,
+        )
+    )
 
 
 def run_stop_hooks_safe(
@@ -86,11 +89,7 @@ def run_stop_hooks_safe(
             elapsed_seconds=time.time() - start_time,
         )
 
-    try:
-        return _run()
-    except Exception as exc:
-        loop._record_skipped_plugin("stop_hooks", exc)
-        return None
+    return run_plugin_step(loop, "stop_hooks", _run, default=None)
 
 
 def record_provider_failure_safe(loop: Any) -> None:
@@ -102,10 +101,7 @@ def record_provider_failure_safe(loop: Any) -> None:
             getattr(loop.client, "model", "") or "",
         )
 
-    try:
-        _run()
-    except Exception as exc:
-        loop._record_skipped_plugin("provider_failure_recording", exc)
+    run_plugin_step(loop, "provider_failure_recording", _run, default=None)
 
 
 def refresh_model_binding_safe(loop: Any) -> None:
@@ -114,20 +110,17 @@ def refresh_model_binding_safe(loop: Any) -> None:
 
         refresh_model_binding(loop)
 
-    try:
-        _run()
-    except Exception as exc:
-        loop._record_skipped_plugin("refresh_model_binding", exc)
+    run_plugin_step(loop, "refresh_model_binding", _run, default=None)
 
 
 def run_after_tools_plugins_safe(loop: Any, stats: Any) -> None:
-    try:
+    def _run() -> None:
         loop._messages[:] = loop._plugins.after_tools(
             loop._messages,
             tool_stats=stats,
         )
-    except Exception as exc:
-        loop._record_skipped_plugin("after_tools_middleware", exc)
+
+    run_plugin_step(loop, "after_tools_middleware", _run, default=None)
 
 
 def apply_reflexion_safe(loop: Any) -> None:
@@ -147,10 +140,7 @@ def apply_reflexion_safe(loop: Any) -> None:
             failure_count=int(worst_n),
         )
 
-    try:
-        _run()
-    except Exception as exc:
-        loop._record_skipped_plugin("reflexion_apply", exc)
+    run_plugin_step(loop, "reflexion_apply", _run, default=None)
 
 
 def run_plugin_step(loop: Any, label: str, fn: Callable[[], Any], *, default: Any = None) -> Any:

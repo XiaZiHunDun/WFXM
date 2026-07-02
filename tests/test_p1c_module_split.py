@@ -63,9 +63,11 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/memory/embedding_ops.py": 85,
     "butler/tools/delegate_report_ops.py": 110,
     "butler/extensions/opencode_ops.py": 120,
+    "butler/tools/builtin_register_ops.py": 100,
     "butler/gateway/outbound_bridge_ops.py": 120,
     "butler/memory/facade_ops.py": 300,
-    "butler/permissions/rules_fail_closed.py": 130,
+    "butler/permissions/rules_fail_closed.py": 25,
+    "butler/permissions/rules_fail_closed_ops.py": 130,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150
