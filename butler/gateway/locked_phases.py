@@ -390,15 +390,9 @@ def _phase_hygiene_compress(
             if str(k).startswith(("hygiene_", "context_"))
         })
 
-    def _run() -> None:
-        try:
-            _compress()
-        except Exception as exc:
-            state.health["hygiene_error"] = str(exc)
-            logger.warning("Gateway hygiene compression skipped: %s", exc)
-            raise
+    from butler.gateway.locked_phases_ops import run_hygiene_compress
 
-    safe_best_effort(_run, label="locked_phases.hygiene_compress")
+    run_hygiene_compress(state, _compress)
 
 
 def _chain_callbacks(base: Any, extra: Any) -> Any:
@@ -791,36 +785,7 @@ def _phase_format_turn_response(
 # ---------------------------------------------------------------------------
 
 def _phase_format_error_card(exc: BaseException, turn_elapsed: float) -> Optional[str]:
-    """Phase: build a structured error card for the failure reply.
+    """Phase: build a structured error card for the failure reply."""
+    from butler.gateway.locked_phases_ops import format_gateway_error_card
 
-    Returns ``None`` when the renderer itself fails (caller falls back
-    to ``format_gateway_user_error``). Audit R2-16: the previous
-    ``except Exception: return None`` was completely silent — if the
-    error-card renderer itself broke, operators had no signal. We now
-    log at ERROR with full traceback so the failure is visible while
-    preserving the caller's fallback contract.
-    """
-    try:
-        from butler.gateway.error_cards import format_error_card
-
-        exc_type = type(exc).__name__
-        if "timeout" in exc_type.lower() or "Timeout" in exc_type:
-            return format_error_card(
-                "delegate_timeout",
-                role="agent",
-                elapsed=round(turn_elapsed),
-            )
-        if "Permission" in exc_type:
-            return format_error_card(
-                "permission_deny",
-                tool="message_handler",
-                reason=str(exc)[:200],
-            )
-        return format_error_card(
-            "tool_error",
-            tool="message_handler",
-            error=str(exc),
-        )
-    except Exception:
-        logger.error("error card formatting failed", exc_info=True)
-        return None
+    return format_gateway_error_card(exc, turn_elapsed)

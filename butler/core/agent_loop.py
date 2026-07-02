@@ -41,9 +41,20 @@ from butler.core.agent_loop_phases import (  # noqa: E402 — split import
     _phase_dispatch_tools,
     _phase_finalize,
     _phase_init,
-    _phase_maybe_compact_turn,
     _phase_resolve_user_text,
     _phase_enrich_user_text,
+)
+
+from butler.core.agent_loop_ops import (
+    apply_reflexion_safe,
+    doom_loop_block_on_ask,
+    emit_skipped_plugin_metric,
+    filter_fallback_chain_safe,
+    maybe_compact_turn_safe,
+    record_provider_failure_safe,
+    refresh_model_binding_safe,
+    run_after_tools_plugins_safe,
+    run_stop_hooks_safe,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,36 +65,6 @@ logger = logging.getLogger(__name__)
 # payload under the typical MCP/JSON envelope limit.
 _MAX_SKIPPED_PLUGIN_ENTRIES = 50
 _MAX_SKIPPED_PLUGIN_ERROR_LEN = 200
-
-
-def _doom_loop_block_on_ask(
-    decision: GuardrailDecision,
-    tool_name: str,
-    args: dict,
-) -> str | None:
-    """Resolve doom-loop ask-mode for a prefetched tool call.
-
-    Returns a synthetic_result JSON (blocked) when the user has not approved the
-    call, and ``None`` when the call is approved and should be dispatched.
-    Fails CLOSED: any exception raised while checking the approval cache is
-    logged and treated as a block rather than silently allowed.
-    """
-    try:
-        from butler.permissions.doom_loop import check_doom_loop_ask
-
-        if check_doom_loop_ask(decision, tool_name, args):
-            from butler.tool_guardrails import synthetic_result
-
-            return synthetic_result(decision)
-    except Exception:
-        logger.exception(
-            "Doom-loop ask check failed; failing closed (synthetic block) for %s",
-            tool_name,
-        )
-        from butler.tool_guardrails import synthetic_result
-
-        return synthetic_result(decision)
-    return None
 
 
 class AgentLoop:
@@ -118,12 +99,7 @@ class AgentLoop:
         self._thread_id: int | None = None
         self.diagnostics: dict[str, Any] = {}
         _chain = list(self.config.fallback_entries or [])
-        try:
-            from butler.transport.provider_health import filter_fallback_chain
-
-            _chain = filter_fallback_chain(_chain)
-        except Exception as exc:
-            self._record_skipped_plugin("fallback_chain_filter", exc)
+        _chain = filter_fallback_chain_safe(_chain)
         self._fallback_chain: list[FallbackEntry] = _chain
         self._fallback_index = 0
         self._primary_client: LLMClient | None = None
@@ -204,12 +180,7 @@ class AgentLoop:
         label = f"agent_loop.{plugin_name}"
         logger.error("%s skipped: %s", plugin_name, exc, exc_info=exc)
         record_best_effort_skip(label, exc)
-        try:
-            from butler.ops.runtime_metrics import inc
-
-            inc("best_effort_skip", labels={"path": label[:48]})
-        except Exception:
-            pass
+        emit_skipped_plugin_metric(label)
         bucket = self.diagnostics.setdefault("skipped", [])
         bucket.append({
             "plugin": plugin_name,
@@ -333,11 +304,8 @@ class AgentLoop:
                 from butler.core.delegate_context import set_parent_messages
 
                 set_parent_messages(self._messages)
-                try:
-                    if _phase_maybe_compact_turn(self, state):
-                        continue
-                except Exception as exc:
-                    self._record_skipped_plugin("compact_turn", exc)
+                if maybe_compact_turn_safe(self, state):
+                    continue
                 response = _phase_call_llm(self, state)
                 if response is None:
                     break
@@ -362,19 +330,14 @@ class AgentLoop:
         final_text: str,
     ) -> bool:
         """Run Stop hooks inside the loop; return True if continuation was injected."""
-        try:
-            from butler.hooks.runner import run_stop_hooks
-
-            stop_hooks = run_stop_hooks(
-                status=LoopStatus.RUNNING.value,
-                last_assistant_message=final_text,
-                session_key=steer_session,
-                iterations=iteration,
-                tool_calls=self._tool_calls_count,
-                elapsed_seconds=time.time() - start_time,
-            )
-        except Exception as exc:
-            self._record_skipped_plugin("stop_hooks", exc)
+        stop_hooks = run_stop_hooks_safe(
+            self,
+            steer_session=steer_session,
+            iteration=iteration,
+            start_time=start_time,
+            final_text=final_text,
+        )
+        if stop_hooks is None:
             return False
 
         if stop_hooks.additional_context:
@@ -470,17 +433,12 @@ class AgentLoop:
         return self._plugins.before_model(prepared)
 
     def _try_activate_fallback(self) -> bool:
+        from butler.transport.provider_health import is_circuit_open
+
         if not self._fallback_chain:
             return False
-        from butler.transport.provider_health import is_circuit_open, record_provider_failure
 
-        try:
-            record_provider_failure(
-                getattr(self.client, "provider", "") or "",
-                getattr(self.client, "model", "") or "",
-            )
-        except Exception as exc:
-            self._record_skipped_plugin("provider_failure_recording", exc)
+        record_provider_failure_safe(self)
         while self._fallback_index < len(self._fallback_chain) - 1:
             self._fallback_index += 1
             entry = self._fallback_chain[self._fallback_index]
@@ -488,12 +446,7 @@ class AgentLoop:
                 continue
             self.client = create_client_from_entry(entry)
             logger.info("Fallback activated: %s/%s", entry.provider, entry.model)
-            try:
-                from butler.core.context_transform_registry import refresh_model_binding
-
-                refresh_model_binding(self)
-            except Exception as exc:
-                self._record_skipped_plugin("refresh_model_binding", exc)
+            refresh_model_binding_safe(self)
             if self.callbacks.on_fallback:
                 self.callbacks.on_fallback(entry.provider, entry.model)
             return True
@@ -524,7 +477,7 @@ class AgentLoop:
 
                     before = self._guardrails.before_call(name, args)
                     if before.action == "ask" and before.code == "doom_loop":
-                        blocked = _doom_loop_block_on_ask(before, name, args)
+                        blocked = doom_loop_block_on_ask(before, name, args)
                         if blocked is not None:
                             prefetch[key] = blocked
                             return
@@ -571,27 +524,8 @@ class AgentLoop:
                 name = getattr(tc, "name", "") or ""
                 if name and name not in used:
                     used.append(name)
-        try:
-            self._messages[:] = self._plugins.after_tools(
-                self._messages,
-                tool_stats=stats,
-            )
-        except Exception as exc:
-            self._record_skipped_plugin("after_tools_middleware", exc)
-        if self._guardrails is not None:
-            try:
-                counts = getattr(self._guardrails, "_same_tool_failure_counts", {}) or {}
-                if counts:
-                    worst_tool, worst_n = max(counts.items(), key=lambda kv: kv[1])
-                    from butler.core.reflexion_ephemeral import maybe_apply_reflexion
-
-                    maybe_apply_reflexion(
-                        self.diagnostics,
-                        tool_name=worst_tool,
-                        failure_count=int(worst_n),
-                    )
-            except Exception as exc:
-                self._record_skipped_plugin("reflexion_apply", exc)
+        run_after_tools_plugins_safe(self, stats)
+        apply_reflexion_safe(self)
         return stats
 
     def _dispatch_tool(self, name: str, args: dict) -> str:

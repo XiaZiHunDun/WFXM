@@ -138,193 +138,186 @@ def run_delegate_job(job: DelegateJob) -> None:
 
 
 def _run_delegate_job_inner(job: DelegateJob) -> None:
-    from butler.runtime.delegate_job_finalize import handle_background_delegate_failure
+    from butler.runtime.delegate_job_finalize import run_delegate_job_inner_guarded
 
+    run_delegate_job_inner_guarded(job, _run_delegate_job_body)
+
+
+def _run_delegate_job_body(job: DelegateJob) -> None:
     result = None
     success = False
     dev_engine = None
-    try:
-        if job.bridge is not None:
-            safe_best_effort(
-                lambda: __import__(
-                    "butler.gateway.outbound_bridge", fromlist=["set_current_bridge"]
-                ).set_current_bridge(job.bridge),
-                label="delegate_job.set_bridge",
-                default=None,
-            )
-        from butler.execution_context import use_execution_context
-
-        with use_execution_context(job.orch, session_key=job.child_session_key or job.session_key):
-            from butler.runtime.delegate_registry import (
-                register_delegate_loop,
-                unregister_delegate_loop,
-            )
-
-            register_delegate_loop(job.session_key, job.agent)
-            run_cbs = safe_best_effort(
-                lambda: __import__(
-                    "butler.ops.langfuse_tracer", fromlist=["delegate_run_callbacks"]
-                ).delegate_run_callbacks(
-                    parent_session_key=job.session_key,
-                    child_session_key=job.child_session_key or job.session_key,
-                    role=job.role,
-                    task=job.task,
-                    task_id=job.task_id,
-                ),
-                label="delegate_job.langfuse_callbacks",
-                default=None,
-            )
-            try:
-                if run_cbs is not None:
-                    result = job.agent.run(job.user_msg, run_callbacks=run_cbs)
-                else:
-                    result = job.agent.run(job.user_msg)
-            finally:
-                unregister_delegate_loop(job.session_key, job.agent)
-
-        from butler.session.lifecycle import sync_turn_memory
-
-        sync_turn_memory(
-            job.orch,
-            job.raw_user_msg,
-            (result.final_response or "") if result else "",
-            interrupted=result.status.value == "interrupted" if result else False,
-            status=result.status if result else None,
-            session_id=job.session_key,
-        )
-
-        from butler.tools.delegate_impl import finalize_delegate_success
-        from butler.tools.registry import (
-            _extract_changes_from_messages,
-            _extract_issues_from_messages,
-            _run_subagent_stop_hooks,
-        )
-
-        changes = _extract_changes_from_messages(result.messages) if result else []
-        issues = _extract_issues_from_messages(result.messages) if result else []
-        project = safe_best_effort(
-            lambda: job.orch.project_manager.get_current() if job.orch else None,
-            label="delegate_job.resolve_project",
-            default=None,
-        )
-        if result:
-            from butler.tools.delegate_phases import peek_dev_engine_summary
-
-            dev_engine = peek_dev_engine_summary(
-                job.child_session_key or job.session_key or "_default",
-                job.role,
-            )
-            success, issues = finalize_delegate_success(
-                result,
-                changes,
-                issues,
-                category=str(job.category_meta.get("category") or ""),
-                category_meta=job.category_meta,
-                project=project,
-                role=job.role,
-                dev_engine=dev_engine,
-                task=job.task or "",
-            )
-        else:
-            success = False
-        role_label = _delegate_role_label(job.role)
-        if success:
-            headline = f"{role_label}已完成任务"
-        elif any("DEV_VERIFY_GATE" in str(i) for i in issues):
-            headline = f"{role_label}已完成编辑但未通过验证"
-        else:
-            headline = f"{role_label}未能完成任务"
-        summary_text = (result.final_response or "").strip() if result else ""
-        if not summary_text:
-            summary_text = (
-                "DELEGATE_EMPTY_RESPONSE: 子代理未返回有效摘要。"
-                "请缩小任务范围或换 category/role 后重试。"
-            )
-            success = False
-            headline = f"{role_label}返回空结果"
-
-        from butler.runtime.delegate_job_finalize import record_delegate_turn_done
-
-        record_delegate_turn_done(job, success=success, result=result)
-
-        from butler.report import AgentReport, attach_delegate_task_times, cache_report
-        from butler.runtime.task_store import complete_task
-
-        task_preview = (job.task or "").strip()[:200]
-        report = AgentReport(
-            headline=headline,
-            summary=summary_text or "(无输出)",
-            changes=changes,
-            issues=issues,
-            success=success,
-            task_preview=task_preview,
-            task_id=job.task_id,
-            child_session_key=job.child_session_key,
-            iterations=getattr(result, "iterations", 0) if result else 0,
-            tool_calls=getattr(result, "tool_calls_made", 0) if result else 0,
-            tokens_used=getattr(result, "total_tokens", 0) if result else 0,
-            elapsed_seconds=getattr(result, "elapsed_seconds", 0.0) if result else 0.0,
-        )
-        from butler.report.acceptance_card import attach_delegate_acceptance_meta
-
-        attach_delegate_acceptance_meta(
-            report,
-            role=job.role,
-            project=project,
-            dev_engine=dev_engine,
-            task=job.task or "",
-            task_preview=task_preview,
-            category_meta=job.category_meta,
-        )
-        complete_task(
-            job.task_id,
-            success=success,
-            report_headline=report.headline,
-            summary=report.summary,
-        )
-        attach_delegate_task_times(report, job.task_id)
-        cache_report(report, session_key=job.session_key)
-        _run_subagent_stop_hooks(
-            role=job.role,
-            agent_id=job.task_id or f"delegate-{job.role}",
-            success=success,
-            task_id=job.task_id,
-            session_key=job.session_key,
-            summary_preview=report.summary,
-        )
-        from butler.runtime.delegate_job_finalize import (
-            attach_delegate_diff_summary,
-            record_delegate_observability,
-        )
-
-        attach_delegate_diff_summary(report, job)
-        push_delegate_completion(
-            report,
-            bridge=job.bridge,
-            push_target=job.push_target,
-            use_async_push=job.use_async_push,
-        )
-        record_delegate_observability(
-            job,
-            success=success,
-            issues=issues,
-            dev_engine=dev_engine,
-        )
-        logger.info(
-            "Background delegate finished task_id=%s success=%s",
-            job.task_id,
-            success,
-        )
-    except Exception as exc:
-        handle_background_delegate_failure(job, exc)
-    finally:
+    if job.bridge is not None:
         safe_best_effort(
             lambda: __import__(
-                "butler.core.delegate_semaphore", fromlist=["release_delegate_slot"]
-            ).release_delegate_slot(job.session_key),
-            label="delegate_job.release_slot",
+                "butler.gateway.outbound_bridge", fromlist=["set_current_bridge"]
+            ).set_current_bridge(job.bridge),
+            label="delegate_job.set_bridge",
             default=None,
         )
+    from butler.execution_context import use_execution_context
+
+    with use_execution_context(job.orch, session_key=job.child_session_key or job.session_key):
+        from butler.runtime.delegate_registry import (
+            register_delegate_loop,
+            unregister_delegate_loop,
+        )
+
+        register_delegate_loop(job.session_key, job.agent)
+        run_cbs = safe_best_effort(
+            lambda: __import__(
+                "butler.ops.langfuse_tracer", fromlist=["delegate_run_callbacks"]
+            ).delegate_run_callbacks(
+                parent_session_key=job.session_key,
+                child_session_key=job.child_session_key or job.session_key,
+                role=job.role,
+                task=job.task,
+                task_id=job.task_id,
+            ),
+            label="delegate_job.langfuse_callbacks",
+            default=None,
+        )
+        try:
+            if run_cbs is not None:
+                result = job.agent.run(job.user_msg, run_callbacks=run_cbs)
+            else:
+                result = job.agent.run(job.user_msg)
+        finally:
+            unregister_delegate_loop(job.session_key, job.agent)
+
+    from butler.session.lifecycle import sync_turn_memory
+
+    sync_turn_memory(
+        job.orch,
+        job.raw_user_msg,
+        (result.final_response or "") if result else "",
+        interrupted=result.status.value == "interrupted" if result else False,
+        status=result.status if result else None,
+        session_id=job.session_key,
+    )
+
+    from butler.tools.delegate_impl import finalize_delegate_success
+    from butler.tools.registry import (
+        _extract_changes_from_messages,
+        _extract_issues_from_messages,
+        _run_subagent_stop_hooks,
+    )
+
+    changes = _extract_changes_from_messages(result.messages) if result else []
+    issues = _extract_issues_from_messages(result.messages) if result else []
+    project = safe_best_effort(
+        lambda: job.orch.project_manager.get_current() if job.orch else None,
+        label="delegate_job.resolve_project",
+        default=None,
+    )
+    if result:
+        from butler.tools.delegate_phases import peek_dev_engine_summary
+
+        dev_engine = peek_dev_engine_summary(
+            job.child_session_key or job.session_key or "_default",
+            job.role,
+        )
+        success, issues = finalize_delegate_success(
+            result,
+            changes,
+            issues,
+            category=str(job.category_meta.get("category") or ""),
+            category_meta=job.category_meta,
+            project=project,
+            role=job.role,
+            dev_engine=dev_engine,
+            task=job.task or "",
+        )
+    else:
+        success = False
+    role_label = _delegate_role_label(job.role)
+    if success:
+        headline = f"{role_label}已完成任务"
+    elif any("DEV_VERIFY_GATE" in str(i) for i in issues):
+        headline = f"{role_label}已完成编辑但未通过验证"
+    else:
+        headline = f"{role_label}未能完成任务"
+    summary_text = (result.final_response or "").strip() if result else ""
+    if not summary_text:
+        summary_text = (
+            "DELEGATE_EMPTY_RESPONSE: 子代理未返回有效摘要。"
+            "请缩小任务范围或换 category/role 后重试。"
+        )
+        success = False
+        headline = f"{role_label}返回空结果"
+
+    from butler.runtime.delegate_job_finalize import record_delegate_turn_done
+
+    record_delegate_turn_done(job, success=success, result=result)
+
+    from butler.report import AgentReport, attach_delegate_task_times, cache_report
+    from butler.runtime.task_store import complete_task
+
+    task_preview = (job.task or "").strip()[:200]
+    report = AgentReport(
+        headline=headline,
+        summary=summary_text or "(无输出)",
+        changes=changes,
+        issues=issues,
+        success=success,
+        task_preview=task_preview,
+        task_id=job.task_id,
+        child_session_key=job.child_session_key,
+        iterations=getattr(result, "iterations", 0) if result else 0,
+        tool_calls=getattr(result, "tool_calls_made", 0) if result else 0,
+        tokens_used=getattr(result, "total_tokens", 0) if result else 0,
+        elapsed_seconds=getattr(result, "elapsed_seconds", 0.0) if result else 0.0,
+    )
+    from butler.report.acceptance_card import attach_delegate_acceptance_meta
+
+    attach_delegate_acceptance_meta(
+        report,
+        role=job.role,
+        project=project,
+        dev_engine=dev_engine,
+        task=job.task or "",
+        task_preview=task_preview,
+        category_meta=job.category_meta,
+    )
+    complete_task(
+        job.task_id,
+        success=success,
+        report_headline=report.headline,
+        summary=report.summary,
+    )
+    attach_delegate_task_times(report, job.task_id)
+    cache_report(report, session_key=job.session_key)
+    _run_subagent_stop_hooks(
+        role=job.role,
+        agent_id=job.task_id or f"delegate-{job.role}",
+        success=success,
+        task_id=job.task_id,
+        session_key=job.session_key,
+        summary_preview=report.summary,
+    )
+    from butler.runtime.delegate_job_finalize import (
+        attach_delegate_diff_summary,
+        record_delegate_observability,
+    )
+
+    attach_delegate_diff_summary(report, job)
+    push_delegate_completion(
+        report,
+        bridge=job.bridge,
+        push_target=job.push_target,
+        use_async_push=job.use_async_push,
+    )
+    record_delegate_observability(
+        job,
+        success=success,
+        issues=issues,
+        dev_engine=dev_engine,
+    )
+    logger.info(
+        "Background delegate finished task_id=%s success=%s",
+        job.task_id,
+        success,
+    )
 
 
 def _delegate_role_label(role: str) -> str:

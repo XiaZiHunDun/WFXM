@@ -1,0 +1,175 @@
+"""Best-effort and fail-closed helpers for ``AgentLoop`` (P0-A / P2-F)."""
+
+from __future__ import annotations
+
+import logging
+import time
+from typing import Any, Callable
+
+from butler.core.best_effort import safe_best_effort
+from butler.transport.fallback import FallbackEntry
+
+logger = logging.getLogger(__name__)
+
+
+def doom_loop_block_on_ask(decision: Any, tool_name: str, args: dict) -> str | None:
+    """Fail-closed doom-loop ask gate for prefetched tool calls."""
+    try:
+        from butler.permissions.doom_loop import check_doom_loop_ask
+
+        if check_doom_loop_ask(decision, tool_name, args):
+            from butler.tool_guardrails import synthetic_result
+
+            return synthetic_result(decision)
+    except Exception:
+        logger.exception(
+            "Doom-loop ask check failed; failing closed (synthetic block) for %s",
+            tool_name,
+        )
+        from butler.tool_guardrails import synthetic_result
+
+        return synthetic_result(decision)
+    return None
+
+
+def filter_fallback_chain_safe(chain: list[FallbackEntry]) -> list[FallbackEntry]:
+    def _run() -> list[FallbackEntry]:
+        from butler.transport.provider_health import filter_fallback_chain
+
+        return filter_fallback_chain(chain)
+
+    result = safe_best_effort(
+        _run,
+        label="agent_loop.fallback_chain_filter",
+        default=None,
+    )
+    return chain if result is None else result
+
+
+def emit_skipped_plugin_metric(label: str) -> None:
+    def _run() -> None:
+        from butler.ops.runtime_metrics import inc
+
+        inc("best_effort_skip", labels={"path": label[:48]})
+
+    safe_best_effort(_run, label="agent_loop.skipped_plugin_metric", default=None)
+
+
+def maybe_compact_turn_safe(loop: Any, state: Any) -> bool:
+    from butler.core.agent_loop_phases import _phase_maybe_compact_turn
+
+    try:
+        return bool(_phase_maybe_compact_turn(loop, state))
+    except Exception as exc:
+        loop._record_skipped_plugin("compact_turn", exc)
+        return False
+
+
+def run_stop_hooks_safe(
+    loop: Any,
+    *,
+    steer_session: str,
+    iteration: int,
+    start_time: float,
+    final_text: str,
+) -> Any | None:
+    def _run():
+        from butler.core.loop_types import LoopStatus
+        from butler.hooks.runner import run_stop_hooks
+
+        return run_stop_hooks(
+            status=LoopStatus.RUNNING.value,
+            last_assistant_message=final_text,
+            session_key=steer_session,
+            iterations=iteration,
+            tool_calls=loop._tool_calls_count,
+            elapsed_seconds=time.time() - start_time,
+        )
+
+    try:
+        return _run()
+    except Exception as exc:
+        loop._record_skipped_plugin("stop_hooks", exc)
+        return None
+
+
+def record_provider_failure_safe(loop: Any) -> None:
+    def _run() -> None:
+        from butler.transport.provider_health import record_provider_failure
+
+        record_provider_failure(
+            getattr(loop.client, "provider", "") or "",
+            getattr(loop.client, "model", "") or "",
+        )
+
+    try:
+        _run()
+    except Exception as exc:
+        loop._record_skipped_plugin("provider_failure_recording", exc)
+
+
+def refresh_model_binding_safe(loop: Any) -> None:
+    def _run() -> None:
+        from butler.core.context_transform_registry import refresh_model_binding
+
+        refresh_model_binding(loop)
+
+    try:
+        _run()
+    except Exception as exc:
+        loop._record_skipped_plugin("refresh_model_binding", exc)
+
+
+def run_after_tools_plugins_safe(loop: Any, stats: Any) -> None:
+    try:
+        loop._messages[:] = loop._plugins.after_tools(
+            loop._messages,
+            tool_stats=stats,
+        )
+    except Exception as exc:
+        loop._record_skipped_plugin("after_tools_middleware", exc)
+
+
+def apply_reflexion_safe(loop: Any) -> None:
+    if loop._guardrails is None:
+        return
+
+    def _run() -> None:
+        counts = getattr(loop._guardrails, "_same_tool_failure_counts", {}) or {}
+        if not counts:
+            return
+        worst_tool, worst_n = max(counts.items(), key=lambda kv: kv[1])
+        from butler.core.reflexion_ephemeral import maybe_apply_reflexion
+
+        maybe_apply_reflexion(
+            loop.diagnostics,
+            tool_name=worst_tool,
+            failure_count=int(worst_n),
+        )
+
+    try:
+        _run()
+    except Exception as exc:
+        loop._record_skipped_plugin("reflexion_apply", exc)
+
+
+def run_plugin_step(loop: Any, label: str, fn: Callable[[], Any], *, default: Any = None) -> Any:
+    try:
+        return fn()
+    except Exception as exc:
+        loop._record_skipped_plugin(label, exc)
+        return default
+
+
+__all__ = [
+    "apply_reflexion_safe",
+    "doom_loop_block_on_ask",
+    "emit_skipped_plugin_metric",
+    "filter_fallback_chain_safe",
+    "maybe_compact_turn_safe",
+    "record_provider_failure_safe",
+    "refresh_model_binding_safe",
+    "run_after_tools_plugins_safe",
+    "run_plugin_step",
+    "run_stop_hooks_safe",
+]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from butler.core.best_effort import safe_best_effort
 
@@ -137,9 +137,27 @@ def handle_background_delegate_failure(job: Any, exc: BaseException) -> None:
     )
 
 
+def run_delegate_job_inner_guarded(job: Any, body: Callable[[Any], None]) -> None:
+    from butler.core.best_effort import safe_best_effort
+
+    try:
+        body(job)
+    except Exception as exc:
+        handle_background_delegate_failure(job, exc)
+    finally:
+        safe_best_effort(
+            lambda: __import__(
+                "butler.core.delegate_semaphore", fromlist=["release_delegate_slot"]
+            ).release_delegate_slot(job.session_key),
+            label="delegate_job.release_slot",
+            default=None,
+        )
+
+
 __all__ = [
     "attach_delegate_diff_summary",
     "handle_background_delegate_failure",
+    "run_delegate_job_inner_guarded",
     "record_delegate_observability",
     "record_delegate_turn_done",
 ]

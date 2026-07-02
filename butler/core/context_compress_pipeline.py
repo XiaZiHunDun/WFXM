@@ -15,10 +15,12 @@ from butler.core.context_compress_hooks import (
     resolve_replay_user,
 )
 from butler.core.context_compress_support import (
+    legacy_compaction_split_fallback,
     record_compress_completed,
     record_compress_scheduled,
     record_compress_started,
     record_overflow_replay,
+    split_for_compaction_turn,
 )
 from butler.core.context_compressor import (
     _estimate_tokens,
@@ -42,53 +44,28 @@ def _split_for_compaction(
     max_output_tokens: int | None,
     diagnostics: dict[str, Any] | None,
 ) -> tuple[list[dict], list[dict], list[dict]]:
-    try:
-        from butler.core.turn_compaction import split_head_tail_turns, turn_compaction_enabled
-
-        if turn_compaction_enabled():
-            system, middle, head_tail = split_head_tail_turns(
-                pruned,
-                max_context_tokens=max_tokens,
-                max_output_tokens=max_output_tokens,
-                head_count=head_count,
-                min_tail_messages=min_tail_messages,
-                estimate_fn=_estimate_tokens,
-                diagnostics=diagnostics,
-            )
-            if not middle:
-                legacy_system, legacy_middle, legacy_head_tail = _split_head_tail(
-                    pruned,
-                    head_count=head_count,
-                    max_tail_messages=max_tail_messages,
-                    min_tail_messages=min_tail_messages,
-                )
-                if legacy_middle:
-                    system, middle, head_tail = (
-                        legacy_system,
-                        legacy_middle,
-                        legacy_head_tail,
-                    )
-                    if isinstance(diagnostics, dict):
-                        diagnostics["compaction_turn_fallback"] = "legacy_split"
-            return system, middle, head_tail
-    except Exception as exc:
-        logger.debug("Turn compaction fallback: %s", exc)
-        if isinstance(diagnostics, dict):
-            _write_compaction_diagnostics(
-                diagnostics,
-                strategy="legacy_split",
-                tail_turns_kept=0,
-                split_turn_applied=False,
-                preserved_recent_budget=0,
-                tail_token_count=0,
-                tail_start_index=0,
-            )
-            diagnostics["compaction_turn_fallback"] = "legacy_split"
-    return _split_head_tail(
+    turn_split = split_for_compaction_turn(
         pruned,
+        max_tokens=max_tokens,
         head_count=head_count,
         max_tail_messages=max_tail_messages,
         min_tail_messages=min_tail_messages,
+        max_output_tokens=max_output_tokens,
+        diagnostics=diagnostics,
+        estimate_fn=_estimate_tokens,
+        legacy_split_fn=_split_head_tail,
+        write_diagnostics_fn=_write_compaction_diagnostics,
+    )
+    if turn_split is not None:
+        return turn_split
+    return legacy_compaction_split_fallback(
+        pruned,
+        diagnostics=diagnostics,
+        head_count=head_count,
+        max_tail_messages=max_tail_messages,
+        min_tail_messages=min_tail_messages,
+        legacy_split_fn=_split_head_tail,
+        write_diagnostics_fn=_write_compaction_diagnostics,
     )
 
 
