@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 from butler.permissions.rules_context import (
     current_session_key as _current_session_key,
     current_workspace as _current_workspace,
-    is_session_tool_result_readable,
     load_permissions_yaml as _load_permissions_yaml,
     permission_request_hook_block,
     security_blacklist_enabled as _security_blacklist_enabled,
@@ -22,42 +21,17 @@ from butler.permissions.rules_context import (
 
 logger = logging.getLogger(__name__)
 
-# R2-11: uniform fail-closed for permission check failures. The buffer holds
-# the most recent failures so /诊断 can surface them (otherwise a malfunctioning
-# experiment-mode detector or step resolver silently disables safety controls).
-_MAX_PERMISSION_FAILURE_ENTRIES = 50
-_MAX_PERMISSION_FAILURE_ERROR_LEN = 200
-_permission_failures: list[dict[str, Any]] = []
+from butler.permissions.rules_fail_closed import (
+    experiment_block_or_fail_closed,
+    path_outside_workspace,
+    recent_permission_failures,
+    record_permission_failure,
+    reset_permission_failures,
+    workflow_step_block_or_fail_closed,
+)
 
-
-def recent_permission_failures() -> list[dict[str, Any]]:
-    """Read the module-level permission-failure diagnostics buffer."""
-    return list(_permission_failures)
-
-
-def reset_permission_failures() -> None:
-    """Clear the permission-failure diagnostics buffer (test helper)."""
-    _permission_failures.clear()
-
-
-def _record_permission_failure(check: str, exc: BaseException) -> None:
-    """Append a permission-check failure to the diagnostics buffer (FIFO bounded)."""
-    logger.error(
-        "Permission check %s failed (fail-closed); %s",
-        check,
-        exc,
-        exc_info=exc,
-    )
-    _permission_failures.append({
-        "check": check,
-        "error": str(exc)[:_MAX_PERMISSION_FAILURE_ERROR_LEN],
-        "type": type(exc).__name__,
-    })
-    if len(_permission_failures) > _MAX_PERMISSION_FAILURE_ENTRIES:
-        del _permission_failures[
-            : len(_permission_failures) - _MAX_PERMISSION_FAILURE_ENTRIES
-        ]
-
+# Back-compat for tests that import the private name.
+_record_permission_failure = record_permission_failure
 
 _PATH_TOOLS = frozenset(
     {
@@ -96,26 +70,6 @@ def _resolve_path_arg(args: dict[str, Any]) -> str:
     return str(args.get("path") or args.get("file_path") or "").strip()
 
 
-def _path_outside_workspace(path_str: str, workspace: Path) -> bool:
-    if not path_str:
-        return False
-    if is_session_tool_result_readable(path_str):
-        return False
-    try:
-        root = workspace.expanduser().resolve()
-        target = Path(path_str).expanduser()
-        if not target.is_absolute():
-            target = (root / target).resolve()
-        else:
-            target = target.resolve()
-        # Sprint 21-1 SEC-21-A-1: component-level check only; do not call
-        # check_tool_path here (would recurse via check_external_path_override).
-        return not target.is_relative_to(root)
-    except Exception as exc:
-        logger.warning("path_outside_workspace check failed (fail-closed): %s", exc)
-        return True
-
-
 def evaluate_external_directory(
     path_str: str,
     *,
@@ -125,7 +79,7 @@ def evaluate_external_directory(
     """Rules for paths outside project workspace (OpenCode external_directory subset)."""
     if workspace is None or not path_str.strip():
         return None
-    if not _path_outside_workspace(path_str, workspace):
+    if not path_outside_workspace(path_str, workspace):
         return None
 
     cfg = _load_permissions_yaml(workspace)
@@ -427,65 +381,6 @@ def check_external_path_override(
     return decision
 
 
-def _experiment_block_or_fail_closed(
-    tool_name: str,
-    args: dict[str, Any],
-    workspace: Path,
-) -> str | None:
-    """Run ``check_experiment_mode_block``; fail-CLOSED on detector error.
-
-    Returns a block reason string when the experiment-mode detector blocks
-    the call OR raises. The previous implementation caught detector errors
-    and continued, silently disabling a safety control. Fail-closed means a
-    broken detector blocks the call until the detector is repaired, never
-    silently bypasses it.
-    """
-    try:
-        from butler.experiments.mode import check_experiment_mode_block
-    except Exception as exc:
-        _record_permission_failure("experiment_mode_block_import", exc)
-        return "experiment mode 守护不可用 (import 失败); 拒绝该调用"
-    try:
-        return check_experiment_mode_block(tool_name, args, workspace=workspace)
-    except Exception as exc:
-        _record_permission_failure("experiment_mode_block", exc)
-        return "experiment mode 守护异常 (fail-closed); 拒绝该调用"
-
-
-def _workflow_step_block_or_fail_closed(
-    tool_name: str,
-    workspace: Path,
-) -> str | None:
-    """Resolve the current workflow step + apply allowlist; fail-CLOSED on error.
-
-    If the step resolver raises, we cannot determine which step's allowlist
-    applies, so the safe default is to deny. A broken resolver must not
-    silently widen the allowlist to "all tools".
-    """
-    try:
-        from butler.execution_context import get_current_workflow_step
-    except Exception as exc:
-        _record_permission_failure("workflow_step_resolve_import", exc)
-        return "workflow step 解析器不可用 (import 失败); 拒绝该调用"
-    try:
-        step_id = get_current_workflow_step()
-    except Exception as exc:
-        _record_permission_failure("workflow_step_resolve", exc)
-        return "workflow step 解析器异常 (fail-closed); 拒绝该调用"
-    if not step_id:
-        return None
-    try:
-        step_decision = evaluate_workflow_step_permission(
-            tool_name, step_id, workspace=workspace,
-        )
-    except Exception as exc:
-        _record_permission_failure("workflow_step_decision", exc)
-        return "workflow step 决策异常 (fail-closed); 拒绝该调用"
-    if step_decision is not None and not step_decision.allowed:
-        return step_decision.reason
-    return None
-
-
 def _apply_decision_or_none(
     decision: PermissionDecision | None,
     tool_name: str,
@@ -554,11 +449,11 @@ def check_project_permission_block(
     if bl is not None and not bl.allowed:
         return bl.reason
 
-    exp_block = _experiment_block_or_fail_closed(tool_name, args, workspace)
+    exp_block = experiment_block_or_fail_closed(tool_name, args, workspace)
     if exp_block:
         return exp_block
 
-    step_block = _workflow_step_block_or_fail_closed(tool_name, workspace)
+    step_block = workflow_step_block_or_fail_closed(tool_name, workspace)
     if step_block:
         return step_block
 

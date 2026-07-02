@@ -138,6 +138,8 @@ def run_delegate_job(job: DelegateJob) -> None:
 
 
 def _run_delegate_job_inner(job: DelegateJob) -> None:
+    from butler.runtime.delegate_job_finalize import handle_background_delegate_failure
+
     result = None
     success = False
     dev_engine = None
@@ -314,16 +316,7 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
             success,
         )
     except Exception as exc:
-        logger.exception("Background delegate failed task_id=%s: %s", job.task_id, exc)
-        from butler.tools.registry import _finalize_delegate_failure
-
-        _finalize_delegate_failure(
-            role=job.role,
-            task=job.task,
-            exc=exc,
-            task_id=job.task_id,
-            session_key=job.session_key,
-        )
+        handle_background_delegate_failure(job, exc)
     finally:
         safe_best_effort(
             lambda: __import__(

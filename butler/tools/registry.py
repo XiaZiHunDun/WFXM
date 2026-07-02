@@ -21,17 +21,16 @@ from butler.tools.registry_gates import (
     extend_mcp_definitions,
     filter_definitions_by_toolset,
     inject_read_file_preread,
+    invoke_registered_tool_handler,
     mcp_tools_enabled,
     network_search_gate,
     normalize_and_validate_args,
-    note_web_search_outcome,
     permission_denied_hint,
     permission_request_hooks_block,
     plan_mode_mcp_block,
     pre_tool_hooks_block,
     project_permission_block,
     session_read_recall_block,
-    tool_error_payload,
 )
 from butler.tools.tool_audit import (  # noqa: F401
     _finalize_tool_result,
@@ -258,28 +257,15 @@ def dispatch_tool(name: str, args: dict) -> str:
         )
 
     call_args = inject_read_file_preread(name, call_args)
-    try:
-        from butler.tools.tool_implicit_context import merge_implicit_tool_args
-
-        call_args = merge_implicit_tool_args(call_args)
-        result = entry.handler(**call_args)
-        if name == "web_search":
-            note_web_search_outcome(result)
-        return apply_post_tool_hooks(
-            name,
-            args,
-            _finalize_tool_result(name, args, result, started_at=started_at),
-        )
-    except Exception as exc:
-        logger.error("Tool %s failed: %s", name, exc)
-        payload = tool_error_payload(name, exc)
-        err_result = _finalize_tool_result(
-            name,
-            args,
-            payload,
-            started_at=started_at,
-        )
-        return apply_post_tool_hooks(name, args, err_result, failed=True)
+    return invoke_registered_tool_handler(
+        name=name,
+        args=args,
+        call_args=call_args,
+        handler=entry.handler,
+        started_at=started_at,
+        finalize_result=_finalize_tool_result,
+        apply_hooks=apply_post_tool_hooks,
+    )
 
 
 def _permission_denied_tool_result(

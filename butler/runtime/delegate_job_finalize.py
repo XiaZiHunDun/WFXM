@@ -121,8 +121,25 @@ def record_delegate_observability(
     safe_best_effort(_run, label="delegate_job.observability", default=None)
 
 
+def handle_background_delegate_failure(job: Any, exc: BaseException) -> None:
+    import logging
+
+    log = logging.getLogger(__name__)
+    log.exception("Background delegate failed task_id=%s: %s", job.task_id, exc)
+    from butler.tools.registry import _finalize_delegate_failure
+
+    _finalize_delegate_failure(
+        role=job.role,
+        task=job.task,
+        exc=exc,
+        task_id=job.task_id,
+        session_key=job.session_key,
+    )
+
+
 __all__ = [
     "attach_delegate_diff_summary",
+    "handle_background_delegate_failure",
     "record_delegate_observability",
     "record_delegate_turn_done",
 ]

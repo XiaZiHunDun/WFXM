@@ -12,6 +12,7 @@ from butler.session.lifecycle import (
 from butler.session.memory_prefetch_ops import (
     apply_instruction_pre_llm_transform,
     butler_system_context,
+    collect_project_memory_prefetch_lines,
     emit_prefetch_metrics,
     filter_prefetch_injection,
     github_grounding_should_skip,
@@ -22,7 +23,6 @@ from butler.session.memory_prefetch_ops import (
     profile_vector_lines,
     record_knowledge_inject,
     record_prefetch_snippets,
-    record_project_prefetch_telemetry,
     reflection_closure_banner,
     session_key_for_prefetch,
     session_read_recall_blocks_prefetch,
@@ -152,90 +152,20 @@ def prefetch_turn_memory(
                     diagnostics["memory_profile_vector_hits"] = count
 
     pmem = _resolve_project_memory_for_turn(orchestrator)
-    q_strip = (query or "").strip()
-    project_hits_limit = caps.get("project_hits", 5)
     if pmem is not None:
-        try:
-            facts_snip = ""
-            from butler.memory.project_memory import ProjectMemory
-
-            if isinstance(pmem, ProjectMemory):
-                facts_snip = pmem.facts_for_prefetch(
-                    max_chars=caps.get("facts_max_chars", 400)
-                )
-            if facts_snip:
-                parts.append("## Project facts (auto)\n" + facts_snip)
-                if diagnostics is not None:
-                    diagnostics["memory_facts_chars"] = len(facts_snip)
-
-            injected_project = False
-            if q_strip and current_project:
-                from butler.memory.semantic_config import semantic_memory_enabled
-                from butler.memory.semantic_index import SemanticMemoryIndex
-                from butler.memory.semantic_project import (
-                    prefetch_project_memory_hits,
-                    resolve_project_display_name,
-                )
-
-                sem = getattr(bm, "semantic", None) if bm is not None else None
-                if not isinstance(sem, SemanticMemoryIndex):
-                    sem = None
-                proj_name = resolve_project_display_name(pmem)
-                hits, mode = prefetch_project_memory_hits(
-                    pmem,
-                    q_strip,
-                    project_name=proj_name or current_project,
-                    semantic=sem,
-                    limit=project_hits_limit,
-                    semantic_enabled=semantic_memory_enabled(),
-                )
-                sem_enabled = semantic_memory_enabled()
-                from butler.memory.project_memory import filter_memory_hits_by_role
-
-                hits = filter_memory_hits_by_role(hits, role)
-                record_project_prefetch_telemetry(
-                    session_key,
-                    {
-                        "mode": f"project-{mode}",
-                        "fallbacks": 1 if sem_enabled and mode == "keyword" else 0,
-                        "candidates": len(hits),
-                        "query": q_strip,
-                    },
-                )
-                if hits:
-                    lines = [
-                        f"- {h.get('content', '')}".strip()
-                        for h in hits
-                        if h.get("content")
-                    ]
-                    if lines:
-                        title = "## Query-aligned project memory"
-                        if mode == "keyword":
-                            title = "## Query-aligned project memory (keyword)"
-                        parts.append(title + "\n" + "\n".join(lines))
-                        injected_project = True
-                        if diagnostics is not None:
-                            diagnostics["memory_project_query_hits"] = len(lines)
-                            diagnostics["memory_project_prefetch_mode"] = mode
-                            diagnostics["memory_project_semantic"] = mode == "vector"
-            if not injected_project:
-                ctx = pmem.get_context_for_agent(role)
-                if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
-                    ctx_str = str(ctx).strip()
-                    from butler.memory.project_memory import project_prefetch_max_chars
-
-                    max_proj = project_prefetch_max_chars(
-                        role, default=caps["project_max_chars"]
-                    )
-                    if max_proj and len(ctx_str) > max_proj:
-                        ctx_str = ctx_str[:max_proj] + "\n…(项目记忆已截断)"
-                    parts.append(ctx_str)
-                    if diagnostics is not None:
-                        diagnostics["memory_project_context"] = True
-        except Exception as exc:
-            if diagnostics is not None:
-                diagnostics["memory_project_error"] = str(exc)
-            logger.debug("Project memory prefetch skipped: %s", exc)
+        parts.extend(
+            collect_project_memory_prefetch_lines(
+                pmem=pmem,
+                query=query,
+                role=role,
+                bm=bm,
+                current_project=current_project,
+                caps=caps,
+                session_key=session_key,
+                diagnostics=diagnostics,
+                empty_markers=_EMPTY_MEMORY_MARKERS,
+            )
+        )
 
     pim_line = pim_overview_line()
     if pim_line:

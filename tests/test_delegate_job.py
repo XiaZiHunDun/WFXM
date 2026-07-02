@@ -231,7 +231,7 @@ class TestRunDelegateJob:
             ),
             patch("butler.tools.registry._run_subagent_stop_hooks"),
             patch(
-                "butler.runtime.delegate_job._try_attach_diff_summary",
+                "butler.runtime.delegate_job_finalize.attach_delegate_diff_summary",
             ),
             patch(
                 "butler.runtime.delegate_job.push_delegate_completion",

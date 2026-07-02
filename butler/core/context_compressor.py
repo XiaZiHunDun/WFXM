@@ -13,8 +13,6 @@ import json
 import logging
 from typing import Any
 
-from butler.transport.auxiliary_client import auxiliary_complete
-
 logger = logging.getLogger(__name__)
 
 SUMMARY_PREFIX = (
@@ -288,16 +286,15 @@ def _summarize_middle(middle: list[dict], previous_summary: str = "") -> tuple[s
         transcript=transcript,
         previous_summary=previous_summary,
     )
-    try:
-        text = auxiliary_complete(
-            prompt,
-            task="compression",
-            system="You compress conversation history into structured handoff notes.",
+    from butler.core.context_compress_support import auxiliary_summarize_middle
+
+    text = auxiliary_summarize_middle(prompt)
+    if text is None:
+        logger.warning(
+            "Summary LLM failed — aborting compression to preserve context",
         )
-        return text, False
-    except Exception as exc:
-        logger.warning("Summary LLM failed — aborting compression to preserve context: %s", exc)
         return "", False
+    return text, False
 
 
 def compress_messages(

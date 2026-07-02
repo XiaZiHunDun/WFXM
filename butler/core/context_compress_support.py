@@ -101,7 +101,25 @@ def record_overflow_replay(*, session_key: str, replay_user: dict) -> None:
     safe_best_effort(_run, label="context_compress.overflow_replay")
 
 
+def auxiliary_summarize_middle(prompt: str) -> str | None:
+    def _run() -> str:
+        from butler.transport.auxiliary_client import auxiliary_complete
+
+        return auxiliary_complete(
+            prompt,
+            task="compression",
+            system="You compress conversation history into structured handoff notes.",
+        )
+
+    return safe_best_effort(
+        _run,
+        label="context_compressor.auxiliary_summarize",
+        default=None,
+    )
+
+
 __all__ = [
+    "auxiliary_summarize_middle",
     "record_compress_completed",
     "record_compress_scheduled",
     "record_compress_started",

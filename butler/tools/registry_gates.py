@@ -268,6 +268,44 @@ def apply_post_tool_hooks(
     return finalized if result is None else result
 
 
+def invoke_registered_tool_handler(
+    *,
+    name: str,
+    args: dict,
+    call_args: dict,
+    handler: Any,
+    started_at: float,
+    finalize_result: Any,
+    apply_hooks: Any,
+) -> str:
+    import logging
+
+    log = logging.getLogger(__name__)
+
+    try:
+        from butler.tools.tool_implicit_context import merge_implicit_tool_args
+
+        merged = merge_implicit_tool_args(call_args)
+        result = handler(**merged)
+        if name == "web_search":
+            note_web_search_outcome(result)
+        return apply_hooks(
+            name,
+            args,
+            finalize_result(name, args, result, started_at=started_at),
+        )
+    except Exception as exc:
+        log.error("Tool %s failed: %s", name, exc)
+        payload = tool_error_payload(name, exc)
+        err_result = finalize_result(
+            name,
+            args,
+            payload,
+            started_at=started_at,
+        )
+        return apply_hooks(name, args, err_result, failed=True)
+
+
 def tool_error_payload(name: str, exc: BaseException) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
         from butler.core.tool_error_policy import apply_tool_error_policy
@@ -299,6 +337,7 @@ __all__ = [
     "extend_mcp_definitions",
     "filter_definitions_by_toolset",
     "inject_read_file_preread",
+    "invoke_registered_tool_handler",
     "mcp_tools_enabled",
     "network_search_gate",
     "normalize_and_validate_args",

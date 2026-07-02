@@ -349,9 +349,111 @@ def hybrid_experience_hits(
     return result if result is not None else []
 
 
+def collect_project_memory_prefetch_lines(
+    *,
+    pmem: Any,
+    query: str,
+    role: str,
+    bm: Any,
+    current_project: str,
+    caps: dict[str, int],
+    session_key: str,
+    diagnostics: dict[str, Any] | None,
+    empty_markers: frozenset[str],
+) -> list[str]:
+    def _run() -> list[str]:
+        from butler.memory.project_memory import (
+            ProjectMemory,
+            filter_memory_hits_by_role,
+            project_prefetch_max_chars,
+        )
+        from butler.memory.semantic_config import semantic_memory_enabled
+        from butler.memory.semantic_index import SemanticMemoryIndex
+        from butler.memory.semantic_project import (
+            prefetch_project_memory_hits,
+            resolve_project_display_name,
+        )
+
+        lines_out: list[str] = []
+        facts_snip = ""
+        if isinstance(pmem, ProjectMemory):
+            facts_snip = pmem.facts_for_prefetch(
+                max_chars=caps.get("facts_max_chars", 400)
+            )
+        if facts_snip:
+            lines_out.append("## Project facts (auto)\n" + facts_snip)
+            if diagnostics is not None:
+                diagnostics["memory_facts_chars"] = len(facts_snip)
+
+        q_strip = (query or "").strip()
+        injected_project = False
+        project_hits_limit = caps.get("project_hits", 5)
+        if q_strip and current_project:
+            sem = getattr(bm, "semantic", None) if bm is not None else None
+            if not isinstance(sem, SemanticMemoryIndex):
+                sem = None
+            proj_name = resolve_project_display_name(pmem)
+            hits, mode = prefetch_project_memory_hits(
+                pmem,
+                q_strip,
+                project_name=proj_name or current_project,
+                semantic=sem,
+                limit=project_hits_limit,
+                semantic_enabled=semantic_memory_enabled(),
+            )
+            sem_enabled = semantic_memory_enabled()
+            hits = filter_memory_hits_by_role(hits, role)
+            record_project_prefetch_telemetry(
+                session_key,
+                {
+                    "mode": f"project-{mode}",
+                    "fallbacks": 1 if sem_enabled and mode == "keyword" else 0,
+                    "candidates": len(hits),
+                    "query": q_strip,
+                },
+            )
+            if hits:
+                lines = [
+                    f"- {h.get('content', '')}".strip()
+                    for h in hits
+                    if h.get("content")
+                ]
+                if lines:
+                    title = "## Query-aligned project memory"
+                    if mode == "keyword":
+                        title = "## Query-aligned project memory (keyword)"
+                    lines_out.append(title + "\n" + "\n".join(lines))
+                    injected_project = True
+                    if diagnostics is not None:
+                        diagnostics["memory_project_query_hits"] = len(lines)
+                        diagnostics["memory_project_prefetch_mode"] = mode
+                        diagnostics["memory_project_semantic"] = mode == "vector"
+        if not injected_project:
+            ctx = pmem.get_context_for_agent(role)
+            if ctx and ctx.strip() not in empty_markers:
+                ctx_str = str(ctx).strip()
+                max_proj = project_prefetch_max_chars(
+                    role, default=caps["project_max_chars"]
+                )
+                if max_proj and len(ctx_str) > max_proj:
+                    ctx_str = ctx_str[:max_proj] + "\n…(项目记忆已截断)"
+                lines_out.append(ctx_str)
+                if diagnostics is not None:
+                    diagnostics["memory_project_context"] = True
+        return lines_out
+
+    result = safe_best_effort(
+        _run,
+        label="memory_prefetch.project_memory",
+        default=None,
+    )
+    return result if isinstance(result, list) else []
+
+
 __all__ = [
     "apply_instruction_pre_llm_transform",
     "butler_system_context",
+    "collect_project_memory_prefetch_lines",
     "emit_prefetch_metrics",
     "filter_prefetch_injection",
     "github_grounding_should_skip",
