@@ -111,6 +111,7 @@
 | `BUTLER_SEMANTIC_MEMORY` | 0 | 启用本地向量；`config.yaml` `memory.semantic_enabled` ← env 覆盖 |
 | `BUTLER_MEMORY_AUTO_FACT` | 1 | `0` 时 project MEMORY `auto` 分类一律进待审（仅显式 fact 直写） |
 | `BUTLER_MEMORY_AUTO_APPROVE` | （空） | gateway 高信任推荐 `correction`：仅纠正类 auto 直写 fact；`all` 等同 legacy auto-fact |
+| `BUTLER_MEMORY_WRITE_APPROVAL` | `owner_scopes` | `owner_scopes`：`owner_profile`/`owner_experience` 进待审；`all` 含 project replace/remove；`0` 直写 |
 | `BUTLER_OWNER_PMF_METRICS` | 0 | `1` 时落盘 `~/.butler/metrics/owner_pmf_YYYYMM.jsonl`（简报/验收卡/反馈 PMF） |
 | `BUTLER_SEMANTIC_SEARCH_LIMIT` | 8 | 单次语义搜索返回条数；yaml `memory.search_limit` ← env 覆盖 |
 | `BUTLER_SYNC_CONVERSATION_MEMORY` | 0 | 不把每轮聊天写入 experience |
@@ -146,6 +147,39 @@
 | `embedding` | `provider`, `model` | 向量嵌入；env `BUTLER_EMBEDDING_*` 优先 |
 | `llm_fallback` | `enabled`, `chain` | 主 LLM 失败降级：`auto`（minimax 时追加有 key 的 deepseek/qwen/openai）、`[]` 或显式列表 |
 | `remote_compact` | `model` | OpenAI 风格 `/responses/compact`；空则跟 `auxiliary.compression.model` |
+
+## LLM 对话参数（temperature / fallback / thinking）
+
+> 速查：[`maintainer-cheat-sheet-2026-07.md`](../guides/maintainer-cheat-sheet-2026-07.md) · 分层模型 [`layered-model-config.md`](../architecture/layered-model-config.md)
+
+### temperature / max_tokens / context_length
+
+| 字段 | 配置来源（优先级高→低） | 传到 API |
+|------|----------------------|----------|
+| `temperature` | `project.yaml` `models.*` → `~/.butler/config.yaml` `models.*` → Provider 默认 | `LLMClient` → chat/anthropic 请求体 |
+| `max_tokens` | 同上 | 单次 completion 上限 |
+| `context_length` | 同上 | Loop 压缩阈值计算（`infer_context_length`） |
+
+**温度含义**：低（0–0.3）更确定，适合 dev/审核；高（0.8+）更随机，适合创意写作。不改工具权限或记忆逻辑。
+
+### llm_fallback（可用性降级）
+
+| 键 | 说明 |
+|----|------|
+| `llm_fallback.enabled` | 默认 `true` |
+| `llm_fallback.chain` | `auto`：主为 minimax 时追加有 key 的 deepseek/qwen/openai；或显式 `[{provider, model}, …]` |
+
+主模型 API 失败时 `AgentLoop._try_activate_fallback()` 换链上下一个 `LLMClient` 并重试；**不是**按任务类型切换模型。
+
+### Thinking 协议（推理模型，默认关）
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `BUTLER_THINKING_PROTOCOL` | 0 | `1` 时为 supports_thinking 模型追加 system 协议 hint（[`thinking_protocol.py`](../../butler/transport/thinking_protocol.py)） |
+| `BUTLER_THINKING_BETA_HEADER` | 空 | 覆盖 Anthropic `anthropic-beta` 头 |
+| `BUTLER_THINKING_BETA_MATRIX` | 空 | JSON：`[{provider, model_contains, anthropic_beta}]` |
+
+与 **temperature** 无关：Thinking 协议管推理块与 API 头适配；流式输出由 `think_scrubber` 去掉 `<thinking>` 等标签。
 
 ## Agent Loop 线束（上下文 / 安全）
 
@@ -363,6 +397,12 @@
 | `BUTLER_OUTPUT_SCHEMA_REPAIR_MAX` | 2 | 终局 schema LLM 修复最多轮次 |
 | `BUTLER_MEMORY_OBSERVER_QUEUE` | 0 | `1` 时 PostToolUse 写入 workspace `.butler/observations.db`（SQLite observation store） |
 | `BUTLER_MEMORY_OBSERVATION_MAX_ROWS` | 0 | observation store 行数上限（0=关闭） |
+| `BUTLER_MEMORY_OBSERVATION_RECALL` | 0 | `1` 时 `butler_recall` / `butler memory search --scope observation` 可读 observations.db |
+| `BUTLER_MEMORY_UNIFIED_RECALL` | 0 | `1` 时 `--scope hybrid`：experience+project+coding 归一化合并 |
+| `BUTLER_MEMORY_UNIFIED_WEIGHT_EXPERIENCE` | 0.50 | hybrid 合并 experience 权重 |
+| `BUTLER_MEMORY_UNIFIED_WEIGHT_PROJECT` | 0.35 | hybrid 合并 project 权重 |
+| `BUTLER_MEMORY_UNIFIED_WEIGHT_CODING` | 0.15 | hybrid 合并 coding 权重 |
+| `BUTLER_MEMORY_OBSERVATION_RECALL_BOOST` | 0.12 | hybrid 模式下 observation 路径命中加分 |
 | `BUTLER_MEMORY_PREREAD` | 1 | `read_file` 前注入路径历史摘要 |
 | `BUTLER_SESSION_SUMMARY` | 1 | SessionEnd 写 `.butler/session_summary.json` |
 | `BUTLER_SESSIONS_LIST_LIMIT` | 20 | 微信 `/会话` 默认条数 |
@@ -657,6 +697,12 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_EXTRA_TOOLS` | — | 项目维度默认启用的额外工具（逗号分隔） |
 | `BUTLER_TRANSCRIPT_SEARCH_MAX_HITS` | `15` | transcript 搜索单次最多命中 |
 | `BUTLER_TRANSCRIPT_SEARCH_MAX_SESSIONS` | `5` | transcript 搜索最多扫描的会话数 |
+| `BUTLER_TRANSCRIPT_FTS` | `1` | SQLite FTS5 索引（`butler transcript index --rebuild`） |
+| `BUTLER_TRANSCRIPT_FTS_DEPRIORITIZE_CRON` | `1` | FTS 结果对 cron 会话降权 |
+| `BUTLER_DELEGATE_SUMMARY_MAX_CHARS` | `4000` | 委派回报注入父上下文前摘要字符上限 |
+| `BUTLER_DELEGATE_SUMMARY_RESERVE_RATIO` | `0` | 预留 headroom 比例（0–0.5，可选） |
+| `BUTLER_SKILL_WRITE_APPROVAL` | `0` | `1` = 新建/合并 skill 进待审（`/技能待审` `/批准技能`） |
+| `BUTLER_TOOLSET` | `full` | 运行时工具投影：`full` / `wechat_minimal` / `cron`（与 project.yaml 交集） |
 
 ### L4 开发引擎（Development Engine）
 
@@ -685,7 +731,7 @@ Lead 厂长模式另禁 `patch` / `terminal` / `write_file`，保留 `delegate_t
 | `BUTLER_EXPERIENCE_MERGE_REVIEW` | `0.78` | 相似度 ≥ 此值但未自动合并 → `metrics/experience_merge_pending.json` |
 | `BUTLER_SKILL_FUSION` | `1` | Skill 相似合并使用可信模型（`auxiliary.fusion` 或 butler 栈） |
 
-CLI：`butler memory merge-pending` 列出待审；`--apply KEY` / `--dismiss KEY` 应用或驳回（队列文件 `~/.butler/metrics/experience_merge_pending.json`）。
+CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 MEMORY 待审（等同微信 `/记忆待审`）；`butler memory merge-pending` 列出经验向量近邻合并待审；`--apply KEY` / `--dismiss KEY` 应用或驳回（队列文件 `~/.butler/metrics/experience_merge_pending.json`）。
 
 ### 可观测（LangFuse）
 

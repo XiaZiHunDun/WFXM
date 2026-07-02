@@ -32,7 +32,14 @@
 | `butler/task_orchestrator.py` | DAG + delegate 信封 | 子 agent 空历史、阻断 delegate、changes 提取 | ✅ |
 | `butler/session_lifecycle.py` | `memory_manager` 生命周期 | `trigger_session_end`、`sync_turn` 跳过 interrupt | ✅ |
 | `butler/gateway/hooks.py` | `hermes_cli/plugins.py`（子集） | `pre_gateway_dispatch` 等轻量 HookBus | ✅ |
-| `butler/skills/guard.py` | `tools/skills_guard.py` | 社区 skill 静态扫描 | ✅ |
+| `butler/skills/guard.py` | `tools/skills_guard.py` | 社区 skill 静态扫描 + verdict×trust 矩阵 | ✅ |
+| `butler/core/tool_result_classification.py` | `agent/tool_result_classification.py` | write/patch 落地判定 | ✅ 2026-06 |
+| `butler/memory/owner_write_pending.py` | Hermes write_approval 思路 | owner_profile/experience 微信待审 | ✅ 2026-06 |
+| `butler/core/transcript_fts.py` | `session_search` FTS | SQLite FTS5 + scroll + cron 降权 | ✅ 2026-06 |
+| `butler/tools/delegate_summary_budget.py` | delegate headroom | 委派摘要字符预算 | ✅ 2026-06 |
+| `butler/skills/write_approval.py` | `/learn` 子集 | Skill 写审批 + `/技能学习` | ✅ 2026-06 |
+| `butler/tools/toolset_profiles.py` | toolset 投影 | `BUTLER_TOOLSET` 运行时 profile | ✅ 2026-06 |
+| `butler/mcp/schema_normalize.py` | `normalize_tool_schema` | MCP 双 wrap 防护 | ✅ 2026-06 |
 
 ## 明确不移植
 

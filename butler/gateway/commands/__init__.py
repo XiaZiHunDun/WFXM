@@ -17,6 +17,7 @@ from butler.gateway.commands import (
     project_commands,
     runtime_commands,
     sandbox_commands,
+    skill_commands,
 )
 
 __all__ = [
@@ -32,4 +33,5 @@ __all__ = [
     "project_commands",
     "runtime_commands",
     "sandbox_commands",
+    "skill_commands",
 ]

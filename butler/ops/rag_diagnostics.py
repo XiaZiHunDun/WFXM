@@ -54,6 +54,30 @@ def _retrieval_history_lines(stats: dict[str, Any]) -> list[str]:
     # Audit R2-2: when the hybrid/vector path raised and we fell back to
     # FTS-only, the user (and the operator looking at /诊断) MUST see this.
     lines: list[str] = []
+    by_scope = stats.get("rag_by_scope")
+    if isinstance(by_scope, dict) and by_scope:
+        lines.append("  各 scope 最近召回:")
+        try:
+            from butler.memory.recall_scopes import RECALL_SCOPES
+
+            order = [s for s in RECALL_SCOPES if s in by_scope]
+            order.extend(sorted(set(by_scope.keys()) - set(order)))
+        except Exception:
+            order = sorted(by_scope.keys())
+        for scope in order:
+            item = by_scope.get(scope) or {}
+            mode = str(item.get("mode") or "?").strip()
+            cand = int(item.get("candidates") or 0)
+            q = str(item.get("query") or "").strip()[:60]
+            fb = int(item.get("fallbacks") or 0)
+            extra = f" fallback={fb}" if fb else ""
+            degraded = " [降级]" if item.get("recall_degraded") else ""
+            q_part = f' q="{q}"' if q else ""
+            lines.append(
+                f"    {scope}: mode={mode} candidates={cand}{extra}{q_part}{degraded}"
+            )
+        return lines
+
     last_mode = str(stats.get("rag_last_mode") or "").strip()
     if last_mode:
         lines.append(f"  最近检索模式: {last_mode}")
@@ -118,6 +142,20 @@ def _feature_flag_lines() -> list[str]:
         from butler.tools.web_fetch import web_fetch_enabled
 
         lines.append(f"  web_fetch: {'开' if web_fetch_enabled() else '关'}")
+    except Exception as exc:
+        logger.debug("format rag diagnostic lines skipped: %s", exc)
+    try:
+        from butler.memory.unified_recall_config import (
+            observation_recall_enabled,
+            unified_recall_enabled,
+        )
+
+        lines.append(
+            f"  统一 hybrid 召回: {'开' if unified_recall_enabled() else '关'}"
+        )
+        lines.append(
+            f"  observation 辅助召回: {'开' if observation_recall_enabled() else '关'}"
+        )
     except Exception as exc:
         logger.debug("format rag diagnostic lines skipped: %s", exc)
     return lines

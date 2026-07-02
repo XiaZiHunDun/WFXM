@@ -29,6 +29,7 @@ def _register_builtins() -> None:
     from butler.eval_integration.suites.b9_oracle_suite import B9OracleSuite
     from butler.eval_integration.suites.capability_suite import CapabilitySuite
     from butler.eval_integration.suites.deepeval_suite import DeepEvalAgentSuite
+    from butler.eval_integration.suites.hermes_gate_suite import HermesGateSuite
     from butler.eval_integration.suites.memory_mb_suite import MemoryMbSuite
     from butler.eval_integration.suites.ragas_suite import RagasMemorySuite
     from butler.eval_integration.suites.regression_suite import RegressionSuite
@@ -41,6 +42,7 @@ def _register_builtins() -> None:
     register_suite_factory("regression", RegressionSuite)
     register_suite_factory("wechat_corpus", WechatCorpusSuite)
     register_suite_factory("memory_mb", MemoryMbSuite)
+    register_suite_factory("hermes_gate", HermesGateSuite)
     register_suite_factory("b9_oracle", B9OracleSuite)
     register_suite_factory("deepeval_agent", DeepEvalAgentSuite)
     register_suite_factory("ragas_memory", RagasMemorySuite)

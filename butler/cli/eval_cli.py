@@ -93,7 +93,7 @@ def register_eval_parser(sub: argparse._SubParsersAction) -> None:
     run_p.add_argument("--suite", default="", help="逗号分隔 suite id")
     run_p.add_argument(
         "--preset",
-        choices=["release", "weekly", "memory", "dev"],
+        choices=["release", "weekly", "memory", "dev", "hermes"],
         help="预设 suite 组合（与 --suite 二选一）",
     )
     run_p.add_argument(

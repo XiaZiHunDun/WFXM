@@ -287,14 +287,22 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
     except Exception:
         aux_label = "未配置"
 
-    from butler.project.lead import lead_mode_banner_line
+    from butler.project.lead import is_lead_project, lead_mode_banner_line
 
     agent_role = str(health.get("gateway_agent_role") or "butler")
-    engine_line = (
-        lead_mode_banner_line()
-        if agent_role == "lead"
-        else "对话引擎: 管家 Butler"
-    )
+    if agent_role == "lead":
+        engine_line = lead_mode_banner_line()
+    elif agent_role == "plan":
+        engine_line = "对话引擎: 规划 Plan"
+    else:
+        engine_line = "对话引擎: 管家 Butler"
+    try:
+        proj = inp.orchestrator.project_manager.get_current(session_key=inp.session_key)
+        if proj is not None:
+            lead_flag = "是" if is_lead_project(str(proj.name or ""), project=proj) else "否"
+            engine_line += f" · 项目 Lead: {lead_flag}"
+    except Exception as exc:
+        logger.debug("lead project flag skipped: %s", exc)
     from butler.core.context_budget import format_context_budget_line
     from butler.context_settings import format_context_config_source_line
 
@@ -323,7 +331,11 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
 
     stale_lines: list[str] = []
     try:
-        from butler.runtime.task_store import mark_stale_tasks, count_running_tasks
+        from butler.runtime.task_store import (
+            count_running_tasks,
+            list_recent_tasks,
+            mark_stale_tasks,
+        )
 
         stale = mark_stale_tasks(health.get("session_key") or inp.session_key, auto_fail=False)
         running = count_running_tasks(health.get("session_key") or inp.session_key)
@@ -335,6 +347,15 @@ def _turn_diagnostic_lines(inp: HealthReportInput) -> list[str]:
                 stale_lines.append(
                     f"  ⏱ {row.get('task_id')} {(row.get('task_preview') or '')[:40]}"
                 )
+        recent = list_recent_tasks(
+            health.get("session_key") or inp.session_key,
+            limit=2,
+        )
+        for row in recent:
+            status = str(row.get("status") or "?")
+            role = str(row.get("role") or "?")
+            preview = str(row.get("task_preview") or "")[:50]
+            stale_lines.append(f"最近委派: {role} · {status} · {preview}")
     except Exception as exc:
         logger.debug("turn diagnostic lines skipped: %s", exc)
     recovery_lines: list[str] = []

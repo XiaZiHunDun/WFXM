@@ -67,11 +67,16 @@ _RECALL_SCHEMA = {
         "properties": {
             "scope": {
                 "type": "string",
-                "enum": ["experience", "profile", "project"],
+                "enum": ["experience", "profile", "project", "coding", "transcript", "observation", "hybrid"],
                 "default": "experience",
             },
             "query": {"type": "string", "description": "Search query (experience scope)."},
             "limit": {"type": "integer", "description": "Max rows (experience).", "default": 8},
+            "offset": {
+                "type": "integer",
+                "description": "Scroll offset (transcript scope).",
+                "default": 0,
+            },
             "project": {
                 "type": "string",
                 "description": "Optional Butler project filter; defaults to Butler env / active project.",
@@ -117,7 +122,7 @@ def _extract_hit_texts(rows: list[dict]) -> list[str]:
     for row in rows:
         if not isinstance(row, dict):
             continue
-        for key in ("content", "text", "bullet", "fact"):
+        for key in ("content", "text", "bullet", "fact", "preview", "pattern"):
             val = row.get(key)
             if val:
                 texts.append(str(val))
@@ -446,7 +451,48 @@ class ButlerMemoryService:
                 )
         except Exception as exc:
             logger.debug("remember skipped: %s", exc)
-        if not content:
+        if not content and str(args.get("action", "append") or "append").strip().lower() != "remove":
+            return json.dumps({"ok": False, "error": "content is empty"})
+
+        action = str(args.get("action", "append") or "append").strip().lower()
+        try:
+            from butler.memory.owner_write_pending import (
+                queue_owner_write,
+                scope_requires_write_approval,
+            )
+
+            if scope_requires_write_approval(scope, action):
+                item = queue_owner_write(
+                    scope=scope,
+                    content=content,
+                    action=action,
+                    old_content=str(args.get("old_content", "") or "").strip(),
+                    category=str(args.get("category", "") or "general"),
+                    section=str(args.get("section", "Notes") or "Notes"),
+                )
+                return json.dumps(
+                    {
+                        "ok": True,
+                        "scope": scope,
+                        "classification": "pending",
+                        "pending_id": item.get("id"),
+                        "action": action,
+                        "hint": "已进入所有者记忆待审；Owner 可用 /记忆待审 与 /批准记忆",
+                    },
+                    ensure_ascii=False,
+                )
+        except Exception as exc:
+            logger.debug("owner write approval skipped: %s", exc)
+
+        return self._remember_direct(args)
+
+    def _remember_direct(self, args: Dict[str, Any]) -> str:
+        if self._butler_global is None:
+            return json.dumps({"ok": False, "error": "ButlerMemory not initialized"})
+
+        scope = str(args.get("scope") or "")
+        content = str(args.get("content") or "").strip()
+        if not content and str(args.get("action", "append") or "append").strip().lower() != "remove":
             return json.dumps({"ok": False, "error": "content is empty"})
 
         category = str(args.get("category", "") or "general")
@@ -476,10 +522,12 @@ class ButlerMemoryService:
                 result = prof.add(content)
             ok = bool(result.get("success"))
             if ok:
-                try:
-                    self._butler_global.sync_profile_vectors()
-                except Exception as exc:
-                    logger.debug("Profile vector sync skipped: %s", exc)
+                from butler.core.best_effort import safe_best_effort
+
+                safe_best_effort(
+                    lambda: self._butler_global.sync_profile_vectors(),
+                    label="memory.facade.sync_profile_vectors",
+                )
             _emit_write_metric(scope, ok, content=content if ok else "")
             payload: dict[str, Any] = {"ok": ok, "scope": scope, "action": action}
             if not ok:
@@ -592,6 +640,118 @@ class ButlerMemoryService:
         if scope == "profile":
             text = self._butler_global.profile.read()
             return json.dumps({"ok": True, "profile": text})
+
+        if scope == "coding":
+            from butler.config import get_butler_home
+            from butler.memory.coding_recall import search_coding_experiences
+
+            query = str(args.get("query", "") or "").strip()
+            limit = max(1, int(args.get("limit", 8) or 8))
+            proj_name = _active_project_name() or str(args.get("project") or "").strip()
+            ws = getattr(self._project_memory, "project_dir", None) if self._project_memory else None
+            if ws is None and self._project_root:
+                ws = self._project_root
+            payload = search_coding_experiences(
+                query,
+                limit=limit,
+                project_id=proj_name,
+                project_workspace=Path(ws) if ws else None,
+                butler_home=get_butler_home(),
+            )
+            if payload.get("ok") and query:
+                try:
+                    from butler.execution_context import get_current_session_key
+                    from butler.memory.retrieval_telemetry import record_last_retrieval
+
+                    record_last_retrieval(
+                        get_current_session_key() or "",
+                        {
+                            "mode": "coding-keyword",
+                            "fallbacks": 0,
+                            "candidates": len(payload.get("results") or []),
+                            "query": query,
+                            "scope": "coding",
+                        },
+                    )
+                except Exception as exc:
+                    logger.debug("recall skipped: %s", exc)
+            _emit_recall_metric(
+                "coding",
+                query,
+                len(payload.get("results") or []),
+                hit_texts=_extract_hit_texts(payload.get("results") or []),
+            )
+            return json.dumps(payload, ensure_ascii=False)
+
+        if scope == "transcript":
+            from butler.execution_context import get_current_session_key
+            from butler.memory.transcript_recall import search_transcript_recall
+
+            query = str(args.get("query", "") or "").strip()
+            limit = max(1, int(args.get("limit", 8) or 8))
+            offset = max(0, int(args.get("offset") or 0))
+            payload = search_transcript_recall(
+                query,
+                session_key=get_current_session_key() or "",
+                limit=limit,
+                offset=offset,
+            )
+            _emit_recall_metric(
+                "transcript",
+                query,
+                int(payload.get("count") or len(payload.get("results") or [])),
+                hit_texts=_extract_hit_texts(payload.get("results") or []),
+            )
+            return json.dumps(payload, ensure_ascii=False)
+
+        if scope == "observation":
+            from butler.memory.observation_recall import search_observation_recall
+
+            query = str(args.get("query", "") or "").strip()
+            limit = max(1, int(args.get("limit", 8) or 8))
+            ws = getattr(self._project_memory, "project_dir", None) if self._project_memory else None
+            if ws is None and self._project_root:
+                ws = self._project_root
+            payload = search_observation_recall(
+                query,
+                project_workspace=Path(ws) if ws else None,
+                limit=limit,
+            )
+            _emit_recall_metric(
+                "observation",
+                query,
+                int(payload.get("count") or len(payload.get("results") or [])),
+                hit_texts=_extract_hit_texts(payload.get("results") or []),
+            )
+            return json.dumps(payload, ensure_ascii=False)
+
+        if scope == "hybrid":
+            from butler.config import get_butler_home
+            from butler.memory.unified_recall import unified_hybrid_search
+
+            query = str(args.get("query", "") or "").strip()
+            limit = max(1, int(args.get("limit", 8) or 8))
+            proj_name = _active_project_name() or str(args.get("project") or "").strip()
+            pm = self._project_memory
+            ws = getattr(pm, "project_dir", None) if pm else None
+            if ws is None and self._project_root:
+                ws = self._project_root
+            payload = unified_hybrid_search(
+                query,
+                butler_memory=self._butler_global,
+                project_memory=pm,
+                project_name=proj_name,
+                project_workspace=Path(ws) if ws else None,
+                butler_home=get_butler_home(),
+                limit=limit,
+            )
+            _emit_recall_metric(
+                "hybrid",
+                query,
+                len(payload.get("results") or []),
+                hit_texts=_extract_hit_texts(payload.get("results") or []),
+            )
+            return json.dumps(payload, ensure_ascii=False)
 
         if scope == "project":
             pm = self._project_memory

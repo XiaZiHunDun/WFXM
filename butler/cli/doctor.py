@@ -120,6 +120,50 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
     print(f"  BUTLER_EMBEDDING_PROVIDER: {emb}")
     print(f"  BUTLER_SEMANTIC_MEMORY: {sem}")
     try:
+        from butler.ops.embedding_diagnostics import format_embedding_doctor_lines
+
+        for line in format_embedding_doctor_lines():
+            print(line)
+    except Exception as exc:
+        print(f"  Embedding 档位: (不可用: {exc})")
+    try:
+        from butler.memory.semantic_config import semantic_memory_enabled
+        from butler.ops.transcript_diagnostics import transcript_fts_drift
+
+        drift = transcript_fts_drift()
+        if semantic_memory_enabled():
+            try:
+                from butler.config import get_butler_home
+                from butler.memory.semantic_index import SemanticMemoryIndex
+                from butler.tenant import tenant_memory_dir
+
+                db = tenant_memory_dir(butler_home, "default") / "memory_vectors.db"
+                if db.is_file():
+                    idx = SemanticMemoryIndex(db)
+                    try:
+                        print(f"  memory_vectors.db: {idx.count_rows()} 行")
+                    finally:
+                        idx.close()
+            except Exception as exc:
+                print(f"  memory_vectors.db: (不可用: {exc})")
+        if drift.get("fts_enabled"):
+            print(
+                f"  transcript FTS: jsonl {drift.get('transcript_jsonl_lines', 0)} / "
+                f"indexed {drift.get('transcript_fts_rows', 0)}"
+            )
+            if drift.get("transcript_fts_stale"):
+                print("  ⚠ Transcript FTS 陈旧 — butler transcript index --rebuild")
+    except Exception as exc:
+        print(f"  索引统计: (不可用: {exc})")
+    try:
+        from butler.memory.vector_store import chroma_data_present_hint
+
+        hint = chroma_data_present_hint(butler_home)
+        if hint:
+            print(f"  ⚠ {hint}")
+    except Exception:
+        pass
+    try:
         from butler.ops.embedding_health import check_embedding_recall
 
         report = check_embedding_recall(min_recall=0.5)

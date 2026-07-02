@@ -84,6 +84,7 @@ def _register_preexisting_parsers(sub: argparse._SubParsersAction) -> None:
     from butler.cli.secrets_cli import register_secrets_subparser
     from butler.cli.sessions_cli import register_sessions_subparser
     from butler.cli.skills_registry import register_skills_parser
+    from butler.cli.transcript_cli import register_transcript_parser
     from butler.cli.workflow_cli import register_workflow_subparser
 
     register_eval_parser(sub)
@@ -91,6 +92,7 @@ def _register_preexisting_parsers(sub: argparse._SubParsersAction) -> None:
     register_workflow_subparser(sub)
     register_experiment_parser(sub)
     register_sessions_subparser(sub)
+    register_transcript_parser(sub)
     register_prompt_eval_parser(sub)
     register_provider_presets_parser(sub)
     register_registry_parser(sub)

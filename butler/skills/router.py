@@ -70,7 +70,10 @@ class SkillRouter:
         content_loader: Callable[[str], dict[str, Any] | None] | None = None,
         batch_content_loader: Callable[[list[str]], dict[str, dict[str, Any]]] | None = None,
     ) -> None:
-        self._skills = list(skills)
+        self._skills = [
+            sk for sk in list(skills)
+            if str(sk.get("_load_policy") or "inject") != "block"
+        ]
         self._content_loader = content_loader
         self._batch_content_loader = batch_content_loader
         self._embedder = _get_embedder_safe()

@@ -44,9 +44,19 @@ python3 scripts/apply-butler-env-profile.py dev-remote
 | `BUTLER_WORKFLOW_AUTO_RESUME=1` | 工作流确认后自动续跑（灵文 DAG） |
 | `BUTLER_ONBOARDING_WELCOME=1` | 首次绑定三步引导 |
 | `BUTLER_MEMORY_AUTO_APPROVE=correction` | 高信任：仅纠正类记忆自动入库（其余待审） |
+| `BUTLER_MEMORY_WRITE_APPROVAL=owner_scopes` | `owner_profile` / `owner_experience` 进待审（默认） |
+| `BUTLER_SKILL_WRITE_APPROVAL=1` | 新建/合并 Skill 进待审；`/技能待审` `/批准技能` |
+| `BUTLER_TOOLSET=wechat_minimal` | 运行时工具投影（与 project.yaml 交集） |
+| `BUTLER_TRANSCRIPT_FTS=1` | transcript FTS 索引；首次升级后 `butler transcript index --rebuild` |
+| `BUTLER_MEMORY_OBSERVER_QUEUE=1` | PostToolUse → `observations.db`（hybrid 路径 boost） |
+| `BUTLER_MEMORY_OBSERVATION_RECALL=1` | `butler memory search --scope observation` |
+| `BUTLER_MEMORY_UNIFIED_RECALL=1` | `butler memory search --scope hybrid`（experience+project+coding 归一化） |
 | `BUTLER_OWNER_PMF_METRICS=1` | Owner PMF 周报（`butler-owner-pmf-report.sh`） |
 
 可选：`BUTLER_MCP_ENABLED=1` · `BUTLER_SEMANTIC_MEMORY=1`
+
+**Hermes 对标收尾（2026-06）**：gateway 推荐上表五项；`release` eval 已含 `hermes_gate`；dev-local 用 `apply-butler-env-profile.py dev-local` 得 `BUTLER_TOOLSET=full` + 审批关以便 pytest。  
+**生产切换步骤**：[`gateway-hermes-rollout-checklist-2026-06.md`](gateway-hermes-rollout-checklist-2026-06.md)
 
 **Owner 首周**：[`owner-first-week-2026-06.md`](owner-first-week-2026-06.md)
 
@@ -63,6 +73,8 @@ python3 scripts/apply-butler-env-profile.py dev-remote
 
 可选：`BUTLER_TERMINAL_SANDBOX=1` · `BUTLER_WECHAT_OWNER_SIM=1`
 
+dev-local 剖面（`apply-butler-env-profile.py dev-local`）另设：`BUTLER_TOOLSET=full`、`BUTLER_SKILL_WRITE_APPROVAL=0`、`BUTLER_MEMORY_WRITE_APPROVAL=0`。
+
 **期望**：`bash scripts/butler-pytest-fast-gate.sh` 绿；**不要**在本机 dev 剖面误跑第二个 gateway（singleton lock）。
 
 ### dev-remote（远程开发试点）
@@ -75,6 +87,17 @@ python3 scripts/apply-butler-env-profile.py dev-remote
 | `BUTLER_TERMINAL_PROFILE` | 项目沙箱白名单名 |
 
 **期望**：微信 `/沙箱` 有 dev-remote 说明；`/分工` 可读。
+
+---
+
+## 2.1 终端与开发 FAQ
+
+| 疑问 | 答案 |
+|------|------|
+| gateway 剖面关 terminal，还能开发吗？ | **能**。Lead 在微信上**委派** `dev` 子代理；改代码在**服务端 workspace** 执行，子代理可有 `terminal` 工具。 |
+| 本机改 Butler 核心 / 跑 pytest | 用 **dev-local**：`BUTLER_ENV_PROFILE=dev-local` + `BUTLER_ENABLE_TERMINAL=1`（`apply-butler-env-profile.py dev-local`） |
+| 远程沙箱 + CC 桥接 | **dev-remote**：`BUTLER_CC_BRIDGE=1`，微信 `/沙箱` |
+| 谁和我对话？ | **Lead**（`lead: true` 项目）或 **Butler**（普通项目）；真正改盘的是 **dev/content 子 Loop**，不是你对话的线程 |
 
 ---
 

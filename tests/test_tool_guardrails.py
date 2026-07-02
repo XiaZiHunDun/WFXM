@@ -227,3 +227,21 @@ class TestAppendGuidance:
         decision = GuardrailDecision(action="allow")
         original = '{"ok": true}'
         assert append_guidance(original, decision) == original
+
+
+@pytest.mark.unit
+class TestMutationLandedClassification:
+    def test_mutation_not_landed_counts_as_failure(self):
+        failed, suffix = classify_tool_failure(
+            "write_file",
+            '{"success": true, "path": "a.py"}',
+        )
+        assert failed is True
+        assert "mutation_not_landed" in suffix
+
+    def test_mutation_landed_not_failure(self):
+        failed, _ = classify_tool_failure(
+            "write_file",
+            '{"success": true, "path": "a.py", "bytes": 3}',
+        )
+        assert failed is False

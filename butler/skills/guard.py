@@ -5,6 +5,11 @@ from __future__ import annotations
 import re
 import unicodedata
 from pathlib import Path
+from typing import Literal
+
+TrustLevel = Literal["builtin", "project", "hub"]
+Verdict = Literal["pass", "warn", "block"]
+LoadPolicy = Literal["inject", "warn_inject", "tools_only", "block"]
 
 # Zero-width chars used to evade whitespace-aware regexes (Sprint 20-1 SEC-20-A-3).
 _ZERO_WIDTH_CHARS = "​‌‍⁠﻿"
@@ -70,8 +75,69 @@ def scan_skill_file(path: Path) -> tuple[bool, list[str]]:
     return len(issues) == 0, issues
 
 
+def scan_verdict(issues: list[str]) -> Verdict:
+    if not issues:
+        return "pass"
+    if "unreadable" in issues or "prompt_injection" in issues or "role_override" in issues:
+        return "block"
+    return "warn"
+
+
+def infer_trust_level(path: Path) -> TrustLevel:
+    parts = [p.lower() for p in path.parts]
+    if "registry" in parts or "hub" in parts:
+        return "hub"
+    if ".butler" in parts:
+        return "project"
+    return "builtin"
+
+
+def resolve_skill_load_policy(verdict: Verdict, trust: TrustLevel) -> LoadPolicy:
+    """verdict × trust matrix for inject / tools_bridge / block."""
+    if verdict == "block":
+        return "block"
+    if trust == "builtin":
+        return "inject" if verdict == "pass" else "warn_inject"
+    if trust == "project":
+        return "inject" if verdict == "pass" else "warn_inject"
+    if trust == "hub":
+        if verdict == "pass":
+            return "warn_inject"
+        return "block"
+    return "block"
+
+
+def infer_trust_from_source(source: str, path: Path) -> TrustLevel:
+    """Map SkillManager source label + path heuristics to trust tier."""
+    path_trust = infer_trust_level(path)
+    if path_trust == "hub":
+        return "hub"
+    if source == "global":
+        return "builtin"
+    if source == "project":
+        return "project"
+    return path_trust
+
+
+def evaluate_skill_load_policy(path: Path, *, source: str = "project") -> LoadPolicy:
+    """Full path: scan file → verdict × trust → load policy."""
+    _safe, issues = scan_skill_file(path)
+    verdict = scan_verdict(issues)
+    trust = infer_trust_from_source(source, path)
+    return resolve_skill_load_policy(verdict, trust)
+
+
+def skill_allows_injection(policy: LoadPolicy) -> bool:
+    return policy in ("inject", "warn_inject")
+
+
+def skill_requires_trust_disclaimer(policy: LoadPolicy) -> bool:
+    return policy == "warn_inject"
+
+
 def validate_skill_install(path: Path) -> None:
-    """Raise ValueError if skill file fails guard scan."""
-    safe, issues = scan_skill_file(path)
-    if not safe:
-        raise ValueError(f"Skill failed security scan: {', '.join(issues)}")
+    """Raise ValueError if skill file fails guard scan or load policy."""
+    policy = evaluate_skill_load_policy(path, source="hub")
+    if policy == "block":
+        _safe, issues = scan_skill_file(path)
+        raise ValueError(f"Skill blocked by load policy: {', '.join(issues) or policy}")

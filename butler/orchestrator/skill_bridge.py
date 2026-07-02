@@ -58,6 +58,8 @@ def build_skill_injection_sections(
         name = sk.get("name", "skill")
         score = sk.get("match_score")
         hdr = f"### `{name}`" + (f" (相关性 {score})" if score is not None else "")
+        if sk.get("_trust_warn"):
+            hdr += " [hub/社区 — 未验证]"
         sections.append(hdr)
         sections.append(content)
     return sections

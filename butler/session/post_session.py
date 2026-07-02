@@ -305,14 +305,14 @@ def _create_one_skill(
         return 0
     name = s.get("name", "?")
     try:
-        skill_manager.create(
+        outcome = skill_manager.create(
             name=str(s["name"]),
             description=str(s.get("description", "")),
             triggers=s.get("triggers", []),
             content=str(s["body"]),
         )
-        logger.info("Extracted skill: %s", name)
-        return 1
+        logger.info("Extracted skill: %s (%s)", name, outcome)
+        return 1 if outcome in ("created", "merged", "pending") else 0
     except Exception as exc:
         logger.error(
             "Post-session skill creation failed: %s", name, exc_info=exc,

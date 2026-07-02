@@ -269,3 +269,22 @@ def get_vector_store(collection: str = "butler_personal") -> VectorStore:
             logger.info("Evicted vector store cache entry: %s", oldest)
         _STORE_CACHE[collection] = store
     return store
+
+
+def chroma_data_present_hint(butler_home: Path | None = None) -> str:
+    """Return a doctor hint when legacy Chroma data exists but semantic memory is off."""
+    from butler.memory.semantic_config import semantic_memory_enabled
+
+    if semantic_memory_enabled():
+        return ""
+    root = Path(butler_home).expanduser() if butler_home is not None else _store_root().parent
+    chroma_dir = root / "vector_store" / "chroma"
+    fallback = root / "vector_store" / "fallback.jsonl"
+    if chroma_dir.is_dir() and any(chroma_dir.iterdir()):
+        return (
+            "检测到 Chroma 实验数据（非生产链）；语义检索请用 memory_vectors.db + "
+            "BUTLER_SEMANTIC_MEMORY=1"
+        )
+    if fallback.is_file() and fallback.stat().st_size > 0:
+        return "检测到 vector_store/fallback.jsonl（实验链）；生产请用 SemanticMemoryIndex"
+    return ""

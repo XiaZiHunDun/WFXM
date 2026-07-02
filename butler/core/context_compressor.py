@@ -229,12 +229,14 @@ def truncate_tool_responses_to_budget(messages: list[dict]) -> list[dict]:
         )
         out.append({**m, "content": trimmed})
     if changed:
-        try:
-            from butler.ops.retry_buckets import record_recovery_event
+        from butler.core.best_effort import safe_best_effort
 
-            record_recovery_event("compress_tool_budget_truncate")
-        except Exception as exc:
-            logger.debug("truncate tool responses to budget skipped: %s", exc)
+        safe_best_effort(
+            lambda: __import__(
+                "butler.ops.retry_buckets", fromlist=["record_recovery_event"]
+            ).record_recovery_event("compress_tool_budget_truncate"),
+            label="context_compressor.record_recovery_event",
+        )
     return out
 
 
@@ -259,14 +261,16 @@ def _summarize_middle(middle: list[dict], previous_summary: str = "") -> tuple[s
     if len(transcript) < 100:
         return previous_summary, False
 
-    try:
-        from butler.core.remote_compact import try_remote_summarize
+    from butler.core.best_effort import safe_best_effort
+    from butler.core.remote_compact import try_remote_summarize
 
-        remote_summary = try_remote_summarize(middle, previous_summary)
-        if remote_summary and remote_summary.strip():
-            return remote_summary.strip(), True
-    except Exception as exc:
-        logger.debug("Remote compact skipped: %s", exc)
+    remote_summary = safe_best_effort(
+        lambda: try_remote_summarize(middle, previous_summary),
+        label="context_compressor.remote_summarize",
+        default=None,
+    )
+    if remote_summary and str(remote_summary).strip():
+        return str(remote_summary).strip(), True
 
     from butler.core.compaction_prompt import build_compaction_user_prompt
 

@@ -183,6 +183,20 @@
 | observation 路径历史排序/权重优化 | SQLite observation store 收口 | 当前以最近命中为主（文档化）；工具/成功率权重仍 Backlog |
 | observation 导出/诊断命令 | SQLite observation store 收口 | ✅ `/诊断 详细` + `butler memory observations` |
 
+### 3.2.2 Hermes 对标深化（2026-06 — P2 Backlog）
+
+> **来源**：[`hermes-extraction-map.md`](../../architecture/hermes-extraction-map.md) 与 Butler/Hermes 工具·Skill·记忆对比（2026-06）。  
+> **原则**：P0/P1 子集已落地（写审批、FTS、toolset、guard 矩阵等）；下列项 **不承诺排期**，除非书面变更产品边界。
+
+| ID | 项 | 否决/暂缓理由 | 若未来要做 |
+|----|-----|---------------|------------|
+| H-P2-1 | skills_hub 全链（市场、签名、自动更新） | 与「不做全量 MCP Host」一致；依赖运营面 | 先 hub MVP + `guard` trust 矩阵 |
+| H-P2-2 | curator 后台 fork 学 skill | 多进程/微信单实例冲突 | 仅 CLI/desktop 剖面 opt-in |
+| H-P2-3 | MemoryManager 多插件（Honcho/mem0） | 已有 hybrid semantic + fact；见 theory-gap G1–G4 | 单插件 ROI 评估后试点 |
+| H-P2-4 | MEMORY/USER 双文件冻结快照 | 与 project MEMORY Pending 重复 | 文档化即可 |
+| H-P2-5 | Kanban / delegate 看板 | 非微信管家核心 | `project_todos` 已覆盖子集 |
+| H-P2-6 | Hermes 50+ 工具 parity | 维护成本与微信场景不匹配 | 按需求单点引入 |
+
 ### 3.3 OpenCode 净新增（P2/P3）
 
 见 [`opencode-butler-comparison-report-2026-05.md`](../comparisons/opencode-butler-comparison-report-2026-05.md)「仍明确暂缓」与 P2/P3 表：Compaction 一等任务、异步委派通知、worktree 会话、LSP、Share 公网 URL、Post-edit format 等。
@@ -221,8 +235,8 @@
 ```text
 窗内至 07-31  G1-04 运营：butler-ops-cadence.sh --weekly；07-27 TCR strict flip
 窗满 07-31    PROD-P0-01 结案：butler-g1-04-closure-check.sh → 更新 gap register
-Backlog       ENG-13（wechat_ilink 第三轮，条件触发）· P2-F 续（compress/delegate）· P3-H 记忆统一检索
-已完成        PROD-P0–P2 表内项 · P0-A/B · P1-C · P1-D · P2-E · P2-F · P2-G
+Backlog       P2-F 续（compress/delegate）· P3-I 延迟 import · P3-J 配置收敛
+已完成        PROD-P0–P2 表内项 · P0-A/B · P1-C · P1-D · P2-E · P2-F · P2-G · **P3-H** 记忆统一检索（2026-07-02）· ENG-13
 ```
 
 ---

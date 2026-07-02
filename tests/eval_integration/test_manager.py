@@ -90,7 +90,7 @@ def test_presets_release():
     from butler.eval_integration.presets import resolve_suites
 
     suites = resolve_suites(preset="release")
-    assert suites == ["tcr", "regression", "wechat_corpus"]
+    assert suites == ["tcr", "regression", "wechat_corpus", "hermes_gate"]
 
 
 @patch("butler.eval_integration.suites.tcr_suite.TcrSuite.run")

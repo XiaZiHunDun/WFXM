@@ -125,7 +125,9 @@ def dispatch_one_tool(
         if before.action == "warn" and before.code == "doom_loop_soft_nudge":
             pending_warn = before
         if before.action == "ask" and before.code == "doom_loop":
-            doom_result = _handle_doom_loop_ask(
+            from butler.core.tool_dispatch_doom import handle_doom_loop_ask
+
+            doom_result = handle_doom_loop_ask(
                 before, name, args, session_key=session_key,
             )
             if doom_result is not None:
@@ -169,10 +171,21 @@ def dispatch_one_tool(
             )
 
     safe_best_effort(_apply_error_policy, label="tool_dispatch.error_policy")
+
+    mutation_failed = False
+    try:
+        from butler.core.tool_result_classification import annotate_mutation_not_landed
+
+        result, mutation_failed = annotate_mutation_not_landed(name, result)
+    except Exception as exc:
+        logger.debug("mutation landed check skipped: %s", exc)
+
     set_cached_result(name, args, result, session_key=session_key)
 
     if guardrails:
-        after = guardrails.after_call(name, args, result)
+        after = guardrails.after_call(
+            name, args, result, failed=True if mutation_failed else None,
+        )
         if after.should_halt:
             guardrails.set_halt_decision(after)
 
@@ -194,39 +207,6 @@ def dispatch_one_tool(
     _dev_engine_post_edit(name, args, result)
     _plan_mode_post_edit(name, args, result)
     return result
-
-
-def _handle_doom_loop_ask(
-    before: Any,
-    name: str,
-    args: dict,
-    *,
-    session_key: str,
-) -> str | None:
-    from butler.core.tool_batch import finalize_fallback_tool_result
-
-    try:
-        from butler.permissions.doom_loop import check_doom_loop_ask
-
-        block_msg = check_doom_loop_ask(before, name, args)
-        if block_msg:
-
-            def _record_reflect() -> None:
-                from butler.core.reasoning_trace import record_doom_loop_reflect
-
-                record_doom_loop_reflect(session_key, block_msg, tool_name=name)
-
-            safe_best_effort(_record_reflect, label="tool_dispatch.doom_reflect")
-            ask_dec = GuardrailDecision(
-                action="block",
-                code="doom_loop",
-                message=block_msg,
-                tool_name=name,
-            )
-            return finalize_fallback_tool_result(name, args, synthetic_result(ask_dec))
-    except Exception:
-        return finalize_fallback_tool_result(name, args, synthetic_result(before))
-    return None
 
 
 __all__ = ["dispatch_one_tool"]

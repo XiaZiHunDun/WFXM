@@ -36,6 +36,12 @@ class MemoryConfig:
     observer_queue_enabled: bool = False
     observation_ttl_days: int = OBSERVATION_TTL_DAYS
     observation_max_rows: int = 0
+    observation_recall_enabled: bool = False
+    unified_recall_enabled: bool = False
+    unified_weight_experience: float = 0.50
+    unified_weight_project: float = 0.35
+    unified_weight_coding: float = 0.15
+    observation_recall_boost: float = 0.12
     metrics_persist: bool = True
     corrective_recall_enabled: bool = True
     private_tags_enabled: bool = True
@@ -187,6 +193,46 @@ def resolve_memory_config() -> MemoryConfig:
     else:
         observation_max_rows = max_rows_yaml
 
+    unified_raw = _nested_dict(raw, "unified_recall")
+    observation_recall_yaml = _bool_from_raw(
+        obs_raw,
+        "recall_enabled",
+        _bool_from_raw(unified_raw, "observation_recall_enabled", False),
+    )
+    observation_recall_enabled = env_truthy(
+        "BUTLER_MEMORY_OBSERVATION_RECALL",
+        default=observation_recall_yaml,
+    )
+    unified_recall_yaml = _bool_from_raw(unified_raw, "enabled", False)
+    unified_recall_enabled = env_truthy(
+        "BUTLER_MEMORY_UNIFIED_RECALL",
+        default=unified_recall_yaml,
+    )
+    unified_weight_experience = float_env(
+        "BUTLER_MEMORY_UNIFIED_WEIGHT_EXPERIENCE",
+        _float_from_raw(unified_raw, "weight_experience", 0.50),
+        min=0.0,
+        max=1.0,
+    )
+    unified_weight_project = float_env(
+        "BUTLER_MEMORY_UNIFIED_WEIGHT_PROJECT",
+        _float_from_raw(unified_raw, "weight_project", 0.35),
+        min=0.0,
+        max=1.0,
+    )
+    unified_weight_coding = float_env(
+        "BUTLER_MEMORY_UNIFIED_WEIGHT_CODING",
+        _float_from_raw(unified_raw, "weight_coding", 0.15),
+        min=0.0,
+        max=1.0,
+    )
+    observation_recall_boost = float_env(
+        "BUTLER_MEMORY_OBSERVATION_RECALL_BOOST",
+        _float_from_raw(obs_raw, "recall_boost", _float_from_raw(unified_raw, "observation_boost", 0.12)),
+        min=0.0,
+        max=1.0,
+    )
+
     metrics_yaml = _bool_from_raw(raw, "metrics_persist", True)
     metrics_persist = env_truthy("BUTLER_MEMORY_METRICS_PERSIST", default=metrics_yaml)
 
@@ -210,6 +256,12 @@ def resolve_memory_config() -> MemoryConfig:
         observer_queue_enabled=observer_queue_enabled,
         observation_ttl_days=observation_ttl_days,
         observation_max_rows=observation_max_rows,
+        observation_recall_enabled=observation_recall_enabled,
+        unified_recall_enabled=unified_recall_enabled,
+        unified_weight_experience=unified_weight_experience,
+        unified_weight_project=unified_weight_project,
+        unified_weight_coding=unified_weight_coding,
+        observation_recall_boost=observation_recall_boost,
         metrics_persist=metrics_persist,
         corrective_recall_enabled=corrective_recall_enabled,
         private_tags_enabled=private_tags_enabled,

@@ -220,8 +220,14 @@ def collect_memory_layer_stats(
                 logger.debug("collect memory layer stats skipped: %s", exc)
     if session_key:
         try:
-            from butler.memory.retrieval_telemetry import get_last_retrieval
+            from butler.memory.retrieval_telemetry import (
+                get_last_retrieval,
+                get_last_retrieval_by_scope,
+            )
 
+            by_scope = get_last_retrieval_by_scope(session_key)
+            if by_scope:
+                stats["rag_by_scope"] = by_scope
             last = get_last_retrieval(session_key)
             if last:
                 stats["rag_last_mode"] = str(last.get("mode") or "")
@@ -245,6 +251,20 @@ def collect_memory_layer_stats(
         stats["memory_scope"] = scope_stats
     except Exception as exc:
         logger.debug("collect memory scope stats skipped: %s", exc)
+    try:
+        from butler.ops.transcript_diagnostics import transcript_fts_drift
+
+        stats.update(transcript_fts_drift(session_key=session_key))
+    except Exception as exc:
+        logger.debug("collect transcript fts drift skipped: %s", exc)
+    try:
+        from butler.ops.embedding_diagnostics import collect_embedding_snapshot
+
+        stats["embedding_snapshot"] = collect_embedding_snapshot(
+            vector_rows=int(stats.get("vector_rows") or 0),
+        )
+    except Exception as exc:
+        logger.debug("collect embedding snapshot skipped: %s", exc)
     return stats
 
 
@@ -264,6 +284,20 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
     lines: list[str] = []
     if config_line:
         lines.append(config_line)
+    try:
+        from butler.ops.embedding_diagnostics import format_embedding_status_line
+
+        snap = stats.get("embedding_snapshot")
+        if isinstance(snap, dict):
+            lines.append(format_embedding_status_line(snap))
+        else:
+            lines.append(
+                format_embedding_status_line(
+                    vector_rows=int(stats.get("vector_rows") or 0),
+                )
+            )
+    except Exception as exc:
+        logger.debug("format embedding status skipped: %s", exc)
     lines.extend(
         [
             "记忆分层:",
@@ -297,10 +331,28 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         if idx_exp is not None and vec_exp is not None:
             sync_line = f"  向量同步: experience {vec_exp}/{idx_exp}"
             if stats.get("semantic_index_stale"):
-                sync_line += " — 陈旧，建议 butler memory-reindex"
+                sync_line += " — 陈旧，建议 butler memory reindex"
             lines.append(sync_line)
+        try:
+            from butler.memory.vector_sync_telemetry import format_vector_sync_lines
+
+            lines.extend(format_vector_sync_lines())
+        except Exception as exc:
+            logger.debug("format vector sync lines skipped: %s", exc)
     else:
         lines.append("  向量索引: 关 (BUTLER_SEMANTIC_MEMORY=0)")
+    if stats.get("embedding_degraded") or (
+        isinstance(stats.get("embedding_snapshot"), dict)
+        and stats["embedding_snapshot"].get("embedding_degraded")
+    ):
+        lines.append("  嵌入质量: ⚠ 已降级（见 doctor Embedding Recall@3）")
+    jl = stats.get("transcript_jsonl_lines")
+    ft = stats.get("transcript_fts_rows")
+    if jl is not None and ft is not None and stats.get("fts_enabled", True):
+        tline = f"  Transcript 索引: jsonl {jl} 行 / FTS {ft} 行"
+        if stats.get("transcript_fts_stale"):
+            tline += " — 陈旧，建议 butler transcript index --rebuild"
+        lines.append(tline)
     try:
         from butler.memory.retrieval_ranking import (
             memory_access_boost,

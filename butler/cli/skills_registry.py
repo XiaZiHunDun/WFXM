@@ -71,6 +71,43 @@ def register_skills_parser(sub: argparse._SubParsersAction) -> None:
     )
     p_lint.set_defaults(func=_cmd_lint)
 
+    p_learn = sp.add_parser("learn", help="受控技能学习（auxiliary LLM → 待审或直写）")
+    p_learn.add_argument("description", help="技能用途描述（≥8 字）")
+    p_learn.add_argument(
+        "--project",
+        default="",
+        help="项目 workspace；技能写入 .butler/skills（默认租户全局）",
+    )
+    p_learn.set_defaults(func=_cmd_learn)
+
+    p_pending = sp.add_parser("pending", help="列出待批准技能（BUTLER_SKILL_WRITE_APPROVAL）")
+    p_pending.set_defaults(func=_cmd_pending)
+
+    p_appr = sp.add_parser("approve", help="批准待审技能")
+    p_appr.add_argument("index", nargs="?", default="", help="序号（1-based）或 all")
+    p_appr.set_defaults(func=_cmd_approve)
+
+    p_rej = sp.add_parser("reject", help="拒绝待审技能")
+    p_rej.add_argument("index", nargs="?", default="", help="序号（1-based）或 all")
+    p_rej.set_defaults(func=_cmd_reject)
+
+
+def _skill_manager_for_cli(*, project: str = ""):
+    from pathlib import Path
+
+    from butler.config import load_settings
+    from butler.skills.manager import SkillManager
+    from butler.tenant import tenant_skills_dir
+
+    settings = load_settings()
+    tenant_id = _tenant_id()
+    global_dir = tenant_skills_dir(settings.butler_home, tenant_id)
+    project_ws = (project or "").strip()
+    if project_ws:
+        proj_skills = Path(project_ws).expanduser().resolve() / ".butler" / "skills"
+        return SkillManager(skills_dir=proj_skills, global_skills_dir=global_dir)
+    return SkillManager(skills_dir=global_dir, global_skills_dir=None)
+
 
 def _tenant_id() -> str:
     try:
@@ -223,3 +260,85 @@ def _cmd_lint(ns: argparse.Namespace) -> int:
     issues = lint_skill_summaries(mgr.list_skills())
     print(format_lint_report(issues))
     return 1 if issues else 0
+
+
+def _cmd_learn(ns: argparse.Namespace) -> int:
+    from butler.skills.learn import run_skill_learn
+
+    mgr = _skill_manager_for_cli(project=getattr(ns, "project", "") or "")
+    result = run_skill_learn(ns.description, mgr)
+    if not result.get("ok"):
+        print(result.get("error") or "技能学习失败")
+        return 1
+    print(result.get("message") or "完成")
+    return 0
+
+
+def _cmd_pending(ns: argparse.Namespace) -> int:
+    from butler.skills.write_approval import format_skill_pending_lines
+
+    lines = format_skill_pending_lines()
+    if not lines:
+        print("（无待审技能）")
+        return 0
+    print("\n".join(lines))
+    return 0
+
+
+def _cmd_approve(ns: argparse.Namespace) -> int:
+    from butler.skills.write_approval import (
+        approve_all_skill_pending,
+        approve_skill_pending,
+        list_skill_pending,
+    )
+
+    mgr = _skill_manager_for_cli()
+    key = (ns.index or "").strip().lower()
+    if key in ("全部", "all", "*", ""):
+        if key == "":
+            print("用法: butler skills approve <序号>  或  butler skills approve all")
+            return 1
+        count = approve_all_skill_pending(mgr)
+        print(f"已批准 {count} 条")
+        return 0
+    try:
+        idx = int(key) - 1
+    except ValueError:
+        print("序号必须是数字")
+        return 1
+    if not list_skill_pending():
+        print("无待审技能")
+        return 1
+    result = approve_skill_pending(idx, mgr)
+    if result.get("ok"):
+        print(f"已批准: {result.get('name')} ({result.get('outcome')})")
+        return 0
+    print(f"失败: {result.get('error')}")
+    return 1
+
+
+def _cmd_reject(ns: argparse.Namespace) -> int:
+    from butler.skills.write_approval import (
+        list_skill_pending,
+        reject_all_skill_pending,
+        reject_skill_pending,
+    )
+
+    key = (ns.index or "").strip().lower()
+    if key in ("全部", "all", "*", ""):
+        if key == "":
+            print("用法: butler skills reject <序号>  或  butler skills reject all")
+            return 1
+        count = reject_all_skill_pending()
+        print(f"已拒绝 {count} 条")
+        return 0
+    try:
+        idx = int(key) - 1
+    except ValueError:
+        print("序号必须是数字")
+        return 1
+    if reject_skill_pending(idx):
+        print(f"已拒绝第 {idx + 1} 条")
+        return 0
+    print("拒绝失败")
+    return 1

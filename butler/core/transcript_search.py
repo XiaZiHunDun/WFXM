@@ -65,15 +65,33 @@ def search_transcripts(
     *,
     session_key: str = "",
     max_hits: int | None = None,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     if not transcript_enabled():
         return []
-    q = (query or "").strip().lower()
+    q = (query or "").strip()
     if len(q) < 2:
         return []
+    cap = max_hits if max_hits is not None else search_max_hits()
+
+    try:
+        from butler.core.transcript_fts import fts_enabled, search_fts
+
+        if fts_enabled():
+            hits = search_fts(
+                q,
+                session_key=session_key,
+                limit=cap,
+                offset=max(0, offset),
+            )
+            if hits:
+                return hits
+    except Exception:
+        pass
+
     pattern = re.compile(re.escape(q), re.IGNORECASE)
     hits: list[dict[str, Any]] = []
-    cap = max_hits if max_hits is not None else search_max_hits()
+    skipped = 0
 
     for sk, path in _iter_session_transcripts(session_key=session_key):
         try:
@@ -82,6 +100,9 @@ def search_transcripts(
             continue
         for idx, ln in enumerate(lines):
             if not pattern.search(ln):
+                continue
+            if skipped < offset:
+                skipped += 1
                 continue
             try:
                 row = json.loads(ln)
@@ -117,11 +138,16 @@ def register_transcript_search_tool(register_fn) -> None:
         query = str(args.get("query") or "").strip()
         sk = str(args.get("session_key") or get_current_session_key() or "").strip()
         max_hits = args.get("max_hits")
+        offset = args.get("offset")
         try:
             cap = int(max_hits) if max_hits is not None else None
         except (TypeError, ValueError):
             cap = None
-        hits = search_transcripts(query, session_key=sk, max_hits=cap)
+        try:
+            off = int(offset) if offset is not None else 0
+        except (TypeError, ValueError):
+            off = 0
+        hits = search_transcripts(query, session_key=sk, max_hits=cap, offset=off)
         return json.dumps({"hits": hits, "count": len(hits)}, ensure_ascii=False)
 
     register_fn(
@@ -139,6 +165,7 @@ def register_transcript_search_tool(register_fn) -> None:
                     "description": "Optional session key; default current session",
                 },
                 "max_hits": {"type": "integer", "description": "Max results (default from env)"},
+                "offset": {"type": "integer", "description": "Scroll offset for pagination"},
             },
             "required": ["query"],
         },

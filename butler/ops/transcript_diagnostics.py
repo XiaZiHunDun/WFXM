@@ -1,88 +1,97 @@
-"""Transcript tail summary for /诊断."""
+"""Transcript JSONL vs FTS index drift diagnostics."""
 
 from __future__ import annotations
 
+import json
+import sqlite3
+from pathlib import Path
 from typing import Any
-import logging
+
+from butler.config import get_butler_home
+from butler.core.transcript_fts import fts_db_path, fts_enabled
 
 
-logger = logging.getLogger(__name__)
+def count_jsonl_lines(*, session_key: str = "") -> int:
+    """Count non-empty lines across session transcript.jsonl files."""
+    root = get_butler_home() / "sessions"
+    if not root.is_dir():
+        return 0
+    sk = str(session_key or "").strip()
+    total = 0
+    if sk:
+        paths = [root / sk / "transcript.jsonl"]
+    else:
+        paths = [child / "transcript.jsonl" for child in root.iterdir() if child.is_dir()]
+    for path in paths:
+        if not path.is_file():
+            continue
+        try:
+            for ln in path.read_text(encoding="utf-8").splitlines():
+                if ln.strip():
+                    total += 1
+        except OSError:
+            continue
+    return total
 
-def format_transcript_diagnostic_lines(session_key: str) -> list[str]:
+
+def count_fts_meta_rows(*, session_key: str = "") -> int:
+    """Count rows in transcript_meta (indexed transcript lines)."""
+    if not fts_enabled():
+        return 0
+    db = fts_db_path()
+    if not db.is_file():
+        return 0
     try:
-        from butler.core.session_transcript import load_transcript_tail, transcript_enabled
-        from butler.core.session_todos import count_open_todos, session_todos_enabled
-    except Exception:
-        return []
-
-    if not transcript_enabled():
-        return ["Transcript: 已关闭 (BUTLER_SESSION_TRANSCRIPT=0)"]
-
-    rows = load_transcript_tail(session_key, max_lines=80)
-    if not rows:
-        return ["Transcript: 暂无记录"]
-
-    compact_scheduled = sum(1 for r in rows if r.get("type") == "compact_scheduled")
-    compact_started = sum(1 for r in rows if r.get("type") == "compact_started")
-    compact_done = sum(1 for r in rows if r.get("type") == "compact_done")
-    compact_failed = sum(1 for r in rows if r.get("type") == "compact_failed")
-    overflow_replay = sum(1 for r in rows if r.get("type") == "overflow_replay")
-    queue_ops = sum(1 for r in rows if r.get("type") in ("queue_op", "queue_drop"))
-    last = rows[-1] if rows else {}
-    last_type = str(last.get("type") or "-")
-
-    lines = [
-        f"Transcript: 近 {len(rows)} 条 · 压缩 {compact_done}/{compact_scheduled} 完成"
-        f" · started={compact_started} · failed={compact_failed}"
-        f" · 队列事件 {queue_ops}",
-        f"Transcript 末条: {last_type}",
-    ]
-    if overflow_replay:
-        lines.append(
-            f"⚠️ 续跑提示: 本会话触发了 {overflow_replay} 次 413/overflow 续跑"
-            f" (overflow_replay 事件), 上下文已被强制重放, 可考虑精简后重试"
-        )
-    if session_todos_enabled():
-        open_n = count_open_todos(session_key)
-        lines.append(f"会话待办: 未完成 {open_n} 条 (发 /待办 查看)")
-    pending = _after_commit_pending()
-    if pending:
-        lines.append(f"Post-commit 队列: 待发 {pending} 条")
-    try:
-        from butler.mcp.diagnostics import format_mcp_diagnostic_lines
-
-        lines.extend(format_mcp_diagnostic_lines(session_key))
-    except Exception as exc:
-        logger.debug("format transcript diagnostic lines skipped: %s", exc)
-    try:
-        from butler.core.reasoning_trace import format_reasoning_diagnostic_lines
-
-        lines.extend(format_reasoning_diagnostic_lines(session_key))
-    except Exception as exc:
-        logger.debug("reasoning diagnostic lines skipped: %s", exc)
-    return lines
-
-
-def _after_commit_pending() -> int:
-    try:
-        from butler.core.post_commit import pending_after_commit_count
-
-        return pending_after_commit_count()
-    except Exception:
+        conn = sqlite3.connect(str(db))
+        sk = str(session_key or "").strip()
+        if sk:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM transcript_meta WHERE session_key = ?",
+                (sk,),
+            ).fetchone()
+        else:
+            row = conn.execute("SELECT COUNT(*) FROM transcript_meta").fetchone()
+        conn.close()
+        return int(row[0]) if row else 0
+    except sqlite3.Error:
         return 0
 
 
-def summarize_compact_events(rows: list[dict[str, Any]]) -> dict[str, int]:
-    out = {
-        "compact_scheduled": 0,
-        "compact_started": 0,
-        "compact_done": 0,
-        "compact_failed": 0,
-        "compact_boundary": 0,
-        "overflow_replay": 0,
+def transcript_fts_drift(*, session_key: str = "") -> dict[str, Any]:
+    """Compare jsonl line count vs FTS meta rows."""
+    jsonl_lines = count_jsonl_lines(session_key=session_key)
+    fts_rows = count_fts_meta_rows(session_key=session_key)
+    gap = max(0, jsonl_lines - fts_rows)
+    ratio = (fts_rows / jsonl_lines) if jsonl_lines > 0 else 1.0
+    stale = False
+    if jsonl_lines > 0 and fts_enabled():
+        stale = gap >= 10 or ratio < 0.9
+    return {
+        "transcript_jsonl_lines": jsonl_lines,
+        "transcript_fts_rows": fts_rows,
+        "transcript_fts_gap": gap,
+        "transcript_fts_stale": stale,
+        "transcript_fts_ratio": round(ratio, 3),
+        "fts_enabled": fts_enabled(),
     }
-    for row in rows:
-        t = str(row.get("type") or "")
-        if t in out:
-            out[t] += 1
-    return out
+
+
+def format_transcript_drift_lines(*, session_key: str = "") -> list[str]:
+    """Human-readable drift summary for /诊断."""
+    drift = transcript_fts_drift(session_key=session_key)
+    if not drift.get("fts_enabled"):
+        return ["  Transcript FTS: 关 (BUTLER_TRANSCRIPT_FTS=0)"]
+    jl = int(drift.get("transcript_jsonl_lines") or 0)
+    ft = int(drift.get("transcript_fts_rows") or 0)
+    line = f"  Transcript 索引: jsonl {jl} 行 / FTS {ft} 行"
+    if drift.get("transcript_fts_stale"):
+        line += " — 陈旧，建议 butler transcript index --rebuild"
+    return [line]
+
+
+__all__ = [
+    "count_fts_meta_rows",
+    "count_jsonl_lines",
+    "format_transcript_drift_lines",
+    "transcript_fts_drift",
+]

@@ -37,5 +37,7 @@ def test_apply_profile_script_dev_local(tmp_path):
     text = env.read_text(encoding="utf-8")
     assert "BUTLER_ENV_PROFILE=dev-local" in text
     assert "BUTLER_TERMINAL_SANDBOX=0" in text
+    assert "BUTLER_TOOLSET=full" in text
+    assert "BUTLER_SKILL_WRITE_APPROVAL=0" in text
     assert "FOO=bar" in text
     assert "BUTLER_TERMINAL_SANDBOX=1" not in text

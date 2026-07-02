@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 PRESETS: dict[str, list[str]] = {
-    "release": ["tcr", "regression", "wechat_corpus"],
+    "release": ["tcr", "regression", "wechat_corpus", "hermes_gate"],
     "weekly": ["tcr", "agent_weekly", "capability"],
     "memory": ["memory_mb", "ragas_memory"],
     "dev": ["tcr", "b9_oracle", "memory_mb"],
+    "hermes": ["hermes_gate"],
 }
 
 

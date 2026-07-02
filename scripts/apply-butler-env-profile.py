@@ -13,6 +13,13 @@ PROFILES: dict[str, dict[str, str]] = {
         "BUTLER_ENABLE_TERMINAL": "0",
         "BUTLER_TERMINAL_SANDBOX": "0",
         "BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE": "0",
+        "BUTLER_MEMORY_WRITE_APPROVAL": "owner_scopes",
+        "BUTLER_SKILL_WRITE_APPROVAL": "1",
+        "BUTLER_TOOLSET": "wechat_minimal",
+        "BUTLER_TRANSCRIPT_FTS": "1",
+        "BUTLER_MEMORY_OBSERVER_QUEUE": "1",
+        "BUTLER_MEMORY_OBSERVATION_RECALL": "1",
+        "BUTLER_MEMORY_UNIFIED_RECALL": "1",
     },
     "dev-gateway": {
         "BUTLER_ENV_PROFILE": "dev-gateway",
@@ -27,6 +34,10 @@ PROFILES: dict[str, dict[str, str]] = {
         "BUTLER_TERMINAL_PROFILE": "dev",
         "BUTLER_TERMINAL_SANDBOX": "0",
         "BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE": "0",
+        "BUTLER_MEMORY_WRITE_APPROVAL": "0",
+        "BUTLER_SKILL_WRITE_APPROVAL": "0",
+        "BUTLER_TOOLSET": "full",
+        "BUTLER_TRANSCRIPT_FTS": "1",
     },
     "dev-remote": {
         "BUTLER_ENV_PROFILE": "dev-remote",
@@ -37,6 +48,10 @@ PROFILES: dict[str, dict[str, str]] = {
         "BUTLER_TERMINAL_SANDBOX_NETWORK_ALLOWLIST": "1",
         "BUTLER_CC_BRIDGE": "1",
         "BUTLER_TERMINAL_ALLOWLIST_EXTRA": "claude",
+        "BUTLER_MEMORY_WRITE_APPROVAL": "owner_scopes",
+        "BUTLER_SKILL_WRITE_APPROVAL": "1",
+        "BUTLER_TOOLSET": "full",
+        "BUTLER_TRANSCRIPT_FTS": "1",
     },
 }
 
@@ -44,6 +59,7 @@ PROFILE_COMMENTS: dict[str, list[str]] = {
     "lead": [
         "# === Terminal Profile: lead（微信生产 Lead，推荐）===",
         "# terminal 关；测试走 delegate dev / runtime readonly job；无需 bubblewrap",
+        "# P3-H：observation + hybrid 统一召回（需 BUTLER_SEMANTIC_MEMORY=1 效果更佳）",
     ],
     "dev-gateway": [
         "# === Terminal Profile: dev-gateway（Linux dev 网关）===",

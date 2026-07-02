@@ -68,6 +68,17 @@ bash scripts/butler-domain-pytest.sh gateway ops dev_engine   # 多域
 bash scripts/butler-domain-pytest.sh all                      # 等同全量 pytest
 ```
 
+## 改 core / memory / gateway 时的守门（CC + 记忆）
+
+与 [`maintainer-cheat-sheet-2026-07.md`](../docs/guides/maintainer-cheat-sheet-2026-07.md) 附录一致：
+
+```bash
+./scripts/butler-cc-harness-gate.sh
+PYTHONPATH=. pytest tests/test_premise_memory_theory.py tests/test_memory_metrics_benchmark.py -q
+```
+
+改 `butler/core`、`butler/memory`、`butler/gateway` 的 PR 应至少跑上述子集（`butler-pytest-fast-gate.sh` 已含部分 CC 线束）。
+
 ## 文件分组（按域 · 根目录遗留）
 
 > 下列前缀文件已迁入上表子目录；根目录仅保留 sprint 与跨域集成。

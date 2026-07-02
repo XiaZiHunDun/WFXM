@@ -130,6 +130,23 @@ def classify_tool_failure(tool_name: str, result: str | None) -> tuple[bool, str
     """Return (failed, suffix_hint) inferred from serialized tool output."""
     if result is None:
         return False, ""
+    try:
+        from butler.core.tool_result_classification import (
+            file_mutation_result_landed,
+            is_file_mutating_tool,
+            mutation_result_not_landed,
+        )
+
+        if file_mutation_result_landed(tool_name, result):
+            return False, ""
+        if mutation_result_not_landed(tool_name, result):
+            return True, " [mutation_not_landed]"
+        if is_file_mutating_tool(tool_name):
+            data = _safe_json_loads(result or "")
+            if isinstance(data, dict) and data.get("error"):
+                return True, " [error]"
+    except Exception as exc:
+        logger.debug("mutation classification skipped: %s", exc)
     if tool_name in {"run_shell", "terminal"}:
         data = _safe_json_loads(result)
         if isinstance(data, dict):

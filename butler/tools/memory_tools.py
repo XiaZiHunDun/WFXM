@@ -38,11 +38,26 @@ _RECALL_SCHEMA = {
     "properties": {
         "scope": {
             "type": "string",
-            "enum": ["experience", "profile"],
+            "enum": [
+                "experience",
+                "profile",
+                "project",
+                "coding",
+                "transcript",
+                "observation",
+                "hybrid",
+            ],
             "default": "experience",
+            "description": (
+                "experience=跨项目; profile=画像; project=MEMORY; "
+                "coding=L3/L4 编码经验; transcript=会话 transcript FTS; "
+                "observation=workspace 工具观察(opt-in); "
+                "hybrid=experience+project+coding 归一化合并(opt-in)"
+            ),
         },
         "query": {"type": "string", "description": "FTS 检索词；profile 可留空"},
         "limit": {"type": "integer", "default": 8},
+        "offset": {"type": "integer", "default": 0, "description": "transcript 滚动偏移"},
         "project": {"type": "string", "description": "可选项目名过滤"},
         "mode": {
             "type": "string",

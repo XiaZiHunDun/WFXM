@@ -276,6 +276,7 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 ```
 已完成（2026-06-30）
 ├─ P0-A/B · P1-C · P2-G · P1-D · P2-E · P2-F（mypy 37 模块）✅
+└─ P3-H 记忆统一检索 Phase 1–3 + lead 剖面 rollout（2026-07-02）✅
 
 现在 → 07-31（G1-04 窗内）
 ├─ 每周 G1-04 打卡（butler-ops-cadence.sh --weekly）
@@ -283,12 +284,12 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 └─ 07-31: G1-04 窗满结案（butler-g1-04-closure-check.sh）
 
 07-31 → 08 月（G1-04 结案后）
-└─ P3-H/I: 架构演进评估决策
+└─ P3-I/J: 延迟 import · 配置收敛；P2-F 续
 
 Backlog（条件触发 / 下一批）
-├─ ENG-13: wechat_ilink 第三轮
 ├─ P2-F 续: context_compress_pipeline · delegate_*.py
-└─ P3-H: 记忆统一检索
+├─ P3-I: 延迟 import 减量
+└─ P3-J: 配置面收敛
 
 持续：
 ├─ 改 gateway 后 restart

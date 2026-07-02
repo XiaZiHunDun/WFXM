@@ -50,7 +50,7 @@
 | `butler-b9-weekly-gate-followup.sh` | B9 周循环 + SWE 双周门控通过后自动全量 LIVE |
 | `sync-project-skills.sh` | 任意项目 `skills/` → `.butler/skills/` |
 | `butler-memory-metrics-smoke.sh` | **D2-4/D2-5** 记忆效果度量接线测试 |
-| `butler-pre-release-smoke.sh` | 1 gateway → 2 pytest → **2b orthogonality** → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot → 10 B9 |
+| `butler-pre-release-smoke.sh` | 1 gateway → **1b P3-H verify** → 2 pytest → **2b orthogonality** → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot → 10 B9 → 11–13 路由/owner sim |
 | `butler-five-reports-gate.sh` | 五报告 P5–P10 + PR-F 单测 + `prompt-eval.sh` + `registry verify` |
 | `butler-extension-ext1-preflight.sh` | EXT-1 Firecrawl MCP 就绪检查（Node/npx/配置） |
 | `check-dead-env.sh` | `reference.md` 中 `BUTLER_*` 须在 `butler/` 有 reader（脚本/测试 key 白名单） |

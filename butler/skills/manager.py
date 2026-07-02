@@ -388,6 +388,28 @@ class SkillManager:
             pass
         return sk
 
+    def _apply_load_policy(
+        self, sk: dict[str, Any], path: Path, source: str
+    ) -> Optional[dict[str, Any]]:
+        try:
+            from butler.skills.guard import (
+                evaluate_skill_load_policy,
+                skill_requires_trust_disclaimer,
+            )
+
+            policy = evaluate_skill_load_policy(path, source=source)
+            if policy == "block":
+                msg = f"Skill blocked by guard trust policy: {path.name}"
+                logger.warning(msg)
+                _record_skill_load_error(SKILL_LOAD_ERR_IO, path, msg)
+                return None
+            sk["_load_policy"] = policy
+            if skill_requires_trust_disclaimer(policy):
+                sk["_trust_warn"] = True
+        except Exception as exc:
+            logger.debug("skill load policy skipped: %s", exc)
+        return sk
+
     def _load_skill_from_path(self, path: Path, source: str) -> Optional[dict[str, Any]]:
         try:
             text = path.read_text(encoding="utf-8")
@@ -396,6 +418,9 @@ class SkillManager:
             return None
         sk = _parse_skill_md(text, path, source)
         if not sk:
+            return None
+        sk = self._apply_load_policy(sk, path, source)
+        if sk is None:
             return None
         fm_text = _read_frontmatter_only(path)
         if not fm_text:
@@ -495,6 +520,11 @@ class SkillManager:
             if rel:
                 sk = self._merge_directory_metadata(sk, fm if isinstance(fm, dict) else {}, rel, path, source)
 
+        sk = self._apply_load_policy(sk, path, source)
+        if sk is None:
+            self._metadata_cache.pop(key, None)
+            return None
+
         self._metadata_cache[key] = (sig, dict(sk))
         return sk
 
@@ -567,11 +597,30 @@ class SkillManager:
         content: str,
         *,
         similarity_threshold: float = 0.6,
+        _bypass_approval: bool = False,
     ) -> str:
-        """Return ``\"created\"`` or ``\"merged\"``."""
+        """Return ``\"created\"``, ``\"merged\"``, or ``\"pending\"``."""
         err = _validate_name(name)
         if err:
             raise ValueError(err)
+
+        if not _bypass_approval:
+            try:
+                from butler.skills.write_approval import (
+                    queue_skill_pending,
+                    skill_write_approval_enabled,
+                )
+
+                if skill_write_approval_enabled():
+                    queue_skill_pending(
+                        name=name,
+                        description=description,
+                        triggers=triggers,
+                        content=content,
+                    )
+                    return "pending"
+            except Exception as exc:
+                logger.debug("skill write approval skipped: %s", exc)
 
         from butler.skills.guard import scan_skill_text
         guard_issues = scan_skill_text(content)

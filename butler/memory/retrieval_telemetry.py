@@ -8,13 +8,31 @@ from typing import Any
 
 _LOCK = threading.RLock()
 _MAX = 128
-_LAST_BY_SESSION: dict[str, dict[str, Any]] = {}
+# session_key -> scope -> telemetry item
+_LAST_BY_SESSION: dict[str, dict[str, dict[str, Any]]] = {}
 
 
-def record_last_retrieval(session_key: str, payload: dict[str, Any]) -> None:
-    sk = str(session_key or "").strip()
-    if not sk or not isinstance(payload, dict):
-        return
+def _infer_scope(mode: str, payload: dict[str, Any]) -> str:
+    explicit = str(payload.get("scope") or "").strip().lower()
+    if explicit:
+        return explicit
+    m = str(mode or "").strip().lower()
+    if m.startswith("project"):
+        return "project"
+    if m.startswith("profile"):
+        return "profile"
+    if m.startswith("coding"):
+        return "coding"
+    if m.startswith("transcript"):
+        return "transcript"
+    if m.startswith("observation"):
+        return "observation"
+    if m.startswith("hybrid"):
+        return "hybrid"
+    return "experience"
+
+
+def _normalize_item(payload: dict[str, Any]) -> dict[str, Any]:
     item = {
         "mode": str(payload.get("mode") or "").strip(),
         "fallbacks": max(0, int(payload.get("fallbacks") or 0)),
@@ -26,16 +44,34 @@ def record_last_retrieval(session_key: str, payload: dict[str, Any]) -> None:
         # prompt-side health reporting.
         "recall_degraded": bool(payload.get("recall_degraded")),
     }
+    item["scope"] = _infer_scope(item["mode"], payload)
     subs = payload.get("sub_queries")
     if isinstance(subs, list) and subs:
         item["sub_queries"] = [str(s)[:80] for s in subs[:5]]
         item["sub_query_count"] = len(subs)
+    return item
+
+
+def _session_latest_ts(bucket: dict[str, dict[str, Any]]) -> float:
+    if not bucket:
+        return 0.0
+    return max(float(v.get("ts") or 0.0) for v in bucket.values())
+
+
+def record_last_retrieval(session_key: str, payload: dict[str, Any]) -> None:
+    sk = str(session_key or "").strip()
+    if not sk or not isinstance(payload, dict):
+        return
+    item = _normalize_item(payload)
+    scope = item["scope"]
     with _LOCK:
-        _LAST_BY_SESSION[sk] = item
+        bucket = _LAST_BY_SESSION.setdefault(sk, {})
+        bucket[scope] = item
         if len(_LAST_BY_SESSION) > _MAX:
-            oldest = sorted(_LAST_BY_SESSION.items(), key=lambda kv: kv[1].get("ts", 0.0))[
-                : len(_LAST_BY_SESSION) - _MAX
-            ]
+            oldest = sorted(
+                _LAST_BY_SESSION.items(),
+                key=lambda kv: _session_latest_ts(kv[1]),
+            )[: len(_LAST_BY_SESSION) - _MAX]
             for key, _ in oldest:
                 _LAST_BY_SESSION.pop(key, None)
     if item.get("recall_degraded"):
@@ -54,12 +90,21 @@ def record_last_retrieval(session_key: str, payload: dict[str, Any]) -> None:
             pass
 
 
-def get_last_retrieval(session_key: str) -> dict[str, Any]:
+def get_last_retrieval_by_scope(session_key: str) -> dict[str, dict[str, Any]]:
     sk = str(session_key or "").strip()
     if not sk:
         return {}
     with _LOCK:
-        return dict(_LAST_BY_SESSION.get(sk) or {})
+        bucket = _LAST_BY_SESSION.get(sk) or {}
+        return {scope: dict(item) for scope, item in bucket.items()}
+
+
+def get_last_retrieval(session_key: str) -> dict[str, Any]:
+    """Most recent retrieval across scopes (backward compatible)."""
+    by_scope = get_last_retrieval_by_scope(session_key)
+    if not by_scope:
+        return {}
+    return dict(max(by_scope.values(), key=lambda x: float(x.get("ts") or 0.0)))
 
 
 def clear_last_retrieval(session_key: str) -> None:
@@ -70,4 +115,9 @@ def clear_last_retrieval(session_key: str) -> None:
         _LAST_BY_SESSION.pop(sk, None)
 
 
-__all__ = ["clear_last_retrieval", "get_last_retrieval", "record_last_retrieval"]
+__all__ = [
+    "clear_last_retrieval",
+    "get_last_retrieval",
+    "get_last_retrieval_by_scope",
+    "record_last_retrieval",
+]

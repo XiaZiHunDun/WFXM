@@ -171,7 +171,9 @@ def build_result_payload(state: DelegateRunState, report: Any, result: Any) -> d
     if isinstance(tool_names, list) and tool_names:
         payload["tools_used"] = [str(n) for n in tool_names if n]
     attach_dev_engine_summary(state, payload)
-    return payload
+    from butler.tools.delegate_summary_budget import budget_delegate_payload
+
+    return budget_delegate_payload(payload)
 
 
 def finalize_delegate_observability(

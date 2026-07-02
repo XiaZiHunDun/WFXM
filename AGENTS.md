@@ -12,6 +12,7 @@
 | 4 | [`docs/DOCUMENTATION.md`](docs/DOCUMENTATION.md) | 文档分层、语料、规划索引、维护规则 |
 | 5 | [`docs/plans/decisions/theory-implementation-gap-register-2026-06.md`](docs/plans/decisions/theory-implementation-gap-register-2026-06.md) | 理论—实现差距（G1–G4）；Phase 9 核对见 `post-consolidation-roadmap` §9 |
 | 6 | [`docs/plans/decisions/agent-testing-strategy-2026-06.md`](docs/plans/decisions/agent-testing-strategy-2026-06.md) | 改测试 / 加 live_llm / handler sim 断言前 |
+| 7 | [`docs/guides/maintainer-cheat-sheet-2026-07.md`](docs/guides/maintainer-cheat-sheet-2026-07.md) | **维护者/面试**：架构一页纸、角色、记忆、委派、实验清单 |
 
 **发版**：[`docs/guides/release-runbook-2026-05.md`](docs/guides/release-runbook-2026-05.md)
 

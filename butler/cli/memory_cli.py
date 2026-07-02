@@ -126,6 +126,32 @@ def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> Non
     _register_memory_backfill_scopes_parser(mem_sub)
     _register_memory_migrate_lingwen_parser(mem_sub)
     _register_memory_merge_pending_parser(mem_sub)
+    _register_memory_owner_pending_parsers(mem_sub)
+
+
+def _register_memory_owner_pending_parsers(mem_sub: argparse._SubParsersAction) -> None:
+    mp = mem_sub.add_parser(
+        "pending",
+        help="列出所有者 + 项目 MEMORY 待审队列（等同微信 /记忆待审）",
+    )
+    mp.add_argument(
+        "--project",
+        default="",
+        help="项目名（默认当前项目；仅影响 P 前缀项目队列）",
+    )
+    mp.add_argument("--tenant", default="default", help="租户 id")
+    mp.set_defaults(func=_cmd_memory_pending)
+
+    ma = mem_sub.add_parser("approve", help="批准待审记忆（等同 /批准记忆）")
+    ma.add_argument("index", nargs="?", default="", help="序号、P<序号> 或 all")
+    ma.add_argument("--project", default="", help="项目名（默认当前项目）")
+    ma.add_argument("--tenant", default="default", help="租户 id")
+    ma.set_defaults(func=_cmd_memory_approve)
+
+    mr = mem_sub.add_parser("reject", help="拒绝待审记忆（等同 /拒绝记忆）")
+    mr.add_argument("index", nargs="?", default="", help="序号、P<序号> 或 all")
+    mr.add_argument("--project", default="", help="项目名（默认当前项目）")
+    mr.set_defaults(func=_cmd_memory_reject)
 
 
 def _register_memory_observations_parser(mem_sub: argparse._SubParsersAction) -> None:
@@ -208,9 +234,11 @@ def _add_search_args(msearch: argparse.ArgumentParser) -> None:
     msearch.add_argument("query", help="检索词")
     msearch.add_argument(
         "--scope",
-        choices=("experience", "project", "profile"),
         default="experience",
-        help="experience=跨项目经验; project=当前/指定项目 MEMORY; profile=Owner 画像向量",
+        help=(
+            "experience | project | profile | coding | transcript | observation | hybrid | all | "
+            "comma list (e.g. experience,coding,hybrid)"
+        ),
     )
     msearch.add_argument(
         "--project",
@@ -424,6 +452,49 @@ def _merge_pending_emit(result: dict, *, json_out: bool, ok_label: str, err_defa
         else:
             console.print(f"[red]{result.get('error', err_default)}[/red]")
     return 0 if result.get("ok") else 1
+
+
+def _cmd_memory_pending(ns: argparse.Namespace) -> int:
+    from butler.memory.pending_cli import list_pending_text
+
+    text = list_pending_text(
+        project=(getattr(ns, "project", "") or "").strip(),
+        tenant=str(getattr(ns, "tenant", "default") or "default"),
+    )
+    Console().print(text)
+    return 0
+
+
+def _cmd_memory_approve(ns: argparse.Namespace) -> int:
+    from butler.memory.pending_cli import approve_pending_text
+
+    arg = (getattr(ns, "index", "") or "").strip()
+    if not arg:
+        Console().print("[red]用法: butler memory approve <序号|P序号|all>[/red]")
+        return 1
+    text = approve_pending_text(
+        arg,
+        project=(getattr(ns, "project", "") or "").strip(),
+        tenant=str(getattr(ns, "tenant", "default") or "default"),
+    )
+    Console().print(text)
+    return 0 if "失败" not in text and "用法" not in text else 1
+
+
+def _cmd_memory_reject(ns: argparse.Namespace) -> int:
+    from butler.memory.pending_cli import reject_pending_text
+
+    arg = (getattr(ns, "index", "") or "").strip()
+    if not arg:
+        Console().print("[red]用法: butler memory reject <序号|P序号|all>[/red]")
+        return 1
+    text = reject_pending_text(
+        arg,
+        project=(getattr(ns, "project", "") or "").strip(),
+        tenant=str(getattr(ns, "tenant", "default") or "default"),
+    )
+    Console().print(text)
+    return 0 if "失败" not in text and "用法" not in text else 1
 
 
 def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:

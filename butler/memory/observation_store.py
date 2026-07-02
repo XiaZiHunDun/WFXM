@@ -203,6 +203,72 @@ class ObservationStore:
         result.reverse()
         return result
 
+    def search(self, query: str, *, limit: int = 8) -> list[dict[str, str]]:
+        """Keyword search over preview/title/path/tool (recency-weighted)."""
+        q = str(query or "").strip().lower()
+        if len(q) < 2:
+            return []
+        cap = max(1, min(50, int(limit or 8)))
+        like = f"%{q.replace('%', '').replace('_', '')}%"
+        with self._lock:
+            with self._connect() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT row_id, timestamp, session_key, tool, ok, path, preview, title, content_hash
+                    FROM observations
+                    WHERE lower(preview) LIKE ?
+                       OR lower(title) LIKE ?
+                       OR lower(path) LIKE ?
+                       OR lower(tool) LIKE ?
+                    ORDER BY timestamp DESC, row_id DESC
+                    LIMIT ?
+                    """,
+                    (like, like, like, like, max(cap * 4, 20)),
+                ).fetchall()
+        if not rows:
+            return []
+        now = datetime.now(timezone.utc)
+        ranked: list[tuple[float, dict[str, str]]] = []
+        for row in rows:
+            preview = str(row["preview"] or "")
+            title = str(row["title"] or "")
+            path = str(row["path"] or "")
+            tool = str(row["tool"] or "")
+            blob = f"{preview} {title} {path} {tool}".lower()
+            if q not in blob:
+                continue
+            score = 1.0
+            if q in preview.lower():
+                score += 0.4
+            if q in path.lower():
+                score += 0.25
+            ts_raw = str(row["timestamp"] or "")
+            try:
+                ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                age_days = max(0.0, (now - ts).total_seconds() / 86400.0)
+                score *= max(0.35, 1.0 - age_days / 90.0)
+            except ValueError:
+                pass
+            if int(row["ok"] or 0):
+                score += 0.05
+            item = {
+                "row_id": str(row["row_id"] or ""),
+                "timestamp": ts_raw,
+                "session_key": str(row["session_key"] or ""),
+                "tool": tool,
+                "ok": "1" if int(row["ok"] or 0) else "0",
+                "path": path,
+                "preview": preview,
+                "title": title,
+                "content_hash": str(row["content_hash"] or ""),
+                "score": round(score, 4),
+            }
+            ranked.append((score, item))
+        ranked.sort(key=lambda pair: pair[0], reverse=True)
+        return [item for _, item in ranked[:cap]]
+
     def stats(self) -> dict[str, Any]:
         with self._lock:
             with self._connect() as conn:

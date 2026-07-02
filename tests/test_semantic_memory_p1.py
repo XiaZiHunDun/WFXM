@@ -106,6 +106,14 @@ class TestProjectMemoryVectors:
         assert row is not None
         assert pend_row is None
 
+    def test_index_pending_records_vector_sync(self, tmp_path):
+        from unittest.mock import patch
+
+        idx = SemanticMemoryIndex(tmp_path / "v.db", HashingEmbedder(dimension=32))
+        with patch("butler.memory.vector_sync_telemetry.record_vector_sync") as rec:
+            index_pending_memory_bullet(idx, "灵文1号", "待批准记忆")
+        rec.assert_called_once_with("project_pending", project="灵文1号")
+
     def test_invalidate_pending_vector(self, tmp_path):
         idx = SemanticMemoryIndex(tmp_path / "v.db", HashingEmbedder(dimension=32))
         index_pending_memory_bullet(idx, "p", "草稿记忆")

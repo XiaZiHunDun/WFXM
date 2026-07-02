@@ -15,6 +15,7 @@
 | 切换项目后影响什么 | [`architecture/project-activation.md`](architecture/project-activation.md) |
 | Hook/MCP/Skill 放哪 | [`architecture/extension-registry-paths.md`](architecture/extension-registry-paths.md) |
 | 权限门控改哪 | [`architecture/permission-gate-stack.md`](architecture/permission-gate-stack.md) |
+| **维护者 / 面试一页纸** | [`guides/maintainer-cheat-sheet-2026-07.md`](guides/maintainer-cheat-sheet-2026-07.md) |
 | **看项目现状 / 已实现 / 未实现 / 依赖** | [`guides/capabilities-index-2026-05.md`](guides/capabilities-index-2026-05.md) |
 | **发版一条链** | [`guides/release-runbook-2026-05.md`](guides/release-runbook-2026-05.md) |
 | 微信发版 / 运维 | [`guides/wechat-gateway-ops.md`](guides/wechat-gateway-ops.md) → [`guides/wechat-daily-smoke-checklist.md`](guides/wechat-daily-smoke-checklist.md) |
@@ -55,7 +56,8 @@
 | [`guides/manual-testing-guide.md`](guides/manual-testing-guide.md) | CLI + 微信人工测试 |
 | [`guides/runtime-ops.md`](guides/runtime-ops.md) | Runtime timer |
 | [`guides/phase4-ops-runbook.md`](guides/phase4-ops-runbook.md) | Phase 4 运营巩固 + 灵文样板 |
-| [`guides/memory-ops.md`](guides/memory-ops.md) | 记忆运维 |
+| [`guides/memory-ops.md`](guides/memory-ops.md) | 记忆运维（含 SSOT ↔ SQLite 索引关系） |
+| [`guides/maintainer-cheat-sheet-2026-07.md`](guides/maintainer-cheat-sheet-2026-07.md) | 维护者速查与面试手册 |
 | [`guides/project-onboarding.md`](guides/project-onboarding.md) | 项目接入 preflight |
 | [`ops/diagnostic-thresholds.md`](ops/diagnostic-thresholds.md) | `/诊断` 运行指标阈值说明 |
 | [`../tests/README.md`](../tests/README.md) | pytest 分层与守门 |

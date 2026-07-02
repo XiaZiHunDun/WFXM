@@ -523,6 +523,9 @@ def index_experience_row(
             source=SOURCE_EXPERIENCE,
             source_ref=str(row_id),
         )
+        from butler.memory.vector_sync_telemetry import record_vector_sync
+
+        record_vector_sync("owner_experience", project=project or "")
     except Exception as exc:
         # Audit R2-2: write failures must preserve the stack trace so the
         # operator can diagnose embed OOM / DB lock / provider auth issues

@@ -19,21 +19,35 @@ def _project_memory(orchestrator: "ButlerOrchestrator"):
 
 
 def format_pending_memory_list(orchestrator: "ButlerOrchestrator") -> str:
+    lines: list[str] = []
+    try:
+        from butler.memory.owner_write_pending import format_owner_pending_lines
+
+        owner_lines = format_owner_pending_lines()
+        if owner_lines:
+            lines.extend(owner_lines)
+            lines.append("")
+    except Exception as exc:
+        logger.debug("owner pending list skipped: %s", exc)
+
     pmem = _project_memory(orchestrator)
-    if pmem is None:
-        return "请先 /切换 到已选项目，再查看待审记忆。"
-    pending = pmem.markdown.list_pending()
-    if not pending:
-        return "当前项目没有待批准的记忆（Pending 队列为空）。"
-    lines = ["待批准记忆（写入 project MEMORY.md Pending 队列）:", ""]
-    for i, item in enumerate(pending, start=1):
-        tgt = item.get("target") or "Decisions"
-        body = (item.get("content") or "").strip()
-        if len(body) > 120:
-            body = body[:117] + "..."
-        lines.append(f"{i}. → {tgt} | {body}")
-    lines.append("")
-    lines.append("批准: /批准记忆 <序号>  或  /批准记忆 全部")
+    if pmem is None and not lines:
+        return "当前没有待批准的记忆（Pending 队列为空）。"
+    if pmem is not None:
+        pending = pmem.markdown.list_pending()
+        if pending:
+            lines.append("项目 MEMORY 待批准（Pending 队列）:")
+            lines.append("")
+            for i, item in enumerate(pending, start=1):
+                tgt = item.get("target") or "Decisions"
+                body = (item.get("content") or "").strip()
+                if len(body) > 120:
+                    body = body[:117] + "..."
+                lines.append(f"P{i}. → {tgt} | {body}")
+            lines.append("")
+    if not lines:
+        return "当前没有待批准的记忆（Pending 队列为空）。"
+    lines.append("批准: /批准记忆 <序号> 或 P<序号>（项目）  或  /批准记忆 全部")
     lines.append("拒绝: /拒绝记忆 <序号>  或  /拒绝记忆 全部")
     return "\n".join(lines)
 
@@ -78,6 +92,7 @@ def handle_memory_pending_command(
     platform: str = "",
     external_id: str | None = None,
     session_key: str = "",
+    cli: bool = False,
 ) -> Optional[str]:
     """Handle /记忆待审, /批准记忆, /拒绝记忆, /记忆图谱. Returns None if cmd not recognized.
 
@@ -95,74 +110,152 @@ def handle_memory_pending_command(
     if cmd not in ("/批准记忆", "/approve-memory", "/批准"):
         return None
 
-    # Sprint 11 SEC-11-2: /批准记忆 永久写入 MEMORY.md，仅 Owner 可批准
-    if not is_gateway_owner(
+    if not cli and not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
         return owner_required_message()
 
-    pmem = _project_memory(orchestrator)
-    if pmem is None:
-        return "请先 /切换 到已选项目。"
+    return _handle_approve_pending(orchestrator, arg)
 
+
+def _handle_approve_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str:
     key = (arg or "").strip().lower()
     if key in ("全部", "all", "*"):
-        pending_before = pmem.markdown.list_pending()
-        count = pmem.markdown.approve_all()
-        _sync_vectors_after_approve(orchestrator, pending_before[:count])
-        return f"已批准 {count} 条待审记忆，并移入对应章节。"
+        owner_count = 0
+        try:
+            from butler.memory.owner_write_pending import approve_all_owner_pending
+
+            bm = getattr(orchestrator, "butler_memory", None)
+            if bm is not None:
+                owner_count = approve_all_owner_pending(bm)
+        except Exception as exc:
+            logger.debug("approve all owner pending skipped: %s", exc)
+        proj_count = 0
+        pmem = _project_memory(orchestrator)
+        if pmem is not None:
+            pending_before = pmem.markdown.list_pending()
+            proj_count = pmem.markdown.approve_all()
+            _sync_vectors_after_approve(orchestrator, pending_before[:proj_count])
+        return f"已批准所有者记忆 {owner_count} 条、项目记忆 {proj_count} 条。"
 
     if not arg.strip():
-        return "用法: /批准记忆 <序号>  或  /批准记忆 全部\n先发送 /记忆待审 查看列表。"
+        return "用法: /批准记忆 <序号> 或 P<序号>（项目）  或  /批准记忆 全部\n先发送 /记忆待审 查看列表。"
+
+    raw = arg.strip()
+    if raw.upper().startswith("P"):
+        return _approve_project_pending(orchestrator, raw[1:])
+
+    try:
+        idx = int(raw) - 1
+    except ValueError:
+        return "序号必须是数字。例: /批准记忆 1  或  /批准记忆 P1"
+
+    try:
+        from butler.memory.owner_write_pending import approve_owner_pending, list_owner_pending
+
+        bm = getattr(orchestrator, "butler_memory", None)
+        owner_pending = list_owner_pending()
+        if owner_pending and 0 <= idx < len(owner_pending):
+            if bm is None:
+                return "Butler 记忆未初始化。"
+            result = approve_owner_pending(idx, bm)
+            if result.get("ok"):
+                scope = owner_pending[idx].get("scope", "?")
+                return f"已批准所有者记忆第 {idx + 1} 条（{scope}）。"
+            return f"批准失败: {result.get('error', 'unknown')}"
+    except Exception as exc:
+        logger.debug("approve owner pending skipped: %s", exc)
+
+    return _approve_project_pending(orchestrator, raw)
+
+
+def _approve_project_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str:
+    pmem = _project_memory(orchestrator)
+    if pmem is None:
+        return "请先 /切换 到已选项目，或批准所有者记忆序号（无 P 前缀）。"
 
     try:
         idx = int(arg.strip()) - 1
     except ValueError:
-        return "序号必须是数字。例: /批准记忆 1"
+        return "项目序号必须是数字。例: /批准记忆 P1"
 
     pending = pmem.markdown.list_pending()
     if not pending:
-        return "没有待批准条目。"
+        return "没有待批准的项目记忆条目。"
     if not (0 <= idx < len(pending)):
-        return f"序号超出范围（1–{len(pending)}）。"
+        return f"项目序号超出范围（P1–P{len(pending)}）。"
 
     if pmem.markdown.approve_pending(idx):
         item = pending[idx]
         _sync_vectors_after_approve(orchestrator, [item])
-        return f"已批准第 {idx + 1} 条，写入章节: {item.get('target', 'Decisions')}"
+        return f"已批准项目记忆 P{idx + 1}，写入章节: {item.get('target', 'Decisions')}"
     return "批准失败（条目可能已被处理）。"
 
 
 def _handle_reject_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str:
+    key = (arg or "").strip().lower()
+    if key in ("全部", "all", "*"):
+        owner_count = 0
+        try:
+            from butler.memory.owner_write_pending import reject_all_owner_pending
+
+            owner_count = reject_all_owner_pending()
+        except Exception as exc:
+            logger.debug("reject all owner pending skipped: %s", exc)
+        proj_count = 0
+        pmem = _project_memory(orchestrator)
+        if pmem is not None:
+            pending_before = pmem.markdown.list_pending()
+            proj_count = pmem.markdown.reject_all_pending()
+            _sync_vectors_after_reject(orchestrator, pending_before[:proj_count])
+        return f"已拒绝所有者记忆 {owner_count} 条、项目记忆 {proj_count} 条。"
+
+    if not arg.strip():
+        return "用法: /拒绝记忆 <序号> 或 P<序号>（项目）  或  /拒绝记忆 全部\n先发送 /记忆待审 查看列表。"
+
+    raw = arg.strip()
+    if raw.upper().startswith("P"):
+        return _reject_project_pending(orchestrator, raw[1:])
+
+    try:
+        idx = int(raw) - 1
+    except ValueError:
+        return "序号必须是数字。例: /拒绝记忆 1  或  /拒绝记忆 P1"
+
+    try:
+        from butler.memory.owner_write_pending import list_owner_pending, reject_owner_pending
+
+        owner_pending = list_owner_pending()
+        if owner_pending and 0 <= idx < len(owner_pending):
+            if reject_owner_pending(idx):
+                return f"已拒绝所有者记忆第 {idx + 1} 条。"
+            return "拒绝失败（条目可能已被处理）。"
+    except Exception as exc:
+        logger.debug("reject owner pending skipped: %s", exc)
+
+    return _reject_project_pending(orchestrator, raw)
+
+
+def _reject_project_pending(orchestrator: "ButlerOrchestrator", arg: str) -> str:
     pmem = _project_memory(orchestrator)
     if pmem is None:
         return "请先 /切换 到已选项目。"
 
-    key = (arg or "").strip().lower()
-    if key in ("全部", "all", "*"):
-        pending_before = pmem.markdown.list_pending()
-        count = pmem.markdown.reject_all_pending()
-        _sync_vectors_after_reject(orchestrator, pending_before[:count])
-        return f"已拒绝 {count} 条待审记忆（未写入正式章节）。"
-
-    if not arg.strip():
-        return "用法: /拒绝记忆 <序号>  或  /拒绝记忆 全部\n先发送 /记忆待审 查看列表。"
-
     try:
         idx = int(arg.strip()) - 1
     except ValueError:
-        return "序号必须是数字。例: /拒绝记忆 1"
+        return "项目序号必须是数字。例: /拒绝记忆 P1"
 
     pending = pmem.markdown.list_pending()
     if not pending:
-        return "没有待拒绝条目。"
+        return "没有待拒绝的项目记忆条目。"
     if not (0 <= idx < len(pending)):
-        return f"序号超出范围（1–{len(pending)}）。"
+        return f"项目序号超出范围（P1–P{len(pending)}）。"
 
     item = pending[idx]
     if pmem.markdown.reject_pending(idx):
         _sync_vectors_after_reject(orchestrator, [item])
-        return f"已拒绝第 {idx + 1} 条，已从 Pending 移除。"
+        return f"已拒绝项目记忆 P{idx + 1}，已从 Pending 移除。"
     return "拒绝失败（条目可能已被处理）。"
 
 
@@ -191,6 +284,9 @@ def _sync_vectors_after_approve(
             continue
         invalidate_pending_vector(sem, proj.name, body)
         index_project_memory_bullet(sem, proj.name, tgt, body)
+    from butler.memory.vector_sync_telemetry import record_vector_sync
+
+    record_vector_sync("project_pending", project=proj.name)
 
 
 def _sync_vectors_after_reject(

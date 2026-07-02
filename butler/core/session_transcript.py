@@ -59,6 +59,16 @@ def _append_line(path: Path, entry: dict[str, Any]) -> None:
             update_index_after_append(path, line_byte_offset=offset, line_len=len(line.encode("utf-8")))
         except Exception as exc:
             logger.debug("append line skipped: %s", exc)
+        try:
+            from butler.core.transcript_fts import index_transcript_line
+
+            line_no = 0
+            with path.open(encoding="utf-8") as fh:
+                for line_no, _ in enumerate(fh, start=1):
+                    pass
+            index_transcript_line(path.parent.name, line_no=line_no, entry=entry)
+        except Exception as exc:
+            logger.debug("transcript FTS append skipped: %s", exc)
         if path.stat().st_size > transcript_max_bytes():
             _tombstone_tail(path)
 

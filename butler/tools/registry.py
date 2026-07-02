@@ -105,6 +105,12 @@ def get_tool_definitions() -> List[dict]:
             result.extend(get_mcp_tool_definitions())
         except Exception as exc:
             logger.debug("MCP tool definitions skipped: %s", exc)
+    try:
+        from butler.tools.toolset_profiles import filter_definitions_by_toolset
+
+        result = filter_definitions_by_toolset(result)
+    except Exception as exc:
+        logger.debug("toolset filter skipped: %s", exc)
     return result
 
 

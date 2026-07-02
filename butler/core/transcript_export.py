@@ -86,9 +86,17 @@ def _format_row_markdown(row: dict[str, Any]) -> str:
             lines.append(f"> {preview}{extra}")
         elif extra:
             lines.append(f"> _(assistant){extra}")
-    elif typ in ("compact_scheduled", "compact_done", "compact_boundary"):
+    elif typ in (
+        "compact_scheduled",
+        "compact_started",
+        "compact_done",
+        "compact_failed",
+        "compact_boundary",
+    ):
         for key in (
             "source",
+            "trigger",
+            "reason",
             "messages_before",
             "messages_after",
             "tokens_estimated",

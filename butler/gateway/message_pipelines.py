@@ -33,6 +33,42 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _record_injection_transcript(
+    session_key: str,
+    entry_type: str,
+    score: float,
+    text: str,
+    *,
+    label: str,
+) -> None:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> None:
+        from butler.core.session_transcript import append_transcript_entry
+
+        append_transcript_entry(
+            session_key,
+            entry_type,
+            {"score": score, "preview": text[:120]},
+        )
+
+    safe_best_effort(_run, label=label, default=None)
+
+
+def _warm_session_skills(orchestrator: Any) -> None:
+    from butler.core.best_effort import safe_best_effort
+
+    def _jieba() -> None:
+        from butler.skills.similarity import _ensure_jieba
+
+        _ensure_jieba()
+
+    safe_best_effort(_jieba, label="message_pipelines.jieba_warmup", default=None)
+    mgr = getattr(orchestrator, "_skill_manager", None)
+    if mgr is not None:
+        mgr.list_skills()
+
+
 # ---------------------------------------------------------------------------
 # Phase 1 — resolve the canonical ``platform:chat_id:project`` session key.
 # ---------------------------------------------------------------------------
@@ -68,7 +104,9 @@ def _phase_transform_inbound_text(
     Wrapped in try/except to preserve the original fail-open behavior:
     if the transformer is missing or raises, the raw text is used.
     """
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> str:
         from butler.core.message_ir import inbound_text_from_gateway
 
         return inbound_text_from_gateway(
@@ -77,9 +115,13 @@ def _phase_transform_inbound_text(
             external_id=external_id,
             session_key=session_key,
         )
-    except Exception as exc:
-        logger.debug("Inbound text transform skipped: %s", exc)
-        return text
+
+    transformed = safe_best_effort(
+        _run,
+        label="message_pipelines.inbound_text_transform",
+        default=None,
+    )
+    return transformed if transformed is not None else text
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +130,9 @@ def _phase_transform_inbound_text(
 
 def _phase_apply_mcp_profile(text: str, session_key: str) -> None:
     """Phase: select and bind the MCP profile for this session."""
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> None:
         from butler.mcp.profiles import (
             mcp_profiles_enabled,
             select_profile_for_text,
@@ -97,8 +141,8 @@ def _phase_apply_mcp_profile(text: str, session_key: str) -> None:
 
         if mcp_profiles_enabled() and text.strip():
             set_session_profile(session_key, select_profile_for_text(text))
-    except Exception as exc:
-        logger.debug("MCP profile selection skipped: %s", exc)
+
+    safe_best_effort(_run, label="message_pipelines.mcp_profile", default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -176,16 +220,13 @@ def _phase_apply_injection_guard(
         if injection_score_enabled():
             risk = score_injection_risk(text)
             if risk > 0:
-                try:
-                    from butler.core.session_transcript import append_transcript_entry
-
-                    append_transcript_entry(
-                        session_key,
-                        "injection_score",
-                        {"score": risk, "preview": text[:120]},
-                    )
-                except Exception as exc:
-                    logger.debug("Injection score transcript skipped: %s", exc)
+                _record_injection_transcript(
+                    session_key,
+                    "injection_score",
+                    risk,
+                    text,
+                    label="message_pipelines.injection_score_transcript",
+                )
         return mark_adversarial_user_text(text), None
     except ImportError as exc:
         logger.info("injection_guard module not available: %s", exc)
@@ -225,16 +266,13 @@ def _phase_apply_injection_llm(text: str, session_key: str) -> Optional[str]:
             return None
         blocked, llm_score, block_msg = should_block_inbound_llm_score(text)
         if llm_score is not None:
-            try:
-                from butler.core.session_transcript import append_transcript_entry
-
-                append_transcript_entry(
-                    session_key,
-                    "injection_llm_score",
-                    {"score": llm_score, "preview": text[:120]},
-                )
-            except Exception as exc:
-                logger.debug("Injection LLM score transcript skipped: %s", exc)
+            _record_injection_transcript(
+                session_key,
+                "injection_llm_score",
+                llm_score,
+                text,
+                label="message_pipelines.injection_llm_transcript",
+            )
         if not blocked:
             return None
         if injection_llm_gate_enabled() and llm_score is not None:
@@ -260,7 +298,9 @@ def _phase_apply_bot_loop_guard(
     external_id: str | None,
 ) -> Optional[str]:
     """Phase: suppress group-chat bot echo loops."""
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> Optional[str]:
         from butler.gateway.bot_loop_guard import record_and_should_suppress
 
         chat_id = session_key.split(":")[-1] if ":" in session_key else session_key
@@ -271,9 +311,9 @@ def _phase_apply_bot_loop_guard(
         )
         if suppress:
             return "（已忽略：群聊 bot 互回复环防护）"
-    except Exception as exc:
-        logger.debug("Bot loop guard skipped: %s", exc)
-    return None
+        return None
+
+    return safe_best_effort(_run, label="message_pipelines.bot_loop_guard", default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +328,9 @@ def _phase_apply_two_phase_confirm(
     external_id: str | None,
 ) -> Optional[str]:
     """Phase: dispatch / confirm / cancel two-phase confirm flow."""
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> Optional[str]:
         from butler.core.two_phase_confirm import (
             cancel_pending_unless_confirm,
             try_execute_pending_confirm,
@@ -304,9 +346,13 @@ def _phase_apply_two_phase_confirm(
         cancel_note = cancel_pending_unless_confirm(text, session_key=session_key)
         if cancel_note:
             return f"{cancel_note}\n\n{text}"
-    except Exception as exc:
-        logger.debug("Two-phase confirm skipped: %s", exc)
-    return None
+        return None
+
+    return safe_best_effort(
+        _run,
+        label="message_pipelines.two_phase_confirm",
+        default=None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +422,9 @@ def _phase_apply_idempotency(
     ``reserved=True`` means the caller is responsible for calling
     ``complete_inbound`` in the ``finally`` block.
     """
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> tuple[Optional[str], bool, str]:
         from butler.gateway.inbound_idempotency import (
             check_and_reserve_inbound,
             record_duplicate_skip,
@@ -384,9 +432,6 @@ def _phase_apply_idempotency(
         from butler.session.keys import chat_id_from_session_key
 
         inbound_id = str(external_id or "").strip()
-        # ``external_id`` is usually the platform chat/user id, not
-        # a per-message id. Treating it as an idempotency key would
-        # suppress every later turn.
         if inbound_id and inbound_id == chat_id_from_session_key(session_key):
             inbound_id = ""
         _idem = check_and_reserve_inbound(
@@ -403,9 +448,12 @@ def _phase_apply_idempotency(
             )
             return (_idem.user_reply or "（重复消息已忽略。）"), False, inbound_id
         return None, True, inbound_id
-    except Exception as exc:
-        logger.debug("Idempotency check skipped: %s", exc)
-        return None, False, ""
+
+    return safe_best_effort(
+        _run,
+        label="message_pipelines.idempotency",
+        default=(None, False, ""),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -421,7 +469,9 @@ def _phase_apply_session_initializing(
     orchestrator: Any,
 ) -> Optional[str]:
     """Phase: session-initializing warmup. Returns early ack or None."""
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> Optional[str]:
         from butler.gateway.message_queue import (
             enqueue_inbound,
             format_initializing_ack,
@@ -435,18 +485,7 @@ def _phase_apply_session_initializing(
         if not session_initializing_enabled():
             return None
 
-        def _warm() -> None:
-            try:
-                from butler.skills.similarity import _ensure_jieba
-
-                _ensure_jieba()
-            except Exception as exc:
-                logger.debug("Jieba warm-up skipped: %s", exc)
-            mgr = getattr(orchestrator, "_skill_manager", None)
-            if mgr is not None:
-                mgr.list_skills()
-
-        state = try_enter_session(session_key, _warm)
+        state = try_enter_session(session_key, lambda: _warm_session_skills(orchestrator))
         if state != "queued":
             return None
         if enqueue_inbound(
@@ -457,9 +496,12 @@ def _phase_apply_session_initializing(
         ):
             return format_initializing_ack(pending=pending_count(session_key))
         return format_initializing_ack()
-    except Exception as exc:
-        logger.debug("Session initializing skipped: %s", exc)
-        return None
+
+    return safe_best_effort(
+        _run,
+        label="message_pipelines.session_initializing",
+        default=None,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -526,16 +568,18 @@ def _phase_apply_queue_inbound(
 
 def _phase_apply_admission(text: str, session_key: str) -> Optional[Any]:
     """Phase: try_admit. Returns admission token (caller releases) or None."""
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> Any:
         from butler.gateway.reply_admission import try_admit
 
         return try_admit(session_key)
-    except Exception as exc:
-        logger.debug("Reply admission skipped: %s", exc)
-        # Fail-open: behave as if admitted so we don't silently drop
-        # the message; downstream admission token stays None and
-        # ``release`` becomes a no-op.
-        return True
+
+    return safe_best_effort(
+        _run,
+        label="message_pipelines.reply_admission",
+        default=True,
+    )
 
 
 def queue_inbound_for_admission_failure(
@@ -546,7 +590,9 @@ def queue_inbound_for_admission_failure(
     external_id: str | None,
 ) -> str:
     """When ``try_admit`` returns ``None`` we either enqueue or reply."""
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> Optional[str]:
         from butler.gateway.message_queue import (
             enqueue_inbound,
             format_queued_ack,
@@ -563,6 +609,13 @@ def queue_inbound_for_admission_failure(
                 pending=pending_count(session_key),
                 session_key=session_key,
             )
-    except Exception as exc:
-        logger.debug("Admission-failure enqueue skipped: %s", exc)
+        return None
+
+    queued = safe_best_effort(
+        _run,
+        label="message_pipelines.admission_failure_enqueue",
+        default=None,
+    )
+    if queued:
+        return queued
     return "会话处理中，请稍候…"

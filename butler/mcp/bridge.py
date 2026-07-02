@@ -51,16 +51,19 @@ def build_tool_refs(config: McpServerConfig, tools: list[Any]) -> list[McpToolRe
 
 
 def refs_to_openai_definitions(refs: list[McpToolRef]) -> list[dict[str, Any]]:
+    from butler.mcp.schema_normalize import normalize_tool_schema
+
     out: list[dict[str, Any]] = []
     for ref in refs:
-        out.append({
+        spec = {
             "type": "function",
             "function": {
                 "name": ref.registered_name,
                 "description": f"[MCP:{ref.server_id}] {ref.description}"[:4000],
                 "parameters": ref.input_schema,
             },
-        })
+        }
+        out.append(normalize_tool_schema(spec))
     return out
 
 

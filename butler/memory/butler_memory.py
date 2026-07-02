@@ -816,6 +816,10 @@ class ButlerMemory:
             )
             indexed += 1
         logger.debug("Profile vectors: cleared %d, indexed %d", cleared, indexed)
+        if indexed > 0:
+            from butler.memory.vector_sync_telemetry import record_vector_sync
+
+            record_vector_sync("owner_profile")
         return indexed
 
     def search_profile_vectors(self, query: str, *, limit: int = 4) -> list[dict[str, Any]]:

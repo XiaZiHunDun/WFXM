@@ -14,7 +14,27 @@
 
 发版 / 升级记忆模块后：**先 A 再 B 再 C**；网关改 `.env` 后需 `systemctl restart butler-gateway`。
 
-**ChromaDB**：`butler/memory/vector_store.py` 未接入主召回链；生产语义检索走 `SemanticMemoryIndex`（`memory_vectors.db`）。
+## 存储关系（SSOT ↔ SQLite 派生索引）
+
+> 原则：**人读文件是真相源**；SQLite 只做检索加速，丢了可重建。完整说明见 [`maintainer-cheat-sheet-2026-07.md`](maintainer-cheat-sheet-2026-07.md)。
+
+| 真相源（SSOT） | 派生索引（SQLite） | 模块 | 重建命令 |
+|----------------|-------------------|------|----------|
+| `~/.butler/sessions/<key>/transcript.jsonl` | `~/.butler/transcript_fts.db`（`transcript_meta` + FTS5） | [`transcript_fts.py`](../../butler/core/transcript_fts.py) | `butler transcript index --rebuild` |
+| `profile.json` + `experience.db` + `MEMORY.md` | `~/.butler/memory/<tenant>/memory_vectors.db` | [`semantic_index.py`](../../butler/memory/semantic_index.py) | `butler memory reindex` |
+| 工具路径历史（PostToolUse） | `<workspace>/.butler/observations.db` | [`observation_store.py`](../../butler/memory/observation_store.py) | 项目内迁移/清理见 `butler memory observations` |
+
+**写入路径**：
+
+- 每追加一行 `transcript.jsonl` → 同步 `index_transcript_line()`（`BUTLER_TRANSCRIPT_FTS=1` 默认开）
+- `butler_remember` / 批准记忆 / post_session → 更新 SSOT 并 upsert `memory_vectors.db`
+
+**搜索路径**：
+
+- `search_transcript`：优先 FTS，失败则扫 jsonl 正则（[`transcript_search.py`](../../butler/core/transcript_search.py)）
+- `butler_recall`：experience FTS + 向量 hybrid（`BUTLER_SEMANTIC_MEMORY=1`）
+
+**非生产链（勿当 SSOT）**：[`vector_store.py`](../../butler/memory/vector_store.py)（ChromaDB）仅实验/测试；**生产语义检索只用 `SemanticMemoryIndex`**。
 
 **Skill 与经验**：默认 `BUTLER_SKILL_INJECTION_MODE=fallback` — 有经验召回时跳过未验证 Skill 全文；经验可用指针点名：
 
@@ -173,6 +193,11 @@ butler memory metrics   # 若已注册；或 agent 调用 butler_memory_metrics
 | 命令 | 作用 |
 |------|------|
 | `butler memory search "<词>" --verbose` | CLI 检索调试：mode、fallback、chunk_id、混合权重 |
+| `butler memory search "<词>" --scope coding` | L3/L4 `coding_experiences.json` 关键词检索（P3-H） |
+| `butler memory search "<词>" --scope transcript` | 会话 transcript FTS/扫描（P3-H phase 2） |
+| `butler memory search "<词>" --scope all` | 多 scope 并行（experience/project/profile/coding/transcript） |
+| `butler memory search "<词>" --scope observation` | workspace 工具观察检索（需 `BUTLER_MEMORY_OBSERVATION_RECALL=1`） |
+| `butler memory search "<词>" --scope hybrid` | experience+project+coding 归一化合并（需 `BUTLER_MEMORY_UNIFIED_RECALL=1`） |
 | `butler memory gc` / `butler memory gc --apply` | 扫描 experience 向量孤儿（默认 dry-run）；`--apply` 删孤儿 + conversation 向量 |
 | `/诊断` | 向量条数、画像向量、三元组条数、衰减参数、最近检索 telemetry |
 | `/记忆图谱` | 三元组只读展示（不参与检索） |

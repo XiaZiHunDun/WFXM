@@ -67,6 +67,9 @@ def index_pending_memory_bullet(
             source=SOURCE_PROJECT,
             source_ref=sid,
         )
+        from butler.memory.vector_sync_telemetry import record_vector_sync
+
+        record_vector_sync("project_pending", project=project_name)
     except Exception as exc:
         logger.warning("Pending memory vector upsert failed: %s", exc)
 
@@ -123,6 +126,9 @@ def index_project_memory_bullet(
             source=SOURCE_PROJECT,
             source_ref=sid,
         )
+        from butler.memory.vector_sync_telemetry import record_vector_sync
+
+        record_vector_sync("project", project=project_name)
     except Exception as exc:
         logger.warning("Project memory vector upsert failed: %s", exc)
 
