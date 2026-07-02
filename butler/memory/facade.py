@@ -8,13 +8,28 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 from typing import Any, Dict, List
 
 # Hermes ``MemoryProvider`` adapter lives in ``plugins/memory/butler/`` only.
 
+from butler.core.best_effort import safe_best_effort
 from butler.memory import ButlerMemory, ProjectMemory
+from butler.memory.facade_ops import (
+    butler_home_configured,
+    close_butler_memory,
+    discover_project_root,
+    emit_recall_metric,
+    emit_write_metric,
+    manager_current_project,
+    owner_write_approval_result,
+    prefetch_global_context,
+    prefetch_project_context,
+    record_recall_telemetry,
+    refresh_project_facts,
+    resolve_active_project_name,
+    strip_private_tags_safe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -87,36 +102,6 @@ _RECALL_SCHEMA = {
 }
 
 
-def _emit_write_metric(scope: str, success: bool, *, content: str = "") -> None:
-    """Emit write event to memory metrics collector (best-effort)."""
-    try:
-        from butler.memory.memory_metrics import get_collector
-        from butler.memory.metrics_persist import flush_memory_metrics
-
-        get_collector().on_write(scope, success, content=content)
-        flush_memory_metrics()
-    except Exception:
-        pass
-
-
-def _emit_recall_metric(
-    scope: str,
-    query: str,
-    count: int,
-    *,
-    hit_texts: list[str] | None = None,
-) -> None:
-    """Emit recall event to memory metrics collector (best-effort)."""
-    try:
-        from butler.memory.memory_metrics import get_collector
-        from butler.memory.metrics_persist import flush_memory_metrics
-
-        get_collector().on_recall(scope, query, count, hit_texts=hit_texts)
-        flush_memory_metrics()
-    except Exception:
-        pass
-
-
 def _extract_hit_texts(rows: list[dict]) -> list[str]:
     texts: list[str] = []
     for row in rows:
@@ -127,58 +112,6 @@ def _extract_hit_texts(rows: list[dict]) -> list[str]:
             if val:
                 texts.append(str(val))
     return texts
-
-
-def _project_root_explicit() -> Path | None:
-    raw = os.environ.get("BUTLER_PROJECT_ROOT", "").strip()
-    if not raw:
-        return None
-    return Path(raw).expanduser().resolve()
-
-
-def _active_project_name() -> str:
-    """Resolve current Butler project name (string), never a Project object."""
-    pm = None
-    try:
-        from butler.execution_context import get_current_orchestrator
-
-        orch = get_current_orchestrator()
-        pm = getattr(orch, "project_manager", None) if orch is not None else None
-    except Exception:
-        pm = None
-    if pm is None:
-        try:
-            from butler.project.manager import get_project_manager
-
-            pm = get_project_manager()
-        except Exception:
-            return ""
-    try:
-        if hasattr(pm, "resolve_active_project_name"):
-            return str(pm.resolve_active_project_name() or "").strip()
-        cur = pm.get_current() if hasattr(pm, "get_current") else None
-        if cur is not None:
-            return str(getattr(cur, "name", "") or "").strip()
-        return str(getattr(pm, "current_project", "") or "").strip()
-    except Exception:
-        return ""
-
-
-def _project_root_discovery() -> Path | None:
-    exp = _project_root_explicit()
-    if exp:
-        return exp
-
-    """Best-effort: Butler CLI sets ONLY when a managed project exists."""
-    try:
-        from butler.project.manager import get_project_manager
-
-        pm = get_project_manager()
-        if cur := pm.get_current():
-            return Path(cur.workspace).resolve()
-    except Exception as exc:
-        logger.debug("ButlerMemoryProvider project discovery failed: %s", exc)
-    return None
 
 
 class ButlerMemoryService:
@@ -204,12 +137,7 @@ class ButlerMemoryService:
         return "butler"
 
     def is_available(self) -> bool:
-        try:
-            from butler.config import get_butler_home
-
-            return bool(get_butler_home())
-        except Exception:
-            return True
+        return butler_home_configured()
 
     def initialize(self, session_id: str, **kwargs) -> None:
         self._session_id = session_id or ""
@@ -218,7 +146,7 @@ class ButlerMemoryService:
 
 
         self._reload_butler_global()
-        self._project_root = _project_root_discovery()
+        self._project_root = discover_project_root()
         self._reload_project_branch()
 
         logger.debug(
@@ -240,10 +168,11 @@ class ButlerMemoryService:
         from butler.tenant import resolve_tenant_for_project
 
         settings = get_butler_settings()
-        try:
-            project = get_project_manager().get_current()
-        except Exception:
-            project = None
+        project = safe_best_effort(
+            lambda: get_project_manager().get_current(),
+            label="memory.facade.reload_global_project",
+            default=None,
+        )
         tid = resolve_tenant_for_project(project, settings)
         if (
             self._butler_global is None
@@ -251,10 +180,7 @@ class ButlerMemoryService:
         ):
             prev = self._butler_global
             if prev is not None:
-                try:
-                    prev.close()
-                except Exception as exc:
-                    logger.debug("ButlerMemory close on tenant switch skipped: %s", exc)
+                close_butler_memory(prev)
             self._butler_global = ButlerMemory(settings.butler_home, tenant_id=tid)
 
     def _reload_project_branch(self) -> None:
@@ -265,15 +191,12 @@ class ButlerMemoryService:
             self._project_root = ws.resolve() if ws is not None else None
             return
 
-        root = self._project_root or _project_root_discovery()
+        root = self._project_root or discover_project_root()
         self._project_root = root
         if root:
             try:
                 self._project_memory = ProjectMemory(root)
-                try:
-                    self._project_memory.refresh_facts()
-                except Exception as exc:
-                    logger.debug("Project facts refresh skipped: %s", exc)
+                refresh_project_facts(self._project_memory)
             except Exception as exc:
                 logger.warning("ButlerMemoryProvider ProjectMemory unavailable: %s", exc)
                 self._project_memory = None
@@ -299,42 +222,25 @@ class ButlerMemoryService:
 
         ctx_parts: list[str] = []
 
-        root = self._project_root or _project_root_discovery()
+        root = self._project_root or discover_project_root()
         if root != self._project_root:
             self._project_root = root
             self._reload_project_branch()
 
         self._reload_butler_global()
 
-        try:
-            try:
-                from butler.project.manager import get_project_manager
-
-                current = get_project_manager().current_project or ""
-            except Exception:
-                current = ""
-            if not current:
-                current = self._guess_project_slug(root)
-            ctx_parts.append(self._butler_global.get_system_context(current))
-        except Exception as exc:
-            logger.debug("Butler global memory prefetch skipped: %s", exc)
+        if self._butler_global is not None:
+            ctx_parts.append(
+                prefetch_global_context(self._butler_global, root=root)
+            )
 
         if self._project_memory is not None:
-            try:
-                ctx_parts.append(self._project_memory.get_full_context(max_lines=30))
-            except Exception as exc:
-                logger.debug("Butler project memory prefetch skipped: %s", exc)
+            ctx_parts.append(prefetch_project_context(self._project_memory))
 
         qbits = ""
         qr = (query or "").strip()
         if qr and self._butler_global is not None:
-            pname = ""
-            try:
-                from butler.project.manager import get_project_manager
-
-                pname = get_project_manager().current_project or ""
-            except Exception:
-                pname = self._guess_project_slug(root)
+            pname = manager_current_project() or self._guess_project_slug(root)
 
             from butler.session.lifecycle import _filter_ephemeral_experience
 
@@ -361,12 +267,7 @@ class ButlerMemoryService:
     @staticmethod
     def _guess_project_slug(proj_root: Path | None) -> str:
         if proj_root is None:
-            try:
-                from butler.project.manager import get_project_manager
-
-                return get_project_manager().current_project or ""
-            except Exception:
-                return ""
+            return manager_current_project()
         return proj_root.name
 
     def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
@@ -404,7 +305,7 @@ class ButlerMemoryService:
             butler_memory=self._butler_global,
             _project_memory=self._project_memory,
             _skill_manager=None,
-            project_manager=SimpleNamespace(current_project=_active_project_name()),
+            project_manager=SimpleNamespace(current_project=resolveresolve_active_project_name()),
         )
 
     def _trigger_background_extraction_standalone(self) -> None:
@@ -441,48 +342,20 @@ class ButlerMemoryService:
 
         scope = str(args.get("scope") or "")
         content = str(args.get("content") or "").strip()
-        try:
-            from butler.memory.private_tags import strip_private_tags
-
-            content, fully_private = strip_private_tags(content)
+        stripped = strip_private_tags_safe(content)
+        if stripped is not None:
+            content, fully_private = stripped
             if fully_private:
                 return json.dumps(
                     {"ok": True, "skipped": True, "reason": "content entirely <private>"},
                 )
-        except Exception as exc:
-            logger.debug("remember skipped: %s", exc)
         if not content and str(args.get("action", "append") or "append").strip().lower() != "remove":
             return json.dumps({"ok": False, "error": "content is empty"})
 
         action = str(args.get("action", "append") or "append").strip().lower()
-        try:
-            from butler.memory.owner_write_pending import (
-                queue_owner_write,
-                scope_requires_write_approval,
-            )
-
-            if scope_requires_write_approval(scope, action):
-                item = queue_owner_write(
-                    scope=scope,
-                    content=content,
-                    action=action,
-                    old_content=str(args.get("old_content", "") or "").strip(),
-                    category=str(args.get("category", "") or "general"),
-                    section=str(args.get("section", "Notes") or "Notes"),
-                )
-                return json.dumps(
-                    {
-                        "ok": True,
-                        "scope": scope,
-                        "classification": "pending",
-                        "pending_id": item.get("id"),
-                        "action": action,
-                        "hint": "已进入所有者记忆待审；Owner 可用 /记忆待审 与 /批准记忆",
-                    },
-                    ensure_ascii=False,
-                )
-        except Exception as exc:
-            logger.debug("owner write approval skipped: %s", exc)
+        pending = owner_write_approval_result(args)
+        if pending is not None:
+            return json.dumps(pending, ensure_ascii=False)
 
         return self._remember_direct(args)
 
@@ -535,7 +408,7 @@ class ButlerMemoryService:
             return json.dumps(payload)
 
         if scope == "owner_experience":
-            proj = _active_project_name()
+            proj = resolve_active_project_name()
 
             cat = category or "delegation_note"
             row_id = self._butler_global.add_experience(
@@ -647,7 +520,7 @@ class ButlerMemoryService:
 
             query = str(args.get("query", "") or "").strip()
             limit = max(1, int(args.get("limit", 8) or 8))
-            proj_name = _active_project_name() or str(args.get("project") or "").strip()
+            proj_name = resolve_active_project_name() or str(args.get("project") or "").strip()
             ws = getattr(self._project_memory, "project_dir", None) if self._project_memory else None
             if ws is None and self._project_root:
                 ws = self._project_root
@@ -659,23 +532,16 @@ class ButlerMemoryService:
                 butler_home=get_butler_home(),
             )
             if payload.get("ok") and query:
-                try:
-                    from butler.execution_context import get_current_session_key
-                    from butler.memory.retrieval_telemetry import record_last_retrieval
-
-                    record_last_retrieval(
-                        get_current_session_key() or "",
-                        {
-                            "mode": "coding-keyword",
-                            "fallbacks": 0,
-                            "candidates": len(payload.get("results") or []),
-                            "query": query,
-                            "scope": "coding",
-                        },
-                    )
-                except Exception as exc:
-                    logger.debug("recall skipped: %s", exc)
-            _emit_recall_metric(
+                record_recall_telemetry(
+                    {
+                        "mode": "coding-keyword",
+                        "fallbacks": 0,
+                        "candidates": len(payload.get("results") or []),
+                        "query": query,
+                        "scope": "coding",
+                    }
+                )
+            emit_recall_metric(
                 "coding",
                 query,
                 len(payload.get("results") or []),
@@ -696,7 +562,7 @@ class ButlerMemoryService:
                 limit=limit,
                 offset=offset,
             )
-            _emit_recall_metric(
+            emit_recall_metric(
                 "transcript",
                 query,
                 int(payload.get("count") or len(payload.get("results") or [])),
@@ -717,7 +583,7 @@ class ButlerMemoryService:
                 project_workspace=Path(ws) if ws else None,
                 limit=limit,
             )
-            _emit_recall_metric(
+            emit_recall_metric(
                 "observation",
                 query,
                 int(payload.get("count") or len(payload.get("results") or [])),
@@ -731,7 +597,7 @@ class ButlerMemoryService:
 
             query = str(args.get("query", "") or "").strip()
             limit = max(1, int(args.get("limit", 8) or 8))
-            proj_name = _active_project_name() or str(args.get("project") or "").strip()
+            proj_name = resolve_active_project_name() or str(args.get("project") or "").strip()
             pm = self._project_memory
             ws = getattr(pm, "project_dir", None) if pm else None
             if ws is None and self._project_root:
@@ -745,7 +611,7 @@ class ButlerMemoryService:
                 butler_home=get_butler_home(),
                 limit=limit,
             )
-            _emit_recall_metric(
+            emit_recall_metric(
                 "hybrid",
                 query,
                 len(payload.get("results") or []),
@@ -756,18 +622,15 @@ class ButlerMemoryService:
         if scope == "project":
             pm = self._project_memory
             if pm is None:
-                root = _project_root_discovery()
+                root = discover_project_root()
                 if root:
                     pm = ProjectMemory(root)
-                    try:
-                        pm.refresh_facts()
-                    except Exception as exc:
-                        logger.debug("Project facts refresh skipped: %s", exc)
+                    refresh_project_facts(pm)
             if pm is None:
                 return json.dumps({"ok": False, "error": "no active project"})
             query = str(args.get("query", "") or "").strip()
             limit = max(1, int(args.get("limit", 8) or 8))
-            proj_name = _active_project_name()
+            proj_name = resolve_active_project_name()
             facts_text = pm.facts_for_prefetch(max_chars=800)
             hits: list[dict[str, Any]] = []
             if query:
@@ -809,23 +672,17 @@ class ButlerMemoryService:
                     for h in raw_hits
                     if h.get("content")
                 ]
-                try:
-                    from butler.execution_context import get_current_session_key
-                    from butler.memory.retrieval_telemetry import record_last_retrieval
-
-                    tel: dict[str, Any] = {
-                        "mode": f"project-{mode}",
-                        "fallbacks": 1 if sem_enabled and mode in {"keyword", "none"} else 0,
-                        "candidates": len(hits),
-                        "query": query,
-                    }
-                    if len(sub_queries) > 1:
-                        tel["sub_queries"] = sub_queries
-                        tel["mode"] = f"project-{mode}-subquery"
-                    record_last_retrieval(get_current_session_key() or "", tel)
-                except Exception as exc:
-                    logger.debug("recall skipped: %s", exc)
-            _emit_recall_metric(
+                tel: dict[str, Any] = {
+                    "mode": f"project-{mode}",
+                    "fallbacks": 1 if sem_enabled and mode in {"keyword", "none"} else 0,
+                    "candidates": len(hits),
+                    "query": query,
+                }
+                if len(sub_queries) > 1:
+                    tel["sub_queries"] = sub_queries
+                    tel["mode"] = f"project-{mode}-subquery"
+                record_recall_telemetry(tel)
+            emit_recall_metric(
                 "project",
                 query,
                 len(hits),
@@ -849,7 +706,7 @@ class ButlerMemoryService:
         semantic = getattr(self._butler_global, "semantic", None)
         proj_filter: str | None = (project or "").strip() or None
         if proj_filter is None:
-            proj_filter = _active_project_name() or None
+            proj_filter = resolve_active_project_name() or None
 
         from butler.memory.semantic_index import hybrid_experience_search
 
@@ -867,7 +724,7 @@ class ButlerMemoryService:
                     experience_store=self._butler_global.experience,
                 )
             )
-        _emit_recall_metric(
+        emit_recall_metric(
             "experience",
             query,
             len(rows),

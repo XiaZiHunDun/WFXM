@@ -18,6 +18,7 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/runtime/delegate_job.py": 340,
     "butler/runtime/delegate_job_finalize.py": 130,
     "butler/memory/diagnostics_collect.py": 180,
+    "butler/ops/health_report_turn.py": 280,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

@@ -13,7 +13,8 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/core/agent_loop_phases.py": 10,
     "butler/gateway/locked_phases.py": 10,
     "butler/core/agent_loop.py": 10,
-    "butler/memory/facade.py": 23,
+    "butler/memory/facade.py": 2,
+    "butler/cli/doctor.py": 0,
     "butler/core/context_compressor.py": 3,
     "butler/gateway/message_pipelines.py": 4,
     "butler/core/context_compress_pipeline.py": 1,
@@ -21,7 +22,7 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/runtime/delegate_job.py": 1,
     "butler/gateway/outbound_bridge.py": 6,
     "butler/memory/diagnostics.py": 0,
-    "butler/ops/health_report.py": 1,
+    "butler/ops/health_report.py": 0,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)
