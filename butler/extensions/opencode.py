@@ -29,7 +29,6 @@ import json
 import logging
 import os
 import shutil
-import subprocess
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -153,57 +152,16 @@ class OpenCodeSubprocess:
 
         logger.info("OpenCode subprocess: %s (timeout=%ds)", " ".join(cmd[:6]), timeout)
 
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                env={**os.environ},
-            )
-            elapsed = time.time() - t0
-            events = _parse_json_events(result.stdout)
-            text = _extract_result_text(events)
+        from butler.extensions.opencode_ops import run_subprocess_opencode_task
 
-            if result.returncode != 0 and not text:
-                err = (result.stderr or "").strip()
-                return {
-                    "ok": False,
-                    "result": f"OpenCode exited with code {result.returncode}: {err[:500]}",
-                    "mode": self.get_mode().value,
-                    "elapsed_seconds": round(elapsed, 2),
-                    "events_count": len(events),
-                }
-
-            return {
-                "ok": True,
-                "result": text[:10000] if text else "(no output)",
-                "mode": self.get_mode().value,
-                "elapsed_seconds": round(elapsed, 2),
-                "events_count": len(events),
-                "exit_code": result.returncode,
-            }
-        except subprocess.TimeoutExpired:
-            return {
-                "ok": False,
-                "result": f"OpenCode 执行超时 ({timeout}s)",
-                "mode": self.get_mode().value,
-                "elapsed_seconds": timeout,
-            }
-        except FileNotFoundError:
-            return {
-                "ok": False,
-                "result": f"OpenCode 未安装或不在 PATH 中 (looked for: {self._bin})",
-                "mode": self.get_mode().value,
-                "elapsed_seconds": 0,
-            }
-        except Exception as exc:
-            return {
-                "ok": False,
-                "result": f"OpenCode 异常: {exc}",
-                "mode": self.get_mode().value,
-                "elapsed_seconds": round(time.time() - t0, 2),
-            }
+        return run_subprocess_opencode_task(
+            cmd=cmd,
+            timeout=timeout,
+            t0=t0,
+            mode_value=self.get_mode().value,
+            parse_events=_parse_json_events,
+            extract_text=_extract_result_text,
+        )
 
 
 # ─── HTTP server mode ───────────────────────────────────────────────
@@ -230,12 +188,9 @@ class OpenCodeHTTPServer:
         return headers
 
     def is_available(self) -> bool:
-        try:
-            import httpx
-            resp = httpx.get(f"{self._url}/health", timeout=5)
-            return resp.status_code == 200
-        except Exception:
-            return False
+        from butler.extensions.opencode_ops import http_health_available_safe
+
+        return http_health_available_safe(self._url)
 
     def get_mode(self) -> OpenCodeMode:
         return OpenCodeMode.HTTP_SERVER
@@ -249,65 +204,73 @@ class OpenCodeHTTPServer:
     ) -> dict[str, Any]:
         timeout = timeout_seconds or self._default_timeout
         t0 = time.time()
-        try:
-            import httpx
+        from butler.extensions.opencode_ops import run_http_opencode_task
 
-            headers = self._headers(workspace)
+        return run_http_opencode_task(
+            lambda: self._execute_http_task(task, workspace=workspace, t0=t0),
+            mode_value=self.get_mode().value,
+            t0=t0,
+        )
 
-            # 1. Create session
-            create_body: dict[str, Any] = {"agent": self._agent}
-            if self._model:
-                create_body["model"] = self._model
-            create_resp = httpx.post(
-                f"{self._url}/session",
-                json=create_body,
-                headers=headers,
-                timeout=30,
-            )
-            if create_resp.status_code not in (200, 201):
-                return {
-                    "ok": False,
-                    "result": f"创建 session 失败: {create_resp.status_code} {create_resp.text[:300]}",
-                    "mode": self.get_mode().value,
-                    "elapsed_seconds": round(time.time() - t0, 2),
-                }
-            session_data = create_resp.json()
-            session_id = session_data.get("id") or session_data.get("sessionID", "")
+    def _execute_http_task(
+        self,
+        task: str,
+        *,
+        workspace: str,
+        t0: float,
+    ) -> dict[str, Any]:
+        import httpx
 
-            # 2. Send prompt
-            prompt_resp = httpx.post(
-                f"{self._url}/session/{session_id}/message",
-                json={"parts": [{"type": "text", "text": task}]},
-                headers=headers,
-                timeout=30,
-            )
-            if prompt_resp.status_code not in (200, 201, 202):
-                return {
-                    "ok": False,
-                    "result": f"发送 prompt 失败: {prompt_resp.status_code}",
-                    "mode": self.get_mode().value,
-                    "elapsed_seconds": round(time.time() - t0, 2),
-                    "session_id": session_id,
-                }
+        headers = self._headers(workspace)
+        timeout = self._default_timeout
 
-            # 3. Poll for completion (SSE or polling)
-            result_text = self._poll_until_idle(session_id, workspace, timeout, t0)
-            elapsed = time.time() - t0
-
-            return {
-                "ok": True,
-                "result": result_text[:10000] if result_text else "(no output)",
-                "mode": self.get_mode().value,
-                "elapsed_seconds": round(elapsed, 2),
-                "session_id": session_id,
-            }
-        except Exception as exc:
+        # 1. Create session
+        create_body: dict[str, Any] = {"agent": self._agent}
+        if self._model:
+            create_body["model"] = self._model
+        create_resp = httpx.post(
+            f"{self._url}/session",
+            json=create_body,
+            headers=headers,
+            timeout=30,
+        )
+        if create_resp.status_code not in (200, 201):
             return {
                 "ok": False,
-                "result": f"OpenCode HTTP 异常: {exc}",
+                "result": f"创建 session 失败: {create_resp.status_code} {create_resp.text[:300]}",
                 "mode": self.get_mode().value,
                 "elapsed_seconds": round(time.time() - t0, 2),
             }
+        session_data = create_resp.json()
+        session_id = session_data.get("id") or session_data.get("sessionID", "")
+
+        # 2. Send prompt
+        prompt_resp = httpx.post(
+            f"{self._url}/session/{session_id}/message",
+            json={"parts": [{"type": "text", "text": task}]},
+            headers=headers,
+            timeout=30,
+        )
+        if prompt_resp.status_code not in (200, 201, 202):
+            return {
+                "ok": False,
+                "result": f"发送 prompt 失败: {prompt_resp.status_code}",
+                "mode": self.get_mode().value,
+                "elapsed_seconds": round(time.time() - t0, 2),
+                "session_id": session_id,
+            }
+
+        # 3. Poll for completion (SSE or polling)
+        result_text = self._poll_until_idle(session_id, workspace, timeout, t0)
+        elapsed = time.time() - t0
+
+        return {
+            "ok": True,
+            "result": result_text[:10000] if result_text else "(no output)",
+            "mode": self.get_mode().value,
+            "elapsed_seconds": round(elapsed, 2),
+            "session_id": session_id,
+        }
 
     def _poll_until_idle(
         self,
@@ -317,56 +280,67 @@ class OpenCodeHTTPServer:
         t0: float,
     ) -> str:
         """Poll session status until idle or timeout."""
-        import httpx
-
-        headers = self._headers(workspace)
         poll_interval = 2.0
 
         while (time.time() - t0) < timeout:
-            try:
-                resp = httpx.get(
-                    f"{self._url}/session/{session_id}",
-                    headers=headers,
-                    timeout=10,
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    status = data.get("status", {})
-                    status_type = status.get("type", "") if isinstance(status, dict) else str(status)
-                    if status_type in ("idle", "completed", "error"):
-                        return self._fetch_transcript(session_id, workspace)
-            except Exception as exc:
-                logger.debug("OpenCode poll error: %s", exc)
+            from butler.extensions.opencode_ops import poll_session_status_safe
+
+            transcript = poll_session_status_safe(
+                lambda: self._poll_session_once(session_id, workspace),
+            )
+            if transcript is not None:
+                return transcript
 
             time.sleep(poll_interval)
             poll_interval = min(poll_interval * 1.2, 10.0)
 
         return "(timeout waiting for OpenCode session to complete)"
 
-    def _fetch_transcript(self, session_id: str, workspace: str) -> str:
-        """Fetch the assistant messages from the completed session."""
+    def _poll_session_once(self, session_id: str, workspace: str) -> str | None:
         import httpx
 
         headers = self._headers(workspace)
-        try:
-            resp = httpx.get(
-                f"{self._url}/session/{session_id}/message",
-                headers=headers,
-                timeout=15,
-            )
-            if resp.status_code == 200:
-                messages = resp.json()
-                if isinstance(messages, list):
-                    parts: list[str] = []
-                    for msg in messages:
-                        if msg.get("role") == "assistant":
-                            for part in msg.get("parts", []):
-                                if part.get("type") == "text" and part.get("text"):
-                                    parts.append(part["text"])
-                    return "\n".join(parts) if parts else "(no assistant output)"
-            return "(failed to fetch transcript)"
-        except Exception as exc:
-            return f"(transcript fetch error: {exc})"
+        resp = httpx.get(
+            f"{self._url}/session/{session_id}",
+            headers=headers,
+            timeout=10,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            status = data.get("status", {})
+            status_type = status.get("type", "") if isinstance(status, dict) else str(status)
+            if status_type in ("idle", "completed", "error"):
+                return self._fetch_transcript(session_id, workspace)
+        return None
+
+    def _fetch_transcript(self, session_id: str, workspace: str) -> str:
+        """Fetch the assistant messages from the completed session."""
+        from butler.extensions.opencode_ops import fetch_session_transcript_safe
+
+        return fetch_session_transcript_safe(
+            lambda: self._fetch_transcript_inner(session_id, workspace),
+        )
+
+    def _fetch_transcript_inner(self, session_id: str, workspace: str) -> str:
+        import httpx
+
+        headers = self._headers(workspace)
+        resp = httpx.get(
+            f"{self._url}/session/{session_id}/message",
+            headers=headers,
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            messages = resp.json()
+            if isinstance(messages, list):
+                parts: list[str] = []
+                for msg in messages:
+                    if msg.get("role") == "assistant":
+                        for part in msg.get("parts", []):
+                            if part.get("type") == "text" and part.get("text"):
+                                parts.append(part["text"])
+                return "\n".join(parts) if parts else "(no assistant output)"
+        return "(failed to fetch transcript)"
 
 
 # ─── MCP Bridge mode (stub — OpenCode doesn't expose MCP server) ────

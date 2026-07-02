@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 from butler.dev_engine.delegate_finalize import (
@@ -11,8 +10,6 @@ from butler.dev_engine.delegate_finalize import (
     peek_dev_engine_summary,
 )
 from butler.tools.delegate_run_state import DelegateRunState
-
-logger = logging.getLogger(__name__)
 
 
 def sync_turn_memory_for_result(state: DelegateRunState, result: Any) -> None:
@@ -132,12 +129,9 @@ def finalize_delegate_task(state: DelegateRunState, report: Any) -> None:
     )
     attach_delegate_task_times(report, state.task_id)
     cache_report(report, session_key=state.session_key)
-    try:
-        from butler.ops.owner_pmf_metrics import record_acceptance_card
+    from butler.tools.delegate_report_ops import record_acceptance_card_safe
 
-        record_acceptance_card(report, session_key=state.session_key)
-    except Exception:
-        pass
+    record_acceptance_card_safe(report, session_key=state.session_key)
     _run_subagent_stop_hooks(
         role=state.role,
         agent_id=state.task_id or f"delegate-{state.role}",
@@ -184,69 +178,53 @@ def finalize_delegate_observability(
 ) -> None:
     """Close delegate LangFuse span and capture production failures."""
     dev_engine = payload.get("dev_engine") if isinstance(payload.get("dev_engine"), dict) else None
-    try:
-        from butler.ops.langfuse_tracer import finish_delegate_trace
+    from butler.tools.delegate_report_ops import (
+        finish_delegate_trace_safe,
+        maybe_capture_delegate_failure_safe,
+        maybe_judge_delegate_safe,
+        resolve_delegate_trace_id_safe,
+    )
 
-        finish_delegate_trace(
-            state.child_session_key or state.session_key,
-            success=report.success,
-            metadata={
-                "task_id": state.task_id,
-                "role": state.role,
-                "issues": issues[:3],
-                "dev_engine": dev_engine or {},
-            },
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort tracing
-        logger.debug("delegate LangFuse finalize skipped: %s", exc)
+    finish_delegate_trace_safe(
+        state.child_session_key or state.session_key,
+        success=report.success,
+        metadata={
+            "task_id": state.task_id,
+            "role": state.role,
+            "issues": issues[:3],
+            "dev_engine": dev_engine or {},
+        },
+    )
 
-    trace_id = ""
-    try:
-        from butler.ops.langfuse_tracer import get_current_trace, get_delegate_trace
+    trace_id = resolve_delegate_trace_id_safe(
+        state.child_session_key or state.session_key,
+        state.session_key,
+    )
 
-        delegate_ctx = get_delegate_trace(state.child_session_key or state.session_key)
-        if delegate_ctx is not None:
-            trace_id = delegate_ctx.trace_id
-        parent = get_current_trace(state.session_key)
-        if not trace_id and parent is not None:
-            trace_id = parent.trace_id
-    except Exception as exc:  # noqa: BLE001 — best-effort trace lookup
-        logger.debug("delegate trace id lookup skipped: %s", exc)
+    maybe_judge_delegate_safe(
+        success=report.success,
+        issues=issues,
+        dev_engine=dev_engine,
+        task=state.task,
+        summary=getattr(report, "summary", ""),
+        trace_id=trace_id,
+    )
 
-    try:
-        from butler.ops.delegate_judge import maybe_judge_and_push
-
-        maybe_judge_and_push(
-            success=report.success,
-            issues=issues,
-            dev_engine=dev_engine,
-            task=state.task,
-            summary=getattr(report, "summary", ""),
-            trace_id=trace_id,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort judge
-        logger.debug("delegate judge skipped: %s", exc)
-
-    try:
-        from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
-
-        project_name = ""
-        if state.project is not None:
-            project_name = str(getattr(state.project, "name", "") or "")
-        maybe_capture_from_delegate_result(
-            role=state.role,
-            task=state.task,
-            context=state.original_context or state.context,
-            success=report.success,
-            issues=issues,
-            parent_session_key=state.session_key,
-            child_session_key=state.child_session_key or state.session_key,
-            task_id=state.task_id,
-            project=project_name,
-            dev_engine=dev_engine,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort capture
-        logger.debug("delegate failure capture skipped: %s", exc)
+    project_name = ""
+    if state.project is not None:
+        project_name = str(getattr(state.project, "name", "") or "")
+    maybe_capture_delegate_failure_safe(
+        role=state.role,
+        task=state.task,
+        context=state.original_context or state.context,
+        success=report.success,
+        issues=issues,
+        parent_session_key=state.session_key,
+        child_session_key=state.child_session_key or state.session_key,
+        task_id=state.task_id,
+        project=project_name,
+        dev_engine=dev_engine,
+    )
 
 
 def format_delegate_result(state: DelegateRunState, result: Any) -> str:
