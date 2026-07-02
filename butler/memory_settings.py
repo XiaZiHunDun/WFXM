@@ -6,8 +6,6 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-import yaml
-
 from butler.config import get_butler_settings
 from butler.defaults.env_defaults import (
     MEMORY_ACCESS_BOOST,
@@ -49,16 +47,10 @@ class MemoryConfig:
 
 
 def _load_yaml_memory() -> dict[str, Any]:
+    from butler.memory_settings_ops import load_yaml_memory_section_safe
+
     settings = get_butler_settings()
-    path = settings.config_yaml_path
-    if not path.is_file():
-        return {}
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
-    mem = data.get("memory")
-    return mem if isinstance(mem, dict) else {}
+    return load_yaml_memory_section_safe(settings.config_yaml_path)
 
 
 def _nested_dict(raw: dict[str, Any], key: str) -> dict[str, Any]:

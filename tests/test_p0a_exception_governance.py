@@ -119,6 +119,16 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/cli/memory_cli_ops.py": 0,
     "butler/core/tool_dispatch.py": 0,
     "butler/core/tool_dispatch_ops.py": 0,
+    "butler/skills/learn.py": 0,
+    "butler/skills/learn_ops.py": 2,
+    "butler/skills/write_approval.py": 0,
+    "butler/skills/write_approval_ops.py": 1,
+    "butler/ops/onboard.py": 0,
+    "butler/ops/onboard_ops.py": 0,
+    "butler/memory_settings.py": 0,
+    "butler/memory_settings_ops.py": 0,
+    "butler/core/tool_dispatch_doom.py": 0,
+    "butler/core/tool_dispatch_doom_ops.py": 1,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

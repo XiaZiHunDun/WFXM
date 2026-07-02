@@ -48,31 +48,20 @@ def run_skill_learn(description: str, skill_manager: Any) -> dict[str, Any]:
             "ok": False,
             "error": f"描述至少 {_MIN_DESC_LEN} 字。用法: butler skills learn \"<描述>\"",
         }
-    try:
-        from butler.transport.auxiliary_client import auxiliary_complete
+    from butler.skills.learn_ops import create_learned_skill_safe, fetch_learn_draft_safe
 
-        raw = auxiliary_complete(
-            LEARN_PROMPT.format(description=desc),
-            task="post_session",
-            system="You output strict JSON only.",
-        )
-    except Exception as exc:
-        return {"ok": False, "error": f"技能学习 LLM 调用失败: {exc}"}
+    raw, llm_err = fetch_learn_draft_safe(prompt=LEARN_PROMPT.format(description=desc))
+    if llm_err:
+        return {"ok": False, "error": llm_err}
 
     try:
-        payload = parse_learn_response(raw)
+        payload = parse_learn_response(raw or "")
     except (json.JSONDecodeError, ValueError) as exc:
         return {"ok": False, "error": f"技能学习：模型返回无效 JSON（{exc}）"}
 
-    try:
-        outcome = skill_manager.create(
-            payload["name"],
-            payload["description"],
-            payload["triggers"],
-            payload["content"],
-        )
-    except Exception as exc:
-        return {"ok": False, "error": f"技能学习失败: {exc}"}
+    outcome, create_err = create_learned_skill_safe(skill_manager, payload)
+    if create_err:
+        return {"ok": False, "error": create_err}
 
     name = payload["name"]
     if outcome == "pending":

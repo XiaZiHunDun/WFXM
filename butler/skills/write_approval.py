@@ -81,17 +81,9 @@ def approve_skill_pending(idx: int, skill_manager: Any) -> dict[str, Any]:
             return {"ok": False, "error": "index out of range"}
         item = items.pop(idx)
         _save_unlocked(items)
-    try:
-        outcome = skill_manager.create(
-            str(item.get("name") or ""),
-            str(item.get("description") or ""),
-            list(item.get("triggers") or []),
-            str(item.get("content") or ""),
-            _bypass_approval=True,
-        )
-        return {"ok": True, "outcome": outcome, "name": item.get("name")}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc)}
+    from butler.skills.write_approval_ops import approve_pending_skill_safe
+
+    return approve_pending_skill_safe(skill_manager, item)
 
 
 def approve_all_skill_pending(skill_manager: Any) -> int:
@@ -103,17 +95,10 @@ def approve_all_skill_pending(skill_manager: Any) -> int:
                 break
             item = items.pop(0)
             _save_unlocked(items)
-        try:
-            skill_manager.create(
-                str(item.get("name") or ""),
-                str(item.get("description") or ""),
-                list(item.get("triggers") or []),
-                str(item.get("content") or ""),
-                _bypass_approval=True,
-            )
+        from butler.skills.write_approval_ops import create_pending_skill_safe
+
+        if create_pending_skill_safe(skill_manager, item):
             count += 1
-        except Exception:
-            pass
     return count
 
 

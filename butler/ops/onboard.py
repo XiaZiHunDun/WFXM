@@ -121,19 +121,9 @@ def format_onboard_report(*, profile: ProfileName | None = None) -> str:
         for w in warns:
             lines.append(f"  ⚠ {w}")
 
-    try:
-        from butler.ops.embedding_diagnostics import collect_embedding_snapshot
+    from butler.ops.onboard_ops import append_embedding_recommendation_lines
 
-        snap = collect_embedding_snapshot()
-        if snap.get("embedding_recommend_fastembed"):
-            lines.append("")
-            lines.append("记忆推荐（gateway）")
-            lines.append(
-                "  ⚠ 嵌入为 local/hashing-v1；建议 BUTLER_EMBEDDING_PROVIDER=fastembed "
-                "+ BUTLER_SEMANTIC_MEMORY=1（见 .env.example）"
-            )
-    except Exception:
-        pass
+    append_embedding_recommendation_lines(lines)
 
     lines.append("")
     lines.append("下一步")
