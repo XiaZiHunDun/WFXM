@@ -110,12 +110,9 @@ def _skill_manager_for_cli(*, project: str = ""):
 
 
 def _tenant_id() -> str:
-    try:
-        from butler.config import load_settings
+    from butler.cli.skills_registry_ops import default_tenant_id_safe
 
-        return load_settings().default_tenant
-    except Exception:
-        return "default"
+    return default_tenant_id_safe()
 
 
 def _cmd_search(ns: argparse.Namespace) -> int:
@@ -126,29 +123,20 @@ def _cmd_search(ns: argparse.Namespace) -> int:
 
 
 def _cmd_install(ns: argparse.Namespace) -> int:
-    svc = SkillRegistryService(tenant_id=_tenant_id())
-    try:
-        rec = svc.install(
-            ns.identifier,
-            name_override=ns.name or "",
-            force=bool(ns.force),
-            confirmed=bool(ns.yes) or bool(ns.force),
-        )
-    except Exception as exc:
-        from butler.registry.registry_errors import InstallConfirmationRequired
+    from butler.cli.skills_registry_ops import run_skill_install_cli
 
-        if isinstance(exc, InstallConfirmationRequired):
-            h = exc.hit
-            print(
-                f"需要确认安装 [{h.source}/{h.trust}]: {h.name}\n"
-                f"  id: {h.identifier}\n"
-                f"重试: butler skills install {h.identifier} --yes"
-            )
-            return 2
-        if isinstance(exc, ValueError):
-            print(f"安装失败: {exc}")
-            return 1
-        raise
+    svc = SkillRegistryService(tenant_id=_tenant_id())
+    code, message, rec = run_skill_install_cli(
+        svc,
+        identifier=ns.identifier,
+        name_override=ns.name or "",
+        force=bool(ns.force),
+        confirmed=bool(ns.yes) or bool(ns.force),
+    )
+    if code != 0:
+        if message:
+            print(message)
+        return code
     print(f"已安装: {rec.name} → {rec.install_path} ({rec.scan_verdict})")
     followup = svc.install_followup(ns.identifier, record=rec)
     if followup:

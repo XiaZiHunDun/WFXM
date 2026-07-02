@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -13,8 +12,6 @@ from butler.tool_guardrails import (
     append_guidance,
     synthetic_result,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def dispatch_one_tool(
@@ -173,12 +170,9 @@ def dispatch_one_tool(
     safe_best_effort(_apply_error_policy, label="tool_dispatch.error_policy")
 
     mutation_failed = False
-    try:
-        from butler.core.tool_result_classification import annotate_mutation_not_landed
+    from butler.core.tool_dispatch_ops import annotate_mutation_not_landed_safe
 
-        result, mutation_failed = annotate_mutation_not_landed(name, result)
-    except Exception as exc:
-        logger.debug("mutation landed check skipped: %s", exc)
+    result, mutation_failed = annotate_mutation_not_landed_safe(name, result)
 
     set_cached_result(name, args, result, session_key=session_key)
 

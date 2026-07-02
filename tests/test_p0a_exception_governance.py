@@ -110,6 +110,15 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/extensions/opencode_ops.py": 2,
     "butler/tools/builtin_register.py": 0,
     "butler/tools/builtin_register_ops.py": 0,
+    "butler/memory/facade_ops.py": 1,
+    "butler/skills/router.py": 0,
+    "butler/skills/router_ops.py": 0,
+    "butler/cli/skills_registry.py": 0,
+    "butler/cli/skills_registry_ops.py": 1,
+    "butler/cli/memory_cli.py": 0,
+    "butler/cli/memory_cli_ops.py": 0,
+    "butler/core/tool_dispatch.py": 0,
+    "butler/core/tool_dispatch_ops.py": 0,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

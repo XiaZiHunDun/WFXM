@@ -64,8 +64,11 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/tools/delegate_report_ops.py": 110,
     "butler/extensions/opencode_ops.py": 120,
     "butler/tools/builtin_register_ops.py": 100,
+    "butler/skills/router_ops.py": 60,
+    "butler/cli/skills_registry_ops.py": 55,
+    "butler/cli/memory_cli_ops.py": 30,
+    "butler/core/tool_dispatch_ops.py": 35,
     "butler/gateway/outbound_bridge_ops.py": 120,
-    "butler/memory/facade_ops.py": 300,
     "butler/permissions/rules_fail_closed.py": 25,
     "butler/permissions/rules_fail_closed_ops.py": 130,
 }

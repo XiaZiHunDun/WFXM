@@ -2,37 +2,21 @@
 
 from __future__ import annotations
 
-import logging
-import os
 import threading
 from typing import Any, Callable
 
 from butler.skills.similarity import tfidf_cosine
-
-logger = logging.getLogger(__name__)
 
 _EMBEDDING_CACHE_MAX = 1024
 _embedding_cache: dict[str, list[float]] = {}
 _embedding_cache_lock = threading.Lock()
 
 
-def _semantic_routing_enabled() -> bool:
-    return os.getenv("BUTLER_SKILL_SEMANTIC_ROUTING", "1").strip() == "1"
-
-
 def _get_embedder_safe():
     """Get embedder if available, None otherwise (avoids import cost when disabled)."""
-    if not _semantic_routing_enabled():
-        return None
-    try:
-        from butler.memory.embedding import get_embedder
+    from butler.skills.router_ops import get_skill_embedder_safe
 
-        embedder = get_embedder()
-        if embedder.model_id.startswith("hashing"):
-            return None
-        return embedder
-    except Exception:
-        return None
+    return get_skill_embedder_safe()
 
 
 def _skill_text(skill: dict[str, Any]) -> str:
@@ -43,22 +27,23 @@ def _skill_text(skill: dict[str, Any]) -> str:
 
 def _embed_skill(embedder: Any, skill: dict[str, Any]) -> list[float]:
     """Embed skill text with caching by skill name + description hash."""
+    from butler.skills.router_ops import embed_text_safe
+
     text = _skill_text(skill)
     cache_key = f"skill:{skill.get('name', '')}:{hash(text)}"
     with _embedding_cache_lock:
         if cache_key in _embedding_cache:
             _embedding_cache[cache_key] = _embedding_cache.pop(cache_key)
             return _embedding_cache[cache_key]
-    try:
-        vec = embedder.embed(text)
-        with _embedding_cache_lock:
-            if len(_embedding_cache) >= _EMBEDDING_CACHE_MAX:
-                oldest = next(iter(_embedding_cache))
-                _embedding_cache.pop(oldest, None)
-            _embedding_cache[cache_key] = vec
-        return vec
-    except Exception:
+    vec = embed_text_safe(embedder, text)
+    if not vec:
         return []
+    with _embedding_cache_lock:
+        if len(_embedding_cache) >= _EMBEDDING_CACHE_MAX:
+            oldest = next(iter(_embedding_cache))
+            _embedding_cache.pop(oldest, None)
+        _embedding_cache[cache_key] = vec
+    return vec
 
 
 class SkillRouter:
@@ -98,11 +83,9 @@ class SkillRouter:
         if payload["name"] and loaded_by_name:
             full = loaded_by_name.get(str(payload["name"]))
         if self._content_loader and full is None and not payload["content"] and payload["name"]:
-            try:
-                full = self._content_loader(str(payload["name"]))
-            except Exception as exc:
-                logger.debug("Skill content load failed for %s: %s", payload["name"], exc)
-                full = None
+            from butler.skills.router_ops import load_skill_content_safe
+
+            full = load_skill_content_safe(self._content_loader, str(payload["name"]))
         if isinstance(full, dict):
             payload.update({
                 "description": full.get("description", payload.get("description")),
@@ -129,10 +112,9 @@ class SkillRouter:
 
         query_vec: list[float] = []
         if self._embedder:
-            try:
-                query_vec = self._embedder.embed(task_description)
-            except Exception:
-                query_vec = []
+            from butler.skills.router_ops import embed_text_safe
+
+            query_vec = embed_text_safe(self._embedder, task_description)
 
         for skill in self._skills:
             score = 0.0
@@ -168,12 +150,9 @@ class SkillRouter:
                 if skill.get("name") and not skill.get("content") and not skill.get("body")
             ]
             if names:
-                try:
-                    loaded = self._batch_content_loader(names)
-                    if isinstance(loaded, dict):
-                        loaded_by_name = loaded
-                except Exception as exc:
-                    logger.debug("Batch skill content load failed for %s: %s", names, exc)
+                from butler.skills.router_ops import batch_load_skill_content_safe
+
+                loaded_by_name = batch_load_skill_content_safe(self._batch_content_loader, names)
         return [
             self._payload_for(skill, score, loaded_by_name=loaded_by_name)
             for score, skill in selected

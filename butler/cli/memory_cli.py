@@ -595,15 +595,9 @@ def _resolve_ingest_workspace(ns: argparse.Namespace):
         project = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
     if not project:
         return None
-    try:
-        from butler.project.manager import get_project_manager
+    from butler.cli.memory_cli_ops import resolve_project_workspace_safe
 
-        proj = get_project_manager().get_project(project)
-        if proj is None or not getattr(proj, "workspace", None):
-            return None
-        return Path(str(proj.workspace)).expanduser().resolve()
-    except Exception:
-        return None
+    return resolve_project_workspace_safe(project)
 
 
 def _cmd_memory_ingest(ns: argparse.Namespace) -> int:
