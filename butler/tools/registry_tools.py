@@ -5,6 +5,10 @@ from __future__ import annotations
 import json
 
 from butler.registry.skill_service import SkillRegistryService
+from butler.tools.registry_tools_ops import (
+    default_registry_tenant_id,
+    install_skill_confirmed_json,
+)
 
 
 def register_registry_tools(register) -> None:
@@ -80,12 +84,7 @@ def register_registry_tools(register) -> None:
 
 
 def _tool_registry_search_skills(query: str, source: str = "all", **_) -> str:
-    try:
-        from butler.config import load_settings
-
-        tenant = load_settings().default_tenant
-    except Exception:
-        tenant = "default"
+    tenant = default_registry_tenant_id()
     svc = SkillRegistryService(tenant_id=tenant)
     hits = svc.search(query, source_filter=source or "all")
     payload = [
@@ -139,18 +138,7 @@ def _tool_registry_install_skill(identifier: str, source: str = "", **_) -> str:
         }, ensure_ascii=False)
 
     svc = SkillRegistryService()
-    try:
-        result = svc.install(identifier, confirmed=True)
-        return json.dumps({
-            "ok": True,
-            "message": f"Skill '{identifier}' 安装完成",
-            "details": str(result) if result else "",
-        }, ensure_ascii=False)
-    except Exception as exc:
-        return json.dumps({
-            "error": f"安装失败: {exc}",
-            "hint": "可尝试 /技能 搜索 " + identifier + " 确认标识符",
-        }, ensure_ascii=False)
+    return install_skill_confirmed_json(svc, identifier)
 
 
 def _tool_registry_search_mcp(query: str = "", **_) -> str:

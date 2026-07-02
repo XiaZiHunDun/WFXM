@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-import time
-
 from butler.gateway.command_registry import require_owner_kw
+from butler.gateway.commands.registry_handlers_ops import (
+    default_registry_tenant_id,
+    install_skill_or_pending,
+)
 
 
 def handle_confirm_install_command(
@@ -89,12 +91,7 @@ def handle_registry_command(
 
 
 def _tenant_id() -> str:
-    try:
-        from butler.config import load_settings
-
-        return load_settings().default_tenant
-    except Exception:
-        return "default"
+    return default_registry_tenant_id()
 
 
 def _handle_skills(
@@ -201,42 +198,13 @@ def _handle_skills(
             return gate
         if not rest:
             return "用法: /技能 安装 <identifier>\n例: /技能 安装 bundled:lingwen-project-lead"
-        try:
-            rec = svc.install(rest)
-        except Exception as exc:
-            from butler.registry.registry_errors import InstallConfirmationRequired
-
-            if isinstance(exc, InstallConfirmationRequired):
-                h = exc.hit
-                from butler.registry.install_pending import (
-                    PendingSkillInstall,
-                    format_pending_prompt,
-                    save_pending,
-                )
-
-                save_pending(
-                    PendingSkillInstall(
-                        identifier=h.identifier,
-                        name=h.name,
-                        description=h.description,
-                        source=h.source,
-                        trust=h.trust,
-                        session_key=session_key,
-                        platform=platform,
-                        external_id=external_id or "",
-                        requested_at=time.time(),
-                    )
-                )
-                return format_pending_prompt(h.name, h.identifier, h.source, h.trust)
-            if isinstance(exc, ValueError):
-                return f"安装失败: {exc}"
-            raise
-        warn = "（community 源）" if rec.trust == "community" else ""
-        return _append_install_followup(
+        return install_skill_or_pending(
             svc,
             rest,
-            f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）{warn}",
-            record=rec,
+            platform=platform,
+            external_id=external_id,
+            session_key=session_key,
+            append_followup=_append_install_followup,
         )
 
     if sub in ("升级", "upgrade"):
