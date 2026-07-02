@@ -7,10 +7,6 @@ import re
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
-import logging
-
-
-logger = logging.getLogger(__name__)
 
 _BASE_TERMINAL_COMMANDS = {
     "cat",
@@ -77,40 +73,21 @@ class CommandSafetyResult:
 
 
 def _workspace_from_project(project: object | None) -> Path | None:
-    workspace = getattr(project, "workspace", None) if project is not None else None
-    if not workspace:
-        return None
-    try:
-        from butler.project.worktree import effective_workspace
+    from butler.tools.path_safety_ops import workspace_from_project_safe
 
-        return effective_workspace(Path(workspace))
-    except Exception:
-        return Path(workspace).expanduser().resolve(strict=False)
+    return workspace_from_project_safe(project)
 
 
 def _workspace_for_session_key(session_key: str) -> Path | None:
-    sk = str(session_key or "").strip()
-    if not sk:
-        return None
-    try:
-        from butler.project.manager import get_project_manager
+    from butler.tools.path_safety_ops import workspace_for_session_key_safe
 
-        pm = get_project_manager()
-        return _workspace_from_project(pm.get_current(session_key=sk))
-    except Exception:
-        return None
+    return workspace_for_session_key_safe(session_key)
 
 
 def _default_project_workspace() -> Path | None:
-    name = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
-    if not name:
-        return None
-    try:
-        from butler.project.manager import get_project_manager
+    from butler.tools.path_safety_ops import default_project_workspace_safe
 
-        return _workspace_from_project(get_project_manager().get_project(name))
-    except Exception:
-        return None
+    return default_project_workspace_safe()
 
 
 def _remap_projects_docs_trap(resolved: Path, *, session_ws: Path | None) -> Path:
@@ -141,39 +118,23 @@ def _remap_projects_docs_trap(resolved: Path, *, session_ws: Path | None) -> Pat
 
 def current_workspace_root() -> Path | None:
     """Return the active Butler project workspace, if a turn has one."""
-    session_key = ""
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.tools.path_safety_ops import (
+        audit_session_key_safe,
+        current_session_key_safe,
+        orchestrator_workspace_safe,
+    )
 
-        session_key = str(get_current_session_key() or "").strip()
-    except Exception:
-        session_key = ""
-    try:
-        orch = _current_orchestrator()
-        if orch is not None:
-            manager = getattr(orch, "project_manager", None)
-            project = (
-                manager.get_current(session_key=session_key)
-                if manager and hasattr(manager, "get_current")
-                else None
-            )
-            ws = _workspace_from_project(project)
-            if ws is not None:
-                return ws
-    except Exception:
-        pass
+    session_key = current_session_key_safe()
+    ws = orchestrator_workspace_safe(session_key)
+    if ws is not None:
+        return ws
     if session_key:
         ws = _workspace_for_session_key(session_key)
         if ws is not None:
             return ws
-    try:
-        from butler.execution_context import get_audit_session_key
-
-        sk = str(get_audit_session_key(fallback="") or "").strip()
-        if sk and sk != session_key:
-            return _workspace_for_session_key(sk)
-    except Exception:
-        pass
+    sk = audit_session_key_safe(fallback="")
+    if sk and sk != session_key:
+        return _workspace_for_session_key(sk)
     ws = _default_project_workspace()
     if ws is not None:
         return ws
@@ -243,23 +204,17 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
         return PathSafetyResult(False, resolved, hooks_error)
 
     if not for_write:
-        try:
-            from butler.core.tool_result_storage import is_readable_session_tool_result_path
+        from butler.tools.path_safety_ops import is_readable_session_tool_result_path_safe
 
-            if is_readable_session_tool_result_path(str(resolved)):
-                return PathSafetyResult(True, resolved)
-        except Exception as exc:
-            logger.debug("session tool-result path check skipped: %s", exc)
+        if is_readable_session_tool_result_path_safe(resolved):
+            return PathSafetyResult(True, resolved)
 
     if root is not None and not _is_relative_to(resolved, root):
-        try:
-            from butler.permissions import check_external_path_override
+        from butler.tools.path_safety_ops import external_path_override_allowed_safe
 
-            override = check_external_path_override(str(resolved), for_write=for_write)
-            if override is not None and override.allowed:
-                return PathSafetyResult(True, resolved)
-        except Exception as exc:
-            logger.debug("check tool path skipped: %s", exc)
+        override = external_path_override_allowed_safe(resolved, for_write=for_write)
+        if override is True:
+            return PathSafetyResult(True, resolved)
         return PathSafetyResult(
             False,
             resolved,
@@ -269,25 +224,17 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
     if hardlink_error:
         return PathSafetyResult(False, resolved, hardlink_error)
 
-    try:
-        from butler.tools.butlerignore import is_butlerignored, is_protected_write_path
+    ws = session_ws or root
+    if ws is not None:
+        from butler.tools.path_safety_ops import butlerignore_blocked_safe
 
-        ws = session_ws or root
-        if ws is not None:
-            if not for_write and is_butlerignored(resolved, workspace=ws):
-                return PathSafetyResult(
-                    False,
-                    resolved,
-                    "Access denied: path matches .butlerignore",
-                )
-            if for_write and is_protected_write_path(resolved, workspace=ws):
-                return PathSafetyResult(
-                    False,
-                    resolved,
-                    "Access denied: protected path (sandbox policy)",
-                )
-    except Exception as exc:
-        logger.debug("butlerignore check skipped: %s", exc)
+        blocked = butlerignore_blocked_safe(
+            resolved,
+            workspace=ws,
+            for_write=for_write,
+        )
+        if blocked:
+            return PathSafetyResult(False, resolved, blocked)
 
     return PathSafetyResult(True, resolved)
 
@@ -420,22 +367,15 @@ def safe_subprocess_env() -> dict[str, str]:
 
 
 def _current_orchestrator():
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.tools.path_safety_ops import current_orchestrator_safe
 
-        return get_current_orchestrator()
-    except Exception:
-        return None
+    return current_orchestrator_safe()
 
 
 def _configured_safe_root() -> Path | None:
-    raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
-    if not raw:
-        return None
-    try:
-        return Path(raw).expanduser().resolve()
-    except Exception:
-        return None
+    from butler.tools.path_safety_ops import configured_safe_root_safe
+
+    return configured_safe_root_safe()
 
 
 def _resolve_tool_path(raw: str, root: Path | None) -> Path:
@@ -558,16 +498,10 @@ def _hooks_config_write_error(
     if not for_write:
         return ""
     resolved = path.resolve(strict=False)
-    try:
-        from butler.config import get_butler_settings
+    from butler.tools.path_safety_ops import hooks_global_dir_blocks_write
 
-        global_dir = (
-            get_butler_settings().butler_home / ".butler"
-        ).resolve(strict=False)
-        if _is_relative_to(resolved, global_dir) and resolved.name in _HOOK_CONFIG_NAMES:
-            return "Access denied: path targets hooks configuration"
-    except Exception:
-        pass
+    if hooks_global_dir_blocks_write(resolved):
+        return "Access denied: path targets hooks configuration"
     if workspace_root is None:
         return ""
     butler_dir = (workspace_root / ".butler").resolve(strict=False)

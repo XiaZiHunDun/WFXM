@@ -116,6 +116,12 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/owner_surface_ops.py": 130,
     "butler/core/batch_sequence_guard_ops.py": 55,
     "butler/core/instruction_walkup_ops.py": 40,
+    "butler/gateway/runner_ops.py": 200,
+    "butler/tools/path_safety_ops.py": 200,
+    "butler/tools/terminal_impl_ops.py": 100,
+    "butler/dev_engine/b9_delegate_gate_ops.py": 120,
+    "butler/report/generator_ops.py": 180,
+    "butler/ops/harness_diagnostics_ops.py": 160,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

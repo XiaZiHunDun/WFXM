@@ -90,23 +90,9 @@ def unsupported_platforms(platforms: list[str]) -> list[str]:
 
 
 def _warmup_gateway_runtime(butler: ButlerMessageHandler) -> None:
-    """Avoid first user message blocking on jieba/skill index cold start."""
-    try:
-        from butler.skills.similarity import _ensure_jieba
+    from butler.gateway.runner_ops import warmup_gateway_runtime_safe
 
-        _ensure_jieba()
-        mgr = getattr(butler._orchestrator, "_skill_manager", None)
-        if mgr is not None:
-            mgr.list_skills()
-        logger.info("Gateway runtime warmup complete (skills/jieba)")
-    except Exception as exc:
-        logger.debug("Gateway warmup skipped: %s", exc)
-    try:
-        from butler.ops.degradation_registry import sync_all_startup_degradations
-
-        sync_all_startup_degradations()
-    except Exception as exc:
-        logger.debug("Gateway degradation sync skipped: %s", exc)
+    warmup_gateway_runtime_safe(butler)
 
 
 async def _butler_message_handler(
@@ -239,14 +225,11 @@ async def run_gateway_async(platforms: list[str]) -> int:
 
     logger.info("Butler native gateway running (%s)", ", ".join(a.name for a in connected))
 
-    try:
-        from butler.gateway.message_queue import restore_persisted_queue
+    from butler.gateway.runner_ops import restore_persisted_queue_safe
 
-        restored = restore_persisted_queue()
-        if restored:
-            logger.info("Restored %d queued inbound messages from disk", restored)
-    except Exception as exc:
-        logger.debug("Queue restore skipped: %s", exc)
+    restored = restore_persisted_queue_safe()
+    if restored:
+        logger.info("Restored %d queued inbound messages from disk", restored)
 
     _replay_pending_outbox(connected)
 
@@ -280,12 +263,15 @@ async def run_gateway_async(platforms: list[str]) -> int:
     # 仍要确保 _SHUTDOWN_EVENT 被 set, 兜底)
     _SHUTDOWN_EVENT.set()
 
+    from butler.gateway.runner_ops import (
+        close_semantic_indices_safe,
+        disconnect_adapter_safe,
+        shutdown_mcp_stack_safe,
+    )
+
     _reminder_task.cancel()
     for adapter in connected:
-        try:
-            await adapter.disconnect()
-        except Exception as exc:
-            logger.warning("Adapter %s disconnect failed: %s", adapter.name, exc)
+        await disconnect_adapter_safe(adapter)
 
     # Grace period: 给 in-flight handler 时间完成。 超时后强制退出, 避免进程挂住。
     grace = _HANDLER_SHUTDOWN_GRACE_SECONDS
@@ -305,131 +291,40 @@ async def run_gateway_async(platforms: list[str]) -> int:
             grace,
         )
 
-    try:
-        from butler.mcp.async_runner import graceful_shutdown_mcp_stack
-
-        graceful_shutdown_mcp_stack(timeout=5.0)
-    except Exception as exc:
-        logger.debug("Gateway MCP stack shutdown: %s", exc)
-
-    try:
-        from butler.memory.semantic_index import close_all_semantic_indices
-
-        close_all_semantic_indices()
-    except Exception as exc:
-        logger.debug("Gateway semantic index shutdown: %s", exc)
+    shutdown_mcp_stack_safe()
+    close_semantic_indices_safe()
 
     return 0
 
 
 def _sync_send_via_adapter(adapters: list[Any], chat_id: str, text: str) -> bool:
-    """Send a message through the first available adapter (sync-safe).
+    from butler.gateway.runner_ops import sync_send_via_adapter_loud
 
-    Bridges sync context (reminder loop, outbox replay) to async adapter.send().
-    """
-    if not chat_id or not text:
-        return False
-    for adapter in adapters:
-        if hasattr(adapter, "send"):
-            try:
-                loop = None
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    pass
-                if loop and loop.is_running():
-                    asyncio.run_coroutine_threadsafe(
-                        adapter.send(chat_id, text), loop
-                    ).result(timeout=30)
-                else:
-                    asyncio.run(adapter.send(chat_id, text))
-                return True
-            except Exception as exc:
-                logger.warning("_sync_send_via_adapter failed: %s", exc)
-                continue
-    logger.warning("No adapter with send() available")
-    return False
+    return sync_send_via_adapter_loud(adapters, chat_id, text)
 
 
 async def _poll_reminders_loop(adapters: list[Any]) -> None:
     """Background coroutine that checks for due reminders every 60s."""
+    from butler.gateway.runner_ops import poll_due_reminders_safe, push_reminder_safe
+
     poll_interval = float_env("BUTLER_REMINDER_POLL_SECONDS", 60)
     while True:
         await asyncio.sleep(poll_interval)
-        try:
-            from butler.tools.reminder import poll_due_reminders
-
-            fired = poll_due_reminders()
-            if not fired:
-                continue
-            for reminder in fired:
-                text = f"⏰ 提醒：{reminder.get('message', '')}\n（设定时间：{reminder.get('due_human', '')}）"
-                chat_id = os.getenv("BUTLER_OWNER_WECHAT_ID", "")
-                if not chat_id:
-                    logger.warning("BUTLER_OWNER_WECHAT_ID not set, reminder not pushed: %s", reminder.get("id"))
-                    continue
-                try:
-                    from butler.gateway.durable_outbox import durable_outbox_enabled, enqueue_outbox_message
-
-                    if durable_outbox_enabled():
-                        entry_id = enqueue_outbox_message(chat_id, text, kind="reminder")
-                        if _sync_send_via_adapter(adapters, chat_id, text):
-                            from butler.gateway.durable_outbox import mark_outbox_sent
-                            mark_outbox_sent(entry_id)
-                            logger.info("Reminder sent+marked via outbox: %s", reminder.get("id"))
-                        else:
-                            logger.warning("Reminder enqueued but send failed (will retry on replay): %s", reminder.get("id"))
-                    else:
-                        if _sync_send_via_adapter(adapters, chat_id, text):
-                            logger.info("Reminder fired (direct): %s", reminder.get("id"))
-                        else:
-                            logger.warning(
-                                "Reminder direct send failed: %s", reminder.get("id")
-                            )
-                except Exception as exc:
-                    logger.warning("Reminder push failed: %s", exc)
-        except Exception as exc:
-            logger.debug("Reminder poll error: %s", exc)
+        fired = poll_due_reminders_safe()
+        if not fired:
+            continue
+        for reminder in fired:
+            push_reminder_safe(adapters, reminder)
 
 
 def _replay_pending_outbox(adapters: list[Any]) -> None:
     """Replay unsent durable outbox entries on gateway startup."""
-    try:
-        from butler.gateway.durable_outbox import (
-            durable_outbox_enabled,
-            list_pending_outbox,
-            mark_outbox_sent,
-        )
+    from butler.gateway.runner_ops import replay_pending_outbox_safe
 
-        if not durable_outbox_enabled():
-            return
-
-        pending = list_pending_outbox()
-        if not pending:
-            return
-
-        logger.info("Replaying %d pending outbox entries", len(pending))
-
-        sent = 0
-        for entry in pending:
-            chat_id = entry.get("chat_id", "")
-            body = entry.get("body", "")
-            entry_id = entry.get("entry_id", "")
-            if not chat_id or not body:
-                continue
-            try:
-                if not _sync_send_via_adapter(adapters, chat_id, body):
-                    logger.warning("Outbox replay send failed for entry %s", entry_id)
-                    continue
-                mark_outbox_sent(entry_id)
-                sent += 1
-            except Exception as exc:
-                logger.warning("Outbox replay failed for entry %s: %s", entry_id, exc)
-        logger.info("Outbox replay complete: %d/%d sent", sent, len(pending))
-    except ImportError:
-        logger.debug("durable_outbox not available, skipping replay")
-    except Exception as exc:
-        logger.warning("Outbox replay error: %s", exc)
+    sent, total = replay_pending_outbox_safe(adapters)
+    if total:
+        logger.info("Replaying %d pending outbox entries", total)
+        logger.info("Outbox replay complete: %d/%d sent", sent, total)
 
 
 def run_gateway_blocking(platforms: list[str]) -> int:

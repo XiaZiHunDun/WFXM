@@ -18,18 +18,15 @@ MAX_TERMINAL_OUTPUT_CHARS = 50000
 
 
 def _is_selectable_pipe(pipe: Any) -> bool:
-    try:
-        return isinstance(pipe.fileno(), int)
-    except Exception:
-        return False
+    from butler.tools.terminal_impl_ops import is_selectable_pipe_safe
+
+    return is_selectable_pipe_safe(pipe)
 
 
 def _close_pipe(pipe: Any) -> None:
-    try:
-        if pipe is not None:
-            pipe.close()
-    except Exception:
-        return
+    from butler.tools.terminal_impl_ops import close_pipe_safe
+
+    close_pipe_safe(pipe)
 
 
 def _communicate_limited(
@@ -170,12 +167,9 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
             })
         logger.warning("terminal sandbox enabled but bwrap missing; running unsandboxed")
         run_sandboxed = False
-        try:
-            from butler.ops.runtime_metrics import inc
+        from butler.tools.terminal_impl_ops import inc_terminal_metric_safe
 
-            inc("terminal_sandbox_unavailable_fallback")
-        except Exception:
-            pass
+        inc_terminal_metric_safe("terminal_sandbox_unavailable_fallback")
 
     exec_argv = list(command_safety.argv)
     if run_sandboxed:
@@ -199,102 +193,90 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
 
     def _run_subprocess() -> str:
         nonlocal proc, interrupted
-        try:
-            base_env = safe_subprocess_env()
-            if run_sandboxed:
-                base_env = scrub_credential_env(base_env, sandbox_config)
-            proc_env = enrich_subprocess_env(base_env, sandboxed=run_sandboxed)
-            if run_sandboxed:
-                try:
-                    from butler.ops.runtime_metrics import inc
+        base_env = safe_subprocess_env()
+        if run_sandboxed:
+            base_env = scrub_credential_env(base_env, sandbox_config)
+        proc_env = enrich_subprocess_env(base_env, sandboxed=run_sandboxed)
+        if run_sandboxed:
+            from butler.tools.terminal_impl_ops import inc_terminal_metric_safe
 
-                    inc(
-                        "terminal_sandbox_run",
-                        labels={"sandboxed": "1"},
-                        session_key=session_key,
-                    )
-                except Exception:
-                    pass
-            proc = subprocess.Popen(
-                exec_argv,
-                shell=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=resolved_workdir,
-                env=proc_env,
+            inc_terminal_metric_safe(
+                "terminal_sandbox_run",
+                labels={"sandboxed": "1"},
+                session_key=session_key,
             )
-            watcher = threading.Thread(target=_watch, daemon=True)
-            watcher.start()
-            try:
-                try:
-                    stdout, stderr, truncated = _communicate_limited(
-                        proc,
-                        timeout=timeout,
-                        max_output_chars=MAX_TERMINAL_OUTPUT_CHARS,
-                    )
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    try:
-                        proc.wait(timeout=1)
-                    finally:
-                        _close_pipe(proc.stdout)
-                        _close_pipe(proc.stderr)
-                    return json.dumps({"error": f"Command timed out after {timeout}s"})
-                if interrupted:
-                    return json.dumps({"error": "interrupted", "output": ""})
-                output = stdout or ""
-                if stderr:
-                    output += "\n[stderr]\n" + stderr
-                if truncated or len(output) > MAX_TERMINAL_OUTPUT_CHARS:
-                    output = output[:MAX_TERMINAL_OUTPUT_CHARS] + "\n... (truncated)"
-                failure = classify_sandbox_failure(
-                    exit_code=proc.returncode,
-                    stdout=stdout or "",
-                    stderr=stderr or "",
-                    sandboxed=run_sandboxed,
-                )
-                if failure is not None:
-                    try:
-                        from butler.ops.runtime_metrics import inc
-
-                        inc(
-                            "terminal_sandbox_failure",
-                            labels={"constraint": failure.constraint},
-                            session_key=session_key,
-                        )
-                    except Exception:
-                        pass
-                    return json.dumps(
-                        format_sandbox_error_payload(
-                            failure,
-                            command=cmd_text,
-                            exit_code=proc.returncode,
-                            output=output,
-                        ),
-                        ensure_ascii=False,
-                    )
-                return json.dumps({
-                    "exit_code": proc.returncode,
-                    "output": output,
-                    "sandboxed": run_sandboxed,
-                })
-            finally:
-                _close_pipe(proc.stdout)
-                _close_pipe(proc.stderr)
-        except Exception as exc:
-            return json.dumps({"error": str(exc)})
-
-    try:
-        from butler.core.tool_orchestrator import run_terminal_with_gates
-
-        return run_terminal_with_gates(
-            cmd_text,
-            cwd=cwd_hint,
-            session_key=session_key,
-            run_fn=_run_subprocess,
+        proc = subprocess.Popen(
+            exec_argv,
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=resolved_workdir,
+            env=proc_env,
         )
-    except Exception:
-        return _run_subprocess()
+        watcher = threading.Thread(target=_watch, daemon=True)
+        watcher.start()
+        try:
+            try:
+                stdout, stderr, truncated = _communicate_limited(
+                    proc,
+                    timeout=timeout,
+                    max_output_chars=MAX_TERMINAL_OUTPUT_CHARS,
+                )
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                try:
+                    proc.wait(timeout=1)
+                finally:
+                    _close_pipe(proc.stdout)
+                    _close_pipe(proc.stderr)
+                return json.dumps({"error": f"Command timed out after {timeout}s"})
+            if interrupted:
+                return json.dumps({"error": "interrupted", "output": ""})
+            output = stdout or ""
+            if stderr:
+                output += "\n[stderr]\n" + stderr
+            if truncated or len(output) > MAX_TERMINAL_OUTPUT_CHARS:
+                output = output[:MAX_TERMINAL_OUTPUT_CHARS] + "\n... (truncated)"
+            failure = classify_sandbox_failure(
+                exit_code=proc.returncode,
+                stdout=stdout or "",
+                stderr=stderr or "",
+                sandboxed=run_sandboxed,
+            )
+            if failure is not None:
+                from butler.tools.terminal_impl_ops import inc_terminal_metric_safe
+
+                inc_terminal_metric_safe(
+                    "terminal_sandbox_failure",
+                    labels={"constraint": failure.constraint},
+                    session_key=session_key,
+                )
+                return json.dumps(
+                    format_sandbox_error_payload(
+                        failure,
+                        command=cmd_text,
+                        exit_code=proc.returncode,
+                        output=output,
+                    ),
+                    ensure_ascii=False,
+                )
+            return json.dumps({
+                "exit_code": proc.returncode,
+                "output": output,
+                "sandboxed": run_sandboxed,
+            })
+        finally:
+            _close_pipe(proc.stdout)
+            _close_pipe(proc.stderr)
+
+    from butler.tools.terminal_impl_ops import run_subprocess_loud, run_terminal_with_gates_safe
+
+    return run_terminal_with_gates_safe(
+        cmd_text,
+        cwd=cwd_hint,
+        session_key=session_key,
+        run_fn=lambda: run_subprocess_loud(_run_subprocess),
+    )
 
 
 def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) -> str:
@@ -307,7 +289,8 @@ def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) 
     if include:
         cmd.extend(["--glob", include])
     cmd.extend(["--", pattern, str(safety.path)])
-    try:
+
+    def _run() -> str:
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -335,10 +318,10 @@ def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) 
             except (json.JSONDecodeError, KeyError):
                 continue
         return json.dumps({"matches": matches[:50], "total": len(matches)})
-    except FileNotFoundError:
-        return json.dumps({"error": "ripgrep (rg) not installed"})
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+
+    from butler.tools.terminal_impl_ops import run_search_files_loud
+
+    return run_search_files_loud(_run)
 
 
 def _tool_list_directory(path: str = ".", **_) -> str:
@@ -350,7 +333,8 @@ def _tool_list_directory(path: str = ".", **_) -> str:
     p = safety.path
     if not p.is_dir():
         return json.dumps({"error": f"Not a directory: {path}"})
-    try:
+
+    def _run() -> str:
         entries = []
         for item in sorted(p.iterdir()):
             entries.append({
@@ -359,5 +343,7 @@ def _tool_list_directory(path: str = ".", **_) -> str:
                 "size": item.stat().st_size if item.is_file() else None,
             })
         return json.dumps({"path": str(p), "entries": entries[:200]})
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+
+    from butler.tools.terminal_impl_ops import run_list_directory_loud
+
+    return run_list_directory_loud(_run)

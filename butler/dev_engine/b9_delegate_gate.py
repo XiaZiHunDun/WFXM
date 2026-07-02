@@ -11,8 +11,6 @@ from typing import Any, Callable, Iterator
 
 from butler.dev_engine.b9_live_tuning import B9_LIVE_CATEGORY
 
-logger = logging.getLogger(__name__)
-
 SWE_LIVE_CATEGORY = "swe-benchmark"
 LINGWEN_DRILL_CATEGORY = "lingwen-drill"
 LINGWEN_PROD_SAMPLE_CATEGORY = "lingwen-prod-sample"
@@ -62,18 +60,9 @@ def resolve_b9_workspace(project: Any = None) -> Path | None:
             return Path(project.workspace).resolve()
         except (TypeError, ValueError, OSError):
             pass
-    root = os.environ.get("BUTLER_TOOL_SAFE_ROOT", "").strip()
-    if root:
-        try:
-            return Path(root).resolve()
-        except (TypeError, ValueError, OSError):
-            pass
-    try:
-        from butler.tools.path_safety import tool_safe_root
+    from butler.dev_engine.b9_delegate_gate_ops import resolve_b9_workspace_tail_safe
 
-        return tool_safe_root()
-    except Exception:
-        return None
+    return resolve_b9_workspace_tail_safe()
 
 
 def apply_b9_pytest_success_gate(
@@ -108,12 +97,9 @@ def apply_b9_pytest_success_gate(
     if ok:
         return True, out
     hint = ""
-    try:
-        from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
+    from butler.dev_engine.b9_delegate_gate_ops import build_b9_verify_hint_safe
 
-        hint = build_b9_verify_hint(tail)
-    except Exception:
-        pass
+    hint = build_b9_verify_hint_safe(tail)
     msg = f"BENCHMARK_PYTEST_GATE: verify not green — {(tail or 'failed')[:360]}"
     if hint:
         msg = f"{msg} | hint: {hint}"
@@ -295,14 +281,11 @@ def build_b9_wrong_patch_retry_banner(
     task_id: str = "",
 ) -> str:
     extra = ""
-    try:
-        from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
+    from butler.dev_engine.b9_delegate_gate_ops import build_b9_verify_hint_safe
 
-        hint = build_b9_verify_hint(failure_tail)
-        if hint:
-            extra = f"\nHint: {hint}\n"
-    except Exception:
-        pass
+    hint = build_b9_verify_hint_safe(failure_tail)
+    if hint:
+        extra = f"\nHint: {hint}\n"
     task_block = ""
     if task_id == "B9L_prod_lingwen_validate_progress" or "open_fix" in (failure_tail or "").lower():
         task_block = (
@@ -341,27 +324,23 @@ def apply_dev_auto_verify_success_gate(
     norm = str(role or "").replace("_agent", "").strip().lower()
     if norm != "dev":
         return True, out
-    try:
-        from butler.gateway.delegate_task_kind import is_dev_verify_exempt
+    from butler.dev_engine.b9_delegate_gate_ops import (
+        auto_verify_enabled_safe,
+        build_b9_verify_hint_safe,
+        is_dev_verify_exempt_safe,
+    )
 
-        if is_dev_verify_exempt(
-            role=role,
-            task=task,
-            task_preview=task_preview,
-            changes=changes,
-            category_meta=category_meta,
-        ):
-            return True, out
-    except Exception as exc:
-        logger.debug("dev verify exempt check skipped: %s", exc)
+    if is_dev_verify_exempt_safe(
+        role=role,
+        task=task,
+        task_preview=task_preview,
+        changes=changes,
+        category_meta=category_meta,
+    ):
+        return True, out
     if not dev_verify_success_gate_enabled():
         return True, out
-    try:
-        from butler.dev_engine.dev_tools import auto_verify_enabled
-
-        if not auto_verify_enabled():
-            return True, out
-    except Exception:
+    if auto_verify_enabled_safe() is not True:
         return True, out
 
     from butler.core.dev_state_context_adapter import dev_engine_dict_to_view
@@ -376,13 +355,7 @@ def apply_dev_auto_verify_success_gate(
 
     de = dev_engine if isinstance(dev_engine, dict) else {}
     tail = str(de.get("verify_output_tail") or "")
-    hint = ""
-    try:
-        from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
-
-        hint = build_b9_verify_hint(tail)
-    except Exception:
-        pass
+    hint = build_b9_verify_hint_safe(tail)
     msg = "DEV_VERIFY_GATE: 有编辑但自动验证未通过"
     if hint:
         msg += f" | hint: {hint}"
@@ -392,12 +365,9 @@ def apply_dev_auto_verify_success_gate(
 
 
 def coding_strict_pilot_categories() -> frozenset[str]:
-    try:
-        from butler.dev_engine.prod_delegate_bridge import PROD_PLAYBOOK_CATEGORIES
+    from butler.dev_engine.b9_delegate_gate_ops import coding_strict_pilot_categories_safe
 
-        return PROD_PLAYBOOK_CATEGORIES
-    except Exception:
-        return frozenset({"deep", "quick", "nexus-sprint"})
+    return coding_strict_pilot_categories_safe()
 
 
 def apply_coding_strict_pilot_gate(
@@ -413,12 +383,9 @@ def apply_coding_strict_pilot_gate(
     out = list(issues or [])
     if not base_success:
         return False, out
-    try:
-        from butler.dev_engine.dev_tools import coding_strict_enabled
+    from butler.dev_engine.b9_delegate_gate_ops import coding_strict_enabled_safe
 
-        if not coding_strict_enabled():
-            return True, out
-    except Exception:
+    if coding_strict_enabled_safe() is not True:
         return True, out
 
     norm = str(role or "").replace("_agent", "").strip().lower()
@@ -456,12 +423,9 @@ def apply_dev_review_strict_gate(
     out = list(issues or [])
     if not base_success:
         return False, out
-    try:
-        from butler.dev_engine.dev_tools import review_strict_enabled
+    from butler.dev_engine.b9_delegate_gate_ops import review_strict_enabled_safe
 
-        if not review_strict_enabled():
-            return True, out
-    except Exception:
+    if review_strict_enabled_safe() is not True:
         return True, out
 
     norm = str(role or "").replace("_agent", "").strip().lower()

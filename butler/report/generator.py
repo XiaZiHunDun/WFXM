@@ -5,9 +5,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import Any
-import logging
-
-logger = logging.getLogger(__name__)
 
 _DECISION_PATTERNS = (
     re.compile(r"\*\*\s*rating\s*\*\*\s*:\s*(approve|revise|block|keep|discard)\b", re.I),
@@ -212,13 +209,10 @@ def validate_structured_output(
     """Validate parsed output against a lightweight schema (optional Pydantic)."""
     if not schema:
         return True, []
-    try:
-        from butler.core.meta_flags import output_schema_validate_enabled
+    from butler.report.generator_ops import output_schema_validate_enabled_safe
 
-        if not output_schema_validate_enabled():
-            return True, []
-    except Exception as exc:
-        logger.debug("validate structured output skipped: %s", exc)
+    if output_schema_validate_enabled_safe() is False:
+        return True, []
     specs = _schema_field_specs(schema)
     if not specs:
         return True, []
@@ -246,30 +240,11 @@ def validate_structured_output(
             errors.append(f"{name}: value not in enum")
     if errors:
         return False, errors
-    try:
-        from pydantic import Field, create_model
+    from butler.report.generator_ops import pydantic_validate_loud
 
-        fields: dict[str, Any] = {}
-        for spec in specs:
-            name = str(spec["name"])
-            required = bool(spec.get("required", True))
-            expected = str(spec.get("type") or "string").lower()
-            py_type: Any = str
-            if expected in ("int", "integer"):
-                py_type = int
-            elif expected in ("bool", "boolean"):
-                py_type = bool
-            if required:
-                fields[name] = (py_type, Field(...))
-            else:
-                fields[name] = (py_type | None, None)
-        if fields:
-            model = create_model("ButlerOutputSchema", **fields)
-            model.model_validate(data)
-    except ImportError:
-        pass
-    except Exception as exc:
-        return False, [f"pydantic: {exc}"]
+    pydantic_errors = pydantic_validate_loud(data, specs)
+    if pydantic_errors:
+        return False, pydantic_errors
     return True, []
 
 
@@ -330,29 +305,23 @@ def maybe_repair_structured_output(
     """Multi-round LLM repair when schema validation failed (PR-X5 / 主线 N / P10)."""
     if not schema:
         return report
-    try:
-        from butler.core.confirm_flags import (
-            output_schema_repair_enabled,
-            output_schema_repair_max_rounds,
-        )
-        from butler.core.meta_flags import output_schema_validate_enabled
+    from butler.report.generator_ops import (
+        current_orchestrator_safe,
+        output_schema_repair_settings_safe,
+        schema_repair_round_loud,
+    )
 
-        if not output_schema_repair_enabled() or not output_schema_validate_enabled():
-            return report
-        max_rounds = output_schema_repair_max_rounds()
-    except Exception:
+    settings = output_schema_repair_settings_safe()
+    if settings is None:
+        return report
+    repair_enabled, validate_enabled, max_rounds = settings
+    if not repair_enabled or not validate_enabled:
         return report
     if not _schema_validation_failed(report):
         ok, _ = validate_structured_output(report.structured_output, schema)
         if ok and report.structured_output:
             return report
-    if orchestrator is None:
-        try:
-            from butler.execution_context import get_current_orchestrator
-
-            orchestrator = get_current_orchestrator()
-        except Exception:
-            orchestrator = None
+    orchestrator = current_orchestrator_safe()
     if orchestrator is None:
         return report
 
@@ -368,43 +337,30 @@ def maybe_repair_structured_output(
         if not repair_prompt:
             repair_prompt = build_schema_repair_prompt(["structured output invalid"], schema)
         user_msg = f"{repair_prompt}\n\n---\n原始输出：\n{last_text[:12000]}"
-        try:
-            client = orchestrator.create_llm_client("butler")
-            from butler.transport.types import NormalizedResponse
-
-            resp = client.complete(
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "你只输出一个 JSON 对象，不要 markdown 围栏或解释。",
-                    },
-                    {"role": "user", "content": user_msg},
-                ],
-                tools=None,
-            )
-            if not isinstance(resp, NormalizedResponse):
-                break
-            last_text = str(resp.content or "")
-            parsed = parse_structured_output(last_text, schema)
-            ok, errs = validate_structured_output(parsed, schema)
-            if ok and parsed:
-                report.structured_output = parsed
-                report.issues = [
-                    i for i in report.issues
-                    if not str(i).startswith("schema:")
-                    and "结构化输出未通过" not in str(i)
-                ]
-                for key, val in parsed.items():
-                    if str(key).lower() in ("rating", "decision", "verdict"):
-                        report.decisions = list(
-                            dict.fromkeys(list(report.decisions) + [str(val).lower()])
-                        )
-                return report
-            if errs:
-                report.issues.append(f"schema_repair_failed_r{_round + 1}: {errs[0]}")
-        except Exception as exc:
-            report.issues.append(f"schema_repair_error_r{_round + 1}: {exc}")
+        last_text, parsed, errs, repair_err = schema_repair_round_loud(
+            orchestrator,
+            user_msg,
+            schema,
+        )
+        if repair_err:
+            report.issues.append(f"schema_repair_error_r{_round + 1}: {repair_err}")
             break
+        ok = bool(parsed) and not errs
+        if ok and parsed:
+            report.structured_output = parsed
+            report.issues = [
+                i for i in report.issues
+                if not str(i).startswith("schema:")
+                and "结构化输出未通过" not in str(i)
+            ]
+            for key, val in parsed.items():
+                if str(key).lower() in ("rating", "decision", "verdict"):
+                    report.decisions = list(
+                        dict.fromkeys(list(report.decisions) + [str(val).lower()])
+                    )
+            return report
+        if errs:
+            report.issues.append(f"schema_repair_failed_r{_round + 1}: {errs[0]}")
     return report
 
 
@@ -474,18 +430,9 @@ def attach_delegate_task_times(report: AgentReport, task_id: str = "") -> AgentR
     tid = str(task_id or report.task_id or "").strip()
     if not tid:
         return report
-    try:
-        from datetime import datetime, timezone
-        from butler.runtime.task_store import get_task
+    from butler.report.generator_ops import attach_delegate_task_times_safe
 
-        rec = get_task(tid)
-        if rec:
-            report.task_created_at = str(rec.get("created_at") or "")
-            report.task_completed_at = str(rec.get("updated_at") or "")
-        if not report.task_completed_at:
-            report.task_completed_at = datetime.now(timezone.utc).isoformat()
-    except Exception as exc:
-        logger.debug("attach delegate task times skipped: %s", exc)
+    attach_delegate_task_times_safe(report, tid)
     return report
 
 
@@ -500,12 +447,9 @@ def _format_task_time(iso: str) -> str:
         dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        try:
-            from zoneinfo import ZoneInfo
+        from butler.report.generator_ops import format_task_time_shanghai_safe
 
-            dt = dt.astimezone(ZoneInfo("Asia/Shanghai"))
-        except Exception:
-            pass
+        dt = format_task_time_shanghai_safe(dt)
         return dt.strftime("%m-%d %H:%M")
     except ValueError:
         return raw[:16]
@@ -678,14 +622,11 @@ def _resolve_report_key(session_key: str | None = None) -> str:
     key = str(session_key or "").strip()
     if key:
         return key
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.report.generator_ops import current_session_key_safe
 
-        ctx_key = str(get_current_session_key() or "").strip()
-        if ctx_key:
-            return ctx_key
-    except Exception as exc:
-        logger.debug("resolve report key skipped: %s", exc)
+    ctx_key = current_session_key_safe()
+    if ctx_key:
+        return ctx_key
     return "default"
 
 
@@ -693,27 +634,23 @@ def cache_report(report: AgentReport, *, session_key: str = "") -> None:
     """Store the latest delegate/workflow report for a session (memory + disk)."""
     key = _resolve_report_key(session_key)
     _reports[key] = report
-    try:
-        from butler.report.store import persist_report
+    from butler.report.generator_ops import persist_report_safe
 
-        persist_report(report, session_key=key, task_id=report.task_id)
-    except Exception as exc:
-        logger.debug("cache report skipped: %s", exc)
+    persist_report_safe(report, session_key=key)
+
+
 def get_last_report(session_key: str = "") -> AgentReport | None:
     """Return the cached report for ``session_key`` (or current execution context)."""
     key = _resolve_report_key(session_key)
     cached = _reports.get(key)
     if cached is not None:
         return cached
-    try:
-        from butler.report.store import load_persisted_report
+    from butler.report.generator_ops import load_persisted_report_safe
 
-        loaded = load_persisted_report(key)
-        if loaded is not None:
-            _reports[key] = loaded
-        return loaded
-    except Exception:
-        return None
+    loaded = load_persisted_report_safe(key)
+    if loaded is not None:
+        _reports[key] = loaded
+    return loaded
 
 
 def clear_report_cache(session_key: str = "") -> None:
