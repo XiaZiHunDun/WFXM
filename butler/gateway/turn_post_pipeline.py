@@ -50,12 +50,9 @@ def run_turn_post_inbound_pipeline(
         return pipeline_result.block_reply
     text = pipeline_result.text
 
-    try:
-        from butler.ops.owner_pmf_metrics import maybe_record_post_feedback_retry
+    from butler.gateway.turn_post_pipeline_ops import record_post_feedback_retry_safe
 
-        maybe_record_post_feedback_retry(text, session_key=session_key)
-    except Exception:
-        pass
+    record_post_feedback_retry_safe(text, session_key=session_key)
 
     from butler.gateway.handler_helpers import _is_sessionless_command
 
@@ -124,15 +121,9 @@ def run_turn_post_inbound_pipeline(
 
         release(admission)
         if idempotency_reserved:
-            try:
-                from butler.gateway.inbound_idempotency import complete_inbound
+            from butler.gateway.turn_post_pipeline_ops import complete_inbound_safe
 
-                complete_inbound(session_key, idempotency_inbound_id)
-            except Exception as exc:
-                logger.warning(
-                    "Inbound completion record failed (idempotency may leak): %s",
-                    exc,
-                )
+            complete_inbound_safe(session_key, idempotency_inbound_id)
     follow = handler._drain_queued_inbound(
         session_key,
         platform=platform,

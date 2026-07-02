@@ -8,6 +8,20 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from butler.ops.degradation_registry_ops import (
+    append_recent_best_effort_skip_lines,
+    best_effort_skip_total_safe,
+    enrich_stats_with_live_mcp_safe,
+    recent_compaction_acl_skip_count_safe,
+    compaction_acl_counter_total_safe,
+    refresh_degradations_for_owner_brief_safe,
+    set_component_gauge_safe,
+    sync_degradation_metrics_safe,
+    sync_embedding_degradation_from_health_check_safe,
+    sync_embedding_degradation_light_safe,
+    sync_mcp_degradations_at_startup_safe,
+)
+
 logger = logging.getLogger(__name__)
 
 _LOCK = threading.RLock()
@@ -107,20 +121,7 @@ def sync_memory_degradations_from_stats(stats: dict[str, Any]) -> None:
 
 
 def best_effort_skip_total() -> int:
-    try:
-        from butler.ops.runtime_metrics import snapshot_global
-
-        snap = snapshot_global()
-        counters = snap.get("counters") if isinstance(snap, dict) else None
-        if not isinstance(counters, dict):
-            return 0
-        return sum(
-            int(value or 0)
-            for key, value in counters.items()
-            if str(key).startswith("best_effort_skip")
-        )
-    except Exception:
-        return 0
+    return best_effort_skip_total_safe()
 
 
 _COMPONENT_LABELS: dict[str, str] = {
@@ -169,76 +170,25 @@ def format_diagnostic_lines() -> list[str]:
         lines.append(line)
     if skip_n > 0:
         lines.append(f"  可选路径跳过: {skip_n} 次 (best_effort_skip)")
-    try:
-        from butler.core.best_effort import recent_best_effort_skips
-
-        recent = recent_best_effort_skips(5)
-        for _ts, path, err in recent:
-            lines.append(f"    · {path}: {err[:100]}")
-    except Exception:
-        pass
+    append_recent_best_effort_skip_lines(lines)
     return lines
 
 
 def sync_embedding_degradation_light() -> None:
     """Fast embedder probe for gateway warm-up (no Recall@K index)."""
-    try:
-        from butler.memory.embedding import HashingEmbedder, get_embedder
-        from butler.memory.semantic_config import embedding_model_name, embedding_provider_name
-
-        embedder = get_embedder()
-        provider = embedding_provider_name()
-        model = embedding_model_name()
-        if isinstance(embedder, HashingEmbedder) and provider not in ("local", ""):
-            register_degradation(
-                "embedding",
-                f"请求 {provider}/{model} → hashing fallback",
-            )
-        else:
-            clear_degradation("embedding")
-    except Exception as exc:
-        logger.debug("embedding light degradation sync skipped: %s", exc)
+    sync_embedding_degradation_light_safe()
 
 
 def sync_embedding_degradation_from_health_check(*, min_recall: float = 0.5) -> None:
     """Full Recall@K probe for ``butler doctor`` / release checks."""
-    try:
-        from butler.ops.embedding_health import check_embedding_recall
-
-        report = check_embedding_recall(min_recall=min_recall)
-        if report.degraded:
-            register_degradation("embedding", report.message[:200])
-        elif not report.ok(min_recall=min_recall):
-            register_degradation("embedding", f"Recall@3 偏低: {report.message[:160]}")
-        else:
-            clear_degradation("embedding")
-    except Exception as exc:
-        logger.debug("embedding health degradation sync skipped: %s", exc)
+    sync_embedding_degradation_from_health_check_safe(min_recall=min_recall)
 
 
 def sync_compaction_acl_from_metrics() -> None:
     """Register compaction ACL degradations from runtime counters / recent skips."""
-    total = 0
-    try:
-        from butler.ops.runtime_metrics import snapshot_global
-
-        counters = snapshot_global().get("counters") or {}
-        for key, value in counters.items():
-            if key == "compaction_acl_degraded" or key.startswith("compaction_acl_degraded{"):
-                total += int(value or 0)
-    except Exception as exc:
-        logger.debug("compaction acl metrics sync skipped: %s", exc)
+    total = compaction_acl_counter_total_safe()
     if total <= 0:
-        try:
-            from butler.core.best_effort import recent_best_effort_skips
-
-            total = sum(
-                1
-                for _ts, path, _err in recent_best_effort_skips(10)
-                if str(path).startswith("compaction_acl")
-            )
-        except Exception:
-            pass
+        total = recent_compaction_acl_skip_count_safe()
     if total > 0:
         register_degradation("compaction_acl", f"累计降级 {total} 次")
     else:
@@ -254,57 +204,7 @@ def sync_all_startup_degradations(*, session_key: str = "gateway:warmup") -> Non
 
 def sync_mcp_degradations_at_startup(*, session_key: str = "gateway:warmup") -> None:
     """Probe MCP at gateway warm-up; register active degradations (ENG-8 续)."""
-    try:
-        from butler.mcp.config import load_mcp_servers, mcp_enabled, mcp_sdk_available
-        from butler.registry.paths import default_mcp_config_path
-    except Exception as exc:
-        logger.debug("mcp degradation sync import skipped: %s", exc)
-        return
-
-    if not mcp_enabled():
-        if default_mcp_config_path().is_file():
-            register_degradation("mcp", "已配置但 BUTLER_MCP_ENABLED 未开")
-        else:
-            clear_degradation("mcp")
-        return
-
-    if not mcp_sdk_available():
-        register_degradation("mcp", "缺少 MCP SDK (pip install butler-system[mcp])")
-        return
-
-    sk = str(session_key or "gateway:warmup").strip() or "gateway:warmup"
-    try:
-        from butler.mcp.manager import get_manager
-
-        mgr = get_manager()
-        mgr.ensure_connected(sk, workspace=None)
-    except Exception as exc:
-        logger.debug("mcp warm-up connect skipped: %s", exc)
-
-    try:
-        from butler.mcp.manager import get_manager
-
-        statuses = get_manager().status_snapshot(sk)
-    except Exception as exc:
-        logger.debug("mcp status snapshot skipped: %s", exc)
-        return
-
-    if not statuses:
-        try:
-            cfg_count = len(load_mcp_servers(workspace=None))
-        except Exception:
-            cfg_count = 0
-        if cfg_count > 0:
-            register_degradation("mcp", f"{cfg_count} 个 server 均未连接")
-        else:
-            clear_degradation("mcp")
-        return
-
-    down = [st for st in statuses if not st.connected]
-    if down:
-        register_degradation("mcp", f"{len(down)}/{len(statuses)} 个 server 不可用")
-    else:
-        clear_degradation("mcp")
+    sync_mcp_degradations_at_startup_safe(session_key=session_key)
 
 
 def enrich_stats_with_live_mcp(
@@ -313,27 +213,7 @@ def enrich_stats_with_live_mcp(
     session_key: str = "",
 ) -> dict[str, Any]:
     """Attach live MCP snapshot for owner brief / diagnostic sync (ENG-8)."""
-    out = dict(stats)
-    try:
-        from butler.mcp.config import mcp_enabled
-
-        if not mcp_enabled():
-            return out
-        from butler.mcp.manager import get_manager
-
-        sk = str(session_key or "").strip() or "gateway:diagnostic"
-        statuses = get_manager().status_snapshot(sk)
-        down = [st for st in statuses if not st.connected]
-        if down:
-            out["mcp_degraded"] = [
-                str(getattr(st, "name", None) or getattr(st, "server_id", "?"))
-                for st in down
-            ]
-        elif statuses:
-            out.pop("mcp_degraded", None)
-    except Exception as exc:
-        logger.debug("live mcp enrichment skipped: %s", exc)
-    return out
+    return enrich_stats_with_live_mcp_safe(stats, session_key=session_key)
 
 
 def refresh_degradations_for_owner_brief(
@@ -343,46 +223,21 @@ def refresh_degradations_for_owner_brief(
     health: dict[str, Any] | None = None,
 ) -> str | None:
     """Sync memory + MCP into registry; return one brief line for Owner /诊断."""
-    try:
-        sync_compaction_acl_from_metrics()
-        from butler.ops.health_report import collect_mem_stats_for_health
-
-        stats = collect_mem_stats_for_health(
-            orchestrator, str(session_key or "").strip(), health
-        )
-        stats = enrich_stats_with_live_mcp(stats, session_key=session_key)
-        sync_memory_degradations_from_stats(stats)
-        return format_brief_line()
-    except Exception as exc:
-        logger.debug("refresh degradations skipped: %s", exc)
-        return None
+    return refresh_degradations_for_owner_brief_safe(
+        orchestrator,
+        session_key=session_key,
+        health=health,
+    )
 
 
 def _set_component_gauge(component: str, *, active: bool) -> None:
-    try:
-        from butler.ops.runtime_metrics import set_gauge
-
-        set_gauge(
-            "degradation_active",
-            1.0 if active else 0.0,
-            labels={"component": str(component or "?")[:48]},
-        )
-    except Exception as exc:
-        logger.debug("degradation component gauge skipped: %s", exc)
+    set_component_gauge_safe(component, active=active)
 
 
 def _sync_metrics() -> None:
-    try:
-        from butler.ops.runtime_metrics import set_gauge
-
-        with _LOCK:
-            n = len(_REGISTRY)
-            components = list(_REGISTRY.keys())
-        set_gauge("degradation_active", float(n))
-        for comp in components:
-            _set_component_gauge(comp, active=True)
-    except Exception as exc:
-        logger.debug("degradation metrics sync skipped: %s", exc)
+    with _LOCK:
+        registry_snapshot = dict(_REGISTRY)
+    sync_degradation_metrics_safe(registry_snapshot)
 
 
 __all__ = [

@@ -24,6 +24,10 @@ import time as _time
 from typing import Any, Optional
 
 from butler.core.agent_loop import AgentLoop, LoopResult
+from butler.gateway.message_handler_ops import (
+    interrupt_session_loop_safe,
+    run_prequeue_interrupt_safe,
+)
 from butler.gateway.message_pipelines import (
     _phase_apply_admission,
     _phase_apply_idempotency,
@@ -123,21 +127,7 @@ class ButlerMessageHandler:
         return env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True)
 
     def _interrupt_session_loop(self, session_key: str) -> None:
-        try:
-            from butler.runtime.delegate_registry import interrupt_delegates_for_session
-
-            n = interrupt_delegates_for_session(session_key)
-            if n:
-                logger.info("Gateway interrupted %d delegate loop(s) session=%s", n, session_key)
-        except Exception as exc:
-            logger.debug("Delegate interrupt skipped: %s", exc)
-        loop = self._sessions.get(session_key)
-        if loop is not None and hasattr(loop, "interrupt"):
-            try:
-                loop.interrupt()
-                logger.info("Gateway interrupt requested session=%s", session_key)
-            except Exception as exc:
-                logger.debug("Gateway interrupt failed: %s", exc)
+        interrupt_session_loop_safe(self._sessions, session_key)
 
     def _format_prequeue_interrupt_reply(self, session_key: str) -> str:
         """Sprint 16 TST-10-5 第八批: 抽自 handle_message pre-dispatch hook (原 line 422-424).
@@ -145,10 +135,10 @@ class ButlerMessageHandler:
         中断 in-flight session loop, 返 "已请求停止" 提示. 防御性 try/except 包裹 interrupt 调用,
         即使 interrupt 抛异常也返消息 (logger.debug), 不应阻断 caller.
         """
-        try:
-            self._interrupt_session_loop(session_key)
-        except Exception as exc:
-            logger.debug("Prequeue interrupt failed: %s", exc)
+        run_prequeue_interrupt_safe(
+            lambda: self._interrupt_session_loop(session_key),
+            log_debug=logger.debug,
+        )
         return "已请求停止当前会话任务（含进行中的委派）。"
 
     def _drain_queued_inbound(
