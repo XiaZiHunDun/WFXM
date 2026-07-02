@@ -103,6 +103,19 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/parallel_tools_ops.py": 80,
     "butler/core/hygiene_preflight_ops.py": 85,
     "butler/core/reactive_compact_ops.py": 110,
+    "butler/core/tool_orchestrator_ops.py": 200,
+    "butler/core/compaction_task_ops.py": 220,
+    "butler/ops/butler_inbox_ops.py": 160,
+    "butler/core/tool_batch_runner_ops.py": 30,
+    "butler/core/context_transform_registry_ops.py": 30,
+    "butler/core/model_context_ops.py": 45,
+    "butler/core/reflexion_ephemeral_ops.py": 40,
+    "butler/core/session_hydration_ops.py": 90,
+    "butler/core/skill_tool_bridge_ops.py": 90,
+    "butler/ops/compaction_audit_ops.py": 40,
+    "butler/gateway/owner_surface_ops.py": 130,
+    "butler/core/batch_sequence_guard_ops.py": 55,
+    "butler/core/instruction_walkup_ops.py": 40,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

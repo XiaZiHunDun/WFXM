@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any, Callable
-
-logger = logging.getLogger(__name__)
 
 
 def _deny(code: str, message: str) -> str:
@@ -22,56 +19,36 @@ def run_terminal_with_gates(
 ) -> str:
     """Policy → danger → approval → execpolicy path for terminal."""
     from butler.core.approval_cards import format_terminal_pattern_card
+    from butler.core.tool_orchestrator_ops import (
+        check_terminal_approval_safe,
+        check_terminal_danger_safe,
+        terminal_risk_ask_safe,
+    )
 
-    try:
-        from butler.tools.terminal_danger import check_dangerous_command, set_terminal_session_context
-
-        set_terminal_session_context(session_key)
-        danger = check_dangerous_command(command)
-        if not danger.allowed:
-            try:
-                from butler.core.confirm_flags import permission_risk_heuristic_enabled
-                from butler.permissions.approvals import ApprovalRequest, save_pending
-
-                if permission_risk_heuristic_enabled() and session_key:
-                    save_pending(
-                        session_key,
-                        ApprovalRequest(
-                            permission="terminal_risk",
-                            tool="terminal",
-                            pattern=danger.pattern or "danger",
-                            reason=danger.reason,
-                        ),
-                    )
-                    return _deny(
-                        "TERMINAL_RISK_ASK",
-                        format_terminal_pattern_card(
-                            danger.pattern or "danger",
-                            command_preview=command,
-                        ),
-                    )
-            except Exception as exc:
-                logger.debug("run terminal with gates skipped: %s", exc)
-            return _deny("TERMINAL_DANGER_PATTERN", format_terminal_pattern_card(
+    danger = check_terminal_danger_safe(command, session_key)
+    if danger is not None and not danger.allowed:
+        risk = terminal_risk_ask_safe(
+            danger_pattern=danger.pattern or "danger",
+            command=command,
+            session_key=session_key,
+        )
+        if risk:
+            return risk
+        return _deny(
+            "TERMINAL_DANGER_PATTERN",
+            format_terminal_pattern_card(
                 danger.pattern or "danger",
                 command_preview=command,
-            ) if danger.pattern else danger.reason)
-    except Exception as exc:
-        logger.debug("terminal danger gate: %s", exc)
-
-    try:
-        from butler.tools.terminal_approval import check_approval
-
-        block = check_approval(command, cwd=cwd, session_key=session_key)
-        if block:
-            from butler.core.approval_cards import format_terminal_approval_message
-
-            return _deny(
-                "TERMINAL_APPROVAL_REQUIRED",
-                format_terminal_approval_message(command, block),
             )
-    except Exception as exc:
-        logger.debug("terminal approval gate: %s", exc)
+            if danger.pattern
+            else danger.reason,
+        )
+
+    block = check_terminal_approval_safe(command, cwd=cwd, session_key=session_key)
+    if block:
+        from butler.core.approval_cards import format_terminal_approval_message
+
+        return _deny("TERMINAL_APPROVAL_REQUIRED", format_terminal_approval_message(command, block))
 
     return run_fn()
 
@@ -85,63 +62,33 @@ def run_mcp_with_gates(
     classification: str,
     run_fn: Callable[[], str],
 ) -> str:
-    try:
-        from butler.hooks.runner import run_permission_request_hooks, run_pre_tool_hooks
+    from butler.core.tool_orchestrator_ops import (
+        check_mcp_approval_safe,
+        mcp_approval_model_message_safe,
+        run_mcp_pre_hooks_safe,
+    )
 
-        perm_block = run_permission_request_hooks(
-            tool_name,
-            args,
-            session_key=session_key,
-        )
-        if perm_block:
-            return _deny("PERMISSION_REQUEST_HOOK", perm_block)
+    pre = run_mcp_pre_hooks_safe(tool_name, args, session_key=session_key)
+    if pre:
+        return pre
 
-        pre_block = run_pre_tool_hooks(tool_name, args)
-        if pre_block:
-            return _deny("HOOK_BLOCKED", pre_block)
-    except Exception as exc:
-        logger.debug("mcp pre-hooks: %s", exc)
-
-    try:
-        from butler.mcp.approval import check_mcp_tool_approval
-
-        block = check_mcp_tool_approval(
-            server_id=server_id,
-            tool_name=tool_name,
-            args=args,
-            session_key=session_key,
-            classification=classification,
-        )
-        if block:
-            return _deny("MCP_APPROVAL_REQUIRED", _mcp_approval_model_message(
-                tool_name, session_key, block
-            ))
-    except Exception as exc:
-        logger.debug("mcp approval gate: %s", exc)
+    block = check_mcp_approval_safe(
+        server_id=server_id,
+        tool_name=tool_name,
+        args=args,
+        session_key=session_key,
+        classification=classification,
+        model_message_fn=mcp_approval_model_message_safe,
+    )
+    if block:
+        return block
     return run_fn()
 
 
 def _mcp_approval_model_message(tool_name: str, session_key: str, raw: str) -> str:
-    """Agent-facing denial: no WeChat approval boilerplate on retrieval turns."""
-    try:
-        from butler.tools.network_search_policy import (
-            is_firecrawl_feedback_tool,
-            is_firecrawl_agent_tool,
-            is_web_search_intent,
-        )
-        from butler.core.session_epoch import last_user_query_in_epoch
+    from butler.core.tool_orchestrator_ops import mcp_approval_model_message_safe
 
-        q = last_user_query_in_epoch(session_key) if session_key else ""
-        restricted = is_firecrawl_feedback_tool(tool_name) or is_firecrawl_agent_tool(tool_name)
-        if is_web_search_intent(q) or restricted:
-            return (
-                "该 MCP 工具在本轮已跳过。勿向用户提及审批、确认或内部流程；"
-                "请基于已有 firecrawl_search / web_search 结果继续作答，"
-                "每条结论附完整 https 来源 URL。"
-            )
-    except Exception as exc:
-        logger.debug("mcp approval model message: %s", exc)
-    return raw
+    return mcp_approval_model_message_safe(tool_name, session_key, raw)
 
 
 def dispatch_with_orchestrator(
@@ -152,28 +99,15 @@ def dispatch_with_orchestrator(
     handler: Callable[..., str],
 ) -> str:
     """Hooks + PermissionRequest + handler for generic registry tools."""
-    try:
-        from butler.hooks.runner import run_permission_request_hooks, run_pre_tool_hooks
+    from butler.core.tool_orchestrator_ops import (
+        dispatch_handler_loud,
+        run_orchestrator_pre_hooks_safe,
+    )
 
-        perm_block = run_permission_request_hooks(
-            tool_name,
-            args,
-            session_key=session_key,
-        )
-        if perm_block:
-            return _deny("PERMISSION_REQUEST_HOOK", perm_block)
-
-        pre_block = run_pre_tool_hooks(tool_name, args)
-        if pre_block:
-            return _deny("HOOK_BLOCKED", pre_block)
-    except Exception as exc:
-        logger.debug("orchestrator pre-hooks: %s", exc)
-
-    try:
-        return handler(**args)
-    except Exception as exc:
-        logger.error("Tool %s failed: %s", tool_name, exc)
-        return _deny("TOOL_ERROR", f"Tool '{tool_name}' failed: {exc}")
+    pre = run_orchestrator_pre_hooks_safe(tool_name, args, session_key=session_key)
+    if pre:
+        return pre
+    return dispatch_handler_loud(tool_name, args, handler)
 
 
 def run_with_approval_gate(

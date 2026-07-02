@@ -9,9 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
-import logging
-
-logger = logging.getLogger(__name__)
 
 DESTRUCTIVE_BATCH_TOOLS = frozenset({
     "write_file",
@@ -68,17 +65,9 @@ def _tool_call_name(tc: Any) -> str:
 
 
 def _tool_call_args(tc: Any) -> dict[str, Any]:
-    try:
-        if hasattr(tc, "args_dict"):
-            return tc.args_dict()
-        if isinstance(tc, dict):
-            import json as _json
+    from butler.core.batch_sequence_guard_ops import parse_batch_tool_args_safe
 
-            raw = (tc.get("function") or {}).get("arguments", "{}")
-            return _json.loads(raw) if isinstance(raw, str) else dict(raw or {})
-    except Exception:
-        pass
-    return {}
+    return parse_batch_tool_args_safe(tc)
 
 
 def reorder_reads_before_destructive(tool_calls: list[Any]) -> list[Any]:
@@ -127,10 +116,9 @@ def reorder_reads_before_destructive(tool_calls: list[Any]) -> list[Any]:
 
 
 def _normalize_path(path: str) -> str:
-    try:
-        return str(Path(path).expanduser().resolve())
-    except Exception:
-        return str(path or "").strip()
+    from butler.core.batch_sequence_guard_ops import normalize_batch_path_safe
+
+    return normalize_batch_path_safe(path)
 
 
 def _paths_overlap(a: str, b: str) -> bool:
@@ -236,13 +224,9 @@ class BatchSequenceGuard:
                 if norm and norm not in self.invalidated_paths:
                     self.invalidated_paths.append(norm)
             self.last_writer = str(tool_name or "").strip()
-        try:
-            from butler.core.read_state import record_edit_path
+        from butler.core.batch_sequence_guard_ops import record_edit_paths_safe
 
-            for path in extract_tool_scope_paths(tool_name, args):
-                record_edit_path(path)
-        except Exception as exc:
-            logger.debug("note tool result skipped: %s", exc)
+        record_edit_paths_safe(tool_name, args)
     def record_skip(self) -> None:
         with self._lock:
             self.skips += 1

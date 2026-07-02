@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 import time
-from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
-
-logger = logging.getLogger(__name__)
 
 _HYDRATION_MARKER = "[SESSION HYDRATED — tool facts from transcript]"
 
@@ -18,25 +14,16 @@ def session_hydrate_enabled() -> bool:
     return env_truthy("BUTLER_SESSION_HYDRATE", default=True)
 
 
-def _project_workspace(project: Any) -> Path | None:
-    workspace = getattr(project, "workspace", None)
-    if not workspace:
-        return None
-    try:
-        from butler.project.worktree import effective_workspace
+def _project_workspace(project: Any):
+    from butler.core.session_hydration_ops import project_workspace_safe
 
-        return effective_workspace(Path(workspace))
-    except Exception:
-        return Path(workspace).expanduser().resolve(strict=False)
+    return project_workspace_safe(project)
 
 
 def _last_transcript_assistant_ts(session_key: str) -> float | None:
-    try:
-        from butler.core.session_epoch import last_assistant_ts_in_epoch
+    from butler.core.session_hydration_ops import last_transcript_assistant_ts_safe
 
-        return last_assistant_ts_in_epoch(session_key)
-    except Exception:
-        return None
+    return last_transcript_assistant_ts_safe(session_key)
 
 
 def should_show_recovery_notice(session_key: str, *, gap_seconds: float = 300.0) -> bool:
@@ -65,6 +52,11 @@ def hydrate_loop_on_create(
     project: Any,
 ) -> dict[str, Any]:
     """Inject transcript-derived tool facts into a new AgentLoop."""
+    from butler.core.session_hydration_ops import (
+        hydrate_read_files_safe,
+        rehydrate_read_state_safe,
+    )
+
     diag: dict[str, Any] = {
         "session_hydrated": False,
         "session_read_paths": 0,
@@ -77,44 +69,19 @@ def hydrate_loop_on_create(
         return diag
 
     ws = _project_workspace(project)
-    try:
-        from butler.core.session_tool_index import (
-            format_session_read_files_block,
-            list_session_read_files,
-        )
+    hydrated, path_count = hydrate_read_files_safe(
+        loop,
+        sk,
+        workspace=ws,
+        marker=_HYDRATION_MARKER,
+    )
+    diag["session_read_paths"] = path_count
+    if hydrated:
+        diag["session_hydrated"] = True
+    elif path_count == 0 and not should_show_recovery_notice(sk):
+        return diag
 
-        paths = list_session_read_files(sk, workspace=ws)
-        diag["session_read_paths"] = len(paths)
-        if not paths and not should_show_recovery_notice(sk):
-            return diag
-
-        block = format_session_read_files_block(sk, workspace=ws, title=_HYDRATION_MARKER)
-        if hasattr(loop, "_messages"):
-            loop._messages.append({"role": "system", "content": block})
-            diag["session_hydrated"] = True
-            logger.debug(
-                "Hydrated session %s with %d read_file path(s)",
-                sk[:40],
-                len(paths),
-            )
-    except Exception as exc:
-        logger.debug("session hydrate skipped: %s", exc)
-        diag["session_hydrate_error"] = str(exc)[:200]
-
-    try:
-        from butler.core.read_state import rehydrate_read_state_from_messages
-
-        if hasattr(loop, "messages") and callable(getattr(loop, "messages", None)):
-            msgs = loop.messages
-        elif hasattr(loop, "_messages"):
-            msgs = loop._messages
-        else:
-            msgs = []
-        if msgs:
-            rehydrate_read_state_from_messages(list(msgs), session_key=sk)
-    except Exception as exc:
-        logger.debug("read_state rehydrate on create skipped: %s", exc)
-
+    rehydrate_read_state_safe(loop, sk)
     diag["session_recovery_notice"] = should_show_recovery_notice(sk)
     if diag["session_recovery_notice"]:
         try:

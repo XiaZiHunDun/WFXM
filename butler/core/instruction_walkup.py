@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-import logging
-
-logger = logging.getLogger(__name__)
 
 _CLAIMS: dict[str, set[str]] = {}
 _PENDING: dict[str, list[str]] = {}
@@ -26,14 +23,9 @@ def walkup_enabled() -> bool:
 
 
 def _session_key(session_key: str = "") -> str:
-    if session_key.strip():
-        return session_key.strip()
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.core.instruction_walkup_ops import session_key_safe
 
-        return str(get_current_session_key() or "default")
-    except Exception:
-        return "default"
+    return session_key_safe(session_key)
 
 
 def _find_instruction_file(start: Path, *, stop_at: Path | None = None) -> Path | None:
@@ -87,20 +79,16 @@ def record_read_path(
         )
         _PENDING.setdefault(key, []).append(block)
         seen.add(claim)
-        try:
-            from butler.core.rules_engine import resolve_rules_for_path
+        from butler.core.instruction_walkup_ops import resolve_rules_block_safe
 
-            rules_block = resolve_rules_for_path(
-                resolved,
-                workspace_root=workspace_root,
-            )
-            if rules_block.strip():
-                rules_claim = f"rules:{rules_block[:80]}"
-                if rules_claim not in seen:
-                    _PENDING.setdefault(key, []).append(rules_block)
-                    seen.add(rules_claim)
-        except Exception as exc:
-            logger.debug("record read path skipped: %s", exc)
+        rules_block = resolve_rules_block_safe(resolved, workspace_root=workspace_root)
+        if rules_block.strip():
+            rules_claim = f"rules:{rules_block[:80]}"
+            if rules_claim not in seen:
+                _PENDING.setdefault(key, []).append(rules_block)
+                seen.add(rules_claim)
+
+
 def drain_pending_instructions(*, session_key: str = "") -> str:
     """Return and clear queued instruction blocks for this session."""
     key = _session_key(session_key)

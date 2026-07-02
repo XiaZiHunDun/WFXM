@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
 from typing import Any
 
 from butler.tool_guardrails import ToolCallGuardrailController, synthetic_result
-
-logger = logging.getLogger(__name__)
 
 
 def run_sequential_tool_calls(
@@ -28,11 +25,9 @@ def run_sequential_tool_calls(
     pairs: list[tuple[Any, str]] = []
     batch_interrupted = False
     for tc in tool_calls:
-        try:
-            args = tc.args_dict()
-        except Exception as exc:
-            logger.warning("args_dict() parse failed for tool %s: %s", tc.name, exc)
-            args = {}
+        from butler.core.tool_batch_runner_ops import parse_tool_call_args_safe
+
+        args = parse_tool_call_args_safe(tc)
         if batch_interrupted or interrupt_check():
             batch_interrupted = True
             result = finalize_fallback_tool_result(

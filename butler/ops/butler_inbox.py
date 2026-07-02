@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -30,75 +27,9 @@ class InboxSnapshot:
 
 
 def _project_todos_info(workspace: Path) -> tuple[int, list[str]]:
-    try:
-        from butler.tools.project_todos import _load
+    from butler.ops.butler_inbox_ops import project_todos_info_safe
 
-        items = _load(workspace)
-        open_items = [
-            t for t in items if t.get("status") in ("pending", "in_progress")
-        ]
-        samples = [
-            str(t.get("content") or "")[:48]
-            for t in open_items[:3]
-            if str(t.get("content") or "").strip()
-        ]
-        return len(open_items), samples
-    except Exception as exc:
-        logger.debug("inbox project todos skipped: %s", exc)
-        return 0, []
-
-
-def _reminders_info() -> tuple[int, list[str]]:
-    try:
-        from butler.tools.reminder import _load_all
-
-        pending = [r for r in _load_all() if r.get("status") == "pending"]
-        samples = [
-            f"{r.get('due_human', '')} {str(r.get('message') or '')[:36]}".strip()
-            for r in pending[:3]
-        ]
-        return len(pending), samples
-    except Exception as exc:
-        logger.debug("inbox reminders skipped: %s", exc)
-        return 0, []
-
-
-def _memory_pending_count(orchestrator: Any) -> int:
-    try:
-        orchestrator._reload_project_memory()
-        pmem = orchestrator._project_memory
-        if pmem is None:
-            return 0
-        return len(pmem.markdown.list_pending())
-    except Exception as exc:
-        logger.debug("inbox memory pending skipped: %s", exc)
-        return 0
-
-
-def _experience_pending_count() -> int:
-    try:
-        from butler.memory.experience_mining import load_pending
-
-        return len(load_pending())
-    except Exception as exc:
-        logger.debug("inbox experience pending skipped: %s", exc)
-        return 0
-
-
-def _compaction_line(health: dict | None) -> str:
-    try:
-        from butler.core.compaction_status import (
-            derive_compaction_status,
-            format_compaction_status_line,
-        )
-
-        h = health or {}
-        if derive_compaction_status(h) == "none":
-            return ""
-        return format_compaction_status_line(h)
-    except Exception as exc:
-        logger.debug("inbox compaction skipped: %s", exc)
-        return ""
+    return project_todos_info_safe(workspace)
 
 
 def collect_inbox_snapshot(
@@ -107,6 +38,18 @@ def collect_inbox_snapshot(
     *,
     health: dict | None = None,
 ) -> InboxSnapshot:
+    from butler.ops.butler_inbox_ops import (
+        compaction_line_safe,
+        experience_pending_count_safe,
+        memory_pending_count_safe,
+        quality_surface_lines_safe,
+        queue_pending_count_safe,
+        reminders_info_safe,
+        session_reads_count_safe,
+        trust_line_safe,
+        workflow_gate_hint_safe,
+    )
+
     sk = str(session_key or "").strip()
     snap = InboxSnapshot()
     pm = orchestrator.project_manager
@@ -122,56 +65,17 @@ def collect_inbox_snapshot(
     else:
         snap.project_name = pm.resolve_active_project_name(session_key=sk)
 
-    snap.reminders_pending, snap.reminder_samples = _reminders_info()
-    snap.memory_pending = _memory_pending_count(orchestrator)
-    snap.experience_pending = _experience_pending_count()
-
-    try:
-        from butler.gateway.message_queue import pending_count
-
-        snap.queue_pending = pending_count(sk)
-    except Exception as exc:
-        logger.debug("inbox queue skipped: %s", exc)
-
-    try:
-        from butler.human_gate import format_pending_hint, has_pending_gate
-
-        if has_pending_gate(sk):
-            snap.workflow_gate = format_pending_hint(sk)
-    except Exception as exc:
-        logger.debug("inbox workflow gate skipped: %s", exc)
-
-    try:
-        from butler.core.session_tool_index import list_session_read_files
-
-        ws = getattr(proj, "workspace", None) if proj else None
-        snap.session_reads = len(
-            list_session_read_files(sk, workspace=ws, limit=50)
-        )
-    except Exception as exc:
-        logger.debug("inbox session reads skipped: %s", exc)
-
-    snap.compaction_line = _compaction_line(health)
-
-    try:
-        from butler.ops.owner_quality_surface import (
-            format_b9_owner_line,
-            format_mcp_owner_line,
-        )
-
-        ws_path = Path(snap.workspace) if snap.workspace else None
-        snap.mcp_line = format_mcp_owner_line(sk, workspace=ws_path)
-        snap.b9_line = format_b9_owner_line()
-    except Exception as exc:
-        logger.debug("inbox quality surface skipped: %s", exc)
-
-    try:
-        from butler.ops.owner_trust_surface import format_trust_owner_line
-
-        snap.trust_line = format_trust_owner_line(orchestrator, sk, health=health)
-    except Exception as exc:
-        logger.debug("inbox trust surface skipped: %s", exc)
-
+    snap.reminders_pending, snap.reminder_samples = reminders_info_safe()
+    snap.memory_pending = memory_pending_count_safe(orchestrator)
+    snap.experience_pending = experience_pending_count_safe()
+    snap.queue_pending = queue_pending_count_safe(sk)
+    snap.workflow_gate = workflow_gate_hint_safe(sk)
+    ws = getattr(proj, "workspace", None) if proj else None
+    snap.session_reads = session_reads_count_safe(sk, ws)
+    snap.compaction_line = compaction_line_safe(health)
+    ws_path = Path(snap.workspace) if snap.workspace else None
+    snap.mcp_line, snap.b9_line = quality_surface_lines_safe(sk, ws_path)
+    snap.trust_line = trust_line_safe(orchestrator, sk, health)
     return snap
 
 
@@ -212,7 +116,6 @@ def format_owner_brief(
         lines.append(f"项目：{snap.project_name}")
     lines.append("")
 
-    # ── 1. 待办 ──
     lines.append("【待办】")
     todo_lines: list[str] = []
     if snap.project_todos_open:
@@ -236,7 +139,6 @@ def format_owner_brief(
         todo_lines.append("  无待办 ✅")
     lines.extend(todo_lines)
 
-    # ── 2. 队列 ──
     lines.append("")
     lines.append("【队列】")
     if snap.queue_pending:
@@ -244,7 +146,6 @@ def format_owner_brief(
     else:
         lines.append("  入站队列空 ✅")
 
-    # ── 3. 门控 ──
     lines.append("")
     lines.append("【门控】")
     if snap.workflow_gate:
@@ -252,7 +153,6 @@ def format_owner_brief(
     else:
         lines.append("  无待确认工作流 ✅")
 
-    # ── 4. 昨夜 job ──
     lines.append("")
     lines.append("【昨夜 job】")
     lines.extend(format_overnight_jobs_lines(snap.project_name))

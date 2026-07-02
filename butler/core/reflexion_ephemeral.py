@@ -5,10 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from butler.env_parse import env_truthy
-import logging
 
-
-logger = logging.getLogger(__name__)
 
 def reflexion_ephemeral_enabled() -> bool:
     return env_truthy("BUTLER_REFLEXION_EPHEMERAL", default=False)
@@ -47,30 +44,15 @@ def maybe_apply_reflexion(
     )
     if banner:
         diagnostics["ephemeral_system"] = banner
-    try:
-        from butler.core.reflection_closure import persist_reflect_episode
-        from butler.core.reflexion_write import write_reflexion_experience
-        from butler.execution_context import get_current_session_key
+    from butler.core.reflexion_ephemeral_ops import persist_reflexion_episode_safe
+    from butler.execution_context import get_current_session_key
 
-        sk = str(get_current_session_key() or "")
-        write_reflexion_experience(
-            tool_name=tool_name,
-            failure_count=failure_count,
-            last_error=last_error,
-            session_key=sk,
-        )
-        persist_reflect_episode(
-            trigger="tool_fail",
-            cause=str(last_error or ""),
-            strategy="change_tool_or_ask_user",
-            detail=f"failures={failure_count}",
-            session_key=sk,
-            source="reflexion_ephemeral",
-            tool_name=tool_name,
-            failure_count=failure_count,
-        )
-    except Exception as exc:
-        logger.debug("maybe apply reflexion skipped: %s", exc)
+    persist_reflexion_episode_safe(
+        tool_name=tool_name,
+        failure_count=failure_count,
+        last_error=last_error,
+        session_key=str(get_current_session_key() or ""),
+    )
 __all__ = [
     "build_reflexion_banner",
     "maybe_apply_reflexion",

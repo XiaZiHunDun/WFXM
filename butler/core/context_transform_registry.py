@@ -160,12 +160,9 @@ def refresh_model_binding(loop: Any) -> None:
         return
     provider = str(getattr(client, "provider_name", "") or getattr(client, "provider", "") or "")
     model = str(getattr(client, "model", "") or "")
-    try:
-        from butler.transport.model_context import infer_context_length
+    from butler.core.context_transform_registry_ops import infer_context_length_safe
 
-        loop.config.max_context_tokens = infer_context_length(provider, model)
-    except Exception as exc:
-        logger.debug("refresh_model_binding context length: %s", exc)
+    infer_context_length_safe(loop, provider=provider, model=model)
     if getattr(loop, "diagnostics", None) is not None:
         loop.diagnostics["active_model"] = f"{provider}/{model}"
 

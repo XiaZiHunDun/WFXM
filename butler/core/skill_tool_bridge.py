@@ -9,10 +9,7 @@ skill bodies are skipped by the retrieval trust cascade.
 
 from __future__ import annotations
 
-import logging
 import re
-
-logger = logging.getLogger(__name__)
 
 _SKILL_HEADER_RE = re.compile(r"^###\s+`([^`]+)`")
 _SKILL_SECTION_MARKER = "## 相关知识"
@@ -60,30 +57,9 @@ def extract_skill_preferred_tools(augmented_message: str) -> set[str]:
     if not names:
         return tools
 
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.core.skill_tool_bridge_ops import skill_preferred_tools_safe
 
-        orch = get_current_orchestrator()
-        if orch is None or orch._skill_router is None:
-            return tools
-
-        pt = orch._skill_router.get_preferred_tools_for_names(names)
-        tools.update(pt)
-        if pt:
-            try:
-                from butler.ops.runtime_metrics import inc
-
-                inc(
-                    "execution_pointer_pin",
-                    value=len(pt),
-                    labels={"source": "injected_skill"},
-                )
-            except Exception:  # noqa: BLE001 — metrics optional
-                pass
-    except Exception as exc:
-        logger.debug("Skill preferred_tools extraction failed: %s", exc)
-
-    return tools
+    return skill_preferred_tools_safe(names)
 
 
 def resolve_experience_pinned_tools(query: str) -> tuple[set[str], list[str]]:
@@ -97,55 +73,9 @@ def resolve_experience_pinned_tools(query: str) -> tuple[set[str], list[str]]:
     if not q:
         return tools, mcp_names
 
-    try:
-        from butler.execution_context import get_current_orchestrator
-        from butler.session.memory_prefetch import peek_experience_hits
-        from butler.skills.experience_pointers import (
-            extract_mcp_refs_from_hits,
-            extract_tool_refs_from_hits,
-            resolve_mcp_refs_to_registered,
-        )
-        from butler.skills.injection_policy import extract_skill_refs_from_hits
+    from butler.core.skill_tool_bridge_ops import experience_pinned_tools_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return tools, mcp_names
-
-        hits = peek_experience_hits(orch, q)
-        if not hits:
-            return tools, mcp_names
-
-        exp_tools = extract_tool_refs_from_hits(hits)
-        tools.update(exp_tools)
-        if exp_tools:
-            _inc_pointer_pin(len(exp_tools), "experience_tool")
-
-        skill_refs = extract_skill_refs_from_hits(hits)
-        router = getattr(orch, "_skill_router", None)
-        if skill_refs and router is not None:
-            skill_pt = router.get_preferred_tools_for_names(skill_refs)
-            tools.update(skill_pt)
-            if skill_pt:
-                _inc_pointer_pin(len(skill_pt), "experience_skill")
-
-        mcp_refs = extract_mcp_refs_from_hits(hits)
-        if mcp_refs:
-            mcp_names = resolve_mcp_refs_to_registered(mcp_refs)
-    except Exception as exc:
-        logger.debug("Experience pinned tools resolution failed: %s", exc)
-
-    return tools, mcp_names
-
-
-def _inc_pointer_pin(count: int, source: str) -> None:
-    if count <= 0:
-        return
-    try:
-        from butler.ops.runtime_metrics import inc
-
-        inc("execution_pointer_pin", value=count, labels={"source": source})
-    except Exception:  # noqa: BLE001 — metrics optional
-        pass
+    return experience_pinned_tools_safe(q)
 
 
 def collect_pinned_tools(user_content: str) -> tuple[set[str], list[str]]:

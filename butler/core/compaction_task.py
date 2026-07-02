@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import logging
-import os
 from typing import Any, Callable
 
 from butler.env_parse import env_truthy, int_env
-
-logger = logging.getLogger(__name__)
 
 
 def explicit_compaction_turn_enabled() -> bool:
@@ -53,53 +49,34 @@ def run_compaction_turn(
     """
     Run pre/post compact hooks and force compress. Returns (did_compact, messages).
     """
+    from butler.core.compaction_task_ops import (
+        audit_session_key_safe,
+        emit_compaction_completed_safe,
+        estimate_tokens_safe,
+        invoke_post_compact_hook_safe,
+        invoke_pre_compact_hook_safe,
+        record_compaction_turn_event_safe,
+        run_post_compact_hooks_safe,
+        run_pre_compact_hooks_safe,
+    )
+
     diag = diagnostics if isinstance(diagnostics, dict) else {}
-    before_est = 0
-    try:
-        from butler.core.context_compressor import _estimate_tokens
+    before_est = estimate_tokens_safe(messages)
+    if run_pre_compact_hooks_safe(
+        before_est=before_est,
+        message_count=len(messages),
+        iteration=iteration,
+        session_key=session_key,
+        diag=diag,
+    ):
+        return False, messages
 
-        before_est = _estimate_tokens(messages)
-    except Exception as exc:
-        logger.debug("run compaction turn skipped: %s", exc)
-    try:
-        from butler.hooks.runner import run_post_compact_hooks, run_pre_compact_hooks
-
-        pre = run_pre_compact_hooks(
-            estimated_tokens=before_est,
-            message_count=len(messages),
-            iteration=iteration,
-            session_key=session_key,
-        )
-        if pre.blocked:
-            diag["compaction_turn_blocked"] = pre.blocked[:500]
-            return False, messages
-        if pre.contexts:
-            from butler.core.hook_context_adapter import (
-                adapt_hook_context_lines,
-                apply_hook_context_to_diagnostics,
-                to_hook_context_view,
-            )
-
-            adapted = adapt_hook_context_lines(pre.contexts, source="pre_compact_hook")
-            if adapted:
-                diag["compaction_pre_hook_context"] = adapted
-                view = to_hook_context_view(adapted, source="pre_compact_merged")
-                apply_hook_context_to_diagnostics(view, diag)
-    except Exception as exc:
-        logger.debug("pre_compact hooks skipped: %s", exc)
-
-    try:
-        from butler.core.events_sink import invoke_hook
-
-        invoke_hook(
-            "pre_compact",
-            messages=messages,
-            estimated_tokens=before_est,
-            iteration=iteration,
-            session_key=session_key,
-        )
-    except Exception as exc:
-        logger.debug("run compaction turn skipped: %s", exc)
+    invoke_pre_compact_hook_safe(
+        messages=messages,
+        before_est=before_est,
+        iteration=iteration,
+        session_key=session_key,
+    )
     from butler.core.compaction_phase import (
         record_compaction_diagnostics,
         resolve_compaction_context,
@@ -119,111 +96,45 @@ def run_compaction_turn(
         min_messages_to_compress=int_env("BUTLER_COMPACTION_TURN_MIN_MSGS", 8, min=6),
         diagnostics=diag,
     )
-    after_est = before_est
-    try:
-        from butler.core.context_compressor import _estimate_tokens
-
-        after_est = _estimate_tokens(compressed)
-    except Exception as exc:
-        logger.debug("run compaction turn skipped: %s", exc)
+    after_est = estimate_tokens_safe(compressed)
     did = len(compressed) < len(messages) or after_est < before_est
     if not did:
         return False, messages
 
-    thread_id = str(session_key or "").strip()
-    if not thread_id:
-        try:
-            from butler.execution_context import get_audit_session_key
-
-            thread_id = get_audit_session_key(fallback="_global")
-        except Exception:
-            thread_id = "_global"
-    try:
-        from butler.core.events_sink import emit_context_compaction
-
-        remote = bool(diag.get("compaction_remote"))
-        emit_context_compaction(
-            phase="completed",
-            thread_id=thread_id,
-            tokens_before=before_est,
-            tokens_after=after_est,
-            messages_before=len(messages),
-            messages_after=len(compressed),
-            source="compaction_turn",
-            remote=remote,
-        )
-    except Exception as exc:
-        logger.debug("run compaction turn skipped: %s", exc)
-    try:
-        from butler.hooks.runner import run_post_compact_hooks
-
-        hook_contexts = run_post_compact_hooks(
-            estimated_tokens_before=before_est,
-            estimated_tokens_after=after_est,
-            message_count_before=len(messages),
-            message_count_after=len(compressed),
-            iteration=iteration,
-            session_key=session_key,
-        )
-        if hook_contexts:
-            from butler.core.compaction_context_adapter import (
-                adapt_hook_contexts,
-                apply_compaction_view_to_diagnostics,
-                to_loop_compaction_view,
-            )
-
-            adapted = adapt_hook_contexts(hook_contexts, source="post_compact_hook")
-            if adapted:
-                diag["compaction_hook_context"] = adapted
-                from butler.core.hook_context_adapter import (
-                    apply_hook_context_to_diagnostics,
-                    to_hook_context_view,
-                )
-
-                hook_view = to_hook_context_view(adapted, source="post_compact_merged")
-                apply_hook_context_to_diagnostics(hook_view, diag)
-                view = to_loop_compaction_view(adapted, source="post_compact_merged")
-                apply_compaction_view_to_diagnostics(view, diag)
-    except Exception as exc:
-        logger.debug("post_compact hooks skipped: %s", exc)
-
-    try:
-        from butler.core.events_sink import invoke_hook
-
-        invoke_hook(
-            "post_compact",
-            messages=compressed,
-            estimated_tokens_before=before_est,
-            estimated_tokens_after=after_est,
-            iteration=iteration,
-            session_key=session_key,
-        )
-    except Exception as exc:
-        logger.debug("run compaction turn skipped: %s", exc)
-    sk = session_key
-    if not sk:
-        try:
-            from butler.execution_context import get_audit_session_key
-
-            sk = get_audit_session_key(fallback="_global")
-        except Exception:
-            sk = "_global"
-    try:
-        from butler.core.session_transcript import record_generic_event
-
-        record_generic_event(
-            sk,
-            "compaction_turn",
-            {
-                "iteration": iteration,
-                "messages_before": len(messages),
-                "messages_after": len(compressed),
-                "tokens_before": before_est,
-                "tokens_after": after_est,
-            },
-        )
-    except Exception as exc:
-        logger.debug("run compaction turn skipped: %s", exc)
+    thread_id = audit_session_key_safe(session_key)
+    emit_compaction_completed_safe(
+        thread_id=thread_id,
+        before_est=before_est,
+        after_est=after_est,
+        messages_before=len(messages),
+        messages_after=len(compressed),
+        remote=bool(diag.get("compaction_remote")),
+    )
+    run_post_compact_hooks_safe(
+        before_est=before_est,
+        after_est=after_est,
+        messages_before=len(messages),
+        messages_after=len(compressed),
+        iteration=iteration,
+        session_key=session_key,
+        diag=diag,
+    )
+    invoke_post_compact_hook_safe(
+        compressed=compressed,
+        before_est=before_est,
+        after_est=after_est,
+        iteration=iteration,
+        session_key=session_key,
+    )
+    sk = audit_session_key_safe(session_key)
+    record_compaction_turn_event_safe(
+        session_key=sk,
+        iteration=iteration,
+        messages_before=len(messages),
+        messages_after=len(compressed),
+        before_est=before_est,
+        after_est=after_est,
+    )
     diag["compaction_explicit_turn"] = True
     diag["compaction_turn_iteration"] = iteration
     diag["compaction_turn_messages_before"] = len(messages)

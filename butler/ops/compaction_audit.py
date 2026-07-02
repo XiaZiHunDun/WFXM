@@ -64,15 +64,9 @@ def _row_to_sample(session_key: str, row: dict[str, Any], *, pending_before: dic
 
     ckpt_len: int | None = None
     if event_type == "compact_done":
-        try:
-            from butler.core.compaction_checkpoint import load_checkpoint
+        from butler.ops.compaction_audit_ops import checkpoint_preview_len_safe
 
-            ckpt = load_checkpoint(session_key)
-            if isinstance(ckpt, dict):
-                preview = str(ckpt.get("compression_summary_preview") or "")
-                ckpt_len = len(preview) if preview else None
-        except Exception:
-            ckpt_len = None
+        ckpt_len = checkpoint_preview_len_safe(session_key)
 
     note = ""
     if event_type == "compact_failed":
@@ -122,11 +116,13 @@ def collect_compaction_samples(
 
 def discover_sessions_with_compaction(*, limit: int = 8) -> list[str]:
     """Scan transcript dirs for sessions that have compact_done events."""
-    try:
-        from butler.config import get_butler_home
-        from butler.core.session_transcript import transcript_path
-    except Exception:
+    from butler.ops.compaction_audit_ops import discover_sessions_imports_ok
+
+    if not discover_sessions_imports_ok():
         return []
+
+    from butler.config import get_butler_home
+    from butler.core.session_transcript import transcript_path
 
     root = get_butler_home() / "sessions"
     if not root.is_dir():
