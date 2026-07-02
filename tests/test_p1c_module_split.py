@@ -8,7 +8,7 @@ import pytest
 
 # SSOT: docs/plans/active/project-optimization-directions-2026-06.md §P1-C
 _FILE_BUDGETS: dict[str, int] = {
-    "butler/core/llm_retry.py": 160,
+    "butler/core/llm_retry.py": 90,
     "butler/core/context_compress_pipeline.py": 200,
     "butler/core/context_compress_support.py": 220,
     "butler/core/context_compress_hooks.py": 140,
@@ -84,6 +84,16 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/dev_state_context_adapter_ops.py": 120,
     "butler/core/llm_retry_ops.py": 90,
     "butler/core/tool_batch_finalize_ops.py": 40,
+    "butler/core/llm_retry_ops.py": 200,
+    "butler/core/metrics_sink_ops.py": 55,
+    "butler/tools/project_tools_ops.py": 90,
+    "butler/tools/delegate_impl_ops.py": 225,
+    "butler/ops/owner_quality_surface_ops.py": 160,
+    "butler/core/memory_context_adapter_ops.py": 120,
+    "butler/core/message_context_adapter_ops.py": 90,
+    "butler/core/review_context_adapter_ops.py": 180,
+    "butler/core/hook_context_adapter_ops.py": 55,
+    "butler/core/dev_context_adapter_ops.py": 120,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

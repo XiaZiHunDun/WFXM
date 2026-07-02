@@ -3,17 +3,11 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import Any, Callable, Optional
 
-from butler.core.llm_retry_helpers import (
-    prepare_tools_for_llm,
-    try_exp_cache_response,
-)
-from butler.core.llm_retry_invoke import execute_llm_call
-from butler.core.llm_retry_outcomes import record_llm_failure, record_llm_interrupt
+from butler.core.llm_retry_helpers import prepare_tools_for_llm, try_exp_cache_response
+from butler.core.llm_retry_outcomes import record_llm_failure
 from butler.core.llm_retry_safe import safe_call
-from butler.core.llm_retry_success import process_llm_response
 from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse
@@ -41,6 +35,7 @@ def call_llm_with_retry(
     on_tool_call_ready: Callable[[int, str, str, dict], None] | None = None,
 ) -> tuple[Optional[NormalizedResponse], bool]:
     """Call the LLM with retries; return (response, interrupted)."""
+    from butler.core.llm_retry_ops import run_llm_with_retry_loop
     from butler.core.preemptive_compact import prepare_messages_or_abort
 
     messages_to_send = prepare_messages_or_abort(prepare_messages, diagnostics)
@@ -49,12 +44,7 @@ def call_llm_with_retry(
     if callbacks.on_llm_start:
         callbacks.on_llm_start(messages_to_send)
 
-    last_error: Exception | None = None
-    compress_attempted = False
-    schema_recovery_attempted = False
     tools_to_send = prepare_tools_for_llm(tools, client=client, diagnostics=diagnostics)
-    interrupted = False
-
     cache_fp, cached = try_exp_cache_response(
         client=client,
         messages=messages_to_send,
@@ -64,78 +54,25 @@ def call_llm_with_retry(
     if cached is not None:
         return cached, False
 
-    effective_retries = min(config.max_retries, 20)
-    for attempt in range(effective_retries):
-        if interrupt_check():
-            return None, True
-
-        try:
-            common = {
-                "messages": messages_to_send,
-                "tools": tools_to_send,
-                "check_interrupt": interrupt_check,
-                "stale_timeout": config.api_stale_timeout,
-            }
-            llm_started = time.monotonic()
-            raw = execute_llm_call(
-                client=client,
-                config=config,
-                common=common,
-                on_delta_cb=callbacks.on_stream_delta,
-                on_tool_call_ready=on_tool_call_ready,
-            )
-            early, refreshed, done = process_llm_response(
-                raw_response=raw,
-                client=client,
-                config=config,
-                callbacks=callbacks,
-                messages=messages,
-                prepare_messages=prepare_messages,
-                diagnostics=diagnostics,
-                cache_fp=cache_fp,
-                llm_started=llm_started,
-                empty_retries=empty_retries,
-            )
-            if done:
-                if early is not None:
-                    return early, False
-                return None, False
-            if refreshed is not None:
-                messages_to_send = refreshed
-                continue
-
-        except InterruptedError:
-            record_llm_interrupt(client)
-            return None, True
-
-        except Exception as exc:
-            from butler.core.llm_retry_ops import handle_llm_attempt_exception
-
-            update = handle_llm_attempt_exception(
-                exc,
-                attempt=attempt,
-                config=config,
-                callbacks=callbacks,
-                client=client,
-                messages=messages,
-                messages_to_send=messages_to_send,
-                tools_to_send=tools_to_send,
-                compress_attempted=compress_attempted,
-                schema_recovery_attempted=schema_recovery_attempted,
-                compress_messages=compress_messages,
-                prepare_messages=prepare_messages,
-                diagnostics=diagnostics,
-                try_activate_fallback=try_activate_fallback,
-            )
-            last_error = update.last_error
-            tools_to_send = update.tools_to_send or tools_to_send
-            messages_to_send = update.messages_to_send or messages_to_send
-            compress_attempted = update.compress_attempted
-            schema_recovery_attempted = update.schema_recovery_attempted
-            if update.action == "break":
-                break
-            if update.action in ("continue", "sleep_continue"):
-                continue
+    response, interrupted, last_error = run_llm_with_retry_loop(
+        client=client,
+        config=config,
+        callbacks=callbacks,
+        tools=tools,
+        messages=messages,
+        diagnostics=diagnostics,
+        prepare_messages=prepare_messages,
+        compress_messages=compress_messages,
+        interrupt_check=interrupt_check,
+        try_activate_fallback=try_activate_fallback,
+        empty_retries=empty_retries,
+        messages_to_send=messages_to_send,
+        tools_to_send=tools_to_send,
+        cache_fp=cache_fp,
+        on_tool_call_ready=on_tool_call_ready,
+    )
+    if response is not None or interrupted:
+        return response, interrupted
 
     logger.error("All LLM attempts failed: %s", last_error, exc_info=last_error)
     record_llm_failure(client, last_error)

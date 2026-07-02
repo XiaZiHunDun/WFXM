@@ -22,10 +22,7 @@ exceptions so observability outages never break the caller).
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Protocol, runtime_checkable
-
-logger = logging.getLogger(__name__)
 
 
 @runtime_checkable
@@ -97,15 +94,11 @@ def get_default_sink() -> MetricsSink:
     return _SINK
 
 
-# ── Convenience shims used by core / transport modules ─────────────────────
-
-
 def observe_ms(name: str, milliseconds: float) -> None:
     """Forward to the registered sink; swallow exceptions (best-effort)."""
-    try:
-        _SINK.observe_ms(name, milliseconds)
-    except Exception as exc:  # noqa: BLE001 — best-effort, never break the caller
-        logger.debug("metrics_sink.observe_ms skipped: %s", exc)
+    from butler.core.metrics_sink_ops import observe_ms_safe
+
+    observe_ms_safe(name, milliseconds)
 
 
 def inc(
@@ -116,15 +109,9 @@ def inc(
     session_key: str = "",
 ) -> None:
     """Forward to the registered sink; swallow exceptions (best-effort)."""
-    try:
-        _SINK.inc(
-            name,
-            value,
-            labels=labels,
-            session_key=session_key,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort, never break the caller
-        logger.debug("metrics_sink.inc skipped: %s", exc)
+    from butler.core.metrics_sink_ops import inc_safe
+
+    inc_safe(name, value, labels=labels, session_key=session_key)
 
 
 def record_event(
@@ -134,10 +121,9 @@ def record_event(
     session_key: str = "",
 ) -> None:
     """Forward structured event to the registered sink (best-effort)."""
-    try:
-        _SINK.record_event(name, fields, session_key=session_key)
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("metrics_sink.record_event skipped: %s", exc)
+    from butler.core.metrics_sink_ops import record_event_safe
+
+    record_event_safe(name, fields, session_key=session_key)
 
 
 __all__ = [

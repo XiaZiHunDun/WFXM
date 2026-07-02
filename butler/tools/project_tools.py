@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
-import logging
-
-logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from butler.project import Project
@@ -145,14 +141,11 @@ def _lead_allowed_tools(mapped: set[str]) -> set[str]:
 
 
 def _butler_allowed_tools(mapped: set[str]) -> set[str]:
-    extras = set(_BUTLER_EXTRA_TOOLS)
-    try:
-        from butler.extensions.opencode import opencode_enabled
+    from butler.tools.project_tools_ops import opencode_tool_enabled
 
-        if opencode_enabled():
-            extras.add("opencode_task")
-    except Exception:
-        pass
+    extras = set(_BUTLER_EXTRA_TOOLS)
+    if opencode_tool_enabled():
+        extras.add("opencode_task")
     return _butler_tools_from_project(mapped) | extras
 
 
@@ -206,15 +199,9 @@ def allowed_tool_names_for_project(
     if norm in {"butler", "default", ""} or role == "butler":
         return _butler_allowed_tools(mapped)
     if norm == "dev":
-        dev_extras = set()
-        try:
-            from butler.dev_engine.dev_tools import dev_engine_enabled
+        from butler.tools.project_tools_ops import dev_engine_extra_tools
 
-            if dev_engine_enabled():
-                dev_extras = set(_DEV_EXTRA_TOOLS)
-        except Exception:
-            pass
-        return mapped | dev_extras
+        return mapped | dev_engine_extra_tools()
     return mapped
 
 
@@ -222,13 +209,10 @@ def _tool_allowed(name: str, allowed: set[str]) -> bool:
     if name in allowed:
         return True
     if "mcp_*" in allowed:
-        try:
-            from butler.mcp.naming import is_mcp_registered_name
+        from butler.tools.project_tools_ops import mcp_tool_allowed
 
-            if is_mcp_registered_name(name):
-                return True
-        except Exception as exc:
-            logger.debug("tool allowed skipped: %s", exc)
+        if mcp_tool_allowed(name):
+            return True
     return False
 
 
@@ -245,17 +229,9 @@ def filter_tool_definitions(
 
 
 def _workflow_step_tool_allowlist(project: "Project | None") -> set[str] | None:
-    try:
-        from butler.execution_context import get_current_workflow_step
-        from butler.permissions import get_workflow_step_tool_allowlist
+    from butler.tools.project_tools_ops import workflow_step_tool_allowlist
 
-        step_id = get_current_workflow_step()
-        if not step_id:
-            return None
-        ws = Path(project.workspace) if project is not None else None
-        return get_workflow_step_tool_allowlist(step_id, workspace=ws)
-    except Exception:
-        return None
+    return workflow_step_tool_allowlist(project)
 
 
 def intersect_allowed_names(
@@ -284,12 +260,9 @@ def get_tool_definitions_for_project(
     filtered = filter_tool_definitions(all_tools, allowed)
     if not optimize_schema:
         return filtered
-    try:
-        from butler.core.schema_optimizer import optimize_tool_definitions
+    from butler.tools.project_tools_ops import optimize_tool_definitions_safe
 
-        return optimize_tool_definitions(filtered) or filtered
-    except Exception:
-        return filtered
+    return optimize_tool_definitions_safe(filtered)
 
 
 def get_current_project_tools(*, role: str = "butler") -> list[dict]:

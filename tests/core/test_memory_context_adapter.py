@@ -48,7 +48,10 @@ def test_list_input():
 
 @pytest.mark.unit
 def test_adapt_never_raises():
-    with patch("butler.core.memory_context_adapter._adapt_known_shape", side_effect=RuntimeError("boom")):
+    with patch(
+        "butler.core.memory_context_adapter_ops._adapt_known_shape",
+        side_effect=RuntimeError("boom"),
+    ):
         view = to_loop_memory_view({"x": 1}, source="test")
     assert view.content == ""
     assert view.metadata.get("acl_degraded") is True

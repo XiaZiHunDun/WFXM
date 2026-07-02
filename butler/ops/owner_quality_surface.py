@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from butler.ops.owner_quality_surface_ops import (
+    b9_audit_snapshot_safe,
+    b9_tier_summary_safe,
+    mcp_configured_count,
+    mcp_connection_snapshot,
+    mcp_diagnostic_detail_lines,
+    mcp_import_available,
+    prod_delegate_snapshots_safe,
+    resolve_workspace_safe,
+    review_candidates_count_safe,
+)
 
 
 def _resolve_workspace(orchestrator: Any, session_key: str) -> Path | None:
-    try:
-        pm = orchestrator.project_manager
-        proj = pm.get_current(session_key=str(session_key or "").strip())
-        ws = getattr(proj, "workspace", None) if proj else None
-        if ws:
-            return Path(ws).expanduser().resolve(strict=False)
-    except Exception as exc:
-        logger.debug("owner quality workspace skipped: %s", exc)
-    return None
+    return resolve_workspace_safe(orchestrator, session_key)
 
 
 def format_mcp_owner_line(
@@ -27,35 +28,18 @@ def format_mcp_owner_line(
     workspace: Path | None = None,
 ) -> str:
     """One-line MCP status for /简报."""
-    try:
-        from butler.mcp.config import mcp_enabled, mcp_sdk_available
-    except Exception:
+    if not mcp_import_available():
         return "MCP: 模块不可用"
+
+    from butler.mcp.config import mcp_enabled, mcp_sdk_available
 
     if not mcp_enabled():
         return "MCP: 关闭（opt-in `BUTLER_MCP_ENABLED=1` + `pip install -e \".[mcp]\"`）"
     if not mcp_sdk_available():
         return "MCP: 已开启但缺 SDK（pip install butler-system[mcp]）"
 
-    configured = 0
-    try:
-        from butler.registry.mcp_merge import effective_mcp_servers
-
-        configured = len(effective_mcp_servers(workspace=workspace))
-    except Exception as exc:
-        logger.debug("mcp configured count skipped: %s", exc)
-
-    connected = 0
-    tools = 0
-    try:
-        from butler.mcp.manager import get_manager
-
-        sk = str(session_key or "").strip() or "default"
-        statuses = get_manager().status_snapshot(sk)
-        connected = sum(1 for s in statuses if s.connected)
-        tools = sum(int(s.tool_count or 0) for s in statuses if s.connected)
-    except Exception as exc:
-        logger.debug("mcp connection snapshot skipped: %s", exc)
+    configured = mcp_configured_count(workspace)
+    connected, tools = mcp_connection_snapshot(session_key)
 
     if configured == 0:
         return "MCP: 已开启，未配置 server（/mcp 列表）"
@@ -72,57 +56,27 @@ def format_mcp_owner_block(
     """MCP subsection lines for /inbox."""
     line = format_mcp_owner_line(session_key, workspace=workspace)
     lines = ["## MCP", f"  {line}"]
-    try:
-        from butler.mcp.diagnostics import format_mcp_diagnostic_lines
-
-        detail = format_mcp_diagnostic_lines(session_key)
-        for row in detail[1:4]:
-            lines.append(f"  {row.strip()}")
-    except Exception:
-        pass
+    detail = mcp_diagnostic_detail_lines(session_key)
+    for row in detail[1:4]:
+        lines.append(f"  {row.strip()}")
     lines.append("  管理：/mcp 列表 · /mcp 安装 <id>")
     return lines
 
 
 def _b9_tier_summary_from_audit(b9: dict[str, Any]) -> str:
-    results = b9.get("results")
-    if not isinstance(results, list) or not results:
-        return ""
-    try:
-        from butler.dev_engine.b9_tiers import summarize_tier_results
-
-        tiers = summarize_tier_results(results)
-        t1 = tiers.get("tier1") or {}
-        if not t1.get("total"):
-            return ""
-        rate = float(t1.get("pass_rate") or 0.0)
-        return f"Tier-1 {t1.get('passed', 0)}/{t1.get('total', 0)} ({rate:.0%})"
-    except Exception as exc:
-        logger.debug("b9 tier summary skipped: %s", exc)
-        return ""
+    return b9_tier_summary_safe(b9)
 
 
 def collect_b9_owner_snapshot() -> dict[str, Any]:
     snap: dict[str, Any] = {}
-    try:
-        from butler.ops.eval_diagnostics import collect_eval_quality_snapshot
-
-        eq = collect_eval_quality_snapshot()
-        if eq.b9:
-            snap["b9_audit"] = dict(eq.b9)
-    except Exception as exc:
-        logger.debug("b9 audit snapshot skipped: %s", exc)
-
-    try:
-        from butler.ops.b9_prod_weekly import (
-            compare_production_delegate_delta,
-            summarize_production_delegate_quality,
-        )
-
-        snap["prod_clean"] = summarize_production_delegate_quality(clean=True)
-        snap["prod_delta"] = compare_production_delegate_delta(clean=True)
-    except Exception as exc:
-        logger.debug("prod delegate snapshot skipped: %s", exc)
+    b9 = b9_audit_snapshot_safe()
+    if b9:
+        snap["b9_audit"] = b9
+    prod_clean, prod_delta = prod_delegate_snapshots_safe()
+    if prod_clean:
+        snap["prod_clean"] = prod_clean
+    if prod_delta:
+        snap["prod_delta"] = prod_delta
     return snap
 
 
@@ -205,16 +159,9 @@ def format_delegate_quality_report() -> str:
 
     delta = snap.get("prod_delta") or {}
     lines.append("")
-    try:
-        from butler.config import get_butler_home
-
-        pending = get_butler_home() / "experiences" / "review_candidates.jsonl"
-        if pending.is_file():
-            count = sum(1 for _ in pending.open(encoding="utf-8"))
-            if count:
-                lines.append(f"**审查经验候选**: {count} 条（`review_candidates.jsonl`）")
-    except Exception:
-        pass
+    count = review_candidates_count_safe()
+    if count:
+        lines.append(f"**审查经验候选**: {count} 条（`review_candidates.jsonl`）")
     if int(delta.get("snapshots") or 0) >= 2:
         lines.append("**周趋势（clean 快照）**:")
         for key in ("verify_fail", "patch_wrong", "no_test", "tool_wrong"):

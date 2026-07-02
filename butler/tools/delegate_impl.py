@@ -7,8 +7,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 
 def _orchestrator_for_tool(*, channel: str):
     from butler.execution_context import get_current_orchestrator
@@ -98,50 +96,20 @@ def finalize_delegate_success(
     """Base delegate success + category gates (B9 pytest) + dev auto-verify."""
     base = _delegate_task_succeeded(result, changes, issues)
     out_issues = list(issues or [])
-    try:
-        from butler.dev_engine.b9_delegate_gate import (
-            apply_b9_pytest_success_gate,
-            apply_coding_strict_pilot_gate,
-            apply_dev_auto_verify_success_gate,
-            apply_dev_review_strict_gate,
-        )
+    from butler.tools.delegate_impl_ops import apply_delegate_success_gates
 
-        ok, out_issues = apply_b9_pytest_success_gate(
-            category=category,
-            category_meta=category_meta,
-            project=project,
-            base_success=base,
-            issues=out_issues,
-        )
-        ok, out_issues = apply_dev_auto_verify_success_gate(
-            role=role,
-            base_success=ok,
-            issues=out_issues,
-            dev_engine=dev_engine,
-            task=task,
-            task_preview=task_preview or (task or "")[:200],
-            changes=changes,
-            category_meta=category_meta,
-        )
-        ok, out_issues = apply_coding_strict_pilot_gate(
-            category=category,
-            category_meta=category_meta,
-            role=role,
-            base_success=ok,
-            issues=out_issues,
-            dev_engine=dev_engine,
-        )
-        return apply_dev_review_strict_gate(
-            category=category,
-            category_meta=category_meta,
-            role=role,
-            base_success=ok,
-            issues=out_issues,
-            dev_engine=dev_engine,
-        )
-    except Exception as exc:
-        logger.debug("delegate success gate skipped: %s", exc)
-        return base, out_issues
+    return apply_delegate_success_gates(
+        base=base,
+        issues=out_issues,
+        category=category,
+        category_meta=category_meta,
+        project=project,
+        role=role,
+        dev_engine=dev_engine,
+        task=task,
+        task_preview=task_preview,
+        changes=changes,
+    )
 
 
 def _extract_changes_from_messages(messages: list) -> list:
@@ -196,24 +164,9 @@ def _safe_dispatch(name: str, args: dict, depth: int) -> str:
         args = {**args, "depth": depth}
     from butler.tools.registry import dispatch_tool as _dispatch
     result = _dispatch(name, args)
-    try:
-        from butler.memory.corrective_recall import (
-            build_corrective_recall_block,
-            should_trigger_corrective,
-        )
+    from butler.tools.delegate_impl_ops import inject_corrective_recall_safe
 
-        if should_trigger_corrective(name, result):
-            task_hint = str(args.get("task") or args.get("query") or args.get("path") or "")
-            block = build_corrective_recall_block(
-                task=task_hint,
-                tool_name=name,
-                error_excerpt=result[:400],
-            )
-            if block:
-                result = f"{result}\n\n{block}"
-    except Exception as exc:
-        logger.debug("corrective recall injection skipped: %s", exc)
-    return result
+    return inject_corrective_recall_safe(name, args, result)
 
 
 def _run_subagent_stop_hooks(
@@ -225,19 +178,16 @@ def _run_subagent_stop_hooks(
     session_key: str = "",
     summary_preview: str = "",
 ) -> None:
-    try:
-        from butler.hooks.runner import run_subagent_stop_hooks
+    from butler.tools.delegate_impl_ops import run_subagent_stop_hooks_safe
 
-        run_subagent_stop_hooks(
-            agent_type=role,
-            agent_id=agent_id,
-            success=success,
-            task_id=task_id,
-            session_key=session_key,
-            summary_preview=summary_preview,
-        )
-    except Exception as exc:
-        logger.debug("SubagentStop hooks skipped: %s", exc)
+    run_subagent_stop_hooks_safe(
+        role=role,
+        agent_id=agent_id,
+        success=success,
+        task_id=task_id,
+        session_key=session_key,
+        summary_preview=summary_preview,
+    )
 
 
 def _finalize_delegate_failure(
@@ -279,32 +229,22 @@ def _finalize_delegate_failure(
         session_key=session_key,
         summary_preview=summary,
     )
-    try:
-        from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
+    from butler.tools.delegate_impl_ops import (
+        capture_delegate_failure_safe,
+        notify_delegate_finished_safe,
+    )
 
-        maybe_capture_from_delegate_result(
-            role=role,
-            task=task,
-            success=False,
-            issues=[summary[:500]],
-            parent_session_key=session_key,
-            child_session_key=session_key,
-            task_id=task_id,
-            project=project,
-            dev_engine=None,
-        )
-    except Exception as cap_exc:
-        logger.debug("delegate failure capture on exception skipped: %s", cap_exc)
-    try:
-        # R1-10: bridge lookup routed through the execution_context seam
-        # so tools → gateway stays a one-way dependency.
-        from butler.execution_context import get_current_turn_bridge
+    capture_delegate_failure_safe(
+        role=role,
+        task=task,
+        summary=summary,
+        session_key=session_key,
+        task_id=task_id,
+        project=project,
+    )
+    from butler.execution_context import get_current_turn_bridge
 
-        br = get_current_turn_bridge()
-        if br is not None:
-            br.notify_delegate_finished(report)
-    except Exception as exc:
-        logger.debug("delegate finished notification skipped: %s", exc)
+    notify_delegate_finished_safe(get_current_turn_bridge(), report)
     payload: dict[str, Any] = {
         "success": False,
         "error": f"Delegation failed: {exc}",
@@ -333,62 +273,13 @@ def _tool_delegate_task(
     R1-10: bridge lookup routed through the ``butler.execution_context``
     seam so tools → gateway stays a one-way dependency.
     """
-    from butler.execution_context import get_current_turn_bridge
-    from butler.tools.delegate_phases import (
-        DelegateRunState,
-        _build_user_message,
-        _format_delegate_result,
-        _prepare_delegate_task,
-        _record_delegate_state,
-        _resolve_subagent,
-        _run_subagent_loop,
-    )
+    from butler.tools.delegate_impl_ops import run_delegate_task_loud
 
-    state = DelegateRunState(
+    return run_delegate_task_loud(
         role=role,
         task=task,
         context=context,
         category=category,
         depth=depth,
-        original_context=context,
-        bridge=get_current_turn_bridge(),
+        finalize_failure=_finalize_delegate_failure,
     )
-    try:
-        # Phase 1: enrich (role/task/context/category) + depth check
-        _prepare_delegate_task(state)
-        if state.early_return:
-            return state.early_return
-
-        # Phase 2: orchestrator + project + tools + agent
-        _resolve_subagent(state)
-
-        # Phase 3: assemble user message
-        _build_user_message(state)
-
-        # Phase 4: prefetch + semaphore + task record + hooks + transcript
-        _record_delegate_state(state)
-        if state.early_return:
-            return state.early_return
-
-        # Phase 5: dispatch (async vs sync) + run + release
-        async_payload = _run_subagent_loop(state)
-        if async_payload is not None:
-            return async_payload
-        result = state.sync_result
-
-        # Phase 6: build report + payload
-        return _format_delegate_result(state, result)
-
-    except Exception as exc:
-        logger.error("Delegation to %s failed: %s", role, exc)
-        project_name = ""
-        if state.project is not None:
-            project_name = str(getattr(state.project, "name", "") or "")
-        return _finalize_delegate_failure(
-            role=state.role,
-            task=state.task,
-            exc=exc,
-            task_id=state.task_id,
-            session_key=state.session_key,
-            project=project_name,
-        )
