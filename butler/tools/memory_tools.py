@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from butler.tools.memory_tools_ops import tool_session_key_default
 
 _REMEMBER_SCHEMA = {
     "type": "object",
@@ -92,13 +91,7 @@ def _memory_service():
         return provider
 
     svc = ButlerMemoryService()
-    session_key = ""
-    try:
-        from butler.execution_context import get_current_session_key
-
-        session_key = get_current_session_key() or ""
-    except Exception as exc:
-        logger.debug("memory service skipped: %s", exc)
+    session_key = tool_session_key_default()
     svc.initialize(session_id=session_key or "tool")
     if orch is not None:
         if getattr(orch, "butler_memory", None) is not None:

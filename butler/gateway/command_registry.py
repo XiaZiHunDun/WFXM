@@ -108,22 +108,26 @@ def dispatch(ctx: CommandContext) -> tuple[bool, str | None]:
     cmd_def = lookup(ctx.cmd)
     if cmd_def is None or cmd_def.handler is None:
         return False, None
-    try:
-        result = cmd_def.handler(ctx)
-        if result is not None:
-            from butler.gateway.gateway_transcript import record_gateway_tool_action
-            from butler.gateway.outbound_prefs import mark_slash_reply_single_bubble
 
-            record_gateway_tool_action(
-                ctx.session_key,
-                tool_name=f"slash:{ctx.cmd}",
-                args_preview=str(ctx.arg or "")[:400],
-            )
-            mark_slash_reply_single_bubble()
-        return True, result
-    except Exception as exc:
-        logger.error("Command handler %s failed: %s", ctx.cmd, exc, exc_info=True)
-        return True, f"命令执行异常: {exc}"
+    def _on_success() -> None:
+        from butler.gateway.gateway_transcript import record_gateway_tool_action
+        from butler.gateway.outbound_prefs import mark_slash_reply_single_bubble
+
+        record_gateway_tool_action(
+            ctx.session_key,
+            tool_name=f"slash:{ctx.cmd}",
+            args_preview=str(ctx.arg or "")[:400],
+        )
+        mark_slash_reply_single_bubble()
+
+    from butler.gateway.command_registry_ops import dispatch_registered_command
+
+    return dispatch_registered_command(
+        cmd=ctx.cmd,
+        handler=cmd_def.handler,
+        ctx=ctx,
+        on_success=_on_success,
+    )
 
 
 def all_commands(*, visibility: str | None = None) -> list[CommandDef]:
