@@ -6,7 +6,6 @@ import logging
 import time
 from typing import Any, Callable, Optional
 
-from butler.core.llm_retry_errors import handle_classified_llm_error
 from butler.core.llm_retry_helpers import (
     prepare_tools_for_llm,
     try_exp_cache_response,
@@ -16,7 +15,6 @@ from butler.core.llm_retry_outcomes import record_llm_failure, record_llm_interr
 from butler.core.llm_retry_safe import safe_call
 from butler.core.llm_retry_success import process_llm_response
 from butler.core.loop_types import LoopCallbacks, LoopConfig
-from butler.transport.error_classifier import classify_api_error
 from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse
 
@@ -111,25 +109,14 @@ def call_llm_with_retry(
             return None, True
 
         except Exception as exc:
-            last_error = exc
-            classified = classify_api_error(
+            from butler.core.llm_retry_ops import handle_llm_attempt_exception
+
+            update = handle_llm_attempt_exception(
                 exc,
-                provider=getattr(client, "provider_name", ""),
-                model=getattr(client, "model", ""),
-            )
-            logger.warning(
-                "LLM attempt %d/%d failed [%s]: %s",
-                attempt + 1,
-                config.max_retries,
-                classified.reason.value,
-                exc,
-            )
-            step, compress_attempted, schema_recovery_attempted = handle_classified_llm_error(
-                exc=exc,
-                classified=classified,
                 attempt=attempt,
                 config=config,
                 callbacks=callbacks,
+                client=client,
                 messages=messages,
                 messages_to_send=messages_to_send,
                 tools_to_send=tools_to_send,
@@ -140,13 +127,14 @@ def call_llm_with_retry(
                 diagnostics=diagnostics,
                 try_activate_fallback=try_activate_fallback,
             )
-            if step.tools_to_send is not None:
-                tools_to_send = step.tools_to_send
-            if step.messages_to_send is not None:
-                messages_to_send = step.messages_to_send
-            if step.action == "break":
+            last_error = update.last_error
+            tools_to_send = update.tools_to_send or tools_to_send
+            messages_to_send = update.messages_to_send or messages_to_send
+            compress_attempted = update.compress_attempted
+            schema_recovery_attempted = update.schema_recovery_attempted
+            if update.action == "break":
                 break
-            if step.action in ("continue", "sleep_continue"):
+            if update.action in ("continue", "sleep_continue"):
                 continue
 
     logger.error("All LLM attempts failed: %s", last_error, exc_info=last_error)

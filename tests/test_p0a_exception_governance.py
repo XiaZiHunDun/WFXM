@@ -138,6 +138,14 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/skills/manager.py": 0,
     "butler/skills/manager_ops.py": 0,
     "butler/core/best_effort.py": 3,
+    "butler/core/events_sink.py": 0,
+    "butler/core/events_sink_ops.py": 0,
+    "butler/core/dev_state_context_adapter.py": 0,
+    "butler/core/dev_state_context_adapter_ops.py": 1,
+    "butler/core/llm_retry.py": 1,
+    "butler/core/llm_retry_ops.py": 0,
+    "butler/core/tool_batch_finalize.py": 0,
+    "butler/core/tool_batch_finalize_ops.py": 1,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

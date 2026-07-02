@@ -80,6 +80,10 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/outbound_bridge_ops.py": 120,
     "butler/permissions/rules_fail_closed.py": 25,
     "butler/permissions/rules_fail_closed_ops.py": 130,
+    "butler/core/events_sink_ops.py": 55,
+    "butler/core/dev_state_context_adapter_ops.py": 120,
+    "butler/core/llm_retry_ops.py": 90,
+    "butler/core/tool_batch_finalize_ops.py": 40,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

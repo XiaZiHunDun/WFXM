@@ -18,19 +18,9 @@ def dispatch_tool_with_envelope(
 ) -> str:
     """Dispatch through the configured handler and normalize failures."""
     if tool_dispatcher:
-        try:
-            result = tool_dispatcher(name, args)
-            return finalize_unenveloped_failure_result(name, args, result)
-        except Exception as exc:
-            logger.error("Tool %s failed: %s", name, exc)
-            return finalize_fallback_tool_result(
-                name,
-                args,
-                {
-                    "error": f"Tool execution failed: {exc}",
-                    "code": "TOOL_DISPATCH_ERROR",
-                },
-            )
+        from butler.core.tool_batch_finalize_ops import dispatch_tool_with_envelope_loud
+
+        return dispatch_tool_with_envelope_loud(tool_dispatcher, name, args)
     return finalize_fallback_tool_result(
         name,
         args,

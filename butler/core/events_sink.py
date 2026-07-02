@@ -8,23 +8,17 @@ single contracts registry.
 
 from __future__ import annotations
 
-import logging
-from typing import Any, cast
+from typing import Any
 
 from butler.contracts.events import EventsSink, NullEventsSink, UrgentInbound
 from butler.contracts.sink_registry import get_events_sink, set_events_sink
 
-logger = logging.getLogger(__name__)
-
 
 def invoke_hook(name: str, **kwargs: Any) -> list[Any]:
     """Forward to the registered sink; swallow exceptions (best-effort)."""
-    try:
-        hooked = get_events_sink().invoke_hook(name, **kwargs)
-        return cast(list[Any], hooked)
-    except Exception as exc:  # noqa: BLE001 — best-effort, never break the caller
-        logger.debug("events_sink.invoke_hook skipped: %s", exc)
-        return []
+    from butler.core.events_sink_ops import invoke_hook_safe
+
+    return invoke_hook_safe(name, **kwargs)
 
 
 def emit_context_compaction(
@@ -39,28 +33,25 @@ def emit_context_compaction(
     remote: bool = False,
 ) -> None:
     """Forward to the registered sink; swallow exceptions (best-effort)."""
-    try:
-        get_events_sink().emit_context_compaction(
-            phase=phase,
-            thread_id=thread_id,
-            tokens_before=tokens_before,
-            tokens_after=tokens_after,
-            messages_before=messages_before,
-            messages_after=messages_after,
-            source=source,
-            remote=remote,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort
-        logger.debug("events_sink.emit_context_compaction skipped: %s", exc)
+    from butler.core.events_sink_ops import emit_context_compaction_safe
+
+    emit_context_compaction_safe(
+        phase=phase,
+        thread_id=thread_id,
+        tokens_before=tokens_before,
+        tokens_after=tokens_after,
+        messages_before=messages_before,
+        messages_after=messages_after,
+        source=source,
+        remote=remote,
+    )
 
 
 def pop_urgent_inbound(session_key: str) -> UrgentInbound | None:
     """Forward to the registered sink; swallow exceptions (best-effort)."""
-    try:
-        return get_events_sink().pop_urgent_inbound(session_key)
-    except Exception as exc:  # noqa: BLE001 — best-effort
-        logger.debug("events_sink.pop_urgent_inbound skipped: %s", exc)
-        return None
+    from butler.core.events_sink_ops import pop_urgent_inbound_safe
+
+    return pop_urgent_inbound_safe(session_key)
 
 
 __all__ = [
