@@ -391,24 +391,18 @@ class SkillManager:
     def _apply_load_policy(
         self, sk: dict[str, Any], path: Path, source: str
     ) -> Optional[dict[str, Any]]:
-        try:
-            from butler.skills.guard import (
-                evaluate_skill_load_policy,
-                skill_requires_trust_disclaimer,
-            )
+        from butler.skills.manager_ops import enrich_skill_load_policy_safe
 
-            policy = evaluate_skill_load_policy(path, source=source)
-            if policy == "block":
-                msg = f"Skill blocked by guard trust policy: {path.name}"
-                logger.warning(msg)
-                _record_skill_load_error(SKILL_LOAD_ERR_IO, path, msg)
-                return None
-            sk["_load_policy"] = policy
-            if skill_requires_trust_disclaimer(policy):
-                sk["_trust_warn"] = True
-        except Exception as exc:
-            logger.debug("skill load policy skipped: %s", exc)
-        return sk
+        def _record_block(msg: str) -> None:
+            logger.warning(msg)
+            _record_skill_load_error(SKILL_LOAD_ERR_IO, path, msg)
+
+        return enrich_skill_load_policy_safe(
+            sk,
+            path,
+            source,
+            record_block=_record_block,
+        )
 
     def _load_skill_from_path(self, path: Path, source: str) -> Optional[dict[str, Any]]:
         try:
@@ -605,22 +599,16 @@ class SkillManager:
             raise ValueError(err)
 
         if not _bypass_approval:
-            try:
-                from butler.skills.write_approval import (
-                    queue_skill_pending,
-                    skill_write_approval_enabled,
-                )
+            from butler.skills.manager_ops import maybe_queue_skill_pending_safe
 
-                if skill_write_approval_enabled():
-                    queue_skill_pending(
-                        name=name,
-                        description=description,
-                        triggers=triggers,
-                        content=content,
-                    )
-                    return "pending"
-            except Exception as exc:
-                logger.debug("skill write approval skipped: %s", exc)
+            pending = maybe_queue_skill_pending_safe(
+                name=name,
+                description=description,
+                triggers=triggers,
+                content=content,
+            )
+            if pending == "pending":
+                return "pending"
 
         from butler.skills.guard import scan_skill_text
         guard_issues = scan_skill_text(content)
@@ -652,17 +640,9 @@ class SkillManager:
             to_merge_raw = [new_skill] + [s for s, _ in similar]
             merged = self._consolidator.consolidate(to_merge_raw)
             if merged.get("fallback_used"):
-                try:
-                    from butler.ops.degradation_registry import register_degradation
-                    from butler.ops.runtime_metrics import inc
+                from butler.skills.manager_ops import record_skill_merge_fallback_safe
 
-                    register_degradation(
-                        "skills",
-                        "合并使用确定性 fallback（LLM 不可用或无 JSON）",
-                    )
-                    inc("digestion_skill_fallback_merge")
-                except Exception:
-                    pass
+                record_skill_merge_fallback_safe()
 
             old_names = {s["name"] for s in to_merge_raw if s.get("name")}
             for sk in existing:

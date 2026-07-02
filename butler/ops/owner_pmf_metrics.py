@@ -114,13 +114,10 @@ def maybe_record_post_feedback_retry(user_text: str, *, session_key: str = "") -
     if text.startswith("/改"):
         retry = True
     else:
-        try:
-            from butler.gateway.owner_delegate_shortcuts import try_expand_owner_edit_slash
+        from butler.ops.owner_pmf_metrics_ops import owner_edit_slash_expanded_safe
 
-            if try_expand_owner_edit_slash(text):
-                retry = True
-        except Exception:
-            pass
+        if owner_edit_slash_expanded_safe(text):
+            retry = True
     if not retry and any(k in text for k in ("交给开发", "委派开发", "delegate")):
         retry = True
     if not retry:
