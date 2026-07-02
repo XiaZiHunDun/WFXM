@@ -263,13 +263,18 @@ def apply_auto_continue_rewrite(session_key: str, text: str) -> str | None:
 
     注意: 这是 text rewriter, **不**是 slash dispatch handler — 返回值是 "新 text" 而非 reply 字符串.
     """
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> str | None:
         from butler.core.auto_continue import resolve_auto_continue_user_message
 
         return resolve_auto_continue_user_message(session_key, text)
-    except Exception as exc:
-        logger.debug("Auto continue resolve skipped: %s", exc)
-        return None
+
+    return safe_best_effort(
+        _run,
+        label="handler_helpers.auto_continue",
+        default=None,
+    )
 
 
 def _env_int(name: str, default: int) -> int:
@@ -309,22 +314,32 @@ def _is_sessionless_command(text: str) -> bool:
 
 
 def _tool_audit_summary(session_key: str) -> dict[str, Any]:
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> dict[str, Any]:
         from butler.tools.registry import get_tool_audit_events
-    except Exception:
-        return {"total": 0, "failed": 0, "codes": []}
-    events = get_tool_audit_events(limit=50, session_key=session_key)
-    failed = [event for event in events if not event.get("ok", False)]
-    codes = sorted({str(event.get("code")) for event in failed if event.get("code")})
-    return {"total": len(events), "failed": len(failed), "codes": codes}
+
+        events = get_tool_audit_events(limit=50, session_key=session_key)
+        failed = [event for event in events if not event.get("ok", False)]
+        codes = sorted({str(event.get("code")) for event in failed if event.get("code")})
+        return {"total": len(events), "failed": len(failed), "codes": codes}
+
+    return safe_best_effort(
+        _run,
+        label="handler_helpers.tool_audit_summary",
+        default={"total": 0, "failed": 0, "codes": []},
+    ) or {"total": 0, "failed": 0, "codes": []}
 
 
 def _reset_tool_audit_events(session_key: str | None = None) -> None:
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> None:
         from butler.tools.registry import reset_tool_audit_events
-    except Exception:
-        return
-    reset_tool_audit_events(session_key)
+
+        reset_tool_audit_events(session_key)
+
+    safe_best_effort(_run, label="handler_helpers.reset_tool_audit", default=None)
 
 
 _WELCOMED_SESSIONS: set[str] = set()
@@ -365,8 +380,10 @@ def _mark_session_welcomed(session_key: str) -> None:
             return
         _WELCOMED_SESSIONS.add(session_key)
 
-    marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _persist() -> None:
+        marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
         if marker.is_file():
             known = set(marker.read_text(encoding="utf-8").strip().splitlines())
             if session_key in known:
@@ -374,8 +391,8 @@ def _mark_session_welcomed(session_key: str) -> None:
         marker.parent.mkdir(parents=True, exist_ok=True)
         with open(marker, "a", encoding="utf-8") as f:
             f.write(session_key + "\n")
-    except Exception as exc:
-        logger.debug("mark session welcomed skipped: %s", exc)
+
+    safe_best_effort(_persist, label="handler_helpers.mark_welcomed", default=None)
 
 
 def _maybe_welcome_prefix(session_key: str, user_text: str = "") -> str:
@@ -393,32 +410,34 @@ def _maybe_welcome_prefix(session_key: str, user_text: str = "") -> str:
         _WELCOMED_SESSIONS.add(session_key)
 
     marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
-    try:
-        if marker.is_file():
-            known = set(marker.read_text(encoding="utf-8").strip().splitlines())
-            if session_key in known:
-                return ""
+    from butler.core.best_effort import safe_best_effort
+
+    def _known_sessions() -> set[str]:
+        if not marker.is_file():
+            return set()
+        return set(marker.read_text(encoding="utf-8").strip().splitlines())
+
+    if session_key in (safe_best_effort(
+        _known_sessions,
+        label="handler_helpers.welcome_known",
+        default=set(),
+    ) or set()):
+        return ""
+
+    def _persist() -> None:
         marker.parent.mkdir(parents=True, exist_ok=True)
         with open(marker, "a", encoding="utf-8") as f:
             f.write(session_key + "\n")
-    except Exception as exc:
-        logger.debug("maybe welcome prefix skipped: %s", exc)
+
+    safe_best_effort(_persist, label="handler_helpers.welcome_marker", default=None)
     return _WELCOME_TEXT
 
 
 def _safe_overview_sub(fn: Callable[[], str | None], label: str) -> str | None:
-    """Run a `_build_project_overview` sub-info extractor; swallow + log on failure.
+    """Run a `_build_project_overview` sub-info extractor; swallow + log on failure."""
+    from butler.core.best_effort import safe_best_effort
 
-    Sprint 22-7 QUAL-21-D-1: 3 sub-info paths (todos / jobs / summary)
-    used the same try/except + logger.debug("...skipped: %s", exc)
-    skeleton. Centralising the wrapper keeps the per-path code focused
-    on data extraction and makes future sub-infos cheap to add.
-    """
-    try:
-        return fn()
-    except Exception as exc:
-        logger.debug("build project overview skipped (%s): %s", label, exc)
-        return None
+    return safe_best_effort(fn, label=f"handler_helpers.overview.{label}", default=None)
 
 
 def _todos_subinfo(ws: Path) -> str | None:
@@ -505,25 +524,34 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
 
     lines.append("")
     lines.append("提醒：")
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _reminders() -> str:
         from butler.tools.reminder import _load_all
 
         reminders = [r for r in _load_all() if r.get("status") == "pending"]
         if reminders:
-            lines.append(f"  待触发提醒 {len(reminders)} 个")
+            rows = [f"  待触发提醒 {len(reminders)} 个"]
             for r in reminders[:3]:
-                lines.append(f"    · {r.get('due_human', '')} — {r.get('message', '')[:40]}")
-        else:
-            lines.append("  无待触发提醒")
-    except Exception:
-        lines.append("  提醒系统不可用")
+                rows.append(f"    · {r.get('due_human', '')} — {r.get('message', '')[:40]}")
+            return "\n".join(rows)
+        return "  无待触发提醒"
+
+    reminder_block = safe_best_effort(
+        _reminders,
+        label="handler_helpers.reminders",
+        default="  提醒系统不可用",
+    )
+    lines.append(reminder_block or "  提醒系统不可用")
 
     return "\n".join(lines)
 
 
 def _inject_previous_session_summary(loop: "AgentLoop", project: Any) -> None:
     """Inject previous session summary into a new AgentLoop for context continuity."""
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _run() -> None:
         from butler.env_parse import env_truthy
 
         if not env_truthy("BUTLER_SESSION_SUMMARY", default=True):
@@ -565,15 +593,17 @@ def _inject_previous_session_summary(loop: "AgentLoop", project: Any) -> None:
         if hasattr(loop, "_messages"):
             loop._messages.append({"role": "system", "content": context})
             logger.debug("Injected previous session summary (%d chars)", len(context))
-    except Exception as exc:
-        logger.debug("Session summary injection skipped: %s", exc)
+
+    safe_best_effort(_run, label="handler_helpers.session_summary_inject", default=None)
 
 
 def _on_gateway_session_removed(session_key: str) -> None:
     _reset_tool_audit_events(session_key)
-    try:
+    from butler.core.best_effort import safe_best_effort
+
+    def _disconnect() -> None:
         from butler.mcp.registry_hook import disconnect_mcp_session
 
         disconnect_mcp_session(session_key)
-    except Exception as exc:
-        logger.debug("on gateway session removed skipped: %s", exc)
+
+    safe_best_effort(_disconnect, label="handler_helpers.mcp_disconnect", default=None)

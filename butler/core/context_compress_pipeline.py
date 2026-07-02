@@ -5,6 +5,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from butler.core.context_compress_hooks import (
+    append_compact_evidence,
+    append_overflow_replay,
+    apply_summary_placement,
+    extract_pre_compact_facts,
+    merge_skill_rescue,
+    prune_with_skill_rescue,
+    resolve_replay_user,
+)
 from butler.core.context_compress_support import (
     record_compress_completed,
     record_compress_scheduled,
@@ -12,9 +21,7 @@ from butler.core.context_compress_support import (
     record_overflow_replay,
 )
 from butler.core.context_compressor import (
-    SUMMARY_PREFIX,
     _estimate_tokens,
-    _prune_tool_outputs,
     _split_head_tail,
     _summarize_middle,
     truncate_tool_responses_to_budget,
@@ -23,32 +30,6 @@ from butler.core.turn_compaction import _write_compaction_diagnostics
 from butler.execution_context import get_audit_session_key
 
 logger = logging.getLogger(__name__)
-
-
-def _prune_with_skill_rescue(
-    messages: list[dict],
-) -> tuple[list[dict], list[dict]]:
-    pruned = _prune_tool_outputs(messages)
-    skill_rescued: list[dict] = []
-    try:
-        from butler.core.skill_compact_rescue import extract_skill_rescue_messages
-
-        pruned, skill_rescued = extract_skill_rescue_messages(pruned)
-    except Exception as exc:
-        logger.debug("Skill compact rescue skipped: %s", exc)
-    return pruned, skill_rescued
-
-
-def _resolve_replay_user(pruned: list[dict], *, overflow_replay: bool) -> dict | None:
-    if not overflow_replay:
-        return None
-    try:
-        from butler.core.turn_compaction import find_overflow_replay_user
-
-        return find_overflow_replay_user(pruned)
-    except Exception as exc:
-        logger.debug("compress messages skipped: %s", exc)
-        return None
 
 
 def _split_for_compaction(
@@ -111,42 +92,6 @@ def _split_for_compaction(
     )
 
 
-def _merge_skill_rescue(
-    head_tail: list[dict],
-    skill_rescued: list[dict],
-) -> list[dict]:
-    if not skill_rescued:
-        return head_tail
-    try:
-        from butler.core.skill_compact_rescue import merge_skill_rescue_into_tail
-
-        return merge_skill_rescue_into_tail(head_tail, skill_rescued)
-    except Exception as exc:
-        logger.debug("Skill rescue merge skipped: %s", exc)
-        return head_tail
-
-
-def _apply_summary_placement(
-    system: list[dict],
-    head_tail: list[dict],
-    summary: str,
-    initial_injection: Any,
-) -> list[dict]:
-    summary_msg = {"role": "user", "content": SUMMARY_PREFIX + summary}
-    try:
-        from butler.core.compaction_phase import (
-            InitialContextInjection,
-            apply_summary_placement,
-        )
-
-        injection = initial_injection
-        if injection is None:
-            injection = InitialContextInjection.DO_NOT_INJECT
-        return apply_summary_placement(system, head_tail, summary_msg, injection)
-    except Exception:
-        return system + [summary_msg] + head_tail
-
-
 def run_compress_messages(
     messages: list[dict],
     *,
@@ -176,8 +121,8 @@ def run_compress_messages(
     )
     record_compress_started(session_key=session_key, overflow_replay=overflow_replay)
 
-    pruned, skill_rescued = _prune_with_skill_rescue(messages)
-    replay_user = _resolve_replay_user(pruned, overflow_replay=overflow_replay)
+    pruned, skill_rescued = prune_with_skill_rescue(messages)
+    replay_user = resolve_replay_user(pruned, overflow_replay=overflow_replay)
     system, middle, head_tail = _split_for_compaction(
         pruned,
         max_tokens=max_tokens,
@@ -190,49 +135,34 @@ def run_compress_messages(
 
     if not middle:
         if skill_rescued:
-            head_tail = _merge_skill_rescue(head_tail, skill_rescued)
+            head_tail = merge_skill_rescue(head_tail, skill_rescued)
             return system + head_tail, previous_summary, False
         return pruned, previous_summary, False
 
-    try:
-        from butler.core.fact_extraction import extract_pre_compact_facts
-
-        extract_pre_compact_facts(session_key, middle)
-    except Exception as exc:
-        logger.debug("Fact extraction skipped: %s", exc)
+    extract_pre_compact_facts(session_key, middle)
 
     middle = truncate_tool_responses_to_budget(middle)
     summary, used_remote = _summarize_middle(middle, previous_summary)
-    try:
-        from butler.core.evidence_extract import append_evidence_to_summary
-
-        summary = append_evidence_to_summary(summary, middle, diagnostics)
-    except Exception as exc:
-        logger.debug("Compact evidence extract skipped: %s", exc)
+    summary = append_compact_evidence(summary, middle, diagnostics)
 
     if not summary.strip():
         logger.warning(
             "Summary generation failed; preserving original messages instead of compressing"
         )
-        head_tail = _merge_skill_rescue(head_tail, skill_rescued)
+        head_tail = merge_skill_rescue(head_tail, skill_rescued)
         return system + head_tail + middle, previous_summary, False
 
     if isinstance(diagnostics, dict):
         diagnostics["compaction_remote"] = used_remote
 
-    compressed = _apply_summary_placement(system, head_tail, summary, initial_injection)
+    compressed = apply_summary_placement(system, head_tail, summary, initial_injection)
     if skill_rescued:
         tail_only = [m for m in compressed if m.get("role") != "system"]
         system_only = [m for m in compressed if m.get("role") == "system"]
-        compressed = system_only + _merge_skill_rescue(tail_only, skill_rescued)
+        compressed = system_only + merge_skill_rescue(tail_only, skill_rescued)
 
     if overflow_replay and replay_user:
-        try:
-            from butler.core.turn_compaction import append_overflow_replay
-
-            compressed = append_overflow_replay(compressed, replay_user)
-        except Exception as exc:
-            logger.debug("compress messages skipped: %s", exc)
+        compressed = append_overflow_replay(compressed, replay_user)
         record_overflow_replay(session_key=session_key, replay_user=replay_user)
 
     tokens_after = _estimate_tokens(compressed)

@@ -9,11 +9,14 @@ import pytest
 # SSOT: docs/plans/active/project-optimization-directions-2026-06.md §P1-C
 _FILE_BUDGETS: dict[str, int] = {
     "butler/core/llm_retry.py": 160,
-    "butler/core/context_compress_pipeline.py": 280,
+    "butler/core/context_compress_pipeline.py": 200,
     "butler/core/context_compress_support.py": 120,
+    "butler/core/context_compress_hooks.py": 140,
     "butler/core/tool_batch_finalize.py": 150,
     "butler/core/tool_dispatch.py": 235,
     "butler/core/tool_batch.py": 430,
+    "butler/runtime/delegate_job.py": 340,
+    "butler/runtime/delegate_job_finalize.py": 130,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

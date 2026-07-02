@@ -7,6 +7,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
+from butler.core.best_effort import safe_best_effort
+
 logger = logging.getLogger(__name__)
 
 
@@ -97,26 +99,34 @@ def push_delegate_completion(
                 kind="delegate",
             )
 
-        try:
+        def _schedule() -> bool:
             asyncio.run_coroutine_threadsafe(_send(), push_target.loop)
             return True
-        except Exception as exc:
-            logger.warning("Async delegate push schedule failed: %s", exc)
+
+        if safe_best_effort(
+            _schedule,
+            label="delegate_job.async_push_schedule",
+            default=False,
+        ):
+            return True
 
     if bridge is not None and not use_async_push:
-        try:
+
+        def _notify() -> bool:
             bridge.notify_delegate_finished(report)
             return True
-        except Exception as exc:
-            logger.warning("Bridge delegate notify failed: %s", exc)
 
-    try:
+        if safe_best_effort(_notify, label="delegate_job.bridge_notify", default=False):
+            return True
+
+    def _runtime_push() -> bool:
         from butler.runtime.notify import push_runtime_message
 
         return push_runtime_message("[Butler] 委派完成", text)
-    except Exception as exc:
-        logger.warning("Runtime delegate push failed: %s", exc)
-        return False
+
+    return bool(
+        safe_best_effort(_runtime_push, label="delegate_job.runtime_push", default=False)
+    )
 
 
 def run_delegate_job(job: DelegateJob) -> None:
@@ -130,14 +140,16 @@ def run_delegate_job(job: DelegateJob) -> None:
 def _run_delegate_job_inner(job: DelegateJob) -> None:
     result = None
     success = False
+    dev_engine = None
     try:
         if job.bridge is not None:
-            try:
-                from butler.gateway.outbound_bridge import set_current_bridge
-
-                set_current_bridge(job.bridge)
-            except Exception as exc:
-                logger.debug("run delegate job skipped: %s", exc)
+            safe_best_effort(
+                lambda: __import__(
+                    "butler.gateway.outbound_bridge", fromlist=["set_current_bridge"]
+                ).set_current_bridge(job.bridge),
+                label="delegate_job.set_bridge",
+                default=None,
+            )
         from butler.execution_context import use_execution_context
 
         with use_execution_context(job.orch, session_key=job.child_session_key or job.session_key):
@@ -147,19 +159,19 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
             )
 
             register_delegate_loop(job.session_key, job.agent)
-            run_cbs = None
-            try:
-                from butler.ops.langfuse_tracer import delegate_run_callbacks
-
-                run_cbs = delegate_run_callbacks(
+            run_cbs = safe_best_effort(
+                lambda: __import__(
+                    "butler.ops.langfuse_tracer", fromlist=["delegate_run_callbacks"]
+                ).delegate_run_callbacks(
                     parent_session_key=job.session_key,
                     child_session_key=job.child_session_key or job.session_key,
                     role=job.role,
                     task=job.task,
                     task_id=job.task_id,
-                )
-            except Exception as exc:
-                logger.debug("background delegate LangFuse callbacks skipped: %s", exc)
+                ),
+                label="delegate_job.langfuse_callbacks",
+                default=None,
+            )
             try:
                 if run_cbs is not None:
                     result = job.agent.run(job.user_msg, run_callbacks=run_cbs)
@@ -188,11 +200,11 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
 
         changes = _extract_changes_from_messages(result.messages) if result else []
         issues = _extract_issues_from_messages(result.messages) if result else []
-        project = None
-        try:
-            project = job.orch.project_manager.get_current() if job.orch else None
-        except Exception:
-            project = None
+        project = safe_best_effort(
+            lambda: job.orch.project_manager.get_current() if job.orch else None,
+            label="delegate_job.resolve_project",
+            default=None,
+        )
         if result:
             from butler.tools.delegate_phases import peek_dev_engine_summary
 
@@ -213,7 +225,6 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
             )
         else:
             success = False
-            dev_engine = None
         role_label = _delegate_role_label(job.role)
         if success:
             headline = f"{role_label}已完成任务"
@@ -230,23 +241,11 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
             success = False
             headline = f"{role_label}返回空结果"
 
-        if job.child_session_key:
-            try:
-                from butler.core.session_transcript import record_generic_event
+        from butler.runtime.delegate_job_finalize import record_delegate_turn_done
 
-                record_generic_event(
-                    job.child_session_key,
-                    "delegate_turn_done",
-                    {
-                        "task_id": job.task_id,
-                        "success": success,
-                        "background": True,
-                        "iterations": getattr(result, "iterations", 0) if result else 0,
-                    },
-                )
-            except Exception as exc:
-                logger.debug("run delegate job skipped: %s", exc)
-        from butler.report import AgentReport, cache_report, attach_delegate_task_times
+        record_delegate_turn_done(job, success=success, result=result)
+
+        from butler.report import AgentReport, attach_delegate_task_times, cache_report
         from butler.runtime.task_store import complete_task
 
         task_preview = (job.task or "").strip()[:200]
@@ -291,45 +290,24 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
             session_key=job.session_key,
             summary_preview=report.summary,
         )
-        _try_attach_diff_summary(report, job)
+        from butler.runtime.delegate_job_finalize import (
+            attach_delegate_diff_summary,
+            record_delegate_observability,
+        )
+
+        attach_delegate_diff_summary(report, job)
         push_delegate_completion(
             report,
             bridge=job.bridge,
             push_target=job.push_target,
             use_async_push=job.use_async_push,
         )
-        try:
-            from butler.tools.delegate_phases import peek_dev_engine_summary
-
-            dev_engine = peek_dev_engine_summary(
-                job.child_session_key or job.session_key,
-                job.role,
-            )
-            from butler.ops.langfuse_tracer import finish_delegate_trace
-            from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
-
-            finish_delegate_trace(
-                job.child_session_key or job.session_key,
-                success=success,
-                metadata={
-                    "task_id": job.task_id,
-                    "role": job.role,
-                    "background": True,
-                    "dev_engine": dev_engine or {},
-                },
-            )
-            maybe_capture_from_delegate_result(
-                role=job.role,
-                task=job.task,
-                success=success,
-                issues=issues,
-                parent_session_key=job.session_key,
-                child_session_key=job.child_session_key or job.session_key,
-                task_id=job.task_id,
-                dev_engine=dev_engine,
-            )
-        except Exception as obs_exc:
-            logger.debug("background delegate observability skipped: %s", obs_exc)
+        record_delegate_observability(
+            job,
+            success=success,
+            issues=issues,
+            dev_engine=dev_engine,
+        )
         logger.info(
             "Background delegate finished task_id=%s success=%s",
             job.task_id,
@@ -347,58 +325,16 @@ def _run_delegate_job_inner(job: DelegateJob) -> None:
             session_key=job.session_key,
         )
     finally:
-        try:
-            from butler.core.delegate_semaphore import release_delegate_slot
-
-            release_delegate_slot(job.session_key)
-        except Exception as exc:
-            logger.debug("run delegate job skipped: %s", exc)
-def _try_attach_diff_summary(report: Any, job: DelegateJob) -> None:
-    """Collect git diff --stat after delegate finishes and append to report summary."""
-    if not report or not hasattr(report, "summary"):
-        return
-    try:
-        from butler.tools.git_tools import git_read_enabled, _run_git
-
-        if not git_read_enabled():
-            return
-
-        workspace = None
-        proj = None
-        try:
-            from butler.project.manager import ProjectManager
-            pm = ProjectManager()
-            proj = pm.active_project
-            if proj and hasattr(proj, "workspace"):
-                workspace = str(proj.workspace)
-        except Exception as exc:
-            logger.debug("try attach diff summary skipped: %s", exc)
-        if not workspace:
-            return
-
-        diff = _run_git(["diff", "--stat", "--cached"], workdir=workspace)
-        if diff.get("exit_code") != 0:
-            diff = _run_git(["diff", "--stat"], workdir=workspace)
-        if diff.get("exit_code") != 0:
-            return
-
-        stat_output = (diff.get("stdout") or "").strip()
-        if not stat_output:
-            return
-
-        diff_lines = stat_output.split("\n")
-        if len(diff_lines) > 15:
-            diff_lines = diff_lines[:14] + [f"... 还有 {len(diff_lines) - 14} 个文件"]
-
-        diff_section = "\n\n📊 变更摘要:\n" + "\n".join(f"  {line}" for line in diff_lines)
-
-        current = report.summary or ""
-        if len(current) + len(diff_section) < 4000:
-            report.summary = current + diff_section
-    except Exception as exc:
-        logger.debug("Diff summary collection skipped: %s", exc)
+        safe_best_effort(
+            lambda: __import__(
+                "butler.core.delegate_semaphore", fromlist=["release_delegate_slot"]
+            ).release_delegate_slot(job.session_key),
+            label="delegate_job.release_slot",
+            default=None,
+        )
 
 
 def _delegate_role_label(role: str) -> str:
     from butler.tools.builtin_impl import _delegate_role_label as _canonical
+
     return _canonical(role)
