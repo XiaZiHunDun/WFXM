@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from butler.memory.observation_migrate import observations_tsv_path
-from butler.memory.observation_store import ObservationStore, observations_db_path
+from butler.memory.observation_store import observations_db_path
 from butler.memory_settings import resolve_memory_config
-import logging
-
-
-logger = logging.getLogger(__name__)
+from butler.ops.observation_diagnostics_ops import (
+    observation_store_stats_safe,
+    relative_db_path_safe,
+)
 
 
 def collect_observation_store_stats(workspace: Path | None) -> dict[str, Any]:
@@ -43,13 +43,12 @@ def collect_observation_store_stats(workspace: Path | None) -> dict[str, Any]:
     }
     if not db_path.is_file():
         return out
-    try:
-        stats = ObservationStore(db_path).stats()
-        out.update(stats)
-    except Exception as exc:
-        logger.debug("collect observation store stats skipped: %s", exc)
+    stats = observation_store_stats_safe(db_path)
+    if stats is None:
         out["ok"] = False
-        out["reason"] = str(exc)
+        out["reason"] = "stats_unavailable"
+        return out
+    out.update(stats)
     return out
 
 
@@ -71,14 +70,11 @@ def format_observation_diagnostic_lines(workspace: Path | None) -> list[str]:
     )
     if stats.get("tsv_exists"):
         lines.append("  ⚠ 遗留 observations.tsv 待迁移（butler memory observations --migrate）")
-    rel_db = ".butler/observations.db"
-    try:
-        ws = Path(str(stats.get("workspace") or ""))
-        db_path = Path(str(stats.get("db_path") or ""))
-        if db_path.is_file():
-            rel_db = str(db_path.relative_to(ws))
-    except Exception:
-        rel_db = str(stats.get("db_path") or rel_db)
+    rel_db = relative_db_path_safe(
+        Path(str(stats.get("workspace") or "")),
+        Path(str(stats.get("db_path") or "")),
+        fallback=".butler/observations.db",
+    )
     if not stats.get("db_exists"):
         lines.append(f"  库: 无 ({rel_db or '.butler/observations.db'})")
         return lines

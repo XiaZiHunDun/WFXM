@@ -10,6 +10,11 @@ from butler.gateway.command_registry import (
     register,
     require_owner,
 )
+from butler.gateway.commands.info_commands_ops import (
+    append_pim_store_usage_line,
+    append_reminder_summary_line,
+    record_brief_view_safe,
+)
 
 
 def _cmd_overview(ctx: CommandContext) -> Optional[str]:
@@ -284,22 +289,8 @@ def _cmd_pim(ctx: CommandContext) -> Optional[str]:
 
     lines = ["📋 PIM 数据概览", ""]
     for label, (store, limit) in stores.items():
-        try:
-            count = store.count()
-            pct = int(count / limit * 100) if limit else 0
-            bar = "█" * (pct // 10) + "░" * (10 - pct // 10)
-            lines.append(f"{label}: {count}/{limit} ({pct}%) {bar}")
-        except Exception:
-            lines.append(f"{label}: 读取失败")
-
-    try:
-        from butler.tools.reminder import _load_all
-        reminders = _load_all()
-        pending = sum(1 for r in reminders if r.get("status") == "pending")
-        fired = sum(1 for r in reminders if r.get("status") == "fired")
-        lines.append(f"提醒: {pending} 待触发 / {fired} 已触发")
-    except Exception:
-        lines.append("提醒: 读取失败")
+        append_pim_store_usage_line(lines, label=label, store=store, limit=limit)
+    append_reminder_summary_line(lines)
 
     return "\n".join(lines)
 
@@ -365,12 +356,7 @@ def _cmd_brief(ctx: CommandContext) -> Optional[str]:
 
     health = ctx.session_registry.get_health(ctx.session_key)
     out = format_owner_brief(ctx.orchestrator, ctx.session_key, health=health)
-    try:
-        from butler.ops.owner_pmf_metrics import record_brief_view
-
-        record_brief_view(session_key=ctx.session_key)
-    except Exception:
-        pass
+    record_brief_view_safe(session_key=ctx.session_key)
     return out
 
 

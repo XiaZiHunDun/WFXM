@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from butler.core.session_transcript import transcript_enabled, transcript_path
+from butler.core.transcript_search_ops import search_transcripts_fts
 
 
 def search_max_sessions() -> int:
@@ -74,20 +75,14 @@ def search_transcripts(
         return []
     cap = max_hits if max_hits is not None else search_max_hits()
 
-    try:
-        from butler.core.transcript_fts import fts_enabled, search_fts
-
-        if fts_enabled():
-            hits = search_fts(
-                q,
-                session_key=session_key,
-                limit=cap,
-                offset=max(0, offset),
-            )
-            if hits:
-                return hits
-    except Exception:
-        pass
+    fts_hits = search_transcripts_fts(
+        q,
+        session_key=session_key,
+        limit=cap,
+        offset=max(0, offset),
+    )
+    if fts_hits:
+        return fts_hits
 
     pattern = re.compile(re.escape(q), re.IGNORECASE)
     hits: list[dict[str, Any]] = []

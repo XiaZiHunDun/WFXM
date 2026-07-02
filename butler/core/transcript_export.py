@@ -12,6 +12,12 @@ from typing import Any
 
 from butler.config import get_butler_home
 from butler.core.session_transcript import transcript_enabled, transcript_path
+from butler.core.transcript_export_ops import (
+    get_last_report_safe,
+    list_recent_tasks_safe,
+    load_transcript_export_rows,
+    resolve_export_workspace_safe,
+)
 
 
 def export_max_lines_default() -> int:
@@ -45,18 +51,14 @@ def load_transcript_rows(session_key: str, *, max_lines: int | None = None) -> l
         except OSError:
             return []
     else:
+        indexed = load_transcript_export_rows(path, limit=limit)
+        if indexed is not None:
+            return indexed
         try:
-            from butler.core.transcript_index import load_tail_rows
-
-            return load_tail_rows(path, max_lines=limit)
-        except Exception:
-            lines = []
-        if not lines:
-            try:
-                lines = path.read_text(encoding="utf-8").splitlines()
-            except OSError:
-                return []
-            lines = lines[-limit:]
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        lines = lines[-limit:]
 
     out: list[dict[str, Any]] = []
     for ln in lines[-limit:]:
@@ -137,12 +139,7 @@ def _format_row_markdown(row: dict[str, Any]) -> str:
 
 
 def _append_tasks_section(session_key: str, parts: list[str]) -> None:
-    try:
-        from butler.runtime.task_store import list_recent_tasks
-
-        rows = list_recent_tasks(session_key, limit=10)
-    except Exception:
-        return
+    rows = list_recent_tasks_safe(session_key, limit=10)
     if not rows:
         return
     parts.append("## 委派任务")
@@ -156,12 +153,7 @@ def _append_tasks_section(session_key: str, parts: list[str]) -> None:
 
 
 def _append_report_section(session_key: str, parts: list[str]) -> None:
-    try:
-        from butler.report import get_last_report
-
-        report = get_last_report(session_key)
-    except Exception:
-        return
+    report = get_last_report_safe(session_key)
     if report is None:
         return
     parts.append("## 最近报告")
@@ -251,19 +243,4 @@ def export_session_markdown(
 
 
 def resolve_export_workspace(session_key: str = "") -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
-
-        orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return None
-        sk = str(session_key or get_current_session_key() or "").strip()
-        proj = pm.get_current(session_key=sk)
-        if proj is None:
-            return None
-        return Path(proj.workspace)
-    except Exception:
-        return None
+    return resolve_export_workspace_safe(session_key)

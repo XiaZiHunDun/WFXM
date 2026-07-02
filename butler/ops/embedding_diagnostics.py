@@ -9,6 +9,7 @@ from butler.memory.semantic_config import (
     embedding_provider_name,
     semantic_memory_enabled,
 )
+from butler.ops.embedding_diagnostics_ops import probe_embedder_snapshot
 
 
 def collect_embedding_snapshot(*, vector_rows: int = 0) -> dict[str, Any]:
@@ -27,15 +28,9 @@ def collect_embedding_snapshot(*, vector_rows: int = 0) -> dict[str, Any]:
     prov = (provider or "").strip().lower()
     if prov in ("local", "") and model in ("hashing-v1", ""):
         out["embedding_recommend_fastembed"] = True
-    try:
-        from butler.memory.embedding import HashingEmbedder, get_embedder
-
-        emb = get_embedder()
-        out["embedding_degraded"] = bool(getattr(emb, "degraded", False))
-        if isinstance(emb, HashingEmbedder) and prov not in ("local", ""):
-            out["embedding_degraded"] = True
-    except Exception:
-        pass
+    probe = probe_embedder_snapshot()
+    if isinstance(probe, dict):
+        out["embedding_degraded"] = bool(probe.get("embedding_degraded"))
     return out
 
 

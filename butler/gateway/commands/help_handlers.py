@@ -129,14 +129,11 @@ def format_help_text(topic: str = "") -> str:
     if entry:
         title, body = entry
         return f"Butler 帮助 — {title}\n{body.strip()}"
-    try:
-        from butler.gateway.command_registry import format_registry_help
+    from butler.gateway.commands.help_handlers_ops import format_registry_help_safe
 
-        registry_result = format_registry_help(topic)
-        if not registry_result.startswith("未找到"):
-            return registry_result
-    except Exception:
-        pass
+    registry_result = format_registry_help_safe(topic)
+    if registry_result:
+        return registry_result
     return (
         f"未找到帮助主题: {topic}\n\n"
         f"可用主题: {', '.join(_HELP_GROUPS.keys())}\n"
