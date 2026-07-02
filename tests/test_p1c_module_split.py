@@ -140,6 +140,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/task_orchestrator_ops.py": 80,
     "butler/dev_engine/dev_loop_ops.py": 70,
     "butler/dev_engine/review_closure_ops.py": 80,
+    "butler/workflow_step_runner_ops.py": 80,
+    "butler/model_resolve_ops.py": 120,
+    "butler/dev_engine/verify_ops.py": 130,
+    "butler/gateway/platforms/wechat_ilink/adapter_media_ops.py": 50,
+    "butler/gateway/platforms/wechat_ilink/adapter_lifecycle_ops.py": 60,
+    "butler/mcp/manager_ops.py": 90,
+    "butler/memory/observer_queue_ops.py": 70,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

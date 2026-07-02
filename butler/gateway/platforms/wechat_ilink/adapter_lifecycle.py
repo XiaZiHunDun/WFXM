@@ -26,6 +26,7 @@ def schedule_typing_ticket_bg(
 
 
 async def connect(adapter: "WeChatAdapter") -> bool:
+    from butler.gateway.platforms.wechat_ilink.adapter_lifecycle_ops import connect_loud
     from butler.gateway.platforms.wechat_ilink_phases import (
         _phase_connect_open_sessions,
         _phase_connect_validate,
@@ -33,22 +34,16 @@ async def connect(adapter: "WeChatAdapter") -> bool:
 
     if not _phase_connect_validate(adapter):
         return False
-    try:
+
+    def _run_connect() -> bool:
         _phase_connect_open_sessions(adapter)
         return adapter.is_connected
-    except Exception as exc:
-        logger.warning("[%s] connect failed: %s", adapter.name, exc)
-        if not adapter.is_connected:
-            try:
-                await disconnect(adapter)
-            except Exception as d_exc:
-                logger.debug("[%s] connect rollback disconnect: %s", adapter.name, d_exc)
-        adapter._set_fatal_error(
-            "wechat_connect_failed",
-            str(exc)[:300],
-            retryable=True,
-        )
-        return False
+
+    return await connect_loud(
+        adapter,
+        run_connect=_run_connect,
+        rollback_disconnect=lambda: disconnect(adapter),
+    )
 
 
 async def disconnect(adapter: "WeChatAdapter") -> None:
@@ -86,6 +81,7 @@ async def poll_loop(adapter: "WeChatAdapter") -> None:
         _get_updates,
         _load_sync_buf,
     )
+    from butler.gateway.platforms.wechat_ilink.adapter_lifecycle_ops import poll_iteration_loud
     from butler.gateway.platforms.wechat_ilink_phases import _phase_poll_handle_response
 
     assert adapter._poll_session is not None
@@ -94,7 +90,8 @@ async def poll_loop(adapter: "WeChatAdapter") -> None:
     consecutive_failures = 0
 
     while adapter._running:
-        try:
+        async def _run_iteration() -> int:
+            nonlocal sync_buf, timeout_ms, consecutive_failures
             response = await _get_updates(
                 adapter._poll_session,
                 base_url=adapter._base_url,
@@ -108,15 +105,18 @@ async def poll_loop(adapter: "WeChatAdapter") -> None:
             new_sync_buf = str(response.get("get_updates_buf") or "").strip()
             if new_sync_buf:
                 sync_buf = new_sync_buf
-            consecutive_failures = await adapter._dispatch_poll_response(
+            return await adapter._dispatch_poll_response(
                 response, consecutive_failures, _phase_poll_handle_response,
+            )
+
+        try:
+            consecutive_failures = await poll_iteration_loud(
+                adapter,
+                run_iteration=_run_iteration,
+                consecutive_failures=consecutive_failures,
             )
         except asyncio.CancelledError:
             break
-        except Exception as exc:
-            consecutive_failures = await adapter._handle_poll_exception(
-                exc, consecutive_failures,
-            )
 
 
 __all__ = ["connect", "disconnect", "poll_loop", "schedule_typing_ticket_bg"]

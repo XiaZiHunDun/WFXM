@@ -17,59 +17,24 @@ ProgressFn = Callable[[str, str, str], None]
 
 
 def interpolate_workflow_task(node: "TaskNode") -> None:
-    try:
-        from butler.execution_context import get_workflow_var_pool
+    from butler.workflow_step_runner_ops import interpolate_workflow_task_safe
 
-        pool = get_workflow_var_pool()
-        if pool is not None:
-            node.config.task = pool.interpolate(node.config.task)
-    except Exception as exc:
-        logger.debug("workflow task interpolate skipped: %s", exc)
+    interpolate_workflow_task_safe(node)
 
 
 def _observe_step_duration_ms(node_id: str, elapsed_ms: float) -> None:
-    try:
-        from butler.ops.runtime_metrics import observe_ms
+    from butler.workflow_step_runner_ops import observe_step_duration_ms_safe
 
-        observe_ms(
-            "workflow_step_duration_ms",
-            elapsed_ms,
-            labels={"step": node_id},
-        )
-    except Exception as exc:
-        logger.debug("workflow step duration metric skipped: %s", exc)
+    observe_step_duration_ms_safe(node_id, elapsed_ms)
 
 
 def _evaluate_until_assertion(
     node: "TaskNode",
     last_result: "AgentResult",
 ) -> "AgentResult":
-    from butler.task_orchestrator import AgentResult
+    from butler.workflow_step_runner_ops import evaluate_until_assertion_loud
 
-    try:
-        from butler.workflows.until_assert import evaluate_until
-
-        ok, err = evaluate_until(last_result.response or "", node.until)
-        if not ok:
-            return AgentResult(
-                success=False,
-                error=err or "until_assertion_failed",
-                response=last_result.response,
-            )
-    except ImportError:
-        return last_result
-    except Exception as exc:
-        logger.error(
-            "until assertion raised for step %s — treating as failed: %s",
-            node.id,
-            exc,
-        )
-        return AgentResult(
-            success=False,
-            error=f"until_assertion_error: {exc}",
-            response=last_result.response,
-        )
-    return last_result
+    return evaluate_until_assertion_loud(node, last_result)
 
 
 async def run_step_with_retry(
@@ -118,6 +83,7 @@ async def run_rescue_steps(
     """Ansible-style rescue: run fallback agents after primary failure."""
     from butler.core.workflow_flags import workflow_rescue_enabled
     from butler.task_orchestrator import AgentResult
+    from butler.task_orchestrator_ops import on_progress_safe
 
     if not workflow_rescue_enabled():
         return failed
@@ -127,17 +93,9 @@ async def run_rescue_steps(
     ]
     for idx, cfg in enumerate(node.rescue_configs):
         rescue_id = f"{node.id}__rescue_{idx}"
-        if on_progress:
-            try:
-                on_progress(rescue_id, "start", cfg.role)
-            except Exception as exc:
-                logger.debug("rescue on_progress: %s", exc)
+        on_progress_safe(on_progress, rescue_id, "start", cfg.role)
         r = await spawn(cfg, on_progress=on_progress)
-        if on_progress:
-            try:
-                on_progress(rescue_id, "done", cfg.role)
-            except Exception as exc:
-                logger.debug("rescue on_progress done skipped: %s", exc)
+        on_progress_safe(on_progress, rescue_id, "done", cfg.role)
         if r.response:
             parts.append(f"## Rescue ({rescue_id})\n{r.response[:3000]}")
     merged = "\n\n".join(p for p in parts if p)

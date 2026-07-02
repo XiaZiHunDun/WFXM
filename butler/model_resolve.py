@@ -153,73 +153,17 @@ def format_model_diagnostic_lines(
         spec = f"{c.provider or '-'}/{c.model or '-'}"
         lines.append(f"  {role}: {spec} [{_format_sources(em.sources)}]")
 
-    try:
-        from butler.transport.auxiliary_client import resolve_auxiliary_config
+    from butler.model_resolve_ops import (
+        append_auxiliary_diagnostic_lines,
+        append_embedding_diagnostic_line,
+        append_llm_fallback_diagnostic_line,
+        extend_gateway_media_diagnostic_lines,
+    )
 
-        for task in ("compression", "post_session"):
-            aux = resolve_auxiliary_config(task)
-            lines.append(
-                f"  auxiliary({task}): {aux.provider or '-'}/{aux.model or '-'}"
-            )
-    except Exception:
-        lines.append("  auxiliary: 未配置")
-
-    try:
-        from butler.memory.semantic_config import resolve_embedding_config
-
-        ep, em = resolve_embedding_config()
-        lines.append(f"  embedding: {ep or '-'}/{em or '-'}")
-    except Exception:
-        lines.append("  embedding: 未配置")
-
-    try:
-        primary = resolve_effective_model("butler", project=project, settings=settings)
-        extras = settings.llm_fallback_extra_configs(primary.config)
-        if extras:
-            fb = ", ".join(f"{c.provider or '-'}/{c.model or '-'}" for c in extras)
-            lines.append(f"  llm_fallback: auto → {fb}")
-        elif isinstance(settings.llm_fallback, dict) and settings.llm_fallback.get("enabled") is False:
-            lines.append("  llm_fallback: 关")
-        else:
-            lines.append("  llm_fallback: 仅 primary")
-    except Exception:
-        lines.append("  llm_fallback: 未配置")
-
-    try:
-        from butler.gateway_settings import (
-            format_gateway_inbound_config_source_line,
-            format_gateway_queue_config_source_line,
-        )
-
-        lines.append(format_gateway_inbound_config_source_line())
-        lines.append(format_gateway_queue_config_source_line())
-        from butler.gateway.inbound_media import inbound_media_enabled
-
-        if inbound_media_enabled():
-            from butler.gateway_settings import (
-                resolve_gateway_inbound_config,
-                vision_api_host,
-                vision_endpoint_path,
-            )
-
-            gw = resolve_gateway_inbound_config()
-            lines.append(
-                f"  gateway(识图): {gw.vision.provider} VLM @ "
-                f"{vision_api_host()}/v1/{vision_endpoint_path()}"
-            )
-            ilink = "iLink 优先" if gw.speech.prefer_ilink_text else "本地 STT 优先"
-            lines.append(
-                f"  gateway(语音): {ilink}; STT={gw.speech.stt_provider}; "
-                f"whisper={gw.speech.whisper_model}"
-            )
-            try:
-                from butler.gateway.media_telemetry import format_media_diagnostic_lines
-
-                lines.extend(format_media_diagnostic_lines())
-            except Exception as exc:
-                logger.debug("format model diagnostic lines skipped: %s", exc)
-    except Exception:
-        lines.append("  gateway(入站媒体): 不可用")
+    append_auxiliary_diagnostic_lines(lines)
+    append_embedding_diagnostic_line(lines)
+    append_llm_fallback_diagnostic_line(lines, project=project, settings=settings)
+    extend_gateway_media_diagnostic_lines(lines)
 
     return lines
 
@@ -254,18 +198,15 @@ def handle_model_command(
             settings=settings,
         ), False
 
-    try:
-        from butler.provider_presets import try_handle_preset_model_command
+    from butler.model_resolve_ops import try_handle_preset_model_command_safe
 
-        preset_out = try_handle_preset_model_command(
-            text,
-            project=project,
-            project_label=project_label,
-        )
-        if preset_out is not None:
-            return preset_out
-    except Exception as exc:
-        logger.debug("handle model command skipped: %s", exc)
+    preset_out = try_handle_preset_model_command_safe(
+        text,
+        project=project,
+        project_label=project_label,
+    )
+    if preset_out is not None:
+        return preset_out
     parts = text.split(maxsplit=2)
     verb = parts[0].lower()
 

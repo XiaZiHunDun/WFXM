@@ -38,28 +38,16 @@ def observations_path(workspace: Path) -> Path:
 def observations_db(workspace: Path) -> ObservationStore:
     ws = Path(workspace).expanduser().resolve()
     store = ObservationStore(observations_db_path(ws))
-    try:
-        from butler.memory.observation_migrate import migrate_tsv_if_needed
+    from butler.memory.observer_queue_ops import migrate_observations_tsv_safe
 
-        migrate_tsv_if_needed(ws, store=store)
-    except Exception as exc:
-        logger.debug("observation tsv auto-migrate skipped: %s", exc)
+    migrate_observations_tsv_safe(ws, store)
     return store
 
 
 def _resolve_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.memory.observer_queue_ops import resolve_observer_workspace_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        proj = orch.project_manager.get_current()
-        if proj is None:
-            return None
-        return Path(proj.workspace)
-    except Exception:
-        return None
+    return resolve_observer_workspace_safe()
 
 
 def _workspace_key(workspace: Path) -> str:
@@ -134,15 +122,16 @@ def flush_observer_queue(workspace: Path | None = None) -> int:
             return 0
         batch = list(queue)
         queue.clear()
-    try:
-        return observations_db(ws).insert_many(batch)
-    except Exception as exc:
+
+    def _requeue(rows: list[dict[str, str]]) -> None:
         with _LOCK:
-            queue = _queue_for(ws)
-            for row in reversed(batch):
-                queue.appendleft(row)
-        logger.warning("observations.db write failed: %s", exc)
-        return 0
+            q = _queue_for(ws)
+            for row in reversed(rows):
+                q.appendleft(row)
+
+    from butler.memory.observer_queue_ops import flush_observation_batch_loud
+
+    return flush_observation_batch_loud(ws, batch, requeue=_requeue)
 
 
 def flush_all_observer_queues() -> int:
@@ -163,10 +152,9 @@ def list_observations_for_path(workspace: Path, file_path: str, *, limit: int = 
     path = observations_path(Path(workspace))
     if not path.is_file():
         return []
-    try:
-        return observations_db(Path(workspace)).list_for_path(file_path, limit=limit)
-    except Exception:
-        return []
+    from butler.memory.observer_queue_ops import list_observations_for_path_safe
+
+    return list_observations_for_path_safe(workspace, file_path, limit=limit)
 
 
 __all__ = [

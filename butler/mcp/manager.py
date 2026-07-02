@@ -112,13 +112,12 @@ class McpConnectionManager:
     def _close_handle(self, handle: _ServerHandle) -> None:
         if handle.cleanup is None:
             return
-        try:
-            run_mcp_async(handle.cleanup(), timeout=30.0)
-        except Exception as exc:
-            logger.debug("MCP cleanup %s: %s", handle.config.server_id, exc)
-        handle.session = None
-        handle.cleanup = None
-        handle.status.connected = False
+        from butler.mcp.manager_ops import close_mcp_handle_safe
+
+        close_mcp_handle_safe(
+            handle,
+            run_cleanup=lambda: run_mcp_async(handle.cleanup(), timeout=30.0),
+        )
 
     def ensure_connected(
         self,
@@ -130,18 +129,9 @@ class McpConnectionManager:
 
         sk = self._scope_key(session_key)
         configs = load_mcp_servers(workspace=workspace)
-        try:
-            from butler.mcp.profiles import (
-                filter_servers_by_profile,
-                get_session_profile,
-                mcp_profiles_enabled,
-            )
+        from butler.mcp.manager_ops import filter_mcp_servers_by_profile_safe
 
-            if mcp_profiles_enabled():
-                profile = get_session_profile(session_key=sk)
-                configs = filter_servers_by_profile(configs, profile)
-        except Exception as exc:
-            logger.debug("ensure connected skipped: %s", exc)
+        configs = filter_mcp_servers_by_profile_safe(configs, session_key=sk)
         # Sprint 16 REL-11-6: 用 _with_handles 持锁进行 read-modify-write,
         # 避免 _handles_for 返回的 snapshot 被 disconnect_session 异步清空。
         with self._with_handles(session_key) as handles:
@@ -169,19 +159,13 @@ class McpConnectionManager:
             if handle.status.degraded and handle.status.last_error:
                 continue
             if not handle.status.connected:
-                try:
-                    self._connect_handle(handle, workspace=workspace)
-                except Exception as exc:
-                    msg = str(exc)[:300]
-                    handle.status.last_error = msg
-                    handle.status.degraded = True
-                    # Audit R2-6: surface connect failure at ERROR with full
-                    # traceback so operators (and the /诊断 view downstream)
-                    # can see WHICH MCP server is down, not just the user-side
-                    # "Unknown MCP tool" complaint later.
-                    logger.error(
-                        "MCP connect %s failed", cfg.server_id, exc_info=exc,
-                    )
+                from butler.mcp.manager_ops import connect_handle_loud
+
+                if not connect_handle_loud(
+                    handle,
+                    server_id=cfg.server_id,
+                    run_connect=lambda h=handle: self._connect_handle(h, workspace=workspace),
+                ):
                     continue
             session_tools = getattr(handle, "_cached_tools", None)
             if session_tools is None:
@@ -268,22 +252,15 @@ class McpConnectionManager:
                 timeout=timeout,
             )
 
-        try:
-            return run_mcp_async(_call(), timeout=timeout + 10.0)
-        except Exception as exc:
-            handle.status.degraded = True
-            handle.status.last_error = str(exc)[:300]
-            # Audit R2-6: the runtime call_tool path used to silently swallow
-            # the exception. Surface at ERROR with full traceback so the
-            # failure is visible in logs and /诊断, not only via the JSON
-            # "MCP_ERROR" payload the user gets back.
-            logger.error(
-                "MCP call_tool %s/%s failed",
-                cfg.server_id,
-                ref.original_name,
-                exc_info=exc,
-            )
-            return _error_payload(ref.registered_name, str(exc))
+        from butler.mcp.manager_ops import call_tool_loud
+
+        return call_tool_loud(
+            handle,
+            server_id=cfg.server_id,
+            tool_name=ref.original_name,
+            run_call=lambda: run_mcp_async(_call(), timeout=timeout + 10.0),
+            on_error=lambda msg: _error_payload(ref.registered_name, msg),
+        )
 
 
     def status_snapshot(self, session_key: str = "") -> list[McpServerStatus]:

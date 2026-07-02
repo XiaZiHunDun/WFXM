@@ -32,16 +32,9 @@ def _project_dev_env() -> dict[str, str]:
 
 def _load_project_dev_config(workspace: Path) -> dict[str, Any]:
     """Load ``dev:`` block from ``workspace/project.yaml`` when present."""
-    cfg_path = workspace / "project.yaml"
-    if not cfg_path.is_file():
-        return {}
-    try:
-        from butler.project.model import Project
+    from butler.dev_engine.verify_ops import load_project_dev_config_safe
 
-        return dict(Project.from_yaml(cfg_path).dev or {})
-    except Exception as exc:
-        logger.debug("project dev config load skipped: %s", exc)
-        return {}
+    return load_project_dev_config_safe(workspace)
 
 
 def _argv_from_dev_command(cmd: str, extra_args: list[str] | None = None) -> list[str]:
@@ -60,57 +53,11 @@ def _run_command(
     env: dict[str, str] | None = None,
 ) -> VerifyResult:
     """Run a verification command and parse output."""
-    t0 = time.time()
-    run_env = env if env is not None else {**os.environ, "PYTHONPATH": str(workspace)}
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            cwd=str(workspace),
-            env=run_env,
-        )
-        elapsed = time.time() - t0
-        combined = result.stdout + "\n" + result.stderr
-        diagnostics = parse_diagnostics(combined, source=source)
+    from butler.dev_engine.verify_ops import execute_verify_subprocess
 
-        if result.returncode == 0:
-            return VerifyResult(
-                status=VerifyStatus.PASS,
-                diagnostics=diagnostics,
-                command=" ".join(cmd),
-                elapsed_seconds=elapsed,
-                exit_code=0,
-            )
-        tail = combined.strip()[-1500:] if combined.strip() else ""
-        return VerifyResult(
-            status=VerifyStatus.FAIL,
-            diagnostics=diagnostics,
-            command=" ".join(cmd),
-            elapsed_seconds=elapsed,
-            exit_code=result.returncode,
-            output_tail=tail,
-        )
-    except subprocess.TimeoutExpired:
-        return VerifyResult(
-            status=VerifyStatus.TIMEOUT,
-            command=" ".join(cmd),
-            elapsed_seconds=time.time() - t0,
-        )
-    except FileNotFoundError:
-        return VerifyResult(
-            status=VerifyStatus.SKIP,
-            command=" ".join(cmd),
-            elapsed_seconds=0.0,
-        )
-    except Exception as exc:
-        logger.warning("Verify command failed: %s", exc)
-        return VerifyResult(
-            status=VerifyStatus.SKIP,
-            command=" ".join(cmd),
-            elapsed_seconds=time.time() - t0,
-        )
+    return execute_verify_subprocess(
+        cmd, workspace, timeout, source, env=env,
+    )
 
 
 def _run_project_dev_command(
@@ -347,24 +294,18 @@ def select_auto_verify_levels(
         return edit_levels
     prod_levels = ""
     if cat:
-        try:
-            from butler.dev_engine.prod_delegate_bridge import production_auto_verify_levels
+        from butler.dev_engine.verify_ops import production_auto_verify_levels_safe
 
-            prod_levels = production_auto_verify_levels(cat)
-        except Exception:
-            prod_levels = ""
+        prod_levels = production_auto_verify_levels_safe(cat)
     return prod_levels or auto_verify_levels() or edit_levels
 
 
 def auto_verify_levels() -> str:
     """Return the auto-verify levels from env (default: lint,test)."""
     default = os.getenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", "lint,test").strip()
-    try:
-        from butler.ops.eval_config_overrides import effective_dev_auto_verify_levels
+    from butler.dev_engine.verify_ops import effective_dev_auto_verify_levels_safe
 
-        return effective_dev_auto_verify_levels(default)
-    except Exception:
-        return default
+    return effective_dev_auto_verify_levels_safe(default=default)
 
 
 def _has_tool(name: str) -> bool:

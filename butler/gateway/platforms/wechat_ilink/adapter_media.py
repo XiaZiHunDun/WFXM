@@ -57,9 +57,11 @@ async def download_image(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
         _media_reference,
         cache_image_from_bytes,
     )
+    from butler.gateway.platforms.wechat_ilink.adapter_media_ops import download_media_loud
 
     media = _media_reference(item, "image_item")
-    try:
+
+    async def _run() -> Optional[str]:
         data = await _download_and_decrypt_media(
             adapter._poll_session,
             cdn_base_url=adapter._cdn_base_url,
@@ -71,9 +73,8 @@ async def download_image(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
             timeout_seconds=30.0,
         )
         return cache_image_from_bytes(data, ".jpg")
-    except Exception as exc:
-        logger.warning("[%s] image download failed: %s", adapter.name, exc)
-        return None
+
+    return await download_media_loud(adapter, label="image download", run_download=_run)
 
 
 async def download_video(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Optional[str]:
@@ -82,9 +83,11 @@ async def download_video(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
         _media_reference,
         cache_document_from_bytes,
     )
+    from butler.gateway.platforms.wechat_ilink.adapter_media_ops import download_media_loud
 
     media = _media_reference(item, "video_item")
-    try:
+
+    async def _run() -> Optional[str]:
         data = await _download_and_decrypt_media(
             adapter._poll_session,
             cdn_base_url=adapter._cdn_base_url,
@@ -94,9 +97,8 @@ async def download_video(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
             timeout_seconds=120.0,
         )
         return cache_document_from_bytes(data, "video.mp4")
-    except Exception as exc:
-        logger.warning("[%s] video download failed: %s", adapter.name, exc)
-        return None
+
+    return await download_media_loud(adapter, label="video download", run_download=_run)
 
 
 async def download_file(
@@ -108,12 +110,14 @@ async def download_file(
         _mime_from_filename,
         cache_document_from_bytes,
     )
+    from butler.gateway.platforms.wechat_ilink.adapter_media_ops import download_file_loud
 
     file_item = item.get("file_item") or {}
     media = file_item.get("media") or {}
     filename = str(file_item.get("file_name") or "document.bin")
     mime = _mime_from_filename(filename)
-    try:
+
+    async def _run() -> Tuple[Optional[str], str]:
         data = await _download_and_decrypt_media(
             adapter._poll_session,
             cdn_base_url=adapter._cdn_base_url,
@@ -123,9 +127,12 @@ async def download_file(
             timeout_seconds=60.0,
         )
         return cache_document_from_bytes(data, filename), mime
-    except Exception as exc:
-        logger.warning("[%s] file download failed: %s", adapter.name, exc)
-        return None, mime
+
+    return await download_file_loud(
+        adapter,
+        run_download=_run,
+        default_mime=mime,
+    )
 
 
 async def download_voice(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Optional[str]:
@@ -133,12 +140,14 @@ async def download_voice(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
         _download_and_decrypt_media,
         cache_audio_from_bytes,
     )
+    from butler.gateway.platforms.wechat_ilink.adapter_media_ops import download_media_loud
 
     voice_item = item.get("voice_item") or {}
     media = voice_item.get("media") or {}
     if voice_item.get("text"):
         return None
-    try:
+
+    async def _run() -> Optional[str]:
         data = await _download_and_decrypt_media(
             adapter._poll_session,
             cdn_base_url=adapter._cdn_base_url,
@@ -148,9 +157,8 @@ async def download_voice(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
             timeout_seconds=60.0,
         )
         return cache_audio_from_bytes(data, ".silk")
-    except Exception as exc:
-        logger.warning("[%s] voice download failed: %s", adapter.name, exc)
-        return None
+
+    return await download_media_loud(adapter, label="voice download", run_download=_run)
 
 
 async def download_remote_media(adapter: "WeChatAdapter", url: str) -> str:
