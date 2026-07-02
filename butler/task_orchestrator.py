@@ -190,13 +190,11 @@ class TaskOrchestrator:
 
         logger.info("Spawning %s agent [%s]: %s", config.role, task_id, config.task[:80])
 
-        if on_progress:
-            try:
-                on_progress(task_id, "start", config.role)
-            except Exception as exc:
-                logger.debug("on_progress start failed: %s", exc)
+        from butler.task_orchestrator_ops import on_progress_safe, spawn_agent_loud
 
-        try:
+        on_progress_safe(on_progress, task_id, "start", config.role)
+
+        async def _run_spawn() -> AgentResult:
             from butler.delegate.policy import MAX_DELEGATE_DEPTH
 
             if config.delegate_depth >= MAX_DELEGATE_DEPTH:
@@ -257,18 +255,14 @@ class TaskOrchestrator:
             success = loop_result.status.value == "completed"
 
             response_text = loop_result.final_response or ""
-            try:
-                from butler.core.workflow_flags import workflow_clear_child_enabled
+            from butler.task_orchestrator_ops import truncate_child_response_safe
 
-                if workflow_clear_child_enabled() or config.clear_child_transcript:
-                    response_text = (
-                        report.headline
-                        or report.summary
-                        or response_text
-                    )[:2000]
-            except Exception as exc:
-                logger.debug("spawn agent skipped: %s", exc)
-            result = AgentResult(
+            response_text = truncate_child_response_safe(
+                response_text=response_text,
+                report=report,
+                clear_child_transcript=config.clear_child_transcript,
+            )
+            return AgentResult(
                 success=success,
                 response=response_text,
                 report=report,
@@ -278,9 +272,8 @@ class TaskOrchestrator:
                 elapsed_seconds=loop_result.elapsed_seconds,
                 error="" if success else (loop_result.error or loop_result.status.value),
             )
-        except Exception as exc:
-            logger.error("Agent [%s] failed: %s", task_id, exc)
-            result = AgentResult(success=False, error=str(exc))
+
+        result = await spawn_agent_loud(_run_spawn, task_id=task_id)
 
         task.completed_at = time.time()
         task.status = AgentStatus.COMPLETED if result.success else AgentStatus.FAILED
@@ -290,17 +283,17 @@ class TaskOrchestrator:
         logger.info("Agent [%s] %s in %.1fs", task_id, task.status.value, elapsed)
 
         if on_progress:
-            try:
-                status_label = "done" if result.success else "failed"
-                preview = ""
-                if status_label != "start":
-                    preview = (result.response or result.error or "")[:500]
-                try:
-                    on_progress(task_id, status_label, config.role, preview)
-                except TypeError:
-                    on_progress(task_id, status_label, config.role)
-            except Exception as exc:
-                logger.debug("on_progress end failed: %s", exc)
+            status_label = "done" if result.success else "failed"
+            preview = ""
+            if status_label != "start":
+                preview = (result.response or result.error or "")[:500]
+            on_progress_safe(
+                on_progress,
+                task_id,
+                status_label,
+                config.role,
+                preview,
+            )
 
         return result
 
@@ -373,13 +366,10 @@ class TaskOrchestrator:
         layers = group_into_layers(order, node_map)
         step_index = 0
 
-        try:
-            from butler.core.meta_flags import workflow_max_parallel_default
+        from butler.task_orchestrator_ops import on_progress_safe, workflow_max_parallel_safe
 
-            if max_parallel is None:
-                max_parallel = workflow_max_parallel_default()
-        except Exception as exc:
-            logger.debug("execute graph skipped: %s", exc)
+        if max_parallel is None:
+            max_parallel = workflow_max_parallel_safe(default=None)
         for layer in layers:
             layer_tasks = []
             for node_id in layer:
@@ -411,11 +401,7 @@ class TaskOrchestrator:
                 if len(batch) == 1:
                     nid, node = batch[0]
                     step_index += 1
-                    if on_progress:
-                        try:
-                            on_progress(nid, "start", node.config.role)
-                        except Exception as exc:
-                            logger.debug("graph on_progress start: %s", exc)
+                    on_progress_safe(on_progress, nid, "start", node.config.role)
                     from butler.execution_context import use_workflow_step
 
                     with use_workflow_step(nid):

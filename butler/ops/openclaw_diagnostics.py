@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-import logging
 
-
-logger = logging.getLogger(__name__)
 
 def format_openclaw_diagnostic_lines(
     health: dict[str, Any] | None = None,
@@ -14,6 +11,17 @@ def format_openclaw_diagnostic_lines(
     session_key: str = "",
 ) -> list[str]:
     """Preemptive compact, tool-loop detectors, gateway admission."""
+    from butler.ops.openclaw_diagnostics_ops import (
+        append_bot_loop_guard_line,
+        append_preemptive_compact_line,
+        append_reply_admission_line,
+        append_secrets_status_line,
+        append_terminal_approval_line,
+        append_terminal_danger_line,
+        append_tool_loop_detector_line,
+        extend_terminal_sandbox_lines,
+    )
+
     h = health or {}
     loop = h.get("loop") if isinstance(h.get("loop"), dict) else {}
     lines: list[str] = []
@@ -31,78 +39,15 @@ def format_openclaw_diagnostic_lines(
         msg = h.get("preemptive_overflow_message") or loop.get("preemptive_overflow_message") or ""
         lines.append(f"前置压缩: 溢出阻断 ({str(msg)[:120]})")
 
-    try:
-        from butler.core.preemptive_compact import preemptive_compact_enabled
+    append_preemptive_compact_line(lines)
+    append_tool_loop_detector_line(lines)
+    append_reply_admission_line(lines, session_key=session_key, health=h)
+    append_bot_loop_guard_line(lines)
+    append_terminal_approval_line(lines)
+    append_secrets_status_line(lines)
+    append_terminal_danger_line(lines)
+    extend_terminal_sandbox_lines(lines)
 
-        lines.append(
-            f"前置压缩开关: {'开' if preemptive_compact_enabled() else '关'} (BUTLER_PREEMPTIVE_COMPACT)"
-        )
-    except Exception as exc:
-        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
-    try:
-        from butler.core.tool_loop_detect import enabled_detectors, get_tool_loop_detector
-
-        detectors = enabled_detectors()
-        if detectors:
-            last = get_tool_loop_detector().last_detector_label()
-            lines.append(
-                f"工具环检测: {','.join(sorted(detectors))}"
-                + (f" (上轮触发: {last})" if last else "")
-            )
-        else:
-            lines.append("工具环检测: 关闭")
-    except Exception:
-        lines.append("工具环检测: 不可用")
-
-    try:
-        from butler.gateway.reply_admission import is_admitted, reply_admission_enabled
-
-        if reply_admission_enabled():
-            sk = str(session_key or h.get("session_key") or "").strip()
-            if sk and is_admitted(sk):
-                lines.append("Reply 准入: 本 session 有活跃 turn")
-    except Exception as exc:
-        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
-    try:
-        from butler.gateway.bot_loop_guard import bot_loop_guard_enabled
-
-        lines.append(
-            f"Bot 环防护: {'开' if bot_loop_guard_enabled() else '关'} (BUTLER_BOT_LOOP_GUARD)"
-        )
-    except Exception as exc:
-        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
-    try:
-        from butler.tools.terminal_approval import approval_required
-
-        if approval_required():
-            lines.append("Terminal 批准: 需 Owner /批准执行")
-    except Exception as exc:
-        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
-    try:
-        from butler.config_secrets import secrets_status_line
-
-        lines.append(secrets_status_line())
-    except Exception as exc:
-        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
-    try:
-        from butler.tools.terminal_danger import danger_patterns_enabled
-        from butler.tools.terminal_pattern_approval import smart_pattern_approve_enabled
-
-        if danger_patterns_enabled():
-            flag = "开" if smart_pattern_approve_enabled() else "关"
-            lines.append(f"Terminal 危险模式: 开 (smart_approve={flag})")
-    except Exception as exc:
-        logger.debug("format openclaw diagnostic lines skipped: %s", exc)
-    try:
-        from butler.ops.terminal_sandbox_diagnostics import (
-            format_terminal_sandbox_diagnostic_lines,
-        )
-        from butler.tools.path_safety import current_workspace_root
-
-        ws = current_workspace_root()
-        lines.extend(format_terminal_sandbox_diagnostic_lines(workspace=ws))
-    except Exception as exc:
-        logger.debug("terminal sandbox diagnostics skipped: %s", exc)
     loop_tools = loop.get("tool_selector_output") or h.get("tool_selector_output")
     if loop_tools is not None:
         dropped = loop.get("tool_selector_dropped") or h.get("tool_selector_dropped") or 0

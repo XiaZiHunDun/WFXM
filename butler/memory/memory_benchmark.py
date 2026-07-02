@@ -95,9 +95,12 @@ class BenchmarkReport:
 
 def _run_mb1_exact_recall(butler_home: Path) -> BenchmarkResult:
     """MB1: Write profile → recall with original text."""
+    from butler.memory.memory_benchmark_ops import run_mb_loud
+
     t0 = time.time()
     expected = BenchmarkExpected(min_survival_rate=1.0)
-    try:
+
+    def _run() -> BenchmarkResult:
         from butler.memory.butler_memory import ButlerMemory
 
         bm = ButlerMemory(butler_home)
@@ -118,19 +121,24 @@ def _run_mb1_exact_recall(butler_home: Path) -> BenchmarkResult:
             expected=expected, details={"wrote": content, "recalled": hit},
             elapsed_ms=(time.time() - t0) * 1000,
         )
-    except Exception as exc:
-        return BenchmarkResult(
-            benchmark_id="MB1", category=BenchmarkCategory.EXACT_RECALL,
-            expected=expected, error=str(exc),
-            elapsed_ms=(time.time() - t0) * 1000,
-        )
+
+    return run_mb_loud(
+        _run,
+        benchmark_id="MB1",
+        category=BenchmarkCategory.EXACT_RECALL,
+        expected=expected,
+        t0=t0,
+    )
 
 
 def _run_mb2_semantic_recall(butler_home: Path) -> BenchmarkResult:
     """MB2: Write experience → recall with keyword overlap."""
+    from butler.memory.memory_benchmark_ops import run_mb_loud
+
     t0 = time.time()
     expected = BenchmarkExpected(min_recall=0.5)
-    try:
+
+    def _run() -> BenchmarkResult:
         from butler.memory.butler_memory import ButlerMemory
 
         bm = ButlerMemory(butler_home)
@@ -146,19 +154,24 @@ def _run_mb2_semantic_recall(butler_home: Path) -> BenchmarkResult:
             details={"wrote": content, "query": "Docker containers", "hit_count": len(hits)},
             elapsed_ms=(time.time() - t0) * 1000,
         )
-    except Exception as exc:
-        return BenchmarkResult(
-            benchmark_id="MB2", category=BenchmarkCategory.SEMANTIC_RECALL,
-            expected=expected, error=str(exc),
-            elapsed_ms=(time.time() - t0) * 1000,
-        )
+
+    return run_mb_loud(
+        _run,
+        benchmark_id="MB2",
+        category=BenchmarkCategory.SEMANTIC_RECALL,
+        expected=expected,
+        t0=t0,
+    )
 
 
 def _run_mb3_cross_session_persistence(butler_home: Path) -> BenchmarkResult:
     """MB3: Write → close → reopen → recall."""
+    from butler.memory.memory_benchmark_ops import run_mb_loud
+
     t0 = time.time()
     expected = BenchmarkExpected(min_survival_rate=1.0)
-    try:
+
+    def _run() -> BenchmarkResult:
         from butler.memory.butler_memory import ButlerMemory
 
         bm1 = ButlerMemory(butler_home)
@@ -177,19 +190,24 @@ def _run_mb3_cross_session_persistence(butler_home: Path) -> BenchmarkResult:
             details={"survived_restart": found},
             elapsed_ms=(time.time() - t0) * 1000,
         )
-    except Exception as exc:
-        return BenchmarkResult(
-            benchmark_id="MB3", category=BenchmarkCategory.PERSISTENCE,
-            expected=expected, error=str(exc),
-            elapsed_ms=(time.time() - t0) * 1000,
-        )
+
+    return run_mb_loud(
+        _run,
+        benchmark_id="MB3",
+        category=BenchmarkCategory.PERSISTENCE,
+        expected=expected,
+        t0=t0,
+    )
 
 
 def _run_mb4_decay_behavior(butler_home: Path) -> BenchmarkResult:
     """MB4: Write → simulate 60 days → verify decay ordering."""
+    from butler.memory.memory_benchmark_ops import run_mb_loud
+
     t0 = time.time()
     expected = BenchmarkExpected(max_decay_error=0.5)
-    try:
+
+    def _run() -> BenchmarkResult:
         from butler.memory.retrieval_ranking import rerank_memory_hits
 
         now = time.time()
@@ -217,19 +235,24 @@ def _run_mb4_decay_behavior(butler_home: Path) -> BenchmarkResult:
             },
             elapsed_ms=(time.time() - t0) * 1000,
         )
-    except Exception as exc:
-        return BenchmarkResult(
-            benchmark_id="MB4", category=BenchmarkCategory.DECAY,
-            expected=expected, error=str(exc),
-            elapsed_ms=(time.time() - t0) * 1000,
-        )
+
+    return run_mb_loud(
+        _run,
+        benchmark_id="MB4",
+        category=BenchmarkCategory.DECAY,
+        expected=expected,
+        t0=t0,
+    )
 
 
 def _run_mb5_capacity_pressure(butler_home: Path) -> BenchmarkResult:
     """MB5: Write many → query earliest → verify retrievable."""
+    from butler.memory.memory_benchmark_ops import run_mb_loud
+
     t0 = time.time()
     expected = BenchmarkExpected(min_recall=0.5)
-    try:
+
+    def _run() -> BenchmarkResult:
         from butler.memory.butler_memory import ButlerMemory
 
         bm = ButlerMemory(butler_home)
@@ -250,19 +273,24 @@ def _run_mb5_capacity_pressure(butler_home: Path) -> BenchmarkResult:
             details={"total_written": 51, "first_recalled": found},
             elapsed_ms=(time.time() - t0) * 1000,
         )
-    except Exception as exc:
-        return BenchmarkResult(
-            benchmark_id="MB5", category=BenchmarkCategory.CAPACITY,
-            expected=expected, error=str(exc),
-            elapsed_ms=(time.time() - t0) * 1000,
-        )
+
+    return run_mb_loud(
+        _run,
+        benchmark_id="MB5",
+        category=BenchmarkCategory.CAPACITY,
+        expected=expected,
+        t0=t0,
+    )
 
 
 def _run_mb6_fact_compaction(butler_home: Path) -> BenchmarkResult:
     """MB6: Extract facts → verify count within limit."""
+    from butler.memory.memory_benchmark_ops import run_mb_loud
+
     t0 = time.time()
     expected = BenchmarkExpected(min_survival_rate=0.8)
-    try:
+
+    def _run() -> BenchmarkResult:
         from butler.core.fact_extraction import (
             _MAX_FACTS_PER_SESSION,
             _extract_facts_from_messages,
@@ -290,19 +318,24 @@ def _run_mb6_fact_compaction(butler_home: Path) -> BenchmarkResult:
             },
             elapsed_ms=(time.time() - t0) * 1000,
         )
-    except Exception as exc:
-        return BenchmarkResult(
-            benchmark_id="MB6", category=BenchmarkCategory.FACT_COMPACTION,
-            expected=expected, error=str(exc),
-            elapsed_ms=(time.time() - t0) * 1000,
-        )
+
+    return run_mb_loud(
+        _run,
+        benchmark_id="MB6",
+        category=BenchmarkCategory.FACT_COMPACTION,
+        expected=expected,
+        t0=t0,
+    )
 
 
 def _run_mb7_injection_safety(butler_home: Path) -> BenchmarkResult:
     """MB7: Write with injection pattern → verify rejection."""
+    from butler.memory.memory_benchmark_ops import run_mb_loud
+
     t0 = time.time()
     expected = BenchmarkExpected(must_filter=True)
-    try:
+
+    def _run() -> BenchmarkResult:
         from butler.memory.butler_memory import ButlerMemory
 
         bm = ButlerMemory(butler_home)
@@ -325,12 +358,14 @@ def _run_mb7_injection_safety(butler_home: Path) -> BenchmarkResult:
             details={"tested_patterns": len(injections), "all_blocked": all_blocked},
             elapsed_ms=(time.time() - t0) * 1000,
         )
-    except Exception as exc:
-        return BenchmarkResult(
-            benchmark_id="MB7", category=BenchmarkCategory.INJECTION_SAFETY,
-            expected=expected, error=str(exc),
-            elapsed_ms=(time.time() - t0) * 1000,
-        )
+
+    return run_mb_loud(
+        _run,
+        benchmark_id="MB7",
+        category=BenchmarkCategory.INJECTION_SAFETY,
+        expected=expected,
+        t0=t0,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +392,8 @@ def run_benchmarks(butler_home: Path | None = None) -> BenchmarkReport:
     Passing a real ``~/.butler`` path reuses that home for every task and
     **persists** bench rows (MB5 filler), profile writes (MB1), etc.
     """
+    from butler.memory.memory_benchmark_ops import run_benchmark_task_loud
+
     report = BenchmarkReport()
 
     for bench_fn in _BENCHMARKS:
@@ -367,14 +404,11 @@ def run_benchmarks(butler_home: Path | None = None) -> BenchmarkReport:
             tenant = home / "tenants" / "default" / "memory"
             tenant.mkdir(parents=True, exist_ok=True)
 
-            try:
-                result = bench_fn(home)
-            except Exception as exc:
-                result = BenchmarkResult(
-                    benchmark_id=bench_fn.__name__,
-                    category=BenchmarkCategory.EXACT_RECALL,
-                    error=str(exc),
-                )
+            result = run_benchmark_task_loud(
+                bench_fn,
+                home,
+                fallback_id=bench_fn.__name__,
+            )
             report.results.append(result)
             report.total += 1
             if result.passed:

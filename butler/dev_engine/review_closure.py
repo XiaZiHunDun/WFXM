@@ -5,28 +5,21 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from butler.contracts.review_ports import DevReviewView, ReviewFinding
+from butler.contracts.review_ports import DevReviewView
 from butler.core.review_context_adapter import max_severity
 
 logger = logging.getLogger(__name__)
 
 
 def review_closure_write_enabled() -> bool:
-    try:
-        from butler.core.reflection_closure import reflection_closure_enabled
+    from butler.dev_engine.review_closure_ops import (
+        closure_write_flags_safe,
+        reflection_closure_enabled_safe,
+    )
 
-        if not reflection_closure_enabled():
-            return False
-    except Exception:
+    if not reflection_closure_enabled_safe():
         return False
-    try:
-        from butler.env_parse import env_truthy
-
-        return env_truthy("BUTLER_REFLECTION_CLOSURE_WRITE", default=False) or env_truthy(
-            "BUTLER_REFLEXION_WRITE_EXPERIENCE", default=False
-        )
-    except Exception:
-        return False
+    return closure_write_flags_safe()
 
 
 def maybe_persist_review_closure(
@@ -42,19 +35,14 @@ def maybe_persist_review_closure(
         return
     top = errors[0] if errors else view.findings[0]
     cause = f"{top.rule_id}: {top.message}"[:400]
-    try:
-        from butler.core.reflection_closure import maybe_persist_reflect_closure
+    from butler.dev_engine.review_closure_ops import persist_reflect_closure_safe
 
-        maybe_persist_reflect_closure(
-            trigger="review_fail",
-            cause=cause,
-            strategy="address_review_findings",
-            detail=f"findings={len(view.findings)}",
-            session_key=session_key,
-            source=source,
-        )
-    except Exception as exc:
-        logger.debug("review closure persist skipped: %s", exc)
+    persist_reflect_closure_safe(
+        cause=cause,
+        session_key=session_key,
+        source=source,
+        findings_count=len(view.findings),
+    )
 
 
 def maybe_queue_experience_candidate(
@@ -71,27 +59,21 @@ def maybe_queue_experience_candidate(
         return
     lines = [f"- [{f.rule_id}] {f.message}"[:200] for f in errors[:4]]
     content = "Review findings:\n" + "\n".join(lines)
-    try:
-        from butler.config import get_butler_home
-        from butler.memory.memory_scope import coding_experiences_save_path
+    from butler.config import get_butler_home
+    from butler.dev_engine.review_closure_ops import queue_experience_candidate_safe
+    from butler.memory.memory_scope import coding_experiences_save_path
 
-        path = coding_experiences_save_path(project=project or None)
-        row = {
-            "title": f"review:{errors[0].rule_id}",
-            "content": content[:800],
-            "tags": ["review", errors[0].rule_id],
-            "source": "dev_review",
-            "task_preview": (task_preview or "")[:200],
-        }
-        path.parent.mkdir(parents=True, exist_ok=True)
-        import json
-
-        pending = get_butler_home() / "experiences" / "review_candidates.jsonl"
-        pending.parent.mkdir(parents=True, exist_ok=True)
-        with pending.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-    except Exception as exc:
-        logger.debug("review experience candidate skipped: %s", exc)
+    path = coding_experiences_save_path(project=project or None)
+    row = {
+        "title": f"review:{errors[0].rule_id}",
+        "content": content[:800],
+        "tags": ["review", errors[0].rule_id],
+        "source": "dev_review",
+        "task_preview": (task_preview or "")[:200],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pending = get_butler_home() / "experiences" / "review_candidates.jsonl"
+    queue_experience_candidate_safe(row=row, pending_path=pending)
 
 
 def summarize_review_for_delegate(view: DevReviewView) -> dict[str, Any]:

@@ -38,12 +38,9 @@ def create_dev_state(
 
     env_fix = int_env("BUTLER_DEV_MAX_FIX_ROUNDS", 3)
     if max_fix_rounds is None:
-        try:
-            from butler.ops.eval_config_overrides import effective_dev_max_fix_rounds
+        from butler.dev_engine.dev_loop_ops import effective_dev_max_fix_rounds_safe
 
-            k_max = effective_dev_max_fix_rounds(env_fix)
-        except Exception:
-            k_max = env_fix
+        k_max = effective_dev_max_fix_rounds_safe(env_default=env_fix)
     else:
         k_max = max_fix_rounds
     i_max = max_iterations or 24
@@ -55,11 +52,9 @@ def create_dev_state(
 
     tid = task_id or uuid.uuid4().hex[:12]
     state._metrics_task_id = tid  # type: ignore[attr-defined]
-    try:
-        from butler.dev_engine.dev_metrics import get_collector
-        get_collector().on_task_start(tid, task_description)
-    except Exception:
-        pass
+    from butler.dev_engine.dev_loop_ops import on_task_start_safe
+
+    on_task_start_safe(tid, task_description)
 
     return state
 
@@ -120,13 +115,9 @@ def transition(state: DevState, event: str, **kwargs: Any) -> DevState:
 
             state.verify_result = VerifyResult(status=VerifyStatus.PASS)
         state.diagnostics = []
-        try:
-            from butler.dev_engine.dev_tools import auto_review_enabled
+        from butler.dev_engine.dev_loop_ops import maybe_promote_to_review_safe
 
-            if auto_review_enabled() and new_phase == DevPhase.DONE:
-                new_phase = DevPhase.REVIEW
-        except Exception:
-            pass
+        new_phase = maybe_promote_to_review_safe(new_phase)
 
     if event == "review_fail":
         from butler.core.review_context_adapter import (
@@ -164,13 +155,14 @@ def transition(state: DevState, event: str, **kwargs: Any) -> DevState:
 
 def _emit_metrics(state: DevState, from_phase: str, event: str, to_phase: str) -> None:
     """Emit transition event to the global MetricsCollector."""
-    try:
-        from butler.dev_engine.dev_metrics import get_collector
-        task_id = getattr(state, "_metrics_task_id", "")
-        if task_id:
-            get_collector().on_transition(task_id, from_phase, event, to_phase)
-    except Exception:
-        pass
+    from butler.dev_engine.dev_loop_ops import emit_transition_metrics_safe
+
+    emit_transition_metrics_safe(
+        state,
+        from_phase=from_phase,
+        event=event,
+        to_phase=to_phase,
+    )
 
 
 _TRANSITION_TABLE: dict[tuple[DevPhase, str], DevPhase] = {

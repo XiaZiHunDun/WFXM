@@ -133,6 +133,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/session/lifecycle_ops.py": 120,
     "butler/session/new_session_ops.py": 100,
     "butler/dev_engine/delegate_init_ops.py": 200,
+    "butler/ops/openclaw_diagnostics_ops.py": 130,
+    "butler/memory/memory_benchmark_ops.py": 60,
+    "butler/tools/mcp_self_service_ops.py": 60,
+    "butler/ops/stack_diagnostics_ops.py": 140,
+    "butler/task_orchestrator_ops.py": 80,
+    "butler/dev_engine/dev_loop_ops.py": 70,
+    "butler/dev_engine/review_closure_ops.py": 80,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150
