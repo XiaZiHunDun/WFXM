@@ -6,10 +6,26 @@ import logging
 from typing import Any
 
 from butler.session.lifecycle import (
-    _current_project,
     _EMPTY_MEMORY_MARKERS,
-    _filter_ephemeral_experience,
     _render_turn_memory_context,
+)
+from butler.session.memory_prefetch_ops import (
+    apply_instruction_pre_llm_transform,
+    butler_system_context,
+    emit_prefetch_metrics,
+    filter_prefetch_injection,
+    github_grounding_should_skip,
+    hybrid_experience_hits,
+    langfuse_on_prefetch,
+    normalize_prefetch_query,
+    pim_overview_line,
+    profile_vector_lines,
+    record_knowledge_inject,
+    record_prefetch_snippets,
+    record_project_prefetch_telemetry,
+    reflection_closure_banner,
+    session_key_for_prefetch,
+    session_read_recall_blocks_prefetch,
 )
 
 logger = logging.getLogger(__name__)
@@ -37,74 +53,10 @@ def prefetch_limits() -> dict[str, int]:
     }
 
 
-def _prefetch_retrieval_counts(diagnostics: dict[str, Any] | None) -> tuple[int, int]:
-    """Estimate injected memory item counts for P_r/R_r L2 metrics."""
-    if not diagnostics:
-        return 0, 0
-    total = 0
-    for key in (
-        "memory_experience_hits",
-        "memory_profile_vector_hits",
-        "memory_project_query_hits",
-    ):
-        total += int(diagnostics.get(key, 0) or 0)
-    for flag in (
-        "memory_butler_context",
-        "memory_project_context",
-        "memory_pim_injected",
-    ):
-        if diagnostics.get(flag):
-            total += 1
-    if int(diagnostics.get("memory_facts_chars", 0) or 0) > 0:
-        total += 1
-    return total, total
-
-
-def _emit_prefetch_metrics(
-    query: str,
-    *,
-    hit: bool,
-    result_count: int,
-    diagnostics: dict[str, Any] | None,
-) -> None:
-    try:
-        from butler.memory.memory_metrics import get_collector
-
-        collector = get_collector()
-        collector.on_prefetch(
-            query=(query or "")[:120],
-            hit=hit,
-            result_count=result_count,
-        )
-        total, relevant = _prefetch_retrieval_counts(diagnostics)
-        if total > 0:
-            collector.on_retrieval(
-                total_returned=total,
-                relevant=relevant,
-                used_by_llm=0,
-            )
-            if diagnostics is not None:
-                diagnostics["memory_prefetch_retrieval_total"] = total
-        from butler.memory.metrics_persist import flush_memory_metrics
-
-        flush_memory_metrics()
-    except Exception:
-        pass
-
-
-def _session_key_for_prefetch() -> str:
-    try:
-        from butler.execution_context import get_current_session_key
-
-        return str(get_current_session_key() or "").strip()
-    except Exception:
-        return ""
-
-
 def _resolve_project_memory_for_turn(orchestrator: Any) -> Any:
     from butler.memory.diagnostics import _resolve_project_memory
 
-    sk = _session_key_for_prefetch()
+    sk = session_key_for_prefetch()
     pmem, _ = _resolve_project_memory(orchestrator, sk)
     return pmem
 
@@ -121,31 +73,7 @@ def peek_experience_hits(
         return []
     caps = prefetch_limits()
     hit_limit = limit if limit is not None else caps["experience_hits"]
-    bm = getattr(orchestrator, "butler_memory", None)
-    if bm is None:
-        return []
-    exp = getattr(bm, "experience", None)
-    if exp is None:
-        return []
-    try:
-        from butler.memory.semantic_index import SemanticMemoryIndex, hybrid_experience_search
-
-        semantic = getattr(bm, "semantic", None)
-        if not isinstance(semantic, SemanticMemoryIndex):
-            semantic = None
-        return _filter_ephemeral_experience(
-            hybrid_experience_search(
-                semantic,
-                exp.search,
-                q,
-                project=_current_project(orchestrator) or None,
-                limit=hit_limit,
-                experience_store=exp,
-            )
-        )
-    except Exception as exc:
-        logger.debug("peek experience hits skipped: %s", exc)
-        return []
+    return hybrid_experience_hits(orchestrator, q, limit=hit_limit)
 
 
 def prefetch_turn_memory(
@@ -158,7 +86,7 @@ def prefetch_turn_memory(
     use_cache: bool = True,
 ) -> str:
     """Collect query-relevant Butler/project memory for the next turn."""
-    session_key = _session_key_for_prefetch()
+    session_key = session_key_for_prefetch()
     if use_cache:
         from butler.memory.prefetch_cache import get_cached_prefetch
 
@@ -174,78 +102,54 @@ def prefetch_turn_memory(
     hit_limit = limit if limit is not None else caps["experience_hits"]
     parts: list[str] = []
 
-    try:
-        from butler.core.session_recall_intent import is_session_read_recall_intent
+    recall_skip = session_read_recall_blocks_prefetch(query)
+    if recall_skip is True:
+        if diagnostics is not None:
+            diagnostics["memory_prefetch_skipped"] = "session_read_recall"
+        emit_prefetch_metrics(query, hit=False, result_count=0, diagnostics=diagnostics)
+        return ""
 
-        if is_session_read_recall_intent(query):
-            if diagnostics is not None:
-                diagnostics["memory_prefetch_skipped"] = "session_read_recall"
-            _emit_prefetch_metrics(query, hit=False, result_count=0, diagnostics=diagnostics)
-            return ""
-    except Exception as exc:
-        logger.debug("session read recall prefetch gate skipped: %s", exc)
+    from butler.session.lifecycle import _current_project
 
     current_project = _current_project(orchestrator)
 
     bm = getattr(orchestrator, "butler_memory", None)
     if bm is not None:
-        try:
-            ctx = bm.get_system_context(current_project)
-            if ctx and ctx.strip() not in _EMPTY_MEMORY_MARKERS:
-                parts.append(str(ctx).strip())
+        ctx = butler_system_context(
+            bm,
+            current_project,
+            diagnostics=diagnostics,
+        )
+        if ctx:
+            parts.append(ctx)
+
+        q_strip = (query or "").strip()
+        if q_strip:
+            hits = peek_experience_hits(orchestrator, query, limit=hit_limit)
+            if hits:
+                lines = [
+                    f"- [{h.get('project', '') or 'global'}] {h.get('content', '')}".strip()
+                    for h in hits
+                    if h.get("content")
+                ]
+                if lines:
+                    parts.append("## Query-aligned experience\n" + "\n".join(lines))
+                    if diagnostics is not None:
+                        diagnostics["memory_experience_hits"] = len(lines)
+                        from butler.memory.semantic_index import SemanticMemoryIndex
+
+                        semantic = getattr(bm, "semantic", None)
+                        if not isinstance(semantic, SemanticMemoryIndex):
+                            semantic = None
+                        diagnostics["memory_semantic_enabled"] = semantic is not None
+                        if semantic is not None:
+                            diagnostics["memory_vector_rows"] = semantic.count_rows()
+            prof = profile_vector_lines(bm, q_strip)
+            if prof is not None:
+                plines, count = prof
+                parts.append("## Owner profile (vector)\n" + "\n".join(plines))
                 if diagnostics is not None:
-                    diagnostics["memory_butler_context"] = True
-        except Exception as exc:
-            if diagnostics is not None:
-                diagnostics["memory_butler_error"] = str(exc)
-            logger.debug("Butler memory prefetch skipped: %s", exc)
-
-        try:
-            from butler.memory.semantic_index import SemanticMemoryIndex
-
-            semantic = getattr(bm, "semantic", None)
-            if not isinstance(semantic, SemanticMemoryIndex):
-                semantic = None
-            if (query or "").strip():
-                hits = peek_experience_hits(
-                    orchestrator, query, limit=hit_limit
-                )
-                if hits:
-                    lines = [
-                        f"- [{h.get('project', '') or 'global'}] {h.get('content', '')}".strip()
-                        for h in hits
-                        if h.get("content")
-                    ]
-                    if lines:
-                        parts.append("## Query-aligned experience\n" + "\n".join(lines))
-                        if diagnostics is not None:
-                            diagnostics["memory_experience_hits"] = len(lines)
-                            diagnostics["memory_semantic_enabled"] = semantic is not None
-                            if semantic is not None:
-                                diagnostics["memory_vector_rows"] = semantic.count_rows()
-                if semantic is not None and hasattr(bm, "search_profile_vectors"):
-                    try:
-                        prof_hits = bm.search_profile_vectors(query, limit=3)
-                        if prof_hits:
-                            plines = [
-                                f"- {h.get('content', '')}".strip()
-                                for h in prof_hits
-                                if h.get("content")
-                            ]
-                            if plines:
-                                parts.append(
-                                    "## Owner profile (vector)\n" + "\n".join(plines)
-                                )
-                                if diagnostics is not None:
-                                    diagnostics["memory_profile_vector_hits"] = len(
-                                        plines
-                                    )
-                    except Exception as exc:
-                        logger.debug("Profile vector prefetch skipped: %s", exc)
-        except Exception as exc:
-            if diagnostics is not None:
-                diagnostics["memory_experience_error"] = str(exc)
-            logger.debug("Experience prefetch skipped: %s", exc)
+                    diagnostics["memory_profile_vector_hits"] = count
 
     pmem = _resolve_project_memory_for_turn(orchestrator)
     q_strip = (query or "").strip()
@@ -289,20 +193,15 @@ def prefetch_turn_memory(
                 from butler.memory.project_memory import filter_memory_hits_by_role
 
                 hits = filter_memory_hits_by_role(hits, role)
-                try:
-                    from butler.memory.retrieval_telemetry import record_last_retrieval
-
-                    record_last_retrieval(
-                        session_key,
-                        {
-                            "mode": f"project-{mode}",
-                            "fallbacks": 1 if sem_enabled and mode == "keyword" else 0,
-                            "candidates": len(hits),
-                            "query": q_strip,
-                        },
-                    )
-                except Exception as exc:
-                    logger.debug("Prefetch telemetry recording skipped: %s", exc)
+                record_project_prefetch_telemetry(
+                    session_key,
+                    {
+                        "mode": f"project-{mode}",
+                        "fallbacks": 1 if sem_enabled and mode == "keyword" else 0,
+                        "candidates": len(hits),
+                        "query": q_strip,
+                    },
+                )
                 if hits:
                     lines = [
                         f"- {h.get('content', '')}".strip()
@@ -338,17 +237,11 @@ def prefetch_turn_memory(
                 diagnostics["memory_project_error"] = str(exc)
             logger.debug("Project memory prefetch skipped: %s", exc)
 
-    try:
-        from butler.core.pim_state import load_pim_state
-
-        pim = load_pim_state()
-        pim_line = pim.summary_line()
-        if pim_line and pim_line != "(empty)":
-            parts.append(f"## PIM overview\n{pim_line}")
-            if diagnostics is not None:
-                diagnostics["memory_pim_injected"] = True
-    except Exception as exc:
-        logger.debug("PIM prefetch skipped: %s", exc)
+    pim_line = pim_overview_line()
+    if pim_line:
+        parts.append(f"## PIM overview\n{pim_line}")
+        if diagnostics is not None:
+            diagnostics["memory_pim_injected"] = True
 
     merged = "\n\n".join(p for p in parts if p.strip())
     total_cap = caps["total_max_chars"]
@@ -358,41 +251,25 @@ def prefetch_turn_memory(
             diagnostics["memory_prefetch_truncated"] = True
     if diagnostics is not None:
         diagnostics["memory_prefetch_chars"] = len(merged)
-    try:
-        from butler.memory.injection_guard import filter_injection_from_prefetch
-
-        merged = filter_injection_from_prefetch(merged)
-    except Exception as exc:
-        logger.debug("Prefetch injection filter skipped: %s", exc)
+    merged = filter_prefetch_injection(merged)
     merged = _normalize_prefetch_body(merged, diagnostics)
     if merged.strip():
         from butler.memory.prefetch_cache import set_cached_prefetch
 
         set_cached_prefetch(session_key, query, merged)
-        try:
-            from butler.memory.prefetch_retrieval_metrics import record_prefetch_snippets
-
-            record_prefetch_snippets(diagnostics, merged)
-        except Exception as exc:
-            logger.debug("prefetch snippet capture skipped: %s", exc)
+        record_prefetch_snippets(diagnostics, merged)
 
     hit = bool(merged.strip())
     result_count = int(diagnostics.get("memory_experience_hits", 0) if diagnostics else 0)
-    _emit_prefetch_metrics(query, hit=hit, result_count=result_count, diagnostics=diagnostics)
+    emit_prefetch_metrics(query, hit=hit, result_count=result_count, diagnostics=diagnostics)
 
-    try:
-        from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
-        if langfuse_enabled():
-            ctx = get_current_trace(session_key=session_key)
-            if ctx is not None:
-                ctx.on_memory_prefetch(
-                    query=(query or "")[:120],
-                    hit=hit,
-                    result_count=result_count,
-                    chars=len(merged),
-                )
-    except Exception:
-        pass
+    langfuse_on_prefetch(
+        session_key=session_key,
+        query=query,
+        hit=hit,
+        result_count=result_count,
+        chars=len(merged),
+    )
 
     return _decorate_prefetch_for_turn(merged, diagnostics, session_key=session_key)
 
@@ -413,16 +290,11 @@ def _decorate_prefetch_for_turn(
     session_key: str = "",
 ) -> str:
     merged = str(body or "").strip()
-    try:
-        from butler.core.reflection_closure import build_reflect_closure_banner
-
-        banner = build_reflect_closure_banner(session_key=session_key)
-        if banner.strip():
-            merged = f"{banner}\n\n{merged}".strip() if merged else banner.strip()
-            if diagnostics is not None:
-                diagnostics["reflection_closure_injected"] = True
-    except Exception as exc:
-        logger.debug("reflection closure inject skipped: %s", exc)
+    banner = reflection_closure_banner(session_key)
+    if banner.strip():
+        merged = f"{banner}\n\n{merged}".strip() if merged else banner.strip()
+        if diagnostics is not None:
+            diagnostics["reflection_closure_injected"] = True
     return merged
 
 
@@ -436,7 +308,7 @@ def queue_prefetch_after_turn(
     """Warm prefetch cache in background after a turn completes."""
     from butler.memory.prefetch_cache import schedule_prefetch_warm
 
-    sk = str(session_id or "").strip() or _session_key_for_prefetch()
+    sk = str(session_id or "").strip() or session_key_for_prefetch()
 
     def _build() -> str:
         from butler.execution_context import use_execution_context
@@ -481,37 +353,12 @@ def build_memory_pre_llm_transform(
     """Build an API-time memory injection transform that does not mutate history."""
 
     def _transform(messages: list[dict]) -> list[dict]:
-        try:
-            from butler.mcp.github_grounding import find_latest_github_repo_list_envelope
-
-            if find_latest_github_repo_list_envelope(messages) is not None:
-                if diagnostics is not None:
-                    diagnostics["memory_context_injected"] = False
-                    diagnostics["memory_prefetch_skipped_github_grounding"] = True
-                out = [dict(m) if isinstance(m, dict) else m for m in messages]
-                if existing:
-                    return existing(out)
-                return out
-            from butler.mcp.github_grounding import find_latest_github_issue_list_envelope
-
-            if find_latest_github_issue_list_envelope(messages) is not None:
-                if diagnostics is not None:
-                    diagnostics["memory_context_injected"] = False
-                    diagnostics["memory_prefetch_skipped_github_grounding"] = True
-                out = [dict(m) if isinstance(m, dict) else m for m in messages]
-                if existing:
-                    return existing(out)
-                return out
-        except Exception as exc:
-            logger.debug("GitHub grounding prefetch skip check failed: %s", exc)
-        effective_query = query
-        try:
-            from butler.core.input_stage import begin_input_stage, normalize_inbound_text
-
-            begin_input_stage(diagnostics)
-            effective_query = normalize_inbound_text(query)
-        except Exception as exc:
-            logger.debug("Input stage normalize skipped: %s", exc)
+        if github_grounding_should_skip(messages):
+            if diagnostics is not None:
+                diagnostics["memory_context_injected"] = False
+                diagnostics["memory_prefetch_skipped_github_grounding"] = True
+            return [dict(m) if isinstance(m, dict) else m for m in messages]
+        effective_query = normalize_prefetch_query(query, diagnostics)
         ctx = prefetch_turn_memory(
             orchestrator, effective_query, role=role, diagnostics=diagnostics
         )
@@ -533,25 +380,13 @@ def build_memory_pre_llm_transform(
                 if diagnostics is not None:
                     diagnostics["memory_context_injected"] = True
                     diagnostics["memory_context_chars"] = min(len(ctx), cap)
-                try:
-                    from butler.execution_context import get_current_session_key
-                    from butler.core.session_transcript import record_knowledge_inject
-
-                    sk = str(get_current_session_key() or "").strip()
-                    if sk:
-                        snippets = None
-                        if diagnostics is not None:
-                            raw = diagnostics.get("memory_prefetch_snippets")
-                            if isinstance(raw, list):
-                                snippets = [str(s) for s in raw]
-                        record_knowledge_inject(
-                            sk,
-                            source="memory_prefetch",
-                            chars=min(len(ctx), cap),
-                            terms=snippets,
-                        )
-                except Exception as exc:
-                    logger.debug("Prefetch context injection budget skipped: %s", exc)
+                sk = session_key_for_prefetch()
+                if sk:
+                    record_knowledge_inject(
+                        sk,
+                        chars=min(len(ctx), cap),
+                        diagnostics=diagnostics,
+                    )
                 break
         return out
 
@@ -582,16 +417,7 @@ def attach_turn_memory_prefetch(
 
     def _composed(messages: list[dict]) -> list[dict]:
         prepared = memory_transform(messages)
-        try:
-            from butler.core.instruction_walkup import build_instruction_pre_llm_transform
-            from butler.execution_context import get_current_session_key
-
-            inst_transform = build_instruction_pre_llm_transform(
-                session_key=str(get_current_session_key() or ""),
-            )
-            prepared = inst_transform(prepared)
-        except Exception as exc:
-            logger.debug("Instruction pre-LLM transform skipped: %s", exc)
+        prepared = apply_instruction_pre_llm_transform(prepared)
         if existing:
             return existing(prepared)
         return prepared

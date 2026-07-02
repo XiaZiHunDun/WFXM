@@ -24,6 +24,8 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/memory/diagnostics.py": 0,
     "butler/ops/health_report.py": 0,
     "butler/tools/registry.py": 1,
+    "butler/session/memory_prefetch.py": 1,
+    "butler/permissions/rules.py": 8,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

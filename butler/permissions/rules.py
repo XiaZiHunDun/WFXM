@@ -11,7 +11,14 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from butler.permissions.approvals import ApprovalRequest
 
-import yaml
+from butler.permissions.rules_context import (
+    current_session_key as _current_session_key,
+    current_workspace as _current_workspace,
+    is_session_tool_result_readable,
+    load_permissions_yaml as _load_permissions_yaml,
+    permission_request_hook_block,
+    security_blacklist_enabled as _security_blacklist_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,29 +83,6 @@ def match_path_glob(pattern: str, value: str) -> bool:
     return _match_glob(pattern, value)
 
 
-def _load_permissions_yaml(workspace: Path | None) -> dict[str, Any]:
-    if workspace is None:
-        return {}
-    for rel in (".butler/permissions.yaml", ".butler/permissions.yml"):
-        path = workspace / rel
-        if path.is_file():
-            try:
-                data = yaml.safe_load(path.read_text(encoding="utf-8"))
-                return data if isinstance(data, dict) else {}
-            except Exception as exc:
-                logger.warning("permissions.yaml parse failed: %s", exc)
-    proj = workspace / "project.yaml"
-    if proj.is_file():
-        try:
-            data = yaml.safe_load(proj.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                perms = data.get("permissions")
-                return perms if isinstance(perms, dict) else {}
-        except Exception as exc:
-            logger.debug("load permissions yaml skipped: %s", exc)
-    return {}
-
-
 def _match_glob(pattern: str, value: str) -> bool:
     pat = str(pattern or "").strip()
     if not pat:
@@ -115,13 +99,8 @@ def _resolve_path_arg(args: dict[str, Any]) -> str:
 def _path_outside_workspace(path_str: str, workspace: Path) -> bool:
     if not path_str:
         return False
-    try:
-        from butler.core.tool_result_storage import is_readable_session_tool_result_path
-
-        if is_readable_session_tool_result_path(path_str):
-            return False
-    except Exception as exc:
-        logger.debug("session tool-result outside-workspace check skipped: %s", exc)
+    if is_session_tool_result_readable(path_str):
+        return False
     try:
         root = workspace.expanduser().resolve()
         target = Path(path_str).expanduser()
@@ -238,15 +217,6 @@ def evaluate_workflow_step_permission(
         reason=f"步骤 {step_id} 仅允许工具: {', '.join(sorted(allowed_set))}",
         permission="workflow_step",
     )
-
-
-def _security_blacklist_enabled() -> bool:
-    try:
-        from butler.env_parse import env_truthy
-
-        return env_truthy("BUTLER_PERMISSIONS_PARAM_BLACKLIST", default=True)
-    except Exception:
-        return True
 
 
 def _arg_values_for_param(args: dict[str, Any], param: str) -> list[str]:
@@ -416,25 +386,19 @@ def _decision_with_approval(
     req = _approval_request_from_decision(decision, tool_name, args)
     if session_key and is_approved(session_key, req):
         return None
-    try:
-        from butler.hooks.runner import run_permission_request_hooks
-
-        hook_block = run_permission_request_hooks(
-            tool_name,
-            args,
-            reason=decision.reason,
-            session_key=session_key,
+    hook_block = permission_request_hook_block(
+        tool_name,
+        args,
+        reason=decision.reason,
+        session_key=session_key,
+    )
+    if hook_block:
+        return PermissionDecision(
+            allowed=False,
+            action="deny",
+            reason=hook_block,
+            permission=decision.permission,
         )
-        if hook_block:
-            decision = PermissionDecision(
-                allowed=False,
-                action="deny",
-                reason=hook_block,
-                permission=decision.permission,
-            )
-            return decision
-    except Exception as exc:
-        logger.warning("Permission request hooks failed (continuing): %s", exc)
     if session_key:
         save_pending(session_key, req)
     return decision
@@ -461,41 +425,6 @@ def check_external_path_override(
             return PermissionDecision(True, "allow", "session approval", permission="external_directory")
         return resolved
     return decision
-
-
-def _current_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
-
-        orch = get_current_orchestrator()
-        if orch is not None:
-            pm = getattr(orch, "project_manager", None)
-            if pm is not None:
-                proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-                if proj is not None:
-                    return Path(proj.workspace)
-    except Exception:
-        pass
-    try:
-        import os
-
-        raw = os.getenv("BUTLER_TOOL_SAFE_ROOT", "").strip()
-        if raw:
-            p = Path(raw).expanduser()
-            if p.is_dir():
-                return p.resolve()
-    except Exception:
-        pass
-    return None
-
-
-def _current_session_key() -> str:
-    try:
-        from butler.execution_context import get_current_session_key
-
-        return str(get_current_session_key() or "").strip()
-    except Exception:
-        return ""
 
 
 def _experiment_block_or_fail_closed(
