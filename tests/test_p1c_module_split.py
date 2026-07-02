@@ -27,6 +27,8 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/memory/semantic_project_ops.py": 150,
     "butler/memory/butler_memory_ops.py": 100,
     "butler/memory/semantic_index_ops.py": 200,
+    "butler/gateway/outbound_bridge_ops.py": 120,
+    "butler/memory/facade_ops.py": 300,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

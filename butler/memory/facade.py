@@ -19,8 +19,10 @@ from butler.memory.facade_ops import (
     butler_home_configured,
     close_butler_memory,
     discover_project_root,
+    dispatch_memory_tool,
     emit_recall_metric,
     emit_write_metric,
+    load_project_memory,
     manager_current_project,
     owner_write_approval_result,
     prefetch_global_context,
@@ -28,6 +30,7 @@ from butler.memory.facade_ops import (
     record_recall_telemetry,
     refresh_project_facts,
     resolve_active_project_name,
+    run_tool_call_safe,
     strip_private_tags_safe,
 )
 
@@ -193,15 +196,7 @@ class ButlerMemoryService:
 
         root = self._project_root or discover_project_root()
         self._project_root = root
-        if root:
-            try:
-                self._project_memory = ProjectMemory(root)
-                refresh_project_facts(self._project_memory)
-            except Exception as exc:
-                logger.warning("ButlerMemoryProvider ProjectMemory unavailable: %s", exc)
-                self._project_memory = None
-        else:
-            self._project_memory = None
+        self._project_memory = load_project_memory(root) if root else None
 
     def system_prompt_block(self) -> str:
         return (
@@ -326,15 +321,10 @@ class ButlerMemoryService:
 
     def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs) -> str:
         del kwargs
-        try:
-            if tool_name == "butler_remember":
-                return self._remember(args)
-            if tool_name == "butler_recall":
-                return self._recall(args)
-            return json.dumps({"ok": False, "error": f"unknown tool {tool_name}"})
-        except Exception as exc:
-            logger.error("ButlerMemoryProvider tool failure: %s", exc)
-            return json.dumps({"ok": False, "error": str(exc)})
+        return run_tool_call_safe(
+            lambda: dispatch_memory_tool(self, tool_name, args),
+            label="memory.facade.tool_call",
+        )
 
     def _remember(self, args: Dict[str, Any]) -> str:
         if self._butler_global is None:

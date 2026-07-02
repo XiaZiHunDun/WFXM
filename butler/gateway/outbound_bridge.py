@@ -473,25 +473,34 @@ class GatewayOutboundBridge:
             body = body[:3997] + "..."
 
         async def _send() -> None:
-            try:
-                await self.adapter.send(self.chat_id, body)
+            from butler.gateway.outbound_bridge_ops import send_adapter_message
+
+            ok = await send_adapter_message(
+                self.adapter,
+                self.chat_id,
+                body,
+                label="outbound_bridge.supplementary_send",
+            )
+            if ok:
                 logger.info(
                     "Gateway supplementary reply sent kind=%s chat_id=%s len=%d",
                     kind,
                     self.chat_id[:12],
                     len(body),
                 )
-            except Exception as exc:
+            else:
                 self._release_supplementary_slot()
-                logger.warning("Gateway supplementary reply failed: %s", exc)
 
-        try:
-            asyncio.run_coroutine_threadsafe(_send(), self.loop)
+        from butler.gateway.outbound_bridge_ops import schedule_coro_threadsafe
+
+        if schedule_coro_threadsafe(
+            self.loop,
+            _send,
+            label="outbound_bridge.supplementary_schedule",
+        ):
             return True
-        except Exception as exc:
-            self._release_supplementary_slot()
-            logger.warning("Gateway supplementary schedule failed: %s", exc)
-            return False
+        self._release_supplementary_slot()
+        return False
 
     def schedule_completion_push(self, text: str, *, kind: str) -> bool:
         """Thread-safe: send an extra completion message."""
@@ -565,15 +574,18 @@ class GatewayOutboundBridge:
             if kind == "delegate" and self._delegate_push_inflight > 0:
                 self._delegate_push_inflight -= 1
 
-        try:
-            asyncio.run_coroutine_threadsafe(_send(), self.loop)
+        from butler.gateway.outbound_bridge_ops import schedule_coro_threadsafe
+
+        if schedule_coro_threadsafe(
+            self.loop,
+            _send,
+            label="outbound_bridge.completion_schedule",
+        ):
             return True
-        except Exception as exc:
-            self._release_supplementary_slot()
-            if kind == "delegate" and self._delegate_push_inflight > 0:
-                self._delegate_push_inflight -= 1
-            logger.warning("Gateway completion push schedule failed: %s", exc)
-            return False
+        self._release_supplementary_slot()
+        if kind == "delegate" and self._delegate_push_inflight > 0:
+            self._delegate_push_inflight -= 1
+        return False
 
     async def maybe_send_ack(self) -> None:
         if self._closed or self._final_sent or self._ack_sent:
@@ -587,38 +599,17 @@ class GatewayOutboundBridge:
         from butler.gateway.pii_scrub import scrub_outbound_text
 
         text = scrub_outbound_text(text)
-        try:
-            await self.adapter.send(self.chat_id, text)
-            self._ack_sent = True
-            logger.info("Gateway progress ack sent chat_id=%s elapsed=%ds", self.chat_id, elapsed)
+        from butler.gateway.outbound_bridge_ops import send_progress_ack
 
-            def _schedule_task_milestone() -> None:
-                from butler.gateway.task_milestone import maybe_schedule_task_milestone
-
-                maybe_schedule_task_milestone(self)
-
-            safe_best_effort(
-                _schedule_task_milestone,
-                label="outbound_bridge.task_milestone_after_ack",
-                default=None,
-            )
-        except Exception as exc:
-            logger.warning("Gateway progress ack failed: %s", exc)
+        await send_progress_ack(self, text=text, elapsed=elapsed)
 
     async def _milestone_timer(self) -> None:
         try:
-            from butler.gateway.task_milestone import (
-                maybe_schedule_task_milestone,
-                task_milestone_min_seconds,
-            )
+            from butler.gateway.outbound_bridge_ops import run_milestone_timer_tick
 
-            await asyncio.sleep(task_milestone_min_seconds())
-            if not self._closed and not self._final_sent:
-                maybe_schedule_task_milestone(self)
+            await run_milestone_timer_tick(self)
         except asyncio.CancelledError:
             raise
-        except Exception as exc:
-            logger.debug("milestone timer ended: %s", exc)
 
     def _build_ack_text(self, elapsed: int) -> str:
         eta = self._estimate_eta(elapsed)
@@ -660,15 +651,11 @@ class GatewayOutboundBridge:
 
     async def _typing_refresh_loop(self) -> None:
         try:
-            while not self._closed:
-                await asyncio.sleep(self.typing_refresh_seconds)
-                if self._closed or self._final_sent:
-                    break
-                await self._safe_send_typing()
+            from butler.gateway.outbound_bridge_ops import run_typing_refresh_loop
+
+            await run_typing_refresh_loop(self)
         except asyncio.CancelledError:
             raise
-        except Exception as exc:
-            logger.debug("typing refresh loop ended: %s", exc)
 
     async def _ack_timer(self) -> None:
         try:

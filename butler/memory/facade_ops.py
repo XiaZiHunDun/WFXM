@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from butler.core.best_effort import safe_best_effort
 
@@ -230,12 +230,49 @@ def prefetch_project_context(project_memory: Any) -> str:
     ) or ""
 
 
+def load_project_memory(root: Path) -> Any | None:
+    def _run() -> Any:
+        from butler.memory import ProjectMemory
+
+        pm = ProjectMemory(root)
+        refresh_project_facts(pm)
+        return pm
+
+    return safe_best_effort(
+        _run,
+        label="memory.facade.load_project_memory",
+        default=None,
+    )
+
+
+def dispatch_memory_tool(service: Any, tool_name: str, args: dict[str, Any]) -> str:
+    import json
+
+    if tool_name == "butler_remember":
+        return service._remember(args)
+    if tool_name == "butler_recall":
+        return service._recall(args)
+    return json.dumps({"ok": False, "error": f"unknown tool {tool_name}"})
+
+
+def run_tool_call_safe(fn: Callable[[], str], *, label: str) -> str:
+    import json
+
+    try:
+        return fn()
+    except Exception as exc:
+        logger.error("ButlerMemoryProvider tool failure [%s]: %s", label, exc)
+        return json.dumps({"ok": False, "error": str(exc)})
+
+
 __all__ = [
     "butler_home_configured",
     "close_butler_memory",
     "discover_project_root",
+    "dispatch_memory_tool",
     "emit_recall_metric",
     "emit_write_metric",
+    "load_project_memory",
     "manager_current_project",
     "owner_write_approval_result",
     "prefetch_global_context",
@@ -243,5 +280,6 @@ __all__ = [
     "record_recall_telemetry",
     "refresh_project_facts",
     "resolve_active_project_name",
+    "run_tool_call_safe",
     "strip_private_tags_safe",
 ]
