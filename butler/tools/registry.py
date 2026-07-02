@@ -3,6 +3,7 @@
 Sub-modules:
   tool_audit.py       — audit recording, result finalization, observation tracking
   builtin_register.py — wires tool schemas to implementations
+  registry_gates.py   — optional permission/hook gates (P0-A safe_best_effort)
 
 Independent from Hermes tool system. Tools register here and
 the AgentLoop dispatches through this registry.
@@ -10,11 +11,28 @@ the AgentLoop dispatches through this registry.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from typing import Any, Callable, Dict, List
 
+from butler.tools.registry_gates import (
+    apply_post_tool_hooks,
+    dispatch_mcp_if_applicable,
+    extend_mcp_definitions,
+    filter_definitions_by_toolset,
+    inject_read_file_preread,
+    mcp_tools_enabled,
+    network_search_gate,
+    normalize_and_validate_args,
+    note_web_search_outcome,
+    permission_denied_hint,
+    permission_request_hooks_block,
+    plan_mode_mcp_block,
+    pre_tool_hooks_block,
+    project_permission_block,
+    session_read_recall_block,
+    tool_error_payload,
+)
 from butler.tools.tool_audit import (  # noqa: F401
     _finalize_tool_result,
     _maybe_record_tool_observation,
@@ -79,13 +97,7 @@ def register(
 def get_tool_definitions() -> List[dict]:
     """Return OpenAI function-calling format tool definitions."""
     _ensure_builtins()
-    mcp_available = False
-    try:
-        from butler.mcp.config import mcp_enabled
-
-        mcp_available = bool(mcp_enabled())
-    except Exception:
-        mcp_available = False
+    mcp_available = mcp_tools_enabled()
     result = []
     for entry in _REGISTRY.values():
         if entry.toolset in ("mcp", "mcp_self_service") and not mcp_available:
@@ -99,19 +111,8 @@ def get_tool_definitions() -> List[dict]:
             },
         })
     if mcp_available:
-        try:
-            from butler.mcp.registry_hook import get_mcp_tool_definitions
-
-            result.extend(get_mcp_tool_definitions())
-        except Exception as exc:
-            logger.debug("MCP tool definitions skipped: %s", exc)
-    try:
-        from butler.tools.toolset_profiles import filter_definitions_by_toolset
-
-        result = filter_definitions_by_toolset(result)
-    except Exception as exc:
-        logger.debug("toolset filter skipped: %s", exc)
-    return result
+        result = extend_mcp_definitions(result)
+    return filter_definitions_by_toolset(result)
 
 
 def _dispatch_mcp_tool(name: str, args: dict) -> str:
@@ -119,13 +120,7 @@ def _dispatch_mcp_tool(name: str, args: dict) -> str:
     from butler.mcp.registry_hook import dispatch_mcp_tool
 
     started_at = time.monotonic()
-    plan_block = None
-    try:
-        from butler.mcp.registry_hook import check_plan_mode_mcp_block
-
-        plan_block = check_plan_mode_mcp_block(name)
-    except Exception as exc:
-        logger.debug("MCP plan mode check skipped: %s", exc)
+    plan_block = plan_mode_mcp_block(name)
     if plan_block:
         return _permission_denied_tool_result(
             name,
@@ -134,37 +129,27 @@ def _dispatch_mcp_tool(name: str, args: dict) -> str:
             code="PLAN_MODE_BLOCKED",
         )
 
-    try:
-        from butler.permissions import check_project_permission_block
-
-        perm_block = check_project_permission_block(name, args)
-        if perm_block:
-            return _permission_denied_tool_result(
-                name,
-                args,
+    perm_block = project_permission_block(name, args)
+    if perm_block:
+        return _permission_denied_tool_result(
+            name,
+            args,
+            perm_block,
+            code=_permission_denied_code(
                 perm_block,
-                code=_permission_denied_code(
-                    perm_block,
-                    default="PERMISSION_RULE_DENIED",
-                ),
-            )
-    except Exception as exc:
-        logger.debug("MCP permission rules skipped: %s", exc)
+                default="PERMISSION_RULE_DENIED",
+            ),
+        )
 
-    try:
-        from butler.hooks.runner import run_pre_tool_hooks
-
-        pre_block = run_pre_tool_hooks(name, args)
-        if pre_block:
-            return _permission_denied_tool_result(
-                name,
-                args,
-                pre_block,
-                code="HOOK_BLOCKED",
-                started_at=started_at,
-            )
-    except Exception as exc:
-        logger.debug("MCP pre tool hooks skipped: %s", exc)
+    pre_block = pre_tool_hooks_block(name, args)
+    if pre_block:
+        return _permission_denied_tool_result(
+            name,
+            args,
+            pre_block,
+            code="HOOK_BLOCKED",
+            started_at=started_at,
+        )
 
     result = dispatch_mcp_tool(name, args)
     if result is None:
@@ -174,7 +159,7 @@ def _dispatch_mcp_tool(name: str, args: dict) -> str:
             {"error": f"Unknown MCP tool: {name}"},
             started_at=started_at,
         )
-    return _apply_post_tool_hooks(
+    return apply_post_tool_hooks(
         name,
         args,
         _finalize_tool_result(name, args, result, started_at=started_at),
@@ -185,25 +170,22 @@ def dispatch_tool(name: str, args: dict) -> str:
     """Dispatch a tool call by name. Returns result as string."""
     _ensure_builtins()
     started_at = time.monotonic()
-    try:
-        from butler.tools.network_search_policy import (
-            check_network_search_tool_block,
-            record_network_search_tool,
-        )
+    blocked = network_search_gate(
+        name,
+        args,
+        finalize=_finalize_tool_result,
+        started_at=started_at,
+    )
+    if blocked is not None:
+        return blocked
 
-        block = check_network_search_tool_block(name, args if isinstance(args, dict) else {})
-        if block:
-            return _finalize_tool_result(name, args, block, started_at=started_at)
-        record_network_search_tool(name)
-    except Exception as exc:
-        logger.debug("network search policy skipped: %s", exc)
-    try:
-        from butler.mcp.registry_hook import is_mcp_tool
-
-        if is_mcp_tool(name):
-            return _dispatch_mcp_tool(name, args)
-    except Exception as exc:
-        logger.debug("MCP dispatch routing skipped: %s", exc)
+    mcp_result = dispatch_mcp_if_applicable(
+        name,
+        args,
+        dispatch_mcp=_dispatch_mcp_tool,
+    )
+    if mcp_result is not None:
+        return mcp_result
 
     entry = _REGISTRY.get(name)
     if entry is None:
@@ -225,134 +207,79 @@ def dispatch_tool(name: str, args: dict) -> str:
             code="PLAN_MODE_BLOCKED",
         )
 
-    try:
-        from butler.core.session_recall_intent import check_session_read_recall_tool_block
+    recall_block = session_read_recall_block(name)
+    if recall_block:
+        return _permission_denied_tool_result(
+            name,
+            args,
+            recall_block,
+            code="SESSION_READ_RECALL_BLOCKED",
+        )
 
-        recall_block = check_session_read_recall_tool_block(name)
-        if recall_block:
-            return _permission_denied_tool_result(
-                name,
-                args,
-                recall_block,
-                code="SESSION_READ_RECALL_BLOCKED",
-            )
-    except Exception as exc:
-        logger.debug("Session read recall tool gate skipped: %s", exc)
-
-    try:
-        from butler.permissions import check_project_permission_block
-
-        perm_block = check_project_permission_block(name, args)
-        if perm_block:
-            return _permission_denied_tool_result(
-                name,
-                args,
+    perm_block = project_permission_block(name, args)
+    if perm_block:
+        return _permission_denied_tool_result(
+            name,
+            args,
+            perm_block,
+            code=_permission_denied_code(
                 perm_block,
-                code=_permission_denied_code(
-                    perm_block,
-                    default="PERMISSION_RULE_DENIED",
-                ),
-            )
-    except Exception as exc:
-        logger.debug("Project permission rules skipped: %s", exc)
+                default="PERMISSION_RULE_DENIED",
+            ),
+        )
 
     started_at = time.monotonic()
-    try:
-        from butler.execution_context import get_current_session_key
-        from butler.hooks.runner import run_permission_request_hooks, run_pre_tool_hooks
+    perm_block = permission_request_hooks_block(name, args)
+    if perm_block:
+        return _permission_denied_tool_result(
+            name,
+            args,
+            perm_block,
+            code="PERMISSION_REQUEST_HOOK",
+            started_at=started_at,
+        )
+    pre_block = pre_tool_hooks_block(name, args)
+    if pre_block:
+        return _permission_denied_tool_result(
+            name,
+            args,
+            pre_block,
+            code="HOOK_BLOCKED",
+            started_at=started_at,
+        )
 
-        sk = str(get_current_session_key() or "").strip()
-        perm_block = run_permission_request_hooks(name, args, session_key=sk)
-        if perm_block:
-            return _permission_denied_tool_result(
-                name,
-                args,
-                perm_block,
-                code="PERMISSION_REQUEST_HOOK",
-                started_at=started_at,
-            )
-        pre_block = run_pre_tool_hooks(name, args)
-        if pre_block:
-            return _permission_denied_tool_result(
-                name,
-                args,
-                pre_block,
-                code="HOOK_BLOCKED",
-                started_at=started_at,
-            )
-    except Exception as exc:
-        logger.debug("Pre tool hooks skipped: %s", exc)
+    call_args, arg_err = normalize_and_validate_args(name, args)
+    if arg_err is not None:
+        return apply_post_tool_hooks(
+            name,
+            args,
+            _finalize_tool_result(name, args, arg_err, started_at=started_at),
+            failed=True,
+        )
 
-    call_args = dict(args)
-    try:
-        from butler.tools.tool_arg_normalize import normalize_tool_args, validate_tool_args
-
-        call_args = normalize_tool_args(name, call_args)
-        arg_err = validate_tool_args(name, call_args)
-        if arg_err is not None:
-            return _apply_post_tool_hooks(
-                name,
-                args,
-                _finalize_tool_result(name, args, arg_err, started_at=started_at),
-                failed=True,
-            )
-    except Exception as exc:
-        logger.debug("tool arg normalize skipped: %s", exc)
-    if name == "read_file":
-        try:
-            from butler.core.preread_context import build_preread_block, inject_preread_into_args
-            from butler.execution_context import get_current_orchestrator
-
-            orch = get_current_orchestrator()
-            ws = None
-            if orch is not None:
-                proj = orch.project_manager.get_current()
-                if proj is not None:
-                    from pathlib import Path
-
-                    ws = Path(proj.workspace)
-            block = build_preread_block(ws, str(call_args.get("path") or ""))
-            if block:
-                call_args = inject_preread_into_args(call_args, block)
-        except Exception as exc:
-            logger.debug("dispatch tool skipped: %s", exc)
+    call_args = inject_read_file_preread(name, call_args)
     try:
         from butler.tools.tool_implicit_context import merge_implicit_tool_args
 
         call_args = merge_implicit_tool_args(call_args)
         result = entry.handler(**call_args)
         if name == "web_search":
-            try:
-                from butler.tools.network_search_policy import note_web_search_outcome
-
-                note_web_search_outcome(result)
-            except Exception as exc:
-                logger.debug("web_search outcome note skipped: %s", exc)
-        return _apply_post_tool_hooks(
+            note_web_search_outcome(result)
+        return apply_post_tool_hooks(
             name,
             args,
             _finalize_tool_result(name, args, result, started_at=started_at),
         )
     except Exception as exc:
         logger.error("Tool %s failed: %s", name, exc)
-        try:
-            from butler.core.tool_error_policy import apply_tool_error_policy
-
-            raw = apply_tool_error_policy(
-                "",
-                tool_name=name,
-                exc=exc,
-            )
-            payload = json.loads(raw) if raw.strip().startswith("{") else {"error": raw}
-        except Exception:
-            payload = {"error": f"Tool '{name}' failed: {exc}"}
+        payload = tool_error_payload(name, exc)
         err_result = _finalize_tool_result(
             name,
             args,
             payload,
             started_at=started_at,
         )
-        return _apply_post_tool_hooks(name, args, err_result, failed=True)
+        return apply_post_tool_hooks(name, args, err_result, failed=True)
 
 
 def _permission_denied_tool_result(
@@ -364,14 +291,9 @@ def _permission_denied_tool_result(
     started_at: float | None = None,
 ) -> str:
     payload: dict[str, Any] = {"error": reason, "code": code}
-    try:
-        from butler.hooks.runner import run_permission_denied_hooks
-
-        hint = run_permission_denied_hooks(name, args, reason)
-        if hint:
-            payload["permission_denied_hint"] = hint
-    except Exception as exc:
-        logger.debug("PermissionDenied hooks skipped: %s", exc)
+    hint = permission_denied_hint(name, args, reason)
+    if hint:
+        payload["permission_denied_hint"] = hint
     return _finalize_tool_result(
         name,
         args,
@@ -392,33 +314,6 @@ def _permission_denied_code(reason: str, *, default: str) -> str:
     ):
         return "TOOL_SECURITY_DENIED"
     return default
-
-
-def _apply_post_tool_hooks(
-    name: str,
-    args: dict,
-    finalized: str,
-    *,
-    failed: bool = False,
-) -> str:
-    try:
-        payload = json.loads(finalized)
-        if not failed and isinstance(payload, dict):
-            failed = (
-                payload.get("ok") is False
-                or "error" in payload
-                or payload.get("success") is False
-            )
-    except (TypeError, ValueError, json.JSONDecodeError):
-        if not failed:
-            failed = '"error"' in finalized
-    try:
-        from butler.hooks.runner import run_post_tool_hooks
-
-        return run_post_tool_hooks(name, args, finalized, failed=failed)
-    except Exception as exc:
-        logger.debug("Post tool hooks skipped: %s", exc)
-        return finalized
 
 
 _builtins_loaded = False
