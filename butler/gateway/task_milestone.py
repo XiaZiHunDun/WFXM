@@ -11,19 +11,17 @@ if TYPE_CHECKING:
 
 
 def task_milestone_enabled() -> bool:
-    from butler.env_parse import env_truthy, float_env
+    from butler.env_parse import env_truthy
+    from butler.gateway.task_milestone_ops import delegate_progress_notify_enabled_safe
 
-    try:
-        from butler.gateway.completion_notify import delegate_progress_notify_enabled
-
-        if delegate_progress_notify_enabled():
-            return True
-    except Exception:
-        pass
+    if delegate_progress_notify_enabled_safe():
+        return True
     return env_truthy("BUTLER_GATEWAY_TASK_MILESTONE", default=False)
 
 
 def task_milestone_min_seconds() -> float:
+    from butler.env_parse import float_env
+
     try:
         return max(30.0, float_env("BUTLER_GATEWAY_TASK_MILESTONE_SECONDS", 90))
     except ValueError:

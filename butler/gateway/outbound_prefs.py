@@ -13,15 +13,10 @@ _single_bubble_reply: ContextVar[bool] = ContextVar(
 
 def mark_slash_reply_single_bubble() -> None:
     """Next main outbound text should stay one WeChat bubble when possible."""
-    try:
-        from butler.execution_context import get_current_turn_bridge
+    from butler.gateway.outbound_prefs_ops import mark_slash_single_bubble_on_bridge_safe
 
-        bridge = get_current_turn_bridge()
-        if bridge is not None:
-            bridge.slash_single_bubble = True
-            return
-    except Exception:
-        pass
+    if mark_slash_single_bubble_on_bridge_safe():
+        return
     _single_bubble_reply.set(True)
 
 

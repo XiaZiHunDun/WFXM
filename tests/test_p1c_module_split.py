@@ -258,6 +258,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/inbound_idempotency_ops.py": 45,
     "butler/core/session_recall_intent_ops.py": 25,
     "butler/core/turn_summary_line_ops.py": 30,
+    "butler/gateway/outbound_prefs_ops.py": 25,
+    "butler/gateway/task_milestone_ops.py": 25,
+    "butler/tools/project_todos_ops.py": 30,
+    "butler/tools/session_todos_tools_ops.py": 25,
+    "butler/mcp/todoist_tool_aliases_ops.py": 25,
+    "butler/mcp/github_tool_aliases_ops.py": 25,
+    "butler/gateway/commands/experience_commands_ops.py": 30,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

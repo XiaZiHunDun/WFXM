@@ -19,16 +19,9 @@ _PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
 
 
 def _get_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.tools.project_todos_ops import get_active_project_workspace_safe
 
-        orch = get_current_orchestrator()
-        proj = orch.project_manager.active_project
-        if proj and getattr(proj, "workspace", None):
-            return Path(proj.workspace)
-    except Exception as exc:
-        logger.debug("get workspace skipped: %s", exc)
-    return None
+    return get_active_project_workspace_safe()
 
 
 def _todos_path(workspace: Path) -> Path:

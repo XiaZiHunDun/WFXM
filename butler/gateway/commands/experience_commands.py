@@ -9,15 +9,9 @@ from butler.gateway.command_registry import CommandContext, CommandDef, register
 
 
 def _workspace_from_ctx(ctx: CommandContext) -> Path | None:
-    try:
-        proj = ctx.orchestrator.project_manager.active_project
-        if proj and hasattr(proj, "workspace"):
-            ws = Path(proj.workspace)
-            if ws.is_dir():
-                return ws
-    except Exception:
-        pass
-    return None
+    from butler.gateway.commands.experience_commands_ops import workspace_from_command_ctx_safe
+
+    return workspace_from_command_ctx_safe(ctx)
 
 
 def _cmd_experience_mine(ctx: CommandContext) -> Optional[str]:

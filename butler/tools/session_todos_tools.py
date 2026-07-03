@@ -7,12 +7,9 @@ from typing import Any, Callable
 
 
 def _session_key() -> str:
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.tools.session_todos_tools_ops import current_session_key_safe
 
-        return str(get_current_session_key() or "").strip() or "default"
-    except Exception:
-        return "default"
+    return current_session_key_safe()
 
 
 def _tool_session_todos_list(**_) -> str:

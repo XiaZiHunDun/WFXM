@@ -7,14 +7,11 @@ from typing import Any
 
 def resolve_todoist_mcp_tool_name(name: str) -> str:
     key = str(name or "").strip()
-    try:
-        from butler.mcp.extension_manifest import resolve_tool_alias
+    from butler.mcp.todoist_tool_aliases_ops import resolve_mcp_tool_alias_safe
 
-        resolved = resolve_tool_alias(key)
-        if resolved != key:
-            return resolved
-    except Exception:
-        pass
+    resolved = resolve_mcp_tool_alias_safe(key)
+    if resolved != key:
+        return resolved
     return key
 
 
