@@ -127,38 +127,28 @@ def collect_assistant_health(
 ) -> AssistantHealthReport:
     """Aggregate LangFuse scores + local audit for a unified health view."""
     report = AssistantHealthReport(lookback_hours=lookback_hours)
+    from butler.ops.assistant_health_ops import (
+        load_audit_health_metrics_safe,
+        read_langfuse_averages_safe,
+    )
 
-    try:
-        from butler.ops.eval_feedback import read_recent_scores
-
-        averages = _avg_scores_by_name(read_recent_scores(lookback_hours=lookback_hours))
+    averages = read_langfuse_averages_safe(lookback_hours)
+    if averages:
         report.sources["langfuse"] = f"{len(averages)} metric names"
         for key in _METRIC_ALIASES:
             val = _pick_metric(averages, key)
             if val is not None:
                 report.metrics[key] = round(val, 4)
-    except Exception as exc:
-        logger.debug("assistant health langfuse read skipped: %s", exc)
 
-    try:
-        from butler.config import get_butler_home
-        from butler.ops.eval_diagnostics import regression_audit_path
-
-        audit = get_butler_home() / "audit"
-        if "dev_pass_rate" not in report.metrics:
-            last = _read_audit_jsonl(regression_audit_path())
-            if last:
-                dev = float(last.get("dev_pass_rate") or 0.0)
-                mem = float(last.get("mem_pass_rate") or 0.0)
-                report.metrics.setdefault("dev_pass_rate", round(dev, 4))
-                report.metrics.setdefault("memory_pass_rate", round(mem, 4))
-                report.sources["regression_audit"] = str(regression_audit_path())
-        corp = _read_audit_metric(audit / "wechat_corpus_eval.jsonl", "pass_rate")
-        if corp is not None:
-            report.metrics.setdefault("wechat_pass_rate", round(corp, 4))
-            report.sources["wechat_corpus_audit"] = str(audit / "wechat_corpus_eval.jsonl")
-    except Exception as exc:
-        logger.debug("assistant health audit read skipped: %s", exc)
+    audit_metrics, audit_sources = load_audit_health_metrics_safe()
+    if audit_metrics or audit_sources:
+        if "dev_pass_rate" not in report.metrics and "dev_pass_rate" in audit_metrics:
+            report.metrics["dev_pass_rate"] = audit_metrics["dev_pass_rate"]
+        if "memory_pass_rate" not in report.metrics and "memory_pass_rate" in audit_metrics:
+            report.metrics["memory_pass_rate"] = audit_metrics["memory_pass_rate"]
+        if "wechat_pass_rate" in audit_metrics:
+            report.metrics.setdefault("wechat_pass_rate", audit_metrics["wechat_pass_rate"])
+        report.sources.update(audit_sources)
 
     report.tensions, report.recommendations = detect_health_tensions(report.metrics)
     return report

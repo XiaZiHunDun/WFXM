@@ -219,26 +219,9 @@ def _cache_enabled() -> bool:
 
 
 def _resolve_cache_path() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.core.exp_cache_ops import resolve_llm_cache_path_safe
 
-        orch = get_current_orchestrator()
-        pm = getattr(orch, "project_manager", None) if orch else None
-        if pm is not None:
-            from butler.execution_context import get_current_session_key
-
-            proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-            if proj is not None:
-                return (
-                    Path(proj.workspace).expanduser().resolve()
-                    / ".butler"
-                    / "experiences"
-                    / "llm_cache.jsonl"
-                )
-    except Exception as exc:
-        logger.debug("resolve cache path skipped: %s", exc)
-    home = Path.home() / ".butler" / "experiences" / "llm_cache.jsonl"
-    return home
+    return resolve_llm_cache_path_safe()
 
 
 # --- disk I/O under file lock ------------------------------------------------
@@ -387,12 +370,9 @@ def _persist_path(path: Path, backend: CacheBackend) -> None:
             text = "\n".join(
                 json.dumps(it, ensure_ascii=False) for it in items
             ) + ("\n" if items else "")
-            try:
-                from butler.io.atomic_write import atomic_write_text
+            from butler.core.exp_cache_ops import write_llm_cache_file_safe
 
-                atomic_write_text(path, text)
-            except Exception:
-                path.write_text(text, encoding="utf-8")
+            write_llm_cache_file_safe(path, text)
 
 
 # --- public API --------------------------------------------------------------

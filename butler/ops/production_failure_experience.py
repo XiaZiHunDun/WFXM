@@ -133,15 +133,9 @@ def _prod_fail_experience_id(*, project: str, task_id: str, task: str) -> str:
 
 
 def _resolve_project_workspace(project_name: str) -> Path | None:
-    try:
-        from butler.project.manager import get_project_manager
+    from butler.ops.production_failure_experience_ops import resolve_project_workspace_safe
 
-        proj = get_project_manager().get_project(project_name)
-        if proj is None or not getattr(proj, "workspace", None):
-            return None
-        return Path(proj.workspace).expanduser().resolve()
-    except Exception:
-        return None
+    return resolve_project_workspace_safe(project_name)
 
 
 def record_production_failure_lesson(
@@ -202,13 +196,9 @@ def upsert_production_failure_experience(
         dev_engine=dev_engine,
     )
     exp_id = _prod_fail_experience_id(project=project, task_id=task_id, task=task)
-    inferred_task_id = ""
-    try:
-        from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+    from butler.ops.production_failure_experience_ops import infer_b9_task_id_safe
 
-        inferred_task_id = infer_b9_task_id(task)
-    except Exception:
-        pass
+    inferred_task_id = infer_b9_task_id_safe(task)
     kws = list(
         FAILURE_CLASS_KEYWORDS.get(classification, FAILURE_CLASS_KEYWORDS.get("other_fail", ()))
     )

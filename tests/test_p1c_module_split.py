@@ -293,6 +293,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/context_budget_ops.py": 30,
     "butler/delegate/subagent_permissions_ops.py": 25,
     "butler/core/todo_continuation_ops.py": 25,
+    "butler/ops/production_failure_experience_ops.py": 40,
+    "butler/ops/assistant_health_ops.py": 55,
+    "butler/core/exp_cache_ops.py": 50,
+    "butler/ops/cost_tracker_ops.py": 45,
+    "butler/core/goal_loop_ops.py": 20,
+    "butler/core/preread_context_ops.py": 35,
+    "butler/ops/eval_turn_ops.py": 30,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

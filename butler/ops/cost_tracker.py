@@ -37,17 +37,14 @@ class SessionCost:
                 self.model_breakdown[model] = [0, 0]
             self.model_breakdown[model][0] += pin
             self.model_breakdown[model][1] += pout
-        try:
-            from butler.ops.cost_calibration import record_llm_cost_event
+        from butler.ops.cost_tracker_ops import record_llm_cost_event_safe
 
-            record_llm_cost_event(
-                input_tokens=pin,
-                output_tokens=pout,
-                model=model,
-                session_key=self.session_key,
-            )
-        except Exception:
-            pass
+        record_llm_cost_event_safe(
+            input_tokens=pin,
+            output_tokens=pout,
+            model=model,
+            session_key=self.session_key,
+        )
 
     def record_tool_call(self, tool_name: str) -> None:
         from butler.tools.pim_schema import ALL_PIM_TOOLS
@@ -65,16 +62,13 @@ class SessionCost:
         else:
             self.tool_calls_other += 1
             bucket = "other"
-        try:
-            from butler.ops.cost_calibration import record_tool_cost_event
+        from butler.ops.cost_tracker_ops import record_tool_cost_event_safe
 
-            record_tool_cost_event(
-                tool_name=name,
-                bucket=bucket,
-                session_key=self.session_key,
-            )
-        except Exception:
-            pass
+        record_tool_cost_event_safe(
+            tool_name=name,
+            bucket=bucket,
+            session_key=self.session_key,
+        )
 
     @property
     def total_tokens(self) -> int:

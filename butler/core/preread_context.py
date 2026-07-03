@@ -5,12 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import logging
-
 from butler.memory_settings import resolve_memory_config
 
-
-logger = logging.getLogger(__name__)
 
 def preread_enabled() -> bool:
     return resolve_memory_config().preread_enabled
@@ -23,17 +19,9 @@ def build_preread_block(workspace: Path | None, file_path: str) -> str:
     if not path:
         return ""
     lines: list[str] = []
-    try:
-        from butler.memory.observer_queue import list_observations_for_path
+    from butler.core.preread_context_ops import build_preread_observation_lines_safe
 
-        obs = list_observations_for_path(workspace, path, limit=3)
-        for row in obs:
-            preview = str(row.get("preview") or "").strip()
-            tool = str(row.get("tool") or "")
-            if preview:
-                lines.append(f"- [{tool}] {preview[:160]}")
-    except Exception as exc:
-        logger.debug("build preread block skipped: %s", exc)
+    lines = build_preread_observation_lines_safe(workspace, path, limit=3)
     if not lines:
         return ""
     return "## PreRead 路径历史\n" + "\n".join(lines[:5])

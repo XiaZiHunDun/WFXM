@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
 
 from butler.ops.eval_bridge import EvalReport, push_scores
 from butler.ops.eval_scoring import MultiDimScore, ScoreResult, score_response_quality
 from butler.ops.tool_routing import score_delegate_routing, score_runtime_tool_routing
-
-logger = logging.getLogger(__name__)
 
 _WORD_RE = re.compile(r"[\w\u4e00-\u9fff]{2,}", re.UNICODE)
 
@@ -74,19 +71,11 @@ def score_runtime_turn(
     result.scores.append(score_response_quality(response_text=response_text))
 
     if include_memory and session_id:
-        try:
-            from butler.memory.memory_metrics import get_collector
-            from butler.ops.eval_scoring import score_memory_effectiveness
+        from butler.ops.eval_turn_ops import score_memory_effectiveness_for_session_safe
 
-            metrics = get_collector().get_session_metrics(session_id)
-            computed = metrics.get("computed", {}) if isinstance(metrics, dict) else {}
-            result.scores.append(score_memory_effectiveness(
-                write_survival_rate=float(computed.get("write_survival_rate", 0.0) or 0.0),
-                first_turn_hit_rate=float(computed.get("first_turn_hit_rate", 0.0) or 0.0),
-                decay_error_rate=float(computed.get("decay_error_rate", 0.0) or 0.0),
-            ))
-        except Exception as exc:
-            logger.debug("runtime memory score skipped: %s", exc)
+        memory_score = score_memory_effectiveness_for_session_safe(session_id)
+        if memory_score is not None:
+            result.scores.append(memory_score)
 
     return result
 
