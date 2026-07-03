@@ -51,12 +51,9 @@ def reset_workspace(scenario: HeadToHeadScenario) -> Path:
 
 
 def seed_read_state(ws: Path, session_key: str) -> None:
-    try:
-        from butler.dev_engine.b9_delegate_gate import seed_b9_workspace_read_state
+    from butler.ops.head_to_head_common_ops import seed_b9_workspace_read_state_safe
 
-        seed_b9_workspace_read_state(ws, session_key=session_key, max_depth=2)
-    except Exception:
-        pass
+    seed_b9_workspace_read_state_safe(ws, session_key=session_key, max_depth=2)
 
 
 def wait_task(task_id: str, *, timeout_s: float = 600) -> dict[str, Any]:
@@ -99,19 +96,9 @@ def _load_delegate_metrics(task_id: str, session_key: str, payload: dict[str, An
     de = payload.get("dev_engine")
     if isinstance(de, dict):
         out.update(de)
-    try:
-        from butler.report import get_last_report
+    from butler.ops.head_to_head_common_ops import load_delegate_report_metrics_safe
 
-        report = get_last_report(session_key)
-        if report is not None and str(getattr(report, "task_id", "") or "") == task_id:
-            out.setdefault("verify_passed", report.success)
-            out["iterations"] = int(getattr(report, "iterations", 0) or 0)
-            out["tool_calls"] = int(getattr(report, "tool_calls", 0) or 0)
-            issues = getattr(report, "issues", None) or []
-            if any("DEV_VERIFY_GATE" in str(i) for i in issues):
-                out["verify_passed"] = False
-    except Exception:
-        pass
+    out.update(load_delegate_report_metrics_safe(task_id, session_key))
     return out
 
 

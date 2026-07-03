@@ -67,24 +67,25 @@ def resolve_skill_injection(
     from butler.session.memory_prefetch import peek_experience_hits
 
     mode = skill_injection_mode()
-    try:
-        from butler.core.session_recall_intent import is_session_read_recall_intent
+    from butler.skills.injection_policy_ops import (
+        is_session_read_recall_intent_safe,
+        record_skill_injection_metrics_safe,
+    )
 
-        if is_session_read_recall_intent(query):
-            decision = SkillInjectionDecision(
-                mode=mode,
-                skip=True,
-                skill_names=(),
-                experience_hits=0,
-                reason="session_read_recall",
-            )
-            if diagnostics is not None:
-                diagnostics["skill_injection_mode"] = mode
-                diagnostics["skill_injection_experience_hits"] = 0
-            _record_injection_metrics(decision)
-            return decision
-    except Exception:
-        pass
+    recall_intent = is_session_read_recall_intent_safe(query)
+    if recall_intent is True:
+        decision = SkillInjectionDecision(
+            mode=mode,
+            skip=True,
+            skill_names=(),
+            experience_hits=0,
+            reason="session_read_recall",
+        )
+        if diagnostics is not None:
+            diagnostics["skill_injection_mode"] = mode
+            diagnostics["skill_injection_experience_hits"] = 0
+        record_skill_injection_metrics_safe(decision)
+        return decision
 
     hits = peek_experience_hits(orchestrator, query)
     n_exp = len(hits)
@@ -105,7 +106,7 @@ def resolve_skill_injection(
             experience_hits=n_exp,
             reason="always",
         )
-        _record_injection_metrics(decision)
+        record_skill_injection_metrics_safe(decision)
         return decision
 
     if mode == "ref_only":
@@ -117,7 +118,7 @@ def resolve_skill_injection(
                 experience_hits=n_exp,
                 reason="experience_skill_ref",
             )
-            _record_injection_metrics(decision)
+            record_skill_injection_metrics_safe(decision)
             return decision
         if n_exp >= min_hits:
             decision = SkillInjectionDecision(
@@ -127,7 +128,7 @@ def resolve_skill_injection(
                 experience_hits=n_exp,
                 reason="experience_hit_no_skill_ref",
             )
-            _record_injection_metrics(decision)
+            record_skill_injection_metrics_safe(decision)
             return decision
         decision = SkillInjectionDecision(
             mode=mode,
@@ -136,7 +137,7 @@ def resolve_skill_injection(
             experience_hits=n_exp,
             reason="router_fallback_no_ref",
         )
-        _record_injection_metrics(decision)
+        record_skill_injection_metrics_safe(decision)
         return decision
 
     # fallback (default): skip router when experience hits suffice
@@ -149,7 +150,7 @@ def resolve_skill_injection(
                 experience_hits=n_exp,
                 reason="experience_hit_with_ref",
             )
-            _record_injection_metrics(decision)
+            record_skill_injection_metrics_safe(decision)
             return decision
         decision = SkillInjectionDecision(
             mode=mode,
@@ -158,7 +159,7 @@ def resolve_skill_injection(
             experience_hits=n_exp,
             reason="experience_hit_skip_unverified_skill",
         )
-        _record_injection_metrics(decision)
+        record_skill_injection_metrics_safe(decision)
         return decision
     decision = SkillInjectionDecision(
         mode=mode,
@@ -167,20 +168,8 @@ def resolve_skill_injection(
         experience_hits=n_exp,
         reason="router_fallback_no_experience",
     )
-    _record_injection_metrics(decision)
+    record_skill_injection_metrics_safe(decision)
     return decision
-
-
-def _record_injection_metrics(decision: SkillInjectionDecision) -> None:
-    try:
-        from butler.ops.runtime_metrics import inc
-
-        if decision.skip and decision.reason == "experience_hit_skip_unverified_skill":
-            inc("execution_fallback_skip")
-        if decision.skill_names:
-            inc("execution_ref_only_load", labels={"reason": decision.reason})
-    except Exception:  # noqa: BLE001 — metrics optional
-        pass
 
 
 def skill_summary_disclaimer() -> str:

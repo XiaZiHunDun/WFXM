@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
-
-logger = logging.getLogger(__name__)
 
 
 def session_tool_index_enabled() -> bool:
@@ -53,12 +50,11 @@ def _normalize_read_path(
 def _iter_tool_action_rows(session_key: str) -> list[dict[str, Any]]:
     if not session_tool_index_enabled():
         return []
-    try:
-        from butler.core.session_epoch import load_epoch_transcript_rows
-    except Exception as exc:
-        logger.debug("session tool index load skipped: %s", exc)
+    from butler.core.session_tool_index_ops import load_epoch_transcript_rows_safe
+
+    rows = load_epoch_transcript_rows_safe(session_key, max_lines=500)
+    if rows is None:
         return []
-    rows = load_epoch_transcript_rows(session_key, max_lines=500)
     out: list[dict[str, Any]] = []
     for row in rows:
         if str(row.get("type") or "") != "tool_action":

@@ -272,6 +272,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/agent_profiles_ops.py": 30,
     "butler/mcp/turn_scrape_dedup_ops.py": 30,
     "butler/skills/fusion_wiring_ops.py": 20,
+    "butler/core/session_tool_index_ops.py": 30,
+    "butler/skills/injection_policy_ops.py": 40,
+    "butler/ops/head_to_head_common_ops.py": 55,
+    "butler/ops/secrets_contract_ops.py": 45,
+    "butler/mcp/extension_manifest_ops.py": 25,
+    "butler/ops/owner_brief_blocks_ops.py": 45,
+    "butler/ops/eval_actions_ops.py": 45,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

@@ -129,36 +129,16 @@ def _apply_llm_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any
 
 def _apply_experience_lifecycle(report: FeedbackReport) -> dict[str, Any]:
     """Demote experiences when dev/memory benchmarks are critically low."""
-    try:
-        from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
-        from butler.config import get_butler_home
+    from butler.ops.eval_actions_ops import apply_experience_lifecycle_action_safe
 
-        path = get_butler_home() / "coding_experiences.json"
-        tlib = TheoremLibrary()
-        xlib = ExperienceLibrary.load_from_file(str(path), theorem_lib=tlib)
-        if xlib.count == 0:
-            return {"action": "experience_lifecycle", "skipped": "empty_library"}
-
-        critical = [s for s in report.suggestions if s.severity == "critical"]
-        if not critical:
-            return {"action": "experience_lifecycle", "skipped": "no_critical"}
-
-        candidates = sorted(
-            xlib._experiences.items(),
-            key=lambda item: item[1].validity_end,
-        )[:3]
-        if not candidates:
-            return {"action": "experience_lifecycle", "skipped": "no_candidates"}
-        eval_results = {eid: False for eid, _ in candidates}
-        result = xlib.lifecycle_pass(eval_results)
-        result["demoted_ids"] = list(eval_results.keys())
-        xlib.save_to_file(str(path))
-        action = {"action": "experience_lifecycle", **result}
+    action, err = apply_experience_lifecycle_action_safe(report)
+    if err is not None:
+        return {"action": "experience_lifecycle", "error": err}
+    if action is None:
+        return {"action": "experience_lifecycle", "error": "unknown"}
+    if action.get("demoted_ids") is not None:
         _append_audit(action)
-        return action
-    except Exception as exc:
-        logger.debug("experience lifecycle action skipped: %s", exc)
-        return {"action": "experience_lifecycle", "error": str(exc)}
+    return action
 
 
 def maybe_apply_b9_live_rescue(

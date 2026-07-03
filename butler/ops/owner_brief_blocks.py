@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _OVERNIGHT_HOURS = 18
 
@@ -34,14 +31,12 @@ def format_overnight_jobs_lines(project_name: str) -> list[str]:
     if not name:
         return ["  未选择项目 → /切换"]
 
-    try:
-        from butler.runtime.service import list_jobs_status, runtime_enabled
+    from butler.ops.owner_brief_blocks_ops import list_overnight_jobs_rows_safe
 
-        if not runtime_enabled():
-            return ["  Runtime 未启用（BUTLER_RUNTIME_ENABLED=0）"]
-        rows = list_jobs_status(name)
-    except Exception as exc:
-        logger.debug("overnight jobs brief skipped: %s", exc)
+    rows, err = list_overnight_jobs_rows_safe(name)
+    if err == "runtime_disabled":
+        return ["  Runtime 未启用（BUTLER_RUNTIME_ENABLED=0）"]
+    if err is not None or rows is None:
         return ["  （定时任务状态暂不可用）"]
 
     if not rows:

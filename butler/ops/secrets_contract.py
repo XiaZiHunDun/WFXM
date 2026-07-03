@@ -92,11 +92,10 @@ def _parse_platform_contract(raw: dict[str, Any]) -> PlatformContract | None:
 def load_platform_contracts(workspace: Path | str | None = None) -> list[PlatformContract]:
     out: list[PlatformContract] = []
     for path in _contract_paths(workspace):
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        if not isinstance(data, dict):
+        from butler.ops.secrets_contract_ops import load_yaml_mapping_safe
+
+        data = load_yaml_mapping_safe(path)
+        if data is None:
             continue
         for row in data.get("platform_contracts") or []:
             contract = _parse_platform_contract(row)
@@ -188,19 +187,9 @@ def detect_gateway_expected() -> bool:
     if os.getenv("BUTLER_SECRETS_GATEWAY_EXPECTED", "").strip() in ("1", "true", "yes"):
         return True
     unit = os.getenv("BUTLER_GATEWAY_SYSTEMD_UNIT", "butler-gateway.service")
-    try:
-        import subprocess
+    from butler.ops.secrets_contract_ops import is_systemd_unit_active_safe
 
-        proc = subprocess.run(
-            ["systemctl", "--user", "is-active", unit],
-            capture_output=True,
-            text=True,
-            timeout=3,
-            check=False,
-        )
-        return proc.stdout.strip() == "active"
-    except Exception:
-        return False
+    return is_systemd_unit_active_safe(unit)
 
 
 def format_secrets_contract_lines(report: SecretsCheckReport) -> list[str]:

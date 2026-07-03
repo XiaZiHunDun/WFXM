@@ -163,11 +163,10 @@ def _parse_manifest(path: Path, data: dict[str, Any]) -> ExtensionManifest | Non
 
 
 def load_manifest_file(path: Path) -> ExtensionManifest | None:
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if not isinstance(data, dict):
+    from butler.mcp.extension_manifest_ops import load_yaml_mapping_safe
+
+    data = load_yaml_mapping_safe(path)
+    if data is None:
         return None
     return _parse_manifest(path, data)
 
@@ -249,11 +248,10 @@ def read_secrets_yaml_value(key: str, secrets_path: Path | None = None) -> str:
     )
     if not path.is_file():
         return ""
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
-        return ""
-    if not isinstance(data, dict):
+    from butler.mcp.extension_manifest_ops import load_yaml_mapping_safe
+
+    data = load_yaml_mapping_safe(path)
+    if data is None:
         return ""
     val = data.get(key)
     if val is None:
