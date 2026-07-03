@@ -216,6 +216,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/session/post_session_guard_ops.py": 25,
     "butler/runtime/delegate_job_finalize_ops.py": 30,
     "butler/orchestrator/prompt_assembler_ops.py": 40,
+    "butler/gateway/platforms/wechat_ilink/adapter_inbound_ops.py": 35,
+    "butler/core/llm_retry_invoke_ops.py": 75,
+    "butler/core/llm_retry_safe_ops.py": 25,
+    "butler/permissions/tool_boundary_registry_ops.py": 35,
+    "butler/orchestrator/loop_factory_ops.py": 45,
+    "butler/provider_presets_ops.py": 30,
+    "butler/gateway/vision_fallback_ops.py": 25,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

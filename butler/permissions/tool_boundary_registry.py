@@ -7,11 +7,8 @@ Orthogonal to ``permissions/rules.py`` (policy allow/deny): this module checks
 from __future__ import annotations
 
 import json
-import logging
 from dataclasses import dataclass
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _PATH_TOOLS = frozenset({"read_file", "write_file", "patch", "delete_file"})
 _WRITE_PATH_TOOLS = frozenset({"write_file", "patch", "delete_file"})
@@ -55,15 +52,14 @@ def validate_tool_boundary(name: str, args: dict[str, Any] | None) -> BoundaryVi
     checker = _CHECKERS.get(tool)
     if checker is None:
         return None
-    try:
-        return checker(payload)
-    except Exception as exc:
-        logger.error("tool boundary check %s failed (fail-closed): %s", tool, exc, exc_info=exc)
-        return BoundaryViolation(
-            tool,
-            "BOUNDARY_CHECK_ERROR",
-            f"参数边界校验异常 (fail-closed): {type(exc).__name__}",
-        )
+    from butler.permissions.tool_boundary_registry_ops import run_tool_boundary_checker_safe
+
+    return run_tool_boundary_checker_safe(
+        tool,
+        checker,
+        payload,
+        violation_factory=BoundaryViolation,
+    )
 
 
 def _check_path_tool(args: dict[str, Any], *, for_write: bool) -> BoundaryViolation | None:

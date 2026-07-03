@@ -9,8 +9,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from butler.config import ModelConfig
 
-import yaml
-
 from butler.config import get_butler_home
 from butler.defaults.model_defaults import provider_default_model
 
@@ -50,9 +48,10 @@ def load_presets() -> list[ProviderPreset]:
     path = presets_path()
     if not path.is_file():
         return _builtin_presets()
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception:
+    from butler.provider_presets_ops import load_presets_yaml_safe
+
+    data = load_presets_yaml_safe(path)
+    if data is None:
         return _builtin_presets()
     block = data.get("presets")
     if not isinstance(block, dict):

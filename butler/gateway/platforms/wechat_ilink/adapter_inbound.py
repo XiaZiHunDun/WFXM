@@ -77,18 +77,11 @@ async def handle_poll_exception(
 
 
 async def process_message_safe(adapter: "WeChatAdapter", message: Dict[str, Any]) -> None:
-    try:
-        await process_message(adapter, message)
-    except Exception as exc:
-        from butler.gateway.platforms.wechat_ilink import _safe_id
+    from butler.gateway.platforms.wechat_ilink.adapter_inbound_ops import (
+        process_inbound_message_safe,
+    )
 
-        logger.error(
-            "[%s] unhandled inbound error from=%s: %s",
-            adapter.name,
-            _safe_id(message.get("from_user_id")),
-            exc,
-            exc_info=True,
-        )
+    await process_inbound_message_safe(adapter, message, process_fn=process_message)
 
 
 async def process_message(adapter: "WeChatAdapter", message: Dict[str, Any]) -> None:

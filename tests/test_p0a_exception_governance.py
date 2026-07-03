@@ -405,6 +405,20 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/runtime/delegate_job_finalize_ops.py": 1,
     "butler/orchestrator/prompt_assembler.py": 0,
     "butler/orchestrator/prompt_assembler_ops.py": 0,
+    "butler/gateway/platforms/wechat_ilink/adapter_inbound.py": 0,
+    "butler/gateway/platforms/wechat_ilink/adapter_inbound_ops.py": 1,
+    "butler/core/llm_retry_invoke.py": 0,
+    "butler/core/llm_retry_invoke_ops.py": 1,
+    "butler/core/llm_retry_safe.py": 0,
+    "butler/core/llm_retry_safe_ops.py": 1,
+    "butler/permissions/tool_boundary_registry.py": 0,
+    "butler/permissions/tool_boundary_registry_ops.py": 1,
+    "butler/orchestrator/loop_factory.py": 0,
+    "butler/orchestrator/loop_factory_ops.py": 0,
+    "butler/provider_presets.py": 0,
+    "butler/provider_presets_ops.py": 0,
+    "butler/gateway/vision_fallback.py": 0,
+    "butler/gateway/vision_fallback_ops.py": 1,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

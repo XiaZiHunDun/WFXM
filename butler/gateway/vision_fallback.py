@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import base64
-import logging
 import os
 from pathlib import Path
 
 import requests
 
 from butler.defaults.model_defaults import OPENAI_VISION_DEFAULT_MODEL
-
-logger = logging.getLogger(__name__)
 
 
 def _fallback_order() -> list[str]:
@@ -109,14 +106,21 @@ def describe_image_with_fallbacks(
         errors.append(f"minimax: {primary_error}")
 
     for name in _fallback_order():
-        try:
-            if name == "openai":
-                return describe_image_openai(p, caption=caption, timeout=to), "openai"
-            if name in ("ocr", "tesseract", "local"):
-                return describe_image_ocr(p), "ocr"
-        except Exception as exc:
-            logger.warning("Vision fallback %s failed: %s", name, exc)
-            errors.append(f"{name}: {exc}")
+        from butler.gateway.vision_fallback_ops import try_vision_fallback_provider_safe
+
+        if name == "openai":
+            text, err = try_vision_fallback_provider_safe(
+                name,
+                lambda: describe_image_openai(p, caption=caption, timeout=to),
+            )
+        elif name in ("ocr", "tesseract", "local"):
+            text, err = try_vision_fallback_provider_safe(name, lambda: describe_image_ocr(p))
+        else:
+            continue
+        if text is not None:
+            return text, "openai" if name == "openai" else "ocr"
+        if err:
+            errors.append(f"{name}: {err}")
 
     hint = "; ".join(errors) if errors else "无可用 fallback"
     raise RuntimeError(hint)

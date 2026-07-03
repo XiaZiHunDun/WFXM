@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -11,8 +10,6 @@ if TYPE_CHECKING:
     from butler.transport.llm_client import LLMClient
 
 from butler.orchestrator.templates import normalize_butler_role
-
-logger = logging.getLogger(__name__)
 
 
 def create_llm_client(orch: ButlerOrchestrator, role: str = "butler") -> LLMClient:
@@ -106,13 +103,12 @@ def create_agent_loop(
     fallback_chain = build_fallback_chain(primary)
 
     sk = str(session_key or "").strip()
-    try:
-        proj = orch.project_manager.get_current(session_key=sk)
-        from butler.project.plugins import apply_project_plugins
+    from butler.orchestrator.loop_factory_ops import (
+        append_plan_mode_appendix_safe,
+        apply_project_plugins_safe,
+    )
 
-        apply_project_plugins(proj)
-    except Exception as exc:
-        logger.debug("Project plugins apply skipped: %s", exc)
+    apply_project_plugins_safe(orch, sk)
 
     if role == "butler":
         system_prompt, _user_reminder = orch.resolve_system_prompt(role="butler", session_key=sk)
@@ -137,13 +133,7 @@ def create_agent_loop(
                 system_prompt += "\n\n" + extra
 
     if sk and role != "plan":
-        try:
-            from butler.plan.mode import is_plan_mode, load_plan_mode_system_appendix
-
-            if is_plan_mode(sk):
-                system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
-        except Exception as exc:
-            logger.debug("Plan mode appendix skipped: %s", exc)
+        system_prompt = append_plan_mode_appendix_safe(sk, system_prompt)
 
     loop = AgentLoop(
         client=client,
