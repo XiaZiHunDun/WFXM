@@ -5,6 +5,7 @@
 #   bash scripts/butler-ops-cadence.sh --weekly     # G1-04 check-in + agent eval weekly
 #   bash scripts/butler-ops-cadence.sh --quarterly  # --weekly + capability baseline (AP 五维)
 #   bash scripts/butler-ops-cadence.sh --release    # weekly + P5 gate + fast pytest gate
+#   bash scripts/p0a-scan-remaining.sh              # P0-A 主模块差集（非 cadence 门禁）
 #
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -51,6 +52,9 @@ fi
 
 if [[ "$MODE" == "--weekly" || "$MODE" == "--quarterly" ]]; then
   bash "$ROOT/scripts/butler-agent-eval-weekly.sh" || FAIL=1
+  echo ""
+  echo "-- P0-A remaining main modules (informational) --"
+  bash "$ROOT/scripts/p0a-scan-remaining.sh" || true
   echo ""
   echo "-- TCR strict readiness (flip runbook: docs/guides/tcr-strict-flip-runbook-2026-07.md) --"
   if bash "$ROOT/scripts/butler-tcr-strict-readiness.sh"; then

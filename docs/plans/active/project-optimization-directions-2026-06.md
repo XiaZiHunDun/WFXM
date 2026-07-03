@@ -22,29 +22,22 @@
 
 ## 二、六大核心发现
 
-### S1 — 宽泛异常吞噬（全仓仍多，核心路径已守门）
+### S1 — 宽泛异常吞噬（主模块已 closure，守门 791）
 
-> **2026-06-29 P0-A**：`tool_batch` / `agent_loop_phases` / `locked_phases` 已迁 `safe_best_effort` 或收窄；守门见 `butler-p0a-exception-gate.sh`。
+> **2026-07-03 P0-A closure**：batch 1–29（7 对/批）+ mega-batch 30–35（14–16 对/批）完成；**791** gate tests（`butler-p0a-exception-gate.sh`）。主模块 bare `except Exception` 仅余注释/审计字符串（如 `review_static.py`、`github.py` 注释）。扫描：`bash scripts/p0a-scan-remaining.sh`。
 
-**Top-15 热点文件**（全仓扫描；核心三文件已不在前列）：
+**历史 Top-15**（2026-06 扫描；多数已迁 `*_ops.py`）：
 
-| 文件 | `except Exception` 数 | 风险 |
-|------|----------------------|------|
-| `butler/ops/health_report.py` | 34 | 中（诊断路径不崩是合理的） |
-| `butler/ops/langfuse_tracer.py` | 24 | 中（可观测 opt-in） |
-| `butler/core/tool_batch.py` | **0** | ✅ P0-A（兜底在 `tool_batch_finalize`） |
-| `butler/gateway/locked_phases.py` | **2** | ✅ P0-A（hygiene + error card 降级） |
-| `butler/core/agent_loop_phases.py` | **0** | ✅ P0-A |
-| `butler/memory/facade.py` | 21 | 中高 |
-| `butler/tools/registry.py` | 17 | 中 |
-| `butler/session/memory_prefetch.py` | 17 | 中 |
-| `butler/core/context_compressor.py` | 17 | 中高 |
-| `butler/gateway/platforms/wechat_ilink/__init__.py` | 16 | 中 |
-| `butler/ops/execution_surface_diagnostics.py` | 15 | 低 |
-| `butler/memory/diagnostics.py` | 15 | 低 |
-| `butler/gateway/message_pipelines.py` | 15 | 中 |
-| `butler/permissions/rules.py` | 14 | 中 |
-| `butler/gateway/outbound_bridge.py` | 13 | 中 |
+| 文件 | 状态 |
+|------|------|
+| `butler/core/tool_batch.py` | ✅ 0（`tool_batch_finalize_ops`） |
+| `butler/core/agent_loop_phases.py` | ✅ 0 |
+| `butler/gateway/locked_phases.py` | ✅ P0-A（hygiene + error card 降级） |
+| `butler/memory/facade.py` | ✅ 0（`facade_ops`） |
+| `butler/tools/registry.py` | ✅ 0（`registry_*_ops`） |
+| `butler/transport/auxiliary_client.py` | ✅ batch 30 |
+| `butler/dev_engine/*` 评测路径 | ✅ batch 35 |
+| `butler/ops/health_report.py` | 诊断聚合（非 batch 范围，可观测 opt-in） |
 
 **后果**：生产错误被静默吞噬，排障极难；LangFuse/诊断无法观测到被吃掉的异常。
 
