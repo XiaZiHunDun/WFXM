@@ -55,15 +55,14 @@ async def connect_http(
     tools = list(getattr(listed, "tools", None) or [])
 
     async def cleanup() -> None:
-        try:
-            await session.__aexit__(None, None, None)
-        except Exception as exc:
-            logger.debug("MCP http session close: %s", exc)
+        from butler.mcp.client_http_ops import (
+            close_http_session_safe,
+            close_http_transport_safe,
+        )
+
+        await close_http_session_safe(session)
         if transport is not None:
-            try:
-                await transport.__aexit__(None, None, None)
-            except Exception as exc:
-                logger.debug("MCP http transport close: %s", exc)
+            await close_http_transport_safe(transport)
 
     return session, tools, cleanup
 

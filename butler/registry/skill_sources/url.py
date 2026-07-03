@@ -6,8 +6,6 @@ import logging
 import re
 from urllib.parse import urlparse
 
-import httpx
-
 from butler.registry.skill_sources.base import SkillSource
 from butler.registry.skill_types import SkillBundle, SkillSearchHit
 from butler.registry.url_safety import is_safe_url
@@ -56,16 +54,10 @@ class UrlSource(SkillSource):
         url = identifier.strip()
         if not is_safe_url(url):
             return None
-        try:
-            resp = httpx.get(url, timeout=30.0, follow_redirects=False)
-            if resp.status_code in (301, 302, 303, 307, 308):
-                loc = resp.headers.get("location", "")
-                if loc and is_safe_url(loc):
-                    resp = httpx.get(loc, timeout=30.0, follow_redirects=False)
-            resp.raise_for_status()
-            text = resp.text
-        except Exception as exc:
-            logger.debug("url fetch failed %s: %s", url, exc)
+        from butler.registry.skill_sources.url_ops import fetch_url_skill_text_safe
+
+        text = fetch_url_skill_text_safe(url)
+        if text is None:
             return None
         name = _guess_name(url)
         return SkillBundle(

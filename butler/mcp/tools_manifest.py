@@ -17,24 +17,16 @@ def tools_engine_ssot_enabled() -> bool:
 
 
 def _resolve_workspace() -> Path | None:
-    try:
-        from butler.registry.mcp_merge import resolve_workspace_for_session
+    from butler.mcp.tools_manifest_ops import resolve_workspace_safe
 
-        return resolve_workspace_for_session()
-    except Exception:
-        return None
+    return resolve_workspace_safe()
 
 
 def effective_mcp_server_ids(*, workspace: Path | None = None) -> set[str]:
     ws = workspace if workspace is not None else _resolve_workspace()
-    try:
-        from butler.registry.mcp_merge import effective_mcp_servers
+    from butler.mcp.tools_manifest_ops import effective_mcp_server_ids_safe
 
-        rows = effective_mcp_servers(workspace=ws)
-        return {str(r.server_id) for r in rows if r.server_id}
-    except Exception as exc:
-        logger.debug("effective_mcp_server_ids failed: %s", exc)
-        return set()
+    return effective_mcp_server_ids_safe(workspace=ws)
 
 
 def mcp_tool_matches_server(tool_name: str, server_id: str) -> bool:

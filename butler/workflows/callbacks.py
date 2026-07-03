@@ -47,7 +47,9 @@ def register_builtin_callbacks() -> dict[str, WorkflowCallbackFn]:
 
 
 def _cb_notify(event: str, ctx: WorkflowCallbackContext) -> None:
-    try:
+    from butler.workflows.callbacks_ops import run_notify_handler_safe
+
+    def _run() -> None:
         from butler.gateway.outbound_bridge import get_gateway_bridge_optional
         from butler.report import AgentReport
 
@@ -61,8 +63,8 @@ def _cb_notify(event: str, ctx: WorkflowCallbackContext) -> None:
             step_outcomes=dict(ctx.step_outcomes),
         )
         bridge.notify_workflow_finished(report)
-    except Exception as exc:
-        logger.debug("workflow notify handler: %s", exc)
+
+    run_notify_handler_safe(run=_run)
 
 
 def _cb_ledger(event: str, ctx: WorkflowCallbackContext) -> None:
@@ -107,10 +109,9 @@ def run_workflow_handlers(
         fn = registry.get(typ)
         if fn is None:
             continue
-        try:
-            fn(event, ctx)
-        except Exception as exc:
-            logger.warning("workflow handler %s failed: %s", typ, exc)
+        from butler.workflows.callbacks_ops import run_workflow_handler_safe
+
+        run_workflow_handler_safe(typ, fn, event=event, ctx=ctx)
 
 
 __all__ = [

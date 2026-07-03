@@ -121,16 +121,9 @@ def pre_install_scan_mcp(
     if transport == "stdio":
         cmd = str(block.get("command") or entry.command or "").strip()
         if cmd:
-            try:
-                from butler.mcp.config import validate_stdio_command
-                from butler.mcp.types import McpServerConfig
+            from butler.registry.install_scan_ops import validate_stdio_command_scan_safe
 
-                cfg = McpServerConfig(server_id=entry.id, transport="stdio", command=cmd)
-                err = validate_stdio_command(cfg)
-                if err:
-                    issues.append("command_denied")
-            except Exception as exc:
-                logger.debug("pre install scan mcp skipped: %s", exc)
+            issues.extend(validate_stdio_command_scan_safe(entry.id, cmd))
     else:
         url = str(block.get("url") or entry.url or "").strip()
         if url:

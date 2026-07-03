@@ -71,14 +71,9 @@ class ClawHubSource(SkillSource):
         host = (urlparse(url).hostname or "").lower()
         if host not in ("clawhub.ai", "www.clawhub.ai") and not is_safe_url(url):
             return None
-        try:
-            resp = httpx.get(url, params=params or {}, timeout=25.0)
-            if resp.status_code != 200:
-                return None
-            return resp.json()
-        except Exception as exc:
-            logger.debug("clawhub GET %s: %s", path, exc)
-            return None
+        from butler.registry.skill_sources.clawhub_ops import clawhub_get_json_safe
+
+        return clawhub_get_json_safe(url, params=params)
 
     def search(self, query: str, *, limit: int = 20) -> list[SkillSearchHit]:
         if not clawhub_enabled():
@@ -310,10 +305,9 @@ def _extract_inline_files(version_data: dict[str, Any]) -> dict[str, str]:
             continue
         raw_url = meta.get("rawUrl") or meta.get("downloadUrl") or meta.get("url")
         if isinstance(raw_url, str) and raw_url.startswith("http") and is_safe_url(raw_url):
-            try:
-                resp = httpx.get(raw_url, timeout=20.0)
-                if resp.status_code == 200:
-                    files[fname] = resp.text
-            except Exception as exc:
-                logger.debug("extract inline files skipped: %s", exc)
+            from butler.registry.skill_sources.clawhub_ops import fetch_inline_file_text_safe
+
+            text = fetch_inline_file_text_safe(raw_url)
+            if text is not None:
+                files[fname] = text
     return files

@@ -356,6 +356,22 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/tools/delegate_yield_tools_ops.py": 30,
     "butler/tools/audit_persist_ops.py": 25,
     "butler/tools/terminal_danger_ops.py": 45,
+    "butler/mcp/client_http_ops.py": 30,
+    "butler/mcp/extension_verify_ops.py": 30,
+    "butler/mcp/profiles_ops.py": 20,
+    "butler/mcp/tools_engine_ops.py": 30,
+    "butler/mcp/tools_manifest_ops.py": 35,
+    "butler/registry/hub_manifest_ops.py": 45,
+    "butler/registry/install_scan_ops.py": 25,
+    "butler/registry/mcp_catalog_remote_ops.py": 25,
+    "butler/registry/mcp_project_tools_ops.py": 40,
+    "butler/registry/registry_paths_ops.py": 25,
+    "butler/registry/skill_sources/bundled_ops.py": 20,
+    "butler/registry/skill_sources/clawhub_ops.py": 35,
+    "butler/registry/skill_sources/lobehub_ops.py": 50,
+    "butler/registry/skill_sources/marketplace_ops.py": 20,
+    "butler/registry/skill_sources/url_ops.py": 30,
+    "butler/workflows/callbacks_ops.py": 35,
 
 }
 

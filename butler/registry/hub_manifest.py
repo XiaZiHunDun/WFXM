@@ -7,8 +7,6 @@ import os
 from dataclasses import dataclass, field
 
 from butler.env_parse import env_truthy
-from butler.registry.install_scan import pre_install_scan_mcp
-from butler.registry.mcp_install import _entry_to_server_block
 
 logger = logging.getLogger(__name__)
 
@@ -33,39 +31,26 @@ def verify_hub_manifest() -> HubManifestReport:
     if not hub_manifest_check_enabled():
         return report
 
-    try:
-        from butler.registry.catalog_integrity import verify_catalog_integrity
+    from butler.registry.hub_manifest_ops import (
+        scan_remote_catalog_entries_safe,
+        verify_catalog_integrity_safe,
+    )
 
-        ok, errors = verify_catalog_integrity()
-        report.catalog_integrity_ok = ok
-        report.catalog_errors = list(errors)
-        if not ok:
-            report.ok = False
-    except Exception as exc:
-        report.catalog_integrity_ok = False
-        report.catalog_errors = [str(exc)]
+    ok, errors = verify_catalog_integrity_safe()
+    report.catalog_integrity_ok = ok
+    report.catalog_errors = list(errors)
+    if not ok:
         report.ok = False
 
     if not os.getenv("BUTLER_MCP_CATALOG_URLS", "").strip():
         return report
 
-    try:
-        from butler.registry.mcp_catalog_remote import load_remote_catalog_entries
-
-        entries = load_remote_catalog_entries()
-        report.remote_entries = len(entries)
-        for entry in entries[:24]:
-            block = _entry_to_server_block(entry, {})
-            scan = pre_install_scan_mcp(entry, block)
-            if scan.verdict == "block":
-                report.remote_scan_blocks += 1
-                report.remote_issues.append(f"{entry.id}: {','.join(scan.issues[:4])}")
-                report.ok = False
-            elif scan.issues:
-                report.remote_issues.append(f"{entry.id}: warn {scan.issues[0]}")
-    except Exception as exc:
-        logger.debug("hub manifest remote scan: %s", exc)
-        report.remote_issues.append(f"remote_load: {exc}")
+    entry_count, block_count, issues = scan_remote_catalog_entries_safe()
+    report.remote_entries = entry_count
+    report.remote_scan_blocks = block_count
+    report.remote_issues.extend(issues)
+    if block_count:
+        report.ok = False
 
     return report
 

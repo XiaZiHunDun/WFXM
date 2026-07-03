@@ -1,0 +1,18 @@
+[
+  {"main": "butler/mcp/client_http.py", "ops": "butler/mcp/client_http_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/mcp/extension_verify.py", "ops": "butler/mcp/extension_verify_ops.py", "except_budget_ops": 1, "line_budget": 30},
+  {"main": "butler/mcp/profiles.py", "ops": "butler/mcp/profiles_ops.py", "except_budget_ops": 0, "line_budget": 20},
+  {"main": "butler/mcp/tools_engine.py", "ops": "butler/mcp/tools_engine_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/mcp/tools_manifest.py", "ops": "butler/mcp/tools_manifest_ops.py", "except_budget_ops": 0, "line_budget": 35},
+  {"main": "butler/registry/hub_manifest.py", "ops": "butler/registry/hub_manifest_ops.py", "except_budget_ops": 2, "line_budget": 45},
+  {"main": "butler/registry/install_scan.py", "ops": "butler/registry/install_scan_ops.py", "except_budget_ops": 1, "line_budget": 25},
+  {"main": "butler/registry/mcp_catalog_remote.py", "ops": "butler/registry/mcp_catalog_remote_ops.py", "except_budget_ops": 1, "line_budget": 25},
+  {"main": "butler/registry/mcp_project_tools.py", "ops": "butler/registry/mcp_project_tools_ops.py", "except_budget_ops": 2, "line_budget": 40},
+  {"main": "butler/registry/paths.py", "ops": "butler/registry/registry_paths_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/registry/skill_sources/bundled.py", "ops": "butler/registry/skill_sources/bundled_ops.py", "except_budget_ops": 0, "line_budget": 20},
+  {"main": "butler/registry/skill_sources/clawhub.py", "ops": "butler/registry/skill_sources/clawhub_ops.py", "except_budget_ops": 2, "line_budget": 35},
+  {"main": "butler/registry/skill_sources/lobehub.py", "ops": "butler/registry/skill_sources/lobehub_ops.py", "except_budget_ops": 2, "line_budget": 50},
+  {"main": "butler/registry/skill_sources/marketplace.py", "ops": "butler/registry/skill_sources/marketplace_ops.py", "except_budget_ops": 0, "line_budget": 20},
+  {"main": "butler/registry/skill_sources/url.py", "ops": "butler/registry/skill_sources/url_ops.py", "except_budget_ops": 1, "line_budget": 30},
+  {"main": "butler/workflows/callbacks.py", "ops": "butler/workflows/callbacks_ops.py", "except_budget_ops": 2, "line_budget": 35}
+]

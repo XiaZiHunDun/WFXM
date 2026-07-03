@@ -11,8 +11,6 @@ import subprocess
 import zipfile
 from typing import Any
 
-import httpx
-
 from butler.registry.hub_index_cache import read_cache, write_cache
 from butler.registry.skill_sources.base import SkillSource
 from butler.registry.skill_sources.zip_safety import is_unsafe_zip_entry
@@ -106,24 +104,19 @@ def _search_api(query: str, *, limit: int) -> list[SkillSearchHit]:
     url = f"{lobehub_base_url()}/api/v1/skills"
     if not is_safe_url(url):
         return []
-    try:
-        resp = httpx.get(
-            url,
-            params={
-                "q": query,
-                "page": 1,
-                "pageSize": min(limit, 50),
-                "locale": os.getenv("BUTLER_LOBEHUB_LOCALE", "zh-CN"),
-            },
-            headers=_api_headers(),
-            timeout=25.0,
-        )
-        if resp.status_code != 200:
-            logger.debug("lobehub search HTTP %s", resp.status_code)
-            return []
-        data = resp.json()
-    except Exception as exc:
-        logger.debug("lobehub search: %s", exc)
+    from butler.registry.skill_sources.lobehub_ops import lobehub_search_api_json_safe
+
+    data = lobehub_search_api_json_safe(
+        url,
+        params={
+            "q": query,
+            "page": 1,
+            "pageSize": min(limit, 50),
+            "locale": os.getenv("BUTLER_LOBEHUB_LOCALE", "zh-CN"),
+        },
+        headers=_api_headers(),
+    )
+    if data is None:
         return []
 
     items = data.get("items") if isinstance(data, dict) else None
@@ -199,16 +192,9 @@ def _download_zip(identifier: str) -> bytes | None:
     if not is_safe_url(url):
         return None
     headers = _api_headers() if token else {}
-    try:
-        from butler.registry.url_safety import safe_registry_get
+    from butler.registry.skill_sources.lobehub_ops import lobehub_download_bytes_safe
 
-        resp = safe_registry_get(url, headers=headers, timeout=60.0)
-        if resp.status_code != 200:
-            return None
-        return resp.content
-    except Exception as exc:
-        logger.debug("lobehub download %s: %s", identifier, exc)
-        return None
+    return lobehub_download_bytes_safe(url, headers=headers)
 
 
 def _fetch_cli(identifier: str) -> dict[str, str] | None:

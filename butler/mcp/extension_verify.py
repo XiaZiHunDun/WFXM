@@ -17,7 +17,6 @@ from butler.mcp.extension_manifest import (
     get_manifest,
     load_all_manifests,
 )
-from butler.mcp.registry_hook import dispatch_mcp_tool
 
 _VERIFY_CACHE = Path.home() / ".butler" / "extension-verify-cache.json"
 
@@ -109,10 +108,11 @@ def run_golden_case(
                 skipped=True,
                 detail=f"{contract.env} unset",
             )
-    try:
-        raw = dispatch_mcp_tool(tool_name, dict(golden_args))
-    except Exception as exc:
-        return CaseResult(tool=tool_name, ok=False, detail=str(exc)[:200])
+    from butler.mcp.extension_verify_ops import dispatch_golden_tool_safe
+
+    ok, raw, err = dispatch_golden_tool_safe(tool_name, golden_args)
+    if not ok:
+        return CaseResult(tool=tool_name, ok=False, detail=err or "dispatch failed")
     if not raw or '"ok": false' in raw.replace(" ", "").lower():
         return CaseResult(tool=tool_name, ok=False, detail=(raw or "empty")[:200])
     payload = _parse_tool_payload(raw)
@@ -200,13 +200,9 @@ def write_verify_cache(reports: dict[str, VerifyReport]) -> Path:
 
 
 def read_verify_cache() -> dict[str, Any]:
-    if not _VERIFY_CACHE.is_file():
-        return {}
-    try:
-        data = json.loads(_VERIFY_CACHE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    return data if isinstance(data, dict) else {}
+    from butler.mcp.extension_verify_ops import read_verify_cache_dict_safe
+
+    return read_verify_cache_dict_safe(_VERIFY_CACHE)
 
 
 def extension_verify_status_lines() -> list[str]:

@@ -51,11 +51,11 @@ def ensure_project_mcp_tools(
             f"若需限制工具白名单，请创建 project.yaml 并在 tools 中加入 mcp_*。"
         )
 
-    try:
-        project = Project.from_yaml(proj_yaml)
-    except Exception as exc:
-        logger.debug("project.yaml load %s: %s", proj_yaml, exc)
-        return False, f"无法读取 project.yaml: {exc}"
+    from butler.registry.mcp_project_tools_ops import load_project_yaml_safe
+
+    project = load_project_yaml_safe(proj_yaml)
+    if project is None:
+        return False, f"无法读取 project.yaml"
 
     tools = [str(t) for t in (project.tools or []) if str(t).strip()]
 
@@ -93,21 +93,6 @@ def format_global_mcp_tools_hint(server_id: str) -> str:
 
 def list_registered_tool_names(server_id: str, block: dict) -> list[str]:
     """Best-effort list of registered tool names after probe (for messages only)."""
-    names: list[str] = []
-    try:
-        from butler.mcp.config import _parse_server
+    from butler.registry.mcp_project_tools_ops import list_registered_tool_names_safe
 
-        cfg = _parse_server(server_id, block)
-        if cfg is None:
-            return names
-        from butler.mcp.manager import McpConnectionManager
-
-        mgr = McpConnectionManager()
-        refs = mgr.ensure_connected("registry-probe-list", workspace=None)
-        for ref in refs:
-            if ref.server_id == server_id:
-                names.append(ref.registered_name)
-        mgr.disconnect_all()
-    except Exception as exc:
-        logger.debug("list mcp tools %s: %s", server_id, exc)
-    return sorted(names)
+    return list_registered_tool_names_safe(server_id, block)

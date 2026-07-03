@@ -37,13 +37,10 @@ def filter_tools_for_model(
     """Drop tool schemas when model cannot use function calling."""
     diag: dict[str, Any] = {"tools_engine_input": len(tools)}
     working = list(tools)
-    try:
-        from butler.mcp.tools_manifest import filter_tools_by_mcp_ssot
+    from butler.mcp.tools_engine_ops import filter_tools_manifest_safe
 
-        working, manifest_diag = filter_tools_by_mcp_ssot(working)
-        diag.update(manifest_diag)
-    except Exception as exc:
-        logger.debug("ToolsEngine manifest merge skipped: %s", exc)
+    working, manifest_diag = filter_tools_manifest_safe(working)
+    diag.update(manifest_diag)
 
     if not tools_engine_enabled():
         diag["tools_engine_skipped"] = True

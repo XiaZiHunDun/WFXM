@@ -6,8 +6,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from butler.registry.paths import catalog_dir
 from butler.registry.skill_sources.base import SkillSource
 from butler.registry.skill_types import SkillBundle, SkillSearchHit
@@ -24,10 +22,10 @@ class BundledSource(SkillSource):
         index = catalog_dir() / "skills" / "index.yaml"
         if not index.is_file():
             return []
-        try:
-            data = yaml.safe_load(index.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.debug("bundled index load failed: %s", exc)
+        from butler.registry.skill_sources.bundled_ops import load_bundled_index_safe
+
+        data = load_bundled_index_safe(index)
+        if data is None:
             return []
         items = data.get("skills") if isinstance(data, dict) else None
         if not isinstance(items, list):

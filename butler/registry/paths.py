@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from butler.config import get_butler_home
-from butler.tenant import DEFAULT_TENANT, normalize_tenant_id, tenant_skills_dir
+from butler.tenant import normalize_tenant_id, tenant_skills_dir
 
 
 def registry_enabled() -> bool:
@@ -25,12 +25,9 @@ def enabled_sources() -> list[str]:
 def resolve_tenant_id(tenant_id: str = "") -> str:
     if tenant_id.strip():
         return normalize_tenant_id(tenant_id)
-    try:
-        from butler.config import load_settings
+    from butler.registry.registry_paths_ops import resolve_tenant_id_safe
 
-        return normalize_tenant_id(load_settings().default_tenant)
-    except Exception:
-        return DEFAULT_TENANT
+    return resolve_tenant_id_safe()
 
 
 def skills_root(*, tenant_id: str = "") -> Path:

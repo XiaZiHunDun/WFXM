@@ -6,8 +6,6 @@ import logging
 import re
 import threading
 
-import yaml
-
 from butler.env_parse import env_truthy
 from butler.mcp.config import _resolve_config_paths
 from butler.mcp.types import McpServerConfig
@@ -27,12 +25,13 @@ def mcp_profiles_enabled() -> bool:
 def _load_profile_config() -> tuple[dict[str, list[str]], list[tuple[str, list[str]]]]:
     profiles: dict[str, list[str]] = {"default": []}
     routing: list[tuple[str, list[str]]] = []
+    from butler.mcp.profiles_ops import load_profile_config_dict_safe
+
     for path in _resolve_config_paths(None):
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        except Exception as exc:
-            logger.debug("MCP profiles config %s: %s", path, exc)
+        loaded = load_profile_config_dict_safe(path)
+        if loaded is None:
             continue
+        data = loaded
         if not isinstance(data, dict):
             continue
         block = data.get("profiles")

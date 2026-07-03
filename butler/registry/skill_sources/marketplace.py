@@ -12,7 +12,6 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-import yaml
 
 from butler.registry.paths import catalog_dir
 from butler.registry.skill_sources.base import SkillSource
@@ -122,10 +121,9 @@ def _catalog_entries() -> list[_MarketplaceCatalog]:
     out: list[_MarketplaceCatalog] = []
     index = catalog_dir() / "skills" / "marketplaces.yaml"
     if index.is_file():
-        try:
-            data = yaml.safe_load(index.read_text(encoding="utf-8"))
-        except Exception:
-            data = None
+        from butler.registry.skill_sources.marketplace_ops import load_marketplace_index_safe
+
+        data = load_marketplace_index_safe(index)
         rows = data.get("marketplaces") if isinstance(data, dict) else None
         if isinstance(rows, list):
             for row in rows:

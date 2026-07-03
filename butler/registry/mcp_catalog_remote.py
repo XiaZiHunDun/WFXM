@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Any
 
-import yaml
+import httpx
 
 from butler.registry.hub_index_cache import read_cache, write_cache
 from butler.registry.mcp_catalog import McpCatalogEntry
@@ -65,11 +65,12 @@ def _fetch_catalog_url(url: str) -> list[McpCatalogEntry]:
         if resp.status_code != 200:
             return []
         text = resp.text
-        if url.lower().endswith((".yaml", ".yml")):
-            data = yaml.safe_load(text)
-        else:
-            data = resp.json()
-    except Exception as exc:
+        from butler.registry.mcp_catalog_remote_ops import fetch_catalog_payload_safe
+
+        data = fetch_catalog_payload_safe(url, text=text)
+        if data is None:
+            return []
+    except (httpx.HTTPError, ValueError) as exc:
         logger.debug("remote mcp catalog %s: %s", url, exc)
         return []
 
