@@ -223,6 +223,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/orchestrator/loop_factory_ops.py": 45,
     "butler/provider_presets_ops.py": 30,
     "butler/gateway/vision_fallback_ops.py": 25,
+    "butler/orchestrator/templates_ops.py": 25,
+    "butler/gateway/minimax_vlm_ops.py": 35,
+    "butler/gateway/completion_notify_ops.py": 55,
+    "butler/core/fact_extraction_ops.py": 35,
+    "butler/tools/web_fetch_ops.py": 45,
+    "butler/human_gate_ops.py": 75,
+    "butler/config_ops.py": 55,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

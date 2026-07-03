@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import base64
-import logging
 import os
 import time
 from pathlib import Path
 
 import requests
-
-logger = logging.getLogger(__name__)
 
 _VISION_PROMPT = (
     "你是微信助手的前置视觉模块。请用中文简要说明图片内容；"
@@ -91,9 +88,16 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
 
     to = timeout if timeout is not None else resolve_gateway_inbound_config().vision.timeout_seconds
     t0 = time.monotonic()
-    primary_exc: Exception | None = None
-    try:
-        text = _describe_minimax(path, caption=caption, timeout=to)
+    from butler.gateway.minimax_vlm_ops import (
+        describe_minimax_primary_safe,
+        describe_with_fallbacks_safe,
+    )
+
+    text, primary_exc = describe_minimax_primary_safe(
+        lambda: _describe_minimax(path, caption=caption, timeout=to),
+        path=path,
+    )
+    if text is not None:
         record_media_event(
             "vision",
             provider=GATEWAY_VISION_PROVIDER,
@@ -101,19 +105,18 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
             duration_ms=(time.monotonic() - t0) * 1000,
         )
         return text
-    except Exception as exc:
-        primary_exc = exc
-        logger.warning("MiniMax vision failed for %s: %s", path, exc)
 
     from butler.gateway.vision_fallback import describe_image_with_fallbacks
 
-    try:
-        text, provider = describe_image_with_fallbacks(
+    fallback_text, provider, fallback_exc = describe_with_fallbacks_safe(
+        lambda: describe_image_with_fallbacks(
             path,
             caption=caption,
             primary_error=primary_exc,
             timeout=to,
         )
+    )
+    if fallback_text is not None and provider is not None:
         record_media_event(
             "vision",
             provider=provider,
@@ -121,13 +124,17 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
             duration_ms=(time.monotonic() - t0) * 1000,
             detail="fallback",
         )
-        return text
-    except Exception as exc:
-        record_media_event(
-            "vision",
-            provider="minimax+fallback",
-            ok=False,
-            duration_ms=(time.monotonic() - t0) * 1000,
-            detail=str(exc)[:80],
-        )
-        raise
+        return fallback_text
+
+    record_media_event(
+        "vision",
+        provider="minimax+fallback",
+        ok=False,
+        duration_ms=(time.monotonic() - t0) * 1000,
+        detail=str(fallback_exc or primary_exc or "vision failed")[:80],
+    )
+    if fallback_exc is not None:
+        raise fallback_exc
+    if primary_exc is not None:
+        raise primary_exc
+    raise RuntimeError("vision failed")

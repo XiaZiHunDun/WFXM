@@ -195,12 +195,9 @@ def extract_pre_compact_facts(
             session_key[:20],
         )
 
-    try:
-        from butler.memory.memory_metrics import get_collector
+    from butler.core.fact_extraction_ops import record_fact_extraction_metrics_safe
 
-        get_collector().on_fact_extraction(pre_count=pre_count, post_count=post_count)
-    except Exception:
-        pass
+    record_fact_extraction_metrics_safe(pre_count=pre_count, post_count=post_count)
 
     return deduped
 
@@ -230,12 +227,9 @@ def record_fact_anchor_metrics(
         if store > 0:
             diagnostics["fact_survival_rate_turn"] = round(anchor / store, 4)
     if store > 0:
-        try:
-            from butler.memory.memory_metrics import get_collector
+        from butler.core.fact_extraction_ops import record_fact_anchor_survival_safe
 
-            get_collector().on_fact_anchor_survival(store_count=store, anchor_count=anchor)
-        except Exception:
-            pass
+        record_fact_anchor_survival_safe(store_count=store, anchor_count=anchor)
     return store, anchor
 
 

@@ -7,7 +7,6 @@ import os
 import re
 from html import unescape
 from typing import Any
-import httpx
 
 from butler.env_parse import env_truthy, int_env, float_env
 
@@ -46,29 +45,10 @@ def _extract_with_trafilatura(html: str, url: str = "") -> dict[str, str] | None
         import trafilatura  # type: ignore[import-untyped]
     except ImportError:
         return None
-    try:
-        text = trafilatura.extract(
-            html,
-            url=url or None,
-            output_format="txt",
-            include_comments=False,
-            include_tables=True,
-            include_links=True,
-        )
-        if not text:
-            return None
-        metadata = trafilatura.extract_metadata(html, default_url=url or None)
-        meta: dict[str, str] = {}
-        if metadata:
-            if getattr(metadata, "title", None):
-                meta["title"] = str(metadata.title)
-            if getattr(metadata, "author", None):
-                meta["author"] = str(metadata.author)
-            if getattr(metadata, "date", None):
-                meta["date"] = str(metadata.date)
-        return {"text": text, **meta}
-    except Exception:
-        return None
+    del trafilatura
+    from butler.tools.web_fetch_ops import extract_with_trafilatura_safe
+
+    return extract_with_trafilatura_safe(html, url=url)
 
 
 def _strip_html(html: str, *, url: str = "") -> str | dict[str, str]:
@@ -93,27 +73,20 @@ def tool_web_fetch(url: str, *, max_chars: int = 8000, **_: Any) -> str:
     if not is_safe_url(target):
         return json.dumps({"error": "URL 未通过安全校验（私网/非法主机）"})
     cap = max(500, min(32_000, int(max_chars or 8000)))
-    from butler.registry.url_safety import safe_http_get_bytes
+    from butler.tools.web_fetch_ops import fetch_url_bytes_safe
 
-    try:
-        raw, ctype = safe_http_get_bytes(
-            target,
-            timeout=_timeout_seconds(),
-            max_bytes=_max_bytes() + 1,
-            headers={
-                "User-Agent": "Butler-web-fetch/1.0",
-                "Accept": "text/html,application/json,*/*",
-            },
-        )
-    except httpx.HTTPStatusError as exc:
-        code = exc.response.status_code if exc.response is not None else 0
-        return json.dumps({"error": f"HTTP {code}", "url": target})
-    except ValueError as exc:
-        return json.dumps({"error": str(exc), "url": target})
-    except httpx.HTTPError as exc:
-        return json.dumps({"error": str(exc), "url": target})
-    except Exception as exc:
-        return json.dumps({"error": str(exc), "url": target})
+    raw, ctype, err_json = fetch_url_bytes_safe(
+        target,
+        timeout=_timeout_seconds(),
+        max_bytes=_max_bytes() + 1,
+        headers={
+            "User-Agent": "Butler-web-fetch/1.0",
+            "Accept": "text/html,application/json,*/*",
+        },
+    )
+    if err_json is not None:
+        return err_json
+    assert raw is not None and ctype is not None
 
     if len(raw) > _max_bytes():
         raw = raw[:_max_bytes()]

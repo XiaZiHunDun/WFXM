@@ -70,15 +70,9 @@ def format_skill_summaries(skills: list[dict[str, Any]], max_items: int = 20) ->
     if not skills:
         return "(尚无技能文件 — 可在 ~/.butler/tenants/<tenant>/skills 或项目 `.butler/skills` 中添加)"
     lines: list[str] = []
-    try:
-        from butler.skills.injection_policy import skill_summary_disclaimer
+    from butler.orchestrator.templates_ops import skill_summary_disclaimer_lines_safe
 
-        disclaimer = skill_summary_disclaimer()
-        if disclaimer:
-            lines.append(disclaimer)
-            lines.append("")
-    except Exception:
-        pass
+    lines.extend(skill_summary_disclaimer_lines_safe())
     for sk in skills[:max_items]:
         name = sk.get("name", "")
         desc = (sk.get("description") or "").strip()

@@ -27,27 +27,9 @@ def _workflow_auto_resume_enabled() -> bool:
 
 def _auto_resume_workflow(session_key: str, workflow_name: str) -> str | None:
     """Re-run the workflow after approval, returning the result text."""
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.human_gate_ops import auto_resume_workflow_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        pm = orch.project_manager
-        proj = pm.get_current(session_key=session_key)
-        if proj is None:
-            return None
-        from butler.workflows.runner import run_workflow_for_project
-
-        return run_workflow_for_project(
-            proj,
-            workflow_name,
-            session_key=session_key,
-            orchestrator=orch,
-        )
-    except Exception as exc:
-        logger.warning("Auto-resume workflow %s failed: %s", workflow_name, exc)
-        return None
+    return auto_resume_workflow_safe(session_key, workflow_name)
 
 
 def _gate_ttl_seconds() -> float:
@@ -383,17 +365,19 @@ def resolve_human_gate_message(
         _save_pending(session_key, None)
 
     if _workflow_auto_resume_enabled():
-        try:
-            resume_reply = _auto_resume_workflow(session_key, wf_name)
-            if resume_reply:
-                from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
+        from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
+        from butler.human_gate_ops import workflow_auto_resume_reply_safe
 
-                head = workflow_gate_confirmed_hint(
-                    workflow=wf_name, auto_resumed=True, step_id=step_id
-                )
-                return f"{head}\n\n{resume_reply}"
-        except Exception as exc:
-            logger.warning("Workflow auto-resume failed: %s", exc)
+        resumed = workflow_auto_resume_reply_safe(
+            session_key,
+            wf_name,
+            step_id,
+            enabled=True,
+            resume_fn=_auto_resume_workflow,
+            confirmed_hint_fn=workflow_gate_confirmed_hint,
+        )
+        if resumed:
+            return resumed
 
     from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
 

@@ -332,22 +332,9 @@ class ButlerSettings:
         path = self.config_yaml_path
         preserved: dict[str, Any] = {}
         if path.exists():
-            try:
-                raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-                if isinstance(raw, dict):
-                    for key in (
-                        "gateway",
-                        "memory",
-                        "context",
-                        "auxiliary",
-                        "embedding",
-                        "llm_fallback",
-                        "remote_compact",
-                    ):
-                        if key in raw:
-                            preserved[key] = raw[key]
-            except Exception as exc:
-                logger.debug("save butler config skipped: %s", exc)
+            from butler.config_ops import load_preserved_config_keys_safe
+
+            preserved = load_preserved_config_keys_safe(path)
         data: dict[str, Any] = {
             "butler_name": self.butler_name,
             "owner_name": self.owner_name,
@@ -416,12 +403,9 @@ class ButlerSettings:
                 raw = yaml.safe_load(f)
             if isinstance(raw, dict):
                 instance._apply_yaml_dict(raw)
-        try:
-            from butler.config_secrets import merge_secrets_into_settings
+        from butler.config_ops import merge_secrets_into_settings_safe
 
-            merge_secrets_into_settings(instance)
-        except Exception as exc:
-            logger.debug("load skipped: %s", exc)
+        merge_secrets_into_settings_safe(instance)
         return instance
 
 
