@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
@@ -47,16 +46,18 @@ async def _phase_qr_request_code(
         QR_TIMEOUT_MS,
         _api_get,
     )
+    from butler.gateway.platforms.wechat_ilink.qr_phases_ops import fetch_qr_response_safe
 
-    try:
-        qr_resp = await _api_get(
+    qr_resp = await fetch_qr_response_safe(
+        lambda: _api_get(
             session,
             base_url=base_url,
             endpoint=f"{EP_GET_BOT_QR}?bot_type={bot_type}",
             timeout_ms=QR_TIMEOUT_MS,
-        )
-    except Exception as exc:
-        logger.error("wechat: failed to fetch QR code: %s", exc)
+        ),
+        label="failed to fetch QR code",
+    )
+    if qr_resp is None:
         return None
 
     qrcode_value = str(qr_resp.get("qrcode") or "")
@@ -80,15 +81,9 @@ def _phase_qr_render(qrcode_url: str, qr_scan_data: str) -> None:
     print("\n请使用微信扫描以下二维码：")
     if qrcode_url:
         print(qrcode_url)
-    try:
-        import qrcode
+    from butler.gateway.platforms.wechat_ilink.qr_phases_ops import render_qr_ascii_safe
 
-        qr = qrcode.QRCode()
-        qr.add_data(qr_scan_data)
-        qr.make(fit=True)
-        qr.print_ascii(invert=True)
-    except Exception as _qr_exc:
-        print(f"（终端二维码渲染失败: {_qr_exc}，请直接打开上面的二维码链接）")
+    render_qr_ascii_safe(qr_scan_data)
 
 
 async def _phase_qr_poll_iteration(
@@ -112,18 +107,17 @@ async def _phase_qr_poll_iteration(
         QR_TIMEOUT_MS,
         _api_get,
     )
+    from butler.gateway.platforms.wechat_ilink.qr_phases_ops import poll_qr_api_safe
 
-    try:
-        status_resp = await _api_get(
+    status_resp = await poll_qr_api_safe(
+        lambda: _api_get(
             session,
             base_url=current_base_url,
             endpoint=f"{EP_GET_QR_STATUS}?qrcode={qrcode_value}",
             timeout_ms=QR_TIMEOUT_MS,
-        )
-    except asyncio.TimeoutError:
-        return ("wait", None)
-    except Exception as exc:
-        logger.warning("wechat: QR poll error: %s", exc)
+        ),
+    )
+    if status_resp is None:
         return ("wait", None)
 
     status = str(status_resp.get("status") or "wait")
@@ -159,16 +153,18 @@ async def _phase_qr_refresh(
         QR_TIMEOUT_MS,
         _api_get,
     )
+    from butler.gateway.platforms.wechat_ilink.qr_phases_ops import fetch_qr_response_safe
 
-    try:
-        qr_resp = await _api_get(
+    qr_resp = await fetch_qr_response_safe(
+        lambda: _api_get(
             session,
             base_url=base_url,
             endpoint=f"{EP_GET_BOT_QR}?bot_type={bot_type}",
             timeout_ms=QR_TIMEOUT_MS,
-        )
-    except Exception as exc:
-        logger.error("wechat: QR refresh failed: %s", exc)
+        ),
+        label="QR refresh failed",
+    )
+    if qr_resp is None:
         return None
     qrcode_value = str(qr_resp.get("qrcode") or "")
     qrcode_url = str(qr_resp.get("qrcode_img_content") or "")

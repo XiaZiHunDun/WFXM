@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 # Builtin search tools intentionally overlap MCP scrape/fetch (layered fallback).
 _BENIGN_SEARCH_TOOLS = frozenset({"web_search", "web_fetch"})
@@ -27,14 +24,11 @@ def _tool_text(defn: dict[str, Any]) -> str:
 
 
 def _toolset_for(name: str) -> str:
-    try:
-        from butler.tools.registry import _REGISTRY
+    from butler.tools.orthogonality_lint_ops import toolset_for_safe
 
-        entry = _REGISTRY.get(name)
-        if entry is not None:
-            return str(entry.toolset or "default")
-    except Exception:
-        pass
+    ts = toolset_for_safe(name)
+    if ts:
+        return ts
     if name.startswith("mcp_"):
         parts = name.split("_", 2)
         if len(parts) >= 2:
@@ -68,10 +62,10 @@ def _collect_tool_vectors(
         if not name:
             continue
         ts = _toolset_for(name)
-        try:
-            vec = embedder.embed(_tool_text(defn))
-        except Exception as exc:
-            logger.debug("orthogonality embed skipped for %s: %s", name, exc)
+        from butler.tools.orthogonality_lint_ops import embed_tool_text_safe
+
+        vec = embed_tool_text_safe(embedder, _tool_text(defn))
+        if vec is None:
             continue
         out.append((name, ts, vec))
     return out
@@ -119,14 +113,12 @@ def lint_builtin_tool_orthogonality(
     max_pairs: int = 12,
 ) -> list[str]:
     """Return warning lines for semantically overlapping builtin tools."""
+    from butler.tools.orthogonality_lint_ops import load_embedder_for_lint_safe
     from butler.tools.registry import get_tool_definitions
 
-    try:
-        from butler.memory.embedding import cosine_similarity, get_embedder
-    except Exception as exc:
-        return [f"orthogonality lint skipped: embedder unavailable ({exc})"]
-
-    embedder = get_embedder()
+    embedder, skip = load_embedder_for_lint_safe()
+    if embedder is None:
+        return [skip or "orthogonality lint skipped: embedder unavailable"]
     if embedder.model_id.startswith("hashing"):
         return ["orthogonality lint skipped: hashing embedder (set real embedding model)"]
 
@@ -142,37 +134,26 @@ def lint_tool_orthogonality_for_diagnostics(
     max_pairs: int = 2,
 ) -> list[str]:
     """Builtin + MCP overlap warnings for /诊断 (deduped, noise-reduced)."""
-    try:
-        from butler.memory.embedding import cosine_similarity, get_embedder
-    except Exception as exc:
-        logger.debug("diagnostic orthogonality skipped: %s", exc)
-        return []
+    from butler.tools.orthogonality_lint_ops import (
+        get_builtin_tool_definitions_safe,
+        get_mcp_tool_definitions_safe,
+        load_embedder_for_diagnostics_safe,
+    )
 
-    embedder = get_embedder()
+    embedder = load_embedder_for_diagnostics_safe()
+    if embedder is None:
+        return []
     if embedder.model_id.startswith("hashing"):
         return []
 
-    defs: list[dict[str, Any]] = []
-    try:
-        from butler.tools.registry import get_tool_definitions
+    defs: list[dict[str, Any]] = list(get_builtin_tool_definitions_safe())
 
-        defs.extend(get_tool_definitions())
-    except Exception as exc:
-        logger.debug("builtin defs for orthogonality skipped: %s", exc)
-
-    try:
-        from butler.mcp.config import mcp_enabled
-        from butler.mcp.registry_hook import get_mcp_tool_definitions
-
-        if mcp_enabled():
-            mcp_defs = get_mcp_tool_definitions(session_key)
-            known = {_tool_name(d) for d in defs}
-            for defn in mcp_defs:
-                name = _tool_name(defn)
-                if name and name not in known:
-                    defs.append(defn)
-    except Exception as exc:
-        logger.debug("mcp defs for orthogonality skipped: %s", exc)
+    mcp_defs = get_mcp_tool_definitions_safe(session_key)
+    known = {_tool_name(d) for d in defs}
+    for defn in mcp_defs:
+        name = _tool_name(defn)
+        if name and name not in known:
+            defs.append(defn)
 
     if len(defs) < 2:
         return []

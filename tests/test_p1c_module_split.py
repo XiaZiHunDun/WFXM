@@ -168,6 +168,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/commands/dialog_commands_ops.py": 100,
     "butler/tools/network_search_policy_ops.py": 100,
     "butler/memory/vector_gc_ops.py": 45,
+    "butler/gateway/platforms/wechat_ilink/_utils_legacy_ops.py": 90,
+    "butler/tools/orthogonality_lint_ops.py": 110,
+    "butler/gateway/message_pipelines_fail_closed_ops.py": 60,
+    "butler/memory/experience_consolidation_ops.py": 45,
+    "butler/core/tool_selector_ops.py": 70,
+    "butler/gateway/platforms/wechat_ilink/qr_phases_ops.py": 55,
+    "butler/tools/terminal_approval_ops.py": 60,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

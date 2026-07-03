@@ -312,6 +312,20 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/tools/network_search_policy_ops.py": 0,
     "butler/memory/vector_gc.py": 0,
     "butler/memory/vector_gc_ops.py": 3,
+    "butler/gateway/platforms/wechat_ilink/_utils_legacy.py": 0,
+    "butler/gateway/platforms/wechat_ilink/_utils_legacy_ops.py": 5,
+    "butler/tools/orthogonality_lint.py": 0,
+    "butler/tools/orthogonality_lint_ops.py": 0,
+    "butler/gateway/message_pipelines_fail_closed.py": 0,
+    "butler/gateway/message_pipelines_fail_closed_ops.py": 2,
+    "butler/memory/experience_consolidation.py": 0,
+    "butler/memory/experience_consolidation_ops.py": 1,
+    "butler/core/tool_selector.py": 0,
+    "butler/core/tool_selector_ops.py": 0,
+    "butler/gateway/platforms/wechat_ilink/qr_phases.py": 0,
+    "butler/gateway/platforms/wechat_ilink/qr_phases_ops.py": 3,
+    "butler/tools/terminal_approval.py": 0,
+    "butler/tools/terminal_approval_ops.py": 0,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

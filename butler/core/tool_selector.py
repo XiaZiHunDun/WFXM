@@ -8,9 +8,6 @@ import re
 from collections import OrderedDict
 
 from butler.env_parse import env_truthy, int_env
-import logging
-
-logger = logging.getLogger(__name__)
 
 _CORE_TOOLS = frozenset({
     "read_file",
@@ -74,16 +71,10 @@ def _get_semantic_embedder():
     _embedder_resolved = True
     if not env_truthy("BUTLER_TOOL_SEMANTIC_SELECT", default=True):
         return None
-    try:
-        from butler.memory.embedding import get_embedder
+    from butler.core.tool_selector_ops import get_semantic_embedder_safe
 
-        emb = get_embedder()
-        if emb.model_id.startswith("hashing"):
-            return None
-        _embedder_instance = emb
-        return emb
-    except Exception:
-        return None
+    _embedder_instance = get_semantic_embedder_safe()
+    return _embedder_instance
 
 
 def _semantic_score(defn: dict, query_vec: list[float], embedder: object) -> float:
@@ -95,9 +86,10 @@ def _semantic_score(defn: dict, query_vec: list[float], embedder: object) -> flo
         tool_vec = _tool_embed_cache[cache_key]
         _tool_embed_cache.move_to_end(cache_key)
     else:
-        try:
-            tool_vec = embedder.embed(text)  # type: ignore[union-attr]
-        except Exception:
+        from butler.core.tool_selector_ops import embed_text_safe
+
+        tool_vec = embed_text_safe(embedder, text)
+        if not tool_vec:
             return 0.0
         _tool_embed_cache[cache_key] = tool_vec
         _tool_embed_cache.move_to_end(cache_key)
@@ -150,16 +142,17 @@ def select_tools_for_context(
 
     cap = threshold if threshold is not None else tool_selector_threshold()
 
-    try:
-        from butler.core.tool_recall_bm25 import (
-            select_tools_with_bm25,
-            tool_recall_bm25_enabled,
-        )
+    from butler.core.tool_recall_bm25 import tool_recall_bm25_enabled
+    from butler.core.tool_selector_ops import select_tools_bm25_safe
 
-        if tool_recall_bm25_enabled() and len(tools) > cap:
-            return select_tools_with_bm25(tools, user_hint=user_hint or role, top_k=cap)
-    except Exception as exc:
-        logger.debug("select tools for context skipped: %s", exc)
+    if tool_recall_bm25_enabled() and len(tools) > cap:
+        bm25 = select_tools_bm25_safe(
+            tools,
+            user_hint=user_hint or role,
+            cap=cap,
+        )
+        if bm25 is not None:
+            return bm25
     if len(tools) <= cap:
         return list(tools), diag
 
@@ -168,10 +161,9 @@ def select_tools_for_context(
     embedder = _get_semantic_embedder()
     query_vec: list[float] = []
     if embedder and user_hint:
-        try:
-            query_vec = embedder.embed(user_hint)
-        except Exception:
-            query_vec = []
+        from butler.core.tool_selector_ops import embed_text_safe
+
+        query_vec = embed_text_safe(embedder, user_hint)
 
     ranked: list[tuple[int, int, dict]] = []
     for idx, defn in enumerate(tools):

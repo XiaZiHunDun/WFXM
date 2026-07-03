@@ -139,12 +139,9 @@ def apply_merge_pending(
 
         pending.pop(key, None)
         save_merge_pending(pending)
-        try:
-            from butler.ops.runtime_metrics import inc
+        from butler.memory.experience_consolidation_ops import inc_digestion_metric_safe
 
-            inc("digestion_experience_merged")
-        except Exception:
-            pass
+        inc_digestion_metric_safe("digestion_experience_merged")
         return {
             "ok": True,
             "key": key,
@@ -220,13 +217,11 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
 
 def fusion_merge_experience_text(existing: str, new: str) -> dict[str, Any]:
     """Trusted-model merge; sets ``fallback_used`` when LLM path fails."""
-    from butler.transport.fusion_client import fusion_complete
-
     prompt = _EXPERIENCE_MERGE_PROMPT.format(existing=existing.strip(), new=new.strip())
-    try:
-        raw = fusion_complete(prompt)
-    except Exception as exc:
-        logger.warning("Experience fusion LLM failed: %s", exc)
+    from butler.memory.experience_consolidation_ops import fusion_complete_loud
+
+    raw, err = fusion_complete_loud(prompt)
+    if err is not None or raw is None:
         return {"content": existing.strip(), "tags": "", "fallback_used": True}
 
     data = _extract_json_object(raw)
@@ -332,12 +327,9 @@ def digest_experience_add(
                     category=category or "",
                     content=str(merged.get("content") or ""),
                 )
-                try:
-                    from butler.ops.runtime_metrics import inc
+                from butler.memory.experience_consolidation_ops import inc_digestion_metric_safe
 
-                    inc("digestion_experience_merged")
-                except Exception:
-                    pass
+                inc_digestion_metric_safe("digestion_experience_merged")
                 return row_id
 
         queue_merge_pending(
@@ -349,12 +341,9 @@ def digest_experience_add(
             similarity=sim,
             proposed=merged,
         )
-        try:
-            from butler.ops.runtime_metrics import inc
+        from butler.memory.experience_consolidation_ops import inc_digestion_metric_safe
 
-            inc("digestion_experience_merge_pending")
-        except Exception:
-            pass
+        inc_digestion_metric_safe("digestion_experience_merge_pending")
         return 0
 
     return butler_memory._append_experience_row(project, category, content, tags=tags)

@@ -213,10 +213,10 @@ def load_wechat_account(data_home: str, account_id: str) -> Optional[Dict[str, A
     path = _account_file(data_home, account_id)
     if not path.exists():
         return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import read_json_dict_safe
+
+    data = read_json_dict_safe(path)
+    return data if isinstance(data, dict) else None
 
 
 # ---------------------------------------------------------------------------
@@ -246,17 +246,18 @@ class ContextTokenStore:
         path = self._path(account_id)
         if not path.exists():
             return
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.warning("wechat: failed to restore context tokens for %s: %s", _safe_id(account_id), exc)
+        from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import (
+            restore_context_tokens_from_file,
+        )
+
+        data = restore_context_tokens_from_file(path, account_id, safe_id=_safe_id)
+        if data is None:
             return
         restored = 0
         with self._lock:
             for user_id, token in data.items():
-                if isinstance(token, str) and token:
-                    self._remember(self._key(account_id, user_id), token)
-                    restored += 1
+                self._remember(self._key(account_id, user_id), token)
+                restored += 1
         if restored:
             logger.info("wechat: restored %d context token(s) for %s", restored, _safe_id(account_id))
 
@@ -292,15 +293,23 @@ class ContextTokenStore:
             for key, value in self._cache.items()
             if key.startswith(prefix)
         }
-        try:
+        from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import (
+            persist_context_tokens_loud,
+        )
+
+        def _write() -> None:
             path = self._path(account_id)
             atomic_json_write(path, payload)
             try:
                 path.chmod(0o600)
             except OSError:
                 pass
-        except Exception as exc:
-            logger.warning("wechat: failed to persist context tokens for %s: %s", _safe_id(account_id), exc)
+
+        persist_context_tokens_loud(
+            write_fn=_write,
+            account_id=account_id,
+            safe_id=_safe_id,
+        )
 
 
 _MAX_TYPING_TICKET_ENTRIES = 1000
@@ -444,12 +453,9 @@ _WECHAT_CDN_ALLOWLIST: frozenset = frozenset(
 
 def _assert_wechat_cdn_url(url: str) -> None:
     """Raise ValueError if *url* does not point at a known WeChat CDN host."""
-    try:
-        parsed = urlparse(url)
-        scheme = parsed.scheme.lower()
-        host = parsed.hostname or ""
-    except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"Unparseable media URL: {url!r}") from exc
+    from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import parse_wechat_cdn_url_loud
+
+    scheme, host = parse_wechat_cdn_url_loud(url)
 
     if scheme not in ("http", "https"):
         raise ValueError(
@@ -615,10 +621,9 @@ def _load_sync_buf(data_home: str, account_id: str) -> str:
     path = _sync_buf_path(data_home, account_id)
     if not path.exists():
         return ""
-    try:
-        return json.loads(path.read_text(encoding="utf-8")).get("get_updates_buf", "")
-    except Exception:
-        return ""
+    from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import load_sync_buf_field_safe
+
+    return load_sync_buf_field_safe(path)
 
 
 def _save_sync_buf(data_home: str, account_id: str, sync_buf: str) -> None:

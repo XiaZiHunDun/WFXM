@@ -4,12 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import os
 import time
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
 
 _TTL_SEC = 300.0
 
@@ -32,12 +29,9 @@ def approval_required() -> bool:
 
 
 def argv_fingerprint(command: str, *, cwd: str = "") -> str:
-    try:
-        from butler.tools.command_canonicalize import canonicalize_command_for_approval
+    from butler.tools.terminal_approval_ops import canonicalize_command_safe
 
-        canonical = canonicalize_command_for_approval(command)
-    except Exception:
-        canonical = (command or "").strip()
+    canonical = canonicalize_command_safe(command)
     payload = json.dumps(
         {"command": canonical, "cwd": (cwd or "").strip()},
         sort_keys=True,
@@ -77,15 +71,12 @@ def check_approval(
     if not approval_required():
         return None
 
-    try:
-        from butler.core.auto_review import try_auto_review_terminal
+    from butler.tools.terminal_approval_ops import try_auto_review_terminal_safe
 
-        review = try_auto_review_terminal(command, diagnostics=None)
-        if review.allowed and not review.skipped:
-            store_approval(command, cwd=cwd, session_key=session_key, ttl_sec=300.0)
-            return None
-    except Exception as exc:
-        logger.debug("check approval skipped: %s", exc)
+    review = try_auto_review_terminal_safe(command)
+    if review is not None and review.allowed and not review.skipped:
+        store_approval(command, cwd=cwd, session_key=session_key, ttl_sec=300.0)
+        return None
     fp = argv_fingerprint(command, cwd=cwd)
     path = _approvals_dir() / f"{fp}.json"
     from butler.core.approval_cards import format_terminal_exec_card
@@ -95,12 +86,11 @@ def check_approval(
             command,
             reason="终端命令需 Owner 批准后再执行",
         ))
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    from butler.tools.terminal_approval_ops import read_approval_record_safe
+
+    data = read_approval_record_safe(path)
+    if data is None:
         return str(format_terminal_exec_card(command, reason="批准记录损坏，请重新批准"))
-    if not isinstance(data, dict):
-        return str(format_terminal_exec_card(command, reason="批准记录无效，请重新批准"))
     if time.time() > float(data.get("expires_at") or 0):
         path.unlink(missing_ok=True)
         return str(format_terminal_exec_card(command, reason="批准已过期（5 分钟），请重新批准"))
@@ -130,11 +120,10 @@ def approval_allows_unsandboxed(
     path = _approvals_dir() / f"{fp}.json"
     if not path.is_file():
         return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return False
-    if not isinstance(data, dict):
+    from butler.tools.terminal_approval_ops import read_approval_record_safe
+
+    data = read_approval_record_safe(path)
+    if data is None:
         return False
     if time.time() > float(data.get("expires_at") or 0):
         path.unlink(missing_ok=True)
