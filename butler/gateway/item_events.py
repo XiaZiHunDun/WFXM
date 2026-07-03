@@ -8,9 +8,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from butler.gateway.outbound_events import OutboundEvent
-import logging
-
-logger = logging.getLogger(__name__)
 
 SCHEMA = "butler.app-server/1"
 
@@ -99,9 +96,6 @@ def context_compaction_item(
 
 def emit_thread_item(event: OutboundEvent) -> None:
     """Best-effort push to global item sink (health / diagnostics)."""
-    try:
-        from butler.gateway.item_event_sink import record_thread_item
+    from butler.gateway.item_events_ops import record_thread_item_safe
 
-        record_thread_item(event)
-    except Exception as exc:
-        logger.debug("emit thread item skipped: %s", exc)
+    record_thread_item_safe(event)

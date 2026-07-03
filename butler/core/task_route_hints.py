@@ -35,13 +35,12 @@ def detect_cc_route_banner(user_text: str) -> str | None:
         return None
     if score_heavy_coding_intent(user_text) < 4:
         return None
-    try:
-        from butler.runtime.cc_bridge import cc_bridge_enabled as _cc_on
-    except Exception:
-        _cc_on = lambda: False
+    from butler.core.task_route_hints_ops import cc_bridge_enabled_for_hints_safe
+
+    cc_on = cc_bridge_enabled_for_hints_safe()
     cc_line = (
         "可发 **/cc-bridge <任务摘要>**（需已开启 CC 桥接）。"
-        if _cc_on()
+        if cc_on
         else "本机 Claude Code / Cursor 更适合；我可在微信列验收清单。"
     )
     return (

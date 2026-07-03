@@ -244,6 +244,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/config_secrets_ops.py": 30,
     "butler/config_secrets_crypto_ops.py": 35,
     "butler/gateway/bot_loop_guard_ops.py": 25,
+    "butler/core/session_epoch_ops.py": 30,
+    "butler/gateway/item_events_ops.py": 20,
+    "butler/delegate/policy_ops.py": 25,
+    "butler/core/task_route_hints_ops.py": 25,
+    "butler/memory/document_ingest_ops.py": 20,
+    "butler/registry/url_safety_ops.py": 15,
+    "butler/core/tool_result_storage_ops.py": 30,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _SESSION_RESET = "session_reset"
 _SKILL_INJECT_MARKER = "## 相关知识"
@@ -51,12 +48,9 @@ def load_epoch_transcript_rows(
     *,
     max_lines: int | None = None,
 ) -> list[dict[str, Any]]:
-    try:
-        from butler.core.transcript_export import load_transcript_rows
-    except Exception as exc:
-        logger.debug("epoch transcript load skipped: %s", exc)
-        return []
-    rows = load_transcript_rows(session_key, max_lines=max_lines)
+    from butler.core.session_epoch_ops import load_transcript_rows_safe
+
+    rows = load_transcript_rows_safe(session_key, max_lines=max_lines)
     return rows_in_current_epoch(rows)
 
 

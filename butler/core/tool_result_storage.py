@@ -232,19 +232,15 @@ def is_readable_session_tool_result_path(
     raw = str(path_str or "").strip()
     if not raw:
         return False
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.execution_context import get_current_session_key
+    from butler.core.tool_result_storage_ops import is_readable_session_tool_result_path_safe
 
-        sk = str(session_key or get_current_session_key() or "").strip()
-        if not sk:
-            return False
-        allowed_dir = tool_results_dir(sk).resolve(strict=False)
-        target = Path(raw).expanduser().resolve(strict=False)
-        if not target.is_file():
-            return False
-        return target.is_relative_to(allowed_dir)
-    except Exception:
-        return False
+    return is_readable_session_tool_result_path_safe(
+        raw,
+        session_key=session_key,
+        allowed_dir_for_session=tool_results_dir,
+        current_session_key=get_current_session_key,
+    )
 
 
 def tool_result_path(session_key: str, tool_use_id: str) -> Path:

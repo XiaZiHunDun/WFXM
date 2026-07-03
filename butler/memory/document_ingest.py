@@ -136,10 +136,11 @@ def ingest_file(
             return IngestFileResult(str(src_p), str(out), "skipped", "未变更")
     if dry_run:
         return IngestFileResult(str(src_p), str(out), "written", "[dry-run]")
-    try:
-        text = _convert_to_markdown(src_p)
-    except Exception as exc:
-        return IngestFileResult(str(src_p), str(out), "failed", str(exc))
+    from butler.memory.document_ingest_ops import convert_document_to_markdown_safe
+
+    text, convert_err = convert_document_to_markdown_safe(_convert_to_markdown, src_p)
+    if convert_err is not None:
+        return IngestFileResult(str(src_p), str(out), "failed", convert_err)
     header = (
         f"---\n"
         f"ingest_source: {src_p.name}\n"

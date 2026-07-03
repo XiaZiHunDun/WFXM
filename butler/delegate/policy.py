@@ -30,9 +30,6 @@ def resolve_delegate_max_iterations(category_meta: dict | None = None) -> int:
         base = int_env("BUTLER_DELEGATE_MAX_ITERATIONS", 24, min=1, max=200)
     except ValueError:
         base = 24
-    try:
-        from butler.ops.eval_config_overrides import effective_delegate_max_iterations
+    from butler.delegate.policy_ops import effective_delegate_max_iterations_safe
 
-        return effective_delegate_max_iterations(base)
-    except Exception:
-        return base
+    return effective_delegate_max_iterations_safe(base)

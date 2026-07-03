@@ -38,9 +38,10 @@ def _addr_blocked(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
 
 
 def is_safe_url(url: str) -> bool:
-    try:
-        parsed = urlparse(url.strip())
-    except Exception:
+    from butler.registry.url_safety_ops import urlparse_safe
+
+    parsed = urlparse_safe(url)
+    if parsed is None:
         return False
     if parsed.scheme not in _BLOCKED_SCHEMES:
         return False
