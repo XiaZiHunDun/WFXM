@@ -39,14 +39,11 @@ def _parse_frontmatter(raw: str) -> tuple[dict[str, Any], str]:
     if not m:
         return {}, text
     meta: dict[str, Any] = {}
-    try:
-        import yaml
+    from butler.agents_md_ops import parse_yaml_frontmatter_safe
 
-        loaded = yaml.safe_load(m.group(1))
-        if isinstance(loaded, dict):
-            meta = loaded
-    except Exception as exc:
-        logger.debug("parse frontmatter skipped: %s", exc)
+    loaded = parse_yaml_frontmatter_safe(m.group(1))
+    if loaded is not None:
+        meta = loaded
     body = str(m.group(2) or "").strip()
     return meta, body
 

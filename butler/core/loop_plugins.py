@@ -44,12 +44,15 @@ class LoopPluginRegistry:
                 self._wrap_tool_call_hooks.append(wrap_hook)
 
     def before_model(self, messages: list[dict]) -> list[dict]:
+        from butler.core.loop_plugins_ops import run_plugin_hook_safe
+
         out = list(messages)
         for hook in self._before_llm_hooks:
-            try:
-                out = hook(out)
-            except Exception as exc:
-                logger.debug("loop plugin before_model failed: %s", exc)
+            out = run_plugin_hook_safe(
+                hook,
+                out,
+                label="loop_plugins.before_model",
+            )
         return out
 
     def before_llm(self, messages: list[dict]) -> list[dict]:
@@ -61,12 +64,16 @@ class LoopPluginRegistry:
         *,
         tool_stats: Any = None,
     ) -> list[dict]:
+        from butler.core.loop_plugins_ops import run_plugin_hook_safe
+
         out = list(messages)
         for hook in reversed(self._after_tools_hooks):
-            try:
-                out = hook(out, tool_stats=tool_stats)
-            except Exception as exc:
-                logger.debug("loop plugin after_tools failed: %s", exc)
+            out = run_plugin_hook_safe(
+                hook,
+                out,
+                label="loop_plugins.after_tools",
+                tool_stats=tool_stats,
+            )
         return out
 
     def wrap_tool_call(

@@ -51,12 +51,11 @@ def render_orchestrator_turn(
     use_static_reminder: bool = False,
 ) -> tuple[str, str | None]:
     """Build system + optional user reminder from a Butler orchestrator."""
-    try:
-        from butler.core.harness_flags import static_system_reminder_enabled
+    from butler.core.prompt_renderer_ops import static_system_reminder_enabled_safe
 
-        use_static_reminder = static_system_reminder_enabled()
-    except Exception as exc:
-        logger.debug("render orchestrator turn skipped: %s", exc)
+    use_static_reminder = static_system_reminder_enabled_safe(
+        default=use_static_reminder,
+    )
     if use_static_reminder:
         static = orchestrator.build_static_system_prompt()
         reminder_body = orchestrator.build_dynamic_system_reminder(for_role=for_role)

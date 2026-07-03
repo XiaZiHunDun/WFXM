@@ -45,12 +45,15 @@ class LoopMiddlewareChain:
         return self.before_llm(messages)
 
     def before_llm(self, messages: list[dict]) -> list[dict]:
+        from butler.core.loop_middleware_ops import run_middleware_hook_safe
+
         out = list(messages)
         for hook in self._before_llm_hooks:
-            try:
-                out = hook(out)
-            except Exception as exc:
-                logger.debug("loop middleware before_llm failed: %s", exc)
+            out = run_middleware_hook_safe(
+                hook,
+                out,
+                label="loop_middleware.before_llm",
+            )
         return out
 
     def after_tools(
@@ -59,12 +62,16 @@ class LoopMiddlewareChain:
         *,
         tool_stats: Any = None,
     ) -> list[dict]:
+        from butler.core.loop_middleware_ops import run_middleware_hook_safe
+
         out = list(messages)
         for hook in reversed(self._after_tools_hooks):
-            try:
-                out = hook(out, tool_stats=tool_stats)
-            except Exception as exc:
-                logger.debug("loop middleware after_tools failed: %s", exc)
+            out = run_middleware_hook_safe(
+                hook,
+                out,
+                label="loop_middleware.after_tools",
+                tool_stats=tool_stats,
+            )
         return out
 
     def wrap_tool_call(

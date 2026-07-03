@@ -19,14 +19,10 @@ def maybe_prepend_system_reminder(user_content: str) -> str:
     """Inject dynamic orchestrator context into the user turn when enabled."""
     if not static_system_reminder_enabled():
         return user_content
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.core.system_reminder_ops import build_dynamic_system_reminder_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return user_content
-        reminder = orch.build_dynamic_system_reminder()
-    except Exception:
+    reminder = build_dynamic_system_reminder_safe()
+    if reminder is None:
         return user_content
     if not reminder:
         return user_content

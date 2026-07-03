@@ -22,7 +22,6 @@ function as a linear list of ``phase_*(...)`` calls.
 from __future__ import annotations
 
 import argparse
-import sys
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -66,12 +65,11 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
     ui, stream = _phase_build_exec_ui(console)
     agent_loop = _phase_create_exec_loop(orch, ui, stream)
 
-    try:
-        result = _phase_run_single_turn(orch, agent_loop, ns.message, ui, stream)
-        return 0 if result.status.value == "completed" else 1
-    except Exception as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
+    from butler.cli.chat_cli_ops import run_exec_turn_safe
+
+    return run_exec_turn_safe(
+        lambda: _phase_run_single_turn(orch, agent_loop, ns.message, ui, stream),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -270,12 +268,13 @@ def _phase_run_interactive_turn(
     agent_loop.callbacks = ui.build_callbacks(stream)
     augmented = _phase_augment_prompt(orchestrator, user_input)
 
-    try:
-        return _phase_execute_turn(orchestrator, agent_loop, user_input, augmented, ui, stream)
-    except KeyboardInterrupt:
-        return _phase_handle_keyboard_interrupt(agent_loop, ui, stream)
-    except Exception as exc:
-        return _phase_handle_turn_error(agent_loop, exc)
+    from butler.cli.chat_cli_ops import run_interactive_turn_safe
+
+    return run_interactive_turn_safe(
+        lambda: _phase_execute_turn(orchestrator, agent_loop, user_input, augmented, ui, stream),
+        on_keyboard_interrupt=lambda: _phase_handle_keyboard_interrupt(agent_loop, ui, stream),
+        on_error=lambda exc: _phase_handle_turn_error(agent_loop, exc),
+    )
 
 
 def _phase_execute_turn(

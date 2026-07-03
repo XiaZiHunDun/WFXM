@@ -20,10 +20,12 @@ def optimize_tool_definitions(
     """Sanitize schemas up-front to reduce grammar 400 errors."""
     if not tools or not schema_optimize_enabled():
         return tools
-    try:
-        from butler.transport.schema_sanitizer import sanitize_tool_schemas, strip_pattern_and_format
-    except Exception:
+    from butler.core.schema_optimizer_ops import load_schema_sanitizer_safe
+
+    sanitizer = load_schema_sanitizer_safe()
+    if sanitizer is None:
         return tools
+    sanitize_tool_schemas, strip_pattern_and_format = sanitizer
 
     sanitized = sanitize_tool_schemas(tools) or []
     stripped, count = strip_pattern_and_format(sanitized)

@@ -35,15 +35,16 @@ def flush_after_commit(*, clear_on_error: bool = True) -> int:
         else:
             _QUEUE[:] = []
 
+    from butler.core.post_commit_ops import run_after_commit_callback_safe
+
     ran = 0
     failed = 0
     for fn in tasks:
-        try:
-            fn()
+        if run_after_commit_callback_safe(fn):
             ran += 1
-        except Exception as exc:
+        else:
             failed += 1
-            logger.warning("after_commit callback failed: %s", exc)
+            logger.warning("after_commit callback failed")
     if failed and not clear_on_error:
         with _LOCK:
             _QUEUE.extend(tasks[ran + failed :])

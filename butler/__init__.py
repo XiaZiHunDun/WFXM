@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import subprocess
 import sys
 
 __version__ = "4.0.0"
@@ -22,18 +21,9 @@ def _resolve_git_sha() -> str:
     global _git_sha
     if _git_sha is not None:
         return _git_sha
-    try:
-        _git_sha = (
-            subprocess.check_output(
-                ["git", "rev-parse", "--short", "HEAD"],
-                stderr=subprocess.DEVNULL,
-                timeout=3,
-            )
-            .decode()
-            .strip()
-        )
-    except Exception:
-        _git_sha = "unknown"
+    from butler.butler_init_ops import resolve_git_sha_safe
+
+    _git_sha = resolve_git_sha_safe()
     return _git_sha
 
 

@@ -372,6 +372,20 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/registry/skill_sources/marketplace_ops.py": 20,
     "butler/registry/skill_sources/url_ops.py": 30,
     "butler/workflows/callbacks_ops.py": 35,
+    "butler/core/loop_middleware_ops.py": 35,
+    "butler/core/loop_plugins_ops.py": 35,
+    "butler/core/post_commit_ops.py": 25,
+    "butler/core/prompt_renderer_ops.py": 25,
+    "butler/core/reflexion_write_ops.py": 35,
+    "butler/core/schema_optimizer_ops.py": 25,
+    "butler/core/steer_ops.py": 25,
+    "butler/core/streaming_tools_ops.py": 30,
+    "butler/core/system_reminder_ops.py": 30,
+    "butler/core/tool_pair_repair_ops.py": 25,
+    "butler/cli/chat_cli_ops.py": 45,
+    "butler/agents_md_ops.py": 30,
+    "butler/butler_init_ops.py": 30,
+    "butler/skills/similarity_ops.py": 35,
 
 }
 

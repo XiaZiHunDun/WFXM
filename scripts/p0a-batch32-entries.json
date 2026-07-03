@@ -1,0 +1,16 @@
+[
+  {"main": "butler/core/loop_middleware.py", "ops": "butler/core/loop_middleware_ops.py", "except_budget_ops": 0, "line_budget": 35},
+  {"main": "butler/core/loop_plugins.py", "ops": "butler/core/loop_plugins_ops.py", "except_budget_ops": 0, "line_budget": 35},
+  {"main": "butler/core/post_commit.py", "ops": "butler/core/post_commit_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/core/prompt_renderer.py", "ops": "butler/core/prompt_renderer_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/core/reflexion_write.py", "ops": "butler/core/reflexion_write_ops.py", "except_budget_ops": 0, "line_budget": 35},
+  {"main": "butler/core/schema_optimizer.py", "ops": "butler/core/schema_optimizer_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/core/steer.py", "ops": "butler/core/steer_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/core/streaming_tools.py", "ops": "butler/core/streaming_tools_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/core/system_reminder.py", "ops": "butler/core/system_reminder_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/core/tool_pair_repair.py", "ops": "butler/core/tool_pair_repair_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/cli/chat_cli.py", "ops": "butler/cli/chat_cli_ops.py", "except_budget_ops": 2, "line_budget": 45},
+  {"main": "butler/agents_md.py", "ops": "butler/agents_md_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/__init__.py", "ops": "butler/butler_init_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/skills/similarity.py", "ops": "butler/skills/similarity_ops.py", "except_budget_ops": 1, "line_budget": 35}
+]

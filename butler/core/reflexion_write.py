@@ -17,22 +17,11 @@ def reflexion_write_enabled() -> bool:
 
 
 def _experience_path() -> Path:
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
+    from butler.core.reflexion_write_ops import resolve_project_experience_path_safe
 
-        orch = get_current_orchestrator()
-        pm = getattr(orch, "project_manager", None) if orch else None
-        if pm is not None:
-            proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-            if proj is not None:
-                return (
-                    Path(proj.workspace).expanduser().resolve()
-                    / ".butler"
-                    / "experiences"
-                    / "reflexion.jsonl"
-                )
-    except Exception as exc:
-        logger.debug("experience path skipped: %s", exc)
+    project_path = resolve_project_experience_path_safe()
+    if project_path is not None:
+        return project_path
     return Path.home() / ".butler" / "experiences" / "reflexion.jsonl"
 
 

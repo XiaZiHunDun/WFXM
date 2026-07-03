@@ -15,14 +15,11 @@ _run_depth: dict[str, int] = {}
 def _resolve_session_key(session_key: str | None = None) -> str:
     if session_key is not None and str(session_key).strip():
         return str(session_key).strip()
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.core.steer_ops import resolve_session_key_from_context_safe
 
-        sk = str(get_current_session_key() or "").strip()
-        if sk:
-            return sk
-    except Exception as exc:
-        logger.debug("resolve session key skipped: %s", exc)
+    sk = resolve_session_key_from_context_safe()
+    if sk:
+        return sk
     return "default"
 
 

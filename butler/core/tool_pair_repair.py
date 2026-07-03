@@ -75,16 +75,12 @@ def repair_tool_pairs(
             diagnostics.get("tool_pair_repair_count", 0) or 0
         ) + repairs
         diagnostics["loop_transition_reason"] = "tool_pair_repair"
-        try:
-            from butler.core.session_transcript import record_generic_event
+        from butler.core.tool_pair_repair_ops import record_tool_pair_repair_event_safe
 
-            record_generic_event(
-                str(diagnostics.get("session_key") or ""),
-                "tool_pair_repair",
-                {"count": repairs},
-            )
-        except Exception as exc:
-            logger.debug("flush pending skipped: %s", exc)
+        record_tool_pair_repair_event_safe(
+            str(diagnostics.get("session_key") or ""),
+            repairs,
+        )
         logger.debug("Tool-pair repair inserted %d synthetic tool results", repairs)
 
     return out, repairs
