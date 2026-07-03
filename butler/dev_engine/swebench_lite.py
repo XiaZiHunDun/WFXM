@@ -711,14 +711,14 @@ def run_oracle_verification(workspace: Path) -> dict[str, Any]:
             ws = Path(tmpdir)
             inst.setup_workspace(ws)
             inst.apply_oracle(ws)
-            try:
-                passed = inst.verify(ws)
-            except Exception as exc:
-                passed = False
+            from butler.dev_engine.swebench_lite_ops import verify_swebench_instance_safe
+
+            passed, error = verify_swebench_instance_safe(inst, ws)
+            if error:
                 results.append({
                     "id": inst.instance_id,
                     "passed": False,
-                    "error": str(exc),
+                    "error": error,
                 })
                 continue
             results.append({

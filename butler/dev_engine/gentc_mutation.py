@@ -121,15 +121,13 @@ def mutation_score(
     unkilled: list[str] = []
     for idx, mutant_code in enumerate(specimen.mutants):
         mid = f"{specimen.theorem_id}_mut{idx}"
-        try:
-            m_ns = _exec_snippet(mutant_code)
-        except Exception:
+        from butler.dev_engine.gentc_mutation_ops import exec_mutant_snippet_safe, mutant_detected_safe
+
+        m_ns, exec_failed = exec_mutant_snippet_safe(mutant_code, _exec_snippet)
+        if exec_failed:
             killed += 1
             continue
-        try:
-            detected = any(not pred(m_ns) for _, pred in specimen.predicates)
-        except Exception:
-            detected = True
+        detected = mutant_detected_safe(m_ns, specimen.predicates)
         if detected:
             killed += 1
         else:

@@ -173,22 +173,9 @@ def build_b9_delegate_context(workspace: Path) -> str:
 
 
 def _append_b9_learning_blocks(lines: list[str], task_id: str) -> None:
-    try:
-        from butler.dev_engine.b9_oracle_curriculum import format_curriculum_block
+    from butler.dev_engine.b9_live_tuning_ops import append_b9_learning_blocks_safe
 
-        block = format_curriculum_block(task_id, max_steps=4)
-        if block:
-            lines.append(block)
-    except Exception:
-        pass
-    try:
-        from butler.ops.b9_lessons import format_b9_lessons_block
-
-        lessons = format_b9_lessons_block(task_id, limit=2)
-        if lessons:
-            lines.append(lessons)
-    except Exception:
-        pass
+    append_b9_learning_blocks_safe(lines, task_id)
 
 
 def build_b9_task_playbook(task_id: str) -> str:

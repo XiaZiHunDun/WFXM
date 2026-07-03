@@ -620,15 +620,13 @@ def _run_b8_swebench(workspace: Path, _collector: MetricsCollector) -> Benchmark
     for inst in instances:
         inst_dir = workspace / inst.instance_id
         inst_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            inst.setup_workspace(inst_dir)
-            inst.apply_oracle(inst_dir)
-            if inst.verify(inst_dir):
-                pass_count += 1
-            else:
-                fail_reasons.append(f"{inst.instance_id}: verify failed after oracle patch")
-        except Exception as exc:
-            fail_reasons.append(f"{inst.instance_id}: {exc}")
+        from butler.dev_engine.dev_benchmark_ops import run_swebench_instance_safe
+
+        ok, reason = run_swebench_instance_safe(inst, inst_dir)
+        if ok:
+            pass_count += 1
+        elif reason:
+            fail_reasons.append(reason)
 
     all_passed = pass_count == len(instances)
     return BenchmarkResult(
@@ -688,16 +686,16 @@ def run_benchmarks(
                 tmp = Path(tempfile.mkdtemp(prefix="butler_bench_"))
 
             t0 = time.time()
-            try:
-                result = bench_fn(tmp, collector)
-                result.elapsed_seconds = time.time() - t0
-            except Exception as exc:
+            from butler.dev_engine.dev_benchmark_ops import run_benchmark_fn_safe
+
+            result, err = run_benchmark_fn_safe(bench_fn, tmp, collector)
+            if result is None:
                 result = BenchmarkResult(
                     task_id=bench_fn.__name__,
                     category=BenchmarkCategory.SYNTAX_FIX,
                     description=f"CRASH: {bench_fn.__name__}",
                     passed=False,
-                    failure_reasons=[f"Exception: {exc}"],
+                    failure_reasons=[f"Exception: {err}"],
                     elapsed_seconds=time.time() - t0,
                 )
             report.results.append(result)

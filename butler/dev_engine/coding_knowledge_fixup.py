@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _VERIFY_KEYWORDS = frozenset(
     {
@@ -59,93 +56,12 @@ def reactivate_coding_knowledge_on_verify_fail(state: Any) -> dict[str, Any]:
         if kw and kw not in keywords:
             keywords.append(kw)
 
-    try:
-        from butler.dev_engine.coding_knowledge import (
-            TheoremLibrary,
-            process_task,
-        )
-        from butler.memory.memory_scope import load_delegate_experience_library
+    from butler.dev_engine.coding_knowledge_fixup_ops import reactivate_coding_knowledge_core_safe
 
-        from butler.config import get_butler_home
-
-        project_id = str(getattr(state, "_delegate_project_id", "") or "")
-        stack_tags = getattr(state, "_delegate_stack_tags", None) or frozenset()
-        inferred_task_id = str(getattr(state, "_inferred_task_id", "") or "")
-        project = getattr(state, "_delegate_project", None)
-
-        tlib = TheoremLibrary()
-        xlib = load_delegate_experience_library(
-            butler_home=get_butler_home(),
-            project=project,
-            theorem_lib=tlib,
-        )
-        try:
-            from butler.ops.eval_config_overrides import effective_coding_knowledge_strict
-
-            strict = effective_coding_knowledge_strict(True)
-        except Exception:
-            strict = True
-
-        prev_id = ""
-        ck = getattr(state, "coding_knowledge", None)
-        if ck is not None:
-            prev_id = str(getattr(ck, "experience_id", "") or "")
-
-        ctx = process_task(
-            keywords,
-            tlib,
-            xlib,
-            strict_experience=strict,
-            project_id=project_id,
-            stack_tags=stack_tags,
-            inferred_task_id=inferred_task_id,
-        )
-
-        if ck is not None:
-            ck.mode = ctx.mode
-            ck.activated_theorem_ids = sorted(ctx.activated_theorems.keys())
-            ck.activated_elements = [e.value for e in ctx.activated_elements]
-            if ctx.selected_experience is not None:
-                ck.experience_id = ctx.selected_experience.id
-                ck.experience_title = ctx.selected_experience.title
-            else:
-                ck.experience_id = ""
-                ck.experience_title = ""
-
-        state._coding_knowledge_ctx = ctx
-        state._coding_knowledge_theorems = ctx.activated_theorems
-        count = int(getattr(state, "_coding_knowledge_reactivation_count", 0) or 0) + 1
-        state._coding_knowledge_reactivation_count = count
-
-        new_id = ctx.selected_experience.id if ctx.selected_experience else ""
-        if new_id and new_id != prev_id:
-            try:
-                from butler.ops.experience_selection_telemetry import record_experience_selection
-
-                record_experience_selection(
-                    session_key=str(getattr(state, "_delegate_session_key", "") or ""),
-                    task_preview=str(getattr(state, "task_description", "") or "")[:300],
-                    experience_id=new_id,
-                    experience_mode=ctx.mode,
-                    keywords=keywords[:24],
-                    role="dev",
-                    inferred_task_id=inferred_task_id,
-                    selection_phase="fix_reactivation",
-                )
-            except Exception:
-                pass
-
-        return {
-            "reactivated": True,
-            "experience_id": new_id,
-            "experience_mode": ctx.mode,
-            "keywords": keywords[:12],
-            "reactivation_count": count,
-            "experience_changed": bool(new_id and new_id != prev_id),
-        }
-    except Exception as exc:
-        logger.debug("coding knowledge fixup skipped: %s", exc)
-        return {"reactivated": False, "reason": str(exc)}
+    payload = reactivate_coding_knowledge_core_safe(state, keywords)
+    if payload is not None:
+        return payload
+    return {"reactivated": False, "reason": "reactivation_skipped"}
 
 
 __all__ = [

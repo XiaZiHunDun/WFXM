@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from butler.tools.delegate_phases import DelegateRunState
-
-logger = logging.getLogger(__name__)
 
 
 def prepare_b9_benchmark_workspace(state: DelegateRunState) -> None:
@@ -49,12 +46,9 @@ def prepare_isolated_workspace_read_state(state: DelegateRunState) -> None:
     if ws is None:
         return
     sk = state.child_session_key or state.session_key or "_default"
-    try:
-        from butler.dev_engine.b9_delegate_gate import seed_b9_workspace_read_state
+    from butler.dev_engine.delegate_workspace_ops import seed_isolated_workspace_read_state_safe
 
-        seed_b9_workspace_read_state(ws, session_key=sk, max_depth=2)
-    except Exception as exc:
-        logger.debug("isolated workspace read_state seed skipped: %s", exc)
+    seed_isolated_workspace_read_state_safe(ws, session_key=sk)
 
 
 def _project_workspace_path(state: DelegateRunState) -> Path | None:

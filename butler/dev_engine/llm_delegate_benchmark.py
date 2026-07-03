@@ -376,8 +376,9 @@ def _run_live_delegate(
     )
     delegate_args = build_b9_delegate_args(spec, workspace.resolve())
     from butler.dev_engine.b9_delegate_gate import benchmark_verify_context
+    from butler.dev_engine.llm_delegate_benchmark_ops import guard_live_delegate_void
 
-    try:
+    def _delegate_loop() -> None:
         from butler.execution_context import use_execution_context
         from butler.orchestrator import ButlerOrchestrator
         from butler.tools.registry import dispatch_tool
@@ -453,9 +454,14 @@ def _run_live_delegate(
                     os.environ["BUTLER_TOOL_SAFE_ROOT"] = monkeypatch_root
                 elif "BUTLER_TOOL_SAFE_ROOT" in os.environ:
                     del os.environ["BUTLER_TOOL_SAFE_ROOT"]
-    except Exception as exc:
-        errors.append(str(exc))
-        return False, tools_used, errors
+
+    early = guard_live_delegate_void(
+        _delegate_loop,
+        tools_used=tools_used,
+        errors=errors,
+    )
+    if early is not None:
+        return early
 
     ok, msg = spec.verify(workspace)
     if not ok and msg and msg not in errors:
@@ -477,7 +483,12 @@ def run_b9_task(
         passed=False,
         mode=mode.value,
     )
-    try:
+    from butler.dev_engine.llm_delegate_benchmark_ops import (
+        guard_b9_task_run,
+        record_b9_run_lesson_safe,
+    )
+
+    def _run_body() -> None:
         spec.setup(workspace)
         if mode == B9Mode.LIVE:
             ok, tools, errs = _run_live_delegate(workspace, spec)
@@ -505,15 +516,10 @@ def run_b9_task(
                 result.failure_reasons.append(msg or "expected verify fail for STUCK task")
             result.tools_used = ["oracle_apply"] if spec.expect_pass else ["noop"]
         result.score = 1.0 if result.passed else 0.0
-    except Exception as exc:
-        result.failure_reasons.append(str(exc))
-    result.elapsed_seconds = time.time() - t0
-    try:
-        from butler.ops.b9_lessons import record_b9_run_lesson
 
-        record_b9_run_lesson(result, spec)
-    except Exception:
-        pass
+    guard_b9_task_run(_run_body, result)
+    result.elapsed_seconds = time.time() - t0
+    record_b9_run_lesson_safe(result, spec)
     return result
 
 

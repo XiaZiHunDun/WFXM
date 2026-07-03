@@ -112,13 +112,10 @@ def _experience_task_affinity_match(
 ) -> bool:
     tid = (inferred_task_id or "").strip()
     if tid:
-        try:
-            from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
+        from butler.dev_engine.b9_experience_retrieval_ops import experience_task_affinity_safe
 
-            if experience_task_affinity(experience_id, inferred_task_id=tid):
-                return True
-        except Exception:
-            pass
+        if experience_task_affinity_safe(experience_id, inferred_task_id=tid):
+            return True
     b9_task = str((benchmarks or {}).get("b9_task") or "").strip()
     return bool(tid and b9_task and b9_task == tid)
 
@@ -238,13 +235,10 @@ def experience_retrieval_rank_bonus(
     bonus = 0
     tid = (inferred_task_id or "").strip()
     if tid:
-        try:
-            from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
+        from butler.dev_engine.b9_experience_retrieval_ops import experience_task_affinity_safe
 
-            if experience_task_affinity(experience_id, inferred_task_id=tid):
-                bonus += 100
-        except Exception:
-            pass
+        if experience_task_affinity_safe(experience_id, inferred_task_id=tid):
+            bonus += 100
     b9_task = str((benchmarks or {}).get("b9_task") or "").strip()
     if tid and b9_task == tid:
         bonus += 80

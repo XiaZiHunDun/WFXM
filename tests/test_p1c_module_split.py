@@ -400,6 +400,17 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/eval_integration/oss/deepeval_runner_ops.py": 45,
     "butler/eval_integration/sinks/langfuse_sink_ops.py": 35,
     "butler/eval_integration/suites_ops.py": 25,
+    "butler/dev_engine/b9_experience_retrieval_ops.py": 30,
+    "butler/dev_engine/b9_live_tuning_ops.py": 40,
+    "butler/dev_engine/b9_verify_utils_ops.py": 35,
+    "butler/dev_engine/code_search_ops.py": 95,
+    "butler/dev_engine/coding_knowledge_fixup_ops.py": 140,
+    "butler/dev_engine/delegate_workspace_ops.py": 25,
+    "butler/dev_engine/dev_benchmark_ops.py": 45,
+    "butler/dev_engine/dev_metrics_ops.py": 30,
+    "butler/dev_engine/gentc_mutation_ops.py": 30,
+    "butler/dev_engine/llm_delegate_benchmark_ops.py": 45,
+    "butler/dev_engine/swebench_lite_ops.py": 20,
 
 }
 

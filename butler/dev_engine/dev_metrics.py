@@ -290,27 +290,28 @@ class MetricsCollector:
     def load_from_file(self, path: Path) -> None:
         if not path.is_file():
             return
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            for td in data.get("completed_tasks", []):
-                m = DevTaskMetrics(
-                    task_id=td.get("task_id", ""),
-                    task_description=td.get("task_description", ""),
-                    outcome=TaskOutcome(td.get("outcome", "DONE")),
-                    total_iterations=td.get("total_iterations", 0),
-                    total_edits=td.get("total_edits", 0),
-                    total_rollbacks=td.get("total_rollbacks", 0),
-                    verify_attempts=td.get("verify_attempts", 0),
-                    verify_passes=td.get("verify_passes", 0),
-                    verify_fails=td.get("verify_fails", 0),
-                    fix_entries=td.get("fix_entries", 0),
-                    fix_exits_to_verify=td.get("fix_entries", 0),
-                    entered_fix_loop=td.get("entered_fix_loop", False),
-                )
-                m.end_time = m.start_time + td.get("elapsed_seconds", 0)
-                self._completed.append(m)
-        except Exception as exc:
-            logger.warning("Failed to load metrics: %s", exc)
+        from butler.dev_engine.dev_metrics_ops import load_metrics_json_safe, parse_metrics_completed_tasks
+
+        data = load_metrics_json_safe(path)
+        if data is None:
+            return
+        for td in parse_metrics_completed_tasks(data):
+            m = DevTaskMetrics(
+                task_id=td.get("task_id", ""),
+                task_description=td.get("task_description", ""),
+                outcome=TaskOutcome(td.get("outcome", "DONE")),
+                total_iterations=td.get("total_iterations", 0),
+                total_edits=td.get("total_edits", 0),
+                total_rollbacks=td.get("total_rollbacks", 0),
+                verify_attempts=td.get("verify_attempts", 0),
+                verify_passes=td.get("verify_passes", 0),
+                verify_fails=td.get("verify_fails", 0),
+                fix_entries=td.get("fix_entries", 0),
+                fix_exits_to_verify=td.get("fix_entries", 0),
+                entered_fix_loop=td.get("entered_fix_loop", False),
+            )
+            m.end_time = m.start_time + td.get("elapsed_seconds", 0)
+            self._completed.append(m)
 
 
 # ── Global collector singleton ──────────────────────────────────
