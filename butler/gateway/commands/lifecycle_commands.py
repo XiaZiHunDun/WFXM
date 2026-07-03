@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from typing import Optional
 
@@ -15,24 +14,14 @@ from butler.gateway.command_registry import (
     require_owner,
 )
 
-logger = logging.getLogger(__name__)
-
-
 def _cmd_doctor(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
         return gate
     from butler.ops.security_audit import format_audit_report, run_security_audit
+    from butler.gateway.commands.lifecycle_commands_ops import doctor_audit_workspace_from_ctx_safe
 
-    workspace = None
-    try:
-        proj = ctx.orchestrator.project_manager.get_current(session_key=ctx.session_key)
-        if proj is not None:
-            from pathlib import Path
-
-            workspace = Path(proj.workspace)
-    except Exception as exc:
-        logger.debug("Security audit workspace resolve skipped: %s", exc)
+    workspace = doctor_audit_workspace_from_ctx_safe(ctx)
     return format_audit_report(run_security_audit(workspace=workspace))
 
 

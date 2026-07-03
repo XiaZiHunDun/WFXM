@@ -503,6 +503,20 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/mcp/github_tool_aliases_ops.py": 0,
     "butler/gateway/commands/experience_commands.py": 0,
     "butler/gateway/commands/experience_commands_ops.py": 0,
+    "butler/gateway/commands/project_commands.py": 0,
+    "butler/gateway/commands/project_commands_ops.py": 0,
+    "butler/gateway/commands/permission_commands.py": 0,
+    "butler/gateway/commands/permission_commands_ops.py": 0,
+    "butler/gateway/commands/lifecycle_commands.py": 0,
+    "butler/gateway/commands/lifecycle_commands_ops.py": 0,
+    "butler/cli/slash_dispatch.py": 0,
+    "butler/cli/slash_dispatch_ops.py": 1,
+    "butler/agent_profiles.py": 0,
+    "butler/agent_profiles_ops.py": 0,
+    "butler/mcp/turn_scrape_dedup.py": 0,
+    "butler/mcp/turn_scrape_dedup_ops.py": 0,
+    "butler/skills/fusion_wiring.py": 0,
+    "butler/skills/fusion_wiring_ops.py": 1,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

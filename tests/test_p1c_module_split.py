@@ -265,6 +265,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/mcp/todoist_tool_aliases_ops.py": 25,
     "butler/mcp/github_tool_aliases_ops.py": 25,
     "butler/gateway/commands/experience_commands_ops.py": 30,
+    "butler/gateway/commands/project_commands_ops.py": 30,
+    "butler/gateway/commands/permission_commands_ops.py": 20,
+    "butler/gateway/commands/lifecycle_commands_ops.py": 25,
+    "butler/cli/slash_dispatch_ops.py": 20,
+    "butler/agent_profiles_ops.py": 30,
+    "butler/mcp/turn_scrape_dedup_ops.py": 30,
+    "butler/skills/fusion_wiring_ops.py": 20,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

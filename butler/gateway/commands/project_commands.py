@@ -93,13 +93,12 @@ def format_butler_status(
     lines = [
         "Butler 状态",
     ]
-    try:
-        from butler.gateway.owner_surface import format_owner_status_header
+    from butler.gateway.commands.project_commands_ops import format_owner_status_header_lines_safe
 
-        lines.extend(format_owner_status_header(orchestrator, session_key))
+    header_lines = format_owner_status_header_lines_safe(orchestrator, session_key)
+    if header_lines:
+        lines.extend(header_lines)
         lines.append("")
-    except Exception:
-        pass
     s = orchestrator._settings
     lines.append(f"  管家: {s.butler_name}")
     lines.append(f"  当前项目: {current}")

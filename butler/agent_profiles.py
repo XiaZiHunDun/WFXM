@@ -106,18 +106,9 @@ def _load_dev_engine_appendix() -> str:
     global _DEV_ENGINE_APPENDIX
     if _DEV_ENGINE_APPENDIX:
         return _DEV_ENGINE_APPENDIX
-    try:
-        from butler.dev_engine.dev_tools import dev_engine_enabled
+    from butler.agent_profiles_ops import load_dev_engine_appendix_body_safe
 
-        if not dev_engine_enabled():
-            return ""
-        from pathlib import Path
-
-        md_path = Path(__file__).parent / "prompts" / "dev_engine_system.md"
-        if md_path.is_file():
-            _DEV_ENGINE_APPENDIX = "\n\n" + md_path.read_text(encoding="utf-8").strip()
-    except Exception:
-        pass
+    _DEV_ENGINE_APPENDIX = load_dev_engine_appendix_body_safe()
     return _DEV_ENGINE_APPENDIX
 
 

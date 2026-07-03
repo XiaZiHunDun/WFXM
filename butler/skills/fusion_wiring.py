@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import logging
-
 from butler.env_parse import env_truthy
-
-logger = logging.getLogger(__name__)
 
 
 def skill_fusion_enabled() -> bool:
@@ -17,12 +13,9 @@ def wire_skill_manager_fusion(manager) -> None:
     """Attach fusion LLM to ``SkillManager`` when enabled."""
     if not skill_fusion_enabled():
         return
-    try:
-        from butler.transport.fusion_client import make_fusion_llm_fn
+    from butler.skills.fusion_wiring_ops import wire_fusion_llm_fn_safe
 
-        manager.set_llm_fn(make_fusion_llm_fn())
-    except Exception as exc:
-        logger.warning("Skill fusion wiring skipped: %s", exc)
+    wire_fusion_llm_fn_safe(manager)
 
 
 __all__ = ["skill_fusion_enabled", "wire_skill_manager_fusion"]

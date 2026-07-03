@@ -223,13 +223,12 @@ def _handle_status(orch: Any, console: Any, _arg: str, _loop: Any) -> Optional[s
 
 
 def _handle_detail(_orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str]:
-    from butler.report import get_last_report
     from butler.report.format import parse_detail_section
+    from butler.cli.slash_dispatch_ops import get_last_report_safe
 
-    try:
-        report = get_last_report()
-    except Exception:
-        return "[dim]报告系统不可用[/dim]"
+    report, err = get_last_report_safe()
+    if err is not None:
+        return f"[dim]{err}[/dim]"
     if not report:
         return "[dim]暂无可展示的详细报告[/dim]"
     from butler.report import format_detail

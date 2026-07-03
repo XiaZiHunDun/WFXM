@@ -119,12 +119,11 @@ def _cmd_perm_unsandboxed(ctx: CommandContext) -> Optional[str]:
     from butler.tools.terminal_approval import store_approval
 
     store_approval(cmd, session_key=ctx.session_key, unsandboxed=True)
-    try:
-        from butler.ops.runtime_metrics import inc
+    from butler.gateway.commands.permission_commands_ops import (
+        inc_terminal_sandbox_escalation_approved_safe,
+    )
 
-        inc("terminal_sandbox_escalation_approved", session_key=ctx.session_key)
-    except Exception:
-        pass
+    inc_terminal_sandbox_escalation_approved_safe(ctx.session_key)
     return (
         f"已批准沙箱外 terminal 命令（5 分钟内有效，跳过 bubblewrap）:\n{cmd[:200]}"
     )

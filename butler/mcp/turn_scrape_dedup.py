@@ -48,19 +48,9 @@ def scrape_url_from_args(args: dict) -> str:
 
 
 def _bridge_bucket() -> set[str] | None:
-    try:
-        from butler.execution_context import get_current_turn_bridge
+    from butler.mcp.turn_scrape_dedup_ops import scrape_urls_seen_bucket_from_bridge_safe
 
-        bridge = get_current_turn_bridge()
-        if bridge is None:
-            return None
-        bucket = getattr(bridge, "scrape_urls_seen", None)
-        if bucket is None:
-            bridge.scrape_urls_seen = set()
-            bucket = bridge.scrape_urls_seen
-        return bucket
-    except Exception:
-        return None
+    return scrape_urls_seen_bucket_from_bridge_safe()
 
 
 def check_and_record_scrape(url: str) -> str | None:
