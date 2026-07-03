@@ -230,6 +230,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/tools/web_fetch_ops.py": 45,
     "butler/human_gate_ops.py": 75,
     "butler/config_ops.py": 55,
+    "butler/core/output_grounding_ops.py": 25,
+    "butler/core/auto_review_ops.py": 95,
+    "butler/gateway/pii_scrub_ops.py": 25,
+    "butler/runtime/cc_bridge_ops.py": 40,
+    "butler/tools/delegate_run_ops.py": 40,
+    "butler/memory/project_memory_ops.py": 35,
+    "butler/gateway/owner_delegate_shortcuts_ops.py": 40,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

@@ -62,12 +62,9 @@ def format_edit_command_usage() -> str:
 
 
 def _recent_read_paths(session_key: str, *, limit: int = 5) -> list[str]:
-    try:
-        from butler.core.session_tool_index import list_session_read_files
+    from butler.gateway.owner_delegate_shortcuts_ops import recent_read_paths_safe
 
-        return list_session_read_files(session_key, limit=limit)
-    except Exception:
-        return []
+    return recent_read_paths_safe(session_key, limit=limit)
 
 
 def build_cc_handoff_package(
@@ -109,12 +106,9 @@ def build_cc_handoff_package(
         ]
     )
 
-    try:
-        from butler.runtime.cc_bridge import cc_bridge_enabled
+    from butler.gateway.owner_delegate_shortcuts_ops import cc_bridge_enabled_safe
 
-        cc_on = cc_bridge_enabled()
-    except Exception:
-        cc_on = False
+    cc_on = cc_bridge_enabled_safe()
 
     if cc_on:
         brief = scope.replace("\n", " ")[:160]

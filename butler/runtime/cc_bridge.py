@@ -182,12 +182,11 @@ def submit_cc_bridge_job(
         return run_cc_bridge_sync(job)
 
     def _worker() -> None:
+        from butler.runtime.cc_bridge_ops import call_on_complete_safe
+
         finished = run_cc_bridge_sync(job)
         if on_complete is not None:
-            try:
-                on_complete(finished)
-            except Exception as exc:
-                logger.warning("cc_bridge on_complete failed: %s", exc)
+            call_on_complete_safe(on_complete, finished)
 
     threading.Thread(target=_worker, name=f"cc-bridge-{job.job_id}", daemon=True).start()
     job.status = "queued"
@@ -240,14 +239,9 @@ def format_cc_bridge_result(job: CcBridgeJob) -> str:
 
 
 def push_cc_bridge_completion(job: CcBridgeJob) -> bool:
-    try:
-        from butler.runtime.notify import push_runtime_message
+    from butler.runtime.cc_bridge_ops import push_cc_bridge_completion_safe
 
-        title = "CC 桥接完成" if job.status == "completed" else "CC 桥接失败"
-        return push_runtime_message(f"[Butler] {title}", format_cc_bridge_result(job))
-    except Exception as exc:
-        logger.warning("cc_bridge push failed: %s", exc)
-        return False
+    return push_cc_bridge_completion_safe(job)
 
 
 __all__ = [

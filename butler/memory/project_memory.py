@@ -117,13 +117,10 @@ def looks_correction_memory(content: str) -> bool:
         return False
     if body.startswith("[纠正]") or "category=correction" in body.lower():
         return True
-    try:
-        from butler.core.correction_intent import is_correction_intent
+    from butler.memory.project_memory_ops import looks_correction_intent_safe
 
-        if is_correction_intent(body):
-            return True
-    except Exception:
-        pass
+    if looks_correction_intent_safe(body):
+        return True
     lower = body.lower()
     markers = ("纠正", "刚才不对", "请记住", "以后请", "别再用", "不要再")
     return any(m in lower for m in markers)
@@ -563,12 +560,10 @@ class ProjectFactsStore:
             json.dumps(self._facts, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-        try:
-            from butler.memory.knowledge_db import sync_facts_json_to_knowledge_db
+        from butler.memory.project_memory_ops import sync_facts_to_knowledge_db_safe
 
-            sync_facts_json_to_knowledge_db(self.path)
-        except Exception as exc:
-            logger.debug("save unlocked skipped: %s", exc)
+        sync_facts_to_knowledge_db_safe(self.path)
+
     def auto_extract(self, project_dir: Path) -> dict[str, Any]:
         root = Path(project_dir).resolve()
         facts: dict[str, Any] = {"extracted_at": time.time()}

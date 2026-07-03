@@ -70,10 +70,6 @@ def scrub_outbound_text(text: str) -> str:
     out = _GITHUB_PAT.sub("[GitHub令牌已脱敏]", out)
     out = _IPV4_PRIVATE.sub("[内网IP已脱敏]", out)
     out = _CARD_DIGITS.sub(_scrub_card, out)
-    try:
-        from butler.gateway.internal_leak_scrub import scrub_internal_ops_leaks
+    from butler.gateway.pii_scrub_ops import scrub_internal_leaks_safe
 
-        out = scrub_internal_ops_leaks(out)
-    except Exception:
-        pass
-    return out
+    return scrub_internal_leaks_safe(out)

@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from butler.tools.delegate_run_state import DelegateRunState
-
-logger = logging.getLogger(__name__)
 
 
 def build_async_delegate_job(state: DelegateRunState) -> Any:
@@ -58,29 +55,16 @@ def dispatch_async_delegate(state: DelegateRunState) -> str | None:
 
 def delegate_langfuse_run_callbacks(state: DelegateRunState) -> Any | None:
     """Optional nested LangFuse callbacks for sync delegate sub-loops."""
-    try:
-        from butler.ops.langfuse_tracer import delegate_run_callbacks
+    from butler.tools.delegate_run_ops import delegate_langfuse_callbacks_safe
 
-        return delegate_run_callbacks(
-            parent_session_key=state.session_key,
-            child_session_key=state.child_session_key or state.session_key,
-            role=state.role,
-            task=state.task,
-            task_id=state.task_id,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort tracing
-        logger.debug("delegate LangFuse callbacks skipped: %s", exc)
-        return None
+    return delegate_langfuse_callbacks_safe(state)
 
 
 def run_sync_delegate(state: DelegateRunState) -> None:
     """Sync run: register, run, unregister, release slot (5b)."""
     from butler.core.delegate_semaphore import release_delegate_slot
     from butler.execution_context import use_execution_context
-    from butler.runtime.delegate_registry import (
-        register_delegate_loop,
-        unregister_delegate_loop,
-    )
+    from butler.runtime.delegate_registry import register_delegate_loop
 
     run_cbs = delegate_langfuse_run_callbacks(state)
     try:
@@ -96,10 +80,9 @@ def run_sync_delegate(state: DelegateRunState) -> None:
                 else:
                     state.sync_result = state.agent.run(state.user_msg)
             finally:
-                try:
-                    unregister_delegate_loop(state.session_key, state.agent)
-                except Exception as exc:  # noqa: BLE001 — best-effort unregister
-                    logger.debug("delegate loop unregister skipped: %s", exc)
+                from butler.tools.delegate_run_ops import unregister_delegate_loop_safe
+
+                unregister_delegate_loop_safe(state.session_key, state.agent)
     finally:
         release_delegate_slot(state.session_key)
 

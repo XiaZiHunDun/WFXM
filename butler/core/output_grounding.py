@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
 
 from butler.env_parse import env_truthy
-
-logger = logging.getLogger(__name__)
 
 _DISCLAIMER = "（注：本轮回答与已检索记忆重叠较低，涉及事实请以项目文件/记忆为准。）"
 _ARITH_RE = re.compile(
@@ -35,12 +32,10 @@ def _apply_memory_prefetch_grounding(text: str, diagnostics: dict[str, Any] | No
     reply = (text or "").strip()
     if len(reply) < 80:
         return text
-    try:
-        from butler.memory.prefetch_retrieval_metrics import estimate_prefetch_used_count
+    from butler.core.output_grounding_ops import estimate_prefetch_used_count_safe
 
-        used = estimate_prefetch_used_count(reply, [str(s) for s in snippets])
-    except Exception as exc:
-        logger.debug("memory prefetch grounding skipped: %s", exc)
+    used = estimate_prefetch_used_count_safe(reply, [str(s) for s in snippets])
+    if used is None:
         return text
     diagnostics["memory_prefetch_grounding_used"] = used
     if used > 0:

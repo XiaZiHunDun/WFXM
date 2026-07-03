@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import json
-import logging
 import re
 from dataclasses import dataclass
 from typing import Any
 
 from butler.env_parse import env_truthy, int_env
-
-logger = logging.getLogger(__name__)
 
 _READ_ONLY_HINTS = re.compile(
     r"(?i)\b(git\s+(status|diff|log|show|branch)|pytest\s+--collect|ls\b|pwd\b|cat\s+|head\s+|tail\s+|wc\s+)",
@@ -79,44 +75,24 @@ def try_auto_review_terminal(
         _record_denial(diagnostics)
         return AutoReviewResult(allowed=False, reason="write_or_network_hint")
 
-    try:
-        from butler.tools.terminal_sandbox import terminal_sandbox_enabled
+    from butler.core.auto_review_ops import (
+        parse_auto_review_llm_response_safe,
+        sandbox_read_only_auto_review_safe,
+    )
 
-        if terminal_sandbox_enabled() and _READ_ONLY_HINTS.search(text):
-            if isinstance(diagnostics, dict):
-                diagnostics["auto_review_allowed"] = True
-            return AutoReviewResult(allowed=True, reason="sandboxed_read_only")
-    except Exception as exc:
-        logger.debug("sandbox auto-review shortcut skipped: %s", exc)
+    if sandbox_read_only_auto_review_safe(text, diagnostics=diagnostics):
+        return AutoReviewResult(allowed=True, reason="sandboxed_read_only")
 
     if not _READ_ONLY_HINTS.search(text):
         _record_denial(diagnostics)
         return AutoReviewResult(allowed=False, reason="not_read_only_heuristic")
 
-    try:
-        from butler.transport.auxiliary_client import auxiliary_complete
+    from butler.core.auto_review_ops import run_auto_review_llm_safe
 
-        prompt = (
-            "You are a security reviewer. Reply ONLY with JSON "
-            '{"allow":true|false,"reason":"..."}. '
-            "Allow ONLY read-only inspection commands. "
-            f"Command: {text[:500]}"
-        )
-        raw = auxiliary_complete(
-            prompt,
-            task="auto_review",
-            system="You are a security reviewer. Reply only with JSON.",
-        )
-        body = str(raw or "").strip()
-        if "{" in body:
-            body = body[body.index("{") : body.rindex("}") + 1]
-        data = json.loads(body)
-        if isinstance(data, dict) and data.get("allow") is True:
-            if isinstance(diagnostics, dict):
-                diagnostics["auto_review_allowed"] = True
-            return AutoReviewResult(allowed=True, reason=str(data.get("reason") or "ok"))
-    except Exception as exc:
-        logger.debug("auto_review failed: %s", exc)
+    parsed = run_auto_review_llm_safe(text, diagnostics=diagnostics)
+    if parsed is not None:
+        _allowed, reason = parsed
+        return AutoReviewResult(allowed=True, reason=reason)
 
     _record_denial(diagnostics)
     return AutoReviewResult(allowed=False, reason="reviewer_fail_closed")
