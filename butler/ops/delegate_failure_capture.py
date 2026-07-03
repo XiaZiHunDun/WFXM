@@ -40,12 +40,9 @@ def capture_enabled() -> bool:
         return False
     if raw in ("1", "true", "yes", "all"):
         return True
-    try:
-        from butler.ops.langfuse_tracer import langfuse_enabled
+    from butler.ops.delegate_failure_capture_ops import langfuse_capture_enabled_safe
 
-        return langfuse_enabled()
-    except Exception:
-        return False
+    return langfuse_capture_enabled_safe()
 
 
 def _capture_all_roles() -> bool:
@@ -98,21 +95,9 @@ def failure_audit_summary(*, limit: int = 200) -> dict[str, Any]:
     if not path.is_file():
         return {"total": 0, "by_reason": {}, "recent": []}
 
-    by_reason: dict[str, int] = {}
-    recent: list[dict[str, Any]] = []
-    total = 0
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-        for line in lines[-limit:]:
-            if not line.strip():
-                continue
-            rec = json.loads(line)
-            total += 1
-            reason = str(rec.get("failure_reason") or "unknown")
-            by_reason[reason] = by_reason.get(reason, 0) + 1
-            recent.append(rec)
-    except Exception as exc:
-        logger.debug("failure audit summary skipped: %s", exc)
+    from butler.ops.delegate_failure_capture_ops import read_failure_audit_summary_safe
+
+    total, by_reason, recent = read_failure_audit_summary_safe(path, limit=limit)
     return {
         "total": total,
         "by_reason": by_reason,
@@ -205,83 +190,54 @@ def capture_delegate_failure(
         audit_rec["project"] = project
     if capture_source:
         audit_rec["capture_source"] = capture_source
-    try:
-        _append_audit(audit_rec)
-    except Exception as exc:
-        logger.debug("delegate failure audit append skipped: %s", exc)
+    from butler.ops.delegate_failure_capture_ops import append_failure_audit_safe
 
-    try:
-        from butler.ops.production_failure_experience import follow_up_production_capture
+    append_failure_audit_safe(_audit_path(), audit_rec)
 
-        summary["experience_followup"] = follow_up_production_capture(
-            role=role,
-            task=task,
-            success=success,
-            project=project,
-            capture_source=capture_source,
-            task_id=task_id,
-            task_preview=audit_rec.get("task_preview", ""),
-            failure_reason=summary["failure_reason"],
-            issues=issues,
-            dev_engine=dev_engine,
-        )
-    except Exception as exc:
-        logger.debug("production failure experience followup skipped: %s", exc)
+    from butler.ops.delegate_failure_capture_ops import follow_up_production_capture_safe
 
-    try:
-        from butler.ops.g1_04_prod_evidence import record_g1_04_production_evidence
+    summary["experience_followup"] = follow_up_production_capture_safe(
+        role=role,
+        task=task,
+        success=success,
+        project=project,
+        capture_source=capture_source,
+        task_id=task_id,
+        task_preview=audit_rec.get("task_preview", ""),
+        failure_reason=summary["failure_reason"],
+        issues=issues,
+        dev_engine=dev_engine,
+    )
 
-        summary["g1_04_evidence"] = record_g1_04_production_evidence(
-            role=role,
-            project=project,
-            success=success,
-            verify_passed=None if dev_engine is None else dev_engine.get("verify_passed"),
-            task_id=task_id,
-            task_preview=audit_rec.get("task_preview", ""),
-            failure_reason=summary["failure_reason"],
-            capture_source=capture_source or "delegate_pipeline",
-        )
-    except Exception as exc:
-        logger.debug("G1-04 production evidence skipped: %s", exc)
+    from butler.ops.delegate_failure_capture_ops import record_g1_04_evidence_safe
 
-    try:
-        from butler.ops.eval_bridge import EvalScore, create_dataset, push_dataset_item, push_score
+    summary["g1_04_evidence"] = record_g1_04_evidence_safe(
+        role=role,
+        project=project,
+        success=success,
+        verify_passed=None if dev_engine is None else dev_engine.get("verify_passed"),
+        task_id=task_id,
+        task_preview=audit_rec.get("task_preview", ""),
+        failure_reason=summary["failure_reason"],
+        capture_source=capture_source or "delegate_pipeline",
+    )
 
-        create_dataset(
-            DATASET_NAME,
-            "Production dev delegate failures for annotation and B9 expansion",
-        )
-        item = build_failure_dataset_item(
-            role=role,
-            task=task,
-            context=context,
-            issues=issues,
-            trace_id=trace_id,
-            task_id=task_id,
-            dev_engine=dev_engine,
-            failure_reason=summary["failure_reason"],
-        )
-        summary["dataset_pushed"] = push_dataset_item(DATASET_NAME, item)
-        if trace_id:
-            summary["score_pushed"] = push_score(
-                EvalScore(
-                    name="delegate_failure",
-                    value=0.0,
-                    comment=summary["failure_reason"],
-                    category="delegate",
-                    trace_id=trace_id,
-                    metadata={
-                        "task_id": task_id,
-                        "role": role,
-                        "verify_passed": dev_engine.get("verify_passed")
-                        if dev_engine
-                        else None,
-                    },
-                )
-            )
-    except Exception as exc:
-        logger.warning("delegate failure LangFuse capture failed: %s", exc)
-        summary["error"] = str(exc)
+    from butler.ops.delegate_failure_capture_ops import push_failure_to_langfuse_loud
+
+    dataset_pushed, score_pushed, err = push_failure_to_langfuse_loud(
+        role=role,
+        task=task,
+        context=context,
+        issues=issues,
+        trace_id=trace_id,
+        task_id=task_id,
+        dev_engine=dev_engine,
+        failure_reason=summary["failure_reason"],
+    )
+    summary["dataset_pushed"] = dataset_pushed
+    summary["score_pushed"] = score_pushed
+    if err:
+        summary["error"] = err
 
     return summary
 
@@ -300,22 +256,12 @@ def maybe_capture_from_delegate_result(
     dev_engine: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve trace id from active delegate/parent context and capture if needed."""
-    trace_id = ""
-    try:
-        from butler.ops.langfuse_tracer import (
-            finish_delegate_trace,
-            get_current_trace,
-            get_delegate_trace,
-        )
+    from butler.ops.delegate_failure_capture_ops import resolve_delegate_trace_id_safe
 
-        delegate_ctx = get_delegate_trace(child_session_key)
-        if delegate_ctx is not None:
-            trace_id = delegate_ctx.trace_id
-        parent = get_current_trace(parent_session_key)
-        if not trace_id and parent is not None:
-            trace_id = parent.trace_id
-    except Exception as exc:
-        logger.debug("delegate trace id resolve skipped: %s", exc)
+    trace_id = resolve_delegate_trace_id_safe(
+        child_session_key=child_session_key,
+        parent_session_key=parent_session_key,
+    )
 
     return capture_delegate_failure(
         role=role,

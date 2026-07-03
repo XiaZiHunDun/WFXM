@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from butler.memory.butler_memory import ButlerMemory
-from butler.memory.project_memory import ProjectMemory, normalize_section_name
+from butler.memory.project_memory import normalize_section_name
 from butler.memory.semantic_config import semantic_memory_enabled
 from butler.memory.semantic_index import (
     SOURCE_PROJECT,
@@ -102,11 +102,9 @@ def reindex_semantic_memory(
             stats["indexed_project_bullets"] += bullets
             stats["indexed_markdown_chunks"] += chunks
 
-    try:
-        stats["indexed_profile_vectors"] = bm.sync_profile_vectors()
-    except Exception as exc:
-        logger.warning("Profile vector sync during reindex failed: %s", exc)
-        stats["indexed_profile_vectors"] = 0
+    from butler.memory.reindex_ops import sync_profile_vectors_safe
+
+    stats["indexed_profile_vectors"] = sync_profile_vectors_safe(bm)
 
     tri = bm.triplet_index()
     if tri is not None:
@@ -129,6 +127,8 @@ def _clear_vector_table(semantic: SemanticMemoryIndex) -> int:
 
 
 def _iter_project_dirs(projects_dir: Path, only_name: str | None) -> list[Path]:
+    from butler.memory.reindex_ops import project_name_from_yaml_safe
+
     root = Path(projects_dir).expanduser().resolve()
     if not root.is_dir():
         return []
@@ -140,48 +140,34 @@ def _iter_project_dirs(projects_dir: Path, only_name: str | None) -> list[Path]:
         if not yaml.is_file():
             continue
         if only_name:
-            try:
-                from butler.project import Project
-
-                proj = Project.from_yaml(yaml)
-                if proj.name != only_name:
-                    continue
-            except Exception:
+            name = project_name_from_yaml_safe(yaml)
+            if name != only_name:
                 continue
         out.append(child)
     return out
 
 
 def _index_project_dir(project_dir: Path, semantic: SemanticMemoryIndex) -> tuple[int, int]:
-    try:
-        from butler.project import Project
+    from butler.memory.reindex_ops import (
+        index_markdown_corpus_safe,
+        index_project_bullet_safe,
+        load_project_memory_safe,
+        refresh_project_facts_safe,
+    )
 
-        proj = Project.from_yaml(project_dir / "project.yaml")
-        pm = ProjectMemory(project_dir)
-        try:
-            pm.refresh_facts()
-        except Exception as exc:
-            logger.debug("facts refresh during reindex skipped for %s: %s", project_dir, exc)
-    except Exception as exc:
-        logger.warning("Skip project %s: %s", project_dir, exc)
+    loaded = load_project_memory_safe(project_dir)
+    if loaded is None:
+        logger.warning("Skip project %s: load failed", project_dir)
         return 0, 0
+    proj, pm = loaded
+    refresh_project_facts_safe(pm, project_dir)
 
-    chunk_count = 0
-    try:
-        from butler.memory.chunking import (
-            index_project_markdown_corpus,
-            markdown_chunking_enabled,
-        )
-
-        if markdown_chunking_enabled():
-            chunk_count = index_project_markdown_corpus(
-                semantic,
-                project_dir,
-                project_name=proj.name,
-                workspace=proj.workspace,
-            )
-    except Exception as exc:
-        logger.warning("Markdown corpus index failed for %s: %s", project_dir, exc)
+    chunk_count = index_markdown_corpus_safe(
+        semantic,
+        project_dir,
+        project_name=proj.name,
+        workspace=proj.workspace,
+    )
 
     count = 0
     if chunk_count > 0:
@@ -200,26 +186,14 @@ def _index_project_dir(project_dir: Path, semantic: SemanticMemoryIndex) -> tupl
             if not content:
                 continue
             source_id = f"{proj.name}:{section}:{hash(content) & 0xFFFFFFFF:08x}"
-            try:
-                semantic.upsert(
-                    source=SOURCE_PROJECT,
-                    source_id=source_id,
-                    content=content,
-                    project=proj.name,
-                    category="project_memory",
-                )
-                from butler.memory.semantic_index import index_triplets_for_content
-
-                index_triplets_for_content(
-                    semantic,
-                    content,
-                    project=proj.name,
-                    source=SOURCE_PROJECT,
-                    source_ref=source_id,
-                )
+            if index_project_bullet_safe(
+                semantic,
+                content=content,
+                project_name=proj.name,
+                section=section,
+                source_id=source_id,
+            ):
                 count += 1
-            except Exception as exc:
-                logger.warning("Project bullet index failed: %s", exc)
     return count, chunk_count
 
 

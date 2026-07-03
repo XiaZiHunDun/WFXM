@@ -7,8 +7,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-import yaml
-
 from butler.registry.paths import catalog_dir, default_mcp_config_path, mcp_lock_path
 
 logger = logging.getLogger(__name__)
@@ -41,12 +39,9 @@ def _ensure_catalog_integrity_once() -> None:
     if _catalog_integrity_checked:
         return
     _catalog_integrity_checked = True
-    try:
-        from butler.registry.catalog_integrity import ensure_catalog_integrity
+    from butler.registry.mcp_catalog_ops import ensure_catalog_integrity_safe
 
-        ensure_catalog_integrity()
-    except Exception as exc:
-        logger.warning("MCP catalog integrity: %s", exc)
+    ensure_catalog_integrity_safe()
 
 
 class McpCatalogService:
@@ -55,10 +50,10 @@ class McpCatalogService:
         path = catalog_dir() / "mcp" / "servers.yaml"
         if not path.is_file():
             return []
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.debug("mcp catalog load: %s", exc)
+        from butler.registry.mcp_catalog_ops import load_yaml_dict_safe
+
+        data = load_yaml_dict_safe(path)
+        if data is None:
             return []
         rows = data.get("servers") if isinstance(data, dict) else None
         if not isinstance(rows, list):
@@ -84,19 +79,12 @@ class McpCatalogService:
         return out
 
     def _load_entries(self) -> list[McpCatalogEntry]:
+        from butler.registry.mcp_catalog_ops import merge_remote_catalog_entries_safe
+
         bundled = self._load_bundled_entries()
         seen = {e.id.lower() for e in bundled}
         out = list(bundled)
-        try:
-            from butler.registry.mcp_catalog_remote import load_remote_catalog_entries
-
-            for entry in load_remote_catalog_entries():
-                if entry.id.lower() in seen:
-                    continue
-                seen.add(entry.id.lower())
-                out.append(entry)
-        except Exception as exc:
-            logger.debug("remote mcp catalog merge: %s", exc)
+        merge_remote_catalog_entries_safe(out, seen)
         return out
 
     def search(self, query: str, *, limit: int = 20) -> list[McpCatalogEntry]:
@@ -120,9 +108,10 @@ class McpCatalogService:
         path = default_mcp_config_path()
         if not path.is_file():
             return []
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception:
+        from butler.registry.mcp_catalog_ops import load_yaml_dict_safe
+
+        data = load_yaml_dict_safe(path)
+        if data is None:
             return []
         block = data.get("servers") if isinstance(data, dict) else None
         if not isinstance(block, dict):
@@ -164,9 +153,6 @@ class McpCatalogService:
         path = mcp_lock_path()
         if not path.is_file():
             return {}
-        try:
-            import json
+        from butler.registry.mcp_catalog_ops import load_json_file_safe
 
-            return json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
+        return load_json_file_safe(path)

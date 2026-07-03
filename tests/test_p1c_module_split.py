@@ -147,6 +147,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/platforms/wechat_ilink/adapter_lifecycle_ops.py": 60,
     "butler/mcp/manager_ops.py": 90,
     "butler/memory/observer_queue_ops.py": 70,
+    "butler/project/manager_ops.py": 80,
+    "butler/registry/mcp_catalog_ops.py": 80,
+    "butler/ops/eval_bridge_ops.py": 70,
+    "butler/ops/dev_eval_ops.py": 40,
+    "butler/runtime/delegate_progress_ops.py": 90,
+    "butler/memory/reindex_ops.py": 130,
+    "butler/ops/delegate_failure_capture_ops.py": 180,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

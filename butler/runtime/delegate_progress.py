@@ -6,7 +6,7 @@ import logging
 import threading
 import time
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Iterator
 
 if TYPE_CHECKING:
     from butler.runtime.delegate_job import DelegateJob
@@ -33,15 +33,11 @@ def _progress_max_pushes() -> int:
 
 
 def _format_progress_line(job: "DelegateJob", *, elapsed: int, n: int) -> str:
+    from butler.runtime.delegate_progress_ops import delegate_iteration_safe
     from butler.runtime.delegate_job import _delegate_role_label
 
     role = _delegate_role_label(job.role)
-    iteration = 0
-    try:
-        loop = job.agent
-        iteration = int(getattr(loop, "iteration", 0) or getattr(loop, "_iteration", 0) or 0)
-    except Exception:
-        pass
+    iteration = delegate_iteration_safe(job)
     iter_part = f"第 {iteration} 轮 · " if iteration else ""
     return (
         f"⏳ {role}执行中… {iter_part}已用 {elapsed}s"
@@ -50,41 +46,26 @@ def _format_progress_line(job: "DelegateJob", *, elapsed: int, n: int) -> str:
 
 
 def _push_progress(job: "DelegateJob", text: str) -> None:
-    from butler.gateway.completion_notify import deliver_completion_push
+    from butler.runtime.delegate_progress_ops import (
+        push_progress_async_safe,
+        push_progress_runtime_safe,
+    )
 
     if job.push_target is not None and job.push_target.loop is not None:
-        import asyncio
-
-        async def _send() -> None:
-            await deliver_completion_push(
-                job.push_target.adapter,
-                job.push_target.chat_id,
-                text,
-                kind="delegate_progress",
-            )
-
-        try:
-            asyncio.run_coroutine_threadsafe(_send(), job.push_target.loop)
+        if push_progress_async_safe(job, text):
             return
-        except Exception as exc:
-            logger.debug("delegate progress async push skipped: %s", exc)
-    try:
-        from butler.runtime.notify import push_runtime_message
-
-        push_runtime_message("[Butler] 委派进度", text)
-    except Exception as exc:
-        logger.debug("delegate progress runtime push skipped: %s", exc)
+    push_progress_runtime_safe(text)
 
 
 @contextmanager
 def delegate_progress_heartbeat(job: "DelegateJob") -> Iterator[None]:
     """Periodic WeChat progress while ``run_delegate_job`` blocks."""
-    try:
-        from butler.gateway.completion_notify import delegate_progress_notify_enabled
-    except Exception:
-        yield
-        return
-    if not delegate_progress_notify_enabled():
+    from butler.runtime.delegate_progress_ops import (
+        delegate_progress_notify_enabled_safe,
+        heartbeat_push_safe,
+    )
+
+    if not delegate_progress_notify_enabled_safe():
         yield
         return
 
@@ -100,13 +81,10 @@ def delegate_progress_heartbeat(job: "DelegateJob") -> Iterator[None]:
                 return
             elapsed = int(time.monotonic() - started)
             push_count += 1
-            try:
-                _push_progress(
-                    job,
-                    _format_progress_line(job, elapsed=elapsed, n=push_count),
-                )
-            except Exception as exc:
-                logger.debug("delegate progress heartbeat: %s", exc)
+            heartbeat_push_safe(
+                job,
+                _format_progress_line(job, elapsed=elapsed, n=push_count),
+            )
 
     thread = threading.Thread(
         target=_loop,

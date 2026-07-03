@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from butler.config import get_butler_settings
 from butler.project.model import Project
-from butler.session.keys import chat_id_from_session_key, project_from_session_key
+from butler.session.keys import project_from_session_key
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +62,13 @@ class ProjectManager:
             config = item / "project.yaml"
             if not config.exists():
                 continue
-            try:
-                proj = Project.from_yaml(config)
-                self._projects[proj.name] = proj
-                logger.info("Loaded Butler project %s", proj.name)
-            except Exception as exc:
-                logger.warning("Failed to load project %s: %s", config, exc)
+            from butler.project.manager_ops import load_project_yaml_safe
+
+            proj = load_project_yaml_safe(config)
+            if proj is None:
+                continue
+            self._projects[proj.name] = proj
+            logger.info("Loaded Butler project %s", proj.name)
 
     # -------------------------------------------------------------- switching
     def on_switch(self, callback: SwitchCallback) -> None:
@@ -160,11 +161,9 @@ class ProjectManager:
         with self._lock:
             old = self.current_project
             self.current_project = matched
-        for cb in self._on_switch_callbacks:
-            try:
-                cb(old, matched)
-            except Exception as exc:
-                logger.warning("Project switch callback error: %s", exc)
+        from butler.project.manager_ops import invoke_switch_callbacks_safe
+
+        invoke_switch_callbacks_safe(self._on_switch_callbacks, old, matched)
         return True
 
     def switch_project_for_chat(self, *, platform: str, chat_id: str, name: str) -> bool:
@@ -176,11 +175,9 @@ class ProjectManager:
         with self._lock:
             old = self._chat_project.get(scope, "")
             self._chat_project[scope] = matched
-        for cb in self._on_switch_callbacks:
-            try:
-                cb(old, matched)
-            except Exception as exc:
-                logger.warning("Project switch callback error: %s", exc)
+        from butler.project.manager_ops import invoke_switch_callbacks_safe
+
+        invoke_switch_callbacks_safe(self._on_switch_callbacks, old, matched)
         return True
 
     def get_project_name_for_chat(self, *, platform: str, chat_id: str) -> str:
@@ -198,12 +195,9 @@ class ProjectManager:
         """Resolve project for CLI (global) or gateway (per-chat map + session key)."""
         key = str(session_key or "").strip()
         if not key:
-            try:
-                from butler.execution_context import get_current_session_key
+            from butler.project.manager_ops import current_session_key_safe
 
-                key = str(get_current_session_key() or "").strip()
-            except Exception:
-                key = ""
+            key = current_session_key_safe()
         if key and "::delegate::" in key:
             parent_key = key.split("::delegate::", 1)[0].strip()
             if parent_key and parent_key != key:
@@ -224,13 +218,9 @@ class ProjectManager:
                     return chat_name
         chat_only = ""
         if key:
-            try:
-                chat_only = self.get_project_name_for_chat(
-                    platform=key.split(":", 1)[0],
-                    chat_id=chat_id_from_session_key(key),
-                )
-            except Exception:
-                chat_only = ""
+            from butler.project.manager_ops import chat_project_from_session_key_safe
+
+            chat_only = chat_project_from_session_key_safe(self, key)
         if chat_only:
             return chat_only
         if self.current_project:

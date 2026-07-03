@@ -257,24 +257,27 @@ def sync_all_eval_datasets(
         "errors": [],
     }
 
+    from butler.ops.dev_eval_ops import run_dataset_sync_safe
+
     if include_wechat:
-        try:
+        def _sync_wechat() -> tuple[dict[str, Any], int]:
             from butler.ops.wechat_dataset import load_and_push_wechat_dataset
 
             wx = load_and_push_wechat_dataset()
-            wx_items = int(wx.get("single_turn_items") or 0) + int(
-                wx.get("multi_turn_items") or 0
-            )
-            summary["datasets"]["wechat"] = wx
+            items = int(wx.get("single_turn_items") or 0) + int(wx.get("multi_turn_items") or 0)
+            return wx, items
+
+        payload, wx_items, err = run_dataset_sync_safe("wechat", _sync_wechat)
+        if payload is not None:
+            summary["datasets"]["wechat"] = payload
             summary["total_items"] += wx_items
             if wx_items:
                 summary["any_pushed"] = True
-        except Exception as exc:
-            logger.warning("WeChat dataset sync failed: %s", exc)
-            summary["errors"].append(f"wechat: {exc}")
+        if err:
+            summary["errors"].append(err)
 
     if include_memory:
-        try:
+        def _sync_memory() -> tuple[dict[str, Any], int]:
             from butler.ops.memory_eval import (
                 push_memory_benchmark_dataset,
                 run_and_push_memory_eval,
@@ -282,70 +285,79 @@ def sync_all_eval_datasets(
 
             if mem_report is None:
                 mem_push = run_and_push_memory_eval()
-                mem_items = int(mem_push.get("dataset_items") or 0)
-                summary["datasets"]["memory"] = mem_push
             else:
                 mem_push = push_memory_benchmark_dataset(mem_report)
-                mem_items = int(mem_push.get("dataset_items") or 0)
-                summary["datasets"]["memory"] = mem_push
+            return mem_push, int(mem_push.get("dataset_items") or 0)
+
+        payload, mem_items, err = run_dataset_sync_safe("memory", _sync_memory)
+        if payload is not None:
+            summary["datasets"]["memory"] = payload
             summary["total_items"] += mem_items
             if mem_items:
                 summary["any_pushed"] = True
-        except Exception as exc:
-            logger.warning("Memory dataset sync failed: %s", exc)
-            summary["errors"].append(f"memory: {exc}")
+        if err:
+            summary["errors"].append(err)
 
     if include_dev:
-        try:
-            if dev_report is None:
+        def _sync_dev() -> tuple[dict[str, Any], int]:
+            report = dev_report
+            if report is None:
                 from butler.dev_engine.dev_benchmark import run_benchmarks
 
-                dev_report = run_benchmarks()
-            dev_push = push_dev_benchmark_dataset(dev_report)
-            dev_items = int(dev_push.get("dataset_items") or 0)
-            summary["datasets"]["dev"] = dev_push
+                report = run_benchmarks()
+            dev_push = push_dev_benchmark_dataset(report)
+            return dev_push, int(dev_push.get("dataset_items") or 0)
+
+        payload, dev_items, err = run_dataset_sync_safe("dev", _sync_dev)
+        if payload is not None:
+            summary["datasets"]["dev"] = payload
             summary["total_items"] += dev_items
             if dev_items:
                 summary["any_pushed"] = True
-        except Exception as exc:
-            logger.warning("Dev benchmark dataset sync failed: %s", exc)
-            summary["errors"].append(f"dev: {exc}")
+        if err:
+            summary["errors"].append(err)
 
     if include_swebench:
-        try:
+        def _sync_swebench() -> tuple[dict[str, Any], int]:
             swe_push = push_swebench_dataset()
-            swe_items = int(swe_push.get("dataset_items") or 0)
-            summary["datasets"]["swebench"] = swe_push
+            return swe_push, int(swe_push.get("dataset_items") or 0)
+
+        payload, swe_items, err = run_dataset_sync_safe("swebench", _sync_swebench)
+        if payload is not None:
+            summary["datasets"]["swebench"] = payload
             summary["total_items"] += swe_items
             if swe_items:
                 summary["any_pushed"] = True
-        except Exception as exc:
-            logger.warning("SWE-bench dataset sync failed: %s", exc)
-            summary["errors"].append(f"swebench: {exc}")
+        if err:
+            summary["errors"].append(err)
 
     if include_b9:
-        try:
+        def _sync_b9() -> tuple[dict[str, Any], int]:
             b9_push = push_b9_dataset()
-            b9_items = int(b9_push.get("dataset_items") or 0)
-            summary["datasets"]["b9"] = b9_push
+            return b9_push, int(b9_push.get("dataset_items") or 0)
+
+        payload, b9_items, err = run_dataset_sync_safe("b9", _sync_b9)
+        if payload is not None:
+            summary["datasets"]["b9"] = payload
             summary["total_items"] += b9_items
             if b9_items:
                 summary["any_pushed"] = True
-        except Exception as exc:
-            logger.warning("B9 dataset sync failed: %s", exc)
-            summary["errors"].append(f"b9: {exc}")
+        if err:
+            summary["errors"].append(err)
 
     if include_coding_knowledge:
-        try:
+        def _sync_ck() -> tuple[dict[str, Any], int]:
             ck_push = push_coding_knowledge_dataset()
-            ck_items = int(ck_push.get("dataset_items") or 0)
-            summary["datasets"]["coding_knowledge"] = ck_push
+            return ck_push, int(ck_push.get("dataset_items") or 0)
+
+        payload, ck_items, err = run_dataset_sync_safe("coding_knowledge", _sync_ck)
+        if payload is not None:
+            summary["datasets"]["coding_knowledge"] = payload
             summary["total_items"] += ck_items
             if ck_items:
                 summary["any_pushed"] = True
-        except Exception as exc:
-            logger.warning("Coding knowledge dataset sync failed: %s", exc)
-            summary["errors"].append(f"coding_knowledge: {exc}")
+        if err:
+            summary["errors"].append(err)
 
     return summary
 

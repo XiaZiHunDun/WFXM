@@ -69,11 +69,9 @@ class EvalReport:
 
 def _get_langfuse_client() -> Any:
     """Get LangFuse client, returns None if disabled."""
-    try:
-        from butler.ops.langfuse_tracer import _get_client
-        return _get_client()
-    except Exception:
-        return None
+    from butler.ops.eval_bridge_ops import get_langfuse_client_safe
+
+    return get_langfuse_client_safe()
 
 
 def push_score(score: EvalScore) -> bool:
@@ -86,24 +84,19 @@ def push_score(score: EvalScore) -> bool:
         logger.debug("LangFuse disabled; score '%s' not pushed", score.name)
         return False
 
-    try:
-        kwargs: dict[str, Any] = {
-            "name": score.name,
-            "value": score.value,
-        }
-        if score.comment:
-            kwargs["comment"] = score.comment
-        if score.trace_id:
-            kwargs["trace_id"] = score.trace_id
-        if score.observation_id:
-            kwargs["observation_id"] = score.observation_id
+    from butler.ops.eval_bridge_ops import push_score_loud
 
-        client.score(**kwargs)
-        logger.debug("Pushed score: %s = %.4f", score.name, score.value)
-        return True
-    except Exception as exc:
-        logger.warning("Failed to push score '%s': %s", score.name, exc)
-        return False
+    kwargs: dict[str, Any] = {
+        "name": score.name,
+        "value": score.value,
+    }
+    if score.comment:
+        kwargs["comment"] = score.comment
+    if score.trace_id:
+        kwargs["trace_id"] = score.trace_id
+    if score.observation_id:
+        kwargs["observation_id"] = score.observation_id
+    return push_score_loud(client, kwargs=kwargs, score_name=score.name)
 
 
 def push_scores(scores: list[EvalScore]) -> EvalReport:
@@ -118,10 +111,9 @@ def push_scores(scores: list[EvalScore]) -> EvalReport:
 
     client = _get_langfuse_client()
     if client is not None:
-        try:
-            client.flush()
-        except Exception:
-            pass
+        from butler.ops.eval_bridge_ops import flush_langfuse_client_safe
+
+        flush_langfuse_client_safe(client)
 
     return report
 
@@ -131,12 +123,9 @@ def create_dataset(name: str, description: str = "") -> Optional[str]:
     client = _get_langfuse_client()
     if client is None:
         return None
-    try:
-        ds = client.create_dataset(name=name, description=description)
-        return str(getattr(ds, "id", name))
-    except Exception as exc:
-        logger.warning("Failed to create dataset '%s': %s", name, exc)
-        return None
+    from butler.ops.eval_bridge_ops import create_dataset_loud
+
+    return create_dataset_loud(client, name=name, description=description)
 
 
 def push_dataset_item(
@@ -147,18 +136,18 @@ def push_dataset_item(
     client = _get_langfuse_client()
     if client is None:
         return False
-    try:
-        client.create_dataset_item(
-            dataset_name=dataset_name,
-            input=item.input,
-            expected_output=item.expected_output,
-            metadata=item.metadata,
-            source_trace_id=item.source_id if item.source_id else None,
-        )
-        return True
-    except Exception as exc:
-        logger.warning("Failed to push dataset item: %s", exc)
-        return False
+    from butler.ops.eval_bridge_ops import push_dataset_item_loud
+
+    return push_dataset_item_loud(
+        client,
+        kwargs={
+            "dataset_name": dataset_name,
+            "input": item.input,
+            "expected_output": item.expected_output,
+            "metadata": item.metadata,
+            "source_trace_id": item.source_id if item.source_id else None,
+        },
+    )
 
 
 def push_dataset_items(
@@ -175,10 +164,9 @@ def push_dataset_items(
 
     client = _get_langfuse_client()
     if client is not None:
-        try:
-            client.flush()
-        except Exception:
-            pass
+        from butler.ops.eval_bridge_ops import flush_langfuse_client_safe
+
+        flush_langfuse_client_safe(client)
     return report
 
 
