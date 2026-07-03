@@ -82,15 +82,9 @@ def is_todoist_mcp_intent(query: str) -> bool:
 
 def is_github_mcp_intent(query: str) -> bool:
     """GitHub 列仓库/issues 应走 MCP，不走 web 检索。"""
-    try:
-        from butler.mcp.github_grounding import (
-            is_github_issue_list_intent,
-            is_github_repo_list_intent,
-        )
+    from butler.tools.network_search_policy_ops import is_github_mcp_intent_safe
 
-        return is_github_repo_list_intent(query) or is_github_issue_list_intent(query)
-    except Exception:
-        return False
+    return is_github_mcp_intent_safe(query)
 
 
 def _github_mcp_block(tool_name: str) -> dict[str, Any] | None:
@@ -166,12 +160,9 @@ def turn_network_search_scope(inbound_user_text: str = "") -> Iterator[None]:
 
 
 def _bridge_state() -> Any | None:
-    try:
-        from butler.execution_context import get_current_turn_bridge
+    from butler.tools.network_search_policy_ops import get_turn_bridge_safe
 
-        return get_current_turn_bridge()
-    except Exception:
-        return None
+    return get_turn_bridge_safe()
 
 
 def _ctx_state() -> dict[str, Any]:
@@ -280,46 +271,18 @@ def _turn_user_query() -> str:
     text = str(_ctx_state().get("inbound_user_text") or "").strip()
     if text:
         return text
-    try:
-        from butler.core.session_epoch import last_user_query_in_epoch
-        from butler.execution_context import get_current_session_key
+    from butler.tools.network_search_policy_ops import epoch_user_query_safe
 
-        sk = str(get_current_session_key() or "").strip()
-        if sk:
-            return last_user_query_in_epoch(sk)
-    except Exception:
-        pass
-    return ""
+    return epoch_user_query_safe()
 
 
 def _web_search_in_current_toolset() -> bool:
     from butler.tools.web_search import web_search_enabled
+    from butler.tools.network_search_policy_ops import web_search_in_current_toolset_safe
 
     if not web_search_enabled():
         return False
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
-        from butler.tools.project_tools import get_tool_definitions_for_project
-
-        orch = get_current_orchestrator()
-        if orch is None:
-            return True
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return True
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        for role in ("lead", "butler", "content", "dev", "review"):
-            tools = get_tool_definitions_for_project(proj, role=role)
-            names = {
-                str((t.get("function") or {}).get("name") or "")
-                for t in tools
-                if isinstance(t, dict)
-            }
-            if "web_search" in names:
-                return True
-        return False
-    except Exception:
-        return web_search_enabled()
+    return web_search_in_current_toolset_safe(fallback=web_search_enabled())
 
 
 def _gate_active() -> bool:

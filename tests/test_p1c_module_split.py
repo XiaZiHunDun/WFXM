@@ -161,6 +161,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/plan/mode_ops.py": 100,
     "butler/gateway/commands/dev_handlers_ops.py": 120,
     "butler/tools/tool_audit_ops.py": 130,
+    "butler/plan/markdown_sync_ops.py": 60,
+    "butler/ops/boundary_observability_ops.py": 140,
+    "butler/ops/owner_trust_surface_ops.py": 100,
+    "butler/ops/experience_selection_telemetry_ops.py": 80,
+    "butler/gateway/commands/dialog_commands_ops.py": 100,
+    "butler/tools/network_search_policy_ops.py": 100,
+    "butler/memory/vector_gc_ops.py": 45,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import re
-from pathlib import PurePosixPath
 
 logger = logging.getLogger(__name__)
 
@@ -102,34 +101,9 @@ def sync_plan_file_to_transcript(
     content: str,
 ) -> int:
     """If plan mode + writable plan path, record extracted plan_step rows."""
-    try:
-        from butler.plan.mode import is_plan_mode, is_plan_writable_path
+    from butler.plan.markdown_sync_ops import sync_plan_file_to_transcript_safe
 
-        if not is_plan_mode(session_key):
-            return 0
-        if not is_plan_writable_path(path):
-            return 0
-        from butler.core.session_transcript import record_plan_step
-
-        steps = extract_plan_steps_from_markdown(content)
-        if not steps:
-            return 0
-        name = PurePosixPath(str(path or "").replace("\\", "/")).name
-        for step in steps:
-            record_plan_step(
-                session_key,
-                title=step["title"],
-                phase="sync",
-                detail=step.get("detail") or "",
-                assumption=step.get("assumption") or "",
-                evidence=step.get("evidence") or "",
-                step_kind=step.get("step_kind") or "step",
-            )
-        logger.debug("plan markdown sync: %s (%d steps)", name, len(steps))
-        return len(steps)
-    except Exception as exc:
-        logger.debug("plan markdown sync skipped: %s", exc)
-        return 0
+    return sync_plan_file_to_transcript_safe(session_key, path, content)
 
 
 __all__ = [

@@ -20,7 +20,6 @@ Pre-existing (owner-gated, Sprint 12 SEC-12-2):
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any, Optional
 
 from butler.gateway.command_registry import (
@@ -32,9 +31,6 @@ from butler.gateway.command_registry import (
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
-
-logger = logging.getLogger(__name__)
-
 
 def _cmd_steer(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
@@ -151,13 +147,11 @@ def format_switch_project_reply(
         from butler.project.lead import lead_mode_switch_suffix
 
         lead_note = lead_mode_switch_suffix(new_name)
-        brief = ""
-        try:
-            from butler.gateway.owner_surface import format_project_switch_brief
+        from butler.gateway.commands.dialog_commands_ops import (
+            format_project_switch_brief_safe,
+        )
 
-            brief = format_project_switch_brief(orchestrator, session_key, new_name)
-        except Exception:
-            pass
+        brief = format_project_switch_brief_safe(orchestrator, session_key, new_name)
         return (
             f"已切换到项目: {new_name}\n"
             "（下一条消息起使用新项目工具与 workspace。）"
@@ -166,17 +160,9 @@ def format_switch_project_reply(
     available = pm.list_projects()
     if available:
         names = [p.name for p in available]
-        slug_hint = ""
-        try:
-            slug_map = [
-                f"{p.workspace.name}→{p.name}"
-                for p in available
-                if getattr(p, "workspace", None)
-            ]
-            if slug_map:
-                slug_hint = f"\n目录名对照: {', '.join(slug_map[:6])}"
-        except Exception:
-            slug_hint = ""
+        from butler.gateway.commands.dialog_commands_ops import format_project_slug_hint_safe
+
+        slug_hint = format_project_slug_hint_safe(available)
         suggestions = pm.suggest_project_names(arg, limit=3)
         body = [f"未找到项目: {arg}"]
         if suggestions:
@@ -233,12 +219,12 @@ def format_new_session_reply(
     from butler.session.new_session import handle_new_session_command
 
     loop = sessions.get(session_key)
-    try:
-        from butler.core.session_transcript import record_session_reset
+    from butler.gateway.commands.dialog_commands_ops import (
+        cleanup_new_session_state_safe,
+        record_session_reset_safe,
+    )
 
-        record_session_reset(session_key, reason="new")
-    except Exception as exc:
-        logger.debug("session_reset transcript marker skipped: %s", exc)
+    record_session_reset_safe(session_key, reason="new")
     session_registry.reset(session_key, skip_finalize=True)
     from butler.tools.tool_audit import reset_tool_audit_events
 
@@ -249,30 +235,7 @@ def format_new_session_reply(
     from butler.plan.mode import clear_plan_mode
 
     clear_plan_mode(session_key)
-    try:
-        from butler.hooks.telemetry import reset_hook_telemetry
-        from butler.gateway.completion_telemetry import reset_completion_telemetry
-
-        reset_hook_telemetry(session_key)
-        reset_completion_telemetry(session_key)
-        from butler.core.read_state import reset_read_state
-        from butler.gateway.message_queue import reset_queue
-        from butler.gateway.queue_settings import clear_session_override
-        from butler.human_gate import clear_session_gates
-        from butler.core.instruction_walkup import reset_instruction_claims
-
-        reset_read_state(session_key)
-        reset_queue(session_key)
-        clear_session_override(session_key)
-        clear_session_gates(session_key)
-        reset_instruction_claims(session_key=session_key)
-        from butler.core.goal_loop import clear_state as clear_goal_loop
-        from butler.core.compaction_checkpoint import clear_checkpoint
-
-        clear_goal_loop(session_key)
-        clear_checkpoint(session_key)
-    except Exception as exc:
-        logger.debug("Session cleanup for new session skipped: %s", exc)
+    cleanup_new_session_state_safe(session_key)
     return handle_new_session_command(orchestrator, session_key, loop)
 
 

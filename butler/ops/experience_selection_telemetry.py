@@ -35,15 +35,14 @@ def record_experience_selection(
     if not experience_id:
         return
     if task_affinity is None and inferred_task_id:
-        try:
-            from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
+        from butler.ops.experience_selection_telemetry_ops import (
+            experience_task_affinity_safe,
+        )
 
-            task_affinity = experience_task_affinity(
-                experience_id,
-                inferred_task_id=inferred_task_id,
-            )
-        except Exception:
-            task_affinity = None
+        task_affinity = experience_task_affinity_safe(
+            experience_id,
+            inferred_task_id=inferred_task_id,
+        )
     path = selections_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     row = {
@@ -64,6 +63,11 @@ def record_experience_selection(
 
 def _resolve_row_task_affinity(row: dict[str, Any]) -> bool | None:
     """Use stored affinity or infer from task_preview + experience_id."""
+    from butler.ops.experience_selection_telemetry_ops import (
+        experience_task_affinity_safe,
+        infer_b9_task_id_safe,
+    )
+
     affinity = row.get("task_affinity")
     if affinity is True or affinity is False:
         return bool(affinity)
@@ -73,20 +77,10 @@ def _resolve_row_task_affinity(row: dict[str, Any]) -> bool | None:
     tid = str(row.get("inferred_task_id") or "").strip()
     if not tid:
         preview = str(row.get("task_preview") or "")
-        try:
-            from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
-
-            tid = infer_b9_task_id(preview)
-        except Exception:
-            tid = ""
+        tid = infer_b9_task_id_safe(preview)
     if not tid:
         return None
-    try:
-        from butler.dev_engine.prod_delegate_bridge import experience_task_affinity
-
-        return experience_task_affinity(eid, inferred_task_id=tid)
-    except Exception:
-        return None
+    return experience_task_affinity_safe(eid, inferred_task_id=tid)
 
 
 def backfill_selection_task_affinity(*, dry_run: bool = True) -> dict[str, Any]:
@@ -109,14 +103,13 @@ def backfill_selection_task_affinity(*, dry_run: bool = True) -> dict[str, Any]:
                 row["task_affinity"] = inferred
                 if not row.get("inferred_task_id"):
                     preview = str(row.get("task_preview") or "")
-                    try:
-                        from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+                    from butler.ops.experience_selection_telemetry_ops import (
+                        infer_b9_task_id_safe,
+                    )
 
-                        tid = infer_b9_task_id(preview)
-                        if tid:
-                            row["inferred_task_id"] = tid
-                    except Exception:
-                        pass
+                    tid = infer_b9_task_id_safe(preview)
+                    if tid:
+                        row["inferred_task_id"] = tid
                 updated += 1
         rows.append(row)
     if not dry_run and updated:
@@ -382,17 +375,16 @@ def apply_selected_experience_lifecycle(
     if ok:
         xlib.save_to_file(path)
     result = {"action": action, "experience_id": experience_id, "success": success}
-    try:
-        record_experience_lifecycle(
-            experience_id=experience_id,
-            action=action,
-            success=success,
-            session_key=session_key,
-            task_preview=task_preview,
-            role=role,
-        )
-    except Exception:
-        pass
+    from butler.ops.experience_selection_telemetry_ops import record_experience_lifecycle_safe
+
+    record_experience_lifecycle_safe(
+        experience_id=experience_id,
+        action=action,
+        success=success,
+        session_key=session_key,
+        task_preview=task_preview,
+        role=role,
+    )
     return result
 
 

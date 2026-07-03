@@ -2,35 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
-
-def _boundary_warn_count() -> int:
-    try:
-        from butler.ops.boundary_observability import collect_boundary_observations
-
-        return sum(
-            1 for obs in collect_boundary_observations() if obs.status == "warn"
-        )
-    except Exception as exc:
-        logger.debug("boundary warn count skipped: %s", exc)
-        return 0
-
-
-def _execution_trust_session(session_key: str) -> dict[str, int]:
-    try:
-        from butler.ops.execution_surface_diagnostics import collect_execution_trust_metrics
-
-        metrics = collect_execution_trust_metrics(session_key=session_key)
-        sess = metrics.get("session")
-        if isinstance(sess, dict):
-            return {str(k): int(v) for k, v in sess.items()}
-    except Exception as exc:
-        logger.debug("execution trust session skipped: %s", exc)
-    return {}
+from butler.ops.owner_trust_surface_ops import (
+    approval_stats_for_health_safe,
+    boundary_warn_count_safe,
+    execution_trust_session_safe,
+    memory_sources_line_safe,
+    skill_injection_mode_safe,
+)
 
 
 def collect_trust_snapshot(
@@ -43,12 +23,9 @@ def collect_trust_snapshot(
     h = dict(health or {})
     snap: dict[str, Any] = {}
 
-    try:
-        from butler.skills.injection_policy import skill_injection_mode
-
-        snap["skill_mode"] = skill_injection_mode()
-    except Exception as exc:
-        logger.debug("skill mode skipped: %s", exc)
+    mode = skill_injection_mode_safe()
+    if mode:
+        snap["skill_mode"] = mode
 
     loop = h.get("loop")
     if isinstance(loop, dict):
@@ -59,24 +36,10 @@ def collect_trust_snapshot(
         if key in h:
             snap[key] = h[key]
 
-    try:
-        from butler.ops.health_report import collect_approval_stats_for_health
-
-        snap["approvals"] = collect_approval_stats_for_health(sk)
-    except Exception as exc:
-        logger.debug("approval stats skipped: %s", exc)
-        snap["approvals"] = {}
-
-    snap["boundary_warns"] = _boundary_warn_count()
-    snap["execution_trust"] = _execution_trust_session(sk)
-
-    try:
-        from butler.core.memory_source_surface import format_memory_sources_one_liner
-
-        snap["memory_line"] = format_memory_sources_one_liner(h)
-    except Exception as exc:
-        logger.debug("memory line skipped: %s", exc)
-        snap["memory_line"] = ""
+    snap["approvals"] = approval_stats_for_health_safe(sk)
+    snap["boundary_warns"] = boundary_warn_count_safe()
+    snap["execution_trust"] = execution_trust_session_safe(sk)
+    snap["memory_line"] = memory_sources_line_safe(h)
 
     return snap
 

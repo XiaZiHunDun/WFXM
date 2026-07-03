@@ -49,11 +49,14 @@ def run_memory_gc(
     """Report or remove experience-vector orphans and stale conversation vectors."""
     bm = ButlerMemory(Path(butler_home).expanduser().resolve(), tenant_id=tenant_id)
     sem = bm.semantic
+    from butler.memory.vector_gc_ops import (
+        close_butler_memory_safe,
+        delete_conversation_vectors_safe,
+        delete_orphan_vector_safe,
+    )
+
     if sem is None:
-        try:
-            bm.close()
-        except Exception:
-            pass
+        close_butler_memory_safe(bm)
         return {
             "ok": False,
             "error": "BUTLER_SEMANTIC_MEMORY is not enabled",
@@ -82,25 +85,16 @@ def run_memory_gc(
     if apply:
         deleted_orphans = 0
         for sid in orphan_ids:
-            try:
-                sem.delete(SOURCE_EXPERIENCE, sid)
+            if delete_orphan_vector_safe(sem, SOURCE_EXPERIENCE, sid):
                 deleted_orphans += 1
-            except Exception as exc:
-                logger.debug("GC orphan delete skipped for %s: %s", sid, exc)
         result["deleted_orphan_vectors"] = deleted_orphans
         if conv_vectors:
-            try:
-                result["deleted_conversation_vectors"] = sem.delete_by_category(
-                    _CONVERSATION
-                )
-            except Exception as exc:
-                logger.warning("GC conversation vector purge failed: %s", exc)
+            deleted_conv = delete_conversation_vectors_safe(sem, _CONVERSATION)
+            if deleted_conv is not None:
+                result["deleted_conversation_vectors"] = deleted_conv
         drift_after = drift_from_butler_memory(bm)
         result["semantic_index_gap_after"] = drift_after.get("semantic_index_gap")
         result["semantic_index_stale_after"] = drift_after.get("semantic_index_stale")
 
-    try:
-        bm.close()
-    except Exception:
-        pass
+    close_butler_memory_safe(bm)
     return result
