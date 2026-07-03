@@ -2,37 +2,27 @@
 
 from __future__ import annotations
 
-import logging
-import os
 from pathlib import Path
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _BUILTIN = Path(__file__).resolve().parent / "delegate_categories.yaml"
 
 
 def _user_override_path() -> Path:
+    import os
+
     return Path(os.path.expanduser("~/.butler/delegate_categories.yaml"))
 
 
 def _load_yaml() -> dict[str, Any]:
+    from butler.delegate.category_resolver_ops import load_delegate_categories_from_path_safe
+
     paths = [_user_override_path(), _BUILTIN]
     merged: dict[str, Any] = {}
     for path in paths:
         if not path.is_file():
             continue
-        try:
-            import yaml
-
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            logger.debug("delegate_categories load %s: %s", path, exc)
-            continue
-        if isinstance(data, dict):
-            cats = data.get("categories")
-            if isinstance(cats, dict):
-                merged.update(cats)
+        merged.update(load_delegate_categories_from_path_safe(path))
     return merged
 
 

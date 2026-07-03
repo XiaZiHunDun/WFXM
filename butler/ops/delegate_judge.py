@@ -6,12 +6,9 @@ Heuristic judge (default). Optional LLM rubric when
 
 from __future__ import annotations
 
-import logging
 import os
 from dataclasses import dataclass
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -107,22 +104,9 @@ def push_delegate_judge_score(
 ) -> bool:
     if not trace_id:
         return False
-    try:
-        from butler.ops.eval_bridge import EvalScore, push_score
+    from butler.ops.delegate_judge_ops import push_delegate_judge_score_safe
 
-        return push_score(
-            EvalScore(
-                name="delegate_judge.quality",
-                value=judge.score,
-                comment=judge.comment,
-                category="delegate_judge",
-                trace_id=trace_id,
-                metadata=judge.to_dict(),
-            )
-        )
-    except Exception as exc:
-        logger.debug("delegate judge push skipped: %s", exc)
-        return False
+    return push_delegate_judge_score_safe(judge, trace_id=trace_id)
 
 
 def maybe_judge_and_push(

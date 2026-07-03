@@ -79,12 +79,9 @@ def run_with_todo_continuation(
     run_callbacks: Any = None,
 ) -> LoopResult:
     """Run loop; if completed with open todos, inject continuation user messages (capped)."""
-    try:
-        from butler.core.goal_loop import is_goal_loop_active
+    from butler.core.todo_continuation_ops import is_goal_loop_active_safe
 
-        goal_active = is_goal_loop_active(session_key)
-    except Exception:
-        goal_active = False
+    goal_active = is_goal_loop_active_safe(session_key)
 
     runner = run_fn or (lambda msg: loop.run(msg, run_callbacks=run_callbacks))
     result = runner(user_message)

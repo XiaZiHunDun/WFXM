@@ -7,9 +7,6 @@ from pathlib import Path
 from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
 from butler.permissions.rules import _load_permissions_yaml
 from butler.tools.pim_schema import ALL_PIM_TOOLS
-import logging
-
-logger = logging.getLogger(__name__)
 
 _DEFAULT_SUBAGENT_DENY = frozenset({
     "delegate_task",
@@ -71,13 +68,11 @@ def filter_tools_for_subagent(
         name = str((t.get("function") or {}).get("name") or "")
         if name in denied:
             continue
-        try:
-            from butler.mcp.naming import is_mcp_registered_name
+        from butler.delegate.subagent_permissions_ops import is_mcp_registered_name_safe
 
-            if is_mcp_registered_name(name):
-                continue
-        except Exception as exc:
-            logger.debug("filter tools for subagent skipped: %s", exc)
+        mcp_registered = is_mcp_registered_name_safe(name)
+        if mcp_registered is True:
+            continue
         filtered.append(t)
     return filtered
 

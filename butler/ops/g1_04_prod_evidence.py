@@ -127,16 +127,14 @@ def record_g1_04_production_evidence(
         "failure_reason": (failure_reason or "")[:200],
         "capture_source": capture_source,
     }
-    try:
-        from butler.ops.eval_actions import append_eval_feedback
+    from butler.ops.g1_04_prod_evidence_ops import append_production_evidence_safe
 
-        append_eval_feedback(record)
-        _mark_dedupe(dkey)
-        logger.info("G1-04 production evidence recorded trigger=%s project=%s", trigger, project)
-        return {"recorded": True, "trigger": trigger, "event": event}
-    except Exception as exc:
-        logger.debug("G1-04 production evidence skipped: %s", exc)
-        return {"recorded": False, "reason": str(exc)}
+    ok, err = append_production_evidence_safe(record)
+    if not ok:
+        return {"recorded": False, "reason": err or "unknown"}
+    _mark_dedupe(dkey)
+    logger.info("G1-04 production evidence recorded trigger=%s project=%s", trigger, project)
+    return {"recorded": True, "trigger": trigger, "event": event}
 
 
 __all__ = ["prod_evidence_enabled", "record_g1_04_production_evidence"]

@@ -286,6 +286,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/ops/tool_routing_ops.py": 25,
     "butler/core/design_md_sections_ops.py": 55,
     "butler/gateway/commands/project_handlers_ops.py": 40,
+    "butler/delegate/category_resolver_ops.py": 30,
+    "butler/ops/delegate_judge_ops.py": 35,
+    "butler/ops/g1_04_prod_evidence_ops.py": 25,
+    "butler/registry/skills_project_sync_ops.py": 50,
+    "butler/core/context_budget_ops.py": 30,
+    "butler/delegate/subagent_permissions_ops.py": 25,
+    "butler/core/todo_continuation_ops.py": 25,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

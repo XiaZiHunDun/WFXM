@@ -176,29 +176,17 @@ def skill_auto_sync_project_enabled() -> bool:
 
 def resolve_default_project_workspace() -> Path | None:
     """Workspace for ``BUTLER_DEFAULT_PROJECT`` when ``stack.yaml`` exists."""
+    from butler.registry.skills_project_sync_ops import (
+        default_project_name_safe,
+        default_project_stack_workspace_safe,
+    )
+
     name = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
     if not name:
-        try:
-            from butler.config import load_settings
-
-            name = str(load_settings().default_project or "").strip()
-        except Exception:
-            name = ""
+        name = default_project_name_safe()
     if not name:
         return None
-    try:
-        from butler.project.manager import get_project_manager
-
-        project = get_project_manager().get_project(name)
-        workspace = getattr(project, "workspace", None) if project is not None else None
-        if not workspace:
-            return None
-        ws = Path(str(workspace)).expanduser().resolve()
-        if (ws / "stack.yaml").is_file():
-            return ws
-    except Exception:
-        return None
-    return None
+    return default_project_stack_workspace_safe(name)
 
 
 def maybe_sync_after_registry_install(
