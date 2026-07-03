@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 
 from butler.memory_settings import resolve_memory_config
@@ -49,17 +48,15 @@ def build_corrective_recall_block(
     scope: str = "project",
 ) -> str:
     """Run a lightweight recall and return markdown appendix for delegate context."""
-    from butler.tools.memory_tools import tool_butler_recall
-
     query = extract_query_from_task(task)
     if not query:
         query = extract_query_from_task(error_excerpt, max_len=120)
     if not query:
         return ""
-    try:
-        raw = tool_butler_recall(scope=scope, query=query, limit=5)
-        data = json.loads(raw) if raw.strip().startswith("{") else {"text": raw}
-    except Exception:
+    from butler.memory.corrective_recall_ops import fetch_corrective_recall_data_safe
+
+    data = fetch_corrective_recall_data_safe(scope=scope, query=query)
+    if data is None:
         return ""
     hits = data.get("results") or data.get("items") or data.get("matches")
     if not hits and not data.get("content") and not data.get("text"):

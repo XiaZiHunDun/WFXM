@@ -110,16 +110,16 @@ def apply_preemptive_pipeline(
 
     out = list(messages)
     if is_auto_compact_enabled():
-        try:
-            out = compress(out)
+        from butler.core.preemptive_compact_ops import try_preemptive_compress_safe
+
+        out, compact_ok = try_preemptive_compress_safe(compress, out)
+        if compact_ok:
             estimated = estimate_tokens(out)
             if diagnostics is not None:
                 diagnostics["preemptive_compact_applied"] = True
                 diagnostics["preemptive_tokens_after_compact"] = estimated
-        except Exception as exc:
-            logger.warning("Preemptive compact failed: %s", exc)
-            if diagnostics is not None:
-                diagnostics["preemptive_compact_error"] = str(exc)[:200]
+        elif diagnostics is not None:
+            diagnostics["preemptive_compact_error"] = "compact failed"
 
     if estimated < threshold:
         return out, PreemptiveDecision(
@@ -135,12 +135,9 @@ def apply_preemptive_pipeline(
         diagnostics["preemptive_truncate_applied"] = truncated
         if truncated:
             diagnostics["compaction_status"] = "truncated_only"
-            try:
-                from butler.ops.retry_buckets import record_recovery_event
+            from butler.core.preemptive_compact_ops import record_preemptive_truncate_recovery_safe
 
-                record_recovery_event("preemptive_truncate")
-            except Exception as exc:
-                logger.debug("apply preemptive pipeline skipped: %s", exc)
+            record_preemptive_truncate_recovery_safe()
     if estimated < effective_limit:
         return out, PreemptiveDecision(
             route="truncate",

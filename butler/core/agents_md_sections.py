@@ -30,21 +30,9 @@ def max_section_chars() -> int:
 
 
 def _resolve_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
+    from butler.core.agents_md_sections_ops import resolve_agents_md_workspace_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return None
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        if proj is None:
-            return None
-        return Path(proj.workspace)
-    except Exception:
-        return None
+    return resolve_agents_md_workspace_safe()
 
 
 def _substitute_date_placeholders(text: str, *, now_ms: float | None = None) -> str:

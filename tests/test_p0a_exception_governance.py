@@ -573,6 +573,20 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/core/preread_context_ops.py": 0,
     "butler/ops/eval_turn.py": 0,
     "butler/ops/eval_turn_ops.py": 0,
+    "butler/gateway/locked_turn_orchestrator.py": 0,
+    "butler/gateway/locked_turn_orchestrator_ops.py": 1,
+    "butler/ops/eval_diagnostics.py": 0,
+    "butler/ops/eval_diagnostics_ops.py": 0,
+    "butler/memory/semantic_health.py": 0,
+    "butler/memory/semantic_health_ops.py": 0,
+    "butler/core/preemptive_compact.py": 0,
+    "butler/core/preemptive_compact_ops.py": 0,
+    "butler/core/agents_md_sections.py": 0,
+    "butler/core/agents_md_sections_ops.py": 0,
+    "butler/memory/corrective_recall.py": 0,
+    "butler/memory/corrective_recall_ops.py": 1,
+    "butler/core/remote_compact.py": 0,
+    "butler/core/remote_compact_ops.py": 1,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

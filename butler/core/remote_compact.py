@@ -167,24 +167,21 @@ def try_remote_summarize(middle: list[dict], previous_summary: str = "") -> str 
         headers=headers,
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=int(getattr(client, "timeout", 120))) as resp:
-            raw = resp.read().decode("utf-8", errors="replace")
-        data = json.loads(raw)
-    except urllib.error.HTTPError as exc:
-        logger.info("Remote compact HTTP %s at %s", exc.code, url)
-        return None
-    except Exception as exc:
-        logger.debug("Remote compact failed: %s", exc)
+    from butler.core.remote_compact_ops import (
+        post_remote_compact_request_safe,
+        record_remote_compact_recovery_safe,
+    )
+
+    data = post_remote_compact_request_safe(
+        req,
+        timeout=int(getattr(client, "timeout", 120)),
+        url=url,
+    )
+    if data is None:
         return None
 
     summary = _extract_summary_from_response(data)
     if summary:
-        try:
-            from butler.ops.retry_buckets import record_recovery_event
-
-            record_recovery_event("remote_compact_ok")
-        except Exception as exc:
-            logger.debug("try remote summarize skipped: %s", exc)
+        record_remote_compact_recovery_safe()
         return summary
     return None

@@ -300,6 +300,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/goal_loop_ops.py": 20,
     "butler/core/preread_context_ops.py": 35,
     "butler/ops/eval_turn_ops.py": 30,
+    "butler/gateway/locked_turn_orchestrator_ops.py": 45,
+    "butler/ops/eval_diagnostics_ops.py": 25,
+    "butler/memory/semantic_health_ops.py": 25,
+    "butler/core/preemptive_compact_ops.py": 40,
+    "butler/core/agents_md_sections_ops.py": 15,
+    "butler/memory/corrective_recall_ops.py": 25,
+    "butler/core/remote_compact_ops.py": 45,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

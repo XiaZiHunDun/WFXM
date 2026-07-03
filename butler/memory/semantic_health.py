@@ -52,10 +52,9 @@ def drift_from_butler_memory(bm: Any) -> dict[str, Any]:
         return empty
     by_cat = _experience_category_counts(getattr(exp, "db_path", None))
     indexable = sum(n for k, n in by_cat.items() if k != CONVERSATION_CATEGORY)
-    try:
-        vec_exp = sem.count_by_source(SOURCE_EXPERIENCE)
-    except Exception:
-        vec_exp = 0
+    from butler.memory.semantic_health_ops import count_experience_vectors_safe
+
+    vec_exp = count_experience_vectors_safe(sem, SOURCE_EXPERIENCE)
     report = experience_vector_drift(
         experience_long_term=indexable,
         experience_vectors=vec_exp,

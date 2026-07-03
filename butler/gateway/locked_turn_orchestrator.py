@@ -48,10 +48,9 @@ def run_locked_message_turn(
     from butler.gateway.handler_helpers import _maybe_welcome_prefix
     from butler.gateway.locked_phase_registry import (
         run_augment_phase,
-        run_in_context_phases,
         run_pre_lock_phases,
     )
-    from butler.gateway.locked_phases import LockedTurnState, _phase_format_error_card
+    from butler.gateway.locked_phases import LockedTurnState
     from butler.execution_context import use_execution_context
 
     if not text.strip():
@@ -83,27 +82,18 @@ def run_locked_message_turn(
         run_augment_phase(handler, state)
         state.loop = handler._get_or_create_loop(session_key)
         state.original_loop_config = state.loop.config
-        try:
-            response = run_in_context_phases(
-                handler, state, welcome_prefix=welcome_prefix,
-            )
-            if response is not None:
-                return response
-            return state.out
-        except Exception as exc:
-            state.health["error"] = str(exc)
-            handler._session_registry.set_health(session_key, state.health)
-            logger.error(
-                "Message handling failed session=%s elapsed=%.1fs: %s",
-                session_key,
-                _time.monotonic() - state.turn_started,
-                exc,
-                exc_info=True,
-            )
-            card = _phase_format_error_card(exc, _time.monotonic() - state.turn_started)
-            from butler.gateway.user_errors import format_gateway_user_error
+        from butler.gateway.locked_turn_orchestrator_ops import run_in_context_phases_or_fail
 
-            return card or format_gateway_user_error(exc)
+        try:
+            result, err = run_in_context_phases_or_fail(
+                handler,
+                state,
+                welcome_prefix=welcome_prefix,
+                session_key=session_key,
+            )
+            if err is not None:
+                return err
+            return result if result is not None else state.out
         finally:
             state.loop.config = state.original_loop_config
 
