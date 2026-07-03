@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import re
 import threading
 from pathlib import Path
@@ -11,8 +10,6 @@ from typing import Any
 
 from butler.config import get_butler_home
 from butler.gateway_settings import resolve_gateway_queue_config
-
-logger = logging.getLogger(__name__)
 
 _VALID_MODES = frozenset({"followup", "collect", "interrupt", "steer"})
 _VALID_DROP = frozenset({"summarize", "old", "new"})
@@ -34,15 +31,9 @@ def _override_path(session_key: str) -> Path:
 
 
 def _load_override_file(session_key: str) -> dict[str, Any]:
-    path = _override_path(session_key)
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
-    except Exception as exc:
-        logger.debug("queue override read failed %s: %s", path, exc)
-        return {}
+    from butler.gateway.queue_settings_ops import load_queue_override_safe
+
+    return load_queue_override_safe(_override_path(session_key))
 
 
 def _save_override_file(session_key: str, data: dict[str, Any]) -> None:

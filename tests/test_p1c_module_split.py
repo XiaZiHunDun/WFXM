@@ -314,6 +314,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/compaction_steer_bridge_ops.py": 35,
     "butler/memory/injection_llm_score_ops.py": 40,
     "butler/ops/delegate_failure_b9_promote_ops.py": 30,
+    "butler/memory/prefetch_retrieval_metrics_ops.py": 25,
+    "butler/context_settings_ops.py": 30,
+    "butler/gateway_settings_ops.py": 30,
+    "butler/runtime/failure_tracker_ops.py": 55,
+    "butler/gateway/queue_settings_ops.py": 25,
+    "butler/memory/transcript_memory_pipeline_ops.py": 30,
+    "butler/memory/retrieval_ranking_ops.py": 35,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

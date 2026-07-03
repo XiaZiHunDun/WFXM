@@ -6,8 +6,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-import yaml
-
 from butler.config import get_butler_settings
 
 
@@ -68,15 +66,9 @@ def _bool_env(name: str, default: bool) -> bool:
 
 def _load_yaml_gateway() -> dict[str, Any]:
     settings = get_butler_settings()
-    path = settings.config_yaml_path
-    if not path.is_file():
-        return {}
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
-    gw = data.get("gateway")
-    return gw if isinstance(gw, dict) else {}
+    from butler.gateway_settings_ops import load_yaml_gateway_section_safe
+
+    return load_yaml_gateway_section_safe(settings.config_yaml_path)
 
 
 def resolve_gateway_inbound_config() -> GatewayInboundConfig:

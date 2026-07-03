@@ -32,12 +32,10 @@ MEMORY_TYPE_HALF_LIFE_MULTIPLIER: dict[str, float] = {
 
 def memory_half_life_days() -> float:
     base = resolve_memory_config().half_life_days
-    try:
-        from butler.ops.eval_config_overrides import effective_memory_half_life_days
+    from butler.memory.retrieval_ranking_ops import effective_memory_half_life_days_safe
 
-        return effective_memory_half_life_days(base)
-    except Exception:
-        return base
+    adjusted = effective_memory_half_life_days_safe(base)
+    return adjusted if adjusted is not None else base
 
 
 def memory_access_boost() -> float:
@@ -105,10 +103,8 @@ def rerank_memory_hits(
     scored.sort(key=lambda x: x[0], reverse=True)
 
     if hits:
-        try:
-            from butler.memory.memory_metrics import get_collector
-            get_collector().on_decay_evaluation(total_important=len(hits), killed=killed)
-        except Exception:
-            pass
+        from butler.memory.retrieval_ranking_ops import record_decay_evaluation_safe
+
+        record_decay_evaluation_safe(total_important=len(hits), killed=killed)
 
     return [item for _, item in scored]

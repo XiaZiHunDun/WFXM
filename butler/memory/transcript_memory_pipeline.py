@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy, int_env
-
-logger = logging.getLogger(__name__)
 
 
 def transcript_memory_enabled() -> bool:
@@ -91,13 +88,9 @@ async def extract_memory_from_transcript_async(
 
     butler_memory = None
     project_memory = None
-    try:
-        from butler.memory.facade import get_butler_memory, get_project_memory
+    from butler.memory.transcript_memory_pipeline_ops import load_transcript_memory_facades_safe
 
-        butler_memory = get_butler_memory()
-        project_memory = get_project_memory(project_name or None)
-    except Exception as exc:
-        logger.debug("Memory facade unavailable: %s", exc)
+    butler_memory, project_memory = load_transcript_memory_facades_safe(project_name)
 
     result = await processor.process(
         messages,

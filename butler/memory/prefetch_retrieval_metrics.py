@@ -67,15 +67,9 @@ def finalize_prefetch_retrieval_metrics(
         snippets = []
     used = estimate_prefetch_used_count(response_text, [str(s) for s in snippets])
     used = min(used, total)
-    try:
-        from butler.memory.memory_metrics import get_collector
-        from butler.memory.metrics_persist import flush_memory_metrics
+    from butler.memory.prefetch_retrieval_metrics_ops import persist_prefetch_retrieval_used_safe
 
-        get_collector().add_retrieval_used(used)
-        h["memory_prefetch_retrieval_used"] = used
-        flush_memory_metrics()
-    except Exception:
-        return used
+    persist_prefetch_retrieval_used_safe(used, h)
     return used
 
 

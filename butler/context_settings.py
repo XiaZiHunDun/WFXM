@@ -6,8 +6,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-import yaml
-
 from butler.config import get_butler_settings
 from butler.defaults.env_defaults import (
     CONTEXT_BLOCKING_BUFFER,
@@ -89,15 +87,9 @@ class ContextConfig:
 
 def _load_yaml_context() -> dict[str, Any]:
     settings = get_butler_settings()
-    path = settings.config_yaml_path
-    if not path.is_file():
-        return {}
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return {}
-    ctx = data.get("context")
-    return ctx if isinstance(ctx, dict) else {}
+    from butler.context_settings_ops import load_yaml_context_section_safe
+
+    return load_yaml_context_section_safe(settings.config_yaml_path)
 
 
 def _nested_dict(raw: dict[str, Any], key: str) -> dict[str, Any]:

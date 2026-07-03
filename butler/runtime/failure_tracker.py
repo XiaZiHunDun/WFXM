@@ -4,15 +4,11 @@ from __future__ import annotations
 
 from butler.env_parse import int_env
 import json
-import logging
-import os
 import time
 from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
-
-logger = logging.getLogger(__name__)
 
 _STREAKS_FILE = "runtime/failure_streaks.json"
 
@@ -29,14 +25,9 @@ def _alert_threshold() -> int:
 
 
 def _load_streaks() -> dict[str, Any]:
-    path = _streaks_path()
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else {}
-    except Exception:
-        return {}
+    from butler.runtime.failure_tracker_ops import load_failure_streaks_safe
+
+    return load_failure_streaks_safe(_streaks_path())
 
 
 def _save_streaks(data: dict[str, Any]) -> None:
@@ -100,24 +91,14 @@ def _push_streak_alert(
     streak: int,
     audit_path: str,
 ) -> bool:
-    from butler.runtime.notify import push_runtime_message
+    from butler.runtime.failure_tracker_ops import push_failure_streak_alert_safe
 
-    body = (
-        f"任务 {job_id} 已连续失败 {streak} 次。\n"
-        f"请检查日志或执行: butler runtime run {job_id} --project {project_name}\n"
+    return push_failure_streak_alert_safe(
+        project_name,
+        job_id,
+        streak,
+        audit_path,
     )
-    if audit_path:
-        body += f"审计: {audit_path}"
-    try:
-        return bool(
-            push_runtime_message(
-                f"[Butler] {project_name} runtime 连续失败",
-                body[:1200],
-            )
-        )
-    except Exception as exc:
-        logger.warning("Failure streak alert push failed: %s", exc)
-        return False
 
 
 def list_active_streaks(*, min_streak: int = 1) -> list[dict[str, Any]]:
