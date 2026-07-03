@@ -106,14 +106,13 @@ async def connect_stdio(
     tools = list(getattr(listed, "tools", None) or [])
 
     async def cleanup() -> None:
-        try:
-            await session.__aexit__(None, None, None)
-        except Exception as exc:
-            logger.debug("MCP stdio session close: %s", exc)
-        try:
-            await transport.__aexit__(None, None, None)
-        except Exception as exc:
-            logger.debug("MCP stdio transport close: %s", exc)
+        from butler.mcp.client_stdio_ops import (
+            close_stdio_session_safe,
+            close_stdio_transport_safe,
+        )
+
+        await close_stdio_session_safe(session)
+        await close_stdio_transport_safe(transport)
 
     return session, tools, cleanup
 
@@ -128,11 +127,6 @@ async def call_stdio_tool(session: Any, tool_name: str, arguments: dict[str, Any
 
 
 def json_dumps_result(result: Any) -> str:
-    import json
+    from butler.mcp.client_stdio_ops import json_dumps_mcp_result_safe
 
-    try:
-        if hasattr(result, "model_dump"):
-            return json.dumps(result.model_dump(), ensure_ascii=False, default=str)
-    except Exception as exc:
-        logger.debug("json dumps result skipped: %s", exc)
-    return str(result)
+    return json_dumps_mcp_result_safe(result)

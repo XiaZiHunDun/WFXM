@@ -30,22 +30,9 @@ def _audit_path() -> Path:
 
 def catalog_delegate_stats() -> dict[str, Any]:
     """Static stats from utterance catalogs (no pytest run)."""
-    try:
-        from tests.corpus.harness.gateway_catalog import load_utterance_catalog
+    from butler.ops.wechat_corpus_eval_ops import catalog_delegate_stats_safe
 
-        rows = load_utterance_catalog(include_smoke_reference=False)
-        delegate_rows = [
-            r for r in rows
-            if (r.get("expect") or {}).get("uses_delegate")
-        ]
-        return {
-            "catalog_total": len(rows),
-            "delegate_entries": len(delegate_rows),
-            "delegate_ratio": round(len(delegate_rows) / max(1, len(rows)), 4),
-        }
-    except Exception as exc:
-        logger.debug("catalog delegate stats skipped: %s", exc)
-        return {}
+    return catalog_delegate_stats_safe()
 
 
 def _parse_pytest_output(output: str) -> dict[str, int]:
@@ -91,14 +78,13 @@ def run_wechat_gateway_corpus(
     combined = (proc.stdout or "") + "\n" + (proc.stderr or "")
     counts = _parse_pytest_output(combined)
     if counts["total"] == 0:
-        try:
-            from tests.corpus.harness.gateway_catalog import parametrized_catalog_ids
+        from butler.ops.wechat_corpus_eval_ops import parametrized_catalog_count_safe
 
-            counts["total"] = len(parametrized_catalog_ids())
-            counts["passed"] = counts["total"] if proc.returncode == 0 else 0
+        fallback_total = parametrized_catalog_count_safe()
+        if fallback_total:
+            counts["total"] = fallback_total
+            counts["passed"] = fallback_total if proc.returncode == 0 else 0
             counts["failed"] = counts["total"] - counts["passed"]
-        except Exception as exc:
-            logger.debug("corpus id fallback skipped: %s", exc)
 
     pass_rate = counts["passed"] / max(1, counts["total"])
     return {
@@ -153,11 +139,13 @@ def run_and_push_wechat_corpus_eval(
     summary = run_wechat_gateway_corpus()
     _append_audit(summary)
     if push_langfuse:
-        try:
-            summary["langfuse"] = push_wechat_corpus_scores(summary)
-        except Exception as exc:
-            logger.warning("wechat corpus LangFuse push failed: %s", exc)
-            summary["langfuse_error"] = str(exc)
+        from butler.ops.wechat_corpus_eval_ops import push_wechat_corpus_scores_safe
+
+        langfuse = push_wechat_corpus_scores_safe(summary)
+        if langfuse:
+            summary["langfuse"] = langfuse
+        else:
+            summary["langfuse_error"] = "langfuse push failed"
     return summary
 
 

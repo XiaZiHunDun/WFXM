@@ -6,58 +6,38 @@ from pathlib import Path
 from typing import Any
 
 from butler.env_parse import env_truthy
-import logging
 
-
-logger = logging.getLogger(__name__)
 
 def implicit_context_enabled() -> bool:
     return env_truthy("BUTLER_TOOL_IMPLICIT_CONTEXT", default=True)
 
 
 def resolve_project_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
+    from butler.tools.tool_implicit_context_ops import resolve_project_workspace_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return None
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        if proj is None:
-            return None
-        return Path(proj.workspace).expanduser().resolve()
-    except Exception:
-        return None
+    return resolve_project_workspace_safe()
 
 
 def build_implicit_tool_args() -> dict[str, Any]:
     """Keys prefixed with ``_butler_`` — stripped from LLM schemas, passed to handlers via ``**_``."""
+    from butler.tools.tool_implicit_context_ops import (
+        current_session_key_safe,
+        current_workflow_step_safe,
+    )
+
     if not implicit_context_enabled():
         return {}
     out: dict[str, Any] = {}
-    try:
-        from butler.execution_context import get_current_session_key
-
-        sk = str(get_current_session_key() or "").strip()
-        if sk:
-            out["_butler_session_key"] = sk
-    except Exception as exc:
-        logger.debug("build implicit tool args skipped: %s", exc)
+    sk = current_session_key_safe()
+    if sk:
+        out["_butler_session_key"] = sk
     ws = resolve_project_workspace()
     if ws is not None:
         out["_butler_project_root"] = str(ws)
         out["_butler_workspace"] = str(ws)
-    try:
-        from butler.execution_context import get_current_workflow_step
-
-        step = str(get_current_workflow_step() or "").strip()
-        if step:
-            out["_butler_workflow_step"] = step
-    except Exception as exc:
-        logger.debug("build implicit tool args skipped: %s", exc)
+    step = current_workflow_step_safe()
+    if step:
+        out["_butler_workflow_step"] = step
     return out
 
 

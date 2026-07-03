@@ -118,10 +118,10 @@ def run_regression_gate(
 
     b9 = None
     if b9_in_regression_enabled():
-        try:
-            from butler.dev_engine.llm_delegate_benchmark import B9Mode, run_llm_delegate_benchmarks
+        from butler.ops.eval_regression_ops import run_b9_regression_benchmark_safe
 
-            b9 = run_llm_delegate_benchmarks(mode=B9Mode.ORACLE)
+        b9, b9_err = run_b9_regression_benchmark_safe()
+        if b9 is not None:
             report.b9_passed = b9.passed
             report.b9_total = b9.total
             report.b9_pass_rate = b9.pass_rate
@@ -132,9 +132,8 @@ def run_regression_gate(
                     report.failures.append(
                         f"b9:{r.task_id}: {'; '.join(r.failure_reasons[:2])}"
                     )
-        except Exception as exc:
-            logger.warning("B9 benchmark in regression gate failed: %s", exc)
-            report.failures.append(f"b9_run: {exc}")
+        elif b9_err:
+            report.failures.append(f"b9_run: {b9_err}")
 
     dev_ok = report.dev_pass_rate >= _min_dev_pass_rate()
     mem_ok = report.mem_pass_rate >= _min_mem_pass_rate()
@@ -160,35 +159,20 @@ def run_regression_gate(
         push_langfuse = os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in ("1", "true", "yes")
 
     if push_langfuse:
-        try:
-            from butler.ops.eval_bridge import (
-                dev_benchmark_to_scores,
-                llm_benchmark_to_scores,
-                memory_benchmark_to_scores,
-                push_scores,
-            )
+        from butler.ops.eval_regression_ops import push_regression_scores_safe
 
-            scores = dev_benchmark_to_scores(dev) + memory_benchmark_to_scores(mem)
-            if b9 is not None:
-                scores.extend(llm_benchmark_to_scores(b9))
-            push_report = push_scores(scores)
-            report.scores_pushed = push_report.scores_pushed
-        except Exception as exc:
-            logger.warning("LangFuse benchmark push failed: %s", exc)
-            report.failures.append(f"langfuse_push: {exc}")
+        pushed, push_err = push_regression_scores_safe(dev=dev, mem=mem, b9=b9)
+        report.scores_pushed = pushed
+        if push_err:
+            report.failures.append(f"langfuse_push: {push_err}")
 
     if sync_dataset:
-        try:
-            from butler.ops.dev_eval import sync_all_eval_datasets
+        from butler.ops.eval_regression_ops import sync_eval_datasets_safe
 
-            ds_summary = sync_all_eval_datasets(dev_report=dev, mem_report=mem)
-            report.dataset_synced = bool(ds_summary.get("any_pushed"))
-            if ds_summary.get("errors"):
-                for err in ds_summary["errors"]:
-                    report.failures.append(f"dataset_sync: {err}")
-        except Exception as exc:
-            logger.warning("Eval dataset sync failed: %s", exc)
-            report.failures.append(f"dataset_sync: {exc}")
+        synced, sync_errors = sync_eval_datasets_safe(dev=dev, mem=mem)
+        report.dataset_synced = synced
+        for err in sync_errors:
+            report.failures.append(f"dataset_sync: {err}")
 
     _append_audit(report.summary())
     return report

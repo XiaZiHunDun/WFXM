@@ -158,25 +158,22 @@ def run_and_push_memory_eval(butler_home: Path | None = None) -> dict[str, Any]:
         "score_push": {},
     }
 
-    try:
-        from butler.memory.memory_benchmark import run_all_benchmarks
-        report = run_all_benchmarks(butler_home)
-        summary["benchmark_run"] = report.summary()
-    except Exception as exc:
-        logger.warning("Memory benchmark failed: %s", exc)
-        summary["benchmark_run"] = {"error": str(exc)}
+    from butler.ops.memory_eval_ops import (
+        push_memory_benchmark_dataset_safe,
+        push_memory_benchmark_scores_safe,
+        run_memory_benchmarks_safe,
+    )
+
+    report, bench_err = run_memory_benchmarks_safe(butler_home)
+    if report is None:
+        summary["benchmark_run"] = {"error": bench_err or "benchmark failed"}
         return summary
+    summary["benchmark_run"] = report.summary()
 
-    try:
-        summary["dataset_push"] = push_memory_benchmark_dataset(report)
-    except Exception as exc:
-        logger.warning("Dataset push failed: %s", exc)
-        summary["dataset_push"] = {"error": str(exc)}
+    ds_push = push_memory_benchmark_dataset_safe(report)
+    summary["dataset_push"] = ds_push if ds_push else {"error": "dataset push failed"}
 
-    try:
-        summary["score_push"] = push_memory_scores(report)
-    except Exception as exc:
-        logger.warning("Score push failed: %s", exc)
-        summary["score_push"] = {"error": str(exc)}
+    score_push = push_memory_benchmark_scores_safe(report)
+    summary["score_push"] = score_push if score_push else {"error": "score push failed"}
 
     return summary

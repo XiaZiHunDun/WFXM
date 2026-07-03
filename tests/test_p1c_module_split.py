@@ -203,6 +203,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/memory/search_result_ops.py": 30,
     "butler/registry/mcp_merge_ops.py": 95,
     "butler/memory/scope_diagnostics_ops.py": 90,
+    "butler/dev_engine/loop_plugin_ops.py": 145,
+    "butler/ops/eval_regression_ops.py": 75,
+    "butler/ops/eval_feedback_ops.py": 110,
+    "butler/ops/wechat_corpus_eval_ops.py": 65,
+    "butler/ops/memory_eval_ops.py": 55,
+    "butler/mcp/client_stdio_ops.py": 45,
+    "butler/tools/tool_implicit_context_ops.py": 60,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

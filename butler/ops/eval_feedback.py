@@ -9,8 +9,6 @@ that the agent loop can incorporate into its context.
 from __future__ import annotations
 
 import logging
-import os
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -105,55 +103,13 @@ def read_recent_scores(
 
     Falls back to an empty list if LangFuse is unavailable.
     """
-    if not os.getenv("BUTLER_LANGFUSE_ENABLED", "0").strip() in ("1", "true", "yes"):
-        return []
+    from butler.ops.eval_feedback_ops import read_langfuse_scores_safe
 
-    try:
-        import datetime as dt
-
-        from langfuse import Langfuse  # type: ignore[import-untyped]
-
-        client = Langfuse(
-            host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
-            public_key=os.getenv("LANGFUSE_PUBLIC_KEY", ""),
-            secret_key=os.getenv("LANGFUSE_SECRET_KEY", ""),
-        )
-
-        from_ts = dt.datetime.fromtimestamp(
-            time.time() - lookback_hours * 3600,
-            tz=dt.timezone.utc,
-        )
-        scores_page = client.api.score.get(limit=limit, from_timestamp=from_ts)
-        snapshots: list[ScoreSnapshot] = []
-        cutoff = time.time() - lookback_hours * 3600
-
-        for s in getattr(scores_page, "data", []) or []:
-            ts = getattr(s, "timestamp", None)
-            ts_epoch = 0.0
-            if ts is not None:
-                if hasattr(ts, "timestamp"):
-                    ts_epoch = ts.timestamp()
-                elif isinstance(ts, (int, float)):
-                    ts_epoch = float(ts)
-            if ts_epoch < cutoff:
-                continue
-            snapshots.append(ScoreSnapshot(
-                name=getattr(s, "name", ""),
-                value=float(getattr(s, "value", 0)),
-                comment=str(getattr(s, "comment", "") or ""),
-                trace_id=str(getattr(s, "trace_id", "") or ""),
-                timestamp=ts_epoch,
-            ))
-
-        client.shutdown()
-        return snapshots[:limit]
-
-    except ImportError:
-        logger.debug("langfuse not installed, skip score reading")
-        return []
-    except Exception as exc:
-        logger.warning("Failed to read LangFuse scores: %s", exc)
-        return []
+    return read_langfuse_scores_safe(
+        lookback_hours=lookback_hours,
+        limit=limit,
+        snapshot_factory=ScoreSnapshot,
+    )
 
 
 def analyse_scores(
@@ -207,20 +163,9 @@ def get_feedback_context(lookback_hours: float = 24.0) -> str:
 
     Returns empty string if no actionable feedback.
     """
-    try:
-        report = analyse_scores(lookback_hours=lookback_hours)
-        parts = []
-        if report.suggestions:
-            parts.append(report.as_context_injection())
-        try:
-            from butler.ops.tool_routing import routing_hint_from_overrides
+    from butler.ops.eval_feedback_ops import build_feedback_context_safe
 
-            hint = routing_hint_from_overrides()
-            if hint:
-                parts.append(hint)
-        except Exception:
-            pass
-        return "\n".join(p for p in parts if p)
-    except Exception as exc:
-        logger.debug("eval_feedback context: %s", exc)
-        return ""
+    return build_feedback_context_safe(
+        lookback_hours=lookback_hours,
+        analyse_fn=analyse_scores,
+    )
