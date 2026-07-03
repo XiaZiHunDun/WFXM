@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections import deque
 from typing import Any
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -43,17 +43,15 @@ def record_hook_run(
             bucket = deque(maxlen=_MAX_PER_SESSION)
             _RECORDS[key] = bucket
         bucket.append(entry)
-    try:
-        from butler.ops.runtime_metrics import inc
+    from butler.hooks.telemetry_ops import inc_hook_run_metric_safe
 
-        outcome = "ok" if exit_code == 0 else "fail" if exit_code is not None else "unknown"
-        inc(
-            "hook_run",
-            labels={"event": str(event or "?")[:32], "outcome": outcome},
-            session_key=session_key,
-        )
-    except Exception as exc:
-        logger.debug("record hook run skipped: %s", exc)
+    inc_hook_run_metric_safe(
+        event=str(event or "?"),
+        exit_code=exit_code,
+        session_key=session_key,
+    )
+
+
 def recent_hook_runs(session_key: str = "", *, limit: int = 5) -> list[dict[str, Any]]:
     key = str(session_key or "").strip() or "_global"
     with _LOCK:
@@ -69,38 +67,24 @@ def reset_hook_telemetry(session_key: str | None = None) -> None:
             key = str(session_key or "").strip() or "_global"
             _RECORDS.pop(key, None)
     if session_key:
-        try:
-            from butler.ops.runtime_metrics import reset_session
+        from butler.hooks.telemetry_ops import reset_hook_session_metrics_safe
 
-            reset_session(session_key)
-        except Exception as exc:
-            logger.debug("reset hook telemetry skipped: %s", exc)
+        reset_hook_session_metrics_safe(session_key)
+
+
 def configured_hook_summary(workspace: Any = None) -> str:
     """Compact summary of loaded hook rules (by event)."""
-    try:
-        from butler.hooks.loader import load_hooks_config
-        from pathlib import Path
+    from butler.hooks.telemetry_ops import load_hooks_config_summary_safe
 
-        ws = Path(workspace) if workspace is not None else None
-        rules = load_hooks_config(ws)
-    except Exception:
-        return "-"
-    if not rules:
-        return "未配置"
-    counts: dict[str, int] = {}
-    for rule in rules:
-        counts[rule.event] = counts.get(rule.event, 0) + 1
-    return ", ".join(f"{ev}×{n}" for ev, n in sorted(counts.items()))
+    summary = load_hooks_config_summary_safe(workspace)
+    return summary if summary is not None else "-"
 
 
 def format_hook_diagnostic_lines(session_key: str = "") -> list[str]:
     """Lines for ``/诊断`` — configured rules + recent executions."""
-    try:
-        from butler.hooks.runner import _resolve_workspace
+    from butler.hooks.telemetry_ops import resolve_hook_workspace_safe
 
-        workspace = _resolve_workspace()
-    except Exception:
-        workspace = None
+    workspace = resolve_hook_workspace_safe()
     lines = [f"Shell hooks 配置: {configured_hook_summary(workspace)}"]
     recent = recent_hook_runs(session_key, limit=5)
     if not recent:

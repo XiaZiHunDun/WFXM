@@ -9,9 +9,6 @@ Sub-modules:
 from __future__ import annotations
 
 import json
-import logging
-from pathlib import Path
-from typing import Any
 
 from butler.tools.delegate_impl import (  # noqa: F401
     _delegate_role_label,
@@ -54,13 +51,13 @@ from butler.tools.terminal_impl import (  # noqa: F401
     _tool_terminal,
 )
 
-logger = logging.getLogger(__name__)
-
 # ── Skill / Workflow tools (kept inline — small, few dependencies) ──
 
 
 def _tool_skills_list(**_) -> str:
-    try:
+    from butler.tools.builtin_impl_ops import run_tool_json_safe
+
+    def _run() -> str:
         orch = _orchestrator_for_tool(channel="tool")
         mgr = orch._skill_manager
         if mgr is None:
@@ -70,12 +67,14 @@ def _tool_skills_list(**_) -> str:
             for s in mgr.list_skills()
         ]
         return json.dumps({"skills": skills}, ensure_ascii=False)
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+
+    return run_tool_json_safe(_run)
 
 
 def _tool_skill_view(name: str, **_) -> str:
-    try:
+    from butler.tools.builtin_impl_ops import run_tool_json_safe
+
+    def _run() -> str:
         orch = _orchestrator_for_tool(channel="tool")
         mgr = orch._skill_manager
         if mgr is None:
@@ -88,24 +87,23 @@ def _tool_skill_view(name: str, **_) -> str:
             "description": skill.get("description"),
             "content": skill.get("content", ""),
         }, ensure_ascii=False)
-    except Exception as exc:
-        return json.dumps({"error": str(exc)})
+
+    return run_tool_json_safe(_run)
 
 
 def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
     """Execute a project workflow DAG via TaskOrchestrator."""
-    # R1-10: route bridge + completion-push lookups through the
-    # ``butler.execution_context`` seam so tools → gateway stays a
-    # one-way dependency.
-    from butler.execution_context import (
-        get_current_session_key,
-        get_current_turn_bridge,
-        try_push_current_turn_workflow_failure,
+    from butler.execution_context import get_current_session_key, get_current_turn_bridge
+    from butler.tools.builtin_impl_ops import (
+        push_workflow_failure_safe,
+        run_tool_json_with_failure_hook,
     )
 
     bridge = get_current_turn_bridge()
     session_key = ""
-    try:
+
+    def _run() -> str:
+        nonlocal session_key
         from butler.workflows.runner import run_workflow_for_project
 
         if bridge is not None:
@@ -114,7 +112,10 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
         orch = _orchestrator_for_tool(channel="cli")
         project = orch.project_manager.get_current()
         if project is None:
-            return json.dumps({"error": "No active project; switch project first"}, ensure_ascii=False)
+            return json.dumps(
+                {"error": "No active project; switch project first"},
+                ensure_ascii=False,
+            )
         session_key = str(get_current_session_key() or "").strip()
         text = run_workflow_for_project(
             project,
@@ -130,13 +131,12 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
             if report is not None:
                 bridge.notify_workflow_finished(report)
         return json.dumps({"success": True, "summary": text}, ensure_ascii=False)
-    except Exception as exc:
-        try:
-            try_push_current_turn_workflow_failure(
-                name,
-                exc,
-                session_key=session_key or str(get_current_session_key() or ""),
-            )
-        except Exception as push_exc:
-            logger.debug("Workflow failure completion push skipped: %s", push_exc)
-        return json.dumps({"error": str(exc)}, ensure_ascii=False)
+
+    def _on_failure(exc: BaseException) -> None:
+        push_workflow_failure_safe(
+            name,
+            exc,
+            session_key=session_key or str(get_current_session_key() or ""),
+        )
+
+    return run_tool_json_with_failure_hook(_run, on_failure=_on_failure)

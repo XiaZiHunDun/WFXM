@@ -95,17 +95,9 @@ def _resolve_config_paths(workspace: Path | None = None) -> list[Path]:
     if env_path:
         paths.append(Path(env_path).expanduser())
     else:
-        try:
-            from butler.config import get_butler_home
+        from butler.mcp.config_ops import butler_home_mcp_config_paths_safe
 
-            for name in ("mcp.yaml", "mcp.yml"):
-                p = get_butler_home() / name
-                if p.is_file():
-                    paths.append(p)
-        except Exception:
-            home = Path(os.path.expanduser("~/.butler/mcp.yaml"))
-            if home.is_file():
-                paths.append(home)
+        paths.extend(butler_home_mcp_config_paths_safe())
     seen: set[str] = set()
     out: list[Path] = []
     for p in paths:
@@ -194,10 +186,9 @@ def _parse_server(server_id: str, raw: dict[str, Any]) -> McpServerConfig | None
 
 def http_mcp_servers_configured(*, workspace: Path | None = None) -> bool:
     """True if any loaded MCP server uses HTTP transport."""
-    try:
-        return any(s.transport == "http" for s in load_mcp_servers(workspace=workspace))
-    except Exception:
-        return False
+    from butler.mcp.config_ops import http_mcp_servers_configured_safe
+
+    return http_mcp_servers_configured_safe(workspace=workspace)
 
 
 def load_mcp_servers(*, workspace: Path | None = None) -> list[McpServerConfig]:
@@ -253,10 +244,13 @@ def _host_is_private_or_metadata(host: str) -> bool:
 
 
 def validate_http_url(config: McpServerConfig) -> str | None:
-    try:
-        parsed = urlparse(config.url)
-    except Exception as exc:
-        return f"invalid url: {exc}"
+    from butler.mcp.config_ops import parse_http_url_safe
+
+    parsed, err = parse_http_url_safe(config.url)
+    if err:
+        return err
+    if parsed is None:
+        return "invalid url"
     if parsed.scheme not in ("http", "https"):
         return f"unsupported scheme: {parsed.scheme}"
     host = (parsed.hostname or "").lower()

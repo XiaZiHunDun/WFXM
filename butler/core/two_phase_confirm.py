@@ -54,27 +54,18 @@ def is_high_risk_tool(tool_name: str, args: dict[str, Any] | None = None) -> boo
     if name == "terminal" and args:
         cmd = str(args.get("command") or "")
         if cmd.strip():
-            try:
-                from butler.tools.terminal_danger import check_dangerous_command
+            from butler.core.two_phase_confirm_ops import terminal_command_blocked_safe
 
-                danger = check_dangerous_command(cmd)
-                if not danger.allowed:
-                    return True
-            except Exception as exc:
-                logger.debug("is high risk tool skipped: %s", exc)
+            blocked = terminal_command_blocked_safe(cmd)
+            if blocked is True:
+                return True
     return False
 
 
 def _session_key(session_key: str = "") -> str:
-    key = str(session_key or "").strip()
-    if key:
-        return key
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.core.two_phase_confirm_ops import resolve_session_key_safe
 
-        return str(get_current_session_key() or "").strip() or "default"
-    except Exception:
-        return "default"
+    return resolve_session_key_safe(session_key)
 
 
 def _pending_path(session_key: str) -> Path:
@@ -187,19 +178,9 @@ def two_phase_block_message(
     if existing is not None and existing.fingerprint == fp:
         return build_wait_message(existing)
     pending = save_pending(tool_name, args, session_key=sk, tool_call_id=tool_call_id)
-    try:
-        from butler.core.session_transcript import record_workflow_step
+    from butler.core.two_phase_confirm_ops import record_two_phase_wait_safe
 
-        record_workflow_step(
-            sk,
-            workflow="two_phase",
-            step_id=pending.tool_name,
-            phase="waiting_confirmation",
-            step_index=1,
-            step_total=1,
-        )
-    except Exception as exc:
-        logger.debug("two phase block message skipped: %s", exc)
+    record_two_phase_wait_safe(sk, pending.tool_name)
     return build_wait_message(pending)
 
 
@@ -235,13 +216,11 @@ def try_execute_pending_confirm(
     if pending is None:
         return "当前没有待确认的工具调用。"
     clear_pending(session_key)
-    try:
-        from butler.tools.registry import dispatch_tool
+    from butler.core.two_phase_confirm_ops import dispatch_pending_tool_loud
 
-        result = dispatch_tool(pending.tool_name, pending.args)
-    except Exception as exc:
-        logger.warning("pending tool dispatch failed: %s", exc)
-        return f"执行待确认工具失败：{exc}"
+    result, err = dispatch_pending_tool_loud(pending.tool_name, pending.args)
+    if err:
+        return f"执行待确认工具失败：{err}"
     preview = str(result or "")[:1500]
     return f"已执行待确认工具 `{pending.tool_name}`：\n{preview}"
 

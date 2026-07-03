@@ -48,29 +48,9 @@ def _dedup_key(chat_id: str, task_id: str) -> str:
 
 
 def _task_completed_epoch(task_id: str) -> float | None:
-    tid = str(task_id or "").strip()
-    if not tid:
-        return None
-    try:
-        from butler.runtime.task_store import get_task
+    from butler.gateway.delegate_push_dedup_ops import task_completed_epoch_safe
 
-        row = get_task(tid)
-        if not isinstance(row, dict):
-            return None
-        if str(row.get("status") or "") not in ("completed", "failed"):
-            return None
-        raw = str(row.get("updated_at") or row.get("created_at") or "").strip()
-        if not raw:
-            return None
-        from datetime import datetime, timezone
-
-        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.timestamp()
-    except Exception as exc:
-        logger.debug("task completed epoch lookup skipped: %s", exc)
-        return None
+    return task_completed_epoch_safe(task_id)
 
 
 def should_deliver_delegate_push(
@@ -169,33 +149,21 @@ class gateway_inbound_guard:
         items = flush_deferred_delegate_pushes(self.chat_id)
         if not items:
             return
-        try:
-            from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+        from butler.gateway.delegate_push_dedup_ops import flush_deferred_pushes_safe
+        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
 
-            bridge = get_gateway_bridge_optional()
-            if bridge is None or str(getattr(bridge, "chat_id", "") or "") != self.chat_id:
-                for body, kind in items:
-                    _schedule_deferred_push_standalone(self.chat_id, body, kind=kind)
-                return
-            for body, kind in items:
-                bridge.schedule_completion_push(body, kind=kind)
-        except Exception as exc:
-            logger.warning("deferred delegate push flush failed: %s", exc)
+        flush_deferred_pushes_safe(
+            self.chat_id,
+            items,
+            bridge=get_gateway_bridge_optional(),
+        )
 
 
 def _schedule_deferred_push_standalone(chat_id: str, body: str, *, kind: str) -> None:
     """Best-effort when no live bridge (reuse runtime push path)."""
-    ok, reason = should_deliver_delegate_push(chat_id, "", body=body)
-    if not ok:
-        logger.info("deferred delegate push suppressed chat=%s reason=%s", chat_id[:12], reason)
-        return
-    try:
-        from butler.runtime.notify import push_runtime_message
+    from butler.gateway.delegate_push_dedup_ops import push_standalone_deferred_safe
 
-        if push_runtime_message("[Butler] 委派完成", body):
-            mark_delegate_push_delivered(chat_id, "", body=body)
-    except Exception as exc:
-        logger.debug("standalone deferred delegate push skipped: %s", exc)
+    push_standalone_deferred_safe(chat_id, body)
 
 
 def maybe_defer_delegate_push(chat_id: str, body: str, *, kind: str) -> bool:

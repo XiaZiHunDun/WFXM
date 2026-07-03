@@ -175,6 +175,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/tool_selector_ops.py": 70,
     "butler/gateway/platforms/wechat_ilink/qr_phases_ops.py": 55,
     "butler/tools/terminal_approval_ops.py": 60,
+    "butler/tools/builtin_impl_ops.py": 55,
+    "butler/prompt_eval/corpus_bridge_ops.py": 45,
+    "butler/hooks/telemetry_ops.py": 75,
+    "butler/core/two_phase_confirm_ops.py": 80,
+    "butler/gateway/delegate_push_dedup_ops.py": 90,
+    "butler/mcp/config_ops.py": 60,
+    "butler/tools/delegate_prepare_ops.py": 50,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

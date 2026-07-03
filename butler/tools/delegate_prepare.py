@@ -3,22 +3,15 @@
 from __future__ import annotations
 
 import json
-import logging
 
 from butler.tools.delegate_run_state import DelegateRunState
-
-logger = logging.getLogger(__name__)
 
 
 def infer_delegate_category(task: str) -> str:
     """Best-effort category inference from task intent (1a)."""
-    try:
-        from butler.core.intent_keywords import category_from_intent
+    from butler.tools.delegate_prepare_ops import infer_delegate_category_safe
 
-        return str(category_from_intent(task) or "")
-    except Exception as exc:  # noqa: BLE001 — best-effort inference
-        logger.debug("intent category inference skipped: %s", exc)
-        return ""
+    return infer_delegate_category_safe(task)
 
 
 def apply_category_resolver(state: DelegateRunState) -> None:
@@ -81,14 +74,9 @@ def inject_handoff_block(state: DelegateRunState) -> None:
 
 def inject_verify_checklist(state: DelegateRunState) -> None:
     """Append the delegate verify checklist to context (1d, best-effort)."""
-    try:
-        from butler.agent_profiles import DELEGATE_VERIFY_CHECKLIST
+    from butler.tools.delegate_prepare_ops import inject_verify_checklist_safe
 
-        text = DELEGATE_VERIFY_CHECKLIST.strip()
-        if text:
-            state.context = (state.context or "").rstrip() + "\n\n" + text
-    except Exception as exc:  # noqa: BLE001 — best-effort injection
-        logger.debug("delegate verify checklist skipped: %s", exc)
+    inject_verify_checklist_safe(state)
 
 
 def check_delegate_depth(state: DelegateRunState) -> None:
@@ -103,17 +91,9 @@ def check_delegate_depth(state: DelegateRunState) -> None:
 
 def inject_production_playbook_bridge(state: DelegateRunState) -> None:
     """Prepend B9 seed playbooks for production-shaped dev delegates (P0 bridge)."""
-    try:
-        from butler.dev_engine.prod_delegate_bridge import enrich_delegate_context_for_production
+    from butler.tools.delegate_prepare_ops import inject_production_playbook_bridge_safe
 
-        state.context = enrich_delegate_context_for_production(
-            state.context,
-            task=state.task,
-            category=state.category,
-            category_meta=state.category_meta,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort enrichment
-        logger.debug("production playbook bridge skipped: %s", exc)
+    inject_production_playbook_bridge_safe(state)
 
 
 def prepare_delegate_task(state: DelegateRunState) -> None:

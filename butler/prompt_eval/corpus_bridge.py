@@ -36,15 +36,6 @@ def run_corpus_prompt_subset(
     system_prompt_path: str = "butler/prompts/butler_system.md",
 ) -> tuple[bool, list[str]]:
     """Run mock AgentLoop cases with production system prompt excerpt (no live API)."""
-    from butler.core.agent_loop import AgentLoop, LoopConfig
-    from butler.tools.registry import dispatch_tool, get_tool_definitions
-    from tests.corpus.harness import (
-        assert_keywords,
-        build_canonical_answer,
-        canonical_response,
-    )
-    from tests.corpus.harness.registry import get_suite, load_suite_corpus
-
     overlay = load_corpus_overlay(overlay_path)
     if not overlay:
         return True, ["no corpus overlay cases"]
@@ -53,8 +44,18 @@ def run_corpus_prompt_subset(
     system = sp_path.read_text(encoding="utf-8")[:12000] if sp_path.is_file() else "你是 Butler。"
 
     errors: list[str] = []
-    try:
+
+    def _run_subset() -> None:
         from unittest.mock import MagicMock
+
+        from butler.core.agent_loop import AgentLoop, LoopConfig
+        from butler.prompt_eval.corpus_bridge_ops import load_corpus_case_safe
+        from butler.tools.registry import dispatch_tool, get_tool_definitions
+        from tests.corpus.harness import (
+            assert_keywords,
+            build_canonical_answer,
+            canonical_response,
+        )
 
         client = MagicMock()
         client.provider_name = "mock"
@@ -69,11 +70,9 @@ def run_corpus_prompt_subset(
         for row in overlay:
             sid = row["suite_id"]
             cid = row["case_id"]
-            try:
-                corpus, _ = load_suite_corpus(get_suite(sid))
-                case = next(c for c in corpus["cases"] if c["id"] == cid)
-            except Exception as exc:
-                errors.append(f"{sid}/{cid}: load failed: {exc}")
+            case, load_err = load_corpus_case_safe(sid, cid)
+            if load_err:
+                errors.append(load_err)
                 continue
             answer = build_canonical_answer(case)
             client.complete.return_value = canonical_response(answer)
@@ -87,8 +86,12 @@ def run_corpus_prompt_subset(
                 assert_keywords(result.final_response or "", case)
             except AssertionError as exc:
                 errors.append(f"{sid}/{cid}: {exc}")
-    except Exception as exc:
-        errors.append(f"corpus bridge setup failed: {exc}")
+
+    from butler.prompt_eval.corpus_bridge_ops import run_corpus_setup_safe
+
+    setup_err = run_corpus_setup_safe(_run_subset)
+    if setup_err:
+        errors.append(setup_err)
 
     return len(errors) == 0, errors
 
@@ -120,33 +123,31 @@ def _run_live_cases(
     system_prompt_path: str = "butler/prompts/butler_system.md",
 ) -> tuple[bool, list[str]]:
     from tests.corpus.harness import DEFAULT_LIVE_PROMPT, assert_keywords, make_live_loop
-    from tests.corpus.harness.registry import get_suite, load_suite_corpus
+    from butler.prompt_eval.corpus_bridge_ops import load_corpus_case_safe, run_live_case_safe
 
     sp_path = _REPO / system_prompt_path
     system = sp_path.read_text(encoding="utf-8")[:12000] if sp_path.is_file() else DEFAULT_LIVE_PROMPT
     errors: list[str] = []
     for sid, cid in cases:
-        try:
-            corpus, _ = load_suite_corpus(get_suite(sid))
-            case = next(c for c in corpus["cases"] if c["id"] == cid)
-        except Exception as exc:
-            errors.append(f"{sid}/{cid}: load failed: {exc}")
+        case, load_err = load_corpus_case_safe(sid, cid)
+        if load_err:
+            errors.append(load_err)
             continue
         if case.get("turns"):
             errors.append(f"{sid}/{cid}: multi-turn not supported in prompt-eval live")
             continue
-        try:
+
+        def _run_case() -> None:
             loop = make_live_loop(system_prompt=system)
             loop.reset()
             result = loop.run(case["user"])
             if result.status.value != "completed":
-                errors.append(f"{sid}/{cid}: status={result.status.value}")
-                continue
+                raise RuntimeError(f"status={result.status.value}")
             assert_keywords(result.final_response or "", case)
-        except AssertionError as exc:
-            errors.append(f"{sid}/{cid}: {exc}")
-        except Exception as exc:
-            errors.append(f"{sid}/{cid}: {exc}")
+
+        case_err = run_live_case_safe(_run_case, suite_id=sid, case_id=cid)
+        if case_err:
+            errors.append(case_err)
     return len(errors) == 0, errors
 
 
