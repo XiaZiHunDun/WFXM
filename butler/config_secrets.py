@@ -48,16 +48,14 @@ def load_secrets_dict(home: Path | None = None, *, decrypt: bool = False) -> dic
     path = secrets_path(home)
     if not path.is_file():
         return {}
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            return {}
-        if decrypt:
-            return _decrypt_secrets_dict(data)
-        return data
-    except Exception as exc:
-        logger.warning("secrets.yaml read failed: %s", exc)
+    from butler.config_secrets_ops import load_secrets_yaml_safe
+
+    data = load_secrets_yaml_safe(path)
+    if not data:
         return {}
+    if decrypt:
+        return _decrypt_secrets_dict(data)
+    return data
 
 
 def _decrypt_secrets_dict(data: dict[str, Any]) -> dict[str, Any]:

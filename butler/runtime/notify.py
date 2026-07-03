@@ -199,13 +199,13 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
         text = text[:3997] + "..."
 
     wait_wechat_push_cooldown()
-    try:
+    from butler.runtime.notify_ops import push_runtime_wechat_safe
+
+    def _send() -> dict[str, Any]:
         from butler.gateway.platforms.wechat_ilink import send_wechat_direct
         from butler.mcp.async_runner import run_mcp_async
 
-        # Sprint 16 REL-11-3: 用 butler.mcp.async_runner 代替 asyncio.run,
-        # 避免在 MCP tool handler / 任何已运行 event loop 的线程内调用时崩溃。
-        result = run_mcp_async(
+        return run_mcp_async(
             send_wechat_direct(
                 extra=extra,
                 token=str(extra.get("token") or ""),
@@ -213,28 +213,23 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
                 message=text,
             )
         )
-        ok = not result.get("error")
-        if ok:
-            mark_wechat_push_sent()
-        else:
-            err = result.get("error")
-            logger.warning("Runtime wechat push failed: %s", err)
-            if is_rate_limit_error(str(err)):
-                record_rate_limit_failure()
-            if should_enqueue_wechat_push_failure(err):
-                from butler.runtime.push_queue import enqueue_failed_push
 
-                enqueue_failed_push(title, body, chat_id=cid)
-        return ok
-    except Exception as exc:
-        logger.exception("Runtime wechat push failed: %s", exc)
-        if is_rate_limit_error(str(exc)):
-            record_rate_limit_failure()
-        if should_enqueue_wechat_push_failure(str(exc)):
-            from butler.runtime.push_queue import enqueue_failed_push
+    def _enqueue_failure(push_title: str, push_body: str, push_chat_id: str) -> None:
+        from butler.runtime.push_queue import enqueue_failed_push
 
-            enqueue_failed_push(title, body, chat_id=cid)
-        return False
+        enqueue_failed_push(push_title, push_body, chat_id=push_chat_id)
+
+    return push_runtime_wechat_safe(
+        _send,
+        title=title,
+        body=body,
+        chat_id=cid,
+        mark_sent=mark_wechat_push_sent,
+        is_rate_limit_error=is_rate_limit_error,
+        should_enqueue_failure=should_enqueue_wechat_push_failure,
+        enqueue_failure=_enqueue_failure,
+        record_rate_limit_failure=record_rate_limit_failure,
+    )
 
 
 def should_enqueue_wechat_push_failure(err: str | None) -> bool:

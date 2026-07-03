@@ -82,15 +82,12 @@ def record_and_should_suppress(
             sender_id,
             count,
         )
-        try:
-            from butler.core.session_transcript import record_generic_event
+        from butler.gateway.bot_loop_guard_ops import record_bot_loop_suppressed_event_safe
 
-            record_generic_event(
-                f"wx:{cid}",
-                "bot_loop_suppressed",
-                {"sender": sender_id, "count": count},
-            )
-        except Exception as exc:
-            logger.debug("record and should suppress skipped: %s", exc)
+        record_bot_loop_suppressed_event_safe(
+            chat_id=cid,
+            sender_id=sender_id,
+            count=count,
+        )
         return True, f"bot_loop_guard count={count}"
     return False, ""

@@ -333,8 +333,6 @@ def index_markdown_file(
     project_dir: Path,
     workspace: Path,
 ) -> int:
-    from butler.memory.semantic_index import SOURCE_PROJECT, index_triplets_for_content
-
     try:
         text = file_path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -349,26 +347,17 @@ def index_markdown_file(
         project_name=project_name,
     )
     count = 0
+    from butler.memory.chunking_ops import index_markdown_chunk_safe
+
     for ch in chunks:
         payload = format_chunk_embedding_text(ch)
-        try:
-            semantic.upsert(
-                source=SOURCE_PROJECT,
-                source_id=ch.source_id,
-                content=payload,
-                project=project_name,
-                category="project_doc",
-            )
-            index_triplets_for_content(
-                semantic,
-                ch.content,
-                project=project_name,
-                source=SOURCE_PROJECT,
-                source_ref=ch.parent_doc_id,
-            )
+        if index_markdown_chunk_safe(
+            semantic,
+            ch,
+            project_name=project_name,
+            payload=payload,
+        ):
             count += 1
-        except Exception as exc:
-            logger.warning("Markdown chunk index failed %s: %s", ch.source_id, exc)
     return count
 
 

@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 from butler.tools.delegate_run_state import DelegateRunState
-
-logger = logging.getLogger(__name__)
 
 
 def build_user_message(state: DelegateRunState) -> None:
@@ -69,20 +66,11 @@ def create_delegate_task_record(state: DelegateRunState) -> None:
 
 def run_subagent_start_hooks(state: DelegateRunState) -> None:
     """Run SubagentStart hooks and prepend their context (4e, best-effort)."""
-    try:
-        from butler.hooks.runner import run_subagent_start_hooks
+    from butler.tools.delegate_record_ops import run_subagent_start_hooks_safe
 
-        subagent_ctx = run_subagent_start_hooks(
-            agent_type=state.role,
-            agent_id=state.task_id or f"delegate-{state.role}",
-            task_preview=state.task,
-            task_id=state.task_id,
-            session_key=state.session_key,
-        )
-        if subagent_ctx:
-            state.user_msg = "\n\n".join(subagent_ctx) + "\n\n" + state.user_msg
-    except Exception as exc:  # noqa: BLE001 — best-effort hooks
-        logger.debug("SubagentStart hooks skipped: %s", exc)
+    updated = run_subagent_start_hooks_safe(state)
+    if updated:
+        state.user_msg = updated
 
 
 def record_delegate_started_events(state: DelegateRunState) -> None:

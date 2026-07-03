@@ -28,16 +28,9 @@ def _get_fernet():
             "encryption disabled"
         )
         return None
-    try:
-        from cryptography.fernet import Fernet
+    from butler.config_secrets_crypto_ops import init_fernet_safe
 
-        return Fernet(key.encode("utf-8"))
-    except ImportError:
-        logger.warning("cryptography not installed; secrets encryption disabled")
-        return None
-    except Exception as exc:
-        logger.warning("secrets Fernet init failed: %s", exc)
-        return None
+    return init_fernet_safe(key)
 
 
 def is_encrypted_value(value: str) -> bool:
@@ -52,12 +45,9 @@ def decrypt_secret_value(value: str) -> str:
     if f is None:
         logger.warning("encrypted secret present but Fernet unavailable")
         return ""
-    try:
-        encrypted = base64.urlsafe_b64decode(text[len(_FERNET_PREFIX) :])
-        return f.decrypt(encrypted).decode("utf-8")
-    except Exception as exc:
-        logger.warning("secrets Fernet decrypt failed: %s", exc)
-        return ""
+    from butler.config_secrets_crypto_ops import decrypt_fernet_value_safe
+
+    return decrypt_fernet_value_safe(f, text[len(_FERNET_PREFIX) :])
 
 
 def encrypt_secret_value(value: str) -> str:

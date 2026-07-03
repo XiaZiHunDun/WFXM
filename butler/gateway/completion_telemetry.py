@@ -54,9 +54,6 @@ def completion_push_stats(session_key: str = "") -> dict[str, int]:
 
 def push_queue_pending_count(*, chat_id: str = "") -> int:
     """Count queued rows (best-effort; optional chat_id filter)."""
-    try:
-        from butler.runtime.push_queue import count_pending_pushes
+    from butler.gateway.completion_telemetry_ops import push_queue_pending_count_safe
 
-        return count_pending_pushes(chat_id=chat_id or None)
-    except Exception:
-        return 0
+    return push_queue_pending_count_safe(chat_id=chat_id)

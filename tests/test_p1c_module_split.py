@@ -237,6 +237,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/tools/delegate_run_ops.py": 40,
     "butler/memory/project_memory_ops.py": 35,
     "butler/gateway/owner_delegate_shortcuts_ops.py": 40,
+    "butler/gateway/completion_telemetry_ops.py": 25,
+    "butler/runtime/notify_ops.py": 45,
+    "butler/tools/delegate_record_ops.py": 35,
+    "butler/memory/chunking_ops.py": 45,
+    "butler/config_secrets_ops.py": 30,
+    "butler/config_secrets_crypto_ops.py": 35,
+    "butler/gateway/bot_loop_guard_ops.py": 25,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150
