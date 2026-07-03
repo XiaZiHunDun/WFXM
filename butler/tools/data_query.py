@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 _MAX_ROWS = 200
 _MAX_OUTPUT_CHARS = 32_000
-_QUERY_TIMEOUT_SECONDS = 30
 
 _QUERYABLE_EXTENSIONS = frozenset({".csv", ".tsv", ".json", ".jsonl", ".parquet", ".db", ".sqlite"})
 
@@ -109,79 +108,22 @@ def tool_query_data(
 
     cap = min(max(10, int(max_rows if max_rows is not None else _MAX_ROWS)), 1000)
 
-    import duckdb  # type: ignore[import-untyped]
-
     target = (file or "").strip()
     if not target:
         return json.dumps({"error": "file parameter is required", "hint": "specify a data file path"})
 
-    con = None
-    try:
-        con = duckdb.connect(":memory:")
-        try:
-            con.execute(f"SET statement_timeout='{_QUERY_TIMEOUT_SECONDS}s'")
-        except Exception:
-            pass
+    from butler.tools.data_query_ops import execute_readonly_duckdb_query
 
-        if target:
-            p = _resolve_project_path(target)
-            if p is None:
-                return json.dumps({"error": f"file not found or unsupported: {target}"})
+    return execute_readonly_duckdb_query(
+        query=query,
+        target=target,
+        cap=cap,
+        max_output_chars=_MAX_OUTPUT_CHARS,
+        resolve_path=_resolve_project_path,
+        queryable_extensions=_QUERYABLE_EXTENSIONS,
+    )
 
-            safe_path = str(p)
-            ext = p.suffix.lower()
-            if ext in (".db", ".sqlite"):
-                con.execute("ATTACH ? AS src (TYPE sqlite, READ_ONLY)", [safe_path])
-                con.execute("USE src")
-            elif ext in (".csv", ".tsv"):
-                sep = "\t" if ext == ".tsv" else ","
-                con.execute(
-                    "CREATE TABLE data AS SELECT * FROM read_csv_auto(?, delim=?)",
-                    [safe_path, sep],
-                )
-            elif ext in (".json", ".jsonl"):
-                con.execute(
-                    "CREATE TABLE data AS SELECT * FROM read_json_auto(?)",
-                    [safe_path],
-                )
-            elif ext == ".parquet":
-                con.execute(
-                    "CREATE TABLE data AS SELECT * FROM read_parquet(?)",
-                    [safe_path],
-                )
 
-        result = con.execute(query).fetchdf()
-        if len(result) > cap:
-            result = result.head(cap)
-            truncated = True
-        else:
-            truncated = False
-
-        text = result.to_string(index=False, max_rows=cap)
-        if len(text) > _MAX_OUTPUT_CHARS:
-            text = text[:_MAX_OUTPUT_CHARS] + "\n…(truncated)"
-
-        columns = list(result.columns)
-        return json.dumps({
-            "ok": True,
-            "columns": columns,
-            "rows": len(result),
-            "truncated": truncated,
-            "text": text,
-        }, ensure_ascii=False)
-
-    except Exception as exc:
-        logger.warning("data_query execution error: %s", exc)
-        err_msg = str(exc)
-        if len(err_msg) > 200:
-            err_msg = err_msg[:200] + "…"
-        return json.dumps({"error": f"query failed: {err_msg}"})
-    finally:
-        if con is not None:
-            try:
-                con.close()
-            except Exception as exc:
-                logger.debug("tool query data skipped: %s", exc)
 def register_data_query_tools(register_fn) -> None:
     """Register query_data tool if duckdb is available."""
     if not _duckdb_available():

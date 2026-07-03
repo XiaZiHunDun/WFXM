@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from butler.mcp.config import _resolve_config_paths
 from butler.registry.paths import default_mcp_config_path
 import logging
@@ -66,23 +64,9 @@ def _load_servers_block(path: Path) -> dict[str, Any] | None:
       without this layer; corruption is recorded)
     - the parsed ``servers`` dict on success (may be empty)
     """
-    if not path.is_file():
-        return None
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        _record_corruption(path, exc)
-        return {}
-    if not isinstance(data, dict):
-        _record_corruption(
-            path,
-            ValueError(
-                f"mcp.yaml root is {type(data).__name__}, expected mapping"
-            ),
-        )
-        return {}
-    block = data.get("servers")
-    return block if isinstance(block, dict) else {}
+    from butler.registry.mcp_merge_ops import load_servers_yaml_block_safe
+
+    return load_servers_yaml_block_safe(path, record_corruption=_record_corruption)
 
 @dataclass(frozen=True)
 class McpConfigLayer:
@@ -143,40 +127,16 @@ def find_server_config_path(
 
 def resolve_workspace_for_session(session_key: str = "") -> Path | None:
     """Best-effort workspace from active project binding."""
+    from butler.registry.mcp_merge_ops import (
+        resolve_orchestrator_workspace_safe,
+        resolve_project_manager_workspace_safe,
+    )
+
     sk = str(session_key or "").strip()
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
-
-        orch = get_current_orchestrator()
-        if orch is not None and hasattr(orch, "project_manager"):
-            if not sk:
-                sk = str(get_current_session_key() or "").strip()
-            proj = orch.project_manager.get_current(session_key=sk or None)
-            if proj is not None:
-                ws = getattr(proj, "workspace", None) or getattr(proj, "path", None)
-                if ws:
-                    p = Path(str(ws)).expanduser()
-                    if p.is_dir():
-                        return p
-    except Exception as exc:
-        logger.debug("resolve workspace for session skipped: %s", exc)
-    if not sk:
-        return None
-    try:
-        from butler.config import load_settings
-        from butler.project.manager import ProjectManager
-
-        pm = ProjectManager(load_settings())
-        proj = pm.get_current(session_key=sk)
-        if proj is not None:
-            ws = getattr(proj, "workspace", None) or getattr(proj, "path", None)
-            if ws:
-                p = Path(str(ws)).expanduser()
-                if p.is_dir():
-                    return p
-    except Exception as exc:
-        logger.debug("resolve workspace for session skipped: %s", exc)
-    return None
+    ws = resolve_orchestrator_workspace_safe(sk)
+    if ws is not None:
+        return ws
+    return resolve_project_manager_workspace_safe(sk)
 
 
 def _path_label(path: Path, workspace: Path | None) -> str:

@@ -905,12 +905,9 @@ class ExperienceLibrary:
         normalized = _normalize_keywords(keywords)
         task_id = (inferred_task_id or "").strip()
         if not task_id:
-            try:
-                from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+            from butler.dev_engine.coding_knowledge_ops import infer_b9_task_id_safe
 
-                task_id = infer_b9_task_id(" ".join(sorted(keywords)))
-            except Exception:
-                task_id = ""
+            task_id = infer_b9_task_id_safe(" ".join(sorted(keywords)))
         scope_tags = frozenset(stack_tags or ())
         results = []
         for exp in self._experiences.values():
@@ -959,17 +956,14 @@ class ExperienceLibrary:
         *,
         inferred_task_id: str,
     ) -> bool:
-        try:
-            from butler.dev_engine.b9_experience_retrieval import experience_retrieval_eligible
+        from butler.dev_engine.coding_knowledge_ops import experience_retrieval_eligible_safe
 
-            return experience_retrieval_eligible(
-                exp.id,
-                normalized_keywords=normalized,
-                inferred_task_id=inferred_task_id,
-                benchmarks=exp.benchmarks,
-            )
-        except Exception:
-            return True
+        return experience_retrieval_eligible_safe(
+            experience_id=exp.id,
+            normalized_keywords=normalized,
+            inferred_task_id=inferred_task_id,
+            benchmarks=exp.benchmarks,
+        )
 
     @classmethod
     def _retrieval_rank_bonus(
@@ -979,22 +973,19 @@ class ExperienceLibrary:
         inferred_task_id: str,
         project_id: str,
     ) -> int:
-        try:
-            from butler.dev_engine.b9_experience_retrieval import experience_retrieval_rank_bonus
+        from butler.dev_engine.coding_knowledge_ops import experience_retrieval_rank_bonus_safe
 
-            return experience_retrieval_rank_bonus(
-                experience_id=exp.id,
-                normalized_keywords=normalized,
-                inferred_task_id=inferred_task_id,
-                project_id=project_id,
-                benchmarks=exp.benchmarks,
-                scope_level=exp.scope.level,
-                scope_project_id=exp.scope.project_id,
-                scope_source=exp.scope.source,
-                domain=list(exp.domain),
-            )
-        except Exception:
-            return 0
+        return experience_retrieval_rank_bonus_safe(
+            experience_id=exp.id,
+            normalized_keywords=normalized,
+            inferred_task_id=inferred_task_id,
+            project_id=project_id,
+            benchmarks=exp.benchmarks,
+            scope_level=exp.scope.level,
+            scope_project_id=exp.scope.project_id,
+            scope_source=exp.scope.source,
+            domain=list(exp.domain),
+        )
 
     @classmethod
     def load_merged_for_project(

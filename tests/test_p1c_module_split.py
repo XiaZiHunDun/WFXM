@@ -196,6 +196,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/mode_classifier_ops.py": 85,
     "butler/registry/mcp_install_ops.py": 80,
     "butler/gateway/session_registry_ops.py": 50,
+    "butler/memory/metrics_persist_ops.py": 70,
+    "butler/dev_engine/coding_knowledge_ops.py": 90,
+    "butler/ops/eval_experiment_ops.py": 75,
+    "butler/tools/data_query_ops.py": 110,
+    "butler/memory/search_result_ops.py": 30,
+    "butler/registry/mcp_merge_ops.py": 95,
+    "butler/memory/scope_diagnostics_ops.py": 90,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

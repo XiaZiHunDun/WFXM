@@ -368,6 +368,20 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/registry/mcp_install_ops.py": 3,
     "butler/gateway/session_registry.py": 0,
     "butler/gateway/session_registry_ops.py": 1,
+    "butler/memory/metrics_persist.py": 0,
+    "butler/memory/metrics_persist_ops.py": 0,
+    "butler/dev_engine/coding_knowledge.py": 0,
+    "butler/dev_engine/coding_knowledge_ops.py": 0,
+    "butler/ops/eval_experiment.py": 0,
+    "butler/ops/eval_experiment_ops.py": 1,
+    "butler/tools/data_query.py": 0,
+    "butler/tools/data_query_ops.py": 1,
+    "butler/memory/search_result.py": 0,
+    "butler/memory/search_result_ops.py": 0,
+    "butler/registry/mcp_merge.py": 0,
+    "butler/registry/mcp_merge_ops.py": 1,
+    "butler/memory/scope_diagnostics.py": 0,
+    "butler/memory/scope_diagnostics_ops.py": 0,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

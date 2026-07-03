@@ -79,17 +79,9 @@ def _lessons_for_project(
 
 
 def _resolve_workspace(project_name: str) -> Path | None:
-    if not project_name.strip():
-        return None
-    try:
-        from butler.project.manager import get_project_manager
+    from butler.memory.scope_diagnostics_ops import resolve_project_workspace_safe
 
-        proj = get_project_manager().get_project(project_name.strip())
-        if proj is None or not getattr(proj, "workspace", None):
-            return None
-        return Path(proj.workspace).expanduser().resolve()
-    except Exception:
-        return None
+    return resolve_project_workspace_safe(project_name)
 
 
 def collect_memory_scope_stats(
@@ -108,18 +100,10 @@ def collect_memory_scope_stats(
     l4_visible = l4_all
     if pname:
         from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
-        from butler.memory.memory_scope import stack_tags_for_project
+        from butler.memory.scope_diagnostics_ops import stack_tags_for_project_safe
 
         ws = _resolve_workspace(pname)
-        stack_tags: frozenset[str] = frozenset()
-        if ws is not None:
-            try:
-                from butler.project.manager import get_project_manager
-
-                proj = get_project_manager().get_project(pname)
-                stack_tags = stack_tags_for_project(proj)
-            except Exception:
-                stack_tags = frozenset()
+        stack_tags = stack_tags_for_project_safe(pname) if ws is not None else frozenset()
 
         xlib = ExperienceLibrary.load_from_file(str(l4_path), theorem_lib=TheoremLibrary())
         visible = 0
@@ -152,24 +136,9 @@ def collect_memory_scope_stats(
 
     projects_overview: list[dict[str, Any]] = []
     if not pname:
-        try:
-            from butler.project.manager import get_project_manager
+        from butler.memory.scope_diagnostics_ops import list_projects_l3_overview_safe
 
-            for proj in get_project_manager().list_projects():
-                pws = Path(proj.workspace).expanduser().resolve()
-                l3p = project_coding_experiences_path(pws)
-                recs = _load_json_experiences(l3p)
-                if not recs:
-                    continue
-                projects_overview.append(
-                    {
-                        "project": proj.name,
-                        "l3_total": len(recs),
-                        "l3_path": str(l3p),
-                    }
-                )
-        except Exception:
-            projects_overview = []
+        projects_overview = list_projects_l3_overview_safe()
 
     return {
         "project": pname or None,

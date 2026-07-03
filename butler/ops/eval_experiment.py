@@ -7,13 +7,10 @@ and pushes scores named ``eval_experiment.{variant}.*`` for UI comparison.
 from __future__ import annotations
 
 import json
-import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _STRICT_CK_PATCH: dict[str, Any] = {
     "coding_knowledge_strict_experience": True,
@@ -132,30 +129,15 @@ def run_variant_benchmark(
     workspace: Path | None = None,
     include_swe: bool = False,
 ) -> VariantResult:
-    from butler.dev_engine.llm_delegate_benchmark import resolve_b9_mode, run_llm_delegate_benchmarks
-    from butler.ops.eval_config_overrides import temporary_overrides
+    from butler.ops.eval_experiment_ops import run_variant_benchmark_safe
 
-    result = VariantResult(variant=variant)
-    try:
-        with temporary_overrides(patch):
-            mode = resolve_b9_mode()
-            result.mode = mode.value
-            b9 = run_llm_delegate_benchmarks(workspace=workspace, mode=mode)
-            result.b9_passed = b9.passed
-            result.b9_total = b9.total
-            result.b9_pass_rate = b9.pass_rate
-
-            if include_swe:
-                from butler.ops.swebench_live_eval import run_swebench_live_benchmark
-
-                swe = run_swebench_live_benchmark(workspace=workspace, mode=mode.value)
-                result.swe_passed = swe.passed
-                result.swe_total = swe.total
-                result.swe_pass_rate = swe.pass_rate
-    except Exception as exc:
-        logger.warning("experiment variant %s failed: %s", variant, exc)
-        result.errors.append(str(exc))
-    return result
+    return run_variant_benchmark_safe(
+        variant,
+        patch,
+        workspace=workspace,
+        include_swe=include_swe,
+        result_factory=VariantResult,
+    )
 
 
 def run_eval_experiment(
@@ -181,21 +163,15 @@ def run_eval_experiment(
     _append_audit(summary)
 
     if push_langfuse:
-        try:
-            from butler.ops.eval_bridge import push_scores
+        from butler.ops.eval_experiment_ops import push_experiment_scores_safe
 
-            push_scores(all_scores)
-        except Exception as exc:
-            logger.warning("experiment LangFuse push failed: %s", exc)
+        push_experiment_scores_safe(all_scores)
 
-    try:
-        from butler.ops.eval_config_overrides import promote_b9_experiment_winner
+    from butler.ops.eval_experiment_ops import promote_experiment_winner_safe
 
-        promoted = promote_b9_experiment_winner(report.variants)
-        if promoted:
-            _append_audit({"type": "experiment_winner_promoted", **promoted})
-    except Exception as exc:
-        logger.warning("experiment winner promote failed: %s", exc)
+    promoted = promote_experiment_winner_safe(report.variants)
+    if promoted:
+        _append_audit({"type": "experiment_winner_promoted", **promoted})
 
     return report
 
