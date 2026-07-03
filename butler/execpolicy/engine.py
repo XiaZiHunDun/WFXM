@@ -9,8 +9,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from butler.env_parse import env_truthy
 
 logger = logging.getLogger(__name__)
@@ -132,14 +130,9 @@ def _policy_paths(workspace: Path | None = None) -> list[Path]:
         p = ws / ".butler" / "execpolicy.yaml"
         if p.is_file():
             paths.append(p)
-    try:
-        from butler.config import get_butler_home
+    from butler.execpolicy.engine_ops import append_home_execpolicy_path_safe
 
-        home = get_butler_home() / "execpolicy.yaml"
-        if home.is_file():
-            paths.append(home)
-    except Exception as exc:
-        logger.debug("policy paths skipped: %s", exc)
+    append_home_execpolicy_path_safe(paths)
     builtin = Path(__file__).resolve().parent / "builtin_rules.yaml"
     if builtin.is_file():
         paths.append(builtin)
@@ -150,10 +143,10 @@ def load_policy_rules(*, workspace: Path | None = None) -> list[PrefixRule]:
     rules: list[PrefixRule] = []
     seen: set[str] = set()
     for path in _policy_paths(workspace):
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        except Exception as exc:
-            logger.warning("execpolicy %s unreadable: %s", path, exc)
+        from butler.execpolicy.engine_ops import load_execpolicy_yaml_safe
+
+        data = load_execpolicy_yaml_safe(path)
+        if data is None:
             continue
         block = data.get("rules") if isinstance(data, dict) else data
         if not isinstance(block, list):

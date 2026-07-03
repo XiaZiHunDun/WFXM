@@ -1,0 +1,16 @@
+[
+  {"main": "butler/transport/auxiliary_client.py", "ops": "butler/transport/auxiliary_client_ops.py", "except_budget_ops": 0, "line_budget": 35},
+  {"main": "butler/transport/streaming_signal.py", "ops": "butler/transport/streaming_signal_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/transport/interruptible_client.py", "ops": "butler/transport/interruptible_client_ops.py", "except_budget_ops": 1, "line_budget": 25},
+  {"main": "butler/transport/reasoning_replay.py", "ops": "butler/transport/reasoning_replay_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/transport/tool_wire.py", "ops": "butler/transport/tool_wire_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/memory/memory_metrics.py", "ops": "butler/memory/memory_metrics_ops.py", "except_budget_ops": 1, "line_budget": 35},
+  {"main": "butler/memory/corpus_router.py", "ops": "butler/memory/corpus_router_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/runtime/diagnostics.py", "ops": "butler/runtime/diagnostics_ops.py", "except_budget_ops": 0, "line_budget": 40},
+  {"main": "butler/runtime/async_delegate.py", "ops": "butler/runtime/async_delegate_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/session/post_session_layered.py", "ops": "butler/session/post_session_layered_ops.py", "except_budget_ops": 0, "line_budget": 40},
+  {"main": "butler/permissions/doom_loop.py", "ops": "butler/permissions/doom_loop_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/execpolicy/engine.py", "ops": "butler/execpolicy/engine_ops.py", "except_budget_ops": 0, "line_budget": 45},
+  {"main": "butler/project/worktree.py", "ops": "butler/project/worktree_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/report/format.py", "ops": "butler/report/format_ops.py", "except_budget_ops": 1, "line_budget": 45}
+]

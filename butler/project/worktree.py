@@ -15,20 +15,9 @@ def project_worktree_enabled() -> bool:
 
 
 def read_worktree_spec(workspace: Path) -> str:
-    """Return raw worktree path from project.yaml (may be relative)."""
-    cfg = workspace / "project.yaml"
-    if not cfg.is_file():
-        return ""
-    try:
-        import yaml
+    from butler.project.worktree_ops import read_project_yaml_worktree_safe
 
-        data = yaml.safe_load(cfg.read_text(encoding="utf-8"))
-    except Exception:
-        return ""
-    if not isinstance(data, dict):
-        return ""
-    raw = data.get("worktree")
-    return str(raw or "").strip()
+    return read_project_yaml_worktree_safe(workspace)
 
 
 def effective_workspace(workspace: Path) -> Path:

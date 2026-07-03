@@ -455,31 +455,32 @@ class MemoryMetricsCollector:
         path = Path(path)
         if not path.is_file():
             return
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            for sid, sdata in data.get("sessions", {}).items():
-                m = SessionMemoryMetrics(session_id=sid)
-                m.start_time = sdata.get("start_time", m.start_time)
-                m.writes = sdata.get("writes", 0)
-                m.writes_successful = sdata.get("writes_successful", 0)
-                m.write_probes = sdata.get("write_probes", 0)
-                m.write_probes_recalled = sdata.get("write_probes_recalled", 0)
-                m.recalls = sdata.get("recalls", 0)
-                m.recalls_with_hits = sdata.get("recalls_with_hits", 0)
-                m.prefetch_turns = sdata.get("prefetch_turns", 0)
-                m.prefetch_hits = sdata.get("prefetch_hits", 0)
-                m.facts_pre_compact = sdata.get("facts_pre_compact", 0)
-                m.facts_post_compact = sdata.get("facts_post_compact", 0)
-                m.anchor_facts_pre = sdata.get("anchor_facts_pre", 0)
-                m.anchor_facts_post = sdata.get("anchor_facts_post", 0)
-                m.decay_evaluations = sdata.get("decay_evaluations", 0)
-                m.decay_false_kills = sdata.get("decay_false_kills", 0)
-                m.retrieval_total = sdata.get("retrieval_total", 0)
-                m.retrieval_relevant = sdata.get("retrieval_relevant", 0)
-                m.retrieval_used_by_llm = sdata.get("retrieval_used_by_llm", 0)
-                self._sessions[sid] = m
-        except Exception as exc:
-            logger.warning("Failed to load memory metrics: %s", exc)
+        from butler.memory.memory_metrics_ops import load_metrics_sessions_from_file_safe
+
+        sessions = load_metrics_sessions_from_file_safe(path)
+        if sessions is None:
+            return
+        for sid, sdata in sessions.items():
+            m = SessionMemoryMetrics(session_id=sid)
+            m.start_time = sdata.get("start_time", m.start_time)
+            m.writes = sdata.get("writes", 0)
+            m.writes_successful = sdata.get("writes_successful", 0)
+            m.write_probes = sdata.get("write_probes", 0)
+            m.write_probes_recalled = sdata.get("write_probes_recalled", 0)
+            m.recalls = sdata.get("recalls", 0)
+            m.recalls_with_hits = sdata.get("recalls_with_hits", 0)
+            m.prefetch_turns = sdata.get("prefetch_turns", 0)
+            m.prefetch_hits = sdata.get("prefetch_hits", 0)
+            m.facts_pre_compact = sdata.get("facts_pre_compact", 0)
+            m.facts_post_compact = sdata.get("facts_post_compact", 0)
+            m.anchor_facts_pre = sdata.get("anchor_facts_pre", 0)
+            m.anchor_facts_post = sdata.get("anchor_facts_post", 0)
+            m.decay_evaluations = sdata.get("decay_evaluations", 0)
+            m.decay_false_kills = sdata.get("decay_false_kills", 0)
+            m.retrieval_total = sdata.get("retrieval_total", 0)
+            m.retrieval_relevant = sdata.get("retrieval_relevant", 0)
+            m.retrieval_used_by_llm = sdata.get("retrieval_used_by_llm", 0)
+            self._sessions[sid] = m
 
 
 def get_collector() -> MemoryMetricsCollector:

@@ -42,11 +42,9 @@ def wire_tools_for_provider(
     transport = get_transport(mode)
     if transport is None:
         return tools
-    try:
-        return transport.convert_tools(tools) or tools
-    except Exception as exc:
-        logger.debug("tool_wire convert_tools failed: %s", exc)
-        return tools
+    from butler.transport.tool_wire_ops import convert_provider_tools_safe
+
+    return convert_provider_tools_safe(transport, tools)
 
 
 def normalize_tool_calls_for_provider(

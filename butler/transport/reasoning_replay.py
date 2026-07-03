@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import urlparse
 
 
 def _host_matches(base_url: str | None, host_suffix: str) -> bool:
     if not base_url:
         return False
-    try:
-        host = (urlparse(base_url).hostname or "").lower()
-    except Exception:
-        return False
+    from butler.transport.reasoning_replay_ops import parse_url_hostname_safe
+
+    host = parse_url_hostname_safe(base_url)
     return host == host_suffix or host.endswith("." + host_suffix)
 
 

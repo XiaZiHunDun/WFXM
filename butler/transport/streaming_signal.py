@@ -79,7 +79,6 @@ def notify_complete_tool_calls_from_stream(
             continue
         entry["_stream_dispatched"] = True
         tool_id = str(entry.get("id") or f"call_{idx}")
-        try:
-            on_tool_call_ready(idx, tool_id, name, args)
-        except Exception as exc:
-            logger.debug("Streaming tool dispatch skipped %s: %s", name, exc)
+        from butler.transport.streaming_signal_ops import invoke_streaming_tool_callback_safe
+
+        invoke_streaming_tool_callback_safe(on_tool_call_ready, idx, tool_id, name, args)

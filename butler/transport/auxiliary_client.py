@@ -70,26 +70,16 @@ def auxiliary_complete(
     )
     sk = session_key or _current_session_key()
     if sk and resp.usage:
-        try:
-            from butler.ops.cost_tracker import get_session_cost
+        from butler.transport.auxiliary_client_ops import record_auxiliary_llm_cost_safe
 
-            get_session_cost(sk).record_llm_call(
-                input_tokens=getattr(resp.usage, "prompt_tokens", 0) or 0,
-                output_tokens=getattr(resp.usage, "completion_tokens", 0) or 0,
-            )
-        except Exception:
-            pass
+        record_auxiliary_llm_cost_safe(sk, resp.usage)
     return resp.content or ""
 
 
 def _current_session_key() -> str:
-    """Best-effort retrieval of the active session key."""
-    try:
-        from butler.core.session_key import get_current_session_key
+    from butler.transport.auxiliary_client_ops import current_auxiliary_session_key_safe
 
-        return str(get_current_session_key() or "")
-    except Exception:
-        return ""
+    return current_auxiliary_session_key_safe()
 
 
 def auxiliary_llm_call_factory(

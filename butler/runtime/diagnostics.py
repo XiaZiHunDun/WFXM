@@ -7,10 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from butler.runtime import audit, loader, schedule
-import logging
-
-
-logger = logging.getLogger(__name__)
 
 def _workspace_for_project(project_name: str) -> Path | None:
     from butler.project.manager import ProjectManager
@@ -25,16 +21,11 @@ def collect_runtime_stats(project_name: str, *, max_jobs: int = 6) -> dict[str, 
     """Recent run summary per job for diagnostics."""
     name = (project_name or "").strip()
     push_queue_pending = 0
-    try:
-        from butler.config import get_butler_home
+    from butler.config import get_butler_home
+    from butler.runtime.diagnostics_ops import count_runtime_push_queue_pending_safe
 
-        qpath = get_butler_home() / "runtime" / "push_queue.jsonl"
-        if qpath.is_file():
-            push_queue_pending = sum(
-                1 for ln in qpath.read_text(encoding="utf-8").splitlines() if ln.strip()
-            )
-    except Exception as exc:
-        logger.debug("collect runtime stats skipped: %s", exc)
+    qpath = get_butler_home() / "runtime" / "push_queue.jsonl"
+    push_queue_pending = count_runtime_push_queue_pending_safe(qpath)
     out: dict[str, Any] = {
         "project": name,
         "enabled": os.getenv("BUTLER_RUNTIME_ENABLED", "1").strip().lower()
@@ -97,10 +88,7 @@ def format_runtime_diagnostic_lines(project_name: str) -> list[str]:
             f"  · {j['id']} [{j.get('mode')}, {en}]{last}{nxt}"
         )
     lines.append("  微信: /定时 /运行 <id>；改盘: /批准运行 <id>")
-    try:
-        from butler.runtime.failure_tracker import format_failure_streak_lines
+    from butler.runtime.diagnostics_ops import format_failure_streak_lines_safe
 
-        lines.extend(format_failure_streak_lines())
-    except Exception as exc:
-        logger.debug("format runtime diagnostic lines skipped: %s", exc)
+    lines.extend(format_failure_streak_lines_safe())
     return lines

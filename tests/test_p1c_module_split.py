@@ -328,6 +328,21 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/tools/delegate_role_guard_ops.py": 45,
     "butler/gateway/platforms/wechat_ilink/connect_phases_ops.py": 30,
     "butler/gateway/network_route_verify_runner_ops.py": 70,
+    "butler/transport/auxiliary_client_ops.py": 35,
+    "butler/transport/streaming_signal_ops.py": 30,
+    "butler/transport/interruptible_client_ops.py": 25,
+    "butler/transport/reasoning_replay_ops.py": 25,
+    "butler/transport/tool_wire_ops.py": 30,
+    "butler/memory/memory_metrics_ops.py": 35,
+    "butler/memory/corpus_router_ops.py": 30,
+    "butler/runtime/diagnostics_ops.py": 40,
+    "butler/runtime/async_delegate_ops.py": 25,
+    "butler/session/post_session_layered_ops.py": 40,
+    "butler/permissions/doom_loop_ops.py": 25,
+    "butler/execpolicy/engine_ops.py": 45,
+    "butler/project/worktree_ops.py": 30,
+    "butler/report/format_ops.py": 45,
+
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

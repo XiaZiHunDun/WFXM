@@ -64,12 +64,9 @@ def multi_scope_recall(query: str, *, limit: int = 6) -> str:
 
     from butler.tools.memory_tools import tool_butler_recall
 
-    try:
-        from butler.memory.query_decompose import decompose_query, subquery_enabled
+    from butler.memory.corpus_router_ops import decompose_recall_queries_safe
 
-        sub_queries = decompose_query(query) if subquery_enabled() else [query]
-    except Exception:
-        sub_queries = [query]
+    sub_queries = decompose_recall_queries_safe(query)
 
     route = route_corpus_query(query)
     parts: list[dict[str, Any]] = []

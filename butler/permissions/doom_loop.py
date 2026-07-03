@@ -31,12 +31,9 @@ def check_doom_loop_ask(
     """
     if decision.code != "doom_loop" or decision.action != "ask":
         return None
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.permissions.doom_loop_ops import current_doom_loop_session_key_safe
 
-        session_key = str(get_current_session_key() or "").strip()
-    except Exception:
-        session_key = ""
+    session_key = current_doom_loop_session_key_safe()
     if not session_key:
         return decision.message
     req = doom_loop_approval_request(tool_name, args)

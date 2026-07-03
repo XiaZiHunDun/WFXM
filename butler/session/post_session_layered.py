@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from butler.env_parse import env_truthy
 from butler.session.post_session import _format_messages, _parse_json_from_response
-
-logger = logging.getLogger(__name__)
 
 _LAYERED_PROMPT = """从以下对话提取用户画像分层摘要。只输出 JSON，不要 markdown。
 
@@ -41,16 +38,13 @@ async def extract_layered_summary(
     if len(transcript) < 200:
         return empty
     prompt = _LAYERED_PROMPT.format(transcript=transcript)
-    try:
-        import inspect
+    from butler.session.post_session_layered_ops import run_layered_llm_extract_safe
 
-        raw = llm_call(prompt)
-        if inspect.isawaitable(raw):
-            raw = await raw
-        data = _parse_json_from_response(str(raw or ""))
-    except Exception as exc:
-        logger.debug("Layered post-session extract failed: %s", exc)
-        return empty
+    data = await run_layered_llm_extract_safe(
+        llm_call,
+        prompt,
+        parse_json=_parse_json_from_response,
+    )
     if not isinstance(data, dict):
         return empty
     out: dict[str, list[str]] = {}

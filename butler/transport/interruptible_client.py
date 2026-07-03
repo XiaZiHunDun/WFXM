@@ -27,10 +27,9 @@ def run_interruptible(
     result: dict[str, Any] = {"value": None, "error": None}
 
     def _worker() -> None:
-        try:
-            result["value"] = fn()
-        except Exception as exc:
-            result["error"] = exc
+        from butler.transport.interruptible_client_ops import run_interruptible_worker_safe
+
+        run_interruptible_worker_safe(fn, result)
 
     start = time.monotonic()
     thread = threading.Thread(target=_worker, daemon=True)

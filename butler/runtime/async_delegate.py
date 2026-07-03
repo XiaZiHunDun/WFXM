@@ -54,12 +54,10 @@ def schedule_background_delegate(job: DelegateJob) -> None:
     if job.bridge is not None and job.push_target is None:
         job.push_target = push_target_from_bridge(job.bridge)
 
-    try:
-        from butler.runtime.task_store import update_task
+    from butler.runtime.async_delegate_ops import mark_delegate_task_background_safe
 
-        update_task(job.task_id, background=True)
-    except Exception as exc:
-        logger.debug("schedule background delegate skipped: %s", exc)
+    mark_delegate_task_background_safe(job.task_id)
+
     def _worker() -> None:
         try:
             run_delegate_job(job)
