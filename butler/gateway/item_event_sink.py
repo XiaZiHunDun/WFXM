@@ -13,9 +13,10 @@ _recent: list[dict[str, Any]] = []
 
 
 def record_thread_item(event: OutboundEvent | dict[str, Any]) -> None:
-    try:
-        payload = event.to_dict() if hasattr(event, "to_dict") else dict(event)
-    except Exception:
+    from butler.gateway.item_event_sink_ops import serialize_thread_item_event_safe
+
+    payload = serialize_thread_item_event_safe(event)
+    if payload is None:
         return
     with _LOCK:
         _recent.append(payload)

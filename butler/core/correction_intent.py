@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _CORRECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"刚才.{0,8}(?:不对|错了|有误|不准确)"),
@@ -45,19 +42,15 @@ def try_handle_correction_intent(
         return None
     body = extract_correction_content(user_text)
     content = f"[纠正] {body}"
-    try:
-        from butler.tools.memory_tools import tool_butler_remember
-        from butler.execution_context import use_execution_context
+    from butler.core.correction_intent_ops import persist_correction_remember_safe
 
-        with use_execution_context(orchestrator, session_key=session_key):
-            result = tool_butler_remember(
-                scope="owner_experience",
-                content=content,
-                category="correction",
-            )
-    except Exception as exc:
-        logger.warning("correction intent remember failed: %s", exc)
-        return f"纠正意图已识别，但写入失败：{exc}"
+    result, err = persist_correction_remember_safe(
+        orchestrator,
+        content,
+        session_key=session_key,
+    )
+    if err is not None:
+        return err
 
     preview = body if len(body) <= 120 else body[:117] + "…"
     lines = [

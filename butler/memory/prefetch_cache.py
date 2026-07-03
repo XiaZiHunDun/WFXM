@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 from butler.env_parse import int_env
-import logging
 import os
 import threading
 import time
 from collections import OrderedDict
 from typing import Callable
-
-logger = logging.getLogger(__name__)
 
 _CACHE: OrderedDict[str, tuple[str, str, float]] = OrderedDict()
 _CACHE_MAX = 512
@@ -95,11 +92,13 @@ def schedule_prefetch_warm(
     sk = str(session_key or "").strip() or "default"
 
     def _run() -> None:
-        try:
-            ctx = fn()
-            if ctx.strip():
-                set_cached_prefetch(sk, q, ctx)
-        except Exception as exc:
-            logger.debug("queue_prefetch warm failed: %s", exc)
+        from butler.memory.prefetch_cache_ops import run_prefetch_warm_safe
+
+        run_prefetch_warm_safe(
+            fn,
+            session_key=sk,
+            query=q,
+            cache_fn=set_cached_prefetch,
+        )
 
     threading.Thread(target=_run, name=f"butler-prefetch-{sk[:24]}", daemon=True).start()

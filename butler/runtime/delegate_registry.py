@@ -59,12 +59,10 @@ def interrupt_delegates_for_session(session_key: str) -> int:
         loop = ref()
         if loop is None:
             continue
-        try:
-            if hasattr(loop, "interrupt"):
-                loop.interrupt()
-                interrupted += 1
-        except Exception as exc:
-            logger.debug("Delegate interrupt failed: %s", exc)
+        from butler.runtime.delegate_registry_ops import interrupt_delegate_loop_safe
+
+        if interrupt_delegate_loop_safe(loop):
+            interrupted += 1
     if interrupted:
         logger.info("Interrupted %d delegate loop(s) for session=%s", interrupted, parent)
     return interrupted

@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 from typing import Any
 
 from butler.env_parse import env_truthy
-
-logger = logging.getLogger(__name__)
 
 _READ_TOOLS = frozenset({"read_file"})
 _LOCAL_SEARCH_TOOLS = frozenset({"grep", "search_files", "glob"})
@@ -53,12 +50,9 @@ def _turn_tool_actions(session_key: str) -> list[dict[str, Any]]:
     sk = str(session_key or "").strip()
     if not sk:
         return []
-    try:
-        from butler.core.session_epoch import load_current_turn_tool_actions
-    except Exception as exc:
-        logger.debug("turn summary load skipped: %s", exc)
-        return []
-    return load_current_turn_tool_actions(sk, max_lines=500)
+    from butler.core.turn_summary_line_ops import load_current_turn_tool_actions_safe
+
+    return load_current_turn_tool_actions_safe(sk, max_lines=500)
 
 
 def build_turn_summary_line(session_key: str) -> str | None:

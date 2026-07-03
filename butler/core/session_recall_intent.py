@@ -34,11 +34,9 @@ def is_session_read_recall_intent(user_text: str) -> bool:
 
 def check_session_read_recall_tool_block(tool_name: str) -> str | None:
     """Block memory/delegate tools when answering from transcript read_file truth."""
-    try:
-        from butler.execution_context import is_session_read_recall_gate_active
-    except Exception:
-        return None
-    if not is_session_read_recall_gate_active():
+    from butler.core.session_recall_intent_ops import session_read_recall_gate_active_safe
+
+    if not session_read_recall_gate_active_safe():
         return None
     name = str(tool_name or "").strip().lower()
     if name in SESSION_READ_RECALL_BLOCKED_TOOLS:

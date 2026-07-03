@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import threading
 import time
 from collections import OrderedDict
@@ -10,8 +9,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 from butler.env_parse import env_truthy
-
-logger = logging.getLogger(__name__)
 
 _LOCK = threading.RLock()
 # session -> OrderedDict[external_id, (status, monotonic_ts)]
@@ -122,12 +119,9 @@ def check_and_reserve_inbound(
         bucket[eid] = ("inflight", time.monotonic())
         _prune_session(bucket)
 
-    try:
-        from butler.ops.runtime_metrics import inc
+    from butler.gateway.inbound_idempotency_ops import inc_inbound_idempotency_reserve_safe
 
-        inc("inbound_idempotency_reserve", session_key=sk)
-    except Exception as exc:
-        logger.debug("check and reserve inbound skipped: %s", exc)
+    inc_inbound_idempotency_reserve_safe(sk)
     return InboundIdempotencyDecision(accept=True)
 
 
@@ -178,27 +172,14 @@ def record_duplicate_skip(
     external_id: str = "",
     preview: str = "",
 ) -> None:
-    try:
-        from butler.ops.runtime_metrics import inc
+    from butler.gateway.inbound_idempotency_ops import record_duplicate_skip_telemetry_safe
 
-        inc(
-            "inbound_duplicate_skip",
-            labels={"reason": str(reason or "?")[:24]},
-            session_key=session_key,
-        )
-        from butler.core.session_transcript import record_generic_event
-
-        record_generic_event(
-            session_key,
-            "inbound_duplicate_skip",
-            {
-                "reason": reason,
-                "external_id": (external_id or "")[:64],
-                "preview": (preview or "")[:120],
-            },
-        )
-    except Exception as exc:
-        logger.debug("record duplicate skip skipped: %s", exc)
+    record_duplicate_skip_telemetry_safe(
+        session_key,
+        reason=reason,
+        external_id=external_id,
+        preview=preview,
+    )
 __all__ = [
     "InboundIdempotencyDecision",
     "check_and_reserve_inbound",

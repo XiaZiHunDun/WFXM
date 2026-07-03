@@ -475,6 +475,20 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/registry/url_safety_ops.py": 1,
     "butler/core/tool_result_storage.py": 0,
     "butler/core/tool_result_storage_ops.py": 1,
+    "butler/gateway/item_event_sink.py": 0,
+    "butler/gateway/item_event_sink_ops.py": 0,
+    "butler/core/correction_intent.py": 0,
+    "butler/core/correction_intent_ops.py": 1,
+    "butler/memory/prefetch_cache.py": 0,
+    "butler/memory/prefetch_cache_ops.py": 1,
+    "butler/runtime/delegate_registry.py": 0,
+    "butler/runtime/delegate_registry_ops.py": 0,
+    "butler/gateway/inbound_idempotency.py": 0,
+    "butler/gateway/inbound_idempotency_ops.py": 0,
+    "butler/core/session_recall_intent.py": 0,
+    "butler/core/session_recall_intent_ops.py": 0,
+    "butler/core/turn_summary_line.py": 0,
+    "butler/core/turn_summary_line_ops.py": 0,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)
