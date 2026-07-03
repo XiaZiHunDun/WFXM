@@ -122,12 +122,9 @@ def _record_tool_audit(
     code: str,
     started_at: float,
 ) -> None:
-    try:
-        from butler.execution_context import get_audit_session_key
+    from butler.tools.tool_audit_ops import get_audit_session_key_safe
 
-        session_key = get_audit_session_key()
-    except Exception:
-        session_key = "unscoped"
+    session_key = get_audit_session_key_safe()
     event = {
         "tool": name,
         "ok": ok,
@@ -197,61 +194,64 @@ def _maybe_record_tool_observation(
     args: dict,
     payload: dict[str, Any],
 ) -> None:
-    try:
-        from butler.execution_context import get_current_session_key
-        from butler.core.session_transcript import record_tool_observation
+    from butler.tools.tool_audit_ops import run_observation_side_effects_safe
 
-        sk = str(get_current_session_key() or "").strip()
-        if not sk:
-            return
-        preview = ""
-        if payload.get("error"):
-            preview = str(payload.get("error") or "")[:200]
-        elif payload.get("mode") == "summary":
-            preview = f"summary lines={payload.get('total_lines', '?')}"
-        elif payload.get("preview"):
-            preview = str(payload.get("preview") or "")[:200]
-        else:
-            for key in ("content", "result", "output", "message"):
-                if payload.get(key):
-                    preview = str(payload[key])[:200]
-                    break
-        if not preview and name == "read_file":
-            preview = str(args.get("path") or "")[:120]
-        record_tool_observation(
-            sk,
-            tool=name,
-            ok=_tool_result_ok(payload),
-            preview=preview,
-        )
-        try:
-            from butler.memory.observer_queue import enqueue_tool_observation
-            from butler.execution_context import get_current_orchestrator
+    def _run() -> None:
+        _record_tool_observation_side_effects(name, args, payload)
 
-            path_hint = str(args.get("path") or args.get("file") or "")
-            workspace = None
-            orch = get_current_orchestrator()
-            if orch is not None:
-                try:
-                    proj = orch.project_manager.get_current(session_key=sk)
-                    if proj is not None:
-                        from pathlib import Path
+    run_observation_side_effects_safe(_run)
 
-                        workspace = Path(proj.workspace)
-                except Exception:
-                    workspace = None
-            enqueue_tool_observation(
-                session_key=sk,
-                tool=name,
-                ok=_tool_result_ok(payload),
-                preview=preview,
-                path=path_hint,
-                workspace=workspace,
-            )
-        except Exception as exc:
-            logger.debug("maybe record tool observation skipped: %s", exc)
-    except Exception as exc:
-        logger.debug("maybe record tool observation skipped: %s", exc)
+
+def _record_tool_observation_side_effects(
+    name: str,
+    args: dict,
+    payload: dict[str, Any],
+) -> None:
+    from butler.execution_context import get_current_session_key
+    from butler.tools.tool_audit_ops import (
+        enqueue_tool_observation_safe,
+        record_tool_observation_safe,
+        resolve_observation_workspace_safe,
+    )
+
+    sk = str(get_current_session_key() or "").strip()
+    if not sk:
+        return
+    preview = ""
+    if payload.get("error"):
+        preview = str(payload.get("error") or "")[:200]
+    elif payload.get("mode") == "summary":
+        preview = f"summary lines={payload.get('total_lines', '?')}"
+    elif payload.get("preview"):
+        preview = str(payload.get("preview") or "")[:200]
+    else:
+        for key in ("content", "result", "output", "message"):
+            if payload.get(key):
+                preview = str(payload[key])[:200]
+                break
+    if not preview and name == "read_file":
+        preview = str(args.get("path") or "")[:120]
+    record_tool_observation_safe(
+        sk,
+        tool=name,
+        ok=_tool_result_ok(payload),
+        preview=preview,
+    )
+    from butler.execution_context import get_current_orchestrator
+
+    path_hint = str(args.get("path") or args.get("file") or "")
+    workspace = None
+    orch = get_current_orchestrator()
+    if orch is not None:
+        workspace = resolve_observation_workspace_safe(orch, sk)
+    enqueue_tool_observation_safe(
+        session_key=sk,
+        tool=name,
+        ok=_tool_result_ok(payload),
+        preview=preview,
+        path=path_hint,
+        workspace=workspace,
+    )
 
 
 def _finalize_tool_result(
@@ -291,14 +291,11 @@ def _finalize_tool_result(
             payload.setdefault("code", code)
             err = str(payload.get("error") or "")
             if err.startswith("Access denied"):
-                try:
-                    from butler.hooks.runner import run_permission_denied_hooks
+                from butler.tools.tool_audit_ops import run_permission_denied_hooks_safe
 
-                    hint = run_permission_denied_hooks(name, args, err)
-                    if hint:
-                        payload["permission_denied_hint"] = hint
-                except Exception as exc:
-                    logger.debug("PermissionDenied hooks skipped: %s", exc)
+                hint = run_permission_denied_hooks_safe(name, args, err)
+                if hint:
+                    payload["permission_denied_hint"] = hint
         _record_tool_audit(name, args, ok=ok, code=code, started_at=started_at)
         _maybe_record_tool_observation(name, args, payload)
         return json.dumps(payload, ensure_ascii=False, default=str)

@@ -96,32 +96,15 @@ class LLMClient:
         ``self._last_tool_wire_error`` for caller inspection and is
         logged at ERROR with a full traceback.
         """
-        from butler.transport.tool_wire import wire_tools_for_provider
+        from butler.transport.llm_client_ops import wire_tools_or_empty_loud
 
-        # Broad except is intentional: ``wire_tools_for_provider`` is the
-        # safety net for an opaque third-party-style conversion path
-        # (provider-specific transport adapters). It does not document a
-        # concrete exception contract, and narrowing here would risk
-        # surfacing a half-broken turn to the caller. The fallback is
-        # *empty* (not a generic OpenAI-shaped schema), so the worst case
-        # is the model proceeds without tools — never a 400 from a
-        # provider that rejects the schema. The original exception is
-        # preserved on ``self._last_tool_wire_error`` for caller
-        # inspection.
-        try:
-            return wire_tools_for_provider(
-                self.provider_name or "",
-                tools,
-                api_mode=self.api_mode,
-            )
-        except Exception as exc:
-            logger.error(
-                "wire_tools_for_provider failed; using empty tool list "
-                "(provider-specific schema could not be built)",
-                exc_info=exc,
-            )
-            self._last_tool_wire_error = exc
-            return []
+        wired, exc = wire_tools_or_empty_loud(
+            self.provider_name or "",
+            tools,
+            api_mode=self.api_mode,
+        )
+        self._last_tool_wire_error = exc
+        return wired
 
     def _get_openai_client(self):
         if self._client is None:
@@ -302,16 +285,13 @@ class LLMClient:
         return client.chat.completions.create(**api_kwargs)
 
     def _call_anthropic(self, api_kwargs: dict) -> Any:
-        try:
-            from butler.transport.thinking_headers import merge_thinking_request_kwargs
+        from butler.transport.llm_client_ops import merge_thinking_headers_safe
 
-            api_kwargs = merge_thinking_request_kwargs(
-                api_kwargs,
-                provider=self.provider_name or "",
-                model=self.model or "",
-            )
-        except Exception as exc:
-            logger.debug("Thinking headers merge skipped: %s", exc)
+        api_kwargs = merge_thinking_headers_safe(
+            api_kwargs,
+            provider=self.provider_name or "",
+            model=self.model or "",
+        )
         client = self._get_anthropic_client()
         if hasattr(client, "messages"):
             return client.messages.create(**api_kwargs)
@@ -335,15 +315,18 @@ class LLMClient:
         finish_reason = "stop"
         usage = None
 
-        try:
-            if self.api_mode == "anthropic_messages":
-                return self._stream_anthropic(
-                    api_kwargs,
-                    on_delta,
-                    transport,
-                    on_tool_call_ready=on_tool_call_ready,
-                )
+        if self.api_mode == "anthropic_messages":
+            return self._stream_anthropic(
+                api_kwargs,
+                on_delta,
+                transport,
+                on_tool_call_ready=on_tool_call_ready,
+            )
 
+        from butler.transport.llm_client_ops import iter_stream_safe
+
+        def _collect_openai_stream() -> str:
+            nonlocal finish_reason, usage
             client = self._get_openai_client()
             stream = client.chat.completions.create(**api_kwargs)
 
@@ -401,12 +384,12 @@ class LLMClient:
                         completion_tokens=getattr(raw_usage, "completion_tokens", 0),
                         total_tokens=getattr(raw_usage, "total_tokens", 0),
                     )
+            return finish_reason
 
-        except Exception as exc:
-            logger.error("Stream error: %s", exc, exc_info=True)
-            if not collected_content:
-                raise
-            finish_reason = "error"
+        finish_reason = iter_stream_safe(
+            _collect_openai_stream,
+            collected_content=collected_content,
+        )
 
         from butler.transport.streaming_signal import notify_complete_tool_calls_from_stream
 
@@ -444,16 +427,14 @@ class LLMClient:
         from butler.transport.types import ToolCall
 
         api_kwargs.pop("stream", None)
-        try:
-            from butler.transport.thinking_headers import merge_thinking_request_kwargs
+        from butler.transport.llm_client_ops import merge_thinking_headers_safe
 
-            api_kwargs = merge_thinking_request_kwargs(
-                api_kwargs,
-                provider=self.provider_name or "",
-                model=self.model or "",
-            )
-        except Exception as exc:
-            logger.debug("Thinking headers merge skipped (stream): %s", exc)
+        api_kwargs = merge_thinking_headers_safe(
+            api_kwargs,
+            provider=self.provider_name or "",
+            model=self.model or "",
+            label="llm_client.thinking_headers.stream",
+        )
 
         client = self._get_anthropic_client()
         if not hasattr(client, "messages"):

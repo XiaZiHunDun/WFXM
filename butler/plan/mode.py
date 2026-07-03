@@ -8,9 +8,6 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from butler.tool_guardrails import MUTATING_TOOLS
-import logging
-
-logger = logging.getLogger(__name__)
 
 PLAN_BLOCKED_TOOLS = frozenset(MUTATING_TOOLS) | frozenset({
     "delegate_task",
@@ -55,72 +52,57 @@ def _tool_target_path(tool_name: str, args: dict[str, Any]) -> str:
 def load_plan_mode_system_appendix() -> str:
     from pathlib import Path
 
+    from butler.plan.mode_ops import append_plan_graph_appendix_safe, load_plan_prompt_from_paths
+
     base = Path(__file__).resolve().parent
     candidates = (
         base / "prompts" / "butler_plan_mode.md",
         base.parent / "prompts" / "butler_plan_mode.md",
     )
-    body = ""
-    for path in candidates:
-        try:
-            if path.is_file():
-                body = path.read_text(encoding="utf-8").strip()
-                break
-        except OSError:
-            continue
+    body = load_plan_prompt_from_paths(candidates)
     if not body:
         body = (
             "## 规划模式\n只读探索并写 plan 文件；"
             "禁止 delegate_task、terminal 与业务源码写入。用户 /执行 后退出。"
         )
-    try:
-        from butler.core.reasoning_trace import get_plan_mode_graph_appendix
-
-        body += get_plan_mode_graph_appendix()
-    except Exception as exc:
-        logger.debug("plan graph appendix skipped: %s", exc)
-    return body
+    return append_plan_graph_appendix_safe(body)
 
 
 def set_plan_mode(session_key: str, enabled: bool) -> None:
+    from butler.plan.mode_ops import (
+        record_plan_mode_enabled_safe,
+        save_plan_mode_flag_safe,
+    )
+
     key = str(session_key or "default").strip() or "default"
     with _LOCK:
         if enabled:
             _PLAN_BY_SESSION[key] = True
         else:
             _PLAN_BY_SESSION.pop(key, None)
-    try:
-        from butler.plan.store import save_plan_mode_flag
-
-        save_plan_mode_flag(key, enabled)
-    except Exception as exc:
-        logger.debug("set plan mode skipped: %s", exc)
+    save_plan_mode_flag_safe(key, enabled)
     if enabled:
-        try:
-            from butler.core.session_transcript import record_plan_step
+        record_plan_mode_enabled_safe(key)
 
-            record_plan_step(key, title="plan_mode_enabled", phase="start")
-        except Exception as exc:
-            logger.debug("set plan mode skipped: %s", exc)
+
 def is_plan_mode(session_key: str = "") -> bool:
-    key = _resolve_session_key(session_key)
+    from butler.plan.mode_ops import load_plan_mode_flag_safe, resolve_session_key_safe
+
+    key = resolve_session_key_safe(session_key)
     with _LOCK:
         if key in _PLAN_BY_SESSION:
             return bool(_PLAN_BY_SESSION[key])
-    try:
-        from butler.plan.store import load_plan_mode_flag
-
-        enabled = load_plan_mode_flag(key)
-        with _LOCK:
-            if enabled:
-                _PLAN_BY_SESSION[key] = True
-        return enabled
-    except Exception:
-        return False
+    enabled = load_plan_mode_flag_safe(key)
+    with _LOCK:
+        if enabled:
+            _PLAN_BY_SESSION[key] = True
+    return enabled
 
 
 def clear_plan_mode(session_key: str = "") -> None:
-    set_plan_mode(_resolve_session_key(session_key), False)
+    from butler.plan.mode_ops import resolve_session_key_safe
+
+    set_plan_mode(resolve_session_key_safe(session_key), False)
 
 
 def clear_all_plan_modes() -> None:
@@ -160,13 +142,14 @@ def format_plan_mode_status(session_key: str = "") -> str:
     return "规划模式: 未开启。发「/计划」或「/规划」进入只读规划。"
 
 
-def _resolve_session_key(session_key: str) -> str:
-    key = str(session_key or "").strip()
-    if key:
-        return key
-    try:
-        from butler.execution_context import get_current_session_key
-
-        return str(get_current_session_key() or "").strip() or "default"
-    except Exception:
-        return "default"
+__all__ = [
+    "PLAN_BLOCKED_TOOLS",
+    "check_plan_mode_block",
+    "clear_all_plan_modes",
+    "clear_plan_mode",
+    "format_plan_mode_status",
+    "is_plan_mode",
+    "is_plan_writable_path",
+    "load_plan_mode_system_appendix",
+    "set_plan_mode",
+]

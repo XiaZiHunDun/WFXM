@@ -40,12 +40,9 @@ def _ensure_catalog_integrity_once() -> None:
     if _catalog_integrity_checked:
         return
     _catalog_integrity_checked = True
-    try:
-        from butler.registry.catalog_integrity import ensure_catalog_integrity
+    from butler.registry.skill_service_ops import ensure_catalog_integrity_safe
 
-        ensure_catalog_integrity()
-    except Exception as exc:
-        logger.warning("Catalog integrity check failed: %s", exc)
+    ensure_catalog_integrity_safe()
 
 
 def _sources() -> list[SkillSource]:
@@ -118,13 +115,12 @@ class SkillRegistryService:
         if not registry_enabled():
             return []
         hits: list[SkillSearchHit] = []
+        from butler.registry.skill_service_ops import search_source_safe
+
         for src in _sources():
             if source_filter != "all" and src.source_id != source_filter:
                 continue
-            try:
-                hits.extend(src.search(query, limit=limit))
-            except Exception as exc:
-                logger.debug("search %s: %s", src.source_id, exc)
+            hits.extend(search_source_safe(src, query, limit=limit))
         seen: set[str] = set()
         out: list[SkillSearchHit] = []
         for h in sorted(
@@ -140,11 +136,10 @@ class SkillRegistryService:
         return out
 
     def inspect(self, identifier: str) -> SkillSearchHit | None:
+        from butler.registry.skill_service_ops import inspect_source_safe
+
         for src in _sources():
-            try:
-                hit = src.inspect(identifier)
-            except Exception:
-                hit = None
+            hit = inspect_source_safe(src, identifier)
             if hit:
                 return hit
         return None
@@ -152,11 +147,10 @@ class SkillRegistryService:
     def fetch_bundle(self, identifier: str) -> SkillBundle:
         sources = _sources()
         ident = _resolve_identifier(identifier, sources)
+        from butler.registry.skill_service_ops import fetch_from_source_safe
+
         for src in sources:
-            try:
-                bundle = src.fetch(ident)
-            except Exception:
-                bundle = None
+            bundle = fetch_from_source_safe(src, ident)
             if bundle:
                 return bundle
         raise ValueError(f"Could not fetch skill '{ident}' from any source.")
@@ -214,40 +208,9 @@ class SkillRegistryService:
                 )
             raise InstallConfirmationRequired(hit)
 
-        try:
-            from butler.registry.install_scan import (
-                install_pre_scan_fail_closed,
-                pre_install_scan_skill,
-            )
-            import hashlib
+        from butler.registry.skill_service_ops import run_pre_install_scan_safe
 
-            h = hashlib.sha256()
-            for key in sorted(bundle.files.keys()):
-                piece = bundle.files[key]
-                h.update(key.encode("utf-8"))
-                h.update(piece if isinstance(piece, bytes) else piece.encode("utf-8"))
-            bundle_digest = h.hexdigest()[:16]
-            expected = ""
-            if hit is not None:
-                expected = str((hit.extra or {}).get("content_hash") or "").strip()
-            if not expected:
-                expected = str(bundle.metadata.get("content_hash") or "").strip()
-            scan = pre_install_scan_skill(
-                bundle,
-                source=str(hit.source if hit else bundle.source),
-                expected_content_hash=expected,
-                actual_content_hash=bundle_digest,
-            )
-            if not scan.ok_to_install and install_pre_scan_fail_closed():
-                raise ValueError(
-                    f"Install blocked by pre-scan ({scan.verdict}): {', '.join(scan.issues)}"
-                )
-        except ValueError:
-            raise
-        except Exception as exc:
-            import logging
-
-            logging.getLogger(__name__).debug("Skill pre-install scan skipped: %s", exc)
+        run_pre_install_scan_safe(bundle, hit)
 
         qpath = quarantine_bundle(bundle, tenant_id=self.tenant_id)
         verdict, issues = scan_quarantine(qpath)

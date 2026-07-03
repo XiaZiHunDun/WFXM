@@ -37,33 +37,20 @@ def _resolve_project(
 ) -> Any:
     sk = str(session_key or "").strip()
     orch = orchestrator or _get_orchestrator()
+    from butler.gateway.commands.dev_handlers_ops import (
+        resolve_project_from_handler_singleton_safe,
+        resolve_project_from_manager_safe,
+        resolve_project_from_orchestrator_safe,
+    )
+
     if orch is not None:
-        try:
-            if sk:
-                return orch.project_manager.get_current(session_key=sk)
-            return orch.project_manager.active_project
-        except Exception as exc:
-            logger.debug("resolve project from orchestrator skipped: %s", exc)
-    try:
-        from butler.gateway.message_handler import ButlerMessageHandler
-
-        handler = getattr(ButlerMessageHandler, "_instance", None)
-        if handler and hasattr(handler, "_orchestrator"):
-            pm = handler._orchestrator.project_manager
-            if sk:
-                return pm.get_current(session_key=sk)
-            return pm.active_project
-    except Exception as exc:
-        logger.debug("resolve project from handler singleton skipped: %s", exc)
-    try:
-        from butler.project.manager import ProjectManager
-
-        pm = ProjectManager()
-        if sk:
-            return pm.get_current(session_key=sk)
-        return pm.active_project
-    except Exception:
-        return None
+        proj = resolve_project_from_orchestrator_safe(orch, session_key=sk)
+        if proj is not None:
+            return proj
+    proj = resolve_project_from_handler_singleton_safe(session_key=sk)
+    if proj is not None:
+        return proj
+    return resolve_project_from_manager_safe(session_key=sk)
 
 
 def _project_workspace() -> Path | None:
@@ -412,15 +399,9 @@ def format_build_for_wechat(arg: str = "") -> str:
 
 
 def _get_orchestrator() -> Any:
-    try:
-        from butler.gateway.message_handler import ButlerMessageHandler
+    from butler.gateway.commands.dev_handlers_ops import get_orchestrator_safe
 
-        handler = getattr(ButlerMessageHandler, "_instance", None)
-        if handler and hasattr(handler, "_orchestrator"):
-            return handler._orchestrator
-    except Exception as exc:
-        logger.debug("get orchestrator skipped: %s", exc)
-    return None
+    return get_orchestrator_safe()
 
 
 def format_project_dashboard(
@@ -544,15 +525,13 @@ def _append_runtime_summary(lines: list[str], ws: Path) -> None:
     jobs_path = ws / "runtime" / "jobs.yaml"
     if not jobs_path.is_file():
         return
-    try:
-        import yaml
-        data = yaml.safe_load(jobs_path.read_text(encoding="utf-8")) or {}
-        jobs = data.get("jobs", [])
-        active = sum(1 for j in jobs if j.get("enabled", True))
-        if jobs:
-            lines.append(f"⏰ 定时任务: {active} 个活跃 / {len(jobs)} 总计")
-    except Exception as exc:
-        logger.debug("append runtime summary skipped: %s", exc)
+    from butler.gateway.commands.dev_handlers_ops import format_runtime_jobs_line_safe
+
+    line = format_runtime_jobs_line_safe(jobs_path)
+    if line:
+        lines.append(line)
+
+
 def _append_memory_summary(lines: list[str], ws: Path) -> None:
     mem_path = ws / ".butler" / "memory" / "MEMORY.md"
     if not mem_path.is_file():

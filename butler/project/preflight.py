@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
-
 from butler.project.model import Project
 from butler.project.lead import is_lead_project
-import logging
-
-
-logger = logging.getLogger(__name__)
 
 class CheckLevel(str, Enum):
     OK = "ok"
@@ -102,20 +95,9 @@ def _detect_pack(workspace: Path) -> str:
 
 
 def _detect_lifecycle(workspace: Path) -> str:
-    state = workspace / "novel-factory" / "workflow_state.json"
-    if not state.is_file():
-        return ""
-    try:
-        data = yaml.safe_load(state.read_text(encoding="utf-8")) or {}
-    except Exception:
-        try:
-            data = json.loads(state.read_text(encoding="utf-8"))
-        except Exception:
-            return ""
-    phase = str(data.get("phase") or data.get("current_phase") or "").upper()
-    if "COMPLETE" in phase:
-        return "lifecycle:complete"
-    return "lifecycle:active"
+    from butler.project.preflight_ops import detect_lifecycle_tag
+
+    return detect_lifecycle_tag(workspace)
 
 
 def _has_executable_tree(workspace: Path) -> bool:
@@ -230,8 +212,10 @@ def run_preflight(
             )
         )
     else:
-        try:
-            proj = Project.from_yaml(cfg)
+        from butler.project.preflight_ops import try_load_project_yaml
+
+        proj, yaml_err = try_load_project_yaml(cfg)
+        if proj is not None:
             project_name = proj.name
             items.append(
                 PreflightItem(
@@ -257,12 +241,12 @@ def run_preflight(
                         "按模板补全 read/write/patch 或只读集",
                     )
                 )
-        except Exception as exc:
+        elif yaml_err is not None:
             items.append(
                 PreflightItem(
                     CheckLevel.FAIL,
                     "project_yaml_invalid",
-                    f"project.yaml 解析失败: {exc}",
+                    f"project.yaml 解析失败: {yaml_err}",
                 )
             )
 
@@ -275,30 +259,30 @@ def run_preflight(
             )
         )
 
-    try:
-        from butler.project.manager import get_project_manager
+    from butler.project.preflight_ops import probe_project_registration_safe
 
-        pm = get_project_manager()
-        if project_name and pm.get_project(project_name) is not None:
-            registered = True
-            items.append(
-                PreflightItem(
-                    CheckLevel.OK,
-                    "registered",
-                    f"已在 ProjectManager 注册: {project_name!r}",
-                )
+    reg, show_ok, show_warn = probe_project_registration_safe(
+        project_name,
+        cfg_is_file=cfg.is_file(),
+    )
+    if reg:
+        registered = True
+        items.append(
+            PreflightItem(
+                CheckLevel.OK,
+                "registered",
+                f"已在 ProjectManager 注册: {project_name!r}",
             )
-        elif cfg.is_file() and project_name:
-            items.append(
-                PreflightItem(
-                    CheckLevel.WARN,
-                    "not_registered",
-                    "有 project.yaml 但当前进程未加载（路径不在 projects_dir？）",
-                    "确认 BUTLER_PROJECTS_DIR 或重启 butler gateway",
-                )
+        )
+    elif show_warn:
+        items.append(
+            PreflightItem(
+                CheckLevel.WARN,
+                "not_registered",
+                "有 project.yaml 但当前进程未加载（路径不在 projects_dir？）",
+                "确认 BUTLER_PROJECTS_DIR 或重启 butler gateway",
             )
-    except Exception as exc:
-        logger.debug("run preflight skipped: %s", exc)
+        )
     pack = _detect_pack(ws)
     lifecycle = _detect_lifecycle(ws)
     has_code = _has_executable_tree(ws)
@@ -437,22 +421,18 @@ def run_preflight(
             )
         )
 
-    try:
-        from butler.ops.execution_surface_diagnostics import project_skills_sync_issues
+    from butler.project.preflight_ops import project_skills_sync_issues_safe
 
-        sync_issues = project_skills_sync_issues(ws)
-        if sync_issues:
-            items.append(
-                PreflightItem(
-                    CheckLevel.WARN,
-                    "skills_sync_stale",
-                    "git skills/ 与 .butler/skills/ 不同步",
-                    "bash scripts/sync-project-skills.sh 或 sync-lingwen-project-skills.sh",
-                )
+    sync_issues = project_skills_sync_issues_safe(ws)
+    if sync_issues:
+        items.append(
+            PreflightItem(
+                CheckLevel.WARN,
+                "skills_sync_stale",
+                "git skills/ 与 .butler/skills/ 不同步",
+                "bash scripts/sync-project-skills.sh 或 sync-lingwen-project-skills.sh",
             )
-    except Exception as exc:
-        logger.debug("skills sync preflight skipped: %s", exc)
-
+        )
     if project_name and is_lead_project(project_name, project=proj):
         from butler.project.lead import lead_project_names
 

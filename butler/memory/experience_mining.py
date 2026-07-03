@@ -237,8 +237,10 @@ def mine_workspace_patterns(workspace: Path) -> list[CandidateExperience]:
     for rel_path, category in pattern_files.items():
         fp = workspace / rel_path
         if fp.exists() and fp.is_file():
-            try:
-                content = fp.read_text(encoding="utf-8", errors="replace")[:500]
+            from butler.memory.experience_mining_ops import read_text_snippet_safe
+
+            content = read_text_snippet_safe(fp, limit=500)
+            if content is not None:
                 candidates.append(CandidateExperience(
                     source=f"workspace:{rel_path}",
                     category=category,
@@ -246,14 +248,14 @@ def mine_workspace_patterns(workspace: Path) -> list[CandidateExperience]:
                     confidence=0.65,
                     tags=[category, "auto-mined", rel_path],
                 ))
-            except Exception as exc:
-                logger.debug("Failed to read %s: %s", fp, exc)
 
     workflows = workspace / ".github" / "workflows"
     if workflows.is_dir():
         for wf in sorted(workflows.glob("*.yml"))[:5]:
-            try:
-                snippet = wf.read_text(encoding="utf-8", errors="replace")[:300]
+            from butler.memory.experience_mining_ops import read_text_snippet_safe
+
+            snippet = read_text_snippet_safe(wf, limit=300)
+            if snippet is not None:
                 candidates.append(CandidateExperience(
                     source=f"workspace:{wf.relative_to(workspace)}",
                     category="ci_cd",
@@ -261,8 +263,6 @@ def mine_workspace_patterns(workspace: Path) -> list[CandidateExperience]:
                     confidence=0.7,
                     tags=["ci_cd", "github-actions", wf.stem],
                 ))
-            except Exception as exc:
-                logger.debug("workflow read skipped %s: %s", wf, exc)
 
     return candidates
 
@@ -334,29 +334,17 @@ def mine_recent_edits(workspace: Path, days: int = 7) -> list[CandidateExperienc
     """Recently modified files as low-confidence activity signals."""
     candidates: list[CandidateExperience] = []
     cutoff = time.time() - days * 86400
+    from butler.memory.experience_mining_ops import collect_recent_edit_paths_safe
 
-    try:
-        for fp in workspace.rglob("*"):
-            if not fp.is_file():
-                continue
-            rel = fp.relative_to(workspace)
-            if any(p.startswith(".") for p in rel.parts):
-                continue
-            if fp.suffix.lower() not in {".py", ".md", ".yaml", ".yml", ".toml", ".json"}:
-                continue
-            try:
-                if fp.stat().st_mtime >= cutoff:
-                    candidates.append(CandidateExperience(
-                        source=f"recent_edit:{rel}",
-                        category="development_activity",
-                        content=f"Recently edited: {rel}",
-                        confidence=0.35,
-                        tags=["recent-edit", fp.suffix.lstrip(".")],
-                    ))
-            except OSError:
-                continue
-    except Exception as exc:
-        logger.debug("mine_recent_edits error: %s", exc)
+    for fp in collect_recent_edit_paths_safe(workspace, cutoff=cutoff):
+        rel = fp.relative_to(workspace)
+        candidates.append(CandidateExperience(
+            source=f"recent_edit:{rel}",
+            category="development_activity",
+            content=f"Recently edited: {rel}",
+            confidence=0.35,
+            tags=["recent-edit", fp.suffix.lstrip(".")],
+        ))
 
     return candidates[:30]
 
@@ -374,15 +362,15 @@ def run_mining(
     t0 = time.time()
     report = MiningReport()
     days = days or default_mining_days()
+    from butler.memory.experience_mining_ops import run_mining_source_safe
 
     if include_feeds:
-        try:
-            feeds = mine_feeds()
-            report.candidates.extend(feeds)
-            if feeds:
-                report.sources_scanned += 1
-        except Exception as exc:
-            report.errors.append(f"feeds: {exc}")
+        feeds, err = run_mining_source_safe(mine_feeds, label="feeds")
+        report.candidates.extend(feeds)
+        if feeds:
+            report.sources_scanned += 1
+        if err:
+            report.errors.append(err)
 
     if workspace and workspace.exists():
         for fn, label in (
@@ -390,11 +378,12 @@ def run_mining(
             (mine_changelog, "changelog"),
             (lambda ws: mine_recent_edits(ws, days=days), "recent_edits"),
         ):
-            try:
-                report.candidates.extend(fn(workspace))
+            rows, err = run_mining_source_safe(lambda fn=fn: fn(workspace), label=label)
+            report.candidates.extend(rows)
+            if err:
+                report.errors.append(err)
+            else:
                 report.sources_scanned += 1
-            except Exception as exc:
-                report.errors.append(f"{label}: {exc}")
 
     report.elapsed_seconds = time.time() - t0
     return report
