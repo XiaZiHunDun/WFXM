@@ -36,22 +36,20 @@ def tool_generate_image(prompt: str = "", aspect_ratio: str = "1:1", **_: Any) -
     if not prompt:
         return json.dumps({"error": "prompt is required"})
 
-    try:
-        # R1-10: minimax_* is a transport-layer LLM provider; import from
-        # ``butler.transport.multimodal`` (the new canonical path). The
-        # old ``butler.gateway.minimax_image_gen`` path is kept as a
-        # back-compat shim but tools must not depend on gateway.
+    from butler.tools.multimodal_tools_ops import run_multimodal_tool_safe, write_tts_output_safe
+
+    def _run() -> dict:
         from butler.transport.multimodal.minimax_image_gen import generate_image
+
         image_url = generate_image(prompt, aspect_ratio=aspect_ratio)
-        return json.dumps({
+        return {
             "ok": True,
             "image_url": image_url,
             "prompt": prompt,
             "aspect_ratio": aspect_ratio,
-        }, ensure_ascii=False)
-    except Exception as exc:
-        logger.warning("Image generation failed: %s", exc)
-        return json.dumps({"error": str(exc)})
+        }
+
+    return run_multimodal_tool_safe(_run, label="generate_image")
 
 
 def tool_synthesize_speech(text: str = "", voice_id: str = "male-qn-qingse", **_: Any) -> str:
@@ -65,27 +63,20 @@ def tool_synthesize_speech(text: str = "", voice_id: str = "male-qn-qingse", **_
     if len(text) > 5000:
         return json.dumps({"error": "text too long (max 5000 chars)"})
 
-    try:
-        # R1-10: see note in ``tool_generate_image`` — minimax_tts moved
-        # to butler/transport/multimodal/.
+    from butler.tools.multimodal_tools_ops import run_multimodal_tool_safe, write_tts_output_safe
+
+    def _run() -> dict:
         from butler.transport.multimodal.minimax_tts import synthesize_speech
+
         audio_bytes = synthesize_speech(text, voice_id=voice_id)
+        return write_tts_output_safe(
+            _output_dir(),
+            audio_bytes,
+            voice_id=voice_id,
+            text_length=len(text),
+        )
 
-        import uuid
-        filename = f"tts_{uuid.uuid4().hex[:8]}.mp3"
-        out_path = _output_dir() / filename
-        out_path.write_bytes(audio_bytes)
-
-        return json.dumps({
-            "ok": True,
-            "file": str(out_path),
-            "size_bytes": len(audio_bytes),
-            "voice_id": voice_id,
-            "text_length": len(text),
-        }, ensure_ascii=False)
-    except Exception as exc:
-        logger.warning("Speech synthesis failed: %s", exc)
-        return json.dumps({"error": str(exc)})
+    return run_multimodal_tool_safe(_run, label="synthesize_speech")
 
 
 def register_multimodal_tools(register_fn) -> None:

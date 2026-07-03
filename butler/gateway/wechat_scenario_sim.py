@@ -383,13 +383,14 @@ def evaluation_reply_text(
     )
     from butler.gateway.outbound_files import expand_reply_with_wechat_attachments
 
+    from butler.gateway.wechat_scenario_sim_ops import delegate_enrichment_imports_ready
+
     if not delegated:
         return expand_reply_with_wechat_attachments(reply)
-    try:
-        from butler.report import get_last_report
-        from butler.core.session_epoch import load_epoch_transcript_rows
-    except Exception:
+    if not delegate_enrichment_imports_ready():
         return reply
+    from butler.core.session_epoch import load_epoch_transcript_rows
+    from butler.report import get_last_report
     canonical = resolve_handler_session_key(
         handler,
         owner_id=owner_id,
@@ -627,9 +628,12 @@ def run_scenario_track(
                 if post_cleanup and not post_cleanup[0].startswith("no workspace"):
                     print(f"  cleanup {track.id}/{live.name}: removed {post_cleanup}")
 
+        from butler.gateway.wechat_scenario_sim_ops import run_scenario_case_safe
+
         t0 = time.time()
         entry = ScenarioCaseResult(name=live.name, track_id=track.id, ok=True)
-        try:
+
+        def _run_case() -> None:
             audit_before = _audit_event_count(
                 handler,
                 owner_id=owner_id,
@@ -666,10 +670,8 @@ def run_scenario_track(
             entry.ok = not errors
             if not entry.ok and live.prompt_hint:
                 entry.warnings.insert(0, f"prompt_hint: {live.prompt_hint}")
-        except Exception as exc:
-            entry.ok = False
-            entry.errors.append(str(exc)[:200])
-            entry.elapsed_seconds = time.time() - t0
+
+        run_scenario_case_safe(_run_case, entry, t0=t0)
         results.append(entry)
 
     return results

@@ -67,8 +67,6 @@ def transcribe_voice_file(path: str) -> str:
     """Transcribe cached WeChat voice (.silk or .wav)."""
     import time
 
-    from butler.gateway.media_telemetry import record_media_event
-
     t0 = time.monotonic()
     provider = stt_provider()
     if provider in ("off", "none", "0"):
@@ -78,7 +76,9 @@ def transcribe_voice_file(path: str) -> str:
     if not src.is_file():
         raise FileNotFoundError(str(src))
 
-    try:
+    from butler.gateway.speech_stt_ops import transcribe_with_stt_telemetry
+
+    def _run() -> str:
         with tempfile.TemporaryDirectory(prefix="butler-stt-") as tmp:
             wav = Path(tmp) / "voice.wav"
             if src.suffix.lower() == ".wav":
@@ -86,22 +86,7 @@ def transcribe_voice_file(path: str) -> str:
             else:
                 silk_to_wav(src, wav)
             if provider == "local":
-                text = transcribe_wav_local(wav)
-            else:
-                raise RuntimeError(f"未知 STT provider: {provider}")
-        record_media_event(
-            "stt",
-            provider=provider,
-            ok=True,
-            duration_ms=(time.monotonic() - t0) * 1000,
-        )
-        return text
-    except Exception as exc:
-        record_media_event(
-            "stt",
-            provider=provider,
-            ok=False,
-            duration_ms=(time.monotonic() - t0) * 1000,
-            detail=str(exc)[:80],
-        )
-        raise
+                return transcribe_wav_local(wav)
+            raise RuntimeError(f"未知 STT provider: {provider}")
+
+    return transcribe_with_stt_telemetry(_run, provider=provider, t0=t0)

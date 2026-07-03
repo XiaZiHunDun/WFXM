@@ -40,15 +40,14 @@ def _get_fernet():
     if not key:
         logger.warning("BUTLER_PIM_ENCRYPT=1 but BUTLER_PIM_ENCRYPT_KEY is empty; encryption disabled")
         return None
+    from butler.tools.tenant_store_ops import build_fernet_safe, decrypt_fernet_payload_safe
+
     try:
-        from cryptography.fernet import Fernet
-        return Fernet(key.encode("utf-8"))
+        from cryptography.fernet import Fernet  # noqa: F401
     except ImportError:
         logger.warning("cryptography not installed; PIM encryption disabled")
         return None
-    except Exception as exc:
-        logger.warning("Fernet init failed: %s", exc)
-        return None
+    return build_fernet_safe(key)
 
 
 def _encrypt_text(text: str) -> str:
@@ -67,12 +66,9 @@ def _decrypt_text(text: str) -> str:
     f = _get_fernet()
     if f is None:
         return text
-    try:
-        encrypted = base64.urlsafe_b64decode(text[7:])
-        return f.decrypt(encrypted).decode("utf-8")
-    except Exception as exc:
-        logger.warning("Fernet decryption failed: %s", exc)
-        return text
+    encrypted = base64.urlsafe_b64decode(text[7:])
+    plain = decrypt_fernet_payload_safe(f, encrypted)
+    return plain if plain is not None else text
 
 
 class TenantStore:

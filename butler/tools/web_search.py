@@ -270,8 +270,9 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list[dict[str, str]]
     deadline = time.monotonic() + budget
     strategies = _search_strategies()
     max_rounds = _max_retries()
-    last_exc: Exception | None = None
     round_idx = 0
+
+    from butler.tools.web_search_ops import try_search_attempt_safe
 
     while time.monotonic() < deadline and round_idx < max_rounds:
         round_idx += 1
@@ -280,41 +281,42 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list[dict[str, str]]
             if remaining < 2.5:
                 break
             per_timeout = min(_per_attempt_timeout_cap(), max(3.0, remaining))
-            try:
-                if kind == "html_post":
-                    rows = _search_ddg_html_post(
+
+            def _run(
+                _kind: str = kind,
+                _trust_env: bool = trust_env,
+                _timeout: float = per_timeout,
+            ) -> list[dict[str, str]]:
+                if _kind == "html_post":
+                    return _search_ddg_html_post(
                         q,
                         max_results,
-                        trust_env=trust_env,
-                        timeout=per_timeout,
+                        trust_env=_trust_env,
+                        timeout=_timeout,
                     )
-                elif kind == "html_lite":
-                    rows = _search_ddg_lite_get(
+                if _kind == "html_lite":
+                    return _search_ddg_lite_get(
                         q,
                         max_results,
-                        trust_env=trust_env,
-                        timeout=per_timeout,
+                        trust_env=_trust_env,
+                        timeout=_timeout,
                     )
-                else:
-                    rows = _search_ddg_api(
-                        q,
-                        max_results,
-                        trust_env=trust_env,
-                        timeout=per_timeout,
-                    )
-                if rows:
-                    return rows[:max_results]
-            except Exception as exc:
-                last_exc = exc
-                logger.warning(
-                    "DuckDuckGo %s trust_env=%s round=%s failed: %s",
-                    kind,
-                    trust_env,
-                    round_idx,
-                    exc,
+                return _search_ddg_api(
+                    q,
+                    max_results,
+                    trust_env=_trust_env,
+                    timeout=_timeout,
                 )
-    if last_exc is not None:
-        logger.warning("DuckDuckGo search exhausted for %r: %s", q[:80], last_exc)
+
+            rows = try_search_attempt_safe(
+                _run,
+                kind=kind,
+                trust_env=trust_env,
+                round_idx=round_idx,
+                query=q,
+            )
+            if rows:
+                return rows[:max_results]
     return []
 
 

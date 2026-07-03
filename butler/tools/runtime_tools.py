@@ -13,16 +13,14 @@ def _resolve_project_name(project: str | None = None) -> tuple[str | None, str |
     name = (project or "").strip()
     if name:
         return name, None
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.tools.runtime_tools_ops import (
+        resolve_current_project_name_safe,
+        resolve_project_workspace_safe,
+    )
 
-        orch = get_current_orchestrator()
-        if orch is not None:
-            proj = orch.project_manager.get_current()
-            if proj is not None:
-                return str(getattr(proj, "name", "") or ""), None
-    except Exception as exc:
-        logger.debug("Runtime tool project resolve: %s", exc)
+    name = resolve_current_project_name_safe()
+    if name:
+        return name, None
     return None, "No active project; pass project or /切换 first."
 
 
@@ -65,15 +63,7 @@ def _tool_run_runtime_job(
     if err:
         return json.dumps({"ok": False, "error": err})
 
-    pm_ws = None
-    try:
-        from butler.project.manager import get_project_manager
-
-        p = get_project_manager().get_project(proj or "")
-        if p is not None:
-            pm_ws = p.workspace
-    except Exception as exc:
-        logger.debug("tool run runtime job skipped: %s", exc)
+    pm_ws = resolve_project_workspace_safe(proj or "")
     if pm_ws is not None:
         job = loader.find_job(pm_ws, jid)
         if job is not None and not job.is_readonly:

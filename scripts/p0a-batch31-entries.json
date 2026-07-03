@@ -1,0 +1,16 @@
+[
+  {"main": "butler/gateway/platforms/wechat_ilink/send_phases.py", "ops": "butler/gateway/platforms/wechat_ilink/send_phases_ops.py", "except_budget_ops": 0, "line_budget": 40},
+  {"main": "butler/gateway/wechat_scenario_sim.py", "ops": "butler/gateway/wechat_scenario_sim_ops.py", "except_budget_ops": 1, "line_budget": 35},
+  {"main": "butler/gateway/media_telemetry.py", "ops": "butler/gateway/media_telemetry_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/gateway/inbound_validate.py", "ops": "butler/gateway/inbound_validate_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/gateway/speech_stt.py", "ops": "butler/gateway/speech_stt_ops.py", "except_budget_ops": 1, "line_budget": 40},
+  {"main": "butler/tools/network_route_verify.py", "ops": "butler/tools/network_route_verify_ops.py", "except_budget_ops": 1, "line_budget": 35},
+  {"main": "butler/tools/web_search.py", "ops": "butler/tools/web_search_ops.py", "except_budget_ops": 1, "line_budget": 35},
+  {"main": "butler/tools/tenant_store.py", "ops": "butler/tools/tenant_store_ops.py", "except_budget_ops": 0, "line_budget": 40},
+  {"main": "butler/tools/runtime_tools.py", "ops": "butler/tools/runtime_tools_ops.py", "except_budget_ops": 0, "line_budget": 45},
+  {"main": "butler/tools/multimodal_tools.py", "ops": "butler/tools/multimodal_tools_ops.py", "except_budget_ops": 1, "line_budget": 40},
+  {"main": "butler/tools/document_reader.py", "ops": "butler/tools/document_reader_ops.py", "except_budget_ops": 1, "line_budget": 25},
+  {"main": "butler/tools/delegate_yield_tools.py", "ops": "butler/tools/delegate_yield_tools_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/tools/audit_persist.py", "ops": "butler/tools/audit_persist_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/tools/terminal_danger.py", "ops": "butler/tools/terminal_danger_ops.py", "except_budget_ops": 0, "line_budget": 45}
+]

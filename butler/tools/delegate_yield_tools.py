@@ -18,17 +18,11 @@ def _tool_delegate_yield(
 ) -> str:
     from butler.runtime.task_store import complete_task, get_task, list_recent_tasks
 
+    from butler.tools.delegate_yield_tools_ops import resolve_recent_delegate_task_id_safe
+
     tid = str(task_id or "").strip()
     if not tid:
-        try:
-            from butler.execution_context import get_current_session_key
-
-            sk = str(get_current_session_key() or "").strip()
-            recent = list_recent_tasks(sk, limit=1)
-            if recent:
-                tid = str(recent[0].get("task_id") or "")
-        except Exception as exc:
-            logger.debug("tool delegate yield skipped: %s", exc)
+        tid = resolve_recent_delegate_task_id_safe() or ""
     if not tid:
         return json.dumps({
             "ok": False,

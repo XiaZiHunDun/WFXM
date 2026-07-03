@@ -22,12 +22,9 @@ def audit_jsonl_path() -> Path:
     raw = os.getenv("BUTLER_TOOL_AUDIT_PATH", "").strip()
     if raw:
         return Path(raw).expanduser()
-    try:
-        from butler.config import get_settings
+    from butler.tools.audit_persist_ops import resolve_butler_home_safe
 
-        home = Path(get_settings().butler_home).expanduser()
-    except Exception:
-        home = Path.home() / ".butler"
+    home = resolve_butler_home_safe()
     return home / "audit" / "tools.jsonl"
 
 

@@ -15,11 +15,10 @@ def validate_loop_messages_before_turn(messages: list[dict]) -> str | None:
         return None
     if not messages:
         return None
-    try:
-        from butler.core.message_ir import validate_openai_sequence
+    from butler.gateway.inbound_validate_ops import validate_openai_sequence_safe
 
-        errors = validate_openai_sequence(messages)
-    except Exception:
+    errors = validate_openai_sequence_safe(messages)
+    if errors is None:
         return None
     if not errors:
         return None

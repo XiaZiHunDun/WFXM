@@ -52,38 +52,24 @@ def check_dangerous_command(command: str) -> DangerCheckResult:
     if not text:
         return DangerCheckResult(True)
 
-    try:
-        from butler.execpolicy import evaluate_command
-        from butler.execpolicy.engine import PolicyDecision
-        from butler.execution_context import get_current_orchestrator
+    from butler.execpolicy.engine import PolicyDecision
+    from butler.tools.terminal_danger_ops import (
+        evaluate_execpolicy_safe,
+        is_terminal_pattern_approved_safe,
+    )
 
-        workspace = None
-        orch = get_current_orchestrator()
-        if orch is not None and getattr(orch, "project_manager", None):
-            proj = orch.project_manager.get_current()
-            if proj is not None:
-                from pathlib import Path
-
-                workspace = Path(getattr(proj, "workspace", "") or "")
-        pol = evaluate_command(text, workspace=workspace)
-        if pol is not None:
-            if pol.decision == PolicyDecision.FORBIDDEN:
-                msg = pol.justification or "execpolicy forbidden"
-                return DangerCheckResult(False, reason=f"execpolicy: {msg}", pattern=pol.matched_rule)
-            if pol.decision == PolicyDecision.ALLOW:
-                return DangerCheckResult(True)
-    except Exception as exc:
-        logger.debug("check dangerous command skipped: %s", exc)
+    pol = evaluate_execpolicy_safe(text)
+    if pol is not None:
+        if pol.decision == PolicyDecision.FORBIDDEN:
+            msg = pol.justification or "execpolicy forbidden"
+            return DangerCheckResult(False, reason=f"execpolicy: {msg}", pattern=pol.matched_rule)
+        if pol.decision == PolicyDecision.ALLOW:
+            return DangerCheckResult(True)
     for name, pattern in _PATTERNS:
         if pattern.search(text):
-            try:
-                from butler.tools.terminal_pattern_approval import is_pattern_approved
-
-                sk = get_terminal_session_context()
-                if sk and is_pattern_approved(sk, name):
-                    return DangerCheckResult(True)
-            except Exception as exc:
-                logger.debug("check dangerous command skipped: %s", exc)
+            sk = get_terminal_session_context()
+            if sk and is_terminal_pattern_approved_safe(sk, name):
+                return DangerCheckResult(True)
             return DangerCheckResult(
                 False,
                 reason=(

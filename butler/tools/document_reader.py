@@ -53,12 +53,12 @@ def convert_document(path: str, *, max_chars: int = _MAX_OUTPUT_CHARS) -> dict[s
             "hint": "pip install 'butler-system[documents]'",
         }
 
-    try:
-        md = MarkItDown()
-        result = md.convert(str(p))
-        text = result.text_content or ""
-    except Exception as exc:
-        return {"error": f"Conversion failed: {exc}", "path": str(p)}
+    from butler.tools.document_reader_ops import convert_markitdown_safe
+
+    out = convert_markitdown_safe(p)
+    if "error" in out:
+        return out
+    text = out.get("text") or ""
 
     cap = max(500, int(max_chars or _MAX_OUTPUT_CHARS))
     truncated = len(text) > cap

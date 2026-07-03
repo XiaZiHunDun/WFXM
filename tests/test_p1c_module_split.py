@@ -342,6 +342,20 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/execpolicy/engine_ops.py": 45,
     "butler/project/worktree_ops.py": 30,
     "butler/report/format_ops.py": 45,
+    "butler/gateway/platforms/wechat_ilink/send_phases_ops.py": 40,
+    "butler/gateway/wechat_scenario_sim_ops.py": 35,
+    "butler/gateway/media_telemetry_ops.py": 25,
+    "butler/gateway/inbound_validate_ops.py": 25,
+    "butler/gateway/speech_stt_ops.py": 40,
+    "butler/tools/network_route_verify_ops.py": 35,
+    "butler/tools/web_search_ops.py": 35,
+    "butler/tools/tenant_store_ops.py": 40,
+    "butler/tools/runtime_tools_ops.py": 45,
+    "butler/tools/multimodal_tools_ops.py": 40,
+    "butler/tools/document_reader_ops.py": 25,
+    "butler/tools/delegate_yield_tools_ops.py": 30,
+    "butler/tools/audit_persist_ops.py": 25,
+    "butler/tools/terminal_danger_ops.py": 45,
 
 }
 

@@ -57,11 +57,10 @@ def load_network_route_manifest(workspace: Path | str | None = None) -> NetworkR
         path = root / _MANIFEST_NAME
         if not path.is_file():
             continue
-        try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception:
-            return None
-        if not isinstance(data, dict):
+        from butler.tools.network_route_verify_ops import load_yaml_dict_safe
+
+        data = load_yaml_dict_safe(path)
+        if data is None:
             return None
         cases: list[RouteGoldenCase] = []
         for row in data.get("golden_cases") or []:
@@ -214,9 +213,12 @@ def run_policy_golden_cases(
         nsp._web_search_in_current_toolset = lambda: True  # type: ignore[method-assign]
 
     try:
+        from butler.tools.network_route_verify_ops import run_policy_golden_case_safe
+
         for case in manifest.golden_cases:
             entry: dict[str, Any] = {"name": case.name, "tool": case.tool}
-            try:
+
+            def _run_case() -> None:
                 with turn_network_search_scope(case.user_text):
                     for prereq in case.prereq_tools:
                         record_network_search_tool(prereq)
@@ -230,10 +232,12 @@ def run_policy_golden_cases(
                     report.ok = False
                 else:
                     entry["ok"] = True
-            except Exception as exc:
+
+            err = run_policy_golden_case_safe(_run_case, case_name=case.name)
+            if err is not None:
                 entry["ok"] = False
-                entry["error"] = str(exc)[:200]
-                report.errors.append(f"{case.name}: {exc}")
+                entry["error"] = err[:200]
+                report.errors.append(err)
                 report.ok = False
             report.cases.append(entry)
     finally:

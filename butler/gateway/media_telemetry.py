@@ -30,14 +30,9 @@ def record_media_event(
     """Persist last event per kind (``vision`` | ``stt``)."""
     path = _state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    data: dict[str, Any] = {}
-    if path.is_file():
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(raw, dict):
-                data = raw
-        except Exception as exc:
-            logger.debug("record media event skipped: %s", exc)
+    from butler.gateway.media_telemetry_ops import load_json_dict_safe
+
+    data: dict[str, Any] = load_json_dict_safe(path) if path.is_file() else {}
     data[kind] = {
         "provider": (provider or "?")[:40],
         "ok": bool(ok),
@@ -52,11 +47,9 @@ def load_media_telemetry() -> dict[str, Any]:
     path = _state_path()
     if not path.is_file():
         return {}
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        return raw if isinstance(raw, dict) else {}
-    except Exception:
-        return {}
+    from butler.gateway.media_telemetry_ops import load_json_dict_safe
+
+    return load_json_dict_safe(path)
 
 
 def format_media_diagnostic_lines() -> list[str]:

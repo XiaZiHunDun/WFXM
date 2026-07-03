@@ -148,37 +148,24 @@ async def _phase_send_attachments(
     as non-voice. The per-extension dispatch table is local; failures
     are logged + swallowed (matching the original ``send`` semantics).
     """
-    _AUDIO_EXTS = {".ogg", ".opus", ".mp3", ".wav", ".m4a", ".flac"}
-    _VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp"}
-    _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-
-    async def _deliver(path: str, is_voice: bool) -> None:
-        ext = Path(path).suffix.lower()
-        if is_voice or ext in _AUDIO_EXTS:
-            await adapter.send_voice(chat_id=chat_id, audio_path=path, metadata=metadata)
-        elif ext in _VIDEO_EXTS:
-            await adapter.send_video(chat_id=chat_id, video_path=path, metadata=metadata)
-        elif ext in _IMAGE_EXTS:
-            await adapter.send_image_file(chat_id=chat_id, image_path=path, metadata=metadata)
-        else:
-            await adapter.send_document(chat_id=chat_id, file_path=path, metadata=metadata)
+    from butler.gateway.platforms.wechat_ilink.send_phases_ops import deliver_attachment_safe
 
     for media_path, is_voice in media_files:
-        try:
-            await _deliver(media_path, is_voice)
-        except Exception as exc:
-            logger.warning(
-                "[%s] media delivery failed for %s: %s",
-                adapter.name, media_path, exc,
-            )
+        await deliver_attachment_safe(
+            adapter,
+            path=media_path,
+            is_voice=is_voice,
+            chat_id=chat_id,
+            metadata=metadata,
+        )
     for file_path in local_files:
-        try:
-            await _deliver(file_path, False)
-        except Exception as exc:
-            logger.warning(
-                "[%s] local file delivery failed for %s: %s",
-                adapter.name, file_path, exc,
-            )
+        await deliver_attachment_safe(
+            adapter,
+            path=file_path,
+            is_voice=False,
+            chat_id=chat_id,
+            metadata=metadata,
+        )
 
 
 async def _phase_send_text_chunks(
