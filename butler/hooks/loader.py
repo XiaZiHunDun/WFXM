@@ -70,17 +70,9 @@ def _hooks_dict_from_data(data: dict[str, Any]) -> dict[str, Any] | None:
 
 def load_hooks_config(workspace: Path | None = None) -> list[HookRule]:
     """Merge hooks: ``~/.butler/config.yaml`` → ``~/.butler/.butler/hooks.yaml`` → project."""
-    rules: list[HookRule] = []
-    try:
-        from butler.config import get_butler_settings
+    from butler.hooks.loader_ops import load_butler_global_hooks_safe
 
-        settings = get_butler_settings()
-        cfg_path = settings.config_yaml_path
-        if cfg_path.is_file():
-            rules.extend(_load_file(cfg_path))
-        rules.extend(_load_file(settings.butler_home / ".butler" / "hooks.yaml"))
-    except Exception as exc:
-        logger.debug("Global hooks load skipped: %s", exc)
+    rules: list[HookRule] = list(load_butler_global_hooks_safe(_load_file))
 
     if workspace is not None:
         # R3-2: project hooks are loaded here; tool writes to this path are
@@ -101,17 +93,10 @@ def _load_file(path: Path) -> list[HookRule]:
     cached = _FILE_CACHE.get(key)
     if cached is not None:
         return list(cached)
-    try:
-        import yaml
-    except ImportError:
-        logger.debug("PyYAML not installed; skipping %s", path)
-        return []
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        logger.warning("Failed to load hooks %s: %s", path, exc)
-        return []
-    if not isinstance(data, dict):
+    from butler.hooks.loader_ops import parse_hooks_yaml_dict_safe
+
+    data = parse_hooks_yaml_dict_safe(path)
+    if data is None:
         return []
     hooks = _hooks_dict_from_data(data)
     if hooks is None:

@@ -85,21 +85,9 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
             )
 
     if os.getenv("BUTLER_MCP_ENABLED", "0").strip() in ("1", "true", "yes"):
-        try:
-            from butler.mcp.config import http_mcp_servers_configured
+        from butler.ops.security_audit_ops import mcp_http_audit_findings_safe
 
-            if http_mcp_servers_configured(workspace=workspace):
-                hosts = os.getenv("BUTLER_MCP_HTTP_HOSTS_ALLOW", "").strip()
-                if not hosts:
-                    findings.append(
-                        AuditFinding(
-                            "warn",
-                            "MCP_HTTP_HOSTS_OPEN",
-                            "已配置 HTTP MCP server 但 BUTLER_MCP_HTTP_HOSTS_ALLOW 为空",
-                        )
-                    )
-        except Exception:
-            pass
+        findings.extend(mcp_http_audit_findings_safe(workspace=workspace))
 
     if os.getenv("BUTLER_MCP_HTTP_ALLOW_PRIVATE", "0").strip() in ("1", "true", "yes"):
         findings.append(
@@ -113,26 +101,9 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
     if workspace is not None:
         perms = workspace / ".butler" / "permissions.yaml"
         if perms.is_file():
-            try:
-                import yaml
+            from butler.ops.security_audit_ops import permissions_workflow_findings_safe
 
-                data = yaml.safe_load(perms.read_text(encoding="utf-8"))
-                if isinstance(data, dict):
-                    wf = data.get("workflow_steps")
-                    if isinstance(wf, dict):
-                        for step_id, cfg in wf.items():
-                            if isinstance(cfg, dict) and cfg.get("requires_approval"):
-                                findings.append(
-                                    AuditFinding(
-                                        "info",
-                                        "WORKFLOW_APPROVAL",
-                                        f"workflow 步骤 {step_id} 需人工确认",
-                                    )
-                                )
-            except Exception:
-                findings.append(
-                    AuditFinding("warn", "PERMS_PARSE", "permissions.yaml 解析失败")
-                )
+            findings.extend(permissions_workflow_findings_safe(perms))
 
     disable_compact = os.getenv("BUTLER_DISABLE_AUTO_COMPACT", "").strip().lower()
     if disable_compact in ("1", "true", "yes"):
@@ -144,12 +115,9 @@ def run_security_audit(*, workspace: Path | None = None) -> list[AuditFinding]:
             )
         )
 
-    try:
-        from butler.ops.terminal_sandbox_diagnostics import audit_terminal_sandbox_findings
+    from butler.ops.security_audit_ops import terminal_sandbox_audit_findings_safe
 
-        findings.extend(audit_terminal_sandbox_findings(workspace=workspace))
-    except Exception:
-        pass
+    findings.extend(terminal_sandbox_audit_findings_safe(workspace=workspace))
 
     return findings
 

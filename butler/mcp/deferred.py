@@ -21,15 +21,9 @@ _promoted: dict[str, set[str]] = {}
 
 
 def _session_key(session_key: str = "") -> str:
-    key = str(session_key or "").strip()
-    if key:
-        return key
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.mcp.deferred_ops import resolve_mcp_session_key_safe
 
-        return str(get_current_session_key() or "").strip() or "default"
-    except Exception:
-        return "default"
+    return resolve_mcp_session_key_safe(session_key)
 
 
 def get_promoted_tools(session_key: str = "") -> set[str]:
@@ -74,10 +68,9 @@ def promote_experience_mcp_tools(
 
     rejected: list[dict[str, str]] = []
     to_promote: list[str] = []
-    try:
-        _all_mcp_refs(sk)
-    except Exception as exc:  # noqa: BLE001 — surface connect failure
-        logger.debug("MCP connect for experience promote failed: %s", exc)
+    from butler.mcp.deferred_ops import warm_mcp_connection_safe
+
+    if not warm_mcp_connection_safe(sk, _all_mcp_refs):
         return [], [{"name": n, "reason": "connect_failed"} for n in cleaned]
 
     from butler.mcp.manager import get_manager
@@ -122,21 +115,9 @@ def clear_promoted(session_key: str = "") -> None:
 
 
 def _resolve_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.mcp.deferred_ops import resolve_mcp_workspace_safe
 
-        orch = get_current_orchestrator()
-        pm = getattr(orch, "project_manager", None) if orch else None
-        if pm is None:
-            return None
-        from butler.execution_context import get_current_session_key
-
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        if proj is None:
-            return None
-        return Path(proj.workspace)
-    except Exception:
-        return None
+    return resolve_mcp_workspace_safe()
 
 
 def _all_mcp_refs(session_key: str = ""):

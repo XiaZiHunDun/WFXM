@@ -182,6 +182,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/delegate_push_dedup_ops.py": 90,
     "butler/mcp/config_ops.py": 60,
     "butler/tools/delegate_prepare_ops.py": 50,
+    "butler/hooks/loader_ops.py": 50,
+    "butler/core/session_todos_ops.py": 40,
+    "butler/mcp/deferred_ops.py": 70,
+    "butler/gateway/inbound_media_ops.py": 65,
+    "butler/tools/delegate_subagent_ops.py": 55,
+    "butler/experiments/ledger_ops.py": 115,
+    "butler/ops/security_audit_ops.py": 85,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

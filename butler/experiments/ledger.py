@@ -187,30 +187,15 @@ def maybe_record_from_job_result(
         "metric_value": metric["metric_value"],
         "status": status,
     }
-    try:
-        from butler.experiments.outcomes import (
-            maybe_resolve_previous_pending,
-            maybe_store_pending_from_metric,
-        )
+    from butler.experiments.ledger_ops import (
+        apply_crash_guard_safe,
+        apply_outcome_hooks_safe,
+        resolve_project_name_for_workspace_safe,
+    )
 
-        proj_name = ""
-        try:
-            from butler.project.manager import get_project_manager
-
-            for p in get_project_manager().list_projects():
-                if Path(p.workspace).resolve() == ws:
-                    proj_name = p.name
-                    break
-        except Exception as exc:
-            logger.debug("maybe record from job result skipped: %s", exc)
-        subj = str(job_id or metric["metric_name"])
-        maybe_resolve_previous_pending(
-            ws,
-            project=proj_name,
-            subject=subj,
-            outcome_value=str(metric["metric_value"]),
-        )
-        pending_row = maybe_store_pending_from_metric(
+    proj_name = resolve_project_name_for_workspace_safe(ws)
+    out.update(
+        apply_outcome_hooks_safe(
             ws,
             project=proj_name,
             job_id=job_id,
@@ -218,25 +203,15 @@ def maybe_record_from_job_result(
             metric_value=float(metric["metric_value"]),
             hypothesis=hyp,
         )
-        if pending_row:
-            out["outcome_pending_id"] = pending_row.get("row_id")
-    except Exception as exc:
-        logger.debug("outcome log hook skipped: %s", exc)
-    if status == "crash":
-        try:
-            from butler.experiments.crash_guard import (
-                consecutive_crash_count,
-                should_block_experiment_run,
-            )
-
-            streak = consecutive_crash_count(ws, hypothesis=hyp, job_id=job_id)
-            out["crash_streak"] = streak
-            blocked, reason = should_block_experiment_run(ws, hypothesis=hyp, job_id=job_id)
-            if blocked:
-                out["experiment_blocked"] = True
-                out["block_reason"] = reason
-        except Exception as exc:
-            logger.debug("Experiment crash guard skipped: %s", exc)
+    )
+    out.update(
+        apply_crash_guard_safe(
+            ws,
+            hypothesis=hyp,
+            job_id=job_id,
+            status=status,
+        )
+    )
     return out
 
 

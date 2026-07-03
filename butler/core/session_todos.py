@@ -33,14 +33,9 @@ def max_todos_items() -> int:
 
 
 def _resolve_session_key(session_key: str = "") -> str:
-    if str(session_key or "").strip():
-        return str(session_key).strip()
-    try:
-        from butler.execution_context import get_current_session_key
+    from butler.core.session_todos_ops import resolve_session_key_safe
 
-        return str(get_current_session_key() or "").strip() or "default"
-    except Exception:
-        return "default"
+    return resolve_session_key_safe(session_key)
 
 
 def _safe_segment(value: str) -> str:
@@ -133,12 +128,9 @@ def replace_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
         result = _persist_session_todos_file(sk, normalized)
 
     if result.get("ok"):
-        try:
-            from butler.core.session_transcript import record_todo_updated
+        from butler.core.session_todos_ops import record_todo_updated_safe
 
-            record_todo_updated(sk, count=len(normalized))
-        except Exception as exc:
-            logger.debug("replace session todos skipped: %s", exc)
+        record_todo_updated_safe(sk, count=len(normalized))
     return result
 
 
@@ -195,12 +187,9 @@ def merge_session_todos(session_key: str, items: list[Any]) -> dict[str, Any]:
         result = _persist_session_todos_file(sk, merged)
 
     if result.get("ok"):
-        try:
-            from butler.core.session_transcript import record_todo_updated
+        from butler.core.session_todos_ops import record_todo_updated_safe
 
-            record_todo_updated(sk, count=result.get("count", 0))
-        except Exception as exc:
-            logger.debug("merge session todos skipped: %s", exc)
+        record_todo_updated_safe(sk, count=int(result.get("count", 0)))
     return result
 
 

@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-import logging
-
 from butler.gateway.platforms.types import MessageEvent, MessageType
-
-logger = logging.getLogger(__name__)
 
 _PLACEHOLDER = "（收到媒体消息；当前 Butler 网关会处理文字指令，请用文字说明需求。）"
 
@@ -74,48 +70,24 @@ def build_inbound_user_text(event: MessageEvent) -> str:
     blocks: list[str] = []
 
     if documents:
+        from butler.gateway.inbound_media_ops import wechat_document_block_safe
+
         for doc_path in documents[:3]:
-            try:
-                from butler.tools.document_reader import convert_document
-                result = convert_document(doc_path, max_chars=_max_chars())
-                if result.get("ok"):
-                    fmt = result.get("format", "文档")
-                    chars = result.get("chars", 0)
-                    text = result.get("text", "")
-                    blocks.append(f"[微信文件 — {fmt.upper()}，{chars} 字]\n{text}")
-                    logger.info("WeChat document converted path=%s format=%s chars=%d", doc_path, fmt, chars)
-                else:
-                    blocks.append(f"[微信文件]\n（文档解析失败：{result.get('error', '未知错误')}）")
-            except ImportError:
-                blocks.append("[微信文件]\n（文档解析不可用，请安装: pip install 'butler-system[documents]'）")
-            except Exception as exc:
-                logger.warning("WeChat document conversion failed for %s: %s", doc_path, exc)
-                blocks.append(f"[微信文件]\n（文档解析失败：{exc}）")
+            blocks.append(wechat_document_block_safe(doc_path, max_chars=_max_chars()))
 
     if images:
-        from butler.gateway.minimax_vlm import describe_image
-
         if base:
             blocks.append(f"[微信图片]\n（用户附图说明：{base}）")
         else:
             blocks.append("[微信图片]")
         for img_path in images[:3]:
-            try:
-                hint = base if len(images) == 1 else ""
-                summary = describe_image(img_path, caption=hint)
-                logger.info(
-                    "WeChat vision ok path=%s chars=%d",
-                    img_path,
-                    len(summary),
-                )
-                blocks.append(f"--- 图片识别 ---\n{summary}")
-            except Exception as exc:
-                logger.warning("WeChat vision failed for %s: %s", img_path, exc)
-                blocks.append(f"--- 图片识别 ---\n（识别失败：{exc}）")
+            from butler.gateway.inbound_media_ops import wechat_image_block_safe
+
+            hint = base if len(images) == 1 else ""
+            blocks.append(wechat_image_block_safe(img_path, hint=hint))
         base = ""
 
     if voices:
-        from butler.gateway.speech_stt import transcribe_voice_file
         from butler.gateway_settings import resolve_gateway_inbound_config
 
         prefer_ilink = resolve_gateway_inbound_config().speech.prefer_ilink_text
@@ -125,21 +97,11 @@ def build_inbound_user_text(event: MessageEvent) -> str:
             blocks.append(f"[微信语音转写]\n{ilink_text}")
             base = ""
         else:
+            from butler.gateway.inbound_media_ops import wechat_voice_block_safe
+
             for vpath in voices[:2]:
-                try:
-                    text = transcribe_voice_file(vpath)
-                    blocks.append(f"[微信语音转写]\n{text}")
-                    base = ""
-                except Exception as exc:
-                    logger.warning("WeChat STT failed for %s: %s", vpath, exc)
-                    if ilink_text:
-                        blocks.append(f"[微信语音转写]\n{ilink_text}")
-                        base = ""
-                    else:
-                        blocks.append(
-                            "--- 语音转写 ---\n"
-                            f"（转写失败：{exc}。请用文字重说，或安装 ffmpeg + faster-whisper）"
-                        )
+                blocks.append(wechat_voice_block_safe(vpath, ilink_text=ilink_text))
+                base = ""
             base = ""
 
     if base:

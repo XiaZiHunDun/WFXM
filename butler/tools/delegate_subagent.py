@@ -2,29 +2,17 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
 from butler.tools.delegate_run_state import DelegateRunState
 
-logger = logging.getLogger(__name__)
-
 
 def attach_agents_md_context(state: DelegateRunState) -> None:
     """Merge ``AGENTS.md`` into context for the current project (2b)."""
-    if state.project is None:
-        return
-    try:
-        from butler.agents_md import merge_agent_md_into_context
+    from butler.tools.delegate_subagent_ops import merge_agents_md_context_safe
 
-        state.context = merge_agent_md_into_context(
-            Path(state.project.workspace),
-            state.role,
-            state.context,
-        )
-    except Exception as exc:  # noqa: BLE001 — best-effort merge
-        logger.debug("agents.md merge skipped: %s", exc)
+    merge_agents_md_context_safe(state)
 
 
 def build_subagent_tools(state: DelegateRunState) -> None:
@@ -113,14 +101,9 @@ def configure_subagent_policy(state: DelegateRunState) -> None:
     from butler.delegate.policy import resolve_delegate_max_iterations
 
     state.agent.config.max_iterations = resolve_delegate_max_iterations(state.category_meta)
-    try:
-        from butler.delegate.policy import delegate_one_tool_per_iteration
+    from butler.tools.delegate_subagent_ops import apply_one_tool_per_iteration_safe
 
-        if delegate_one_tool_per_iteration():
-            state.agent.config.enable_parallel_tools = False
-            state.agent.diagnostics["delegate_one_tool_per_iteration"] = True
-    except Exception as exc:  # noqa: BLE001 — best-effort policy
-        logger.debug("delegate one-tool-per-iteration policy skipped: %s", exc)
+    apply_one_tool_per_iteration_safe(state)
 
 
 def inject_dev_engine_prompt(state: DelegateRunState) -> None:
@@ -128,14 +111,9 @@ def inject_dev_engine_prompt(state: DelegateRunState) -> None:
     norm = state.role.replace("_agent", "").strip().lower()
     if norm != "dev":
         return
-    try:
-        from butler.agent_profiles import get_dev_agent_prompt
+    from butler.tools.delegate_subagent_ops import inject_dev_engine_prompt_safe
 
-        enhanced = get_dev_agent_prompt()
-        if enhanced and len(enhanced) > len(state.agent.system_prompt):
-            state.agent.system_prompt = enhanced
-    except Exception as exc:  # noqa: BLE001 — best-effort injection
-        logger.debug("dev engine prompt injection skipped: %s", exc)
+    inject_dev_engine_prompt_safe(state)
 
 
 def inject_workspace_root_context(state: DelegateRunState) -> None:
