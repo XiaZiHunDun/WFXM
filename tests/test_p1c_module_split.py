@@ -307,6 +307,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/core/agents_md_sections_ops.py": 15,
     "butler/memory/corrective_recall_ops.py": 25,
     "butler/core/remote_compact_ops.py": 45,
+    "butler/memory/recall_layers_ops.py": 20,
+    "butler/core/tool_retry_ops.py": 25,
+    "butler/gateway/platforms/base_ops.py": 55,
+    "butler/dag_scheduler_ops.py": 20,
+    "butler/core/compaction_steer_bridge_ops.py": 35,
+    "butler/memory/injection_llm_score_ops.py": 40,
+    "butler/ops/delegate_failure_b9_promote_ops.py": 30,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

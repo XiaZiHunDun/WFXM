@@ -587,6 +587,20 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/memory/corrective_recall_ops.py": 1,
     "butler/core/remote_compact.py": 0,
     "butler/core/remote_compact_ops.py": 1,
+    "butler/memory/recall_layers.py": 0,
+    "butler/memory/recall_layers_ops.py": 0,
+    "butler/core/tool_retry.py": 0,
+    "butler/core/tool_retry_ops.py": 0,
+    "butler/gateway/platforms/base.py": 0,
+    "butler/gateway/platforms/base_ops.py": 1,
+    "butler/dag_scheduler.py": 0,
+    "butler/dag_scheduler_ops.py": 1,
+    "butler/core/compaction_steer_bridge.py": 0,
+    "butler/core/compaction_steer_bridge_ops.py": 0,
+    "butler/memory/injection_llm_score.py": 0,
+    "butler/memory/injection_llm_score_ops.py": 1,
+    "butler/ops/delegate_failure_b9_promote.py": 0,
+    "butler/ops/delegate_failure_b9_promote_ops.py": 0,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

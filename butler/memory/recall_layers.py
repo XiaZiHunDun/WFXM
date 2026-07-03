@@ -130,10 +130,9 @@ def recall_fetch(
         return json.dumps({"ok": False, "error": "no valid experience ids"})
 
     rows = bm.experience.fetch_by_ids(row_ids)
-    try:
-        bm.experience.record_access(row_ids)
-    except Exception as exc:
-        logger.debug("recall fetch skipped: %s", exc)
+    from butler.memory.recall_layers_ops import record_experience_access_safe
+
+    record_experience_access_safe(bm.experience, row_ids)
     items = []
     for row in rows:
         enriched = enrich_search_hit(row, project_workspace=getattr(svc, "_project_root", None))

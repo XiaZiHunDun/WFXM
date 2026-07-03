@@ -229,10 +229,11 @@ def apply_node_router(
     if not node.router or not result.success:
         return []
     errors: list[str] = []
-    try:
-        next_id = node.router(result)
-    except Exception as exc:
-        errors.append(f"Router for {nid!r} failed: {exc}")
+    from butler.dag_scheduler_ops import run_node_router_safe
+
+    next_id, router_error = run_node_router_safe(node.router, result)
+    if router_error:
+        errors.append(f"Router for {nid!r} failed: {router_error}")
         cancel_direct_dependents(node_map, nid, cancelled)
         return errors
     if not next_id:

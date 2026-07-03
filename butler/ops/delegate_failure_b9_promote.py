@@ -235,16 +235,12 @@ def promotion_queue_summary(*, limit: int = 50) -> dict[str, Any]:
 
     recent: list[dict[str, Any]] = []
     pending = 0
-    try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            rec = json.loads(line)
-            if rec.get("status") == "pending_implementation":
-                pending += 1
-            recent.append(rec)
-    except Exception:
-        pass
+    from butler.ops.delegate_failure_b9_promote_ops import read_promotion_queue_records_safe
+
+    for rec in read_promotion_queue_records_safe(path):
+        if rec.get("status") == "pending_implementation":
+            pending += 1
+        recent.append(rec)
     return {
         "total": len(recent),
         "pending": pending,

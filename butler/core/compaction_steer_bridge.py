@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from butler.env_parse import env_truthy
-
-logger = logging.getLogger(__name__)
 
 
 def compaction_inbound_bridge_enabled() -> bool:
@@ -29,38 +26,32 @@ def apply_compaction_turn_followup(
     out = list(messages)
     injected = 0
 
-    try:
-        from butler.core.events_sink import pop_urgent_inbound
+    from butler.core.compaction_steer_bridge_ops import (
+        pop_compaction_steer_text_safe,
+        pop_compaction_urgent_inbound_text_safe,
+    )
 
-        item = pop_urgent_inbound(sk)
-        if item is not None and item.text.strip():
-            out.append({
-                "role": "user",
-                "content": (
-                    "[入站紧急 — 压缩后继续]\n"
-                    f"{item.text.strip()}"
-                ),
-            })
-            injected += 1
-    except Exception as exc:
-        logger.debug("compaction urgent inbound: %s", exc)
+    urgent_text = pop_compaction_urgent_inbound_text_safe(sk)
+    if urgent_text:
+        out.append({
+            "role": "user",
+            "content": (
+                "[入站紧急 — 压缩后继续]\n"
+                f"{urgent_text}"
+            ),
+        })
+        injected += 1
 
-    try:
-        from butler.core.steer import drain_steer, pending_steer
-
-        steer_text = pending_steer(sk)
-        if steer_text and steer_text.strip():
-            out.append({
-                "role": "user",
-                "content": (
-                    "[用户指引 — 压缩后继续，请在下轮工具结果中落实]\n"
-                    f"{steer_text.strip()}"
-                ),
-            })
-            drain_steer(sk)
-            injected += 1
-    except Exception as exc:
-        logger.debug("compaction steer inject: %s", exc)
+    steer_text = pop_compaction_steer_text_safe(sk)
+    if steer_text:
+        out.append({
+            "role": "user",
+            "content": (
+                "[用户指引 — 压缩后继续，请在下轮工具结果中落实]\n"
+                f"{steer_text}"
+            ),
+        })
+        injected += 1
 
     if injected and isinstance(diagnostics, dict):
         diagnostics["compaction_followup_injected"] = injected

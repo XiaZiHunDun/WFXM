@@ -109,38 +109,14 @@ class ButlerPlatformAdapter(ABC):
             if bridge is not None:
                 await bridge.start_turn()
             try:
-                response = await self._message_handler(event)
-                if response:
-                    send_metadata: dict[str, Any] = {}
-                    if bridge is not None and getattr(bridge, "slash_single_bubble", False):
-                        send_metadata["force_single_bubble"] = True
-                        bridge.slash_single_bubble = False
-                    send_result = await self.send(
-                        chat_id,
-                        response,
-                        metadata=send_metadata or None,
-                    )
-                    if isinstance(send_result, SendResult) and not send_result.success:
-                        logger.error(
-                            "[%s] outbound send failed chat=%s: %s",
-                            self.name,
-                            chat_id[:24],
-                            send_result.error or "unknown",
-                        )
-                    else:
-                        if bridge is not None:
-                            bridge.mark_final_sent(main_reply_chars=len(response or ""))
-                            bridge.maybe_notify_turn_complete_after_reply()
-            except Exception as exc:
-                logger.error("[%s] handler failed: %s", self.name, exc, exc_info=True)
-                try:
-                    if bridge is not None:
-                        bridge.mark_final_sent()
-                    from butler.gateway.user_errors import format_gateway_user_error
+                from butler.gateway.platforms.base_ops import handle_platform_message_turn_safe
 
-                    await self.send(chat_id, format_gateway_user_error(exc))
-                except Exception as exc:
-                    logger.debug("handle message skipped: %s", exc)
+                await handle_platform_message_turn_safe(
+                    self,
+                    chat_id=chat_id,
+                    bridge=bridge,
+                    handler_coro=self._message_handler(event),
+                )
             finally:
                 if bridge is not None:
                     await bridge.end_turn()

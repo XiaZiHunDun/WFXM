@@ -46,13 +46,12 @@ def tool_retry_backoff_seconds(attempt: int) -> float:
 
 
 def _is_transient_error(result: str) -> bool:
-    try:
-        from butler.core.tool_error_policy import ToolErrorKind, classify_tool_error
+    from butler.core.tool_retry_ops import is_retry_tool_error_safe
 
-        if tool_retry_enabled():
-            return classify_tool_error(result) == ToolErrorKind.retry
-    except Exception as exc:
-        logger.debug("is transient error skipped: %s", exc)
+    if tool_retry_enabled():
+        classified = is_retry_tool_error_safe(result)
+        if classified is not None:
+            return classified
     text = (result or "").strip().lower()
     if not text:
         return False
