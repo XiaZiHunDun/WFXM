@@ -615,6 +615,20 @@ _HOTSPOT_BUDGETS: dict[str, int] = {
     "butler/memory/transcript_memory_pipeline_ops.py": 0,
     "butler/memory/retrieval_ranking.py": 0,
     "butler/memory/retrieval_ranking_ops.py": 0,
+    "butler/prompt_eval/llm_rubric.py": 0,
+    "butler/prompt_eval/llm_rubric_ops.py": 1,
+    "butler/transport/stream_probe.py": 0,
+    "butler/transport/stream_probe_ops.py": 1,
+    "butler/tools/execute_code.py": 0,
+    "butler/tools/execute_code_ops.py": 1,
+    "butler/tools/terminal_pattern_approval.py": 0,
+    "butler/tools/terminal_pattern_approval_ops.py": 0,
+    "butler/tools/delegate_role_guard.py": 0,
+    "butler/tools/delegate_role_guard_ops.py": 0,
+    "butler/gateway/platforms/wechat_ilink/connect_phases.py": 0,
+    "butler/gateway/platforms/wechat_ilink/connect_phases_ops.py": 0,
+    "butler/gateway/network_route_verify_runner.py": 0,
+    "butler/gateway/network_route_verify_runner_ops.py": 1,
 }
 
 _EXCEPT_RE = re.compile(r"^\s*except\s+Exception\b", re.MULTILINE)

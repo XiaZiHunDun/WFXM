@@ -112,17 +112,14 @@ def _turn_user_text() -> str:
     text = _turn_user_query()
     if text:
         return text
-    try:
-        from butler.core.session_epoch import last_user_query_in_epoch
-        from butler.execution_context import get_current_session_key
+    from butler.execution_context import get_current_session_key
+    from butler.tools.delegate_role_guard_ops import turn_user_text_from_epoch_safe
 
-        sk = str(get_current_session_key() or "").strip()
-        if sk:
-            q = last_user_query_in_epoch(sk)
-            if q:
-                return q
-    except Exception as exc:
-        logger.debug("turn user text from epoch skipped: %s", exc)
+    sk = str(get_current_session_key() or "").strip()
+    if sk:
+        query = turn_user_text_from_epoch_safe(sk)
+        if query:
+            return query
     return ""
 
 
@@ -140,21 +137,10 @@ def _explicit_role_from_state(state: "DelegateRunState") -> str | None:
 
 
 def _is_lead_turn() -> bool:
-    try:
-        from butler.execution_context import get_current_orchestrator
-        from butler.project.lead import is_lead_project
+    from butler.tools.delegate_role_guard_ops import is_lead_project_turn_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return False
-        proj = orch.project_manager.get_current()
-        if proj is None:
-            return False
-        name = str(getattr(proj, "name", "") or "")
-        return bool(name) and is_lead_project(name, project=proj)
-    except Exception as exc:
-        logger.debug("lead turn check skipped: %s", exc)
-        return False
+    lead = is_lead_project_turn_safe()
+    return bool(lead) if lead is not None else False
 
 
 def lead_readonly_gate_enabled() -> bool:

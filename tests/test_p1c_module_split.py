@@ -321,6 +321,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/gateway/queue_settings_ops.py": 25,
     "butler/memory/transcript_memory_pipeline_ops.py": 30,
     "butler/memory/retrieval_ranking_ops.py": 35,
+    "butler/prompt_eval/llm_rubric_ops.py": 55,
+    "butler/transport/stream_probe_ops.py": 45,
+    "butler/tools/execute_code_ops.py": 55,
+    "butler/tools/terminal_pattern_approval_ops.py": 35,
+    "butler/tools/delegate_role_guard_ops.py": 45,
+    "butler/gateway/platforms/wechat_ilink/connect_phases_ops.py": 30,
+    "butler/gateway/network_route_verify_runner_ops.py": 70,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

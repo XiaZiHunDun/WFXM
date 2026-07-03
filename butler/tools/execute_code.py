@@ -4,14 +4,10 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import tempfile
 from pathlib import Path
 
 from butler.env_parse import env_truthy
-import logging
-
-logger = logging.getLogger(__name__)
 
 _MAX_CODE_CHARS = 8000
 _DEFAULT_TIMEOUT = 30
@@ -35,20 +31,10 @@ def execute_code_allow_network() -> bool:
 
 
 def _workspace_cwd() -> Path:
-    try:
-        from butler.execution_context import get_current_orchestrator
+    from butler.tools.execute_code_ops import resolve_execute_code_workspace_safe
 
-        orch = get_current_orchestrator()
-        pm = getattr(orch, "project_manager", None) if orch else None
-        if pm is not None:
-            from butler.execution_context import get_current_session_key
-
-            proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-            if proj is not None:
-                return Path(proj.workspace).resolve()
-    except Exception as exc:
-        logger.debug("workspace cwd skipped: %s", exc)
-    return Path.cwd().resolve()
+    resolved = resolve_execute_code_workspace_safe()
+    return resolved if resolved is not None else Path.cwd().resolve()
 
 
 def run_execute_code(code: str, *, language: str = "python") -> dict:
@@ -92,30 +78,22 @@ def run_execute_code(code: str, *, language: str = "python") -> dict:
         script = fh.name
 
     try:
-        proc = subprocess.run(
-            ["python3", "-I", script],
-            cwd=str(cwd),
-            capture_output=True,
-            text=True,
+        from butler.tools.execute_code_ops import run_python_subprocess_safe
+
+        out = run_python_subprocess_safe(
+            script=script,
+            cwd=cwd,
             timeout=execute_code_timeout_seconds(),
             env=env,
         )
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "execute_code timeout", "code": "EXECUTE_CODE_TIMEOUT"}
-    except Exception as exc:
-        return {"ok": False, "error": str(exc), "code": "EXECUTE_CODE_ERROR"}
+        if out is None:
+            return {"ok": False, "error": "execute_code failed", "code": "EXECUTE_CODE_ERROR"}
+        return out
     finally:
         try:
             Path(script).unlink(missing_ok=True)
         except OSError:
             pass
-
-    return {
-        "ok": proc.returncode == 0,
-        "exit_code": proc.returncode,
-        "stdout": (proc.stdout or "")[:16000],
-        "stderr": (proc.stderr or "")[:4000],
-    }
 
 
 def register_execute_code_tool(register_fn) -> None:

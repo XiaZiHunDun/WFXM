@@ -3,15 +3,10 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from pathlib import Path
 
 from butler.env_parse import env_truthy, float_env
-import logging
-
-
-logger = logging.getLogger(__name__)
 
 def smart_pattern_approve_enabled() -> bool:
     return env_truthy("BUTLER_TERMINAL_SMART_APPROVE", default=True)
@@ -45,11 +40,10 @@ def is_pattern_approved(session_key: str, pattern: str) -> bool:
     path = _session_path(session_key)
     if not path.is_file():
         return False
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return False
-    if not isinstance(data, dict):
+    from butler.tools.terminal_pattern_approval_ops import load_pattern_approval_map_safe
+
+    data = load_pattern_approval_map_safe(path)
+    if data is None:
         return False
     entry = data.get(pattern)
     if not isinstance(entry, dict):
@@ -68,13 +62,8 @@ def approve_pattern(session_key: str, pattern: str) -> None:
     if not pattern.strip():
         return
     path = _session_path(session_key)
-    data: dict = {}
-    if path.is_file():
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(raw, dict):
-                data = raw
-        except Exception as exc:
-            logger.debug("approve pattern skipped: %s", exc)
+    from butler.tools.terminal_pattern_approval_ops import load_pattern_approval_map_for_write_safe
+
+    data = load_pattern_approval_map_for_write_safe(path)
     data[pattern] = {"expires_at": time.time() + _ttl_seconds(), "approved_at": time.time()}
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -41,15 +41,11 @@ def _phase_connect_open_sessions(adapter: "WeChatAdapter") -> None:
 
 
 def _acquire_token_lock(adapter: "WeChatAdapter") -> bool:
-    try:
-        return bool(adapter._acquire_platform_lock(
-            "wechat-bot-token", adapter._token, "WeChat bot token",
-        ))
-    except Exception as exc:
-        logger.debug(
-            "[%s] Token lock unavailable (non-fatal): %s", adapter.name, exc,
-        )
-        return True
+    from butler.gateway.platforms.wechat_ilink.connect_phases_ops import (
+        acquire_wechat_token_lock_safe,
+    )
+
+    return acquire_wechat_token_lock_safe(adapter)
 
 
 def _open_aiohttp_sessions(adapter: "WeChatAdapter") -> None:
