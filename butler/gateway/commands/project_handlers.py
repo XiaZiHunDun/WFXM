@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import re
-import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -38,28 +37,9 @@ def _slug_from_git_url(url: str) -> str:
 
 def _clone_git_repo(url: str, target_dir: Path) -> tuple[bool, str]:
     """Clone a git repo into target_dir. Returns (success, message)."""
-    if target_dir.exists():
-        return False, f"目标目录已存在: {target_dir}"
-    target_dir.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        result = subprocess.run(
-            ["git", "clone", "--depth", "1", url, str(target_dir)],
-            capture_output=True,
-            text=True,
-            timeout=_GIT_CLONE_TIMEOUT,
-        )
-        if result.returncode != 0:
-            err = (result.stderr or result.stdout or "unknown error").strip()
-            if len(err) > 300:
-                err = err[:300] + "…"
-            return False, f"git clone 失败 (exit {result.returncode}): {err}"
-        return True, str(target_dir)
-    except FileNotFoundError:
-        return False, "系统未安装 git，请先安装后重试"
-    except subprocess.TimeoutExpired:
-        return False, f"git clone 超时 ({_GIT_CLONE_TIMEOUT}s)，仓库可能过大或网络异常"
-    except Exception as exc:
-        return False, f"git clone 异常: {exc}"
+    from butler.gateway.commands.project_handlers_ops import git_clone_repo_safe
+
+    return git_clone_repo_safe(url, target_dir, timeout=_GIT_CLONE_TIMEOUT)
 
 
 def handle_project_onboarding_command(

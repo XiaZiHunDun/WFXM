@@ -137,12 +137,9 @@ def score_delegate_routing(
 
 def routing_hint_from_overrides() -> str:
     """Optional prompt hint when hard feedback enabled delegate routing strict mode."""
-    try:
-        from butler.ops.eval_config_overrides import delegate_routing_hint_enabled
+    from butler.ops.tool_routing_ops import delegate_routing_hint_enabled_safe
 
-        if not delegate_routing_hint_enabled():
-            return ""
-    except Exception:
+    if not delegate_routing_hint_enabled_safe():
         return ""
     return (
         "[Eval Routing] Dev/file-edit requests should use delegate_task (dev role); "

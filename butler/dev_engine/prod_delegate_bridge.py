@@ -183,22 +183,13 @@ def build_production_delegate_blocks(
 
     blocks: list[str] = []
     blob = f"{task}\n{context}"
+    from butler.dev_engine.prod_delegate_bridge_ops import (
+        build_prod_playbook_blocks_safe,
+        collect_lingwen_prod_sample_playbooks_safe,
+    )
 
-    try:
-        from butler.dev_engine.prod_playbook_seeds import build_prod_playbook_blocks
-
-        blocks.extend(build_prod_playbook_blocks(task, context))
-    except Exception:
-        pass
-
-    try:
-        from butler.ops.lingwen1_prod_sample import LINGWEN_PROD_SAMPLE_PLAYBOOKS
-
-        for sample_id, playbook in LINGWEN_PROD_SAMPLE_PLAYBOOKS.items():
-            if sample_id in blob and playbook.strip():
-                blocks.append(playbook.strip())
-    except Exception:
-        pass
+    blocks.extend(build_prod_playbook_blocks_safe(task, context))
+    blocks.extend(collect_lingwen_prod_sample_playbooks_safe(blob))
 
     task_id = infer_b9_task_id(
         task,

@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 _TOOL_VERBS: dict[str, str] = {
     "read_file": "读取",
@@ -92,13 +89,11 @@ def format_session_tool_narrative(
     sk = str(session_key or "").strip()
     if not sk:
         return "无会话键，无法读取工具叙事。"
-    try:
-        from butler.core.session_epoch import load_epoch_transcript_rows
-    except Exception as exc:
-        logger.debug("tool narrative load skipped: %s", exc)
-        return "无法加载 transcript。"
+    from butler.core.tool_narrative_ops import load_transcript_rows_for_narrative_safe
 
-    rows = load_epoch_transcript_rows(sk, max_lines=200)
+    rows = load_transcript_rows_for_narrative_safe(sk, max_lines=200)
+    if rows is None:
+        return "无法加载 transcript。"
     actions = [r for r in rows if str(r.get("type") or "") == "tool_action"]
     if not actions:
         return "本轮尚无工具调用（transcript）。"

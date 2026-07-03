@@ -279,6 +279,13 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/mcp/extension_manifest_ops.py": 25,
     "butler/ops/owner_brief_blocks_ops.py": 45,
     "butler/ops/eval_actions_ops.py": 45,
+    "butler/core/tool_narrative_ops.py": 20,
+    "butler/dev_engine/prod_delegate_bridge_ops.py": 45,
+    "butler/registry/marketplace_compat_ops.py": 50,
+    "butler/core/tool_error_policy_ops.py": 20,
+    "butler/ops/tool_routing_ops.py": 25,
+    "butler/core/design_md_sections_ops.py": 55,
+    "butler/gateway/commands/project_handlers_ops.py": 40,
 }
 
 _PROCESS_TOOL_CALLS_BUDGET = 150

@@ -223,12 +223,9 @@ def apply_tool_error_policy(
     if kind == ToolErrorKind.ok:
         return result
 
-    try:
-        from butler.ops.runtime_metrics import inc
+    from butler.core.tool_error_policy_ops import inc_tool_error_policy_metric_safe
 
-        inc("tool_error_policy", labels={"kind": kind.value, "tool": (tool_name or "?")[:32]})
-    except Exception as exc:
-        logger.debug("apply tool error policy skipped: %s", exc)
+    inc_tool_error_policy_metric_safe(kind=kind.value, tool_name=tool_name or "?")
     msg = ""
     code = f"TOOL_ERROR_{kind.value.upper()}"
     if exc is not None:

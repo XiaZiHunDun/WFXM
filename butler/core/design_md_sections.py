@@ -74,39 +74,15 @@ def resolve_design_md_path(
 
 
 def _resolve_workspace() -> Path | None:
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
+    from butler.core.design_md_sections_ops import resolve_active_project_workspace_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return None
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return None
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        if proj is None:
-            return None
-        return Path(proj.workspace)
-    except Exception:
-        return None
+    return resolve_active_project_workspace_safe()
 
 
 def _current_design_preset() -> str:
-    try:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
+    from butler.core.design_md_sections_ops import current_design_preset_safe
 
-        orch = get_current_orchestrator()
-        if orch is None:
-            return ""
-        pm = getattr(orch, "project_manager", None)
-        if pm is None:
-            return ""
-        proj = pm.get_current(session_key=str(get_current_session_key() or ""))
-        if proj is None:
-            return ""
-        return str(getattr(proj, "design_preset", "") or "").strip()
-    except Exception:
-        return ""
+    return current_design_preset_safe()
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from typing import Any
 
@@ -14,24 +13,11 @@ from butler.registry.skill_sources.marketplace import (
     _parse_identifier,
 )
 
-logger = logging.getLogger(__name__)
-
 
 def _load_mcp_server_ids() -> set[str]:
-    ids: set[str] = set()
-    try:
-        from butler.registry.paths import default_mcp_config_path
+    from butler.registry.marketplace_compat_ops import load_mcp_server_ids_safe
 
-        path = default_mcp_config_path()
-        if not path.is_file():
-            return ids
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        servers = data.get("servers") if isinstance(data, dict) else None
-        if isinstance(servers, dict):
-            ids.update(str(k) for k in servers.keys())
-    except Exception as exc:
-        logger.debug("mcp config read failed: %s", exc)
-    return ids
+    return load_mcp_server_ids_safe()
 
 
 def marketplace_document(mp_id: str) -> dict[str, Any] | None:
@@ -127,14 +113,11 @@ def check_directory_skill_layout(
     proj_stub = workspace / ".butler" / "skills" / f"{skill_name}.md"
     if proj_stub.is_file():
         candidates.append(proj_stub)
-    try:
-        from butler.registry.paths import skills_root
+    from butler.registry.marketplace_compat_ops import tenant_skill_stub_path_safe
 
-        tenant_stub = skills_root(tenant_id=tenant_id) / f"{skill_name}.md"
-        if tenant_stub.is_file():
-            candidates.append(tenant_stub)
-    except Exception:
-        pass
+    tenant_stub = tenant_skill_stub_path_safe(tenant_id=tenant_id, skill_name=skill_name)
+    if tenant_stub is not None:
+        candidates.append(tenant_stub)
     if not candidates:
         return False, "missing"
     stub = candidates[0]
