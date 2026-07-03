@@ -76,38 +76,24 @@ def fusion_complete(
     )
     sk = session_key or _current_session_key()
     if sk and resp.usage:
-        try:
-            from butler.ops.cost_tracker import get_session_cost
+        from butler.transport.fusion_client_ops import record_fusion_llm_cost_safe
 
-            get_session_cost(sk).record_llm_call(
-                input_tokens=getattr(resp.usage, "prompt_tokens", 0) or 0,
-                output_tokens=getattr(resp.usage, "completion_tokens", 0) or 0,
-            )
-        except Exception:
-            pass
+        record_fusion_llm_cost_safe(sk, resp.usage)
     return resp.content or ""
 
 
 def _current_session_key() -> str:
-    try:
-        from butler.core.session_key import get_current_session_key
+    from butler.transport.fusion_client_ops import current_fusion_session_key_safe
 
-        return str(get_current_session_key() or "")
-    except Exception:
-        return ""
+    return current_fusion_session_key_safe()
 
 
 def make_fusion_llm_fn():
     """Sync callable for ``SkillConsolidator`` / experience merge."""
-    from butler.skills.consolidator import ConsolidatorLLMUnavailable
+    from butler.transport.fusion_client_ops import fusion_complete_or_raise_unavailable
 
     def _call(prompt: str) -> str:
-        try:
-            return fusion_complete(prompt)
-        except ConsolidatorLLMUnavailable:
-            raise
-        except Exception as exc:
-            raise ConsolidatorLLMUnavailable(str(exc)) from exc
+        return fusion_complete_or_raise_unavailable(fusion_complete, prompt)
 
     return _call
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from butler.core.best_effort import safe_best_effort
 
@@ -57,6 +57,17 @@ def derive_compaction_status_safe(diagnostics: dict[str, Any]) -> str | None:
         default=None,
     )
     return result if isinstance(result, str) else None
+
+
+def compress_messages_safe(
+    compress: Callable[..., list[dict]],
+    messages: list[dict],
+    **kwargs: Any,
+) -> tuple[list[dict], str | None]:
+    try:
+        return compress(messages, **kwargs), None
+    except Exception as exc:
+        return messages, str(exc)
 
 
 def record_hygiene_compact_done(

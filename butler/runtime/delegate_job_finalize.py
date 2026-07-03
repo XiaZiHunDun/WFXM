@@ -138,20 +138,19 @@ def handle_background_delegate_failure(job: Any, exc: BaseException) -> None:
 
 
 def run_delegate_job_inner_guarded(job: Any, body: Callable[[Any], None]) -> None:
-    from butler.core.best_effort import safe_best_effort
+    from butler.runtime.delegate_job_finalize_ops import run_delegate_job_inner_guarded_ops
 
-    try:
-        body(job)
-    except Exception as exc:
-        handle_background_delegate_failure(job, exc)
-    finally:
-        safe_best_effort(
-            lambda: __import__(
-                "butler.core.delegate_semaphore", fromlist=["release_delegate_slot"]
-            ).release_delegate_slot(job.session_key),
-            label="delegate_job.release_slot",
-            default=None,
-        )
+    def _release() -> None:
+        __import__(
+            "butler.core.delegate_semaphore", fromlist=["release_delegate_slot"]
+        ).release_delegate_slot(job.session_key)
+
+    run_delegate_job_inner_guarded_ops(
+        job,
+        body,
+        on_failure=handle_background_delegate_failure,
+        release_slot=_release,
+    )
 
 
 __all__ = [

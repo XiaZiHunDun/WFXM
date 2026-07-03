@@ -110,16 +110,18 @@ def run_hygiene_preflight(
         messages_before=len(messages),
         tokens_estimated=before_tokens,
     )
-    try:
-        compressed = compress(
-            messages,
-            threshold_ratio=compression_threshold,
-            min_messages_to_compress=4,
-            head_count=1,
-            max_tail_messages=1,
-            min_tail_messages=1,
-        )
-    except Exception as exc:
+    from butler.core.hygiene_preflight_ops import compress_messages_safe
+
+    compressed, compact_err = compress_messages_safe(
+        compress,
+        messages,
+        threshold_ratio=compression_threshold,
+        min_messages_to_compress=4,
+        head_count=1,
+        max_tail_messages=1,
+        min_tail_messages=1,
+    )
+    if compact_err is not None:
         failures = consecutive_compact_failures + 1
         diagnostics["context_compact_consecutive_failures"] = failures
         diagnostics["context_compact_circuit_open"] = compact_circuit_open(
@@ -127,11 +129,11 @@ def run_hygiene_preflight(
             max_context_tokens=max_context_tokens,
         )
         diagnostics["hygiene_compact_failed"] = True
-        diagnostics["hygiene_compact_error"] = str(exc)[:500]
+        diagnostics["hygiene_compact_error"] = compact_err[:500]
         from butler.core.hygiene_preflight_ops import record_hygiene_compact_failed_event
 
         record_hygiene_compact_failed_event()
-        logger.warning("Hygiene compact raised: %s", exc)
+        logger.warning("Hygiene compact raised: %s", compact_err)
         return HygienePreflightResult(messages=messages, compressed=False)
 
     after_tokens = estimate_tokens(compressed)

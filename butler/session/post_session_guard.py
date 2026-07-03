@@ -14,10 +14,9 @@ def post_session_error_result(exc: BaseException) -> dict[str, Any]:
 
 
 def guard_post_session(fn: Callable[[], dict[str, Any]]) -> dict[str, Any]:
-    try:
-        return fn()
-    except Exception as exc:
-        return post_session_error_result(exc)
+    from butler.session.post_session_guard_ops import guard_post_session_safe
+
+    return guard_post_session_safe(fn, error_result_fn=post_session_error_result)
 
 
 __all__ = ["guard_post_session", "post_session_error_result"]

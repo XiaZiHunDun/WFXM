@@ -53,30 +53,9 @@ def dev_state_context_block(state: DevState) -> str:
 
     ctx = getattr(state, "_coding_knowledge_ctx", None)
     if ctx is not None:
-        try:
-            from butler.dev_engine.coding_knowledge import format_coding_guidance_block
+        from butler.dev_engine.dev_context_ops import append_coding_guidance_blocks_safe
 
-            max_cases = 6
-            try:
-                from butler.ops.eval_config_overrides import effective_coding_guidance_max_cases
-
-                max_cases = effective_coding_guidance_max_cases(6)
-            except Exception:
-                pass
-            guidance = format_coding_guidance_block(ctx, max_cases=max_cases)
-            if guidance.strip():
-                lines.append(guidance)
-            try:
-                from butler.dev_engine.b9_oracle_fewshot import format_b9_oracle_fewshot_block
-
-                fewshot = format_b9_oracle_fewshot_block(max_cases=2)
-                if fewshot:
-                    lines.append(fewshot)
-            except Exception:
-                pass
-        except Exception as exc:
-            import logging
-            logging.getLogger(__name__).debug("coding guidance block skipped: %s", exc)
+        append_coding_guidance_blocks_safe(lines, ctx)
 
     lines.append("</dev-engine-state>")
     return "\n".join(lines)

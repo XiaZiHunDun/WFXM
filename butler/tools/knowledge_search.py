@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
-import logging
 
-
-logger = logging.getLogger(__name__)
 
 def tool_search_project_knowledge(
     query: str = "",
@@ -17,13 +14,11 @@ def tool_search_project_knowledge(
     """Search project MEMORY + semantic index (wrapper over butler_recall project scope)."""
     q = str(query or "").strip()
     lim = max(1, min(20, int(limit or 8)))
-    try:
-        from butler.memory.corpus_router import corpus_routing_enabled, multi_scope_recall
+    from butler.tools.knowledge_search_ops import multi_scope_recall_safe
 
-        if corpus_routing_enabled() and q:
-            return multi_scope_recall(q, limit=lim)
-    except Exception as exc:
-        logger.debug("tool search project knowledge skipped: %s", exc)
+    routed = multi_scope_recall_safe(q, limit=lim)
+    if routed is not None:
+        return routed
     from butler.tools.memory_tools import tool_butler_recall
 
     raw = tool_butler_recall(scope="project", query=q, limit=lim)
@@ -46,16 +41,9 @@ def _enrich_project_knowledge_json(raw: str) -> str:
     ws = None
     proj = str(data.get("project") or "").strip()
     if proj:
-        try:
-            from butler.project.manager import get_project_manager
+        from butler.tools.knowledge_search_ops import resolve_project_workspace_for_enrich_safe
 
-            p = get_project_manager().get_project(proj)
-            if p is not None and getattr(p, "workspace", None):
-                from pathlib import Path
-
-                ws = Path(p.workspace).expanduser().resolve()
-        except Exception:
-            ws = None
+        ws = resolve_project_workspace_for_enrich_safe(proj)
     enriched = []
     for row in results:
         if isinstance(row, dict):

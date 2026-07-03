@@ -89,10 +89,10 @@ def build_dynamic_system_reminder(
     for_role: str = "default",
 ) -> str:
     """Dynamic context injected into the user turn when static system mode is on."""
-    try:
-        from butler.core.system_reminder import wrap_system_reminder
-    except Exception as exc:
-        logger.debug("system_reminder import skipped: %s", exc)
+    from butler.orchestrator.prompt_assembler_ops import import_system_reminder_safe
+
+    wrap_system_reminder = import_system_reminder_safe()
+    if wrap_system_reminder is None:
         return ""
     ph = system_prompt_placeholders(orch, for_role=for_role)
     chunks = [
@@ -179,13 +179,10 @@ def assemble_default_system_prompt(
 
 
 def build_system_prompt(orch: ButlerOrchestrator) -> str:
-    try:
-        from butler.core.harness_flags import static_system_reminder_enabled
+    from butler.orchestrator.prompt_assembler_ops import static_system_reminder_enabled_safe
 
-        if static_system_reminder_enabled():
-            return build_static_system_prompt(orch)
-    except Exception as exc:
-        logger.debug("Static system prompt check skipped: %s", exc)
+    if static_system_reminder_enabled_safe():
+        return build_static_system_prompt(orch)
     return assemble_default_system_prompt(orch, for_role="default")
 
 
