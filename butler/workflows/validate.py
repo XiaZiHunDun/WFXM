@@ -76,12 +76,11 @@ def _validate_dag(steps: list[WorkflowStepDef]) -> list[str]:
 def validate_workflow_file(path: Path) -> tuple[WorkflowDef | None, list[str]]:
     if not path.is_file():
         return None, [f"file not found: {path}"]
-    try:
-        import yaml
+    from butler.workflows.validate_ops import load_workflow_yaml_safe
 
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception as exc:
-        return None, [f"parse error: {exc}"]
+    data, err = load_workflow_yaml_safe(path)
+    if err is not None:
+        return None, [err]
     if not isinstance(data, dict):
         return None, ["workflow file must be a mapping"]
     wf = parse_workflow_data(data, source=str(path))

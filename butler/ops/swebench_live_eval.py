@@ -135,11 +135,9 @@ def _swe_instance_to_task_spec(inst: Any) -> Any:
         inst.apply_oracle(ws)
 
     def verify(ws: Path) -> tuple[bool, str]:
-        try:
-            ok = inst.verify(ws)
-        except Exception as exc:
-            return False, str(exc)
-        return ok, "tests passed" if ok else "tests failed"
+        from butler.ops.swebench_live_eval_ops import verify_swe_instance_safe
+
+        return verify_swe_instance_safe(inst, ws)
 
     return B9TaskSpec(
         task_id=inst.instance_id,

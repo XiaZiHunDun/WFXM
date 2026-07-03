@@ -25,17 +25,9 @@ DATASET_NAME_MULTI = "butler-wechat-multi-turn"
 
 
 def _safe_load_yaml(path: Path) -> Any:
-    try:
-        import yaml
-        with open(path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f)
-    except ImportError:
-        import json
-        logger.warning("PyYAML not installed; attempting JSON fallback for %s", path.name)
-        return None
-    except Exception as exc:
-        logger.warning("Failed to load %s: %s", path, exc)
-        return None
+    from butler.ops.wechat_dataset_ops import safe_load_yaml
+
+    return safe_load_yaml(path)
 
 
 def parse_utterance_catalog(path: Path) -> list[dict[str, Any]]:

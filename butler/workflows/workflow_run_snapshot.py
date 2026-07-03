@@ -93,14 +93,14 @@ def write_workflow_step_checkpoint(
     run_id: str = "checkpoint",
 ) -> Path | None:
     """Write incremental checkpoint after each workflow step (PR-X5)."""
-    try:
-        from butler.core.meta_flags import workflow_checkpoint_enabled
+    from butler.workflows.workflow_run_snapshot_ops import workflow_checkpoint_enabled_safe
 
-        if not workflow_checkpoint_enabled():
+    enabled = workflow_checkpoint_enabled_safe()
+    if enabled is not None:
+        if not enabled:
             return None
-    except Exception:
-        if not workflow_run_snapshot_enabled():
-            return None
+    elif not workflow_run_snapshot_enabled():
+        return None
     payload = {
         "workflow": workflow_name,
         "run_id": run_id,

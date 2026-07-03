@@ -64,12 +64,11 @@ class EvalIntegrationManager:
                     continue
                 if sink.backend_id == "ragas" and sid != "ragas_memory":
                     continue
-                try:
-                    ref = sink.write_suite_result(result, payload)
-                    if ref:
-                        result.sink_refs[sink.backend_id] = ref
-                except Exception:
-                    pass
+                from butler.eval_integration.manager_ops import write_suite_result_safe
+
+                ref = write_suite_result_safe(sink, result, payload)
+                if ref:
+                    result.sink_refs[sink.backend_id] = ref
             results.append(result)
         return results
 
@@ -99,12 +98,9 @@ class EvalIntegrationManager:
             if r.suite_id == "tcr":
                 rate = r.metrics.get("trajectory_compliance_rate")
                 if rate is not None:
-                    try:
-                        from butler.core.transform_feedback import analyse_transform_signals
+                    from butler.eval_integration.manager_ops import analyse_transform_signals_safe
 
-                        analyse_transform_signals(tcr_rate=float(rate))
-                    except Exception:
-                        pass
+                    analyse_transform_signals_safe(tcr_rate=float(rate))
         report = self.build_report(results)
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

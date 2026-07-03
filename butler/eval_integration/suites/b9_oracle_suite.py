@@ -41,12 +41,9 @@ class B9OracleSuite:
         threshold = _min_b9_pass_rate()
         ok = report.total == 0 or report.pass_rate >= threshold
         if push_langfuse:
-            try:
-                from butler.ops.eval_bridge import llm_benchmark_to_scores, push_scores
+            from butler.eval_integration.suites_ops import push_b9_oracle_scores_safe
 
-                push_scores(llm_benchmark_to_scores(report))
-            except Exception:
-                pass
+            push_b9_oracle_scores_safe(report)
         if warn_only and not ok:
             ok = True
         failures = [r.task_id for r in report.results if not r.passed]

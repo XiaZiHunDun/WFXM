@@ -104,30 +104,15 @@ def run_llm_pilot(*, warn_only: bool = False) -> tuple[bool, dict[str, Any]]:
         input=user_input,
         actual_output=f"Invoked tools: {', '.join(case.get('trajectory_tools') or []) or 'none'}",
     )
-    try:
-        assert_test(test_case, [metric])
-        return True, {
-            "mode": "llm_pilot",
-            "pass_rate": 1.0,
-            "threshold": threshold,
-            "pilot_case": case.get("id"),
-            "deepeval_installed": True,
-        }
-    except Exception as exc:
-        if warn_only:
-            return True, {
-                "mode": "llm_pilot",
-                "pass_rate": 0.0,
-                "threshold": threshold,
-                "warn_only": True,
-                "error": str(exc)[:200],
-            }
-        return False, {
-            "mode": "llm_pilot",
-            "pass_rate": 0.0,
-            "threshold": threshold,
-            "error": str(exc)[:200],
-        }
+    from butler.eval_integration.oss.deepeval_runner_ops import run_llm_pilot_assert_safe
+
+    return run_llm_pilot_assert_safe(
+        test_case=test_case,
+        metric=metric,
+        warn_only=warn_only,
+        threshold=threshold,
+        pilot_case=case.get("id"),
+    )
 
 
 def run_deepeval_agent(*, warn_only: bool = False) -> tuple[bool, dict[str, Any]]:

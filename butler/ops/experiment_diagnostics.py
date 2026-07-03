@@ -6,10 +6,6 @@ from pathlib import Path
 
 from butler.experiments.ledger import best_record, experiments_ledger_path, list_recent
 from butler.experiments.mode import experiment_mode_enabled
-import logging
-
-
-logger = logging.getLogger(__name__)
 
 def format_experiment_diagnostic_lines(
     workspace: Path | None,
@@ -39,16 +35,9 @@ def format_experiment_diagnostic_lines(
             f"sha={str(row.get('git_sha') or '')[:8]} "
             f"{(row.get('hypothesis') or '')[:40]}"
         )
-    try:
-        from butler.experiments.crash_guard import consecutive_crash_count, crash_block_threshold
+    from butler.ops.experiment_diagnostics_ops import append_crash_guard_lines_safe
 
-        streak = consecutive_crash_count(ws)
-        if streak:
-            lines.append(
-                f"  连续 crash: {streak}（阻断阈值 {crash_block_threshold()}）"
-            )
-    except Exception as exc:
-        logger.debug("format experiment diagnostic lines skipped: %s", exc)
+    append_crash_guard_lines_safe(lines, ws)
     return lines
 
 
@@ -60,15 +49,11 @@ def format_experiment_diagnostic_lines_for_project(
     name = str(project_name or "").strip()
     if not name:
         return []
-    try:
-        from butler.project.manager import get_project_manager
+    from butler.ops.experiment_diagnostics_ops import (
+        format_experiment_diagnostic_lines_for_project_safe,
+    )
 
-        proj = get_project_manager().get_project(name)
-        if proj is None:
-            return []
-        return format_experiment_diagnostic_lines(Path(proj.workspace), limit=limit)
-    except Exception:
-        return []
+    return format_experiment_diagnostic_lines_for_project_safe(name, limit=limit)
 
 
 __all__ = [

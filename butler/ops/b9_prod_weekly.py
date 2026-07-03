@@ -211,14 +211,9 @@ def record_production_delegate_snapshot(*, limit: int = 500) -> dict[str, Any]:
         fh.write(json.dumps(clean_summary, ensure_ascii=False) + "\n")
     summary["clean"] = clean_summary
     summary["clean_delta"] = compare_production_delegate_delta(clean=True)
-    try:
-        from butler.ops.prod_experience_effectiveness import (
-            summarize_prod_experience_effectiveness,
-        )
+    from butler.ops.b9_prod_weekly_ops import summarize_prod_experience_effectiveness_safe
 
-        summary["experience_effectiveness"] = summarize_prod_experience_effectiveness()
-    except Exception:
-        pass
+    summary["experience_effectiveness"] = summarize_prod_experience_effectiveness_safe()
     return summary
 
 
@@ -353,7 +348,7 @@ def run_prod_shaped_live_probe(
 
     from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASKS
     from butler.dev_engine.llm_delegate_benchmark import B9Mode, resolve_b9_mode, run_b9_task
-    from butler.ops.b9_lessons import record_b9_run_lesson
+    from butler.ops.b9_prod_weekly_ops import record_b9_run_lesson_safe
     from butler.ops.b9_prod_promoted_registry import promoted_probe_task_ids
 
     mode_str = mode or resolve_b9_mode().value
@@ -368,10 +363,7 @@ def run_prod_shaped_live_probe(
         os.environ["BUTLER_TOOL_SAFE_ROOT"] = str(ws)
         try:
             result = run_b9_task(spec, ws, mode=b9_mode)
-            try:
-                record_b9_run_lesson(result, spec)
-            except Exception:
-                pass
+            record_b9_run_lesson_safe(result, spec)
             if result.passed:
                 passed += 1
             results.append(

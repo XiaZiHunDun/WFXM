@@ -91,13 +91,9 @@ def summarize_harness_friction(
             if _extract_read_state_codes(tail):
                 lesson_read_state += 1
 
-    mined = {}
-    try:
-        from butler.ops.b9_failure_analysis import mine_delegate_failure_signatures
+    from butler.ops.b9_harness_audit_ops import mine_delegate_failure_signatures_safe
 
-        mined = mine_delegate_failure_signatures(limit=limit, min_count=min_count)
-    except Exception:
-        pass
+    mined = mine_delegate_failure_signatures_safe(limit=limit, min_count=min_count)
 
     return {
         "delegate_failures_b9_rows": total_b9,

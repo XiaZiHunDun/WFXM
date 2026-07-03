@@ -1,0 +1,17 @@
+[
+  {"main": "butler/ops/b9_harness_audit.py", "ops": "butler/ops/b9_harness_audit_ops.py", "except_budget_ops": 0, "line_budget": 25},
+  {"main": "butler/ops/b9_lessons.py", "ops": "butler/ops/b9_lessons_ops.py", "except_budget_ops": 0, "line_budget": 30},
+  {"main": "butler/ops/b9_prod_weekly.py", "ops": "butler/ops/b9_prod_weekly_ops.py", "except_budget_ops": 0, "line_budget": 35},
+  {"main": "butler/ops/experiment_diagnostics.py", "ops": "butler/ops/experiment_diagnostics_ops.py", "except_budget_ops": 2, "line_budget": 45},
+  {"main": "butler/ops/retry_buckets.py", "ops": "butler/ops/retry_buckets_ops.py", "except_budget_ops": 2, "line_budget": 50},
+  {"main": "butler/ops/snapshot.py", "ops": "butler/ops/snapshot_ops.py", "except_budget_ops": 2, "line_budget": 30},
+  {"main": "butler/ops/swebench_live_eval.py", "ops": "butler/ops/swebench_live_eval_ops.py", "except_budget_ops": 1, "line_budget": 20},
+  {"main": "butler/ops/wechat_dataset.py", "ops": "butler/ops/wechat_dataset_ops.py", "except_budget_ops": 1, "line_budget": 25},
+  {"main": "butler/workflows/validate.py", "ops": "butler/workflows/validate_ops.py", "except_budget_ops": 1, "line_budget": 20},
+  {"main": "butler/workflows/workflow_run_snapshot.py", "ops": "butler/workflows/workflow_run_snapshot_ops.py", "except_budget_ops": 1, "line_budget": 15},
+  {"main": "butler/eval_integration/manager.py", "ops": "butler/eval_integration/manager_ops.py", "except_budget_ops": 2, "line_budget": 30},
+  {"main": "butler/eval_integration/oss/deepeval_runner.py", "ops": "butler/eval_integration/oss/deepeval_runner_ops.py", "except_budget_ops": 1, "line_budget": 45},
+  {"main": "butler/eval_integration/sinks/langfuse_sink.py", "ops": "butler/eval_integration/sinks/langfuse_sink_ops.py", "except_budget_ops": 1, "line_budget": 35},
+  {"main": "butler/eval_integration/suites/b9_oracle_suite.py", "ops": "butler/eval_integration/suites_ops.py", "except_budget_ops": 2, "line_budget": 25},
+  {"main": "butler/eval_integration/suites/memory_mb_suite.py", "ops": "butler/eval_integration/suites_ops.py", "except_budget_ops": 2, "line_budget": 25}
+]

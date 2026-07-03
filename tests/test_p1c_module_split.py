@@ -386,6 +386,20 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/agents_md_ops.py": 30,
     "butler/butler_init_ops.py": 30,
     "butler/skills/similarity_ops.py": 35,
+    "butler/ops/b9_harness_audit_ops.py": 25,
+    "butler/ops/b9_lessons_ops.py": 30,
+    "butler/ops/b9_prod_weekly_ops.py": 35,
+    "butler/ops/experiment_diagnostics_ops.py": 45,
+    "butler/ops/retry_buckets_ops.py": 50,
+    "butler/ops/snapshot_ops.py": 30,
+    "butler/ops/swebench_live_eval_ops.py": 20,
+    "butler/ops/wechat_dataset_ops.py": 25,
+    "butler/workflows/validate_ops.py": 20,
+    "butler/workflows/workflow_run_snapshot_ops.py": 15,
+    "butler/eval_integration/manager_ops.py": 30,
+    "butler/eval_integration/oss/deepeval_runner_ops.py": 45,
+    "butler/eval_integration/sinks/langfuse_sink_ops.py": 35,
+    "butler/eval_integration/suites_ops.py": 25,
 
 }
 

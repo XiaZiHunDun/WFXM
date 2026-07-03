@@ -10,10 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from butler.config import get_butler_home
-import logging
-
-
-logger = logging.getLogger(__name__)
 
 def _workspace_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -67,9 +63,10 @@ def _recent_runtime_failures(limit: int = 5) -> list[dict[str, Any]]:
         return []
     rows: list[tuple[float, dict[str, Any]]] = []
     for path in root.rglob("*.json"):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        from butler.ops.snapshot_ops import load_runtime_run_json_safe
+
+        data = load_runtime_run_json_safe(path)
+        if data is None:
             continue
         if data.get("success") is not False:
             continue
@@ -99,13 +96,9 @@ def collect_ops_snapshot() -> dict[str, Any]:
         "git": os.getenv("BUTLER_ENABLE_GIT", "0"),
         "git_write": os.getenv("BUTLER_ENABLE_GIT_WRITE", "0"),
     }
-    failure_streaks: list[dict[str, Any]] = []
-    try:
-        from butler.runtime.failure_tracker import list_active_streaks
+    from butler.ops.snapshot_ops import list_active_failure_streaks_safe
 
-        failure_streaks = list_active_streaks()
-    except Exception as exc:
-        logger.debug("collect ops snapshot skipped: %s", exc)
+    failure_streaks = list_active_failure_streaks_safe()
     return {
         "gateway_log": _file_stats(_gateway_log_path()),
         "runtime_log": _file_stats(_runtime_log_path()),

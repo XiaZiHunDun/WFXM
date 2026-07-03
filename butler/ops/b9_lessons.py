@@ -135,10 +135,9 @@ def record_b9_run_lesson(
             "anti_patterns": list(ep.anti_patterns) if ep else [],
         }
     record_b9_lesson(row)
-    try:
-        row["experience_followup"] = follow_up_lesson_experience(row, result, spec)
-    except Exception:
-        row["experience_followup"] = {"action": "skipped", "detail": "error"}
+    from butler.ops.b9_lessons_ops import follow_up_lesson_experience_safe
+
+    row["experience_followup"] = follow_up_lesson_experience_safe(row, result, spec)
     return row
 
 

@@ -39,12 +39,9 @@ class MemoryMbSuite:
         threshold = _min_mem_pass_rate()
         ok = pass_rate >= threshold
         if push_langfuse:
-            try:
-                from butler.ops.memory_eval import push_memory_scores
+            from butler.eval_integration.suites_ops import push_memory_mb_scores_safe
 
-                push_memory_scores(report)
-            except Exception:
-                pass
+            push_memory_mb_scores_safe(report)
         if warn_only and not ok:
             ok = True
         return SuiteRunResult(
