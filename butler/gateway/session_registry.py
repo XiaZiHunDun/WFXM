@@ -130,16 +130,14 @@ class GatewaySessionRegistry:
         self._publish_session_gauges()
 
     def _publish_session_gauges(self) -> None:
-        try:
-            from butler.ops.runtime_metrics import publish_gateway_session_gauges
+        from butler.gateway.session_registry_ops import publish_session_gauges_safe
 
-            with self._lock:
-                publish_gateway_session_gauges(
-                    session_count=len(self.sessions),
-                    active_turns=len(self._active_sessions),
-                )
-        except Exception as exc:
-            logger.debug("publish session gauges skipped: %s", exc)
+        with self._lock:
+            publish_session_gauges_safe(
+                session_count=len(self.sessions),
+                active_turns=len(self._active_sessions),
+            )
+
     def is_session_active(self, session_key: str) -> bool:
         """True while a gateway turn holds the session lock (AgentLoop running)."""
         key = str(session_key or "default")
@@ -246,11 +244,10 @@ class GatewaySessionRegistry:
             if self._reset_if_still_idle(key, cutoff):
                 evicted.append(key)
         if evicted and _evict_notify_hook is not None:
+            from butler.gateway.session_registry_ops import run_evict_notify_hook_safe
+
             for key in evicted:
-                try:
-                    _evict_notify_hook(key)
-                except Exception as exc:
-                    logger.debug("Evict notify hook skipped: %s", exc)
+                run_evict_notify_hook_safe(_evict_notify_hook, key)
         return evicted
 
     def enforce_lru(self) -> list[str]:
@@ -307,9 +304,6 @@ class GatewaySessionRegistry:
         return loop is not None
 
     def _notify_session_removed(self, session_key: str) -> None:
-        if self._on_session_removed is None:
-            return
-        try:
-            self._on_session_removed(str(session_key or "default"))
-        except Exception:
-            return
+        from butler.gateway.session_registry_ops import notify_session_removed_safe
+
+        notify_session_removed_safe(self._on_session_removed, session_key)

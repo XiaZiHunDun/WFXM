@@ -74,12 +74,9 @@ def collect_terminal_sandbox_status(
 
     ws = workspace
     if ws is None:
-        try:
-            from butler.tools.path_safety import _default_project_workspace
+        from butler.ops.terminal_sandbox_diagnostics_ops import default_project_workspace_safe
 
-            ws = _default_project_workspace()
-        except Exception:
-            ws = None
+        ws = default_project_workspace_safe()
 
     repo_cfg = False
     ignore_present = False
@@ -205,39 +202,13 @@ def format_terminal_sandbox_diagnostic_lines(
                 "  配置: " + (", ".join(cfg_bits) if cfg_bits else "默认策略（workspace 可写 + 禁网）")
             )
             lines.append("  升权: Owner /批准沙箱外 <命令>")
-    try:
-        from butler.ops.runtime_metrics import snapshot_global
+    from butler.ops.terminal_sandbox_diagnostics_ops import (
+        append_env_profile_lines_safe,
+        append_sandbox_metrics_lines_safe,
+    )
 
-        counters = snapshot_global().get("counters") or {}
-        run = sum(v for k, v in counters.items() if k.startswith("terminal_sandbox_run"))
-        fail = sum(
-            v for k, v in counters.items() if k.startswith("terminal_sandbox_failure")
-        )
-        esc = counters.get("terminal_sandbox_escalation_approved", 0)
-        fallback = counters.get("terminal_sandbox_unavailable_fallback", 0)
-        if run or fail or esc or fallback:
-            lines.append(
-                f"  累计: 沙箱执行 {run} | 沙箱失败 {fail} | 沙箱外批准 {esc} | 无 bwrap 降级 {fallback}"
-            )
-    except Exception:
-        pass
-
-    try:
-        from butler.ops.env_profiles import (
-            current_env_profile,
-            profile_expectation,
-            profile_mismatch_messages,
-        )
-
-        prof_name = current_env_profile()
-        if prof_name:
-            exp = profile_expectation(prof_name)
-            if exp:
-                lines.append(f"  Env profile: {prof_name} — {exp.description}")
-        for msg in profile_mismatch_messages(bwrap_available=st.bwrap_available):
-            lines.append(f"  ⚠ {msg}")
-    except Exception:
-        pass
+    append_sandbox_metrics_lines_safe(lines)
+    append_env_profile_lines_safe(lines, bwrap_available=st.bwrap_available)
 
     return lines
 

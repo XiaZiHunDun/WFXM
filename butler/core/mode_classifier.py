@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-import json
-import logging
-import os
 import re
 from typing import Literal
 
 from butler.env_parse import env_truthy, int_env
-
-logger = logging.getLogger(__name__)
 
 ModeLabel = Literal["plan", "do"]
 
@@ -90,41 +85,9 @@ def classify_mode_auxiliary(text: str) -> ModeLabel | None:
     """Optional small aux model for borderline cases."""
     if not mode_classifier_aux_enabled():
         return None
-    plan, do = score_mode(text)
-    if abs(plan - do) > 3:
-        return None
-    if plan + do < 2:
-        return None
-    try:
-        from butler.transport.auxiliary_client import auxiliary_complete
+    from butler.core.mode_classifier_ops import classify_mode_auxiliary_safe
 
-        prompt = (
-            "Classify the user message for a coding assistant.\n"
-            '- "plan": explore, design, or write an implementation plan only; no code changes yet.\n'
-            '- "do": execute, edit files, run commands, or delegate implementation.\n'
-            "Reply with JSON only: {\"mode\":\"plan\"|\"do\",\"confidence\":0.0-1.0}\n\n"
-            f"User message:\n{(text or '')[:800]}"
-        )
-        raw = auxiliary_complete(
-            prompt,
-            task="mode_classify",
-            system="You output compact JSON only.",
-        )
-        m = re.search(r"\{[^{}]*\}", raw)
-        if not m:
-            return None
-        data = json.loads(m.group(0))
-        if not isinstance(data, dict):
-            return None
-        mode = str(data.get("mode") or "").strip().lower()
-        conf = float(data.get("confidence") or 0)
-        if conf < 0.55:
-            return None
-        if mode in ("plan", "do"):
-            return mode  # type: ignore[return-value]
-    except Exception as exc:
-        logger.debug("mode classifier aux skipped: %s", exc)
-    return None
+    return classify_mode_auxiliary_safe(text, score_fn=score_mode)
 
 
 def classify_turn_mode(text: str) -> ModeLabel | None:
@@ -147,29 +110,21 @@ def detect_mode_suggestion_banner(
     text = (user_text or "").strip()
     if not text or text.startswith("/"):
         return None
-    try:
-        from butler.plan.mode import is_plan_mode
+    from butler.core.mode_classifier_ops import is_plan_mode_safe, set_plan_mode_safe
 
-        if is_plan_mode(session_key):
-            return None
-    except Exception as exc:
-        logger.debug("detect mode suggestion banner skipped: %s", exc)
+    if is_plan_mode_safe(session_key):
+        return None
     label = classify_turn_mode(text)
     if label is None:
         return None
 
     if label == "plan":
         if mode_classifier_auto_plan():
-            try:
-                from butler.plan.mode import set_plan_mode
-
-                set_plan_mode(session_key, True)
+            if set_plan_mode_safe(session_key, True):
                 return (
                     "[Mode: plan] 已根据消息内容自动进入规划模式（只读 + 可写 plan 文件）。"
                     "发 /执行 退出后再改代码或委派。"
                 )
-            except Exception as exc:
-                logger.debug("detect mode suggestion banner skipped: %s", exc)
         return (
             "[Mode: plan] 本条更像「先规划再动手」。建议发 **/规划** 进入只读规划；"
             "若你就是要直接改代码，请说明「直接执行」或具体改动目标。"

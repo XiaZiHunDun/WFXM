@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 from butler.memory.butler_memory import ButlerMemory
-from butler.memory.semantic_index import SOURCE_EXPERIENCE
 
 logger = logging.getLogger(__name__)
 
@@ -93,16 +92,14 @@ def purge_benchmark_filler(
     vector_deleted = 0
     sem = bm.semantic
     if sem is not None:
+        from butler.memory.owner_experience_seed_ops import delete_experience_vector_safe
+
         for row_id in deleted_ids:
-            try:
-                sem.delete(SOURCE_EXPERIENCE, str(row_id))
+            if delete_experience_vector_safe(sem, row_id):
                 vector_deleted += 1
-            except Exception as exc:
-                logger.debug("Vector delete skipped for experience %s: %s", row_id, exc)
-    try:
-        bm.close()
-    except Exception:
-        pass
+    from butler.memory.owner_experience_seed_ops import close_butler_memory_safe
+
+    close_butler_memory_safe(bm)
     return {
         "deleted_sql_rows": len(deleted_ids),
         "deleted_vector_rows": vector_deleted,
@@ -174,10 +171,9 @@ def seed_owner_experiences(
         else:
             errors.append(seed_id)
 
-    try:
-        bm.close()
-    except Exception:
-        pass
+    from butler.memory.owner_experience_seed_ops import close_butler_memory_safe
+
+    close_butler_memory_safe(bm)
 
     return {
         "ok": len(errors) == 0,

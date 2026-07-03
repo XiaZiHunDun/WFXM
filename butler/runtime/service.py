@@ -144,17 +144,17 @@ def run_job(
         project_name=project_name, job_id=job.id, payload=record
     )
 
-    try:
-        from butler.runtime.failure_tracker import record_job_outcome
+    from butler.runtime.service_ops import (
+        record_experiment_ledger_safe,
+        record_job_outcome_safe,
+    )
 
-        record_job_outcome(
-            project_name,
-            job.id,
-            success=bool(result.get("success")),
-            audit_path=str(record_path),
-        )
-    except Exception as exc:
-        logger.debug("Failure streak tracking skipped: %s", exc)
+    record_job_outcome_safe(
+        project_name,
+        job.id,
+        success=bool(result.get("success")),
+        audit_path=str(record_path),
+    )
 
     if not skip_notify:
         _maybe_notify(project_name, job, result, audit_path=str(record_path))
@@ -170,14 +170,9 @@ def run_job(
     }
     if result.get("outcome"):
         out["outcome"] = result["outcome"]
-    try:
-        from butler.experiments.ledger import maybe_record_from_job_result
-
-        exp_row = maybe_record_from_job_result(ws, job.id, result)
-        if exp_row:
-            out["experiment"] = exp_row
-    except Exception as exc:
-        logger.debug("Experiment ledger record skipped: %s", exc)
+    exp_row = record_experiment_ledger_safe(ws, job.id, result)
+    if exp_row:
+        out["experiment"] = exp_row
     return out
 
 
@@ -340,12 +335,9 @@ def run_due_jobs(
     if not runtime_enabled():
         return [{"success": False, "error": "BUTLER_RUNTIME_ENABLED=0"}]
 
-    try:
-        from butler.runtime.push_queue import drain_push_queue
+    from butler.runtime.service_ops import drain_push_queue_safe
 
-        drain_push_queue(max_items=2)
-    except Exception as exc:
-        logger.debug("Push queue drain skipped: %s", exc)
+    drain_push_queue_safe(max_items=2)
 
     results: list[dict[str, Any]] = []
     for jid in list_due_jobs(project_name):

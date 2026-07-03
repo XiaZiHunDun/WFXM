@@ -28,13 +28,10 @@ def _ignore_file_candidates(workspace: Path) -> list[Path]:
 
 def load_ignore_patterns(workspace: Path | None = None) -> tuple[str, ...]:
     """Return normalized glob patterns from workspace ignore files."""
-    if workspace is None:
-        try:
-            from butler.tools.path_safety import current_workspace_root
+    from butler.tools.butlerignore_ops import current_workspace_root_safe
 
-            workspace = current_workspace_root()
-        except Exception:
-            workspace = None
+    if workspace is None:
+        workspace = current_workspace_root_safe()
     if workspace is None:
         return ()
 
@@ -81,13 +78,10 @@ def matches_ignore_pattern(rel_posix: str, pattern: str) -> bool:
 
 def is_butlerignored(path: Path, *, workspace: Path | None = None) -> bool:
     """True when ``path`` matches ``.butlerignore`` under ``workspace``."""
-    if workspace is None:
-        try:
-            from butler.tools.path_safety import current_workspace_root
+    from butler.tools.butlerignore_ops import current_workspace_root_safe
 
-            workspace = current_workspace_root()
-        except Exception:
-            workspace = None
+    if workspace is None:
+        workspace = current_workspace_root_safe()
     if workspace is None:
         return False
     rel = _rel_posix(path, workspace)
@@ -101,13 +95,10 @@ def is_butlerignored(path: Path, *, workspace: Path | None = None) -> bool:
 
 def is_protected_write_path(path: Path, *, workspace: Path | None = None) -> bool:
     """Hard-coded write-protected paths (Cursor sandbox protected paths subset)."""
-    if workspace is None:
-        try:
-            from butler.tools.path_safety import current_workspace_root
+    from butler.tools.butlerignore_ops import current_workspace_root_safe
 
-            workspace = current_workspace_root()
-        except Exception:
-            workspace = None
+    if workspace is None:
+        workspace = current_workspace_root_safe()
     if workspace is None:
         return False
     rel = _rel_posix(path, workspace)
