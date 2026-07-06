@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable, cast
 
 from butler.session.lifecycle import (
     _EMPTY_MEMORY_MARKERS,
@@ -39,7 +39,7 @@ def prefetch_limits() -> dict[str, int]:
         try:
             from butler.env_parse import int_env
 
-            return int_env(name, default, min=0)
+            return int(int_env(name, default, min=0))
         except ValueError:
             return default
 
@@ -73,7 +73,7 @@ def peek_experience_hits(
         return []
     caps = prefetch_limits()
     hit_limit = limit if limit is not None else caps["experience_hits"]
-    return hybrid_experience_hits(orchestrator, q, limit=hit_limit)
+    return cast(list[dict[str, Any]], hybrid_experience_hits(orchestrator, q, limit=hit_limit))
 
 
 def prefetch_turn_memory(
@@ -210,7 +210,10 @@ def _normalize_prefetch_body(
 ) -> str:
     from butler.core.memory_context_adapter import adapt_memory_prefetch_content
 
-    return adapt_memory_prefetch_content(body, source="memory_prefetch", diagnostics=diagnostics)
+    return cast(
+        str,
+        adapt_memory_prefetch_content(body, source="memory_prefetch", diagnostics=diagnostics),
+    )
 
 
 def _decorate_prefetch_for_turn(
@@ -268,7 +271,7 @@ def inject_turn_memory(
     if not ctx.strip():
         return user_msg
     cap = max_chars if max_chars is not None else prefetch_limits()["max_chars"]
-    return _render_turn_memory_context(ctx, user_msg, max_chars=cap)
+    return cast(str, _render_turn_memory_context(ctx, user_msg, max_chars=cap))
 
 
 def build_memory_pre_llm_transform(
@@ -278,11 +281,11 @@ def build_memory_pre_llm_transform(
     role: str = "default",
     max_chars: int | None = None,
     diagnostics: dict[str, Any] | None = None,
-):
+) -> Callable[[list[dict[str, Any]]], list[dict[str, Any]]]:
     cap = max_chars if max_chars is not None else prefetch_limits()["max_chars"]
     """Build an API-time memory injection transform that does not mutate history."""
 
-    def _transform(messages: list[dict]) -> list[dict]:
+    def _transform(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if github_grounding_should_skip(messages):
             if diagnostics is not None:
                 diagnostics["memory_context_injected"] = False
@@ -345,11 +348,14 @@ def attach_turn_memory_prefetch(
         diagnostics=diagnostics,
     )
 
-    def _composed(messages: list[dict]) -> list[dict]:
+    def _composed(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         prepared = memory_transform(messages)
-        prepared = apply_instruction_pre_llm_transform(prepared)
+        prepared = cast(
+            list[dict[str, Any]],
+            apply_instruction_pre_llm_transform(prepared),
+        )
         if existing:
-            return existing(prepared)
+            return cast(list[dict[str, Any]], existing(prepared))
         return prepared
 
     callbacks.pre_llm_transform = _composed

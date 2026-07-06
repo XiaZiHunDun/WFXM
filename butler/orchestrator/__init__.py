@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from butler.core.agent_loop import AgentLoop
@@ -57,19 +57,25 @@ class ButlerOrchestrator:
         role = normalize_butler_role(role)
         project = self.project_manager.get_current()
         em = resolve_effective_model(role, project=project, settings=self._settings)
-        return model_config_to_credentials(em.config, settings=self._settings)
+        return cast(dict[str, Any], model_config_to_credentials(em.config, settings=self._settings))
 
     def build_memory_context(self, *, for_role: str = "default") -> str:
-        return memory_bridge.build_memory_context(self, for_role=for_role)
+        return cast(str, memory_bridge.build_memory_context(self, for_role=for_role))
 
     def _system_prompt_placeholders(self, *, for_role: str = "default") -> dict[str, str]:
-        return prompt_assembler.system_prompt_placeholders(self, for_role=for_role)
+        return cast(
+            dict[str, str],
+            prompt_assembler.system_prompt_placeholders(self, for_role=for_role),
+        )
 
     def build_dynamic_system_reminder(self, *, for_role: str = "default") -> str:
-        return prompt_assembler.build_dynamic_system_reminder(self, for_role=for_role)
+        return cast(
+            str,
+            prompt_assembler.build_dynamic_system_reminder(self, for_role=for_role),
+        )
 
     def build_static_system_prompt(self) -> str:
-        return prompt_assembler.build_static_system_prompt(self)
+        return cast(str, prompt_assembler.build_static_system_prompt(self))
 
     def resolve_system_prompt(
         self,
@@ -77,21 +83,30 @@ class ButlerOrchestrator:
         role: str = "butler",
         session_key: str = "",
     ) -> tuple[str, str | None]:
-        return prompt_assembler.resolve_system_prompt(
-            self, role=role, session_key=session_key
+        return cast(
+            tuple[str, str | None],
+            prompt_assembler.resolve_system_prompt(
+                self, role=role, session_key=session_key
+            ),
         )
 
     def _assemble_default_system_prompt(self, *, for_role: str = "default") -> str:
-        return prompt_assembler.assemble_default_system_prompt(self, for_role=for_role)
+        return cast(
+            str,
+            prompt_assembler.assemble_default_system_prompt(self, for_role=for_role),
+        )
 
     def build_system_prompt(self) -> str:
-        return prompt_assembler.build_system_prompt(self)
+        return cast(str, prompt_assembler.build_system_prompt(self))
 
     def build_lead_system_prompt(self, *, session_key: str = "") -> str:
-        return prompt_assembler.build_lead_system_prompt(self, session_key=session_key)
+        return cast(
+            str,
+            prompt_assembler.build_lead_system_prompt(self, session_key=session_key),
+        )
 
     def get_agent_kwargs(self) -> dict[str, Any]:
-        return loop_factory.get_agent_kwargs(self)
+        return cast(dict[str, Any], loop_factory.get_agent_kwargs(self))
 
     def create_llm_client(self, role: str = "butler") -> LLMClient:
         return loop_factory.create_llm_client(self, role)
@@ -133,7 +148,7 @@ class ButlerOrchestrator:
         )
 
     def get_project_agent_kwargs(self, role: str) -> dict[str, Any]:
-        return loop_factory.get_project_agent_kwargs(self, role)
+        return cast(dict[str, Any], loop_factory.get_project_agent_kwargs(self, role))
 
     def on_project_switch(self, old_project: str, new_project: str) -> None:
         logger.debug(
@@ -163,8 +178,11 @@ class ButlerOrchestrator:
         *,
         header_note: str,
     ) -> list[str]:
-        return skill_bridge.build_skill_injection_sections(
-            matched, header_note=header_note
+        return cast(
+            list[str],
+            skill_bridge.build_skill_injection_sections(
+                matched, header_note=header_note
+            ),
         )
 
     def inject_skill_context(
@@ -174,11 +192,14 @@ class ButlerOrchestrator:
         *,
         diagnostics: dict[str, Any] | None = None,
     ) -> str:
-        return skill_bridge.inject_skill_context(
-            self,
-            task_description,
-            top_k=top_k,
-            diagnostics=diagnostics,
+        return cast(
+            str,
+            skill_bridge.inject_skill_context(
+                self,
+                task_description,
+                top_k=top_k,
+                diagnostics=diagnostics,
+            ),
         )
 
 

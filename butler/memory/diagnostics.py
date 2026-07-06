@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.memory.diagnostics_collect import (
@@ -55,7 +55,9 @@ def _experience_category_counts(db_path: Any) -> dict[str, int]:
         return {}
 
 
-def _resolve_project_memory(orchestrator: Any, session_key: str = ""):
+def _resolve_project_memory(
+    orchestrator: Any, session_key: str = "",
+) -> tuple[Any, str] | tuple[None, str]:
     """Project MEMORY for diagnostics; prefers session_key over global _project_memory."""
     pm = getattr(orchestrator, "_project_memory", None)
     proj = None
@@ -199,9 +201,12 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
 
         snap = stats.get("embedding_snapshot")
         if isinstance(snap, dict):
-            return format_embedding_status_line(snap)
-        return format_embedding_status_line(
-            vector_rows=int(stats.get("vector_rows") or 0),
+            return cast(str, format_embedding_status_line(snap))
+        return cast(
+            str,
+            format_embedding_status_line(
+                vector_rows=int(stats.get("vector_rows") or 0),
+            ),
         )
 
     embedding_line = safe_best_effort(
@@ -249,7 +254,7 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         def _vector_sync_lines() -> list[str]:
             from butler.memory.vector_sync_telemetry import format_vector_sync_lines
 
-            return format_vector_sync_lines()
+            return cast(list[str], format_vector_sync_lines())
 
         vector_lines = safe_best_effort(
             _vector_sync_lines,
@@ -314,7 +319,7 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         def _scope_lines() -> list[str]:
             from butler.memory.scope_diagnostics import format_memory_scope_diagnostic_lines
 
-            return format_memory_scope_diagnostic_lines(scope)
+            return cast(list[str], format_memory_scope_diagnostic_lines(scope))
 
         scope_lines = safe_best_effort(
             _scope_lines,
@@ -341,4 +346,4 @@ def _format_retrieval_ranking_lines() -> list[str]:
 def _format_effectiveness_lines() -> list[str]:
     from butler.memory.metrics_persist import format_effectiveness_lines
 
-    return format_effectiveness_lines()
+    return cast(list[str], format_effectiveness_lines())

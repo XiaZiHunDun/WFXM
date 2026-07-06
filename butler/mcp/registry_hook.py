@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
 from butler.mcp.bridge import format_call_result, refs_to_openai_definitions
 from butler.mcp.config import mcp_enabled, mcp_sdk_available
@@ -28,11 +29,11 @@ logger = logging.getLogger(__name__)
 
 
 def is_mcp_tool(name: str) -> bool:
-    return is_mcp_registered_name(name)
+    return bool(is_mcp_registered_name(name))
 
 
-def _resolve_workspace():
-    return resolve_workspace_safe()
+def _resolve_workspace() -> Path | None:
+    return cast(Path | None, resolve_workspace_safe())
 
 
 def ensure_mcp_for_session(session_key: str = "") -> list[dict[str, Any]]:
@@ -40,13 +41,13 @@ def ensure_mcp_for_session(session_key: str = "") -> list[dict[str, Any]]:
         return []
     sk = resolve_session_key_for_connect(session_key)
     refs = get_manager().ensure_connected(sk, workspace=_resolve_workspace())
-    return refs_to_openai_definitions(refs)
+    return cast(list[dict[str, Any]], refs_to_openai_definitions(refs))
 
 
 def get_mcp_tool_definitions(session_key: str = "") -> list[dict[str, Any]]:
     deferred = maybe_deferred_mcp_definitions(session_key)
     if deferred is not None:
-        return deferred
+        return cast(list[dict[str, Any]], deferred)
     return ensure_mcp_for_session(session_key)
 
 
@@ -76,7 +77,7 @@ def check_plan_mode_mcp_block(tool_name: str, *, session_key: str = "") -> str |
 
 
 def _session_key_fallback() -> str:
-    return session_key_fallback()
+    return cast(str, session_key_fallback())
 
 
 def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
@@ -153,7 +154,10 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
         }, ensure_ascii=False)
 
     def _call() -> str:
-        return get_manager().call_tool(sk, ref, normalized_args, workspace=_resolve_workspace())
+        return cast(
+            str,
+            get_manager().call_tool(sk, ref, normalized_args, workspace=_resolve_workspace()),
+        )
 
     text = run_mcp_with_gates_or_direct(
         server_id=ref.server_id,
@@ -164,8 +168,8 @@ def dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str | None:
         run_fn=_call,
     )
     if text.strip().startswith("{") and '"ok": false' in text.replace(" ", "").lower():
-        return text
-    return format_call_result(text, tool_name=resolved_name, server_id=ref.server_id)
+        return cast(str | None, text)
+    return cast(str | None, format_call_result(text, tool_name=resolved_name, server_id=ref.server_id))
 
 
 def mcp_status_lines(session_key: str = "") -> list[str]:

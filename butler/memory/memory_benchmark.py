@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -122,12 +122,15 @@ def _run_mb1_exact_recall(butler_home: Path) -> BenchmarkResult:
             elapsed_ms=(time.time() - t0) * 1000,
         )
 
-    return run_mb_loud(
-        _run,
-        benchmark_id="MB1",
-        category=BenchmarkCategory.EXACT_RECALL,
-        expected=expected,
-        t0=t0,
+    return cast(
+        BenchmarkResult,
+        run_mb_loud(
+            _run,
+            benchmark_id="MB1",
+            category=BenchmarkCategory.EXACT_RECALL,
+            expected=expected,
+            t0=t0,
+        ),
     )
 
 
@@ -155,12 +158,15 @@ def _run_mb2_semantic_recall(butler_home: Path) -> BenchmarkResult:
             elapsed_ms=(time.time() - t0) * 1000,
         )
 
-    return run_mb_loud(
-        _run,
-        benchmark_id="MB2",
-        category=BenchmarkCategory.SEMANTIC_RECALL,
-        expected=expected,
-        t0=t0,
+    return cast(
+        BenchmarkResult,
+        run_mb_loud(
+            _run,
+            benchmark_id="MB2",
+            category=BenchmarkCategory.SEMANTIC_RECALL,
+            expected=expected,
+            t0=t0,
+        ),
     )
 
 
@@ -191,12 +197,15 @@ def _run_mb3_cross_session_persistence(butler_home: Path) -> BenchmarkResult:
             elapsed_ms=(time.time() - t0) * 1000,
         )
 
-    return run_mb_loud(
-        _run,
-        benchmark_id="MB3",
-        category=BenchmarkCategory.PERSISTENCE,
-        expected=expected,
-        t0=t0,
+    return cast(
+        BenchmarkResult,
+        run_mb_loud(
+            _run,
+            benchmark_id="MB3",
+            category=BenchmarkCategory.PERSISTENCE,
+            expected=expected,
+            t0=t0,
+        ),
     )
 
 
@@ -236,12 +245,15 @@ def _run_mb4_decay_behavior(butler_home: Path) -> BenchmarkResult:
             elapsed_ms=(time.time() - t0) * 1000,
         )
 
-    return run_mb_loud(
-        _run,
-        benchmark_id="MB4",
-        category=BenchmarkCategory.DECAY,
-        expected=expected,
-        t0=t0,
+    return cast(
+        BenchmarkResult,
+        run_mb_loud(
+            _run,
+            benchmark_id="MB4",
+            category=BenchmarkCategory.DECAY,
+            expected=expected,
+            t0=t0,
+        ),
     )
 
 
@@ -274,12 +286,15 @@ def _run_mb5_capacity_pressure(butler_home: Path) -> BenchmarkResult:
             elapsed_ms=(time.time() - t0) * 1000,
         )
 
-    return run_mb_loud(
-        _run,
-        benchmark_id="MB5",
-        category=BenchmarkCategory.CAPACITY,
-        expected=expected,
-        t0=t0,
+    return cast(
+        BenchmarkResult,
+        run_mb_loud(
+            _run,
+            benchmark_id="MB5",
+            category=BenchmarkCategory.CAPACITY,
+            expected=expected,
+            t0=t0,
+        ),
     )
 
 
@@ -319,12 +334,15 @@ def _run_mb6_fact_compaction(butler_home: Path) -> BenchmarkResult:
             elapsed_ms=(time.time() - t0) * 1000,
         )
 
-    return run_mb_loud(
-        _run,
-        benchmark_id="MB6",
-        category=BenchmarkCategory.FACT_COMPACTION,
-        expected=expected,
-        t0=t0,
+    return cast(
+        BenchmarkResult,
+        run_mb_loud(
+            _run,
+            benchmark_id="MB6",
+            category=BenchmarkCategory.FACT_COMPACTION,
+            expected=expected,
+            t0=t0,
+        ),
     )
 
 
@@ -359,12 +377,15 @@ def _run_mb7_injection_safety(butler_home: Path) -> BenchmarkResult:
             elapsed_ms=(time.time() - t0) * 1000,
         )
 
-    return run_mb_loud(
-        _run,
-        benchmark_id="MB7",
-        category=BenchmarkCategory.INJECTION_SAFETY,
-        expected=expected,
-        t0=t0,
+    return cast(
+        BenchmarkResult,
+        run_mb_loud(
+            _run,
+            benchmark_id="MB7",
+            category=BenchmarkCategory.INJECTION_SAFETY,
+            expected=expected,
+            t0=t0,
+        ),
     )
 
 

@@ -10,7 +10,7 @@ import threading
 import time
 import weakref
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.memory.embedding import Embedder, cosine_similarity, get_embedder
 from butler.memory.semantic_config import (
@@ -76,7 +76,7 @@ class SemanticMemoryIndex:
             if conn is None:
                 return
             close_sqlite_connection(conn)
-            self._conn = None
+            self._conn = None  # type: ignore[assignment]
 
     def _init_schema(self) -> None:
         with self._write_lock:
@@ -133,7 +133,7 @@ class SemanticMemoryIndex:
 
     @property
     def model_id(self) -> str:
-        return self.embedder.model_id
+        return str(self.embedder.model_id)
 
     def upsert(
         self,
@@ -265,7 +265,7 @@ class SemanticMemoryIndex:
         self._record_access_hits(hits)
         from butler.memory.retrieval_ranking import rerank_memory_hits
 
-        return rerank_memory_hits(hits)
+        return cast(list[dict[str, Any]], rerank_memory_hits(hits))
 
     def hybrid_search(
         self,
@@ -311,7 +311,7 @@ class SemanticMemoryIndex:
         self._record_access_hits(out)
         from butler.memory.retrieval_ranking import rerank_memory_hits
 
-        return rerank_memory_hits(out)
+        return cast(list[dict[str, Any]], rerank_memory_hits(out))
 
     def _record_access_hits(self, hits: list[dict[str, Any]]) -> None:
         if not hits:
@@ -414,7 +414,7 @@ class SemanticMemoryIndex:
         self._record_access_hits(hits)
         from butler.memory.retrieval_ranking import rerank_memory_hits
 
-        return rerank_memory_hits(hits)
+        return cast(list[dict[str, Any]], rerank_memory_hits(hits))
 
 
 def _hit_key(hit: dict[str, Any]) -> str:
@@ -460,6 +460,8 @@ def enrich_experience_hit_tags(
         if not _is_experience_hit(h):
             continue
         raw = h.get("id") or h.get("source_id")
+        if raw is None:
+            continue
         try:
             need_ids.append(int(raw))
         except (TypeError, ValueError):
@@ -476,10 +478,11 @@ def enrich_experience_hit_tags(
             item["source"] = SOURCE_EXPERIENCE
         if item.get("id") is None:
             raw = item.get("source_id")
-            try:
-                item["id"] = int(raw)
-            except (TypeError, ValueError):
-                pass
+            if raw is not None:
+                try:
+                    item["id"] = int(raw)
+                except (TypeError, ValueError):
+                    pass
         if not str(item.get("tags") or "").strip():
             rid = item.get("id")
             try:
@@ -523,12 +526,14 @@ def index_triplets_for_content(
         return 0
     from butler.memory.semantic_index_ops import index_triplets_safe
 
-    return index_triplets_safe(
-        semantic,
-        content,
-        project=project,
-        source=source,
-        source_ref=source_ref,
+    return int(
+        index_triplets_safe(
+            semantic,
+            content,
+            project=project,
+            source=source,
+            source_ref=source_ref,
+        )
     )
 
 
@@ -548,12 +553,15 @@ def _hybrid_experience_search_once(
     """
     from butler.memory.semantic_index_ops import hybrid_experience_search_once_loud
 
-    return hybrid_experience_search_once_loud(
-        semantic,
-        fts_search,
-        query,
-        project=project,
-        limit=limit,
+    return cast(
+        tuple[list[dict[str, Any]], str, int, bool],
+        hybrid_experience_search_once_loud(
+            semantic,
+            fts_search,
+            query,
+            project=project,
+            limit=limit,
+        ),
     )
 
 
@@ -563,7 +571,7 @@ def _should_use_subqueries(query: str) -> bool:
         return False
     from butler.memory.semantic_index_ops import subquery_enabled_for
 
-    return subquery_enabled_for(query)
+    return bool(subquery_enabled_for(query))
 
 
 def _run_subquery_hybrid(
@@ -700,6 +708,8 @@ def _record_experience_access_from_hits(
         if (hit.get("source") or SOURCE_EXPERIENCE) not in (SOURCE_EXPERIENCE, "", None):
             continue
         raw = hit.get("id") or hit.get("source_id")
+        if raw is None:
+            continue
         try:
             ids.append(int(raw))
         except (TypeError, ValueError):

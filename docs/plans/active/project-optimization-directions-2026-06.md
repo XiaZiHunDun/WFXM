@@ -217,16 +217,16 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 21）
+#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 22）
 
-**目标**：`butler/contracts/` 全包 + P0/P1-C 核心接缝 + CC 关键路径 + gateway/transport/registry + tools 主模块长尾 + **Batch 21 域扩展**（`mcp`/`memory`/`skills`/`session`/`hooks`/`eval` 主模块，非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
+**目标**：`butler/contracts/` 全包 + P0/P1-C 核心接缝 + CC 关键路径 + gateway/transport/registry + tools 主模块长尾 + **Batch 21–22 域扩展**（`mcp`/`memory`/`skills`/`session`/`hooks`/`eval` 主模块，非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
 
 **验收**（`bash scripts/butler-mypy-strict-gate.sh`）：
-- **460** 模块 strict 绿（原 361）：Batch 21 新增 **99** 域模块（mcp/memory/skills/session/hooks/eval）；`p2f-rebuild-gate.py` SCAN_DIRS 已含上述目录
+- **474** 模块 strict 绿（原 361 → Batch 21 **460** → Batch 22 **474**）：Batch 22 收尾 **14** 个域主模块（`mcp/config`·`github_grounding`·`tools_manifest`·`registry_hook`；`memory/diagnostics`·`embedding`·`semantic_index`·`facade`·`vector_store`·`memory_benchmark`·`experience_consolidation`；`session/memory_prefetch`·`post_session`；`orchestrator/__init__.py`）；`p2f-rebuild-gate.py` SCAN_DIRS 下上述域 **主模块已全部入 gate**（`*_ops.py` 仍不在范围）
 - `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步（`scripts/p2f-rebuild-gate.py` 可重建 gate）
 - 入 `butler-pytest-fast-gate.sh`（既有）
 
-**剩余 backlog**：`*_ops.py` 与全仓库无 skip strict 不在本方向范围；`core/gateway/tools/runtime/transport` 主模块已清零；Batch 21 域内仍有 14 个主模块未入 gate（`config`/`embedding`/`semantic_index` 等，>5 error 或 harvest 未过）
+**剩余 backlog**：`*_ops.py` 与全仓库无 skip strict 不在本方向范围；`core/gateway/tools/runtime/transport` 主模块已清零
 
 #### 方向 G：文档卫生清理 — **done** 2026-06-29
 
@@ -268,7 +268,7 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ```
 已完成（2026-06-30）
-├─ P0-A/B · P1-C · P2-G · P1-D · P2-E · P2-F（mypy **361** 模块）✅
+├─ P0-A/B · P1-C · P2-G · P1-D · P2-E · P2-F（mypy **474** 模块）✅
 └─ P3-H 记忆统一检索 Phase 1–3 + lead 剖面 rollout（2026-07-02）✅
 
 现在 → 07-31（G1-04 窗内）

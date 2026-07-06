@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 
+from butler.memory.embedding import Embedder
 from butler.memory.vector_store_ops import (
     chroma_delete,
     chroma_query,
@@ -23,7 +24,7 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 logger = logging.getLogger(__name__)
 
@@ -58,20 +59,20 @@ class VectorStore(Protocol):
 def _store_root() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "vector_store"
+    return cast(Path, get_butler_home()) / "vector_store"
 
 
-def _get_embedder():
+def _get_embedder() -> Embedder:
     from butler.memory.embedding import get_embedder
 
-    return get_embedder()
+    return cast(Embedder, get_embedder())
 
 
 class ChromaVectorStore:
     """ChromaDB-backed persistent vector store."""
 
     def __init__(self, collection_name: str = "butler_personal") -> None:
-        import chromadb  # type: ignore[import-untyped]
+        import chromadb
 
         persist_dir = str(_store_root() / "chroma")
         os.makedirs(persist_dir, exist_ok=True)
@@ -140,10 +141,10 @@ class ChromaVectorStore:
         return hits
 
     def delete(self, doc_id: str) -> bool:
-        return chroma_delete(self._collection, doc_id)
+        return bool(chroma_delete(self._collection, doc_id))
 
     def count(self) -> int:
-        return self._collection.count()
+        return int(self._collection.count())
 
 
 class InMemoryVectorStore:

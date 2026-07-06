@@ -7,7 +7,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy, float_env
 
@@ -33,19 +33,19 @@ Output ONLY valid JSON:
 
 
 def experience_merge_enabled() -> bool:
-    return env_truthy("BUTLER_EXPERIENCE_MERGE", default=True)
+    return bool(env_truthy("BUTLER_EXPERIENCE_MERGE", default=True))
 
 
 def experience_merge_auto_threshold() -> float:
     try:
-        return float_env("BUTLER_EXPERIENCE_MERGE_AUTO", 0.92, min=0.5, max=0.99)
+        return float(float_env("BUTLER_EXPERIENCE_MERGE_AUTO", 0.92, min=0.5, max=0.99))
     except ValueError:
         return 0.92
 
 
 def experience_merge_review_threshold() -> float:
     try:
-        return float_env("BUTLER_EXPERIENCE_MERGE_REVIEW", 0.78, min=0.4, max=0.99)
+        return float(float_env("BUTLER_EXPERIENCE_MERGE_REVIEW", 0.78, min=0.4, max=0.99))
     except ValueError:
         return 0.78
 
@@ -53,7 +53,7 @@ def experience_merge_review_threshold() -> float:
 def _pending_path() -> Path:
     from butler.config import get_butler_home
 
-    d = get_butler_home() / "metrics"
+    d = cast(Path, get_butler_home()) / "metrics"
     d.mkdir(parents=True, exist_ok=True)
     return d / "experience_merge_pending.json"
 
@@ -99,7 +99,8 @@ def apply_merge_pending(
     if row_id <= 0:
         return {"ok": False, "error": "invalid existing_id in pending entry"}
 
-    proposed = entry.get("proposed") if isinstance(entry.get("proposed"), dict) else {}
+    proposed_raw = entry.get("proposed")
+    proposed: dict[str, Any] = proposed_raw if isinstance(proposed_raw, dict) else {}
     content = str(proposed.get("content") or "").strip()
     tags = proposed.get("tags")
     if not content:
@@ -209,7 +210,7 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
         m = re.search(pattern, text, re.DOTALL)
         if m:
             try:
-                return json.loads(m.group())
+                return cast(dict[str, Any], json.loads(m.group()))
             except json.JSONDecodeError:
                 continue
     return None
@@ -289,8 +290,10 @@ def digest_experience_add(
 ) -> int:
     """Add or merge experience row. Returns row id, 0 on reject, -1 on queued pending."""
     if not experience_merge_enabled():
-        return butler_memory._append_experience_row(
-            project, category, content, tags=tags,
+        return int(
+            butler_memory._append_experience_row(
+                project, category, content, tags=tags,
+            )
         )
 
     best, sim = find_similar_experience(
@@ -346,7 +349,7 @@ def digest_experience_add(
         inc_digestion_metric_safe("digestion_experience_merge_pending")
         return 0
 
-    return butler_memory._append_experience_row(project, category, content, tags=tags)
+    return int(butler_memory._append_experience_row(project, category, content, tags=tags))
 
 
 __all__ = [

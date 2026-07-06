@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 # Hermes ``MemoryProvider`` adapter lives in ``plugins/memory/butler/`` only.
 
@@ -105,7 +105,7 @@ _RECALL_SCHEMA = {
 }
 
 
-def _extract_hit_texts(rows: list[dict]) -> list[str]:
+def _extract_hit_texts(rows: list[dict[str, Any]]) -> list[str]:
     texts: list[str] = []
     for row in rows:
         if not isinstance(row, dict):
@@ -140,9 +140,9 @@ class ButlerMemoryService:
         return "butler"
 
     def is_available(self) -> bool:
-        return butler_home_configured()
+        return bool(butler_home_configured())
 
-    def initialize(self, session_id: str, **kwargs) -> None:
+    def initialize(self, session_id: str, **kwargs: Any) -> None:
         self._session_id = session_id or ""
         self._hermes_home = str(kwargs.get("hermes_home", "") or "")
         self._user_id = str(kwargs.get("user_id", "") or "")
@@ -211,7 +211,7 @@ class ButlerMemoryService:
             merged = prefetch_turn_memory(self._orchestrator, query, use_cache=False)
             if not merged.strip():
                 return ""
-            return "**Butler layered memory**\n\n" + merged
+            return "**Butler layered memory**\n\n" + cast(str, merged)
 
         del session_id
 
@@ -262,7 +262,7 @@ class ButlerMemoryService:
     @staticmethod
     def _guess_project_slug(proj_root: Path | None) -> str:
         if proj_root is None:
-            return manager_current_project()
+            return cast(str, manager_current_project())
         return proj_root.name
 
     def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
@@ -282,7 +282,7 @@ class ButlerMemoryService:
             return
 
         if not hasattr(self, "_turn_buffer"):
-            self._turn_buffer: list[dict] = []
+            self._turn_buffer: list[dict[str, Any]] = []
         self._turn_buffer.append({"role": "user", "content": user_content})
         self._turn_buffer.append({"role": "assistant", "content": assistant_content})
         if len(self._turn_buffer) >= 8:
@@ -300,7 +300,7 @@ class ButlerMemoryService:
             butler_memory=self._butler_global,
             _project_memory=self._project_memory,
             _skill_manager=None,
-            project_manager=SimpleNamespace(current_project=resolveresolve_active_project_name()),
+            project_manager=SimpleNamespace(current_project=resolve_active_project_name()),
         )
 
     def _trigger_background_extraction_standalone(self) -> None:
@@ -319,11 +319,14 @@ class ButlerMemoryService:
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
         return [_REMEMBER_SCHEMA, _RECALL_SCHEMA]
 
-    def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs) -> str:
+    def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs: Any) -> str:
         del kwargs
-        return run_tool_call_safe(
-            lambda: dispatch_memory_tool(self, tool_name, args),
-            label="memory.facade.tool_call",
+        return cast(
+            str,
+            run_tool_call_safe(
+                lambda: dispatch_memory_tool(self, tool_name, args),
+                label="memory.facade.tool_call",
+            ),
         )
 
     def _remember(self, args: Dict[str, Any]) -> str:
@@ -476,7 +479,7 @@ class ButlerMemoryService:
                 emit_write_metric(scope, True, content=content)
             else:
                 emit_write_metric(scope, True)
-            payload: dict[str, Any] = {
+            proj_payload: dict[str, Any] = {
                 "ok": True,
                 "scope": scope,
                 "section": section,
@@ -484,8 +487,8 @@ class ButlerMemoryService:
                 "action": "append",
             }
             if cls_result == "pending":
-                payload["hint"] = "已进入 Pending，可用 /记忆待审 与 /批准记忆 写入正式章节"
-            return json.dumps(payload)
+                proj_payload["hint"] = "已进入 Pending，可用 /记忆待审 与 /批准记忆 写入正式章节"
+            return json.dumps(proj_payload)
 
         return json.dumps({"ok": False, "error": f"invalid scope {scope!r}"})
 
@@ -497,7 +500,7 @@ class ButlerMemoryService:
         if mode and mode != "full":
             from butler.memory.recall_layers import dispatch_recall_mode
 
-            return dispatch_recall_mode(self, args, mode)
+            return cast(str, dispatch_recall_mode(self, args, mode))
 
         scope = str(args.get("scope", "experience") or "experience")
         if scope == "profile":
@@ -728,7 +731,7 @@ class ButlerMemoryService:
         *,
         parent_session_id: str = "",
         reset: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         del parent_session_id
         del reset

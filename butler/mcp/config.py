@@ -7,10 +7,10 @@ import os
 import re
 import ipaddress
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.env_parse import env_truthy, int_env
 from butler.io.safe_load import safe_load_yaml
@@ -42,20 +42,20 @@ def mcp_enabled() -> bool:
 
 def max_servers() -> int:
     try:
-        return int_env("BUTLER_MCP_MAX_SERVERS", 3, min=0, max=20)
+        return int(int_env("BUTLER_MCP_MAX_SERVERS", 3, min=0, max=20))
     except ValueError:
         return 3
 
 
 def max_tools() -> int:
     try:
-        return int_env("BUTLER_MCP_MAX_TOOLS", 20, min=0, max=100)
+        return int(int_env("BUTLER_MCP_MAX_TOOLS", 20, min=0, max=100))
     except ValueError:
         return 20
 
 
 def session_scoped() -> bool:
-    return env_truthy("BUTLER_MCP_SESSION_SCOPED", default=True)
+    return bool(env_truthy("BUTLER_MCP_SESSION_SCOPED", default=True))
 
 
 def stdio_allow_commands() -> frozenset[str]:
@@ -71,7 +71,7 @@ def http_hosts_allow_extra() -> list[str]:
 
 
 def allow_private_http() -> bool:
-    return env_truthy("BUTLER_MCP_HTTP_ALLOW_PRIVATE", default=False)
+    return bool(env_truthy("BUTLER_MCP_HTTP_ALLOW_PRIVATE", default=False))
 
 
 def _expand_env(value: str) -> str:
@@ -188,7 +188,7 @@ def http_mcp_servers_configured(*, workspace: Path | None = None) -> bool:
     """True if any loaded MCP server uses HTTP transport."""
     from butler.mcp.config_ops import http_mcp_servers_configured_safe
 
-    return http_mcp_servers_configured_safe(workspace=workspace)
+    return bool(http_mcp_servers_configured_safe(workspace=workspace))
 
 
 def load_mcp_servers(*, workspace: Path | None = None) -> list[McpServerConfig]:
@@ -248,7 +248,7 @@ def validate_http_url(config: McpServerConfig) -> str | None:
 
     parsed, err = parse_http_url_safe(config.url)
     if err:
-        return err
+        return cast(str | None, err)
     if parsed is None:
         return "invalid url"
     if parsed.scheme not in ("http", "https"):

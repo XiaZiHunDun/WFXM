@@ -277,22 +277,26 @@ MODULES=(
   butler/mcp/classify.py
   butler/mcp/client_http.py
   butler/mcp/client_stdio.py
+  butler/mcp/config.py
   butler/mcp/deferred.py
   butler/mcp/diagnostics.py
   butler/mcp/extension_grounding.py
   butler/mcp/extension_manifest.py
   butler/mcp/extension_verify.py
+  butler/mcp/github_grounding.py
   butler/mcp/github_tool_aliases.py
   butler/mcp/manager.py
   butler/mcp/naming.py
   butler/mcp/outbound_grounding_gate.py
   butler/mcp/profiles.py
+  butler/mcp/registry_hook.py
   butler/mcp/result_slim.py
   butler/mcp/schema_normalize.py
   butler/mcp/server_stdio.py
   butler/mcp/todoist_grounding.py
   butler/mcp/todoist_tool_aliases.py
   butler/mcp/tools_engine.py
+  butler/mcp/tools_manifest.py
   butler/mcp/turn_scrape_dedup.py
   butler/mcp/types.py
   butler/memory/__init__.py
@@ -301,13 +305,18 @@ MODULES=(
   butler/memory/coding_recall.py
   butler/memory/corpus_router.py
   butler/memory/corrective_recall.py
+  butler/memory/diagnostics.py
   butler/memory/diagnostics_collect.py
   butler/memory/document_ingest.py
+  butler/memory/embedding.py
+  butler/memory/experience_consolidation.py
   butler/memory/experience_mining.py
   butler/memory/experience_mining_cli.py
+  butler/memory/facade.py
   butler/memory/injection_guard.py
   butler/memory/injection_llm_score.py
   butler/memory/knowledge_db.py
+  butler/memory/memory_benchmark.py
   butler/memory/memory_caps.py
   butler/memory/memory_metrics.py
   butler/memory/memory_scope.py
@@ -335,6 +344,7 @@ MODULES=(
   butler/memory/search_result.py
   butler/memory/semantic_config.py
   butler/memory/semantic_health.py
+  butler/memory/semantic_index.py
   butler/memory/semantic_project.py
   butler/memory/transcript_memory_pipeline.py
   butler/memory/transcript_recall.py
@@ -342,7 +352,9 @@ MODULES=(
   butler/memory/unified_recall.py
   butler/memory/unified_recall_config.py
   butler/memory/vector_gc.py
+  butler/memory/vector_store.py
   butler/memory/vector_sync_telemetry.py
+  butler/orchestrator/__init__.py
   butler/runtime/__init__.py
   butler/runtime/approval.py
   butler/runtime/async_delegate.py
@@ -370,7 +382,9 @@ MODULES=(
   butler/session/auto_title.py
   butler/session/keys.py
   butler/session/lifecycle.py
+  butler/session/memory_prefetch.py
   butler/session/new_session.py
+  butler/session/post_session.py
   butler/session/post_session_guard.py
   butler/session/post_session_layered.py
   butler/skills/__init__.py

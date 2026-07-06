@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 from butler.mcp.extension_grounding import matches_manifest_intent
@@ -22,11 +22,11 @@ _GITHUB_ISSUE_LIST_INTENT = re.compile(
 
 
 def github_issue_list_direct_enabled() -> bool:
-    return env_truthy("BUTLER_GITHUB_ISSUE_LIST_DIRECT", default=True)
+    return bool(env_truthy("BUTLER_GITHUB_ISSUE_LIST_DIRECT", default=True))
 
 
 def github_repo_list_direct_enabled() -> bool:
-    return env_truthy("BUTLER_GITHUB_REPO_LIST_DIRECT", default=True)
+    return bool(env_truthy("BUTLER_GITHUB_REPO_LIST_DIRECT", default=True))
 
 
 def is_github_repo_list_intent(text: str) -> bool:
@@ -66,7 +66,7 @@ def parse_github_repo_list_tool_content(content: str) -> dict[str, Any] | None:
     return payload
 
 
-def find_latest_github_repo_list_envelope(messages: list[dict]) -> dict[str, Any] | None:
+def find_latest_github_repo_list_envelope(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
     for msg in reversed(messages):
         if not isinstance(msg, dict) or msg.get("role") != "tool":
             continue
@@ -88,7 +88,7 @@ def format_github_repo_list_reply(envelope: dict[str, Any]) -> str:
 
 
 def try_github_repo_list_direct_reply(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     user_text: str,
 ) -> str | None:
@@ -136,7 +136,7 @@ def parse_github_issue_list_tool_content(content: str) -> dict[str, Any] | None:
     return payload
 
 
-def find_latest_github_issue_list_envelope(messages: list[dict]) -> dict[str, Any] | None:
+def find_latest_github_issue_list_envelope(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
     for msg in reversed(messages):
         if not isinstance(msg, dict) or msg.get("role") != "tool":
             continue
@@ -159,7 +159,7 @@ def format_github_issue_list_reply(envelope: dict[str, Any]) -> str:
 
 
 def try_github_issue_list_direct_reply(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     user_text: str,
 ) -> str | None:

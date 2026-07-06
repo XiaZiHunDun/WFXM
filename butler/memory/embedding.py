@@ -8,7 +8,7 @@ import math
 import os
 import re
 import threading
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from butler.memory.semantic_config import embedding_model_name, embedding_provider_name
 
@@ -28,7 +28,7 @@ def _tokenize(text: str) -> list[str]:
             if not _JIEBA_TRIED:
                 _JIEBA_TRIED = True
                 try:
-                    import jieba
+                    import jieba  # type: ignore[import-untyped]
 
                     jieba.setLogLevel(logging.WARNING)
                     _JIEBA = jieba
@@ -146,7 +146,7 @@ class OpenAIEmbedder:
     def dimension(self) -> int:
         return self._dim or 1536
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         if self._client is None:
             from openai import OpenAI
             self._client = OpenAI(api_key=self._api_key, base_url=self._base_url)
@@ -201,7 +201,7 @@ class MinimaxEmbedder:
     def dimension(self) -> int:
         return self._dim or 1024
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         if self._client is None:
             from openai import OpenAI
             self._client = OpenAI(api_key=self._api_key, base_url=self._base_url)
@@ -251,7 +251,7 @@ class FastEmbedEmbedder:
 
     def _ensure_model(self) -> Any:
         if self._model is None:
-            from fastembed import TextEmbedding  # type: ignore[import-untyped]
+            from fastembed import TextEmbedding
 
             self._model = TextEmbedding(model_name=self._model_name)
         return self._model
@@ -328,7 +328,7 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
 def _resolve_fastembed(model: str) -> Embedder | None:
     from butler.memory.embedding_ops import resolve_fastembed_loud
 
-    return resolve_fastembed_loud(model)
+    return cast(Embedder | None, resolve_fastembed_loud(model))
 
 
 import functools
@@ -429,7 +429,7 @@ def _build_embedder(provider: str, model: str) -> Embedder:
     # PERF-13-2: 包装 query 缓存（HashingEmbedder 无 API 开销，跳过）
     if isinstance(raw, HashingEmbedder):
         return raw
-    return _CachedEmbedder(raw)
+    return cast(Embedder, _CachedEmbedder(raw))
 
 
 def _degraded_hashing(provider: str, model: str) -> "HashingEmbedder":
@@ -487,7 +487,7 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
         if probed is not None:
             logger.info("Embedding provider: %s (%s)", provider, probed.model_id)
             clear_embedding_degradation_safe()
-            return probed
+            return cast(Embedder, probed)
     else:
         # Audit R2-3: missing API key / unsupported provider → degraded.
         logger.error(
