@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register, require_owner
 
@@ -11,12 +11,12 @@ def _cmd_edit(ctx: CommandContext) -> Optional[str]:
     """Usage-only; non-empty args expand in locked_phases before the loop."""
     gate = require_owner(ctx)
     if gate:
-        return gate
+        return cast(str, gate)
     from butler.gateway.owner_delegate_shortcuts import format_edit_command_usage
 
     arg = (ctx.arg or "").strip()
     if not arg:
-        return format_edit_command_usage()
+        return cast(str, format_edit_command_usage())
     # Expanded path should not reach here; fallback delegate phrase.
     from butler.gateway.owner_delegate_shortcuts import (
         build_dev_delegate_prompt,
@@ -26,13 +26,13 @@ def _cmd_edit(ctx: CommandContext) -> Optional[str]:
 
     name, _ = resolve_project_context(ctx.orchestrator, ctx.session_key)
     path, goal = parse_edit_command_arg(arg)
-    return build_dev_delegate_prompt(path, goal, project_name=name)
+    return cast(str, build_dev_delegate_prompt(path, goal, project_name=name))
 
 
 def _cmd_cc_handoff(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
-        return gate
+        return cast(str, gate)
     from butler.gateway.owner_delegate_shortcuts import (
         build_cc_handoff_package,
         resolve_project_context,
@@ -48,11 +48,14 @@ def _cmd_cc_handoff(ctx: CommandContext) -> Optional[str]:
     name, ws = resolve_project_context(ctx.orchestrator, ctx.session_key)
     if not name:
         return "请先 /切换 到目标项目，再发 /转交CC …"
-    return build_cc_handoff_package(
+    return cast(
+        str,
+        build_cc_handoff_package(
         scope,
         project_name=name,
         workspace=ws,
         session_key=ctx.session_key,
+        ),
     )
 
 

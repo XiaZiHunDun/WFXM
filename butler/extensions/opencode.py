@@ -32,7 +32,7 @@ import shutil
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 logger = logging.getLogger(__name__)
 
@@ -154,13 +154,16 @@ class OpenCodeSubprocess:
 
         from butler.extensions.opencode_ops import run_subprocess_opencode_task
 
-        return run_subprocess_opencode_task(
-            cmd=cmd,
-            timeout=timeout,
-            t0=t0,
-            mode_value=self.get_mode().value,
-            parse_events=_parse_json_events,
-            extract_text=_extract_result_text,
+        return cast(
+            dict[str, Any],
+            run_subprocess_opencode_task(
+                cmd=cmd,
+                timeout=timeout,
+                t0=t0,
+                mode_value=self.get_mode().value,
+                parse_events=_parse_json_events,
+                extract_text=_extract_result_text,
+            ),
         )
 
 
@@ -190,7 +193,7 @@ class OpenCodeHTTPServer:
     def is_available(self) -> bool:
         from butler.extensions.opencode_ops import http_health_available_safe
 
-        return http_health_available_safe(self._url)
+        return cast(bool, http_health_available_safe(self._url))
 
     def get_mode(self) -> OpenCodeMode:
         return OpenCodeMode.HTTP_SERVER
@@ -206,10 +209,13 @@ class OpenCodeHTTPServer:
         t0 = time.time()
         from butler.extensions.opencode_ops import run_http_opencode_task
 
-        return run_http_opencode_task(
+        return cast(
+            dict[str, Any],
+            run_http_opencode_task(
             lambda: self._execute_http_task(task, workspace=workspace, t0=t0),
             mode_value=self.get_mode().value,
             t0=t0,
+            ),
         )
 
     def _execute_http_task(
@@ -289,7 +295,7 @@ class OpenCodeHTTPServer:
                 lambda: self._poll_session_once(session_id, workspace),
             )
             if transcript is not None:
-                return transcript
+                return cast(str, transcript)
 
             time.sleep(poll_interval)
             poll_interval = min(poll_interval * 1.2, 10.0)
@@ -317,8 +323,11 @@ class OpenCodeHTTPServer:
         """Fetch the assistant messages from the completed session."""
         from butler.extensions.opencode_ops import fetch_session_transcript_safe
 
-        return fetch_session_transcript_safe(
+        return cast(
+            str,
+            fetch_session_transcript_safe(
             lambda: self._fetch_transcript_inner(session_id, workspace),
+            ),
         )
 
     def _fetch_transcript_inner(self, session_id: str, workspace: str) -> str:

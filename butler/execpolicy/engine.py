@@ -38,7 +38,7 @@ class PrefixRule:
 
 
 def execpolicy_enabled() -> bool:
-    return env_truthy("BUTLER_EXECPOLICY", default=True)
+    return bool(env_truthy("BUTLER_EXECPOLICY", default=True))
 
 
 def _tokenize_command(command: str) -> list[str]:
@@ -86,7 +86,7 @@ def _parse_rule(raw: dict[str, Any], index: int) -> PrefixRule | None:
             index,
             dec_raw,
         )
-        decision = PolicyDecision.DENY
+        decision = PolicyDecision.FORBIDDEN
     match_ex = [_normalize_example(x) for x in (raw.get("match") or [])]
     not_match_ex = [_normalize_example(x) for x in (raw.get("not_match") or [])]
     return PrefixRule(

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_CASES = _REPO_ROOT / "tests" / "fixtures" / "prompt_eval" / "cases.yaml"

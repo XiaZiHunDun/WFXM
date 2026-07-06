@@ -6,7 +6,7 @@ import importlib
 
 _canonical = importlib.import_module("butler.gateway.platforms.wechat_ilink.constants")
 
-__doc__ = _canonical.__doc__
+__doc__ = _canonical.__doc__ or ""
 
 for _name in dir(_canonical):
     if _name.startswith("__"):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Any, Iterable
 
 if TYPE_CHECKING:
     from prompt_toolkit.completion import Completer
@@ -97,8 +97,8 @@ def build_slash_completer() -> Completer:
 
     words = sorted(set(iter_completion_words()))
 
-    class _ButlerSlashCompleter(Completer):
-        def get_completions(self, document, complete_event):
+    class _ButlerSlashCompleter(Completer):  # type: ignore[misc]
+        def get_completions(self, document: Any, complete_event: Any) -> Iterable[Completion]:
             text = document.text_before_cursor
             if not text.startswith("/"):
                 return

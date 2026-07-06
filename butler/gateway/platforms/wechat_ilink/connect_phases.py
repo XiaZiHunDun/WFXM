@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink import WeChatAdapter
@@ -45,7 +45,7 @@ def _acquire_token_lock(adapter: "WeChatAdapter") -> bool:
         acquire_wechat_token_lock_safe,
     )
 
-    return acquire_wechat_token_lock_safe(adapter)
+    return cast(bool, acquire_wechat_token_lock_safe(adapter))
 
 
 def _open_aiohttp_sessions(adapter: "WeChatAdapter") -> None:

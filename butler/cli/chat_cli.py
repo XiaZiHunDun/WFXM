@@ -22,7 +22,7 @@ function as a linear list of ``phase_*(...)`` calls.
 from __future__ import annotations
 
 import argparse
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-def register_chat_parser(sub: argparse._SubParsersAction) -> None:
+def register_chat_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``chat`` (interactive) and ``exec`` (single-shot) parsers."""
     from butler import main as _butler_main
 
@@ -67,8 +67,11 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
 
     from butler.cli.chat_cli_ops import run_exec_turn_safe
 
-    return run_exec_turn_safe(
+    return cast(
+        int,
+        run_exec_turn_safe(
         lambda: _phase_run_single_turn(orch, agent_loop, ns.message, ui, stream),
+        ),
     )
 
 
@@ -188,7 +191,7 @@ def _phase_prompt_user_input(
         project = orchestrator.project_manager.current_project or "Butler"
         prompt_prefix = f"[{project}] > "
         with patch_stdout():
-            return session.prompt(prompt_prefix).strip()
+            return cast(str, session.prompt(prompt_prefix).strip())
     except (EOFError, KeyboardInterrupt):
         console.print("\n[dim]再见！[/dim]")
         return None
@@ -212,7 +215,7 @@ def _phase_dispatch_slash(
     elif handled == "rebuild":
         agent_loop = _phase_rebuild_loop(orchestrator, agent_loop, loops_by_session)
     elif handled == "switch_project":
-        agent_loop = _phase_get_or_create_loop(orchestrator, console, loops_by_session, ui=None)  # type: ignore[arg-type]
+        agent_loop = _phase_get_or_create_loop(orchestrator, console, loops_by_session, ui=None)
     return handled, agent_loop
 
 
@@ -245,9 +248,12 @@ def _phase_augment_prompt(orchestrator: Any, user_input: str) -> str:
     """Phase 6: apply pre-LLM context (skill injection + hook context)."""
     from butler.gateway.hooks import apply_pre_llm_context
 
-    return apply_pre_llm_context(
+    return cast(
+        str,
+        apply_pre_llm_context(
         orchestrator.inject_skill_context(user_input),
         orchestrator=orchestrator,
+        ),
     )
 
 
@@ -505,7 +511,10 @@ def _phase_run_single_turn(orch: Any, agent_loop: Any, message: str, ui: Any, st
 def _phase_augment_prompt_exec(orch: Any, message: str) -> str:
     from butler.gateway.hooks import apply_pre_llm_context
 
-    return apply_pre_llm_context(
+    return cast(
+        str,
+        apply_pre_llm_context(
         orch.inject_skill_context(message),
         orchestrator=orch,
+        ),
     )

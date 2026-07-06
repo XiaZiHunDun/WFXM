@@ -30,7 +30,7 @@ class ChatSessionUI:
         self.console = console
         self._stream_title = stream_title
         self._spinner = WaitSpinner()
-        self._tool_stack: list[tuple[float, str, dict]] = []
+        self._tool_stack: list[tuple[float, str, dict[str, Any]]] = []
         self._pending_edit: tuple[str, str] | None = None
         self._llm_status: Status | None = None
 
@@ -154,7 +154,7 @@ class ChatSessionUI:
             self._llm_status.stop()
             self._llm_status = None
 
-    def _on_tool_start(self, name: str, args: dict) -> None:
+    def _on_tool_start(self, name: str, args: dict[str, Any]) -> None:
         self._stop_llm_status()
         self._spinner.stop()
         self._tool_stack.append((time.monotonic(), name, dict(args)))
@@ -168,7 +168,7 @@ class ChatSessionUI:
 
     def _on_tool_complete(self, name: str, result: str) -> None:
         duration = 0.0
-        args: dict = {}
+        args: dict[str, Any] = {}
         for idx, (started, tool_name, tool_args) in enumerate(self._tool_stack):
             if tool_name == name:
                 duration = max(time.monotonic() - started, 0.0)

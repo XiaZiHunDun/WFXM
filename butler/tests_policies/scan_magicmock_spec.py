@@ -87,7 +87,10 @@ def _enclosing_func(tree: ast.Module, target_lineno: int) -> str:
     best: tuple[int, str] | None = None
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            if node.lineno <= target_lineno <= node.end_lineno:
+            end = node.end_lineno
+            if end is None:
+                continue
+            if node.lineno <= target_lineno <= end:
                 if best is None or node.lineno > best[0]:
                     best = (node.lineno, node.name)
     return best[1] if best else "<module>"

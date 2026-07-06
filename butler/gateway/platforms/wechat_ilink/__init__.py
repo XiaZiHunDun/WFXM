@@ -11,7 +11,7 @@ Design notes:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 # Backward-compat re-exports (constants, utils, transport, registry, ``_*`` helpers).
 from butler.gateway.platforms.wechat_ilink import _compat as _wechat_compat
@@ -37,10 +37,13 @@ async def send_wechat_direct(
     """One-shot send helper for ``send_message`` and cron delivery."""
     from butler.gateway.platforms.wechat_ilink.direct import send_wechat_direct as _send
 
-    return await _send(
-        extra=extra,
-        token=token,
-        chat_id=chat_id,
-        message=message,
-        media_files=media_files,
+    return cast(
+        Dict[str, Any],
+        await _send(
+            extra=extra,
+            token=token,
+            chat_id=chat_id,
+            message=message,
+            media_files=media_files,
+        ),
     )

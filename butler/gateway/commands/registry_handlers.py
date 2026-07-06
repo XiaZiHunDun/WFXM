@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from butler.gateway.command_registry import require_owner_kw
 from butler.gateway.commands.registry_handlers_ops import (
     default_registry_tenant_id,
     install_skill_or_pending,
 )
+
+
+def _as_str(value: Any) -> str:
+    return str(value)
 
 
 def handle_confirm_install_command(
@@ -18,8 +24,8 @@ def handle_confirm_install_command(
 ) -> str:
     """Handle /确认安装 <identifier> (Owner)."""
     gate = require_owner_kw(platform, external_id, session_key)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     ident = (arg or "").strip()
     if not ident:
         return "用法: /确认安装 <identifier>\n例: /确认安装 clawhub:demo-skill"
@@ -31,7 +37,13 @@ def handle_confirm_install_command(
     )
 
 
-def _append_install_followup(svc, identifier: str, base: str, *, record=None) -> str:
+def _append_install_followup(
+    svc: Any,
+    identifier: str,
+    base: str,
+    *,
+    record: Any = None,
+) -> str:
     followup = svc.install_followup(identifier, record=record)
     if followup:
         return f"{base}\n{followup}"
@@ -91,7 +103,7 @@ def handle_registry_command(
 
 
 def _tenant_id() -> str:
-    return default_registry_tenant_id()
+    return str(default_registry_tenant_id())
 
 
 def _handle_skills(
@@ -104,8 +116,8 @@ def _handle_skills(
     # Sprint 11 SEC-11-4: read-only 子命令（搜索/列表/查看）也守门，
     # 避免第三方恶意 Skill 描述喂回 LLM 形成 prompt injection
     gate = require_owner_kw(platform, external_id, session_key)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.registry.skill_service import SkillRegistryService
 
     parts = (arg or "").strip().split(maxsplit=1)
@@ -116,7 +128,7 @@ def _handle_skills(
 
     if sub in ("搜索", "search", ""):
         q = rest or "lingwen"
-        return svc.format_search_table(svc.search(q))
+        return _as_str(svc.format_search_table(svc.search(q)))
 
     if sub in ("列表", "list", "已安装"):
         rows = svc.list_installed()
@@ -146,8 +158,8 @@ def _handle_skills(
         if not rest:
             return "用法: /技能 确认 <identifier>"
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         return _confirm_skill_install(
             rest,
             platform=platform,
@@ -177,8 +189,8 @@ def _handle_skills(
 
     if sub in ("强制安装", "force-install"):
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         if not rest:
             return "用法: /技能 强制安装 <identifier>"
         try:
@@ -194,23 +206,23 @@ def _handle_skills(
 
     if sub in ("安装", "install"):
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         if not rest:
             return "用法: /技能 安装 <identifier>\n例: /技能 安装 bundled:lingwen-project-lead"
-        return install_skill_or_pending(
+        return _as_str(install_skill_or_pending(
             svc,
             rest,
             platform=platform,
             external_id=external_id,
             session_key=session_key,
             append_followup=_append_install_followup,
-        )
+        ))
 
     if sub in ("升级", "upgrade"):
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         if not rest:
             return "用法: /技能 升级 <名称或 identifier>"
         try:
@@ -229,12 +241,12 @@ def _handle_skills(
 
     if sub in ("卸载", "uninstall"):
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         if not rest:
             return "用法: /技能 卸载 <name>"
         ok, msg = svc.uninstall(rest)
-        return msg
+        return _as_str(msg)
 
     return (
         "技能目录命令:\n"
@@ -272,11 +284,11 @@ def _handle_mcp(
     svc = McpCatalogService()
 
     if sub in ("搜索", "search"):
-        return svc.format_search(svc.search(rest))
+        return _as_str(svc.format_search(svc.search(rest)))
 
     if sub in ("列表", "list", "状态", "status", ""):
         ws = resolve_workspace_for_session(session_key)
-        return format_mcp_status_message(workspace=ws, include_catalog=True)
+        return _as_str(format_mcp_status_message(workspace=ws, include_catalog=True))
 
     if sub in ("查看", "inspect", "详情"):
         if not rest:
@@ -284,12 +296,12 @@ def _handle_mcp(
         entry = svc.get(rest)
         if entry is None:
             return f"未找到 MCP 目录项: {rest}"
-        return svc.format_inspect(entry)
+        return _as_str(svc.format_inspect(entry))
 
     if sub in ("安装", "add"):
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         if not rest:
             return "用法: /mcp 安装 <id>\n例: /mcp 安装 github"
         ws = resolve_workspace_for_session(session_key)
@@ -299,25 +311,25 @@ def _handle_mcp(
             workspace=ws,
             use_project=use_project,
         )
-        return msg if ok else f"失败: {msg}"
+        return _as_str(msg) if ok else f"失败: {msg}"
 
     if sub in ("移除", "remove", "卸载"):
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         if not rest:
             return "用法: /mcp 移除 <id>"
         ws = resolve_workspace_for_session(session_key)
         ok, msg = remove_mcp_server(rest, workspace=ws)
-        return msg if ok else f"失败: {msg}"
+        return _as_str(msg) if ok else f"失败: {msg}"
 
     if sub in ("测试", "test"):
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         if not rest:
             return "用法: /mcp 测试 <server_id>"
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         from butler.registry.paths import default_mcp_config_path
 
@@ -333,10 +345,10 @@ def _handle_mcp(
 
     if sub in ("重载", "reload"):
         gate = require_owner_kw(platform, external_id, session_key)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         ok, msg = reload_mcp_connections()
-        return msg if ok else f"失败: {msg}"
+        return _as_str(msg) if ok else f"失败: {msg}"
 
     return (
         "MCP 目录命令:\n"

@@ -14,7 +14,7 @@ import argparse
 from typing import Any
 
 
-def register_runtime_parser(sub: argparse._SubParsersAction) -> None:
+def register_runtime_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``runtime`` parent with all sub-commands."""
     from butler import main as _butler_main
 
@@ -28,13 +28,13 @@ def register_runtime_parser(sub: argparse._SubParsersAction) -> None:
     _add_runtime_approve(rt_sub, _butler_main._cmd_runtime_approve)
 
 
-def _add_runtime_list(rt_sub: argparse._SubParsersAction, func: Any) -> None:
+def _add_runtime_list(rt_sub: argparse._SubParsersAction[argparse.ArgumentParser], func: Any) -> None:
     p = rt_sub.add_parser("list", help="列出项目 runtime/jobs.yaml 任务")
     p.add_argument("--project", required=True, help="项目名称，如 灵文1号")
     p.set_defaults(func=func)
 
 
-def _add_runtime_run(rt_sub: argparse._SubParsersAction, func: Any) -> None:
+def _add_runtime_run(rt_sub: argparse._SubParsersAction[argparse.ArgumentParser], func: Any) -> None:
     p = rt_sub.add_parser("run", help="执行单个任务（改盘须已批准）")
     p.add_argument("job_id", help="jobs.yaml 中的 id")
     p.add_argument("--project", required=True)
@@ -47,7 +47,7 @@ def _add_runtime_run(rt_sub: argparse._SubParsersAction, func: Any) -> None:
     p.set_defaults(func=func)
 
 
-def _add_runtime_due(rt_sub: argparse._SubParsersAction, func: Any) -> None:
+def _add_runtime_due(rt_sub: argparse._SubParsersAction[argparse.ArgumentParser], func: Any) -> None:
     p = rt_sub.add_parser("due", help="执行当前到期的任务（改盘仅推送待批准）")
     p.add_argument(
         "--project",
@@ -63,7 +63,7 @@ def _add_runtime_due(rt_sub: argparse._SubParsersAction, func: Any) -> None:
     p.set_defaults(func=func)
 
 
-def _add_runtime_drain(rt_sub: argparse._SubParsersAction, func: Any) -> None:
+def _add_runtime_drain(rt_sub: argparse._SubParsersAction[argparse.ArgumentParser], func: Any) -> None:
     p = rt_sub.add_parser("drain-push", help="重试限流失败的微信推送队列")
     p.add_argument(
         "--max-items",
@@ -74,7 +74,7 @@ def _add_runtime_drain(rt_sub: argparse._SubParsersAction, func: Any) -> None:
     p.set_defaults(func=func)
 
 
-def _add_runtime_approve(rt_sub: argparse._SubParsersAction, func: Any) -> None:
+def _add_runtime_approve(rt_sub: argparse._SubParsersAction[argparse.ArgumentParser], func: Any) -> None:
     p = rt_sub.add_parser("approve", help="批准改盘任务并可立即执行")
     p.add_argument("job_id")
     p.add_argument("--project", required=True)

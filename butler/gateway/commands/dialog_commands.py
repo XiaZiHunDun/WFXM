@@ -32,66 +32,76 @@ from butler.gateway.command_registry import (
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
 
+def _as_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
 def _cmd_steer(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
 
     active = is_run_active(ctx.session_key)
     accepted = bool(active and steer(ctx.arg, session_key=ctx.session_key))
-    return format_steer_gateway_reply(accepted=accepted, active=active)
+    return _as_str(format_steer_gateway_reply(accepted=accepted, active=active))
 
 
 def _cmd_queue(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.gateway.queue_settings import apply_queue_command
 
-    return apply_queue_command(ctx.session_key, ctx.arg)
+    return _as_str(apply_queue_command(ctx.session_key, ctx.arg))
 
 
 def _cmd_approve(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.human_gate import resolve_human_gate_message
 
-    return resolve_human_gate_message(ctx.session_key, "确认", owner_verified=True) or "当前没有待确认的工作流步骤。"
+    return _as_str(
+        resolve_human_gate_message(ctx.session_key, "确认", owner_verified=True)
+    ) or "当前没有待确认的工作流步骤。"
 
 
 def _cmd_cancel(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.human_gate import resolve_human_gate_message
 
-    return resolve_human_gate_message(ctx.session_key, "取消", owner_verified=True) or "当前没有待确认的工作流步骤。"
+    return _as_str(
+        resolve_human_gate_message(ctx.session_key, "取消", owner_verified=True)
+    ) or "当前没有待确认的工作流步骤。"
 
 
 def _cmd_goal_loop(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.core.goal_loop import start_goal_loop
 
-    return start_goal_loop(ctx.session_key, ctx.arg)
+    return _as_str(start_goal_loop(ctx.session_key, ctx.arg))
 
 
 def _cmd_stop_goal_loop(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.core.goal_loop import stop_goal_loop
 
-    return stop_goal_loop(ctx.session_key)
+    return _as_str(stop_goal_loop(ctx.session_key))
 
 
 def _cmd_plan_mode(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.plan.mode import format_plan_mode_status, set_plan_mode
 
     arg_l = (ctx.arg or "").strip().lower()
@@ -103,13 +113,13 @@ def _cmd_plan_mode(ctx: CommandContext) -> Optional[str]:
         return "已退出规划模式，可以委派与写入。"
     set_plan_mode(ctx.session_key, True)
     ctx.reset_loop()
-    return format_plan_mode_status(ctx.session_key)
+    return _as_str(format_plan_mode_status(ctx.session_key))
 
 
 def _cmd_exit_plan(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.plan.mode import clear_plan_mode
 
     clear_plan_mode(ctx.session_key)
@@ -206,13 +216,13 @@ def format_model_reply(
         from butler.tools.tool_audit import reset_tool_audit_events
 
         reset_tool_audit_events(session_key)
-    return reply
+    return str(reply)
 
 
 def format_new_session_reply(
     orchestrator: "ButlerOrchestrator",
     session_registry: Any,
-    sessions: dict,
+    sessions: dict[str, Any],
     session_key: str,
 ) -> str:
     """/新对话: 清空当前会话状态, 11+ 项清理 + 触发 session end 钩子."""
@@ -236,7 +246,7 @@ def format_new_session_reply(
 
     clear_plan_mode(session_key)
     cleanup_new_session_state_safe(session_key)
-    return handle_new_session_command(orchestrator, session_key, loop)
+    return str(handle_new_session_command(orchestrator, session_key, loop))
 
 
 def _cmd_switch_project(ctx: CommandContext) -> Optional[str]:

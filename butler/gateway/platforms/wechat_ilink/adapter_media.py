@@ -7,7 +7,7 @@ import base64
 import logging
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter
@@ -72,9 +72,12 @@ async def download_image(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
             full_url=media.get("full_url"),
             timeout_seconds=30.0,
         )
-        return cache_image_from_bytes(data, ".jpg")
+        return cast(Optional[str], cache_image_from_bytes(data, ".jpg"))
 
-    return await download_media_loud(adapter, label="image download", run_download=_run)
+    return cast(
+        Optional[str],
+        await download_media_loud(adapter, label="image download", run_download=_run),
+    )
 
 
 async def download_video(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Optional[str]:
@@ -96,9 +99,12 @@ async def download_video(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
             full_url=media.get("full_url"),
             timeout_seconds=120.0,
         )
-        return cache_document_from_bytes(data, "video.mp4")
+        return cast(Optional[str], cache_document_from_bytes(data, "video.mp4"))
 
-    return await download_media_loud(adapter, label="video download", run_download=_run)
+    return cast(
+        Optional[str],
+        await download_media_loud(adapter, label="video download", run_download=_run),
+    )
 
 
 async def download_file(
@@ -126,12 +132,15 @@ async def download_file(
             full_url=media.get("full_url"),
             timeout_seconds=60.0,
         )
-        return cache_document_from_bytes(data, filename), mime
+        return cast(Tuple[Optional[str], str], (cache_document_from_bytes(data, filename), mime))
 
-    return await download_file_loud(
-        adapter,
-        run_download=_run,
-        default_mime=mime,
+    return cast(
+        Tuple[Optional[str], str],
+        await download_file_loud(
+            adapter,
+            run_download=_run,
+            default_mime=mime,
+        ),
     )
 
 
@@ -156,9 +165,12 @@ async def download_voice(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
             full_url=media.get("full_url"),
             timeout_seconds=60.0,
         )
-        return cache_audio_from_bytes(data, ".silk")
+        return cast(Optional[str], cache_audio_from_bytes(data, ".silk"))
 
-    return await download_media_loud(adapter, label="voice download", run_download=_run)
+    return cast(
+        Optional[str],
+        await download_media_loud(adapter, label="voice download", run_download=_run),
+    )
 
 
 async def download_remote_media(adapter: "WeChatAdapter", url: str) -> str:
@@ -167,12 +179,13 @@ async def download_remote_media(adapter: "WeChatAdapter", url: str) -> str:
     if not is_safe_url(url):
         raise ValueError(f"Blocked unsafe URL (SSRF protection): {url}")
 
-    assert adapter._send_session is not None
+    send_session = adapter._send_session
+    assert send_session is not None
 
-    async def _do_fetch():
-        async with adapter._send_session.get(url) as response:
+    async def _do_fetch() -> bytes:
+        async with send_session.get(url) as response:
             response.raise_for_status()
-            return await response.read()
+            return cast(bytes, await response.read())
 
     data = await asyncio.wait_for(_do_fetch(), timeout=30)
     suffix = Path(url.split("?", 1)[0]).suffix or ".bin"

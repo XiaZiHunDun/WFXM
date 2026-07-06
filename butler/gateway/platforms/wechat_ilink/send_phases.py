@@ -7,7 +7,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink import WeChatAdapter
@@ -41,14 +41,17 @@ async def _phase_chunk_attempt(
     """
     from butler.gateway.platforms.wechat_ilink import _send_message
 
-    return await _send_message(
-        adapter._send_session,
-        base_url=adapter._base_url,
-        token=adapter._token,
-        to=chat_id,
-        text=chunk,
-        context_token=context_token,
-        client_id=client_id,
+    return cast(
+        Dict[str, Any],
+        await _send_message(
+            adapter._send_session,
+            base_url=adapter._base_url,
+            token=adapter._token,
+            to=chat_id,
+            text=chunk,
+            context_token=context_token,
+            client_id=client_id,
+        ),
     )
 
 
@@ -288,7 +291,7 @@ async def _resolve_upload_url(
         return upload_full_url
     upload_param = str(upload_response.get("upload_param") or "")
     if upload_param:
-        return _cdn_upload_url(adapter._cdn_base_url, upload_param, filekey)
+        return str(_cdn_upload_url(adapter._cdn_base_url, upload_param, filekey))
     raise RuntimeError(
         f"getUploadUrl returned neither upload_param nor upload_full_url: {upload_response}"
     )

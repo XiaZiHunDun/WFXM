@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter
@@ -37,12 +37,15 @@ async def connect(adapter: "WeChatAdapter") -> bool:
 
     def _run_connect() -> bool:
         _phase_connect_open_sessions(adapter)
-        return adapter.is_connected
+        return cast(bool, adapter.is_connected)
 
-    return await connect_loud(
+    return cast(
+        bool,
+        await connect_loud(
         adapter,
         run_connect=_run_connect,
         rollback_disconnect=lambda: disconnect(adapter),
+        ),
     )
 
 
@@ -105,8 +108,11 @@ async def poll_loop(adapter: "WeChatAdapter") -> None:
             new_sync_buf = str(response.get("get_updates_buf") or "").strip()
             if new_sync_buf:
                 sync_buf = new_sync_buf
-            return await adapter._dispatch_poll_response(
-                response, consecutive_failures, _phase_poll_handle_response,
+            return cast(
+                int,
+                await adapter._dispatch_poll_response(
+                    response, consecutive_failures, _phase_poll_handle_response,
+                ),
             )
 
         try:

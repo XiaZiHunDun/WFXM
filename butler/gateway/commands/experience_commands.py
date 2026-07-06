@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register, require_owner
 
@@ -11,13 +11,13 @@ from butler.gateway.command_registry import CommandContext, CommandDef, register
 def _workspace_from_ctx(ctx: CommandContext) -> Path | None:
     from butler.gateway.commands.experience_commands_ops import workspace_from_command_ctx_safe
 
-    return workspace_from_command_ctx_safe(ctx)
+    return cast(Path | None, workspace_from_command_ctx_safe(ctx))
 
 
 def _cmd_experience_mine(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
-        return gate
+        return cast(str, gate)
 
     from butler.memory.experience_mining import (
         approve_pending,
@@ -44,7 +44,7 @@ def _cmd_experience_mine(ctx: CommandContext) -> Optional[str]:
 
     ws = _workspace_from_ctx(ctx)
     result = run_pipeline(ws)
-    return format_pipeline_report(result)
+    return cast(str, format_pipeline_report(result))
 
 
 _EXPERIENCE_COMMANDS = [

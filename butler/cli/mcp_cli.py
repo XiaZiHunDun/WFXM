@@ -11,9 +11,10 @@ were already delegated to ``butler.cli.mcp_catalog_cli``.
 from __future__ import annotations
 
 import argparse
+from typing import cast
 
 
-def register_mcp_parser(sub: argparse._SubParsersAction) -> None:
+def register_mcp_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register the ``mcp`` parent parser and its ``serve`` subcommand.
 
     Catalog subcommands (``add``, ``list``, ``remove``, …) are still
@@ -38,4 +39,4 @@ def register_mcp_parser(sub: argparse._SubParsersAction) -> None:
 def _cmd_mcp_serve(_ns: argparse.Namespace) -> int:
     from butler.mcp.server_stdio import run_stdio_server
 
-    return run_stdio_server()
+    return cast(int, run_stdio_server())

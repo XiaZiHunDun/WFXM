@@ -138,15 +138,19 @@ def _phase_init_chunks(adapter: "WeChatAdapter", config: Any) -> None:
     """Phase I2: resolve chunk delay / retry policy from config + env."""
     extra = config.extra or {}
     adapter._send_chunk_delay_seconds = float(
-        extra.get("send_chunk_delay_seconds")
-        or os.getenv("WECHAT_SEND_CHUNK_DELAY_SECONDS", "1.5")
+        str(
+            extra.get("send_chunk_delay_seconds")
+            or os.getenv("WECHAT_SEND_CHUNK_DELAY_SECONDS", "1.5")
+        )
     )
     adapter._send_chunk_retries = int(
-        extra.get("send_chunk_retries") or os.getenv("WECHAT_SEND_CHUNK_RETRIES", "4")
+        str(extra.get("send_chunk_retries") or os.getenv("WECHAT_SEND_CHUNK_RETRIES", "4"))
     )
     adapter._send_chunk_retry_delay_seconds = float(
-        extra.get("send_chunk_retry_delay_seconds")
-        or os.getenv("WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS", "1.0")
+        str(
+            extra.get("send_chunk_retry_delay_seconds")
+            or os.getenv("WECHAT_SEND_CHUNK_RETRY_DELAY_SECONDS", "1.0")
+        )
     )
 
 

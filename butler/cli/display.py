@@ -6,6 +6,7 @@ import json
 import os
 from difflib import unified_diff
 from pathlib import Path
+from typing import Any
 
 TOOL_EMOJI: dict[str, str] = {
     "read_file": "📖",
@@ -36,7 +37,7 @@ def _short_path(path: str, n: int = 35) -> str:
     return p if len(p) <= n else "..." + p[-(n - 3) :]
 
 
-def build_tool_preview(tool_name: str, args: dict, *, max_len: int = 60) -> str | None:
+def build_tool_preview(tool_name: str, args: dict[str, Any], *, max_len: int = 60) -> str | None:
     """One-line preview of the primary tool argument."""
     if not args:
         return None
@@ -85,7 +86,7 @@ def tool_failure_hint(result: str | None) -> tuple[bool, str]:
 
 def format_tool_complete(
     tool_name: str,
-    args: dict,
+    args: dict[str, Any],
     duration: float,
     result: str | None = None,
 ) -> str:
@@ -119,7 +120,7 @@ def format_tool_complete(
     return f"  [dim]{line}[/dim]"
 
 
-def format_tool_start(tool_name: str, args: dict) -> str:
+def format_tool_start(tool_name: str, args: dict[str, Any]) -> str:
     """Dim line while a tool is running."""
     preview = build_tool_preview(tool_name, args)
     emoji = TOOL_EMOJI.get(tool_name, "⚡")
@@ -127,7 +128,7 @@ def format_tool_start(tool_name: str, args: dict) -> str:
     return f"  [dim]{_PREFIX} {emoji} {tool_name}{detail}…[/dim]"
 
 
-def capture_edit_snapshot(tool_name: str, args: dict) -> dict[str, str]:
+def capture_edit_snapshot(tool_name: str, args: dict[str, Any]) -> dict[str, str]:
     """Snapshot file contents before write/patch for inline diff."""
     if tool_name not in ("write_file", "patch"):
         return {}

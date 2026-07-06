@@ -6,6 +6,7 @@ import argparse
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 from rich.console import Console
 from rich.table import Table
@@ -14,16 +15,16 @@ from rich.table import Table
 def _sessions_root() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "sessions"
+    return cast(Path, get_butler_home() / "sessions")
 
 
-def list_sessions(*, search: str = "", limit: int = 20) -> list[dict]:
+def list_sessions(*, search: str = "", limit: int = 20) -> list[dict[str, Any]]:
     root = _sessions_root()
     if not root.is_dir():
         return []
     q = (search or "").strip().lower()
     lim = max(1, min(100, int(limit or 20)))
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
 
     for child in sorted(root.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
         if not child.is_dir():
@@ -104,7 +105,7 @@ def _cmd_sessions_layered(ns: argparse.Namespace) -> int:
     if not transcript.is_file():
         print(f"未找到 transcript: {transcript}")
         return 1
-    messages: list[dict] = []
+    messages: list[dict[str, Any]] = []
     import json
 
     for line in transcript.read_text(encoding="utf-8").splitlines():
@@ -127,7 +128,7 @@ def _cmd_sessions_layered(ns: argparse.Namespace) -> int:
     return 0
 
 
-def register_sessions_subparser(sub: argparse._SubParsersAction) -> None:
+def register_sessions_subparser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     sess = sub.add_parser("sessions", help="会话 transcript 列表")
     sess_sub = sess.add_subparsers(dest="sessions_cmd", required=True)
     ls = sess_sub.add_parser("list", help="列出最近会话")

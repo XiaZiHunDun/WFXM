@@ -26,7 +26,7 @@ def handle_outcome_command(
     if not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
-        return owner_required_message()
+        return str(owner_required_message())
     text = (arg or "").strip()
     proj = orchestrator.project_manager.get_current(session_key=session_key)
     if proj is None:

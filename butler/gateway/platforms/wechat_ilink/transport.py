@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from butler.gateway.platforms.wechat_ilink.constants import (
     API_TIMEOUT_MS,
@@ -29,7 +29,7 @@ from butler.gateway.platforms.wechat_ilink._utils_legacy import (
 try:
     import aiohttp
 except ImportError:  # pragma: no cover
-    aiohttp = None  # type: ignore[assignment]
+    aiohttp = None
 
 
 async def _api_post(
@@ -48,7 +48,7 @@ async def _api_post(
         raw = await response.text()
         if not response.ok:
             raise RuntimeError(f"iLink POST {endpoint} HTTP {response.status}: {raw[:200]}")
-        return json.loads(raw)
+        return cast(dict[str, Any], json.loads(raw))
 
 
 async def _api_get(
@@ -68,7 +68,7 @@ async def _api_get(
         raw = await response.text()
         if not response.ok:
             raise RuntimeError(f"iLink GET {endpoint} HTTP {response.status}: {raw[:200]}")
-        return json.loads(raw)
+        return cast(dict[str, Any], json.loads(raw))
 
 
 async def _get_updates(
@@ -216,7 +216,7 @@ async def _upload_ciphertext(
                 encrypted_param = response.headers.get("x-encrypted-param")
                 if encrypted_param:
                     await response.read()
-                    return encrypted_param
+                    return cast(str, encrypted_param)
                 raw = await response.text()
                 raise RuntimeError(f"CDN upload missing x-encrypted-param header: {raw[:200]}")
             raw = await response.text()

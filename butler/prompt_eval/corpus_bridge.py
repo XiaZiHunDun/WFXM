@@ -5,7 +5,7 @@ from __future__ import annotations
 from butler.env_parse import int_env
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 _REPO = Path(__file__).resolve().parents[2]
 _DEFAULT_OVERLAY = _REPO / "tests" / "fixtures" / "prompt_eval" / "corpus_cases.yaml"
@@ -171,7 +171,7 @@ def _prompt_eval_live_max_cases() -> int:
     import os
 
     try:
-        return int_env("BUTLER_PROMPT_EVAL_LIVE_MAX", 12, min=0)
+        return int(int_env("BUTLER_PROMPT_EVAL_LIVE_MAX", 12, min=0))
     except ValueError:
         return 12
 

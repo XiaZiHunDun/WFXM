@@ -19,7 +19,7 @@ def poll_backoff_seconds(consecutive_failures: int) -> float:
         RETRY_DELAY_SECONDS,
     )
 
-    return (
+    return float(
         BACKOFF_DELAY_SECONDS
         if consecutive_failures >= MAX_CONSECUTIVE_FAILURES
         else RETRY_DELAY_SECONDS

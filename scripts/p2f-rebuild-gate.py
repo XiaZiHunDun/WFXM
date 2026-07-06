@@ -77,6 +77,14 @@ SCAN_DIRS = [
     "butler/delegate",
     "butler/permissions",
     "butler/project",
+    "butler/execpolicy",
+    "butler/extensions",
+    "butler/plan",
+    "butler/prompt_eval",
+    "butler/tests_policies",
+    "butler/gateway/commands",
+    "butler/gateway/platforms",
+    "butler/transport/multimodal",
 ]
 
 
@@ -94,7 +102,10 @@ def collect_candidates() -> list[str]:
     out: list[str] = list(SEED)
     seen = set(out)
     for d in SCAN_DIRS:
-        for p in sorted((ROOT / d).glob("*.py")):
+        base = ROOT / d
+        if not base.is_dir():
+            continue
+        for p in sorted(base.rglob("*.py")):
             if p.name.endswith("_ops.py"):
                 continue
             rel = str(p.relative_to(ROOT))

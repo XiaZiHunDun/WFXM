@@ -9,7 +9,7 @@ import logging
 import os
 import secrets
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
 
 from butler.env_parse import float_env
 from butler.gateway.platforms.types import SendResult
@@ -47,11 +47,14 @@ def split_text(
     from butler.gateway.platforms.wechat_ilink import _split_text_for_wechat_delivery
 
     force_single = pop_single_bubble_from_metadata(metadata)
-    return _split_text_for_wechat_delivery(
+    return cast(
+        list[str],
+        _split_text_for_wechat_delivery(
         content,
         adapter.MAX_MESSAGE_LENGTH,
         adapter._split_multiline_messages,
         force_single_message=force_single,
+        ),
     )
 
 
@@ -211,7 +214,7 @@ async def send_image_file(
     caption: Optional[str] = None,
     reply_to: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> SendResult:
     del reply_to, kwargs
     return await send_document(
@@ -231,7 +234,7 @@ async def send_document(
     file_name: Optional[str] = None,
     reply_to: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    **kwargs,
+    **kwargs: Any,
 ) -> SendResult:
     del file_name, reply_to, metadata, kwargs
     if not adapter._send_session or not adapter._token:
@@ -318,10 +321,14 @@ def build_outbound_media_item(
         item_kwargs["encode_type"] = 6
         item_kwargs["sample_rate"] = 24000
         item_kwargs["bits_per_sample"] = 16
-    return item_builder(**item_kwargs)
+    return cast(Dict[str, Any], item_builder(**item_kwargs))
 
 
-def outbound_media_builder(adapter: "WeChatAdapter", path: str, force_file_attachment: bool = False):
+def outbound_media_builder(
+    adapter: "WeChatAdapter",
+    path: str,
+    force_file_attachment: bool = False,
+) -> tuple[int, Callable[..., Dict[str, Any]]]:
     import mimetypes
 
     from butler.gateway.platforms.wechat_ilink.constants import (
@@ -387,9 +394,12 @@ async def send_file(
         plaintext_size=rawsize,
         rawfilemd5=rawfilemd5,
     )
-    return await _phase_file_dispatch_message(
+    return cast(
+        str,
+        await _phase_file_dispatch_message(
         adapter, chat_id=chat_id, media_item=media_item,
         caption=caption, context_token=context_token,
+        ),
     )
 
 

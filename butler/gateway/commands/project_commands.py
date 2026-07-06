@@ -19,7 +19,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 from butler.gateway.command_registry import (
     CommandContext,
@@ -53,7 +53,7 @@ def format_project_list(
         external_id=external_id,
     )
     if onboard is not None:
-        return onboard
+        return cast(str, onboard)
 
     projects = orchestrator.project_manager.list_projects()
     if not projects:
@@ -119,7 +119,7 @@ def _cmd_project_list(ctx: CommandContext) -> Optional[str]:
     """handler for /项目 — 包含 /项目 新建|体检|register 子命令委派."""
     gate = require_owner(ctx)
     if gate:
-        return gate
+        return cast(str, gate)
     return format_project_list(
         ctx.orchestrator,
         ctx.cmd,
@@ -134,7 +134,7 @@ def _cmd_butler_status(ctx: CommandContext) -> Optional[str]:
     """handler for /状态 — 当前项目/Provider/角色/规划模式 概览."""
     gate = require_owner(ctx)
     if gate:
-        return gate
+        return cast(str, gate)
     return format_butler_status(ctx.orchestrator, ctx.session_key)
 
 

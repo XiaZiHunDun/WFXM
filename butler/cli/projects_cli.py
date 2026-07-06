@@ -15,14 +15,14 @@ import sys
 from pathlib import Path
 
 
-def register_projects_parser(sub: argparse._SubParsersAction) -> None:
+def register_projects_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``projects``, ``create``, and the ``project`` parent."""
     _add_projects_top_parser(sub)
     _add_create_parser(sub)
     _add_project_parent_parser(sub)
 
 
-def _add_projects_top_parser(sub: argparse._SubParsersAction) -> None:
+def _add_projects_top_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     # Late-bound func reference: tests patch ``butler.main._cmd_projects``
     # and expect the parser to pick up the mock. We read the function
     # from butler.main's namespace at registration time (which happens
@@ -38,7 +38,7 @@ def _add_projects_top_parser(sub: argparse._SubParsersAction) -> None:
     prj.set_defaults(func=_butler_main._cmd_projects)
 
 
-def _add_create_parser(sub: argparse._SubParsersAction) -> None:
+def _add_create_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     from butler import main as _butler_main
 
     cr = sub.add_parser("create", help="创建新项目（slug 目录名 + 可选中文显示名）")
@@ -65,14 +65,14 @@ def _add_create_parser(sub: argparse._SubParsersAction) -> None:
     cr.set_defaults(func=_butler_main._cmd_create)
 
 
-def _add_project_parent_parser(sub: argparse._SubParsersAction) -> None:
+def _add_project_parent_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     pr = sub.add_parser("project", help="项目接入与体检")
     pr_sub = pr.add_subparsers(dest="project_cmd", required=True)
     _add_project_preflight_parser(pr_sub)
     _add_project_register_parser(pr_sub)
 
 
-def _add_project_preflight_parser(pr_sub: argparse._SubParsersAction) -> None:
+def _add_project_preflight_parser(pr_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     from butler import main as _butler_main
 
     pf = pr_sub.add_parser("preflight", help="检查目录是否满足 Butler 项目接入条件")
@@ -90,7 +90,7 @@ def _add_project_preflight_parser(pr_sub: argparse._SubParsersAction) -> None:
     pf.set_defaults(func=_butler_main._cmd_project_preflight)
 
 
-def _add_project_register_parser(pr_sub: argparse._SubParsersAction) -> None:
+def _add_project_register_parser(pr_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     from butler import main as _butler_main
 
     reg = pr_sub.add_parser("register", help="为已有目录登记 project.yaml")

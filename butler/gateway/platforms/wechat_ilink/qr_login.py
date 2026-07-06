@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Dict, Optional
+from typing import Dict, Optional, cast
 
 from butler.gateway.platforms.wechat_ilink._compat import (
     AIOHTTP_AVAILABLE,
@@ -55,7 +55,7 @@ async def qr_login(
         while time.monotonic() < deadline:
             action, data = await _phase_qr_poll_step(session, state, bot_type=bot_type)
             if action == "confirmed":
-                return _phase_qr_finalize(data_home, data)
+                return cast(Optional[Dict[str, str]], _phase_qr_finalize(data_home, data))
             if action == "giveup":
                 return None
             await asyncio.sleep(1)

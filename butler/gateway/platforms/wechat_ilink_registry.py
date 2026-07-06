@@ -6,7 +6,7 @@ import importlib
 
 _canonical = importlib.import_module("butler.gateway.platforms.wechat_ilink.registry")
 
-__doc__ = _canonical.__doc__
+__doc__ = _canonical.__doc__ or ""
 logger = getattr(_canonical, "logger", None)
 
 for _name in dir(_canonical):

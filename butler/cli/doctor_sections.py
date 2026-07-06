@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -20,10 +20,13 @@ def discover_doctor_workspace(butler_home: Path) -> Path | None:
                 return child
         return None
 
-    return safe_best_effort(
+    return cast(
+        Path | None,
+        safe_best_effort(
         _run,
         label="doctor.workspace_discovery",
         default=None,
+        ),
     )
 
 
@@ -31,12 +34,15 @@ def resolve_butler_home() -> Path:
     def _run() -> Path:
         from butler.config import get_butler_home
 
-        return get_butler_home()
+        return cast(Path, get_butler_home())
 
-    result = safe_best_effort(
+    result = cast(
+        Path | None,
+        safe_best_effort(
         _run,
         label="doctor.butler_home",
         default=None,
+        ),
     )
     if result is not None:
         return result
@@ -154,7 +160,7 @@ def print_secrets_status() -> None:
     def _run() -> str:
         from butler.config_secrets import secrets_status_line
 
-        return secrets_status_line()
+        return cast(str, secrets_status_line())
 
     line = safe_best_effort(_run, label="doctor.secrets_status", default=None)
     if line is None:

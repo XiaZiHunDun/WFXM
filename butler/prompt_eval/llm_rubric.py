@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from butler.env_parse import env_truthy, int_env
 
@@ -11,14 +11,14 @@ if TYPE_CHECKING:
 
 
 def prompt_eval_llm_enabled() -> bool:
-    return env_truthy("BUTLER_PROMPT_EVAL_LLM", default=False)
+    return cast(bool, env_truthy("BUTLER_PROMPT_EVAL_LLM", default=False))
 
 
 def prompt_eval_llm_min_score() -> int:
     import os
 
     try:
-        return int_env("BUTLER_PROMPT_EVAL_LLM_MIN", 70, min=0, max=100)
+        return cast(int, int_env("BUTLER_PROMPT_EVAL_LLM_MIN", 70, min=0, max=100))
     except ValueError:
         return 70
 
@@ -32,7 +32,7 @@ def score_prompt_eval_llm(case: PromptEvalCase, text: str) -> tuple[int | None, 
         return None, "empty"
     from butler.prompt_eval.llm_rubric_ops import score_prompt_eval_llm_safe
 
-    return score_prompt_eval_llm_safe(case, body)
+    return cast(tuple[int | None, str], score_prompt_eval_llm_safe(case, body))
 
 
 def llm_rubric_passes(score: int | None, *, min_score: int | None = None) -> bool:

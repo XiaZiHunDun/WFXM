@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -39,7 +39,7 @@ def _clone_git_repo(url: str, target_dir: Path) -> tuple[bool, str]:
     """Clone a git repo into target_dir. Returns (success, message)."""
     from butler.gateway.commands.project_handlers_ops import git_clone_repo_safe
 
-    return git_clone_repo_safe(url, target_dir, timeout=_GIT_CLONE_TIMEOUT)
+    return cast(tuple[bool, str], git_clone_repo_safe(url, target_dir, timeout=_GIT_CLONE_TIMEOUT))
 
 
 def handle_project_onboarding_command(
@@ -96,7 +96,7 @@ def _project_register_wechat(
         external_id=external_id,
         session_key=session_key,
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
 
     if len(args) < 2:
         return (
@@ -155,7 +155,7 @@ def _project_create_wechat(
         external_id=external_id,
         session_key=session_key,
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
 
     if not args:
         return (
@@ -245,4 +245,4 @@ def _project_preflight_wechat(
     text = format_report(report)
     if len(text) > 3500:
         text = text[:3500] + "\n…(已截断，完整结果请用 CLI: butler project preflight)"
-    return text
+    return cast(str, text)

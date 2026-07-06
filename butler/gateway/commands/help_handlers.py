@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 
 _HELP_GROUPS: dict[str, tuple[str, str]] = {
     "项目": ("项目管理", """
@@ -117,12 +119,12 @@ def format_help_text(topic: str = "") -> str:
     if not topic:
         from butler.gateway.owner_surface import format_owner_help_default
 
-        return format_owner_help_default()
+        return cast(str, format_owner_help_default())
 
     if topic.lower() in ("高级", "advanced", "all", "全部"):
         from butler.gateway.owner_surface import format_owner_help_advanced
 
-        return format_owner_help_advanced()
+        return cast(str, format_owner_help_advanced())
 
     group = _GROUP_ALIASES.get(topic.lower(), topic)
     entry = _HELP_GROUPS.get(group)
@@ -133,7 +135,7 @@ def format_help_text(topic: str = "") -> str:
 
     registry_result = format_registry_help_safe(topic)
     if registry_result:
-        return registry_result
+        return cast(str, registry_result)
     return (
         f"未找到帮助主题: {topic}\n\n"
         f"可用主题: {', '.join(_HELP_GROUPS.keys())}\n"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import threading
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, cast
 
 from butler.tool_guardrails import MUTATING_TOOLS
 
@@ -65,7 +65,7 @@ def load_plan_mode_system_appendix() -> str:
             "## 规划模式\n只读探索并写 plan 文件；"
             "禁止 delegate_task、terminal 与业务源码写入。用户 /执行 后退出。"
         )
-    return append_plan_graph_appendix_safe(body)
+    return str(append_plan_graph_appendix_safe(body))
 
 
 def set_plan_mode(session_key: str, enabled: bool) -> None:
@@ -96,7 +96,7 @@ def is_plan_mode(session_key: str = "") -> bool:
     with _LOCK:
         if enabled:
             _PLAN_BY_SESSION[key] = True
-    return enabled
+    return bool(enabled)
 
 
 def clear_plan_mode(session_key: str = "") -> None:

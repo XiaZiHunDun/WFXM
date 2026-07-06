@@ -21,7 +21,7 @@ def handle_sessions_command(
     if not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
-        return owner_required_message()
+        return str(owner_required_message())
     from butler.cli.sessions_cli import list_sessions
 
     try:

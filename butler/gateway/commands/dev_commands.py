@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register
 
@@ -20,13 +20,16 @@ def _dev_delegate(ctx: CommandContext) -> Optional[str]:
     """统一委派到 dev_handlers.handle_dev_command (含 owner gate)."""
     from butler.gateway.commands.dev_handlers import handle_dev_command
 
-    return handle_dev_command(
-        ctx.cmd,
-        ctx.arg,
-        platform=ctx.platform,
-        external_id=ctx.external_id,
-        session_key=ctx.session_key,
-        orchestrator=ctx.orchestrator,
+    return cast(
+        Optional[str],
+        handle_dev_command(
+            ctx.cmd,
+            ctx.arg,
+            platform=ctx.platform,
+            external_id=ctx.external_id,
+            session_key=ctx.session_key,
+            orchestrator=ctx.orchestrator,
+        ),
     )
 
 

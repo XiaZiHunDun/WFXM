@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from butler.gateway.commands.memory_handlers_ops import (
     approve_all_owner_pending,
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
 
 
-def _project_memory(orchestrator: "ButlerOrchestrator"):
+def _project_memory(orchestrator: "ButlerOrchestrator") -> Any:
     orchestrator._reload_project_memory()
     return orchestrator._project_memory
 
@@ -109,7 +109,7 @@ def handle_memory_pending_command(
     if not cli and not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
-        return owner_required_message()
+        return str(owner_required_message())
 
     return _handle_approve_pending(orchestrator, arg)
 

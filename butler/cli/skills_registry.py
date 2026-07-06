@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+from typing import Any, cast
 
 from butler.registry.skill_service import SkillRegistryService
 
 
-def register_skills_parser(sub: argparse._SubParsersAction) -> None:
+def register_skills_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     skills = sub.add_parser("skills", help="技能目录：搜索 / 安装 / 卸载")
     sp = skills.add_subparsers(dest="skills_cmd", required=True)
 
@@ -92,7 +93,7 @@ def register_skills_parser(sub: argparse._SubParsersAction) -> None:
     p_rej.set_defaults(func=_cmd_reject)
 
 
-def _skill_manager_for_cli(*, project: str = ""):
+def _skill_manager_for_cli(*, project: str = "") -> Any:
     from pathlib import Path
 
     from butler.config import load_settings
@@ -112,7 +113,7 @@ def _skill_manager_for_cli(*, project: str = ""):
 def _tenant_id() -> str:
     from butler.cli.skills_registry_ops import default_tenant_id_safe
 
-    return default_tenant_id_safe()
+    return cast(str, default_tenant_id_safe())
 
 
 def _cmd_search(ns: argparse.Namespace) -> int:
@@ -136,7 +137,7 @@ def _cmd_install(ns: argparse.Namespace) -> int:
     if code != 0:
         if message:
             print(message)
-        return code
+        return cast(int, code)
     print(f"已安装: {rec.name} → {rec.install_path} ({rec.scan_verdict})")
     followup = svc.install_followup(ns.identifier, record=rec)
     if followup:

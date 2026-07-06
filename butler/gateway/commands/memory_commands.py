@@ -11,7 +11,7 @@ Sprint 11 SEC-11-2: /批准记忆 永久写入 MEMORY.md, 仅 Owner 可批准。
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
@@ -26,7 +26,7 @@ def _cmd_memory_graph(ctx: CommandContext) -> Optional[str]:
     """
     from butler.gateway.commands.memory_handlers import format_memory_triplet_graph
 
-    return format_memory_triplet_graph(ctx.orchestrator)
+    return cast(str, format_memory_triplet_graph(ctx.orchestrator))
 
 
 def _cmd_memory_pending_list(ctx: CommandContext) -> Optional[str]:
@@ -38,7 +38,7 @@ def _cmd_memory_pending_list(ctx: CommandContext) -> Optional[str]:
     """
     from butler.gateway.commands.memory_handlers import format_pending_memory_list
 
-    return format_pending_memory_list(ctx.orchestrator)
+    return cast(str, format_pending_memory_list(ctx.orchestrator))
 
 
 def _cmd_memory_reject(ctx: CommandContext) -> Optional[str]:
@@ -51,13 +51,16 @@ def _cmd_memory_reject(ctx: CommandContext) -> Optional[str]:
     """
     from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 
-    return handle_memory_pending_command(
+    return cast(
+        str | None,
+        handle_memory_pending_command(
         ctx.orchestrator,
         "/拒绝记忆",
         ctx.arg,
         platform=ctx.platform,
         external_id=ctx.external_id,
         session_key=ctx.session_key,
+        ),
     )
 
 
@@ -65,16 +68,19 @@ def _cmd_memory_approve(ctx: CommandContext) -> Optional[str]:
     if not is_gateway_owner(
         platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
     from butler.gateway.commands.memory_handlers import handle_memory_pending_command
 
-    return handle_memory_pending_command(
+    return cast(
+        str | None,
+        handle_memory_pending_command(
         ctx.orchestrator,
         "/批准记忆",
         ctx.arg,
         platform=ctx.platform,
         external_id=ctx.external_id,
         session_key=ctx.session_key,
+        ),
     )
 
 

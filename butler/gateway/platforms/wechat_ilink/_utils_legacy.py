@@ -32,7 +32,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Dict, List, Optional, Tuple, TypeVar, cast
 from urllib.parse import quote, urlparse
 
 from butler.gateway.platforms.helpers import atomic_json_write  # noqa: E402
@@ -50,7 +50,7 @@ try:
 
     AIOHTTP_AVAILABLE = True
 except ImportError:  # pragma: no cover - dependency gate
-    aiohttp = None  # type: ignore[assignment]
+    aiohttp = None
     AIOHTTP_AVAILABLE = False
 
 try:
@@ -59,10 +59,10 @@ try:
 
     CRYPTO_AVAILABLE = True
 except ImportError:  # pragma: no cover - dependency gate
-    default_backend = None  # type: ignore[assignment]
-    Cipher = None  # type: ignore[assignment]
-    algorithms = None  # type: ignore[assignment]
-    modes = None  # type: ignore[assignment]
+    default_backend = None
+    Cipher = None
+    algorithms = None
+    modes = None
     CRYPTO_AVAILABLE = False
 
 # Constants used by helpers below (re-imported to avoid an import cycle
@@ -117,13 +117,16 @@ def _pkcs7_pad(data: bytes, block_size: int = 16) -> bytes:
 def _aes128_ecb_encrypt(plaintext: bytes, key: bytes) -> bytes:
     cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
     encryptor = cipher.encryptor()
-    return encryptor.update(_pkcs7_pad(plaintext)) + encryptor.finalize()
+    return cast(
+        bytes,
+        encryptor.update(_pkcs7_pad(plaintext)) + encryptor.finalize(),
+    )
 
 
 def _aes128_ecb_decrypt(ciphertext: bytes, key: bytes) -> bytes:
     cipher = Cipher(algorithms.AES(key), modes.ECB(), backend=default_backend())
     decryptor = cipher.decryptor()
-    padded = decryptor.update(ciphertext) + decryptor.finalize()
+    padded = cast(bytes, decryptor.update(ciphertext) + decryptor.finalize())
     if not padded:
         return padded
     pad_len = padded[-1]
@@ -380,20 +383,26 @@ def _cdn_upload_url(cdn_base_url: str, upload_param: str, filekey: str) -> str:
 def _message_id_dedup_ttl() -> float:
     from butler.env_parse import float_env
 
-    return float_env(
-        "BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL",
-        float(MESSAGE_ID_DEDUP_TTL_SECONDS),
-        min=5.0,
+    return cast(
+        float,
+        float_env(
+            "BUTLER_WECHAT_MESSAGE_ID_DEDUP_TTL",
+            float(MESSAGE_ID_DEDUP_TTL_SECONDS),
+            min=5.0,
+        ),
     )
 
 
 def _content_dedup_ttl() -> float:
     from butler.env_parse import float_env
 
-    return float_env(
-        "BUTLER_WECHAT_CONTENT_DEDUP_TTL",
-        float(CONTENT_DEDUP_TTL_SECONDS),
-        min=2.0,
+    return cast(
+        float,
+        float_env(
+            "BUTLER_WECHAT_CONTENT_DEDUP_TTL",
+            float(CONTENT_DEDUP_TTL_SECONDS),
+            min=2.0,
+        ),
     )
 
 
@@ -438,7 +447,7 @@ def _make_ssl_connector() -> Optional["aiohttp.TCPConnector"]:
 # ---------------------------------------------------------------------------
 
 
-_WECHAT_CDN_ALLOWLIST: frozenset = frozenset(
+_WECHAT_CDN_ALLOWLIST: frozenset[str] = frozenset(
     {
         "novac2c.cdn.wechat.qq.com",
         "ilinkai.wechat.qq.com",
@@ -483,8 +492,11 @@ async def _download_bytes(
     async def _do_download() -> bytes:
         async with session.get(url) as response:
             response.raise_for_status()
-            return await response.read()
-    return await asyncio_wait_for_helper(_do_download(), timeout=timeout_seconds)
+            return cast(bytes, await response.read())
+    return cast(
+        bytes,
+        await asyncio_wait_for_helper(_do_download(), timeout=timeout_seconds),
+    )
 
 
 async def _download_and_decrypt_media(
@@ -511,7 +523,7 @@ async def _download_and_decrypt_media(
         raise RuntimeError("media item had neither encrypt_query_param nor full_url")
     if aes_key_b64:
         raw = _aes128_ecb_decrypt(raw, _parse_aes_key(aes_key_b64))
-    return raw
+    return cast(bytes, raw)
 
 
 def _mime_from_filename(filename: str) -> str:
@@ -580,7 +592,7 @@ def _extract_text(item_list: List[Dict[str, Any]]) -> str:
     return ""
 
 
-def _message_type_from_media(media_types: List[str], text: str):
+def _message_type_from_media(media_types: List[str], text: str) -> Any:
     # Late import keeps ``wechat_ilink_constants`` dependency-free.
     from butler.gateway.platforms.types import MessageType
 
@@ -623,7 +635,7 @@ def _load_sync_buf(data_home: str, account_id: str) -> str:
         return ""
     from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import load_sync_buf_field_safe
 
-    return load_sync_buf_field_safe(path)
+    return cast(str, load_sync_buf_field_safe(path))
 
 
 def _save_sync_buf(data_home: str, account_id: str, sync_buf: str) -> None:
@@ -666,7 +678,10 @@ def cache_audio_from_bytes(data: bytes, ext: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def asyncio_wait_for_helper(awaitable, timeout):
+_T = TypeVar("_T")
+
+
+async def asyncio_wait_for_helper(awaitable: Awaitable[_T], timeout: float) -> _T:
     import asyncio
 
     return await asyncio.wait_for(awaitable, timeout)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional, cast
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register, require_owner
 
@@ -20,7 +20,7 @@ def _resolve_workspace(ctx: CommandContext) -> tuple[str, str]:
 def _cmd_cc_bridge(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate:
-        return gate
+        return cast(str, gate)
 
     from butler.runtime.cc_bridge import (
         cc_bridge_enabled,
@@ -31,7 +31,7 @@ def _cmd_cc_bridge(ctx: CommandContext) -> Optional[str]:
 
     arg = (ctx.arg or "").strip()
     if not arg:
-        return format_cc_bridge_status(session_key=ctx.session_key)
+        return cast(str, format_cc_bridge_status(session_key=ctx.session_key))
 
     if not cc_bridge_enabled():
         return (
@@ -44,7 +44,7 @@ def _cmd_cc_bridge(ctx: CommandContext) -> Optional[str]:
     if not ws:
         return "无活跃项目，请先 /切换 到目标项目"
 
-    def _on_done(job) -> None:
+    def _on_done(job: Any) -> None:
         push_cc_bridge_completion(job)
 
     job = submit_cc_bridge_job(

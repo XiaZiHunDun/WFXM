@@ -8,7 +8,7 @@ import os
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
@@ -22,7 +22,7 @@ def _repo_root() -> Path:
 def _env_on(name: str) -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy(name)
+    return cast(bool, env_truthy(name))
 
 
 def _get_active_project() -> Any:
@@ -418,7 +418,7 @@ def format_project_dashboard(
         if orch is not None:
             from butler.gateway.owner_surface import format_project_overview_owner
 
-            return format_project_overview_owner(orch, sk)
+            return cast(str, format_project_overview_owner(orch, sk))
     return format_project_dashboard_dev(arg, orchestrator=orch, session_key=sk)
 
 
@@ -560,7 +560,7 @@ def handle_dev_command(
     if not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
-        return owner_required_message()
+        return cast(str | None, owner_required_message())
     if cmd in ("/开发状态", "/dev-status"):
         return format_dev_status()
     if cmd in ("/开发验收", "/dev-smoke"):

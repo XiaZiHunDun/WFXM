@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
@@ -39,14 +39,14 @@ def handle_runtime_command(
         name = _active_project_name(orchestrator, session_key=session_key)
         if not name:
             return "请先 /切换 到试点项目（如 灵文1号），再查看定时任务。"
-        return format_jobs_list_text(name)
+        return cast(str, format_jobs_list_text(name))
 
     # Sprint 11 SEC-11-1: /批准运行 改盘操作需 Owner 守门
     if cmd in ("/批准运行", "/approve-run", "/批准任务"):
         if not is_gateway_owner(
             platform=platform, external_id=external_id, session_key=session_key
         ):
-            return owner_required_message()
+            return cast(str, owner_required_message())
         job_id = (arg or "").strip()
         if not job_id:
             return "用法: /批准运行 <任务id>\n例: /批准运行 publish-preflight"
@@ -75,7 +75,7 @@ def handle_runtime_command(
     if not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
 
     job_id = (arg or "").strip()
     if not job_id:

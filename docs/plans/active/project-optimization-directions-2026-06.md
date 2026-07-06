@@ -217,15 +217,15 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 36）
+#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F 主模块扩面完成）
 
 **目标**：各域主模块（非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
 
 **验收**（`bash scripts/butler-mypy-strict-gate.sh`）：
-- **741** 模块 strict 绿（Batch 35 **734** → Batch 36 **741**）：`slash_dispatch`（12）· `memory_cli`（14）· `eval_integration/manager`（3）· `report/format`（2）· `report/generator`（4）· `oss/deepeval_runner`/`ragas_runner`（各 2）
-- `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步
+- **826** 模块 strict 绿（Batch 36 **741** → Batch 37–44 **826**）：`cli`/`gateway/commands`/`gateway/platforms/wechat_ilink`/`plan`/`prompt_eval`/`execpolicy`/`extensions` 等剩余主模块全部入 gate
+- `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步；`p2f-zero-harvest-scan.sh` / `p2f-rebuild-gate.py` 已扩展为 rglob + 新 SCAN_DIRS
 
-**剩余 backlog**：`cli/chat_cli` · `cli/projects_cli` · `cli/runtime_cli` · `cli/gateway_cli` 等 2+ error 模块；`*_ops.py` 与全仓库无 skip strict 不在范围
+**范围外（显式 backlog）**：`*_ops.py`（388 文件）· 无 `--follow-imports=skip` 的全仓库 strict
 
 #### 方向 G：文档卫生清理 — **done** 2026-06-29
 

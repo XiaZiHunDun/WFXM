@@ -10,7 +10,7 @@ from pathlib import Path
 def _store_root() -> Path:
     from butler.config import get_butler_settings
 
-    root = get_butler_settings().butler_home / "runtime" / "plan_mode"
+    root = Path(get_butler_settings().butler_home) / "runtime" / "plan_mode"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

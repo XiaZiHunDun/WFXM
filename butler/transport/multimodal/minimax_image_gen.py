@@ -100,7 +100,7 @@ def generate_image(
         raise RuntimeError("MiniMax 图像生成返回空 URL")
 
     logger.info("Image generated: %s (model=%s, aspect=%s)", image_url[:80], model, aspect_ratio)
-    return image_url
+    return str(image_url)
 
 
 __all__ = ["generate_image"]

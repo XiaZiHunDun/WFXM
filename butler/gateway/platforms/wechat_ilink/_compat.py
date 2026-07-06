@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ try:
 
     AIOHTTP_AVAILABLE = True
 except ImportError:  # pragma: no cover - dependency gate
-    aiohttp = None  # type: ignore[assignment]
+    aiohttp = None
     AIOHTTP_AVAILABLE = False
 
 try:
@@ -38,10 +39,10 @@ try:
 
     CRYPTO_AVAILABLE = True
 except ImportError:  # pragma: no cover - dependency gate
-    default_backend = None  # type: ignore[assignment]
-    Cipher = None  # type: ignore[assignment]
-    algorithms = None  # type: ignore[assignment]
-    modes = None  # type: ignore[assignment]
+    default_backend = None
+    Cipher = None
+    algorithms = None
+    modes = None
     CRYPTO_AVAILABLE = False
 
 from butler.gateway.platforms.wechat_ilink.constants import (  # noqa: F401
@@ -140,6 +141,6 @@ from butler.gateway.platforms.wechat_ilink.transport import (  # noqa: F401
 )
 
 
-async def _download_and_decrypt_media(*args, **kwargs):
+async def _download_and_decrypt_media(*args: Any, **kwargs: Any) -> Any:
     """Re-export with patch-friendly indirection (PROD-P2-01 subpackage)."""
     return await _download_and_decrypt_media_impl(*args, **kwargs)

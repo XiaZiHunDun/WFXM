@@ -13,7 +13,7 @@ def handle_export_session_command(
     session_key: str,
 ) -> str:
     if not is_gateway_owner(platform=platform, external_id=external_id, session_key=session_key):
-        return owner_required_message()
+        return str(owner_required_message())
 
     max_lines = 0
     if str(arg or "").strip().isdigit():
@@ -54,5 +54,5 @@ def handle_export_session_command(
 
         if export_wechat_file_enabled() and path:
             msg += f"\n\n（正在发送 {label} 文件…）"
-            return append_wechat_file_delivery_line(msg, path)
+            return str(append_wechat_file_delivery_line(msg, path))
     return f"{msg}\n路径: {path}"

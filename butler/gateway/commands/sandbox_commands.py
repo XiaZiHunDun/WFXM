@@ -61,7 +61,7 @@ def _cmd_sandbox(ctx: CommandContext) -> Optional[str]:
     if sub in ("策略", "policy"):
         gate = require_owner(ctx)
         if gate:
-            return gate
+            return str(gate)
         ws = _workspace(ctx)
         if ws is None:
             return "无活跃项目，请先 /切换 到目标项目"

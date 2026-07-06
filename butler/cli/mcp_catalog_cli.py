@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
+from typing import cast
 
 from butler.registry.mcp_catalog import McpCatalogService
 from butler.registry.mcp_install import (
@@ -14,7 +16,7 @@ from butler.registry.mcp_install import (
 from butler.registry.mcp_merge import format_mcp_status_message, resolve_workspace_for_session
 
 
-def register_mcp_catalog_parsers(mcp_sub: argparse._SubParsersAction) -> None:
+def register_mcp_catalog_parsers(mcp_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p_search = mcp_sub.add_parser("search", help="搜索 MCP 目录")
     p_search.add_argument("query", nargs="?", default="")
     p_search.set_defaults(func=_cmd_mcp_search)
@@ -147,18 +149,16 @@ def _cmd_mcp_scan(ns: argparse.Namespace) -> int:
     return 0 if scan.ok_to_install else 1
 
 
-def _workspace_from_ns(ns: argparse.Namespace):
+def _workspace_from_ns(ns: argparse.Namespace) -> Path | None:
     raw = str(getattr(ns, "workspace", "") or "").strip()
     if raw:
-        from pathlib import Path
-
         p = Path(raw).expanduser()
         return p if p.is_dir() else None
-    return resolve_workspace_for_session()
+    return cast(Path | None, resolve_workspace_for_session())
 
 
 def _cmd_mcp_test(ns: argparse.Namespace) -> int:
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 
     from butler.registry.mcp_merge import find_server_config_path
 

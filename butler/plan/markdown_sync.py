@@ -103,7 +103,7 @@ def sync_plan_file_to_transcript(
     """If plan mode + writable plan path, record extracted plan_step rows."""
     from butler.plan.markdown_sync_ops import sync_plan_file_to_transcript_safe
 
-    return sync_plan_file_to_transcript_safe(session_key, path, content)
+    return int(sync_plan_file_to_transcript_safe(session_key, path, content))
 
 
 __all__ = [

@@ -17,9 +17,10 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import cast
 
 
-def register_gateway_parser(sub: argparse._SubParsersAction) -> None:
+def register_gateway_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``gateway`` and ``wechat-setup``."""
     from butler import main as _butler_main
 
@@ -77,7 +78,7 @@ def _cmd_gateway(ns: argparse.Namespace) -> int:
     if bad:
         print(format_unsupported_error(bad), file=sys.stderr)
         return 2
-    return run_gateway_blocking(["wechat"])
+    return cast(int, run_gateway_blocking(["wechat"]))
 
 
 def _cmd_wechat_setup(ns: argparse.Namespace) -> int:
@@ -95,10 +96,13 @@ def _cmd_wechat_setup(ns: argparse.Namespace) -> int:
         return 1
 
     async def _run() -> dict[str, str] | None:
-        return await qr_login(
-            str(get_butler_home()),
-            bot_type=str(getattr(ns, "bot_type", "3") or "3"),
-            timeout_seconds=int(getattr(ns, "timeout", 480) or 480),
+        return cast(
+            dict[str, str] | None,
+            await qr_login(
+                str(get_butler_home()),
+                bot_type=str(getattr(ns, "bot_type", "3") or "3"),
+                timeout_seconds=int(getattr(ns, "timeout", 480) or 480),
+            ),
         )
 
     try:

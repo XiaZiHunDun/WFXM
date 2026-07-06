@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from butler.config import get_butler_home
 from butler.gateway.platforms.base import ButlerPlatformAdapter
@@ -20,7 +20,7 @@ from butler.gateway.platforms.wechat_ilink._compat import (
 logger = logging.getLogger(__name__)
 
 
-class WeChatAdapter(ButlerPlatformAdapter):
+class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
     """Butler-native WeChat (iLink Bot API) adapter."""
 
     MAX_MESSAGE_LENGTH = 2000
@@ -33,8 +33,8 @@ class WeChatAdapter(ButlerPlatformAdapter):
         self._typing_cache = TypingTicketCache()
         self._poll_session: Optional[aiohttp.ClientSession] = None
         self._send_session: Optional[aiohttp.ClientSession] = None
-        self._poll_task: Optional[asyncio.Task] = None
-        self._bg_typing_tasks: set[asyncio.Task] = set()
+        self._poll_task: Optional[asyncio.Task[None]] = None
+        self._bg_typing_tasks: set[asyncio.Task[None]] = set()
         from butler.gateway.platforms.wechat_ilink_phases import (
             _phase_init_account,
             _phase_init_chunks,
@@ -65,7 +65,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
     async def connect(self) -> bool:
         from butler.gateway.platforms.wechat_ilink.adapter_lifecycle import connect
 
-        return await connect(self)
+        return cast(bool, await connect(self))
 
     async def disconnect(self) -> None:
         from butler.gateway.platforms.wechat_ilink.adapter_lifecycle import disconnect
@@ -85,22 +85,28 @@ class WeChatAdapter(ButlerPlatformAdapter):
     ) -> int:
         from butler.gateway.platforms.wechat_ilink.adapter_inbound import dispatch_poll_response
 
-        return await dispatch_poll_response(
-            self, response, consecutive_failures, handle_response,
+        return cast(
+            int,
+            await dispatch_poll_response(
+                self, response, consecutive_failures, handle_response,
+            ),
         )
 
     @staticmethod
     def _poll_backoff_seconds(consecutive_failures: int) -> float:
         from butler.gateway.platforms.wechat_ilink.adapter_inbound import poll_backoff_seconds
 
-        return poll_backoff_seconds(consecutive_failures)
+        return cast(float, poll_backoff_seconds(consecutive_failures))
 
     async def _handle_poll_exception(
         self, exc: Exception, consecutive_failures: int,
     ) -> int:
         from butler.gateway.platforms.wechat_ilink.adapter_inbound import handle_poll_exception
 
-        return await handle_poll_exception(self, exc, consecutive_failures)
+        return cast(
+            int,
+            await handle_poll_exception(self, exc, consecutive_failures),
+        )
 
     async def _process_message_safe(self, message: Dict[str, Any]) -> None:
         from butler.gateway.platforms.wechat_ilink.adapter_inbound import process_message_safe
@@ -129,22 +135,25 @@ class WeChatAdapter(ButlerPlatformAdapter):
     async def _download_image(self, item: Dict[str, Any]) -> Optional[str]:
         from butler.gateway.platforms.wechat_ilink import adapter_media
 
-        return await adapter_media.download_image(self, item)
+        return cast(Optional[str], await adapter_media.download_image(self, item))
 
     async def _download_video(self, item: Dict[str, Any]) -> Optional[str]:
         from butler.gateway.platforms.wechat_ilink import adapter_media
 
-        return await adapter_media.download_video(self, item)
+        return cast(Optional[str], await adapter_media.download_video(self, item))
 
     async def _download_file(self, item: Dict[str, Any]) -> Tuple[Optional[str], str]:
         from butler.gateway.platforms.wechat_ilink import adapter_media
 
-        return await adapter_media.download_file(self, item)
+        return cast(
+            Tuple[Optional[str], str],
+            await adapter_media.download_file(self, item),
+        )
 
     async def _download_voice(self, item: Dict[str, Any]) -> Optional[str]:
         from butler.gateway.platforms.wechat_ilink import adapter_media
 
-        return await adapter_media.download_voice(self, item)
+        return cast(Optional[str], await adapter_media.download_voice(self, item))
 
     async def _maybe_fetch_typing_ticket(self, user_id: str, context_token: Optional[str]) -> None:
         from butler.gateway.platforms.wechat_ilink import adapter_outbound
@@ -164,7 +173,10 @@ class WeChatAdapter(ButlerPlatformAdapter):
     ) -> List[str]:
         from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
-        return adapter_outbound.split_text(self, content, metadata=metadata)
+        return cast(
+            List[str],
+            adapter_outbound.split_text(self, content, metadata=metadata),
+        )
 
     async def _send_text_chunk(
         self,
@@ -238,7 +250,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
         caption: Optional[str] = None,
         reply_to: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> SendResult:
         from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
@@ -255,7 +267,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
         file_name: Optional[str] = None,
         reply_to: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> SendResult:
         from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
@@ -297,7 +309,7 @@ class WeChatAdapter(ButlerPlatformAdapter):
     async def _download_remote_media(self, url: str) -> str:
         from butler.gateway.platforms.wechat_ilink import adapter_media
 
-        return await adapter_media.download_remote_media(self, url)
+        return cast(str, await adapter_media.download_remote_media(self, url))
 
     async def _send_file(
         self,
@@ -308,9 +320,12 @@ class WeChatAdapter(ButlerPlatformAdapter):
     ) -> str:
         from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
-        return await adapter_outbound.send_file(
-            self, chat_id, path, caption,
-            force_file_attachment=force_file_attachment,
+        return cast(
+            str,
+            await adapter_outbound.send_file(
+                self, chat_id, path, caption,
+                force_file_attachment=force_file_attachment,
+            ),
         )
 
     def _build_outbound_media_item(
@@ -327,16 +342,21 @@ class WeChatAdapter(ButlerPlatformAdapter):
     ) -> Dict[str, Any]:
         from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
-        return adapter_outbound.build_outbound_media_item(
-            self, path, media_type, item_builder,
-            encrypted_query_param=encrypted_query_param,
-            aes_key=aes_key,
-            ciphertext_size=ciphertext_size,
-            plaintext_size=plaintext_size,
-            rawfilemd5=rawfilemd5,
+        return cast(
+            Dict[str, Any],
+            adapter_outbound.build_outbound_media_item(
+                self, path, media_type, item_builder,
+                encrypted_query_param=encrypted_query_param,
+                aes_key=aes_key,
+                ciphertext_size=ciphertext_size,
+                plaintext_size=plaintext_size,
+                rawfilemd5=rawfilemd5,
+            ),
         )
 
-    def _outbound_media_builder(self, path: str, force_file_attachment: bool = False):
+    def _outbound_media_builder(
+        self, path: str, force_file_attachment: bool = False,
+    ) -> Any:
         from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return adapter_outbound.outbound_media_builder(
@@ -359,7 +379,10 @@ class WeChatAdapter(ButlerPlatformAdapter):
         from butler.gateway.pii_scrub import scrub_outbound_text
 
         scrubbed = scrub_outbound_text(str(content))
-        return _wrap_copy_friendly_lines_for_wechat(_normalize_markdown_blocks(scrubbed))
+        return cast(
+            str,
+            _wrap_copy_friendly_lines_for_wechat(_normalize_markdown_blocks(scrubbed)),
+        )
 
 
 __all__ = ["WeChatAdapter"]

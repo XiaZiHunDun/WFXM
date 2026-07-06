@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 from butler.gateway.command_registry import (
     CommandContext,
@@ -14,28 +14,36 @@ from butler.gateway.command_registry import (
     require_owner,
 )
 
+
+def _as_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
 def _cmd_doctor(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.ops.security_audit import format_audit_report, run_security_audit
     from butler.gateway.commands.lifecycle_commands_ops import doctor_audit_workspace_from_ctx_safe
 
     workspace = doctor_audit_workspace_from_ctx_safe(ctx)
-    return format_audit_report(run_security_audit(workspace=workspace))
+    return _as_str(format_audit_report(run_security_audit(workspace=workspace)))
 
 
 def _cmd_export(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.gateway.commands.export_handlers import handle_export_session_command
 
-    return handle_export_session_command(
-        ctx.arg,
-        platform=ctx.platform,
-        external_id=ctx.external_id,
-        session_key=ctx.session_key,
+    return _as_str(
+        handle_export_session_command(
+            ctx.arg,
+            platform=ctx.platform,
+            external_id=ctx.external_id,
+            session_key=ctx.session_key,
+        )
     )
 
 
@@ -43,8 +51,8 @@ def _cmd_revert(ctx: CommandContext) -> Optional[str]:
     from butler.core.transcript_revert import truncate_transcript
 
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     keep = 0
     if ctx.arg.strip().isdigit():
         keep = int(ctx.arg.strip())
@@ -63,8 +71,8 @@ def _cmd_fork(ctx: CommandContext) -> Optional[str]:
     from butler.core.transcript_fork import fork_transcript_at_user_message
 
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     user_idx = 1
     if ctx.arg.strip().isdigit():
         user_idx = max(1, int(ctx.arg.strip()))
@@ -94,8 +102,8 @@ def _cmd_transcript_memory(ctx: CommandContext) -> Optional[str]:
     )
 
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     if not transcript_memory_enabled():
         return "Transcript 记忆提炼未启用。设置 BUTLER_TRANSCRIPT_MEMORY=1 后重试。"
     project = ctx.arg.strip() or os.getenv("BUTLER_DEFAULT_PROJECT", "") or ""
@@ -115,30 +123,34 @@ def _cmd_transcript_memory(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_confirm_install(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.gateway.commands.registry_handlers import handle_confirm_install_command
 
-    return handle_confirm_install_command(
-        ctx.arg,
-        platform=ctx.platform,
-        external_id=ctx.external_id,
-        session_key=ctx.session_key,
+    return _as_str(
+        handle_confirm_install_command(
+            ctx.arg,
+            platform=ctx.platform,
+            external_id=ctx.external_id,
+            session_key=ctx.session_key,
+        )
     )
 
 
 def _cmd_registry(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.gateway.commands.registry_handlers import handle_registry_command
 
-    return handle_registry_command(
-        ctx.cmd,
-        ctx.arg,
-        platform=ctx.platform,
-        external_id=ctx.external_id,
-        session_key=ctx.session_key,
+    return _as_str(
+        handle_registry_command(
+            ctx.cmd,
+            ctx.arg,
+            platform=ctx.platform,
+            external_id=ctx.external_id,
+            session_key=ctx.session_key,
+        )
     )
 
 
@@ -146,32 +158,32 @@ def _cmd_config(ctx: CommandContext) -> Optional[str]:
     from butler.config_service import config_set, format_config_get, format_config_list
 
     if not ctx.arg:
-        return format_config_list()
+        return _as_str(format_config_list())
     parts = ctx.arg.split(maxsplit=1)
     sub = parts[0].lower()
     sub_arg = parts[1].strip() if len(parts) > 1 else ""
     if sub == "list":
-        return format_config_list(sub_arg)
+        return _as_str(format_config_list(sub_arg))
     if sub == "get" and sub_arg:
-        return format_config_get(sub_arg)
+        return _as_str(format_config_get(sub_arg))
     if sub == "set":
         gate = require_owner(ctx)
-        if gate:
-            return gate
+        if gate is not None:
+            return str(gate)
         kv = sub_arg.split(maxsplit=1)
         if len(kv) == 2:
             result = config_set(kv[0], kv[1])
             if result.needs_reset:
                 ctx.reset_loop()
-            return result.message
+            return str(result.message)
         return "用法: /config set <变量名> <值>"
-    return format_config_get(ctx.arg)
+    return _as_str(format_config_get(ctx.arg))
 
 
 def _cmd_tasks(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.runtime.task_store import (
         count_running_tasks,
         list_recent_tasks,
@@ -208,15 +220,17 @@ def _cmd_tasks(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_workflow(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
-    if gate:
-        return gate
+    if gate is not None:
+        return str(gate)
     from butler.workflows.commands import handle_workflow_command
 
-    return handle_workflow_command(
-        ctx.orchestrator,
-        ctx.arg,
-        session_key=ctx.session_key,
-        platform=ctx.platform,
+    return _as_str(
+        handle_workflow_command(
+            ctx.orchestrator,
+            ctx.arg,
+            session_key=ctx.session_key,
+            platform=ctx.platform,
+        )
     )
 
 

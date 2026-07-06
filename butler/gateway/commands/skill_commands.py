@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
@@ -45,12 +45,12 @@ def handle_skill_pending_command(
     if not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
 
     return _handle_approve_skill(orchestrator, arg)
 
 
-def _skill_manager(orchestrator: "ButlerOrchestrator"):
+def _skill_manager(orchestrator: "ButlerOrchestrator") -> Any:
     sm = getattr(orchestrator, "_skill_manager", None) or getattr(
         orchestrator, "skill_manager", None
     )
@@ -127,7 +127,7 @@ def handle_skill_learn(
     if not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
 
     desc = (description or "").strip()
     if len(desc) < 8:

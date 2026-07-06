@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any
+from typing import cast
 
 
-def register_cost_parser(sub: argparse._SubParsersAction) -> None:
+def register_cost_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     cost = sub.add_parser("cost", help="成本标定：汇总报告与账单基线对照")
     cost_sub = cost.add_subparsers(dest="cost_cmd", required=True)
 
@@ -31,7 +31,7 @@ def _cmd_cost_report(ns: argparse.Namespace) -> int:
         argv.extend(["--days", str(ns.days)])
     if ns.json:
         argv.append("--json")
-    return cal_main(argv)
+    return cast(int, cal_main(argv))
 
 
 def _cmd_cost_set_baseline(ns: argparse.Namespace) -> int:
@@ -48,4 +48,4 @@ def _cmd_cost_set_baseline(ns: argparse.Namespace) -> int:
     ]
     if ns.note:
         argv.extend(["--note", ns.note])
-    return cal_main(argv)
+    return cast(int, cal_main(argv))

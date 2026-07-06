@@ -10,7 +10,7 @@ Sprint 11 SEC-11-1: /批准运行 /运行 路径加 owner gate（改盘操作）
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 from butler.gateway.command_registry import CommandContext, CommandDef, register
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
@@ -25,16 +25,19 @@ def _cmd_runtime_jobs_list(ctx: CommandContext) -> Optional[str]:
     if not is_gateway_owner(
         platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
     from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
-    return handle_runtime_command(
+    return cast(
+        str | None,
+        handle_runtime_command(
         ctx.orchestrator,
         "/定时",
         ctx.arg,
         platform=ctx.platform,
         external_id=ctx.external_id,
         session_key=ctx.session_key,
+        ),
     )
 
 
@@ -42,16 +45,19 @@ def _cmd_runtime_approve_run(ctx: CommandContext) -> Optional[str]:
     if not is_gateway_owner(
         platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
     from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
-    return handle_runtime_command(
+    return cast(
+        str | None,
+        handle_runtime_command(
         ctx.orchestrator,
         "/批准运行",
         ctx.arg,
         platform=ctx.platform,
         external_id=ctx.external_id,
         session_key=ctx.session_key,
+        ),
     )
 
 
@@ -59,16 +65,19 @@ def _cmd_runtime_run(ctx: CommandContext) -> Optional[str]:
     if not is_gateway_owner(
         platform=ctx.platform, external_id=ctx.external_id, session_key=ctx.session_key
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
     from butler.gateway.commands.runtime_handlers import handle_runtime_command
 
-    return handle_runtime_command(
+    return cast(
+        str | None,
+        handle_runtime_command(
         ctx.orchestrator,
         "/运行",
         ctx.arg,
         platform=ctx.platform,
         external_id=ctx.external_id,
         session_key=ctx.session_key,
+        ),
     )
 
 

@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from butler.gateway.command_registry import (
     CommandContext,
@@ -27,11 +27,17 @@ from butler.gateway.command_registry import (
 )
 
 
+def _as_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
 def _cmd_perm_list(ctx: CommandContext) -> Optional[str]:
     """handler for /权限 — 列出本会话 always-allow 记录."""
     gate = require_owner(ctx)
     if gate is not None:
-        return gate
+        return str(gate)
     from butler.permissions.approvals import list_always
 
     rows = list_always(ctx.session_key)
@@ -49,17 +55,17 @@ def _cmd_perm_once(ctx: CommandContext) -> Optional[str]:
     """handler for /批准一次 <fingerprint>."""
     gate = require_owner(ctx)
     if gate is not None:
-        return gate
+        return str(gate)
     from butler.permissions.approvals import grant_once
 
-    return grant_once(ctx.session_key, fingerprint=ctx.arg.strip())
+    return _as_str(grant_once(ctx.session_key, fingerprint=ctx.arg.strip()))
 
 
 def _cmd_perm_always(ctx: CommandContext) -> Optional[str]:
     """handler for /始终允许 <spec> — 永久放行某类操作."""
     gate = require_owner(ctx)
     if gate is not None:
-        return gate
+        return str(gate)
 
     spec = (ctx.arg or "").strip()
     if not spec:
@@ -86,11 +92,13 @@ def _cmd_perm_always(ctx: CommandContext) -> Optional[str]:
             # <tool>:<pattern>
             tool = head.strip() or "*"
             pattern = tail.strip() or "*"
-    return grant_always(
-        ctx.session_key,
-        permission=permission,
-        tool=tool,
-        pattern=pattern,
+    return _as_str(
+        grant_always(
+            ctx.session_key,
+            permission=permission,
+            tool=tool,
+            pattern=pattern,
+        )
     )
 
 
@@ -98,7 +106,7 @@ def _cmd_perm_exec(ctx: CommandContext) -> Optional[str]:
     """handler for /批准执行 <cmd> — 放行 terminal 命令 5 分钟."""
     gate = require_owner(ctx)
     if gate is not None:
-        return gate
+        return str(gate)
     cmd = ctx.arg.strip()
     if not cmd:
         return "用法: /批准执行 <terminal 命令>"
@@ -112,7 +120,7 @@ def _cmd_perm_unsandboxed(ctx: CommandContext) -> Optional[str]:
     """handler for /批准沙箱外 <cmd> — 5 分钟内无 OS 沙箱执行."""
     gate = require_owner(ctx)
     if gate is not None:
-        return gate
+        return str(gate)
     cmd = ctx.arg.strip()
     if not cmd:
         return "用法: /批准沙箱外 <terminal 命令>"
@@ -133,7 +141,7 @@ def _cmd_perm_pattern(ctx: CommandContext) -> Optional[str]:
     """handler for /批准模式 <pattern> — 24h 内同类 terminal 命令放行."""
     gate = require_owner(ctx)
     if gate is not None:
-        return gate
+        return str(gate)
     pat = ctx.arg.strip()
     if not pat:
         return "用法: /批准模式 <rm_rf|curl_pipe_sh|chmod_777|...>"
@@ -147,22 +155,22 @@ def _cmd_revoke_always(ctx: CommandContext) -> Optional[str]:
     """handler for /撤销批准 <permission> [tool] [pattern] — 按过滤撤销 always 记录."""
     gate = require_owner(ctx)
     if gate is not None:
-        return gate
+        return str(gate)
     arg = (ctx.arg or "").strip()
     if not arg:
         return "用法: /撤销批准 <permission> [tool] [pattern]"
     perm, tool, pat = (arg.split() + ["", "", ""])[:3]
     from butler.permissions.approvals import revoke_always
-    return revoke_always(ctx.session_key, permission=perm, tool=tool, pattern=pat)
+    return _as_str(revoke_always(ctx.session_key, permission=perm, tool=tool, pattern=pat))
 
 
 def _cmd_clear_always(ctx: CommandContext) -> Optional[str]:
     """handler for /清除始终允许 — 清空 session 所有 always 记录."""
     gate = require_owner(ctx)
     if gate is not None:
-        return gate
+        return str(gate)
     from butler.permissions.approvals import clear_always
-    return clear_always(ctx.session_key)
+    return _as_str(clear_always(ctx.session_key))
 
 
 _PERMISSION_COMMANDS: list[CommandDef] = [
