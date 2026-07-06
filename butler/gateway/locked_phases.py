@@ -31,6 +31,19 @@ if TYPE_CHECKING:
     from butler.gateway.message_handler import ButlerMessageHandler
 
 from butler.core.best_effort import safe_best_effort
+from butler.gateway.handler_helpers import (
+    _gateway_run_callbacks,
+    _normalize_contacts_request,
+    _normalize_detail_request,
+    _normalize_expense_request,
+    _normalize_habits_request,
+    _normalize_memo_request,
+    _normalize_new_session_request,
+    _normalize_status_request,
+    _normalize_switch_request,
+)
+from butler.memory.memory_metrics import get_collector as _memory_metrics_collector
+from butler.memory.metrics_persist import flush_memory_metrics, load_persisted_metrics
 
 logger = logging.getLogger(__name__)
 
@@ -85,17 +98,6 @@ class LockedTurnState:
 
 
 def _load_normalizers() -> tuple[Callable[[str], Optional[str]], ...]:
-    from butler.gateway.handler_helpers import (
-        _normalize_contacts_request,
-        _normalize_detail_request,
-        _normalize_expense_request,
-        _normalize_habits_request,
-        _normalize_memo_request,
-        _normalize_new_session_request,
-        _normalize_status_request,
-        _normalize_switch_request,
-    )
-
     return (
         _normalize_detail_request,
         _normalize_switch_request,
@@ -318,11 +320,8 @@ def _phase_init_loop_role(
         }
     )
     def _start_metrics_session() -> None:
-        from butler.memory.memory_metrics import get_collector
-        from butler.memory.metrics_persist import load_persisted_metrics
-
         load_persisted_metrics()
-        get_collector().start_session(state.session_key)
+        _memory_metrics_collector().start_session(state.session_key)
 
     safe_best_effort(_start_metrics_session, label="locked_phases.memory_metrics")
 
@@ -457,7 +456,6 @@ def _phase_prefetch_and_callbacks(
     state: LockedTurnState,
 ) -> None:
     """Phase: attach memory prefetch + wire up bridge run callbacks."""
-    from butler.gateway.handler_helpers import _gateway_run_callbacks
     from butler.session.lifecycle import attach_turn_memory_prefetch
 
     attach_turn_memory_prefetch(
@@ -554,10 +552,9 @@ def _phase_finalize_loop_diagnostics(state: LockedTurnState) -> None:
         state.health["loop_transition_reason"] = state.result.transition_reason
     def _promote_diag() -> None:
         from butler.core.compaction_status import promote_compaction_diagnostics_to_health
-        from butler.memory.memory_metrics import get_collector
 
         promote_compaction_diagnostics_to_health(state.health, loop_diag)
-        mm = get_collector().get_session_metrics(state.session_key)
+        mm = _memory_metrics_collector().get_session_metrics(state.session_key)
         if "error" not in mm:
             state.health["memory_metrics"] = mm.get("computed") or {}
             for key in (
@@ -663,12 +660,10 @@ def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
 
     safe_best_effort(_langfuse_turn_end, label="locked_phases.langfuse_turn_end")
 
-    def _flush_memory_metrics() -> None:
-        from butler.memory.metrics_persist import flush_memory_metrics
-
-        flush_memory_metrics(force=True)
-
-    safe_best_effort(_flush_memory_metrics, label="locked_phases.memory_metrics_flush")
+    safe_best_effort(
+        lambda: flush_memory_metrics(force=True),
+        label="locked_phases.memory_metrics_flush",
+    )
 
 
 def _phase_finalize_prefetch_pr(state: LockedTurnState) -> None:

@@ -6,7 +6,7 @@ import ast
 import pathlib
 
 # Baseline 2026-07-06: function-scoped lazy imports (AST count). Gate prevents growth.
-LAZY_IMPORT_BUDGET = 3450
+LAZY_IMPORT_BUDGET = 3444
 
 
 def _count_butler_imports_in_tree(tree: ast.AST) -> tuple[int, int]:
