@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _active_states: dict[str, Any] = {}
 
@@ -70,7 +70,7 @@ def clear_state(session_key: str = "_default") -> None:
 def tool_dev_status(session_key: str = "_default") -> dict[str, Any]:
     """Return current DevState summary for the LLM."""
     state = get_or_create_state(session_key)
-    return state.to_dict()
+    return cast(dict[str, Any], state.to_dict())
 
 
 def tool_dev_verify(
@@ -112,7 +112,7 @@ def tool_dev_verify(
         review_payload = auto_review_after_verify_safe(str(ws), session_key=session_key)
         if review_payload:
             out["review"] = review_payload
-    return out
+    return cast(dict[str, Any], out)
 
 
 def tool_dev_review(
@@ -184,7 +184,7 @@ def tool_dev_review(
         out["auto_review"] = True
     if diagnostics:
         out["diagnostics"] = diagnostics
-    return out
+    return cast(dict[str, Any], out)
 
 
 def tool_dev_rollback(
@@ -383,10 +383,10 @@ def tool_dev_metrics(
     if detail == "task" and task_id:
         m = collector.get_task_metrics(task_id)
         if m:
-            return m.to_dict()
+            return cast(dict[str, Any], m.to_dict())
         for cm in collector._completed:
             if cm.task_id == task_id:
-                return cm.to_dict()
+                return cast(dict[str, Any], cm.to_dict())
         return {"error": f"Task {task_id} not found"}
 
     agg = collector.aggregate()
@@ -407,7 +407,7 @@ def _handler_dev_metrics(detail: str = "summary", task_id: str = "", **kwargs: A
 def _resolve_session_key() -> str:
     from butler.dev_engine.dev_tools_ops import resolve_session_key_safe
 
-    return resolve_session_key_safe()
+    return cast(str, resolve_session_key_safe())
 
 
 # ── Registration ────────────────────────────────────────────────

@@ -12,7 +12,10 @@ import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, cast
+
+if TYPE_CHECKING:
+    from butler.memory.memory_scope import MemoryScope
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -403,9 +406,11 @@ def _ast_composability_violation(tree: ast.Module) -> str | None:
                 if inferred is not None:
                     returns.append(inferred)
         if len(returns) >= 2:
-            type_set = {t for t in returns if t is not None and t is not type(None)}
+            type_set: set[type] = {
+                t for t in returns if t is not None and t is not type(None)
+            }
             if len(type_set) > 1:
-                incompatible_pairs = [
+                incompatible_pairs: list[tuple[set[type], str]] = [
                     ({str, int}, "str + int"),
                     ({str, float}, "str + float"),
                     ({str, list}, "str + list"),
@@ -414,7 +419,7 @@ def _ast_composability_violation(tree: ast.Module) -> str | None:
                     ({str, dict}, "str + dict"),
                 ]
                 for pair_set, pair_name in incompatible_pairs:
-                    if pair_set.issubset(type_set):
+                    if all(t in type_set for t in pair_set):
                         return f"function '{node.name}' returns incompatible types: {pair_name}"
     return None
 
@@ -958,12 +963,12 @@ class ExperienceLibrary:
     ) -> bool:
         from butler.dev_engine.coding_knowledge_ops import experience_retrieval_eligible_safe
 
-        return experience_retrieval_eligible_safe(
+        return cast(bool, experience_retrieval_eligible_safe(
             experience_id=exp.id,
             normalized_keywords=normalized,
             inferred_task_id=inferred_task_id,
             benchmarks=exp.benchmarks,
-        )
+        ))
 
     @classmethod
     def _retrieval_rank_bonus(
@@ -975,7 +980,7 @@ class ExperienceLibrary:
     ) -> int:
         from butler.dev_engine.coding_knowledge_ops import experience_retrieval_rank_bonus_safe
 
-        return experience_retrieval_rank_bonus_safe(
+        return cast(int, experience_retrieval_rank_bonus_safe(
             experience_id=exp.id,
             normalized_keywords=normalized,
             inferred_task_id=inferred_task_id,
@@ -985,7 +990,7 @@ class ExperienceLibrary:
             scope_project_id=exp.scope.project_id,
             scope_source=exp.scope.source,
             domain=list(exp.domain),
-        )
+        ))
 
     @classmethod
     def load_merged_for_project(

@@ -7,7 +7,7 @@ import os
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, cast
 
 from butler.dev_engine.b9_live_tuning import B9_LIVE_CATEGORY
 
@@ -31,7 +31,7 @@ def is_b9_benchmark_category(
     category_meta: dict[str, Any] | None = None,
 ) -> bool:
     cat = str(category or (category_meta or {}).get("category") or "").strip()
-    return cat == B9_LIVE_CATEGORY
+    return bool(cat == B9_LIVE_CATEGORY)
 
 
 def is_benchmark_category(
@@ -62,7 +62,7 @@ def resolve_b9_workspace(project: Any = None) -> Path | None:
             pass
     from butler.dev_engine.b9_delegate_gate_ops import resolve_b9_workspace_tail_safe
 
-    return resolve_b9_workspace_tail_safe()
+    return cast(Path | None, resolve_b9_workspace_tail_safe())
 
 
 def apply_b9_pytest_success_gate(
@@ -314,7 +314,7 @@ def apply_dev_auto_verify_success_gate(
     dev_engine: dict[str, Any] | None = None,
     task: str = "",
     task_preview: str = "",
-    changes: list | None = None,
+    changes: list[Any] | None = None,
     category_meta: dict[str, Any] | None = None,
 ) -> tuple[bool, list[str]]:
     """Production dev: edits without green verify must not count as delegate success."""
@@ -367,7 +367,7 @@ def apply_dev_auto_verify_success_gate(
 def coding_strict_pilot_categories() -> frozenset[str]:
     from butler.dev_engine.b9_delegate_gate_ops import coding_strict_pilot_categories_safe
 
-    return coding_strict_pilot_categories_safe()
+    return cast(frozenset[str], coding_strict_pilot_categories_safe())
 
 
 def apply_coding_strict_pilot_gate(
@@ -398,7 +398,8 @@ def apply_coding_strict_pilot_gate(
         return True, out
 
     de = dev_engine if isinstance(dev_engine, dict) else {}
-    ck = de.get("coding_knowledge") if isinstance(de.get("coding_knowledge"), dict) else {}
+    ck_raw = de.get("coding_knowledge")
+    ck: dict[str, Any] = ck_raw if isinstance(ck_raw, dict) else {}
     violated = ck.get("violated") or ck.get("violated_theorems") or []
     if not violated:
         return True, out
@@ -446,7 +447,8 @@ def apply_dev_review_strict_gate(
         return True, out
 
     de = dev_engine if isinstance(dev_engine, dict) else {}
-    review = de.get("review") if isinstance(de.get("review"), dict) else {}
+    review_raw = de.get("review")
+    review: dict[str, Any] = review_raw if isinstance(review_raw, dict) else {}
     count = int(review.get("findings_count") or 0)
     msg = f"DEV_REVIEW_STRICT_GATE: review failed ({count} findings)"
     if msg not in out:

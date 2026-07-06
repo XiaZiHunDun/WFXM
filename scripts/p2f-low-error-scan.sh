@@ -6,7 +6,7 @@ cd "$ROOT"
 gate_files=$(rg -o 'butler/[^ ]+\.py' scripts/butler-mypy-strict-gate.sh | sort -u)
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
-for dir in butler/core butler/gateway butler/runtime butler/tools butler/transport butler/mcp butler/memory butler/skills butler/session butler/hooks butler/eval butler/orchestrator; do
+for dir in butler/core butler/gateway butler/runtime butler/tools butler/transport butler/mcp butler/memory butler/skills butler/session butler/hooks butler/eval butler/orchestrator butler/dev_engine; do
   [ -d "$dir" ] || continue
   for f in "$dir"/*.py; do
     [ -f "$f" ] || continue

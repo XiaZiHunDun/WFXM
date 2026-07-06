@@ -204,6 +204,45 @@ MODULES=(
   butler/core/turn_token_budget.py
   butler/core/two_phase_confirm.py
   butler/core/workflow_flags.py
+  butler/dev_engine/__init__.py
+  butler/dev_engine/b9_delegate_gate.py
+  butler/dev_engine/b9_experience_retrieval.py
+  butler/dev_engine/b9_live_fixed_tasks.py
+  butler/dev_engine/b9_live_tuning.py
+  butler/dev_engine/b9_oracle_curriculum.py
+  butler/dev_engine/b9_oracle_fewshot.py
+  butler/dev_engine/b9_prod_shaped_tasks.py
+  butler/dev_engine/b9_tiers.py
+  butler/dev_engine/b9_types.py
+  butler/dev_engine/b9_verify_utils.py
+  butler/dev_engine/code_search.py
+  butler/dev_engine/coding_knowledge.py
+  butler/dev_engine/coding_knowledge_benchmark.py
+  butler/dev_engine/coding_knowledge_fixup.py
+  butler/dev_engine/delegate_finalize.py
+  butler/dev_engine/delegate_init.py
+  butler/dev_engine/delegate_workspace.py
+  butler/dev_engine/dev_benchmark.py
+  butler/dev_engine/dev_context.py
+  butler/dev_engine/dev_loop.py
+  butler/dev_engine/dev_metrics.py
+  butler/dev_engine/dev_state.py
+  butler/dev_engine/dev_tools.py
+  butler/dev_engine/diagnostics.py
+  butler/dev_engine/fix_strategy.py
+  butler/dev_engine/gentc_mutation.py
+  butler/dev_engine/llm_delegate_benchmark.py
+  butler/dev_engine/loop_plugin.py
+  butler/dev_engine/optimize_advisory.py
+  butler/dev_engine/prod_delegate_bridge.py
+  butler/dev_engine/prod_playbook_seeds.py
+  butler/dev_engine/project_dev_env.py
+  butler/dev_engine/review_closure.py
+  butler/dev_engine/review_knowledge.py
+  butler/dev_engine/review_static.py
+  butler/dev_engine/swe_curriculum.py
+  butler/dev_engine/swebench_lite.py
+  butler/dev_engine/verify.py
   butler/gateway/__init__.py
   butler/gateway/approval_cards.py
   butler/gateway/bot_loop_guard.py

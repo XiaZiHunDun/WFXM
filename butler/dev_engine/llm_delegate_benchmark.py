@@ -16,7 +16,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.dev_engine.b9_types import B9Mode, B9Report, B9Result, B9TaskSpec
 
@@ -461,7 +461,7 @@ def _run_live_delegate(
         errors=errors,
     )
     if early is not None:
-        return early
+        return cast(tuple[bool, list[str], list[str]], early)
 
     ok, msg = spec.verify(workspace)
     if not ok and msg and msg not in errors:

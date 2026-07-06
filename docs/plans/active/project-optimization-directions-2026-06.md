@@ -217,16 +217,16 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 22）
+#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 23）
 
-**目标**：`butler/contracts/` 全包 + P0/P1-C 核心接缝 + CC 关键路径 + gateway/transport/registry + tools 主模块长尾 + **Batch 21–22 域扩展**（`mcp`/`memory`/`skills`/`session`/`hooks`/`eval` 主模块，非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
+**目标**：`butler/contracts/` 全包 + P0/P1-C 核心接缝 + CC 关键路径 + gateway/transport/registry + tools 主模块长尾 + **Batch 21–23 域扩展**（`mcp`/`memory`/`skills`/`session`/`hooks`/`eval`/`dev_engine` 主模块，非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
 
 **验收**（`bash scripts/butler-mypy-strict-gate.sh`）：
-- **474** 模块 strict 绿（原 361 → Batch 21 **460** → Batch 22 **474**）：Batch 22 收尾 **14** 个域主模块（`mcp/config`·`github_grounding`·`tools_manifest`·`registry_hook`；`memory/diagnostics`·`embedding`·`semantic_index`·`facade`·`vector_store`·`memory_benchmark`·`experience_consolidation`；`session/memory_prefetch`·`post_session`；`orchestrator/__init__.py`）；`p2f-rebuild-gate.py` SCAN_DIRS 下上述域 **主模块已全部入 gate**（`*_ops.py` 仍不在范围）
+- **513** 模块 strict 绿（原 361 → Batch 21 **460** → Batch 22 **474** → Batch 23 **513**）：Batch 23 纳入 `butler/dev_engine` **39** 个主模块（21 零错收割 + **18** 处 minimal 修债：`b9_delegate_gate`·`dev_tools`·`b9_live_fixed_tasks`·`b9_prod_shaped_tasks`·`coding_knowledge`·`loop_plugin`·`verify` 等）；`p2f-rebuild-gate.py` / `p2f-zero-harvest-scan.sh` / `p2f-low-error-scan.sh` 的 SCAN_DIRS 已含 `butler/dev_engine`；**主模块已全部入 gate**（`*_ops.py` 仍不在范围）
 - `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步（`scripts/p2f-rebuild-gate.py` 可重建 gate）
 - 入 `butler-pytest-fast-gate.sh`（既有）
 
-**剩余 backlog**：`*_ops.py` 与全仓库无 skip strict 不在本方向范围；`core/gateway/tools/runtime/transport` 主模块已清零
+**剩余 backlog**：`*_ops.py` 与全仓库无 skip strict 不在本方向范围；`core/gateway/tools/runtime/transport/dev_engine` 主模块已清零
 
 #### 方向 G：文档卫生清理 — **done** 2026-06-29
 

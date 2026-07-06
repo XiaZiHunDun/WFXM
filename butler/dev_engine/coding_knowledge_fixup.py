@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 _VERIFY_KEYWORDS = frozenset(
     {
@@ -60,7 +60,7 @@ def reactivate_coding_knowledge_on_verify_fail(state: Any) -> dict[str, Any]:
 
     payload = reactivate_coding_knowledge_core_safe(state, keywords)
     if payload is not None:
-        return payload
+        return cast(dict[str, Any], payload)
     return {"reactivated": False, "reason": "reactivation_skipped"}
 
 

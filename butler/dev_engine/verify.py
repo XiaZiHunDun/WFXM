@@ -14,7 +14,7 @@ import shlex
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.dev_engine.dev_state import VerifyResult, VerifyStatus
 from butler.dev_engine.diagnostics import parse_diagnostics
@@ -27,14 +27,14 @@ DEFAULT_VERIFY_TIMEOUT = int_env("BUTLER_DEV_VERIFY_TIMEOUT", 300)
 def _project_dev_env() -> dict[str, str]:
     from butler.dev_engine.project_dev_env import project_dev_subprocess_env
 
-    return project_dev_subprocess_env()
+    return cast(dict[str, str], project_dev_subprocess_env())
 
 
 def _load_project_dev_config(workspace: Path) -> dict[str, Any]:
     """Load ``dev:`` block from ``workspace/project.yaml`` when present."""
     from butler.dev_engine.verify_ops import load_project_dev_config_safe
 
-    return load_project_dev_config_safe(workspace)
+    return cast(dict[str, Any], load_project_dev_config_safe(workspace))
 
 
 def _argv_from_dev_command(cmd: str, extra_args: list[str] | None = None) -> list[str]:
@@ -305,7 +305,7 @@ def auto_verify_levels() -> str:
     default = os.getenv("BUTLER_DEV_AUTO_VERIFY_LEVELS", "lint,test").strip()
     from butler.dev_engine.verify_ops import effective_dev_auto_verify_levels_safe
 
-    return effective_dev_auto_verify_levels_safe(default=default)
+    return cast(str, effective_dev_auto_verify_levels_safe(default=default))
 
 
 def _has_tool(name: str) -> bool:

@@ -7,9 +7,14 @@ Oracle mode must pass for CI regression (including ``expect_pass=False`` STUCK).
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from butler.dev_engine.b9_types import B9TaskSpec
 from butler.dev_engine.b9_verify_utils import pytest_verify as _pytest_verify
+
+
+def _verify_ws(ws: Path) -> tuple[bool, str]:
+    return cast(tuple[bool, str], _pytest_verify(ws))
 
 
 # ── B9L_multi_file_import ───────────────────────────────────────
@@ -40,7 +45,7 @@ def _oracle_b9l_multi_file_import(ws: Path) -> None:
 
 
 def _verify_b9l_multi_file_import(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 # ── B9L_pytest_fix_impl ─────────────────────────────────────────
@@ -67,7 +72,7 @@ def _oracle_b9l_pytest_fix_impl(ws: Path) -> None:
 
 
 def _verify_b9l_pytest_fix_impl(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 # ── B9L_stuck_unsolvable (expect_pass=False) ────────────────────
@@ -123,7 +128,7 @@ def _oracle_b9l_cross_module_rename(ws: Path) -> None:
 
 
 def _verify_b9l_cross_module_rename(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 # ── B9L_test_driven_add ─────────────────────────────────────────
@@ -153,7 +158,7 @@ def _oracle_b9l_test_driven_add(ws: Path) -> None:
 
 
 def _verify_b9l_test_driven_add(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 # ── B9L_two_file_patch ──────────────────────────────────────────
@@ -182,7 +187,7 @@ def _oracle_b9l_two_file_patch(ws: Path) -> None:
 
 
 def _verify_b9l_two_file_patch(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 # ── B9L_add_missing_method ──────────────────────────────────────
@@ -216,7 +221,7 @@ def _oracle_b9l_add_missing_method(ws: Path) -> None:
 
 
 def _verify_b9l_add_missing_method(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 # ── B9L_fix_exception_handler ───────────────────────────────────
@@ -249,7 +254,7 @@ def _oracle_b9l_fix_exception_handler(ws: Path) -> None:
 
 
 def _verify_b9l_fix_exception_handler(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 # ── B9L_extract_constant ────────────────────────────────────────
@@ -281,7 +286,7 @@ def _oracle_b9l_extract_constant(ws: Path) -> None:
 
 
 def _verify_b9l_extract_constant(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 # ── B9L_fix_off_by_one_loop ─────────────────────────────────────
@@ -310,7 +315,7 @@ def _oracle_b9l_fix_off_by_one_loop(ws: Path) -> None:
 
 
 def _verify_b9l_fix_off_by_one_loop(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 B9_LIVE_FIXED_TASKS: list[B9TaskSpec] = [

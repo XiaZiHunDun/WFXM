@@ -19,7 +19,7 @@ def review_closure_write_enabled() -> bool:
 
     if not reflection_closure_enabled_safe():
         return False
-    return closure_write_flags_safe()
+    return bool(closure_write_flags_safe())
 
 
 def maybe_persist_review_closure(

@@ -23,11 +23,11 @@ _GATEWAY_IMPORT_RE = re.compile(r"""^\s*from\s+butler\.gateway\b""")
 
 
 def review_max_function_lines() -> int:
-    return int_env("BUTLER_DEV_REVIEW_MAX_FUNCTION_LINES", 80)
+    return int(int_env("BUTLER_DEV_REVIEW_MAX_FUNCTION_LINES", 80))
 
 
 def review_max_file_lines() -> int:
-    return int_env("BUTLER_DEV_REVIEW_MAX_FILE_LINES", 600)
+    return int(int_env("BUTLER_DEV_REVIEW_MAX_FILE_LINES", 600))
 
 
 def _read_text(path: Path) -> str:
@@ -69,9 +69,9 @@ def _check_broad_except(path: Path, tree: ast.AST) -> list[ReviewFinding]:
         body = node.body or []
         has_log = any(
             isinstance(b, ast.Expr)
-            and isinstance(getattr(b, "value", None), ast.Call)
-            and isinstance(getattr(getattr(b.value, "func", None), "attr", None), str)
-            and getattr(b.value.func, "attr", "") in ("debug", "info", "warning", "error", "exception")
+            and isinstance((val := b.value), ast.Call)
+            and isinstance((func := val.func), ast.Attribute)
+            and func.attr in ("debug", "info", "warning", "error", "exception")
             for b in body
         )
         has_reraise = any(isinstance(b, ast.Raise) for b in body)

@@ -6,6 +6,7 @@ import json
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import cast
 from typing import Any
 
 from butler.dev_engine.b9_types import B9TaskSpec
@@ -205,7 +206,7 @@ B9_ORACLE_EPISODES: dict[str, B9CurriculumEpisode] = {
 def curriculum_audit_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / "b9_curriculum.json"
+    return cast(Path, get_butler_home()) / "audit" / "b9_curriculum.json"
 
 
 def get_episode(task_id: str) -> B9CurriculumEpisode | None:

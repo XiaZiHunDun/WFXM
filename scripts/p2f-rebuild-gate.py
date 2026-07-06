@@ -63,6 +63,7 @@ SCAN_DIRS = [
     "butler/hooks",
     "butler/eval",
     "butler/orchestrator",
+    "butler/dev_engine",
 ]
 
 

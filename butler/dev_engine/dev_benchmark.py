@@ -659,7 +659,7 @@ _BUILTIN_BENCHMARKS: list[Callable[[Path, MetricsCollector], BenchmarkResult]] =
 
 def run_benchmarks(
     workspace: Path | None = None,
-    benchmarks: list[Callable] | None = None,
+    benchmarks: list[Callable[..., Any]] | None = None,
 ) -> BenchmarkReport:
     """Run all benchmark tasks and produce a report.
 

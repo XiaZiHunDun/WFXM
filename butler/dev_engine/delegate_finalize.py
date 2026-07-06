@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from butler.tools.delegate_phases import DelegateRunState
@@ -12,7 +12,7 @@ def peek_dev_engine_summary(session_key: str, role: str) -> dict[str, Any] | Non
     """Read DevState summary without popping (for background delegate jobs)."""
     from butler.dev_engine.delegate_finalize_ops import peek_dev_engine_summary_safe
 
-    return peek_dev_engine_summary_safe(session_key, role)
+    return cast(dict[str, Any] | None, peek_dev_engine_summary_safe(session_key, role))
 
 
 def attach_dev_engine_summary(state: DelegateRunState, payload: dict[str, Any]) -> None:

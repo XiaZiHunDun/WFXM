@@ -51,7 +51,7 @@ def create_dev_state(
     )
 
     tid = task_id or uuid.uuid4().hex[:12]
-    state._metrics_task_id = tid  # type: ignore[attr-defined]
+    state._metrics_task_id = tid
     from butler.dev_engine.dev_loop_ops import on_task_start_safe
 
     on_task_start_safe(tid, task_description)

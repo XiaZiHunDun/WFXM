@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from typing import Any, cast
 from pathlib import Path
 
 from butler.dev_engine.dev_state import SearchHit
@@ -61,12 +62,12 @@ def search_files(
     """
     from butler.dev_engine.code_search_ops import walk_file_search_hits
 
-    return walk_file_search_hits(
+    return cast(list[Any], walk_file_search_hits(
         pattern,
         workspace,
         should_skip_dir=_should_skip_dir,
         max_results=max_results,
-    )
+    ))
 
 
 def search_symbols(

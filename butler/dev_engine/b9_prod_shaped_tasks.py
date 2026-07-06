@@ -12,9 +12,14 @@ to enqueue and scaffold; these tasks serve as golden templates until then.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from butler.dev_engine.b9_types import B9TaskSpec
 from butler.dev_engine.b9_verify_utils import pytest_verify as _pytest_verify
+
+
+def _verify_ws(ws: Path) -> tuple[bool, str]:
+    return cast(tuple[bool, str], _pytest_verify(ws))
 
 
 def _setup_b9l_prod_verify_fail(ws: Path) -> None:
@@ -45,7 +50,7 @@ def _oracle_b9l_prod_verify_fail(ws: Path) -> None:
 
 
 def _verify_b9l_prod_verify_fail(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_patch_wrong(ws: Path) -> None:
@@ -79,7 +84,7 @@ def _oracle_b9l_prod_patch_wrong(ws: Path) -> None:
 
 
 def _verify_b9l_prod_patch_wrong(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_no_test(ws: Path) -> None:
@@ -108,7 +113,7 @@ def _oracle_b9l_prod_no_test(ws: Path) -> None:
 
 
 def _verify_b9l_prod_no_test(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_demo_fix_greet_return(ws: Path) -> None:
@@ -137,7 +142,7 @@ def _oracle_b9l_prod_demo_fix_greet_return(ws: Path) -> None:
 
 
 def _verify_b9l_prod_demo_fix_greet_return(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_read_state_greet(ws: Path) -> None:
@@ -149,7 +154,7 @@ def _oracle_b9l_prod_read_state_greet(ws: Path) -> None:
 
 
 def _verify_b9l_prod_read_state_greet(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_main_helpers_import(ws: Path) -> None:
@@ -165,7 +170,7 @@ def _oracle_b9l_prod_main_helpers_import(ws: Path) -> None:
 
 
 def _verify_b9l_prod_main_helpers_import(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_cross_module_rename(ws: Path) -> None:
@@ -181,7 +186,7 @@ def _oracle_b9l_prod_cross_module_rename(ws: Path) -> None:
 
 
 def _verify_b9l_prod_cross_module_rename(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_lingwen_demo_add(ws: Path) -> None:
@@ -217,7 +222,7 @@ def _oracle_b9l_prod_lingwen_demo_add(ws: Path) -> None:
 
 
 def _verify_b9l_prod_lingwen_demo_add(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_lingwen_workflow_guard(ws: Path) -> None:
@@ -262,7 +267,7 @@ def _oracle_b9l_prod_lingwen_workflow_guard(ws: Path) -> None:
 
 
 def _verify_b9l_prod_lingwen_workflow_guard(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 def _setup_b9l_prod_lingwen_constants_docstring(ws: Path) -> None:
@@ -289,7 +294,7 @@ def _oracle_b9l_prod_lingwen_constants_docstring(ws: Path) -> None:
 
 
 def _verify_b9l_prod_lingwen_constants_docstring(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 _VALIDATE_PROGRESS_SCRIPT = '''#!/usr/bin/env python3
@@ -358,7 +363,7 @@ def _oracle_b9l_prod_lingwen_validate_progress(ws: Path) -> None:
 
 
 def _verify_b9l_prod_lingwen_validate_progress(ws: Path) -> tuple[bool, str]:
-    return _pytest_verify(ws)
+    return _verify_ws(ws)
 
 
 _READ_STATE_CONTEXT = (
