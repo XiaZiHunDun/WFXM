@@ -809,6 +809,8 @@ module = [
     "butler.config",
     "butler.config_secrets_crypto",
     "butler.io.safe_load",
+    "butler.human_gate",
+    "butler.execution_context",
 ]
 strict = true
 

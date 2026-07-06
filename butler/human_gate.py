@@ -11,7 +11,7 @@ import threading
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 from butler.io.safe_load import safe_load_json
@@ -29,14 +29,14 @@ def _auto_resume_workflow(session_key: str, workflow_name: str) -> str | None:
     """Re-run the workflow after approval, returning the result text."""
     from butler.human_gate_ops import auto_resume_workflow_safe
 
-    return auto_resume_workflow_safe(session_key, workflow_name)
+    return cast(str | None, auto_resume_workflow_safe(session_key, workflow_name))
 
 
 def _gate_ttl_seconds() -> float:
     import os
 
     try:
-        return float_env("BUTLER_GATEWAY_HUMAN_GATE_TTL", 3600, min=60.0)
+        return float(float_env("BUTLER_GATEWAY_HUMAN_GATE_TTL", 3600, min=60.0))
     except ValueError:
         return 3600.0
 
@@ -82,7 +82,7 @@ class PendingGate:
 
 
 def _gate_dir() -> Path:
-    path = get_butler_home() / "human_gates"
+    path = Path(get_butler_home()) / "human_gates"
     path.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -236,10 +236,12 @@ def format_pending_hint(session_key: str) -> str:
     if pending is None:
         return ""
     if pending.kind == "injection_review":
-        return injection_gate_pending_hint(score=pending.step_id)
-    return workflow_gate_pending_hint(
-        workflow=pending.workflow,
-        step_id=pending.step_id,
+        return str(injection_gate_pending_hint(score=pending.step_id))
+    return str(
+        workflow_gate_pending_hint(
+            workflow=pending.workflow,
+            step_id=pending.step_id,
+        )
     )
 
 
@@ -355,7 +357,7 @@ def resolve_human_gate_message(
             _save_pending(session_key, None)
             from butler.gateway.gate_reply_templates import injection_gate_confirmed_hint
 
-            return injection_gate_confirmed_hint(score=pending.step_id)
+            return str(injection_gate_confirmed_hint(score=pending.step_id))
 
         keys = _load_approved(session_key)
         keys.add(_approval_key(pending.workflow, pending.step_id))
@@ -377,10 +379,12 @@ def resolve_human_gate_message(
             confirmed_hint_fn=workflow_gate_confirmed_hint,
         )
         if resumed:
-            return resumed
+            return str(resumed)
 
     from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
 
-    return workflow_gate_confirmed_hint(
-        workflow=wf_name, auto_resumed=False, step_id=step_id
+    return str(
+        workflow_gate_confirmed_hint(
+            workflow=wf_name, auto_resumed=False, step_id=step_id
+        )
     )
