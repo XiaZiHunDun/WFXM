@@ -217,15 +217,15 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 33）
+#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 34）
 
 **目标**：各域主模块（非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
 
 **验收**（`bash scripts/butler-mypy-strict-gate.sh`）：
-- **690** 模块 strict 绿（Batch 32 **688** → Batch 33 **690**）：`human_gate`（8）· `execution_context`（9）修债；`cast`/`bool`/`str`/`float`/`Path` · `get_current_turn_bridge() -> Any`
+- **692** 模块 strict 绿（Batch 33 **690** → Batch 34 **692**）：`task_orchestrator`（11）· `gateway_settings`（13）；**`butler/` 根主模块已全部入 gate**
 - `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步
 
-**剩余 backlog**：`gateway_settings`（13）· `task_orchestrator`（11）；`*_ops.py` 不在范围
+**剩余 backlog**：`eval_integration`/`cli` 等未扫包；`*_ops.py` 与全仓库无 skip strict 不在范围
 
 #### 方向 G：文档卫生清理 — **done** 2026-06-29
 

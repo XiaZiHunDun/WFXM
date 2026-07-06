@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_settings
 
@@ -61,14 +61,14 @@ class GatewayQueueConfig:
 def _bool_env(name: str, default: bool) -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy(name, default=default)
+    return bool(env_truthy(name, default=default))
 
 
 def _load_yaml_gateway() -> dict[str, Any]:
     settings = get_butler_settings()
     from butler.gateway_settings_ops import load_yaml_gateway_section_safe
 
-    return load_yaml_gateway_section_safe(settings.config_yaml_path)
+    return cast(dict[str, Any], load_yaml_gateway_section_safe(settings.config_yaml_path))
 
 
 def resolve_gateway_inbound_config() -> GatewayInboundConfig:
@@ -84,8 +84,10 @@ def resolve_gateway_inbound_config() -> GatewayInboundConfig:
     if not isinstance(inbound, dict):
         inbound = {}
 
-    vision_raw = inbound.get("vision") if isinstance(inbound.get("vision"), dict) else {}
-    speech_raw = inbound.get("speech") if isinstance(inbound.get("speech"), dict) else {}
+    raw_vision = inbound.get("vision")
+    vision_raw: dict[str, Any] = raw_vision if isinstance(raw_vision, dict) else {}
+    raw_speech = inbound.get("speech")
+    speech_raw: dict[str, Any] = raw_speech if isinstance(raw_speech, dict) else {}
 
     enabled_default = True
     if "enabled" in inbound:
@@ -98,7 +100,7 @@ def resolve_gateway_inbound_config() -> GatewayInboundConfig:
         yaml_max = int(inbound.get("max_chars", 3000))
     except (TypeError, ValueError):
         yaml_max = 3000
-    max_chars = int_env("BUTLER_WECHAT_MEDIA_MAX_CHARS", yaml_max, min=500)
+    max_chars = int(int_env("BUTLER_WECHAT_MEDIA_MAX_CHARS", yaml_max, min=500))
 
     v_host = (
         os.getenv("BUTLER_WECHAT_MINIMAX_API_HOST", "").strip()
@@ -168,11 +170,11 @@ def _queue_mode_from_raw(raw: dict[str, Any]) -> str:
 
 def _queue_cap_from_raw(raw: dict[str, Any]) -> int:
     if "cap" not in raw:
-        return GATEWAY_QUEUE_CAP
+        return int(GATEWAY_QUEUE_CAP)
     try:
-        return max(1, int(raw["cap"]))
+        return int(max(1, int(raw["cap"])))
     except (TypeError, ValueError):
-        return GATEWAY_QUEUE_CAP
+        return int(GATEWAY_QUEUE_CAP)
 
 
 def _queue_drop_from_raw(raw: dict[str, Any]) -> str:
@@ -182,11 +184,11 @@ def _queue_drop_from_raw(raw: dict[str, Any]) -> str:
 
 def _queue_debounce_from_raw(raw: dict[str, Any]) -> int:
     if "collect_debounce_ms" not in raw:
-        return GATEWAY_QUEUE_COLLECT_DEBOUNCE_MS
+        return int(GATEWAY_QUEUE_COLLECT_DEBOUNCE_MS)
     try:
-        return max(0, int(raw["collect_debounce_ms"]))
+        return int(max(0, int(raw["collect_debounce_ms"])))
     except (TypeError, ValueError):
-        return GATEWAY_QUEUE_COLLECT_DEBOUNCE_MS
+        return int(GATEWAY_QUEUE_COLLECT_DEBOUNCE_MS)
 
 
 def resolve_gateway_queue_config() -> GatewayQueueConfig:
@@ -207,7 +209,7 @@ def resolve_gateway_queue_config() -> GatewayQueueConfig:
 
     from butler.env_parse import int_env
 
-    cap = int_env("BUTLER_GATEWAY_QUEUE_CAP", yaml_cap, min=1)
+    cap = int(int_env("BUTLER_GATEWAY_QUEUE_CAP", yaml_cap, min=1))
 
     drop_raw = (
         os.getenv("BUTLER_GATEWAY_QUEUE_DROP", yaml_drop) or yaml_drop

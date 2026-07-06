@@ -811,6 +811,8 @@ module = [
     "butler.io.safe_load",
     "butler.human_gate",
     "butler.execution_context",
+    "butler.task_orchestrator",
+    "butler.gateway_settings",
 ]
 strict = true
 

@@ -21,7 +21,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.report import AgentReport, cache_report
 
@@ -91,7 +91,7 @@ class TaskNode:
     supervisor_note: str = ""
     optional: bool = False
     rescue_configs: list[AgentSpawnConfig] = field(default_factory=list)
-    until: dict | None = None
+    until: dict[str, Any] | None = None
 
 
 @dataclass
@@ -111,7 +111,7 @@ class TaskOrchestrator:
         self._tasks_lock = threading.Lock()
         self._tasks: dict[str, AgentTask] = {}
 
-    def _create_agent_loop(self, config: AgentSpawnConfig):
+    def _create_agent_loop(self, config: AgentSpawnConfig) -> Any:
         """Create a Butler AgentLoop for the given config."""
         orch = _orchestrator_for_task()
 
@@ -129,7 +129,7 @@ class TaskOrchestrator:
 
         return self._create_agent_loop_with_orchestrator(config, orch)
 
-    def _create_agent_loop_with_orchestrator(self, config: AgentSpawnConfig, orch: Any):
+    def _create_agent_loop_with_orchestrator(self, config: AgentSpawnConfig, orch: Any) -> Any:
         """Create a Butler AgentLoop using an already-selected orchestrator."""
         from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
         from butler.tools.project_tools import (
@@ -295,7 +295,7 @@ class TaskOrchestrator:
                 preview,
             )
 
-        return result
+        return cast(AgentResult, result)
 
     async def spawn_parallel(self, configs: list[AgentSpawnConfig]) -> list[AgentResult]:
         """Spawn multiple agents in true parallel via asyncio.to_thread."""
@@ -421,8 +421,8 @@ class TaskOrchestrator:
                         *[_run_one(node) for _, node in batch],
                         return_exceptions=True,
                     )
-                    for (nid, _), result in zip(batch, parallel_results):
-                        completed[nid] = _coerce_agent_result(result)
+                    for (nid, _), raw_parallel in zip(batch, parallel_results):
+                        completed[nid] = _coerce_agent_result(raw_parallel)
                         graph_result.execution_order.append(nid)
 
             for nid in [lid for lid, _ in layer_tasks]:
@@ -456,10 +456,13 @@ class TaskOrchestrator:
     ) -> AgentResult:
         from butler.workflow_step_runner import run_step_with_retry
 
-        return await run_step_with_retry(
-            node,
-            spawn=self.spawn_agent,
-            on_progress=on_progress,
+        return cast(
+            AgentResult,
+            await run_step_with_retry(
+                node,
+                spawn=self.spawn_agent,
+                on_progress=on_progress,
+            ),
         )
 
     async def _run_rescue_steps(
@@ -471,11 +474,14 @@ class TaskOrchestrator:
     ) -> AgentResult:
         from butler.workflow_step_runner import run_rescue_steps
 
-        return await run_rescue_steps(
-            node,
-            failed,
-            spawn=self.spawn_agent,
-            on_progress=on_progress,
+        return cast(
+            AgentResult,
+            await run_rescue_steps(
+                node,
+                failed,
+                spawn=self.spawn_agent,
+                on_progress=on_progress,
+            ),
         )
 
 
@@ -492,7 +498,7 @@ def _resolve_spawn_session_key(config: AgentSpawnConfig, task_id: str) -> str:
     return f"task:{task_id}"
 
 
-def _orchestrator_for_task():
+def _orchestrator_for_task() -> Any:
     from butler.execution_context import get_current_orchestrator
 
     orch = get_current_orchestrator()
@@ -504,11 +510,11 @@ def _orchestrator_for_task():
     return ButlerOrchestrator(user_id="owner", channel="orchestrator")
 
 
-def dispatch_tool_safely(name: str, args: dict, *, depth: int) -> str:
+def dispatch_tool_safely(name: str, args: dict[str, Any], *, depth: int) -> str:
     """Dispatch a tool call with delegate depth propagated consistently."""
     from butler.tools.registry import _safe_dispatch
 
-    return _safe_dispatch(name, args, depth)
+    return str(_safe_dispatch(name, args, depth))
 
 
 def _coerce_agent_result(result: AgentResult | BaseException) -> AgentResult:
