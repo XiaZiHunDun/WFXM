@@ -23,6 +23,57 @@ def _as_str(value: Any) -> str | None:
     return str(value)
 
 
+def _maybe_attach_detail_export(
+    ctx: CommandContext,
+    full: str,
+    *,
+    name_prefix: str,
+    attach_hint: str,
+) -> str:
+    from butler.core.transcript_export import resolve_export_workspace
+    from butler.gateway.wechat_text_export import (
+        attach_detail_enabled,
+        is_wechat_platform,
+        maybe_attach_wechat_file,
+    )
+
+    chat = full
+    if not is_wechat_platform(ctx.platform) and len(full) > 500:
+        chat = full[:480].rstrip() + "…"
+    return maybe_attach_wechat_file(
+        chat,
+        full,
+        platform=ctx.platform,
+        name_prefix=name_prefix,
+        workspace=resolve_export_workspace(ctx.session_key),
+        enabled=attach_detail_enabled(),
+        attach_hint=attach_hint,
+    )
+
+
+def _maybe_attach_diagnostic_export(
+    ctx: CommandContext,
+    brief: str,
+    full: str,
+    session_key: str,
+) -> str:
+    from butler.core.transcript_export import resolve_export_workspace
+    from butler.gateway.wechat_text_export import (
+        attach_diagnostic_enabled,
+        maybe_attach_wechat_file,
+    )
+
+    return maybe_attach_wechat_file(
+        brief,
+        full,
+        platform=ctx.platform,
+        name_prefix="diagnostic_full",
+        workspace=resolve_export_workspace(session_key),
+        enabled=attach_diagnostic_enabled(),
+        attach_hint="（完整运维诊断见 .txt 附件）",
+    )
+
+
 def _cmd_overview(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
@@ -137,50 +188,24 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
     # Sprint 28 P1-3.4: --child <child_sk> 优先于 report 路径.
     remaining, child_sk = parse_child_arg(ctx.arg)
     if child_sk:
-        from butler.core.transcript_export import resolve_export_workspace
-        from butler.gateway.wechat_text_export import (
-            attach_detail_enabled,
-            is_wechat_platform,
-            maybe_attach_wechat_file,
-        )
-
         full = format_child_session_detail(child_sk)
-        chat = full
-        if not is_wechat_platform(ctx.platform) and len(full) > 500:
-            chat = full[:480].rstrip() + "…"
         return _as_str(
-            maybe_attach_wechat_file(
-                chat,
+            _maybe_attach_detail_export(
+                ctx,
                 full,
-                platform=ctx.platform,
                 name_prefix=f"child_{child_sk[-40:]}",
-                workspace=resolve_export_workspace(ctx.session_key),
-                enabled=attach_detail_enabled(),
                 attach_hint="（完整子会话 transcript 见 .txt 附件）",
             )
         )
 
     report = get_last_report(ctx.session_key)
     if report:
-        from butler.core.transcript_export import resolve_export_workspace
-        from butler.gateway.wechat_text_export import (
-            attach_detail_enabled,
-            is_wechat_platform,
-            maybe_attach_wechat_file,
-        )
-
         full = format_detail(report, section=parse_detail_section(remaining))
-        chat = full
-        if not is_wechat_platform(ctx.platform) and len(full) > 500:
-            chat = full[:480].rstrip() + "…"
         return _as_str(
-            maybe_attach_wechat_file(
-                chat,
+            _maybe_attach_detail_export(
+                ctx,
                 full,
-                platform=ctx.platform,
                 name_prefix=f"detail_{report.task_id or 'report'}",
-                workspace=resolve_export_workspace(ctx.session_key),
-                enabled=attach_detail_enabled(),
                 attach_hint="（完整 /详细 报告见 .txt 附件）",
             )
         )
@@ -469,11 +494,9 @@ def _cmd_health(ctx: CommandContext) -> Optional[str]:
         collect_mem_stats_for_health,
     )
     from butler.gateway.handler_helpers import _tool_audit_summary
-    from butler.core.transcript_export import resolve_export_workspace
     from butler.gateway.wechat_text_export import (
         attach_diagnostic_enabled,
         is_wechat_platform,
-        maybe_attach_wechat_file,
     )
 
     full = build_health_report(
@@ -493,17 +516,7 @@ def _cmd_health(ctx: CommandContext) -> Optional[str]:
     brief = "\n".join(brief_lines)
     if len(full.splitlines()) > 12:
         brief += "\n…"
-    return _as_str(
-        maybe_attach_wechat_file(
-            brief,
-            full,
-            platform=ctx.platform,
-            name_prefix="diagnostic_full",
-            workspace=resolve_export_workspace(session_key),
-            enabled=attach_diagnostic_enabled(),
-            attach_hint="（完整运维诊断见 .txt 附件）",
-        )
-    )
+    return _as_str(_maybe_attach_diagnostic_export(ctx, brief, full, session_key))
 
 
 _INFO_COMMANDS = [

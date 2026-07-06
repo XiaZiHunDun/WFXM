@@ -10,6 +10,7 @@ from typing import Any
 from butler.report import AgentReport, cache_report
 from butler.task_orchestrator import AgentSpawnConfig, TaskNode, TaskGraphResult, TaskOrchestrator
 from butler.workflows.schema import WorkflowDef
+from butler.workflows import runner_ops
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +67,7 @@ async def _maybe_replan_dev_qa_loop(
             qa.response or "",
             attempt=attempt,
         )
-        from butler.workflows.runner_ops import interpolate_var_pool_safe
-
-        impl_node.config.task = interpolate_var_pool_safe(
+        impl_node.config.task = runner_ops.interpolate_var_pool_safe(
             var_pool,
             impl_node.config.task,
         )
@@ -86,11 +85,9 @@ async def _maybe_replan_dev_qa_loop(
             break
         if not qa_response_is_fail(qa_result.response or ""):
             break
-    from butler.workflows.runner_ops import current_audit_session_key_safe, record_plan_snapshot_safe
-
-    sk = current_audit_session_key_safe(fallback="workflow")
+    sk = runner_ops.current_audit_session_key_safe(fallback="workflow")
     if sk:
-        record_plan_snapshot_safe(sk, snap.to_json())
+        runner_ops.record_plan_snapshot_safe(sk, snap.to_json())
     return graph
 
 
@@ -144,9 +141,7 @@ def _workflow_progress_callback(
 
         sk = str(session_key or "").strip()
         if sk:
-            from butler.workflows.runner_ops import record_workflow_step_safe
-
-            record_workflow_step_safe(
+            runner_ops.record_workflow_step_safe(
                 sk,
                 workflow=workflow_name,
                 step_id=step_id,
@@ -163,9 +158,7 @@ def _workflow_progress_callback(
             if workspace is not None:
                 from pathlib import Path
 
-                from butler.workflows.runner_ops import write_workflow_step_checkpoint_safe
-
-                write_workflow_step_checkpoint_safe(
+                runner_ops.write_workflow_step_checkpoint_safe(
                     Path(workspace),
                     workflow_name,
                     step_id=step_id,
@@ -272,9 +265,7 @@ class WorkflowRunner:
         var_pool = WorkflowVariablePool()
         output_keys = {s.id: list(s.output_keys) for s in workflow.steps}
         ws = None
-        from butler.workflows.runner_ops import project_workspace_safe
-
-        ws = project_workspace_safe(orch, session_key=session_key)
+        ws = runner_ops.project_workspace_safe(orch, session_key=session_key)
         progress_cb = _workflow_progress_callback(
             workflow.name,
             total_steps,
@@ -294,9 +285,7 @@ class WorkflowRunner:
                 node.id,
             )
             if not approved:
-                from butler.workflows.runner_ops import save_workflow_pause_safe
-
-                save_workflow_pause_safe(
+                runner_ops.save_workflow_pause_safe(
                     workflow=workflow.name,
                     step_id=node.id,
                     session_key=session_key or "workflow",
@@ -309,10 +298,8 @@ class WorkflowRunner:
         with use_execution_context(orch, session_key=session_key or "workflow"):
             with use_workflow_var_pool(var_pool):
                 mp = workflow.max_parallel
-                from butler.workflows.runner_ops import workflow_max_parallel_default_safe
-
                 if mp is None:
-                    default_mp = workflow_max_parallel_default_safe()
+                    default_mp = runner_ops.workflow_max_parallel_default_safe()
                     if default_mp is not None:
                         mp = default_mp
                 graph = await self._tasks.execute_graph(
@@ -336,9 +323,7 @@ class WorkflowRunner:
             session_key=session_key,
             orchestrator=orch,
         )
-        from butler.workflows.runner_ops import write_workflow_run_snapshot_for_project_safe
-
-        write_workflow_run_snapshot_for_project_safe(
+        runner_ops.write_workflow_run_snapshot_for_project_safe(
             orch,
             workflow.name,
             graph,
@@ -347,19 +332,14 @@ class WorkflowRunner:
         if workflow.handlers:
             from pathlib import Path
 
-            from butler.workflows.runner_ops import (
-                project_workspace_safe,
-                run_workflow_handlers_safe,
-            )
-
             step_outcomes: dict[str, str] = {}
             for sid in graph.execution_order:
                 result = graph.nodes.get(sid)
                 if result is None:
                     continue
                 step_outcomes[sid] = "ok" if result.success else "fail"
-            ws_path = project_workspace_safe(orch, session_key=session_key)
-            run_workflow_handlers_safe(
+            ws_path = runner_ops.project_workspace_safe(orch, session_key=session_key)
+            runner_ops.run_workflow_handlers_safe(
                 workflow.handlers,
                 workflow_name=workflow.name,
                 session_key=session_key,
@@ -469,9 +449,7 @@ class WorkflowRunner:
             if proj is not None:
                 from pathlib import Path
 
-                from butler.workflows.runner_ops import append_pending_outcome_safe
-
-                append_pending_outcome_safe(
+                runner_ops.append_pending_outcome_safe(
                     Path(proj.workspace),
                     project=str(proj.name or ""),
                     subject=f"workflow:{workflow.name}",

@@ -24,6 +24,12 @@ from enum import Enum
 from typing import Any, Callable, cast
 
 from butler.report import AgentReport, cache_report
+from butler.execution_context import (
+    get_current_orchestrator,
+    get_current_session_key,
+    use_execution_context,
+    use_workflow_step,
+)
 
 logger = logging.getLogger(__name__)
 _MODEL_OVERRIDE_LOCK = threading.RLock()
@@ -215,8 +221,6 @@ class TaskOrchestrator:
                 from butler.session.lifecycle import attach_turn_memory_prefetch
 
                 attach_turn_memory_prefetch(agent, orch, raw_user_message, role=config.role)
-            from butler.execution_context import use_execution_context
-
             with use_execution_context(orch, session_key=session_key):
                 run_context = copy_context()
                 loop_result = await asyncio.to_thread(
@@ -402,8 +406,6 @@ class TaskOrchestrator:
                     nid, node = batch[0]
                     step_index += 1
                     on_progress_safe(on_progress, nid, "start", node.config.role)
-                    from butler.execution_context import use_workflow_step
-
                     with use_workflow_step(nid):
                         result = _coerce_agent_result(
                             await self._run_with_retry(node, on_progress=on_progress)
@@ -411,8 +413,6 @@ class TaskOrchestrator:
                     completed[nid] = result
                     graph_result.execution_order.append(nid)
                 else:
-                    from butler.execution_context import use_workflow_step
-
                     async def _run_one(n: TaskNode) -> AgentResult:
                         with use_workflow_step(n.id):
                             return await self._run_with_retry(n, on_progress=on_progress)
@@ -490,8 +490,6 @@ def _resolve_spawn_session_key(config: AgentSpawnConfig, task_id: str) -> str:
     explicit = str(config.session_key or "").strip()
     if explicit:
         return explicit
-    from butler.execution_context import get_current_session_key
-
     inherited = str(get_current_session_key() or "").strip()
     if inherited:
         return inherited
@@ -499,8 +497,6 @@ def _resolve_spawn_session_key(config: AgentSpawnConfig, task_id: str) -> str:
 
 
 def _orchestrator_for_task() -> Any:
-    from butler.execution_context import get_current_orchestrator
-
     orch = get_current_orchestrator()
     if orch is not None:
         return orch

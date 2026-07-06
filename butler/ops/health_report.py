@@ -9,7 +9,51 @@ from typing import Any, cast
 import logging
 
 
+from butler import get_build_identity
 from butler.core.best_effort import safe_best_effort
+from butler.core.context_budget import format_context_budget_line
+from butler.gateway.completion_notify import format_outbound_diagnostic_lines
+from butler.gateway.message_queue import pending_count
+from butler.gateway.queue_settings import format_queue_status_line
+from butler.hooks.telemetry import format_hook_diagnostic_lines
+from butler.memory.diagnostics import collect_memory_layer_stats, format_memory_diagnostic_lines
+from butler.memory.prefetch_cache import get_cached_prefetch
+from butler.model_resolve import (
+    format_model_diagnostic_lines,
+    resolve_effective_model,
+)
+from butler.ops.boundary_observability import format_boundary_observability_lines
+from butler.ops.cost_calibration import format_rollup_lines
+from butler.ops.degradation_registry import (
+    enrich_stats_with_live_mcp,
+    format_diagnostic_lines as format_degradation_diagnostic_lines,
+    sync_compaction_acl_from_metrics,
+    sync_memory_degradations_from_stats,
+)
+from butler.ops.eval_diagnostics import format_eval_quality_lines
+from butler.ops.execution_surface_diagnostics import (
+    collect_execution_surface_stats,
+    format_execution_surface_diagnostic_lines,
+)
+from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
+from butler.ops.harness_diagnostics import format_harness_diagnostic_lines
+from butler.ops.health_report_turn import turn_diagnostic_lines
+from butler.ops.observation_diagnostics import format_observation_diagnostic_lines
+from butler.ops.rag_diagnostics import format_rag_diagnostic_lines
+from butler.ops.runtime_metrics import format_metrics_diagnostic_lines
+from butler.ops.snapshot import format_ops_diagnostic_lines
+from butler.ops.stack_diagnostics import format_stack_diagnostic_lines
+from butler.ops.token_cost_diagnostics import (
+    format_token_cost_diagnostic_lines,
+    token_cost_estimate_enabled,
+)
+from butler.ops.transcript_diagnostics import format_transcript_drift_lines
+from butler.ops.usage_ledger import format_usage_ledger_lines
+from butler.permissions.approvals import summarize_approvals
+from butler.project.meta import format_default_project_policy_lines, format_project_meta_lines
+from butler.runtime.diagnostics import format_runtime_diagnostic_lines
+from butler.transport.provider_health import format_circuit_diagnostic_lines
+from butler.transport.stream_probe import format_stream_probe_lines
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +103,6 @@ def collect_mem_stats_for_health(
     session_key: str,
     health: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    from butler.memory.diagnostics import collect_memory_layer_stats
-
     mem_stats = collect_memory_layer_stats(orchestrator, session_key=session_key)
     if not health:
         return cast(dict[str, Any], mem_stats)
@@ -73,8 +115,6 @@ def collect_mem_stats_for_health(
         mem_stats["memory_prefetch_cache_hit"] = health.get("memory_prefetch_cache_hit")
     last_q = str(health.get("last_user_query") or "").strip()
     if last_q:
-        from butler.memory.prefetch_cache import get_cached_prefetch
-
         mem_stats["last_user_query"] = last_q
         mem_stats["memory_prefetch_cache_ready"] = (
             get_cached_prefetch(session_key, last_q) is not None
@@ -89,8 +129,6 @@ def collect_mem_stats_for_health(
 def collect_approval_stats_for_health(session_key: str) -> dict[str, Any]:
     """Sprint 24 P1-3.2: /诊断 集成 — 读 session approvals.json 统计."""
     def _load() -> dict[str, Any]:
-        from butler.permissions.approvals import summarize_approvals
-
         return cast(dict[str, Any], summarize_approvals(session_key))
 
     result = safe_best_effort(
@@ -106,25 +144,9 @@ def _shared_diagnostic_lines(
     *,
     use_mem_stats_project_name: bool = False,
 ) -> list[str]:
-    from butler.memory.diagnostics import format_memory_diagnostic_lines
-    from butler.model_resolve import format_model_diagnostic_lines
-    from butler.ops.snapshot import format_ops_diagnostic_lines
-    from butler.project.meta import (
-        format_default_project_policy_lines,
-        format_project_meta_lines,
-    )
-    from butler.runtime.diagnostics import format_runtime_diagnostic_lines
-
     lines: list[str] = []
 
     def _degradation_lines() -> list[str]:
-        from butler.ops.degradation_registry import (
-            enrich_stats_with_live_mcp,
-            format_diagnostic_lines,
-            sync_compaction_acl_from_metrics,
-            sync_memory_degradations_from_stats,
-        )
-
         sync_compaction_acl_from_metrics()
         enriched = enrich_stats_with_live_mcp(
             inp.mem_stats,
@@ -133,7 +155,7 @@ def _shared_diagnostic_lines(
         inp.mem_stats.clear()
         inp.mem_stats.update(enriched)
         sync_memory_degradations_from_stats(inp.mem_stats)
-        deg = format_diagnostic_lines()
+        deg = format_degradation_diagnostic_lines()
         return (deg + [""]) if deg else []
 
     _append_diag_lines(lines, "degradation", _degradation_lines)
@@ -183,18 +205,11 @@ def _shared_diagnostic_lines(
     lines.extend(format_ops_diagnostic_lines())
 
     def _rag_lines() -> list[str]:
-        from butler.ops.rag_diagnostics import format_rag_diagnostic_lines
-
         return cast(list[str], format_rag_diagnostic_lines(inp.mem_stats, session_key=inp.session_key))
 
     _append_diag_lines(lines, "rag", _rag_lines)
 
     def _execution_surface_lines() -> list[str]:
-        from butler.ops.execution_surface_diagnostics import (
-            collect_execution_surface_stats,
-            format_execution_surface_diagnostic_lines,
-        )
-
         es_stats = collect_execution_surface_stats(
             inp.orchestrator,
             health=inp.health,
@@ -210,8 +225,6 @@ def _shared_diagnostic_lines(
     def _stack_lines() -> list[str]:
         if proj is None:
             return []
-        from butler.ops.stack_diagnostics import format_stack_diagnostic_lines
-
         stack_lines = format_stack_diagnostic_lines(Path(proj.workspace))
         return ["", *stack_lines] if stack_lines else []
 
@@ -220,8 +233,6 @@ def _shared_diagnostic_lines(
     def _experiment_lines() -> list[str]:
         if proj is None:
             return []
-        from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
-
         return cast(list[str], format_experiment_diagnostic_lines(Path(proj.workspace)))
 
     _append_diag_lines(lines, "experiment", _experiment_lines)
@@ -229,54 +240,40 @@ def _shared_diagnostic_lines(
     def _observation_lines() -> list[str]:
         if proj is None:
             return []
-        from butler.ops.observation_diagnostics import format_observation_diagnostic_lines
-
         obs_lines = format_observation_diagnostic_lines(Path(proj.workspace))
         return ["", *obs_lines] if obs_lines else []
 
     _append_diag_lines(lines, "observation", _observation_lines)
 
     def _usage_lines() -> list[str]:
-        from butler.ops.usage_ledger import format_usage_ledger_lines
-
         return cast(list[str], format_usage_ledger_lines())
 
     _append_diag_lines(lines, "usage_ledger", _usage_lines)
 
     def _calibration_lines() -> list[str]:
-        from butler.ops.cost_calibration import format_rollup_lines
-
         cal = format_rollup_lines()
         return ["", *cal] if cal else []
 
     _append_diag_lines(lines, "cost_calibration", _calibration_lines)
 
     def _eval_lines() -> list[str]:
-        from butler.ops.eval_diagnostics import format_eval_quality_lines
-
         eq = format_eval_quality_lines()
         return ["", *eq] if eq else []
 
     _append_diag_lines(lines, "eval_quality", _eval_lines)
 
     def _boundary_lines() -> list[str]:
-        from butler.ops.boundary_observability import format_boundary_observability_lines
-
         bo = format_boundary_observability_lines()
         return ["", *bo] if bo else []
 
     _append_diag_lines(lines, "boundary_obs", _boundary_lines)
 
     def _stream_probe_lines() -> list[str]:
-        from butler.transport.stream_probe import format_stream_probe_lines
-
         return cast(list[str], format_stream_probe_lines())
 
     _append_diag_lines(lines, "stream_probe", _stream_probe_lines)
 
     def _circuit_lines() -> list[str]:
-        from butler.transport.provider_health import format_circuit_diagnostic_lines
-
         return cast(list[str], format_circuit_diagnostic_lines())
 
     _append_diag_lines(lines, "provider_circuit", _circuit_lines)
@@ -284,8 +281,6 @@ def _shared_diagnostic_lines(
 
 
 def _format_hook_lines(session_key: str) -> list[str]:
-    from butler.hooks.telemetry import format_hook_diagnostic_lines
-
     return cast(list[str], format_hook_diagnostic_lines(session_key))
 
 
@@ -347,9 +342,6 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
 
 
 def _queue_diagnostic_lines(session_key: str) -> list[str]:
-    from butler.gateway.message_queue import pending_count
-    from butler.gateway.queue_settings import format_queue_status_line
-
     out: list[str] = []
     pending = pending_count(session_key)
     if pending:
@@ -362,8 +354,6 @@ def _outbound_diagnostic_lines(
     session_key: str,
     health: dict[str, Any] | None,
 ) -> list[str]:
-    from butler.gateway.completion_notify import format_outbound_diagnostic_lines
-
     chat_id = ""
     if health:
         chat_id = str(health.get("platform_chat_id") or health.get("chat_id") or "")
@@ -374,18 +364,10 @@ def _harness_diagnostic_lines(
     health: dict[str, Any] | None,
     session_key: str,
 ) -> list[str]:
-    from butler.ops.harness_diagnostics import format_harness_diagnostic_lines
-
     return cast(list[str], format_harness_diagnostic_lines(health, session_key=session_key))
 
 
 def _token_cost_lines(inp: HealthReportInput, health: dict[str, Any]) -> list[str]:
-    from butler.model_resolve import resolve_effective_model
-    from butler.ops.token_cost_diagnostics import (
-        format_token_cost_diagnostic_lines,
-        token_cost_estimate_enabled,
-    )
-
     model_name = safe_best_effort(
         lambda: str(
             resolve_effective_model(
@@ -411,14 +393,10 @@ def _token_cost_lines(inp: HealthReportInput, health: dict[str, Any]) -> list[st
 
 
 def _transcript_lines(session_key: str) -> list[str]:
-    from butler.ops.transcript_diagnostics import format_transcript_diagnostic_lines
-
-    return cast(list[str], format_transcript_diagnostic_lines(session_key))
+    return cast(list[str], format_transcript_drift_lines(session_key=session_key))
 
 
 def _metrics_diag_lines(session_key: str) -> list[str]:
-    from butler.ops.runtime_metrics import format_metrics_diagnostic_lines
-
     return cast(list[str], format_metrics_diagnostic_lines(session_key=session_key))
 
 
@@ -438,9 +416,6 @@ def build_health_report(inp: HealthReportInput) -> str:
     tool_summary = inp.tool_summary
 
     if not health and not tool_summary.get("total"):
-        from butler import get_build_identity
-        from butler.core.context_budget import format_context_budget_line
-
         _bi = get_build_identity()
         lines = [
             "Butler 诊断",
@@ -471,8 +446,6 @@ def build_health_report(inp: HealthReportInput) -> str:
 
     report_lines: list[str] = []
     if health:
-        from butler.ops.health_report_turn import turn_diagnostic_lines
-
         report_lines.extend(
             turn_diagnostic_lines(inp, hook_lines_fn=_hook_diagnostic_lines)
         )
@@ -490,9 +463,6 @@ def build_health_report(inp: HealthReportInput) -> str:
             or []
         )
     else:
-        from butler import get_build_identity
-        from butler.core.context_budget import format_context_budget_line
-
         _bi2 = get_build_identity()
         report_lines = [
             "Butler 诊断",

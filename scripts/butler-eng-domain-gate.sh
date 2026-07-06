@@ -9,6 +9,7 @@ export PYTHONPATH=.
 
 echo "== Butler ENG domain gate =="
 bash scripts/p3j-env-hygiene-gate.sh
+bash scripts/p3i-lazy-import-report.sh
 bash scripts/butler-domain-pytest.sh gateway memory tools
 PYTHON_BIN="$(command -v python || command -v python3)"
 "${PYTHON_BIN}" -m pytest \

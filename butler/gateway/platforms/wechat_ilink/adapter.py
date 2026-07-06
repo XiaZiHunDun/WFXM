@@ -19,6 +19,13 @@ from butler.gateway.platforms.wechat_ilink._compat import (
 
 logger = logging.getLogger(__name__)
 
+from butler.gateway.platforms.wechat_ilink import (
+    adapter_inbound,
+    adapter_lifecycle,
+    adapter_media,
+    adapter_outbound,
+)
+
 
 class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
     """Butler-native WeChat (iLink Bot API) adapter."""
@@ -58,24 +65,16 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         return [str(value).strip()] if str(value).strip() else []
 
     def _schedule_typing_ticket_bg(self, user_id: str, context_token: Optional[str]) -> None:
-        from butler.gateway.platforms.wechat_ilink.adapter_lifecycle import schedule_typing_ticket_bg
-
-        schedule_typing_ticket_bg(self, user_id, context_token)
+        adapter_lifecycle.schedule_typing_ticket_bg(self, user_id, context_token)
 
     async def connect(self) -> bool:
-        from butler.gateway.platforms.wechat_ilink.adapter_lifecycle import connect
-
-        return cast(bool, await connect(self))
+        return cast(bool, await adapter_lifecycle.connect(self))
 
     async def disconnect(self) -> None:
-        from butler.gateway.platforms.wechat_ilink.adapter_lifecycle import disconnect
-
-        await disconnect(self)
+        await adapter_lifecycle.disconnect(self)
 
     async def _poll_loop(self) -> None:
-        from butler.gateway.platforms.wechat_ilink.adapter_lifecycle import poll_loop
-
-        await poll_loop(self)
+        await adapter_lifecycle.poll_loop(self)
 
     async def _dispatch_poll_response(
         self,
@@ -83,40 +82,30 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         consecutive_failures: int,
         handle_response: Any,
     ) -> int:
-        from butler.gateway.platforms.wechat_ilink.adapter_inbound import dispatch_poll_response
-
         return cast(
             int,
-            await dispatch_poll_response(
+            await adapter_inbound.dispatch_poll_response(
                 self, response, consecutive_failures, handle_response,
             ),
         )
 
     @staticmethod
     def _poll_backoff_seconds(consecutive_failures: int) -> float:
-        from butler.gateway.platforms.wechat_ilink.adapter_inbound import poll_backoff_seconds
-
-        return cast(float, poll_backoff_seconds(consecutive_failures))
+        return cast(float, adapter_inbound.poll_backoff_seconds(consecutive_failures))
 
     async def _handle_poll_exception(
         self, exc: Exception, consecutive_failures: int,
     ) -> int:
-        from butler.gateway.platforms.wechat_ilink.adapter_inbound import handle_poll_exception
-
         return cast(
             int,
-            await handle_poll_exception(self, exc, consecutive_failures),
+            await adapter_inbound.handle_poll_exception(self, exc, consecutive_failures),
         )
 
     async def _process_message_safe(self, message: Dict[str, Any]) -> None:
-        from butler.gateway.platforms.wechat_ilink.adapter_inbound import process_message_safe
-
-        await process_message_safe(self, message)
+        await adapter_inbound.process_message_safe(self, message)
 
     async def _process_message(self, message: Dict[str, Any]) -> None:
-        from butler.gateway.platforms.wechat_ilink.adapter_inbound import process_message
-
-        await process_message(self, message)
+        await adapter_inbound.process_message(self, message)
 
     def _is_dm_allowed(self, sender_id: str) -> bool:
         if self._dm_policy == "disabled":
@@ -128,40 +117,29 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
     async def _collect_media(
         self, item: Dict[str, Any], media_paths: List[str], media_types: List[str],
     ) -> None:
-        from butler.gateway.platforms.wechat_ilink import adapter_media
 
         await adapter_media.collect_media(self, item, media_paths, media_types)
 
     async def _download_image(self, item: Dict[str, Any]) -> Optional[str]:
-        from butler.gateway.platforms.wechat_ilink import adapter_media
-
         return cast(Optional[str], await adapter_media.download_image(self, item))
 
     async def _download_video(self, item: Dict[str, Any]) -> Optional[str]:
-        from butler.gateway.platforms.wechat_ilink import adapter_media
-
         return cast(Optional[str], await adapter_media.download_video(self, item))
 
     async def _download_file(self, item: Dict[str, Any]) -> Tuple[Optional[str], str]:
-        from butler.gateway.platforms.wechat_ilink import adapter_media
-
         return cast(
             Tuple[Optional[str], str],
             await adapter_media.download_file(self, item),
         )
 
     async def _download_voice(self, item: Dict[str, Any]) -> Optional[str]:
-        from butler.gateway.platforms.wechat_ilink import adapter_media
-
         return cast(Optional[str], await adapter_media.download_voice(self, item))
 
     async def _maybe_fetch_typing_ticket(self, user_id: str, context_token: Optional[str]) -> None:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         await adapter_outbound.maybe_fetch_typing_ticket(self, user_id, context_token)
 
     async def _ensure_typing_ticket_for_event(self, event: MessageEvent) -> None:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         await adapter_outbound.ensure_typing_ticket_for_event(self, event)
 
@@ -171,7 +149,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         *,
         metadata: dict[str, Any] | None = None,
     ) -> List[str]:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return cast(
             List[str],
@@ -186,7 +163,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         context_token: Optional[str],
         client_id: str,
     ) -> None:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         await adapter_outbound.send_text_chunk(
             self, chat_id=chat_id, chunk=chunk,
@@ -194,14 +170,12 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         )
 
     async def _backoff_for_rate_limit(self, chat_id: str, attempt: int) -> None:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         await adapter_outbound.backoff_for_rate_limit(self, chat_id, attempt)
 
     async def _backoff_for_transport_error(
         self, chat_id: str, attempt: int, exc: Exception,
     ) -> None:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         await adapter_outbound.backoff_for_transport_error(self, chat_id, attempt, exc)
 
@@ -212,19 +186,16 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         reply_to: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return await adapter_outbound.send_message(
             self, chat_id, content, reply_to=reply_to, metadata=metadata,
         )
 
     async def send_typing(self, chat_id: str, metadata: Optional[Dict[str, Any]] = None) -> None:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         await adapter_outbound.send_typing(self, chat_id, metadata=metadata)
 
     async def stop_typing(self, chat_id: str) -> None:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         await adapter_outbound.stop_typing(self, chat_id)
 
@@ -236,7 +207,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         reply_to: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return await adapter_outbound.send_image(
             self, chat_id, image_url, caption,
@@ -252,7 +222,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> SendResult:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return await adapter_outbound.send_image_file(
             self, chat_id, image_path, caption=caption,
@@ -269,7 +238,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> SendResult:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return await adapter_outbound.send_document(
             self, chat_id, file_path, caption=caption, file_name=file_name,
@@ -284,7 +252,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         reply_to: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return await adapter_outbound.send_video(
             self, chat_id, video_path, caption=caption,
@@ -299,7 +266,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         reply_to: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> SendResult:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return await adapter_outbound.send_voice(
             self, chat_id, audio_path, caption=caption,
@@ -307,8 +273,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         )
 
     async def _download_remote_media(self, url: str) -> str:
-        from butler.gateway.platforms.wechat_ilink import adapter_media
-
         return cast(str, await adapter_media.download_remote_media(self, url))
 
     async def _send_file(
@@ -318,7 +282,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         caption: str,
         force_file_attachment: bool = False,
     ) -> str:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return cast(
             str,
@@ -340,7 +303,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
         plaintext_size: int,
         rawfilemd5: str,
     ) -> Dict[str, Any]:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return cast(
             Dict[str, Any],
@@ -357,7 +319,6 @@ class WeChatAdapter(ButlerPlatformAdapter):  # type: ignore[misc]
     def _outbound_media_builder(
         self, path: str, force_file_attachment: bool = False,
     ) -> Any:
-        from butler.gateway.platforms.wechat_ilink import adapter_outbound
 
         return adapter_outbound.outbound_media_builder(
             self, path, force_file_attachment=force_file_attachment,

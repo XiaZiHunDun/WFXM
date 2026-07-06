@@ -16,6 +16,10 @@ from butler.core.tool_batch_state import (
 )
 from butler.tool_guardrails import ToolCallGuardrailController
 from butler.transport.types import NormalizedResponse
+from butler.tools.safe_root import get_tool_safe_root
+from butler.execution_context import get_current_session_key
+from butler.dev_engine.dev_loop import transition
+from butler.dev_engine.dev_state import DevPhase, EditRecord
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +42,6 @@ def _capture_pre_edit_snapshot(name: str, args: dict[str, Any]) -> None:
 
         p = _Path(path)
         if not p.is_absolute():
-            from butler.tools.safe_root import get_tool_safe_root
-
             p = get_tool_safe_root() / p
         if p.is_file() and p.stat().st_size < 512_000:
             store_pre_edit_snapshot(str(p.resolve()), p.read_text(encoding="utf-8"))
@@ -55,8 +57,6 @@ def _fetch_pre_edit_snapshot(path: str) -> str | None:
 
         p = _Path(path)
         if not p.is_absolute():
-            from butler.tools.safe_root import get_tool_safe_root
-
             p = get_tool_safe_root() / p
         return cast(str | None, pop_pre_edit_snapshot(str(p.resolve())))
 
@@ -82,16 +82,12 @@ def _dev_engine_post_edit(name: str, args: dict[str, Any], result: str) -> None:
 
         if not dev_engine_enabled():
             return
-        from butler.execution_context import get_current_session_key
-
         sk = str(get_current_session_key() or "").strip() or "_default"
         state = _active_states.get(sk)
         if state is None:
             return
 
         import time
-
-        from butler.dev_engine.dev_state import EditRecord
 
         path = str(args.get("path") or "")
         if not path:
@@ -112,9 +108,6 @@ def _dev_engine_post_edit(name: str, args: dict[str, Any], result: str) -> None:
             record.original_content = snapshot
         elif op == "delete":
             record.original_content = snapshot
-
-        from butler.dev_engine.dev_loop import transition
-        from butler.dev_engine.dev_state import DevPhase
 
         if state.phase == DevPhase.PLAN:
             transition(state, "plan_trivial")
@@ -150,8 +143,6 @@ def _plan_mode_post_edit(name: str, args: dict[str, Any], result: str) -> None:
         if not content:
             from pathlib import Path as _Path
 
-            from butler.tools.safe_root import get_tool_safe_root
-
             p = _Path(path)
             if not p.is_absolute():
                 p = get_tool_safe_root() / p
@@ -159,7 +150,6 @@ def _plan_mode_post_edit(name: str, args: dict[str, Any], result: str) -> None:
                 content = p.read_text(encoding="utf-8", errors="replace")
             else:
                 return
-        from butler.execution_context import get_current_session_key
         from butler.plan.markdown_sync import sync_plan_file_to_transcript
 
         sk = str(get_current_session_key() or "").strip() or "default"
@@ -174,13 +164,9 @@ def _run_auto_verify(state: Any, path: str) -> None:
     def _do() -> None:
         from pathlib import Path as _Path
 
-        from butler.dev_engine.dev_loop import transition
-        from butler.dev_engine.dev_state import DevPhase
         from butler.dev_engine.verify import select_auto_verify_levels, verify_layered
 
         def _resolve_workspace() -> _Path:
-            from butler.tools.safe_root import get_tool_safe_root
-
             return _Path(get_tool_safe_root())
 
         ws = (
@@ -413,8 +399,6 @@ def process_tool_calls(
         append_tool_role_messages,
         extract_batch_followups,
     )
-    from butler.execution_context import get_current_session_key
-
     session_key = str(get_current_session_key() or "").strip()
     append_tool_role_messages(pairs, messages, session_key=session_key)
     clarification, waiting = extract_batch_followups(pairs)

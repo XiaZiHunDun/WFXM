@@ -24,6 +24,9 @@ echo ""
 echo "== schema drift (all ACL contracts, strict) =="
 SCHEMA_DRIFT_STRICT=1 bash scripts/check-schema-drift.sh
 echo ""
+echo "== P3-J env hygiene (fast gate) =="
+bash scripts/p3j-env-hygiene-gate.sh
+echo ""
 bash scripts/butler-mypy-strict-gate.sh
 echo ""
 bash scripts/butler-trajectory-compliance-gate.sh --warn-only

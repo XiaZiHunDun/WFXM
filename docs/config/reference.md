@@ -83,7 +83,8 @@
 | `BUTLER_ENABLE_TERMINAL` | `1` 启用 terminal |
 | `BUTLER_TERMINAL_ALLOWLIST_EXTRA` | — | 额外允许的 terminal 命令（逗号分隔） |
 | `BUTLER_TERMINAL_PROFILE` | — | 终端 profile 名（不同项目可用不同白名单） |
-| `BUTLER_ENABLE_GIT` / `BUTLER_ENABLE_GIT_WRITE` | 只读 / 写 git 工具 |
+| `BUTLER_ENABLE_GIT` | `1` | 只读 git 工具（`git_status` / `git_diff` 等） |
+| `BUTLER_ENABLE_GIT_WRITE` | `0` | `1` 启用 `git_add` / `git_commit` / `git_branch` 写操作（需 `BUTLER_ENABLE_GIT=1`） |
 | `BUTLER_ENABLE_GIT_PUSH` | `1` 启用 `git_push` 工具（需同时 `GIT_WRITE=1`；push 前需 Owner 审批） |
 
 ## 日志
@@ -242,7 +243,8 @@
 | `BUTLER_WECHAT_ATTACH_DETAIL` | 1 | `/详细` 附带完整报告 `.txt` |
 | `BUTLER_WECHAT_ATTACH_DIAGNOSTIC` | 1 | `/诊断 详细` 附带运维快照 `.txt` |
 | `BUTLER_WECHAT_ATTACH_RUNTIME` | 1 | Runtime 任务**失败**推送附带 stdout/stderr `.txt` |
-| `BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY` | 1 | 委派完成微信提醒（见 `BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE`） |
+| `BUTLER_GATEWAY_DELEGATE_COMPLETION_NOTIFY` | 1 | 委派完成微信提醒 |
+| `BUTLER_GATEWAY_DELEGATE_COMPLETION_MODE` | `last` | 同轮多次委派推送：`last` / `each` / `once` |
 | `BUTLER_GATEWAY_DELEGATE_PUSH_DEDUP` | 1 | PROD-P5-01：同 chat+task_id 委派完成卡只推一次 |
 | `BUTLER_GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS` | 600 | 任务完成后超过此秒数不再推委派完成卡（冷却迟推兜底） |
 | `BUTLER_GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND` | 1 | 处理入站消息期间暂存委派完成卡，turn 结束后再推 |
@@ -251,7 +253,8 @@
 | `BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX` | 5 | 单次委派最多心跳条数 |
 | `BUTLER_GATEWAY_TASK_MILESTONE_MAX` | 3 | 同轮进度里程碑上限（`DELEGATE_PROGRESS=1` 时默认 3） |
 | `BUTLER_CC_ROUTE_HINTS` | 1 | 大改码意图时注入 CC 路由建议（非硬拒） |
-| `BUTLER_INSTRUCTION_WALKUP*` | 见 example | read_file 后注入邻近 AGENTS.md |
+| `BUTLER_INSTRUCTION_WALKUP` | `1` | read_file 后注入邻近 AGENTS.md |
+| `BUTLER_INSTRUCTION_WALKUP*` | 见子项 | walkup 子项见下表 |
 | `BUTLER_SESSION_TODOS` | 1 | 会话 `todos.json`；`/待办`；工具 `session_todos_list` / `session_todos_write`；项支持 `priority`: high/medium/low |
 | `BUTLER_SESSION_TODOS_MAX_ITEMS` | 30 | 单会话待办条数上限（1–100） |
 | `BUTLER_MCP_ENABLED` | 0 | 薄 MCP Client；需 `butler-system[mcp]` |
@@ -386,7 +389,8 @@
 | `BUTLER_INSTALL_PRE_SCAN` | 1 | MCP/Skill 安装前规则扫描（`butler mcp scan` / `skill install`） |
 | `BUTLER_INSTALL_PRE_SCAN_FAIL_CLOSED` | 1 | 扫描 `block` 时拒绝安装 |
 | `BUTLER_POST_SESSION_LAYERED` | 0 | `1` 时 post_session 抽取 persona/preference/experience 写入 `session_summary.json`（默认 0，推荐按需设为 1） |
-| `BUTLER_TOOLS_ENGINE` | 1 | `0` 关闭 FC 能力检查；`BUTLER_TOOLS_ENGINE_FORCE_OFF=1` 强制无 tools |
+| `BUTLER_TOOLS_ENGINE` | 1 | `0` 关闭 FC 能力检查 |
+| `BUTLER_TOOLS_ENGINE_FORCE_OFF` | `0` | `1` 强制无 tools（覆盖 `BUTLER_TOOLS_ENGINE`） |
 | `BUTLER_TOOLS_ENGINE_SSOT` | 0 | `1` 时仅保留 effective mcp.yaml 合并视图中 server 的 `mcp_*` 工具；effective 见 [`execution-surface-design.md`](../architecture/execution-surface-design.md) §4.6 |
 | `BUTLER_PROMPT_EVAL_LLM` | 0 | `1` 时 `butler prompt eval --llm` 对 pattern 通过项做辅助模型打分 |
 | `BUTLER_PROMPT_EVAL_LLM_MIN` | 70 | LLM rubric 最低分（0–100） |
@@ -820,6 +824,20 @@ CLI：`butler memory pending` / `approve` / `reject` 管理所有者 + 项目 ME
 | `BUTLER_OPENCODE_TIMEOUT` | `600` | OpenCode 超时（秒） |
 | `BUTLER_OPENCODE_AGENT` | `build` | OpenCode agent 类型：`build` / `plan` |
 | `BUTLER_OPENCODE_MODEL` | — | OpenCode 模型，例如 `anthropic/claude-sonnet-4-20250514` |
+
+## Deprecated / Legacy
+
+以下变量仍可在 reference 中查到，但 **butler/ 与 scripts/ 无直接字符串引用**（文档/运维专用、Hook 注入示例或历史兼容）。`scripts/check-dead-env.sh` 对 allowlist 项不报错；新代码请勿依赖。
+
+| 变量 | 状态 | 说明 |
+|------|------|------|
+| `BUTLER_HOOK_EVENT` / `BUTLER_HOOK_INPUT` / `BUTLER_HOOK_TOOL` | legacy | Shell hook 运行时注入；非稳定配置面 |
+| `BUTLER_NOTIFY_URLS` | legacy | 多 URL 通知（文档示例） |
+| `BUTLER_RUNTIME_RUN_CONSISTENCY` | legacy | 一致性 smoke 专用 |
+| `BUTLER_RUNTIME_SMOKE_PUSH` | legacy | runtime smoke 推送 |
+| `BUTLER_RUN_REAL_API_SMOKE` | legacy | live API smoke |
+| `BUTLER_WORKFLOW_HANDOFF_ONLY` | legacy | workflow handoff 试验 |
+| `BUTLER_DISABLE_EXPERIMENTAL_CACHE` | legacy | 试验 cache 开关 |
 
 ## 相关
 

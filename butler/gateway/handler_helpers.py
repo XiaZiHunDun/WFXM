@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+from butler.core.best_effort import safe_best_effort
+
 # EXT-2 / 外部 SaaS：含这些词时不走 Butler 多项目 /总览、/项目 归一化
 _EXTERNAL_INTEGRATION_MARKERS = (
     "todoist",
@@ -263,8 +265,6 @@ def apply_auto_continue_rewrite(session_key: str, text: str) -> str | None:
 
     注意: 这是 text rewriter, **不**是 slash dispatch handler — 返回值是 "新 text" 而非 reply 字符串.
     """
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> str | None:
         from butler.core.auto_continue import resolve_auto_continue_user_message
 
@@ -317,8 +317,6 @@ def _is_sessionless_command(text: str) -> bool:
 
 
 def _tool_audit_summary(session_key: str) -> dict[str, Any]:
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> dict[str, Any]:
         from butler.tools.registry import get_tool_audit_events
 
@@ -335,8 +333,6 @@ def _tool_audit_summary(session_key: str) -> dict[str, Any]:
 
 
 def _reset_tool_audit_events(session_key: str | None = None) -> None:
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> None:
         from butler.tools.registry import reset_tool_audit_events
 
@@ -383,8 +379,6 @@ def _mark_session_welcomed(session_key: str) -> None:
             return
         _WELCOMED_SESSIONS.add(session_key)
 
-    from butler.core.best_effort import safe_best_effort
-
     def _persist() -> None:
         marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
         if marker.is_file():
@@ -413,8 +407,6 @@ def _maybe_welcome_prefix(session_key: str, user_text: str = "") -> str:
         _WELCOMED_SESSIONS.add(session_key)
 
     marker = Path(os.getenv("BUTLER_HOME", "~/.butler")).expanduser() / "welcomed_sessions.txt"
-    from butler.core.best_effort import safe_best_effort
-
     def _known_sessions() -> set[str]:
         if not marker.is_file():
             return set()
@@ -438,8 +430,6 @@ def _maybe_welcome_prefix(session_key: str, user_text: str = "") -> str:
 
 def _safe_overview_sub(fn: Callable[[], str | None], label: str) -> str | None:
     """Run a `_build_project_overview` sub-info extractor; swallow + log on failure."""
-    from butler.core.best_effort import safe_best_effort
-
     return cast(
         str | None,
         safe_best_effort(fn, label=f"handler_helpers.overview.{label}", default=None),
@@ -530,8 +520,6 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
 
     lines.append("")
     lines.append("提醒：")
-    from butler.core.best_effort import safe_best_effort
-
     def _reminders() -> str:
         from butler.tools.reminder import _load_all
 
@@ -555,8 +543,6 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
 
 def _inject_previous_session_summary(loop: "AgentLoop", project: Any) -> None:
     """Inject previous session summary into a new AgentLoop for context continuity."""
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> None:
         from butler.env_parse import env_truthy
 
@@ -605,8 +591,6 @@ def _inject_previous_session_summary(loop: "AgentLoop", project: Any) -> None:
 
 def _on_gateway_session_removed(session_key: str) -> None:
     _reset_tool_audit_events(session_key)
-    from butler.core.best_effort import safe_best_effort
-
     def _disconnect() -> None:
         from butler.mcp.registry_hook import disconnect_mcp_session
 

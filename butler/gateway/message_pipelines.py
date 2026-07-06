@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+from butler.core.best_effort import safe_best_effort
+
 
 def _record_injection_transcript(
     session_key: str,
@@ -41,7 +43,6 @@ def _record_injection_transcript(
     *,
     label: str,
 ) -> None:
-    from butler.core.best_effort import safe_best_effort
 
     def _run() -> None:
         from butler.core.session_transcript import append_transcript_entry
@@ -56,8 +57,6 @@ def _record_injection_transcript(
 
 
 def _warm_session_skills(orchestrator: Any) -> None:
-    from butler.core.best_effort import safe_best_effort
-
     def _jieba() -> None:
         from butler.skills.similarity import _ensure_jieba
 
@@ -107,8 +106,6 @@ def _phase_transform_inbound_text(
     Wrapped in try/except to preserve the original fail-open behavior:
     if the transformer is missing or raises, the raw text is used.
     """
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> str:
         from butler.core.message_ir import inbound_text_from_gateway
 
@@ -136,7 +133,6 @@ def _phase_transform_inbound_text(
 
 def _phase_apply_mcp_profile(text: str, session_key: str) -> None:
     """Phase: select and bind the MCP profile for this session."""
-    from butler.core.best_effort import safe_best_effort
 
     def _run() -> None:
         from butler.mcp.profiles import (
@@ -241,8 +237,6 @@ def _phase_apply_bot_loop_guard(
     external_id: str | None,
 ) -> Optional[str]:
     """Phase: suppress group-chat bot echo loops."""
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> Optional[str]:
         from butler.gateway.bot_loop_guard import record_and_should_suppress
 
@@ -274,8 +268,6 @@ def _phase_apply_two_phase_confirm(
     external_id: str | None,
 ) -> Optional[str]:
     """Phase: dispatch / confirm / cancel two-phase confirm flow."""
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> Optional[str]:
         from butler.core.two_phase_confirm import (
             cancel_pending_unless_confirm,
@@ -371,8 +363,6 @@ def _phase_apply_idempotency(
     ``reserved=True`` means the caller is responsible for calling
     ``complete_inbound`` in the ``finally`` block.
     """
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> tuple[Optional[str], bool, str]:
         from butler.gateway.inbound_idempotency import (
             check_and_reserve_inbound,
@@ -421,8 +411,6 @@ def _phase_apply_session_initializing(
     orchestrator: Any,
 ) -> Optional[str]:
     """Phase: session-initializing warmup. Returns early ack or None."""
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> Optional[str]:
         from butler.gateway.message_queue import (
             enqueue_inbound,
@@ -532,8 +520,6 @@ def _phase_apply_queue_inbound(
 
 def _phase_apply_admission(text: str, session_key: str) -> Optional[Any]:
     """Phase: try_admit. Returns admission token (caller releases) or None."""
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> Any:
         from butler.gateway.reply_admission import try_admit
 
@@ -554,8 +540,6 @@ def queue_inbound_for_admission_failure(
     external_id: str | None,
 ) -> str:
     """When ``try_admit`` returns ``None`` we either enqueue or reply."""
-    from butler.core.best_effort import safe_best_effort
-
     def _run() -> Optional[str]:
         from butler.gateway.message_queue import (
             enqueue_inbound,

@@ -29,6 +29,118 @@ if TYPE_CHECKING:
 
 
 # ---------------------------------------------------------------------------
+# Lazy-import helpers (P3-I: dedupe repeated ``from butler.*`` in this module).
+# ---------------------------------------------------------------------------
+
+
+def _new_cli_orchestrator() -> "ButlerOrchestrator":
+    from butler.orchestrator import ButlerOrchestrator
+
+    return ButlerOrchestrator(user_id="owner", channel="cli")
+
+
+def _cli_session_key(orchestrator: Any) -> str:
+    from butler.session.keys import build_session_key
+
+    return build_session_key(
+        platform="cli",
+        chat_id=orchestrator.user_id,
+        project=orchestrator.project_manager.current_project or "",
+    )
+
+
+def _session_ui(console: Any, *, stream_title: str | None = None) -> Any:
+    from butler.cli.session_ui import ChatSessionUI
+
+    if stream_title is not None:
+        return ChatSessionUI(console, stream_title=stream_title)
+    return ChatSessionUI(console)
+
+
+def _loop_tool_deps(orchestrator: Any) -> tuple[str, Any, Any]:
+    from butler.project.lead import gateway_loop_role
+    from butler.tools.project_tools import get_current_project_tools
+    from butler.tools.registry import dispatch_tool
+
+    role = gateway_loop_role(orchestrator.project_manager.current_project or "")
+    return role, get_current_project_tools(role=role), dispatch_tool
+
+
+def _butler_role_tools() -> tuple[Any, Any]:
+    from butler.tools.project_tools import get_current_project_tools
+    from butler.tools.registry import dispatch_tool
+
+    return get_current_project_tools(role="butler"), dispatch_tool
+
+
+def _run_user_prompt_hooks(
+    message: str,
+    *,
+    session_key: str,
+    console: Any | None = None,
+) -> bool:
+    """Run UserPromptSubmit hooks. Returns True if the prompt may proceed."""
+    from butler.hooks.runner import run_user_prompt_submit_hooks
+
+    prompt_hooks = run_user_prompt_submit_hooks(
+        message.strip(), session_key=session_key, platform="cli"
+    )
+    if prompt_hooks.blocked:
+        if console is not None:
+            console.print(prompt_hooks.block_message or "[yellow]已阻止[/yellow]")
+        return False
+    if prompt_hooks.prevent_continuation:
+        if console is not None:
+            console.print(
+                f"[yellow]{prompt_hooks.stop_message or '已停止（UserPromptSubmit hook）'}[/yellow]"
+            )
+        return False
+    return True
+
+
+def _apply_pre_llm(orch: Any, message: str) -> str:
+    from butler.gateway.hooks import apply_pre_llm_context
+
+    return cast(
+        str,
+        apply_pre_llm_context(
+            orch.inject_skill_context(message),
+            orchestrator=orch,
+        ),
+    )
+
+
+def _sync_turn_after_run(
+    orchestrator: Any,
+    user_input: str,
+    result: Any,
+    *,
+    session_key: str,
+    queue_prefetch: bool,
+) -> None:
+    from butler import main as _butler_main
+    from butler.core.agent_loop import LoopStatus
+    from butler.execution_context import use_execution_context
+    from butler.session.lifecycle import queue_prefetch_after_turn
+
+    with use_execution_context(orchestrator, session_key=session_key):
+        _butler_main._sync_memory(
+            orchestrator,
+            user_input,
+            result.final_response or "",
+            interrupted=result.status == LoopStatus.INTERRUPTED,
+            status=result.status,
+        )
+        if queue_prefetch:
+            queue_prefetch_after_turn(
+                orchestrator,
+                user_input,
+                role="butler",
+                session_id=session_key,
+            )
+
+
+# ---------------------------------------------------------------------------
 # Public entry points — argparse handlers.
 # ---------------------------------------------------------------------------
 
@@ -44,19 +156,14 @@ def register_chat_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser
 
 
 def _cmd_chat(_ns: argparse.Namespace) -> int:
-    from butler.orchestrator import ButlerOrchestrator
-
-    orch = ButlerOrchestrator(user_id="owner", channel="cli")
-    return _run_interactive_chat(orch)
+    return _run_interactive_chat(_new_cli_orchestrator())
 
 
 def _cmd_exec(ns: argparse.Namespace) -> int:
     """Single-shot message execution — thin wrapper around the turn
     pipeline so the function stays under the 50-line cap."""
-    from butler.orchestrator import ButlerOrchestrator
-
     console = _stderr_console()
-    orch = ButlerOrchestrator(user_id="owner", channel="cli")
+    orch = _new_cli_orchestrator()
 
     if not _phase_apply_user_prompt_hooks(orch, ns.message.strip(), console):
         return 1
@@ -86,15 +193,10 @@ def _run_interactive_chat(orchestrator: "ButlerOrchestrator") -> int:
     R1-7 refactored: this function is now a thin orchestrator. Each
     step of the loop lives in a ``_phase_*`` helper below.
     """
-    from butler.cli.slash_commands import build_slash_completer
-
     console, session, settings = _phase_setup_interactive_session(orchestrator)
     _phase_print_interactive_welcome(console, settings, orchestrator)
 
-    # Local closure state
-    from butler.cli.session_ui import ChatSessionUI
-
-    ui = ChatSessionUI(console)
+    ui = _session_ui(console)
     loops_by_session: dict[str, Any] = {}
     agent_loop = _phase_get_or_create_loop(orchestrator, ui, loops_by_session)
 
@@ -222,39 +324,14 @@ def _phase_dispatch_slash(
 def _phase_check_user_prompt_hooks(orchestrator: Any, user_input: str, console: Any) -> bool:
     """Phase 5: run UserPromptSubmit hooks. Returns True if the prompt
     should proceed; False if a hook blocked it."""
-    from butler.hooks.runner import run_user_prompt_submit_hooks
-    from butler.session.keys import build_session_key
-
-    cli_sk = build_session_key(
-        platform="cli",
-        chat_id=orchestrator.user_id,
-        project=orchestrator.project_manager.current_project or "",
+    return _run_user_prompt_hooks(
+        user_input, session_key=_cli_session_key(orchestrator), console=console
     )
-    prompt_hooks = run_user_prompt_submit_hooks(
-        user_input.strip(), session_key=cli_sk, platform="cli"
-    )
-    if prompt_hooks.blocked:
-        console.print(f"[yellow]{prompt_hooks.block_message}[/yellow]")
-        return False
-    if prompt_hooks.prevent_continuation:
-        console.print(
-            f"[yellow]{prompt_hooks.stop_message or '已停止（UserPromptSubmit hook）'}[/yellow]"
-        )
-        return False
-    return True
 
 
 def _phase_augment_prompt(orchestrator: Any, user_input: str) -> str:
     """Phase 6: apply pre-LLM context (skill injection + hook context)."""
-    from butler.gateway.hooks import apply_pre_llm_context
-
-    return cast(
-        str,
-        apply_pre_llm_context(
-        orchestrator.inject_skill_context(user_input),
-        orchestrator=orchestrator,
-        ),
-    )
+    return _apply_pre_llm(orchestrator, user_input)
 
 
 def _phase_run_interactive_turn(
@@ -292,35 +369,17 @@ def _phase_execute_turn(
     stream: Any,
 ) -> Any:
     """Execute one turn + finalize (memory sync, prefetch)."""
-    from butler import main as _butler_main
-    from butler.core.agent_loop import LoopStatus
     from butler.execution_context import use_execution_context
-    from butler.session.keys import build_session_key
-    from butler.session.lifecycle import attach_turn_memory_prefetch, queue_prefetch_after_turn
+    from butler.session.lifecycle import attach_turn_memory_prefetch
 
-    cli_sk = build_session_key(
-        platform="cli",
-        chat_id=orchestrator.user_id,
-        project=orchestrator.project_manager.current_project or "",
-    )
+    cli_sk = _cli_session_key(orchestrator)
     attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
     with use_execution_context(orchestrator, session_key=cli_sk):
         result = agent_loop.run(augmented)
     ui.finish_turn(result, stream)
-    with use_execution_context(orchestrator, session_key=cli_sk):
-        _butler_main._sync_memory(
-            orchestrator,
-            user_input,
-            result.final_response or "",
-            interrupted=result.status == LoopStatus.INTERRUPTED,
-            status=result.status,
-        )
-        queue_prefetch_after_turn(
-            orchestrator,
-            user_input,
-            role="butler",
-            session_id=cli_sk,
-        )
+    _sync_turn_after_run(
+        orchestrator, user_input, result, session_key=cli_sk, queue_prefetch=True
+    )
     return agent_loop
 
 
@@ -361,31 +420,20 @@ def _phase_get_or_create_loop(
     ui: Any = None,
 ) -> Any:
     """Create or fetch the cached AgentLoop for the current session key."""
-    from butler.project.lead import gateway_loop_role
-    from butler.session.keys import build_session_key
-    from butler.tools.project_tools import get_current_project_tools
-    from butler.tools.registry import dispatch_tool
-
-    cli_sk = build_session_key(
-        platform="cli",
-        chat_id=orchestrator.user_id,
-        project=orchestrator.project_manager.current_project or "",
-    )
-    role = gateway_loop_role(orchestrator.project_manager.current_project or "")
+    cli_sk = _cli_session_key(orchestrator)
+    role, tools, dispatch_tool = _loop_tool_deps(orchestrator)
     cached = loops_by_session.get(cli_sk)
     if cached is not None:
         return cached
     if ui is None:
         # Caller didn't pass a UI (e.g. dispatch_slash switch_project);
         # build a stub ChatSessionUI to satisfy the loop factory.
-        from butler.cli.session_ui import ChatSessionUI
-
-        ui = ChatSessionUI(_stderr_console())
+        ui = _session_ui(_stderr_console())
     stream = ui.begin_turn()
     callbacks = ui.build_callbacks(stream)
     agent_loop = orchestrator.create_agent_loop(
         role=role,
-        tools=get_current_project_tools(role=role),
+        tools=tools,
         tool_dispatcher=dispatch_tool,
         callbacks=callbacks,
         session_key=cli_sk,
@@ -403,27 +451,17 @@ def _phase_rebuild_loop(
 ) -> Any:
     """Pop the cached loop (running session-end if needed) and create a fresh one."""
     from butler import main as _butler_main
-    from butler.session.keys import build_session_key
-    from butler.cli.session_ui import ChatSessionUI
 
-    cli_sk = build_session_key(
-        platform="cli",
-        chat_id=orchestrator.user_id,
-        project=orchestrator.project_manager.current_project or "",
-    )
+    cli_sk = _cli_session_key(orchestrator)
     old = loops_by_session.pop(cli_sk, None)
     if old is not None and not skip_session_end:
         _butler_main._trigger_session_end(orchestrator, old)
-    ui = ChatSessionUI(_stderr_console())
+    ui = _session_ui(_stderr_console())
     stream = ui.begin_turn()
-    from butler.project.lead import gateway_loop_role
-    from butler.tools.project_tools import get_current_project_tools
-    from butler.tools.registry import dispatch_tool
-
-    role = gateway_loop_role(orchestrator.project_manager.current_project or "")
+    role, tools, dispatch_tool = _loop_tool_deps(orchestrator)
     new_loop = orchestrator.create_agent_loop(
         role=role,
-        tools=get_current_project_tools(role=role),
+        tools=tools,
         tool_dispatcher=dispatch_tool,
         callbacks=ui.build_callbacks(stream),
         session_key=cli_sk,
@@ -447,38 +485,28 @@ def _phase_end_session(orchestrator: Any, agent_loop: Any) -> None:
 
 
 def _phase_apply_user_prompt_hooks(orch: Any, message: str, console: Any) -> bool:
-    from butler.hooks.runner import run_user_prompt_submit_hooks
-
-    prompt_hooks = run_user_prompt_submit_hooks(message, session_key="cli", platform="cli")
-    if prompt_hooks.blocked:
-        console.print(prompt_hooks.block_message or "[yellow]已阻止[/yellow]")
+    if not _run_user_prompt_hooks(message, session_key="cli"):
+        console.print("[yellow]已阻止[/yellow]")
         return False
     return True
 
 
 def _phase_render_user_message(console: Any, message: str) -> None:
-    from butler.cli.session_ui import ChatSessionUI
-
-    ui = ChatSessionUI(console, stream_title="exec")
+    ui = _session_ui(console, stream_title="exec")
     ui.print_user_message(message)
 
 
 def _phase_build_exec_ui(console: Any) -> tuple[Any, Any]:
-    from butler.cli.session_ui import ChatSessionUI
-    from butler.cli.stream import StreamRenderer
-
-    ui = ChatSessionUI(console, stream_title="exec")
+    ui = _session_ui(console, stream_title="exec")
     stream = ui.begin_turn()
     return ui, stream
 
 
 def _phase_create_exec_loop(orch: Any, ui: Any, stream: Any) -> Any:
-    from butler.tools.project_tools import get_current_project_tools
-    from butler.tools.registry import dispatch_tool
-
+    tools, dispatch_tool = _butler_role_tools()
     return orch.create_agent_loop(
         role="butler",
-        tools=get_current_project_tools(role="butler"),
+        tools=tools,
         tool_dispatcher=dispatch_tool,
         callbacks=ui.build_callbacks(stream),
     )
@@ -487,34 +515,13 @@ def _phase_create_exec_loop(orch: Any, ui: Any, stream: Any) -> Any:
 def _phase_run_single_turn(orch: Any, agent_loop: Any, message: str, ui: Any, stream: Any) -> Any:
     """Run a single turn for ``butler exec``. Mirrors the interactive
     turn pipeline but with deterministic hooks (no slash dispatch)."""
-    from butler import main as _butler_main
-    from butler.core.agent_loop import LoopStatus
     from butler.execution_context import use_execution_context
     from butler.session.lifecycle import attach_turn_memory_prefetch
 
-    augmented = _phase_augment_prompt_exec(orch, message)
+    augmented = _apply_pre_llm(orch, message)
     attach_turn_memory_prefetch(agent_loop, orch, message, role="butler")
     with use_execution_context(orch, session_key="cli"):
         result = agent_loop.run(augmented)
     ui.finish_turn(result, stream)
-    with use_execution_context(orch, session_key="cli"):
-        _butler_main._sync_memory(
-            orch,
-            message,
-            result.final_response or "",
-            interrupted=result.status == LoopStatus.INTERRUPTED,
-            status=result.status,
-        )
+    _sync_turn_after_run(orch, message, result, session_key="cli", queue_prefetch=False)
     return result
-
-
-def _phase_augment_prompt_exec(orch: Any, message: str) -> str:
-    from butler.gateway.hooks import apply_pre_llm_context
-
-    return cast(
-        str,
-        apply_pre_llm_context(
-        orch.inject_skill_context(message),
-        orchestrator=orch,
-        ),
-    )

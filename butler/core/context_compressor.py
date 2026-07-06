@@ -14,6 +14,7 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from butler.env_parse import int_env
+from butler.core.best_effort import safe_best_effort
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +83,6 @@ def _get_token_counter() -> Callable[[str], int]:
     if mode.startswith("tiktoken"):
         parts = mode.split(":", 1)
         encoding_name = parts[1] if len(parts) > 1 else "o200k_base"
-
-        from butler.core.best_effort import safe_best_effort
 
         def _init_tiktoken() -> Callable[[str], int]:
             import tiktoken
@@ -239,8 +238,6 @@ def truncate_tool_responses_to_budget(messages: list[dict[str, Any]]) -> list[di
         )
         out.append({**m, "content": trimmed})
     if changed:
-        from butler.core.best_effort import safe_best_effort
-
         safe_best_effort(
             lambda: __import__(
                 "butler.ops.retry_buckets", fromlist=["record_recovery_event"]
@@ -273,7 +270,6 @@ def _summarize_middle(
     if len(transcript) < 100:
         return previous_summary, False
 
-    from butler.core.best_effort import safe_best_effort
     from butler.core.remote_compact import try_remote_summarize
 
     remote_summary = safe_best_effort(

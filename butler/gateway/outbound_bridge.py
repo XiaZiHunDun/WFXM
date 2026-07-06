@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, cast
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
+from butler.env_parse import env_truthy, float_env, int_env
+from butler.gateway import completion_notify as _completion_notify
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +36,10 @@ class _TypingAdapter(Protocol):
 
 
 def _env_bool(name: str, default: bool) -> bool:
-    from butler.env_parse import env_truthy
-
     return cast(bool, env_truthy(name, default=default))
 
 
 def _env_float(name: str, default: float) -> float:
-    from butler.env_parse import float_env
-
     return cast(float, float_env(name, default))
 
 
@@ -58,8 +56,6 @@ def get_gateway_bridge_optional() -> GatewayOutboundBridge | None:
 
 
 def _env_int(name: str, default: int, *, min_value: int = 0) -> int:
-    from butler.env_parse import int_env
-
     return cast(int, int_env(name, default, min=min_value))
 
 
@@ -313,8 +309,6 @@ class GatewayOutboundBridge:
     def append_stream_preview(self, delta: str) -> None:
         if self._closed or not delta:
             return
-        from butler.env_parse import env_truthy
-
         if not env_truthy("BUTLER_GATEWAY_STREAM_PREVIEW", default=False):
             return
 
@@ -402,16 +396,12 @@ class GatewayOutboundBridge:
         del name, result
 
     def flush_pending_delegate_completion(self) -> None:
-        from butler.gateway.completion_notify import flush_pending_delegate_completion
-
-        flush_pending_delegate_completion(self)
+        _completion_notify.flush_pending_delegate_completion(self)
 
     def notify_delegate_finished(self, report: Any) -> None:
         """Push or defer delegate AgentReport (see delegate_completion_mode)."""
-        from butler.gateway.completion_notify import try_push_agent_report
-
         elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
-        try_push_agent_report(
+        _completion_notify.try_push_agent_report(
             report,
             kind="delegate",
             bridge=self,
@@ -419,20 +409,16 @@ class GatewayOutboundBridge:
         )
 
     def notify_turn_timeout(self, *, timeout_seconds: float) -> None:
-        from butler.gateway.completion_notify import try_push_turn_timeout
-
         elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
-        try_push_turn_timeout(
+        _completion_notify.try_push_turn_timeout(
             self,
             timeout_seconds=timeout_seconds,
             elapsed_seconds=elapsed,
         )
 
     def notify_workflow_finished(self, report: Any) -> None:
-        from butler.gateway.completion_notify import try_push_agent_report
-
         elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
-        try_push_agent_report(
+        _completion_notify.try_push_agent_report(
             report,
             kind="workflow",
             bridge=self,
@@ -444,13 +430,11 @@ class GatewayOutboundBridge:
 
     def maybe_notify_turn_complete_after_reply(self) -> None:
         """Call after the main WeChat reply was sent (see platforms/base.py)."""
-        from butler.gateway.completion_notify import try_push_turn_complete
-
         self.flush_pending_delegate_completion()
         elapsed = self._last_turn_elapsed
         if elapsed <= 0 and self._started_at:
             elapsed = time.monotonic() - self._started_at
-        try_push_turn_complete(self, elapsed_seconds=elapsed)
+        _completion_notify.try_push_turn_complete(self, elapsed_seconds=elapsed)
 
     def schedule_supplementary_reply(self, text: str, *, kind: str = "queued") -> bool:
         """Send an extra user-visible message (e.g. drained inbound queue)."""
@@ -519,14 +503,9 @@ class GatewayOutboundBridge:
         if kind == "timeout" and (self._timeout_notified or self._completion_push_sent):
             return False
         if kind == "delegate":
-            from butler.gateway.completion_notify import (
-                delegate_completion_max_each,
-                delegate_completion_mode,
-            )
-
-            mode = delegate_completion_mode()
+            mode = _completion_notify.delegate_completion_mode()
             if mode == "each":
-                max_each = delegate_completion_max_each()
+                max_each = _completion_notify.delegate_completion_max_each()
                 inflight = self._delegate_push_count + self._delegate_push_inflight
                 if inflight >= max_each:
                     return False
@@ -548,9 +527,7 @@ class GatewayOutboundBridge:
             body = body[:3997] + "..."
 
         async def _send() -> None:
-            from butler.gateway.completion_notify import deliver_completion_push
-
-            ok = await deliver_completion_push(
+            ok = await _completion_notify.deliver_completion_push(
                 self.adapter,
                 self.chat_id,
                 body,

@@ -35,6 +35,12 @@ from butler.core.best_effort import safe_best_effort
 logger = logging.getLogger(__name__)
 
 
+def _langfuse_tracer():
+    from butler.ops import langfuse_tracer
+
+    return langfuse_tracer
+
+
 # ---------------------------------------------------------------------------
 # Carrier — mutable per-turn state shared between phases.
 # ---------------------------------------------------------------------------
@@ -464,18 +470,16 @@ def _phase_prefetch_and_callbacks(
     state.run_callbacks = _gateway_run_callbacks()
 
     def _wire_langfuse() -> None:
-        from butler.ops.langfuse_tracer import langfuse_enabled
-
-        if not langfuse_enabled():
+        lf = _langfuse_tracer()
+        if not lf.langfuse_enabled():
             return
-        from butler.ops.langfuse_tracer import get_current_trace, langfuse_callbacks
         from butler.core.loop_types import LoopCallbacks
 
-        lf_cbs = langfuse_callbacks(session_key=state.session_key)
+        lf_cbs = lf.langfuse_callbacks(session_key=state.session_key)
         if lf_cbs:
             lf_loop_cbs = LoopCallbacks(**lf_cbs)
             state.run_callbacks = _chain_callbacks(state.run_callbacks, lf_loop_cbs)
-        ctx = get_current_trace(session_key=state.session_key)
+        ctx = lf.get_current_trace(session_key=state.session_key)
         if ctx is not None:
             ctx.on_gateway_inbound(state.session_key, state.platform, len(state.text))
 
@@ -616,17 +620,11 @@ def _phase_finalize_memory_sync(
 
 def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
     def _langfuse_turn_end() -> None:
-        from butler.ops.langfuse_tracer import (
-            end_trace,
-            flush_langfuse,
-            get_current_trace,
-            langfuse_enabled,
-        )
-
-        if not langfuse_enabled():
+        lf = _langfuse_tracer()
+        if not lf.langfuse_enabled():
             return
         trace_id = ""
-        ctx = get_current_trace(session_key=state.session_key)
+        ctx = lf.get_current_trace(session_key=state.session_key)
         if ctx is not None:
             trace_id = ctx.trace_id
         from butler.ops.eval_turn import extract_tools_used, push_turn_scores
@@ -660,8 +658,8 @@ def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
                 state.health["transform_feedback"] = actions
 
         safe_best_effort(_transform_feedback, label="locked_phases.transform_feedback")
-        end_trace(session_key=state.session_key, result=state.result)
-        flush_langfuse()
+        lf.end_trace(session_key=state.session_key, result=state.result)
+        lf.flush_langfuse()
 
     safe_best_effort(_langfuse_turn_end, label="locked_phases.langfuse_turn_end")
 
@@ -712,10 +710,9 @@ def _phase_finalize_turn(
 
 def _record_format_turn_langfuse(state: LockedTurnState) -> None:
     def _record() -> None:
-        from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
-
-        if langfuse_enabled():
-            ctx = get_current_trace(session_key=state.session_key)
+        lf = _langfuse_tracer()
+        if lf.langfuse_enabled():
+            ctx = lf.get_current_trace(session_key=state.session_key)
             if ctx is not None:
                 ctx.on_gateway_outbound(state.session_key, len(state.out or ""), state.turn_elapsed)
 

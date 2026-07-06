@@ -45,7 +45,7 @@
 
 - `butler/contracts/` 已建（EventsSink + OwnerGate + BridgeAccess）
 - `core/` / `tools/` 直 import `gateway.*` 已 AST 守门（ENG-7）
-- 延迟 `from butler.*`（**函数内**，AST 计数）：**~3593**（`LAZY_IMPORT_BUDGET=3650`，`tests/test_lazy_import_budget.py`；报告 `scripts/p3i-lazy-import-report.sh`）
+- 延迟 `from butler.*`（**函数内**，AST 计数）：**~3427**（`LAZY_IMPORT_BUDGET=3457`；报告 `scripts/p3i-lazy-import-report.sh`）
 
 ### S3 — 大函数 / 大文件残留
 
@@ -249,19 +249,18 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 - 明确文档：`vector_store.py`（ChromaDB）= 非生产/实验 only
 - 评估 Observation Store 从 opt-in 派生升为辅助检索层
 
-#### 方向 I：延迟导入减量 — **进行中** 2026-07-06（P3-I Batch 1）
+#### 方向 I：延迟导入减量 — **进行中** 2026-07-06（P3-I Batch 2–8）
 
-- **基线**：函数内 `from butler.*` **3593**（模块顶 **1382**；P3-I Batch 1 自 **3601** 起 AST 计数）
-- **目标**：3601 → 2000（~44% 减量，长期）
-- **手段**：contracts Protocol 替代 + 运行时注入 + 安全 hoist（无环）+ 按需 import
-- **Batch 1**：AST 精确计数（`lazy_import_budget.py`）· `p3i-lazy-import-report.sh` · `memory_cli` hoist `get_butler_home`（−8）
-- **下一批候选**：`locked_phases.py`（47）· `chat_cli.py`（42）· `info_commands.py`（39）
+- **基线**：函数内 **3593** → 当前 **3427**（−166；模块顶 **~1401**）
+- **目标**：→ **2000**（长期；Batch 9+ 继续 top 文件 helper/hoist）
+- **手段**：文件内 helper 合并 + 安全模块顶 hoist（`safe_best_effort` / `env_parse` / gateway 簇）
+- **Batch 2–8 已做**：`chat_cli` · `info_commands` · `slash_dispatch` · `message_pipelines` · `handler_helpers` · `wechat_ilink/adapter` · `outbound_bridge` · `completion_notify` · `locked_phases`（langfuse）· `agent_loop_phases` · `workflows/runner` · `tool_batch` · `health_report` · `task_orchestrator` · `context_compressor`
+- **门禁**：`p3i-lazy-import-report.sh` 已挂 **ENG domain gate**
 
-#### 方向 J：配置面收敛 — **进行中** 2026-07-06（P3-J Batch 1）
+#### 方向 J：配置面收敛 — **进行中** 2026-07-06（P3-J Batch 2–4）
 
-- ~540 项 env（`.env.example`）；`check-dead-env.sh` + `check-env-reference-sync.sh` 已入 **`p3j-env-hygiene-gate.sh`**（ENG domain gate）
-- **Batch 1**：env hygiene gate 集成；dead-env / reference-sync 守门绿
-- **下一批**：reference 与 `.env.example` 差集审计 · 废弃 key 标记 · schema-driven reference  PoC
+- ~540 项 env（`.env.example`）；`p3j-env-hygiene-gate.sh` + **`p3j-env-audit.sh`** + **`p3j-env-schema-poc.py`**
+- **Batch 2–4**：显式 reference 行（`BUTLER_ENABLE_GIT_WRITE` / `DELEGATE_COMPLETION_MODE` / `TOOLS_ENGINE_FORCE_OFF` / `INSTRUCTION_WALKUP`）· Deprecated/Legacy 附录 · **fast-gate** 挂 p3j
 
 ---
 

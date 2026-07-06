@@ -51,6 +51,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _audit_session_key(*, fallback: str = "default") -> str:
+    from butler.execution_context import get_audit_session_key
+
+    return get_audit_session_key(fallback=fallback)
+
+
+def _store_reasoning_on_message(message: Any, reasoning: Any) -> None:
+    from butler.transport.reasoning_replay import store_reasoning_on_message
+
+    store_reasoning_on_message(message, reasoning)
+
+
 # ---------------------------------------------------------------------------
 # Carrier — mutable per-turn state shared between phases.
 # ---------------------------------------------------------------------------
@@ -118,8 +130,6 @@ def _phase_init(
     )
     loop._turn_tools = state.turn_tools
 
-    from butler.core.best_effort import safe_best_effort
-
     def _inject_feedback() -> None:
         from butler.ops.eval_feedback import get_feedback_context
 
@@ -164,7 +174,6 @@ def _phase_maybe_compact_turn(
         run_compaction_turn,
         should_run_compaction_turn,
     )
-    from butler.execution_context import get_audit_session_key
 
     if not should_run_compaction_turn(
         loop._messages,
@@ -180,18 +189,15 @@ def _phase_maybe_compact_turn(
         compress=loop._compress_context,
         diagnostics=loop.diagnostics,
         iteration=state.iteration,
-        session_key=get_audit_session_key(fallback="default"),
+        session_key=_audit_session_key(fallback="default"),
     )
     if not did_compact:
         return False
     loop._messages[:] = new_msgs
-    from butler.core.best_effort import safe_best_effort
-
     def _apply_followup() -> None:
         from butler.core.compaction_steer_bridge import apply_compaction_turn_followup
-        from butler.execution_context import get_audit_session_key
 
-        sk = get_audit_session_key(fallback="default")
+        sk = _audit_session_key(fallback="default")
         loop._messages[:] = apply_compaction_turn_followup(
             loop._messages, sk, loop.diagnostics,
         )
@@ -535,7 +541,6 @@ def _try_truncation_continue(
         needs_truncation_continue,
         truncation_continue_message,
     )
-    from butler.transport.reasoning_replay import store_reasoning_on_message
 
     if not needs_truncation_continue(response):
         return False
@@ -544,7 +549,7 @@ def _try_truncation_continue(
     loop._truncation_retries += 1
     if state.final_text:
         msg = {"role": "assistant", "content": state.final_text}
-        store_reasoning_on_message(msg, state.final_reasoning)
+        _store_reasoning_on_message(msg, state.final_reasoning)
         loop._messages.append(msg)
     loop._messages.append(
         {"role": "user", "content": truncation_continue_message()}
@@ -583,7 +588,6 @@ def _try_budget_continue(
         continuation_limits,
         get_budget_continuation_message,
     )
-    from butler.transport.reasoning_replay import store_reasoning_on_message
 
     if state.budget_state is None:
         return False
@@ -596,7 +600,7 @@ def _try_budget_continue(
         return False
     if state.final_text:
         msg = {"role": "assistant", "content": state.final_text}
-        store_reasoning_on_message(msg, state.final_reasoning)
+        _store_reasoning_on_message(msg, state.final_reasoning)
         loop._messages.append(msg)
     state.budget_state.record_continuation(loop._total_tokens)
     nudge = get_budget_continuation_message(
@@ -641,10 +645,9 @@ def _store_final_message(
 ) -> None:
     """Append final assistant message + record transcript (best-effort)."""
     from butler.core.session_transcript import record_assistant_message
-    from butler.transport.reasoning_replay import store_reasoning_on_message
 
     msg = {"role": "assistant", "content": state.final_text}
-    store_reasoning_on_message(msg, state.final_reasoning)
+    _store_reasoning_on_message(msg, state.final_reasoning)
     loop._messages.append(msg)
     safe_best_effort(
         lambda: record_assistant_message(

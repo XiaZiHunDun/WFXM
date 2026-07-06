@@ -12,20 +12,17 @@ if TYPE_CHECKING:
     from butler.report import AgentReport
 
 from butler.defaults.env_defaults import GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS
-from butler.env_parse import int_env
+from butler.env_parse import env_truthy, float_env, int_env
+from butler.gateway import delegate_push_dedup as _delegate_push_dedup
 
 logger = logging.getLogger(__name__)
 
 
 def _env_bool(name: str, default: bool) -> bool:
-    from butler.env_parse import env_truthy
-
     return cast(bool, env_truthy(name, default=default))
 
 
 def _env_float(name: str, default: float) -> float:
-    from butler.env_parse import float_env
-
     return cast(float, float_env(name, default))
 
 
@@ -247,10 +244,8 @@ def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
     report = bridge.take_pending_delegate_report()
     if report is None:
         return False
-    from butler.gateway.delegate_push_dedup import should_deliver_delegate_push
-
     tid = str(getattr(report, "task_id", "") or "").strip()
-    ok, reason = should_deliver_delegate_push(bridge.chat_id, tid)
+    ok, reason = _delegate_push_dedup.should_deliver_delegate_push(bridge.chat_id, tid)
     if not ok:
         logger.info(
             "pending delegate flush suppressed chat=%s task=%s reason=%s",
@@ -319,15 +314,9 @@ async def deliver_completion_push(
 
     body = scrub_outbound_text(body)
     if kind == "delegate":
-        from butler.gateway.delegate_push_dedup import (
-            mark_delegate_push_delivered,
-            maybe_defer_delegate_push,
-            should_deliver_delegate_push,
-        )
-
-        if maybe_defer_delegate_push(chat_id, body, kind=kind):
+        if _delegate_push_dedup.maybe_defer_delegate_push(chat_id, body, kind=kind):
             return True
-        ok, reason = should_deliver_delegate_push(chat_id, "", body=body)
+        ok, reason = _delegate_push_dedup.should_deliver_delegate_push(chat_id, "", body=body)
         if not ok:
             logger.info(
                 "Gateway delegate push suppressed chat=%s reason=%s",
@@ -345,9 +334,7 @@ async def deliver_completion_push(
         mark_outbox_sent(outbox_id)
         record_completion_push_sent(session_key=telemetry_key)
         if kind == "delegate":
-            from butler.gateway.delegate_push_dedup import mark_delegate_push_delivered
-
-            mark_delegate_push_delivered(chat_id, "", body=body)
+            _delegate_push_dedup.mark_delegate_push_delivered(chat_id, "", body=body)
 
     def _on_failure(exc: Exception) -> None:
         mark_outbox_failed(outbox_id, error=str(exc))

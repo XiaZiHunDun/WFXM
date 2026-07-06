@@ -32,6 +32,13 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
 
+from butler.execution_context import get_current_session_key
+from butler.gateway.commands.memory_handlers import handle_memory_pending_command
+from butler.model_resolve import handle_model_command
+from butler.plan.mode import clear_plan_mode, format_plan_mode_status, set_plan_mode
+from butler.session.lifecycle import sync_turn_memory as _lifecycle_sync_turn_memory
+from butler.session.lifecycle import trigger_session_end as _lifecycle_trigger_session_end
+
 logger = logging.getLogger(__name__)
 
 
@@ -190,8 +197,6 @@ def _handle_model(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str
     """View/change current model. Returns a string; the loop
     rebuilds on model change by inspecting the orchestrator
     state (handled in main.py via the return token ``rebuild``)."""
-    from butler.model_resolve import handle_model_command
-
     proj = orch.project_manager.get_current()
     proj_name = orch.project_manager.current_project or None
     reply, _reset = handle_model_command(
@@ -207,14 +212,7 @@ def _handle_status(orch: Any, console: Any, _arg: str, _loop: Any) -> Optional[s
     settings = orch._settings
     current = orch.project_manager.current_project or "(无)"
     mc = orch._model_credentials("butler")
-    from butler.plan.mode import format_plan_mode_status
-    from butler.session.keys import build_session_key
-
-    cli_sk = build_session_key(
-        platform="cli",
-        chat_id=orch.user_id,
-        project=current if current != "(无)" else "",
-    )
+    cli_sk = _cli_session_key(orch)
     return (
         f"[bold]Butler 状态[/bold]\n"
         f"  管家: {settings.butler_name}\n"
@@ -259,10 +257,6 @@ def _handle_steer(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str
 
 def _handle_memory(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional[str]:
     """Handle /记忆待审, /记忆图谱, /批准记忆, /拒绝记忆."""
-    from butler.gateway.commands.memory_handlers import handle_memory_pending_command
-
-    # Caller passes the bare command as ``arg`` is the suffix; we use
-    # the original cmd through a side-channel — see dispatch().
     return handle_memory_pending_command(orch, "", arg) or None
 
 
@@ -308,8 +302,6 @@ def _handle_workflow(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional
 
 
 def _handle_plan(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional[str]:
-    from butler.plan.mode import clear_plan_mode, format_plan_mode_status, set_plan_mode
-
     cli_sk = _cli_session_key(orch)
     arg_l = (arg or "").strip().lower()
     if arg_l in ("off", "exit", "执行", "退出", "关闭"):
@@ -320,8 +312,6 @@ def _handle_plan(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional[str
 
 
 def _handle_exit_plan(orch: Any, _console: Any, _arg: str, _loop: Any) -> Optional[str]:
-    from butler.plan.mode import clear_plan_mode
-
     clear_plan_mode(_cli_session_key(orch))
     return "[green]已退出规划模式[/green]"
 
@@ -487,8 +477,6 @@ def dispatch_slash_command(
 
     # Memory commands live in gateway-side helper; they accept /记忆*
     # /批准记忆 /拒绝记忆 etc. and return the response text.
-    from butler.gateway.commands.memory_handlers import handle_memory_pending_command
-
     mem_resp = handle_memory_pending_command(orchestrator, command, arg)
     if mem_resp is not None:
         console.print(mem_resp)
@@ -521,8 +509,6 @@ def dispatch_slash_command(
 def _resolve_model_response(orchestrator: Any, arg: str) -> tuple[str, bool]:
     """``/model`` returns ``(reply, reset_loop)`` from the underlying
     resolver. Pulled out so the dispatcher stays under 50 lines."""
-    from butler.model_resolve import handle_model_command
-
     proj = orchestrator.project_manager.get_current()
     proj_name = orchestrator.project_manager.current_project or None
     return cast(
@@ -550,10 +536,7 @@ def sync_turn_memory(
     status: Any = None,
 ) -> None:
     """Sync conversation turn to butler memory for experience tracking."""
-    from butler.execution_context import get_current_session_key
-    from butler.session.lifecycle import sync_turn_memory
-
-    sync_turn_memory(
+    _lifecycle_sync_turn_memory(
         orchestrator,
         user_msg,
         assistant_msg,
@@ -568,9 +551,7 @@ def trigger_session_end(
     agent_loop: Any,
 ) -> None:
     """Trigger post-session processing (memory/skill extraction)."""
-    from butler.session.lifecycle import trigger_session_end
-
-    trigger_session_end(orchestrator, agent_loop, reason="shutdown")
+    _lifecycle_trigger_session_end(orchestrator, agent_loop, reason="shutdown")
 
 
 # ---------------------------------------------------------------------------
