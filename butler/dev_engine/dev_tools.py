@@ -11,6 +11,8 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
+from butler.dev_engine import dev_tools_ops as _dev_ops
+
 _active_states: dict[str, Any] = {}
 
 
@@ -90,9 +92,7 @@ def tool_dev_verify(
     activated = getattr(state, "_coding_knowledge_theorems", None)
     thm_violations: list[str] = []
     if activated and state.edit_history:
-        from butler.dev_engine.dev_tools_ops import coding_knowledge_verify_safe
-
-        thm_violations = coding_knowledge_verify_safe(
+        thm_violations = _dev_ops.coding_knowledge_verify_safe(
             state,
             test_passed=result.passed,
             test_detail=f"V1-V5: {result.status.value}",
@@ -107,9 +107,7 @@ def tool_dev_verify(
     if thm_violations:
         out["theorem_violations"] = thm_violations
     if result.passed and not thm_violations and auto_review_enabled():
-        from butler.dev_engine.dev_tools_ops import auto_review_after_verify_safe
-
-        review_payload = auto_review_after_verify_safe(str(ws), session_key=session_key)
+        review_payload = _dev_ops.auto_review_after_verify_safe(str(ws), session_key=session_key)
         if review_payload:
             out["review"] = review_payload
     return cast(dict[str, Any], out)
@@ -152,9 +150,7 @@ def tool_dev_review(
     )
 
     diagnostics: dict[str, Any] = {}
-    from butler.dev_engine.dev_tools_ops import apply_dev_review_diagnostics_safe
-
-    apply_dev_review_diagnostics_safe(view, diagnostics)
+    _dev_ops.apply_dev_review_diagnostics_safe(view, diagnostics)
 
     if view.passed:
         event = "review_pass"
@@ -169,9 +165,7 @@ def tool_dev_review(
 
         apply_dev_review_view_to_state(view, state)
 
-    from butler.dev_engine.dev_tools_ops import review_closure_hooks_safe
-
-    review_closure_hooks_safe(
+    _dev_ops.review_closure_hooks_safe(
         view,
         session_key=session_key,
         task_preview=state.task_description[:200],
@@ -340,9 +334,7 @@ def tool_run_pytest(
     except ValueError:
         test_arg = test_fp.name
 
-    from butler.dev_engine.dev_tools_ops import run_pytest_command_loud
-
-    proc = run_pytest_command_loud(ws=ws, test_arg=test_arg, rel=rel, timeout=timeout)
+    proc = _dev_ops.run_pytest_command_loud(ws=ws, test_arg=test_arg, rel=rel, timeout=timeout)
     if isinstance(proc, dict):
         return proc
 
@@ -355,9 +347,7 @@ def tool_run_pytest(
         "output_tail": out[-4000:],
     }
     if not passed:
-        from butler.dev_engine.dev_tools_ops import build_b9_verify_hint_safe
-
-        hint = build_b9_verify_hint_safe(out) or (
+        hint = _dev_ops.build_b9_verify_hint_safe(out) or (
             "Fix implementation source files (not the test) and call run_pytest again."
         )
         payload["hint"] = hint
@@ -405,9 +395,7 @@ def _handler_dev_metrics(detail: str = "summary", task_id: str = "", **kwargs: A
 
 
 def _resolve_session_key() -> str:
-    from butler.dev_engine.dev_tools_ops import resolve_session_key_safe
-
-    return cast(str, resolve_session_key_safe())
+    return cast(str, _dev_ops.resolve_session_key_safe())
 
 
 # ── Registration ────────────────────────────────────────────────
