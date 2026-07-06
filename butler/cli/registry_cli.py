@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 
-def register_registry_parser(sub: argparse._SubParsersAction) -> None:
+def register_registry_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     reg = sub.add_parser("registry", help="技能/MCP 目录与 manifest")
     sp = reg.add_subparsers(dest="registry_cmd", required=True)
     p_verify = sp.add_parser("verify", help="校验 bundled catalog 与远程 Hub 条目")

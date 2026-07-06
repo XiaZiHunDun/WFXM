@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from butler.contracts.eval_ports import SuiteRunResult
 
@@ -26,7 +27,7 @@ class TcrSuite:
         argv = ["--warn-only"] if warn_only else []
         code = tcr_report.main(argv)
         report_path = ROOT / ".butler" / "reports" / "tcr-latest.json"
-        metrics: dict = {}
+        metrics: dict[str, Any] = {}
         if report_path.is_file():
             metrics = json.loads(report_path.read_text(encoding="utf-8"))
         ok = code == 0

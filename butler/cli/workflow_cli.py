@@ -66,7 +66,7 @@ def cmd_workflow_validate(ns: argparse.Namespace) -> int:
     return 0
 
 
-def register_workflow_subparser(sub: argparse._SubParsersAction) -> None:
+def register_workflow_subparser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     wf = sub.add_parser("workflow", help="工作流工具")
     wf_sub = wf.add_subparsers(dest="workflow_cmd", required=True)
     val = wf_sub.add_parser("validate", help="校验 workflow YAML / 项目登记")

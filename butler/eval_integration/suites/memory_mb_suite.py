@@ -10,7 +10,7 @@ from butler.env_parse import float_env
 
 def _min_mem_pass_rate() -> float:
     try:
-        return float_env("BUTLER_EVAL_MEM_PASS_RATE_MIN", 0.7)
+        return float(float_env("BUTLER_EVAL_MEM_PASS_RATE_MIN", 0.7))
     except ValueError:
         return 0.7
 

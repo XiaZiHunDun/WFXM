@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 
 
-def register_prompt_eval_parser(sub: argparse._SubParsersAction) -> None:
+def register_prompt_eval_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     prompt = sub.add_parser("prompt", help="Prompt 契约与 eval")
     sp = prompt.add_subparsers(dest="prompt_cmd", required=True)
     p_eval = sp.add_parser("eval", help="跑 pattern rubric（无 LLM）")

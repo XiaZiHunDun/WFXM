@@ -83,7 +83,7 @@ def _cmd_eval_sync(ns: argparse.Namespace) -> int:
     return 0
 
 
-def register_eval_parser(sub: argparse._SubParsersAction) -> None:
+def register_eval_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p = sub.add_parser("eval", help="统一 Eval 接入管理（MOD-3）")
     ev = p.add_subparsers(dest="eval_cmd", required=True)
 

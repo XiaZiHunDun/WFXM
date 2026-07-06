@@ -15,7 +15,7 @@ class LangFuseSink:
             push_langfuse_suite_scores_safe,
         )
 
-        return push_langfuse_suite_scores_safe(result)
+        return str(push_langfuse_suite_scores_safe(result))
 
     def read_latest(self, suite_id: str) -> dict[str, Any] | None:
         return None

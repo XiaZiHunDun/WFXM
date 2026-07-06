@@ -16,7 +16,7 @@ class AuditSink:
     def _path(self) -> Path:
         from butler.config import get_butler_home
 
-        return get_butler_home() / "audit" / "eval_unified.jsonl"
+        return Path(get_butler_home()) / "audit" / "eval_unified.jsonl"
 
     def write_suite_result(self, result: SuiteRunResult, payload: dict[str, Any]) -> str:
         path = self._path()

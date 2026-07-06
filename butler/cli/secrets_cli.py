@@ -48,7 +48,7 @@ def cmd_secrets_encrypt(ns: argparse.Namespace) -> int:
     return 0 if result.get("ok") else 1
 
 
-def register_secrets_subparser(sub: argparse._SubParsersAction) -> None:
+def register_secrets_subparser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     sec = sub.add_parser("secrets", help="Provider API 密钥（secrets.yaml，不进 config.yaml）")
     sec_sub = sec.add_subparsers(dest="secrets_cmd", required=True)
     st = sec_sub.add_parser("set", help="写入 provider API key")

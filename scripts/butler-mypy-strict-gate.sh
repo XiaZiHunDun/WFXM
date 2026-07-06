@@ -710,6 +710,48 @@ MODULES=(
   butler/execution_context.py
   butler/task_orchestrator.py
   butler/gateway_settings.py
+  butler/cli/__init__.py
+  butler/cli/doctor.py
+  butler/cli/spinner.py
+  butler/eval_integration/__init__.py
+  butler/eval_integration/presets.py
+  butler/eval_integration/report_schema.py
+  butler/eval_integration/sinks/__init__.py
+  butler/eval_integration/suite_registry.py
+  butler/eval_integration/suites/__init__.py
+  butler/eval_integration/suites/agent_weekly_suite.py
+  butler/eval_integration/suites/deepeval_suite.py
+  butler/eval_integration/suites/hermes_gate_suite.py
+  butler/eval_integration/suites/ragas_suite.py
+  butler/eval_integration/suites/regression_suite.py
+  butler/eval_integration/suites/wechat_corpus_suite.py
+  butler/eval_integration/sync_policy.py
+  butler/defaults/__init__.py
+  butler/defaults/env_defaults.py
+  butler/defaults/env_domains.py
+  butler/report/__init__.py
+  butler/report/acceptance_card.py
+  butler/cli/eval_cli.py
+  butler/cli/experiment_cli.py
+  butler/cli/onboard_cli.py
+  butler/cli/prompt_eval_cli.py
+  butler/cli/provider_presets_cli.py
+  butler/cli/registry_cli.py
+  butler/cli/secrets_cli.py
+  butler/cli/stream.py
+  butler/cli/transcript_cli.py
+  butler/cli/workflow_cli.py
+  butler/eval_integration/oss/prefetch_audit_loader.py
+  butler/eval_integration/sinks/audit_sink.py
+  butler/eval_integration/sinks/deepeval_sink.py
+  butler/eval_integration/sinks/junit_sink.py
+  butler/eval_integration/sinks/langfuse_sink.py
+  butler/eval_integration/sinks/ragas_sink.py
+  butler/eval_integration/suites/b9_oracle_suite.py
+  butler/eval_integration/suites/capability_suite.py
+  butler/eval_integration/suites/memory_mb_suite.py
+  butler/eval_integration/suites/tcr_suite.py
+  butler/report/store.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="

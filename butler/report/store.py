@@ -14,7 +14,7 @@ from butler.report.generator import AgentReport
 def _reports_root() -> Path:
     from butler.config import get_butler_settings
 
-    root = get_butler_settings().butler_home / "runtime" / "reports"
+    root = Path(get_butler_settings().butler_home) / "runtime" / "reports"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

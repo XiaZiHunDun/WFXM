@@ -126,7 +126,7 @@ def _cmd_experiment_discard(ns: argparse.Namespace) -> int:
     return 0
 
 
-def register_experiment_parser(sub) -> None:
+def register_experiment_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     exp = sub.add_parser("experiment", help="实验账本（harness / METRIC / keep-discard）")
     exp_sub = exp.add_subparsers(dest="experiment_cmd", required=True)
 

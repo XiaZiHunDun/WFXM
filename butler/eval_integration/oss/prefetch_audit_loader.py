@@ -11,7 +11,7 @@ from butler.env_parse import int_env
 
 
 def _sessions_root() -> Path:
-    return get_butler_home() / "sessions"
+    return Path(get_butler_home()) / "sessions"
 
 
 def _iter_transcript_files(limit: int) -> list[Path]:

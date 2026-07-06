@@ -10,7 +10,7 @@ from butler.env_parse import float_env
 
 def _min_b9_pass_rate() -> float:
     try:
-        return float_env("BUTLER_EVAL_B9_PASS_RATE_MIN", 1.0)
+        return float(float_env("BUTLER_EVAL_B9_PASS_RATE_MIN", 1.0))
     except ValueError:
         return 1.0
 

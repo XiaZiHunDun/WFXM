@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 from butler.contracts.eval_ports import SuiteRunResult
 
@@ -30,7 +31,7 @@ class CapabilitySuite:
             env={**__import__("os").environ, "PYTHONPATH": str(ROOT)},
         )
         report_path = ROOT / ".butler" / "reports" / "capability-baseline.json"
-        metrics: dict = {}
+        metrics: dict[str, Any] = {}
         if report_path.is_file():
             metrics = json.loads(report_path.read_text(encoding="utf-8"))
         ok = proc.returncode == 0

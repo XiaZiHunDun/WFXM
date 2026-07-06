@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 
-def register_transcript_parser(sub: argparse._SubParsersAction) -> None:
+def register_transcript_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     transcript = sub.add_parser("transcript", help="会话 transcript 索引维护")
     sp = transcript.add_subparsers(dest="transcript_cmd", required=True)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 
 
-def register_onboard_parser(sub: argparse._SubParsersAction) -> None:
+def register_onboard_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     p = sub.add_parser(
         "onboard",
         help="部署剖面上手一页纸（必填 env + 下一步）",

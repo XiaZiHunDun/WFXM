@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.contracts.eval_ports import SuiteRunResult
 
@@ -25,4 +25,5 @@ class JUnitSink:
     def read_latest(self, suite_id: str) -> dict[str, Any] | None:
         if suite_id != "tcr" or not TCR_REPORT.is_file():
             return None
-        return json.loads(TCR_REPORT.read_text(encoding="utf-8"))
+        data = json.loads(TCR_REPORT.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], data) if isinstance(data, dict) else None
