@@ -775,6 +775,12 @@ module = [
     "butler.delegate.policy",
     "butler.delegate.subagent_permissions",
     "butler.permissions.approvals",
+    "butler.registry.mcp_merge",
+    "butler.registry.url_safety",
+    "butler.registry.marketplace_compat",
+    "butler.workflows.commands",
+    "butler.registry.paths",
+    "butler.registry.mcp_install",
 ]
 strict = true
 

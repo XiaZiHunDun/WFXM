@@ -217,16 +217,15 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 27）
+#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 28）
 
-**目标**：`butler/contracts/` 全包 + P0/P1-C 核心接缝 + CC 关键路径 + gateway/transport/registry + tools 主模块长尾 + **Batch 21–27 域扩展**（各域主模块，非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
+**目标**：各域主模块（非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
 
 **验收**（`bash scripts/butler-mypy-strict-gate.sh`）：
-- **654** 模块 strict 绿（Batch 26 **647** → Batch 27 **654**）：纳入 **7** 个 3-error 主模块（`registry` 4 · `delegate` 2 · `permissions/approvals`）；minimal 修债：`bool()`/`Path()`/`int()`/`float()`/`str()`/`cast()`、`dict[str, Any]`、`SkillSource` misc
+- **660** 模块 strict 绿（Batch 27 **654** → Batch 28 **660**）：纳入 **6** 个 4–6 error 主模块（`registry` 5 · `workflows/commands`）；含 `url_safety` 注解补全、`mcp_install` 补 `json` import、`marketplace_compat` adopted 窄化
 - `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步
-- 入 `butler-pytest-fast-gate.sh`（既有）
 
-**剩余 backlog**：`*_ops.py` 与全仓库无 skip strict 不在范围；`registry`/`workflows`/`permissions`/`project` 仍有 4-error+ 长尾（`paths` 6 · `model` 8 · `rules_context` 6 · `commands` 5）
+**剩余 backlog**：`permissions/rules_context`（6）· `project/model`（8）；`registry` 主模块已全部入 gate
 
 #### 方向 G：文档卫生清理 — **done** 2026-06-29
 

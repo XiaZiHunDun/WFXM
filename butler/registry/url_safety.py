@@ -6,6 +6,8 @@ import contextlib
 import ipaddress
 import os
 import socket
+from collections.abc import Iterator
+from typing import Any
 from urllib.parse import urlparse
 
 _BLOCKED_SCHEMES = frozenset({"http", "https"})
@@ -72,7 +74,7 @@ def is_safe_url(url: str) -> bool:
     return True
 
 
-def httpx_fetch_kwargs() -> dict:
+def httpx_fetch_kwargs() -> dict[str, Any]:
     """Registry HTTP clients should not follow redirects (SSRF hardening)."""
     return {"follow_redirects": False, "timeout": 25.0}
 
@@ -83,7 +85,7 @@ def assert_safe_redirect(url: str) -> bool:
 
 
 @contextlib.contextmanager
-def _pinned_dns(host_to_ips: dict[str, list[str]]):
+def _pinned_dns(host_to_ips: dict[str, list[str]]) -> Iterator[None]:
     """Pin host → list of IPs for the duration of the context.
 
     Sprint 22-2 SEC-21-A-3: DNS rebinding mitigation. `is_safe_url`
@@ -99,7 +101,7 @@ def _pinned_dns(host_to_ips: dict[str, list[str]]):
         return
     original = socket.getaddrinfo
 
-    def patched(host, *args, **kwargs):
+    def patched(host: str, *args: Any, **kwargs: Any) -> Any:
         if host in host_to_ips:
             ips = host_to_ips[host]
             port = args[0] if args else kwargs.get("port", 0)
@@ -111,7 +113,7 @@ def _pinned_dns(host_to_ips: dict[str, list[str]]):
             return results
         return original(host, *args, **kwargs)
 
-    socket.getaddrinfo = patched
+    socket.getaddrinfo = patched  # type: ignore[assignment]
     try:
         yield
     finally:
@@ -134,7 +136,7 @@ def _resolve_public_ips(host: str) -> list[str]:
         ) from exc
     public_ips: list[str] = []
     for info in infos:
-        ip_str = info[4][0]
+        ip_str = str(info[4][0])
         try:
             addr = ipaddress.ip_address(ip_str)
         except ValueError:

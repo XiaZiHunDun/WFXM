@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.registry.audit import append_audit
 from butler.registry.mcp_catalog import McpCatalogEntry, McpCatalogService
@@ -93,7 +94,7 @@ def probe_server(server_id: str, block: dict[str, Any]) -> dict[str, Any]:
     """Best-effort probe; requires MCP SDK and BUTLER_MCP_ENABLED."""
     from butler.registry.mcp_install_ops import probe_server_safe
 
-    return probe_server_safe(server_id, block)
+    return cast(dict[str, Any], probe_server_safe(server_id, block))
 
 
 def install_catalog_server(
@@ -174,7 +175,7 @@ def reload_mcp_connections() -> tuple[bool, str]:
     """Disconnect all MCP handles; next turn reloads YAML."""
     from butler.registry.mcp_install_ops import reload_mcp_connections_safe
 
-    return reload_mcp_connections_safe()
+    return cast(tuple[bool, str], reload_mcp_connections_safe())
 
 
 def remove_mcp_server(

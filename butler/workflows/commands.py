@@ -35,8 +35,8 @@ def handle_workflow_command(
 
         if platform in ("wechat", "weixin", "微信"):
             header = f"项目: {current_name}\n" if current_name else ""
-            return header + format_workflows_for_wechat(project)
-        return format_workflows_for_prompt(project)
+            return str(header + format_workflows_for_wechat(project))
+        return str(format_workflows_for_prompt(project))
 
     if sub in {"preview", "预览"}:
         from butler.workflows.loader import format_workflow_preview
@@ -46,7 +46,7 @@ def handle_workflow_command(
         if not wf_name:
             names = ", ".join(wf.name for wf in list_workflows_for_project(project)) or "(无)"
             return f"用法: /工作流 preview <名称> [--dry-run]\n可用: {names}"
-        return format_workflow_preview(project, wf_name, dry_run=dry_run)
+        return str(format_workflow_preview(project, wf_name, dry_run=dry_run))
 
     if sub in {"run", "start", "执行", "运行"}:
         run_parts = hint.split(maxsplit=1)
@@ -58,12 +58,14 @@ def handle_workflow_command(
         wf = resolve_workflow(project, wf_name)
         if wf is None:
             return f"未找到工作流: {wf_name}"
-        return run_workflow_for_project(
-            project,
-            wf_name,
-            user_hint=user_hint,
-            session_key=session_key,
-            orchestrator=orchestrator,
+        return str(
+            run_workflow_for_project(
+                project,
+                wf_name,
+                user_hint=user_hint,
+                session_key=session_key,
+                orchestrator=orchestrator,
+            )
         )
 
     # Shorthand: `/工作流 novel-factory 补充说明`
@@ -73,12 +75,14 @@ def handle_workflow_command(
             f"未知子命令或工作流: {sub}\n"
             "用法: /工作流 list | /工作流 run <名称> [说明]"
         )
-    return run_workflow_for_project(
-        project,
-        sub,
-        user_hint=hint,
-        session_key=session_key,
-        orchestrator=orchestrator,
+    return str(
+        run_workflow_for_project(
+            project,
+            sub,
+            user_hint=hint,
+            session_key=session_key,
+            orchestrator=orchestrator,
+        )
     )
 
 

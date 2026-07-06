@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.mcp.config import _resolve_config_paths
 from butler.registry.paths import default_mcp_config_path
@@ -66,7 +66,10 @@ def _load_servers_block(path: Path) -> dict[str, Any] | None:
     """
     from butler.registry.mcp_merge_ops import load_servers_yaml_block_safe
 
-    return load_servers_yaml_block_safe(path, record_corruption=_record_corruption)
+    return cast(
+        dict[str, Any] | None,
+        load_servers_yaml_block_safe(path, record_corruption=_record_corruption),
+    )
 
 @dataclass(frozen=True)
 class McpConfigLayer:
@@ -98,7 +101,7 @@ def resolve_mcp_write_path(
         if workspace is None or not workspace.is_dir():
             raise ValueError("项目层安装需要有效 --workspace 或已绑定项目工作区")
         return project_mcp_config_path(workspace)
-    return default_mcp_config_path()
+    return Path(default_mcp_config_path())
 
 
 def find_server_config_path(
@@ -135,8 +138,8 @@ def resolve_workspace_for_session(session_key: str = "") -> Path | None:
     sk = str(session_key or "").strip()
     ws = resolve_orchestrator_workspace_safe(sk)
     if ws is not None:
-        return ws
-    return resolve_project_manager_workspace_safe(sk)
+        return cast(Path | None, ws)
+    return cast(Path | None, resolve_project_manager_workspace_safe(sk))
 
 
 def _path_label(path: Path, workspace: Path | None) -> str:

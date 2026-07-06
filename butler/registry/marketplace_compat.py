@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.registry.skill_sources.marketplace import (
     _catalog_entries,
@@ -17,7 +17,7 @@ from butler.registry.skill_sources.marketplace import (
 def _load_mcp_server_ids() -> set[str]:
     from butler.registry.marketplace_compat_ops import load_mcp_server_ids_safe
 
-    return load_mcp_server_ids_safe()
+    return cast(set[str], load_mcp_server_ids_safe())
 
 
 def marketplace_document(mp_id: str) -> dict[str, Any] | None:
@@ -42,7 +42,8 @@ def format_adoption_lines(compat: dict[str, Any]) -> list[str]:
     plugin = str(compat.get("claude_plugin") or compat.get("plugin") or "").strip()
     if plugin:
         lines.append(f"plugin:{plugin}")
-    adopted = compat.get("adopted") if isinstance(compat.get("adopted"), dict) else {}
+    raw_adopted = compat.get("adopted")
+    adopted: dict[str, Any] = raw_adopted if isinstance(raw_adopted, dict) else {}
     for key in ("skills", "mcp", "l2"):
         vals = adopted.get(key)
         if isinstance(vals, list) and vals:
@@ -63,10 +64,12 @@ def install_followup_lines(identifier: str) -> list[str]:
     if not compat:
         return []
     lines: list[str] = []
-    adopted = compat.get("adopted") if isinstance(compat.get("adopted"), dict) else {}
+    raw_adopted = compat.get("adopted")
+    adopted: dict[str, Any] = raw_adopted if isinstance(raw_adopted, dict) else {}
     suggested = compat.get("mcp_suggested")
     if not isinstance(suggested, list):
-        suggested = adopted.get("mcp") if isinstance(adopted.get("mcp"), list) else []
+        raw_mcp = adopted.get("mcp")
+        suggested = raw_mcp if isinstance(raw_mcp, list) else []
     configured = _load_mcp_server_ids()
     for row in suggested:
         sid = ""

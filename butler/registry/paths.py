@@ -24,35 +24,34 @@ def enabled_sources() -> list[str]:
 
 def resolve_tenant_id(tenant_id: str = "") -> str:
     if tenant_id.strip():
-        return normalize_tenant_id(tenant_id)
+        return str(normalize_tenant_id(tenant_id))
     from butler.registry.registry_paths_ops import resolve_tenant_id_safe
 
-    return resolve_tenant_id_safe()
+    return str(resolve_tenant_id_safe())
 
 
 def skills_root(*, tenant_id: str = "") -> Path:
-    home = get_butler_home()
-    return tenant_skills_dir(home, resolve_tenant_id(tenant_id))
+    return Path(tenant_skills_dir(Path(get_butler_home()), resolve_tenant_id(tenant_id)))
 
 
 def hub_dir(*, tenant_id: str = "") -> Path:
-    return skills_root(tenant_id=tenant_id) / ".hub"
+    return Path(skills_root(tenant_id=tenant_id)) / ".hub"
 
 
 def quarantine_dir(*, tenant_id: str = "") -> Path:
-    return hub_dir(tenant_id=tenant_id) / "quarantine"
+    return Path(hub_dir(tenant_id=tenant_id)) / "quarantine"
 
 
 def lock_path(*, tenant_id: str = "") -> Path:
-    return hub_dir(tenant_id=tenant_id) / "lock.json"
+    return Path(hub_dir(tenant_id=tenant_id)) / "lock.json"
 
 
 def audit_path() -> Path:
-    return get_butler_home() / "audit" / "registry.log"
+    return Path(get_butler_home()) / "audit" / "registry.log"
 
 
 def mcp_lock_path() -> Path:
-    return get_butler_home() / "mcp.lock.json"
+    return Path(get_butler_home()) / "mcp.lock.json"
 
 
 def catalog_dir() -> Path:
@@ -63,4 +62,4 @@ def default_mcp_config_path() -> Path:
     env = os.getenv("BUTLER_MCP_CONFIG", "").strip()
     if env:
         return Path(env).expanduser()
-    return get_butler_home() / "mcp.yaml"
+    return Path(get_butler_home()) / "mcp.yaml"
