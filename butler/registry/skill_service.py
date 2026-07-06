@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+from typing import Any, cast
 
 from butler.registry.paths import enabled_sources, registry_enabled
 from butler.registry.skill_install import (
@@ -92,7 +93,7 @@ def _resolve_identifier(identifier: str, sources: list[SkillSource]) -> str:
             if row.name.lower() == q:
                 exact.append(row)
     if len(exact) == 1:
-        return exact[0].identifier
+        return str(exact[0].identifier)
     if len(exact) > 1:
         raise ValueError(
             f"Ambiguous skill name '{ident}'. Use full identifier: "
@@ -248,10 +249,10 @@ class SkillRegistryService:
         return self.install(rec.identifier, force=force)
 
     def uninstall(self, name: str) -> tuple[bool, str]:
-        return uninstall_skill(name, tenant_id=self.tenant_id)
+        return cast(tuple[bool, str], uninstall_skill(name, tenant_id=self.tenant_id))
 
     def list_installed(self) -> list[InstalledSkillRecord]:
-        return SkillLockFile(tenant_id=self.tenant_id).list_installed()
+        return list(SkillLockFile(tenant_id=self.tenant_id).list_installed())
 
     def format_search_table(self, hits: list[SkillSearchHit]) -> str:
         if not hits:

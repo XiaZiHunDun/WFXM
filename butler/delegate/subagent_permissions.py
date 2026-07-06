@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from typing import Any
+
 from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
 from butler.permissions.rules import _load_permissions_yaml
 from butler.tools.pim_schema import ALL_PIM_TOOLS
@@ -18,11 +20,11 @@ _DEFAULT_SUBAGENT_DENY = frozenset({
 
 
 def filter_tools_for_subagent(
-    tools: list[dict],
+    tools: list[dict[str, Any]],
     *,
     workspace: Path | None = None,
     role: str = "",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Narrow tool list for delegate_task child loops."""
     cfg = _load_permissions_yaml(workspace)
     sub_cfg = cfg.get("delegate_subagent")
@@ -63,7 +65,7 @@ def filter_tools_for_subagent(
             if isinstance(role_deny, list):
                 denied.update(str(t).strip() for t in role_deny if str(t).strip())
 
-    filtered: list[dict] = []
+    filtered: list[dict[str, Any]] = []
     for t in tools:
         name = str((t.get("function") or {}).get("name") or "")
         if name in denied:

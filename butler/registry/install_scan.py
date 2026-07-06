@@ -43,11 +43,11 @@ class InstallScanResult:
 
 
 def install_pre_scan_enabled() -> bool:
-    return env_truthy("BUTLER_INSTALL_PRE_SCAN", default=True)
+    return bool(env_truthy("BUTLER_INSTALL_PRE_SCAN", default=True))
 
 
 def install_pre_scan_fail_closed() -> bool:
-    return env_truthy("BUTLER_INSTALL_PRE_SCAN_FAIL_CLOSED", default=True)
+    return bool(env_truthy("BUTLER_INSTALL_PRE_SCAN_FAIL_CLOSED", default=True))
 
 
 def _finalize(issues: list[str], *, source: str) -> InstallScanResult:
@@ -63,7 +63,7 @@ def _finalize(issues: list[str], *, source: str) -> InstallScanResult:
 
 
 def _scan_text_blob(text: str) -> list[str]:
-    return scan_skill_text(text)
+    return list(scan_skill_text(text))
 
 
 def _build_mcp_scan_blob(entry: McpCatalogEntry, block: dict[str, Any]) -> str:

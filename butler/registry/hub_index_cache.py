@@ -21,17 +21,17 @@ _GLOBAL_CACHE_TENANT = "__global__"
 
 def cache_ttl_seconds() -> int:
     try:
-        return int_env("BUTLER_REGISTRY_CACHE_TTL", 3600, min=60)
+        return int(int_env("BUTLER_REGISTRY_CACHE_TTL", 3600, min=60))
     except ValueError:
         return 3600
 
 
 def _cache_dir(*, tenant_id: str = "") -> Path:
     if tenant_id == _GLOBAL_CACHE_TENANT:
-        d = get_butler_home() / "registry-cache"
+        d = Path(get_butler_home()) / "registry-cache"
         d.mkdir(parents=True, exist_ok=True)
         return d
-    d = hub_dir(tenant_id=tenant_id) / "index-cache"
+    d = Path(hub_dir(tenant_id=tenant_id)) / "index-cache"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

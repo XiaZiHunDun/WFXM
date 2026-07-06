@@ -665,6 +665,13 @@ MODULES=(
   butler/project/meta.py
   butler/project/preflight.py
   butler/project/worktree.py
+  butler/registry/hub_index_cache.py
+  butler/registry/install_scan.py
+  butler/registry/skill_service.py
+  butler/registry/skill_sources/github.py
+  butler/delegate/policy.py
+  butler/delegate/subagent_permissions.py
+  butler/permissions/approvals.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="

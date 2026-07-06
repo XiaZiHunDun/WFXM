@@ -768,6 +768,13 @@ module = [
     "butler.project.meta",
     "butler.project.preflight",
     "butler.project.worktree",
+    "butler.registry.hub_index_cache",
+    "butler.registry.install_scan",
+    "butler.registry.skill_service",
+    "butler.registry.skill_sources.github",
+    "butler.delegate.policy",
+    "butler.delegate.subagent_permissions",
+    "butler.permissions.approvals",
 ]
 strict = true
 

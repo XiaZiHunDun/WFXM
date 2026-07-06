@@ -42,7 +42,7 @@ class ApprovalRequest:
 
 def once_ttl_seconds() -> float:
     try:
-        return float_env("BUTLER_PERMISSION_ONCE_TTL", _ONCE_TTL_SEC, min=60.0)
+        return float(float_env("BUTLER_PERMISSION_ONCE_TTL", _ONCE_TTL_SEC, min=60.0))
     except ValueError:
         return _ONCE_TTL_SEC
 
@@ -56,7 +56,7 @@ def _safe_segment(value: str) -> str:
 
 def approvals_path(session_key: str) -> Path:
     sk = _safe_segment(session_key)
-    path = get_butler_home() / "sessions" / sk / "approvals.json"
+    path = Path(get_butler_home()) / "sessions" / sk / "approvals.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -210,7 +210,7 @@ def _match_entry(
     pat = str(entry.get("pattern") or "*")
     if pat == "*":
         return True
-    return match_path_glob(pat, request.pattern)
+    return bool(match_path_glob(pat, request.pattern))
 
 
 def is_approved(

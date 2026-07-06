@@ -68,7 +68,7 @@ def _parse_identifier(identifier: str) -> tuple[str, str, str] | None:
     return owner, repo, path
 
 
-class GitHubSource(SkillSource):
+class GitHubSource(SkillSource):  # type: ignore[misc]
     @property
     def source_id(self) -> str:
         return "github"
@@ -159,7 +159,7 @@ def _fetch_raw(owner: str, repo: str, path: str, ref: str = "main") -> str | Non
 
             resp = safe_registry_get(url)
             if resp.status_code == 200:
-                return resp.text
+                return str(resp.text)
         except httpx.HTTPError:
             # Audit R2-15: network / timeout / 5xx fall through to the next
             # branch. ValueError from safe_registry_get's SSRF guard is
@@ -316,7 +316,7 @@ def _download_github_file(item: dict[str, Any]) -> str | None:
 
             resp = safe_registry_get(download, timeout=20.0)
             if resp.status_code == 200:
-                return resp.text
+                return str(resp.text)
         except httpx.HTTPError as exc:
             logger.debug("github download_url failed: %s", exc)
         except ValueError:
