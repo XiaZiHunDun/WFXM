@@ -15,6 +15,7 @@ import types
 from pathlib import Path
 from typing import Any, cast
 
+from butler.config import get_butler_home
 from rich.console import Console
 
 
@@ -288,7 +289,6 @@ def _add_reindex_args(p: argparse.ArgumentParser) -> None:
 
 
 def _cmd_memory_search(ns: argparse.Namespace) -> int:
-    from butler.config import get_butler_home
     from butler.memory.search_cli import format_search_json, run_memory_search
 
     payload = run_memory_search(
@@ -312,7 +312,6 @@ def _cmd_memory_seed(ns: argparse.Namespace) -> int:
     import json
     from pathlib import Path
 
-    from butler.config import get_butler_home
     from butler.memory.owner_experience_seed import run_owner_experience_seed
 
     seed_path = Path(ns.seed_path).expanduser() if str(ns.seed_path or "").strip() else None
@@ -330,7 +329,6 @@ def _cmd_memory_seed(ns: argparse.Namespace) -> int:
 def _cmd_memory_gc(ns: argparse.Namespace) -> int:
     import json
 
-    from butler.config import get_butler_home
     from butler.memory.vector_gc import run_memory_gc
 
     result = run_memory_gc(
@@ -356,7 +354,6 @@ def _cmd_memory_gc(ns: argparse.Namespace) -> int:
 def _cmd_memory_diagnose(ns: argparse.Namespace) -> int:
     import json
 
-    from butler.config import get_butler_home
     from butler.memory.scope_diagnostics import run_memory_scope_diagnose
 
     payload = run_memory_scope_diagnose(
@@ -376,7 +373,6 @@ def _cmd_memory_diagnose(ns: argparse.Namespace) -> int:
 def _cmd_memory_backfill_scopes(ns: argparse.Namespace) -> int:
     import json
 
-    from butler.config import get_butler_home
     from butler.memory.scope_diagnostics import backfill_tenant_coding_scopes
 
     result = backfill_tenant_coding_scopes(
@@ -395,7 +391,6 @@ def _cmd_memory_backfill_scopes(ns: argparse.Namespace) -> int:
 def _cmd_memory_migrate_lingwen_l3(ns: argparse.Namespace) -> int:
     import json
 
-    from butler.config import get_butler_home
     from butler.dev_engine.prod_delegate_bridge import migrate_lingwen_experiences_to_l3
 
     result = migrate_lingwen_experiences_to_l3(
@@ -507,7 +502,6 @@ def _cmd_memory_reject(ns: argparse.Namespace) -> int:
 
 
 def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:
-    from butler.config import get_butler_home
     from butler.memory.experience_consolidation import (
         apply_merge_pending,
         dismiss_merge_pending,
@@ -555,7 +549,6 @@ def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:
 
 
 def _cmd_memory_reindex(ns: argparse.Namespace) -> int:
-    from butler.config import get_butler_home
     from butler.memory.reindex import ensure_semantic_enabled_msg, reindex_semantic_memory
 
     hint = ensure_semantic_enabled_msg()

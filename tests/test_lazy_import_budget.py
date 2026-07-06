@@ -13,6 +13,15 @@ def test_lazy_import_count_within_budget():
     )
 
 
+def test_lazy_import_counter_ignores_module_level():
+    from butler.ops.lazy_import_budget import count_module_level_butler_imports
+
+    lazy = count_lazy_butler_imports()
+    module = count_module_level_butler_imports()
+    assert lazy < lazy + module
+    assert module > 0
+
+
 def test_call_llm_with_retry_under_line_budget():
     """ENG direction C: orchestrator stays thin after submodule split."""
     import inspect

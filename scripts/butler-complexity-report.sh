@@ -38,7 +38,6 @@ py_files = sorted(
 
 large_files: list[dict] = []
 long_funcs: list[dict] = []
-lazy_imports = 0
 
 for path in py_files:
     rel = path.relative_to(root).as_posix()
@@ -46,9 +45,6 @@ for path in py_files:
     lines = text.count("\n") + (1 if text else 0)
     if lines >= min_file:
         large_files.append({"path": rel, "lines": lines})
-    lazy_imports += sum(
-        1 for line in text.splitlines() if line.lstrip().startswith("from butler.")
-    )
     try:
         tree = ast.parse(text)
     except SyntaxError:
@@ -72,6 +68,14 @@ for path in py_files:
 large_files.sort(key=lambda x: -x["lines"])
 long_funcs.sort(key=lambda x: (-x["lines"], x["path"], x["name"]))
 
+from butler.ops.lazy_import_budget import (
+    LAZY_IMPORT_BUDGET,
+    count_lazy_butler_imports,
+    count_module_level_butler_imports,
+)
+
+lazy_imports = count_lazy_butler_imports()
+
 report = {
     "python_files": len(py_files),
     "files_ge_600_lines": len(large_files),
@@ -89,8 +93,8 @@ print("=== Butler complexity report (ENG-1) ===")
 print(f"python_files={report['python_files']}")
 print(f"files>={min_file}L={report['files_ge_600_lines']}")
 print(f"functions>={min_fn}L={report['functions_ge_80_lines']}")
-print(f"lazy_from_butler_imports={report['lazy_from_butler_imports']}")
-from butler.ops.lazy_import_budget import LAZY_IMPORT_BUDGET
+print(f"lazy_from_butler_imports={report['lazy_from_butler_imports']} (function-scoped)")
+print(f"module_level_from_butler={count_module_level_butler_imports()}")
 if report["lazy_from_butler_imports"] > LAZY_IMPORT_BUDGET:
     print(f"WARN: lazy imports exceed budget {LAZY_IMPORT_BUDGET}")
 print("")

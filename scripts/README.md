@@ -53,6 +53,8 @@
 | `butler-pre-release-smoke.sh` | 1 gateway → **1b P3-H verify** → 2 pytest → **2b orthogonality** → 3–5 微信/媒体 → 6 灵文 runtime → 7 **灵文 Lead** → 8 dev 委派 → 9 DemoPilot → 10 B9 → 11–13 路由/owner sim |
 | `butler-five-reports-gate.sh` | 五报告 P5–P10 + PR-F 单测 + `prompt-eval.sh` + `registry verify` |
 | `butler-extension-ext1-preflight.sh` | EXT-1 Firecrawl MCP 就绪检查（Node/npx/配置） |
+| `p3i-lazy-import-report.sh` | P3-I：函数内 `from butler.*` 懒 import 报告 vs `LAZY_IMPORT_BUDGET` |
+| `p3j-env-hygiene-gate.sh` | P3-J：`check-env-reference-sync` + `check-dead-env` |
 | `check-dead-env.sh` | `reference.md` 中 `BUTLER_*` 须在 `butler/` 有 reader（脚本/测试 key 白名单） |
 | `check-env-reference-sync.sh` | `reference.md` 主表 ↔ `.env.example` 键对齐（含 `*` 前缀行） |
 | `prompt-eval.sh` | Prompt pattern rubric + `test_five_reports_p7/p9/p10` |

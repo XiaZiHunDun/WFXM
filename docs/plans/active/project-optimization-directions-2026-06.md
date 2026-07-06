@@ -45,7 +45,7 @@
 
 - `butler/contracts/` 已建（EventsSink + OwnerGate + BridgeAccess）
 - `core/` / `tools/` 直 import `gateway.*` 已 AST 守门（ENG-7）
-- 延迟 `from butler.*`：**~3627**（`LAZY_IMPORT_BUDGET=3650`，`tests/test_lazy_import_budget.py`）
+- 延迟 `from butler.*`（**函数内**，AST 计数）：**~3593**（`LAZY_IMPORT_BUDGET=3650`，`tests/test_lazy_import_budget.py`；报告 `scripts/p3i-lazy-import-report.sh`）
 
 ### S3 — 大函数 / 大文件残留
 
@@ -73,7 +73,7 @@
 
 - 全量 pytest（排除 corpus）：**0 fail**（ENG-9，6250+ pass）
 - 发版以 `butler-pytest-fast-gate.sh` + `butler-eng-domain-gate.sh` 为准
-- mypy strict 子集：`butler-mypy-strict-gate.sh`（**361** 模块）入 fast-gate
+- mypy strict 主模块：`butler-mypy-strict-gate.sh`（**826** 模块，`--follow-imports=skip`）入 fast-gate
 
 ### S5 — 文档与代码不一致（已收口 2026-06-29）
 
@@ -249,25 +249,27 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 - 明确文档：`vector_store.py`（ChromaDB）= 非生产/实验 only
 - 评估 Observation Store 从 opt-in 派生升为辅助检索层
 
-#### 方向 I：延迟导入减量
+#### 方向 I：延迟导入减量 — **进行中** 2026-07-06（P3-I Batch 1）
 
-- 目标：3189 → 2000（~37% 减量）
-- 手段：contracts Protocol 替代 + 运行时注入 + 按需 import
-- 配合 ENG-6/7 分批推进
+- **基线**：函数内 `from butler.*` **3593**（模块顶 **1382**；P3-I Batch 1 自 **3601** 起 AST 计数）
+- **目标**：3601 → 2000（~44% 减量，长期）
+- **手段**：contracts Protocol 替代 + 运行时注入 + 安全 hoist（无环）+ 按需 import
+- **Batch 1**：AST 精确计数（`lazy_import_budget.py`）· `p3i-lazy-import-report.sh` · `memory_cli` hoist `get_butler_home`（−8）
+- **下一批候选**：`locked_phases.py`（47）· `chat_cli.py`（42）· `info_commands.py`（39）
 
-#### 方向 J：配置面收敛
+#### 方向 J：配置面收敛 — **进行中** 2026-07-06（P3-J Batch 1）
 
-- 540 项 env 中评估可合并/废弃项
-- `check-dead-env.sh` + CI 集成
-- 考虑 schema-driven reference.md 自动生成
+- ~540 项 env（`.env.example`）；`check-dead-env.sh` + `check-env-reference-sync.sh` 已入 **`p3j-env-hygiene-gate.sh`**（ENG domain gate）
+- **Batch 1**：env hygiene gate 集成；dead-env / reference-sync 守门绿
+- **下一批**：reference 与 `.env.example` 差集审计 · 废弃 key 标记 · schema-driven reference  PoC
 
 ---
 
 ## 四、执行节奏建议
 
 ```
-已完成（2026-06-30）
-├─ P0-A/B · P1-C · P2-G · P1-D · P2-E · P2-F（mypy **474** 模块）✅
+已完成（2026-07-06）
+├─ P0-A/B · P1-C · P2-G · P1-D · P2-E · P2-F（mypy **826** 主模块）✅
 └─ P3-H 记忆统一检索 Phase 1–3 + lead 剖面 rollout（2026-07-02）✅
 
 现在 → 07-31（G1-04 窗内）
@@ -275,12 +277,14 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 ├─ 07-27: TCR strict flip（见 ops 日历）
 └─ 07-31: G1-04 窗满结案（butler-g1-04-closure-check.sh）
 
-07-31 → 08 月（G1-04 结案后）
-└─ P3-I/J: 延迟 import · 配置收敛
+进行中（2026-07-06）
+├─ P3-I Batch 1：AST lazy-import 计数 + report + memory_cli hoist
+└─ P3-J Batch 1：p3j-env-hygiene-gate → eng-domain gate
 
-Backlog（条件触发 / 下一批）
-├─ P3-I: 延迟 import 减量
-└─ P3-J: 配置面收敛
+Backlog（G1-04 结案后加深）
+├─ P3-I：locked_phases / chat_cli / info_commands 懒 import 减量
+├─ P3-J：env 差集审计 · 废弃 key 标记
+└─ P2-F-ops（可选）：388 个 *_ops.py strict
 
 持续：
 ├─ 改 gateway 后 restart

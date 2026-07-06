@@ -44,7 +44,9 @@
 cd /path/to/WFXM
 # 本地/PR 快速门禁（smoke quick + 微信附件 + CC 线束，约 3–5 分钟）
 ./scripts/butler-pytest-fast-gate.sh   # smoke + attach + CC harness + mypy strict（约 3–5 分钟）
-bash scripts/butler-mypy-strict-gate.sh  # mypy strict 37 模块子集
+bash scripts/butler-mypy-strict-gate.sh  # mypy strict 826 主模块（--follow-imports=skip）
+bash scripts/p3j-env-hygiene-gate.sh     # reference ↔ .env.example ↔ butler/ readers
+bash scripts/p3i-lazy-import-report.sh   # 函数内 from butler.* 预算（P3-I）
 # CC 线束（改 core/context/gateway 队列与压缩时）
 ./scripts/butler-cc-harness-gate.sh
 # 或子集：
