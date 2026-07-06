@@ -11,11 +11,14 @@ inline in the old ``_build_parser``.
 from __future__ import annotations
 
 import argparse
+import types
+from pathlib import Path
+from typing import Any, cast
 
 from rich.console import Console
 
 
-def register_memory_parser(sub: argparse._SubParsersAction) -> None:
+def register_memory_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``memory`` (with subcommands) and ``memory-reindex``."""
     from butler import main as _butler_main
 
@@ -31,13 +34,19 @@ def register_memory_parser(sub: argparse._SubParsersAction) -> None:
     ri.set_defaults(func=_butler_main._cmd_memory_reindex)
 
 
-def _register_memory_subcommands(mem_sub: argparse._SubParsersAction, _butler_main) -> None:
+def _register_memory_subcommands(
+    mem_sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    _butler_main: types.ModuleType,
+) -> None:
     _register_memory_search_reindex(mem_sub, _butler_main)
     _register_memory_ops_parsers(mem_sub)
     _register_memory_migrate_parsers(mem_sub)
 
 
-def _register_memory_search_reindex(mem_sub: argparse._SubParsersAction, _butler_main) -> None:
+def _register_memory_search_reindex(
+    mem_sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    _butler_main: types.ModuleType,
+) -> None:
     msearch = mem_sub.add_parser(
         "search",
         help="检索 experience / 项目 MEMORY（--verbose 输出 fallback 与分数分解）",
@@ -77,7 +86,7 @@ def _register_memory_search_reindex(mem_sub: argparse._SubParsersAction, _butler
     mingest.set_defaults(func=_cmd_memory_ingest)
 
 
-def _register_memory_ops_parsers(mem_sub: argparse._SubParsersAction) -> None:
+def _register_memory_ops_parsers(mem_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     mseed = mem_sub.add_parser(
         "seed",
         help="清理 MB5 bench filler 并幂等写入 owner 经验指针种子",
@@ -121,7 +130,7 @@ def _register_memory_ops_parsers(mem_sub: argparse._SubParsersAction) -> None:
     mdiagnose.set_defaults(func=_cmd_memory_diagnose)
 
 
-def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> None:
+def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     _register_memory_observations_parser(mem_sub)
     _register_memory_backfill_scopes_parser(mem_sub)
     _register_memory_migrate_lingwen_parser(mem_sub)
@@ -129,7 +138,7 @@ def _register_memory_migrate_parsers(mem_sub: argparse._SubParsersAction) -> Non
     _register_memory_owner_pending_parsers(mem_sub)
 
 
-def _register_memory_owner_pending_parsers(mem_sub: argparse._SubParsersAction) -> None:
+def _register_memory_owner_pending_parsers(mem_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     mp = mem_sub.add_parser(
         "pending",
         help="列出所有者 + 项目 MEMORY 待审队列（等同微信 /记忆待审）",
@@ -154,7 +163,7 @@ def _register_memory_owner_pending_parsers(mem_sub: argparse._SubParsersAction) 
     mr.set_defaults(func=_cmd_memory_reject)
 
 
-def _register_memory_observations_parser(mem_sub: argparse._SubParsersAction) -> None:
+def _register_memory_observations_parser(mem_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     mobs = mem_sub.add_parser(
         "observations",
         help="workspace observation store 统计（只读）；--migrate 导入遗留 observations.tsv",
@@ -183,7 +192,7 @@ def _register_memory_observations_parser(mem_sub: argparse._SubParsersAction) ->
     mobs.set_defaults(func=_cmd_memory_observations)
 
 
-def _register_memory_backfill_scopes_parser(mem_sub: argparse._SubParsersAction) -> None:
+def _register_memory_backfill_scopes_parser(mem_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     mbackfill = mem_sub.add_parser(
         "backfill-scopes",
         help="将 legacy L4 编码经验推断的 MemoryScope 写回 JSON（P5）",
@@ -196,7 +205,7 @@ def _register_memory_backfill_scopes_parser(mem_sub: argparse._SubParsersAction)
     mbackfill.set_defaults(func=_cmd_memory_backfill_scopes)
 
 
-def _register_memory_migrate_lingwen_parser(mem_sub: argparse._SubParsersAction) -> None:
+def _register_memory_migrate_lingwen_parser(mem_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     mmigrate = mem_sub.add_parser(
         "migrate-lingwen-l3",
         help="将灵文 private B9 经验从 L4 迁到项目 L3",
@@ -209,7 +218,7 @@ def _register_memory_migrate_lingwen_parser(mem_sub: argparse._SubParsersAction)
     mmigrate.set_defaults(func=_cmd_memory_migrate_lingwen_l3)
 
 
-def _register_memory_merge_pending_parser(mem_sub: argparse._SubParsersAction) -> None:
+def _register_memory_merge_pending_parser(mem_sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     mmerge = mem_sub.add_parser(
         "merge-pending",
         help="查看/应用/驳回经验向量近邻合并待审队列",
@@ -438,7 +447,7 @@ def _cmd_memory_observations(ns: argparse.Namespace) -> int:
     return 0 if stats.get("ok") else 1
 
 
-def _merge_pending_emit(result: dict, *, json_out: bool, ok_label: str, err_default: str) -> int:
+def _merge_pending_emit(result: dict[str, Any], *, json_out: bool, ok_label: str, err_default: str) -> int:
     import json
 
     from rich.console import Console
@@ -582,8 +591,7 @@ def _cmd_memory_reindex(ns: argparse.Namespace) -> int:
     return 0
 
 
-def _resolve_ingest_workspace(ns: argparse.Namespace):
-    from pathlib import Path
+def _resolve_ingest_workspace(ns: argparse.Namespace) -> Path | None:
 
     ws_raw = (getattr(ns, "workspace", "") or "").strip()
     if ws_raw:
@@ -597,7 +605,7 @@ def _resolve_ingest_workspace(ns: argparse.Namespace):
         return None
     from butler.cli.memory_cli_ops import resolve_project_workspace_safe
 
-    return resolve_project_workspace_safe(project)
+    return cast(Path | None, resolve_project_workspace_safe(project))
 
 
 def _cmd_memory_ingest(ns: argparse.Namespace) -> int:

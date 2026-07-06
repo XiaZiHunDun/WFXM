@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.env_parse import float_env
 
@@ -106,12 +106,15 @@ def run_llm_pilot(*, warn_only: bool = False) -> tuple[bool, dict[str, Any]]:
     )
     from butler.eval_integration.oss.deepeval_runner_ops import run_llm_pilot_assert_safe
 
-    return run_llm_pilot_assert_safe(
-        test_case=test_case,
-        metric=metric,
-        warn_only=warn_only,
-        threshold=threshold,
-        pilot_case=case.get("id"),
+    return cast(
+        tuple[bool, dict[str, Any]],
+        run_llm_pilot_assert_safe(
+            test_case=test_case,
+            metric=metric,
+            warn_only=warn_only,
+            threshold=threshold,
+            pilot_case=case.get("id"),
+        ),
     )
 
 

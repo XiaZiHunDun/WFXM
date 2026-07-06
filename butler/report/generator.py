@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 _DECISION_PATTERNS = (
     re.compile(r"\*\*\s*rating\s*\*\*\s*:\s*(approve|revise|block|keep|discard)\b", re.I),
@@ -163,7 +163,8 @@ def parse_structured_output(text: str, schema: dict[str, Any] | None) -> dict[st
         except json.JSONDecodeError:
             continue
     field_names: list[str] = []
-    raw_fields = schema.get("fields") if isinstance(schema.get("fields"), list) else []
+    fields_raw = schema.get("fields")
+    raw_fields: list[Any] = fields_raw if isinstance(fields_raw, list) else []
     for item in raw_fields:
         if isinstance(item, str):
             field_names.append(item)
@@ -450,7 +451,7 @@ def _format_task_time(iso: str) -> str:
         from butler.report.generator_ops import format_task_time_shanghai_safe
 
         dt = format_task_time_shanghai_safe(dt)
-        return dt.strftime("%m-%d %H:%M")
+        return str(dt.strftime("%m-%d %H:%M"))
     except ValueError:
         return raw[:16]
 
@@ -626,7 +627,7 @@ def _resolve_report_key(session_key: str | None = None) -> str:
 
     ctx_key = current_session_key_safe()
     if ctx_key:
-        return ctx_key
+        return str(ctx_key)
     return "default"
 
 
@@ -647,7 +648,7 @@ def get_last_report(session_key: str = "") -> AgentReport | None:
         return cached
     from butler.report.generator_ops import load_persisted_report_safe
 
-    loaded = load_persisted_report_safe(key)
+    loaded = cast(AgentReport | None, load_persisted_report_safe(key))
     if loaded is not None:
         _reports[key] = loaded
     return loaded

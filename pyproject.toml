@@ -855,6 +855,13 @@ module = [
     "butler.eval_integration.suites.memory_mb_suite",
     "butler.eval_integration.suites.tcr_suite",
     "butler.report.store",
+    "butler.cli.slash_dispatch",
+    "butler.cli.memory_cli",
+    "butler.eval_integration.manager",
+    "butler.report.format",
+    "butler.report.generator",
+    "butler.eval_integration.oss.deepeval_runner",
+    "butler.eval_integration.oss.ragas_runner",
 ]
 strict = true
 

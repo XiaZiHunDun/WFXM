@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.env_parse import float_env
 
@@ -27,7 +27,7 @@ def _load_cases() -> list[dict[str, Any]]:
 
     audit = load_prefetch_audit_cases()
     if audit:
-        return audit
+        return cast(list[dict[str, Any]], audit)
     if not _FIXTURES.is_file():
         return []
     data = yaml.safe_load(_FIXTURES.read_text(encoding="utf-8")) or {}

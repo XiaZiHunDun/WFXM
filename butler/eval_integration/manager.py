@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.contracts.eval_ports import ScoreSinkPort, SuiteRunResult
 from butler.eval_integration.report_schema import build_unified_report
@@ -31,7 +31,7 @@ class EvalIntegrationManager:
         ]
 
     def list_suites(self) -> list[str]:
-        return list_suite_ids()
+        return cast(list[str], list_suite_ids())
 
     def run_suites(
         self,
@@ -77,7 +77,10 @@ class EvalIntegrationManager:
         results: list[SuiteRunResult],
     ) -> dict[str, Any]:
         sink_status = {s.backend_id: {"registered": True} for s in self._sinks}
-        return build_unified_report(results, sink_status=sink_status)
+        return cast(
+            dict[str, Any],
+            build_unified_report(results, sink_status=sink_status),
+        )
 
     def run_and_write(
         self,
@@ -111,4 +114,4 @@ class EvalIntegrationManager:
         rows: dict[str, dict[str, Any] | None] = {}
         for sink in self._sinks:
             rows[sink.backend_id] = sink.read_latest(suite_id)
-        return evaluate_sync(suite_id, rows)
+        return cast(dict[str, Any], evaluate_sync(suite_id, rows))

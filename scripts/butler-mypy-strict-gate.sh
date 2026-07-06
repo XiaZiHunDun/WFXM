@@ -752,6 +752,13 @@ MODULES=(
   butler/eval_integration/suites/memory_mb_suite.py
   butler/eval_integration/suites/tcr_suite.py
   butler/report/store.py
+  butler/cli/slash_dispatch.py
+  butler/cli/memory_cli.py
+  butler/eval_integration/manager.py
+  butler/report/format.py
+  butler/report/generator.py
+  butler/eval_integration/oss/deepeval_runner.py
+  butler/eval_integration/oss/ragas_runner.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="

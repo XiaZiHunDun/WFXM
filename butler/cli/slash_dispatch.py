@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -104,10 +104,12 @@ def all_slash_commands() -> list[SlashCommand]:
 def _cli_session_key(orchestrator: Any) -> str:
     from butler.session.keys import build_session_key
 
-    return build_session_key(
-        platform="cli",
-        chat_id=orchestrator.user_id,
-        project=orchestrator.project_manager.current_project or "",
+    return str(
+        build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        )
     )
 
 
@@ -157,7 +159,7 @@ def _handle_projects(orch: Any, console: Any, _arg: str, _loop: Any) -> Optional
     return "\n".join(lines)
 
 
-def _handle_switch(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str]:
+def _handle_switch(orch: Any, console: Any, arg: str, _loop: Any) -> str | tuple[str, str] | None:
     """``/switch <name>``.
 
     Returns a ``(token, response)`` tuple so the dispatcher can
@@ -181,7 +183,7 @@ def _handle_switch(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[st
 def _switch_lead_note(new_name: str) -> str:
     from butler.project.lead import lead_mode_switch_suffix
 
-    return lead_mode_switch_suffix(new_name or "")
+    return str(lead_mode_switch_suffix(new_name or ""))
 
 
 def _handle_model(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str]:
@@ -192,12 +194,13 @@ def _handle_model(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str
 
     proj = orch.project_manager.get_current()
     proj_name = orch.project_manager.current_project or None
-    return handle_model_command(
+    reply, _reset = handle_model_command(
         arg,
         settings=orch._settings,
         project=proj,
         project_label=proj_name,
     )
+    return str(reply)
 
 
 def _handle_status(orch: Any, console: Any, _arg: str, _loop: Any) -> Optional[str]:
@@ -233,7 +236,7 @@ def _handle_detail(_orch: Any, console: Any, arg: str, _loop: Any) -> Optional[s
         return "[dim]暂无可展示的详细报告[/dim]"
     from butler.report import format_detail
 
-    return format_detail(report, section=parse_detail_section(arg))
+    return str(format_detail(report, section=parse_detail_section(arg)))
 
 
 def _handle_steer(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str]:
@@ -288,14 +291,14 @@ def _handle_health(orch: Any, console: Any, _arg: str, agent_loop: Any) -> Optio
             "memory_context_chars": loop_diag.get("memory_context_chars"),
             "loop": loop_diag,
         }
-    return handler._format_health_summary("cli")
+    return str(handler._format_health_summary("cli"))
 
 
 def _handle_workflow(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional[str]:
     from butler.workflows.commands import handle_workflow_command
 
     cli_sk = _cli_session_key(orch)
-    return handle_workflow_command(orch, arg, session_key=cli_sk)
+    return str(handle_workflow_command(orch, arg, session_key=cli_sk))
 
 
 # ---------------------------------------------------------------------------
@@ -313,7 +316,7 @@ def _handle_plan(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional[str
         clear_plan_mode(cli_sk)
         return "[green]已退出规划模式[/green]"
     set_plan_mode(cli_sk, True)
-    return format_plan_mode_status(cli_sk)
+    return str(format_plan_mode_status(cli_sk))
 
 
 def _handle_exit_plan(orch: Any, _console: Any, _arg: str, _loop: Any) -> Optional[str]:
@@ -349,7 +352,7 @@ def _handle_new(orch: Any, _console: Any, _arg: str, agent_loop: Any) -> Optiona
     from butler.session.new_session import handle_new_session_command
 
     cli_sk = _cli_session_key(orch)
-    return handle_new_session_command(orch, cli_sk, agent_loop)
+    return str(handle_new_session_command(orch, cli_sk, agent_loop))
 
 
 # ---------------------------------------------------------------------------
@@ -522,11 +525,14 @@ def _resolve_model_response(orchestrator: Any, arg: str) -> tuple[str, bool]:
 
     proj = orchestrator.project_manager.get_current()
     proj_name = orchestrator.project_manager.current_project or None
-    return handle_model_command(
-        arg,
-        settings=orchestrator._settings,
-        project=proj,
-        project_label=proj_name,
+    return cast(
+        tuple[str, bool],
+        handle_model_command(
+            arg,
+            settings=orchestrator._settings,
+            project=proj,
+            project_label=proj_name,
+        ),
     )
 
 

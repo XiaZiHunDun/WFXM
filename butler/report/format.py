@@ -59,8 +59,11 @@ def turn_used_delegate_task(result: LoopResult) -> bool:
         for tc in msg.get("tool_calls") or []:
             if not isinstance(tc, dict):
                 continue
-            fn = tc.get("function") if isinstance(tc.get("function"), dict) else {}
-            name = fn.get("name") or tc.get("name") or ""
+            func_obj = tc.get("function")
+            if isinstance(func_obj, dict):
+                name = str(func_obj.get("name") or tc.get("name") or "")
+            else:
+                name = str(tc.get("name") or "")
             if name == "delegate_task":
                 return True
     return False
@@ -127,7 +130,7 @@ def format_child_session_detail(child_sk: str, *, max_lines: int = 80) -> str:
         return "未提供 child_session_key; 语法: /详细 --child <child_sk>"
     from butler.report.format_ops import render_child_session_detail_safe
 
-    return render_child_session_detail_safe(sk, max_lines=max_lines)
+    return str(render_child_session_detail_safe(sk, max_lines=max_lines))
 
 
 __all__ = [
