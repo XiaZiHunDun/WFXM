@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def workflow_run_snapshot_enabled() -> bool:
-    return env_truthy("BUTLER_WORKFLOW_RUN_SNAPSHOT", default=True)
+    return bool(env_truthy("BUTLER_WORKFLOW_RUN_SNAPSHOT", default=True))
 
 
 def workflow_run_path(workspace: Path, workflow_name: str, *, run_id: str = "") -> Path:

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 _NAME_RE = re.compile(r"^[a-z][a-z0-9._-]*$")
 
 
-class UrlSource(SkillSource):
+class UrlSource(SkillSource):  # type: ignore[misc]
     @property
     def source_id(self) -> str:
         return "url"

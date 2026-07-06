@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _TEMPLATES_DIR = _REPO_ROOT / "docs" / "templates" / "project-archetypes"

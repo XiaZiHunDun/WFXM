@@ -614,6 +614,39 @@ MODULES=(
   butler/transport/tool_wire.py
   butler/transport/types.py
   butler/transport/usage_normalize.py
+  butler/registry/__init__.py
+  butler/registry/audit.py
+  butler/registry/mcp_catalog_remote.py
+  butler/registry/registry_errors.py
+  butler/registry/skill_lock.py
+  butler/registry/skill_sources/__init__.py
+  butler/registry/skill_sources/base.py
+  butler/registry/skill_sources/zip_safety.py
+  butler/registry/skill_types.py
+  butler/registry/hub_manifest.py
+  butler/registry/mcp_catalog.py
+  butler/registry/skill_sources/bundled.py
+  butler/registry/skill_sources/project.py
+  butler/registry/skill_sources/url.py
+  butler/workflows/__init__.py
+  butler/workflows/artifact_paths.py
+  butler/workflows/callbacks.py
+  butler/workflows/schema.py
+  butler/workflows/until_assert.py
+  butler/workflows/validate.py
+  butler/workflows/variables.py
+  butler/workflows/pause_state.py
+  butler/workflows/runner.py
+  butler/workflows/workflow_run_snapshot.py
+  butler/delegate/__init__.py
+  butler/delegate/category_resolver.py
+  butler/permissions/__init__.py
+  butler/permissions/rules_fail_closed.py
+  butler/permissions/tool_boundary_registry.py
+  butler/project/__init__.py
+  butler/project/archetypes.py
+  butler/project/lead.py
+  butler/project/plugins.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="

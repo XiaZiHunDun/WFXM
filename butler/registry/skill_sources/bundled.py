@@ -13,7 +13,7 @@ from butler.registry.skill_types import SkillBundle, SkillSearchHit
 logger = logging.getLogger(__name__)
 
 
-class BundledSource(SkillSource):
+class BundledSource(SkillSource):  # type: ignore[misc]
     @property
     def source_id(self) -> str:
         return "bundled"

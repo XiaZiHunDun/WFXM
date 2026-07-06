@@ -302,7 +302,7 @@ class WorkflowRunner:
                     session_key=session_key or "workflow",
                     execution_order=[n.id for n in nodes],
                 )
-            return approved
+            return bool(approved)
 
         from butler.execution_context import use_workflow_var_pool
 

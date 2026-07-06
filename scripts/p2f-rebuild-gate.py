@@ -65,6 +65,11 @@ SCAN_DIRS = [
     "butler/orchestrator",
     "butler/dev_engine",
     "butler/ops",
+    "butler/registry",
+    "butler/workflows",
+    "butler/delegate",
+    "butler/permissions",
+    "butler/project",
 ]
 
 

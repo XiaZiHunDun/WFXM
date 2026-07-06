@@ -22,7 +22,7 @@ class HubManifestReport:
 
 
 def hub_manifest_check_enabled() -> bool:
-    return env_truthy("BUTLER_HUB_MANIFEST_CHECK", default=True)
+    return bool(env_truthy("BUTLER_HUB_MANIFEST_CHECK", default=True))
 
 
 def verify_hub_manifest() -> HubManifestReport:

@@ -74,7 +74,7 @@ def _description_from_file(path: Path) -> str:
     return ""
 
 
-class ProjectSource(SkillSource):
+class ProjectSource(SkillSource):  # type: ignore[misc]
     """Repo project skills — search/inspect/fetch from local tree (trust=builtin)."""
 
     @property

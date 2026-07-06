@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 _PATH_TOOLS = frozenset({"read_file", "write_file", "patch", "delete_file"})
 _WRITE_PATH_TOOLS = frozenset({"write_file", "patch", "delete_file"})
@@ -54,11 +54,14 @@ def validate_tool_boundary(name: str, args: dict[str, Any] | None) -> BoundaryVi
         return None
     from butler.permissions.tool_boundary_registry_ops import run_tool_boundary_checker_safe
 
-    return run_tool_boundary_checker_safe(
-        tool,
-        checker,
-        payload,
-        violation_factory=BoundaryViolation,
+    return cast(
+        BoundaryViolation | None,
+        run_tool_boundary_checker_safe(
+            tool,
+            checker,
+            payload,
+            violation_factory=BoundaryViolation,
+        ),
     )
 
 

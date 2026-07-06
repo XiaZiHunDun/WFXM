@@ -155,4 +155,4 @@ class McpCatalogService:
             return {}
         from butler.registry.mcp_catalog_ops import load_json_file_safe
 
-        return load_json_file_safe(path)
+        return dict(load_json_file_safe(path))
