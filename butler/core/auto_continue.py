@@ -8,7 +8,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy, int_env
 
@@ -26,12 +26,12 @@ _CONTINUE_MARKERS = frozenset({
 
 
 def auto_continue_enabled() -> bool:
-    return env_truthy("BUTLER_AUTO_CONTINUE", default=True)
+    return bool(env_truthy("BUTLER_AUTO_CONTINUE", default=True))
 
 
 def auto_continue_max_age_seconds() -> int:
     try:
-        return int_env("BUTLER_AUTO_CONTINUE_MAX_AGE", 3600, min=60)
+        return int(int_env("BUTLER_AUTO_CONTINUE_MAX_AGE", 3600, min=60))
     except ValueError:
         return 3600
 
@@ -39,7 +39,7 @@ def auto_continue_max_age_seconds() -> int:
 def _sessions_root() -> Path:
     from butler.core.compaction_checkpoint import _sessions_root
 
-    return _sessions_root()
+    return cast(Path, _sessions_root())
 
 
 def _pending_path(session_key: str) -> Path:

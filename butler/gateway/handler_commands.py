@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from butler.core.agent_loop import LoopResult
@@ -40,7 +40,7 @@ def handle_slash_command(
     )
     handled, result = dispatch(ctx)
     if handled:
-        return result
+        return cast(str | None, result)
     return None
 
 
@@ -53,16 +53,19 @@ def format_health_summary(handler: ButlerMessageHandler, session_key: str = "def
     )
 
     health = handler.last_health_summary(session_key)
-    return build_health_report(
-        HealthReportInput(
-            session_key=session_key,
-            health=health,
-            tool_summary=_tool_audit_summary(session_key),
-            mem_stats=collect_mem_stats_for_health(
-                handler._orchestrator, session_key, health
-            ),
-            orchestrator=handler._orchestrator,
-        )
+    return cast(
+        str,
+        build_health_report(
+            HealthReportInput(
+                session_key=session_key,
+                health=health,
+                tool_summary=_tool_audit_summary(session_key),
+                mem_stats=collect_mem_stats_for_health(
+                    handler._orchestrator, session_key, health
+                ),
+                orchestrator=handler._orchestrator,
+            )
+        ),
     )
 
 
@@ -71,11 +74,11 @@ def format_loop_response(result: LoopResult, platform: str) -> str:
     if platform in ("wechat", "weixin"):
         from butler.report.format import wechat_response_text
 
-        return wechat_response_text(result)
+        return cast(str, wechat_response_text(result))
 
     if not result.final_response:
         return "（执行完成，无文字输出）"
-    return result.final_response
+    return cast(str, result.final_response)
 
 
 __all__ = ["format_health_summary", "format_loop_response", "handle_slash_command"]

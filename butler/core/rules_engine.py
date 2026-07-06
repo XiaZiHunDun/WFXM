@@ -16,14 +16,14 @@ _RULE_EXTENSIONS = (".md", ".txt")
 def rules_engine_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_RULES_ENGINE", default=True)
+    return bool(env_truthy("BUTLER_RULES_ENGINE", default=True))
 
 
 def max_chars() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_RULES_MAX_CHARS", 6000, min=500)
+        return int(int_env("BUTLER_RULES_MAX_CHARS", 6000, min=500))
     except ValueError:
         return 6000
 
@@ -92,7 +92,7 @@ def resolve_rules_for_path(
     except ValueError:
         rel = resolved.name
 
-    candidates: list[tuple[int, str, str]] = []
+    candidates: list[tuple[float, str, str]] = []
     for rule_file in _collect_rule_files(workspace):
         try:
             raw = rule_file.read_text(encoding="utf-8", errors="replace")

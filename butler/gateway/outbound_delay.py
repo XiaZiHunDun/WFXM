@@ -10,7 +10,7 @@ def outbound_block_delay_ms() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_OUTBOUND_BLOCK_DELAY_MS", 0, min=0)
+        return int(int_env("BUTLER_OUTBOUND_BLOCK_DELAY_MS", 0, min=0))
     except ValueError:
         return 0
 

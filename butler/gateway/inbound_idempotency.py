@@ -25,7 +25,7 @@ Status = Literal["inflight", "done"]
 
 
 def external_id_dedupe_enabled() -> bool:
-    return env_truthy("BUTLER_GATEWAY_EXTERNAL_ID_DEDUPE", default=True)
+    return bool(env_truthy("BUTLER_GATEWAY_EXTERNAL_ID_DEDUPE", default=True))
 
 
 def _resolve_inflight_ttl() -> float:

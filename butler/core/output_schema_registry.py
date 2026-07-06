@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 _BUILTIN_SPECS: dict[str, list[dict[str, Any]]] = {
     "debate_verdict": [
@@ -32,7 +32,7 @@ def validate_with_named_schema(name: str, data: dict[str, Any]) -> tuple[bool, l
     schema = get_named_schema(name)
     if not schema:
         return False, [f"unknown schema name: {name}"]
-    return validate_structured_output(data, schema)
+    return cast(tuple[bool, list[str]], validate_structured_output(data, schema))
 
 
 def pydantic_model_for_name(name: str) -> Any | None:

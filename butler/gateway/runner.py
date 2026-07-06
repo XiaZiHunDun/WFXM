@@ -9,7 +9,7 @@ import os
 import signal
 import threading
 import time
-from typing import Any
+from typing import Any, cast
 
 from butler.gateway.message_handler import ButlerMessageHandler
 from butler.gateway.platform_policy import SUPPORTED_PLATFORMS, normalize_platforms
@@ -86,7 +86,7 @@ def request_stop(stop: asyncio.Event) -> None:
 def unsupported_platforms(platforms: list[str]) -> list[str]:
     from butler.gateway.platform_policy import unsupported_platforms as _unsupported
 
-    return _unsupported(platforms)
+    return cast(list[str], _unsupported(platforms))
 
 
 def _warmup_gateway_runtime(butler: ButlerMessageHandler) -> None:
@@ -132,10 +132,13 @@ async def _butler_message_handler(
         if bridge is not None:
             set_current_bridge(bridge)
         try:
-            return butler.handle_message(
-                text,
-                platform=platform,
-                external_id=external_id or None,
+            return cast(
+                str,
+                butler.handle_message(
+                    text,
+                    platform=platform,
+                    external_id=external_id or None,
+                ),
             )
         finally:
             if bridge is not None:
@@ -300,7 +303,7 @@ async def run_gateway_async(platforms: list[str]) -> int:
 def _sync_send_via_adapter(adapters: list[Any], chat_id: str, text: str) -> bool:
     from butler.gateway.runner_ops import sync_send_via_adapter_loud
 
-    return sync_send_via_adapter_loud(adapters, chat_id, text)
+    return bool(sync_send_via_adapter_loud(adapters, chat_id, text))
 
 
 async def _poll_reminders_loop(adapters: list[Any]) -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -25,22 +25,22 @@ def run_stdio_server() -> int:
 
     mcp = FastMCP("butler")
 
-    @mcp.tool(name="read_file", description="Read a file from the active Butler workspace")
+    @mcp.tool(name="read_file", description="Read a file from the active Butler workspace")  # type: ignore[untyped-decorator]
     def mcp_read_file(path: str, offset: int = 1, limit: int = 500) -> str:
         return _dispatch_builtin("read_file", {"path": path, "offset": offset, "limit": limit})
 
-    @mcp.tool(name="list_directory", description="List directory entries")
+    @mcp.tool(name="list_directory", description="List directory entries")  # type: ignore[untyped-decorator]
     def mcp_list_directory(path: str = ".") -> str:
         return _dispatch_builtin("list_directory", {"path": path})
 
-    @mcp.tool(name="search_files", description="Ripgrep search in workspace")
+    @mcp.tool(name="search_files", description="Ripgrep search in workspace")  # type: ignore[untyped-decorator]
     def mcp_search_files(pattern: str, path: str = ".", glob: str = "") -> str:
         args: dict[str, Any] = {"pattern": pattern, "path": path}
         if glob:
             args["glob"] = glob
         return _dispatch_builtin("search_files", args)
 
-    @mcp.tool(name="session_todos_list", description="List session-scoped todos")
+    @mcp.tool(name="session_todos_list", description="List session-scoped todos")  # type: ignore[untyped-decorator]
     def mcp_session_todos_list() -> str:
         return _dispatch_builtin("session_todos_list", {})
 
@@ -53,4 +53,4 @@ def _dispatch_builtin(name: str, args: dict[str, Any]) -> str:
         return json.dumps({"ok": False, "error": f"tool not exposed: {name}"})
     from butler.tools.registry import dispatch_tool
 
-    return dispatch_tool(name, args)
+    return cast(str, dispatch_tool(name, args))

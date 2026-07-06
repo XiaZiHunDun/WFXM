@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Callable
 import logging
+from typing import Any, Callable
 
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ def _tool_delegate_yield(
     success: bool = True,
     summary: str = "",
     report_headline: str = "",
-    **_,
+    **_: Any,
 ) -> str:
     from butler.runtime.task_store import complete_task, get_task, list_recent_tasks
 

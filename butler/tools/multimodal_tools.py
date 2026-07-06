@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, cast
 
 from butler.env_parse import env_truthy
 
@@ -13,16 +13,16 @@ logger = logging.getLogger(__name__)
 
 
 def _image_gen_enabled() -> bool:
-    return env_truthy("BUTLER_IMAGE_GENERATION", default=True)
+    return bool(env_truthy("BUTLER_IMAGE_GENERATION", default=True))
 
 
 def _tts_enabled() -> bool:
-    return env_truthy("BUTLER_TTS", default=True)
+    return bool(env_truthy("BUTLER_TTS", default=True))
 
 
 def _output_dir() -> Path:
     from butler.config import get_butler_home
-    d = get_butler_home() / "media_output"
+    d = Path(get_butler_home() / "media_output")
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -38,7 +38,7 @@ def tool_generate_image(prompt: str = "", aspect_ratio: str = "1:1", **_: Any) -
 
     from butler.tools.multimodal_tools_ops import run_multimodal_tool_safe, write_tts_output_safe
 
-    def _run() -> dict:
+    def _run() -> dict[str, Any]:
         from butler.transport.multimodal.minimax_image_gen import generate_image
 
         image_url = generate_image(prompt, aspect_ratio=aspect_ratio)
@@ -49,7 +49,7 @@ def tool_generate_image(prompt: str = "", aspect_ratio: str = "1:1", **_: Any) -
             "aspect_ratio": aspect_ratio,
         }
 
-    return run_multimodal_tool_safe(_run, label="generate_image")
+    return str(run_multimodal_tool_safe(_run, label="generate_image"))
 
 
 def tool_synthesize_speech(text: str = "", voice_id: str = "male-qn-qingse", **_: Any) -> str:
@@ -65,21 +65,24 @@ def tool_synthesize_speech(text: str = "", voice_id: str = "male-qn-qingse", **_
 
     from butler.tools.multimodal_tools_ops import run_multimodal_tool_safe, write_tts_output_safe
 
-    def _run() -> dict:
+    def _run() -> dict[str, Any]:
         from butler.transport.multimodal.minimax_tts import synthesize_speech
 
         audio_bytes = synthesize_speech(text, voice_id=voice_id)
-        return write_tts_output_safe(
-            _output_dir(),
-            audio_bytes,
-            voice_id=voice_id,
-            text_length=len(text),
+        return cast(
+            dict[str, Any],
+            write_tts_output_safe(
+                _output_dir(),
+                audio_bytes,
+                voice_id=voice_id,
+                text_length=len(text),
+            ),
         )
 
-    return run_multimodal_tool_safe(_run, label="synthesize_speech")
+    return str(run_multimodal_tool_safe(_run, label="synthesize_speech"))
 
 
-def register_multimodal_tools(register_fn) -> None:
+def register_multimodal_tools(register_fn: Callable[..., None]) -> None:
     """Register image generation and TTS tools."""
     register_fn(
         name="generate_image",

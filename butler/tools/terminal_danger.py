@@ -37,7 +37,7 @@ def danger_patterns_enabled() -> bool:
     return raw not in ("0", "false", "no", "off")
 
 
-def set_terminal_session_context(session_key: str) -> contextvars.Token:
+def set_terminal_session_context(session_key: str) -> contextvars.Token[str]:
     return _CURRENT_SESSION.set(str(session_key or "").strip())
 
 

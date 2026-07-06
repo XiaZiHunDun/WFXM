@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def build_memory_orchestrator_stub(*, project: str = "", tenant: str = "default") -> Any:
@@ -26,7 +26,7 @@ def build_memory_orchestrator_stub(*, project: str = "", tenant: str = "default"
     class _PMgr:
         current_project = str(getattr(proj, "name", "") or "") if proj else None
 
-        def get_current(self):
+        def get_current(self) -> Any:
             return proj
 
     class _Orch:
@@ -50,8 +50,11 @@ def build_memory_orchestrator_stub(*, project: str = "", tenant: str = "default"
 def list_pending_text(*, project: str = "", tenant: str = "default") -> str:
     from butler.gateway.commands.memory_handlers import format_pending_memory_list
 
-    return format_pending_memory_list(
-        build_memory_orchestrator_stub(project=project, tenant=tenant)
+    return cast(
+        str,
+        format_pending_memory_list(
+            build_memory_orchestrator_stub(project=project, tenant=tenant)
+        ),
     )
 
 

@@ -8,14 +8,14 @@ from butler.env_parse import env_truthy, int_env
 
 
 def explicit_compaction_turn_enabled() -> bool:
-    return env_truthy("BUTLER_COMPACTION_EXPLICIT_TURN", default=True)
+    return bool(env_truthy("BUTLER_COMPACTION_EXPLICIT_TURN", default=True))
 
 
 def should_run_compaction_turn(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     max_context_tokens: int,
-    estimate_tokens: Callable[[list[dict]], int],
+    estimate_tokens: Callable[[list[dict[str, Any]]], int],
     diagnostics: dict[str, Any] | None,
     iteration: int,
     max_output_tokens: int | None = None,
@@ -35,17 +35,17 @@ def should_run_compaction_turn(
         max_context_tokens,
         max_output_tokens=max_output_tokens,
     )
-    return estimated >= threshold
+    return estimated >= int(threshold)
 
 
 def run_compaction_turn(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
-    compress: Callable[..., list[dict]],
+    compress: Callable[..., list[dict[str, Any]]],
     diagnostics: dict[str, Any] | None = None,
     iteration: int = 0,
     session_key: str = "",
-) -> tuple[bool, list[dict]]:
+) -> tuple[bool, list[dict[str, Any]]]:
     """
     Run pre/post compact hooks and force compress. Returns (did_compact, messages).
     """

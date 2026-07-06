@@ -24,14 +24,14 @@ CONTINUATION_USER_MESSAGE = (
 def todo_continuation_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_TODO_CONTINUATION", default=True)
+    return bool(env_truthy("BUTLER_TODO_CONTINUATION", default=True))
 
 
 def max_continuations() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_TODO_CONTINUATION_MAX", 2, min=0)
+        return int(int_env("BUTLER_TODO_CONTINUATION_MAX", 2, min=0))
     except ValueError:
         return 2
 
@@ -40,7 +40,7 @@ def stagnation_limit() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_TODO_STAGNATION_MAX", 2, min=2)
+        return int(int_env("BUTLER_TODO_STAGNATION_MAX", 2, min=2))
     except ValueError:
         return 2
 
@@ -50,7 +50,7 @@ def _open_todo_count(session_key: str) -> int:
 
     if not session_todos_enabled():
         return 0
-    return count_open_todos(session_key)
+    return int(count_open_todos(session_key))
 
 
 def should_continue_for_todos(

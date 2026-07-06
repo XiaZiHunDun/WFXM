@@ -8,7 +8,7 @@ import os
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.hooks.loader import HookRule, load_hooks_config, match_hook_query, match_tool
 from butler.hooks.runner_ops import (
@@ -44,7 +44,7 @@ class PreCompactHookResult:
 
 
 def _resolve_workspace() -> Path | None:
-    return resolve_hooks_workspace_safe()
+    return cast(Path | None, resolve_hooks_workspace_safe())
 
 
 def _rules_for_event(event: str) -> list[HookRule]:
@@ -52,7 +52,7 @@ def _rules_for_event(event: str) -> list[HookRule]:
 
 
 def _session_key_from_payload(payload: dict[str, Any]) -> str:
-    return session_key_from_payload_safe(payload)
+    return cast(str, session_key_from_payload_safe(payload))
 
 
 def _collect_additional_context(specific: dict[str, Any], stdout: str) -> list[str]:
@@ -377,7 +377,7 @@ def run_subagent_stop_hooks(
 def _pre_tool_hook_fail_closed() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_HOOK_FAIL_CLOSED", default=False)
+    return bool(env_truthy("BUTLER_HOOK_FAIL_CLOSED", default=False))
 
 
 def run_pre_compact_hooks(
@@ -501,9 +501,12 @@ def _run_hook(
     payload: dict[str, Any],
 ) -> tuple[int | None, str, str]:
     cwd = rule.cwd or os.getcwd()
-    return run_hook_command_safe(
-        command=rule.command,
-        cwd=cwd,
-        payload=payload,
-        event=rule.event,
+    return cast(
+        tuple[int | None, str, str],
+        run_hook_command_safe(
+            command=rule.command,
+            cwd=cwd,
+            payload=payload,
+            event=rule.event,
+        ),
     )

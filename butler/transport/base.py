@@ -16,7 +16,7 @@ class ProviderTransport(ABC):
     def api_mode(self) -> str: ...
 
     def convert_messages(
-        self, messages: List[Dict[str, Any]], **kwargs
+        self, messages: List[Dict[str, Any]], **kwargs: Any
     ) -> Any:
         return messages
 
@@ -29,12 +29,12 @@ class ProviderTransport(ABC):
         model: str,
         messages: Any,
         tools: Optional[Any] = None,
-        **params,
+        **params: Any,
     ) -> Dict[str, Any]: ...
 
     @abstractmethod
     def normalize_response(
-        self, response: Any, **kwargs
+        self, response: Any, **kwargs: Any
     ) -> NormalizedResponse: ...
 
     def validate_response(self, response: Any) -> bool:
@@ -68,8 +68,8 @@ class LLMClientProtocol(Protocol):
 
     def complete(
         self,
-        messages: list[dict],
-        tools: Optional[list[dict]] = None,
+        messages: list[dict[str, Any]],
+        tools: Optional[list[dict[str, Any]]] = None,
         check_interrupt: Optional[Callable[[], bool]] = None,
         stale_timeout: Optional[float] = None,
         **kwargs: Any,
@@ -77,10 +77,10 @@ class LLMClientProtocol(Protocol):
 
     def stream(
         self,
-        messages: list[dict],
-        tools: Optional[list[dict]] = None,
+        messages: list[dict[str, Any]],
+        tools: Optional[list[dict[str, Any]]] = None,
         on_delta: Optional[Callable[[str], None]] = None,
-        on_tool_call_ready: Optional[Callable[[int, str, str, dict], None]] = None,
+        on_tool_call_ready: Optional[Callable[[int, str, str, dict[str, Any]], None]] = None,
         check_interrupt: Optional[Callable[[], bool]] = None,
         stale_timeout: Optional[float] = None,
         **kwargs: Any,

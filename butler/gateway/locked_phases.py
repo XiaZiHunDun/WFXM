@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from butler.core.agent_loop import AgentLoop, LoopResult
@@ -111,13 +111,19 @@ def _phase_apply_correction_intent(
     def _run() -> Optional[str]:
         from butler.core.correction_intent import try_handle_correction_intent
 
-        return try_handle_correction_intent(
-            handler._orchestrator,
-            state.text,
-            session_key=state.session_key,
+        return cast(
+            Optional[str],
+            try_handle_correction_intent(
+                handler._orchestrator,
+                state.text,
+                session_key=state.session_key,
+            ),
         )
 
-    return safe_best_effort(_run, label="locked_phases.correction_intent")
+    return cast(
+        Optional[str],
+        safe_best_effort(_run, label="locked_phases.correction_intent"),
+    )
 
 
 def _phase_apply_github_issues_intent(
@@ -130,9 +136,12 @@ def _phase_apply_github_issues_intent(
     def _run() -> Optional[str]:
         from butler.mcp.github_grounding import try_handle_github_issues_intent
 
-        return try_handle_github_issues_intent(state.text)
+        return cast(Optional[str], try_handle_github_issues_intent(state.text))
 
-    return safe_best_effort(_run, label="locked_phases.github_issues_intent")
+    return cast(
+        Optional[str],
+        safe_best_effort(_run, label="locked_phases.github_issues_intent"),
+    )
 
 
 def _phase_apply_normalizers_and_slash(
@@ -153,7 +162,7 @@ def _phase_apply_normalizers_and_slash(
                 external_id=state.external_id,
             )
             if response is not None:
-                return response
+                return cast(str, response)
     if state.text.startswith("/"):
         response = handler._handle_command(
             state.text,
@@ -162,7 +171,7 @@ def _phase_apply_normalizers_and_slash(
             external_id=state.external_id,
         )
         if response is not None:
-            return response
+            return cast(str, response)
     return None
 
 
@@ -180,7 +189,7 @@ def _phase_apply_prompt_hooks(state: LockedTurnState) -> Optional[str]:
         platform=state.platform,
     )
     if state.prompt_hooks.blocked:
-        return state.prompt_hooks.block_message
+        return cast(str, state.prompt_hooks.block_message)
     if state.prompt_hooks.prevent_continuation:
         return state.prompt_hooks.stop_message or "已停止（UserPromptSubmit hook）"
     return None
@@ -337,13 +346,16 @@ def _phase_validate_loop_messages(state: LockedTurnState) -> Optional[str]:
                 if not seq_err:
                     state.health["tool_pair_repair_pre_turn"] = count
                     return None
-            return seq_err
+            return cast(str, seq_err)
         return None
 
-    return safe_best_effort(
-        _validate,
-        label="locked_phases.validate_messages",
-        default=None,
+    return cast(
+        Optional[str],
+        safe_best_effort(
+            _validate,
+            label="locked_phases.validate_messages",
+            default=None,
+        ),
     )
 
 
@@ -788,4 +800,7 @@ def _phase_format_error_card(exc: BaseException, turn_elapsed: float) -> Optiona
     """Phase: build a structured error card for the failure reply."""
     from butler.gateway.locked_phases_ops import format_gateway_error_card
 
-    return format_gateway_error_card(exc, turn_elapsed)
+    return cast(
+        Optional[str],
+        format_gateway_error_card(exc, turn_elapsed),
+    )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.memory.butler_memory import ButlerMemory
 from butler.memory.recall_scopes import parse_recall_scopes
@@ -116,7 +116,7 @@ def _search_single_scope(
                 butler_home=home,
             )
             if not payload_coding.get("ok"):
-                return payload_coding
+                return cast(dict[str, Any], payload_coding)
             payload["results"] = payload_coding.get("results") or []
             payload["mode"] = "coding-keyword"
             payload["candidates"] = len(payload["results"])
@@ -142,7 +142,7 @@ def _search_single_scope(
                 limit=lim,
             )
             if not payload_transcript.get("ok"):
-                return payload_transcript
+                return cast(dict[str, Any], payload_transcript)
             payload["results"] = payload_transcript.get("results") or []
             payload["mode"] = str(payload_transcript.get("mode") or "transcript")
             payload["candidates"] = len(payload["results"])
@@ -175,7 +175,7 @@ def _search_single_scope(
             _pmem, proj_name, ws = _resolve_project_memory(project)
             payload_obs = search_observation_recall(q, project_workspace=ws, limit=lim)
             if not payload_obs.get("ok"):
-                return payload_obs
+                return cast(dict[str, Any], payload_obs)
             payload["results"] = payload_obs.get("results") or []
             payload["mode"] = "observation-keyword"
             payload["candidates"] = len(payload["results"])
@@ -196,7 +196,7 @@ def _search_single_scope(
                 limit=lim,
             )
             if not payload_hybrid.get("ok"):
-                return payload_hybrid
+                return cast(dict[str, Any], payload_hybrid)
             payload["results"] = [
                 enrich_search_hit(h, project_workspace=ws) for h in (payload_hybrid.get("results") or [])
             ]
@@ -291,7 +291,7 @@ def run_memory_search(
             any_ok = True
             total_candidates += int(sub.get("candidates") or len(sub.get("results") or []))
 
-    payload: dict[str, Any] = {
+    multi_payload: dict[str, Any] = {
         "ok": any_ok,
         "query": q,
         "scope": sc_raw,
@@ -309,12 +309,12 @@ def run_memory_search(
             for s, sub in by_scope.items()
             if sub.get("error")
         ]
-        payload["error"] = "; ".join(errors) if errors else "all scopes failed"
+        multi_payload["error"] = "; ".join(errors) if errors else "all scopes failed"
 
     if json_out:
-        return payload
-    _print_human_multi(payload, verbose=verbose)
-    return payload
+        return multi_payload
+    _print_human_multi(multi_payload, verbose=verbose)
+    return multi_payload
 
 
 def _print_hit_block(hit: dict[str, Any], index: int, *, verbose: bool) -> None:

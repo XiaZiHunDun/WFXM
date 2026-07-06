@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 import time as _time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from butler.gateway.message_handler import ButlerMessageHandler
@@ -47,7 +47,7 @@ def run_turn_post_inbound_pipeline(
     if pipeline_result.blocked:
         if pipeline_result.block_reply == "drop":
             return ""
-        return pipeline_result.block_reply
+        return cast(str, pipeline_result.block_reply)
     text = pipeline_result.text
 
     from butler.gateway.turn_post_pipeline_ops import record_post_feedback_retry_safe
@@ -69,13 +69,13 @@ def run_turn_post_inbound_pipeline(
             _time.monotonic() - t0,
             len(out or ""),
         )
-        return out
+        return cast(str, out)
 
     idem_reply, idempotency_reserved, idempotency_inbound_id = _phase_apply_idempotency(
         text, session_key, external_id=external_id,
     )
     if idem_reply is not None:
-        return idem_reply
+        return cast(str, idem_reply)
 
     block = _phase_apply_session_initializing(
         text,
@@ -85,18 +85,21 @@ def run_turn_post_inbound_pipeline(
         orchestrator=handler._orchestrator,
     )
     if block is not None:
-        return block
+        return cast(str, block)
 
     block = _phase_apply_queue_inbound(
         text, session_key, platform=platform, external_id=external_id, handler=handler,
     )
     if block is not None:
-        return block
+        return cast(str, block)
 
     admission = _phase_apply_admission(text, session_key)
     if admission is None:
-        return queue_inbound_for_admission_failure(
-            text, session_key, platform=platform, external_id=external_id,
+        return cast(
+            str,
+            queue_inbound_for_admission_failure(
+                text, session_key, platform=platform, external_id=external_id,
+            ),
         )
 
     logger.info("Gateway enter_session session=%s", session_key)
@@ -132,7 +135,7 @@ def run_turn_post_inbound_pipeline(
     )
     if follow:
         out = f"{out}\n\n---\n\n{follow}" if out else follow
-    return out
+    return cast(str, out)
 
 
 __all__ = ["run_turn_post_inbound_pipeline"]

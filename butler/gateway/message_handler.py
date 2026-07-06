@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import time as _time
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from butler.core.agent_loop import AgentLoop, LoopResult
 from butler.gateway.message_handler_ops import (
@@ -104,11 +104,14 @@ class ButlerMessageHandler:
 
             cid = chat_id_from_session_key(session_key)
         project = pm.get_project_name_for_chat(platform=platform, chat_id=cid or "default")
-        return normalize_session_key(
-            platform=platform,
-            external_id=external_id,
-            session_key=session_key,
-            project=project,
+        return cast(
+            str,
+            normalize_session_key(
+                platform=platform,
+                external_id=external_id,
+                session_key=session_key,
+                project=project,
+            ),
         )
 
     def _should_queue_inbound(self, session_key: str, text: str) -> bool:
@@ -119,12 +122,12 @@ class ButlerMessageHandler:
         stripped = (text or "").strip()
         if not stripped or stripped.startswith("/"):
             return False
-        return self._session_registry.is_session_active(session_key)
+        return cast(bool, self._session_registry.is_session_active(session_key))
 
     def _queue_push_via_bridge(self) -> bool:
         from butler.env_parse import env_truthy
 
-        return env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True)
+        return cast(bool, env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True))
 
     def _interrupt_session_loop(self, session_key: str) -> None:
         interrupt_session_loop_safe(self._sessions, session_key)
@@ -151,12 +154,15 @@ class ButlerMessageHandler:
     ) -> str:
         from butler.gateway.inbound_drain import drain_queued_inbound
 
-        return drain_queued_inbound(
-            self,
-            session_key,
-            platform=platform,
-            external_id=external_id,
-            primary_reply=primary_reply,
+        return cast(
+            str,
+            drain_queued_inbound(
+                self,
+                session_key,
+                platform=platform,
+                external_id=external_id,
+                primary_reply=primary_reply,
+            ),
         )
 
     def _recover_registry_if_stale(self) -> None:
@@ -214,13 +220,16 @@ class ButlerMessageHandler:
         with gateway_inbound_guard(chat_id):
             from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
 
-            return run_turn_post_inbound_pipeline(
-                self,
-                text,
-                session_key=session_key,
-                platform=platform,
-                external_id=external_id,
-                t0=_t0,
+            return cast(
+                str,
+                run_turn_post_inbound_pipeline(
+                    self,
+                    text,
+                    session_key=session_key,
+                    platform=platform,
+                    external_id=external_id,
+                    t0=_t0,
+                ),
             )
 
     def _handle_message_after_pipeline(
@@ -235,13 +244,16 @@ class ButlerMessageHandler:
         """Backward-compatible alias; prefer :func:`turn_post_pipeline.run_turn_post_inbound_pipeline`."""
         from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
 
-        return run_turn_post_inbound_pipeline(
-            self,
-            text,
-            session_key=session_key,
-            platform=platform,
-            external_id=external_id,
-            t0=_t0,
+        return cast(
+            str,
+            run_turn_post_inbound_pipeline(
+                self,
+                text,
+                session_key=session_key,
+                platform=platform,
+                external_id=external_id,
+                t0=_t0,
+            ),
         )
 
     def _handle_message_locked(
@@ -255,17 +267,20 @@ class ButlerMessageHandler:
         """In-session pipeline orchestrator (ENG-3 → locked_turn_orchestrator)."""
         from butler.gateway.locked_turn_orchestrator import run_locked_message_turn
 
-        return run_locked_message_turn(
-            self,
-            text,
-            session_key=session_key,
-            platform=platform,
-            external_id=external_id,
+        return cast(
+            str,
+            run_locked_message_turn(
+                self,
+                text,
+                session_key=session_key,
+                platform=platform,
+                external_id=external_id,
+            ),
         )
 
     def last_health_summary(self, session_key: str = "default") -> dict[str, Any]:
         """Return the latest best-effort runtime diagnostics for a session."""
-        return self._session_registry.get_health(session_key)
+        return cast(dict[str, Any], self._session_registry.get_health(session_key))
 
     def _handle_command(
         self,
@@ -277,23 +292,26 @@ class ButlerMessageHandler:
     ) -> Optional[str]:
         from butler.gateway.handler_commands import handle_slash_command
 
-        return handle_slash_command(
-            self,
-            text,
-            session_key=session_key,
-            platform=platform,
-            external_id=external_id,
+        return cast(
+            str | None,
+            handle_slash_command(
+                self,
+                text,
+                session_key=session_key,
+                platform=platform,
+                external_id=external_id,
+            ),
         )
 
     def _format_health_summary(self, session_key: str = "default") -> str:
         from butler.gateway.handler_commands import format_health_summary
 
-        return format_health_summary(self, session_key)
+        return cast(str, format_health_summary(self, session_key))
 
     def _format_response(self, result: LoopResult, platform: str) -> str:
         from butler.gateway.handler_commands import format_loop_response
 
-        return format_loop_response(result, platform)
+        return cast(str, format_loop_response(result, platform))
 
 
 from butler.gateway.handler_helpers import (  # noqa: F401, E402

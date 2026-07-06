@@ -16,7 +16,7 @@ _LOCK = threading.Lock()
 
 
 def delegate_async_enabled() -> bool:
-    return env_truthy("BUTLER_DELEGATE_ASYNC", default=True)
+    return bool(env_truthy("BUTLER_DELEGATE_ASYNC", default=True))
 
 
 def should_delegate_async(

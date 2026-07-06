@@ -8,7 +8,7 @@ from butler.env_parse import env_truthy
 
 
 def reflexion_ephemeral_enabled() -> bool:
-    return env_truthy("BUTLER_REFLEXION_EPHEMERAL", default=False)
+    return bool(env_truthy("BUTLER_REFLEXION_EPHEMERAL", default=False))
 
 
 def build_reflexion_banner(

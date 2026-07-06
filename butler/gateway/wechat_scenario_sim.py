@@ -10,9 +10,9 @@ import time
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 SessionMode = Literal["shared", "fresh"]
 Tier = Literal["fast", "standard", "slow"]
@@ -184,7 +184,7 @@ def _parse_file_contains(raw: Any) -> tuple[FileContainsSpec, ...]:
             continue
         any_raw = item.get("any") or item.get("substrings") or item.get("contains") or []
         if isinstance(any_raw, str):
-            needles = (any_raw,)
+            needles: tuple[str, ...] = (any_raw,)
         else:
             needles = tuple(str(x) for x in any_raw if str(x).strip())
         specs.append(FileContainsSpec(path=path, substrings=needles))
@@ -241,12 +241,12 @@ def _parse_case(raw: dict[str, Any]) -> ScenarioCase:
 def _parse_track(raw: dict[str, Any]) -> ScenarioTrack:
     setup_raw = raw.get("setup") or []
     if isinstance(setup_raw, str):
-        setup = (setup_raw,)
+        setup: tuple[str, ...] = (setup_raw,)
     else:
         setup = tuple(str(x) for x in setup_raw)
     cleanup_raw = raw.get("cleanup_globs") or []
     if isinstance(cleanup_raw, str):
-        cleanup_globs = (cleanup_raw,)
+        cleanup_globs: tuple[str, ...] = (cleanup_raw,)
     else:
         cleanup_globs = tuple(str(x) for x in cleanup_raw)
     mode = str(raw.get("session_mode") or "shared").strip().lower()
@@ -293,12 +293,12 @@ def _norm_tool_name(name: str) -> str:
     return str(name or "").replace("-", "_")
 
 
-def _tool_in_list(needle: str, tools: list[str]) -> bool:
+def _tool_in_list(needle: str, tools: Sequence[str]) -> bool:
     want = _norm_tool_name(needle)
     return any(_norm_tool_name(t) == want for t in tools)
 
 
-def _any_tool_in_list(needles: tuple[str, ...], tools: list[str]) -> bool:
+def _any_tool_in_list(needles: Sequence[str], tools: Sequence[str]) -> bool:
     return any(_tool_in_list(n, tools) for n in needles)
 
 
@@ -310,10 +310,12 @@ def resolve_handler_session_key(
     platform: str = "wechat",
 ) -> str:
     """Session key the gateway actually uses (external_id wins over sim suffix)."""
-    return handler.resolve_session_key(
-        platform=platform,
-        external_id=owner_id,
-        session_key=session_key,
+    return str(
+        handler.resolve_session_key(
+            platform=platform,
+            external_id=owner_id,
+            session_key=session_key,
+        )
     )
 
 
@@ -386,7 +388,7 @@ def evaluation_reply_text(
     from butler.gateway.wechat_scenario_sim_ops import delegate_enrichment_imports_ready
 
     if not delegated:
-        return expand_reply_with_wechat_attachments(reply)
+        return str(expand_reply_with_wechat_attachments(reply))
     if not delegate_enrichment_imports_ready():
         return reply
     from butler.core.session_epoch import load_epoch_transcript_rows
@@ -414,7 +416,7 @@ def evaluation_reply_text(
                 chunks.append(text)
             break
     merged = "\n\n".join(chunks) if len(chunks) > 1 else reply
-    return expand_reply_with_wechat_attachments(merged)
+    return str(expand_reply_with_wechat_attachments(merged))
 
 
 def _delegate_evidence_in_reply(reply: str) -> bool:

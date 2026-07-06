@@ -6,14 +6,14 @@ import json
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_settings
 from butler.runtime.schema import JobDef
 
 
 def _approvals_root() -> Path:
-    root = get_butler_settings().butler_home / "runtime" / "approvals"
+    root = cast(Path, get_butler_settings().butler_home / "runtime" / "approvals")
     root.mkdir(parents=True, exist_ok=True)
     return root
 

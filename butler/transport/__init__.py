@@ -14,7 +14,7 @@ Registry pattern: transports self-register at import time via
 from __future__ import annotations
 
 import logging
-from typing import Dict, Type
+from typing import Any, Dict, Type
 
 from butler.transport.types import (  # noqa: F401 — re-export
     NormalizedResponse,
@@ -25,7 +25,7 @@ from butler.transport.types import (  # noqa: F401 — re-export
 
 logger = logging.getLogger(__name__)
 
-_REGISTRY: Dict[str, Type] = {}
+_REGISTRY: Dict[str, Type[Any]] = {}
 _discovered = False
 
 
@@ -33,7 +33,7 @@ def register_transport(api_mode: str, transport_cls: type) -> None:
     _REGISTRY[api_mode] = transport_cls
 
 
-def get_transport(api_mode: str):
+def get_transport(api_mode: str) -> Any:
     global _discovered
     if not _discovered:
         _discover()

@@ -37,4 +37,4 @@ def adapt_hook_contexts(contexts: list[str], *, source: str = "post_compact_hook
     """Adapt PostCompact hook context lines into one ACL-safe string."""
     from butler.core.hook_context_adapter import adapt_hook_context_lines
 
-    return adapt_hook_context_lines(contexts, source=source, separator="\n")
+    return str(adapt_hook_context_lines(contexts, source=source, separator="\n"))

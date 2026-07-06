@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 def mcp_approval_enabled() -> bool:
-    return env_truthy("BUTLER_MCP_APPROVAL", default=True)
+    return bool(env_truthy("BUTLER_MCP_APPROVAL", default=True))
 
 
 def mcp_tool_fingerprint(server_id: str, tool_name: str, args: dict[str, Any]) -> str:
@@ -102,11 +102,14 @@ def grant_mcp_session_always(session_key: str, server_id: str = "*") -> str:
     """Grant always-allow for mcp_tool permission scoped to server pattern."""
     from butler.permissions.approvals import grant_always
 
-    return grant_always(
-        session_key,
-        permission="mcp_tool",
-        tool="*",
-        pattern=str(server_id or "*"),
+    return cast(
+        str,
+        grant_always(
+            session_key,
+            permission="mcp_tool",
+            tool="*",
+            pattern=str(server_id or "*"),
+        ),
     )
 
 

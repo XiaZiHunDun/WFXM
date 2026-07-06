@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def parse_edit_command_arg(arg: str) -> tuple[str, str]:
@@ -64,7 +64,7 @@ def format_edit_command_usage() -> str:
 def _recent_read_paths(session_key: str, *, limit: int = 5) -> list[str]:
     from butler.gateway.owner_delegate_shortcuts_ops import recent_read_paths_safe
 
-    return recent_read_paths_safe(session_key, limit=limit)
+    return cast(list[str], recent_read_paths_safe(session_key, limit=limit))
 
 
 def build_cc_handoff_package(

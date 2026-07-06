@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Callable, cast
 
 
 def tool_search_project_knowledge(
@@ -18,7 +18,7 @@ def tool_search_project_knowledge(
 
     routed = multi_scope_recall_safe(q, limit=lim)
     if routed is not None:
-        return routed
+        return cast(str, routed)
     from butler.tools.memory_tools import tool_butler_recall
 
     raw = tool_butler_recall(scope="project", query=q, limit=lim)
@@ -54,7 +54,7 @@ def _enrich_project_knowledge_json(raw: str) -> str:
     return json.dumps(data, ensure_ascii=False)
 
 
-def register_knowledge_tools(register_fn) -> None:
+def register_knowledge_tools(register_fn: Callable[..., None]) -> None:
     register_fn(
         name="search_project_knowledge",
         description=(

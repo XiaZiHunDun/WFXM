@@ -40,7 +40,7 @@ def enabled_detectors() -> frozenset[str]:
 
 def circuit_breaker_limit() -> int:
     try:
-        return int_env("BUTLER_TOOL_LOOP_CIRCUIT_LIMIT", 40, min=10)
+        return int(int_env("BUTLER_TOOL_LOOP_CIRCUIT_LIMIT", 40, min=10))
     except ValueError:
         return 40
 

@@ -8,7 +8,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 from butler.env_parse import env_truthy
@@ -46,7 +46,7 @@ def scope_requires_write_approval(scope: str, action: str = "append") -> bool:
 
 
 def _pending_path() -> Path:
-    d = get_butler_home() / "pending"
+    d = Path(get_butler_home()) / "pending"
     d.mkdir(parents=True, exist_ok=True)
     return d / "owner_memory.json"
 
@@ -167,7 +167,7 @@ def _apply_owner_item(butler_global: Any, item: dict[str, Any]) -> dict[str, Any
         payload = json.loads(raw)
     except json.JSONDecodeError:
         payload = {"ok": False, "error": raw}
-    return payload
+    return cast(dict[str, Any], payload)
 
 
 def format_owner_pending_lines(limit: int = 20) -> list[str]:

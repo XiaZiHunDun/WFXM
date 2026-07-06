@@ -24,7 +24,7 @@ def _resolve_project_name(project: str | None = None) -> tuple[str | None, str |
     return None, "No active project; pass project or /切换 first."
 
 
-def _tool_list_runtime_jobs(project: str | None = None, **_) -> str:
+def _tool_list_runtime_jobs(project: str | None = None, **_: Any) -> str:
     from butler.runtime.service import list_jobs_status, runtime_enabled
 
     if not runtime_enabled():
@@ -43,7 +43,7 @@ def _tool_list_runtime_jobs(project: str | None = None, **_) -> str:
 def _tool_run_runtime_job(
     job_id: str,
     project: str | None = None,
-    **_,
+    **_: Any,
 ) -> str:
     from butler.runtime import loader
     from butler.runtime.service import run_job, runtime_enabled
@@ -62,6 +62,8 @@ def _tool_run_runtime_job(
     proj, err = _resolve_project_name(project)
     if err:
         return json.dumps({"ok": False, "error": err})
+
+    from butler.tools.runtime_tools_ops import resolve_project_workspace_safe
 
     pm_ws = resolve_project_workspace_safe(proj or "")
     if pm_ws is not None:

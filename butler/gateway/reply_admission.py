@@ -22,7 +22,7 @@ _ACTIVE: dict[str, AdmissionToken] = {}
 
 
 def reply_admission_enabled() -> bool:
-    return env_truthy("BUTLER_REPLY_ADMISSION", default=True)
+    return bool(env_truthy("BUTLER_REPLY_ADMISSION", default=True))
 
 
 def try_admit(session_key: str) -> AdmissionToken | None:

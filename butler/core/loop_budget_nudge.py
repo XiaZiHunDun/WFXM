@@ -9,17 +9,17 @@ from butler.env_parse import env_truthy, float_env
 
 
 def loop_budget_nudge_enabled() -> bool:
-    return env_truthy("BUTLER_LOOP_BUDGET_NUDGE", default=True)
+    return bool(env_truthy("BUTLER_LOOP_BUDGET_NUDGE", default=True))
 
 
 def loop_budget_warn_ratio() -> float:
-    return float_env(
+    return float(float_env(
         "BUTLER_LOOP_BUDGET_WARN_RATIO",
         0.75,
         min=0.5,
         max=0.95,
         warn_on_clamp=True,
-    )
+    ))
 
 
 def iteration_budget_nudge_message(*, iteration: int, max_iterations: int) -> str:
@@ -57,7 +57,7 @@ def should_nudge_token_budget(used_tokens: int, budget_tokens: int) -> bool:
 
 
 def maybe_inject_loop_budget_nudges(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     diagnostics: dict[str, Any],
     *,
     iteration: int,

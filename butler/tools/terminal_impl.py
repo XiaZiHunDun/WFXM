@@ -9,7 +9,7 @@ import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import IO, Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ MAX_TERMINAL_OUTPUT_CHARS = 50000
 def _is_selectable_pipe(pipe: Any) -> bool:
     from butler.tools.terminal_impl_ops import is_selectable_pipe_safe
 
-    return is_selectable_pipe_safe(pipe)
+    return bool(is_selectable_pipe_safe(pipe))
 
 
 def _close_pipe(pipe: Any) -> None:
@@ -30,13 +30,20 @@ def _close_pipe(pipe: Any) -> None:
 
 
 def _communicate_limited(
-    proc: subprocess.Popen,
+    proc: subprocess.Popen[Any],
     *,
     timeout: int,
     max_output_chars: int,
 ) -> tuple[str, str, bool]:
     """Read process pipes incrementally so tool output cannot exhaust memory."""
-    if not (_is_selectable_pipe(proc.stdout) and _is_selectable_pipe(proc.stderr)):
+    stdout_pipe = proc.stdout
+    stderr_pipe = proc.stderr
+    if not (
+        stdout_pipe is not None
+        and stderr_pipe is not None
+        and _is_selectable_pipe(stdout_pipe)
+        and _is_selectable_pipe(stderr_pipe)
+    ):
         stdout, stderr = proc.communicate(timeout=timeout)
         return str(stdout or ""), str(stderr or ""), (
             len(str(stdout or "")) + len(str(stderr or "")) > max_output_chars
@@ -45,8 +52,10 @@ def _communicate_limited(
     import selectors
 
     selector = selectors.DefaultSelector()
-    selector.register(proc.stdout, selectors.EVENT_READ, "stdout")
-    selector.register(proc.stderr, selectors.EVENT_READ, "stderr")
+    stdout_io = stdout_pipe
+    stderr_io = stderr_pipe
+    selector.register(stdout_io, selectors.EVENT_READ, "stdout")
+    selector.register(stderr_io, selectors.EVENT_READ, "stderr")
     stdout_parts: list[bytes] = []
     stderr_parts: list[bytes] = []
     total = 0
@@ -66,6 +75,7 @@ def _communicate_limited(
                 continue
             for key, _mask in events:
                 pipe = key.fileobj
+                assert isinstance(pipe, IO)
                 chunk = pipe.read1(8192) if hasattr(pipe, "read1") else pipe.read(8192)
                 if not chunk:
                     selector.unregister(pipe)
@@ -91,7 +101,7 @@ def _communicate_limited(
     return stdout, stderr, truncated
 
 
-def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) -> str:
+def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, **_: Any) -> str:
     from butler.tools.interrupt import is_interrupted
     from butler.tools.path_safety import (
         check_tool_path,
@@ -210,9 +220,11 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
             shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            text=True,
             cwd=resolved_workdir,
             env=proc_env,
         )
+        assert proc is not None
         watcher = threading.Thread(target=_watch, daemon=True)
         watcher.start()
         try:
@@ -271,15 +283,17 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str = None, **_) ->
 
     from butler.tools.terminal_impl_ops import run_subprocess_loud, run_terminal_with_gates_safe
 
-    return run_terminal_with_gates_safe(
-        cmd_text,
-        cwd=cwd_hint,
-        session_key=session_key,
-        run_fn=lambda: run_subprocess_loud(_run_subprocess),
+    return str(
+        run_terminal_with_gates_safe(
+            cmd_text,
+            cwd=cwd_hint,
+            session_key=session_key,
+            run_fn=lambda: run_subprocess_loud(_run_subprocess),
+        )
     )
 
 
-def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) -> str:
+def _tool_search_files(pattern: str, path: str = ".", include: str | None = None, **_: Any) -> str:
     from butler.tools.path_safety import check_tool_path, safe_subprocess_env
 
     safety = check_tool_path(path)
@@ -321,10 +335,10 @@ def _tool_search_files(pattern: str, path: str = ".", include: str = None, **_) 
 
     from butler.tools.terminal_impl_ops import run_search_files_loud
 
-    return run_search_files_loud(_run)
+    return str(run_search_files_loud(_run))
 
 
-def _tool_list_directory(path: str = ".", **_) -> str:
+def _tool_list_directory(path: str = ".", **_: Any) -> str:
     from butler.tools.path_safety import check_tool_path
 
     safety = check_tool_path(path)
@@ -346,4 +360,4 @@ def _tool_list_directory(path: str = ".", **_) -> str:
 
     from butler.tools.terminal_impl_ops import run_list_directory_loud
 
-    return run_list_directory_loud(_run)
+    return str(run_list_directory_loud(_run))

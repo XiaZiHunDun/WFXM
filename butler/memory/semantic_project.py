@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from butler.memory.semantic_index import SOURCE_PROJECT, SemanticMemoryIndex
 from butler.memory.semantic_project_ops import (
@@ -211,7 +211,7 @@ def search_project_memory_vectors(
             break
     from butler.memory.retrieval_ranking import rerank_memory_hits
 
-    return rerank_memory_hits(out)
+    return cast(list[dict[str, Any]], rerank_memory_hits(out))
 
 
 def invalidate_project_memory_bullet(
@@ -286,7 +286,7 @@ def prefetch_project_memory_hits(
 
     subquery_result = prefetch_with_subqueries(q, _search, limit=limit)
     if subquery_result is not None:
-        return subquery_result
+        return cast(tuple[list[dict[str, Any]], str], subquery_result)
     return _prefetch_project_once(
         pmem,
         q,

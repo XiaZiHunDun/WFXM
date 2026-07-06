@@ -108,14 +108,14 @@ def auto_ingest_enabled() -> bool:
 
 def min_confidence() -> float:
     try:
-        return float_env("BUTLER_EXPERIENCE_MINING_MIN_CONFIDENCE", 0.7)
+        return float(float_env("BUTLER_EXPERIENCE_MINING_MIN_CONFIDENCE", 0.7))
     except ValueError:
         return 0.7
 
 
 def default_mining_days() -> int:
     try:
-        return int_env("BUTLER_EXPERIENCE_MINING_DAYS", 7, min=1)
+        return int(int_env("BUTLER_EXPERIENCE_MINING_DAYS", 7, min=1))
     except ValueError:
         return 7
 
@@ -123,7 +123,7 @@ def default_mining_days() -> int:
 def _metrics_dir() -> Path:
     from butler.config import get_butler_home
 
-    d = get_butler_home() / "metrics"
+    d = Path(get_butler_home()) / "metrics"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -135,7 +135,7 @@ def pending_path() -> Path:
 def feeds_path() -> Path:
     from butler.config import get_butler_home
 
-    d = get_butler_home() / "feeds"
+    d = Path(get_butler_home()) / "feeds"
     d.mkdir(parents=True, exist_ok=True)
     return d / "experience_feeds.jsonl"
 

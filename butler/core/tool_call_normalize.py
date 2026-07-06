@@ -37,7 +37,7 @@ _TRUNCATION_NUDGE = (
 
 def repair_tool_name(name: str, valid_names: set[str] | None = None) -> str | None:
     """Map malformed tool names to Butler registry names."""
-    valid = valid_names or BUTLER_TOOL_NAMES
+    valid: set[str] = set(valid_names or BUTLER_TOOL_NAMES)
     if not name:
         return None
     if name in valid:
@@ -71,7 +71,7 @@ def normalize_tool_calls(
     valid_names: set[str] | None = None,
 ) -> list[ToolCall]:
     """Deduplicate, repair names, cap delegate_task count."""
-    valid = valid_names or BUTLER_TOOL_NAMES
+    valid: set[str] = set(valid_names or BUTLER_TOOL_NAMES)
     seen: set[tuple[str, str]] = set()
     unique: list[ToolCall] = []
     for tc in tool_calls:

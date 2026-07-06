@@ -18,7 +18,7 @@ def invoke_hook(name: str, **kwargs: Any) -> list[Any]:
     """Forward to the registered sink; swallow exceptions (best-effort)."""
     from butler.core.events_sink_ops import invoke_hook_safe
 
-    return invoke_hook_safe(name, **kwargs)
+    return list(invoke_hook_safe(name, **kwargs))
 
 
 def emit_context_compaction(

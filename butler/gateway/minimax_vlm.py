@@ -6,6 +6,7 @@ import base64
 import os
 import time
 from pathlib import Path
+from typing import cast
 
 import requests
 
@@ -20,7 +21,7 @@ def _api_host() -> str:
     """Align with main Butler LLM (``MINIMAX_BASE_URL``), not a separate global host."""
     from butler.gateway_settings import vision_api_host
 
-    return vision_api_host()
+    return cast(str, vision_api_host())
 
 
 def _api_key() -> str:
@@ -104,7 +105,7 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
             ok=True,
             duration_ms=(time.monotonic() - t0) * 1000,
         )
-        return text
+        return cast(str, text)
 
     from butler.gateway.vision_fallback import describe_image_with_fallbacks
 
@@ -124,7 +125,7 @@ def describe_image(path: str, *, caption: str = "", timeout: float | None = None
             duration_ms=(time.monotonic() - t0) * 1000,
             detail="fallback",
         )
-        return fallback_text
+        return cast(str, fallback_text)
 
     record_media_event(
         "vision",

@@ -8,7 +8,7 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
@@ -36,14 +36,14 @@ class ReadStateEntry:
 
 
 def read_before_edit_enabled() -> bool:
-    return env_truthy("BUTLER_READ_BEFORE_EDIT", default=True)
+    return bool(env_truthy("BUTLER_READ_BEFORE_EDIT", default=True))
 
 
 def read_state_max_entries() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_READ_STATE_MAX_ENTRIES", _MAX_ENTRIES, min=10)
+        return int(int_env("BUTLER_READ_STATE_MAX_ENTRIES", _MAX_ENTRIES, min=10))
     except ValueError:
         return _MAX_ENTRIES
 
@@ -63,7 +63,7 @@ def _session_key(explicit: str | None = None) -> str:
         return str(explicit).strip()
     from butler.execution_context import get_audit_session_key
 
-    return get_audit_session_key(fallback="_global")
+    return str(get_audit_session_key(fallback="_global"))
 
 
 def _evict_lru(store: OrderedDict[str, ReadStateEntry]) -> None:
@@ -302,7 +302,7 @@ def require_read_before_edit(
 
 
 def rehydrate_read_state_from_messages(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     session_key: str | None = None,
 ) -> int:

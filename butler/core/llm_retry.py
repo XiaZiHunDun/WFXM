@@ -24,15 +24,15 @@ def call_llm_with_retry(
     client: LLMClient,
     config: LoopConfig,
     callbacks: LoopCallbacks,
-    tools: list[dict],
-    messages: list[dict],
+    tools: list[dict[str, Any]],
+    messages: list[dict[str, Any]],
     diagnostics: dict[str, Any],
-    prepare_messages: Callable[[], list[dict]],
-    compress_messages: Callable[[list[dict]], list[dict]],
+    prepare_messages: Callable[[], list[dict[str, Any]]],
+    compress_messages: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
     interrupt_check: Callable[[], bool],
     try_activate_fallback: Callable[[], bool],
     empty_retries: list[int],
-    on_tool_call_ready: Callable[[int, str, str, dict], None] | None = None,
+    on_tool_call_ready: Callable[[int, str, str, dict[str, Any]], None] | None = None,
 ) -> tuple[Optional[NormalizedResponse], bool]:
     """Call the LLM with retries; return (response, interrupted)."""
     from butler.core.llm_retry_ops import run_llm_with_retry_loop

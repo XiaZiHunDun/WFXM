@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 from butler.transport.model_capabilities import get_provider_capabilities
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def tool_wire_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_WIRE", default=True)
+    return bool(env_truthy("BUTLER_TOOL_WIRE", default=True))
 
 
 def _provider_key(provider: str) -> str:
@@ -44,7 +44,7 @@ def wire_tools_for_provider(
         return tools
     from butler.transport.tool_wire_ops import convert_provider_tools_safe
 
-    return convert_provider_tools_safe(transport, tools)
+    return cast("list[dict[str, Any]] | None", convert_provider_tools_safe(transport, tools))
 
 
 def normalize_tool_calls_for_provider(
@@ -117,7 +117,7 @@ def parse_tool_calls_from_raw(
             continue
         fn = item.get("function") if isinstance(item.get("function"), dict) else item
         name = ""
-        arguments = "{}"
+        arguments: Any = "{}"
         if isinstance(fn, dict):
             name = str(fn.get("name") or item.get("name") or "")
             arguments = fn.get("arguments", item.get("arguments", "{}"))

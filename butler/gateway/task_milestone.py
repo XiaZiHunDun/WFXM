@@ -16,14 +16,14 @@ def task_milestone_enabled() -> bool:
 
     if delegate_progress_notify_enabled_safe():
         return True
-    return env_truthy("BUTLER_GATEWAY_TASK_MILESTONE", default=False)
+    return bool(env_truthy("BUTLER_GATEWAY_TASK_MILESTONE", default=False))
 
 
 def task_milestone_min_seconds() -> float:
     from butler.env_parse import float_env
 
     try:
-        return max(30.0, float_env("BUTLER_GATEWAY_TASK_MILESTONE_SECONDS", 90))
+        return float(max(30.0, float_env("BUTLER_GATEWAY_TASK_MILESTONE_SECONDS", 90)))
     except ValueError:
         return 90.0
 
@@ -65,7 +65,7 @@ def task_milestone_max_per_turn() -> int:
         from butler.gateway.completion_notify import delegate_progress_notify_enabled
 
         default = 3 if delegate_progress_notify_enabled() else 1
-        return int_env("BUTLER_GATEWAY_TASK_MILESTONE_MAX", default, min=1, max=8)
+        return int(int_env("BUTLER_GATEWAY_TASK_MILESTONE_MAX", default, min=1, max=8))
     except ValueError:
         return 3
 
@@ -92,7 +92,7 @@ def maybe_schedule_task_milestone(bridge: Any) -> None:
     if sent > 0:
         text = f"{text}\n（进度 {sent + 1}/{max_n} · 可发 /停止 中断）"
     if bridge.schedule_supplementary_reply(text, kind="task_milestone"):
-        bridge._task_milestone_count = sent + 1  # type: ignore[attr-defined]
+        bridge._task_milestone_count = sent + 1
         if sent == 0:
             bridge._task_milestone_sent = True
 

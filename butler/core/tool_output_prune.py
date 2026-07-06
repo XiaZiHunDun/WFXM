@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from butler.context_settings import ToolPruneSettings
 from butler.core.tool_prune_policy import (
     CLEARED_TOOL_RESULT_MESSAGE,
     classify_tool,
@@ -11,26 +14,26 @@ from butler.core.tool_prune_policy import (
 _PRUNE_PROTECTED_TOOLS = frozenset({"skill_view", "skills_list"})
 
 
-def _tool_prune_settings():
+def _tool_prune_settings() -> ToolPruneSettings:
     from butler.context_settings import resolve_context_config
 
     return resolve_context_config().tool_prune
 
 
 def prune_minimum_chars() -> int:
-    return _tool_prune_settings().backward_minimum
+    return int(_tool_prune_settings().backward_minimum)
 
 
 def clear_at_least_chars() -> int:
     """LangChain ClearToolUsesEdit-style floor (alias for minimum by default)."""
-    return _tool_prune_settings().backward_minimum
+    return int(_tool_prune_settings().backward_minimum)
 
 
 def prune_protect_chars() -> int:
-    return _tool_prune_settings().backward_protect
+    return int(_tool_prune_settings().backward_protect)
 
 
-def backward_prune_tool_outputs(messages: list[dict]) -> list[dict]:
+def backward_prune_tool_outputs(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Erase older tool message bodies when prunable volume exceeds minimum."""
     if not _tool_prune_settings().backward_enabled:
         return messages

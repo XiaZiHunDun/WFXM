@@ -17,7 +17,7 @@ _TECH_SNIPPET = re.compile(
 
 
 def memory_recap_enabled() -> bool:
-    return env_truthy("BUTLER_MEMORY_RECAP_LINE", default=True)
+    return bool(env_truthy("BUTLER_MEMORY_RECAP_LINE", default=True))
 
 
 def memory_recap_min_out_chars() -> int:

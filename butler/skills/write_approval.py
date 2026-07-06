@@ -8,7 +8,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 from butler.env_parse import env_truthy
@@ -17,11 +17,11 @@ _LOCK = threading.RLock()
 
 
 def skill_write_approval_enabled() -> bool:
-    return env_truthy("BUTLER_SKILL_WRITE_APPROVAL", default=False)
+    return bool(env_truthy("BUTLER_SKILL_WRITE_APPROVAL", default=False))
 
 
 def _pending_path() -> Path:
-    d = get_butler_home() / "pending"
+    d = Path(get_butler_home()) / "pending"
     d.mkdir(parents=True, exist_ok=True)
     return d / "skills.json"
 
@@ -83,7 +83,7 @@ def approve_skill_pending(idx: int, skill_manager: Any) -> dict[str, Any]:
         _save_unlocked(items)
     from butler.skills.write_approval_ops import approve_pending_skill_safe
 
-    return approve_pending_skill_safe(skill_manager, item)
+    return cast(dict[str, Any], approve_pending_skill_safe(skill_manager, item))
 
 
 def approve_all_skill_pending(skill_manager: Any) -> int:

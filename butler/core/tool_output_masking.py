@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from butler.core.tool_prune_policy import CLEARED_TOOL_RESULT_MESSAGE, classify_tool
 from butler.core.tool_result_storage import (
@@ -14,14 +15,14 @@ from butler.env_parse import env_truthy
 
 
 def tool_masking_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_MASK_ENABLED", default=True)
+    return bool(env_truthy("BUTLER_TOOL_MASK_ENABLED", default=True))
 
 
 def _int_env(name: str, default: int) -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env(name, default, min=0)
+        return int(int_env(name, default, min=0))
     except ValueError:
         return default
 
@@ -36,10 +37,10 @@ def min_prunable_token_budget() -> int:
 
 def _estimate_tokens(text: str) -> int:
     from butler.core.context_compressor import _heuristic_count
-    return max(1, _heuristic_count(text))
+    return int(max(1, _heuristic_count(text)))
 
 
-def _tool_name_for_message(messages: list[dict], idx: int) -> str:
+def _tool_name_for_message(messages: list[dict[str, Any]], idx: int) -> str:
     msg = messages[idx]
     tid = str(msg.get("tool_call_id") or "")
     for j in range(idx - 1, -1, -1):
@@ -54,7 +55,7 @@ def _tool_name_for_message(messages: list[dict], idx: int) -> str:
     return ""
 
 
-def apply_unified_tool_masking(messages: list[dict]) -> list[dict]:
+def apply_unified_tool_masking(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Reverse walk: protect recent tool token budget; mask older tool bodies with pointer text.
     Complements backward_prune and spill — run after both in the pipeline.

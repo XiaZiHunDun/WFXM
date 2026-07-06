@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from butler.context_settings import ToolPruneSettings
 from butler.core.tool_result_storage import is_persisted_tool_result
 
 CLEARED_TOOL_RESULT_MESSAGE = "[旧工具结果已清空]"
@@ -42,29 +45,29 @@ _PRESERVE = frozenset({
 })
 
 
-def _tool_prune_settings():
+def _tool_prune_settings() -> ToolPruneSettings:
     from butler.context_settings import resolve_context_config
 
     return resolve_context_config().tool_prune
 
 
 def keep_recent_tool_messages() -> int:
-    return _tool_prune_settings().keep_recent
+    return int(_tool_prune_settings().keep_recent)
 
 
 def keep_recent_pim_tool_messages() -> int:
-    return _tool_prune_settings().pim_keep_recent
+    return int(_tool_prune_settings().pim_keep_recent)
 
 
 def prune_limit_chars(policy: str) -> int:
     tp = _tool_prune_settings()
     if policy == "pii_clearable":
-        return tp.pii_chars
+        return int(tp.pii_chars)
     if policy == "clearable":
-        return tp.clearable_chars
+        return int(tp.clearable_chars)
     if policy == "preserve":
-        return tp.preserve_chars
-    return tp.default_chars
+        return int(tp.preserve_chars)
+    return int(tp.default_chars)
 
 
 def classify_tool(tool_name: str) -> str:
@@ -85,7 +88,7 @@ def classify_tool(tool_name: str) -> str:
     return "default"
 
 
-def build_tool_name_index(messages: list[dict]) -> dict[str, str]:
+def build_tool_name_index(messages: list[dict[str, Any]]) -> dict[str, str]:
     """Map tool_call_id → tool name from assistant tool_calls blocks."""
     out: dict[str, str] = {}
     for msg in messages:
@@ -97,12 +100,13 @@ def build_tool_name_index(messages: list[dict]) -> dict[str, str]:
             tid = str(tc.get("id") or "").strip()
             if not tid:
                 continue
-            fn = tc.get("function") if isinstance(tc.get("function"), dict) else {}
+            fn_raw = tc.get("function")
+            fn = fn_raw if isinstance(fn_raw, dict) else {}
             out[tid] = str(fn.get("name") or "").strip()
     return out
 
 
-def _tool_message_indices(messages: list[dict]) -> list[int]:
+def _tool_message_indices(messages: list[dict[str, Any]]) -> list[int]:
     return [i for i, m in enumerate(messages) if m.get("role") == "tool"]
 
 

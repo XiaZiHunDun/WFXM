@@ -8,7 +8,7 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Callable, Optional, Protocol, cast
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
 
@@ -36,13 +36,13 @@ class _TypingAdapter(Protocol):
 def _env_bool(name: str, default: bool) -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy(name, default=default)
+    return cast(bool, env_truthy(name, default=default))
 
 
 def _env_float(name: str, default: float) -> float:
     from butler.env_parse import float_env
 
-    return float_env(name, default)
+    return cast(float, float_env(name, default))
 
 
 def set_current_bridge(bridge: GatewayOutboundBridge | None) -> None:
@@ -60,7 +60,7 @@ def get_gateway_bridge_optional() -> GatewayOutboundBridge | None:
 def _env_int(name: str, default: int, *, min_value: int = 0) -> int:
     from butler.env_parse import int_env
 
-    return int_env(name, default, min=min_value)
+    return cast(int, int_env(name, default, min=min_value))
 
 
 def suppress_completion_after_main_enabled() -> bool:
@@ -380,7 +380,7 @@ class GatewayOutboundBridge:
 
         self.emit_threadsafe(_apply)
 
-    def on_tool_start(self, name: str, args: dict) -> None:
+    def on_tool_start(self, name: str, args: dict[str, Any]) -> None:
         name = str(name or "").strip()
         if name not in MILESTONE_TOOLS:
             return

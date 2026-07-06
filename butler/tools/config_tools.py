@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ def tool_butler_config(action: str = "list", key: str = "", value: str = "", cat
     return json.dumps({"error": f"unknown action: {action}; use list/get/set/categories"})
 
 
-def register_config_tools(register_fn) -> None:
+def register_config_tools(register_fn: Callable[..., None]) -> None:
     register_fn(
         name="butler_config",
         description=(

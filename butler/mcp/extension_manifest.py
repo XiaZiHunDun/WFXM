@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 _MANIFEST_NAME = "manifest.yaml"
 
@@ -258,7 +258,7 @@ def read_secrets_yaml_value(key: str, secrets_path: Path | None = None) -> str:
         return ""
     from butler.config_secrets_crypto import decrypt_secret_value
 
-    return decrypt_secret_value(str(val)).strip()
+    return cast(str, decrypt_secret_value(str(val)).strip())
 
 
 def env_secret_value(contract: SecretContract) -> str:

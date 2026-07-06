@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.core.context_compress_hooks import (
     append_compact_evidence,
@@ -33,9 +33,11 @@ from butler.execution_context import get_audit_session_key
 
 logger = logging.getLogger(__name__)
 
+_CompactionSplit = tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]
+
 
 def _split_for_compaction(
-    pruned: list[dict],
+    pruned: list[dict[str, Any]],
     *,
     max_tokens: int,
     head_count: int,
@@ -43,7 +45,7 @@ def _split_for_compaction(
     min_tail_messages: int,
     max_output_tokens: int | None,
     diagnostics: dict[str, Any] | None,
-) -> tuple[list[dict], list[dict], list[dict]]:
+) -> _CompactionSplit:
     turn_split = split_for_compaction_turn(
         pruned,
         max_tokens=max_tokens,
@@ -57,20 +59,23 @@ def _split_for_compaction(
         write_diagnostics_fn=_write_compaction_diagnostics,
     )
     if turn_split is not None:
-        return turn_split
-    return legacy_compaction_split_fallback(
-        pruned,
-        diagnostics=diagnostics,
-        head_count=head_count,
-        max_tail_messages=max_tail_messages,
-        min_tail_messages=min_tail_messages,
-        legacy_split_fn=_split_head_tail,
-        write_diagnostics_fn=_write_compaction_diagnostics,
+        return cast(_CompactionSplit, turn_split)
+    return cast(
+        _CompactionSplit,
+        legacy_compaction_split_fallback(
+            pruned,
+            diagnostics=diagnostics,
+            head_count=head_count,
+            max_tail_messages=max_tail_messages,
+            min_tail_messages=min_tail_messages,
+            legacy_split_fn=_split_head_tail,
+            write_diagnostics_fn=_write_compaction_diagnostics,
+        ),
     )
 
 
 def run_compress_messages(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     max_tokens: int = 128000,
     threshold_ratio: float = 0.5,
@@ -83,7 +88,7 @@ def run_compress_messages(
     max_output_tokens: int | None = None,
     initial_injection: Any = None,
     diagnostics: dict[str, Any] | None = None,
-) -> tuple[list[dict], str, bool]:
+) -> tuple[list[dict[str, Any]], str, bool]:
     """Compress messages if over threshold. Returns (messages, summary, did_compress)."""
     estimated = _estimate_tokens(messages)
     threshold = int(max_tokens * threshold_ratio)

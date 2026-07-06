@@ -8,14 +8,14 @@ from butler.env_parse import env_truthy
 
 
 def compaction_inbound_bridge_enabled() -> bool:
-    return env_truthy("BUTLER_COMPACTION_INBOUND_BRIDGE", default=True)
+    return bool(env_truthy("BUTLER_COMPACTION_INBOUND_BRIDGE", default=True))
 
 
 def apply_compaction_turn_followup(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     session_key: str,
     diagnostics: dict[str, Any] | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     After an explicit compaction iteration, inject urgent queue + pending steer
     so the model sees course corrections before the next sampling call.

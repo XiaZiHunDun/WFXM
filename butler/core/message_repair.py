@@ -28,7 +28,7 @@ def _content_str(content: Any) -> str:
     return str(content)
 
 
-def repair_message_sequence(messages: list[dict]) -> tuple[list[dict], int]:
+def repair_message_sequence(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
     """Drop orphan tool results and merge consecutive user messages.
 
     Returns (repaired_messages, repair_count).
@@ -38,7 +38,7 @@ def repair_message_sequence(messages: list[dict]) -> tuple[list[dict], int]:
 
     repairs = 0
     known_tool_ids: set[str] = set()
-    filtered: list[dict] = []
+    filtered: list[dict[str, Any]] = []
 
     for msg in messages:
         if not isinstance(msg, dict):
@@ -64,7 +64,7 @@ def repair_message_sequence(messages: list[dict]) -> tuple[list[dict], int]:
                 known_tool_ids = set()
             filtered.append(msg)
 
-    merged: list[dict] = []
+    merged: list[dict[str, Any]] = []
     for msg in filtered:
         if (
             merged
@@ -89,7 +89,7 @@ def repair_message_sequence(messages: list[dict]) -> tuple[list[dict], int]:
     return merged, repairs
 
 
-def repair_tool_arguments(messages: list[dict]) -> int:
+def repair_tool_arguments(messages: list[dict[str, Any]]) -> int:
     """Fix invalid JSON in assistant tool_call arguments."""
     from butler.core.json_repair import repair_tool_call_arguments
 

@@ -11,7 +11,7 @@ from butler.env_parse import env_truthy
 
 
 def session_tool_index_enabled() -> bool:
-    return env_truthy("BUTLER_SESSION_TOOL_INDEX", default=True)
+    return bool(env_truthy("BUTLER_SESSION_TOOL_INDEX", default=True))
 
 
 def _parse_args_preview(raw: str) -> dict[str, Any]:

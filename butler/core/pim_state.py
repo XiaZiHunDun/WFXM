@@ -13,7 +13,7 @@ from __future__ import annotations
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _PIM_TOOL_DOMAIN: dict[str, str] = {
     "contact_add": "contacts",
@@ -93,13 +93,13 @@ def _state_path() -> Path:
 
     tenant_id = os.getenv("BUTLER_TENANT", DEFAULT_TENANT)
     root = tenant_root(get_butler_home(), tenant_id)
-    return root / "_pim_state.json"
+    return Path(root) / "_pim_state.json"
 
 
 def load_pim_state() -> PIMState:
     from butler.core.pim_state_ops import load_pim_state_from_file
 
-    return load_pim_state_from_file(_state_path(), empty_state=PIMState)
+    return cast(PIMState, load_pim_state_from_file(_state_path(), empty_state=PIMState))
 
 
 def save_pim_state(state: PIMState) -> None:

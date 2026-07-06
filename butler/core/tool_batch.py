@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.loop_types import LoopCallbacks, LoopConfig
@@ -25,7 +25,7 @@ _EDIT_TOOL_NAMES = frozenset({"write_file", "patch", "delete_file"})
 _OP_NAME_MAP = {"write_file": "write", "delete_file": "delete", "patch": "patch"}
 
 
-def _capture_pre_edit_snapshot(name: str, args: dict) -> None:
+def _capture_pre_edit_snapshot(name: str, args: dict[str, Any]) -> None:
     """Capture file content before an edit tool runs (for rollback)."""
     if name not in _EDIT_TOOL_NAMES:
         return
@@ -58,12 +58,12 @@ def _fetch_pre_edit_snapshot(path: str) -> str | None:
             from butler.tools.safe_root import get_tool_safe_root
 
             p = get_tool_safe_root() / p
-        return pop_pre_edit_snapshot(str(p.resolve()))
+        return cast(str | None, pop_pre_edit_snapshot(str(p.resolve())))
 
-    return safe_best_effort(_do, label="tool_batch.fetch_pre_edit_snapshot", default=None)
+    return cast(str | None, safe_best_effort(_do, label="tool_batch.fetch_pre_edit_snapshot", default=None))
 
 
-def _dev_engine_post_edit(name: str, args: dict, result: str) -> None:
+def _dev_engine_post_edit(name: str, args: dict[str, Any], result: str) -> None:
     """Record edit in DevState with proper snapshots for rollback (DD4).
 
     Called from ``_dispatch_one`` after a successful edit tool,
@@ -130,7 +130,7 @@ def _dev_engine_post_edit(name: str, args: dict, result: str) -> None:
     safe_best_effort(_do, label="tool_batch.dev_engine_post_edit")
 
 
-def _plan_mode_post_edit(name: str, args: dict, result: str) -> None:
+def _plan_mode_post_edit(name: str, args: dict[str, Any], result: str) -> None:
     """Sync plan markdown bullets to transcript plan_step rows."""
     if name not in ("write_file", "patch"):
         return
@@ -253,9 +253,12 @@ def _run_auto_verify(state: Any, path: str) -> None:
                 def _b9_hint() -> str | None:
                     from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
 
-                    return build_b9_verify_hint(tail)
+                    return cast(str | None, build_b9_verify_hint(tail))
 
-                b9_hint = safe_best_effort(_b9_hint, label="tool_batch.auto_verify.b9_hint")
+                b9_hint = cast(
+                    str | None,
+                    safe_best_effort(_b9_hint, label="tool_batch.auto_verify.b9_hint"),
+                )
                 if b9_hint:
                     hint = f"{hint}: {b9_hint}"
                 state._last_fix_hint = hint
@@ -287,7 +290,7 @@ class ToolBatchStats:
 
 
 def append_assistant_tool_calls(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     response: NormalizedResponse,
 ) -> None:
     """Append the assistant message that requested tool calls."""
@@ -312,11 +315,11 @@ def append_assistant_tool_calls(
 def process_tool_calls(
     *,
     response: NormalizedResponse,
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     config: LoopConfig,
     callbacks: LoopCallbacks,
     guardrails: ToolCallGuardrailController | None,
-    dispatch_tool: Callable[[str, dict], str],
+    dispatch_tool: Callable[[str, dict[str, Any]], str],
     interrupt_check: Callable[[], bool],
     prefetched: dict[str, str] | None = None,
 ) -> ToolBatchStats:
@@ -369,15 +372,18 @@ def process_tool_calls(
         interrupt_check=interrupt_check,
     )
 
-    def _dispatch_one(name: str, args: dict, *, tool_call_id: str = "") -> str:
-        return dispatch_one_tool(
-            name,
-            args,
-            tool_call_id=tool_call_id,
-            batch_guard=batch_guard,
-            prefetched=prefetched,
-            guardrails=guardrails,
-            dispatch_tool=dispatch_tool,
+    def _dispatch_one(name: str, args: dict[str, Any], *, tool_call_id: str = "") -> str:
+        return cast(
+            str,
+            dispatch_one_tool(
+                name,
+                args,
+                tool_call_id=tool_call_id,
+                batch_guard=batch_guard,
+                prefetched=prefetched,
+                guardrails=guardrails,
+                dispatch_tool=dispatch_tool,
+            ),
         )
 
     if config.enable_parallel_tools and len(response.tool_calls) > 1:

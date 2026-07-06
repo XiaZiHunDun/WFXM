@@ -56,4 +56,4 @@ def push_queue_pending_count(*, chat_id: str = "") -> int:
     """Count queued rows (best-effort; optional chat_id filter)."""
     from butler.gateway.completion_telemetry_ops import push_queue_pending_count_safe
 
-    return push_queue_pending_count_safe(chat_id=chat_id)
+    return int(push_queue_pending_count_safe(chat_id=chat_id))

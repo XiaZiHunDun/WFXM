@@ -6,7 +6,7 @@ import logging
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.runtime.builtin_handlers import run_builtin
 from butler.runtime.schema import JobDef
@@ -47,7 +47,7 @@ def execute_job(job: JobDef, workspace: Path) -> dict[str, Any]:
     if not job.is_builtin:
         result = enrich_job_result(job, ws, result, run_started_monotonic=started)
         result = apply_consistency_success_policy(job, ws, result)
-    return result
+    return cast(dict[str, Any], result)
 
 
 def _run_subprocess(job: JobDef, workspace: Path) -> dict[str, Any]:

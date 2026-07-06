@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.io.safe_load import (
     quarantine_corrupt_file,
@@ -46,7 +46,8 @@ def load_jobs_file(workspace: Path) -> JobsFile | None:
     if not isinstance(raw, dict):
         return None
 
-    defaults = raw.get("defaults") if isinstance(raw.get("defaults"), dict) else {}
+    defaults_raw = raw.get("defaults")
+    defaults = defaults_raw if isinstance(defaults_raw, dict) else {}
     jobs_raw = raw.get("jobs") or []
     jobs: list[JobDef] = []
     for item in jobs_raw:
@@ -55,8 +56,10 @@ def load_jobs_file(workspace: Path) -> JobsFile | None:
         jid = str(item.get("id") or "").strip()
         if not jid:
             continue
-        notify_raw = item.get("notify") if isinstance(item.get("notify"), dict) else {}
-        appr_raw = item.get("approval") if isinstance(item.get("approval"), dict) else {}
+        notify_raw = item.get("notify")
+        notify = notify_raw if isinstance(notify_raw, dict) else {}
+        appr_raw = item.get("approval")
+        appr = appr_raw if isinstance(appr_raw, dict) else {}
         cmd = item.get("command") or []
         if isinstance(cmd, str):
             cmd = [cmd]
@@ -76,17 +79,17 @@ def load_jobs_file(workspace: Path) -> JobsFile | None:
                     or 900
                 ),
                 notify=NotifyConfig(
-                    on_success=bool(notify_raw.get("on_success", True)),
-                    on_failure=bool(notify_raw.get("on_failure", True)),
+                    on_success=bool(notify.get("on_success", True)),
+                    on_failure=bool(notify.get("on_failure", True)),
                     max_summary_chars=int(
-                        notify_raw.get("max_summary_chars")
+                        notify.get("max_summary_chars")
                         or defaults.get("max_summary_chars")
                         or 1200
                     ),
                 ),
                 approval=ApprovalConfig(
-                    required=bool(appr_raw.get("required", True)),
-                    expires_hours=int(appr_raw.get("expires_hours") or 48),
+                    required=bool(appr.get("required", True)),
+                    expires_hours=int(appr.get("expires_hours") or 48),
                 ),
             )
         )
@@ -116,4 +119,4 @@ def list_jobs(workspace: Path, *, enabled_only: bool = False) -> list[JobDef]:
     jobs = jf.jobs
     if enabled_only:
         jobs = [j for j in jobs if j.enabled]
-    return jobs
+    return list(jobs)

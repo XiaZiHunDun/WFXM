@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from butler.tools.memory_tools_ops import tool_session_key_default
 
@@ -79,7 +79,7 @@ _RECALL_SCHEMA = {
 }
 
 
-def _memory_service():
+def _memory_service() -> Any:
     from butler.execution_context import get_current_orchestrator
     from butler.memory.facade import ButlerMemoryService
 
@@ -111,14 +111,16 @@ def tool_butler_remember(
     **_: Any,
 ) -> str:
     svc = _memory_service()
-    return svc.handle_tool_call(
-        "butler_remember",
-        {
-            "scope": scope,
-            "content": content,
-            "category": category,
-            "section": section,
-        },
+    return str(
+        svc.handle_tool_call(
+            "butler_remember",
+            {
+                "scope": scope,
+                "content": content,
+                "category": category,
+                "section": section,
+            },
+        )
     )
 
 
@@ -128,7 +130,7 @@ def tool_butler_recall(
     limit: int = 8,
     project: str = "",
     mode: str = "full",
-    ids: list | None = None,
+    ids: list[Any] | None = None,
     anchor_id: str = "",
     depth: int = 5,
     **_: Any,
@@ -145,7 +147,7 @@ def tool_butler_recall(
     }
     if ids is not None:
         payload["ids"] = ids
-    return svc.handle_tool_call("butler_recall", payload)
+    return str(svc.handle_tool_call("butler_recall", payload))
 
 
 _METRICS_SCHEMA = {
@@ -193,7 +195,7 @@ def tool_memory_metrics(
     )
 
 
-def register_memory_tools(register_fn) -> None:
+def register_memory_tools(register_fn: Callable[..., None]) -> None:
     """Register memory tools into the Butler tool registry."""
     register_fn(
         name="butler_remember",

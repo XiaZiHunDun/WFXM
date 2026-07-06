@@ -19,13 +19,13 @@ def process_llm_response(
     client: LLMClient,
     config: LoopConfig,
     callbacks: LoopCallbacks,
-    messages: list[dict],
-    prepare_messages: Callable[[], list[dict]],
+    messages: list[dict[str, Any]],
+    prepare_messages: Callable[[], list[dict[str, Any]]],
     diagnostics: dict[str, Any],
     cache_fp: str,
     llm_started: float,
     empty_retries: list[int],
-) -> tuple[NormalizedResponse | None, list[dict] | None, bool]:
+) -> tuple[NormalizedResponse | None, list[dict[str, Any]] | None, bool]:
     """Return (early_response, refreshed_messages_to_send, done).
 
     When ``done`` is True, caller should return ``early_response``.

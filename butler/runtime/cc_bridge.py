@@ -12,7 +12,7 @@ import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy, int_env
 
@@ -23,7 +23,7 @@ _QUEUE_FILE = "cc_bridge_queue.jsonl"
 
 
 def cc_bridge_enabled() -> bool:
-    return env_truthy("BUTLER_CC_BRIDGE", default=False)
+    return bool(env_truthy("BUTLER_CC_BRIDGE", default=False))
 
 
 def claude_cli_path() -> str | None:
@@ -36,7 +36,7 @@ def claude_cli_path() -> str | None:
 
 
 def cc_bridge_timeout_sec() -> int:
-    return int_env("BUTLER_CC_BRIDGE_TIMEOUT", 900, min=60)
+    return int(int_env("BUTLER_CC_BRIDGE_TIMEOUT", 900, min=60))
 
 
 def _jobs_dir() -> Path:
@@ -44,7 +44,7 @@ def _jobs_dir() -> Path:
 
     path = get_butler_home() / _JOB_DIR_NAME
     path.mkdir(parents=True, exist_ok=True)
-    return path
+    return cast(Path, path)
 
 
 def _queue_path() -> Path:
@@ -241,7 +241,7 @@ def format_cc_bridge_result(job: CcBridgeJob) -> str:
 def push_cc_bridge_completion(job: CcBridgeJob) -> bool:
     from butler.runtime.cc_bridge_ops import push_cc_bridge_completion_safe
 
-    return push_cc_bridge_completion_safe(job)
+    return bool(push_cc_bridge_completion_safe(job))
 
 
 __all__ = [

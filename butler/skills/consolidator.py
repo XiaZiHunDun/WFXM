@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from datetime import date
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def _extract_json_object(text: str) -> Optional[dict[str, Any]]:
         m = re.search(pattern, text, re.DOTALL)
         if m:
             try:
-                return json.loads(m.group())
+                return cast(dict[str, Any], json.loads(m.group()))
             except json.JSONDecodeError:
                 continue
     return None

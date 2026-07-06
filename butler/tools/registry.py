@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, cast
 
 from butler.tools.registry_gates import (
     apply_post_tool_hooks,
@@ -61,8 +61,8 @@ class ToolEntry:
         self,
         name: str,
         description: str,
-        schema: dict,
-        handler: Callable,
+        schema: dict[str, Any],
+        handler: Callable[..., Any],
         toolset: str = "default",
     ):
         self.name = name
@@ -72,14 +72,14 @@ class ToolEntry:
         self.toolset = toolset
 
 
-_REGISTRY: Dict[str, ToolEntry] = {}
+_REGISTRY: dict[str, ToolEntry] = {}
 
 
 def register(
     name: str,
     description: str,
-    schema: dict,
-    handler: Callable,
+    schema: dict[str, Any],
+    handler: Callable[..., Any],
     toolset: str = "default",
 ) -> None:
     from butler.tools.tool_doc_templates import enrich_tool_description
@@ -93,7 +93,7 @@ def register(
     )
 
 
-def get_tool_definitions() -> List[dict]:
+def get_tool_definitions() -> list[dict[str, Any]]:
     """Return OpenAI function-calling format tool definitions."""
     _ensure_builtins()
     mcp_available = mcp_tools_enabled()
@@ -111,10 +111,10 @@ def get_tool_definitions() -> List[dict]:
         })
     if mcp_available:
         result = extend_mcp_definitions(result)
-    return filter_definitions_by_toolset(result)
+    return cast(list[dict[str, Any]], filter_definitions_by_toolset(result))
 
 
-def _dispatch_mcp_tool(name: str, args: dict) -> str:
+def _dispatch_mcp_tool(name: str, args: dict[str, Any]) -> str:
     """Run permission/hooks/audit pipeline for MCP tools."""
     from butler.mcp.registry_hook import dispatch_mcp_tool
 
@@ -152,20 +152,29 @@ def _dispatch_mcp_tool(name: str, args: dict) -> str:
 
     result = dispatch_mcp_tool(name, args)
     if result is None:
-        return _finalize_tool_result(
+        return cast(
+            str,
+            _finalize_tool_result(
+                name,
+                args,
+                {"error": f"Unknown MCP tool: {name}"},
+                started_at=started_at,
+            ),
+        )
+    return cast(
+        str,
+        apply_post_tool_hooks(
             name,
             args,
-            {"error": f"Unknown MCP tool: {name}"},
-            started_at=started_at,
-        )
-    return apply_post_tool_hooks(
-        name,
-        args,
-        _finalize_tool_result(name, args, result, started_at=started_at),
+            cast(
+                str,
+                _finalize_tool_result(name, args, result, started_at=started_at),
+            ),
+        ),
     )
 
 
-def dispatch_tool(name: str, args: dict) -> str:
+def dispatch_tool(name: str, args: dict[str, Any]) -> str:
     """Dispatch a tool call by name. Returns result as string."""
     _ensure_builtins()
     started_at = time.monotonic()
@@ -176,7 +185,7 @@ def dispatch_tool(name: str, args: dict) -> str:
         started_at=started_at,
     )
     if blocked is not None:
-        return blocked
+        return cast(str, blocked)
 
     mcp_result = dispatch_mcp_if_applicable(
         name,
@@ -184,15 +193,18 @@ def dispatch_tool(name: str, args: dict) -> str:
         dispatch_mcp=_dispatch_mcp_tool,
     )
     if mcp_result is not None:
-        return mcp_result
+        return cast(str, mcp_result)
 
     entry = _REGISTRY.get(name)
     if entry is None:
-        return _finalize_tool_result(
-            name,
-            args,
-            {"error": f"Unknown tool: {name}"},
-            started_at=time.monotonic(),
+        return cast(
+            str,
+            _finalize_tool_result(
+                name,
+                args,
+                {"error": f"Unknown tool: {name}"},
+                started_at=time.monotonic(),
+            ),
         )
 
     from butler.plan.mode import check_plan_mode_block
@@ -249,28 +261,37 @@ def dispatch_tool(name: str, args: dict) -> str:
 
     call_args, arg_err = normalize_and_validate_args(name, args)
     if arg_err is not None:
-        return apply_post_tool_hooks(
-            name,
-            args,
-            _finalize_tool_result(name, args, arg_err, started_at=started_at),
-            failed=True,
+        return cast(
+            str,
+            apply_post_tool_hooks(
+                name,
+                args,
+                cast(
+                    str,
+                    _finalize_tool_result(name, args, arg_err, started_at=started_at),
+                ),
+                failed=True,
+            ),
         )
 
     call_args = inject_read_file_preread(name, call_args)
-    return invoke_registered_tool_handler(
-        name=name,
-        args=args,
-        call_args=call_args,
-        handler=entry.handler,
-        started_at=started_at,
-        finalize_result=_finalize_tool_result,
-        apply_hooks=apply_post_tool_hooks,
+    return cast(
+        str,
+        invoke_registered_tool_handler(
+            name=name,
+            args=args,
+            call_args=call_args,
+            handler=entry.handler,
+            started_at=started_at,
+            finalize_result=_finalize_tool_result,
+            apply_hooks=apply_post_tool_hooks,
+        ),
     )
 
 
 def _permission_denied_tool_result(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     reason: str,
     *,
     code: str,
@@ -280,11 +301,14 @@ def _permission_denied_tool_result(
     hint = permission_denied_hint(name, args, reason)
     if hint:
         payload["permission_denied_hint"] = hint
-    return _finalize_tool_result(
-        name,
-        args,
-        payload,
-        started_at=started_at if started_at is not None else time.monotonic(),
+    return cast(
+        str,
+        _finalize_tool_result(
+            name,
+            args,
+            payload,
+            started_at=started_at if started_at is not None else time.monotonic(),
+        ),
     )
 
 

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 if TYPE_CHECKING:
     from butler.gateway.message_handler import ButlerMessageHandler
@@ -81,10 +81,13 @@ def _phase_resolve_session_key(
     session_key: str | None,
 ) -> str:
     """Phase: normalize inbound args to a canonical session key."""
-    return handler.resolve_session_key(
-        platform=platform,
-        external_id=external_id,
-        session_key=session_key,
+    return cast(
+        str,
+        handler.resolve_session_key(
+            platform=platform,
+            external_id=external_id,
+            session_key=session_key,
+        ),
     )
 
 
@@ -109,11 +112,14 @@ def _phase_transform_inbound_text(
     def _run() -> str:
         from butler.core.message_ir import inbound_text_from_gateway
 
-        return inbound_text_from_gateway(
-            text,
-            platform=platform,
-            external_id=external_id,
-            session_key=session_key,
+        return cast(
+            str,
+            inbound_text_from_gateway(
+                text,
+                platform=platform,
+                external_id=external_id,
+                session_key=session_key,
+            ),
         )
 
     transformed = safe_best_effort(
@@ -121,7 +127,7 @@ def _phase_transform_inbound_text(
         label="message_pipelines.inbound_text_transform",
         default=None,
     )
-    return transformed if transformed is not None else text
+    return cast(str, transformed if transformed is not None else text)
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +159,7 @@ def _phase_apply_io_guardrail(text: str) -> Optional[str]:
     """Phase: io guardrail tripwire. Returns a blocking reply or None."""
     from butler.gateway.message_pipelines_fail_closed import apply_io_guardrail_fail_closed
 
-    return apply_io_guardrail_fail_closed(text)
+    return cast(Optional[str], apply_io_guardrail_fail_closed(text))
 
 
 # ---------------------------------------------------------------------------
@@ -170,11 +176,14 @@ def _phase_apply_human_gate(
     """Phase: human gate — blocks (with owner check) if pending review."""
     from butler.gateway.message_pipelines_fail_closed import apply_human_gate_fail_closed
 
-    return apply_human_gate_fail_closed(
-        text,
-        session_key,
-        platform=platform,
-        external_id=external_id,
+    return cast(
+        Optional[str],
+        apply_human_gate_fail_closed(
+            text,
+            session_key,
+            platform=platform,
+            external_id=external_id,
+        ),
     )
 
 
@@ -193,10 +202,13 @@ def _phase_apply_injection_guard(
     """
     from butler.gateway.message_pipelines_fail_closed import apply_injection_guard_fail_closed
 
-    return apply_injection_guard_fail_closed(
-        text,
-        session_key,
-        record_injection_transcript=_record_injection_transcript,
+    return cast(
+        tuple[str, Optional[str]],
+        apply_injection_guard_fail_closed(
+            text,
+            session_key,
+            record_injection_transcript=_record_injection_transcript,
+        ),
     )
 
 
@@ -208,10 +220,13 @@ def _phase_apply_injection_llm(text: str, session_key: str) -> Optional[str]:
     """Phase: LLM-driven injection gate. Returns a blocking reply or None."""
     from butler.gateway.message_pipelines_fail_closed import apply_injection_llm_fail_closed
 
-    return apply_injection_llm_fail_closed(
-        text,
-        session_key,
-        record_injection_transcript=_record_injection_transcript,
+    return cast(
+        Optional[str],
+        apply_injection_llm_fail_closed(
+            text,
+            session_key,
+            record_injection_transcript=_record_injection_transcript,
+        ),
     )
 
 
@@ -241,7 +256,10 @@ def _phase_apply_bot_loop_guard(
             return "（已忽略：群聊 bot 互回复环防护）"
         return None
 
-    return safe_best_effort(_run, label="message_pipelines.bot_loop_guard", default=None)
+    return cast(
+        Optional[str],
+        safe_best_effort(_run, label="message_pipelines.bot_loop_guard", default=None),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -269,17 +287,20 @@ def _phase_apply_two_phase_confirm(
             from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
             if not is_gateway_owner(platform=platform, external_id=external_id):
-                return owner_required_message()
-            return pending_reply
+                return cast(str, owner_required_message())
+            return cast(str, pending_reply)
         cancel_note = cancel_pending_unless_confirm(text, session_key=session_key)
         if cancel_note:
             return f"{cancel_note}\n\n{text}"
         return None
 
-    return safe_best_effort(
-        _run,
-        label="message_pipelines.two_phase_confirm",
-        default=None,
+    return cast(
+        Optional[str],
+        safe_best_effort(
+            _run,
+            label="message_pipelines.two_phase_confirm",
+            default=None,
+        ),
     )
 
 
@@ -296,7 +317,7 @@ def _phase_apply_prequeue_interrupt(
     from butler.gateway.handler_helpers import _is_prequeue_interrupt_command
 
     if _is_prequeue_interrupt_command(text):
-        return handler._format_prequeue_interrupt_reply(session_key)
+        return cast(str, handler._format_prequeue_interrupt_reply(session_key))
     return None
 
 
@@ -331,7 +352,7 @@ def _phase_apply_pre_dispatch_rewrites(
         return None
     if not rewritten.strip():
         return ""
-    return rewritten
+    return cast(Optional[str], rewritten)
 
 
 # ---------------------------------------------------------------------------
@@ -377,10 +398,13 @@ def _phase_apply_idempotency(
             return (_idem.user_reply or "（重复消息已忽略。）"), False, inbound_id
         return None, True, inbound_id
 
-    return safe_best_effort(
-        _run,
-        label="message_pipelines.idempotency",
-        default=(None, False, ""),
+    return cast(
+        tuple[Optional[str], bool, str],
+        safe_best_effort(
+            _run,
+            label="message_pipelines.idempotency",
+            default=(None, False, ""),
+        ),
     )
 
 
@@ -422,13 +446,19 @@ def _phase_apply_session_initializing(
             platform=platform,
             external_id=external_id or "",
         ):
-            return format_initializing_ack(pending=pending_count(session_key))
-        return format_initializing_ack()
+            return cast(
+                str,
+                format_initializing_ack(pending=pending_count(session_key)),
+            )
+        return cast(str, format_initializing_ack())
 
-    return safe_best_effort(
-        _run,
-        label="message_pipelines.session_initializing",
-        default=None,
+    return cast(
+        Optional[str],
+        safe_best_effort(
+            _run,
+            label="message_pipelines.session_initializing",
+            default=None,
+        ),
     )
 
 
@@ -468,7 +498,7 @@ def _phase_apply_queue_inbound(
         )
 
         if is_run_active(session_key) and steer(text, session_key=session_key):
-            return format_steer_gateway_reply(accepted=True, active=True)
+            return cast(str, format_steer_gateway_reply(accepted=True, active=True))
         return None
     if mode == "interrupt":
         handler._format_prequeue_interrupt_reply(session_key)
@@ -479,15 +509,21 @@ def _phase_apply_queue_inbound(
         platform=platform,
         external_id=external_id or "",
     ):
-        return format_queued_ack(
-            pending=pending_count(session_key),
-            session_key=session_key,
+        return cast(
+            str,
+            format_queued_ack(
+                pending=pending_count(session_key),
+                session_key=session_key,
+            ),
         )
     from butler.gateway.queue_settings import session_drop_policy
 
     if session_drop_policy(session_key) == "new":
         return "队列已满，最新消息未入队。可发 /queue 调整 cap 或 /诊断 查看。"
-    return format_queued_ack(pending=pending_count(session_key), session_key=session_key)
+    return cast(
+        str,
+        format_queued_ack(pending=pending_count(session_key), session_key=session_key),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -533,9 +569,12 @@ def queue_inbound_for_admission_failure(
             platform=platform,
             external_id=external_id or "",
         ):
-            return format_queued_ack(
-                pending=pending_count(session_key),
-                session_key=session_key,
+            return cast(
+                str,
+                format_queued_ack(
+                    pending=pending_count(session_key),
+                    session_key=session_key,
+                ),
             )
         return None
 
@@ -545,5 +584,5 @@ def queue_inbound_for_admission_failure(
         default=None,
     )
     if queued:
-        return queued
+        return cast(str, queued)
     return "会话处理中，请稍候…"

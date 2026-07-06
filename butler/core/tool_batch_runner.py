@@ -12,7 +12,7 @@ def run_sequential_tool_calls(
     tool_calls: list[Any],
     *,
     dispatch_one: Callable[..., str],
-    on_start: Callable[[str, dict], None],
+    on_start: Callable[[str, dict[str, Any]], None],
     on_complete: Callable[[str, str], None],
     guardrails: ToolCallGuardrailController | None,
     batch_guard: Any,
@@ -20,7 +20,7 @@ def run_sequential_tool_calls(
 ) -> list[tuple[Any, str]]:
     """Execute tool calls one-by-one; honor interrupt and guardrail halt."""
     from butler.core.batch_sequence_guard import stale_skip_result
-    from butler.core.tool_batch import finalize_fallback_tool_result
+    from butler.core.tool_batch_finalize import finalize_fallback_tool_result
 
     pairs: list[tuple[Any, str]] = []
     batch_interrupted = False
@@ -68,7 +68,7 @@ def run_sequential_tool_calls(
 
 def append_tool_role_messages(
     pairs: list[tuple[Any, str]],
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     session_key: str,
 ) -> None:
@@ -98,7 +98,7 @@ def extract_batch_followups(
     pairs: list[tuple[Any, str]],
 ) -> tuple[str | None, str | None]:
     """Return (clarification_question, waiting_confirmation_message) if any."""
-    from butler.core.tool_batch import parse_tool_result_object
+    from butler.core.tool_batch_finalize import parse_tool_result_object
 
     clarification: str | None = None
     waiting: str | None = None

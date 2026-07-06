@@ -8,7 +8,7 @@ import logging
 import threading
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.mcp.async_runner import run_mcp_async
 from butler.mcp.config import (
@@ -187,10 +187,16 @@ class McpConnectionManager:
             if cfg.transport == "stdio":
                 from butler.mcp.client_stdio import connect_stdio
 
-                return await connect_stdio(cfg, workspace=workspace)
+                return cast(
+                    tuple[Any, list[Any], Any],
+                    await connect_stdio(cfg, workspace=workspace),
+                )
             from butler.mcp.client_http import connect_http
 
-            return await connect_http(cfg, workspace=workspace)
+            return cast(
+                tuple[Any, list[Any], Any],
+                await connect_http(cfg, workspace=workspace),
+            )
 
         session, tools, cleanup = run_mcp_async(
             _run(),
@@ -203,7 +209,7 @@ class McpConnectionManager:
         ]
         handle.session = session
         handle.cleanup = cleanup
-        handle._cached_tools = filtered  # type: ignore[attr-defined]
+        handle._cached_tools = filtered
         handle.status.connected = True
         handle.status.tool_count = len(filtered)
         handle.status.last_error = ""
@@ -254,12 +260,15 @@ class McpConnectionManager:
 
         from butler.mcp.manager_ops import call_tool_loud
 
-        return call_tool_loud(
-            handle,
-            server_id=cfg.server_id,
-            tool_name=ref.original_name,
-            run_call=lambda: run_mcp_async(_call(), timeout=timeout + 10.0),
-            on_error=lambda msg: _error_payload(ref.registered_name, msg),
+        return cast(
+            str,
+            call_tool_loud(
+                handle,
+                server_id=cfg.server_id,
+                tool_name=ref.original_name,
+                run_call=lambda: run_mcp_async(_call(), timeout=timeout + 10.0),
+                on_error=lambda msg: _error_payload(ref.registered_name, msg),
+            ),
         )
 
 

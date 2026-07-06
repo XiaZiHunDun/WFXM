@@ -15,7 +15,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.tools.pim_schema import (
     EXPENSE_CATEGORIES as _VALID_CATEGORIES,
@@ -34,11 +34,11 @@ _store = TenantStore("expenses", env_toggle="BUTLER_EXPENSE_ENABLED")
 
 
 def _expense_enabled() -> bool:
-    return _store.enabled()
+    return bool(_store.enabled())
 
 
 def _expenses_dir() -> Path:
-    return _store.storage_dir()
+    return cast(Path, _store.storage_dir())
 
 
 def _normalize_category(raw: Any) -> str:

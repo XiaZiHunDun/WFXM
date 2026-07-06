@@ -23,11 +23,11 @@ _LAYERED_PROMPT = """从以下对话提取用户画像分层摘要。只输出 J
 
 
 def post_session_layered_enabled() -> bool:
-    return env_truthy("BUTLER_POST_SESSION_LAYERED", default=False)
+    return bool(env_truthy("BUTLER_POST_SESSION_LAYERED", default=False))
 
 
 async def extract_layered_summary(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     llm_call: Any,
 ) -> dict[str, list[str]]:
     """Return persona/preference/experience string lists."""

@@ -242,7 +242,7 @@ class StreamingThinkScrubber:
                 best_len = len(tag)
         return best_idx, best_len
 
-    def _find_earliest_closed_pair(self, buf: str):
+    def _find_earliest_closed_pair(self, buf: str) -> tuple[int, int] | None:
         """Return (start_idx, end_idx) of the earliest closed pair, else None.
 
         A closed pair is ``<tag>...</tag>`` of any variant.  Matches are

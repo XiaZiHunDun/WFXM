@@ -10,6 +10,7 @@ import uuid
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 from butler.memory_settings import resolve_memory_config
 from butler.memory.observation_store import ObservationStore, observations_db_path
@@ -28,11 +29,11 @@ def _evict_oldest_workspace_locked(*, keep: str) -> None:
 
 
 def observer_queue_enabled() -> bool:
-    return resolve_memory_config().observer_queue_enabled
+    return bool(resolve_memory_config().observer_queue_enabled)
 
 
 def observations_path(workspace: Path) -> Path:
-    return observations_db_path(Path(workspace))
+    return Path(observations_db_path(Path(workspace)))
 
 
 def observations_db(workspace: Path) -> ObservationStore:
@@ -47,7 +48,7 @@ def observations_db(workspace: Path) -> ObservationStore:
 def _resolve_workspace() -> Path | None:
     from butler.memory.observer_queue_ops import resolve_observer_workspace_safe
 
-    return resolve_observer_workspace_safe()
+    return cast(Path | None, resolve_observer_workspace_safe())
 
 
 def _workspace_key(workspace: Path) -> str:
@@ -131,7 +132,7 @@ def flush_observer_queue(workspace: Path | None = None) -> int:
 
     from butler.memory.observer_queue_ops import flush_observation_batch_loud
 
-    return flush_observation_batch_loud(ws, batch, requeue=_requeue)
+    return cast(int, flush_observation_batch_loud(ws, batch, requeue=_requeue))
 
 
 def flush_all_observer_queues() -> int:
@@ -154,7 +155,10 @@ def list_observations_for_path(workspace: Path, file_path: str, *, limit: int = 
         return []
     from butler.memory.observer_queue_ops import list_observations_for_path_safe
 
-    return list_observations_for_path_safe(workspace, file_path, limit=limit)
+    return cast(
+        list[dict[str, str]],
+        list_observations_for_path_safe(workspace, file_path, limit=limit),
+    )
 
 
 __all__ = [

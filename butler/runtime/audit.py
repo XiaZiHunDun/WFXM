@@ -8,7 +8,7 @@ import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 from butler.config import get_butler_settings
@@ -25,7 +25,7 @@ _PROCESS_TOKEN: str = uuid4().hex
 
 
 def _runs_root() -> Path:
-    root = get_butler_settings().butler_home / "runtime" / "runs"
+    root = cast(Path, get_butler_settings().butler_home / "runtime" / "runs")
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -66,7 +66,7 @@ def latest_run(project_name: str, job_id: str) -> dict[str, Any] | None:
 
 
 def lock_path(project_name: str, job_id: str) -> Path:
-    locks = get_butler_settings().butler_home / "runtime" / "locks"
+    locks = cast(Path, get_butler_settings().butler_home / "runtime" / "locks")
     locks.mkdir(parents=True, exist_ok=True)
     return locks / f"{_slug(project_name)}__{job_id}.lock"
 

@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any, cast
+
 from butler.core.best_effort import safe_best_effort
+
+MessageDict = dict[str, Any]
+CompactionSplit = tuple[list[MessageDict], list[MessageDict], list[MessageDict]]
 
 
 def record_compress_scheduled(
@@ -86,7 +92,7 @@ def record_compress_completed(
     safe_best_effort(_emit, label="context_compress.emit")
 
 
-def record_overflow_replay(*, session_key: str, replay_user: dict) -> None:
+def record_overflow_replay(*, session_key: str, replay_user: MessageDict) -> None:
     def _run() -> None:
         from butler.core.session_transcript import record_overflow_replay
 
@@ -105,33 +111,36 @@ def auxiliary_summarize_middle(prompt: str) -> str | None:
     def _run() -> str:
         from butler.transport.auxiliary_client import auxiliary_complete
 
-        return auxiliary_complete(
-            prompt,
-            task="compression",
-            system="You compress conversation history into structured handoff notes.",
+        return str(
+            auxiliary_complete(
+                prompt,
+                task="compression",
+                system="You compress conversation history into structured handoff notes.",
+            )
         )
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="context_compressor.auxiliary_summarize",
         default=None,
     )
+    return str(result) if result is not None else None
 
 
 def split_for_compaction_turn(
-    pruned: list[dict],
+    pruned: list[MessageDict],
     *,
     max_tokens: int,
     head_count: int,
     max_tail_messages: int,
     min_tail_messages: int,
     max_output_tokens: int | None,
-    diagnostics: dict | None,
-    estimate_fn,
-    legacy_split_fn,
-    write_diagnostics_fn,
-) -> tuple[list[dict], list[dict], list[dict]] | None:
-    def _run() -> tuple[list[dict], list[dict], list[dict]]:
+    diagnostics: dict[str, Any] | None,
+    estimate_fn: Callable[[list[MessageDict]], int],
+    legacy_split_fn: Callable[..., CompactionSplit],
+    write_diagnostics_fn: Callable[..., None],
+) -> CompactionSplit | None:
+    def _run() -> CompactionSplit:
         from butler.core.turn_compaction import split_head_tail_turns, turn_compaction_enabled
 
         if not turn_compaction_enabled():
@@ -162,23 +171,26 @@ def split_for_compaction_turn(
                     diagnostics["compaction_turn_fallback"] = "legacy_split"
         return system, middle, head_tail
 
-    return safe_best_effort(
-        _run,
-        label="context_compress.turn_split",
-        default=None,
+    return cast(
+        CompactionSplit | None,
+        safe_best_effort(
+            _run,
+            label="context_compress.turn_split",
+            default=None,
+        ),
     )
 
 
 def legacy_compaction_split_fallback(
-    pruned: list[dict],
+    pruned: list[MessageDict],
     *,
-    diagnostics: dict | None,
+    diagnostics: dict[str, Any] | None,
     head_count: int,
     max_tail_messages: int,
     min_tail_messages: int,
-    legacy_split_fn,
-    write_diagnostics_fn,
-) -> tuple[list[dict], list[dict], list[dict]]:
+    legacy_split_fn: Callable[..., CompactionSplit],
+    write_diagnostics_fn: Callable[..., None],
+) -> CompactionSplit:
     if isinstance(diagnostics, dict):
         write_diagnostics_fn(
             diagnostics,

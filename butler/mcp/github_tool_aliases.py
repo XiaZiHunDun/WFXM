@@ -24,7 +24,7 @@ def resolve_github_mcp_tool_name(name: str) -> str:
 
     resolved = resolve_mcp_tool_alias_safe(key)
     if resolved != key:
-        return resolved
+        return str(resolved)
     return key
 
 

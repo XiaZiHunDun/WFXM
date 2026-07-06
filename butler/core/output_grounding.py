@@ -15,11 +15,11 @@ _NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
 
 
 def memory_prefetch_grounding_enabled() -> bool:
-    return env_truthy("BUTLER_MEMORY_PREFETCH_GROUNDING", default=True)
+    return bool(env_truthy("BUTLER_MEMORY_PREFETCH_GROUNDING", default=True))
 
 
 def calc_grounding_enabled() -> bool:
-    return env_truthy("BUTLER_CALC_GROUNDING", default=True)
+    return bool(env_truthy("BUTLER_CALC_GROUNDING", default=True))
 
 
 def _apply_memory_prefetch_grounding(text: str, diagnostics: dict[str, Any] | None) -> str:

@@ -14,19 +14,19 @@ _DEFAULT_MESSAGES_PREFIX_CHARS = 2048
 
 
 def cache_safe_delegate_enabled() -> bool:
-    return env_truthy("BUTLER_CACHE_SAFE_DELEGATE", default=True)
+    return bool(env_truthy("BUTLER_CACHE_SAFE_DELEGATE", default=True))
 
 
 def shared_prefix_max_chars() -> int:
-    return int_env("BUTLER_CACHE_SAFE_SHARED_CHARS", _DEFAULT_SHARED_CHARS, min=512)
+    return int(int_env("BUTLER_CACHE_SAFE_SHARED_CHARS", _DEFAULT_SHARED_CHARS, min=512))
 
 
 def messages_prefix_max_chars() -> int:
-    return int_env(
+    return int(int_env(
         "BUTLER_CACHE_SAFE_MESSAGES_CHARS",
         _DEFAULT_MESSAGES_PREFIX_CHARS,
         min=256,
-    )
+    ))
 
 
 def system_prompt_fingerprint(text: str) -> str:
@@ -34,7 +34,7 @@ def system_prompt_fingerprint(text: str) -> str:
     return digest[:16]
 
 
-def tools_schema_fingerprint(tools: list[dict] | None) -> str:
+def tools_schema_fingerprint(tools: list[dict[str, Any]] | None) -> str:
     if not tools:
         return "none"
     try:
@@ -44,7 +44,7 @@ def tools_schema_fingerprint(tools: list[dict] | None) -> str:
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
-def messages_prefix_fingerprint(messages: list[dict] | None) -> str:
+def messages_prefix_fingerprint(messages: list[dict[str, Any]] | None) -> str:
     if not messages:
         return "none"
     parts: list[str] = []
@@ -71,8 +71,8 @@ def compute_cache_safe_bundle(
     *,
     parent_system: str,
     child_system: str,
-    tools: list[dict] | None = None,
-    messages: list[dict] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    messages: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     prefix = extract_shared_prefix(parent_system)
     return {
@@ -89,8 +89,8 @@ def apply_cache_safe_system_prompt(
     parent_system: str,
     child_system: str,
     *,
-    tools: list[dict] | None = None,
-    messages: list[dict] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    messages: list[dict[str, Any]] | None = None,
 ) -> str:
     """Prepend parent's cacheable prefix when child does not already include it."""
     if not cache_safe_delegate_enabled():
@@ -115,8 +115,8 @@ def delegate_diagnostics(
     parent_system: str,
     child_system: str,
     *,
-    tools: list[dict] | None = None,
-    messages: list[dict] | None = None,
+    tools: list[dict[str, Any]] | None = None,
+    messages: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     bundle = compute_cache_safe_bundle(
         parent_system=parent_system,

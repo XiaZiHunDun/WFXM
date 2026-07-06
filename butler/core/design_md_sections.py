@@ -6,9 +6,9 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.env_parse import int_env
 
@@ -33,7 +33,7 @@ def default_section_names() -> tuple[str, ...]:
 
 def max_section_chars() -> int:
     try:
-        return int_env("BUTLER_POST_COMPACT_DESIGN_MAX_CHARS", 2500, min=200, max=8000)
+        return int(int_env("BUTLER_POST_COMPACT_DESIGN_MAX_CHARS", 2500, min=200, max=8000))
     except ValueError:
         return 2500
 
@@ -76,13 +76,13 @@ def resolve_design_md_path(
 def _resolve_workspace() -> Path | None:
     from butler.core.design_md_sections_ops import resolve_active_project_workspace_safe
 
-    return resolve_active_project_workspace_safe()
+    return cast("Path | None", resolve_active_project_workspace_safe())
 
 
 def _current_design_preset() -> str:
     from butler.core.design_md_sections_ops import current_design_preset_safe
 
-    return current_design_preset_safe()
+    return cast(str, current_design_preset_safe())
 
 
 def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -185,15 +185,15 @@ def extract_design_md_sections(
 
     if not sections:
         return ""
-    rel = path.relative_to(ws) if path.is_relative_to(ws) else path.name
-    header = f"## DESIGN.md (pinned sections)\nSource: `{rel}`\n\n"
+    rel_src: str = str(path.relative_to(ws)) if path.is_relative_to(ws) else path.name
+    header = f"## DESIGN.md (pinned sections)\nSource: `{rel_src}`\n\n"
     return header + "\n\n".join(sections)
 
 
 def design_context_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_DESIGN_CONTEXT_INJECT", default=True)
+    return bool(env_truthy("BUTLER_DESIGN_CONTEXT_INJECT", default=True))
 
 
 def build_design_context_block(

@@ -4,24 +4,28 @@ from __future__ import annotations
 
 import os
 import time
+from typing import cast
 
 from butler.env_parse import env_truthy, int_env, float_env
 
 
 def progressive_stream_enabled() -> bool:
-    return env_truthy("BUTLER_GATEWAY_PROGRESSIVE_STREAM", default=False)
+    return cast(bool, env_truthy("BUTLER_GATEWAY_PROGRESSIVE_STREAM", default=False))
 
 
 def progressive_stream_min_chars() -> int:
     try:
-        return int_env("BUTLER_GATEWAY_PROGRESSIVE_MIN_CHARS", 240, min=80)
+        return cast(int, int_env("BUTLER_GATEWAY_PROGRESSIVE_MIN_CHARS", 240, min=80))
     except ValueError:
         return 240
 
 
 def progressive_stream_interval_seconds() -> float:
     try:
-        return float_env("BUTLER_GATEWAY_PROGRESSIVE_INTERVAL", 45, min=15.0)
+        return cast(
+            float,
+            float_env("BUTLER_GATEWAY_PROGRESSIVE_INTERVAL", 45, min=15.0),
+        )
     except ValueError:
         return 45.0
 

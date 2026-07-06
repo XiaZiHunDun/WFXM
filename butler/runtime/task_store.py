@@ -32,7 +32,7 @@ def _tasks_root() -> Path:
 
     root = get_butler_settings().butler_home / "runtime" / "tasks"
     root.mkdir(parents=True, exist_ok=True)
-    return root
+    return Path(root)
 
 
 def new_task_id() -> str:
@@ -41,13 +41,13 @@ def new_task_id() -> str:
 
 def task_stale_minutes() -> int:
     try:
-        return max(5, int_env("BUTLER_TASK_STALE_MINUTES", 60))
+        return int(max(5, int_env("BUTLER_TASK_STALE_MINUTES", 60)))
     except ValueError:
         return 60
 
 
 def task_stale_auto_fail() -> bool:
-    return env_truthy("BUTLER_TASK_STALE_AUTO_FAIL", default=False)
+    return bool(env_truthy("BUTLER_TASK_STALE_AUTO_FAIL", default=False))
 
 
 def _parse_iso(ts: str) -> datetime | None:

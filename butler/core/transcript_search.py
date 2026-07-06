@@ -7,7 +7,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, cast
 
 from butler.core.session_transcript import transcript_enabled, transcript_path
 from butler.core.transcript_search_ops import search_transcripts_fts
@@ -15,14 +15,14 @@ from butler.core.transcript_search_ops import search_transcripts_fts
 
 def search_max_sessions() -> int:
     try:
-        return int_env("BUTLER_TRANSCRIPT_SEARCH_MAX_SESSIONS", 5, min=1, max=20)
+        return int(int_env("BUTLER_TRANSCRIPT_SEARCH_MAX_SESSIONS", 5, min=1, max=20))
     except ValueError:
         return 5
 
 
 def search_max_hits() -> int:
     try:
-        return int_env("BUTLER_TRANSCRIPT_SEARCH_MAX_HITS", 15, min=1, max=50)
+        return int(int_env("BUTLER_TRANSCRIPT_SEARCH_MAX_HITS", 15, min=1, max=50))
     except ValueError:
         return 15
 
@@ -30,7 +30,7 @@ def search_max_hits() -> int:
 def _sessions_root() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "sessions"
+    return Path(get_butler_home() / "sessions")
 
 
 def _iter_session_transcripts(
@@ -82,7 +82,7 @@ def search_transcripts(
         offset=max(0, offset),
     )
     if fts_hits:
-        return fts_hits
+        return cast(list[dict[str, Any]], fts_hits)
 
     pattern = re.compile(re.escape(q), re.IGNORECASE)
     hits: list[dict[str, Any]] = []
@@ -122,10 +122,10 @@ def search_transcripts(
     return hits
 
 
-def register_transcript_search_tool(register_fn) -> None:
+def register_transcript_search_tool(register_fn: Callable[..., None]) -> None:
     """Register Hermes-style session transcript search."""
 
-    def _handler(args: dict) -> str:
+    def _handler(args: dict[str, Any]) -> str:
         import json
 
         from butler.execution_context import get_current_session_key

@@ -44,12 +44,14 @@ def dispatch_async_delegate(state: DelegateRunState) -> str | None:
     ):
         return None
     schedule_background_delegate(build_async_delegate_job(state))
-    return build_async_delegate_tool_result(
-        task_id=state.task_id,
-        child_session_key=state.child_session_key,
-        role=state.role,
-        task_preview=state.task,
-        category=str(state.category_meta.get("category") or state.category or ""),
+    return str(
+        build_async_delegate_tool_result(
+            task_id=state.task_id,
+            child_session_key=state.child_session_key,
+            role=state.role,
+            task_preview=state.task,
+            category=str(state.category_meta.get("category") or state.category or ""),
+        )
     )
 
 

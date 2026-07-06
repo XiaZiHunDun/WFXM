@@ -8,6 +8,8 @@ import shlex
 from dataclasses import dataclass
 from pathlib import Path
 
+from typing import Any, cast
+
 _BASE_TERMINAL_COMMANDS = {
     "cat",
     "echo",
@@ -75,19 +77,19 @@ class CommandSafetyResult:
 def _workspace_from_project(project: object | None) -> Path | None:
     from butler.tools.path_safety_ops import workspace_from_project_safe
 
-    return workspace_from_project_safe(project)
+    return cast(Path | None, workspace_from_project_safe(project))
 
 
 def _workspace_for_session_key(session_key: str) -> Path | None:
     from butler.tools.path_safety_ops import workspace_for_session_key_safe
 
-    return workspace_for_session_key_safe(session_key)
+    return cast(Path | None, workspace_for_session_key_safe(session_key))
 
 
 def _default_project_workspace() -> Path | None:
     from butler.tools.path_safety_ops import default_project_workspace_safe
 
-    return default_project_workspace_safe()
+    return cast(Path | None, default_project_workspace_safe())
 
 
 def _remap_projects_docs_trap(resolved: Path, *, session_ws: Path | None) -> Path:
@@ -127,7 +129,7 @@ def current_workspace_root() -> Path | None:
     session_key = current_session_key_safe()
     ws = orchestrator_workspace_safe(session_key)
     if ws is not None:
-        return ws
+        return Path(ws)
     if session_key:
         ws = _workspace_for_session_key(session_key)
         if ws is not None:
@@ -172,7 +174,7 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
     if _is_windows_absolute_path(raw):
         return PathSafetyResult(
             False,
-            raw,
+            Path(raw),
             f"Access denied: Windows path is outside workspace ({raw})",
         )
     session_ws = current_workspace_root()
@@ -322,9 +324,9 @@ def prepare_shell_command(command: str) -> CommandSafetyResult:
             if not result.allowed:
                 return result
         for candidate in _extract_command_paths(text):
-            result = check_tool_path(candidate, for_write=_looks_like_write_command(text, candidate))
-            if not result.allowed:
-                return CommandSafetyResult(False, [], result.error)
+            path_result = check_tool_path(candidate, for_write=_looks_like_write_command(text, candidate))
+            if not path_result.allowed:
+                return CommandSafetyResult(False, [], path_result.error)
         return CommandSafetyResult(True, ["bash", "-c", text], is_pipe=True)
 
     try:
@@ -346,13 +348,13 @@ def prepare_shell_command(command: str) -> CommandSafetyResult:
     if any("$" in token for token in argv):
         return CommandSafetyResult(False, [], "Shell variables are not allowed in terminal commands")
     for candidate in _extract_command_paths(text):
-        result = check_tool_path(candidate, for_write=_looks_like_write_command(text, candidate))
-        if not result.allowed:
-            return CommandSafetyResult(False, [], result.error)
+        path_result = check_tool_path(candidate, for_write=_looks_like_write_command(text, candidate))
+        if not path_result.allowed:
+            return CommandSafetyResult(False, [], path_result.error)
     for candidate in _existing_argv_paths(argv[1:]):
-        result = check_tool_path(candidate, for_write=_looks_like_write_command(text, candidate))
-        if not result.allowed:
-            return CommandSafetyResult(False, [], result.error)
+        path_result = check_tool_path(candidate, for_write=_looks_like_write_command(text, candidate))
+        if not path_result.allowed:
+            return CommandSafetyResult(False, [], path_result.error)
     return CommandSafetyResult(True, argv)
 
 
@@ -366,7 +368,7 @@ def safe_subprocess_env() -> dict[str, str]:
     return {key: value for key, value in env.items() if value}
 
 
-def _current_orchestrator():
+def _current_orchestrator() -> Any:
     from butler.tools.path_safety_ops import current_orchestrator_safe
 
     return current_orchestrator_safe()
@@ -375,7 +377,7 @@ def _current_orchestrator():
 def _configured_safe_root() -> Path | None:
     from butler.tools.path_safety_ops import configured_safe_root_safe
 
-    return configured_safe_root_safe()
+    return cast(Path | None, configured_safe_root_safe())
 
 
 def _resolve_tool_path(raw: str, root: Path | None) -> Path:

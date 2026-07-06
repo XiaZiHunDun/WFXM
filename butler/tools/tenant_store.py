@@ -22,6 +22,7 @@ from typing import Any
 
 from butler.io.atomic_write import atomic_write_text
 from butler.tools._file_cache import clear_cache, read_json_cached
+from butler.tools.tenant_store_ops import build_fernet_safe, decrypt_fernet_payload_safe
 
 __all__ = ["TenantStore", "clear_cache", "read_json_cached"]
 
@@ -32,7 +33,7 @@ def _pim_encrypt_enabled() -> bool:
     return os.getenv("BUTLER_PIM_ENCRYPT", "0").strip() in ("1", "true", "yes")
 
 
-def _get_fernet():
+def _get_fernet() -> Any | None:
     """Return a Fernet instance if encryption is enabled, else None."""
     if not _pim_encrypt_enabled():
         return None
@@ -40,8 +41,6 @@ def _get_fernet():
     if not key:
         logger.warning("BUTLER_PIM_ENCRYPT=1 but BUTLER_PIM_ENCRYPT_KEY is empty; encryption disabled")
         return None
-    from butler.tools.tenant_store_ops import build_fernet_safe, decrypt_fernet_payload_safe
-
     try:
         from cryptography.fernet import Fernet  # noqa: F401
     except ImportError:
@@ -92,7 +91,7 @@ class TenantStore:
         from butler.tenant import DEFAULT_TENANT, tenant_root
 
         tenant_id = os.getenv("BUTLER_TENANT", DEFAULT_TENANT)
-        root = tenant_root(get_butler_home(), tenant_id)
+        root = Path(tenant_root(get_butler_home(), tenant_id))
         return root / self._subdir
 
     def save(self, record: dict[str, Any]) -> Path:

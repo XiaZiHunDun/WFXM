@@ -7,7 +7,7 @@ from typing import Any
 from butler.gateway.owner_ingest_shortcuts import looks_owner_ingest_intent
 
 
-def _change_paths(changes: list | None) -> list[str]:
+def _change_paths(changes: list[Any] | None) -> list[str]:
     out: list[str] = []
     for c in changes or []:
         if isinstance(c, dict):
@@ -24,7 +24,7 @@ def infer_delegate_task_kind(
     role: str = "",
     task: str = "",
     task_preview: str = "",
-    changes: list | None = None,
+    changes: list[Any] | None = None,
     category_meta: dict[str, Any] | None = None,
 ) -> str:
     """Return ``ingest`` | ``content_write`` | ``readonly_check`` | ````."""
@@ -64,7 +64,7 @@ def is_dev_verify_exempt(
     role: str = "",
     task: str = "",
     task_preview: str = "",
-    changes: list | None = None,
+    changes: list[Any] | None = None,
     category_meta: dict[str, Any] | None = None,
 ) -> bool:
     kind = infer_delegate_task_kind(

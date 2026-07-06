@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+from typing import cast
 
 from butler.env_parse import env_truthy
 
@@ -53,7 +54,7 @@ def _scrub_card(match: re.Match[str]) -> str:
 
 
 def outbound_pii_scrub_enabled() -> bool:
-    return env_truthy("BUTLER_OUTBOUND_PII_SCRUB", default=True)
+    return bool(env_truthy("BUTLER_OUTBOUND_PII_SCRUB", default=True))
 
 
 def scrub_outbound_text(text: str) -> str:
@@ -72,4 +73,4 @@ def scrub_outbound_text(text: str) -> str:
     out = _CARD_DIGITS.sub(_scrub_card, out)
     from butler.gateway.pii_scrub_ops import scrub_internal_leaks_safe
 
-    return scrub_internal_leaks_safe(out)
+    return cast(str, scrub_internal_leaks_safe(out))

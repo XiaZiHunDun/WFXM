@@ -6,7 +6,7 @@ import json
 import re
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 from butler.gateway_settings import resolve_gateway_queue_config
@@ -20,7 +20,7 @@ _OVERRIDES: dict[str, dict[str, Any]] = {}
 def _settings_dir() -> Path:
     path = get_butler_home() / "gateway_queue"
     path.mkdir(parents=True, exist_ok=True)
-    return path
+    return cast(Path, path)
 
 
 def _override_path(session_key: str) -> Path:
@@ -33,7 +33,7 @@ def _override_path(session_key: str) -> Path:
 def _load_override_file(session_key: str) -> dict[str, Any]:
     from butler.gateway.queue_settings_ops import load_queue_override_safe
 
-    return load_queue_override_safe(_override_path(session_key))
+    return cast(dict[str, Any], load_queue_override_safe(_override_path(session_key)))
 
 
 def _save_override_file(session_key: str, data: dict[str, Any]) -> None:
@@ -65,7 +65,7 @@ def clear_session_override(session_key: str) -> None:
 
 
 def default_queue_mode() -> str:
-    return resolve_gateway_queue_config().mode
+    return cast(str, resolve_gateway_queue_config().mode)
 
 
 def get_queue_mode(session_key: str) -> str:
@@ -77,11 +77,11 @@ def get_queue_mode(session_key: str) -> str:
 
 
 def queue_cap() -> int:
-    return resolve_gateway_queue_config().cap
+    return cast(int, resolve_gateway_queue_config().cap)
 
 
 def queue_drop_policy() -> str:
-    return resolve_gateway_queue_config().drop
+    return cast(str, resolve_gateway_queue_config().drop)
 
 
 def session_queue_cap(session_key: str) -> int:
@@ -109,7 +109,7 @@ def collect_debounce_ms(session_key: str) -> int:
             return max(0, int(override["debounce_ms"]))
         except (TypeError, ValueError):
             pass
-    return resolve_gateway_queue_config().collect_debounce_ms
+    return cast(int, resolve_gateway_queue_config().collect_debounce_ms)
 
 
 def _parse_duration_ms(token: str) -> int | None:

@@ -10,11 +10,11 @@ from butler.mcp.extension_grounding import matches_manifest_intent
 
 
 def todoist_project_list_direct_enabled() -> bool:
-    return env_truthy("BUTLER_TODOIST_PROJECT_LIST_DIRECT", default=True)
+    return bool(env_truthy("BUTLER_TODOIST_PROJECT_LIST_DIRECT", default=True))
 
 
 def is_todoist_project_list_intent(text: str) -> bool:
-    return matches_manifest_intent(text, kind="project_list", server_id="todoist")
+    return bool(matches_manifest_intent(text, kind="project_list", server_id="todoist"))
 
 
 def parse_todoist_project_list_tool_content(content: str) -> dict[str, Any] | None:
@@ -39,7 +39,7 @@ def parse_todoist_project_list_tool_content(content: str) -> dict[str, Any] | No
     return payload
 
 
-def find_latest_todoist_project_list_envelope(messages: list[dict]) -> dict[str, Any] | None:
+def find_latest_todoist_project_list_envelope(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
     for msg in reversed(messages):
         if not isinstance(msg, dict) or msg.get("role") != "tool":
             continue
@@ -58,7 +58,7 @@ def format_todoist_project_list_reply(envelope: dict[str, Any]) -> str:
 
 
 def try_todoist_project_list_direct_reply(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     user_text: str,
 ) -> str | None:

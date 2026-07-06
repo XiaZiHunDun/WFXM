@@ -16,7 +16,7 @@ _MAX_FILES_PER_MESSAGE = 2
 
 
 def export_wechat_file_enabled() -> bool:
-    return env_truthy("BUTLER_EXPORT_SEND_WECHAT_FILE", default=True)
+    return bool(env_truthy("BUTLER_EXPORT_SEND_WECHAT_FILE", default=True))
 
 
 def export_wechat_max_bytes() -> int:

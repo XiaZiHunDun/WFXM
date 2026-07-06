@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -41,9 +41,12 @@ def collect_experience_vector_drift(
         from butler.memory.semantic_index import SOURCE_EXPERIENCE
 
         vec_exp = sem.count_by_source(SOURCE_EXPERIENCE)
-        return experience_vector_drift(
-            experience_long_term=experience_long_term,
-            experience_vectors=vec_exp,
+        return cast(
+            dict[str, Any],
+            experience_vector_drift(
+                experience_long_term=experience_long_term,
+                experience_vectors=vec_exp,
+            ),
         )
 
     return safe_best_effort(_run, label="memory_diag.experience_drift", default={}) or {}
@@ -131,7 +134,7 @@ def collect_transcript_fts_stats(session_key: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
         from butler.ops.transcript_diagnostics import transcript_fts_drift
 
-        return transcript_fts_drift(session_key=session_key)
+        return cast(dict[str, Any], transcript_fts_drift(session_key=session_key))
 
     return safe_best_effort(_run, label="memory_diag.transcript_fts", default={}) or {}
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
+from typing import Any, cast
 
 from butler.memory_settings import resolve_memory_config
 from butler.memory.search_result import chunk_id_for_hit, enrich_search_hit, source_path_for_hit
@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 def recall_layers_enabled() -> bool:
-    return resolve_memory_config().recall_layers_enabled
+    return bool(resolve_memory_config().recall_layers_enabled)
 
 
 def _parse_experience_id(chunk_id: str) -> int | None:
@@ -53,7 +53,7 @@ def _search_hits(svc: Any, query: str, *, limit: int, project: str | None) -> li
     q = str(query or "").strip()
     if not q:
         recent = bm.experience.get_recent(limit=limit * 2)
-        return filter_non_conversation_experience(recent)[:limit]
+        return cast(list[dict[str, Any]], filter_non_conversation_experience(recent)[:limit])
 
     from butler.memory.semantic_index import hybrid_experience_search
 
@@ -65,7 +65,7 @@ def _search_hits(svc: Any, query: str, *, limit: int, project: str | None) -> li
         limit=limit,
         experience_store=bm.experience,
     )
-    return filter_non_conversation_experience(rows)
+    return cast(list[dict[str, Any]], filter_non_conversation_experience(rows))
 
 
 def recall_index(

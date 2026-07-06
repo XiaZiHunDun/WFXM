@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Iterator
+from typing import Any, Iterator, cast
 from urllib.parse import urlparse, urlunparse
 
 _urls: ContextVar[set[str] | None] = ContextVar("mcp_turn_scrape_urls", default=None)
@@ -37,7 +37,7 @@ def turn_scrape_dedup_scope() -> Iterator[None]:
         _urls.reset(token)
 
 
-def scrape_url_from_args(args: dict) -> str:
+def scrape_url_from_args(args: dict[str, Any]) -> str:
     if not isinstance(args, dict):
         return ""
     for key in ("url", "URL", "target_url", "page_url"):
@@ -50,7 +50,7 @@ def scrape_url_from_args(args: dict) -> str:
 def _bridge_bucket() -> set[str] | None:
     from butler.mcp.turn_scrape_dedup_ops import scrape_urls_seen_bucket_from_bridge_safe
 
-    return scrape_urls_seen_bucket_from_bridge_safe()
+    return cast(set[str] | None, scrape_urls_seen_bucket_from_bridge_safe())
 
 
 def check_and_record_scrape(url: str) -> str | None:
@@ -68,7 +68,7 @@ def check_and_record_scrape(url: str) -> str | None:
         buckets.append(ctx_bucket)
 
     if not buckets:
-        bucket = set()
+        bucket: set[str] = set()
         _urls.set(bucket)
         buckets.append(bucket)
 

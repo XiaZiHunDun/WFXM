@@ -9,9 +9,9 @@ import threading
 import time
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.skills.consolidator import SkillConsolidator
 from butler.skills.similarity import SkillSimilarity
@@ -397,11 +397,14 @@ class SkillManager:
             logger.warning(msg)
             _record_skill_load_error(SKILL_LOAD_ERR_IO, path, msg)
 
-        return enrich_skill_load_policy_safe(
-            sk,
-            path,
-            source,
-            record_block=_record_block,
+        return cast(
+            dict[str, Any] | None,
+            enrich_skill_load_policy_safe(
+                sk,
+                path,
+                source,
+                record_block=_record_block,
+            ),
         )
 
     def _load_skill_from_path(self, path: Path, source: str) -> Optional[dict[str, Any]]:

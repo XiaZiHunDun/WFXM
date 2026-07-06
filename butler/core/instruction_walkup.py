@@ -1,9 +1,8 @@
-"""Inject nearby AGENTS.md / project rules after read_file (OpenCode instruction.ts subset)."""
-
 from __future__ import annotations
 
 import threading
 from pathlib import Path
+from typing import Any, Callable, cast
 
 _CLAIMS: dict[str, set[str]] = {}
 _PENDING: dict[str, list[str]] = {}
@@ -12,20 +11,20 @@ _LOCK = threading.RLock()
 _INSTRUCTION_FILENAMES = ("AGENTS.md", "CLAUDE.md", "RULES.md")
 
 
-def _walkup_settings():
+def _walkup_settings() -> Any:
     from butler.context_settings import resolve_context_config
 
     return resolve_context_config().instruction_walkup
 
 
 def walkup_enabled() -> bool:
-    return _walkup_settings().enabled
+    return bool(_walkup_settings().enabled)
 
 
 def _session_key(session_key: str = "") -> str:
     from butler.core.instruction_walkup_ops import session_key_safe
 
-    return session_key_safe(session_key)
+    return cast(str, session_key_safe(session_key))
 
 
 def _find_instruction_file(start: Path, *, stop_at: Path | None = None) -> Path | None:
@@ -106,10 +105,12 @@ def reset_instruction_claims(*, session_key: str = "") -> None:
         _PENDING.pop(key, None)
 
 
-def build_instruction_pre_llm_transform(*, session_key: str = ""):
+def build_instruction_pre_llm_transform(
+    *, session_key: str = ""
+) -> Callable[[list[dict[str, Any]]], list[dict[str, Any]]]:
     """Prepend drained instruction blocks to the latest user message."""
 
-    def _transform(messages: list[dict]) -> list[dict]:
+    def _transform(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         block = drain_pending_instructions(session_key=session_key)
         if not block.strip():
             return messages

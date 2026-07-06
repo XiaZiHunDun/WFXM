@@ -17,7 +17,7 @@ def per_tool_limit_enabled() -> bool:
 
 def per_tool_call_limit() -> int:
     try:
-        return int_env("BUTLER_TOOL_CALL_LIMIT_PER_TOOL", 0, min=0)
+        return int(int_env("BUTLER_TOOL_CALL_LIMIT_PER_TOOL", 0, min=0))
     except ValueError:
         return _DEFAULT_LIMIT
 

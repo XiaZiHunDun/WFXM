@@ -13,7 +13,7 @@ _PRIVATE_BLOCK_RE = re.compile(
 
 
 def private_tags_enabled() -> bool:
-    return resolve_memory_config().private_tags_enabled
+    return bool(resolve_memory_config().private_tags_enabled)
 
 
 def strip_private_tags(text: str) -> tuple[str, bool]:

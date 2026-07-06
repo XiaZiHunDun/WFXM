@@ -24,7 +24,7 @@ def skill_fallback_min_experience_hits() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_SKILL_FALLBACK_MIN_EXPERIENCE_HITS", 1, min=0)
+        return int(int_env("BUTLER_SKILL_FALLBACK_MIN_EXPERIENCE_HITS", 1, min=0))
     except ValueError:
         return 1
 

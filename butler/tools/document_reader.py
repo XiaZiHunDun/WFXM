@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, cast
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ _MAX_OUTPUT_CHARS = 32_000
 
 def _markitdown_available() -> bool:
     try:
-        from markitdown import MarkItDown  # type: ignore[import-untyped]  # noqa: F401
+        from markitdown import MarkItDown  # noqa: F401
         return True
     except ImportError:
         return False
@@ -46,7 +46,7 @@ def convert_document(path: str, *, max_chars: int = _MAX_OUTPUT_CHARS) -> dict[s
         return {"error": f"Unsupported format: {ext}", "supported": sorted(_SUPPORTED_EXTENSIONS)}
 
     try:
-        from markitdown import MarkItDown  # type: ignore[import-untyped]
+        from markitdown import MarkItDown
     except ImportError:
         return {
             "error": "markitdown not installed",
@@ -57,7 +57,7 @@ def convert_document(path: str, *, max_chars: int = _MAX_OUTPUT_CHARS) -> dict[s
 
     out = convert_markitdown_safe(p)
     if "error" in out:
-        return out
+        return cast(dict[str, Any], out)
     text = out.get("text") or ""
 
     cap = max(500, int(max_chars or _MAX_OUTPUT_CHARS))
@@ -101,7 +101,7 @@ def tool_read_document(path: str = "", *, max_chars: int = _MAX_OUTPUT_CHARS, **
     return json.dumps(result, ensure_ascii=False)
 
 
-def register_document_tools(register_fn) -> None:
+def register_document_tools(register_fn: Callable[..., None]) -> None:
     """Register read_document tool if markitdown is available."""
     if not _markitdown_available():
         logger.debug("markitdown not installed; read_document tool not registered")

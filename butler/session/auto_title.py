@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ def generate_session_title(first_message: str) -> str:
     return words[0] + "…" if len(words) > 1 else clean[:_MAX_TITLE_LEN] + "…"
 
 
-def format_session_list(sessions: list[dict], *, limit: int = 10) -> str:
+def format_session_list(sessions: list[dict[str, Any]], *, limit: int = 10) -> str:
     """Format session list sorted by last activity with preview."""
     if not sessions:
         return "暂无历史会话。"

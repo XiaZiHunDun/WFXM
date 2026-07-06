@@ -254,7 +254,7 @@ def _atomic_write_text(
         os.close(dir_fd)
 
 
-def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
+def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_: Any) -> str:
     from butler.tools.file_io_ops import record_read_path_safe, tool_json_loud
 
     def _run() -> str:
@@ -287,7 +287,7 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
             and lim >= 100
         ):
             summary = build_large_file_summary(str(path), lines)
-            return format_summary_message(summary)
+            return str(format_summary_message(summary))
         start = off - 1
         end = start + lim
         selected = lines[start:end]
@@ -327,12 +327,12 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_) -> str:
                 if proj is not None:
                     workspace_root = Path(proj.workspace)
             record_read_path_safe(_p, workspace_root=workspace_root)
-        return body
+        return str(body)
 
-    return tool_json_loud(_run)
+    return str(tool_json_loud(_run))
 
 
-def _tool_write_file(path: str, content: str, **_) -> str:
+def _tool_write_file(path: str, content: str, **_: Any) -> str:
     from butler.tools.file_io_ops import (
         maybe_format_after_edit_safe,
         record_edit_path_safe,
@@ -349,16 +349,16 @@ def _tool_write_file(path: str, content: str, **_) -> str:
         if error:
             return json.dumps({"error": error})
         record_edit_path_safe(p)
-        payload: dict = {"success": True, "path": str(p), "bytes": len(content.encode("utf-8"))}
+        payload: dict[str, Any] = {"success": True, "path": str(p), "bytes": len(content.encode("utf-8"))}
         fmt = maybe_format_after_edit_safe(p)
         if fmt:
             payload["post_edit_format"] = fmt
         return json.dumps(payload)
 
-    return tool_json_loud(_run)
+    return str(tool_json_loud(_run))
 
 
-def _tool_delete_file(path: str, **_) -> str:
+def _tool_delete_file(path: str, **_: Any) -> str:
     from butler.tools.file_io_ops import tool_json_loud
 
     def _run() -> str:
@@ -385,10 +385,10 @@ def _tool_delete_file(path: str, **_) -> str:
 
         return json.dumps({"success": True, "path": str(p), "action": "deleted"})
 
-    return tool_json_loud(_run)
+    return str(tool_json_loud(_run))
 
 
-def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
+def _tool_patch(path: str, old_string: str, new_string: str, **_: Any) -> str:
     from butler.tools.file_io_ops import (
         maybe_format_after_edit_safe,
         record_edit_path_safe,
@@ -410,16 +410,18 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
             if mismatch:
                 return json.dumps(mismatch, ensure_ascii=False)
         text = data.decode("utf-8", errors="replace")
-        count = text.count(old_string)
+        needle = old_string
+        replacement = new_string
+        count = text.count(needle)
         fuzzy = False
         if count == 0:
             norm_text = normalize_quotes(text)
-            norm_old = normalize_quotes(old_string)
+            norm_old = normalize_quotes(needle)
             count = norm_text.count(norm_old)
             if count > 0:
                 text = norm_text
-                old_string = norm_old
-                new_string = normalize_quotes(new_string)
+                needle = norm_old
+                replacement = normalize_quotes(replacement)
                 fuzzy = True
         if count == 0:
             return json.dumps({
@@ -434,7 +436,7 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
             matches: list[dict[str, Any]] = []
             start = 0
             while len(matches) < 3:
-                idx = text.find(old_string, start)
+                idx = text.find(needle, start)
                 if idx < 0:
                     break
                 line_no = text.count("\n", 0, idx) + 1
@@ -446,13 +448,13 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
                 if len(excerpt) > 120:
                     excerpt = excerpt[:117] + "..."
                 matches.append({"line": line_no, "excerpt": excerpt})
-                start = idx + len(old_string)
+                start = idx + len(needle)
             return json.dumps({
                 "error": f"old_string found {count} times; must be unique",
                 "match_count": count,
                 "matches": matches,
             })
-        new_text = text.replace(old_string, new_string, 1)
+        new_text = text.replace(needle, replacement, 1)
         _written_path, write_error = _atomic_write_text(path, new_text, expected_stat=expected_stat)
         if write_error:
             return json.dumps({"error": write_error})
@@ -468,4 +470,4 @@ def _tool_patch(path: str, old_string: str, new_string: str, **_) -> str:
                 payload["post_edit_format"] = fmt
         return json.dumps(payload)
 
-    return tool_json_loud(_run)
+    return str(tool_json_loud(_run))

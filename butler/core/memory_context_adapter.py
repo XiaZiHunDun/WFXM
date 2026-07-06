@@ -42,4 +42,4 @@ def adapt_memory_prefetch_content(
     """Single entry: external memory → ACL view → injection string."""
     view = to_loop_memory_view(incoming, source=source)
     apply_memory_view_to_diagnostics(view, diagnostics)
-    return view.content
+    return str(view.content)

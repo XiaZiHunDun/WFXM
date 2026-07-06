@@ -42,9 +42,7 @@ class CanonicalMessage:
 
 
 def message_ir_enabled() -> bool:
-    return env_truthy("BUTLER_MESSAGE_IR", default=True)
-
-
+    return bool(env_truthy("BUTLER_MESSAGE_IR", default=True))
 ConverterFn = Callable[[Any], CanonicalMessage]
 
 _CONVERTERS: dict[str, ConverterFn] = {}
@@ -233,8 +231,6 @@ def canonical_to_audit_json(msg: CanonicalMessage) -> str:
 
 register_converter("wechat", lambda p: p if isinstance(p, CanonicalMessage) else wechat_inbound(str(p)))
 register_converter("text", lambda p: convert_inbound("", p))
-
-
 __all__ = [
     "BlockKind",
     "CanonicalMessage",

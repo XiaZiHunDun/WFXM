@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
@@ -25,7 +25,7 @@ def _is_network_search_tool(tool: str) -> bool:
 
 
 def turn_summary_enabled() -> bool:
-    return env_truthy("BUTLER_TURN_SUMMARY_LINE", default=True)
+    return bool(env_truthy("BUTLER_TURN_SUMMARY_LINE", default=True))
 
 
 def turn_summary_min_out_chars() -> int:
@@ -52,7 +52,7 @@ def _turn_tool_actions(session_key: str) -> list[dict[str, Any]]:
         return []
     from butler.core.turn_summary_line_ops import load_current_turn_tool_actions_safe
 
-    return load_current_turn_tool_actions_safe(sk, max_lines=500)
+    return cast(list[dict[str, Any]], load_current_turn_tool_actions_safe(sk, max_lines=500))
 
 
 def build_turn_summary_line(session_key: str) -> str | None:

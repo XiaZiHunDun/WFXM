@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import FrozenSet
+from typing import Any
 
 TOOLSET_FULL = "full"
 TOOLSET_WECHAT_MINIMAL = "wechat_minimal"
@@ -48,16 +48,17 @@ def toolset_allowed_names(toolset: str | None = None) -> frozenset[str] | None:
 
 
 def filter_definitions_by_toolset(
-    definitions: list[dict],
+    definitions: list[dict[str, Any]],
     *,
     toolset: str | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     allowed = toolset_allowed_names(toolset)
     if allowed is None:
         return definitions
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for spec in definitions:
-        fn = spec.get("function") if isinstance(spec.get("function"), dict) else spec
+        fn_raw = spec.get("function")
+        fn = fn_raw if isinstance(fn_raw, dict) else spec
         name = str(fn.get("name") or spec.get("name") or "")
         if name in allowed:
             out.append(spec)

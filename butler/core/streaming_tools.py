@@ -21,7 +21,7 @@ STREAMING_TOOL_NAMES = frozenset({
 
 
 def streaming_tools_enabled() -> bool:
-    return env_truthy("BUTLER_STREAMING_TOOLS", default=True)
+    return bool(env_truthy("BUTLER_STREAMING_TOOLS", default=True))
 
 
 def is_streaming_tool(name: str) -> bool:
@@ -53,7 +53,7 @@ def try_parse_tool_arguments(args_str: str) -> dict[str, Any] | None:
 
 def notify_complete_tool_calls_from_stream(
     collected: dict[int, dict[str, Any]],
-    on_tool_call_ready: Callable[[int, str, str, dict], None] | None,
+    on_tool_call_ready: Callable[[int, str, str, dict[str, Any]], None] | None,
 ) -> None:
     """Invoke callback for each tool call whose arguments JSON is complete (once)."""
     if not on_tool_call_ready or not streaming_tools_enabled():

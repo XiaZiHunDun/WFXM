@@ -6,7 +6,7 @@ from butler.env_parse import int_env
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 
@@ -14,12 +14,12 @@ _STREAKS_FILE = "runtime/failure_streaks.json"
 
 
 def _streaks_path() -> Path:
-    return get_butler_home() / _STREAKS_FILE
+    return Path(get_butler_home() / _STREAKS_FILE)
 
 
 def _alert_threshold() -> int:
     try:
-        return int_env("BUTLER_RUNTIME_FAIL_ALERT_STREAK", 3, min=1)
+        return int(int_env("BUTLER_RUNTIME_FAIL_ALERT_STREAK", 3, min=1))
     except ValueError:
         return 3
 
@@ -27,7 +27,7 @@ def _alert_threshold() -> int:
 def _load_streaks() -> dict[str, Any]:
     from butler.runtime.failure_tracker_ops import load_failure_streaks_safe
 
-    return load_failure_streaks_safe(_streaks_path())
+    return cast(dict[str, Any], load_failure_streaks_safe(_streaks_path()))
 
 
 def _save_streaks(data: dict[str, Any]) -> None:
@@ -54,7 +54,8 @@ def record_job_outcome(
     """
     key = _job_key(project_name, job_id)
     data = _load_streaks()
-    entry = data.get(key) if isinstance(data.get(key), dict) else {}
+    entry_raw = data.get(key)
+    entry = entry_raw if isinstance(entry_raw, dict) else {}
     threshold = _alert_threshold()
 
     if success:
@@ -93,11 +94,13 @@ def _push_streak_alert(
 ) -> bool:
     from butler.runtime.failure_tracker_ops import push_failure_streak_alert_safe
 
-    return push_failure_streak_alert_safe(
-        project_name,
-        job_id,
-        streak,
-        audit_path,
+    return bool(
+        push_failure_streak_alert_safe(
+            project_name,
+            job_id,
+            streak,
+            audit_path,
+        )
     )
 
 

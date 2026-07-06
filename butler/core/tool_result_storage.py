@@ -9,7 +9,7 @@ import re
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 from butler.env_parse import env_truthy
@@ -40,17 +40,15 @@ _SIZE_IN_SPILL_RE = re.compile(r"输出过大[（(](\d+)\s*字符")
 
 
 def tool_result_spill_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_RESULT_SPILL", default=True)
+    return bool(env_truthy("BUTLER_TOOL_RESULT_SPILL", default=True))
 
 
 def tool_result_inject_once_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_RESULT_INJECT_ONCE", default=True)
+    return bool(env_truthy("BUTLER_TOOL_RESULT_INJECT_ONCE", default=True))
 
 
 def message_tool_budget_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_RESULT_MESSAGE_BUDGET", default=True)
-
-
+    return bool(env_truthy("BUTLER_TOOL_RESULT_MESSAGE_BUDGET", default=True))
 def spill_threshold_chars(tool_name: str = "") -> int:
     """Per-tool spill threshold; 0 means never spill (self-bounded tools)."""
     name = str(tool_name or "").strip()
@@ -104,7 +102,9 @@ def spill_preview_chars() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_TOOL_RESULT_SPILL_PREVIEW_CHARS", _DEFAULT_PREVIEW_CHARS, min=200)
+        return int(
+            int_env("BUTLER_TOOL_RESULT_SPILL_PREVIEW_CHARS", _DEFAULT_PREVIEW_CHARS, min=200)
+        )
     except ValueError:
         return _DEFAULT_PREVIEW_CHARS
 
@@ -220,7 +220,7 @@ def _safe_path_segment(value: str, *, fallback: str = "unknown") -> str:
 def tool_results_dir(session_key: str) -> Path:
     """``~/.butler/sessions/<session>/tool-results/``."""
     sk = _safe_path_segment(session_key, fallback="_global")
-    return get_butler_home() / _SESSIONS_SUBDIR / sk / TOOL_RESULTS_SUBDIR
+    return cast(Path, get_butler_home()) / _SESSIONS_SUBDIR / sk / TOOL_RESULTS_SUBDIR
 
 
 def is_readable_session_tool_result_path(
@@ -235,11 +235,13 @@ def is_readable_session_tool_result_path(
     from butler.execution_context import get_current_session_key
     from butler.core.tool_result_storage_ops import is_readable_session_tool_result_path_safe
 
-    return is_readable_session_tool_result_path_safe(
-        raw,
-        session_key=session_key,
-        allowed_dir_for_session=tool_results_dir,
-        current_session_key=get_current_session_key,
+    return bool(
+        is_readable_session_tool_result_path_safe(
+            raw,
+            session_key=session_key,
+            allowed_dir_for_session=tool_results_dir,
+            current_session_key=get_current_session_key,
+        )
     )
 
 
@@ -251,7 +253,10 @@ def tool_result_path(session_key: str, tool_use_id: str) -> Path:
 def generate_preview(content: str, max_chars: int) -> tuple[str, bool]:
     from butler.core.text_truncate import truncate_text
 
-    return truncate_text(content, max_chars, suffix="\n…(truncated)", prefer_newline=True)
+    return cast(
+        tuple[str, bool],
+        truncate_text(content, max_chars, suffix="\n…(truncated)", prefer_newline=True),
+    )
 
 
 def persist_tool_result_text(
@@ -426,10 +431,10 @@ def maybe_spill_tool_result(
 
 
 def apply_inject_once_policy(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     session_key: str = "",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     First API round keeps full ``<persisted-output>``; later rounds compact to ref+summary.
     Mutates tool message dicts in ``messages`` in place.
@@ -470,7 +475,7 @@ def apply_inject_once_policy(
     return messages
 
 
-def _build_tool_name_index(messages: list[dict]) -> dict[str, str]:
+def _build_tool_name_index(messages: list[dict[str, Any]]) -> dict[str, str]:
     out: dict[str, str] = {}
     for msg in messages:
         if msg.get("role") != "assistant":
@@ -481,12 +486,13 @@ def _build_tool_name_index(messages: list[dict]) -> dict[str, str]:
             tid = str(tc.get("id") or "").strip()
             if not tid:
                 continue
-            fn = tc.get("function") if isinstance(tc.get("function"), dict) else {}
+            fn_raw = tc.get("function")
+            fn = fn_raw if isinstance(fn_raw, dict) else {}
             out[tid] = str(fn.get("name") or "").strip()
     return out
 
 
-def _tool_result_char_len(msg: dict) -> int:
+def _tool_result_char_len(msg: dict[str, Any]) -> int:
     content = msg.get("content")
     if isinstance(content, str):
         return len(content)
@@ -499,8 +505,8 @@ def _tool_result_char_len(msg: dict) -> int:
     return len(str(content or ""))
 
 
-def _iter_tool_messages(messages: list[dict]) -> list[tuple[int, dict, str]]:
-    out: list[tuple[int, dict, str]] = []
+def _iter_tool_messages(messages: list[dict[str, Any]]) -> list[tuple[int, dict[str, Any], str]]:
+    out: list[tuple[int, dict[str, Any], str]] = []
     for idx, msg in enumerate(messages):
         if msg.get("role") != "tool":
             continue
@@ -510,11 +516,11 @@ def _iter_tool_messages(messages: list[dict]) -> list[tuple[int, dict, str]]:
 
 
 def enforce_message_tool_budget(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     session_key: str = "",
     max_chars: int | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Cap aggregate tool_result chars per API round (CC enforceToolResultBudget)."""
     if not message_tool_budget_enabled():
         return messages

@@ -9,6 +9,7 @@ from butler.dev_engine.delegate_finalize import (
     attach_dev_engine_summary,
     peek_dev_engine_summary,
 )
+from butler.report import AgentReport
 from butler.tools.delegate_run_state import DelegateRunState
 
 
@@ -29,11 +30,10 @@ def sync_turn_memory_for_result(state: DelegateRunState, result: Any) -> None:
 def build_delegate_report(
     state: DelegateRunState,
     result: Any,
-    changes: list,
-    issues: list,
-):
+    changes: list[Any],
+    issues: list[Any],
+) -> AgentReport:
     """Build the ``AgentReport`` (6b + 6d), including empty-response fallback."""
-    from butler.report import AgentReport
     from butler.tools.delegate_impl import (
         _delegate_role_label,
         finalize_delegate_success,
@@ -167,7 +167,7 @@ def build_result_payload(state: DelegateRunState, report: Any, result: Any) -> d
     attach_dev_engine_summary(state, payload)
     from butler.tools.delegate_summary_budget import budget_delegate_payload
 
-    return budget_delegate_payload(payload)
+    return dict(budget_delegate_payload(payload))
 
 
 def finalize_delegate_observability(

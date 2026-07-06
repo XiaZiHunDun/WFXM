@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from butler.project import Project
@@ -201,7 +201,7 @@ def allowed_tool_names_for_project(
     if norm == "dev":
         from butler.tools.project_tools_ops import dev_engine_extra_tools
 
-        return mapped | dev_engine_extra_tools()
+        return mapped | set(dev_engine_extra_tools())
     return mapped
 
 
@@ -217,9 +217,9 @@ def _tool_allowed(name: str, allowed: set[str]) -> bool:
 
 
 def filter_tool_definitions(
-    tools: list[dict],
+    tools: list[dict[str, Any]],
     allowed: set[str] | None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     if allowed is None:
         return list(tools)
     return [
@@ -231,7 +231,7 @@ def filter_tool_definitions(
 def _workflow_step_tool_allowlist(project: "Project | None") -> set[str] | None:
     from butler.tools.project_tools_ops import workflow_step_tool_allowlist
 
-    return workflow_step_tool_allowlist(project)
+    return cast(set[str] | None, workflow_step_tool_allowlist(project))
 
 
 def intersect_allowed_names(
@@ -250,7 +250,7 @@ def get_tool_definitions_for_project(
     *,
     role: str = "butler",
     optimize_schema: bool = True,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
 
     from butler.tools.registry import get_tool_definitions
 
@@ -262,10 +262,10 @@ def get_tool_definitions_for_project(
         return filtered
     from butler.tools.project_tools_ops import optimize_tool_definitions_safe
 
-    return optimize_tool_definitions_safe(filtered)
+    return cast(list[dict[str, Any]], optimize_tool_definitions_safe(filtered))
 
 
-def get_current_project_tools(*, role: str = "butler") -> list[dict]:
+def get_current_project_tools(*, role: str = "butler") -> list[dict[str, Any]]:
     from butler.execution_context import get_current_session_key
     from butler.project.manager import get_project_manager
 

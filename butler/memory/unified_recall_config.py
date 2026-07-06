@@ -8,17 +8,21 @@ from butler.memory_settings import resolve_memory_config
 
 def observation_recall_enabled() -> bool:
     cfg = resolve_memory_config()
-    return env_truthy(
-        "BUTLER_MEMORY_OBSERVATION_RECALL",
-        default=cfg.observation_recall_enabled,
+    return bool(
+        env_truthy(
+            "BUTLER_MEMORY_OBSERVATION_RECALL",
+            default=cfg.observation_recall_enabled,
+        )
     )
 
 
 def unified_recall_enabled() -> bool:
     cfg = resolve_memory_config()
-    return env_truthy(
-        "BUTLER_MEMORY_UNIFIED_RECALL",
-        default=cfg.unified_recall_enabled,
+    return bool(
+        env_truthy(
+            "BUTLER_MEMORY_UNIFIED_RECALL",
+            default=cfg.unified_recall_enabled,
+        )
     )
 
 
@@ -32,7 +36,7 @@ def unified_scope_weights() -> dict[str, float]:
 
 
 def observation_recall_boost() -> float:
-    return resolve_memory_config().observation_recall_boost
+    return float(resolve_memory_config().observation_recall_boost)
 
 
 __all__ = [

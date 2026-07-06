@@ -8,7 +8,7 @@ from butler.env_parse import env_truthy
 
 
 def input_stage_enabled() -> bool:
-    return env_truthy("BUTLER_INPUT_STAGE", default=True)
+    return bool(env_truthy("BUTLER_INPUT_STAGE", default=True))
 
 
 def begin_input_stage(diagnostics: dict[str, Any] | None) -> None:

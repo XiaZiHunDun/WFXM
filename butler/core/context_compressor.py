@@ -8,10 +8,12 @@ Simplified port of Hermes ``agent/context_compressor.py``:
 
 from __future__ import annotations
 
-from butler.env_parse import int_env
 import json
 import logging
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
+
+from butler.env_parse import int_env
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ SUMMARY_PREFIX = (
 _MIN_MESSAGES_TO_COMPRESS = 12
 
 
-def _estimate_tokens(messages: list[dict]) -> int:
+def _estimate_tokens(messages: list[dict[str, Any]]) -> int:
     counter = _get_token_counter()
     total = 0
     for m in messages:
@@ -56,10 +58,10 @@ def _heuristic_count(text: str) -> int:
     return int(ascii_len / 4 + cjk * 1.3)
 
 
-_token_counter_cache: dict[str, Any] = {}
+_token_counter_cache: dict[str, Callable[[str], int]] = {}
 
 
-def _get_token_counter():
+def _get_token_counter() -> Callable[[str], int]:
     """Return a callable(str) -> int based on BUTLER_TOKEN_COUNTER env var.
 
     Supported values:
@@ -83,7 +85,7 @@ def _get_token_counter():
 
         from butler.core.best_effort import safe_best_effort
 
-        def _init_tiktoken():
+        def _init_tiktoken() -> Callable[[str], int]:
             import tiktoken
 
             enc = tiktoken.get_encoding(encoding_name)
@@ -101,7 +103,7 @@ def _get_token_counter():
             default=None,
         )
         if counter is not None:
-            return counter
+            return cast(Callable[[str], int], counter)
         logger.warning(
             "tiktoken unavailable; falling back to heuristic. Install: pip install tiktoken"
         )
@@ -109,12 +111,12 @@ def _get_token_counter():
     return _heuristic_count
 
 
-def prune_tool_outputs(messages: list[dict]) -> list[dict]:
+def prune_tool_outputs(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Prune oversized tool role messages before API / compaction (microCompact-style)."""
     return _prune_tool_outputs(messages)
 
 
-def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
+def _prune_tool_outputs(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     from butler.core.tool_prune_policy import (
         build_tool_name_index,
         classify_tool,
@@ -133,7 +135,7 @@ def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
     ]
     pim_recent = set(pim_sensitive_idxs[-keep_recent_pim_tool_messages() :])
 
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for i, m in enumerate(messages):
         if m.get("role") != "tool":
             out.append(m)
@@ -155,12 +157,12 @@ def _prune_tool_outputs(messages: list[dict]) -> list[dict]:
 
 
 def _split_head_tail(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     head_count: int = 3,
     tail_token_budget: int = 8000,
     max_tail_messages: int = 12,
     min_tail_messages: int = 4,
-) -> tuple[list[dict], list[dict], list[dict]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     system = [m for m in messages if m.get("role") == "system"]
     rest = [m for m in messages if m.get("role") != "system"]
 
@@ -169,7 +171,7 @@ def _split_head_tail(
 
     head = rest[:head_count]
     tail_candidates = rest[head_count:]
-    tail: list[dict] = []
+    tail: list[dict[str, Any]] = []
     budget = 0
     for m in reversed(tail_candidates):
         budget += len(str(m.get("content") or "")) // 4
@@ -190,12 +192,12 @@ def compress_tool_response_budget_tokens() -> int:
     import os
 
     try:
-        return max(5000, int_env("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", 50000))
+        return int(max(5000, int_env("BUTLER_COMPRESS_TOOL_RESPONSE_BUDGET", 50000)))
     except ValueError:
         return 50_000
 
 
-def truncate_tool_responses_to_budget(messages: list[dict]) -> list[dict]:
+def truncate_tool_responses_to_budget(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Before LLM summarization, cap total tool-role tokens (Gemini pre-compress budget)."""
     import os
 
@@ -214,7 +216,7 @@ def truncate_tool_responses_to_budget(messages: list[dict]) -> list[dict]:
 
     from butler.core.tool_result_storage import BUDGET_TRUNCATED_TAG
 
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     remaining = budget
     changed = False
     for m in messages:
@@ -248,7 +250,7 @@ def truncate_tool_responses_to_budget(messages: list[dict]) -> list[dict]:
     return out
 
 
-def _format_for_summary(messages: list[dict], max_chars: int = 12000) -> str:
+def _format_for_summary(messages: list[dict[str, Any]], max_chars: int = 12000) -> str:
     parts: list[str] = []
     total = 0
     for m in messages:
@@ -264,7 +266,9 @@ def _format_for_summary(messages: list[dict], max_chars: int = 12000) -> str:
     return "\n\n".join(parts)
 
 
-def _summarize_middle(middle: list[dict], previous_summary: str = "") -> tuple[str, bool]:
+def _summarize_middle(
+    middle: list[dict[str, Any]], previous_summary: str = "",
+) -> tuple[str, bool]:
     transcript = _format_for_summary(middle)
     if len(transcript) < 100:
         return previous_summary, False
@@ -298,7 +302,7 @@ def _summarize_middle(middle: list[dict], previous_summary: str = "") -> tuple[s
 
 
 def compress_messages(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     max_tokens: int = 128000,
     threshold_ratio: float = 0.5,
@@ -311,21 +315,24 @@ def compress_messages(
     max_output_tokens: int | None = None,
     initial_injection: Any = None,
     diagnostics: dict[str, Any] | None = None,
-) -> tuple[list[dict], str, bool]:
+) -> tuple[list[dict[str, Any]], str, bool]:
     """Compress messages if over threshold. Returns (messages, summary, did_compress)."""
     from butler.core.context_compress_pipeline import run_compress_messages
 
-    return run_compress_messages(
-        messages,
-        max_tokens=max_tokens,
-        threshold_ratio=threshold_ratio,
-        previous_summary=previous_summary,
-        min_messages_to_compress=min_messages_to_compress,
-        head_count=head_count,
-        max_tail_messages=max_tail_messages,
-        min_tail_messages=min_tail_messages,
-        overflow_replay=overflow_replay,
-        max_output_tokens=max_output_tokens,
-        initial_injection=initial_injection,
-        diagnostics=diagnostics,
+    return cast(
+        tuple[list[dict[str, Any]], str, bool],
+        run_compress_messages(
+            messages,
+            max_tokens=max_tokens,
+            threshold_ratio=threshold_ratio,
+            previous_summary=previous_summary,
+            min_messages_to_compress=min_messages_to_compress,
+            head_count=head_count,
+            max_tail_messages=max_tail_messages,
+            min_tail_messages=min_tail_messages,
+            overflow_replay=overflow_replay,
+            max_output_tokens=max_output_tokens,
+            initial_injection=initial_injection,
+            diagnostics=diagnostics,
+        ),
     )

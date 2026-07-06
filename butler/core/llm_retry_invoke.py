@@ -41,7 +41,7 @@ def execute_llm_call(
     config: LoopConfig,
     common: dict[str, Any],
     on_delta_cb: Callable[[str], None] | None,
-    on_tool_call_ready: Callable[[int, str, str, dict], None] | None,
+    on_tool_call_ready: Callable[[int, str, str, dict[str, Any]], None] | None,
 ) -> NormalizedResponse:
     from butler.core.llm_retry_invoke_ops import execute_llm_call_ops
 

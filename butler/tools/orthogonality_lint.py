@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 # Builtin search tools intentionally overlap MCP scrape/fetch (layered fallback).
 _BENIGN_SEARCH_TOOLS = frozenset({"web_search", "web_fetch"})
 
 
 def _tool_name(defn: dict[str, Any]) -> str:
-    fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
+    fn_raw = defn.get("function")
+    fn = fn_raw if isinstance(fn_raw, dict) else {}
     return str(fn.get("name") or defn.get("name") or "").strip()
 
 
 def _tool_description(defn: dict[str, Any]) -> str:
-    fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
+    fn_raw = defn.get("function")
+    fn = fn_raw if isinstance(fn_raw, dict) else {}
     return str(fn.get("description") or "").strip().lower()
 
 
@@ -28,7 +30,7 @@ def _toolset_for(name: str) -> str:
 
     ts = toolset_for_safe(name)
     if ts:
-        return ts
+        return cast(str, ts)
     if name.startswith("mcp_"):
         parts = name.split("_", 2)
         if len(parts) >= 2:
@@ -49,7 +51,7 @@ def _is_benign_overlap(name_a: str, name_b: str) -> bool:
 
 
 def _canonical_pair(name_a: str, name_b: str) -> tuple[str, str]:
-    return tuple(sorted((name_a, name_b)))
+    return (min(name_a, name_b), max(name_a, name_b))
 
 
 def _collect_tool_vectors(

@@ -9,7 +9,7 @@ from butler.memory_settings import resolve_memory_config
 
 
 def preread_enabled() -> bool:
-    return resolve_memory_config().preread_enabled
+    return bool(resolve_memory_config().preread_enabled)
 
 
 def build_preread_block(workspace: Path | None, file_path: str) -> str:

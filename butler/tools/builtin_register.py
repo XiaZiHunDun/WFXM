@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from butler.tools.registry import register
 from butler.tools.builtin_impl import (
     _tool_read_file,
@@ -21,16 +23,16 @@ from butler.tools.builtin_impl import (
 def _tool_mcp_tool_search(query: str, limit: int = 12, promote: bool = False) -> str:
     from butler.mcp.deferred import tool_search_handler
 
-    return tool_search_handler(query, limit=limit, promote=promote)
+    return cast(str, tool_search_handler(query, limit=limit, promote=promote))
 
 
-def _tool_load_mcp_tools(tool_names: list | None = None) -> str:
+def _tool_load_mcp_tools(tool_names: list[Any] | None = None) -> str:
     from butler.mcp.deferred import load_mcp_tools_handler
 
-    return load_mcp_tools_handler(list(tool_names or []))
+    return cast(str, load_mcp_tools_handler(list(tool_names or [])))
 
 
-def _tool_ask_clarification(question: str, options: list | None = None) -> str:
+def _tool_ask_clarification(question: str, options: list[Any] | None = None) -> str:
     import json
 
     q = str(question or "").strip()

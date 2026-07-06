@@ -18,7 +18,7 @@ def _progress_interval_seconds() -> float:
     try:
         from butler.env_parse import float_env
 
-        return max(45.0, float_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_SECONDS", 90))
+        return float(max(45.0, float_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_SECONDS", 90)))
     except ValueError:
         return 90.0
 
@@ -27,7 +27,7 @@ def _progress_max_pushes() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX", 5, min=1, max=12)
+        return int(int_env("BUTLER_GATEWAY_DELEGATE_PROGRESS_MAX", 5, min=1, max=12))
     except ValueError:
         return 5
 

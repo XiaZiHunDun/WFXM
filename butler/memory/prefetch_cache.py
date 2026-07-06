@@ -25,7 +25,7 @@ def queue_prefetch_enabled() -> bool:
 
 def prefetch_cache_ttl_seconds() -> int:
     try:
-        return int_env("BUTLER_PREFETCH_CACHE_TTL", 90, min=5)
+        return int(int_env("BUTLER_PREFETCH_CACHE_TTL", 90, min=5))
     except ValueError:
         return 90
 

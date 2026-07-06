@@ -16,14 +16,14 @@ from butler.transport.types import NormalizedResponse, ToolCall, Usage
 logger = logging.getLogger(__name__)
 
 
-class ChatCompletionsTransport(ProviderTransport):
+class ChatCompletionsTransport(ProviderTransport):  # type: ignore[misc]
 
     @property
     def api_mode(self) -> str:
         return "chat_completions"
 
     def convert_messages(
-        self, messages: List[Dict[str, Any]], **kwargs
+        self, messages: List[Dict[str, Any]], **kwargs: Any
     ) -> List[Dict[str, Any]]:
         from butler.transport.reasoning_replay import apply_reasoning_for_api
 
@@ -63,7 +63,7 @@ class ChatCompletionsTransport(ProviderTransport):
         model: str,
         messages: Any,
         tools: Optional[Any] = None,
-        **params,
+        **params: Any,
     ) -> Dict[str, Any]:
         provider = params.pop("provider", "")
         base_url = params.pop("base_url", None)
@@ -105,13 +105,13 @@ class ChatCompletionsTransport(ProviderTransport):
         return kwargs
 
     def normalize_response(
-        self, response: Any, **kwargs
+        self, response: Any, **kwargs: Any
     ) -> NormalizedResponse:
         if isinstance(response, dict):
             return self._normalize_dict(response)
         return self._normalize_sdk(response)
 
-    def _normalize_dict(self, data: dict) -> NormalizedResponse:
+    def _normalize_dict(self, data: dict[str, Any]) -> NormalizedResponse:
         choices = data.get("choices", [])
         if not choices:
             return NormalizedResponse(finish_reason="error")

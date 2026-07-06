@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.mcp.config import validate_stdio_command
 from butler.mcp.types import McpServerConfig
@@ -67,7 +67,7 @@ def _build_stdio_env(config: McpServerConfig) -> dict[str, str]:
                 logger.warning("MCP env override blocked for protected key: %s", k)
                 continue
             base[k] = str(value)
-    return base
+    return cast(dict[str, str], base)
 
 
 def _resolve_cwd(config: McpServerConfig, workspace: Path | None) -> str | None:
@@ -129,4 +129,4 @@ async def call_stdio_tool(session: Any, tool_name: str, arguments: dict[str, Any
 def json_dumps_result(result: Any) -> str:
     from butler.mcp.client_stdio_ops import json_dumps_mcp_result_safe
 
-    return json_dumps_mcp_result_safe(result)
+    return cast(str, json_dumps_mcp_result_safe(result))

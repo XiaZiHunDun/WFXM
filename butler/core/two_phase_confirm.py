@@ -8,7 +8,7 @@ import logging
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.confirm_flags import two_phase_confirm_enabled
 
@@ -42,7 +42,7 @@ class PendingToolCall:
 def _write_confirm_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_CONFIRM_WRITE_OPS", default=True)
+    return bool(env_truthy("BUTLER_CONFIRM_WRITE_OPS", default=True))
 
 
 def is_high_risk_tool(tool_name: str, args: dict[str, Any] | None = None) -> bool:
@@ -65,7 +65,7 @@ def is_high_risk_tool(tool_name: str, args: dict[str, Any] | None = None) -> boo
 def _session_key(session_key: str = "") -> str:
     from butler.core.two_phase_confirm_ops import resolve_session_key_safe
 
-    return resolve_session_key_safe(session_key)
+    return str(resolve_session_key_safe(session_key))
 
 
 def _pending_path(session_key: str) -> Path:
@@ -76,7 +76,7 @@ def _pending_path(session_key: str) -> Path:
     sk = re.sub(r"[^a-zA-Z0-9._+-]+", "_", _session_key(session_key))[:120] or "default"
     path = get_butler_home() / "sessions" / sk / "pending_tool.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    return path
+    return cast(Path, path)
 
 
 def _fingerprint(tool_name: str, args: dict[str, Any]) -> str:

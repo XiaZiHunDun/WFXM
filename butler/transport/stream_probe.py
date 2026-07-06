@@ -14,7 +14,7 @@ _LAST_PROBE: dict[str, Any] = {}
 
 
 def stream_probe_enabled() -> bool:
-    return env_truthy("BUTLER_STREAM_PROBE", default=False)
+    return bool(env_truthy("BUTLER_STREAM_PROBE", default=False))
 
 
 def last_stream_probe() -> dict[str, Any]:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.loop_types import LoopCallbacks
@@ -37,11 +37,11 @@ def build_tool_batch_hooks(
     guardrails: ToolCallGuardrailController | None,
     batch_guard: Any,
     interrupt_check: Callable[[], bool],
-) -> tuple[Callable[[str, dict], None], Callable[[str, str], None], Callable[[str, dict], str | None], ToolBatchHookState]:
+) -> tuple[Callable[[str, dict[str, Any]], None], Callable[[str, str], None], Callable[[str, dict[str, Any]], str | None], ToolBatchHookState]:
     """Return (on_start, on_complete, precheck_tool, mutable hook state)."""
     state = ToolBatchHookState()
 
-    def on_start(name: str, args: dict) -> None:
+    def on_start(name: str, args: dict[str, Any]) -> None:
         state.tools_started += 1
 
         def _record_transcript() -> None:
@@ -96,28 +96,37 @@ def build_tool_batch_hooks(
         if callbacks.on_tool_complete:
             callbacks.on_tool_complete(name, result)
 
-    def precheck_tool(name: str, args: dict) -> str | None:
-        from butler.core.tool_batch import finalize_fallback_tool_result
+    def precheck_tool(name: str, args: dict[str, Any]) -> str | None:
+        from butler.core.tool_batch_finalize import finalize_fallback_tool_result
 
         if interrupt_check():
-            return finalize_fallback_tool_result(
-                name,
-                args,
-                {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
+            return cast(
+                str,
+                finalize_fallback_tool_result(
+                    name,
+                    args,
+                    {"error": "interrupted", "code": "TOOL_INTERRUPTED"},
+                ),
             )
         if guardrails and guardrails.halt_decision:
-            return finalize_fallback_tool_result(
-                name,
-                args,
-                synthetic_result(guardrails.halt_decision),
+            return cast(
+                str,
+                finalize_fallback_tool_result(
+                    name,
+                    args,
+                    synthetic_result(guardrails.halt_decision),
+                ),
             )
         if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
             from butler.core.batch_sequence_guard import stale_skip_result
 
-            return finalize_fallback_tool_result(
-                name,
-                args,
-                stale_skip_result(name, args, guard=batch_guard),
+            return cast(
+                str,
+                finalize_fallback_tool_result(
+                    name,
+                    args,
+                    stale_skip_result(name, args, guard=batch_guard),
+                ),
             )
         return None
 

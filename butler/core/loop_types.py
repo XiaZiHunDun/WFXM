@@ -52,7 +52,7 @@ class LoopConfig:
     stream: bool = True
     enable_guardrails: bool = True
     enable_parallel_tools: bool = True
-    fallback_entries: list | None = None
+    fallback_entries: list[Any] | None = None
     api_stale_timeout: float = 90.0
     max_empty_content_retries: int = 1
     max_truncation_continues: int = 1
@@ -62,16 +62,16 @@ class LoopConfig:
 
 @dataclass
 class LoopCallbacks:
-    on_llm_start: Optional[Callable[[list[dict]], None]] = None
+    on_llm_start: Optional[Callable[[list[dict[str, Any]]], None]] = None
     on_llm_complete: Optional[Callable[[NormalizedResponse], None]] = None
     on_stream_delta: Optional[Callable[[str], None]] = None
     on_stream_boundary: Optional[Callable[[], None]] = None
-    on_tool_start: Optional[Callable[[str, dict], None]] = None
+    on_tool_start: Optional[Callable[[str, dict[str, Any]], None]] = None
     on_tool_complete: Optional[Callable[[str, str], None]] = None
     on_error: Optional[Callable[[Exception, int], None]] = None
     on_iteration: Optional[Callable[[int, LoopStatus], None]] = None
     on_fallback: Optional[Callable[[str, str], None]] = None
-    pre_llm_transform: Optional[Callable[[list[dict]], list[dict]]] = None
+    pre_llm_transform: Optional[Callable[[list[dict[str, Any]]], list[dict[str, Any]]]] = None
     should_continue: Optional[Callable[[int, NormalizedResponse], bool]] = None
 
 
@@ -81,7 +81,7 @@ class LoopResult:
     transition_reason: str = ""
     final_response: Optional[str] = None
     reasoning: Optional[str] = None
-    messages: list = field(default_factory=list)
+    messages: list[Any] = field(default_factory=list)
     iterations: int = 0
     total_tokens: int = 0
     tool_calls_made: int = 0

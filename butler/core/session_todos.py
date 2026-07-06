@@ -8,7 +8,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 from butler.env_parse import env_truthy, int_env
@@ -22,12 +22,12 @@ _PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
 
 
 def session_todos_enabled() -> bool:
-    return env_truthy("BUTLER_SESSION_TODOS", default=True)
+    return bool(env_truthy("BUTLER_SESSION_TODOS", default=True))
 
 
 def max_todos_items() -> int:
     try:
-        return int_env("BUTLER_SESSION_TODOS_MAX_ITEMS", 30, min=1, max=100)
+        return int(int_env("BUTLER_SESSION_TODOS_MAX_ITEMS", 30, min=1, max=100))
     except ValueError:
         return 30
 
@@ -35,7 +35,7 @@ def max_todos_items() -> int:
 def _resolve_session_key(session_key: str = "") -> str:
     from butler.core.session_todos_ops import resolve_session_key_safe
 
-    return resolve_session_key_safe(session_key)
+    return str(resolve_session_key_safe(session_key))
 
 
 def _safe_segment(value: str) -> str:
@@ -47,7 +47,7 @@ def _safe_segment(value: str) -> str:
 
 def todos_path(session_key: str) -> Path:
     sk = _safe_segment(session_key)
-    return get_butler_home() / _SUBDIR / sk / "todos.json"
+    return Path(get_butler_home()) / _SUBDIR / sk / "todos.json"
 
 
 def _normalize_item(raw: Any, position: int) -> dict[str, str] | None:

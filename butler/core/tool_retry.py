@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Callable
+from typing import Any, Callable
 
 from butler.env_parse import env_truthy, int_env, float_env
 import logging
@@ -26,12 +26,12 @@ _NO_RETRY_TOOLS = frozenset({
 
 
 def tool_retry_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_RETRY", default=True)
+    return bool(env_truthy("BUTLER_TOOL_RETRY", default=True))
 
 
 def tool_retry_max_attempts() -> int:
     try:
-        return int_env("BUTLER_TOOL_RETRY_MAX", 2, min=1, max=5)
+        return int(int_env("BUTLER_TOOL_RETRY_MAX", 2, min=1, max=5))
     except ValueError:
         return 2
 
@@ -39,7 +39,7 @@ def tool_retry_max_attempts() -> int:
 def tool_retry_backoff_seconds(attempt: int) -> float:
     base = 0.4
     try:
-        base = float_env("BUTLER_TOOL_RETRY_BACKOFF_SECONDS", 0.4)
+        base = float(float_env("BUTLER_TOOL_RETRY_BACKOFF_SECONDS", 0.4))
     except ValueError:
         pass
     return base * (attempt + 1)
@@ -51,7 +51,7 @@ def _is_transient_error(result: str) -> bool:
     if tool_retry_enabled():
         classified = is_retry_tool_error_safe(result)
         if classified is not None:
-            return classified
+            return bool(classified)
     text = (result or "").strip().lower()
     if not text:
         return False
@@ -86,8 +86,8 @@ def should_retry_tool(name: str, result: str, attempt: int) -> bool:
 
 def run_tool_with_retry(
     name: str,
-    args: dict,
-    dispatch: Callable[[str, dict], str],
+    args: dict[str, Any],
+    dispatch: Callable[[str, dict[str, Any]], str],
 ) -> str:
     """Invoke tool dispatch with bounded retries on transient errors."""
     last = dispatch(name, args)

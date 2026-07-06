@@ -12,12 +12,12 @@ import os
 import re
 import threading
 from pathlib import Path
-from typing import Any, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, cast
 
 from butler.tools._file_cache import read_json_cached
 
 if TYPE_CHECKING:
-    from butler.core.agent_loop import AgentLoop
+    from butler.core.agent_loop import AgentLoop, LoopCallbacks
 
 logger = logging.getLogger(__name__)
 
@@ -222,7 +222,7 @@ def _normalize_detail_request(text: str) -> str | None:
     return None
 
 
-def _gateway_run_callbacks():
+def _gateway_run_callbacks() -> LoopCallbacks | None:
     from butler.core.agent_loop import LoopCallbacks
     from butler.gateway.outbound_bridge import get_current_bridge
 
@@ -268,25 +268,28 @@ def apply_auto_continue_rewrite(session_key: str, text: str) -> str | None:
     def _run() -> str | None:
         from butler.core.auto_continue import resolve_auto_continue_user_message
 
-        return resolve_auto_continue_user_message(session_key, text)
+        return cast(str | None, resolve_auto_continue_user_message(session_key, text))
 
-    return safe_best_effort(
-        _run,
-        label="handler_helpers.auto_continue",
-        default=None,
+    return cast(
+        str | None,
+        safe_best_effort(
+            _run,
+            label="handler_helpers.auto_continue",
+            default=None,
+        ),
     )
 
 
 def _env_int(name: str, default: int) -> int:
     from butler.env_parse import int_env
 
-    return int_env(name, default)
+    return cast(int, int_env(name, default))
 
 
 def _env_float(name: str, default: float) -> float:
     from butler.env_parse import float_env
 
-    return float_env(name, default)
+    return cast(float, float_env(name, default))
 
 
 def _is_sessionless_command(text: str) -> bool:
@@ -437,7 +440,10 @@ def _safe_overview_sub(fn: Callable[[], str | None], label: str) -> str | None:
     """Run a `_build_project_overview` sub-info extractor; swallow + log on failure."""
     from butler.core.best_effort import safe_best_effort
 
-    return safe_best_effort(fn, label=f"handler_helpers.overview.{label}", default=None)
+    return cast(
+        str | None,
+        safe_best_effort(fn, label=f"handler_helpers.overview.{label}", default=None),
+    )
 
 
 def _todos_subinfo(ws: Path) -> str | None:

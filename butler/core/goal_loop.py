@@ -62,7 +62,7 @@ def goal_token_budget_default() -> int:
     import os
 
     try:
-        return max(0, int_env("BUTLER_GOAL_TOKEN_BUDGET", 0))
+        return int(max(0, int_env("BUTLER_GOAL_TOKEN_BUDGET", 0)))
     except ValueError:
         return 0
 
@@ -162,7 +162,7 @@ def maybe_run_goal_continuation(
     """After a completed turn, optionally inject another user message from goal loop."""
     if not is_goal_loop_active(session_key):
         return result
-    from butler.core.agent_loop import LoopStatus
+    from butler.core.loop_types import LoopStatus
 
     if getattr(result, "status", None) != LoopStatus.COMPLETED:
         return result

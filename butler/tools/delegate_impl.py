@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
-def _orchestrator_for_tool(*, channel: str):
+def _orchestrator_for_tool(*, channel: str) -> Any:
     from butler.execution_context import get_current_orchestrator
 
     orch = get_current_orchestrator()
@@ -30,7 +30,7 @@ def _project_agent_raw_message(*, task: str, context: str = "") -> str:
 def _inject_project_agent_skills(orch: Any, user_msg: str) -> str:
     inject = getattr(orch, "inject_skill_context", None)
     if callable(inject):
-        return inject(user_msg)
+        return str(inject(user_msg))
     return user_msg
 
 
@@ -48,7 +48,7 @@ def _delegate_role_label(role: str) -> str:
     return labels.get(key, str(role or "代理"))
 
 
-def _extract_issues_from_messages(messages: list) -> list[str]:
+def _extract_issues_from_messages(messages: list[Any]) -> list[str]:
     import json as _json
 
     issues: list[str] = []
@@ -72,7 +72,7 @@ def _extract_issues_from_messages(messages: list) -> list[str]:
     return issues[:5]
 
 
-def _delegate_task_succeeded(result: Any, changes: list, issues: list) -> bool:
+def _delegate_task_succeeded(result: Any, changes: list[Any], issues: list[str]) -> bool:
     if result.status.value != "completed":
         return False
     if issues and not changes:
@@ -82,8 +82,8 @@ def _delegate_task_succeeded(result: Any, changes: list, issues: list) -> bool:
 
 def finalize_delegate_success(
     result: Any,
-    changes: list,
-    issues: list,
+    changes: list[Any],
+    issues: list[str],
     *,
     category: str = "",
     category_meta: dict[str, Any] | None = None,
@@ -98,21 +98,24 @@ def finalize_delegate_success(
     out_issues = list(issues or [])
     from butler.tools.delegate_impl_ops import apply_delegate_success_gates
 
-    return apply_delegate_success_gates(
-        base=base,
-        issues=out_issues,
-        category=category,
-        category_meta=category_meta,
-        project=project,
-        role=role,
-        dev_engine=dev_engine,
-        task=task,
-        task_preview=task_preview,
-        changes=changes,
+    return cast(
+        tuple[bool, list[str]],
+        apply_delegate_success_gates(
+            base=base,
+            issues=out_issues,
+            category=category,
+            category_meta=category_meta,
+            project=project,
+            role=role,
+            dev_engine=dev_engine,
+            task=task,
+            task_preview=task_preview,
+            changes=changes,
+        ),
     )
 
 
-def _extract_changes_from_messages(messages: list) -> list:
+def _extract_changes_from_messages(messages: list[Any]) -> list[Any]:
     import json as _json
 
     from butler.report import Change
@@ -156,7 +159,7 @@ def _extract_changes_from_messages(messages: list) -> list:
     return changes[:10]
 
 
-def _safe_dispatch(name: str, args: dict, depth: int) -> str:
+def _safe_dispatch(name: str, args: dict[str, Any], depth: int) -> str:
     from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
     if name in DELEGATE_BLOCKED_TOOLS:
         return json.dumps({"error": f"Tool '{name}' is blocked in delegated agents"})
@@ -166,7 +169,7 @@ def _safe_dispatch(name: str, args: dict, depth: int) -> str:
     result = _dispatch(name, args)
     from butler.tools.delegate_impl_ops import inject_corrective_recall_safe
 
-    return inject_corrective_recall_safe(name, args, result)
+    return str(inject_corrective_recall_safe(name, args, result))
 
 
 def _run_subagent_stop_hooks(
@@ -261,7 +264,7 @@ def _tool_delegate_task(
     context: str = "",
     category: str = "",
     depth: int = 0,
-    **_,
+    **_: Any,
 ) -> str:
     """Delegate to a project-level agent through Butler's orchestrator.
 
@@ -275,11 +278,13 @@ def _tool_delegate_task(
     """
     from butler.tools.delegate_impl_ops import run_delegate_task_loud
 
-    return run_delegate_task_loud(
-        role=role,
-        task=task,
-        context=context,
-        category=category,
-        depth=depth,
-        finalize_failure=_finalize_delegate_failure,
+    return str(
+        run_delegate_task_loud(
+            role=role,
+            task=task,
+            context=context,
+            category=category,
+            depth=depth,
+            finalize_failure=_finalize_delegate_failure,
+        )
     )

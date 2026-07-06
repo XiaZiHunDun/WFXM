@@ -17,14 +17,14 @@ _SENTENCE_RE = re.compile(r"[。！!\n]+")
 
 
 def subquery_enabled() -> bool:
-    return env_truthy("BUTLER_RAG_SUBQUERY", default=True)
+    return bool(env_truthy("BUTLER_RAG_SUBQUERY", default=True))
 
 
 def max_subqueries() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_RAG_SUBQUERY_MAX", 3, min=1, max=5)
+        return int(int_env("BUTLER_RAG_SUBQUERY_MAX", 3, min=1, max=5))
     except ValueError:
         return 3
 
@@ -33,7 +33,7 @@ def min_chars_for_split() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_RAG_SUBQUERY_MIN_CHARS", 72, min=40)
+        return int(int_env("BUTLER_RAG_SUBQUERY_MIN_CHARS", 72, min=40))
     except ValueError:
         return 72
 

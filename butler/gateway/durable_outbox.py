@@ -9,7 +9,7 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 from butler.config import get_butler_home
 from butler.env_parse import env_truthy
@@ -17,7 +17,7 @@ from butler.io.atomic_write import atomic_write_text
 
 
 def durable_outbox_enabled() -> bool:
-    return env_truthy("BUTLER_GATEWAY_DURABLE_OUTBOX", default=True)
+    return bool(env_truthy("BUTLER_GATEWAY_DURABLE_OUTBOX", default=True))
 
 
 def durable_outbox_max_entries() -> int:
@@ -31,7 +31,7 @@ def durable_outbox_max_entries() -> int:
 
 
 def _outbox_root() -> Path:
-    return get_butler_home() / "gateway_outbox"
+    return cast(Path, get_butler_home() / "gateway_outbox")
 
 
 def _state_dir(state: str) -> Path:

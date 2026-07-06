@@ -27,10 +27,10 @@ _CACHE_CONTROL_MARKER: dict[str, str] = {"type": "ephemeral"}
 
 def cache_control_enabled() -> bool:
     """True unless ``BUTLER_TRANSPORT_CACHE_CONTROL`` is explicitly disabled."""
-    return env_truthy("BUTLER_TRANSPORT_CACHE_CONTROL", default=True)
+    return bool(env_truthy("BUTLER_TRANSPORT_CACHE_CONTROL", default=True))
 
 
-def apply_cache_control_to_system(system: Any) -> list[dict]:
+def apply_cache_control_to_system(system: Any) -> list[dict[str, Any]]:
     """Return system prompt as a list of text blocks with cache marker on tail.
 
     - 关闭时返 ``[]`` (caller 走原 str 路径)
@@ -51,7 +51,7 @@ def apply_cache_control_to_system(system: Any) -> list[dict]:
     ]
 
 
-def _ensure_content_list(content: Any) -> list[dict]:
+def _ensure_content_list(content: Any) -> list[dict[str, Any]]:
     """Normalize message content to a list-of-blocks form.
 
     - str → ``[{"type": "text", "text": <str>}]``
@@ -65,7 +65,7 @@ def _ensure_content_list(content: Any) -> list[dict]:
     return [{"type": "text", "text": str(content)}]
 
 
-def apply_cache_control_to_messages(messages: list[dict] | None) -> list[dict]:
+def apply_cache_control_to_messages(messages: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     """Append cache marker to the last ``role=user`` message's content tail.
 
     - 关闭时透传 (原 list 引用, 调用方不依赖深拷贝)
@@ -96,7 +96,7 @@ def apply_cache_control_to_messages(messages: list[dict] | None) -> list[dict]:
     return out
 
 
-def apply_cache_control_to_tools(tools: list[dict] | None) -> list[dict]:
+def apply_cache_control_to_tools(tools: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     """Add cache marker to the last tool in the tools array.
 
     - 关闭时透传
@@ -115,8 +115,8 @@ def apply_cache_control_to_tools(tools: list[dict] | None) -> list[dict]:
 
 
 def apply_cache_control_to_last_tool_result(
-    messages: list[dict] | None,
-) -> list[dict]:
+    messages: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
     """Add cache marker to the last ``tool_result`` block in messages.
 
     Operates on Anthropic-format messages (list of role/content). Iterates

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ def _tool_mcp_catalog_search(query: str = "", **_: Any) -> str:
             "hint": "Use mcp_install to install a server by id",
         }, ensure_ascii=False)
 
-    return tool_json_loud(_run)
+    return cast(str, tool_json_loud(_run))
 
 
 def _tool_mcp_install(
@@ -90,7 +90,7 @@ def _tool_mcp_install(
             attach_post_install_verify_safe(payload, sid, workspace)
         return json.dumps(payload, ensure_ascii=False)
 
-    return tool_json_loud(_run)
+    return cast(str, tool_json_loud(_run))
 
 
 def _tool_mcp_remove(server_id: str, **_: Any) -> str:
@@ -111,7 +111,7 @@ def _tool_mcp_remove(server_id: str, **_: Any) -> str:
         ok, msg = remove_mcp_server(sid, workspace=workspace)
         return json.dumps({"ok": ok, "message": msg}, ensure_ascii=False)
 
-    return tool_json_loud(_run)
+    return cast(str, tool_json_loud(_run))
 
 
 def _tool_mcp_list_installed(**_: Any) -> str:
@@ -140,7 +140,7 @@ def _tool_mcp_list_installed(**_: Any) -> str:
             "servers": items,
         }, ensure_ascii=False)
 
-    return tool_json_loud(_run)
+    return cast(str, tool_json_loud(_run))
 
 
 def register_mcp_self_service_tools(register: Callable[..., None]) -> None:

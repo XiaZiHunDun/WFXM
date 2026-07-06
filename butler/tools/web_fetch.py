@@ -6,25 +6,25 @@ import json
 import os
 import re
 from html import unescape
-from typing import Any
+from typing import Any, Callable
 
 from butler.env_parse import env_truthy, int_env, float_env
 
 
 def web_fetch_enabled() -> bool:
-    return env_truthy("BUTLER_ENABLE_WEB_FETCH", default=False)
+    return bool(env_truthy("BUTLER_ENABLE_WEB_FETCH", default=False))
 
 
 def _max_bytes() -> int:
     try:
-        return max(4096, int_env("BUTLER_WEB_FETCH_MAX_BYTES", 65536))
+        return int(max(4096, int_env("BUTLER_WEB_FETCH_MAX_BYTES", 65536)))
     except ValueError:
         return 65536
 
 
 def _timeout_seconds() -> float:
     try:
-        return max(3.0, float_env("BUTLER_WEB_FETCH_TIMEOUT", 20))
+        return float(max(3.0, float_env("BUTLER_WEB_FETCH_TIMEOUT", 20)))
     except ValueError:
         return 20.0
 
@@ -42,13 +42,14 @@ def _strip_html_regex(html: str) -> str:
 def _extract_with_trafilatura(html: str, url: str = "") -> dict[str, str] | None:
     """Extract main content with trafilatura; returns None if unavailable."""
     try:
-        import trafilatura  # type: ignore[import-untyped]
+        import trafilatura  # noqa: F401
     except ImportError:
         return None
     del trafilatura
     from butler.tools.web_fetch_ops import extract_with_trafilatura_safe
 
-    return extract_with_trafilatura_safe(html, url=url)
+    result = extract_with_trafilatura_safe(html, url=url)
+    return result if isinstance(result, dict) else None
 
 
 def _strip_html(html: str, *, url: str = "") -> str | dict[str, str]:
@@ -85,7 +86,7 @@ def tool_web_fetch(url: str, *, max_chars: int = 8000, **_: Any) -> str:
         },
     )
     if err_json is not None:
-        return err_json
+        return str(err_json)
     assert raw is not None and ctype is not None
 
     if len(raw) > _max_bytes():
@@ -122,7 +123,7 @@ def tool_web_fetch(url: str, *, max_chars: int = 8000, **_: Any) -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-def register_web_fetch_tool(register_fn) -> None:
+def register_web_fetch_tool(register_fn: Callable[..., None]) -> None:
     register_fn(
         name="web_fetch",
         description=(

@@ -20,7 +20,7 @@ def dispatch_tool_with_envelope(
     if tool_dispatcher:
         from butler.core.tool_batch_finalize_ops import dispatch_tool_with_envelope_loud
 
-        return dispatch_tool_with_envelope_loud(tool_dispatcher, name, args)
+        return str(dispatch_tool_with_envelope_loud(tool_dispatcher, name, args))
     return finalize_fallback_tool_result(
         name,
         args,

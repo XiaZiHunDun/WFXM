@@ -8,15 +8,15 @@ from butler.env_parse import env_truthy
 
 
 def schema_optimize_enabled() -> bool:
-    return env_truthy("BUTLER_SCHEMA_OPTIMIZE", default=True)
+    return bool(env_truthy("BUTLER_SCHEMA_OPTIMIZE", default=True))
 
 
 def optimize_tool_definitions(
-    tools: list[dict] | None,
+    tools: list[dict[str, Any]] | None,
     *,
     diagnostics: dict[str, Any] | None = None,
     provider: str = "",
-) -> list[dict] | None:
+) -> list[dict[str, Any]] | None:
     """Sanitize schemas up-front to reduce grammar 400 errors."""
     if not tools or not schema_optimize_enabled():
         return tools

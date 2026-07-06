@@ -25,8 +25,8 @@ def _compiled_rules() -> list[tuple[IntentRule, list[re.Pattern[str]]]]:
 
 def intent_enabled(rule: IntentRule) -> bool:
     if rule.enabled_env:
-        return env_truthy(rule.enabled_env, default=rule.default_enabled)
-    return rule.default_enabled
+        return bool(env_truthy(rule.enabled_env, default=rule.default_enabled))
+    return bool(rule.default_enabled)
 
 
 def matches_manifest_intent(

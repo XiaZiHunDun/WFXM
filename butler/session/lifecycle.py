@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import re
 import threading
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 _SYNC_TURN_LOCK = threading.Lock()
@@ -72,7 +72,7 @@ def filter_non_conversation_experience(hits: list[dict[str, Any]]) -> list[dict[
 def _current_project(orchestrator: Any) -> str:
     from butler.session.lifecycle_ops import current_project_name_safe
 
-    return current_project_name_safe(orchestrator)
+    return cast(str, current_project_name_safe(orchestrator))
 
 
 def _render_turn_memory_context(ctx: str, user_msg: str, *, max_chars: int = 3000) -> str:
@@ -163,7 +163,7 @@ def sync_turn_memory(
                     public_assistant,
                     session_id=session_id,
                 )
-        result = {
+        result: dict[str, Any] = {
             "skipped": False,
             "experience_updates": updates,
             "provider_synced": provider_synced,
@@ -175,12 +175,15 @@ def sync_turn_memory(
         flush_observer_queue_safe(orchestrator, session_id=session_id)
         return result
 
-    return sync_turn_memory_loud(
-        orchestrator,
-        user_msg,
-        assistant_msg,
-        session_id=session_id,
-        run_sync=_run_sync,
+    return cast(
+        dict[str, Any],
+        sync_turn_memory_loud(
+            orchestrator,
+            user_msg,
+            assistant_msg,
+            session_id=session_id,
+            run_sync=_run_sync,
+        ),
     )
 
 
@@ -223,7 +226,7 @@ _NEW_SESSION_EXPORTS = frozenset({
 })
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name in _MEMORY_PREFETCH_EXPORTS:
         from butler.session import memory_prefetch as _mp
         return getattr(_mp, name)

@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 
 def _session_key() -> str:
     from butler.tools.session_todos_tools_ops import current_session_key_safe
 
-    return current_session_key_safe()
+    return cast(str, current_session_key_safe())
 
 
-def _tool_session_todos_list(**_) -> str:
+def _tool_session_todos_list(**_: Any) -> str:
     from butler.core.session_todos import load_session_todos, session_todos_enabled
 
     if not session_todos_enabled():
@@ -35,7 +35,7 @@ def _tool_session_todos_list(**_) -> str:
 def _tool_session_todos_write(
     items: list[Any] | None = None,
     merge: bool = False,
-    **_,
+    **_: Any,
 ) -> str:
     from butler.core.session_todos import (
         merge_session_todos,

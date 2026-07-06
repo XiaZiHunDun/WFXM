@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ _DANGEROUS_FUNCTIONS = re.compile(
 
 def _duckdb_available() -> bool:
     try:
-        import duckdb  # type: ignore[import-untyped]  # noqa: F401
+        import duckdb  # noqa: F401
         return True
     except ImportError:
         return False
@@ -38,7 +38,7 @@ def _duckdb_available() -> bool:
 
 def _analytics_enabled() -> bool:
     from butler.env_parse import env_truthy
-    return env_truthy("BUTLER_DATA_QUERY", default=True)
+    return bool(env_truthy("BUTLER_DATA_QUERY", default=True))
 
 
 def _strip_sql_comments(sql: str) -> str:
@@ -57,7 +57,7 @@ def _resolve_project_path(path: str) -> Path | None:
         logger.warning("data_query path rejected: %s — %s", path, safety.error)
         return None
 
-    p = safety.path
+    p = Path(safety.path)
     if not p.exists():
         return None
     if p.suffix.lower() not in _QUERYABLE_EXTENSIONS:
@@ -97,14 +97,16 @@ def tool_query_data(
 
     if _WRITE_KEYWORDS.search(normalized):
         match = _WRITE_KEYWORDS.search(normalized)
-        return json.dumps({"error": f"write operations not allowed: {match.group(1).upper()}"})
+        if match is not None:
+            return json.dumps({"error": f"write operations not allowed: {match.group(1).upper()}"})
 
     if _DANGEROUS_FUNCTIONS.search(normalized):
         match = _DANGEROUS_FUNCTIONS.search(normalized)
-        return json.dumps({
-            "error": f"direct file access functions not allowed in SQL: {match.group(1)}",
-            "hint": "use the 'file' parameter to specify data source",
-        })
+        if match is not None:
+            return json.dumps({
+                "error": f"direct file access functions not allowed in SQL: {match.group(1)}",
+                "hint": "use the 'file' parameter to specify data source",
+            })
 
     cap = min(max(10, int(max_rows if max_rows is not None else _MAX_ROWS)), 1000)
 
@@ -114,17 +116,19 @@ def tool_query_data(
 
     from butler.tools.data_query_ops import execute_readonly_duckdb_query
 
-    return execute_readonly_duckdb_query(
-        query=query,
-        target=target,
-        cap=cap,
-        max_output_chars=_MAX_OUTPUT_CHARS,
-        resolve_path=_resolve_project_path,
-        queryable_extensions=_QUERYABLE_EXTENSIONS,
+    return str(
+        execute_readonly_duckdb_query(
+            query=query,
+            target=target,
+            cap=cap,
+            max_output_chars=_MAX_OUTPUT_CHARS,
+            resolve_path=_resolve_project_path,
+            queryable_extensions=_QUERYABLE_EXTENSIONS,
+        )
     )
 
 
-def register_data_query_tools(register_fn) -> None:
+def register_data_query_tools(register_fn: Callable[..., None]) -> None:
     """Register query_data tool if duckdb is available."""
     if not _duckdb_available():
         logger.debug("duckdb not installed; query_data tool not registered")

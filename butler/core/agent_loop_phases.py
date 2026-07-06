@@ -34,7 +34,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.loop_types import (
@@ -68,7 +68,7 @@ class TurnBodyState:
     original_config: Any = None  # LoopConfig snapshot
     budget_state: Any = None  # TurnBudgetState | None
     user_content: str = ""
-    turn_tools: list[dict] = field(default_factory=list)
+    turn_tools: list[dict[str, Any]] = field(default_factory=list)
 
     # --- Per-iteration state ----------------------------------------------
     status: LoopStatus = LoopStatus.RUNNING
@@ -354,7 +354,7 @@ def _phase_dispatch_tools(
     if response.tool_calls:
         return _dispatch_tool_response(loop, response, state)
     _dispatch_text_response(loop, response, state, start_time, steer_session)
-    return state.status == LoopStatus.RUNNING
+    return bool(state.status == LoopStatus.RUNNING)
 
 
 def _dispatch_tool_response(
@@ -470,9 +470,12 @@ def _get_stuck_message(loop: "AgentLoop") -> Optional[str]:
     def _check() -> Optional[str]:
         from butler.core.loop_stuck import guardrail_stuck_message
 
-        return guardrail_stuck_message(loop._guardrails)
+        return cast(Optional[str], guardrail_stuck_message(loop._guardrails))
 
-    return safe_best_effort(_check, label="agent_loop.stuck_check")
+    return cast(
+        Optional[str],
+        safe_best_effort(_check, label="agent_loop.stuck_check"),
+    )
 
 
 def _dispatch_text_response(
@@ -768,7 +771,7 @@ def _phase_resolve_user_text(
     def _prepend_reminder() -> str:
         from butler.core.system_reminder import maybe_prepend_system_reminder
 
-        return maybe_prepend_system_reminder(user_content)
+        return cast(str, maybe_prepend_system_reminder(user_content))
 
     reminded = safe_best_effort(
         _prepend_reminder,
@@ -776,18 +779,18 @@ def _phase_resolve_user_text(
         default=user_content,
     )
     if reminded is not None:
-        user_content = reminded
+        user_content = cast(str, reminded)
     loop._messages.append({"role": "user", "content": user_content})
-    return user_content
+    return cast(str, user_content)
 
 
 def _prepare_skill_tool_context(
     loop: "AgentLoop",
     user_content: str,
     steer_session: str,
-    turn_tools: list,
-) -> tuple[set[str], list]:
-    def _run() -> tuple[set[str], list]:
+    turn_tools: list[Any],
+) -> tuple[set[str], list[Any]]:
+    def _run() -> tuple[set[str], list[Any]]:
         from butler.core.skill_tool_bridge import collect_pinned_tools
 
         skill_pt: set[str] = set()
@@ -844,7 +847,7 @@ def _prepare_skill_tool_context(
         default=None,
     )
     if result is not None:
-        return result
+        return cast(tuple[set[str], list[Any]], result)
     return set(), turn_tools
 
 
@@ -852,7 +855,7 @@ def _phase_enrich_user_text(
     loop: "AgentLoop",
     user_content: str,
     steer_session: str,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Phase U2: tool selection (per-turn) + record user message transcript.
 
     Returns the turn-specific tool list (possibly narrowed from
@@ -860,7 +863,7 @@ def _phase_enrich_user_text(
     """
     turn_tools = list(loop.tools or [])
 
-    def _select_tools() -> list[dict]:
+    def _select_tools() -> list[dict[str, Any]]:
         from butler.core.tool_selector import select_tools_for_context
 
         skill_pt, tools = _prepare_skill_tool_context(

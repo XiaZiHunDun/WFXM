@@ -18,14 +18,14 @@ _WRITE_HINTS = re.compile(
 
 
 def auto_review_enabled() -> bool:
-    return env_truthy("BUTLER_AUTO_REVIEW", default=False)
+    return bool(env_truthy("BUTLER_AUTO_REVIEW", default=False))
 
 
 def max_denials_per_turn() -> int:
     import os
 
     try:
-        return max(1, int_env("BUTLER_AUTO_REVIEW_MAX_DENIALS", 3))
+        return max(1, int(int_env("BUTLER_AUTO_REVIEW_MAX_DENIALS", 3)))
     except ValueError:
         return 3
 

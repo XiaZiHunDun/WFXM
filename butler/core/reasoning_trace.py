@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
@@ -12,11 +12,11 @@ _GRAPH_STEP_KINDS = frozenset({"fact", "hypothesis", "step", "risk"})
 
 
 def reasoning_trace_enabled() -> bool:
-    return env_truthy("BUTLER_REASONING_TRACE", default=True)
+    return bool(env_truthy("BUTLER_REASONING_TRACE", default=True))
 
 
 def plan_reason_graph_enabled() -> bool:
-    return env_truthy("BUTLER_PLAN_REASON_GRAPH", default=True)
+    return bool(env_truthy("BUTLER_PLAN_REASON_GRAPH", default=True))
 
 
 def summarize_reasoning_text(text: str, *, max_len: int = _SUMMARY_MAX) -> str:
@@ -31,7 +31,7 @@ def summarize_reasoning_text(text: str, *, max_len: int = _SUMMARY_MAX) -> str:
 def _resolve_session_key(explicit: str = "") -> str:
     from butler.core.reasoning_trace_ops import resolve_session_key_safe
 
-    return resolve_session_key_safe(explicit)
+    return str(resolve_session_key_safe(explicit))
 
 
 def record_reasoning_step(
@@ -257,7 +257,7 @@ def get_plan_mode_graph_appendix() -> str:
     )
 
 
-def _transcript_row_fields(row: dict) -> dict:
+def _transcript_row_fields(row: dict[str, Any]) -> dict[str, Any]:
     payload = row.get("payload")
     return payload if isinstance(payload, dict) else row
 

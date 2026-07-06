@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from butler.gateway.outbound_bridge import GatewayOutboundBridge
@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 def _env_bool(name: str, default: bool) -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy(name, default=default)
+    return cast(bool, env_truthy(name, default=default))
 
 
 def _env_float(name: str, default: float) -> float:
     from butler.env_parse import float_env
 
-    return float_env(name, default)
+    return cast(float, float_env(name, default))
 
 
 def completion_notify_enabled() -> bool:
@@ -72,10 +72,13 @@ def delegate_completion_mode() -> str:
 def delegate_completion_max_each() -> int:
     from butler.defaults.env_defaults import GATEWAY_DELEGATE_COMPLETION_MAX_EACH
 
-    return int_env(
-        "BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH",
-        GATEWAY_DELEGATE_COMPLETION_MAX_EACH,
-        min=1,
+    return cast(
+        int,
+        int_env(
+            "BUTLER_GATEWAY_DELEGATE_COMPLETION_MAX_EACH",
+            GATEWAY_DELEGATE_COMPLETION_MAX_EACH,
+            min=1,
+        ),
     )
 
 
@@ -140,7 +143,7 @@ def format_elapsed(seconds: float) -> str:
 def build_report_push_text(report: AgentReport, *, prefix: str = "") -> str:
     from butler.report import format_for_wechat
 
-    body = format_for_wechat(report)
+    body = cast(str, format_for_wechat(report))
     if prefix:
         return f"{prefix}\n\n{body}".strip()
     return body
@@ -227,12 +230,15 @@ def try_push_turn_timeout(
         return False
     if not should_push_timeout_completion(br, elapsed_seconds):
         return False
-    return br.schedule_completion_push(
-        build_timeout_text(
-            timeout_seconds=timeout_seconds,
-            elapsed_seconds=elapsed_seconds,
+    return cast(
+        bool,
+        br.schedule_completion_push(
+            build_timeout_text(
+                timeout_seconds=timeout_seconds,
+                elapsed_seconds=elapsed_seconds,
+            ),
+            kind="timeout",
         ),
-        kind="timeout",
     )
 
 
@@ -271,7 +277,7 @@ def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
         prefix="📋 委派阶段完成",
         platform="wechat",
     )
-    return bridge.schedule_completion_push(text, kind="delegate")
+    return cast(bool, bridge.schedule_completion_push(text, kind="delegate"))
 
 
 def _workflow_push_prefix(report: AgentReport) -> str:
@@ -351,11 +357,14 @@ async def deliver_completion_push(
         else:
             record_completion_push_failed(session_key=telemetry_key)
 
-    return await deliver_completion_push_safe(
-        lambda: adapter.send(chat_id, body),
-        on_success=_on_success,
-        on_failure=_on_failure,
-        kind=kind,
+    return cast(
+        bool,
+        await deliver_completion_push_safe(
+            lambda: adapter.send(chat_id, body),
+            on_success=_on_success,
+            on_failure=_on_failure,
+            kind=kind,
+        ),
     )
 
 
@@ -386,7 +395,7 @@ def try_push_workflow_failure(
     if not should_push_workflow_completion(br, elapsed):
         return False
     text = build_report_push_text(report, prefix=_workflow_push_prefix(report))
-    return br.schedule_completion_push(text, kind="workflow")
+    return cast(bool, br.schedule_completion_push(text, kind="workflow"))
 
 
 def try_push_agent_report(
@@ -421,7 +430,7 @@ def try_push_agent_report(
     else:
         return False
     text = build_report_push_text(report, prefix=prefix)
-    return br.schedule_completion_push(text, kind=kind)
+    return cast(bool, br.schedule_completion_push(text, kind=kind))
 
 
 def try_push_turn_complete(
@@ -436,7 +445,10 @@ def try_push_turn_complete(
         return False
     if not should_push_turn_completion(br, elapsed_seconds):
         return False
-    return br.schedule_completion_push(
-        build_turn_complete_text(elapsed_seconds=elapsed_seconds),
-        kind="turn",
+    return cast(
+        bool,
+        br.schedule_completion_push(
+            build_turn_complete_text(elapsed_seconds=elapsed_seconds),
+            kind="turn",
+        ),
     )

@@ -12,7 +12,7 @@ import math
 import time
 
 from butler.memory_settings import resolve_memory_config
-from typing import Any
+from typing import Any, cast
 
 
 MEMORY_TYPE_HALF_LIFE_MULTIPLIER: dict[str, float] = {
@@ -35,11 +35,11 @@ def memory_half_life_days() -> float:
     from butler.memory.retrieval_ranking_ops import effective_memory_half_life_days_safe
 
     adjusted = effective_memory_half_life_days_safe(base)
-    return adjusted if adjusted is not None else base
+    return float(adjusted) if adjusted is not None else float(base)
 
 
 def memory_access_boost() -> float:
-    return resolve_memory_config().access_boost
+    return float(resolve_memory_config().access_boost)
 
 
 def type_adjusted_half_life(base_half_life: float, memory_type: str = "") -> float:

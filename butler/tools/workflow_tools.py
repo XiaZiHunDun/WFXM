@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Callable
 
 
 def tool_list_workflows(**_: Any) -> str:
@@ -32,7 +32,7 @@ def tool_list_workflows(**_: Any) -> str:
     return json.dumps({"workflows": rows, "count": len(rows)}, ensure_ascii=False)
 
 
-def register_workflow_tools(register_fn) -> None:
+def register_workflow_tools(register_fn: Callable[..., None]) -> None:
     register_fn(
         name="list_workflows",
         description=(

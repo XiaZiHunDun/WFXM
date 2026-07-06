@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 
 def _names_from_summary(summary: str) -> list[str]:
@@ -70,5 +70,5 @@ def try_correct_ungrounded_list_reply(
                 break
         if _reply_grounded(assistant_text, summary_line or direct):
             return None
-        return direct
+        return cast(str, direct)
     return None

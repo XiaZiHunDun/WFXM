@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from butler.core.llm_retry_safe import safe_call as _safe_call
 from butler.transport.llm_client import LLMClient
@@ -12,11 +12,11 @@ from butler.transport.types import NormalizedResponse
 
 
 def prepare_tools_for_llm(
-    tools: list[dict] | None,
+    tools: list[dict[str, Any]] | None,
     *,
     client: LLMClient,
     diagnostics: dict[str, Any],
-) -> list[dict] | None:
+) -> list[dict[str, Any]] | None:
     """Optimize and filter tool schemas before an LLM call."""
     tools_to_send = tools or None
     if not tools_to_send:
@@ -53,8 +53,8 @@ def prepare_tools_for_llm(
 def try_exp_cache_response(
     *,
     client: LLMClient,
-    messages: list[dict],
-    tools_to_send: list[dict] | None,
+    messages: list[dict[str, Any]],
+    tools_to_send: list[dict[str, Any]] | None,
     diagnostics: dict[str, Any],
 ) -> tuple[str, NormalizedResponse | None]:
     """Return (cache_fp, cached_response) when exp_cache hits."""
@@ -141,11 +141,11 @@ def record_llm_success_side_effects(
 
 def apply_reactive_compact_retry(
     *,
-    messages: list[dict],
-    compress_messages: Callable[[list[dict]], list[dict]],
-    prepare_messages: Callable[[], list[dict]],
+    messages: list[dict[str, Any]],
+    compress_messages: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
+    prepare_messages: Callable[[], list[dict[str, Any]]],
     diagnostics: dict[str, Any],
-) -> list[dict] | None:
+) -> list[dict[str, Any]] | None:
     """Run reactive compact; return refreshed messages_to_send or None to abort."""
 
     def _record_reactive_compact() -> None:
@@ -165,7 +165,10 @@ def apply_reactive_compact_retry(
     if not applied:
         messages[:] = compress_messages(list(messages))
         diagnostics["reactive_context_compact"] = True
-    return prepare_messages_or_abort(prepare_messages, diagnostics)
+    return cast(
+        "list[dict[str, Any]] | None",
+        prepare_messages_or_abort(prepare_messages, diagnostics),
+    )
 
 
 __all__ = [

@@ -21,11 +21,11 @@ _PII_PATTERNS = [
 
 
 def io_guardrail_enabled() -> bool:
-    return env_truthy("BUTLER_IO_GUARDRAIL", default=True)
+    return bool(env_truthy("BUTLER_IO_GUARDRAIL", default=True))
 
 
 def io_guardrail_block_inbound() -> bool:
-    return env_truthy("BUTLER_IO_GUARDRAIL_BLOCK", default=False)
+    return bool(env_truthy("BUTLER_IO_GUARDRAIL_BLOCK", default=False))
 
 
 @dataclass(frozen=True)

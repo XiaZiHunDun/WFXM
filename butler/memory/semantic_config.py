@@ -9,7 +9,7 @@ from butler.memory_settings import resolve_memory_config
 
 def semantic_memory_enabled() -> bool:
     """When true, maintain memory_vectors.db and use hybrid recall."""
-    return resolve_memory_config().semantic_enabled
+    return bool(resolve_memory_config().semantic_enabled)
 
 
 def resolve_embedding_config() -> tuple[str, str]:
@@ -45,12 +45,12 @@ def embedding_model_name() -> str:
 
 def hybrid_vector_weight() -> float:
     """Blend weight for vector rank vs FTS in hybrid (0–1, vector share)."""
-    return resolve_memory_config().vector_hybrid_weight
+    return float(resolve_memory_config().vector_hybrid_weight)
 
 
 def hybrid_fts_weight() -> float:
     """FTS share in hybrid merge (default 1 - vector weight)."""
-    return resolve_memory_config().fts_hybrid_weight
+    return float(resolve_memory_config().fts_hybrid_weight)
 
 
 def semantic_search_limit(default: int = 8) -> int:
@@ -58,5 +58,5 @@ def semantic_search_limit(default: int = 8) -> int:
     if default != 8:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_SEMANTIC_SEARCH_LIMIT", default, min=1)
-    return cfg.search_limit
+        return int(int_env("BUTLER_SEMANTIC_SEARCH_LIMIT", default, min=1))
+    return int(cfg.search_limit)

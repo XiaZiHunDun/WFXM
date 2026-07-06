@@ -122,7 +122,7 @@ def push_delegate_completion(
     def _runtime_push() -> bool:
         from butler.runtime.notify import push_runtime_message
 
-        return push_runtime_message("[Butler] 委派完成", text)
+        return bool(push_runtime_message("[Butler] 委派完成", text))
 
     return bool(
         safe_best_effort(_runtime_push, label="delegate_job.runtime_push", default=False)
@@ -323,4 +323,4 @@ def _run_delegate_job_body(job: DelegateJob) -> None:
 def _delegate_role_label(role: str) -> str:
     from butler.tools.builtin_impl import _delegate_role_label as _canonical
 
-    return _canonical(role)
+    return str(_canonical(role))

@@ -8,7 +8,7 @@ import os
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ _PRIORITY_RANK = {"high": 0, "medium": 1, "low": 2}
 def _get_workspace() -> Path | None:
     from butler.tools.project_todos_ops import get_active_project_workspace_safe
 
-    return get_active_project_workspace_safe()
+    return cast("Path | None", get_active_project_workspace_safe())
 
 
 def _todos_path(workspace: Path) -> Path:
@@ -105,7 +105,7 @@ def _normalize_item(raw: Any, position: int) -> dict[str, str] | None:
     return {"id": item_id[:32], "content": content[:500], "status": status, "priority": priority}
 
 
-def _tool_project_todos_list(**_) -> str:
+def _tool_project_todos_list(**_: Any) -> str:
     ws = _get_workspace()
     if ws is None:
         return json.dumps({"ok": False, "error": "NO_ACTIVE_PROJECT"})
@@ -117,7 +117,7 @@ def _tool_project_todos_list(**_) -> str:
     }, ensure_ascii=False)
 
 
-def _tool_project_todos_write(items: list[Any] | None = None, merge: bool = False, **_) -> str:
+def _tool_project_todos_write(items: list[Any] | None = None, merge: bool = False, **_: Any) -> str:
     ws = _get_workspace()
     if ws is None:
         return json.dumps({"ok": False, "error": "NO_ACTIVE_PROJECT"})

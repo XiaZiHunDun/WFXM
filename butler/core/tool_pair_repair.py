@@ -17,17 +17,17 @@ def tool_pair_repair_enabled() -> bool:
 
 
 def repair_tool_pairs(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     diagnostics: dict[str, Any] | None = None,
-) -> tuple[list[dict], int]:
+) -> tuple[list[dict[str, Any]], int]:
     """Insert synthetic tool messages for assistant tool_calls lacking tool results."""
     if not tool_pair_repair_enabled() or not messages:
         return messages, 0
 
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     repairs = 0
-    pending: list[dict] = []
+    pending: list[dict[str, Any]] = []
 
     def flush_pending() -> None:
         nonlocal repairs
@@ -35,7 +35,8 @@ def repair_tool_pairs(
             tc_id = str(tc.get("id") or "").strip()
             if not tc_id:
                 continue
-            fn = tc.get("function") if isinstance(tc.get("function"), dict) else {}
+            fn_raw = tc.get("function")
+            fn = fn_raw if isinstance(fn_raw, dict) else {}
             name = str(fn.get("name") or "tool")
             out.append({
                 "role": "tool",
@@ -86,7 +87,10 @@ def repair_tool_pairs(
     return out, repairs
 
 
-def repair_tool_pairs_json_safe(messages: list[dict], **kwargs: Any) -> tuple[list[dict], int]:
+def repair_tool_pairs_json_safe(
+    messages: list[dict[str, Any]],
+    **kwargs: Any,
+) -> tuple[list[dict[str, Any]], int]:
     """Run repair; ensure synthetic markers are JSON-serializable for API."""
     repaired, count = repair_tool_pairs(messages, **kwargs)
     for msg in repaired:

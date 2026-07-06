@@ -14,12 +14,12 @@ _SESSION_SLOTS: dict[str, int] = {}
 
 
 def delegate_concurrency_enabled() -> bool:
-    return env_truthy("BUTLER_DELEGATE_CONCURRENCY_LIMIT", default=True)
+    return bool(env_truthy("BUTLER_DELEGATE_CONCURRENCY_LIMIT", default=True))
 
 
 def max_concurrent_delegates() -> int:
     try:
-        return max(1, int_env("BUTLER_DELEGATE_MAX_CONCURRENT", 2))
+        return max(1, int(int_env("BUTLER_DELEGATE_MAX_CONCURRENT", 2)))
     except ValueError:
         return 2
 

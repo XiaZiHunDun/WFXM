@@ -88,7 +88,7 @@ def _run_git(args: list[str], *, workdir: str | None = None) -> dict[str, Any]:
     return payload
 
 
-def _tool_git_status(workdir: str | None = None, **_) -> str:
+def _tool_git_status(workdir: str | None = None, **_: Any) -> str:
     if not git_read_enabled():
         return _disabled_read_msg()
     return json.dumps(_run_git(["status", "--short", "--branch"], workdir=workdir))
@@ -100,7 +100,7 @@ def _tool_git_diff(
     file: str = "",
     ref: str = "",
     workdir: str | None = None,
-    **_,
+    **_: Any,
 ) -> str:
     if not git_read_enabled():
         return _disabled_read_msg()
@@ -126,7 +126,7 @@ def _tool_git_log(
     author: str = "",
     since: str = "",
     workdir: str | None = None,
-    **_,
+    **_: Any,
 ) -> str:
     if not git_read_enabled():
         return _disabled_read_msg()
@@ -155,7 +155,7 @@ def _tool_git_branch(
     action: str = "list",
     name: str = "",
     workdir: str | None = None,
-    **_,
+    **_: Any,
 ) -> str:
     act = (action or "list").strip().lower()
     if act == "list":
@@ -181,7 +181,7 @@ def _tool_git_branch(
     return json.dumps({"error": f"Unknown action: {action}", "exit_code": -1})
 
 
-def _tool_git_add(files: list | None = None, workdir: str | None = None, **_) -> str:
+def _tool_git_add(files: list[str] | None = None, workdir: str | None = None, **_: Any) -> str:
     if not git_write_enabled():
         return _disabled_write_msg()
     paths = list(files or [])
@@ -200,7 +200,7 @@ def _tool_git_add(files: list | None = None, workdir: str | None = None, **_) ->
     return json.dumps(_run_git(argv, workdir=workdir))
 
 
-def _tool_git_commit(message: str = "", workdir: str | None = None, **_) -> str:
+def _tool_git_commit(message: str = "", workdir: str | None = None, **_: Any) -> str:
     if not git_write_enabled():
         return _disabled_write_msg()
     msg = (message or "").strip()
@@ -214,7 +214,7 @@ def _tool_git_push(
     branch: str = "",
     force: bool = False,
     workdir: str | None = None,
-    **_,
+    **_: Any,
 ) -> str:
     """Push to remote — requires BUTLER_ENABLE_GIT_PUSH=1 and Owner approval."""
     if not git_write_enabled():

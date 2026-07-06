@@ -18,17 +18,17 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class HygienePreflightResult:
-    messages: list[dict]
+    messages: list[dict[str, Any]]
     compressed: bool = False
 
 
 def run_hygiene_preflight(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     max_context_tokens: int,
     diagnostics: dict[str, Any],
-    estimate_tokens: Callable[[list[dict]], int],
-    compress: Callable[..., list[dict]],
+    estimate_tokens: Callable[[list[dict[str, Any]]], int],
+    compress: Callable[..., list[dict[str, Any]]],
     threshold_ratio: float = 0.85,
     hard_message_limit: int = 400,
     consecutive_compact_failures: int = 0,

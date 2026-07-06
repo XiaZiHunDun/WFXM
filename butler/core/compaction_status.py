@@ -86,7 +86,8 @@ def format_fact_survival_line(health: dict[str, Any] | None) -> str:
             rate = round(int(anchor) / int(store), 4)
         return f"事实锚点: {store}条存储→{anchor}条入锚 (S_f≈{float(rate):.0%})"
 
-    mm = h.get("memory_metrics") if isinstance(h.get("memory_metrics"), dict) else {}
+    mm_raw = h.get("memory_metrics")
+    mm: dict[str, Any] = mm_raw if isinstance(mm_raw, dict) else {}
     anchor_sf = mm.get("anchor_fact_survival_rate")
     if anchor_sf is not None and h.get("anchor_facts_pre", 0):
         pre = h.get("anchor_facts_pre")

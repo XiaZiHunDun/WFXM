@@ -29,7 +29,7 @@ def maybe_prepend_system_reminder(user_content: str) -> str:
     base = str(user_content or "").strip()
     if base:
         return f"{reminder}\n\n{base}"
-    return reminder
+    return str(reminder)
 
 
 __all__ = [

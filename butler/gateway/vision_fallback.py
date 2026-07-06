@@ -75,7 +75,7 @@ def describe_image_openai(path: Path, *, caption: str = "", timeout: float = 45.
 
 def describe_image_ocr(path: Path) -> str:
     try:
-        import pytesseract
+        import pytesseract  # type: ignore[import-untyped]
         from PIL import Image
     except ImportError as exc:
         raise RuntimeError("本地 OCR 需要 pip install pytesseract pillow") from exc

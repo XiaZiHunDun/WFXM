@@ -17,7 +17,7 @@ _UNSAFE_FINISH = frozenset(
 
 
 def safety_finish_guard_enabled() -> bool:
-    return env_truthy("BUTLER_SAFETY_FINISH_GUARD", default=True)
+    return bool(env_truthy("BUTLER_SAFETY_FINISH_GUARD", default=True))
 
 
 def safety_finish_user_message(response: NormalizedResponse) -> str | None:

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
-from butler.tools.builtin_impl import MAX_READ_FILE_LINES, MAX_TERMINAL_TIMEOUT_SECONDS
+from typing import Any
 
 
-def read_file_schema() -> dict:
+from butler.tools.file_io import MAX_READ_FILE_LINES
+from butler.tools.terminal_impl import MAX_TERMINAL_TIMEOUT_SECONDS
+
+
+def read_file_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -27,7 +31,7 @@ def read_file_schema() -> dict:
     }
 
 
-def write_file_schema() -> dict:
+def write_file_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -38,7 +42,7 @@ def write_file_schema() -> dict:
     }
 
 
-def patch_schema() -> dict:
+def patch_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -50,7 +54,7 @@ def patch_schema() -> dict:
     }
 
 
-def delete_file_schema() -> dict:
+def delete_file_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -60,7 +64,7 @@ def delete_file_schema() -> dict:
     }
 
 
-def terminal_schema() -> dict:
+def terminal_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -78,7 +82,7 @@ def terminal_schema() -> dict:
     }
 
 
-def search_files_schema() -> dict:
+def search_files_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -94,7 +98,7 @@ def search_files_schema() -> dict:
     }
 
 
-def list_directory_schema() -> dict:
+def list_directory_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -103,7 +107,7 @@ def list_directory_schema() -> dict:
     }
 
 
-def delegate_task_schema() -> dict:
+def delegate_task_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
@@ -126,7 +130,7 @@ def delegate_task_schema() -> dict:
     }
 
 
-def run_workflow_schema() -> dict:
+def run_workflow_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {

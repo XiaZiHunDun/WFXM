@@ -19,7 +19,7 @@ _SESSION_PROFILE: dict[str, str] = {}
 
 
 def mcp_profiles_enabled() -> bool:
-    return env_truthy("BUTLER_MCP_PROFILES", default=True)
+    return bool(env_truthy("BUTLER_MCP_PROFILES", default=True))
 
 
 def _load_profile_config() -> tuple[dict[str, list[str]], list[tuple[str, list[str]]]]:

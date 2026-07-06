@@ -8,7 +8,8 @@ import re
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from types import TracebackType
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +24,19 @@ _DEFERRED: dict[str, list[tuple[str, str]]] = {}
 def delegate_push_dedup_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_GATEWAY_DELEGATE_PUSH_DEDUP", default=True)
+    return bool(env_truthy("BUTLER_GATEWAY_DELEGATE_PUSH_DEDUP", default=True))
 
 
 def defer_delegate_push_during_inbound_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND", default=True)
+    return bool(env_truthy("BUTLER_GATEWAY_DEFER_DELEGATE_PUSH_DURING_INBOUND", default=True))
 
 
 def delegate_push_max_age_seconds() -> float:
     from butler.env_parse import float_env
 
-    return max(60.0, float_env("BUTLER_GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS", 600.0))
+    return float(max(60.0, float_env("BUTLER_GATEWAY_DELEGATE_PUSH_MAX_AGE_SECONDS", 600.0)))
 
 
 def extract_task_id_from_text(text: str) -> str:
@@ -50,7 +51,7 @@ def _dedup_key(chat_id: str, task_id: str) -> str:
 def _task_completed_epoch(task_id: str) -> float | None:
     from butler.gateway.delegate_push_dedup_ops import task_completed_epoch_safe
 
-    return task_completed_epoch_safe(task_id)
+    return cast("float | None", task_completed_epoch_safe(task_id))
 
 
 def should_deliver_delegate_push(
@@ -131,7 +132,12 @@ class gateway_inbound_guard:
             _ACTIVE_INBOUND[self.chat_id] = _ACTIVE_INBOUND.get(self.chat_id, 0) + 1
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
         if not self.chat_id:
             return
         flush = False

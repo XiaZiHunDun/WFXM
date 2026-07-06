@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
@@ -17,25 +17,25 @@ _DEFAULT_HINT_LIMIT = 2
 
 
 def reflection_closure_enabled() -> bool:
-    return env_truthy("BUTLER_REFLECTION_CLOSURE", default=True)
+    return bool(env_truthy("BUTLER_REFLECTION_CLOSURE", default=True))
 
 
 def reflection_closure_inject_enabled() -> bool:
     if not reflection_closure_enabled():
         return False
-    return env_truthy("BUTLER_REFLECTION_CLOSURE_INJECT", default=True)
+    return bool(env_truthy("BUTLER_REFLECTION_CLOSURE_INJECT", default=True))
 
 
 def _experience_path() -> Path:
     from butler.core.reflection_closure_ops import experience_path_safe
 
-    return experience_path_safe()
+    return cast(Path, experience_path_safe())
 
 
 def _should_persist() -> bool:
     from butler.core.reflection_closure_ops import should_persist_reflect
 
-    return should_persist_reflect()
+    return bool(should_persist_reflect())
 
 
 def persist_reflect_episode(
@@ -54,7 +54,7 @@ def persist_reflect_episode(
         return
     path = _experience_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    row = {
+    row: dict[str, Any] = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "kind": "reflect",
         "trigger": str(trigger or "")[:48],

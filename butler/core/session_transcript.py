@@ -9,7 +9,7 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 from butler.config import get_butler_home
 from butler.core.session_transcript_ops import (
@@ -34,11 +34,11 @@ _BATCH_BUFFERS: dict[str, list[dict[str, Any]]] = {}
 
 
 def transcript_enabled() -> bool:
-    return env_truthy("BUTLER_SESSION_TRANSCRIPT", default=True)
+    return bool(env_truthy("BUTLER_SESSION_TRANSCRIPT", default=True))
 
 
 def transcript_max_bytes() -> int:
-    return int_env("BUTLER_SESSION_TRANSCRIPT_MAX_BYTES", _DEFAULT_MAX_BYTES, min=1_000_000)
+    return int(int_env("BUTLER_SESSION_TRANSCRIPT_MAX_BYTES", _DEFAULT_MAX_BYTES, min=1_000_000))
 
 
 def _safe_segment(value: str) -> str:
@@ -50,7 +50,7 @@ def _safe_segment(value: str) -> str:
 
 def transcript_path(session_key: str) -> Path:
     sk = _safe_segment(session_key)
-    return get_butler_home() / _TRANSCRIPT_SUBDIR / sk / "transcript.jsonl"
+    return Path(get_butler_home()) / _TRANSCRIPT_SUBDIR / sk / "transcript.jsonl"
 
 
 def _append_line(path: Path, entry: dict[str, Any]) -> None:
@@ -537,7 +537,7 @@ def record_workflow_step(
     )
 
 
-def record_generic_event(session_key: str, event_type: str, payload: dict | None = None) -> None:
+def record_generic_event(session_key: str, event_type: str, payload: dict[str, Any] | None = None) -> None:
     """Append arbitrary audit row (bot_loop_suppressed, etc.)."""
     append_transcript_entry(
         session_key,
@@ -558,12 +558,12 @@ def load_transcript_tail(session_key: str, *, max_lines: int = 50) -> list[dict[
     path = transcript_path(session_key)
     indexed = load_tail_rows_safe(path, max_lines=max_lines)
     if indexed is not None:
-        return indexed
+        return cast(list[dict[str, Any]], indexed)
     return _load_transcript_lines_from_path(path, max_lines=max_lines)
 
 
 def reasoning_diag_scan_lines() -> int:
-    return int_env("BUTLER_REASONING_DIAG_SCAN_LINES", 2000, min=80)
+    return int(int_env("BUTLER_REASONING_DIAG_SCAN_LINES", 2000, min=80))
 
 
 def _load_transcript_lines_from_path(path: Path, *, max_lines: int) -> list[dict[str, Any]]:
@@ -571,7 +571,7 @@ def _load_transcript_lines_from_path(path: Path, *, max_lines: int) -> list[dict
         return []
     indexed = load_tail_full_read_safe(path, max_lines=max_lines)
     if indexed is not None:
-        return indexed
+        return cast(list[dict[str, Any]], indexed)
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:

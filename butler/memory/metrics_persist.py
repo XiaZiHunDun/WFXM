@@ -6,6 +6,7 @@ import time
 
 from butler.memory_settings import resolve_memory_config
 from pathlib import Path
+from typing import cast
 
 _FLUSH_INTERVAL_SEC = 60.0
 _last_flush: float = 0.0
@@ -13,13 +14,13 @@ _loaded_once: bool = False
 
 
 def metrics_enabled() -> bool:
-    return resolve_memory_config().metrics_persist
+    return bool(resolve_memory_config().metrics_persist)
 
 
 def metrics_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "metrics" / "memory_metrics.json"
+    return Path(get_butler_home()) / "metrics" / "memory_metrics.json"
 
 
 def load_persisted_metrics() -> None:
@@ -54,4 +55,4 @@ def format_effectiveness_lines() -> list[str]:
     """S_w / H_1 / E_d lines for /诊断 (D2-4/D2-5/D2-6)."""
     from butler.memory.metrics_persist_ops import format_effectiveness_lines_safe
 
-    return format_effectiveness_lines_safe()
+    return cast(list[str], format_effectiveness_lines_safe())

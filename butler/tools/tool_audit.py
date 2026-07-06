@@ -116,7 +116,7 @@ def _persist_tool_audit_event(event: dict[str, Any]) -> None:
 
 def _record_tool_audit(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     *,
     ok: bool,
     code: str,
@@ -135,7 +135,7 @@ def _record_tool_audit(
     }
     with _TOOL_AUDIT_LOCK:
         _TOOL_AUDIT_EVENTS.append(event)
-        sk = event["session_key"]
+        sk = str(event.get("session_key") or "")
         bucket = _TOOL_AUDIT_EVENTS_BY_SESSION.get(sk)
         if bucket is None:
             _evict_oldest_session_bucket_locked()
@@ -174,7 +174,8 @@ def reset_tool_audit_events(session_key: str | None = None) -> None:
             if event.get("session_key") != session_key
         ]
         _TOOL_AUDIT_EVENTS.clear()
-        _TOOL_AUDIT_EVENTS.extend(retained[-_TOOL_AUDIT_EVENTS.maxlen:])
+        maxlen = _TOOL_AUDIT_EVENTS.maxlen or 200
+        _TOOL_AUDIT_EVENTS.extend(retained[-maxlen:])
 
 
 def pop_last_tool_audit_for_tool(name: str) -> None:
@@ -191,7 +192,7 @@ def pop_last_tool_audit_for_tool(name: str) -> None:
 
 def _maybe_record_tool_observation(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     payload: dict[str, Any],
 ) -> None:
     from butler.tools.tool_audit_ops import run_observation_side_effects_safe
@@ -204,7 +205,7 @@ def _maybe_record_tool_observation(
 
 def _record_tool_observation_side_effects(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     payload: dict[str, Any],
 ) -> None:
     from butler.execution_context import get_current_session_key
@@ -256,7 +257,7 @@ def _record_tool_observation_side_effects(
 
 def _finalize_tool_result(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     result: Any,
     *,
     started_at: float,
@@ -308,7 +309,7 @@ def _finalize_tool_result(
 
 def finalize_tool_result(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     result: Any,
     *,
     started_at: float | None = None,

@@ -2,23 +2,25 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from butler.env_parse import env_truthy, int_env
 
 
 def injection_llm_score_enabled() -> bool:
-    return env_truthy("BUTLER_INJECTION_LLM_SCORE", default=False)
+    return bool(env_truthy("BUTLER_INJECTION_LLM_SCORE", default=False))
 
 
 def injection_llm_gate_enabled() -> bool:
     """High scores require Owner 确认 + resend instead of hard reject."""
-    return env_truthy("BUTLER_INJECTION_LLM_GATE", default=False)
+    return bool(env_truthy("BUTLER_INJECTION_LLM_GATE", default=False))
 
 
 def injection_llm_block_threshold() -> int:
     import os
 
     try:
-        return int_env("BUTLER_INJECTION_LLM_BLOCK", 85, min=0, max=100)
+        return int(int_env("BUTLER_INJECTION_LLM_BLOCK", 85, min=0, max=100))
     except ValueError:
         return 85
 
@@ -32,7 +34,7 @@ def score_injection_llm(text: str) -> int | None:
         return None
     from butler.memory.injection_llm_score_ops import score_injection_llm_safe
 
-    return score_injection_llm_safe(body)
+    return cast(int | None, score_injection_llm_safe(body))
 
 
 def should_block_inbound_llm_score(text: str) -> tuple[bool, int | None, str]:

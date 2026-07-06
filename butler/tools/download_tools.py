@@ -9,7 +9,7 @@ import re
 import socket
 import ssl
 from ipaddress import ip_address
-from typing import Callable
+from typing import Any, Callable
 from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -102,7 +102,7 @@ def _tool_download_file(
     url: str,
     dest_path: str,
     timeout: int = 60,
-    **_,
+    **_: Any,
 ) -> str:
     if not download_enabled():
         return json.dumps({

@@ -6,7 +6,7 @@ import json
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
@@ -32,7 +32,7 @@ STALE_PREFETCH_CODE = "BATCH_STALE_PREFETCH"
 
 
 def batch_stale_guard_enabled() -> bool:
-    return env_truthy("BUTLER_BATCH_STALE_GUARD", default=True)
+    return bool(env_truthy("BUTLER_BATCH_STALE_GUARD", default=True))
 
 
 def is_destructive_batch_tool(tool_name: str) -> bool:
@@ -67,7 +67,7 @@ def _tool_call_name(tc: Any) -> str:
 def _tool_call_args(tc: Any) -> dict[str, Any]:
     from butler.core.batch_sequence_guard_ops import parse_batch_tool_args_safe
 
-    return parse_batch_tool_args_safe(tc)
+    return cast(dict[str, Any], parse_batch_tool_args_safe(tc))
 
 
 def reorder_reads_before_destructive(tool_calls: list[Any]) -> list[Any]:
@@ -118,7 +118,7 @@ def reorder_reads_before_destructive(tool_calls: list[Any]) -> list[Any]:
 def _normalize_path(path: str) -> str:
     from butler.core.batch_sequence_guard_ops import normalize_batch_path_safe
 
-    return normalize_batch_path_safe(path)
+    return str(normalize_batch_path_safe(path))
 
 
 def _paths_overlap(a: str, b: str) -> bool:

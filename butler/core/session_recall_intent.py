@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
+from typing import cast
 
 _RECALL_READ_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"刚才读过哪些文件"),
@@ -57,11 +59,11 @@ def detect_session_read_recall_banner(
         return None
     from butler.core.session_tool_index import format_session_read_files_block
 
-    return format_session_read_files_block(
+    return cast(str | None, format_session_read_files_block(
         session_key,
         workspace=workspace,
         title="[Intent: session_read_recall]",
-    )
+    ))
 
 
 __all__ = [

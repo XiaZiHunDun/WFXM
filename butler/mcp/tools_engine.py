@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def tools_engine_enabled() -> bool:
-    return env_truthy("BUTLER_TOOLS_ENGINE", default=True)
+    return bool(env_truthy("BUTLER_TOOLS_ENGINE", default=True))
 
 
 def model_supports_function_calling(provider: str, model: str = "") -> bool:
@@ -29,11 +29,11 @@ def model_supports_function_calling(provider: str, model: str = "") -> bool:
 
 
 def filter_tools_for_model(
-    tools: list[dict],
+    tools: list[dict[str, Any]],
     *,
     provider: str,
     model: str = "",
-) -> tuple[list[dict], dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Drop tool schemas when model cannot use function calling."""
     diag: dict[str, Any] = {"tools_engine_input": len(tools)}
     working = list(tools)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -49,4 +49,4 @@ def run_interruptible(
 
     if result["error"] is not None:
         raise result["error"]
-    return result["value"]
+    return cast(T, result["value"])

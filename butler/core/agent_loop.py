@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
+from contextlib import AbstractContextManager
+from collections.abc import Iterator
 
 from butler.core.context_pipeline import ContextPipeline
 from butler.core.delegate_context import set_parent_callbacks
@@ -22,7 +24,11 @@ from butler.core.loop_types import (
     LoopTransitionReason,
 )
 from butler.core.message_sanitize import sanitize_surrogates
-from butler.core.tool_batch import dispatch_tool_with_envelope, process_tool_calls
+from butler.core.tool_batch import (
+    ToolBatchStats,
+    dispatch_tool_with_envelope,
+    process_tool_calls,
+)
 from butler.tool_guardrails import ToolCallGuardrailController
 from butler.core.interrupt import clear_interrupt, is_interrupted, set_interrupt
 from butler.core.steer import clear_steer, mark_run_active, mark_run_inactive
@@ -75,8 +81,8 @@ class AgentLoop:
         client: LLMClientProtocol,
         *,
         system_prompt: str = "",
-        tools: Optional[list[dict]] = None,
-        tool_dispatcher: Optional[Callable[[str, dict], str]] = None,
+        tools: Optional[list[dict[str, Any]]] = None,
+        tool_dispatcher: Optional[Callable[[str, dict[str, Any]], str]] = None,
         config: Optional[LoopConfig] = None,
         callbacks: Optional[LoopCallbacks] = None,
     ):
@@ -87,8 +93,8 @@ class AgentLoop:
         self.config = config or LoopConfig()
         self.callbacks = callbacks or LoopCallbacks()
 
-        self._messages: list[dict] = []
-        self._turn_tools: list[dict] | None = None
+        self._messages: list[dict[str, Any]] = []
+        self._turn_tools: list[dict[str, Any]] | None = None
         self._interrupted = False
         self._total_tokens = 0
         self._tool_calls_count = 0
@@ -123,7 +129,7 @@ class AgentLoop:
             self._orchestrator = orchestrator
         self._session_key = str(session_key or self._session_key or "")
 
-    def _tool_execution_context(self):
+    def _tool_execution_context(self) -> AbstractContextManager[None]:
         from contextlib import contextmanager
 
         from butler.execution_context import (
@@ -133,7 +139,7 @@ class AgentLoop:
         )
 
         @contextmanager
-        def _ctx():
+        def _ctx() -> Iterator[None]:
             orch = get_current_orchestrator() or self._orchestrator
             sk = str(get_current_session_key() or self._session_key or "")
             if orch is None and not sk:
@@ -146,7 +152,7 @@ class AgentLoop:
 
     @property
     def _compression_summary(self) -> str:
-        return self._context.compression_summary
+        return str(self._context.compression_summary)
 
     @_compression_summary.setter
     def _compression_summary(self, value: str) -> None:
@@ -262,7 +268,7 @@ class AgentLoop:
         self,
         user_message: str,
         steer_session: str,
-    ) -> tuple[str, list[dict]]:
+    ) -> tuple[str, list[dict[str, Any]]]:
         """Sanitize user input, select tools, record transcript.
 
         R1-8: thin orchestrator that delegates to two sub-phases —
@@ -375,12 +381,12 @@ class AgentLoop:
             self.client = self._primary_client
             self._fallback_index = 0
 
-    def _estimate_tokens(self, messages: list[dict]) -> int:
-        return self._context.estimate_tokens(messages)
+    def _estimate_tokens(self, messages: list[dict[str, Any]]) -> int:
+        return int(self._context.estimate_tokens(messages))
 
     def _compress_context(
         self,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         *,
         threshold_ratio: float = 0.5,
         min_messages_to_compress: int = 12,
@@ -390,17 +396,20 @@ class AgentLoop:
         overflow_replay: bool = False,
         diagnostics: dict[str, Any] | None = None,
         initial_injection: Any = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         del initial_injection  # explicit compaction turn resolves injection via diagnostics
-        return self._context.compress_context(
-            messages,
-            threshold_ratio=threshold_ratio,
-            min_messages_to_compress=min_messages_to_compress,
-            head_count=head_count,
-            max_tail_messages=max_tail_messages,
-            min_tail_messages=min_tail_messages,
-            overflow_replay=overflow_replay,
-            diagnostics=diagnostics,
+        return cast(
+            list[dict[str, Any]],
+            self._context.compress_context(
+                messages,
+                threshold_ratio=threshold_ratio,
+                min_messages_to_compress=min_messages_to_compress,
+                head_count=head_count,
+                max_tail_messages=max_tail_messages,
+                min_tail_messages=min_tail_messages,
+                overflow_replay=overflow_replay,
+                diagnostics=diagnostics,
+            ),
         )
 
     def hygiene_compress_if_needed(
@@ -420,9 +429,9 @@ class AgentLoop:
         )
         if compressed:
             self._messages[:] = messages
-        return compressed
+        return bool(compressed)
 
-    def _prepare_messages_for_api(self) -> list[dict]:
+    def _prepare_messages_for_api(self) -> list[dict[str, Any]]:
         if self._turn_ephemeral_system:
             self.diagnostics["ephemeral_system"] = self._turn_ephemeral_system
         prepared = self._context.prepare_messages_for_api(
@@ -430,7 +439,7 @@ class AgentLoop:
             pre_llm_transform=self.callbacks.pre_llm_transform,
             diagnostics=self.diagnostics,
         )
-        return self._plugins.before_model(prepared)
+        return cast(list[dict[str, Any]], self._plugins.before_model(prepared))
 
     def _try_activate_fallback(self) -> bool:
         from butler.transport.provider_health import is_circuit_open
@@ -466,7 +475,7 @@ class AgentLoop:
         if streaming_tools_enabled() and self.config.stream:
             prefetch = self._tool_prefetch
 
-            def on_tool_ready(_idx: int, tool_id: str, name: str, args: dict) -> None:
+            def on_tool_ready(_idx: int, tool_id: str, name: str, args: dict[str, Any]) -> None:
                 if self._interrupt_check():
                     return
                 key = tool_id or f"call_{_idx}"
@@ -505,7 +514,7 @@ class AgentLoop:
             self._interrupted = True
         return response
 
-    def _process_tool_calls(self, response: NormalizedResponse):
+    def _process_tool_calls(self, response: NormalizedResponse) -> ToolBatchStats:
         stats = process_tool_calls(
             response=response,
             messages=self._messages,
@@ -528,19 +537,19 @@ class AgentLoop:
         apply_reflexion_safe(self)
         return stats
 
-    def _dispatch_tool(self, name: str, args: dict) -> str:
-        def _inner(n: str, a: dict) -> str:
-            return dispatch_tool_with_envelope(self.tool_dispatcher, n, a)
+    def _dispatch_tool(self, name: str, args: dict[str, Any]) -> str:
+        def _inner(n: str, a: dict[str, Any]) -> str:
+            return cast(str, dispatch_tool_with_envelope(self.tool_dispatcher, n, a))
 
         with self._tool_execution_context():
-            return self._plugins.wrap_tool_call(name, args, _inner)
+            return cast(str, self._plugins.wrap_tool_call(name, args, _inner))
 
     @property
-    def messages(self) -> list[dict]:
+    def messages(self) -> list[dict[str, Any]]:
         return list(self._messages)
 
     @messages.setter
-    def messages(self, value: list[dict]) -> None:
+    def messages(self, value: list[dict[str, Any]]) -> None:
         self._messages = list(value)
 
     def reset(self) -> None:

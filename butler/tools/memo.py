@@ -15,7 +15,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.tools.pim_schema import (
     MAX_ACTIVE_MEMOS as _MAX_ACTIVE,
@@ -37,24 +37,15 @@ _STATUS_LABELS = {"active": "活跃", "done": "已完成", "archived": "已归�
 _base_store = TenantStore(
     "memos", env_toggle="BUTLER_MEMO_ENABLED", skip_files=frozenset({"index.json"}),
 )
-
-
-class _MemosStore(TenantStore):
-    def storage_dir(self) -> Path:
-        return _memos_dir()
-
-
-_store = _MemosStore(
-    "memos", env_toggle="BUTLER_MEMO_ENABLED", skip_files=frozenset({"index.json"}),
-)
+_store = _base_store
 
 
 def _memo_enabled() -> bool:
-    return _store.enabled()
+    return bool(_store.enabled())
 
 
 def _memos_dir() -> Path:
-    return _base_store.storage_dir()
+    return Path(_base_store.storage_dir())
 
 
 def _normalize_tags(raw: Any) -> list[str]:

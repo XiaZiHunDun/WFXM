@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def remote_compact_enabled() -> bool:
-    return env_truthy("BUTLER_REMOTE_COMPACT", default=False)
+    return bool(env_truthy("BUTLER_REMOTE_COMPACT", default=False))
 
 
 def remote_compact_url_override() -> str:
@@ -42,7 +42,7 @@ def _host_allows_remote(base_url: str) -> bool:
     return "openai.com" in host or "chatgpt.com" in host
 
 
-def _messages_to_compact_input(messages: list[dict]) -> list[dict[str, Any]]:
+def _messages_to_compact_input(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for m in messages:
         role = str(m.get("role") or "user")
@@ -101,7 +101,7 @@ def _extract_summary_from_response(data: dict[str, Any]) -> str | None:
     return None
 
 
-def try_remote_summarize(middle: list[dict], previous_summary: str = "") -> str | None:
+def try_remote_summarize(middle: list[dict[str, Any]], previous_summary: str = "") -> str | None:
     """
     POST to /v1/responses/compact when enabled and endpoint is allowed.
     Returns summary text, or None to fall back to local auxiliary compaction.

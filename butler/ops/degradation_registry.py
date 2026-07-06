@@ -6,7 +6,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from butler.ops.degradation_registry_ops import (
     append_recent_best_effort_skip_lines,
@@ -121,7 +121,7 @@ def sync_memory_degradations_from_stats(stats: dict[str, Any]) -> None:
 
 
 def best_effort_skip_total() -> int:
-    return best_effort_skip_total_safe()
+    return int(best_effort_skip_total_safe())
 
 
 _COMPONENT_LABELS: dict[str, str] = {
@@ -213,7 +213,7 @@ def enrich_stats_with_live_mcp(
     session_key: str = "",
 ) -> dict[str, Any]:
     """Attach live MCP snapshot for owner brief / diagnostic sync (ENG-8)."""
-    return enrich_stats_with_live_mcp_safe(stats, session_key=session_key)
+    return cast(dict[str, Any], enrich_stats_with_live_mcp_safe(stats, session_key=session_key))
 
 
 def refresh_degradations_for_owner_brief(
@@ -223,10 +223,13 @@ def refresh_degradations_for_owner_brief(
     health: dict[str, Any] | None = None,
 ) -> str | None:
     """Sync memory + MCP into registry; return one brief line for Owner /诊断."""
-    return refresh_degradations_for_owner_brief_safe(
-        orchestrator,
-        session_key=session_key,
-        health=health,
+    return cast(
+        str | None,
+        refresh_degradations_for_owner_brief_safe(
+            orchestrator,
+            session_key=session_key,
+            health=health,
+        ),
     )
 
 

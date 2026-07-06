@@ -14,10 +14,10 @@ _STRIP_ON_RECOVERY_KEYS = frozenset({"pattern", "format"})
 
 
 def sanitize_tool_schemas(
-    tools: list[dict] | None,
+    tools: list[dict[str, Any]] | None,
     *,
     keep_nullable_hint: bool = True,
-) -> list[dict] | None:
+) -> list[dict[str, Any]] | None:
     """Return a deep-copied tool list with provider-hostile schema shapes fixed."""
     if not tools:
         return tools
@@ -27,7 +27,7 @@ def sanitize_tool_schemas(
     ]
 
 
-def _sanitize_single_tool(tool: dict, *, keep_nullable_hint: bool) -> dict:
+def _sanitize_single_tool(tool: dict[str, Any], *, keep_nullable_hint: bool) -> dict[str, Any]:
     out = copy.deepcopy(tool)
     fn = out.get("function") if isinstance(out, dict) else None
     if not isinstance(fn, dict):
@@ -89,7 +89,7 @@ def strip_nullable_unions(schema: Any, *, keep_nullable_hint: bool = True) -> An
     return stripped
 
 
-def _strip_top_level_combinators(params: dict, *, path: str = "<tool>") -> dict:
+def _strip_top_level_combinators(params: dict[str, Any], *, path: str = "<tool>") -> dict[str, Any]:
     out = dict(params)
     for key in _TOP_LEVEL_FORBIDDEN_KEYS:
         if key in out:
@@ -120,7 +120,7 @@ def _sanitize_node(node: Any, path: str, *, keep_nullable_hint: bool = True) -> 
     if not isinstance(node, dict):
         return node
 
-    out: dict = {}
+    out: dict[str, Any] = {}
     for key, value in node.items():
         if key == "type" and isinstance(value, list):
             non_null = [t for t in value if t != "null"]
@@ -180,7 +180,7 @@ def _sanitize_node(node: Any, path: str, *, keep_nullable_hint: bool = True) -> 
     return out
 
 
-def strip_pattern_and_format(tools: list[dict] | None) -> tuple[list[dict] | None, int]:
+def strip_pattern_and_format(tools: list[dict[str, Any]] | None) -> tuple[list[dict[str, Any]] | None, int]:
     """Strip pattern/format schema keywords in-place for grammar-parser recovery."""
     if not tools:
         return tools, 0

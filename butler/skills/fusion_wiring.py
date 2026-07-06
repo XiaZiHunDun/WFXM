@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from butler.env_parse import env_truthy
 
 
 def skill_fusion_enabled() -> bool:
-    return env_truthy("BUTLER_SKILL_FUSION", default=True)
+    return bool(env_truthy("BUTLER_SKILL_FUSION", default=True))
 
 
-def wire_skill_manager_fusion(manager) -> None:
+def wire_skill_manager_fusion(manager: Any) -> None:
     """Attach fusion LLM to ``SkillManager`` when enabled."""
     if not skill_fusion_enabled():
         return

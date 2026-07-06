@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.memory.memory_scope import (
     project_coding_experiences_path,
@@ -32,7 +32,7 @@ def _scope_dict_from_record(rec: dict[str, Any]) -> dict[str, Any]:
         exp_id=str(rec.get("id") or ""),
         domain=rec.get("domain") if isinstance(rec.get("domain"), list) else None,
     )
-    return inferred.to_dict()
+    return cast(dict[str, Any], inferred.to_dict())
 
 
 def _scope_summary_from_records(records: list[dict[str, Any]]) -> dict[str, Any]:
@@ -81,7 +81,7 @@ def _lessons_for_project(
 def _resolve_workspace(project_name: str) -> Path | None:
     from butler.memory.scope_diagnostics_ops import resolve_project_workspace_safe
 
-    return resolve_project_workspace_safe(project_name)
+    return cast(Path | None, resolve_project_workspace_safe(project_name))
 
 
 def collect_memory_scope_stats(

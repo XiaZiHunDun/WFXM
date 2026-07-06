@@ -7,6 +7,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from typing import Any, Callable, cast
+
 from butler.env_parse import env_truthy
 
 _MAX_CODE_CHARS = 8000
@@ -14,20 +16,20 @@ _DEFAULT_TIMEOUT = 30
 
 
 def execute_code_enabled() -> bool:
-    return env_truthy("BUTLER_EXECUTE_CODE", default=False)
+    return bool(env_truthy("BUTLER_EXECUTE_CODE", default=False))
 
 
 def execute_code_timeout_seconds() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_EXECUTE_CODE_TIMEOUT", _DEFAULT_TIMEOUT, min=5, max=120)
+        return int(int_env("BUTLER_EXECUTE_CODE_TIMEOUT", _DEFAULT_TIMEOUT, min=5, max=120))
     except ValueError:
         return _DEFAULT_TIMEOUT
 
 
 def execute_code_allow_network() -> bool:
-    return env_truthy("BUTLER_EXECUTE_CODE_ALLOW_NETWORK", default=False)
+    return bool(env_truthy("BUTLER_EXECUTE_CODE_ALLOW_NETWORK", default=False))
 
 
 def _workspace_cwd() -> Path:
@@ -37,7 +39,7 @@ def _workspace_cwd() -> Path:
     return resolved if resolved is not None else Path.cwd().resolve()
 
 
-def run_execute_code(code: str, *, language: str = "python") -> dict:
+def run_execute_code(code: str, *, language: str = "python") -> dict[str, Any]:
     if not execute_code_enabled():
         return {
             "ok": False,
@@ -88,7 +90,7 @@ def run_execute_code(code: str, *, language: str = "python") -> dict:
         )
         if out is None:
             return {"ok": False, "error": "execute_code failed", "code": "EXECUTE_CODE_ERROR"}
-        return out
+        return cast(dict[str, Any], out)
     finally:
         try:
             Path(script).unlink(missing_ok=True)
@@ -96,11 +98,11 @@ def run_execute_code(code: str, *, language: str = "python") -> dict:
             pass
 
 
-def register_execute_code_tool(register_fn) -> None:
+def register_execute_code_tool(register_fn: Callable[..., None]) -> None:
     if not execute_code_enabled():
         return
 
-    def _handler(args: dict) -> str:
+    def _handler(args: dict[str, Any]) -> str:
         out = run_execute_code(
             str(args.get("code") or ""),
             language=str(args.get("language") or "python"),

@@ -27,7 +27,7 @@ _DESIGN_KW = re.compile(
 
 
 def corpus_routing_enabled() -> bool:
-    return env_truthy("BUTLER_CORPUS_ROUTING", default=True)
+    return bool(env_truthy("BUTLER_CORPUS_ROUTING", default=True))
 
 
 @dataclass(frozen=True)

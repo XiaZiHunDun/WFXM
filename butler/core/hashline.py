@@ -21,15 +21,11 @@ _HASHLINE_LINE_RE = re.compile(r"^(\d+)#([^|]+)\|(.*)$")
 def hashline_read_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_HASHLINE_READ", default=False)
-
-
+    return bool(env_truthy("BUTLER_HASHLINE_READ", default=False))
 def hashline_patch_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_HASHLINE_PATCH", default=True)
-
-
+    return bool(env_truthy("BUTLER_HASHLINE_PATCH", default=True))
 def compute_line_hash(line_number: int, content: str) -> str:
     normalized = content.replace("\r", "").rstrip()
     seed = 0 if _RE_SIGNIFICANT.search(normalized) else int(line_number)
@@ -57,8 +53,6 @@ def format_read_output(path: Path, lines: list[str], start_line: int) -> str:
             for i, line in enumerate(lines)
         )
     return "\n".join(f"{start_line + i:6}|{line}" for i, line in enumerate(lines))
-
-
 def verify_line_anchors(path: Path, anchors: list[tuple[int, str]]) -> dict[str, Any] | None:
     """Verify (line_no, hash) pairs against current file; return error dict or None."""
     if not hashline_patch_enabled() or not anchors:

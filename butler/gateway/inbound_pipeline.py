@@ -20,7 +20,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from butler.gateway.message_handler import ButlerMessageHandler
@@ -138,33 +138,48 @@ def build_default_inbound_pipeline() -> list[InboundStep]:
     from butler.gateway import message_pipelines as mp
 
     def _guard_io(ctx: InboundTurnContext) -> Optional[str]:
-        return mp._phase_apply_io_guardrail(ctx.text)
+        return cast(str | None, mp._phase_apply_io_guardrail(ctx.text))
 
     def _guard_human_gate(ctx: InboundTurnContext) -> Optional[str]:
-        return mp._phase_apply_human_gate(
-            ctx.text, ctx.session_key,
-            platform=ctx.platform, external_id=ctx.external_id,
+        return cast(
+            str | None,
+            mp._phase_apply_human_gate(
+                ctx.text, ctx.session_key,
+                platform=ctx.platform, external_id=ctx.external_id,
+            ),
         )
 
     def _transform_injection_guard(ctx: InboundTurnContext) -> tuple[str, Optional[str]]:
-        return mp._phase_apply_injection_guard(ctx.text, ctx.session_key)
+        return cast(
+            tuple[str, str | None],
+            mp._phase_apply_injection_guard(ctx.text, ctx.session_key),
+        )
 
     def _guard_injection_llm(ctx: InboundTurnContext) -> Optional[str]:
-        return mp._phase_apply_injection_llm(ctx.text, ctx.session_key)
+        return cast(str | None, mp._phase_apply_injection_llm(ctx.text, ctx.session_key))
 
     def _guard_bot_loop(ctx: InboundTurnContext) -> Optional[str]:
-        return mp._phase_apply_bot_loop_guard(
-            ctx.text, ctx.session_key, external_id=ctx.external_id,
+        return cast(
+            str | None,
+            mp._phase_apply_bot_loop_guard(
+                ctx.text, ctx.session_key, external_id=ctx.external_id,
+            ),
         )
 
     def _guard_two_phase(ctx: InboundTurnContext) -> Optional[str]:
-        return mp._phase_apply_two_phase_confirm(
-            ctx.text, ctx.session_key,
-            platform=ctx.platform, external_id=ctx.external_id,
+        return cast(
+            str | None,
+            mp._phase_apply_two_phase_confirm(
+                ctx.text, ctx.session_key,
+                platform=ctx.platform, external_id=ctx.external_id,
+            ),
         )
 
     def _guard_prequeue_interrupt(ctx: InboundTurnContext) -> Optional[str]:
-        return mp._phase_apply_prequeue_interrupt(ctx.text, ctx.session_key, handler=ctx.handler)
+        return cast(
+            str | None,
+            mp._phase_apply_prequeue_interrupt(ctx.text, ctx.session_key, handler=ctx.handler),
+        )
 
     def _transform_pre_dispatch(ctx: InboundTurnContext) -> tuple[str, Optional[str]]:
         rewritten = mp._phase_apply_pre_dispatch_rewrites(

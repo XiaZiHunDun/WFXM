@@ -6,6 +6,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import cast
 
 from butler.env_parse import env_truthy
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def reflexion_write_enabled() -> bool:
-    return env_truthy("BUTLER_REFLEXION_WRITE_EXPERIENCE", default=False)
+    return bool(env_truthy("BUTLER_REFLEXION_WRITE_EXPERIENCE", default=False))
 
 
 def _experience_path() -> Path:
@@ -21,7 +22,7 @@ def _experience_path() -> Path:
 
     project_path = resolve_project_experience_path_safe()
     if project_path is not None:
-        return project_path
+        return cast(Path, project_path)
     return Path.home() / ".butler" / "experiences" / "reflexion.jsonl"
 
 

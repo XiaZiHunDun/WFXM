@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 _CORRECTION_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"刚才.{0,8}(?:不对|错了|有误|不准确)"),
@@ -50,7 +50,7 @@ def try_handle_correction_intent(
         session_key=session_key,
     )
     if err is not None:
-        return err
+        return cast(str, err)
 
     preview = body if len(body) <= 120 else body[:117] + "…"
     lines = [

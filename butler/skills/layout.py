@@ -11,9 +11,9 @@ import shutil
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +75,11 @@ def build_directory_stub_md(
     *,
     description: str = "",
     content_rel: str | None = None,
-    extra_fm: dict | None = None,
+    extra_fm: dict[str, Any] | None = None,
 ) -> str:
     """Build top-level stub frontmatter for a directory skill install/sync."""
     rel = content_rel or directory_content_rel(name)
-    fm: dict = {
+    fm: dict[str, Any] = {
         "name": name,
         "description": (description or f"Directory skill ({rel})")[:1024],
         "install_type": "directory",

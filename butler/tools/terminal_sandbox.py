@@ -9,7 +9,7 @@ import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 from butler.tools.butlerignore import credential_mask_paths
@@ -68,16 +68,16 @@ class SandboxFailure:
 
 
 def terminal_sandbox_enabled() -> bool:
-    return env_truthy("BUTLER_TERMINAL_SANDBOX", default=False)
+    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX", default=False))
 
 
 def sandbox_network_allowlist_mode() -> bool:
     """When true and sandbox.json has network allow entries, skip full net unshare."""
-    return env_truthy("BUTLER_TERMINAL_SANDBOX_NETWORK_ALLOWLIST", default=False)
+    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX_NETWORK_ALLOWLIST", default=False))
 
 
 def sandbox_fail_if_unavailable() -> bool:
-    return env_truthy("BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE", default=False)
+    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE", default=False))
 
 
 def bubblewrap_path() -> str | None:
@@ -95,7 +95,7 @@ def sandbox_runtime_available() -> bool:
 def _butler_home() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home()
+    return cast(Path, get_butler_home())
 
 
 def _read_json_file(path: Path) -> dict[str, Any]:

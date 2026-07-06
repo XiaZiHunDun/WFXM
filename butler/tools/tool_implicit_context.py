@@ -3,19 +3,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
 
 def implicit_context_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_IMPLICIT_CONTEXT", default=True)
+    return bool(env_truthy("BUTLER_TOOL_IMPLICIT_CONTEXT", default=True))
 
 
 def resolve_project_workspace() -> Path | None:
     from butler.tools.tool_implicit_context_ops import resolve_project_workspace_safe
 
-    return resolve_project_workspace_safe()
+    return cast(Path | None, resolve_project_workspace_safe())
 
 
 def build_implicit_tool_args() -> dict[str, Any]:

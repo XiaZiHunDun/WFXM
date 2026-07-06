@@ -11,7 +11,7 @@ import tempfile
 import threading
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.io.safe_load import safe_load_json
 
@@ -404,7 +404,7 @@ class ExperienceStore:
                 out.append(item)
             from butler.memory.retrieval_ranking import rerank_memory_hits
 
-            return rerank_memory_hits(out)
+            return cast(list[dict[str, Any]], rerank_memory_hits(out))
 
     def delete_conversation_for_session(self, session_tag: str) -> tuple[int, list[int]]:
         """Remove ephemeral per-session chat logs (used after /new).
@@ -582,7 +582,7 @@ class ExperienceStore:
                 """,
                 (aid,),
             ).fetchone()
-        def _row_dict(r: tuple) -> dict[str, Any]:
+        def _row_dict(r: tuple[Any, ...]) -> dict[str, Any]:
             return {
                 "id": r[0],
                 "project": r[1],
@@ -763,8 +763,11 @@ class ButlerMemory:
         )
 
         if experience_merge_enabled():
-            return digest_experience_add(
-                self, project, category, content, tags=tags,
+            return cast(
+                int,
+                digest_experience_add(
+                    self, project, category, content, tags=tags,
+                ),
             )
         return self._append_experience_row(project, category, content, tags=tags)
 
@@ -807,9 +810,9 @@ class ButlerMemory:
     def search_profile_vectors(self, query: str, *, limit: int = 4) -> list[dict[str, Any]]:
         if self.semantic is None:
             return []
-        return self.semantic.search_owner_profile(query, limit=limit)
+        return cast(list[dict[str, Any]], self.semantic.search_owner_profile(query, limit=limit))
 
-    def triplet_index(self):
+    def triplet_index(self) -> Any:
         if self.semantic is None:
             return None
         from butler.memory.triplets import TripletIndex

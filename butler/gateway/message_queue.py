@@ -15,6 +15,7 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field as dc_field
 from pathlib import Path
+from typing import cast
 
 from butler.env_parse import env_truthy
 
@@ -68,7 +69,7 @@ def _bucket_pop_oldest(bucket: dict[str, deque[QueuedInbound]]) -> QueuedInbound
 
 
 def message_queue_enabled() -> bool:
-    return env_truthy("BUTLER_GATEWAY_MESSAGE_QUEUE", default=True)
+    return cast(bool, env_truthy("BUTLER_GATEWAY_MESSAGE_QUEUE", default=True))
 
 
 def classify_inbound_priority(text: str) -> str:
@@ -330,13 +331,13 @@ def reset_queue(session_key: str | None = None) -> None:
 
 
 def _queue_persist_enabled() -> bool:
-    return env_truthy("BUTLER_GATEWAY_QUEUE_PERSIST", default=False)
+    return cast(bool, env_truthy("BUTLER_GATEWAY_QUEUE_PERSIST", default=False))
 
 
 def _queue_persist_dir() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "gateway" / "queue"
+    return cast(Path, get_butler_home() / "gateway" / "queue")
 
 
 def _persist_enqueue(session_key: str, item: QueuedInbound) -> None:

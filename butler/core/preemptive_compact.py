@@ -35,9 +35,9 @@ def record_precheck_overflow(
 
 
 def prepare_messages_or_abort(
-    prepare_messages: Callable[[], list[dict]],
+    prepare_messages: Callable[[], list[dict[str, Any]]],
     diagnostics: dict[str, Any],
-) -> list[dict] | None:
+) -> list[dict[str, Any]] | None:
     """Run prepare_messages; return None if preemptive overflow aborts the turn."""
     try:
         return prepare_messages()
@@ -57,25 +57,25 @@ class PreemptiveDecision:
 
 
 def preemptive_compact_enabled() -> bool:
-    return env_truthy("BUTLER_PREEMPTIVE_COMPACT", default=True)
+    return bool(env_truthy("BUTLER_PREEMPTIVE_COMPACT", default=True))
 
 
 def truncate_buffer_tokens() -> int:
     try:
-        return int_env("BUTLER_PREEMPTIVE_TRUNCATE_BUFFER", 512, min=256)
+        return int(int_env("BUTLER_PREEMPTIVE_TRUNCATE_BUFFER", 512, min=256))
     except ValueError:
         return 512
 
 
 def apply_preemptive_pipeline(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     max_context_tokens: int,
-    estimate_tokens: Callable[[list[dict]], int],
-    compress: Callable[[list[dict]], list[dict]],
+    estimate_tokens: Callable[[list[dict[str, Any]]], int],
+    compress: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
     diagnostics: dict[str, Any] | None = None,
     max_output_tokens: int | None = None,
-) -> tuple[list[dict], PreemptiveDecision]:
+) -> tuple[list[dict[str, Any]], PreemptiveDecision]:
     """Run prune already applied; decide compact / truncate / fail before LLM."""
     from butler.core.context_budget import (
         get_auto_compact_threshold,
@@ -162,12 +162,14 @@ def apply_preemptive_pipeline(
     )
 
 
-def _truncate_tool_results_aggressive(messages: list[dict]) -> tuple[list[dict], bool]:
+def _truncate_tool_results_aggressive(
+    messages: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], bool]:
     """Shrink tool role message bodies when still over budget."""
     from butler.core.tool_result_storage import BUDGET_TRUNCATED_TAG
 
     changed = False
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     max_chars = 1200
     for msg in messages:
         if msg.get("role") != "tool":

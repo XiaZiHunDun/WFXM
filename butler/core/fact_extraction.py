@@ -13,7 +13,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ def fact_extraction_enabled() -> bool:
 def _facts_dir() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "session_facts"
+    return cast(Path, get_butler_home()) / "session_facts"
 
 
 def _facts_path(session_key: str) -> Path:
@@ -56,7 +56,7 @@ def save_facts(session_key: str, facts: list[dict[str, Any]]) -> None:
     path.write_text(json.dumps(trimmed, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
-def _extract_facts_from_messages(messages: list[dict]) -> list[dict[str, Any]]:
+def _extract_facts_from_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Heuristic extraction of structured facts from message content.
 
     Looks for:
@@ -101,7 +101,7 @@ _COMPLETION_PATTERNS = [
 ]
 
 
-def _extract_assistant_facts(content: str, facts: list, now: float) -> None:
+def _extract_assistant_facts(content: str, facts: list[dict[str, Any]], now: float) -> None:
     for pattern in _DECISION_PATTERNS:
         for m in pattern.finditer(content):
             val = m.group(1).strip()[:_MAX_FACT_VALUE_LEN]
@@ -129,7 +129,7 @@ _PREFERENCE_PATTERNS = [
 ]
 
 
-def _extract_user_facts(content: str, facts: list, now: float) -> None:
+def _extract_user_facts(content: str, facts: list[dict[str, Any]], now: float) -> None:
     for pattern in _PREFERENCE_PATTERNS:
         for m in pattern.finditer(content):
             val = m.group(1).strip()[:_MAX_FACT_VALUE_LEN]
@@ -141,7 +141,7 @@ def _extract_user_facts(content: str, facts: list, now: float) -> None:
                 })
 
 
-def _extract_tool_facts(msg: dict, facts: list, now: float) -> None:
+def _extract_tool_facts(msg: dict[str, Any], facts: list[dict[str, Any]], now: float) -> None:
     """Extract facts from tool results (file modifications, etc.)."""
     content = msg.get("content", "")
     if not isinstance(content, str):
@@ -164,7 +164,7 @@ def _extract_tool_facts(msg: dict, facts: list, now: float) -> None:
 
 def extract_pre_compact_facts(
     session_key: str,
-    middle_messages: list[dict],
+    middle_messages: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Extract facts from middle messages about to be compressed.
 

@@ -23,8 +23,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LlmAttemptFailureUpdate:
     last_error: Exception
-    tools_to_send: list[dict] | None
-    messages_to_send: list[dict] | None
+    tools_to_send: list[dict[str, Any]] | None
+    messages_to_send: list[dict[str, Any]] | None
     compress_attempted: bool
     schema_recovery_attempted: bool
     action: str
@@ -37,13 +37,13 @@ def handle_llm_attempt_exception(
     config: LoopConfig,
     callbacks: LoopCallbacks,
     client: Any,
-    messages: list[dict],
-    messages_to_send: list[dict],
-    tools_to_send: list[dict],
+    messages: list[dict[str, Any]],
+    messages_to_send: list[dict[str, Any]],
+    tools_to_send: list[dict[str, Any]],
     compress_attempted: bool,
     schema_recovery_attempted: bool,
-    compress_messages: Callable[[list[dict]], list[dict]],
-    prepare_messages: Callable[[], list[dict]],
+    compress_messages: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
+    prepare_messages: Callable[[], list[dict[str, Any]]],
     diagnostics: dict[str, Any],
     try_activate_fallback: Callable[[], bool],
 ) -> LlmAttemptFailureUpdate:
@@ -92,18 +92,18 @@ def run_llm_with_retry_loop(
     client: LLMClient,
     config: LoopConfig,
     callbacks: LoopCallbacks,
-    tools: list[dict],
-    messages: list[dict],
+    tools: list[dict[str, Any]],
+    messages: list[dict[str, Any]],
     diagnostics: dict[str, Any],
-    prepare_messages: Callable[[], list[dict]],
-    compress_messages: Callable[[list[dict]], list[dict]],
+    prepare_messages: Callable[[], list[dict[str, Any]]],
+    compress_messages: Callable[[list[dict[str, Any]]], list[dict[str, Any]]],
     interrupt_check: Callable[[], bool],
     try_activate_fallback: Callable[[], bool],
     empty_retries: list[int],
-    messages_to_send: list[dict],
-    tools_to_send: list[dict],
+    messages_to_send: list[dict[str, Any]],
+    tools_to_send: list[dict[str, Any]],
     cache_fp: str | None,
-    on_tool_call_ready: Callable[[int, str, str, dict], None] | None = None,
+    on_tool_call_ready: Callable[[int, str, str, dict[str, Any]], None] | None = None,
 ) -> tuple[Optional[NormalizedResponse], bool, Exception | None]:
     """Retry loop body; returns (response, interrupted, last_error)."""
     last_error: Exception | None = None

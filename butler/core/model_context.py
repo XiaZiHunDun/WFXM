@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 
 def resolve_max_output_tokens(
@@ -14,4 +14,4 @@ def resolve_max_output_tokens(
     """Return configured max_tokens for the active loop role, if set."""
     from butler.core.model_context_ops import resolve_max_output_tokens_safe
 
-    return resolve_max_output_tokens_safe(orchestrator, session_key=session_key, role=role)
+    return cast(int | None, resolve_max_output_tokens_safe(orchestrator, session_key=session_key, role=role))

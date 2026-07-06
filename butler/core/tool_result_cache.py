@@ -35,12 +35,12 @@ class _CacheEntry:
 
 
 def tool_result_cache_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_RESULT_CACHE", default=True)
+    return bool(env_truthy("BUTLER_TOOL_RESULT_CACHE", default=True))
 
 
 def tool_result_cache_ttl_seconds() -> float:
     try:
-        return float_env("BUTLER_TOOL_RESULT_CACHE_TTL", 120, min=5.0)
+        return float(float_env("BUTLER_TOOL_RESULT_CACHE_TTL", 120, min=5.0))
     except ValueError:
         return 120.0
 

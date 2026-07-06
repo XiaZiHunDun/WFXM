@@ -55,9 +55,9 @@ def build_post_compact_anchor_text(
 
 
 def inject_post_compact_anchors(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     anchor_text: str,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Insert anchor block after compaction summary (or after system)."""
     if not anchor_text.strip():
         return messages
@@ -74,11 +74,11 @@ def inject_post_compact_anchors(
 
 
 def apply_post_compact_anchors(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     diagnostics: dict[str, Any] | None = None,
     *,
     role: str = "butler",
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     anchor = build_post_compact_anchor_text(diagnostics, role=role)
     if not anchor:
         return messages
@@ -90,9 +90,9 @@ def apply_post_compact_anchors(
 def run_post_compact_cleanup(
     diagnostics: dict[str, Any] | None = None,
     *,
-    messages: list[dict] | None = None,
+    messages: list[dict[str, Any]] | None = None,
     role: str = "butler",
-) -> list[dict] | None:
+) -> list[dict[str, Any]] | None:
     """Clear hygiene markers; optionally re-inject anchors into message list."""
     if diagnostics is not None:
         diagnostics.pop("hygiene_compact_noop", None)
@@ -114,4 +114,4 @@ def _collect_dev_session_changes() -> str:
     """Build a session change log from tool audit events (write/patch/terminal/git)."""
     from butler.core.post_compact_cleanup_ops import collect_dev_session_changes_safe
 
-    return collect_dev_session_changes_safe()
+    return str(collect_dev_session_changes_safe())

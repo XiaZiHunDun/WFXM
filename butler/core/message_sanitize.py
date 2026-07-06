@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -10,13 +11,13 @@ _VALID_ROLES = frozenset({"system", "user", "assistant", "tool"})
 _STUB_TOOL_RESULT = "[Result unavailable — see context summary above]"
 
 
-def _tool_call_id(tc: dict) -> str | None:
+def _tool_call_id(tc: dict[str, Any]) -> str | None:
     if isinstance(tc, dict):
         return tc.get("id")
     return None
 
 
-def _tool_call_name(tc: dict) -> str:
+def _tool_call_name(tc: dict[str, Any]) -> str:
     if not isinstance(tc, dict):
         return "unknown"
     fn = tc.get("function") or {}
@@ -25,7 +26,7 @@ def _tool_call_name(tc: dict) -> str:
     return "unknown"
 
 
-def is_thinking_only_assistant(msg: dict) -> bool:
+def is_thinking_only_assistant(msg: dict[str, Any]) -> bool:
     """Assistant turn with only reasoning, no text or tool_calls."""
     if msg.get("role") != "assistant":
         return False
@@ -56,7 +57,7 @@ def is_thinking_only_assistant(msg: dict) -> bool:
     return isinstance(rd, list) and bool(rd)
 
 
-def sanitize_api_messages(messages: list[dict]) -> tuple[list[dict], int]:
+def sanitize_api_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
     """Role filter, orphan tool drop, stub missing tool results."""
     if not messages:
         return [], 0
@@ -89,7 +90,7 @@ def sanitize_api_messages(messages: list[dict]) -> tuple[list[dict], int]:
 
     missing = surviving - result_ids
     if missing:
-        patched: list[dict] = []
+        patched: list[dict[str, Any]] = []
         for msg in filtered:
             patched.append(msg)
             if msg.get("role") == "assistant":
@@ -108,7 +109,7 @@ def sanitize_api_messages(messages: list[dict]) -> tuple[list[dict], int]:
     return filtered, repairs
 
 
-def drop_thinking_only_assistants(messages: list[dict]) -> tuple[list[dict], int]:
+def drop_thinking_only_assistants(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int]:
     """Remove thinking-only assistant messages from API wire copy."""
     kept = [m for m in messages if not is_thinking_only_assistant(m)]
     dropped = len(messages) - len(kept)

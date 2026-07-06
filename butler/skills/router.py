@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.skills.similarity import tfidf_cosine
 
@@ -12,7 +12,7 @@ _embedding_cache: dict[str, list[float]] = {}
 _embedding_cache_lock = threading.Lock()
 
 
-def _get_embedder_safe():
+def _get_embedder_safe() -> Any:
     """Get embedder if available, None otherwise (avoids import cost when disabled)."""
     from butler.skills.router_ops import get_skill_embedder_safe
 
@@ -43,7 +43,7 @@ def _embed_skill(embedder: Any, skill: dict[str, Any]) -> list[float]:
             oldest = next(iter(_embedding_cache))
             _embedding_cache.pop(oldest, None)
         _embedding_cache[cache_key] = vec
-    return vec
+    return cast(list[float], vec)
 
 
 class SkillRouter:

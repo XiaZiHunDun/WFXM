@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -68,7 +68,7 @@ def require_owner_kw(
     if not is_gateway_owner(
         platform=platform, external_id=external_id, session_key=session_key
     ):
-        return owner_required_message()
+        return cast(str, owner_required_message())
     return None
 
 
@@ -122,11 +122,14 @@ def dispatch(ctx: CommandContext) -> tuple[bool, str | None]:
 
     from butler.gateway.command_registry_ops import dispatch_registered_command
 
-    return dispatch_registered_command(
-        cmd=ctx.cmd,
-        handler=cmd_def.handler,
-        ctx=ctx,
-        on_success=_on_success,
+    return cast(
+        tuple[bool, str | None],
+        dispatch_registered_command(
+            cmd=ctx.cmd,
+            handler=cmd_def.handler,
+            ctx=ctx,
+            on_success=_on_success,
+        ),
     )
 
 

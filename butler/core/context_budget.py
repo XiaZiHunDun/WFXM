@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from typing import Any
 import logging
 
+from butler.context_settings import ContextBudgetSettings
+
 logger = logging.getLogger(__name__)
 
 
@@ -24,7 +26,7 @@ class ContextBudgetThresholds:
     max_consecutive_compact_failures: int
 
 
-def _budget_settings():
+def _budget_settings() -> ContextBudgetSettings:
     from butler.context_settings import resolve_context_config
 
     return resolve_context_config().budget
@@ -84,8 +86,8 @@ def get_output_reserve_tokens(*, max_output_tokens: int | None = None) -> int:
     """Tokens reserved for model output during compaction (CC: min(maxOutput, 20k))."""
     cap = _budget_settings().output_reserve
     if max_output_tokens is not None and max_output_tokens > 0:
-        return min(max_output_tokens, cap)
-    return cap
+        return int(min(max_output_tokens, cap))
+    return int(cap)
 
 
 def get_effective_context_window(
@@ -113,7 +115,7 @@ def get_auto_compact_threshold(
     ratio_floor = int(effective * 0.85)
     if candidate < ratio_floor:
         return max(100, ratio_floor)
-    return candidate
+    return int(candidate)
 
 
 def load_context_thresholds(

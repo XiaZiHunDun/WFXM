@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import weakref
 from dataclasses import dataclass, field
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Protocol, cast, runtime_checkable
 
 
 @runtime_checkable
@@ -49,10 +49,10 @@ from butler.core.context_pipeline_ops import (
 logger = logging.getLogger(__name__)
 
 
-def apply_tool_prune_pipeline(messages: list[dict]) -> list[dict]:
+def apply_tool_prune_pipeline(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Forward micro prune + backward volume prune (prepare_messages_for_api order)."""
     out = prune_tool_outputs(list(messages))
-    return backward_prune_tool_outputs(out)
+    return cast(list[dict[str, Any]], backward_prune_tool_outputs(out))
 
 
 @dataclass
@@ -70,8 +70,8 @@ class ContextPipeline:
         if ref is None:
             return None
         if isinstance(ref, weakref.ref):
-            return ref()
-        return ref
+            return cast(LoopContext | None, ref())
+        return cast(LoopContext | None, ref)
 
     @_attached_loop.setter
     def _attached_loop(self, value: LoopContext | None) -> None:
@@ -95,12 +95,12 @@ class ContextPipeline:
         """Public API: clear the attached loop reference."""
         self._attached_loop = None
 
-    def estimate_tokens(self, messages: list[dict]) -> int:
-        return _estimate_tokens(messages)
+    def estimate_tokens(self, messages: list[dict[str, Any]]) -> int:
+        return int(_estimate_tokens(messages))
 
     def compress_context(
         self,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         *,
         threshold_ratio: float = 0.5,
         min_messages_to_compress: int = 12,
@@ -109,7 +109,7 @@ class ContextPipeline:
         min_tail_messages: int = 4,
         overflow_replay: bool = False,
         diagnostics: dict[str, Any] | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         session_key = audit_session_key_safe(fallback="")
         if session_key and len(messages) >= min_messages_to_compress:
             from butler.core.session_todos import count_open_todos, session_todos_enabled
@@ -162,15 +162,15 @@ class ContextPipeline:
                 compressed = apply_post_compact_anchors(compressed, diagnostics)
             if session_key and isinstance(diagnostics, dict):
                 restore_compaction_checkpoint_safe(session_key, diagnostics)
-        return compressed
+        return cast(list[dict[str, Any]], compressed)
 
     def prepare_messages_for_api(
         self,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         *,
-        pre_llm_transform: Callable[[list[dict]], list[dict]] | None = None,
+        pre_llm_transform: Callable[[list[dict[str, Any]]], list[dict[str, Any]]] | None = None,
         diagnostics: dict[str, Any] | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         from butler.core.pipeline_steps import PipelineStep, run_pipeline_steps
         from butler.core.tool_result_storage import (
             apply_inject_once_policy,
@@ -182,51 +182,57 @@ class ContextPipeline:
         diag: dict[str, Any] = diagnostics if isinstance(diagnostics, dict) else {}
         pipeline = self
 
-        def _inject_once(msgs: list[dict]) -> list[dict]:
+        def _inject_once(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             out = list(msgs)
             apply_inject_once_policy(out, session_key=sk)
-            return enforce_message_tool_budget(out, session_key=sk)
+            return cast(list[dict[str, Any]], enforce_message_tool_budget(out, session_key=sk))
 
-        def _prune(msgs: list[dict]) -> list[dict]:
+        def _prune(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             return apply_tool_prune_pipeline(msgs)
 
-        def _mask(msgs: list[dict]) -> list[dict]:
-            return apply_unified_tool_masking_safe(msgs)
+        def _mask(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return cast(list[dict[str, Any]], apply_unified_tool_masking_safe(msgs))
 
-        def _inline_compress_step(msgs: list[dict]) -> list[dict]:
-            return compress_inline_tool_messages_safe(msgs)
+        def _inline_compress_step(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return cast(list[dict[str, Any]], compress_inline_tool_messages_safe(msgs))
 
-        def _model_transform(msgs: list[dict]) -> list[dict]:
+        def _model_transform(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             loop = getattr(pipeline, "_attached_loop", None)
             client = getattr(loop, "client", None) if loop else None
-            return apply_model_transforms_safe(
-                msgs,
-                client=client,
-                diagnostics=diag or None,
+            return cast(
+                list[dict[str, Any]],
+                apply_model_transforms_safe(
+                    msgs,
+                    client=client,
+                    diagnostics=diag or None,
+                ),
             )
 
-        def _preemptive(msgs: list[dict]) -> list[dict]:
-            return apply_preemptive_compact_safe(
-                msgs,
-                max_context_tokens=pipeline.config.max_context_tokens,
-                estimate_tokens=pipeline.estimate_tokens,
-                compress=pipeline.compress_context,
-                diagnostics=diag or None,
+        def _preemptive(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return cast(
+                list[dict[str, Any]],
+                apply_preemptive_compact_safe(
+                    msgs,
+                    max_context_tokens=pipeline.config.max_context_tokens,
+                    estimate_tokens=pipeline.estimate_tokens,
+                    compress=pipeline.compress_context,
+                    diagnostics=diag or None,
+                ),
             )
 
-        def _compress(msgs: list[dict]) -> list[dict]:
+        def _compress(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if diag is not None:
                 diag.setdefault("session_key", get_audit_session_key(fallback="_global"))
             return pipeline.compress_context(list(msgs), diagnostics=diag or None)
 
-        def _repair(msgs: list[dict]) -> list[dict]:
+        def _repair(msgs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             out, _ = repair_message_sequence(list(msgs))
             out, _ = repair_tool_pairs(out, diagnostics=diag or None)
             repair_tool_arguments(out)
             out, _ = sanitize_api_messages(out)
             out, _ = drop_thinking_only_assistants(out)
             annotate_api_message_boundary_safe(out, diag or None)
-            return out
+            return cast(list[dict[str, Any]], out)
 
         steps = [
             PipelineStep("inject_once", _inject_once),
@@ -244,17 +250,17 @@ class ContextPipeline:
         ephemeral = str(diag.get("ephemeral_system") or "").strip() if diag else ""
         if ephemeral:
             prepared = _inject_ephemeral_system(prepared, ephemeral)
-        return prepared
+        return cast(list[dict[str, Any]], prepared)
 
     def hygiene_compress_if_needed(
         self,
-        messages: list[dict],
+        messages: list[dict[str, Any]],
         diagnostics: dict[str, Any],
         *,
         threshold_ratio: float = 0.85,
         hard_message_limit: int = 400,
         max_output_tokens: int | None = None,
-    ) -> tuple[bool, list[dict]]:
+    ) -> tuple[bool, list[dict[str, Any]]]:
         """Run gateway preflight compression; return (compressed, updated_messages)."""
         snapshot = apply_tool_prune_pipeline(messages)
         if snapshot is not messages:
@@ -296,7 +302,7 @@ class ContextPipeline:
         return True, anchored
 
 
-def _inject_ephemeral_system(messages: list[dict], banner: str) -> list[dict]:
+def _inject_ephemeral_system(messages: list[dict[str, Any]], banner: str) -> list[dict[str, Any]]:
     if not banner.strip():
         return messages
     block = f"{banner.strip()}\n\n(本段为 ephemeral 执行提示，不写入用户消息。)"

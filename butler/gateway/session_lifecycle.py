@@ -16,7 +16,7 @@ _WARMING: dict[str, threading.Lock] = {}
 
 
 def session_initializing_enabled() -> bool:
-    return env_truthy("BUTLER_GATEWAY_SESSION_INITIALIZING", default=True)
+    return bool(env_truthy("BUTLER_GATEWAY_SESSION_INITIALIZING", default=True))
 
 
 def format_initializing_ack(*, pending: int = 0) -> str:

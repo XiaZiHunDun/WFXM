@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from butler.core.tool_call_normalize import (
     _EMPTY_RETRY_NUDGE,
     _TRUNCATION_NUDGE,
@@ -36,8 +38,8 @@ def needs_truncation_continue(response: NormalizedResponse) -> bool:
 
 
 def empty_retry_message() -> str:
-    return _EMPTY_RETRY_NUDGE
+    return cast(str, _EMPTY_RETRY_NUDGE)
 
 
 def truncation_continue_message() -> str:
-    return _TRUNCATION_NUDGE
+    return cast(str, _TRUNCATION_NUDGE)

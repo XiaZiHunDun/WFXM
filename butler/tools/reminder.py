@@ -12,9 +12,9 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
-from croniter import croniter
+from croniter import croniter  # type: ignore[import-untyped]
 
 from butler.tools.pim_schema import REMINDER_STATUSES
 from butler.tools.tenant_store import TenantStore
@@ -125,7 +125,7 @@ def _parse_cron_schedule(text: str) -> str | None:
 
 
 def _reminders_dir() -> Path:
-    return _reminder_store.storage_dir()
+    return Path(_reminder_store.storage_dir())
 
 
 def migrate_legacy_reminders(butler_home: Path) -> None:
@@ -297,15 +297,15 @@ def parse_due_timestamp(when: str) -> float | None:
 
 
 def _save_reminder(reminder: dict[str, Any]) -> Path:
-    return _reminder_store.save(reminder)
+    return Path(_reminder_store.save(reminder))
 
 
 def _load_all() -> list[dict[str, Any]]:
-    return _reminder_store.load_all()
+    return list(_reminder_store.load_all())
 
 
 def _delete_reminder(rid: str) -> bool:
-    return _reminder_store.delete(rid)
+    return bool(_reminder_store.delete(rid))
 
 
 def tool_set_reminder(message: str, when: str, **_: Any) -> str:

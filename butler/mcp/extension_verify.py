@@ -7,7 +7,7 @@ import os
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.mcp.config import mcp_enabled, mcp_sdk_available
 from butler.mcp.extension_manifest import (
@@ -202,7 +202,7 @@ def write_verify_cache(reports: dict[str, VerifyReport]) -> Path:
 def read_verify_cache() -> dict[str, Any]:
     from butler.mcp.extension_verify_ops import read_verify_cache_dict_safe
 
-    return read_verify_cache_dict_safe(_VERIFY_CACHE)
+    return cast(dict[str, Any], read_verify_cache_dict_safe(_VERIFY_CACHE))
 
 
 def extension_verify_status_lines() -> list[str]:

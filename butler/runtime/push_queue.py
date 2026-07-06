@@ -7,7 +7,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 
@@ -18,7 +18,7 @@ _MAX_QUEUE = 50
 
 
 def _queue_path() -> Path:
-    return get_butler_home() / _QUEUE_FILE
+    return cast(Path, get_butler_home() / _QUEUE_FILE)
 
 
 def _dedupe_key(title: str, body: str, chat_id: str) -> str:

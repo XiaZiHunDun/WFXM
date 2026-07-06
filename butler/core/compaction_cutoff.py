@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from typing import Any
 
-def _prefix_tool_pairs_closed(messages: list[dict], boundary: int) -> bool:
+MessageDict = dict[str, Any]
+
+
+def _prefix_tool_pairs_closed(messages: list[MessageDict], boundary: int) -> bool:
     pending: set[str] = set()
     for msg in messages[:boundary]:
         if not isinstance(msg, dict):
@@ -23,7 +27,7 @@ def _prefix_tool_pairs_closed(messages: list[dict], boundary: int) -> bool:
     return len(pending) == 0
 
 
-def find_safe_tail_start(messages: list[dict], proposed_tail_start: int) -> int:
+def find_safe_tail_start(messages: list[MessageDict], proposed_tail_start: int) -> int:
     """
     Return the earliest index ``>= proposed_tail_start`` safe for compaction tail.
 
@@ -46,6 +50,6 @@ def find_safe_tail_start(messages: list[dict], proposed_tail_start: int) -> int:
     return n
 
 
-def apply_safe_tail_start(messages: list[dict], proposed_tail_start: int) -> int:
+def apply_safe_tail_start(messages: list[MessageDict], proposed_tail_start: int) -> int:
     """Alias used by turn compaction and legacy head/tail split."""
     return find_safe_tail_start(messages, proposed_tail_start)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _OWNER_HELP_DEFAULT = """Butler — 五个说法就够
 
@@ -49,7 +49,7 @@ def format_owner_status_header(
     orchestrator: Any,
     session_key: str,
     *,
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> list[str]:
     """Owner-readable health lines for /状态 (non-technical)."""
     from butler.ops.butler_inbox import collect_inbox_snapshot, _action_count
@@ -85,7 +85,7 @@ def format_owner_status_header(
 def _pending_delegate_line(session_key: str) -> str:
     from butler.gateway.owner_surface_ops import pending_delegate_line_safe
 
-    return pending_delegate_line_safe(session_key)
+    return cast(str, pending_delegate_line_safe(session_key))
 
 
 def format_project_switch_brief(
@@ -133,21 +133,27 @@ def format_project_switch_brief(
 def _owner_outbound_brief_line(*, session_key: str = "", chat_id: str = "") -> str | None:
     from butler.gateway.owner_surface_ops import outbound_brief_line_safe
 
-    return outbound_brief_line_safe(session_key=session_key, chat_id=chat_id)
+    return cast(
+        str | None,
+        outbound_brief_line_safe(session_key=session_key, chat_id=chat_id),
+    )
 
 
 def _owner_degradation_brief_line(
     orchestrator: Any,
     *,
     session_key: str = "",
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> str | None:
     from butler.gateway.owner_surface_ops import degradation_brief_line_safe
 
-    return degradation_brief_line_safe(
-        orchestrator,
-        session_key=session_key,
-        health=health,
+    return cast(
+        str | None,
+        degradation_brief_line_safe(
+            orchestrator,
+            session_key=session_key,
+            health=health,
+        ),
     )
 
 
@@ -155,7 +161,7 @@ def _owner_memory_degradation_brief_line(
     orchestrator: Any,
     *,
     session_key: str = "",
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> str | None:
     """Backward-compat alias — prefer :func:`_owner_degradation_brief_line`."""
     return _owner_degradation_brief_line(
@@ -167,7 +173,7 @@ def format_owner_diagnostic_brief(
     orchestrator: Any,
     session_key: str,
     *,
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> str:
     """Owner-tier /诊断 — three human lines; full ops via ``/诊断 详细``."""
     from butler.ops.butler_inbox import collect_inbox_snapshot, _action_count
@@ -237,7 +243,7 @@ def format_project_today_view(
     orchestrator: Any,
     session_key: str,
     *,
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> str:
     """Owner one-screen: health + todos + delegate + reminders + next actions."""
     from butler.ops.butler_inbox import collect_inbox_snapshot
@@ -283,14 +289,14 @@ def format_project_today_view(
 def _runtime_jobs_owner_lines(workspace: Path) -> list[str]:
     from butler.gateway.owner_surface_ops import runtime_jobs_lines_safe
 
-    return runtime_jobs_lines_safe(workspace)
+    return cast(list[str], runtime_jobs_lines_safe(workspace))
 
 
 def format_project_overview_owner(
     orchestrator: Any,
     session_key: str,
     *,
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> str:
     """Owner-friendly /项目概况 — action-oriented, not file/git stats."""
     from butler.ops.butler_inbox import collect_inbox_snapshot

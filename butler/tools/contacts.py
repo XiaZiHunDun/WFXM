@@ -14,7 +14,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.tools.pim_schema import (
     CONTACT_CATEGORIES as _VALID_CATEGORIES,
@@ -31,22 +31,15 @@ from butler.tools.tenant_store import TenantStore
 logger = logging.getLogger(__name__)
 
 _base_store = TenantStore("contacts", env_toggle="BUTLER_CONTACTS_ENABLED")
-
-
-class _ContactsStore(TenantStore):
-    def storage_dir(self) -> Path:
-        return _contacts_dir()
-
-
-_store = _ContactsStore("contacts", env_toggle="BUTLER_CONTACTS_ENABLED")
+_store = _base_store
 
 
 def _contacts_enabled() -> bool:
-    return _store.enabled()
+    return bool(_store.enabled())
 
 
 def _contacts_dir() -> Path:
-    return _base_store.storage_dir()
+    return Path(_base_store.storage_dir())
 
 
 def _normalize_phones(raw: Any) -> list[str]:
@@ -122,7 +115,7 @@ def _check_duplicate(name: str, exclude_id: str = "") -> dict[str, Any] | None:
     q = name.strip().lower()
     for c in _store.load_all():
         if c.get("name", "").lower() == q and c.get("id") != exclude_id:
-            return c
+            return cast(dict[str, Any], c)
     return None
 
 

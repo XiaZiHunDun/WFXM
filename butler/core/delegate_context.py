@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from butler.core.agent_loop import LoopCallbacks
@@ -27,11 +27,11 @@ def get_parent_system_prompt() -> str:
     return str(getattr(_local, "system_prompt", "") or "")
 
 
-def set_parent_messages(messages: list) -> None:
+def set_parent_messages(messages: list[Any]) -> None:
     _local.messages = list(messages or [])
 
 
-def get_parent_messages() -> list:
+def get_parent_messages() -> list[Any]:
     return list(getattr(_local, "messages", []) or [])
 
 

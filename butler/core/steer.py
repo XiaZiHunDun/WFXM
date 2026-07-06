@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ def _resolve_session_key(session_key: str | None = None) -> str:
 
     sk = resolve_session_key_from_context_safe()
     if sk:
-        return sk
+        return str(sk)
     return "default"
 
 
@@ -84,7 +85,7 @@ def pending_steer(session_key: str | None = None) -> str | None:
         return _pending_by_session.get(key)
 
 
-def apply_steer_to_tool_results(messages: list[dict], num_tool_msgs: int) -> bool:
+def apply_steer_to_tool_results(messages: list[dict[str, Any]], num_tool_msgs: int) -> bool:
     """Append steer marker to the last tool message in the recent batch."""
     steer_text = drain_steer()
     if not steer_text or num_tool_msgs <= 0 or not messages:

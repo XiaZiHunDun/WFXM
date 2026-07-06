@@ -8,7 +8,7 @@ import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 from butler.core.session_transcript import transcript_enabled, transcript_path
@@ -22,7 +22,7 @@ from butler.core.transcript_export_ops import (
 
 def export_max_lines_default() -> int:
     try:
-        return int_env("BUTLER_TRANSCRIPT_EXPORT_MAX_LINES", 500, min=50)
+        return int(int_env("BUTLER_TRANSCRIPT_EXPORT_MAX_LINES", 500, min=50))
     except ValueError:
         return 500
 
@@ -53,7 +53,7 @@ def load_transcript_rows(session_key: str, *, max_lines: int | None = None) -> l
     else:
         indexed = load_transcript_export_rows(path, limit=limit)
         if indexed is not None:
-            return indexed
+            return cast(list[dict[str, Any]], indexed)
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
         except OSError:
@@ -243,4 +243,4 @@ def export_session_markdown(
 
 
 def resolve_export_workspace(session_key: str = "") -> Path | None:
-    return resolve_export_workspace_safe(session_key)
+    return cast(Path | None, resolve_export_workspace_safe(session_key))

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 _MANIFEST_NAME = "network-search-routes.yaml"
 
@@ -151,7 +151,7 @@ class HandlerRouteReport:
 def _is_firecrawl_search_tool_name(name: str) -> bool:
     from butler.tools.network_search_policy import is_firecrawl_search_tool
 
-    return is_firecrawl_search_tool(name)
+    return bool(is_firecrawl_search_tool(name))
 
 
 def evaluate_handler_tool_route(
@@ -210,7 +210,7 @@ def run_policy_golden_cases(
     report = RouteVerifyReport(ok=True)
     orig_gate = nsp._web_search_in_current_toolset
     if gate_enabled:
-        nsp._web_search_in_current_toolset = lambda: True  # type: ignore[method-assign]
+        nsp._web_search_in_current_toolset = lambda: True
 
     try:
         from butler.tools.network_route_verify_ops import run_policy_golden_case_safe
@@ -241,7 +241,7 @@ def run_policy_golden_cases(
                 report.ok = False
             report.cases.append(entry)
     finally:
-        nsp._web_search_in_current_toolset = orig_gate  # type: ignore[method-assign]
+        nsp._web_search_in_current_toolset = orig_gate
 
     return report
 

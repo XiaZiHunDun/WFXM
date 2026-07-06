@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from butler.env_parse import env_truthy
 
 
 def inbound_sequence_validate_enabled() -> bool:
-    return env_truthy("BUTLER_INBOUND_SEQUENCE_VALIDATE", default=True)
+    return bool(env_truthy("BUTLER_INBOUND_SEQUENCE_VALIDATE", default=True))
 
 
-def validate_loop_messages_before_turn(messages: list[dict]) -> str | None:
+def validate_loop_messages_before_turn(messages: list[dict[str, Any]]) -> str | None:
     """Return user-facing error when OpenAI message sequence is invalid."""
     if not inbound_sequence_validate_enabled():
         return None

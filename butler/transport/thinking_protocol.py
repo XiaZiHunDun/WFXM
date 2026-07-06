@@ -12,7 +12,7 @@ _THINKING_HINT = (
 
 
 def thinking_protocol_enabled() -> bool:
-    return env_truthy("BUTLER_THINKING_PROTOCOL", default=False)
+    return bool(env_truthy("BUTLER_THINKING_PROTOCOL", default=False))
 
 
 def maybe_append_thinking_system_hint(

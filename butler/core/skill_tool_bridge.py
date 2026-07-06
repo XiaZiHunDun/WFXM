@@ -10,6 +10,7 @@ skill bodies are skipped by the retrieval trust cascade.
 from __future__ import annotations
 
 import re
+from typing import cast
 
 _SKILL_HEADER_RE = re.compile(r"^###\s+`([^`]+)`")
 _SKILL_SECTION_MARKER = "## 相关知识"
@@ -59,7 +60,7 @@ def extract_skill_preferred_tools(augmented_message: str) -> set[str]:
 
     from butler.core.skill_tool_bridge_ops import skill_preferred_tools_safe
 
-    return skill_preferred_tools_safe(names)
+    return cast(set[str], skill_preferred_tools_safe(names))
 
 
 def resolve_experience_pinned_tools(query: str) -> tuple[set[str], list[str]]:
@@ -75,7 +76,7 @@ def resolve_experience_pinned_tools(query: str) -> tuple[set[str], list[str]]:
 
     from butler.core.skill_tool_bridge_ops import experience_pinned_tools_safe
 
-    return experience_pinned_tools_safe(q)
+    return cast(tuple[set[str], list[str]], experience_pinned_tools_safe(q))
 
 
 def collect_pinned_tools(user_content: str) -> tuple[set[str], list[str]]:

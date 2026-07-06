@@ -21,12 +21,13 @@ class ToolCall:
         return "function"
 
     @property
-    def function(self):
+    def function(self) -> ToolCall:
         return self
 
-    def args_dict(self) -> dict:
+    def args_dict(self) -> dict[str, Any]:
         try:
-            return json.loads(self.arguments)
+            parsed = json.loads(self.arguments)
+            return parsed if isinstance(parsed, dict) else {}
         except (json.JSONDecodeError, TypeError):
             return {}
 
@@ -48,11 +49,10 @@ class NormalizedResponse:
     usage: Optional[Usage] = None
     provider_data: Optional[Dict[str, Any]] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self._extract_inline_thinking()
 
-
-    def _extract_inline_thinking(self):
+    def _extract_inline_thinking(self) -> None:
         """Extract thinking blocks into reasoning; strip leaked tags from content."""
         from butler.transport.content_sanitize import extract_thinking_to_reasoning
 
@@ -67,7 +67,7 @@ def build_tool_call(
     id: Optional[str],
     name: str,
     arguments: Any,
-    **provider_fields,
+    **provider_fields: Any,
 ) -> ToolCall:
     if isinstance(arguments, dict):
         args_str = json.dumps(arguments, ensure_ascii=False)

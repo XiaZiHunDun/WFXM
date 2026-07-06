@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 
 def _deny(code: str, message: str) -> str:
@@ -33,7 +33,7 @@ def run_terminal_with_gates(
             session_key=session_key,
         )
         if risk:
-            return risk
+            return cast(str, risk)
         return _deny(
             "TERMINAL_DANGER_PATTERN",
             format_terminal_pattern_card(
@@ -70,7 +70,7 @@ def run_mcp_with_gates(
 
     pre = run_mcp_pre_hooks_safe(tool_name, args, session_key=session_key)
     if pre:
-        return pre
+        return cast(str, pre)
 
     block = check_mcp_approval_safe(
         server_id=server_id,
@@ -81,14 +81,14 @@ def run_mcp_with_gates(
         model_message_fn=mcp_approval_model_message_safe,
     )
     if block:
-        return block
+        return cast(str, block)
     return run_fn()
 
 
 def _mcp_approval_model_message(tool_name: str, session_key: str, raw: str) -> str:
     from butler.core.tool_orchestrator_ops import mcp_approval_model_message_safe
 
-    return mcp_approval_model_message_safe(tool_name, session_key, raw)
+    return cast(str, mcp_approval_model_message_safe(tool_name, session_key, raw))
 
 
 def dispatch_with_orchestrator(
@@ -106,8 +106,8 @@ def dispatch_with_orchestrator(
 
     pre = run_orchestrator_pre_hooks_safe(tool_name, args, session_key=session_key)
     if pre:
-        return pre
-    return dispatch_handler_loud(tool_name, args, handler)
+        return cast(str, pre)
+    return cast(str, dispatch_handler_loud(tool_name, args, handler))
 
 
 def run_with_approval_gate(

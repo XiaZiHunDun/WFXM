@@ -66,7 +66,8 @@ def _workflow_state_digest(workspace: Path) -> dict[str, Any]:
 
     phase = data.get("current_phase") or "?"
     step = data.get("current_step") or "?"
-    status = data.get("project_status") if isinstance(data.get("project_status"), dict) else {}
+    status_raw = data.get("project_status")
+    status: dict[str, Any] = status_raw if isinstance(status_raw, dict) else {}
     pname = status.get("name") or "?"
     pphase = status.get("phase") or "?"
     summary = (

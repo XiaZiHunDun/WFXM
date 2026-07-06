@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from butler.env_parse import env_truthy
 from butler.memory.butler_memory import _reject_injection
 
 
 def adversarial_mark_enabled() -> bool:
-    return env_truthy("BUTLER_ADVERSARIAL_MARK", default=True)
+    return bool(env_truthy("BUTLER_ADVERSARIAL_MARK", default=True))
 
 
 def prefetch_injection_filter_enabled() -> bool:
-    return env_truthy("BUTLER_PREFETCH_INJECTION_FILTER", default=True)
+    return bool(env_truthy("BUTLER_PREFETCH_INJECTION_FILTER", default=True))
 
 
 def filter_injection_from_prefetch(ctx: str) -> str:
@@ -27,7 +29,7 @@ def filter_injection_from_prefetch(ctx: str) -> str:
 
 
 def injection_score_enabled() -> bool:
-    return env_truthy("BUTLER_INJECTION_SCORE", default=False)
+    return bool(env_truthy("BUTLER_INJECTION_SCORE", default=False))
 
 
 def score_injection_risk(text: str) -> int:
@@ -57,7 +59,7 @@ def score_injection_risk(text: str) -> int:
     return min(100, score)
 
 
-def maybe_record_injection_score(text: str, *, diagnostics: dict | None = None) -> int:
+def maybe_record_injection_score(text: str, *, diagnostics: dict[str, Any] | None = None) -> int:
     score = score_injection_risk(text)
     if injection_score_enabled() and isinstance(diagnostics, dict):
         diagnostics["injection_score"] = score

@@ -65,11 +65,11 @@ _JIEBA_LOADED = False
 _jieba = None
 
 
-def _ensure_jieba():
+def _ensure_jieba() -> Any:
     global _JIEBA_LOADED, _jieba
     if not _JIEBA_LOADED:
         try:
-            import jieba as jb
+            import jieba as jb  # type: ignore[import-untyped]
 
             jb.setLogLevel(logging.WARNING)
             _jieba = jb

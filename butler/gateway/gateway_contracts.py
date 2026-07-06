@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 
 def register_gateway_contracts() -> None:
     """Wire contracts registries to live gateway owner/bridge helpers (idempotent)."""
@@ -27,17 +29,19 @@ def register_gateway_contracts() -> None:
             external_id: str | None = None,
             session_key: str = "",
         ) -> bool:
-            return is_gateway_owner(
-                platform=platform,
-                external_id=external_id,
-                session_key=session_key,
+            return bool(
+                is_gateway_owner(
+                    platform=platform,
+                    external_id=external_id,
+                    session_key=session_key,
+                )
             )
 
         def owner_required_message(self) -> str:
-            return owner_required_message()
+            return cast(str, owner_required_message())
 
     class _GatewayBridgeAccess:
-        def get_optional_bridge(self):
+        def get_optional_bridge(self) -> Any:
             return get_gateway_bridge_optional()
 
         def try_push_workflow_failure(
@@ -48,11 +52,13 @@ def register_gateway_contracts() -> None:
             session_key: str = "",
         ) -> bool:
             bridge = self.get_optional_bridge()
-            return try_push_workflow_failure(
-                bridge,
-                workflow_name,
-                error,
-                session_key=session_key,
+            return bool(
+                try_push_workflow_failure(
+                    bridge,
+                    workflow_name,
+                    error,
+                    session_key=session_key,
+                )
             )
 
     if get_owner_gate() is None:

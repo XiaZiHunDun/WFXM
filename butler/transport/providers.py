@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 class ProviderProfile:
     name: str
     api_mode: str = "chat_completions"
-    aliases: tuple = ()
+    aliases: tuple[str, ...] = ()
     base_url: str = ""
-    env_vars: tuple = ()
+    env_vars: tuple[str, ...] = ()
     default_model: str = ""
     default_max_tokens: Optional[int] = None
 

@@ -40,14 +40,14 @@ class MarkdownChunk:
 
 
 def markdown_chunking_enabled() -> bool:
-    return env_truthy("BUTLER_MARKDOWN_CHUNKING", default=True)
+    return bool(env_truthy("BUTLER_MARKDOWN_CHUNKING", default=True))
 
 
 def chunk_min_chars() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_MARKDOWN_CHUNK_MIN_CHARS", 256, min=64)
+        return int(int_env("BUTLER_MARKDOWN_CHUNK_MIN_CHARS", 256, min=64))
     except ValueError:
         return 256
 
@@ -56,14 +56,14 @@ def chunk_max_chars() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_MARKDOWN_CHUNK_MAX_CHARS", 4000, min=512)
+        return int(int_env("BUTLER_MARKDOWN_CHUNK_MAX_CHARS", 4000, min=512))
     except ValueError:
         return 4000
 
 
 def heading_boost_per_token() -> float:
     try:
-        return max(0.0, float_env("BUTLER_MARKDOWN_HEADING_BOOST", 0.18))
+        return float(max(0.0, float_env("BUTLER_MARKDOWN_HEADING_BOOST", 0.18)))
     except ValueError:
         return 0.18
 

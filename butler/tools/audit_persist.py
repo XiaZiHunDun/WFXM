@@ -8,6 +8,7 @@ import os
 import threading
 import time
 from pathlib import Path
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +26,10 @@ def audit_jsonl_path() -> Path:
     from butler.tools.audit_persist_ops import resolve_butler_home_safe
 
     home = resolve_butler_home_safe()
-    return home / "audit" / "tools.jsonl"
+    return cast(Path, home / "audit" / "tools.jsonl")
 
 
-def persist_tool_audit_event(event: dict) -> None:
+def persist_tool_audit_event(event: dict[str, Any]) -> None:
     """Append one audit row when ``BUTLER_TOOL_AUDIT_JSONL=1``."""
     if not audit_jsonl_enabled():
         return

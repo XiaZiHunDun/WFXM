@@ -11,14 +11,14 @@ from butler.env_parse import env_truthy, int_env
 
 
 def transcript_memory_enabled() -> bool:
-    return env_truthy("BUTLER_TRANSCRIPT_MEMORY", default=False)
+    return bool(env_truthy("BUTLER_TRANSCRIPT_MEMORY", default=False))
 
 
 def transcript_memory_max_lines() -> int:
     import os
 
     try:
-        return max(20, int_env("BUTLER_TRANSCRIPT_MEMORY_MAX_LINES", 400))
+        return int(max(20, int_env("BUTLER_TRANSCRIPT_MEMORY_MAX_LINES", 400)))
     except ValueError:
         return 400
 

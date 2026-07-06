@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.tool_guardrails import (
@@ -16,13 +16,13 @@ from butler.tool_guardrails import (
 
 def dispatch_one_tool(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     *,
     tool_call_id: str = "",
     batch_guard: Any = None,
     prefetched: dict[str, str] | None = None,
     guardrails: ToolCallGuardrailController | None = None,
-    dispatch_tool: Callable[[str, dict], str],
+    dispatch_tool: Callable[[str, dict[str, Any]], str],
 ) -> str:
     """Run guardrails, cache, limits, and dispatch for one tool call."""
     from butler.core.tool_batch import (
@@ -43,15 +43,17 @@ def dispatch_one_tool(
         block = two_phase_block_message(name, args, tool_call_id=tool_call_id)
         if not block:
             return None
-        return finalize_fallback_tool_result(
-            name,
-            args,
-            {
-                "ok": False,
-                "code": "TWO_PHASE_PENDING",
-                "error": block,
-                "tool": name,
-            },
+        return str(
+            finalize_fallback_tool_result(
+                name,
+                args,
+                {
+                    "ok": False,
+                    "code": "TWO_PHASE_PENDING",
+                    "error": block,
+                    "tool": name,
+                },
+            )
         )
 
     blocked = safe_best_effort(_two_phase_block, label="tool_dispatch.two_phase")
@@ -64,7 +66,7 @@ def dispatch_one_tool(
         violation = validate_tool_boundary(name, args)
         if violation is None:
             return None
-        return finalize_fallback_tool_result(name, args, violation.to_error_payload())
+        return str(finalize_fallback_tool_result(name, args, violation.to_error_payload()))
 
     boundary_blocked = safe_best_effort(_boundary_block, label="tool_dispatch.boundary")
     if isinstance(boundary_blocked, str):
@@ -83,10 +85,10 @@ def dispatch_one_tool(
             else STALE_SKIP_CODE
         )
         payload = stale_skip_result(name, args, guard=batch_guard, code=code)
-        return finalize_fallback_tool_result(name, args, payload)
+        return str(finalize_fallback_tool_result(name, args, payload))
 
     if prefetched and tool_call_id and tool_call_id in prefetched:
-        result = prefetched[tool_call_id]
+        result = str(prefetched[tool_call_id])
         if batch_guard is not None:
             batch_guard.note_tool_result(name, args, result)
         return result
@@ -94,27 +96,27 @@ def dispatch_one_tool(
     session_key = str(get_current_session_key() or "").strip()
     cached = get_cached_result(name, args, session_key=session_key)
     if cached is not None:
-        result = cached
+        result = str(cached)
         pending_warn = None
         if guardrails:
             before = guardrails.before_call(name, args)
             if before.action == "warn" and before.code == "doom_loop_soft_nudge":
                 pending_warn = before
             if before.should_halt:
-                return finalize_fallback_tool_result(name, args, synthetic_result(before))
+                return str(finalize_fallback_tool_result(name, args, synthetic_result(before)))
             after = guardrails.after_call(name, args, result)
             if after.should_halt:
                 guardrails.set_halt_decision(after)
-                return finalize_guardrail_halt_result(name, args, result, after)
+                return str(finalize_guardrail_halt_result(name, args, result, after))
             if after.action == "warn":
-                result = append_guidance(result, after)
+                result = str(append_guidance(result, after))
             elif pending_warn is not None:
-                result = append_guidance(result, pending_warn)
+                result = str(append_guidance(result, pending_warn))
         return result
 
     limited = get_tool_call_limiter().before_call(name)
     if limited:
-        return finalize_fallback_tool_result(name, args, limited)
+        return str(finalize_fallback_tool_result(name, args, limited))
 
     pending_warn = None
     if guardrails:
@@ -128,12 +130,12 @@ def dispatch_one_tool(
                 before, name, args, session_key=session_key,
             )
             if doom_result is not None:
-                return doom_result
+                return str(doom_result)
         if before.should_halt:
-            return finalize_fallback_tool_result(name, args, synthetic_result(before))
+            return str(finalize_fallback_tool_result(name, args, synthetic_result(before)))
 
     _capture_pre_edit_snapshot(name, args)
-    result = run_tool_with_retry(name, args, dispatch_tool)
+    result = str(run_tool_with_retry(name, args, dispatch_tool))
 
     def _emit_tool_event() -> None:
         from butler.core.structured_events import args_digest, emit_tool_action
@@ -190,17 +192,17 @@ def dispatch_one_tool(
                 record_recovery_event(reason or "tool_guardrail_halt")
 
             safe_best_effort(_record_recovery, label="tool_dispatch.recovery_event")
-            result = finalize_guardrail_halt_result(name, args, result, after)
+            result = str(finalize_guardrail_halt_result(name, args, result, after))
         elif after.action == "warn":
-            result = append_guidance(result, after)
+            result = str(append_guidance(result, after))
         elif pending_warn is not None:
-            result = append_guidance(result, pending_warn)
+            result = str(append_guidance(result, pending_warn))
 
     if batch_guard is not None:
         batch_guard.note_tool_result(name, args, result)
     _dev_engine_post_edit(name, args, result)
     _plan_mode_post_edit(name, args, result)
-    return result
+    return str(result)
 
 
 __all__ = ["dispatch_one_tool"]

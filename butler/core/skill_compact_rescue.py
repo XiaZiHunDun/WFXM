@@ -12,7 +12,7 @@ _SKILL_PATH_MARKERS = ("/skills/", ".butler/skills", "skills/")
 
 
 def skill_compact_rescue_enabled() -> bool:
-    return env_truthy("BUTLER_COMPACT_SKILL_PRESERVE", default=True)
+    return bool(env_truthy("BUTLER_COMPACT_SKILL_PRESERVE", default=True))
 
 
 def _is_skill_tool_message(msg: dict[str, Any], id_to_name: dict[str, str]) -> bool:

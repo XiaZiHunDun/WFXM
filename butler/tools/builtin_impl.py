@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 
+from typing import Any
+
 from butler.tools.delegate_impl import (  # noqa: F401
     _delegate_role_label,
     _delegate_task_succeeded,
@@ -54,7 +56,7 @@ from butler.tools.terminal_impl import (  # noqa: F401
 # ── Skill / Workflow tools (kept inline — small, few dependencies) ──
 
 
-def _tool_skills_list(**_) -> str:
+def _tool_skills_list(**_: Any) -> str:
     from butler.tools.builtin_impl_ops import run_tool_json_safe
 
     def _run() -> str:
@@ -68,10 +70,10 @@ def _tool_skills_list(**_) -> str:
         ]
         return json.dumps({"skills": skills}, ensure_ascii=False)
 
-    return run_tool_json_safe(_run)
+    return str(run_tool_json_safe(_run))
 
 
-def _tool_skill_view(name: str, **_) -> str:
+def _tool_skill_view(name: str, **_: Any) -> str:
     from butler.tools.builtin_impl_ops import run_tool_json_safe
 
     def _run() -> str:
@@ -88,10 +90,10 @@ def _tool_skill_view(name: str, **_) -> str:
             "content": skill.get("content", ""),
         }, ensure_ascii=False)
 
-    return run_tool_json_safe(_run)
+    return str(run_tool_json_safe(_run))
 
 
-def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
+def _tool_run_workflow(name: str, hint: str = "", **_: Any) -> str:
     """Execute a project workflow DAG via TaskOrchestrator."""
     from butler.execution_context import get_current_session_key, get_current_turn_bridge
     from butler.tools.builtin_impl_ops import (
@@ -139,4 +141,4 @@ def _tool_run_workflow(name: str, hint: str = "", **_) -> str:
             session_key=session_key or str(get_current_session_key() or ""),
         )
 
-    return run_tool_json_with_failure_hook(_run, on_failure=_on_failure)
+    return str(run_tool_json_with_failure_hook(_run, on_failure=_on_failure))

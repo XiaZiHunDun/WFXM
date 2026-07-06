@@ -71,7 +71,7 @@ _RETRY_MARKERS = (
 
 
 def tool_error_policy_enabled() -> bool:
-    return env_truthy(_POLICY_ENV, default=True)
+    return bool(env_truthy(_POLICY_ENV, default=True))
 
 
 def _error_text(result: str, *, exc: BaseException | None = None) -> str:

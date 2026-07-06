@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
@@ -11,10 +11,10 @@ _HYDRATION_MARKER = "[SESSION HYDRATED — tool facts from transcript]"
 
 
 def session_hydrate_enabled() -> bool:
-    return env_truthy("BUTLER_SESSION_HYDRATE", default=True)
+    return bool(env_truthy("BUTLER_SESSION_HYDRATE", default=True))
 
 
-def _project_workspace(project: Any):
+def _project_workspace(project: Any) -> Any:
     from butler.core.session_hydration_ops import project_workspace_safe
 
     return project_workspace_safe(project)
@@ -23,7 +23,7 @@ def _project_workspace(project: Any):
 def _last_transcript_assistant_ts(session_key: str) -> float | None:
     from butler.core.session_hydration_ops import last_transcript_assistant_ts_safe
 
-    return last_transcript_assistant_ts_safe(session_key)
+    return cast(float | None, last_transcript_assistant_ts_safe(session_key))
 
 
 def should_show_recovery_notice(session_key: str, *, gap_seconds: float = 300.0) -> bool:

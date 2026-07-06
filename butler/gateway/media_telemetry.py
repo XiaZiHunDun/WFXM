@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_home
 import logging
@@ -16,7 +16,7 @@ _STATE_NAME = "runtime/media_telemetry.json"
 
 
 def _state_path() -> Path:
-    return get_butler_home() / _STATE_NAME
+    return cast(Path, get_butler_home() / _STATE_NAME)
 
 
 def record_media_event(
@@ -49,7 +49,7 @@ def load_media_telemetry() -> dict[str, Any]:
         return {}
     from butler.gateway.media_telemetry_ops import load_json_dict_safe
 
-    return load_json_dict_safe(path)
+    return cast(dict[str, Any], load_json_dict_safe(path))
 
 
 def format_media_diagnostic_lines() -> list[str]:

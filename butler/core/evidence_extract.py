@@ -25,7 +25,7 @@ _SENT_SPLIT = re.compile(r"(?<=[。！？.!?])\s+|\n+")
 
 
 def compact_evidence_lines_enabled() -> int:
-    return int_env("BUTLER_COMPACT_EVIDENCE_LINES", 3, min=0, max=8)
+    return int(int_env("BUTLER_COMPACT_EVIDENCE_LINES", 3, min=0, max=8))
 
 
 def _content_to_text(content: Any) -> str:
@@ -45,7 +45,7 @@ def _split_sentences(text: str) -> list[str]:
     return [c.strip() for c in chunks if c and c.strip()]
 
 
-def extract_compact_evidence(middle: list[dict], *, max_lines: int | None = None) -> list[str]:
+def extract_compact_evidence(middle: list[dict[str, Any]], *, max_lines: int | None = None) -> list[str]:
     """Score sentences from compressible middle; return top evidence lines."""
     limit = compact_evidence_lines_enabled() if max_lines is None else max(0, int(max_lines))
     if limit <= 0 or not middle:
@@ -99,7 +99,7 @@ def format_evidence_block(lines: list[str]) -> str:
 
 def append_evidence_to_summary(
     summary: str,
-    middle: list[dict],
+    middle: list[dict[str, Any]],
     diagnostics: dict[str, Any] | None = None,
 ) -> str:
     lines = extract_compact_evidence(middle)

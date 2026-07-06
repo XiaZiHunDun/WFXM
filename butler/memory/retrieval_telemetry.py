@@ -44,7 +44,7 @@ def _normalize_item(payload: dict[str, Any]) -> dict[str, Any]:
         # prompt-side health reporting.
         "recall_degraded": bool(payload.get("recall_degraded")),
     }
-    item["scope"] = _infer_scope(item["mode"], payload)
+    item["scope"] = _infer_scope(str(item["mode"]), payload)
     subs = payload.get("sub_queries")
     if isinstance(subs, list) and subs:
         item["sub_queries"] = [str(s)[:80] for s in subs[:5]]
@@ -98,7 +98,9 @@ def get_last_retrieval(session_key: str) -> dict[str, Any]:
     by_scope = get_last_retrieval_by_scope(session_key)
     if not by_scope:
         return {}
-    return dict(max(by_scope.values(), key=lambda x: float(x.get("ts") or 0.0)))
+    items = list(by_scope.values())
+    best = max(items, key=lambda x: float(dict(x).get("ts") or 0.0))
+    return dict(best)
 
 
 def clear_last_retrieval(session_key: str) -> None:

@@ -7,7 +7,7 @@ from butler.env_parse import env_truthy
 
 
 def simplicity_anchor_enabled() -> bool:
-    return env_truthy("BUTLER_RESEARCH_SIMPLICITY_ANCHOR", default=True)
+    return bool(env_truthy("BUTLER_RESEARCH_SIMPLICITY_ANCHOR", default=True))
 
 
 def format_simplicity_anchor() -> str:

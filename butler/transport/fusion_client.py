@@ -7,7 +7,7 @@ Distinct from ``auxiliary_client``: fusion tasks need a capable model
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from butler.config import ModelConfig, get_butler_settings
 from butler.transport.llm_client import LLMClient
@@ -85,15 +85,15 @@ def fusion_complete(
 def _current_session_key() -> str:
     from butler.transport.fusion_client_ops import current_fusion_session_key_safe
 
-    return current_fusion_session_key_safe()
+    return str(current_fusion_session_key_safe())
 
 
-def make_fusion_llm_fn():
+def make_fusion_llm_fn() -> Callable[[str], str]:
     """Sync callable for ``SkillConsolidator`` / experience merge."""
     from butler.transport.fusion_client_ops import fusion_complete_or_raise_unavailable
 
     def _call(prompt: str) -> str:
-        return fusion_complete_or_raise_unavailable(fusion_complete, prompt)
+        return str(fusion_complete_or_raise_unavailable(fusion_complete, prompt))
 
     return _call
 

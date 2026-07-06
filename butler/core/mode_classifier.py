@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Literal, cast
 
 from butler.env_parse import env_truthy, int_env
 
@@ -27,21 +27,21 @@ _DO_PATTERNS: list[tuple[str, int]] = [
 
 
 def mode_classifier_enabled() -> bool:
-    return env_truthy("BUTLER_MODE_CLASSIFIER", default=True)
+    return bool(env_truthy("BUTLER_MODE_CLASSIFIER", default=True))
 
 
 def mode_classifier_aux_enabled() -> bool:
-    return env_truthy("BUTLER_MODE_CLASSIFIER_AUX", default=False)
+    return bool(env_truthy("BUTLER_MODE_CLASSIFIER_AUX", default=False))
 
 
 def mode_classifier_auto_plan() -> bool:
     """When true, high-confidence plan turns on plan_mode (risky on WeChat)."""
-    return env_truthy("BUTLER_MODE_CLASSIFIER_AUTO_PLAN", default=False)
+    return bool(env_truthy("BUTLER_MODE_CLASSIFIER_AUTO_PLAN", default=False))
 
 
 def _min_chars() -> int:
     try:
-        return max(20, int_env("BUTLER_MODE_CLASSIFIER_MIN_CHARS", 36))
+        return max(20, int(int_env("BUTLER_MODE_CLASSIFIER_MIN_CHARS", 36)))
     except ValueError:
         return 36
 
@@ -87,7 +87,7 @@ def classify_mode_auxiliary(text: str) -> ModeLabel | None:
         return None
     from butler.core.mode_classifier_ops import classify_mode_auxiliary_safe
 
-    return classify_mode_auxiliary_safe(text, score_fn=score_mode)
+    return cast(ModeLabel | None, classify_mode_auxiliary_safe(text, score_fn=score_mode))
 
 
 def classify_turn_mode(text: str) -> ModeLabel | None:

@@ -10,11 +10,11 @@ from butler.env_parse import float_env, int_env
 
 
 def delegate_summary_max_chars() -> int:
-    return int_env("BUTLER_DELEGATE_SUMMARY_MAX_CHARS", 4000, min=500, max=50000)
+    return int(int_env("BUTLER_DELEGATE_SUMMARY_MAX_CHARS", 4000, min=500, max=50000))
 
 
 def delegate_summary_reserve_ratio() -> float:
-    return float_env("BUTLER_DELEGATE_SUMMARY_RESERVE_RATIO", 0.0, min=0.0, max=0.5)
+    return float(float_env("BUTLER_DELEGATE_SUMMARY_RESERVE_RATIO", 0.0, min=0.0, max=0.5))
 
 
 def truncate_delegate_summary(text: str, *, max_chars: int | None = None) -> str:

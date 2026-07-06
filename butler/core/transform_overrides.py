@@ -16,7 +16,7 @@ _MAX_MAX_TOOLS = 64
 def _override_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "config" / "transform_overrides.json"
+    return Path(get_butler_home()) / "config" / "transform_overrides.json"
 
 
 def load_transform_overrides() -> dict[str, Any]:

@@ -75,15 +75,15 @@ def record_compaction_diagnostics(
 def mid_turn_compact_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_MID_TURN_COMPACT", default=True)
+    return bool(env_truthy("BUTLER_MID_TURN_COMPACT", default=True))
 
 
 def apply_summary_placement(
-    system: list[dict],
-    head_tail: list[dict],
-    summary_msg: dict,
+    system: list[dict[str, Any]],
+    head_tail: list[dict[str, Any]],
+    summary_msg: dict[str, Any],
     injection: InitialContextInjection,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Build compressed message list with Codex-style summary placement."""
     if injection == InitialContextInjection.DO_NOT_INJECT:
         return system + [summary_msg] + head_tail

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 # Higher = more likely kept when transcript file is trimmed.
 _TRANSCRIPT_KEEP_PRIORITY: dict[str, int] = {
     "compact_boundary": 100,
@@ -43,10 +45,10 @@ def transcript_keep_priority(entry_type: str, *, source: str = "") -> int:
 
 
 def select_transcript_rows_for_retention(
-    rows: list[dict],
+    rows: list[dict[str, Any]],
     *,
     keep_count: int,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Pick rows to retain by priority, preserving relative order among kept."""
     if keep_count >= len(rows):
         return list(rows)

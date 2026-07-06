@@ -15,7 +15,7 @@ _CC_HEAVY_PATTERNS: tuple[tuple[str, int], ...] = (
 
 
 def cc_route_hints_enabled() -> bool:
-    return env_truthy("BUTLER_CC_ROUTE_HINTS", default=True)
+    return bool(env_truthy("BUTLER_CC_ROUTE_HINTS", default=True))
 
 
 def score_heavy_coding_intent(text: str) -> int:

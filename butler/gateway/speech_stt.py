@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 def stt_provider() -> str:
     from butler.gateway_settings import resolve_gateway_inbound_config
 
-    return resolve_gateway_inbound_config().speech.stt_provider
+    return cast(str, resolve_gateway_inbound_config().speech.stt_provider)
 
 
 def silk_to_wav(silk_path: Path, wav_path: Path) -> None:
@@ -45,7 +46,7 @@ def silk_to_wav(silk_path: Path, wav_path: Path) -> None:
 def transcribe_wav_local(wav_path: Path) -> str:
     """Optional faster-whisper (``pip install faster-whisper``)."""
     try:
-        from faster_whisper import WhisperModel
+        from faster_whisper import WhisperModel  # type: ignore[import-not-found]
     except ImportError as exc:
         raise RuntimeError(
             "未安装 faster-whisper，无法转写纯语音文件（pip install faster-whisper）"
@@ -89,4 +90,4 @@ def transcribe_voice_file(path: str) -> str:
                 return transcribe_wav_local(wav)
             raise RuntimeError(f"未知 STT provider: {provider}")
 
-    return transcribe_with_stt_telemetry(_run, provider=provider, t0=t0)
+    return cast(str, transcribe_with_stt_telemetry(_run, provider=provider, t0=t0))

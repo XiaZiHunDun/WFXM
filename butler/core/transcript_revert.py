@@ -19,7 +19,7 @@ _LOCK = threading.RLock()
 
 def revert_keep_lines_default() -> int:
     try:
-        return int_env("BUTLER_TRANSCRIPT_REVERT_KEEP_LINES", 40, min=5)
+        return int(int_env("BUTLER_TRANSCRIPT_REVERT_KEEP_LINES", 40, min=5))
     except ValueError:
         return 40
 

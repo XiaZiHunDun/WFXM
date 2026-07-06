@@ -11,7 +11,7 @@ def infer_delegate_category(task: str) -> str:
     """Best-effort category inference from task intent (1a)."""
     from butler.tools.delegate_prepare_ops import infer_delegate_category_safe
 
-    return infer_delegate_category_safe(task)
+    return str(infer_delegate_category_safe(task))
 
 
 def apply_category_resolver(state: DelegateRunState) -> None:
@@ -45,12 +45,14 @@ def build_handoff_block_text(cat_name: str, role: str, task: str) -> str:
             "关键改动有 read_file 或测试证据",
         ]
         evidence_required = ["read_file 或 pytest"]
-    return render_handoff_block(
-        from_role="butler",
-        to_role=str(role or "dev"),
-        task=task,
-        acceptance=acceptance,
-        evidence_required=evidence_required,
+    return str(
+        render_handoff_block(
+            from_role="butler",
+            to_role=str(role or "dev"),
+            task=task,
+            acceptance=acceptance,
+            evidence_required=evidence_required,
+        )
     )
 
 

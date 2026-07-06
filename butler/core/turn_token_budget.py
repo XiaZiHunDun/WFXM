@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, replace
 
+from butler.context_settings import TurnBudgetSettings
 from butler.core.loop_types import LoopConfig
 
 _BUDGET_CMD_RE = re.compile(
@@ -23,14 +24,14 @@ _MULT = {"k": 1_000, "m": 1_000_000, "b": 1_000_000_000}
 _TURN_BUDGET_PHRASES = ("本轮尽量做完", "尽量做完", "多用点token", "多用点 token")
 
 
-def _turn_budget_settings():
+def _turn_budget_settings() -> TurnBudgetSettings:
     from butler.context_settings import resolve_context_config
 
     return resolve_context_config().turn_budget
 
 
 def turn_token_budget_enabled() -> bool:
-    return _turn_budget_settings().enabled
+    return bool(_turn_budget_settings().enabled)
 
 
 def _scale(value: str, suffix: str) -> int:
@@ -72,10 +73,10 @@ def strip_budget_markers(text: str) -> str:
 def budget_to_max_iterations(budget_tokens: int, base: int) -> int:
     """Map declared budget to a higher iteration cap (heuristic)."""
     tb = _turn_budget_settings()
-    floor = max(base, tb.min_iterations)
-    cap = max(floor, tb.max_iterations)
+    floor = max(base, int(tb.min_iterations))
+    cap = max(floor, int(tb.max_iterations))
     extra = max(0, int(budget_tokens) // 80_000)
-    return min(cap, floor + extra)
+    return int(min(cap, floor + extra))
 
 
 def resolve_turn_budget(
@@ -139,4 +140,4 @@ class TurnBudgetState:
 
 def continuation_limits() -> tuple[int, int]:
     tb = _turn_budget_settings()
-    return tb.max_continuations, tb.min_delta
+    return int(tb.max_continuations), int(tb.min_delta)

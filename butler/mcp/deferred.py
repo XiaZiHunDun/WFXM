@@ -7,7 +7,7 @@ import logging
 import re
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.harness_flags import mcp_deferred_tools_enabled
 from butler.mcp.bridge import refs_to_openai_definitions
@@ -23,7 +23,7 @@ _promoted: dict[str, set[str]] = {}
 def _session_key(session_key: str = "") -> str:
     from butler.mcp.deferred_ops import resolve_mcp_session_key_safe
 
-    return resolve_mcp_session_key_safe(session_key)
+    return cast(str, resolve_mcp_session_key_safe(session_key))
 
 
 def get_promoted_tools(session_key: str = "") -> set[str]:
@@ -48,7 +48,8 @@ def promote_tools(names: list[str], *, session_key: str = "") -> list[str]:
 
 
 def _tool_def_name(defn: dict[str, Any]) -> str:
-    fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
+    raw_fn = defn.get("function")
+    fn = raw_fn if isinstance(raw_fn, dict) else {}
     return str(fn.get("name") or defn.get("name") or "").strip()
 
 
@@ -117,14 +118,17 @@ def clear_promoted(session_key: str = "") -> None:
 def _resolve_workspace() -> Path | None:
     from butler.mcp.deferred_ops import resolve_mcp_workspace_safe
 
-    return resolve_mcp_workspace_safe()
+    return cast(Path | None, resolve_mcp_workspace_safe())
 
 
-def _all_mcp_refs(session_key: str = ""):
+def _all_mcp_refs(session_key: str = "") -> list[Any]:
     from butler.mcp.manager import get_manager
 
     sk = _session_key(session_key)
-    return get_manager().ensure_connected(sk, workspace=_resolve_workspace())
+    return cast(
+        list[Any],
+        get_manager().ensure_connected(sk, workspace=_resolve_workspace()),
+    )
 
 
 def search_mcp_tools(
@@ -172,7 +176,7 @@ def get_deferred_mcp_definitions(session_key: str = "") -> list[dict[str, Any]]:
     if not promoted:
         return []
     refs = [r for r in _all_mcp_refs(sk) if r.registered_name in promoted]
-    return refs_to_openai_definitions(refs)
+    return cast(list[dict[str, Any]], refs_to_openai_definitions(refs))
 
 
 def tool_search_handler(query: str, limit: int = 12, promote: bool = False) -> str:

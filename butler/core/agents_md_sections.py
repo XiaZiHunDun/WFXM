@@ -9,6 +9,8 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
+from typing import cast
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_SECTIONS = ("Session Startup", "Red Lines", "Every Session", "Safety")
@@ -24,7 +26,7 @@ def default_section_names() -> tuple[str, ...]:
 
 def max_section_chars() -> int:
     try:
-        return int_env("BUTLER_POST_COMPACT_AGENTS_MAX_CHARS", 2000, min=200, max=8000)
+        return int(int_env("BUTLER_POST_COMPACT_AGENTS_MAX_CHARS", 2000, min=200, max=8000))
     except ValueError:
         return 2000
 
@@ -32,7 +34,7 @@ def max_section_chars() -> int:
 def _resolve_workspace() -> Path | None:
     from butler.core.agents_md_sections_ops import resolve_agents_md_workspace_safe
 
-    return resolve_agents_md_workspace_safe()
+    return cast(Path | None, resolve_agents_md_workspace_safe())
 
 
 def _substitute_date_placeholders(text: str, *, now_ms: float | None = None) -> str:

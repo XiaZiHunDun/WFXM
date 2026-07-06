@@ -10,7 +10,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.io.safe_load import safe_load_json
 
@@ -89,7 +89,7 @@ def memory_auto_fact_enabled() -> bool:
     """When false, ``classification=auto`` always queues for Owner review."""
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_MEMORY_AUTO_FACT", default=True)
+    return bool(env_truthy("BUTLER_MEMORY_AUTO_FACT", default=True))
 
 
 def memory_auto_approve_mode() -> str:
@@ -743,4 +743,4 @@ class ProjectMemory:
         from butler.memory.memory_caps import truncate_memory_text
 
         text, _ = truncate_memory_text(p.read_text(encoding="utf-8"))
-        return text
+        return cast(str, text)

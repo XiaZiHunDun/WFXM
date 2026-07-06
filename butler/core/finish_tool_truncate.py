@@ -17,7 +17,7 @@ _FINISH_NAMES = frozenset(
 
 
 def finish_tool_truncate_enabled() -> bool:
-    return env_truthy("BUTLER_FINISH_TOOL_TRUNCATE", default=True)
+    return bool(env_truthy("BUTLER_FINISH_TOOL_TRUNCATE", default=True))
 
 
 def truncate_tool_calls_at_finish(tool_calls: list[ToolCall]) -> list[ToolCall]:

@@ -22,7 +22,7 @@ _RATE_LIMIT_FILE = "runtime/last_rate_limit_at.json"
 def resolve_owner_wechat_chat_id() -> str:
     from butler.gateway.owner_gate import resolve_owner_wechat_chat_id as _resolve
 
-    return _resolve()
+    return str(_resolve())
 
 
 def runtime_push_enabled() -> bool:
@@ -36,7 +36,7 @@ def _push_cooldown_seconds() -> float:
         logger.warning(
             "BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS=0 disables push cooldown (storm risk); using minimum 1.0s",
         )
-    return float_env("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", 25.0, min=1.0)
+    return float(float_env("BUTLER_RUNTIME_PUSH_COOLDOWN_SECONDS", 25.0, min=1.0))
 
 
 def _rate_limit_drain_cooldown_seconds() -> float:
@@ -53,7 +53,7 @@ def is_rate_limit_error(err: str | None) -> bool:
 
 
 def _rate_limit_path() -> Path:
-    return get_butler_home() / _RATE_LIMIT_FILE
+    return Path(get_butler_home() / _RATE_LIMIT_FILE)
 
 
 def _read_last_rate_limit_wall() -> float | None:
@@ -61,7 +61,10 @@ def _read_last_rate_limit_wall() -> float | None:
     if not isinstance(data, dict):
         return None
     try:
-        return float(data.get("wall"))
+        wall = data.get("wall")
+        if wall is None:
+            return None
+        return float(wall)
     except (TypeError, ValueError):
         return None
 
@@ -96,7 +99,7 @@ def rate_limit_drain_wait_seconds() -> float:
 
 
 def _last_push_path() -> Path:
-    return get_butler_home() / _LAST_PUSH_FILE
+    return Path(get_butler_home() / _LAST_PUSH_FILE)
 
 
 def _read_last_push_monotonic() -> float | None:
@@ -109,7 +112,10 @@ def _read_last_push_monotonic() -> float | None:
     if not isinstance(data, dict):
         return None
     try:
-        return float(data.get("monotonic"))
+        monotonic = data.get("monotonic")
+        if monotonic is None:
+            return None
+        return float(monotonic)
     except (TypeError, ValueError):
         return None
 
@@ -205,7 +211,7 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
         from butler.gateway.platforms.wechat_ilink import send_wechat_direct
         from butler.mcp.async_runner import run_mcp_async
 
-        return run_mcp_async(
+        result = run_mcp_async(
             send_wechat_direct(
                 extra=extra,
                 token=str(extra.get("token") or ""),
@@ -213,13 +219,15 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
                 message=text,
             )
         )
+        return result if isinstance(result, dict) else {}
 
     def _enqueue_failure(push_title: str, push_body: str, push_chat_id: str) -> None:
         from butler.runtime.push_queue import enqueue_failed_push
 
         enqueue_failed_push(push_title, push_body, chat_id=push_chat_id)
 
-    return push_runtime_wechat_safe(
+    return bool(
+        push_runtime_wechat_safe(
         _send,
         title=title,
         body=body,
@@ -229,6 +237,7 @@ def push_runtime_message(title: str, body: str, *, chat_id: str | None = None) -
         should_enqueue_failure=should_enqueue_wechat_push_failure,
         enqueue_failure=_enqueue_failure,
         record_rate_limit_failure=record_rate_limit_failure,
+        )
     )
 
 

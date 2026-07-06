@@ -71,7 +71,7 @@ def use_hermes_compaction_template() -> bool:
 def compaction_preflight_checklist_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_COMPACTION_PREFLIGHT_CHECKLIST", default=True)
+    return bool(env_truthy("BUTLER_COMPACTION_PREFLIGHT_CHECKLIST", default=True))
 
 
 PREFLIGHT_CHECKLIST_APPENDIX = """

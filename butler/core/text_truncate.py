@@ -7,7 +7,7 @@ from butler.env_parse import env_truthy
 
 
 def utf16_safe_truncate_enabled() -> bool:
-    return env_truthy("BUTLER_UTF16_SAFE_TRUNCATE", default=True)
+    return bool(env_truthy("BUTLER_UTF16_SAFE_TRUNCATE", default=True))
 
 
 def utf16_code_units(text: str) -> int:

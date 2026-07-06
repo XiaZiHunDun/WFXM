@@ -26,7 +26,7 @@ def compute_retry_delay(
     jitter = max(0.0, float(jitter_ratio))
     delay = min(base * (2 ** max(0, attempt_index)), cap)
     if delay == 0 or jitter == 0:
-        return delay
+        return float(delay)
 
-    rand = min(1.0, max(0.0, random_fn()))
-    return min(cap, delay + (delay * jitter * rand))
+    rand = min(1.0, max(0.0, float(random_fn())))
+    return float(min(cap, delay + (delay * jitter * rand)))

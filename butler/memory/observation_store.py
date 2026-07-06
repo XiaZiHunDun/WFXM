@@ -107,11 +107,11 @@ class ObservationStore:
 
     @staticmethod
     def _ttl_days() -> int:
-        return resolve_memory_config().observation_ttl_days
+        return int(resolve_memory_config().observation_ttl_days)
 
     @staticmethod
     def _max_rows() -> int:
-        return resolve_memory_config().observation_max_rows
+        return int(resolve_memory_config().observation_max_rows)
 
     def _prune_locked(self, conn: sqlite3.Connection) -> None:
         ttl_days = self._ttl_days()
@@ -228,7 +228,7 @@ class ObservationStore:
         if not rows:
             return []
         now = datetime.now(timezone.utc)
-        ranked: list[tuple[float, dict[str, str]]] = []
+        ranked: list[tuple[float, dict[str, Any]]] = []
         for row in rows:
             preview = str(row["preview"] or "")
             title = str(row["title"] or "")

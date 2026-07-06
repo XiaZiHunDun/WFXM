@@ -62,17 +62,17 @@ class TurnSpan:
 
 
 def turn_compaction_enabled() -> bool:
-    return env_truthy("BUTLER_COMPACTION_USE_TURNS", default=True)
+    return bool(env_truthy("BUTLER_COMPACTION_USE_TURNS", default=True))
 
 
 def tail_turns_limit() -> int:
     from butler.env_parse import int_env
 
-    return int_env("BUTLER_COMPACTION_TAIL_TURNS", _DEFAULT_TAIL_TURNS, min=0)
+    return int(int_env("BUTLER_COMPACTION_TAIL_TURNS", _DEFAULT_TAIL_TURNS, min=0))
 
 
 def split_turn_enabled() -> bool:
-    return env_truthy("BUTLER_COMPACTION_SPLIT_TURN", default=True)
+    return bool(env_truthy("BUTLER_COMPACTION_SPLIT_TURN", default=True))
 
 
 def preserve_recent_token_budget(
@@ -88,7 +88,7 @@ def preserve_recent_token_budget(
 
     fixed = int_env("BUTLER_COMPACTION_PRESERVE_RECENT_TOKENS", 0)
     if fixed > 0:
-        return max(_MIN_PRESERVE_RECENT, min(_MAX_PRESERVE_RECENT, fixed))
+        return int(max(_MIN_PRESERVE_RECENT, min(_MAX_PRESERVE_RECENT, fixed)))
     try:
         from butler.env_parse import float_env
 
@@ -109,7 +109,7 @@ def is_compaction_summary_message(msg: dict[str, Any]) -> bool:
     return any(m in text for m in _SUMMARY_MARKERS)
 
 
-def group_messages_into_turns(rest: list[dict]) -> list[TurnSpan]:
+def group_messages_into_turns(rest: list[dict[str, Any]]) -> list[TurnSpan]:
     """Each turn starts at a non-summary user message."""
     turns: list[TurnSpan] = []
     i = 0
@@ -128,22 +128,22 @@ def group_messages_into_turns(rest: list[dict]) -> list[TurnSpan]:
 
 
 def _estimate_messages_tokens(
-    messages: list[dict],
-    estimate_fn: Callable[[list[dict]], int] | None = None,
+    messages: list[dict[str, Any]],
+    estimate_fn: Callable[[list[dict[str, Any]]], int] | None = None,
 ) -> int:
     if estimate_fn is not None:
         return max(0, int(estimate_fn(messages)))
     from butler.core.context_compressor import _estimate_tokens
 
-    return _estimate_tokens(messages)
+    return int(_estimate_tokens(messages))
 
 
 def _split_turn_suffix(
-    rest: list[dict],
+    rest: list[dict[str, Any]],
     turn: TurnSpan,
     *,
     budget: int,
-    estimate_fn: Callable[[list[dict]], int] | None,
+    estimate_fn: Callable[[list[dict[str, Any]]], int] | None,
 ) -> TurnSpan | None:
     """Keep largest suffix of a turn within token budget (OpenCode splitTurn)."""
     if budget <= 0 or turn.end - turn.start <= 1:
@@ -156,13 +156,13 @@ def _split_turn_suffix(
 
 
 def select_tail_start_index(
-    rest: list[dict],
+    rest: list[dict[str, Any]],
     *,
     max_context_tokens: int,
     max_output_tokens: int | None = None,
     tail_turns: int | None = None,
     split_turn: bool | None = None,
-    estimate_fn: Callable[[list[dict]], int] | None = None,
+    estimate_fn: Callable[[list[dict[str, Any]]], int] | None = None,
     diagnostics: dict[str, Any] | None = None,
 ) -> int:
     """
@@ -256,15 +256,15 @@ def select_tail_start_index(
 
 
 def split_head_tail_turns(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     max_context_tokens: int,
     max_output_tokens: int | None = None,
     head_count: int = 3,
     min_tail_messages: int = 4,
-    estimate_fn: Callable[[list[dict]], int] | None = None,
+    estimate_fn: Callable[[list[dict[str, Any]]], int] | None = None,
     diagnostics: dict[str, Any] | None = None,
-) -> tuple[list[dict], list[dict], list[dict]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     """Return (system, middle, head_tail) using turn + token tail selection."""
     system = [m for m in messages if m.get("role") == "system"]
     rest = [m for m in messages if m.get("role") != "system"]
@@ -304,7 +304,7 @@ def split_head_tail_turns(
     return system, middle, head + tail
 
 
-def find_overflow_replay_user(messages: list[dict]) -> dict[str, Any] | None:
+def find_overflow_replay_user(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Last real user message before compaction (OpenCode overflow replay)."""
     for msg in reversed(messages):
         if msg.get("role") != "user":
@@ -319,9 +319,9 @@ def find_overflow_replay_user(messages: list[dict]) -> dict[str, Any] | None:
 
 
 def append_overflow_replay(
-    compressed: list[dict],
+    compressed: list[dict[str, Any]],
     replay: dict[str, Any] | None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     if not replay:
         return compressed
     content = str(replay.get("content") or "").strip()

@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from collections.abc import Callable
+from typing import Optional, cast
 
 logger = logging.getLogger(__name__)
+
+_RecordInjectionTranscript = Callable[..., None]
 
 
 def apply_io_guardrail_fail_closed(text: str) -> Optional[str]:
@@ -17,13 +20,19 @@ def apply_io_guardrail_fail_closed(text: str) -> Optional[str]:
         if io_guardrail_enabled():
             guard = check_inbound_text(text)
             if guard.tripwire and not guard.allowed:
-                return guard.user_message or "消息未通过入站安全检查。"
+                return cast(
+                    str,
+                    guard.user_message or "消息未通过入站安全检查。",
+                )
         return None
 
-    return run_fail_closed_guard(
-        _run,
-        label="io_guardrail",
-        blocked_message="安全检查模块异常，消息已拦截。请稍后重试。",
+    return cast(
+        Optional[str],
+        run_fail_closed_guard(
+            _run,
+            label="io_guardrail",
+            blocked_message="安全检查模块异常，消息已拦截。请稍后重试。",
+        ),
     )
 
 
@@ -46,13 +55,16 @@ def apply_human_gate_fail_closed(
             session_key, text, owner_verified=is_owner,
         )
         if gate_reply is not None:
-            return gate_reply
+            return cast(str, gate_reply)
         return None
 
-    return run_fail_closed_guard(
-        _run,
-        label="human_gate",
-        blocked_message="审批门控模块异常，消息已拦截。请稍后重试。",
+    return cast(
+        Optional[str],
+        run_fail_closed_guard(
+            _run,
+            label="human_gate",
+            blocked_message="审批门控模块异常，消息已拦截。请稍后重试。",
+        ),
     )
 
 
@@ -60,7 +72,7 @@ def apply_injection_guard_fail_closed(
     text: str,
     session_key: str,
     *,
-    record_injection_transcript,
+    record_injection_transcript: _RecordInjectionTranscript,
 ) -> tuple[str, Optional[str]]:
     from butler.gateway.message_pipelines_fail_closed_ops import (
         run_injection_guard_fail_closed,
@@ -83,13 +95,16 @@ def apply_injection_guard_fail_closed(
                     text,
                     label="message_pipelines.injection_score_transcript",
                 )
-        return mark_adversarial_user_text(text), None
+        return cast(str, mark_adversarial_user_text(text)), None
 
-    return run_injection_guard_fail_closed(
-        _run,
-        label="injection_guard",
-        text=text,
-        blocked_message="注入检测模块异常，消息已拦截。请稍后重试。",
+    return cast(
+        tuple[str, Optional[str]],
+        run_injection_guard_fail_closed(
+            _run,
+            label="injection_guard",
+            text=text,
+            blocked_message="注入检测模块异常，消息已拦截。请稍后重试。",
+        ),
     )
 
 
@@ -97,7 +112,7 @@ def apply_injection_llm_fail_closed(
     text: str,
     session_key: str,
     *,
-    record_injection_transcript,
+    record_injection_transcript: _RecordInjectionTranscript,
 ) -> Optional[str]:
     from butler.gateway.message_pipelines_fail_closed_ops import run_fail_closed_guard
 
@@ -121,7 +136,7 @@ def apply_injection_llm_fail_closed(
         if has_injection_review_pending(session_key):
             hint = format_pending_hint(session_key)
             if hint:
-                return hint
+                return cast(str, hint)
             return None
         blocked, llm_score, block_msg = should_block_inbound_llm_score(text)
         if llm_score is not None:
@@ -136,13 +151,19 @@ def apply_injection_llm_fail_closed(
             return None
         if injection_llm_gate_enabled() and llm_score is not None:
             request_injection_review_gate(session_key, score=llm_score)
-            return format_pending_hint(session_key) or block_msg
-        return block_msg
+            return cast(
+                str,
+                format_pending_hint(session_key) or block_msg,
+            )
+        return cast(str, block_msg)
 
-    return run_fail_closed_guard(
-        _run,
-        label="injection_llm_score",
-        blocked_message="LLM 注入检测模块异常，消息已拦截。请稍后重试。",
+    return cast(
+        Optional[str],
+        run_fail_closed_guard(
+            _run,
+            label="injection_llm_score",
+            blocked_message="LLM 注入检测模块异常，消息已拦截。请稍后重试。",
+        ),
     )
 
 

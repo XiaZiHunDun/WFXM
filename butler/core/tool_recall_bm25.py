@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
+from typing import Any
 
 from butler.core.meta_flags import tool_recall_bm25_enabled
 
@@ -15,13 +16,15 @@ def _tokenize(text: str) -> list[str]:
     return [t for t in _TOKEN_RE.findall(str(text or "").lower()) if len(t) >= 2]
 
 
-def _tool_name(defn: dict) -> str:
-    fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
+def _tool_name(defn: dict[str, Any]) -> str:
+    fn_raw = defn.get("function")
+    fn = fn_raw if isinstance(fn_raw, dict) else {}
     return str(fn.get("name") or defn.get("name") or "").strip()
 
 
-def _tool_document(defn: dict) -> str:
-    fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
+def _tool_document(defn: dict[str, Any]) -> str:
+    fn_raw = defn.get("function")
+    fn = fn_raw if isinstance(fn_raw, dict) else {}
     return f"{fn.get('name', '')} {fn.get('description', '')}"
 
 
@@ -56,11 +59,11 @@ class _BM25Index:
 
 
 def rank_tools_bm25(
-    tools: list[dict],
+    tools: list[dict[str, Any]],
     query: str,
     *,
     top_k: int = 12,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     if not tools:
         return []
     docs = [_tokenize(_tool_document(t)) for t in tools]
@@ -73,7 +76,7 @@ def rank_tools_bm25(
         for i in range(len(tools))
     ]
     scored.sort(key=lambda x: (-x[0], x[1]))
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for _, _, defn in scored:
         name = _tool_name(defn)
@@ -87,11 +90,11 @@ def rank_tools_bm25(
 
 
 def select_tools_with_bm25(
-    tools: list[dict],
+    tools: list[dict[str, Any]],
     *,
     user_hint: str = "",
     top_k: int | None = None,
-) -> tuple[list[dict], dict[str, int]]:
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     from butler.core.tool_selector import tool_selector_threshold
 
     cap = top_k if top_k is not None else tool_selector_threshold()

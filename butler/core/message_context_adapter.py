@@ -9,9 +9,7 @@ from butler.env_parse import env_truthy
 
 
 def api_message_acl_enabled() -> bool:
-    return env_truthy("BUTLER_API_MESSAGE_ACL", default=False)
-
-
+    return bool(env_truthy("BUTLER_API_MESSAGE_ACL", default=False))
 def to_loop_api_message_view(
     incoming: dict[str, Any] | LoopApiMessageView,
     *,
@@ -25,7 +23,7 @@ def to_loop_api_message_view(
 
 
 def annotate_api_message_boundary(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     diagnostics: dict[str, Any] | None,
     *,
     source: str = "prepare_messages",

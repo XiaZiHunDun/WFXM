@@ -4,15 +4,16 @@ from __future__ import annotations
 
 import logging
 import time as _time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from butler.gateway.message_handler import ButlerMessageHandler
+    from butler.gateway.locked_phases import LockedTurnState
 
 logger = logging.getLogger(__name__)
 
 
-def expand_owner_shortcuts(handler: ButlerMessageHandler, state) -> None:
+def expand_owner_shortcuts(handler: "ButlerMessageHandler", state: "LockedTurnState") -> None:
     """Owner natural-language → slash expansions before normalizers run."""
     from butler.gateway.locked_phases import LockedTurnState
     from butler.gateway.owner_delegate_shortcuts import (
@@ -68,7 +69,7 @@ def run_locked_message_turn(
 
     response = run_pre_lock_phases(handler, state)
     if response is not None:
-        return response
+        return cast(str, response)
 
     state.turn_started = _time.monotonic()
     logger.info(
@@ -92,8 +93,8 @@ def run_locked_message_turn(
                 session_key=session_key,
             )
             if err is not None:
-                return err
-            return result if result is not None else state.out
+                return cast(str, err)
+            return cast(str, result if result is not None else state.out)
         finally:
             state.loop.config = state.original_loop_config
 

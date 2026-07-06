@@ -29,13 +29,13 @@ def slim_mcp_raw_result(text: str, *, tool_name: str, server_id: str) -> str:
             if slimmed is not None:
                 return json.dumps(slimmed, ensure_ascii=False)
         if norm in ("get-authenticated-usr", "getAuthenticatedUser"):
-            slimmed = _slim_user(parsed)
-            if slimmed is not None:
-                return json.dumps(slimmed, ensure_ascii=False)
+            user_slim = _slim_user(parsed)
+            if user_slim is not None:
+                return json.dumps(user_slim, ensure_ascii=False)
         if norm in ("get-repo", "getRepository"):
-            slimmed = _slim_repo(parsed)
-            if slimmed is not None:
-                return json.dumps(slimmed, ensure_ascii=False)
+            repo_slim = _slim_repo(parsed)
+            if repo_slim is not None:
+                return json.dumps(repo_slim, ensure_ascii=False)
     if server_id == "todoist":
         if "lst-project" in norm or "getallproject" in norm.replace("-", ""):
             slimmed = _slim_todoist_project_list(parsed)

@@ -8,7 +8,7 @@ import os
 import re
 import time
 from html import unescape
-from typing import Any
+from typing import Any, Callable, cast
 from urllib.parse import quote_plus, unquote
 
 from butler.env_parse import env_truthy, float_env, int_env
@@ -33,13 +33,13 @@ _HEADERS = {
 
 
 def web_search_enabled() -> bool:
-    return env_truthy("BUTLER_ENABLE_WEB_SEARCH", default=False)
+    return bool(env_truthy("BUTLER_ENABLE_WEB_SEARCH", default=False))
 
 
 def _per_attempt_timeout_cap() -> float:
     try:
         raw = float_env("BUTLER_WEB_SEARCH_TIMEOUT", 15)
-        return min(_PER_ATTEMPT_TIMEOUT_MAX_SEC, max(3.0, raw))
+        return float(min(_PER_ATTEMPT_TIMEOUT_MAX_SEC, max(3.0, raw)))
     except ValueError:
         return 15.0
 
@@ -47,7 +47,7 @@ def _per_attempt_timeout_cap() -> float:
 def _total_budget() -> float:
     try:
         raw = float_env("BUTLER_WEB_SEARCH_BUDGET", 60)
-        return min(_BUDGET_MAX_SEC, max(5.0, raw))
+        return float(min(_BUDGET_MAX_SEC, max(5.0, raw)))
     except ValueError:
         return 60.0
 
@@ -70,7 +70,7 @@ def _try_direct_with_proxy() -> bool:
     """When proxy env is set, skip direct attempts unless explicitly enabled."""
     if not _proxy_configured():
         return True
-    return env_truthy("BUTLER_WEB_SEARCH_TRY_DIRECT", default=False)
+    return bool(env_truthy("BUTLER_WEB_SEARCH_TRY_DIRECT", default=False))
 
 
 def _search_strategies() -> list[tuple[str, bool]]:
@@ -85,7 +85,7 @@ def _search_strategies() -> list[tuple[str, bool]]:
 
 def _max_retries() -> int:
     try:
-        return max(1, int_env("BUTLER_WEB_SEARCH_RETRIES", 2, min=1))
+        return max(1, int(int_env("BUTLER_WEB_SEARCH_RETRIES", 2, min=1)))
     except ValueError:
         return 2
 
@@ -210,7 +210,7 @@ def _fetch_with_httpx(
         else:
             resp = client.get(url)
         resp.raise_for_status()
-        return resp.text
+        return str(resp.text)
 
 
 def _search_ddg_html_post(
@@ -316,7 +316,7 @@ def _search_duckduckgo(query: str, max_results: int = 5) -> list[dict[str, str]]
                 query=q,
             )
             if rows:
-                return rows[:max_results]
+                return cast(list[dict[str, str]], rows)[:max_results]
     return []
 
 
@@ -362,7 +362,7 @@ def tool_web_search(query: str = "", max_results: int = 5, **_: Any) -> str:
     }, ensure_ascii=False)
 
 
-def register_web_search_tool(register_fn) -> None:
+def register_web_search_tool(register_fn: Callable[..., None]) -> None:
     register_fn(
         name="web_search",
         description=(

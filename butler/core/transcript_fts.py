@@ -22,17 +22,13 @@ _CRON_SESSION_RE = re.compile(r"(?:^|[_/])cron(?:[_/]|$)", re.I)
 
 
 def fts_enabled() -> bool:
-    return env_truthy("BUTLER_TRANSCRIPT_FTS", default=True)
-
-
+    return bool(env_truthy("BUTLER_TRANSCRIPT_FTS", default=True))
 def fts_db_path() -> Path:
-    return get_butler_home() / "transcript_fts.db"
+    return Path(get_butler_home()) / "transcript_fts.db"
 
 
 def cron_deprioritize_enabled() -> bool:
-    return env_truthy("BUTLER_TRANSCRIPT_FTS_DEPRIORITIZE_CRON", default=True)
-
-
+    return bool(env_truthy("BUTLER_TRANSCRIPT_FTS_DEPRIORITIZE_CRON", default=True))
 def _is_cron_session(session_key: str) -> bool:
     return bool(_CRON_SESSION_RE.search(str(session_key or "")))
 
@@ -54,7 +50,7 @@ def _connect() -> sqlite3.Connection:
                 line_no INTEGER NOT NULL,
                 event_type TEXT NOT NULL DEFAULT '',
                 body TEXT NOT NULL,
-                PRIMARY KEY (session_key, line_no)
+                PRIMARY KEY (session_key, line_no))
             );
             CREATE VIRTUAL TABLE IF NOT EXISTS transcript_fts USING fts5(
                 session_key,

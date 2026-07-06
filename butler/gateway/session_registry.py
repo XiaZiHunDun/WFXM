@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,12 @@ class _TrackedSessionDict(dict[str, Any]):
             super().__setitem__(normalized, value)
             self._registry._last_active_at[normalized] = self._registry._now()
 
-    def update(self, other=(), /, **kwargs) -> None:  # type: ignore[override]
+    def update(  # type: ignore[override]
+        self,
+        other: Mapping[str, Any] | Iterable[tuple[str, Any]] = (),
+        /,
+        **kwargs: Any,
+    ) -> None:
         items = dict(other, **kwargs)
         for key, value in items.items():
             self[key] = value

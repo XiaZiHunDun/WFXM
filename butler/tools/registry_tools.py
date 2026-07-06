@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any, Callable, cast
 
 from butler.registry.skill_service import SkillRegistryService
 from butler.tools.registry_tools_ops import (
@@ -11,7 +12,7 @@ from butler.tools.registry_tools_ops import (
 )
 
 
-def register_registry_tools(register) -> None:
+def register_registry_tools(register: Callable[..., None]) -> None:
     register(
         name="registry_search_skills",
         description=(
@@ -83,7 +84,7 @@ def register_registry_tools(register) -> None:
     )
 
 
-def _tool_registry_search_skills(query: str, source: str = "all", **_) -> str:
+def _tool_registry_search_skills(query: str, source: str = "all", **_: Any) -> str:
     tenant = default_registry_tenant_id()
     svc = SkillRegistryService(tenant_id=tenant)
     hits = svc.search(query, source_filter=source or "all")
@@ -100,7 +101,7 @@ def _tool_registry_search_skills(query: str, source: str = "all", **_) -> str:
     return json.dumps({"skills": payload}, ensure_ascii=False)
 
 
-def _tool_registry_propose_skill_install(identifier: str, **_) -> str:
+def _tool_registry_propose_skill_install(identifier: str, **_: Any) -> str:
     svc = SkillRegistryService()
     return json.dumps(
         {
@@ -111,7 +112,7 @@ def _tool_registry_propose_skill_install(identifier: str, **_) -> str:
     )
 
 
-def _tool_registry_install_skill(identifier: str, source: str = "", **_) -> str:
+def _tool_registry_install_skill(identifier: str, source: str = "", **_: Any) -> str:
     """Install a skill — requires Owner confirmation.
 
     Sprint 19-1 SEC-19-A-1: 旧实现 import `butler.human_gate.is_owner_context`
@@ -138,10 +139,10 @@ def _tool_registry_install_skill(identifier: str, source: str = "", **_) -> str:
         }, ensure_ascii=False)
 
     svc = SkillRegistryService()
-    return install_skill_confirmed_json(svc, identifier)
+    return cast(str, install_skill_confirmed_json(svc, identifier))
 
 
-def _tool_registry_search_mcp(query: str = "", **_) -> str:
+def _tool_registry_search_mcp(query: str = "", **_: Any) -> str:
     from butler.registry.mcp_catalog import McpCatalogService
 
     svc = McpCatalogService()

@@ -111,7 +111,7 @@ def _turn_user_text() -> str:
 
     text = _turn_user_query()
     if text:
-        return text
+        return str(text)
     from butler.execution_context import get_current_session_key
     from butler.tools.delegate_role_guard_ops import turn_user_text_from_epoch_safe
 
@@ -119,7 +119,7 @@ def _turn_user_text() -> str:
     if sk:
         query = turn_user_text_from_epoch_safe(sk)
         if query:
-            return query
+            return str(query)
     return ""
 
 
@@ -145,7 +145,7 @@ def _is_lead_turn() -> bool:
 
 def lead_readonly_gate_enabled() -> bool:
     """Block Lead mistaken delegate_task on read-only intents (default on)."""
-    return env_truthy("BUTLER_LEAD_READONLY_GATE", default=True)
+    return bool(env_truthy("BUTLER_LEAD_READONLY_GATE", default=True))
 
 
 def lead_forbids_delegate(user_text: str) -> bool:

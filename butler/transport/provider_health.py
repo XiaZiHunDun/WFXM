@@ -27,23 +27,27 @@ class _CircuitState:
 
 
 def provider_circuit_enabled() -> bool:
-    return env_truthy("BUTLER_PROVIDER_CIRCUIT", default=True)
+    return bool(env_truthy("BUTLER_PROVIDER_CIRCUIT", default=True))
 
 
 def _failure_threshold() -> int:
-    return int_env(
-        "BUTLER_PROVIDER_CIRCUIT_FAILURES",
-        PROVIDER_CIRCUIT_FAILURES,
-        min=2,
+    return int(
+        int_env(
+            "BUTLER_PROVIDER_CIRCUIT_FAILURES",
+            PROVIDER_CIRCUIT_FAILURES,
+            min=2,
+        )
     )
 
 
 def _open_seconds() -> float:
-    return float_env(
-        "BUTLER_PROVIDER_CIRCUIT_OPEN_SECONDS",
-        float(PROVIDER_CIRCUIT_OPEN_SECONDS),
-        min=30.0,
-        warn_on_clamp=False,
+    return float(
+        float_env(
+            "BUTLER_PROVIDER_CIRCUIT_OPEN_SECONDS",
+            float(PROVIDER_CIRCUIT_OPEN_SECONDS),
+            min=30.0,
+            warn_on_clamp=False,
+        )
     )
 
 

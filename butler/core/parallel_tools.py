@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from contextvars import copy_context
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ _PATH_SCOPED = frozenset({"read_file", "write_file", "patch"})
 def _normalize_path(path: str) -> str:
     from butler.core.parallel_tools_ops import normalize_path_safe
 
-    return normalize_path_safe(path)
+    return str(normalize_path_safe(path))
 
 
 def _paths_overlap(a: str, b: str) -> bool:
@@ -27,7 +27,7 @@ def _paths_overlap(a: str, b: str) -> bool:
     return a == b or a.startswith(b + "/") or b.startswith(a + "/")
 
 
-def _extract_scope_path(tool_name: str, args: dict) -> str | None:
+def _extract_scope_path(tool_name: str, args: dict[str, Any]) -> str | None:
     if tool_name in _PATH_SCOPED:
         return str(args.get("path", "") or "")
     return None
@@ -70,10 +70,10 @@ def execute_tools_parallel(
     dispatch_fn: Callable[..., str],
     *,
     max_workers: int = 8,
-    on_start: Callable[[str, dict], None] | None = None,
+    on_start: Callable[[str, dict[str, Any]], None] | None = None,
     on_complete: Callable[[str, str], None] | None = None,
     check_interrupt: Callable[[], bool] | None = None,
-    precheck_tool: Callable[[str, dict], str | None] | None = None,
+    precheck_tool: Callable[[str, dict[str, Any]], str | None] | None = None,
     prefetched: dict[str, str] | None = None,
 ) -> list[tuple[Any, str]]:
     """Execute tool calls in parallel; return list of (tool_call, result) in original order."""
@@ -130,7 +130,7 @@ def execute_tools_parallel(
     return [results[i] for i in range(len(tool_calls))]
 
 
-def _finalize_parallel_tool_result(name: str, args: dict, result: Any) -> str:
+def _finalize_parallel_tool_result(name: str, args: dict[str, Any], result: Any) -> str:
     from butler.tools.registry import finalize_tool_result
 
-    return finalize_tool_result(name, args, result)
+    return str(finalize_tool_result(name, args, result))

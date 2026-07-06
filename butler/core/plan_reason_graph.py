@@ -21,8 +21,8 @@ _EDGE_RELS = frozenset({"depends", "supports", "contradicts", "refines"})
 
 
 def reason_graph_path(session_key: str) -> Path:
-    sk = _safe_segment(session_key)
-    return get_butler_home() / "sessions" / sk / "reason_graph.json"
+    sk = str(_safe_segment(session_key))
+    return Path(get_butler_home()) / "sessions" / sk / "reason_graph.json"
 
 
 def load_graph(session_key: str) -> dict[str, Any]:
@@ -149,8 +149,10 @@ def append_edge(
 
 def summarize_graph(session_key: str) -> dict[str, int]:
     data = load_graph(session_key)
-    nodes = data.get("nodes") if isinstance(data.get("nodes"), list) else []
-    edges = data.get("edges") if isinstance(data.get("edges"), list) else []
+    raw_nodes = data.get("nodes")
+    raw_edges = data.get("edges")
+    nodes: list[Any] = raw_nodes if isinstance(raw_nodes, list) else []
+    edges: list[Any] = raw_edges if isinstance(raw_edges, list) else []
     by_role: dict[str, int] = {}
     for n in nodes:
         if not isinstance(n, dict):

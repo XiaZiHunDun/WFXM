@@ -27,14 +27,12 @@ _FORMATTABLE_SUFFIXES = {
 
 
 def post_edit_format_enabled() -> bool:
-    return env_truthy("BUTLER_POST_EDIT_FORMAT", default=False)
-
-
+    return bool(env_truthy("BUTLER_POST_EDIT_FORMAT", default=False))
 def _command_available(name: str) -> bool:
     return shutil.which(name) is not None
 
 
-def maybe_format_after_edit(path: Path) -> dict[str, str] | None:
+def maybe_format_after_edit(path: Path) -> dict[str, str | bool] | None:
     """Run formatter when enabled; return info dict or None."""
     if not post_edit_format_enabled():
         return None

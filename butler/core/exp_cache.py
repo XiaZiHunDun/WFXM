@@ -28,7 +28,7 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 from butler.core.meta_flags import exp_cache_enabled
 from butler.env_parse import env_truthy
@@ -53,7 +53,7 @@ def fingerprint_llm_request(
     provider: str,
     model: str,
     messages: list[dict[str, Any]],
-    tools: list[dict] | None = None,
+    tools: list[dict[str, Any]] | None = None,
 ) -> str:
     """Stable fingerprint: provider+model+last user content+sorted tool names."""
     last_user = ""
@@ -197,7 +197,7 @@ def _resolve_max_entries() -> int:
     from butler.env_parse import int_env
 
     raw = int_env("BUTLER_EXP_CACHE_MAX", _DEFAULT_MAX_ENTRIES)
-    return max(_MAX_ENTRIES_FLOOR, min(_MAX_ENTRIES_CEILING, raw))
+    return max(_MAX_ENTRIES_FLOOR, min(_MAX_ENTRIES_CEILING, int(raw)))
 
 
 def _resolve_ttl_seconds() -> float:
@@ -215,13 +215,13 @@ def _resolve_ttl_seconds() -> float:
 # --- back-compat shims (preserved for tests that monkeypatch them) -----------
 
 def _cache_enabled() -> bool:
-    return exp_cache_enabled()
+    return bool(exp_cache_enabled())
 
 
 def _resolve_cache_path() -> Path | None:
     from butler.core.exp_cache_ops import resolve_llm_cache_path_safe
 
-    return resolve_llm_cache_path_safe()
+    return cast(Path | None, resolve_llm_cache_path_safe())
 
 
 # --- disk I/O under file lock ------------------------------------------------

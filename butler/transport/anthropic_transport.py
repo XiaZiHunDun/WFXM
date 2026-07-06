@@ -33,7 +33,7 @@ def _convert_messages_to_anthropic(
     Returns (system_prompt, anthropic_messages).
     """
     system_parts: list[str] = []
-    anthropic_msgs: list[dict] = []
+    anthropic_msgs: list[dict[str, Any]] = []
 
     for msg in messages:
         role = msg.get("role", "")
@@ -108,14 +108,14 @@ def _convert_tools_to_anthropic(
     return result
 
 
-class AnthropicTransport(ProviderTransport):
+class AnthropicTransport(ProviderTransport):  # type: ignore[misc]
 
     @property
     def api_mode(self) -> str:
         return "anthropic_messages"
 
     def convert_messages(
-        self, messages: List[Dict[str, Any]], **kwargs
+        self, messages: List[Dict[str, Any]], **kwargs: Any
     ) -> tuple[str, List[Dict[str, Any]]]:
         # Sprint 29 P2-4.3: apply cache_control to last user msg (boundary 2)
         # before OpenAI→Anthropic conversion. The list-form content carries
@@ -142,7 +142,7 @@ class AnthropicTransport(ProviderTransport):
         model: str,
         messages: Any,
         tools: Optional[Any] = None,
-        **params,
+        **params: Any,
     ) -> Dict[str, Any]:
         if isinstance(messages, tuple) and len(messages) == 2:
             system_prompt, anthropic_messages = messages
@@ -192,13 +192,13 @@ class AnthropicTransport(ProviderTransport):
         return kwargs
 
     def normalize_response(
-        self, response: Any, **kwargs
+        self, response: Any, **kwargs: Any
     ) -> NormalizedResponse:
         if isinstance(response, dict):
             return self._normalize_dict(response)
         return self._normalize_sdk(response)
 
-    def _normalize_dict(self, data: dict) -> NormalizedResponse:
+    def _normalize_dict(self, data: dict[str, Any]) -> NormalizedResponse:
         content_blocks = data.get("content", [])
         stop_reason = data.get("stop_reason", "end_turn")
 

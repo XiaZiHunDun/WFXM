@@ -20,33 +20,33 @@ _SEARCH_INTENT_RE = re.compile(
 
 
 def network_search_gate_enabled() -> bool:
-    return env_truthy("BUTLER_NETWORK_SEARCH_GATE", default=True)
+    return bool(env_truthy("BUTLER_NETWORK_SEARCH_GATE", default=True))
 
 
 def max_firecrawl_search_per_turn() -> int:
     try:
-        return max(0, int_env("BUTLER_FIRECRAWL_SEARCH_MAX_PER_TURN", 3, min=0))
+        return max(0, int(int_env("BUTLER_FIRECRAWL_SEARCH_MAX_PER_TURN", 3, min=0)))
     except ValueError:
         return 3
 
 
 def max_web_search_empty_per_turn() -> int:
     try:
-        return max(0, int_env("BUTLER_WEB_SEARCH_EMPTY_MAX_PER_TURN", 2, min=0))
+        return max(0, int(int_env("BUTLER_WEB_SEARCH_EMPTY_MAX_PER_TURN", 2, min=0)))
     except ValueError:
         return 2
 
 
 def max_firecrawl_agent_per_turn() -> int:
     try:
-        return max(0, int_env("BUTLER_FIRECRAWL_AGENT_MAX_PER_TURN", 0, min=0))
+        return max(0, int(int_env("BUTLER_FIRECRAWL_AGENT_MAX_PER_TURN", 0, min=0)))
     except ValueError:
         return 0
 
 
 def max_firecrawl_feedback_per_turn() -> int:
     try:
-        return max(0, int_env("BUTLER_FIRECRAWL_FEEDBACK_MAX_PER_TURN", 0, min=0))
+        return max(0, int(int_env("BUTLER_FIRECRAWL_FEEDBACK_MAX_PER_TURN", 0, min=0)))
     except ValueError:
         return 0
 
@@ -84,7 +84,7 @@ def is_github_mcp_intent(query: str) -> bool:
     """GitHub 列仓库/issues 应走 MCP，不走 web 检索。"""
     from butler.tools.network_search_policy_ops import is_github_mcp_intent_safe
 
-    return is_github_mcp_intent_safe(query)
+    return bool(is_github_mcp_intent_safe(query))
 
 
 def _github_mcp_block(tool_name: str) -> dict[str, Any] | None:
@@ -273,7 +273,7 @@ def _turn_user_query() -> str:
         return text
     from butler.tools.network_search_policy_ops import epoch_user_query_safe
 
-    return epoch_user_query_safe()
+    return str(epoch_user_query_safe())
 
 
 def _web_search_in_current_toolset() -> bool:
@@ -282,7 +282,7 @@ def _web_search_in_current_toolset() -> bool:
 
     if not web_search_enabled():
         return False
-    return web_search_in_current_toolset_safe(fallback=web_search_enabled())
+    return bool(web_search_in_current_toolset_safe(fallback=web_search_enabled()))
 
 
 def _gate_active() -> bool:

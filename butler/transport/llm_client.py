@@ -7,7 +7,7 @@ Provides both streaming and non-streaming call modes.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 from butler.transport.types import NormalizedResponse, Usage
 from butler.transport.providers import ProviderProfile, get_provider
@@ -79,7 +79,7 @@ class LLMClient:
 
     _MAX_RETRIES = 0  # 重试由外层 llm_retry 中间件统一处理，关闭 SDK 默认重试避免双层放大（Sprint 10 PERF-NEW-3）
 
-    def _wire_tools_or_empty(self, tools: list[dict]) -> list[dict]:
+    def _wire_tools_or_empty(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """R2-10: Wire tools for the active provider; on failure, return [].
 
         Behaviour change vs. the previous bad_fallback: when
@@ -104,9 +104,9 @@ class LLMClient:
             api_mode=self.api_mode,
         )
         self._last_tool_wire_error = exc
-        return wired
+        return cast(list[dict[str, Any]], wired)
 
-    def _get_openai_client(self):
+    def _get_openai_client(self) -> Any:
         if self._client is None:
             try:
                 from openai import OpenAI
@@ -124,7 +124,7 @@ class LLMClient:
                 raise RuntimeError("openai package required: pip install openai")
         return self._client
 
-    def _get_anthropic_client(self):
+    def _get_anthropic_client(self) -> Any:
         if self._client is None:
             api_key = self._api_key
             if not api_key:
@@ -154,11 +154,11 @@ class LLMClient:
 
     def complete(
         self,
-        messages: list[dict],
-        tools: Optional[list[dict]] = None,
+        messages: list[dict[str, Any]],
+        tools: Optional[list[dict[str, Any]]] = None,
         check_interrupt: Optional[Callable[[], bool]] = None,
         stale_timeout: Optional[float] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> NormalizedResponse:
         """Non-streaming completion."""
         from butler.transport import get_transport
@@ -196,21 +196,24 @@ class LLMClient:
             response = self._raw_call(api_kwargs)
             return transport.normalize_response(response)
 
-        return run_interruptible(
-            _do,
-            check_interrupt=check_interrupt,
-            stale_timeout=stale,
+        return cast(
+            NormalizedResponse,
+            run_interruptible(
+                _do,
+                check_interrupt=check_interrupt,
+                stale_timeout=stale,
+            ),
         )
 
     def stream(
         self,
-        messages: list[dict],
-        tools: Optional[list[dict]] = None,
+        messages: list[dict[str, Any]],
+        tools: Optional[list[dict[str, Any]]] = None,
         on_delta: Optional[Callable[[str], None]] = None,
-        on_tool_call_ready: Optional[Callable[[int, str, str, dict], None]] = None,
+        on_tool_call_ready: Optional[Callable[[int, str, str, dict[str, Any]], None]] = None,
         check_interrupt: Optional[Callable[[], bool]] = None,
         stale_timeout: Optional[float] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> NormalizedResponse:
         """Streaming completion with delta callback."""
         from butler.transport import get_transport
@@ -266,13 +269,16 @@ class LLMClient:
                     if tail:
                         on_delta(tail)
 
-        return run_interruptible(
-            _do,
-            check_interrupt=check_interrupt,
-            stale_timeout=stale,
+        return cast(
+            NormalizedResponse,
+            run_interruptible(
+                _do,
+                check_interrupt=check_interrupt,
+                stale_timeout=stale,
+            ),
         )
 
-    def _raw_call(self, api_kwargs: dict) -> Any:
+    def _raw_call(self, api_kwargs: dict[str, Any]) -> Any:
         """Execute the actual API call."""
         api_kwargs.pop("stream", None)
 
@@ -280,11 +286,11 @@ class LLMClient:
             return self._call_anthropic(api_kwargs)
         return self._call_openai(api_kwargs)
 
-    def _call_openai(self, api_kwargs: dict) -> Any:
+    def _call_openai(self, api_kwargs: dict[str, Any]) -> Any:
         client = self._get_openai_client()
         return client.chat.completions.create(**api_kwargs)
 
-    def _call_anthropic(self, api_kwargs: dict) -> Any:
+    def _call_anthropic(self, api_kwargs: dict[str, Any]) -> Any:
         from butler.transport.llm_client_ops import merge_thinking_headers_safe
 
         api_kwargs = merge_thinking_headers_safe(
@@ -299,9 +305,9 @@ class LLMClient:
 
     def _stream_call(
         self,
-        api_kwargs: dict,
+        api_kwargs: dict[str, Any],
         on_delta: Optional[Callable[[str], None]] = None,
-        on_tool_call_ready: Optional[Callable[[int, str, str, dict], None]] = None,
+        on_tool_call_ready: Optional[Callable[[int, str, str, dict[str, Any]], None]] = None,
         transport: Any = None,
     ) -> NormalizedResponse:
         """Execute streaming API call and collect into NormalizedResponse."""
@@ -311,7 +317,7 @@ class LLMClient:
 
         collected_content = []
         collected_reasoning = []
-        collected_tool_calls: dict[int, dict] = {}
+        collected_tool_calls: dict[int, dict[str, Any]] = {}
         finish_reason = "stop"
         usage = None
 
@@ -419,10 +425,10 @@ class LLMClient:
 
     def _stream_anthropic(
         self,
-        api_kwargs: dict,
+        api_kwargs: dict[str, Any],
         on_delta: Optional[Callable[[str], None]],
         transport: Any,
-        on_tool_call_ready: Optional[Callable[[int, str, str, dict], None]] = None,
+        on_tool_call_ready: Optional[Callable[[int, str, str, dict[str, Any]], None]] = None,
     ) -> NormalizedResponse:
         from butler.transport.types import ToolCall
 
@@ -448,7 +454,7 @@ class LLMClient:
 
         collected_text: list[str] = []
         tool_calls: list[ToolCall] = []
-        current_tool: Optional[dict] = None
+        current_tool: Optional[dict[str, Any]] = None
         finish_reason = "stop"
         usage = None
 

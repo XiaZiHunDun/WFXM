@@ -10,7 +10,7 @@ from typing import Any
 
 def read_summary_threshold_lines() -> int:
     try:
-        return max(50, int_env("BUTLER_READ_FILE_SUMMARY_THRESHOLD", 400))
+        return max(50, int(int_env("BUTLER_READ_FILE_SUMMARY_THRESHOLD", 400)))
     except ValueError:
         return 400
 

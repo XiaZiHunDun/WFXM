@@ -9,6 +9,8 @@ from collections import OrderedDict
 
 from butler.env_parse import env_truthy, int_env
 
+from typing import Any, cast
+
 _CORE_TOOLS = frozenset({
     "read_file",
     "search_files",
@@ -27,7 +29,7 @@ _CORE_TOOLS = frozenset({
 
 _TOOL_EMBED_CACHE_MAX = 256
 _tool_embed_cache: "OrderedDict[str, list[float]]" = OrderedDict()
-_embedder_instance = None
+_embedder_instance: object | None = None
 _embedder_resolved = False
 
 
@@ -42,28 +44,30 @@ def _tool_embed_cache_key(name: str, text: str) -> str:
 
 
 def tool_selector_enabled() -> bool:
-    return env_truthy("BUTLER_TOOL_SELECTOR", default=True)
+    return bool(env_truthy("BUTLER_TOOL_SELECTOR", default=True))
 
 
 def tool_selector_threshold() -> int:
     try:
-        return int_env("BUTLER_TOOL_SELECTOR_THRESHOLD", 12, min=4, max=40)
+        return int(int_env("BUTLER_TOOL_SELECTOR_THRESHOLD", 12, min=4, max=40))
     except ValueError:
         return 12
 
 
-def _tool_name(defn: dict) -> str:
-    fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
+def _tool_name(defn: dict[str, Any]) -> str:
+    fn_raw = defn.get("function")
+    fn = fn_raw if isinstance(fn_raw, dict) else {}
     return str(fn.get("name") or defn.get("name") or "").strip()
 
 
-def _tool_text(defn: dict) -> str:
-    fn = defn.get("function") if isinstance(defn.get("function"), dict) else {}
+def _tool_text(defn: dict[str, Any]) -> str:
+    fn_raw = defn.get("function")
+    fn = fn_raw if isinstance(fn_raw, dict) else {}
     parts = [str(fn.get("name") or ""), str(fn.get("description") or "")]
     return " ".join(parts).lower()
 
 
-def _get_semantic_embedder():
+def _get_semantic_embedder() -> object | None:
     """Lazy-init embedder for tool semantic scoring (only if non-hashing)."""
     global _embedder_instance, _embedder_resolved
     if _embedder_resolved:
@@ -77,7 +81,7 @@ def _get_semantic_embedder():
     return _embedder_instance
 
 
-def _semantic_score(defn: dict, query_vec: list[float], embedder: object) -> float:
+def _semantic_score(defn: dict[str, Any], query_vec: list[float], embedder: object) -> float:
     """Compute semantic similarity between tool description and user query."""
     text = _tool_text(defn)
     name = _tool_name(defn)
@@ -97,10 +101,10 @@ def _semantic_score(defn: dict, query_vec: list[float], embedder: object) -> flo
             _tool_embed_cache.popitem(last=False)
     from butler.memory.embedding import cosine_similarity
 
-    return max(0.0, cosine_similarity(query_vec, tool_vec))
+    return float(max(0.0, cosine_similarity(query_vec, tool_vec)))
 
 
-def _score_tool(defn: dict, *, keywords: set[str]) -> int:
+def _score_tool(defn: dict[str, Any], *, keywords: set[str]) -> int:
     if not keywords:
         return 0
     text = _tool_text(defn)
@@ -119,13 +123,13 @@ def _keywords_from_context(*, user_hint: str = "", role: str = "") -> set[str]:
 
 
 def select_tools_for_context(
-    tools: list[dict],
+    tools: list[dict[str, Any]],
     *,
     user_hint: str = "",
     role: str = "",
     threshold: int | None = None,
     skill_preferred_tools: set[str] | None = None,
-) -> tuple[list[dict], dict[str, int]]:
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
     """Return (selected_tools, diagnostics).
 
     skill_preferred_tools: tool names from matched skills that should be
@@ -152,7 +156,7 @@ def select_tools_for_context(
             cap=cap,
         )
         if bm25 is not None:
-            return bm25
+            return cast(tuple[list[dict[str, Any]], dict[str, int]], bm25)
     if len(tools) <= cap:
         return list(tools), diag
 
@@ -165,7 +169,7 @@ def select_tools_for_context(
 
         query_vec = embed_text_safe(embedder, user_hint)
 
-    ranked: list[tuple[int, int, dict]] = []
+    ranked: list[tuple[int, int, dict[str, Any]]] = []
     for idx, defn in enumerate(tools):
         name = _tool_name(defn)
         base = 100 if name in pinned else 0
@@ -180,7 +184,7 @@ def select_tools_for_context(
         ranked.append((base + kw_score + sem_boost, idx, defn))
 
     ranked.sort(key=lambda t: (-t[0], t[1]))
-    chosen: list[dict] = []
+    chosen: list[dict[str, Any]] = []
     seen: set[str] = set()
     for _, _, defn in ranked:
         name = _tool_name(defn)

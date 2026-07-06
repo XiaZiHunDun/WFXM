@@ -18,7 +18,7 @@ _FAILURE_HINTS = (
 
 
 def corrective_recall_enabled() -> bool:
-    return resolve_memory_config().corrective_recall_enabled
+    return bool(resolve_memory_config().corrective_recall_enabled)
 
 
 def should_trigger_corrective(tool_name: str, result_text: str) -> bool:

@@ -79,7 +79,7 @@ def auxiliary_complete(
 def _current_session_key() -> str:
     from butler.transport.auxiliary_client_ops import current_auxiliary_session_key_safe
 
-    return current_auxiliary_session_key_safe()
+    return str(current_auxiliary_session_key_safe())
 
 
 def auxiliary_llm_call_factory(

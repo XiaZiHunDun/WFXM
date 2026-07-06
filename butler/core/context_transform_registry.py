@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.contracts.context_transform_ports import ContextTransformPort, TransformContext
 
@@ -28,9 +28,9 @@ class _FnTransform:
     transform_id: str
     priority: int
     lossy: bool
-    fn: Callable[[list[dict], TransformContext], list[dict]]
+    fn: Callable[[list[dict[str, Any]], TransformContext], list[dict[str, Any]]]
 
-    def apply(self, messages: list[dict], ctx: TransformContext) -> list[dict]:
+    def apply(self, messages: list[dict[str, Any]], ctx: TransformContext) -> list[dict[str, Any]]:
         return self.fn(messages, ctx)
 
 
@@ -45,7 +45,7 @@ def register_builtin_transform(
 def _default_config_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "model-transforms.yaml"
+    return Path(get_butler_home()) / "model-transforms.yaml"
 
 
 def _load_config_profiles(path: Path | None = None) -> list[dict[str, Any]]:
@@ -105,7 +105,8 @@ def _resolve_transform_chain(
             tid = str(item.get("id") or "").strip()
             if not tid:
                 continue
-            params = item.get("params") if isinstance(item.get("params"), dict) else {}
+            raw_params = item.get("params")
+            params: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
             prio = int(item.get("priority", 100))
             entries.append((tid, params, prio))
     else:
@@ -123,13 +124,13 @@ def _resolve_transform_chain(
 
 
 def apply_model_transforms(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     *,
     provider: str,
     model: str,
     diagnostics: dict[str, Any] | None = None,
     path: Path | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Run matched transform chain on API messages."""
     from butler.core.transform_overrides import merge_transform_params
 
@@ -167,10 +168,10 @@ def refresh_model_binding(loop: Any) -> None:
         loop.diagnostics["active_model"] = f"{provider}/{model}"
 
 
-def _thinking_protocol_transform(messages: list[dict], ctx: TransformContext) -> list[dict]:
+def _thinking_protocol_transform(messages: list[dict[str, Any]], ctx: TransformContext) -> list[dict[str, Any]]:
     from butler.transport.thinking_protocol import maybe_append_thinking_system_hint
 
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for msg in messages:
         copy = dict(msg)
         if copy.get("role") == "system":
@@ -183,13 +184,13 @@ def _thinking_protocol_transform(messages: list[dict], ctx: TransformContext) ->
     return out
 
 
-def _fc_hint_extra_transform(messages: list[dict], ctx: TransformContext) -> list[dict]:
+def _fc_hint_extra_transform(messages: list[dict[str, Any]], ctx: TransformContext) -> list[dict[str, Any]]:
     from butler.agent_profiles import get_model_aware_prompt_extra
 
     extra = get_model_aware_prompt_extra(ctx.provider)
     if not extra:
         return list(messages)
-    out: list[dict] = []
+    out: list[dict[str, Any]] = []
     for msg in messages:
         copy = dict(msg)
         if copy.get("role") == "system":

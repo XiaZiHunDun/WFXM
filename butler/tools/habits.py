@@ -16,7 +16,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.tools._file_cache import read_json_cached
 from butler.tools.pim_schema import (
@@ -35,15 +35,15 @@ _checkin_store = TenantStore("habits/checkins", env_toggle="BUTLER_HABITS_ENABLE
 
 
 def _habits_enabled() -> bool:
-    return _store.enabled()
+    return bool(_store.enabled())
 
 
 def _habits_dir() -> Path:
-    return _store.storage_dir()
+    return Path(_store.storage_dir())
 
 
 def _checkins_dir() -> Path:
-    d = _checkin_store.storage_dir()
+    d = Path(_checkin_store.storage_dir())
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -61,7 +61,7 @@ def _save_checkin(habit_id: str, date: str, count: int = 1, note: str = "") -> P
         "note": note,
         "created_at": time.time(),
     }
-    return _checkin_store.save(data)
+    return Path(_checkin_store.save(data))
 
 
 def _load_checkins(habit_id: str, days: int = 30) -> list[dict[str, Any]]:
@@ -130,10 +130,10 @@ def _find_habit_by_prefix_or_name(identifier: str) -> dict[str, Any] | None:
         return None
     habit = _store.load_one(hid)
     if habit:
-        return habit
+        return cast(dict[str, Any], habit)
     for h in _store.load_all():
         if h["id"].startswith(hid) or h.get("name", "").lower() == hid.lower():
-            return h
+            return cast(dict[str, Any], h)
     return None
 
 

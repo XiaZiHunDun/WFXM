@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.env_parse import env_truthy
 
@@ -24,7 +24,7 @@ _MANIFEST = "manifest.json"
 
 
 def ingest_enabled() -> bool:
-    return env_truthy("BUTLER_INGEST_ENABLED", default=False)
+    return bool(env_truthy("BUTLER_INGEST_ENABLED", default=False))
 
 
 def ingest_output_root(workspace: Path) -> Path:
