@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_settings
 from butler.defaults.env_defaults import (
@@ -89,7 +89,7 @@ def _load_yaml_context() -> dict[str, Any]:
     settings = get_butler_settings()
     from butler.context_settings_ops import load_yaml_context_section_safe
 
-    return load_yaml_context_section_safe(settings.config_yaml_path)
+    return cast(dict[str, Any], load_yaml_context_section_safe(settings.config_yaml_path))
 
 
 def _nested_dict(raw: dict[str, Any], key: str) -> dict[str, Any]:
@@ -127,7 +127,7 @@ def _merged_int(
         yaml_default = _int_from_raw(root, key, default)
     else:
         yaml_default = default
-    return int_env(env_name, yaml_default, min=min)
+    return int(int_env(env_name, yaml_default, min=min))
 
 
 def resolve_context_config() -> ContextConfig:

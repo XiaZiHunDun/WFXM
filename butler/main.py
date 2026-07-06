@@ -52,7 +52,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _register_per_area_parsers(sub: argparse._SubParsersAction) -> None:
+def _register_per_area_parsers(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Per-area registrations (R1-7 extraction targets)."""
     from butler.cli.chat_cli import register_chat_parser
     from butler.cli.cost_cli import register_cost_parser
@@ -73,7 +73,7 @@ def _register_per_area_parsers(sub: argparse._SubParsersAction) -> None:
     register_mcp_parser(sub)
 
 
-def _register_preexisting_parsers(sub: argparse._SubParsersAction) -> None:
+def _register_preexisting_parsers(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Pre-existing delegations — keep them here so the orchestrator
     surface is the single point of truth for "what does `butler` do?"."""
     from butler.cli.eval_cli import register_eval_parser
@@ -102,7 +102,7 @@ def _register_preexisting_parsers(sub: argparse._SubParsersAction) -> None:
 def _cmd_doctor(ns: argparse.Namespace) -> int:
     from butler.cli.doctor import cmd_doctor
 
-    return cmd_doctor(ns)
+    return int(cmd_doctor(ns))
 
 
 def main(argv: Sequence[str] | None = None) -> None:

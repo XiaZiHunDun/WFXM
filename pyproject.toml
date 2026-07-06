@@ -800,6 +800,12 @@ module = [
     "butler.experiments.outcomes",
     "butler.experiments.crash_guard",
     "butler.experiments.git_utils",
+    "butler.context_settings",
+    "butler.config_secrets",
+    "butler.model_resolve",
+    "butler.tool_guardrails",
+    "butler.main",
+    "butler.experiments.mode",
 ]
 strict = true
 

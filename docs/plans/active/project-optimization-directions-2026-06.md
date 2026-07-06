@@ -217,15 +217,15 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 30）
+#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 31）
 
 **目标**：各域主模块（非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
 
 **验收**（`bash scripts/butler-mypy-strict-gate.sh`）：
-- **679** 模块 strict 绿（Batch 29 **662** → Batch 30 **679**）：`butler/` 根 + `io` + `experiments` **17** 主模块（10 零错收割 + 7 处 1-error 修债）；`p2f-rebuild-gate.py` / `p2f-zero-harvest-scan.sh` SCAN_DIRS 已含 `butler` · `butler/io` · `butler/experiments`
+- **685** 模块 strict 绿（Batch 30 **679** → Batch 31 **685**）：`butler/` 根 + `experiments` **6** 个 2–3 error 主模块（`context_settings` · `config_secrets` · `model_resolve` · `tool_guardrails` · `main` · `experiments/mode`）
 - `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步
 
-**剩余 backlog**：`butler/` 根仍有 `config`·`human_gate`·`execution_context` 等 2-error+；`*_ops.py` 与全仓库无 skip strict 不在范围
+**剩余 backlog**：`config`·`human_gate`·`execution_context`·`gateway_settings`·`task_orchestrator` 等根模块 5-error+；`*_ops.py` 不在范围
 
 #### 方向 G：文档卫生清理 — **done** 2026-06-29
 

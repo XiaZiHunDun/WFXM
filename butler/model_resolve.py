@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator, cast
 
 from butler.config import ModelConfig, get_butler_settings, save_butler_config
 import logging
@@ -206,7 +206,7 @@ def handle_model_command(
         project_label=project_label,
     )
     if preset_out is not None:
-        return preset_out
+        return cast(tuple[str, bool], preset_out)
     parts = text.split(maxsplit=2)
     verb = parts[0].lower()
 
@@ -266,7 +266,7 @@ def workflow_step_spawn_model_config(step_model: ModelConfig | None) -> dict[str
     d = step_model.to_dict()
     if not d:
         return None
-    return d
+    return cast(dict[str, str], d)
 
 
 @contextmanager
@@ -326,7 +326,7 @@ def resolve_embedding_config() -> tuple[str, str]:
     """Re-export: embedding provider/model (yaml → env → defaults)."""
     from butler.memory.semantic_config import resolve_embedding_config as _resolve
 
-    return _resolve()
+    return cast(tuple[str, str], _resolve())
 
 
 __all__ = [

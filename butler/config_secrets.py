@@ -6,9 +6,9 @@ import logging
 import os
 import stat
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def load_secrets_dict(home: Path | None = None, *, decrypt: bool = False) -> dic
         return {}
     if decrypt:
         return _decrypt_secrets_dict(data)
-    return data
+    return cast(dict[str, Any], data)
 
 
 def _decrypt_secrets_dict(data: dict[str, Any]) -> dict[str, Any]:

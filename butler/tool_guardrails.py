@@ -16,7 +16,7 @@ import os
 import threading
 from collections import deque
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, cast
 import logging
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ def doom_loop_threshold() -> int:
     """Consecutive identical tool calls before block (OpenCode processor; 0=off)."""
     from butler.env_parse import int_env
 
-    return int_env("BUTLER_DOOM_LOOP_THRESHOLD", 3, min=0)
+    return int(int_env("BUTLER_DOOM_LOOP_THRESHOLD", 3, min=0))
 
 
 def doom_loop_mode() -> str:
@@ -116,7 +116,7 @@ def doom_loop_mode() -> str:
 def doom_loop_soft_nudge_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_DOOM_LOOP_SOFT_NUDGE", default=True)
+    return bool(env_truthy("BUTLER_DOOM_LOOP_SOFT_NUDGE", default=True))
 
 
 def _safe_json_loads(text: str) -> Any:
@@ -134,7 +134,7 @@ def classify_tool_failure(tool_name: str, result: str | None) -> tuple[bool, str
 
     hint = mutation_classification_hint(tool_name, result or "")
     if hint is not None:
-        return hint
+        return cast(tuple[bool, str], hint)
     if tool_name in {"run_shell", "terminal"}:
         data = _safe_json_loads(result)
         if isinstance(data, dict):

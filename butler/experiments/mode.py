@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from typing import Any
+
 from butler.env_parse import env_truthy
 
 _PATH_WRITE_TOOLS = frozenset({"write_file", "patch", "delete_file"})
 
 
 def experiment_mode_enabled() -> bool:
-    return env_truthy("BUTLER_EXPERIMENT_MODE", default=False)
+    return bool(env_truthy("BUTLER_EXPERIMENT_MODE", default=False))
 
 
 def _rel_path(workspace: Path, path_str: str) -> str:
@@ -54,7 +56,7 @@ def is_experiment_writable_path(workspace: Path, path_str: str) -> bool:
 
 def check_experiment_mode_block(
     tool_name: str,
-    args: dict,
+    args: dict[str, Any],
     *,
     workspace: Path | None,
 ) -> str | None:
