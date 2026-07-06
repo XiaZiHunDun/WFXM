@@ -7,7 +7,7 @@ import tempfile
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.ops.b9_harness_audit import _is_b9_row
 
@@ -37,19 +37,19 @@ PRODUCTION_NOISE_TASK_ID_PREFIXES: tuple[str, ...] = (
 def _audit_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / "delegate_failures.jsonl"
+    return cast(Path, get_butler_home()) / "audit" / "delegate_failures.jsonl"
 
 
 def production_snapshots_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / _SNAPSHOTS_NAME
+    return cast(Path, get_butler_home()) / "audit" / _SNAPSHOTS_NAME
 
 
 def production_clean_snapshots_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / _CLEAN_SNAPSHOTS_NAME
+    return cast(Path, get_butler_home()) / "audit" / _CLEAN_SNAPSHOTS_NAME
 
 
 def is_production_audit_noise(rec: dict[str, Any]) -> bool:

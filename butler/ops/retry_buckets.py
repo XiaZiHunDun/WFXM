@@ -1,3 +1,4 @@
+from typing import cast
 """Retry / recovery reason counters for /诊断 (Firecrawl ScrapeRetryTracker subset)."""
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ def format_recovery_bucket_lines(*, session_key: str = "") -> list[str]:
     lines = format_recovery_bucket_lines_safe(session_key=session_key)
     if not lines:
         return []
-    return lines
+    return cast(list[str], lines)
 
 
 __all__ = ["format_recovery_bucket_lines", "record_recovery_event"]

@@ -1,3 +1,4 @@
+from typing import cast
 """Opt-in morning /简报 push to Owner WeChat (WS-E backlog)."""
 
 from __future__ import annotations
@@ -24,7 +25,7 @@ def resolve_morning_brief_session_key() -> str:
     if not cid:
         return ""
     project = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
-    return build_session_key(platform="wechat", chat_id=cid, project=project)
+    return cast(str, build_session_key(platform="wechat", chat_id=cid, project=project))
 
 
 def build_morning_brief_text(*, session_key: str = "") -> str:
@@ -36,7 +37,7 @@ def build_morning_brief_text(*, session_key: str = "") -> str:
     orch = ButlerOrchestrator(user_id="owner", channel="cron")
     from butler.ops.butler_inbox import format_owner_brief
 
-    return format_owner_brief(orch, sk, health={})
+    return cast(str, format_owner_brief(orch, sk, health={}))
 
 
 def push_morning_brief(*, session_key: str = "") -> dict[str, object]:

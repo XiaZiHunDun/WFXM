@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 @dataclass
@@ -29,14 +29,14 @@ class InboxSnapshot:
 def _project_todos_info(workspace: Path) -> tuple[int, list[str]]:
     from butler.ops.butler_inbox_ops import project_todos_info_safe
 
-    return project_todos_info_safe(workspace)
+    return cast(tuple[int, list[str]], project_todos_info_safe(workspace))
 
 
 def collect_inbox_snapshot(
     orchestrator: Any,
     session_key: str,
     *,
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> InboxSnapshot:
     from butler.ops.butler_inbox_ops import (
         compaction_line_safe,
@@ -100,7 +100,7 @@ def format_owner_brief(
     orchestrator: Any,
     session_key: str,
     *,
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> str:
     """Owner /简报 — fixed blocks: 待办 · 队列 · 门控 · 昨夜 job (PROD-P1-02)."""
     from butler.gateway.owner_surface import (
@@ -166,7 +166,7 @@ def format_owner_inbox(
     orchestrator: Any,
     session_key: str,
     *,
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> str:
     """Detailed inbox for /inbox."""
     snap = collect_inbox_snapshot(orchestrator, session_key, health=health)

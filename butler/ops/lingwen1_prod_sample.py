@@ -171,7 +171,8 @@ def run_lingwen1_prod_sample(
         payload = {"raw": str(raw)[:500]}
 
     success = bool(payload.get("success"))
-    dev_engine = payload.get("dev_engine") if isinstance(payload.get("dev_engine"), dict) else {}
+    dev_engine_raw = payload.get("dev_engine")
+    dev_engine: dict[str, Any] = dev_engine_raw if isinstance(dev_engine_raw, dict) else {}
     return {
         "ok": True,
         "sample_id": sample.sample_id,

@@ -9,7 +9,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -53,21 +53,21 @@ class RegressionReport:
 
 def _min_dev_pass_rate() -> float:
     try:
-        return float_env("BUTLER_EVAL_DEV_PASS_RATE_MIN", 0.85)
+        return cast(float, float_env("BUTLER_EVAL_DEV_PASS_RATE_MIN", 0.85))
     except ValueError:
         return 0.85
 
 
 def _min_mem_pass_rate() -> float:
     try:
-        return float_env("BUTLER_EVAL_MEM_PASS_RATE_MIN", 0.7)
+        return cast(float, float_env("BUTLER_EVAL_MEM_PASS_RATE_MIN", 0.7))
     except ValueError:
         return 0.7
 
 
 def _min_b9_pass_rate() -> float:
     try:
-        return float_env("BUTLER_EVAL_B9_PASS_RATE_MIN", 1.0)
+        return cast(float, float_env("BUTLER_EVAL_B9_PASS_RATE_MIN", 1.0))
     except ValueError:
         return 1.0
 
@@ -75,7 +75,7 @@ def _min_b9_pass_rate() -> float:
 def _audit_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / "eval_regression.jsonl"
+    return cast(Path, get_butler_home()) / "audit" / "eval_regression.jsonl"
 
 
 def _append_audit(record: dict[str, Any]) -> None:

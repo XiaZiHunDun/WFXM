@@ -35,7 +35,8 @@ def _omo_lines(health: dict[str, Any] | None, *, session_key: str) -> list[str]:
     )
 
     h = health or {}
-    loop = h.get("loop") if isinstance(h.get("loop"), dict) else {}
+    loop_raw = h.get("loop")
+    loop: dict[str, Any] = loop_raw if isinstance(loop_raw, dict) else {}
     sk = str(session_key or h.get("session_key") or "").strip()
     lines: list[str] = []
 

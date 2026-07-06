@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,14 @@ def calibration_persist_enabled() -> bool:
 
 def default_period_days() -> int:
     try:
-        return int_env("BUTLER_COST_CALIBRATION_DAYS", 7, min=1)
+        return cast(int, int_env("BUTLER_COST_CALIBRATION_DAYS", 7, min=1))
     except ValueError:
         return 7
 
 
 def usd_cny_rate() -> float:
     try:
-        return float_env("BUTLER_COST_USD_CNY_RATE", 7.2)
+        return cast(float, float_env("BUTLER_COST_USD_CNY_RATE", 7.2))
     except ValueError:
         return 7.2
 
@@ -45,7 +45,7 @@ def _metrics_dir() -> Path:
 
     d = get_butler_home() / "metrics"
     d.mkdir(parents=True, exist_ok=True)
-    return d
+    return cast(Path, d)
 
 
 def events_path_for(day: date | None = None) -> Path:
@@ -228,7 +228,7 @@ def load_baseline() -> dict[str, Any]:
     if not path.is_file():
         return {}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
     except (OSError, json.JSONDecodeError) as exc:
         logger.debug("load baseline skipped: %s", exc)
         return {}

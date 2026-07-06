@@ -10,7 +10,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _STRICT_CK_PATCH: dict[str, Any] = {
     "coding_knowledge_strict_experience": True,
@@ -83,7 +83,7 @@ class ExperimentReport:
 def _audit_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / "eval_experiments.jsonl"
+    return cast(Path, get_butler_home()) / "audit" / "eval_experiments.jsonl"
 
 
 def _append_audit(record: dict[str, Any]) -> None:
@@ -131,12 +131,15 @@ def run_variant_benchmark(
 ) -> VariantResult:
     from butler.ops.eval_experiment_ops import run_variant_benchmark_safe
 
-    return run_variant_benchmark_safe(
+    return cast(
+        VariantResult,
+        run_variant_benchmark_safe(
         variant,
         patch,
         workspace=workspace,
         include_swe=include_swe,
         result_factory=VariantResult,
+        ),
     )
 
 

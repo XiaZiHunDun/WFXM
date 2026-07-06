@@ -178,21 +178,21 @@ def snapshot_global() -> dict[str, Any]:
         counter_items = list(_COUNTERS.items())
         gauge_items = list(_GAUGES.items())
         hist_keys = list(_HISTOGRAMS.keys())
-    for (name, label_tuple), value in counter_items:
+    for (name, label_tuple), counter_value in counter_items:
         if any(k == _SESSION_LABEL for k, _ in label_tuple):
             continue
         key = name if not label_tuple else f"{name}{{{_labels_to_str(label_tuple)}}}"
-        counters[key] = counters.get(key, 0) + int(value)
-    for (name, label_tuple), value in gauge_items:
+        counters[key] = counters.get(key, 0) + int(counter_value)
+    for (name, label_tuple), gauge_value in gauge_items:
         if any(k == _SESSION_LABEL for k, _ in label_tuple):
             continue
         key = name if not label_tuple else f"{name}{{{_labels_to_str(label_tuple)}}}"
-        gauges[key] = float(value)
-    for key in hist_keys:
-        name, label_tuple = key
+        gauges[key] = float(gauge_value)
+    for hist_entry in hist_keys:
+        name, label_tuple = hist_entry
         if any(k == _SESSION_LABEL for k, _ in label_tuple):
             continue
-        stats = _histogram_stats(key)
+        stats = _histogram_stats(hist_entry)
         if not stats:
             continue
         hist_key = name if not label_tuple else f"{name}{{{_labels_to_str(label_tuple)}}}"
@@ -211,23 +211,23 @@ def snapshot_session(session_key: str) -> dict[str, Any]:
         counter_items = list(_COUNTERS.items())
         gauge_items = list(_GAUGES.items())
         hist_keys = list(_HISTOGRAMS.keys())
-    for (name, label_tuple), value in counter_items:
+    for (name, label_tuple), counter_value in counter_items:
         if not _is_session_scoped(label_tuple, tag):
             continue
         plain_labels = tuple((k, v) for k, v in label_tuple if k != _SESSION_LABEL)
         key = name if not plain_labels else f"{name}{{{_labels_to_str(plain_labels)}}}"
-        counters[key] = counters.get(key, 0) + int(value)
-    for (name, label_tuple), value in gauge_items:
+        counters[key] = counters.get(key, 0) + int(counter_value)
+    for (name, label_tuple), gauge_value in gauge_items:
         if not _is_session_scoped(label_tuple, tag):
             continue
         plain_labels = tuple((k, v) for k, v in label_tuple if k != _SESSION_LABEL)
         key = name if not plain_labels else f"{name}{{{_labels_to_str(plain_labels)}}}"
-        gauges[key] = float(value)
-    for key in hist_keys:
-        name, label_tuple = key
+        gauges[key] = float(gauge_value)
+    for hist_entry in hist_keys:
+        name, label_tuple = hist_entry
         if not _is_session_scoped(label_tuple, tag):
             continue
-        stats = _histogram_stats(key)
+        stats = _histogram_stats(hist_entry)
         if not stats:
             continue
         plain_labels = tuple((k, v) for k, v in label_tuple if k != _SESSION_LABEL)

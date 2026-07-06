@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.dev_engine.b9_oracle_curriculum import (
     B9_ORACLE_EPISODES,
@@ -23,7 +23,7 @@ _LESSONS_NAME = "b9_lessons.jsonl"
 def b9_lessons_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / _LESSONS_NAME
+    return cast(Path, get_butler_home()) / "audit" / _LESSONS_NAME
 
 
 def record_b9_lesson(record: dict[str, Any]) -> Path:

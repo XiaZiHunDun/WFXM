@@ -6,7 +6,7 @@ import hashlib
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.memory.memory_scope import MemoryScope
 
@@ -135,7 +135,7 @@ def _prod_fail_experience_id(*, project: str, task_id: str, task: str) -> str:
 def _resolve_project_workspace(project_name: str) -> Path | None:
     from butler.ops.production_failure_experience_ops import resolve_project_workspace_safe
 
-    return resolve_project_workspace_safe(project_name)
+    return cast(Path, resolve_project_workspace_safe(project_name))
 
 
 def record_production_failure_lesson(

@@ -12,15 +12,15 @@ from butler.env_parse import env_truthy
 
 
 def _terminal_enabled() -> bool:
-    return env_truthy("BUTLER_ENABLE_TERMINAL", default=False)
+    return bool(env_truthy("BUTLER_ENABLE_TERMINAL", default=False))
 
 
 def _sandbox_enabled() -> bool:
-    return env_truthy("BUTLER_TERMINAL_SANDBOX", default=False)
+    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX", default=False))
 
 
 def _sandbox_fail_closed() -> bool:
-    return env_truthy("BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE", default=False)
+    return bool(env_truthy("BUTLER_TERMINAL_SANDBOX_FAIL_UNAVAILABLE", default=False))
 
 
 @dataclass(frozen=True)

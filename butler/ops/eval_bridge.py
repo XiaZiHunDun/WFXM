@@ -18,7 +18,7 @@ import json
 import logging
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ def push_score(score: EvalScore) -> bool:
         kwargs["trace_id"] = score.trace_id
     if score.observation_id:
         kwargs["observation_id"] = score.observation_id
-    return push_score_loud(client, kwargs=kwargs, score_name=score.name)
+    return cast(bool, push_score_loud(client, kwargs=kwargs, score_name=score.name))
 
 
 def push_scores(scores: list[EvalScore]) -> EvalReport:
@@ -125,7 +125,7 @@ def create_dataset(name: str, description: str = "") -> Optional[str]:
         return None
     from butler.ops.eval_bridge_ops import create_dataset_loud
 
-    return create_dataset_loud(client, name=name, description=description)
+    return cast(str, create_dataset_loud(client, name=name, description=description))
 
 
 def push_dataset_item(
@@ -138,7 +138,9 @@ def push_dataset_item(
         return False
     from butler.ops.eval_bridge_ops import push_dataset_item_loud
 
-    return push_dataset_item_loud(
+    return cast(
+        bool,
+        push_dataset_item_loud(
         client,
         kwargs={
             "dataset_name": dataset_name,
@@ -147,6 +149,7 @@ def push_dataset_item(
             "metadata": item.metadata,
             "source_trace_id": item.source_id if item.source_id else None,
         },
+        ),
     )
 
 

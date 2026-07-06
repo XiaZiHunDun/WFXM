@@ -7,7 +7,7 @@ import re
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def _audit_paths() -> tuple[Path, Path]:
@@ -113,7 +113,7 @@ _SNAPSHOTS_NAME = "b9_harness_snapshots.jsonl"
 def harness_snapshots_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / _SNAPSHOTS_NAME
+    return cast(Path, get_butler_home()) / "audit" / _SNAPSHOTS_NAME
 
 
 def record_harness_friction_snapshot() -> dict[str, Any]:

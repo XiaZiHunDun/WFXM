@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, cast
 
 from butler.ops.lingwen1_delegate_drill import LINGWEN_PROJECT_NAME
 
@@ -54,7 +54,9 @@ def run_lingwen1_capture_probe(*, force: bool = False) -> dict[str, Any]:
         "fixes": 2,
         "experience_lifecycle": {"action": "demoted", "experience_id": "B9_EX_prod_lingwen_demo_add"},
     }
-    return capture_delegate_failure(
+    return cast(
+        dict[str, Any],
+        capture_delegate_failure(
         role="dev",
         task=LINGWEN1_CAPTURE_PROBE_TASK,
         context="project=灵文1号; workspace=projects/LingWen1",
@@ -66,6 +68,7 @@ def run_lingwen1_capture_probe(*, force: bool = False) -> dict[str, Any]:
         capture_source="delegate_pipeline",
         dev_engine=dev_engine,
         failure_reason="verify_fail",
+        ),
     )
 
 

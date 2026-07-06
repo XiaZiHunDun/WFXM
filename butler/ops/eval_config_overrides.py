@@ -7,7 +7,7 @@ import logging
 import time
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ _MAX_GUIDANCE_CASES = 12
 def _override_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "config" / "eval_overrides.json"
+    return cast(Path, get_butler_home()) / "config" / "eval_overrides.json"
 
 
 def load_overrides() -> dict[str, Any]:

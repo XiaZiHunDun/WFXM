@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _SNAPSHOTS_NAME = "swe_weekly_snapshots.jsonl"
 _DEFAULT_MIN_WEEKS = 2
@@ -17,7 +17,7 @@ def swe_gate_min_weeks() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_EVAL_SWE_GATE_MIN_WEEKS", _DEFAULT_MIN_WEEKS, min=1, max=4)
+        return cast(int, int_env("BUTLER_EVAL_SWE_GATE_MIN_WEEKS", _DEFAULT_MIN_WEEKS, min=1, max=4))
     except ValueError:
         return _DEFAULT_MIN_WEEKS
 
@@ -25,7 +25,7 @@ def swe_gate_min_weeks() -> int:
 def snapshots_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / _SNAPSHOTS_NAME
+    return cast(Path, get_butler_home()) / "audit" / _SNAPSHOTS_NAME
 
 
 def record_swe_weekly_snapshot(

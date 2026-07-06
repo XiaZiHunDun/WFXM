@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.ops.execution_surface_collect import (
     check_legacy_global_skills,
@@ -67,7 +67,7 @@ def project_skills_sync_issues(workspace: Path) -> list[str]:
     """Detect git ``skills/`` vs runtime ``.butler/skills/`` drift."""
     from butler.skills.layout import project_skills_sync_issues as _layout_issues
 
-    return _layout_issues(workspace)
+    return cast(list[str], _layout_issues(workspace))
 
 
 def collect_execution_surface_stats(
@@ -78,7 +78,8 @@ def collect_execution_surface_stats(
 ) -> dict[str, Any]:
     """Aggregate Skill/Tool/MCP snapshot for diagnostics."""
     h = health or {}
-    loop = h.get("loop") if isinstance(h.get("loop"), dict) else {}
+    loop_raw = h.get("loop")
+    loop: dict[str, Any] = loop_raw if isinstance(loop_raw, dict) else {}
 
     def _pick(*keys: str) -> Any:
         for key in keys:

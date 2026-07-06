@@ -8,7 +8,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.ops.eval_feedback import FeedbackReport, FeedbackSuggestion, analyse_scores
 
@@ -26,7 +26,7 @@ def _min_interval_seconds() -> float:
         hours = float_env("BUTLER_EVAL_HARD_FEEDBACK_HOURS", 1)
         if hours <= 0:
             return 0.0
-        return max(0.25, hours) * 3600.0
+        return cast(float, max(0.25, hours) * 3600.0)
     except ValueError:
         return 3600.0
 
@@ -34,13 +34,13 @@ def _min_interval_seconds() -> float:
 def _audit_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / "eval_feedback.jsonl"
+    return cast(Path, get_butler_home()) / "audit" / "eval_feedback.jsonl"
 
 
 def _state_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "config" / _STATE_PATH_NAME
+    return cast(Path, get_butler_home()) / "config" / _STATE_PATH_NAME
 
 
 def _append_audit(record: dict[str, Any]) -> None:
@@ -104,7 +104,7 @@ def _apply_dev_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any
     action["metric"] = suggestion.metric_name
     action["metric_value"] = suggestion.metric_value
     _append_audit(action)
-    return action
+    return cast(dict[str, Any], action)
 
 
 def _apply_tool_selection_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
@@ -114,7 +114,7 @@ def _apply_tool_selection_action(suggestion: FeedbackSuggestion) -> dict[str, An
     action["metric"] = suggestion.metric_name
     action["metric_value"] = suggestion.metric_value
     _append_audit(action)
-    return action
+    return cast(dict[str, Any], action)
 
 
 def _apply_llm_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
@@ -124,7 +124,7 @@ def _apply_llm_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any
     action["metric"] = suggestion.metric_name
     action["metric_value"] = suggestion.metric_value
     _append_audit(action)
-    return action
+    return cast(dict[str, Any], action)
 
 
 def _apply_experience_lifecycle(report: FeedbackReport) -> dict[str, Any]:
@@ -138,7 +138,7 @@ def _apply_experience_lifecycle(report: FeedbackReport) -> dict[str, Any]:
         return {"action": "experience_lifecycle", "error": "unknown"}
     if action.get("demoted_ids") is not None:
         _append_audit(action)
-    return action
+    return cast(dict[str, Any], action)
 
 
 def maybe_apply_b9_live_rescue(
@@ -173,7 +173,7 @@ def maybe_apply_b9_live_rescue(
         rate * 100,
         min_solvable_rate * 100,
     )
-    return action
+    return cast(dict[str, Any], action)
 
 
 def apply_hard_feedback(report: FeedbackReport | None = None) -> dict[str, Any]:

@@ -7,7 +7,7 @@ import re
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _OUTCOMES_NAME = "delegate_dev_outcomes.jsonl"
 
@@ -15,7 +15,7 @@ _OUTCOMES_NAME = "delegate_dev_outcomes.jsonl"
 def outcomes_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / _OUTCOMES_NAME
+    return cast(Path, get_butler_home()) / "audit" / _OUTCOMES_NAME
 
 
 def should_record_dev_delegate_outcome(

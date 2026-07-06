@@ -16,7 +16,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def capture_enabled() -> bool:
         return True
     from butler.ops.delegate_failure_capture_ops import langfuse_capture_enabled_safe
 
-    return langfuse_capture_enabled_safe()
+    return cast(bool, langfuse_capture_enabled_safe())
 
 
 def _capture_all_roles() -> bool:
@@ -79,7 +79,7 @@ def should_capture_failure(
 def _audit_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / _AUDIT_NAME
+    return cast(Path, get_butler_home()) / "audit" / _AUDIT_NAME
 
 
 def _append_audit(record: dict[str, Any]) -> None:

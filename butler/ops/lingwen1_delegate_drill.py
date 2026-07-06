@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 LINGWEN_PROJECT_NAME = "灵文1号"
 DRILL_TASK_ID_PREFIX = "lingwen1-delegate-drill"
@@ -36,7 +36,7 @@ def build_lingwen_drill_context(*, workspace: Path) -> str:
 def drill_workspace_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "drill" / "lingwen1-demo-add"
+    return cast(Path, get_butler_home()) / "drill" / "lingwen1-demo-add"
 
 
 def setup_drill_workspace(*, force: bool = False) -> Path:
@@ -150,7 +150,8 @@ def run_lingwen1_delegate_drill(
         payload = {"raw": str(raw)[:500]}
 
     delegate_task_id = str(payload.get("task_id") or "")
-    dev_engine = payload.get("dev_engine") if isinstance(payload.get("dev_engine"), dict) else {}
+    dev_engine_raw = payload.get("dev_engine")
+    dev_engine: dict[str, Any] = dev_engine_raw if isinstance(dev_engine_raw, dict) else {}
     verify_passed = dev_engine.get("verify_passed")
     success = bool(payload.get("success"))
     pipeline_capture = _audit_has_pipeline_capture(task_id=delegate_task_id)

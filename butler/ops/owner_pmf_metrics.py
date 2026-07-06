@@ -7,7 +7,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ _PENDING_FEEDBACK_FILE = "owner_pmf_pending_feedback.json"
 def owner_pmf_metrics_enabled() -> bool:
     from butler.env_parse import env_truthy
 
-    return env_truthy("BUTLER_OWNER_PMF_METRICS", default=False)
+    return bool(env_truthy("BUTLER_OWNER_PMF_METRICS", default=False))
 
 
 def _metrics_dir() -> Path:
@@ -25,7 +25,7 @@ def _metrics_dir() -> Path:
 
     d = get_butler_home() / "metrics"
     d.mkdir(parents=True, exist_ok=True)
-    return d
+    return cast(Path, d)
 
 
 def _jsonl_path() -> Path:

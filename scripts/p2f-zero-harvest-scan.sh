@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 gate_files=$(rg -o 'butler/[^ ]+\.py' scripts/butler-mypy-strict-gate.sh | sort -u)
-for dir in butler/core butler/gateway butler/runtime butler/tools butler/transport butler/mcp butler/memory butler/skills butler/session butler/hooks butler/eval butler/orchestrator butler/dev_engine; do
+for dir in butler/core butler/gateway butler/runtime butler/tools butler/transport butler/mcp butler/memory butler/skills butler/session butler/hooks butler/eval butler/orchestrator butler/dev_engine butler/ops; do
   [ -d "$dir" ] || continue
   for f in "$dir"/*.py; do
     [ -f "$f" ] || continue

@@ -7,7 +7,7 @@ import logging
 import os
 import socket
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ _EXTRA_IMPORTS: dict[str, str] = {
 def _load_stack(path: Path) -> dict[str, Any] | None:
     from butler.ops.stack_diagnostics_ops import load_stack_safe
 
-    return load_stack_safe(path)
+    return cast(dict[str, Any] | None, load_stack_safe(path))
 
 
 def _env_matches(name: str, expected: str) -> bool:
@@ -70,7 +70,7 @@ def _skill_stub_on_disk(name: str, *, workspace: Path, tenant_id: str = "default
     proj_orphan = proj_root / skill_name / "SKILL.md"
     if proj_orphan.is_file():
         return True
-    return tenant_skill_paths_safe(skill_name, tenant_id=tenant_id)
+    return bool(tenant_skill_paths_safe(skill_name, tenant_id=tenant_id))
 
 
 def _skill_present(name: str, *, workspace: Path, tenant_id: str = "default") -> bool:
@@ -95,7 +95,7 @@ def _marketplace_skill_name(identifier: str) -> str:
 def _tenant_id_default() -> str:
     from butler.ops.stack_diagnostics_ops import tenant_id_default_safe
 
-    return tenant_id_default_safe()
+    return str(tenant_id_default_safe())
 
 
 def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
@@ -116,11 +116,13 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
     data = _load_stack(stack_path)
     if not data:
         return out
+    stack: dict[str, Any] = data
     out["found"] = True
-    out["project"] = str(data.get("project") or "")
-    out["version"] = data.get("version")
+    out["project"] = str(stack.get("project") or "")
+    out["version"] = stack.get("version")
 
-    py = data.get("python_extras") if isinstance(data.get("python_extras"), dict) else {}
+    py_raw = stack.get("python_extras")
+    py: dict[str, Any] = py_raw if isinstance(py_raw, dict) else {}
     for extra in py.get("includes") or []:
         mod = _EXTRA_IMPORTS.get(str(extra))
         if not mod:
@@ -131,7 +133,7 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
             out["warnings"].append(f"缺 pip extra [{extra}]（import {mod} 失败）")
             out["ok"] = False
 
-    deploy_profile = str(data.get("deploy_profile") or py.get("install") or "").strip()
+    deploy_profile = str(stack.get("deploy_profile") or py.get("install") or "").strip()
     if deploy_profile:
         env_profile = os.getenv("BUTLER_DEPLOY_PROFILE", "").strip()
         extras_ok = all(
@@ -151,11 +153,12 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
             out["warnings"].append(f"deploy_profile:{deploy_profile} 但 pip extra 未齐")
             out["ok"] = False
 
-    for api in data.get("apis") or []:
+    for api in stack.get("apis") or []:
         if not isinstance(api, dict):
             continue
         api_id = str(api.get("id") or "").strip()
-        envs = api.get("env") if isinstance(api.get("env"), list) else []
+        env_raw = api.get("env")
+        envs: list[Any] = env_raw if isinstance(env_raw, list) else []
         env_names = [str(e).strip() for e in envs if str(e).strip()]
         if not api_id or not env_names:
             continue
@@ -168,7 +171,8 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
             out["warnings"].append(f"缺 API [{api_id}] 环境变量（{' / '.join(env_names)}）")
             out["ok"] = False
 
-    proc_env = data.get("process_env") if isinstance(data.get("process_env"), dict) else {}
+    proc_env_raw = stack.get("process_env")
+    proc_env: dict[str, Any] = proc_env_raw if isinstance(proc_env_raw, dict) else {}
     for key, want in proc_env.items():
         key_s = str(key)
         want_s = str(want)
@@ -181,7 +185,7 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
             out["warnings"].append(f"未设 {key_s}（stack process_env）")
             out["ok"] = False
 
-    for host in data.get("host") or []:
+    for host in stack.get("host") or []:
         if not isinstance(host, dict):
             continue
         if str(host.get("name") or "") == "http-proxy":
@@ -192,7 +196,8 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
             elif ep:
                 out["checks"].append("proxy:listen=ok")
 
-    env_rec = data.get("env_recommended") if isinstance(data.get("env_recommended"), dict) else {}
+    env_rec_raw = stack.get("env_recommended")
+    env_rec: dict[str, Any] = env_rec_raw if isinstance(env_rec_raw, dict) else {}
     for key, want in env_rec.items():
         key_s = str(key)
         if not key_s.startswith("BUTLER_"):
@@ -204,7 +209,8 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
             out["warnings"].append(f"{key_s} 期望 {want}，当前 {got}")
             out["ok"] = False
 
-    skills = data.get("skills") if isinstance(data.get("skills"), dict) else {}
+    skills_raw = stack.get("skills")
+    skills: dict[str, Any] = skills_raw if isinstance(skills_raw, dict) else {}
     tenant_id = _tenant_id_default()
     lock_by_name = skill_lock_by_name_safe(tenant_id)
 
@@ -241,11 +247,12 @@ def collect_stack_health(workspace: Path | str | None) -> dict[str, Any]:
             out=out,
         )
 
-    adoption = data.get("plugin_adoption") if isinstance(data.get("plugin_adoption"), dict) else {}
+    adoption_raw = stack.get("plugin_adoption")
+    adoption: dict[str, Any] = adoption_raw if isinstance(adoption_raw, dict) else {}
     if adoption:
         check_plugin_adoption_safe(adoption, out)
 
-    ingest = data.get("ingest_pilot_dirs") or []
+    ingest = stack.get("ingest_pilot_dirs") or []
     if ingest:
         missing = [d for d in ingest if not (ws / str(d)).is_dir()]
         if missing:

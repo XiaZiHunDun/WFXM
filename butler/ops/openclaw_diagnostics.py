@@ -23,7 +23,8 @@ def format_openclaw_diagnostic_lines(
     )
 
     h = health or {}
-    loop = h.get("loop") if isinstance(h.get("loop"), dict) else {}
+    loop_raw = h.get("loop")
+    loop: dict[str, Any] = loop_raw if isinstance(loop_raw, dict) else {}
     lines: list[str] = []
 
     preempt_est = h.get("preemptive_estimated_tokens") or loop.get("preemptive_estimated_tokens")

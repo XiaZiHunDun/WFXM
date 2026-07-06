@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.ops.owner_quality_surface_ops import (
     b9_audit_snapshot_safe,
@@ -19,7 +19,7 @@ from butler.ops.owner_quality_surface_ops import (
 
 
 def _resolve_workspace(orchestrator: Any, session_key: str) -> Path | None:
-    return resolve_workspace_safe(orchestrator, session_key)
+    return cast(Path, resolve_workspace_safe(orchestrator, session_key))
 
 
 def format_mcp_owner_line(
@@ -64,7 +64,7 @@ def format_mcp_owner_block(
 
 
 def _b9_tier_summary_from_audit(b9: dict[str, Any]) -> str:
-    return b9_tier_summary_safe(b9)
+    return cast(str, b9_tier_summary_safe(b9))
 
 
 def collect_b9_owner_snapshot() -> dict[str, Any]:

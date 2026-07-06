@@ -8,9 +8,9 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = ROOT / ".butler" / "reports" / "agent-eval-weekly.json"
@@ -22,7 +22,7 @@ def _load_tcr() -> dict[str, Any]:
     path = ROOT / ".butler" / "reports" / "tcr-latest.json"
     if not path.is_file():
         return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
 
 
 def _run_pass_at_k() -> dict[str, Any]:

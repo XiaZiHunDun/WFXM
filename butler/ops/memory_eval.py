@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ def benchmark_report_to_scores(report: Any, trace_id: str = "") -> list[Any]:
         for s in scores:
             s.trace_id = trace_id
 
-    return scores
+    return cast(list[Any], scores)
 
 
 def memory_session_to_scores(metrics: Any, trace_id: str = "") -> list[Any]:
@@ -90,7 +90,7 @@ def memory_session_to_scores(metrics: Any, trace_id: str = "") -> list[Any]:
         for s in scores:
             s.trace_id = trace_id
 
-    return scores
+    return cast(list[Any], scores)
 
 
 def push_memory_benchmark_dataset(report: Any) -> dict[str, Any]:

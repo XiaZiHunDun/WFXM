@@ -1,3 +1,4 @@
+from typing import cast
 """Experiment ledger lines for /诊断."""
 
 from __future__ import annotations
@@ -53,7 +54,7 @@ def format_experiment_diagnostic_lines_for_project(
         format_experiment_diagnostic_lines_for_project_safe,
     )
 
-    return format_experiment_diagnostic_lines_for_project_safe(name, limit=limit)
+    return cast(list[str], format_experiment_diagnostic_lines_for_project_safe(name, limit=limit))
 
 
 __all__ = [

@@ -64,6 +64,7 @@ SCAN_DIRS = [
     "butler/eval",
     "butler/orchestrator",
     "butler/dev_engine",
+    "butler/ops",
 ]
 
 

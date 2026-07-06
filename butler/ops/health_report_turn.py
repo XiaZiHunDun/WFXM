@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -14,8 +14,11 @@ if TYPE_CHECKING:
 def recovery_bucket_lines(health: dict[str, Any], session_key: str) -> list[str]:
     from butler.ops.retry_buckets import format_recovery_bucket_lines
 
-    return format_recovery_bucket_lines(
+    return cast(
+        list[str],
+        format_recovery_bucket_lines(
         session_key=health.get("session_key") or session_key,
+        ),
     )
 
 
@@ -65,7 +68,7 @@ def stream_probe_turn_lines(orchestrator: Any) -> list[str]:
     if not stream_probe_enabled():
         return []
     run_stream_probe(orchestrator)
-    return format_stream_probe_lines()
+    return cast(list[str], format_stream_probe_lines())
 
 
 def schema_optimize_line(health: dict[str, Any], loop_health: dict[str, Any]) -> str:
@@ -87,10 +90,10 @@ def turn_diagnostic_lines(
     hook_lines_fn: Callable[[str, dict[str, Any] | None], list[str]],
 ) -> list[str]:
     health = inp.health or {}
-    loop_health = health.get("loop") if isinstance(health.get("loop"), dict) else {}
-    memory_sync = (
-        health.get("memory_sync") if isinstance(health.get("memory_sync"), dict) else {}
-    )
+    loop_raw = health.get("loop")
+    loop_health: dict[str, Any] = loop_raw if isinstance(loop_raw, dict) else {}
+    memory_sync_raw = health.get("memory_sync")
+    memory_sync: dict[str, Any] = memory_sync_raw if isinstance(memory_sync_raw, dict) else {}
 
     schema_recovered = bool(
         health.get("schema_recovered") or loop_health.get("schema_recovered")

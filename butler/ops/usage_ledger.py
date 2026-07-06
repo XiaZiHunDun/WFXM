@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.env_parse import env_truthy
 
@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 def usage_persist_enabled() -> bool:
-    return env_truthy("BUTLER_USAGE_PERSIST", default=True)
+    return bool(env_truthy("BUTLER_USAGE_PERSIST", default=True))
 
 
 def _ledger_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "usage" / f"{date.today().isoformat()}.jsonl"
+    return cast(Path, get_butler_home()) / "usage" / f"{date.today().isoformat()}.jsonl"
 
 
 def record_usage_snapshot(

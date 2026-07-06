@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.mcp.extension_manifest import (
     ExtensionManifest,
@@ -189,7 +189,7 @@ def detect_gateway_expected() -> bool:
     unit = os.getenv("BUTLER_GATEWAY_SYSTEMD_UNIT", "butler-gateway.service")
     from butler.ops.secrets_contract_ops import is_systemd_unit_active_safe
 
-    return is_systemd_unit_active_safe(unit)
+    return cast(bool, is_systemd_unit_active_safe(unit))
 
 
 def format_secrets_contract_lines(report: SecretsCheckReport) -> list[str]:

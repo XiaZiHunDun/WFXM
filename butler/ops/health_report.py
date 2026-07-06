@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 import logging
 
 
@@ -21,7 +22,7 @@ _EMPTY_APPROVAL_STATS: dict[str, Any] = {
 }
 
 
-def _append_diag_lines(lines: list[str], label: str, fn) -> None:
+def _append_diag_lines(lines: list[str], label: str, fn: Callable[[], list[str]]) -> None:
     extra = safe_best_effort(fn, label=f"health_report.{label}", default=[])
     if extra:
         lines.extend(extra)
@@ -62,7 +63,7 @@ def collect_mem_stats_for_health(
 
     mem_stats = collect_memory_layer_stats(orchestrator, session_key=session_key)
     if not health:
-        return mem_stats
+        return cast(dict[str, Any], mem_stats)
 
     if health.get("memory_prefetch_chars") is not None:
         mem_stats["last_prefetch_chars"] = health.get("memory_prefetch_chars")
@@ -82,7 +83,7 @@ def collect_mem_stats_for_health(
         mem_stats["memory_project_prefetch_mode"] = health.get(
             "memory_project_prefetch_mode"
         )
-    return mem_stats
+    return cast(dict[str, Any], mem_stats)
 
 
 def collect_approval_stats_for_health(session_key: str) -> dict[str, Any]:
@@ -90,7 +91,7 @@ def collect_approval_stats_for_health(session_key: str) -> dict[str, Any]:
     def _load() -> dict[str, Any]:
         from butler.permissions.approvals import summarize_approvals
 
-        return summarize_approvals(session_key)
+        return cast(dict[str, Any], summarize_approvals(session_key))
 
     result = safe_best_effort(
         _load,
@@ -184,7 +185,7 @@ def _shared_diagnostic_lines(
     def _rag_lines() -> list[str]:
         from butler.ops.rag_diagnostics import format_rag_diagnostic_lines
 
-        return format_rag_diagnostic_lines(inp.mem_stats, session_key=inp.session_key)
+        return cast(list[str], format_rag_diagnostic_lines(inp.mem_stats, session_key=inp.session_key))
 
     _append_diag_lines(lines, "rag", _rag_lines)
 
@@ -221,7 +222,7 @@ def _shared_diagnostic_lines(
             return []
         from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
 
-        return format_experiment_diagnostic_lines(Path(proj.workspace))
+        return cast(list[str], format_experiment_diagnostic_lines(Path(proj.workspace)))
 
     _append_diag_lines(lines, "experiment", _experiment_lines)
 
@@ -238,7 +239,7 @@ def _shared_diagnostic_lines(
     def _usage_lines() -> list[str]:
         from butler.ops.usage_ledger import format_usage_ledger_lines
 
-        return format_usage_ledger_lines()
+        return cast(list[str], format_usage_ledger_lines())
 
     _append_diag_lines(lines, "usage_ledger", _usage_lines)
 
@@ -269,14 +270,14 @@ def _shared_diagnostic_lines(
     def _stream_probe_lines() -> list[str]:
         from butler.transport.stream_probe import format_stream_probe_lines
 
-        return format_stream_probe_lines()
+        return cast(list[str], format_stream_probe_lines())
 
     _append_diag_lines(lines, "stream_probe", _stream_probe_lines)
 
     def _circuit_lines() -> list[str]:
         from butler.transport.provider_health import format_circuit_diagnostic_lines
 
-        return format_circuit_diagnostic_lines()
+        return cast(list[str], format_circuit_diagnostic_lines())
 
     _append_diag_lines(lines, "provider_circuit", _circuit_lines)
     return lines
@@ -285,7 +286,7 @@ def _shared_diagnostic_lines(
 def _format_hook_lines(session_key: str) -> list[str]:
     from butler.hooks.telemetry import format_hook_diagnostic_lines
 
-    return format_hook_diagnostic_lines(session_key)
+    return cast(list[str], format_hook_diagnostic_lines(session_key))
 
 
 def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> list[str]:
@@ -299,10 +300,10 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
         lines.append("Shell hooks: 不可用")
     else:
         lines.extend(hook_lines)
-    loop = (health or {}).get("loop") if isinstance((health or {}).get("loop"), dict) else {}
-    trans = (health or {}).get("loop_transition_reason") or (
-        loop.get("loop_transition_reason") if isinstance(loop, dict) else ""
-    )
+    h = health or {}
+    loop_raw = h.get("loop")
+    loop: dict[str, Any] = loop_raw if isinstance(loop_raw, dict) else {}
+    trans = h.get("loop_transition_reason") or loop.get("loop_transition_reason") or ""
     if trans:
         lines.append(f"上轮循环结束: {trans}")
     if loop.get("stop_hook_blocked"):
@@ -318,7 +319,7 @@ def _hook_diagnostic_lines(session_key: str, health: dict[str, Any] | None) -> l
         default=[],
     )
     lines.extend(queue_lines or [])
-    stop_ctx = loop.get("stop_hook_context") if isinstance(loop, dict) else None
+    stop_ctx = loop.get("stop_hook_context")
     if stop_ctx:
         if isinstance(stop_ctx, list):
             preview = " | ".join(str(x)[:80] for x in stop_ctx[:2])
@@ -366,7 +367,7 @@ def _outbound_diagnostic_lines(
     chat_id = ""
     if health:
         chat_id = str(health.get("platform_chat_id") or health.get("chat_id") or "")
-    return format_outbound_diagnostic_lines(session_key, chat_id=chat_id)
+    return cast(list[str], format_outbound_diagnostic_lines(session_key, chat_id=chat_id))
 
 
 def _harness_diagnostic_lines(
@@ -375,7 +376,7 @@ def _harness_diagnostic_lines(
 ) -> list[str]:
     from butler.ops.harness_diagnostics import format_harness_diagnostic_lines
 
-    return format_harness_diagnostic_lines(health, session_key=session_key)
+    return cast(list[str], format_harness_diagnostic_lines(health, session_key=session_key))
 
 
 def _token_cost_lines(inp: HealthReportInput, health: dict[str, Any]) -> list[str]:
@@ -399,23 +400,26 @@ def _token_cost_lines(inp: HealthReportInput, health: dict[str, Any]) -> list[st
         label="health_report.token_cost_model",
         default="",
     ) or ""
-    return format_token_cost_diagnostic_lines(
+    return cast(
+        list[str],
+        format_token_cost_diagnostic_lines(
         health,
         model=model_name,
         estimate_cost=token_cost_estimate_enabled(),
+        ),
     )
 
 
 def _transcript_lines(session_key: str) -> list[str]:
     from butler.ops.transcript_diagnostics import format_transcript_diagnostic_lines
 
-    return format_transcript_diagnostic_lines(session_key)
+    return cast(list[str], format_transcript_diagnostic_lines(session_key))
 
 
 def _metrics_diag_lines(session_key: str) -> list[str]:
     from butler.ops.runtime_metrics import format_metrics_diagnostic_lines
 
-    return format_metrics_diagnostic_lines(session_key=session_key)
+    return cast(list[str], format_metrics_diagnostic_lines(session_key=session_key))
 
 
 def _tool_audit_lines(tool_summary: dict[str, Any]) -> list[str]:
@@ -465,19 +469,19 @@ def build_health_report(inp: HealthReportInput) -> str:
         )
         return "\n".join(lines)
 
-    lines: list[str] = []
+    report_lines: list[str] = []
     if health:
         from butler.ops.health_report_turn import turn_diagnostic_lines
 
-        lines.extend(
+        report_lines.extend(
             turn_diagnostic_lines(inp, hook_lines_fn=_hook_diagnostic_lines)
         )
-        lines.extend(_shared_diagnostic_lines(inp, use_mem_stats_project_name=True))
+        report_lines.extend(_shared_diagnostic_lines(inp, use_mem_stats_project_name=True))
         if health.get("error"):
-            lines.append("错误: 有（查看日志）")
+            report_lines.append("错误: 有（查看日志）")
         if health.get("hygiene_error"):
-            lines.append("压缩错误: 有（查看日志）")
-        lines.extend(
+            report_lines.append("压缩错误: 有（查看日志）")
+        report_lines.extend(
             safe_best_effort(
                 lambda: _token_cost_lines(inp, health),
                 label="health_report.token_cost",
@@ -490,18 +494,18 @@ def build_health_report(inp: HealthReportInput) -> str:
         from butler.core.context_budget import format_context_budget_line
 
         _bi2 = get_build_identity()
-        lines = [
+        report_lines = [
             "Butler 诊断",
             f"版本: {_bi2['version']} ({_bi2['git_sha']})",
             f"会话: {inp.session_key}",
             format_context_budget_line({}),
             "轮次诊断: 暂无（本会话尚无完整对话轮次）",
         ]
-        lines.extend(_shared_diagnostic_lines(inp))
+        report_lines.extend(_shared_diagnostic_lines(inp))
 
-    lines.extend(_hook_diagnostic_lines(inp.session_key, health))
-    lines.extend(_tool_audit_lines(tool_summary))
-    lines.extend(
+    report_lines.extend(_hook_diagnostic_lines(inp.session_key, health))
+    report_lines.extend(_tool_audit_lines(tool_summary))
+    report_lines.extend(
         safe_best_effort(
             lambda: _transcript_lines(inp.session_key),
             label="health_report.transcript",
@@ -509,7 +513,7 @@ def build_health_report(inp: HealthReportInput) -> str:
         )
         or []
     )
-    lines.extend(
+    report_lines.extend(
         safe_best_effort(
             lambda: _metrics_diag_lines(inp.session_key),
             label="health_report.metrics",
@@ -517,4 +521,4 @@ def build_health_report(inp: HealthReportInput) -> str:
         )
         or []
     )
-    return "\n".join(lines)
+    return "\n".join(report_lines)

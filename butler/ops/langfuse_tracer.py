@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import Callable
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -33,13 +34,13 @@ _initialised = False
 _project_clients: dict[str, Any] = {}
 
 
-def _lf_best_effort(fn, label: str, default: Any = None) -> Any:
+def _lf_best_effort(fn: Callable[[], Any], label: str, default: Any = None) -> Any:
     from butler.core.best_effort import safe_best_effort
 
     return safe_best_effort(fn, label=f"langfuse.{label}", default=default)
 
 
-def _lf_void(fn, label: str) -> None:
+def _lf_void(fn: Callable[[], Any], label: str) -> None:
     _lf_best_effort(fn, label)
 
 
@@ -86,7 +87,7 @@ def _get_client(project_id: str = "") -> Any:
         return None
 
     def _init_global() -> Any:
-        from langfuse import Langfuse  # type: ignore[import-untyped]
+        from langfuse import Langfuse
 
         client = Langfuse(
             host=os.getenv("LANGFUSE_HOST", "http://localhost:3000"),
@@ -190,7 +191,7 @@ class TracingContext:
             return str(getattr(self._trace, "id", ""))
         return ""
 
-    def on_llm_start(self, messages: list[dict]) -> None:
+    def on_llm_start(self, messages: list[dict[str, Any]]) -> None:
         if self._trace is None:
             return
 
@@ -252,7 +253,7 @@ class TracingContext:
         finally:
             self._llm_span = None
 
-    def on_tool_start(self, name: str, args: dict) -> None:
+    def on_tool_start(self, name: str, args: dict[str, Any]) -> None:
         if self._trace is None:
             return
 
@@ -481,7 +482,7 @@ class DelegateTracingContext:
     def observation_id(self) -> str:
         return self._observation_id
 
-    def on_llm_start(self, messages: list[dict]) -> None:
+    def on_llm_start(self, messages: list[dict[str, Any]]) -> None:
         if self._root is None:
             return
 
@@ -538,7 +539,7 @@ class DelegateTracingContext:
         finally:
             self._llm_span = None
 
-    def on_tool_start(self, name: str, args: dict) -> None:
+    def on_tool_start(self, name: str, args: dict[str, Any]) -> None:
         if self._root is None:
             return
 

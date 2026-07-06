@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def _butler_audit_dir() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit"
+    return cast(Path, get_butler_home()) / "audit"
 
 
 def regression_audit_path() -> Path:
@@ -80,7 +80,7 @@ def append_b9_audit(report: Any) -> Path:
 
 def _min_b9_pass_rate() -> float:
     try:
-        return float_env("BUTLER_EVAL_B9_PASS_RATE_MIN", 1.0)
+        return cast(float, float_env("BUTLER_EVAL_B9_PASS_RATE_MIN", 1.0))
     except ValueError:
         return 1.0
 

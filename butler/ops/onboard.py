@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 ProfileName = Literal["gateway", "dev-local", "dev-remote"]
 
@@ -64,7 +64,7 @@ def _env_set(name: str) -> bool:
     if name == "MINIMAX_API_KEY":
         from butler.ops.deploy_profile import _llm_key_set
 
-        return _llm_key_set()
+        return cast(bool, _llm_key_set())
     if name == "BUTLER_DEPLOY_PROFILE":
         return val in ("dev", "gateway", "all")
     if name == "BUTLER_ENV_PROFILE":
@@ -84,7 +84,7 @@ def resolve_onboard_profile(
 
     op = effective_operating_profile()
     if op in ("gateway", "dev-local", "dev-remote"):
-        return op  # type: ignore[return-value]
+        return cast(ProfileName, op)
     return "gateway"
 
 

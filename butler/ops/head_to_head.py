@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, cast
 
 from butler.ops.head_to_head_common import HeadToHeadScenario, run_scenario
 
@@ -140,24 +141,24 @@ Non-docs code change only under demo/.""",
 SCENARIOS = {"t1": T1, "t2": T2, "t3": T3, "t4": T4, "t5": T5}
 
 
-def run_head_to_head_t1(**kwargs):
-    return run_scenario(T1, **kwargs)
+def run_head_to_head_t1(**kwargs: Any) -> dict[str, Any]:
+    return cast(dict[str, Any], run_scenario(T1, **kwargs))
 
 
-def run_head_to_head_t2(**kwargs):
-    return run_scenario(T2, **kwargs)
+def run_head_to_head_t2(**kwargs: Any) -> dict[str, Any]:
+    return cast(dict[str, Any], run_scenario(T2, **kwargs))
 
 
-def run_head_to_head_t3(**kwargs):
-    return run_scenario(T3, **kwargs)
+def run_head_to_head_t3(**kwargs: Any) -> dict[str, Any]:
+    return cast(dict[str, Any], run_scenario(T3, **kwargs))
 
 
-def run_head_to_head_t4(**kwargs):
-    return run_scenario(T4, **kwargs)
+def run_head_to_head_t4(**kwargs: Any) -> dict[str, Any]:
+    return cast(dict[str, Any], run_scenario(T4, **kwargs))
 
 
-def run_head_to_head_t5(**kwargs):
-    return run_scenario(T5, **kwargs)
+def run_head_to_head_t5(**kwargs: Any) -> dict[str, Any]:
+    return cast(dict[str, Any], run_scenario(T5, **kwargs))
 
 
 __all__ = [

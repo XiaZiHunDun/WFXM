@@ -8,7 +8,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def prod_evidence_enabled() -> bool:
 def _state_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "config" / _STATE_NAME
+    return cast(Path, get_butler_home()) / "config" / _STATE_NAME
 
 
 def _dedupe_key(

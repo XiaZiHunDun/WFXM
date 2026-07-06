@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.ops.delegate_failure_b9_import import (
     export_b9_candidates,
@@ -39,7 +39,7 @@ _QUEUE_NAME = "b9_promotion_queue.jsonl"
 def _queue_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / _QUEUE_NAME
+    return cast(Path, get_butler_home()) / "audit" / _QUEUE_NAME
 
 
 def _append_queue(record: dict[str, Any]) -> Path:

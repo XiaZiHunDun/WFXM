@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -94,12 +94,15 @@ def default_mcp_config_path() -> Path | None:
     def _run() -> Path:
         from butler.registry.paths import default_mcp_config_path as _default_path
 
-        return _default_path()
+        return cast(Path, _default_path())
 
-    return safe_best_effort(
+    return cast(
+        Path | None,
+        safe_best_effort(
         _run,
         label="execution_surface.mcp_config_path",
         default=None,
+        ),
     )
 
 
@@ -323,7 +326,7 @@ def mcp_diagnostic_lines(session_key: str) -> list[str]:
     def _run() -> list[str]:
         from butler.mcp.diagnostics import format_mcp_diagnostic_lines
 
-        return format_mcp_diagnostic_lines(session_key)
+        return cast(list[str], format_mcp_diagnostic_lines(session_key))
 
     result = safe_best_effort(
         _run,

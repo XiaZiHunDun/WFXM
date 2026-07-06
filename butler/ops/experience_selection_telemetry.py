@@ -5,19 +5,19 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def selections_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / "experience_selections.jsonl"
+    return cast(Path, get_butler_home()) / "audit" / "experience_selections.jsonl"
 
 
 def lifecycle_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / "experience_lifecycle.jsonl"
+    return cast(Path, get_butler_home()) / "audit" / "experience_lifecycle.jsonl"
 
 
 def record_experience_selection(
@@ -80,7 +80,7 @@ def _resolve_row_task_affinity(row: dict[str, Any]) -> bool | None:
         tid = infer_b9_task_id_safe(preview)
     if not tid:
         return None
-    return experience_task_affinity_safe(eid, inferred_task_id=tid)
+    return cast(bool, experience_task_affinity_safe(eid, inferred_task_id=tid))
 
 
 def backfill_selection_task_affinity(*, dry_run: bool = True) -> dict[str, Any]:

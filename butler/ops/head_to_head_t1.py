@@ -1,14 +1,17 @@
 """Head-to-head T1 — re-export from butler.ops.head_to_head."""
 
+from typing import Any
+
 from butler.ops.head_to_head import T1, run_head_to_head_t1
 from butler.ops.head_to_head_common import reset_workspace as _reset
+
 
 FIXTURE = T1.fixture
 WORKSPACE = T1.fixture / "ws"
 
 
-def reset_workspace():
-    return _reset(T1)
+def reset_workspace() -> None:
+    _reset(T1)
 
 
 run_butler_delegate = lambda **kw: __import__(

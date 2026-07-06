@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 
 @dataclass
@@ -106,7 +106,7 @@ def push_delegate_judge_score(
         return False
     from butler.ops.delegate_judge_ops import push_delegate_judge_score_safe
 
-    return push_delegate_judge_score_safe(judge, trace_id=trace_id)
+    return cast(bool, push_delegate_judge_score_safe(judge, trace_id=trace_id))
 
 
 def maybe_judge_and_push(

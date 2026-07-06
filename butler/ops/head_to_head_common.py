@@ -163,8 +163,11 @@ def run_butler(scenario: HeadToHeadScenario, *, live: bool = True) -> dict[str, 
             payload["headline"] = rec.get("report_headline") or payload.get("headline")
         metrics = _load_delegate_metrics(task_id, scenario.session, payload)
 
-    dev_engine = metrics if metrics else (
-        payload.get("dev_engine") if isinstance(payload.get("dev_engine"), dict) else {}
+    dev_engine_raw = payload.get("dev_engine")
+    dev_engine: dict[str, Any] = (
+        metrics
+        if metrics
+        else (dev_engine_raw if isinstance(dev_engine_raw, dict) else {})
     )
     pytest_green, pytest_tail = run_pytest(ws, scenario.pytest_args)
 

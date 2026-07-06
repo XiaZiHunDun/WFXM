@@ -9,7 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +25,14 @@ def _repo_root() -> Path:
 def _audit_path() -> Path:
     from butler.config import get_butler_home
 
-    return get_butler_home() / "audit" / "wechat_corpus_eval.jsonl"
+    return cast(Path, get_butler_home()) / "audit" / "wechat_corpus_eval.jsonl"
 
 
 def catalog_delegate_stats() -> dict[str, Any]:
     """Static stats from utterance catalogs (no pytest run)."""
     from butler.ops.wechat_corpus_eval_ops import catalog_delegate_stats_safe
 
-    return catalog_delegate_stats_safe()
+    return cast(dict[str, Any], catalog_delegate_stats_safe())
 
 
 def _parse_pytest_output(output: str) -> dict[str, int]:

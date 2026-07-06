@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -105,10 +105,13 @@ def read_recent_scores(
     """
     from butler.ops.eval_feedback_ops import read_langfuse_scores_safe
 
-    return read_langfuse_scores_safe(
+    return cast(
+        list[ScoreSnapshot],
+        read_langfuse_scores_safe(
         lookback_hours=lookback_hours,
         limit=limit,
         snapshot_factory=ScoreSnapshot,
+        ),
     )
 
 
@@ -165,7 +168,10 @@ def get_feedback_context(lookback_hours: float = 24.0) -> str:
     """
     from butler.ops.eval_feedback_ops import build_feedback_context_safe
 
-    return build_feedback_context_safe(
+    return cast(
+        str,
+        build_feedback_context_safe(
         lookback_hours=lookback_hours,
         analyse_fn=analyse_scores,
+        ),
     )

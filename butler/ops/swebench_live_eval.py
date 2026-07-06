@@ -11,7 +11,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def swe_live_count() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_EVAL_SWE_LIVE_COUNT", 3, min=1, max=15)
+        return cast(int, int_env("BUTLER_EVAL_SWE_LIVE_COUNT", 3, min=1, max=15))
     except ValueError:
         return 3
 
@@ -137,7 +137,7 @@ def _swe_instance_to_task_spec(inst: Any) -> Any:
     def verify(ws: Path) -> tuple[bool, str]:
         from butler.ops.swebench_live_eval_ops import verify_swe_instance_safe
 
-        return verify_swe_instance_safe(inst, ws)
+        return cast(tuple[bool, str], verify_swe_instance_safe(inst, ws))
 
     return B9TaskSpec(
         task_id=inst.instance_id,
