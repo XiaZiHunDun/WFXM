@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.config import ModelConfig, get_butler_settings
 
@@ -155,7 +155,7 @@ class Project:
         self.workspace.mkdir(parents=True, exist_ok=True)
         config_path = self.workspace / "project.yaml"
 
-        payload = {
+        payload: dict[str, Any] = {
             "name": self.name,
             "type": self.type,
             "description": self.description,

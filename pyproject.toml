@@ -781,6 +781,8 @@ module = [
     "butler.workflows.commands",
     "butler.registry.paths",
     "butler.registry.mcp_install",
+    "butler.permissions.rules_context",
+    "butler.project.model",
 ]
 strict = true
 

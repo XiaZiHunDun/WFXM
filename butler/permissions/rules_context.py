@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.core.best_effort import safe_best_effort
 
@@ -53,7 +53,7 @@ def security_blacklist_enabled() -> bool:
     def _run() -> bool:
         from butler.env_parse import env_truthy
 
-        return env_truthy("BUTLER_PERMISSIONS_PARAM_BLACKLIST", default=True)
+        return bool(env_truthy("BUTLER_PERMISSIONS_PARAM_BLACKLIST", default=True))
 
     result = safe_best_effort(
         _run,
@@ -98,7 +98,7 @@ def current_workspace() -> Path | None:
         default=None,
     )
     if ws is not None:
-        return ws
+        return cast(Path | None, ws)
 
     def _from_env() -> Path | None:
         import os
@@ -109,10 +109,13 @@ def current_workspace() -> Path | None:
         p = Path(raw).expanduser()
         return p.resolve() if p.is_dir() else None
 
-    return safe_best_effort(
-        _from_env,
-        label="permissions.workspace_env",
-        default=None,
+    return cast(
+        Path | None,
+        safe_best_effort(
+            _from_env,
+            label="permissions.workspace_env",
+            default=None,
+        ),
     )
 
 
@@ -139,17 +142,21 @@ def permission_request_hook_block(
     def _run() -> str | None:
         from butler.hooks.runner import run_permission_request_hooks
 
-        return run_permission_request_hooks(
+        hook = run_permission_request_hooks(
             tool_name,
             args,
             reason=reason,
             session_key=session_key,
         )
+        return str(hook) if hook is not None else None
 
-    return safe_best_effort(
-        _run,
-        label="permissions.request_hooks",
-        default=None,
+    return cast(
+        str | None,
+        safe_best_effort(
+            _run,
+            label="permissions.request_hooks",
+            default=None,
+        ),
     )
 
 

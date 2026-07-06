@@ -678,6 +678,8 @@ MODULES=(
   butler/workflows/commands.py
   butler/registry/paths.py
   butler/registry/mcp_install.py
+  butler/permissions/rules_context.py
+  butler/project/model.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="
