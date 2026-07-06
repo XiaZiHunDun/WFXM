@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.workflows.schema import WorkflowDef, WorkflowStepDef, parse_workflow_data
 
@@ -120,8 +120,7 @@ def resolve_workflow(project: "Project | None", name: str) -> WorkflowDef | None
     """Merge project.yaml entry, workspace file, and builtin template."""
     key = str(name or "").strip()
     if not key or project is None:
-        base = load_builtin_workflow(key)
-        return base
+        return load_builtin_workflow(key)
 
     base: WorkflowDef | None = None
     for entry in project.workflows or []:

@@ -647,6 +647,24 @@ MODULES=(
   butler/project/archetypes.py
   butler/project/lead.py
   butler/project/plugins.py
+  butler/registry/catalog_integrity.py
+  butler/registry/install_pending.py
+  butler/registry/mcp_project_tools.py
+  butler/registry/mcp_ssot.py
+  butler/registry/skill_install.py
+  butler/registry/skill_normalize.py
+  butler/registry/skill_sources/clawhub.py
+  butler/registry/skill_sources/lobehub.py
+  butler/registry/skill_sources/marketplace.py
+  butler/registry/skills_project_sync.py
+  butler/registry/skills_ssot.py
+  butler/workflows/loader.py
+  butler/permissions/doom_loop.py
+  butler/permissions/rules.py
+  butler/project/manager.py
+  butler/project/meta.py
+  butler/project/preflight.py
+  butler/project/worktree.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="

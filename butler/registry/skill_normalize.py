@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 _VALID_NAME = re.compile(r"^[a-z][a-z0-9._-]*$")
 _FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---\s*\n(.*)\Z", re.DOTALL)
@@ -112,11 +112,11 @@ def bundle_install_layout(
     files: dict[str, str | bytes],
 ) -> SkillInstallLayout:
     """Plan install: single flat .md or directory + stub (REG-P2)."""
-    decoded = {k: _decode_file(v) for k, v in files.items()}
-    skill_key = _find_skill_md_key(decoded)
+    skill_key = _find_skill_md_key(files)
     if skill_key is None:
         raise ValueError("Bundle has no .md skill file")
 
+    decoded = {k: _decode_file(v) for k, v in files.items()}
     skill_text = decoded[skill_key]
     fm, body = _parse_frontmatter(skill_text)
     name = validate_skill_name(str(fm.get("name") or bundle_name))

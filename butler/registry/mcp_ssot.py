@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.registry.mcp_merge import effective_mcp_servers, list_mcp_config_layers
 
@@ -16,7 +16,7 @@ def mcp_ssot_path(*, workspace: Path | None = None) -> Path:
         return workspace.expanduser().resolve() / ".butler" / "mcp-ssot.yaml"
     from butler.config import get_butler_home
 
-    return get_butler_home() / "mcp-ssot.yaml"
+    return Path(get_butler_home()) / "mcp-ssot.yaml"
 
 
 def build_mcp_ssot_payload(*, workspace: Path | None = None) -> dict[str, Any]:

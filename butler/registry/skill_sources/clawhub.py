@@ -59,14 +59,14 @@ def _safe_zip_path(name: str) -> str | None:
     return "/".join(parts)
 
 
-class ClawHubSource(SkillSource):
+class ClawHubSource(SkillSource):  # type: ignore[misc]
     """Community skills from ClawHub — always trust=community."""
 
     @property
     def source_id(self) -> str:
         return "clawhub"
 
-    def _get_json(self, path: str, *, params: dict | None = None) -> Any | None:
+    def _get_json(self, path: str, *, params: dict[str, Any] | None = None) -> Any | None:
         url = f"{clawhub_base_url()}{path}"
         host = (urlparse(url).hostname or "").lower()
         if host not in ("clawhub.ai", "www.clawhub.ai") and not is_safe_url(url):

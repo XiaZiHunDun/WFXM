@@ -217,16 +217,16 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ---
 
-#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 25）
+#### 方向 F：静态类型检查渐进引入 — **done** 2026-07-06（P2-F Batch 26）
 
-**目标**：`butler/contracts/` 全包 + P0/P1-C 核心接缝 + CC 关键路径 + gateway/transport/registry + tools 主模块长尾 + **Batch 21–25 域扩展**（`mcp`/`memory`/`skills`/`session`/`hooks`/`eval`/`dev_engine`/`ops`/`registry`/`workflows`/`delegate`/`permissions`/`project` 主模块，非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
+**目标**：`butler/contracts/` 全包 + P0/P1-C 核心接缝 + CC 关键路径 + gateway/transport/registry + tools 主模块长尾 + **Batch 21–26 域扩展**（`mcp`/`memory`/`skills`/`session`/`hooks`/`eval`/`dev_engine`/`ops`/`registry`/`workflows`/`delegate`/`permissions`/`project` 主模块，非 `*_ops.py`）通过 `mypy --strict`（`--follow-imports=skip`）。
 
 **验收**（`bash scripts/butler-mypy-strict-gate.sh`）：
-- **629** 模块 strict 绿（原 361 → Batch 21 **460** → Batch 22 **474** → Batch 23 **513** → Batch 24 **596** → Batch 25 **629**）：Batch 25 纳入 `registry`/`workflows`/`delegate`/`permissions`/`project` **33** 个主模块（23 零错收割 + **10** 处 1-error 修债：`hub_manifest`·`mcp_catalog`·`skill_sources/*`·`pause_state`·`runner`·`workflow_run_snapshot`·`tool_boundary_registry`·`archetypes`）；`p2f-rebuild-gate.py` / `p2f-zero-harvest-scan.sh` SCAN_DIRS 已含上述五包
+- **647** 模块 strict 绿（原 361 → Batch 25 **629** → Batch 26 **647**）：Batch 26 纳入 **18** 个 2-error 主模块（`registry` 11 · `workflows/loader` · `permissions/{doom_loop,rules}` · `project/{manager,meta,preflight,worktree}`）；minimal 修债：`bool()`/`Path()`/`str()`/`cast()`、`yaml` stub ignore、`SkillSource` misc、`loader` no-redef
 - `pyproject.toml` `[tool.mypy.overrides]` 与 gate 列表同步（`scripts/p2f-rebuild-gate.py` 可重建 gate）
 - 入 `butler-pytest-fast-gate.sh`（既有）
 
-**剩余 backlog**：`*_ops.py` 与全仓库无 skip strict 不在本方向范围；`core/gateway/tools/runtime/transport/dev_engine/ops` 主模块已清零；`registry`/`workflows`/`permissions`/`project` 仍有 2-error+ 长尾
+**剩余 backlog**：`*_ops.py` 与全仓库无 skip strict 不在本方向范围；`registry`/`workflows`/`permissions`/`project`/`delegate` 仍有 3-error+ 长尾（如 `paths` 6、`model` 8、`rules_context` 6）
 
 #### 方向 G：文档卫生清理 — **done** 2026-06-29
 

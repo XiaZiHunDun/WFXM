@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
+from typing import Any, cast
 
 from butler.mcp.naming import tool_prefix
 from butler.project import Project
@@ -91,8 +92,8 @@ def format_global_mcp_tools_hint(server_id: str) -> str:
     )
 
 
-def list_registered_tool_names(server_id: str, block: dict) -> list[str]:
+def list_registered_tool_names(server_id: str, block: dict[str, Any]) -> list[str]:
     """Best-effort list of registered tool names after probe (for messages only)."""
     from butler.registry.mcp_project_tools_ops import list_registered_tool_names_safe
 
-    return list_registered_tool_names_safe(server_id, block)
+    return list(cast(list[str], list_registered_tool_names_safe(server_id, block)))

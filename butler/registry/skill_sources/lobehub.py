@@ -9,7 +9,7 @@ import os
 import re
 import subprocess
 import zipfile
-from typing import Any
+from typing import Any, cast
 
 from butler.registry.hub_index_cache import read_cache, write_cache
 from butler.registry.skill_sources.base import SkillSource
@@ -194,7 +194,7 @@ def _download_zip(identifier: str) -> bytes | None:
     headers = _api_headers() if token else {}
     from butler.registry.skill_sources.lobehub_ops import lobehub_download_bytes_safe
 
-    return lobehub_download_bytes_safe(url, headers=headers)
+    return cast(bytes | None, lobehub_download_bytes_safe(url, headers=headers))
 
 
 def _fetch_cli(identifier: str) -> dict[str, str] | None:
@@ -232,7 +232,7 @@ def _extract_zip_files(content: bytes) -> dict[str, str]:
     return files
 
 
-class LobeHubSource(SkillSource):
+class LobeHubSource(SkillSource):  # type: ignore[misc]
     @property
     def source_id(self) -> str:
         return "lobehub"

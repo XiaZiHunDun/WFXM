@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.registry.skill_lock import SkillLockFile
 
@@ -15,7 +15,7 @@ def skills_ssot_path(*, tenant_id: str = "default") -> Path:
     from butler.config import get_butler_home
 
     tid = str(tenant_id or "default").strip() or "default"
-    return get_butler_home() / "tenants" / tid / "skills-ssot.yaml"
+    return Path(get_butler_home()) / "tenants" / tid / "skills-ssot.yaml"
 
 
 def build_skills_ssot_payload(*, tenant_id: str = "default") -> dict[str, Any]:

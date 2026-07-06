@@ -16,11 +16,11 @@ _MANIFEST_NAME = "manifest.sha256"
 
 
 def catalog_integrity_enabled() -> bool:
-    return env_truthy("BUTLER_CATALOG_INTEGRITY", default=True)
+    return bool(env_truthy("BUTLER_CATALOG_INTEGRITY", default=True))
 
 
 def _manifest_path() -> Path:
-    return catalog_dir() / _MANIFEST_NAME
+    return Path(catalog_dir()) / _MANIFEST_NAME
 
 
 def _sha256_file(path: Path) -> str:

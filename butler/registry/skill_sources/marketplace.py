@@ -8,7 +8,7 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import httpx
@@ -316,7 +316,7 @@ def _resolve_plugin_files(
                 if install_mode == "directory":
                     files = fetch_github_directory(owner, repo_name, subpath, ref=ref)
                     if files:
-                        return files
+                        return cast(dict[str, str] | None, files)
                 gh = GitHubSource()
                 bundle = gh.fetch(f"github:{repo}/{subpath}")
                 if bundle:
@@ -343,7 +343,7 @@ def _resolve_plugin_files(
     return None
 
 
-class ClaudeMarketplaceSource(SkillSource):
+class ClaudeMarketplaceSource(SkillSource):  # type: ignore[misc]
     """Parse Claude Code `.claude-plugin/marketplace.json` indexes."""
 
     @property

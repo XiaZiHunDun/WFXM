@@ -451,11 +451,11 @@ def check_project_permission_block(
 
     exp_block = experiment_block_or_fail_closed(tool_name, args, workspace)
     if exp_block:
-        return exp_block
+        return str(exp_block)
 
     step_block = workflow_step_block_or_fail_closed(tool_name, workspace)
     if step_block:
-        return step_block
+        return str(step_block)
 
     ext_block = _external_directory_block_or_none(
         tool_name, args, workspace, session_key=session_key,

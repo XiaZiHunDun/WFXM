@@ -11,13 +11,13 @@ logger = logging.getLogger(__name__)
 
 
 def project_worktree_enabled() -> bool:
-    return env_truthy("BUTLER_PROJECT_WORKTREE", default=False)
+    return bool(env_truthy("BUTLER_PROJECT_WORKTREE", default=False))
 
 
 def read_worktree_spec(workspace: Path) -> str:
     from butler.project.worktree_ops import read_project_yaml_worktree_safe
 
-    return read_project_yaml_worktree_safe(workspace)
+    return str(read_project_yaml_worktree_safe(workspace))
 
 
 def effective_workspace(workspace: Path) -> Path:

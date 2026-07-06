@@ -24,7 +24,7 @@ class ProjectManager:
     def __new__(cls, *_args: Any, **_kwargs: Any) -> ProjectManager:
         if cls._instance is None:
             inst = super().__new__(cls)
-            inst._initialized = False  # type: ignore[attr-defined]
+            inst._initialized = False
             cls._instance = inst
         assert cls._instance is not None
         return cls._instance
@@ -207,7 +207,7 @@ class ProjectManager:
         if key:
             from_session = project_from_session_key(key)
             if from_session and from_session in self._projects:
-                return from_session
+                return str(from_session)
             parts = key.split(":", 2)
             if len(parts) >= 2:
                 chat_name = self.get_project_name_for_chat(

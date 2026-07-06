@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from butler.registry.paths import skills_root
 from butler.registry.skill_lock import SkillLockFile
@@ -186,7 +186,8 @@ def resolve_default_project_workspace() -> Path | None:
         name = default_project_name_safe()
     if not name:
         return None
-    return default_project_stack_workspace_safe(name)
+    ws = default_project_stack_workspace_safe(name)
+    return Path(ws) if ws is not None else None
 
 
 def maybe_sync_after_registry_install(

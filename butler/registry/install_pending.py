@@ -32,13 +32,13 @@ class PendingSkillInstall:
 
 def pending_ttl_seconds() -> int:
     try:
-        return int_env("BUTLER_REGISTRY_PENDING_TTL", 1800, min=300)
+        return int(int_env("BUTLER_REGISTRY_PENDING_TTL", 1800, min=300))
     except ValueError:
         return 1800
 
 
 def _pending_path() -> Path:
-    path = get_butler_home() / "registry-cache" / "pending-installs.json"
+    path = Path(get_butler_home()) / "registry-cache" / "pending-installs.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 

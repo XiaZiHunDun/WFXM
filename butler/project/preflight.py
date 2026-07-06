@@ -97,7 +97,7 @@ def _detect_pack(workspace: Path) -> str:
 def _detect_lifecycle(workspace: Path) -> str:
     from butler.project.preflight_ops import detect_lifecycle_tag
 
-    return detect_lifecycle_tag(workspace)
+    return str(detect_lifecycle_tag(workspace))
 
 
 def _has_executable_tree(workspace: Path) -> bool:
@@ -540,7 +540,7 @@ def resolve_workspace(
             if matched:
                 proj = get_project_manager().get_project(matched)
         if proj is not None:
-            return proj.workspace
+            return Path(proj.workspace)
     if projects_dir is not None:
         return projects_dir
     return None

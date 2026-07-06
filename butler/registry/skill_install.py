@@ -67,7 +67,7 @@ def quarantine_bundle(bundle: SkillBundle, *, tenant_id: str = "") -> Path:
             target.write_bytes(content)
         else:
             target.write_text(content, encoding="utf-8")
-    return dest
+    return Path(dest)
 
 
 def scan_quarantine(path: Path) -> tuple[str, list[str]]:
@@ -157,7 +157,7 @@ def install_from_quarantine(
 def _content_path_from_stub(stub_md: str) -> str:
     import re as _re
 
-    import yaml as _yaml
+    import yaml as _yaml  # type: ignore[import-untyped]
 
     m = _re.match(r"\A---\s*\n(.*?)\n---", stub_md, _re.DOTALL)
     if not m:

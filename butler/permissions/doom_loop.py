@@ -35,9 +35,9 @@ def check_doom_loop_ask(
 
     session_key = current_doom_loop_session_key_safe()
     if not session_key:
-        return decision.message
+        return str(decision.message) if decision.message else None
     req = doom_loop_approval_request(tool_name, args)
     if is_approved(session_key, req):
         return None
     save_pending(session_key, req)
-    return decision.message
+    return str(decision.message) if decision.message else None
