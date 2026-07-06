@@ -703,6 +703,9 @@ MODULES=(
   butler/tool_guardrails.py
   butler/main.py
   butler/experiments/mode.py
+  butler/config.py
+  butler/config_secrets_crypto.py
+  butler/io/safe_load.py
 )
 
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="

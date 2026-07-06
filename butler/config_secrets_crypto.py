@@ -15,10 +15,10 @@ _FERNET_PREFIX = "FERNET:"
 
 
 def secrets_encrypt_enabled() -> bool:
-    return env_truthy("BUTLER_SECRETS_ENCRYPT", default=False)
+    return bool(env_truthy("BUTLER_SECRETS_ENCRYPT", default=False))
 
 
-def _get_fernet():
+def _get_fernet() -> Any | None:
     if not secrets_encrypt_enabled():
         return None
     key = os.getenv("BUTLER_SECRETS_ENCRYPT_KEY", "").strip()
@@ -47,7 +47,7 @@ def decrypt_secret_value(value: str) -> str:
         return ""
     from butler.config_secrets_crypto_ops import decrypt_fernet_value_safe
 
-    return decrypt_fernet_value_safe(f, text[len(_FERNET_PREFIX) :])
+    return str(decrypt_fernet_value_safe(f, text[len(_FERNET_PREFIX) :]))
 
 
 def encrypt_secret_value(value: str) -> str:

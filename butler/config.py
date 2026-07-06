@@ -10,9 +10,9 @@ import os
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 import logging
 
 from butler.env_parse import init_dotenv
@@ -126,7 +126,7 @@ class LayeredModelConfig:
 
     def get(self, role: str) -> ModelConfig:
         if role in _ROLE_NAMES:
-            return getattr(self, role)
+            return cast(ModelConfig, getattr(self, role))
         return self.butler
 
     def set(self, role: str, config: ModelConfig) -> None:
@@ -286,7 +286,10 @@ class ButlerSettings:
         """Effective model for ``role`` via ``resolve_effective_model`` (L0–L3)."""
         from butler.model_resolve import resolve_effective_model
 
-        return resolve_effective_model(role, project=project, settings=self).config
+        return cast(
+            ModelConfig,
+            resolve_effective_model(role, project=project, settings=self).config,
+        )
 
     def llm_fallback_extra_configs(self, primary: ModelConfig) -> list[ModelConfig]:
         """Configured LLM fallback entries after primary (empty = no auto extras)."""
@@ -450,7 +453,7 @@ def get_butler_home() -> Path:
     return get_butler_settings().butler_home
 
 
-def get_project_langfuse_config(project_id: str) -> dict:
+def get_project_langfuse_config(project_id: str) -> dict[str, Any]:
     """Load per-project LangFuse configuration from ``~/.butler/projects/<id>/langfuse.json``.
 
     Returns empty dict if the config file doesn't exist.
@@ -461,7 +464,8 @@ def get_project_langfuse_config(project_id: str) -> dict:
     if not config_path.is_file():
         return {}
     try:
-        return json.loads(config_path.read_text(encoding="utf-8"))
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        return dict(data) if isinstance(data, dict) else {}
     except (json.JSONDecodeError, OSError):
         return {}
 

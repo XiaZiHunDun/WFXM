@@ -806,6 +806,9 @@ module = [
     "butler.tool_guardrails",
     "butler.main",
     "butler.experiments.mode",
+    "butler.config",
+    "butler.config_secrets_crypto",
+    "butler.io.safe_load",
 ]
 strict = true
 
