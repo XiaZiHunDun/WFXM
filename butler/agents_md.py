@@ -20,7 +20,7 @@ _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n(.*)$", re.DOTALL)
 # Key: (str(workspace), str(name), str(path), mtime_ns, size) — auto-invalidates
 # on file modification. Failed loads (OSError → None) are NOT cached to
 # avoid poisoning subsequent reads.
-_FILE_CACHE: dict[tuple, AgentMdDef] = {}
+_FILE_CACHE: dict[tuple[str, str, str, int, int], AgentMdDef] = {}
 
 
 @dataclass

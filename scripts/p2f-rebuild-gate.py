@@ -51,6 +51,9 @@ SEED = [
 ]
 
 SCAN_DIRS = [
+    "butler",
+    "butler/io",
+    "butler/experiments",
     "butler/core",
     "butler/gateway",
     "butler/runtime",

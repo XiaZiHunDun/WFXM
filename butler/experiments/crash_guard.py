@@ -12,7 +12,7 @@ def crash_block_threshold() -> int:
     try:
         from butler.env_parse import int_env
 
-        return int_env("BUTLER_EXPERIMENT_CRASH_BLOCK", 3, min=1)
+        return int(int_env("BUTLER_EXPERIMENT_CRASH_BLOCK", 3, min=1))
     except ValueError:
         return 3
 

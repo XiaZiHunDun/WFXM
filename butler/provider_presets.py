@@ -23,7 +23,7 @@ class ProviderPreset:
 
 
 def presets_path() -> Path:
-    return get_butler_home() / "provider-presets.yaml"
+    return Path(get_butler_home()) / "provider-presets.yaml"
 
 
 def _builtin_presets() -> list[ProviderPreset]:

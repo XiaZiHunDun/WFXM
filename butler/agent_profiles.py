@@ -109,7 +109,7 @@ def _load_dev_engine_appendix() -> str:
     from butler.agent_profiles_ops import load_dev_engine_appendix_body_safe
 
     _DEV_ENGINE_APPENDIX = load_dev_engine_appendix_body_safe()
-    return _DEV_ENGINE_APPENDIX
+    return str(_DEV_ENGINE_APPENDIX)
 
 
 DEV_AGENT = AgentProfile(

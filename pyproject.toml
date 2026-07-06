@@ -783,6 +783,23 @@ module = [
     "butler.registry.mcp_install",
     "butler.permissions.rules_context",
     "butler.project.model",
+    "butler.__init__",
+    "butler.config_service",
+    "butler.env_parse",
+    "butler.logging_config",
+    "butler.memory_plugin",
+    "butler.tenant",
+    "butler.io.atomic_write",
+    "butler.experiments.__init__",
+    "butler.experiments.ledger",
+    "butler.experiments.metrics",
+    "butler.agent_profiles",
+    "butler.agents_md",
+    "butler.memory_settings",
+    "butler.provider_presets",
+    "butler.experiments.outcomes",
+    "butler.experiments.crash_guard",
+    "butler.experiments.git_utils",
 ]
 strict = true
 

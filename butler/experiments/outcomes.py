@@ -29,7 +29,7 @@ _FIELDNAMES = (
 
 
 def outcome_reflection_enabled() -> bool:
-    return env_truthy("BUTLER_OUTCOME_REFLECTION", default=True)
+    return bool(env_truthy("BUTLER_OUTCOME_REFLECTION", default=True))
 
 
 def outcomes_path(workspace: Path) -> Path:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from butler.config import get_butler_settings
 from butler.defaults.env_defaults import (
@@ -50,7 +50,7 @@ def _load_yaml_memory() -> dict[str, Any]:
     from butler.memory_settings_ops import load_yaml_memory_section_safe
 
     settings = get_butler_settings()
-    return load_yaml_memory_section_safe(settings.config_yaml_path)
+    return cast(dict[str, Any], load_yaml_memory_section_safe(settings.config_yaml_path))
 
 
 def _nested_dict(raw: dict[str, Any], key: str) -> dict[str, Any]:

@@ -31,7 +31,7 @@ def current_git_sha(workspace: Path) -> str:
 
 
 def experiment_git_reset_enabled() -> bool:
-    return env_truthy("BUTLER_EXPERIMENT_GIT_RESET", default=False)
+    return bool(env_truthy("BUTLER_EXPERIMENT_GIT_RESET", default=False))
 
 
 def git_reset_hard(workspace: Path, sha: str) -> tuple[bool, str]:
