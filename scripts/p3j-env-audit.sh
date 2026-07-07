@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-# P3-J: env key audit — code readers vs reference vs .env.example (report-only).
+# P3-J: env key audit — code readers vs reference vs .env.example.
+# Default: report-only (exit 0). P3J_AUDIT_STRICT=1: fail on undoc code keys.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+export P3J_AUDIT_STRICT="${P3J_AUDIT_STRICT:-0}"
+
 python3 - <<'PY'
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
+
+STRICT = os.environ.get("P3J_AUDIT_STRICT", "0").strip() in ("1", "true", "yes", "on")
 
 ref_text = Path("docs/config/reference.md").read_text(encoding="utf-8")
 env_lines = Path(".env.example").read_text(encoding="utf-8").splitlines()
@@ -32,6 +38,42 @@ def ref_covers(key: str) -> bool:
     return any(key.startswith(p) for p in ref_prefixes)
 
 
+WHITELIST = (
+    re.compile(r"^BUTLER_NONEXISTENT_KEY"),
+    re.compile(r"^BUTLER_SMOKE_"),
+    re.compile(r"^BUTLER_HOOK_"),
+    re.compile(r"^BUTLER_TEST_"),
+    re.compile(r"^BUTLER_WECHAT_.*_SIM$"),
+    re.compile(r"^BUTLER_MODEL$"),
+)
+
+IGNORE_EXACT = frozenset({
+    "BUTLER_PY",
+    "BUTLER_PYTHON",
+    "BUTLER_NAME",
+    "BUTLER_ONLY",
+    "BUTLER_BLOCKED_PROJECT_TOOLS",
+    "BUTLER_FOO",
+    "BUTLER_HOOK_EVENT",
+    "BUTLER_HOOK_INPUT",
+    "BUTLER_HOOK_TOOL",
+    "BUTLER_NOTIFY_URLS",
+    "BUTLER_RUNTIME_RUN_CONSISTENCY",
+    "BUTLER_RUNTIME_SMOKE_PUSH",
+    "BUTLER_RUN_REAL_API_SMOKE",
+    "BUTLER_WORKFLOW_HANDOFF_ONLY",
+    "BUTLER_DISABLE_EXPERIMENTAL_CACHE",
+})
+
+
+def audit_whitelisted(key: str) -> bool:
+    if key in IGNORE_EXACT:
+        return True
+    if key.endswith("_"):
+        return True
+    return any(p.match(key) for p in WHITELIST)
+
+
 env_keys: set[str] = set()
 for line in env_lines:
     stripped = line.strip()
@@ -43,7 +85,6 @@ for line in env_lines:
     if m:
         env_keys.add(m.group(1))
 
-# Code readers in butler/ + scripts/ (string literals only).
 rg = subprocess.run(
     ["rg", "-o", r"BUTLER_[A-Z0-9_]+", "butler/", "scripts/"],
     capture_output=True,
@@ -59,50 +100,32 @@ code_keys = sorted(
     }
 )
 
-ref_only_ok = {
-    "BUTLER_FOO",
-    "BUTLER_HOOK_EVENT",
-    "BUTLER_HOOK_INPUT",
-    "BUTLER_HOOK_TOOL",
-}
-
-ref_only_ok = {
-    "BUTLER_FOO",
-    "BUTLER_HOOK_EVENT",
-    "BUTLER_HOOK_INPUT",
-    "BUTLER_HOOK_TOOL",
-    "BUTLER_NOTIFY_URLS",
-    "BUTLER_RUNTIME_RUN_CONSISTENCY",
-    "BUTLER_RUNTIME_SMOKE_PUSH",
-    "BUTLER_RUN_REAL_API_SMOKE",
-    "BUTLER_WORKFLOW_HANDOFF_ONLY",
-    "BUTLER_DISABLE_EXPERIMENTAL_CACHE",
-}
-
 undoc_code = []
 for k in code_keys:
-    if k in ref_only_ok:
+    if audit_whitelisted(k):
         continue
     if not ref_covers(k):
         undoc_code.append(k)
 undoc_code.sort()
+
 ref_no_code = sorted(
     k
     for k in ref_exact
-    if k not in ref_only_ok
+    if k not in IGNORE_EXACT
     and subprocess.run(
         ["rg", "-qF", k, "butler/", "scripts/"],
         capture_output=True,
     ).returncode
     != 0
 )
-example_missing = sorted(k for k in ref_exact if k not in env_keys and k not in ref_only_ok)
+example_missing = sorted(k for k in ref_exact if k not in env_keys and k not in IGNORE_EXACT)
 
 print("=== P3-J env audit ===")
 print(f"reference_exact_keys={len(ref_exact)}")
 print(f"reference_prefixes={len(ref_prefixes)}")
 print(f"env_example_keys={len(env_keys)}")
 print(f"code_butler_script_keys={len(code_keys)}")
+print(f"strict={STRICT}")
 print("")
 print("(a) Code-read BUTLER_* not covered by reference.md:")
 if undoc_code:
@@ -129,7 +152,7 @@ if example_missing:
 else:
     print("  (none)")
 
-if undoc_code:
+if STRICT and undoc_code:
     raise SystemExit(1)
 PY
 

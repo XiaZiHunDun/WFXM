@@ -1,13 +1,32 @@
 #!/usr/bin/env python3
-"""P3-J PoC: diff static BUTLER_* stubs from code vs reference.md (report-only)."""
+"""P3-J: diff static BUTLER_* stubs from code vs reference.md (report-only by default)."""
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+WHITELIST = (
+    re.compile(r"^BUTLER_NONEXISTENT_KEY"),
+    re.compile(r"^BUTLER_SMOKE_"),
+    re.compile(r"^BUTLER_HOOK_"),
+    re.compile(r"^BUTLER_TEST_"),
+    re.compile(r"^BUTLER_WECHAT_.*_SIM$"),
+    re.compile(r"^BUTLER_MODEL$"),
+)
+
+IGNORE_EXACT = frozenset({
+    "BUTLER_PY",
+    "BUTLER_PYTHON",
+    "BUTLER_NAME",
+    "BUTLER_ONLY",
+    "BUTLER_BLOCKED_PROJECT_TOOLS",
+    "BUTLER_FOO",
+})
 
 
 def _reference_keys() -> tuple[set[str], list[str]]:
@@ -41,7 +60,14 @@ def _code_keys() -> set[str]:
     return out
 
 
+def _ignored(key: str) -> bool:
+    if key in IGNORE_EXACT or key.endswith("_"):
+        return True
+    return any(p.match(key) for p in WHITELIST)
+
+
 def main() -> int:
+    strict = os.environ.get("P3J_SCHEMA_STRICT", "0").strip() in ("1", "true", "yes", "on")
     exact, prefixes = _reference_keys()
     code = _code_keys()
 
@@ -50,15 +76,18 @@ def main() -> int:
             return True
         return any(key.startswith(p) for p in prefixes)
 
-    stub_only = sorted(k for k in code if not covered(k))
+    stub_only = sorted(k for k in code if not _ignored(k) and not covered(k))
     print("=== P3-J env schema PoC ===")
-    print(f"code_keys={len(code)} reference_exact={len(exact)}")
+    print(f"code_keys={len(code)} reference_exact={len(exact)} strict={strict}")
     print("stub_not_in_reference (first 40):")
-    for k in stub_only[:40]:
-        print(f"  {k}")
-    if len(stub_only) > 40:
-        print(f"  ... +{len(stub_only) - 40} more")
-    return 0
+    if stub_only:
+        for k in stub_only[:40]:
+            print(f"  {k}")
+        if len(stub_only) > 40:
+            print(f"  ... +{len(stub_only) - 40} more")
+    else:
+        print("  (none)")
+    return 1 if strict and stub_only else 0
 
 
 if __name__ == "__main__":

@@ -256,33 +256,31 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 - **手段**：helper 合并 + 安全模块顶 hoist；环依赖处保留 lazy（`tool_batch`/`completion_notify`↔`outbound_bridge`/`tool_audit`↔`registry` 等）
 - **门禁**：`p3i-lazy-import-report.sh`（`LAZY_IMPORT_BUDGET=1975`）已挂 **ENG domain gate** + fast-gate（p3j）
 
-#### 方向 J：配置面收敛 — **进行中** 2026-07-06（P3-J Batch 2–4）
+#### 方向 J：配置面收敛 — **已达成基础门禁** 2026-07-07（P3-J Batch 2–5）
 
-- ~540 项 env（`.env.example`）；`p3j-env-hygiene-gate.sh` + **`p3j-env-audit.sh`** + **`p3j-env-schema-poc.py`**
-- **Batch 2–4**：显式 reference 行（`BUTLER_ENABLE_GIT_WRITE` / `DELEGATE_COMPLETION_MODE` / `TOOLS_ENGINE_FORCE_OFF` / `INSTRUCTION_WALKUP`）· Deprecated/Legacy 附录 · **fast-gate** 挂 p3j
+- ~540 项 env（`.env.example`）；`p3j-env-hygiene-gate.sh`（含 **`P3J_AUDIT_STRICT=1`** audit + schema PoC 报告）
+- **Batch 2–5**：显式 reference 行 · Deprecated/Legacy 附录 · fast-gate / eng-domain 挂接 · 脚本专用 key 补文档
 
 ---
 
 ## 四、执行节奏建议
 
 ```
-已完成（2026-07-06）
+已完成（2026-07-07）
 ├─ P0-A/B · P1-C · P2-G · P1-D · P2-E · P2-F（mypy **826** 主模块）✅
-└─ P3-H 记忆统一检索 Phase 1–3 + lead 剖面 rollout（2026-07-02）✅
+├─ P3-H 记忆统一检索 Phase 1–3 + lead 剖面 rollout（2026-07-02）✅
+├─ P3-I 懒 import 减量：3593 → **1945**（budget **1975**）✅
+└─ P3-J 配置卫生：hygiene gate + audit strict + schema PoC ✅
 
 现在 → 07-31（G1-04 窗内）
-├─ 每周 G1-04 打卡（butler-ops-cadence.sh --weekly）
-├─ 07-27: TCR strict flip（见 ops 日历）
+├─ 每周 G1-04 打卡（butler-ops-cadence.sh --weekly）— 今日已跑 ✅
+├─ 07-27: TCR strict flip（见 ops 日历；当前 status=wait）
 └─ 07-31: G1-04 窗满结案（butler-g1-04-closure-check.sh）
 
-进行中（2026-07-06）
-├─ P3-I Batch 1：AST lazy-import 计数 + report + memory_cli hoist
-└─ P3-J Batch 1：p3j-env-hygiene-gate → eng-domain gate
-
 Backlog（G1-04 结案后加深）
-├─ P3-I：locked_phases / chat_cli / info_commands 懒 import 减量
-├─ P3-J：env 差集审计 · 废弃 key 标记
-└─ P2-F-ops（可选）：388 个 *_ops.py strict
+├─ P0-A：异常治理续扫（core/gateway 宽泛 except）
+├─ P2-F-ops（可选）：388 个 *_ops.py mypy strict
+└─ 方向 H：记忆统一检索 Phase 4+
 
 持续：
 ├─ 改 gateway 后 restart

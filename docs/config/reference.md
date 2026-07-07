@@ -630,6 +630,21 @@ Shell Stop 钩子：`exit 2` 或 JSON `decision:block` → **循环内**注入 u
 | `BUTLER_SMOKE_MINIMAX_MODEL` | 冒烟用 MiniMax 模型 |
 | `BUTLER_SMOKE_QWEN_MODEL` | 冒烟用 Qwen 模型 |
 | `BUTLER_DISABLE_EXPERIMENTAL_CACHE` | 仅测试：`test_sprint16_perf11_9_llm_retry_debug.py` |
+| `BUTLER_B9_WEEKLY_LOG` | `butler-b9-weekly-gate-followup.sh` 日志路径 |
+| `BUTLER_B9_WEEKLY_MODEL` | B9 weekly gate 模型覆盖（如 `deepseek/deepseek-reasoner`） |
+| `BUTLER_COMPACTION_LIVE_RESERVE` | `butler-compaction-live-test.sh` token reserve 覆盖 |
+| `BUTLER_DEV_FLYWHEEL_PROBE` | `butler-dev-live-flywheel-checklist.sh` 探测开关 |
+| `BUTLER_EXTENSION_WECHAT_SIM` | Extension 微信 sim 总开关（`0` 跳过） |
+| `BUTLER_OPENAPI_DIR` | `butler-github-openapi-spec-install.sh` OpenAPI 安装目录 |
+| `BUTLER_PROD_PLAYBOOK_DRY` | `butler-prod-playbook-seed.sh` dry-run（默认 `1`） |
+| `BUTLER_SECRETS_CONTRACT_CHECK` | `butler-secrets-contract-check.sh`（`0` 跳过） |
+| `BUTLER_SMOKE_TIER` | `butler-smoke.sh` tier：`quick` / `standard` |
+| `BUTLER_TENANT_ID` | `butler-memory-phase-a.sh` / `memory-reindex --tenant` |
+| `BUTLER_WEB_SEARCH_ROUTE_SIM` | `butler-web-search-route-sim.sh`（`0` 跳过） |
+| `BUTLER_WEB_SEARCH_ROUTE_HANDLER` | 同上 handler 段（`0` 跳过） |
+| `BUTLER_WEB_SEARCH_ROUTE_PROJECT` | 同上项目名覆盖 |
+| `BUTLER_WECHAT_PUSH_PRE_WAIT_SECONDS` | `butler-wechat-push-verify.sh` 推送前等待秒数 |
+| `BUTLER_WECHAT_*` | 微信场景 sim 脚本前缀（如 `BUTLER_WECHAT_OWNER_SIM`；可 `=0` 跳过） |
 
 > `BUTLER_NOTIFY_URLS`（apprise 多渠道）**尚未接入** `butler/` 运行时；勿在生产 `.env` 中依赖。
 
