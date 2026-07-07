@@ -45,7 +45,6 @@ from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import (
     load_sync_buf_field_safe,
 )
 from butler.env_parse import float_env
-from butler.gateway.platforms import wechat_ilink_utils as wu
 from butler.gateway.platforms.wechat_ilink.constants import (
     ITEM_FILE,
     ITEM_IMAGE,
@@ -518,14 +517,14 @@ async def _download_and_decrypt_media(
 ) -> bytes:
 
     if encrypted_query_param:
-        raw = await wu._download_bytes(
+        raw = await _download_bytes(
             session,
             url=_cdn_download_url(cdn_base_url, encrypted_query_param),
             timeout_seconds=timeout_seconds,
         )
     elif full_url:
         _assert_wechat_cdn_url(full_url)
-        raw = await wu._download_bytes(session, url=full_url, timeout_seconds=timeout_seconds)
+        raw = await _download_bytes(session, url=full_url, timeout_seconds=timeout_seconds)
     else:
         raise RuntimeError("media item had neither encrypt_query_param nor full_url")
     if aes_key_b64:

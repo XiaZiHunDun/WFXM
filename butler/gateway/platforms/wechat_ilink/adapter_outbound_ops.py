@@ -8,18 +8,46 @@ import os
 from typing import TYPE_CHECKING, Any, Optional
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
+from butler.env_parse import float_env
 from butler.gateway.platforms.types import SendResult
 from butler.gateway.platforms.wechat_ilink import _get_config, _safe_id
-from butler.gateway.platforms.wechat_ilink import _safe_id
 from butler.gateway.platforms.wechat_ilink import _send_typing
 from butler.gateway.platforms.wechat_ilink_phases import WeChatSendState, _phase_chunk_attempt, _phase_chunk_handle_response
-from butler.gateway.platforms.wechat_ilink.adapter_outbound import backoff_for_rate_limit
-from butler.gateway.platforms.wechat_ilink.adapter_outbound import backoff_for_transport_error
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter
 
 logger = logging.getLogger(__name__)
+
+
+async def backoff_for_rate_limit(adapter: "WeChatAdapter", chat_id: str, attempt: int) -> None:
+    cap = 90.0
+    try:
+        cap = max(10.0, float(float_env("BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX", 90)))
+    except ValueError:
+        cap = 90.0
+    wait = min(cap, adapter._send_chunk_retry_delay_seconds * (3 ** attempt))
+    logger.warning(
+        "[%s] rate limited for %s; backing off %.1fs before retry",
+        adapter.name, _safe_id(chat_id), wait,
+    )
+    await asyncio.sleep(wait)
+
+
+async def backoff_for_transport_error(
+    adapter: "WeChatAdapter",
+    chat_id: str,
+    attempt: int,
+    exc: Exception,
+) -> None:
+    wait = adapter._send_chunk_retry_delay_seconds * (attempt + 1)
+    logger.warning(
+        "[%s] send chunk failed to=%s attempt=%d/%d, retrying in %.2fs: %s",
+        adapter.name, _safe_id(chat_id),
+        attempt + 1, adapter._send_chunk_retries + 1, wait, exc,
+    )
+    if wait > 0:
+        await asyncio.sleep(wait)
 
 
 async def fetch_typing_ticket_safe(

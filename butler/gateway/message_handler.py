@@ -50,7 +50,7 @@ from butler.gateway.message_queue import message_queue_enabled
 from butler.gateway.session_loop_factory import create_gateway_loop
 from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
 from butler.env_parse import env_truthy
-from butler.session.keys import chat_id_from_session_key
+from butler.session.keys import chat_id_from_session_key, normalize_session_key
 from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory, trigger_session_end
 from butler.gateway.session_registry import GatewaySessionRegistry
 

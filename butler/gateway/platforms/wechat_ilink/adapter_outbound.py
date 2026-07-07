@@ -21,6 +21,8 @@ from butler.gateway.platforms.wechat_ilink import (
 )
 from butler.gateway.platforms.wechat_ilink.adapter_media import download_remote_media
 from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import (
+    backoff_for_rate_limit,
+    backoff_for_transport_error,
     ensure_typing_ticket_safe,
     fetch_typing_ticket_safe,
     send_media_loud,
@@ -84,36 +86,6 @@ def split_text(
         force_single_message=force_single,
         ),
     )
-
-
-async def backoff_for_rate_limit(adapter: "WeChatAdapter", chat_id: str, attempt: int) -> None:
-    cap = 90.0
-    try:
-        cap = max(10.0, float_env("BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX", 90))
-    except ValueError:
-        cap = 90.0
-    wait = min(cap, adapter._send_chunk_retry_delay_seconds * (3 ** attempt))
-    logger.warning(
-        "[%s] rate limited for %s; backing off %.1fs before retry",
-        adapter.name, _safe_id(chat_id), wait,
-    )
-    await asyncio.sleep(wait)
-
-
-async def backoff_for_transport_error(
-    adapter: "WeChatAdapter",
-    chat_id: str,
-    attempt: int,
-    exc: Exception,
-) -> None:
-    wait = adapter._send_chunk_retry_delay_seconds * (attempt + 1)
-    logger.warning(
-        "[%s] send chunk failed to=%s attempt=%d/%d, retrying in %.2fs: %s",
-        adapter.name, _safe_id(chat_id),
-        attempt + 1, adapter._send_chunk_retries + 1, wait, exc,
-    )
-    if wait > 0:
-        await asyncio.sleep(wait)
 
 
 async def send_text_chunk(
