@@ -826,7 +826,7 @@ def test_record_skipped_plugin_emits_best_effort_metric(monkeypatch):
         recorded.append((label, exc))
 
     monkeypatch.setattr(
-        "butler.core.best_effort.record_best_effort_skip",
+        "butler.core.agent_loop.record_best_effort_skip",
         _capture,
     )
     metrics: list[tuple[str, dict]] = []
@@ -834,7 +834,7 @@ def test_record_skipped_plugin_emits_best_effort_metric(monkeypatch):
     def _inc(name: str, *, labels: dict | None = None) -> None:
         metrics.append((name, labels or {}))
 
-    monkeypatch.setattr("butler.ops.runtime_metrics.inc", _inc)
+    monkeypatch.setattr("butler.core.agent_loop_ops.inc", _inc)
 
     loop = AgentLoop.__new__(AgentLoop)
     loop.diagnostics = {}

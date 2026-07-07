@@ -72,7 +72,8 @@ def _isolate_butler_home(tmp_path, monkeypatch):
     monkeypatch.setenv("BUTLER_MEMORY_AUTO_APPROVE", "")
     monkeypatch.setenv("BUTLER_MEMORY_AUTO_FACT", "1")
     # Prevent repo .env deploy flags from leaking when reload_butler_settings runs (P2-E / ENG-9).
-    monkeypatch.delenv("BUTLER_ONBOARDING_WELCOME", raising=False)
+    # Explicit 0: delenv would fall back to ONBOARDING_WELCOME_DEFAULT ("1").
+    monkeypatch.setenv("BUTLER_ONBOARDING_WELCOME", "0")
     monkeypatch.setenv("BUTLER_TERMINAL_PIPE", "0")
     monkeypatch.setenv("BUTLER_MCP_ENABLED", "0")
     from butler.config import reload_butler_settings

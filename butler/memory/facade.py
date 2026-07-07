@@ -512,7 +512,7 @@ class ButlerMemoryService:
 
         from butler.memory.recall_router import dispatch_recall
 
-        return dispatch_recall(self, args)
+        return cast(str, dispatch_recall(self, args))
 
     def on_session_switch(
         self,

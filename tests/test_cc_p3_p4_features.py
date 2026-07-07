@@ -147,7 +147,7 @@ def test_stop_hook_reentry_continues_loop(monkeypatch):
             return StopHookResult(blocked=True, block_message="need more work")
         return StopHookResult()
 
-    monkeypatch.setattr("butler.hooks.runner.run_stop_hooks", _stop_hooks)
+    monkeypatch.setattr("butler.core.agent_loop_ops.run_stop_hooks", _stop_hooks)
 
     loop = AgentLoop(FakeClient(), config=LoopConfig(max_iterations=5, stream=False))
     result = loop.run("hello")

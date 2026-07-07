@@ -14,13 +14,13 @@ def test_pre_compact_contexts_adapted_to_diagnostics():
     def _compress(messages, **kwargs):
         return messages[:4]
 
-    with patch("butler.hooks.runner.run_pre_compact_hooks") as pre_mock:
+    with patch("butler.core.compaction_task_ops.run_pre_compact_hooks") as pre_mock:
         from butler.hooks.runner import PreCompactHookResult
 
         pre_mock.return_value = PreCompactHookResult(
             contexts=['{"summary": "pre hint", "tags": ["t"]}'],
         )
-        with patch("butler.hooks.runner.run_post_compact_hooks", return_value=[]):
+        with patch("butler.core.compaction_task_ops.run_post_compact_hooks", return_value=[]):
             did, _ = run_compaction_turn(
                 msgs,
                 compress=_compress,
@@ -37,7 +37,7 @@ def test_pre_compact_block_still_short_circuits():
     diag: dict = {}
     msgs = [{"role": "user", "content": "x"}] * 10
 
-    with patch("butler.hooks.runner.run_pre_compact_hooks") as pre_mock:
+    with patch("butler.core.compaction_task_ops.run_pre_compact_hooks") as pre_mock:
         from butler.hooks.runner import PreCompactHookResult
 
         pre_mock.return_value = PreCompactHookResult(blocked="no compact")

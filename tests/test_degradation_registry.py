@@ -77,11 +77,11 @@ def test_refresh_degradations_for_owner_brief_merges_mcp(monkeypatch):
         name = "test-server"
 
     monkeypatch.setattr(
-        "butler.mcp.config.mcp_enabled",
+        "butler.ops.degradation_registry_ops.mcp_enabled",
         lambda: True,
     )
     monkeypatch.setattr(
-        "butler.mcp.manager.get_manager",
+        "butler.ops.degradation_registry_ops.get_manager",
         lambda: type("M", (), {"status_snapshot": lambda _self, _sk: [_St()]})(),
     )
     monkeypatch.setattr(

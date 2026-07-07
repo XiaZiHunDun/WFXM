@@ -36,6 +36,7 @@ from butler.gateway.durable_outbox import (
 )
 from butler.gateway.completion_policy import suppress_completion_after_main_enabled
 from butler.gateway.pii_scrub import scrub_outbound_text
+from butler.gateway.wechat_text_export import build_delegate_completion_message
 from butler.report import AgentReport, cache_report, format_for_wechat, get_last_report
 from butler.runtime.notify import (
     mark_wechat_push_sent,

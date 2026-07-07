@@ -115,8 +115,7 @@ class TestSlashCommands:
         assert "/诊断 详细" in text
         assert "Butler 诊断" not in text
 
-    def test_feedback_records_owner_hard_feedback(self, handler, tmp_path, monkeypatch):
-        monkeypatch.setattr("butler.config.get_butler_home", lambda: tmp_path)
+    def test_feedback_records_owner_hard_feedback(self, handler, tmp_butler_home):
         with patch("butler.gateway.owner_gate.is_gateway_owner", return_value=True):
             out = handler._handle_command(
                 "/反馈 委派不对，应该只读",
@@ -125,7 +124,7 @@ class TestSlashCommands:
             )
         assert out is not None
         assert "已记录" in out
-        assert (tmp_path / "audit" / "eval_feedback.jsonl").is_file()
+        assert (tmp_butler_home / "audit" / "eval_feedback.jsonl").is_file()
 
     def test_health_shows_tool_audit_without_health_snapshot(self, handler):
         from butler.tools.registry import dispatch_tool, reset_tool_audit_events
@@ -496,7 +495,7 @@ class TestSlashCommands:
 
     def test_hook_rewrite_to_global_command_bypasses_session_lock(self, handler):
         with patch(
-            "butler.gateway.hooks.apply_pre_gateway_dispatch",
+            "butler.gateway.message_pipelines.apply_pre_gateway_dispatch",
             return_value="/model",
         ):
             with patch.object(
@@ -533,9 +532,9 @@ class TestHandleMessage:
         mock_loop.hygiene_compress_if_needed.return_value = True
         mock_loop.run.return_value.diagnostics = {"schema_recovered": True}
         with patch.object(handler, "_get_or_create_loop", return_value=mock_loop):
-            with patch("butler.session.lifecycle.attach_turn_memory_prefetch") as prefetch:
+            with patch("butler.gateway.locked_phases.attach_turn_memory_prefetch") as prefetch:
                 with patch(
-                    "butler.session.lifecycle.sync_turn_memory",
+                    "butler.gateway.locked_phases.sync_turn_memory",
                     return_value={"skipped": False, "provider_synced": True},
                 ) as sync:
                     text = handler.handle_message("hello", session_key="s1")
@@ -652,7 +651,7 @@ class TestSessionManagement:
         now["value"] = 20.0
 
         with patch.object(handler._orchestrator, "create_agent_loop", return_value=new_loop):
-            with patch("butler.session.lifecycle.trigger_session_end", return_value={}) as finalize:
+            with patch("butler.gateway.message_handler.trigger_session_end", return_value={}) as finalize:
                 loop = handler._get_or_create_loop("new")
 
         assert loop is new_loop

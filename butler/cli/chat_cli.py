@@ -55,10 +55,13 @@ def _new_cli_orchestrator() -> "ButlerOrchestrator":
 
 
 def _cli_session_key(orchestrator: Any) -> str:
-    return build_session_key(
-        platform="cli",
-        chat_id=orchestrator.user_id,
-        project=orchestrator.project_manager.current_project or "",
+    return cast(
+        str,
+        build_session_key(
+            platform="cli",
+            chat_id=orchestrator.user_id,
+            project=orchestrator.project_manager.current_project or "",
+        ),
     )
 
 

@@ -8,7 +8,7 @@ from typing import Any, cast
 from butler.core.best_effort import safe_best_effort
 from butler.config import get_butler_home
 from butler.core.harness_flags import mcp_deferred_same_turn_enabled, mcp_deferred_tools_enabled
-from butler.mcp.config import mcp_enabled as mcp_enabled_flag
+from butler.mcp.config import mcp_enabled
 from butler.mcp.deferred import get_promoted_tools
 from butler.mcp.diagnostics import format_mcp_diagnostic_lines
 from butler.memory.experience_consolidation import load_merge_pending
@@ -89,7 +89,7 @@ def mcp_imports_available() -> bool:
 
 def mcp_enabled_flag() -> bool:
     def _run() -> bool:
-        return bool(mcp_enabled_flag())
+        return bool(mcp_enabled())
 
     return bool(
         safe_best_effort(_run, label="execution_surface.mcp_enabled", default=False)

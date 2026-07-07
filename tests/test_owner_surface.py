@@ -288,7 +288,7 @@ def test_project_overview_owner():
             return_value=False,
         ),
         patch(
-            "butler.project.meta.lifecycle_label",
+            "butler.gateway.owner_surface.lifecycle_label",
             return_value="active",
         ),
     ):

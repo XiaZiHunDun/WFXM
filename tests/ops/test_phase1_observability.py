@@ -8,7 +8,7 @@ import pytest
 
 from butler.core.fact_extraction import extract_pre_compact_facts
 from butler.memory.memory_metrics import MemoryMetricsCollector, get_collector
-from butler.session.memory_prefetch import _emit_prefetch_metrics, _prefetch_retrieval_counts
+from butler.session.memory_prefetch_ops import emit_prefetch_metrics, prefetch_retrieval_counts
 
 
 class TestPrefetchRetrievalWiring:
@@ -22,14 +22,14 @@ class TestPrefetchRetrievalWiring:
             "memory_butler_context": True,
             "memory_facts_chars": 120,
         }
-        total, relevant = _prefetch_retrieval_counts(diag)
+        total, relevant = prefetch_retrieval_counts(diag)
         assert total == 6
         assert relevant == 6
 
     def test_emit_prefetch_metrics_calls_on_retrieval(self):
         get_collector().start_session("sess-1")
         diag = {"memory_experience_hits": 2, "memory_project_query_hits": 1}
-        _emit_prefetch_metrics("test query", hit=True, result_count=2, diagnostics=diag)
+        emit_prefetch_metrics("test query", hit=True, result_count=2, diagnostics=diag)
         m = get_collector()._current()
         assert m is not None
         assert m.prefetch_turns == 1

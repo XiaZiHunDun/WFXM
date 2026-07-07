@@ -529,7 +529,7 @@ async def _download_and_decrypt_media(
         raise RuntimeError("media item had neither encrypt_query_param nor full_url")
     if aes_key_b64:
         raw = _aes128_ecb_decrypt(raw, _parse_aes_key(aes_key_b64))
-    return cast(bytes, raw)
+    return raw
 
 
 def _mime_from_filename(filename: str) -> str:

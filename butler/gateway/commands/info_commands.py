@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from butler.gateway.command_registry import (
     CommandContext,
@@ -92,14 +92,17 @@ def _maybe_attach_detail_export(
     chat = full
     if not is_wechat_platform(ctx.platform) and len(full) > 500:
         chat = full[:480].rstrip() + "…"
-    return maybe_attach_wechat_file(
-        chat,
-        full,
-        platform=ctx.platform,
-        name_prefix=name_prefix,
-        workspace=resolve_export_workspace(ctx.session_key),
-        enabled=attach_detail_enabled(),
-        attach_hint=attach_hint,
+    return cast(
+        str,
+        maybe_attach_wechat_file(
+            chat,
+            full,
+            platform=ctx.platform,
+            name_prefix=name_prefix,
+            workspace=resolve_export_workspace(ctx.session_key),
+            enabled=attach_detail_enabled(),
+            attach_hint=attach_hint,
+        ),
     )
 
 
@@ -109,14 +112,17 @@ def _maybe_attach_diagnostic_export(
     full: str,
     session_key: str,
 ) -> str:
-    return maybe_attach_wechat_file(
-        brief,
-        full,
-        platform=ctx.platform,
-        name_prefix="diagnostic_full",
-        workspace=resolve_export_workspace(session_key),
-        enabled=attach_diagnostic_enabled(),
-        attach_hint="（完整运维诊断见 .txt 附件）",
+    return cast(
+        str,
+        maybe_attach_wechat_file(
+            brief,
+            full,
+            platform=ctx.platform,
+            name_prefix="diagnostic_full",
+            workspace=resolve_export_workspace(session_key),
+            enabled=attach_diagnostic_enabled(),
+            attach_hint="（完整运维诊断见 .txt 附件）",
+        ),
     )
 
 

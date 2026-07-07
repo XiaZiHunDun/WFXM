@@ -91,7 +91,7 @@ logger = logging.getLogger(__name__)
 
 
 def _audit_session_key(*, fallback: str = "default") -> str:
-    return get_audit_session_key(fallback=fallback)
+    return cast(str, get_audit_session_key(fallback=fallback))
 
 
 def _store_reasoning_on_message(message: Any, reasoning: Any) -> None:

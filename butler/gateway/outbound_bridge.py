@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, cast
 
+from butler.contracts.completion_ports import OutboundCompletionHooks
 from butler.contracts.completion_registry import get_completion_hooks
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
 from butler.defaults.env_defaults import GATEWAY_MAX_SUPPLEMENTARY_PER_TURN
@@ -76,7 +77,7 @@ def _env_int(name: str, default: int, *, min_value: int = 0) -> int:
     return cast(int, int_env(name, default, min=min_value))
 
 
-def _completion_hooks():
+def _completion_hooks() -> OutboundCompletionHooks | None:
     return get_completion_hooks()
 
 
