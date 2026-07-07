@@ -41,8 +41,8 @@
 |----|-----------|------|
 | `completion_notify` ↔ `outbound_bridge` | `OutboundCompletionHooks` + `completion_policy` | **done** |
 | `tool_audit` ↔ `registry` | `ToolRegistryReadPort` | **done** |
-| `tool_batch` ↔ `tool_dispatch` | 分发 Port（单入口 `dispatch_one_tool`） | open |
-| `health_report` ↔ `health_report_turn` | 诊断行 Provider Port | open |
+| `tool_batch` ↔ `tool_dispatch` | `ToolDispatchPort` + `tool_batch_post_edit` | **done** |
+| `health_report` ↔ `health_report_turn` | `HealthDiagnosticPort` + `health_report_input` | **done** |
 
 新增 Port 模块：
 
@@ -54,6 +54,10 @@
 | `completion_registry.py` | `get/set_completion_hooks` | 横切 | completion_notify 注册 |
 | `approval_ports.py` | `ApprovalStore` | L7 策略 | `approval_store_impl.py` |
 | `approval_registry.py` | `get/set_approval_store` | 横切 | 模块 import 注册 |
+| `tool_dispatch_ports.py` | `ToolDispatchPort` | L3 编排 | `core/tool_dispatch.py` |
+| `tool_dispatch_registry.py` | `get/set_tool_dispatch` | 横切 | tool_dispatch 启动注册 |
+| `health_diagnostic_ports.py` | `HealthDiagnosticPort` | L9 运营 | `ops/health_report_turn.py` |
+| `health_diagnostic_registry.py` | `get/set_health_diagnostic` | 横切 | health_report_turn 注册 |
 
 ## 依赖规则
 

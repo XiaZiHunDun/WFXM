@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler import get_build_identity
@@ -28,8 +28,7 @@ from butler.transport.stream_probe import (
     stream_probe_enabled,
 )
 
-if TYPE_CHECKING:
-    from butler.ops.health_report import HealthReportInput
+from butler.ops.health_report_input import HealthReportInput, format_build_uptime
 
 
 def recovery_bucket_lines(health: dict[str, Any], session_key: str) -> list[str]:
@@ -91,7 +90,7 @@ def schema_optimize_line(health: dict[str, Any], loop_health: dict[str, Any]) ->
 
 
 def turn_diagnostic_lines(
-    inp: "HealthReportInput",
+    inp: HealthReportInput,
     *,
     hook_lines_fn: Callable[[str, dict[str, Any] | None], list[str]],
 ) -> list[str]:
@@ -179,8 +178,6 @@ def turn_diagnostic_lines(
         default=[],
     ) or []
 
-    from butler.ops.health_report import format_build_uptime
-
     bi = get_build_identity()
     _uptime = format_build_uptime(str(bi.get("start_time") or ""))
 
@@ -254,6 +251,25 @@ def turn_diagnostic_lines(
     if schema_line:
         out.append(schema_line)
     return out
+
+
+class _LiveHealthDiagnostic:
+    def turn_diagnostic_lines(
+        self,
+        inp: HealthReportInput,
+        *,
+        hook_lines_fn: Callable[[str, dict[str, Any] | None], list[str]],
+    ) -> list[str]:
+        return turn_diagnostic_lines(inp, hook_lines_fn=hook_lines_fn)
+
+
+def _wire_health_diagnostic_port() -> None:
+    from butler.contracts.health_diagnostic_registry import set_health_diagnostic
+
+    set_health_diagnostic(_LiveHealthDiagnostic())
+
+
+_wire_health_diagnostic_port()
 
 
 __all__ = [

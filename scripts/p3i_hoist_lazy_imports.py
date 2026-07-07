@@ -12,12 +12,8 @@ import textwrap
 
 # Proven import cycles — keep lazy in these (file_posix, module).
 CYCLE_KEEP: set[tuple[str, str]] = {
-    ("butler/core/tool_batch.py", "butler.core.tool_dispatch"),
-    ("butler/core/tool_dispatch.py", "butler.core.tool_batch"),
-    ("butler/core/tool_dispatch_doom_ops.py", "butler.core.tool_batch"),
     ("butler/cli/gateway_cli.py", "butler.main"),
     ("butler/tools/delegate_impl.py", "butler.orchestrator"),
-    ("butler/ops/health_report_turn.py", "butler.ops.health_report"),
     ("butler/core/tool_batch_hooks.py", "butler.core.tool_batch"),
     ("butler/memory/butler_memory.py", "butler.memory.experience_consolidation"),
     ("butler/gateway/completion_notify.py", "butler.report"),

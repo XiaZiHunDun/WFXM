@@ -15,7 +15,7 @@ def handle_doom_loop_ask_loud(
     *,
     session_key: str,
 ) -> str | None:
-    from butler.core.tool_batch import finalize_fallback_tool_result
+    from butler.core.tool_batch_finalize import finalize_fallback_tool_result
 
     try:
         from butler.permissions.doom_loop import check_doom_loop_ask

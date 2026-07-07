@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, cast
 import logging
 
@@ -37,7 +35,7 @@ from butler.ops.execution_surface_diagnostics import (
 )
 from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
 from butler.ops.harness_diagnostics import format_harness_diagnostic_lines
-from butler.ops.health_report_turn import turn_diagnostic_lines
+from butler.ops.health_report_input import HealthReportInput, format_build_uptime
 from butler.ops.observation_diagnostics import format_observation_diagnostic_lines
 from butler.ops.rag_diagnostics import format_rag_diagnostic_lines
 from butler.ops.runtime_metrics import format_metrics_diagnostic_lines
@@ -70,32 +68,6 @@ def _append_diag_lines(lines: list[str], label: str, fn: Callable[[], list[str]]
     extra = safe_best_effort(fn, label=f"health_report.{label}", default=[])
     if extra:
         lines.extend(extra)
-
-
-def format_build_uptime(start_ts: str) -> str:
-    if not start_ts:
-        return ""
-
-    def _run() -> str:
-        import datetime
-
-        st = datetime.datetime.fromisoformat(start_ts)
-        delta = datetime.datetime.now(tz=datetime.timezone.utc) - st
-        hours, rem = divmod(int(delta.total_seconds()), 3600)
-        minutes = rem // 60
-        return f"{hours}h {minutes}m"
-
-    result = safe_best_effort(_run, label="health_report.build_uptime", default="")
-    return result if isinstance(result, str) else ""
-
-
-@dataclass
-class HealthReportInput:
-    session_key: str
-    health: dict[str, Any] | None
-    tool_summary: dict[str, Any]
-    mem_stats: dict[str, Any]
-    orchestrator: Any
 
 
 def collect_mem_stats_for_health(
@@ -410,6 +382,24 @@ def _tool_audit_lines(tool_summary: dict[str, Any]) -> list[str]:
     ]
 
 
+def _turn_diagnostic_lines(
+    inp: HealthReportInput,
+    *,
+    hook_lines_fn: Callable[[str, dict[str, Any] | None], list[str]],
+) -> list[str]:
+    from butler.contracts.health_diagnostic_registry import get_health_diagnostic
+
+    port = get_health_diagnostic()
+    if port is not None:
+        return cast(
+            list[str],
+            port.turn_diagnostic_lines(inp, hook_lines_fn=hook_lines_fn),
+        )
+    from butler.ops.health_report_turn import turn_diagnostic_lines
+
+    return cast(list[str], turn_diagnostic_lines(inp, hook_lines_fn=hook_lines_fn))
+
+
 def build_health_report(inp: HealthReportInput) -> str:
     """Format diagnostic report (behavior-stable with legacy ``_format_health_summary``)."""
     health = inp.health
@@ -447,7 +437,7 @@ def build_health_report(inp: HealthReportInput) -> str:
     report_lines: list[str] = []
     if health:
         report_lines.extend(
-            turn_diagnostic_lines(inp, hook_lines_fn=_hook_diagnostic_lines)
+            _turn_diagnostic_lines(inp, hook_lines_fn=_hook_diagnostic_lines)
         )
         report_lines.extend(_shared_diagnostic_lines(inp, use_mem_stats_project_name=True))
         if health.get("error"):

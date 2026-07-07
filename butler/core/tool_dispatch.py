@@ -12,19 +12,16 @@ from butler.core.batch_sequence_guard import (
     stale_skip_result,
 )
 from butler.core.structured_events import args_digest, emit_tool_action
-from butler.core.tool_call_limits import get_tool_call_limiter
-from butler.core.tool_dispatch_doom import handle_doom_loop_ask
-from butler.core.tool_dispatch_ops import annotate_mutation_not_landed_safe
-from butler.core.tool_error_policy import (
-    apply_tool_error_policy,
-    should_halt_loop_on_tool_error,
+from butler.core.tool_batch_finalize import (
+    finalize_fallback_tool_result,
+    finalize_guardrail_halt_result,
 )
-from butler.core.tool_result_cache import get_cached_result, set_cached_result
-from butler.core.tool_retry import run_tool_with_retry
-from butler.core.two_phase_confirm import two_phase_block_message
-from butler.execution_context import get_current_session_key
-from butler.ops.retry_buckets import record_recovery_event
-from butler.permissions.tool_boundary_registry import validate_tool_boundary
+from butler.core.tool_batch_post_edit import (
+    capture_pre_edit_snapshot,
+    dev_engine_post_edit,
+    plan_mode_post_edit,
+)
+from butler.core.tool_call_limits import get_tool_call_limiter
 from butler.core.tool_dispatch_doom import handle_doom_loop_ask
 from butler.core.tool_dispatch_ops import annotate_mutation_not_landed_safe
 from butler.core.tool_error_policy import (
@@ -56,13 +53,6 @@ def dispatch_one_tool(
     dispatch_tool: Callable[[str, dict[str, Any]], str],
 ) -> str:
     """Run guardrails, cache, limits, and dispatch for one tool call."""
-    from butler.core.tool_batch import (
-        _capture_pre_edit_snapshot,
-        _dev_engine_post_edit,
-        _plan_mode_post_edit,
-        finalize_fallback_tool_result,
-        finalize_guardrail_halt_result,
-    )
 
     def _two_phase_block() -> str | None:
         block = two_phase_block_message(name, args, tool_call_id=tool_call_id)
@@ -149,7 +139,7 @@ def dispatch_one_tool(
         if before.should_halt:
             return str(finalize_fallback_tool_result(name, args, synthetic_result(before)))
 
-    _capture_pre_edit_snapshot(name, args)
+    capture_pre_edit_snapshot(name, args)
     result = str(run_tool_with_retry(name, args, dispatch_tool))
 
     def _emit_tool_event() -> None:
@@ -203,9 +193,41 @@ def dispatch_one_tool(
 
     if batch_guard is not None:
         batch_guard.note_tool_result(name, args, result)
-    _dev_engine_post_edit(name, args, result)
-    _plan_mode_post_edit(name, args, result)
+    dev_engine_post_edit(name, args, result)
+    plan_mode_post_edit(name, args, result)
     return str(result)
+
+
+class _LiveToolDispatch:
+    def dispatch_one_tool(
+        self,
+        name: str,
+        args: dict[str, Any],
+        *,
+        tool_call_id: str = "",
+        batch_guard: Any = None,
+        prefetched: dict[str, str] | None = None,
+        guardrails: ToolCallGuardrailController | None = None,
+        dispatch_tool: Callable[[str, dict[str, Any]], str],
+    ) -> str:
+        return dispatch_one_tool(
+            name,
+            args,
+            tool_call_id=tool_call_id,
+            batch_guard=batch_guard,
+            prefetched=prefetched,
+            guardrails=guardrails,
+            dispatch_tool=dispatch_tool,
+        )
+
+
+def _wire_tool_dispatch_port() -> None:
+    from butler.contracts.tool_dispatch_registry import set_tool_dispatch
+
+    set_tool_dispatch(_LiveToolDispatch())
+
+
+_wire_tool_dispatch_port()
 
 
 __all__ = ["dispatch_one_tool"]

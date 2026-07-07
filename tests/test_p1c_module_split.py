@@ -49,7 +49,7 @@ _FILE_BUDGETS: dict[str, int] = {
     "butler/runtime/delegate_job.py": 340,
     "butler/runtime/delegate_job_finalize.py": 180,
     "butler/memory/diagnostics_collect.py": 180,
-    "butler/ops/health_report_turn.py": 280,
+    "butler/ops/health_report_turn.py": 285,
     "butler/tools/registry_gates.py": 355,
     "butler/session/memory_prefetch_ops.py": 515,
     "butler/permissions/rules_context.py": 170,
