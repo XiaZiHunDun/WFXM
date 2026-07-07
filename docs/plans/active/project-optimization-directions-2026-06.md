@@ -243,11 +243,12 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 ### P3 — 架构演进（远期 / 需决策）
 
-#### 方向 H：记忆系统统一检索入口
+#### 方向 H：记忆系统统一检索入口 — **L5 记忆与知识层**
 
 - 将 `coding_experiences.json` 纳入 `butler_recall` 可搜范围
 - 明确文档：`vector_store.py`（ChromaDB）= 非生产/实验 only
 - 评估 Observation Store 从 opt-in 派生升为辅助检索层
+- **分层 SSOT**：[`v4-layer-model.md`](../../architecture/v4-layer-model.md) §L5
 
 #### 方向 I：延迟导入减量 — **已达成** 2026-07-07（P3-I Batch 9–17）
 
@@ -277,10 +278,12 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 ├─ 07-27: TCR strict flip（见 ops 日历；当前 status=wait）
 └─ 07-31: G1-04 窗满结案（butler-g1-04-closure-check.sh）
 
-Backlog（G1-04 结案后加深）
-├─ P0-A：异常治理续扫（core/gateway 宽泛 except）
-├─ P2-F-ops（可选）：388 个 *_ops.py mypy strict
-└─ 方向 H：记忆统一检索 Phase 4+
+Backlog（G1-04 结案后加深，按 [九层模型](../../architecture/v4-layer-model.md)）
+├─ L3/L1 P0-A：异常治理续扫（core/gateway 宽泛 except）
+├─ 横切 contracts：破环竖切（completion_notify、tool_audit 等）
+├─ L5 方向 H：记忆统一检索 Phase 4+
+├─ L7：workflow/MCP/terminal 审批收敛
+└─ 仓级 P2-F-ops（可选）：388 个 *_ops.py mypy strict
 
 持续：
 ├─ 改 gateway 后 restart
@@ -291,18 +294,18 @@ Backlog（G1-04 结案后加深）
 
 ## 五、与已有 ENG 线的映射
 
-| 优化方向 | 对应 ENG | 关系 |
-|----------|----------|------|
-| A (异常治理) | **新增 ENG-13** | S1 独立问题域 |
-| B (降级显性化) | ENG-8 续 | 深化到全组件 |
-| C (core 拆分) | ENG-4 扩展 | 加入 tool_batch/llm_retry |
-| D (contracts) | ENG-6 | 轻量首步竖切 |
-| E (pytest) | ENG-9 续 | 系统清理 |
-| F (类型检查) | **新增 ENG-14** | 全新方向 |
-| G (文档卫生) | — | 独立低成本 |
-| H (记忆统一) | — | 远期架构决策 |
-| I (延迟import) | ENG-6/7 间接 | contracts 完成后自然减量 |
-| J (配置收敛) | ENG-10 关联 | 扩展 |
+| 优化方向 | 对应 ENG | 主要层级 | 关系 |
+|----------|----------|----------|------|
+| A (异常治理) | **新增 ENG-13** | L3、L1 | S1 独立问题域 |
+| B (降级显性化) | ENG-8 续 | L8、L9 | 深化到全组件 |
+| C (core 拆分) | ENG-4 扩展 | L3 | 加入 tool_batch/llm_retry |
+| D (contracts) | ENG-6 | 横切 | 轻量首步竖切 |
+| E (pytest) | ENG-9 续 | 仓级 | 系统清理 |
+| F (类型检查) | **新增 ENG-14** | 仓级 | 全新方向 |
+| G (文档卫生) | — | — | 独立低成本 |
+| H (记忆统一) | — | **L5** | 远期架构决策 |
+| I (延迟import) | ENG-6/7 间接 | 横切 | contracts 完成后自然减量 |
+| J (配置收敛) | ENG-10 关联 | 仓级 | 扩展 |
 
 ---
 
