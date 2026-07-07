@@ -3,8 +3,15 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 from typing import Any, cast
+
+from butler.report.acceptance_card import format_delegate_acceptance_card
+from butler.report.generator_schema import (
+    build_schema_repair_prompt,
+    parse_structured_output,
+    validate_structured_output,
+)
+from butler.report.report_types import AgentReport, Change
 
 _DECISION_PATTERNS = (
     re.compile(r"\*\*\s*rating\s*\*\*\s*:\s*(approve|revise|block|keep|discard)\b", re.I),
@@ -12,103 +19,6 @@ _DECISION_PATTERNS = (
     re.compile(r"\bdecision\s*:\s*(approve|revise|block|keep|discard)\b", re.I),
     re.compile(r"\b(approve|revise|block|keep|discard)\b", re.I),
 )
-
-
-@dataclass
-class Change:
-    file: str
-    action: str  # "created" | "modified" | "deleted"
-    description: str
-
-
-@dataclass
-class AgentReport:
-    headline: str = ""
-    changes: list[Change] = field(default_factory=list)
-    decisions: list[str] = field(default_factory=list)
-    issues: list[str] = field(default_factory=list)
-    summary: str = ""
-    success: bool = True
-    task_preview: str = ""
-    task_id: str = ""
-    child_session_key: str = ""
-    iterations: int = 0
-    tool_calls: int = 0
-    tokens_used: int = 0
-    elapsed_seconds: float = 0.0
-    task_created_at: str = ""
-    task_completed_at: str = ""
-    failed_steps: list[str] = field(default_factory=list)
-    step_outcomes: dict[str, str] = field(default_factory=dict)
-    structured_output: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "headline": self.headline,
-            "changes": [
-                {"file": c.file, "action": c.action, "description": c.description}
-                for c in self.changes
-            ],
-            "decisions": list(self.decisions),
-            "issues": list(self.issues),
-            "summary": self.summary,
-            "success": self.success,
-            "task_preview": self.task_preview,
-            "task_id": self.task_id,
-            "child_session_key": self.child_session_key,
-            "iterations": self.iterations,
-            "tool_calls": self.tool_calls,
-            "tokens_used": self.tokens_used,
-            "elapsed_seconds": self.elapsed_seconds,
-            "task_created_at": self.task_created_at,
-            "task_completed_at": self.task_completed_at,
-            "failed_steps": list(self.failed_steps),
-            "step_outcomes": dict(self.step_outcomes),
-            "structured_output": dict(self.structured_output),
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> AgentReport:
-        raw = dict(data or {})
-        changes_raw = raw.pop("changes", []) or []
-        changes: list[Change] = []
-        for item in changes_raw:
-            if isinstance(item, Change):
-                changes.append(item)
-                continue
-            if not isinstance(item, dict):
-                continue
-            changes.append(
-                Change(
-                    file=str(item.get("file", "") or ""),
-                    action=str(item.get("action", "") or ""),
-                    description=str(item.get("description", item.get("desc", "")) or ""),
-                )
-            )
-        return cls(
-            headline=str(raw.get("headline", "") or ""),
-            changes=changes,
-            decisions=[str(x) for x in (raw.get("decisions") or [])],
-            issues=[str(x) for x in (raw.get("issues") or [])],
-            summary=str(raw.get("summary", "") or ""),
-            success=bool(raw.get("success", True)),
-            task_preview=str(raw.get("task_preview", "") or ""),
-            task_id=str(raw.get("task_id", "") or ""),
-            child_session_key=str(raw.get("child_session_key", "") or ""),
-            iterations=int(raw.get("iterations") or 0),
-            tool_calls=int(raw.get("tool_calls") or 0),
-            tokens_used=int(raw.get("tokens_used") or 0),
-            elapsed_seconds=float(raw.get("elapsed_seconds") or 0.0),
-            task_created_at=str(raw.get("task_created_at", "") or ""),
-            task_completed_at=str(raw.get("task_completed_at", "") or ""),
-            failed_steps=[str(x) for x in (raw.get("failed_steps") or [])],
-            step_outcomes={
-                str(k): str(v)
-                for k, v in (raw.get("step_outcomes") or {}).items()
-                if isinstance(raw.get("step_outcomes"), dict)
-            },
-            structured_output=dict(raw.get("structured_output") or {}),
-        )
 
 
 def parse_decisions_from_text(text: str) -> list[str]:
@@ -134,133 +44,6 @@ def enrich_report_decisions(report: AgentReport, text: str) -> AgentReport:
     merged = list(dict.fromkeys(list(report.decisions) + parsed))
     report.decisions = merged
     return report
-
-
-def parse_structured_output(text: str, schema: dict[str, Any] | None) -> dict[str, Any]:
-    """Extract JSON object from final text when workflow declares output_schema."""
-    if not schema:
-        return {}
-    blob = str(text or "").strip()
-    if not blob:
-        return {}
-    import json
-    import re
-
-    candidates: list[dict[str, Any]] = []
-    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", blob, re.DOTALL)
-    if fence:
-        try:
-            parsed = json.loads(fence.group(1))
-            if isinstance(parsed, dict):
-                candidates.append(parsed)
-        except json.JSONDecodeError:
-            pass
-    for m in re.finditer(r"\{[^{}]*\}", blob):
-        try:
-            parsed = json.loads(m.group(0))
-            if isinstance(parsed, dict):
-                candidates.append(parsed)
-        except json.JSONDecodeError:
-            continue
-    field_names: list[str] = []
-    fields_raw = schema.get("fields")
-    raw_fields: list[Any] = fields_raw if isinstance(fields_raw, list) else []
-    for item in raw_fields:
-        if isinstance(item, str):
-            field_names.append(item)
-        elif isinstance(item, dict) and item.get("name"):
-            field_names.append(str(item["name"]))
-    if not field_names and isinstance(schema, dict):
-        field_names = [
-            k for k in schema.keys() if k not in ("type", "fields", "title", "description")
-        ]
-    if not candidates:
-        return {}
-    best = candidates[-1]
-    if field_names:
-        return {k: best.get(k) for k in field_names if k in best}
-    return dict(best)
-
-
-def _schema_field_specs(schema: dict[str, Any]) -> list[dict[str, Any]]:
-    fields = schema.get("fields")
-    if isinstance(fields, list):
-        specs: list[dict[str, Any]] = []
-        for item in fields:
-            if isinstance(item, str):
-                specs.append({"name": item, "type": "string", "required": True})
-            elif isinstance(item, dict) and item.get("name"):
-                specs.append(dict(item))
-        return specs
-    specs = []
-    for key, val in schema.items():
-        if key in ("type", "fields", "title", "description"):
-            continue
-        if isinstance(val, dict):
-            specs.append({"name": key, **val})
-        else:
-            specs.append({"name": key, "type": "string", "required": True})
-    return specs
-
-
-def validate_structured_output(
-    data: dict[str, Any],
-    schema: dict[str, Any] | None,
-) -> tuple[bool, list[str]]:
-    """Validate parsed output against a lightweight schema (optional Pydantic)."""
-    if not schema:
-        return True, []
-    from butler.report.generator_ops import output_schema_validate_enabled_safe
-
-    if output_schema_validate_enabled_safe() is False:
-        return True, []
-    specs = _schema_field_specs(schema)
-    if not specs:
-        return True, []
-    errors: list[str] = []
-    for spec in specs:
-        name = str(spec.get("name") or "").strip()
-        if not name:
-            continue
-        required = bool(spec.get("required", True))
-        if required and name not in data:
-            errors.append(f"missing required field: {name}")
-            continue
-        if name not in data:
-            continue
-        val = data[name]
-        expected = str(spec.get("type") or "string").strip().lower()
-        if expected in ("str", "string") and not isinstance(val, str):
-            errors.append(f"{name}: expected string")
-        elif expected in ("int", "integer") and not isinstance(val, int):
-            errors.append(f"{name}: expected integer")
-        elif expected in ("bool", "boolean") and not isinstance(val, bool):
-            errors.append(f"{name}: expected boolean")
-        enum = spec.get("enum")
-        if isinstance(enum, list) and enum and str(val) not in [str(x) for x in enum]:
-            errors.append(f"{name}: value not in enum")
-    if errors:
-        return False, errors
-    from butler.report.generator_ops import pydantic_validate_loud
-
-    pydantic_errors = pydantic_validate_loud(data, specs)
-    if pydantic_errors:
-        return False, pydantic_errors
-    return True, []
-
-
-def build_schema_repair_prompt(
-    errors: list[str],
-    schema: dict[str, Any] | None,
-) -> str:
-    if not errors:
-        return ""
-    fields = [str(s.get("name") or "") for s in _schema_field_specs(schema or {}) if s.get("name")]
-    return (
-        "结构化输出未通过校验，请仅输出一个 JSON 对象修正以下问题：\n"
-        + "\n".join(f"- {e}" for e in errors[:8])
-        + (f"\n期望字段: {', '.join(fields)}" if fields else "")
-    )
 
 
 def enrich_output_schema(
@@ -512,8 +295,6 @@ def format_for_wechat(report: AgentReport) -> str:
         parts.append(" · ".join(meta_parts) + " · 发 /任务 可查记录")
     if report.child_session_key:
         parts.append(f"子会话 {report.child_session_key}")
-
-    from butler.report.acceptance_card import format_delegate_acceptance_card
 
     if report.task_id or report.changes or (report.structured_output or {}).get("acceptance"):
         parts.append("")

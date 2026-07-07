@@ -43,6 +43,8 @@
 | `tool_audit` ↔ `registry` | `ToolRegistryReadPort` | **done** |
 | `tool_batch` ↔ `tool_dispatch` | `ToolDispatchPort` + `tool_batch_post_edit` | **done** |
 | `health_report` ↔ `health_report_turn` | `HealthDiagnosticPort` + `health_report_input` | **done** |
+| `generator` ↔ `acceptance_card` | `report_types` + `generator_schema` | **done** |
+| `b9_prod_shaped` ↔ `b9_live_fixed` | `b9_task_fixtures` | **done** |
 
 新增 Port 模块：
 

@@ -138,7 +138,7 @@ def schema_repair_round_loud(
 ) -> tuple[str, dict[str, Any] | None, list[str], str | None]:
     """Run one LLM repair round; return (last_text, parsed, errors, error_message)."""
     try:
-        from butler.report.generator import parse_structured_output, validate_structured_output
+        from butler.report.generator_schema import parse_structured_output, validate_structured_output
         from butler.transport.types import NormalizedResponse
 
         client = orchestrator.create_llm_client("butler")

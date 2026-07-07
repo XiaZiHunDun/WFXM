@@ -14,6 +14,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import cast
 
+from butler.dev_engine.b9_task_fixtures import (
+    _oracle_b9l_cross_module_rename,
+    _oracle_b9l_multi_file_import,
+    _setup_b9l_cross_module_rename,
+    _setup_b9l_multi_file_import,
+    _verify_b9l_cross_module_rename,
+    _verify_b9l_multi_file_import,
+)
 from butler.dev_engine.b9_types import B9TaskSpec
 from butler.dev_engine.b9_verify_utils import pytest_verify as _pytest_verify
 from butler.dev_engine.edit_ops import apply_write
@@ -156,35 +164,27 @@ def _verify_b9l_prod_read_state_greet(ws: Path) -> tuple[bool, str]:
 
 
 def _setup_b9l_prod_main_helpers_import(ws: Path) -> None:
-    from butler.dev_engine.b9_live_fixed_tasks import _setup_b9l_multi_file_import
-
     _setup_b9l_multi_file_import(ws)
 
 
 def _oracle_b9l_prod_main_helpers_import(ws: Path) -> None:
-    from butler.dev_engine.b9_live_fixed_tasks import _oracle_b9l_multi_file_import
-
     _oracle_b9l_multi_file_import(ws)
 
 
 def _verify_b9l_prod_main_helpers_import(ws: Path) -> tuple[bool, str]:
-    return _verify_ws(ws)
+    return _verify_b9l_multi_file_import(ws)
 
 
 def _setup_b9l_prod_cross_module_rename(ws: Path) -> None:
-    from butler.dev_engine.b9_live_fixed_tasks import _setup_b9l_cross_module_rename
-
     _setup_b9l_cross_module_rename(ws)
 
 
 def _oracle_b9l_prod_cross_module_rename(ws: Path) -> None:
-    from butler.dev_engine.b9_live_fixed_tasks import _oracle_b9l_cross_module_rename
-
     _oracle_b9l_cross_module_rename(ws)
 
 
 def _verify_b9l_prod_cross_module_rename(ws: Path) -> tuple[bool, str]:
-    return _verify_ws(ws)
+    return _verify_b9l_cross_module_rename(ws)
 
 
 def _setup_b9l_prod_lingwen_demo_add(ws: Path) -> None:

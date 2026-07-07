@@ -16,9 +16,6 @@ CYCLE_KEEP: set[tuple[str, str]] = {
     ("butler/tools/delegate_impl.py", "butler.orchestrator"),
     ("butler/memory/butler_memory.py", "butler.memory.experience_consolidation"),
     ("butler/gateway/completion_notify.py", "butler.report"),
-    ("butler/report/generator.py", "butler.report.acceptance_card"),
-    ("butler/dev_engine/b9_prod_shaped_tasks.py", "butler.dev_engine.b9_live_fixed_tasks"),
-    ("butler/dev_engine/b9_live_fixed_tasks.py", "butler.dev_engine.b9_prod_shaped_tasks"),
 }
 
 MIN_COUNT = 8

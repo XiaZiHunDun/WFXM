@@ -300,6 +300,7 @@ flowchart TB
 | P1 文档 | 全层 | 本文 + v4-architecture 互链 | **done** 2026-07-07 |
 | P2 契约 | 横切 | 破环：`completion_notify↔outbound_bridge`、`tool_audit↔registry` | **done** 2026-07-07 |
 | P2b 契约 | 横切/L3/L9 | `ToolDispatchPort`、`HealthDiagnosticPort` | **done** 2026-07-07 |
+| P2c 破环 | L4/L9 | `report_types`、`b9_task_fixtures` | **done** 2026-07-07 |
 | P3 记忆 | L5 | 方向 H Phase 4+：`butler_recall` 含 coding_experiences | recall_router + prefetch |
 | P4 策略 | L7 | workflow/MCP/terminal 审批收敛 | ApprovalStore + terminal |
 | P5 工程 | 仓级 | P2-F-ops：`*_ops.py` mypy strict（可选） | `butler-mypy-strict-gate.sh` |

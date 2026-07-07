@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from butler.report.generator import AgentReport, Change
+from butler.report.report_types import AgentReport, Change
 from butler.gateway.delegate_task_kind import infer_delegate_task_kind
 
 
