@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from typing import cast
 
 from butler.env_parse import env_truthy, float_env
 from butler.permissions.approvals import approvals_path
@@ -22,7 +23,8 @@ def _ttl_seconds() -> float:
 
 
 def _patterns_path(session_key: str) -> Path:
-    return approvals_path(session_key).parent / "terminal_patterns.json"
+    approved = cast(Path, approvals_path(session_key))
+    return approved.parent / "terminal_patterns.json"
 
 
 def _legacy_patterns_path(session_key: str) -> Path:

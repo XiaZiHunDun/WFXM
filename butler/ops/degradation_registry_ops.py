@@ -204,13 +204,15 @@ def refresh_degradations_for_owner_brief_safe(
         )
         stats = enrich_stats_with_live_mcp_safe(stats, session_key=session_key)
         sync_memory_degradations_from_stats(stats)
-        return format_brief_line()
+        line = format_brief_line()
+        return str(line) if line is not None else None
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="degradation_registry.owner_brief_refresh",
         default=None,
     )
+    return result if isinstance(result, str) else None
 
 
 def set_component_gauge_safe(component: str, *, active: bool) -> None:

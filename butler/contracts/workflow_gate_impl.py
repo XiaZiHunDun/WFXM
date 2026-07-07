@@ -17,13 +17,13 @@ class HumanGateWorkflowStore:
         workflow_name: str,
         step_id: str,
     ) -> bool:
-        return check_workflow_step_approval(session_key, workflow_name, step_id)
+        return bool(check_workflow_step_approval(session_key, workflow_name, step_id))
 
     def format_pending_hint(self, session_key: str) -> str:
-        return format_pending_hint(session_key)
+        return str(format_pending_hint(session_key))
 
     def has_pending_gate(self, session_key: str) -> bool:
-        return has_pending_gate(session_key)
+        return bool(has_pending_gate(session_key))
 
 
 def register_default_workflow_gate() -> None:

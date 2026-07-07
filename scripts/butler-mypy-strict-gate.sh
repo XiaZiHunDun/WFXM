@@ -849,6 +849,10 @@ MODULES=(
   butler/prompt_eval/llm_rubric.py
 )
 
+# P5 *_ops.py strict (committed list — refresh: python3 scripts/p5_ops_strict_modules.py --refresh)
+mapfile -t P5_OPS_MODULES < <(python3 scripts/p5_ops_strict_modules.py)
+MODULES+=("${P5_OPS_MODULES[@]}")
+
 echo "== Butler mypy strict gate (${#MODULES[@]} modules) =="
 for mod in "${MODULES[@]}"; do
   echo "  -> $mod"

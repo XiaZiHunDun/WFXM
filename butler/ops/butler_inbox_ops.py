@@ -73,13 +73,13 @@ def experience_pending_count_safe() -> int:
     return int(result) if isinstance(result, int) else 0
 
 
-def compaction_line_safe(health: dict | None) -> str:
+def compaction_line_safe(health: dict[str, Any] | None) -> str:
     def _run() -> str:
 
         h = health or {}
         if derive_compaction_status(h) == "none":
             return ""
-        return format_compaction_status_line(h)
+        return str(format_compaction_status_line(h) or "")
 
     result = safe_best_effort(_run, label="butler_inbox.compaction", default="")
     return result if isinstance(result, str) else ""
@@ -132,7 +132,9 @@ def quality_surface_lines_safe(
     return "", ""
 
 
-def trust_line_safe(orchestrator: Any, session_key: str, health: dict | None) -> str:
+def trust_line_safe(
+    orchestrator: Any, session_key: str, health: dict[str, Any] | None
+) -> str:
     def _run() -> str:
 
         return str(format_trust_owner_line(orchestrator, session_key, health=health) or "")
