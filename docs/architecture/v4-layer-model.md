@@ -297,10 +297,10 @@ flowchart TB
 | 优先级 | 层 | 工作项 | 文档/门禁 |
 |--------|-----|--------|-----------|
 | P0 窗内 | L9 | G1-04 每周打卡 → 07-31 结案 | `butler-ops-cadence.sh`、`butler-g1-04-closure-check.sh` |
-| P1 文档 | 全层 | 本文 + v4-architecture 互链 | — |
-| P2 契约 | 横切 | 破环：`completion_notify↔outbound_bridge`、`tool_audit↔registry` | `p3i_hoist_lazy_imports.py` CYCLE_KEEP |
-| P3 记忆 | L5 | 方向 H Phase 4+：`butler_recall` 含 coding_experiences | `memory-roadmap.md` |
-| P4 策略 | L7 | workflow/MCP/terminal 审批收敛 | `permission-gate-stack.md` |
+| P1 文档 | 全层 | 本文 + v4-architecture 互链 | **done** 2026-07-07 |
+| P2 契约 | 横切 | 破环：`completion_notify↔outbound_bridge`、`tool_audit↔registry` | **done** 2026-07-07 |
+| P3 记忆 | L5 | 方向 H Phase 4+：`butler_recall` 含 coding_experiences | recall_router + prefetch |
+| P4 策略 | L7 | workflow/MCP/terminal 审批收敛 | ApprovalStore + terminal |
 | P5 工程 | 仓级 | P2-F-ops：`*_ops.py` mypy strict（可选） | `butler-mypy-strict-gate.sh` |
 
 ---

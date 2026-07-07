@@ -70,6 +70,12 @@ def build_memory_sources_snapshot(health: dict[str, Any] | None) -> dict[str, An
             _sanitize_snippet(str(s)) for s in snippets[:_SNIPPET_LIMIT] if str(s).strip()
         ]
 
+    state_counts = h.get("memory_prefetch_state_counts")
+    if isinstance(state_counts, dict) and state_counts:
+        snap["memory_state_counts"] = {
+            str(k): int(v) for k, v in state_counts.items() if int(v or 0) > 0
+        }
+
     return snap
 
 
@@ -116,6 +122,15 @@ def format_memory_sources_one_liner(health: dict[str, Any] | None) -> str:
     pr_used = int(snap.get("memory_prefetch_retrieval_used") or 0)
     if pr_total:
         parts.append(f"P_r {pr_used}/{pr_total}")
+    state_counts = snap.get("memory_state_counts")
+    if isinstance(state_counts, dict) and state_counts:
+        labels = []
+        for key, label in (("ssot", "SSOT"), ("session", "会话"), ("derived", "索引")):
+            n = int(state_counts.get(key) or 0)
+            if n:
+                labels.append(f"{label}{n}")
+        if labels:
+            parts.append("状态:" + "/".join(labels))
     if not parts:
         chars = int(snap.get("memory_prefetch_chars") or 0)
         if chars:

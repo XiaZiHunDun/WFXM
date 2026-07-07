@@ -24,10 +24,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Iterator, cast
-from butler.contracts.gateway_registry import get_owner_gate
-from butler.gateway.owner_gate import is_gateway_owner
-from butler.gateway.owner_gate import owner_required_message as _msg
-from butler.contracts.gateway_registry import get_bridge_access
+from butler.contracts.gateway_registry import get_bridge_access, get_owner_gate
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -210,15 +207,7 @@ def is_current_turn_owner(
                 session_key=session_key,
             )
         )
-    # Back-compat when gateway contracts not registered (CLI-only / legacy tests).
-
-    return bool(
-        is_gateway_owner(
-            platform=platform,
-            external_id=external_id,
-            session_key=session_key,
-        )
-    )
+    return False
 
 
 def owner_required_message() -> str:
@@ -227,8 +216,7 @@ def owner_required_message() -> str:
     gate = get_owner_gate()
     if gate is not None:
         return str(gate.owner_required_message())
-
-    return str(_msg())
+    return "此操作需要 Owner 权限。"
 
 
 def get_current_turn_bridge() -> Any:
@@ -253,9 +241,7 @@ def get_current_turn_bridge() -> Any:
     access = get_bridge_access()
     if access is not None:
         return access.get_optional_bridge()
-    from butler.gateway.outbound_bridge import get_gateway_bridge_optional
-
-    return get_gateway_bridge_optional()
+    return None
 
 
 def try_push_current_turn_workflow_failure(
@@ -275,14 +261,4 @@ def try_push_current_turn_workflow_failure(
                 session_key=session_key,
             )
         )
-    from butler.gateway.completion_notify import try_push_workflow_failure
-
-    bridge = get_current_turn_bridge()
-    return bool(
-        try_push_workflow_failure(
-            bridge,
-            workflow_name,
-            error,
-            session_key=session_key,
-        )
-    )
+    return False

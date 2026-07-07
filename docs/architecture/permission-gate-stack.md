@@ -168,9 +168,24 @@ Agent Loop → 工具调用
 
 ---
 
-## 9. 修订记录
+## 9. 审批存储矩阵（2026-07 收敛目标）
+
+| 场景 | 存储 | 契约 | 微信命令 |
+|------|------|------|----------|
+| 通用 tool ask | `sessions/<sk>/approvals.json` | `ApprovalStore` | `/批准一次` `/始终允许` |
+| Terminal exec | 同上（`permission=terminal_exec`） | `ApprovalStore` | `/批准执行` |
+| Terminal 遗留 | `exec_approvals/*.json` | 只读 shim（无 session 时） | — |
+| Workflow 步骤 | `human_gates/*.json` | `human_gate`（待 Port 化） | `/确认` |
+| MCP mutating | `approvals.json` | `ApprovalRequest` | 同 tool ask |
+
+统一 pipeline 入口：`butler/core/tool_orchestrator.py` — `run_tool_with_policy_gates` / `run_terminal_with_gates` / `run_mcp_with_gates`。
+
+---
+
+## 10. 修订记录
 
 | 日期 | 变更 |
 |------|------|
 | 2026-06-09 | Phase C4 初稿 |
 | 2026-06-11 | §7：人工门控 vs workflow/compaction 三类「检查点」语义 |
+| 2026-07-07 | §9：审批存储矩阵 + ApprovalStore / terminal 迁入 approvals |

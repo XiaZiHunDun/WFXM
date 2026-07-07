@@ -35,6 +35,8 @@ from butler.contracts.gateway_registry import (
 from butler.contracts.owner_gate import OwnerGate
 from butler.contracts.sink_registry import get_events_sink, set_events_sink
 
+import butler.contracts.approval_store_impl as _approval_store_impl  # noqa: F401 — register ApprovalStore
+
 __all__ = [
     "BridgeAccess",
     "ContextTransformPort",

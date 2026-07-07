@@ -124,9 +124,31 @@ def run_with_approval_gate(
     return run_fn()
 
 
+def run_tool_with_policy_gates(
+    tool_name: str,
+    args: dict[str, Any],
+    *,
+    session_key: str = "",
+    handler: Callable[..., str],
+) -> str:
+    """Unified gate order: pre-hooks → project permission → handler dispatch."""
+    from butler.permissions import check_project_permission_block
+
+    block = check_project_permission_block(tool_name, args)
+    if block:
+        return _deny("PERMISSION_DENIED", block)
+    return dispatch_with_orchestrator(
+        tool_name,
+        args,
+        session_key=session_key,
+        handler=handler,
+    )
+
+
 __all__ = [
     "dispatch_with_orchestrator",
     "run_mcp_with_gates",
     "run_terminal_with_gates",
+    "run_tool_with_policy_gates",
     "run_with_approval_gate",
 ]

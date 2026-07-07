@@ -75,6 +75,20 @@ class ToolEntry:
 _REGISTRY: dict[str, ToolEntry] = {}
 
 
+class _LiveToolRegistryRead:
+    def is_tool_registered(self, name: str) -> bool:
+        return name in _REGISTRY
+
+
+def _wire_tool_registry_read_port() -> None:
+    from butler.contracts.tool_registry_registry import set_tool_registry_read
+
+    set_tool_registry_read(_LiveToolRegistryRead())
+
+
+_wire_tool_registry_read_port()
+
+
 def register(
     name: str,
     description: str,
@@ -334,6 +348,7 @@ def reset_tool_registry() -> None:
     global _builtins_loaded
     _REGISTRY.clear()
     _builtins_loaded = False
+    _wire_tool_registry_read_port()
 
 
 def _ensure_builtins() -> None:

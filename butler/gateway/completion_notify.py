@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Any, cast
 if TYPE_CHECKING:
     from butler.gateway.outbound_bridge import GatewayOutboundBridge
 
+from butler.contracts.completion_registry import set_completion_hooks
+from butler.contracts.gateway_registry import get_bridge_access
 from butler.defaults.env_defaults import (
     GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS,
     GATEWAY_DELEGATE_COMPLETION_MAX_EACH,
@@ -32,8 +34,8 @@ from butler.gateway.durable_outbox import (
     mark_outbox_failed,
     mark_outbox_sent,
 )
+from butler.gateway.completion_policy import suppress_completion_after_main_enabled
 from butler.gateway.pii_scrub import scrub_outbound_text
-from butler.gateway.wechat_text_export import build_delegate_completion_message
 from butler.report import AgentReport, cache_report, format_for_wechat, get_last_report
 from butler.runtime.notify import (
     mark_wechat_push_sent,
@@ -44,6 +46,17 @@ from butler.runtime.notify import (
 from butler.runtime.push_queue import enqueue_failed_push
 
 logger = logging.getLogger(__name__)
+
+
+def _optional_bridge() -> GatewayOutboundBridge | None:
+    access = get_bridge_access()
+    if access is not None:
+        bridge = access.get_optional_bridge()
+        if bridge is not None:
+            return cast("GatewayOutboundBridge", bridge)
+    from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+
+    return get_gateway_bridge_optional()
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -277,8 +290,6 @@ def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
         getattr(bridge, "_final_sent", False)
         and getattr(bridge, "_main_reply_chars", 0) > 0
     ):
-        from butler.gateway.outbound_bridge import suppress_completion_after_main_enabled
-
         if suppress_completion_after_main_enabled():
             return False
     elapsed = time.monotonic() - bridge.turn_started_at if bridge.turn_started_at else 0.0
@@ -391,9 +402,7 @@ def try_push_agent_report(
     elapsed_turn_seconds: float | None = None,
 ) -> bool:
     """Schedule a WeChat completion message via the outbound bridge."""
-    from butler.gateway.outbound_bridge import get_gateway_bridge_optional
-
-    br = bridge or get_gateway_bridge_optional()
+    br = bridge or _optional_bridge()
     if br is None:
         return False
     elapsed = (
@@ -423,9 +432,7 @@ def try_push_turn_complete(
     *,
     elapsed_seconds: float,
 ) -> bool:
-    from butler.gateway.outbound_bridge import get_gateway_bridge_optional
-
-    br = bridge or get_gateway_bridge_optional()
+    br = bridge or _optional_bridge()
     if br is None:
         return False
     if not should_push_turn_completion(br, elapsed_seconds):
@@ -437,3 +444,70 @@ def try_push_turn_complete(
             kind="turn",
         ),
     )
+
+
+class _LiveOutboundCompletionHooks:
+    def flush_pending_delegate_completion(self, bridge: Any) -> bool:
+        return flush_pending_delegate_completion(cast("GatewayOutboundBridge", bridge))
+
+    def try_push_agent_report(
+        self,
+        report: Any,
+        *,
+        kind: str,
+        bridge: Any,
+        elapsed_turn_seconds: float,
+    ) -> bool:
+        return try_push_agent_report(
+            report,
+            kind=kind,
+            bridge=cast("GatewayOutboundBridge | None", bridge),
+            elapsed_turn_seconds=elapsed_turn_seconds,
+        )
+
+    def try_push_turn_timeout(
+        self,
+        bridge: Any,
+        *,
+        timeout_seconds: float,
+        elapsed_seconds: float,
+    ) -> bool:
+        return try_push_turn_timeout(
+            cast("GatewayOutboundBridge | None", bridge),
+            timeout_seconds=timeout_seconds,
+            elapsed_seconds=elapsed_seconds,
+        )
+
+    def try_push_turn_complete(
+        self,
+        bridge: Any,
+        *,
+        elapsed_seconds: float,
+    ) -> bool:
+        return try_push_turn_complete(
+            cast("GatewayOutboundBridge | None", bridge),
+            elapsed_seconds=elapsed_seconds,
+        )
+
+    async def deliver_completion_push(
+        self,
+        adapter: Any,
+        chat_id: str,
+        body: str,
+        *,
+        kind: str,
+    ) -> bool:
+        return await deliver_completion_push(adapter, chat_id, body, kind=kind)
+
+    def delegate_completion_mode(self) -> str:
+        return delegate_completion_mode()
+
+    def delegate_completion_max_each(self) -> int:
+        return delegate_completion_max_each()
+
+
+def register_default_completion_hooks() -> None:
+    set_completion_hooks(_LiveOutboundCompletionHooks())
+
+
+register_default_completion_hooks()

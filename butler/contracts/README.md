@@ -37,12 +37,23 @@
 
 以下环依赖**暂保留函数内 lazy import**（见 `scripts/p3i_hoist_lazy_imports.py` `CYCLE_KEEP`），优先用本目录 Port 替代：
 
-| 环 | 建议 Port |
-|----|-----------|
-| `completion_notify` ↔ `outbound_bridge` | 扩展 `BridgeAccess` |
-| `tool_audit` ↔ `registry` | 工具结果/注册表只读 Port |
-| `tool_batch` ↔ `tool_dispatch` | 分发 Port（单入口 `dispatch_one_tool`） |
-| `health_report` ↔ `health_report_turn` | 诊断行 Provider Port |
+| 环 | 建议 Port | 状态 |
+|----|-----------|------|
+| `completion_notify` ↔ `outbound_bridge` | `OutboundCompletionHooks` + `completion_policy` | **done** |
+| `tool_audit` ↔ `registry` | `ToolRegistryReadPort` | **done** |
+| `tool_batch` ↔ `tool_dispatch` | 分发 Port（单入口 `dispatch_one_tool`） | open |
+| `health_report` ↔ `health_report_turn` | 诊断行 Provider Port | open |
+
+新增 Port 模块：
+
+| 模块 | 主要类型 | 服务层 | 典型实现方 |
+|------|----------|--------|------------|
+| `tool_registry_ports.py` | `ToolRegistryReadPort` | L4 工具 | `tools/registry.py` |
+| `tool_registry_registry.py` | `get/set_tool_registry_read` | 横切 | registry 启动注册 |
+| `completion_ports.py` | `OutboundCompletionHooks` | L1 出站 | `gateway/completion_notify.py` |
+| `completion_registry.py` | `get/set_completion_hooks` | 横切 | completion_notify 注册 |
+| `approval_ports.py` | `ApprovalStore` | L7 策略 | `approval_store_impl.py` |
+| `approval_registry.py` | `get/set_approval_store` | 横切 | 模块 import 注册 |
 
 ## 依赖规则
 

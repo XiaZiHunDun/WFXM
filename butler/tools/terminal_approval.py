@@ -49,15 +49,26 @@ def store_approval(
     unsandboxed: bool = False,
 ) -> str:
     fp = argv_fingerprint(command, cwd=cwd)
+    sk = str(session_key or "").strip()
+    if sk:
+        from butler.contracts.approval_store_impl import grant_terminal_exec_once
+
+        grant_terminal_exec_once(
+            sk,
+            fingerprint=fp,
+            command=command,
+            ttl_sec=ttl_sec,
+        )
     record = {
         "command": command.strip(),
         "cwd": (cwd or "").strip(),
-        "session_key": str(session_key or "").strip(),
+        "session_key": sk,
         "unsandboxed": bool(unsandboxed),
         "expires_at": time.time() + (ttl_sec if ttl_sec is not None else _TTL_SEC),
     }
-    path = _approvals_dir() / f"{fp}.json"
-    path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    if not sk:
+        path = _approvals_dir() / f"{fp}.json"
+        path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
     return fp
 
 
@@ -78,6 +89,18 @@ def check_approval(
         store_approval(command, cwd=cwd, session_key=session_key, ttl_sec=300.0)
         return None
     fp = argv_fingerprint(command, cwd=cwd)
+    sk = str(session_key or "").strip()
+    if sk:
+        from butler.contracts.approval_registry import get_approval_store
+
+        store = get_approval_store()
+        if store is not None and store.is_approved(
+            sk,
+            permission="terminal_exec",
+            tool="terminal",
+            pattern=fp,
+        ):
+            return None
     path = _approvals_dir() / f"{fp}.json"
     from butler.core.approval_cards import format_terminal_exec_card
 

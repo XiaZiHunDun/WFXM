@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
@@ -320,22 +321,75 @@ def hybrid_experience_hits(
         bm = getattr(orchestrator, "butler_memory", None)
         if bm is None:
             return []
+        q = str(query or "").strip()
+        project_name = _current_project(orchestrator) or ""
+        pm = getattr(orchestrator, "project_memory", None)
+        ws = getattr(pm, "project_dir", None) if pm is not None else None
+
+        from butler.memory.unified_recall_config import unified_recall_enabled
+        from butler.memory.unified_recall import unified_hybrid_search
+        from butler.config import get_butler_home
+
+        if unified_recall_enabled() and q:
+            payload = unified_hybrid_search(
+                q,
+                butler_memory=bm,
+                project_memory=pm,
+                project_name=project_name,
+                project_workspace=Path(ws) if ws else None,
+                butler_home=get_butler_home(),
+                limit=limit,
+            )
+            if payload.get("ok"):
+                rows = [
+                    dict(r)
+                    for r in (payload.get("results") or [])
+                    if isinstance(r, dict) and r.get("content")
+                ]
+                return _filter_ephemeral_experience(rows)
+
         exp = getattr(bm, "experience", None)
         if exp is None:
             return []
         semantic = getattr(bm, "semantic", None)
         if not isinstance(semantic, SemanticMemoryIndex):
             semantic = None
-        return _filter_ephemeral_experience(
+        rows = _filter_ephemeral_experience(
             hybrid_experience_search(
                 semantic,
                 exp.search,
-                query,
-                project=_current_project(orchestrator) or None,
+                q,
+                project=project_name or None,
                 limit=limit,
                 experience_store=exp,
             )
         )
+        if not q:
+            return rows
+        from butler.memory.coding_recall import search_coding_experiences
+        from butler.memory.recall_router import memory_state_for_scope
+
+        coding_payload = search_coding_experiences(
+            q,
+            limit=max(2, limit // 2),
+            project_id=project_name,
+            project_workspace=Path(ws) if ws else None,
+            butler_home=get_butler_home(),
+        )
+        if coding_payload.get("ok"):
+            seen = {str(r.get("content") or "")[:80] for r in rows}
+            for row in coding_payload.get("results") or []:
+                if not isinstance(row, dict) or not row.get("content"):
+                    continue
+                key = str(row.get("content") or "")[:80]
+                if key in seen:
+                    continue
+                item = dict(row)
+                item.setdefault("memory_state", memory_state_for_scope("coding"))
+                item.setdefault("recall_scope", "coding")
+                rows.append(item)
+                seen.add(key)
+        return rows[:limit]
 
     result = safe_best_effort(
         _run,

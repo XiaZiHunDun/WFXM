@@ -10,10 +10,14 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, cast
 
+from butler.contracts.completion_registry import get_completion_hooks
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
 from butler.defaults.env_defaults import GATEWAY_MAX_SUPPLEMENTARY_PER_TURN
 from butler.env_parse import env_truthy, float_env, int_env
-from butler.gateway import completion_notify as _completion_notify
+from butler.gateway.completion_policy import (
+    max_supplementary_per_turn,
+    suppress_completion_after_main_enabled,
+)
 from butler.gateway.item_event_sink import record_thread_item
 from butler.gateway.outbound_bridge_ops import (
     run_milestone_timer_tick,
@@ -72,16 +76,8 @@ def _env_int(name: str, default: int, *, min_value: int = 0) -> int:
     return cast(int, int_env(name, default, min=min_value))
 
 
-def suppress_completion_after_main_enabled() -> bool:
-    return _env_bool("BUTLER_GATEWAY_SUPPRESS_COMPLETION_AFTER_MAIN", True)
-
-
-def max_supplementary_per_turn() -> int:
-    return _env_int(
-        "BUTLER_GATEWAY_MAX_SUPPLEMENTARY_PER_TURN",
-        GATEWAY_MAX_SUPPLEMENTARY_PER_TURN,
-        min_value=0,
-    )
+def _completion_hooks():
+    return get_completion_hooks()
 
 
 @dataclass
@@ -396,12 +392,17 @@ class GatewayOutboundBridge:
         del name, result
 
     def flush_pending_delegate_completion(self) -> None:
-        _completion_notify.flush_pending_delegate_completion(self)
+        hooks = _completion_hooks()
+        if hooks is not None:
+            hooks.flush_pending_delegate_completion(self)
 
     def notify_delegate_finished(self, report: Any) -> None:
         """Push or defer delegate AgentReport (see delegate_completion_mode)."""
+        hooks = _completion_hooks()
+        if hooks is None:
+            return
         elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
-        _completion_notify.try_push_agent_report(
+        hooks.try_push_agent_report(
             report,
             kind="delegate",
             bridge=self,
@@ -409,16 +410,22 @@ class GatewayOutboundBridge:
         )
 
     def notify_turn_timeout(self, *, timeout_seconds: float) -> None:
+        hooks = _completion_hooks()
+        if hooks is None:
+            return
         elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
-        _completion_notify.try_push_turn_timeout(
+        hooks.try_push_turn_timeout(
             self,
             timeout_seconds=timeout_seconds,
             elapsed_seconds=elapsed,
         )
 
     def notify_workflow_finished(self, report: Any) -> None:
+        hooks = _completion_hooks()
+        if hooks is None:
+            return
         elapsed = time.monotonic() - self._started_at if self._started_at else 0.0
-        _completion_notify.try_push_agent_report(
+        hooks.try_push_agent_report(
             report,
             kind="workflow",
             bridge=self,
@@ -431,10 +438,13 @@ class GatewayOutboundBridge:
     def maybe_notify_turn_complete_after_reply(self) -> None:
         """Call after the main WeChat reply was sent (see platforms/base.py)."""
         self.flush_pending_delegate_completion()
+        hooks = _completion_hooks()
+        if hooks is None:
+            return
         elapsed = self._last_turn_elapsed
         if elapsed <= 0 and self._started_at:
             elapsed = time.monotonic() - self._started_at
-        _completion_notify.try_push_turn_complete(self, elapsed_seconds=elapsed)
+        hooks.try_push_turn_complete(self, elapsed_seconds=elapsed)
 
     def schedule_supplementary_reply(self, text: str, *, kind: str = "queued") -> bool:
         """Send an extra user-visible message (e.g. drained inbound queue)."""
@@ -497,9 +507,10 @@ class GatewayOutboundBridge:
         if kind == "timeout" and (self._timeout_notified or self._completion_push_sent):
             return False
         if kind == "delegate":
-            mode = _completion_notify.delegate_completion_mode()
+            hooks = _completion_hooks()
+            mode = hooks.delegate_completion_mode() if hooks is not None else "last"
             if mode == "each":
-                max_each = _completion_notify.delegate_completion_max_each()
+                max_each = hooks.delegate_completion_max_each() if hooks is not None else 1
                 inflight = self._delegate_push_count + self._delegate_push_inflight
                 if inflight >= max_each:
                     return False
@@ -519,12 +530,17 @@ class GatewayOutboundBridge:
             body = body[:3997] + "..."
 
         async def _send() -> None:
-            ok = await _completion_notify.deliver_completion_push(
-                self.adapter,
-                self.chat_id,
-                body,
-                kind=kind,
-            )
+            hooks = _completion_hooks()
+            ok = False
+            if hooks is not None:
+                ok = bool(
+                    await hooks.deliver_completion_push(
+                        self.adapter,
+                        self.chat_id,
+                        body,
+                        kind=kind,
+                    )
+                )
             if ok:
                 if kind == "delegate":
                     self._delegate_push_count += 1

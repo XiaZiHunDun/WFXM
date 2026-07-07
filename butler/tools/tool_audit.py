@@ -62,9 +62,10 @@ def _tool_result_code(name: str, payload: dict[str, Any], *, ok: bool) -> str:
         return "TOOL_INTERRUPTED"
     if isinstance(payload.get("exit_code"), int) and payload["exit_code"] != 0:
         return "TOOL_EXIT_NONZERO"
-    from butler.tools.registry import _REGISTRY
+    from butler.contracts.tool_registry_registry import get_tool_registry_read
 
-    if name not in _REGISTRY:
+    read_port = get_tool_registry_read()
+    if read_port is not None and not read_port.is_tool_registered(name):
         return "TOOL_NOT_FOUND"
     lowered = error.lower()
     if (
