@@ -7,13 +7,24 @@ import logging
 from typing import Any
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
+from butler.skills.similarity import _ensure_jieba
+from butler.ops.degradation_registry import sync_all_startup_degradations
+from butler.gateway.message_queue import restore_persisted_queue
+from butler.mcp.async_runner import graceful_shutdown_mcp_stack
+from butler.memory.semantic_index import close_all_semantic_indices
+from butler.tools.reminder import poll_due_reminders
+from butler.gateway.durable_outbox import (
+    durable_outbox_enabled,
+    enqueue_outbox_message,
+    list_pending_outbox,
+    mark_outbox_sent,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def warmup_gateway_runtime_safe(butler: Any) -> None:
     def _skills() -> None:
-        from butler.skills.similarity import _ensure_jieba
 
         _ensure_jieba()
         mgr = getattr(butler._orchestrator, "_skill_manager", None)
@@ -24,7 +35,6 @@ def warmup_gateway_runtime_safe(butler: Any) -> None:
     safe_best_effort(_skills, label="runner.warmup_skills", default=None)
 
     def _degradation() -> None:
-        from butler.ops.degradation_registry import sync_all_startup_degradations
 
         sync_all_startup_degradations()
 
@@ -33,7 +43,6 @@ def warmup_gateway_runtime_safe(butler: Any) -> None:
 
 def restore_persisted_queue_safe() -> int:
     def _run() -> int:
-        from butler.gateway.message_queue import restore_persisted_queue
 
         return int(restore_persisted_queue() or 0)
 
@@ -54,7 +63,6 @@ async def disconnect_adapter_safe(adapter: Any) -> None:
 
 def shutdown_mcp_stack_safe() -> None:
     def _run() -> None:
-        from butler.mcp.async_runner import graceful_shutdown_mcp_stack
 
         graceful_shutdown_mcp_stack(timeout=5.0)
 
@@ -63,7 +71,6 @@ def shutdown_mcp_stack_safe() -> None:
 
 def close_semantic_indices_safe() -> None:
     def _run() -> None:
-        from butler.memory.semantic_index import close_all_semantic_indices
 
         close_all_semantic_indices()
 
@@ -105,11 +112,6 @@ def push_reminder_safe(adapters: list[Any], reminder: dict[str, Any]) -> None:
     def _run() -> None:
         import os
 
-        from butler.gateway.durable_outbox import (
-            durable_outbox_enabled,
-            enqueue_outbox_message,
-            mark_outbox_sent,
-        )
 
         text = f"⏰ 提醒：{reminder.get('message', '')}\n（设定时间：{reminder.get('due_human', '')}）"
         chat_id = os.getenv("BUTLER_OWNER_WECHAT_ID", "")
@@ -139,7 +141,6 @@ def push_reminder_safe(adapters: list[Any], reminder: dict[str, Any]) -> None:
 
 def poll_due_reminders_safe() -> list[dict[str, Any]]:
     def _run() -> list[dict[str, Any]]:
-        from butler.tools.reminder import poll_due_reminders
 
         fired = poll_due_reminders()
         return fired if isinstance(fired, list) else []
@@ -153,7 +154,6 @@ def replay_outbox_entry_safe(
     entry: dict[str, Any],
 ) -> bool:
     """Replay one outbox entry; return True if sent and marked."""
-    from butler.gateway.durable_outbox import mark_outbox_sent
 
     chat_id = entry.get("chat_id", "")
     body = entry.get("body", "")
@@ -170,10 +170,6 @@ def replay_outbox_entry_safe(
 def replay_pending_outbox_safe(adapters: list[Any]) -> tuple[int, int]:
     """Return (sent_count, total_pending)."""
     def _run() -> tuple[int, int]:
-        from butler.gateway.durable_outbox import (
-            durable_outbox_enabled,
-            list_pending_outbox,
-        )
 
         if not durable_outbox_enabled():
             return 0, 0

@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from butler.ops.boundary_observability import BoundaryObservation
+from butler.ops.cost_calibration import load_baseline
+from butler.core.compaction_prompt import PII_EXCLUSION_RULE
+from butler.runtime import push_queue
+from butler.runtime.notify import rate_limit_drain_wait_seconds
+from butler.tools import pim_schema as ps
+from butler.ops.eval_diagnostics import collect_eval_quality_snapshot
 
 if TYPE_CHECKING:
     from butler.ops.boundary_observability import BoundaryObservation
 
 
 def observe_g1_02_cost_baseline() -> "BoundaryObservation":
-    from butler.ops.boundary_observability import BoundaryObservation
 
     try:
-        from butler.ops.cost_calibration import load_baseline
 
         baseline = load_baseline()
         if baseline:
@@ -34,10 +39,8 @@ def observe_g1_02_cost_baseline() -> "BoundaryObservation":
 
 
 def observe_g2_01_pii_rule() -> "BoundaryObservation":
-    from butler.ops.boundary_observability import BoundaryObservation
 
     try:
-        from butler.core.compaction_prompt import PII_EXCLUSION_RULE
 
         active = "PRIVACY" in PII_EXCLUSION_RULE
         return BoundaryObservation(
@@ -51,11 +54,8 @@ def observe_g2_01_pii_rule() -> "BoundaryObservation":
 
 
 def observe_g2_02_push_queue() -> "BoundaryObservation":
-    from butler.ops.boundary_observability import BoundaryObservation
 
     try:
-        from butler.runtime import push_queue
-        from butler.runtime.notify import rate_limit_drain_wait_seconds
 
         pending = push_queue.count_pending_pushes()
         wait_s = rate_limit_drain_wait_seconds()
@@ -79,10 +79,8 @@ def observe_g2_02_push_queue() -> "BoundaryObservation":
 
 
 def observe_g2_04_pim_truncation() -> "BoundaryObservation":
-    from butler.ops.boundary_observability import BoundaryObservation
 
     try:
-        from butler.tools import pim_schema as ps
 
         return BoundaryObservation(
             "G2-04",
@@ -95,10 +93,8 @@ def observe_g2_04_pim_truncation() -> "BoundaryObservation":
 
 
 def observe_g2_09_mem_benchmark() -> "BoundaryObservation":
-    from butler.ops.boundary_observability import BoundaryObservation
 
     try:
-        from butler.ops.eval_diagnostics import collect_eval_quality_snapshot
 
         snap = collect_eval_quality_snapshot()
         mem_rate = None

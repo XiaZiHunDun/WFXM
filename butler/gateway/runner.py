@@ -11,8 +11,32 @@ import threading
 import time
 from typing import Any, cast
 
+from butler import format_build_identity_line, mark_start_time
 from butler.gateway.message_handler import ButlerMessageHandler
-from butler.gateway.platform_policy import SUPPORTED_PLATFORMS, normalize_platforms
+from butler.gateway.platform_policy import (
+    SUPPORTED_PLATFORMS,
+    format_unsupported_error,
+    normalize_platforms,
+    unsupported_platforms as _unsupported_platforms,
+)
+from butler.gateway.inbound_media import build_inbound_user_text
+from butler.gateway.outbound_bridge import set_current_bridge
+from butler.gateway.platforms.wechat import WeChatAdapter, check_wechat_requirements
+from butler.gateway.runner_ops import (
+    close_semantic_indices_safe,
+    disconnect_adapter_safe,
+    poll_due_reminders_safe,
+    push_reminder_safe,
+    replay_pending_outbox_safe,
+    restore_persisted_queue_safe,
+    shutdown_mcp_stack_safe,
+    sync_send_via_adapter_loud,
+    warmup_gateway_runtime_safe,
+)
+from butler.gateway.singleton_lock import acquire_gateway_singleton_lock
+from butler.gateway.events_sink import register_gateway_events_sink
+from butler.gateway.gateway_contracts import register_gateway_contracts
+from butler.logging_config import configure_logging
 
 NATIVE_PLATFORMS = SUPPORTED_PLATFORMS  # alias for tests / legacy imports
 from butler.gateway.platforms.types import MessageEvent, PlatformConfig  # noqa: E402
@@ -84,14 +108,10 @@ def request_stop(stop: asyncio.Event) -> None:
 
 
 def unsupported_platforms(platforms: list[str]) -> list[str]:
-    from butler.gateway.platform_policy import unsupported_platforms as _unsupported
-
-    return cast(list[str], _unsupported(platforms))
+    return cast(list[str], _unsupported_platforms(platforms))
 
 
 def _warmup_gateway_runtime(butler: ButlerMessageHandler) -> None:
-    from butler.gateway.runner_ops import warmup_gateway_runtime_safe
-
     warmup_gateway_runtime_safe(butler)
 
 
@@ -101,8 +121,6 @@ async def _butler_message_handler(
     *,
     platform: str = "wechat",
 ) -> str | None:
-    from butler.gateway.inbound_media import build_inbound_user_text
-
     text = build_inbound_user_text(event).strip()
     if not text:
         return None
@@ -127,8 +145,6 @@ async def _butler_message_handler(
         external_id = str(source.chat_id or "").strip()
 
     def _run_in_worker() -> str:
-        from butler.gateway.outbound_bridge import set_current_bridge
-
         if bridge is not None:
             set_current_bridge(bridge)
         try:
@@ -167,12 +183,7 @@ async def _butler_message_handler(
 
 async def run_gateway_async(platforms: list[str]) -> int:
     """Start native adapters; blocks until cancelled."""
-    from butler import format_build_identity_line, mark_start_time
-    from butler.gateway.singleton_lock import acquire_gateway_singleton_lock
-
     acquire_gateway_singleton_lock()
-    from butler.gateway.events_sink import register_gateway_events_sink
-    from butler.gateway.gateway_contracts import register_gateway_contracts
 
     register_gateway_events_sink()
     register_gateway_contracts()
@@ -181,8 +192,6 @@ async def run_gateway_async(platforms: list[str]) -> int:
 
     unsupported = unsupported_platforms(platforms)
     if unsupported:
-        from butler.gateway.platform_policy import format_unsupported_error
-
         logger.error("%s", format_unsupported_error(unsupported))
         return 2
 
@@ -192,8 +201,6 @@ async def run_gateway_async(platforms: list[str]) -> int:
 
     for name in platforms:
         if name in ("wechat", "weixin"):
-            from butler.gateway.platforms.wechat import WeChatAdapter, check_wechat_requirements
-
             if not check_wechat_requirements():
                 logger.error("WeChat requires: pip install aiohttp cryptography certifi")
                 return 1
@@ -227,8 +234,6 @@ async def run_gateway_async(platforms: list[str]) -> int:
         return 1
 
     logger.info("Butler native gateway running (%s)", ", ".join(a.name for a in connected))
-
-    from butler.gateway.runner_ops import restore_persisted_queue_safe
 
     restored = restore_persisted_queue_safe()
     if restored:
@@ -266,12 +271,6 @@ async def run_gateway_async(platforms: list[str]) -> int:
     # 仍要确保 _SHUTDOWN_EVENT 被 set, 兜底)
     _SHUTDOWN_EVENT.set()
 
-    from butler.gateway.runner_ops import (
-        close_semantic_indices_safe,
-        disconnect_adapter_safe,
-        shutdown_mcp_stack_safe,
-    )
-
     _reminder_task.cancel()
     for adapter in connected:
         await disconnect_adapter_safe(adapter)
@@ -301,15 +300,11 @@ async def run_gateway_async(platforms: list[str]) -> int:
 
 
 def _sync_send_via_adapter(adapters: list[Any], chat_id: str, text: str) -> bool:
-    from butler.gateway.runner_ops import sync_send_via_adapter_loud
-
     return bool(sync_send_via_adapter_loud(adapters, chat_id, text))
 
 
 async def _poll_reminders_loop(adapters: list[Any]) -> None:
     """Background coroutine that checks for due reminders every 60s."""
-    from butler.gateway.runner_ops import poll_due_reminders_safe, push_reminder_safe
-
     poll_interval = float_env("BUTLER_REMINDER_POLL_SECONDS", 60)
     while True:
         await asyncio.sleep(poll_interval)
@@ -322,8 +317,6 @@ async def _poll_reminders_loop(adapters: list[Any]) -> None:
 
 def _replay_pending_outbox(adapters: list[Any]) -> None:
     """Replay unsent durable outbox entries on gateway startup."""
-    from butler.gateway.runner_ops import replay_pending_outbox_safe
-
     sent, total = replay_pending_outbox_safe(adapters)
     if total:
         logger.info("Replaying %d pending outbox entries", total)
@@ -331,8 +324,6 @@ def _replay_pending_outbox(adapters: list[Any]) -> None:
 
 
 def run_gateway_blocking(platforms: list[str]) -> int:
-    from butler.logging_config import configure_logging
-
     configure_logging()
     try:
         return asyncio.run(run_gateway_async(platforms))

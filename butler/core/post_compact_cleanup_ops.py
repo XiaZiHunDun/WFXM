@@ -5,7 +5,21 @@ from __future__ import annotations
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
-
+from butler.core.agents_md_sections import extract_agents_md_sections
+from butler.core.compaction_phase import should_skip_post_compact_reanchor
+from butler.core.design_md_sections import extract_design_md_sections
+from butler.core.fact_extraction import format_facts_for_anchor, record_fact_anchor_metrics
+from butler.core.read_state import get_recent_edit_paths
+from butler.core.research_simplicity import format_simplicity_anchor
+from butler.core.session_todos import format_open_todos_anchor, session_todos_enabled
+from butler.execution_context import (
+    get_audit_session_key,
+    get_current_orchestrator,
+    get_current_session_key,
+)
+from butler.runtime.task_store import list_recent_tasks
+from butler.session.lifecycle import prefetch_turn_memory
+from butler.tools.registry import get_tool_audit_events
 
 def build_core_anchors_safe(
     diagnostics: dict[str, Any] | None,
@@ -13,9 +27,6 @@ def build_core_anchors_safe(
     role: str,
 ) -> list[str]:
     def _run() -> list[str]:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
-        from butler.runtime.task_store import list_recent_tasks
-        from butler.session.lifecycle import prefetch_turn_memory
 
         parts: list[str] = []
         sk = str(get_current_session_key() or "").strip()
@@ -30,7 +41,6 @@ def build_core_anchors_safe(
             if diagnostics is not None:
                 diagnostics["post_compact_tasks"] = len(lines)
 
-        from butler.core.session_todos import format_open_todos_anchor, session_todos_enabled
 
         if session_todos_enabled():
             todo_anchor = format_open_todos_anchor(sk)
@@ -72,7 +82,6 @@ def build_core_anchors_safe(
 
 def agents_md_block_safe(diagnostics: dict[str, Any] | None) -> str:
     def _run() -> str:
-        from butler.core.agents_md_sections import extract_agents_md_sections
 
         return str(extract_agents_md_sections() or "")
 
@@ -84,7 +93,6 @@ def agents_md_block_safe(diagnostics: dict[str, Any] | None) -> str:
 
 def design_md_block_safe(diagnostics: dict[str, Any] | None) -> str:
     def _run() -> str:
-        from butler.core.design_md_sections import extract_design_md_sections
 
         return str(extract_design_md_sections() or "")
 
@@ -96,7 +104,6 @@ def design_md_block_safe(diagnostics: dict[str, Any] | None) -> str:
 
 def simplicity_anchor_safe(diagnostics: dict[str, Any] | None) -> str:
     def _run() -> str:
-        from butler.core.research_simplicity import format_simplicity_anchor
 
         return str(format_simplicity_anchor() or "")
 
@@ -108,7 +115,6 @@ def simplicity_anchor_safe(diagnostics: dict[str, Any] | None) -> str:
 
 def recent_files_block_safe(diagnostics: dict[str, Any] | None) -> str:
     def _run() -> str:
-        from butler.core.read_state import get_recent_edit_paths
 
         recent = get_recent_edit_paths(limit=5)
         if not recent:
@@ -131,8 +137,6 @@ def dev_changes_block_safe(diagnostics: dict[str, Any] | None) -> str:
 
 def facts_anchor_block_safe(diagnostics: dict[str, Any] | None) -> str:
     def _run() -> str:
-        from butler.core.fact_extraction import format_facts_for_anchor, record_fact_anchor_metrics
-        from butler.execution_context import get_audit_session_key
 
         sk = get_audit_session_key(fallback="_global")
         facts_block = format_facts_for_anchor(sk)
@@ -148,8 +152,6 @@ def facts_anchor_block_safe(diagnostics: dict[str, Any] | None) -> str:
 
 def collect_dev_session_changes_safe() -> str:
     def _run() -> str:
-        from butler.execution_context import get_audit_session_key
-        from butler.tools.registry import get_tool_audit_events
 
         sk = get_audit_session_key(fallback="_global")
         events = get_tool_audit_events(limit=100, session_key=sk)
@@ -212,7 +214,6 @@ def _format_dev_changes(events: list) -> str:
 
 def should_skip_reanchor_safe(diagnostics: dict[str, Any] | None) -> bool:
     def _run() -> bool:
-        from butler.core.compaction_phase import should_skip_post_compact_reanchor
 
         return bool(should_skip_post_compact_reanchor(diagnostics))
 

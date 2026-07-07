@@ -16,6 +16,8 @@ from typing import cast
 
 from butler.dev_engine.b9_types import B9TaskSpec
 from butler.dev_engine.b9_verify_utils import pytest_verify as _pytest_verify
+from butler.dev_engine.edit_ops import apply_write
+from butler.dev_engine.edit_ops import apply_patch
 
 
 def _verify_ws(ws: Path) -> tuple[bool, str]:
@@ -36,7 +38,6 @@ def _setup_b9l_prod_verify_fail(ws: Path) -> None:
 
 
 def _oracle_b9l_prod_verify_fail(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_write
 
     content = (
         "def divide(a, b):\n"
@@ -72,7 +73,6 @@ def _setup_b9l_prod_patch_wrong(ws: Path) -> None:
 
 
 def _oracle_b9l_prod_patch_wrong(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     _rec, err = apply_patch(
         ws / "logic.py",
@@ -101,7 +101,6 @@ def _setup_b9l_prod_no_test(ws: Path) -> None:
 
 
 def _oracle_b9l_prod_no_test(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     _rec, err = apply_patch(
         ws / "formatter.py",
@@ -130,7 +129,6 @@ def _setup_b9l_prod_demo_fix_greet_return(ws: Path) -> None:
 
 
 def _oracle_b9l_prod_demo_fix_greet_return(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     _rec, err = apply_patch(
         ws / "greet.py",
@@ -210,7 +208,6 @@ def _setup_b9l_prod_lingwen_demo_add(ws: Path) -> None:
 
 
 def _oracle_b9l_prod_lingwen_demo_add(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     _rec, err = apply_patch(
         ws / "demo" / "hello.py",
@@ -254,7 +251,6 @@ def _setup_b9l_prod_lingwen_workflow_guard(ws: Path) -> None:
 
 
 def _oracle_b9l_prod_lingwen_workflow_guard(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     target = ws / "scripts" / "workflow_guard.py"
     _rec, err = apply_patch(
@@ -282,7 +278,6 @@ def _setup_b9l_prod_lingwen_constants_docstring(ws: Path) -> None:
 
 
 def _oracle_b9l_prod_lingwen_constants_docstring(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_write
 
     content = (
         '"""LingWen1 project constants."""\n\n'
@@ -354,7 +349,6 @@ def _setup_b9l_prod_lingwen_validate_progress(ws: Path) -> None:
 
 
 def _oracle_b9l_prod_lingwen_validate_progress(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     target = ws / "novel-factory" / "workflow_state.json"
     _rec, err = apply_patch(target, "status:OPEN_FIX", "status:PASSED")

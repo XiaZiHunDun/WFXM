@@ -7,6 +7,19 @@ from typing import Any, Callable
 
 from butler.core.best_effort import safe_best_effort
 
+from butler.memory.triplets import TripletIndex
+from butler.memory.query_decompose import (
+    decompose_query,
+    subquery_enabled,
+)
+from butler.execution_context import get_current_session_key
+from butler.memory.retrieval_telemetry import (
+    get_last_retrieval,
+    record_last_retrieval,
+)
+from butler.core.structured_events import emit_retrieval
+from butler.memory.vector_sync_telemetry import record_vector_sync
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,7 +52,6 @@ def index_triplets_safe(
     source_ref: str,
 ) -> int:
     def _run() -> int:
-        from butler.memory.triplets import TripletIndex
 
         return TripletIndex(semantic.db_path).upsert_from_content(
             content=content,
@@ -58,7 +70,6 @@ def index_triplets_safe(
 
 def subquery_enabled_for(query: str) -> bool:
     def _run() -> bool:
-        from butler.memory.query_decompose import decompose_query, subquery_enabled
 
         return bool(subquery_enabled() and len(decompose_query(query)) > 1)
 
@@ -71,8 +82,6 @@ def subquery_enabled_for(query: str) -> bool:
 
 def record_relaxation_note(query: str) -> None:
     def _run() -> None:
-        from butler.execution_context import get_current_session_key
-        from butler.memory.retrieval_telemetry import get_last_retrieval, record_last_retrieval
 
         sk = str(get_current_session_key() or "")
         if not sk:
@@ -100,8 +109,6 @@ def record_hybrid_recall_telemetry(
     degraded: bool,
 ) -> None:
     def _run() -> None:
-        from butler.execution_context import get_current_session_key
-        from butler.memory.retrieval_telemetry import record_last_retrieval
         from butler.memory.semantic_index import _build_recall_telemetry_payload
 
         sk = str(get_current_session_key() or "")
@@ -116,7 +123,6 @@ def record_hybrid_recall_telemetry(
                 degraded=degraded,
             ),
         )
-        from butler.core.structured_events import emit_retrieval
 
         emit_retrieval(
             mode=mode,
@@ -180,7 +186,6 @@ def index_experience_row_loud(
             source=SOURCE_EXPERIENCE,
             source_ref=str(row_id),
         )
-        from butler.memory.vector_sync_telemetry import record_vector_sync
 
         record_vector_sync("owner_experience", project=project or "")
     except Exception as exc:

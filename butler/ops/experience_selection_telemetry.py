@@ -6,16 +6,24 @@ import json
 import time
 from pathlib import Path
 from typing import Any, cast
+from butler.config import get_butler_home
+from butler.ops.experience_selection_telemetry_ops import experience_task_affinity_safe
+from butler.ops.experience_selection_telemetry_ops import experience_task_affinity_safe, infer_b9_task_id_safe
+from butler.ops.experience_selection_telemetry_ops import infer_b9_task_id_safe
+from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary, process_task
+from butler.dev_engine.prod_delegate_bridge import experience_task_affinity, infer_b9_task_id, production_delegate_keywords
+from butler.memory.memory_scope import delegate_project_id, load_delegate_experience_library, stack_tags_for_project
+from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
+from butler.ops.experience_selection_telemetry_ops import record_experience_lifecycle_safe
 
 
 def selections_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / "experience_selections.jsonl"
 
 
 def lifecycle_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / "experience_lifecycle.jsonl"
 
@@ -35,9 +43,6 @@ def record_experience_selection(
     if not experience_id:
         return
     if task_affinity is None and inferred_task_id:
-        from butler.ops.experience_selection_telemetry_ops import (
-            experience_task_affinity_safe,
-        )
 
         task_affinity = experience_task_affinity_safe(
             experience_id,
@@ -63,10 +68,6 @@ def record_experience_selection(
 
 def _resolve_row_task_affinity(row: dict[str, Any]) -> bool | None:
     """Use stored affinity or infer from task_preview + experience_id."""
-    from butler.ops.experience_selection_telemetry_ops import (
-        experience_task_affinity_safe,
-        infer_b9_task_id_safe,
-    )
 
     affinity = row.get("task_affinity")
     if affinity is True or affinity is False:
@@ -103,9 +104,6 @@ def backfill_selection_task_affinity(*, dry_run: bool = True) -> dict[str, Any]:
                 row["task_affinity"] = inferred
                 if not row.get("inferred_task_id"):
                     preview = str(row.get("task_preview") or "")
-                    from butler.ops.experience_selection_telemetry_ops import (
-                        infer_b9_task_id_safe,
-                    )
 
                     tid = infer_b9_task_id_safe(preview)
                     if tid:
@@ -186,7 +184,6 @@ def replay_selection_precision(*, limit: int = 200) -> dict[str, Any]:
     path = selections_path()
     if not path.is_file():
         return {"replayed": 0, "precision": None}
-    from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
 
     replayed = aligned = misaligned = 0
     for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
@@ -222,18 +219,6 @@ def forward_selection_precision(*, limit: int = 200) -> dict[str, Any]:
     path = selections_path()
     if not path.is_file():
         return {"replayed": 0, "precision": None}
-    from butler.config import get_butler_home
-    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary, process_task
-    from butler.dev_engine.prod_delegate_bridge import (
-        experience_task_affinity,
-        infer_b9_task_id,
-        production_delegate_keywords,
-    )
-    from butler.memory.memory_scope import (
-        delegate_project_id,
-        load_delegate_experience_library,
-        stack_tags_for_project,
-    )
 
     rows: list[dict[str, Any]] = []
     for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
@@ -357,8 +342,6 @@ def apply_selected_experience_lifecycle(
         return {"action": "none"}
     import os
 
-    from butler.config import get_butler_home
-    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
 
     path = os.path.join(get_butler_home(), "coding_experiences.json")
     tlib = TheoremLibrary()
@@ -375,7 +358,6 @@ def apply_selected_experience_lifecycle(
     if ok:
         xlib.save_to_file(path)
     result = {"action": action, "experience_id": experience_id, "success": success}
-    from butler.ops.experience_selection_telemetry_ops import record_experience_lifecycle_safe
 
     record_experience_lifecycle_safe(
         experience_id=experience_id,

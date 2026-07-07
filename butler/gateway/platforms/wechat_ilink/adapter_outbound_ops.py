@@ -9,6 +9,12 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
 from butler.gateway.platforms.types import SendResult
+from butler.gateway.platforms.wechat_ilink import _get_config, _safe_id
+from butler.gateway.platforms.wechat_ilink import _safe_id
+from butler.gateway.platforms.wechat_ilink import _send_typing
+from butler.gateway.platforms.wechat_ilink_phases import WeChatSendState, _phase_chunk_attempt, _phase_chunk_handle_response
+from butler.gateway.platforms.wechat_ilink.adapter_outbound import backoff_for_rate_limit
+from butler.gateway.platforms.wechat_ilink.adapter_outbound import backoff_for_transport_error
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter
@@ -22,7 +28,6 @@ async def fetch_typing_ticket_safe(
     context_token: Optional[str],
 ) -> None:
     async def _run() -> None:
-        from butler.gateway.platforms.wechat_ilink import _get_config, _safe_id
 
         response = await _get_config(
             adapter._poll_session,
@@ -48,7 +53,6 @@ async def ensure_typing_ticket_safe(
     *,
     timeout: float,
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
 
     if not event.source:
         return
@@ -79,7 +83,6 @@ async def send_message_loud(
     *,
     run_send: Any,
 ) -> SendResult:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
 
     try:
         return await run_send()
@@ -96,7 +99,6 @@ async def send_typing_status_safe(
     label: str,
 ) -> None:
     async def _run() -> None:
-        from butler.gateway.platforms.wechat_ilink import _send_typing
 
         typing_ticket = adapter._typing_cache.get(chat_id)
         if not typing_ticket:
@@ -120,7 +122,6 @@ async def send_media_loud(
     label: str,
     run_send: Any,
 ) -> SendResult:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
 
     try:
         return await run_send()
@@ -137,11 +138,6 @@ async def send_text_chunk_loud(
     context_token: Optional[str],
     client_id: str,
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink_phases import (
-        WeChatSendState,
-        _phase_chunk_attempt,
-        _phase_chunk_handle_response,
-    )
 
     last_error: Optional[Exception] = None
     state = WeChatSendState()
@@ -165,18 +161,12 @@ async def send_text_chunk_loud(
                 last_error = err
                 if attempt >= adapter._send_chunk_retries:
                     break
-                from butler.gateway.platforms.wechat_ilink.adapter_outbound import (
-                    backoff_for_rate_limit,
-                )
 
                 await backoff_for_rate_limit(adapter, chat_id, attempt)
         except Exception as exc:
             last_error = exc
             if attempt >= adapter._send_chunk_retries:
                 break
-            from butler.gateway.platforms.wechat_ilink.adapter_outbound import (
-                backoff_for_transport_error,
-            )
 
             await backoff_for_transport_error(adapter, chat_id, attempt, exc)
     assert last_error is not None

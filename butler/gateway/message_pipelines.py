@@ -32,6 +32,39 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+from butler.core.message_ir import inbound_text_from_gateway
+from butler.core.session_transcript import append_transcript_entry
+from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
+from butler.core.two_phase_confirm import cancel_pending_unless_confirm, try_execute_pending_confirm
+from butler.gateway.bot_loop_guard import record_and_should_suppress
+from butler.gateway.handler_helpers import (
+    _is_prequeue_interrupt_command,
+    apply_auto_continue_rewrite,
+)
+from butler.gateway.hooks import apply_pre_gateway_dispatch
+from butler.gateway.inbound_idempotency import check_and_reserve_inbound, record_duplicate_skip
+from butler.gateway.message_pipelines_fail_closed import (
+    apply_human_gate_fail_closed,
+    apply_injection_guard_fail_closed,
+    apply_injection_llm_fail_closed,
+    apply_io_guardrail_fail_closed,
+)
+from butler.gateway.message_queue import (
+    enqueue_inbound,
+    format_queued_ack,
+    pending_count,
+)
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+from butler.gateway.queue_settings import get_queue_mode, session_drop_policy
+from butler.gateway.reply_admission import try_admit
+from butler.gateway.session_lifecycle import (
+    format_initializing_ack,
+    session_initializing_enabled,
+    try_enter_session,
+)
+from butler.mcp.profiles import mcp_profiles_enabled, select_profile_for_text, set_session_profile
+from butler.session.keys import chat_id_from_session_key
+from butler.skills.similarity import _ensure_jieba
 from butler.core.best_effort import safe_best_effort
 
 
@@ -45,8 +78,6 @@ def _record_injection_transcript(
 ) -> None:
 
     def _run() -> None:
-        from butler.core.session_transcript import append_transcript_entry
-
         append_transcript_entry(
             session_key,
             entry_type,
@@ -58,8 +89,6 @@ def _record_injection_transcript(
 
 def _warm_session_skills(orchestrator: Any) -> None:
     def _jieba() -> None:
-        from butler.skills.similarity import _ensure_jieba
-
         _ensure_jieba()
 
     safe_best_effort(_jieba, label="message_pipelines.jieba_warmup", default=None)
@@ -107,8 +136,6 @@ def _phase_transform_inbound_text(
     if the transformer is missing or raises, the raw text is used.
     """
     def _run() -> str:
-        from butler.core.message_ir import inbound_text_from_gateway
-
         return cast(
             str,
             inbound_text_from_gateway(
@@ -135,12 +162,6 @@ def _phase_apply_mcp_profile(text: str, session_key: str) -> None:
     """Phase: select and bind the MCP profile for this session."""
 
     def _run() -> None:
-        from butler.mcp.profiles import (
-            mcp_profiles_enabled,
-            select_profile_for_text,
-            set_session_profile,
-        )
-
         if mcp_profiles_enabled() and text.strip():
             set_session_profile(session_key, select_profile_for_text(text))
 
@@ -153,8 +174,6 @@ def _phase_apply_mcp_profile(text: str, session_key: str) -> None:
 
 def _phase_apply_io_guardrail(text: str) -> Optional[str]:
     """Phase: io guardrail tripwire. Returns a blocking reply or None."""
-    from butler.gateway.message_pipelines_fail_closed import apply_io_guardrail_fail_closed
-
     return cast(Optional[str], apply_io_guardrail_fail_closed(text))
 
 
@@ -170,8 +189,6 @@ def _phase_apply_human_gate(
     external_id: str | None,
 ) -> Optional[str]:
     """Phase: human gate — blocks (with owner check) if pending review."""
-    from butler.gateway.message_pipelines_fail_closed import apply_human_gate_fail_closed
-
     return cast(
         Optional[str],
         apply_human_gate_fail_closed(
@@ -196,8 +213,6 @@ def _phase_apply_injection_guard(
     the caller must short-circuit and return it as the final reply
     (fail-closed semantics from the original ``handle_message``).
     """
-    from butler.gateway.message_pipelines_fail_closed import apply_injection_guard_fail_closed
-
     return cast(
         tuple[str, Optional[str]],
         apply_injection_guard_fail_closed(
@@ -214,8 +229,6 @@ def _phase_apply_injection_guard(
 
 def _phase_apply_injection_llm(text: str, session_key: str) -> Optional[str]:
     """Phase: LLM-driven injection gate. Returns a blocking reply or None."""
-    from butler.gateway.message_pipelines_fail_closed import apply_injection_llm_fail_closed
-
     return cast(
         Optional[str],
         apply_injection_llm_fail_closed(
@@ -238,8 +251,6 @@ def _phase_apply_bot_loop_guard(
 ) -> Optional[str]:
     """Phase: suppress group-chat bot echo loops."""
     def _run() -> Optional[str]:
-        from butler.gateway.bot_loop_guard import record_and_should_suppress
-
         chat_id = session_key.split(":")[-1] if ":" in session_key else session_key
         suppress, _reason = record_and_should_suppress(
             chat_id=chat_id,
@@ -269,15 +280,8 @@ def _phase_apply_two_phase_confirm(
 ) -> Optional[str]:
     """Phase: dispatch / confirm / cancel two-phase confirm flow."""
     def _run() -> Optional[str]:
-        from butler.core.two_phase_confirm import (
-            cancel_pending_unless_confirm,
-            try_execute_pending_confirm,
-        )
-
         pending_reply = try_execute_pending_confirm(text, session_key=session_key)
         if pending_reply is not None:
-            from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
-
             if not is_gateway_owner(platform=platform, external_id=external_id):
                 return cast(str, owner_required_message())
             return cast(str, pending_reply)
@@ -306,8 +310,6 @@ def _phase_apply_prequeue_interrupt(
     handler: "ButlerMessageHandler",
 ) -> Optional[str]:
     """Phase: prequeue interrupt command (e.g. /停止)."""
-    from butler.gateway.handler_helpers import _is_prequeue_interrupt_command
-
     if _is_prequeue_interrupt_command(text):
         return cast(str, handler._format_prequeue_interrupt_reply(session_key))
     return None
@@ -332,13 +334,9 @@ def _phase_apply_pre_dispatch_rewrites(
     in try/except — a hook failure propagated. We preserve that
     fail-loud behavior here on purpose.
     """
-    from butler.gateway.handler_helpers import apply_auto_continue_rewrite
-
     continued = apply_auto_continue_rewrite(session_key, text)
     if continued:
         text = continued
-    from butler.gateway.hooks import apply_pre_gateway_dispatch
-
     rewritten = apply_pre_gateway_dispatch(text, session_key=session_key, platform=platform)
     if rewritten is None:
         return None
@@ -364,12 +362,6 @@ def _phase_apply_idempotency(
     ``complete_inbound`` in the ``finally`` block.
     """
     def _run() -> tuple[Optional[str], bool, str]:
-        from butler.gateway.inbound_idempotency import (
-            check_and_reserve_inbound,
-            record_duplicate_skip,
-        )
-        from butler.session.keys import chat_id_from_session_key
-
         inbound_id = str(external_id or "").strip()
         if inbound_id and inbound_id == chat_id_from_session_key(session_key):
             inbound_id = ""
@@ -412,16 +404,6 @@ def _phase_apply_session_initializing(
 ) -> Optional[str]:
     """Phase: session-initializing warmup. Returns early ack or None."""
     def _run() -> Optional[str]:
-        from butler.gateway.message_queue import (
-            enqueue_inbound,
-            format_initializing_ack,
-            pending_count,
-        )
-        from butler.gateway.session_lifecycle import (
-            session_initializing_enabled,
-            try_enter_session,
-        )
-
         if not session_initializing_enabled():
             return None
 
@@ -470,21 +452,8 @@ def _phase_apply_queue_inbound(
     """
     if not handler._should_queue_inbound(session_key, text):
         return None
-    from butler.gateway.message_queue import (
-        enqueue_inbound,
-        format_queued_ack,
-        pending_count,
-    )
-    from butler.gateway.queue_settings import get_queue_mode
-
     mode = get_queue_mode(session_key)
     if mode == "steer":
-        from butler.core.steer import (
-            format_steer_gateway_reply,
-            is_run_active,
-            steer,
-        )
-
         if is_run_active(session_key) and steer(text, session_key=session_key):
             return cast(str, format_steer_gateway_reply(accepted=True, active=True))
         return None
@@ -504,8 +473,6 @@ def _phase_apply_queue_inbound(
                 session_key=session_key,
             ),
         )
-    from butler.gateway.queue_settings import session_drop_policy
-
     if session_drop_policy(session_key) == "new":
         return "队列已满，最新消息未入队。可发 /queue 调整 cap 或 /诊断 查看。"
     return cast(
@@ -521,8 +488,6 @@ def _phase_apply_queue_inbound(
 def _phase_apply_admission(text: str, session_key: str) -> Optional[Any]:
     """Phase: try_admit. Returns admission token (caller releases) or None."""
     def _run() -> Any:
-        from butler.gateway.reply_admission import try_admit
-
         return try_admit(session_key)
 
     return safe_best_effort(
@@ -541,12 +506,6 @@ def queue_inbound_for_admission_failure(
 ) -> str:
     """When ``try_admit`` returns ``None`` we either enqueue or reply."""
     def _run() -> Optional[str]:
-        from butler.gateway.message_queue import (
-            enqueue_inbound,
-            format_queued_ack,
-            pending_count,
-        )
-
         if enqueue_inbound(
             session_key,
             text,

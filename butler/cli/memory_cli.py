@@ -16,6 +16,33 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.config import get_butler_home
+from butler.cli.memory_cli_ops import resolve_project_workspace_safe
+from butler.dev_engine.prod_delegate_bridge import migrate_lingwen_experiences_to_l3
+from butler.memory.document_ingest import ingest_workspace
+from butler.memory.experience_consolidation import (
+    apply_merge_pending,
+    dismiss_merge_pending,
+    format_merge_pending_report,
+    load_merge_pending,
+)
+from butler.memory.observation_migrate import migrate_tsv_to_db
+from butler.memory.owner_experience_seed import run_owner_experience_seed
+from butler.memory.pending_cli import (
+    approve_pending_text,
+    list_pending_text,
+    reject_pending_text,
+)
+from butler.memory.reindex import ensure_semantic_enabled_msg, reindex_semantic_memory
+from butler.memory.scope_diagnostics import (
+    backfill_tenant_coding_scopes,
+    run_memory_scope_diagnose,
+)
+from butler.memory.search_cli import format_search_json, run_memory_search
+from butler.memory.vector_gc import run_memory_gc
+from butler.ops.observation_diagnostics import (
+    collect_observation_store_stats,
+    format_observation_diagnostic_lines,
+)
 from rich.console import Console
 
 
@@ -289,8 +316,6 @@ def _add_reindex_args(p: argparse.ArgumentParser) -> None:
 
 
 def _cmd_memory_search(ns: argparse.Namespace) -> int:
-    from butler.memory.search_cli import format_search_json, run_memory_search
-
     payload = run_memory_search(
         get_butler_home(),
         str(ns.query or ""),
@@ -312,8 +337,6 @@ def _cmd_memory_seed(ns: argparse.Namespace) -> int:
     import json
     from pathlib import Path
 
-    from butler.memory.owner_experience_seed import run_owner_experience_seed
-
     seed_path = Path(ns.seed_path).expanduser() if str(ns.seed_path or "").strip() else None
     result = run_owner_experience_seed(
         get_butler_home(),
@@ -328,8 +351,6 @@ def _cmd_memory_seed(ns: argparse.Namespace) -> int:
 
 def _cmd_memory_gc(ns: argparse.Namespace) -> int:
     import json
-
-    from butler.memory.vector_gc import run_memory_gc
 
     result = run_memory_gc(
         get_butler_home(),
@@ -354,8 +375,6 @@ def _cmd_memory_gc(ns: argparse.Namespace) -> int:
 def _cmd_memory_diagnose(ns: argparse.Namespace) -> int:
     import json
 
-    from butler.memory.scope_diagnostics import run_memory_scope_diagnose
-
     payload = run_memory_scope_diagnose(
         butler_home=get_butler_home(),
         project=str(ns.project or ""),
@@ -373,8 +392,6 @@ def _cmd_memory_diagnose(ns: argparse.Namespace) -> int:
 def _cmd_memory_backfill_scopes(ns: argparse.Namespace) -> int:
     import json
 
-    from butler.memory.scope_diagnostics import backfill_tenant_coding_scopes
-
     result = backfill_tenant_coding_scopes(
         butler_home=get_butler_home(),
         dry_run=not bool(ns.apply),
@@ -390,8 +407,6 @@ def _cmd_memory_backfill_scopes(ns: argparse.Namespace) -> int:
 
 def _cmd_memory_migrate_lingwen_l3(ns: argparse.Namespace) -> int:
     import json
-
-    from butler.dev_engine.prod_delegate_bridge import migrate_lingwen_experiences_to_l3
 
     result = migrate_lingwen_experiences_to_l3(
         butler_home=get_butler_home(),
@@ -409,18 +424,11 @@ def _cmd_memory_migrate_lingwen_l3(ns: argparse.Namespace) -> int:
 def _cmd_memory_observations(ns: argparse.Namespace) -> int:
     import json
 
-    from butler.ops.observation_diagnostics import (
-        collect_observation_store_stats,
-        format_observation_diagnostic_lines,
-    )
-
     ws = _resolve_ingest_workspace(ns)
     if ws is None:
         Console().print("[red]请指定 --workspace 或 --project / BUTLER_DEFAULT_PROJECT[/red]")
         return 1
     if bool(getattr(ns, "migrate", False)):
-        from butler.memory.observation_migrate import migrate_tsv_to_db
-
         result = migrate_tsv_to_db(ws, force=bool(getattr(ns, "force", False)))
         if bool(ns.json):
             print(json.dumps(result, ensure_ascii=False, indent=2))
@@ -459,8 +467,6 @@ def _merge_pending_emit(result: dict[str, Any], *, json_out: bool, ok_label: str
 
 
 def _cmd_memory_pending(ns: argparse.Namespace) -> int:
-    from butler.memory.pending_cli import list_pending_text
-
     text = list_pending_text(
         project=(getattr(ns, "project", "") or "").strip(),
         tenant=str(getattr(ns, "tenant", "default") or "default"),
@@ -470,8 +476,6 @@ def _cmd_memory_pending(ns: argparse.Namespace) -> int:
 
 
 def _cmd_memory_approve(ns: argparse.Namespace) -> int:
-    from butler.memory.pending_cli import approve_pending_text
-
     arg = (getattr(ns, "index", "") or "").strip()
     if not arg:
         Console().print("[red]用法: butler memory approve <序号|P序号|all>[/red]")
@@ -486,8 +490,6 @@ def _cmd_memory_approve(ns: argparse.Namespace) -> int:
 
 
 def _cmd_memory_reject(ns: argparse.Namespace) -> int:
-    from butler.memory.pending_cli import reject_pending_text
-
     arg = (getattr(ns, "index", "") or "").strip()
     if not arg:
         Console().print("[red]用法: butler memory reject <序号|P序号|all>[/red]")
@@ -502,13 +504,6 @@ def _cmd_memory_reject(ns: argparse.Namespace) -> int:
 
 
 def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:
-    from butler.memory.experience_consolidation import (
-        apply_merge_pending,
-        dismiss_merge_pending,
-        format_merge_pending_report,
-        load_merge_pending,
-    )
-
     apply_key = str(ns.apply or "").strip()
     dismiss_key = str(ns.dismiss or "").strip()
     if apply_key and dismiss_key:
@@ -549,8 +544,6 @@ def _cmd_memory_merge_pending(ns: argparse.Namespace) -> int:
 
 
 def _cmd_memory_reindex(ns: argparse.Namespace) -> int:
-    from butler.memory.reindex import ensure_semantic_enabled_msg, reindex_semantic_memory
-
     hint = ensure_semantic_enabled_msg()
     if hint:
         console = Console()
@@ -596,14 +589,11 @@ def _resolve_ingest_workspace(ns: argparse.Namespace) -> Path | None:
         project = os.getenv("BUTLER_DEFAULT_PROJECT", "").strip()
     if not project:
         return None
-    from butler.cli.memory_cli_ops import resolve_project_workspace_safe
 
     return cast(Path | None, resolve_project_workspace_safe(project))
 
 
 def _cmd_memory_ingest(ns: argparse.Namespace) -> int:
-    from butler.memory.document_ingest import ingest_workspace
-
     ws = _resolve_ingest_workspace(ns)
     if ws is None:
         Console().print("[red]请指定 --workspace 或 --project / BUTLER_DEFAULT_PROJECT[/red]")

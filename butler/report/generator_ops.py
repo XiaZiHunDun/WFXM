@@ -8,12 +8,22 @@ from typing import Any
 
 from butler.core.best_effort import safe_best_effort
 
+from butler.core.meta_flags import output_schema_validate_enabled
+from butler.core.confirm_flags import (
+    output_schema_repair_enabled,
+    output_schema_repair_max_rounds,
+)
+from butler.execution_context import (
+    get_current_orchestrator,
+    get_current_session_key,
+)
+from butler.runtime.task_store import get_task
+
 logger = logging.getLogger(__name__)
 
 
 def output_schema_validate_enabled_safe() -> bool | None:
     def _run() -> bool:
-        from butler.core.meta_flags import output_schema_validate_enabled
 
         return bool(output_schema_validate_enabled())
 
@@ -24,11 +34,6 @@ def output_schema_repair_settings_safe() -> tuple[bool, bool, int] | None:
     """Return (repair_enabled, validate_enabled, max_rounds) or None if unavailable."""
 
     def _run() -> tuple[bool, bool, int]:
-        from butler.core.confirm_flags import (
-            output_schema_repair_enabled,
-            output_schema_repair_max_rounds,
-        )
-        from butler.core.meta_flags import output_schema_validate_enabled
 
         return (
             bool(output_schema_repair_enabled()),
@@ -41,7 +46,6 @@ def output_schema_repair_settings_safe() -> tuple[bool, bool, int] | None:
 
 def current_orchestrator_safe() -> Any | None:
     def _run() -> Any:
-        from butler.execution_context import get_current_orchestrator
 
         return get_current_orchestrator()
 
@@ -79,7 +83,6 @@ def pydantic_validate_loud(data: dict[str, Any], specs: list[dict[str, Any]]) ->
 
 def attach_delegate_task_times_safe(report: Any, task_id: str) -> None:
     def _run() -> None:
-        from butler.runtime.task_store import get_task
 
         rec = get_task(task_id)
         if rec:
@@ -103,7 +106,6 @@ def format_task_time_shanghai_safe(dt: datetime) -> datetime:
 
 def current_session_key_safe() -> str:
     def _run() -> str:
-        from butler.execution_context import get_current_session_key
 
         return str(get_current_session_key() or "").strip()
 

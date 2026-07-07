@@ -14,6 +14,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from butler.dev_engine.coding_knowledge_benchmark import CK_CASES, run_coding_knowledge_benchmark
+from butler.dev_engine.dev_benchmark import run_benchmarks
+from butler.dev_engine.llm_delegate_benchmark import B9_TASKS
+from butler.dev_engine.swebench_lite import get_all_instances
+from butler.ops.dev_eval_ops import run_dataset_sync_safe
+from butler.ops.eval_bridge import DatasetItem, create_dataset, push_dataset_items
+from butler.ops.memory_eval import push_memory_benchmark_dataset, run_and_push_memory_eval
+from butler.ops.wechat_dataset import load_and_push_wechat_dataset
+
 logger = logging.getLogger(__name__)
 
 DATASET_NAME_DEV = "butler-dev-benchmark"
@@ -24,8 +33,6 @@ DATASET_NAME_CK = "butler-coding-knowledge-benchmark"
 
 def dev_benchmark_to_dataset_items(report: Any) -> list[Any]:
     """Convert a DevEngine BenchmarkReport into LangFuse DatasetItems."""
-    from butler.ops.eval_bridge import DatasetItem
-
     items: list[DatasetItem] = []
     for r in getattr(report, "results", []):
         expected = getattr(r, "expected", None)
@@ -58,9 +65,6 @@ def dev_benchmark_to_dataset_items(report: Any) -> list[Any]:
 
 def swebench_instances_to_dataset_items() -> list[Any]:
     """Build DatasetItems from static SWE-bench Lite instance definitions."""
-    from butler.dev_engine.swebench_lite import get_all_instances
-    from butler.ops.eval_bridge import DatasetItem
-
     items: list[DatasetItem] = []
     for inst in get_all_instances():
         items.append(DatasetItem(
@@ -86,9 +90,6 @@ def swebench_instances_to_dataset_items() -> list[Any]:
 
 def b9_tasks_to_dataset_items() -> list[Any]:
     """Build DatasetItems from B9 delegate task specifications."""
-    from butler.dev_engine.llm_delegate_benchmark import B9_TASKS
-    from butler.ops.eval_bridge import DatasetItem
-
     items: list[DatasetItem] = []
     for spec in B9_TASKS:
         items.append(DatasetItem(
@@ -109,8 +110,6 @@ def b9_tasks_to_dataset_items() -> list[Any]:
 
 def push_dev_benchmark_dataset(report: Any) -> dict[str, Any]:
     """Push B1–B8 dev benchmark definitions/results as a LangFuse dataset."""
-    from butler.ops.eval_bridge import create_dataset, push_dataset_items
-
     summary: dict[str, Any] = {
         "dataset": DATASET_NAME_DEV,
         "dataset_items": 0,
@@ -131,8 +130,6 @@ def push_dev_benchmark_dataset(report: Any) -> dict[str, Any]:
 
 def push_swebench_dataset() -> dict[str, Any]:
     """Push SWE-bench Lite instance catalog as a LangFuse dataset."""
-    from butler.ops.eval_bridge import create_dataset, push_dataset_items
-
     summary: dict[str, Any] = {
         "dataset": DATASET_NAME_SWEBENCH,
         "dataset_items": 0,
@@ -156,8 +153,6 @@ def push_swebench_dataset() -> dict[str, Any]:
 
 def push_b9_dataset() -> dict[str, Any]:
     """Push B9 LLM delegate task specs as a LangFuse dataset."""
-    from butler.ops.eval_bridge import create_dataset, push_dataset_items
-
     summary: dict[str, Any] = {
         "dataset": DATASET_NAME_B9,
         "dataset_items": 0,
@@ -181,9 +176,6 @@ def push_b9_dataset() -> dict[str, Any]:
 
 def coding_knowledge_to_dataset_items() -> list[Any]:
     """Build DatasetItems from CK1–CK10 coding knowledge cases."""
-    from butler.dev_engine.coding_knowledge_benchmark import CK_CASES, run_coding_knowledge_benchmark
-    from butler.ops.eval_bridge import DatasetItem
-
     report = run_coding_knowledge_benchmark()
     by_id = {r.case_id: r for r in report.results}
     items: list[DatasetItem] = []
@@ -214,8 +206,6 @@ def coding_knowledge_to_dataset_items() -> list[Any]:
 
 def push_coding_knowledge_dataset() -> dict[str, Any]:
     """Push T01–T10 coding knowledge benchmark as a LangFuse dataset."""
-    from butler.ops.eval_bridge import create_dataset, push_dataset_items
-
     summary: dict[str, Any] = {
         "dataset": DATASET_NAME_CK,
         "dataset_items": 0,
@@ -257,12 +247,8 @@ def sync_all_eval_datasets(
         "errors": [],
     }
 
-    from butler.ops.dev_eval_ops import run_dataset_sync_safe
-
     if include_wechat:
         def _sync_wechat() -> tuple[dict[str, Any], int]:
-            from butler.ops.wechat_dataset import load_and_push_wechat_dataset
-
             wx = load_and_push_wechat_dataset()
             items = int(wx.get("single_turn_items") or 0) + int(wx.get("multi_turn_items") or 0)
             return wx, items
@@ -278,11 +264,6 @@ def sync_all_eval_datasets(
 
     if include_memory:
         def _sync_memory() -> tuple[dict[str, Any], int]:
-            from butler.ops.memory_eval import (
-                push_memory_benchmark_dataset,
-                run_and_push_memory_eval,
-            )
-
             if mem_report is None:
                 mem_push = run_and_push_memory_eval()
             else:
@@ -302,8 +283,6 @@ def sync_all_eval_datasets(
         def _sync_dev() -> tuple[dict[str, Any], int]:
             report = dev_report
             if report is None:
-                from butler.dev_engine.dev_benchmark import run_benchmarks
-
                 report = run_benchmarks()
             dev_push = push_dev_benchmark_dataset(report)
             return dev_push, int(dev_push.get("dataset_items") or 0)

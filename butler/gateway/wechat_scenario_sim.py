@@ -14,6 +14,20 @@ from typing import Any, Literal, Sequence
 
 import yaml  # type: ignore[import-untyped]
 
+from butler.tools.registry import get_tool_audit_events
+from butler.core.session_epoch import (
+    load_current_turn_tool_actions,
+    load_epoch_transcript_rows,
+)
+from butler.gateway.outbound_files import expand_reply_with_wechat_attachments
+from butler.gateway.wechat_scenario_sim_ops import (
+    delegate_enrichment_imports_ready,
+    run_scenario_case_safe,
+)
+from butler.report import get_last_report
+from butler.project.manager import ProjectManager
+from butler.gateway.message_handler import ButlerMessageHandler
+
 SessionMode = Literal["shared", "fresh"]
 Tier = Literal["fast", "standard", "slow"]
 
@@ -326,7 +340,6 @@ def _audit_event_count(
     session_key: str,
     platform: str = "wechat",
 ) -> int:
-    from butler.tools.registry import get_tool_audit_events
 
     canonical = resolve_handler_session_key(
         handler,
@@ -345,8 +358,6 @@ def load_turn_tools(
     platform: str = "wechat",
     audit_before: int | None = None,
 ) -> list[str]:
-    from butler.core.session_epoch import load_current_turn_tool_actions
-    from butler.tools.registry import get_tool_audit_events
 
     canonical = resolve_handler_session_key(
         handler,
@@ -383,16 +394,12 @@ def evaluation_reply_text(
     delegated = _any_tool_in_list(("delegate_task",), tools) or any(
         mark in reply for mark in ("代理已完成", "代理未能", "委派", "task_")
     )
-    from butler.gateway.outbound_files import expand_reply_with_wechat_attachments
 
-    from butler.gateway.wechat_scenario_sim_ops import delegate_enrichment_imports_ready
 
     if not delegated:
         return str(expand_reply_with_wechat_attachments(reply))
     if not delegate_enrichment_imports_ready():
         return reply
-    from butler.core.session_epoch import load_epoch_transcript_rows
-    from butler.report import get_last_report
     canonical = resolve_handler_session_key(
         handler,
         owner_id=owner_id,
@@ -486,7 +493,6 @@ def _has_llm_key() -> bool:
 
 
 def _project_workspace(session_key: str, *, handler: Any | None = None, owner_id: str = "") -> Path | None:
-    from butler.project.manager import ProjectManager
 
     sk = session_key
     if handler is not None and owner_id:
@@ -630,7 +636,6 @@ def run_scenario_track(
                 if post_cleanup and not post_cleanup[0].startswith("no workspace"):
                     print(f"  cleanup {track.id}/{live.name}: removed {post_cleanup}")
 
-        from butler.gateway.wechat_scenario_sim_ops import run_scenario_case_safe
 
         t0 = time.time()
         entry = ScenarioCaseResult(name=live.name, track_id=track.id, ok=True)
@@ -688,7 +693,6 @@ def run_wechat_scenario_sim(
     quick: bool = False,
     require_llm: bool = True,
 ) -> ScenarioSimReport:
-    from butler.gateway.message_handler import ButlerMessageHandler
 
     report = ScenarioSimReport()
     if require_llm and not _has_llm_key():

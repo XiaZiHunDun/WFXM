@@ -6,13 +6,20 @@ import argparse
 from pathlib import Path
 
 from rich.console import Console
+from butler.project.manager import get_project_manager
+from butler.experiments.ledger import experiments_ledger_path, list_recent
+from butler.experiments.ledger import append_record
+from butler.experiments.ledger import best_record
+from butler.experiments.git_utils import git_reset_hard
+from butler.experiments.ledger import append_record, best_record
+from butler.experiments.outcomes import list_pending, outcomes_path
+from butler.experiments.outcomes import resolve_outcome
 
 
 def _resolve_workspace(project: str) -> tuple[Path | None, str | None]:
     name = (project or "").strip()
     if not name:
         return None, "请指定 --project"
-    from butler.project.manager import get_project_manager
 
     proj = get_project_manager().get_project(name)
     if proj is None:
@@ -26,7 +33,6 @@ def _cmd_experiment_list(ns: argparse.Namespace) -> int:
     if err:
         console.print(f"[red]{err}[/red]")
         return 1
-    from butler.experiments.ledger import experiments_ledger_path, list_recent
 
     path = experiments_ledger_path(ws)
     rows = list_recent(ws, limit=int(ns.limit or 10))
@@ -50,7 +56,6 @@ def _cmd_experiment_record(ns: argparse.Namespace) -> int:
     if err:
         console.print(f"[red]{err}[/red]")
         return 1
-    from butler.experiments.ledger import append_record
 
     try:
         val = float(ns.metric_value)
@@ -77,7 +82,6 @@ def _cmd_experiment_best(ns: argparse.Namespace) -> int:
     if err:
         console.print(f"[red]{err}[/red]")
         return 1
-    from butler.experiments.ledger import best_record
 
     row = best_record(ws, metric_name=str(ns.metric_name or ""))
     if row is None:
@@ -96,8 +100,6 @@ def _cmd_experiment_discard(ns: argparse.Namespace) -> int:
     if err:
         console.print(f"[red]{err}[/red]")
         return 1
-    from butler.experiments.git_utils import git_reset_hard
-    from butler.experiments.ledger import append_record, best_record
 
     best = best_record(ws, metric_name=str(ns.metric_name or ""))
     sha = str(ns.git_sha or (best or {}).get("git_sha") or "").strip()
@@ -184,7 +186,6 @@ def _cmd_outcome_list(ns: argparse.Namespace) -> int:
     if err:
         console.print(f"[red]{err}[/red]")
         return 1
-    from butler.experiments.outcomes import list_pending, outcomes_path
 
     rows = list_pending(ws, project=str(ns.project or ""), limit=20)
     if not rows:
@@ -203,7 +204,6 @@ def _cmd_outcome_resolve(ns: argparse.Namespace) -> int:
     if err:
         console.print(f"[red]{err}[/red]")
         return 1
-    from butler.experiments.outcomes import resolve_outcome
 
     row = resolve_outcome(
         ws,

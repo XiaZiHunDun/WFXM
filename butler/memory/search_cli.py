@@ -16,13 +16,19 @@ from butler.memory.semantic_config import (
 )
 from butler.memory.semantic_index import hybrid_experience_search
 from butler.memory.semantic_project import prefetch_project_memory_hits, resolve_project_display_name
+from butler.memory.project_memory import ProjectMemory
+from butler.project.manager import get_project_manager
+from butler.execution_context import use_execution_context
+from butler.memory.retrieval_telemetry import get_last_retrieval, record_last_retrieval
+from butler.memory.coding_recall import search_coding_experiences
+from butler.memory.transcript_recall import search_transcript_recall
+from butler.memory.observation_recall import search_observation_recall
+from butler.memory.unified_recall import unified_hybrid_search
 
 _CLI_SESSION_KEY = "cli-memory-search"
 
 
 def _resolve_project_memory(project_name: str) -> tuple[Any | None, str, Path | None]:
-    from butler.memory.project_memory import ProjectMemory
-    from butler.project.manager import get_project_manager
 
     name = (project_name or "").strip()
     pmgr = get_project_manager()
@@ -60,8 +66,6 @@ def _search_single_scope(
         "results": [],
     }
 
-    from butler.execution_context import use_execution_context
-    from butler.memory.retrieval_telemetry import get_last_retrieval, record_last_retrieval
 
     orch_stub = type(
         "_OrchStub",
@@ -105,7 +109,6 @@ def _search_single_scope(
             payload["candidates"] = len(enriched)
 
         elif sc == "coding":
-            from butler.memory.coding_recall import search_coding_experiences
 
             pmem, proj_name, ws = _resolve_project_memory(project)
             payload_coding = search_coding_experiences(
@@ -134,7 +137,6 @@ def _search_single_scope(
             )
 
         elif sc == "transcript":
-            from butler.memory.transcript_recall import search_transcript_recall
 
             payload_transcript = search_transcript_recall(
                 q,
@@ -170,7 +172,6 @@ def _search_single_scope(
             payload["candidates"] = len(payload["results"])
 
         elif sc == "observation":
-            from butler.memory.observation_recall import search_observation_recall
 
             _pmem, proj_name, ws = _resolve_project_memory(project)
             payload_obs = search_observation_recall(q, project_workspace=ws, limit=lim)
@@ -183,7 +184,6 @@ def _search_single_scope(
                 payload["project"] = proj_name
 
         elif sc == "hybrid":
-            from butler.memory.unified_recall import unified_hybrid_search
 
             pmem, proj_name, ws = _resolve_project_memory(project)
             payload_hybrid = unified_hybrid_search(

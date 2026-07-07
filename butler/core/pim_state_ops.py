@@ -7,6 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.pim_state import DomainIndex
+from butler.io.atomic_write import atomic_write_text
+from butler.tools.contacts import _store
+from butler.tools.memo import _store
+from butler.tools.expense import _store
+from butler.tools.habits import _store
+from butler.tools.reminder import _reminder_store
+from butler.core.pim_state import load_pim_state, save_pim_state
 
 
 def load_pim_state_from_file(path: Path, *, empty_state: Any) -> Any:
@@ -19,7 +27,6 @@ def load_pim_state_from_file(path: Path, *, empty_state: Any) -> Any:
         for domain in ("contacts", "memos", "expenses", "habits", "reminders"):
             d = data.get(domain)
             if isinstance(d, dict):
-                from butler.core.pim_state import DomainIndex
 
                 setattr(
                     state,
@@ -39,7 +46,6 @@ def load_pim_state_from_file(path: Path, *, empty_state: Any) -> Any:
 
 def save_pim_state_to_file(path: Path, state: Any) -> None:
     def _run() -> None:
-        from butler.io.atomic_write import atomic_write_text
 
         path.parent.mkdir(parents=True, exist_ok=True)
         atomic_write_text(
@@ -53,23 +59,18 @@ def save_pim_state_to_file(path: Path, state: Any) -> None:
 def refresh_domain_count_safe(state: Any, domain: str) -> None:
     def _run() -> None:
         if domain == "contacts":
-            from butler.tools.contacts import _store
 
             state.contacts.count = _store.count()
         elif domain == "memos":
-            from butler.tools.memo import _store
 
             state.memos.count = _store.count()
         elif domain == "expenses":
-            from butler.tools.expense import _store
 
             state.expenses.count = _store.count()
         elif domain == "habits":
-            from butler.tools.habits import _store
 
             state.habits.count = _store.count()
         elif domain == "reminders":
-            from butler.tools.reminder import _reminder_store
 
             state.reminders.count = _reminder_store.count()
 
@@ -78,7 +79,6 @@ def refresh_domain_count_safe(state: Any, domain: str) -> None:
 
 def update_pim_state_for_tool_safe(tool_name: str, *, domain: str) -> None:
     def _run() -> None:
-        from butler.core.pim_state import load_pim_state, save_pim_state
 
         state = load_pim_state()
         refresh_domain_count_safe(state, domain)

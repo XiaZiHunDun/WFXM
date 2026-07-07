@@ -8,18 +8,39 @@ from dataclasses import dataclass
 from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.batch_sequence_guard import (
+    BatchSequenceGuard,
+    batch_stale_guard_enabled,
+    reorder_reads_before_destructive,
+)
+from butler.core.finish_tool_truncate import truncate_tool_calls_at_finish
 from butler.core.loop_types import LoopCallbacks, LoopConfig
 from butler.core.parallel_tools import execute_tools_parallel
+from butler.core.reasoning_trace import record_verify_fail_reflect
+from butler.core.tool_batch_hooks import build_tool_batch_hooks
+from butler.core.tool_batch_runner import (
+    append_tool_role_messages,
+    extract_batch_followups,
+    run_sequential_tool_calls,
+)
 from butler.core.tool_batch_state import (
     pop_pre_edit_snapshot,
     store_pre_edit_snapshot,
 )
-from butler.tool_guardrails import ToolCallGuardrailController
-from butler.transport.types import NormalizedResponse
-from butler.tools.safe_root import get_tool_safe_root
-from butler.execution_context import get_current_session_key
+from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
+from butler.dev_engine.coding_knowledge import dual_verify as ck_dual_verify
+from butler.dev_engine.coding_knowledge_fixup import reactivate_coding_knowledge_on_verify_fail
 from butler.dev_engine.dev_loop import transition
 from butler.dev_engine.dev_state import DevPhase, EditRecord
+from butler.dev_engine.dev_tools import _active_states, auto_verify_enabled, dev_engine_enabled
+from butler.dev_engine.fix_strategy import enrich_fix_hint, suggest_fix_action
+from butler.dev_engine.verify import select_auto_verify_levels, verify_layered
+from butler.execution_context import get_current_session_key
+from butler.plan.markdown_sync import sync_plan_file_to_transcript
+from butler.tool_guardrails import ToolCallGuardrailController
+from butler.tools.safe_root import get_tool_safe_root
+from butler.transport.reasoning_replay import store_reasoning_on_message
+from butler.transport.types import NormalizedResponse
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +96,6 @@ def _dev_engine_post_edit(name: str, args: dict[str, Any], result: str) -> None:
         return
 
     def _do() -> None:
-        from butler.dev_engine.dev_tools import (
-            _active_states,
-            dev_engine_enabled,
-        )
-
         if not dev_engine_enabled():
             return
         sk = str(get_current_session_key() or "").strip() or "_default"
@@ -115,8 +131,6 @@ def _dev_engine_post_edit(name: str, args: dict[str, Any], result: str) -> None:
             transition(state, "files_found")
         transition(state, "edit_success", edit_record=record)
 
-        from butler.dev_engine.dev_tools import auto_verify_enabled
-
         if auto_verify_enabled() and path:
             _run_auto_verify(state, path)
 
@@ -150,8 +164,6 @@ def _plan_mode_post_edit(name: str, args: dict[str, Any], result: str) -> None:
                 content = p.read_text(encoding="utf-8", errors="replace")
             else:
                 return
-        from butler.plan.markdown_sync import sync_plan_file_to_transcript
-
         sk = str(get_current_session_key() or "").strip() or "default"
         sync_plan_file_to_transcript(sk, path, content)
 
@@ -163,8 +175,6 @@ def _run_auto_verify(state: Any, path: str) -> None:
 
     def _do() -> None:
         from pathlib import Path as _Path
-
-        from butler.dev_engine.verify import select_auto_verify_levels, verify_layered
 
         def _resolve_workspace() -> _Path:
             return _Path(get_tool_safe_root())
@@ -189,7 +199,6 @@ def _run_auto_verify(state: Any, path: str) -> None:
 
             def _ck_verify() -> None:
                 nonlocal thm_violations
-                from butler.dev_engine.coding_knowledge import dual_verify as ck_dual_verify
 
                 last_edit = state.edit_history[-1]
                 code = last_edit.new_content or last_edit.patch_new or ""
@@ -214,31 +223,21 @@ def _run_auto_verify(state: Any, path: str) -> None:
                 transition(state, "fix_applied")
 
             def _reactivate_ck() -> None:
-                from butler.dev_engine.coding_knowledge_fixup import (
-                    reactivate_coding_knowledge_on_verify_fail,
-                )
-
                 reactivate_coding_knowledge_on_verify_fail(state)
 
             safe_best_effort(_reactivate_ck, label="tool_batch.auto_verify.ck_fixup")
 
             def _record_reflect() -> None:
-                from butler.core.reasoning_trace import record_verify_fail_reflect
-
                 record_verify_fail_reflect(state, result)
 
             safe_best_effort(_record_reflect, label="tool_batch.auto_verify.reflect")
 
             def _enrich_hint() -> None:
-                from butler.dev_engine.fix_strategy import enrich_fix_hint, suggest_fix_action
-
                 fix_level = suggest_fix_action(result.diagnostics, state)
                 hint = enrich_fix_hint(fix_level, state)
                 tail = getattr(result, "output_tail", "") or ""
 
                 def _b9_hint() -> str | None:
-                    from butler.dev_engine.b9_live_tuning import build_b9_verify_hint
-
                     return cast(str | None, build_b9_verify_hint(tail))
 
                 b9_hint = cast(
@@ -280,8 +279,6 @@ def append_assistant_tool_calls(
     response: NormalizedResponse,
 ) -> None:
     """Append the assistant message that requested tool calls."""
-    from butler.transport.reasoning_replay import store_reasoning_on_message
-
     assistant_msg: dict[str, Any] = {"role": "assistant", "content": response.content}
     store_reasoning_on_message(assistant_msg, response.reasoning)
     tool_call_records = []
@@ -314,8 +311,6 @@ def process_tool_calls(
         return ToolBatchStats()
 
     def _maybe_truncate_finish() -> None:
-        from butler.core.finish_tool_truncate import truncate_tool_calls_at_finish
-
         truncated = truncate_tool_calls_at_finish(list(response.tool_calls))
         if len(truncated) < len(response.tool_calls):
             response.tool_calls = truncated
@@ -323,8 +318,6 @@ def process_tool_calls(
     safe_best_effort(_maybe_truncate_finish, label="tool_batch.finish_truncate")
 
     def _maybe_reorder_reads() -> None:
-        from butler.core.batch_sequence_guard import reorder_reads_before_destructive
-
         response.tool_calls = reorder_reads_before_destructive(list(response.tool_calls))
 
     safe_best_effort(_maybe_reorder_reads, label="tool_batch.reorder_reads")
@@ -341,14 +334,11 @@ def process_tool_calls(
 
     def _init_batch_guard() -> None:
         nonlocal batch_guard
-        from butler.core.batch_sequence_guard import BatchSequenceGuard, batch_stale_guard_enabled
-
         if batch_stale_guard_enabled():
             batch_guard = BatchSequenceGuard()
 
     safe_best_effort(_init_batch_guard, label="tool_batch.stale_guard_init")
 
-    from butler.core.tool_batch_hooks import build_tool_batch_hooks
     from butler.core.tool_dispatch import dispatch_one_tool
 
     on_start, on_complete, precheck_tool, hook_state = build_tool_batch_hooks(
@@ -383,8 +373,6 @@ def process_tool_calls(
             prefetched=prefetched,
         )
     else:
-        from butler.core.tool_batch_runner import run_sequential_tool_calls
-
         pairs = run_sequential_tool_calls(
             list(response.tool_calls),
             dispatch_one=_dispatch_one,
@@ -395,10 +383,6 @@ def process_tool_calls(
             interrupt_check=interrupt_check,
         )
 
-    from butler.core.tool_batch_runner import (
-        append_tool_role_messages,
-        extract_batch_followups,
-    )
     session_key = str(get_current_session_key() or "").strip()
     append_tool_role_messages(pairs, messages, session_key=session_key)
     clarification, waiting = extract_batch_followups(pairs)

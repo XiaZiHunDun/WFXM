@@ -15,6 +15,65 @@ from butler.gateway.commands.info_commands_ops import (
     append_reminder_summary_line,
     record_brief_view_safe,
 )
+from butler.core.compaction_status import format_compaction_report
+from butler.core.memory_source_surface import format_memory_sources_report
+from butler.core.session_epoch import load_epoch_transcript_rows
+from butler.core.session_todos import format_session_todos_for_wechat
+from butler.core.session_tool_index import format_session_read_files_block
+from butler.core.tool_narrative import format_session_tool_narrative
+from butler.core.transcript_export import resolve_export_workspace
+from butler.core.turn_token_budget import parse_token_budget_text
+from butler.gateway.commands.help_handlers import format_help_text
+from butler.gateway.commands.memory_handlers import format_memory_status
+from butler.gateway.commands.outcome_handlers import handle_outcome_command
+from butler.gateway.commands.sessions_handlers import handle_sessions_command
+from butler.gateway.handler_helpers import (
+    _build_project_overview,
+    _tool_audit_summary,
+)
+from butler.gateway.owner_surface import (
+    format_cc_complement_message,
+    format_owner_diagnostic_brief,
+    format_project_today_view,
+)
+from butler.gateway.wechat_text_export import (
+    attach_detail_enabled,
+    attach_diagnostic_enabled,
+    is_wechat_platform,
+    maybe_attach_wechat_file,
+)
+from butler.ops.butler_inbox import format_owner_brief, format_owner_inbox
+from butler.ops.cost_calibration import format_cost_with_calibration
+from butler.ops.health_report import (
+    HealthReportInput,
+    build_health_report,
+    collect_mem_stats_for_health,
+)
+from butler.ops.owner_feedback import (
+    format_owner_feedback_ack,
+    record_owner_hard_feedback,
+)
+from butler.ops.owner_quality_surface import format_delegate_quality_report
+from butler.ops.owner_trust_surface import format_trust_report
+from butler.provider_presets import format_presets_list
+from butler.report import format_detail, get_last_report
+from butler.report.format import (
+    format_child_session_detail,
+    parse_child_arg,
+    parse_detail_section,
+)
+from butler.tools.contacts import format_contacts_for_wechat
+from butler.tools.expense import format_expense_for_wechat
+from butler.tools.habits import format_habits_for_wechat
+from butler.tools.memo import format_memos_for_wechat
+from butler.tools.pim_schema import (
+    MAX_ACTIVE_HABITS,
+    MAX_ACTIVE_MEMOS,
+    MAX_CONTACTS,
+    MAX_EXPENSE_RECORDS,
+)
+from butler.tools.project_todos import format_project_todos_for_wechat
+from butler.tools.tenant_store import TenantStore
 
 
 def _as_str(value: Any) -> str | None:
@@ -30,13 +89,6 @@ def _maybe_attach_detail_export(
     name_prefix: str,
     attach_hint: str,
 ) -> str:
-    from butler.core.transcript_export import resolve_export_workspace
-    from butler.gateway.wechat_text_export import (
-        attach_detail_enabled,
-        is_wechat_platform,
-        maybe_attach_wechat_file,
-    )
-
     chat = full
     if not is_wechat_platform(ctx.platform) and len(full) > 500:
         chat = full[:480].rstrip() + "…"
@@ -57,12 +109,6 @@ def _maybe_attach_diagnostic_export(
     full: str,
     session_key: str,
 ) -> str:
-    from butler.core.transcript_export import resolve_export_workspace
-    from butler.gateway.wechat_text_export import (
-        attach_diagnostic_enabled,
-        maybe_attach_wechat_file,
-    )
-
     return maybe_attach_wechat_file(
         brief,
         full,
@@ -78,7 +124,6 @@ def _cmd_overview(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.handler_helpers import _build_project_overview
 
     return _as_str(_build_project_overview(ctx.orchestrator, ctx.session_key))
 
@@ -88,8 +133,6 @@ def _cmd_presets(ctx: CommandContext) -> Optional[str]:
 
     owner-gate-opt-out: 公共只读，无 owner 数据；列出 butler:// preset URL
     """
-    from butler.provider_presets import format_presets_list
-
     return _as_str(format_presets_list())
 
 
@@ -98,8 +141,6 @@ def _cmd_help(ctx: CommandContext) -> Optional[str]:
 
     owner-gate-opt-out: 公共只读，无 owner 数据；命令帮助对所有白名单用户开放
     """
-    from butler.gateway.commands.help_handlers import format_help_text
-
     arg = (ctx.arg or "").strip()
     if ctx.cmd in ("/高级", "/advanced") and not arg:
         arg = "高级"
@@ -110,7 +151,6 @@ def _cmd_todos(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.core.session_todos import format_session_todos_for_wechat
 
     return _as_str(format_session_todos_for_wechat(ctx.session_key))
 
@@ -119,7 +159,6 @@ def _cmd_memo(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.tools.memo import format_memos_for_wechat
 
     return _as_str(format_memos_for_wechat(ctx.arg))
 
@@ -128,7 +167,6 @@ def _cmd_contacts(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.tools.contacts import format_contacts_for_wechat
 
     return _as_str(format_contacts_for_wechat(ctx.arg))
 
@@ -137,7 +175,6 @@ def _cmd_expense(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.tools.expense import format_expense_for_wechat
 
     return _as_str(format_expense_for_wechat(ctx.arg))
 
@@ -146,7 +183,6 @@ def _cmd_habits(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.tools.habits import format_habits_for_wechat
 
     return _as_str(format_habits_for_wechat(ctx.arg))
 
@@ -155,7 +191,6 @@ def _cmd_project_todos(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.tools.project_todos import format_project_todos_for_wechat
 
     proj = ctx.orchestrator.project_manager.active_project
     if proj and getattr(proj, "workspace", None):
@@ -169,7 +204,6 @@ def _cmd_memory_status(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.commands.memory_handlers import format_memory_status
 
     return _as_str(format_memory_status(ctx.orchestrator, session_key=ctx.session_key))
 
@@ -178,12 +212,6 @@ def _cmd_detail(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.report import get_last_report, format_detail
-    from butler.report.format import (
-        format_child_session_detail,
-        parse_child_arg,
-        parse_detail_section,
-    )
 
     # Sprint 28 P1-3.4: --child <child_sk> 优先于 report 路径.
     remaining, child_sk = parse_child_arg(ctx.arg)
@@ -217,8 +245,6 @@ def _cmd_budget(ctx: CommandContext) -> Optional[str]:
 
     owner-gate-opt-out: 公共只读，无 owner 数据；只显示预算提示文本
     """
-    from butler.core.turn_token_budget import parse_token_budget_text
-
     if ctx.arg:
         probe = parse_token_budget_text(f"/budget {ctx.arg}")
         if probe:
@@ -241,7 +267,6 @@ def _cmd_sessions(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.commands.sessions_handlers import handle_sessions_command
 
     return _as_str(
         handle_sessions_command(
@@ -258,7 +283,6 @@ def _cmd_outcome(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.commands.outcome_handlers import handle_outcome_command
 
     return _as_str(
         handle_outcome_command(
@@ -276,10 +300,6 @@ def _cmd_feedback(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.ops.owner_feedback import (
-        format_owner_feedback_ack,
-        record_owner_hard_feedback,
-    )
 
     raw = (ctx.arg or "").strip()
     if not raw:
@@ -314,10 +334,6 @@ def _cmd_pim(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.tools.pim_schema import (
-        MAX_CONTACTS, MAX_ACTIVE_MEMOS, MAX_EXPENSE_RECORDS, MAX_ACTIVE_HABITS,
-    )
-    from butler.tools.tenant_store import TenantStore
 
     stores = {
         "通讯录": (TenantStore("contacts"), MAX_CONTACTS),
@@ -338,7 +354,6 @@ def _cmd_cost(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.ops.cost_calibration import format_cost_with_calibration
 
     return _as_str(format_cost_with_calibration(ctx.session_key))
 
@@ -347,7 +362,6 @@ def _cmd_session_reads(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.core.session_tool_index import format_session_read_files_block
 
     pm = ctx.orchestrator.project_manager
     proj = pm.get_current(session_key=ctx.session_key)
@@ -367,8 +381,6 @@ def _cmd_session_tools(ctx: CommandContext) -> Optional[str]:
         return str(gate)
     arg = str(ctx.arg or "").strip().lower()
     if arg in ("raw", "原始"):
-        from butler.core.session_epoch import load_epoch_transcript_rows
-
         rows = load_epoch_transcript_rows(ctx.session_key, max_lines=120)
         actions = [
             r for r in rows
@@ -384,8 +396,6 @@ def _cmd_session_tools(ctx: CommandContext) -> Optional[str]:
             lines.append(f"- {tool} [{src}] {preview}")
         return "\n".join(lines)
 
-    from butler.core.tool_narrative import format_session_tool_narrative
-
     return _as_str(format_session_tool_narrative(ctx.session_key))
 
 
@@ -393,7 +403,6 @@ def _cmd_brief(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.ops.butler_inbox import format_owner_brief
 
     health = ctx.session_registry.get_health(ctx.session_key)
     out = format_owner_brief(ctx.orchestrator, ctx.session_key, health=health)
@@ -405,7 +414,6 @@ def _cmd_today(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.owner_surface import format_project_today_view
 
     health = ctx.session_registry.get_health(ctx.session_key)
     return _as_str(
@@ -415,8 +423,6 @@ def _cmd_today(ctx: CommandContext) -> Optional[str]:
 
 def _cmd_roles(ctx: CommandContext) -> Optional[str]:
     """CC/Cursor complement — owner-gate-opt-out: static product copy."""
-    from butler.gateway.owner_surface import format_cc_complement_message
-
     return _as_str(format_cc_complement_message())
 
 
@@ -424,7 +430,6 @@ def _cmd_inbox(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.ops.butler_inbox import format_owner_inbox
 
     health = ctx.session_registry.get_health(ctx.session_key)
     return _as_str(format_owner_inbox(ctx.orchestrator, ctx.session_key, health=health))
@@ -434,7 +439,6 @@ def _cmd_delegate_quality(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.ops.owner_quality_surface import format_delegate_quality_report
 
     return _as_str(format_delegate_quality_report())
 
@@ -443,7 +447,6 @@ def _cmd_compaction_report(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.core.compaction_status import format_compaction_report
 
     health = ctx.session_registry.get_health(ctx.session_key)
     return _as_str(format_compaction_report(ctx.session_key, health))
@@ -453,7 +456,6 @@ def _cmd_trust(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.ops.owner_trust_surface import format_trust_report
 
     health = ctx.session_registry.get_health(ctx.session_key)
     return _as_str(format_trust_report(ctx.orchestrator, ctx.session_key, health=health))
@@ -463,7 +465,6 @@ def _cmd_memory_sources(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.core.memory_source_surface import format_memory_sources_report
 
     health = ctx.session_registry.get_health(ctx.session_key)
     return _as_str(format_memory_sources_report(health))
@@ -480,24 +481,11 @@ def _cmd_health(ctx: CommandContext) -> Optional[str]:
     arg = (ctx.arg or "").strip()
     first = arg.split(None, 1)[0].lower() if arg else ""
     if first not in ("详细", "detail", "full", "完整", "运维", "advanced"):
-        from butler.gateway.owner_surface import format_owner_diagnostic_brief
-
         return _as_str(
             format_owner_diagnostic_brief(
                 ctx.orchestrator, session_key, health=health
             )
         )
-
-    from butler.ops.health_report import (
-        HealthReportInput,
-        build_health_report,
-        collect_mem_stats_for_health,
-    )
-    from butler.gateway.handler_helpers import _tool_audit_summary
-    from butler.gateway.wechat_text_export import (
-        attach_diagnostic_enabled,
-        is_wechat_platform,
-    )
 
     full = build_health_report(
         HealthReportInput(

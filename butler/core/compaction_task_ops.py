@@ -5,11 +5,20 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.context_compressor import _estimate_tokens
+from butler.core.hook_context_adapter import adapt_hook_context_lines, apply_hook_context_to_diagnostics, to_hook_context_view
+from butler.hooks.runner import run_pre_compact_hooks
+from butler.core.events_sink import invoke_hook
+from butler.execution_context import get_audit_session_key
+from butler.core.events_sink import emit_context_compaction
+from butler.core.compaction_context_adapter import adapt_hook_contexts, apply_compaction_view_to_diagnostics, to_loop_compaction_view
+from butler.core.hook_context_adapter import apply_hook_context_to_diagnostics, to_hook_context_view
+from butler.hooks.runner import run_post_compact_hooks
+from butler.core.session_transcript import record_generic_event
 
 
 def estimate_tokens_safe(messages: list[dict]) -> int:
     def _run() -> int:
-        from butler.core.context_compressor import _estimate_tokens
 
         return int(_estimate_tokens(messages))
 
@@ -28,12 +37,6 @@ def run_pre_compact_hooks_safe(
     """Return True if blocked."""
 
     def _run() -> bool:
-        from butler.core.hook_context_adapter import (
-            adapt_hook_context_lines,
-            apply_hook_context_to_diagnostics,
-            to_hook_context_view,
-        )
-        from butler.hooks.runner import run_pre_compact_hooks
 
         pre = run_pre_compact_hooks(
             estimated_tokens=before_est,
@@ -64,7 +67,6 @@ def invoke_pre_compact_hook_safe(
     session_key: str,
 ) -> None:
     def _run() -> None:
-        from butler.core.events_sink import invoke_hook
 
         invoke_hook(
             "pre_compact",
@@ -82,7 +84,6 @@ def audit_session_key_safe(session_key: str) -> str:
         return str(session_key).strip()
 
     def _run() -> str:
-        from butler.execution_context import get_audit_session_key
 
         return str(get_audit_session_key(fallback="_global"))
 
@@ -100,7 +101,6 @@ def emit_compaction_completed_safe(
     remote: bool,
 ) -> None:
     def _run() -> None:
-        from butler.core.events_sink import emit_context_compaction
 
         emit_context_compaction(
             phase="completed",
@@ -127,16 +127,6 @@ def run_post_compact_hooks_safe(
     diag: dict[str, Any],
 ) -> None:
     def _run() -> None:
-        from butler.core.compaction_context_adapter import (
-            adapt_hook_contexts,
-            apply_compaction_view_to_diagnostics,
-            to_loop_compaction_view,
-        )
-        from butler.core.hook_context_adapter import (
-            apply_hook_context_to_diagnostics,
-            to_hook_context_view,
-        )
-        from butler.hooks.runner import run_post_compact_hooks
 
         hook_contexts = run_post_compact_hooks(
             estimated_tokens_before=before_est,
@@ -169,7 +159,6 @@ def invoke_post_compact_hook_safe(
     session_key: str,
 ) -> None:
     def _run() -> None:
-        from butler.core.events_sink import invoke_hook
 
         invoke_hook(
             "post_compact",
@@ -193,7 +182,6 @@ def record_compaction_turn_event_safe(
     after_est: int,
 ) -> None:
     def _run() -> None:
-        from butler.core.session_transcript import record_generic_event
 
         record_generic_event(
             session_key,

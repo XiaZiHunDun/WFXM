@@ -5,15 +5,20 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from butler.core.best_effort import safe_best_effort
+from butler.core.best_effort import recent_best_effort_skips, safe_best_effort
+from butler.mcp.config import load_mcp_servers, mcp_enabled, mcp_sdk_available
+from butler.mcp.manager import get_manager
+from butler.memory.embedding import HashingEmbedder, get_embedder
+from butler.memory.semantic_config import embedding_model_name, embedding_provider_name
+from butler.ops.embedding_health import check_embedding_recall
+from butler.ops.runtime_metrics import set_gauge, snapshot_global
+from butler.registry.paths import default_mcp_config_path
 
 logger = logging.getLogger(__name__)
 
 
 def best_effort_skip_total_safe() -> int:
     def _run() -> int:
-        from butler.ops.runtime_metrics import snapshot_global
-
         snap = snapshot_global()
         counters = snap.get("counters") if isinstance(snap, dict) else None
         if not isinstance(counters, dict):
@@ -34,8 +39,6 @@ def best_effort_skip_total_safe() -> int:
 
 def append_recent_best_effort_skip_lines(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.core.best_effort import recent_best_effort_skips
-
         recent = recent_best_effort_skips(5)
         for _ts, path, err in recent:
             lines.append(f"    · {path}: {err[:100]}")
@@ -45,12 +48,7 @@ def append_recent_best_effort_skip_lines(lines: list[str]) -> None:
 
 def sync_embedding_degradation_light_safe() -> None:
     def _run() -> None:
-        from butler.memory.embedding import HashingEmbedder, get_embedder
-        from butler.memory.semantic_config import embedding_model_name, embedding_provider_name
-        from butler.ops.degradation_registry import (
-            clear_degradation,
-            register_degradation,
-        )
+        from butler.ops.degradation_registry import clear_degradation, register_degradation
 
         embedder = get_embedder()
         provider = embedding_provider_name()
@@ -68,11 +66,7 @@ def sync_embedding_degradation_light_safe() -> None:
 
 def sync_embedding_degradation_from_health_check_safe(*, min_recall: float = 0.5) -> None:
     def _run() -> None:
-        from butler.ops.degradation_registry import (
-            clear_degradation,
-            register_degradation,
-        )
-        from butler.ops.embedding_health import check_embedding_recall
+        from butler.ops.degradation_registry import clear_degradation, register_degradation
 
         report = check_embedding_recall(min_recall=min_recall)
         if report.degraded:
@@ -94,8 +88,6 @@ def sync_embedding_degradation_from_health_check_safe(*, min_recall: float = 0.5
 
 def compaction_acl_counter_total_safe() -> int:
     def _run() -> int:
-        from butler.ops.runtime_metrics import snapshot_global
-
         counters = snapshot_global().get("counters") or {}
         total = 0
         for key, value in counters.items():
@@ -113,8 +105,6 @@ def compaction_acl_counter_total_safe() -> int:
 
 def recent_compaction_acl_skip_count_safe() -> int:
     def _run() -> int:
-        from butler.core.best_effort import recent_best_effort_skips
-
         return sum(
             1
             for _ts, path, _err in recent_best_effort_skips(10)
@@ -131,13 +121,7 @@ def recent_compaction_acl_skip_count_safe() -> int:
 
 def sync_mcp_degradations_at_startup_safe(*, session_key: str = "gateway:warmup") -> None:
     def _run() -> None:
-        from butler.mcp.config import load_mcp_servers, mcp_enabled, mcp_sdk_available
-        from butler.mcp.manager import get_manager
-        from butler.ops.degradation_registry import (
-            clear_degradation,
-            register_degradation,
-        )
-        from butler.registry.paths import default_mcp_config_path
+        from butler.ops.degradation_registry import clear_degradation, register_degradation
 
         if not mcp_enabled():
             if default_mcp_config_path().is_file():
@@ -183,9 +167,6 @@ def enrich_stats_with_live_mcp_safe(
     out = dict(stats)
 
     def _run() -> None:
-        from butler.mcp.config import mcp_enabled
-        from butler.mcp.manager import get_manager
-
         if not mcp_enabled():
             return
         sk = str(session_key or "").strip() or "gateway:diagnostic"
@@ -234,8 +215,6 @@ def refresh_degradations_for_owner_brief_safe(
 
 def set_component_gauge_safe(component: str, *, active: bool) -> None:
     def _run() -> None:
-        from butler.ops.runtime_metrics import set_gauge
-
         set_gauge(
             "degradation_active",
             1.0 if active else 0.0,
@@ -247,8 +226,6 @@ def set_component_gauge_safe(component: str, *, active: bool) -> None:
 
 def sync_degradation_metrics_safe(registry: dict[str, Any]) -> None:
     def _run() -> None:
-        from butler.ops.runtime_metrics import set_gauge
-
         n = len(registry)
         components = list(registry.keys())
         set_gauge("degradation_active", float(n))

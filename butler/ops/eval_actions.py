@@ -11,6 +11,13 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.ops.eval_feedback import FeedbackReport, FeedbackSuggestion, analyse_scores
+from butler.config import get_butler_home
+from butler.memory.retrieval_ranking import memory_half_life_days
+from butler.ops.eval_config_overrides import adjust_memory_half_life
+from butler.ops.eval_config_overrides import adjust_dev_coding_guidance
+from butler.ops.eval_config_overrides import adjust_delegate_routing
+from butler.ops.eval_config_overrides import adjust_delegate_rescue
+from butler.ops.eval_actions_ops import apply_experience_lifecycle_action_safe
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +39,11 @@ def _min_interval_seconds() -> float:
 
 
 def _audit_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / "eval_feedback.jsonl"
 
 
 def _state_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "config" / _STATE_PATH_NAME
 
@@ -78,8 +83,6 @@ def _mark_run(summary: dict[str, Any]) -> None:
 
 
 def _apply_memory_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
-    from butler.memory.retrieval_ranking import memory_half_life_days
-    from butler.ops.eval_config_overrides import adjust_memory_half_life
 
     base = memory_half_life_days()
     direction = "up" if suggestion.metric_value < suggestion.threshold else "down"
@@ -98,7 +101,6 @@ def _apply_memory_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
 
 
 def _apply_dev_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
-    from butler.ops.eval_config_overrides import adjust_dev_coding_guidance
 
     action = adjust_dev_coding_guidance(strict=True, max_cases=8)
     action["metric"] = suggestion.metric_name
@@ -108,7 +110,6 @@ def _apply_dev_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any
 
 
 def _apply_tool_selection_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
-    from butler.ops.eval_config_overrides import adjust_delegate_routing
 
     action = adjust_delegate_routing(enable_hint=True)
     action["metric"] = suggestion.metric_name
@@ -118,7 +119,6 @@ def _apply_tool_selection_action(suggestion: FeedbackSuggestion) -> dict[str, An
 
 
 def _apply_llm_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any]:
-    from butler.ops.eval_config_overrides import adjust_delegate_rescue
 
     action = adjust_delegate_rescue()
     action["metric"] = suggestion.metric_name
@@ -129,7 +129,6 @@ def _apply_llm_benchmark_action(suggestion: FeedbackSuggestion) -> dict[str, Any
 
 def _apply_experience_lifecycle(report: FeedbackReport) -> dict[str, Any]:
     """Demote experiences when dev/memory benchmarks are critically low."""
-    from butler.ops.eval_actions_ops import apply_experience_lifecycle_action_safe
 
     action, err = apply_experience_lifecycle_action_safe(report)
     if err is not None:
@@ -158,7 +157,6 @@ def maybe_apply_b9_live_rescue(
     rate = passed / len(solvable)
     if rate >= min_solvable_rate:
         return None
-    from butler.ops.eval_config_overrides import adjust_delegate_rescue
 
     action = adjust_delegate_rescue()
     action.update({

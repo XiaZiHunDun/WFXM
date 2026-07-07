@@ -6,14 +6,43 @@ import logging
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.input_stage import begin_input_stage, normalize_inbound_text
+from butler.core.instruction_walkup import build_instruction_pre_llm_transform
+from butler.core.pim_state import load_pim_state
+from butler.core.reflection_closure import build_reflect_closure_banner
+from butler.core.session_recall_intent import is_session_read_recall_intent
+from butler.core.session_transcript import record_knowledge_inject
+from butler.execution_context import get_current_session_key
+from butler.mcp.github_grounding import (
+    find_latest_github_issue_list_envelope,
+    find_latest_github_repo_list_envelope,
+)
+from butler.memory.injection_guard import filter_injection_from_prefetch
+from butler.memory.memory_metrics import get_collector
+from butler.memory.metrics_persist import flush_memory_metrics
+from butler.memory.prefetch_retrieval_metrics import (
+    record_prefetch_snippets,
+)
+from butler.memory.project_memory import (
+    ProjectMemory,
+    filter_memory_hits_by_role,
+    project_prefetch_max_chars,
+)
+from butler.memory.retrieval_telemetry import record_last_retrieval
+from butler.memory.semantic_config import semantic_memory_enabled
+from butler.memory.semantic_index import SemanticMemoryIndex, hybrid_experience_search
+from butler.memory.semantic_project import (
+    prefetch_project_memory_hits,
+    resolve_project_display_name,
+)
+from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
+from butler.session.lifecycle import _current_project, _filter_ephemeral_experience
 
 logger = logging.getLogger(__name__)
 
 
 def session_key_for_prefetch() -> str:
     def _run() -> str:
-        from butler.execution_context import get_current_session_key
-
         return str(get_current_session_key() or "").strip()
 
     return safe_best_effort(
@@ -53,9 +82,6 @@ def emit_prefetch_metrics(
     diagnostics: dict[str, Any] | None,
 ) -> None:
     def _run() -> None:
-        from butler.memory.memory_metrics import get_collector
-        from butler.memory.metrics_persist import flush_memory_metrics
-
         collector = get_collector()
         collector.on_prefetch(
             query=(query or "")[:120],
@@ -80,8 +106,6 @@ def session_read_recall_blocks_prefetch(query: str) -> bool | None:
     """Return True when prefetch should skip; None when gate check failed."""
 
     def _run() -> bool:
-        from butler.core.session_recall_intent import is_session_read_recall_intent
-
         return bool(is_session_read_recall_intent(query))
 
     return safe_best_effort(
@@ -138,8 +162,6 @@ def profile_vector_lines(bm: Any, query: str) -> tuple[list[str], int] | None:
 
 def record_project_prefetch_telemetry(session_key: str, payload: dict[str, Any]) -> None:
     def _run() -> None:
-        from butler.memory.retrieval_telemetry import record_last_retrieval
-
         record_last_retrieval(session_key, payload)
 
     safe_best_effort(_run, label="memory_prefetch.project_telemetry", default=None)
@@ -147,8 +169,6 @@ def record_project_prefetch_telemetry(session_key: str, payload: dict[str, Any])
 
 def pim_overview_line() -> str | None:
     def _run() -> str | None:
-        from butler.core.pim_state import load_pim_state
-
         pim = load_pim_state()
         pim_line = pim.summary_line()
         if pim_line and pim_line != "(empty)":
@@ -160,8 +180,6 @@ def pim_overview_line() -> str | None:
 
 def filter_prefetch_injection(merged: str) -> str:
     def _run() -> str:
-        from butler.memory.injection_guard import filter_injection_from_prefetch
-
         return filter_injection_from_prefetch(merged)
 
     result = safe_best_effort(
@@ -187,8 +205,6 @@ def _record_prefetch_snippets(
     diagnostics: dict[str, Any] | None,
     merged: str,
 ) -> None:
-    from butler.memory.prefetch_retrieval_metrics import record_prefetch_snippets
-
     record_prefetch_snippets(diagnostics, merged)
 
 
@@ -201,8 +217,6 @@ def langfuse_on_prefetch(
     chars: int,
 ) -> None:
     def _run() -> None:
-        from butler.ops.langfuse_tracer import get_current_trace, langfuse_enabled
-
         if not langfuse_enabled():
             return
         ctx = get_current_trace(session_key=session_key)
@@ -220,8 +234,6 @@ def langfuse_on_prefetch(
 
 def reflection_closure_banner(session_key: str) -> str:
     def _run() -> str:
-        from butler.core.reflection_closure import build_reflect_closure_banner
-
         return build_reflect_closure_banner(session_key=session_key)
 
     return safe_best_effort(
@@ -233,11 +245,6 @@ def reflection_closure_banner(session_key: str) -> str:
 
 def github_grounding_should_skip(messages: list[dict]) -> bool:
     def _run() -> bool:
-        from butler.mcp.github_grounding import (
-            find_latest_github_issue_list_envelope,
-            find_latest_github_repo_list_envelope,
-        )
-
         if find_latest_github_repo_list_envelope(messages) is not None:
             return True
         return find_latest_github_issue_list_envelope(messages) is not None
@@ -255,8 +262,6 @@ def normalize_prefetch_query(
     diagnostics: dict[str, Any] | None,
 ) -> str:
     def _run() -> str:
-        from butler.core.input_stage import begin_input_stage, normalize_inbound_text
-
         begin_input_stage(diagnostics)
         return normalize_inbound_text(query)
 
@@ -275,8 +280,6 @@ def record_knowledge_inject(
     diagnostics: dict[str, Any] | None,
 ) -> None:
     def _run() -> None:
-        from butler.core.session_transcript import record_knowledge_inject
-
         snippets = None
         if diagnostics is not None:
             raw = diagnostics.get("memory_prefetch_snippets")
@@ -294,9 +297,6 @@ def record_knowledge_inject(
 
 def apply_instruction_pre_llm_transform(messages: list[dict]) -> list[dict]:
     def _run() -> list[dict]:
-        from butler.core.instruction_walkup import build_instruction_pre_llm_transform
-        from butler.execution_context import get_current_session_key
-
         inst_transform = build_instruction_pre_llm_transform(
             session_key=str(get_current_session_key() or ""),
         )
@@ -316,11 +316,7 @@ def hybrid_experience_hits(
     *,
     limit: int,
 ) -> list[dict[str, Any]]:
-    from butler.session.lifecycle import _current_project, _filter_ephemeral_experience
-
     def _run() -> list[dict[str, Any]]:
-        from butler.memory.semantic_index import SemanticMemoryIndex, hybrid_experience_search
-
         bm = getattr(orchestrator, "butler_memory", None)
         if bm is None:
             return []
@@ -362,18 +358,6 @@ def collect_project_memory_prefetch_lines(
     empty_markers: frozenset[str],
 ) -> list[str]:
     def _run() -> list[str]:
-        from butler.memory.project_memory import (
-            ProjectMemory,
-            filter_memory_hits_by_role,
-            project_prefetch_max_chars,
-        )
-        from butler.memory.semantic_config import semantic_memory_enabled
-        from butler.memory.semantic_index import SemanticMemoryIndex
-        from butler.memory.semantic_project import (
-            prefetch_project_memory_hits,
-            resolve_project_display_name,
-        )
-
         lines_out: list[str] = []
         facts_snip = ""
         if isinstance(pmem, ProjectMemory):

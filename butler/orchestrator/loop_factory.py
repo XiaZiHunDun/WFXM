@@ -9,13 +9,24 @@ if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
     from butler.transport.llm_client import LLMClient
 
+from butler.agent_profiles import get_model_aware_prompt_extra, get_profile
+from butler.config import ModelConfig
+from butler.core.agent_loop import AgentLoop, LoopConfig
+from butler.memory import ProjectMemory
+from butler.model_resolve import model_config_to_credentials, resolve_effective_model
+from butler.orchestrator.loop_factory_ops import (
+    append_plan_mode_appendix_safe,
+    apply_project_plugins_safe,
+)
 from butler.orchestrator.templates import normalize_butler_role
+from butler.plan.mode import load_plan_mode_system_appendix
+from butler.transport.fallback import build_fallback_chain
+from butler.transport.llm_client import LLMClient
+from butler.transport.model_context import infer_context_length
 
 
 def create_llm_client(orch: ButlerOrchestrator, role: str = "butler") -> LLMClient:
     """Create an LLMClient for the given role."""
-    from butler.transport.llm_client import LLMClient
-
     mc = orch._model_credentials(role)
     return LLMClient(
         provider=mc.get("provider") or "",
@@ -43,8 +54,6 @@ def get_agent_kwargs(orch: ButlerOrchestrator) -> dict[str, Any]:
 
 def get_project_agent_kwargs(orch: ButlerOrchestrator, role: str) -> dict[str, Any]:
     """Return kwargs for project-level agents (dev/content/review)."""
-    from butler.memory import ProjectMemory
-
     r = normalize_butler_role(role)
     proj = orch.project_manager.get_current()
     if proj is None:
@@ -54,8 +63,6 @@ def get_project_agent_kwargs(orch: ButlerOrchestrator, role: str) -> dict[str, A
             "当前未选择 Butler 项目 — 使用全局模型配置。"
         )
     else:
-        from butler.model_resolve import model_config_to_credentials, resolve_effective_model
-
         em = resolve_effective_model(r, project=proj, settings=orch._settings)
         mcreds = model_config_to_credentials(em.config, settings=orch._settings)
 
@@ -91,11 +98,6 @@ def create_agent_loop(
     session_key: str = "",
 ) -> AgentLoop:
     """Create a fully configured AgentLoop for the given role."""
-    from butler.config import ModelConfig
-    from butler.core.agent_loop import AgentLoop, LoopConfig
-    from butler.transport.fallback import build_fallback_chain
-    from butler.transport.model_context import infer_context_length
-
     llm_role = "butler" if role in ("lead", "plan") else role
     client = create_llm_client(orch, llm_role)
     mc = orch._model_credentials(llm_role)
@@ -103,11 +105,6 @@ def create_agent_loop(
     fallback_chain = build_fallback_chain(primary)
 
     sk = str(session_key or "").strip()
-    from butler.orchestrator.loop_factory_ops import (
-        append_plan_mode_appendix_safe,
-        apply_project_plugins_safe,
-    )
-
     apply_project_plugins_safe(orch, sk)
 
     if role == "butler":
@@ -116,18 +113,12 @@ def create_agent_loop(
         system_prompt = orch.build_lead_system_prompt(session_key=sk)
     elif role == "plan":
         system_prompt, _user_reminder = orch.resolve_system_prompt(role="plan", session_key=sk)
-        from butler.plan.mode import load_plan_mode_system_appendix
-
         system_prompt = system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
     else:
         system_prompt = ""
-        from butler.agent_profiles import get_profile
-
         profile = get_profile(role.replace("_agent", ""))
         if profile:
             system_prompt = profile.system_prompt
-            from butler.agent_profiles import get_model_aware_prompt_extra
-
             extra = get_model_aware_prompt_extra(client.provider_name or "")
             if extra:
                 system_prompt += "\n\n" + extra
@@ -164,13 +155,6 @@ def create_project_agent_loop(
     session_key: str = "",
 ) -> AgentLoop:
     """Create an AgentLoop configured for a project-level agent."""
-    from butler.agent_profiles import get_model_aware_prompt_extra, get_profile
-    from butler.config import ModelConfig
-    from butler.core.agent_loop import AgentLoop, LoopConfig
-    from butler.transport.fallback import build_fallback_chain
-    from butler.transport.llm_client import LLMClient
-    from butler.transport.model_context import infer_context_length
-
     kw = get_project_agent_kwargs(orch, role)
 
     client = LLMClient(

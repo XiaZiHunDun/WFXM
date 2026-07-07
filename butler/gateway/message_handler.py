@@ -37,8 +37,21 @@ from butler.gateway.message_pipelines import (
     _phase_transform_inbound_text,
 )
 from butler.orchestrator import ButlerOrchestrator
-from butler.session.keys import normalize_session_key
-from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory
+from butler.gateway.delegate_push_dedup import gateway_inbound_guard
+from butler.gateway.handler_commands import (
+    format_health_summary,
+    format_loop_response,
+    handle_slash_command,
+)
+from butler.gateway.inbound_drain import drain_queued_inbound
+from butler.gateway.inbound_pipeline import build_default_inbound_pipeline
+from butler.gateway.locked_turn_orchestrator import run_locked_message_turn
+from butler.gateway.message_queue import message_queue_enabled
+from butler.gateway.session_loop_factory import create_gateway_loop
+from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
+from butler.env_parse import env_truthy
+from butler.session.keys import chat_id_from_session_key
+from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory, trigger_session_end
 from butler.gateway.session_registry import GatewaySessionRegistry
 
 logger = logging.getLogger(__name__)
@@ -71,18 +84,12 @@ class ButlerMessageHandler:
         )
         self._sessions: dict[str, AgentLoop] = self._session_registry.sessions
         self._health_by_session: dict[str, dict[str, Any]] = self._session_registry.health_by_session
-        from butler.gateway.inbound_pipeline import build_default_inbound_pipeline
-
         self._inbound_pipeline = build_default_inbound_pipeline()
 
     def _create_loop_for_session(self, session_key: str) -> AgentLoop:
-        from butler.gateway.session_loop_factory import create_gateway_loop
-
         return create_gateway_loop(self, session_key)
 
     def _finalize_session(self, loop: AgentLoop) -> None:
-        from butler.session.lifecycle import trigger_session_end
-
         trigger_session_end(self._orchestrator, loop, reason="finalize")
 
     def _get_or_create_loop(self, session_key: str) -> AgentLoop:
@@ -100,8 +107,6 @@ class ButlerMessageHandler:
         pm = self._orchestrator.project_manager
         cid = str(external_id or "").strip()
         if not cid and session_key:
-            from butler.session.keys import chat_id_from_session_key
-
             cid = chat_id_from_session_key(session_key)
         project = pm.get_project_name_for_chat(platform=platform, chat_id=cid or "default")
         return cast(
@@ -115,8 +120,6 @@ class ButlerMessageHandler:
         )
 
     def _should_queue_inbound(self, session_key: str, text: str) -> bool:
-        from butler.gateway.message_queue import message_queue_enabled
-
         if not message_queue_enabled():
             return False
         stripped = (text or "").strip()
@@ -125,8 +128,6 @@ class ButlerMessageHandler:
         return cast(bool, self._session_registry.is_session_active(session_key))
 
     def _queue_push_via_bridge(self) -> bool:
-        from butler.env_parse import env_truthy
-
         return cast(bool, env_truthy("BUTLER_GATEWAY_QUEUE_PUSH_VIA_BRIDGE", default=True))
 
     def _interrupt_session_loop(self, session_key: str) -> None:
@@ -152,8 +153,6 @@ class ButlerMessageHandler:
         external_id: str | None,
         primary_reply: str = "",
     ) -> str:
-        from butler.gateway.inbound_drain import drain_queued_inbound
-
         return cast(
             str,
             drain_queued_inbound(
@@ -215,11 +214,7 @@ class ButlerMessageHandler:
             return ""
 
         chat_id = str(external_id or "").strip()
-        from butler.gateway.delegate_push_dedup import gateway_inbound_guard
-
         with gateway_inbound_guard(chat_id):
-            from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
-
             return cast(
                 str,
                 run_turn_post_inbound_pipeline(
@@ -242,8 +237,6 @@ class ButlerMessageHandler:
         _t0: float,
     ) -> str:
         """Backward-compatible alias; prefer :func:`turn_post_pipeline.run_turn_post_inbound_pipeline`."""
-        from butler.gateway.turn_post_pipeline import run_turn_post_inbound_pipeline
-
         return cast(
             str,
             run_turn_post_inbound_pipeline(
@@ -265,8 +258,6 @@ class ButlerMessageHandler:
         external_id: str | None = None,
     ) -> str:
         """In-session pipeline orchestrator (ENG-3 → locked_turn_orchestrator)."""
-        from butler.gateway.locked_turn_orchestrator import run_locked_message_turn
-
         return cast(
             str,
             run_locked_message_turn(
@@ -290,8 +281,6 @@ class ButlerMessageHandler:
         platform: str = "unknown",
         external_id: str | None = None,
     ) -> Optional[str]:
-        from butler.gateway.handler_commands import handle_slash_command
-
         return cast(
             str | None,
             handle_slash_command(
@@ -304,13 +293,9 @@ class ButlerMessageHandler:
         )
 
     def _format_health_summary(self, session_key: str = "default") -> str:
-        from butler.gateway.handler_commands import format_health_summary
-
         return cast(str, format_health_summary(self, session_key))
 
     def _format_response(self, result: LoopResult, platform: str) -> str:
-        from butler.gateway.handler_commands import format_loop_response
-
         return cast(str, format_loop_response(result, platform))
 
 

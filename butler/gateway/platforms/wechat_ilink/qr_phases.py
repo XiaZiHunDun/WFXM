@@ -5,6 +5,13 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+from butler.gateway.platforms.wechat_ilink import EP_GET_BOT_QR, QR_TIMEOUT_MS, _api_get
+from butler.gateway.platforms.wechat_ilink.qr_phases_ops import fetch_qr_response_safe
+from butler.gateway.platforms.wechat_ilink.qr_phases_ops import render_qr_ascii_safe
+from butler.gateway.platforms.wechat_ilink import EP_GET_QR_STATUS, QR_TIMEOUT_MS, _api_get
+from butler.gateway.platforms.wechat_ilink.qr_phases_ops import poll_qr_api_safe
+from butler.gateway.platforms.wechat_ilink import ILINK_BASE_URL, save_wechat_account
+from butler.gateway.platforms.wechat_ilink import ILINK_BASE_URL
 
 if TYPE_CHECKING:
     import aiohttp
@@ -41,12 +48,6 @@ async def _phase_qr_request_code(
     or ``None`` on failure (logs the underlying exception). The
     full scannable liteapp URL is preferred over the raw hex token.
     """
-    from butler.gateway.platforms.wechat_ilink import (
-        EP_GET_BOT_QR,
-        QR_TIMEOUT_MS,
-        _api_get,
-    )
-    from butler.gateway.platforms.wechat_ilink.qr_phases_ops import fetch_qr_response_safe
 
     qr_resp = await fetch_qr_response_safe(
         lambda: _api_get(
@@ -81,7 +82,6 @@ def _phase_qr_render(qrcode_url: str, qr_scan_data: str) -> None:
     print("\n请使用微信扫描以下二维码：")
     if qrcode_url:
         print(qrcode_url)
-    from butler.gateway.platforms.wechat_ilink.qr_phases_ops import render_qr_ascii_safe
 
     render_qr_ascii_safe(qr_scan_data)
 
@@ -102,12 +102,6 @@ async def _phase_qr_poll_iteration(
     * ``"expired"`` — QR expired; caller should refresh.
     * ``"confirmed"`` — login succeeded (payload is credentials dict).
     """
-    from butler.gateway.platforms.wechat_ilink import (
-        EP_GET_QR_STATUS,
-        QR_TIMEOUT_MS,
-        _api_get,
-    )
-    from butler.gateway.platforms.wechat_ilink.qr_phases_ops import poll_qr_api_safe
 
     status_resp = await poll_qr_api_safe(
         lambda: _api_get(
@@ -148,12 +142,6 @@ async def _phase_qr_refresh(
     Returns ``(qrcode_value, qrcode_url, qr_scan_data)`` on success
     or ``None`` on failure (logs the underlying exception).
     """
-    from butler.gateway.platforms.wechat_ilink import (
-        EP_GET_BOT_QR,
-        QR_TIMEOUT_MS,
-        _api_get,
-    )
-    from butler.gateway.platforms.wechat_ilink.qr_phases_ops import fetch_qr_response_safe
 
     qr_resp = await fetch_qr_response_safe(
         lambda: _api_get(
@@ -183,10 +171,6 @@ def _phase_qr_finalize(
     returns a 4-key dict matching the original ``qr_login`` return
     contract (``account_id`` / ``token`` / ``base_url`` / ``user_id``).
     """
-    from butler.gateway.platforms.wechat_ilink import (
-        ILINK_BASE_URL,
-        save_wechat_account,
-    )
 
     account_id = str(payload.get("account_id") or "")
     token = str(payload.get("token") or "")
@@ -266,7 +250,6 @@ async def _qr_handle_expired(
     gives up after 3 attempts, otherwise fetches + renders a
     fresh QR.
     """
-    from butler.gateway.platforms.wechat_ilink import ILINK_BASE_URL
 
     state.refresh_count += 1
     if state.refresh_count > 3:

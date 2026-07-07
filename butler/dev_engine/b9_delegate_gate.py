@@ -10,6 +10,16 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, cast
 
 from butler.dev_engine.b9_live_tuning import B9_LIVE_CATEGORY
+from butler.dev_engine.b9_delegate_gate_ops import resolve_b9_workspace_tail_safe
+from butler.dev_engine.b9_verify_utils import pytest_verify
+from butler.dev_engine.b9_delegate_gate_ops import build_b9_verify_hint_safe
+from butler.core.read_state import record_read_state
+from butler.dev_engine.b9_oracle_curriculum import get_episode
+from butler.dev_engine.b9_delegate_gate_ops import auto_verify_enabled_safe, build_b9_verify_hint_safe, is_dev_verify_exempt_safe
+from butler.core.dev_state_context_adapter import dev_engine_dict_to_view
+from butler.dev_engine.b9_delegate_gate_ops import coding_strict_pilot_categories_safe
+from butler.dev_engine.b9_delegate_gate_ops import coding_strict_enabled_safe
+from butler.dev_engine.b9_delegate_gate_ops import review_strict_enabled_safe
 
 SWE_LIVE_CATEGORY = "swe-benchmark"
 LINGWEN_DRILL_CATEGORY = "lingwen-drill"
@@ -60,7 +70,6 @@ def resolve_b9_workspace(project: Any = None) -> Path | None:
             return Path(project.workspace).resolve()
         except (TypeError, ValueError, OSError):
             pass
-    from butler.dev_engine.b9_delegate_gate_ops import resolve_b9_workspace_tail_safe
 
     return cast(Path | None, resolve_b9_workspace_tail_safe())
 
@@ -89,7 +98,6 @@ def apply_b9_pytest_success_gate(
     if hook is not None:
         ok, tail = hook(ws)
     elif is_b9_benchmark_category(category, category_meta):
-        from butler.dev_engine.b9_verify_utils import pytest_verify
 
         ok, tail = pytest_verify(ws)
     else:
@@ -97,7 +105,6 @@ def apply_b9_pytest_success_gate(
     if ok:
         return True, out
     hint = ""
-    from butler.dev_engine.b9_delegate_gate_ops import build_b9_verify_hint_safe
 
     hint = build_b9_verify_hint_safe(tail)
     msg = f"BENCHMARK_PYTEST_GATE: verify not green — {(tail or 'failed')[:360]}"
@@ -164,7 +171,6 @@ def seed_b9_workspace_read_state(
     max_depth: int = 1,
 ) -> int:
     """Pre-record read_file state for workspace benchmark files (READ_STATE relief)."""
-    from butler.core.read_state import record_read_state
 
     ws = workspace.resolve()
     if not ws.is_dir():
@@ -234,7 +240,6 @@ def prepare_b9_subagent_workspace(
 
 def format_oracle_replay_block(task_id: str) -> str:
     """Mandatory oracle gold steps for retry after no_edit / wrong_patch."""
-    from butler.dev_engine.b9_oracle_curriculum import get_episode
 
     ep = get_episode(task_id)
     if ep is None:
@@ -281,7 +286,6 @@ def build_b9_wrong_patch_retry_banner(
     task_id: str = "",
 ) -> str:
     extra = ""
-    from butler.dev_engine.b9_delegate_gate_ops import build_b9_verify_hint_safe
 
     hint = build_b9_verify_hint_safe(failure_tail)
     if hint:
@@ -324,11 +328,6 @@ def apply_dev_auto_verify_success_gate(
     norm = str(role or "").replace("_agent", "").strip().lower()
     if norm != "dev":
         return True, out
-    from butler.dev_engine.b9_delegate_gate_ops import (
-        auto_verify_enabled_safe,
-        build_b9_verify_hint_safe,
-        is_dev_verify_exempt_safe,
-    )
 
     if is_dev_verify_exempt_safe(
         role=role,
@@ -343,7 +342,6 @@ def apply_dev_auto_verify_success_gate(
     if auto_verify_enabled_safe() is not True:
         return True, out
 
-    from butler.core.dev_state_context_adapter import dev_engine_dict_to_view
 
     view = dev_engine_dict_to_view(dev_engine, source="verify_gate")
     if view.edits <= 0:
@@ -365,7 +363,6 @@ def apply_dev_auto_verify_success_gate(
 
 
 def coding_strict_pilot_categories() -> frozenset[str]:
-    from butler.dev_engine.b9_delegate_gate_ops import coding_strict_pilot_categories_safe
 
     return cast(frozenset[str], coding_strict_pilot_categories_safe())
 
@@ -383,7 +380,6 @@ def apply_coding_strict_pilot_gate(
     out = list(issues or [])
     if not base_success:
         return False, out
-    from butler.dev_engine.b9_delegate_gate_ops import coding_strict_enabled_safe
 
     if coding_strict_enabled_safe() is not True:
         return True, out
@@ -424,7 +420,6 @@ def apply_dev_review_strict_gate(
     out = list(issues or [])
     if not base_success:
         return False, out
-    from butler.dev_engine.b9_delegate_gate_ops import review_strict_enabled_safe
 
     if review_strict_enabled_safe() is not True:
         return True, out
@@ -438,7 +433,6 @@ def apply_dev_review_strict_gate(
     if cat and cat not in pilot:
         return True, out
 
-    from butler.core.dev_state_context_adapter import dev_engine_dict_to_view
 
     view = dev_engine_dict_to_view(dev_engine, source="review_gate")
     if view.review_passed is None:

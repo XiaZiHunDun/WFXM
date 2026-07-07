@@ -5,7 +5,23 @@ from __future__ import annotations
 import argparse
 from typing import Any, cast
 
+from butler.cli.skills_registry_ops import default_tenant_id_safe, run_skill_install_cli
+from butler.config import load_settings
 from butler.registry.skill_service import SkillRegistryService
+from butler.registry.skills_project_sync import sync_tenant_skills_to_project
+from butler.registry.skills_ssot import sync_skills_ssot
+from butler.skills.learn import run_skill_learn
+from butler.skills.lint import format_lint_report, lint_skill_summaries
+from butler.skills.manager import SkillManager
+from butler.skills.write_approval import (
+    approve_all_skill_pending,
+    approve_skill_pending,
+    format_skill_pending_lines,
+    list_skill_pending,
+    reject_all_skill_pending,
+    reject_skill_pending,
+)
+from butler.tenant import tenant_skills_dir
 
 
 def register_skills_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -96,10 +112,6 @@ def register_skills_parser(sub: argparse._SubParsersAction[argparse.ArgumentPars
 def _skill_manager_for_cli(*, project: str = "") -> Any:
     from pathlib import Path
 
-    from butler.config import load_settings
-    from butler.skills.manager import SkillManager
-    from butler.tenant import tenant_skills_dir
-
     settings = load_settings()
     tenant_id = _tenant_id()
     global_dir = tenant_skills_dir(settings.butler_home, tenant_id)
@@ -111,8 +123,6 @@ def _skill_manager_for_cli(*, project: str = "") -> Any:
 
 
 def _tenant_id() -> str:
-    from butler.cli.skills_registry_ops import default_tenant_id_safe
-
     return cast(str, default_tenant_id_safe())
 
 
@@ -124,8 +134,6 @@ def _cmd_search(ns: argparse.Namespace) -> int:
 
 
 def _cmd_install(ns: argparse.Namespace) -> int:
-    from butler.cli.skills_registry_ops import run_skill_install_cli
-
     svc = SkillRegistryService(tenant_id=_tenant_id())
     code, message, rec = run_skill_install_cli(
         svc,
@@ -193,8 +201,6 @@ def _cmd_upgrade(ns: argparse.Namespace) -> int:
 def _cmd_sync(ns: argparse.Namespace) -> int:
     project = (getattr(ns, "project", "") or "").strip()
     if project:
-        from butler.registry.skills_project_sync import sync_tenant_skills_to_project
-
         only_raw = (getattr(ns, "only", "") or "").strip()
         only = [s.strip() for s in only_raw.split(",") if s.strip()] or None
         ok, msg, actions = sync_tenant_skills_to_project(
@@ -207,8 +213,6 @@ def _cmd_sync(ns: argparse.Namespace) -> int:
         for line in actions:
             print(f"  • {line}")
         return 0 if ok else 1
-
-    from butler.registry.skills_ssot import sync_skills_ssot
 
     ok, msg = sync_skills_ssot(
         tenant_id=_tenant_id(),
@@ -232,11 +236,6 @@ def _cmd_list(ns: argparse.Namespace) -> int:
 def _cmd_lint(ns: argparse.Namespace) -> int:
     from pathlib import Path
 
-    from butler.config import load_settings
-    from butler.skills.lint import format_lint_report, lint_skill_summaries
-    from butler.skills.manager import SkillManager
-    from butler.tenant import tenant_skills_dir
-
     settings = load_settings()
     tenant_id = _tenant_id()
     global_dir = tenant_skills_dir(settings.butler_home, tenant_id)
@@ -252,8 +251,6 @@ def _cmd_lint(ns: argparse.Namespace) -> int:
 
 
 def _cmd_learn(ns: argparse.Namespace) -> int:
-    from butler.skills.learn import run_skill_learn
-
     mgr = _skill_manager_for_cli(project=getattr(ns, "project", "") or "")
     result = run_skill_learn(ns.description, mgr)
     if not result.get("ok"):
@@ -264,8 +261,6 @@ def _cmd_learn(ns: argparse.Namespace) -> int:
 
 
 def _cmd_pending(ns: argparse.Namespace) -> int:
-    from butler.skills.write_approval import format_skill_pending_lines
-
     lines = format_skill_pending_lines()
     if not lines:
         print("（无待审技能）")

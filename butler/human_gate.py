@@ -15,6 +15,12 @@ from typing import Any, cast
 
 from butler.config import get_butler_home
 from butler.io.safe_load import safe_load_json
+from butler.human_gate_ops import auto_resume_workflow_safe
+from butler.io.atomic_write import atomic_write_text
+from butler.gateway.gate_reply_templates import injection_gate_pending_hint, workflow_gate_pending_hint
+from butler.gateway.gate_reply_templates import injection_gate_confirmed_hint
+from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
+from butler.human_gate_ops import workflow_auto_resume_reply_safe
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +33,6 @@ def _workflow_auto_resume_enabled() -> bool:
 
 def _auto_resume_workflow(session_key: str, workflow_name: str) -> str | None:
     """Re-run the workflow after approval, returning the result text."""
-    from butler.human_gate_ops import auto_resume_workflow_safe
 
     return cast(str | None, auto_resume_workflow_safe(session_key, workflow_name))
 
@@ -137,7 +142,6 @@ def _save_pending(session_key: str, gate: PendingGate | None) -> None:
     if gate is None:
         path.unlink(missing_ok=True)
         return
-    from butler.io.atomic_write import atomic_write_text
 
     atomic_write_text(path, json.dumps(gate.to_dict(), ensure_ascii=False, indent=2))
 
@@ -161,7 +165,6 @@ def _save_approved(session_key: str, keys: set[str]) -> None:
     if not keys:
         path.unlink(missing_ok=True)
         return
-    from butler.io.atomic_write import atomic_write_text
 
     atomic_write_text(path, json.dumps(sorted(keys), ensure_ascii=False, indent=2))
 
@@ -226,10 +229,6 @@ def check_workflow_step_approval(
 
 
 def format_pending_hint(session_key: str) -> str:
-    from butler.gateway.gate_reply_templates import (
-        injection_gate_pending_hint,
-        workflow_gate_pending_hint,
-    )
 
     with _gate_lock:
         pending = _load_pending(session_key)
@@ -270,7 +269,6 @@ def grant_injection_bypass(session_key: str, *, ttl_seconds: float = 300.0) -> N
     path = _injection_bypass_path(session_key)
     payload = {"expires_at": time.time() + min(max(30.0, ttl_seconds), 3600.0)}
     try:
-        from butler.io.atomic_write import atomic_write_text
 
         atomic_write_text(path, json.dumps(payload))
     except OSError as exc:
@@ -355,7 +353,6 @@ def resolve_human_gate_message(
         if pending.kind == "injection_review":
             grant_injection_bypass(session_key)
             _save_pending(session_key, None)
-            from butler.gateway.gate_reply_templates import injection_gate_confirmed_hint
 
             return str(injection_gate_confirmed_hint(score=pending.step_id))
 
@@ -367,8 +364,6 @@ def resolve_human_gate_message(
         _save_pending(session_key, None)
 
     if _workflow_auto_resume_enabled():
-        from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
-        from butler.human_gate_ops import workflow_auto_resume_reply_safe
 
         resumed = workflow_auto_resume_reply_safe(
             session_key,
@@ -381,7 +376,6 @@ def resolve_human_gate_message(
         if resumed:
             return str(resumed)
 
-    from butler.gateway.gate_reply_templates import workflow_gate_confirmed_hint
 
     return str(
         workflow_gate_confirmed_hint(

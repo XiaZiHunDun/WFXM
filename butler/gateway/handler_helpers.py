@@ -15,13 +15,22 @@ from pathlib import Path
 from typing import Any, Callable, TYPE_CHECKING, cast
 
 from butler.tools._file_cache import read_json_cached
+from butler.core.agent_loop import LoopCallbacks
+from butler.core.auto_continue import resolve_auto_continue_user_message
+from butler.core.best_effort import safe_best_effort
+from butler.defaults.env_defaults import ONBOARDING_WELCOME_DEFAULT
+from butler.env_parse import env_truthy, float_env, int_env
+from butler.gateway.command_registry import lookup
+from butler.gateway.outbound_bridge import get_current_bridge
+from butler.mcp.registry_hook import disconnect_mcp_session
+from butler.runtime.service import list_jobs_status, runtime_enabled
+from butler.tools.registry import get_tool_audit_events, reset_tool_audit_events
+from butler.tools.reminder import _load_all
 
 if TYPE_CHECKING:
-    from butler.core.agent_loop import AgentLoop, LoopCallbacks
+    from butler.core.agent_loop import AgentLoop
 
 logger = logging.getLogger(__name__)
-
-from butler.core.best_effort import safe_best_effort
 
 # EXT-2 / 外部 SaaS：含这些词时不走 Butler 多项目 /总览、/项目 归一化
 _EXTERNAL_INTEGRATION_MARKERS = (
@@ -225,8 +234,6 @@ def _normalize_detail_request(text: str) -> str | None:
 
 
 def _gateway_run_callbacks() -> LoopCallbacks | None:
-    from butler.core.agent_loop import LoopCallbacks
-    from butler.gateway.outbound_bridge import get_current_bridge
 
     bridge = get_current_bridge()
     if bridge is None:
@@ -266,8 +273,6 @@ def apply_auto_continue_rewrite(session_key: str, text: str) -> str | None:
     注意: 这是 text rewriter, **不**是 slash dispatch handler — 返回值是 "新 text" 而非 reply 字符串.
     """
     def _run() -> str | None:
-        from butler.core.auto_continue import resolve_auto_continue_user_message
-
         return cast(str | None, resolve_auto_continue_user_message(session_key, text))
 
     return cast(
@@ -281,14 +286,10 @@ def apply_auto_continue_rewrite(session_key: str, text: str) -> str | None:
 
 
 def _env_int(name: str, default: int) -> int:
-    from butler.env_parse import int_env
-
     return cast(int, int_env(name, default))
 
 
 def _env_float(name: str, default: float) -> float:
-    from butler.env_parse import float_env
-
     return cast(float, float_env(name, default))
 
 
@@ -311,15 +312,11 @@ def _is_sessionless_command(text: str) -> bool:
     cmd = parts[0].lower()
     if not cmd:
         return False
-    from butler.gateway.command_registry import lookup
-
     return lookup(cmd) is not None
 
 
 def _tool_audit_summary(session_key: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.tools.registry import get_tool_audit_events
-
         events = get_tool_audit_events(limit=50, session_key=session_key)
         failed = [event for event in events if not event.get("ok", False)]
         codes = sorted({str(event.get("code")) for event in failed if event.get("code")})
@@ -334,8 +331,6 @@ def _tool_audit_summary(session_key: str) -> dict[str, Any]:
 
 def _reset_tool_audit_events(session_key: str | None = None) -> None:
     def _run() -> None:
-        from butler.tools.registry import reset_tool_audit_events
-
         reset_tool_audit_events(session_key)
 
     safe_best_effort(_run, label="handler_helpers.reset_tool_audit", default=None)
@@ -394,8 +389,6 @@ def _mark_session_welcomed(session_key: str) -> None:
 
 def _maybe_welcome_prefix(session_key: str, user_text: str = "") -> str:
     """Return welcome text for first-time sessions, empty string otherwise."""
-    from butler.defaults.env_defaults import ONBOARDING_WELCOME_DEFAULT
-
     if os.getenv("BUTLER_ONBOARDING_WELCOME", ONBOARDING_WELCOME_DEFAULT).strip() == "0":
         return ""
     if _user_turn_supersedes_welcome(user_text):
@@ -453,8 +446,6 @@ def _jobs_subinfo(ws: Path, project_name: str) -> str | None:
     jobs_path = ws / "runtime" / "jobs.yaml"
     if not jobs_path.is_file():
         return None
-    from butler.runtime.service import list_jobs_status, runtime_enabled
-
     if not runtime_enabled():
         return None
     job_rows = list_jobs_status(project_name)
@@ -521,8 +512,6 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
     lines.append("")
     lines.append("提醒：")
     def _reminders() -> str:
-        from butler.tools.reminder import _load_all
-
         reminders = [r for r in _load_all() if r.get("status") == "pending"]
         if reminders:
             rows = [f"  待触发提醒 {len(reminders)} 个"]
@@ -544,8 +533,6 @@ def _build_project_overview(orchestrator: Any, session_key: str) -> str:
 def _inject_previous_session_summary(loop: "AgentLoop", project: Any) -> None:
     """Inject previous session summary into a new AgentLoop for context continuity."""
     def _run() -> None:
-        from butler.env_parse import env_truthy
-
         if not env_truthy("BUTLER_SESSION_SUMMARY", default=True):
             return
         if project is None:
@@ -592,8 +579,6 @@ def _inject_previous_session_summary(loop: "AgentLoop", project: Any) -> None:
 def _on_gateway_session_removed(session_key: str) -> None:
     _reset_tool_audit_events(session_key)
     def _disconnect() -> None:
-        from butler.mcp.registry_hook import disconnect_mcp_session
-
         disconnect_mcp_session(session_key)
 
     safe_best_effort(_disconnect, label="handler_helpers.mcp_disconnect", default=None)

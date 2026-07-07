@@ -11,6 +11,8 @@ from typing import cast
 
 from butler.dev_engine.b9_types import B9TaskSpec
 from butler.dev_engine.b9_verify_utils import pytest_verify as _pytest_verify
+from butler.dev_engine.edit_ops import apply_patch
+from butler.dev_engine.edit_ops import apply_write
 
 
 def _verify_ws(ws: Path) -> tuple[bool, str]:
@@ -37,7 +39,6 @@ def _setup_b9l_multi_file_import(ws: Path) -> None:
 
 
 def _oracle_b9l_multi_file_import(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     _rec, err = apply_patch(ws / "main.py", "from helper import run", "from helpers import run")
     if err:
@@ -64,7 +65,6 @@ def _setup_b9l_pytest_fix_impl(ws: Path) -> None:
 
 
 def _oracle_b9l_pytest_fix_impl(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     _rec, err = apply_patch(ws / "calc.py", "a + b", "a * b")
     if err:
@@ -147,7 +147,6 @@ def _setup_b9l_test_driven_add(ws: Path) -> None:
 
 
 def _oracle_b9l_test_driven_add(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_write
 
     _rec, err = apply_write(
         ws / "service.py",
@@ -179,7 +178,6 @@ def _setup_b9l_two_file_patch(ws: Path) -> None:
 
 
 def _oracle_b9l_two_file_patch(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     _rec, err = apply_patch(ws / "config.py", "THRESHOLD = 10", "THRESHOLD = 5")
     if err:
@@ -207,7 +205,6 @@ def _setup_b9l_add_missing_method(ws: Path) -> None:
 
 
 def _oracle_b9l_add_missing_method(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     old = "    def put(self, k, v):\n        self._data = {k: v}\n"
     new = (
@@ -244,7 +241,6 @@ def _setup_b9l_fix_exception_handler(ws: Path) -> None:
 
 
 def _oracle_b9l_fix_exception_handler(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     old = "    except:\n        return None\n"
     new = "    except ValueError:\n        raise\n"
@@ -275,7 +271,6 @@ def _setup_b9l_extract_constant(ws: Path) -> None:
 
 
 def _oracle_b9l_extract_constant(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_write
 
     (ws / "constants.py").write_text("MAX_RETRIES = 3\n", encoding="utf-8")
     (ws / "app.py").write_text(
@@ -307,7 +302,6 @@ def _setup_b9l_fix_off_by_one_loop(ws: Path) -> None:
 
 
 def _oracle_b9l_fix_off_by_one_loop(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
 
     _rec, err = apply_patch(ws / "loops.py", "range(n + 1)", "range(n)")
     if err:

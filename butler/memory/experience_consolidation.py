@@ -11,6 +11,16 @@ from typing import Any, cast
 
 from butler.env_parse import env_truthy, float_env
 
+from butler.config import get_butler_home
+from butler.memory.semantic_index import (
+    index_experience_row,
+    SOURCE_EXPERIENCE,
+)
+from butler.memory.experience_consolidation_ops import (
+    inc_digestion_metric_safe,
+    fusion_complete_loud,
+)
+
 logger = logging.getLogger(__name__)
 
 _EXPERIENCE_MERGE_PROMPT = """Merge two experience bullets into ONE concise record for a personal assistant.
@@ -51,7 +61,6 @@ def experience_merge_review_threshold() -> float:
 
 
 def _pending_path() -> Path:
-    from butler.config import get_butler_home
 
     d = cast(Path, get_butler_home()) / "metrics"
     d.mkdir(parents=True, exist_ok=True)
@@ -117,10 +126,10 @@ def apply_merge_pending(
                 "fallback_used": bool(merged.get("fallback_used")),
             }
 
-    from butler.config import get_butler_home
-    from butler.memory.butler_memory import ButlerMemory
 
     home = butler_home or get_butler_home()
+    from butler.memory.butler_memory import ButlerMemory
+
     bm = ButlerMemory(home)
     try:
         if not bm.experience.update_content(row_id, content, tags=tags):
@@ -128,7 +137,6 @@ def apply_merge_pending(
 
         sem = bm.semantic
         if sem is not None:
-            from butler.memory.semantic_index import index_experience_row
 
             index_experience_row(
                 sem,
@@ -140,7 +148,6 @@ def apply_merge_pending(
 
         pending.pop(key, None)
         save_merge_pending(pending)
-        from butler.memory.experience_consolidation_ops import inc_digestion_metric_safe
 
         inc_digestion_metric_safe("digestion_experience_merged")
         return {
@@ -219,7 +226,6 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
 def fusion_merge_experience_text(existing: str, new: str) -> dict[str, Any]:
     """Trusted-model merge; sets ``fallback_used`` when LLM path fails."""
     prompt = _EXPERIENCE_MERGE_PROMPT.format(existing=existing.strip(), new=new.strip())
-    from butler.memory.experience_consolidation_ops import fusion_complete_loud
 
     raw, err = fusion_complete_loud(prompt)
     if err is not None or raw is None:
@@ -257,7 +263,6 @@ def find_similar_experience(
     if semantic is None:
         return None, 0.0
 
-    from butler.memory.semantic_index import SOURCE_EXPERIENCE
 
     hits = semantic.search(text, project=project, limit=8)
     best: dict[str, Any] | None = None
@@ -321,7 +326,6 @@ def digest_experience_add(
                 str(merged.get("content") or ""),
                 tags=tag_merge or None,
             ):
-                from butler.memory.semantic_index import index_experience_row
 
                 index_experience_row(
                     butler_memory.semantic,
@@ -330,7 +334,6 @@ def digest_experience_add(
                     category=category or "",
                     content=str(merged.get("content") or ""),
                 )
-                from butler.memory.experience_consolidation_ops import inc_digestion_metric_safe
 
                 inc_digestion_metric_safe("digestion_experience_merged")
                 return row_id
@@ -344,7 +347,6 @@ def digest_experience_add(
             similarity=sim,
             proposed=merged,
         )
-        from butler.memory.experience_consolidation_ops import inc_digestion_metric_safe
 
         inc_digestion_metric_safe("digestion_experience_merge_pending")
         return 0

@@ -19,6 +19,22 @@ from butler.mcp.config import (
 )
 from butler.mcp.types import McpServerConfig, McpServerStatus, McpToolRef
 
+from butler.mcp.manager_ops import (
+    close_mcp_handle_safe,
+    filter_mcp_servers_by_profile_safe,
+    connect_handle_loud,
+    call_tool_loud,
+)
+from butler.mcp.bridge import build_tool_refs
+from butler.mcp.client_stdio import (
+    connect_stdio,
+    call_stdio_tool,
+)
+from butler.mcp.client_http import (
+    connect_http,
+    call_http_tool,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -112,7 +128,6 @@ class McpConnectionManager:
     def _close_handle(self, handle: _ServerHandle) -> None:
         if handle.cleanup is None:
             return
-        from butler.mcp.manager_ops import close_mcp_handle_safe
 
         close_mcp_handle_safe(
             handle,
@@ -125,11 +140,9 @@ class McpConnectionManager:
         *,
         workspace: Path | None = None,
     ) -> list[McpToolRef]:
-        from butler.mcp.bridge import build_tool_refs
 
         sk = self._scope_key(session_key)
         configs = load_mcp_servers(workspace=workspace)
-        from butler.mcp.manager_ops import filter_mcp_servers_by_profile_safe
 
         configs = filter_mcp_servers_by_profile_safe(configs, session_key=sk)
         # Sprint 16 REL-11-6: 用 _with_handles 持锁进行 read-modify-write,
@@ -148,7 +161,6 @@ class McpConnectionManager:
         *,
         workspace: Path | None,
     ) -> list[McpToolRef]:
-        from butler.mcp.bridge import build_tool_refs
 
         refs: list[McpToolRef] = []
         for cfg in configs:
@@ -159,7 +171,6 @@ class McpConnectionManager:
             if handle.status.degraded and handle.status.last_error:
                 continue
             if not handle.status.connected:
-                from butler.mcp.manager_ops import connect_handle_loud
 
                 if not connect_handle_loud(
                     handle,
@@ -185,13 +196,11 @@ class McpConnectionManager:
 
         async def _run() -> tuple[Any, list[Any], Any]:
             if cfg.transport == "stdio":
-                from butler.mcp.client_stdio import connect_stdio
 
                 return cast(
                     tuple[Any, list[Any], Any],
                     await connect_stdio(cfg, workspace=workspace),
                 )
-            from butler.mcp.client_http import connect_http
 
             return cast(
                 tuple[Any, list[Any], Any],
@@ -245,20 +254,17 @@ class McpConnectionManager:
 
         async def _call() -> str:
             if cfg.transport == "stdio":
-                from butler.mcp.client_stdio import call_stdio_tool
 
                 return await asyncio.wait_for(
                     call_stdio_tool(handle.session, ref.original_name, arguments),
                     timeout=timeout,
                 )
-            from butler.mcp.client_http import call_http_tool
 
             return await asyncio.wait_for(
                 call_http_tool(handle.session, ref.original_name, arguments),
                 timeout=timeout,
             )
 
-        from butler.mcp.manager_ops import call_tool_loud
 
         return cast(
             str,

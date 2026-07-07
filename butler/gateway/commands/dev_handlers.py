@@ -11,6 +11,15 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+from butler.env_parse import env_truthy
+from butler.gateway.commands.dev_handlers_ops import resolve_project_from_handler_singleton_safe, resolve_project_from_manager_safe, resolve_project_from_orchestrator_safe
+from butler.tools.git_tools import git_read_enabled
+from butler.tools.git_tools import _run_git
+from butler.dev_engine.project_dev_env import project_dev_subprocess_env
+from butler.gateway.commands.dev_handlers_ops import get_orchestrator_safe
+from butler.gateway.owner_surface import format_project_overview_owner
+from butler.tools.git_tools import git_read_enabled, _run_git
+from butler.gateway.commands.dev_handlers_ops import format_runtime_jobs_line_safe
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +29,6 @@ def _repo_root() -> Path:
 
 
 def _env_on(name: str) -> bool:
-    from butler.env_parse import env_truthy
 
     return cast(bool, env_truthy(name))
 
@@ -37,11 +45,6 @@ def _resolve_project(
 ) -> Any:
     sk = str(session_key or "").strip()
     orch = orchestrator or _get_orchestrator()
-    from butler.gateway.commands.dev_handlers_ops import (
-        resolve_project_from_handler_singleton_safe,
-        resolve_project_from_manager_safe,
-        resolve_project_from_orchestrator_safe,
-    )
 
     if orch is not None:
         proj = resolve_project_from_orchestrator_safe(orch, session_key=sk)
@@ -136,7 +139,6 @@ def run_dev_smoke(*, timeout_seconds: int = 180) -> str:
 
 
 def format_git_for_wechat(arg: str = "") -> str:
-    from butler.tools.git_tools import git_read_enabled
 
     if not git_read_enabled():
         return "Git 未启用 (BUTLER_ENABLE_GIT=0)"
@@ -161,7 +163,6 @@ def format_git_for_wechat(arg: str = "") -> str:
 
 
 def _format_git_status(workdir: str | None) -> str:
-    from butler.tools.git_tools import _run_git
 
     status = _run_git(["status", "--short", "--branch"], workdir=workdir)
     if status.get("exit_code", -1) != 0:
@@ -209,7 +210,6 @@ def _format_git_status(workdir: str | None) -> str:
 
 
 def _format_git_diff(workdir: str | None) -> str:
-    from butler.tools.git_tools import _run_git
 
     stat = _run_git(["diff", "--stat"], workdir=workdir)
     if stat.get("exit_code", -1) != 0:
@@ -227,7 +227,6 @@ def _format_git_diff(workdir: str | None) -> str:
 
 
 def _format_git_log(workdir: str | None, *, count: int = 10) -> str:
-    from butler.tools.git_tools import _run_git
 
     count = max(1, min(count, 50))
     log = _run_git(["log", f"-{count}", "--format=%h | %ar | %an | %s"], workdir=workdir)
@@ -274,7 +273,6 @@ def format_test_for_wechat(arg: str = "") -> str:
 
 
 def _run_project_command(ws: Path, cmd: str, *, label: str = "命令") -> str:
-    from butler.dev_engine.project_dev_env import project_dev_subprocess_env
 
     argv = cmd.split()
     start = time.time()
@@ -399,7 +397,6 @@ def format_build_for_wechat(arg: str = "") -> str:
 
 
 def _get_orchestrator() -> Any:
-    from butler.gateway.commands.dev_handlers_ops import get_orchestrator_safe
 
     return get_orchestrator_safe()
 
@@ -416,7 +413,6 @@ def format_project_dashboard(
     sk = str(session_key or "").strip()
     if topic not in ("详细", "detail", "dev", "运维"):
         if orch is not None:
-            from butler.gateway.owner_surface import format_project_overview_owner
 
             return cast(str, format_project_overview_owner(orch, sk))
     return format_project_dashboard_dev(arg, orchestrator=orch, session_key=sk)
@@ -472,7 +468,6 @@ def _count_files(ws: Path, source_dirs: list[str]) -> int | None:
 
 
 def _append_git_summary(lines: list[str], ws: Path) -> None:
-    from butler.tools.git_tools import git_read_enabled, _run_git
 
     if not git_read_enabled():
         lines.append("🔀 Git: 未启用")
@@ -525,7 +520,6 @@ def _append_runtime_summary(lines: list[str], ws: Path) -> None:
     jobs_path = ws / "runtime" / "jobs.yaml"
     if not jobs_path.is_file():
         return
-    from butler.gateway.commands.dev_handlers_ops import format_runtime_jobs_line_safe
 
     line = format_runtime_jobs_line_safe(jobs_path)
     if line:

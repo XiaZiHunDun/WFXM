@@ -6,6 +6,12 @@ import logging
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
+from butler.gateway.commands.project_handlers_ops import git_clone_repo_safe
+from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
+from butler.config import get_butler_settings
+from butler.project.archetypes import validate_slug
+from butler.project.preflight import format_report, run_preflight
+from butler.project.preflight import resolve_tool_safe_root
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -37,7 +43,6 @@ def _slug_from_git_url(url: str) -> str:
 
 def _clone_git_repo(url: str, target_dir: Path) -> tuple[bool, str]:
     """Clone a git repo into target_dir. Returns (success, message)."""
-    from butler.gateway.commands.project_handlers_ops import git_clone_repo_safe
 
     return cast(tuple[bool, str], git_clone_repo_safe(url, target_dir, timeout=_GIT_CLONE_TIMEOUT))
 
@@ -89,7 +94,6 @@ def _project_register_wechat(
     external_id: str | None = None,
     session_key: str = "",
 ) -> str:
-    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
     if not is_gateway_owner(
         platform=platform,
@@ -109,7 +113,6 @@ def _project_register_wechat(
     path_arg = " ".join(args[1:]).strip()
 
     if is_git_url(path_arg):
-        from butler.config import get_butler_settings
 
         projects_dir = get_butler_settings().projects_dir
         slug = _slug_from_git_url(path_arg)
@@ -148,7 +151,6 @@ def _project_create_wechat(
     external_id: str | None = None,
     session_key: str = "",
 ) -> str:
-    from butler.gateway.owner_gate import is_gateway_owner, owner_required_message
 
     if not is_gateway_owner(
         platform=platform,
@@ -183,7 +185,6 @@ def _project_create_wechat(
 
     display_name = " ".join(display_parts).strip() or slug
 
-    from butler.project.archetypes import validate_slug
 
     ok, err = validate_slug(slug)
     if not ok:
@@ -223,8 +224,6 @@ def _project_preflight_wechat(
     session_key: str,
 ) -> str:
 
-    from butler.config import get_butler_settings
-    from butler.project.preflight import format_report, run_preflight
 
     pm = orchestrator.project_manager
     name = pm.resolve_active_project_name(session_key=session_key)
@@ -232,7 +231,6 @@ def _project_preflight_wechat(
     if not name or proj is None:
         return "请先 /切换 到要体检的项目。"
 
-    from butler.project.preflight import resolve_tool_safe_root
 
     settings = get_butler_settings()
     safe_root = resolve_tool_safe_root()

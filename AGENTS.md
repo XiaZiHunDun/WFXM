@@ -47,7 +47,7 @@ cd /path/to/WFXM
 bash scripts/butler-mypy-strict-gate.sh  # mypy strict 826 主模块（--follow-imports=skip）
 bash scripts/p3j-env-hygiene-gate.sh     # reference ↔ .env.example ↔ butler/ readers
 bash scripts/p3j-env-audit.sh            # code/reference/example 差集（P3-J）
-bash scripts/p3i-lazy-import-report.sh   # 函数内 from butler.* 预算 3420/3450（P3-I）
+bash scripts/p3i-lazy-import-report.sh   # 函数内 from butler.* 预算 1945/1975（P3-I）
 # CC 线束（改 core/context/gateway 队列与压缩时）
 ./scripts/butler-cc-harness-gate.sh
 # 或子集：

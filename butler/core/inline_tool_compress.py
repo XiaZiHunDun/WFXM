@@ -1,9 +1,9 @@
-from typing import Any
 """Inline compression of old tool messages in context (claude-mem / 主线 F P2)."""
 
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from butler.env_parse import env_truthy, int_env
 

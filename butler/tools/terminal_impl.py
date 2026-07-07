@@ -11,6 +11,35 @@ import time
 from pathlib import Path
 from typing import IO, Any, cast
 
+from butler.execution_context import get_current_session_key
+from butler.tools.interrupt import is_interrupted
+from butler.tools.path_safety import (
+    check_tool_path,
+    default_tool_workdir,
+    prepare_shell_command,
+    safe_subprocess_env,
+)
+from butler.tools.terminal_approval import approval_allows_unsandboxed
+from butler.tools.terminal_impl_ops import (
+    close_pipe_safe,
+    inc_terminal_metric_safe,
+    is_selectable_pipe_safe,
+    run_list_directory_loud,
+    run_search_files_loud,
+    run_subprocess_loud,
+    run_terminal_with_gates_safe,
+)
+from butler.tools.terminal_sandbox import (
+    classify_sandbox_failure,
+    enrich_subprocess_env,
+    format_sandbox_error_payload,
+    load_terminal_sandbox_config,
+    sandbox_runtime_available,
+    scrub_credential_env,
+    should_run_sandboxed,
+    wrap_argv_with_bubblewrap,
+)
+
 logger = logging.getLogger(__name__)
 
 MAX_TERMINAL_TIMEOUT_SECONDS = 120
@@ -18,14 +47,10 @@ MAX_TERMINAL_OUTPUT_CHARS = 50000
 
 
 def _is_selectable_pipe(pipe: Any) -> bool:
-    from butler.tools.terminal_impl_ops import is_selectable_pipe_safe
-
     return bool(is_selectable_pipe_safe(pipe))
 
 
 def _close_pipe(pipe: Any) -> None:
-    from butler.tools.terminal_impl_ops import close_pipe_safe
-
     close_pipe_safe(pipe)
 
 
@@ -102,14 +127,6 @@ def _communicate_limited(
 
 
 def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, **_: Any) -> str:
-    from butler.tools.interrupt import is_interrupted
-    from butler.tools.path_safety import (
-        check_tool_path,
-        default_tool_workdir,
-        prepare_shell_command,
-        safe_subprocess_env,
-    )
-
     if os.getenv("BUTLER_ENABLE_TERMINAL", "").strip() != "1":
         return json.dumps({
             "error": "Terminal tool is disabled by default. Set BUTLER_ENABLE_TERMINAL=1 to enable restricted commands."
@@ -132,8 +149,6 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, 
 
     cwd_hint = str(workdir or default_tool_workdir() or "")
     cmd_text = " ".join(command_safety.argv) if command_safety.argv else command
-    from butler.execution_context import get_current_session_key
-
     session_key = str(get_current_session_key() or "")
 
     if workdir:
@@ -146,18 +161,6 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, 
         return json.dumps({"error": f"Not a directory: {workdir or safety.path}"})
     resolved_workdir = str(safety.path)
     workspace_path = safety.path
-
-    from butler.tools.terminal_approval import approval_allows_unsandboxed
-    from butler.tools.terminal_sandbox import (
-        classify_sandbox_failure,
-        enrich_subprocess_env,
-        format_sandbox_error_payload,
-        load_terminal_sandbox_config,
-        sandbox_runtime_available,
-        scrub_credential_env,
-        should_run_sandboxed,
-        wrap_argv_with_bubblewrap,
-    )
 
     sandbox_config = load_terminal_sandbox_config(workspace_path)
     unsandboxed = approval_allows_unsandboxed(
@@ -177,8 +180,6 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, 
             })
         logger.warning("terminal sandbox enabled but bwrap missing; running unsandboxed")
         run_sandboxed = False
-        from butler.tools.terminal_impl_ops import inc_terminal_metric_safe
-
         inc_terminal_metric_safe("terminal_sandbox_unavailable_fallback")
 
     exec_argv = list(command_safety.argv)
@@ -208,8 +209,6 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, 
             base_env = scrub_credential_env(base_env, sandbox_config)
         proc_env = enrich_subprocess_env(base_env, sandboxed=run_sandboxed)
         if run_sandboxed:
-            from butler.tools.terminal_impl_ops import inc_terminal_metric_safe
-
             inc_terminal_metric_safe(
                 "terminal_sandbox_run",
                 labels={"sandboxed": "1"},
@@ -256,8 +255,6 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, 
                 sandboxed=run_sandboxed,
             )
             if failure is not None:
-                from butler.tools.terminal_impl_ops import inc_terminal_metric_safe
-
                 inc_terminal_metric_safe(
                     "terminal_sandbox_failure",
                     labels={"constraint": failure.constraint},
@@ -281,8 +278,6 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, 
             _close_pipe(proc.stdout)
             _close_pipe(proc.stderr)
 
-    from butler.tools.terminal_impl_ops import run_subprocess_loud, run_terminal_with_gates_safe
-
     return str(
         run_terminal_with_gates_safe(
             cmd_text,
@@ -294,8 +289,6 @@ def _tool_terminal(command: str, timeout: int = 30, workdir: str | None = None, 
 
 
 def _tool_search_files(pattern: str, path: str = ".", include: str | None = None, **_: Any) -> str:
-    from butler.tools.path_safety import check_tool_path, safe_subprocess_env
-
     safety = check_tool_path(path)
     if not safety.allowed:
         return json.dumps({"error": safety.error})
@@ -333,14 +326,10 @@ def _tool_search_files(pattern: str, path: str = ".", include: str | None = None
                 continue
         return json.dumps({"matches": matches[:50], "total": len(matches)})
 
-    from butler.tools.terminal_impl_ops import run_search_files_loud
-
     return str(run_search_files_loud(_run))
 
 
 def _tool_list_directory(path: str = ".", **_: Any) -> str:
-    from butler.tools.path_safety import check_tool_path
-
     safety = check_tool_path(path)
     if not safety.allowed:
         return json.dumps({"error": safety.error})
@@ -357,7 +346,5 @@ def _tool_list_directory(path: str = ".", **_: Any) -> str:
                 "size": item.stat().st_size if item.is_file() else None,
             })
         return json.dumps({"path": str(p), "entries": entries[:200]})
-
-    from butler.tools.terminal_impl_ops import run_list_directory_loud
 
     return str(run_list_directory_loud(_run))

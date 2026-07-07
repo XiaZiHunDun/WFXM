@@ -9,11 +9,39 @@ from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from butler.gateway.outbound_bridge import GatewayOutboundBridge
-    from butler.report import AgentReport
 
-from butler.defaults.env_defaults import GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS
+from butler.defaults.env_defaults import (
+    GATEWAY_COMPLETION_NOTIFY_MIN_SECONDS,
+    GATEWAY_DELEGATE_COMPLETION_MAX_EACH,
+)
 from butler.env_parse import env_truthy, float_env, int_env
 from butler.gateway import delegate_push_dedup as _delegate_push_dedup
+from butler.gateway.completion_notify_ops import (
+    deliver_completion_push_safe,
+    outbox_diagnostic_lines_safe,
+)
+from butler.gateway.completion_telemetry import (
+    completion_push_stats,
+    push_queue_pending_count,
+    record_completion_push_enqueued,
+    record_completion_push_failed,
+    record_completion_push_sent,
+)
+from butler.gateway.durable_outbox import (
+    enqueue_outbox_message,
+    mark_outbox_failed,
+    mark_outbox_sent,
+)
+from butler.gateway.pii_scrub import scrub_outbound_text
+from butler.gateway.wechat_text_export import build_delegate_completion_message
+from butler.report import AgentReport, cache_report, format_for_wechat, get_last_report
+from butler.runtime.notify import (
+    mark_wechat_push_sent,
+    should_enqueue_wechat_push_failure,
+    wait_wechat_push_cooldown,
+    wechat_push_cooldown_seconds,
+)
+from butler.runtime.push_queue import enqueue_failed_push
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +95,6 @@ def delegate_completion_mode() -> str:
 
 
 def delegate_completion_max_each() -> int:
-    from butler.defaults.env_defaults import GATEWAY_DELEGATE_COMPLETION_MAX_EACH
 
     return cast(
         int,
@@ -85,11 +112,6 @@ def format_outbound_diagnostic_lines(
     chat_id: str = "",
 ) -> list[str]:
     """Lines for ``/诊断`` — completion notify policy + session push stats."""
-    from butler.gateway.completion_telemetry import (
-        completion_push_stats,
-        push_queue_pending_count,
-    )
-    from butler.runtime.notify import wechat_push_cooldown_seconds
 
     mode = delegate_completion_mode()
     flags: list[str] = []
@@ -120,7 +142,6 @@ def format_outbound_diagnostic_lines(
     pending = push_queue_pending_count(chat_id=chat_id)
     if pending:
         lines.append(f"推送队列待发: {pending} 条")
-    from butler.gateway.completion_notify_ops import outbox_diagnostic_lines_safe
 
     lines.extend(outbox_diagnostic_lines_safe(chat_id))
     return lines
@@ -138,8 +159,6 @@ def format_elapsed(seconds: float) -> str:
 
 
 def build_report_push_text(report: AgentReport, *, prefix: str = "") -> str:
-    from butler.report import format_for_wechat
-
     body = cast(str, format_for_wechat(report))
     if prefix:
         return f"{prefix}\n\n{body}".strip()
@@ -265,7 +284,6 @@ def flush_pending_delegate_completion(bridge: GatewayOutboundBridge) -> bool:
     elapsed = time.monotonic() - bridge.turn_started_at if bridge.turn_started_at else 0.0
     if not should_push_delegate_completion(bridge, elapsed):
         return False
-    from butler.gateway.wechat_text_export import build_delegate_completion_message
 
     text = build_delegate_completion_message(
         report,
@@ -291,26 +309,9 @@ async def deliver_completion_push(
     """Send completion text with shared WeChat cooldown; enqueue on retryable failure."""
     import asyncio
 
-    from butler.runtime.notify import (
-        mark_wechat_push_sent,
-        should_enqueue_wechat_push_failure,
-        wait_wechat_push_cooldown,
-    )
-    from butler.runtime.push_queue import enqueue_failed_push
-    from butler.gateway.durable_outbox import (
-        enqueue_outbox_message,
-        mark_outbox_failed,
-        mark_outbox_sent,
-    )
 
-    from butler.gateway.completion_telemetry import (
-        record_completion_push_enqueued,
-        record_completion_push_failed,
-        record_completion_push_sent,
-    )
 
     telemetry_key = chat_id or ""
-    from butler.gateway.pii_scrub import scrub_outbound_text
 
     body = scrub_outbound_text(body)
     if kind == "delegate":
@@ -327,7 +328,6 @@ async def deliver_completion_push(
     outbox_id = enqueue_outbox_message(chat_id, body, kind=kind)
     await asyncio.to_thread(wait_wechat_push_cooldown)
     title = f"[Butler] {kind}完成提醒"
-    from butler.gateway.completion_notify_ops import deliver_completion_push_safe
 
     async def _on_success() -> None:
         await asyncio.to_thread(mark_wechat_push_sent)
@@ -362,8 +362,6 @@ def try_push_workflow_failure(
     *,
     session_key: str = "",
 ) -> bool:
-    from butler.report import AgentReport, cache_report, get_last_report
-
     br = bridge
     if br is None:
         return False

@@ -9,13 +9,27 @@ from typing import Any
 from butler.core.best_effort import safe_best_effort
 
 
+from butler.project.worktree import effective_workspace
+from butler.project.manager import get_project_manager
+from butler.execution_context import (
+    get_current_session_key,
+    get_audit_session_key,
+    get_current_orchestrator,
+)
+from butler.core.tool_result_storage import is_readable_session_tool_result_path
+from butler.permissions import check_external_path_override
+from butler.tools.butlerignore import (
+    is_butlerignored,
+    is_protected_write_path,
+)
+from butler.config import get_butler_settings
+
 def workspace_from_project_safe(project: object | None) -> Path | None:
     workspace = getattr(project, "workspace", None) if project is not None else None
     if not workspace:
         return None
 
     def _effective() -> Path:
-        from butler.project.worktree import effective_workspace
 
         return effective_workspace(Path(workspace))
 
@@ -38,7 +52,6 @@ def workspace_for_session_key_safe(session_key: str) -> Path | None:
         return None
 
     def _run() -> Path | None:
-        from butler.project.manager import get_project_manager
 
         pm = get_project_manager()
         return workspace_from_project_safe(pm.get_current(session_key=sk))
@@ -52,7 +65,6 @@ def default_project_workspace_safe() -> Path | None:
         return None
 
     def _run() -> Path | None:
-        from butler.project.manager import get_project_manager
 
         return workspace_from_project_safe(get_project_manager().get_project(name))
 
@@ -61,7 +73,6 @@ def default_project_workspace_safe() -> Path | None:
 
 def current_session_key_safe() -> str:
     def _run() -> str:
-        from butler.execution_context import get_current_session_key
 
         return str(get_current_session_key() or "").strip()
 
@@ -87,7 +98,6 @@ def orchestrator_workspace_safe(session_key: str) -> Path | None:
 
 def audit_session_key_safe(fallback: str = "") -> str:
     def _run() -> str:
-        from butler.execution_context import get_audit_session_key
 
         return str(get_audit_session_key(fallback=fallback) or "").strip()
 
@@ -97,7 +107,6 @@ def audit_session_key_safe(fallback: str = "") -> str:
 
 def is_readable_session_tool_result_path_safe(resolved: Path) -> bool:
     def _run() -> bool:
-        from butler.core.tool_result_storage import is_readable_session_tool_result_path
 
         return bool(is_readable_session_tool_result_path(str(resolved)))
 
@@ -113,7 +122,6 @@ def external_path_override_allowed_safe(resolved: Path, *, for_write: bool) -> b
     """Return True if override allows; False if denied; None if check unavailable."""
 
     def _run() -> bool:
-        from butler.permissions import check_external_path_override
 
         override = check_external_path_override(str(resolved), for_write=for_write)
         return bool(override is not None and override.allowed)
@@ -134,7 +142,6 @@ def butlerignore_blocked_safe(
     """Return error message if blocked; empty string if allowed or check skipped."""
 
     def _run() -> str:
-        from butler.tools.butlerignore import is_butlerignored, is_protected_write_path
 
         if not for_write and is_butlerignored(resolved, workspace=workspace):
             return "Access denied: path matches .butlerignore"
@@ -148,7 +155,6 @@ def butlerignore_blocked_safe(
 
 def current_orchestrator_safe() -> Any | None:
     def _run() -> Any:
-        from butler.execution_context import get_current_orchestrator
 
         return get_current_orchestrator()
 
@@ -179,7 +185,6 @@ def _is_relative_to(path: Path, root: Path) -> bool:
 
 def hooks_global_dir_blocks_write(resolved: Path) -> bool:
     def _run() -> bool:
-        from butler.config import get_butler_settings
 
         global_dir = (
             get_butler_settings().butler_home / ".butler"

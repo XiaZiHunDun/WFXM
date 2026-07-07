@@ -8,6 +8,29 @@ from typing import Any, Callable
 
 from butler.core.best_effort import safe_best_effort
 
+from butler.core.confirm_flags import permission_risk_heuristic_enabled
+from butler.core.approval_cards import format_terminal_pattern_card
+from butler.permissions.approvals import (
+    ApprovalRequest,
+    save_pending,
+)
+from butler.tools.terminal_danger import (
+    check_dangerous_command,
+    set_terminal_session_context,
+)
+from butler.tools.terminal_approval import check_approval
+from butler.hooks.runner import (
+    run_permission_request_hooks,
+    run_pre_tool_hooks,
+)
+from butler.mcp.approval import check_mcp_tool_approval
+from butler.tools.network_search_policy import (
+    is_firecrawl_agent_tool,
+    is_firecrawl_feedback_tool,
+    is_web_search_intent,
+)
+from butler.core.session_epoch import last_user_query_in_epoch
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,9 +45,6 @@ def terminal_risk_ask_safe(
     session_key: str,
 ) -> str | None:
     def _run() -> str | None:
-        from butler.core.confirm_flags import permission_risk_heuristic_enabled
-        from butler.core.approval_cards import format_terminal_pattern_card
-        from butler.permissions.approvals import ApprovalRequest, save_pending
 
         if not (permission_risk_heuristic_enabled() and session_key):
             return None
@@ -48,7 +68,6 @@ def terminal_risk_ask_safe(
 
 def check_terminal_danger_safe(command: str, session_key: str) -> Any | None:
     def _run() -> Any:
-        from butler.tools.terminal_danger import check_dangerous_command, set_terminal_session_context
 
         set_terminal_session_context(session_key)
         return check_dangerous_command(command)
@@ -58,7 +77,6 @@ def check_terminal_danger_safe(command: str, session_key: str) -> Any | None:
 
 def check_terminal_approval_safe(command: str, *, cwd: str, session_key: str) -> str | None:
     def _run() -> str | None:
-        from butler.tools.terminal_approval import check_approval
 
         return check_approval(command, cwd=cwd, session_key=session_key)
 
@@ -73,7 +91,6 @@ def run_mcp_pre_hooks_safe(
     session_key: str,
 ) -> str | None:
     def _run() -> str | None:
-        from butler.hooks.runner import run_permission_request_hooks, run_pre_tool_hooks
 
         perm_block = run_permission_request_hooks(tool_name, args, session_key=session_key)
         if perm_block:
@@ -97,7 +114,6 @@ def check_mcp_approval_safe(
     model_message_fn: Callable[[str, str, str], str],
 ) -> str | None:
     def _run() -> str | None:
-        from butler.mcp.approval import check_mcp_tool_approval
 
         block = check_mcp_tool_approval(
             server_id=server_id,
@@ -119,12 +135,6 @@ def check_mcp_approval_safe(
 
 def mcp_approval_model_message_safe(tool_name: str, session_key: str, raw: str) -> str:
     def _run() -> str:
-        from butler.tools.network_search_policy import (
-            is_firecrawl_agent_tool,
-            is_firecrawl_feedback_tool,
-            is_web_search_intent,
-        )
-        from butler.core.session_epoch import last_user_query_in_epoch
 
         q = last_user_query_in_epoch(session_key) if session_key else ""
         restricted = is_firecrawl_feedback_tool(tool_name) or is_firecrawl_agent_tool(tool_name)
@@ -151,7 +161,6 @@ def run_orchestrator_pre_hooks_safe(
     session_key: str,
 ) -> str | None:
     def _run() -> str | None:
-        from butler.hooks.runner import run_permission_request_hooks, run_pre_tool_hooks
 
         perm_block = run_permission_request_hooks(tool_name, args, session_key=session_key)
         if perm_block:

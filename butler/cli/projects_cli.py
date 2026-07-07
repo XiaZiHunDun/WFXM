@@ -14,6 +14,16 @@ import argparse
 import sys
 from pathlib import Path
 
+from butler.config import get_butler_settings
+from butler.project.archetypes import reindex_project_memory
+from butler.project.manager import get_project_manager
+from butler.project.preflight import (
+    format_report,
+    resolve_tool_safe_root,
+    resolve_workspace,
+    run_preflight,
+)
+
 
 def register_projects_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``projects``, ``create``, and the ``project`` parent."""
@@ -113,8 +123,6 @@ def _add_project_register_parser(pr_sub: argparse._SubParsersAction[argparse.Arg
 
 
 def _cmd_projects(ns: argparse.Namespace) -> int:
-    from butler.project.manager import get_project_manager
-
     manager = get_project_manager()
     if getattr(ns, "reload", False):
         return _cmd_projects_refresh(ns)
@@ -137,8 +145,6 @@ def _create_slug_from_ns(ns: argparse.Namespace) -> str:
 
 
 def _cmd_create(ns: argparse.Namespace) -> int:
-    from butler.project.manager import get_project_manager
-
     slug = _create_slug_from_ns(ns)
     if not slug:
         print("Error: missing project slug.", file=sys.stderr)
@@ -164,8 +170,6 @@ def _cmd_create(ns: argparse.Namespace) -> int:
     print(f"Created project {created.name!r} at {created.workspace}")
     print(f"Next: butler project preflight --project {created.name!r}")
     if ns.reindex:
-        from butler.project.archetypes import reindex_project_memory
-
         ok, msg = reindex_project_memory(created.name)
         print(f"Reindex: {msg}")
         return 0 if ok else 1
@@ -175,9 +179,6 @@ def _cmd_create(ns: argparse.Namespace) -> int:
 
 
 def _cmd_project_register(ns: argparse.Namespace) -> int:
-    from butler.config import get_butler_settings
-    from butler.project.manager import get_project_manager
-
     raw_path = ns.path.strip()
     if _is_git_url(raw_path):
         ok, resolved_or_msg = _clone_for_register(raw_path)
@@ -217,8 +218,6 @@ def _cmd_project_register(ns: argparse.Namespace) -> int:
     print(f"Registered project {proj.name!r} at {proj.workspace}")
     print(f"Next: butler project preflight --project {proj.name!r}")
     if ns.reindex:
-        from butler.project.archetypes import reindex_project_memory
-
         ok, msg = reindex_project_memory(proj.name)
         print(f"Reindex: {msg}")
         return 0 if ok else 1
@@ -227,8 +226,6 @@ def _cmd_project_register(ns: argparse.Namespace) -> int:
 
 
 def _cmd_projects_refresh(_ns: argparse.Namespace) -> int:
-    from butler.project.manager import get_project_manager
-
     mgr = get_project_manager()
     mgr.refresh()
     names = [p.name for p in mgr.list_projects()]
@@ -237,14 +234,6 @@ def _cmd_projects_refresh(_ns: argparse.Namespace) -> int:
 
 
 def _cmd_project_preflight(ns: argparse.Namespace) -> int:
-    from butler.config import get_butler_settings
-    from butler.project.preflight import (
-        format_report,
-        resolve_tool_safe_root,
-        resolve_workspace,
-        run_preflight,
-    )
-
     settings = get_butler_settings()
     safe_root = resolve_tool_safe_root()
 
@@ -284,8 +273,6 @@ def _is_git_url(path: str) -> bool:
 def _clone_for_register(url: str) -> tuple[bool, str]:
     """Clone a Git repo into BUTLER_PROJECTS_DIR and return (ok, path_or_msg)."""
     import subprocess
-
-    from butler.config import get_butler_settings
 
     settings = get_butler_settings()
     slug = url.rstrip("/").rsplit("/", 1)[-1].rsplit(":", 1)[-1]

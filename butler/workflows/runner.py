@@ -7,9 +7,31 @@ import logging
 import os
 from typing import Any
 
-from butler.report import AgentReport, cache_report
-from butler.task_orchestrator import AgentSpawnConfig, TaskNode, TaskGraphResult, TaskOrchestrator
+from butler.core.plan_snapshot import (
+    build_plan_snapshot,
+    qa_response_is_fail,
+    replan_implement_task,
+    update_step_outcome,
+)
+from butler.env_parse import env_truthy, int_env
+from butler.execution_context import get_current_orchestrator, use_execution_context, use_workflow_var_pool
+from butler.gateway.outbound_bridge import get_gateway_bridge_optional
+from butler.human_gate import check_workflow_step_approval, format_pending_hint
+from butler.model_resolve import workflow_step_spawn_model_config
+from butler.report import (
+    AgentReport,
+    cache_report,
+    enrich_output_schema,
+    enrich_report_decisions,
+    format_for_wechat,
+    get_last_report,
+    maybe_repair_structured_output,
+    render_structured_output_markdown,
+)
+from butler.task_orchestrator import AgentSpawnConfig, TaskGraphResult, TaskNode, TaskOrchestrator
+from butler.workflows.loader import resolve_workflow
 from butler.workflows.schema import WorkflowDef
+from butler.workflows.variables import WorkflowVariablePool
 from butler.workflows import runner_ops
 
 logger = logging.getLogger(__name__)
@@ -34,19 +56,10 @@ async def _maybe_replan_dev_qa_loop(
     qa_node = next((n for n in nodes if n.id == "qa"), None)
     if qa is None or impl_node is None or qa_node is None:
         return graph
-    from butler.core.plan_snapshot import (
-        build_plan_snapshot,
-        qa_response_is_fail,
-        replan_implement_task,
-        update_step_outcome,
-    )
-    from butler.env_parse import env_truthy
 
     if qa.success or not qa_response_is_fail(qa.response or ""):
         return graph
     try:
-        from butler.env_parse import int_env
-
         max_replan = int_env("BUTLER_WORKFLOW_QA_REPLAN_MAX", 1, min=0)
     except ValueError:
         max_replan = 1
@@ -92,8 +105,6 @@ async def _maybe_replan_dev_qa_loop(
 
 
 def _rescue_spawn_configs(step: Any, *, session_key: str = "") -> list[AgentSpawnConfig]:
-    from butler.model_resolve import workflow_step_spawn_model_config
-
     configs: list[AgentSpawnConfig] = []
     for rs in getattr(step, "rescue_steps", None) or []:
         model_cfg = workflow_step_spawn_model_config(rs.model)
@@ -124,8 +135,6 @@ def _workflow_progress_callback(
 
     def _cb(step_id: str, phase: str, role: str, preview: str = "") -> None:
         del role
-        from butler.gateway.outbound_bridge import get_gateway_bridge_optional
-
         bridge = get_gateway_bridge_optional()
         norm_phase = str(phase or "start").strip().lower()
         if norm_phase in ("failed", "fail", "error"):
@@ -195,7 +204,6 @@ class WorkflowRunner:
     def _orch(self) -> Any:
         if self._orchestrator is not None:
             return self._orchestrator
-        from butler.execution_context import get_current_orchestrator
         from butler.orchestrator import ButlerOrchestrator
 
         orch = get_current_orchestrator()
@@ -217,8 +225,6 @@ class WorkflowRunner:
         hint_block = ""
         if user_hint.strip():
             hint_block = f"\n\n## 用户补充\n{user_hint.strip()}"
-
-        from butler.model_resolve import workflow_step_spawn_model_config
 
         nodes: list[TaskNode] = []
         for step in workflow.steps:
@@ -255,10 +261,6 @@ class WorkflowRunner:
         user_hint: str = "",
         session_key: str = "",
     ) -> TaskGraphResult:
-        from butler.execution_context import use_execution_context
-
-        from butler.workflows.variables import WorkflowVariablePool
-
         orch = self._orch()
         nodes = self.build_nodes(workflow, user_hint=user_hint, session_key=session_key)
         total_steps = len(nodes)
@@ -277,8 +279,6 @@ class WorkflowRunner:
         needs_approval = any(n.requires_approval for n in nodes)
 
         def _on_approval(node: TaskNode) -> bool:
-            from butler.human_gate import check_workflow_step_approval
-
             approved = check_workflow_step_approval(
                 session_key or "workflow",
                 workflow.name,
@@ -292,8 +292,6 @@ class WorkflowRunner:
                     execution_order=[n.id for n in nodes],
                 )
             return bool(approved)
-
-        from butler.execution_context import use_workflow_var_pool
 
         with use_execution_context(orch, session_key=session_key or "workflow"):
             with use_workflow_var_pool(var_pool):
@@ -418,12 +416,6 @@ class WorkflowRunner:
             failed_steps=failed_steps,
             step_outcomes=step_outcomes,
         )
-        from butler.report import (
-            enrich_output_schema,
-            enrich_report_decisions,
-            maybe_repair_structured_output,
-            render_structured_output_markdown,
-        )
 
         enrich_report_decisions(final_report, "\n".join(summary_parts))
         steps = getattr(workflow, "steps", None) or []
@@ -479,8 +471,6 @@ class WorkflowRunner:
             (graph.nodes.get(sid) and (graph.nodes[sid].error or "") == "workflow_step_approval_pending")
             for sid in graph.execution_order
         ):
-            from butler.human_gate import format_pending_hint
-
             hint = format_pending_hint(session_key)
             if hint:
                 lines.append(hint)
@@ -497,8 +487,6 @@ def run_workflow_for_project(
     orchestrator: Any | None = None,
 ) -> str:
     """Resolve and run a workflow; return user-facing text."""
-    from butler.workflows.loader import resolve_workflow
-
     wf = resolve_workflow(project, name)
     if wf is None:
         return f"未找到工作流: {name}"

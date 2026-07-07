@@ -14,6 +14,17 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.io.safe_load import safe_load_json
+from butler.memory.butler_memory_ops import close_sqlite_connection
+from butler.memory.retrieval_ranking import rerank_memory_hits
+from butler.tenant import DEFAULT_TENANT, migrate_legacy_memory_layout, normalize_tenant_id, tenant_memory_dir
+from butler.memory.butler_memory_ops import seed_bundled_tenant_skills
+from butler.memory.butler_memory_ops import open_semantic_index
+from butler.memory.butler_memory_ops import delete_experience_vector
+from butler.memory.semantic_index import index_experience_row
+from butler.memory.butler_memory_ops import close_memory_store
+from butler.memory.semantic_index import SOURCE_OWNER_PROFILE
+from butler.memory.vector_sync_telemetry import record_vector_sync
+from butler.memory.triplets import TripletIndex
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +172,6 @@ class ExperienceStore:
         return conn
 
     def close(self) -> None:
-        from butler.memory.butler_memory_ops import close_sqlite_connection
 
         with self._lock:
             close_sqlite_connection(self._conn)
@@ -402,7 +412,6 @@ class ExperienceStore:
                 except (TypeError, ValueError):
                     item["score"] = 0.5
                 out.append(item)
-            from butler.memory.retrieval_ranking import rerank_memory_hits
 
             return cast(list[dict[str, Any]], rerank_memory_hits(out))
 
@@ -624,17 +633,10 @@ class ButlerMemory:
     """Tenant-scoped Butler memory: owner profile + cross-project experience."""
 
     def __init__(self, butler_home: Path, *, tenant_id: str = "default"):
-        from butler.tenant import (
-            DEFAULT_TENANT,
-            migrate_legacy_memory_layout,
-            normalize_tenant_id,
-            tenant_memory_dir,
-        )
 
         self.butler_home = Path(butler_home).expanduser().resolve()
         self.tenant_id = normalize_tenant_id(tenant_id or DEFAULT_TENANT)
         migrate_legacy_memory_layout(self.butler_home)
-        from butler.memory.butler_memory_ops import seed_bundled_tenant_skills
 
         seed_bundled_tenant_skills(self.butler_home, self.tenant_id)
         mem_dir = tenant_memory_dir(self.butler_home, self.tenant_id)
@@ -642,7 +644,6 @@ class ButlerMemory:
         self.profile = ProfileStore(mem_dir / "profile.json")
         self.experience = ExperienceStore(mem_dir / "experience.db")
         self.semantic = None
-        from butler.memory.butler_memory_ops import open_semantic_index
 
         self.semantic = open_semantic_index(mem_dir)
         self._maybe_prune_stale_conversations()
@@ -670,7 +671,6 @@ class ButlerMemory:
         sem = self.semantic
         if sem is None or not row_ids:
             return 0
-        from butler.memory.butler_memory_ops import delete_experience_vector
 
         removed = 0
         for rid in row_ids:
@@ -738,7 +738,6 @@ class ButlerMemory:
     ) -> int:
         row_id = self.experience.add(project, category, content, tags=tags)
         if row_id > 0:
-            from butler.memory.semantic_index import index_experience_row
 
             index_experience_row(
                 self.semantic,
@@ -773,7 +772,6 @@ class ButlerMemory:
 
     def close(self) -> None:
         """Release sqlite connections held by experience and semantic stores."""
-        from butler.memory.butler_memory_ops import close_memory_store
 
         close_memory_store(self.experience)
         close_memory_store(self.semantic)
@@ -783,7 +781,6 @@ class ButlerMemory:
         sem = self.semantic
         if sem is None:
             return 0
-        from butler.memory.semantic_index import SOURCE_OWNER_PROFILE
 
         cleared = sem.delete_source_prefix(SOURCE_OWNER_PROFILE)
         indexed = 0
@@ -802,7 +799,6 @@ class ButlerMemory:
             indexed += 1
         logger.debug("Profile vectors: cleared %d, indexed %d", cleared, indexed)
         if indexed > 0:
-            from butler.memory.vector_sync_telemetry import record_vector_sync
 
             record_vector_sync("owner_profile")
         return indexed
@@ -815,6 +811,5 @@ class ButlerMemory:
     def triplet_index(self) -> Any:
         if self.semantic is None:
             return None
-        from butler.memory.triplets import TripletIndex
 
         return TripletIndex(self.semantic.db_path)

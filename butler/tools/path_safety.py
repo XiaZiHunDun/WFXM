@@ -10,6 +10,21 @@ from pathlib import Path
 
 from typing import Any, cast
 
+from butler.tools.path_safety_ops import (
+    workspace_from_project_safe,
+    workspace_for_session_key_safe,
+    default_project_workspace_safe,
+    audit_session_key_safe,
+    current_session_key_safe,
+    orchestrator_workspace_safe,
+    is_readable_session_tool_result_path_safe,
+    external_path_override_allowed_safe,
+    butlerignore_blocked_safe,
+    current_orchestrator_safe,
+    configured_safe_root_safe,
+    hooks_global_dir_blocks_write,
+)
+
 _BASE_TERMINAL_COMMANDS = {
     "cat",
     "echo",
@@ -75,19 +90,16 @@ class CommandSafetyResult:
 
 
 def _workspace_from_project(project: object | None) -> Path | None:
-    from butler.tools.path_safety_ops import workspace_from_project_safe
 
     return cast(Path | None, workspace_from_project_safe(project))
 
 
 def _workspace_for_session_key(session_key: str) -> Path | None:
-    from butler.tools.path_safety_ops import workspace_for_session_key_safe
 
     return cast(Path | None, workspace_for_session_key_safe(session_key))
 
 
 def _default_project_workspace() -> Path | None:
-    from butler.tools.path_safety_ops import default_project_workspace_safe
 
     return cast(Path | None, default_project_workspace_safe())
 
@@ -120,11 +132,6 @@ def _remap_projects_docs_trap(resolved: Path, *, session_ws: Path | None) -> Pat
 
 def current_workspace_root() -> Path | None:
     """Return the active Butler project workspace, if a turn has one."""
-    from butler.tools.path_safety_ops import (
-        audit_session_key_safe,
-        current_session_key_safe,
-        orchestrator_workspace_safe,
-    )
 
     session_key = current_session_key_safe()
     ws = orchestrator_workspace_safe(session_key)
@@ -206,13 +213,11 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
         return PathSafetyResult(False, resolved, hooks_error)
 
     if not for_write:
-        from butler.tools.path_safety_ops import is_readable_session_tool_result_path_safe
 
         if is_readable_session_tool_result_path_safe(resolved):
             return PathSafetyResult(True, resolved)
 
     if root is not None and not _is_relative_to(resolved, root):
-        from butler.tools.path_safety_ops import external_path_override_allowed_safe
 
         override = external_path_override_allowed_safe(resolved, for_write=for_write)
         if override is True:
@@ -228,7 +233,6 @@ def check_tool_path(path: str | os.PathLike[str], *, for_write: bool = False) ->
 
     ws = session_ws or root
     if ws is not None:
-        from butler.tools.path_safety_ops import butlerignore_blocked_safe
 
         blocked = butlerignore_blocked_safe(
             resolved,
@@ -369,13 +373,11 @@ def safe_subprocess_env() -> dict[str, str]:
 
 
 def _current_orchestrator() -> Any:
-    from butler.tools.path_safety_ops import current_orchestrator_safe
 
     return current_orchestrator_safe()
 
 
 def _configured_safe_root() -> Path | None:
-    from butler.tools.path_safety_ops import configured_safe_root_safe
 
     return cast(Path | None, configured_safe_root_safe())
 
@@ -500,7 +502,6 @@ def _hooks_config_write_error(
     if not for_write:
         return ""
     resolved = path.resolve(strict=False)
-    from butler.tools.path_safety_ops import hooks_global_dir_blocks_write
 
     if hooks_global_dir_blocks_write(resolved):
         return "Access denied: path targets hooks configuration"

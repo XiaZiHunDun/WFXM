@@ -28,6 +28,26 @@ from butler.gateway.command_registry import (
     register,
     require_owner,
 )
+from butler.core.goal_loop import start_goal_loop, stop_goal_loop
+from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
+from butler.gateway.commands.dialog_commands_ops import (
+    cleanup_new_session_state_safe,
+    format_project_slug_hint_safe,
+    format_project_switch_brief_safe,
+    record_session_reset_safe,
+)
+from butler.gateway.queue_settings import apply_queue_command
+from butler.human_gate import resolve_human_gate_message
+from butler.model_resolve import handle_model_command
+from butler.plan.mode import (
+    clear_plan_mode,
+    format_plan_mode_status,
+    set_plan_mode,
+)
+from butler.project.lead import lead_mode_switch_suffix
+from butler.report import clear_report_cache
+from butler.session.new_session import handle_new_session_command
+from butler.tools.tool_audit import reset_tool_audit_events
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -42,7 +62,6 @@ def _cmd_steer(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.core.steer import format_steer_gateway_reply, is_run_active, steer
 
     active = is_run_active(ctx.session_key)
     accepted = bool(active and steer(ctx.arg, session_key=ctx.session_key))
@@ -53,7 +72,6 @@ def _cmd_queue(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.queue_settings import apply_queue_command
 
     return _as_str(apply_queue_command(ctx.session_key, ctx.arg))
 
@@ -62,7 +80,6 @@ def _cmd_approve(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.human_gate import resolve_human_gate_message
 
     return _as_str(
         resolve_human_gate_message(ctx.session_key, "确认", owner_verified=True)
@@ -73,7 +90,6 @@ def _cmd_cancel(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.human_gate import resolve_human_gate_message
 
     return _as_str(
         resolve_human_gate_message(ctx.session_key, "取消", owner_verified=True)
@@ -84,7 +100,6 @@ def _cmd_goal_loop(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.core.goal_loop import start_goal_loop
 
     return _as_str(start_goal_loop(ctx.session_key, ctx.arg))
 
@@ -93,7 +108,6 @@ def _cmd_stop_goal_loop(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.core.goal_loop import stop_goal_loop
 
     return _as_str(stop_goal_loop(ctx.session_key))
 
@@ -102,12 +116,9 @@ def _cmd_plan_mode(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.plan.mode import format_plan_mode_status, set_plan_mode
 
     arg_l = (ctx.arg or "").strip().lower()
     if arg_l in ("off", "exit", "执行", "退出", "关闭"):
-        from butler.plan.mode import clear_plan_mode
-
         clear_plan_mode(ctx.session_key)
         ctx.reset_loop()
         return "已退出规划模式，可以委派与写入。"
@@ -120,7 +131,6 @@ def _cmd_exit_plan(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.plan.mode import clear_plan_mode
 
     clear_plan_mode(ctx.session_key)
     ctx.reset_loop()
@@ -154,13 +164,7 @@ def format_switch_project_reply(
         extra = ""
         if cleared:
             extra = f"\n已重建对话引擎（清理 {len(cleared)} 个旧项目会话）。"
-        from butler.project.lead import lead_mode_switch_suffix
-
         lead_note = lead_mode_switch_suffix(new_name)
-        from butler.gateway.commands.dialog_commands_ops import (
-            format_project_switch_brief_safe,
-        )
-
         brief = format_project_switch_brief_safe(orchestrator, session_key, new_name)
         return (
             f"已切换到项目: {new_name}\n"
@@ -170,8 +174,6 @@ def format_switch_project_reply(
     available = pm.list_projects()
     if available:
         names = [p.name for p in available]
-        from butler.gateway.commands.dialog_commands_ops import format_project_slug_hint_safe
-
         slug_hint = format_project_slug_hint_safe(available)
         suggestions = pm.suggest_project_names(arg, limit=3)
         body = [f"未找到项目: {arg}"]
@@ -196,8 +198,6 @@ def format_model_reply(
     arg: str,
 ) -> str:
     """/模型 [provider/model]: 查看或切换当前模型. 副作用: model 变化时 reset session."""
-    from butler.model_resolve import handle_model_command
-
     proj = orchestrator.project_manager.get_current(session_key=session_key)
     proj_name = (
         orchestrator.project_manager.resolve_active_project_name(
@@ -213,8 +213,6 @@ def format_model_reply(
     )
     if reset_loop:
         session_registry.reset(session_key)
-        from butler.tools.tool_audit import reset_tool_audit_events
-
         reset_tool_audit_events(session_key)
     return str(reply)
 
@@ -226,24 +224,12 @@ def format_new_session_reply(
     session_key: str,
 ) -> str:
     """/新对话: 清空当前会话状态, 11+ 项清理 + 触发 session end 钩子."""
-    from butler.session.new_session import handle_new_session_command
-
     loop = sessions.get(session_key)
-    from butler.gateway.commands.dialog_commands_ops import (
-        cleanup_new_session_state_safe,
-        record_session_reset_safe,
-    )
 
     record_session_reset_safe(session_key, reason="new")
     session_registry.reset(session_key, skip_finalize=True)
-    from butler.tools.tool_audit import reset_tool_audit_events
-
     reset_tool_audit_events(session_key)
-    from butler.report import clear_report_cache
-
     clear_report_cache(session_key)
-    from butler.plan.mode import clear_plan_mode
-
     clear_plan_mode(session_key)
     cleanup_new_session_state_safe(session_key)
     return str(handle_new_session_command(orchestrator, session_key, loop))

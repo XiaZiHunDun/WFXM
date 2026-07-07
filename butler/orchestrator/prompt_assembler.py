@@ -4,6 +4,14 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, cast
+from butler.model_resolve import resolve_effective_model
+from butler.workflows.loader import format_workflows_for_prompt
+from butler.orchestrator.prompt_assembler_ops import import_system_reminder_safe
+from butler.core.prompt_renderer import render_orchestrator_turn
+from butler.orchestrator.prompt_assembler_ops import static_system_reminder_enabled_safe
+from butler.agent_profiles import get_profile
+from butler.project.meta import lifecycle_operating_hint
+from butler.agent_profiles import get_model_aware_prompt_extra
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -42,7 +50,6 @@ def system_prompt_placeholders(
     current = orch.project_manager.current_project or "(未选择)"
     project_list = format_project_list(orch._settings)
 
-    from butler.model_resolve import resolve_effective_model
 
     proj = orch.project_manager.get_current()
     em = resolve_effective_model("butler", project=proj, settings=orch._settings)
@@ -65,7 +72,6 @@ def system_prompt_placeholders(
 
     memory_ctx = memory_bridge.build_memory_context(orch, for_role=for_role)
 
-    from butler.workflows.loader import format_workflows_for_prompt
 
     workflows_block = format_workflows_for_prompt(orch.project_manager.get_current())
 
@@ -89,7 +95,6 @@ def build_dynamic_system_reminder(
     for_role: str = "default",
 ) -> str:
     """Dynamic context injected into the user turn when static system mode is on."""
-    from butler.orchestrator.prompt_assembler_ops import import_system_reminder_safe
 
     wrap_system_reminder = import_system_reminder_safe()
     if wrap_system_reminder is None:
@@ -142,7 +147,6 @@ def resolve_system_prompt(
     """Return (system_prompt, optional user-side reminder)."""
     if role == "lead":
         return build_lead_system_prompt(orch, session_key=session_key), None
-    from butler.core.prompt_renderer import render_orchestrator_turn
 
     return cast(tuple[str, str | None], render_orchestrator_turn(orch, for_role=role))
 
@@ -179,7 +183,6 @@ def assemble_default_system_prompt(
 
 
 def build_system_prompt(orch: ButlerOrchestrator) -> str:
-    from butler.orchestrator.prompt_assembler_ops import static_system_reminder_enabled_safe
 
     if static_system_reminder_enabled_safe():
         return build_static_system_prompt(orch)
@@ -192,7 +195,6 @@ def build_lead_system_prompt(
     session_key: str = "",
 ) -> str:
     """System prompt for project Lead gateway loop (phase 2)."""
-    from butler.agent_profiles import get_profile
 
     path = lead_template_path()
     body = read_template_cached(path)
@@ -206,13 +208,11 @@ def build_lead_system_prompt(
         session_key=session_key,
     ) or orch.project_manager.current_project or "(未选择)"
     memory_ctx = memory_bridge.build_memory_context(orch, for_role="lead")
-    from butler.workflows.loader import format_workflows_for_prompt
 
     workflows_block = format_workflows_for_prompt(
         orch.project_manager.get_current(session_key=session_key or "")
     )
     proj = orch.project_manager.get_current(session_key=session_key or "")
-    from butler.project.meta import lifecycle_operating_hint
 
     lifecycle_block = lifecycle_operating_hint(proj)
 
@@ -229,7 +229,6 @@ def build_lead_system_prompt(
         rendered = rendered.rstrip() + "\n\n" + lifecycle_block
     profile = get_profile("lead")
     if profile:
-        from butler.agent_profiles import get_model_aware_prompt_extra
 
         mc = orch._model_credentials("butler")
         prov = mc.get("provider") or ""

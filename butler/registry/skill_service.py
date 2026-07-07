@@ -30,6 +30,15 @@ from butler.registry.skill_sources.marketplace import (
 )
 from butler.registry.skill_sources.base import SkillSource
 from butler.registry.skill_types import InstalledSkillRecord, SkillBundle, SkillSearchHit
+from butler.registry.skill_service_ops import ensure_catalog_integrity_safe
+from butler.registry.skill_service_ops import search_source_safe
+from butler.registry.skill_service_ops import inspect_source_safe
+from butler.registry.skill_service_ops import fetch_from_source_safe
+from butler.env_parse import is_butler_prod
+from butler.registry.registry_errors import InstallConfirmationRequired
+from butler.registry.skill_service_ops import run_pre_install_scan_safe
+from butler.registry.marketplace_compat import format_install_followup
+from butler.registry.skills_project_sync import maybe_sync_after_registry_install
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +50,6 @@ def _ensure_catalog_integrity_once() -> None:
     if _catalog_integrity_checked:
         return
     _catalog_integrity_checked = True
-    from butler.registry.skill_service_ops import ensure_catalog_integrity_safe
 
     ensure_catalog_integrity_safe()
 
@@ -116,7 +124,6 @@ class SkillRegistryService:
         if not registry_enabled():
             return []
         hits: list[SkillSearchHit] = []
-        from butler.registry.skill_service_ops import search_source_safe
 
         for src in _sources():
             if source_filter != "all" and src.source_id != source_filter:
@@ -137,7 +144,6 @@ class SkillRegistryService:
         return out
 
     def inspect(self, identifier: str) -> SkillSearchHit | None:
-        from butler.registry.skill_service_ops import inspect_source_safe
 
         for src in _sources():
             hit = inspect_source_safe(src, identifier)
@@ -148,7 +154,6 @@ class SkillRegistryService:
     def fetch_bundle(self, identifier: str) -> SkillBundle:
         sources = _sources()
         ident = _resolve_identifier(identifier, sources)
-        from butler.registry.skill_service_ops import fetch_from_source_safe
 
         for src in sources:
             bundle = fetch_from_source_safe(src, ident)
@@ -164,7 +169,6 @@ class SkillRegistryService:
         # Sprint 19-3 SEC-19-3: prod 环境硬拒 BUTLER_REGISTRY_AUTO_INSTALL 越权 BYPASS.
         # 防 .env 误带上线 / CI 残留 → community skill 无确认自动 install. 模式同
         # Sprint 18-2 (BUTLER_PROJECT_CREATE_OPEN prod 禁用).
-        from butler.env_parse import is_butler_prod
 
         if is_butler_prod():
             return True
@@ -197,7 +201,6 @@ class SkillRegistryService:
 
         trust = bundle.trust or (hit.trust if hit else "community")
         if self.needs_install_confirmation(trust=trust, force=force, confirmed=confirmed):
-            from butler.registry.registry_errors import InstallConfirmationRequired
 
             if hit is None:
                 hit = SkillSearchHit(
@@ -209,7 +212,6 @@ class SkillRegistryService:
                 )
             raise InstallConfirmationRequired(hit)
 
-        from butler.registry.skill_service_ops import run_pre_install_scan_safe
 
         run_pre_install_scan_safe(bundle, hit)
 
@@ -284,8 +286,6 @@ class SkillRegistryService:
         *,
         record: InstalledSkillRecord | None = None,
     ) -> str:
-        from butler.registry.marketplace_compat import format_install_followup
-        from butler.registry.skills_project_sync import maybe_sync_after_registry_install
 
         parts: list[str] = []
         compat = format_install_followup(identifier)

@@ -3,15 +3,41 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.preread_context import build_preread_block, inject_preread_into_args
+from butler.core.session_recall_intent import check_session_read_recall_tool_block
+from butler.core.tool_error_policy import apply_tool_error_policy
+from butler.execution_context import get_current_orchestrator, get_current_session_key
+from butler.hooks.runner import (
+    run_permission_denied_hooks,
+    run_permission_request_hooks,
+    run_post_tool_hooks,
+    run_pre_tool_hooks,
+)
+from butler.mcp.config import mcp_enabled
+from butler.mcp.registry_hook import (
+    check_plan_mode_mcp_block,
+    get_mcp_tool_definitions,
+    is_mcp_tool,
+)
+from butler.permissions import check_project_permission_block
+from butler.tools.network_search_policy import (
+    check_network_search_tool_block,
+    note_web_search_outcome as _note_web_search_outcome_impl,
+    record_network_search_tool,
+)
+from butler.tools.registry_invoke_ops import (
+    invoke_registered_tool_handler as _invoke_registered_tool_handler,
+)
+from butler.tools.tool_arg_normalize import normalize_tool_args, validate_tool_args
+from butler.tools.toolset_profiles import filter_definitions_by_toolset as _filter_by_toolset
 
 
 def mcp_tools_enabled() -> bool:
     def _run() -> bool:
-        from butler.mcp.config import mcp_enabled
-
         return bool(mcp_enabled())
 
     result = safe_best_effort(
@@ -24,8 +50,6 @@ def mcp_tools_enabled() -> bool:
 
 def extend_mcp_definitions(definitions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     def _run() -> list[dict[str, Any]]:
-        from butler.mcp.registry_hook import get_mcp_tool_definitions
-
         return [*definitions, *get_mcp_tool_definitions()]
 
     result = safe_best_effort(
@@ -38,9 +62,7 @@ def extend_mcp_definitions(definitions: list[dict[str, Any]]) -> list[dict[str, 
 
 def filter_definitions_by_toolset(definitions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     def _run() -> list[dict[str, Any]]:
-        from butler.tools.toolset_profiles import filter_definitions_by_toolset as _filter
-
-        return cast(list[dict[str, Any]], _filter(definitions))
+        return cast(list[dict[str, Any]], _filter_by_toolset(definitions))
 
     result = safe_best_effort(
         _run,
@@ -52,8 +74,6 @@ def filter_definitions_by_toolset(definitions: list[dict[str, Any]]) -> list[dic
 
 def plan_mode_mcp_block(name: str) -> str | None:
     def _run() -> str | None:
-        from butler.mcp.registry_hook import check_plan_mode_mcp_block
-
         return cast(str | None, check_plan_mode_mcp_block(name))
 
     return cast(
@@ -68,8 +88,6 @@ def plan_mode_mcp_block(name: str) -> str | None:
 
 def project_permission_block(name: str, args: dict[str, Any]) -> str | None:
     def _run() -> str | None:
-        from butler.permissions import check_project_permission_block
-
         return cast(str | None, check_project_permission_block(name, args))
 
     return cast(
@@ -84,8 +102,6 @@ def project_permission_block(name: str, args: dict[str, Any]) -> str | None:
 
 def pre_tool_hooks_block(name: str, args: dict[str, Any]) -> str | None:
     def _run() -> str | None:
-        from butler.hooks.runner import run_pre_tool_hooks
-
         return cast(str | None, run_pre_tool_hooks(name, args))
 
     return cast(
@@ -106,11 +122,6 @@ def network_search_gate(
     started_at: float,
 ) -> str | None:
     def _run() -> str | None:
-        from butler.tools.network_search_policy import (
-            check_network_search_tool_block,
-            record_network_search_tool,
-        )
-
         block = check_network_search_tool_block(name, args if isinstance(args, dict) else {})
         if block:
             return finalize(name, args, block, started_at=started_at)
@@ -134,8 +145,6 @@ def dispatch_mcp_if_applicable(
     dispatch_mcp: Callable[..., str],
 ) -> str | None:
     def _run() -> str | None:
-        from butler.mcp.registry_hook import is_mcp_tool
-
         if is_mcp_tool(name):
             return dispatch_mcp(name, args)
         return None
@@ -152,8 +161,6 @@ def dispatch_mcp_if_applicable(
 
 def session_read_recall_block(name: str) -> str | None:
     def _run() -> str | None:
-        from butler.core.session_recall_intent import check_session_read_recall_tool_block
-
         return cast(str | None, check_session_read_recall_tool_block(name))
 
     return cast(
@@ -168,9 +175,6 @@ def session_read_recall_block(name: str) -> str | None:
 
 def permission_request_hooks_block(name: str, args: dict[str, Any]) -> str | None:
     def _run() -> str | None:
-        from butler.execution_context import get_current_session_key
-        from butler.hooks.runner import run_permission_request_hooks
-
         sk = str(get_current_session_key() or "").strip()
         return cast(str | None, run_permission_request_hooks(name, args, session_key=sk))
 
@@ -189,8 +193,6 @@ def normalize_and_validate_args(
     args: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any] | None]:
     def _run() -> tuple[dict[str, Any], dict[str, Any] | None]:
-        from butler.tools.tool_arg_normalize import normalize_tool_args, validate_tool_args
-
         call_args = normalize_tool_args(name, dict(args))
         arg_err = validate_tool_args(name, call_args)
         return call_args, arg_err
@@ -210,11 +212,6 @@ def inject_read_file_preread(name: str, call_args: dict[str, Any]) -> dict[str, 
         return call_args
 
     def _run() -> dict[str, Any]:
-        from pathlib import Path
-
-        from butler.core.preread_context import build_preread_block, inject_preread_into_args
-        from butler.execution_context import get_current_orchestrator
-
         orch = get_current_orchestrator()
         ws = None
         if orch is not None:
@@ -236,22 +233,14 @@ def inject_read_file_preread(name: str, call_args: dict[str, Any]) -> dict[str, 
 
 def note_web_search_outcome(result: Any) -> None:
     safe_best_effort(
-        lambda: _note_web_search_outcome(result),
+        lambda: _note_web_search_outcome_impl(result),
         label="registry.web_search_outcome",
         default=None,
     )
 
 
-def _note_web_search_outcome(result: Any) -> None:
-    from butler.tools.network_search_policy import note_web_search_outcome
-
-    note_web_search_outcome(result)
-
-
 def permission_denied_hint(name: str, args: dict[str, Any], reason: str) -> str | None:
     def _run() -> str | None:
-        from butler.hooks.runner import run_permission_denied_hooks
-
         return cast(str | None, run_permission_denied_hooks(name, args, reason))
 
     return cast(
@@ -285,8 +274,6 @@ def apply_post_tool_hooks(
             hook_failed = '"error"' in finalized
 
     def _run() -> str:
-        from butler.hooks.runner import run_post_tool_hooks
-
         return cast(str, run_post_tool_hooks(name, args, finalized, failed=hook_failed))
 
     result = safe_best_effort(
@@ -307,11 +294,9 @@ def invoke_registered_tool_handler(
     finalize_result: Callable[..., str],
     apply_hooks: Callable[..., str],
 ) -> str:
-    from butler.tools.registry_invoke_ops import invoke_registered_tool_handler as _invoke
-
     return cast(
         str,
-        _invoke(
+        _invoke_registered_tool_handler(
             name=name,
             args=args,
             call_args=call_args,
@@ -325,8 +310,6 @@ def invoke_registered_tool_handler(
 
 def tool_error_payload(name: str, exc: BaseException) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.core.tool_error_policy import apply_tool_error_policy
-
         raw = apply_tool_error_policy(
             "",
             tool_name=name,

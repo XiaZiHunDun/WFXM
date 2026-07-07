@@ -7,6 +7,26 @@ from typing import Any
 from butler.core.best_effort import safe_best_effort
 
 
+from butler.ops.openclaw_diagnostics import format_openclaw_diagnostic_lines
+from butler.ops.registry_diagnostics import format_registry_diagnostic_lines
+from butler.core.tool_pair_repair import tool_pair_repair_enabled
+from butler.core.compaction_checkpoint import load_checkpoint
+from butler.core.todo_continuation import (
+    max_continuations,
+    todo_continuation_enabled,
+)
+from butler.core.intent_keywords import intent_keywords_enabled
+from butler.delegate.category_resolver import list_categories
+from butler.core.hashline import hashline_read_enabled
+from butler.core.rules_engine import (
+    max_chars,
+    rules_engine_enabled,
+)
+from butler.core.goal_loop import (
+    goal_loop_globally_enabled,
+    is_goal_loop_active,
+)
+
 def extend_openclaw_lines(
     lines: list[str],
     health: dict[str, Any] | None,
@@ -14,7 +34,6 @@ def extend_openclaw_lines(
     session_key: str,
 ) -> None:
     def _run() -> None:
-        from butler.ops.openclaw_diagnostics import format_openclaw_diagnostic_lines
 
         lines.extend(format_openclaw_diagnostic_lines(health, session_key=session_key))
 
@@ -28,7 +47,6 @@ def extend_registry_lines(
     session_key: str,
 ) -> None:
     def _run() -> None:
-        from butler.ops.registry_diagnostics import format_registry_diagnostic_lines
 
         reg_lines = format_registry_diagnostic_lines(health, session_key=session_key)
         if reg_lines:
@@ -39,7 +57,6 @@ def extend_registry_lines(
 
 def append_tool_pair_repair_line(lines: list[str]) -> None:
     def _build() -> str:
-        from butler.core.tool_pair_repair import tool_pair_repair_enabled
 
         return (
             f"Tool-pair 修复: {'开' if tool_pair_repair_enabled() else '关'} "
@@ -53,7 +70,6 @@ def append_tool_pair_repair_line(lines: list[str]) -> None:
 
 def append_compaction_checkpoint_disk_line(lines: list[str], session_key: str) -> None:
     def _run() -> None:
-        from butler.core.compaction_checkpoint import load_checkpoint
 
         if session_key and load_checkpoint(session_key):
             lines.append("压缩检查点: 磁盘有快照")
@@ -63,7 +79,6 @@ def append_compaction_checkpoint_disk_line(lines: list[str], session_key: str) -
 
 def append_todo_continuation_line(lines: list[str], health: dict[str, Any] | None) -> None:
     def _run() -> None:
-        from butler.core.todo_continuation import max_continuations, todo_continuation_enabled
 
         h = health or {}
         loop = h.get("loop") if isinstance(h.get("loop"), dict) else {}
@@ -81,7 +96,6 @@ def append_todo_continuation_line(lines: list[str], health: dict[str, Any] | Non
 
 def append_intent_keywords_line(lines: list[str]) -> None:
     def _build() -> str:
-        from butler.core.intent_keywords import intent_keywords_enabled
 
         return (
             f"魔法词注入: {'开' if intent_keywords_enabled() else '关'} "
@@ -95,7 +109,6 @@ def append_intent_keywords_line(lines: list[str]) -> None:
 
 def append_delegate_categories_line(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.delegate.category_resolver import list_categories
 
         cats = list_categories()
         if cats:
@@ -106,7 +119,6 @@ def append_delegate_categories_line(lines: list[str]) -> None:
 
 def append_hashline_line(lines: list[str]) -> None:
     def _build() -> str:
-        from butler.core.hashline import hashline_read_enabled
 
         return f"Hashline 读: {'开' if hashline_read_enabled() else '关'} (BUTLER_HASHLINE_READ)"
 
@@ -117,7 +129,6 @@ def append_hashline_line(lines: list[str]) -> None:
 
 def append_rules_engine_line(lines: list[str]) -> None:
     def _build() -> str:
-        from butler.core.rules_engine import max_chars, rules_engine_enabled
 
         return (
             f"规则引擎: {'开' if rules_engine_enabled() else '关'} "
@@ -131,7 +142,6 @@ def append_rules_engine_line(lines: list[str]) -> None:
 
 def append_goal_loop_line(lines: list[str], session_key: str) -> None:
     def _build() -> str:
-        from butler.core.goal_loop import goal_loop_globally_enabled, is_goal_loop_active
 
         if session_key and is_goal_loop_active(session_key):
             return "目标循环: 本会话活跃 (/停止循环 结束)"

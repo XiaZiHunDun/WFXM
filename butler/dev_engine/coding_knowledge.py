@@ -13,6 +13,14 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, cast
+from butler.memory.memory_scope import MemoryScope
+from butler.dev_engine.coding_knowledge_ops import infer_b9_task_id_safe
+from butler.dev_engine.coding_knowledge_ops import experience_retrieval_eligible_safe
+from butler.dev_engine.coding_knowledge_ops import experience_retrieval_rank_bonus_safe
+from butler.memory.memory_scope import project_coding_experiences_path
+from butler.memory.memory_scope import backfill_experience_scope
+from butler.memory.memory_scope import MemoryScope, infer_default_scope
+from butler.memory.memory_scope import infer_default_scope
 
 if TYPE_CHECKING:
     from butler.memory.memory_scope import MemoryScope
@@ -767,7 +775,6 @@ class TheoremLibrary:
 # ═══════════════════════════════════════════════════════════════════
 
 def _default_memory_scope() -> "MemoryScope":
-    from butler.memory.memory_scope import MemoryScope
 
     return MemoryScope()
 
@@ -910,7 +917,6 @@ class ExperienceLibrary:
         normalized = _normalize_keywords(keywords)
         task_id = (inferred_task_id or "").strip()
         if not task_id:
-            from butler.dev_engine.coding_knowledge_ops import infer_b9_task_id_safe
 
             task_id = infer_b9_task_id_safe(" ".join(sorted(keywords)))
         scope_tags = frozenset(stack_tags or ())
@@ -961,7 +967,6 @@ class ExperienceLibrary:
         *,
         inferred_task_id: str,
     ) -> bool:
-        from butler.dev_engine.coding_knowledge_ops import experience_retrieval_eligible_safe
 
         return cast(bool, experience_retrieval_eligible_safe(
             experience_id=exp.id,
@@ -978,7 +983,6 @@ class ExperienceLibrary:
         inferred_task_id: str,
         project_id: str,
     ) -> int:
-        from butler.dev_engine.coding_knowledge_ops import experience_retrieval_rank_bonus_safe
 
         return cast(int, experience_retrieval_rank_bonus_safe(
             experience_id=exp.id,
@@ -1003,7 +1007,6 @@ class ExperienceLibrary:
         """Load L4 tenant corpus + optional L3 project file into one library."""
         merged = cls.load_from_file(tenant_path, theorem_lib=theorem_lib)
         if project_workspace:
-            from butler.memory.memory_scope import project_coding_experiences_path
 
             proj_path = project_coding_experiences_path(project_workspace)
             proj_lib = cls.load_from_file(str(proj_path), theorem_lib=theorem_lib)
@@ -1013,7 +1016,6 @@ class ExperienceLibrary:
 
     def backfill_scopes(self) -> int:
         """Infer MemoryScope on legacy rows; return count updated."""
-        from butler.memory.memory_scope import backfill_experience_scope
 
         updated = 0
         for exp in self._experiences.values():
@@ -1132,7 +1134,6 @@ class ExperienceLibrary:
         except (json.JSONDecodeError, OSError):
             return lib
         for rec in records:
-            from butler.memory.memory_scope import MemoryScope, infer_default_scope
 
             scope_raw = rec.get("scope")
             if scope_raw:
@@ -1178,7 +1179,6 @@ class ExperienceLibrary:
             return 0
         loaded = 0
         for rec in records:
-            from butler.memory.memory_scope import infer_default_scope
 
             exp = CodingExperience(
                 id=rec.get("id", ""),

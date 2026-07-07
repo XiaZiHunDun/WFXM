@@ -45,7 +45,7 @@
 
 - `butler/contracts/` 已建（EventsSink + OwnerGate + BridgeAccess）
 - `core/` / `tools/` 直 import `gateway.*` 已 AST 守门（ENG-7）
-- 延迟 `from butler.*`（**函数内**，AST 计数）：**~3420**（`LAZY_IMPORT_BUDGET=3450`；报告 `scripts/p3i-lazy-import-report.sh`）
+- 延迟 `from butler.*`（**函数内**，AST 计数）：**~1945**（`LAZY_IMPORT_BUDGET=1975`；报告 `scripts/p3i-lazy-import-report.sh`）
 
 ### S3 — 大函数 / 大文件残留
 
@@ -249,13 +249,12 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 - 明确文档：`vector_store.py`（ChromaDB）= 非生产/实验 only
 - 评估 Observation Store 从 opt-in 派生升为辅助检索层
 
-#### 方向 I：延迟导入减量 — **进行中** 2026-07-06（P3-I Batch 2–8）
+#### 方向 I：延迟导入减量 — **已达成** 2026-07-07（P3-I Batch 9–17）
 
-- **基线**：函数内 **3593** → 当前 **3420**（−173；模块顶 **~1401**）
-- **目标**：→ **2000**（长期；Batch 9+ 继续 top 文件 helper/hoist）
-- **手段**：文件内 helper 合并 + 安全模块顶 hoist（`safe_best_effort` / `env_parse` / gateway 簇）
-- **Batch 2–8 已做**：`chat_cli` · `info_commands` · `slash_dispatch` · `message_pipelines` · `handler_helpers` · `wechat_ilink/adapter` · `outbound_bridge` · `completion_notify` · `locked_phases`（langfuse）· `agent_loop_phases` · `workflows/runner` · `tool_batch` · `health_report` · `task_orchestrator` · `context_compressor`
-- **门禁**：`p3i-lazy-import-report.sh` 已挂 **ENG domain gate**
+- **基线**：函数内 **3593** → 当前 **~1945**（−1648）
+- **目标**：→ **2000** ✓
+- **手段**：helper 合并 + 安全模块顶 hoist；环依赖处保留 lazy（`tool_batch`/`completion_notify`↔`outbound_bridge`/`tool_audit`↔`registry` 等）
+- **门禁**：`p3i-lazy-import-report.sh`（`LAZY_IMPORT_BUDGET=1975`）已挂 **ENG domain gate** + fast-gate（p3j）
 
 #### 方向 J：配置面收敛 — **进行中** 2026-07-06（P3-J Batch 2–4）
 

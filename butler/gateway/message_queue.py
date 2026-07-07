@@ -18,6 +18,17 @@ from pathlib import Path
 from typing import cast
 
 from butler.env_parse import env_truthy
+from butler.gateway.message_queue_ops import record_queue_drop_telemetry
+from butler.gateway.queue_settings import session_drop_policy, session_queue_cap
+from butler.gateway.message_queue_ops import record_queue_operation_safe
+from butler.gateway.message_queue_ops import refresh_queue_gauges_safe
+from butler.gateway.message_queue_ops import reset_queue_gauges_safe
+from butler.config import get_butler_home
+from butler.gateway.message_queue_ops import persist_enqueue_loud
+from butler.gateway.message_queue_ops import persist_remove_loud
+from butler.gateway.message_queue_ops import persist_clear_loud
+from butler.gateway.queue_settings import session_queue_cap
+from butler.gateway.message_queue_ops import queue_mode_suffix_safe
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +125,6 @@ def _should_dedupe(session_key: str, text: str) -> bool:
 
 
 def _record_queue_drop(session_key: str, *, reason: str, count: int = 1) -> None:
-    from butler.gateway.message_queue_ops import record_queue_drop_telemetry
 
     record_queue_drop_telemetry(session_key, reason=reason, count=count)
 def _summarize_dropped(text: str) -> str:
@@ -128,7 +138,6 @@ def _apply_cap_before_append(session_key: str, bucket: dict[str, deque[QueuedInb
     Sprint 11 PERF-11-1: 3 桶结构下，cap 检查汇总 3 桶总长；evict
     从最低优先级（later → next → now）开始 popleft，保留高优先级。
     """
-    from butler.gateway.queue_settings import session_drop_policy, session_queue_cap
 
     key = str(session_key or "default")
     cap = session_queue_cap(key)
@@ -198,14 +207,12 @@ def enqueue_inbound(
     _persist_enqueue(key, item)
     logger.info("Queued inbound session=%s priority=%s len=%d", key, pri, _bucket_total(bucket))
     _refresh_queue_gauges(key)
-    from butler.gateway.message_queue_ops import record_queue_operation_safe
 
     record_queue_operation_safe(key, pri, body)
     return True
 
 
 def _refresh_queue_gauges(session_key: str) -> None:
-    from butler.gateway.message_queue_ops import refresh_queue_gauges_safe
 
     refresh_queue_gauges_safe(session_key, depth_fn=pending_count, total_fn=pending_total)
 def pending_total() -> int:
@@ -322,7 +329,6 @@ def reset_queue(session_key: str | None = None) -> None:
             _LAST_ENQUEUE.pop(key, None)
             _DROP_SUMMARIES.pop(key, None)
     _persist_clear(session_key)
-    from butler.gateway.message_queue_ops import reset_queue_gauges_safe
 
     reset_queue_gauges_safe(session_key=session_key, refresh_fn=_refresh_queue_gauges)
 # ---------------------------------------------------------------------------
@@ -335,7 +341,6 @@ def _queue_persist_enabled() -> bool:
 
 
 def _queue_persist_dir() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home() / "gateway" / "queue")
 
@@ -344,7 +349,6 @@ def _persist_enqueue(session_key: str, item: QueuedInbound) -> None:
     """Append a queue entry to the session's JSONL file."""
     if not _queue_persist_enabled():
         return
-    from butler.gateway.message_queue_ops import persist_enqueue_loud
 
     row = {
         "id": item.persist_id,
@@ -361,7 +365,6 @@ def _persist_remove(session_key: str, persist_id: str) -> None:
     """Remove a single persisted entry by its id (rewrite minus the line)."""
     if not _queue_persist_enabled() or not persist_id:
         return
-    from butler.gateway.message_queue_ops import persist_remove_loud
 
     persist_remove_loud(session_key, persist_id, persist_dir_fn=_queue_persist_dir)
 
@@ -370,7 +373,6 @@ def _persist_clear(session_key: str | None = None) -> None:
     """Clear persisted queue file(s)."""
     if not _queue_persist_enabled():
         return
-    from butler.gateway.message_queue_ops import persist_clear_loud
 
     persist_clear_loud(session_key, persist_dir_fn=_queue_persist_dir)
 
@@ -410,7 +412,6 @@ def restore_persisted_queue() -> int:
             except (json.JSONDecodeError, KeyError):
                 continue
         if items:
-            from butler.gateway.queue_settings import session_queue_cap
 
             cap = session_queue_cap(session_key)
             with _LOCK:
@@ -437,7 +438,6 @@ def format_queued_ack(*, pending: int = 1, session_key: str = "") -> str:
         else "已收到，当前轮次结束后继续处理。"
     )
     if session_key:
-        from butler.gateway.message_queue_ops import queue_mode_suffix_safe
 
         suffix = queue_mode_suffix_safe(session_key)
         if suffix:

@@ -6,19 +6,28 @@ from pathlib import Path
 from typing import Any
 
 from butler.tools.delegate_run_state import DelegateRunState
+from butler.tools.delegate_subagent_ops import merge_agents_md_context_safe
+from butler.delegate.subagent_permissions import filter_tools_for_subagent
+from butler.tools.project_tools import get_tool_definitions_for_project
+from butler.core.delegate_context import child_callbacks, get_parent_callbacks
+from butler.tools.delegate_impl import _safe_dispatch
+from butler.core.cache_safe_delegate import apply_cache_safe_system_prompt, delegate_diagnostics
+from butler.core.delegate_context import get_parent_messages, get_parent_system_prompt
+from butler.delegate.policy import resolve_delegate_max_iterations
+from butler.tools.delegate_subagent_ops import apply_one_tool_per_iteration_safe
+from butler.tools.delegate_subagent_ops import inject_dev_engine_prompt_safe
+from butler.execution_context import get_current_session_key
+from butler.tools.delegate_impl import _orchestrator_for_tool
 
 
 def attach_agents_md_context(state: DelegateRunState) -> None:
     """Merge ``AGENTS.md`` into context for the current project (2b)."""
-    from butler.tools.delegate_subagent_ops import merge_agents_md_context_safe
 
     merge_agents_md_context_safe(state)
 
 
 def build_subagent_tools(state: DelegateRunState) -> None:
     """Populate ``state.tools`` and ``state.delegated_tools`` (2c base)."""
-    from butler.delegate.subagent_permissions import filter_tools_for_subagent
-    from butler.tools.project_tools import get_tool_definitions_for_project
 
     state.tools = get_tool_definitions_for_project(state.project, role=state.role)
     workspace = Path(state.project.workspace) if state.project is not None else None
@@ -51,8 +60,6 @@ def apply_subagent_tool_filters(state: DelegateRunState) -> None:
 
 def create_project_agent_loop(state: DelegateRunState) -> None:
     """Create the child agent loop with safe dispatch + child callbacks (2d)."""
-    from butler.core.delegate_context import child_callbacks, get_parent_callbacks
-    from butler.tools.delegate_impl import _safe_dispatch
 
     parent_cb = get_parent_callbacks()
     state.agent = state.orch.create_project_agent_loop(
@@ -66,14 +73,6 @@ def create_project_agent_loop(state: DelegateRunState) -> None:
 
 def apply_cache_safe_prompt(state: DelegateRunState) -> None:
     """Merge parent system prompt + record cache diagnostics (2e)."""
-    from butler.core.cache_safe_delegate import (
-        apply_cache_safe_system_prompt,
-        delegate_diagnostics,
-    )
-    from butler.core.delegate_context import (
-        get_parent_messages,
-        get_parent_system_prompt,
-    )
 
     parent_sys = get_parent_system_prompt()
     if not parent_sys:
@@ -98,10 +97,8 @@ def apply_cache_safe_prompt(state: DelegateRunState) -> None:
 
 def configure_subagent_policy(state: DelegateRunState) -> None:
     """Apply max-iterations + one-tool-per-iter policy (2f)."""
-    from butler.delegate.policy import resolve_delegate_max_iterations
 
     state.agent.config.max_iterations = resolve_delegate_max_iterations(state.category_meta)
-    from butler.tools.delegate_subagent_ops import apply_one_tool_per_iteration_safe
 
     apply_one_tool_per_iteration_safe(state)
 
@@ -111,7 +108,6 @@ def inject_dev_engine_prompt(state: DelegateRunState) -> None:
     norm = state.role.replace("_agent", "").strip().lower()
     if norm != "dev":
         return
-    from butler.tools.delegate_subagent_ops import inject_dev_engine_prompt_safe
 
     inject_dev_engine_prompt_safe(state)
 
@@ -141,8 +137,6 @@ def inject_workspace_root_context(state: DelegateRunState) -> None:
 
 def resolve_subagent(state: DelegateRunState) -> None:
     """Phase 2: build the project agent loop with cache-safe prompt."""
-    from butler.execution_context import get_current_session_key
-    from butler.tools.delegate_impl import _orchestrator_for_tool
 
     state.orch = _orchestrator_for_tool(channel="cli")
     parent_sk = str(get_current_session_key() or "").strip()

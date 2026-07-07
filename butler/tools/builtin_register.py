@@ -4,31 +4,69 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from butler.tools.registry import register
+from butler.core.transcript_search import register_transcript_search_tool
+from butler.extensions.opencode import get_opencode_bridge, opencode_enabled
+from butler.mcp.deferred import load_mcp_tools_handler, tool_search_handler
 from butler.tools.builtin_impl import (
-    _tool_read_file,
-    _tool_write_file,
-    _tool_delete_file,
-    _tool_patch,
-    _tool_terminal,
-    _tool_search_files,
-    _tool_list_directory,
-    _tool_skills_list,
-    _tool_skill_view,
-    _tool_run_workflow,
     _tool_delegate_task,
+    _tool_delete_file,
+    _tool_list_directory,
+    _tool_patch,
+    _tool_read_file,
+    _tool_run_workflow,
+    _tool_search_files,
+    _tool_skill_view,
+    _tool_skills_list,
+    _tool_terminal,
+    _tool_write_file,
 )
+from butler.tools.builtin_register_ops import (
+    register_dev_engine_tools_safe,
+    register_harness_builtin_tools_safe,
+)
+from butler.tools.config_tools import register_config_tools
+from butler.tools.contacts import register_contact_tools
+from butler.tools.data_query import register_data_query_tools
+from butler.tools.delegate_yield_tools import register_delegate_yield_tools
+from butler.tools.document_reader import register_document_tools
+from butler.tools.download_tools import register_download_tools
+from butler.tools.execute_code import register_execute_code_tool
+from butler.tools.expense import register_expense_tools
+from butler.tools.git_tools import register_git_tools
+from butler.tools.habits import register_habit_tools
+from butler.tools.knowledge_search import register_knowledge_tools
+from butler.tools.memo import register_memo_tools
+from butler.tools.memory_tools import register_memory_tools
+from butler.tools.mcp_self_service import register_mcp_self_service_tools
+from butler.tools.multimodal_tools import register_multimodal_tools
+from butler.tools.project_todos import register_project_todos_tools
+from butler.tools.registry import register
+from butler.tools.registry_tools import register_registry_tools
+from butler.tools.reminder import register_reminder_tools
+from butler.tools.runtime_tools import register_runtime_tools
+from butler.tools.safe_root import get_tool_safe_root
+from butler.tools.session_todos_tools import register_session_todos_tools
+from butler.tools.tool_schemas import (
+    delete_file_schema,
+    delegate_task_schema,
+    list_directory_schema,
+    patch_schema,
+    read_file_schema,
+    run_workflow_schema,
+    search_files_schema,
+    terminal_schema,
+    write_file_schema,
+)
+from butler.tools.web_fetch import register_web_fetch_tool
+from butler.tools.web_search import register_web_search_tool
+from butler.tools.workflow_tools import register_workflow_tools
 
 
 def _tool_mcp_tool_search(query: str, limit: int = 12, promote: bool = False) -> str:
-    from butler.mcp.deferred import tool_search_handler
-
     return cast(str, tool_search_handler(query, limit=limit, promote=promote))
 
 
 def _tool_load_mcp_tools(tool_names: list[Any] | None = None) -> str:
-    from butler.mcp.deferred import load_mcp_tools_handler
-
     return cast(str, load_mcp_tools_handler(list(tool_names or [])))
 
 
@@ -48,12 +86,8 @@ def _tool_ask_clarification(question: str, options: list[Any] | None = None) -> 
 def _tool_opencode_task(task: str, workspace: str = "", timeout_seconds: int = 0) -> str:
     import json as _json
 
-    from butler.extensions.opencode import get_opencode_bridge
-
     bridge = get_opencode_bridge()
     if not workspace:
-        from butler.tools.safe_root import get_tool_safe_root
-
         workspace = str(get_tool_safe_root())
     result = bridge.execute_task(
         task,
@@ -97,16 +131,6 @@ def _register_opencode_tool() -> None:
 
 def _register_builtin_tools() -> None:
     """Register Butler's core development tools."""
-    from butler.tools.tool_schemas import (
-        read_file_schema,
-        write_file_schema,
-        patch_schema,
-        delete_file_schema,
-        terminal_schema,
-        search_files_schema,
-        list_directory_schema,
-    )
-
     register(name="read_file", description="Read content from a file. Returns the file content as text.",
              schema=read_file_schema(), handler=_tool_read_file, toolset="file")
     register(name="write_file", description="Write content to a file. Creates the file if it doesn't exist.",
@@ -145,11 +169,7 @@ def _register_builtin_tools() -> None:
         toolset="skills",
     )
 
-    from butler.tools.builtin_register_ops import register_harness_builtin_tools_safe
-
     register_harness_builtin_tools_safe(register)
-
-    from butler.tools.tool_schemas import delegate_task_schema, run_workflow_schema
 
     register(name="run_workflow",
              description="Run a named project workflow (DAG of dev/content/review agents).",
@@ -158,107 +178,32 @@ def _register_builtin_tools() -> None:
              description="Delegate a task to a project-level agent (dev/content/review).",
              schema=delegate_task_schema(), handler=_tool_delegate_task, toolset="delegation")
 
-    from butler.tools.registry_tools import register_registry_tools
-
     register_registry_tools(register)
-
-    from butler.tools.memory_tools import register_memory_tools
-
     register_memory_tools(register)
-
-    from butler.core.transcript_search import register_transcript_search_tool
-
     register_transcript_search_tool(register)
-
-    from butler.tools.execute_code import register_execute_code_tool
-
     register_execute_code_tool(register)
-
-    from butler.tools.workflow_tools import register_workflow_tools
-
     register_workflow_tools(register)
-
-    from butler.tools.knowledge_search import register_knowledge_tools
-
     register_knowledge_tools(register)
-
-    from butler.tools.web_fetch import register_web_fetch_tool
-
     register_web_fetch_tool(register)
-
-    from butler.tools.web_search import register_web_search_tool
-
     register_web_search_tool(register)
-
-    from butler.tools.git_tools import register_git_tools
-
     register_git_tools(register)
-
-    from butler.tools.runtime_tools import register_runtime_tools
-
     register_runtime_tools(register)
-
-    from butler.tools.session_todos_tools import register_session_todos_tools
-
     register_session_todos_tools(register)
-
-    from butler.tools.delegate_yield_tools import register_delegate_yield_tools
-
     register_delegate_yield_tools(register)
-
-    from butler.tools.download_tools import register_download_tools
-
     register_download_tools(register)
-
-    from butler.tools.document_reader import register_document_tools
-
     register_document_tools(register)
-
-    from butler.tools.data_query import register_data_query_tools
-
     register_data_query_tools(register)
-
-    from butler.tools.reminder import register_reminder_tools
-
     register_reminder_tools(register)
-
-    from butler.tools.project_todos import register_project_todos_tools
-
     register_project_todos_tools(register)
-
-    from butler.tools.mcp_self_service import register_mcp_self_service_tools
-
     register_mcp_self_service_tools(register)
-
-    from butler.tools.memo import register_memo_tools
-
     register_memo_tools(register)
-
-    from butler.tools.contacts import register_contact_tools
-
     register_contact_tools(register)
-
-    from butler.tools.expense import register_expense_tools
-
     register_expense_tools(register)
-
-    from butler.tools.habits import register_habit_tools
-
     register_habit_tools(register)
-
-    from butler.tools.multimodal_tools import register_multimodal_tools
-
     register_multimodal_tools(register)
-
-    from butler.tools.config_tools import register_config_tools
-
     register_config_tools(register)
-
-    from butler.extensions.opencode import opencode_enabled
 
     if opencode_enabled():
         _register_opencode_tool()
-
-    from butler.tools.builtin_register_ops import register_dev_engine_tools_safe
 
     register_dev_engine_tools_safe(register)

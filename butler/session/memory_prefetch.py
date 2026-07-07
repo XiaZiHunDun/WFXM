@@ -27,6 +27,15 @@ from butler.session.memory_prefetch_ops import (
     session_key_for_prefetch,
     session_read_recall_blocks_prefetch,
 )
+from butler.env_parse import int_env
+from butler.memory.diagnostics import _resolve_project_memory
+from butler.memory.prefetch_cache import get_cached_prefetch
+from butler.session.lifecycle import _current_project
+from butler.memory.semantic_index import SemanticMemoryIndex
+from butler.memory.prefetch_cache import set_cached_prefetch
+from butler.core.memory_context_adapter import adapt_memory_prefetch_content
+from butler.memory.prefetch_cache import schedule_prefetch_warm
+from butler.execution_context import use_execution_context
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +46,6 @@ def prefetch_limits() -> dict[str, int]:
 
     def _int(name: str, default: int) -> int:
         try:
-            from butler.env_parse import int_env
 
             return int(int_env(name, default, min=0))
         except ValueError:
@@ -54,7 +62,6 @@ def prefetch_limits() -> dict[str, int]:
 
 
 def _resolve_project_memory_for_turn(orchestrator: Any) -> Any:
-    from butler.memory.diagnostics import _resolve_project_memory
 
     sk = session_key_for_prefetch()
     pmem, _ = _resolve_project_memory(orchestrator, sk)
@@ -88,7 +95,6 @@ def prefetch_turn_memory(
     """Collect query-relevant Butler/project memory for the next turn."""
     session_key = session_key_for_prefetch()
     if use_cache:
-        from butler.memory.prefetch_cache import get_cached_prefetch
 
         cached = get_cached_prefetch(session_key, query)
         if cached is not None:
@@ -109,7 +115,6 @@ def prefetch_turn_memory(
         emit_prefetch_metrics(query, hit=False, result_count=0, diagnostics=diagnostics)
         return ""
 
-    from butler.session.lifecycle import _current_project
 
     current_project = _current_project(orchestrator)
 
@@ -136,7 +141,6 @@ def prefetch_turn_memory(
                     parts.append("## Query-aligned experience\n" + "\n".join(lines))
                     if diagnostics is not None:
                         diagnostics["memory_experience_hits"] = len(lines)
-                        from butler.memory.semantic_index import SemanticMemoryIndex
 
                         semantic = getattr(bm, "semantic", None)
                         if not isinstance(semantic, SemanticMemoryIndex):
@@ -184,7 +188,6 @@ def prefetch_turn_memory(
     merged = filter_prefetch_injection(merged)
     merged = _normalize_prefetch_body(merged, diagnostics)
     if merged.strip():
-        from butler.memory.prefetch_cache import set_cached_prefetch
 
         set_cached_prefetch(session_key, query, merged)
         record_prefetch_snippets(diagnostics, merged)
@@ -208,7 +211,6 @@ def _normalize_prefetch_body(
     body: str,
     diagnostics: dict[str, Any] | None,
 ) -> str:
-    from butler.core.memory_context_adapter import adapt_memory_prefetch_content
 
     return cast(
         str,
@@ -239,12 +241,10 @@ def queue_prefetch_after_turn(
     session_id: str = "",
 ) -> None:
     """Warm prefetch cache in background after a turn completes."""
-    from butler.memory.prefetch_cache import schedule_prefetch_warm
 
     sk = str(session_id or "").strip() or session_key_for_prefetch()
 
     def _build() -> str:
-        from butler.execution_context import use_execution_context
 
         with use_execution_context(orchestrator, session_key=sk):
             return prefetch_turn_memory(

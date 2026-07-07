@@ -39,6 +39,17 @@ from butler.plan.mode import clear_plan_mode, format_plan_mode_status, set_plan_
 from butler.session.lifecycle import sync_turn_memory as _lifecycle_sync_turn_memory
 from butler.session.lifecycle import trigger_session_end as _lifecycle_trigger_session_end
 
+from butler.session.keys import build_session_key
+from butler.project.lead import lead_mode_switch_suffix
+from butler.report.format import parse_detail_section
+from butler.cli.slash_dispatch_ops import get_last_report_safe
+from butler.report import format_detail
+from butler.core.steer import steer
+from butler.gateway.message_handler import ButlerMessageHandler
+from butler.workflows.commands import handle_workflow_command
+from butler.runtime.task_store import list_recent_tasks
+from butler.session.new_session import handle_new_session_command
+
 logger = logging.getLogger(__name__)
 
 
@@ -109,7 +120,6 @@ def all_slash_commands() -> list[SlashCommand]:
 
 
 def _cli_session_key(orchestrator: Any) -> str:
-    from butler.session.keys import build_session_key
 
     return str(
         build_session_key(
@@ -188,7 +198,6 @@ def _handle_switch(orch: Any, console: Any, arg: str, _loop: Any) -> str | tuple
 
 
 def _switch_lead_note(new_name: str) -> str:
-    from butler.project.lead import lead_mode_switch_suffix
 
     return str(lead_mode_switch_suffix(new_name or ""))
 
@@ -224,15 +233,12 @@ def _handle_status(orch: Any, console: Any, _arg: str, _loop: Any) -> Optional[s
 
 
 def _handle_detail(_orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str]:
-    from butler.report.format import parse_detail_section
-    from butler.cli.slash_dispatch_ops import get_last_report_safe
 
     report, err = get_last_report_safe()
     if err is not None:
         return f"[dim]{err}[/dim]"
     if not report:
         return "[dim]暂无可展示的详细报告[/dim]"
-    from butler.report import format_detail
 
     return str(format_detail(report, section=parse_detail_section(arg)))
 
@@ -240,7 +246,6 @@ def _handle_detail(_orch: Any, console: Any, arg: str, _loop: Any) -> Optional[s
 def _handle_steer(orch: Any, console: Any, arg: str, _loop: Any) -> Optional[str]:
     if not arg:
         return "[yellow]用法: /steer <指引文本>[/yellow]"
-    from butler.core.steer import steer
 
     if steer(arg, session_key="cli"):
         return "[dim]已加入指引，将在下一批工具结果后生效[/dim]"
@@ -261,7 +266,6 @@ def _handle_memory(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional[s
 
 
 def _handle_health(orch: Any, console: Any, _arg: str, agent_loop: Any) -> Optional[str]:
-    from butler.gateway.message_handler import ButlerMessageHandler
 
     handler = ButlerMessageHandler(channel="cli")
     handler._orchestrator = orch
@@ -289,7 +293,6 @@ def _handle_health(orch: Any, console: Any, _arg: str, agent_loop: Any) -> Optio
 
 
 def _handle_workflow(orch: Any, _console: Any, arg: str, _loop: Any) -> Optional[str]:
-    from butler.workflows.commands import handle_workflow_command
 
     cli_sk = _cli_session_key(orch)
     return str(handle_workflow_command(orch, arg, session_key=cli_sk))
@@ -317,7 +320,6 @@ def _handle_exit_plan(orch: Any, _console: Any, _arg: str, _loop: Any) -> Option
 
 
 def _handle_tasks(orch: Any, _console: Any, _arg: str, _loop: Any) -> Optional[str]:
-    from butler.runtime.task_store import list_recent_tasks
 
     cli_sk = _cli_session_key(orch)
     rows = list_recent_tasks(cli_sk, limit=5)
@@ -339,7 +341,6 @@ def _handle_tasks(orch: Any, _console: Any, _arg: str, _loop: Any) -> Optional[s
 
 def _handle_new(orch: Any, _console: Any, _arg: str, agent_loop: Any) -> Optional[str]:
     """``/new`` returns the rebuild_after_new token via the registry entry."""
-    from butler.session.new_session import handle_new_session_command
 
     cli_sk = _cli_session_key(orch)
     return str(handle_new_session_command(orch, cli_sk, agent_loop))

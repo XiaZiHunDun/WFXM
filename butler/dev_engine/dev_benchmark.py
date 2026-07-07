@@ -47,6 +47,14 @@ from butler.dev_engine.dev_state import (
     VerifyStatus,
 )
 from butler.dev_engine.edit_ops import apply_patch, apply_write
+from butler.dev_engine.edit_ops import undo_edit
+from butler.dev_engine.dev_state import VerifyStatus
+from butler.dev_engine.verify import verify_test
+from butler.dev_engine.review_static import run_static_review
+from butler.dev_engine.swebench_lite import _instances
+from butler.dev_engine.dev_benchmark_ops import run_swebench_instance_safe
+from butler.dev_engine import dev_metrics
+from butler.dev_engine.dev_benchmark_ops import run_benchmark_fn_safe
 
 
 class BenchmarkCategory(str, Enum):
@@ -485,7 +493,6 @@ def _run_b7_rollback(tmp_path: Path, collector: MetricsCollector) -> BenchmarkRe
     )
     state = transition(state, "verify_fail", verify_result=vr_fail)
 
-    from butler.dev_engine.edit_ops import undo_edit
     undo_edit(r1)
     state = transition(state, "fix_rollback")
 
@@ -525,8 +532,6 @@ def _find_completed(collector: MetricsCollector, task_id: str) -> DevTaskMetrics
 
 def _run_b10_verify_layers(tmp_path: Path, collector: MetricsCollector) -> BenchmarkResult:
     """B10: Layered verify — pytest FAIL before fix, PASS after oracle fix."""
-    from butler.dev_engine.dev_state import VerifyStatus
-    from butler.dev_engine.verify import verify_test
 
     task_id = "b10_verify_layers"
     expected = None
@@ -579,7 +584,6 @@ def _run_b10_verify_layers(tmp_path: Path, collector: MetricsCollector) -> Bench
 
 def _run_b11_review_static(tmp_path: Path, collector: MetricsCollector) -> BenchmarkResult:
     """B11: Static review detects planted smells."""
-    from butler.dev_engine.review_static import run_static_review
 
     task_id = "b11_review_static"
     smelly = tmp_path / "smelly.py"
@@ -611,7 +615,6 @@ def _run_b11_review_static(tmp_path: Path, collector: MetricsCollector) -> Bench
 
 def _run_b8_swebench(workspace: Path, _collector: MetricsCollector) -> BenchmarkResult:
     """B8: SWE-bench Lite adapted — oracle-apply + verify on 15 instances."""
-    from butler.dev_engine.swebench_lite import _instances
 
     instances = _instances()
     pass_count = 0
@@ -620,7 +623,6 @@ def _run_b8_swebench(workspace: Path, _collector: MetricsCollector) -> Benchmark
     for inst in instances:
         inst_dir = workspace / inst.instance_id
         inst_dir.mkdir(parents=True, exist_ok=True)
-        from butler.dev_engine.dev_benchmark_ops import run_swebench_instance_safe
 
         ok, reason = run_swebench_instance_safe(inst, inst_dir)
         if ok:
@@ -672,7 +674,6 @@ def run_benchmarks(
     collector = MetricsCollector()
 
     # Temporarily swap the global collector
-    from butler.dev_engine import dev_metrics
     old_collector = dev_metrics._global_collector
     dev_metrics._global_collector = collector
 
@@ -686,7 +687,6 @@ def run_benchmarks(
                 tmp = Path(tempfile.mkdtemp(prefix="butler_bench_"))
 
             t0 = time.time()
-            from butler.dev_engine.dev_benchmark_ops import run_benchmark_fn_safe
 
             result, err = run_benchmark_fn_safe(bench_fn, tmp, collector)
             if result is None:

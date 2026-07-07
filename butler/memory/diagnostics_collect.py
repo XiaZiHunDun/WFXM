@@ -5,11 +5,19 @@ from __future__ import annotations
 from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.memory.semantic_index import SOURCE_OWNER_PROFILE
+from butler.memory.semantic_health import experience_vector_drift
+from butler.memory.semantic_index import SOURCE_EXPERIENCE
+from butler.memory.knowledge_db import ProjectKnowledgeDb
+from butler.memory.retrieval_telemetry import get_last_retrieval, get_last_retrieval_by_scope
+from butler.config import get_butler_home
+from butler.memory.scope_diagnostics import collect_memory_scope_stats
+from butler.ops.transcript_diagnostics import transcript_fts_drift
+from butler.ops.embedding_diagnostics import collect_embedding_snapshot
 
 
 def collect_semantic_vector_stats(sem: Any) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.memory.semantic_index import SOURCE_OWNER_PROFILE
 
         out: dict[str, Any] = {
             "vector_rows": sem.count_rows(),
@@ -37,8 +45,6 @@ def collect_experience_vector_drift(
     experience_long_term: int,
 ) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.memory.semantic_health import experience_vector_drift
-        from butler.memory.semantic_index import SOURCE_EXPERIENCE
 
         vec_exp = sem.count_by_source(SOURCE_EXPERIENCE)
         return cast(
@@ -72,7 +78,6 @@ def collect_project_memory_stats(pm: Any, proj_name: str) -> dict[str, Any]:
             out["project_chars"] = chars
         facts_store = getattr(pm, "facts", None)
         if facts_store is not None:
-            from butler.memory.knowledge_db import ProjectKnowledgeDb
 
             kdb = ProjectKnowledgeDb(
                 ProjectKnowledgeDb.path_for_memory_dir(facts_store.path.parent)
@@ -87,10 +92,6 @@ def collect_project_memory_stats(pm: Any, proj_name: str) -> dict[str, Any]:
 
 def collect_retrieval_telemetry(session_key: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.memory.retrieval_telemetry import (
-            get_last_retrieval,
-            get_last_retrieval_by_scope,
-        )
 
         out: dict[str, Any] = {}
         by_scope = get_last_retrieval_by_scope(session_key)
@@ -117,8 +118,6 @@ def merge_optional_stats(stats: dict[str, Any], patch: dict[str, Any]) -> None:
 
 def collect_scope_stats(project_name: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.config import get_butler_home
-        from butler.memory.scope_diagnostics import collect_memory_scope_stats
 
         return {
             "memory_scope": collect_memory_scope_stats(
@@ -132,7 +131,6 @@ def collect_scope_stats(project_name: str) -> dict[str, Any]:
 
 def collect_transcript_fts_stats(session_key: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.ops.transcript_diagnostics import transcript_fts_drift
 
         return cast(dict[str, Any], transcript_fts_drift(session_key=session_key))
 
@@ -141,7 +139,6 @@ def collect_transcript_fts_stats(session_key: str) -> dict[str, Any]:
 
 def collect_embedding_snapshot_stats(vector_rows: int) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.ops.embedding_diagnostics import collect_embedding_snapshot
 
         return {
             "embedding_snapshot": collect_embedding_snapshot(

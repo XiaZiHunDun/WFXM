@@ -6,11 +6,19 @@ from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.tools.project_todos import _load
+from butler.tools.reminder import _load_all
+from butler.memory.experience_mining import load_pending
+from butler.core.compaction_status import derive_compaction_status, format_compaction_status_line
+from butler.gateway.message_queue import pending_count
+from butler.human_gate import format_pending_hint, has_pending_gate
+from butler.core.session_tool_index import list_session_read_files
+from butler.ops.owner_quality_surface import format_b9_owner_line, format_mcp_owner_line
+from butler.ops.owner_trust_surface import format_trust_owner_line
 
 
 def project_todos_info_safe(workspace: Path) -> tuple[int, list[str]]:
     def _run() -> tuple[int, list[str]]:
-        from butler.tools.project_todos import _load
 
         items = _load(workspace)
         open_items = [t for t in items if t.get("status") in ("pending", "in_progress")]
@@ -30,7 +38,6 @@ def project_todos_info_safe(workspace: Path) -> tuple[int, list[str]]:
 
 def reminders_info_safe() -> tuple[int, list[str]]:
     def _run() -> tuple[int, list[str]]:
-        from butler.tools.reminder import _load_all
 
         pending = [r for r in _load_all() if r.get("status") == "pending"]
         samples = [
@@ -59,7 +66,6 @@ def memory_pending_count_safe(orchestrator: Any) -> int:
 
 def experience_pending_count_safe() -> int:
     def _run() -> int:
-        from butler.memory.experience_mining import load_pending
 
         return len(load_pending())
 
@@ -69,10 +75,6 @@ def experience_pending_count_safe() -> int:
 
 def compaction_line_safe(health: dict | None) -> str:
     def _run() -> str:
-        from butler.core.compaction_status import (
-            derive_compaction_status,
-            format_compaction_status_line,
-        )
 
         h = health or {}
         if derive_compaction_status(h) == "none":
@@ -85,7 +87,6 @@ def compaction_line_safe(health: dict | None) -> str:
 
 def queue_pending_count_safe(session_key: str) -> int:
     def _run() -> int:
-        from butler.gateway.message_queue import pending_count
 
         return int(pending_count(session_key))
 
@@ -95,7 +96,6 @@ def queue_pending_count_safe(session_key: str) -> int:
 
 def workflow_gate_hint_safe(session_key: str) -> str:
     def _run() -> str:
-        from butler.human_gate import format_pending_hint, has_pending_gate
 
         if has_pending_gate(session_key):
             return str(format_pending_hint(session_key) or "")
@@ -107,7 +107,6 @@ def workflow_gate_hint_safe(session_key: str) -> str:
 
 def session_reads_count_safe(session_key: str, workspace: Any) -> int:
     def _run() -> int:
-        from butler.core.session_tool_index import list_session_read_files
 
         return len(list_session_read_files(session_key, workspace=workspace, limit=50))
 
@@ -120,10 +119,6 @@ def quality_surface_lines_safe(
     workspace: Path | None,
 ) -> tuple[str, str]:
     def _run() -> tuple[str, str]:
-        from butler.ops.owner_quality_surface import (
-            format_b9_owner_line,
-            format_mcp_owner_line,
-        )
 
         return (
             format_mcp_owner_line(session_key, workspace=workspace),
@@ -138,7 +133,6 @@ def quality_surface_lines_safe(
 
 def trust_line_safe(orchestrator: Any, session_key: str, health: dict | None) -> str:
     def _run() -> str:
-        from butler.ops.owner_trust_surface import format_trust_owner_line
 
         return str(format_trust_owner_line(orchestrator, session_key, health=health) or "")
 

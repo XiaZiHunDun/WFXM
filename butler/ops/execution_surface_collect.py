@@ -6,6 +6,19 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.config import get_butler_home
+from butler.core.harness_flags import mcp_deferred_same_turn_enabled, mcp_deferred_tools_enabled
+from butler.mcp.config import mcp_enabled as mcp_enabled_flag
+from butler.mcp.deferred import get_promoted_tools
+from butler.mcp.diagnostics import format_mcp_diagnostic_lines
+from butler.memory.experience_consolidation import load_merge_pending
+from butler.ops.runtime_metrics import snapshot_global, snapshot_session
+from butler.registry.paths import default_mcp_config_path as registry_default_mcp_config_path
+from butler.skills.injection_policy import skill_injection_mode as registry_skill_injection_mode
+from butler.skills.similarity import recent_dedup_status
+from butler.tenant import DEFAULT_TENANT, tenant_skills_dir
+from butler.tools.orthogonality_lint import lint_tool_orthogonality_for_diagnostics
+from butler.tools.registry import get_tool_definitions
 
 _EXECUTION_TRUST_COUNTERS: tuple[str, ...] = (
     "execution_fallback_skip",
@@ -24,8 +37,6 @@ def _sum_counter_matches(counters: dict[str, int], name: str) -> int:
 
 def collect_execution_trust_metrics(*, session_key: str = "") -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.ops.runtime_metrics import snapshot_global, snapshot_session
-
         global_counters = (snapshot_global().get("counters") or {})
         out: dict[str, Any] = {}
         for name in _EXECUTION_TRUST_COUNTERS:
@@ -67,9 +78,6 @@ def collect_execution_trust_metrics(*, session_key: str = "") -> dict[str, Any]:
 
 def mcp_imports_available() -> bool:
     def _run() -> bool:
-        from butler.mcp.config import mcp_enabled  # noqa: F401
-        from butler.registry.paths import default_mcp_config_path  # noqa: F401
-
         return True
 
     return safe_best_effort(
@@ -81,9 +89,7 @@ def mcp_imports_available() -> bool:
 
 def mcp_enabled_flag() -> bool:
     def _run() -> bool:
-        from butler.mcp.config import mcp_enabled
-
-        return bool(mcp_enabled())
+        return bool(mcp_enabled_flag())
 
     return bool(
         safe_best_effort(_run, label="execution_surface.mcp_enabled", default=False)
@@ -92,9 +98,7 @@ def mcp_enabled_flag() -> bool:
 
 def default_mcp_config_path() -> Path | None:
     def _run() -> Path:
-        from butler.registry.paths import default_mcp_config_path as _default_path
-
-        return cast(Path, _default_path())
+        return cast(Path, registry_default_mcp_config_path())
 
     return cast(
         Path | None,
@@ -108,8 +112,6 @@ def default_mcp_config_path() -> Path | None:
 
 def experience_merge_pending_count() -> int | None:
     def _run() -> int:
-        from butler.memory.experience_consolidation import load_merge_pending
-
         pending = load_merge_pending()
         return len(pending) if pending else 0
 
@@ -123,8 +125,6 @@ def experience_merge_pending_count() -> int | None:
 
 def recent_skill_dedup_events() -> list[Any] | None:
     def _run() -> list[Any]:
-        from butler.skills.similarity import recent_dedup_status
-
         dedup = recent_dedup_status()
         return dedup[-5:] if dedup else []
 
@@ -138,8 +138,6 @@ def recent_skill_dedup_events() -> list[Any] | None:
 
 def digestion_runtime_counters() -> dict[str, int]:
     def _run() -> dict[str, int]:
-        from butler.ops.runtime_metrics import snapshot_global
-
         counters = (snapshot_global().get("counters") or {})
         out: dict[str, int] = {}
         for key in (
@@ -161,8 +159,6 @@ def digestion_runtime_counters() -> dict[str, int]:
 
 def builtin_tool_count() -> int | None:
     def _run() -> int:
-        from butler.tools.registry import get_tool_definitions
-
         return len(get_tool_definitions())
 
     result = safe_best_effort(
@@ -175,8 +171,6 @@ def builtin_tool_count() -> int | None:
 
 def tool_orthogonality_warnings() -> list[str]:
     def _run() -> list[str]:
-        from butler.tools.orthogonality_lint import lint_tool_orthogonality_for_diagnostics
-
         return lint_tool_orthogonality_for_diagnostics(max_pairs=2) or []
 
     result = safe_best_effort(
@@ -207,9 +201,7 @@ def collect_digestion_health() -> dict[str, Any]:
 
 def skill_injection_mode() -> str | None:
     def _run() -> str:
-        from butler.skills.injection_policy import skill_injection_mode as _mode
-
-        return str(_mode() or "")
+        return str(registry_skill_injection_mode() or "")
 
     result = safe_best_effort(
         _run,
@@ -240,22 +232,13 @@ def mcp_surface_flags(
     health_session_key: str,
 ) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
-        from butler.core.harness_flags import (
-            mcp_deferred_same_turn_enabled,
-            mcp_deferred_tools_enabled,
-        )
-        from butler.mcp.config import mcp_enabled
-        from butler.registry.paths import default_mcp_config_path
-
         out: dict[str, Any] = {
-            "mcp_enabled": mcp_enabled(),
+            "mcp_enabled": mcp_enabled_flag(),
             "mcp_deferred": mcp_deferred_tools_enabled(),
             "mcp_deferred_same_turn": mcp_deferred_same_turn_enabled(),
-            "mcp_config_present": default_mcp_config_path().is_file(),
+            "mcp_config_present": registry_default_mcp_config_path().is_file(),
         }
         if out["mcp_enabled"] and out["mcp_deferred"]:
-            from butler.mcp.deferred import get_promoted_tools
-
             sk = str(session_key or health_session_key or "").strip()
             out["mcp_promoted_tools"] = sorted(get_promoted_tools(sk))
         return out
@@ -281,8 +264,6 @@ def check_legacy_global_skills(butler_home: Path) -> list[str]:
     md_files = sorted(legacy.glob("*.md"))
     if not md_files:
         return []
-    from butler.tenant import DEFAULT_TENANT, tenant_skills_dir
-
     tenant_dir = tenant_skills_dir(home, DEFAULT_TENANT)
     names = ", ".join(p.name for p in md_files[:5])
     if len(md_files) > 5:
@@ -296,8 +277,6 @@ def check_legacy_global_skills(butler_home: Path) -> list[str]:
 
 def legacy_skill_warnings() -> list[str]:
     def _run() -> list[str]:
-        from butler.config import get_butler_home
-
         return check_legacy_global_skills(get_butler_home())
 
     result = safe_best_effort(
@@ -324,8 +303,6 @@ def current_project(orchestrator: Any, *, session_key: str) -> Any | None:
 
 def mcp_diagnostic_lines(session_key: str) -> list[str]:
     def _run() -> list[str]:
-        from butler.mcp.diagnostics import format_mcp_diagnostic_lines
-
         return cast(list[str], format_mcp_diagnostic_lines(session_key))
 
     result = safe_best_effort(

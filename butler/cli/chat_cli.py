@@ -27,6 +27,21 @@ from typing import TYPE_CHECKING, Any, cast
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
 
+from butler.cli.chat_cli_ops import run_exec_turn_safe, run_interactive_turn_safe
+from butler.cli.session_ui import ChatSessionUI
+from butler.cli.slash_commands import build_slash_completer
+from butler.cli.slash_dispatch import dispatch_slash_command
+from butler.cli.stream import StreamRenderer
+from butler.core.loop_types import LoopResult, LoopStatus
+from butler.execution_context import use_execution_context
+from butler.gateway.hooks import apply_pre_llm_context
+from butler.hooks.runner import run_user_prompt_submit_hooks
+from butler.project.lead import gateway_loop_role
+from butler.session.keys import build_session_key
+from butler.session.lifecycle import attach_turn_memory_prefetch, queue_prefetch_after_turn
+from butler.tools.project_tools import get_current_project_tools
+from butler.tools.registry import dispatch_tool
+
 
 # ---------------------------------------------------------------------------
 # Lazy-import helpers (P3-I: dedupe repeated ``from butler.*`` in this module).
@@ -40,8 +55,6 @@ def _new_cli_orchestrator() -> "ButlerOrchestrator":
 
 
 def _cli_session_key(orchestrator: Any) -> str:
-    from butler.session.keys import build_session_key
-
     return build_session_key(
         platform="cli",
         chat_id=orchestrator.user_id,
@@ -50,26 +63,17 @@ def _cli_session_key(orchestrator: Any) -> str:
 
 
 def _session_ui(console: Any, *, stream_title: str | None = None) -> Any:
-    from butler.cli.session_ui import ChatSessionUI
-
     if stream_title is not None:
         return ChatSessionUI(console, stream_title=stream_title)
     return ChatSessionUI(console)
 
 
 def _loop_tool_deps(orchestrator: Any) -> tuple[str, Any, Any]:
-    from butler.project.lead import gateway_loop_role
-    from butler.tools.project_tools import get_current_project_tools
-    from butler.tools.registry import dispatch_tool
-
     role = gateway_loop_role(orchestrator.project_manager.current_project or "")
     return role, get_current_project_tools(role=role), dispatch_tool
 
 
 def _butler_role_tools() -> tuple[Any, Any]:
-    from butler.tools.project_tools import get_current_project_tools
-    from butler.tools.registry import dispatch_tool
-
     return get_current_project_tools(role="butler"), dispatch_tool
 
 
@@ -80,8 +84,6 @@ def _run_user_prompt_hooks(
     console: Any | None = None,
 ) -> bool:
     """Run UserPromptSubmit hooks. Returns True if the prompt may proceed."""
-    from butler.hooks.runner import run_user_prompt_submit_hooks
-
     prompt_hooks = run_user_prompt_submit_hooks(
         message.strip(), session_key=session_key, platform="cli"
     )
@@ -99,8 +101,6 @@ def _run_user_prompt_hooks(
 
 
 def _apply_pre_llm(orch: Any, message: str) -> str:
-    from butler.gateway.hooks import apply_pre_llm_context
-
     return cast(
         str,
         apply_pre_llm_context(
@@ -119,9 +119,6 @@ def _sync_turn_after_run(
     queue_prefetch: bool,
 ) -> None:
     from butler import main as _butler_main
-    from butler.core.agent_loop import LoopStatus
-    from butler.execution_context import use_execution_context
-    from butler.session.lifecycle import queue_prefetch_after_turn
 
     with use_execution_context(orchestrator, session_key=session_key):
         _butler_main._sync_memory(
@@ -171,8 +168,6 @@ def _cmd_exec(ns: argparse.Namespace) -> int:
     _phase_render_user_message(console, ns.message)
     ui, stream = _phase_build_exec_ui(console)
     agent_loop = _phase_create_exec_loop(orch, ui, stream)
-
-    from butler.cli.chat_cli_ops import run_exec_turn_safe
 
     return cast(
         int,
@@ -251,8 +246,6 @@ def _phase_setup_interactive_session(orchestrator: Any) -> tuple[Any, Any, Any]:
     from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
     from prompt_toolkit.history import FileHistory
 
-    from butler.cli.slash_commands import build_slash_completer
-
     console = _stderr_console()
     settings = orchestrator._settings
     history_file = settings.butler_home / "chat_history.txt"
@@ -307,8 +300,6 @@ def _phase_dispatch_slash(
     loops_by_session: dict[str, Any],
 ) -> tuple[str | None, Any]:
     """Phase 4: route a slash command. Returns (token, new_agent_loop)."""
-    from butler.cli.slash_dispatch import dispatch_slash_command
-
     handled = dispatch_slash_command(
         user_input, orchestrator, console, agent_loop=agent_loop
     )
@@ -344,14 +335,10 @@ def _phase_run_interactive_turn(
     (possibly rebuilt) agent loop. Splits the body across
     ``_phase_execute_turn`` and ``_phase_finalize_turn`` to stay
     under the 50-line cap."""
-    from butler.cli.stream import StreamRenderer
-
     settings = orchestrator._settings
     stream = StreamRenderer(_stderr_console(), title=settings.butler_name or "Butler")
     agent_loop.callbacks = ui.build_callbacks(stream)
     augmented = _phase_augment_prompt(orchestrator, user_input)
-
-    from butler.cli.chat_cli_ops import run_interactive_turn_safe
 
     return run_interactive_turn_safe(
         lambda: _phase_execute_turn(orchestrator, agent_loop, user_input, augmented, ui, stream),
@@ -369,9 +356,6 @@ def _phase_execute_turn(
     stream: Any,
 ) -> Any:
     """Execute one turn + finalize (memory sync, prefetch)."""
-    from butler.execution_context import use_execution_context
-    from butler.session.lifecycle import attach_turn_memory_prefetch
-
     cli_sk = _cli_session_key(orchestrator)
     attach_turn_memory_prefetch(agent_loop, orchestrator, user_input, role="butler")
     with use_execution_context(orchestrator, session_key=cli_sk):
@@ -384,8 +368,6 @@ def _phase_execute_turn(
 
 
 def _phase_handle_keyboard_interrupt(agent_loop: Any, ui: Any, stream: Any) -> Any:
-    from butler.core.agent_loop import LoopResult, LoopStatus
-
     _stderr_console().print("\n[dim]已中断[/dim]")
     agent_loop.interrupt()
     if stream is not None:
@@ -515,9 +497,6 @@ def _phase_create_exec_loop(orch: Any, ui: Any, stream: Any) -> Any:
 def _phase_run_single_turn(orch: Any, agent_loop: Any, message: str, ui: Any, stream: Any) -> Any:
     """Run a single turn for ``butler exec``. Mirrors the interactive
     turn pipeline but with deterministic hooks (no slash dispatch)."""
-    from butler.execution_context import use_execution_context
-    from butler.session.lifecycle import attach_turn_memory_prefetch
-
     augmented = _apply_pre_llm(orch, message)
     attach_turn_memory_prefetch(agent_loop, orch, message, role="butler")
     with use_execution_context(orch, session_key="cli"):

@@ -23,7 +23,30 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, cast
 
-from butler.report import AgentReport, cache_report
+from butler.config import ModelConfig
+from butler.core.delegate_context import child_callbacks, get_parent_callbacks
+from butler.core.meta_flags import MAX_DAG_NODES
+from butler.dag_scheduler import (
+    apply_node_router,
+    finalize_unexecuted_nodes,
+    graph_all_required_ok,
+    group_into_layers,
+    prepare_layer_node,
+    split_layer_batches,
+    topological_sort,
+)
+from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS, MAX_DELEGATE_DEPTH
+from butler.report import AgentReport, cache_report, enrich_report_decisions
+from butler.session.lifecycle import attach_turn_memory_prefetch, sync_turn_memory
+from butler.task_orchestrator_ops import (
+    on_progress_safe,
+    spawn_agent_loud,
+    truncate_child_response_safe,
+    workflow_max_parallel_safe,
+)
+from butler.tools.project_tools import canonical_tool_name, get_tool_definitions_for_project
+from butler.tools.registry import _extract_changes_from_messages, _safe_dispatch
+from butler.workflow_step_runner import run_rescue_steps, run_step_with_retry
 from butler.execution_context import (
     get_current_orchestrator,
     get_current_session_key,
@@ -122,7 +145,6 @@ class TaskOrchestrator:
         orch = _orchestrator_for_task()
 
         if config.model_config:
-            from butler.config import ModelConfig
             mc = ModelConfig(**config.model_config)
             settings = orch._settings
             with _MODEL_OVERRIDE_LOCK:
@@ -137,12 +159,6 @@ class TaskOrchestrator:
 
     def _create_agent_loop_with_orchestrator(self, config: AgentSpawnConfig, orch: Any) -> Any:
         """Create a Butler AgentLoop using an already-selected orchestrator."""
-        from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
-        from butler.tools.project_tools import (
-            canonical_tool_name,
-            get_tool_definitions_for_project,
-        )
-
         project = orch.project_manager.get_current(session_key=str(config.session_key or ""))
         tools = get_tool_definitions_for_project(project, role=config.role)
         delegated_tools = [
@@ -156,8 +172,6 @@ class TaskOrchestrator:
                 t for t in delegated_tools
                 if t["function"]["name"] in tool_names
             ]
-
-        from butler.core.delegate_context import child_callbacks, get_parent_callbacks
 
         agent = orch.create_project_agent_loop(
             role=config.role,
@@ -196,13 +210,9 @@ class TaskOrchestrator:
 
         logger.info("Spawning %s agent [%s]: %s", config.role, task_id, config.task[:80])
 
-        from butler.task_orchestrator_ops import on_progress_safe, spawn_agent_loud
-
         on_progress_safe(on_progress, task_id, "start", config.role)
 
         async def _run_spawn() -> AgentResult:
-            from butler.delegate.policy import MAX_DELEGATE_DEPTH
-
             if config.delegate_depth >= MAX_DELEGATE_DEPTH:
                 raise ValueError(f"Maximum delegation depth ({MAX_DELEGATE_DEPTH}) exceeded")
 
@@ -218,8 +228,6 @@ class TaskOrchestrator:
             user_message = raw_user_message
             if orch is not None and hasattr(orch, "inject_skill_context"):
                 user_message = orch.inject_skill_context(raw_user_message)
-                from butler.session.lifecycle import attach_turn_memory_prefetch
-
                 attach_turn_memory_prefetch(agent, orch, raw_user_message, role=config.role)
             with use_execution_context(orch, session_key=session_key):
                 run_context = copy_context()
@@ -229,8 +237,6 @@ class TaskOrchestrator:
                     user_message,
                 )
             if orch is not None:
-                from butler.session.lifecycle import sync_turn_memory
-
                 sync_turn_memory(
                     orch,
                     raw_user_message,
@@ -240,7 +246,6 @@ class TaskOrchestrator:
                     session_id=session_key,
                 )
 
-            from butler.tools.registry import _extract_changes_from_messages
             changes = _extract_changes_from_messages(loop_result.messages)
             report = AgentReport(
                 headline=f"{config.role} 代理完成任务",
@@ -252,15 +257,11 @@ class TaskOrchestrator:
                 tokens_used=loop_result.total_tokens,
                 elapsed_seconds=loop_result.elapsed_seconds,
             )
-            from butler.report import enrich_report_decisions
-
             enrich_report_decisions(report, loop_result.final_response or "")
             cache_report(report, session_key=session_key)
             success = loop_result.status.value == "completed"
 
             response_text = loop_result.final_response or ""
-            from butler.task_orchestrator_ops import truncate_child_response_safe
-
             response_text = truncate_child_response_safe(
                 response_text=response_text,
                 report=report,
@@ -342,8 +343,6 @@ class TaskOrchestrator:
         serial: bool = False,
     ) -> TaskGraphResult:
         """Execute a DAG of tasks with dependency resolution."""
-        from butler.core.meta_flags import MAX_DAG_NODES
-
         if len(nodes) > MAX_DAG_NODES:
             raise ValueError(
                 f"DAG exceeds maximum node count ({len(nodes)} > {MAX_DAG_NODES})"
@@ -355,22 +354,10 @@ class TaskOrchestrator:
         cancelled: set[str] = set()
         errors: list[str] = []
 
-        from butler.dag_scheduler import (
-            apply_node_router,
-            finalize_unexecuted_nodes,
-            graph_all_required_ok,
-            group_into_layers,
-            prepare_layer_node,
-            split_layer_batches,
-            topological_sort,
-        )
-
         order = topological_sort(nodes)
 
         layers = group_into_layers(order, node_map)
         step_index = 0
-
-        from butler.task_orchestrator_ops import on_progress_safe, workflow_max_parallel_safe
 
         if max_parallel is None:
             max_parallel = workflow_max_parallel_safe(default=None)
@@ -454,8 +441,6 @@ class TaskOrchestrator:
         node: TaskNode,
         on_progress: Callable[[str, str, str], None] | None = None,
     ) -> AgentResult:
-        from butler.workflow_step_runner import run_step_with_retry
-
         return cast(
             AgentResult,
             await run_step_with_retry(
@@ -472,8 +457,6 @@ class TaskOrchestrator:
         *,
         on_progress: Callable[[str, str, str], None] | None = None,
     ) -> AgentResult:
-        from butler.workflow_step_runner import run_rescue_steps
-
         return cast(
             AgentResult,
             await run_rescue_steps(
@@ -508,8 +491,6 @@ def _orchestrator_for_task() -> Any:
 
 def dispatch_tool_safely(name: str, args: dict[str, Any], *, depth: int) -> str:
     """Dispatch a tool call with delegate depth propagated consistently."""
-    from butler.tools.registry import _safe_dispatch
-
     return str(_safe_dispatch(name, args, depth))
 
 

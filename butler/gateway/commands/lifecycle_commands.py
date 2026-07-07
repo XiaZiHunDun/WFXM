@@ -13,6 +13,17 @@ from butler.gateway.command_registry import (
     register,
     require_owner,
 )
+from butler.ops.security_audit import format_audit_report, run_security_audit
+from butler.gateway.commands.lifecycle_commands_ops import doctor_audit_workspace_from_ctx_safe
+from butler.gateway.commands.export_handlers import handle_export_session_command
+from butler.core.transcript_revert import truncate_transcript
+from butler.core.transcript_fork import fork_transcript_at_user_message
+from butler.memory.transcript_memory_pipeline import extract_memory_from_transcript, transcript_memory_enabled
+from butler.gateway.commands.registry_handlers import handle_confirm_install_command
+from butler.gateway.commands.registry_handlers import handle_registry_command
+from butler.config_service import config_set, format_config_get, format_config_list
+from butler.runtime.task_store import count_running_tasks, list_recent_tasks, mark_stale_tasks, task_stale_minutes
+from butler.workflows.commands import handle_workflow_command
 
 
 def _as_str(value: Any) -> str | None:
@@ -24,8 +35,6 @@ def _cmd_doctor(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.ops.security_audit import format_audit_report, run_security_audit
-    from butler.gateway.commands.lifecycle_commands_ops import doctor_audit_workspace_from_ctx_safe
 
     workspace = doctor_audit_workspace_from_ctx_safe(ctx)
     return _as_str(format_audit_report(run_security_audit(workspace=workspace)))
@@ -35,7 +44,6 @@ def _cmd_export(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.commands.export_handlers import handle_export_session_command
 
     return _as_str(
         handle_export_session_command(
@@ -48,7 +56,6 @@ def _cmd_export(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_revert(ctx: CommandContext) -> Optional[str]:
-    from butler.core.transcript_revert import truncate_transcript
 
     gate = require_owner(ctx)
     if gate is not None:
@@ -68,7 +75,6 @@ def _cmd_revert(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_fork(ctx: CommandContext) -> Optional[str]:
-    from butler.core.transcript_fork import fork_transcript_at_user_message
 
     gate = require_owner(ctx)
     if gate is not None:
@@ -96,10 +102,6 @@ def _cmd_fork(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_transcript_memory(ctx: CommandContext) -> Optional[str]:
-    from butler.memory.transcript_memory_pipeline import (
-        extract_memory_from_transcript,
-        transcript_memory_enabled,
-    )
 
     gate = require_owner(ctx)
     if gate is not None:
@@ -125,7 +127,6 @@ def _cmd_confirm_install(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.commands.registry_handlers import handle_confirm_install_command
 
     return _as_str(
         handle_confirm_install_command(
@@ -141,7 +142,6 @@ def _cmd_registry(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.gateway.commands.registry_handlers import handle_registry_command
 
     return _as_str(
         handle_registry_command(
@@ -155,7 +155,6 @@ def _cmd_registry(ctx: CommandContext) -> Optional[str]:
 
 
 def _cmd_config(ctx: CommandContext) -> Optional[str]:
-    from butler.config_service import config_set, format_config_get, format_config_list
 
     if not ctx.arg:
         return _as_str(format_config_list())
@@ -184,12 +183,6 @@ def _cmd_tasks(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.runtime.task_store import (
-        count_running_tasks,
-        list_recent_tasks,
-        mark_stale_tasks,
-        task_stale_minutes,
-    )
 
     stale = mark_stale_tasks(ctx.session_key, auto_fail=False)
     rows = list_recent_tasks(ctx.session_key, limit=5)
@@ -222,7 +215,6 @@ def _cmd_workflow(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.workflows.commands import handle_workflow_command
 
     return _as_str(
         handle_workflow_command(

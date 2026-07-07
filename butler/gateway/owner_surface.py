@@ -6,6 +6,17 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
+from butler.gateway.owner_surface_ops import (
+    degradation_brief_line_safe,
+    outbound_brief_line_safe,
+    pending_delegate_line_safe,
+    project_todos_brief_safe,
+    runtime_jobs_lines_safe,
+)
+from butler.ops.butler_inbox import _action_count, collect_inbox_snapshot
+from butler.project.lead import is_lead_project
+from butler.project.meta import lifecycle_label
+
 _OWNER_HELP_DEFAULT = """Butler — 五个说法就够
 
 查  /状态  /简报  — 什么状况、今天要干嘛
@@ -52,8 +63,6 @@ def format_owner_status_header(
     health: dict[str, Any] | None = None,
 ) -> list[str]:
     """Owner-readable health lines for /状态 (non-technical)."""
-    from butler.ops.butler_inbox import collect_inbox_snapshot, _action_count
-
     sk = str(session_key or "").strip()
     snap = collect_inbox_snapshot(orchestrator, sk, health=health)
     actions = _action_count(snap)
@@ -83,8 +92,6 @@ def format_owner_status_header(
 
 
 def _pending_delegate_line(session_key: str) -> str:
-    from butler.gateway.owner_surface_ops import pending_delegate_line_safe
-
     return cast(str, pending_delegate_line_safe(session_key))
 
 
@@ -94,9 +101,6 @@ def format_project_switch_brief(
     project_name: str,
 ) -> str:
     """Three-line (+ lead hint) summary after /切换."""
-    from butler.project.lead import is_lead_project
-    from butler.project.meta import lifecycle_label
-
     pm = orchestrator.project_manager
     proj = pm.get_project(project_name) or pm.get_current(session_key=session_key)
     lines = ["", "── 项目摘要 ──"]
@@ -110,8 +114,6 @@ def format_project_switch_brief(
 
     ws = Path(getattr(proj, "workspace", "") or "") if proj else None
     if ws and ws.is_dir():
-        from butler.gateway.owner_surface_ops import project_todos_brief_safe
-
         brief = project_todos_brief_safe(ws)
         if brief:
             lines.append(brief)
@@ -131,8 +133,6 @@ def format_project_switch_brief(
 
 
 def _owner_outbound_brief_line(*, session_key: str = "", chat_id: str = "") -> str | None:
-    from butler.gateway.owner_surface_ops import outbound_brief_line_safe
-
     return cast(
         str | None,
         outbound_brief_line_safe(session_key=session_key, chat_id=chat_id),
@@ -145,8 +145,6 @@ def _owner_degradation_brief_line(
     session_key: str = "",
     health: dict[str, Any] | None = None,
 ) -> str | None:
-    from butler.gateway.owner_surface_ops import degradation_brief_line_safe
-
     return cast(
         str | None,
         degradation_brief_line_safe(
@@ -176,8 +174,6 @@ def format_owner_diagnostic_brief(
     health: dict[str, Any] | None = None,
 ) -> str:
     """Owner-tier /诊断 — three human lines; full ops via ``/诊断 详细``."""
-    from butler.ops.butler_inbox import collect_inbox_snapshot, _action_count
-
     sk = str(session_key or "").strip()
     snap = collect_inbox_snapshot(orchestrator, sk, health=health)
     actions = _action_count(snap)
@@ -246,8 +242,6 @@ def format_project_today_view(
     health: dict[str, Any] | None = None,
 ) -> str:
     """Owner one-screen: health + todos + delegate + reminders + next actions."""
-    from butler.ops.butler_inbox import collect_inbox_snapshot
-
     sk = str(session_key or "").strip()
     snap = collect_inbox_snapshot(orchestrator, sk, health=health)
     lines = ["📅 今日 · " + (snap.project_name or "未选项目"), ""]
@@ -287,8 +281,6 @@ def format_project_today_view(
 
 
 def _runtime_jobs_owner_lines(workspace: Path) -> list[str]:
-    from butler.gateway.owner_surface_ops import runtime_jobs_lines_safe
-
     return cast(list[str], runtime_jobs_lines_safe(workspace))
 
 
@@ -299,10 +291,6 @@ def format_project_overview_owner(
     health: dict[str, Any] | None = None,
 ) -> str:
     """Owner-friendly /项目概况 — action-oriented, not file/git stats."""
-    from butler.ops.butler_inbox import collect_inbox_snapshot
-    from butler.project.lead import is_lead_project
-    from butler.project.meta import lifecycle_label
-
     pm = orchestrator.project_manager
     proj = pm.get_current(session_key=str(session_key or "").strip())
     if proj is None:

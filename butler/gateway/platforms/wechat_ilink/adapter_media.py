@@ -12,6 +12,26 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter
 
+from butler.gateway.platforms.wechat_ilink.constants import (
+    ITEM_FILE,
+    ITEM_IMAGE,
+    ITEM_VIDEO,
+    ITEM_VOICE,
+)
+from butler.gateway.platforms.wechat_ilink import (
+    _download_and_decrypt_media,
+    _media_reference,
+    cache_image_from_bytes,
+    cache_document_from_bytes,
+    _mime_from_filename,
+    cache_audio_from_bytes,
+)
+from butler.gateway.platforms.wechat_ilink.adapter_media_ops import (
+    download_media_loud,
+    download_file_loud,
+)
+from butler.registry.url_safety import is_safe_url
+
 logger = logging.getLogger(__name__)
 
 
@@ -21,12 +41,6 @@ async def collect_media(
     media_paths: List[str],
     media_types: List[str],
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink.constants import (
-        ITEM_FILE,
-        ITEM_IMAGE,
-        ITEM_VIDEO,
-        ITEM_VOICE,
-    )
 
     item_type = item.get("type")
     if item_type == ITEM_IMAGE:
@@ -52,12 +66,6 @@ async def collect_media(
 
 
 async def download_image(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Optional[str]:
-    from butler.gateway.platforms.wechat_ilink import (
-        _download_and_decrypt_media,
-        _media_reference,
-        cache_image_from_bytes,
-    )
-    from butler.gateway.platforms.wechat_ilink.adapter_media_ops import download_media_loud
 
     media = _media_reference(item, "image_item")
 
@@ -81,12 +89,6 @@ async def download_image(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
 
 
 async def download_video(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Optional[str]:
-    from butler.gateway.platforms.wechat_ilink import (
-        _download_and_decrypt_media,
-        _media_reference,
-        cache_document_from_bytes,
-    )
-    from butler.gateway.platforms.wechat_ilink.adapter_media_ops import download_media_loud
 
     media = _media_reference(item, "video_item")
 
@@ -111,12 +113,6 @@ async def download_file(
     adapter: "WeChatAdapter",
     item: Dict[str, Any],
 ) -> Tuple[Optional[str], str]:
-    from butler.gateway.platforms.wechat_ilink import (
-        _download_and_decrypt_media,
-        _mime_from_filename,
-        cache_document_from_bytes,
-    )
-    from butler.gateway.platforms.wechat_ilink.adapter_media_ops import download_file_loud
 
     file_item = item.get("file_item") or {}
     media = file_item.get("media") or {}
@@ -145,11 +141,6 @@ async def download_file(
 
 
 async def download_voice(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Optional[str]:
-    from butler.gateway.platforms.wechat_ilink import (
-        _download_and_decrypt_media,
-        cache_audio_from_bytes,
-    )
-    from butler.gateway.platforms.wechat_ilink.adapter_media_ops import download_media_loud
 
     voice_item = item.get("voice_item") or {}
     media = voice_item.get("media") or {}
@@ -174,7 +165,6 @@ async def download_voice(adapter: "WeChatAdapter", item: Dict[str, Any]) -> Opti
 
 
 async def download_remote_media(adapter: "WeChatAdapter", url: str) -> str:
-    from butler.registry.url_safety import is_safe_url
 
     if not is_safe_url(url):
         raise ValueError(f"Blocked unsafe URL (SSRF protection): {url}")

@@ -62,6 +62,30 @@ from butler.core.agent_loop_ops import (
     run_after_tools_plugins_safe,
     run_stop_hooks_safe,
 )
+from butler.core.best_effort import record_best_effort_skip
+from butler.core.delegate_context import (
+    set_parent_messages,
+    set_parent_system_prompt,
+)
+from butler.core.hook_context_adapter import (
+    adapt_hook_context_lines,
+    apply_hook_context_to_diagnostics,
+    to_hook_context_view,
+)
+from butler.core.loop_callbacks_merge import merge_loop_callbacks
+from butler.core.loop_plugins import default_plugin_registry
+from butler.core.session_transcript import transcript_batch
+from butler.core.streaming_tools import streaming_tools_enabled
+from butler.core.tool_call_limits import reset_tool_call_limiter_for_turn
+from butler.execution_context import (
+    get_current_orchestrator,
+    get_current_session_key,
+    use_execution_context,
+)
+from butler.mcp.turn_scrape_dedup import turn_scrape_dedup_scope
+from butler.tool_guardrails import synthetic_result
+from butler.tools.network_search_policy import turn_network_search_scope
+from butler.transport.provider_health import is_circuit_open
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +138,6 @@ class AgentLoop:
         self._tool_prefetch: dict[str, str] = {}
         self._orchestrator: Any | None = None
         self._session_key: str = ""
-        from butler.core.loop_plugins import default_plugin_registry
-
         self._plugins = default_plugin_registry(self.config)
 
     def bind_execution(
@@ -131,12 +153,6 @@ class AgentLoop:
 
     def _tool_execution_context(self) -> AbstractContextManager[None]:
         from contextlib import contextmanager
-
-        from butler.execution_context import (
-            get_current_orchestrator,
-            get_current_session_key,
-            use_execution_context,
-        )
 
         @contextmanager
         def _ctx() -> Iterator[None]:
@@ -181,8 +197,6 @@ class AgentLoop:
         first (FIFO). Error strings are truncated to
         ``_MAX_SKIPPED_PLUGIN_ERROR_LEN`` to keep the payload small.
         """
-        from butler.core.best_effort import record_best_effort_skip
-
         label = f"agent_loop.{plugin_name}"
         logger.error("%s skipped: %s", plugin_name, exc, exc_info=exc)
         record_best_effort_skip(label, exc)
@@ -206,8 +220,6 @@ class AgentLoop:
         start_time = time.time()
         saved_callbacks = self.callbacks
         if run_callbacks is not None:
-            from butler.core.loop_callbacks_merge import merge_loop_callbacks
-
             self.callbacks = merge_loop_callbacks(saved_callbacks, run_callbacks)
         pre_run_diagnostics = {
             k: v for k, v in self.diagnostics.items()
@@ -220,18 +232,11 @@ class AgentLoop:
         self._interrupted = False
         self._thread_id = threading.get_ident() if hasattr(threading, "get_ident") else None
         clear_interrupt(self._thread_id)
-        from butler.execution_context import get_current_session_key
-
         _steer_session = get_current_session_key() or "default"
         mark_run_active(_steer_session)
         # PERF-13-3: 把整轮所有 record_* 批量成 1 次 flush
-        from butler.core.session_transcript import transcript_batch
-
         try:
             with transcript_batch(_steer_session):
-                from butler.mcp.turn_scrape_dedup import turn_scrape_dedup_scope
-                from butler.tools.network_search_policy import turn_network_search_scope
-
                 with turn_network_search_scope(user_message):
                     with turn_scrape_dedup_scope():
                         return self._run_turn_body(
@@ -253,15 +258,11 @@ class AgentLoop:
         self._empty_retries = 0
         self._truncation_retries = 0
         set_parent_callbacks(self.callbacks)
-        from butler.core.delegate_context import set_parent_messages, set_parent_system_prompt
-
         set_parent_system_prompt(self.system_prompt)
         set_parent_messages(self._messages)
         self._tool_prefetch.clear()
         if self._guardrails:
             self._guardrails.reset_for_turn()
-        from butler.core.tool_call_limits import reset_tool_call_limiter_for_turn
-
         reset_tool_call_limiter_for_turn()
 
     def _prepare_user_message(
@@ -307,8 +308,6 @@ class AgentLoop:
                     _mark_interrupted_status(state)
                     break
                 state.iteration += 1
-                from butler.core.delegate_context import set_parent_messages
-
                 set_parent_messages(self._messages)
                 if maybe_compact_turn_safe(self, state):
                     continue
@@ -347,12 +346,6 @@ class AgentLoop:
             return False
 
         if stop_hooks.additional_context:
-            from butler.core.hook_context_adapter import (
-                adapt_hook_context_lines,
-                apply_hook_context_to_diagnostics,
-                to_hook_context_view,
-            )
-
             adapted = adapt_hook_context_lines(
                 stop_hooks.additional_context,
                 source="stop_hook",
@@ -442,8 +435,6 @@ class AgentLoop:
         return cast(list[dict[str, Any]], self._plugins.before_model(prepared))
 
     def _try_activate_fallback(self) -> bool:
-        from butler.transport.provider_health import is_circuit_open
-
         if not self._fallback_chain:
             return False
 
@@ -469,8 +460,6 @@ class AgentLoop:
 
     def _call_llm_with_retry(self) -> Optional[NormalizedResponse]:
         empty_retries = [self._empty_retries]
-        from butler.core.streaming_tools import streaming_tools_enabled
-
         on_tool_ready = None
         if streaming_tools_enabled() and self.config.stream:
             prefetch = self._tool_prefetch
@@ -482,8 +471,6 @@ class AgentLoop:
                 if key in prefetch:
                     return
                 if self._guardrails:
-                    from butler.tool_guardrails import synthetic_result
-
                     before = self._guardrails.before_call(name, args)
                     if before.action == "ask" and before.code == "doom_loop":
                         blocked = doom_loop_block_on_ask(before, name, args)
@@ -568,6 +555,4 @@ class AgentLoop:
         if self._context is not None:
             self._context.compression_summary = ""
             self._context.consecutive_compact_failures = 0
-        from butler.core.tool_call_limits import reset_tool_call_limiter_for_turn
-
         reset_tool_call_limiter_for_turn()

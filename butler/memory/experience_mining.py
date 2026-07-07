@@ -16,6 +16,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+from butler.config import get_butler_home
+from butler.memory.experience_mining_ops import (
+    read_text_snippet_safe,
+    collect_recent_edit_paths_safe,
+    run_mining_source_safe,
+)
+from butler.dev_engine.coding_knowledge import (
+    CodingExperience,
+    TheoremLibrary,
+    verify_theorems,
+    ExperienceLibrary,
+)
+
 logger = logging.getLogger(__name__)
 
 ReviewStatus = Literal["approved", "pending", "rejected"]
@@ -121,7 +134,6 @@ def default_mining_days() -> int:
 
 
 def _metrics_dir() -> Path:
-    from butler.config import get_butler_home
 
     d = Path(get_butler_home()) / "metrics"
     d.mkdir(parents=True, exist_ok=True)
@@ -133,7 +145,6 @@ def pending_path() -> Path:
 
 
 def feeds_path() -> Path:
-    from butler.config import get_butler_home
 
     d = Path(get_butler_home()) / "feeds"
     d.mkdir(parents=True, exist_ok=True)
@@ -141,7 +152,6 @@ def feeds_path() -> Path:
 
 
 def experience_library_path() -> str:
-    from butler.config import get_butler_home
 
     return str(get_butler_home() / "coding_experiences.json")
 
@@ -237,7 +247,6 @@ def mine_workspace_patterns(workspace: Path) -> list[CandidateExperience]:
     for rel_path, category in pattern_files.items():
         fp = workspace / rel_path
         if fp.exists() and fp.is_file():
-            from butler.memory.experience_mining_ops import read_text_snippet_safe
 
             content = read_text_snippet_safe(fp, limit=500)
             if content is not None:
@@ -252,7 +261,6 @@ def mine_workspace_patterns(workspace: Path) -> list[CandidateExperience]:
     workflows = workspace / ".github" / "workflows"
     if workflows.is_dir():
         for wf in sorted(workflows.glob("*.yml"))[:5]:
-            from butler.memory.experience_mining_ops import read_text_snippet_safe
 
             snippet = read_text_snippet_safe(wf, limit=300)
             if snippet is not None:
@@ -334,7 +342,6 @@ def mine_recent_edits(workspace: Path, days: int = 7) -> list[CandidateExperienc
     """Recently modified files as low-confidence activity signals."""
     candidates: list[CandidateExperience] = []
     cutoff = time.time() - days * 86400
-    from butler.memory.experience_mining_ops import collect_recent_edit_paths_safe
 
     for fp in collect_recent_edit_paths_safe(workspace, cutoff=cutoff):
         rel = fp.relative_to(workspace)
@@ -362,7 +369,6 @@ def run_mining(
     t0 = time.time()
     report = MiningReport()
     days = days or default_mining_days()
-    from butler.memory.experience_mining_ops import run_mining_source_safe
 
     if include_feeds:
         feeds, err = run_mining_source_safe(mine_feeds, label="feeds")
@@ -402,7 +408,6 @@ def _pattern_for_candidate(cand: CandidateExperience) -> str:
 
 
 def candidate_to_experience(cand: CandidateExperience) -> Any:
-    from butler.dev_engine.coding_knowledge import CodingExperience
 
     basis = set(CATEGORY_THEOREM_MAP.get(cand.category, set()))
     exp_id = f"MINED_{cand.candidate_id()}"
@@ -423,7 +428,6 @@ def candidate_to_experience(cand: CandidateExperience) -> Any:
 
 def review_candidate(cand: CandidateExperience) -> ReviewResult:
     """Theorem review gate (CT3): map category → basis → verify pattern."""
-    from butler.dev_engine.coding_knowledge import TheoremLibrary, verify_theorems
 
     cid = cand.candidate_id()
     basis = CATEGORY_THEOREM_MAP.get(cand.category, set())
@@ -512,7 +516,6 @@ def ingest_experiences(
     xlib_path: str | None = None,
 ) -> dict[str, int]:
     """Persist approved experiences with full theorem validation."""
-    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
 
     path = xlib_path or experience_library_path()
     tlib = TheoremLibrary()

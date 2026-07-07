@@ -9,6 +9,15 @@ from typing import Any, cast
 from butler.core.best_effort import safe_best_effort
 from butler.core.loop_types import LoopCallbacks
 from butler.tool_guardrails import ToolCallGuardrailController, synthetic_result
+from butler.execution_context import get_current_workflow_step
+from butler.core.delegate_context import get_parent_messages
+from butler.core.session_transcript import record_tool_action
+from butler.execution_context import get_current_session_key
+from butler.ops.runtime_metrics import inc
+from butler.ops.cost_tracker import get_session_cost
+from butler.core.pim_state import on_pim_tool_success
+from butler.core.tool_batch_finalize import finalize_fallback_tool_result
+from butler.core.batch_sequence_guard import stale_skip_result
 
 
 @dataclass
@@ -18,11 +27,9 @@ class ToolBatchHookState:
 
 def transcript_source_for_batch() -> str:
     def _probe() -> str:
-        from butler.execution_context import get_current_workflow_step
 
         if get_current_workflow_step():
             return "workflow"
-        from butler.core.delegate_context import get_parent_messages
 
         if get_parent_messages():
             return "delegate"
@@ -47,8 +54,6 @@ def build_tool_batch_hooks(
         def _record_transcript() -> None:
             import json as _json
 
-            from butler.core.session_transcript import record_tool_action
-            from butler.execution_context import get_current_session_key
 
             sk = str(get_current_session_key() or "").strip()
             if sk:
@@ -67,7 +72,6 @@ def build_tool_batch_hooks(
         from butler.core.tool_batch import _tool_result_outcome
 
         def _record_metrics() -> None:
-            from butler.ops.runtime_metrics import inc
 
             outcome = _tool_result_outcome(result)
             tool_label = str(name or "?")[:48]
@@ -76,8 +80,6 @@ def build_tool_batch_hooks(
         safe_best_effort(_record_metrics, label="tool_batch.metrics_on_complete")
 
         def _record_cost() -> None:
-            from butler.ops.cost_tracker import get_session_cost
-            from butler.execution_context import get_current_session_key
 
             session_key = str(get_current_session_key() or "").strip()
             if session_key:
@@ -86,7 +88,6 @@ def build_tool_batch_hooks(
         safe_best_effort(_record_cost, label="tool_batch.cost_on_complete")
 
         def _record_pim() -> None:
-            from butler.core.pim_state import on_pim_tool_success
 
             outcome = _tool_result_outcome(result)
             if outcome == "ok":
@@ -97,7 +98,6 @@ def build_tool_batch_hooks(
             callbacks.on_tool_complete(name, result)
 
     def precheck_tool(name: str, args: dict[str, Any]) -> str | None:
-        from butler.core.tool_batch_finalize import finalize_fallback_tool_result
 
         if interrupt_check():
             return cast(
@@ -118,7 +118,6 @@ def build_tool_batch_hooks(
                 ),
             )
         if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
-            from butler.core.batch_sequence_guard import stale_skip_result
 
             return cast(
                 str,

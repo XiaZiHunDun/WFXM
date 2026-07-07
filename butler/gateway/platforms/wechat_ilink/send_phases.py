@@ -8,6 +8,13 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, cast
+from butler.gateway.platforms.wechat_ilink import _send_message
+from butler.gateway.platforms.wechat_ilink import RATE_LIMIT_ERRCODE, SESSION_EXPIRED_ERRCODE, _is_stale_session_ret, _safe_id
+from butler.gateway.platforms.wechat_ilink.send_phases_ops import deliver_attachment_safe
+from butler.gateway.outbound_delay import inter_chunk_delay_seconds
+from butler.gateway.platforms.wechat_ilink import _aes128_ecb_encrypt, _upload_ciphertext
+from butler.gateway.platforms.wechat_ilink import _cdn_upload_url, _get_upload_url
+from butler.gateway.platforms.wechat_ilink import EP_SEND_MESSAGE, MSG_STATE_FINISH, MSG_TYPE_BOT, _api_post
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink import WeChatAdapter
@@ -39,7 +46,6 @@ async def _phase_chunk_attempt(
     Raises whatever exception the transport raises (caller catches +
     backoffs); returns the iLink response dict on a clean HTTP roundtrip.
     """
-    from butler.gateway.platforms.wechat_ilink import _send_message
 
     return cast(
         Dict[str, Any],
@@ -98,12 +104,6 @@ def _classify_chunk_error(
     state: WeChatSendState,
 ) -> Tuple[str, Optional[str], Optional[Exception]]:
     """Apply the (session_expired / rate_limit / other) decision tree."""
-    from butler.gateway.platforms.wechat_ilink import (
-        RATE_LIMIT_ERRCODE,
-        SESSION_EXPIRED_ERRCODE,
-        _is_stale_session_ret,
-        _safe_id,
-    )
 
     if (ret == SESSION_EXPIRED_ERRCODE or errcode == SESSION_EXPIRED_ERRCODE
             or _is_stale_session_ret(ret, errcode, resp.get("errmsg"))):
@@ -151,7 +151,6 @@ async def _phase_send_attachments(
     as non-voice. The per-extension dispatch table is local; failures
     are logged + swallowed (matching the original ``send`` semantics).
     """
-    from butler.gateway.platforms.wechat_ilink.send_phases_ops import deliver_attachment_safe
 
     for media_path, is_voice in media_files:
         await deliver_attachment_safe(
@@ -186,7 +185,6 @@ async def _phase_send_text_chunks(
     Inter-chunk delay uses ``butler.gateway.outbound_delay`` to honor
     per-session override + default fallback.
     """
-    from butler.gateway.outbound_delay import inter_chunk_delay_seconds
 
     formatted = adapter.format_message(final_content)
     chunks = [
@@ -246,10 +244,6 @@ async def _phase_file_request_upload(
         adapter, chat_id=chat_id, media_type=media_type, filekey=filekey,
         rawsize=rawsize, rawfilemd5=rawfilemd5, filesize=filesize, aes_key=aes_key,
     )
-    from butler.gateway.platforms.wechat_ilink import (
-        _aes128_ecb_encrypt,
-        _upload_ciphertext,
-    )
     ciphertext = _aes128_ecb_encrypt(plaintext, aes_key)
     encrypted_query_param = await _upload_ciphertext(
         adapter._send_session, ciphertext=ciphertext, upload_url=upload_url,
@@ -269,10 +263,6 @@ async def _resolve_upload_url(
     aes_key: bytes,
 ) -> str:
     """Call ``getuploadurl`` and pick ``upload_full_url`` or fallback URL."""
-    from butler.gateway.platforms.wechat_ilink import (
-        _cdn_upload_url,
-        _get_upload_url,
-    )
 
     upload_response = await _get_upload_url(
         adapter._send_session,
@@ -325,7 +315,6 @@ async def _send_caption_first(
     context_token: Optional[str],
 ) -> None:
     """Dispatch a separate text message for the caption (client_id discarded)."""
-    from butler.gateway.platforms.wechat_ilink import _send_message
 
     await _send_message(
         adapter._send_session,
@@ -345,12 +334,6 @@ async def _send_media_envelope(
     context_token: Optional[str],
 ) -> str:
     """POST the media envelope to ``EP_SEND_MESSAGE``. Returns client_id."""
-    from butler.gateway.platforms.wechat_ilink import (
-        EP_SEND_MESSAGE,
-        MSG_STATE_FINISH,
-        MSG_TYPE_BOT,
-        _api_post,
-    )
 
     last_message_id = f"hermes-wechat-{uuid.uuid4().hex}"
     await _api_post(

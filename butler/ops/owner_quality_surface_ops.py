@@ -7,6 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.mcp.config import mcp_enabled, mcp_sdk_available
+from butler.registry.mcp_merge import effective_mcp_servers
+from butler.mcp.manager import get_manager
+from butler.mcp.diagnostics import format_mcp_diagnostic_lines
+from butler.dev_engine.b9_tiers import summarize_tier_results
+from butler.ops.eval_diagnostics import collect_eval_quality_snapshot
+from butler.ops.b9_prod_weekly import compare_production_delegate_delta, summarize_production_delegate_quality
+from butler.config import get_butler_home
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +38,6 @@ def resolve_workspace_safe(orchestrator: Any, session_key: str) -> Path | None:
 
 def mcp_import_available() -> bool:
     def _run() -> bool:
-        from butler.mcp.config import mcp_enabled, mcp_sdk_available  # noqa: F401
 
         return True
 
@@ -39,7 +46,6 @@ def mcp_import_available() -> bool:
 
 def mcp_configured_count(workspace: Path | None) -> int:
     def _run() -> int:
-        from butler.registry.mcp_merge import effective_mcp_servers
 
         return len(effective_mcp_servers(workspace=workspace))
 
@@ -49,7 +55,6 @@ def mcp_configured_count(workspace: Path | None) -> int:
 
 def mcp_connection_snapshot(session_key: str) -> tuple[int, int]:
     def _run() -> tuple[int, int]:
-        from butler.mcp.manager import get_manager
 
         sk = str(session_key or "").strip() or "default"
         statuses = get_manager().status_snapshot(sk)
@@ -69,7 +74,6 @@ def mcp_connection_snapshot(session_key: str) -> tuple[int, int]:
 
 def mcp_diagnostic_detail_lines(session_key: str) -> list[str]:
     def _run() -> list[str]:
-        from butler.mcp.diagnostics import format_mcp_diagnostic_lines
 
         return list(format_mcp_diagnostic_lines(session_key))
 
@@ -87,7 +91,6 @@ def b9_tier_summary_safe(b9: dict[str, Any]) -> str:
         return ""
 
     def _run() -> str:
-        from butler.dev_engine.b9_tiers import summarize_tier_results
 
         tiers = summarize_tier_results(results)
         t1 = tiers.get("tier1") or {}
@@ -102,7 +105,6 @@ def b9_tier_summary_safe(b9: dict[str, Any]) -> str:
 
 def b9_audit_snapshot_safe() -> dict[str, Any] | None:
     def _run() -> dict[str, Any] | None:
-        from butler.ops.eval_diagnostics import collect_eval_quality_snapshot
 
         eq = collect_eval_quality_snapshot()
         if eq.b9:
@@ -115,10 +117,6 @@ def b9_audit_snapshot_safe() -> dict[str, Any] | None:
 
 def prod_delegate_snapshots_safe() -> tuple[dict[str, Any], dict[str, Any]]:
     def _run() -> tuple[dict[str, Any], dict[str, Any]]:
-        from butler.ops.b9_prod_weekly import (
-            compare_production_delegate_delta,
-            summarize_production_delegate_quality,
-        )
 
         return (
             summarize_production_delegate_quality(clean=True),
@@ -141,7 +139,6 @@ def prod_delegate_snapshots_safe() -> tuple[dict[str, Any], dict[str, Any]]:
 
 def review_candidates_count_safe() -> int:
     def _run() -> int:
-        from butler.config import get_butler_home
 
         pending = get_butler_home() / "experiences" / "review_candidates.jsonl"
         if pending.is_file():

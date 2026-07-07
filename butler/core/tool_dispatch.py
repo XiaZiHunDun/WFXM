@@ -6,6 +6,37 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.batch_sequence_guard import (
+    STALE_PREFETCH_CODE,
+    STALE_SKIP_CODE,
+    stale_skip_result,
+)
+from butler.core.structured_events import args_digest, emit_tool_action
+from butler.core.tool_call_limits import get_tool_call_limiter
+from butler.core.tool_dispatch_doom import handle_doom_loop_ask
+from butler.core.tool_dispatch_ops import annotate_mutation_not_landed_safe
+from butler.core.tool_error_policy import (
+    apply_tool_error_policy,
+    should_halt_loop_on_tool_error,
+)
+from butler.core.tool_result_cache import get_cached_result, set_cached_result
+from butler.core.tool_retry import run_tool_with_retry
+from butler.core.two_phase_confirm import two_phase_block_message
+from butler.execution_context import get_current_session_key
+from butler.ops.retry_buckets import record_recovery_event
+from butler.permissions.tool_boundary_registry import validate_tool_boundary
+from butler.core.tool_dispatch_doom import handle_doom_loop_ask
+from butler.core.tool_dispatch_ops import annotate_mutation_not_landed_safe
+from butler.core.tool_error_policy import (
+    apply_tool_error_policy,
+    should_halt_loop_on_tool_error,
+)
+from butler.core.tool_result_cache import get_cached_result, set_cached_result
+from butler.core.tool_retry import run_tool_with_retry
+from butler.core.two_phase_confirm import two_phase_block_message
+from butler.execution_context import get_current_session_key
+from butler.ops.retry_buckets import record_recovery_event
+from butler.permissions.tool_boundary_registry import validate_tool_boundary
 from butler.tool_guardrails import (
     GuardrailDecision,
     ToolCallGuardrailController,
@@ -32,14 +63,8 @@ def dispatch_one_tool(
         finalize_fallback_tool_result,
         finalize_guardrail_halt_result,
     )
-    from butler.core.tool_call_limits import get_tool_call_limiter
-    from butler.core.tool_retry import run_tool_with_retry
-    from butler.core.tool_result_cache import get_cached_result, set_cached_result
-    from butler.execution_context import get_current_session_key
 
     def _two_phase_block() -> str | None:
-        from butler.core.two_phase_confirm import two_phase_block_message
-
         block = two_phase_block_message(name, args, tool_call_id=tool_call_id)
         if not block:
             return None
@@ -61,8 +86,6 @@ def dispatch_one_tool(
         return blocked
 
     def _boundary_block() -> str | None:
-        from butler.permissions.tool_boundary_registry import validate_tool_boundary
-
         violation = validate_tool_boundary(name, args)
         if violation is None:
             return None
@@ -73,12 +96,6 @@ def dispatch_one_tool(
         return boundary_blocked
 
     if batch_guard is not None and batch_guard.should_skip_stale_read(name, args):
-        from butler.core.batch_sequence_guard import (
-            STALE_PREFETCH_CODE,
-            STALE_SKIP_CODE,
-            stale_skip_result,
-        )
-
         code = (
             STALE_PREFETCH_CODE
             if prefetched and tool_call_id and tool_call_id in prefetched
@@ -124,8 +141,6 @@ def dispatch_one_tool(
         if before.action == "warn" and before.code == "doom_loop_soft_nudge":
             pending_warn = before
         if before.action == "ask" and before.code == "doom_loop":
-            from butler.core.tool_dispatch_doom import handle_doom_loop_ask
-
             doom_result = handle_doom_loop_ask(
                 before, name, args, session_key=session_key,
             )
@@ -138,9 +153,6 @@ def dispatch_one_tool(
     result = str(run_tool_with_retry(name, args, dispatch_tool))
 
     def _emit_tool_event() -> None:
-        from butler.core.structured_events import args_digest, emit_tool_action
-        from butler.execution_context import get_current_session_key
-
         outcome = "error" if '"error"' in str(result)[:200].lower() else "ok"
         emit_tool_action(
             tool_name=name,
@@ -153,11 +165,6 @@ def dispatch_one_tool(
 
     def _apply_error_policy() -> None:
         nonlocal result
-        from butler.core.tool_error_policy import (
-            apply_tool_error_policy,
-            should_halt_loop_on_tool_error,
-        )
-
         result = apply_tool_error_policy(result, tool_name=name)
         if should_halt_loop_on_tool_error(result, tool_name=name) and guardrails:
             guardrails.set_halt_decision(
@@ -172,8 +179,6 @@ def dispatch_one_tool(
     safe_best_effort(_apply_error_policy, label="tool_dispatch.error_policy")
 
     mutation_failed = False
-    from butler.core.tool_dispatch_ops import annotate_mutation_not_landed_safe
-
     result, mutation_failed = annotate_mutation_not_landed_safe(name, result)
 
     set_cached_result(name, args, result, session_key=session_key)
@@ -186,8 +191,6 @@ def dispatch_one_tool(
             guardrails.set_halt_decision(after)
 
             def _record_recovery() -> None:
-                from butler.ops.retry_buckets import record_recovery_event
-
                 reason = str(getattr(after, "reason", "") or "tool_guardrail_halt")[:32]
                 record_recovery_event(reason or "tool_guardrail_halt")
 

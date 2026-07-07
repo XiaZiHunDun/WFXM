@@ -6,14 +6,33 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler import get_build_identity
+from butler.context_settings import format_context_config_source_line
+from butler.core.compaction_status import format_compaction_status_line, format_fact_survival_line
+from butler.core.context_budget import format_context_budget_line
+from butler.core.pipeline_steps import format_pipeline_step_lines
+from butler.core.schema_optimizer import schema_optimize_enabled
+from butler.ops.retry_buckets import format_recovery_bucket_lines
+from butler.ops.runtime_metrics import get_runtime_metrics
+from butler.project.lead import is_lead_project, lead_mode_banner_line
+from butler.runtime.task_store import (
+    count_running_tasks,
+    list_recent_tasks,
+    mark_stale_tasks,
+)
+from butler.tools.path_safety import format_tool_workspace_line
+from butler.transport.auxiliary_client import resolve_auxiliary_config
+from butler.transport.stream_probe import (
+    format_stream_probe_lines,
+    run_stream_probe,
+    stream_probe_enabled,
+)
 
 if TYPE_CHECKING:
     from butler.ops.health_report import HealthReportInput
 
 
 def recovery_bucket_lines(health: dict[str, Any], session_key: str) -> list[str]:
-    from butler.ops.retry_buckets import format_recovery_bucket_lines
-
     return cast(
         list[str],
         format_recovery_bucket_lines(
@@ -23,12 +42,6 @@ def recovery_bucket_lines(health: dict[str, Any], session_key: str) -> list[str]
 
 
 def delegate_stale_lines(health: dict[str, Any], session_key: str) -> list[str]:
-    from butler.runtime.task_store import (
-        count_running_tasks,
-        list_recent_tasks,
-        mark_stale_tasks,
-    )
-
     lines: list[str] = []
     sk = health.get("session_key") or session_key
     stale = mark_stale_tasks(sk, auto_fail=False)
@@ -50,7 +63,6 @@ def delegate_stale_lines(health: dict[str, Any], session_key: str) -> list[str]:
 
 
 def runtime_metrics_line() -> str:
-    from butler.ops.runtime_metrics import get_runtime_metrics
 
     metrics = get_runtime_metrics()
     compaction_count = metrics.get("compaction_count", 0)
@@ -59,11 +71,6 @@ def runtime_metrics_line() -> str:
 
 
 def stream_probe_turn_lines(orchestrator: Any) -> list[str]:
-    from butler.transport.stream_probe import (
-        format_stream_probe_lines,
-        run_stream_probe,
-        stream_probe_enabled,
-    )
 
     if not stream_probe_enabled():
         return []
@@ -72,7 +79,6 @@ def stream_probe_turn_lines(orchestrator: Any) -> list[str]:
 
 
 def schema_optimize_line(health: dict[str, Any], loop_health: dict[str, Any]) -> str:
-    from butler.core.schema_optimizer import schema_optimize_enabled
 
     if not schema_optimize_enabled():
         return ""
@@ -107,7 +113,6 @@ def turn_diagnostic_lines(
     if not isinstance(skill_matches, list):
         skill_matches = [str(skill_matches)]
 
-    from butler.transport.auxiliary_client import resolve_auxiliary_config
 
     aux_label = safe_best_effort(
         lambda: (
@@ -118,7 +123,6 @@ def turn_diagnostic_lines(
         default="未配置",
     ) or "未配置"
 
-    from butler.project.lead import is_lead_project, lead_mode_banner_line
 
     agent_role = str(health.get("gateway_agent_role") or "butler")
     if agent_role == "lead":
@@ -138,14 +142,9 @@ def turn_diagnostic_lines(
         default="",
     ) or ""
     engine_line += lead_flag_line
-    from butler.core.context_budget import format_context_budget_line
-    from butler.context_settings import format_context_config_source_line
 
     context_line = format_context_budget_line(health)
     context_config_line = format_context_config_source_line()
-    from butler.core.compaction_status import format_compaction_status_line, format_fact_survival_line
-    from butler.core.pipeline_steps import format_pipeline_step_lines
-    from butler.tools.path_safety import format_tool_workspace_line
 
     workspace_line = safe_best_effort(
         lambda: format_tool_workspace_line(
@@ -179,7 +178,7 @@ def turn_diagnostic_lines(
         label="health_report.recovery_buckets",
         default=[],
     ) or []
-    from butler import get_build_identity
+
     from butler.ops.health_report import format_build_uptime
 
     bi = get_build_identity()

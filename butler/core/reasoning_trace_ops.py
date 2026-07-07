@@ -5,6 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.execution_context import get_current_session_key
+from butler.core.reflection_closure import maybe_persist_reflect_closure
+from butler.dev_engine.fix_strategy import enrich_fix_hint, suggest_fix_action
+from butler.core.plan_reason_graph import append_node, maybe_auto_link_plan_node
+from butler.core.session_transcript import record_reason_graph_event
+from butler.plan.mode import is_plan_mode
+from butler.core.session_transcript import find_last_transcript_types, transcript_enabled
+from butler.core.plan_reason_graph import summarize_graph
 
 
 def resolve_session_key_safe(explicit: str = "") -> str:
@@ -13,7 +21,6 @@ def resolve_session_key_safe(explicit: str = "") -> str:
         return key
 
     def _run() -> str:
-        from butler.execution_context import get_current_session_key
 
         return str(get_current_session_key() or "").strip() or "default"
 
@@ -31,7 +38,6 @@ def persist_reflect_closure_safe(
     source: str,
 ) -> None:
     def _run() -> None:
-        from butler.core.reflection_closure import maybe_persist_reflect_closure
 
         maybe_persist_reflect_closure(
             trigger=trigger,
@@ -47,7 +53,6 @@ def persist_reflect_closure_safe(
 
 def suggest_fix_strategy_safe(state: Any, diags: list) -> str:
     def _run() -> str:
-        from butler.dev_engine.fix_strategy import enrich_fix_hint, suggest_fix_action
 
         level = suggest_fix_action(diags, state)
         return enrich_fix_hint(level, state)
@@ -66,9 +71,6 @@ def sync_plan_step_to_graph_safe(
     detail: str,
 ) -> None:
     def _run() -> None:
-        from butler.core.plan_reason_graph import append_node, maybe_auto_link_plan_node
-        from butler.core.session_transcript import record_reason_graph_event
-        from butler.plan.mode import is_plan_mode
 
         if not is_plan_mode(session_key):
             return
@@ -102,10 +104,6 @@ def sync_plan_step_to_graph_safe(
 
 def transcript_trace_imports_ok() -> bool:
     def _run() -> bool:
-        from butler.core.session_transcript import (  # noqa: F401
-            find_last_transcript_types,
-            transcript_enabled,
-        )
 
         return True
 
@@ -114,7 +112,6 @@ def transcript_trace_imports_ok() -> bool:
 
 def plan_graph_summary_line(session_key: str) -> str:
     def _run() -> str:
-        from butler.core.plan_reason_graph import summarize_graph
 
         stats = summarize_graph(session_key)
         if stats.get("nodes"):

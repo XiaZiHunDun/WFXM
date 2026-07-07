@@ -7,9 +7,25 @@ from typing import Any
 from butler.core.best_effort import safe_best_effort
 
 
+from butler.core.preemptive_compact import preemptive_compact_enabled
+from butler.core.tool_loop_detect import (
+    enabled_detectors,
+    get_tool_loop_detector,
+)
+from butler.gateway.reply_admission import (
+    is_admitted,
+    reply_admission_enabled,
+)
+from butler.gateway.bot_loop_guard import bot_loop_guard_enabled
+from butler.tools.terminal_approval import approval_required
+from butler.config_secrets import secrets_status_line
+from butler.tools.terminal_danger import danger_patterns_enabled
+from butler.tools.terminal_pattern_approval import smart_pattern_approve_enabled
+from butler.ops.terminal_sandbox_diagnostics import format_terminal_sandbox_diagnostic_lines
+from butler.tools.path_safety import current_workspace_root
+
 def append_preemptive_compact_line(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.core.preemptive_compact import preemptive_compact_enabled
 
         lines.append(
             f"前置压缩开关: {'开' if preemptive_compact_enabled() else '关'} (BUTLER_PREEMPTIVE_COMPACT)"
@@ -20,7 +36,6 @@ def append_preemptive_compact_line(lines: list[str]) -> None:
 
 def append_tool_loop_detector_line(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.core.tool_loop_detect import enabled_detectors, get_tool_loop_detector
 
         detectors = enabled_detectors()
         if detectors:
@@ -44,7 +59,6 @@ def append_reply_admission_line(
     health: dict[str, Any],
 ) -> None:
     def _run() -> None:
-        from butler.gateway.reply_admission import is_admitted, reply_admission_enabled
 
         if reply_admission_enabled():
             sk = str(session_key or health.get("session_key") or "").strip()
@@ -56,7 +70,6 @@ def append_reply_admission_line(
 
 def append_bot_loop_guard_line(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.gateway.bot_loop_guard import bot_loop_guard_enabled
 
         lines.append(
             f"Bot 环防护: {'开' if bot_loop_guard_enabled() else '关'} (BUTLER_BOT_LOOP_GUARD)"
@@ -67,7 +80,6 @@ def append_bot_loop_guard_line(lines: list[str]) -> None:
 
 def append_terminal_approval_line(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.tools.terminal_approval import approval_required
 
         if approval_required():
             lines.append("Terminal 批准: 需 Owner /批准执行")
@@ -77,7 +89,6 @@ def append_terminal_approval_line(lines: list[str]) -> None:
 
 def append_secrets_status_line(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.config_secrets import secrets_status_line
 
         lines.append(secrets_status_line())
 
@@ -86,8 +97,6 @@ def append_secrets_status_line(lines: list[str]) -> None:
 
 def append_terminal_danger_line(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.tools.terminal_danger import danger_patterns_enabled
-        from butler.tools.terminal_pattern_approval import smart_pattern_approve_enabled
 
         if danger_patterns_enabled():
             flag = "开" if smart_pattern_approve_enabled() else "关"
@@ -98,10 +107,6 @@ def append_terminal_danger_line(lines: list[str]) -> None:
 
 def extend_terminal_sandbox_lines(lines: list[str]) -> None:
     def _run() -> None:
-        from butler.ops.terminal_sandbox_diagnostics import (
-            format_terminal_sandbox_diagnostic_lines,
-        )
-        from butler.tools.path_safety import current_workspace_root
 
         ws = current_workspace_root()
         lines.extend(format_terminal_sandbox_diagnostic_lines(workspace=ws))

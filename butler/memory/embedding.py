@@ -11,6 +11,12 @@ import threading
 from typing import Any, Protocol, cast
 
 from butler.memory.semantic_config import embedding_model_name, embedding_provider_name
+from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
+from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL, MINIMAX_EMBEDDING_MODEL, OPENAI_EMBEDDING_MODEL, QWEN_EMBEDDING_MODEL
+from butler.memory.embedding_ops import resolve_fastembed_loud
+from butler.memory.embedding_ops import register_embedding_degradation_safe
+from butler.memory.embedding_ops import clear_embedding_degradation_safe
+from butler.memory.embedding_ops import clear_embedding_degradation_safe, probe_api_embedder_loud
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +88,6 @@ class HashingEmbedder:
         requested_provider: str = "",
         requested_model: str = "",
     ) -> None:
-        from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
 
         self._dim = max(8, int(dimension))
         self._model_id = model_id or DEFAULT_EMBEDDING_MODEL
@@ -285,12 +290,6 @@ class FastEmbedEmbedder:
 
 
 def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
-    from butler.defaults.model_defaults import (
-        DEFAULT_EMBEDDING_MODEL,
-        MINIMAX_EMBEDDING_MODEL,
-        OPENAI_EMBEDDING_MODEL,
-        QWEN_EMBEDDING_MODEL,
-    )
 
     fallback = DEFAULT_EMBEDDING_MODEL
     if provider == "openai":
@@ -326,7 +325,6 @@ def _resolve_api_embedder(provider: str, model: str) -> Embedder | None:
 
 
 def _resolve_fastembed(model: str) -> Embedder | None:
-    from butler.memory.embedding_ops import resolve_fastembed_loud
 
     return cast(Embedder | None, resolve_fastembed_loud(model))
 
@@ -439,10 +437,8 @@ def _degraded_hashing(provider: str, model: str) -> "HashingEmbedder":
     user-requested provider/model so /诊断 can surface the gap (e.g.
     requested openai embedding → local hashing fallback).
     """
-    from butler.memory.embedding_ops import register_embedding_degradation_safe
 
     register_embedding_degradation_safe(provider=provider, model=model)
-    from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
 
     return HashingEmbedder(
         model_id=DEFAULT_EMBEDDING_MODEL,
@@ -453,7 +449,6 @@ def _degraded_hashing(provider: str, model: str) -> "HashingEmbedder":
 
 
 def _build_raw_embedder(provider: str, model: str) -> Embedder:
-    from butler.defaults.model_defaults import DEFAULT_EMBEDDING_MODEL
 
     if provider in ("local", "hash", "hashing", ""):
         mid = model or DEFAULT_EMBEDDING_MODEL
@@ -464,7 +459,6 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
         fe = _resolve_fastembed(model)
         if fe is not None:
             logger.info("Embedding provider: fastembed (%s)", fe.model_id)
-            from butler.memory.embedding_ops import clear_embedding_degradation_safe
 
             clear_embedding_degradation_safe()
             return fe
@@ -478,10 +472,6 @@ def _build_raw_embedder(provider: str, model: str) -> Embedder:
 
     api = _resolve_api_embedder(provider, model)
     if api is not None:
-        from butler.memory.embedding_ops import (
-            clear_embedding_degradation_safe,
-            probe_api_embedder_loud,
-        )
 
         probed = probe_api_embedder_loud(api, provider=provider)
         if probed is not None:

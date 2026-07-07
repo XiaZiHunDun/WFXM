@@ -7,6 +7,15 @@ from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.session_transcript import record_plan_snapshot
+from butler.core.session_transcript import record_workflow_step
+from butler.workflows.workflow_run_snapshot import write_workflow_step_checkpoint
+from butler.workflows.pause_state import WorkflowPauseState, save_workflow_pause
+from butler.core.meta_flags import workflow_max_parallel_default
+from butler.workflows.workflow_run_snapshot import write_workflow_run_snapshot
+from butler.workflows.callbacks import WorkflowCallbackContext, run_workflow_handlers
+from butler.experiments.outcomes import append_pending
+from butler.execution_context import get_audit_session_key
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +30,6 @@ def interpolate_var_pool_safe(var_pool: Any, text: str) -> str:
 
 def record_plan_snapshot_safe(session_key: str, snap_json: str) -> None:
     def _run() -> None:
-        from butler.core.session_transcript import record_plan_snapshot
 
         record_plan_snapshot(session_key, snap_json)
 
@@ -38,7 +46,6 @@ def record_workflow_step_safe(
     step_total: int,
 ) -> None:
     def _run() -> None:
-        from butler.core.session_transcript import record_workflow_step
 
         record_workflow_step(
             session_key,
@@ -61,7 +68,6 @@ def write_workflow_step_checkpoint_safe(
     session_key: str,
 ) -> None:
     def _run() -> None:
-        from butler.workflows.workflow_run_snapshot import write_workflow_step_checkpoint
 
         write_workflow_step_checkpoint(
             workspace,
@@ -92,7 +98,6 @@ def save_workflow_pause_safe(
     execution_order: list[str],
 ) -> None:
     def _run() -> None:
-        from butler.workflows.pause_state import WorkflowPauseState, save_workflow_pause
 
         save_workflow_pause(
             WorkflowPauseState(
@@ -109,7 +114,6 @@ def save_workflow_pause_safe(
 
 def workflow_max_parallel_default_safe() -> int | None:
     def _run() -> int:
-        from butler.core.meta_flags import workflow_max_parallel_default
 
         return int(workflow_max_parallel_default())
 
@@ -139,6 +143,9 @@ def write_workflow_run_snapshot_for_project_safe(
         graph,
         session_key=session_key,
     )
+
+
+def write_workflow_run_snapshot_safe(
     workspace: Path,
     workflow_name: str,
     graph: Any,
@@ -146,7 +153,6 @@ def write_workflow_run_snapshot_for_project_safe(
     session_key: str,
 ) -> None:
     def _run() -> None:
-        from butler.workflows.workflow_run_snapshot import write_workflow_run_snapshot
 
         write_workflow_run_snapshot(
             workspace,
@@ -169,7 +175,6 @@ def run_workflow_handlers_safe(
     step_outcomes: dict[str, str],
 ) -> None:
     def _run() -> None:
-        from butler.workflows.callbacks import WorkflowCallbackContext, run_workflow_handlers
 
         run_workflow_handlers(
             handlers,
@@ -195,7 +200,6 @@ def append_pending_outcome_safe(
     hypothesis: str,
 ) -> None:
     def _run() -> None:
-        from butler.experiments.outcomes import append_pending
 
         append_pending(
             workspace,
@@ -210,7 +214,6 @@ def append_pending_outcome_safe(
 
 def current_audit_session_key_safe(fallback: str = "workflow") -> str:
     def _run() -> str:
-        from butler.execution_context import get_audit_session_key
 
         return str(get_audit_session_key(fallback=fallback) or "")
 

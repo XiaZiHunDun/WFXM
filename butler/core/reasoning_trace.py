@@ -6,6 +6,14 @@ import re
 from typing import Any, cast
 
 from butler.env_parse import env_truthy
+from butler.core.reasoning_trace_ops import resolve_session_key_safe
+from butler.core.session_transcript import record_reasoning_step as _record
+from butler.core.session_transcript import record_reflect_step as _record
+from butler.core.reasoning_trace_ops import persist_reflect_closure_safe
+from butler.core.reasoning_trace_ops import suggest_fix_strategy_safe
+from butler.core.reasoning_trace_ops import sync_plan_step_to_graph_safe
+from butler.core.reasoning_trace_ops import plan_graph_summary_line, transcript_trace_imports_ok
+from butler.core.session_transcript import find_last_transcript_types, transcript_enabled
 
 _SUMMARY_MAX = 280
 _GRAPH_STEP_KINDS = frozenset({"fact", "hypothesis", "step", "risk"})
@@ -29,7 +37,6 @@ def summarize_reasoning_text(text: str, *, max_len: int = _SUMMARY_MAX) -> str:
 
 
 def _resolve_session_key(explicit: str = "") -> str:
-    from butler.core.reasoning_trace_ops import resolve_session_key_safe
 
     return str(resolve_session_key_safe(explicit))
 
@@ -45,7 +52,6 @@ def record_reasoning_step(
 ) -> None:
     if not reasoning_trace_enabled():
         return
-    from butler.core.session_transcript import record_reasoning_step as _record
 
     _record(
         session_key,
@@ -68,7 +74,6 @@ def record_reflect_step(
 ) -> None:
     if not reasoning_trace_enabled():
         return
-    from butler.core.session_transcript import record_reflect_step as _record
 
     _record(
         session_key,
@@ -78,7 +83,6 @@ def record_reflect_step(
         detail=summarize_reasoning_text(detail, max_len=200),
         source=str(source or "delegate")[:32],
     )
-    from butler.core.reasoning_trace_ops import persist_reflect_closure_safe
 
     persist_reflect_closure_safe(
         trigger=str(trigger or "verify_fail")[:48],
@@ -132,7 +136,6 @@ def record_verify_fail_reflect(state: Any, verify_result: Any) -> None:
     cause = "; ".join(messages) or "verify failed"
     strategy = str(getattr(state, "_last_fix_hint", "") or "")
     if not strategy:
-        from butler.core.reasoning_trace_ops import suggest_fix_strategy_safe
 
         strategy = suggest_fix_strategy_safe(state, diags)
     record_reflect_step(
@@ -229,7 +232,6 @@ def maybe_sync_plan_step_to_graph(
     kind = str(step_kind or "").strip().lower()
     if kind not in _GRAPH_STEP_KINDS:
         return
-    from butler.core.reasoning_trace_ops import sync_plan_step_to_graph_safe
 
     sync_plan_step_to_graph_safe(
         session_key,
@@ -265,14 +267,9 @@ def _transcript_row_fields(row: dict[str, Any]) -> dict[str, Any]:
 def format_reasoning_diagnostic_lines(session_key: str) -> list[str]:
     if not reasoning_trace_enabled():
         return []
-    from butler.core.reasoning_trace_ops import (
-        plan_graph_summary_line,
-        transcript_trace_imports_ok,
-    )
 
     if not transcript_trace_imports_ok():
         return []
-    from butler.core.session_transcript import find_last_transcript_types, transcript_enabled
 
     if not transcript_enabled():
         return []

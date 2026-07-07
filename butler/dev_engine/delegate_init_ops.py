@@ -6,6 +6,18 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.dev_engine.dev_loop import create_dev_state
+from butler.dev_engine.dev_tools import dev_engine_enabled
+from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
+from butler.ops.eval_config_overrides import effective_coding_knowledge_strict
+from butler.ops.experience_selection_telemetry import record_experience_selection
+from butler.config import get_butler_home as _get_butler_home
+from butler.dev_engine.coding_knowledge import TheoremLibrary, process_task
+from butler.dev_engine.dev_state import CodingKnowledgeSummary
+from butler.dev_engine.prod_delegate_bridge import production_delegate_keywords
+from butler.memory.memory_scope import delegate_project_id, load_delegate_experience_library, stack_tags_for_project
+from butler.dev_engine.dev_tools import _active_states
+from butler.dev_engine.loop_plugin import create_dev_engine_plugin
 
 if TYPE_CHECKING:
     from butler.tools.delegate_phases import DelegateRunState
@@ -18,8 +30,6 @@ def init_dev_engine_state_loud(state: DelegateRunState) -> None:
     if norm != "dev":
         return
     try:
-        from butler.dev_engine.dev_loop import create_dev_state
-        from butler.dev_engine.dev_tools import dev_engine_enabled
 
         if not dev_engine_enabled():
             return
@@ -36,7 +46,6 @@ def init_dev_engine_state_loud(state: DelegateRunState) -> None:
 
 def infer_b9_task_id_safe(state: DelegateRunState) -> str:
     def _run() -> str:
-        from butler.dev_engine.prod_delegate_bridge import infer_b9_task_id
 
         return str(
             infer_b9_task_id(
@@ -54,7 +63,6 @@ def infer_b9_task_id_safe(state: DelegateRunState) -> str:
 
 def effective_coding_strict_safe(*, default: bool = True) -> bool:
     def _run() -> bool:
-        from butler.ops.eval_config_overrides import effective_coding_knowledge_strict
 
         return bool(effective_coding_knowledge_strict(True))
 
@@ -73,7 +81,6 @@ def record_experience_selection_safe(
     inferred_task_id: str,
 ) -> None:
     def _run() -> None:
-        from butler.ops.experience_selection_telemetry import record_experience_selection
 
         record_experience_selection(
             session_key=session_key,
@@ -90,15 +97,6 @@ def record_experience_selection_safe(
 
 def activate_coding_knowledge_safe(state: DelegateRunState, ds: Any, sk: str) -> None:
     def _run() -> None:
-        from butler.config import get_butler_home as _get_butler_home
-        from butler.dev_engine.coding_knowledge import TheoremLibrary, process_task
-        from butler.dev_engine.dev_state import CodingKnowledgeSummary
-        from butler.dev_engine.prod_delegate_bridge import production_delegate_keywords
-        from butler.memory.memory_scope import (
-            delegate_project_id,
-            load_delegate_experience_library,
-            stack_tags_for_project,
-        )
 
         keywords = production_delegate_keywords(
             state.task,
@@ -159,7 +157,6 @@ def activate_coding_knowledge_safe(state: DelegateRunState, ds: Any, sk: str) ->
 
 
 def register_dev_state_and_plugin_safe(state: DelegateRunState, ds: Any, sk: str) -> None:
-    from butler.dev_engine.dev_tools import _active_states
 
     _active_states[sk] = ds
     if state.agent is None:
@@ -167,7 +164,6 @@ def register_dev_state_and_plugin_safe(state: DelegateRunState, ds: Any, sk: str
         return
 
     def _run() -> None:
-        from butler.dev_engine.loop_plugin import create_dev_engine_plugin
 
         plugin = create_dev_engine_plugin(session_key=sk)
         plugins = getattr(state.agent, "_plugins", None)

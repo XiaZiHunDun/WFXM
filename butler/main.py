@@ -19,6 +19,28 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
+from butler.cli.chat_cli import register_chat_parser
+from butler.cli.cost_cli import register_cost_parser
+from butler.cli.doctor import cmd_doctor
+from butler.cli.eval_cli import register_eval_parser
+from butler.cli.experiment_cli import register_experiment_parser
+from butler.cli.gateway_cli import register_gateway_parser
+from butler.cli.mcp_cli import register_mcp_parser
+from butler.cli.memory_cli import register_memory_parser
+from butler.cli.onboard_cli import register_onboard_parser
+from butler.cli.projects_cli import register_projects_parser
+from butler.cli.prompt_eval_cli import register_prompt_eval_parser
+from butler.cli.provider_presets_cli import register_provider_presets_parser
+from butler.cli.registry_cli import register_registry_parser
+from butler.cli.runtime_cli import register_runtime_parser
+from butler.cli.secrets_cli import register_secrets_subparser
+from butler.cli.sessions_cli import register_sessions_subparser
+from butler.cli.skills_registry import register_skills_parser
+from butler.cli.transcript_cli import register_transcript_parser
+from butler.cli.workflow_cli import register_workflow_subparser
+from butler.env_parse import init_dotenv
+from butler.logging_config import configure_logging
+
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
 
@@ -54,15 +76,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _register_per_area_parsers(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Per-area registrations (R1-7 extraction targets)."""
-    from butler.cli.chat_cli import register_chat_parser
-    from butler.cli.cost_cli import register_cost_parser
-    from butler.cli.gateway_cli import register_gateway_parser
-    from butler.cli.mcp_cli import register_mcp_parser
-    from butler.cli.memory_cli import register_memory_parser
-    from butler.cli.onboard_cli import register_onboard_parser
-    from butler.cli.projects_cli import register_projects_parser
-    from butler.cli.runtime_cli import register_runtime_parser
-
     register_chat_parser(sub)
     register_cost_parser(sub)
     register_onboard_parser(sub)
@@ -76,17 +89,6 @@ def _register_per_area_parsers(sub: argparse._SubParsersAction[argparse.Argument
 def _register_preexisting_parsers(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Pre-existing delegations — keep them here so the orchestrator
     surface is the single point of truth for "what does `butler` do?"."""
-    from butler.cli.eval_cli import register_eval_parser
-    from butler.cli.experiment_cli import register_experiment_parser
-    from butler.cli.prompt_eval_cli import register_prompt_eval_parser
-    from butler.cli.provider_presets_cli import register_provider_presets_parser
-    from butler.cli.registry_cli import register_registry_parser
-    from butler.cli.secrets_cli import register_secrets_subparser
-    from butler.cli.sessions_cli import register_sessions_subparser
-    from butler.cli.skills_registry import register_skills_parser
-    from butler.cli.transcript_cli import register_transcript_parser
-    from butler.cli.workflow_cli import register_workflow_subparser
-
     register_eval_parser(sub)
     register_skills_parser(sub)
     register_workflow_subparser(sub)
@@ -100,15 +102,10 @@ def _register_preexisting_parsers(sub: argparse._SubParsersAction[argparse.Argum
 
 
 def _cmd_doctor(ns: argparse.Namespace) -> int:
-    from butler.cli.doctor import cmd_doctor
-
     return int(cmd_doctor(ns))
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    from butler.env_parse import init_dotenv
-    from butler.logging_config import configure_logging
-
     init_dotenv()
     configure_logging()
     args = _build_parser().parse_args(argv)

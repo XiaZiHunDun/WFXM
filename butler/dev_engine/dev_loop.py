@@ -19,6 +19,13 @@ from butler.dev_engine.dev_state import (
     EditRecord,
     VerifyStatus,
 )
+from butler.dev_engine.dev_loop_ops import effective_dev_max_fix_rounds_safe
+from butler.dev_engine.dev_loop_ops import on_task_start_safe
+from butler.core.dev_context_adapter import apply_dev_verify_view_to_state, to_dev_verify_view, to_verify_result
+from butler.dev_engine.dev_state import VerifyResult
+from butler.dev_engine.dev_loop_ops import maybe_promote_to_review_safe
+from butler.core.review_context_adapter import apply_dev_review_view_to_state, to_dev_review_view
+from butler.dev_engine.dev_loop_ops import emit_transition_metrics_safe
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +45,6 @@ def create_dev_state(
 
     env_fix = int_env("BUTLER_DEV_MAX_FIX_ROUNDS", 3)
     if max_fix_rounds is None:
-        from butler.dev_engine.dev_loop_ops import effective_dev_max_fix_rounds_safe
 
         k_max = effective_dev_max_fix_rounds_safe(env_default=env_fix)
     else:
@@ -52,7 +58,6 @@ def create_dev_state(
 
     tid = task_id or uuid.uuid4().hex[:12]
     state._metrics_task_id = tid
-    from butler.dev_engine.dev_loop_ops import on_task_start_safe
 
     on_task_start_safe(tid, task_description)
 
@@ -85,11 +90,6 @@ def transition(state: DevState, event: str, **kwargs: Any) -> DevState:
     new_phase = transitions
 
     if event == "verify_fail":
-        from butler.core.dev_context_adapter import (
-            apply_dev_verify_view_to_state,
-            to_dev_verify_view,
-            to_verify_result,
-        )
 
         raw_vr = kwargs.get("verify_result")
         view = to_dev_verify_view(raw_vr, source="verify_fail")
@@ -101,38 +101,23 @@ def transition(state: DevState, event: str, **kwargs: Any) -> DevState:
     if event == "verify_pass":
         raw_vr = kwargs.get("verify_result")
         if raw_vr is not None:
-            from butler.core.dev_context_adapter import (
-                apply_dev_verify_view_to_state,
-                to_dev_verify_view,
-                to_verify_result,
-            )
 
             view = to_dev_verify_view(raw_vr, source="verify_pass")
             apply_dev_verify_view_to_state(view, state)
             state.verify_result = to_verify_result(raw_vr, source="verify_pass")
         else:
-            from butler.dev_engine.dev_state import VerifyResult
 
             state.verify_result = VerifyResult(status=VerifyStatus.PASS)
         state.diagnostics = []
-        from butler.dev_engine.dev_loop_ops import maybe_promote_to_review_safe
 
         new_phase = maybe_promote_to_review_safe(new_phase)
 
     if event == "review_fail":
-        from butler.core.review_context_adapter import (
-            apply_dev_review_view_to_state,
-            to_dev_review_view,
-        )
 
         view = to_dev_review_view(kwargs.get("review_result"), source="review_fail")
         apply_dev_review_view_to_state(view, state)
 
     if event == "review_pass":
-        from butler.core.review_context_adapter import (
-            apply_dev_review_view_to_state,
-            to_dev_review_view,
-        )
 
         view = to_dev_review_view(kwargs.get("review_result"), source="review_pass")
         apply_dev_review_view_to_state(view, state)
@@ -155,7 +140,6 @@ def transition(state: DevState, event: str, **kwargs: Any) -> DevState:
 
 def _emit_metrics(state: DevState, from_phase: str, event: str, to_phase: str) -> None:
     """Emit transition event to the global MetricsCollector."""
-    from butler.dev_engine.dev_loop_ops import emit_transition_metrics_safe
 
     emit_transition_metrics_safe(
         state,

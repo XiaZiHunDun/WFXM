@@ -17,11 +17,25 @@ from butler.dev_engine.b9_oracle_curriculum import (
 from butler.dev_engine.b9_types import B9Result, B9TaskSpec
 from butler.ops.b9_failure_analysis import classify_b9_failure
 
+from butler.config import get_butler_home
+from butler.dev_engine.swe_curriculum import get_swe_playbook
+from butler.ops.b9_lessons_ops import follow_up_lesson_experience_safe
+from butler.dev_engine.coding_knowledge import (
+    ExperienceLibrary,
+    TheoremLibrary,
+    CodingExperience,
+)
+from butler.dev_engine.b9_experience_retrieval import (
+    B9_EXPERIENCE_THEOREM_BASIS,
+    apply_retrieval_benchmarks,
+    enrich_b9_experience_context,
+)
+from butler.dev_engine.b9_tiers import b9_task_tier
+
 _LESSONS_NAME = "b9_lessons.jsonl"
 
 
 def b9_lessons_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / _LESSONS_NAME
 
@@ -116,7 +130,6 @@ def record_b9_run_lesson(
             lesson = f"{ep.pattern_summary} | failed: {classification}"
         pattern_summary = ep.pattern_summary if ep else ""
         if not pattern_summary and result.task_id.startswith("SWE-"):
-            from butler.dev_engine.swe_curriculum import get_swe_playbook
 
             swe_pb = get_swe_playbook(result.task_id)
             if swe_pb is not None:
@@ -135,7 +148,6 @@ def record_b9_run_lesson(
             "anti_patterns": list(ep.anti_patterns) if ep else [],
         }
     record_b9_lesson(row)
-    from butler.ops.b9_lessons_ops import follow_up_lesson_experience_safe
 
     row["experience_followup"] = follow_up_lesson_experience_safe(row, result, spec)
     return row
@@ -144,8 +156,6 @@ def record_b9_run_lesson(
 def _experience_library_paths() -> tuple[str, Any]:
     import os
 
-    from butler.config import get_butler_home
-    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
 
     xlib_path = os.path.join(get_butler_home(), "coding_experiences.json")
     tlib = TheoremLibrary()
@@ -175,7 +185,6 @@ def upsert_failure_experience(
     anti_patterns: list[str] | None = None,
 ) -> tuple[bool, str]:
     """Record LIVE failure anti-pattern as B9_FAIL_* experience."""
-    from butler.dev_engine.coding_knowledge import CodingExperience
 
     slug = task_id.replace("B9L_", "").replace("SWE-", "swe_")
     exp_id = f"B9_FAIL_{slug}"
@@ -187,11 +196,6 @@ def upsert_failure_experience(
         f"evidence: {(failure_tail or '')[:800]}"
     )
     xlib_path, xlib = _experience_library_paths()
-    from butler.dev_engine.b9_experience_retrieval import (
-        B9_EXPERIENCE_THEOREM_BASIS,
-        apply_retrieval_benchmarks,
-        enrich_b9_experience_context,
-    )
 
     exp = CodingExperience(
         id=exp_id,
@@ -246,7 +250,6 @@ def follow_up_lesson_experience(
 
 def promote_episode_to_experience(ep: B9CurriculumEpisode, *, skip_if_exists: bool = True) -> tuple[bool, str]:
     """Promote oracle episode to ~/.butler/coding_experiences.json (B9_EX_*)."""
-    from butler.dev_engine.coding_knowledge import CodingExperience
 
     exp_id = f"B9_EX_{ep.task_id.replace('B9L_', '')}"
     xlib_path, xlib = _experience_library_paths()
@@ -254,11 +257,6 @@ def promote_episode_to_experience(ep: B9CurriculumEpisode, *, skip_if_exists: bo
         return False, "exists"
     steps_text = "\n".join(f"{s.action} {s.target}: {s.detail}" for s in ep.steps)
     pattern = f"{ep.pattern_summary}\n\nsteps:\n{steps_text}"
-    from butler.dev_engine.b9_experience_retrieval import (
-        B9_EXPERIENCE_THEOREM_BASIS,
-        apply_retrieval_benchmarks,
-        enrich_b9_experience_context,
-    )
 
     exp = CodingExperience(
         id=exp_id,
@@ -282,7 +280,6 @@ def export_curriculum_and_seed_experiences(
     task_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     """Export curriculum JSON + seed CodingExperience for listed tasks (default Tier-1)."""
-    from butler.dev_engine.b9_tiers import b9_task_tier
 
     curriculum_path = export_curriculum_to_disk()
     lessons_recorded = 0

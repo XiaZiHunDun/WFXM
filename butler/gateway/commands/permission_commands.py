@@ -25,6 +25,14 @@ from butler.gateway.command_registry import (
     register,
     require_owner,
 )
+from butler.permissions.approvals import list_always
+from butler.permissions.approvals import grant_once
+from butler.permissions.approvals import grant_always
+from butler.tools.terminal_approval import store_approval
+from butler.gateway.commands.permission_commands_ops import inc_terminal_sandbox_escalation_approved_safe
+from butler.tools.terminal_pattern_approval import approve_pattern
+from butler.permissions.approvals import revoke_always
+from butler.permissions.approvals import clear_always
 
 
 def _as_str(value: Any) -> str | None:
@@ -38,7 +46,6 @@ def _cmd_perm_list(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.permissions.approvals import list_always
 
     rows = list_always(ctx.session_key)
     if not rows:
@@ -56,7 +63,6 @@ def _cmd_perm_once(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.permissions.approvals import grant_once
 
     return _as_str(grant_once(ctx.session_key, fingerprint=ctx.arg.strip()))
 
@@ -75,7 +81,6 @@ def _cmd_perm_always(ctx: CommandContext) -> Optional[str]:
             "/始终允许 rule:read_file:AGENTS.md"
         )
 
-    from butler.permissions.approvals import grant_always
 
     tool = "*"
     pattern = "*"
@@ -110,7 +115,6 @@ def _cmd_perm_exec(ctx: CommandContext) -> Optional[str]:
     cmd = ctx.arg.strip()
     if not cmd:
         return "用法: /批准执行 <terminal 命令>"
-    from butler.tools.terminal_approval import store_approval
 
     store_approval(cmd, session_key=ctx.session_key)
     return f"已批准 terminal 命令（5 分钟内有效）:\n{cmd[:200]}"
@@ -124,12 +128,8 @@ def _cmd_perm_unsandboxed(ctx: CommandContext) -> Optional[str]:
     cmd = ctx.arg.strip()
     if not cmd:
         return "用法: /批准沙箱外 <terminal 命令>"
-    from butler.tools.terminal_approval import store_approval
 
     store_approval(cmd, session_key=ctx.session_key, unsandboxed=True)
-    from butler.gateway.commands.permission_commands_ops import (
-        inc_terminal_sandbox_escalation_approved_safe,
-    )
 
     inc_terminal_sandbox_escalation_approved_safe(ctx.session_key)
     return (
@@ -145,7 +145,6 @@ def _cmd_perm_pattern(ctx: CommandContext) -> Optional[str]:
     pat = ctx.arg.strip()
     if not pat:
         return "用法: /批准模式 <rm_rf|curl_pipe_sh|chmod_777|...>"
-    from butler.tools.terminal_pattern_approval import approve_pattern
 
     approve_pattern(ctx.session_key, pat)
     return f"已批准本会话 terminal 危险模式「{pat}」（24h 内同类命令可放行）。"
@@ -160,7 +159,6 @@ def _cmd_revoke_always(ctx: CommandContext) -> Optional[str]:
     if not arg:
         return "用法: /撤销批准 <permission> [tool] [pattern]"
     perm, tool, pat = (arg.split() + ["", "", ""])[:3]
-    from butler.permissions.approvals import revoke_always
     return _as_str(revoke_always(ctx.session_key, permission=perm, tool=tool, pattern=pat))
 
 
@@ -169,7 +167,6 @@ def _cmd_clear_always(ctx: CommandContext) -> Optional[str]:
     gate = require_owner(ctx)
     if gate is not None:
         return str(gate)
-    from butler.permissions.approvals import clear_always
     return _as_str(clear_always(ctx.session_key))
 
 

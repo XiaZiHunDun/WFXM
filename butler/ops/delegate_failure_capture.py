@@ -17,6 +17,15 @@ import re
 import time
 from pathlib import Path
 from typing import Any, cast
+from butler.ops.delegate_failure_capture_ops import langfuse_capture_enabled_safe
+from butler.config import get_butler_home
+from butler.ops.delegate_failure_capture_ops import read_failure_audit_summary_safe
+from butler.ops.eval_bridge import DatasetItem
+from butler.ops.delegate_failure_capture_ops import append_failure_audit_safe
+from butler.ops.delegate_failure_capture_ops import follow_up_production_capture_safe
+from butler.ops.delegate_failure_capture_ops import record_g1_04_evidence_safe
+from butler.ops.delegate_failure_capture_ops import push_failure_to_langfuse_loud
+from butler.ops.delegate_failure_capture_ops import resolve_delegate_trace_id_safe
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +49,6 @@ def capture_enabled() -> bool:
         return False
     if raw in ("1", "true", "yes", "all"):
         return True
-    from butler.ops.delegate_failure_capture_ops import langfuse_capture_enabled_safe
 
     return cast(bool, langfuse_capture_enabled_safe())
 
@@ -77,7 +85,6 @@ def should_capture_failure(
 
 
 def _audit_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / _AUDIT_NAME
 
@@ -95,7 +102,6 @@ def failure_audit_summary(*, limit: int = 200) -> dict[str, Any]:
     if not path.is_file():
         return {"total": 0, "by_reason": {}, "recent": []}
 
-    from butler.ops.delegate_failure_capture_ops import read_failure_audit_summary_safe
 
     total, by_reason, recent = read_failure_audit_summary_safe(path, limit=limit)
     return {
@@ -117,7 +123,6 @@ def build_failure_dataset_item(
     dev_engine: dict[str, Any] | None = None,
     failure_reason: str = "",
 ) -> Any:
-    from butler.ops.eval_bridge import DatasetItem
 
     verify_failed = bool(dev_engine and dev_engine.get("verify_passed") is False)
     reason = failure_reason or (
@@ -190,11 +195,9 @@ def capture_delegate_failure(
         audit_rec["project"] = project
     if capture_source:
         audit_rec["capture_source"] = capture_source
-    from butler.ops.delegate_failure_capture_ops import append_failure_audit_safe
 
     append_failure_audit_safe(_audit_path(), audit_rec)
 
-    from butler.ops.delegate_failure_capture_ops import follow_up_production_capture_safe
 
     summary["experience_followup"] = follow_up_production_capture_safe(
         role=role,
@@ -209,7 +212,6 @@ def capture_delegate_failure(
         dev_engine=dev_engine,
     )
 
-    from butler.ops.delegate_failure_capture_ops import record_g1_04_evidence_safe
 
     summary["g1_04_evidence"] = record_g1_04_evidence_safe(
         role=role,
@@ -222,7 +224,6 @@ def capture_delegate_failure(
         capture_source=capture_source or "delegate_pipeline",
     )
 
-    from butler.ops.delegate_failure_capture_ops import push_failure_to_langfuse_loud
 
     dataset_pushed, score_pushed, err = push_failure_to_langfuse_loud(
         role=role,
@@ -256,7 +257,6 @@ def maybe_capture_from_delegate_result(
     dev_engine: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Resolve trace id from active delegate/parent context and capture if needed."""
-    from butler.ops.delegate_failure_capture_ops import resolve_delegate_trace_id_safe
 
     trace_id = resolve_delegate_trace_id_safe(
         child_session_key=child_session_key,

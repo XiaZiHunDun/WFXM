@@ -11,6 +11,23 @@ from butler.gateway.commands.registry_handlers_ops import (
 )
 
 
+from butler.registry.install_pending import (
+    clear_pending,
+    get_pending,
+)
+from butler.registry.skill_service import SkillRegistryService
+from butler.registry.mcp_catalog import McpCatalogService
+from butler.registry.mcp_install import (
+    install_catalog_server,
+    probe_server,
+    reload_mcp_connections,
+    remove_mcp_server,
+)
+from butler.registry.mcp_merge import (
+    format_mcp_status_message,
+    resolve_workspace_for_session,
+)
+from butler.registry.paths import default_mcp_config_path
 def _as_str(value: Any) -> str:
     return str(value)
 
@@ -57,8 +74,6 @@ def _confirm_skill_install(
     external_id: str | None,
     session_key: str,
 ) -> str:
-    from butler.registry.install_pending import clear_pending, get_pending
-    from butler.registry.skill_service import SkillRegistryService
 
     svc = SkillRegistryService(tenant_id=_tenant_id())
     pending = get_pending(
@@ -118,7 +133,6 @@ def _handle_skills(
     gate = require_owner_kw(platform, external_id, session_key)
     if gate is not None:
         return str(gate)
-    from butler.registry.skill_service import SkillRegistryService
 
     parts = (arg or "").strip().split(maxsplit=1)
     sub = parts[0].lower() if parts else "搜索"
@@ -170,7 +184,6 @@ def _handle_skills(
     if sub in ("取消安装", "cancel-install", "取消"):
         if rest and rest not in ("安装", "install"):
             return "用法: /技能 取消安装"
-        from butler.registry.install_pending import clear_pending, get_pending
 
         pending = get_pending(
             session_key=session_key,
@@ -268,14 +281,6 @@ def _handle_mcp(
     external_id: str | None,
     session_key: str,
 ) -> str:
-    from butler.registry.mcp_catalog import McpCatalogService
-    from butler.registry.mcp_install import (
-        install_catalog_server,
-        probe_server,
-        reload_mcp_connections,
-        remove_mcp_server,
-    )
-    from butler.registry.mcp_merge import format_mcp_status_message, resolve_workspace_for_session
 
     parts = (arg or "").strip().split(maxsplit=1)
     sub = parts[0].lower() if parts else "列表"
@@ -331,7 +336,6 @@ def _handle_mcp(
             return "用法: /mcp 测试 <server_id>"
         import yaml  # type: ignore[import-untyped]
 
-        from butler.registry.paths import default_mcp_config_path
 
         path = default_mcp_config_path()
         if not path.is_file():

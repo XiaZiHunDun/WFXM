@@ -11,8 +11,21 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Protocol, cast
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
+from butler.defaults.env_defaults import GATEWAY_MAX_SUPPLEMENTARY_PER_TURN
 from butler.env_parse import env_truthy, float_env, int_env
 from butler.gateway import completion_notify as _completion_notify
+from butler.gateway.item_event_sink import record_thread_item
+from butler.gateway.outbound_bridge_ops import (
+    run_milestone_timer_tick,
+    run_typing_refresh_loop,
+    schedule_coro_threadsafe,
+    send_adapter_message,
+    send_progress_ack,
+)
+from butler.gateway.outbound_events import delegate_event, stream_event, workflow_event
+from butler.gateway.pii_scrub import scrub_outbound_text
+from butler.gateway.progressive_stream import maybe_schedule_progressive_reply
+from butler.gateway.task_milestone import task_milestone_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +77,6 @@ def suppress_completion_after_main_enabled() -> bool:
 
 
 def max_supplementary_per_turn() -> int:
-    from butler.defaults.env_defaults import GATEWAY_MAX_SUPPLEMENTARY_PER_TURN
-
     return _env_int(
         "BUTLER_GATEWAY_MAX_SUPPLEMENTARY_PER_TURN",
         GATEWAY_MAX_SUPPLEMENTARY_PER_TURN,
@@ -216,8 +227,6 @@ class GatewayOutboundBridge:
             )
 
         def _start_milestone_timer() -> None:
-            from butler.gateway.task_milestone import task_milestone_enabled
-
             if task_milestone_enabled():
                 self._milestone_task = asyncio.create_task(
                     self._milestone_timer(),
@@ -294,8 +303,6 @@ class GatewayOutboundBridge:
             self._outbound_events.pop(0)
         if payload.get("kind") == "thread_item":
             def _record_thread_item() -> None:
-                from butler.gateway.item_event_sink import record_thread_item
-
                 record_thread_item(payload)
 
             safe_best_effort(
@@ -316,9 +323,6 @@ class GatewayOutboundBridge:
             self._stream_chars += len(delta)
             combined = (self._stream_preview + delta)[-400:]
             self._stream_preview = combined
-            from butler.gateway.outbound_events import stream_event
-            from butler.gateway.progressive_stream import maybe_schedule_progressive_reply
-
             self.record_outbound_event(stream_event(phase="delta", chars=len(delta)))
             maybe_schedule_progressive_reply(self, combined)
 
@@ -330,8 +334,6 @@ class GatewayOutboundBridge:
             return
         self.flush_pending_delegate_completion()
         self.delegate_role = role
-        from butler.gateway.outbound_events import delegate_event
-
         self.record_outbound_event(delegate_event(role, phase="start", preview=preview[:80]))
         logger.info("Gateway milestone delegate_start role=%s preview=%r", role, preview[:40])
 
@@ -351,8 +353,6 @@ class GatewayOutboundBridge:
             self.workflow_step_index = int(step_index)
             self.workflow_step_total = int(step_total)
             self.workflow_step_phase = str(phase or "start").strip()
-            from butler.gateway.outbound_events import workflow_event
-
             self.record_outbound_event(
                 workflow_event(
                     self.workflow_name,
@@ -450,15 +450,11 @@ class GatewayOutboundBridge:
             )
             return False
         body = (text or "").strip()
-        from butler.gateway.pii_scrub import scrub_outbound_text
-
         body = scrub_outbound_text(body)
         if len(body) > 4000:
             body = body[:3997] + "..."
 
         async def _send() -> None:
-            from butler.gateway.outbound_bridge_ops import send_adapter_message
-
             ok = await send_adapter_message(
                 self.adapter,
                 self.chat_id,
@@ -474,8 +470,6 @@ class GatewayOutboundBridge:
                 )
             else:
                 self._release_supplementary_slot()
-
-        from butler.gateway.outbound_bridge_ops import schedule_coro_threadsafe
 
         if schedule_coro_threadsafe(
             self.loop,
@@ -520,8 +514,6 @@ class GatewayOutboundBridge:
             )
             return False
         body = (text or "").strip()
-        from butler.gateway.pii_scrub import scrub_outbound_text
-
         body = scrub_outbound_text(body)
         if len(body) > 4000:
             body = body[:3997] + "..."
@@ -551,8 +543,6 @@ class GatewayOutboundBridge:
             if kind == "delegate" and self._delegate_push_inflight > 0:
                 self._delegate_push_inflight -= 1
 
-        from butler.gateway.outbound_bridge_ops import schedule_coro_threadsafe
-
         if schedule_coro_threadsafe(
             self.loop,
             _send,
@@ -573,17 +563,11 @@ class GatewayOutboundBridge:
         text = self._build_ack_text(elapsed)
         if not text:
             return
-        from butler.gateway.pii_scrub import scrub_outbound_text
-
         text = scrub_outbound_text(text)
-        from butler.gateway.outbound_bridge_ops import send_progress_ack
-
         await send_progress_ack(self, text=text, elapsed=elapsed)
 
     async def _milestone_timer(self) -> None:
         try:
-            from butler.gateway.outbound_bridge_ops import run_milestone_timer_tick
-
             await run_milestone_timer_tick(self)
         except asyncio.CancelledError:
             raise
@@ -628,8 +612,6 @@ class GatewayOutboundBridge:
 
     async def _typing_refresh_loop(self) -> None:
         try:
-            from butler.gateway.outbound_bridge_ops import run_typing_refresh_loop
-
             await run_typing_refresh_loop(self)
         except asyncio.CancelledError:
             raise

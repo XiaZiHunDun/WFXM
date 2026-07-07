@@ -12,6 +12,26 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.dev_engine import dev_tools_ops as _dev_ops
+from butler.core.review_context_adapter import (
+    apply_dev_review_view_to_state,
+    merge_review_views,
+    to_dev_review_view,
+)
+from butler.dev_engine.code_search import search_symbols
+from butler.dev_engine.dev_loop import (
+    create_dev_state,
+    get_valid_events,
+    transition,
+)
+from butler.dev_engine.dev_metrics import get_collector
+from butler.dev_engine.dev_state import SearchHit
+from butler.dev_engine.edit_ops import rollback_edits
+from butler.dev_engine.optimize_advisory import enrich_review_with_suggestions
+from butler.dev_engine.review_closure import summarize_review_for_delegate
+from butler.dev_engine.review_static import run_static_review
+from butler.dev_engine.verify import verify_layered
+from butler.tools.path_safety import check_tool_path, tool_safe_root
+from butler.tools.safe_root import get_tool_safe_root
 
 _active_states: dict[str, Any] = {}
 
@@ -54,8 +74,6 @@ def review_strict_enabled() -> bool:
 
 def get_or_create_state(session_key: str = "_default") -> Any:
     """Get or create DevState for session."""
-    from butler.dev_engine.dev_loop import create_dev_state
-
     if session_key not in _active_states:
         _active_states[session_key] = create_dev_state()
     return _active_states[session_key]
@@ -82,9 +100,6 @@ def tool_dev_verify(
     session_key: str = "_default",
 ) -> dict[str, Any]:
     """Run layered verification + coding knowledge theorem check, update DevState."""
-    from butler.dev_engine.dev_loop import transition
-    from butler.dev_engine.verify import verify_layered
-
     ws = Path(workspace)
     state = get_or_create_state(session_key)
     result = verify_layered(ws, levels=levels)
@@ -122,15 +137,6 @@ def tool_dev_review(
     from_auto_verify: bool = False,
 ) -> dict[str, Any]:
     """Run static (+ optional LLM) code review; update DevState."""
-    from butler.core.review_context_adapter import (
-        merge_review_views,
-        to_dev_review_view,
-    )
-    from butler.dev_engine.dev_loop import transition
-    from butler.dev_engine.optimize_advisory import enrich_review_with_suggestions
-    from butler.dev_engine.review_closure import summarize_review_for_delegate
-    from butler.dev_engine.review_static import run_static_review
-
     ws = Path(workspace)
     state = get_or_create_state(session_key)
     edit_paths = [e.path for e in state.edit_history if e.path]
@@ -156,13 +162,10 @@ def tool_dev_review(
         event = "review_pass"
     else:
         event = "review_fail"
-    from butler.dev_engine.dev_loop import get_valid_events, transition
 
     if event in get_valid_events(state.phase):
         transition(state, event, review_result=view)
     else:
-        from butler.core.review_context_adapter import apply_dev_review_view_to_state
-
         apply_dev_review_view_to_state(view, state)
 
     _dev_ops.review_closure_hooks_safe(
@@ -187,8 +190,6 @@ def tool_dev_rollback(
     session_key: str = "_default",
 ) -> dict[str, Any]:
     """Rollback last N edits and update DevState (DT5)."""
-    from butler.dev_engine.edit_ops import rollback_edits
-
     state = get_or_create_state(session_key)
 
     if not state.edit_history:
@@ -214,19 +215,13 @@ def tool_dev_search_symbols(
     session_key: str = "_default",
 ) -> dict[str, Any]:
     """Search for function/class/variable definitions in the workspace."""
-    from butler.dev_engine.code_search import search_symbols
-
     ws = Path(workspace)
     state = get_or_create_state(session_key)
     hits = search_symbols(name, ws)
 
-    from butler.dev_engine.dev_state import SearchHit
-
     state.search_context = hits
 
     if hits:
-        from butler.dev_engine.dev_loop import transition
-
         transition(state, "files_found")
 
     return {
@@ -252,8 +247,6 @@ def _handler_dev_review(
     llm_text: str = "",
     **kwargs: Any,
 ) -> str:
-    from butler.tools.safe_root import get_tool_safe_root
-
     workspace = str(get_tool_safe_root())
     sk = _resolve_session_key()
     files = [f.strip() for f in str(changed_files or "").split(",") if f.strip()]
@@ -272,8 +265,6 @@ def _handler_dev_verify(
     levels: str = "lint,test",
     **kwargs: Any,
 ) -> str:
-    from butler.tools.safe_root import get_tool_safe_root
-
     workspace = str(get_tool_safe_root())
     sk = _resolve_session_key()
     return json.dumps(
@@ -293,8 +284,6 @@ def _handler_dev_rollback(n: int = 1, **kwargs: Any) -> str:
 
 
 def _handler_dev_search_symbols(**kwargs: Any) -> str:
-    from butler.tools.safe_root import get_tool_safe_root
-
     name = kwargs.get("name") or kwargs.get("query") or kwargs.get("symbol")
     if not name or not str(name).strip():
         return json.dumps(
@@ -320,8 +309,6 @@ def tool_run_pytest(
     session_key: str = "_default",
 ) -> dict[str, Any]:
     """Run pytest on a single test file in the workspace (B9/dev benchmark helper)."""
-    from butler.tools.path_safety import check_tool_path, tool_safe_root
-
     rel = (path or "test_b9.py").strip()
     safety = check_tool_path(rel, for_write=False)
     if not safety.allowed:
@@ -367,8 +354,6 @@ def tool_dev_metrics(
     task_id: str = "",
 ) -> dict[str, Any]:
     """Return development effectiveness metrics."""
-    from butler.dev_engine.dev_metrics import get_collector
-
     collector = get_collector()
     if detail == "task" and task_id:
         m = collector.get_task_metrics(task_id)

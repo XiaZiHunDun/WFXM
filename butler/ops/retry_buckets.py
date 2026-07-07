@@ -1,7 +1,8 @@
-from typing import cast
 """Retry / recovery reason counters for /诊断 (Firecrawl ScrapeRetryTracker subset)."""
 
 from __future__ import annotations
+
+from typing import cast
 
 from butler.ops.runtime_metrics import inc, snapshot_global
 

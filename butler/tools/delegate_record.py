@@ -8,12 +8,31 @@ from typing import Any
 from butler.tools.delegate_run_state import DelegateRunState
 
 
+from butler.tools.delegate_impl import (
+    _inject_project_agent_skills,
+    _project_agent_raw_message,
+)
+from butler.core.delegate_semaphore import (
+    max_concurrent_delegates,
+    try_acquire_delegate_slot,
+)
+from butler.runtime.task_store import (
+    create_task,
+    delegate_group_id,
+)
+from butler.tools.delegate_role_guard import apply_user_role_override
+from butler.tools.delegate_record_ops import run_subagent_start_hooks_safe
+from butler.core.session_transcript import record_generic_event
+from butler.dev_engine.delegate_init import init_dev_engine_state_for_delegate
+from butler.dev_engine.delegate_workspace import (
+    prepare_b9_benchmark_workspace as _prepare_b9_benchmark_workspace,
+    prepare_isolated_workspace_read_state as _prepare_isolated_workspace_read_state,
+)
+from butler.execution_context import get_current_session_key
+from butler.session.lifecycle import attach_turn_memory_prefetch
+
 def build_user_message(state: DelegateRunState) -> None:
     """Phase 3: assemble the user message (raw + skills + memory sync)."""
-    from butler.tools.delegate_impl import (
-        _inject_project_agent_skills,
-        _project_agent_raw_message,
-    )
 
     state.raw_user_msg = _project_agent_raw_message(task=state.task, context=state.context)
     state.memory_sync_user_msg = _project_agent_raw_message(
@@ -25,10 +44,6 @@ def build_user_message(state: DelegateRunState) -> None:
 
 def acquire_delegate_slot(state: DelegateRunState) -> bool:
     """Acquire a concurrency slot for the current session (4c)."""
-    from butler.core.delegate_semaphore import (
-        max_concurrent_delegates,
-        try_acquire_delegate_slot,
-    )
 
     if try_acquire_delegate_slot(state.session_key):
         return True
@@ -44,8 +59,6 @@ def acquire_delegate_slot(state: DelegateRunState) -> bool:
 
 def create_delegate_task_record(state: DelegateRunState) -> None:
     """Create the task record and pull back task_id / child_session_key (4d)."""
-    from butler.runtime.task_store import create_task, delegate_group_id
-    from butler.tools.delegate_role_guard import apply_user_role_override
 
     apply_user_role_override(state)
 
@@ -66,7 +79,6 @@ def create_delegate_task_record(state: DelegateRunState) -> None:
 
 def run_subagent_start_hooks(state: DelegateRunState) -> None:
     """Run SubagentStart hooks and prepend their context (4e, best-effort)."""
-    from butler.tools.delegate_record_ops import run_subagent_start_hooks_safe
 
     updated = run_subagent_start_hooks_safe(state)
     if updated:
@@ -77,7 +89,6 @@ def record_delegate_started_events(state: DelegateRunState) -> None:
     """Emit session-transcript events for delegate start (4f)."""
     if not state.child_session_key:
         return
-    from butler.core.session_transcript import record_generic_event
 
     record_generic_event(
         state.session_key,
@@ -101,27 +112,20 @@ def record_delegate_started_events(state: DelegateRunState) -> None:
 
 def init_dev_engine_state(state: DelegateRunState) -> None:
     """Initialize DevState + register DevEnginePlugin for dev delegates (4g)."""
-    from butler.dev_engine.delegate_init import init_dev_engine_state_for_delegate
 
     init_dev_engine_state_for_delegate(state)
 
 
 def prepare_b9_benchmark_workspace(state: DelegateRunState) -> None:
-    from butler.dev_engine.delegate_workspace import prepare_b9_benchmark_workspace
-
-    prepare_b9_benchmark_workspace(state)
+    _prepare_b9_benchmark_workspace(state)
 
 
 def prepare_isolated_workspace_read_state(state: DelegateRunState) -> None:
-    from butler.dev_engine.delegate_workspace import prepare_isolated_workspace_read_state
-
-    prepare_isolated_workspace_read_state(state)
+    _prepare_isolated_workspace_read_state(state)
 
 
 def record_delegate_state(state: DelegateRunState) -> None:
     """Phase 4: prefetch, semaphore, task record, hooks, transcript."""
-    from butler.execution_context import get_current_session_key
-    from butler.session.lifecycle import attach_turn_memory_prefetch
 
     attach_turn_memory_prefetch(state.agent, state.orch, state.raw_user_msg, role=state.role)
     state.session_key = str(get_current_session_key() or "").strip()

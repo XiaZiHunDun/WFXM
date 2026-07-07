@@ -9,7 +9,17 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Optional, cast
 
-from butler.transport.types import NormalizedResponse, Usage
+from butler.transport import get_transport
+from butler.transport.anthropic_transport import _STOP_REASON_MAP
+from butler.transport.interruptible_client import run_interruptible
+from butler.transport.llm_client_ops import (
+    iter_stream_safe,
+    merge_thinking_headers_safe,
+    wire_tools_or_empty_loud,
+)
+from butler.transport.streaming_signal import notify_complete_tool_calls_from_stream
+from butler.transport.think_scrubber import StreamingThinkScrubber
+from butler.transport.types import NormalizedResponse, ToolCall, Usage
 from butler.transport.providers import ProviderProfile, get_provider
 
 logger = logging.getLogger(__name__)
@@ -96,8 +106,6 @@ class LLMClient:
         ``self._last_tool_wire_error`` for caller inspection and is
         logged at ERROR with a full traceback.
         """
-        from butler.transport.llm_client_ops import wire_tools_or_empty_loud
-
         wired, exc = wire_tools_or_empty_loud(
             self.provider_name or "",
             tools,
@@ -161,8 +169,6 @@ class LLMClient:
         **kwargs: Any,
     ) -> NormalizedResponse:
         """Non-streaming completion."""
-        from butler.transport import get_transport
-
         transport = get_transport(self.api_mode)
         if transport is None:
             raise ValueError(f"No transport for api_mode={self.api_mode}")
@@ -187,8 +193,6 @@ class LLMClient:
             tools=converted_tools,
             **params,
         )
-
-        from butler.transport.interruptible_client import run_interruptible
 
         stale = stale_timeout if stale_timeout is not None else min(float(self.timeout or 120), 90.0)
 
@@ -216,8 +220,6 @@ class LLMClient:
         **kwargs: Any,
     ) -> NormalizedResponse:
         """Streaming completion with delta callback."""
-        from butler.transport import get_transport
-
         transport = get_transport(self.api_mode)
         if transport is None:
             raise ValueError(f"No transport for api_mode={self.api_mode}")
@@ -242,9 +244,6 @@ class LLMClient:
             tools=converted_tools,
             **params,
         )
-
-        from butler.transport.interruptible_client import run_interruptible
-        from butler.transport.think_scrubber import StreamingThinkScrubber
 
         stale = stale_timeout if stale_timeout is not None else min(float(self.timeout or 120), 90.0)
         scrubber = StreamingThinkScrubber()
@@ -291,8 +290,6 @@ class LLMClient:
         return client.chat.completions.create(**api_kwargs)
 
     def _call_anthropic(self, api_kwargs: dict[str, Any]) -> Any:
-        from butler.transport.llm_client_ops import merge_thinking_headers_safe
-
         api_kwargs = merge_thinking_headers_safe(
             api_kwargs,
             provider=self.provider_name or "",
@@ -311,8 +308,6 @@ class LLMClient:
         transport: Any = None,
     ) -> NormalizedResponse:
         """Execute streaming API call and collect into NormalizedResponse."""
-        from butler.transport.types import ToolCall
-
         api_kwargs["stream"] = True
 
         collected_content = []
@@ -328,8 +323,6 @@ class LLMClient:
                 transport,
                 on_tool_call_ready=on_tool_call_ready,
             )
-
-        from butler.transport.llm_client_ops import iter_stream_safe
 
         def _collect_openai_stream() -> str:
             nonlocal finish_reason, usage
@@ -374,10 +367,6 @@ class LLMClient:
                                 entry["name"] = fn.name
                             if getattr(fn, "arguments", None):
                                 entry["arguments"] += fn.arguments
-                    from butler.transport.streaming_signal import (
-                        notify_complete_tool_calls_from_stream,
-                    )
-
                     notify_complete_tool_calls_from_stream(
                         collected_tool_calls,
                         on_tool_call_ready,
@@ -396,8 +385,6 @@ class LLMClient:
             _collect_openai_stream,
             collected_content=collected_content,
         )
-
-        from butler.transport.streaming_signal import notify_complete_tool_calls_from_stream
 
         notify_complete_tool_calls_from_stream(
             collected_tool_calls,
@@ -430,11 +417,7 @@ class LLMClient:
         transport: Any,
         on_tool_call_ready: Optional[Callable[[int, str, str, dict[str, Any]], None]] = None,
     ) -> NormalizedResponse:
-        from butler.transport.types import ToolCall
-
         api_kwargs.pop("stream", None)
-        from butler.transport.llm_client_ops import merge_thinking_headers_safe
-
         api_kwargs = merge_thinking_headers_safe(
             api_kwargs,
             provider=self.provider_name or "",
@@ -488,10 +471,6 @@ class LLMClient:
 
                 elif etype == "content_block_stop":
                     if current_tool:
-                        from butler.transport.streaming_signal import (
-                            notify_complete_tool_calls_from_stream,
-                        )
-
                         notify_complete_tool_calls_from_stream(
                             {len(tool_calls): current_tool},
                             on_tool_call_ready,
@@ -508,7 +487,6 @@ class LLMClient:
                     if delta:
                         sr = getattr(delta, "stop_reason", None)
                         if sr:
-                            from butler.transport.anthropic_transport import _STOP_REASON_MAP
                             finish_reason = _STOP_REASON_MAP.get(sr, "stop")
                     raw_usage = getattr(event, "usage", None)
                     if raw_usage:

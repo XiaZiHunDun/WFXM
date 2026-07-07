@@ -20,6 +20,23 @@ from butler.session.lifecycle import CONVERSATION_CATEGORY
 import logging
 
 
+from butler.memory.project_memory import ProjectMemory
+from butler.memory.semantic_project import resolve_project_display_name
+from butler.memory_settings import format_memory_config_source_line
+from butler.ops.embedding_diagnostics import format_embedding_status_line
+from butler.memory.vector_sync_telemetry import format_vector_sync_lines
+from butler.memory.prefetch_cache import queue_prefetch_enabled
+from butler.memory.scope_diagnostics import format_memory_scope_diagnostic_lines
+from butler.memory.retrieval_ranking import (
+    memory_access_boost,
+    memory_half_life_days,
+)
+from butler.memory.semantic_config import (
+    hybrid_fts_weight,
+    hybrid_vector_weight,
+)
+from butler.memory.metrics_persist import format_effectiveness_lines
+
 logger = logging.getLogger(__name__)
 
 def _resolve_experience_db_path(db_path: Any) -> Path | None:
@@ -69,7 +86,6 @@ def _resolve_project_memory(
             default=None,
         )
     if proj is not None:
-        from butler.memory.project_memory import ProjectMemory
 
         ws = getattr(proj, "workspace", None)
         if ws is not None:
@@ -78,7 +94,6 @@ def _resolve_project_memory(
                 name = str(getattr(proj, "name", "") or root.name)
                 return ProjectMemory(root), name
     if pm is not None:
-        from butler.memory.semantic_project import resolve_project_display_name
 
         return pm, resolve_project_display_name(pm)
     return None, ""
@@ -187,7 +202,6 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         return ["记忆分层: 无数据"]
 
     try:
-        from butler.memory_settings import format_memory_config_source_line
 
         config_line = format_memory_config_source_line()
     except ImportError:
@@ -197,7 +211,6 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
     if config_line:
         lines.append(config_line)
     def _embedding_status_line() -> str:
-        from butler.ops.embedding_diagnostics import format_embedding_status_line
 
         snap = stats.get("embedding_snapshot")
         if isinstance(snap, dict):
@@ -252,7 +265,6 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
                 sync_line += " — 陈旧，建议 butler memory reindex"
             lines.append(sync_line)
         def _vector_sync_lines() -> list[str]:
-            from butler.memory.vector_sync_telemetry import format_vector_sync_lines
 
             return cast(list[str], format_vector_sync_lines())
 
@@ -283,7 +295,6 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
         default=[],
     )
     lines.extend(ranking_lines or [])
-    from butler.memory.prefetch_cache import queue_prefetch_enabled
 
     lines.append(
         f"  预取 warm (QUEUE_PREFETCH): {'开' if queue_prefetch_enabled() else '关'}"
@@ -317,7 +328,6 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
     scope = stats.get("memory_scope")
     if scope:
         def _scope_lines() -> list[str]:
-            from butler.memory.scope_diagnostics import format_memory_scope_diagnostic_lines
 
             return cast(list[str], format_memory_scope_diagnostic_lines(scope))
 
@@ -333,8 +343,6 @@ def format_memory_diagnostic_lines(stats: dict[str, Any]) -> list[str]:
 
 
 def _format_retrieval_ranking_lines() -> list[str]:
-    from butler.memory.retrieval_ranking import memory_access_boost, memory_half_life_days
-    from butler.memory.semantic_config import hybrid_fts_weight, hybrid_vector_weight
 
     return [
         f"  检索衰减: 半衰期 {memory_half_life_days():.0f} 天, "
@@ -344,6 +352,5 @@ def _format_retrieval_ranking_lines() -> list[str]:
 
 
 def _format_effectiveness_lines() -> list[str]:
-    from butler.memory.metrics_persist import format_effectiveness_lines
 
     return cast(list[str], format_effectiveness_lines())

@@ -7,6 +7,15 @@ from pathlib import Path
 from typing import Any
 
 from butler.memory.query_decompose import merge_retrieval_hits
+from butler.memory.unified_recall_config import observation_recall_boost, observation_recall_enabled, unified_recall_enabled, unified_scope_weights
+from butler.memory.semantic_index import hybrid_experience_search
+from butler.session.lifecycle import filter_non_conversation_experience
+from butler.memory.semantic_config import semantic_memory_enabled
+from butler.memory.semantic_project import prefetch_project_memory_hits, resolve_project_display_name
+from butler.config import get_butler_home
+from butler.memory.coding_recall import search_coding_experiences
+from butler.memory.observation_recall import search_observation_recall
+from butler.memory.recall_ops import record_scope_retrieval_safe
 
 
 def _normalize_batch(
@@ -94,12 +103,6 @@ def unified_hybrid_search(
     if not q:
         return {"ok": False, "error": "query is required"}
 
-    from butler.memory.unified_recall_config import (
-        observation_recall_boost,
-        observation_recall_enabled,
-        unified_recall_enabled,
-        unified_scope_weights,
-    )
 
     if not unified_recall_enabled():
         return {
@@ -116,8 +119,6 @@ def unified_hybrid_search(
     semantic = getattr(butler_memory, "semantic", None)
     proj_filter = (project_name or "").strip() or None
 
-    from butler.memory.semantic_index import hybrid_experience_search
-    from butler.session.lifecycle import filter_non_conversation_experience
 
     exp_rows = filter_non_conversation_experience(
         hybrid_experience_search(
@@ -135,11 +136,6 @@ def unified_hybrid_search(
 
     proj_hits: list[dict[str, Any]] = []
     if project_memory is not None:
-        from butler.memory.semantic_config import semantic_memory_enabled
-        from butler.memory.semantic_project import (
-            prefetch_project_memory_hits,
-            resolve_project_display_name,
-        )
 
         display = resolve_project_display_name(project_memory) or project_name
         raw_hits, _mode = prefetch_project_memory_hits(
@@ -165,8 +161,6 @@ def unified_hybrid_search(
     batches.append(("project", proj_norm))
     source_counts["project"] = len(proj_norm)
 
-    from butler.config import get_butler_home
-    from butler.memory.coding_recall import search_coding_experiences
 
     home = Path(butler_home or get_butler_home()).expanduser().resolve()
     coding_payload = search_coding_experiences(
@@ -191,7 +185,6 @@ def unified_hybrid_search(
 
     boost_paths: set[str] = set()
     if observation_recall_enabled() and project_workspace is not None:
-        from butler.memory.observation_recall import search_observation_recall
 
         obs = search_observation_recall(q, project_workspace=project_workspace, limit=10)
         if obs.get("ok"):
@@ -211,7 +204,6 @@ def unified_hybrid_search(
     )
     results = merged[:lim]
 
-    from butler.memory.recall_ops import record_scope_retrieval_safe
 
     record_scope_retrieval_safe(
         {

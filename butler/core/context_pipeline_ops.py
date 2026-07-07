@@ -9,13 +9,26 @@ from butler.core.best_effort import (
     record_best_effort_skip,
     safe_best_effort,
 )
+from butler.execution_context import get_audit_session_key
+from butler.core.compaction_checkpoint import capture_checkpoint, capture_from_loop
+from butler.core.compaction_phase import record_compaction_diagnostics, resolve_compaction_context
+from butler.core.compaction_phase import should_skip_post_compact_reanchor
+from butler.core.compaction_checkpoint import restore_into_diagnostics
+from butler.core.tool_output_masking import apply_unified_tool_masking
+from butler.core.inline_tool_compress import compress_inline_tool_messages
+from butler.core.context_transform_registry import apply_model_transforms
+from butler.core.preemptive_compact import (
+    ContextPrecheckOverflow,
+    apply_preemptive_pipeline,
+    preemptive_compact_enabled,
+)
+from butler.core.message_context_adapter import annotate_api_message_boundary
 
 logger = logging.getLogger(__name__)
 
 
 def audit_session_key_safe(*, fallback: str = "") -> str:
     def _run() -> str:
-        from butler.execution_context import get_audit_session_key
 
         return get_audit_session_key(fallback=fallback)
 
@@ -36,7 +49,6 @@ def capture_compaction_checkpoint_safe(
     attached_loop: Any,
 ) -> None:
     def _run() -> None:
-        from butler.core.compaction_checkpoint import capture_checkpoint, capture_from_loop
 
         capture_checkpoint(
             session_key,
@@ -58,10 +70,6 @@ def resolve_compaction_injection_safe(
     diagnostics: dict[str, Any],
 ) -> Any | None:
     def _run() -> Any:
-        from butler.core.compaction_phase import (
-            record_compaction_diagnostics,
-            resolve_compaction_context,
-        )
 
         iteration = int(diagnostics.get("compaction_turn_iteration") or 0)
         reactive = bool(diagnostics.get("reactive_context_compact"))
@@ -84,7 +92,6 @@ def resolve_compaction_injection_safe(
 
 def should_skip_post_compact_reanchor_safe(diagnostics: dict[str, Any]) -> bool:
     def _run() -> bool:
-        from butler.core.compaction_phase import should_skip_post_compact_reanchor
 
         return bool(should_skip_post_compact_reanchor(diagnostics))
 
@@ -101,7 +108,6 @@ def restore_compaction_checkpoint_safe(
     diagnostics: dict[str, Any],
 ) -> None:
     def _run() -> None:
-        from butler.core.compaction_checkpoint import restore_into_diagnostics
 
         restore_into_diagnostics(session_key, diagnostics)
 
@@ -110,7 +116,6 @@ def restore_compaction_checkpoint_safe(
 
 def apply_unified_tool_masking_safe(messages: list[dict]) -> list[dict]:
     def _run() -> list[dict]:
-        from butler.core.tool_output_masking import apply_unified_tool_masking
 
         return apply_unified_tool_masking(list(messages))
 
@@ -126,7 +131,6 @@ def apply_unified_tool_masking_safe(messages: list[dict]) -> list[dict]:
 
 def compress_inline_tool_messages_safe(messages: list[dict]) -> list[dict]:
     def _run() -> list[dict]:
-        from butler.core.inline_tool_compress import compress_inline_tool_messages
 
         return compress_inline_tool_messages(list(messages))
 
@@ -147,7 +151,6 @@ def apply_model_transforms_safe(
     diagnostics: dict[str, Any] | None,
 ) -> list[dict]:
     def _run() -> list[dict]:
-        from butler.core.context_transform_registry import apply_model_transforms
 
         if client is None:
             return list(messages)
@@ -179,11 +182,6 @@ def apply_preemptive_compact_safe(
     diagnostics: dict[str, Any] | None,
 ) -> list[dict]:
     try:
-        from butler.core.preemptive_compact import (
-            ContextPrecheckOverflow,
-            apply_preemptive_pipeline,
-            preemptive_compact_enabled,
-        )
 
         if not preemptive_compact_enabled():
             return list(messages)
@@ -202,7 +200,6 @@ def apply_preemptive_compact_safe(
             )
         return out
     except Exception as exc:
-        from butler.core.preemptive_compact import ContextPrecheckOverflow
 
         if isinstance(exc, ContextPrecheckOverflow):
             raise
@@ -216,7 +213,6 @@ def annotate_api_message_boundary_safe(
     diagnostics: dict[str, Any] | None,
 ) -> None:
     def _run() -> None:
-        from butler.core.message_context_adapter import annotate_api_message_boundary
 
         annotate_api_message_boundary(messages, diagnostics, source="prepare_messages")
 

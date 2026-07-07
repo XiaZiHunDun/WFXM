@@ -10,6 +10,17 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.ops.b9_harness_audit import _is_b9_row
+from butler.config import get_butler_home
+from butler.ops.b9_prod_weekly_ops import summarize_prod_experience_effectiveness_safe
+from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASK_IDS
+from butler.ops.b9_prod_promoted_registry import binding_for_task, resolve_production_failure_to_task
+from butler.ops.delegate_failure_b9_import import failure_to_b9_candidate
+from butler.ops.delegate_failure_b9_promote import _queue_path, enqueue_b9_candidate, mark_promotion_implemented, promotion_queue_summary
+from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASKS
+from butler.dev_engine.llm_delegate_benchmark import B9Mode, resolve_b9_mode, run_b9_task
+from butler.ops.b9_prod_weekly_ops import record_b9_run_lesson_safe
+from butler.ops.b9_prod_promoted_registry import promoted_probe_task_ids
+from butler.ops.b9_prod_promoted_registry import promoted_probe_task_ids, summarize_promoted_probe_layers
 
 PROD_FAILURE_BUCKETS: tuple[str, ...] = (
     "verify_fail",
@@ -35,19 +46,16 @@ PRODUCTION_NOISE_TASK_ID_PREFIXES: tuple[str, ...] = (
 
 
 def _audit_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / "delegate_failures.jsonl"
 
 
 def production_snapshots_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / _SNAPSHOTS_NAME
 
 
 def production_clean_snapshots_path() -> Path:
-    from butler.config import get_butler_home
 
     return cast(Path, get_butler_home()) / "audit" / _CLEAN_SNAPSHOTS_NAME
 
@@ -211,7 +219,6 @@ def record_production_delegate_snapshot(*, limit: int = 500) -> dict[str, Any]:
         fh.write(json.dumps(clean_summary, ensure_ascii=False) + "\n")
     summary["clean"] = clean_summary
     summary["clean_delta"] = compare_production_delegate_delta(clean=True)
-    from butler.ops.b9_prod_weekly_ops import summarize_prod_experience_effectiveness_safe
 
     summary["experience_effectiveness"] = summarize_prod_experience_effectiveness_safe()
     return summary
@@ -258,18 +265,6 @@ def format_production_delegate_delta(
 
 def promote_latest_production_failure() -> dict[str, Any]:
     """Enqueue the latest non-B9 production failure for B9 task implementation."""
-    from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASK_IDS
-    from butler.ops.b9_prod_promoted_registry import (
-        binding_for_task,
-        resolve_production_failure_to_task,
-    )
-    from butler.ops.delegate_failure_b9_import import failure_to_b9_candidate
-    from butler.ops.delegate_failure_b9_promote import (
-        _queue_path,
-        enqueue_b9_candidate,
-        mark_promotion_implemented,
-        promotion_queue_summary,
-    )
 
     rows = load_production_failure_rows(limit=200)
     if not rows:
@@ -346,10 +341,6 @@ def run_prod_shaped_live_probe(
     import os
     from pathlib import Path as _Path
 
-    from butler.dev_engine.b9_prod_shaped_tasks import B9_PROD_SHAPED_TASKS
-    from butler.dev_engine.llm_delegate_benchmark import B9Mode, resolve_b9_mode, run_b9_task
-    from butler.ops.b9_prod_weekly_ops import record_b9_run_lesson_safe
-    from butler.ops.b9_prod_promoted_registry import promoted_probe_task_ids
 
     mode_str = mode or resolve_b9_mode().value
     b9_mode = B9Mode.LIVE if mode_str == "live" else B9Mode.ORACLE
@@ -394,10 +385,6 @@ def run_prod_shaped_live_probe(
 
 def run_promoted_prod_live_probe(*, mode: str | None = None) -> dict[str, Any]:
     """Probe only audit-promoted B9L_prod_* tasks (phase C inner loop)."""
-    from butler.ops.b9_prod_promoted_registry import (
-        promoted_probe_task_ids,
-        summarize_promoted_probe_layers,
-    )
 
     probe = run_prod_shaped_live_probe(mode=mode, task_ids=promoted_probe_task_ids())
     layers = summarize_promoted_probe_layers(probe.get("results") or [])

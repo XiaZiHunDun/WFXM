@@ -15,6 +15,33 @@ from typing import Any, Dict, List, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.memory import ButlerMemory, ProjectMemory
+from butler.config import get_butler_home, get_butler_settings
+from butler.execution_context import get_current_session_key
+from butler.memory.coding_recall import search_coding_experiences
+from butler.memory.observation_recall import search_observation_recall
+from butler.memory.query_decompose import decompose_query, subquery_enabled
+from butler.memory.recall_layers import dispatch_recall_mode
+from butler.memory.semantic_config import semantic_memory_enabled
+from butler.memory.semantic_index import SemanticMemoryIndex, hybrid_experience_search
+from butler.memory.semantic_project import (
+    index_project_memory_bullet,
+    invalidate_pending_vector,
+    invalidate_project_memory_bullet,
+    prefetch_project_memory_hits,
+    resolve_project_display_name,
+    sync_project_append_vectors,
+)
+from butler.memory.transcript_recall import search_transcript_recall
+from butler.memory.unified_recall import unified_hybrid_search
+from butler.project.manager import get_project_manager
+from butler.session.lifecycle import (
+    _filter_ephemeral_experience,
+    filter_non_conversation_experience,
+    prefetch_turn_memory,
+    record_post_session_turn,
+    run_post_session_extraction,
+)
+from butler.tenant import resolve_tenant_for_project
 from butler.memory.facade_ops import (
     butler_home_configured,
     close_butler_memory,
@@ -166,10 +193,6 @@ class ButlerMemoryService:
             self._butler_global = orch.butler_memory
             return
 
-        from butler.config import get_butler_settings
-        from butler.project.manager import get_project_manager
-        from butler.tenant import resolve_tenant_for_project
-
         settings = get_butler_settings()
         project = safe_best_effort(
             lambda: get_project_manager().get_current(),
@@ -206,8 +229,6 @@ class ButlerMemoryService:
 
     def prefetch(self, query: str, *, session_id: str = "") -> str:
         if self._orchestrator is not None:
-            from butler.session.lifecycle import prefetch_turn_memory
-
             merged = prefetch_turn_memory(self._orchestrator, query, use_cache=False)
             if not merged.strip():
                 return ""
@@ -236,8 +257,6 @@ class ButlerMemoryService:
         qr = (query or "").strip()
         if qr and self._butler_global is not None:
             pname = manager_current_project() or self._guess_project_slug(root)
-
-            from butler.session.lifecycle import _filter_ephemeral_experience
 
             hits = _filter_ephemeral_experience(
                 self._butler_global.experience.search(
@@ -270,8 +289,6 @@ class ButlerMemoryService:
         if not user_content and not assistant_content:
             return
         if self._orchestrator is not None:
-            from butler.session.lifecycle import record_post_session_turn
-
             record_post_session_turn(
                 self._orchestrator,
                 self,
@@ -305,8 +322,6 @@ class ButlerMemoryService:
 
     def _trigger_background_extraction_standalone(self) -> None:
         """Unlinked provider fallback (tests / legacy) via session_lifecycle runner."""
-        from butler.session.lifecycle import run_post_session_extraction
-
         messages = list(self._turn_buffer)
         self._turn_buffer.clear()
         run_post_session_extraction(
@@ -388,8 +403,6 @@ class ButlerMemoryService:
                 result = prof.add(content)
             ok = bool(result.get("success"))
             if ok:
-                from butler.core.best_effort import safe_best_effort
-
                 safe_best_effort(
                     lambda: self._butler_global.sync_profile_vectors(),
                     label="memory.facade.sync_profile_vectors",
@@ -422,14 +435,6 @@ class ButlerMemoryService:
             section = str(args.get("section", "Notes") or "Notes")
             action = str(args.get("action", "append") or "append").strip().lower()
             old_content = str(args.get("old_content", "") or "").strip()
-            from butler.memory.semantic_project import (
-                index_project_memory_bullet,
-                invalidate_pending_vector,
-                invalidate_project_memory_bullet,
-                resolve_project_display_name,
-                sync_project_append_vectors,
-            )
-
             sem = getattr(self._butler_global, "semantic", None)
             proj_name = resolve_project_display_name(self._project_memory)
             md = self._project_memory.markdown
@@ -498,8 +503,6 @@ class ButlerMemoryService:
 
         mode = str(args.get("mode") or "full").strip().lower()
         if mode and mode != "full":
-            from butler.memory.recall_layers import dispatch_recall_mode
-
             return cast(str, dispatch_recall_mode(self, args, mode))
 
         scope = str(args.get("scope", "experience") or "experience")
@@ -508,9 +511,6 @@ class ButlerMemoryService:
             return json.dumps({"ok": True, "profile": text})
 
         if scope == "coding":
-            from butler.config import get_butler_home
-            from butler.memory.coding_recall import search_coding_experiences
-
             query = str(args.get("query", "") or "").strip()
             limit = max(1, int(args.get("limit", 8) or 8))
             proj_name = resolve_active_project_name() or str(args.get("project") or "").strip()
@@ -543,9 +543,6 @@ class ButlerMemoryService:
             return json.dumps(payload, ensure_ascii=False)
 
         if scope == "transcript":
-            from butler.execution_context import get_current_session_key
-            from butler.memory.transcript_recall import search_transcript_recall
-
             query = str(args.get("query", "") or "").strip()
             limit = max(1, int(args.get("limit", 8) or 8))
             offset = max(0, int(args.get("offset") or 0))
@@ -564,8 +561,6 @@ class ButlerMemoryService:
             return json.dumps(payload, ensure_ascii=False)
 
         if scope == "observation":
-            from butler.memory.observation_recall import search_observation_recall
-
             query = str(args.get("query", "") or "").strip()
             limit = max(1, int(args.get("limit", 8) or 8))
             ws = getattr(self._project_memory, "project_dir", None) if self._project_memory else None
@@ -585,9 +580,6 @@ class ButlerMemoryService:
             return json.dumps(payload, ensure_ascii=False)
 
         if scope == "hybrid":
-            from butler.config import get_butler_home
-            from butler.memory.unified_recall import unified_hybrid_search
-
             query = str(args.get("query", "") or "").strip()
             limit = max(1, int(args.get("limit", 8) or 8))
             proj_name = resolve_active_project_name() or str(args.get("project") or "").strip()
@@ -627,20 +619,11 @@ class ButlerMemoryService:
             facts_text = pm.facts_for_prefetch(max_chars=800)
             hits: list[dict[str, Any]] = []
             if query:
-                from butler.memory.semantic_config import semantic_memory_enabled
-                from butler.memory.semantic_index import SemanticMemoryIndex
-                from butler.memory.semantic_project import (
-                    prefetch_project_memory_hits,
-                    resolve_project_display_name,
-                )
-
                 sem = getattr(self._butler_global, "semantic", None)
                 if not isinstance(sem, SemanticMemoryIndex):
                     sem = None
                 sem_enabled = semantic_memory_enabled()
                 display = resolve_project_display_name(pm) or proj_name
-                from butler.memory.query_decompose import decompose_query, subquery_enabled
-
                 raw_hits, mode = prefetch_project_memory_hits(
                     pm,
                     query,
@@ -691,8 +674,6 @@ class ButlerMemoryService:
                 }
             )
 
-        from butler.session.lifecycle import filter_non_conversation_experience
-
         query = str(args.get("query", "") or "").strip()
         limit = max(1, int(args.get("limit", 8) or 8))
         project = str(args.get("project", "") or "").strip()
@@ -700,8 +681,6 @@ class ButlerMemoryService:
         proj_filter: str | None = (project or "").strip() or None
         if proj_filter is None:
             proj_filter = resolve_active_project_name() or None
-
-        from butler.memory.semantic_index import hybrid_experience_search
 
         if not query:
             recent = self._butler_global.experience.get_recent(limit=limit * 4)

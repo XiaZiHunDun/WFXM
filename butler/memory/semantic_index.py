@@ -18,6 +18,23 @@ from butler.memory.semantic_config import (
     hybrid_vector_weight,
     semantic_search_limit,
 )
+from butler.core.best_effort import safe_best_effort
+from butler.memory.butler_memory_ops import close_sqlite_connection
+from butler.memory.query_decompose import search_with_subqueries
+from butler.memory.query_relaxation import hybrid_search_with_relaxation
+from butler.memory.retrieval_ranking import rerank_memory_hits
+from butler.memory.semantic_index_ops import (
+    close_semantic_index,
+    fetch_experience_rows_by_ids,
+    hybrid_experience_search_once_loud,
+    index_experience_row_loud,
+    index_triplets_safe,
+    record_experience_access,
+    record_hybrid_recall_telemetry,
+    record_relaxation_note,
+    subquery_enabled_for,
+)
+
 logger = logging.getLogger(__name__)
 
 _CONVERSATION = "conversation"
@@ -32,8 +49,6 @@ _atexit_registered = False
 
 def close_all_semantic_indices() -> None:
     """Close every live ``SemanticMemoryIndex`` (atexit / gateway shutdown)."""
-    from butler.memory.semantic_index_ops import close_semantic_index
-
     for index in list(_ACTIVE_INDICES):
         close_semantic_index(index)
 
@@ -69,8 +84,6 @@ class SemanticMemoryIndex:
         return conn
 
     def close(self) -> None:
-        from butler.memory.butler_memory_ops import close_sqlite_connection
-
         with self._write_lock:
             conn = self._conn
             if conn is None:
@@ -263,8 +276,6 @@ class SemanticMemoryIndex:
         scored.sort(key=lambda x: x[0], reverse=True)
         hits = [item for _, item in scored[:cap]]
         self._record_access_hits(hits)
-        from butler.memory.retrieval_ranking import rerank_memory_hits
-
         return cast(list[dict[str, Any]], rerank_memory_hits(hits))
 
     def hybrid_search(
@@ -309,8 +320,6 @@ class SemanticMemoryIndex:
             item["score"] = round(score, 6)
             out.append(item)
         self._record_access_hits(out)
-        from butler.memory.retrieval_ranking import rerank_memory_hits
-
         return cast(list[dict[str, Any]], rerank_memory_hits(out))
 
     def _record_access_hits(self, hits: list[dict[str, Any]]) -> None:
@@ -412,8 +421,6 @@ class SemanticMemoryIndex:
         scored.sort(key=lambda x: x[0], reverse=True)
         hits = [item for _, item in scored[:cap]]
         self._record_access_hits(hits)
-        from butler.memory.retrieval_ranking import rerank_memory_hits
-
         return cast(list[dict[str, Any]], rerank_memory_hits(hits))
 
 
@@ -468,8 +475,6 @@ def enrich_experience_hit_tags(
             continue
     rows_by_id: dict[int, dict[str, Any]] = {}
     if need_ids and experience_store is not None and hasattr(experience_store, "fetch_by_ids"):
-        from butler.memory.semantic_index_ops import fetch_experience_rows_by_ids
-
         rows_by_id = fetch_experience_rows_by_ids(experience_store, need_ids)
     out: list[dict[str, Any]] = []
     for h in hits:
@@ -503,8 +508,6 @@ def index_experience_row(
     category: str,
     content: str,
 ) -> None:
-    from butler.memory.semantic_index_ops import index_experience_row_loud
-
     index_experience_row_loud(
         semantic,
         row_id,
@@ -524,8 +527,6 @@ def index_triplets_for_content(
 ) -> int:
     if semantic is None:
         return 0
-    from butler.memory.semantic_index_ops import index_triplets_safe
-
     return int(
         index_triplets_safe(
             semantic,
@@ -551,8 +552,6 @@ def _hybrid_experience_search_once(
     fall back to FTS-only. The caller (``hybrid_experience_search``) records
     this flag in retrieval telemetry so /诊断 and the LLM can react.
     """
-    from butler.memory.semantic_index_ops import hybrid_experience_search_once_loud
-
     return cast(
         tuple[list[dict[str, Any]], str, int, bool],
         hybrid_experience_search_once_loud(
@@ -569,8 +568,6 @@ def _should_use_subqueries(query: str) -> bool:
     """R2-2 helper: return True when subquery fan-out is enabled and useful."""
     if not query:
         return False
-    from butler.memory.semantic_index_ops import subquery_enabled_for
-
     return bool(subquery_enabled_for(query))
 
 
@@ -583,8 +580,6 @@ def _run_subquery_hybrid(
     limit: int,
 ) -> tuple[list[dict[str, Any]], list[str], bool]:
     """R2-2 helper: fan out per-subquery, aggregate degraded flag."""
-    from butler.memory.query_decompose import search_with_subqueries
-
     degraded_flags: list[bool] = []
 
     def _once(sub_q: str) -> list[dict[str, Any]]:
@@ -643,11 +638,6 @@ def hybrid_experience_search(
     fallbacks = 0
     degraded = False
     out: list[dict[str, Any]] = []
-    from butler.core.best_effort import safe_best_effort
-    from butler.memory.semantic_index_ops import (
-        record_hybrid_recall_telemetry,
-        record_relaxation_note,
-    )
 
     def _run_search() -> tuple[list[dict[str, Any]], str, int, bool, str | None]:
         nonlocal sub_queries
@@ -657,8 +647,6 @@ def hybrid_experience_search(
             )
             sub_queries = subs
             return hits, "hybrid-subquery", fallbacks, sub_degraded, None
-        from butler.memory.query_relaxation import hybrid_search_with_relaxation
-
         hits, search_mode, fb, sub_degraded, note = hybrid_search_with_relaxation(
             _hybrid_experience_search_once,
             semantic,
@@ -715,6 +703,4 @@ def _record_experience_access_from_hits(
         except (TypeError, ValueError):
             continue
     if ids and hasattr(experience_store, "record_access"):
-        from butler.memory.semantic_index_ops import record_experience_access
-
         record_experience_access(experience_store, ids)

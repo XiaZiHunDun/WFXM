@@ -6,10 +6,21 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, cast
+from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
+from butler.execution_context import get_current_orchestrator, get_current_turn_bridge
+from butler.report import AgentReport, Change, cache_report
+from butler.runtime.task_store import complete_task
+from butler.tools.delegate_impl_ops import (
+    apply_delegate_success_gates,
+    capture_delegate_failure_safe,
+    inject_corrective_recall_safe,
+    notify_delegate_finished_safe,
+    run_delegate_task_loud,
+    run_subagent_stop_hooks_safe,
+)
 
 
 def _orchestrator_for_tool(*, channel: str) -> Any:
-    from butler.execution_context import get_current_orchestrator
 
     orch = get_current_orchestrator()
     if orch is not None:
@@ -96,7 +107,6 @@ def finalize_delegate_success(
     """Base delegate success + category gates (B9 pytest) + dev auto-verify."""
     base = _delegate_task_succeeded(result, changes, issues)
     out_issues = list(issues or [])
-    from butler.tools.delegate_impl_ops import apply_delegate_success_gates
 
     return cast(
         tuple[bool, list[str]],
@@ -118,7 +128,6 @@ def finalize_delegate_success(
 def _extract_changes_from_messages(messages: list[Any]) -> list[Any]:
     import json as _json
 
-    from butler.report import Change
 
     changes: list[Change] = []
     for msg in messages or []:
@@ -160,14 +169,13 @@ def _extract_changes_from_messages(messages: list[Any]) -> list[Any]:
 
 
 def _safe_dispatch(name: str, args: dict[str, Any], depth: int) -> str:
-    from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
+    from butler.tools.registry import dispatch_tool as _dispatch
+
     if name in DELEGATE_BLOCKED_TOOLS:
         return json.dumps({"error": f"Tool '{name}' is blocked in delegated agents"})
     if name == "delegate_task":
         args = {**args, "depth": depth}
-    from butler.tools.registry import dispatch_tool as _dispatch
     result = _dispatch(name, args)
-    from butler.tools.delegate_impl_ops import inject_corrective_recall_safe
 
     return str(inject_corrective_recall_safe(name, args, result))
 
@@ -181,7 +189,6 @@ def _run_subagent_stop_hooks(
     session_key: str = "",
     summary_preview: str = "",
 ) -> None:
-    from butler.tools.delegate_impl_ops import run_subagent_stop_hooks_safe
 
     run_subagent_stop_hooks_safe(
         role=role,
@@ -202,8 +209,6 @@ def _finalize_delegate_failure(
     session_key: str = "",
     project: str = "",
 ) -> str:
-    from butler.report import AgentReport, cache_report
-    from butler.runtime.task_store import complete_task
 
     role_label = _delegate_role_label(role)
     headline = f"{role_label}委派失败"
@@ -232,10 +237,6 @@ def _finalize_delegate_failure(
         session_key=session_key,
         summary_preview=summary,
     )
-    from butler.tools.delegate_impl_ops import (
-        capture_delegate_failure_safe,
-        notify_delegate_finished_safe,
-    )
 
     capture_delegate_failure_safe(
         role=role,
@@ -245,7 +246,6 @@ def _finalize_delegate_failure(
         task_id=task_id,
         project=project,
     )
-    from butler.execution_context import get_current_turn_bridge
 
     notify_delegate_finished_safe(get_current_turn_bridge(), report)
     payload: dict[str, Any] = {
@@ -276,7 +276,6 @@ def _tool_delegate_task(
     R1-10: bridge lookup routed through the ``butler.execution_context``
     seam so tools → gateway stays a one-way dependency.
     """
-    from butler.tools.delegate_impl_ops import run_delegate_task_loud
 
     return str(
         run_delegate_task_loud(

@@ -9,6 +9,14 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.memory.memory_scope import MemoryScope
+from butler.ops.b9_prod_weekly import is_production_audit_noise
+from butler.ops.production_failure_experience_ops import resolve_project_workspace_safe
+from butler.ops.b9_lessons import record_b9_lesson
+from butler.dev_engine.b9_experience_retrieval import B9_EXPERIENCE_THEOREM_BASIS, FAILURE_CLASS_KEYWORDS
+from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary, TheoremLibrary
+from butler.memory.memory_scope import project_coding_experiences_path
+from butler.ops.production_failure_experience_ops import infer_b9_task_id_safe
+from butler.dev_engine.b9_experience_retrieval import retrieval_keywords_for_task
 
 FAILURE_CLASS_GUIDANCE: dict[str, str] = {
     "verify_fail": (
@@ -98,7 +106,6 @@ def should_upsert_production_failure_experience(
     dev_engine: dict[str, Any] | None = None,
 ) -> bool:
     """True for real production dev failures (not B9/SWE/drill noise)."""
-    from butler.ops.b9_prod_weekly import is_production_audit_noise
 
     norm = str(role or "").replace("_agent", "").strip().lower()
     if norm != "dev":
@@ -133,7 +140,6 @@ def _prod_fail_experience_id(*, project: str, task_id: str, task: str) -> str:
 
 
 def _resolve_project_workspace(project_name: str) -> Path | None:
-    from butler.ops.production_failure_experience_ops import resolve_project_workspace_safe
 
     return cast(Path, resolve_project_workspace_safe(project_name))
 
@@ -147,7 +153,6 @@ def record_production_failure_lesson(
     classification: str,
     issues: list[str] | None = None,
 ) -> dict[str, Any]:
-    from butler.ops.b9_lessons import record_b9_lesson
 
     tail = ""
     if issues:
@@ -179,12 +184,6 @@ def upsert_production_failure_experience(
     dev_engine: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Write or refresh a private L3 coding experience from a production failure."""
-    from butler.dev_engine.b9_experience_retrieval import (
-        B9_EXPERIENCE_THEOREM_BASIS,
-        FAILURE_CLASS_KEYWORDS,
-    )
-    from butler.dev_engine.coding_knowledge import CodingExperience, ExperienceLibrary, TheoremLibrary
-    from butler.memory.memory_scope import project_coding_experiences_path
 
     ws = _resolve_project_workspace(project)
     if ws is None:
@@ -196,14 +195,12 @@ def upsert_production_failure_experience(
         dev_engine=dev_engine,
     )
     exp_id = _prod_fail_experience_id(project=project, task_id=task_id, task=task)
-    from butler.ops.production_failure_experience_ops import infer_b9_task_id_safe
 
     inferred_task_id = infer_b9_task_id_safe(task)
     kws = list(
         FAILURE_CLASS_KEYWORDS.get(classification, FAILURE_CLASS_KEYWORDS.get("other_fail", ()))
     )
     if inferred_task_id:
-        from butler.dev_engine.b9_experience_retrieval import retrieval_keywords_for_task
 
         kws.extend(
             retrieval_keywords_for_task(inferred_task_id, classification=classification)

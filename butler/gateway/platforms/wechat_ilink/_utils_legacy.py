@@ -37,6 +37,24 @@ from urllib.parse import quote, urlparse
 
 from butler.gateway.platforms.helpers import atomic_json_write  # noqa: E402
 
+from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import (
+    read_json_dict_safe,
+    restore_context_tokens_from_file,
+    persist_context_tokens_loud,
+    parse_wechat_cdn_url_loud,
+    load_sync_buf_field_safe,
+)
+from butler.env_parse import float_env
+from butler.gateway.platforms import wechat_ilink_utils as wu
+from butler.gateway.platforms.wechat_ilink.constants import (
+    ITEM_FILE,
+    ITEM_IMAGE,
+    ITEM_TEXT,
+    ITEM_VIDEO,
+    ITEM_VOICE,
+)
+from butler.gateway.platforms.types import MessageType
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -216,7 +234,6 @@ def load_wechat_account(data_home: str, account_id: str) -> Optional[Dict[str, A
     path = _account_file(data_home, account_id)
     if not path.exists():
         return None
-    from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import read_json_dict_safe
 
     data = read_json_dict_safe(path)
     return data if isinstance(data, dict) else None
@@ -249,9 +266,6 @@ class ContextTokenStore:
         path = self._path(account_id)
         if not path.exists():
             return
-        from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import (
-            restore_context_tokens_from_file,
-        )
 
         data = restore_context_tokens_from_file(path, account_id, safe_id=_safe_id)
         if data is None:
@@ -296,9 +310,6 @@ class ContextTokenStore:
             for key, value in self._cache.items()
             if key.startswith(prefix)
         }
-        from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import (
-            persist_context_tokens_loud,
-        )
 
         def _write() -> None:
             path = self._path(account_id)
@@ -381,7 +392,6 @@ def _cdn_upload_url(cdn_base_url: str, upload_param: str, filekey: str) -> str:
 
 
 def _message_id_dedup_ttl() -> float:
-    from butler.env_parse import float_env
 
     return cast(
         float,
@@ -394,7 +404,6 @@ def _message_id_dedup_ttl() -> float:
 
 
 def _content_dedup_ttl() -> float:
-    from butler.env_parse import float_env
 
     return cast(
         float,
@@ -462,7 +471,6 @@ _WECHAT_CDN_ALLOWLIST: frozenset[str] = frozenset(
 
 def _assert_wechat_cdn_url(url: str) -> None:
     """Raise ValueError if *url* does not point at a known WeChat CDN host."""
-    from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import parse_wechat_cdn_url_loud
 
     scheme, host = parse_wechat_cdn_url_loud(url)
 
@@ -508,7 +516,6 @@ async def _download_and_decrypt_media(
     full_url: Optional[str],
     timeout_seconds: float,
 ) -> bytes:
-    from butler.gateway.platforms import wechat_ilink_utils as wu
 
     if encrypted_query_param:
         raw = await wu._download_bytes(
@@ -556,13 +563,6 @@ def _coerce_bool(value: Any, default: bool = True) -> bool:
 def _extract_text(item_list: List[Dict[str, Any]]) -> str:
     # Lazy import to avoid a circular reference at module load (the
     # constants module does not depend on this module).
-    from butler.gateway.platforms.wechat_ilink.constants import (
-        ITEM_FILE,
-        ITEM_IMAGE,
-        ITEM_TEXT,
-        ITEM_VIDEO,
-        ITEM_VOICE,
-    )
 
     for item in item_list:
         if item.get("type") == ITEM_TEXT:
@@ -594,7 +594,6 @@ def _extract_text(item_list: List[Dict[str, Any]]) -> str:
 
 def _message_type_from_media(media_types: List[str], text: str) -> Any:
     # Late import keeps ``wechat_ilink_constants`` dependency-free.
-    from butler.gateway.platforms.types import MessageType
 
     if any(m.startswith("image/") for m in media_types):
         return MessageType.PHOTO
@@ -633,7 +632,6 @@ def _load_sync_buf(data_home: str, account_id: str) -> str:
     path = _sync_buf_path(data_home, account_id)
     if not path.exists():
         return ""
-    from butler.gateway.platforms.wechat_ilink._utils_legacy_ops import load_sync_buf_field_safe
 
     return cast(str, load_sync_buf_field_safe(path))
 

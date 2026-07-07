@@ -6,6 +6,27 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.config import get_butler_home
+from butler.core.dev_state_context_adapter import (
+    loop_dev_state_view_to_payload,
+    to_loop_dev_state_view,
+)
+from butler.dev_engine.coding_knowledge import (
+    ExperienceLibrary,
+    TheoremLibrary,
+    extract_experience_candidate,
+)
+from butler.dev_engine.dev_state import DevPhase
+from butler.dev_engine.dev_tools import _active_states, dev_engine_enabled
+from butler.dev_engine.review_closure import nexus_sprint_review_handoff
+from butler.memory.memory_scope import (
+    coding_experiences_save_path,
+    delegate_project_id,
+    scope_for_extracted_experience,
+)
+from butler.ops.experience_selection_telemetry import apply_selected_experience_lifecycle
+from butler.ops.g1_04_prod_evidence import record_g1_04_production_evidence
+from butler.ops.prod_experience_effectiveness import record_dev_delegate_outcome
 
 if TYPE_CHECKING:
     from butler.tools.delegate_phases import DelegateRunState
@@ -19,12 +40,6 @@ def peek_dev_engine_summary_safe(session_key: str, role: str) -> dict[str, Any] 
         return None
 
     def _run() -> dict[str, Any] | None:
-        from butler.core.dev_state_context_adapter import (
-            loop_dev_state_view_to_payload,
-            to_loop_dev_state_view,
-        )
-        from butler.dev_engine.dev_tools import _active_states, dev_engine_enabled
-
         if not dev_engine_enabled():
             return None
         ds = _active_states.get(session_key or "_default")
@@ -46,8 +61,6 @@ def peek_dev_engine_summary_safe(session_key: str, role: str) -> dict[str, Any] 
 
 def attach_review_handoff_safe(state: DelegateRunState, payload: dict[str, Any]) -> None:
     def _run() -> None:
-        from butler.dev_engine.review_closure import nexus_sprint_review_handoff
-
         handoff = nexus_sprint_review_handoff(state.category)
         if handoff:
             payload["review_handoff"] = handoff.strip()
@@ -64,8 +77,6 @@ def apply_experience_lifecycle_safe(
         return None
 
     def _run() -> dict[str, Any]:
-        from butler.ops.experience_selection_telemetry import apply_selected_experience_lifecycle
-
         return apply_selected_experience_lifecycle(
             experience_id=exp_id,
             success=bool(ds.verify_result.passed),
@@ -84,12 +95,6 @@ def attach_dev_engine_payload_safe(
     """Pop DevState, fill payload; return ds for follow-up hooks."""
 
     def _run() -> Any | None:
-        from butler.core.dev_state_context_adapter import (
-            loop_dev_state_view_to_payload,
-            to_loop_dev_state_view,
-        )
-        from butler.dev_engine.dev_tools import _active_states, dev_engine_enabled
-
         if not dev_engine_enabled():
             return None
         sk = state.child_session_key or state.session_key or "_default"
@@ -109,9 +114,6 @@ def attach_dev_engine_payload_safe(
 
 def record_dev_delegate_outcome_safe(ds: Any, state: DelegateRunState) -> None:
     def _run() -> None:
-        from butler.memory.memory_scope import delegate_project_id
-        from butler.ops.prod_experience_effectiveness import record_dev_delegate_outcome
-
         record_dev_delegate_outcome(
             session_key=state.child_session_key or state.session_key or "",
             role=state.role,
@@ -135,9 +137,6 @@ def record_dev_delegate_outcome_safe(ds: Any, state: DelegateRunState) -> None:
 
 def record_g1_04_evidence_safe(ds: Any, state: DelegateRunState) -> None:
     def _run() -> None:
-        from butler.memory.memory_scope import delegate_project_id
-        from butler.ops.g1_04_prod_evidence import record_g1_04_production_evidence
-
         record_g1_04_production_evidence(
             role=state.role,
             project=delegate_project_id(state.project),
@@ -155,18 +154,6 @@ def record_g1_04_evidence_safe(ds: Any, state: DelegateRunState) -> None:
 
 def try_extract_experience_safe(ds: Any, state: DelegateRunState) -> None:
     def _run() -> None:
-        from butler.config import get_butler_home
-        from butler.dev_engine.coding_knowledge import (
-            ExperienceLibrary,
-            TheoremLibrary,
-            extract_experience_candidate,
-        )
-        from butler.dev_engine.dev_state import DevPhase
-        from butler.memory.memory_scope import (
-            coding_experiences_save_path,
-            scope_for_extracted_experience,
-        )
-
         if ds.phase != DevPhase.DONE or not ds.verify_result.passed:
             return
         activated = getattr(ds, "_coding_knowledge_theorems", None)

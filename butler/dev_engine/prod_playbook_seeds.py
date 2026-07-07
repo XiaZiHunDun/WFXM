@@ -7,6 +7,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from butler.dev_engine.b9_experience_retrieval import B9_EXPERIENCE_THEOREM_BASIS
+from butler.dev_engine.coding_knowledge import CodingExperience
+from butler.memory.memory_scope import MemoryScope
+from butler.config import get_butler_home
+from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
+from butler.memory.memory_scope import tenant_coding_experiences_path
 
 
 @dataclass(frozen=True)
@@ -112,8 +117,6 @@ PROD_PLAYBOOK_SEEDS: tuple[ProdPlaybookSeed, ...] = (
 
 
 def _seed_to_experience(seed: ProdPlaybookSeed) -> Any:
-    from butler.dev_engine.coding_knowledge import CodingExperience
-    from butler.memory.memory_scope import MemoryScope
 
     kw = ",".join(seed.retrieval_keywords)
     return CodingExperience(
@@ -158,9 +161,6 @@ def seed_prod_playbooks(
     dry_run: bool = True,
 ) -> dict[str, Any]:
     """Upsert PROD_PLAYBOOK_* experiences into tenant L4 coding_experiences."""
-    from butler.config import get_butler_home
-    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
-    from butler.memory.memory_scope import tenant_coding_experiences_path
 
     home = butler_home or get_butler_home()
     l4_path = tenant_coding_experiences_path(home)
@@ -196,9 +196,6 @@ def seed_prod_playbooks(
 
 def verify_prod_playbook_retrieval() -> dict[str, Any]:
     """Smoke: seeded playbooks match experience search keywords."""
-    from butler.dev_engine.coding_knowledge import ExperienceLibrary, TheoremLibrary
-    from butler.config import get_butler_home
-    from butler.memory.memory_scope import tenant_coding_experiences_path
 
     l4_path = tenant_coding_experiences_path(get_butler_home())
     tlib = TheoremLibrary()

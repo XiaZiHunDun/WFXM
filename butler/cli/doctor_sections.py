@@ -8,6 +8,43 @@ from pathlib import Path
 from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.transform_overrides import format_transform_diagnostic_lines
+from butler.config import BUTLER_RUNTIME_DIRS, get_butler_home, get_butler_settings
+from butler.config_secrets import secrets_status_line
+from butler.memory.semantic_config import semantic_memory_enabled
+from butler.memory.semantic_index import SemanticMemoryIndex
+from butler.memory.vector_store import chroma_data_present_hint
+from butler.model_resolve import format_model_diagnostic_lines
+from butler.ops.boundary_observability import (
+    format_boundary_observability_lines,
+    g1_04_observation_window_status,
+)
+from butler.ops.deploy_profile import (
+    deploy_profile,
+    effective_operating_profile,
+    env_profile,
+    format_owner_profile_lines,
+    gateway_singleton_lock_held,
+    profile_deviation_warnings,
+)
+from butler.ops.degradation_registry import (
+    format_brief_line,
+    format_diagnostic_lines,
+    sync_compaction_acl_from_metrics,
+    sync_embedding_degradation_from_health_check,
+)
+from butler.ops.embedding_diagnostics import format_embedding_doctor_lines
+from butler.ops.embedding_health import check_embedding_recall
+from butler.ops.eval_diagnostics import format_eval_quality_lines
+from butler.ops.execution_surface_diagnostics import check_legacy_global_skills
+from butler.ops.stack_diagnostics import format_stack_diagnostic_lines
+from butler.ops.terminal_sandbox_diagnostics import (
+    collect_terminal_sandbox_status,
+    format_terminal_sandbox_diagnostic_lines,
+)
+from butler.ops.transcript_diagnostics import transcript_fts_drift
+from butler.tenant import tenant_memory_dir
+from butler.tools.path_safety import _default_project_workspace
 
 
 def discover_doctor_workspace(butler_home: Path) -> Path | None:
@@ -32,8 +69,6 @@ def discover_doctor_workspace(butler_home: Path) -> Path | None:
 
 def resolve_butler_home() -> Path:
     def _run() -> Path:
-        from butler.config import get_butler_home
-
         return cast(Path, get_butler_home())
 
     result = cast(
@@ -50,8 +85,6 @@ def resolve_butler_home() -> Path:
 
 
 def print_runtime_dirs(butler_home: Path) -> None:
-    from butler.config import BUTLER_RUNTIME_DIRS
-
     print("[数据目录]")
     for d in BUTLER_RUNTIME_DIRS:
         p = butler_home / d
@@ -132,15 +165,6 @@ def print_deploy_profile_section() -> None:
     print("\n[部署剖面]")
 
     def _run() -> None:
-        from butler.ops.deploy_profile import (
-            deploy_profile,
-            effective_operating_profile,
-            env_profile,
-            format_owner_profile_lines,
-            gateway_singleton_lock_held,
-            profile_deviation_warnings,
-        )
-
         op = effective_operating_profile()
         print(f"  推荐剖面: {op}")
         print(f"  BUTLER_DEPLOY_PROFILE: {deploy_profile() or '(未设)'}")
@@ -158,8 +182,6 @@ def print_deploy_profile_section() -> None:
 
 def print_secrets_status() -> None:
     def _run() -> str:
-        from butler.config_secrets import secrets_status_line
-
         return cast(str, secrets_status_line())
 
     line = safe_best_effort(_run, label="doctor.secrets_status", default=None)
@@ -180,8 +202,6 @@ def print_observability_l7(butler_home: Path) -> None:
     print(f"  BUTLER_SEMANTIC_MEMORY: {sem}")
 
     def _embedding_lines() -> None:
-        from butler.ops.embedding_diagnostics import format_embedding_doctor_lines
-
         for line in format_embedding_doctor_lines():
             print(line)
 
@@ -189,14 +209,8 @@ def print_observability_l7(butler_home: Path) -> None:
         print("  Embedding 档位: (不可用)")
 
     def _index_stats() -> None:
-        from butler.memory.semantic_config import semantic_memory_enabled
-        from butler.ops.transcript_diagnostics import transcript_fts_drift
-
         drift = transcript_fts_drift()
         if semantic_memory_enabled():
-            from butler.memory.semantic_index import SemanticMemoryIndex
-            from butler.tenant import tenant_memory_dir
-
             db = tenant_memory_dir(butler_home, "default") / "memory_vectors.db"
             if db.is_file():
                 idx = SemanticMemoryIndex(db)
@@ -222,8 +236,6 @@ def print_observability_l7(butler_home: Path) -> None:
     )
 
     def _recall() -> None:
-        from butler.ops.embedding_health import check_embedding_recall
-
         report = check_embedding_recall(min_recall=0.5)
         status = "✓" if report.ok(min_recall=0.5) else "⚠"
         print(f"  Embedding Recall@3: {status} {report.recall_at_3:.0%} — {report.message}")
@@ -235,8 +247,6 @@ def print_observability_l7(butler_home: Path) -> None:
 
 
 def _print_chroma_hint(butler_home: Path) -> None:
-    from butler.memory.vector_store import chroma_data_present_hint
-
     hint = chroma_data_present_hint(butler_home)
     if hint:
         print(f"  ⚠ {hint}")
@@ -244,13 +254,6 @@ def _print_chroma_hint(butler_home: Path) -> None:
 
 def print_degradation_section() -> None:
     def _run() -> None:
-        from butler.ops.degradation_registry import (
-            format_brief_line,
-            format_diagnostic_lines,
-            sync_compaction_acl_from_metrics,
-            sync_embedding_degradation_from_health_check,
-        )
-
         sync_embedding_degradation_from_health_check(min_recall=0.5)
         sync_compaction_acl_from_metrics()
         brief = format_brief_line()
@@ -272,8 +275,6 @@ def print_dev_quality_section() -> None:
     print("\n[开发质量 O7/O9]")
 
     def _eval() -> None:
-        from butler.ops.eval_diagnostics import format_eval_quality_lines
-
         for line in format_eval_quality_lines():
             print(line)
 
@@ -281,8 +282,6 @@ def print_dev_quality_section() -> None:
         print("  (不可用)")
 
     def _transform() -> None:
-        from butler.core.transform_overrides import format_transform_diagnostic_lines
-
         for line in format_transform_diagnostic_lines():
             print(f"  {line}")
 
@@ -294,8 +293,6 @@ def print_boundary_section() -> None:
     print("\n[诚实边界 G1/G2]")
 
     def _run() -> None:
-        from butler.ops.boundary_observability import format_boundary_observability_lines
-
         for line in format_boundary_observability_lines(verbose=True):
             print(line)
 
@@ -308,9 +305,6 @@ def print_effective_models_section() -> None:
     print("  （CLI 无微信会话；不含 project.yaml 的当前项目覆盖，见 /诊断 或 /模型）")
 
     def _run() -> None:
-        from butler.config import get_butler_settings
-        from butler.model_resolve import format_model_diagnostic_lines
-
         for line in format_model_diagnostic_lines(
             project=None,
             settings=get_butler_settings(),
@@ -325,8 +319,6 @@ def print_execution_surface_section(butler_home: Path) -> None:
     print("\n[执行面 Skill 路径]")
 
     def _run() -> None:
-        from butler.ops.execution_surface_diagnostics import check_legacy_global_skills
-
         legacy = check_legacy_global_skills(butler_home)
         if legacy:
             for line in legacy:
@@ -342,11 +334,6 @@ def print_terminal_sandbox_section(workspace: Path | None) -> None:
     print("\n[Terminal 沙箱]")
 
     def _run() -> None:
-        from butler.ops.terminal_sandbox_diagnostics import (
-            collect_terminal_sandbox_status,
-            format_terminal_sandbox_diagnostic_lines,
-        )
-
         st = collect_terminal_sandbox_status(workspace=workspace)
         for line in format_terminal_sandbox_diagnostic_lines(workspace=workspace):
             print(f"  {line}" if not line.startswith("Terminal") else line)
@@ -361,12 +348,8 @@ def print_stack_section() -> None:
     print("\n[项目 stack 依赖清单]")
 
     def _run() -> None:
-        from butler.tools.path_safety import _default_project_workspace
-
         stack_ws = _default_project_workspace()
         if stack_ws is not None and (stack_ws / "stack.yaml").is_file():
-            from butler.ops.stack_diagnostics import format_stack_diagnostic_lines
-
             for line in format_stack_diagnostic_lines(stack_ws):
                 print(f"  {line}" if line.startswith("  ") else line)
         else:
@@ -380,8 +363,6 @@ def print_g1_04_section() -> None:
     print("\n[G1-04 OT2 进化观测]")
 
     def _run() -> None:
-        from butler.ops.boundary_observability import g1_04_observation_window_status
-
         w = g1_04_observation_window_status()
         print(
             f"  窗进度: {w.get('days_elapsed', '?')}/{w.get('window_days', '?')} 天 "

@@ -7,11 +7,18 @@ from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
+from butler.execution_context import get_current_orchestrator, get_current_session_key
+from butler.execution_context import get_current_session_key
+from butler.core.harness_flags import mcp_deferred_tools_enabled
+from butler.mcp.deferred import get_deferred_mcp_definitions
+from butler.plan.mode import is_plan_mode
+from butler.core.tool_orchestrator import run_mcp_with_gates
+from butler.mcp.config import load_mcp_servers
+from butler.mcp.extension_verify import extension_verify_status_lines
 
 
 def resolve_workspace_safe() -> Path | None:
     def _run() -> Path | None:
-        from butler.execution_context import get_current_orchestrator, get_current_session_key
 
         orch = get_current_orchestrator()
         if orch is None:
@@ -33,7 +40,6 @@ def session_key_fallback(*, session_key: str = "") -> str:
         return explicit
 
     def _run() -> str:
-        from butler.execution_context import get_current_session_key
 
         return str(get_current_session_key() or "").strip() or "default"
 
@@ -46,7 +52,6 @@ def resolve_session_key_for_connect(session_key: str = "") -> str:
         return explicit
 
     def _run() -> str:
-        from butler.execution_context import get_current_session_key
 
         return str(get_current_session_key() or "").strip() or "default"
 
@@ -58,8 +63,6 @@ def resolve_session_key_for_connect(session_key: str = "") -> str:
 
 def maybe_deferred_mcp_definitions(session_key: str) -> list[dict[str, Any]] | None:
     def _run() -> list[dict[str, Any]] | None:
-        from butler.core.harness_flags import mcp_deferred_tools_enabled
-        from butler.mcp.deferred import get_deferred_mcp_definitions
 
         if not mcp_deferred_tools_enabled():
             return None
@@ -70,7 +73,6 @@ def maybe_deferred_mcp_definitions(session_key: str) -> list[dict[str, Any]] | N
 
 def is_plan_mode_active(session_key: str) -> bool | None:
     def _run() -> bool:
-        from butler.plan.mode import is_plan_mode
 
         return bool(is_plan_mode(session_key))
 
@@ -87,7 +89,6 @@ def run_mcp_with_gates_or_direct(
     run_fn: Callable[[], str],
 ) -> str:
     try:
-        from butler.core.tool_orchestrator import run_mcp_with_gates
 
         return run_mcp_with_gates(
             server_id=server_id,
@@ -110,7 +111,6 @@ def mcp_warmup_safe(mgr: Any, session_key: str, workspace: Path | None) -> None:
 
 def mcp_config_count_safe(workspace: Path | None) -> int | None:
     def _run() -> int:
-        from butler.mcp.config import load_mcp_servers
 
         return len(load_mcp_servers(workspace=workspace))
 
@@ -119,7 +119,6 @@ def mcp_config_count_safe(workspace: Path | None) -> int | None:
 
 def extension_verify_status_lines_safe() -> list[str]:
     def _run() -> list[str]:
-        from butler.mcp.extension_verify import extension_verify_status_lines
 
         return extension_verify_status_lines()
 

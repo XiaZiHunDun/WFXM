@@ -18,7 +18,30 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
+from contextlib import nullcontext
+
+from butler.dev_engine.b9_delegate_gate import (
+    benchmark_verify_context,
+    build_b9_wrong_patch_retry_banner,
+    format_oracle_replay_block,
+)
+from butler.dev_engine.b9_live_tuning import (
+    b9_has_edit_tools,
+    b9_live_runtime_env,
+    b9_live_tuning_patch,
+    build_b9_delegate_args,
+    build_b9_no_edit_retry_banner,
+)
+from butler.dev_engine.llm_delegate_benchmark_ops import (
+    guard_b9_task_run,
+    guard_live_delegate_void,
+    record_b9_run_lesson_safe,
+)
+from butler.dev_engine.swe_curriculum import format_swe_replay_block
+from butler.ops.eval_config_overrides import temporary_overrides
+from butler.project.model import Project
 from butler.dev_engine.b9_types import B9Mode, B9Report, B9Result, B9TaskSpec
+from butler.dev_engine.edit_ops import apply_patch, apply_write
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +55,6 @@ def _setup_b9_fix_greet(ws: Path) -> None:
 
 
 def _oracle_b9_fix_greet(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
-
     _rec, err = apply_patch(ws / "hello.py", "return 'hi'", "return 'hello'")
     if err:
         raise RuntimeError(err)
@@ -54,8 +75,6 @@ def _setup_b9_create_marker(ws: Path) -> None:
 
 
 def _oracle_b9_create_marker(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_write
-
     _rec, err = apply_write(ws / "b9_marker.txt", "b9-ok\n")
     if err:
         raise RuntimeError(err)
@@ -79,8 +98,6 @@ def _setup_b9_fix_syntax(ws: Path) -> None:
 
 
 def _oracle_b9_fix_syntax(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
-
     _rec, err = apply_patch(ws / "calc.py", "def add(a, b)\n", "def add(a, b):\n")
     if err:
         raise RuntimeError(err)
@@ -100,8 +117,6 @@ def _setup_b9_add_fibonacci(ws: Path) -> None:
 
 
 def _oracle_b9_add_fibonacci(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_write
-
     content = (
         "def fibonacci(n: int) -> int:\n"
         "    if n <= 1:\n"
@@ -131,8 +146,6 @@ def _setup_b9_fix_off_by_one(ws: Path) -> None:
 
 
 def _oracle_b9_fix_off_by_one(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
-
     _rec, err = apply_patch(ws / "math_utils.py", "range(n)", "range(n + 1)")
     if err:
         raise RuntimeError(err)
@@ -156,8 +169,6 @@ def _setup_b9_fix_add_negative(ws: Path) -> None:
 
 
 def _oracle_b9_fix_add_negative(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
-
     old = "    if a < 0 or b < 0:\n        return 0\n"
     _rec, err = apply_patch(ws / "calc.py", old, "")
     if err:
@@ -181,8 +192,6 @@ def _setup_b9_write_readme(ws: Path) -> None:
 
 
 def _oracle_b9_write_readme(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_write
-
     _rec, err = apply_write(ws / "README.md", "# B9 benchmark\n")
     if err:
         raise RuntimeError(err)
@@ -206,8 +215,6 @@ def _setup_b9_rename_method(ws: Path) -> None:
 
 
 def _oracle_b9_rename_method(ws: Path) -> None:
-    from butler.dev_engine.edit_ops import apply_patch
-
     _rec, err = apply_patch(ws / "api.py", "getData", "get_data")
     if err:
         raise RuntimeError(err)
@@ -324,12 +331,11 @@ def resolve_b9_mode() -> B9Mode:
 
 
 _B9_LIVE_PROJECT_NAME = "__b9_live_benchmark__"
+_B9_LIVE_MAX_ATTEMPTS = 3
 
 
 def _bind_b9_live_project(workspace: Path, orch: Any, *, session_key: str) -> None:
     """Register ephemeral project + bind session so delegate resolves workspace."""
-    from butler.project.model import Project
-
     ws = workspace.resolve()
     pm = orch.project_manager
     pm._projects[_B9_LIVE_PROJECT_NAME] = Project(
@@ -351,23 +357,6 @@ def _run_live_delegate(
     spec: B9TaskSpec,
 ) -> tuple[bool, list[str], list[str]]:
     """Run delegate_task with real LLM. Returns (ok, tools_used, errors)."""
-    from contextlib import nullcontext
-
-    from butler.dev_engine.b9_delegate_gate import (
-        build_b9_wrong_patch_retry_banner,
-        format_oracle_replay_block,
-    )
-    from butler.dev_engine.b9_live_tuning import (
-        b9_has_edit_tools,
-        b9_live_runtime_env,
-        b9_live_tuning_patch,
-        build_b9_delegate_args,
-        build_b9_no_edit_retry_banner,
-    )
-
-    _B9_LIVE_MAX_ATTEMPTS = 3
-    from butler.ops.eval_config_overrides import temporary_overrides
-
     errors: list[str] = []
     tools_used: list[str] = []
     tuning_patch = b9_live_tuning_patch()
@@ -375,8 +364,6 @@ def _run_live_delegate(
         temporary_overrides(tuning_patch) if tuning_patch else nullcontext()
     )
     delegate_args = build_b9_delegate_args(spec, workspace.resolve())
-    from butler.dev_engine.b9_delegate_gate import benchmark_verify_context
-    from butler.dev_engine.llm_delegate_benchmark_ops import guard_live_delegate_void
 
     def _delegate_loop() -> None:
         from butler.execution_context import use_execution_context
@@ -405,10 +392,6 @@ def _run_live_delegate(
                         if spec.task_id.startswith("B9L_"):
                             replay = format_oracle_replay_block(spec.task_id)
                         elif spec.task_id.startswith("SWE-"):
-                            from butler.dev_engine.swe_curriculum import (
-                                format_swe_replay_block,
-                            )
-
                             replay = format_swe_replay_block(spec.task_id)
                         else:
                             replay = ""
@@ -482,10 +465,6 @@ def run_b9_task(
         description=spec.description,
         passed=False,
         mode=mode.value,
-    )
-    from butler.dev_engine.llm_delegate_benchmark_ops import (
-        guard_b9_task_run,
-        record_b9_run_lesson_safe,
     )
 
     def _run_body() -> None:

@@ -12,7 +12,42 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
 
 from butler.env_parse import float_env
+from butler.gateway.outbound_prefs import pop_single_bubble_from_metadata
 from butler.gateway.platforms.types import SendResult
+from butler.gateway.platforms.wechat_ilink import (
+    _aes_padded_size,
+    _safe_id,
+    _split_text_for_wechat_delivery,
+)
+from butler.gateway.platforms.wechat_ilink.adapter_media import download_remote_media
+from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import (
+    ensure_typing_ticket_safe,
+    fetch_typing_ticket_safe,
+    send_media_loud,
+    send_message_loud,
+    send_text_chunk_loud,
+    send_typing_status_safe,
+    unlink_temp_file_safe,
+)
+from butler.gateway.platforms.wechat_ilink.constants import (
+    MEDIA_FILE,
+    MEDIA_IMAGE,
+    MEDIA_VIDEO,
+    MEDIA_VOICE,
+    TYPING_START,
+    TYPING_STOP,
+)
+from butler.gateway.platforms.wechat_ilink_phases import (
+    _build_audio_item,
+    _build_file_item,
+    _build_image_item,
+    _build_video_item,
+    _build_voice_item,
+    _phase_file_dispatch_message,
+    _phase_file_request_upload,
+    _phase_send_attachments,
+    _phase_send_text_chunks,
+)
 
 if TYPE_CHECKING:
     from butler.gateway.platforms.wechat_ilink.adapter import WeChatAdapter
@@ -25,14 +60,10 @@ async def maybe_fetch_typing_ticket(
     user_id: str,
     context_token: Optional[str],
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import fetch_typing_ticket_safe
-
     await fetch_typing_ticket_safe(adapter, user_id, context_token)
 
 
 async def ensure_typing_ticket_for_event(adapter: "WeChatAdapter", event: Any) -> None:
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import ensure_typing_ticket_safe
-
     timeout = float_env("BUTLER_GATEWAY_TYPING_FETCH_TIMEOUT_SECONDS", 2)
     await ensure_typing_ticket_safe(adapter, event, timeout=timeout)
 
@@ -43,9 +74,6 @@ def split_text(
     *,
     metadata: dict[str, Any] | None = None,
 ) -> List[str]:
-    from butler.gateway.outbound_prefs import pop_single_bubble_from_metadata
-    from butler.gateway.platforms.wechat_ilink import _split_text_for_wechat_delivery
-
     force_single = pop_single_bubble_from_metadata(metadata)
     return cast(
         list[str],
@@ -59,8 +87,6 @@ def split_text(
 
 
 async def backoff_for_rate_limit(adapter: "WeChatAdapter", chat_id: str, attempt: int) -> None:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
-
     cap = 90.0
     try:
         cap = max(10.0, float_env("BUTLER_WECHAT_RATE_LIMIT_BACKOFF_MAX", 90))
@@ -80,8 +106,6 @@ async def backoff_for_transport_error(
     attempt: int,
     exc: Exception,
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
-
     wait = adapter._send_chunk_retry_delay_seconds * (attempt + 1)
     logger.warning(
         "[%s] send chunk failed to=%s attempt=%d/%d, retrying in %.2fs: %s",
@@ -100,8 +124,6 @@ async def send_text_chunk(
     context_token: Optional[str],
     client_id: str,
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_text_chunk_loud
-
     await send_text_chunk_loud(
         adapter,
         chat_id=chat_id,
@@ -118,12 +140,6 @@ async def send_message(
     reply_to: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> SendResult:
-    from butler.gateway.platforms.wechat_ilink import _safe_id
-    from butler.gateway.platforms.wechat_ilink_phases import (
-        _phase_send_attachments,
-        _phase_send_text_chunks,
-    )
-
     del reply_to
     if not adapter._send_session or not adapter._token:
         return SendResult(success=False, error="Not connected")
@@ -132,8 +148,6 @@ async def send_message(
     media_files, cleaned_content = adapter.extract_media(content)
     _, image_cleaned = adapter.extract_images(cleaned_content)
     local_files, final_content = adapter.extract_local_files(image_cleaned)
-
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_message_loud
 
     async def _run_send() -> SendResult:
         await _phase_send_attachments(
@@ -152,9 +166,6 @@ async def send_typing(
     chat_id: str,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> None:
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_typing_status_safe
-    from butler.gateway.platforms.wechat_ilink.constants import TYPING_START
-
     del metadata
     if not adapter._send_session or not adapter._token:
         return
@@ -167,9 +178,6 @@ async def send_typing(
 
 
 async def stop_typing(adapter: "WeChatAdapter", chat_id: str) -> None:
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_typing_status_safe
-    from butler.gateway.platforms.wechat_ilink.constants import TYPING_STOP
-
     if not adapter._send_session or not adapter._token:
         return
     await send_typing_status_safe(
@@ -188,8 +196,6 @@ async def send_image(
     reply_to: Optional[str] = None,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> SendResult:
-    from butler.gateway.platforms.wechat_ilink.adapter_media import download_remote_media
-
     if image_url.startswith(("http://", "https://")):
         file_path = await download_remote_media(adapter, image_url)
         cleanup = True
@@ -202,8 +208,6 @@ async def send_image(
         return await send_document(adapter, chat_id, file_path, caption=caption, metadata=metadata)
     finally:
         if cleanup:
-            from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import unlink_temp_file_safe
-
             unlink_temp_file_safe(file_path)
 
 
@@ -239,7 +243,6 @@ async def send_document(
     del file_name, reply_to, metadata, kwargs
     if not adapter._send_session or not adapter._token:
         return SendResult(success=False, error="Not connected")
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_media_loud
 
     async def _run_send() -> SendResult:
         message_id = await send_file(adapter, chat_id, file_path, caption or "")
@@ -258,7 +261,6 @@ async def send_video(
 ) -> SendResult:
     if not adapter._send_session or not adapter._token:
         return SendResult(success=False, error="Not connected")
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_media_loud
 
     async def _run_send() -> SendResult:
         message_id = await send_file(adapter, chat_id, video_path, caption or "")
@@ -279,7 +281,6 @@ async def send_voice(
         return SendResult(success=False, error="Not connected")
 
     fallback_caption = caption or "[voice message as attachment]"
-    from butler.gateway.platforms.wechat_ilink.adapter_outbound_ops import send_media_loud
 
     async def _run_send() -> SendResult:
         message_id = await send_file(
@@ -306,8 +307,6 @@ def build_outbound_media_item(
     plaintext_size: int,
     rawfilemd5: str,
 ) -> Dict[str, Any]:
-    from butler.gateway.platforms.wechat_ilink.constants import MEDIA_VOICE
-
     aes_key_for_api = base64.b64encode(aes_key.hex().encode("ascii")).decode("ascii")
     item_kwargs: Dict[str, Any] = {
         "encrypt_query_param": encrypted_query_param,
@@ -331,20 +330,6 @@ def outbound_media_builder(
 ) -> tuple[int, Callable[..., Dict[str, Any]]]:
     import mimetypes
 
-    from butler.gateway.platforms.wechat_ilink.constants import (
-        MEDIA_FILE,
-        MEDIA_IMAGE,
-        MEDIA_VIDEO,
-        MEDIA_VOICE,
-    )
-    from butler.gateway.platforms.wechat_ilink_phases import (
-        _build_audio_item,
-        _build_file_item,
-        _build_image_item,
-        _build_video_item,
-        _build_voice_item,
-    )
-
     mime = mimetypes.guess_type(path)[0] or "application/octet-stream"
     if mime.startswith("image/"):
         return MEDIA_IMAGE, _build_image_item
@@ -364,12 +349,6 @@ async def send_file(
     caption: str,
     force_file_attachment: bool = False,
 ) -> str:
-    from butler.gateway.platforms.wechat_ilink import _aes_padded_size
-    from butler.gateway.platforms.wechat_ilink_phases import (
-        _phase_file_dispatch_message,
-        _phase_file_request_upload,
-    )
-
     assert adapter._send_session is not None and adapter._token is not None
     plaintext = Path(path).read_bytes()
     media_type, item_builder = outbound_media_builder(

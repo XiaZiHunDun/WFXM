@@ -7,15 +7,21 @@ from pathlib import Path
 from typing import Any, Callable
 
 from butler.core.best_effort import safe_best_effort
+from butler.config import get_butler_home
+from butler.execution_context import get_current_orchestrator, get_current_session_key
+from butler.memory import ProjectMemory
+from butler.memory.memory_metrics import get_collector
+from butler.memory.metrics_persist import flush_memory_metrics
+from butler.memory.owner_write_pending import queue_owner_write, scope_requires_write_approval
+from butler.memory.private_tags import strip_private_tags
+from butler.memory.retrieval_telemetry import record_last_retrieval
+from butler.project.manager import get_project_manager
 
 logger = logging.getLogger(__name__)
 
 
 def emit_write_metric(scope: str, success: bool, *, content: str = "") -> None:
     def _run() -> None:
-        from butler.memory.memory_metrics import get_collector
-        from butler.memory.metrics_persist import flush_memory_metrics
-
         get_collector().on_write(scope, success, content=content)
         flush_memory_metrics()
 
@@ -30,9 +36,6 @@ def emit_recall_metric(
     hit_texts: list[str] | None = None,
 ) -> None:
     def _run() -> None:
-        from butler.memory.memory_metrics import get_collector
-        from butler.memory.metrics_persist import flush_memory_metrics
-
         get_collector().on_recall(scope, query, count, hit_texts=hit_texts)
         flush_memory_metrics()
 
@@ -41,8 +44,6 @@ def emit_recall_metric(
 
 def resolve_active_project_name() -> str:
     def _from_orchestrator() -> str:
-        from butler.execution_context import get_current_orchestrator
-
         orch = get_current_orchestrator()
         pm = getattr(orch, "project_manager", None) if orch is not None else None
         if pm is None:
@@ -63,8 +64,6 @@ def resolve_active_project_name() -> str:
         return name
 
     def _from_manager() -> str:
-        from butler.project.manager import get_project_manager
-
         pm = get_project_manager()
         if hasattr(pm, "resolve_active_project_name"):
             return str(pm.resolve_active_project_name() or "").strip()
@@ -86,8 +85,6 @@ def discover_project_root() -> Path | None:
         return Path(raw).expanduser().resolve()
 
     def _run() -> Path | None:
-        from butler.project.manager import get_project_manager
-
         pm = get_project_manager()
         cur = pm.get_current()
         if cur:
@@ -103,8 +100,6 @@ def discover_project_root() -> Path | None:
 
 def manager_current_project() -> str:
     def _run() -> str:
-        from butler.project.manager import get_project_manager
-
         return get_project_manager().current_project or ""
 
     return safe_best_effort(
@@ -116,8 +111,6 @@ def manager_current_project() -> str:
 
 def butler_home_configured() -> bool:
     def _run() -> bool:
-        from butler.config import get_butler_home
-
         return bool(get_butler_home())
 
     result = safe_best_effort(
@@ -146,9 +139,6 @@ def refresh_project_facts(project_memory: Any) -> None:
 
 def record_recall_telemetry(payload: dict[str, Any]) -> None:
     def _run() -> None:
-        from butler.execution_context import get_current_session_key
-        from butler.memory.retrieval_telemetry import record_last_retrieval
-
         record_last_retrieval(get_current_session_key() or "", payload)
 
     safe_best_effort(_run, label="memory.facade.recall_telemetry", default=None)
@@ -156,8 +146,6 @@ def record_recall_telemetry(payload: dict[str, Any]) -> None:
 
 def strip_private_tags_safe(content: str) -> tuple[str, bool] | None:
     def _run() -> tuple[str, bool]:
-        from butler.memory.private_tags import strip_private_tags
-
         return strip_private_tags(content)
 
     return safe_best_effort(
@@ -169,11 +157,6 @@ def strip_private_tags_safe(content: str) -> tuple[str, bool] | None:
 
 def owner_write_approval_result(args: dict[str, Any]) -> dict[str, Any] | None:
     def _run() -> dict[str, Any]:
-        from butler.memory.owner_write_pending import (
-            queue_owner_write,
-            scope_requires_write_approval,
-        )
-
         scope = str(args.get("scope") or "")
         action = str(args.get("action", "append") or "append").strip().lower()
         content = str(args.get("content") or "").strip()
@@ -232,8 +215,6 @@ def prefetch_project_context(project_memory: Any) -> str:
 
 def load_project_memory(root: Path) -> Any | None:
     def _run() -> Any:
-        from butler.memory import ProjectMemory
-
         pm = ProjectMemory(root)
         refresh_project_facts(pm)
         return pm

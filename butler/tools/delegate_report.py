@@ -13,9 +13,32 @@ from butler.report import AgentReport
 from butler.tools.delegate_run_state import DelegateRunState
 
 
+from butler.session.lifecycle import sync_turn_memory
+from butler.tools.delegate_impl import (
+    _delegate_role_label,
+    finalize_delegate_success,
+    _run_subagent_stop_hooks,
+    _extract_changes_from_messages,
+    _extract_issues_from_messages,
+)
+from butler.report.acceptance_card import attach_delegate_acceptance_meta
+from butler.core.session_transcript import record_generic_event
+from butler.report import (
+    cache_report,
+    attach_delegate_task_times,
+)
+from butler.runtime.task_store import complete_task
+from butler.tools.delegate_report_ops import (
+    record_acceptance_card_safe,
+    finish_delegate_trace_safe,
+    maybe_capture_delegate_failure_safe,
+    maybe_judge_delegate_safe,
+    resolve_delegate_trace_id_safe,
+)
+from butler.tools.delegate_summary_budget import budget_delegate_payload
+
 def sync_turn_memory_for_result(state: DelegateRunState, result: Any) -> None:
     """Sync turn memory using the pre-handoff context (6a)."""
-    from butler.session.lifecycle import sync_turn_memory
 
     sync_turn_memory(
         state.orch,
@@ -34,10 +57,6 @@ def build_delegate_report(
     issues: list[Any],
 ) -> AgentReport:
     """Build the ``AgentReport`` (6b + 6d), including empty-response fallback."""
-    from butler.tools.delegate_impl import (
-        _delegate_role_label,
-        finalize_delegate_success,
-    )
 
     de_summary = peek_dev_engine_summary(
         state.child_session_key or state.session_key or "_default",
@@ -84,7 +103,6 @@ def build_delegate_report(
         tokens_used=result.total_tokens,
         elapsed_seconds=result.elapsed_seconds,
     )
-    from butler.report.acceptance_card import attach_delegate_acceptance_meta
 
     attach_delegate_acceptance_meta(
         report,
@@ -102,7 +120,6 @@ def record_delegate_turn_done(state: DelegateRunState, success: bool, result: An
     """Emit the ``delegate_turn_done`` session-transcript event (6c)."""
     if not state.child_session_key:
         return
-    from butler.core.session_transcript import record_generic_event
 
     record_generic_event(
         state.child_session_key,
@@ -117,9 +134,6 @@ def record_delegate_turn_done(state: DelegateRunState, success: bool, result: An
 
 def finalize_delegate_task(state: DelegateRunState, report: Any) -> None:
     """Cache report, complete task, stop hooks, bridge notify (6e)."""
-    from butler.report import cache_report, attach_delegate_task_times
-    from butler.runtime.task_store import complete_task
-    from butler.tools.delegate_impl import _run_subagent_stop_hooks
 
     complete_task(
         state.task_id,
@@ -129,7 +143,6 @@ def finalize_delegate_task(state: DelegateRunState, report: Any) -> None:
     )
     attach_delegate_task_times(report, state.task_id)
     cache_report(report, session_key=state.session_key)
-    from butler.tools.delegate_report_ops import record_acceptance_card_safe
 
     record_acceptance_card_safe(report, session_key=state.session_key)
     _run_subagent_stop_hooks(
@@ -165,7 +178,6 @@ def build_result_payload(state: DelegateRunState, report: Any, result: Any) -> d
     if isinstance(tool_names, list) and tool_names:
         payload["tools_used"] = [str(n) for n in tool_names if n]
     attach_dev_engine_summary(state, payload)
-    from butler.tools.delegate_summary_budget import budget_delegate_payload
 
     return dict(budget_delegate_payload(payload))
 
@@ -178,12 +190,6 @@ def finalize_delegate_observability(
 ) -> None:
     """Close delegate LangFuse span and capture production failures."""
     dev_engine = payload.get("dev_engine") if isinstance(payload.get("dev_engine"), dict) else None
-    from butler.tools.delegate_report_ops import (
-        finish_delegate_trace_safe,
-        maybe_capture_delegate_failure_safe,
-        maybe_judge_delegate_safe,
-        resolve_delegate_trace_id_safe,
-    )
 
     finish_delegate_trace_safe(
         state.child_session_key or state.session_key,
@@ -229,10 +235,6 @@ def finalize_delegate_observability(
 
 def format_delegate_result(state: DelegateRunState, result: Any) -> str:
     """Phase 6: memory sync, report, cache, complete_task, hooks, payload."""
-    from butler.tools.delegate_impl import (
-        _extract_changes_from_messages,
-        _extract_issues_from_messages,
-    )
 
     sync_turn_memory_for_result(state, result)
     changes = _extract_changes_from_messages(result.messages)

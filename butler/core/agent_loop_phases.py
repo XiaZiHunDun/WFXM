@@ -37,12 +37,51 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 from butler.core.best_effort import safe_best_effort
+from butler.core.compaction_steer_bridge import apply_compaction_turn_followup
+from butler.core.compaction_task import run_compaction_turn, should_run_compaction_turn
+from butler.core.context_budget import record_usage_in_diagnostics, usage_billable_tokens
+from butler.core.harness_flags import mcp_deferred_same_turn_enabled, mcp_deferred_tools_enabled
+from butler.core.hook_context_adapter import (
+    adapt_hook_context_lines,
+    apply_hook_context_to_diagnostics,
+    to_hook_context_view,
+)
+from butler.core.loop_budget_nudge import maybe_inject_loop_budget_nudges
+from butler.core.loop_response import needs_truncation_continue, truncation_continue_message
+from butler.core.loop_stuck import guardrail_stuck_message
 from butler.core.loop_types import (
     LoopResult,
     LoopStatus,
     LoopTransitionReason,
 )
 from butler.core.message_sanitize import sanitize_surrogates
+from butler.core.output_grounding import apply_output_grounding
+from butler.core.reasoning_trace import maybe_record_llm_reasoning, record_stuck_reflect
+from butler.core.session_transcript import record_assistant_message, record_user_message
+from butler.core.skill_tool_bridge import collect_pinned_tools
+from butler.core.system_reminder import maybe_prepend_system_reminder
+from butler.core.tool_selector import select_tools_for_context
+from butler.core.turn_token_budget import (
+    TurnBudgetState,
+    continuation_limits,
+    get_budget_continuation_message,
+    resolve_turn_budget,
+)
+from butler.execution_context import get_audit_session_key, get_current_session_key
+from butler.hooks.runner import run_stop_hooks
+from butler.mcp.deferred import merge_deferred_mcp_into_turn_tools, promote_experience_mcp_tools
+from butler.mcp.github_grounding import (
+    try_github_issue_list_direct_reply,
+    try_github_repo_list_direct_reply,
+)
+from butler.mcp.outbound_grounding_gate import try_correct_ungrounded_list_reply
+from butler.mcp.todoist_grounding import try_todoist_project_list_direct_reply
+from butler.ops.cost_tracker import get_session_cost
+from butler.ops.eval_actions import apply_hard_feedback
+from butler.ops.eval_feedback import get_feedback_context
+from butler.ops.runtime_metrics import inc, observe_ms
+from butler.transport.reasoning_replay import store_reasoning_on_message
+from butler.transport.usage_normalize import normalize_usage
 
 if TYPE_CHECKING:
     from butler.core.agent_loop import AgentLoop
@@ -52,14 +91,10 @@ logger = logging.getLogger(__name__)
 
 
 def _audit_session_key(*, fallback: str = "default") -> str:
-    from butler.execution_context import get_audit_session_key
-
     return get_audit_session_key(fallback=fallback)
 
 
 def _store_reasoning_on_message(message: Any, reasoning: Any) -> None:
-    from butler.transport.reasoning_replay import store_reasoning_on_message
-
     store_reasoning_on_message(message, reasoning)
 
 
@@ -110,11 +145,6 @@ def _phase_init(
     """
     loop._init_turn_state(steer_session)
 
-    from butler.core.turn_token_budget import (
-        TurnBudgetState,
-        resolve_turn_budget,
-    )
-
     state.original_config = loop.config
     loop.config, turn_budget_tokens, cleaned_user = resolve_turn_budget(
         user_message, loop.config,
@@ -131,8 +161,6 @@ def _phase_init(
     loop._turn_tools = state.turn_tools
 
     def _inject_feedback() -> None:
-        from butler.ops.eval_feedback import get_feedback_context
-
         feedback = get_feedback_context(lookback_hours=24.0)
         if feedback:
             loop._turn_ephemeral_system = (
@@ -143,8 +171,6 @@ def _phase_init(
     safe_best_effort(_inject_feedback, label="agent_loop.eval_feedback")
 
     def _apply_hard_feedback() -> None:
-        from butler.ops.eval_actions import apply_hard_feedback
-
         hard = apply_hard_feedback()
         if hard.get("applied"):
             loop.diagnostics["eval_hard_feedback"] = hard
@@ -170,11 +196,6 @@ def _phase_maybe_compact_turn(
 
     Wrapped in try/except by the caller — best-effort, never raises.
     """
-    from butler.core.compaction_task import (
-        run_compaction_turn,
-        should_run_compaction_turn,
-    )
-
     if not should_run_compaction_turn(
         loop._messages,
         max_context_tokens=loop.config.max_context_tokens,
@@ -195,8 +216,6 @@ def _phase_maybe_compact_turn(
         return False
     loop._messages[:] = new_msgs
     def _apply_followup() -> None:
-        from butler.core.compaction_steer_bridge import apply_compaction_turn_followup
-
         sk = _audit_session_key(fallback="default")
         loop._messages[:] = apply_compaction_turn_followup(
             loop._messages, sk, loop.diagnostics,
@@ -230,8 +249,6 @@ def _phase_call_llm(
     _record_usage(loop, response, state)
 
     def _trace() -> None:
-        from butler.core.reasoning_trace import maybe_record_llm_reasoning
-
         maybe_record_llm_reasoning(loop, response, iteration=state.iteration)
 
     safe_best_effort(_trace, label="agent_loop.reasoning_trace")
@@ -250,8 +267,6 @@ def _inject_budget_nudge(loop: "AgentLoop", state: TurnBodyState) -> None:
     """Inject loop budget nudge messages (best-effort)."""
 
     def _nudge() -> None:
-        from butler.core.loop_budget_nudge import maybe_inject_loop_budget_nudges
-
         budget_tokens = (
             int(state.budget_state.budget_tokens)
             if state.budget_state is not None
@@ -290,12 +305,6 @@ def _record_usage(
     """Record token usage + diagnostics from a successful LLM response."""
     if not response.usage:
         return
-    from butler.core.context_budget import (
-        record_usage_in_diagnostics,
-        usage_billable_tokens,
-    )
-    from butler.transport.usage_normalize import normalize_usage
-
     provider = str(getattr(loop.client, "provider_name", "") or "")
     loop.diagnostics["last_provider"] = provider
     loop.diagnostics["last_model"] = str(
@@ -318,9 +327,6 @@ def _record_usage(
         cached_tokens=usage.cached_tokens,
     )
     def _record_cost() -> None:
-        from butler.ops.cost_tracker import get_session_cost
-        from butler.execution_context import get_current_session_key
-
         session_key = str(get_current_session_key() or "").strip()
         if not session_key:
             session_key = str(getattr(loop, "session_key", "") or "").strip()
@@ -377,8 +383,6 @@ def _dispatch_tool_response(
     batch_stats = loop._process_tool_calls(response)
 
     def _try_github_repo_direct() -> bool:
-        from butler.mcp.github_grounding import try_github_repo_list_direct_reply
-
         direct = try_github_repo_list_direct_reply(
             loop._messages,
             user_text=state.user_content,
@@ -395,8 +399,6 @@ def _dispatch_tool_response(
         return False
 
     def _try_github_issue_direct() -> bool:
-        from butler.mcp.github_grounding import try_github_issue_list_direct_reply
-
         direct_issues = try_github_issue_list_direct_reply(
             loop._messages,
             user_text=state.user_content,
@@ -413,8 +415,6 @@ def _dispatch_tool_response(
         return False
 
     def _try_todoist_direct() -> bool:
-        from butler.mcp.todoist_grounding import try_todoist_project_list_direct_reply
-
         direct_todoist = try_todoist_project_list_direct_reply(
             loop._messages,
             user_text=state.user_content,
@@ -441,8 +441,6 @@ def _dispatch_tool_response(
     stuck = _get_stuck_message(loop)
     if stuck:
         def _reflect_stuck() -> None:
-            from butler.core.reasoning_trace import record_stuck_reflect
-
             record_stuck_reflect(loop, stuck)
 
         safe_best_effort(_reflect_stuck, label="agent_loop.stuck_reflect")
@@ -474,8 +472,6 @@ def _dispatch_tool_response(
 def _get_stuck_message(loop: "AgentLoop") -> Optional[str]:
     """Return guardrail stuck message or None (best-effort)."""
     def _check() -> Optional[str]:
-        from butler.core.loop_stuck import guardrail_stuck_message
-
         return cast(Optional[str], guardrail_stuck_message(loop._guardrails))
 
     return cast(
@@ -498,8 +494,6 @@ def _dispatch_text_response(
     state.final_text = response.content
     state.final_reasoning = response.reasoning
     def _apply_grounding_gate() -> None:
-        from butler.mcp.outbound_grounding_gate import try_correct_ungrounded_list_reply
-
         corrected = try_correct_ungrounded_list_reply(
             state.user_content,
             state.final_text,
@@ -512,8 +506,6 @@ def _dispatch_text_response(
     safe_best_effort(_apply_grounding_gate, label="agent_loop.outbound_grounding")
 
     def _apply_output_grounding() -> None:
-        from butler.core.output_grounding import apply_output_grounding
-
         state.final_text = apply_output_grounding(
             state.user_content,
             state.final_text,
@@ -537,11 +529,6 @@ def _try_truncation_continue(
     state: TurnBodyState,
 ) -> bool:
     """Check truncation continue; if triggered, set state and return True."""
-    from butler.core.loop_response import (
-        needs_truncation_continue,
-        truncation_continue_message,
-    )
-
     if not needs_truncation_continue(response):
         return False
     if loop._truncation_retries >= loop.config.max_truncation_continues:
@@ -584,11 +571,6 @@ def _try_budget_continue(
     state: TurnBodyState,
 ) -> bool:
     """Check budget continue; if triggered, set state and return True."""
-    from butler.core.turn_token_budget import (
-        continuation_limits,
-        get_budget_continuation_message,
-    )
-
     if state.budget_state is None:
         return False
     max_cont, min_delta = continuation_limits()
@@ -644,8 +626,6 @@ def _store_final_message(
     steer_session: str,
 ) -> None:
     """Append final assistant message + record transcript (best-effort)."""
-    from butler.core.session_transcript import record_assistant_message
-
     msg = {"role": "assistant", "content": state.final_text}
     _store_reasoning_on_message(msg, state.final_reasoning)
     loop._messages.append(msg)
@@ -667,8 +647,6 @@ def _record_turn_metrics(
 ) -> None:
     """Emit turn_duration + turn_finished metrics (best-effort)."""
     def _emit_metrics() -> None:
-        from butler.ops.runtime_metrics import inc, observe_ms
-
         labels = {
             "transition": str(state.transition.value)[:32],
             "status": str(state.status.value)[:16],
@@ -722,8 +700,6 @@ def _maybe_run_stop_hooks(
     if state.status != LoopStatus.COMPLETED:
         return
     def _run_hooks() -> None:
-        from butler.hooks.runner import run_stop_hooks
-
         stop_hooks = run_stop_hooks(
             status=state.status.value,
             last_assistant_message=state.final_text or "",
@@ -733,12 +709,6 @@ def _maybe_run_stop_hooks(
             elapsed_seconds=result.elapsed_seconds,
         )
         if stop_hooks.additional_context:
-            from butler.core.hook_context_adapter import (
-                adapt_hook_context_lines,
-                apply_hook_context_to_diagnostics,
-                to_hook_context_view,
-            )
-
             adapted = adapt_hook_context_lines(
                 stop_hooks.additional_context,
                 source="stop_hook",
@@ -772,8 +742,6 @@ def _phase_resolve_user_text(
 
     user_content = sanitize_surrogates(user_message)
     def _prepend_reminder() -> str:
-        from butler.core.system_reminder import maybe_prepend_system_reminder
-
         return cast(str, maybe_prepend_system_reminder(user_content))
 
     reminded = safe_best_effort(
@@ -794,21 +762,10 @@ def _prepare_skill_tool_context(
     turn_tools: list[Any],
 ) -> tuple[set[str], list[Any]]:
     def _run() -> tuple[set[str], list[Any]]:
-        from butler.core.skill_tool_bridge import collect_pinned_tools
-
         skill_pt: set[str] = set()
         skill_pt, exp_mcp = collect_pinned_tools(user_content)
         if exp_mcp:
             def _promote_mcp() -> None:
-                from butler.core.harness_flags import (
-                    mcp_deferred_same_turn_enabled,
-                    mcp_deferred_tools_enabled,
-                )
-                from butler.mcp.deferred import (
-                    merge_deferred_mcp_into_turn_tools,
-                    promote_experience_mcp_tools,
-                )
-
                 nonlocal turn_tools
                 if not mcp_deferred_tools_enabled():
                     return
@@ -820,8 +777,6 @@ def _prepare_skill_tool_context(
                     loop.diagnostics["experience_mcp_promoted"] = len(added)
 
                     def _metric() -> None:
-                        from butler.ops.runtime_metrics import inc
-
                         inc(
                             "execution_pointer_pin",
                             value=len(added),
@@ -867,8 +822,6 @@ def _phase_enrich_user_text(
     turn_tools = list(loop.tools or [])
 
     def _select_tools() -> list[dict[str, Any]]:
-        from butler.core.tool_selector import select_tools_for_context
-
         skill_pt, tools = _prepare_skill_tool_context(
             loop, user_content, steer_session, turn_tools,
         )
@@ -890,8 +843,6 @@ def _phase_enrich_user_text(
         turn_tools = selected
 
     def _record_user() -> None:
-        from butler.core.session_transcript import record_user_message
-
         record_user_message(steer_session, user_content)
 
     safe_best_effort(_record_user, label="agent_loop.transcript_user")

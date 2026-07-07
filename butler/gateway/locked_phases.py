@@ -30,6 +30,46 @@ if TYPE_CHECKING:
     from butler.core.agent_loop import AgentLoop, LoopResult
     from butler.gateway.message_handler import ButlerMessageHandler
 
+from butler.core.auto_continue import capture_auto_continue_pending
+from butler.core.compaction_status import promote_compaction_diagnostics_to_health
+from butler.core.correction_intent import try_handle_correction_intent
+from butler.core.goal_loop import maybe_run_goal_continuation
+from butler.core.hook_context_adapter import adapt_hook_context_lines
+from butler.core.intent_keywords import detect_intent_banner
+from butler.core.loop_types import LoopCallbacks, LoopStatus
+from butler.core.memory_recap_line import maybe_prepend_memory_recap
+from butler.core.memory_source_surface import snapshot_last_turn_memory_sources
+from butler.core.mode_classifier import detect_mode_suggestion_banner
+from butler.core.model_context import resolve_max_output_tokens
+from butler.core.session_hydration import recovery_notice_text
+from butler.core.session_recall_intent import (
+    detect_session_read_recall_banner,
+    is_session_read_recall_intent,
+)
+from butler.core.task_route_hints import detect_cc_route_banner
+from butler.core.todo_continuation import run_with_todo_continuation
+from butler.core.tool_pair_repair import repair_tool_pairs_json_safe
+from butler.core.transform_feedback import maybe_apply_turn_feedback
+from butler.core.turn_summary_line import maybe_prepend_turn_summary
+from butler.core.turn_token_budget import resolve_turn_budget
+from butler.execution_context import use_session_read_recall_gate
+from butler.gateway.hooks import apply_pre_llm_context
+from butler.gateway.inbound_validate import validate_loop_messages_before_turn
+from butler.gateway.locked_phases_ops import format_gateway_error_card, run_hygiene_compress
+from butler.gateway.outbound_bridge import get_current_bridge
+from butler.gateway.item_event_sink import recent_thread_items
+from butler.hooks.runner import run_user_prompt_submit_hooks
+from butler.mcp.github_grounding import try_handle_github_issues_intent
+from butler.memory.prefetch_retrieval_metrics import finalize_prefetch_retrieval_metrics
+from butler.ops import langfuse_tracer
+from butler.ops.eval_turn import extract_tools_used, push_turn_scores
+from butler.plan.mode import is_plan_mode
+from butler.project.lead import gateway_loop_role
+from butler.session.lifecycle import (
+    attach_turn_memory_prefetch,
+    queue_prefetch_after_turn,
+    sync_turn_memory,
+)
 from butler.core.best_effort import safe_best_effort
 from butler.gateway.handler_helpers import (
     _gateway_run_callbacks,
@@ -46,12 +86,6 @@ from butler.memory.memory_metrics import get_collector as _memory_metrics_collec
 from butler.memory.metrics_persist import flush_memory_metrics, load_persisted_metrics
 
 logger = logging.getLogger(__name__)
-
-
-def _langfuse_tracer():
-    from butler.ops import langfuse_tracer
-
-    return langfuse_tracer
 
 
 # ---------------------------------------------------------------------------
@@ -117,8 +151,6 @@ def _phase_apply_correction_intent(
     """Phase: H4 owner correction intent — persist without LLM."""
 
     def _run() -> Optional[str]:
-        from butler.core.correction_intent import try_handle_correction_intent
-
         return cast(
             Optional[str],
             try_handle_correction_intent(
@@ -142,8 +174,6 @@ def _phase_apply_github_issues_intent(
     del handler
 
     def _run() -> Optional[str]:
-        from butler.mcp.github_grounding import try_handle_github_issues_intent
-
         return cast(Optional[str], try_handle_github_issues_intent(state.text))
 
     return cast(
@@ -189,8 +219,6 @@ def _phase_apply_normalizers_and_slash(
 
 def _phase_apply_prompt_hooks(state: LockedTurnState) -> Optional[str]:
     """Phase: UserPromptSubmit hook runner. Returns a block message or None."""
-    from butler.hooks.runner import run_user_prompt_submit_hooks
-
     state.prompt_hooks = run_user_prompt_submit_hooks(
         state.text.strip(),
         session_key=state.session_key,
@@ -214,8 +242,6 @@ def _collect_ephemeral_gateway_banners(
     ephemeral_parts: list[str] = []
 
     def _intent_banner() -> None:
-        from butler.core.intent_keywords import detect_intent_banner
-
         banner = detect_intent_banner(state.text)
         if banner:
             ephemeral_parts.append(banner)
@@ -224,11 +250,6 @@ def _collect_ephemeral_gateway_banners(
     safe_best_effort(_intent_banner, label="locked_phases.intent_banner")
 
     def _recall_banner() -> None:
-        from butler.core.session_recall_intent import (
-            detect_session_read_recall_banner,
-            is_session_read_recall_intent,
-        )
-
         state.session_read_recall_gate = is_session_read_recall_intent(state.text)
         pm = handler._orchestrator.project_manager
         proj = pm.get_current(session_key=state.session_key)
@@ -245,8 +266,6 @@ def _collect_ephemeral_gateway_banners(
     safe_best_effort(_recall_banner, label="locked_phases.recall_banner")
 
     def _mode_banner() -> None:
-        from butler.core.mode_classifier import detect_mode_suggestion_banner
-
         banner = detect_mode_suggestion_banner(state.text, session_key=state.session_key)
         if banner:
             ephemeral_parts.append(banner)
@@ -255,8 +274,6 @@ def _collect_ephemeral_gateway_banners(
     safe_best_effort(_mode_banner, label="locked_phases.mode_banner")
 
     def _cc_banner() -> None:
-        from butler.core.task_route_hints import detect_cc_route_banner
-
         banner = detect_cc_route_banner(state.text)
         if banner:
             ephemeral_parts.append(banner)
@@ -271,8 +288,6 @@ def _phase_augment_prompt(
     state: LockedTurnState,
 ) -> None:
     """Phase: skill-context + pre-LLM hook + ephemeral banners."""
-    from butler.gateway.hooks import apply_pre_llm_context
-
     state.augmented = apply_pre_llm_context(
         handler._orchestrator.inject_skill_context(state.text, diagnostics=state.health),
         session_key=state.session_key,
@@ -282,8 +297,6 @@ def _phase_augment_prompt(
     if ephemeral_parts:
         state.ephemeral_system = "\n\n".join(ephemeral_parts)
     if state.prompt_hooks.additional_context:
-        from butler.core.hook_context_adapter import adapt_hook_context_lines
-
         hook_ctx = adapt_hook_context_lines(
             state.prompt_hooks.additional_context,
             source="user_prompt_submit_hook",
@@ -301,9 +314,6 @@ def _phase_init_loop_role(
     state: LockedTurnState,
 ) -> None:
     """Phase: resolve ``loop_role`` and seed the per-turn health dict."""
-    from butler.plan.mode import is_plan_mode
-    from butler.project.lead import gateway_loop_role
-
     pm = handler._orchestrator.project_manager
     proj_name = pm.resolve_active_project_name(session_key=state.session_key)
     proj = pm.get_current(session_key=state.session_key)
@@ -338,12 +348,8 @@ def _phase_validate_loop_messages(state: LockedTurnState) -> Optional[str]:
     """
 
     def _validate() -> Optional[str]:
-        from butler.gateway.inbound_validate import validate_loop_messages_before_turn
-
         seq_err = validate_loop_messages_before_turn(state.loop.messages)
         if seq_err:
-            from butler.core.tool_pair_repair import repair_tool_pairs_json_safe
-
             repaired, count = repair_tool_pairs_json_safe(list(state.loop.messages))
             if count > 0:
                 state.loop.messages = repaired
@@ -370,8 +376,6 @@ def _phase_validate_loop_messages(state: LockedTurnState) -> Optional[str]:
 
 def _phase_resolve_turn_budget(state: LockedTurnState) -> None:
     """Phase: resolve the per-turn token budget and update loop.config."""
-    from butler.core.turn_token_budget import resolve_turn_budget
-
     state.loop.config, turn_budget, state.augmented = resolve_turn_budget(
         state.augmented, state.loop.config,
     )
@@ -391,8 +395,6 @@ def _phase_hygiene_compress(
     """Phase: hygiene compression + diagnostics capture for the loop."""
 
     def _compress() -> None:
-        from butler.core.model_context import resolve_max_output_tokens
-
         state.max_out = resolve_max_output_tokens(
             handler._orchestrator,
             session_key=state.session_key,
@@ -407,15 +409,11 @@ def _phase_hygiene_compress(
             if str(k).startswith(("hygiene_", "context_"))
         })
 
-    from butler.gateway.locked_phases_ops import run_hygiene_compress
-
     run_hygiene_compress(state, _compress)
 
 
 def _chain_callbacks(base: Any, extra: Any) -> Any:
     """Chain two LoopCallbacks so both get called for each event."""
-    from butler.core.loop_types import LoopCallbacks
-
     if base is None:
         return extra
     if extra is None:
@@ -456,8 +454,6 @@ def _phase_prefetch_and_callbacks(
     state: LockedTurnState,
 ) -> None:
     """Phase: attach memory prefetch + wire up bridge run callbacks."""
-    from butler.session.lifecycle import attach_turn_memory_prefetch
-
     attach_turn_memory_prefetch(
         state.loop,
         handler._orchestrator,
@@ -468,16 +464,13 @@ def _phase_prefetch_and_callbacks(
     state.run_callbacks = _gateway_run_callbacks()
 
     def _wire_langfuse() -> None:
-        lf = _langfuse_tracer()
-        if not lf.langfuse_enabled():
+        if not langfuse_tracer.langfuse_enabled():
             return
-        from butler.core.loop_types import LoopCallbacks
-
-        lf_cbs = lf.langfuse_callbacks(session_key=state.session_key)
+        lf_cbs = langfuse_tracer.langfuse_callbacks(session_key=state.session_key)
         if lf_cbs:
             lf_loop_cbs = LoopCallbacks(**lf_cbs)
             state.run_callbacks = _chain_callbacks(state.run_callbacks, lf_loop_cbs)
-        ctx = lf.get_current_trace(session_key=state.session_key)
+        ctx = langfuse_tracer.get_current_trace(session_key=state.session_key)
         if ctx is not None:
             ctx.on_gateway_inbound(state.session_key, state.platform, len(state.text))
 
@@ -490,8 +483,6 @@ def _phase_prefetch_and_callbacks(
 
 def _phase_execute_turn(state: LockedTurnState) -> None:
     """Phase: run the AgentLoop with todo/goal continuation fallback."""
-    from butler.execution_context import use_session_read_recall_gate
-
     with use_session_read_recall_gate(state.session_read_recall_gate):
         _phase_execute_turn_inner(state)
 
@@ -515,9 +506,6 @@ def _phase_execute_turn_inner(state: LockedTurnState) -> None:
             return state.loop.run(msg)
 
     def _run_with_continuations() -> "LoopResult":
-        from butler.core.goal_loop import maybe_run_goal_continuation
-        from butler.core.todo_continuation import run_with_todo_continuation
-
         result = run_with_todo_continuation(
             state.loop,
             state.augmented,
@@ -551,8 +539,6 @@ def _phase_finalize_loop_diagnostics(state: LockedTurnState) -> None:
     if getattr(state.result, "transition_reason", ""):
         state.health["loop_transition_reason"] = state.result.transition_reason
     def _promote_diag() -> None:
-        from butler.core.compaction_status import promote_compaction_diagnostics_to_health
-
         promote_compaction_diagnostics_to_health(state.health, loop_diag)
         mm = _memory_metrics_collector().get_session_metrics(state.session_key)
         if "error" not in mm:
@@ -572,13 +558,9 @@ def _phase_finalize_loop_diagnostics(state: LockedTurnState) -> None:
 
 
 def _phase_finalize_interrupt_capture(state: LockedTurnState) -> None:
-    from butler.core.agent_loop import LoopStatus
-
     if state.result.status != LoopStatus.INTERRUPTED:
         return
     def _capture_interrupt() -> None:
-        from butler.core.auto_continue import capture_auto_continue_pending
-
         capture_auto_continue_pending(
             state.session_key,
             user_preview=state.augmented,
@@ -595,9 +577,6 @@ def _phase_finalize_memory_sync(
     handler: "ButlerMessageHandler",
     state: LockedTurnState,
 ) -> None:
-    from butler.core.agent_loop import LoopStatus
-    from butler.session.lifecycle import queue_prefetch_after_turn, sync_turn_memory
-
     sync_result = sync_turn_memory(
         handler._orchestrator,
         state.text,
@@ -617,15 +596,12 @@ def _phase_finalize_memory_sync(
 
 def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
     def _langfuse_turn_end() -> None:
-        lf = _langfuse_tracer()
-        if not lf.langfuse_enabled():
+        if not langfuse_tracer.langfuse_enabled():
             return
         trace_id = ""
-        ctx = lf.get_current_trace(session_key=state.session_key)
+        ctx = langfuse_tracer.get_current_trace(session_key=state.session_key)
         if ctx is not None:
             trace_id = ctx.trace_id
-        from butler.ops.eval_turn import extract_tools_used, push_turn_scores
-
         multi, eval_report = push_turn_scores(
             user_text=state.text,
             response_text=state.result.final_response or "",
@@ -640,8 +616,6 @@ def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
         }
 
         def _transform_feedback() -> None:
-            from butler.core.transform_feedback import maybe_apply_turn_feedback
-
             provider = ""
             loop = getattr(state.result, "loop", None)
             client = getattr(loop, "client", None) if loop else None
@@ -655,8 +629,8 @@ def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
                 state.health["transform_feedback"] = actions
 
         safe_best_effort(_transform_feedback, label="locked_phases.transform_feedback")
-        lf.end_trace(session_key=state.session_key, result=state.result)
-        lf.flush_langfuse()
+        langfuse_tracer.end_trace(session_key=state.session_key, result=state.result)
+        langfuse_tracer.flush_langfuse()
 
     safe_best_effort(_langfuse_turn_end, label="locked_phases.langfuse_turn_end")
 
@@ -668,8 +642,6 @@ def _phase_finalize_eval_observability(state: LockedTurnState) -> None:
 
 def _phase_finalize_prefetch_pr(state: LockedTurnState) -> None:
     def _finalize() -> None:
-        from butler.memory.prefetch_retrieval_metrics import finalize_prefetch_retrieval_metrics
-
         finalize_prefetch_retrieval_metrics(
             state.session_key,
             state.result.final_response or "",
@@ -690,8 +662,6 @@ def _phase_finalize_turn(
     _phase_finalize_prefetch_pr(state)
 
     def _snapshot_sources() -> None:
-        from butler.core.memory_source_surface import snapshot_last_turn_memory_sources
-
         snapshot_last_turn_memory_sources(state.health)
 
     safe_best_effort(_snapshot_sources, label="locked_phases.memory_sources_snapshot")
@@ -705,9 +675,8 @@ def _phase_finalize_turn(
 
 def _record_format_turn_langfuse(state: LockedTurnState) -> None:
     def _record() -> None:
-        lf = _langfuse_tracer()
-        if lf.langfuse_enabled():
-            ctx = lf.get_current_trace(session_key=state.session_key)
+        if langfuse_tracer.langfuse_enabled():
+            ctx = langfuse_tracer.get_current_trace(session_key=state.session_key)
             if ctx is not None:
                 ctx.on_gateway_outbound(state.session_key, len(state.out or ""), state.turn_elapsed)
 
@@ -721,8 +690,6 @@ def _append_format_turn_extras(state: LockedTurnState, welcome_prefix: str = "")
     def _recovery_notice() -> None:
         if getattr(state.loop, "_session_recovery_pending", None) is not True:
             return
-        from butler.core.session_hydration import recovery_notice_text
-
         note = recovery_notice_text()
         state.out = f"{note}\n\n{state.out}" if state.out else note
         setattr(state.loop, "_session_recovery_pending", False)
@@ -731,15 +698,11 @@ def _append_format_turn_extras(state: LockedTurnState, welcome_prefix: str = "")
     safe_best_effort(_recovery_notice, label="locked_phases.session_recovery_notice")
 
     def _turn_summary() -> None:
-        from butler.core.turn_summary_line import maybe_prepend_turn_summary
-
         state.out = maybe_prepend_turn_summary(state.session_key, state.out or "")
 
     safe_best_effort(_turn_summary, label="locked_phases.turn_summary_line")
 
     def _memory_recap() -> None:
-        from butler.core.memory_recap_line import maybe_prepend_memory_recap
-
         state.out = maybe_prepend_memory_recap(
             state.session_key,
             state.out or "",
@@ -759,16 +722,12 @@ def _phase_format_turn_response(
 
     state.out = handler._format_response(state.result, state.platform)
     state.turn_elapsed = _time.monotonic() - state.turn_started
-    from butler.gateway.outbound_bridge import get_current_bridge
-
     br = get_current_bridge()
     if br is not None:
         br.record_turn_elapsed(state.turn_elapsed)
         state.health["outbound_events"] = br.recent_outbound_events()[-8:]
 
     def _thread_items() -> None:
-        from butler.gateway.item_event_sink import recent_thread_items
-
         items = recent_thread_items(8)
         if items:
             state.health["thread_items"] = items
@@ -790,8 +749,6 @@ def _phase_format_turn_response(
 
 def _phase_format_error_card(exc: BaseException, turn_elapsed: float) -> Optional[str]:
     """Phase: build a structured error card for the failure reply."""
-    from butler.gateway.locked_phases_ops import format_gateway_error_card
-
     return cast(
         Optional[str],
         format_gateway_error_card(exc, turn_elapsed),

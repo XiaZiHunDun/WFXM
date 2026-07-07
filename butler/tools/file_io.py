@@ -9,6 +9,31 @@ import time
 from pathlib import Path
 from typing import Any
 
+from butler.core.hashline import (
+    format_hash_line,
+    format_read_output,
+    hashline_read_enabled,
+)
+from butler.core.read_file_partial import (
+    build_large_file_summary,
+    format_summary_message,
+    read_summary_threshold_lines,
+)
+from butler.core.read_state import (
+    normalize_quotes,
+    record_read_state,
+    require_read_before_edit,
+)
+from butler.execution_context import get_current_orchestrator, get_current_session_key
+from butler.tools.file_io_ops import (
+    maybe_format_after_edit_safe,
+    record_edit_path_safe,
+    record_read_path_safe,
+    tool_json_loud,
+    verify_hashline_anchors_safe,
+)
+from butler.tools.path_safety import check_tool_path, tool_safe_root
+
 MAX_READ_FILE_BYTES = 1024 * 1024
 MAX_READ_FILE_LINES = 1000
 
@@ -123,8 +148,6 @@ def _read_regular_file_bytes(
     *,
     for_write: bool = False,
 ) -> tuple[bytes, Path | None, os.stat_result | None, str]:
-    from butler.tools.path_safety import check_tool_path, tool_safe_root
-
     root = tool_safe_root()
     safety = check_tool_path(path, for_write=for_write)
     if not safety.allowed:
@@ -168,8 +191,6 @@ def _atomic_write_text(
     *,
     expected_stat: os.stat_result | None = None,
 ) -> tuple[Path | None, str]:
-    from butler.tools.path_safety import check_tool_path, tool_safe_root
-
     root = tool_safe_root()
     safety = check_tool_path(path, for_write=True)
     if not safety.allowed:
@@ -255,8 +276,6 @@ def _atomic_write_text(
 
 
 def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_: Any) -> str:
-    from butler.tools.file_io_ops import record_read_path_safe, tool_json_loud
-
     def _run() -> str:
         try:
             off = int(offset)
@@ -275,12 +294,6 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_: Any) -> s
             return json.dumps({"error": error})
         text = data.decode("utf-8", errors="replace")
         lines = text.splitlines()
-        from butler.core.read_file_partial import (
-            build_large_file_summary,
-            format_summary_message,
-            read_summary_threshold_lines,
-        )
-
         if (
             off == 1
             and len(lines) > read_summary_threshold_lines()
@@ -292,15 +305,9 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_: Any) -> s
         end = start + lim
         selected = lines[start:end]
         if _p is not None:
-            from butler.core.hashline import format_read_output
-
             body = format_read_output(_p, selected, start + 1)
         else:
-            from butler.core.hashline import hashline_read_enabled
-
             if hashline_read_enabled():
-                from butler.core.hashline import format_hash_line
-
                 body = "\n".join(
                     format_hash_line(start + i + 1, line)
                     for i, line in enumerate(selected)
@@ -310,9 +317,6 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_: Any) -> s
                     f"{i + start + 1:6}|{line}" for i, line in enumerate(selected)
                 )
         if _p is not None and _stat is not None:
-            from butler.core.read_state import record_read_state
-            from butler.execution_context import get_current_orchestrator, get_current_session_key
-
             record_read_state(
                 _p,
                 _stat,
@@ -333,15 +337,7 @@ def _tool_read_file(path: str, offset: int = 1, limit: int = 500, **_: Any) -> s
 
 
 def _tool_write_file(path: str, content: str, **_: Any) -> str:
-    from butler.tools.file_io_ops import (
-        maybe_format_after_edit_safe,
-        record_edit_path_safe,
-        tool_json_loud,
-    )
-
     def _run() -> str:
-        from butler.core.read_state import require_read_before_edit
-
         guard = require_read_before_edit(path, for_write=True)
         if guard:
             return json.dumps(guard, ensure_ascii=False)
@@ -359,8 +355,6 @@ def _tool_write_file(path: str, content: str, **_: Any) -> str:
 
 
 def _tool_delete_file(path: str, **_: Any) -> str:
-    from butler.tools.file_io_ops import tool_json_loud
-
     def _run() -> str:
         _data, p, stat_result, error = _read_regular_file_bytes(path, for_write=True)
         if error:
@@ -369,8 +363,6 @@ def _tool_delete_file(path: str, **_: Any) -> str:
             return json.dumps({"error": f"File not found: {path}"})
         if not stat_module.S_ISREG(stat_result.st_mode):
             return json.dumps({"error": "Only regular files can be deleted (not directories)"})
-
-        from butler.tools.path_safety import tool_safe_root
 
         root = tool_safe_root()
         raw_path = _raw_tool_path(path, root)
@@ -389,16 +381,7 @@ def _tool_delete_file(path: str, **_: Any) -> str:
 
 
 def _tool_patch(path: str, old_string: str, new_string: str, **_: Any) -> str:
-    from butler.tools.file_io_ops import (
-        maybe_format_after_edit_safe,
-        record_edit_path_safe,
-        tool_json_loud,
-        verify_hashline_anchors_safe,
-    )
-
     def _run() -> str:
-        from butler.core.read_state import normalize_quotes, require_read_before_edit
-
         guard = require_read_before_edit(path, for_write=True)
         if guard:
             return json.dumps(guard, ensure_ascii=False)

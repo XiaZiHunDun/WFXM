@@ -11,6 +11,23 @@ from butler.transport.llm_client import LLMClient
 from butler.transport.types import NormalizedResponse
 
 
+from butler.core.schema_optimizer import optimize_tool_definitions
+from butler.mcp.tools_engine import filter_tools_for_model
+from butler.core.exp_cache import (
+    fingerprint_llm_request,
+    lookup_cached_response,
+    store_cached_response,
+)
+from butler.core.meta_flags import exp_cache_enabled
+from butler.ops.runtime_metrics import (
+    inc,
+    observe_ms,
+)
+from butler.transport.provider_health import record_provider_success
+from butler.ops.retry_buckets import record_recovery_event
+from butler.core.preemptive_compact import prepare_messages_or_abort
+from butler.core.reactive_compact import apply_reactive_compact_to_messages
+
 def prepare_tools_for_llm(
     tools: list[dict[str, Any]] | None,
     *,
@@ -23,7 +40,6 @@ def prepare_tools_for_llm(
         return None
 
     def _optimize() -> None:
-        from butler.core.schema_optimizer import optimize_tool_definitions
 
         nonlocal tools_to_send
         tools_to_send = optimize_tool_definitions(
@@ -36,7 +52,6 @@ def prepare_tools_for_llm(
     if tools_to_send:
 
         def _filter() -> None:
-            from butler.mcp.tools_engine import filter_tools_for_model
 
             nonlocal tools_to_send
             tools_to_send, te_diag = filter_tools_for_model(
@@ -62,11 +77,6 @@ def try_exp_cache_response(
 
     def _lookup() -> NormalizedResponse | None:
         nonlocal cache_fp
-        from butler.core.exp_cache import (
-            fingerprint_llm_request,
-            lookup_cached_response,
-        )
-        from butler.core.meta_flags import exp_cache_enabled
 
         if not (exp_cache_enabled() and not tools_to_send):
             return None
@@ -99,7 +109,6 @@ def record_llm_success_side_effects(
     provider = str(getattr(client, "provider_name", "") or "?")[:24]
 
     def _record_ok_latency() -> None:
-        from butler.ops.runtime_metrics import inc, observe_ms
 
         observe_ms(
             "llm_latency",
@@ -111,7 +120,6 @@ def record_llm_success_side_effects(
     _safe_call(_record_ok_latency, "record ok latency skipped")
 
     def _record_provider_success() -> None:
-        from butler.transport.provider_health import record_provider_success
 
         record_provider_success(
             str(getattr(client, "provider", "") or ""),
@@ -123,7 +131,6 @@ def record_llm_success_side_effects(
     if cache_fp and response and not response.tool_calls:
 
         def _exp_cache_store() -> None:
-            from butler.core.exp_cache import store_cached_response
 
             fr = getattr(response, "finish_reason", None) or ""
             text = str(response.content or "").strip()
@@ -149,13 +156,10 @@ def apply_reactive_compact_retry(
     """Run reactive compact; return refreshed messages_to_send or None to abort."""
 
     def _record_reactive_compact() -> None:
-        from butler.ops.retry_buckets import record_recovery_event
 
         record_recovery_event("reactive_compact")
 
     _safe_call(_record_reactive_compact, "record reactive compact skipped")
-    from butler.core.preemptive_compact import prepare_messages_or_abort
-    from butler.core.reactive_compact import apply_reactive_compact_to_messages
 
     applied = apply_reactive_compact_to_messages(
         messages,

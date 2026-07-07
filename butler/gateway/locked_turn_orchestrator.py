@@ -5,6 +5,13 @@ from __future__ import annotations
 import logging
 import time as _time
 from typing import TYPE_CHECKING, cast
+from butler.gateway.locked_phases import LockedTurnState
+from butler.gateway.owner_delegate_shortcuts import resolve_project_context, try_expand_owner_edit_slash
+from butler.gateway.owner_ingest_shortcuts import try_expand_owner_ingest_phrase
+from butler.gateway.handler_helpers import _maybe_welcome_prefix
+from butler.gateway.locked_phase_registry import run_augment_phase, run_pre_lock_phases
+from butler.execution_context import use_execution_context
+from butler.gateway.locked_turn_orchestrator_ops import run_in_context_phases_or_fail
 
 if TYPE_CHECKING:
     from butler.gateway.message_handler import ButlerMessageHandler
@@ -15,12 +22,6 @@ logger = logging.getLogger(__name__)
 
 def expand_owner_shortcuts(handler: "ButlerMessageHandler", state: "LockedTurnState") -> None:
     """Owner natural-language → slash expansions before normalizers run."""
-    from butler.gateway.locked_phases import LockedTurnState
-    from butler.gateway.owner_delegate_shortcuts import (
-        resolve_project_context,
-        try_expand_owner_edit_slash,
-    )
-    from butler.gateway.owner_ingest_shortcuts import try_expand_owner_ingest_phrase
 
     assert isinstance(state, LockedTurnState)
     pname, pws = resolve_project_context(handler._orchestrator, state.session_key)
@@ -46,13 +47,6 @@ def run_locked_message_turn(
     external_id: str | None = None,
 ) -> str:
     """Execute the in-session pipeline under the per-session lock."""
-    from butler.gateway.handler_helpers import _maybe_welcome_prefix
-    from butler.gateway.locked_phase_registry import (
-        run_augment_phase,
-        run_pre_lock_phases,
-    )
-    from butler.gateway.locked_phases import LockedTurnState
-    from butler.execution_context import use_execution_context
 
     if not text.strip():
         return ""
@@ -83,7 +77,6 @@ def run_locked_message_turn(
         run_augment_phase(handler, state)
         state.loop = handler._get_or_create_loop(session_key)
         state.original_loop_config = state.loop.config
-        from butler.gateway.locked_turn_orchestrator_ops import run_in_context_phases_or_fail
 
         try:
             result, err = run_in_context_phases_or_fail(

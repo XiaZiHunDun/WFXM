@@ -5,12 +5,19 @@ from __future__ import annotations
 from typing import Any
 
 from butler.tools.delegate_run_state import DelegateRunState
+from butler.runtime.async_delegate import push_target_from_bridge
+from butler.runtime.delegate_job import DelegateJob
+from butler.runtime.async_delegate import schedule_background_delegate, should_delegate_async
+from butler.runtime.delegate_job import build_async_delegate_tool_result
+from butler.tools.delegate_run_ops import delegate_langfuse_callbacks_safe
+from butler.core.delegate_semaphore import release_delegate_slot
+from butler.execution_context import use_execution_context
+from butler.runtime.delegate_registry import register_delegate_loop
+from butler.tools.delegate_run_ops import unregister_delegate_loop_safe
 
 
 def build_async_delegate_job(state: DelegateRunState) -> Any:
     """Build the ``DelegateJob`` carrier for the async dispatch path (5a)."""
-    from butler.runtime.async_delegate import push_target_from_bridge
-    from butler.runtime.delegate_job import DelegateJob
 
     push_tgt = push_target_from_bridge(state.bridge) if state.bridge is not None else None
     return DelegateJob(
@@ -31,11 +38,6 @@ def build_async_delegate_job(state: DelegateRunState) -> Any:
 
 def dispatch_async_delegate(state: DelegateRunState) -> str | None:
     """Schedule the delegate as a background job (5a)."""
-    from butler.runtime.async_delegate import (
-        schedule_background_delegate,
-        should_delegate_async,
-    )
-    from butler.runtime.delegate_job import build_async_delegate_tool_result
 
     if not should_delegate_async(
         bridge=state.bridge,
@@ -57,16 +59,12 @@ def dispatch_async_delegate(state: DelegateRunState) -> str | None:
 
 def delegate_langfuse_run_callbacks(state: DelegateRunState) -> Any | None:
     """Optional nested LangFuse callbacks for sync delegate sub-loops."""
-    from butler.tools.delegate_run_ops import delegate_langfuse_callbacks_safe
 
     return delegate_langfuse_callbacks_safe(state)
 
 
 def run_sync_delegate(state: DelegateRunState) -> None:
     """Sync run: register, run, unregister, release slot (5b)."""
-    from butler.core.delegate_semaphore import release_delegate_slot
-    from butler.execution_context import use_execution_context
-    from butler.runtime.delegate_registry import register_delegate_loop
 
     run_cbs = delegate_langfuse_run_callbacks(state)
     try:
@@ -82,7 +80,6 @@ def run_sync_delegate(state: DelegateRunState) -> None:
                 else:
                     state.sync_result = state.agent.run(state.user_msg)
             finally:
-                from butler.tools.delegate_run_ops import unregister_delegate_loop_safe
 
                 unregister_delegate_loop_safe(state.session_key, state.agent)
     finally:

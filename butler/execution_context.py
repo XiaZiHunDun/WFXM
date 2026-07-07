@@ -24,6 +24,10 @@ from __future__ import annotations
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Iterator, cast
+from butler.contracts.gateway_registry import get_owner_gate
+from butler.gateway.owner_gate import is_gateway_owner
+from butler.gateway.owner_gate import owner_required_message as _msg
+from butler.contracts.gateway_registry import get_bridge_access
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
@@ -196,7 +200,6 @@ def is_current_turn_owner(
                 session_key=session_key,
             )
         )
-    from butler.contracts.gateway_registry import get_owner_gate
 
     gate = get_owner_gate()
     if gate is not None:
@@ -208,7 +211,6 @@ def is_current_turn_owner(
             )
         )
     # Back-compat when gateway contracts not registered (CLI-only / legacy tests).
-    from butler.gateway.owner_gate import is_gateway_owner
 
     return bool(
         is_gateway_owner(
@@ -221,12 +223,10 @@ def is_current_turn_owner(
 
 def owner_required_message() -> str:
     """Layering seam (R1-10) — owner-denied message string."""
-    from butler.contracts.gateway_registry import get_owner_gate
 
     gate = get_owner_gate()
     if gate is not None:
         return str(gate.owner_required_message())
-    from butler.gateway.owner_gate import owner_required_message as _msg
 
     return str(_msg())
 
@@ -249,7 +249,6 @@ def get_current_turn_bridge() -> Any:
         bridge = _orchestrator_explicit_attr(orch, "gateway_bridge")
         if bridge is not None:
             return bridge
-    from butler.contracts.gateway_registry import get_bridge_access
 
     access = get_bridge_access()
     if access is not None:
@@ -266,7 +265,6 @@ def try_push_current_turn_workflow_failure(
     session_key: str = "",
 ) -> bool:
     """Layering seam (R1-10) — push a workflow-failure completion message."""
-    from butler.contracts.gateway_registry import get_bridge_access
 
     access = get_bridge_access()
     if access is not None:

@@ -12,6 +12,15 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
+from butler.env_parse import int_env
+from butler.dev_engine.swebench_lite import get_all_instances
+from butler.dev_engine.swe_curriculum import build_swe_playbook_block, format_swe_replay_block
+from butler.dev_engine.b9_delegate_gate import SWE_LIVE_CATEGORY
+from butler.dev_engine.llm_delegate_benchmark import B9TaskSpec
+from butler.ops.swebench_live_eval_ops import verify_swe_instance_safe
+from butler.dev_engine.llm_delegate_benchmark import B9Mode, run_b9_task
+from butler.dev_engine.b9_delegate_gate import benchmark_verify_context
+from butler.ops.eval_bridge import push_scores, swebench_live_to_scores
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +66,6 @@ class SWELiveReport:
 
 def swe_live_count() -> int:
     try:
-        from butler.env_parse import int_env
 
         return cast(int, int_env("BUTLER_EVAL_SWE_LIVE_COUNT", 3, min=1, max=15))
     except ValueError:
@@ -66,7 +74,6 @@ def swe_live_count() -> int:
 
 def select_weekly_instances(count: int | None = None) -> list[Any]:
     """Pick a rotating SWE subset based on ISO week number."""
-    from butler.dev_engine.swebench_lite import get_all_instances
 
     instances = get_all_instances()
     if not instances:
@@ -99,10 +106,6 @@ def _instance_delegate_prompt(inst: Any) -> str:
 
 
 def build_swe_delegate_context(inst: Any) -> str:
-    from butler.dev_engine.swe_curriculum import (
-        build_swe_playbook_block,
-        format_swe_replay_block,
-    )
 
     files = ", ".join(sorted(inst.files.keys()))
     parts: list[str] = []
@@ -125,8 +128,6 @@ def build_swe_delegate_context(inst: Any) -> str:
 
 
 def _swe_instance_to_task_spec(inst: Any) -> Any:
-    from butler.dev_engine.b9_delegate_gate import SWE_LIVE_CATEGORY
-    from butler.dev_engine.llm_delegate_benchmark import B9TaskSpec
 
     def setup(ws: Path) -> None:
         inst.setup_workspace(ws)
@@ -135,7 +136,6 @@ def _swe_instance_to_task_spec(inst: Any) -> Any:
         inst.apply_oracle(ws)
 
     def verify(ws: Path) -> tuple[bool, str]:
-        from butler.ops.swebench_live_eval_ops import verify_swe_instance_safe
 
         return cast(tuple[bool, str], verify_swe_instance_safe(inst, ws))
 
@@ -163,13 +163,11 @@ def run_swe_instance(
     *,
     mode: str | None = None,
 ) -> SWELiveResult:
-    from butler.dev_engine.llm_delegate_benchmark import B9Mode, run_b9_task
 
     mode_str = mode or resolve_swe_live_mode()
     b9_mode = B9Mode.LIVE if mode_str == "live" else B9Mode.ORACLE
     spec = _swe_instance_to_task_spec(inst)
     t0 = time.time()
-    from butler.dev_engine.b9_delegate_gate import benchmark_verify_context
 
     with benchmark_verify_context(spec.verify):
         b9_result = run_b9_task(spec, workspace, mode=b9_mode)
@@ -211,7 +209,6 @@ def run_swebench_live_benchmark(
 
 
 def push_swebench_live_scores(report: SWELiveReport) -> dict[str, Any]:
-    from butler.ops.eval_bridge import push_scores, swebench_live_to_scores
 
     scores = swebench_live_to_scores(report)
     push_report = push_scores(scores)
