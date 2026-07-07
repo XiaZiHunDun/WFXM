@@ -156,6 +156,16 @@ class TestExperimentModeFailClosed:
         assert "RuntimeError" in failures[0]["type"]
         assert "simulated" in failures[0]["error"]
 
+    def test_experiment_check_none_allows_tool(self, tmp_path: Path, monkeypatch):
+        """check_experiment_mode_block 返回 None 时不应误拒（勿 str(None)）。"""
+        _bind_orchestrator(monkeypatch, tmp_path)
+        monkeypatch.setattr(
+            "butler.experiments.mode.check_experiment_mode_block",
+            MagicMock(return_value=None),  # noqa: magicmock-no-spec — experiment mock
+        )
+
+        assert check_project_permission_block("delegate_task", {"role": "dev"}) is None
+
 
 # -----------------------------------------------------------------------
 # Test 2: workflow step resolution failure → BLOCK (fail-closed)

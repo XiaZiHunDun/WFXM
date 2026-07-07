@@ -73,7 +73,10 @@ def experiment_block_or_fail_closed(
         record_permission_failure("experiment_mode_block_import", exc)
         return "experiment mode 守护不可用 (import 失败); 拒绝该调用"
     try:
-        return str(check_experiment_mode_block(tool_name, args, workspace=workspace))
+        block = check_experiment_mode_block(tool_name, args, workspace=workspace)
+        if block:
+            return str(block)
+        return None
     except Exception as exc:
         record_permission_failure("experiment_mode_block", exc)
         return "experiment mode 守护异常 (fail-closed); 拒绝该调用"
