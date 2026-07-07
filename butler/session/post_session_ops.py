@@ -6,7 +6,7 @@ from butler.env_parse import int_env
 import asyncio
 import logging
 import threading
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.session.post_session_guard import guard_post_session
@@ -24,7 +24,7 @@ def post_session_buffer_threshold() -> int:
     import os
 
     try:
-        return int_env("BUTLER_POST_SESSION_BUFFER_MESSAGES", 8, min=4)
+        return cast(int, int_env("BUTLER_POST_SESSION_BUFFER_MESSAGES", 8, min=4))
     except ValueError:
         return 8
 
@@ -194,7 +194,7 @@ def run_post_session_extraction(
 
     def _run() -> dict[str, Any]:
         with _POST_SESSION_LOCK:
-            return guard_post_session(
+            result = guard_post_session(
                 lambda: _run_post_session_locked(
                     orchestrator,
                     conv,
@@ -202,6 +202,7 @@ def run_post_session_extraction(
                     advance_watermark=advance_watermark,
                 )
             )
+            return result if isinstance(result, dict) else {"error": "post_session_guard_failed"}
 
     if background:
         threading.Thread(target=_run, daemon=True).start()
@@ -261,7 +262,7 @@ def trigger_session_end(
     session_key = str(session_id or "").strip() or _resolve_session_key_for_end()
     _run_session_end_hooks(session_key, reason=reason)
 
-    return guard_post_session(
+    result = guard_post_session(
         lambda: _trigger_session_end_body(
             orchestrator,
             agent_loop,
@@ -269,6 +270,7 @@ def trigger_session_end(
             session_key=session_key,
         )
     )
+    return result if isinstance(result, dict) else {"error": "post_session_guard_failed"}
 
 
 def _trigger_session_end_body(

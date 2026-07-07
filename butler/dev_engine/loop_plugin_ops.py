@@ -7,7 +7,7 @@ from typing import Any
 from butler.core.best_effort import safe_best_effort
 
 
-def _insert_before_last_user(messages: list[dict], content: str) -> list[dict]:
+def _insert_before_last_user(messages: list[dict[str, Any]], content: str) -> list[dict[str, Any]]:
     out = list(messages)
     last_user = -1
     for i in range(len(out) - 1, -1, -1):
@@ -19,7 +19,7 @@ def _insert_before_last_user(messages: list[dict], content: str) -> list[dict]:
     return out
 
 
-def rehydrate_read_state_safe(session_key: str, messages: list[dict]) -> None:
+def rehydrate_read_state_safe(session_key: str, messages: list[dict[str, Any]]) -> None:
     def _run() -> None:
         from butler.core.read_state import rehydrate_read_state_from_messages
 
@@ -28,8 +28,8 @@ def rehydrate_read_state_safe(session_key: str, messages: list[dict]) -> None:
     safe_best_effort(_run, label="loop_plugin.rehydrate_read_state", default=None)
 
 
-def inject_dev_before_model_safe(session_key: str, messages: list[dict]) -> list[dict]:
-    def _run() -> list[dict]:
+def inject_dev_before_model_safe(session_key: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _run() -> list[dict[str, Any]]:
         from butler.dev_engine.dev_context import dev_state_context_block
         from butler.dev_engine.dev_tools import (
             _active_states,
@@ -82,8 +82,8 @@ def inject_dev_before_model_safe(session_key: str, messages: list[dict]) -> list
     return list(result) if isinstance(result, list) else list(messages)
 
 
-def inject_dev_after_tools_safe(session_key: str, messages: list[dict]) -> list[dict]:
-    def _run() -> list[dict]:
+def inject_dev_after_tools_safe(session_key: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _run() -> list[dict[str, Any]]:
         from butler.dev_engine.dev_state import VerifyStatus
         from butler.dev_engine.dev_tools import (
             _active_states,

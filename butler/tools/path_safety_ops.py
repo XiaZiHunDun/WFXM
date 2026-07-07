@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -31,14 +31,14 @@ def workspace_from_project_safe(project: object | None) -> Path | None:
 
     def _effective() -> Path:
 
-        return effective_workspace(Path(workspace))
+        return cast(Path, effective_workspace(Path(workspace)))
 
     result = safe_best_effort(
         _effective,
         label="path_safety.workspace_from_project",
         default=None,
     )
-    if result is not None:
+    if isinstance(result, Path):
         return result
     try:
         return Path(workspace).expanduser().resolve(strict=False)
@@ -56,7 +56,8 @@ def workspace_for_session_key_safe(session_key: str) -> Path | None:
         pm = get_project_manager()
         return workspace_from_project_safe(pm.get_current(session_key=sk))
 
-    return safe_best_effort(_run, label="path_safety.workspace_for_session", default=None)
+    result = safe_best_effort(_run, label="path_safety.workspace_for_session", default=None)
+    return result if isinstance(result, Path) else None
 
 
 def default_project_workspace_safe() -> Path | None:
@@ -68,7 +69,8 @@ def default_project_workspace_safe() -> Path | None:
 
         return workspace_from_project_safe(get_project_manager().get_project(name))
 
-    return safe_best_effort(_run, label="path_safety.default_project_workspace", default=None)
+    result = safe_best_effort(_run, label="path_safety.default_project_workspace", default=None)
+    return result if isinstance(result, Path) else None
 
 
 def current_session_key_safe() -> str:
@@ -93,7 +95,8 @@ def orchestrator_workspace_safe(session_key: str) -> Path | None:
         )
         return workspace_from_project_safe(project)
 
-    return safe_best_effort(_run, label="path_safety.orchestrator_workspace", default=None)
+    result = safe_best_effort(_run, label="path_safety.orchestrator_workspace", default=None)
+    return result if isinstance(result, Path) else None
 
 
 def audit_session_key_safe(fallback: str = "") -> str:
@@ -126,11 +129,12 @@ def external_path_override_allowed_safe(resolved: Path, *, for_write: bool) -> b
         override = check_external_path_override(str(resolved), for_write=for_write)
         return bool(override is not None and override.allowed)
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="path_safety.external_path_override",
         default=None,
     )
+    return bool(result) if isinstance(result, bool) else None
 
 
 def butlerignore_blocked_safe(
@@ -169,7 +173,8 @@ def configured_safe_root_safe() -> Path | None:
     def _run() -> Path:
         return Path(raw).expanduser().resolve()
 
-    return safe_best_effort(_run, label="path_safety.configured_safe_root", default=None)
+    result = safe_best_effort(_run, label="path_safety.configured_safe_root", default=None)
+    return result if isinstance(result, Path) else None
 
 
 _HOOK_CONFIG_NAMES = frozenset({"hooks.yaml", "hooks.yml"})

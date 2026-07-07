@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Callable
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
 
@@ -127,7 +127,7 @@ async def run_extraction_channel(
 
 
 async def maybe_run_layered_post_session(
-    messages: list[dict],
+    messages: list[dict[str, Any]],
     llm_call: Any,
     result: dict[str, Any],
 ) -> None:

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable
+from collections.abc import Coroutine
+from typing import Any, Callable
 
 from butler.core.best_effort import async_safe_best_effort, safe_best_effort
 
@@ -27,7 +28,7 @@ async def send_adapter_message(
 
 def schedule_coro_threadsafe(
     loop: asyncio.AbstractEventLoop,
-    coro_factory: Callable[[], Awaitable[Any]],
+    coro_factory: Callable[[], Coroutine[Any, Any, Any]],
     *,
     label: str,
 ) -> bool:

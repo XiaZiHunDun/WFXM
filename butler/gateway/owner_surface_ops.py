@@ -38,7 +38,8 @@ def project_todos_brief_safe(ws: Path) -> str | None:
             return f"· 项目待办 {open_n} 项{extra} → /项目待办"
         return "· 项目待办：无未完成项"
 
-    return safe_best_effort(_run, label="owner_surface.project_todos", default=None)
+    result = safe_best_effort(_run, label="owner_surface.project_todos", default=None)
+    return str(result) if isinstance(result, str) else None
 
 
 def outbound_brief_line_safe(*, session_key: str = "", chat_id: str = "") -> str | None:
@@ -75,14 +76,15 @@ def outbound_brief_line_safe(*, session_key: str = "", chat_id: str = "") -> str
             )
         return None
 
-    return safe_best_effort(_run, label="owner_surface.outbound", default=None)
+    result = safe_best_effort(_run, label="owner_surface.outbound", default=None)
+    return str(result) if isinstance(result, str) else None
 
 
 def degradation_brief_line_safe(
     orchestrator: Any,
     *,
     session_key: str = "",
-    health: dict | None = None,
+    health: dict[str, Any] | None = None,
 ) -> str | None:
     def _run() -> str | None:
         from butler.gateway.owner_surface import _health_icon
@@ -95,9 +97,10 @@ def degradation_brief_line_safe(
         )
         if not body:
             return None
-        return body.replace("降级：", f"降级：{_health_icon(False, warn=True)} ", 1)
+        return str(body.replace("降级：", f"降级：{_health_icon(False, warn=True)} ", 1))
 
-    return safe_best_effort(_run, label="owner_surface.degradation", default=None)
+    result = safe_best_effort(_run, label="owner_surface.degradation", default=None)
+    return str(result) if isinstance(result, str) else None
 
 
 def runtime_jobs_lines_safe(workspace: Path) -> list[str]:

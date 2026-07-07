@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -53,12 +53,12 @@ def index_triplets_safe(
 ) -> int:
     def _run() -> int:
 
-        return TripletIndex(semantic.db_path).upsert_from_content(
+        return cast(int, TripletIndex(semantic.db_path).upsert_from_content(
             content=content,
             project=project,
             source=source,
             source_ref=source_ref,
-        )
+        ))
 
     result = safe_best_effort(
         _run,
@@ -146,11 +146,14 @@ def run_hybrid_search_relaxed(
     *args: Any,
     **kwargs: Any,
 ) -> tuple[list[dict[str, Any]], str, int, bool, str | None] | None:
-    return safe_best_effort(
+    result = safe_best_effort(
         lambda: fn(*args, **kwargs),
         label="semantic_index.hybrid_relaxed",
         default=None,
     )
+    if isinstance(result, tuple) and len(result) == 5:
+        return result
+    return None
 
 
 def index_experience_row_loud(

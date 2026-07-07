@@ -7,7 +7,7 @@ import logging
 import uuid
 from collections.abc import Callable
 from pathlib import Path
-from typing import TypeVar
+from typing import TypeVar, Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ T = TypeVar("T")
 
 
 def run_multimodal_tool_safe(
-    run: Callable[[], dict],
+    run: Callable[[], dict[str, Any]],
     *,
     label: str,
 ) -> str:
@@ -27,7 +27,7 @@ def run_multimodal_tool_safe(
         return json.dumps({"error": str(exc)})
 
 
-def write_tts_output_safe(output_dir: Path, audio_bytes: bytes, *, voice_id: str, text_length: int) -> dict:
+def write_tts_output_safe(output_dir: Path, audio_bytes: bytes, *, voice_id: str, text_length: int) -> dict[str, Any]:
     filename = f"tts_{uuid.uuid4().hex[:8]}.mp3"
     out_path = output_dir / filename
     out_path.write_bytes(audio_bytes)

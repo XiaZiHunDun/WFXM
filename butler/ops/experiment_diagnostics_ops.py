@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import logging
 from pathlib import Path
 
@@ -40,6 +42,6 @@ def format_experiment_diagnostic_lines_for_project_safe(
             return []
         from butler.ops.experiment_diagnostics import format_experiment_diagnostic_lines
 
-        return format_experiment_diagnostic_lines(Path(proj.workspace), limit=limit)
+        return cast(list[str], format_experiment_diagnostic_lines(Path(proj.workspace), limit=limit))
     except Exception:
         return []

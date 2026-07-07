@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from butler.core.best_effort import safe_best_effort
 
@@ -66,7 +66,8 @@ def workflow_step_tool_allowlist(project: "Project | None") -> set[str] | None:
         if not step_id:
             return None
         ws = Path(project.workspace) if project is not None else None
-        return get_workflow_step_tool_allowlist(step_id, workspace=ws)
+        allowlist = get_workflow_step_tool_allowlist(step_id, workspace=ws)
+        return allowlist if isinstance(allowlist, set) else None
 
     result = safe_best_effort(
         _run,
@@ -76,8 +77,8 @@ def workflow_step_tool_allowlist(project: "Project | None") -> set[str] | None:
     return result if result is None or isinstance(result, set) else None
 
 
-def optimize_tool_definitions_safe(filtered: list[dict]) -> list[dict]:
-    def _run() -> list[dict]:
+def optimize_tool_definitions_safe(filtered: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _run() -> list[dict[str, Any]]:
         from butler.core.schema_optimizer import optimize_tool_definitions
 
         return optimize_tool_definitions(filtered) or filtered

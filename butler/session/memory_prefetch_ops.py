@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.input_stage import begin_input_stage, normalize_inbound_text
@@ -12,7 +12,7 @@ from butler.core.instruction_walkup import build_instruction_pre_llm_transform
 from butler.core.pim_state import load_pim_state
 from butler.core.reflection_closure import build_reflect_closure_banner
 from butler.core.session_recall_intent import is_session_read_recall_intent
-from butler.core.session_transcript import record_knowledge_inject
+from butler.core.session_transcript import record_knowledge_inject as _session_record_knowledge_inject
 from butler.execution_context import get_current_session_key
 from butler.mcp.github_grounding import (
     find_latest_github_issue_list_envelope,
@@ -22,7 +22,7 @@ from butler.memory.injection_guard import filter_injection_from_prefetch
 from butler.memory.memory_metrics import get_collector
 from butler.memory.metrics_persist import flush_memory_metrics
 from butler.memory.prefetch_retrieval_metrics import (
-    record_prefetch_snippets,
+    record_prefetch_snippets as _metrics_record_prefetch_snippets,
 )
 from butler.memory.project_memory import (
     ProjectMemory,
@@ -109,11 +109,12 @@ def session_read_recall_blocks_prefetch(query: str) -> bool | None:
     def _run() -> bool:
         return bool(is_session_read_recall_intent(query))
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="memory_prefetch.session_read_recall_gate",
         default=None,
     )
+    return result if isinstance(result, bool) else None
 
 
 def butler_system_context(
@@ -137,7 +138,7 @@ def butler_system_context(
     )
     if result is None and diagnostics is not None:
         diagnostics.pop("memory_butler_error", None)
-    return result
+    return str(result)
 
 
 def profile_vector_lines(bm: Any, query: str) -> tuple[list[str], int] | None:
@@ -154,11 +155,12 @@ def profile_vector_lines(bm: Any, query: str) -> tuple[list[str], int] | None:
         ]
         return (plines, len(plines)) if plines else None
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="memory_prefetch.profile_vectors",
         default=None,
     )
+    return result if isinstance(result, tuple) else None
 
 
 def record_project_prefetch_telemetry(session_key: str, payload: dict[str, Any]) -> None:
@@ -173,15 +175,16 @@ def pim_overview_line() -> str | None:
         pim = load_pim_state()
         pim_line = pim.summary_line()
         if pim_line and pim_line != "(empty)":
-            return pim_line
+            return str(pim_line)
         return None
 
-    return safe_best_effort(_run, label="memory_prefetch.pim", default=None)
+    result = safe_best_effort(_run, label="memory_prefetch.pim", default=None)
+    return str(result) if isinstance(result, str) else None
 
 
 def filter_prefetch_injection(merged: str) -> str:
     def _run() -> str:
-        return filter_injection_from_prefetch(merged)
+        return str(filter_injection_from_prefetch(merged))
 
     result = safe_best_effort(
         _run,
@@ -206,7 +209,7 @@ def _record_prefetch_snippets(
     diagnostics: dict[str, Any] | None,
     merged: str,
 ) -> None:
-    record_prefetch_snippets(diagnostics, merged)
+    _metrics_record_prefetch_snippets(diagnostics, merged)
 
 
 def langfuse_on_prefetch(
@@ -235,7 +238,7 @@ def langfuse_on_prefetch(
 
 def reflection_closure_banner(session_key: str) -> str:
     def _run() -> str:
-        return build_reflect_closure_banner(session_key=session_key)
+        return str(build_reflect_closure_banner(session_key=session_key))
 
     return safe_best_effort(
         _run,
@@ -244,7 +247,7 @@ def reflection_closure_banner(session_key: str) -> str:
     ) or ""
 
 
-def github_grounding_should_skip(messages: list[dict]) -> bool:
+def github_grounding_should_skip(messages: list[dict[str, Any]]) -> bool:
     def _run() -> bool:
         if find_latest_github_repo_list_envelope(messages) is not None:
             return True
@@ -264,7 +267,7 @@ def normalize_prefetch_query(
 ) -> str:
     def _run() -> str:
         begin_input_stage(diagnostics)
-        return normalize_inbound_text(query)
+        return str(normalize_inbound_text(query))
 
     result = safe_best_effort(
         _run,
@@ -286,7 +289,7 @@ def record_knowledge_inject(
             raw = diagnostics.get("memory_prefetch_snippets")
             if isinstance(raw, list):
                 snippets = [str(s) for s in raw]
-        record_knowledge_inject(
+        _session_record_knowledge_inject(
             session_key,
             source="memory_prefetch",
             chars=chars,
@@ -296,12 +299,12 @@ def record_knowledge_inject(
     safe_best_effort(_run, label="memory_prefetch.knowledge_inject", default=None)
 
 
-def apply_instruction_pre_llm_transform(messages: list[dict]) -> list[dict]:
-    def _run() -> list[dict]:
+def apply_instruction_pre_llm_transform(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _run() -> list[dict[str, Any]]:
         inst_transform = build_instruction_pre_llm_transform(
             session_key=str(get_current_session_key() or ""),
         )
-        return inst_transform(messages)
+        return cast(list[dict[str, Any]], inst_transform(messages))
 
     result = safe_best_effort(
         _run,
@@ -346,7 +349,7 @@ def hybrid_experience_hits(
                     for r in (payload.get("results") or [])
                     if isinstance(r, dict) and r.get("content")
                 ]
-                return _filter_ephemeral_experience(rows)
+                return cast(list[dict[str, Any]], _filter_ephemeral_experience(rows))
 
         exp = getattr(bm, "experience", None)
         if exp is None:
@@ -365,7 +368,7 @@ def hybrid_experience_hits(
             )
         )
         if not q:
-            return rows
+            return cast(list[dict[str, Any]], rows)
         from butler.memory.coding_recall import search_coding_experiences
         from butler.memory.recall_router import memory_state_for_scope
 
@@ -389,7 +392,7 @@ def hybrid_experience_hits(
                 item.setdefault("recall_scope", "coding")
                 rows.append(item)
                 seen.add(key)
-        return rows[:limit]
+        return cast(list[dict[str, Any]], rows[:limit])
 
     result = safe_best_effort(
         _run,

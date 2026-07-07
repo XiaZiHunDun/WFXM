@@ -14,7 +14,9 @@ def is_github_mcp_intent_safe(query: str) -> bool:
             is_github_repo_list_intent,
         )
 
-        return is_github_repo_list_intent(query) or is_github_issue_list_intent(query)
+        return bool(
+            is_github_repo_list_intent(query) or is_github_issue_list_intent(query)
+        )
 
     result = safe_best_effort(
         _run,

@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 logger = logging.getLogger(__name__)
 
 
 def wire_tools_or_empty_loud(
     provider_name: str,
-    tools: list[dict],
+    tools: list[dict[str, Any]],
     *,
     api_mode: str,
-) -> tuple[list[dict], BaseException | None]:
+) -> tuple[list[dict[str, Any]], BaseException | None]:
     from butler.transport.tool_wire import wire_tools_for_provider
 
     try:
@@ -42,10 +42,13 @@ def merge_thinking_headers_safe(
     try:
         from butler.transport.thinking_headers import merge_thinking_request_kwargs
 
-        return merge_thinking_request_kwargs(
-            api_kwargs,
-            provider=provider,
-            model=model,
+        return cast(
+            dict[str, Any],
+            merge_thinking_request_kwargs(
+                api_kwargs,
+                provider=provider,
+                model=model,
+            ),
         )
     except Exception as exc:
         logger.debug("%s skipped: %s", label, exc)

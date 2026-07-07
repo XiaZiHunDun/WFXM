@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -34,11 +34,12 @@ def embed_text_safe(embedder: Any, text: str) -> list[float]:
 
 
 def load_skill_content_safe(loader: Callable[[str], dict[str, Any] | None], name: str) -> dict[str, Any] | None:
-    return safe_best_effort(
+    result = safe_best_effort(
         lambda: loader(name),
         label="skills.router.content_load",
         default=None,
     )
+    return result if isinstance(result, dict) else None
 
 
 def batch_load_skill_content_safe(

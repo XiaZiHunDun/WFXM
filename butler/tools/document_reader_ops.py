@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 def convert_markitdown_safe(path: Path) -> dict[str, Any]:
     try:
-        from markitdown import MarkItDown  # type: ignore[import-untyped]
+        from markitdown import MarkItDown
 
         md = MarkItDown()
         result = md.convert(str(path))

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.registry.mcp_catalog_ops import load_yaml_dict_safe
 
 
 def load_profile_config_dict_safe(path: Path) -> dict[str, Any] | None:
-    return load_yaml_dict_safe(path)
+    return cast(dict[str, Any] | None, load_yaml_dict_safe(path))

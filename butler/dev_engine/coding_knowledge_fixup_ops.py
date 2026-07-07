@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -120,8 +120,9 @@ def reactivate_coding_knowledge_core_safe(state: Any, keywords: list[str]) -> di
             "experience_changed": bool(new_id and new_id != prev_id),
         }
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="coding_knowledge_fixup.reactivate",
         default=None,
     )
+    return result if isinstance(result, dict) else None

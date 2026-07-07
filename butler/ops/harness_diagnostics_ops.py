@@ -81,7 +81,8 @@ def append_todo_continuation_line(lines: list[str], health: dict[str, Any] | Non
     def _run() -> None:
 
         h = health or {}
-        loop = h.get("loop") if isinstance(h.get("loop"), dict) else {}
+        loop_val = h.get("loop")
+        loop = loop_val if isinstance(loop_val, dict) else {}
         if todo_continuation_enabled():
             cont = h.get("todo_continuation_count") or loop.get("todo_continuation_count")
             if cont:

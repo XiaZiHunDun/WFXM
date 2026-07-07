@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -15,7 +15,7 @@ def mine_delegate_failure_signatures_safe(
     def _run() -> dict[str, Any]:
         from butler.ops.b9_failure_analysis import mine_delegate_failure_signatures
 
-        return mine_delegate_failure_signatures(limit=limit, min_count=min_count)
+        return cast(dict[str, Any], mine_delegate_failure_signatures(limit=limit, min_count=min_count))
 
     result = safe_best_effort(
         _run,

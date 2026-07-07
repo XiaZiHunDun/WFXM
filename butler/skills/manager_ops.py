@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -38,7 +38,7 @@ def enrich_skill_load_policy_safe(
         default=sk,
     )
     if result is sk:
-        return sk
+        return cast(dict[str, Any] | None, sk)
     return result if isinstance(result, dict) else sk
 
 

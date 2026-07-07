@@ -37,7 +37,8 @@ def maybe_format_after_edit_safe(path: Path) -> dict[str, Any] | None:
         fmt = maybe_format_after_edit(path)
         return fmt if isinstance(fmt, dict) else None
 
-    return safe_best_effort(_run, label="file_io.post_edit_format", default=None)
+    result = safe_best_effort(_run, label="file_io.post_edit_format", default=None)
+    return result if isinstance(result, dict) else None
 
 
 def verify_hashline_anchors_safe(path: Path, old_string: str) -> dict[str, Any] | None:
@@ -48,7 +49,8 @@ def verify_hashline_anchors_safe(path: Path, old_string: str) -> dict[str, Any] 
         mismatch = verify_line_anchors(path, anchors)
         return mismatch if isinstance(mismatch, dict) else None
 
-    return safe_best_effort(_run, label="file_io.hashline_anchors", default=None)
+    result = safe_best_effort(_run, label="file_io.hashline_anchors", default=None)
+    return result if isinstance(result, dict) else None
 
 
 def tool_json_loud(run: Callable[[], str]) -> str:

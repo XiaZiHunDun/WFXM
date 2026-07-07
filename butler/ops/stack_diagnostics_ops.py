@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml  # type: ignore[import-untyped]
 
@@ -20,14 +20,14 @@ def load_stack_safe(path: Path) -> dict[str, Any] | None:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else None
 
-    return safe_best_effort(_run, label="stack_diagnostics.load_stack", default=None)
+    return cast(dict[str, Any] | None, safe_best_effort(_run, label="stack_diagnostics.load_stack", default=None))
 
 
 def tenant_id_default_safe() -> str:
     def _run() -> str:
         from butler.config import load_settings
 
-        return load_settings().default_tenant
+        return str(load_settings().default_tenant)
 
     result = safe_best_effort(_run, label="stack_diagnostics.tenant_id", default="default")
     return str(result or "default")
@@ -40,7 +40,7 @@ def tenant_skill_paths_safe(skill_name: str, *, tenant_id: str) -> bool:
         tenant_root = skills_root(tenant_id=tenant_id)
         if (tenant_root / f"{skill_name}.md").is_file():
             return True
-        return (tenant_root / skill_name / "SKILL.md").is_file()
+        return cast(bool, (tenant_root / skill_name / "SKILL.md").is_file())
 
     result = safe_best_effort(_run, label="stack_diagnostics.tenant_skill", default=False)
     return bool(result)

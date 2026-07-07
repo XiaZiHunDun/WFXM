@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from butler.core.best_effort import safe_best_effort
 
@@ -31,7 +32,7 @@ def run_python_subprocess_safe(
     cwd: Path,
     timeout: int,
     env: dict[str, str],
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Return subprocess result dict, timeout dict, or ``None`` on unexpected failure."""
     try:
         proc = subprocess.run(

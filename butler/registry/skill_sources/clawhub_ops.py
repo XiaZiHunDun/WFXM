@@ -10,7 +10,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-def clawhub_get_json_safe(url: str, *, params: dict | None = None) -> Any | None:
+def clawhub_get_json_safe(url: str, *, params: dict[str, Any] | None = None) -> Any | None:
     try:
         resp = httpx.get(url, params=params or {}, timeout=25.0)
         if resp.status_code != 200:
@@ -25,7 +25,7 @@ def fetch_inline_file_text_safe(url: str) -> str | None:
     try:
         resp = httpx.get(url, timeout=20.0)
         if resp.status_code == 200:
-            return resp.text
+            return str(resp.text)
     except Exception as exc:
         logger.debug("extract inline files skipped: %s", exc)
     return None

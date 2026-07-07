@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -39,7 +39,7 @@ def filter_mcp_servers_by_profile_safe(
         if not mcp_profiles_enabled():
             return configs
         profile = get_session_profile(session_key=session_key)
-        return filter_servers_by_profile(configs, profile)
+        return cast(list[Any], filter_servers_by_profile(configs, profile))
 
     result = safe_best_effort(_run, label="mcp_manager.profile_filter", default=configs)
     return result if isinstance(result, list) else configs
@@ -71,7 +71,7 @@ def call_tool_loud(
     on_error: Any,
 ) -> str:
     try:
-        return run_call()
+        return str(run_call())
     except Exception as exc:
         handle.status.degraded = True
         handle.status.last_error = str(exc)[:300]
@@ -81,4 +81,4 @@ def call_tool_loud(
             tool_name,
             exc_info=exc,
         )
-        return on_error(str(exc))
+        return str(on_error(str(exc)))

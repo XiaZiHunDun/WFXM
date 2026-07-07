@@ -24,7 +24,7 @@ def append_plan_graph_appendix_safe(body: str) -> str:
     def _run() -> str:
         from butler.core.reasoning_trace import get_plan_mode_graph_appendix
 
-        return body + get_plan_mode_graph_appendix()
+        return str(body + get_plan_mode_graph_appendix())
 
     result = safe_best_effort(
         _run,

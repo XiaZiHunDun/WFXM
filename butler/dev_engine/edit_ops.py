@@ -8,6 +8,7 @@ Formal model from v4-dev-engine-theory.md §2.2:
 from __future__ import annotations
 
 import logging
+from typing import Any
 import os
 from pathlib import Path
 
@@ -191,7 +192,7 @@ def rollback_edits(records: list[EditRecord]) -> list[str]:
 
 
 def multi_edit(
-    edits: list[tuple[str, Path, dict]],
+    edits: list[tuple[str, Path, dict[str, Any]]],
 ) -> tuple[list[EditRecord], str]:
     """Execute multiple edits as a transaction (Definition D4).
 

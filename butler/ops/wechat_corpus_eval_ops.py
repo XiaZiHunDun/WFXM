@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -50,7 +50,7 @@ def push_wechat_corpus_scores_safe(summary: dict[str, Any]) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
         from butler.ops.wechat_corpus_eval import push_wechat_corpus_scores
 
-        return push_wechat_corpus_scores(summary)
+        return cast(dict[str, Any], push_wechat_corpus_scores(summary))
 
     result = safe_best_effort(
         _run,

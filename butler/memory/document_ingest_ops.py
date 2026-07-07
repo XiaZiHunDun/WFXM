@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 
 def convert_document_to_markdown_safe(
-    convert_fn: object,
+    convert_fn: Callable[[Path], Any],
     path: Path,
 ) -> tuple[str | None, str | None]:
     try:

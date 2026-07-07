@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 import yaml  # type: ignore[import-untyped]
 
@@ -37,7 +38,7 @@ def tenant_skill_stub_path_safe(*, tenant_id: str, skill_name: str) -> Path | No
         tenant_stub = skills_root(tenant_id=tenant_id) / f"{skill_name}.md"
         if not tenant_stub.is_file():
             raise ValueError("tenant skill stub missing")
-        return tenant_stub
+        return cast(Path, tenant_stub)
 
     result = safe_best_effort(
         _run,

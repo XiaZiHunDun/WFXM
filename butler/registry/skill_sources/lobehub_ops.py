@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -44,7 +44,7 @@ def lobehub_download_bytes_safe(
         resp = safe_registry_get(url, headers=headers, timeout=60.0)
         if resp.status_code != 200:
             return None
-        return resp.content
+        return cast(bytes | None, resp.content)
     except Exception as exc:
         logger.debug("lobehub download %s: %s", url, exc)
         return None

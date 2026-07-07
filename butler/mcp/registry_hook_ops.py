@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.execution_context import get_current_orchestrator, get_current_session_key
-from butler.execution_context import get_current_session_key
 from butler.core.harness_flags import mcp_deferred_tools_enabled
 from butler.mcp.deferred import get_deferred_mcp_definitions
 from butler.plan.mode import is_plan_mode
@@ -31,7 +30,8 @@ def resolve_workspace_safe() -> Path | None:
             return None
         return Path(proj.workspace)
 
-    return safe_best_effort(_run, label="mcp.resolve_workspace", default=None)
+    result = safe_best_effort(_run, label="mcp.resolve_workspace", default=None)
+    return result if isinstance(result, Path) else None
 
 
 def session_key_fallback(*, session_key: str = "") -> str:
@@ -66,9 +66,9 @@ def maybe_deferred_mcp_definitions(session_key: str) -> list[dict[str, Any]] | N
 
         if not mcp_deferred_tools_enabled():
             return None
-        return get_deferred_mcp_definitions(session_key)
+        return cast(list[dict[str, Any]] | None, get_deferred_mcp_definitions(session_key))
 
-    return safe_best_effort(_run, label="mcp.deferred_definitions", default=None)
+    return cast(list[dict[str, Any]] | None, safe_best_effort(_run, label="mcp.deferred_definitions", default=None))
 
 
 def is_plan_mode_active(session_key: str) -> bool | None:
@@ -76,7 +76,7 @@ def is_plan_mode_active(session_key: str) -> bool | None:
 
         return bool(is_plan_mode(session_key))
 
-    return safe_best_effort(_run, label="mcp.plan_mode_check", default=None)
+    return cast(bool | None, safe_best_effort(_run, label="mcp.plan_mode_check", default=None))
 
 
 def run_mcp_with_gates_or_direct(
@@ -90,13 +90,15 @@ def run_mcp_with_gates_or_direct(
 ) -> str:
     try:
 
-        return run_mcp_with_gates(
-            server_id=server_id,
-            tool_name=tool_name,
-            args=args,
-            session_key=session_key,
-            classification=classification,
-            run_fn=run_fn,
+        return str(
+            run_mcp_with_gates(
+                server_id=server_id,
+                tool_name=tool_name,
+                args=args,
+                session_key=session_key,
+                classification=classification,
+                run_fn=run_fn,
+            )
         )
     except Exception:
         return run_fn()
@@ -114,13 +116,13 @@ def mcp_config_count_safe(workspace: Path | None) -> int | None:
 
         return len(load_mcp_servers(workspace=workspace))
 
-    return safe_best_effort(_run, label="mcp.config_count", default=None)
+    return cast(int | None, safe_best_effort(_run, label="mcp.config_count", default=None))
 
 
 def extension_verify_status_lines_safe() -> list[str]:
     def _run() -> list[str]:
 
-        return extension_verify_status_lines()
+        return cast(list[str], extension_verify_status_lines())
 
     result = safe_best_effort(
         _run,

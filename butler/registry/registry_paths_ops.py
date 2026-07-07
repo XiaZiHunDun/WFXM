@@ -10,7 +10,7 @@ def resolve_tenant_id_safe() -> str:
     def _run() -> str:
         from butler.config import load_settings
 
-        return normalize_tenant_id(load_settings().default_tenant)
+        return str(normalize_tenant_id(load_settings().default_tenant))
 
     result = safe_best_effort(
         _run,

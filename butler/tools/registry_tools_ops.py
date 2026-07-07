@@ -12,16 +12,14 @@ def default_registry_tenant_id() -> str:
     def _run() -> str:
         from butler.config import load_settings
 
-        return load_settings().default_tenant
+        return str(load_settings().default_tenant or "default")
 
-    return (
-        safe_best_effort(
-            _run,
-            label="registry_tools.tenant_id",
-            default="default",
-        )
-        or "default"
+    result = safe_best_effort(
+        _run,
+        label="registry_tools.tenant_id",
+        default="default",
     )
+    return str(result or "default")
 
 
 def install_skill_confirmed_json(svc: Any, identifier: str) -> str:

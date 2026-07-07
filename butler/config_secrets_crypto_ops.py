@@ -27,7 +27,7 @@ def init_fernet_safe(key: str) -> Any | None:
 def decrypt_fernet_value_safe(fernet: Any, encrypted_text: str) -> str:
     try:
         encrypted = base64.urlsafe_b64decode(encrypted_text)
-        return fernet.decrypt(encrypted).decode("utf-8")
+        return str(fernet.decrypt(encrypted).decode("utf-8"))
     except Exception as exc:
         logger.warning("secrets Fernet decrypt failed: %s", exc)
         return ""

@@ -36,7 +36,7 @@ def execute_readonly_duckdb_query(
     resolve_path: Any,
     queryable_extensions: frozenset[str],
 ) -> str:
-    import duckdb  # type: ignore[import-untyped]
+    import duckdb
 
     con = None
     try:

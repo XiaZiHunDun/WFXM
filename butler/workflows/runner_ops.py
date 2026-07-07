@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.core.session_transcript import record_plan_snapshot
@@ -117,7 +117,7 @@ def workflow_max_parallel_default_safe() -> int | None:
 
         return int(workflow_max_parallel_default())
 
-    return safe_best_effort(_run, label="workflow_runner.max_parallel", default=None)
+    return cast(int | None, safe_best_effort(_run, label="workflow_runner.max_parallel", default=None))
 
 
 def get_current_project_safe(orch: Any, *, session_key: str = "") -> Any | None:

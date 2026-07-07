@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -12,7 +12,7 @@ def stack_tags_for_project_safe(project_id: str) -> frozenset[str]:
     def _run() -> frozenset[str]:
         from butler.memory.memory_scope import stack_tags_for_project
 
-        return stack_tags_for_project(project_id)
+        return cast(frozenset[str], stack_tags_for_project(project_id))
 
     result = safe_best_effort(
         _run,

@@ -6,7 +6,7 @@ import os
 import subprocess
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -16,7 +16,7 @@ def http_health_available_safe(url: str) -> bool:
         import httpx
 
         resp = httpx.get(f"{url}/health", timeout=5)
-        return resp.status_code == 200
+        return cast(bool, resp.status_code == 200)
 
     return safe_best_effort(_run, label="opencode.http_health", default=False) is True
 
@@ -103,7 +103,8 @@ def run_http_opencode_task(
 def poll_session_status_safe(
     poll: Callable[[], str | None],
 ) -> str | None:
-    return safe_best_effort(poll, label="opencode.http_poll", default=None)
+    result = safe_best_effort(poll, label="opencode.http_poll", default=None)
+    return str(result) if isinstance(result, str) else None
 
 
 def fetch_session_transcript_safe(fetch: Callable[[], str]) -> str:

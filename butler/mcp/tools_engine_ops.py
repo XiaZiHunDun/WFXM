@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
 
 def filter_tools_manifest_safe(
-    tools: list[dict],
-) -> tuple[list[dict], dict[str, Any]]:
-    def _run() -> tuple[list[dict], dict[str, Any]]:
+    tools: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    def _run() -> tuple[list[dict[str, Any]], dict[str, Any]]:
         from butler.mcp.tools_manifest import filter_tools_by_mcp_ssot
 
-        return filter_tools_by_mcp_ssot(list(tools))
+        return cast(tuple[list[dict[str, Any]], dict[str, Any]], filter_tools_by_mcp_ssot(list(tools)))
 
     result = safe_best_effort(
         _run,

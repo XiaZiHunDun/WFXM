@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from butler.core.best_effort import safe_best_effort
 
 
@@ -15,7 +17,7 @@ def checkpoint_preview_len_safe(session_key: str) -> int | None:
             return len(preview) if preview else None
         return None
 
-    return safe_best_effort(_run, label="compaction_audit.checkpoint", default=None)
+    return cast(int | None, safe_best_effort(_run, label="compaction_audit.checkpoint", default=None))
 
 
 def discover_sessions_imports_ok() -> bool:

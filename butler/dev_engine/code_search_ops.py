@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 from butler.dev_engine.dev_state import SearchHit
@@ -63,7 +64,7 @@ def walk_file_search_hits(
     pattern: str,
     workspace: Path,
     *,
-    should_skip_dir: object,
+    should_skip_dir: Callable[[str], bool],
     max_results: int = 50,
 ) -> list[SearchHit]:
     import fnmatch

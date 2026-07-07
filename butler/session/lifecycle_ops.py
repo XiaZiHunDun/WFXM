@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -99,7 +99,7 @@ def sync_turn_memory_loud(
     run_sync: Any,
 ) -> dict[str, Any]:
     try:
-        return run_sync()
+        return cast(dict[str, Any], run_sync())
     except Exception as exc:
         logger.warning("Memory sync failed: %s", exc)
         return {"skipped": True, "reason": "error", "error": str(exc), "experience_updates": 0}

@@ -23,7 +23,7 @@ async def fetch_qr_response_safe(
 
 def render_qr_ascii_safe(qr_scan_data: str) -> None:
     try:
-        import qrcode
+        import qrcode  # type: ignore[import-untyped]
 
         qr = qrcode.QRCode()
         qr.add_data(qr_scan_data)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -29,22 +29,25 @@ def format_gateway_error_card(exc: BaseException, turn_elapsed: float) -> Option
 
         exc_type = type(exc).__name__
         if "timeout" in exc_type.lower() or "Timeout" in exc_type:
-            return format_error_card(
+            card = format_error_card(
                 "delegate_timeout",
                 role="agent",
                 elapsed=round(turn_elapsed),
             )
+            return str(card) if isinstance(card, str) else None
         if "Permission" in exc_type:
-            return format_error_card(
+            card = format_error_card(
                 "permission_deny",
                 tool="message_handler",
                 reason=str(exc)[:200],
             )
-        return format_error_card(
+            return str(card) if isinstance(card, str) else None
+        card = format_error_card(
             "tool_error",
             tool="message_handler",
             error=str(exc),
         )
+        return str(card) if isinstance(card, str) else None
     except Exception:
         logger.error("error card formatting failed", exc_info=True)
         return None

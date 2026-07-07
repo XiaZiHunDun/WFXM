@@ -28,7 +28,7 @@ def build_fernet_safe(key: str) -> Any | None:
 
 def decrypt_fernet_payload_safe(fernet: Any, payload_b64: bytes) -> str | None:
     def _run() -> str:
-        return fernet.decrypt(payload_b64).decode("utf-8")
+        return str(fernet.decrypt(payload_b64).decode("utf-8"))
 
     result = safe_best_effort(
         _run,

@@ -25,7 +25,7 @@ def append_plan_mode_appendix_safe(session_key: str, system_prompt: str) -> str:
         from butler.plan.mode import is_plan_mode, load_plan_mode_system_appendix
 
         if is_plan_mode(session_key):
-            return system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix()
+            return str(system_prompt.rstrip() + "\n\n" + load_plan_mode_system_appendix())
         return system_prompt
 
     result = safe_best_effort(

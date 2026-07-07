@@ -20,7 +20,7 @@ def run_subagent_start_hooks_safe(state: Any) -> str | None:
         )
         if not subagent_ctx:
             raise ValueError("empty subagent hook context")
-        return "\n\n".join(subagent_ctx) + "\n\n" + state.user_msg
+        return str("\n\n".join(subagent_ctx) + "\n\n" + state.user_msg)
 
     result = safe_best_effort(
         _run,

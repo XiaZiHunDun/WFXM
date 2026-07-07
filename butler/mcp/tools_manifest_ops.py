@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -11,7 +12,7 @@ def resolve_workspace_safe() -> Path | None:
     def _run() -> Path | None:
         from butler.registry.mcp_merge import resolve_workspace_for_session
 
-        return resolve_workspace_for_session()
+        return cast(Path, resolve_workspace_for_session())
 
     result = safe_best_effort(
         _run,

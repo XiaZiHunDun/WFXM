@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from typing import Any, Protocol
+
 from butler.core.best_effort import safe_best_effort
 
 
-def record_experience_access_safe(experience_store: object, row_ids: list[int]) -> None:
+class _ExperienceAccessStore(Protocol):
+    def record_access(self, row_ids: list[int]) -> None: ...
+
+
+def record_experience_access_safe(experience_store: _ExperienceAccessStore, row_ids: list[int]) -> None:
     def _run() -> None:
         experience_store.record_access(row_ids)
 

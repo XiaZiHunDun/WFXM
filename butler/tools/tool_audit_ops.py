@@ -93,13 +93,14 @@ def run_observation_side_effects_safe(fn: Callable[[], None]) -> None:
 
 def run_permission_denied_hooks_safe(
     name: str,
-    args: dict,
+    args: dict[str, Any],
     err: str,
 ) -> str | None:
     def _run() -> str | None:
         from butler.hooks.runner import run_permission_denied_hooks
 
-        return run_permission_denied_hooks(name, args, err)
+        hook_msg = run_permission_denied_hooks(name, args, err)
+        return str(hook_msg) if hook_msg else None
 
     result = safe_best_effort(
         _run,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from butler.core.best_effort import safe_best_effort
 
 
@@ -18,8 +20,9 @@ def probe_embedder_snapshot() -> dict[str, bool] | None:
             degraded = True
         return {"embedding_degraded": degraded}
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="embedding_diagnostics.probe",
         default=None,
     )
+    return result if isinstance(result, dict) else None

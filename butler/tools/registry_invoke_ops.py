@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 def invoke_registered_tool_handler(
     *,
     name: str,
-    args: dict,
-    call_args: dict,
+    args: dict[str, Any],
+    call_args: dict[str, Any],
     handler: Any,
     started_at: float,
     finalize_result: Callable[..., str],

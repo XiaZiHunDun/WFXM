@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -27,7 +27,7 @@ def output_schema_validate_enabled_safe() -> bool | None:
 
         return bool(output_schema_validate_enabled())
 
-    return safe_best_effort(_run, label="generator.output_schema_validate", default=None)
+    return cast(bool | None, safe_best_effort(_run, label="generator.output_schema_validate", default=None))
 
 
 def output_schema_repair_settings_safe() -> tuple[bool, bool, int] | None:
@@ -41,7 +41,7 @@ def output_schema_repair_settings_safe() -> tuple[bool, bool, int] | None:
             int(output_schema_repair_max_rounds()),
         )
 
-    return safe_best_effort(_run, label="generator.output_schema_repair_settings", default=None)
+    return cast(tuple[bool, bool, int] | None, safe_best_effort(_run, label="generator.output_schema_repair_settings", default=None))
 
 
 def current_orchestrator_safe() -> Any | None:
@@ -155,6 +155,7 @@ def schema_repair_round_loud(
         if not isinstance(resp, NormalizedResponse):
             return user_msg, None, [], "invalid_llm_response"
         last_text = str(resp.content or "")
+        parsed = parse_structured_output(last_text)
         ok, errs = validate_structured_output(parsed, schema)
         if ok and parsed:
             return last_text, parsed, [], None

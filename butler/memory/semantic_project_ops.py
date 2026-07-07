@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -18,7 +19,7 @@ def resolve_project_display_name(pmem: "ProjectMemory") -> str:
 
         yaml = Path(pmem.project_dir) / "project.yaml"
         if yaml.is_file():
-            return Project.from_yaml(yaml).name
+            return str(Project.from_yaml(yaml).name)
         return Path(pmem.project_dir).name
 
     result = safe_best_effort(
@@ -31,7 +32,7 @@ def resolve_project_display_name(pmem: "ProjectMemory") -> str:
     return Path(pmem.project_dir).name
 
 
-def run_project_vector_upsert(label: str, fn) -> None:
+def run_project_vector_upsert(label: str, fn: Callable[[], Any]) -> None:
     safe_best_effort(fn, label=f"semantic_project.{label}", default=None)
 
 
@@ -43,13 +44,14 @@ def vector_search_project(
     limit: int,
 ) -> list[dict[str, Any]] | None:
     def _run() -> list[dict[str, Any]]:
-        return semantic.search(query, project=project, limit=max(limit * 2, limit))
+        return cast(list[dict[str, Any]], semantic.search(query, project=project, limit=max(limit * 2, limit)))
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="semantic_project.vector_search",
         default=None,
     )
+    return result if isinstance(result, list) else None
 
 
 def apply_heading_boost(item: dict[str, Any], query: str) -> dict[str, Any]:
@@ -74,7 +76,7 @@ def apply_heading_boost(item: dict[str, Any], query: str) -> dict[str, Any]:
 
 def prefetch_with_subqueries(
     query: str,
-    search_fn,
+    search_fn: Callable[..., list[dict[str, Any]]],
     *,
     limit: int,
 ) -> tuple[list[dict[str, Any]], str] | None:
@@ -90,11 +92,12 @@ def prefetch_with_subqueries(
             return merged, "subquery"
         return [], "none"
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="semantic_project.subquery_prefetch",
         default=None,
     )
+    return result if isinstance(result, tuple) else None
 
 
 __all__ = [

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -62,7 +62,7 @@ def list_observations_for_path_safe(
     def _run() -> list[dict[str, str]]:
         from butler.memory.observer_queue import observations_db
 
-        return observations_db(Path(workspace)).list_for_path(file_path, limit=limit)
+        return cast(list[dict[str, str]], observations_db(Path(workspace)).list_for_path(file_path, limit=limit))
 
     result = safe_best_effort(_run, label="observer_queue.list_path", default=[])
     return result if isinstance(result, list) else []

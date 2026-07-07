@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -107,10 +107,11 @@ def try_handle_preset_model_command_safe(
     def _run() -> tuple[str, bool] | None:
         from butler.provider_presets import try_handle_preset_model_command
 
-        return try_handle_preset_model_command(
+        result = try_handle_preset_model_command(
             text,
             project=project,
             project_label=project_label,
         )
+        return result if isinstance(result, tuple) else None
 
-    return safe_best_effort(_run, label="model_resolve.preset_command", default=None)
+    return cast(tuple[str, bool] | None, safe_best_effort(_run, label="model_resolve.preset_command", default=None))

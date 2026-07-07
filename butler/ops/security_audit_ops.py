@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -67,7 +67,7 @@ def terminal_sandbox_audit_findings_safe(*, workspace: Path | None) -> list[Any]
     def _run() -> list[Any]:
         from butler.ops.terminal_sandbox_diagnostics import audit_terminal_sandbox_findings
 
-        return audit_terminal_sandbox_findings(workspace=workspace)
+        return cast(list[Any], audit_terminal_sandbox_findings(workspace=workspace))
 
     result = safe_best_effort(
         _run,

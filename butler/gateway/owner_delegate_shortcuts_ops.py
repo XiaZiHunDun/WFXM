@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from butler.core.best_effort import safe_best_effort
 
 
@@ -9,7 +11,7 @@ def recent_read_paths_safe(session_key: str, *, limit: int = 5) -> list[str]:
     def _run() -> list[str]:
         from butler.core.session_tool_index import list_session_read_files
 
-        return list_session_read_files(session_key, limit=limit)
+        return cast(list[str], list_session_read_files(session_key, limit=limit))
 
     result = safe_best_effort(
         _run,

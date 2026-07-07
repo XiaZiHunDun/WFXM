@@ -95,8 +95,9 @@ def format_runtime_jobs_line_safe(jobs_path: Any) -> str | None:
             return f"⏰ 定时任务: {active} 个活跃 / {len(jobs)} 总计"
         return None
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="dev_handlers.runtime_jobs_summary",
         default=None,
     )
+    return str(result) if isinstance(result, str) else None

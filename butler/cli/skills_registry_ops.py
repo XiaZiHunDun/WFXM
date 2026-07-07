@@ -11,7 +11,7 @@ def default_tenant_id_safe() -> str:
     def _run() -> str:
         from butler.config import load_settings
 
-        return load_settings().default_tenant
+        return str(load_settings().default_tenant)
 
     result = safe_best_effort(_run, label="skills_registry.tenant_id", default="default")
     return str(result or "default")

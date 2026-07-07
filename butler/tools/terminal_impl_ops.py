@@ -53,11 +53,13 @@ def run_terminal_with_gates_safe(
     def _run() -> str:
         from butler.core.tool_orchestrator import run_terminal_with_gates
 
-        return run_terminal_with_gates(
-            cmd_text,
-            cwd=cwd,
-            session_key=session_key,
-            run_fn=run_fn,
+        return str(
+            run_terminal_with_gates(
+                cmd_text,
+                cwd=cwd,
+                session_key=session_key,
+                run_fn=run_fn,
+            )
         )
 
     result = safe_best_effort(_run, label="terminal_impl.terminal_gates", default=None)

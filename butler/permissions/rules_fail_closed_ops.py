@@ -73,7 +73,7 @@ def experiment_block_or_fail_closed(
         record_permission_failure("experiment_mode_block_import", exc)
         return "experiment mode 守护不可用 (import 失败); 拒绝该调用"
     try:
-        return check_experiment_mode_block(tool_name, args, workspace=workspace)
+        return str(check_experiment_mode_block(tool_name, args, workspace=workspace))
     except Exception as exc:
         record_permission_failure("experiment_mode_block", exc)
         return "experiment mode 守护异常 (fail-closed); 拒绝该调用"
@@ -107,7 +107,7 @@ def workflow_step_block_or_fail_closed(
         record_permission_failure("workflow_step_decision", exc)
         return "workflow step 决策异常 (fail-closed); 拒绝该调用"
     if step_decision is not None and not step_decision.allowed:
-        return step_decision.reason
+        return str(step_decision.reason)
     return None
 
 

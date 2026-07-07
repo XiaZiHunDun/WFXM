@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.dev_engine.b9_types import B9Result, B9TaskSpec
@@ -16,7 +16,7 @@ def follow_up_lesson_experience_safe(
     def _run() -> dict[str, Any]:
         from butler.ops.b9_lessons import follow_up_lesson_experience
 
-        return follow_up_lesson_experience(row, result, spec)
+        return cast(dict[str, Any], follow_up_lesson_experience(row, result, spec))
 
     fallback = {"action": "skipped", "detail": "error"}
     out = safe_best_effort(

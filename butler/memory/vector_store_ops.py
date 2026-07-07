@@ -5,14 +5,14 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
 
 def chroma_query(collection: Any, kwargs: dict[str, Any]) -> dict[str, Any] | None:
     try:
-        return collection.query(**kwargs)
+        return cast(dict[str, Any] | None, collection.query(**kwargs))
     except Exception as exc:
         logger.warning("ChromaDB query failed: %s", exc)
         return None

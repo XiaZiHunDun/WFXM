@@ -13,7 +13,7 @@ def multi_scope_recall_safe(query: str, *, limit: int) -> str | None:
 
         if not corpus_routing_enabled() or not query:
             raise ValueError("corpus routing disabled or empty query")
-        return multi_scope_recall(query, limit=limit)
+        return str(multi_scope_recall(query, limit=limit) or "")
 
     result = safe_best_effort(
         _run,

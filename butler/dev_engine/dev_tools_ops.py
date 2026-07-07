@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -51,9 +51,9 @@ def auto_review_after_verify_safe(
 
         if not auto_review_enabled():
             return {}
-        return tool_dev_review(str(workspace), session_key=session_key, from_auto_verify=True)
+        return cast(dict[str, Any], tool_dev_review(str(workspace), session_key=session_key, from_auto_verify=True))
 
-    return safe_best_effort(_run, label="dev_tools.auto_review", default=None)
+    return cast(dict[str, Any] | None, safe_best_effort(_run, label="dev_tools.auto_review", default=None))
 
 
 def apply_dev_review_diagnostics_safe(view: Any, diagnostics: dict[str, Any]) -> None:

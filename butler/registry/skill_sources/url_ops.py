@@ -19,7 +19,7 @@ def fetch_url_skill_text_safe(url: str) -> str | None:
             if loc and is_safe_url(loc):
                 resp = httpx.get(loc, timeout=30.0, follow_redirects=False)
         resp.raise_for_status()
-        return resp.text
+        return str(resp.text)
     except Exception as exc:
         logger.debug("url fetch failed %s: %s", url, exc)
         return None

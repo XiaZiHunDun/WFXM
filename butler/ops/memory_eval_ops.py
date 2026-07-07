@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -25,7 +25,7 @@ def push_memory_benchmark_dataset_safe(report: Any) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
         from butler.ops.memory_eval import push_memory_benchmark_dataset
 
-        return push_memory_benchmark_dataset(report)
+        return cast(dict[str, Any], push_memory_benchmark_dataset(report))
 
     result = safe_best_effort(
         _run,
@@ -39,7 +39,7 @@ def push_memory_benchmark_scores_safe(report: Any) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
         from butler.ops.memory_eval import push_memory_scores
 
-        return push_memory_scores(report)
+        return cast(dict[str, Any], push_memory_scores(report))
 
     result = safe_best_effort(
         _run,

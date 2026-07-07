@@ -12,10 +12,11 @@ def format_registry_help_safe(topic: str) -> str | None:
         result = format_registry_help(topic)
         if result.startswith("未找到"):
             return None
-        return result
+        return str(result)
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="help_handlers.registry_help",
         default=None,
     )
+    return str(result) if isinstance(result, str) else None

@@ -23,7 +23,8 @@ def resolve_project_workspace_safe() -> Path | None:
     def _run() -> Path | None:
         from butler.tools.project_todos import _get_workspace
 
-        return _get_workspace()
+        ws = _get_workspace()
+        return ws if isinstance(ws, Path) else None
 
     result = safe_best_effort(_run, label="mcp_self_service.workspace", default=None)
     return result if isinstance(result, Path) else None

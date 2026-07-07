@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.config import get_butler_home
@@ -54,9 +54,9 @@ def peek_dev_engine_summary_safe(session_key: str, role: str) -> dict[str, Any] 
             summary["coding_knowledge"] = ds.coding_knowledge.to_dict()
         if ds.review_summary.findings_count or not ds.review_summary.passed:
             summary["review"] = ds.review_summary.to_dict()
-        return summary
+        return cast(dict[str, Any] | None, summary)
 
-    return safe_best_effort(_run, label="delegate_finalize.peek_summary", default=None)
+    return cast(dict[str, Any] | None, safe_best_effort(_run, label="delegate_finalize.peek_summary", default=None))
 
 
 def attach_review_handoff_safe(state: DelegateRunState, payload: dict[str, Any]) -> None:
@@ -77,15 +77,18 @@ def apply_experience_lifecycle_safe(
         return None
 
     def _run() -> dict[str, Any]:
-        return apply_selected_experience_lifecycle(
-            experience_id=exp_id,
-            success=bool(ds.verify_result.passed),
-            session_key=state.child_session_key or state.session_key or "",
-            task_preview=state.task or "",
-            role=state.role,
+        return cast(
+            dict[str, Any],
+            apply_selected_experience_lifecycle(
+                experience_id=exp_id,
+                success=bool(ds.verify_result.passed),
+                session_key=state.child_session_key or state.session_key or "",
+                task_preview=state.task or "",
+                role=state.role,
+            ),
         )
 
-    return safe_best_effort(_run, label="delegate_finalize.experience_lifecycle", default=None)
+    return cast(dict[str, Any] | None, safe_best_effort(_run, label="delegate_finalize.experience_lifecycle", default=None))
 
 
 def attach_dev_engine_payload_safe(

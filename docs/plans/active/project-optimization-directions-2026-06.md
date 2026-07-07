@@ -272,7 +272,7 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 ├─ P3-H 记忆统一检索 Phase 1–4 + lead 剖面 + doctor 可观测（2026-07-07）✅
 ├─ P3-I 懒 import 减量：3593 → **1901**（budget **1910**）✅
 ├─ P3-J 配置卫生：hygiene gate + audit strict + schema PoC ✅
-└─ P5 wave1–2：`*_ops.py` strict **300/390**（yaml 25 + core 32）✅
+└─ P5 wave1–3：`*_ops.py` strict **390/390**（wave3：tools + session/gateway + 余量）✅
 
 现在 → 07-31（G1-04 窗内）
 ├─ 每周 G1-04 打卡（butler-ops-cadence.sh --weekly）— 今日已跑 ✅
@@ -284,7 +284,7 @@ Backlog（G1-04 结案后加深，按 [九层模型](../../architecture/v4-layer
 ├─ 横切 contracts：破环竖切 — **done** 2026-07-07（`CYCLE_KEEP` 清零）
 ├─ L5 方向 H：记忆统一检索 — **done** 2026-07-07
 ├─ L7：workflow/MCP/terminal 审批收敛
-└─ 仓级 P2-F-ops：388 个 *_ops.py mypy strict — **300/390**（wave1–2 done）
+└─ 仓级 P2-F-ops：390 个 `*_ops.py` mypy strict — **390/390**（wave3 done 2026-07-07）
 
 持续：
 ├─ 改 gateway 后 restart

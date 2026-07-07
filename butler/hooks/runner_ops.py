@@ -7,7 +7,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -32,7 +32,7 @@ def resolve_hooks_workspace_safe() -> Path | None:
             return None
         return Path(proj.workspace)
 
-    return safe_best_effort(_run, label="hooks.runner.workspace", default=None)
+    return cast(Path, safe_best_effort(_run, label="hooks.runner.workspace", default=None))
 
 
 def session_key_from_payload_safe(payload: dict[str, Any]) -> str:

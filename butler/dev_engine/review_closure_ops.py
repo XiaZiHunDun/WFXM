@@ -25,8 +25,9 @@ def closure_write_flags_safe() -> bool:
     def _run() -> bool:
         from butler.env_parse import env_truthy
 
-        return env_truthy("BUTLER_REFLECTION_CLOSURE_WRITE", default=False) or env_truthy(
-            "BUTLER_REFLEXION_WRITE_EXPERIENCE", default=False
+        return bool(
+            env_truthy("BUTLER_REFLECTION_CLOSURE_WRITE", default=False)
+            or env_truthy("BUTLER_REFLEXION_WRITE_EXPERIENCE", default=False)
         )
 
     result = safe_best_effort(_run, label="review_closure.write_flags", default=False)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
@@ -24,8 +25,8 @@ def seed_bundled_tenant_skills(butler_home: Any, tenant_id: str) -> None:
     safe_best_effort(_run, label="butler_memory.bundled_skills_seed", default=None)
 
 
-def open_semantic_index(mem_dir: Any):
-    def _run():
+def open_semantic_index(mem_dir: Path) -> Any | None:
+    def _run() -> Any | None:
         from butler.memory.semantic_config import semantic_memory_enabled
         from butler.memory.semantic_index import SemanticMemoryIndex
 

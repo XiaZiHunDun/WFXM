@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -12,13 +12,14 @@ def observation_store_stats_safe(db_path: Path) -> dict[str, Any] | None:
     def _run() -> dict[str, Any]:
         from butler.memory.observation_store import ObservationStore
 
-        return ObservationStore(db_path).stats()
+        return cast(dict[str, Any], ObservationStore(db_path).stats())
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="observation_diagnostics.stats",
         default=None,
     )
+    return result if isinstance(result, dict) else None
 
 
 def relative_db_path_safe(workspace: Path, db_path: Path, *, fallback: str) -> str:

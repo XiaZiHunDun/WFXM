@@ -21,7 +21,7 @@ def apply_delegate_success_gates(
     dev_engine: dict[str, Any] | None,
     task: str,
     task_preview: str,
-    changes: list,
+    changes: list[Any],
 ) -> tuple[bool, list[str]]:
     def _run() -> tuple[bool, list[str]]:
         from butler.dev_engine.b9_delegate_gate import (
@@ -57,7 +57,7 @@ def apply_delegate_success_gates(
             issues=out_issues,
             dev_engine=dev_engine,
         )
-        return apply_dev_review_strict_gate(
+        final = apply_dev_review_strict_gate(
             category=category,
             category_meta=category_meta,
             role=role,
@@ -65,6 +65,10 @@ def apply_delegate_success_gates(
             issues=out_issues,
             dev_engine=dev_engine,
         )
+        if isinstance(final, tuple) and len(final) == 2:
+            f_ok, f_issues = final
+            return bool(f_ok), list(f_issues) if isinstance(f_issues, list) else out_issues
+        return ok, out_issues
 
     result = safe_best_effort(
         _run,
@@ -77,7 +81,7 @@ def apply_delegate_success_gates(
     return base, list(issues or [])
 
 
-def inject_corrective_recall_safe(name: str, args: dict, result: str) -> str:
+def inject_corrective_recall_safe(name: str, args: dict[str, Any], result: str) -> str:
     def _run() -> str:
         from butler.memory.corrective_recall import (
             build_corrective_recall_block,
@@ -196,26 +200,28 @@ def run_delegate_task_loud(
     try:
         _prepare_delegate_task(state)
         if state.early_return:
-            return state.early_return
+            return str(state.early_return)
         _resolve_subagent(state)
         _build_user_message(state)
         _record_delegate_state(state)
         if state.early_return:
-            return state.early_return
+            return str(state.early_return)
         async_payload = _run_subagent_loop(state)
         if async_payload is not None:
-            return async_payload
-        return _format_delegate_result(state, state.sync_result)
+            return str(async_payload)
+        return str(_format_delegate_result(state, state.sync_result))
     except Exception as exc:
         logger.error("Delegation to %s failed: %s", role, exc)
         project_name = ""
         if state.project is not None:
             project_name = str(getattr(state.project, "name", "") or "")
-        return finalize_failure(
-            role=state.role,
-            task=state.task,
-            exc=exc,
-            task_id=state.task_id,
-            session_key=state.session_key,
-            project=project_name,
+        return str(
+            finalize_failure(
+                role=state.role,
+                task=state.task,
+                exc=exc,
+                task_id=state.task_id,
+                session_key=state.session_key,
+                project=project_name,
+            )
         )

@@ -24,7 +24,7 @@ def record_fusion_llm_cost_safe(session_key: str, usage: Any) -> None:
 
 def current_fusion_session_key_safe() -> str:
     def _run() -> str:
-        from butler.core.session_key import get_current_session_key
+        from butler.execution_context import get_current_session_key
 
         return str(get_current_session_key() or "")
 

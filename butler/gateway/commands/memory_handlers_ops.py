@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 
@@ -11,7 +11,7 @@ def owner_pending_lines() -> list[str]:
     def _run() -> list[str]:
         from butler.memory.owner_write_pending import format_owner_pending_lines
 
-        return format_owner_pending_lines()
+        return cast(list[str], format_owner_pending_lines())
 
     result = safe_best_effort(
         _run,
@@ -56,7 +56,7 @@ def approve_owner_pending_index(idx: int, bm: Any) -> dict[str, Any] | None:
     def _run() -> dict[str, Any]:
         from butler.memory.owner_write_pending import approve_owner_pending
 
-        return approve_owner_pending(idx, bm)
+        return cast(dict[str, Any], approve_owner_pending(idx, bm))
 
     result = safe_best_effort(
         _run,
@@ -70,7 +70,7 @@ def list_owner_pending() -> list[dict[str, Any]]:
     def _run() -> list[dict[str, Any]]:
         from butler.memory.owner_write_pending import list_owner_pending as _list
 
-        return _list()
+        return cast(list[dict[str, Any]], _list())
 
     result = safe_best_effort(
         _run,

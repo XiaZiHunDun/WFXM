@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.dev_engine.b9_types import B9Result, B9TaskSpec
@@ -14,7 +14,7 @@ def summarize_prod_experience_effectiveness_safe() -> dict[str, Any]:
             summarize_prod_experience_effectiveness,
         )
 
-        return summarize_prod_experience_effectiveness()
+        return cast(dict[str, Any], summarize_prod_experience_effectiveness())
 
     result = safe_best_effort(
         _run,

@@ -12,7 +12,7 @@ def default_registry_tenant_id() -> str:
     def _run() -> str:
         from butler.config import load_settings
 
-        return load_settings().default_tenant
+        return str(load_settings().default_tenant)
 
     return (
         safe_best_effort(
@@ -59,14 +59,16 @@ def install_skill_or_pending(
                     requested_at=time.time(),
                 )
             )
-            return format_pending_prompt(h.name, h.identifier, h.source, h.trust)
+            return str(format_pending_prompt(h.name, h.identifier, h.source, h.trust))
         if isinstance(exc, ValueError):
             return f"安装失败: {exc}"
         raise
     warn = "（community 源）" if rec.trust == "community" else ""
-    return append_followup(
-        svc,
-        identifier,
-        f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）{warn}",
-        record=rec,
+    return str(
+        append_followup(
+            svc,
+            identifier,
+            f"已安装技能 {rec.name}（{rec.install_path}，{rec.scan_verdict}）{warn}",
+            record=rec,
+        )
     )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 from butler.core.best_effort import safe_best_effort
 from butler.config import get_butler_home
@@ -61,7 +61,7 @@ def resolve_active_project_name() -> str:
         default=None,
     )
     if name:
-        return name
+        return str(name)
 
     def _from_manager() -> str:
         pm = get_project_manager()
@@ -91,11 +91,12 @@ def discover_project_root() -> Path | None:
             return Path(cur.workspace).resolve()
         return None
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="memory.facade.project_root_discovery",
         default=None,
     )
+    return result if isinstance(result, Path) else None
 
 
 def manager_current_project() -> str:
@@ -146,13 +147,14 @@ def record_recall_telemetry(payload: dict[str, Any]) -> None:
 
 def strip_private_tags_safe(content: str) -> tuple[str, bool] | None:
     def _run() -> tuple[str, bool]:
-        return strip_private_tags(content)
+        return cast(tuple[str, bool], strip_private_tags(content))
 
-    return safe_best_effort(
+    result = safe_best_effort(
         _run,
         label="memory.facade.strip_private_tags",
         default=None,
     )
+    return result if isinstance(result, tuple) else None
 
 
 def owner_write_approval_result(args: dict[str, Any]) -> dict[str, Any] | None:
@@ -188,7 +190,7 @@ def owner_write_approval_result(args: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if not result:
         return None
-    return result
+    return cast(dict[str, Any] | None, result)
 
 
 def prefetch_global_context(butler_global: Any, *, root: Path | None) -> str:
@@ -196,7 +198,7 @@ def prefetch_global_context(butler_global: Any, *, root: Path | None) -> str:
         current = manager_current_project()
         if not current and root is not None:
             current = root.name
-        return butler_global.get_system_context(current)
+        return str(butler_global.get_system_context(current))
 
     return safe_best_effort(
         _run,
@@ -230,9 +232,9 @@ def dispatch_memory_tool(service: Any, tool_name: str, args: dict[str, Any]) -> 
     import json
 
     if tool_name == "butler_remember":
-        return service._remember(args)
+        return str(service._remember(args))
     if tool_name == "butler_recall":
-        return service._recall(args)
+        return str(service._recall(args))
     return json.dumps({"ok": False, "error": f"unknown tool {tool_name}"})
 
 
