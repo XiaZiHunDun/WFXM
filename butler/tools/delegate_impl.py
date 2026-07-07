@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any, cast
 from butler.delegate.policy import DELEGATE_BLOCKED_TOOLS
-from butler.execution_context import get_current_orchestrator, get_current_turn_bridge
+from butler.execution_context import get_current_turn_bridge
 from butler.report import AgentReport, Change, cache_report
 from butler.runtime.task_store import complete_task
 from butler.tools.delegate_impl_ops import (
@@ -18,17 +18,7 @@ from butler.tools.delegate_impl_ops import (
     run_delegate_task_loud,
     run_subagent_stop_hooks_safe,
 )
-
-
-def _orchestrator_for_tool(*, channel: str) -> Any:
-
-    orch = get_current_orchestrator()
-    if orch is not None:
-        return orch
-
-    from butler.orchestrator import ButlerOrchestrator
-
-    return ButlerOrchestrator(user_id="owner", channel=channel)
+from butler.tools.delegate_orchestrator import _orchestrator_for_tool
 
 
 def _project_agent_raw_message(*, task: str, context: str = "") -> str:

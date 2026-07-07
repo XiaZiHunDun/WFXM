@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-from pathlib import Path
 from typing import TYPE_CHECKING, Sequence
 
 from butler.cli.chat_cli import register_chat_parser
@@ -40,13 +39,12 @@ from butler.cli.transcript_cli import register_transcript_parser
 from butler.cli.workflow_cli import register_workflow_subparser
 from butler.env_parse import init_dotenv
 from butler.logging_config import configure_logging
+from butler.repo_paths import REPO_ROOT as _REPO_ROOT
 
 if TYPE_CHECKING:
     from butler.orchestrator import ButlerOrchestrator
 
 logger = logging.getLogger(__name__)
-
-_REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _build_parser() -> argparse.ArgumentParser:

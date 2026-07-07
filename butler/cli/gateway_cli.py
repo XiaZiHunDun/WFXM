@@ -22,8 +22,6 @@ from typing import cast
 
 def register_gateway_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     """Register ``gateway`` and ``wechat-setup``."""
-    from butler import main as _butler_main
-
     gw = sub.add_parser("gateway", help="启动微信消息网关（iLink，仅此平台）")
     gw.add_argument(
         "--platforms",
@@ -35,7 +33,7 @@ def register_gateway_parser(sub: argparse._SubParsersAction[argparse.ArgumentPar
         nargs=argparse.REMAINDER,
         help=argparse.SUPPRESS,
     )
-    gw.set_defaults(func=_butler_main._cmd_gateway)
+    gw.set_defaults(func=_cmd_gateway)
 
     wx = sub.add_parser(
         "wechat-setup",
@@ -51,7 +49,7 @@ def register_gateway_parser(sub: argparse._SubParsersAction[argparse.ArgumentPar
         metavar="PATH",
         help="将 WECHAT_ACCOUNT_ID/WECHAT_TOKEN 写入 .env（默认项目根 .env）",
     )
-    wx.set_defaults(func=_butler_main._cmd_wechat_setup)
+    wx.set_defaults(func=_cmd_wechat_setup)
 
 
 def _cmd_gateway(ns: argparse.Namespace) -> int:
@@ -119,11 +117,11 @@ def _cmd_wechat_setup(ns: argparse.Namespace) -> int:
 
     write_env = getattr(ns, "write_env", None)
     if write_env is not None:
-        from butler.main import _REPO_ROOT  # late import to avoid cycle
+        from butler.repo_paths import REPO_ROOT
 
-        env_path = Path(write_env) if str(write_env).strip() else _REPO_ROOT / ".env"
+        env_path = Path(write_env) if str(write_env).strip() else REPO_ROOT / ".env"
         if not env_path.is_absolute():
-            env_path = (_REPO_ROOT / env_path).resolve()
+            env_path = (REPO_ROOT / env_path).resolve()
         _merge_wechat_env_file(env_path, creds)
 
     return 0

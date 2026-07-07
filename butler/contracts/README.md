@@ -35,7 +35,7 @@
 
 ## 竖切迭代（已知环边）
 
-以下环依赖**暂保留函数内 lazy import**（见 `scripts/p3i_hoist_lazy_imports.py` `CYCLE_KEEP`），优先用本目录 Port 替代：
+以下环曾依赖函数内 lazy import（`scripts/p3i_hoist_lazy_imports.py` `CYCLE_KEEP` 已清零），优先用本目录 Port 或竖切模块替代：
 
 | 环 | 建议 Port | 状态 |
 |----|-----------|------|
@@ -48,6 +48,8 @@
 | `completion_notify` → `report` | 直引（无回边）；`delegate_task_kind` 下沉 L4 | **done** |
 | `butler_memory` ↔ `experience_consolidation` | `butler_memory` 顶层直引 consolidation | **done** |
 | `delegate_job` ↔ `async_delegate` | `delegate_job_types` + `delegate_async_result` | **done** |
+| `gateway_cli` ↔ `main` | `repo_paths.REPO_ROOT`；parser 直绑本地 `_cmd_*` | **done** |
+| `delegate_impl` ↔ `orchestrator` | `delegate_orchestrator` 隔离 lazy import | **done** |
 
 新增 Port 模块：
 

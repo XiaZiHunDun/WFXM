@@ -11,10 +11,7 @@ import sys
 import textwrap
 
 # Proven import cycles — keep lazy in these (file_posix, module).
-CYCLE_KEEP: set[tuple[str, str]] = {
-    ("butler/cli/gateway_cli.py", "butler.main"),
-    ("butler/tools/delegate_impl.py", "butler.orchestrator"),
-}
+CYCLE_KEEP: set[tuple[str, str]] = set()
 
 MIN_COUNT = 8
 
