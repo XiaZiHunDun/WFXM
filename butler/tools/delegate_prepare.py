@@ -5,11 +5,18 @@ from __future__ import annotations
 import json
 
 from butler.tools.delegate_run_state import DelegateRunState
+from butler.tools.delegate_prepare_ops import infer_delegate_category_safe
+from butler.delegate.category_resolver import apply_category_to_delegate
+from butler.core.handoff import default_visual_acceptance, render_handoff_block
+from butler.core.handoff import merge_handoff_into_context
+from butler.tools.delegate_prepare_ops import inject_verify_checklist_safe
+from butler.delegate.policy import MAX_DELEGATE_DEPTH
+from butler.tools.delegate_prepare_ops import inject_production_playbook_bridge_safe
+from butler.tools.delegate_role_guard import apply_user_role_override, block_lead_readonly_delegate, user_explicit_delegate_role, _explicit_role_from_state, _turn_user_text
 
 
 def infer_delegate_category(task: str) -> str:
     """Best-effort category inference from task intent (1a)."""
-    from butler.tools.delegate_prepare_ops import infer_delegate_category_safe
 
     return str(infer_delegate_category_safe(task))
 
@@ -18,7 +25,6 @@ def apply_category_resolver(state: DelegateRunState) -> None:
     """Apply category resolver — rewrites role/task/context (1b)."""
     if not str(state.category or "").strip():
         return
-    from butler.delegate.category_resolver import apply_category_to_delegate
 
     new_role, new_task, new_context, category_meta = apply_category_to_delegate(
         category=str(state.category).strip(),
@@ -34,7 +40,6 @@ def apply_category_resolver(state: DelegateRunState) -> None:
 
 def build_handoff_block_text(cat_name: str, role: str, task: str) -> str:
     """Render the handoff markdown for a category (1c, pure)."""
-    from butler.core.handoff import default_visual_acceptance, render_handoff_block
 
     if cat_name == "ui-build":
         acceptance = default_visual_acceptance()
@@ -58,7 +63,6 @@ def build_handoff_block_text(cat_name: str, role: str, task: str) -> str:
 
 def inject_handoff_block(state: DelegateRunState) -> None:
     """Inject handoff markdown for nexus / ui-build / first-time (1c)."""
-    from butler.core.handoff import merge_handoff_into_context
 
     cat_name = str(
         state.category or state.category_meta.get("category") or ""
@@ -76,14 +80,12 @@ def inject_handoff_block(state: DelegateRunState) -> None:
 
 def inject_verify_checklist(state: DelegateRunState) -> None:
     """Append the delegate verify checklist to context (1d, best-effort)."""
-    from butler.tools.delegate_prepare_ops import inject_verify_checklist_safe
 
     inject_verify_checklist_safe(state)
 
 
 def check_delegate_depth(state: DelegateRunState) -> None:
     """Set ``early_return`` when ``depth >= MAX_DELEGATE_DEPTH`` (1f)."""
-    from butler.delegate.policy import MAX_DELEGATE_DEPTH
 
     if state.depth >= MAX_DELEGATE_DEPTH:
         state.early_return = json.dumps(
@@ -93,20 +95,12 @@ def check_delegate_depth(state: DelegateRunState) -> None:
 
 def inject_production_playbook_bridge(state: DelegateRunState) -> None:
     """Prepend B9 seed playbooks for production-shaped dev delegates (P0 bridge)."""
-    from butler.tools.delegate_prepare_ops import inject_production_playbook_bridge_safe
 
     inject_production_playbook_bridge_safe(state)
 
 
 def prepare_delegate_task(state: DelegateRunState) -> None:
     """Phase 1: enrich (role, task, context, category) and check depth."""
-    from butler.tools.delegate_role_guard import (
-        apply_user_role_override,
-        block_lead_readonly_delegate,
-        user_explicit_delegate_role,
-        _explicit_role_from_state,
-        _turn_user_text,
-    )
 
     blocked = block_lead_readonly_delegate(depth=state.depth)
     if blocked:

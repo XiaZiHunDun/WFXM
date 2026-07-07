@@ -11,6 +11,12 @@ import json
 import logging
 import os
 from typing import Any, Callable, cast
+from butler.tools.mcp_self_service_ops import tool_json_loud
+from butler.registry.mcp_catalog import McpCatalogService
+from butler.tools.mcp_self_service_ops import attach_post_install_verify_safe, resolve_project_workspace_safe, tool_json_loud
+from butler.registry.mcp_install import install_catalog_server
+from butler.tools.mcp_self_service_ops import resolve_project_workspace_safe, tool_json_loud
+from butler.registry.mcp_install import remove_mcp_server
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +29,8 @@ def _mcp_self_service_enabled() -> bool:
 
 def _tool_mcp_catalog_search(query: str = "", **_: Any) -> str:
     """Search the MCP server catalog."""
-    from butler.tools.mcp_self_service_ops import tool_json_loud
 
     def _run() -> str:
-        from butler.registry.mcp_catalog import McpCatalogService
 
         svc = McpCatalogService()
         entries = svc.search(query.strip(), limit=10)
@@ -59,11 +63,6 @@ def _tool_mcp_install(
     **_: Any,
 ) -> str:
     """Install an MCP server from the catalog."""
-    from butler.tools.mcp_self_service_ops import (
-        attach_post_install_verify_safe,
-        resolve_project_workspace_safe,
-        tool_json_loud,
-    )
 
     sid = (server_id or "").strip()
     if not sid:
@@ -77,7 +76,6 @@ def _tool_mcp_install(
             return json.dumps({"ok": False, "error": "No active project for project-scope install"})
 
     def _run() -> str:
-        from butler.registry.mcp_install import install_catalog_server
 
         ok, msg = install_catalog_server(
             sid,
@@ -95,17 +93,12 @@ def _tool_mcp_install(
 
 def _tool_mcp_remove(server_id: str, **_: Any) -> str:
     """Remove an installed MCP server."""
-    from butler.tools.mcp_self_service_ops import (
-        resolve_project_workspace_safe,
-        tool_json_loud,
-    )
 
     sid = (server_id or "").strip()
     if not sid:
         return json.dumps({"ok": False, "error": "server_id is required"})
 
     def _run() -> str:
-        from butler.registry.mcp_install import remove_mcp_server
 
         workspace = resolve_project_workspace_safe()
         ok, msg = remove_mcp_server(sid, workspace=workspace)
@@ -116,10 +109,8 @@ def _tool_mcp_remove(server_id: str, **_: Any) -> str:
 
 def _tool_mcp_list_installed(**_: Any) -> str:
     """List currently installed MCP servers."""
-    from butler.tools.mcp_self_service_ops import tool_json_loud
 
     def _run() -> str:
-        from butler.registry.mcp_catalog import McpCatalogService
 
         svc = McpCatalogService()
         installed = svc.list_installed_ids()

@@ -9,6 +9,14 @@ import threading
 import time
 from collections import deque
 from typing import Any
+from butler.contracts.tool_registry_registry import get_tool_registry_read
+from butler.core.session_transcript import transcript_path
+from butler.tools.tool_audit_ops import get_audit_session_key_safe
+from butler.tools.tool_audit_ops import run_observation_side_effects_safe
+from butler.execution_context import get_current_session_key
+from butler.tools.tool_audit_ops import enqueue_tool_observation_safe, record_tool_observation_safe, resolve_observation_workspace_safe
+from butler.execution_context import get_current_orchestrator
+from butler.tools.tool_audit_ops import run_permission_denied_hooks_safe
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +70,6 @@ def _tool_result_code(name: str, payload: dict[str, Any], *, ok: bool) -> str:
         return "TOOL_INTERRUPTED"
     if isinstance(payload.get("exit_code"), int) and payload["exit_code"] != 0:
         return "TOOL_EXIT_NONZERO"
-    from butler.contracts.tool_registry_registry import get_tool_registry_read
 
     read_port = get_tool_registry_read()
     if read_port is not None and not read_port.is_tool_registered(name):
@@ -102,7 +109,6 @@ def _persist_tool_audit_event(event: dict[str, Any]) -> None:
     if not sk:
         return
     try:
-        from butler.core.session_transcript import transcript_path
 
         path = transcript_path(sk).parent / "tool_audit.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -123,7 +129,6 @@ def _record_tool_audit(
     code: str,
     started_at: float,
 ) -> None:
-    from butler.tools.tool_audit_ops import get_audit_session_key_safe
 
     session_key = get_audit_session_key_safe()
     event = {
@@ -196,7 +201,6 @@ def _maybe_record_tool_observation(
     args: dict[str, Any],
     payload: dict[str, Any],
 ) -> None:
-    from butler.tools.tool_audit_ops import run_observation_side_effects_safe
 
     def _run() -> None:
         _record_tool_observation_side_effects(name, args, payload)
@@ -209,12 +213,6 @@ def _record_tool_observation_side_effects(
     args: dict[str, Any],
     payload: dict[str, Any],
 ) -> None:
-    from butler.execution_context import get_current_session_key
-    from butler.tools.tool_audit_ops import (
-        enqueue_tool_observation_safe,
-        record_tool_observation_safe,
-        resolve_observation_workspace_safe,
-    )
 
     sk = str(get_current_session_key() or "").strip()
     if not sk:
@@ -239,7 +237,6 @@ def _record_tool_observation_side_effects(
         ok=_tool_result_ok(payload),
         preview=preview,
     )
-    from butler.execution_context import get_current_orchestrator
 
     path_hint = str(args.get("path") or args.get("file") or "")
     workspace = None
@@ -293,7 +290,6 @@ def _finalize_tool_result(
             payload.setdefault("code", code)
             err = str(payload.get("error") or "")
             if err.startswith("Access denied"):
-                from butler.tools.tool_audit_ops import run_permission_denied_hooks_safe
 
                 hint = run_permission_denied_hooks_safe(name, args, err)
                 if hint:

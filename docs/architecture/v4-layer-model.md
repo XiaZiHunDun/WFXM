@@ -202,7 +202,7 @@ flowchart TB
 
 | 项 | 说明 |
 |----|------|
-| **职责** | 层间稳定 Protocol/Port；破环竖切入口（P3-I 函数内 lazy **1945** / budget **1975**） |
+| **职责** | 层间稳定 Protocol/Port；破环竖切入口（P3-I 函数内 lazy **1901** / budget **1910**） |
 | **路径** | `butler/contracts/` |
 | **原则** | 新组件先落 Port，再换实现；见 [`contracts/README.md`](../../butler/contracts/README.md) |
 
@@ -288,7 +288,7 @@ flowchart TB
 | **契约** | 新增 Port、替换 registry 实现 | contracts  import 具体 gateway 实现 |
 | **仓级** | 门禁脚本、pytest 分层、deploy profile | — |
 
-**破环竖切（代码）**：优先扩展 [`butler/contracts/`](../../butler/contracts/README.md)；已知环见 `scripts/p3i_hoist_lazy_imports.py` `CYCLE_KEEP`。
+**破环竖切（代码）**：优先扩展 [`butler/contracts/`](../../butler/contracts/README.md)；`CYCLE_KEEP` 已清零（2026-07-07 P2f）。
 
 ---
 
@@ -303,6 +303,7 @@ flowchart TB
 | P2c 破环 | L4/L9 | `report_types`、`b9_task_fixtures` | **done** 2026-07-07 |
 | P2d 破环 | L1/L9 | `completion_notify→report` 直引；`delegate.task_kind` | **done** 2026-07-07 |
 | P2e 破环 | L5/runtime | memory consolidation 直引；delegate 类型拆分 | **done** 2026-07-07 |
+| P2f 破环 | L1/L4 | `repo_paths`；`delegate_orchestrator`；`CYCLE_KEEP` 清零 | **done** 2026-07-07 |
 | P3 记忆 | L5 | 方向 H Phase 4+：`butler_recall` 含 coding_experiences | recall_router + prefetch |
 | P4 策略 | L7 | workflow/MCP/terminal 审批收敛 | ApprovalStore + terminal |
 | P5 工程 | 仓级 | P2-F-ops：`*_ops.py` mypy strict（可选） | `butler-mypy-strict-gate.sh` |

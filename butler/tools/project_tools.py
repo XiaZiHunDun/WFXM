@@ -3,6 +3,14 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
+from butler.tools.project_tools_ops import opencode_tool_enabled
+from butler.tools.project_tools_ops import dev_engine_extra_tools
+from butler.tools.project_tools_ops import mcp_tool_allowed
+from butler.tools.project_tools_ops import workflow_step_tool_allowlist
+from butler.tools.registry import get_tool_definitions
+from butler.tools.project_tools_ops import optimize_tool_definitions_safe
+from butler.execution_context import get_current_session_key
+from butler.project.manager import get_project_manager
 
 if TYPE_CHECKING:
     from butler.project import Project
@@ -141,7 +149,6 @@ def _lead_allowed_tools(mapped: set[str]) -> set[str]:
 
 
 def _butler_allowed_tools(mapped: set[str]) -> set[str]:
-    from butler.tools.project_tools_ops import opencode_tool_enabled
 
     extras = set(_BUTLER_EXTRA_TOOLS)
     if opencode_tool_enabled():
@@ -199,7 +206,6 @@ def allowed_tool_names_for_project(
     if norm in {"butler", "default", ""} or role == "butler":
         return _butler_allowed_tools(mapped)
     if norm == "dev":
-        from butler.tools.project_tools_ops import dev_engine_extra_tools
 
         return mapped | set(dev_engine_extra_tools())
     return mapped
@@ -209,7 +215,6 @@ def _tool_allowed(name: str, allowed: set[str]) -> bool:
     if name in allowed:
         return True
     if "mcp_*" in allowed:
-        from butler.tools.project_tools_ops import mcp_tool_allowed
 
         if mcp_tool_allowed(name):
             return True
@@ -229,7 +234,6 @@ def filter_tool_definitions(
 
 
 def _workflow_step_tool_allowlist(project: "Project | None") -> set[str] | None:
-    from butler.tools.project_tools_ops import workflow_step_tool_allowlist
 
     return cast(set[str] | None, workflow_step_tool_allowlist(project))
 
@@ -252,7 +256,6 @@ def get_tool_definitions_for_project(
     optimize_schema: bool = True,
 ) -> list[dict[str, Any]]:
 
-    from butler.tools.registry import get_tool_definitions
 
     all_tools = get_tool_definitions()
     allowed = allowed_tool_names_for_project(project, role=role)
@@ -260,14 +263,11 @@ def get_tool_definitions_for_project(
     filtered = filter_tool_definitions(all_tools, allowed)
     if not optimize_schema:
         return filtered
-    from butler.tools.project_tools_ops import optimize_tool_definitions_safe
 
     return cast(list[dict[str, Any]], optimize_tool_definitions_safe(filtered))
 
 
 def get_current_project_tools(*, role: str = "butler") -> list[dict[str, Any]]:
-    from butler.execution_context import get_current_session_key
-    from butler.project.manager import get_project_manager
 
     pm = get_project_manager()
     session_key = str(get_current_session_key() or "").strip()

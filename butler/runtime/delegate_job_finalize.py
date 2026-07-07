@@ -5,6 +5,14 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from butler.core.best_effort import safe_best_effort
+from butler.tools.git_tools import _run_git, git_read_enabled
+from butler.project.manager import ProjectManager
+from butler.core.session_transcript import record_generic_event
+from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
+from butler.ops.langfuse_tracer import finish_delegate_trace
+from butler.tools.delegate_phases import peek_dev_engine_summary
+from butler.tools.registry import _finalize_delegate_failure
+from butler.runtime.delegate_job_finalize_ops import run_delegate_job_inner_guarded_ops
 
 
 def attach_delegate_diff_summary(report: Any, job: Any) -> None:
@@ -13,14 +21,12 @@ def attach_delegate_diff_summary(report: Any, job: Any) -> None:
         return
 
     def _run() -> None:
-        from butler.tools.git_tools import _run_git, git_read_enabled
 
         if not git_read_enabled():
             return
 
         workspace = None
         try:
-            from butler.project.manager import ProjectManager
 
             pm = ProjectManager()
             proj = pm.active_project
@@ -63,7 +69,6 @@ def record_delegate_turn_done(
         return
 
     def _run() -> None:
-        from butler.core.session_transcript import record_generic_event
 
         record_generic_event(
             job.child_session_key,
@@ -87,9 +92,6 @@ def record_delegate_observability(
     dev_engine: dict[str, Any] | None,
 ) -> None:
     def _run() -> None:
-        from butler.ops.delegate_failure_capture import maybe_capture_from_delegate_result
-        from butler.ops.langfuse_tracer import finish_delegate_trace
-        from butler.tools.delegate_phases import peek_dev_engine_summary
 
         engine = dev_engine
         if engine is None:
@@ -126,7 +128,6 @@ def handle_background_delegate_failure(job: Any, exc: BaseException) -> None:
 
     log = logging.getLogger(__name__)
     log.exception("Background delegate failed task_id=%s: %s", job.task_id, exc)
-    from butler.tools.registry import _finalize_delegate_failure
 
     _finalize_delegate_failure(
         role=job.role,
@@ -138,7 +139,6 @@ def handle_background_delegate_failure(job: Any, exc: BaseException) -> None:
 
 
 def run_delegate_job_inner_guarded(job: Any, body: Callable[[Any], None]) -> None:
-    from butler.runtime.delegate_job_finalize_ops import run_delegate_job_inner_guarded_ops
 
     def _release() -> None:
         __import__(

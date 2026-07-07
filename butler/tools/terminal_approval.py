@@ -7,12 +7,18 @@ import json
 import os
 import time
 from pathlib import Path
+from butler.config import get_butler_home
+from butler.tools.terminal_approval_ops import canonicalize_command_safe
+from butler.contracts.approval_store_impl import grant_terminal_exec_once
+from butler.tools.terminal_approval_ops import try_auto_review_terminal_safe
+from butler.contracts.approval_registry import get_approval_store
+from butler.core.approval_cards import format_terminal_exec_card
+from butler.tools.terminal_approval_ops import read_approval_record_safe
 
 _TTL_SEC = 300.0
 
 
 def _approvals_dir() -> Path:
-    from butler.config import get_butler_home
 
     path = Path(get_butler_home()) / "exec_approvals"
     path.mkdir(parents=True, exist_ok=True)
@@ -29,7 +35,6 @@ def approval_required() -> bool:
 
 
 def argv_fingerprint(command: str, *, cwd: str = "") -> str:
-    from butler.tools.terminal_approval_ops import canonicalize_command_safe
 
     canonical = canonicalize_command_safe(command)
     payload = json.dumps(
@@ -51,7 +56,6 @@ def store_approval(
     fp = argv_fingerprint(command, cwd=cwd)
     sk = str(session_key or "").strip()
     if sk:
-        from butler.contracts.approval_store_impl import grant_terminal_exec_once
 
         grant_terminal_exec_once(
             sk,
@@ -82,7 +86,6 @@ def check_approval(
     if not approval_required():
         return None
 
-    from butler.tools.terminal_approval_ops import try_auto_review_terminal_safe
 
     review = try_auto_review_terminal_safe(command)
     if review is not None and review.allowed and not review.skipped:
@@ -91,7 +94,6 @@ def check_approval(
     fp = argv_fingerprint(command, cwd=cwd)
     sk = str(session_key or "").strip()
     if sk:
-        from butler.contracts.approval_registry import get_approval_store
 
         store = get_approval_store()
         if store is not None and store.is_approved(
@@ -102,14 +104,12 @@ def check_approval(
         ):
             return None
     path = _approvals_dir() / f"{fp}.json"
-    from butler.core.approval_cards import format_terminal_exec_card
 
     if not path.is_file():
         return str(format_terminal_exec_card(
             command,
             reason="终端命令需 Owner 批准后再执行",
         ))
-    from butler.tools.terminal_approval_ops import read_approval_record_safe
 
     data = read_approval_record_safe(path)
     if data is None:
@@ -143,7 +143,6 @@ def approval_allows_unsandboxed(
     path = _approvals_dir() / f"{fp}.json"
     if not path.is_file():
         return False
-    from butler.tools.terminal_approval_ops import read_approval_record_safe
 
     data = read_approval_record_safe(path)
     if data is None:

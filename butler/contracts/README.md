@@ -49,7 +49,7 @@
 | `butler_memory` ↔ `experience_consolidation` | `butler_memory` 顶层直引 consolidation | **done** |
 | `delegate_job` ↔ `async_delegate` | `delegate_job_types` + `delegate_async_result` | **done** |
 | `gateway_cli` ↔ `main` | `repo_paths.REPO_ROOT`；parser 直绑本地 `_cmd_*` | **done** |
-| `delegate_impl` ↔ `orchestrator` | `delegate_orchestrator` 隔离 lazy import | **done** |
+| `delegate_impl` ↔ `orchestrator` | `delegate_orchestrator` 隔离 lazy import（顶层 hoist 仍环） | **done** |
 
 新增 Port 模块：
 

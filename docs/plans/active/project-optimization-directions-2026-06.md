@@ -45,7 +45,7 @@
 
 - `butler/contracts/` 已建（EventsSink + OwnerGate + BridgeAccess）
 - `core/` / `tools/` 直 import `gateway.*` 已 AST 守门（ENG-7）
-- 延迟 `from butler.*`（**函数内**，AST 计数）：**~1945**（`LAZY_IMPORT_BUDGET=1975`；报告 `scripts/p3i-lazy-import-report.sh`）
+- 延迟 `from butler.*`（**函数内**，AST 计数）：**~1901**（`LAZY_IMPORT_BUDGET=1910`；报告 `scripts/p3i-lazy-import-report.sh`）
 
 ### S3 — 大函数 / 大文件残留
 
@@ -252,10 +252,10 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 #### 方向 I：延迟导入减量 — **已达成** 2026-07-07（P3-I Batch 9–17）
 
-- **基线**：函数内 **3593** → 当前 **~1945**（−1648）
+- **基线**：函数内 **3593** → 当前 **~1901**（−1692）
 - **目标**：→ **2000** ✓
 - **手段**：helper 合并 + 安全模块顶 hoist；环依赖处保留 lazy（`tool_batch`/`completion_notify`↔`outbound_bridge`/`tool_audit`↔`registry` 等）
-- **门禁**：`p3i-lazy-import-report.sh`（`LAZY_IMPORT_BUDGET=1975`）已挂 **ENG domain gate** + fast-gate（p3j）
+- **门禁**：`p3i-lazy-import-report.sh`（`LAZY_IMPORT_BUDGET=1910`）已挂 **ENG domain gate** + fast-gate（p3j）
 
 #### 方向 J：配置面收敛 — **已达成基础门禁** 2026-07-07（P3-J Batch 2–5）
 
@@ -270,7 +270,7 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 已完成（2026-07-07）
 ├─ P0-A/B · P1-C · P2-G · P1-D · P2-E · P2-F（mypy **826** 主模块）✅
 ├─ P3-H 记忆统一检索 Phase 1–3 + lead 剖面 rollout（2026-07-02）✅
-├─ P3-I 懒 import 减量：3593 → **1945**（budget **1975**）✅
+├─ P3-I 懒 import 减量：3593 → **1901**（budget **1910**）✅
 └─ P3-J 配置卫生：hygiene gate + audit strict + schema PoC ✅
 
 现在 → 07-31（G1-04 窗内）
@@ -280,7 +280,7 @@ L573-L671:  主循环（parallel vs sequential）+ post-process — 99 行
 
 Backlog（G1-04 结案后加深，按 [九层模型](../../architecture/v4-layer-model.md)）
 ├─ L3/L1 P0-A：异常治理续扫（core/gateway 宽泛 except）
-├─ 横切 contracts：破环竖切（completion_notify、tool_audit 等）
+├─ 横切 contracts：破环竖切 — **done** 2026-07-07（`CYCLE_KEEP` 清零）
 ├─ L5 方向 H：记忆统一检索 Phase 4+
 ├─ L7：workflow/MCP/terminal 审批收敛
 └─ 仓级 P2-F-ops（可选）：388 个 *_ops.py mypy strict
