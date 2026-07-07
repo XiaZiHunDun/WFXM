@@ -229,6 +229,15 @@ def print_observability_l7(butler_home: Path) -> None:
     if safe_best_effort(_index_stats, label="doctor.index_stats", default=False) is False:
         print("  索引统计: (不可用)")
 
+    def _memory_recall() -> None:
+        from butler.ops.memory_recall_diagnostics_ops import format_memory_recall_doctor_lines
+
+        for line in format_memory_recall_doctor_lines():
+            print(line)
+
+    if safe_best_effort(_memory_recall, label="doctor.memory_recall", default=False) is False:
+        print("  统一召回: (不可用)")
+
     safe_best_effort(
         lambda: _print_chroma_hint(butler_home),
         label="doctor.chroma_hint",
@@ -341,6 +350,19 @@ def print_terminal_sandbox_section(workspace: Path | None) -> None:
             print("  安装: sudo apt install bubblewrap   # Debian/Ubuntu")
 
     if safe_best_effort(_run, label="doctor.terminal_sandbox", default=False) is False:
+        print("  (不可用)")
+
+
+def print_l7_policy_section(butler_home: Path) -> None:
+    print("\n[L7 门控与审批]")
+
+    def _run() -> None:
+        from butler.ops.approval_diagnostics_ops import format_approval_storage_doctor_lines
+
+        for line in format_approval_storage_doctor_lines(butler_home):
+            print(line)
+
+    if safe_best_effort(_run, label="doctor.l7_policy", default=False) is False:
         print("  (不可用)")
 
 

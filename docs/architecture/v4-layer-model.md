@@ -304,7 +304,7 @@ flowchart TB
 | P2d 破环 | L1/L9 | `completion_notify→report` 直引；`delegate.task_kind` | **done** 2026-07-07 |
 | P2e 破环 | L5/runtime | memory consolidation 直引；delegate 类型拆分 | **done** 2026-07-07 |
 | P2f 破环 | L1/L4 | `repo_paths`；`delegate_orchestrator`；`CYCLE_KEEP` 清零 | **done** 2026-07-07 |
-| P3 记忆 | L5 | 方向 H Phase 4+：`butler_recall` 含 coding_experiences | recall_router + prefetch |
+| P3 记忆 | L5 | 方向 H Phase 1–4：统一召回 + prefetch coding + doctor 可观测 | **done** 2026-07-07 |
 | P4 策略 | L7 | workflow/MCP/terminal 审批收敛 | **done** 2026-07-07（ApprovalStore + WorkflowGateStore + terminal 统一） |
 | P5 工程 | 仓级 | P2-F-ops：`*_ops.py` mypy strict（可选） | `butler-mypy-strict-gate.sh` |
 

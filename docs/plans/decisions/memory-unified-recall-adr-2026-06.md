@@ -48,6 +48,14 @@ Owner/Agent 在对话中只能稳定调用 `butler_recall` 三 scope，与「六
 - 权重 env：`BUTLER_MEMORY_UNIFIED_WEIGHT_*`、`BUTLER_MEMORY_OBSERVATION_RECALL_BOOST`
 - 测试：`tests/test_unified_recall.py`
 
+## Phase 4 — 生产可观测（✅ 2026-07-07）
+
+- **prefetch**：`hybrid_experience_hits` 在 unified 开时用 `unified_hybrid_search`；关时仍合并 `coding_experiences`
+- **recall_router**：`scope=experience` 默认合并 coding 命中
+- **gateway lead 剖面**：`apply-butler-env-profile.py lead` 含 OBSERVER + UNIFIED + OBSERVATION env
+- **验证**：`scripts/butler-p3h-rollout-verify.sh`；`butler doctor` 输出统一召回 / L7 审批存储行
+- **诊断**：`butler/ops/memory_recall_diagnostics_ops.py`、`approval_diagnostics_ops.py`
+
 ## 非目标
 
 - Honcho/mem0 插件（H-P2-3）

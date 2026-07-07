@@ -16,6 +16,7 @@ from butler.cli.doctor_sections import (
     print_execution_surface_section,
     print_g1_04_section,
     print_observability_l7,
+    print_l7_policy_section,
     print_optional_dependencies,
     print_runtime_dirs,
     print_secrets_status,
@@ -40,6 +41,7 @@ def cmd_doctor(_ns: argparse.Namespace) -> int:
     print_deploy_profile_section()
     print_secrets_status()
     print_observability_l7(butler_home)
+    print_l7_policy_section(butler_home)
     print_degradation_section()
     print_dev_quality_section()
     print_boundary_section()
