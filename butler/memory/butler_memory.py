@@ -24,6 +24,10 @@ from butler.memory.semantic_index import index_experience_row
 from butler.memory.butler_memory_ops import close_memory_store
 from butler.memory.semantic_index import SOURCE_OWNER_PROFILE
 from butler.memory.vector_sync_telemetry import record_vector_sync
+from butler.memory.experience_consolidation import (
+    digest_experience_add,
+    experience_merge_enabled,
+)
 from butler.memory.triplets import TripletIndex
 
 logger = logging.getLogger(__name__)
@@ -756,11 +760,6 @@ class ButlerMemory:
         tags: str | list[str] | None = None,
     ) -> int:
         """Write experience row and sync semantic index when enabled."""
-        from butler.memory.experience_consolidation import (
-            digest_experience_add,
-            experience_merge_enabled,
-        )
-
         if experience_merge_enabled():
             return cast(
                 int,

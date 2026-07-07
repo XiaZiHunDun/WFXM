@@ -6,9 +6,9 @@ from typing import Any
 
 from butler.tools.delegate_run_state import DelegateRunState
 from butler.runtime.async_delegate import push_target_from_bridge
-from butler.runtime.delegate_job import DelegateJob
+from butler.runtime.delegate_job_types import DelegateJob
 from butler.runtime.async_delegate import schedule_background_delegate, should_delegate_async
-from butler.runtime.delegate_job import build_async_delegate_tool_result
+from butler.runtime.delegate_async_result import build_async_delegate_tool_result
 from butler.tools.delegate_run_ops import delegate_langfuse_callbacks_safe
 from butler.core.delegate_semaphore import release_delegate_slot
 from butler.execution_context import use_execution_context

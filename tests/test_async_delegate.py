@@ -60,7 +60,7 @@ def test_schedule_background_delegate_marks_task_background(monkeypatch):
         return {"task_id": task_id, **fields}
 
     monkeypatch.setattr(
-        "butler.runtime.async_delegate.run_delegate_job",
+        "butler.runtime.delegate_job.run_delegate_job",
         _fake_run,
     )
     monkeypatch.setattr(
@@ -68,7 +68,7 @@ def test_schedule_background_delegate_marks_task_background(monkeypatch):
         _fake_update,
     )
 
-    from butler.runtime.delegate_job import DelegateJob
+    from butler.runtime.delegate_job_types import DelegateJob
 
     job = DelegateJob(
         agent=MagicMock(),  # noqa: magicmock-no-spec — complex facade, spec= 收益低

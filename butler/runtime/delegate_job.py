@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass, field
 from typing import Any
 
 from butler.core.best_effort import safe_best_effort
@@ -16,6 +15,7 @@ from butler.gateway.completion_notify import (
 )
 from butler.report import AgentReport, attach_delegate_task_times, cache_report
 from butler.report.acceptance_card import attach_delegate_acceptance_meta
+from butler.runtime.delegate_async_result import build_async_delegate_tool_result
 from butler.runtime.delegate_job_finalize import (
     attach_delegate_diff_summary,
     record_delegate_observability,
@@ -38,64 +38,9 @@ from butler.tools.registry import (
     _extract_issues_from_messages,
     _run_subagent_stop_hooks,
 )
+from butler.runtime.delegate_job_types import DelegateJob, DelegatePushTarget
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class DelegatePushTarget:
-    adapter: Any
-    chat_id: str
-    loop: Any
-
-
-@dataclass
-class DelegateJob:
-    agent: Any
-    orch: Any
-    user_msg: str
-    raw_user_msg: str
-    role: str
-    task: str
-    session_key: str
-    child_session_key: str
-    task_id: str
-    category_meta: dict[str, Any] = field(default_factory=dict)
-    bridge: Any | None = None
-    push_target: DelegatePushTarget | None = None
-    use_async_push: bool = False
-
-
-def build_async_delegate_tool_result(
-    *,
-    task_id: str,
-    child_session_key: str,
-    role: str,
-    task_preview: str,
-    category: str = "",
-) -> str:
-    role_label = _delegate_role_label(role)
-    payload: dict[str, Any] = {
-        "success": True,
-        "background": True,
-        "async": True,
-        "task_id": task_id,
-        "child_session_key": child_session_key,
-        "headline": f"{role_label}已接单，后台执行中",
-        "summary": (
-            "进度：已提交 → 执行中 → 完成后微信通知。\n"
-            "可查：/任务（状态）· /详细（完整报告）· /继续（若中断）"
-        ),
-        "message": (
-            f"已委派 {role_label}（task_id={task_id}）。"
-            "完成后会单独通知；您可继续其它对话。"
-        ),
-    }
-    if category:
-        payload["category"] = category
-    if task_preview:
-        payload["task_preview"] = task_preview[:200]
-    return json.dumps(payload, ensure_ascii=False)
 
 
 def push_delegate_completion(

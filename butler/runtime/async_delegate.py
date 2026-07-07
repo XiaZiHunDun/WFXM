@@ -7,7 +7,7 @@ import threading
 from typing import Any
 
 from butler.env_parse import env_truthy
-from butler.runtime.delegate_job import DelegateJob, run_delegate_job
+from butler.runtime.delegate_job_types import DelegateJob, DelegatePushTarget
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +38,7 @@ def should_delegate_async(
     return bridge is not None
 
 
-def push_target_from_bridge(bridge: Any) -> Any:
-    from butler.runtime.delegate_job import DelegatePushTarget
-
+def push_target_from_bridge(bridge: Any) -> DelegatePushTarget:
     return DelegatePushTarget(
         adapter=bridge.adapter,
         chat_id=str(bridge.chat_id or ""),
@@ -60,6 +58,8 @@ def schedule_background_delegate(job: DelegateJob) -> None:
 
     def _worker() -> None:
         try:
+            from butler.runtime.delegate_job import run_delegate_job
+
             run_delegate_job(job)
         finally:
             with _LOCK:

@@ -57,7 +57,7 @@ class TestBuildAsyncDelegateToolResult:
 class TestPushDelegateCompletion:
     def test_disabled_returns_false(self):
         with patch(
-            "butler.gateway.completion_notify.delegate_completion_enabled",
+            "butler.runtime.delegate_job.delegate_completion_enabled",
             return_value=False,
         ):
             assert push_delegate_completion(MagicMock()) is False  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
@@ -67,11 +67,11 @@ class TestPushDelegateCompletion:
         bridge = MagicMock()  # noqa: magicmock-no-spec — delegate job facade (report / bridge / agent / orch)
         with (
             patch(
-                "butler.gateway.completion_notify.delegate_completion_enabled",
+                "butler.runtime.delegate_job.delegate_completion_enabled",
                 return_value=True,
             ),
             patch(
-                "butler.gateway.completion_notify.build_report_push_text",
+                "butler.runtime.delegate_job.build_report_push_text",
                 return_value="text",
             ),
         ):
@@ -86,15 +86,15 @@ class TestPushDelegateCompletion:
 
         with (
             patch(
-                "butler.gateway.completion_notify.delegate_completion_enabled",
+                "butler.runtime.delegate_job.delegate_completion_enabled",
                 return_value=True,
             ),
             patch(
-                "butler.gateway.completion_notify.build_report_push_text",
+                "butler.runtime.delegate_job.build_report_push_text",
                 return_value="text",
             ),
             patch(
-                "butler.runtime.notify.push_runtime_message",
+                "butler.runtime.delegate_job.push_runtime_message",
                 return_value=True,
             ) as mock_push,
         ):
@@ -111,15 +111,15 @@ class TestPushDelegateCompletion:
 
         with (
             patch(
-                "butler.gateway.completion_notify.delegate_completion_enabled",
+                "butler.runtime.delegate_job.delegate_completion_enabled",
                 return_value=True,
             ),
             patch(
-                "butler.gateway.completion_notify.build_report_push_text",
+                "butler.runtime.delegate_job.build_report_push_text",
                 return_value="text",
             ),
             patch(
-                "butler.gateway.completion_notify.deliver_completion_push",
+                "butler.runtime.delegate_job.deliver_completion_push",
             ) as mock_deliver,
         ):
             result = push_delegate_completion(
@@ -216,29 +216,30 @@ class TestRunDelegateJob:
             patch("butler.runtime.delegate_registry.register_delegate_loop"),
             patch("butler.runtime.delegate_registry.unregister_delegate_loop"),
             patch("butler.core.delegate_semaphore.release_delegate_slot"),
-            patch("butler.session.lifecycle.sync_turn_memory"),
+            patch("butler.runtime.delegate_job.sync_turn_memory"),
             patch(
-                "butler.tools.registry._extract_changes_from_messages",
+                "butler.runtime.delegate_job._extract_changes_from_messages",
                 return_value=[],
             ),
             patch(
-                "butler.tools.registry._extract_issues_from_messages",
+                "butler.runtime.delegate_job._extract_issues_from_messages",
                 return_value=[],
             ),
             patch(
-                "butler.tools.registry._delegate_task_succeeded",
-                return_value=True,
+                "butler.runtime.delegate_job.finalize_delegate_success",
+                return_value=(True, []),
             ),
-            patch("butler.tools.registry._run_subagent_stop_hooks"),
+            patch("butler.runtime.delegate_job._run_subagent_stop_hooks"),
             patch(
-                "butler.runtime.delegate_job_finalize.attach_delegate_diff_summary",
+                "butler.runtime.delegate_job.attach_delegate_diff_summary",
             ),
             patch(
                 "butler.runtime.delegate_job.push_delegate_completion",
             ),
-            patch("butler.report.cache_report") as mock_cache,
-            patch("butler.runtime.task_store.complete_task") as mock_complete,
+            patch("butler.runtime.delegate_job.cache_report") as mock_cache,
+            patch("butler.runtime.delegate_job.complete_task") as mock_complete,
             patch("butler.core.session_transcript.record_generic_event"),
+            patch("butler.runtime.delegate_job.peek_dev_engine_summary", return_value=None),
         ):
             from butler.runtime.delegate_job import run_delegate_job
 

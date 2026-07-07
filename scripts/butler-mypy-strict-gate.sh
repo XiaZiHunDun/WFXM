@@ -485,6 +485,8 @@ MODULES=(
   butler/runtime/cc_bridge.py
   butler/runtime/consistency_outcome.py
   butler/runtime/delegate_job.py
+  butler/runtime/delegate_job_types.py
+  butler/runtime/delegate_async_result.py
   butler/runtime/delegate_job_finalize.py
   butler/runtime/delegate_progress.py
   butler/runtime/delegate_registry.py
