@@ -212,16 +212,29 @@ def test_terminal_approval_message_no_double_wrap():
     assert wrapped.count("【需要您批准】") == 1
 
 
-def test_terminal_approval_expired_returns_card():
-    from butler.tools.terminal_approval import check_approval
+def test_terminal_approval_expired_returns_card(tmp_butler_home, monkeypatch):
+    import time as time_mod
 
-    with patch.dict("os.environ", {"BUTLER_TERMINAL_REQUIRE_APPROVAL": "1"}):
-        with patch("butler.tools.terminal_approval._approvals_dir") as mock_dir:
-            path = MagicMock()
-            path.is_file.return_value = True
-            path.read_text.return_value = '{"expires_at": 0, "command": "ls"}'
-            mock_dir.return_value.__truediv__.return_value = path
-            msg = check_approval("ls", session_key="sk1")
+    from butler.permissions.approvals import _load, _save
+    from butler.tools.terminal_approval import argv_fingerprint, check_approval
+
+    monkeypatch.setenv("BUTLER_TERMINAL_REQUIRE_APPROVAL", "1")
+    sk = "sk1"
+    fp = argv_fingerprint("ls")
+    data = _load(sk)
+    data["once"] = [
+        {
+            "permission": "terminal_exec",
+            "tool": "terminal",
+            "pattern": fp,
+            "fingerprint": fp,
+            "command": "ls",
+            "expires_at": time_mod.time() - 1,
+        }
+    ]
+    _save(sk, data)
+    msg = check_approval("ls", session_key=sk)
+    assert msg is not None
     assert "【需要您批准】" in msg
     assert "/批准执行" in msg
 

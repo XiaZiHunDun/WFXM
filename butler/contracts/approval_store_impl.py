@@ -76,6 +76,7 @@ def grant_terminal_exec_once(
     fingerprint: str,
     command: str = "",
     ttl_sec: float | None = None,
+    unsandboxed: bool = False,
 ) -> None:
     """Record terminal exec approval in unified approvals.json."""
     from butler.permissions.approvals import _load, _purge_once, _save
@@ -93,6 +94,7 @@ def grant_terminal_exec_once(
             "pattern": fp,
             "fingerprint": fp,
             "command": str(command or "").strip()[:500],
+            "unsandboxed": bool(unsandboxed),
             "expires_at": time.time() + (ttl_sec if ttl_sec is not None else once_ttl_seconds()),
         }
     )

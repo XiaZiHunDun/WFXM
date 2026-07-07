@@ -4,25 +4,32 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import time
 from pathlib import Path
+
 from butler.config import get_butler_home
-from butler.tools.terminal_approval_ops import canonicalize_command_safe
-from butler.contracts.approval_store_impl import grant_terminal_exec_once
-from butler.tools.terminal_approval_ops import try_auto_review_terminal_safe
 from butler.contracts.approval_registry import get_approval_store
+from butler.contracts.approval_store_impl import grant_terminal_exec_once
 from butler.core.approval_cards import format_terminal_exec_card
-from butler.tools.terminal_approval_ops import read_approval_record_safe
+from butler.permissions.approvals import _load, _purge_once
+from butler.tools.terminal_approval_ops import canonicalize_command_safe
+from butler.tools.terminal_approval_ops import try_auto_review_terminal_safe
+
+logger = logging.getLogger(__name__)
 
 _TTL_SEC = 300.0
+_GLOBAL_TERMINAL_SESSION_KEY = "__terminal_global__"
 
 
-def _approvals_dir() -> Path:
+def _resolve_session_key(session_key: str) -> str:
+    sk = str(session_key or "").strip()
+    return sk or _GLOBAL_TERMINAL_SESSION_KEY
 
-    path = Path(get_butler_home()) / "exec_approvals"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+
+def _legacy_approval_path(fp: str) -> Path:
+    return Path(get_butler_home()) / "exec_approvals" / f"{fp}.json"
 
 
 def approval_required() -> bool:
@@ -35,7 +42,6 @@ def approval_required() -> bool:
 
 
 def argv_fingerprint(command: str, *, cwd: str = "") -> str:
-
     canonical = canonicalize_command_safe(command)
     payload = json.dumps(
         {"command": canonical, "cwd": (cwd or "").strip()},
@@ -43,6 +49,45 @@ def argv_fingerprint(command: str, *, cwd: str = "") -> str:
         ensure_ascii=False,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:32]
+
+
+def _migrate_legacy_exec_approval(
+    command: str,
+    *,
+    cwd: str,
+    session_key: str,
+    fp: str,
+) -> bool:
+    """Import one-shot legacy ``exec_approvals/{fp}.json`` into approvals.json."""
+    from butler.tools.terminal_approval_ops import read_approval_record_safe
+
+    path = _legacy_approval_path(fp)
+    if not path.is_file():
+        return False
+    data = read_approval_record_safe(path)
+    try:
+        if data is None:
+            path.unlink(missing_ok=True)
+            return False
+        expires = float(data.get("expires_at") or 0)
+        if time.time() > expires:
+            path.unlink(missing_ok=True)
+            return False
+        if str(data.get("command") or "").strip() != command.strip():
+            return False
+        sk = _resolve_session_key(str(data.get("session_key") or session_key))
+        grant_terminal_exec_once(
+            sk,
+            fingerprint=fp,
+            command=command,
+            ttl_sec=max(1.0, expires - time.time()),
+            unsandboxed=bool(data.get("unsandboxed")),
+        )
+        path.unlink(missing_ok=True)
+        return True
+    except OSError as exc:
+        logger.debug("legacy exec_approval migrate failed: %s", exc)
+        return False
 
 
 def store_approval(
@@ -54,25 +99,14 @@ def store_approval(
     unsandboxed: bool = False,
 ) -> str:
     fp = argv_fingerprint(command, cwd=cwd)
-    sk = str(session_key or "").strip()
-    if sk:
-
-        grant_terminal_exec_once(
-            sk,
-            fingerprint=fp,
-            command=command,
-            ttl_sec=ttl_sec,
-        )
-    record = {
-        "command": command.strip(),
-        "cwd": (cwd or "").strip(),
-        "session_key": sk,
-        "unsandboxed": bool(unsandboxed),
-        "expires_at": time.time() + (ttl_sec if ttl_sec is not None else _TTL_SEC),
-    }
-    if not sk:
-        path = _approvals_dir() / f"{fp}.json"
-        path.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    sk = _resolve_session_key(session_key)
+    grant_terminal_exec_once(
+        sk,
+        fingerprint=fp,
+        command=command,
+        ttl_sec=ttl_sec,
+        unsandboxed=unsandboxed,
+    )
     return fp
 
 
@@ -86,50 +120,30 @@ def check_approval(
     if not approval_required():
         return None
 
-
     review = try_auto_review_terminal_safe(command)
     if review is not None and review.allowed and not review.skipped:
         store_approval(command, cwd=cwd, session_key=session_key, ttl_sec=300.0)
         return None
+
     fp = argv_fingerprint(command, cwd=cwd)
-    sk = str(session_key or "").strip()
-    if sk:
+    sk = _resolve_session_key(session_key)
+    _migrate_legacy_exec_approval(command, cwd=cwd, session_key=sk, fp=fp)
 
-        store = get_approval_store()
-        if store is not None and store.is_approved(
-            sk,
-            permission="terminal_exec",
-            tool="terminal",
-            pattern=fp,
-        ):
-            return None
-    path = _approvals_dir() / f"{fp}.json"
+    store = get_approval_store()
+    if store is not None and store.is_approved(
+        sk,
+        permission="terminal_exec",
+        tool="terminal",
+        pattern=fp,
+    ):
+        return None
 
-    if not path.is_file():
-        return str(format_terminal_exec_card(
+    return str(
+        format_terminal_exec_card(
             command,
             reason="终端命令需 Owner 批准后再执行",
-        ))
-
-    data = read_approval_record_safe(path)
-    if data is None:
-        return str(format_terminal_exec_card(command, reason="批准记录损坏，请重新批准"))
-    if time.time() > float(data.get("expires_at") or 0):
-        path.unlink(missing_ok=True)
-        return str(format_terminal_exec_card(command, reason="批准已过期（5 分钟），请重新批准"))
-    if data.get("command", "").strip() != command.strip():
-        return str(format_terminal_exec_card(
-            command,
-            reason="命令与批准记录不一致，请重新 /批准执行",
-        ))
-    recorded_sk = str(data.get("session_key") or "").strip()
-    want_sk = str(session_key or "").strip()
-    if recorded_sk and want_sk and recorded_sk != want_sk:
-        return str(format_terminal_exec_card(
-            command,
-            reason="批准属于其他会话，请在本会话重新 /批准执行",
-        ))
-    return None
+        )
+    )
 
 
 def approval_allows_unsandboxed(
@@ -140,23 +154,25 @@ def approval_allows_unsandboxed(
 ) -> bool:
     """True when a valid approval record explicitly allows running outside sandbox."""
     fp = argv_fingerprint(command, cwd=cwd)
-    path = _approvals_dir() / f"{fp}.json"
-    if not path.is_file():
-        return False
-
-    data = read_approval_record_safe(path)
-    if data is None:
-        return False
-    if time.time() > float(data.get("expires_at") or 0):
-        path.unlink(missing_ok=True)
-        return False
-    if data.get("command", "").strip() != command.strip():
-        return False
-    recorded_sk = str(data.get("session_key") or "").strip()
-    want_sk = str(session_key or "").strip()
-    if recorded_sk and want_sk and recorded_sk != want_sk:
-        return False
-    return bool(data.get("unsandboxed"))
+    sk = _resolve_session_key(session_key)
+    _migrate_legacy_exec_approval(command, cwd=cwd, session_key=sk, fp=fp)
+    data = _load(sk)
+    now = time.time()
+    for row in _purge_once(data.get("once") or []):
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("permission") or "") != "terminal_exec":
+            continue
+        if str(row.get("pattern") or "") != fp and str(row.get("fingerprint") or "") != fp:
+            continue
+        if not bool(row.get("unsandboxed")):
+            continue
+        if str(row.get("command") or "").strip() != command.strip():
+            continue
+        if float(row.get("expires_at") or 0) <= now:
+            continue
+        return True
+    return False
 
 
 def parse_approve_command(text: str) -> str | None:
