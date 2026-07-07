@@ -14,7 +14,6 @@ import textwrap
 CYCLE_KEEP: set[tuple[str, str]] = {
     ("butler/cli/gateway_cli.py", "butler.main"),
     ("butler/tools/delegate_impl.py", "butler.orchestrator"),
-    ("butler/core/tool_batch_hooks.py", "butler.core.tool_batch"),
     ("butler/memory/butler_memory.py", "butler.memory.experience_consolidation"),
     ("butler/gateway/completion_notify.py", "butler.report"),
     ("butler/report/generator.py", "butler.report.acceptance_card"),

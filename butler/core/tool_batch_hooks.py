@@ -17,6 +17,7 @@ from butler.ops.runtime_metrics import inc
 from butler.ops.cost_tracker import get_session_cost
 from butler.core.pim_state import on_pim_tool_success
 from butler.core.tool_batch_finalize import finalize_fallback_tool_result
+from butler.core.tool_batch_post_edit import tool_result_outcome
 from butler.core.batch_sequence_guard import stale_skip_result
 
 
@@ -69,11 +70,9 @@ def build_tool_batch_hooks(
             callbacks.on_tool_start(name, args)
 
     def on_complete(name: str, result: str) -> None:
-        from butler.core.tool_batch import _tool_result_outcome
-
         def _record_metrics() -> None:
 
-            outcome = _tool_result_outcome(result)
+            outcome = tool_result_outcome(result)
             tool_label = str(name or "?")[:48]
             inc("tool_call", labels={"tool": tool_label, "outcome": outcome})
 
@@ -89,7 +88,7 @@ def build_tool_batch_hooks(
 
         def _record_pim() -> None:
 
-            outcome = _tool_result_outcome(result)
+            outcome = tool_result_outcome(result)
             if outcome == "ok":
                 on_pim_tool_success(name)
 
